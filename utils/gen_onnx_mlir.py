@@ -339,11 +339,15 @@ OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Gemm', 'Cast', 'Transpos
 
 OpsWithHelpers = {
   "Loop": """
-  mlir::FuncOp getLoopBodyFunc();
-  mlir::Operation::result_range v_final();
-  mlir::Operation::result_range scan_outputs();
-  
+    mlir::Operation::result_range v_final();
+    mlir::Operation::result_range scan_outputs();
   """,
+  "Scan": """
+    mlir::Operation::operand_range v_initial();
+    mlir::Operation::result_range v_final();
+    mlir::Operation::operand_range scan_inputs();
+    mlir::Operation::result_range scan_outputs();
+  """
 }
 # Interface for special handling of type inference
 # The common code are put into get_type_inference_func
@@ -909,7 +913,6 @@ def gen_op_def(schema):
                                .replace('}]', '\\}\\]')
             s += indent + '"{}"\n'.format(escaped_line)
     s += indent + '}];\n'
-
 
     # handle the type constraint for input and output
     # parse type constraint into onnx-mlir type string list

@@ -4,6 +4,7 @@ add_library(OMONNXToKrnl
         ONNXToKrnlCommon.cpp
         ONNXToKrnlCommon.hpp
         ControlFlow/Loop.cpp
+        ControlFlow/Scan.cpp
         Math/Clip.cpp
         Math/Elementwise.cpp
         Math/Gemm.cpp

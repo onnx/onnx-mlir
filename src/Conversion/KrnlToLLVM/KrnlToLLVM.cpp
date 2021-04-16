@@ -1206,15 +1206,18 @@ public:
     if (!targetStructType)
       return failure();
     Location loc = op->getLoc();
+    // Get memRefDescriptor, the new memref descriptor.
     MemRefDescriptor memRefDescriptor =
         MemRefDescriptor::undef(rewriter, loc, targetStructType);
     auto targetElementPtrType = memRefDescriptor.getElementPtrType();
 
+    // Set the new memref to the same buffer as the source memref.
     Value srcBuffer = srcMemRefDesc.allocatedPtr(rewriter, loc);
     Value targetBuffer = rewriter.create<LLVM::BitcastOp>(
         loc, targetElementPtrType, ArrayRef<Value>(srcBuffer));
     memRefDescriptor.setAllocatedPtr(rewriter, loc, targetBuffer);
 
+    // Set the new memref alignment to the same value as source memref.
     Value srcBufferAligned = srcMemRefDesc.alignedPtr(rewriter, loc);
     Value targetBufAligned = rewriter.create<LLVM::BitcastOp>(
         loc, targetElementPtrType, ArrayRef<Value>(srcBufferAligned));
@@ -1252,6 +1255,8 @@ public:
           createIndexConstant(rewriter, loc, targetType.getShape().back()));
     } else {
       // We need to divide the dynamic size on the source by the vector width.
+      // There is the implicit expectation that the last dimension of the
+      // original memory is a multiple of the vector length.
       Value vecWidth = createIndexConstant(rewriter, loc,
           targetType.getElementType().cast<ShapedType>().getNumElements());
       sizes.push_back(rewriter.create<LLVM::UDivOp>(loc,
