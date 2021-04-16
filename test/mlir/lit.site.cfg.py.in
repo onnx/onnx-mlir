@@ -1,11 +1,11 @@
 @LIT_SITE_CFG_IN_HEADER@
 
-config.llvm_tools_dir = "@LLVM_PROJ_BIN@"
-config.mlir_tools_dir = "@LLVM_PROJ_BIN@"
+config.llvm_tools_dir = r"@LLVM_PROJ_BIN@"
+config.mlir_tools_dir = r"@LLVM_PROJ_BIN@"
 config.python_executable = "@Python3_EXECUTABLE@"
 
-config.onnx_mlir_tools_dir = "@ONNX_MLIR_TOOLS_DIR@"
-config.onnx_mlir_obj_root = "@ONNX_MLIR_BIN_ROOT@"
+config.onnx_mlir_tools_dir = r"@ONNX_MLIR_TOOLS_DIR@"
+config.onnx_mlir_obj_root = r"@ONNX_MLIR_BIN_ROOT@"
 
 # Support substitution of the tools_dir with user parameters. This is
 # used when we can't determine the tool dir at configuration time.
@@ -22,4 +22,4 @@ import lit.llvm
 lit.llvm.initialize(lit_config, config)
 
 # Let the main config do the real work.
-lit_config.load_config(config, "@ONNX_MLIR_SRC_ROOT@/test/mlir/lit.cfg.py")
+lit_config.load_config(config, r"@ONNX_MLIR_SRC_ROOT@/test/mlir/lit.cfg.py")
