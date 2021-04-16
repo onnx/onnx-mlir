@@ -341,11 +341,7 @@ include(AddLLVM)
 include(TableGen)
 
 function(onnx_mlir_tablegen ofn)
-  tablegen(MLIR
-          ${ARGV}
-          "-I${MLIR_SRC_INCLUDE_PATH}"
-          "-I${MLIR_BIN_INCLUDE_PATH}"
-          "-I${ONNX_MLIR_SRC_ROOT}")
+  tablegen(MLIR ${ARGV})
   set(TABLEGEN_OUTPUT
           ${TABLEGEN_OUTPUT} ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
           PARENT_SCOPE)
@@ -368,22 +364,40 @@ endif()
 
 set(MLIR_TABLEGEN_EXE mlir-tblgen)
 
-# Add a dialect used by ONNX MLIR and copy the generated operation
-# documentation to the desired places.
-# c.f. https://github.com/llvm/llvm-project/blob/e298e216501abf38b44e690d2b28fc788ffc96cf/mlir/CMakeLists.txt#L11
+# The tablegen functions below are modeled based on the corresponding functions
+# in mlir: https://github.com/llvm/llvm-project/blob/main/mlir/cmake/modules/AddMLIR.cmake
 function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
   # Generate Dialect Documentation
   set(LLVM_TARGET_DEFINITIONS ${dialect_tablegen_file})
-  onnx_mlir_tablegen(${dialect}.md -gen-op-doc)
+  tablegen(MLIR ${dialect}.md -gen-op-doc "-I${ONNX_MLIR_SRC_ROOT}")
   set(GEN_DOC_FILE ${ONNX_MLIR_BIN_ROOT}/docs/Dialects/${dialect}.md)
   add_custom_command(
           OUTPUT ${GEN_DOC_FILE}
           COMMAND ${CMAKE_COMMAND} -E copy
-          ${CMAKE_CURRENT_BINARY_DIR}/${dialect}.md
-          ${GEN_DOC_FILE}
+                  ${CMAKE_CURRENT_BINARY_DIR}/${dialect}.md
+                  ${GEN_DOC_FILE}
           DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${dialect}.md)
   add_custom_target(${dialect}DocGen DEPENDS ${GEN_DOC_FILE})
   add_dependencies(onnx-mlir-doc ${dialect}DocGen)
 endfunction()
-
 add_custom_target(onnx-mlir-doc)
+
+function(add_onnx_mlir_dialect dialect)
+  set(LLVM_TARGET_DEFINITIONS ${dialect}.td)
+  onnx_mlir_tablegen(${dialect}.hpp.inc -gen-op-decls "-I${ONNX_MLIR_SRC_ROOT}")
+  onnx_mlir_tablegen(${dialect}.cpp.inc -gen-op-defs "-I${ONNX_MLIR_SRC_ROOT}")
+  add_public_tablegen_target(OM${dialect}IncGen)
+endfunction()
+
+function(add_onnx_mlir_rewriter rewriter)
+  set(LLVM_TARGET_DEFINITIONS ${rewriter}.td)
+  onnx_mlir_tablegen(ONNX${rewriter}.inc -gen-rewriters "-I${ONNX_MLIR_SRC_ROOT}")
+  add_public_tablegen_target(OMONNX${rewriter}IncGen)
+endfunction()
+
+function(add_onnx_mlir_interface interface)
+  set(LLVM_TARGET_DEFINITIONS ${interface}.td)
+  onnx_mlir_tablegen(${interface}.hpp.inc -gen-op-interface-decls)
+  onnx_mlir_tablegen(${interface}.cpp.inc -gen-op-interface-defs)
+  add_public_tablegen_target(OM${interface}IncGen)
+endfunction()
