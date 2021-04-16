@@ -28,6 +28,9 @@ parameters:
 - name: BuildLabel
   type: string
   default: 'Manual'
+- name: RunAllTests
+  type: boolean
+  default: false
 
 variables:
 - name: CTEST_OUTPUT_ON_FAILURE
@@ -38,5 +41,6 @@ variables:
 jobs:
 - template: .azure-pipelines/templates/ONNXMLIRJobTemplate.yml@tools
   parameters:
-    Platforms: ${{ parameters.Platforms }}
     BuildConfigurations: ${{ parameters.BuildConfigurations }}
+    Platforms: ${{ parameters.Platforms }}
+    RunAllTests: ${{ parameters.RunAllTests }}
