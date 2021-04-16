@@ -1,7 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# CMAKE_CFG_INTDIR is . for single-config generators such as make, and
+# it has a value (e.g. $(Configuration) otherwise, so we can use it to
+# determine whether we are dealing with a multi-config generator
 if (NOT "${CMAKE_CFG_INTDIR}" STREQUAL ".")
   foreach(ONNX_MLIR_BUILD_MODE ${CMAKE_CONFIGURATION_TYPES})
+    # In the multi-config generator case, for each build mode (e.g. Debug)
+    # create paths specific for that build mode and use them to generate
+    # the per-configuration files. This way the paths for Debug, for example,
+    # will point to the directories for the Debug build. This is not necessary
+    # for single-config generators because the build mode is always known
+    # at configuration time.
     string(REPLACE ${CMAKE_CFG_INTDIR} ${ONNX_MLIR_BUILD_MODE}
       ONNX_MLIR_LIBRARY_PATH_CONFIGURED
       ${ONNX_MLIR_LIBRARY_PATH})

@@ -5,8 +5,11 @@
 set(LLVM_DEFAULT_EXTERNAL_LIT "")
 set(LLVM_LIT_OUTPUT_DIR ${LLVM_PROJ_BIN})
 
+# For multi-config generators, this will replace $(Configuration) (etc.) with
+# %(build_mode)s which will in turn be replaced with the correct build mode at
+# run time.
 set_llvm_build_mode()
-set(ONNX_MLIR_TOOLS_DIR ${ONNX_MLIR_BIN_ROOT}/bin/${LLVM_BUILD_MODE})
+string(REPLACE "${CMAKE_CFG_INTDIR}" "${LLVM_BUILD_MODE}" ONNX_MLIR_TOOLS_DIR "${ONNX_MLIR_RUNTIME_PATH}")
 
 configure_lit_site_cfg(${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in
                        ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg.py

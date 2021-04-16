@@ -69,6 +69,9 @@ configure_file(
   @ONLY
   )
 
+# CMAKE_CFG_INTDIR is . for single-config generators such as make, and
+# it has a value (e.g. $(Configuration) otherwise, so we can use it to
+# determine whether we are dealing with a multi-config generator
 if (NOT "${CMAKE_CFG_INTDIR}" STREQUAL ".")
   file(GENERATE
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/ExternalUtil.hpp
