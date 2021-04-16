@@ -39,6 +39,11 @@ endif()
 # up that way (onnx doesn't set Protobuf_USE_STATIC_LIBS at all and cmake interprets that as setting
 # Protobuf_USE_STATIC_LIBS to OFF). If/when onnx is updated to correctly set up both variables,
 # this can be removed (see https://github.com/onnx/onnx/issues/3345).
+# We are setting CMP0077 to NEW here, so that onnx does not override our regular variables for
+# protobuf when the project is included below.
+if (POLICY CMP0077)
+  set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+endif (POLICY CMP0077)
 if (NOT DEFINED ONNX_USE_PROTOBUF_SHARED_LIBS AND NOT DEFINED Protobuf_USE_STATIC_LIBS)
   set(ONNX_USE_PROTOBUF_SHARED_LIBS OFF)
   set(Protobuf_USE_STATIC_LIBS ON)
