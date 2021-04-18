@@ -28,6 +28,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(LLVM_MINIMUM_PYTHON_VERSION 3.6)
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
+include(CTest)
 include(MLIR.cmake)
 
 if (MSVC)
