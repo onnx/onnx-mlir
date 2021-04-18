@@ -1,50 +1,28 @@
 # SPDX-License-Identifier: Apache-2.0
 
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test.py
+  )
+
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/test_config.py.in
+  ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
+  @ONLY
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test_config.py
+  INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
+  )
+
 # CMAKE_CFG_INTDIR is . for single-config generators such as make, and
-# it has a value (e.g. $(Configuration) otherwise, so we can use it to
-# determine whether we are dealing with a multi-config generator
+# it has a value (e.g. $(Configuration)) otherwise, so we can use it to
+# determine whether we are dealing with a multi-config generator.
 if (NOT "${CMAKE_CFG_INTDIR}" STREQUAL ".")
-  foreach(ONNX_MLIR_BUILD_MODE ${CMAKE_CONFIGURATION_TYPES})
-    # In the multi-config generator case, for each build mode (e.g. Debug)
-    # create paths specific for that build mode and use them to generate
-    # the per-configuration files. This way the paths for Debug, for example,
-    # will point to the directories for the Debug build. This is not necessary
-    # for single-config generators because the build mode is always known
-    # at configuration time.
-    string(REPLACE ${CMAKE_CFG_INTDIR} ${ONNX_MLIR_BUILD_MODE}
-      ONNX_MLIR_LIBRARY_PATH_CONFIGURED
-      ${ONNX_MLIR_LIBRARY_PATH})
-    string(REPLACE ${CMAKE_CFG_INTDIR} ${ONNX_MLIR_BUILD_MODE}
-      ONNX_MLIR_RUNTIME_PATH_CONFIGURED
-      ${ONNX_MLIR_RUNTIME_PATH})
-
-    configure_file(
-      ${CMAKE_CURRENT_SOURCE_DIR}/test.py
-      ${CMAKE_CURRENT_BINARY_DIR}/${ONNX_MLIR_BUILD_MODE}/test.py
-      COPYONLY
-      )
-
-    configure_file(
-      ${CMAKE_CURRENT_SOURCE_DIR}/test_config.py.in
-      ${CMAKE_CURRENT_BINARY_DIR}/${ONNX_MLIR_BUILD_MODE}/test_config.py
-      @ONLY
-      )
-  endforeach()
+  set(FILE_GENERATE_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
 else()
-  set(ONNX_MLIR_LIBRARY_PATH_CONFIGURED ${ONNX_MLIR_LIBRARY_PATH})
-  set(ONNX_MLIR_RUNTIME_PATH_CONFIGURED ${ONNX_MLIR_RUNTIME_PATH})
-
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/test.py
-    ${CMAKE_CURRENT_BINARY_DIR}/test.py
-    COPYONLY
-    )
-
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/test_config.py.in
-    ${CMAKE_CURRENT_BINARY_DIR}/test_config.py
-    @ONLY
-    )
+  set(FILE_GENERATE_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 endif()
 
 # Detect pytest-xdist for parallel backend tests
@@ -75,19 +53,19 @@ endif()
 add_custom_target(check-onnx-backend
   COMMAND
     ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR} ${BACKEND_TEST_COMMAND}
-    ${BACKEND_TEST_ARGS} ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/test.py
+    ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
-    ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/test.py
-    ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/test_config.py
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
    )
 
 add_custom_target(check-onnx-backend-dynamic
   COMMAND
     TEST_DYNAMIC=true ${BACKEND_TEST_COMMAND}
-    ${BACKEND_TEST_ARGS} ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/test.py
+    ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
-    ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/test.py
-    ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/test_config.py
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
   )
 
 add_custom_target(clean-onnx-backend

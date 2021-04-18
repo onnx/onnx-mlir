@@ -11,9 +11,11 @@ if(Java_Development_FOUND AND JNI_FOUND)
   # Target for Java runtime jar
   add_jar(javaruntime
           src/com/ibm/onnxmlir/OMModel.java
-	  src/com/ibm/onnxmlir/OMTensorList.java
-          src/com/ibm/onnxmlir/OMTensor.java
-          OUTPUT_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+          src/com/ibm/onnxmlir/OMTensorList.java
+          src/com/ibm/onnxmlir/OMTensor.java)
+
+  add_custom_command(TARGET javaruntime POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_PROPERTY:javaruntime,JAR_FILE> ${ONNX_MLIR_LIBRARY_PATH})
 
   # Target for JNI runtime lib
   add_library(jniruntime STATIC

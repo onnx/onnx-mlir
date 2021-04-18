@@ -9,7 +9,7 @@ set(LLVM_LIT_OUTPUT_DIR ${LLVM_PROJ_BIN})
 # %(build_mode)s which will in turn be replaced with the correct build mode at
 # run time.
 set_llvm_build_mode()
-string(REPLACE "${CMAKE_CFG_INTDIR}" "${LLVM_BUILD_MODE}" ONNX_MLIR_TOOLS_DIR "${ONNX_MLIR_RUNTIME_PATH}")
+string(REPLACE "$<CONFIG>" "${LLVM_BUILD_MODE}" ONNX_MLIR_TOOLS_DIR "${ONNX_MLIR_RUNTIME_PATH}")
 
 configure_lit_site_cfg(${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in
                        ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg.py

@@ -57,7 +57,6 @@ target_link_libraries(MainUtils
 target_include_directories(MainUtils PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(MainUtils PRIVATE ${ONNX_MLIR_BIN_ROOT})
 target_include_directories(MainUtils PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(MainUtils PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
 
 add_executable(onnx-mlir
         main.cpp)
@@ -69,26 +68,23 @@ configure_file(
   @ONLY
   )
 
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/ExternalUtil.hpp
+  INPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
+  )
+
 # CMAKE_CFG_INTDIR is . for single-config generators such as make, and
-# it has a value (e.g. $(Configuration) otherwise, so we can use it to
-# determine whether we are dealing with a multi-config generator
+# it has a value (e.g. $(Configuration)) otherwise, so we can use it to
+# determine whether we are dealing with a multi-config generator.
 if (NOT "${CMAKE_CFG_INTDIR}" STREQUAL ".")
-  file(GENERATE
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/ExternalUtil.hpp
-    INPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
-    )
+  set(FILE_GENERATE_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
 else()
-  file(GENERATE
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp
-    INPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
-    )
+  set(FILE_GENERATE_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 endif()
 
-add_custom_target(ExternalUtil
-  DEPENDS
-  ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/ExternalUtil.hpp
-  )
+add_custom_target(ExternalUtil DEPENDS ${FILE_GENERATE_DIR}/ExternalUtil.hpp)
 add_dependencies(MainUtils ExternalUtil)
+target_include_directories(MainUtils PRIVATE ${FILE_GENERATE_DIR})
 
 # Libraries specified on the target_link_libraries for the add_subdirectory
 # targets get added to the end of the list here. This creates two problems:
