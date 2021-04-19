@@ -625,14 +625,21 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
 
 def ONNXConstantOp:ONNX_Op<"Constant",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Constant operation";
   let description = [{
-  "A constant tensor. Exactly one of the two attributes, either value or sparse_value,"
-  "must be specified."
+  "This operator produces a constant tensor. Exactly one of the provided attributes, either value, sparse_value,"
+  "or value_* must be specified."
   }];
   let arguments = (ins OptionalAttr<AnyAttr>:$sparse_value,
-    OptionalAttr<AnyAttr>:$value);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$output);
+    OptionalAttr<AnyAttr>:$value,
+    OptionalAttr<F32Attr>:$value_float,
+    OptionalAttr<F32ArrayAttr>:$value_floats,
+    OptionalAttr<SI64Attr>:$value_int,
+    OptionalAttr<I64ArrayAttr>:$value_ints,
+    OptionalAttr<StrAttr>:$value_string,
+    OptionalAttr<StrArrayAttr>:$value_strings);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 0;
@@ -657,10 +664,12 @@ def ONNXConstantOp:ONNX_Op<"Constant",
   OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
     auto tensorType = value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value,
+      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    } else {
     auto tensorType = sparse_value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value,
+      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    }
   }]>
   ];
@@ -2485,10 +2494,8 @@ def ONNXLoopOp:ONNX_Op<"Loop",
       return {22};
     }
 
-  mlir::FuncOp getLoopBodyFunc();
-  mlir::Operation::result_range v_final();
-  mlir::Operation::result_range scan_outputs();
-  
+    mlir::Operation::result_range v_final();
+    mlir::Operation::result_range scan_outputs();
     int64_t getSubgraphRegionIdx(const std::string& name) {
     if (name == "body") return 0;
     assert(false && "region with the specified name does not exist");
@@ -3155,7 +3162,7 @@ def ONNXPReluOp:ONNX_Op<"PRelu",
 }
 
 def ONNXPadOp:ONNX_Op<"Pad",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"PromotableConstOperandsOpInterface">]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Pad operation";
   let description = [{
   "Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`, "
@@ -3241,7 +3248,7 @@ def ONNXPadOp:ONNX_Op<"Pad",
   ""
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$data,
-    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$pads,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$pads,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType]>:$constant_value,
     DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType]>:$output);
@@ -3266,9 +3273,6 @@ def ONNXPadOp:ONNX_Op<"Pad",
       }
       static std::vector<int> getTypeMap() {
         return {20};
-      }
-      std::map<std::string, size_t> promotableConstOperands() {
-        return {{"pads", 1}, {"constant_value", 2}};
       }
     }];
 }
@@ -4063,7 +4067,7 @@ def ONNXReluOp:ONNX_Op<"Relu",
 }
 
 def ONNXReshapeOp:ONNX_Op<"Reshape",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"PromotableConstOperandsOpInterface">]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Reshape operation";
   let description = [{
   "Reshape the input tensor similar to numpy.reshape."
@@ -4074,7 +4078,7 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
   "from the input tensor)."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
-    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$shape);
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$shape);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$reshaped);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -4085,9 +4089,6 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
     }
     static std::vector<int> getTypeMap() {
       return {20};
-    }
-    std::map<std::string, size_t> promotableConstOperands() {
-      return {{"shape", 1}};
     }
   }];
 }
@@ -4395,7 +4396,12 @@ def ONNXScanOp:ONNX_Op<"Scan",
     static std::vector<int> getTypeMap() {
       return {20};
     }
-  int64_t getSubgraphRegionIdx(const std::string& name) {
+
+    mlir::Operation::operand_range v_initial();
+    mlir::Operation::result_range v_final();
+    mlir::Operation::operand_range scan_inputs();
+    mlir::Operation::result_range scan_outputs();
+    int64_t getSubgraphRegionIdx(const std::string& name) {
     if (name == "body") return 0;
     assert(false && "region with the specified name does not exist");
   }
@@ -5488,7 +5494,7 @@ def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
 }
 
 def ONNXTileOp:ONNX_Op<"Tile",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"PromotableConstOperandsOpInterface">]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Tile operation";
   let description = [{
   "Constructs a tensor by tiling a given tensor."
@@ -5496,7 +5502,7 @@ def ONNXTileOp:ONNX_Op<"Tile",
   "For example A = [[1, 2], [3, 4]], B = [1, 2], tile(A, B) = [[1, 2, 1, 2], [3, 4, 3, 4]]"
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$input,
-    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$repeats);
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$repeats);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -5507,9 +5513,6 @@ def ONNXTileOp:ONNX_Op<"Tile",
     }
     static std::vector<int> getTypeMap() {
       return {20};
-    }
-    std::map<std::string, size_t> promotableConstOperands() {
-      return {{"repeats", 1}};
     }
   }];
 }

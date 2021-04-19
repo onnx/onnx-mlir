@@ -49,8 +49,7 @@ LogicalResult shapeHelperInferShapes(OP *op, Value typeOper) {
     return op->emitError("Failed to scan " + OP::getOperationName() +
                          " parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   auto elementType = typeOper.getType().cast<ShapedType>().getElementType();
   op->getResult().setType(RankedTensorType::get(outputDims, elementType));
 
@@ -68,13 +67,11 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
     return op->emitError("Failed to scan " + OP::getOperationName() +
                          " parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   auto elementType = typeOper.getType().cast<ShapedType>().getElementType();
   for (int i = 0; i < op->getNumResults(); ++i) {
     SmallVector<int64_t, 4> outputDims;
-    IndexExpr::convertListOfIndexExprToIntegerDim(
-        shapeHelper.dimsForOutput(i), outputDims);
+    IndexExpr::getShape(shapeHelper.dimsForOutput(i), outputDims);
     op->getResults()[i].setType(RankedTensorType::get(outputDims, elementType));
   }
   return success();
@@ -570,20 +567,23 @@ void ONNXOpsDialect::printType(
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
     mlir::OperationState &state, mlir::FuncOp function, int numInputs,
-    int numOutputs) {
+    int numOutputs, std::string signature) {
   state.addAttribute(ONNXEntryPointOp::getEntryPointFuncAttrName(),
       builder.getSymbolRefAttr(function));
   state.addAttribute(ONNXEntryPointOp::getNumInputsAttrName(),
       builder.getI32IntegerAttr(numInputs));
   state.addAttribute(ONNXEntryPointOp::getNumOutputsAttrName(),
       builder.getI32IntegerAttr(numOutputs));
+  state.addAttribute(ONNXEntryPointOp::getSignatureAttrName(),
+      builder.getStringAttr(signature));
 }
 
 ONNXEntryPointOp ONNXEntryPointOp::create(mlir::Location location,
-    mlir::FuncOp &func, int numInputs, int numOutputs) {
+    mlir::FuncOp &func, int numInputs, int numOutputs, std::string signature) {
   mlir::OperationState state(location, "onnx.EntryPoint");
   OpBuilder builder(location->getContext());
-  mlir::ONNXEntryPointOp::build(builder, state, func, numInputs, numOutputs);
+  mlir::ONNXEntryPointOp::build(
+      builder, state, func, numInputs, numOutputs, signature);
   Operation *op = mlir::Operation::create(state);
   auto onnxEntryOp = llvm::cast<mlir::ONNXEntryPointOp>(op);
   return onnxEntryOp;
@@ -1448,8 +1448,7 @@ LogicalResult ONNXTransposeOp::inferShapes(
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Transpose parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
   return success();
@@ -1625,7 +1624,7 @@ LogicalResult ONNXConvOp::inferShapes(
 
   // Process strides, dilations, and pads.
   LogicalResult res = processConvTypeParams<>(this, X());
-  assert(res.succeeded());
+  assert(succeeded(res));
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -1756,7 +1755,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
 
   // Process strides, dilations, and pads.
   LogicalResult res = processConvTypeParams<>(this, X());
-  assert(res.succeeded());
+  assert(succeeded(res));
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -1875,7 +1874,7 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
 
   // Process strides, dilations, and pads.
   LogicalResult res = processConvTypeParams<>(this, x());
-  assert(res.succeeded());
+  assert(succeeded(res));
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -1983,7 +1982,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
 
   // Process strides, dilations, and pads.
   LogicalResult res = processConvTypeParams<>(this, X());
-  assert(res.succeeded());
+  assert(succeeded(res));
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -2072,30 +2071,30 @@ LogicalResult ONNXPadOp::inferShapes(
   SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
 
   // Get pads from valueAttribute.
-  Attribute padattr = (*this)->getAttr("pads");
-  SmallVector<int64_t, 2> pads(dataRank * 2, -1);
-  // Sometimes it's an ArrayAttr and sometimes it's a DenseElementsAttr, so
-  // handle both cases.
-  if (ArrayAttr padsAttributes = padattr.dyn_cast_or_null<mlir::ArrayAttr>()) {
-    auto valueIt = padsAttributes.getValue().begin();
-    for (int64_t i = 0; i < dataRank * 2; ++i)
-      pads[i] = (*valueIt++).cast<IntegerAttr>().getInt();
-  } else if (DenseElementsAttr padsAttributes =
-                 padattr.dyn_cast_or_null<mlir::DenseElementsAttr>()) {
-    auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
-    for (int64_t i = 0; i < dataRank * 2; ++i)
-      pads[i] = (*valueIt++).getInt();
+  SmallVector<int64_t, 2> padsInt(dataRank * 2, -1);
+  if (getONNXConstantOp(pads())) {
+    DenseElementsAttr padsAttributes =
+        getONNXConstantOp(pads())
+            .valueAttr()
+            .dyn_cast_or_null<mlir::DenseElementsAttr>();
+    if (padsAttributes) {
+      auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
+      for (int64_t i = 0; i < dataRank * 2; ++i)
+        padsInt[i] = (*valueIt++).getInt();
+    } else {
+      // Cannot infer if the pads is not constant
+      return emitError("Pad: unknown pads ");
+    }
   } else {
-    // Cannot infer if the pads is not constant
-    return emitError("Pad: unknown pads ") << (*this)->getAttr("pads");
+    return emitError("Pad: unknown pads ");
   }
 
   // Pads consists of two values for each axis of data.
   // The two values specify the number of elements padded before and after
   // respectively.
   for (int64_t i = 0; i < dataRank; ++i) {
-    int64_t p1 = pads[i];
-    int64_t p2 = pads[i + dataRank];
+    int64_t p1 = padsInt[i];
+    int64_t p2 = padsInt[i + dataRank];
     // Have to non-negative constant
     if (p1 < 0 || p2 < 0)
       return emitError("padding value can not be negative");
@@ -2106,71 +2105,6 @@ LogicalResult ONNXPadOp::inferShapes(
   auto outputType = RankedTensorType::get(outputShape, dataTy.getElementType());
   getResult().setType(outputType);
   return success();
-}
-
-static Type padShapeInferenceHelper(Value data, ArrayAttr padsOpt) {
-  // Cannot infer shape if no shape exists.
-  if (!data.getType().isa<RankedTensorType>())
-    return (Type)NULL;
-  auto dataTy = data.getType().cast<RankedTensorType>();
-  auto dataShape = dataTy.getShape();
-  auto dataRank = dataShape.size();
-  SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
-  if (padsOpt) {
-    auto padsArray = padsOpt.getValue();
-    // Pads consists of two values for each axis of data.
-    // The two values specify the number of elements padded before and after
-    // respectively.
-    for (int i = 0; i < dataRank; ++i) {
-      int64_t p1 = (padsArray[i]).cast<IntegerAttr>().getInt();
-      int64_t p2 = (padsArray[i + dataRank]).cast<IntegerAttr>().getInt();
-      // Have to non-negative constant
-      if (p1 < 0 || p2 < 0)
-        return (Type)NULL;
-      if (outputShape[i] != -1)
-        outputShape[i] += p1 + p2;
-    }
-
-    return (RankedTensorType::get(outputShape, dataTy.getElementType()));
-  } else {
-    return (Type)NULL;
-  }
-}
-
-//===----------------------------------------------------------------------===//
-// PadConstantPad
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXPadConstantPadOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto outputType = padShapeInferenceHelper(data(), pads());
-  if (!outputType)
-    return emitError("missing output");
-  getResult().setType(outputType);
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
-// PadConstantValuePad
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXPadConstantValuePadOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto outputType = padShapeInferenceHelper(data(), pads());
-  if (!outputType)
-    return emitError("missing output");
-  getResult().setType(outputType);
-  return success();
-}
-
-void ONNXPadConstantValuePadOp::build(OpBuilder &builder, OperationState &state,
-    Value data, ArrayAttr pads, FloatAttr constant_value, StringAttr mode) {
-  Type outputType = padShapeInferenceHelper(data, pads);
-  if (!outputType) {
-    auto elementType = data.getType().cast<TensorType>().getElementType();
-    outputType = UnrankedTensorType::get(elementType);
-  }
-  build(builder, state, outputType, data, pads, constant_value, mode);
 }
 
 //===----------------------------------------------------------------------===//
@@ -2370,8 +2304,7 @@ LogicalResult ONNXConcatOp::inferShapes(
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Tile parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(
       RankedTensorType::get(outputDims, commonType.getElementType()));
 
@@ -2641,7 +2574,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
 
   // Process strides, dilations, and pads.
   LogicalResult res = processConvTypeParams<>(this, x());
-  assert(res.succeeded());
+  assert(succeeded(res));
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -2848,8 +2781,7 @@ LogicalResult ONNXSliceOp::inferShapes(
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Slice parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
   return success();
@@ -3020,8 +2952,7 @@ LogicalResult ONNXArgMaxOp::inferShapes(
     return emitError("Failed to scan ArgMax parameters successfully");
 
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
 
   // ONNX spec specifies the reduced type as an int64
   Type elementType = IntegerType::get(getContext(), 64);
@@ -3177,8 +3108,7 @@ LogicalResult ONNXLRNOp::inferShapes(
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan LRN parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
   return success();
@@ -3331,7 +3261,106 @@ LogicalResult ONNXRoundOp::inferShapes(
 
 LogicalResult ONNXScanOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  auto builder = mlir::Builder(getContext());
+  auto &loopBody = getRegion();
+  assert(!scan_input_axes().hasValue());
+
+  // We proceed to set types for loop body function inputs.
+  // Set types for loop carried dependencies (i.e., set these loop carried
+  // depdencies that appear in the body function input signature to have the
+  // same type as their counterpart in LoopOp inputs).
+  auto bodyInputs = loopBody.getArguments();
+  auto bodyVRange = llvm::make_range(bodyInputs.begin(), bodyInputs.end());
+  for (auto opVToBodyVTy : llvm::zip(v_initial(), bodyVRange)) {
+    auto opVTy = std::get<0>(opVToBodyVTy).getType();
+    std::get<1>(opVToBodyVTy).setType(opVTy);
+  }
+
+  auto bodyScanInputs = llvm::make_range(
+      bodyInputs.begin() + v_initial().size(), bodyInputs.end());
+  for (auto vScanOutputValToTy : llvm::zip(scan_inputs(), bodyScanInputs)) {
+    auto rankedScanTy =
+        std::get<0>(vScanOutputValToTy).getType().cast<RankedTensorType>();
+    auto shape = rankedScanTy.getShape();
+    SmallVector<int64_t, 4> squeezedShape(shape.begin() + 1, shape.end());
+    // Note that we may know the extent of the scan output leading
+    // dimension, which is very likely just the trip count specified as an input
+    // to Loop operation, but we need to eliminate the possibility of early
+    // termination to be sure.
+    std::get<1>(vScanOutputValToTy)
+        .setType(RankedTensorType::get(
+            squeezedShape, rankedScanTy.getElementType()));
+  }
+
+  // Now we have modified loop body function input signatures according to
+  // the knowledge we have on the inputs we pass to this function. Dispatch
+  // shape inference to obtain body function output types.
+  doShapeInference(loopBody);
+
+  // Output loop variables should have the same type as their input
+  // counterparts.
+  auto bodyResultTys = loopBody.back().getTerminator()->getOperandTypes();
+  // Compute the type range corresponding to the final values of loop-carried
+  // dependencies/scan outputs in the body function output types.
+  auto scanStartItr = std::next(bodyResultTys.begin(), v_initial().size());
+  auto bodyResVFinalTys = llvm::make_range(bodyResultTys.begin(), scanStartItr);
+  auto bodyResScanTys = llvm::make_range(scanStartItr, bodyResultTys.end());
+
+  // Set shape for loop operation outputs corresponding to the final
+  // values of loop-carried dependencies to be shape of their counterparts in
+  // the body function output.
+  for (auto vFinalValToTy : llvm::zip(v_final(), bodyResVFinalTys)) {
+    std::get<0>(vFinalValToTy).setType(std::get<1>(vFinalValToTy));
+  }
+
+  // For scan outputs, we set their shape to be the shape of the return values
+  // of the loop body function corresponding to scan outputs, but with an
+  // extra leading dimension.
+  for (auto vScanOutputValToTy : llvm::zip(scan_outputs(), bodyResScanTys)) {
+    auto rankedScanTy =
+        std::get<1>(vScanOutputValToTy).cast<RankedTensorType>();
+    auto shape = rankedScanTy.getShape();
+    SmallVector<int64_t, 4> unsqueezedShape(shape.begin(), shape.end());
+    // Note that we may know the extent of the scan output leading
+    // dimension, which is very likely just the trip count specified as an
+    // input to Loop operation, but we need to eliminate the possibility of
+    // early termination to be sure.
+    auto scanExtent =
+        scan_inputs().front().getType().cast<ShapedType>().getDimSize(0);
+    unsqueezedShape.insert(unsqueezedShape.begin(), scanExtent);
+    std::get<0>(vScanOutputValToTy)
+        .setType(RankedTensorType::get(
+            unsqueezedShape, rankedScanTy.getElementType()));
+  }
+
+  return success();
+}
+
+mlir::Operation::operand_range ONNXScanOp::v_initial() {
+  auto numVInit = initial_state_and_scan_inputs().size() - num_scan_inputs();
+  auto operands = getOperands();
+  return llvm::make_range(operands.begin(), operands.begin() + numVInit);
+}
+
+mlir::Operation::operand_range ONNXScanOp::scan_inputs() {
+  auto numVInit = initial_state_and_scan_inputs().size() - num_scan_inputs();
+  auto operands = getOperands();
+  return llvm::make_range(operands.begin() + numVInit, operands.end());
+}
+
+// Helper function to obtain subset of op results corresponding to the final
+// value of loop carried dependencies.
+mlir::Operation::result_range ONNXScanOp::v_final() {
+  auto results = getResults();
+  return llvm::make_range(
+      results.begin(), results.begin() + v_initial().size());
+}
+
+// Helper function to obtain subset of op results corresponding to the scan
+// outputs.
+mlir::Operation::result_range ONNXScanOp::scan_outputs() {
+  auto results = getResults();
+  return llvm::make_range(results.begin() + v_initial().size(), results.end());
 }
 
 LogicalResult ONNXScatterOp::inferShapes(

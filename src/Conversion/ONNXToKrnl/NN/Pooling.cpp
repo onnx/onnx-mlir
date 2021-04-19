@@ -234,6 +234,9 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     // Kernel offset in the input shape.
     int kernelOffset = inputShape.size() - kernelShape.size();
 
+    // Scope for krnl EDSC ops
+    using namespace mlir::edsc;
+    ScopedContext scope(rewriter, loc);
     // Scope for IndexExpr.
     IndexExprScope ieScope(&rewriter, loc);
 
@@ -368,7 +371,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // Prepare induction variables.
       SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
       {
-        MemRefBoundIndexCapture inputBounds(inputOperand);
+        MemRefBoundsIndexCapture inputBounds(inputOperand);
         for (int i = 0; i < kernelShape.size(); ++i) {
           int j = i + kernelOffset;
           SmallVector<IndexExpr, 4> ic;

@@ -6,7 +6,7 @@ import os
 import time
 
 logging.basicConfig(
-    level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
+    level = logging.INFO, format = '[%(asctime)s] %(levelname)s: %(message)s')
 
 JENKINS_STOP_BUILD_TIMEOUT = 60 # seconds
 
@@ -16,7 +16,7 @@ jenkins_rest_api_token = os.getenv('JENKINS_REST_API_TOKEN')
 jenkins_job_name       = os.getenv('JOB_NAME')
 jenkins_build_number   = os.getenv('BUILD_NUMBER')
 
-onnx_mlir_pr_number    = os.getenv('ONNX_MLIR_PR_NUMBER')
+github_pr_number       = os.getenv('GITHUB_PR_NUMBER')
 
 # We allow concurrent builds for different pull request numbers
 # but for the same pull request number only one build can run. So
@@ -43,16 +43,20 @@ def stop_previous_build(job_name, build_number, pr_number):
         running_builds = jenkins_server.get_running_builds()
         stopping = False
         for build in running_builds:
-            # Skip ourselves
-            if (build['name'] == job_name and build['number'] == int(build_number)):
+            # Skip ourselves and higher numbered builds. It's possible
+            # multiple builds for the same pull request were triggered.
+            # Because even though there is a rate limit, the triggered
+            # builds might be running very slowly for whatever reason.
+            # So a lower numbered build might get to this script first!
+            if (build['name'] == job_name and build['number'] >= int(build_number)):
                 continue
             build_info = jenkins_server.get_build_info(build['name'],
                                                        build['number'])
             # Each build will have 3 parameters:
             #
-            #   - ONNX_MLIR_PR_NUMBER_PULL_REQUEST  (when triggered by pull_request)
-            #   - ONNX_MLIR_PR_NUMBER_ISSUE_COMMENT (when triggered by issue_comment)
-            #   - ONNX_MLIR_PR_NUMBER_PUSH          (when triggered by push)
+            #   - GITHUB_PR_NUMBER_PULL_REQUEST  (when triggered by pull_request)
+            #   - GITHUB_PR_NUMBER_ISSUE_COMMENT (when triggered by issue_comment)
+            #   - GITHUB_PR_NUMBER_PUSH          (when triggered by push)
             #
             # Only one of them will be set to the correct pull request number
             # and the other two will be set to "none". We simply search for
@@ -83,8 +87,13 @@ def stop_previous_build(job_name, build_number, pr_number):
                         jenkins_server.stop_build(build['name'], build['number'])
 
                         # Only one previous build can be running so stop looping if
-                        # we found one
-                        break
+                        # we found one.
+                        #
+                        # Actually there can be multiple previous builds running
+                        # (see comments above about skipping ourselves and higher
+                        # numbered builds). So continue looping.
+                        #
+                        #break
                 if stopping:
                     break
             if stopping:
@@ -107,7 +116,7 @@ def stop_previous_build(job_name, build_number, pr_number):
                  job_name, build_number, pr_number)
 
 def main():
-    stop_previous_build(jenkins_job_name, jenkins_build_number, onnx_mlir_pr_number)
+    stop_previous_build(jenkins_job_name, jenkins_build_number, github_pr_number)
 
 if __name__ == "__main__":
     main()

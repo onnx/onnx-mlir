@@ -12,12 +12,6 @@
 #include "onnx/onnx_pb.h"
 
 namespace onnx_mlir {
-
-void replaceAll(
-    std::string &str, const std::string &from, const std::string &to);
-
-std::string legalize_name(std::string name);
-
 /*!
  * A data structure for maintaining mappings from symbol names to symbol values
  * within a single variable scope.
@@ -35,7 +29,7 @@ struct VariableScope {
    * @param name symbol name.
    * @param value symbol value.
    */
-  void set(std::string name, mlir::Value value);
+  void set(const std::string &name, mlir::Value value);
 
   /*!
    * Retrieve the symbol value associated with a name. An assertion failure will
@@ -43,14 +37,14 @@ struct VariableScope {
    * @param name symbol name.
    * @return symbol value.
    */
-  mlir::Value get(std::string name) const;
+  mlir::Value get(const std::string &name) const;
 
   /*!
    * Check whether symbol exists in the current scope.
    * @param name symbol name.
    * @return whether symbol exists.
    */
-  bool contain(std::string name) const;
+  bool contain(const std::string &name) const;
 
   /*!
    * Identifier of the current scope, used for debugging and sanity check.
@@ -88,7 +82,7 @@ struct SymbolMapping {
    * @param name symbol name.
    * @return whether a symbol with the sepcified name exists.
    */
-  bool ContainKey(std::string name);
+  bool ContainKey(const std::string &name);
 
   /*!
    * Push a new variable scope with a specified identifier to symbol table.

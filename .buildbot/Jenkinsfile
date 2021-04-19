@@ -28,18 +28,26 @@ def call() {
         /* Each pull request has its own build directory so concurrent builds
          * of different pull requests will not trash each other.
          */
-        customWorkspace "${JENKINS_HOME}/workspace/${JOB_NAME}@pr_${ONNX_MLIR_PR_NUMBER}"
+        customWorkspace "${JENKINS_HOME}/workspace/${JOB_NAME}@pr_${GITHUB_PR_NUMBER}"
       }
     }
 
     environment {
-      /* We ask for this directory */
-      JENKINS_WORKSPACE = "${JENKINS_HOME}/workspace/${JOB_NAME}@pr_${ONNX_MLIR_PR_NUMBER}"
-      /* We may get one with @2, @3, etc. appended */
-      JENKINS_WORKSPACE_AT = "${WORKSPACE}"
+      /* The following environment variables may need to be customized for
+       * different projects.
+       */
 
+      /* Docker related env vars */
+      DOCKER_PUSHPULL_RWLOCK = "/var/lock/jenkins-pipeline-${GITHUB_REPO_NAME}.lock"
       DOCKER_DAEMON_SOCKET = 'unix://var/run/docker.sock'
-      DOCKERHUB_USER_NAME = 'onnxmlirczar'
+      DOCKER_REGISTRY_HOST_NAME  = ''
+      DOCKER_REGISTRY_USER_NAME  = 'onnxmlirczar'
+      DOCKER_REGISTRY_LOGIN_NAME = 'onnxmlirczar'
+
+      /* Credentials defined in Jenkins */
+      DOCKER_REGISTRY_LOGIN_TOKEN = credentials('DOCKERHUB-TOKEN')
+      JENKINS_REST_API_TOKEN = credentials('Jenkins-REST-API-Token')
+      GITHUB_REPO_ACCESS_TOKEN = credentials('jenkins-buildbot-access-token')
 
       /* Environment variables that depend on the arch */
       JENKINS_REST_API_URL = sh(returnStdout: true,
@@ -54,18 +62,22 @@ def call() {
                          [amd64]="jenkins")
         echo \${user[${CPU_ARCH}]}""").trim()
 
+      /* The rest of the environment variables need not to be changed for
+       * different projects.
+       */
+
+      /* We ask for this directory */
+      JENKINS_WORKSPACE = "${JENKINS_HOME}/workspace/${JOB_NAME}@pr_${GITHUB_PR_NUMBER}"
+      /* We may get one with @2, @3, etc. appended */
+      JENKINS_WORKSPACE_AT = "${WORKSPACE}"
+
       /* External stage build scripts */
       JENKINS_SCRIPT_DIR="${JENKINS_WORKSPACE_AT}/.buildbot"
       JENKINS_STOP_PREVIOUS_BUILD="${JENKINS_SCRIPT_DIR}/jenkins-stop-previous-build.py"
       JENKINS_BUILD_LLVM_PROJECT="${JENKINS_SCRIPT_DIR}/jenkins-build-llvm-project.py"
-      JENKINS_BUILD_ONNX_MLIR="${JENKINS_SCRIPT_DIR}/jenkins-build-onnx-mlir.py"
+      JENKINS_BUILD_PROJECT="${JENKINS_SCRIPT_DIR}/jenkins-build-project.py"
       JENKINS_PUBLISH_DOCKER_IMAGES="${JENKINS_SCRIPT_DIR}/jenkins-publish-docker-images.py"
       JENKINS_CLEANUP_BUILD_STATES="${JENKINS_SCRIPT_DIR}/jenkins-cleanup-build-states.py"
-
-      /* Credentials defined in Jenkins */
-      JENKINS_REST_API_TOKEN = credentials('Jenkins-REST-API-Token')
-      GITHUB_JENKINS_DROID_TOKEN = credentials('jenkins-buildbot-access-token')
-      DOCKERHUB_USER_TOKEN = credentials('DOCKERHUB-TOKEN')
 
       /* Depending on the system, python3 default I/O encoding could be set to
        * something other than utf-8, e.g., ISO-8859-1. This will cause trouble
@@ -92,33 +104,35 @@ def call() {
         steps {
           /* uncomment for debugging */
           /*sh 'printenv'*/
-          echo "CPU_ARCH                    = ${CPU_ARCH}"
-          echo "BUILD_URL                   = ${BUILD_URL}"
-          echo "JENKINS_SCRIPTSPACE         = ${JENKINS_SCRIPTSPACE}"
-          echo "JENKINS_SCRIPTSPACE_AT      = ${JENKINS_SCRIPTSPACE_AT}"
-          echo "JENKINS_WORKSPACE           = ${JENKINS_WORKSPACE}"
-          echo "JENKINS_WORKSPACE_AT        = ${JENKINS_WORKSPACE_AT}"
-          echo "ONNX_MLIR_PR_SENDER         = ${ONNX_MLIR_PR_SENDER}"
-          echo "ONNX_MLIR_PR_NUMBER         = ${ONNX_MLIR_PR_NUMBER}"
-          echo "ONNX_MLIR_PR_NUMBER2        = ${ONNX_MLIR_PR_NUMBER2}"
-          echo "ONNX_MLIR_PR_REPO_URL       = ${ONNX_MLIR_PR_REPO_URL}"
-          echo "ONNX_MLIR_PR_REMOTE         = ${ONNX_MLIR_PR_REMOTE}"
-          echo "ONNX_MLIR_PR_REFSPEC        = ${ONNX_MLIR_PR_REFSPEC}"
-          echo "ONNX_MLIR_PR_BRANCH         = ${ONNX_MLIR_PR_BRANCH}"
-          echo "ONNX_MLIR_PR_ACTION         = ${ONNX_MLIR_PR_ACTION}"
-          echo "ONNX_MLIR_PR_PHRASE         = ${ONNX_MLIR_PR_PHRASE}"
-          echo "ONNX_MLIR_PR_TITLE          = ${ONNX_MLIR_PR_TITLE}"
-          echo "ONNX_MLIR_PR_REQUEST_URL    = ${ONNX_MLIR_PR_REQUEST_URL}"
-          echo "ONNX_MLIR_PR_COMMENT_URL    = ${ONNX_MLIR_PR_COMMENT_URL}"
-          echo "ONNX_MLIR_PR_STATUS_URL     = ${ONNX_MLIR_PR_STATUS_URL}"
-          echo "ONNX_MLIR_PR_COMMIT_MESSAGE = ${ONNX_MLIR_PR_COMMIT_MESSAGE}"
-          echo "ONNX_MLIR_PR_MERGED	    = ${ONNX_MLIR_PR_MERGED}"
+          echo "BUILD_URL                = ${BUILD_URL}"
+          echo "JENKINS_SCRIPTSPACE      = ${JENKINS_SCRIPTSPACE}"
+          echo "JENKINS_SCRIPTSPACE_AT   = ${JENKINS_SCRIPTSPACE_AT}"
+          echo "JENKINS_WORKSPACE        = ${JENKINS_WORKSPACE}"
+          echo "JENKINS_WORKSPACE_AT     = ${JENKINS_WORKSPACE_AT}"
+          echo "CPU_ARCH                 = ${CPU_ARCH}"
+          echo "GITHUB_CONTEXT           = ${GITHUB_CONTEXT}"
+          echo "GITHUB_EVENT             = ${GITHUB_EVENT}"
+          echo "GITHUB_PR_SENDER         = ${GITHUB_PR_SENDER}"
+          echo "GITHUB_PR_NUMBER         = ${GITHUB_PR_NUMBER}"
+          echo "GITHUB_PR_NUMBER2        = ${GITHUB_PR_NUMBER2}"
+          echo "GITHUB_PR_REPO_URL       = ${GITHUB_PR_REPO_URL}"
+          echo "GITHUB_PR_REMOTE         = ${GITHUB_PR_REMOTE}"
+          echo "GITHUB_PR_REFSPEC        = ${GITHUB_PR_REFSPEC}"
+          echo "GITHUB_PR_BRANCH         = ${GITHUB_PR_BRANCH}"
+          echo "GITHUB_PR_ACTION         = ${GITHUB_PR_ACTION}"
+          echo "GITHUB_PR_PHRASE         = ${GITHUB_PR_PHRASE}"
+          echo "GITHUB_PR_TITLE          = ${GITHUB_PR_TITLE}"
+          echo "GITHUB_PR_REQUEST_URL    = ${GITHUB_PR_REQUEST_URL}"
+          echo "GITHUB_PR_COMMENT_URL    = ${GITHUB_PR_COMMENT_URL}"
+          echo "GITHUB_PR_STATUS_URL     = ${GITHUB_PR_STATUS_URL}"
+          echo "GITHUB_PR_COMMIT_MESSAGE = ${GITHUB_PR_COMMIT_MESSAGE}"
+          echo "GITHUB_PR_MERGED         = ${GITHUB_PR_MERGED}"
 
-          checkout_pr_source("${ONNX_MLIR_PR_REPO_URL}",
-                             "${ONNX_MLIR_PR_REMOTE}",
-                             "${ONNX_MLIR_PR_REFSPEC}",
-                             "${ONNX_MLIR_PR_BRANCH}",
-                             "${ONNX_MLIR_PR_ACTION}" != 'closed')
+          checkout_pr_source("${GITHUB_PR_REPO_URL}",
+                             "${GITHUB_PR_REMOTE}",
+                             "${GITHUB_PR_REFSPEC}",
+                             "${GITHUB_PR_BRANCH}",
+                             "${GITHUB_PR_ACTION}" != 'closed')
         }
       }
 
@@ -129,57 +143,57 @@ def call() {
             env.JENKINS_BUILD_RESULT = 'UNKNOWN'
           }
 
-          call_build_script("${JENKINS_STOP_PREVIOUS_BUILD}")
-          call_build_script("${JENKINS_CLEANUP_BUILD_STATES}")
+          sh "${JENKINS_STOP_PREVIOUS_BUILD}"
+          sh "${JENKINS_CLEANUP_BUILD_STATES}"
 
-          post_build_status("${x_github_event}", 'pending')
+          post_build_status("${GITHUB_EVENT}", 'pending')
         }
       }
 
       stage('Build llvm-project images') {
-        when { not { environment name: 'ONNX_MLIR_PR_ACTION',
+        when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
-          call_build_script("${JENKINS_BUILD_LLVM_PROJECT}")
+          sh "${JENKINS_BUILD_LLVM_PROJECT}"
         }
       }
 
-      stage('Build onnx-mlir images') {
-        when { not { environment name: 'ONNX_MLIR_PR_ACTION',
+      stage('Build project images') {
+        when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
-          call_build_script("${JENKINS_BUILD_ONNX_MLIR}")
+          sh "${JENKINS_BUILD_PROJECT}"
         }
       }
 
       stage('Publish docker images') {
-        when { anyOf { environment name: 'ONNX_MLIR_PR_PHRASE',
+        when { anyOf { environment name: 'GITHUB_PR_PHRASE',
                        value: 'push';
-                       environment name: 'ONNX_MLIR_PR_PHRASE',
+                       environment name: 'GITHUB_PR_PHRASE',
                        value: 'publish' }
         }
         steps {
-          call_build_script("${JENKINS_PUBLISH_DOCKER_IMAGES}")
+          sh "${JENKINS_PUBLISH_DOCKER_IMAGES}"
         }
       }
     } // stages
 
     post {
       success {
-        post_build_status("${x_github_event}", 'success')
+        post_build_status("${GITHUB_EVENT}", 'success')
       }
       failure {
-        post_build_status("${x_github_event}", 'failure')
+        post_build_status("${GITHUB_EVENT}", 'failure')
       }
       aborted {
-        post_build_status("${x_github_event}", 'aborted')
+        post_build_status("${GITHUB_EVENT}", 'aborted')
       }
       cleanup {
         script {
           env.JENKINS_BUILD_RESULT = "${currentBuild.currentResult}"
 
           try {
-              call_build_script("${JENKINS_CLEANUP_BUILD_STATES}")
+              sh "${JENKINS_CLEANUP_BUILD_STATES}"
 
               deleteDir()
               dir("${JENKINS_WORKSPACE_AT}@tmp") {
@@ -194,11 +208,6 @@ def call() {
   } // pipeline
 } // call
 
-/* Call external script */
-def call_build_script(script) {
-    sh "${script}"
-}
-
 /* Set build status appearing on the GitHub pull request page */
 def post_build_status(event, state) {
     def status   = (state == 'aborted') ? 'failure' : state
@@ -211,10 +220,10 @@ def post_build_status(event, state) {
      * string while for replaceAll the 1st string is a regex.
      */
     def MAXLEN   = 24
-    def title    = "${ONNX_MLIR_PR_COMMIT_MESSAGE}".replace('\n', ' ').replace('\'', '').replace('"', '')
+    def title    = "${GITHUB_PR_COMMIT_MESSAGE}".replace('\n', ' ').replace('\'', '').replace('"', '')
     def phrase   = (event == 'issue_comment') ?
-                   "${ONNX_MLIR_PR_PHRASE}" : "${ONNX_MLIR_PR_ACTION}"
-    def desc     = ("${ONNX_MLIR_PR_ACTION}" == 'push' ?
+                   "${GITHUB_PR_PHRASE}" : "${GITHUB_PR_ACTION}"
+    def desc     = ("${GITHUB_PR_ACTION}" == 'push' ?
                     "Build [#${BUILD_NUMBER}](${BUILD_URL}) " :
                     "Build #${BUILD_NUMBER} ") + "[${phrase}] " +
                    title.substring(0,Math.min(title.length(),MAXLEN)) + '...'
@@ -229,19 +238,21 @@ def post_build_status(event, state) {
      * for the pull request is already closed and commit status is no longer
      * updated. So we post the build status as a comment.
      */
-    if ("${ONNX_MLIR_PR_ACTION}" == 'push')
-        post_pr_comment("${ONNX_MLIR_PR_COMMENT_URL}",
-                        "**Jenkins Linux ${CPU_ARCH}** ${desc} ${action} ${duration}")
+    if ("${GITHUB_PR_ACTION}" == 'push')
+        post_pr_comment("${GITHUB_PR_COMMENT_URL}",
+                        "${GITHUB_REPO_ACCESS_TOKEN}",
+                        "**${GITHUB_CONTEXT}** ${desc} ${action} ${duration}")
     else
-        post_pr_status("${ONNX_MLIR_PR_STATUS_URL}",
+        post_pr_status("${GITHUB_PR_STATUS_URL}",
+                       "${GITHUB_REPO_ACCESS_TOKEN}",
                        "${status}",
-                       "Jenkins Linux ${CPU_ARCH}",
+                       "${GITHUB_CONTEXT}",
                        "${desc} ${action} ${duration}",
                        "${BUILD_URL}")
 }
 
 /* Post a status to the pull request page */
-def post_pr_status(url, status, context, description, target_url) {
+def post_pr_status(url, token, status, context, description, target_url) {
     def data = """
         { "state": "${status}", \
           "context": "${context}", \
@@ -253,14 +264,14 @@ def post_pr_status(url, status, context, description, target_url) {
         curl -s ''' + url + ''' \
              -X POST \
              -H "Accept: application/vnd.github.v3+json" \
-             -H "Authorization: token ${GITHUB_JENKINS_DROID_TOKEN}" \
+             -H "Authorization: token ''' + token + '''" \
              -d \' ''' + data + ''' \' | \
         jq '{url: .url, state: .state, description: .description, context: .context, message: .message}'
     '''
 }
 
 /* Post a comment to the pull request page */
-def post_pr_comment(url, msg) {
+def post_pr_comment(url, token, msg) {
     def data = """
         { "body": "${msg}" }
     """
@@ -269,7 +280,7 @@ def post_pr_comment(url, msg) {
         curl -s ''' + url + ''' \
              -X POST \
              -H "Accept: application/vnd.github.v3+json" \
-             -H "Authorization: token ${GITHUB_JENKINS_DROID_TOKEN}" \
+             -H "Authorization: token ''' + token + '''" \
              -d \' ''' + data + ''' \' | \
         jq '{url: .url, created_at: .created_at, updated_at: .updated_at, body: .body}'
     '''

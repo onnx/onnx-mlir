@@ -81,7 +81,7 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
 
 std::vector<IndexExpr> getIndexExprsForConvWindow(
     SmallVectorImpl<IndexExpr> &inputExprs, bool ceilMode, bool isDilated) {
-  assert(inputExprs.size() == 6 && "Not enought inputs");
+  assert(inputExprs.size() == 6 && "Not enough inputs");
   IndexExpr windowStartExpr, windowEndExpr, kernelOffsetExpr;
   IndexExpr outputIndex = inputExprs[0];
   IndexExpr inputDim = inputExprs[1];
@@ -177,6 +177,11 @@ DenseElementsAttr getDenseElementAttributeFromValue(Value value) {
     if (globalOp.value().hasValue())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
   return nullptr;
+}
+
+Value getONNXConstantOpFromDenseAttr(
+    PatternRewriter &rewriter, Location loc, Attribute dense) {
+  return rewriter.create<ONNXConstantOp>(loc, Attribute(), dense);
 }
 
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {

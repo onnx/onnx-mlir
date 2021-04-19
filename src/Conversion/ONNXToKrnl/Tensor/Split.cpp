@@ -34,7 +34,6 @@ struct ONNXSplitOpLowering : public ConversionPattern {
     // Get a shape helper.
     ONNXSplitOpShapeHelper shapeHelper(&splitOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
-    (void)shapecomputed;
     assert(succeeded(shapecomputed));
 
     // Alloc and dealloc.
@@ -55,6 +54,9 @@ struct ONNXSplitOpLowering : public ConversionPattern {
       outputLoops.createDefineAndIterateOp(allocs[i]);
       rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
+      // Scope for krnl EDSC ops
+      using namespace mlir::edsc;
+      ScopedContext scope(rewriter, loc);
       IndexExprScope childScope(shapeHelper.scope);
 
       // Indices for the read and write.

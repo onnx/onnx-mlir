@@ -9,7 +9,6 @@ add_public_tablegen_target(OMONNXOpsIncGen)
 # Header dependencies target for ONNXOps.hpp
 add_custom_target(OMONNXOpsInc
         DEPENDS OMONNXOpsIncGen
-                OMPromotableConstOperandsOpInterfaceIncGen
                 OMResultTypeInferenceOpInterfaceIncGen
                 ShapeInferenceOpInterfaceIncGen
                 OMHasOnnxSubgraphOpInterfaceIncGen)
@@ -22,7 +21,9 @@ add_library(OMONNXOps
         ONNXShapeHelper.cpp
         ONNXShapeHelper.hpp
         IndexExpr.hpp
-        IndexExpr.cpp)
+        IndexExpr.cpp
+        IndexExprDetail.hpp
+        IndexExprDetail.cpp)
 
 target_include_directories(OMONNXOps
         PRIVATE
@@ -38,9 +39,11 @@ add_dependencies(OMONNXOps OMONNXOpsInc OMKrnlOpsInc)
 
 # Linking dependencies:
 add_dependencies(OMONNXOps
-        OMPromotableConstOperandsOpInterface
         OMResultTypeInferenceOpInterface
-        OMShapeInferenceOpInterface)
+        OMShapeInferenceOpInterface
+        # TODO: remove unnecessary dependency due to
+        # ONNX Krnl Helper having a dependence on KrnlOps.
+        OMSpecializedKernelOpInterface)
 
 add_onnx_mlir_dialect_doc(onnx ONNXOps.td)
 

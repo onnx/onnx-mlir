@@ -11,11 +11,9 @@ set (TEST_DRIVER_COMMAND "onnx-mlir")
 configure_file(test.py test.py COPYONLY)
 configure_file(test_config.py.in test_config.py)
 
-find_package(PythonInterp 3 REQUIRED)
-
 # Detect pytest-xdist for parallel backend tests
 execute_process(
-  COMMAND ${PYTHON_EXECUTABLE} -m pip show pytest-xdist
+  COMMAND ${Python3_EXECUTABLE} -m pip show pytest-xdist
   RESULT_VARIABLE PYTEST_XDIST_FOUND
   OUTPUT_QUIET
   ERROR_QUIET
@@ -26,7 +24,7 @@ if (${PYTEST_XDIST_FOUND} EQUAL 0)
   set(BACKEND_TEST_ARGS "--forked" "-n" "$$(nproc)")
 else()
   message(STATUS "Parallel backend tests  : OFF (install pytest-xdist to enable)")
-  set(BACKEND_TEST_COMMAND ${PYTHON_EXECUTABLE})
+  set(BACKEND_TEST_COMMAND ${Python3_EXECUTABLE})
   set(BACKEND_TEST_ARGS "")
 endif()
 
@@ -54,3 +52,5 @@ add_custom_target(clean-onnx-backend
 
 add_dependencies(check-onnx-backend onnx-mlir)
 add_dependencies(check-onnx-backend PyRuntime)
+add_dependencies(check-onnx-backend-dynamic onnx-mlir)
+add_dependencies(check-onnx-backend-dynamic PyRuntime)

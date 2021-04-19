@@ -29,8 +29,10 @@ struct ONNXGatherOpLowering : public ConversionPattern {
 
     ONNXGatherOpShapeHelper shapeHelper(&gatherOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
-    (void)shapecomputed;
     assert(succeeded(shapecomputed));
+    // Scope for krnl EDSC ops
+    using namespace mlir::edsc;
+    ScopedContext scope(rewriter, loc);
     IndexExprScope outerScope(shapeHelper.scope);
 
     // Insert an allocation and deallocation for the output of this operation.
@@ -64,15 +66,16 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     int jIndexStart = iIndexStart + axisLit;
     int kIndexStart = jIndexStart + indicesRank - (axisLit + 1);
 
-    // Load the constants for the tests
+    // Insert code inside the loop.
+    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
+    IndexExprScope innerLoopScope;
     LiteralIndexExpr zero(0);
     LiteralIndexExpr axis(axisLit);
     SymbolIndexExpr axisDim(shapeHelper.dataDims[axisLit]);
-    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     // compute the loop indices for the output
     SmallVector<IndexExpr, 4> outputAccessFct;
-    getIndexExprListFrom<DimIndexExpr>(
+    getIndexExprList<DimIndexExpr>(
         outputLoops.getAllInductionVar(), outputAccessFct);
 
     // Compute access function for indices[jjs].

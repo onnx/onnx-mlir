@@ -29,12 +29,6 @@ void initOMPasses() {
         return mlir::createConstPropONNXToONNXPass();
       });
 
-  mlir::registerPass("attribute-promotion",
-      "Promote constant operands to attributes.",
-      []() -> std::unique_ptr<mlir::Pass> {
-        return mlir::createAttributePromotionPass();
-      });
-
   mlir::registerPass("elide-constants", "Elide values of constant operations.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createElideConstantValuePass();
@@ -79,12 +73,6 @@ void initOMPasses() {
       "Lower the Krnl Affine and Std dialects to LLVM.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createConvertKrnlToLLVMPass();
-      });
-
-  mlir::registerPass("pack-krnl-constants",
-      "Elide the constant values of the Global Krnl operations.",
-      []() -> std::unique_ptr<mlir::Pass> {
-        return mlir::createPackKrnlGlobalConstantsPass();
       });
 
   mlir::registerPass("lower-krnl-shape-to-std",

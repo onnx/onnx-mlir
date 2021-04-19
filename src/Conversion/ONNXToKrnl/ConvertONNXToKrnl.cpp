@@ -36,7 +36,9 @@ public:
         op->getAttrOfType<IntegerAttr>(
             ONNXEntryPointOp::getNumInputsAttrName()),
         op->getAttrOfType<IntegerAttr>(
-            ONNXEntryPointOp::getNumOutputsAttrName()));
+            ONNXEntryPointOp::getNumOutputsAttrName()),
+        op->getAttrOfType<StringAttr>(
+            ONNXEntryPointOp::getSignatureAttrName()));
     return success();
   }
 };
@@ -112,6 +114,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Frontend operation lowering.
   // ControlFlow
   populateLoweringONNXLoopOpPattern(patterns, &getContext());
+  populateLoweringONNXScanOpPattern(patterns, &getContext());
   // Math
   populateLoweringONNXClipOpPattern(patterns, &getContext());
   populateLoweringONNXElementwiseOpPattern(patterns, &getContext());
@@ -123,7 +126,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Tensor
   populateLoweringONNXArgMaxOpPattern(patterns, &getContext());
   populateLoweringONNXReshapeOpPattern(patterns, &getContext());
-  populateLoweringONNXPadConstantValuePadOpPattern(patterns, &getContext());
   populateLoweringONNXPadOpPattern(patterns, &getContext());
   populateLoweringONNXUnsqueezeOpPattern(patterns, &getContext());
   populateLoweringONNXTransposeOpPattern(patterns, &getContext());

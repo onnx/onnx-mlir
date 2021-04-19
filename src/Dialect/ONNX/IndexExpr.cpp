@@ -14,11 +14,14 @@
 //===----------------------------------------------------------------------===//
 
 // both debug variables will be removed once debugging is complete.
-#define DEBUG 1
+#define DEBUG 0
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/ONNX/IndexExprDetail.hpp"
+
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/IR/Operation.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/MathExtras.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -34,18 +37,19 @@ using namespace mlir;
 // IndexExprScope constructors.
 //===----------------------------------------------------------------------===//
 
-IndexExprScope::IndexExprScope(
-    ConversionPatternRewriter *rewriter, Location loc)
+IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
     : dims(), symbols(), rewriter(rewriter), loc(loc),
-      parentScope(getCurrentScopePtr()), container(), zero(nullptr),
-      minusOne(nullptr), one(nullptr) {
+      parentScope(getCurrentScopePtr()), container() {
   getCurrentScopePtr() = this;
 }
+
+IndexExprScope::IndexExprScope(OpBuilder &rewriter, Location loc)
+    : IndexExprScope(&rewriter, loc){};
 
 IndexExprScope::IndexExprScope()
     : dims(), symbols(), rewriter(getCurrentScope().rewriter),
       loc(getCurrentScope().loc), parentScope(getCurrentScopePtr()),
-      container(), zero(nullptr), minusOne(nullptr), one(nullptr) {
+      container() {
   getCurrentScopePtr() = this;
 }
 
@@ -68,37 +72,6 @@ IndexExprScope::~IndexExprScope() {
   IndexExprScope *currScope = getCurrentScopePtr();
   assert(currScope != nullptr && "expected nonnull scope");
   return *currScope;
-}
-
-//===----------------------------------------------------------------------===//
-// IndexExprScope support for cached literals.
-//===----------------------------------------------------------------------===//
-
-/*static*/ IndexExprImpl *IndexExprScope::hasCachedLiteralIndexExp(
-    int64_t value) {
-  IndexExprScope *currScope = getCurrentScopePtr();
-  if (!currScope)
-    return nullptr;
-  if (value == 0 && currScope->zero)
-    return currScope->zero;
-  if (value == 1 && currScope->one)
-    return currScope->one;
-  if (value == -1 && currScope->minusOne)
-    return currScope->minusOne;
-  return nullptr;
-}
-
-/*static*/ void IndexExprScope::cacheLiteralIndexExp(
-    int64_t value, IndexExprImpl *obj) {
-  IndexExprScope *currScope = getCurrentScopePtr();
-  if (!currScope)
-    return;
-  if (value == 0)
-    currScope->zero = obj;
-  if (value == 1)
-    currScope->one = obj;
-  if (value == -1)
-    currScope->minusOne = obj;
 }
 
 //===----------------------------------------------------------------------===//
@@ -146,116 +119,23 @@ void IndexExprScope::getDimAndSymbolList(SmallVectorImpl<Value> &list) const {
     list.emplace_back(sym);
 }
 
-ConversionPatternRewriter &IndexExprScope::getRewriter() const {
+OpBuilder &IndexExprScope::getRewriter() const {
   assert(rewriter);
   return *rewriter;
 }
 
 //===----------------------------------------------------------------------===//
-// IndexExprImpl constructors, initializers
+// IndexExprScope Debug.
 //===----------------------------------------------------------------------===//
 
-IndexExprImpl::IndexExprImpl()
-    : defined(false), literal(false), kind(IndexExprKind::NonAffine), intLit(0),
-      affineExpr(nullptr), value(nullptr) {
-  // Set scope from thread private global.
-  scope = IndexExprScope::getCurrentScopePtr();
-  assert(scope && "expected IndexExpr Scope to be defined");
-  // Record the new index expr implementation.
-  scope->addIndexExprImpl(this);
-}
-
-void IndexExprImpl::initAsUndefined() {
-  init(/*isDefined*/ false, /*literal*/ false, IndexExprKind::NonAffine, 0,
-      AffineExpr(nullptr), Value(nullptr));
-}
-
-void IndexExprImpl::initAsQuestionmark() {
-  init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark, 0,
-      AffineExpr(nullptr), Value(nullptr));
-}
-
-void IndexExprImpl::initAsLiteral(int64_t const val) {
-  init(/*isDefined*/ true, /*literal*/ true, IndexExprKind::Affine, val,
-      AffineExpr(nullptr), Value(nullptr));
-}
-
-void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
-  if (newKind == IndexExprKind::Questionmark) {
-    initAsQuestionmark();
-    return;
-  }
-  // Val should exist, because we come here only when passing an actual val, but
-  // we might consider checking.
-  assert(val != nullptr && "expected a defined value");
-  // Do we have a literal integer, if we do, handle it now.
-  int64_t valIntLit;
-  if (getIntegerLiteralFromValue(val, valIntLit)) {
-    // We have an integer. No need for symbol or dim. It is by default affine.
-    // Ignore the predicate type as we treat all literal int as untyped.
-    initAsLiteral(valIntLit);
-    return;
-  }
-  // We have a value that is not a literal.
-  if (scope->isShapeInferencePass()) {
-    initAsQuestionmark();
-    return;
-  }
-  // Check that the value is of the right type.
-  auto type = val.getType();
-  Value newVal = val;
-  if (type.isa<IntegerType>()) {
-    if (newKind != IndexExprKind::Predicate) {
-      // We need to convert the int into an index, since we are dealing with
-      // index expressions.
-      newVal = scope->getRewriter().create<IndexCastOp>(
-          scope->getLoc(), scope->getRewriter().getIndexType(), newVal);
-    }
-  } else if (type.isa<IndexType>()) {
-    if (newKind == IndexExprKind::Predicate) {
-      // We need to convert the int into an index, since we are dealing with
-      // index expressions.
-      newVal = scope->getRewriter().create<IndexCastOp>(
-          scope->getLoc(), scope->getRewriter().getI1Type(), newVal);
-    }
-  } else {
-    llvm_unreachable("unsupported element type");
-  }
-  // Now record the value. Affine Expr will be created on demand by
-  // getAffineExpr.
-  init(/*isDefined*/ true, /*literal*/ false, newKind, 0, AffineExpr(nullptr),
-      newVal);
-}
-
-void IndexExprImpl::initAsAffineExpr(AffineExpr const val) {
-  // Check if the affine expression is reduced to a constant expr.
-  AffineExpr simpleVal =
-      simplifyAffineExpr(val, scope->getNumDims(), scope->getNumSymbols());
-  AffineConstantExpr constAffineExpr = simpleVal.dyn_cast<AffineConstantExpr>();
-  if (constAffineExpr) {
-    initAsLiteral(constAffineExpr.getValue());
-  } else {
-    init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Affine, 0,
-        AffineExpr(val), Value(nullptr));
-  }
-}
-
-void IndexExprImpl::init(bool newIsDefined, bool newIsIntLit,
-    IndexExprKind newKind, int64_t const newIntLit,
-    AffineExpr const newAffineExpr, Value const newValue) {
-  defined = newIsDefined;
-  literal = newIsIntLit;
-  kind = newKind;
-  intLit = newIntLit;
-  affineExpr = newAffineExpr;
-  value = newValue;
-}
-
-void IndexExprImpl::copy(IndexExprImpl const *other) {
-  assert(scope && "all index expr must have a defined scope");
-  // Preserve this scope, copy the remaining attributes from other.
-  init(other->defined, other->literal, other->kind, other->intLit,
-      other->affineExpr, other->value);
+// Debug (enable using DEBUG=1 at top of file).
+void IndexExprScope::debugPrint(const std::string &msg) const {
+#if DEBUG
+  printf(
+      "Scope %s 0x%llx: with parent scope 0x%lld and %d dims and %d symbols\n",
+      msg.c_str(), (long long)this, (long long)parentScope, (int)dims.size(),
+      (int)symbols.size());
+#endif
 }
 
 //===----------------------------------------------------------------------===//
@@ -272,177 +152,94 @@ IndexExpr IndexExpr::deepCopy() const {
 }
 
 //===----------------------------------------------------------------------===//
+// IndexExpr queries.
+//===----------------------------------------------------------------------===//
+
+bool IndexExpr::isDefined() const {
+  assert(!getObj().isDefined() || hasScope());
+  return getObj().isDefined();
+}
+
+// Undefined: its ok to have no impl object associated with it.
+bool IndexExpr::isUndefined() const {
+  return !indexExprObj || !getObj().isDefined();
+}
+
+bool IndexExpr::isLiteral() const { return getObj().isLiteral(); }
+
+bool IndexExpr::isQuestionmark() const { return getObj().isQuestionmark(); }
+
+bool IndexExpr::isAffine() const { return getObj().isAffine(); }
+
+bool IndexExpr::isSymbol() const { return getObj().isSymbol(); }
+
+bool IndexExpr::isDim() const { return getObj().isDim(); }
+
+bool IndexExpr::isPredType() const { return getObj().isPredType(); }
+
+bool IndexExpr::isIndexType() const { return getObj().isIndexType(); }
+
+bool IndexExpr::hasAffineExpr() const { return getObj().hasAffineExpr(); }
+
+bool IndexExpr::hasValue() const { return getObj().hasValue(); }
+
+//===----------------------------------------------------------------------===//
 // IndexExpr list queries.
 //===----------------------------------------------------------------------===//
-bool IndexExpr::isDefined() const {
-  assert(!getObj().defined || hasScope());
-  return getObj().defined;
-}
-
-bool IndexExpr::isUndefined() const {
-  // Undefined: its ok to have no impl object associated with it.
-  return !indexExprObj || !getObj().defined;
-}
-
-bool IndexExpr::isLiteral() const {
-  assert(isDefined());
-  return getObj().literal;
-}
-
-bool IndexExpr::isQuestionmark() const {
-  assert(isDefined());
-  return getKind() == IndexExprKind::Questionmark;
-}
-
-bool IndexExpr::isAffine() const {
-  assert(isDefined());
-  // Note that we do bitvector and to check affine properties.
-  return (int)getKind() & (int)IndexExprKind::Affine;
-}
-
-bool IndexExpr::isSymbol() const {
-  assert(isDefined());
-  return getKind() == IndexExprKind::Symbol;
-}
-
-bool IndexExpr::isDim() const {
-  assert(isDefined());
-  return getKind() == IndexExprKind::Dim;
-}
-
-bool IndexExpr::isPredType() const {
-  assert(isDefined());
-  return getKind() == IndexExprKind::Predicate;
-}
-
-bool IndexExpr::isShapeInferencePass() const {
-  return getScope().isShapeInferencePass();
-}
-
-bool IndexExpr::hasScope() const { return getObj().scope != nullptr; }
-
-bool IndexExpr::hasAffineExpr() const {
-  assert(isDefined());
-  return !(!getObj().affineExpr);
-}
-
-bool IndexExpr::hasValue() const {
-  assert(isDefined());
-  return !(!getObj().value);
-}
 
 bool IndexExpr::isLiteralAndIdenticalTo(int64_t b) const {
   // When dealing with non-literal, don't test and return false.
-  if (!isLiteral())
-    return false;
-  // We have a literal, now make sure they are the same
-  return getLiteral() == b;
-}
-
-bool IndexExpr::isLiteralAndDifferentThan(int64_t b) const {
-  // When dealing with non-literal, don't test and return false.
-  if (!isLiteral())
-    return false;
-  // We have a literal, now make sure they are different
-  return getLiteral() != b;
+  return isLiteral() && (getLiteral() == b);
 }
 
 bool IndexExpr::isLiteralAndIdenticalTo(IndexExpr const b) const {
   // When dealing with non-literal, don't test and return false.
-  if (!isLiteral() || !b.isLiteral())
-    return false;
-  // We have literals, now make sure they are the same
-  return getLiteral() == b.getLiteral();
+  return b.isLiteral() && isLiteralAndIdenticalTo(b.getLiteral());
+}
+
+bool IndexExpr::isLiteralAndDifferentThan(int64_t b) const {
+  // When dealing with non-literal, don't test and return false.
+  return isLiteral() && (getLiteral() != b);
 }
 
 bool IndexExpr::isLiteralAndDifferentThan(IndexExpr const b) const {
   // When dealing with non-literal, don't test and return false.
-  if (!isLiteral() || !b.isLiteral())
-    return false;
-  // We have literals, now make sure they are different
-  return getLiteral() != b.getLiteral();
+  return b.isLiteral() && isLiteralAndDifferentThan(b.getLiteral());
+}
+
+bool IndexExpr::isLiteralAndGreaterThan(int64_t b) const {
+  // When dealing with non-literal, don't test and return false.
+  return isLiteral() && (getLiteral() > b);
+}
+
+bool IndexExpr::isLiteralAndGreaterThan(IndexExpr const b) const {
+  // When dealing with non-literal, don't test and return false.
+  return b.isLiteral() && isLiteralAndGreaterThan(b.getLiteral());
+}
+
+bool IndexExpr::isLiteralAndSmallerThan(int64_t b) const {
+  // When dealing with non-literal, don't test and return false.
+  return isLiteral() && (getLiteral() < b);
+}
+
+bool IndexExpr::isLiteralAndSmallerThan(IndexExpr const b) const {
+  // When dealing with non-literal, don't test and return false.
+  return b.isLiteral() && isLiteralAndSmallerThan(b.getLiteral());
+}
+
+// All element in list are literals.
+/*static*/ bool IndexExpr::isLiteral(SmallVectorImpl<IndexExpr> &list) {
+  for (IndexExpr i : list)
+    if (!i.isLiteral())
+      return false;
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
-// IndexExpr Getters.
+// IndexExpr private queries.
 //===----------------------------------------------------------------------===//
 
-int64_t IndexExpr::getLiteral() const {
-  assert(isLiteral() && "expected a literal index expression");
-  return getObj().intLit;
-}
-
-AffineExpr IndexExpr::getAffineExpr() const {
-  assert(!isShapeInferencePass() && "cannot get affine during shape inference");
-  assert(!isPredType() && "no affine support for predicate type");
-  if (hasAffineExpr()) {
-    // Already computed it, use it.
-    return getObj().affineExpr;
-  }
-  if (isLiteral()) {
-    // Create a literal.
-    getObj().affineExpr = getRewriter().getAffineConstantExpr(getObj().intLit);
-  } else if (isSymbol()) {
-    // Create a symbol value expr and register its value in the
-    // array of symbols. Has value because symbols are gen on demand from
-    // values.
-    assert(hasValue());
-    int id = getScope().addSymbol(getObj().value);
-    getObj().affineExpr = getRewriter().getAffineSymbolExpr(id);
-  } else if (isDim()) {
-    // Create a dim/index value expr and register its value in the
-    // array of dims/indices. Has value because dims are gen on demand from
-    // values.
-    assert(hasValue());
-    int id = getScope().addDim(getObj().value);
-    getObj().affineExpr = getRewriter().getAffineDimExpr(id);
-  } else {
-    llvm_unreachable("requesting affine expr of incompatible InexeExpr");
-    assert(
-        hasAffineExpr() && "requesting affine expr of incompatible IndexExpr");
-  }
-  return getObj().affineExpr;
-}
-
-Value IndexExpr::getValue() const {
-  assert(!isShapeInferencePass() && "cannot get affine during shape inference");
-
-  // If we already have a value, no need to recompute it as all values must be
-  // in the same scope->
-  if (hasValue())
-    return getObj().value;
-
-  if (isLiteral()) {
-    // Create a literal constant. Literal pred type should be used directly to
-    // eliminate the comparison, so we don't intend to support them here.
-    assert(!isPredType() && "literal does not support affine expressions");
-    getObj().value =
-        getRewriter().create<ConstantIndexOp>(getLoc(), getObj().intLit);
-  } else if (hasAffineExpr()) {
-    // Has an affine expression: need to build a map, and then perform an
-    // affine.apply.
-    assert(!isPredType() && "no affine support for predicate type");
-    int dimNum = getScope().getNumDims();
-    int symNum = getScope().getNumSymbols();
-    AffineMap map = AffineMap::get(
-        dimNum, symNum, {getObj().affineExpr}, getRewriter().getContext());
-    // We need to concatenate the dims and symbol into a single
-    // list, and then use the apply.
-    SmallVector<Value, 4> list;
-    getScope().getDimAndSymbolList(list);
-    getObj().value = getRewriter().create<AffineApplyOp>(getLoc(), map, list);
-  } else {
-    llvm_unreachable("bad path");
-  }
-  return getObj().value;
-}
-
-IndexExprScope *IndexExpr::getScopePtr() const {
-  assert(hasScope());
-  return getObj().scope;
-}
-
-IndexExprKind IndexExpr::getKind() const { return getObj().kind; }
+bool IndexExpr::hasScope() const { return getObj().hasScope(); }
 
 bool IndexExpr::isInCurrentScope() const { return getScope().isCurrentScope(); }
 
@@ -456,6 +253,7 @@ bool IndexExpr::canBeUsedInScope() const {
   case IndexExprKind::NonAffine:
   case IndexExprKind::Predicate:
     // Its ok to use a nonafine index expressions from enclosing scopes.
+    assert(hasValue() && "must have value to be used from enclosing scopes");
     return getScope().isEnclosingScope();
     break;
   case IndexExprKind::Questionmark:
@@ -475,9 +273,41 @@ bool IndexExpr::canBeUsedInScope() const {
   llvm_unreachable("unkown kind");
 }
 
-ConversionPatternRewriter &IndexExpr::getRewriter() const {
-  return getScope().getRewriter();
+//===----------------------------------------------------------------------===//
+// IndexExpr public getter.
+//===----------------------------------------------------------------------===//
+
+int64_t IndexExpr::getLiteral() const { return getObj().getLiteral(); }
+
+AffineExpr IndexExpr::getAffineExpr() const { return getObj().getAffineExpr(); }
+
+Value IndexExpr::getValue() const { return getObj().getValue(); }
+
+void IndexExpr::getAffineMapAndOperands(
+    AffineMap &map, SmallVectorImpl<Value> &operands) const {
+  getObj().getAffineMapAndOperands(map, operands);
 }
+
+//===----------------------------------------------------------------------===//
+// IndexExpr private getter.
+//===----------------------------------------------------------------------===//
+
+IndexExprScope *IndexExpr::getScopePtr() const {
+  return getObj().getScopePtr();
+}
+
+IndexExprImpl &IndexExpr::getObj() const { return *getObjPtr(); }
+
+IndexExprImpl *IndexExpr::getObjPtr() const {
+  assert(indexExprObj);
+  return indexExprObj;
+}
+
+IndexExprKind IndexExpr::getKind() const { return getObj().getKind(); }
+
+//===----------------------------------------------------------------------===//
+// IndexExpr Debug.
+//===----------------------------------------------------------------------===//
 
 void IndexExpr::debugPrint(const std::string &msg) const {
 #if DEBUG
@@ -486,8 +316,17 @@ void IndexExpr::debugPrint(const std::string &msg) const {
     printf(" literal(%lli)", getLiteral());
   if (hasAffineExpr())
     printf(" hasAffine");
-  if (hasValue())
+  if (hasValue()) {
     printf(" hasValue");
+    auto op = getValue().getDefiningOp();
+    if (op) {
+      std::string str;
+      llvm::raw_string_ostream os(str);
+      op->print(os);
+      printf("( \"%s\" )", str.c_str());
+    } else
+      printf("(op not found)");
+  }
   if (isAffine())
     printf(" is affine");
   switch (getKind()) {
@@ -514,22 +353,15 @@ void IndexExpr::debugPrint(const std::string &msg) const {
     break;
   }
   printf(" scope(0x%llx)\n", (long long unsigned)getScopePtr());
+
 #endif
-}
-
-IndexExprImpl &IndexExpr::getObj() const { return *getObjPtr(); }
-
-IndexExprImpl *IndexExpr::getObjPtr() const {
-  assert(indexExprObj);
-  return indexExprObj;
 }
 
 //===----------------------------------------------------------------------===//
 // Helpers for IndexExpressions
 //===----------------------------------------------------------------------===//
 
-/* static */ void IndexExpr::convertListOfIndexExprToIntegerDim(
-    SmallVectorImpl<IndexExpr> &indexExprList,
+/*static*/ void IndexExpr::getShape(SmallVectorImpl<IndexExpr> &indexExprList,
     SmallVectorImpl<int64_t> &intDimList) {
   intDimList.clear();
   for (IndexExpr &expr : indexExprList) {
@@ -540,6 +372,13 @@ IndexExprImpl *IndexExpr::getObjPtr() const {
     } else
       intDimList.emplace_back(-1);
   }
+}
+
+/*static*/ void IndexExpr::getValues(
+    ArrayRef<IndexExpr> indexExprArray, SmallVectorImpl<Value> &valueList) {
+  valueList.clear();
+  for (IndexExpr const &expr : indexExprArray)
+    valueList.emplace_back(expr.getValue());
 }
 
 //===----------------------------------------------------------------------===//
@@ -581,32 +420,32 @@ IndexExpr IndexExpr::compareOp(
     switch (comparePred) {
     case CmpIPredicate::eq:
       if (aaa == bbb)
-        return LiteralIndexExpr(1);
+        return PredicateIndexExpr(true);
       break;
     case CmpIPredicate::ne:
       if (aaa != bbb)
-        return LiteralIndexExpr(1);
+        return PredicateIndexExpr(true);
       break;
     case CmpIPredicate::slt:
       if (aaa < bbb)
-        return LiteralIndexExpr(1);
+        return PredicateIndexExpr(true);
       break;
     case CmpIPredicate::sle:
       if (aaa <= bbb)
-        return LiteralIndexExpr(1);
+        return PredicateIndexExpr(true);
       break;
     case CmpIPredicate::sgt:
       if (aaa > bbb)
-        return LiteralIndexExpr(1);
+        return PredicateIndexExpr(true);
       break;
     case CmpIPredicate::sge:
       if (aaa >= bbb)
-        return LiteralIndexExpr(1);
+        return PredicateIndexExpr(true);
       break;
     default:
       llvm_unreachable("unknown or illegal (unsigned) compare operator");
     }
-    return LiteralIndexExpr(0);
+    return PredicateIndexExpr(false);
   };
   F2 valueFct = [&](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     Value compare = aa.getRewriter().create<CmpIOp>(
@@ -615,6 +454,60 @@ IndexExpr IndexExpr::compareOp(
   };
   // Cannot have affine results, disable and pass null lambda function.
   return binaryOp(b, false, false, litFct, nullptr, valueFct);
+}
+
+// Conjunction of two conditions: And
+IndexExpr IndexExpr::operator&(IndexExpr const b) const {
+  if (isLiteral()) {
+    if (getLiteral() == 0)
+      // false & b -> false
+      return PredicateIndexExpr(false);
+    // true & b -> b
+    return b.deepCopy();
+  }
+  if (b.isLiteral()) {
+    if (b.getLiteral() == 0)
+      // a & false -> false
+      return PredicateIndexExpr(false);
+    // a & true -> a
+    return deepCopy();
+  }
+  if (isQuestionmark() || b.isQuestionmark())
+    return QuestionmarkIndexExpr();
+  // Not literals or questionmark, we must have predicates.
+  assert(isPredType() && "expected predicate index expression");
+  assert(b.isPredType() && "expected predicate index expression");
+  Value res = getRewriter().create<AndOp>(getLoc(), getValue(), b.getValue());
+  return PredicateIndexExpr(res);
+}
+
+// Conjunction of two conditions: Or
+IndexExpr IndexExpr::operator|(IndexExpr const b) const {
+  if (isLiteral()) {
+    if (getLiteral() != 0)
+      // true | b -> true
+      return PredicateIndexExpr(true);
+    // false | b -> b
+    return b.deepCopy();
+  }
+  if (b.isLiteral()) {
+    if (b.getLiteral() != 0)
+      // a & true -> true
+      return PredicateIndexExpr(true);
+    // a & false -> a
+    return deepCopy();
+  }
+  if (isQuestionmark() || b.isQuestionmark())
+    return QuestionmarkIndexExpr();
+  // Not literals or questionmark, we must have predicates.
+  assert(isPredType() && "expected predicate index expression");
+  assert(b.isPredType() && "expected predicate index expression");
+  Value res = getRewriter().create<OrOp>(getLoc(), getValue(), b.getValue());
+  return PredicateIndexExpr(res);
+}
+
+IndexExpr IndexExpr::operator!() const {
+  return (*this == PredicateIndexExpr(false));
 }
 
 // The affine reduction lambda function processes the whole list and must init
@@ -871,6 +764,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     // Create a list of affine expression
     assert(vvals.size() > 1 && "come here only with 2 or more values");
     SmallVector<AffineExpr, 4> affineExprs;
+    // Important to get the affine expressions before getting the dims/symbols.
     for (IndexExpr &vv : vvals) {
       affineExprs.emplace_back(vv.getAffineExpr());
     }
@@ -900,6 +794,18 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   return reductionOp(vals, litFct, affineExprFct, valueFct);
 }
 
+/*static*/ IndexExpr IndexExpr::min(
+    IndexExpr const first, IndexExpr const second) {
+  SmallVector<IndexExpr, 2> list = {first, second};
+  return min(list);
+}
+
+/*static*/ IndexExpr IndexExpr::min(
+    IndexExpr const first, int64_t const second) {
+  SmallVector<IndexExpr, 2> list = {first, LiteralIndexExpr(second)};
+  return min(list);
+}
+
 /*static*/ IndexExpr IndexExpr::max(SmallVectorImpl<IndexExpr> &vals) {
   // Res is already an literal int, we are reducing into it.
   F2Self litFct = [](IndexExpr res, IndexExpr const aa) -> IndexExpr {
@@ -914,6 +820,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     // Create a list of affine expression
     assert(vvals.size() > 1 && "come here only with 2 or more values");
     SmallVector<AffineExpr, 4> affineExprs;
+    // Important to get the affine expressions before getting the dims/symbols.
     for (IndexExpr &vv : vvals) {
       affineExprs.emplace_back(vv.getAffineExpr());
     }
@@ -941,6 +848,18 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     return res;
   };
   return reductionOp(vals, litFct, affineExprFct, valueFct);
+}
+
+/*static*/ IndexExpr IndexExpr::max(
+    IndexExpr const first, IndexExpr const second) {
+  SmallVector<IndexExpr, 2> list = {first, second};
+  return max(list);
+}
+
+/*static*/ IndexExpr IndexExpr::max(
+    IndexExpr const first, int64_t const second) {
+  SmallVector<IndexExpr, 2> list = {first, LiteralIndexExpr(second)};
+  return max(list);
 }
 
 //===----------------------------------------------------------------------===//
@@ -976,7 +895,7 @@ IndexExpr IndexExpr::operator!=(int64_t const b) const {
 }
 
 IndexExpr IndexExpr::operator<=(IndexExpr const b) const {
-  return compareOp(CmpIPredicate::slt, b);
+  return compareOp(CmpIPredicate::sle, b);
 }
 
 IndexExpr IndexExpr::operator<=(int64_t const b) const {
@@ -1049,15 +968,9 @@ LiteralIndexExpr::LiteralIndexExpr(IndexExpr const otherIndexExpr) {
 }
 
 void LiteralIndexExpr::init(int64_t const value) {
-  indexExprObj = IndexExprScope::hasCachedLiteralIndexExp(value);
-  if (indexExprObj) {
-    // Scope had a cached version, we are done.
-    return;
-  }
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
-  indexExprObj->initAsLiteral(value);
-  IndexExprScope::cacheLiteralIndexExp(value, indexExprObj);
+  indexExprObj->initAsLiteral(value, IndexExprKind::Affine);
 }
 
 NonAffineIndexExpr::NonAffineIndexExpr(Value const value) {
@@ -1072,7 +985,8 @@ NonAffineIndexExpr::NonAffineIndexExpr(IndexExpr const otherIndexExpr) {
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
   // If the index expression is a literal,  just copy it.
   if (otherIndexExpr.isLiteral()) {
-    indexExprObj->initAsLiteral(otherIndexExpr.getLiteral());
+    indexExprObj->initAsLiteral(
+        otherIndexExpr.getLiteral(), IndexExprKind::Affine);
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
@@ -1120,6 +1034,12 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr(IndexExpr const otherIndexExpr)
   // Don't care about otherIndexExpr as questionmarks have no real data.
 }
 
+PredicateIndexExpr::PredicateIndexExpr(bool const value) {
+  indexExprObj = new IndexExprImpl();
+  assert(indexExprObj && "failed to allocate IndexExpr implementation");
+  indexExprObj->initAsLiteral(value, IndexExprKind::Predicate);
+}
+
 PredicateIndexExpr::PredicateIndexExpr(Value const value) {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
@@ -1132,7 +1052,8 @@ PredicateIndexExpr::PredicateIndexExpr(IndexExpr const otherIndexExpr) {
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
   // If the index expression is a literal,  just copy it.
   if (otherIndexExpr.isLiteral()) {
-    indexExprObj->initAsLiteral(otherIndexExpr.getLiteral());
+    indexExprObj->initAsLiteral(
+        otherIndexExpr.getLiteral(), IndexExprKind::Predicate);
     return;
   }
   assert(otherIndexExpr.getKind() == IndexExprKind::Predicate &&
@@ -1152,7 +1073,8 @@ AffineIndexExpr::AffineIndexExpr(IndexExpr const otherIndexExpr) {
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
   // If the index expression is a literal,  just copy it.
   if (otherIndexExpr.isLiteral()) {
-    indexExprObj->initAsLiteral(otherIndexExpr.getLiteral());
+    indexExprObj->initAsLiteral(
+        otherIndexExpr.getLiteral(), IndexExprKind::Affine);
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
@@ -1200,7 +1122,8 @@ DimIndexExpr::DimIndexExpr(IndexExpr const otherIndexExpr) {
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
   // If the index expression is a literal,  just copy it.
   if (otherIndexExpr.isLiteral()) {
-    indexExprObj->initAsLiteral(otherIndexExpr.getLiteral());
+    indexExprObj->initAsLiteral(
+        otherIndexExpr.getLiteral(), IndexExprKind::Affine);
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
@@ -1249,7 +1172,8 @@ SymbolIndexExpr::SymbolIndexExpr(IndexExpr const otherIndexExpr) {
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
   // If the index expression is a literal,  just copy it.
   if (otherIndexExpr.isLiteral()) {
-    indexExprObj->initAsLiteral(otherIndexExpr.getLiteral());
+    indexExprObj->initAsLiteral(
+        otherIndexExpr.getLiteral(), IndexExprKind::Affine);
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
@@ -1342,30 +1266,113 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
   return SymbolIndexExpr(loadVal);
 }
 
-bool ArrayValueIndexCapture::getSymbolList(
+void ArrayValueIndexCapture::getSymbolList(
     int num, SmallVectorImpl<IndexExpr> &symbolList) {
   // Clear output.
   symbolList.clear();
-  bool successful = true;
-  for (int i = 0; i < num; ++i) {
-    SymbolIndexExpr index = getSymbol(i);
-    if (index.isUndefined())
-      successful = false;
-    symbolList.emplace_back(index);
+  for (int i = 0; i < num; ++i)
+    symbolList.emplace_back(getSymbol(i));
+}
+
+//===----------------------------------------------------------------------===//
+// Capturing Index Expressions: Array of values
+//===----------------------------------------------------------------------===//
+
+ArrayAttributeIndexCapture::ArrayAttributeIndexCapture(ArrayAttr array)
+    : array(array), arraySize((array) ? array.size() : 0), hasDefault(false) {}
+
+ArrayAttributeIndexCapture::ArrayAttributeIndexCapture(
+    ArrayAttr array, int64_t defaultLiteral)
+    : array(array), arraySize((array) ? array.size() : 0),
+      defaultLiteral(defaultLiteral), hasDefault(true) {}
+
+IndexExpr ArrayAttributeIndexCapture::getLiteral(uint64_t i) {
+  if (i < arraySize) {
+    int64_t val = (array.getValue()[i]).cast<IntegerAttr>().getInt();
+    return LiteralIndexExpr(val);
   }
-  return successful;
+  if (hasDefault)
+    return LiteralIndexExpr(defaultLiteral);
+  return UndefinedIndexExpr();
 }
 
 //===----------------------------------------------------------------------===//
 // Capturing Index Expressions: MemRef Bounds
 //===----------------------------------------------------------------------===//
 
-MemRefBoundIndexCapture::MemRefBoundIndexCapture(Value tensorOrMemref)
-    : tensorOrMemref(tensorOrMemref) {}
+MemRefBoundsIndexCapture::MemRefBoundsIndexCapture(Value tensorOrMemref)
+    : tensorOrMemref(tensorOrMemref), memRank(0) {
+  ShapedType shapedType =
+      tensorOrMemref.getType().dyn_cast_or_null<ShapedType>();
+  if (shapedType)
+    memRank = shapedType.getShape().size();
+}
 
-IndexExpr MemRefBoundIndexCapture::getDim(uint64_t i) {
+bool MemRefBoundsIndexCapture::isLiteral(int64_t i) {
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
+  return (shape[i] >= 0);
+}
+
+int64_t MemRefBoundsIndexCapture::getShape(int64_t i) {
+  ArrayRef<int64_t> shape =
+      tensorOrMemref.getType().cast<ShapedType>().getShape();
+  return shape[i];
+}
+
+bool MemRefBoundsIndexCapture::areAllLiteral() {
+  ArrayRef<int64_t> shape =
+      tensorOrMemref.getType().cast<ShapedType>().getShape();
+  for (int i = 0; i < memRank; ++i)
+    if (shape[i] < 0)
+      return false;
+  return true;
+}
+
+IndexExpr MemRefBoundsIndexCapture::getDim(uint64_t i) {
+  return get<DimIndexExpr>(i);
+}
+
+IndexExpr MemRefBoundsIndexCapture::getSymbol(uint64_t i) {
+  return get<SymbolIndexExpr>(i);
+}
+
+// Assert if not a literal.
+IndexExpr MemRefBoundsIndexCapture::getLiteral(uint64_t i) {
+  assert(i < memRank && "out of bound access");
+  ArrayRef<int64_t> shape =
+      tensorOrMemref.getType().cast<ShapedType>().getShape();
+  if (shape[i] >= 0) {
+    // We have a constant dimension.
+    int64_t intVal = shape[i];
+    return LiteralIndexExpr(intVal);
+  }
+  llvm_unreachable("expected a literal");
+}
+
+void MemRefBoundsIndexCapture::getDimList(SmallVectorImpl<IndexExpr> &dimList) {
+  getList<DimIndexExpr>(dimList);
+}
+
+void MemRefBoundsIndexCapture::getSymbolList(
+    SmallVectorImpl<IndexExpr> &symbolList) {
+  getList<SymbolIndexExpr>(symbolList);
+}
+
+void MemRefBoundsIndexCapture::getLiteralList(
+    SmallVectorImpl<IndexExpr> &literalList) {
+  // Clear output.
+  literalList.clear();
+  // Scan tensor or memref.
+  for (int i = 0; i < memRank; ++i)
+    literalList.emplace_back(getLiteral(i));
+}
+
+template <class INDEX>
+IndexExpr MemRefBoundsIndexCapture::get(uint64_t i) {
+  ArrayRef<int64_t> shape =
+      tensorOrMemref.getType().cast<ShapedType>().getShape();
+  assert(i < memRank && "index out of bound");
   if (shape[i] >= 0) {
     // We have a constant dimension.
     int64_t intVal = shape[i];
@@ -1379,45 +1386,14 @@ IndexExpr MemRefBoundIndexCapture::getDim(uint64_t i) {
   }
   Value dynVal =
       scope.getRewriter().create<DimOp>(scope.getLoc(), tensorOrMemref, i);
-  return DimIndexExpr(dynVal);
+  return INDEX(dynVal);
 }
 
-bool MemRefBoundIndexCapture::getDimList(SmallVectorImpl<IndexExpr> &dimList) {
+template <class INDEX>
+void MemRefBoundsIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
   // Clear output.
-  dimList.clear();
-  // Scan type and shape, bail if incompatible.
-  ShapedType type = tensorOrMemref.getType().cast<ShapedType>();
-  int size = type.getShape().size();
+  list.clear();
   // Scan tensor or memref.
-  bool successful = true;
-  for (int i = 0; i < size; ++i) {
-    IndexExpr index = getDim(i);
-    if (index.isUndefined())
-      successful = false;
-    dimList.emplace_back(index);
-  }
-  return successful;
-}
-
-//===----------------------------------------------------------------------===//
-// Generating Krnl Load / Store
-//===----------------------------------------------------------------------===//
-
-krnl_load::krnl_load(Value memref, SmallVectorImpl<IndexExpr> &indices) {
-  IndexExprScope &currScope = IndexExprScope::getCurrentScope();
-  SmallVector<Value, 4> loadIndices;
-  for (IndexExpr ie : indices)
-    loadIndices.emplace_back(ie.getValue());
-  result = currScope.getRewriter().create<KrnlLoadOp>(
-      currScope.getLoc(), memref, loadIndices);
-}
-
-krnl_store::krnl_store(
-    Value val, Value memref, SmallVectorImpl<IndexExpr> &indices) {
-  IndexExprScope &currScope = IndexExprScope::getCurrentScope();
-  SmallVector<Value, 4> storeIndices;
-  for (IndexExpr ie : indices)
-    storeIndices.emplace_back(ie.getValue());
-  currScope.getRewriter().create<KrnlStoreOp>(
-      currScope.getLoc(), val, memref, storeIndices);
+  for (int i = 0; i < memRank; ++i)
+    list.emplace_back(get<INDEX>(i));
 }
