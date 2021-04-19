@@ -217,9 +217,8 @@ find_mlir_lib(MLIRViewLikeInterface)
 find_mlir_lib(MLIRPresburger)
 find_mlir_lib(MLIRTensor)
 find_mlir_lib(MLIRArmNeon)
-find_mlir_lib(MLIRArmSVEToLLVM)
-find_mlir_lib(MLIRLLVMArmSVE)
 find_mlir_lib(MLIRArmSVE)
+find_mlir_lib(MLIRArmSVETransforms)
 find_mlir_lib(MLIRAffineToTVP)
 find_mlir_lib(MLIRVectorToTVP)
 find_mlir_lib(MLIRStandardToTVP)
@@ -332,9 +331,8 @@ set(MLIRLibs
         ${MLIRPDL}
         ${MLIRTensor}
         ${MLIRArmNeon}
-        ${MLIRArmSVEToLLVM}
-        ${MLIRLLVMArmSVE}
         ${MLIRArmSVE}
+        ${MLIRArmSVETransforms}
         ${MLIRAffineToTVP}
         ${MLIRVectorToTVP}
         ${MLIRStandardToTVP}
