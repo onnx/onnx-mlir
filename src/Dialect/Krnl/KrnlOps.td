@@ -631,6 +631,7 @@ def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect]> 
   }];
 
   let hasFolder = 1;
+  let builders = [ OpBuilderDAG<(ins "Value": $source, "int64_t": $vectorLen)> ];
 
   let assemblyFormat = [{
     $source attr-dict `:` type($source) `to` type($result)

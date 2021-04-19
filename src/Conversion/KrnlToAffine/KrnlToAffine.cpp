@@ -698,6 +698,24 @@ public:
       kComputeTileSize = computeSizeCapture.getLiteral(2);
     }
 
+    // Simdize along M for the full compute tile
+    IndexExpr vectorLen;
+    if (simdize) {
+      vectorLen = jComputeTileSize;
+      assert(vectorLen.isLiteral() && "simd requires constant size");
+      // last dim of B & C are simdized.
+      assert(bBounds.isLiteral(bRank - 1) && "last dim of B must be constant");
+      assert(cBounds.isLiteral(cRank - 1) && "last dim of C must be constant");
+      int64_t VL = vectorLen.getLiteral();
+      assert(bBounds.getShape(bRank - 1) % VL == 0 &&
+             "last dim of B must be multiple of vector length");
+      assert(cBounds.getShape(cRank - 1) % VL == 0 &&
+             "last dim of C must be multiple of vector length");
+    } else {
+      // scalar is same as vector length of 1 in computations below.
+      vectorLen = LiteralIndexExpr(1);
+    }
+
     // Now get global start indices, which would define the first element of the
     // tiles in the original computations.
     DimIndexExpr iComputeStart(operandAdaptor.iComputeStart()),
@@ -730,15 +748,10 @@ public:
     cStart.emplace_back(
         jComputeStart - DimIndexExpr(operandAdaptor.cMemStart()[cRank - 1]));
 
-    IndexExpr AStart0 = aStart[0];
-    IndexExpr AStart1 = aStart[1];
-    IndexExpr BStart0 = bStart[0];
-    IndexExpr BStart1 = bStart[1];
-    IndexExpr CStart0 = cStart[0];
-    IndexExpr CStart1 = cStart[1];
+    SmallVector<IndexExpr, 4> bVecStart(bStart), cVecStart(cStart);
+    bVecStart[bRank - 1] = bStart[bRank - 1].floorDiv(vectorLen);
+    cVecStart[cRank - 1] = cStart[cRank - 1].floorDiv(vectorLen);
 
-    // Simdize along M for the full compute tile
-    IndexExpr vectorLen = jComputeTileSize;
     // Now determine if we have full/partial tiles. This is determined by the
     // outer dimensions of the original computations, as by definition tiling
     // within the buffer always results in full tiles. In other words, partial
@@ -780,7 +793,7 @@ public:
       // clang-format off
       genIfThenElseWithoutParams(rewriter, allFullTiles,
         /* then full */ [&](ValueRange) {
-        genSimd(rewriter, op, elementType, aStart, bStart, cStart,
+        genSimd(rewriter, op, elementType, aStart, bVecStart, cVecStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
           vectorLen, fullUnrollAndJam); 
       }, /* has some partial tiles */ [&](ValueRange) {
@@ -788,13 +801,13 @@ public:
         // Test if SIMD dim (M) is full.
         genIfThenElseWithoutParams(rewriter, jFullTiles,
           /* full SIMD */ [&](ValueRange) {
-          genSimd(rewriter, op, elementType, aStart, bStart, cStart,
+          genSimd(rewriter, op, elementType, aStart, bVecStart, cVecStart,
             iTrip, jComputeTileSize, kTrip, vectorLen, false);
         }, /* else partial SIMD */ [&](ValueRange) {
           if (false && jPartialTrip.isLiteral() && jPartialTrip.getLiteral() >=2) {
             // has a known trip count along the simd dimension of at least 2
             // elements, use simd again.
-            genSimd(rewriter, op, elementType, aStart, bStart, cStart,
+            genSimd(rewriter, op, elementType, aStart, bVecStart, cVecStart,
               iTrip, jPartialTrip, kTrip, vectorLen, false);
           } else {
             genScalar(rewriter, op, elementType, aStart, bStart,  cStart,
@@ -894,6 +907,8 @@ private:
     int64_t VL = vectorLen.getLiteral();
     VectorType vecType = VectorType::get({VL}, elementType);
     MemRefType CTmpType = MemRefType::get({}, vecType);
+    Value vecB = krnl_vector_type_cast(B, VL);
+    Value vecC = krnl_vector_type_cast(C, VL);
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved;
@@ -909,8 +924,7 @@ private:
       // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
       IndexExpr::getValues(cStart, cAccess);
       cAccess[cRank-2] = i + cAccess[cRank-2];
-      TTmpC() = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType,
-        C, cAccess);
+      TTmpC() = affine_load(vecC, cAccess);
       // Sum over k.
       affineLoopBuilder(zero, K, 1, [&](Value k) {
         // Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
@@ -923,8 +937,7 @@ private:
         // bAccess = {k + bStart0.getValue(), bStart1.getValue()};
         IndexExpr::getValues(bStart, bAccess);
         bAccess[bRank-2] = k + bAccess[bRank-2];
-        Value vb = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType,
-          B, bAccess);
+        Value vb = affine_load(vecB, bAccess);
         TTmpC() = vector_fma(va, vb, TTmpC());
       });
       // Store temp result into C(i)
@@ -936,16 +949,15 @@ private:
         for(int64_t i=0; i<VL; i++)
           mask.emplace_back((i<JLit) ? i : VL+i);
         // permute
-        Value originalCvec = rewriter.create<AffineVectorLoadOp>(op.getLoc(), 
-          vecType, C, cAccess);
+        Value originalCvec = affine_load(vecC, cAccess);
         tmpResults = rewriter.create<vector::ShuffleOp>(op.getLoc(),
           tmpResults, originalCvec, mask);
       }
       //CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
-      rewriter.create<AffineVectorStoreOp>(op.getLoc(), tmpResults, C, cAccess);
+      affine_store(tmpResults, vecC, cAccess);
     });
     // clang-format on
-    if (unrollJam && I.isLiteral()) {
+    if (false && unrollJam && I.isLiteral()) {
       // Unroll and jam. Seems to support only one operation at this time.
       auto iLoop = getForInductionVarOwner(iSaved);
       LogicalResult res = loopUnrollJamUpToFactor(iLoop, I.getLiteral());
