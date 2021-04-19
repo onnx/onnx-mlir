@@ -14,6 +14,9 @@ if(Java_Development_FOUND AND JNI_FOUND)
           src/com/ibm/onnxmlir/OMTensorList.java
           src/com/ibm/onnxmlir/OMTensor.java)
 
+  # ONNX_MLIR_LIBRARY_PATH is a generator expression which is not supported by add_jar as the output
+  # directory. Instead, we let add_jar place the jar file in the default location and copy it to the
+  # library path after it is built.
   add_custom_command(TARGET javaruntime POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_PROPERTY:javaruntime,JAR_FILE> ${ONNX_MLIR_LIBRARY_PATH})
 
