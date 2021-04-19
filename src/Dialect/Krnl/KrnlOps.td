@@ -761,6 +761,16 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
         krnl.copy_from_tile_buffer %Cbuff, %C[%i1, %j1] :
           memref<10x8xf32>, memref<40x80xf32>
     }
+
+    Note that code is simdized along the J dim (last dim of B and C matrices).
+    For simd to be enabled, the simdized flag must be set to true, and the 
+    following condition must be true:
+    1) The vector length is the second entry of (i, j, k) compute tile size.
+       The vector length must be a compile time constant.
+    2) last dim of B & C mem ref must be constant and a multiple of the vector
+       length.
+    By copying the original data B and result C into tiles of known compile time
+    sizes, any computations can be made to simdize.
   }];
 
   let arguments = (ins 

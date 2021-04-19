@@ -173,51 +173,82 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Tile K.
     ValueRange kCacheBlock = krnl_block(kk, kCacheTile);
     Value kk1(kCacheBlock[0]), kk2(kCacheBlock[1]);
-    // (cache) jj1 kk1, ii1,    (reg) jj2, ii2,    (matmul) ii3, jj3, kk3
-    krnl_permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
-        {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
 
-    // Compute: A[i, k] * b[k, j] -> R[i, j])
-    krnl_iterate_ie(
-        {jj, kk}, {jj1, kk1}, {zero, zero}, {J, K}, {}, [&](ValueRange args) {
-          ValueRange j1_k1_indices = krnl_get_induction_var_value({jj1, kk1});
-          Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
-          if (bTrans)
-            krnl_copy_to_buffer(bBuff, B, {j1, k1}, zeroVal, bTrans);
-          else
-            krnl_copy_to_buffer(bBuff, B, {k1, j1}, zeroVal, bTrans);
-          krnl_iterate_ie({ii}, {ii1}, {zero}, {I}, {}, [&](ValueRange args) {
-            ValueRange i1_index = krnl_get_induction_var_value({ii1});
-            Value i1(i1_index[0]);
-            if (aTrans)
-              krnl_copy_to_buffer(aBuff, A, {k1, i1}, zeroVal, aTrans);
-            else
-              krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, aTrans);
-            if (mustTileR)
-              krnl_copy_to_buffer(rBuff, R, {i1, j1}, zeroVal, false);
-            krnl_iterate({}, {jj2, ii2}, {}, {}, {}, [&](ValueRange args) {
-              ValueRange j2_i2_indices =
-                  krnl_get_induction_var_value({jj2, ii2});
-              Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
-              if (mustTileR)
+    // If we must tile the result R, then we put I & J in the outermost.
+    // Otherwise, we follow the more traditional scheme of having J & K in the
+    // outermost.
+    if (mustTileR) {
+      // (cache) ii1 jj1 kk1,    (reg) jj2, ii2,    (matmul) ii3, jj3, kk3
+      krnl_permute({ii1, ii2, ii3, jj1, jj2, jj3, kk1, kk2},
+          {/*i*/ 0, 4, 5, /*j*/ 1, 3, 6, /*k*/ 2, 7});
+      // Compute: A[i, k] * b[k, j] -> R[i, j])
+      krnl_iterate_ie(
+          {ii, jj}, {ii1, jj1}, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
+            ValueRange i1_j1_indices = krnl_get_induction_var_value({ii1, jj1});
+            Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
+            krnl_copy_to_buffer(rBuff, R, {i1, j1}, zeroVal, false);
+            krnl_iterate_ie({kk}, {kk1}, {zero}, {K}, {}, [&](ValueRange args) {
+              ValueRange k1_index = krnl_get_induction_var_value({kk1});
+              Value k1(k1_index[0]);
+              if (aTrans)
+                krnl_copy_to_buffer(aBuff, A, {k1, i1}, zeroVal, true);
+              else
+                krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, false);
+              if (bTrans)
+                krnl_copy_to_buffer(bBuff, B, {j1, k1}, zeroVal, true);
+              else
+                krnl_copy_to_buffer(bBuff, B, {k1, j1}, zeroVal, false);
+              krnl_iterate({}, {jj2, ii2}, {}, {}, {}, [&](ValueRange args) {
+                ValueRange j2_i2_indices =
+                    krnl_get_induction_var_value({jj2, ii2});
+                Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
                 krnl_matmul(aBuff, {i1, k1}, bBuff, {k1, j1}, rBuff, {i1, j1},
                     /*loops*/ {ii3, jj3, kk2},
                     /*compute start*/ {i2, j2, k1},
                     /*ubs*/ {I.getValue(), J.getValue(), K.getValue()},
                     /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
                     /* a/b/c tiles*/ {}, {}, {}, simdize, true, false);
+              });
+            });
+            krnl_copy_from_buffer(rBuff, R, {i1, j1});
+          });
+
+    } else {
+      // Does not have to tile the result.
+      // (cache) jj1 kk1, ii1, (reg) jj2, ii2, (matmul) ii3, jj3, kk3
+      krnl_permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
+          {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
+      // Compute: A[i, k] * b[k, j] -> R[i, j])
+      krnl_iterate_ie(
+          {jj, kk}, {jj1, kk1}, {zero, zero}, {J, K}, {}, [&](ValueRange args) {
+            ValueRange j1_k1_indices = krnl_get_induction_var_value({jj1, kk1});
+            Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
+            if (bTrans)
+              krnl_copy_to_buffer(bBuff, B, {j1, k1}, zeroVal, true);
+            else
+              krnl_copy_to_buffer(bBuff, B, {k1, j1}, zeroVal, false);
+            krnl_iterate_ie({ii}, {ii1}, {zero}, {I}, {}, [&](ValueRange args) {
+              ValueRange i1_index = krnl_get_induction_var_value({ii1});
+              Value i1(i1_index[0]);
+              if (aTrans)
+                krnl_copy_to_buffer(aBuff, A, {k1, i1}, zeroVal, true);
               else
+                krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, false);
+              krnl_iterate({}, {jj2, ii2}, {}, {}, {}, [&](ValueRange args) {
+                ValueRange j2_i2_indices =
+                    krnl_get_induction_var_value({jj2, ii2});
+                Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
                 krnl_matmul(aBuff, {i1, k1}, bBuff, {k1, j1}, R, {z, z},
                     /*loops*/ {ii3, jj3, kk2},
                     /*compute start*/ {i2, j2, k1},
                     /*ubs*/ {I.getValue(), J.getValue(), K.getValue()},
                     /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
                     /* a/b/c tiles*/ {}, {}, {}, simdize, true, false);
+              });
             });
-            if (mustTileR)
-              krnl_copy_from_buffer(rBuff, R, {i1, j1});
           });
-        });
+    }
+
     rewriter.create<DeallocOp>(loc, aBuff);
     rewriter.create<DeallocOp>(loc, bBuff);
     if (mustTileR)

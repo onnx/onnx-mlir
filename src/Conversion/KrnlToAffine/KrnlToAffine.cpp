@@ -698,23 +698,27 @@ public:
       kComputeTileSize = computeSizeCapture.getLiteral(2);
     }
 
-    // Simdize along M for the full compute tile
-    IndexExpr vectorLen;
-    if (simdize) {
-      vectorLen = jComputeTileSize;
-      assert(vectorLen.isLiteral() && "simd requires constant size");
-      // last dim of B & C are simdized.
-      assert(bBounds.isLiteral(bRank - 1) && "last dim of B must be constant");
-      assert(cBounds.isLiteral(cRank - 1) && "last dim of C must be constant");
-      int64_t VL = vectorLen.getLiteral();
-      assert(bBounds.getShape(bRank - 1) % VL == 0 &&
-             "last dim of B must be multiple of vector length");
-      assert(cBounds.getShape(cRank - 1) % VL == 0 &&
-             "last dim of C must be multiple of vector length");
-    } else {
-      // scalar is same as vector length of 1 in computations below.
-      vectorLen = LiteralIndexExpr(1);
+    // If we simdize, its along M for the full compute tile.
+    IndexExpr vectorLen = jComputeTileSize;
+    if (!vectorLen.isLiteral()) {
+      // Cannot simdize if the vector length is not a compile time constant.
+      simdize = false;
     }
+    if (!bBounds.isLiteral(bRank - 1) || !cBounds.isLiteral(cRank - 1)) {
+      // Cannot simdize if the last dim of B or C are not constant.
+      simdize = false;
+    }
+    if (simdize) {
+      int64_t VL = vectorLen.getLiteral();
+      if (bBounds.getShape(bRank - 1) % VL != 0 ||
+          cBounds.getShape(cRank - 1) % VL != 0) {
+        // If the memref of B and C are not multiple of the vector length in
+        // their last dim, then we cannot simdize either.
+        simdize = false;
+      }
+    }
+    if (!simdize)
+      vectorLen = LiteralIndexExpr(1);
 
     // Now get global start indices, which would define the first element of the
     // tiles in the original computations.
