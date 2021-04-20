@@ -391,7 +391,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
 
   // TODO: make this pass optional:
-  if (false) {
+  if (true) {
     pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
     pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
     pm.addPass(mlir::createCanonicalizerPass());

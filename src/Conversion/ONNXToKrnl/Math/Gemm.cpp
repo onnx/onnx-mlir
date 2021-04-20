@@ -18,8 +18,10 @@
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 // Used to trace which op are used, good for profiling apps.
-#define DEBUG 0
+#define TRACE 0
+#define DEBUG_SIMD_OFF 0
 
+#define BUFFER_ALIGN 128
 using namespace mlir;
 
 template <typename GemmOp>
@@ -120,7 +122,11 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     const int64_t iCacheTile(64), jCacheTile(128), kCacheTile(512);
     const int64_t iRegTile(4), jRegTile(8);
 
+#if DEBUG_SIMD_OFF
+    bool simdize = false;
+#else
     bool simdize = true; // Simdize with jRegTile as the vector length.
+#endif
     bool mustTileR = false;
     if (!J.isLiteral()) {
       // Assume large J, will simdize, but since simdized dimension must be a
@@ -152,11 +158,14 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     MemRefType rTileType =
         MemRefType::get({iCacheTile, jCacheTile}, elementType);
     ValueRange empty;
-    Value aBuff = std_alloc(aTileType, empty);
-    Value bBuff = std_alloc(bTileType, empty);
+    Value aBuff =
+        std_alloc(aTileType, empty, rewriter.getI64IntegerAttr(BUFFER_ALIGN));
+    Value bBuff =
+        std_alloc(bTileType, empty, rewriter.getI64IntegerAttr(BUFFER_ALIGN));
     Value rBuff;
     if (mustTileR)
-      rBuff = std_alloc(rTileType, empty);
+      rBuff =
+          std_alloc(rTileType, empty, rewriter.getI64IntegerAttr(BUFFER_ALIGN));
 
     // 3) introduce the loops and permute them
     // I, J, K loop.
@@ -297,7 +306,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
-    shapeHelper.scope.debugPrint("initial scope");
     assert(succeeded(shapecomputed));
     // Scope for krnl EDSC ops
     using namespace mlir::edsc;
@@ -316,7 +324,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-#if DEBUG
+#if TRACE
     bool aTrans = gemmOp.transA();
     bool bTrans = gemmOp.transB();
     if (IndexExpr::isLiteral(shapeHelper.aDims) &&

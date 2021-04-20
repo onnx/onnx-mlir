@@ -32,6 +32,8 @@
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 #include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
 
+#define DEBUG_MALLOC 1
+
 using namespace mlir;
 
 namespace {
@@ -848,7 +850,12 @@ private:
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
     int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
     MemRefType CTmpType = MemRefType::get({}, elementType);
+#if DEBUG_MALLOC
+    ValueRange empty;
+    Value TmpC = std_alloc(CTmpType, empty);
+#else
     Value TmpC = std_alloca(CTmpType);
+#endif
 
     // For i, j loops.
     using namespace edsc::op;
@@ -886,7 +893,9 @@ private:
         affine_store(TTmpC(), C, cAccess);
       });
     });
-
+#if DEBUG_MALLOC
+    rewriter.create<DeallocOp>(op.getLoc(), TmpC);
+#endif
     // clang-format on
     if (unrollJam && J.isLiteral()) {
       // Unroll and jam. Seems to support only one operation at this time.
@@ -914,7 +923,12 @@ private:
     MemRefType CTmpType = MemRefType::get({}, vecType);
     Value vecB = krnl_vector_type_cast(B, VL);
     Value vecC = krnl_vector_type_cast(C, VL);
-    Value TmpC = std_alloca(CTmpType);
+#if DEBUG_MALLOC
+    ValueRange empty;
+    Value TmpC = std_alloc(CTmpType, empty, rewriter.getI64IntegerAttr(16));
+#else
+    Value TmpC = std_alloca(CTmpType, rewriter.getI64IntegerAttr(16));
+#endif
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved;
@@ -961,6 +975,9 @@ private:
       //CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
       affine_store(tmpResults, vecC, cAccess);
     });
+#if DEBUG_MALLOC
+    rewriter.create<DeallocOp>(op.getLoc(), TmpC);
+#endif
 
     // clang-format on
     if (false && unrollJam && I.isLiteral()) {
