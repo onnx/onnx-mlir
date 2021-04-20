@@ -73,21 +73,6 @@ endif()
 set(LLVM_BIN_INCLUDE_PATH ${LLVM_PROJ_BUILD}/include)
 set(MLIR_SRC_INCLUDE_PATH ${LLVM_PROJ_SRC}/mlir/include)
 set(MLIR_BIN_INCLUDE_PATH ${LLVM_PROJ_BUILD}/tools/mlir/include)
-set(MLIR_TOOLS_DIR ${LLVM_PROJ_BIN})
-
-# ONNX-MLIR tools folder
-if(MSVC)
-  if (CMAKE_BUILD_TYPE)
-    set(ONNX_MLIR_TOOLS_DIR ${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE})
-  else()
-    set(ONNX_MLIR_TOOLS_DIR ${CMAKE_BINARY_DIR}/bin/Release)
-  endif()
-else()
-  set(ONNX_MLIR_TOOLS_DIR ${CMAKE_BINARY_DIR}/bin)
-endif()
-message(STATUS "ONNX_MLIR_TOOLS_DIR     : " ${ONNX_MLIR_TOOLS_DIR})
-set(ONNX_MLIR_LIT_TEST_SRC_DIR ${ONNX_MLIR_SRC_ROOT}/test/mlir)
-set(ONNX_MLIR_LIT_TEST_BUILD_DIR ${CMAKE_BINARY_DIR}/test/mlir)
 
 set(
         MLIR_INCLUDE_PATHS
@@ -117,17 +102,6 @@ if(NOT MSVC)
   find_package(Curses REQUIRED)
   find_package(ZLIB REQUIRED)
   set(MLIR_SYSTEM_LIBS ${MLIR_SYSTEM_LIBS} ${ZLIB_LIBRARIES} ${CURSES_LIBRARIES})
-endif()
-
-# Set output library path
-if(MSVC)
-  if (CMAKE_BUILD_TYPE)
-    set(ONNX_MLIR_LIB_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${CMAKE_BUILD_TYPE})
-  else()
-    set(ONNX_MLIR_LIB_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/Release)
-  endif()
-else()
-    set(ONNX_MLIR_LIB_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 endif()
 
 function(find_mlir_lib lib)
