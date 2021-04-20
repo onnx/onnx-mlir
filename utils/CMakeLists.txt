@@ -27,5 +27,3 @@ add_custom_target(OMONNXOpsIncTranslation
 
 add_custom_target(OMONNXCheckVersion
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/gen_onnx_mlir.py --check-operation-version)
-
-add_subdirectory(ctest)
