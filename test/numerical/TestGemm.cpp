@@ -174,9 +174,10 @@ int main(int argc, char *argv[]) {
 
   printf("RapidCheck test case generation.\n");
   rc::check("Gemm implementation correctness", []() {
-    const auto I = *rc::gen::inRange(1, 50);
-    const auto J = *rc::gen::inRange(1, 50);
-    const auto K = *rc::gen::inRange(1, 50);
+    const int maxRange = 50;
+    const auto I = *rc::gen::inRange(1, maxRange);
+    const auto J = *rc::gen::inRange(1, maxRange);
+    const auto K = *rc::gen::inRange(1, maxRange);
     const auto aTrans = *rc::gen::inRange(0, 2);
     const auto bTrans = *rc::gen::inRange(0, 2);
     const auto hasAlpha = *rc::gen::inRange(0, 2);
@@ -193,6 +194,10 @@ int main(int argc, char *argv[]) {
     assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 1024, 0, 1, 1.0, 1.0));
     assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 2048, 0, 1, 1.0, 1.0));
     assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 25088, 0, 1, 1.0, 1.0));
+    // vcg 19
+    assert(isOMGemmTheSameAsNaiveImplFor(1, 4096, 25088, 0, 1, 1.0, 1.0));
+    assert(isOMGemmTheSameAsNaiveImplFor(1, 4096, 4096, 0, 1, 1.0, 1.0));
+    assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 4096, 0, 1, 1.0, 1.0));
   }
   return 0;
 }

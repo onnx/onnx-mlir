@@ -848,6 +848,7 @@ private:
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
     int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
     MemRefType CTmpType = MemRefType::get({}, elementType);
+    Value TmpC = std_alloca(CTmpType);
 
     // For i, j loops.
     using namespace edsc::op;
@@ -859,7 +860,6 @@ private:
         // Defines induction variables, and possibly initialize C.
         jSaved = j;
         // Alloc and init temp c storage.
-        Value TmpC = std_alloca(CTmpType);
         AffineIndexedValue TTmpC(TmpC);
         SmallVector<Value, 4> cAccess;
         // CC(i + cStart0.getValue(), j + cStart1.getValue());
@@ -886,6 +886,7 @@ private:
         affine_store(TTmpC(), C, cAccess);
       });
     });
+
     // clang-format on
     if (unrollJam && J.isLiteral()) {
       // Unroll and jam. Seems to support only one operation at this time.
@@ -913,6 +914,7 @@ private:
     MemRefType CTmpType = MemRefType::get({}, vecType);
     Value vecB = krnl_vector_type_cast(B, VL);
     Value vecC = krnl_vector_type_cast(C, VL);
+    Value TmpC = std_alloca(CTmpType);
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved;
@@ -922,7 +924,6 @@ private:
     affineLoopBuilder(zero, I, 1, [&](Value i) {
       iSaved = i; // Saved for unroll and jam.
       // Alloca temp vector TmpC and save C(i)/0.0 into it.
-      Value TmpC = std_alloca(CTmpType);
       AffineIndexedValue TTmpC(TmpC);
       SmallVector<Value, 4> cAccess;
       // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
@@ -960,6 +961,7 @@ private:
       //CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
       affine_store(tmpResults, vecC, cAccess);
     });
+
     // clang-format on
     if (false && unrollJam && I.isLiteral()) {
       // Unroll and jam. Seems to support only one operation at this time.
