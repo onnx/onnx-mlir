@@ -19,7 +19,7 @@
 
 // Used to trace which op are used, good for profiling apps.
 #define TRACE 0
-#define DEBUG_SIMD_OFF 0
+#define DEBUG_SIMD_OFF 1
 
 #define BUFFER_ALIGN 128
 using namespace mlir;
