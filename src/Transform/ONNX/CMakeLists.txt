@@ -11,22 +11,10 @@ add_dependencies(OMElideConstants OMONNXOpsInc)
 # Linking dependencies
 add_dependencies(OMElideConstants OMONNXOps)
 
-
-set(LLVM_TARGET_DEFINITIONS Rewrite.td)
-onnx_mlir_tablegen(ONNXRewrite.inc -gen-rewriters)
-add_public_tablegen_target(OMONNXRewriteIncGen)
-
-set(LLVM_TARGET_DEFINITIONS Combine.td)
-onnx_mlir_tablegen(ONNXCombine.inc -gen-rewriters)
-add_public_tablegen_target(OMONNXCombineIncGen)
-
-set(LLVM_TARGET_DEFINITIONS Decompose.td)
-onnx_mlir_tablegen(ONNXDecompose.inc -gen-rewriters)
-add_public_tablegen_target(OMONNXDecomposeIncGen)
-
-set(LLVM_TARGET_DEFINITIONS ConstProp.td)
-onnx_mlir_tablegen(ONNXConstProp.inc -gen-rewriters)
-add_public_tablegen_target(OMONNXConstPropIncGen)
+add_onnx_mlir_rewriter(Rewrite)
+add_onnx_mlir_rewriter(Combine)
+add_onnx_mlir_rewriter(Decompose)
+add_onnx_mlir_rewriter(ConstProp)
 
 add_library(OMONNXRewrite
         Rewrite.cpp
@@ -53,7 +41,7 @@ target_include_directories(OMShapeInference
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 # Header dependencies
-add_dependencies(OMShapeInference ShapeInferenceOpInterfaceIncGen)
+add_dependencies(OMShapeInference OMShapeInferenceOpInterfaceIncGen)
 # Linking dependencies
 add_dependencies(OMShapeInference OMShapeInferenceOpInterface)
 
