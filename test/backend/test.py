@@ -53,13 +53,12 @@ else :
 print("temporary results are in dir "+result_dir)
 
 CXX = test_config.CXX_PATH
-TEST_DRIVER = os.path.join(test_config.TEST_DRIVER_BUILD_PATH, "bin",
-                           test_config.TEST_DRIVER_COMMAND)
-LLC = os.path.join(test_config.LLVM_PROJ_BUILD_PATH, "bin/llc")
+LLC = test_config.LLC_PATH
+RUNTIME_DIR = test_config.TEST_DRIVER_RUNTIME_PATH
+TEST_DRIVER = test_config.TEST_DRIVER_PATH
 
 # Make lib folder under build directory visible in PYTHONPATH
 doc_check_base_dir = os.path.dirname(os.path.realpath(__file__))
-RUNTIME_DIR = os.path.join(test_config.TEST_DRIVER_BUILD_PATH, "lib")
 sys.path.append(RUNTIME_DIR)
 from PyRuntime import ExecutionSession
 
@@ -881,7 +880,7 @@ class DummyBackend(onnx.backend.base.Backend):
         dynamic_inputs_dims = determine_dynamic_parameters(name)
         execute_commands([TEST_DRIVER, model_name], dynamic_inputs_dims)
         if not os.path.exists(exec_name) :
-            print("Failed " + test_config.TEST_DRIVER_COMMAND + ": " + name)
+            print("Failed " + test_config.TEST_DRIVER_PATH + ": " + name)
         return EndiannessAwareExecutionSession(exec_name,
                                                    "run_main_graph")
 

@@ -26,8 +26,8 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 
-#include "src/ExternalUtil.hpp"
-#include "src/MainUtils.hpp"
+#include "ExternalUtil.hpp"
+#include "MainUtils.hpp"
 
 #ifdef _WIN32
 #include <io.h>
