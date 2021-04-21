@@ -884,14 +884,16 @@ class DummyBackend(onnx.backend.base.Backend):
         if not os.path.exists(model_name) :
             print("Failed save model: "+ name)
         print(name)
-        options = ""
+        # Command
+        command_list = [TEST_DRIVER]
         if args.mcpu:
-            options += " --mcpu="+args.mcpu
+            command_list.append("--mcpu="+args.mcpu)
         if args.mtriple:
-            options += " --mtriple="+args.mtriple
+            command_list.append("--mtriple="+args.mtriple)
+        command_list.append(model_name)
         # Call frontend to process temp_model.onnx, bit code will be generated.
         dynamic_inputs_dims = determine_dynamic_parameters(name)
-        execute_commands([TEST_DRIVER, options, model_name], dynamic_inputs_dims)
+        execute_commands(command_list, dynamic_inputs_dims)
         if not os.path.exists(exec_name) :
             print("Failed " + test_config.TEST_DRIVER_PATH + ": " + name)
         return EndiannessAwareExecutionSession(exec_name,
