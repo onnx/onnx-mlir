@@ -37,6 +37,7 @@ add_library(OMONNXToKrnl
         Tensor/Size.cpp
         Tensor/Flatten.cpp
         Tensor/Tile.cpp
+        Tensor/Custom.cpp
         ConvertONNXToKrnl.cpp)
 target_link_libraries(OMONNXToKrnl
         OMSupport

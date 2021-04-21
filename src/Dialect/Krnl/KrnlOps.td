@@ -368,10 +368,26 @@ def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
   let summary = "Krnl erf scalar operation";
   let description = [{
     Krnl erf scalar operation.
+
   }];
 
   let arguments = (ins AnyFloat:$in);
   let results = (outs AnyFloat:$out);
+
+  let parser = ?;
+  let printer = ?;
+}
+
+
+def KrnlCustomOp : Op<Krnl_Dialect, "custom"> {
+  let summary = "Krnl custom scalar operation";
+  let description = [{
+    Krnl custom scalar operation.
+  }];
+
+  let arguments = (ins AnyTypeOf<[AnyFloat, AnyInteger]>:$in,
+                   StrAttr:$funcName);
+  let results = (outs AnyTypeOf<[AnyFloat, AnyInteger]>:$out);
 
   let parser = ?;
   let printer = ?;
