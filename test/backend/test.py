@@ -40,6 +40,10 @@ parser.add_argument('-d', '--dim', type=int,
 parser.add_argument('-v', '--verbose', action='store_true',
     default=(strtobool(VERBOSE) if VERBOSE else False),
     help='verbose output (default: false if VERBOSE env var not set)')
+parser.add_argument('--mtriple', type=str, default=os.getenv("TEST_TRIPLE", ""),
+    help='triple to pass to the compiler')
+parser.add_argument('--mcpu', type=str, default=os.getenv("TEST_MCPU", ""),
+    help='target a specific cpu, passed to the compiler')
 parser.add_argument('unittest_args', nargs='*')
 args = parser.parse_args()
 sys.argv[1:] = args.unittest_args
@@ -50,7 +54,12 @@ if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
 else :
     tempdir = tempfile.TemporaryDirectory()
     result_dir = tempdir.name+"/"
-print("temporary results are in dir "+result_dir)
+print("Test info:")
+print("  temporary results are in dir:"+result_dir)
+if args.mcpu:
+    print("  targeting cpu:", args.mcpu)
+if args.mtriple:
+    print("  targeting triple:", args.mtriple)
 
 CXX = test_config.CXX_PATH
 LLC = test_config.LLC_PATH
@@ -875,10 +884,14 @@ class DummyBackend(onnx.backend.base.Backend):
         if not os.path.exists(model_name) :
             print("Failed save model: "+ name)
         print(name)
-
+        options = ""
+        if args.mcpu:
+            options += " --mcpu="+args.mcpu
+        if args.mtriple:
+            options += " --mtriple="+args.mtriple
         # Call frontend to process temp_model.onnx, bit code will be generated.
         dynamic_inputs_dims = determine_dynamic_parameters(name)
-        execute_commands([TEST_DRIVER, model_name], dynamic_inputs_dims)
+        execute_commands([TEST_DRIVER, options, model_name], dynamic_inputs_dims)
         if not os.path.exists(exec_name) :
             print("Failed " + test_config.TEST_DRIVER_PATH + ": " + name)
         return EndiannessAwareExecutionSession(exec_name,
