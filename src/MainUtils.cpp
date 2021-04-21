@@ -233,8 +233,11 @@ string getTargetOptions() {
   string targetOptions = "";
   if (mtriple != "")
     targetOptions = "--mtriple=" + mtriple;
+  // Comand cannot tolerate extra spaces. Add only when needed.
+  if (mtriple != "" && mcpu != "")
+    targetOptions += " ";
   if (mcpu != "")
-    targetOptions += " --mcpu=" + mcpu;
+    targetOptions += "--mcpu=" + mcpu;
   return targetOptions;
 }
 
@@ -391,11 +394,13 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
 
   // TODO: make this pass optional:
-  pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
-  pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
-  pm.addPass(mlir::createCanonicalizerPass());
-  pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
-  pm.addPass(mlir::createCanonicalizerPass());
+  if (true) {
+    pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
+    pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
+    pm.addPass(mlir::createCanonicalizerPass());
+  }
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
