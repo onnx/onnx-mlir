@@ -53,13 +53,12 @@ else :
 print("temporary results are in dir "+result_dir)
 
 CXX = test_config.CXX_PATH
-TEST_DRIVER = os.path.join(test_config.TEST_DRIVER_BUILD_PATH, "bin",
-                           test_config.TEST_DRIVER_COMMAND)
-LLC = os.path.join(test_config.LLVM_PROJ_BUILD_PATH, "bin/llc")
+LLC = test_config.LLC_PATH
+RUNTIME_DIR = test_config.TEST_DRIVER_RUNTIME_PATH
+TEST_DRIVER = test_config.TEST_DRIVER_PATH
 
 # Make lib folder under build directory visible in PYTHONPATH
 doc_check_base_dir = os.path.dirname(os.path.realpath(__file__))
-RUNTIME_DIR = os.path.join(test_config.TEST_DRIVER_BUILD_PATH, "lib")
 sys.path.append(RUNTIME_DIR)
 from PyRuntime import ExecutionSession
 
@@ -68,7 +67,7 @@ from PyRuntime import ExecutionSession
 # In our directories, the python files that generate the tests are found here
 # onnx-mlir/third_party/onnx/onnx/backend/test/case/node
 
-# Set value for each benchmark to: test_disabled, test_static, 
+# Set value for each benchmark to: test_disabled, test_static,
 #   test_dynamic, test_static_dynamic, test_static_dynamicNA.
 # The test_static_dynamicNA values indicates tests for which the dynamic test
 # makes no sense, e.g. where we build an array of constant but we don't even
@@ -311,7 +310,7 @@ test_to_enable_static_dynamic = {
     # Floor
     "test_floor_example_cpu": (test_static_dynamic,),
     "test_floor_cpu": (test_static_dynamic,),
-    
+
     # Gather
     "test_gather_0_cpu": (test_static_dynamic,),
     "test_gather_1_cpu": (test_static_dynamic,),
@@ -386,7 +385,7 @@ test_to_enable_static_dynamic = {
     # LRN
     "test_lrn_cpu": (test_static_dynamic,),
     "test_lrn_default_cpu": (test_static_dynamic,),
-    
+
 
     # LSTM
     "test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
@@ -612,6 +611,7 @@ test_to_enable_static_dynamic = {
     # Round
 
     # Scan
+    "test_scan9_sum_cpu": (test_static, ),
 
     # Scatter Element
 
@@ -621,8 +621,8 @@ test_to_enable_static_dynamic = {
     "test_selu_example_cpu": (test_static_dynamic,),
 
     # Shape
-    "test_shape_cpu": (test_static_dynamic,), 
-    "test_shape_example_cpu": (test_static_dynamic,), 
+    "test_shape_cpu": (test_static_dynamic,),
+    "test_shape_example_cpu": (test_static_dynamic,),
 
     # Shrink
 
@@ -673,7 +673,7 @@ test_to_enable_static_dynamic = {
     "test_split_variable_parts_1d_cpu": (test_static_dynamic,),
     "test_split_variable_parts_2d_cpu": (test_static_dynamic,),
     "test_split_variable_parts_default_axis_cpu": (test_static_dynamic,),
-    
+
     # Sqrt
     "test_sqrt_cpu": (test_static_dynamic,),
     "test_sqrt_example_cpu": (test_static_dynamic,),
@@ -770,7 +770,7 @@ test_for_dynamic = [ key for (key, value) in test_to_enable_static_dynamic.items
 
 if args.dynamic :
     print("dynamic shape is enabled")
-    test_to_enable = test_for_dynamic 
+    test_to_enable = test_for_dynamic
 
 # User case specify one test case with BCKEND_TEST env
 if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
@@ -788,7 +788,7 @@ def determine_dynamic_parameters(test_name):
     if test_name_cpu in test_for_dynamic:
         if len(test_to_enable_static_dynamic[test_name_cpu]) > 1:
             selected_list = test_to_enable_static_dynamic[test_name_cpu][1]
-    return selected_list 
+    return selected_list
 
 def execute_commands(cmds, dynamic_inputs_dims):
     if (args.verbose):
@@ -811,7 +811,7 @@ def execute_commands(cmds, dynamic_inputs_dims):
                    first_dim = False
                 else:
                    env_string += "," + str(dim_index)
-        my_env["IMPORTER_FORCE_DYNAMIC"] = env_string 
+        my_env["IMPORTER_FORCE_DYNAMIC"] = env_string
     subprocess.run(cmds, env=my_env)
 
 
@@ -883,7 +883,7 @@ class DummyBackend(onnx.backend.base.Backend):
         dynamic_inputs_dims = determine_dynamic_parameters(name)
         execute_commands([TEST_DRIVER, model_name], dynamic_inputs_dims)
         if not os.path.exists(exec_name) :
-            print("Failed " + test_config.TEST_DRIVER_COMMAND + ": " + name)
+            print("Failed " + test_config.TEST_DRIVER_PATH + ": " + name)
         return EndiannessAwareExecutionSession(exec_name,
                                                    "run_main_graph")
 

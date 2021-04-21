@@ -136,12 +136,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Initialize alloc/C to zero.
     ValueRange zLoop = krnl_define_loop(2);
-    Value zi(zLoop[0]), zj(zLoop[1]);
-    krnl_iterate({zi, zj}, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
-      ValueRange indices = krnl_get_induction_var_value({zi, zj});
-      Value zii(indices[0]), zjj(indices[1]);
-      SmallVector<Value> storeIndices({zii, zjj});
-      krnl_store(zeroVal, alloc, storeIndices);
+    krnl_iterate(zLoop, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
+      ValueRange indices = krnl_get_induction_var_value(zLoop);
+      krnl_store(zeroVal, alloc, indices);
     });
 
     // Compute.

@@ -170,10 +170,13 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
   if (expr.isLiteral()) {
     pushConstantBound(expr.getLiteral());
   } else if (expr.isAffine() && !expr.isPredType()) {
+    // Compute affine expression before getting the dim/sym as it may itself add
+    // dim/symbols.
+    AffineExpr affineExpr = expr.getAffineExpr();
     int dimNum = expr.getScope().getNumDims();
     int symNum = expr.getScope().getNumSymbols();
-    AffineMap map = AffineMap::get(dimNum, symNum, {expr.getAffineExpr()},
-        expr.getRewriter().getContext());
+    AffineMap map = AffineMap::get(
+        dimNum, symNum, {affineExpr}, expr.getRewriter().getContext());
     SmallVector<Value, 4> list;
     expr.getScope().getDimAndSymbolList(list);
     pushAffineMapBound(map, list);
@@ -186,6 +189,8 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
 void KrnlIterateOperandPack::pushIndexExprsBound(
     SmallVectorImpl<IndexExpr> &exprVector) {
   SmallVector<AffineExpr, 4> AEVector;
+  // Important to get the affine expressions before getting the num Dim/Symbols
+  // as it may add some dims and symbol itself.
   for (IndexExpr expr : exprVector) {
     assert(!expr.isPredType() && "no affine support for predicate type");
     AEVector.push_back(expr.getAffineExpr());
@@ -347,6 +352,21 @@ ArrayRef<BlockArgument> BuildKrnlLoop::getAllInductionVar() {
       iterBlock->getArguments().begin(), iterBlock->getArguments().end());
 }
 
+//====---------------- Support for simple transpose ----------------------===//
+
+// create an identity
+void generateIndexMap(
+    SmallVectorImpl<int64_t> &map, int64_t size, bool transposeInner2) {
+  for (int i = 0; i < size; ++i)
+    map.emplace_back(i); // Indentity map.
+  if (size < 2)
+    return;
+  if (transposeInner2) {
+    map[size - 2] = size - 1;
+    map[size - 1] = size - 2;
+  }
+}
+
 // TODO: only in the EDSC scope
 
 //====---------------- EDSC Support with Value ---------------------------===//
@@ -436,18 +456,20 @@ void krnl_iterate(ValueRange originalLoops, ValueRange lbs, ValueRange ubs,
 }
 
 void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
-    Value padValue, ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext) {
+    Value padValue, ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext,
+    bool transpose) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   ScopedContext::getBuilderRef().create<KrnlCopyToBufferOp>(
       ScopedContext::getLocation(), bufferMemref, memref, starts, padValue,
-      tileSize, padToNext);
+      tileSize, padToNext, transpose);
 }
 
-void krnl_copy_to_buffer(
-    Value bufferMemref, Value memref, ValueRange starts, Value padValue) {
+void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
+    Value padValue, bool transpose) {
   ArrayRef<int64_t> empty;
-  krnl_copy_to_buffer(bufferMemref, memref, starts, padValue, empty, empty);
+  krnl_copy_to_buffer(
+      bufferMemref, memref, starts, padValue, empty, empty, transpose);
 }
 
 void krnl_copy_from_buffer(Value bufferMemref, Value memref, ValueRange starts,
@@ -499,7 +521,7 @@ void krnl_store(Value val, Value memref, ArrayRef<IndexExpr> indices) {
   krnl_store(val, memref, ValueRange(indexValues));
 }
 
-void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
+void krnl_iterate_ie(ValueRange originalLoops, ValueRange optimizedLoops,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
     function_ref<void(ValueRange)> bodyBuilderFn) {
   using namespace mlir::edsc;
@@ -530,14 +552,15 @@ void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
   }
 }
 
-void krnl_iterate(ValueRange originalLoops, ArrayRef<IndexExpr> lbs,
+void krnl_iterate_ie(ValueRange originalLoops, ArrayRef<IndexExpr> lbs,
     ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
     function_ref<void(ValueRange)> bodyBuilderFn) {
   // When no optimized loops are given, use original for the optimized.
-  krnl_iterate(originalLoops, originalLoops, lbs, ubs, iterArgs, bodyBuilderFn);
+  krnl_iterate_ie(
+      originalLoops, originalLoops, lbs, ubs, iterArgs, bodyBuilderFn);
 }
 
-void krnl_copy_to_buffer(Value bufferMemref, Value memref,
+void krnl_copy_to_buffer_ie(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, Value padValue, ArrayRef<int64_t> tileSize,
     ArrayRef<int64_t> padToNext) {
   SmallVector<Value, 4> startValues;
@@ -546,22 +569,22 @@ void krnl_copy_to_buffer(Value bufferMemref, Value memref,
       bufferMemref, memref, startValues, padValue, tileSize, padToNext);
 }
 
-void krnl_copy_to_buffer(Value bufferMemref, Value memref,
+void krnl_copy_to_buffer_ie(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, Value padValue) {
   ArrayRef<int64_t> empty;
-  krnl_copy_to_buffer(bufferMemref, memref, starts, padValue, empty, empty);
+  krnl_copy_to_buffer_ie(bufferMemref, memref, starts, padValue, empty, empty);
 }
 
-void krnl_copy_from_buffer(Value bufferMemref, Value memref,
+void krnl_copy_from_buffer_ie(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, ArrayRef<int64_t> tileSize) {
   SmallVector<Value, 4> startValues;
   IndexExpr::getValues(starts, startValues);
   krnl_copy_from_buffer(bufferMemref, memref, startValues, tileSize);
 }
-void krnl_copy_from_buffer(
+void krnl_copy_from_buffer_ie(
     Value bufferMemref, Value memref, ArrayRef<IndexExpr> starts) {
   ArrayRef<int64_t> empty;
-  krnl_copy_from_buffer(bufferMemref, memref, starts, empty);
+  krnl_copy_from_buffer_ie(bufferMemref, memref, starts, empty);
 }
 
 } // namespace mlir

@@ -86,12 +86,6 @@ void initOMPasses() {
         return mlir::createConvertKrnlToLLVMPass();
       });
 
-  mlir::registerPass("pack-krnl-constants",
-      "Elide the constant values of the Global Krnl operations.",
-      []() -> std::unique_ptr<mlir::Pass> {
-        return mlir::createPackKrnlGlobalConstantsPass();
-      });
-
   mlir::registerPass("lower-krnl-shape-to-std",
       "Lowers krnl shape-related operations.",
       []() -> std::unique_ptr<mlir::Pass> {

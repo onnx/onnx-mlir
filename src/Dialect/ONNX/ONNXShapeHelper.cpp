@@ -483,6 +483,8 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
   }
   // Save the final result.
   dimsForOutput(0) = outputDims;
+
+  scope.debugPrint("scope from inside gemm compute");
   return success();
 }
 

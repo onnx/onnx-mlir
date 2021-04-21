@@ -57,16 +57,8 @@ target_link_libraries(PyRuntime PRIVATE
         OMTensorUtils
         onnx)
 
-# See comments above about libcruntime.a
-add_library(EmbeddedDataLoader STATIC
-        GetEmbeddedConstPool.h
-        GetEmbeddedConstPool.cpp)
-set_target_properties(EmbeddedDataLoader PROPERTIES
-        POSITION_INDEPENDENT_CODE TRUE)
-
 add_dependencies(PyRuntime cruntime)
 
 install(TARGETS cruntime           DESTINATION lib)
 install(TARGETS OMTensorUtils      DESTINATION lib)
 install(TARGETS ExecutionSession   DESTINATION lib)
-install(TARGETS EmbeddedDataLoader DESTINATION lib)

@@ -34,6 +34,69 @@ func private @copy_to(%p0 : index, %p1 : index) -> () {
 
 // -----
 
+// Fully enclosed, with source memref of higher rank than buffer.
+func private @copy_to_larger_source(%p0 : index, %p1 : index) -> () {
+  //A source, B buffer
+  %A = memref.alloca() : memref<5x10x40x60xf32>
+  %B = memref.alloca() : memref<4x6xf32>
+  %f0 = constant 0.0 : f32
+
+  %i2 = constant 2 : index
+  %i3 = constant 3 : index
+  %i10 = constant 10 : index
+  %i12 = constant 12 : index
+  krnl.copy_to_tile_buffer %B, %A [%i2, %i3, %i10, %i12], %f0 : memref<4x6xf32>, memref<5x10x40x60xf32>
+  return
+
+// mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER"}' -a'["start0", "start1"]'
+// CHECK-LABEL:  func private @copy_to_larger_source
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<5x10x40x60xf32>
+// CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to 4 {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to 6 {
+// CHECK:               [[LOAD_ORGINAL_MEM_:%.+]] = affine.load [[ORGINAL_]][2, 3, [[I_0_]] + 10, [[I_1_]] + 12] : memref<5x10x40x60xf32>
+// CHECK:               affine.store [[LOAD_ORGINAL_MEM_]], [[BUFFER_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<4x6xf32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return
+// CHECK:         }
+}
+
+// -----
+
+// Same with transpose
+func private @copy_to_larger_transposed_source(%p0 : index, %p1 : index) -> () {
+  //A source, B buffer
+  %A = memref.alloca() : memref<5x10x60x40xf32>
+  %B = memref.alloca() : memref<4x6xf32>
+  %f0 = constant 0.0 : f32
+
+  %i2 = constant 2 : index
+  %i3 = constant 3 : index
+  %i10 = constant 10 : index
+  %i12 = constant 12 : index
+  krnl.copy_to_tile_buffer %B, %A [%i2, %i3, %i12, %i10], %f0 {transpose=true}: 
+    memref<4x6xf32>, memref<5x10x60x40xf32>
+  return
+
+// mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER"}' -a'["start0", "start1"]'
+// CHECK-LABEL:  func private @copy_to_larger_transposed_source
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<5x10x60x40xf32>
+// CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to 4 {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to 6 {
+// CHECK:               [[LOAD_ORGINAL_MEM_:%.+]] = affine.load [[ORGINAL_]][2, 3, [[I_1_]] + 12, [[I_0_]] + 10] : memref<5x10x60x40xf32>
+// CHECK:               affine.store [[LOAD_ORGINAL_MEM_]], [[BUFFER_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<4x6xf32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return
+// CHECK:         }
+}
+
+// -----
+
 func private @copy_to_nopad(%p0 : index, %p1 : index) -> () {
   %A = memref.alloca() : memref<40x60xf32>
   %B = memref.alloca() : memref<4x6xf32>
@@ -176,6 +239,45 @@ func private @copy_to_pad_partial(%p0 : index, %p1 : index) -> () {
 
 // -----
 
+// Same, transposed
+func private @copy_to_pad_partial_transposed(%p0 : index, %p1 : index) -> () {
+  %AA = memref.alloca() : memref<56x39xf32>
+  %B = memref.alloca() : memref<4x6xf32>
+  %f0 = constant 0.0 : f32
+  %i36 = constant 36 : index
+  %i54 = constant 54 : index
+
+  // same, padding to full
+  krnl.copy_to_tile_buffer %B, %AA [%i54, %i36], %f0 {padToNext=[4,6], transpose=true}: 
+    memref<4x6xf32>, memref<56x39xf32>
+  return
+
+// mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER"}' -a'["start0", "start1"]'
+// CHECK-LABEL:  func private @copy_to_pad_partial_transposed
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = constant 0.000000e+00 : f32
+// CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<56x39xf32>
+// CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to 3 {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to 2 {
+// CHECK:               [[LOAD_ORGINAL_MEM_:%.+]] = affine.load [[ORGINAL_]]{{.}}[[I_1_]] + 54, [[I_0_]] + 36] : memref<56x39xf32>
+// CHECK:               affine.store [[LOAD_ORGINAL_MEM_]], [[BUFFER_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<4x6xf32>
+// CHECK:             }
+// CHECK:             affine.for [[I_2_:%.+]] = 2 to 6 {
+// CHECK:               affine.store [[CST_0_dot_000000_]], [[BUFFER_]]{{.}}[[I_0_]], [[I_2_]]{{.}} : memref<4x6xf32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           affine.for [[I_3_:%.+]] = 3 to 4 {
+// CHECK:             affine.for [[I_4_:%.+]] = 0 to 6 {
+// CHECK:               affine.store [[CST_0_dot_000000_]], [[BUFFER_]]{{.}}[[I_3_]], [[I_4_]]{{.}} : memref<4x6xf32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return
+// CHECK:         }
+}
+
+// -----
+
 func private @copy_to_pad_partial_mod3(%p0 : index, %p1 : index) -> () {
   %AA = memref.alloca() : memref<39x56xf32>
   %B = memref.alloca() : memref<4x6xf32>
@@ -281,6 +383,54 @@ func private @copy_to_runtime_start_indices_pad3(%p0 : index, %p1 : index) -> ()
 
 // -----
 
+// same, with source mem of larger rank.
+func private @copy_to_runtime_start_indices_larger_source(%p0 : index, %p1 : index) -> () {
+  %AA = memref.alloca() : memref<5x10x39x56xf32>
+  %B = memref.alloca() : memref<4x6xf32>
+  %f0 = constant 0.0 : f32
+  %i2 = constant 2 : index
+  %i5 = constant 5 : index
+  %i36 = constant 36 : index
+  %i54 = constant 54 : index
+
+  // runtime start indices
+  krnl.copy_to_tile_buffer %B, %AA [%i2, %i5, %p0, %p1], %f0 {padToNext=[3,3]}: memref<4x6xf32>, memref<5x10x39x56xf32>
+  return
+// mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
+// CHECK-DAG: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
+// CHECK-DAG: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
+// CHECK-LABEL:  func private @copy_to_runtime_start_indices_larger_source
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-DAG:       [[ZERO_:%.+]] = constant 0.000000e+00 : f32
+// CHECK-DAG:       [[CST_3_:%.+]] = constant 3 : index
+// CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<5x10x39x56xf32>
+// CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.min #map0(){{.}}[[START0_]]{{.}}
+// CHECK:           [[VAR_3_:%.+]] = ceildivi_signed [[VAR_2_]], [[CST_3_]] : index
+// CHECK-DAG:       [[VAR_4_:%.+]] = muli [[VAR_3_]], [[CST_3_]] : index
+// CHECK-DAG:       [[VAR_5_:%.+]] = affine.min #map1(){{.}}[[START1_]]{{.}}
+// CHECK:           [[VAR_6_:%.+]] = ceildivi_signed [[VAR_5_]], [[CST_3_]] : index
+// CHECK:           [[VAR_7_:%.+]] = muli [[VAR_6_]], [[CST_3_]] : index
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to min #map0(){{.}}[[START0_]]{{.}} {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to min #map1(){{.}}[[START1_]]{{.}} {
+// CHECK:               [[LOAD_ORGINAL_MEM_:%.+]] = affine.load [[ORGINAL_]][2, 5, [[I_0_]] + symbol([[START0_]]), [[I_1_]] + symbol([[START1_]])] : memref<5x10x39x56xf32>
+// CHECK:               affine.store [[LOAD_ORGINAL_MEM_]], [[BUFFER_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<4x6xf32>
+// CHECK:             }
+// CHECK:             affine.for [[I_2_:%.+]] = max #map1(){{.}}[[START1_]]{{.}} to [[VAR_7_]] {
+// CHECK:               affine.store [[ZERO_]], [[BUFFER_]]{{.}}[[I_0_]], [[I_2_]]{{.}} : memref<4x6xf32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           affine.for [[I_3_:%.+]] = max #map0(){{.}}[[START0_]]{{.}} to [[VAR_4_]] {
+// CHECK:             affine.for [[I_4_:%.+]] = 0 to [[VAR_7_]] {
+// CHECK:               affine.store [[ZERO_]], [[BUFFER_]]{{.}}[[I_3_]], [[I_4_]]{{.}} : memref<4x6xf32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return
+// CHECK:         }
+}
+
+// -----
+
 func @copy_to_nested(%p0 : index, %p1 : index) -> () {
   %A = memref.alloca() : memref<40x60xf32>
   %B = memref.alloca() : memref<10x60xf32>
@@ -363,6 +513,35 @@ func private @copy_from_simple(%p0 : index, %p1 : index) -> () {
 // CHECK:             affine.for [[I_1_:%.+]] = 0 to 6 {
 // CHECK:               [[LOAD_BUFFER_MEM_:%.+]] = affine.load [[BUFFER_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<4x6xf32>
 // CHECK:               affine.store [[LOAD_BUFFER_MEM_]], [[ORGINAL_]]{{.}}[[I_0_]] + 10, [[I_1_]] + 12] : memref<40x60xf32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return
+// CHECK:         }
+}
+
+// -----
+
+func private @copy_from_simple_from_larger(%p0 : index, %p1 : index) -> () {
+  %A = memref.alloca() : memref<5x10x40x60xf32>
+  %B = memref.alloca() : memref<4x6xf32>
+  %f0 = constant 0.0 : f32
+
+  // fully enclosed
+  %i2 = constant 2 : index
+  %i5 = constant 5 : index
+  %i10 = constant 10 : index
+  %i12 = constant 12 : index
+  krnl.copy_from_tile_buffer %B, %A [%i2, %i5, %i10, %i12]: memref<4x6xf32>, memref<5x10x40x60xf32>
+  return
+// mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
+// CHECK-LABEL:  func private @copy_from_simple_from_larger
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<5x10x40x60xf32>
+// CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to 4 {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to 6 {
+// CHECK:               [[LOAD_BUFFER_MEM_:%.+]] = affine.load [[BUFFER_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<4x6xf32>
+// CHECK:               affine.store [[LOAD_BUFFER_MEM_]], [[ORGINAL_]][2, 5, [[I_0_]] + 10, [[I_1_]] + 12] : memref<5x10x40x60xf32>
 // CHECK:             }
 // CHECK:           }
 // CHECK:           return

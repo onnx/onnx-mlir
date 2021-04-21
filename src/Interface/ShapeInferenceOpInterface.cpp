@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---- ShapeInferenceInterface.cpp - Definition for ShapeInference -----===//
+//===---- ShapeInferenceOpInterface.cpp - Definition for ShapeInference ---===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -13,11 +13,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Interface/ShapeInferenceInterface.hpp"
+#include "src/Interface/ShapeInferenceOpInterface.hpp"
 
 namespace mlir {
 
 /// Include the auto-generated declarations.
-#include "src/Interface/ShapeInference.cpp.inc"
+#include "src/Interface/ShapeInferenceOpInterface.cpp.inc"
 
 } // end namespace mlir

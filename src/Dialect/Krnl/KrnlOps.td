@@ -160,9 +160,7 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global", [MemRefsNormalizable]> {
   let description = [{
     Operation for holding global data values. A global constant can have a
     meaningful name recorded as its `name` attribute. Its content is stored
-    in the `value` dense/opaque element attribute. Alternatively, if the
-    constants are packed together, `offset` records the byte offset in the
-    global constant pool from which the current constant is to be read.
+    in the `value` dense/opaque element attribute.
   }];
 
   let arguments = (ins AnyAttr:$shape,
@@ -170,51 +168,6 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global", [MemRefsNormalizable]> {
     OptionalAttr<I64Attr>:$alignment);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
 
-  let parser = ?;
-  let printer = ?;
-}
-
-def KrnlPackedConstantOp : Op<Krnl_Dialect, "packed_const"> {
-  let summary = "Krnl packed constant operation";
-  let description = [{
-    Operation for holding packed constants.
-  }];
-
-  let arguments = (ins I64Attr:$size_in_bytes,
-                       BoolAttr:$is_le,
-                       OptionalAttr<AnyIntElementsAttr>:$value,
-                       OptionalAttr<StrAttr>:$file_name);
-  let results = (outs I64:$output);
-
-  let extraClassDeclaration = [{
-    // The *path* to the file storing the constant pack on disk is encoded
-    // as a global variable in the LLVM module of the lowered model.
-    // getConstPackFilePathSymbolName returns the name of this symbol;
-    // getConstPackFilePathStrLenSymbolName returns the name of the symbol holding
-    // a constant value equal to the length of the file path.
-    static StringRef getConstPackFilePathSymbolName() { return "constPackFilePath"; }
-    static StringRef getConstPackFilePathStrLenSymbolName() { return "constPackFilePathStrLen"; }
-
-    // The *name* of the file storing the constant pack is also recorded for
-    // convenience. Similarly, getConstPackFileNameSymbolName and
-    // getConstPackFileNameStrLenSymbolName returns records the symbol holding
-    // the string constant representing the filename and the length of this
-    // string constant.
-    static StringRef getConstPackFileNameSymbolName() { return "constPackFileName"; }
-    static StringRef getConstPackFileNameStrLenSymbolName() { return "constPackFileNameStrLen"; }
-
-    // We record whether the constant pack is stored in LE byte order as a
-    // int8 symbol; it is to be interpreted as a boolean switch - with 0
-    // meaning that the constant pack is not stored in LE byte order and
-    // non-0 values meaning that it is stored in LE byte order.
-    static StringRef getConstPackIsLESymbolName() { return "constPackIsLE"; }
-    // The name of a function we call to read packed constants embedded within
-    // the current binary executable/library, or in the case of unsupported platform,
-    // from a binary constant pack file.
-    static StringRef getEmbeddedDataLoaderMethodName() {
-      return "getEmbeddedConstPool";
-    }
-  }];
   let parser = ?;
   let printer = ?;
 }
@@ -850,8 +803,6 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
       "bool": $overcompute 
     )> ];
 
-  let parser = ?;
-  let printer = ?;
   let verifier = [{ return ::verify(*this); }];
 
   let assemblyFormat = [{
@@ -866,20 +817,19 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
 }
 
 def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
-    TypesMatchWith<"type of 'padValue' matches element type of 'memref'",
-                  "memref", "padValue",
+    TypesMatchWith<"type of 'padValue' matches element type of 'source'",
+                  "source", "padValue",
                   "$_self.cast<MemRefType>().getElementType()">,
-    TypesMatchWith<"type of 'padValue' matches element type of 'bufferMemref'",
-                  "bufferMemref", "padValue",
-                  "$_self.cast<MemRefType>().getElementType()">,
-    SameVariadicOperandSize]> {
+    TypesMatchWith<"type of 'padValue' matches element type of 'buffer'",
+                  "buffer", "padValue",
+                  "$_self.cast<MemRefType>().getElementType()">]> {
   let summary = "Copy to buffer.";
   let description = [{
-    Operation that copy a source memory to a buffer memory. Source memory
-    and buffer must have the same rank. Starts indicate where the source data
-    starts to come from within the source memory. Start values must be at
-    multiples of buffer size in all dimensions. The buffer rank and
-    dimensions are compile time constants.
+    Operation that copy a source memory to a buffer memory.
+    Starts indicate where the source data starts to come from within
+    the source memory. Start values must be at multiples of buffer size
+    in all dimensions. The buffer rank and dimensions are compile time
+    constants.
 
     The buffer will be entirely filled with the source data. By default,
     the amount of data to copy is given by the size of the buffer.
@@ -914,54 +864,54 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     memrefs.
   }];
 
-  let arguments = (ins Arg<AnyMemRef, "buffer", [MemWrite]>:$bufferMemref,
-    Arg<AnyMemRef, "memory", [MemRead]>:$memref,
-    Variadic<Index>:$starts,
-    AnyType: $padValue,
-    OptionalAttr<I64ArrayAttr>:$tileSize,
-    OptionalAttr<I64ArrayAttr>:$padToNext);
+  let arguments = (ins 
+    Arg<AnyMemRef, "buffer", [MemWrite]>:$buffer, // Buffer.
+    Arg<AnyMemRef, "memory", [MemRead]>:$source, // Source, possibly tranposed.
+    Variadic<Index>:$starts, // Rank of source, possibly transposed.
+    AnyType: $padValue, // Rank of bufffer.
+    OptionalAttr<I64ArrayAttr>:$tileSize, // Rank of bufffer.
+    OptionalAttr<I64ArrayAttr>:$padToNext, // Rank of bufffer.
+    DefaultValuedAttr<BoolAttr, "false">:$transpose); // Transposed or not.
 
-  let builders = [ OpBuilder<(ins "Value": $bufferMemref, "Value": $memref, 
+  let builders = [ OpBuilder<(ins "Value": $buffer, "Value": $source, 
       "ValueRange": $starts, "Value": $padValue, 
-      "ArrayRef<int64_t>": $tileSize, "ArrayRef<int64_t>": $padToNext
+      "ArrayRef<int64_t>": $tileSize, "ArrayRef<int64_t>": $padToNext,
+      "bool": $transpose
     )> ];
 
-  let parser = ?;
-  let printer = ?;
+  let verifier = [{ return ::verify(*this); }];
     let assemblyFormat = [{
-    $bufferMemref `,` $memref `[` $starts `]` `,`  $padValue  attr-dict
-     `:` type($bufferMemref) `,` type($memref)
+    $buffer `,` $source `[` $starts `]` `,`  $padValue  attr-dict
+     `:` type($buffer) `,` type($source)
   }];
 }
 
 def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
-    [SameVariadicOperandSize]> {
+    []> {
   let summary = "Copy from buffer.";
   let description = [{
-    Operation that copy a destination memory from a buffer memory.  Source
-    and buffer memories must have the same rank. Starts indicate where the buffer
-    data starts to go into the destination memory. Start values must be at
-    multiples of buffer size in all dimensions. The buffer rank and dimensions
-    are compile time constants. If the buffer was oversized with respect
-    of the actual data contained in the tile, the actual tile size can
-    be given using the tileSize optional attribute. This attributes has
-    the same rank as the buffer size, and each dimension must be smaller or
-    equal to the actual buffer size.
+    Operation that copy a destination memory from a buffer memory.
+    Starts indicate where the buffer data starts to go into the destination
+    memory. Start values must be at multiples of buffer size in all dimensions.
+    The buffer rank and dimensions are compile time constants.
+    
+    If the buffer was oversized with respect of the actual data contained
+    in the tile, the actual tile size can be given using the tileSize
+    optional attribute. This attributes has the same rank as the buffer size,
+    and each dimension must be smaller or equal to the actual buffer size.
   }];
 
-  let arguments = (ins Arg<AnyMemRef, "buffer", [MemRead]>:$bufferMemref,
-    Arg<AnyMemRef, "memory", [MemWrite]>:$memref,
-    Variadic<Index>:$starts,
-    OptionalAttr<I64ArrayAttr>:$tileSize);
+  let arguments = (ins Arg<AnyMemRef, "buffer", [MemRead]>:$buffer,
+    Arg<AnyMemRef, "dest", [MemWrite]>:$dest,
+    Variadic<Index>:$starts, // Rank of destination.
+    OptionalAttr<I64ArrayAttr>:$tileSize); // Rank of buffer.
 
-  let builders = [ OpBuilder<(ins "Value": $bufferMemref, "Value": $memref, 
+  let builders = [ OpBuilder<(ins "Value": $buffer, "Value": $dest, 
       "ValueRange": $starts, "ArrayRef<int64_t>": $tileSize
     )> ];
 
-  let parser = ?;
-  let printer = ?;
+  let verifier = [{ return ::verify(*this); }];
     let assemblyFormat = [{
-    $bufferMemref `,` $memref `[` $starts `]`  attr-dict
-     `:` type($bufferMemref) `,` type($memref)
+    $buffer `,` $dest `[` $starts `]`  attr-dict `:` type($buffer) `,` type($dest)
   }];
 }
