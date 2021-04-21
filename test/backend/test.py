@@ -40,7 +40,7 @@ parser.add_argument('-d', '--dim', type=int,
 parser.add_argument('-v', '--verbose', action='store_true',
     default=(strtobool(VERBOSE) if VERBOSE else False),
     help='verbose output (default: false if VERBOSE env var not set)')
-parser.add_argument('--mtriple', type=str, default=os.getenv("TEST_TRIPLE", ""),
+parser.add_argument('--mtriple', type=str, default=os.getenv("TEST_MTRIPLE", ""),
     help='triple to pass to the compiler')
 parser.add_argument('--mcpu', type=str, default=os.getenv("TEST_MCPU", ""),
     help='target a specific cpu, passed to the compiler')
