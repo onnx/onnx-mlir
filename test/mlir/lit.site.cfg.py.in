@@ -1,7 +1,7 @@
 @LIT_SITE_CFG_IN_HEADER@
 
-config.llvm_tools_dir = r"@LLVM_PROJ_BIN@"
-config.mlir_tools_dir = r"@LLVM_PROJ_BIN@"
+config.llvm_tools_dir = r"@LLVM_TOOLS_DIR@"
+config.mlir_tools_dir = r"@LLVM_TOOLS_DIR@"
 config.python_executable = "@Python3_EXECUTABLE@"
 
 config.onnx_mlir_tools_dir = r"@ONNX_MLIR_TOOLS_DIR@"
