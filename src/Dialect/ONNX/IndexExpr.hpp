@@ -344,6 +344,9 @@ public:
   int getNumDims() const { return dims.size(); }
   int getNumSymbols() const { return symbols.size(); }
 
+  // Debug (enable using DEBUG=1 at top of file).
+  void debugPrint(const std::string &msg) const;
+
 private:
   static IndexExprScope *&getCurrentScopePtr() {
     thread_local IndexExprScope *scope = nullptr; // Thread local, null init.
@@ -669,7 +672,9 @@ public:
   MemRefBoundsIndexCapture(Value tensorOrMemref);
 
   int64_t getRank() { return memRank; }
+  bool isLiteral(int64_t i);
   bool areAllLiteral();
+  int64_t getShape(int64_t i);
   IndexExpr getLiteral(uint64_t i); // Assert if bound is not compile time.
   IndexExpr getDim(uint64_t i);
   IndexExpr getSymbol(uint64_t i);

@@ -65,7 +65,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 15d1ee36720ff24323f55452ae3cfb63f318c3f3 && cd ..
+cd llvm-project && git checkout d28af7c654d8db0b68c175db5ce212d74fb5e9bc && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -74,7 +74,6 @@ mkdir llvm-project/build
 cd llvm-project/build
 cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_PROJECTS=mlir \
-   -DLLVM_BUILD_EXAMPLES=ON \
    -DLLVM_TARGETS_TO_BUILD="host" \
    -DCMAKE_BUILD_TYPE=Release \
    -DLLVM_ENABLE_ASSERTIONS=ON \
@@ -157,7 +156,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 15d1ee36720ff24323f55452ae3cfb63f318c3f3 && cd ..
+cd llvm-project && git checkout d28af7c654d8db0b68c175db5ce212d74fb5e9bc && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
@@ -168,7 +167,6 @@ cd llvm-project\build
 call cmake %root_dir%\llvm-project\llvm -G "Visual Studio 16 2019" -A x64 -T host=x64 ^
    -DCMAKE_INSTALL_PREFIX="%root_dir%\llvm-project\build\install" ^
    -DLLVM_ENABLE_PROJECTS=mlir ^
-   -DLLVM_BUILD_EXAMPLES=ON ^
    -DLLVM_TARGETS_TO_BUILD="host" ^
    -DCMAKE_BUILD_TYPE=Release ^
    -DLLVM_ENABLE_ASSERTIONS=ON ^

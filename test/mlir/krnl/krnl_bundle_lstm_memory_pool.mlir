@@ -10,7 +10,6 @@
 #map7 = affine_map<() -> (2)>
 #map8 = affine_map<() -> ()>
 module {
-  %0 = "krnl.packed_const"() {file_name = "/tmp/packed_const-77d95f.tmp", is_le = true, size_in_bytes = 0 : i64} : () -> i64
   func @bundle_lstm_dyn_mem_pools(%arg0: memref<?x?x2xf32>, %arg1: memref<1x12x2xf32>, %arg2: memref<1x12x3xf32>) -> memref<1x?x3xf32> attributes {input_names = ["X", "W", "R"], output_names = ["Y"]} {
     %c0 = constant 0 : index
     %c2 = constant 2 : index

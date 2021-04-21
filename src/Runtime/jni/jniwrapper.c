@@ -1,3 +1,18 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===------------- jniwrapper.c - JNI wrapper Implementation -------------===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains implementation of the JNI wrapper to allow Java users
+// to call the model execution API.
+//
+//===----------------------------------------------------------------------===//
+
 #include <assert.h>
 #ifdef __APPLE__
 #include <stdlib.h>
@@ -7,7 +22,7 @@
 #include <string.h>
 
 #include "OnnxMlirRuntime.h"
-#include "com_ibm_onnxmlir_DynEntryPoint.h"
+#include "com_ibm_onnxmlir_OMModel.h"
 #include "jnilog.h"
 
 extern OMTensorList *run_main_graph(OMTensorList *);
@@ -73,7 +88,7 @@ extern OMTensorList *run_main_graph(OMTensorList *);
     i, n, data, shape, strides, dataType, bufferSize, rank, owning)            \
   do {                                                                         \
     char tmp[1024];                                                            \
-    LOG_TYPE_BUF(dataType, tmp, data, n);                                      \
+    LOG_BUF(dataType, tmp, data, n);                                           \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:data=[%s]", i, tmp);                        \
     LOG_LONG_BUF(tmp, shape, rank);                                            \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:shape=[%s]", i, tmp);                       \
@@ -84,6 +99,14 @@ extern OMTensorList *run_main_graph(OMTensorList *);
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:rank=%d", i, rank);                         \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:owning=%d", i, owning);                     \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:numElems=%ld", i, n);                       \
+  } while (0)
+
+/* Debug output of hex string */
+#define HEX_DEBUG(label, string, n)                                            \
+  do {                                                                         \
+    char tmp[1024];                                                            \
+    LOG_CHAR_XBUF(tmp, string, n);                                             \
+    LOG_PRINTF(LOG_DEBUG, "%s(%d):[%s]", label, n, tmp);                       \
   } while (0)
 
 /* Java classes and methods needed for making various JNI API calls */
@@ -346,7 +369,7 @@ jobject omtl_native_to_java(
   return java_omtl;
 }
 
-JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_DynEntryPoint_main_1graph_1jni(
+JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMModel_main_1graph_1jni(
     JNIEnv *env, jclass cls, jobject java_iomtl) {
 
   /* Find and initialize Java method IDs in struct jniapi */
@@ -367,4 +390,32 @@ JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_DynEntryPoint_main_1graph_1jni(
   omTensorListDestroy(jni_iomtl);
   omTensorListDestroy(jni_oomtl);
   return java_oomtl;
+}
+
+JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
+    JNIEnv *env, jclass cls) {
+
+  /* Call model input signature API */
+  CHECK_CALL(const char *, jni_isig, omInputSignature(), NULL);
+  HEX_DEBUG("isig", jni_isig, strlen(jni_isig));
+
+  /* Convert to Java String object */
+  JNI_TYPE_VAR_CALL(
+      env, jstring, jstr_isig, (*env)->NewStringUTF(env, jni_isig));
+
+  return jstr_isig;
+}
+
+JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
+    JNIEnv *env, jclass cls) {
+
+  /* Call model output signature API */
+  CHECK_CALL(const char *, jni_osig, omOutputSignature(), NULL);
+  HEX_DEBUG("osig", jni_osig, strlen(jni_osig));
+
+  /* Convert to Java String object */
+  JNI_TYPE_VAR_CALL(
+      env, jstring, jstr_osig, (*env)->NewStringUTF(env, jni_osig));
+
+  return jstr_osig;
 }

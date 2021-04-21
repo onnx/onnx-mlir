@@ -35,8 +35,8 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 
-#include "src/ExternalUtil.hpp"
-#include "src/MainUtils.hpp"
+#include "ExternalUtil.hpp"
+#include "MainUtils.hpp"
 
 #ifdef _WIN32
 #include <io.h>
@@ -245,96 +245,6 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
   }
 }
 
-void genConstPackObj(const mlir::OwningModuleRef &module,
-    llvm::Optional<string> &constPackObjPath, string outputBaseName) {
-  // Extract constant pack file name, which is embedded as a symbol in the
-  // module being compiled.
-  auto constPackFilePathSym = (*module).lookupSymbol<mlir::LLVM::GlobalOp>(
-      mlir::KrnlPackedConstantOp::getConstPackFilePathSymbolName());
-  auto constPackFilePath = constPackFilePathSym.valueAttr()
-                               .dyn_cast_or_null<mlir::StringAttr>()
-                               .getValue()
-                               .str();
-  llvm::FileRemover constPackRemover(constPackFilePath);
-
-#if __APPLE__
-  // Create a empty stub file, compile it to an empty obj file.
-  llvm::SmallVector<char, 20> stubSrcPath;
-  llvm::sys::fs::createTemporaryFile("stub", "cpp", stubSrcPath);
-  llvm::FileRemover subSrcRemover(stubSrcPath);
-  std::string stubSrcPathStr(stubSrcPath.begin(), stubSrcPath.end());
-  Command createStubObj(/*exePath=*/kCxxPath);
-  std::string stubObjPathStr = stubSrcPathStr + ".o";
-  createStubObj.appendList({"-o", stubObjPathStr})
-      .appendList({"-c", stubSrcPathStr})
-      .exec();
-  llvm::FileRemover stubObjRemover(stubObjPathStr);
-
-  // Embed data into the empty stub obj file.
-  constPackObjPath = constPackFilePath + ".o";
-  Command genParamObj(/*exePath=*/kLinkerPath);
-  genParamObj.appendStr("-r")
-      .appendList({"-o", constPackObjPath.getValue()})
-      .appendList({"-sectcreate", "binary", "param", constPackFilePath})
-      .appendStr(stubObjPathStr)
-      .exec();
-
-#elif __linux__
-  // Create param.o holding packed parameter values.
-  constPackObjPath = constPackFilePath + ".o";
-  Command genParamObj(/*exePath=*/kLinkerPath);
-  genParamObj.appendStr("-r")
-      .appendList({"-b", "binary"})
-      .appendList({"-o", constPackObjPath.getValue()})
-      .appendStr(constPackFilePath)
-      .exec();
-
-  // Figure out what is the default symbol name describing the start/end
-  // address of the embedded data.
-  std::regex e("[^0-9A-Za-z]");
-  auto sanitizedName =
-      "_binary_" + std::regex_replace(constPackFilePath, e, "_");
-
-  // Rename the symbols to saner ones expected by the runtime function.
-  Command redefineSym(/*exePath=*/kObjCopyPath);
-  redefineSym.appendStr("--redefine-sym")
-      .appendStr(sanitizedName + "_start=_binary_param_bin_start")
-      .appendStr(constPackObjPath.getValue())
-      .exec();
-  redefineSym.resetArgs()
-      .appendStr("--redefine-sym")
-      .appendStr(sanitizedName + "_end=_binary_param_bin_end")
-      .appendStr(constPackObjPath.getValue())
-      .exec();
-
-#else
-  /* The final constant pack object file on Windows is NOT embedded into
-   * the shared library but rather is kept in a separate .bin file. So
-   * do not set it in constPackObjPath so that when this function returns
-   * the caller (compileModuleToSharedLibrary and compileModuleToJniJar)
-   * won't put it into llvm::FileRemover.
-   */
-  llvm::SmallVector<char, 10> permConstPackFileName(
-      constPackFilePath.begin(), constPackFilePath.end());
-  llvm::sys::path::replace_extension(permConstPackFileName, "bin");
-  std::string permConstPackFileNameStr(
-      permConstPackFileName.begin(), permConstPackFileName.end());
-  auto constPackFileName = llvm::sys::path::filename(outputBaseName) + "." +
-                           llvm::sys::path::filename(permConstPackFileNameStr);
-  llvm::sys::fs::rename(constPackFilePath, constPackFileName);
-
-  mlir::Builder builder(*module);
-  (*module)
-      .lookupSymbol<mlir::LLVM::GlobalOp>(
-          mlir::KrnlPackedConstantOp::getConstPackFileNameSymbolName())
-      .valueAttr(builder.getStringAttr(constPackFileName.str()));
-  (*module)
-      .lookupSymbol<mlir::LLVM::GlobalOp>(
-          mlir::KrnlPackedConstantOp::getConstPackFileNameStrLenSymbolName())
-      .valueAttr(builder.getI64IntegerAttr(constPackFileName.str().size()));
-#endif
-}
-
 string getTargetOptions() {
   string targetOptions = "";
   if (mtriple != "")
@@ -367,7 +277,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   // Use the LLVM's 'opt' command to optimize the bitcode.
   string optPath = getToolPath("opt");
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
-  optBitcode.appendStr("-O3")
+  optBitcode.appendStr("-O2")
       .appendStr(getTargetOptions())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
@@ -428,10 +338,6 @@ void genJniJar(const mlir::OwningModuleRef &module, string modelSharedLibPath,
 void compileModuleToSharedLibrary(
     const mlir::OwningModuleRef &module, std::string outputBaseName) {
 
-  llvm::Optional<string> constPackObjPath;
-  genConstPackObj(module, constPackObjPath, outputBaseName);
-  llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
-
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
   llvm::FileRemover bitcodeRemover(bitcodePath);
@@ -441,17 +347,12 @@ void compileModuleToSharedLibrary(
   llvm::FileRemover modelObjRemover(modelObjPath);
 
   string modelSharedLibPath = outputBaseName + ".so";
-  genSharedLib(module, modelSharedLibPath, {"-shared", "-fPIC"},
-      {constPackObjPath.getValueOr(""), modelObjPath},
-      {"-lEmbeddedDataLoader", "-lcruntime"});
+  genSharedLib(module, modelSharedLibPath, {"-shared", "-fPIC"}, {modelObjPath},
+      {"-lcruntime"});
 }
 
 void compileModuleToJniJar(
     const mlir::OwningModuleRef &module, std::string outputBaseName) {
-
-  llvm::Optional<string> constPackObjPath;
-  genConstPackObj(module, constPackObjPath, outputBaseName);
-  llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
@@ -468,9 +369,8 @@ void compileModuleToJniJar(
 
   string modelSharedLibPath = "libmodel.so";
   genSharedLib(module, modelSharedLibPath,
-      {"-shared", "-fPIC", "-z", "noexecstack"},
-      {constPackObjPath.getValueOr(""), modelObjPath, jniObjPath},
-      {"-lEmbeddedDataLoader", "-lcruntime", "-ljniruntime"});
+      {"-shared", "-fPIC", "-z", "noexecstack"}, {modelObjPath, jniObjPath},
+      {"-ljniruntime", "-lcruntime"});
   llvm::FileRemover modelSharedLibRemover(modelSharedLibPath);
 
   string modelJniJarPath = outputBaseName + ".jar";
@@ -510,8 +410,8 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   if (npu)
     pm.addNestedPass<FuncOp>(mlir::createConvertONNXToLinalgPass());
   pm.addPass(mlir::createLowerToKrnlPass());
-  pm.addPass(mlir::createConvertKrnlToStandardPass());
-  pm.addPass(mlir::createPackKrnlGlobalConstantsPass());
+  if (npu)
+    pm.addPass(mlir::createConvertKrnlToStandardPass());
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // oppertunities.
@@ -535,10 +435,10 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   if (!npu) {
     pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
     pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
+    pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
+    pm.addPass(mlir::createCanonicalizerPass());
   }
-  // MAKUDRYA-ISSUE_TODO: see comment above.
-  // pm.addPass(mlir::createCanonicalizerPass());
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {

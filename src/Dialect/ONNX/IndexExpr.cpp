@@ -125,6 +125,20 @@ OpBuilder &IndexExprScope::getRewriter() const {
 }
 
 //===----------------------------------------------------------------------===//
+// IndexExprScope Debug.
+//===----------------------------------------------------------------------===//
+
+// Debug (enable using DEBUG=1 at top of file).
+void IndexExprScope::debugPrint(const std::string &msg) const {
+#if DEBUG
+  printf(
+      "Scope %s 0x%llx: with parent scope 0x%lld and %d dims and %d symbols\n",
+      msg.c_str(), (long long)this, (long long)parentScope, (int)dims.size(),
+      (int)symbols.size());
+#endif
+}
+
+//===----------------------------------------------------------------------===//
 // IndexExpr copy and setters.
 //===----------------------------------------------------------------------===//
 
@@ -750,6 +764,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     // Create a list of affine expression
     assert(vvals.size() > 1 && "come here only with 2 or more values");
     SmallVector<AffineExpr, 4> affineExprs;
+    // Important to get the affine expressions before getting the dims/symbols.
     for (IndexExpr &vv : vvals) {
       affineExprs.emplace_back(vv.getAffineExpr());
     }
@@ -805,6 +820,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     // Create a list of affine expression
     assert(vvals.size() > 1 && "come here only with 2 or more values");
     SmallVector<AffineExpr, 4> affineExprs;
+    // Important to get the affine expressions before getting the dims/symbols.
     for (IndexExpr &vv : vvals) {
       affineExprs.emplace_back(vv.getAffineExpr());
     }
@@ -1290,6 +1306,18 @@ MemRefBoundsIndexCapture::MemRefBoundsIndexCapture(Value tensorOrMemref)
       tensorOrMemref.getType().dyn_cast_or_null<ShapedType>();
   if (shapedType)
     memRank = shapedType.getShape().size();
+}
+
+bool MemRefBoundsIndexCapture::isLiteral(int64_t i) {
+  ArrayRef<int64_t> shape =
+      tensorOrMemref.getType().cast<ShapedType>().getShape();
+  return (shape[i] >= 0);
+}
+
+int64_t MemRefBoundsIndexCapture::getShape(int64_t i) {
+  ArrayRef<int64_t> shape =
+      tensorOrMemref.getType().cast<ShapedType>().getShape();
+  return shape[i];
 }
 
 bool MemRefBoundsIndexCapture::areAllLiteral() {

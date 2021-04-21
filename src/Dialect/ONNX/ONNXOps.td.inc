@@ -2523,10 +2523,8 @@ def ONNXLoopOp:ONNX_Op<"Loop",
       return {22};
     }
 
-  mlir::FuncOp getLoopBodyFunc();
-  mlir::Operation::result_range v_final();
-  mlir::Operation::result_range scan_outputs();
-  
+    mlir::Operation::result_range v_final();
+    mlir::Operation::result_range scan_outputs();
     int64_t getSubgraphRegionIdx(const std::string& name) {
     if (name == "body") return 0;
     assert(false && "region with the specified name does not exist");
@@ -4421,7 +4419,12 @@ def ONNXScanOp:ONNX_Op<"Scan",
     static std::vector<int> getTypeMap() {
       return {20};
     }
-  int64_t getSubgraphRegionIdx(const std::string& name) {
+
+    mlir::Operation::operand_range v_initial();
+    mlir::Operation::result_range v_final();
+    mlir::Operation::operand_range scan_inputs();
+    mlir::Operation::result_range scan_outputs();
+    int64_t getSubgraphRegionIdx(const std::string& name) {
     if (name == "body") return 0;
     assert(false && "region with the specified name does not exist");
   }

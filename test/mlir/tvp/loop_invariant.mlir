@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --EmitMLIR %s -o %t 
+// RUN: onnx-mlir --EmitMLIR -npu %s -o %t 
 // RUN: FileCheck %s --input-file %t.onnx.mlir
 
 module {

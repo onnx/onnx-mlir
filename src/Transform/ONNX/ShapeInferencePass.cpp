@@ -20,7 +20,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "src/Interface/ShapeInferenceInterface.hpp"
+#include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;

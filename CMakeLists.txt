@@ -18,12 +18,21 @@ else()
   set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 endif()
 
-set(ONNX_MLIR_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
-set(ONNX_MLIR_BIN_ROOT "${CMAKE_CURRENT_BINARY_DIR}")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/bin)
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(ONNX_MLIR_SRC_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+set(ONNX_MLIR_BIN_ROOT ${CMAKE_CURRENT_BINARY_DIR})
+
+# This is the opposite of LLVM which places CMAKE_CFG_INTDIR first, but to do
+# that it does a bunch of heavy lifting in the CMake files.
+set(ONNX_MLIR_LIBRARY_PATH ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+set(ONNX_MLIR_RUNTIME_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
+# Lit test suite requires at least python 3.6
+set(LLVM_MINIMUM_PYTHON_VERSION 3.6)
+find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
 # Lit test suite requires at least python 3.6
 set(LLVM_MINIMUM_PYTHON_VERSION 3.6)
@@ -45,6 +54,11 @@ endif()
 # up that way (onnx doesn't set Protobuf_USE_STATIC_LIBS at all and cmake interprets that as setting
 # Protobuf_USE_STATIC_LIBS to OFF). If/when onnx is updated to correctly set up both variables,
 # this can be removed (see https://github.com/onnx/onnx/issues/3345).
+# We are setting CMP0077 to NEW here, so that onnx does not override our regular variables for
+# protobuf when the project is included below.
+if (POLICY CMP0077)
+  set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+endif (POLICY CMP0077)
 if (NOT DEFINED ONNX_USE_PROTOBUF_SHARED_LIBS AND NOT DEFINED Protobuf_USE_STATIC_LIBS)
   set(ONNX_USE_PROTOBUF_SHARED_LIBS OFF)
   set(Protobuf_USE_STATIC_LIBS ON)

@@ -139,6 +139,11 @@ void print(OpAsmPrinter &p, KrnlIterateOp &op) {
   p.printOperands(op.operand_begin(), op.operand_begin() + numOptimizedLoops);
   p << ") with (";
 
+  // In the event where body region has been lowered, do not print body.
+  if (op.bodyRegion().empty()) {
+    p << ")";
+    return;
+  }
   auto inductionVars = op.bodyRegion().begin()->getArguments();
   auto boundItr =
       op->getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
@@ -527,25 +532,45 @@ MutableOperandRange KrnlMatMulOp::getLoopRefs() { return loopsMutable(); }
 void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
     ValueRange odsStarts, Value odsPadValue, ArrayRef<int64_t> odsTileSize,
-    ArrayRef<int64_t> odsPadToNext) {
-  // Validate input.
-  auto memrefT = odsMemref.getType().dyn_cast<MemRefType>();
-  auto bufferT = odsBufferMemref.getType().dyn_cast<MemRefType>();
-  assert(memrefT && "memref should be a memref");
-  assert(bufferT && "buffer should be a memref");
-  auto rank = memrefT.getRank();
-  assert(bufferT.getRank() == rank && "buffer should have same rank as memref");
-  assert(odsStarts.size() == rank && "start should have same rank as memref");
-  assert((odsTileSize.size() == rank || odsTileSize.size() == 0) &&
-         "optional tile size should have same rank as memref");
-  assert((odsPadToNext.size() == rank || odsPadToNext.size() == 0) &&
-         "optional pad to next should have same rank as memref");
+    ArrayRef<int64_t> odsPadToNext, bool odsTranspose) {
   // Massage types.
   ValueRange startsRange(odsStarts);
   ArrayAttr tileSizeAttr = odsBuilder.getI64ArrayAttr(odsTileSize);
   ArrayAttr padToNextAttr = odsBuilder.getI64ArrayAttr(odsPadToNext);
   build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange,
-      odsPadValue, tileSizeAttr, padToNextAttr);
+      odsPadValue, tileSizeAttr, padToNextAttr, odsTranspose);
+}
+
+static LogicalResult verify(KrnlCopyToBufferOp op) {
+  KrnlCopyToBufferOpAdaptor opAdaptor = KrnlCopyToBufferOpAdaptor(op);
+  MemRefBoundsIndexCapture buffCapture(opAdaptor.buffer());
+  MemRefBoundsIndexCapture srcCapture(opAdaptor.source());
+  int64_t bufferRank = buffCapture.getRank();
+  int64_t srcRank = srcCapture.getRank();
+  int64_t startRank = opAdaptor.starts().size();
+  if (!buffCapture.areAllLiteral())
+    return op.emitOpError("buffer expect constant dimensions");
+  if (srcRank < bufferRank)
+    return op.emitOpError("Rank of memref cannot be smaller than buffer");
+  if (startRank != srcRank)
+    return op.emitOpError("Rank of starts and memrefs must be identical");
+  if (opAdaptor.tileSize()) {
+    int64_t tRank = opAdaptor.tileSize().size();
+    if (!(tRank == 0 || tRank == bufferRank))
+      return op.emitOpError("Rank of tileSize must be identical to buffer");
+  }
+  if (opAdaptor.padToNext()) {
+    int64_t padRank = opAdaptor.padToNext().size();
+    if (!(padRank == 0 || padRank == bufferRank))
+      return op.emitOpError("Rank of padToNext must be identical to buffer");
+  }
+  if (opAdaptor.transpose()) {
+    if (bufferRank < 2)
+      return op.emitOpError(
+          "To transpose buffer, its rank must be greater than 1");
+  }
+
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
@@ -555,21 +580,32 @@ void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
 void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
     ValueRange odsStarts, ArrayRef<int64_t> odsTileSize) {
-  // Validate input.
-  auto memrefT = odsMemref.getType().dyn_cast<MemRefType>();
-  auto bufferT = odsBufferMemref.getType().dyn_cast<MemRefType>();
-  assert(memrefT && "memref should be a memref");
-  assert(bufferT && "buffer should be a memref");
-  auto rank = memrefT.getRank();
-  assert(bufferT.getRank() == rank && "buffer should have same rank as memref");
-  assert(odsStarts.size() == rank && "start should have same rank as memref");
-  assert((odsTileSize.size() == rank || odsTileSize.size() == 0) &&
-         "optional tile size should have same rank as memref");
   // Massage types.
   ValueRange startsRange(odsStarts);
   ArrayAttr tileSizeAttr = odsBuilder.getI64ArrayAttr(odsTileSize);
   build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange,
       tileSizeAttr);
+}
+
+static LogicalResult verify(KrnlCopyFromBufferOp op) {
+  KrnlCopyFromBufferOpAdaptor opAdaptor = KrnlCopyFromBufferOpAdaptor(op);
+  MemRefBoundsIndexCapture buffCapture(opAdaptor.buffer());
+  int64_t bufferRank = buffCapture.getRank();
+  int64_t destRank =
+      opAdaptor.dest().getType().cast<MemRefType>().getShape().size();
+  int64_t startRank = opAdaptor.starts().size();
+  if (!buffCapture.areAllLiteral())
+    return op.emitOpError("buffer expect constant dimensions");
+  if (destRank < bufferRank)
+    return op.emitOpError("Rank of memref cannot be smaller than buffer");
+  if (startRank != destRank)
+    return op.emitOpError("Rank of starts and memrefs must be identical");
+  if (opAdaptor.tileSize()) {
+    int64_t tRank = opAdaptor.tileSize().size();
+    if (!(tRank == 0 || tRank == bufferRank))
+      return op.emitOpError("Rank of tileSize must be identical to buffer");
+  }
+  return success();
 }
 
 } // namespace mlir
