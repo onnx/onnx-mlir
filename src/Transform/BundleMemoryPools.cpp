@@ -491,7 +491,7 @@ public:
 
     // Move instruction to the top.
     constOp.getOperation()->moveBefore(&parentBlock->front());
-    success();
+    return success();
   }
 };
 
