@@ -124,6 +124,9 @@ def call() {
           echo "GITHUB_PR_TITLE          = ${GITHUB_PR_TITLE}"
           echo "GITHUB_PR_REQUEST_URL    = ${GITHUB_PR_REQUEST_URL}"
           echo "GITHUB_PR_COMMENT_URL    = ${GITHUB_PR_COMMENT_URL}"
+          echo "GITHUB_PR_COMMIT_SHA1    = ${GITHUB_PR_COMMIT_SHA1}"
+          echo "GITHUB_PR_COMMIT_URL     = ${GITHUB_PR_COMMIT_URL}"
+          echo "GITHUB_PR_COMMIT_MESSAGE = ${GITHUB_PR_COMMIT_MESSAGE}"
           echo "GITHUB_PR_STATUS_URL     = ${GITHUB_PR_STATUS_URL}"
           echo "GITHUB_PR_COMMIT_MESSAGE = ${GITHUB_PR_COMMIT_MESSAGE}"
           echo "GITHUB_PR_MERGED         = ${GITHUB_PR_MERGED}"
@@ -143,10 +146,13 @@ def call() {
             env.JENKINS_BUILD_RESULT = 'UNKNOWN'
           }
 
+          /* The stopped build will post github status with 'aborted'.
+           * However, the status has already been updated with the new
+           * commit sha with 'pending' by the frontend script. So the
+           * 'aborted' status will not appear on the pull request page.
+           */
           sh "${JENKINS_STOP_PREVIOUS_BUILD}"
           sh "${JENKINS_CLEANUP_BUILD_STATES}"
-
-          post_build_status("${GITHUB_EVENT}", 'pending')
         }
       }
 
@@ -210,7 +216,6 @@ def call() {
 
 /* Set build status appearing on the GitHub pull request page */
 def post_build_status(event, state) {
-    def status   = (state == 'aborted') ? 'failure' : state
     /* Commit message may have newline so replace it to avoid invalid JSON.
      * Also remove single and double quotes since the first MAXLEN characters
      * may end in the middle of a quoted phrase.
@@ -230,9 +235,9 @@ def post_build_status(event, state) {
     def action   = (state == 'success') ? 'passed'  :
                    (state == 'failure') ? 'failed'  :
                    (state == 'aborted') ? 'aborted' : 'started'
-    def start    = (new Date("${currentBuild.startTimeInMillis}".toLong())).format('HH:mm')
     def duration = (state == 'pending') ?
-        "at ${start}" : "after ${currentBuild.durationString.replace(' and counting','')}"
+        "at ${JENKINS_START_TIME}" : "after ${currentBuild.durationString.replace(' and counting','')}"
+    def status   = (state == 'aborted') ? 'failure' : state
 
     /* If the action is "push", it's for merging into master. The GitHub page
      * for the pull request is already closed and commit status is no longer
