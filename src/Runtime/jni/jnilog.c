@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- jnilog.c - JNI wrapper simple logging routines -----------===//
+/*===----------- jnilog.c - JNI wrapper simple logging routines -----------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -11,7 +11,7 @@
 // This file contains implementation of simple logging routines used by the JNI
 // wrapper.
 //
-//===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===*/
 
 #include <errno.h>
 #include <libgen.h>
@@ -79,8 +79,7 @@ static void log_init() {
 }
 
 /* Generic log routine */
-void log_printf(
-    int level, char *file, const char *func, int line, char *fmt, ...) {
+void log_printf(int level, char *file, char *func, int line, char *fmt, ...) {
   if (!log_initd)
     log_init();
   if (level < log_level)
