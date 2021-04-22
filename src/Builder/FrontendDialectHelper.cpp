@@ -137,7 +137,12 @@ static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
   // copy, no need to take care of endianness
   auto data = TransformValueToONNXData<T>::data(initializer);
   size = data.size();
-  return std::vector<T>(&data[0], &data[0] + size);
+
+  if (size > 0) {
+    return std::vector<T>(&data[0], &data[0] + size);
+  } else {
+    return std::vector<T>();
+  }
 }
 
 // Helper method for construction an array attribute from a model input for
