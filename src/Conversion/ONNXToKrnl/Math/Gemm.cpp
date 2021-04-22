@@ -122,6 +122,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     const int64_t iCacheTile(64), jCacheTile(128), kCacheTile(512);
     const int64_t iRegTile(4), jRegTile(8);
 
+    bool unrollAndJam = false;
 #if DEBUG_SIMD_OFF
     bool simdize = false;
 #else
@@ -216,7 +217,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                     /*compute start*/ {i2, j2, k1},
                     /*ubs*/ {I.getValue(), J.getValue(), K.getValue()},
                     /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
-                    /* a/b/c tiles*/ {}, {}, {}, simdize, true, false);
+                    /* a/b/c tiles*/ {}, {}, {}, simdize, unrollAndJam, false);
               });
             });
             krnl_copy_from_buffer(rBuff, R, {i1, j1});
@@ -252,7 +253,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                     /*compute start*/ {i2, j2, k1},
                     /*ubs*/ {I.getValue(), J.getValue(), K.getValue()},
                     /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
-                    /* a/b/c tiles*/ {}, {}, {}, simdize, true, false);
+                    /* a/b/c tiles*/ {}, {}, {}, simdize, unrollAndJam, false);
               });
             });
           });
