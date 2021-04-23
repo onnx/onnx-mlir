@@ -22,6 +22,7 @@
 #define DEBUG_SIMD_OFF 0
 #define DEBUG_UNROLL_OFF 0
 #define DEBUG_OPTIMIZED_OFF 0
+#define DEBUG_GLOBAL_ALLOC_FREE 1
 
 #define BUFFER_ALIGN 128
 using namespace mlir;
@@ -158,6 +159,17 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         MemRefType::get({kCacheTile, jCacheTile}, elementType);
     MemRefType rTileType =
         MemRefType::get({iCacheTile, jCacheTile}, elementType);
+#if DEBUG_GLOBAL_ALLOC_FREE
+    SmallVector<IndexExpr, 1> empty;
+    Value aBuff = insertAllocAndDeallocSimple(
+        rewriter, gemmOp, aTileType, loc, empty, true);
+    Value bBuff = insertAllocAndDeallocSimple(
+        rewriter, gemmOp, bTileType, loc, empty, true);
+    Value rBuff;
+    if (mustTileR)
+      rBuff = insertAllocAndDeallocSimple(
+          rewriter, gemmOp, aTileType, loc, empty, true);
+#else
     ValueRange empty;
     Value aBuff =
         std_alloc(aTileType, empty, rewriter.getI64IntegerAttr(BUFFER_ALIGN));
@@ -167,6 +179,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     if (mustTileR)
       rBuff =
           std_alloc(rTileType, empty, rewriter.getI64IntegerAttr(BUFFER_ALIGN));
+#endif
 
     // 3) introduce the loops and permute them
     // I, J, K loop.
@@ -259,10 +272,13 @@ struct ONNXGemmOpLowering : public ConversionPattern {
           });
     }
 
+#if DEBUG_GLOBAL_ALLOC_FREE
+#else
     rewriter.create<DeallocOp>(loc, aBuff);
     rewriter.create<DeallocOp>(loc, bBuff);
     if (mustTileR)
       rewriter.create<DeallocOp>(loc, rBuff);
+#endif
 
     // Perform the alpha/beta computations.
     float alphaLit = gemmOp.alpha().convertToFloat();

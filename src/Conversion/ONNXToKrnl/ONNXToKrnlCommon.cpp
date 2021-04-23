@@ -95,10 +95,8 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // dimensions, it uses the index expressions to retrieve the corresponding
 // values.
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims) {
-
-  bool insertDealloc = checkInsertDealloc(op);
-
+    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
+    bool insertDealloc) {
   // Constant, use the normal insert with no additional operands or alignment.
   if (hasAllConstantDimensions(type))
     return insertAllocAndDealloc(type, loc, rewriter, insertDealloc);
@@ -120,6 +118,15 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   return allocOp;
+}
+
+Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
+    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims) {
+
+  bool insertDealloc = checkInsertDealloc(op);
+
+  return insertAllocAndDeallocSimple(
+      rewriter, op, type, loc, outputDims, insertDealloc);
 }
 
 // Determine if current function returns the result value of the

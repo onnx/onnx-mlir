@@ -22,6 +22,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/LoopUtils.h"
 
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Pass/Passes.hpp"
@@ -32,7 +33,8 @@
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 #include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
 
-#define DEBUG_MALLOC 1
+#define DEBUG_MALLOC 0
+#define DEBUG_GLOBAL_ALLOC_FREE 0
 
 using namespace mlir;
 
@@ -851,8 +853,14 @@ private:
     int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
     MemRefType CTmpType = MemRefType::get({}, elementType);
 #if DEBUG_MALLOC
+#if DEBUG_GLOBAL_ALLOC_FREE
+    SmallVector<IndexExpr, 1> empty;
+    Value TmpC = insertAllocAndDeallocSimple(
+        rewriter, op, CTmpType, op.getLoc(), empty, true);
+#else
     ValueRange empty;
     Value TmpC = std_alloc(CTmpType, empty);
+#endif
 #else
     Value TmpC = std_alloca(CTmpType);
 #endif
@@ -894,7 +902,10 @@ private:
       });
     });
 #if DEBUG_MALLOC
+#if DEBUG_GLOBAL_ALLOC_FREE
+#else
     rewriter.create<DeallocOp>(op.getLoc(), TmpC);
+#endif
 #endif
     // clang-format on
     if (unrollJam && J.isLiteral()) {
@@ -923,9 +934,16 @@ private:
     MemRefType CTmpType = MemRefType::get({}, vecType);
     Value vecB = krnl_vector_type_cast(B, VL);
     Value vecC = krnl_vector_type_cast(C, VL);
+
 #if DEBUG_MALLOC
+#if DEBUG_GLOBAL_ALLOC_FREE
+    SmallVector<IndexExpr, 1> empty;
+    Value TmpC = insertAllocAndDeallocSimple(
+        rewriter, op, CTmpType, op.getLoc(), empty, true);
+#else
     ValueRange empty;
     Value TmpC = std_alloc(CTmpType, empty, rewriter.getI64IntegerAttr(16));
+#endif
 #else
     Value TmpC = std_alloca(CTmpType, rewriter.getI64IntegerAttr(16));
 #endif
@@ -976,7 +994,10 @@ private:
       affine_store(tmpResults, vecC, cAccess);
     });
 #if DEBUG_MALLOC
+#if DEBUG_GLOBAL_ALLOC_FREE
+#else
     rewriter.create<DeallocOp>(op.getLoc(), TmpC);
+#endif
 #endif
 
     // clang-format on
