@@ -20,6 +20,8 @@
 // Used to trace which op are used, good for profiling apps.
 #define TRACE 0
 #define DEBUG_SIMD_OFF 0
+#define DEBUG_UNROLL_OFF 0
+#define DEBUG_OPTIMIZED_OFF 0
 
 #define BUFFER_ALIGN 128
 using namespace mlir;
@@ -122,12 +124,10 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     const int64_t iCacheTile(64), jCacheTile(128), kCacheTile(512);
     const int64_t iRegTile(4), jRegTile(8);
 
-    bool unrollAndJam = false;
-#if DEBUG_SIMD_OFF
-    bool simdize = false;
-#else
-    bool simdize = true; // Simdize with jRegTile as the vector length.
-#endif
+    bool unrollAndJam = DEBUG_UNROLL_OFF ? false : true;
+    // Simdize with jRegTile as the vector length.
+    bool simdize = DEBUG_SIMD_OFF ? false : true;
+
     bool mustTileR = false;
     if (!J.isLiteral()) {
       // Assume large J, will simdize, but since simdized dimension must be a
@@ -326,6 +326,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
 #if TRACE
+    if (DEBUG_SIMD_OFF)
+      printf("Gemm simd off\n");
+    if (DEBUG_UNROLL_OFF)
+      printf("Gemm unroll off\n");
+    if (DEBUG_OPTIMIZED_OFF)
+      printf("Gemm optimized path off\n");
     bool aTrans = gemmOp.transA();
     bool bTrans = gemmOp.transB();
     if (IndexExpr::isLiteral(shapeHelper.aDims) &&
@@ -349,12 +355,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     }
 #endif
 
-    if (true) {
-      tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
-          alloc, zero, alpha, beta, rewriter, loc);
-    } else {
+    if (DEBUG_OPTIMIZED_OFF) {
       genericGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,
           alpha, beta, rewriter, loc);
+    } else {
+      tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
+          alloc, zero, alpha, beta, rewriter, loc);
     }
     rewriter.replaceOp(op, alloc);
     return success();

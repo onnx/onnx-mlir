@@ -261,7 +261,9 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   // Use the LLVM's 'opt' command to optimize the bitcode.
   string optPath = getToolPath("opt");
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
-  optBitcode.appendStr("-O2")
+  optBitcode.appendStr("-O3")
+      .appendStr("-disable-loop-unrolling")
+      //.appendStr("-debugify")
       .appendStr(getTargetOptions())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
@@ -394,11 +396,13 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
 
   // TODO: make this pass optional:
+  /*
   pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
   pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
   pm.addPass(mlir::createCanonicalizerPass());
+  */
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
