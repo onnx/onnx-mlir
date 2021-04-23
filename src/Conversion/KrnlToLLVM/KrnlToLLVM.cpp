@@ -422,8 +422,8 @@ public:
           StringAttr llvmStringAttr = StringAttr::get(data, context);
           global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
               /*isConstant=*/true, LLVM::Linkage::Internal, name,
-              //llvmStringAttr);
-              denseAttr);
+              llvmStringAttr);
+              //denseAttr);
         } else {
           global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
               /*isConstant=*/true, LLVM::Linkage::Internal, name,
