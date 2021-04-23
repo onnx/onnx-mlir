@@ -35,8 +35,6 @@ schedules:
   always: true
 
 variables:
-- name: CTEST_OUTPUT_ON_FAILURE
-  value: 1
 - name: System.PreferGitFromPath
   value: true
 
