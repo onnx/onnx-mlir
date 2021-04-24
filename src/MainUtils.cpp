@@ -258,7 +258,8 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   // Use the LLVM's 'opt' command to optimize the bitcode.
   string optPath = getToolPath("opt");
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
-  optBitcode.appendStr("-O2")
+  optBitcode.appendStr("-O3")
+      .appendStr("--disable-loop-unrolling")
       .appendStr(getTargetOptions())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
