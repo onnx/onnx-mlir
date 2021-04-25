@@ -53,13 +53,15 @@ def call() {
       JENKINS_REST_API_URL = sh(returnStdout: true,
                                 script: """#!/bin/bash +x
         declare -A url=([s390x]="http://localhost:8080/jenkins"
-                        [amd64]="http://localhost:8080/jenkinx")
+                        [amd64]="http://localhost:8080/jenkinx"
+                        [ppc64le]="http://localhost:8080/jenkinp")
         echo \${url[${CPU_ARCH}]}""").trim()
 
       JENKINS_REST_API_USER = sh(returnStdout: true,
                                  script: """#!/bin/bash +x
         declare -A user=([s390x]="jenkins"
-                         [amd64]="jenkins")
+                         [amd64]="jenkins"
+                         [ppc64le]="jenkins")
         echo \${user[${CPU_ARCH}]}""").trim()
 
       /* The rest of the environment variables need not to be changed for
