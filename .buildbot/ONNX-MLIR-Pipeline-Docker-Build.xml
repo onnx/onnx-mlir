@@ -35,7 +35,7 @@ The &quot;head&quot; branch is the actual branch that is to be merged. The &quot
 The GitHub Plugin has a &quot;bug&quot; that it would use the SHA we are building to post the commit status. So if we build the &quot;merge&quot; branch, it would post to the wrong &quot;merge&quot; SHA. The GitHub Pull Request Builder Plugin handles building either branch correctly.</description>
   <keepDependencies>false</keepDependencies>
   <properties>
-    <hudson.plugins.jira.JiraProjectProperty plugin="jira@3.2"/>
+    <hudson.plugins.jira.JiraProjectProperty plugin="jira@3.2.1"/>
     <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.33.1">
       <projectUrl>https://github.com/onnx/onnx-mlir/</projectUrl>
       <displayName></displayName>
@@ -123,7 +123,7 @@ The GitHub Plugin has a &quot;bug&quot; that it would use the SHA we are buildin
             </org.jenkinsci.plugins.gwt.GenericVariable>
           </genericVariables>
           <regexpFilterText>${x_github_event}:${github_webhook_payload_action}:${github_webhook_payload_issue_pull_request_url}:${github_webhook_payload_comment_body}:${GITHUB_PR_NUMBER_PUSH}</regexpFilterText>
-          <regexpFilterExpression>(pull_request:(opened|reopened|synchronize|closed):.*:.*:.*)|(issue_comment:created:.*pull.*:.*(test|publish) this please.*:.*)|(push:.*:.*:.*:master)</regexpFilterExpression>
+          <regexpFilterExpression>(pull_request:(opened|reopened|synchronize|closed):.*:.*:.*)|(issue_comment:created:.*pull.*:.*@jenkins-droid (test|publish) this please.*:.*)|(push:.*:.*:.*:master)</regexpFilterExpression>
           <genericHeaderVariables>
             <org.jenkinsci.plugins.gwt.GenericHeaderVariable>
               <key>x-github-delivery</key>
@@ -154,74 +154,89 @@ The GitHub Plugin has a &quot;bug&quot; that it would use the SHA we are buildin
  */
 def jenkinsfile
 def auth_ok
+def errmsg
 
 node {
-    /* In order to checkout the PR source to load the Jenkinsfile,
-     * we need to find out various bits about the PR depending on
-     * the webhook event received.
-     */
-    set_environ_vars(&quot;${x_github_event}&quot;)
-    set_build_name(&quot;${x_github_event}&quot;)
-
-    /* Check for authorization, i.e., where the user triggered
-     * the event is one of the admins.
-     */
     auth_ok = true
     withCredentials([
         string(credentialsId: &apos;ONNX-MLIR-GitHub-Admins&apos;,
                variable:      &apos;GITHUB_REPO_ADMINS&apos;),
         string(credentialsId: &apos;jenkins-buildbot-access-token&apos;,
-               variable:      &apos;GITHUB_REOP_ACCESS_TOKEN&apos;) ]) {
-        /* User triggering the event is not one of the admins */
-        if (GITHUB_REPO_ADMINS.indexOf(GITHUB_PR_SENDER) &lt; 0) {
-            /* Just post the comment once */
-            if (CPU_ARCH == &apos;s390x&apos;)
-                post_pr_comment(&quot;${GITHUB_PR_COMMENT_URL}&quot;,
-                                &quot;${GITHUB_REOP_ACCESS_TOKEN}&quot;,
-                                &apos;Can one of the admins verify this patch?&apos;)
+               variable:      &apos;GITHUB_REPO_ACCESS_TOKEN&apos;) ]) {
+
+        /* In order to checkout the PR source to load the Jenkinsfile,
+         * we need to find out various bits about the PR depending on
+         * the webhook event received.
+         */
+        set_environ_vars(&quot;${x_github_event}&quot;)
+        set_build_name(&quot;${x_github_event}&quot;)
+
+        try {
+            /* User triggering the event is not one of the admins */
+            if (GITHUB_REPO_ADMINS.indexOf(GITHUB_PR_SENDER) &lt; 0) {
+                /* Just post the comment once */
+                if (CPU_ARCH == &apos;s390x&apos;)
+                    post_pr_comment(&quot;${GITHUB_PR_COMMENT_URL}&quot;,
+                                    &quot;${GITHUB_REPO_ACCESS_TOKEN}&quot;,
+                                    &apos;Can one of the admins verify this patch?&apos;)
+                throw new Exception(&apos;admin authentication failed&apos;)
+            }
+            else {
+                /* Update github status as early as possible so we can get a
+                 * link to the build job even if we fail early.
+                 */
+                env.JENKINS_START_TIME = (new Date(&quot;${currentBuild.startTimeInMillis}&quot;.toLong())).format(&apos;HH:mm&apos;)
+                post_build_status(&quot;${GITHUB_EVENT}&quot;, &apos;pending&apos;)
+
+                /* We ask for this directory */
+                env.JENKINS_SCRIPTSPACE = &quot;${JENKINS_HOME}/workspace/${JOB_NAME}@script/pr_${GITHUB_PR_NUMBER}&quot;
+                ws(&quot;${JENKINS_SCRIPTSPACE}&quot;) {
+                    /* We may get one with @2, @3, etc. appended */
+                    env.JENKINS_SCRIPTSPACE_AT = &quot;${WORKSPACE}&quot;
+        
+                    /* Checkout the PR source */
+                    checkout_pr_source(&quot;${GITHUB_PR_REPO_URL}&quot;,
+                                       &quot;${GITHUB_PR_REMOTE}&quot;,
+                                       &quot;${GITHUB_PR_REFSPEC}&quot;,
+                                       &quot;${GITHUB_PR_BRANCH}&quot;,
+                                       false)
+
+                    /* debug only */
+                    set_environ_vars2(&quot;${x_github_event}&quot;)
+
+                    /* Load the Jenkinsfile in the source code repo but do not
+                     * run it yet. Since we are still inside the current node
+                     * block so running the loaded Jenkinsfile immediately will
+                     * consume another executor.
+                     *
+                     * For the assignment to work, the loaded Jenkinsfile must
+                     * have the &quot;return this&quot; statement after all the function
+                     * definitions.
+                     */
+                    jenkinsfile = load &quot;.buildbot/Jenkinsfile&quot;
+        
+                    /* We no longer need the script directory once the Jenkinsfile
+                     * is loaded so cleanup
+                     */
+                    deleteDir()
+                    dir(&quot;${JENKINS_SCRIPTSPACE_AT}@tmp&quot;) {
+                        deleteDir()
+                    }
+                } /* ws() */
+            } /* else */
+        } catch (Exception e) {
+            post_build_status(&quot;${GITHUB_EVENT}&quot;, &apos;failure&apos;)
+            errmsg = &apos;Exception: &apos; + e.toString()
             auth_ok = false
         }
-    }
-    if (!auth_ok) return
-    
-    /* We ask for this directory */
-    env.JENKINS_SCRIPTSPACE = &quot;${JENKINS_HOME}/workspace/${JOB_NAME}@script/pr_${GITHUB_PR_NUMBER}&quot;
-    ws(&quot;${JENKINS_SCRIPTSPACE}&quot;) {
-        /* We may get one with @2, @3, etc. appended */
-        env.JENKINS_SCRIPTSPACE_AT = &quot;${WORKSPACE}&quot;
-        
-        /* Checkout the PR source */
-        checkout_pr_source(GITHUB_PR_REPO_URL,
-                           GITHUB_PR_REMOTE,
-                           GITHUB_PR_REFSPEC,
-                           GITHUB_PR_BRANCH,
-                           false)
-
-        set_environ_vars2(&quot;${x_github_event}&quot;)
-
-        /* Load the Jenkinsfile in the source code repo but do not
-         * run it yet. Since we are still inside the current node
-         * block so running the loaded Jenkinsfile immediately will
-         * consume another executor.
-         *
-         * For the assignment to work, the loaded Jenkinsfile must
-         * have the &quot;return this&quot; statement after all the function
-         * definitions.
-         */
-        jenkinsfile = load &quot;.buildbot/Jenkinsfile&quot;
-        
-        /* We no longer need the script directory once the Jenkinsfile
-         * is loaded so cleanup
-         */
-        deleteDir()
-        dir(&quot;${JENKINS_SCRIPTSPACE_AT}@tmp&quot;) {
-            deleteDir()
-        }
-    }
-}
+    } /* withCredentials() */
+} /* node */
 
 /* Run the loaded Jenkinsfile by calling its special &quot;call&quot; function */
-if (auth_ok) jenkinsfile()
+if (auth_ok)
+	jenkinsfile()
+else
+	error(errmsg)
 
 /* Set various environment variables related to the pull request.
  * These are derived from the GitHub webhook payload without 
@@ -236,50 +251,66 @@ def set_environ_vars(event) {
     
     switch(event) {
         case &apos;pull_request&apos;:
-            env.GITHUB_PR_SENDER      = &quot;${github_webhook_payload_sender_login}&quot;
-            env.GITHUB_PR_NUMBER      = &quot;${github_webhook_payload_number}&quot;
-            env.GITHUB_PR_NUMBER2     = &quot;${github_webhook_payload_number}&quot;
-            env.GITHUB_PR_REPO_URL    = &quot;${github_webhook_payload_repository_clone_url}&quot;
-            env.GITHUB_PR_REMOTE      = &apos;origin&apos;
-            env.GITHUB_PR_REFSPEC     = &apos;+refs/pull/*:refs/remotes/origin/pr/*&apos;
-            env.GITHUB_PR_BRANCH      = &quot;origin/pr/${GITHUB_PR_NUMBER}/head&quot;
-            env.GITHUB_PR_ACTION      = &quot;${github_webhook_payload_action}&quot;
-            env.GITHUB_PR_PHRASE      = &apos;none&apos;
-            env.GITHUB_PR_TITLE       = &quot;${github_webhook_payload_pull_request_title}&quot;
-            env.GITHUB_PR_REQUEST_URL = &quot;${github_webhook_payload_pull_request_url}&quot;
-            env.GITHUB_PR_COMMENT_URL = &quot;${github_webhook_payload_pull_request_comments_url}&quot;
-            env.GITHUB_PR_MERGED      = &quot;${github_webhook_payload_pull_request_merged}&quot;
+            env.GITHUB_PR_SENDER         = &quot;${github_webhook_payload_sender_login}&quot;
+            env.GITHUB_PR_NUMBER         = &quot;${github_webhook_payload_number}&quot;
+            env.GITHUB_PR_NUMBER2        = &quot;${github_webhook_payload_number}&quot;
+            env.GITHUB_PR_REPO_URL       = &quot;${github_webhook_payload_repository_clone_url}&quot;
+            env.GITHUB_PR_REMOTE         = &apos;origin&apos;
+            env.GITHUB_PR_REFSPEC        = &apos;+refs/pull/*:refs/remotes/origin/pr/*&apos;
+            env.GITHUB_PR_BRANCH         = &quot;origin/pr/${GITHUB_PR_NUMBER}/head&quot;
+            env.GITHUB_PR_ACTION         = &quot;${github_webhook_payload_action}&quot;
+            env.GITHUB_PR_PHRASE         = &apos;none&apos;
+            env.GITHUB_PR_TITLE          = &quot;${github_webhook_payload_pull_request_title}&quot;
+            env.GITHUB_PR_REQUEST_URL    = &quot;${github_webhook_payload_pull_request_url}&quot;
+            env.GITHUB_PR_COMMENT_URL    = &quot;${github_webhook_payload_pull_request_comments_url}&quot;
+            env.GITHUB_PR_COMMIT_SHA1    = &quot;${github_webhook_payload_pull_request_head_sha}&quot;
+            env.GITHUB_PR_COMMIT_URL     = &quot;${github_webhook_payload_pull_request_head_repo_commits_url}&quot;.replace(&apos;{/sha}&apos;, &quot;/${GITHUB_PR_COMMIT_SHA1}&quot;)
+            env.GITHUB_PR_COMMIT_MESSAGE = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
+                                              curl -s ${GITHUB_PR_COMMIT_URL} | jq -r .commit.message&quot;&quot;&quot;).trim()
+            env.GITHUB_PR_STATUS_URL     = &quot;${github_webhook_payload_repository_statuses_url}&quot;.replace(&apos;{sha}&apos;, &quot;${GITHUB_PR_COMMIT_SHA1}&quot;)
+            env.GITHUB_PR_MERGED         = &quot;${github_webhook_payload_pull_request_merged}&quot;
             break
         case &apos;issue_comment&apos;:
-            env.GITHUB_PR_SENDER      = &quot;${github_webhook_payload_sender_login}&quot;
-            env.GITHUB_PR_NUMBER      = &quot;${github_webhook_payload_issue_number}&quot;
-            env.GITHUB_PR_NUMBER2     = &quot;${github_webhook_payload_issue_number}&quot;
-            env.GITHUB_PR_REPO_URL    = &quot;${github_webhook_payload_repository_clone_url}&quot;
-            env.GITHUB_PR_REMOTE      = &apos;origin&apos;
-            env.GITHUB_PR_REFSPEC     = &apos;+refs/pull/*:refs/remotes/origin/pr/*&apos;
-            env.GITHUB_PR_BRANCH      = &quot;origin/pr/${GITHUB_PR_NUMBER}/head&quot;
-            env.GITHUB_PR_ACTION      = &quot;${github_webhook_payload_action}&quot;
-            env.GITHUB_PR_PHRASE      = (&quot;${github_webhook_payload_comment_body}&quot; =~ /.*(test|publish) this please.*/)[0][1]
-            env.GITHUB_PR_TITLE       = &quot;${github_webhook_payload_issue_title}&quot;
-            env.GITHUB_PR_REQUEST_URL = &quot;${github_webhook_payload_issue_pull_request_url}&quot;
-            env.GITHUB_PR_COMMENT_URL = &quot;${github_webhook_payload_issue_comments_url}&quot;
-            env.GITHUB_PR_MERGED      = &apos;none&apos;
+            env.GITHUB_PR_SENDER         = &quot;${github_webhook_payload_sender_login}&quot;
+            env.GITHUB_PR_NUMBER         = &quot;${github_webhook_payload_issue_number}&quot;
+            env.GITHUB_PR_NUMBER2        = &quot;${github_webhook_payload_issue_number}&quot;
+            env.GITHUB_PR_REPO_URL       = &quot;${github_webhook_payload_repository_clone_url}&quot;
+            env.GITHUB_PR_REMOTE         = &apos;origin&apos;
+            env.GITHUB_PR_REFSPEC        = &apos;+refs/pull/*:refs/remotes/origin/pr/*&apos;
+            env.GITHUB_PR_BRANCH         = &quot;origin/pr/${GITHUB_PR_NUMBER}/head&quot;
+            env.GITHUB_PR_ACTION         = &quot;${github_webhook_payload_action}&quot;
+            env.GITHUB_PR_PHRASE         = (&quot;${github_webhook_payload_comment_body}&quot; =~ /.*@jenkins-droid (test|publish) this please.*/)[0][1]
+            env.GITHUB_PR_TITLE          = &quot;${github_webhook_payload_issue_title}&quot;
+            env.GITHUB_PR_REQUEST_URL    = &quot;${github_webhook_payload_issue_pull_request_url}&quot;
+            env.GITHUB_PR_COMMENT_URL    = &quot;${github_webhook_payload_issue_comments_url}&quot;
+            env.GITHUB_PR_COMMIT_SHA1    = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
+                                           curl -s ${github_webhook_payload_issue_pull_request_url} | jq -r .head.sha&quot;&quot;&quot;).trim()
+            env.GITHUB_PR_COMMIT_URL     = &quot;${github_webhook_payload_repository_commits_url}&quot;.replace(&apos;{/sha}&apos;, &quot;/${GITHUB_PR_COMMIT_SHA1}&quot;)
+            env.GITHUB_PR_COMMIT_MESSAGE = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
+                                              curl -s ${GITHUB_PR_COMMIT_URL} | jq -r .commit.message&quot;&quot;&quot;).trim()
+            env.GITHUB_PR_STATUS_URL     = &quot;${github_webhook_payload_repository_statuses_url}&quot;.replace(&apos;{sha}&apos;, &quot;${GITHUB_PR_COMMIT_SHA1}&quot;)
+            env.GITHUB_PR_MERGED         = &apos;none&apos;
             break
         case &apos;push&apos;:
-            env.GITHUB_PR_SENDER      = &quot;${github_webhook_payload_sender_login}&quot;
-            env.GITHUB_PR_NUMBER      = &quot;${GITHUB_PR_NUMBER_PUSH}&quot;
-            def match = &quot;${github_webhook_payload_head_commit_message}&quot; =~ /.*#(\d+)( from.*|\)\n+|\)$)/
-            env.GITHUB_PR_NUMBER2     = match ? match[0][1] : &apos;none&apos;
-            env.GITHUB_PR_REPO_URL    = &quot;${github_webhook_payload_repository_clone_url}&quot;
-            env.GITHUB_PR_REMOTE      = &apos;&apos;
-            env.GITHUB_PR_REFSPEC     = &apos;&apos;
-            env.GITHUB_PR_BRANCH      = &quot;${github_webhook_payload_ref}&quot;
-            env.GITHUB_PR_ACTION      = &apos;push&apos;
-            env.GITHUB_PR_PHRASE      = &apos;push&apos;
-            env.GITHUB_PR_TITLE       = &quot;${github_webhook_payload_head_commit_message}&quot;
-            env.GITHUB_PR_REQUEST_URL = &apos;none&apos;
-            env.GITHUB_PR_COMMENT_URL = &quot;${github_webhook_payload_repository_issue_comment_url}&quot;.replace(&apos;comments{/number}&apos;, &quot;${GITHUB_PR_NUMBER2}/comments&quot;)
-            env.GITHUB_PR_MERGED      = &apos;none&apos;
+            env.GITHUB_PR_SENDER         = &quot;${github_webhook_payload_sender_login}&quot;
+            env.GITHUB_PR_NUMBER         = &quot;${GITHUB_PR_NUMBER_PUSH}&quot;
+            def match                    = &quot;${github_webhook_payload_head_commit_message}&quot; =~ /.*#(\d+)( from.*|\)\n+|\)$)/
+            env.GITHUB_PR_NUMBER2        = match ? match[0][1] : &apos;none&apos;
+            env.GITHUB_PR_REPO_URL       = &quot;${github_webhook_payload_repository_clone_url}&quot;
+            env.GITHUB_PR_REMOTE         = &apos;&apos;
+            env.GITHUB_PR_REFSPEC        = &apos;&apos;
+            env.GITHUB_PR_BRANCH         = &quot;${github_webhook_payload_ref}&quot;
+            env.GITHUB_PR_ACTION         = &apos;push&apos;
+            env.GITHUB_PR_PHRASE         = &apos;push&apos;
+            env.GITHUB_PR_TITLE          = &quot;${github_webhook_payload_head_commit_message}&quot;
+            env.GITHUB_PR_REQUEST_URL    = &apos;none&apos;
+            env.GITHUB_PR_COMMENT_URL    = &quot;${github_webhook_payload_repository_issue_comment_url}&quot;.replace(&apos;comments{/number}&apos;, &quot;${GITHUB_PR_NUMBER2}/comments&quot;)
+            env.GITHUB_PR_COMMIT_SHA1    = &quot;${github_webhook_payload_head_commit_id}&quot;
+            env.GITHUB_PR_COMMIT_URL     = &quot;${github_webhook_payload_repository_commits_url}&quot;.replace(&apos;{/sha}&apos;, &quot;/${GITHUB_PR_COMMIT_SHA1}&quot;)
+            env.GITHUB_PR_COMMIT_MESSAGE = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
+                                              curl -s ${GITHUB_PR_COMMIT_URL} | jq -r .commit.message&quot;&quot;&quot;).trim()
+            env.GITHUB_PR_STATUS_URL     = &quot;${github_webhook_payload_repository_statuses_url}&quot;.replace(&apos;{sha}&apos;, &quot;${GITHUB_PR_COMMIT_SHA1}&quot;)
+            env.GITHUB_PR_MERGED         = &apos;none&apos;
             break
     }
 
@@ -299,23 +330,11 @@ def set_environ_vars(event) {
     println &quot;GITHUB_PR_TITLE          = ${GITHUB_PR_TITLE}&quot;
     println &quot;GITHUB_PR_REQUEST_URL    = ${GITHUB_PR_REQUEST_URL}&quot;
     println &quot;GITHUB_PR_COMMENT_URL    = ${GITHUB_PR_COMMENT_URL}&quot;
+    println &quot;GITHUB_PR_COMMIT_SHA1    = ${GITHUB_PR_COMMIT_SHA1}&quot;
+    println &quot;GITHUB_PR_COMMIT_URL     = ${GITHUB_PR_COMMIT_URL}&quot;
+    println &quot;GITHUB_PR_COMMIT_MESSAGE = ${GITHUB_PR_COMMIT_MESSAGE}&quot;
+    println &quot;GITHUB_PR_STATUS_URL     = ${GITHUB_PR_STATUS_URL}&quot;
     println &quot;GITHUB_PR_MERGED         = ${GITHUB_PR_MERGED}&quot;
-    
-    /* Backward compatibility, remove when generalized scripts merged */
-    env.X_GITHUB_EVENT           = GITHUB_EVENT
-    env.ONNX_MLIR_PR_SENDER      = GITHUB_PR_SENDER
-    env.ONNX_MLIR_PR_NUMBER      = GITHUB_PR_NUMBER
-    env.ONNX_MLIR_PR_NUMBER2     = GITHUB_PR_NUMBER2
-    env.ONNX_MLIR_PR_REPO_URL    = GITHUB_PR_REPO_URL
-    env.ONNX_MLIR_PR_REMOTE      = GITHUB_PR_REMOTE
-    env.ONNX_MLIR_PR_REFSPEC     = GITHUB_PR_REFSPEC
-    env.ONNX_MLIR_PR_BRANCH      = GITHUB_PR_BRANCH
-    env.ONNX_MLIR_PR_ACTION      = GITHUB_PR_ACTION
-    env.ONNX_MLIR_PR_PHRASE      = GITHUB_PR_PHRASE
-    env.ONNX_MLIR_PR_TITLE       = GITHUB_PR_TITLE
-    env.ONNX_MLIR_PR_REQUEST_URL = GITHUB_PR_REQUEST_URL
-    env.ONNX_MLIR_PR_COMMENT_URL = GITHUB_PR_COMMENT_URL
-    env.ONNX_MLIR_PR_MERGED      = GITHUB_PR_MERGED
 }
 
 /* Set various environment variables related to the pull request.
@@ -332,33 +351,26 @@ def set_environ_vars2(event) {
     * So if we want bash specific interpretation such as $(git ...),
     * we need to escape the $ sign.
     */
-    env.GITHUB_PR_COMMIT_MESSAGE = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
-        git -C ${JENKINS_SCRIPTSPACE_AT} log --oneline --format=%B -n 1 HEAD&quot;&quot;&quot;).trim()
-
     switch(event) {
         case &apos;pull_request&apos;:
-            env.GITHUB_PR_COMMIT_SHA1 = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
+            env.XGITHUB_PR_COMMIT_SHA1 = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
                 git -C ${JENKINS_SCRIPTSPACE_AT} rev-parse HEAD&quot;&quot;&quot;).trim()
             break
         case &apos;issue_comment&apos;:
-            env.GITHUB_PR_COMMIT_SHA1 = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
+            env.XGITHUB_PR_COMMIT_SHA1 = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
                 git -C ${JENKINS_SCRIPTSPACE_AT} rev-parse HEAD&quot;&quot;&quot;).trim()
             break
         case &apos;push&apos;:
-            env.GITHUB_PR_COMMIT_SHA1 = &quot;${github_webhook_payload_commits_0_id}&quot;
+            env.XGITHUB_PR_COMMIT_SHA1 = &quot;${github_webhook_payload_head_commit_id}&quot;
             break
     }
-    
-    env.GITHUB_PR_STATUS_URL = &quot;${github_webhook_payload_repository_statuses_url}&quot;.replace(&apos;{sha}&apos;, &quot;${GITHUB_PR_COMMIT_SHA1}&quot;)
+    env.XGITHUB_PR_COMMIT_MESSAGE = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
+        git -C ${JENKINS_SCRIPTSPACE_AT} log --oneline --format=%B -n 1 HEAD&quot;&quot;&quot;).trim()
+    env.XGITHUB_PR_STATUS_URL = &quot;${github_webhook_payload_repository_statuses_url}&quot;.replace(&apos;{sha}&apos;, &quot;${XGITHUB_PR_COMMIT_SHA1}&quot;)
 
-    println &quot;GITHUB_PR_COMMIT_MESSAGE = ${GITHUB_PR_COMMIT_MESSAGE}&quot;
-    println &quot;GITHUB_PR_COMMIT_SHA1    = ${GITHUB_PR_COMMIT_SHA1}&quot;
-    println &quot;GITHUB_PR_STATUS_URL     = ${GITHUB_PR_STATUS_URL}&quot;
-    
-    /* Backward compatibility, remove when generalized scripts merged */
-    env.ONNX_MLIR_PR_COMMIT_MESSAGE = GITHUB_PR_COMMIT_MESSAGE
-    env.ONNX_MLIR_PR_COMMIT_SHA1    = GITHUB_PR_COMMIT_SHA1
-    env.ONNX_MLIR_PR_STATUS_URL     = GITHUB_PR_STATUS_URL
+    println &quot;XGITHUB_PR_COMMIT_SHA1    = ${XGITHUB_PR_COMMIT_SHA1}&quot;
+    println &quot;XGITHUB_PR_COMMIT_MESSAGE = ${XGITHUB_PR_COMMIT_MESSAGE}&quot;
+    println &quot;XGITHUB_PR_STATUS_URL     = ${XGITHUB_PR_STATUS_URL}&quot;
 }
 
 /* Set build name appearing on the build history */
@@ -373,6 +385,66 @@ def set_build_name(event) {
                                &quot;[${phrase}] &quot; +
                                title.substring(0,Math.min(title.length(),32)) +
                                (title.length() &gt; 32 ? &apos;...&apos; : &apos;&apos;)
+}
+
+/* Set build status appearing on the GitHub pull request page */
+def post_build_status(event, state) {
+    /* Commit message may have newline so replace it to avoid invalid JSON.
+     * Also remove single and double quotes since the first MAXLEN characters
+     * may end in the middle of a quoted phrase.
+     *
+     * replace vs replaceAll: both will replace all occurrences of the 1st
+     * string with the 2nd string. But for replace the 1st string is a normal
+     * string while for replaceAll the 1st string is a regex.
+     */
+    def MAXLEN   = 24
+    def title    = &quot;${GITHUB_PR_COMMIT_MESSAGE}&quot;.replace(&apos;\n&apos;, &apos; &apos;).replace(&apos;\&apos;&apos;, &apos;&apos;).replace(&apos;&quot;&apos;, &apos;&apos;)
+    def phrase   = (event == &apos;issue_comment&apos;) ?
+                   &quot;${GITHUB_PR_PHRASE}&quot; : &quot;${GITHUB_PR_ACTION}&quot;
+    def desc     = (&quot;${GITHUB_PR_ACTION}&quot; == &apos;push&apos; ?
+                    &quot;Build [#${BUILD_NUMBER}](${BUILD_URL}) &quot; : &quot;Build #${BUILD_NUMBER} &quot;) +
+                   &quot;[${phrase}] &quot; + title.substring(0,Math.min(title.length(),MAXLEN)) + &apos;...&apos;
+    def action   = (state == &apos;success&apos;) ? &apos;passed&apos;  :
+                   (state == &apos;failure&apos;) ? &apos;failed&apos;  :
+                   (state == &apos;aborted&apos;) ? &apos;aborted&apos; : &apos;started&apos;
+    def duration = (state == &apos;pending&apos;) ?
+        &quot;at ${JENKINS_START_TIME}&quot; : &quot;after ${currentBuild.durationString.replace(&apos; and counting&apos;,&apos;&apos;)}&quot;
+    def status   = (state == &apos;aborted&apos;) ? &apos;failure&apos; : state
+
+    /* If the action is &quot;push&quot;, it&apos;s for merging into master. The GitHub page
+     * for the pull request is already closed and commit status is no longer
+     * updated. So we post the build status as a comment.
+     */
+    if (&quot;${GITHUB_PR_ACTION}&quot; == &apos;push&apos;)
+        post_pr_comment(&quot;${GITHUB_PR_COMMENT_URL}&quot;,
+                        &quot;${GITHUB_REPO_ACCESS_TOKEN}&quot;,
+                        &quot;**${GITHUB_CONTEXT}** ${desc} ${action} ${duration}&quot;)
+    else
+        post_pr_status(&quot;${GITHUB_PR_STATUS_URL}&quot;,
+                       &quot;${GITHUB_REPO_ACCESS_TOKEN}&quot;,
+                       &quot;${status}&quot;,
+                       &quot;${GITHUB_CONTEXT}&quot;,
+                       &quot;${desc} ${action} ${duration}&quot;,
+                       &quot;${BUILD_URL}&quot;)
+}
+
+/* Post a status to the pull request page */
+def post_pr_status(url, token, status, context, description, target_url) {
+    def data = &quot;&quot;&quot;
+        { &quot;state&quot;: &quot;${status}&quot;, \
+          &quot;context&quot;: &quot;${context}&quot;, \
+          &quot;description&quot;: &quot;${description}&quot;, \
+          &quot;target_url&quot;: &quot;${target_url}&quot; }
+    &quot;&quot;&quot;
+
+    sh &apos;&apos;&apos;#!/bin/bash +x
+        curl -s &apos;&apos;&apos; + url + &apos;&apos;&apos; \
+             -X POST \
+             -H &quot;Accept: application/vnd.github.v3+json&quot; \
+             -H &quot;Authorization: token &apos;&apos;&apos; + token + &apos;&apos;&apos;&quot; \
+             -d \&apos; &apos;&apos;&apos; + data + &apos;&apos;&apos; \&apos; | \
+        jq &apos;{url: .url, state: .state, description: .description, context: .context, message: .message}&apos;
+    &apos;&apos;&apos;
 }
 
 /* Post a comment on the pull request issue page when an event
