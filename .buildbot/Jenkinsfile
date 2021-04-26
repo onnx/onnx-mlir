@@ -130,7 +130,6 @@ def call() {
           echo "GITHUB_PR_COMMIT_URL     = ${GITHUB_PR_COMMIT_URL}"
           echo "GITHUB_PR_COMMIT_MESSAGE = ${GITHUB_PR_COMMIT_MESSAGE}"
           echo "GITHUB_PR_STATUS_URL     = ${GITHUB_PR_STATUS_URL}"
-          echo "GITHUB_PR_COMMIT_MESSAGE = ${GITHUB_PR_COMMIT_MESSAGE}"
           echo "GITHUB_PR_MERGED         = ${GITHUB_PR_MERGED}"
 
           checkout_pr_source("${GITHUB_PR_REPO_URL}",
