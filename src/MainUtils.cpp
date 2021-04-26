@@ -261,10 +261,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   // Use the LLVM's 'opt' command to optimize the bitcode.
   string optPath = getToolPath("opt");
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
-  optBitcode
-      .appendStr("-O2") // test_scan9_sum_cpu fails on z with O3.
-      .appendStr("-disable-loop-unrolling")
-      //.appendStr("-debugify")
+  optBitcode.appendStr("-O3")
       .appendStr(getTargetOptions())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
