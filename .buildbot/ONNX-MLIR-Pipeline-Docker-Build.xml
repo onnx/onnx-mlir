@@ -265,8 +265,7 @@ def set_environ_vars(event) {
             env.GITHUB_PR_COMMENT_URL    = &quot;${github_webhook_payload_pull_request_comments_url}&quot;
             env.GITHUB_PR_COMMIT_SHA1    = &quot;${github_webhook_payload_pull_request_head_sha}&quot;
             env.GITHUB_PR_COMMIT_URL     = &quot;${github_webhook_payload_pull_request_head_repo_commits_url}&quot;.replace(&apos;{/sha}&apos;, &quot;/${GITHUB_PR_COMMIT_SHA1}&quot;)
-            env.GITHUB_PR_COMMIT_MESSAGE = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
-                                              curl -s ${GITHUB_PR_COMMIT_URL} | jq -r .commit.message&quot;&quot;&quot;).trim()
+            env.GITHUB_PR_COMMIT_MESSAGE = get_commit_data(&quot;${GITHUB_PR_COMMIT_URL}&quot;, &quot;${GITHUB_REPO_ACCESS_TOKEN}&quot;, &apos;.commit.message&apos;)
             env.GITHUB_PR_STATUS_URL     = &quot;${github_webhook_payload_repository_statuses_url}&quot;.replace(&apos;{sha}&apos;, &quot;${GITHUB_PR_COMMIT_SHA1}&quot;)
             env.GITHUB_PR_MERGED         = &quot;${github_webhook_payload_pull_request_merged}&quot;
             break
@@ -283,11 +282,9 @@ def set_environ_vars(event) {
             env.GITHUB_PR_TITLE          = &quot;${github_webhook_payload_issue_title}&quot;
             env.GITHUB_PR_REQUEST_URL    = &quot;${github_webhook_payload_issue_pull_request_url}&quot;
             env.GITHUB_PR_COMMENT_URL    = &quot;${github_webhook_payload_issue_comments_url}&quot;
-            env.GITHUB_PR_COMMIT_SHA1    = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
-                                           curl -s ${github_webhook_payload_issue_pull_request_url} | jq -r .head.sha&quot;&quot;&quot;).trim()
+            env.GITHUB_PR_COMMIT_SHA1    = get_commit_data(&quot;${github_webhook_payload_issue_pull_request_url}&quot;, &quot;${GITHUB_REPO_ACCESS_TOKEN}&quot;, &apos;.head.sha&apos;)
             env.GITHUB_PR_COMMIT_URL     = &quot;${github_webhook_payload_repository_commits_url}&quot;.replace(&apos;{/sha}&apos;, &quot;/${GITHUB_PR_COMMIT_SHA1}&quot;)
-            env.GITHUB_PR_COMMIT_MESSAGE = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
-                                              curl -s ${GITHUB_PR_COMMIT_URL} | jq -r .commit.message&quot;&quot;&quot;).trim()
+            env.GITHUB_PR_COMMIT_MESSAGE = get_commit_data(&quot;${GITHUB_PR_COMMIT_URL}&quot;, &quot;${GITHUB_REPO_ACCESS_TOKEN}&quot;, &apos;.commit.message&apos;)
             env.GITHUB_PR_STATUS_URL     = &quot;${github_webhook_payload_repository_statuses_url}&quot;.replace(&apos;{sha}&apos;, &quot;${GITHUB_PR_COMMIT_SHA1}&quot;)
             env.GITHUB_PR_MERGED         = &apos;none&apos;
             break
@@ -307,8 +304,7 @@ def set_environ_vars(event) {
             env.GITHUB_PR_COMMENT_URL    = &quot;${github_webhook_payload_repository_issue_comment_url}&quot;.replace(&apos;comments{/number}&apos;, &quot;${GITHUB_PR_NUMBER2}/comments&quot;)
             env.GITHUB_PR_COMMIT_SHA1    = &quot;${github_webhook_payload_head_commit_id}&quot;
             env.GITHUB_PR_COMMIT_URL     = &quot;${github_webhook_payload_repository_commits_url}&quot;.replace(&apos;{/sha}&apos;, &quot;/${GITHUB_PR_COMMIT_SHA1}&quot;)
-            env.GITHUB_PR_COMMIT_MESSAGE = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
-                                              curl -s ${GITHUB_PR_COMMIT_URL} | jq -r .commit.message&quot;&quot;&quot;).trim()
+            env.GITHUB_PR_COMMIT_MESSAGE = get_commit_data(&quot;${GITHUB_PR_COMMIT_URL}&quot;, &quot;${GITHUB_REPO_ACCESS_TOKEN}&quot;, &apos;.commit.message&apos;)
             env.GITHUB_PR_STATUS_URL     = &quot;${github_webhook_payload_repository_statuses_url}&quot;.replace(&apos;{sha}&apos;, &quot;${GITHUB_PR_COMMIT_SHA1}&quot;)
             env.GITHUB_PR_MERGED         = &apos;none&apos;
             break
@@ -465,6 +461,17 @@ def post_pr_comment(url, token, msg) {
              -d \&apos; &apos;&apos;&apos; + data + &apos;&apos;&apos; \&apos; | \
         jq &apos;{url: .url, created_at: .created_at, updated_at: .updated_at, body: .body}&apos;
     &apos;&apos;&apos;
+}
+
+/* Get JSON data from url */
+def get_commit_data(url, token, data) {
+    return sh(returnStdout: true, script: &apos;&apos;&apos;#!/bin/bash +x
+        curl -s &apos;&apos;&apos; + url + &apos;&apos;&apos; \
+             -X GET \
+             -H &quot;Accept: application/json&quot; \
+             -H &quot;Authorization: token &apos;&apos;&apos; + token + &apos;&apos;&apos;&quot; | \
+        jq -r &apos;&apos;&apos; + data + &apos;&apos;&apos;
+    &apos;&apos;&apos;).trim()
 }
 
 /* Checkout pull request source without submodules for the purpose
