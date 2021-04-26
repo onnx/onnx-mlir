@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --EmitApollo %s
+// RUN: onnx-mlir --EmitApollo %s -o %t
 // This test is checking that nested matmuls (i.e. matmuls with > 2 dimensions) don't cause crashes in the EmitApollo pipeline
 
 module  {
