@@ -291,8 +291,7 @@ def set_environ_vars(event) {
         case &apos;push&apos;:
             env.GITHUB_PR_SENDER         = &quot;${github_webhook_payload_sender_login}&quot;
             env.GITHUB_PR_NUMBER         = &quot;${GITHUB_PR_NUMBER_PUSH}&quot;
-            def match                    = &quot;${github_webhook_payload_head_commit_message}&quot; =~ /.*#(\d+)( from.*|\)\n+|\)$)/
-            env.GITHUB_PR_NUMBER2        = match ? match[0][1] : &apos;none&apos;
+            env.GITHUB_PR_NUMBER2        = get_pr_number(&quot;${github_webhook_payload_head_commit_message}&quot;)
             env.GITHUB_PR_REPO_URL       = &quot;${github_webhook_payload_repository_clone_url}&quot;
             env.GITHUB_PR_REMOTE         = &apos;&apos;
             env.GITHUB_PR_REFSPEC        = &apos;&apos;
@@ -472,6 +471,12 @@ def get_commit_data(url, token, data) {
              -H &quot;Authorization: token &apos;&apos;&apos; + token + &apos;&apos;&apos;&quot; | \
         jq -r &apos;&apos;&apos; + data + &apos;&apos;&apos;
     &apos;&apos;&apos;).trim()
+}
+
+/* Parse commit message to get pull request number */
+def get_pr_number(message) {
+    def match = message =~ /.*#(\d+)( from.*|\)\n)/
+    return match ? match[0][1] : &apos;none&apos;
 }
 
 /* Checkout pull request source without submodules for the purpose
