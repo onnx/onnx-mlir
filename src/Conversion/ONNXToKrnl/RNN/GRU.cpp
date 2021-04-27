@@ -27,6 +27,24 @@ struct GruActivationPack {
   RNNActivation g;
 };
 
+struct GruWeightPack {
+  Value Wz;
+  Value Wr;
+  Value Wh;
+  Value Rz;
+  Value Rr;
+  Value Rh;
+};
+
+struct GruBiasPack {
+  Value Wbz;
+  Value Wbr;
+  Value Wbh;
+  Value Rbz;
+  Value Rbr;
+  Value Rbh;
+};
+
 template <>
 bool hasAllNoneOutput<ONNXGRUOp>(ONNXGRUOp *op) {
   return (isNoneType(op->Y()) && isNoneType(op->Y_h()));
@@ -135,6 +153,21 @@ getActivationPack<ONNXGRUOp, GruActivationPack>(ONNXGRUOp *op) {
 }
 
 template <>
+std::tuple<GruWeightPack, GruWeightPack>
+getWeightPack<ONNXGRUOp, GruWeightPack>(
+    ConversionPatternRewriter &rewriter, Location loc, ONNXGRUOp *op) {
+  GruWeightPack weightForward, weightReverse;
+  return std::make_tuple(weightForward, weightReverse);
+}
+
+template <>
+std::tuple<GruBiasPack, GruBiasPack> getBiasPack<ONNXGRUOp, GruBiasPack>(
+    ConversionPatternRewriter &rewriter, Location loc, ONNXGRUOp *op) {
+  GruBiasPack biasForward, biasReverse;
+  return std::make_tuple(biasForward, biasReverse);
+}
+
+template <>
 GruState allocAndInitializeStates<ONNXGRUOp, GruState>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXGRUOp *op,
     typename ONNXGRUOp::Adaptor operandAdaptor) {
@@ -167,10 +200,11 @@ GruState allocAndInitializeStates<ONNXGRUOp, GruState>(
 }
 
 template <>
-void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
-    ConversionPatternRewriter &rewriter, Location loc,
+void calculateState<ONNXGRUOp, GruState, GruActivationPack, GruWeightPack,
+    GruBiasPack>(ConversionPatternRewriter &rewriter, Location loc,
     typename ONNXGRUOp::Adaptor operandAdaptor, GruState state,
-    GruActivationPack activationPack, Value directionIV, Value sequenceIV) {
+    GruActivationPack activationPack, GruWeightPack weightPack,
+    GruBiasPack biasPack, Value directionIV, Value sequenceIV) {
 
   // GRU has 3 gates: Update, Reset, and Hidden.
   const int GATES = 3;
@@ -663,6 +697,6 @@ void stateToOutput<ONNXGRUOp, GruState>(
 
 void populateLoweringONNXGRUOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXRNNOpLowering<ONNXGRUOp, GruState, GruActivationPack>>(
-      ctx);
+  patterns.insert<ONNXRNNOpLowering<ONNXGRUOp, GruState, GruActivationPack,
+      GruWeightPack, GruBiasPack>>(ctx);
 }

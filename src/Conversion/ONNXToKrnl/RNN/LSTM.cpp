@@ -28,6 +28,28 @@ struct LstmActivationPack {
   RNNActivation h;
 };
 
+struct LstmWeightPack {
+  Value Wi;
+  Value Wo;
+  Value Wf;
+  Value Wc;
+  Value Ri;
+  Value Ro;
+  Value Rf;
+  Value Rc;
+};
+
+struct LstmBiasPack {
+  Value Wbi;
+  Value Wbo;
+  Value Wbf;
+  Value Wbc;
+  Value Rbi;
+  Value Rbo;
+  Value Rbf;
+  Value Rbc;
+};
+
 template <>
 bool hasAllNoneOutput<ONNXLSTMOp>(ONNXLSTMOp *op) {
   return (
@@ -161,6 +183,21 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
 }
 
 template <>
+std::tuple<LstmWeightPack, LstmWeightPack>
+getWeightPack<ONNXLSTMOp, LstmWeightPack>(
+    ConversionPatternRewriter &rewriter, Location loc, ONNXLSTMOp *op) {
+  LstmWeightPack weightForward, weightReverse;
+  return std::make_tuple(weightForward, weightReverse);
+}
+
+template <>
+std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
+    ConversionPatternRewriter &rewriter, Location loc, ONNXLSTMOp *op) {
+  LstmBiasPack biasForward, biasReverse;
+  return std::make_tuple(biasForward, biasReverse);
+}
+
+template <>
 LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXLSTMOp *op,
     typename ONNXLSTMOp::Adaptor operandAdaptor) {
@@ -189,10 +226,11 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
 }
 
 template <>
-void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
-    ConversionPatternRewriter &rewriter, Location loc,
+void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
+    LstmBiasPack>(ConversionPatternRewriter &rewriter, Location loc,
     typename ONNXLSTMOp::Adaptor operandAdaptor, LstmState state,
-    LstmActivationPack activationPack, Value directionIV, Value sequenceIV) {
+    LstmActivationPack activationPack, LstmWeightPack weightPack,
+    LstmBiasPack biasPack, Value directionIV, Value sequenceIV) {
 
   bool hasBiasForInput = false, hasPeepholes = false;
   if (!isNoneType(operandAdaptor.B()))
@@ -576,6 +614,6 @@ void stateToOutput<ONNXLSTMOp, LstmState>(
 
 void populateLoweringONNXLSTMOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXRNNOpLowering<ONNXLSTMOp, LstmState, LstmActivationPack>>(
-      ctx);
+  patterns.insert<ONNXRNNOpLowering<ONNXLSTMOp, LstmState, LstmActivationPack,
+      LstmWeightPack, LstmBiasPack>>(ctx);
 }

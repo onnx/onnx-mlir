@@ -53,6 +53,8 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
 // Override the following methods when lowering an RNN operation:
 // - hasAllNoneOutput
 // - getActivationPack
+// - getWeightPack
+// - getBiasPack
 // - allocAndInitializeStates
 // - calculateState
 // - stateToOutput
@@ -65,23 +67,37 @@ bool hasAllNoneOutput(RNNOp *op);
 template <typename RNNOp, typename A>
 std::tuple<A, A> getActivationPack(RNNOp *op);
 
+/// Obtain weights for each gate.
+/// In ONNX, weights for gates and directions are combined in a single tensor.
+/// This function splits them and creates individual tensors.
+template <typename RNNOp, typename W>
+std::tuple<W, W> getWeightPack(
+    ConversionPatternRewriter &rewriter, Location loc, RNNOp *op);
+
+/// Obtain biases for each gate.
+/// In ONNX, biases for gates and directions are combined in a single tensor.
+/// This function splits them and creates individual tensors.
+template <typename RNNOp, typename B>
+std::tuple<B, B> getBiasPack(
+    ConversionPatternRewriter &rewriter, Location loc, RNNOp *op);
+
 // Allocate memory for RNN states and initialize them.
 template <typename RNNOp, typename S>
 S allocAndInitializeStates(ConversionPatternRewriter &rewriter, Location loc,
     RNNOp *op, typename RNNOp::Adaptor operandAdaptor);
 
 // Calculate new states from the current input and states.
-template <typename RNNOp, typename S, typename A>
+template <typename RNNOp, typename S, typename A, typename W, typename B>
 void calculateState(ConversionPatternRewriter &rewriter, Location loc,
-    typename RNNOp::Adaptor operandAdaptor, S state, A activationSet,
-    Value directionIV, Value sequenceIV);
+    typename RNNOp::Adaptor operandAdaptor, S state, A activationSet, W weight,
+    B bias, Value directionIV, Value sequenceIV);
 
 // Write states to the RNN's outputs.
 template <typename RNNOp, typename S>
 void stateToOutput(RNNOp *op, S state, std::vector<Value> &outputs);
 
 // A common template for lowering an RNN operation.
-template <typename RNNOp, typename S, typename A>
+template <typename RNNOp, typename S, typename A, typename W, typename B>
 struct ONNXRNNOpLowering : public ConversionPattern {
   ONNXRNNOpLowering(MLIRContext *ctx)
       : ConversionPattern(RNNOp::getOperationName(), 1, ctx) {}
@@ -98,12 +114,24 @@ struct ONNXRNNOpLowering : public ConversionPattern {
       return success();
     }
 
+    // Initialize output states.
     S state = allocAndInitializeStates<RNNOp, S>(
         rewriter, loc, &rnnOp, operandAdaptor);
 
+    // Activation functions.
     A activationForward, activationReverse;
     std::tie(activationForward, activationReverse) =
         getActivationPack<RNNOp, A>(&rnnOp);
+
+    // Prepare weights.
+    W weightForward, weightReverse;
+    std::tie(weightForward, weightReverse) =
+        getWeightPack<RNNOp, W>(rewriter, loc, &rnnOp);
+
+    // Prepare biases.
+    B biasForward, biasReverse;
+    std::tie(biasForward, biasReverse) =
+        getBiasPack<RNNOp, B>(rewriter, loc, &rnnOp);
 
     int64_t sequenceDimSize = dimAt(rnnOp.X(), 0);
     auto direction = rnnOp.direction();
@@ -125,8 +153,9 @@ struct ONNXRNNOpLowering : public ConversionPattern {
             emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
         Value sequenceIV = sequenceLoops.getInductionVar(0);
         // Emit calculation for one RNN step.
-        calculateState<RNNOp, S, A>(rewriter, loc, operandAdaptor, state,
-            activationForward, directionIV, sequenceIV);
+        calculateState<RNNOp, S, A, W, B>(rewriter, loc, operandAdaptor, state,
+            activationForward, weightForward, biasForward, directionIV,
+            sequenceIV);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
@@ -160,8 +189,9 @@ struct ONNXRNNOpLowering : public ConversionPattern {
             reverseIVMap,
             std::vector<Value>{sequenceLoops.getInductionVar(0), sequenceSize});
         // Emit calculation for one RNN step.
-        calculateState<RNNOp, S, A>(rewriter, loc, operandAdaptor, state,
-            activationReverse, directionIV, reverseSequenceIV);
+        calculateState<RNNOp, S, A, W, B>(rewriter, loc, operandAdaptor, state,
+            activationReverse, weightReverse, biasReverse, directionIV,
+            reverseSequenceIV);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }

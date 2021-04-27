@@ -25,6 +25,16 @@ struct RnnActivationPack {
   RNNActivation f;
 };
 
+struct RnnWeightPack {
+  Value Wi;
+  Value Ri;
+};
+
+struct RnnBiasPack {
+  Value Wbi;
+  Value Rbi;
+};
+
 template <>
 bool hasAllNoneOutput<ONNXRNNOp>(ONNXRNNOp *op) {
   return (isNoneType(op->Y()) && isNoneType(op->Y_h()));
@@ -109,6 +119,22 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
 }
 
 template <>
+std::tuple<RnnWeightPack, RnnWeightPack>
+getWeightPack<ONNXRNNOp, RnnWeightPack>(
+    ConversionPatternRewriter &rewriter, Location loc, ONNXRNNOp *op) {
+
+  RnnWeightPack weightForward, weightReverse;
+  return std::make_tuple(weightForward, weightReverse);
+}
+
+template <>
+std::tuple<RnnBiasPack, RnnBiasPack> getBiasPack<ONNXRNNOp, RnnBiasPack>(
+    ConversionPatternRewriter &rewriter, Location loc, ONNXRNNOp *op) {
+  RnnBiasPack biasForward, biasReverse;
+  return std::make_tuple(biasForward, biasReverse);
+}
+
+template <>
 RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXRNNOp *op,
     typename ONNXRNNOp::Adaptor operandAdaptor) {
@@ -133,10 +159,11 @@ RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
 }
 
 template <>
-void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
-    ConversionPatternRewriter &rewriter, Location loc,
+void calculateState<ONNXRNNOp, RnnState, RnnActivationPack, RnnWeightPack,
+    RnnBiasPack>(ConversionPatternRewriter &rewriter, Location loc,
     typename ONNXRNNOp::Adaptor operandAdaptor, RnnState state,
-    RnnActivationPack activationPack, Value directionIV, Value sequenceIV) {
+    RnnActivationPack activationPack, RnnWeightPack weightPack,
+    RnnBiasPack biasPack, Value directionIV, Value sequenceIV) {
 
   bool hasBiasForInput = false;
   if (!isNoneType(operandAdaptor.B()))
@@ -371,6 +398,6 @@ void stateToOutput<ONNXRNNOp, RnnState>(
 
 void populateLoweringONNXRNNOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXRNNOpLowering<ONNXRNNOp, RnnState, RnnActivationPack>>(
-      ctx);
+  patterns.insert<ONNXRNNOpLowering<ONNXRNNOp, RnnState, RnnActivationPack,
+      RnnWeightPack, RnnBiasPack>>(ctx);
 }
