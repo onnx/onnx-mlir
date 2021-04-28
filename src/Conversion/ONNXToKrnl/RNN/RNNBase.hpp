@@ -67,16 +67,16 @@ bool hasAllNoneOutput(RNNOp *op);
 template <typename RNNOp, typename A>
 std::tuple<A, A> getActivationPack(RNNOp *op);
 
-/// Obtain weights for each gate.
+/// Obtain weight tensors in 2D for each gate.
 /// In ONNX, weights for gates and directions are combined in a single tensor.
-/// This function splits them and creates individual tensors.
+/// This function splits them into 2D tensors.
 template <typename RNNOp, typename W>
 std::tuple<W, W> getWeightPack(
     ConversionPatternRewriter &rewriter, Location loc, RNNOp *op);
 
-/// Obtain biases for each gate.
+/// Obtain biases in 1D for each gate.
 /// In ONNX, biases for gates and directions are combined in a single tensor.
-/// This function splits them and creates individual tensors.
+/// This function splits them into 1D tensors.
 template <typename RNNOp, typename B>
 std::tuple<B, B> getBiasPack(
     ConversionPatternRewriter &rewriter, Location loc, RNNOp *op);
