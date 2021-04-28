@@ -106,12 +106,13 @@ target_link_libraries(TestLoop
         OMTensorUtils)
         
 
-# ISSUE-TODO-namcvica-2021-04-07: These tests have the same issue as onnx-backend, disable to complete merge
-#add_test(NAME OMTestConv COMMAND TestConv)
+# ISSUE-TODO-namcvica-2021-04-07: These tests have the same issue as onnx-backend
+# See https://github.com/onnx/onnx-mlir/issues/617
+add_test(NAME OMTestConv COMMAND TestConv)
 #add_test(NAME OMTestMatMul2D COMMAND TestMatMul2D)
 #add_test(NAME OMTestGemm COMMAND TestGemm)
 # ISSUE-TODO-namcvica-2020-12-23: Disable broken tests until they can be fixed upstream
-#add_test(NAME OMTestLoop COMMAND TestLoop)
+add_test(NAME OMTestLoop COMMAND TestLoop)
 #add_test(NAME OMTestGRU COMMAND TestGRU)
 #add_test(NAME OMTestLSTM COMMAND TestLSTM)
 #add_test(NAME OMTestRNN COMMAND TestRNN)

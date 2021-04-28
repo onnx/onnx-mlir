@@ -835,10 +835,21 @@ public:
 
     auto omTensorPtrArr =
         callApi(rewriter, loc, apiRegistry, API::GET_OMT_ARRAY, {wrappedInput});
-    for (size_t i = 0; i < staticEntryPointTy.getNumParams(); i++) {
+    auto one = rewriter.create<LLVM::ConstantOp>(
+        loc, int32Ty, rewriter.getI32IntegerAttr(1));
+
+    // Create a memref type for the return argument of the iface call
+    auto memRefOutPtrTy = staticEntryPointTy.getParamType(0);
+    Value ptrToOutMemRef =
+        rewriter.create<LLVM::AllocaOp>(loc, memRefOutPtrTy, one,
+            /*alignment=*/0);
+    staticInputs.emplace_back(ptrToOutMemRef);
+
+    // Start with param 1 because 0 is the return value
+    for (size_t i = 1; i < staticEntryPointTy.getNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
-          loc, int32Ty, rewriter.getI32IntegerAttr(i));
+          loc, int32Ty, rewriter.getI32IntegerAttr(i - 1));
 
       auto omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
       auto omTensorPtrAddr = rewriter
@@ -853,8 +864,6 @@ public:
       // the inference function on stack, and load it to memRef.
       auto memRefPtrTy = staticEntryPointTy.getParamType(i);
 
-      auto one = rewriter.create<LLVM::ConstantOp>(
-          loc, int32Ty, rewriter.getI32IntegerAttr(1));
       Value ptrToMemRef = rewriter.create<LLVM::AllocaOp>(loc, memRefPtrTy, one,
           /*alignment=*/0);
 
@@ -868,12 +877,10 @@ public:
     }
 
     // Call static entry point with the memref ptrs created, and get output.
-    auto outMemRefs =
-        rewriter
-            .create<LLVM::CallOp>(loc, staticEntryPointTy.getReturnType(),
-                rewriter.getSymbolRefAttr(wrappedStaticEntryPointFuncName),
-                staticInputs)
-            .getResult(0);
+    auto outCallOp = rewriter.create<LLVM::CallOp>(loc, ArrayRef<Type>({}),
+        rewriter.getSymbolRefAttr(wrappedStaticEntryPointFuncName),
+        staticInputs);
+    auto outMemRefs = rewriter.create<LLVM::LoadOp>(loc, ptrToOutMemRef);
     auto outMemRefsType = outMemRefs.getType().dyn_cast<LLVM::LLVMStructType>();
 
     std::vector<mlir::Value> outMemRefList;
@@ -947,8 +954,6 @@ public:
     }
 
     // Create wrapped output.
-    auto one = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI32IntegerAttr(1));
     auto wrappedOutput = callApi(rewriter, loc, apiRegistry,
         API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput, one});
 
@@ -1076,8 +1081,9 @@ private:
           loc, int64Ty, rewriter.getI64IntegerAttr(i));
 
       // Insert size of the dimension.
-      auto dimSizePtr = rewriter.create<LLVM::GEPOp>(loc,
-          LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr, ArrayRef<Value>({dimIdx}));
+      auto dimSizePtr =
+          rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
+              sizesArrayPtr, ArrayRef<Value>({dimIdx}));
       auto dimSize = rewriter.create<LLVM::LoadOp>(
           loc, LLVM::LLVMPointerType::get(int64Ty), dimSizePtr);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,

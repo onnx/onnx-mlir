@@ -10,22 +10,11 @@ import numpy as np
 # Reference backend, use onnxruntime by default
 import onnxruntime
 
-if (not os.environ.get('ONNX_MLIR_HOME', None)):
-    raise RuntimeError(
-        "Environment variable ONNX_MLIR_HOME is not set, please set it to the path to "
-        "the HOME directory for onnx-mlir. The HOME directory for onnx-mlir refers to "
-        "the parent folder containing the bin, lib, etc sub-folders in which ONNX-MLIR "
-        "executables and libraries can be found.")
-
-# Include runtime directory in python paths, so PyRuntime can be imported.
-RUNTIME_DIR = os.path.join(os.environ['ONNX_MLIR_HOME'], "lib")
-sys.path.append(RUNTIME_DIR)
-
 try:
     from PyRuntime import ExecutionSession
 except ImportError:
     raise ImportError(
-        "Looks like you did not build the PyRuntime target, build it by running `make PyRuntime`."
+        "Unable to import from PyRuntime. Build the PyRuntime target and make sure that the library is in your search path (or PYTHONPATH)."
     )
 
 parser = argparse.ArgumentParser()

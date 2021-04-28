@@ -30,7 +30,7 @@ parameters:
   default: 'Manual'
 - name: RunAllTests
   type: boolean
-  default: false
+  default: true
 
 variables:
 - name: System.PreferGitFromPath

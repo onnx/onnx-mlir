@@ -51,3 +51,4 @@ jobs:
     Platforms:
     - Ubuntu
     - Windows
+    RunAllTests: true

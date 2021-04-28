@@ -91,6 +91,11 @@ test_static_dynamicNA = test_static # static tests for which dyn not available.
 
 test_to_enable_static_dynamic = {
 
+    # ISSUE-TODO-namcvica-2021-04-26: The following tests are disabled below due
+    # to upstream issues: test_shufflenet_cpu, test_resnet50_cpu, test_vgg19_cpu,
+    # test_inception_v1_cpu, test_matmul_2d_cpu as well as test_gemm_*
+    # See: https://dev.azure.com/mltools/llvm-project/_workitems/edit/254/
+
     ############################################################
     # Elementary ops, ordered alphabetically.
 
@@ -317,17 +322,17 @@ test_to_enable_static_dynamic = {
     "test_gather_negative_indices_cpu": (test_static_dynamic,),
 
     # Gemm
-    "test_gemm_all_attributes_cpu": (test_static_dynamic,),
-    "test_gemm_alpha_cpu": (test_static_dynamic,),
-    "test_gemm_beta_cpu": (test_static_dynamic,),
-    "test_gemm_default_matrix_bias_cpu": (test_static_dynamic,),
-    "test_gemm_default_no_bias_cpu": (test_static_dynamic,),
-    "test_gemm_default_scalar_bias_cpu": (test_static_dynamic,),
-    "test_gemm_default_single_elem_vector_bias_cpu": (test_static_dynamic,),
-    "test_gemm_default_vector_bias_cpu": (test_static_dynamic,),
-    "test_gemm_default_zero_bias_cpu": (test_static_dynamic,),
-    "test_gemm_transposeA_cpu": (test_static_dynamic,),
-    "test_gemm_transposeB_cpu": (test_static_dynamic,),
+    #"test_gemm_all_attributes_cpu": (test_static_dynamic,),
+    #"test_gemm_alpha_cpu": (test_static_dynamic,),
+    #"test_gemm_beta_cpu": (test_static_dynamic,),
+    #"test_gemm_default_matrix_bias_cpu": (test_static_dynamic,),
+    #"test_gemm_default_no_bias_cpu": (test_static_dynamic,),
+    #"test_gemm_default_scalar_bias_cpu": (test_static_dynamic,),
+    #"test_gemm_default_single_elem_vector_bias_cpu": (test_static_dynamic,),
+    #"test_gemm_default_vector_bias_cpu": (test_static_dynamic,),
+    #"test_gemm_default_zero_bias_cpu": (test_static_dynamic,),
+    #"test_gemm_transposeA_cpu": (test_static_dynamic,),
+    #"test_gemm_transposeB_cpu": (test_static_dynamic,),
 
     # Global Average Pool
     "test_globalaveragepool_cpu": (test_static_dynamic,),
@@ -393,7 +398,7 @@ test_to_enable_static_dynamic = {
     "test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0,1,2}}),
 
     # Matmul
-    "test_matmul_2d_cpu": (test_static_dynamic,),
+    #"test_matmul_2d_cpu": (test_static_dynamic,),
     "test_matmul_3d_cpu": (test_static_dynamic,),
     "test_matmul_4d_cpu": (test_static_dynamic,),
 
@@ -642,11 +647,8 @@ test_to_enable_static_dynamic = {
     "test_sinh_example_cpu": (test_static_dynamic,),
 
     # Size
-    # ISSUE-TODO-namcvica-2020/12/22: These tests were reenabled in
-    # <https://github.com/onnx/onnx-mlir/commit/9011ba769c534b96a46e1a1e0dce49ddfd9e2934>
-    # but are not buiding in our pipelines.
-    #"test_size_cpu": (test_static_dynamic,),
-    #"test_size_example_cpu": (test_static_dynamic,),
+    "test_size_cpu": (test_static_dynamic,),
+    "test_size_example_cpu": (test_static_dynamic,),
 
     # Slice (makes Axis a runtime argument, which is not supported).
 
@@ -752,11 +754,11 @@ test_to_enable_static_dynamic = {
     ############################################################
     # Model (alphabetical order)
 
-    "test_shufflenet_cpu": (test_static,),
-    "test_resnet50_cpu": (test_static,),
-    "test_vgg19_cpu": (test_static,),
+    #"test_shufflenet_cpu": (test_static,),
+    #"test_resnet50_cpu": (test_static,),
+    #"test_vgg19_cpu": (test_static,),
     "test_densenet121_cpu": (test_static,),
-    "test_inception_v1_cpu": (test_static,),
+    #"test_inception_v1_cpu": (test_static,),
 }
 
 # test for static

@@ -39,7 +39,7 @@ if (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
     target_include_directories(OMRuntimeTest
             PRIVATE ${ONNX_MLIR_SRC_ROOT}/include)
     add_dependencies(OMRuntimeTest OMCopyAndRename)
-    # ISSUE-TODO-namcivca-2020-10-16: Disable test until build issues can be resolved
+    # ISSUE-TODO-namcvica-2020-10-16: Disable test until build issues can be resolved
     #add_test(NAME OMRuntimeTest
     #        COMMAND OMRuntimeTest)
 endif ()
