@@ -1,6 +1,5 @@
 # Export environment variables pointing to LLVM-Projects.
-export LLVM_PROJ_SRC=$(pwd)/llvm-project/
-export LLVM_PROJ_BUILD=$(pwd)/llvm-project/build
+export MLIR_DIR=$(pwd)/llvm-project/build/lib/cmake/mlir
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
 cmake ..

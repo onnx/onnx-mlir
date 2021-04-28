@@ -64,9 +64,8 @@ fi
 export BUILD_PATH=build-against-$(basename ${LLVM_PROJECT_ROOT})
 mkdir ${BUILD_PATH} && cd ${BUILD_PATH}
 
-LLVM_PROJ_SRC=${LLVM_PROJECT_ROOT}              \
-LLVM_PROJ_BUILD=${LLVM_PROJECT_ROOT}/build      \
-cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} .. \
+MLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
+cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} ..    \
 
 make -j$(nproc)
 make -j$(nproc) check-onnx-lit
