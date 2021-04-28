@@ -34,6 +34,7 @@
 #include "mlir/Target/LLVMIR/Export.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
+#include "llvm/Support/SourceMgr.h"
 
 #include "ExternalUtil.hpp"
 #include "MainUtils.hpp"
