@@ -35,6 +35,7 @@
 
 #define DEBUG_MALLOC 0
 #define DEBUG_GLOBAL_ALLOC_FREE 0
+#define BUFFER_ALIGN 64
 
 using namespace mlir;
 
@@ -856,13 +857,15 @@ private:
 #if DEBUG_GLOBAL_ALLOC_FREE
     SmallVector<IndexExpr, 1> empty;
     Value TmpC = insertAllocAndDeallocSimple(
-        rewriter, op, CTmpType, op.getLoc(), empty, true);
+        rewriter, op, CTmpType, op.getLoc(), empty, true, BUFFER_ALIGN);
 #else
     ValueRange empty;
-    Value TmpC = std_alloc(CTmpType, empty);
+    IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value TmpC = std_alloc(CTmpType, empty, constAlignAttr);
 #endif
 #else
-    Value TmpC = std_alloca(CTmpType);
+    IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value TmpC = std_alloca(CTmpType, constAlignAttr);
 #endif
 
     // For i, j loops.
@@ -939,13 +942,15 @@ private:
 #if DEBUG_GLOBAL_ALLOC_FREE
     SmallVector<IndexExpr, 1> empty;
     Value TmpC = insertAllocAndDeallocSimple(
-        rewriter, op, CTmpType, op.getLoc(), empty, true);
+        rewriter, op, CTmpType, op.getLoc(), empty, true, BUFFER_ALIGN);
 #else
     ValueRange empty;
-    Value TmpC = std_alloc(CTmpType, empty, rewriter.getI64IntegerAttr(16));
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value TmpC = std_alloc(CTmpType, empty, alignAttr);
 #endif
 #else
-    Value TmpC = std_alloca(CTmpType, rewriter.getI64IntegerAttr(16));
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value TmpC = std_alloca(CTmpType, alignAttr);
 #endif
 
     // Iterates over the I indices (j are simd dim).

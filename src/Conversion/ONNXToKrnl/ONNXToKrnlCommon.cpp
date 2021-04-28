@@ -96,10 +96,11 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // values.
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
     MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
-    bool insertDealloc) {
+    bool insertDealloc, int64_t alignment) {
   // Constant, use the normal insert with no additional operands or alignment.
   if (hasAllConstantDimensions(type))
-    return insertAllocAndDealloc(type, loc, rewriter, insertDealloc);
+    return insertAllocAndDealloc(
+        type, loc, rewriter, insertDealloc, nullptr, alignment);
   // Otherwise, take the unkown operands from the output dim IndexExpressions
   SmallVector<Value, 2> allocOperands;
   auto memRefShape = type.getShape();
@@ -111,7 +112,13 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
       allocOperands.emplace_back(outputDims[i].getValue());
     }
   }
-  AllocOp allocOp = rewriter.create<AllocOp>(loc, type, allocOperands);
+  AllocOp allocOp;
+  if (alignment > 0) {
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(alignment);
+    allocOp = rewriter.create<AllocOp>(loc, type, allocOperands, alignAttr);
+  } else {
+    allocOp = rewriter.create<AllocOp>(loc, type, allocOperands);
+  }
   if (insertDealloc) {
     auto *parentBlock = allocOp.getOperation()->getBlock();
     auto dealloc = rewriter.create<DeallocOp>(loc, allocOp);
@@ -121,12 +128,13 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
 }
 
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims) {
+    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
+    int64_t alignment) {
 
   bool insertDealloc = checkInsertDealloc(op);
 
   return insertAllocAndDeallocSimple(
-      rewriter, op, type, loc, outputDims, insertDealloc);
+      rewriter, op, type, loc, outputDims, insertDealloc, alignment);
 }
 
 // Determine if current function returns the result value of the
