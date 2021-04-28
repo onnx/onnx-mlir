@@ -1,380 +1,62 @@
 # SPDX-License-Identifier: Apache-2.0
 
-# Path to LLVM source folder.
-if(DEFINED LLVM_PROJ_SRC)
-  # Just use it...
-elseif(DEFINED ENV{LLVM_PROJ_SRC})
-  set(LLVM_PROJ_SRC $ENV{LLVM_PROJ_SRC})
-else()
-  message(FATAL_ERROR "LLVM_PROJ_SRC is not configured.  Please set the env variable "
-  "LLVM_PROJ_SRC or the corresponding cmake configuration option to reference an LLVM source tree.")
-endif()
-if(EXISTS ${LLVM_PROJ_SRC})
-  message(STATUS "LLVM_PROJ_SRC           : " ${LLVM_PROJ_SRC})
-else()
-  message(FATAL_ERROR "The path specified by LLVM_PROJ_SRC does not exist: "
-        ${LLVM_PROJ_SRC})
+if (DEFINED ENV{MLIR_DIR})
+  set(MLIR_DIR $ENV{MLIR_DIR} CACHE PATH "Path to directory containing MLIRConfig.cmake")
+elseif (NOT DEFINED MLIR_DIR)
+  message(FATAL_ERROR "MLIR_DIR is not configured but it is required. "
+          "Please set the env variable MLIR_DIR or the corresponding cmake configuration option.")
 endif()
 
-# Path to LLVM build folder
-if(DEFINED LLVM_PROJ_BUILD)
-  # Just use it...
-elseif(DEFINED ENV{LLVM_PROJ_BUILD})
-  set(LLVM_PROJ_BUILD $ENV{LLVM_PROJ_BUILD})
-else()
-  message(FATAL_ERROR "LLVM_PROJ_BUILD is not configured.  Please set the env variable "
-  "LLVM_PROJ_BUILD or the corresponding cmake configuration option to reference an LLVM build.")
-endif()
-if(EXISTS ${LLVM_PROJ_BUILD})
-  message(STATUS "LLVM_PROJ_BUILD         : " ${LLVM_PROJ_BUILD})
-else()
-  message(FATAL_ERROR "The path specified by LLVM_PROJ_BUILD does not exist: "
-        ${LLVM_PROJ_BUILD})
-endif()
+find_package(MLIR REQUIRED CONFIG)
 
-# LLVM project lib folder
-if (ENV{LLVM_PROJECT_LIB})
-  set(LLVM_PROJECT_LIB $ENV{LLVM_PROJECT_LIB})
-else()
-  if(MSVC)
-    if (CMAKE_BUILD_TYPE)
-      set(LLVM_PROJECT_LIB ${LLVM_PROJ_BUILD}/${CMAKE_BUILD_TYPE}/lib)
-    else()
-      set(LLVM_PROJECT_LIB ${LLVM_PROJ_BUILD}/Release/lib)
-    endif()  
-  else()
-    set(LLVM_PROJECT_LIB ${LLVM_PROJ_BUILD}/lib)
-  endif()
-endif()
-message(STATUS "LLVM_PROJECT_LIB        : " ${LLVM_PROJECT_LIB})
+message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
+message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-# LLVM project bin folder
-if (ENV{LLVM_PROJ_BIN})
-  set(LLVM_PROJ_BIN $ENV{LLVM_PROJ_BIN})
-else()
-  if(MSVC)
-    if (CMAKE_BUILD_TYPE)
-      set(LLVM_PROJ_BIN ${LLVM_PROJ_BUILD}/${CMAKE_BUILD_TYPE}/bin)
-    else()
-      set(LLVM_PROJ_BIN ${LLVM_PROJ_BUILD}/Release/bin)
-    endif()
-  else()
-    set(LLVM_PROJ_BIN ${LLVM_PROJ_BUILD}/bin)
-  endif()
-endif()
-message(STATUS "LLVM_PROJ_BIN           : " ${LLVM_PROJ_BIN})
-
-# Include paths for MLIR
-if (USE_INSTALLED_LLVM)
-  set(LLVM_SRC_INCLUDE_PATH ${LLVM_PROJ_SRC}/include)
-else()
-  set(LLVM_SRC_INCLUDE_PATH ${LLVM_PROJ_SRC}/llvm/include)
-endif()
-set(LLVM_BIN_INCLUDE_PATH ${LLVM_PROJ_BUILD}/include)
-set(MLIR_SRC_INCLUDE_PATH ${LLVM_PROJ_SRC}/mlir/include)
-set(MLIR_BIN_INCLUDE_PATH ${LLVM_PROJ_BUILD}/tools/mlir/include)
-
-set(
-        MLIR_INCLUDE_PATHS
-        ${LLVM_SRC_INCLUDE_PATH};${LLVM_BIN_INCLUDE_PATH};${MLIR_SRC_INCLUDE_PATH};${MLIR_BIN_INCLUDE_PATH}
-)
-include_directories(${MLIR_INCLUDE_PATHS})
-
-if (NOT USE_INSTALLED_LLVM)
-  # Force CMAKE_INSTALL_PREFIX and BUILD_SHARED_LIBS to be the same as LLVM build
-  file(STRINGS ${LLVM_PROJ_BUILD}/CMakeCache.txt prefix REGEX CMAKE_INSTALL_PREFIX)
-  string(REGEX REPLACE "CMAKE_INSTALL_PREFIX:PATH=" "" prefix ${prefix})
-  set(CMAKE_INSTALL_PREFIX ${prefix} CACHE PATH "" FORCE)
-  message(STATUS "CMAKE_INSTALL_PREFIX    : " ${CMAKE_INSTALL_PREFIX})
-
-  file(STRINGS ${LLVM_PROJ_BUILD}/CMakeCache.txt shared REGEX BUILD_SHARED_LIBS)
-  string(REGEX REPLACE "BUILD_SHARED_LIBS:BOOL=" "" shared ${shared})
-  set(BUILD_SHARED_LIBS ${shared} CACHE BOOL "" FORCE)
-  message(STATUS "BUILD_SHARED_LIBS       : " ${BUILD_SHARED_LIBS})
-endif()
-
-# Threading libraries required due to parallel pass execution.
-find_package(Threads REQUIRED)
-set(MLIR_SYSTEM_LIBS ${CMAKE_THREAD_LIBS_INIT})
-
-# libcurses and libz required by libLLVMSupport on non-windows platforms
-if(NOT MSVC)
-  find_package(Curses REQUIRED)
-  find_package(ZLIB REQUIRED)
-  set(MLIR_SYSTEM_LIBS ${MLIR_SYSTEM_LIBS} ${ZLIB_LIBRARIES} ${CURSES_LIBRARIES})
-endif()
-
-function(find_mlir_lib lib)
-  find_library(${lib}
-          NAMES ${lib}
-          PATHS ${LLVM_PROJECT_LIB}
-          NO_DEFAULT_PATH)
-  if(${${lib}} STREQUAL ${lib}-NOTFOUND)
-    message(FATAL_ERROR "${lib} not found, did you forget to build llvm-project?")
-  endif()
-endfunction(find_mlir_lib)
-
-find_mlir_lib(MLIRAffine)
-find_mlir_lib(MLIRAffineUtils)
-find_mlir_lib(MLIRAffineToStandard)
-find_mlir_lib(MLIRAffineTransforms)
-find_mlir_lib(MLIRAMX)
-find_mlir_lib(MLIRAMXTransforms)
-find_mlir_lib(MLIRAnalysis)
-find_mlir_lib(MLIRX86Vector)
-find_mlir_lib(MLIRX86VectorTransforms)
-find_mlir_lib(MLIRCallInterfaces)
-find_mlir_lib(MLIRControlFlowInterfaces)
-find_mlir_lib(MLIRCopyOpInterface)
-find_mlir_lib(MLIRDialect)
-find_mlir_lib(MLIRDialectUtils)
-find_mlir_lib(MLIREDSC)
-find_mlir_lib(MLIRExecutionEngine)
-find_mlir_lib(MLIRInferTypeOpInterface)
-find_mlir_lib(MLIRIR)
-find_mlir_lib(MLIRLLVMIR)
-find_mlir_lib(MLIRLoopAnalysis)
-find_mlir_lib(MLIRSCFToStandard)
-find_mlir_lib(MLIRLoopLikeInterface)
-find_mlir_lib(MLIRLinalg)
-find_mlir_lib(MLIRLinalgEDSC)
-find_mlir_lib(MLIRLinalgAnalysis)
-find_mlir_lib(MLIRLinalgTransforms)
-find_mlir_lib(MLIRLinalgUtils)
-find_mlir_lib(MLIRMemRef)
-find_mlir_lib(MLIRMemRefUtils)
-find_mlir_lib(MLIRSCF)
-find_mlir_lib(MLIRSCFTransforms)
-find_mlir_lib(MLIRLLVMIRTransforms)
-find_mlir_lib(MLIRMath)
-find_mlir_lib(MLIRMathTransforms)
-find_mlir_lib(MLIRMlirOptMain)
-find_mlir_lib(MLIRParser)
-find_mlir_lib(MLIRPass)
-find_mlir_lib(MLIRPDL)
-find_mlir_lib(MLIRPDLInterp)
-find_mlir_lib(MLIRPDLToPDLInterp)
-find_mlir_lib(MLIRRewrite)
-find_mlir_lib(MLIRStandard)
-find_mlir_lib(MLIRStandardOpsTransforms)
-find_mlir_lib(MLIRStandardToLLVM)
-find_mlir_lib(MLIRSideEffectInterfaces)
-find_mlir_lib(MLIRTargetLLVMIRExport)
-find_mlir_lib(MLIRTargetLLVMIRImport)
-find_mlir_lib(MLIRToLLVMIRTranslationRegistration)
-find_mlir_lib(MLIRLLVMToLLVMIRTranslation)
-find_mlir_lib(MLIRNVVMToLLVMIRTranslation)
-find_mlir_lib(MLIROpenMPToLLVMIRTranslation)
-find_mlir_lib(MLIRROCDLToLLVMIRTranslation)
-find_mlir_lib(MLIRNVVMIR)
-find_mlir_lib(MLIRROCDLIR)
-find_mlir_lib(MLIRLLVMTVP)
-find_mlir_lib(MLIRTransforms)
-find_mlir_lib(MLIRTransformUtils)
-find_mlir_lib(MLIRSupport)
-find_mlir_lib(MLIRShape)
-find_mlir_lib(MLIRShapeToStandard)
-find_mlir_lib(MLIRSideEffectInterfaces)
-find_mlir_lib(MLIROpenMP)
-find_mlir_lib(MLIROptLib)
-find_mlir_lib(MLIRTableGen)
-find_mlir_lib(MLIRTransformUtils)
-find_mlir_lib(MLIRTranslation)
-find_mlir_lib(MLIRTVP)
-find_mlir_lib(MLIRVector)
-find_mlir_lib(MLIRVectorInterfaces)
-find_mlir_lib(MLIRVectorToLLVM)
-find_mlir_lib(MLIRVectorToSCF)
-find_mlir_lib(MLIRAffineEDSC)
-find_mlir_lib(MLIRLinalgEDSC)
-find_mlir_lib(MLIRViewLikeInterface)
-find_mlir_lib(MLIRPresburger)
-find_mlir_lib(MLIRTensor)
-find_mlir_lib(MLIRArmNeon)
-find_mlir_lib(MLIRArmSVE)
-find_mlir_lib(MLIRArmSVETransforms)
-find_mlir_lib(MLIRAffineToTVP)
-find_mlir_lib(MLIRVectorToTVP)
-find_mlir_lib(MLIRStandardToTVP)
-find_mlir_lib(MLIRTVP)
-find_mlir_lib(MLIRNepal)
-find_mlir_lib(MLIRTVPToLLVM)
-find_mlir_lib(MLIRTargetCpp)
-find_mlir_lib(MLIRDataLayoutInterfaces)
-
-find_mlir_lib(LLVMCore)
-find_mlir_lib(LLVMSupport)
-find_mlir_lib(LLVMAsmParser)
-find_mlir_lib(LLVMBinaryFormat)
-find_mlir_lib(LLVMRemarks)
-find_mlir_lib(LLVMIRReader)
-find_mlir_lib(LLVMTransformUtils)
-find_mlir_lib(LLVMBitstreamReader)
-find_mlir_lib(LLVMAnalysis)
-find_mlir_lib(LLVMBitWriter)
-find_mlir_lib(LLVMBitReader)
-find_mlir_lib(LLVMMC)
-find_mlir_lib(LLVMMCParser)
-find_mlir_lib(LLVMObject)
-find_mlir_lib(LLVMProfileData)
-find_mlir_lib(LLVMDemangle)
-find_mlir_lib(LLVMFrontendOpenMP)
-
-set(MLIRLibs
-        ${MLIRAffineToStandard}
-        ${MLIRAffine}
-        ${MLIRAffineUtils}
-        ${MLIRAMX}
-        ${MLIRAMXTransforms}
-        ${MLIRX86Vector}
-        ${MLIRX86VectorTransforms}
-        ${MLIRCopyOpInterface}
-        ${MLIRLLVMIR}
-        ${MLIRStandard}
-        ${MLIRStandardOpsTransforms}
-        ${MLIRStandardToLLVM}
-        ${MLIRTransforms}
-        ${MLIRTVP}
-        ${MLIRSCFToStandard}
-        ${MLIRVector}
-        ${MLIRVectorInterfaces}
-        ${MLIRVectorToLLVM}
-        ${MLIRVectorToSCF}
-        ${MLIRSCF}
-        ${MLIRIR}
-        ${MLIRLLVMIR}
-        ${MLIROptLib}
-        ${MLIRParser}
-        ${MLIRPass}
-        ${MLIRTargetLLVMIRExport}
-        ${MLIRTargetLLVMIRImport}
-        ${MLIRToLLVMIRTranslationRegistration}
-        ${MLIRLLVMToLLVMIRTranslation}
-        ${MLIRNVVMToLLVMIRTranslation}
-        ${MLIROpenMPToLLVMIRTranslation}
-        ${MLIRROCDLToLLVMIRTranslation}
-        ${MLIRNVVMIR}
-        ${MLIRROCDLIR}
-        ${MLIRLLVMTVP}
-        ${MLIRTransforms}
-        ${MLIRTransformUtils}
-        ${MLIRAffine}
-        ${MLIRAffineToStandard}
-        ${MLIRAffineTransforms}
-        ${MLIRCallInterfaces}
-        ${MLIRControlFlowInterfaces}
-        ${MLIRDialect}
-        ${MLIRDialectUtils}
-        ${MLIRExecutionEngine}
-        ${MLIRIR}
-        ${MLIRLLVMIRTransforms}
-        ${MLIRMath}
-        ${MLIRMathTransforms}
-        ${MLIRSCFToStandard}
-        ${MLIRSCF}
-        ${MLIRSCFTransforms}
-        ${MLIRLoopAnalysis}
-        ${MLIRLoopLikeInterface}
-        ${MLIROpenMP}
-        ${MLIRMlirOptMain}
-        ${MLIRSideEffectInterfaces}
-        ${MLIRStandard}
-        ${MLIRStandardToLLVM}
-        ${MLIRTranslation}
-        ${MLIRSupport}
-        ${MLIRLinalg}
-        ${MLIREDSC}
-        ${MLIRLinalgEDSC}
-        ${MLIRLinalgAnalysis}
-        ${MLIRLinalgTransforms}
-        ${MLIRLinalgUtils}
-        ${MLIRMemRef}
-        ${MLIRMemRefUtils}
-        ${MLIRAffineEDSC}
-        ${MLIRLinalgEDSC}
-        ${MLIRViewLikeInterface}
-        ${MLIRPresburger}
-        ${MLIRRewrite}
-        ${MLIRShape}
-        ${MLIRShapeToStandard}
-        ${MLIRInferTypeOpInterface}
-        ${MLIRRewrite}
-        ${MLIRAnalysis}
-        ${MLIRPDLInterp}
-        ${MLIRPDLToPDLInterp}
-        ${MLIRPDL}
-        ${MLIRTensor}
-        ${MLIRArmNeon}
-        ${MLIRArmSVE}
-        ${MLIRArmSVETransforms}
-        ${MLIRAffineToTVP}
-        ${MLIRVectorToTVP}
-        ${MLIRStandardToTVP}
-        ${MLIRTVP}
-        ${MLIRNepal}
-        ${MLIRTVPToLLVM}
-        ${MLIRTargetCpp}
-        ${MLIRDataLayoutInterfaces}
-        # strict order verified
-        ${LLVMBitWriter}
-        ${LLVMObject}
-        ${LLVMBitReader}
-        # strict order verified
-        ${LLVMFrontendOpenMP}
-        ${LLVMTransformUtils}
-        ${LLVMAnalysis}
-        # strict order verified
-        ${LLVMAsmParser}
-        ${LLVMCore}
-        # strict order not yet verified
-        ${LLVMRemarks}
-        ${LLVMMCParser}
-        ${LLVMMC}
-        ${LLVMProfileData}
-        ${LLVMBinaryFormat}
-        ${LLVMBitstreamReader}
-        ${LLVMIRReader}
-        ${LLVMMLIRTableGen}
-        ${LLVMSupport}
-        ${LLVMDemangle}
-        ${MLIR_SYSTEM_LIBS})
-
-if (USE_INSTALLED_LLVM)
-  set(LLVM_CMAKE_DIR
-        "${LLVM_PROJECT_LIB}/cmake/llvm"
-        CACHE PATH "Path to LLVM cmake modules")
-else()
-  set(LLVM_CMAKE_DIR
-        "${LLVM_PROJ_BUILD}/lib/cmake/llvm"
-        CACHE PATH "Path to LLVM cmake modules")
-endif()
+list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
-include(AddLLVM)
+
 include(TableGen)
+include(AddLLVM)
+include(AddMLIR)
 
-function(onnx_mlir_tablegen ofn)
-  tablegen(MLIR ${ARGV})
-  set(TABLEGEN_OUTPUT
-          ${TABLEGEN_OUTPUT} ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
-          PARENT_SCOPE)
-endfunction()
+include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(${MLIR_INCLUDE_DIRS})
 
-# Import the pre-built mlir TableGen as an imported executable. It is required by
-# the LLVM TableGen command to have the TableGen target so that changes to the
-# table gen utility itself can be detected and cause re-compilation of .td file.
-if (NOT TARGET mlir-tblgen)
-  add_executable(mlir-tblgen IMPORTED)
-  # Specify extension for incremental Windows builds.
-  if(MSVC)
-    set_property(TARGET mlir-tblgen
-          PROPERTY IMPORTED_LOCATION ${LLVM_PROJ_BIN}/mlir-tblgen.exe)
-  else()
-    set_property(TARGET mlir-tblgen
-          PROPERTY IMPORTED_LOCATION ${LLVM_PROJ_BIN}/mlir-tblgen)
+# This is the list of all MLIR libs needed by *any* of the libs or execurables
+# in the project. Making a list of all the libs here most closely matches the
+# existing behavior, but in the future, each of these libs can be added as
+# dependencies in the appropriate locations removing the need for a centralized
+# list.
+set(MLIRLibs
+  MLIRAffineToTVP
+  MLIRAffineTransforms
+  MLIRLinalgTransforms
+  MLIRLLVMToLLVMIRTranslation
+  MLIRMathTransforms
+  MLIRNepal
+  MLIROptLib
+  MLIRSCFToStandard
+  MLIRShapeToStandard
+  MLIRStandardToTVP
+  MLIRTVPToLLVM
+  MLIRVectorToTVP
+)
+
+set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
+message(STATUS "BUILD_SHARED_LIBS       : " ${BUILD_SHARED_LIBS})
+
+# If CMAKE_INSTALL_PREFIX was not provided explicitly and we are not using an install of
+# LLVM and a CMakeCache.txt exists,
+# force CMAKE_INSTALL_PREFIX to be the same as the LLVM build.
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND NOT LLVM_INSTALL_PREFIX)
+  if (EXISTS ${LLVM_BINARY_DIR}/CMakeCache.txt)
+    file(STRINGS ${LLVM_BINARY_DIR}/CMakeCache.txt prefix REGEX CMAKE_INSTALL_PREFIX)
+    string(REGEX REPLACE "CMAKE_INSTALL_PREFIX:PATH=" "" prefix ${prefix})
+    string(REGEX REPLACE "//.*" "" prefix ${prefix})
+    set(CMAKE_INSTALL_PREFIX ${prefix} CACHE PATH "" FORCE)
   endif()
 endif()
-
-set(MLIR_TABLEGEN_EXE mlir-tblgen)
+message(STATUS "CMAKE_INSTALL_PREFIX    : " ${CMAKE_INSTALL_PREFIX})
 
 # The tablegen functions below are modeled based on the corresponding functions
 # in mlir: https://github.com/llvm/llvm-project/blob/main/mlir/cmake/modules/AddMLIR.cmake
@@ -396,20 +78,20 @@ add_custom_target(onnx-mlir-doc)
 
 function(add_onnx_mlir_dialect dialect)
   set(LLVM_TARGET_DEFINITIONS ${dialect}.td)
-  onnx_mlir_tablegen(${dialect}.hpp.inc -gen-op-decls "-I${ONNX_MLIR_SRC_ROOT}")
-  onnx_mlir_tablegen(${dialect}.cpp.inc -gen-op-defs "-I${ONNX_MLIR_SRC_ROOT}")
+  mlir_tablegen(${dialect}.hpp.inc -gen-op-decls "-I${ONNX_MLIR_SRC_ROOT}")
+  mlir_tablegen(${dialect}.cpp.inc -gen-op-defs "-I${ONNX_MLIR_SRC_ROOT}")
   add_public_tablegen_target(OM${dialect}IncGen)
 endfunction()
 
 function(add_onnx_mlir_rewriter rewriter)
   set(LLVM_TARGET_DEFINITIONS ${rewriter}.td)
-  onnx_mlir_tablegen(ONNX${rewriter}.inc -gen-rewriters "-I${ONNX_MLIR_SRC_ROOT}")
+  mlir_tablegen(ONNX${rewriter}.inc -gen-rewriters "-I${ONNX_MLIR_SRC_ROOT}")
   add_public_tablegen_target(OMONNX${rewriter}IncGen)
 endfunction()
 
 function(add_onnx_mlir_interface interface)
   set(LLVM_TARGET_DEFINITIONS ${interface}.td)
-  onnx_mlir_tablegen(${interface}.hpp.inc -gen-op-interface-decls)
-  onnx_mlir_tablegen(${interface}.cpp.inc -gen-op-interface-defs)
+  mlir_tablegen(${interface}.hpp.inc -gen-op-interface-decls)
+  mlir_tablegen(${interface}.cpp.inc -gen-op-interface-defs)
   add_public_tablegen_target(OM${interface}IncGen)
 endfunction()

@@ -25,21 +25,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/bin)
 set(ONNX_MLIR_SRC_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 set(ONNX_MLIR_BIN_ROOT ${CMAKE_CURRENT_BINARY_DIR})
 
-# This is the opposite of LLVM which places CMAKE_CFG_INTDIR first, but to do
-# that it does a bunch of heavy lifting in the CMake files.
 set(ONNX_MLIR_LIBRARY_PATH ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 set(ONNX_MLIR_RUNTIME_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
-# Lit test suite requires at least python 3.6
-set(LLVM_MINIMUM_PYTHON_VERSION 3.6)
-find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
-
-# Lit test suite requires at least python 3.6
-set(LLVM_MINIMUM_PYTHON_VERSION 3.6)
-find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
-
 include(CTest)
 include(MLIR.cmake)
+
+# MLIR.cmake calls find_package(MLIR) which sets LLVM_MINIMUM_PYTHON_VERSION
+find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
 if (MSVC)
   # Disable warnings that prevent building of dependencies
