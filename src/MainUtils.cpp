@@ -454,7 +454,8 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
 
   // Fuse loops in Affine dialect.
   //  pm.addPass(mlir::createLoopFusionPass());
-  pm.addNestedPass<FuncOp>(mlir::createAffineLoopInvariantCodeMotionPass());
+  if (npu)
+    pm.addNestedPass<FuncOp>(mlir::createAffineLoopInvariantCodeMotionPass());
 }
 
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
