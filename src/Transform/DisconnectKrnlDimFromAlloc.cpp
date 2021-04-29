@@ -100,7 +100,8 @@ public:
           rewriter.getIntegerAttr(rewriter.getIndexType(), memRefShape[index]));
     } else if (firstArgDefOp && isa<memref::AllocOp>(firstArgDefOp)) {
       // Get defining operation for the MemRef argument.
-      memref::AllocOp allocOp = dyn_cast<memref::AllocOp>(krnlDimOp.alloc().getDefiningOp());
+      memref::AllocOp allocOp =
+          dyn_cast<memref::AllocOp>(krnlDimOp.alloc().getDefiningOp());
 
       // If dimension is dynamic we need to return the input alloc Value which
       // corresponds to it.
@@ -110,8 +111,8 @@ public:
       result = allocOp.getOperands()[dynDimIdx];
     } else if (memRefType.getAffineMaps().empty()) {
       // Use a standard DimOp since no map is present.
-      result =
-          rewriter.create<memref::DimOp>(loc, krnlDimOp.alloc(), krnlDimOp.index());
+      result = rewriter.create<memref::DimOp>(
+          loc, krnlDimOp.alloc(), krnlDimOp.index());
     } else {
       llvm_unreachable(
           "dynamic sized MemRef with map must be defined by an AllocOp");

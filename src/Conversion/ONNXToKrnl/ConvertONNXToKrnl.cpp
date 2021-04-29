@@ -108,10 +108,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
-  populateFuncOpTypeConversionPattern(
-      patterns, tensorToMemRefConverter);
-  populateCallOpTypeConversionPattern(
-      patterns, tensorToMemRefConverter);
+  populateFuncOpTypeConversionPattern(patterns, tensorToMemRefConverter);
+  populateCallOpTypeConversionPattern(patterns, tensorToMemRefConverter);
 
   // Frontend operation lowering.
   // ControlFlow

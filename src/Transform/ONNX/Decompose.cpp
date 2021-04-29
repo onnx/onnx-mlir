@@ -74,7 +74,6 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   OwningRewritePatternList patterns(context);
   populateWithGenerated(patterns);
 
-
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
 } // end anonymous namespace

@@ -526,7 +526,6 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
 
-
   if (emissionTarget >= EmitONNXIR) {
     addONNXToMLIRPasses(pm);
   }

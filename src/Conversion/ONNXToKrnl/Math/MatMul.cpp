@@ -52,8 +52,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         outputLoops.getAllInductionVar(), resAccessFct);
     // Insert res[...] = 0.
     // Create a local reduction value for res[...].
-    Value reductionVal =
-        rewriter.create<memref::AllocaOp>(loc, MemRefType::get({}, elementType));
+    Value reductionVal = rewriter.create<memref::AllocaOp>(
+        loc, MemRefType::get({}, elementType));
     rewriter.create<KrnlStoreOp>(loc, zero, reductionVal, ArrayRef<Value>{});
 
     // Create the inner reduction loop; trip count is last dim of A.

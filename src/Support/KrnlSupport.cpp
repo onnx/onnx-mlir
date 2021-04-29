@@ -269,8 +269,8 @@ int64_t getMemRefSizeInBytes(Value value) {
 }
 
 /// Get the size of a dynamic MemRef in bytes.
-Value getDynamicMemRefSizeInBytes(
-    MemRefType type, Location loc, PatternRewriter &rewriter, memref::AllocOp allocOp) {
+Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
+    PatternRewriter &rewriter, memref::AllocOp allocOp) {
   // Initialize the size variable with the size in bytes of the type.
   int64_t typeSize = getMemRefEltSizeInBytes(type);
   Value result =

@@ -158,7 +158,8 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
       int spatialIndex = i - kernelOffset;
       // Prepare arguments for the affine map.
       SmallVector<Value, 4> dimArgs;
-      dimArgs.emplace_back(rewriter.create<memref::DimOp>(loc, inputOperand, i));
+      dimArgs.emplace_back(
+          rewriter.create<memref::DimOp>(loc, inputOperand, i));
       dimArgs.emplace_back(emitConstantOp(
           rewriter, loc, rewriter.getIndexType(), kernelShape[spatialIndex]));
       dimArgs.emplace_back(

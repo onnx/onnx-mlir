@@ -58,8 +58,8 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     // alignment.
     if (alignment >= 0) {
       IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
-      alloc =
-          rewriter.create<memref::AllocOp>(loc, type, allocOperands, constAlignAttr);
+      alloc = rewriter.create<memref::AllocOp>(
+          loc, type, allocOperands, constAlignAttr);
     } else {
       alloc = rewriter.create<memref::AllocOp>(loc, type, allocOperands);
     }
@@ -113,7 +113,8 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
       allocOperands.emplace_back(outputDims[i].getValue());
     }
   }
-  memref::AllocOp allocOp = rewriter.create<memref::AllocOp>(loc, type, allocOperands);
+  memref::AllocOp allocOp =
+      rewriter.create<memref::AllocOp>(loc, type, allocOperands);
   if (insertDealloc) {
     auto *parentBlock = allocOp.getOperation()->getBlock();
     auto dealloc = rewriter.create<memref::DeallocOp>(loc, allocOp);

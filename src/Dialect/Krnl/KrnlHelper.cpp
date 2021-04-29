@@ -288,7 +288,8 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
     assert(!upperBoundMustBeConstant && "Bound expected to be constant.");
     pack->pushOperandBound(
         rewriter
-            .create<memref::DimOp>(loc, upperBoundMemRefOperand, upperBoundMemRefIndex)
+            .create<memref::DimOp>(
+                loc, upperBoundMemRefOperand, upperBoundMemRefIndex)
             .getResult());
   } else
     pack->pushConstantBound(shape[upperBoundMemRefIndex]);

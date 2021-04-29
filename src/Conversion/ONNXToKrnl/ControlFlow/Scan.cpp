@@ -237,8 +237,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
               // scan operation scan output to have the leading dimension extent
               // equal to the max trip count, due to the possibility of early
               // termination.
-              auto dim =
-                  rewriter.create<memref::DimOp>(loc, scanOp.scan_inputs().front(), 0);
+              auto dim = rewriter.create<memref::DimOp>(
+                  loc, scanOp.scan_inputs().front(), 0);
               allocParams.emplace_back(dim);
             } else {
               // TODO(tjingrant): we can support dynamic dimensions for scan
@@ -249,7 +249,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
             }
           }
         }
-        alloc = rewriter.create<memref::AllocOp>(loc, rankedScanOutTy, allocParams);
+        alloc =
+            rewriter.create<memref::AllocOp>(loc, rankedScanOutTy, allocParams);
       }
       outputs.emplace_back(alloc);
     }

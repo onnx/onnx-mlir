@@ -261,7 +261,8 @@ void removeOps(llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
         return llvm::all_of(region.getBlocks(), [](Block &block) {
           return (block.getOperations().size() == 0) ||
                  (block.getOperations().size() == 1 &&
-                     block.getOperations().front()
+                     block.getOperations()
+                         .front()
                          .hasTrait<OpTrait::IsTerminator>());
         });
       });
@@ -1372,9 +1373,8 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   target.addLegalOp<AffineLoadOp>();
   target.addLegalOp<AffineStoreOp>();
   target.addLegalOp<KrnlVectorTypeCastOp>();
-  target.addLegalDialect<mlir::AffineDialect,
-      mlir::memref::MemRefDialect, mlir::StandardOpsDialect,
-      mlir::vector::VectorDialect>();
+  target.addLegalDialect<mlir::AffineDialect, mlir::memref::MemRefDialect,
+      mlir::StandardOpsDialect, mlir::vector::VectorDialect>();
   // Patterns.
   OwningRewritePatternList patterns(&getContext());
   patterns.insert<KrnlTerminatorLowering>(&getContext());
