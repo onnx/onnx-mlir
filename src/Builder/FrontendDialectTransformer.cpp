@@ -334,6 +334,7 @@ private:
   mlir::FunctionType importGraph(const onnx::GraphProto &graph,
       mlir::Region &region, mlir::Operation *op, bool useStdReturn) {
     frontend_symbols_.pushScope(graph.name());
+    initializedTensors.pushScope(graph.name());
     mlir::Block *entryBlock = &region.back();
 
     // Maintain a mapping between the parameter and its initializer.
@@ -433,6 +434,7 @@ private:
     op->setAttr("output_names", builder_.getStrArrayAttr(outputNames));
 
     frontend_symbols_.popScope(graph.name());
+    initializedTensors.popScope(graph.name());
     return builder_.getFunctionType(argTypes, retTys);
   }
 

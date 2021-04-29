@@ -103,6 +103,7 @@ static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
   return std::vector<T>(&data[0], &data[0] + size);
 }
 
+#if 0
 void InitializedTensorMapping::AddMapping(
     std::string name, onnx::TensorProto tensor) {
   assert(nameToInitializedTensor.count(name) == 0 &&
@@ -113,6 +114,7 @@ void InitializedTensorMapping::AddMapping(
 bool InitializedTensorMapping::ContainKey(std::string name) {
   return nameToInitializedTensor.count(name) != 0;
 }
+#endif
 
 mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
     mlir::Location loc, mlir::OpBuilder &builder, const std::string &name) {
