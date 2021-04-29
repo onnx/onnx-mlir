@@ -1319,9 +1319,8 @@ public:
 
 } // end namespace
 
-void mlir::populateAffineAndKrnlToLLVMConversion(
-    RewritePatternSet &patterns, MLIRContext *ctx,
-    LLVMTypeConverter &typeConverter) {
+void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
+    MLIRContext *ctx, LLVMTypeConverter &typeConverter) {
   populateAffineToStdConversionPatterns(patterns);
   populateLoopToStdConversionPatterns(patterns);
 
