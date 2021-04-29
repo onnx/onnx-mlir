@@ -39,6 +39,8 @@ namespace bstd = mpark;
 namespace onnx_mlir {
 namespace detail {
 
+typedef SymbolMapping<mlir::Value> ValueSymbolMapping;
+
 class FrontendGenImpl {
 public:
   explicit FrontendGenImpl(mlir::MLIRContext &context)
@@ -96,7 +98,7 @@ private:
   InitializedTensorMapping initializedTensors;
 
   // mapping between string name and symbol
-  SymbolMapping frontend_symbols_;
+  ValueSymbolMapping frontend_symbols_;
 
   // Flag to change the inputs of function to unknown dimension.
   // Temporarily added to use the test cases with static shape to test.
@@ -946,7 +948,7 @@ private:
     auto *fnEntryBlock = funcOp.addEntryBlock();
 
     // Save caller context, while generating callee function body.
-    SymbolMapping callerScope(std::move(frontend_symbols_));
+    ValueSymbolMapping callerScope(std::move(frontend_symbols_));
     auto prev_ip = builder_.saveInsertionPoint();
     builder_.setInsertionPointToStart(fnEntryBlock);
 
