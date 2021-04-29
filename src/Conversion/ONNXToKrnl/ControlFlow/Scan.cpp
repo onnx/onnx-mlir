@@ -331,6 +331,6 @@ struct ONNXScanOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXScanOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXScanOpLowering>(ctx);
 }

@@ -575,7 +575,7 @@ void stateToOutput<ONNXLSTMOp, LstmState>(
 }
 
 void populateLoweringONNXLSTMOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXRNNOpLowering<ONNXLSTMOp, LstmState, LstmActivationPack>>(
       ctx);
 }

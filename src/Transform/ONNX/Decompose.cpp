@@ -171,7 +171,7 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   target.addIllegalOp<ONNXLogSoftmaxOp>();
   target.addIllegalOp<ONNXLayerNormalizationOp>();
 
-  OwningRewritePatternList patterns(context);
+  RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
   patterns.insert<ONNXLayerNormalizationOpPattern>(context);
 

@@ -509,7 +509,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXPoolingOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXPoolOpLowering<ONNXMaxPoolSingleOutOp>>(ctx);
   patterns.insert<ONNXPoolOpLowering<ONNXAveragePoolOp>>(ctx);
 }

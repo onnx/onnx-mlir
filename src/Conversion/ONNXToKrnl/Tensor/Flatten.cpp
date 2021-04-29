@@ -171,6 +171,6 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXFlattenOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXFlattenOpLowering>(ctx);
 }

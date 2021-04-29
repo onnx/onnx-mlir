@@ -133,7 +133,7 @@ public:
     auto function = getFunction();
 
     ConversionTarget target(getContext());
-    OwningRewritePatternList patterns(&getContext());
+    RewritePatternSet patterns(&getContext());
     patterns.insert<DisconnectKrnlDimFromAlloc>(&getContext());
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));

@@ -247,7 +247,7 @@ class ConvertONNXToLinalgPass
     : public PassWrapper<ConvertONNXToLinalgPass, FunctionPass> {
 public:
   void runOnFunction() override {
-    OwningRewritePatternList patterns(&getContext());
+    RewritePatternSet patterns(&getContext());
     ConversionTarget target(getContext());
     target.addLegalDialect<linalg::LinalgDialect, memref::MemRefDialect,
         StandardOpsDialect, KrnlOpsDialect, ONNXOpsDialect>();

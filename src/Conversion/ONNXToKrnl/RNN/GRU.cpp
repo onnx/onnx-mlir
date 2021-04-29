@@ -662,7 +662,7 @@ void stateToOutput<ONNXGRUOp, GruState>(
 }
 
 void populateLoweringONNXGRUOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXRNNOpLowering<ONNXGRUOp, GruState, GruActivationPack>>(
       ctx);
 }

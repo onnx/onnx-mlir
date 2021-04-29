@@ -207,6 +207,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXMatMulOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXMatMulOpLowering>(ctx);
 }

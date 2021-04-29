@@ -72,6 +72,6 @@ struct ONNXSizeOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXSizeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXSizeOpLowering>(ctx);
 }

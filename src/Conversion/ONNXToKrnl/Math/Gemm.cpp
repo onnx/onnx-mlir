@@ -281,6 +281,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXGemmOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(ctx);
 }

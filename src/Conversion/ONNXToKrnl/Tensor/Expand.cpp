@@ -180,6 +180,6 @@ struct ONNXExpandOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXExpandOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXExpandOpLowering>(ctx);
 }

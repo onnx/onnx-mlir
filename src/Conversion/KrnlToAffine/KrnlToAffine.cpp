@@ -1376,7 +1376,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
       mlir::memref::MemRefDialect, mlir::StandardOpsDialect,
       mlir::vector::VectorDialect>();
   // Patterns.
-  OwningRewritePatternList patterns(&getContext());
+  RewritePatternSet patterns(&getContext());
   patterns.insert<KrnlTerminatorLowering>(&getContext());
   patterns.insert<KrnlLoadLowering>(&getContext());
   patterns.insert<KrnlStoreLowering>(&getContext());

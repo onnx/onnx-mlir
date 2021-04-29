@@ -1320,7 +1320,7 @@ public:
 } // end namespace
 
 void mlir::populateAffineAndKrnlToLLVMConversion(
-    OwningRewritePatternList &patterns, MLIRContext *ctx,
+    RewritePatternSet &patterns, MLIRContext *ctx,
     LLVMTypeConverter &typeConverter) {
   populateAffineToStdConversionPatterns(patterns);
   populateLoopToStdConversionPatterns(patterns);
@@ -1362,7 +1362,7 @@ struct ConvertKrnlToLLVMPass
 void ConvertKrnlToLLVMPass::runOnOperation() {
 
   {
-    OwningRewritePatternList patterns(&getContext());
+    RewritePatternSet patterns(&getContext());
     vector::populateVectorToVectorCanonicalizationPatterns(patterns);
     vector::populateVectorSlicesLoweringPatterns(patterns);
     vector::populateVectorContractLoweringPatterns(patterns);
@@ -1381,7 +1381,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // We have a combination of `krnl`, `affine`, and `std` operations. We
   // lower in stages until all the code is in the LLVM dialect.
-  OwningRewritePatternList patterns(&getContext());
+  RewritePatternSet patterns(&getContext());
   populateAffineAndKrnlToLLVMConversion(patterns, &getContext(), typeConverter);
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
