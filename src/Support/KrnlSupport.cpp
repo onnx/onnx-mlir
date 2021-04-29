@@ -19,11 +19,11 @@
 //===----------------------------------------------------------------------===//
 
 /// Get the AllocOp of the current GetRef.
-AllocOp getAllocOfGetRef(KrnlGetRefOp *getRef) {
+memref::AllocOp getAllocOfGetRef(KrnlGetRefOp *getRef) {
   auto parentBlock = getRef->getOperation()->getBlock();
 
-  AllocOp alloc = nullptr;
-  parentBlock->walk([&alloc, getRef](AllocOp op) {
+  memref::AllocOp alloc = nullptr;
+  parentBlock->walk([&alloc, getRef](memref::AllocOp op) {
     auto getRefAlloc = getRef->getOperands()[0];
     if (op.getResult() == getRefAlloc)
       alloc = op;
@@ -181,7 +181,7 @@ bool usedBySameOp(KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef) {
 }
 
 /// Get the number of GetRef ops associated with this AllocOp.
-int64_t getAllocGetRefNum(AllocOp *allocOp) {
+int64_t getAllocGetRefNum(memref::AllocOp *allocOp) {
   auto parentBlock = allocOp->getOperation()->getBlock();
 
   int64_t numGetRefs = 0;
@@ -219,7 +219,7 @@ bool opBeforeOp(Block *block, Operation *beforeOp, Operation *afterOp) {
 }
 
 /// Check Alloc operation result is used by a krnl.getref.
-bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
+bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp) {
   FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsUsedInGetRef = false;
@@ -270,7 +270,7 @@ int64_t getMemRefSizeInBytes(Value value) {
 
 /// Get the size of a dynamic MemRef in bytes.
 Value getDynamicMemRefSizeInBytes(
-    MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp) {
+    MemRefType type, Location loc, PatternRewriter &rewriter, memref::AllocOp allocOp) {
   // Initialize the size variable with the size in bytes of the type.
   int64_t typeSize = getMemRefEltSizeInBytes(type);
   Value result =
@@ -304,7 +304,7 @@ Value getDynamicMemRefSizeInBytes(
 /// getAllocArgIndex(<1x2x?x3x?x4xf32>, 2) will return 0.
 /// getAllocArgIndex(<1x2x?x3x?x4xf32>, 4) will return 1.
 ///
-int64_t getAllocArgIndex(AllocOp allocOp, int64_t index) {
+int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index) {
   auto memRefShape =
       allocOp.getResult().getType().dyn_cast<MemRefType>().getShape();
   auto rank = memRefShape.size();
@@ -322,7 +322,7 @@ int64_t getAllocArgIndex(AllocOp allocOp, int64_t index) {
 }
 
 /// Get alignment of an AllocOp if it exists else return zero.
-int64_t getAllocAlignment(AllocOp allocOp) {
+int64_t getAllocAlignment(memref::AllocOp allocOp) {
   if (IntegerAttr alignmentAttr = allocOp.alignmentAttr())
     return alignmentAttr.getInt();
 

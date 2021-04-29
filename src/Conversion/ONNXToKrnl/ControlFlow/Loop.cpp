@@ -78,7 +78,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
                     .getResult();
       Value ivMemRef =
           rewriter
-              .create<AllocOp>(loc, MemRefType::get({}, rewriter.getI64Type()))
+              .create<memref::AllocOp>(loc, MemRefType::get({}, rewriter.getI64Type()))
               .getResult();
       rewriter.create<KrnlStoreOp>(loc, iv, ivMemRef);
 
@@ -255,7 +255,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             }
           }
         }
-        alloc = rewriter.create<AllocOp>(loc, rankedScanOutTy, allocParams);
+        alloc = rewriter.create<memref::AllocOp>(loc, rankedScanOutTy, allocParams);
       }
       outputs.emplace_back(alloc);
     }

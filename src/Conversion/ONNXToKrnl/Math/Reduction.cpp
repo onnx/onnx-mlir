@@ -186,14 +186,14 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {
         if (memRefOutShape[i] < 0) {
-          auto dim = rewriter.create<DimOp>(loc, input, outInDimMap[i]);
+          auto dim = rewriter.create<memref::DimOp>(loc, input, outInDimMap[i]);
           allocOperands.push_back(dim);
         }
       }
-      alloc = rewriter.create<AllocOp>(loc, memRefOutType, allocOperands);
+      alloc = rewriter.create<memref::AllocOp>(loc, memRefOutType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+        auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
         dealloc.getOperation()->moveBefore(&parentBlock->back());
       }
     }

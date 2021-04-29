@@ -273,10 +273,10 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     } else {
       // Hidden size is a constant, so the batch size must be unknown here.
       Value batchSizeDim =
-          rewriter.create<DimOp>(loc, operandAdaptor.X(), 1).getResult();
-      xwAlloc = rewriter.create<AllocOp>(
+          rewriter.create<memref::DimOp>(loc, operandAdaptor.X(), 1).getResult();
+      xwAlloc = rewriter.create<memref::AllocOp>(
           loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
-      hrAlloc = rewriter.create<AllocOp>(
+      hrAlloc = rewriter.create<memref::AllocOp>(
           loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
     }
     xwIOFC.emplace_back(xwAlloc);
@@ -560,9 +560,9 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
   rewriter.restoreInsertionPoint(ipStateLoops);
   // Deallocate the temporary results of matrix multiplications.
   for (Value v : xwIOFC)
-    rewriter.create<DeallocOp>(loc, v);
+    rewriter.create<memref::DeallocOp>(loc, v);
   for (Value v : hrIOFC)
-    rewriter.create<DeallocOp>(loc, v);
+    rewriter.create<memref::DeallocOp>(loc, v);
 }
 
 template <>

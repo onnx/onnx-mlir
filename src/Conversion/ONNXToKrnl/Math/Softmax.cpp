@@ -144,7 +144,7 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     Value sum = rewriter.create<KrnlLoadOp>(loc, sumOp);
     Value next = rewriter.create<KrnlLoadOp>(loc, input, sumLoopIVs);
     Value sub = rewriter.create<SubFOp>(loc, next, max);
-    Value exp = rewriter.create<ExpOp>(loc, sub);
+    Value exp = rewriter.create<math::ExpOp>(loc, sub);
     sum = rewriter.create<AddFOp>(loc, sum, exp);
     rewriter.create<KrnlStoreOp>(loc, sum, sumOp, ArrayRef<Value>{});
     // Store intermediate values in the result to avoid recomputation.

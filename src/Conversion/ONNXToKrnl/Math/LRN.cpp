@@ -85,7 +85,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
 
     // Initialize sum
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
-    Value sumAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
+    Value sumAlloc = rewriter.create<memref::AllocOp>(loc, scalarMemRefType);
     rewriter.create<KrnlStoreOp>(loc,
         emitConstantOp(rewriter, loc, elementType, 0), sumAlloc,
         ArrayRef<Value>{});
@@ -127,7 +127,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     }
     Value xValue = rewriter.create<KrnlLoadOp>(loc, input, storeIndices);
     sumValue = rewriter.create<KrnlLoadOp>(loc, sumAlloc, ArrayRef<Value>{});
-    Value tempValue = rewriter.create<PowFOp>(loc,
+    Value tempValue = rewriter.create<math::PowFOp>(loc,
         rewriter.create<AddFOp>(loc, biasValue,
             rewriter.create<MulFOp>(loc, alphaDivSizeValue, sumValue)),
         betaValue);

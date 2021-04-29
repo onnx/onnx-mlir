@@ -71,8 +71,9 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   target.addIllegalOp<ONNXScalerOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
 
-  OwningRewritePatternList patterns;
-  populateWithGenerated(context, patterns);
+  OwningRewritePatternList patterns(context);
+  populateWithGenerated(patterns);
+
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();

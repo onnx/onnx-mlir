@@ -223,7 +223,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
         krnl_store(zero, alloc, resultIndices);
 
         // Create a local reduction value.
-        Value reductionVal = rewriter.create<AllocaOp>(
+        Value reductionVal = rewriter.create<memref::AllocaOp>(
             loc, MemRefType::get({}, memRefType.getElementType()));
         krnl_store(zero, reductionVal, empty);
 

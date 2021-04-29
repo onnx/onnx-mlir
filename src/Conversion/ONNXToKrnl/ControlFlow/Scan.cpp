@@ -51,7 +51,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
     BuildKrnlLoop loop(rewriter, loc, 1);
     loop.createDefineOp();
     Value maxTripCount =
-        rewriter.create<DimOp>(loc, scanOp.scan_inputs().front(), 0);
+        rewriter.create<memref::DimOp>(loc, scanOp.scan_inputs().front(), 0);
 
     loop.pushBounds(0, maxTripCount);
     loop.createIterateOp();
@@ -168,7 +168,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
 
       // Dealloc local variables.
       for (auto localVar : localVars)
-        rewriter.create<DeallocOp>(scanOp.getLoc(), localVar);
+        rewriter.create<memref::DeallocOp>(scanOp.getLoc(), localVar);
 
       // Remove scan body terminator op.
       rewriter.eraseOp(scanBodyTerminator);
@@ -238,7 +238,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
               // equal to the max trip count, due to the possibility of early
               // termination.
               auto dim =
-                  rewriter.create<DimOp>(loc, scanOp.scan_inputs().front(), 0);
+                  rewriter.create<memref::DimOp>(loc, scanOp.scan_inputs().front(), 0);
               allocParams.emplace_back(dim);
             } else {
               // TODO(tjingrant): we can support dynamic dimensions for scan
@@ -249,7 +249,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
             }
           }
         }
-        alloc = rewriter.create<AllocOp>(loc, rankedScanOutTy, allocParams);
+        alloc = rewriter.create<memref::AllocOp>(loc, rankedScanOutTy, allocParams);
       }
       outputs.emplace_back(alloc);
     }

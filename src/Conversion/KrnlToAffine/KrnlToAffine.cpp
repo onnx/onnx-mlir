@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -260,7 +261,8 @@ void removeOps(llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
         return llvm::all_of(region.getBlocks(), [](Block &block) {
           return (block.getOperations().size() == 0) ||
                  (block.getOperations().size() == 1 &&
-                     block.getOperations().front().isKnownTerminator());
+                     block.getOperations().front()
+                         .hasTrait<OpTrait::IsTerminator>());
         });
       });
 
@@ -505,7 +507,7 @@ public:
     if (affineIndices)
       rewriter.replaceOpWithNewOp<AffineLoadOp>(op, memref, indices);
     else
-      rewriter.replaceOpWithNewOp<LoadOp>(op, memref, indices);
+      rewriter.replaceOpWithNewOp<memref::LoadOp>(op, memref, indices);
 
     return success();
   }
@@ -538,7 +540,7 @@ public:
     if (affineIndices)
       rewriter.replaceOpWithNewOp<AffineStoreOp>(op, value, memref, indices);
     else
-      rewriter.replaceOpWithNewOp<StoreOp>(op, value, memref, indices);
+      rewriter.replaceOpWithNewOp<memref::StoreOp>(op, value, memref, indices);
 
     return success();
   }
@@ -842,7 +844,7 @@ private:
         // Defines induction variables, and possibly initialize C.
         jSaved = j;
         // Alloc and init temp c storage.
-        Value TmpC = std_alloca(CTmpType);
+        Value TmpC = memref_alloca(CTmpType);
         AffineIndexedValue TTmpC(TmpC);
         SmallVector<Value, 4> cAccess;
         // CC(i + cStart0.getValue(), j + cStart1.getValue());
@@ -903,7 +905,7 @@ private:
     affineLoopBuilder(zero, I, 1, [&](Value i) {
       iSaved = i; // Saved for unroll and jam.
       // Alloca temp vector TmpC and save C(i)/0.0 into it.
-      Value TmpC = std_alloca(CTmpType);
+      Value TmpC = memref_alloca(CTmpType);
       AffineIndexedValue TTmpC(TmpC);
       SmallVector<Value, 4> cAccess;
       // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
@@ -1369,13 +1371,12 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   target.addLegalOp<AffineYieldOp>();
   target.addLegalOp<AffineLoadOp>();
   target.addLegalOp<AffineStoreOp>();
-  target.addLegalOp<LoadOp>();
-  target.addLegalOp<StoreOp>();
   target.addLegalOp<KrnlVectorTypeCastOp>();
-  target.addLegalDialect<mlir::AffineDialect, mlir::StandardOpsDialect,
+  target.addLegalDialect<mlir::AffineDialect,
+      mlir::memref::MemRefDialect, mlir::StandardOpsDialect,
       mlir::vector::VectorDialect>();
   // Patterns.
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(&getContext());
   patterns.insert<KrnlTerminatorLowering>(&getContext());
   patterns.insert<KrnlLoadLowering>(&getContext());
   patterns.insert<KrnlStoreLowering>(&getContext());

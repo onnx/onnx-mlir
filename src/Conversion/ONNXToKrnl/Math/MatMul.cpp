@@ -18,6 +18,7 @@
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 #include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
+#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 #include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
 
@@ -52,7 +53,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Insert res[...] = 0.
     // Create a local reduction value for res[...].
     Value reductionVal =
-        rewriter.create<AllocaOp>(loc, MemRefType::get({}, elementType));
+        rewriter.create<memref::AllocaOp>(loc, MemRefType::get({}, elementType));
     rewriter.create<KrnlStoreOp>(loc, zero, reductionVal, ArrayRef<Value>{});
 
     // Create the inner reduction loop; trip count is last dim of A.

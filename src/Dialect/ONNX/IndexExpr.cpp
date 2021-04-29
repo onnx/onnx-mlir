@@ -1385,7 +1385,7 @@ IndexExpr MemRefBoundsIndexCapture::get(uint64_t i) {
     return QuestionmarkIndexExpr();
   }
   Value dynVal =
-      scope.getRewriter().create<DimOp>(scope.getLoc(), tensorOrMemref, i);
+      scope.getRewriter().create<memref::DimOp>(scope.getLoc(), tensorOrMemref, i);
   return INDEX(dynVal);
 }
 

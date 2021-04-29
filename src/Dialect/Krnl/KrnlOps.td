@@ -32,7 +32,7 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   let arguments = (ins);
   let results = (outs Variadic<AnyType>);
   let skipDefaultBuilders = 1;
-  let builders = [ OpBuilderDAG<(ins "int64_t":$num_loops)> ];
+  let builders = [ OpBuilder<(ins "int64_t":$num_loops)> ];
 
   let printer = [{ return ::print(p, *this); }];
   let parser = [{ return ::parse$cppClass(parser, result); }];
@@ -76,7 +76,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator]> {
   let arguments = (ins Variadic<AnyType>);
   let regions = (region SizedRegion<1>:$bodyRegion);
   let skipDefaultBuilders = 1;
-  let builders = [ OpBuilderDAG<(ins "KrnlIterateOperandPack":$operandPack)> ];
+  let builders = [ OpBuilder<(ins "KrnlIterateOperandPack":$operandPack)> ];
 
   let extraClassDeclaration = [{
     // In krnl.iterate operation, operands are stored as such
@@ -127,8 +127,8 @@ def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
   let summary = "Indicate ONNX entry point";
   let description = [{The "krnl.entry_point" function indicates the main entry
                            point of ONNX model.}];
-  let builders = [ OpBuilderDAG<(ins "SymbolRefAttr":$funcAttr, "IntegerAttr":$numInputs,
-                                     "IntegerAttr":$numOutputs, "StringAttr":$signature)> ];
+  let builders = [ OpBuilder<(ins "SymbolRefAttr":$funcAttr, "IntegerAttr":$numInputs,
+                                  "IntegerAttr":$numOutputs, "StringAttr":$signature)> ];
 
   let extraClassDeclaration = [{
     static StringRef getEntryPointFuncAttrName() { return "func"; }
@@ -188,7 +188,7 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
 
   let builders = [
-    OpBuilderDAG<(ins "Type":$resultType, "Value":$mempool, "Value":$offset), [{
+    OpBuilder<(ins "Type":$resultType, "Value":$mempool, "Value":$offset), [{
       build($_builder, $_state, resultType, mempool, offset, {});
     }]>,
     ];
@@ -216,7 +216,7 @@ def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
   let arguments = (ins
     AnyType:$loop, I64Attr:$tile_size);
   let results = (outs AnyType:$loop_block, AnyType:$loop_local);
-  let builders = [ OpBuilderDAG<(ins "Value": $loop, "int64_t":$tile_size)> ];
+  let builders = [ OpBuilder<(ins "Value": $loop, "int64_t":$tile_size)> ];
   let assemblyFormat = [{
       $loop $tile_size attr-dict `:` functional-type($loop, results)
   }];
@@ -283,7 +283,7 @@ def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
 
   let arguments = (ins Variadic<AnyType>:$loops, I64ArrayAttr:$map);
   let results = (outs);
-  let builders = [ OpBuilderDAG<(ins "ValueRange": $loops, "ArrayRef<int64_t>":$map)> ];
+  let builders = [ OpBuilder<(ins "ValueRange": $loops, "ArrayRef<int64_t>":$map)> ];
   let assemblyFormat = [{
       `(` $loops `)` $map attr-dict `:` type($loops)
   }];
@@ -353,7 +353,7 @@ def KrnlDummyCastOp : Op<Krnl_Dialect, "dummy_cast"> {
     dependencies existing between lowering of multiple IR objects.
   }];
 
-  let builders = [ OpBuilderDAG<(ins "Value":$in, "Type":$outType)> ];
+  let builders = [ OpBuilder<(ins "Value":$in, "Type":$outType)> ];
 
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$in);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$out);
@@ -490,7 +490,7 @@ def KrnlLoadOp : Op<Krnl_Dialect, "load",
   let results = (outs AnyType:$result);
 
   let builders = [
-    OpBuilderDAG<(ins "Value":$memref, CArg<"ValueRange", "{}">:$indices), [{
+    OpBuilder<(ins "Value":$memref, CArg<"ValueRange", "{}">:$indices), [{
       auto memrefType = memref.getType().cast<MemRefType>();
       $_state.addOperands(memref);
       $_state.addOperands(indices);
@@ -529,7 +529,7 @@ def KrnlStoreOp : Op<Krnl_Dialect, "store",
                        Variadic<Index>:$indices);
 
   let builders = [
-    OpBuilderDAG<(ins "Value":$valueToStore, "Value":$memref), [{
+    OpBuilder<(ins "Value":$valueToStore, "Value":$memref), [{
       $_state.addOperands(valueToStore);
       $_state.addOperands(memref);
     }]>];
@@ -590,7 +590,7 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
 
   let arguments = (ins Variadic<AnyType> : $loops);
   let results = (outs Variadic<AnyType> : $ind_var_vals);
-  let builders = [ OpBuilderDAG<(ins "ValueRange": $loops)>];
+  let builders = [ OpBuilder<(ins "ValueRange": $loops)>];
 
   let assemblyFormat = [{
       `(` $loops `)` attr-dict `:` functional-type($loops, results)
@@ -787,7 +787,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     DefaultValuedAttr<BoolAttr, "true">:$unroll,
     DefaultValuedAttr<BoolAttr, "false">:$overcompute);
 
-  let builders = [ OpBuilderDAG<(ins 
+  let builders = [ OpBuilder<(ins 
       "Value": $A, "ValueRange": $aStart, // Both same rank.
       "Value": $B, "ValueRange": $bStart, // Both same rank.
       "Value": $C, "ValueRange": $cStart, // Both same rank.
@@ -873,7 +873,7 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     OptionalAttr<I64ArrayAttr>:$padToNext, // Rank of bufffer.
     DefaultValuedAttr<BoolAttr, "false">:$transpose); // Transposed or not.
 
-  let builders = [ OpBuilderDAG<(ins "Value": $buffer, "Value": $source, 
+  let builders = [ OpBuilder<(ins "Value": $buffer, "Value": $source, 
       "ValueRange": $starts, "Value": $padValue, 
       "ArrayRef<int64_t>": $tileSize, "ArrayRef<int64_t>": $padToNext,
       "bool": $transpose
@@ -906,7 +906,7 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
     Variadic<Index>:$starts, // Rank of destination.
     OptionalAttr<I64ArrayAttr>:$tileSize); // Rank of buffer.
 
-  let builders = [ OpBuilderDAG<(ins "Value": $buffer, "Value": $dest, 
+  let builders = [ OpBuilder<(ins "Value": $buffer, "Value": $dest, 
       "ValueRange": $starts, "ArrayRef<int64_t>": $tileSize
     )> ];
 

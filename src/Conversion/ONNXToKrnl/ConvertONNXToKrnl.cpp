@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 
@@ -65,18 +66,19 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
   target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect,
+      linalg::LinalgDialect, math::MathDialect, memref::MemRefDialect,
       shape::ShapeDialect, scf::SCFDialect>();
 
   // Use krnl.load/store instead of std.load/store and affine.load/store.
   // krnl.load/store will be lowered to std.load/store and affine.load/store by
   // `convert-krnl-to-affine` pass.
-  target.addIllegalOp<mlir::LoadOp>();
+  target.addIllegalOp<mlir::memref::LoadOp>();
   target.addIllegalOp<mlir::AffineLoadOp>();
-  target.addIllegalOp<mlir::StoreOp>();
+  target.addIllegalOp<mlir::memref::StoreOp>();
   target.addIllegalOp<mlir::AffineStoreOp>();
 
   // std.tanh will be expanded.
-  target.addIllegalOp<mlir::TanhOp>();
+  target.addIllegalOp<mlir::math::TanhOp>();
 
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
@@ -89,7 +91,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(&getContext());
 
   // Convert TensorType to MemRef
   TensorTypeConverter tensorToMemRefConverter;
@@ -107,9 +109,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
   populateFuncOpTypeConversionPattern(
-      patterns, &getContext(), tensorToMemRefConverter);
+      patterns, tensorToMemRefConverter);
   populateCallOpTypeConversionPattern(
-      patterns, &getContext(), tensorToMemRefConverter);
+      patterns, tensorToMemRefConverter);
 
   // Frontend operation lowering.
   // ControlFlow
@@ -153,7 +155,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   patterns.insert<ONNXEntryPointLowering>(&getContext());
 
   // Expand std.tanh
-  populateExpandTanhPattern(patterns, &getContext());
+  populateExpandTanhPattern(patterns);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

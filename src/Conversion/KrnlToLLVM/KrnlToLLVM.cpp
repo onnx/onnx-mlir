@@ -86,14 +86,14 @@ static FlatSymbolRefAttr getOrInsertExternFunc(StringRef funcName,
   auto *context = module.getContext();
   if (auto sym = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName)) {
     assert(sym.getType() == funcType && "wrong symbol type");
-    return SymbolRefAttr::get(funcName, context);
+    return SymbolRefAttr::get(context, funcName);
   }
 
   // Insert the function into the body of the parent module.
   PatternRewriter::InsertionGuard insertGuard(rewriter);
   rewriter.setInsertionPointToStart(module.getBody());
   rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, funcType);
-  return SymbolRefAttr::get(funcName, context);
+  return SymbolRefAttr::get(context, funcName);
 }
 
 static size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
@@ -119,7 +119,7 @@ static FlatSymbolRefAttr getOrInsertMemcpy(
     PatternRewriter &rewriter, ModuleOp module) {
   auto *context = module.getContext();
   if (module.lookupSymbol<LLVM::LLVMFuncOp>("llvm.memcpy.p0i8.p0i8.i64"))
-    return SymbolRefAttr::get("llvm.memcpy.p0i8.p0i8.i64", context);
+    return SymbolRefAttr::get(context, "llvm.memcpy.p0i8.p0i8.i64");
   // Create a function declaration for memcpy, the signature is:
   //   * `void (i8*, i8* , i64, i1)`
   auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
@@ -135,7 +135,7 @@ static FlatSymbolRefAttr getOrInsertMemcpy(
   rewriter.setInsertionPointToStart(module.getBody());
   rewriter.create<LLVM::LLVMFuncOp>(
       module.getLoc(), "llvm.memcpy.p0i8.p0i8.i64", llvmFnType);
-  return SymbolRefAttr::get("llvm.memcpy.p0i8.p0i8.i64", context);
+  return SymbolRefAttr::get(context, "llvm.memcpy.p0i8.p0i8.i64");
 }
 
 static FlatSymbolRefAttr getOrInsertMalloc(
@@ -156,7 +156,7 @@ static FlatSymbolRefAttr getOrInsertMalloc(
             LLVM::LLVMFunctionType::get(voidPtrType, callArgTypes,
                 /*isVarArg=*/false));
   }
-  return SymbolRefAttr::get("malloc", ctx);
+  return SymbolRefAttr::get(ctx, "malloc");
 }
 
 static FlatSymbolRefAttr getOrInsertDealloc(
@@ -177,7 +177,7 @@ static FlatSymbolRefAttr getOrInsertDealloc(
             LLVM::LLVMFunctionType::get(llvmVoidTy, callArgTypes,
                 /*isVarArg=*/false));
   }
-  return SymbolRefAttr::get("free", ctx);
+  return SymbolRefAttr::get(ctx, "free");
 }
 
 // This function emits a declaration of the form:
@@ -188,7 +188,7 @@ static FlatSymbolRefAttr getOrInsertUnaryMathFunction(PatternRewriter &rewriter,
     ModuleOp module, std::string mathFuncName, mlir::Type llvmType) {
   auto *context = module.getContext();
   if (module.lookupSymbol<LLVM::LLVMFuncOp>(mathFuncName))
-    return SymbolRefAttr::get(mathFuncName, context);
+    return SymbolRefAttr::get(context, mathFuncName);
 
   // Create function declaration.
   // auto llvmF32Ty = FloatType::get(context);
@@ -199,7 +199,7 @@ static FlatSymbolRefAttr getOrInsertUnaryMathFunction(PatternRewriter &rewriter,
   PatternRewriter::InsertionGuard insertGuard(rewriter);
   rewriter.setInsertionPointToStart(module.getBody());
   rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), mathFuncName, llvmFnType);
-  return SymbolRefAttr::get(mathFuncName, context);
+  return SymbolRefAttr::get(context, mathFuncName);
 }
 
 //===----------------------------------------------------------------------===//
@@ -407,7 +407,7 @@ public:
         // Check data size.
         assert((data.size() == sizeInBytes) && "Data size mismatch.");
 
-        StringAttr llvmStringAttr = StringAttr::get(data, context);
+        StringAttr llvmStringAttr = StringAttr::get(context, data);
         global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
             /*isConstant=*/true, LLVM::Linkage::Internal, name, llvmStringAttr);
       } else if (krnlGlobalOp.value().getValue().isa<DenseElementsAttr>()) {
@@ -419,7 +419,7 @@ public:
           assert((rawData.size() == sizeInBytes) && "Data size mismatch.");
 
           StringRef data = StringRef((char *)rawData.data(), rawData.size());
-          StringAttr llvmStringAttr = StringAttr::get(data, context);
+          StringAttr llvmStringAttr = StringAttr::get(context, data);
           global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
               /*isConstant=*/true, LLVM::Linkage::Internal, name,
               llvmStringAttr);
@@ -775,8 +775,8 @@ public:
     auto splitSig = signature.split('@');
     llvm::StringRef inSig = splitSig.first;
     llvm::StringRef outSig = splitSig.second;
-    mlir::StringAttr inSigAttr = mlir::StringAttr::get(inSig, context);
-    mlir::StringAttr outSigAttr = mlir::StringAttr::get(outSig, context);
+    mlir::StringAttr inSigAttr = mlir::StringAttr::get(context, inSig);
+    mlir::StringAttr outSigAttr = mlir::StringAttr::get(context, outSig);
 
     auto inSigArrayType =
         LLVM::LLVMArrayType::get(IntegerType::get(context, 8), inSig.size());
@@ -835,10 +835,21 @@ public:
 
     auto omTensorPtrArr =
         callApi(rewriter, loc, apiRegistry, API::GET_OMT_ARRAY, {wrappedInput});
-    for (size_t i = 0; i < staticEntryPointTy.getNumParams(); i++) {
+    auto one = rewriter.create<LLVM::ConstantOp>(
+        loc, int32Ty, rewriter.getI32IntegerAttr(1));
+
+    // Create a memref type for the return argument of the iface call
+    auto memRefOutPtrTy = staticEntryPointTy.getParamType(0);
+    Value ptrToOutMemRef =
+        rewriter.create<LLVM::AllocaOp>(loc, memRefOutPtrTy, one,
+            /*alignment=*/0);
+    staticInputs.emplace_back(ptrToOutMemRef);
+
+    // Start with param 1 because 0 is the return value
+    for (size_t i = 1; i < staticEntryPointTy.getNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
-          loc, int32Ty, rewriter.getI32IntegerAttr(i));
+          loc, int32Ty, rewriter.getI32IntegerAttr(i - 1));
 
       auto omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
       auto omTensorPtrAddr = rewriter
@@ -853,8 +864,6 @@ public:
       // the inference function on stack, and load it to memRef.
       auto memRefPtrTy = staticEntryPointTy.getParamType(i);
 
-      auto one = rewriter.create<LLVM::ConstantOp>(
-          loc, int32Ty, rewriter.getI32IntegerAttr(1));
       Value ptrToMemRef = rewriter.create<LLVM::AllocaOp>(loc, memRefPtrTy, one,
           /*alignment=*/0);
 
@@ -868,12 +877,10 @@ public:
     }
 
     // Call static entry point with the memref ptrs created, and get output.
-    auto outMemRefs =
-        rewriter
-            .create<LLVM::CallOp>(loc, staticEntryPointTy.getReturnType(),
-                rewriter.getSymbolRefAttr(wrappedStaticEntryPointFuncName),
-                staticInputs)
-            .getResult(0);
+    auto outCallOp = rewriter.create<LLVM::CallOp>(loc, ArrayRef<Type>({}),
+        rewriter.getSymbolRefAttr(wrappedStaticEntryPointFuncName),
+        staticInputs);
+    auto outMemRefs = rewriter.create<LLVM::LoadOp>(loc, ptrToOutMemRef);
     auto outMemRefsType = outMemRefs.getType().dyn_cast<LLVM::LLVMStructType>();
 
     std::vector<mlir::Value> outMemRefList;
@@ -947,8 +954,6 @@ public:
     }
 
     // Create wrapped output.
-    auto one = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI32IntegerAttr(1));
     auto wrappedOutput = callApi(rewriter, loc, apiRegistry,
         API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput, one});
 
@@ -1317,15 +1322,14 @@ public:
 void mlir::populateAffineAndKrnlToLLVMConversion(
     OwningRewritePatternList &patterns, MLIRContext *ctx,
     LLVMTypeConverter &typeConverter) {
+  populateAffineToStdConversionPatterns(patterns);
+  populateLoopToStdConversionPatterns(patterns);
 
-  populateAffineToStdConversionPatterns(patterns, ctx);
-  populateLoopToStdConversionPatterns(patterns, ctx);
-
-  populateShapeToStandardConversionPatterns(patterns, ctx);
+  populateShapeToStandardConversionPatterns(patterns);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
-  populateStdExpandOpsPatterns(ctx, patterns);
+  populateStdExpandOpsPatterns(patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlVectorTypeCastOpLowering>(
@@ -1358,27 +1362,26 @@ struct ConvertKrnlToLLVMPass
 void ConvertKrnlToLLVMPass::runOnOperation() {
 
   {
-    OwningRewritePatternList patterns;
-    vector::populateVectorToVectorCanonicalizationPatterns(
-        patterns, &getContext());
-    vector::populateVectorSlicesLoweringPatterns(patterns, &getContext());
-    vector::populateVectorContractLoweringPatterns(patterns, &getContext());
+    OwningRewritePatternList patterns(&getContext());
+    vector::populateVectorToVectorCanonicalizationPatterns(patterns);
+    vector::populateVectorSlicesLoweringPatterns(patterns);
+    vector::populateVectorContractLoweringPatterns(patterns);
     applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
   }
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
-  target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
+  target.addLegalOp<ModuleOp>();
   target.addIllegalOp<LLVM::DialectCastOp>();
 
   // Lower the MemRef types to a representation in LLVM.
-  LowerToLLVMOptions options;
+  LowerToLLVMOptions options(&getContext());
   options.emitCWrappers = true;
   LLVMTypeConverter typeConverter(&getContext(), options);
 
   // We have a combination of `krnl`, `affine`, and `std` operations. We
   // lower in stages until all the code is in the LLVM dialect.
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(&getContext());
   populateAffineAndKrnlToLLVMConversion(patterns, &getContext(), typeConverter);
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
