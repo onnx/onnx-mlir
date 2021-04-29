@@ -26,8 +26,8 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 
-#include "src/ExternalUtil.hpp"
-#include "src/MainUtils.hpp"
+#include "ExternalUtil.hpp"
+#include "MainUtils.hpp"
 
 #ifdef _WIN32
 #include <io.h>
@@ -233,8 +233,11 @@ string getTargetOptions() {
   string targetOptions = "";
   if (mtriple != "")
     targetOptions = "--mtriple=" + mtriple;
+  // Comand cannot tolerate extra spaces. Add only when needed.
+  if (mtriple != "" && mcpu != "")
+    targetOptions += " ";
   if (mcpu != "")
-    targetOptions += " --mcpu=" + mcpu;
+    targetOptions += "--mcpu=" + mcpu;
   return targetOptions;
 }
 

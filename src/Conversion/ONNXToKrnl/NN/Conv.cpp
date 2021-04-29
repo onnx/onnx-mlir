@@ -163,6 +163,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
     MemRefBoundsIndexCapture kernelBounds(kernelOperand);
     DimIndexExpr subchannels(kernelBounds.getDim(1));
+    SmallVector<Value> empty;
 
     // 1. Define outer loops and emit empty optimization block:
     int64_t nOuterLoops =
@@ -224,8 +225,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
         // Create a local reduction value.
         Value reductionVal = rewriter.create<AllocaOp>(
             loc, MemRefType::get({}, memRefType.getElementType()));
-        rewriter.create<KrnlStoreOp>(
-            loc, zero, reductionVal, ArrayRef<Value>{});
+        krnl_store(zero, reductionVal, empty);
 
         // Prepare induction variables.
         SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
@@ -344,18 +344,15 @@ struct ONNXConvOpLowering : public ConversionPattern {
           // 4.3 Compute convolution.
           auto loadData = krnl_load(inputOperand, dataIndices);
           auto loadKernel = krnl_load(kernelOperand, kernelIndices);
-          auto loadPartialSum =
-              rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+          auto loadPartialSum = krnl_load(reductionVal, empty);
           Value result = rewriter.create<AddFOp>(loc, loadPartialSum,
               rewriter.create<MulFOp>(loc, loadData, loadKernel));
           // 4.4 Store computed value into output location.
-          rewriter.create<KrnlStoreOp>(
-              loc, result, reductionVal, ArrayRef<Value>{});
+          krnl_store(result, reductionVal, empty);
         }
         rewriter.restoreInsertionPoint(ipOuterLoopRegion);
 
-        auto result =
-            rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+        auto result = krnl_load(reductionVal, empty);
         // Store the result. Optionally add bias.
         if (hasBias) {
           SmallVector<IndexExpr, 4> biasIndices;

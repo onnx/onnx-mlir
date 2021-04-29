@@ -47,8 +47,9 @@ void omPrintAsPython(OMTensor *tensor, string name) {
 // Returns whether onnx-mlir compiled Gemm is producing the same results
 // as a naive implementation of Gemm for a specific set of Gemm
 // parameters/configuration. Gemm: A[IxK] * B[KxJ] = C[IxJ]
-bool isOMGemmTheSameAsNaiveImplFor(
-    const int I, const int J, const int K, const int aTrans, const int bTrans) {
+bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
+    const int aTrans, const int bTrans, const float alphaVal,
+    const float betaVal) {
   MLIRContext ctx;
   registerDialects(ctx);
   static int testNum = 0;
@@ -88,8 +89,6 @@ bool isOMGemmTheSameAsNaiveImplFor(
   auto bVal = entryBlock->getArgument(1);
   auto cVal = entryBlock->getArgument(2);
 
-  float alphaVal = 1.2;
-  float betaVal = 0.8;
   FloatAttr alphaAttr = FloatAttr::get(builder.getF32Type(), alphaVal);
   FloatAttr betaAttr = FloatAttr::get(builder.getF32Type(), betaVal);
   IntegerAttr aTransAttr =
@@ -175,21 +174,25 @@ int main(int argc, char *argv[]) {
 
   printf("RapidCheck test case generation.\n");
   rc::check("Gemm implementation correctness", []() {
-    const auto aTrans = *rc::gen::inRange(0, 2);
-    const auto bTrans = *rc::gen::inRange(0, 2);
     const auto I = *rc::gen::inRange(1, 50);
     const auto J = *rc::gen::inRange(1, 50);
     const auto K = *rc::gen::inRange(1, 50);
-
-    RC_ASSERT(isOMGemmTheSameAsNaiveImplFor(I, J, K, aTrans, bTrans));
+    const auto aTrans = *rc::gen::inRange(0, 2);
+    const auto bTrans = *rc::gen::inRange(0, 2);
+    const auto hasAlpha = *rc::gen::inRange(0, 2);
+    const auto hasBeta = *rc::gen::inRange(0, 2);
+    float alpha = hasAlpha ? 1.2 : 1.0;
+    float beta = hasBeta ? 0.8 : 1.0;
+    RC_ASSERT(
+        isOMGemmTheSameAsNaiveImplFor(I, J, K, aTrans, bTrans, alpha, beta));
   });
 
   if (false) {
     // Was too slow on some machines, disable test.
     printf("\n\nIndividual test case generation (benchmarks).\n");
-    assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 1024, 0, 1));
-    assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 2048, 0, 1));
-    assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 25088, 0, 1));
+    assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 1024, 0, 1, 1.0, 1.0));
+    assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 2048, 0, 1, 1.0, 1.0));
+    assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 25088, 0, 1, 1.0, 1.0));
   }
   return 0;
 }

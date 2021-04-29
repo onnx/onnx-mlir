@@ -1083,15 +1083,13 @@ public:
       }
     }
     SmallVector<Value, 4> loopIndices;
-    genCopyLoops(buffMemref, sourceMemref, srcIndexMap, srcLoopMap, padVal,
-        zero, starts, bufferReadUBs, bufferPadUBs, loopIndices, 0, buffRank,
-        false);
+    genCopyLoops(buffMemref, sourceMemref, srcLoopMap, padVal, zero, starts,
+        bufferReadUBs, bufferPadUBs, loopIndices, 0, buffRank, false);
     rewriter.eraseOp(op);
     return success();
   }
 
   void genCopyLoops(Value buffMemref, Value sourceMemref,
-      SmallVectorImpl<int64_t> &srcIndexMap,
       SmallVectorImpl<int64_t> &srcLoopMap, Value padVal, IndexExpr zero,
       SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &readUBs,
       SmallVectorImpl<IndexExpr> &padUBs, SmallVectorImpl<Value> &loopIndices,
@@ -1131,9 +1129,8 @@ public:
       } else {
         affineLoopBuilder(zero, readUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(buffMemref, sourceMemref, srcIndexMap, srcLoopMap,
-              padVal, zero, starts, readUBs, padUBs, loopIndices, i + 1,
-              buffRank,
+          genCopyLoops(buffMemref, sourceMemref, srcLoopMap, padVal, zero,
+              starts, readUBs, padUBs, loopIndices, i + 1, buffRank,
               /*no pad phase*/ false);
           loopIndices.pop_back_n(1);
         });
@@ -1143,9 +1140,8 @@ public:
       } else {
         affineLoopBuilder(readUBs[i], padUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(buffMemref, sourceMemref, srcIndexMap, srcLoopMap,
-              padVal, zero, starts, readUBs, padUBs, loopIndices, i + 1,
-              buffRank,
+          genCopyLoops(buffMemref, sourceMemref, srcLoopMap, padVal, zero,
+              starts, readUBs, padUBs, loopIndices, i + 1, buffRank,
               /*pad phase*/ true);
           loopIndices.pop_back_n(1);
         });
