@@ -91,7 +91,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.
-  OwningRewritePatternList patterns(&getContext());
+  RewritePatternSet patterns(&getContext());
 
   // Convert TensorType to MemRef
   TensorTypeConverter tensorToMemRefConverter;

@@ -831,7 +831,7 @@ void ConstPropONNXToONNXPass::runOnFunction() {
   ConversionTarget target(getContext());
   target.addLegalDialect<ONNXOpsDialect>();
 
-  OwningRewritePatternList patterns(context);
+  RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
   patterns.insert<ConstPropSplitPattern>(&getContext());
 

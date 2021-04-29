@@ -137,6 +137,6 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXNormalizationOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXBatchNormalizationTestModeOpLowering>(ctx);
 }

@@ -86,6 +86,6 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXUnsqueezeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXUnsqueezeOpLowering>(ctx);
 }

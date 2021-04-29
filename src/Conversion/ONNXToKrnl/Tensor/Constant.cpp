@@ -98,6 +98,6 @@ struct ONNXConstantOpLowering : public ConversionPattern {
 int ONNXConstantOpLowering::constantID;
 
 void populateLoweringONNXConstantOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXConstantOpLowering>(ctx);
 }

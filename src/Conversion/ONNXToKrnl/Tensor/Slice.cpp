@@ -71,6 +71,6 @@ struct ONNXSliceOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXSliceOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXSliceOpLowering>(ctx);
 }

@@ -370,7 +370,7 @@ void stateToOutput<ONNXRNNOp, RnnState>(
 }
 
 void populateLoweringONNXRNNOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXRNNOpLowering<ONNXRNNOp, RnnState, RnnActivationPack>>(
       ctx);
 }

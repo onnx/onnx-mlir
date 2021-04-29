@@ -327,7 +327,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXReductionOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMaxOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceMinOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceProdOp>,

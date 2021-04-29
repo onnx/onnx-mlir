@@ -142,6 +142,6 @@ struct ONNXLRNOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXLRNOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXLRNOpLowering>(ctx);
 }

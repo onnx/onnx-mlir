@@ -178,6 +178,6 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXSoftmaxOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXSoftmaxOpLowering>(ctx);
 }
