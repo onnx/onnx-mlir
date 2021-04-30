@@ -232,17 +232,21 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
   }
 }
 
-string getTargetOptions() {
+string getTargetCpuOption() {
   string targetOptions = "";
-  if (mtriple != "")
-    targetOptions = "--mtriple=" + mtriple;
-  // Comand cannot tolerate extra spaces. Add only when needed.
-  if (mtriple != "" && mcpu != "")
-    targetOptions += " ";
   if (mcpu != "")
     targetOptions += "--mcpu=" + mcpu;
   return targetOptions;
 }
+
+string getTargetTripleOption() {
+  string targetOptions = "";
+  if (mtriple != "")
+    targetOptions = "--mtriple=" + mtriple;
+  // Comand cannot tolerate extra spaces. Add only when needed.
+  return targetOptions;
+}
+
 
 // Write LLVM optimized bitcode.
 void genLLVMBitcode(const mlir::OwningModuleRef &module,
@@ -267,7 +271,8 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
   optBitcode
       .appendStr("-O3") // test_scan9_sum_cpu fails on z with O3.
-      .appendStr(getTargetOptions())
+      .appendStr(getTargetTripleOption())
+      .appendStr(getTargetCpuOption())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
       .exec();
@@ -280,7 +285,6 @@ void genModelObject(const mlir::OwningModuleRef &module, string bitcodePath,
   Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
   llvmToObj.appendStr("-filetype=obj")
       .appendStr("-relocation-model=pic")
-      .appendStr(getTargetOptions())
       .appendList({"-o", modelObjPath})
       .appendStr(bitcodePath)
       .exec();
