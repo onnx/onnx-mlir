@@ -115,7 +115,8 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   memref::AllocOp allocOp;
   if (alignment > 0) {
     IntegerAttr alignAttr = rewriter.getI64IntegerAttr(alignment);
-    allocOp = rewriter.create<memref::AllocOp>(loc, type, allocOperands, alignAttr);
+    allocOp =
+        rewriter.create<memref::AllocOp>(loc, type, allocOperands, alignAttr);
   } else {
     allocOp = rewriter.create<memref::AllocOp>(loc, type, allocOperands);
   }
