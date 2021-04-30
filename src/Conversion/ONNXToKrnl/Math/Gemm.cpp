@@ -18,8 +18,13 @@
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 // Used to trace which op are used, good for profiling apps.
-#define DEBUG 0
+#define TRACE 0
+#define DEBUG_SIMD_OFF 0
+#define DEBUG_UNROLL_OFF 0
+#define DEBUG_OPTIMIZED_OFF 0
+#define DEBUG_GLOBAL_ALLOC_FREE 1
 
+#define BUFFER_ALIGN 128
 using namespace mlir;
 
 template <typename GemmOp>
@@ -106,6 +111,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     IndexExpr J = shapeHelper.dimsForOutput()[1];
     IndexExpr K = shapeHelper.aDims[1]; // aDims are already transposed.
     LiteralIndexExpr zero(0);
+    Value z = zero.getValue();
 
     // Initialize alloc/R to zero.
     ValueRange zeroLoop = krnl_define_loop(2);
@@ -118,17 +124,62 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // 1) Define blocking, with simdization along the j axis.
     const int64_t iCacheTile(64), jCacheTile(128), kCacheTile(512);
     const int64_t iRegTile(4), jRegTile(8);
+
+    bool unrollAndJam = DEBUG_UNROLL_OFF ? false : true;
+    // Simdize with jRegTile as the vector length.
+    bool simdize = DEBUG_SIMD_OFF ? false : true;
+
+    bool mustTileR = false;
+    if (!J.isLiteral()) {
+      // Assume large J, will simdize, but since simdized dimension must be a
+      // multiple of the vector length, we must tile C into a smaller block of
+      // known dimensions that are compatible with SIMD.
+      mustTileR = true;
+    } else {
+      int64_t jVal = J.getLiteral();
+      if (jVal < jRegTile) {
+        // Very small computation, give up on SIMD.
+        simdize = false;
+      } else if (jVal % jRegTile != 0) {
+        // Unfortunately, J is not divisible by the vector length. Could try
+        // to change the vector length, but right now, just go to buffering.
+        mustTileR = true;
+      } else {
+        // Best of all world, large computation, of sizes compatible with vector
+        // length.
+      }
+    }
+
     // 2) Alloc data for tiles.
+    // IntegerAttr alignAttr =
+    //    IntegerAttr::get(IntegerType::get(rewriter, 64), 128);
     MemRefType aTileType =
         MemRefType::get({iCacheTile, kCacheTile}, elementType);
     MemRefType bTileType =
         MemRefType::get({kCacheTile, jCacheTile}, elementType);
-    // IntegerAttr alignAttr =
-    //    IntegerAttr::get(IntegerType::get(rewriter, 64), 128);
-
+    MemRefType rTileType =
+        MemRefType::get({iCacheTile, jCacheTile}, elementType);
+#if DEBUG_GLOBAL_ALLOC_FREE
+    SmallVector<IndexExpr, 1> empty;
+    Value aBuff = insertAllocAndDeallocSimple(
+        rewriter, gemmOp, aTileType, loc, empty, true, BUFFER_ALIGN);
+    Value bBuff = insertAllocAndDeallocSimple(
+        rewriter, gemmOp, bTileType, loc, empty, true, BUFFER_ALIGN);
+    Value rBuff;
+    if (mustTileR)
+      rBuff = insertAllocAndDeallocSimple(
+          rewriter, gemmOp, aTileType, loc, empty, true, BUFFER_ALIGN);
+#else
     ValueRange empty;
-    Value aBuff = std_alloc(aTileType, empty);
-    Value bBuff = std_alloc(bTileType, empty);
+    Value aBuff =
+        std_alloc(aTileType, empty, rewriter.getI64IntegerAttr(BUFFER_ALIGN));
+    Value bBuff =
+        std_alloc(bTileType, empty, rewriter.getI64IntegerAttr(BUFFER_ALIGN));
+    Value rBuff;
+    if (mustTileR)
+      rBuff =
+          std_alloc(rTileType, empty, rewriter.getI64IntegerAttr(BUFFER_ALIGN));
+#endif
 
     // 3) introduce the loops and permute them
     // I, J, K loop.
@@ -145,42 +196,89 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Tile K.
     ValueRange kCacheBlock = krnl_block(kk, kCacheTile);
     Value kk1(kCacheBlock[0]), kk2(kCacheBlock[1]);
-    // (cache) jj1 kk1, ii1,    (reg) jj2, ii2,    (matmul) ii3, jj3, kk3
-    krnl_permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
-        {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
 
-    // Compute: A[i, k] * b[k, j] -> R[i, j])
-    krnl_iterate_ie(
-        {jj, kk}, {jj1, kk1}, {zero, zero}, {J, K}, {}, [&](ValueRange args) {
-          ValueRange j1_k1_indices = krnl_get_induction_var_value({jj1, kk1});
-          Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
-          if (bTrans)
-            krnl_copy_to_buffer(bBuff, B, {j1, k1}, zeroVal, bTrans);
-          else
-            krnl_copy_to_buffer(bBuff, B, {k1, j1}, zeroVal, bTrans);
-          krnl_iterate_ie({ii}, {ii1}, {zero}, {I}, {}, [&](ValueRange args) {
-            ValueRange i1_index = krnl_get_induction_var_value({ii1});
-            Value i1(i1_index[0]);
-            if (aTrans)
-              krnl_copy_to_buffer(aBuff, A, {k1, i1}, zeroVal, aTrans);
+    // If we must tile the result R, then we put I & J in the outermost.
+    // Otherwise, we follow the more traditional scheme of having J & K in the
+    // outermost.
+    if (mustTileR) {
+      // (cache) ii1 jj1 kk1,    (reg) jj2, ii2,    (matmul) ii3, jj3, kk3
+      krnl_permute({ii1, ii2, ii3, jj1, jj2, jj3, kk1, kk2},
+          {/*i*/ 0, 4, 5, /*j*/ 1, 3, 6, /*k*/ 2, 7});
+      // Compute: A[i, k] * b[k, j] -> R[i, j])
+      krnl_iterate_ie(
+          {ii, jj}, {ii1, jj1}, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
+            ValueRange i1_j1_indices = krnl_get_induction_var_value({ii1, jj1});
+            Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
+            krnl_copy_to_buffer(rBuff, R, {i1, j1}, zeroVal, false);
+            krnl_iterate_ie({kk}, {kk1}, {zero}, {K}, {}, [&](ValueRange args) {
+              ValueRange k1_index = krnl_get_induction_var_value({kk1});
+              Value k1(k1_index[0]);
+              if (aTrans)
+                krnl_copy_to_buffer(aBuff, A, {k1, i1}, zeroVal, true);
+              else
+                krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, false);
+              if (bTrans)
+                krnl_copy_to_buffer(bBuff, B, {j1, k1}, zeroVal, true);
+              else
+                krnl_copy_to_buffer(bBuff, B, {k1, j1}, zeroVal, false);
+              krnl_iterate({}, {jj2, ii2}, {}, {}, {}, [&](ValueRange args) {
+                ValueRange j2_i2_indices =
+                    krnl_get_induction_var_value({jj2, ii2});
+                Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
+                krnl_matmul(aBuff, {i1, k1}, bBuff, {k1, j1}, rBuff, {i1, j1},
+                    /*loops*/ {ii3, jj3, kk2},
+                    /*compute start*/ {i2, j2, k1},
+                    /*ubs*/ {I.getValue(), J.getValue(), K.getValue()},
+                    /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
+                    /* a/b/c tiles*/ {}, {}, {}, simdize, unrollAndJam, false);
+              });
+            });
+            krnl_copy_from_buffer(rBuff, R, {i1, j1});
+          });
+
+    } else {
+      // Does not have to tile the result.
+      // (cache) jj1 kk1, ii1, (reg) jj2, ii2, (matmul) ii3, jj3, kk3
+      krnl_permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
+          {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
+      // Compute: A[i, k] * b[k, j] -> R[i, j])
+      krnl_iterate_ie(
+          {jj, kk}, {jj1, kk1}, {zero, zero}, {J, K}, {}, [&](ValueRange args) {
+            ValueRange j1_k1_indices = krnl_get_induction_var_value({jj1, kk1});
+            Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
+            if (bTrans)
+              krnl_copy_to_buffer(bBuff, B, {j1, k1}, zeroVal, true);
             else
-              krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, aTrans);
-            krnl_iterate({}, {jj2, ii2}, {}, {}, {}, [&](ValueRange args) {
-              ValueRange j2_i2_indices =
-                  krnl_get_induction_var_value({jj2, ii2});
-              Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
-              krnl_matmul(aBuff, {i1, k1}, bBuff, {k1, j1}, R,
-                  {zero.getValue(), zero.getValue()},
-                  /*loops*/ {ii3, jj3, kk2},
-                  /*compute start*/ {i2, j2, k1},
-                  /*ubs*/ {I.getValue(), J.getValue(), K.getValue()},
-                  /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
-                  /* a/b/c tiles*/ {}, {}, {}, true, true, false);
+              krnl_copy_to_buffer(bBuff, B, {k1, j1}, zeroVal, false);
+            krnl_iterate_ie({ii}, {ii1}, {zero}, {I}, {}, [&](ValueRange args) {
+              ValueRange i1_index = krnl_get_induction_var_value({ii1});
+              Value i1(i1_index[0]);
+              if (aTrans)
+                krnl_copy_to_buffer(aBuff, A, {k1, i1}, zeroVal, true);
+              else
+                krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, false);
+              krnl_iterate({}, {jj2, ii2}, {}, {}, {}, [&](ValueRange args) {
+                ValueRange j2_i2_indices =
+                    krnl_get_induction_var_value({jj2, ii2});
+                Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
+                krnl_matmul(aBuff, {i1, k1}, bBuff, {k1, j1}, R, {z, z},
+                    /*loops*/ {ii3, jj3, kk2},
+                    /*compute start*/ {i2, j2, k1},
+                    /*ubs*/ {I.getValue(), J.getValue(), K.getValue()},
+                    /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
+                    /* a/b/c tiles*/ {}, {}, {}, simdize, unrollAndJam, false);
+              });
             });
           });
-        });
+    }
+
+#if DEBUG_GLOBAL_ALLOC_FREE
+#else
     rewriter.create<DeallocOp>(loc, aBuff);
     rewriter.create<DeallocOp>(loc, bBuff);
+    if (mustTileR)
+      rewriter.create<DeallocOp>(loc, rBuff);
+#endif
 
     // Perform the alpha/beta computations.
     float alphaLit = gemmOp.alpha().convertToFloat();
@@ -225,7 +323,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
-    shapeHelper.scope.debugPrint("initial scope");
     assert(succeeded(shapecomputed));
     // Scope for krnl EDSC ops
     using namespace mlir::edsc;
@@ -234,8 +331,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+    Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
+        loc, shapeHelper.dimsForOutput(0), (int64_t)BUFFER_ALIGN);
 
     // Get the constants: zero, alpha,and beta.
     float alphaLit = gemmOp.alpha().convertToFloat();
@@ -244,7 +341,13 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-#if DEBUG
+#if TRACE
+    if (DEBUG_SIMD_OFF)
+      printf("Gemm simd off\n");
+    if (DEBUG_UNROLL_OFF)
+      printf("Gemm unroll off\n");
+    if (DEBUG_OPTIMIZED_OFF)
+      printf("Gemm optimized path off\n");
     bool aTrans = gemmOp.transA();
     bool bTrans = gemmOp.transB();
     if (IndexExpr::isLiteral(shapeHelper.aDims) &&
@@ -268,12 +371,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     }
 #endif
 
-    if (true) {
-      tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
-          alloc, zero, alpha, beta, rewriter, loc);
-    } else {
+    if (DEBUG_OPTIMIZED_OFF) {
       genericGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,
           alpha, beta, rewriter, loc);
+    } else {
+      tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
+          alloc, zero, alpha, beta, rewriter, loc);
     }
     rewriter.replaceOp(op, alloc);
     return success();
