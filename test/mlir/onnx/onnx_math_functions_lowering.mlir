@@ -9,7 +9,7 @@ func @erf_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 }
 
 // CHECK-LABEL erf_function
-// CHECK: [[ALLOC:%.+]] = alloc() : memref<10x10xf32>
+// CHECK: [[ALLOC:%.+]] = memref.alloc() : memref<10x10xf32>
 // CHECK: krnl.define_loops 2
 // CHECK: krnl.iterate
 // CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
@@ -24,7 +24,7 @@ func @acos_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 }
 
 // CHECK-LABEL acos_function
-// CHECK: [[ALLOC:%.+]] = alloc() : memref<10x10xf32>
+// CHECK: [[ALLOC:%.+]] = memref.alloc() : memref<10x10xf32>
 // CHECK: krnl.define_loops 2
 // CHECK: krnl.iterate
 // CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
@@ -40,7 +40,7 @@ func @acosh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 }
 
 // CHECK-LABEL acosh_function
-// CHECK: [[ALLOC:%.+]] = alloc() : memref<10x10xf32>
+// CHECK: [[ALLOC:%.+]] = memref.alloc() : memref<10x10xf32>
 // CHECK: krnl.define_loops 2
 // CHECK: krnl.iterate
 // CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
@@ -56,7 +56,7 @@ func @asin_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 }
 
 // CHECK-LABEL asin_function
-// CHECK: [[ALLOC:%.+]] = alloc() : memref<10x10xf32>
+// CHECK: [[ALLOC:%.+]] = memref.alloc() : memref<10x10xf32>
 // CHECK: krnl.define_loops 2
 // CHECK: krnl.iterate
 // CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
@@ -72,7 +72,7 @@ func @asinh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 }
 
 // CHECK-LABEL asinh_function
-// CHECK: [[ALLOC:%.+]] = alloc() : memref<10x10xf32>
+// CHECK: [[ALLOC:%.+]] = memref.alloc() : memref<10x10xf32>
 // CHECK: krnl.define_loops 2
 // CHECK: krnl.iterate
 // CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
@@ -87,7 +87,7 @@ func @atan_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 }
 
 // CHECK-LABEL atan_function
-// CHECK: [[ALLOC:%.+]] = alloc() : memref<10x10xf32>
+// CHECK: [[ALLOC:%.+]] = memref.alloc() : memref<10x10xf32>
 // CHECK: krnl.define_loops 2
 // CHECK: krnl.iterate
 // CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
@@ -103,7 +103,7 @@ func @atanh_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 }
 
 // CHECK-LABEL atanh_function
-// CHECK: [[ALLOC:%.+]] = alloc() : memref<10x10xf32>
+// CHECK: [[ALLOC:%.+]] = memref.alloc() : memref<10x10xf32>
 // CHECK: krnl.define_loops 2
 // CHECK: krnl.iterate
 // CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>
@@ -119,7 +119,7 @@ func @tan_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 }
 
 // CHECK-LABEL tan_function
-// CHECK: [[ALLOC:%.+]] = alloc() : memref<10x10xf32>
+// CHECK: [[ALLOC:%.+]] = memref.alloc() : memref<10x10xf32>
 // CHECK: krnl.define_loops 2
 // CHECK: krnl.iterate
 // CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[%arg1, %arg2] : memref<10x10xf32>

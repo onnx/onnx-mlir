@@ -16,13 +16,13 @@ func @test_bundle_memory_pool(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf32>
   // CHECK: [[CONST2000:%.+]] = constant 2000 : i64
   // CHECK: [[CONST1200:%.+]] = constant 1200 : i64
   // CHECK: [[CONST400:%.+]] = constant 400 : i64
-  // CHECK: [[RES:%.+]] = alloc() : memref<10x20xf32>
-  // CHECK: [[MEMPOOL:%.+]] = alloc() : memref<3200xi8>
+  // CHECK: [[RES:%.+]] = memref.alloc() : memref<10x20xf32>
+  // CHECK: [[MEMPOOL:%.+]] = memref.alloc() : memref<3200xi8>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST2400]]) : (memref<3200xi8>, i64) -> memref<10x20xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST2000]]) : (memref<3200xi8>, i64) -> memref<10x10xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST1200]]) : (memref<3200xi8>, i64) -> memref<10x20xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST400]]) : (memref<3200xi8>, i64) -> memref<10x20xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST0]]) : (memref<3200xi8>, i64) -> memref<10x10xf32>
-  // CHECK: dealloc [[MEMPOOL]] : memref<3200xi8>
+  // CHECK: memref.dealloc [[MEMPOOL]] : memref<3200xi8>
   // CHECK: return [[RES]] : memref<10x20xf32>
 }

@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
+#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
@@ -52,7 +52,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
           // Outer loop indices.
           ValueRange outerIndices = krnl_get_induction_var_value(outerLoops);
           // Create temp and set to zero.
-          Value red = std_alloca(MemRefType::get({}, elementType));
+          Value red = memref_alloca(MemRefType::get({}, elementType));
           SmallVector<Value, 2> redAccess; // Empty.
           krnl_store(zeroVal, red, redAccess);
           // Inner loop
@@ -172,11 +172,11 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 #else
     ValueRange empty;
     IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
-    Value aBuff = std_alloc(aTileType, empty, alignAttr);
-    Value bBuff = std_alloc(bTileType, empty, alignAttr);
+    Value aBuff = memref_alloc(aTileType, empty, alignAttr);
+    Value bBuff = memref_alloc(bTileType, empty, alignAttr);
     Value rBuff;
     if (mustTileR)
-      rBuff = std_alloc(rTileType, empty, alignAttr);
+      rBuff = memref_alloc(rTileType, empty, alignAttr);
 #endif
 
     // 3) introduce the loops and permute them
@@ -272,10 +272,10 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
 #if DEBUG_GLOBAL_ALLOC_FREE
 #else
-    rewriter.create<DeallocOp>(loc, aBuff);
-    rewriter.create<DeallocOp>(loc, bBuff);
+    rewriter.create<memref::DeallocOp>(loc, aBuff);
+    rewriter.create<memref::DeallocOp>(loc, bBuff);
     if (mustTileR)
-      rewriter.create<DeallocOp>(loc, rBuff);
+      rewriter.create<memref::DeallocOp>(loc, rBuff);
 #endif
 
     // Perform the alpha/beta computations.
@@ -382,6 +382,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXGemmOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(ctx);
 }

@@ -43,7 +43,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, Value operand,
     int64_t alignment) {
   // Put together alloc operands for any dynamic dimensions of the memref.
-  AllocOp alloc;
+  memref::AllocOp alloc;
   if (operand) {
     auto memRefShape = type.getShape();
     auto rank = memRefShape.size();
@@ -51,17 +51,17 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     SmallVector<Value, 4> allocOperands;
     for (int i = 0; i < rank; ++i)
       if (memRefShape[i] < 0) {
-        auto dim = rewriter.create<DimOp>(loc, operand, i);
+        auto dim = rewriter.create<memref::DimOp>(loc, operand, i);
         allocOperands.push_back(dim);
       }
     // Set alignment attribute. Default value is `-1`, which does not set
     // alignment.
     if (alignment >= 0) {
       IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
-      alloc =
-          rewriter.create<AllocOp>(loc, type, allocOperands, constAlignAttr);
+      alloc = rewriter.create<memref::AllocOp>(
+          loc, type, allocOperands, constAlignAttr);
     } else {
-      alloc = rewriter.create<AllocOp>(loc, type, allocOperands);
+      alloc = rewriter.create<memref::AllocOp>(loc, type, allocOperands);
     }
   } else {
     // Set alignment attribute. Default value is `-1`, which does not set
@@ -69,10 +69,10 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     if (alignment >= 0) {
       SmallVector<Value, 4> allocOperandsEmpty;
       IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
-      alloc = rewriter.create<AllocOp>(
+      alloc = rewriter.create<memref::AllocOp>(
           loc, type, allocOperandsEmpty, constAlignAttr);
     } else {
-      alloc = rewriter.create<AllocOp>(loc, type);
+      alloc = rewriter.create<memref::AllocOp>(loc, type);
     }
   }
 
@@ -83,7 +83,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     alloc.getOperation()->moveBefore(&parentBlock->front());
 
   if (insertDealloc) {
-    auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+    auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
 
@@ -115,13 +115,13 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   AllocOp allocOp;
   if (alignment > 0) {
     IntegerAttr alignAttr = rewriter.getI64IntegerAttr(alignment);
-    allocOp = rewriter.create<AllocOp>(loc, type, allocOperands, alignAttr);
+    allocOp = rewriter.create<memref::AllocOp>(loc, type, allocOperands, alignAttr);
   } else {
-    allocOp = rewriter.create<AllocOp>(loc, type, allocOperands);
+    allocOp = rewriter.create<memref::AllocOp>(loc, type, allocOperands);
   }
   if (insertDealloc) {
     auto *parentBlock = allocOp.getOperation()->getBlock();
-    auto dealloc = rewriter.create<DeallocOp>(loc, allocOp);
+    auto dealloc = rewriter.create<memref::DeallocOp>(loc, allocOp);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   return allocOp;
@@ -189,14 +189,14 @@ std::map<int64_t, int64_t> getReductionMapping(
 }
 
 // Add bounds associated with the op operand to the KRNL iteration pack.
-// Dynamic dimenions are supported.
+// Dynamic dimension are supported.
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
     KrnlIterateOperandPack &pack, Value operand, int index) {
   auto shape = operand.getType().cast<MemRefType>().getShape();
   if (shape[index] < 0) {
     pack.pushConstantBound(0);
     pack.pushOperandBound(
-        rewriter.create<DimOp>(loc, operand, index).getResult());
+        rewriter.create<memref::DimOp>(loc, operand, index).getResult());
   } else {
     pack.pushConstantBound(0);
     pack.pushConstantBound(shape[index]);
@@ -358,7 +358,7 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
   ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
   Value dimVal;
   if (shape[axis] < 0) {
-    Value dim = rewriter.create<DimOp>(loc, operand, axis);
+    Value dim = rewriter.create<memref::DimOp>(loc, operand, axis);
     if (type.isa<IndexType>())
       dimVal = dim;
     else

@@ -32,7 +32,7 @@ func private @matmulKrnl_full_tiles(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C
 // CHECK:                 affine.if #set() {
 // CHECK-DAG:               [[VAR_0_:%.+]] = krnl.vector_type_cast [[B_]] : memref<6x8xf32> to memref<6x1xvector<8xf32>>
 // CHECK-DAG:               [[VAR_1_:%.+]] = krnl.vector_type_cast [[C_]] : memref<4x8xf32> to memref<4x1xvector<8xf32>>
-// CHECK-DAG:               [[RES_:%.+]] = alloca() : memref<vector<8xf32>>
+// CHECK-DAG:               [[RES_:%.+]] = memref.alloca() : memref<vector<8xf32>>
 // CHECK:                   affine.for [[I_3_:%.+]] = 0 to 4 {
 // CHECK-DAG:                 [[LOAD_VAR_1_MEM_:%.+]] = affine.load [[VAR_1_]]{{.}}[[I_3_]], 0] : memref<4x1xvector<8xf32>>
 // CHECK:                     affine.store [[LOAD_VAR_1_MEM_]], [[RES_]][] : memref<vector<8xf32>>
@@ -85,7 +85,7 @@ func @matmulKrnl_runtime(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x
 // CHECK:                 affine.if #set0(){{.}}[[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]], [[PARAM_0_]], [[PARAM_2_]], [[PARAM_1_]]{{.}} {
 // CHECK-DAG:               [[VAR_0_:%.+]] = krnl.vector_type_cast [[B_]] : memref<6x8xf32> to memref<6x1xvector<8xf32>>
 // CHECK-DAG:               [[VAR_1_:%.+]] = krnl.vector_type_cast [[C_]] : memref<4x8xf32> to memref<4x1xvector<8xf32>>
-// CHECK-DAG:               [[RES_:%.+]] = alloca() : memref<vector<8xf32>>
+// CHECK-DAG:               [[RES_:%.+]] = memref.alloca() : memref<vector<8xf32>>
 // CHECK:                   affine.for [[I_3_:%.+]] = 0 to 4 {
 // CHECK-DAG:                 [[LOAD_VAR_1_MEM_:%.+]] = affine.load [[VAR_1_]]{{.}}[[I_3_]] + symbol([[PARAM_0_]]), symbol([[PARAM_1_]]) floordiv 8] : memref<4x1xvector<8xf32>>
 // CHECK:                     affine.store [[LOAD_VAR_1_MEM_]], [[RES_]][] : memref<vector<8xf32>>
@@ -104,7 +104,7 @@ func @matmulKrnl_runtime(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x
 // CHECK:                   affine.if #set1(){{.}}[[PARAM_4_]], [[PARAM_1_]]{{.}} {
 // CHECK-DAG:                 [[VAR_0_1_:%.+]] = krnl.vector_type_cast [[B_]] : memref<6x8xf32> to memref<6x1xvector<8xf32>>
 // CHECK-DAG:                 [[VAR_1_1_:%.+]] = krnl.vector_type_cast [[C_]] : memref<4x8xf32> to memref<4x1xvector<8xf32>>
-// CHECK-DAG:                 [[RES_1_:%.+]] = alloca() : memref<vector<8xf32>>
+// CHECK-DAG:                 [[RES_1_:%.+]] = memref.alloca() : memref<vector<8xf32>>
 // CHECK:                     affine.for [[I_5_:%.+]] = 0 to min #map0(){{.}}[[PARAM_3_]], [[PARAM_0_]]{{.}} {
 // CHECK-DAG:                   [[LOAD_VAR_1_MEM_1_:%.+]] = affine.load [[VAR_1_1_]]{{.}}[[I_5_]] + symbol([[PARAM_0_]]), symbol([[PARAM_1_]]) floordiv 8] : memref<4x1xvector<8xf32>>
 // CHECK:                       affine.store [[LOAD_VAR_1_MEM_1_]], [[RES_1_]][] : memref<vector<8xf32>>
@@ -120,7 +120,7 @@ func @matmulKrnl_runtime(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x
 // CHECK:                       affine.store [[LOAD_RES_MEM_1_]], [[VAR_1_1_]]{{.}}[[I_5_]] + symbol([[PARAM_0_]]), symbol([[PARAM_1_]]) floordiv 8] : memref<4x1xvector<8xf32>>
 // CHECK:                     }
 // CHECK:                   } else {
-// CHECK:                     [[RES_2_:%.+]] = alloca() : memref<f32>
+// CHECK:                     [[RES_2_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:                     affine.for [[I_7_:%.+]] = 0 to min #map0(){{.}}[[PARAM_3_]], [[PARAM_0_]]{{.}} {
 // CHECK:                       affine.for [[I_8_:%.+]] = 0 to #map2(){{.}}[[PARAM_4_]], [[PARAM_1_]]{{.}} {
 // CHECK-DAG:                     [[VAR_1_1_:%.+]] = affine.load [[C_]]{{.}}[[I_7_]] + symbol([[PARAM_0_]]), [[I_8_]] + symbol([[PARAM_1_]])] : memref<4x8xf32>

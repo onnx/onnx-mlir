@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -265,7 +266,9 @@ void removeOps(llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
         return llvm::all_of(region.getBlocks(), [](Block &block) {
           return (block.getOperations().size() == 0) ||
                  (block.getOperations().size() == 1 &&
-                     block.getOperations().front().isKnownTerminator());
+                     block.getOperations()
+                         .front()
+                         .hasTrait<OpTrait::IsTerminator>());
         });
       });
 
@@ -510,7 +513,7 @@ public:
     if (affineIndices)
       rewriter.replaceOpWithNewOp<AffineLoadOp>(op, memref, indices);
     else
-      rewriter.replaceOpWithNewOp<LoadOp>(op, memref, indices);
+      rewriter.replaceOpWithNewOp<memref::LoadOp>(op, memref, indices);
 
     return success();
   }
@@ -543,7 +546,7 @@ public:
     if (affineIndices)
       rewriter.replaceOpWithNewOp<AffineStoreOp>(op, value, memref, indices);
     else
-      rewriter.replaceOpWithNewOp<StoreOp>(op, value, memref, indices);
+      rewriter.replaceOpWithNewOp<memref::StoreOp>(op, value, memref, indices);
 
     return success();
   }
@@ -865,7 +868,7 @@ private:
 #endif
 #else
     IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
-    Value TmpC = std_alloca(CTmpType, constAlignAttr);
+    Value TmpC = memref_alloca(CTmpType, constAlignAttr);
 #endif
 
     // For i, j loops.
@@ -950,7 +953,7 @@ private:
 #endif
 #else
     IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
-    Value TmpC = std_alloca(CTmpType, alignAttr);
+    Value TmpC = memref_alloca(CTmpType, alignAttr);
 #endif
 
     // Iterates over the I indices (j are simd dim).
@@ -1430,13 +1433,11 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   target.addLegalOp<AffineYieldOp>();
   target.addLegalOp<AffineLoadOp>();
   target.addLegalOp<AffineStoreOp>();
-  target.addLegalOp<LoadOp>();
-  target.addLegalOp<StoreOp>();
   target.addLegalOp<KrnlVectorTypeCastOp>();
-  target.addLegalDialect<mlir::AffineDialect, mlir::StandardOpsDialect,
-      mlir::vector::VectorDialect>();
+  target.addLegalDialect<mlir::AffineDialect, mlir::memref::MemRefDialect,
+      mlir::StandardOpsDialect, mlir::vector::VectorDialect>();
   // Patterns.
-  OwningRewritePatternList patterns;
+  RewritePatternSet patterns(&getContext());
   patterns.insert<KrnlTerminatorLowering>(&getContext());
   patterns.insert<KrnlLoadLowering>(&getContext());
   patterns.insert<KrnlStoreLowering>(&getContext());

@@ -22,9 +22,11 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Target/LLVMIR.h"
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Target/LLVMIR/Export.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
+#include "llvm/Support/SourceMgr.h"
 
 #include "ExternalUtil.hpp"
 #include "MainUtils.hpp"
@@ -261,8 +263,11 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
       unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
 
   llvm::LLVMContext llvmContext;
-  llvm::WriteBitcodeToFile(*mlir::translateModuleToLLVMIR(*module, llvmContext),
-      moduleBitcodeStream);
+  mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
+  auto llvmModule = mlir::translateModuleToLLVMIR(*module, llvmContext);
+  if (!llvmModule)
+    llvm::errs() << "Failed to translate module to LLVMIR.\n";
+  llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
@@ -377,6 +382,8 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::scf::SCFDialect>();
   context.getOrLoadDialect<mlir::StandardOpsDialect>();
   context.getOrLoadDialect<mlir::shape::ShapeDialect>();
+  context.getOrLoadDialect<mlir::math::MathDialect>();
+  context.getOrLoadDialect<mlir::memref::MemRefDialect>();
   context.getOrLoadDialect<mlir::ONNXOpsDialect>();
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
 }
@@ -415,7 +422,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
   //  pm.addPass(mlir::createLoopFusionPass());
 }
 
-void addKrnlToLLVMPasses(mlir::PassManager &pm) {
+void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
   pm.addNestedPass<FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(mlir::createLowerToCFGPass());
@@ -501,7 +508,8 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
         (outputBaseName + ".onnx.mlir").c_str());
 
     // Apply specific passes to clean up the code where necessary.
-    mlir::PassManager cleanSourcePM(&context);
+    mlir::PassManager cleanSourcePM(
+        &context, mlir::OpPassManager::Nesting::Implicit);
     if (emissionTarget == EmitONNXIR || emissionTarget == EmitONNXBasic)
       cleanSourcePM.addNestedPass<FuncOp>(mlir::createElideConstantValuePass());
     if (emissionTarget == EmitMLIR)
@@ -524,7 +532,8 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
 
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
-  mlir::PassManager pm(&context);
+  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
+
   if (emissionTarget >= EmitONNXIR) {
     addONNXToMLIRPasses(pm);
   }
