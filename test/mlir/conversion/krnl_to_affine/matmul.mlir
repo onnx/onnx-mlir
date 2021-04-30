@@ -29,7 +29,7 @@ func private @matmulKrnl_full_tiles(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C
 // CHECK:               affine.for [[I_2_:%.+]] = 0 to 6 step 6 {
 // CHECK:                 affine.if #set() {
 // CHECK:                   affine.for [[I_3_:%.+]] = 0 to 4 {
-// CHECK-DAG:                 [[RES_:%.+]] = alloca() : memref<vector<8xf32>>
+// CHECK-DAG:                 [[RES_:%.+]] = memref.alloca() : memref<vector<8xf32>>
 // CHECK-DAG:                 [[LOAD_C_MEM_:%.+]] = affine.vector_load [[C_]]{{.}}[[I_3_]], [[CST_0_]]{{.}} : memref<4x8xf32>, vector<8xf32>
 // CHECK:                     affine.store [[LOAD_C_MEM_]], [[RES_]][] : memref<vector<8xf32>>
 // CHECK:                     affine.for [[I_4_:%.+]] = 0 to 6 {
@@ -69,9 +69,9 @@ func @matmulKrnl_runtime(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x
     return
 // mlir2FileCheck.py -a'["A", "B", "C"]'
 // CHECK-DAG: #map0 = affine_map<(d0)[s0] -> (d0 + s0)>
-// CHECK-DAG: #map1 = affine_map<()[s0, s1] -> (-s1 + s0, 4)>
-// CHECK-DAG: #map2 = affine_map<()[s0, s1] -> (-s1 + s0, 6)>
-// CHECK-DAG: #map3 = affine_map<()[s0, s1] -> (-s1 + s0)>
+// CHECK-DAG: #map1 = affine_map<()[s0, s1] -> (s0 - s1, 4)>
+// CHECK-DAG: #map2 = affine_map<()[s0, s1] -> (s0 - s1, 6)>
+// CHECK-DAG: #map3 = affine_map<()[s0, s1] -> (s0 - s1)>
 // CHECK-DAG: #set0 = affine_set<()[s0, s1, s2, s3, s4, s5] : (-s3 + s0 - 4 >= 0, -s5 + s1 - 8 >= 0, -s4 + s2 - 6 >= 0)>
 // CHECK-DAG: #set1 = affine_set<()[s0, s1] : (-s1 + s0 - 8 >= 0)>
 // CHECK-LABEL:  func @matmulKrnl_runtime
@@ -81,7 +81,7 @@ func @matmulKrnl_runtime(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x
 // CHECK:               affine.for [[I_2_:%.+]] = 0 to 6 step 6 {
 // CHECK:                 affine.if #set0(){{.}}[[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]], [[PARAM_0_]], [[PARAM_2_]], [[PARAM_1_]]{{.}} {
 // CHECK:                   affine.for [[I_3_:%.+]] = 0 to 4 {
-// CHECK-DAG:                 [[RES_:%.+]] = alloca() : memref<vector<8xf32>>
+// CHECK-DAG:                 [[RES_:%.+]] = memref.alloca() : memref<vector<8xf32>>
 // CHECK-DAG:                 [[VAR_1_:%.+]] = affine.apply #map0([[I_3_]]){{.}}[[PARAM_0_]]{{.}}
 // CHECK:                     [[LOAD_C_MEM_:%.+]] = affine.vector_load [[C_]]{{.}}[[VAR_1_]], [[PARAM_1_]]{{.}} : memref<4x8xf32>, vector<8xf32>
 // CHECK:                     affine.store [[LOAD_C_MEM_]], [[RES_]][] : memref<vector<8xf32>>
@@ -101,7 +101,7 @@ func @matmulKrnl_runtime(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x
 // CHECK:                 } else {
 // CHECK:                   affine.if #set1(){{.}}[[PARAM_4_]], [[PARAM_1_]]{{.}} {
 // CHECK:                     affine.for [[I_5_:%.+]] = 0 to min #map1(){{.}}[[PARAM_3_]], [[PARAM_0_]]{{.}} {
-// CHECK-DAG:                   [[RES_1_:%.+]] = alloca() : memref<vector<8xf32>>
+// CHECK-DAG:                   [[RES_1_:%.+]] = memref.alloca() : memref<vector<8xf32>>
 // CHECK-DAG:                   [[VAR_1_1_:%.+]] = affine.apply #map0([[I_5_]]){{.}}[[PARAM_0_]]{{.}}
 // CHECK:                       [[LOAD_C_MEM_1_:%.+]] = affine.vector_load [[C_]]{{.}}[[VAR_1_1_]], [[PARAM_1_]]{{.}} : memref<4x8xf32>, vector<8xf32>
 // CHECK:                       affine.store [[LOAD_C_MEM_1_]], [[RES_1_]][] : memref<vector<8xf32>>
@@ -121,7 +121,7 @@ func @matmulKrnl_runtime(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x
 // CHECK:                   } else {
 // CHECK:                     affine.for [[I_7_:%.+]] = 0 to min #map1(){{.}}[[PARAM_3_]], [[PARAM_0_]]{{.}} {
 // CHECK:                       affine.for [[I_8_:%.+]] = 0 to #map3(){{.}}[[PARAM_4_]], [[PARAM_1_]]{{.}} {
-// CHECK-DAG:                     [[RES_2_:%.+]] = alloca() : memref<f32>
+// CHECK-DAG:                     [[RES_2_:%.+]] = memref.alloca() : memref<f32>
 // CHECK-DAG:                     [[LOAD_C_MEM_2_:%.+]] = affine.load [[C_]]{{.}}[[I_7_]] + symbol([[PARAM_0_]]), [[I_8_]] + symbol([[PARAM_1_]])] : memref<4x8xf32>
 // CHECK:                         affine.store [[LOAD_C_MEM_2_]], [[RES_2_]][] : memref<f32>
 // CHECK:                         affine.for [[I_9_:%.+]] = 0 to min #map2(){{.}}[[PARAM_5_]], [[PARAM_2_]]{{.}} {
