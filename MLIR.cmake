@@ -31,10 +31,11 @@ set(MLIRLibs
   MLIRAffineToStandard
   MLIRAffineTransforms
   MLIRLinalgTransforms
+  MLIRLLVMToLLVMIRTranslation
+  MLIRMathTransforms
   MLIROptLib
   MLIRSCFToStandard
   MLIRShapeToStandard
-  MLIRTargetLLVMIR
 )
 
 set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)

@@ -2,7 +2,7 @@
 
 func @test_getref_lowering(%arg0: memref<2x2xf32>) -> memref<2x2xf32> {
   %c13_i64 = constant 13 : i64
-  %1 = alloc() : memref<10x10xf32>
+  %1 = memref.alloc() : memref<10x10xf32>
   %2 = "krnl.getref"(%1, %c13_i64) : (memref<10x10xf32>, i64) -> memref<2x2xf32>
   return %2 : memref<2x2xf32>
 
@@ -39,7 +39,7 @@ func @test_getref_lowering(%arg0: memref<2x2xf32>) -> memref<2x2xf32> {
 func @test_getref_lowering_dynamic(%arg0: memref<2x2xf32>) -> memref<2x?xf32> {
   %c13_i64 = constant 13 : i64
   %c5_index = constant 5 : index
-  %1 = alloc(%c5_index) : memref<10x?xf32>
+  %1 = memref.alloc(%c5_index) : memref<10x?xf32>
   %2 = "krnl.getref"(%1, %c13_i64, %c5_index) : (memref<10x?xf32>, i64, index) -> memref<2x?xf32>
   return %2 : memref<2x?xf32>
 

@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/AffineExpr.h"
 
@@ -287,7 +288,8 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
     assert(!upperBoundMustBeConstant && "Bound expected to be constant.");
     pack->pushOperandBound(
         rewriter
-            .create<DimOp>(loc, upperBoundMemRefOperand, upperBoundMemRefIndex)
+            .create<memref::DimOp>(
+                loc, upperBoundMemRefOperand, upperBoundMemRefIndex)
             .getResult());
   } else
     pack->pushConstantBound(shape[upperBoundMemRefIndex]);

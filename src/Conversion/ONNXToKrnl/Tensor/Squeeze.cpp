@@ -63,7 +63,7 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
           continue;
         // Found effective input dimension.
         if (memRefShape[outIdx] < 0) {
-          Value index = rewriter.create<DimOp>(loc, data, inIdx);
+          Value index = rewriter.create<memref::DimOp>(loc, data, inIdx);
           allocOperands.emplace_back(index);
         } else {
           // Collect constant dimensions for calculating the output tensor size.
@@ -73,10 +73,10 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
         outIdx++;
       }
       // Allocate memory.
-      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+      alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
       auto *parentBlock = alloc.getDefiningOp()->getBlock();
       if (insertDealloc) {
-        auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+        auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
         dealloc.getOperation()->moveBefore(&parentBlock->back());
       }
 
@@ -96,6 +96,6 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXSqueezeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXSqueezeOpLowering>(ctx);
 }

@@ -22,6 +22,6 @@ public:
 } // namespace
 
 void KrnlDummyCastOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &patterns, MLIRContext *context) {
+    RewritePatternSet &patterns, MLIRContext *context) {
   patterns.insert<RemoveRedundantKrnlDummyCast>(context);
 }

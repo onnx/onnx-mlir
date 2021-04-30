@@ -21,9 +21,10 @@ namespace mlir {
 
 class MLIRContext;
 class LLVMTypeConverter;
-class OwningRewritePatternList;
 
-void populateAffineAndKrnlToLLVMConversion(OwningRewritePatternList &patterns,
+class RewritePatternSet;
+
+void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     MLIRContext *ctx, LLVMTypeConverter &typeConverter);
 
 } // namespace mlir
