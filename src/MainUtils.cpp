@@ -247,7 +247,6 @@ string getTargetTripleOption() {
   return targetOptions;
 }
 
-
 // Write LLVM optimized bitcode.
 void genLLVMBitcode(const mlir::OwningModuleRef &module,
     string optimizedBitcodePath, string outputBaseName) {
