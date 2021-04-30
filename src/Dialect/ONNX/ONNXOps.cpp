@@ -1429,30 +1429,70 @@ LogicalResult ONNXReshapeOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXResizeOp::inferShapes() {
-  if (!X().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
-  auto xTy = X().getType().cast<RankedTensorType>();
+  auto xTy = X().getType().dyn_cast<RankedTensorType>();
+  if (!xTy)
+    return emitError("Input type not RankedTensorType");
 
-  // TODO: Add support for resizing with scales
-  if (!sizes().getType().isa<RankedTensorType>())
-    return emitError("Sizes tensor not ranked");
-  auto sizesTensorTy = sizes().getType().cast<RankedTensorType>();
+  auto xShape = xTy.getShape();
+  SmallVector<int64_t, 4> dims(xShape.size(), -1);
 
-  // Only rank 1 sizes tensors are supported.
-  if (sizesTensorTy.getShape().size() != 1)
-    return emitError("Shape tensor must have rank one");
+  bool hasScales = false;
+  bool hasSizes = false;
 
-  Operation *sizesDef = sizes().getDefiningOp();
+  if (!scales().getType().isa<NoneType>()) {
+    auto scalesTensorTy = scales().getType().dyn_cast<RankedTensorType>();
+    if (!scalesTensorTy)
+      return emitError("Scales type not RankedTensorType");
 
-  // Resize relies on shape information
-  // Failure if shape information cannot be retrieved
-  SmallVector<int64_t, 4> dims(xTy.getShape().size(), -1);
-  if (auto valueAttribute = getONNXConstOrShapeFoldingAttr(sizes())) {
-    dims.resize(valueAttribute.size());
-    auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
-    for (int i = 0; i != valueAttribute.size(); ++i)
-      dims[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+    // Only rank 1 scales tensors are supported
+    if (scalesTensorTy.getShape().size() != 1)
+      return emitError("Scales tensor must have rank one");
+
+    // Use scales to generate dims array
+    if (auto valueAttribute = getONNXConstOrShapeFoldingAttr(scales())) {
+      if (valueAttribute.size() > 0) {
+        hasScales = true;
+        dims.resize(valueAttribute.size());
+        auto valueIt = valueAttribute.getValues<FloatAttr>().begin();
+        for (int i = 0; i != valueAttribute.size(); ++i) {
+          double scale = (*valueIt++).cast<FloatAttr>().getValueAsDouble();
+          dims[i] = static_cast<int64_t>(scale * xShape[i]);
+        }
+      }
+    } else {
+      return emitError("Unable to read scales tensor value");
+    }
   }
+
+  if (!sizes().getType().isa<NoneType>()) {
+    auto sizesTensorTy = sizes().getType().dyn_cast<RankedTensorType>();
+    if (!sizesTensorTy)
+      return emitError("Sizes type not RankedTensorType");
+
+    // Only rank 1 sizes tensors are supported
+    if (sizesTensorTy.getShape().size() != 1)
+      return emitError("Sizes tensor must have rank one");
+
+    // Use sizes to generate dims array
+    if (auto valueAttribute = getONNXConstOrShapeFoldingAttr(sizes())) {
+      if (valueAttribute.size() > 0) {
+        hasSizes = true;
+        dims.resize(valueAttribute.size());
+        auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
+        for (int i = 0; i != valueAttribute.size(); ++i) {
+          dims[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+        }
+      }
+    } else {
+      return emitError("Unable to read sizes tensor value");
+    }
+  }
+
+  if (hasScales && hasSizes)
+    return emitError("Scales and sizes are both specified at the same time");
+
+  if (!hasScales && !hasSizes)
+    return emitError("Neither scales nor sizes are specified");
 
   getResult().setType(RankedTensorType::get(dims, xTy.getElementType()));
   return success();
