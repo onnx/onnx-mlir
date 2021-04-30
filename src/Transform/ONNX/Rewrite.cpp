@@ -242,37 +242,37 @@ DenseElementsAttr insertZerosForNonPaddedDims(
 
 /// on the ONNXBatchNormalizationTestModeOp.
 void ONNXBatchNormalizationTestModeOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
+    RewritePatternSet &results, MLIRContext *context) {
   results.insert<FuseBatchNormTestModeConvPattern>(context);
 }
 
 /// on the ONNXShapeOp.
 void ONNXShapeOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
+    RewritePatternSet &results, MLIRContext *context) {
   results.insert<ShapeToConstantPattern>(context);
 }
 
 /// on the ONNXSizeOp.
 void ONNXSizeOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
+    RewritePatternSet &results, MLIRContext *context) {
   results.insert<SizeToConstantPattern>(context);
 }
 
 /// on the ONNXGlobalAveragePoolOp.
 void ONNXGlobalAveragePoolOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
+    RewritePatternSet &results, MLIRContext *context) {
   results.insert<GlobalAveragePoolPattern>(context);
 }
 
 /// on the ONNXGlobalMaxPoolOp.
 void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
+    RewritePatternSet &results, MLIRContext *context) {
   results.insert<GlobalMaxPoolPattern>(context);
 }
 
 /// on the ONNXSizeOp.
 void ONNXConstantOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
+    RewritePatternSet &results, MLIRContext *context) {
   results.insert<ConstantOpNormalizationPattern1>(context);
   results.insert<ConstantOpNormalizationPattern2>(context);
   results.insert<ConstantOpNormalizationPattern3>(context);

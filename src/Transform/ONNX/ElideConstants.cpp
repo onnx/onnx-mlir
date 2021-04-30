@@ -70,7 +70,7 @@ public:
     auto function = getFunction();
 
     ConversionTarget target(getContext());
-    OwningRewritePatternList patterns;
+    RewritePatternSet patterns(&getContext());
     patterns.insert<ConstantValueElision>(&getContext());
 
     LogicalResult res =

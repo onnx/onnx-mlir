@@ -110,6 +110,6 @@ struct ONNXGatherOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXGatherOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXGatherOpLowering>(ctx);
 }

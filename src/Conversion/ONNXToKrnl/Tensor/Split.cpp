@@ -88,6 +88,6 @@ struct ONNXSplitOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXSplitOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXSplitOpLowering>(ctx);
 }

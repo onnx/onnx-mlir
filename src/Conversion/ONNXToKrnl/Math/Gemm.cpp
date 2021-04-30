@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
+#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
@@ -47,7 +47,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
           // Outer loop indices.
           ValueRange outerIndices = krnl_get_induction_var_value(outerLoops);
           // Create temp and set to zero.
-          Value red = std_alloca(MemRefType::get({}, elementType));
+          Value red = memref_alloca(MemRefType::get({}, elementType));
           SmallVector<Value, 2> redAccess; // Empty.
           krnl_store(zeroVal, red, redAccess);
           // Inner loop
@@ -127,8 +127,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     //    IntegerAttr::get(IntegerType::get(rewriter, 64), 128);
 
     ValueRange empty;
-    Value aBuff = std_alloc(aTileType, empty);
-    Value bBuff = std_alloc(bTileType, empty);
+    Value aBuff = memref_alloc(aTileType, empty);
+    Value bBuff = memref_alloc(bTileType, empty);
 
     // 3) introduce the loops and permute them
     // I, J, K loop.
@@ -179,8 +179,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
             });
           });
         });
-    rewriter.create<DeallocOp>(loc, aBuff);
-    rewriter.create<DeallocOp>(loc, bBuff);
+    rewriter.create<memref::DeallocOp>(loc, aBuff);
+    rewriter.create<memref::DeallocOp>(loc, bBuff);
 
     // Perform the alpha/beta computations.
     float alphaLit = gemmOp.alpha().convertToFloat();
@@ -281,6 +281,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXGemmOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(ctx);
 }

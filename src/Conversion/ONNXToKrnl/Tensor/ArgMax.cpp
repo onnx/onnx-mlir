@@ -135,6 +135,6 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXArgMaxOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXArgMaxOpLowering>(ctx);
 }

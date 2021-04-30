@@ -16,6 +16,7 @@
 #include <queue>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
@@ -442,7 +443,7 @@ bool KrnlVectorTypeCastOp::areCastCompatible(Type a, Type b) {
 static LogicalResult foldMemRefCast(Operation *op) {
   bool folded = false;
   for (OpOperand &operand : op->getOpOperands()) {
-    auto cast = operand.get().getDefiningOp<MemRefCastOp>();
+    auto cast = operand.get().getDefiningOp<memref::CastOp>();
     if (cast && !cast.getOperand().getType().isa<UnrankedMemRefType>()) {
       operand.set(cast.getOperand());
       folded = true;
