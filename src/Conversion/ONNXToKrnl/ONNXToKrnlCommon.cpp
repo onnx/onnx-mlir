@@ -112,7 +112,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
       allocOperands.emplace_back(outputDims[i].getValue());
     }
   }
-  AllocOp allocOp;
+  memref::AllocOp allocOp;
   if (alignment > 0) {
     IntegerAttr alignAttr = rewriter.getI64IntegerAttr(alignment);
     allocOp = rewriter.create<memref::AllocOp>(loc, type, allocOperands, alignAttr);
