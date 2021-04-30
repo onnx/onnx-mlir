@@ -35,6 +35,7 @@
 
 #define DEBUG_MALLOC 0
 #define DEBUG_GLOBAL_ALLOC_FREE 0
+#define BUFFER_ALIGN 64
 
 using namespace mlir;
 
@@ -862,7 +863,8 @@ private:
     Value TmpC = std_alloc(CTmpType, empty);
 #endif
 #else
-    Value TmpC = std_alloca(CTmpType);
+    IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value TmpC = std_alloca(CTmpType, constAlignAttr);
 #endif
 
     // For i, j loops.
@@ -945,7 +947,8 @@ private:
     Value TmpC = std_alloc(CTmpType, empty, rewriter.getI64IntegerAttr(16));
 #endif
 #else
-    Value TmpC = std_alloca(CTmpType, rewriter.getI64IntegerAttr(16));
+    IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value TmpC = std_alloca(CTmpType, constAlignAttr);
 #endif
 
     // Iterates over the I indices (j are simd dim).

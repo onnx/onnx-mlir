@@ -162,13 +162,13 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 #if DEBUG_GLOBAL_ALLOC_FREE
     SmallVector<IndexExpr, 1> empty;
     Value aBuff = insertAllocAndDeallocSimple(
-        rewriter, gemmOp, aTileType, loc, empty, true);
+        rewriter, gemmOp, aTileType, loc, empty, true, BUFFER_ALIGN);
     Value bBuff = insertAllocAndDeallocSimple(
-        rewriter, gemmOp, bTileType, loc, empty, true);
+        rewriter, gemmOp, bTileType, loc, empty, true, BUFFER_ALIGN);
     Value rBuff;
     if (mustTileR)
       rBuff = insertAllocAndDeallocSimple(
-          rewriter, gemmOp, aTileType, loc, empty, true);
+          rewriter, gemmOp, aTileType, loc, empty, true, BUFFER_ALIGN);
 #else
     ValueRange empty;
     Value aBuff =
@@ -331,8 +331,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+    Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
+        loc, shapeHelper.dimsForOutput(0), (int64_t)BUFFER_ALIGN);
 
     // Get the constants: zero, alpha,and beta.
     float alphaLit = gemmOp.alpha().convertToFloat();
