@@ -37,6 +37,9 @@
 #include <unistd.h>
 #endif
 
+// If need to inspect the temp files for debugging, set flag below to true.
+#define KEEP_TEMP_FILES false
+
 using namespace std;
 using namespace onnx_mlir;
 
@@ -186,7 +189,7 @@ struct Command {
 
     // If in verbose mode, print out command before execution.
     if (verbose)
-      cout << llvm::join(argsRef, " ") << "\n";
+      cout << _path << ": " << llvm::join(argsRef, " ") << "\n";
 
     std::string errMsg;
     int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
@@ -231,15 +234,18 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
   }
 }
 
-string getTargetOptions() {
+string getTargetCpuOption() {
+  string targetOptions = "";
+  if (mcpu != "")
+    targetOptions += "--mcpu=" + mcpu;
+  return targetOptions;
+}
+
+string getTargetTripleOption() {
   string targetOptions = "";
   if (mtriple != "")
     targetOptions = "--mtriple=" + mtriple;
   // Comand cannot tolerate extra spaces. Add only when needed.
-  if (mtriple != "" && mcpu != "")
-    targetOptions += " ";
-  if (mcpu != "")
-    targetOptions += "--mcpu=" + mcpu;
   return targetOptions;
 }
 
@@ -250,7 +256,8 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
 
   // Write bitcode to a file.
   string unoptimizedBitcodePath = outputBaseName + ".unoptimized.bc";
-  llvm::FileRemover unoptimzedBitcodeRemover(unoptimizedBitcodePath);
+  llvm::FileRemover unoptimzedBitcodeRemover(
+      unoptimizedBitcodePath, !KEEP_TEMP_FILES);
 
   llvm::raw_fd_ostream moduleBitcodeStream(
       unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
@@ -266,8 +273,10 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   // Use the LLVM's 'opt' command to optimize the bitcode.
   string optPath = getToolPath("opt");
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
-  optBitcode.appendStr("-O2")
-      .appendStr(getTargetOptions())
+  optBitcode
+      .appendStr("-O3") // test_scan9_sum_cpu fails on z with O3.
+      .appendStr(getTargetTripleOption())
+      .appendStr(getTargetCpuOption())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
       .exec();
@@ -280,7 +289,6 @@ void genModelObject(const mlir::OwningModuleRef &module, string bitcodePath,
   Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
   llvmToObj.appendStr("-filetype=obj")
       .appendStr("-relocation-model=pic")
-      .appendStr(getTargetOptions())
       .appendList({"-o", modelObjPath})
       .appendStr(bitcodePath)
       .exec();
@@ -329,11 +337,11 @@ void compileModuleToSharedLibrary(
 
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
-  llvm::FileRemover bitcodeRemover(bitcodePath);
+  llvm::FileRemover bitcodeRemover(bitcodePath, !KEEP_TEMP_FILES);
 
   string modelObjPath = outputBaseName + ".o";
   genModelObject(module, bitcodePath, modelObjPath);
-  llvm::FileRemover modelObjRemover(modelObjPath);
+  llvm::FileRemover modelObjRemover(modelObjPath, !KEEP_TEMP_FILES);
 
   string modelSharedLibPath = outputBaseName + ".so";
   genSharedLib(module, modelSharedLibPath, {"-shared", "-fPIC"}, {modelObjPath},
@@ -345,22 +353,22 @@ void compileModuleToJniJar(
 
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
-  llvm::FileRemover bitcodeRemover(bitcodePath);
+  llvm::FileRemover bitcodeRemover(bitcodePath, !KEEP_TEMP_FILES);
 
   string modelObjPath = outputBaseName + ".o";
   genModelObject(module, bitcodePath, modelObjPath);
-  llvm::FileRemover modelObjRemover(modelObjPath);
+  llvm::FileRemover modelObjRemover(modelObjPath, !KEEP_TEMP_FILES);
 
   string jniSharedLibPath = getRuntimeDir() + "/libjniruntime.a";
   string jniObjPath = "jnidummy.c.o";
   genJniObject(module, jniSharedLibPath, jniObjPath);
-  llvm::FileRemover jniObjRemover(jniObjPath);
+  llvm::FileRemover jniObjRemover(jniObjPath, !KEEP_TEMP_FILES);
 
   string modelSharedLibPath = "libmodel.so";
   genSharedLib(module, modelSharedLibPath,
       {"-shared", "-fPIC", "-z", "noexecstack"}, {modelObjPath, jniObjPath},
       {"-ljniruntime", "-lcruntime"});
-  llvm::FileRemover modelSharedLibRemover(modelSharedLibPath);
+  llvm::FileRemover modelSharedLibRemover(modelSharedLibPath, !KEEP_TEMP_FILES);
 
   string modelJniJarPath = outputBaseName + ".jar";
   genJniJar(module, modelSharedLibPath, modelJniJarPath);

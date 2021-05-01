@@ -386,6 +386,14 @@ void krnl_store(Value val, Value memref, ValueRange indices) {
       ScopedContext::getLocation(), val, memref, indices);
 }
 
+// Support only 1D vector type.
+Value krnl_vector_type_cast(Value sourceMemref, int64_t vectorLen) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  return ScopedContext::getBuilderRef().create<KrnlVectorTypeCastOp>(
+      ScopedContext::getLocation(), sourceMemref, vectorLen);
+}
+
 ValueRange krnl_define_loop(int64_t originalLoopNum) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");

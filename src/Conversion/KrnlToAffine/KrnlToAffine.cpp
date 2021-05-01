@@ -23,6 +23,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/LoopUtils.h"
 
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Pass/Passes.hpp"
@@ -32,6 +33,10 @@
 #include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 #include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
+
+#define DEBUG_MALLOC 0
+#define DEBUG_GLOBAL_ALLOC_FREE 0
+#define BUFFER_ALIGN 64
 
 using namespace mlir;
 
@@ -701,6 +706,28 @@ public:
       kComputeTileSize = computeSizeCapture.getLiteral(2);
     }
 
+    // If we simdize, its along M for the full compute tile.
+    IndexExpr vectorLen = jComputeTileSize;
+    if (!vectorLen.isLiteral()) {
+      // Cannot simdize if the vector length is not a compile time constant.
+      simdize = false;
+    }
+    if (!bBounds.isLiteral(bRank - 1) || !cBounds.isLiteral(cRank - 1)) {
+      // Cannot simdize if the last dim of B or C are not constant.
+      simdize = false;
+    }
+    if (simdize) {
+      int64_t VL = vectorLen.getLiteral();
+      if (bBounds.getShape(bRank - 1) % VL != 0 ||
+          cBounds.getShape(cRank - 1) % VL != 0) {
+        // If the memref of B and C are not multiple of the vector length in
+        // their last dim, then we cannot simdize either.
+        simdize = false;
+      }
+    }
+    if (!simdize)
+      vectorLen = LiteralIndexExpr(1);
+
     // Now get global start indices, which would define the first element of the
     // tiles in the original computations.
     DimIndexExpr iComputeStart(operandAdaptor.iComputeStart()),
@@ -733,15 +760,10 @@ public:
     cStart.emplace_back(
         jComputeStart - DimIndexExpr(operandAdaptor.cMemStart()[cRank - 1]));
 
-    IndexExpr AStart0 = aStart[0];
-    IndexExpr AStart1 = aStart[1];
-    IndexExpr BStart0 = bStart[0];
-    IndexExpr BStart1 = bStart[1];
-    IndexExpr CStart0 = cStart[0];
-    IndexExpr CStart1 = cStart[1];
+    SmallVector<IndexExpr, 4> bVecStart(bStart), cVecStart(cStart);
+    bVecStart[bRank - 1] = bStart[bRank - 1].floorDiv(vectorLen);
+    cVecStart[cRank - 1] = cStart[cRank - 1].floorDiv(vectorLen);
 
-    // Simdize along M for the full compute tile
-    IndexExpr vectorLen = jComputeTileSize;
     // Now determine if we have full/partial tiles. This is determined by the
     // outer dimensions of the original computations, as by definition tiling
     // within the buffer always results in full tiles. In other words, partial
@@ -783,7 +805,7 @@ public:
       // clang-format off
       genIfThenElseWithoutParams(rewriter, allFullTiles,
         /* then full */ [&](ValueRange) {
-        genSimd(rewriter, op, elementType, aStart, bStart, cStart,
+        genSimd(rewriter, op, elementType, aStart, bVecStart, cVecStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
           vectorLen, fullUnrollAndJam); 
       }, /* has some partial tiles */ [&](ValueRange) {
@@ -791,13 +813,13 @@ public:
         // Test if SIMD dim (M) is full.
         genIfThenElseWithoutParams(rewriter, jFullTiles,
           /* full SIMD */ [&](ValueRange) {
-          genSimd(rewriter, op, elementType, aStart, bStart, cStart,
+          genSimd(rewriter, op, elementType, aStart, bVecStart, cVecStart,
             iTrip, jComputeTileSize, kTrip, vectorLen, false);
         }, /* else partial SIMD */ [&](ValueRange) {
           if (false && jPartialTrip.isLiteral() && jPartialTrip.getLiteral() >=2) {
             // has a known trip count along the simd dimension of at least 2
             // elements, use simd again.
-            genSimd(rewriter, op, elementType, aStart, bStart, cStart,
+            genSimd(rewriter, op, elementType, aStart, bVecStart, cVecStart,
               iTrip, jPartialTrip, kTrip, vectorLen, false);
           } else {
             genScalar(rewriter, op, elementType, aStart, bStart,  cStart,
@@ -834,6 +856,20 @@ private:
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
     int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
     MemRefType CTmpType = MemRefType::get({}, elementType);
+#if DEBUG_MALLOC
+#if DEBUG_GLOBAL_ALLOC_FREE
+    SmallVector<IndexExpr, 1> empty;
+    Value TmpC = insertAllocAndDeallocSimple(
+        rewriter, op, CTmpType, op.getLoc(), empty, true, BUFFER_ALIGN);
+#else
+    ValueRange empty;
+    IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value TmpC = std_alloc(CTmpType, empty, constAlignAttr);
+#endif
+#else
+    IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value TmpC = memref_alloca(CTmpType, constAlignAttr);
+#endif
 
     // For i, j loops.
     using namespace edsc::op;
@@ -845,7 +881,6 @@ private:
         // Defines induction variables, and possibly initialize C.
         jSaved = j;
         // Alloc and init temp c storage.
-        Value TmpC = memref_alloca(CTmpType);
         AffineIndexedValue TTmpC(TmpC);
         SmallVector<Value, 4> cAccess;
         // CC(i + cStart0.getValue(), j + cStart1.getValue());
@@ -872,6 +907,12 @@ private:
         affine_store(TTmpC(), C, cAccess);
       });
     });
+#if DEBUG_MALLOC
+#if DEBUG_GLOBAL_ALLOC_FREE
+#else
+    rewriter.create<DeallocOp>(op.getLoc(), TmpC);
+#endif
+#endif
     // clang-format on
     if (unrollJam && J.isLiteral()) {
       // Unroll and jam. Seems to support only one operation at this time.
@@ -897,6 +938,23 @@ private:
     int64_t VL = vectorLen.getLiteral();
     VectorType vecType = VectorType::get({VL}, elementType);
     MemRefType CTmpType = MemRefType::get({}, vecType);
+    Value vecB = krnl_vector_type_cast(B, VL);
+    Value vecC = krnl_vector_type_cast(C, VL);
+
+#if DEBUG_MALLOC
+#if DEBUG_GLOBAL_ALLOC_FREE
+    SmallVector<IndexExpr, 1> empty;
+    Value TmpC = insertAllocAndDeallocSimple(
+        rewriter, op, CTmpType, op.getLoc(), empty, true, BUFFER_ALIGN);
+#else
+    ValueRange empty;
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value TmpC = std_alloc(CTmpType, empty, alignAttr);
+#endif
+#else
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value TmpC = memref_alloca(CTmpType, alignAttr);
+#endif
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved;
@@ -906,14 +964,12 @@ private:
     affineLoopBuilder(zero, I, 1, [&](Value i) {
       iSaved = i; // Saved for unroll and jam.
       // Alloca temp vector TmpC and save C(i)/0.0 into it.
-      Value TmpC = memref_alloca(CTmpType);
       AffineIndexedValue TTmpC(TmpC);
       SmallVector<Value, 4> cAccess;
       // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
       IndexExpr::getValues(cStart, cAccess);
       cAccess[cRank-2] = i + cAccess[cRank-2];
-      TTmpC() = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType,
-        C, cAccess);
+      TTmpC() = affine_load(vecC, cAccess);
       // Sum over k.
       affineLoopBuilder(zero, K, 1, [&](Value k) {
         // Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
@@ -926,8 +982,7 @@ private:
         // bAccess = {k + bStart0.getValue(), bStart1.getValue()};
         IndexExpr::getValues(bStart, bAccess);
         bAccess[bRank-2] = k + bAccess[bRank-2];
-        Value vb = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType,
-          B, bAccess);
+        Value vb = affine_load(vecB, bAccess);
         TTmpC() = vector_fma(va, vb, TTmpC());
       });
       // Store temp result into C(i)
@@ -939,16 +994,22 @@ private:
         for(int64_t i=0; i<VL; i++)
           mask.emplace_back((i<JLit) ? i : VL+i);
         // permute
-        Value originalCvec = rewriter.create<AffineVectorLoadOp>(op.getLoc(), 
-          vecType, C, cAccess);
+        Value originalCvec = affine_load(vecC, cAccess);
         tmpResults = rewriter.create<vector::ShuffleOp>(op.getLoc(),
           tmpResults, originalCvec, mask);
       }
       //CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
-      rewriter.create<AffineVectorStoreOp>(op.getLoc(), tmpResults, C, cAccess);
+      affine_store(tmpResults, vecC, cAccess);
     });
+#if DEBUG_MALLOC
+#if DEBUG_GLOBAL_ALLOC_FREE
+#else
+    rewriter.create<DeallocOp>(op.getLoc(), TmpC);
+#endif
+#endif
+
     // clang-format on
-    if (unrollJam && I.isLiteral()) {
+    if (false && unrollJam && I.isLiteral()) {
       // Unroll and jam. Seems to support only one operation at this time.
       auto iLoop = getForInductionVarOwner(iSaved);
       LogicalResult res = loopUnrollJamUpToFactor(iLoop, I.getLiteral());
