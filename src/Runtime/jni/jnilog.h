@@ -20,7 +20,8 @@
 
 enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
 
-#define LOG_MAX_NUM 128 /* max number of elements to output */
+#define LOG_MAX_LEN 4096 /* max number of chars to output    */
+#define LOG_MAX_NUM 128  /* max number of elements to output */
 
 #define MIN(x, y) ((x) > (y) ? y : x)
 
@@ -113,7 +114,8 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
   log_printf(level, __FILE__, __FUNCTION__, __LINE__, __VA_ARGS__)
 
 /* Generic log routine */
-void log_printf(
+extern void log_init(void);
+extern void log_printf(
     int level, char *file, const char *func, int line, char *fmt, ...);
 
 #endif

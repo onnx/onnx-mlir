@@ -134,8 +134,6 @@ typedef struct {
   jmethodID jomtl_getOmtArray; /* OMTensorList getOmtArray method */
 } jniapi_t;
 
-jniapi_t jniapi;
-
 /* Find and initialize Java method IDs in struct jniapi */
 jniapi_t *fill_jniapi(JNIEnv *env, jniapi_t *japi) {
   /* Get Java Exception, Long, String, OMTensor, and OMTensorList classes
@@ -372,6 +370,14 @@ jobject omtl_native_to_java(
 JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMModel_main_1graph_1jni(
     JNIEnv *env, jclass cls, jobject java_iomtl) {
 
+  /* Apparently J9 cannot have the return pointer of FindClass shared
+   * across threads. So move jniapi into stack so each thread has its
+   * own copy.
+   */
+  jniapi_t jniapi;
+
+  log_init();
+
   /* Find and initialize Java method IDs in struct jniapi */
   CHECK_CALL(jniapi_t *, japi, fill_jniapi(env, &jniapi), NULL);
 
@@ -395,6 +401,8 @@ JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMModel_main_1graph_1jni(
 JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
     JNIEnv *env, jclass cls) {
 
+  log_init();
+
   /* Call model input signature API */
   CHECK_CALL(const char *, jni_isig, omInputSignature(), NULL);
   HEX_DEBUG("isig", jni_isig, strlen(jni_isig));
@@ -408,6 +416,8 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
 
 JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
     JNIEnv *env, jclass cls) {
+
+  log_init();
 
   /* Call model output signature API */
   CHECK_CALL(const char *, jni_osig, omOutputSignature(), NULL);
