@@ -3538,6 +3538,25 @@ LogicalResult ONNXZipMapOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+// New Ops from onnx1.8.1
+#define NOT_IMPLEMENTED_INFERSHAPE(T) \
+  LogicalResult T::inferShapes( \
+      std::function<void(mlir::Region &)> doShapeInference) { \
+    return emitError(NOT_IMPLEMENTED_MESSAGE); \
+  } 
+
+NOT_IMPLEMENTED_INFERSHAPE(ONNXAdagradOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXAdamOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXCeluOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXEinsumOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXGradientOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXGreaterOrEqualOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXLessOrEqualOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXMomentumOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXNegativeLogLikelihoodLossOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXSoftmaxCrossEntropyLossOp);
+
+
 //===----------------------------------------------------------------------===//
 // Loop
 //===----------------------------------------------------------------------===//

@@ -36,6 +36,8 @@ import_handler_map_["Cast"] =
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeCast;
 import_handler_map_["Ceil"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCeilOp>;
+import_handler_map_["Celu"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCeluOp>;
 import_handler_map_["Clip"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipOp>;
 import_handler_map_["Compress"] = 
@@ -72,6 +74,8 @@ import_handler_map_["Dropout"] =
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeDropout;
 import_handler_map_["DynamicQuantizeLinear"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDynamicQuantizeLinearOp>;
+import_handler_map_["Einsum"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXEinsumOp>;
 import_handler_map_["Elu"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXEluOp>;
 import_handler_map_["Equal"] = 
@@ -106,6 +110,8 @@ import_handler_map_["GlobalMaxPool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGlobalMaxPoolOp>;
 import_handler_map_["Greater"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGreaterOp>;
+import_handler_map_["GreaterOrEqual"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGreaterOrEqualOp>;
 import_handler_map_["HardSigmoid"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXHardSigmoidOp>;
 import_handler_map_["Hardmax"] = 
@@ -128,6 +134,8 @@ import_handler_map_["LeakyRelu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLeakyReluOp>;
 import_handler_map_["Less"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLessOp>;
+import_handler_map_["LessOrEqual"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLessOrEqualOp>;
 import_handler_map_["Log"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLogOp>;
 import_handler_map_["LogSoftmax"] = 
@@ -164,6 +172,8 @@ import_handler_map_["Multinomial"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMultinomialOp>;
 import_handler_map_["Neg"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXNegOp>;
+import_handler_map_["NegativeLogLikelihoodLoss"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXNegativeLogLikelihoodLossOp>;
 import_handler_map_["NonMaxSuppression"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXNonMaxSuppressionOp>;
 import_handler_map_["NonZero"] = 
@@ -272,6 +282,8 @@ import_handler_map_["Slice"] =
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeSlice;
 import_handler_map_["Softmax"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxOp>;
+import_handler_map_["SoftmaxCrossEntropyLoss"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxCrossEntropyLossOp>;
 import_handler_map_["Softplus"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftplusOp>;
 import_handler_map_["Softsign"] = 
@@ -352,3 +364,11 @@ import_handler_map_["TreeEnsembleRegressor"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTreeEnsembleRegressorOp>;
 import_handler_map_["ZipMap"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXZipMapOp>;
+import_handler_map_["Adagrad"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAdagradOp>;
+import_handler_map_["Adam"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAdamOp>;
+import_handler_map_["Gradient"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGradientOp>;
+import_handler_map_["Momentum"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMomentumOp>;
