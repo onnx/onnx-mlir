@@ -629,6 +629,7 @@ inline IndexExpr operator-(int64_t const a, const IndexExpr b) {
 // Capture array of values given by an operand. Will find its definitition and
 // use it locate its constant values, or load dynamically if they are not
 // constant.
+template<typename LOAD_OP>
 class ArrayValueIndexCapture {
 public:
   ArrayValueIndexCapture(Operation *op, Value array);

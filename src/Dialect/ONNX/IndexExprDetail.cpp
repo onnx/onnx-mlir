@@ -20,8 +20,6 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/MathExtras.h"
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"

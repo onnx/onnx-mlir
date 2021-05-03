@@ -20,12 +20,12 @@
 #include "src/Dialect/ONNX/IndexExprDetail.hpp"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/MathExtras.h"
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
+//#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
@@ -1214,17 +1214,20 @@ SymbolIndexExpr::SymbolIndexExpr(IndexExpr const otherIndexExpr) {
 // Capturing Index Expressions: Array of values
 //===----------------------------------------------------------------------===//
 
+template<typename LOAD_OP>
 ArrayValueIndexCapture::ArrayValueIndexCapture(Operation *op, Value array)
     : op(op), array(array), hasDefault(false) {
   assert(op && "expected an op");
 }
 
+template<typename LOAD_OP>
 ArrayValueIndexCapture::ArrayValueIndexCapture(
     Operation *op, Value array, int64_t defaultLiteral)
     : op(op), array(array), defaultLiteral(defaultLiteral), hasDefault(true) {
   assert(op && "expected an op");
 }
 
+template<typename LOAD_OP>
 IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
   // Check if we have an operand.
   if (array.getType().isa<NoneType>()) {
@@ -1258,14 +1261,16 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
     return QuestionmarkIndexExpr();
   }
   // Emit code to read array.
-  Value indexVal = emitConstantOp(scope.getRewriter(), scope.getLoc(),
-      scope.getRewriter().getIndexType(), i);
+  auto &rewriter = scope.getRewriter();
+  Attribute constAttr =
+      rewriter.getIntegerAttr(rewriter.getIndexType(), (int64_t)i);
+  Value indexVal = rewriter.create<ConstantOp>(scope.getLoc(), constAttr);
   SmallVector<Value, 1> memrefVal = {indexVal};
-  Value loadVal =
-      scope.getRewriter().create<KrnlLoadOp>(scope.getLoc(), array, memrefVal);
+  Value loadVal = rewriter.create<LOAD_OP>(scope.getLoc(), array, memrefVal);
   return SymbolIndexExpr(loadVal);
 }
 
+template<typename LOAD_OP>
 void ArrayValueIndexCapture::getSymbolList(
     int num, SmallVectorImpl<IndexExpr> &symbolList) {
   // Clear output.
