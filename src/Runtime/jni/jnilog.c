@@ -15,6 +15,7 @@
 
 #include <errno.h>
 #include <libgen.h>
+#include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,13 +24,47 @@
 
 #include "jnilog.h"
 
-static int log_initd = 0;
-static int log_level;
-static FILE *log_fp;
+static __thread int log_inited = 0;
+static __thread int log_level;
+static __thread FILE *log_fp;
 
 /* Must match enum in log.h */
 static char *log_level_name[] = {
     "trace", "debug", "info", "warning", "error", "fatal"};
+
+/* Generic log routine */
+void log_printf(
+    int level, char *file, const char *func, int line, char *fmt, ...) {
+
+  if (level < log_level)
+    return;
+
+  time_t now;
+  struct tm *tm;
+  char buf[LOG_MAX_LEN];
+
+  /* Get local time and format as 2020-07-03 05:17:42 -0400 */
+  if (time(&now) == -1 || (tm = localtime(&now)) == NULL ||
+      strftime(buf, sizeof(buf), "[%F %T %z]", tm) == 0)
+    sprintf(buf, "[-]");
+
+  /* Output thread ID, log level, file name, function number, and line number */
+  snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), "[%lx][%s]%s:%s:%d ",
+      pthread_self(), log_level_name[level], basename(file), func, line);
+
+  /* Output actual log data */
+  va_list va_list;
+  va_start(va_list, fmt);
+  vsnprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), fmt, va_list);
+  va_end(va_list);
+
+  /* Add new line */
+  snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), "\n");
+
+  /* Write out and flush the output buffer */
+  fputs(buf, log_fp);
+  fflush(log_fp);
+}
 
 /* Return numerical log level of give level name */
 static int get_log_level_by_name(char *name) {
@@ -50,16 +85,25 @@ static FILE *get_log_file_by_name(char *name) {
     fp = stdout;
   else if (!strcmp(name, "stderr"))
     fp = stderr;
-  else
-    fp = fopen(name, "w");
+  else {
+    char tname[strlen(name) + 32];
+    snprintf(tname, strlen(name) + 32, "%s.%lx", name, pthread_self());
+    fp = fopen(tname, "w");
+  }
   return fp;
 }
 
-/* Initialize log system. Set default log level and file or use environment
- * variables ONNX_MLIR_JNI_LOG_LEVEL and ONNX_MLIR_JNI_LOG_FILE, respectively.
+/* Initialize log system. Set log level and file from environment
+ * variables ONNX_MLIR_JNI_LOG_LEVEL and ONNX_MLIR_JNI_LOG_FILE,
+ * respectively if provided.
+ *
+ * When logging to stdout or stderr, output from multiple threads
+ * will be interleaved. When logging to a file, output from multiple
+ * threads go to separate files, suffixed with the thread ID.
  */
-static void log_init() {
-  if (log_initd)
+void log_init() {
+
+  if (log_inited)
     return;
 
   log_level = LOG_INFO;
@@ -75,34 +119,5 @@ static void log_init() {
     log_fp = fp;
 
   tzset();
-  log_initd = 1;
-}
-
-/* Generic log routine */
-void log_printf(int level, char *file, char *func, int line, char *fmt, ...) {
-  if (!log_initd)
-    log_init();
-  if (level < log_level)
-    return;
-
-  time_t now;
-  struct tm *tm;
-  char buf[80];
-
-  /* Get local time and format as 2020-07-03 05:17:42 -0400 */
-  if (time(&now) == -1 || (tm = localtime(&now)) == NULL ||
-      strftime(buf, sizeof(buf), "%F %T %z", tm) == 0)
-    sprintf(buf, "-");
-
-  /* Output log prefix */
-  fprintf(log_fp, "[%s][%s]%s:%s:%d ", buf, log_level_name[level],
-      basename(file), func, line);
-
-  /* Output actually log data */
-  va_list va_list;
-  va_start(va_list, fmt);
-  vfprintf(log_fp, fmt, va_list);
-  va_end(va_list);
-
-  fprintf(log_fp, "\n");
+  log_inited = 1;
 }
