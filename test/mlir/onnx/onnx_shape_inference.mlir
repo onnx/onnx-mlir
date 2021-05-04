@@ -1453,6 +1453,21 @@ func @test_reduce_mean_3(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test shape inference for ReduceSum.
+//===----------------------------------------------------------------------===//
+
+func @test_reduce_sum_1(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
+  %cst = "onnx.Constant"() {value = dense<[-1]> : tensor<1xi64> } : () -> tensor<1xi64>
+  %0 = "onnx.ReduceSum"(%arg0, %cst) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x2x3x4xf32>, tensor<1xi64>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_reduce_sum_1
+  // CHECK: return {{.*}} : tensor<1x2x3x1xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test shape inference for Dropout.
 //===----------------------------------------------------------------------===//
 
