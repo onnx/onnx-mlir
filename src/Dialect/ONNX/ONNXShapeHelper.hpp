@@ -217,6 +217,9 @@ int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i);
 // Returns the ConstantOp which defines an MLIR Value or null.
 ONNXConstantOp getONNXConstantOp(Value value);
 
+// Return true if the definition of value is a ConstantOP with UnitAttr
+bool isFromNone(Value value);
+
 DenseElementsAttr getDenseElementAttributeFromValue(Value value);
 
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit);

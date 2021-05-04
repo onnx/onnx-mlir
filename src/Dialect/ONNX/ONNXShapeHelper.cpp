@@ -30,6 +30,15 @@ ONNXConstantOp getONNXConstantOp(Value value) {
   return dyn_cast_or_null<mlir::ONNXConstantOp>(value.getDefiningOp());
 }
 
+bool isFromNone(Value v) {
+  if (llvm::dyn_cast<mlir::ConstantOp>(v.getDefiningOp())) {
+    mlir::ConstantOp c = llvm::dyn_cast<mlir::ConstantOp>(v.getDefiningOp());
+    if (c.getValue().isa<UnitAttr>())
+      return true;
+  }
+  return false;
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//

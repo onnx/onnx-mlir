@@ -1585,6 +1585,9 @@ LogicalResult ONNXReduceSumOp::inferShapes(
     if (!constAxes) {
       return emitError("ReduceSum: unknown axes ");
     }
+  } else if (isFromNone(axes())) {
+    // constAxes should just be NULL
+    // Default value will be given in getReductionOutputType
   } else {
     return emitError("ReduceSum: unknown axes ");
   }

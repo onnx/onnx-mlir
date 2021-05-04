@@ -1462,7 +1462,22 @@ func @test_reduce_sum_1(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_reduce_sum_1
-  // CHECK: return {{.*}} : tensor<1x2x3x1xf32>
+  // CHECK-NEXT [[CST:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
+  // CHECK-NEXT [[RES:%.+]] = "onnx.ReduceSum"(%arg0, [[CST]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x2x3x4xf32>, tensor<1xi64>) -> tensor<1x2x3x1xf32>
+  // CHECK-NEXT return [[RES]] : tensor<1x2x3x1xf32>
+}
+
+// -----
+
+func @test_reduce_sum_2(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %0 = "onnx.ReduceSum"(%arg0, %cst) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x2x3x4xf32>, none) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_reduce_sum_2
+  // CHECK-NEXT [[CST:%.+]] = constant unit
+  // CHECK-NEXT [[RES:%.+]] = "onnx.ReduceSum"(%arg0, [[CST]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x2x3x4xf32>, none) -> tensor<1x1x1x1xf32>
+  // CHECK-NEXT return [[RES]] : tensor<1x1x1x1xf32>
 }
 
 // -----
