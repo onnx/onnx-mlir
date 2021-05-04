@@ -259,7 +259,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     // If `axes` are omitted, they are set to `[0, ..., nDim-1]`."
     for (int i = 0; i < dataRank; ++i)
       axesIntLit.emplace_back(i);
-  } else if (auto valueAttribute = getDenseElementAttributeFromValue(axes)) {
+  } else if (auto valueAttribute = getDenseElementAttributeFromONNXValue(axes)) {
     // If `axes` are constants, read them."
     for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
       int64_t axis = value.cast<IntegerAttr>().getInt();
@@ -714,7 +714,7 @@ LogicalResult ONNXGatherOpShapeHelper::Compute(
   // If 'indices' is a constant tensor, check whether its values are valid.
   if (dataDims[axisIndex].isLiteral()) {
     auto valueAttribute =
-        getDenseElementAttributeFromValue(operandAdaptor.indices());
+        getDenseElementAttributeFromONNXValue(operandAdaptor.indices());
     if (valueAttribute) {
       int64_t dataDimAtAxis = dataDims[axisIndex].getLiteral();
       positiveConstantIndices = true;

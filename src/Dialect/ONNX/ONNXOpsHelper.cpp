@@ -169,13 +169,13 @@ int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
   return (a.getValue().getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
-DenseElementsAttr getDenseElementAttributeFromValue(Value value) {
+DenseElementsAttr getDenseElementAttributeFromONNXValue(Value value) {
   auto definingOp = value.getDefiningOp();
   if (auto constantOp = dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp))
     return constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-  else if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp))
-    if (globalOp.value().hasValue())
-      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  //else if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp))
+  //  if (globalOp.value().hasValue())
+  //     return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
   return nullptr;
 }
 

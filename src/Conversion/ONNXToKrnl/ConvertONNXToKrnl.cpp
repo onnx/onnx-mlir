@@ -73,7 +73,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // krnl.load/store will be lowered to std.load/store and affine.load/store by
   // `convert-krnl-to-affine` pass.
   target.addIllegalOp<mlir::memref::LoadOp>();
-  target.addIllegalOp<mlir::AffineLoadOp>();
+  //target.addIllegalOp<mlir::AffineLoadOp>();
   target.addIllegalOp<mlir::memref::StoreOp>();
   target.addIllegalOp<mlir::AffineStoreOp>();
 

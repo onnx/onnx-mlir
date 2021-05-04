@@ -84,7 +84,10 @@ size_t ArrayAttrSize(Optional<ArrayAttr> a);
 int64_t ArrayAttrIntVal(ArrayAttr a, int i);
 int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i);
 
-DenseElementsAttr getDenseElementAttributeFromValue(Value value);
+// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr lambda
+// type, using ONNX operations only.
+DenseElementsAttr getDenseElementAttributeFromONNXValue(Value value);
+
 Value getONNXConstantOpFromDenseAttr(
     PatternRewriter &rewriter, Location loc, Attribute dense);
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit);

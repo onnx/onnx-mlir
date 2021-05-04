@@ -25,8 +25,6 @@
 #include "mlir/IR/Operation.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/MathExtras.h"
-//#include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -1214,20 +1212,20 @@ SymbolIndexExpr::SymbolIndexExpr(IndexExpr const otherIndexExpr) {
 // Capturing Index Expressions: Array of values
 //===----------------------------------------------------------------------===//
 
-template<typename LOAD_OP>
-ArrayValueIndexCapture::ArrayValueIndexCapture(Operation *op, Value array)
-    : op(op), array(array), hasDefault(false) {
-  assert(op && "expected an op");
-}
-
-template<typename LOAD_OP>
 ArrayValueIndexCapture::ArrayValueIndexCapture(
-    Operation *op, Value array, int64_t defaultLiteral)
-    : op(op), array(array), defaultLiteral(defaultLiteral), hasDefault(true) {
+    Operation *op, Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal)
+    : op(op), array(array), hasDefault(false), fGetDenseArrayAttr(fGetDenseVal),
+      fLoadVallFromArrayAtIndex(fLoadVal) {
   assert(op && "expected an op");
 }
 
-template<typename LOAD_OP>
+ArrayValueIndexCapture::ArrayValueIndexCapture(Operation *op, Value array,
+    int64_t defaultLiteral, GetDenseVal fGetDenseVal, LoadVal fLoadVal)
+    : op(op), array(array), defaultLiteral(defaultLiteral), hasDefault(true),
+      fGetDenseArrayAttr(fGetDenseVal), fLoadVallFromArrayAtIndex(fLoadVal) {
+  assert(op && "expected an op");
+}
+
 IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
   // Check if we have an operand.
   if (array.getType().isa<NoneType>()) {
@@ -1239,7 +1237,8 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
     return UndefinedIndexExpr();
   }
   // Check if we have an array of literals.
-  if (auto attrArray = getDenseElementAttributeFromValue(array)) {
+  assert(fGetDenseArrayAttr && "expected method to get a dense array");
+  if (DenseElementsAttr attrArray = fGetDenseArrayAttr(array)) {
     // We extracted an dense attribute from definition of operand.
     if (i >= attrArray.getType().getDimSize(0)) {
       // Request beyond available size.
@@ -1261,16 +1260,18 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
     return QuestionmarkIndexExpr();
   }
   // Emit code to read array.
-  auto &rewriter = scope.getRewriter();
-  Attribute constAttr =
-      rewriter.getIntegerAttr(rewriter.getIndexType(), (int64_t)i);
-  Value indexVal = rewriter.create<ConstantOp>(scope.getLoc(), constAttr);
-  SmallVector<Value, 1> memrefVal = {indexVal};
-  Value loadVal = rewriter.create<LOAD_OP>(scope.getLoc(), array, memrefVal);
+  OpBuilder &rewriter = scope.getRewriter();
+  // Attribute constAttr =
+  //    rewriter.getIntegerAttr(rewriter.getIndexType(), (int64_t)i);
+  // Value indexVal = rewriter.create<ConstantOp>(scope.getLoc(), constAttr);
+  // SmallVector<Value, 1> memrefVal = {indexVal};
+  // Value loadVal =
+  //    rewriter.create<AffineLoadOp>(scope.getLoc(), array, memrefVal);
+  assert(fLoadVallFromArrayAtIndex && "expected method to load an array value");
+  Value loadVal = fLoadVallFromArrayAtIndex(rewriter, array, i);
   return SymbolIndexExpr(loadVal);
 }
 
-template<typename LOAD_OP>
 void ArrayValueIndexCapture::getSymbolList(
     int num, SmallVectorImpl<IndexExpr> &symbolList) {
   // Clear output.

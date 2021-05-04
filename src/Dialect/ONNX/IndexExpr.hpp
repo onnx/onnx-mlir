@@ -629,11 +629,17 @@ inline IndexExpr operator-(int64_t const a, const IndexExpr b) {
 // Capture array of values given by an operand. Will find its definitition and
 // use it locate its constant values, or load dynamically if they are not
 // constant.
-template<typename LOAD_OP>
 class ArrayValueIndexCapture {
 public:
-  ArrayValueIndexCapture(Operation *op, Value array);
-  ArrayValueIndexCapture(Operation *op, Value array, int64_t defaultLiteral);
+  // Lambda functions to extract/generate info.
+  typedef std::function<DenseElementsAttr(Value array)> GetDenseVal;
+  typedef std::function<Value(OpBuilder &rewriter, Value array, int64_t index)>
+      LoadVal;
+
+  ArrayValueIndexCapture(
+      Operation *op, Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal);
+  ArrayValueIndexCapture(Operation *op, Value array, int64_t defaultLiteral,
+      GetDenseVal fGetDenseVal, LoadVal fLoadVal);
 
   IndexExpr getSymbol(uint64_t i);
   void getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
@@ -645,6 +651,8 @@ private:
   Value array;
   int64_t defaultLiteral;
   bool hasDefault;
+  GetDenseVal fGetDenseArrayAttr;
+  LoadVal fLoadVallFromArrayAtIndex;
 };
 
 // Capture array of values given by attributes.
