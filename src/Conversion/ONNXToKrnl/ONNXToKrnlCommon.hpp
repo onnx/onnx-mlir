@@ -18,6 +18,10 @@
 #include <map>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
+#include "mlir/Dialect/Linalg/IR/LinalgTypes.h"
+#include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
@@ -60,7 +64,12 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // compile time relying on the above function, and extracting the runtime
 // definitions from the index expressions otherwise.
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims);
+    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
+    int64_t alignment = -1);
+// Same where boolean to assert if dealloc is to be gen or not is specified
+Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
+    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
+    bool insertDealloc, int64_t alignment = -1);
 
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
@@ -191,110 +200,110 @@ struct TensorTypeConverter : public TypeConverter {
 // `ControlFlow` directory methods:
 
 void populateLoweringONNXLoopOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXScanOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 // `Math` directory methods:
 
 void populateLoweringONNXClipOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXElementwiseOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXGemmOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXLRNOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXMatMulOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXReductionOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXSoftmaxOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 // `NN` directory methods:
 
 void populateLoweringONNXConvOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXNormalizationOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXPoolingOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 // `RNN` directory methods:
 void populateLoweringONNXGRUOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXLSTMOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 void populateLoweringONNXRNNOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 // `Tensor` directory methods:
 void populateLoweringONNXArgMaxOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXUnsqueezeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXTransposeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXGatherOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXPadConstantValuePadOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXPadOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXReshapeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXIdentityOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXConstantOfShapeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXConstantOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXConcatOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXShapeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXSliceOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXSqueezeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXSplitOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXSizeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXTileOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXFlattenOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
-bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
+bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp);
 
 /// This function returns the index in the list of alloc arguments of the
 /// dynamic dimension corresponding to `index` in the MemRef shape.
@@ -305,7 +314,7 @@ bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
 /// In the above alloc the list of alloc arguments is being represented by
 /// %d0, %d1 and %d2. Their indices 0, 1, 2 correspond to `index` values
 /// 1, 2 and 4 in the MemRef shape respectively
-int64_t getAllocArgIndex(AllocOp allocOp, int64_t index);
+int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index);
 
 /// This function returns a location with the corresponding ONNX operator name
 /// inside. This is useful when tracing what expanded MLIR instructions

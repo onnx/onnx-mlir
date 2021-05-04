@@ -27,24 +27,24 @@ func @test_2d_tiling_imperfectly_nested() {
     %ib_idx, %jb_idx = krnl.get_induction_var_value(%ib, %jb) : (!krnl.loop, !krnl.loop) -> (index, index)
     %bar = addi %ib_idx, %jb_idx : index
 
-    %alloc = alloc() : memref<10 x f32>
+    %alloc = memref.alloc() : memref<10 x f32>
     krnl.iterate(%il, %jl) with () {
       %foo = addi %i, %j : index
     }
-    dealloc %alloc : memref<10 x f32>
+    memref.dealloc %alloc : memref<10 x f32>
   }
   // CHECK-LABEL:       func @test_2d_tiling_imperfectly_nested
   // CHECK-SAME:     () {
   // CHECK:           affine.for [[IBLOCK:%.+]] = 0 to 10 step 5 {
   // CHECK:             affine.for [[JBLOCK:%.+]] = 0 to 20 step 4 {
   // CHECK:               [[BAR:%.+]] = addi [[IBLOCK]], [[JBLOCK]] : index
-  // CHECK:               [[TILE_BUFFER:%.+]] = alloc() : memref<10xf32>
+  // CHECK:               [[TILE_BUFFER:%.+]] = memref.alloc() : memref<10xf32>
   // CHECK:               affine.for [[ILOCAL:%.+]] = #map0([[IBLOCK]]) to #map1([[IBLOCK]]) {
   // CHECK:                 affine.for [[JLOCAL:%.+]] = #map0([[JBLOCK]]) to #map2([[JBLOCK]]) {
   // CHECK:                   [[BAR:%.+]] = addi [[ILOCAL]], [[JLOCAL]] : index
   // CHECK:                 }
   // CHECK:               }
-  // CHECK:               dealloc [[TILE_BUFFER]] : memref<10xf32>
+  // CHECK:               memref.dealloc [[TILE_BUFFER]] : memref<10xf32>
   // CHECK:             }
   // CHECK:           }
   // CHECK:           return

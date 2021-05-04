@@ -16,6 +16,7 @@
 #include <queue>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
@@ -382,6 +383,29 @@ void KrnlDummyCastOp::build(
 // KrnlVectorTypeCastOp
 //===----------------------------------------------------------------------===//
 
+// Use the sourceMemRef as a template to create the result type, where all the
+// dimensions are copied but for the last one that is divided by vectorLen, as
+// the elementary type of the result is vectorLen x elementary type. Supports
+// only 1D vectors.
+void KrnlVectorTypeCastOp::build(OpBuilder &builder, OperationState &state,
+    Value sourceMemRef, int64_t vectorLen) {
+  MemRefType sourceType = sourceMemRef.getType().cast<MemRefType>();
+  Type elementType = sourceType.getElementType();
+  auto sourceShape = sourceType.getShape();
+  int rank = sourceShape.size();
+  VectorType vecType = VectorType::get({vectorLen}, elementType);
+  SmallVector<int64_t, 4> vectorShape;
+  for (int i = 0; i < rank - 1; ++i)
+    vectorShape.emplace_back(sourceShape[i]);
+  assert(sourceShape[rank - 1] > 0 &&
+         "expected compile time, strictly positive last dim");
+  assert(sourceShape[rank - 1] % vectorLen == 0 &&
+         "last dim must be a multiple of vector length");
+  vectorShape.emplace_back(sourceShape[rank - 1] / vectorLen);
+  MemRefType resultType = MemRefType::get(vectorShape, vecType);
+  build(builder, state, resultType, sourceMemRef);
+}
+
 bool KrnlVectorTypeCastOp::areCastCompatible(Type a, Type b) {
   auto aT = a.dyn_cast<MemRefType>();
   auto bT = b.dyn_cast<MemRefType>();
@@ -442,7 +466,7 @@ bool KrnlVectorTypeCastOp::areCastCompatible(Type a, Type b) {
 static LogicalResult foldMemRefCast(Operation *op) {
   bool folded = false;
   for (OpOperand &operand : op->getOpOperands()) {
-    auto cast = operand.get().getDefiningOp<MemRefCastOp>();
+    auto cast = operand.get().getDefiningOp<memref::CastOp>();
     if (cast && !cast.getOperand().getType().isa<UnrankedMemRefType>()) {
       operand.set(cast.getOperand());
       folded = true;

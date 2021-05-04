@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/AffineExpr.h"
 
@@ -287,7 +288,8 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
     assert(!upperBoundMustBeConstant && "Bound expected to be constant.");
     pack->pushOperandBound(
         rewriter
-            .create<DimOp>(loc, upperBoundMemRefOperand, upperBoundMemRefIndex)
+            .create<memref::DimOp>(
+                loc, upperBoundMemRefOperand, upperBoundMemRefIndex)
             .getResult());
   } else
     pack->pushConstantBound(shape[upperBoundMemRefIndex]);
@@ -382,6 +384,14 @@ void krnl_store(Value val, Value memref, ValueRange indices) {
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   ScopedContext::getBuilderRef().create<KrnlStoreOp>(
       ScopedContext::getLocation(), val, memref, indices);
+}
+
+// Support only 1D vector type.
+Value krnl_vector_type_cast(Value sourceMemref, int64_t vectorLen) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  return ScopedContext::getBuilderRef().create<KrnlVectorTypeCastOp>(
+      ScopedContext::getLocation(), sourceMemref, vectorLen);
 }
 
 ValueRange krnl_define_loop(int64_t originalLoopNum) {

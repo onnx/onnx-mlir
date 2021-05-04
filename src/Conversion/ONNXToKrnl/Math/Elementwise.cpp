@@ -19,8 +19,8 @@ using namespace mlir;
 
 template <>
 struct ScalarOp<ONNXTanhOp> {
-  using FOp = TanhOp;
-  using IOp = TanhOp; // Not used.
+  using FOp = math::TanhOp;
+  using IOp = math::TanhOp; // Not used.
 };
 
 template <>
@@ -67,8 +67,8 @@ struct ScalarOp<ONNXXorOp> {
 
 template <>
 struct ScalarOp<ONNXExpOp> {
-  using FOp = ExpOp;
-  using IOp = ExpOp; // Not used.
+  using FOp = math::ExpOp;
+  using IOp = math::ExpOp; // Not used.
 };
 
 template <>
@@ -79,20 +79,20 @@ struct ScalarOp<ONNXSumOp> {
 
 template <>
 struct ScalarOp<ONNXCosOp> {
-  using FOp = CosOp;
-  using IOp = CosOp; // Not used.
+  using FOp = math::CosOp;
+  using IOp = math::CosOp; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXLogOp> {
-  using FOp = LogOp;
-  using IOp = LogOp; // Not used.
+  using FOp = math::LogOp;
+  using IOp = math::LogOp; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXSqrtOp> {
-  using FOp = SqrtOp;
-  using IOp = SqrtOp; // Not used.
+  using FOp = math::SqrtOp;
+  using IOp = math::SqrtOp; // Not used.
 };
 
 template <>
@@ -115,14 +115,14 @@ struct ScalarOp<ONNXFloorOp> {
 
 template <>
 struct ScalarOp<ONNXSinOp> {
-  using FOp = SinOp;
-  using IOp = SinOp; // Not used.
+  using FOp = math::SinOp;
+  using IOp = math::SinOp; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXPowOp> {
-  using FOp = PowFOp;
-  using IOp = PowFOp; // Not used.
+  using FOp = math::PowFOp;
+  using IOp = math::PowFOp; // Not used.
 };
 
 template <>
@@ -233,8 +233,8 @@ Value emitScalarOpFor<ONNXSinhOp>(ConversionPatternRewriter &rewriter,
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
   auto two = emitConstantOp(rewriter, loc, elementType, 2);
   auto neg = rewriter.create<SubFOp>(loc, zero, operand);
-  auto exp = rewriter.create<ExpOp>(loc, operand);
-  auto negExp = rewriter.create<ExpOp>(loc, neg);
+  auto exp = rewriter.create<math::ExpOp>(loc, operand);
+  auto negExp = rewriter.create<math::ExpOp>(loc, neg);
   auto result = rewriter.create<DivFOp>(
       loc, rewriter.create<SubFOp>(loc, exp, negExp), two);
 
@@ -255,8 +255,8 @@ Value emitScalarOpFor<ONNXCoshOp>(ConversionPatternRewriter &rewriter,
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
   auto two = emitConstantOp(rewriter, loc, elementType, 2);
   auto neg = rewriter.create<SubFOp>(loc, zero, operand);
-  auto exp = rewriter.create<ExpOp>(loc, operand);
-  auto negExp = rewriter.create<ExpOp>(loc, neg);
+  auto exp = rewriter.create<math::ExpOp>(loc, operand);
+  auto negExp = rewriter.create<math::ExpOp>(loc, neg);
   auto result = rewriter.create<DivFOp>(
       loc, rewriter.create<AddFOp>(loc, exp, negExp), two);
 
@@ -277,7 +277,7 @@ Value emitScalarOpFor<ONNXSigmoidOp>(ConversionPatternRewriter &rewriter,
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
   auto one = emitConstantOp(rewriter, loc, elementType, 1);
   auto neg = rewriter.create<SubFOp>(loc, zero, operand);
-  auto negExp = rewriter.create<ExpOp>(loc, neg);
+  auto negExp = rewriter.create<math::ExpOp>(loc, neg);
   auto result = rewriter.create<DivFOp>(
       loc, one, rewriter.create<AddFOp>(loc, one, negExp));
 
@@ -338,7 +338,7 @@ Value emitScalarOpFor<ONNXEluOp>(ConversionPatternRewriter &rewriter,
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
   auto one = emitConstantOp(rewriter, loc, elementType, 1);
   auto alpha = rewriter.create<ConstantOp>(loc, alphaAttribute);
-  auto exp = rewriter.create<ExpOp>(loc, operand);
+  auto exp = rewriter.create<math::ExpOp>(loc, operand);
   auto lessThanZero =
       rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, operand, zero);
   auto result = rewriter.create<SelectOp>(loc, lessThanZero,
@@ -445,7 +445,7 @@ Value emitScalarOpFor<ONNXSeluOp>(ConversionPatternRewriter &rewriter,
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
   auto alpha = rewriter.create<ConstantOp>(loc, alphaAttribute);
   auto gamma = rewriter.create<ConstantOp>(loc, gammaAttribute);
-  auto exp = rewriter.create<ExpOp>(loc, operand);
+  auto exp = rewriter.create<math::ExpOp>(loc, operand);
   auto greaterThanZero =
       rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, operand, zero);
   auto select = rewriter.create<SelectOp>(loc, greaterThanZero, operand,
@@ -481,10 +481,10 @@ Value emitScalarOpFor<ONNXSoftplusOp>(ConversionPatternRewriter &rewriter,
   // ONNXSoftplusOp(%X) = LogOp(AddFOp(ExpOp(%X), ConstantOp 1))
   Value operand = scalarOperands[0];
 
-  auto exp = rewriter.create<ExpOp>(loc, operand);
+  auto exp = rewriter.create<math::ExpOp>(loc, operand);
   auto one = emitConstantOp(rewriter, loc, elementType, 1);
   auto add = rewriter.create<AddFOp>(loc, exp, one);
-  auto result = rewriter.create<LogOp>(loc, add);
+  auto result = rewriter.create<math::LogOp>(loc, add);
 
   return result;
 }
@@ -860,7 +860,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXElementwiseOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,

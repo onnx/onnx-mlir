@@ -20,7 +20,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "src/Interface/ShapeInferenceInterface.hpp"
+#include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -120,7 +120,7 @@ public:
 
     // Check if a terminator op exists for function.
     if (!funcBody.empty() && !funcBody.back().empty() &&
-        funcBody.back().back().isKnownTerminator())
+        funcBody.back().back().hasTrait<OpTrait::IsTerminator>())
       if (auto returnOp = f.getBody().back().getTerminator()) {
         auto results = returnOp->getOperandTypes();
         f.setType(FunctionType::get(f.getContext(), f.getType().getInputs(),

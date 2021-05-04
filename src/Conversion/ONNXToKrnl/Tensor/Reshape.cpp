@@ -155,14 +155,14 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
         allocOperands.push_back(rewriter.create<IndexCastOp>(
             loc, actualDimVal, rewriter.getIndexType()));
       }
-      AllocOp allocateMemref =
-          rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+      memref::AllocOp allocateMemref =
+          rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
 
       // Make sure to allocate at the beginning of the block if
       // all dimensions are known.
       auto *parentBlock = allocateMemref.getOperation()->getBlock();
       if (insertDealloc) {
-        auto dealloc = rewriter.create<DeallocOp>(loc, allocateMemref);
+        auto dealloc = rewriter.create<memref::DeallocOp>(loc, allocateMemref);
         dealloc.getOperation()->moveBefore(&parentBlock->back());
       }
 
@@ -177,6 +177,6 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXReshapeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXReshapeOpLowering>(ctx);
 }

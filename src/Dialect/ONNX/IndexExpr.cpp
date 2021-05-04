@@ -1388,8 +1388,8 @@ IndexExpr MemRefBoundsIndexCapture::get(uint64_t i) {
     // Not a constant; don't add code.
     return QuestionmarkIndexExpr();
   }
-  Value dynVal =
-      scope.getRewriter().create<DimOp>(scope.getLoc(), tensorOrMemref, i);
+  Value dynVal = scope.getRewriter().create<memref::DimOp>(
+      scope.getLoc(), tensorOrMemref, i);
   return INDEX(dynVal);
 }
 

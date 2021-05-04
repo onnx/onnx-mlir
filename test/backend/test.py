@@ -40,6 +40,10 @@ parser.add_argument('-d', '--dim', type=int,
 parser.add_argument('-v', '--verbose', action='store_true',
     default=(strtobool(VERBOSE) if VERBOSE else False),
     help='verbose output (default: false if VERBOSE env var not set)')
+parser.add_argument('--mtriple', type=str, default=os.getenv("TEST_MTRIPLE", ""),
+    help='triple to pass to the compiler')
+parser.add_argument('--mcpu', type=str, default=os.getenv("TEST_MCPU", ""),
+    help='target a specific cpu, passed to the compiler')
 parser.add_argument('unittest_args', nargs='*')
 args = parser.parse_args()
 sys.argv[1:] = args.unittest_args
@@ -50,16 +54,20 @@ if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
 else :
     tempdir = tempfile.TemporaryDirectory()
     result_dir = tempdir.name+"/"
-print("temporary results are in dir "+result_dir)
+print("Test info:")
+print("  temporary results are in dir:"+result_dir)
+if args.mcpu:
+    print("  targeting cpu:", args.mcpu)
+if args.mtriple:
+    print("  targeting triple:", args.mtriple)
 
 CXX = test_config.CXX_PATH
-TEST_DRIVER = os.path.join(test_config.TEST_DRIVER_BUILD_PATH, "bin",
-                           test_config.TEST_DRIVER_COMMAND)
-LLC = os.path.join(test_config.LLVM_PROJ_BUILD_PATH, "bin/llc")
+LLC = test_config.LLC_PATH
+RUNTIME_DIR = test_config.TEST_DRIVER_RUNTIME_PATH
+TEST_DRIVER = test_config.TEST_DRIVER_PATH
 
 # Make lib folder under build directory visible in PYTHONPATH
 doc_check_base_dir = os.path.dirname(os.path.realpath(__file__))
-RUNTIME_DIR = os.path.join(test_config.TEST_DRIVER_BUILD_PATH, "lib")
 sys.path.append(RUNTIME_DIR)
 from PyRuntime import ExecutionSession
 
@@ -375,11 +383,12 @@ test_to_enable_static_dynamic = {
     "test_log_cpu": (test_static_dynamic,),
 
     # LogSoftmax
-    "test_logsoftmax_axis_0_cpu": (test_static_dynamic,),
-    "test_logsoftmax_axis_1_cpu": (test_static_dynamic,),
+    # Temporally removed due to changes in onnx 1.8.1
+    # "test_logsoftmax_axis_0_cpu": (test_static_dynamic,),
+    # "test_logsoftmax_axis_1_cpu": (test_static_dynamic,),
     "test_logsoftmax_axis_2_cpu": (test_static_dynamic,),
     "test_logsoftmax_example_1_cpu": (test_static_dynamic,),
-    "test_logsoftmax_default_axis_cpu": (test_static_dynamic,),
+    # "test_logsoftmax_default_axis_cpu": (test_static_dynamic,),
     "test_logsoftmax_negative_axis_cpu": (test_static_dynamic,),
     "test_logsoftmax_large_number_cpu": (test_static_dynamic,),
 
@@ -565,14 +574,15 @@ test_to_enable_static_dynamic = {
     "test_reduce_prod_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
 
     # ReduceSum
-    "test_reduce_sum_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_sum_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_sum_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_sum_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_sum_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_sum_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_sum_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_sum_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
+    # Temporally removed due to changes in onnx 1.8.1
+    #"test_reduce_sum_default_axes_keepdims_example_cpu": (test_static_dynamic,),
+    #"test_reduce_sum_default_axes_keepdims_random_cpu": (test_static_dynamic,),
+    #"test_reduce_sum_do_not_keepdims_example_cpu": (test_static_dynamic,),
+    #"test_reduce_sum_do_not_keepdims_random_cpu": (test_static_dynamic,),
+    #"test_reduce_sum_keepdims_example_cpu": (test_static_dynamic,),
+    #"test_reduce_sum_keepdims_random_cpu": (test_static_dynamic,),
+    #"test_reduce_sum_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
+    #"test_reduce_sum_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
 
     # ReduceSumSquare
     "test_reduce_sum_square_default_axes_keepdims_example_cpu": (test_static_dynamic,),
@@ -649,10 +659,11 @@ test_to_enable_static_dynamic = {
     # Slice (makes Axis a runtime argument, which is not supported).
 
     # Softmax
-    "test_softmax_axis_0_cpu": (test_static_dynamic,),
-    "test_softmax_axis_1_cpu": (test_static_dynamic,),
+    # Temporally removed due to changes in onnx 1.8.1
+    # "test_softmax_axis_0_cpu": (test_static_dynamic,),
+    # "test_softmax_axis_1_cpu": (test_static_dynamic,),
     "test_softmax_axis_2_cpu": (test_static_dynamic,),
-    "test_softmax_default_axis_cpu": (test_static_dynamic,),
+    # "test_softmax_default_axis_cpu": (test_static_dynamic,),
     "test_softmax_example_cpu": (test_static_dynamic,),
     "test_softmax_large_number_cpu": (test_static_dynamic,),
 
@@ -665,20 +676,22 @@ test_to_enable_static_dynamic = {
     "test_softsign_example_cpu": (test_static_dynamic,),
 
     # Split
-    "test_split_equal_parts_1d_cpu": (test_static_dynamic,),
-    "test_split_equal_parts_2d_cpu": (test_static_dynamic,),
-    "test_split_equal_parts_default_axis_cpu": (test_static_dynamic,),
-    "test_split_variable_parts_1d_cpu": (test_static_dynamic,),
-    "test_split_variable_parts_2d_cpu": (test_static_dynamic,),
-    "test_split_variable_parts_default_axis_cpu": (test_static_dynamic,),
-
+    # Temporally removed due to changes in onnx 1.8.1
+    # "test_split_equal_parts_1d_cpu": (test_static_dynamic,),
+    # "test_split_equal_parts_2d_cpu": (test_static_dynamic,),
+    # "test_split_equal_parts_default_axis_cpu": (test_static_dynamic,),
+    # "test_split_variable_parts_1d_cpu": (test_static_dynamic,),
+    # "test_split_variable_parts_2d_cpu": (test_static_dynamic,),
+    # "test_split_variable_parts_default_axis_cpu": (test_static_dynamic,),
+    
     # Sqrt
     "test_sqrt_cpu": (test_static_dynamic,),
     "test_sqrt_example_cpu": (test_static_dynamic,),
 
     # Squeeze
-    "test_squeeze_cpu": (test_static_dynamic,),
-    "test_squeeze_negative_axes_cpu": (test_static_dynamic,),
+    # Temporally removed due to changes in onnx 1.8.1
+    #"test_squeeze_cpu": (test_static_dynamic,),
+    #"test_squeeze_negative_axes_cpu": (test_static_dynamic,),
 
     # Str Normalizer
 
@@ -724,14 +737,15 @@ test_to_enable_static_dynamic = {
     # Unique
 
     # Unsqueeze
-    "test_unsqueeze_axis_0_cpu": (test_static_dynamic,),
-    "test_unsqueeze_axis_1_cpu": (test_static_dynamic,),
-    "test_unsqueeze_axis_2_cpu": (test_static_dynamic,),
-    "test_unsqueeze_axis_3_cpu": (test_static_dynamic,),
-    "test_unsqueeze_negative_axes_cpu": (test_static_dynamic,),
-    "test_unsqueeze_three_axes_cpu": (test_static_dynamic,),
-    "test_unsqueeze_two_axes_cpu": (test_static_dynamic,),
-    "test_unsqueeze_unsorted_axes_cpu": (test_static_dynamic,),
+    # Temporally removed due to changes in onnx 1.8.1
+    # "test_unsqueeze_axis_0_cpu": (test_static_dynamic,),
+    # "test_unsqueeze_axis_1_cpu": (test_static_dynamic,),
+    # "test_unsqueeze_axis_2_cpu": (test_static_dynamic,),
+    # "test_unsqueeze_axis_3_cpu": (test_static_dynamic,),
+    # "test_unsqueeze_negative_axes_cpu": (test_static_dynamic,),
+    # "test_unsqueeze_three_axes_cpu": (test_static_dynamic,),
+    # "test_unsqueeze_two_axes_cpu": (test_static_dynamic,),
+    # "test_unsqueeze_unsorted_axes_cpu": (test_static_dynamic,),
 
     # Upsample
 
@@ -876,12 +890,18 @@ class DummyBackend(onnx.backend.base.Backend):
         if not os.path.exists(model_name) :
             print("Failed save model: "+ name)
         print(name)
-
+        # Command
+        command_list = [TEST_DRIVER]
+        if args.mcpu:
+            command_list.append("--mcpu="+args.mcpu)
+        if args.mtriple:
+            command_list.append("--mtriple="+args.mtriple)
+        command_list.append(model_name)
         # Call frontend to process temp_model.onnx, bit code will be generated.
         dynamic_inputs_dims = determine_dynamic_parameters(name)
-        execute_commands([TEST_DRIVER, model_name], dynamic_inputs_dims)
+        execute_commands(command_list, dynamic_inputs_dims)
         if not os.path.exists(exec_name) :
-            print("Failed " + test_config.TEST_DRIVER_COMMAND + ": " + name)
+            print("Failed " + test_config.TEST_DRIVER_PATH + ": " + name)
         return EndiannessAwareExecutionSession(exec_name,
                                                    "run_main_graph")
 
