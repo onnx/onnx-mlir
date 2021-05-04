@@ -4227,14 +4227,15 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
   "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
   "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$data,
-    OptionalAttr<I64ArrayAttr>:$axes,
-    DefaultValuedAttr<SI64Attr, "1">:$keepdims);
-  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$reduced);
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$reduced);
   let builders = [
-    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
+    OpBuilder<(ins "Value":$data, "Value":$axes, "IntegerAttr":$keepdims, "IntegerAttr":$noop_with_empty_axes), [{
       auto elementType = data.getType().cast<TensorType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims);
+      build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims, noop_with_empty_axes);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto elementType = operands[0].getType().cast<TensorType>().getElementType();
@@ -4245,7 +4246,7 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
     ];
     let extraClassDeclaration = [{
       static int getNumberOfOperands() {
-        return 1;
+        return 2;
       }
       static int getNumberOfResults() {
         return 1;

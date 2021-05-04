@@ -151,7 +151,9 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     int64_t outRank = memRefOutType.getRank();
 
     // Get attributes
-    ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).axesAttr();
+    ArrayAttr axisAttrs;
+    if constexpr(!std::is_same<ONNXReductionOp, ONNXReduceSumOp>::value)
+      axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).axesAttr();
     std::vector<int64_t> axes;
     if (axisAttrs) {
       for (auto axisAttr : axisAttrs.getValue()) {

@@ -30,11 +30,30 @@ def KeepdimsIsTrue:
     Constraint<CPred<"$_self.cast<IntegerAttr>().getSInt() == 1">,
   "keepdims attribute is true">;
 
+def AttributeIsNull :
+    Constraint<CPred<"! ($_self)">,
+  "Attribute is null">;
+
+def HasFloatType : Constraint<CPred<"(($_self).getType().dyn_cast<ShapedType>().getElementType().isF32())">>;
+
+def GetNullAttr :
+	NativeCodeCall<"Attribute()">;
+
+// Create a DenseElementsAttr from an ArrayAttr.
+def createDenseArrayAttr:
+  NativeCodeCall<"createDenseArrayAttr($_builder, $0)">;
+
+def ScalerT : NativeCodeCall<"TypeAttr::get($_builder.getF32Type())">;
+
+def noop_with_empty_axes : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
+
 //===----------------------------------------------------------------------===//
 // ONNXReduceL1Op %X = ONNXReduceSumOp (ONNXAbsOp %X)
 //===----------------------------------------------------------------------===//
 def ReduceL1OpPattern: Pat<(ONNXReduceL1Op $oprd, $axes, $keepdims),
-                           (ONNXReduceSumOp (ONNXAbsOp $oprd), $axes, $keepdims)>;
+                           (ONNXReduceSumOp (ONNXAbsOp $oprd),
+                           (ONNXConstantOpFromDenseAttr (createDenseArrayAttr $axes)),
+                           $keepdims, (noop_with_empty_axes))>;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceL2Op %X = ONNXSqrtOp (ONNXReduceSumSquareOp (%X))
@@ -46,7 +65,9 @@ def ReduceL2OpPattern: Pat<(ONNXReduceL2Op $oprd, $axes, $keepdims),
 // ONNXReduceLogSumOp %X = ONNXLogOp (ONNXReduceSumOp (%X))
 //===----------------------------------------------------------------------===//
 def ReduceLogSumOpPattern: Pat<(ONNXReduceLogSumOp $oprd, $axes, $keepdims),
-                           (ONNXLogOp (ONNXReduceSumOp $oprd, $axes, $keepdims))>;
+                           (ONNXLogOp (ONNXReduceSumOp $oprd,
+                                       (ONNXConstantOpFromDenseAttr (createDenseArrayAttr $axes)),
+                                       $keepdims, (noop_with_empty_axes)))>;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceLogSumExpOp %X
@@ -83,28 +104,15 @@ def ReduceLogSumExpOpPattern2: Pat<
 // ONNXReduceSumSquareOp %X = ONNXReduceSumOp (ONNXMulOp %X, %X)
 //===----------------------------------------------------------------------===//
 def ReduceSumSquareOpPattern: Pat<(ONNXReduceSumSquareOp $oprd, $axes, $keepdims),
-                                  (ONNXReduceSumOp (ONNXMulOp $oprd, $oprd), $axes, $keepdims)>;
+                                  (ONNXReduceSumOp (ONNXMulOp $oprd, $oprd),
+                                                   (ONNXConstantOpFromDenseAttr 
+                                                        (createDenseArrayAttr $axes)),
+                                  $keepdims, (noop_with_empty_axes))>;
 
 //===----------------------------------------------------------------------===//
 // ONNXScalerOp %X, %Offest, %Scale
 // x input, a offset, b scale
 //===----------------------------------------------------------------------===//
-// Useful test definitions.
-def AttributeIsNull :
-    Constraint<CPred<"! ($_self)">,
-  "Attribute is null">;
-
-def HasFloatType : Constraint<CPred<"(($_self).getType().dyn_cast<ShapedType>().getElementType().isF32())">>;
-
-def GetNullAttr :
-	NativeCodeCall<"Attribute()">;
-
-// Create a DenseElementsAttr from an ArrayAttr.
-def createDenseArrayAttr:
-  NativeCodeCall<"createDenseArrayAttr($_builder, $0)">;
-
-def ScalerT : NativeCodeCall<"TypeAttr::get($_builder.getF32Type())">;
-
 // No attribute
 def ScalerNullPattern : Pat<
 	(ONNXScalerOp $x, $a, $b),
