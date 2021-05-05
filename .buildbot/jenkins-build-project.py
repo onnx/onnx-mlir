@@ -25,13 +25,27 @@ docker_registry_login_name  = os.getenv('DOCKER_REGISTRY_LOGIN_NAME')
 docker_registry_login_token = os.getenv('DOCKER_REGISTRY_LOGIN_TOKEN')
 github_repo_name            = os.getenv('GITHUB_REPO_NAME')
 github_repo_name2           = os.getenv('GITHUB_REPO_NAME').replace('-', '_')
+github_pr_baseref           = os.getenv('GITHUB_PR_BASEREF')
 github_pr_number            = os.getenv('GITHUB_PR_NUMBER')
 github_pr_number2           = os.getenv('GITHUB_PR_NUMBER2')
 
-LLVM_PROJECT_IMAGE          = { 'dev': github_repo_name + '-llvm-static',
-                                'usr': github_repo_name + '-llvm-shared' }
-PROJECT_IMAGE               = { 'dev': github_repo_name + '-dev',
-                                'usr': github_repo_name }
+docker_static_image_name    = (github_repo_name + '-llvm-static' +
+                               ('.' + github_pr_baseref
+                                if github_pr_baseref != 'master' else ''))
+docker_shared_image_name    = (github_repo_name + '-llvm-shared' +
+                               ('.' + github_pr_baseref
+                                if github_pr_baseref != 'master' else ''))
+docker_dev_image_name       = (github_repo_name + '-dev' +
+                               ('.' + github_pr_baseref
+                                if github_pr_baseref != 'master' else ''))
+docker_usr_image_name       = (github_repo_name +
+                               ('.' + github_pr_baseref
+                                if github_pr_baseref != 'master' else ''))
+
+LLVM_PROJECT_IMAGE          = { 'dev': docker_static_image_name,
+                                'usr': docker_shared_image_name }
+PROJECT_IMAGE               = { 'dev': docker_dev_image_name,
+                                'usr': docker_usr_image_name }
 PROJECT_DOCKERFILE          = { 'dev': 'docker/Dockerfile.' + github_repo_name + '-dev',
                                 'usr': 'docker/Dockerfile.' + github_repo_name }
 PROJECT_LABELS              = [ github_repo_name2 + '_sha1',
@@ -178,19 +192,24 @@ def get_remote_image_labels(host_name, user_name, image_name, image_tag,
 
 # Build project dev and user images.
 def build_private_project(image_type, exp):
-    host_name    = docker_registry_host_name
-    user_name    = docker_registry_user_name
-    login_name   = docker_registry_login_name
-    login_token  = docker_registry_login_token
-    image_name   = PROJECT_IMAGE[image_type]
-    image_tag    = github_pr_number
-    image_repo   = ((host_name + '/' if host_name else '') +
-                    (user_name + '/' if user_name else '') +
-                    image_name)
-    image_full   = image_repo + ':' + image_tag
-    image_arch   = image_repo + ':' + cpu_arch
-    image_filter = exp[github_repo_name2 + '_filter']
-    image_labels = PROJECT_LABELS
+    host_name       = docker_registry_host_name
+    user_name       = docker_registry_user_name
+    login_name      = docker_registry_login_name
+    login_token     = docker_registry_login_token
+    base_image_name = LLVM_PROJECT_IMAGE[image_type]
+    base_image_repo = ((host_name + '/' if host_name else '') +
+                       (user_name + '/' if user_name else '') +
+                       base_image_name)
+    base_image_tag  = github_pr_number
+    image_name      = PROJECT_IMAGE[image_type]
+    image_repo      = ((host_name + '/' if host_name else '') +
+                       (user_name + '/' if user_name else '') +
+                       image_name)
+    image_tag       = github_pr_number
+    image_full      = image_repo + ':' + image_tag
+    image_arch      = image_repo + ':' + cpu_arch
+    image_filter    = exp[github_repo_name2 + '_filter']
+    image_labels    = PROJECT_LABELS
 
     # First look for a local project image for the pull request that
     # was built by a previous build job. We can use it if it has the
@@ -234,7 +253,7 @@ def build_private_project(image_type, exp):
 
                 # Tag pulled arch image with pull request number then remove
                 # the arch image
-                docker_api.tag(image_arch, image_repo, github_pr_number, force = True)
+                docker_api.tag(image_arch, image_repo, image_tag, force = True)
                 docker_api.remove_image(image_arch, force = True)
 
                 # For logging purpose only
@@ -259,14 +278,11 @@ def build_private_project(image_type, exp):
         for line in docker_api.build(
                 path = '.',
                 dockerfile = PROJECT_DOCKERFILE[image_type],
-                tag = image_repo + ':' + github_pr_number,
+                tag = image_repo + ':' + image_tag,
                 decode = True,
                 rm = True,
                 buildargs = {
-                    'BASE_IMAGE': ((host_name + '/' if host_name else '') +
-                                   (user_name + '/' if user_name else '') +
-                                   LLVM_PROJECT_IMAGE[image_type] + ':' +
-                                   github_pr_number),
+                    'BASE_IMAGE': base_image_repo + ':' + base_image_tag,
                     GITHUB_REPO_NAME2 + '_SHA1': exp[github_repo_name2 + '_sha1'],
                     GITHUB_REPO_NAME2 + '_SHA1_DATE': exp[github_repo_name2 + '_sha1_date'],
                     GITHUB_REPO_NAME2 + '_DOCKERFILE_SHA1': exp[github_repo_name2 + '_dockerfile_sha1'],

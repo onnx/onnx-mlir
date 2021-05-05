@@ -21,9 +21,38 @@ docker_registry_login_token = os.getenv('DOCKER_REGISTRY_LOGIN_TOKEN')
 github_repo_access_token    = os.getenv('GITHUB_REPO_ACCESS_TOKEN')
 github_repo_name            = os.getenv('GITHUB_REPO_NAME')
 github_repo_name2           = os.getenv('GITHUB_REPO_NAME').replace('-', '_')
+github_pr_baseref           = os.getenv('GITHUB_PR_BASEREF')
 github_pr_number            = os.getenv('GITHUB_PR_NUMBER')
 github_pr_phrase            = os.getenv('GITHUB_PR_PHRASE')
 github_pr_request_url       = os.getenv('GITHUB_PR_REQUEST_URL')
+
+# dot can be used in docker image name
+docker_static_image_name    = (github_repo_name + '-llvm-static' +
+                               ('.' + github_pr_baseref
+                                if github_pr_baseref != 'master' else ''))
+docker_shared_image_name    = (github_repo_name + '-llvm-shared' +
+                               ('.' + github_pr_baseref
+                                if github_pr_baseref != 'master' else ''))
+docker_dev_image_name       = (github_repo_name + '-dev' +
+                               ('.' + github_pr_baseref
+                                if github_pr_baseref != 'master' else ''))
+docker_usr_image_name       = (github_repo_name +
+                               ('.' + github_pr_baseref
+                                if github_pr_baseref != 'master' else ''))
+
+# dot cannot be used in python dict key so we use dash
+python_static_image_name    = (github_repo_name + '-llvm-static' +
+                               ('-' + github_pr_baseref
+                                if github_pr_baseref != 'master' else ''))
+python_shared_image_name    = (github_repo_name + '-llvm-shared' +
+                               ('-' + github_pr_baseref
+                                if github_pr_baseref != 'master' else ''))
+python_dev_image_name       = (github_repo_name + '-dev' +
+                               ('-' + github_pr_baseref
+                                if github_pr_baseref != 'master' else ''))
+python_usr_image_name       = (github_repo_name +
+                               ('-' + github_pr_baseref
+                                if github_pr_baseref != 'master' else ''))
 
 LLVM_PROJECT_LABELS         = [ 'llvm_project_sha1',
                                 'llvm_project_sha1_date',
@@ -31,29 +60,33 @@ LLVM_PROJECT_LABELS         = [ 'llvm_project_sha1',
 PROJECT_LABELS              = [ github_repo_name2 + '_sha1',
                                 github_repo_name2 + '_sha1_date',
                                 github_repo_name2 + '_dockerfile_sha1' ]
-IMAGE_NAME                  = { 'static': github_repo_name + '-llvm-static',
-                                'shared': github_repo_name + '-llvm-shared',
-                                'dev': github_repo_name + '-dev',
-                                'usr': github_repo_name }
-IMAGE_TAG                   = { 'push': 'master',
+DOCKER_IMAGE_NAME           = { 'static': docker_static_image_name,
+                                'shared': docker_shared_image_name,
+                                'dev':    docker_dev_image_name,
+                                'usr':    docker_usr_image_name }
+PYTHON_IMAGE_NAME           = { 'static': python_static_image_name,
+                                'shared': python_shared_image_name,
+                                'dev':    python_dev_image_name,
+                                'usr':    python_usr_image_name }
+IMAGE_TAG                   = { 'push':    github_pr_baseref,
                                 'publish': github_pr_number }
-IMAGE_LABELS                = { github_repo_name + '-llvm-static': LLVM_PROJECT_LABELS,
-                                github_repo_name + '-llvm-shared': LLVM_PROJECT_LABELS,
-                                github_repo_name + '-dev': PROJECT_LABELS,
-                                github_repo_name: PROJECT_LABELS }
-IMAGE_ARCHS                 = { 's390x', 'amd64' }
-commit_sha1_date_label      = { github_repo_name + '-llvm-static': 'llvm_project_sha1_date',
-                                github_repo_name + '-llvm-shared': 'llvm_project_sha1_date',
-                                github_repo_name + '-dev': github_repo_name2 + '_sha1_date',
-                                github_repo_name: github_repo_name2 + '_sha1_date' }
-dockerfile_sha1_label       = { github_repo_name + '-llvm-static': 'llvm_project_dockerfile_sha1',
-                                github_repo_name + '-llvm-shared': 'llvm_project_dockerfile_sha1',
-                                github_repo_name + '-dev': github_repo_name2 + '_dockerfile_sha1',
-                                github_repo_name: github_repo_name2 + '_dockerfile_sha1' }
+IMAGE_LABELS                = { python_static_image_name: LLVM_PROJECT_LABELS,
+                                python_shared_image_name: LLVM_PROJECT_LABELS,
+                                python_dev_image_name:    PROJECT_LABELS,
+                                python_usr_image_name:    PROJECT_LABELS }
+IMAGE_ARCHS                 = { 's390x', 'amd64', 'ppc64le' }
+commit_sha1_date_label      = { python_static_image_name: 'llvm_project_sha1_date',
+                                python_shared_image_name: 'llvm_project_sha1_date',
+                                python_dev_image_name:    github_repo_name2 + '_sha1_date',
+                                python_usr_image_name:    github_repo_name2 + '_sha1_date' }
+dockerfile_sha1_label       = { python_static_image_name: 'llvm_project_dockerfile_sha1',
+                                python_shared_image_name: 'llvm_project_dockerfile_sha1',
+                                python_dev_image_name:    github_repo_name2 + '_dockerfile_sha1',
+                                python_usr_image_name:    github_repo_name2 + '_dockerfile_sha1' }
 pr_mergeable_state          = {
     'behind':    { 'mergeable': False,
                    'desc': 'the head ref is out of date' },
-    # see comments in get_pr_mergeable_state
+    # see comments in image_publishable
     'blocked':   { 'mergeable': True,
                    'desc': 'the merge is blocked' },
     'clean':     { 'mergeable': True,
@@ -64,7 +97,7 @@ pr_mergeable_state          = {
                    'desc': 'the merge is blocked due to the pull request being a draft' },
     'has_hooks': { 'mergeable': True,
                    'desc': 'mergeable with passing commit status and pre-receive hooks' },
-    'unknown':   { 'mergeable': False,
+    'unknown':   { 'mergeable': True,
                    'desc': 'the state cannot currently be determined' },
     'unstable':  { 'mergeable': True,
                    'desc': 'mergeable with non-passing commit status' } }
@@ -249,15 +282,16 @@ def get_pr_mergeable_state(url, token):
         return 'unknown'
 
 # Decide whether we should publish the local images or not
-def image_publishable(host_name, user_name, image_name, image_tag,
+def image_publishable(host_name, user_name,
+                      docker_image_name, python_image_name, image_tag,
                       image_labels, login_name, login_token):
 
     # If local image is missing or has invalid labels, exception
     # will be raised to fail the build.
     local_labels = get_local_image_labels(
-        host_name, user_name, image_name, image_tag, image_labels)
+        host_name, user_name, docker_image_name, image_tag, image_labels)
     remote_labels = get_remote_image_labels(
-        host_name, user_name, image_name, cpu_arch, image_labels, login_name, login_token)
+        host_name, user_name, docker_image_name, cpu_arch, image_labels, login_name, login_token)
 
     # If url is 'none', it's a push event from merging so skip
     # mergeable state check.
@@ -273,16 +307,15 @@ def image_publishable(host_name, user_name, image_name, image_tag,
         logging.info('pull request url: %s, mergeable state: %s, %s',
                      github_pr_request_url, state, pr_mergeable_state[state]['desc'])
         if not pr_mergeable_state[state]['mergeable']:
-            logging.info('publish skipped due to unmergeable state')
-            return False
+            raise Exception('publish aborted due to unmergeable state')
     if not remote_labels:
         logging.info('publish due to invalid remote labels')
         return True
     if github_pr_phrase == 'publish':
         logging.info('publish forced by trigger phrase')
         return True
-    if (local_labels[commit_sha1_date_label[image_name]] >
-        remote_labels[commit_sha1_date_label[image_name]]):
+    if (local_labels[commit_sha1_date_label[python_image_name]] >
+        remote_labels[commit_sha1_date_label[python_image_name]]):
         logging.info('publish due to newer local sha1 date')
         return True
     # Commits can only be merged one at a time so it's guaranteed
@@ -294,10 +327,10 @@ def image_publishable(host_name, user_name, image_name, image_tag,
     # For onnx-mlir images, if commit sha1 are the same, it's
     # guaranteed the dockerfile for building them are the same, so
     # they will not be published.
-    if (local_labels[commit_sha1_date_label[image_name]] ==
-        remote_labels[commit_sha1_date_label[image_name]] and
-        local_labels[dockerfile_sha1_label[image_name]] !=
-        remote_labels[dockerfile_sha1_label[image_name]]):
+    if (local_labels[commit_sha1_date_label[python_image_name]] ==
+        remote_labels[commit_sha1_date_label[python_image_name]] and
+        local_labels[dockerfile_sha1_label[python_image_name]] !=
+        remote_labels[dockerfile_sha1_label[python_image_name]]):
         logging.info('publish due to different dockerfile sha1')
         return True
 
@@ -305,7 +338,7 @@ def image_publishable(host_name, user_name, image_name, image_tag,
     return False
 
 def publish_arch_image(host_name, user_name, image_name, image_tag,
-                        login_name, login_token):
+                       login_name, login_token):
     image_repo  = ((host_name + '/' if host_name else '') +
                    (user_name + '/' if user_name else '') + image_name)
     image_pr    = image_repo + ':' + image_tag
@@ -398,28 +431,30 @@ def publish_multiarch_manifest(host_name, user_name, image_name, manifest_tag,
 # for developer and user images if necessary.
 def publish_image(image_type, trigger_phrase):
 
-    host_name    = docker_registry_host_name
-    user_name    = docker_registry_user_name
-    login_name   = docker_registry_login_name
-    login_token  = docker_registry_login_token
+    host_name         = docker_registry_host_name
+    user_name         = docker_registry_user_name
+    login_name        = docker_registry_login_name
+    login_token       = docker_registry_login_token
 
-    image_name   = IMAGE_NAME[image_type]
-    image_tag    = IMAGE_TAG[trigger_phrase]
-    image_labels = IMAGE_LABELS[image_name]
+    docker_image_name = DOCKER_IMAGE_NAME[image_type]
+    python_image_name = PYTHON_IMAGE_NAME[image_type]
+    image_tag         = IMAGE_TAG[trigger_phrase]
+    image_labels      = IMAGE_LABELS[python_image_name]
 
     # Decide if the image should be published or not
-    if not image_publishable(host_name, user_name, image_name, image_tag,
+    if not image_publishable(host_name, user_name,
+                             docker_image_name, python_image_name, image_tag,
                              image_labels, login_name, login_token):
         return
 
     # Publish the arch specific image
-    publish_arch_image(host_name, user_name, image_name, image_tag,
+    publish_arch_image(host_name, user_name, docker_image_name, image_tag,
                        login_name, login_token)
 
     # For developer and user images, we publish a multiarch manifest so we can
     # pull the images without having to explicitly specify the arch tag.
     if image_type == 'dev' or image_type == 'usr':
-        publish_multiarch_manifest(host_name, user_name, image_name, 'latest',
+        publish_multiarch_manifest(host_name, user_name, docker_image_name, 'latest',
                                    login_name, login_token)
 
 def main():
