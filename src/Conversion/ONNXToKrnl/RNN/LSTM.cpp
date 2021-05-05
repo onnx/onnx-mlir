@@ -273,7 +273,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     } else {
       // Hidden size is a constant, so the batch size must be unknown here.
       Value batchSizeDim =
-          rewriter.create<memref::DimOp>(loc, operandAdaptor.X(), 1).getResult();
+          rewriter.create<memref::DimOp>(loc, operandAdaptor.X(), 1)
+              .getResult();
       xwAlloc = rewriter.create<memref::AllocOp>(
           loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
       hrAlloc = rewriter.create<memref::AllocOp>(

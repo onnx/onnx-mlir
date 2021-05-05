@@ -282,7 +282,8 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
     } else {
       // Hidden size is a constant, so the batch size must be unknown here.
       Value batchSizeDim =
-          rewriter.create<memref::DimOp>(loc, operandAdaptor.X(), 1).getResult();
+          rewriter.create<memref::DimOp>(loc, operandAdaptor.X(), 1)
+              .getResult();
       xwHMemRef = rewriter.create<memref::AllocOp>(
           loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
       rhMemRef = rewriter.create<memref::AllocOp>(
