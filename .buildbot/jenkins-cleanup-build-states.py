@@ -14,6 +14,7 @@ docker_registry_host_name = os.getenv('DOCKER_REGISTRY_HOST_NAME')
 docker_registry_user_name = os.getenv('DOCKER_REGISTRY_USER_NAME')
 github_repo_name          = os.getenv('GITHUB_REPO_NAME')
 github_repo_name2         = os.getenv('GITHUB_REPO_NAME').replace('-', '_')
+github_pr_baseref         = os.getenv('GITHUB_PR_BASEREF')
 github_pr_number          = os.getenv('GITHUB_PR_NUMBER')
 github_pr_action          = os.getenv('GITHUB_PR_ACTION')
 github_pr_merged          = os.getenv('GITHUB_PR_MERGED')
@@ -29,11 +30,11 @@ docker_api                = docker.APIClient(base_url=docker_daemon_socket)
 # Cleanup docker images and containers associated with a pull request number.
 # For action open/reopen/synchronize, only dangling images and containers are
 # removed. For action close, non-dangling images and containers are removed.
-def cleanup_docker_images(pr_number, dangling):
+def cleanup_docker_images(host_name, user_name, repo_name, pr_baseref, pr_number, dangling):
     # First find all the dangling docker images associated with the
     # pull request number
     filters = { 'dangling': True,
-                'label': [ github_repo_name2 + '_pr_number=' + pr_number ] }
+                'label': [ repo_name + '_pr_number=' + pr_number ] }
     images = docker_api.images(filters = filters, quiet = True)
 
     # When a build is aborted the cleanup may try to remove an intermediate
@@ -69,12 +70,12 @@ def cleanup_docker_images(pr_number, dangling):
     # they are cleaned by untagging the image. Untagging is done by simply
     # passing the full image name instead of the image sha256 to remove_image.
     if not dangling:
-        host_name = docker_registry_host_name
-        user_name = docker_registry_user_name
         for image_name in IMAGE_NAMES:
             image_full = ((host_name + '/' if host_name else '') +
                           (user_name + '/' if user_name else '') +
-                          image_name + ':' + pr_number)
+                          image_name +
+                          ('.' + pr_baseref if pr_baseref != 'master' else '') +
+                          ':' + pr_number)
             images.append(image_full)
 
     for image in images:
@@ -122,7 +123,12 @@ def main():
                  github_pr_merged,
                  dangling)
 
-    cleanup_docker_images(github_pr_number, dangling)
+    cleanup_docker_images(docker_registry_host_name,
+                          docker_registry_user_name,
+                          github_repo_name2,
+                          github_pr_baseref,
+                          github_pr_number,
+                          dangling)
 
 if __name__ == "__main__":
     main()
