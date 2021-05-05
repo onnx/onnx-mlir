@@ -27,7 +27,9 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     ONNXLRNOp lrnOp = llvm::cast<ONNXLRNOp>(op);
     auto loc = op->getLoc();
 
-    ONNXLRNOpShapeHelper shapeHelper(&lrnOp, &rewriter);
+    ONNXLRNOpShapeHelper shapeHelper(&lrnOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
 
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     (void)shapecomputed;
