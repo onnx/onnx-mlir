@@ -128,8 +128,7 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
       firstMapArgList.emplace_back(iterationBlock.getArguments()[i]);
     }
     for (auto i = 0; i < axisValue; i++) {
-      firstMapArgList.emplace_back(
-          rewriter.create<memref::DimOp>(loc, input, i));
+      firstMapArgList.emplace_back(rewriter.create<memref::DimOp>(loc, input, i));
     }
     auto firstDimVal =
         rewriter.create<AffineApplyOp>(loc, firstDimMap, firstMapArgList);
@@ -154,8 +153,7 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
       secondMapArgList.emplace_back(iterationBlock.getArguments()[i]);
     }
     for (auto i = axisValue; i < inputRank; i++) {
-      secondMapArgList.emplace_back(
-          rewriter.create<memref::DimOp>(loc, input, i));
+      secondMapArgList.emplace_back(rewriter.create<memref::DimOp>(loc, input, i));
     }
     auto secondDimVal =
         rewriter.create<AffineApplyOp>(loc, secondDimMap, secondMapArgList);

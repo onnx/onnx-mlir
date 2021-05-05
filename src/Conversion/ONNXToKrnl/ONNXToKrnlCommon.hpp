@@ -68,12 +68,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // compile time relying on the above function, and extracting the runtime
 // definitions from the index expressions otherwise.
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
-    int64_t alignment = -1);
-// Same where boolean to assert if dealloc is to be gen or not is specified
-Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
-    bool insertDealloc, int64_t alignment = -1);
+    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims);
 
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
