@@ -84,7 +84,8 @@ std::vector<Operation *> getGetRefStores(KrnlGetRefOp *getRef) {
 
 /// Returns a list of distinct krnl.getref operations in the current
 /// block that use the memory pool.
-SmallVector<KrnlGetRefOp, 4> getAllDistinctGetRefsForAlloc(memref::AllocOp *allocOp) {
+SmallVector<KrnlGetRefOp, 4> getAllDistinctGetRefsForAlloc(
+    memref::AllocOp *allocOp) {
   auto parentBlock = allocOp->getOperation()->getBlock();
   SmallVector<KrnlGetRefOp, 4> getRefs;
 
