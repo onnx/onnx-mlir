@@ -21,7 +21,6 @@ namespace mlir {
 
 class MLIRContext;
 class LLVMTypeConverter;
-
 class RewritePatternSet;
 
 void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,

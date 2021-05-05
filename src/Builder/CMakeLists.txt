@@ -5,6 +5,7 @@ add_library(OMBuilder
         FrontendDialectHelper.hpp
         FrontendDialectTransformer.cpp
         FrontendDialectTransformer.hpp
+        SymbolTable.cpp
         SymbolTable.hpp)
 
 target_include_directories(OMBuilder PRIVATE ${ONNX_MLIR_SRC_ROOT})
