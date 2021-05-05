@@ -17,6 +17,7 @@
 #include "mlir/IR/PatternMatch.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
 using namespace mlir;
 

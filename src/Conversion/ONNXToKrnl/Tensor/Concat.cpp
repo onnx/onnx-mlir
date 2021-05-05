@@ -28,7 +28,9 @@ struct ONNXConcatOpLowering : public ConversionPattern {
 
     ONNXConcatOpAdaptor operandAdaptor(operands);
     ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
-    ONNXConcatOpShapeHelper shapeHelper(&concatOp, &rewriter);
+    ONNXConcatOpShapeHelper shapeHelper(&concatOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));

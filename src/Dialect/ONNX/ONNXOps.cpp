@@ -25,8 +25,9 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/Support/FormatVariadic.h"
 
-#include "ONNXOps.hpp"
-#include "ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 #include <string>
 
@@ -42,7 +43,7 @@ using namespace mlir::onnxmlir;
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
 LogicalResult shapeHelperInferShapes(OP *op, Value typeOper) {
 
-  SHAPE_HELPER shapeHelper(op, nullptr);
+  SHAPE_HELPER shapeHelper(op);
 
   ADAPTOR operandAdaptor(*op);
   if (failed(shapeHelper.Compute(operandAdaptor)))
@@ -60,7 +61,7 @@ LogicalResult shapeHelperInferShapes(OP *op, Value typeOper) {
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
 LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
 
-  SHAPE_HELPER shapeHelper(op, nullptr);
+  SHAPE_HELPER shapeHelper(op);
 
   ADAPTOR operandAdaptor(*op);
   if (failed(shapeHelper.Compute(operandAdaptor)))
@@ -1444,7 +1445,7 @@ LogicalResult ONNXTransposeOp::inferShapes(
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   ONNXTransposeOpAdaptor operandAdaptor(*this);
-  ONNXTransposeOpShapeHelper shapeHelper(this, nullptr);
+  ONNXTransposeOpShapeHelper shapeHelper(this);
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Transpose parameters successfully");
   SmallVector<int64_t, 4> outputDims;
@@ -2300,7 +2301,7 @@ LogicalResult ONNXConcatOp::inferShapes(
   }
 
   ONNXConcatOpAdaptor operandAdaptor(*this);
-  ONNXConcatOpShapeHelper shapeHelper(this, nullptr);
+  ONNXConcatOpShapeHelper shapeHelper(this);
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Tile parameters successfully");
   SmallVector<int64_t, 4> outputDims;
@@ -2777,7 +2778,7 @@ LogicalResult ONNXSliceOp::inferShapes(
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   ONNXSliceOpAdaptor operandAdaptor(*this);
-  ONNXSliceOpShapeHelper shapeHelper(this, nullptr);
+  ONNXSliceOpShapeHelper shapeHelper(this);
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Slice parameters successfully");
   SmallVector<int64_t, 4> outputDims;
@@ -2946,7 +2947,7 @@ LogicalResult ONNXArgMaxOp::inferShapes(
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
-  ONNXArgMaxOpShapeHelper shapeHelper(this, nullptr);
+  ONNXArgMaxOpShapeHelper shapeHelper(this);
   ONNXArgMaxOpAdaptor operandAdaptor(*this);
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan ArgMax parameters successfully");
@@ -3104,7 +3105,7 @@ LogicalResult ONNXLRNOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   auto elementType = X().getType().cast<ShapedType>().getElementType();
   ONNXLRNOpAdaptor operandAdaptor(*this);
-  ONNXLRNOpShapeHelper shapeHelper(this, nullptr);
+  ONNXLRNOpShapeHelper shapeHelper(this);
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan LRN parameters successfully");
   SmallVector<int64_t, 4> outputDims;

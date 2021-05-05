@@ -18,13 +18,6 @@
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/IR/AffineExpr.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/Value.h"
-#include "mlir/Transforms/DialectConversion.h"
-
 namespace mlir {
 
 // Implementation of the IndexExpr. In nearly all cases, the value described by
