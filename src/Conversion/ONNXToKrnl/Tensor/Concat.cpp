@@ -87,6 +87,6 @@ struct ONNXConcatOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXConcatOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXConcatOpLowering>(ctx);
 }

@@ -22,18 +22,23 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Target/LLVMIR.h"
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Target/LLVMIR/Export.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
+#include "llvm/Support/SourceMgr.h"
 
-#include "src/ExternalUtil.hpp"
-#include "src/MainUtils.hpp"
+#include "ExternalUtil.hpp"
+#include "MainUtils.hpp"
 
 #ifdef _WIN32
 #include <io.h>
 #else
 #include <unistd.h>
 #endif
+
+// If need to inspect the temp files for debugging, set flag below to true.
+#define KEEP_TEMP_FILES false
 
 using namespace std;
 using namespace onnx_mlir;
@@ -184,7 +189,7 @@ struct Command {
 
     // If in verbose mode, print out command before execution.
     if (verbose)
-      cout << llvm::join(argsRef, " ") << "\n";
+      cout << _path << ": " << llvm::join(argsRef, " ") << "\n";
 
     std::string errMsg;
     int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
@@ -229,12 +234,18 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
   }
 }
 
-string getTargetOptions() {
+string getTargetCpuOption() {
+  string targetOptions = "";
+  if (mcpu != "")
+    targetOptions += "--mcpu=" + mcpu;
+  return targetOptions;
+}
+
+string getTargetTripleOption() {
   string targetOptions = "";
   if (mtriple != "")
     targetOptions = "--mtriple=" + mtriple;
-  if (mcpu != "")
-    targetOptions += " --mcpu=" + mcpu;
+  // Comand cannot tolerate extra spaces. Add only when needed.
   return targetOptions;
 }
 
@@ -245,21 +256,27 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
 
   // Write bitcode to a file.
   string unoptimizedBitcodePath = outputBaseName + ".unoptimized.bc";
-  llvm::FileRemover unoptimzedBitcodeRemover(unoptimizedBitcodePath);
+  llvm::FileRemover unoptimzedBitcodeRemover(
+      unoptimizedBitcodePath, !KEEP_TEMP_FILES);
 
   llvm::raw_fd_ostream moduleBitcodeStream(
       unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
 
   llvm::LLVMContext llvmContext;
-  llvm::WriteBitcodeToFile(*mlir::translateModuleToLLVMIR(*module, llvmContext),
-      moduleBitcodeStream);
+  mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
+  auto llvmModule = mlir::translateModuleToLLVMIR(*module, llvmContext);
+  if (!llvmModule)
+    llvm::errs() << "Failed to translate module to LLVMIR.\n";
+  llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
   string optPath = getToolPath("opt");
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
-  optBitcode.appendStr("-O2")
-      .appendStr(getTargetOptions())
+  optBitcode
+      .appendStr("-O3") // test_scan9_sum_cpu fails on z with O3.
+      .appendStr(getTargetTripleOption())
+      .appendStr(getTargetCpuOption())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
       .exec();
@@ -272,7 +289,6 @@ void genModelObject(const mlir::OwningModuleRef &module, string bitcodePath,
   Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
   llvmToObj.appendStr("-filetype=obj")
       .appendStr("-relocation-model=pic")
-      .appendStr(getTargetOptions())
       .appendList({"-o", modelObjPath})
       .appendStr(bitcodePath)
       .exec();
@@ -321,11 +337,11 @@ void compileModuleToSharedLibrary(
 
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
-  llvm::FileRemover bitcodeRemover(bitcodePath);
+  llvm::FileRemover bitcodeRemover(bitcodePath, !KEEP_TEMP_FILES);
 
   string modelObjPath = outputBaseName + ".o";
   genModelObject(module, bitcodePath, modelObjPath);
-  llvm::FileRemover modelObjRemover(modelObjPath);
+  llvm::FileRemover modelObjRemover(modelObjPath, !KEEP_TEMP_FILES);
 
   string modelSharedLibPath = outputBaseName + ".so";
   genSharedLib(module, modelSharedLibPath, {"-shared", "-fPIC"}, {modelObjPath},
@@ -337,22 +353,22 @@ void compileModuleToJniJar(
 
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
-  llvm::FileRemover bitcodeRemover(bitcodePath);
+  llvm::FileRemover bitcodeRemover(bitcodePath, !KEEP_TEMP_FILES);
 
   string modelObjPath = outputBaseName + ".o";
   genModelObject(module, bitcodePath, modelObjPath);
-  llvm::FileRemover modelObjRemover(modelObjPath);
+  llvm::FileRemover modelObjRemover(modelObjPath, !KEEP_TEMP_FILES);
 
   string jniSharedLibPath = getRuntimeDir() + "/libjniruntime.a";
   string jniObjPath = "jnidummy.c.o";
   genJniObject(module, jniSharedLibPath, jniObjPath);
-  llvm::FileRemover jniObjRemover(jniObjPath);
+  llvm::FileRemover jniObjRemover(jniObjPath, !KEEP_TEMP_FILES);
 
   string modelSharedLibPath = "libmodel.so";
   genSharedLib(module, modelSharedLibPath,
       {"-shared", "-fPIC", "-z", "noexecstack"}, {modelObjPath, jniObjPath},
       {"-ljniruntime", "-lcruntime"});
-  llvm::FileRemover modelSharedLibRemover(modelSharedLibPath);
+  llvm::FileRemover modelSharedLibRemover(modelSharedLibPath, !KEEP_TEMP_FILES);
 
   string modelJniJarPath = outputBaseName + ".jar";
   genJniJar(module, modelSharedLibPath, modelJniJarPath);
@@ -366,6 +382,8 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::scf::SCFDialect>();
   context.getOrLoadDialect<mlir::StandardOpsDialect>();
   context.getOrLoadDialect<mlir::shape::ShapeDialect>();
+  context.getOrLoadDialect<mlir::math::MathDialect>();
+  context.getOrLoadDialect<mlir::memref::MemRefDialect>();
   context.getOrLoadDialect<mlir::ONNXOpsDialect>();
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
 }
@@ -404,7 +422,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
   //  pm.addPass(mlir::createLoopFusionPass());
 }
 
-void addKrnlToLLVMPasses(mlir::PassManager &pm) {
+void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
   pm.addNestedPass<FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(mlir::createLowerToCFGPass());
@@ -490,7 +508,8 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
         (outputBaseName + ".onnx.mlir").c_str());
 
     // Apply specific passes to clean up the code where necessary.
-    mlir::PassManager cleanSourcePM(&context);
+    mlir::PassManager cleanSourcePM(
+        &context, mlir::OpPassManager::Nesting::Implicit);
     if (emissionTarget == EmitONNXIR || emissionTarget == EmitONNXBasic)
       cleanSourcePM.addNestedPass<FuncOp>(mlir::createElideConstantValuePass());
     if (emissionTarget == EmitMLIR)
@@ -513,7 +532,8 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
 
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
-  mlir::PassManager pm(&context);
+  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
+
   if (emissionTarget >= EmitONNXIR) {
     addONNXToMLIRPasses(pm);
   }

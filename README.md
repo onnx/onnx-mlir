@@ -65,7 +65,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout d28af7c654d8db0b68c175db5ce212d74fb5e9bc && cd ..
+cd llvm-project && git checkout ebe408ad8003c946ef871b955ab18e64e82697cb && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -74,7 +74,6 @@ mkdir llvm-project/build
 cd llvm-project/build
 cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_PROJECTS=mlir \
-   -DLLVM_BUILD_EXAMPLES=ON \
    -DLLVM_TARGETS_TO_BUILD="host" \
    -DCMAKE_BUILD_TYPE=Release \
    -DLLVM_ENABLE_ASSERTIONS=ON \
@@ -86,18 +85,18 @@ cmake --build . --target check-mlir
 
 #### ONNX-MLIR (this project)
 The following environment variables can be set before building onnx-mlir (or alternatively, they need to be passed as CMake variables):
-- LLVM_PROJ_SRC should point to the llvm-project src directory (e.g., llvm-project/).
-- LLVM_PROJ_BUILD should point to the llvm-project build directory (e.g., llvm-project/build).
+- MLIR_DIR should point to the mlir cmake module inside an llvm-project build or install directory (e.g., llvm-project/build/lib/cmake/mlir).
 
-To build ONNX-MLIR, use the following command:
+This project uses lit ([LLVM's Integrated Tester](http://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running CMake, we can also specify the path to the lit tool from LLVM using the LLVM_EXTERNAL_LIT define but it is not required as long as MLIR_DIR points to a build directory of llvm-project. If MLIR_DIR points to an install directory of llvm-project, LLVM_EXTERNAL_LIT is required.
+
+To build ONNX-MLIR, use the following commands:
 
 [same-as-file]: <> ({"ref": "utils/install-onnx-mlir.sh", "skip-doc": 2})
 ```bash
 git clone --recursive https://github.com/onnx/onnx-mlir.git
 
 # Export environment variables pointing to LLVM-Projects.
-export LLVM_PROJ_SRC=$(pwd)/llvm-project/
-export LLVM_PROJ_BUILD=$(pwd)/llvm-project/build
+export MLIR_DIR=$(pwd)/llvm-project/build/lib/cmake/mlir
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
 cmake ..
@@ -157,7 +156,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout d28af7c654d8db0b68c175db5ce212d74fb5e9bc && cd ..
+cd llvm-project && git checkout ebe408ad8003c946ef871b955ab18e64e82697cb && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
@@ -168,7 +167,6 @@ cd llvm-project\build
 call cmake %root_dir%\llvm-project\llvm -G "Visual Studio 16 2019" -A x64 -T host=x64 ^
    -DCMAKE_INSTALL_PREFIX="%root_dir%\llvm-project\build\install" ^
    -DLLVM_ENABLE_PROJECTS=mlir ^
-   -DLLVM_BUILD_EXAMPLES=ON ^
    -DLLVM_TARGETS_TO_BUILD="host" ^
    -DCMAKE_BUILD_TYPE=Release ^
    -DLLVM_ENABLE_ASSERTIONS=ON ^
@@ -182,10 +180,9 @@ call cmake --build . --config Release --target check-mlir -- /m
 
 #### ONNX-MLIR (this project)
 The following environment variables can be set before building onnx-mlir (or alternatively, they need to be passed as CMake variables):
-- LLVM_PROJ_BUILD: Path to the build directory for LLVM (e.g. c:/repos/llvm-project/build)
-- LLVM_PROJ_SRC: Path to the source directory for LLVM (e.g. c:/repos/llvm-project)
+- MLIR_DIR should point to the mlir cmake module inside an llvm-project build or install directory (e.g., c:/repos/llvm-project/build/lib/cmake/mlir).
 
-This project uses lit ([LLVM's Integrated Tester](http://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running CMake, we can also specify the path to the lit tool from LLVM using the LLVM_EXTERNAL_LIT define but it is not required as long as LLVM_PROJ_BUILD is set correctly.
+This project uses lit ([LLVM's Integrated Tester](http://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running CMake, we can also specify the path to the lit tool from LLVM using the LLVM_EXTERNAL_LIT define but it is not required as long as MLIR_DIR points to a build directory of llvm-project. If MLIR_DIR points to an install directory of llvm-project, LLVM_EXTERNAL_LIT is required.
 
 To build ONNX MLIR, use the following commands:
 
@@ -201,8 +198,7 @@ call cmake %root_dir%\onnx-mlir -G "Visual Studio 16 2019" -A x64 -T host=x64 ^
    -DCMAKE_BUILD_TYPE=Release ^
    -DCMAKE_PREFIX_PATH=%root_dir%\protobuf_install ^
    -DLLVM_LIT_ARGS=-v ^
-   -DLLVM_PROJ_BUILD=%root_dir%\llvm-project\build ^
-   -DLLVM_PROJ_SRC=%root_dir%\llvm-project
+   -DMLIR_DIR=%root_dir%\llvm-project\build\lib\cmake\mlir
 
 call cmake --build . --config Release --target onnx-mlir -- /m
 ```
