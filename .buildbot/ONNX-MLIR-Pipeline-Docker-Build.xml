@@ -123,7 +123,7 @@ The GitHub Plugin has a &quot;bug&quot; that it would use the SHA we are buildin
             </org.jenkinsci.plugins.gwt.GenericVariable>
           </genericVariables>
           <regexpFilterText>${x_github_event}:${github_webhook_payload_action}:${github_webhook_payload_issue_pull_request_url}:${github_webhook_payload_comment_body}:${GITHUB_PR_NUMBER_PUSH}</regexpFilterText>
-          <regexpFilterExpression>(pull_request:(opened|reopened|synchronize|closed):.*:.*:.*)|(issue_comment:created:.*pull.*:.*@jenkins-droid (test|publish) this please.*:.*)|(push:.*:.*:.*:master)</regexpFilterExpression>
+          <regexpFilterExpression>(pull_request:(opened|reopened|synchronize|closed):.*:.*:.*)|(issue_comment:created:.*pull.*:.*@jenkins-droid (test|publish) this please.*:.*)|(push:.*:.*:.*:(master|llvm-12-release-branch))</regexpFilterExpression>
           <genericHeaderVariables>
             <org.jenkinsci.plugins.gwt.GenericHeaderVariable>
               <key>x-github-delivery</key>
@@ -263,6 +263,7 @@ def set_environ_vars(event) {
             env.GITHUB_PR_TITLE          = &quot;${github_webhook_payload_pull_request_title}&quot;
             env.GITHUB_PR_REQUEST_URL    = &quot;${github_webhook_payload_pull_request_url}&quot;
             env.GITHUB_PR_COMMENT_URL    = &quot;${github_webhook_payload_pull_request_comments_url}&quot;
+            env.GITHUB_PR_BASEREF        = &quot;${github_webhook_payload_pull_request_base_ref}&quot;
             env.GITHUB_PR_COMMIT_SHA1    = &quot;${github_webhook_payload_pull_request_head_sha}&quot;
             env.GITHUB_PR_COMMIT_URL     = &quot;${github_webhook_payload_pull_request_head_repo_commits_url}&quot;.replace(&apos;{/sha}&apos;, &quot;/${GITHUB_PR_COMMIT_SHA1}&quot;)
             env.GITHUB_PR_COMMIT_MESSAGE = get_commit_data(&quot;${GITHUB_PR_COMMIT_URL}&quot;, &quot;${GITHUB_REPO_ACCESS_TOKEN}&quot;, &apos;.commit.message&apos;)
@@ -282,6 +283,7 @@ def set_environ_vars(event) {
             env.GITHUB_PR_TITLE          = &quot;${github_webhook_payload_issue_title}&quot;
             env.GITHUB_PR_REQUEST_URL    = &quot;${github_webhook_payload_issue_pull_request_url}&quot;
             env.GITHUB_PR_COMMENT_URL    = &quot;${github_webhook_payload_issue_comments_url}&quot;
+            env.GITHUB_PR_BASEREF        = get_commit_data(&quot;${github_webhook_payload_issue_pull_request_url}&quot;, &quot;${GITHUB_REPO_ACCESS_TOKEN}&quot;, &apos;.base.ref&apos;)
             env.GITHUB_PR_COMMIT_SHA1    = get_commit_data(&quot;${github_webhook_payload_issue_pull_request_url}&quot;, &quot;${GITHUB_REPO_ACCESS_TOKEN}&quot;, &apos;.head.sha&apos;)
             env.GITHUB_PR_COMMIT_URL     = &quot;${github_webhook_payload_repository_commits_url}&quot;.replace(&apos;{/sha}&apos;, &quot;/${GITHUB_PR_COMMIT_SHA1}&quot;)
             env.GITHUB_PR_COMMIT_MESSAGE = get_commit_data(&quot;${GITHUB_PR_COMMIT_URL}&quot;, &quot;${GITHUB_REPO_ACCESS_TOKEN}&quot;, &apos;.commit.message&apos;)
@@ -299,8 +301,9 @@ def set_environ_vars(event) {
             env.GITHUB_PR_ACTION         = &apos;push&apos;
             env.GITHUB_PR_PHRASE         = &apos;push&apos;
             env.GITHUB_PR_TITLE          = &quot;${github_webhook_payload_head_commit_message}&quot;
-            env.GITHUB_PR_REQUEST_URL    = &apos;none&apos;
+            env.GITHUB_PR_REQUEST_URL    = &quot;${github_webhook_payload_repository_pulls_url}&quot;.replace(&apos;{/number}&apos;, &quot;/${GITHUB_PR_NUMBER2}&quot;)
             env.GITHUB_PR_COMMENT_URL    = &quot;${github_webhook_payload_repository_issue_comment_url}&quot;.replace(&apos;comments{/number}&apos;, &quot;${GITHUB_PR_NUMBER2}/comments&quot;)
+            env.GITHUB_PR_BASEREF        = get_commit_data(&quot;${GITHUB_PR_REQUEST_URL}&quot;, &quot;${GITHUB_REPO_ACCESS_TOKEN}&quot;, &apos;.base.ref&apos;)
             env.GITHUB_PR_COMMIT_SHA1    = &quot;${github_webhook_payload_head_commit_id}&quot;
             env.GITHUB_PR_COMMIT_URL     = &quot;${github_webhook_payload_repository_commits_url}&quot;.replace(&apos;{/sha}&apos;, &quot;/${GITHUB_PR_COMMIT_SHA1}&quot;)
             env.GITHUB_PR_COMMIT_MESSAGE = get_commit_data(&quot;${GITHUB_PR_COMMIT_URL}&quot;, &quot;${GITHUB_REPO_ACCESS_TOKEN}&quot;, &apos;.commit.message&apos;)
@@ -308,28 +311,6 @@ def set_environ_vars(event) {
             env.GITHUB_PR_MERGED         = &apos;none&apos;
             break
     }
-
-    println &quot;CPU_ARCH                 = ${CPU_ARCH}&quot;
-    println &quot;GITHUB_REPO_NAME         = ${GITHUB_REPO_NAME}&quot;
-    println &quot;GITHUB_CONTEXT           = ${GITHUB_CONTEXT}&quot;
-    println &quot;GITHUB_EVENT             = ${GITHUB_EVENT}&quot;
-    println &quot;GITHUB_PR_SENDER         = ${GITHUB_PR_SENDER}&quot;
-    println &quot;GITHUB_PR_NUMBER         = ${GITHUB_PR_NUMBER}&quot;
-    println &quot;GITHUB_PR_NUMBER2        = ${GITHUB_PR_NUMBER2}&quot;
-    println &quot;GITHUB_PR_REPO_URL       = ${GITHUB_PR_REPO_URL}&quot;
-    println &quot;GITHUB_PR_REMOTE         = ${GITHUB_PR_REMOTE}&quot;
-    println &quot;GITHUB_PR_REFSPEC        = ${GITHUB_PR_REFSPEC}&quot;
-    println &quot;GITHUB_PR_BRANCH         = ${GITHUB_PR_BRANCH}&quot;
-    println &quot;GITHUB_PR_ACTION         = ${GITHUB_PR_ACTION}&quot;
-    println &quot;GITHUB_PR_PHRASE         = ${GITHUB_PR_PHRASE}&quot;
-    println &quot;GITHUB_PR_TITLE          = ${GITHUB_PR_TITLE}&quot;
-    println &quot;GITHUB_PR_REQUEST_URL    = ${GITHUB_PR_REQUEST_URL}&quot;
-    println &quot;GITHUB_PR_COMMENT_URL    = ${GITHUB_PR_COMMENT_URL}&quot;
-    println &quot;GITHUB_PR_COMMIT_SHA1    = ${GITHUB_PR_COMMIT_SHA1}&quot;
-    println &quot;GITHUB_PR_COMMIT_URL     = ${GITHUB_PR_COMMIT_URL}&quot;
-    println &quot;GITHUB_PR_COMMIT_MESSAGE = ${GITHUB_PR_COMMIT_MESSAGE}&quot;
-    println &quot;GITHUB_PR_STATUS_URL     = ${GITHUB_PR_STATUS_URL}&quot;
-    println &quot;GITHUB_PR_MERGED         = ${GITHUB_PR_MERGED}&quot;
 }
 
 /* Set various environment variables related to the pull request.
