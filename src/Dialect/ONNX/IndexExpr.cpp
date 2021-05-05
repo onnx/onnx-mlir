@@ -1261,11 +1261,18 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
   Value indexVal = emitConstantOp(scope.getRewriter(), scope.getLoc(),
       scope.getRewriter().getIndexType(), i);
   SmallVector<Value, 1> memrefVal = {indexVal};
-    OperationState state(scope.getLoc(),"krnl.load");
+  OperationState state(scope.getLoc(),"krnl.load");
+  state.addOperands(array);
+  state.addOperands(memrefVal);
+  state.addTypes(array.getType().cast<ShapedType>().getElementType());
   //Value loadVal =
       //scope.getRewriter().create<KrnlLoadOp>(scope.getLoc(), array, memrefVal);
-  auto opResult = (scope.getRewriter().createOperation(state))->getResult(0);
-  Value loadVal = opResult;
+  //auto opResult = (scope.getRewriter().createOperation(state))->getResult(1);
+  auto opResult = scope.getRewriter().createOperation(state);
+  //printf("number of results is %d\n",(*opResult).getNumResults());
+  Value loadVal = (*opResult).getResult(0);
+  //printf("genning krnl.load\n");
+    //loadVal.dump();
 
   return SymbolIndexExpr(loadVal);
 }
