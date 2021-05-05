@@ -76,10 +76,10 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       Value origIV = loop.getInductionVar(0);
       auto iv = rewriter.create<IndexCastOp>(loc, origIV, rewriter.getI64Type())
                     .getResult();
-      Value ivMemRef =
-          rewriter
-              .create<memref::AllocOp>(loc, MemRefType::get({}, rewriter.getI64Type()))
-              .getResult();
+      Value ivMemRef = rewriter
+                           .create<memref::AllocOp>(
+                               loc, MemRefType::get({}, rewriter.getI64Type()))
+                           .getResult();
       rewriter.create<KrnlStoreOp>(loc, iv, ivMemRef);
 
       // Make the call to loop body function.
@@ -255,7 +255,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             }
           }
         }
-        alloc = rewriter.create<memref::AllocOp>(loc, rankedScanOutTy, allocParams);
+        alloc =
+            rewriter.create<memref::AllocOp>(loc, rankedScanOutTy, allocParams);
       }
       outputs.emplace_back(alloc);
     }

@@ -96,8 +96,8 @@ unsigned getMemRefEltSizeInBytes(MemRefType memRefType);
 int64_t getMemRefSizeInBytes(Value value);
 
 /// Get the size of a dynamic MemRef in bytes.
-Value getDynamicMemRefSizeInBytes(
-    MemRefType type, Location loc, PatternRewriter &rewriter, memref::AllocOp allocOp);
+Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
+    PatternRewriter &rewriter, memref::AllocOp allocOp);
 
 /// Get order number of dynamic index.
 int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index);

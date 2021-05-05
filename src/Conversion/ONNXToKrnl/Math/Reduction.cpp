@@ -190,7 +190,8 @@ struct ONNXReductionOpLowering : public ConversionPattern {
           allocOperands.push_back(dim);
         }
       }
-      alloc = rewriter.create<memref::AllocOp>(loc, memRefOutType, allocOperands);
+      alloc =
+          rewriter.create<memref::AllocOp>(loc, memRefOutType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
         auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
