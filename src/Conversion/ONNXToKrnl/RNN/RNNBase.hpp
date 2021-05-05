@@ -154,7 +154,8 @@ struct ONNXRNNOpLowering : public ConversionPattern {
           sequenceSize = emitConstantOp(
               rewriter, loc, rewriter.getIndexType(), sequenceDimSize);
         else
-          sequenceSize = rewriter.create<memref::DimOp>(loc, rnnOp.X(), 0).getResult();
+          sequenceSize =
+              rewriter.create<memref::DimOp>(loc, rnnOp.X(), 0).getResult();
 
         Value reverseSequenceIV = rewriter.create<AffineApplyOp>(loc,
             reverseIVMap,
