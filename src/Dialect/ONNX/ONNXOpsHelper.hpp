@@ -20,6 +20,7 @@
 #include "mlir/IR/Value.h"
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
 
@@ -88,7 +89,7 @@ int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i);
 // type, using ONNX operations only.
 DenseElementsAttr getDenseElementAttributeFromONNXValue(Value value);
 
+ONNXConstantOp getONNXConstantOp(Value value);
 Value getONNXConstantOpFromDenseAttr(
     PatternRewriter &rewriter, Location loc, Attribute dense);
-bool getIntegerLiteralFromValue(Value value, int64_t &intLit);
 Type getBroadcastedRankedType(Type type1, Type type2);

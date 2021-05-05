@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
@@ -171,34 +170,20 @@ int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
 
 DenseElementsAttr getDenseElementAttributeFromONNXValue(Value value) {
   auto definingOp = value.getDefiningOp();
-  if (auto constantOp = dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp))
+  if (auto constantOp = dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
     return constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-  //else if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp))
-  //  if (globalOp.value().hasValue())
-  //     return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  }
   return nullptr;
+}
+
+// Returns the ConstantOp which defines an MLIR Value or null.
+ONNXConstantOp getONNXConstantOp(Value value) {
+  return dyn_cast_or_null<mlir::ONNXConstantOp>(value.getDefiningOp());
 }
 
 Value getONNXConstantOpFromDenseAttr(
     PatternRewriter &rewriter, Location loc, Attribute dense) {
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), dense);
-}
-
-bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
-  // From lib/Dialect/LinAlg/Transform/Promotion.cpp
-  if (auto constantOp = value.getDefiningOp<ConstantOp>()) {
-    if (constantOp.getType().isa<IndexType>())
-      intLit = constantOp.value().cast<IntegerAttr>().getInt();
-    return true;
-  }
-  // Since ConsantIndexOp is a subclass of ConstantOp, not sure if this one is
-  // useful.
-  if (auto constantOp = value.getDefiningOp<ConstantIndexOp>()) {
-    if (constantOp.getType().isa<IndexType>())
-      intLit = constantOp.value().cast<IntegerAttr>().getInt();
-    return true;
-  }
-  return false;
 }
 
 //===----------------------------------------------------------------------===//
@@ -208,7 +193,7 @@ Type getBroadcastedRankedType(Type type1, Type type2) {
   if (type1.isa<RankedTensorType>() && type2.isa<RankedTensorType>())
     return OpTrait::util::getBroadcastedType(type1, type2);
   if (type1.isa<MemRefType>() && type2.isa<MemRefType>()) {
-    // Contruct RankedTensorType(s).
+    // Construct RankedTensorType(s).
     Type elementType = type1.cast<MemRefType>().getElementType();
     RankedTensorType ty1 =
         RankedTensorType::get(type1.cast<MemRefType>().getShape(), elementType);

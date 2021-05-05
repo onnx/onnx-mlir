@@ -20,10 +20,11 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/MathExtras.h"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
+
+using namespace mlir;
 
 //===----------------------------------------------------------------------===//
 // IndexExprImpl constructors, initializers
@@ -54,6 +55,23 @@ void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
          "litterals are either affine or predicate");
   init(/*isDefined*/ true, /*literal*/ true, kind, val, AffineExpr(nullptr),
       Value(nullptr));
+}
+
+static bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
+  // From lib/Dialect/LinAlg/Transform/Promotion.cpp
+  if (auto constantOp = value.getDefiningOp<ConstantOp>()) {
+    if (constantOp.getType().isa<IndexType>())
+      intLit = constantOp.value().cast<IntegerAttr>().getInt();
+    return true;
+  }
+  // Since ConsantIndexOp is a subclass of ConstantOp, not sure if this one is
+  // useful.
+  if (auto constantOp = value.getDefiningOp<ConstantIndexOp>()) {
+    if (constantOp.getType().isa<IndexType>())
+      intLit = constantOp.value().cast<IntegerAttr>().getInt();
+    return true;
+  }
+  return false;
 }
 
 void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {

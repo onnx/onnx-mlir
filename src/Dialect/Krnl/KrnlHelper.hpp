@@ -253,12 +253,12 @@ private:
 
 // This function satisfies the ArrayValueIndexCapture::DenseElementsAttr lambda
 // type, using ONNX and Krnl operations.
-DenseElementsAttr getDenseElementAttributeFromONNXAndKrnlValue(Value value);
+DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value);
 
 // This function satisfies the ArrayValueIndexCapture::LoadVal lambda
 // type, using Krnl operations.
 Value loadDenseElementArrayValueAtIndex(
-    OpBuilder &rewriter, Value array, int64_t index);
+    OpBuilder &rewriter, Location loc, Value array, int64_t index);
 
 //====---------------- Support for simple transpose ----------------------===//
 

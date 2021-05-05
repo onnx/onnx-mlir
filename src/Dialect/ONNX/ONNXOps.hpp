@@ -28,8 +28,6 @@
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 
-#include "ONNXOpsHelper.hpp"
-
 namespace mlir {
 
 class ONNXOpsDialect : public Dialect {

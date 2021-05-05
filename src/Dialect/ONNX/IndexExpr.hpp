@@ -631,9 +631,17 @@ inline IndexExpr operator-(int64_t const a, const IndexExpr b) {
 // constant.
 class ArrayValueIndexCapture {
 public:
-  // Lambda functions to extract/generate info.
+  // Lambda functions to extract/generate info. No code is provided in order to
+  // keep the IndexExpr and their support operations generic.
+
+  // GetDenseVal locate a DenseElementAttr by looking at the definition of the
+  // array value. Return null if this definition is not generating a dense
+  // array.
   typedef std::function<DenseElementsAttr(Value array)> GetDenseVal;
-  typedef std::function<Value(OpBuilder &rewriter, Value array, int64_t index)>
+  // LoadVal will load the value at array[i] where array is a single dimensional
+  // array.
+  typedef std::function<Value(
+      OpBuilder &rewriter, Location loc, Value array, int64_t index)>
       LoadVal;
 
   ArrayValueIndexCapture(

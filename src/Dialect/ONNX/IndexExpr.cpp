@@ -1260,15 +1260,9 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
     return QuestionmarkIndexExpr();
   }
   // Emit code to read array.
-  OpBuilder &rewriter = scope.getRewriter();
-  // Attribute constAttr =
-  //    rewriter.getIntegerAttr(rewriter.getIndexType(), (int64_t)i);
-  // Value indexVal = rewriter.create<ConstantOp>(scope.getLoc(), constAttr);
-  // SmallVector<Value, 1> memrefVal = {indexVal};
-  // Value loadVal =
-  //    rewriter.create<AffineLoadOp>(scope.getLoc(), array, memrefVal);
   assert(fLoadVallFromArrayAtIndex && "expected method to load an array value");
-  Value loadVal = fLoadVallFromArrayAtIndex(rewriter, array, i);
+  Value loadVal =
+      fLoadVallFromArrayAtIndex(scope.getRewriter(), scope.getLoc(), array, i);
   return SymbolIndexExpr(loadVal);
 }
 
