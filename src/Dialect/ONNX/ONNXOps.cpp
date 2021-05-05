@@ -155,15 +155,16 @@ RankedTensorType getReductionOutputType(RankedTensorType operandTy,
   return RankedTensorType::get(dims, operandTy.getElementType());
 }
 
-// Reduction with axes is from ConstantOp. 
-// Only ReduceSum call this function now. 
+// Reduction with axes is from ConstantOp.
+// Only ReduceSum call this function now.
 RankedTensorType getReductionOutputType(RankedTensorType operandTy,
-    DenseElementsAttr axesAttrs, uint64_t keepdims, uint64_t noop_with_empty_axes) {
+    DenseElementsAttr axesAttrs, uint64_t keepdims,
+    uint64_t noop_with_empty_axes) {
   int64_t rank = operandTy.getRank();
 
   SmallVector<int64_t, 4> axes;
   if (axesAttrs) {
-    for(auto element:axesAttrs.getValues<IntegerAttr>()) {
+    for (auto element : axesAttrs.getValues<IntegerAttr>()) {
       int64_t axis = element.getInt();
       axis = axis >= 0 ? axis : (rank + axis);
       assert(axis >= -rank && axis <= rank - 1);
@@ -171,7 +172,7 @@ RankedTensorType getReductionOutputType(RankedTensorType operandTy,
         axes.emplace_back(axis);
     }
   } else {
-    if (!noop_with_empty_axes){
+    if (!noop_with_empty_axes) {
       for (decltype(rank) i = 0; i < rank; ++i) {
         axes.emplace_back(i);
       }
@@ -1569,19 +1570,18 @@ LogicalResult ONNXReduceSumOp::inferShapes(
 
   auto operandTy = data().getType().cast<RankedTensorType>();
   /**
-  *    In OpSet 13, axes of ReduceSum is an input, not an attribute.
-  *    If the axes is not a constant, the output shape is unknown.
-  *    So far, only constant input for axes is handled.
-  *    Since other reduction ops still have axes as attributes,
-  *    interface of getReductionOutputType is kept.
-  *    An array attribute is generated from the constant input
-  **/
+   *    In OpSet 13, axes of ReduceSum is an input, not an attribute.
+   *    If the axes is not a constant, the output shape is unknown.
+   *    So far, only constant input for axes is handled.
+   *    Since other reduction ops still have axes as attributes,
+   *    interface of getReductionOutputType is kept.
+   *    An array attribute is generated from the constant input
+   **/
   DenseElementsAttr constAxes;
   if (getONNXConstantOp(axes())) {
-    constAxes =
-        getONNXConstantOp(axes())
-            .valueAttr()
-            .dyn_cast_or_null<mlir::DenseElementsAttr>();
+    constAxes = getONNXConstantOp(axes())
+                    .valueAttr()
+                    .dyn_cast_or_null<mlir::DenseElementsAttr>();
     if (!constAxes) {
       return emitError("ReduceSum: unknown axes ");
     }
@@ -1591,7 +1591,8 @@ LogicalResult ONNXReduceSumOp::inferShapes(
   } else {
     return emitError("ReduceSum: unknown axes ");
   }
-  getResult().setType(getReductionOutputType(operandTy, constAxes, keepdims(), noop_with_empty_axes()));
+  getResult().setType(getReductionOutputType(
+      operandTy, constAxes, keepdims(), noop_with_empty_axes()));
   return success();
 }
 
