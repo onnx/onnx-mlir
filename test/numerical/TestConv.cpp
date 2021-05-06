@@ -21,6 +21,7 @@
 #define SHARED_LIB_BASE string("./TestConv_main_graph")
 
 using namespace std;
+using namespace mlir;
 
 // Returns whether onnx-mlir compiled convolution is producing the same results
 // as a naive implementation of convolution for a specific set of convolution

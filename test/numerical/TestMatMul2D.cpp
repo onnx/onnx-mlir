@@ -21,6 +21,7 @@
 #define SHARED_LIB_BASE string("./TestMatmul_main_graph")
 
 using namespace std;
+using namespace mlir;
 
 // Returns whether onnx-mlir compiled Matmul is producing the same results
 // as a naive implementation of Matmul for a specific set of Matmul
