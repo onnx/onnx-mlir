@@ -22,11 +22,9 @@
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
-using namespace mlir;
-
 // Identity affine map:
 // #map = affine_map<(d0)[] -> d0>
-AffineMap getIdentityDimMap(Builder &builder);
+mlir::AffineMap getIdentityDimMap(mlir::Builder &builder);
 
 // Pool/conv affine map:
 // #map0 = affine_map<(d0)[s0, s1, s2, s3]
@@ -40,7 +38,7 @@ AffineMap getIdentityDimMap(Builder &builder);
 // - s1: pad
 // - s2: stride
 // - s3: dilation
-AffineMap getConvDimMap(Builder &builder, bool ceilMode);
+mlir::AffineMap getConvDimMap(mlir::Builder &builder, bool ceilMode);
 
 /// IndexExprs to compute the start and end indices of the convolution/pooling
 /// window.
@@ -71,25 +69,28 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode);
 ///   thus the first valid pixel location is 'ceil(pH / dH) * dH- pH'.
 ///
 /// This function returns {startH, endH, kernelOffset}.
-std::vector<IndexExpr> getIndexExprsForConvWindow(
-    SmallVectorImpl<IndexExpr> &inputExprs, bool ceilMode, bool isDilated);
+std::vector<mlir::IndexExpr> getIndexExprsForConvWindow(
+    llvm::SmallVectorImpl<mlir::IndexExpr> &inputExprs, bool ceilMode,
+    bool isDilated);
 
 /// The conv/pooling window can be smaller than the kernel when slicing it over
 /// the border edges. This function returns an AffineMap to compute the size of
 /// one edge of the window.
-AffineMap getWindowAffineMap(Builder &builder, bool ceilMode, bool isDilated);
+mlir::AffineMap getWindowAffineMap(
+    mlir::Builder &builder, bool ceilMode, bool isDilated);
 
 // Helper functions to get values from attribute arrays.
-size_t ArrayAttrSize(ArrayAttr a);
-size_t ArrayAttrSize(Optional<ArrayAttr> a);
-int64_t ArrayAttrIntVal(ArrayAttr a, int i);
-int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i);
+size_t ArrayAttrSize(mlir::ArrayAttr a);
+size_t ArrayAttrSize(llvm::Optional<mlir::ArrayAttr> a);
+int64_t ArrayAttrIntVal(mlir::ArrayAttr a, int i);
+int64_t ArrayAttrIntVal(llvm::Optional<mlir::ArrayAttr> a, int i);
 
 // This function satisfies the ArrayValueIndexCapture::DenseElementsAttr lambda
 // type, using ONNX operations only.
-DenseElementsAttr getDenseElementAttributeFromONNXValue(Value value);
+mlir::DenseElementsAttr getDenseElementAttributeFromONNXValue(
+    mlir::Value value);
 
-ONNXConstantOp getONNXConstantOp(Value value);
-Value getONNXConstantOpFromDenseAttr(
-    PatternRewriter &rewriter, Location loc, Attribute dense);
-Type getBroadcastedRankedType(Type type1, Type type2);
+mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
+mlir::Value getONNXConstantOpFromDenseAttr(
+    mlir::PatternRewriter &rewriter, mlir::Location loc, mlir::Attribute dense);
+mlir::Type getBroadcastedRankedType(mlir::Type type1, mlir::Type type2);
