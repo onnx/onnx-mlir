@@ -246,7 +246,3 @@ struct ONNXLRNOpShapeHelper : public ONNXOpShapeHelper<ONNXLRNOp> {
 
   LogicalResult Compute(ONNXLRNOpAdaptor operandAdaptor);
 };
-
-// Return true if the definition of value is a ConstantOP with UnitAttr
-bool isFromNone(Value value);
-

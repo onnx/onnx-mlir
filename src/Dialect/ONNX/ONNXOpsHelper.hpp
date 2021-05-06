@@ -92,4 +92,6 @@ DenseElementsAttr getDenseElementAttributeFromONNXValue(Value value);
 ONNXConstantOp getONNXConstantOp(Value value);
 Value getONNXConstantOpFromDenseAttr(
     PatternRewriter &rewriter, Location loc, Attribute dense);
+// Return true if the definition of value is a ConstantOP with UnitAttr
+bool isFromNone(Value value);
 Type getBroadcastedRankedType(Type type1, Type type2);
