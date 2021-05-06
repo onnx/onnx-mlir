@@ -41,6 +41,7 @@
 #define KEEP_TEMP_FILES false
 
 using namespace std;
+using namespace mlir;
 using namespace onnx_mlir;
 
 llvm::cl::OptionCategory OnnxMlirOptions(
