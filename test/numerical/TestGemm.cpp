@@ -21,6 +21,7 @@
 #define SHARED_LIB_BASE string("./TestGemm_main_graph")
 
 using namespace std;
+using namespace mlir;
 
 template <typename TYPE>
 void omPrintAsPython(OMTensor *tensor, string name) {

@@ -105,8 +105,6 @@ Value emitPositiveInfinityConstantOp(
 Value emitNegativeInfinityConstantOp(
     ConversionPatternRewriter &rewriter, Location loc, Type type);
 
-int64_t ArrayAttrIntVal(ArrayAttr a, int i);
-
 /// Get a dimension value from a memref. Emit a constant if the dimension is
 /// constant. Otherwise, emit a dim op.
 /// If the return type is different from IndexType, emit a cast op to cast the
