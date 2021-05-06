@@ -20,13 +20,11 @@
 #include "src/Dialect/ONNX/IndexExprDetail.hpp"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/MathExtras.h"
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -1214,14 +1212,17 @@ SymbolIndexExpr::SymbolIndexExpr(IndexExpr const otherIndexExpr) {
 // Capturing Index Expressions: Array of values
 //===----------------------------------------------------------------------===//
 
-ArrayValueIndexCapture::ArrayValueIndexCapture(Operation *op, Value array)
-    : op(op), array(array), hasDefault(false) {
+ArrayValueIndexCapture::ArrayValueIndexCapture(
+    Operation *op, Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal)
+    : op(op), array(array), hasDefault(false), fGetDenseArrayAttr(fGetDenseVal),
+      fLoadVallFromArrayAtIndex(fLoadVal) {
   assert(op && "expected an op");
 }
 
-ArrayValueIndexCapture::ArrayValueIndexCapture(
-    Operation *op, Value array, int64_t defaultLiteral)
-    : op(op), array(array), defaultLiteral(defaultLiteral), hasDefault(true) {
+ArrayValueIndexCapture::ArrayValueIndexCapture(Operation *op, Value array,
+    int64_t defaultLiteral, GetDenseVal fGetDenseVal, LoadVal fLoadVal)
+    : op(op), array(array), defaultLiteral(defaultLiteral), hasDefault(true),
+      fGetDenseArrayAttr(fGetDenseVal), fLoadVallFromArrayAtIndex(fLoadVal) {
   assert(op && "expected an op");
 }
 
@@ -1236,7 +1237,8 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
     return UndefinedIndexExpr();
   }
   // Check if we have an array of literals.
-  if (auto attrArray = getDenseElementAttributeFromValue(array)) {
+  assert(fGetDenseArrayAttr && "expected method to get a dense array");
+  if (DenseElementsAttr attrArray = fGetDenseArrayAttr(array)) {
     // We extracted an dense attribute from definition of operand.
     if (i >= attrArray.getType().getDimSize(0)) {
       // Request beyond available size.
@@ -1258,11 +1260,9 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
     return QuestionmarkIndexExpr();
   }
   // Emit code to read array.
-  Value indexVal = emitConstantOp(scope.getRewriter(), scope.getLoc(),
-      scope.getRewriter().getIndexType(), i);
-  SmallVector<Value, 1> memrefVal = {indexVal};
+  assert(fLoadVallFromArrayAtIndex && "expected method to load an array value");
   Value loadVal =
-      scope.getRewriter().create<KrnlLoadOp>(scope.getLoc(), array, memrefVal);
+      fLoadVallFromArrayAtIndex(scope.getRewriter(), scope.getLoc(), array, i);
   return SymbolIndexExpr(loadVal);
 }
 

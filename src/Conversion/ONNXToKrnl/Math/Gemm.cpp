@@ -319,7 +319,9 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ONNXGemmOpAdaptor operandAdaptor(operands);
     ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
     Location loc = op->getLoc();
-    ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter);
+    ONNXGemmOpShapeHelper shapeHelper(&gemmOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     assert(succeeded(shapecomputed));
     // Scope for krnl EDSC ops

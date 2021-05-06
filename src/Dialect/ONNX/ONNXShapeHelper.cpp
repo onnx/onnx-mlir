@@ -25,11 +25,6 @@ using namespace mlir;
 // ONNX Helper functions
 //===----------------------------------------------------------------------===//
 
-// Returns the ConstantOp which defines an MLIR Value or null.
-ONNXConstantOp getONNXConstantOp(Value value) {
-  return dyn_cast_or_null<mlir::ONNXConstantOp>(value.getDefiningOp());
-}
-
 bool isFromNone(Value v) {
   if (v.getDefiningOp() && llvm::dyn_cast_or_null<mlir::ConstantOp>(v.getDefiningOp())) {
     mlir::ConstantOp c = llvm::dyn_cast<mlir::ConstantOp>(v.getDefiningOp());
@@ -38,24 +33,52 @@ bool isFromNone(Value v) {
   }
   return false;
 }
-
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
 template <class OP>
-ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
-    OP *newOp, ConversionPatternRewriter *rewriter)
-    : op(newOp), scope(rewriter, newOp->getLoc()), outputsDims() {
+ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp)
+    : op(newOp), scope(nullptr, newOp->getLoc()),
+      fGetDenseVal(getDenseElementAttributeFromONNXValue), fLoadVal(nullptr),
+      outputsDims() {
   setNumberOfOutputs(op->getOperation()->getNumResults());
+}
+
+template <class OP>
+ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseValInput,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : op(newOp), scope(&rewriter, newOp->getLoc()), fLoadVal(fLoadVal),
+      outputsDims() {
+  setNumberOfOutputs(op->getOperation()->getNumResults());
+  // Get the dense value by combining provided function (if any) with the
+  // default one.
+  fGetDenseVal = [=](Value array) {
+    DenseElementsAttr res = nullptr;
+    // Try with the provided method, if any.
+    if (fGetDenseValInput)
+      res = fGetDenseValInput(array);
+    // If provided method was not provided or failed, try default ONNX method.
+    if (!res)
+      res = getDenseElementAttributeFromONNXValue(array);
+    return res;
+  };
 }
 
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper for ArgMax
 //===----------------------------------------------------------------------===//
-ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(
-    ONNXArgMaxOp *newOp, ConversionPatternRewriter *rewriter)
-    : ONNXOpShapeHelper<ONNXArgMaxOp>(newOp, rewriter) {}
+ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp)
+    : ONNXOpShapeHelper<ONNXArgMaxOp>(newOp) {}
+
+ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXArgMaxOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {
+}
 
 LogicalResult ONNXArgMaxOpShapeHelper::Compute(
     ONNXArgMaxOpAdaptor operandAdaptor) {
@@ -170,7 +193,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
         // LiteralNot1 - LiteralNot1 => keep unchanged with verifying.
         if (nextDimExpr.isLiteralAndDifferentThan(1))
           assert(currentDimExpr.isLiteralAndIdenticalTo(nextDimExpr));
-        // Keep unchanged wihout verifying:
+        // Keep unchanged without verifying:
         //   - LiteralNot1 - QuestionMark
         //   - LiteralNot1 - 1
         continue;
@@ -244,10 +267,15 @@ LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(Value operand,
 // ONNX Slice Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXSliceOpShapeHelper::ONNXSliceOpShapeHelper(
-    ONNXSliceOp *newOp, ConversionPatternRewriter *rewriter)
-    : ONNXOpShapeHelper<ONNXSliceOp>(newOp, rewriter), starts(), ends(),
-      steps() {}
+ONNXSliceOpShapeHelper::ONNXSliceOpShapeHelper(ONNXSliceOp *newOp)
+    : ONNXOpShapeHelper<ONNXSliceOp>(newOp), starts(), ends(), steps() {}
+
+ONNXSliceOpShapeHelper::ONNXSliceOpShapeHelper(ONNXSliceOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXSliceOp>(newOp, rewriter, fGetDenseVal, fLoadVal),
+      starts(), ends(), steps() {}
 
 LogicalResult ONNXSliceOpShapeHelper::Compute(
     ONNXSliceOpAdaptor operandAdaptor) {
@@ -268,7 +296,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     // If `axes` are omitted, they are set to `[0, ..., nDim-1]`."
     for (int i = 0; i < dataRank; ++i)
       axesIntLit.emplace_back(i);
-  } else if (auto valueAttribute = getDenseElementAttributeFromValue(axes)) {
+  } else if (auto valueAttribute = fGetDenseVal(axes)) {
     // If `axes` are constants, read them."
     for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
       int64_t axis = value.cast<IntegerAttr>().getInt();
@@ -290,9 +318,12 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
   outputDims.resize(dataRank);
 
   // SmallVector<uint64_t, 1> index1D(1, 0);
-  ArrayValueIndexCapture startsCapture(genericOp, operandAdaptor.starts());
-  ArrayValueIndexCapture endsCapture(genericOp, operandAdaptor.ends());
-  ArrayValueIndexCapture stepsCapture(genericOp, operandAdaptor.steps());
+  ArrayValueIndexCapture startsCapture(
+      genericOp, operandAdaptor.starts(), fGetDenseVal, fLoadVal);
+  ArrayValueIndexCapture endsCapture(
+      genericOp, operandAdaptor.ends(), fGetDenseVal, fLoadVal);
+  ArrayValueIndexCapture stepsCapture(
+      genericOp, operandAdaptor.steps(), fGetDenseVal, fLoadVal);
   MemRefBoundsIndexCapture dataBounds(data);
   for (uint64_t i = 0; i < sliceRank; i++) {
     // i is index in start/step/end/output
@@ -350,13 +381,13 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     outputDims[ii] = dimOutputFinal;
   }
 
-  // Handle the default for the non-axis arrays; they are detected with 0 steps
-  // (illegal value).
+  // Handle the default for the non-axis arrays; they are detected with 0
+  // steps (illegal value).
   bool allOutputLit;
   for (uint64_t i = 0; i < dataRank; ++i) {
     if (steps[i].isUndefined()) {
-      // have one unset, put the defaults (start was already at zero, so we are
-      // fine).
+      // have one unset, put the defaults (start was already at zero, so we
+      // are fine).
       starts[i] = LiteralIndexExpr(0);
       steps[i] = LiteralIndexExpr(1);
       DimIndexExpr dimInput(dataBounds.getDim(i));
@@ -375,9 +406,14 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
 // ONNX Tile Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXTileOpShapeHelper::ONNXTileOpShapeHelper(
-    ONNXTileOp *newOp, ConversionPatternRewriter *rewriter)
-    : ONNXOpShapeHelper<ONNXTileOp>(newOp, rewriter) {}
+ONNXTileOpShapeHelper::ONNXTileOpShapeHelper(ONNXTileOp *newOp)
+    : ONNXOpShapeHelper<ONNXTileOp>(newOp) {}
+
+ONNXTileOpShapeHelper::ONNXTileOpShapeHelper(ONNXTileOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXTileOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
 
 LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
@@ -393,7 +429,8 @@ LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
   DimsExpr outputDims;
   outputDims.resize(inputRank);
   MemRefBoundsIndexCapture inputBounds(input);
-  ArrayValueIndexCapture repeatsCapture(genericOp, repeats);
+  ArrayValueIndexCapture repeatsCapture(
+      genericOp, repeats, fGetDenseVal, fLoadVal);
   for (auto i = 0; i < inputRank; i++) {
     DimIndexExpr dimInput(inputBounds.getDim(i));
     SymbolIndexExpr repeatsValue(repeatsCapture.getSymbol(i));
@@ -408,10 +445,16 @@ LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
 // ONNX Gemm Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(
-    ONNXGemmOp *newOp, ConversionPatternRewriter *rewriter)
-    : ONNXOpShapeHelper<ONNXGemmOp>(newOp, rewriter), aDims(), bDims(), cDims(),
+ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(ONNXGemmOp *newOp)
+    : ONNXOpShapeHelper<ONNXGemmOp>(newOp), aDims(), bDims(), cDims(),
       hasBias(false), cRank(-1) {}
+
+ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(ONNXGemmOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXGemmOp>(newOp, rewriter, fGetDenseVal, fLoadVal),
+      aDims(), bDims(), cDims(), hasBias(false), cRank(-1) {}
 
 LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
@@ -501,10 +544,16 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
 // ONNX MatMul Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(
-    ONNXMatMulOp *newOp, ConversionPatternRewriter *rewriter)
-    : ONNXOpShapeHelper<ONNXMatMulOp>(newOp, rewriter), aDims(), bDims(),
-      aPadDims(), bPadDims() {}
+ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(ONNXMatMulOp *newOp)
+    : ONNXOpShapeHelper<ONNXMatMulOp>(newOp), aDims(), bDims(), aPadDims(),
+      bPadDims() {}
+
+ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(ONNXMatMulOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXMatMulOp>(newOp, rewriter, fGetDenseVal, fLoadVal),
+      aDims(), bDims(), aPadDims(), bPadDims() {}
 
 LogicalResult ONNXMatMulOpShapeHelper::Compute(
     ONNXMatMulOpAdaptor operandAdaptor) {
@@ -526,9 +575,9 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   aPadDims.resize(paddedRank, false);
   bPadDims.resize(paddedRank, false);
 
-  // Add the dims of A. All of the aDim[0]...aDim[aRank-1] are in the rightmost
-  // positions, prepended by 1s to fit the paddedRankSize.
-  // (1,1,1... 1, aDim[0]...aDim[aRank-1])
+  // Add the dims of A. All of the aDim[0]...aDim[aRank-1] are in the
+  // rightmost positions, prepended by 1s to fit the paddedRankSize. (1,1,1...
+  // 1, aDim[0]...aDim[aRank-1])
   LiteralIndexExpr one(1);
   int aOffset = paddedRank - ABounds.getRank();
   for (int i = 0; i < aOffset; ++i) {
@@ -584,8 +633,8 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
       outputDims.emplace_back(bDims[i]);
       aDims[i] = bDims[i]; // Add runtime check if desired.
     } else {
-      // Have no broadcast or literal, just pick a for output; add runtime check
-      // if desired.
+      // Have no broadcast or literal, just pick a for output; add runtime
+      // check if desired.
       outputDims.emplace_back(aDims[i]);
     }
   }
@@ -623,9 +672,14 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
 // ONNX Split Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(
-    ONNXSplitOp *newOp, ConversionPatternRewriter *rewriter)
-    : ONNXOpShapeHelper<ONNXSplitOp>(newOp, rewriter) {}
+ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp)
+    : ONNXOpShapeHelper<ONNXSplitOp>(newOp) {}
+
+ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXSplitOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
 
 LogicalResult ONNXSplitOpShapeHelper::Compute(
     ONNXSplitOpAdaptor operandAdaptor) {
@@ -692,10 +746,16 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
 // ONNX Gather Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(
-    ONNXGatherOp *newOp, ConversionPatternRewriter *rewriter)
-    : ONNXOpShapeHelper<ONNXGatherOp>(newOp, rewriter), dataDims(),
-      indicesDims(), positiveConstantIndices(false) {}
+ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(ONNXGatherOp *newOp)
+    : ONNXOpShapeHelper<ONNXGatherOp>(newOp), dataDims(), indicesDims(),
+      positiveConstantIndices(false) {}
+
+ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(ONNXGatherOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXGatherOp>(newOp, rewriter, fGetDenseVal, fLoadVal),
+      dataDims(), indicesDims(), positiveConstantIndices(false) {}
 
 LogicalResult ONNXGatherOpShapeHelper::Compute(
     ONNXGatherOpAdaptor operandAdaptor) {
@@ -722,8 +782,7 @@ LogicalResult ONNXGatherOpShapeHelper::Compute(
 
   // If 'indices' is a constant tensor, check whether its values are valid.
   if (dataDims[axisIndex].isLiteral()) {
-    auto valueAttribute =
-        getDenseElementAttributeFromValue(operandAdaptor.indices());
+    auto valueAttribute = fGetDenseVal(operandAdaptor.indices());
     if (valueAttribute) {
       int64_t dataDimAtAxis = dataDims[axisIndex].getLiteral();
       positiveConstantIndices = true;
@@ -740,7 +799,8 @@ LogicalResult ONNXGatherOpShapeHelper::Compute(
 
   // Output has rank of 'indicesRank + (dataRank - 1).
   // Output shape is constructed from 'input' by:
-  //    replacing the dimension at 'axis' in 'input' by the shape of 'indices'.
+  //    replacing the dimension at 'axis' in 'input' by the shape of
+  //    'indices'.
   for (int i = 0; i < dataRank; ++i) {
     if (i == axisIndex)
       for (IndexExpr d : indicesDims)
@@ -756,9 +816,15 @@ LogicalResult ONNXGatherOpShapeHelper::Compute(
 // ONNX Concat Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXConcatOpShapeHelper::ONNXConcatOpShapeHelper(
-    ONNXConcatOp *newOp, ConversionPatternRewriter *rewriter)
-    : ONNXOpShapeHelper<ONNXConcatOp>(newOp, rewriter) {}
+ONNXConcatOpShapeHelper::ONNXConcatOpShapeHelper(ONNXConcatOp *newOp)
+    : ONNXOpShapeHelper<ONNXConcatOp>(newOp) {}
+
+ONNXConcatOpShapeHelper::ONNXConcatOpShapeHelper(ONNXConcatOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXConcatOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {
+}
 
 LogicalResult ONNXConcatOpShapeHelper::Compute(
     ONNXConcatOpAdaptor operandAdaptor) {
@@ -803,9 +869,15 @@ LogicalResult ONNXConcatOpShapeHelper::Compute(
 // ONNX Transpose Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXTransposeOpShapeHelper::ONNXTransposeOpShapeHelper(
-    ONNXTransposeOp *newOp, ConversionPatternRewriter *rewriter)
-    : ONNXOpShapeHelper<ONNXTransposeOp>(newOp, rewriter) {}
+ONNXTransposeOpShapeHelper::ONNXTransposeOpShapeHelper(ONNXTransposeOp *newOp)
+    : ONNXOpShapeHelper<ONNXTransposeOp>(newOp) {}
+
+ONNXTransposeOpShapeHelper::ONNXTransposeOpShapeHelper(ONNXTransposeOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXTransposeOp>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
 
 LogicalResult ONNXTransposeOpShapeHelper::Compute(
     ONNXTransposeOpAdaptor operandAdaptor) {
@@ -846,10 +918,14 @@ LogicalResult ONNXTransposeOpShapeHelper::Compute(
 //===----------------------------------------------------------------------===//
 // ONNX LRN Op Shape Helper
 //===----------------------------------------------------------------------===//
+ONNXLRNOpShapeHelper::ONNXLRNOpShapeHelper(ONNXLRNOp *newOp)
+    : ONNXOpShapeHelper<ONNXLRNOp>(newOp) {}
 
-ONNXLRNOpShapeHelper::ONNXLRNOpShapeHelper(
-    ONNXLRNOp *newOp, ConversionPatternRewriter *rewriter)
-    : ONNXOpShapeHelper<ONNXLRNOp>(newOp, rewriter) {}
+ONNXLRNOpShapeHelper::ONNXLRNOpShapeHelper(ONNXLRNOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXLRNOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
 
 LogicalResult ONNXLRNOpShapeHelper::Compute(ONNXLRNOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
