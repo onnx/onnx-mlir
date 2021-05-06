@@ -170,9 +170,11 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       }
     } else {
       ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).axesAttr();
-      for (auto axisAttr : axisAttrs.getValue()) {
-        int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
-        definedAxes.push_back(axis);
+      if (axisAttrs) {
+        for (auto axisAttr : axisAttrs.getValue()) {
+          int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
+          definedAxes.push_back(axis);
+        }
       }
     }
 
@@ -181,7 +183,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       for (auto axis : definedAxes) {
         int64_t newaxis = axis >= 0 ? axis : (inRank + axis);
         assert(newaxis >= -inRank && newaxis <= inRank - 1);
-        if (std::find(axes.begin(), axes.end(), axis) == axes.end())
+        if (std::find(axes.begin(), axes.end(), newaxis) == axes.end())
           axes.push_back(newaxis);
       }
     } else {

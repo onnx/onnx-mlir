@@ -171,7 +171,8 @@ RankedTensorType getReductionOutputType(RankedTensorType operandTy,
       if (std::find(axes.begin(), axes.end(), axis) == axes.end())
         axes.emplace_back(axis);
     }
-  } else {
+  } 
+  if (axes.size() == 0) {
     if (!noop_with_empty_axes) {
       for (decltype(rank) i = 0; i < rank; ++i) {
         axes.emplace_back(i);

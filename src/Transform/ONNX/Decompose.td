@@ -43,6 +43,9 @@ def GetNullAttr :
 def createDenseArrayAttr:
   NativeCodeCall<"createDenseArrayAttr($_builder, $0)">;
 
+def createDenseArrayAttrOrEmpty:
+  NativeCodeCall<"createDenseArrayAttrOrEmpty($_builder, $0)">;
+
 def ScalerT : NativeCodeCall<"TypeAttr::get($_builder.getF32Type())">;
 
 def noop_with_empty_axes : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
@@ -52,7 +55,7 @@ def noop_with_empty_axes : NativeCodeCall<"IntegerAttr::get($_builder.getInteger
 //===----------------------------------------------------------------------===//
 def ReduceL1OpPattern: Pat<(ONNXReduceL1Op $oprd, $axes, $keepdims),
                            (ONNXReduceSumOp (ONNXAbsOp $oprd),
-                           (ONNXConstantOpFromDenseAttr (createDenseArrayAttr $axes)),
+                           (ONNXConstantOpFromDenseAttr (createDenseArrayAttrOrEmpty $axes)),
                            $keepdims, (noop_with_empty_axes))>;
 
 //===----------------------------------------------------------------------===//
@@ -66,7 +69,7 @@ def ReduceL2OpPattern: Pat<(ONNXReduceL2Op $oprd, $axes, $keepdims),
 //===----------------------------------------------------------------------===//
 def ReduceLogSumOpPattern: Pat<(ONNXReduceLogSumOp $oprd, $axes, $keepdims),
                            (ONNXLogOp (ONNXReduceSumOp $oprd,
-                                       (ONNXConstantOpFromDenseAttr (createDenseArrayAttr $axes)),
+                                       (ONNXConstantOpFromDenseAttr (createDenseArrayAttrOrEmpty $axes)),
                                        $keepdims, (noop_with_empty_axes)))>;
 
 //===----------------------------------------------------------------------===//
@@ -106,7 +109,7 @@ def ReduceLogSumExpOpPattern2: Pat<
 def ReduceSumSquareOpPattern: Pat<(ONNXReduceSumSquareOp $oprd, $axes, $keepdims),
                                   (ONNXReduceSumOp (ONNXMulOp $oprd, $oprd),
                                                    (ONNXConstantOpFromDenseAttr 
-                                                        (createDenseArrayAttr $axes)),
+                                                        (createDenseArrayAttrOrEmpty $axes)),
                                   $keepdims, (noop_with_empty_axes))>;
 
 //===----------------------------------------------------------------------===//
