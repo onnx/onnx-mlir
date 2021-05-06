@@ -473,6 +473,28 @@ public:
   }
 };
 
+/*
+ * Move all constants to the top of their respective block to avoid
+ * unwanted merges.
+ */
+class KrnlMoveConstantsUp : public OpRewritePattern<ConstantOp> {
+public:
+  using OpRewritePattern<ConstantOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ConstantOp constOp, PatternRewriter &rewriter) const override {
+    // Get parent block.
+    auto parentBlock = constOp.getOperation()->getBlock();
+
+    // Ensure it's the top block.
+    if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
+      return failure();
+
+    // Move instruction to the top.
+    constOp.getOperation()->moveBefore(&parentBlock->front());
+    return success();
+  }
+};
+
 /*!
  *  Function pass that enables memory pooling for MemRefs.
  */
@@ -493,6 +515,7 @@ public:
         &getContext(), &blockToStaticPool);
     patterns.insert<KrnlBundleDynamicMemoryPools>(
         &getContext(), &blockToDynamicPool);
+    patterns.insert<KrnlMoveConstantsUp>(&getContext());
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));
     BlockToMemPool::iterator it;
