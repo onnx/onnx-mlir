@@ -50,7 +50,7 @@ static SmallVector<mlir::FuncOp, 4> lookUpFuncsMatching(
  * its output shape only after shape inference completes for the associated
  * (sub) graph.
  *
- * In the abscence of a main computation graph, we will treat every mlir
+ * In the absence of a main computation graph, we will treat every mlir
  * function as a main computation graph; this is mostly just for testing
  * purposes.
  */
@@ -62,8 +62,10 @@ public:
     auto matchedFuncs =
         lookUpFuncsMatching(module, std::regex("[a-zA-Z0-9_]*main_graph"));
     if (!matchedFuncs.empty()) {
-      for (auto func : matchedFuncs)
-        runShapeInferenceOn(func);
+      for (auto func : matchedFuncs) {
+        if (failed(runShapeInferenceOn(func)))
+          signalPassFailure();
+      }
     } else {
       auto result = module.walk([&](FuncOp funcOp) -> WalkResult {
         return runShapeInferenceOn(funcOp);

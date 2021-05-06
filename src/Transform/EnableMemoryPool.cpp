@@ -157,7 +157,9 @@ public:
     patterns.insert<KrnlEnableMemoryPool>(&getContext());
     patterns.insert<KrnlEliminateOldDealloc>(&getContext());
 
-    applyPatternsAndFoldGreedily(function, std::move(patterns));
+    // No need to test, its ok to fail the apply.
+    LogicalResult res =
+        applyPatternsAndFoldGreedily(function, std::move(patterns));
   }
 };
 } // namespace

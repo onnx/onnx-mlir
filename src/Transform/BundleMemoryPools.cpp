@@ -517,7 +517,9 @@ public:
         &getContext(), &blockToDynamicPool);
     patterns.insert<KrnlMoveConstantsUp>(&getContext());
 
-    applyPatternsAndFoldGreedily(function, std::move(patterns));
+    // No need to test, its ok to fail the apply.
+    LogicalResult res =
+        applyPatternsAndFoldGreedily(function, std::move(patterns));
     BlockToMemPool::iterator it;
     for (it = blockToStaticPool.begin(); it != blockToStaticPool.end(); it++)
       free(it->second);
