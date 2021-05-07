@@ -148,15 +148,24 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
   rewriter.restoreInsertionPoint(ipInitializationLoops);
 }
 
-// Apply an activation function on a given scalar operand.
+// Apply an activation function on a given operand.
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
-    RNNActivation activation, Value scalarOperand) {
+    RNNActivation activation, Value operand) {
   Value res;
 
-  MemRefType scalarMemRefType =
-      MemRefType::get({}, scalarOperand.getType(), {}, 0);
-  Value alloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-  rewriter.create<KrnlStoreOp>(loc, scalarOperand, alloc, ArrayRef<Value>{});
+  // TODO: remove this once all implementations has changed.
+  bool isScalar = !operand.getType().isa<ShapedType>();
+
+  MemRefType memRefType;
+  Value alloc;
+  if (isScalar) {
+    memRefType = MemRefType::get({}, operand.getType(), {}, 0);
+    alloc = rewriter.create<AllocOp>(loc, memRefType);
+    rewriter.create<KrnlStoreOp>(loc, operand, alloc, ArrayRef<Value>{});
+  } else {
+    memRefType = operand.getType().cast<MemRefType>();
+    alloc = operand;
+  }
 
   std::vector<mlir::NamedAttribute> attributes;
   if (activation.alpha) {
@@ -169,33 +178,34 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
   }
 
   if (activation.name.equals_lower("relu"))
-    res = rewriter.create<ONNXReluOp>(loc, scalarMemRefType, alloc);
+    res = rewriter.create<ONNXReluOp>(loc, memRefType, alloc);
   else if (activation.name.equals_lower("tanh"))
-    res = rewriter.create<ONNXTanhOp>(loc, scalarMemRefType, alloc);
+    res = rewriter.create<ONNXTanhOp>(loc, memRefType, alloc);
   else if (activation.name.equals_lower("sigmoid"))
-    res = rewriter.create<ONNXSigmoidOp>(loc, scalarMemRefType, alloc);
+    res = rewriter.create<ONNXSigmoidOp>(loc, memRefType, alloc);
   else if (activation.name.equals_lower("affine"))
     llvm_unreachable("Unsupported activation");
   else if (activation.name.equals_lower("leakyrelu"))
-    res = rewriter.create<ONNXLeakyReluOp>(
-        loc, scalarMemRefType, alloc, attributes);
+    res = rewriter.create<ONNXLeakyReluOp>(loc, memRefType, alloc, attributes);
   else if (activation.name.equals_lower("thresholdedrelu"))
     res = rewriter.create<ONNXThresholdedReluOp>(
-        loc, scalarMemRefType, alloc, attributes);
+        loc, memRefType, alloc, attributes);
   else if (activation.name.equals_lower("scaledtanh"))
     llvm_unreachable("Unsupported activation");
   else if (activation.name.equals_lower("hardsigmoid"))
-    res = rewriter.create<ONNXHardSigmoidOp>(
-        loc, scalarMemRefType, alloc, attributes);
+    res =
+        rewriter.create<ONNXHardSigmoidOp>(loc, memRefType, alloc, attributes);
   else if (activation.name.equals_lower("elu"))
-    res = rewriter.create<ONNXEluOp>(loc, scalarMemRefType, alloc, attributes);
+    res = rewriter.create<ONNXEluOp>(loc, memRefType, alloc, attributes);
   else if (activation.name.equals_lower("softsign"))
-    res = rewriter.create<ONNXSoftsignOp>(loc, scalarMemRefType, alloc);
+    res = rewriter.create<ONNXSoftsignOp>(loc, memRefType, alloc);
   else if (activation.name.equals_lower("softplus"))
-    res = rewriter.create<ONNXSoftplusOp>(loc, scalarMemRefType, alloc);
+    res = rewriter.create<ONNXSoftplusOp>(loc, memRefType, alloc);
   else
     llvm_unreachable("Unsupported activation");
 
-  Value result = rewriter.create<KrnlLoadOp>(loc, res);
-  return result;
+  if (isScalar)
+    res = rewriter.create<KrnlLoadOp>(loc, res);
+
+  return res;
 }
