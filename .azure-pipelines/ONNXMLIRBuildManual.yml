@@ -30,7 +30,7 @@ parameters:
   default: 'Manual'
 - name: RunAllTests
   type: boolean
-  default: true
+  default: false
 - name: ForceCleanBuild
   type: boolean
   default: false
