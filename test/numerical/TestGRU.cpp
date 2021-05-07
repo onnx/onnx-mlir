@@ -21,6 +21,7 @@
 #define SHARED_LIB_BASE string("./TestGRU_main_graph")
 
 using namespace std;
+using namespace mlir;
 
 // Sigmoid
 float sigmoid(float x) { return 1 / (1 + exp(-x)); }
