@@ -1524,11 +1524,9 @@ def ONNXGatherOp:ONNX_Op<"Gather",
   "  ]"
   "  axis = 1,"
   "  output = ["
-  "      ["
-  "          [1.0, 1.9],"
-  "          [2.3, 3.9],"
-  "          [4.5, 5.9],"
-  "      ],"
+  "          [[1.0, 1.9]],"
+  "          [[2.3, 3.9]],"
+  "          [[4.5, 5.9]],"
   "  ]"
   "```"
   }];
@@ -2504,8 +2502,6 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   "time being the inner looping dimension), with each successive layer consuming"
   "the scan_outputs from the previous layer, possibly going through several"
   "point-wise operators (e.g. dropout, residual connections, linear layer)."
-  ""
-  "The input/output of subgraph (produced by loop node) matching is based on order instead of name. The implementation will figure out the names based on this order."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$M,
     AnyTypeOf<[TensorOf<[I1]>, AnyMemRef, NoneType]>:$cond,
@@ -5046,23 +5042,17 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Softmax operation";
   let description = [{
-  "The operator computes the softmax (normalized exponential) values for each layer in the batch"
-  " of the given input."
+  "The operator computes the normalized exponential values for the given input:"
   ""
-  "The input does not need to explicitly be a 2D vector; rather, it will be"
-  "coerced into one. For an arbitrary n-dimensional tensor"
-  "input \in [a_0, a_1, ..., a_{k-1}, a_k, ..., a_{n-1\}\] and k is"
-  "the axis provided, then input will be coerced into a 2-dimensional tensor with"
-  "dimensions [a_0 * ... * a_{k-1}, a_k * ... * a_{n-1\}\]. For the default"
-  "case where axis=1, this means the input tensor will be coerced into a 2D tensor"
-  "of dimensions [a_0, a_1 * ... * a_{n-1\}\], where a_0 is often the batch size."
-  "In this situation, we must have a_0 = N and a_1 * ... * a_{n-1} = D."
-  "Each of these dimensions must be matched correctly, or else the operator"
-  "will throw errors. The output tensor has the same shape"
-  "and contains the softmax values of the corresponding input."
+  " Softmax(input, axis) = Exp(input) / ReduceSum(Exp(input), axis=axis, keepdims=1) "
+  ""
+  "The input does not need to explicitly be a 2D vector. The \"axis\" attribute"
+  "indicates the dimension along which Softmax will be performed."
+  "The output tensor has the same shape"
+  "and contains the Softmax values of the corresponding input."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$input,
-    DefaultValuedAttr<SI64Attr, "1">:$axis);
+    DefaultValuedAttr<SI64Attr, "-1">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$output);
   let builders = [
     OpBuilder<(ins "Value":$input, "IntegerAttr":$axis), [{
@@ -5710,23 +5700,23 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
   let summary = "ONNX Unsqueeze operation";
   let description = [{
   "Insert single-dimensional entries to the shape of an input tensor (`data`)."
-  "Takes one required argument `axes` - which contains a list of dimension indices and this operator will insert a dimension of value `1` into the corresponding index of the output tensor (`expanded`)."
+  "Takes one required input `axes` - which contains a list of dimension indices and this operator will insert a dimension of value `1` into the corresponding index of the output tensor (`expanded`)."
   ""
   "For example:"
   "  Given an input tensor (`data`) of shape [3, 4, 5], then"
   "  Unsqueeze(data, axes=[0, 4]) outputs a tensor (`expanded`) containing same data as `data` but with shape [1, 3, 4, 5, 1]."
   ""
-  "The attribute `axes` should not contain any duplicate entries. It is an error if it contains duplicates."
+  "The input `axes` should not contain any duplicate entries. It is an error if it contains duplicates."
   "The rank of the output tensor (`output_rank`) is the rank of the input tensor (`data`) plus the number of values in `axes`."
   "Each value in `axes` should be within the (inclusive) range [-output_rank , output_rank - 1]. "
   "The order of values in `axes` does not matter and can come in any order. "
   ""
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
-    I64ArrayAttr:$axes);
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$expanded);
   let builders = [
-    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes), [{
+    OpBuilder<(ins "Value":$data, "Value":$axes), [{
       auto elementType = data.getType().cast<TensorType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes);
     }]>,
@@ -5739,7 +5729,7 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
     ];
     let extraClassDeclaration = [{
       static int getNumberOfOperands() {
-        return 1;
+        return 2;
       }
       static int getNumberOfResults() {
         return 1;

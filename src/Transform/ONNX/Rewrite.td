@@ -42,8 +42,8 @@ def subtractOrNeg: NativeCodeCall<
   "subtractOrNeg($_builder, $0.getDefiningOp()->getLoc(), $1, $2)">;
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [1, N].
-def createArrayAttrOfOneToRankOf : NativeCodeCall<
-  "createArrayAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 1)">;
+def createDenseElementsAttrOfOneToN : NativeCodeCall<
+  "createDenseElementsAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 1)">;
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [2, rank - 1].
 def createArrayAttrOfTwoToRankOf : NativeCodeCall<
@@ -161,7 +161,7 @@ def FuseBatchNormTestModeConvPattern: Pat<
                     $var,
                     (ONNXConstantOpFromDenseAttr
                        (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
-           (createArrayAttrOfOneToRankOf $w))),
+           (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOfOneToN $w)))),
      // b_
      (ONNXAddOp
         $B,

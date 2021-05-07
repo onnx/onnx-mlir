@@ -104,6 +104,7 @@ test_to_enable_static_dynamic = {
     # to upstream issues: test_shufflenet_cpu, test_resnet50_cpu, test_vgg19_cpu,
     # test_inception_v1_cpu, test_matmul_2d_cpu as well as test_gemm_*
     # See: https://dev.azure.com/mltools/llvm-project/_workitems/edit/254/
+    # densenet121 disabled due to opset 9 unsqueeze
 
     ############################################################
     # Elementary ops, ordered alphabetically.
@@ -772,7 +773,7 @@ test_to_enable_static_dynamic = {
     #"test_shufflenet_cpu": (test_static,),
     #"test_resnet50_cpu": (test_static,),
     #"test_vgg19_cpu": (test_static,),
-    "test_densenet121_cpu": (test_static,),
+    #"test_densenet121_cpu": (test_static,),
     #"test_inception_v1_cpu": (test_static,),
 }
 

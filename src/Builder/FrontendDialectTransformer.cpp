@@ -700,6 +700,37 @@ private:
     }
   }
 
+  void ImportUnsqueeze(const onnx::NodeProto &node) {
+    int nOps = node.input().size();
+    int nIn = mlir::ONNXUnsqueezeOp::getNumberOfOperands();
+
+    if (nOps == nIn) {
+      buildOperation<mlir::ONNXUnsqueezeOp>(node);
+    } else {
+      // Axes can come in as either attributes or arguments
+      std::vector<mlir::Value> inputs;
+      getNodeInputs(node, inputs);
+
+      auto attributes = ImportNodeAttributes(node);
+      for (auto attr : attributes) {
+        if (auto denseAttr = attr.second.dyn_cast<mlir::ArrayAttr>()) {
+          auto axes = denseAttr.getValue();
+          auto axesAttr = mlir::DenseElementsAttr::get(
+              mlir::RankedTensorType::get(axes.size(), builder_.getI64Type()),
+              axes);
+          auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+              UnknownLoc(), mlir::Attribute(), axesAttr);
+
+          inputs.push_back(constantOp);
+          assert(attr.first == "axes");
+        }
+      }
+      int nOut = mlir::ONNXUnsqueezeOp::getNumberOfResults();
+      buildOutputAndOperation<mlir::ONNXUnsqueezeOp>(
+          node, inputs, nIn, nOut, attributes);
+    }
+  }
+
   /*!
    * Special handle for Dropout operations.
    */
