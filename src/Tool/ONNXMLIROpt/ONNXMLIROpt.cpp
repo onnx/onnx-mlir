@@ -14,6 +14,7 @@
 
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/InitLLVM.h>
+#include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/ToolOutputFile.h>
 #include <mlir/IR/AsmState.h>
 #include <mlir/IR/Dialect.h>
@@ -72,6 +73,9 @@ int main(int argc, char **argv) {
   registry.insert<mlir::StandardOpsDialect>();
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::shape::ShapeDialect>();
+  registry.insert<mlir::math::MathDialect>();
+  registry.insert<mlir::memref::MemRefDialect>();
+
   registry.insert<mlir::ONNXOpsDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
 

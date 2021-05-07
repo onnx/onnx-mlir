@@ -1698,3 +1698,22 @@ func @test_loop_multi_scan_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %ar
   // CHECK:           return [[LOOP_OUT]]#0, [[LOOP_OUT]]#1, [[LOOP_OUT]]#2, [[LOOP_OUT]]#3 : tensor<1xi64>, tensor<1xf32>, tensor<?x1xi64>, tensor<?x1xf32>
   // CHECK:         }
 }
+
+func @test_scan_simple_main_graph(%arg0: tensor<2xf32>, %arg1: tensor<3x2xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
+  %0:2 = "onnx.Scan"(%arg0, %arg1) ( {
+  ^bb0(%arg2: tensor<*xf32>, %arg3: tensor<*xf32>):  // no predecessors
+    %1 = "onnx.Add"(%arg2, %arg3) : (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
+    onnx.Return %1, %1 : tensor<*xf32>, tensor<*xf32>
+  }) {num_scan_inputs = 1 : si64} : (tensor<2xf32>, tensor<3x2xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  return %0#0, %0#1 : tensor<*xf32>, tensor<*xf32>
+// CHECK-LABEL:       func @test_scan_simple_main_graph
+// CHECK-SAME:     ([[SUM_INIT:%.+]]: tensor<2xf32>, [[TO_SUM:%.+]]: tensor<3x2xf32>) -> (tensor<2xf32>, tensor<3x2xf32>) {
+// CHECK:           [[SCAN_OUT:%.+]]:2 = "onnx.Scan"([[SUM_INIT]], [[TO_SUM]]) ( {
+// CHECK:           ^bb0([[SUM_PREV:%.+]]: tensor<2xf32>, [[SUM_CURR:%.+]]: tensor<2xf32>):  // no predecessors
+// CHECK:             [[ADD:%.+]] = "onnx.Add"([[SUM_PREV]], [[SUM_CURR]]) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+// CHECK:             onnx.Return [[ADD]], [[ADD]] : tensor<2xf32>, tensor<2xf32>
+// CHECK:           }) {num_scan_inputs = 1 : si64} : (tensor<2xf32>, tensor<3x2xf32>) -> (tensor<2xf32>, tensor<3x2xf32>)
+// CHECK:           return [[SCAN_OUT]]#0, [[SCAN_OUT]]#1 : tensor<2xf32>, tensor<3x2xf32>
+// CHECK:         }
+// CHECK:       }
+}

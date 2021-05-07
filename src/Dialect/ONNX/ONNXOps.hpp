@@ -26,9 +26,7 @@
 
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
-#include "src/Interface/ShapeInferenceInterface.hpp"
-
-#include "ONNXOpsHelper.hpp"
+#include "src/Interface/ShapeInferenceOpInterface.hpp"
 
 namespace mlir {
 

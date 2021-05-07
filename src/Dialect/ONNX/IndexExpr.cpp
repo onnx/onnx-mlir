@@ -20,13 +20,11 @@
 #include "src/Dialect/ONNX/IndexExprDetail.hpp"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/MathExtras.h"
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -122,6 +120,20 @@ void IndexExprScope::getDimAndSymbolList(SmallVectorImpl<Value> &list) const {
 OpBuilder &IndexExprScope::getRewriter() const {
   assert(rewriter);
   return *rewriter;
+}
+
+//===----------------------------------------------------------------------===//
+// IndexExprScope Debug.
+//===----------------------------------------------------------------------===//
+
+// Debug (enable using DEBUG=1 at top of file).
+void IndexExprScope::debugPrint(const std::string &msg) const {
+#if DEBUG
+  printf(
+      "Scope %s 0x%llx: with parent scope 0x%lld and %d dims and %d symbols\n",
+      msg.c_str(), (long long)this, (long long)parentScope, (int)dims.size(),
+      (int)symbols.size());
+#endif
 }
 
 //===----------------------------------------------------------------------===//
@@ -750,6 +762,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     // Create a list of affine expression
     assert(vvals.size() > 1 && "come here only with 2 or more values");
     SmallVector<AffineExpr, 4> affineExprs;
+    // Important to get the affine expressions before getting the dims/symbols.
     for (IndexExpr &vv : vvals) {
       affineExprs.emplace_back(vv.getAffineExpr());
     }
@@ -805,6 +818,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     // Create a list of affine expression
     assert(vvals.size() > 1 && "come here only with 2 or more values");
     SmallVector<AffineExpr, 4> affineExprs;
+    // Important to get the affine expressions before getting the dims/symbols.
     for (IndexExpr &vv : vvals) {
       affineExprs.emplace_back(vv.getAffineExpr());
     }
@@ -1198,14 +1212,17 @@ SymbolIndexExpr::SymbolIndexExpr(IndexExpr const otherIndexExpr) {
 // Capturing Index Expressions: Array of values
 //===----------------------------------------------------------------------===//
 
-ArrayValueIndexCapture::ArrayValueIndexCapture(Operation *op, Value array)
-    : op(op), array(array), hasDefault(false) {
+ArrayValueIndexCapture::ArrayValueIndexCapture(
+    Operation *op, Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal)
+    : op(op), array(array), hasDefault(false), fGetDenseArrayAttr(fGetDenseVal),
+      fLoadVallFromArrayAtIndex(fLoadVal) {
   assert(op && "expected an op");
 }
 
-ArrayValueIndexCapture::ArrayValueIndexCapture(
-    Operation *op, Value array, int64_t defaultLiteral)
-    : op(op), array(array), defaultLiteral(defaultLiteral), hasDefault(true) {
+ArrayValueIndexCapture::ArrayValueIndexCapture(Operation *op, Value array,
+    int64_t defaultLiteral, GetDenseVal fGetDenseVal, LoadVal fLoadVal)
+    : op(op), array(array), defaultLiteral(defaultLiteral), hasDefault(true),
+      fGetDenseArrayAttr(fGetDenseVal), fLoadVallFromArrayAtIndex(fLoadVal) {
   assert(op && "expected an op");
 }
 
@@ -1220,7 +1237,8 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
     return UndefinedIndexExpr();
   }
   // Check if we have an array of literals.
-  if (auto attrArray = getDenseElementAttributeFromValue(array)) {
+  assert(fGetDenseArrayAttr && "expected method to get a dense array");
+  if (DenseElementsAttr attrArray = fGetDenseArrayAttr(array)) {
     // We extracted an dense attribute from definition of operand.
     if (i >= attrArray.getType().getDimSize(0)) {
       // Request beyond available size.
@@ -1242,11 +1260,9 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
     return QuestionmarkIndexExpr();
   }
   // Emit code to read array.
-  Value indexVal = emitConstantOp(scope.getRewriter(), scope.getLoc(),
-      scope.getRewriter().getIndexType(), i);
-  SmallVector<Value, 1> memrefVal = {indexVal};
+  assert(fLoadVallFromArrayAtIndex && "expected method to load an array value");
   Value loadVal =
-      scope.getRewriter().create<KrnlLoadOp>(scope.getLoc(), array, memrefVal);
+      fLoadVallFromArrayAtIndex(scope.getRewriter(), scope.getLoc(), array, i);
   return SymbolIndexExpr(loadVal);
 }
 
@@ -1368,8 +1384,8 @@ IndexExpr MemRefBoundsIndexCapture::get(uint64_t i) {
     // Not a constant; don't add code.
     return QuestionmarkIndexExpr();
   }
-  Value dynVal =
-      scope.getRewriter().create<DimOp>(scope.getLoc(), tensorOrMemref, i);
+  Value dynVal = scope.getRewriter().create<memref::DimOp>(
+      scope.getLoc(), tensorOrMemref, i);
   return INDEX(dynVal);
 }
 

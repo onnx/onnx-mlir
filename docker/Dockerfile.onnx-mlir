@@ -31,8 +31,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
 # Build onnx-mlir, run tests, and install
     && cd ${ONNX_MLIR_ROOT} \
     && rm -rf build && mkdir -p build && cd build \
-    && LLVM_PROJ_SRC=${LLVM_PROJECT_ROOT} \
-       LLVM_PROJ_BUILD=${LLVM_PROJECT_ROOT}/build \
+    && MLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
        cmake -DCMAKE_INSTALL_MESSAGE=NEVER .. \
     && make -j$(nproc) \
     && LIT_OPTS=-v make -j$(nproc) check-onnx-lit \

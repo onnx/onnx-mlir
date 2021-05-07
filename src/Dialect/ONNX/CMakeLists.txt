@@ -1,16 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
-set(LLVM_TARGET_DEFINITIONS ONNXOps.td)
-onnx_mlir_tablegen(ONNXOps.hpp.inc -gen-op-decls "-I${ONNX_MLIR_SRC_ROOT}/compiler/pass")
-onnx_mlir_tablegen(ONNXOps.cpp.inc -gen-op-defs "-I${ONNX_MLIR_SRC_ROOT}/compiler/pass")
-set(GEN_DOC_FILE ${CMAKE_BINARY_DIR}/docs/Dialects/onnx.md)
-add_public_tablegen_target(OMONNXOpsIncGen)
+add_onnx_mlir_dialect(ONNXOps)
 
 # Header dependencies target for ONNXOps.hpp
 add_custom_target(OMONNXOpsInc
         DEPENDS OMONNXOpsIncGen
                 OMResultTypeInferenceOpInterfaceIncGen
-                ShapeInferenceOpInterfaceIncGen
+                OMShapeInferenceOpInterfaceIncGen
                 OMHasOnnxSubgraphOpInterfaceIncGen)
 
 add_library(OMONNXOps

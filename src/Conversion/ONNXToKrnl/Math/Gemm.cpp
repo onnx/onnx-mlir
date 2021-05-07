@@ -12,14 +12,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
+#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 // Used to trace which op are used, good for profiling apps.
-#define DEBUG 0
+#define TRACE 0
+#define DEBUG_SIMD_OFF 0
+#define DEBUG_UNROLL_OFF 0
+#define DEBUG_OPTIMIZED_OFF 0
+#define DEBUG_GLOBAL_ALLOC_FREE 1
 
+#define BUFFER_ALIGN 128
 using namespace mlir;
 
 template <typename GemmOp>
@@ -47,7 +52,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
           // Outer loop indices.
           ValueRange outerIndices = krnl_get_induction_var_value(outerLoops);
           // Create temp and set to zero.
-          Value red = std_alloca(MemRefType::get({}, elementType));
+          Value red = memref_alloca(MemRefType::get({}, elementType));
           SmallVector<Value, 2> redAccess; // Empty.
           krnl_store(zeroVal, red, redAccess);
           // Inner loop
@@ -97,19 +102,20 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Scope for krnl EDSC ops
     using namespace mlir::edsc;
     using namespace mlir::edsc::intrinsics;
-    // ScopedContext scope(rewriter, loc);
 
     // R is result (alloc).
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), R(alloc);
-    MemRefBoundsCapture aBound(A), rBound(R);
     bool aTrans = gemmOp.transA();
     bool bTrans = gemmOp.transB();
-    Value I(rBound.ub(0)), J(rBound.ub(1)), K(aBound.ub(aTrans ? 0 : 1));
-    Value zero = std_constant_index(0);
+    IndexExpr I = shapeHelper.dimsForOutput()[0];
+    IndexExpr J = shapeHelper.dimsForOutput()[1];
+    IndexExpr K = shapeHelper.aDims[1]; // aDims are already transposed.
+    LiteralIndexExpr zero(0);
+    Value z = zero.getValue();
 
     // Initialize alloc/R to zero.
     ValueRange zeroLoop = krnl_define_loop(2);
-    krnl_iterate(zeroLoop, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
+    krnl_iterate_ie(zeroLoop, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
       ValueRange indices = krnl_get_induction_var_value(zeroLoop);
       krnl_store(zeroVal, R, indices);
     });
@@ -118,16 +124,60 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // 1) Define blocking, with simdization along the j axis.
     const int64_t iCacheTile(64), jCacheTile(128), kCacheTile(512);
     const int64_t iRegTile(4), jRegTile(8);
+
+    bool unrollAndJam = DEBUG_UNROLL_OFF ? false : true;
+    // Simdize with jRegTile as the vector length.
+    bool simdize = DEBUG_SIMD_OFF ? false : true;
+
+    bool mustTileR = false;
+    if (!J.isLiteral()) {
+      // Assume large J, will simdize, but since simdized dimension must be a
+      // multiple of the vector length, we must tile C into a smaller block of
+      // known dimensions that are compatible with SIMD.
+      mustTileR = true;
+    } else {
+      int64_t jVal = J.getLiteral();
+      if (jVal < jRegTile) {
+        // Very small computation, give up on SIMD.
+        simdize = false;
+      } else if (jVal % jRegTile != 0) {
+        // Unfortunately, J is not divisible by the vector length. Could try
+        // to change the vector length, but right now, just go to buffering.
+        mustTileR = true;
+      } else {
+        // Best of all world, large computation, of sizes compatible with vector
+        // length.
+      }
+    }
+
     // 2) Alloc data for tiles.
+    // IntegerAttr alignAttr =
+    //    IntegerAttr::get(IntegerType::get(rewriter, 64), 128);
     MemRefType aTileType =
         MemRefType::get({iCacheTile, kCacheTile}, elementType);
     MemRefType bTileType =
         MemRefType::get({kCacheTile, jCacheTile}, elementType);
-    // IntegerAttr alignAttr =
-    //    IntegerAttr::get(IntegerType::get(rewriter, 64), 128);
-
-    Value aBuff = std_alloc(aTileType, ValueRange{});
-    Value bBuff = std_alloc(bTileType, ValueRange{});
+    MemRefType rTileType =
+        MemRefType::get({iCacheTile, jCacheTile}, elementType);
+#if DEBUG_GLOBAL_ALLOC_FREE
+    SmallVector<IndexExpr, 1> empty;
+    Value aBuff = insertAllocAndDeallocSimple(
+        rewriter, gemmOp, aTileType, loc, empty, true, BUFFER_ALIGN);
+    Value bBuff = insertAllocAndDeallocSimple(
+        rewriter, gemmOp, bTileType, loc, empty, true, BUFFER_ALIGN);
+    Value rBuff;
+    if (mustTileR)
+      rBuff = insertAllocAndDeallocSimple(
+          rewriter, gemmOp, aTileType, loc, empty, true, BUFFER_ALIGN);
+#else
+    ValueRange empty;
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value aBuff = memref_alloc(aTileType, empty, alignAttr);
+    Value bBuff = memref_alloc(bTileType, empty, alignAttr);
+    Value rBuff;
+    if (mustTileR)
+      rBuff = memref_alloc(rTileType, empty, alignAttr);
+#endif
 
     // 3) introduce the loops and permute them
     // I, J, K loop.
@@ -144,147 +194,122 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Tile K.
     ValueRange kCacheBlock = krnl_block(kk, kCacheTile);
     Value kk1(kCacheBlock[0]), kk2(kCacheBlock[1]);
-    // (cache) jj1 kk1, ii1,    (reg) jj2, ii2,    (matmul) ii3, jj3, kk3
-    krnl_permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
-        {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
 
-    // Compute: A[i, k] * b[k, j] -> R[i, j])
-    krnl_iterate(
-        {jj, kk}, {jj1, kk1}, {zero, zero}, {J, K}, {}, [&](ValueRange args) {
-          ValueRange j1_k1_indices = krnl_get_induction_var_value({jj1, kk1});
-          Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
-          if (bTrans)
-            krnl_copy_to_buffer(bBuff, B, {j1, k1}, zeroVal, bTrans);
-          else
-            krnl_copy_to_buffer(bBuff, B, {k1, j1}, zeroVal, bTrans);
-          krnl_iterate({ii}, {ii1}, {zero}, {I}, {}, [&](ValueRange args) {
-            ValueRange i1_index = krnl_get_induction_var_value({ii1});
-            Value i1(i1_index[0]);
-            if (aTrans)
-              krnl_copy_to_buffer(aBuff, A, {k1, i1}, zeroVal, aTrans);
-            else
-              krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, aTrans);
-            krnl_iterate(
-                {}, {jj2, ii2}, (ValueRange){}, {}, {}, [&](ValueRange args) {
-                  ValueRange j2_i2_indices =
-                      krnl_get_induction_var_value({jj2, ii2});
-                  Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
-                  krnl_matmul(aBuff, {i1, k1}, bBuff, {k1, j1}, R, {zero, zero},
-                      /*loops*/ {ii3, jj3, kk2},
-                      /*compute start*/ {i2, j2, k1},
-                      /*ubs*/ {I, J, K},
-                      /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
-                      /* a/b/c tiles*/ {}, {}, {}, true, true, false);
-                });
+    // If we must tile the result R, then we put I & J in the outermost.
+    // Otherwise, we follow the more traditional scheme of having J & K in the
+    // outermost.
+    if (mustTileR) {
+      // (cache) ii1 jj1 kk1,    (reg) jj2, ii2,    (matmul) ii3, jj3, kk3
+      krnl_permute({ii1, ii2, ii3, jj1, jj2, jj3, kk1, kk2},
+          {/*i*/ 0, 4, 5, /*j*/ 1, 3, 6, /*k*/ 2, 7});
+      // Compute: A[i, k] * b[k, j] -> R[i, j])
+      krnl_iterate_ie(
+          {ii, jj}, {ii1, jj1}, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
+            ValueRange i1_j1_indices = krnl_get_induction_var_value({ii1, jj1});
+            Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
+            krnl_copy_to_buffer(rBuff, R, {i1, j1}, zeroVal, false);
+            krnl_iterate_ie({kk}, {kk1}, {zero}, {K}, {}, [&](ValueRange args) {
+              ValueRange k1_index = krnl_get_induction_var_value({kk1});
+              Value k1(k1_index[0]);
+              if (aTrans)
+                krnl_copy_to_buffer(aBuff, A, {k1, i1}, zeroVal, true);
+              else
+                krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, false);
+              if (bTrans)
+                krnl_copy_to_buffer(bBuff, B, {j1, k1}, zeroVal, true);
+              else
+                krnl_copy_to_buffer(bBuff, B, {k1, j1}, zeroVal, false);
+              krnl_iterate({}, {jj2, ii2}, {}, {}, {}, [&](ValueRange args) {
+                ValueRange j2_i2_indices =
+                    krnl_get_induction_var_value({jj2, ii2});
+                Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
+                krnl_matmul(aBuff, {i1, k1}, bBuff, {k1, j1}, rBuff, {i1, j1},
+                    /*loops*/ {ii3, jj3, kk2},
+                    /*compute start*/ {i2, j2, k1},
+                    /*ubs*/ {I.getValue(), J.getValue(), K.getValue()},
+                    /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
+                    /* a/b/c tiles*/ {}, {}, {}, simdize, unrollAndJam, false);
+              });
+            });
+            krnl_copy_from_buffer(rBuff, R, {i1, j1});
           });
-        });
+
+    } else {
+      // Does not have to tile the result.
+      // (cache) jj1 kk1, ii1, (reg) jj2, ii2, (matmul) ii3, jj3, kk3
+      krnl_permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
+          {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
+      // Compute: A[i, k] * b[k, j] -> R[i, j])
+      krnl_iterate_ie(
+          {jj, kk}, {jj1, kk1}, {zero, zero}, {J, K}, {}, [&](ValueRange args) {
+            ValueRange j1_k1_indices = krnl_get_induction_var_value({jj1, kk1});
+            Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
+            if (bTrans)
+              krnl_copy_to_buffer(bBuff, B, {j1, k1}, zeroVal, true);
+            else
+              krnl_copy_to_buffer(bBuff, B, {k1, j1}, zeroVal, false);
+            krnl_iterate_ie({ii}, {ii1}, {zero}, {I}, {}, [&](ValueRange args) {
+              ValueRange i1_index = krnl_get_induction_var_value({ii1});
+              Value i1(i1_index[0]);
+              if (aTrans)
+                krnl_copy_to_buffer(aBuff, A, {k1, i1}, zeroVal, true);
+              else
+                krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, false);
+              krnl_iterate({}, {jj2, ii2}, {}, {}, {}, [&](ValueRange args) {
+                ValueRange j2_i2_indices =
+                    krnl_get_induction_var_value({jj2, ii2});
+                Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
+                krnl_matmul(aBuff, {i1, k1}, bBuff, {k1, j1}, R, {z, z},
+                    /*loops*/ {ii3, jj3, kk2},
+                    /*compute start*/ {i2, j2, k1},
+                    /*ubs*/ {I.getValue(), J.getValue(), K.getValue()},
+                    /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
+                    /* a/b/c tiles*/ {}, {}, {}, simdize, unrollAndJam, false);
+              });
+            });
+          });
+    }
+
+#if DEBUG_GLOBAL_ALLOC_FREE
+#else
+    rewriter.create<memref::DeallocOp>(loc, aBuff);
+    rewriter.create<memref::DeallocOp>(loc, bBuff);
+    if (mustTileR)
+      rewriter.create<memref::DeallocOp>(loc, rBuff);
+#endif
 
     // Perform the alpha/beta computations.
+    float alphaLit = gemmOp.alpha().convertToFloat();
+    float betaLit = gemmOp.beta().convertToFloat();
+    if (alphaLit == 1.0 && (betaLit == 0.0 || !shapeHelper.hasBias)) {
+      // No need for the multiply/add.
+      return;
+    }
     ValueRange outerLoops = krnl_define_loop(2);
-    krnl_iterate(
-        outerLoops, rBound.getLbs(), rBound.getUbs(), {}, [&](ValueRange args) {
-          // Outer loop indices.
-          ValueRange outerIndices = krnl_get_induction_var_value(outerLoops);
+    krnl_iterate_ie(outerLoops, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
+      // Outer loop indices.
+      ValueRange outerIndices = krnl_get_induction_var_value(outerLoops);
 
-          // Handle alpha/beta coefficients.
-          Value res = std_mulf(alphaVal, krnl_load(R, outerIndices));
-          if (shapeHelper.hasBias) {
-            SmallVector<IndexExpr, 2> cAccess;
-            for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
-              // If dim > 1, use loop index, otherwise broadcast on 0's element.
-              SymbolIndexExpr dim(shapeHelper.cDims[x]);
-              cAccess.emplace_back(
-                  IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0));
-            }
-            Value c = krnl_load(operandAdaptor.C(), cAccess);
-            res = std_addf(res, std_mulf(betaVal, c));
-          }
-          krnl_store(res, R, outerIndices);
-        });
-    rewriter.create<DeallocOp>(loc, aBuff);
-    rewriter.create<DeallocOp>(loc, bBuff);
-  }
-
-  void genericGemm_old(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
-      Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
-      Value zeroVal, Value alphaVal, Value betaVal,
-      ConversionPatternRewriter &rewriter, Location loc) const {
-    // Loop iterations N=0 & M-1 going over each of the res[n, m] values.
-    BuildKrnlLoop outputLoops(rewriter, loc, 2);
-    outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
-    outputLoops.createIterateOp();
-    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
-
-    // Compute the access functions for res[n,m].
-    DimIndexExpr n(outputLoops.getInductionVar(0));
-    DimIndexExpr m(outputLoops.getInductionVar(1));
-    SmallVector<IndexExpr, 4> resAccessFct({n, m});
-
-    // Insert res[n,m] = 0.
-    // Create a local reduction value for res[n,m].
-    Value reductionVal =
-        rewriter.create<AllocaOp>(loc, MemRefType::get({}, elementType));
-    rewriter.create<KrnlStoreOp>(loc, zeroVal, reductionVal, ArrayRef<Value>{});
-
-    // Create the inner reduction loop.
-    BuildKrnlLoop innerLoops(rewriter, loc, 1);
-    innerLoops.createDefineOp();
-    innerLoops.pushBounds(0, shapeHelper.aDims[1]);
-    innerLoops.createIterateOp();
-
-    // Now start writing code inside the inner loop: get A & B access
-    // functions.
-    auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
-    rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
-    {
-      DimIndexExpr k(innerLoops.getInductionVar(0));
-      SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
-      if (gemmOp.transA() != 0)
-        aAccessFct = {k, n};
-      else
-        aAccessFct = {n, k};
-      if (gemmOp.transB() != 0)
-        bAccessFct = {m, k};
-      else
-        bAccessFct = {k, m};
-      // Add mat mul operation.
-      Value loadedA = krnl_load(operandAdaptor.A(), aAccessFct);
-      Value loadedB = krnl_load(operandAdaptor.B(), bAccessFct);
-      Value loadedY =
-          rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
-      Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
-      Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-      rewriter.create<KrnlStoreOp>(
-          loc, accumulated, reductionVal, ArrayRef<Value>{});
-    }
-    rewriter.restoreInsertionPoint(ipOuterLoopRegion);
-    Value loadedAB =
-        rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
-
-    // Write code after the completion of the inner loop.
-    // Compute the c access function using the broadcast rules.
-    SmallVector<IndexExpr, 4> cAccessFct;
-    if (shapeHelper.hasBias) {
-      for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
-        // If dim > 1, use loop index, otherwise broadcast on 0's element.
-        IndexExpr dim = shapeHelper.cDims[x];
-        cAccessFct.emplace_back(IndexExpr::select(dim > 1, resAccessFct[x], 0));
+      // Handle alpha/beta coefficients.
+      Value res = krnl_load(R, outerIndices);
+      if (alphaLit != 1.0)
+        res = std_mulf(alphaVal, res);
+      if (shapeHelper.hasBias) {
+        IndexExprScope innerScope;
+        SmallVector<IndexExpr, 2> cAccess;
+        for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
+          // If dim > 1, use loop index, otherwise broadcast on 0's element.
+          DimIndexExpr dim(shapeHelper.cDims[x]);
+          cAccess.emplace_back(
+              IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0));
+        }
+        Value c = krnl_load(operandAdaptor.C(), cAccess);
+        if (betaLit != 1.0)
+          c = std_mulf(betaVal, c);
+        res = std_addf(res, c);
       }
-    }
-
-    // Calculate reduction(AB)*alpha.
-    Value alphaAB = rewriter.create<MulFOp>(loc, alphaVal, loadedAB);
-    if (shapeHelper.hasBias) {
-      // Res = AB*alpha + beta * C.
-      Value loadedC = krnl_load(operandAdaptor.C(), cAccessFct);
-      Value betaC = rewriter.create<MulFOp>(loc, betaVal, loadedC);
-      Value Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
-      krnl_store(Y, alloc, resAccessFct);
-    } else {
-      // No bias, just store alphaAB into res.
-      krnl_store(alphaAB, alloc, resAccessFct);
-    }
+      krnl_store(res, R, outerIndices);
+    });
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -294,19 +319,20 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ONNXGemmOpAdaptor operandAdaptor(operands);
     ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
     Location loc = op->getLoc();
-    ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter);
+    ONNXGemmOpShapeHelper shapeHelper(&gemmOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     assert(succeeded(shapecomputed));
     // Scope for krnl EDSC ops
     using namespace mlir::edsc;
     ScopedContext scope(rewriter, loc);
-    IndexExprScope outerScope;
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+    Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
+        loc, shapeHelper.dimsForOutput(0), (int64_t)BUFFER_ALIGN);
 
     // Get the constants: zero, alpha,and beta.
     float alphaLit = gemmOp.alpha().convertToFloat();
@@ -315,37 +341,49 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-#if DEBUG
+#if TRACE
+    if (DEBUG_SIMD_OFF)
+      printf("Gemm simd off\n");
+    if (DEBUG_UNROLL_OFF)
+      printf("Gemm unroll off\n");
+    if (DEBUG_OPTIMIZED_OFF)
+      printf("Gemm optimized path off\n");
     bool aTrans = gemmOp.transA();
     bool bTrans = gemmOp.transB();
     if (IndexExpr::isLiteral(shapeHelper.aDims) &&
-        IndexExpr::isLiteral(shapeHelper.bDims)) {
-      printf("hi alex: gemm of size I/J/K, %d,%d,%d%s%s\n",
+        IndexExpr::isLiteral(shapeHelper.bDims) &&
+        IndexExpr::isLiteral(shapeHelper.cDims)) {
+      int cDim0 = shapeHelper.hasBias ? shapeHelper.cDims[0].getLiteral() : -1;
+      int cDim1 = shapeHelper.hasBias ? shapeHelper.cDims[1].getLiteral() : -1;
+      printf(
+          "OP-STATS: gemm of size I/J/K, %d,%d,%d%s%s, alpha %f%s, beta %f%s, "
+          "c, %d, %d\n",
           (int)shapeHelper.aDims[0].getLiteral(),
           (int)shapeHelper.bDims[1].getLiteral(),
           (int)shapeHelper.aDims[1].getLiteral(), (aTrans ? ", a trans" : ""),
-          (bTrans ? ", b trans" : ""));
+          (bTrans ? ", b trans" : ""), (double)alphaLit,
+          (alphaLit == 1.0 ? " (skip)" : ""), (double)betaLit,
+          (betaLit == 1.0 ? " (skip)" : ""), cDim0, cDim1);
     } else {
-      printf("hi alex: gemm of unkown sizes %s%s\n",
-          (aTrans ? ", a trans" : ""), (bTrans ? ", b trans" : ""));
+      printf("OP-STATS: gemm of unkown sizes %s%s, alpha %f, beta %f\n",
+          (aTrans ? ", a trans" : ""), (bTrans ? ", b trans" : ""),
+          (double)alphaLit, (double)betaLit);
     }
 #endif
 
-    if (true) {
-      tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
-          alloc, zero, alpha, beta, rewriter, loc);
-    } else {
+    if (DEBUG_OPTIMIZED_OFF) {
       genericGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,
           alpha, beta, rewriter, loc);
+    } else {
+      tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
+          alloc, zero, alpha, beta, rewriter, loc);
     }
-
     rewriter.replaceOp(op, alloc);
-
     return success();
   }
 };
 
 void populateLoweringONNXGemmOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(ctx);
 }

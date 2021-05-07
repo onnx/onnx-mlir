@@ -32,7 +32,9 @@ struct ONNXSplitOpLowering : public ConversionPattern {
     auto axis = splitOp.axis();
 
     // Get a shape helper.
-    ONNXSplitOpShapeHelper shapeHelper(&splitOp, &rewriter);
+    ONNXSplitOpShapeHelper shapeHelper(&splitOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     assert(succeeded(shapecomputed));
 
@@ -88,6 +90,6 @@ struct ONNXSplitOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXSplitOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXSplitOpLowering>(ctx);
 }

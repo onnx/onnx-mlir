@@ -8,9 +8,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef SHAPE_INFERENCE_INTERFACE
+#ifdef SHAPE_INFERENCE_OP_INTERFACE
 #else
-#define SHAPE_INFERENCE_INTERFACE
+#define SHAPE_INFERENCE_OP_INTERFACE
 
 #ifdef OP_BASE
 #else
@@ -38,4 +38,4 @@ def ShapeInferenceOpInterface : OpInterface<"ShapeInference"> {
   ];
 }
 
-#endif // SHAPE_INFERENCE_INTERFACE
+#endif // SHAPE_INFERENCE_OP_INTERFACE

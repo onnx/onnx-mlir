@@ -88,7 +88,7 @@ extern OMTensorList *run_main_graph(OMTensorList *);
     i, n, data, shape, strides, dataType, bufferSize, rank, owning)            \
   do {                                                                         \
     char tmp[1024];                                                            \
-    LOG_TYPE_BUF(dataType, tmp, data, n);                                      \
+    LOG_BUF(dataType, tmp, data, n);                                           \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:data=[%s]", i, tmp);                        \
     LOG_LONG_BUF(tmp, shape, rank);                                            \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:shape=[%s]", i, tmp);                       \
@@ -99,6 +99,14 @@ extern OMTensorList *run_main_graph(OMTensorList *);
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:rank=%d", i, rank);                         \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:owning=%d", i, owning);                     \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:numElems=%ld", i, n);                       \
+  } while (0)
+
+/* Debug output of hex string */
+#define HEX_DEBUG(label, string, n)                                            \
+  do {                                                                         \
+    char tmp[1024];                                                            \
+    LOG_CHAR_XBUF(tmp, string, n);                                             \
+    LOG_PRINTF(LOG_DEBUG, "%s(%d):[%s]", label, n, tmp);                       \
   } while (0)
 
 /* Java classes and methods needed for making various JNI API calls */
@@ -389,6 +397,7 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
 
   /* Call model input signature API */
   CHECK_CALL(const char *, jni_isig, omInputSignature(), NULL);
+  HEX_DEBUG("isig", jni_isig, strlen(jni_isig));
 
   /* Convert to Java String object */
   JNI_TYPE_VAR_CALL(
@@ -402,6 +411,7 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
 
   /* Call model output signature API */
   CHECK_CALL(const char *, jni_osig, omOutputSignature(), NULL);
+  HEX_DEBUG("osig", jni_osig, strlen(jni_osig));
 
   /* Convert to Java String object */
   JNI_TYPE_VAR_CALL(

@@ -4,7 +4,6 @@ cd llvm-project\build
 call cmake %root_dir%\llvm-project\llvm -G "Visual Studio 16 2019" -A x64 -T host=x64 ^
    -DCMAKE_INSTALL_PREFIX="%root_dir%\llvm-project\build\install" ^
    -DLLVM_ENABLE_PROJECTS=mlir ^
-   -DLLVM_BUILD_EXAMPLES=ON ^
    -DLLVM_TARGETS_TO_BUILD="host" ^
    -DCMAKE_BUILD_TYPE=Release ^
    -DLLVM_ENABLE_ASSERTIONS=ON ^

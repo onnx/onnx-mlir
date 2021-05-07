@@ -14,7 +14,7 @@
 
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
-include "src/Interface/ShapeInferenceInterface.td"
+include "src/Interface/ShapeInferenceOpInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"
 include "src/Interface/HasOnnxSubgraphOpInterface.td"
 
@@ -74,8 +74,8 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
   }];
 
-  let builders = [OpBuilderDAG<(ins "FuncOp":$function, "int":$numInputs,
-                                    "int":$numOutputs, "std::string":$signature)>];
+  let builders = [OpBuilder<(ins "FuncOp":$function, "int":$numInputs,
+                                 "int":$numOutputs, "std::string":$signature)>];
 
   let extraClassDeclaration = [{
     static ONNXEntryPointOp create(Location location, FuncOp& func,
@@ -101,7 +101,7 @@ def ONNXReturnOp : ONNX_Op<"Return", [NoSideEffect,
   let arguments = (ins Variadic<AnyType>:$operands);
 
   let builders = [
-    OpBuilderDAG<(ins),
+    OpBuilder<(ins),
     [{ build($_builder, $_state, llvm::None); }]>];
 
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";

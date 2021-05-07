@@ -48,13 +48,12 @@ if ! [ -d ${LLVM_PROJECT_ROOT}/build ] ||
     git fetch && git checkout ${EXPECTED_LLVM_PROJECT_SHA1}
     rm -rf build && mkdir -p build && cd build
     cmake -G Ninja ../llvm \
-	  -DLLVM_ENABLE_PROJECTS=mlir \
-	  -DLLVM_BUILD_EXAMPLES=ON \
-	  -DLLVM_TARGETS_TO_BUILD="host" \
-	  -DCMAKE_BUILD_TYPE=Release \
-	  -DLLVM_ENABLE_ASSERTIONS=ON \
-	  -DLLVM_ENABLE_RTTI=ON \
-	  -DBUILD_SHARED_LIBS=${LLVM_BUILD_SHARED_LIBS}
+          -DLLVM_ENABLE_PROJECTS=mlir \
+          -DLLVM_TARGETS_TO_BUILD="host" \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DLLVM_ENABLE_ASSERTIONS=ON \
+          -DLLVM_ENABLE_RTTI=ON \
+          -DBUILD_SHARED_LIBS=${LLVM_BUILD_SHARED_LIBS}
     cmake --build . --target -- ${MAKEFLAGS}
     popd
 else
@@ -65,9 +64,8 @@ fi
 export BUILD_PATH=build-against-$(basename ${LLVM_PROJECT_ROOT})
 mkdir ${BUILD_PATH} && cd ${BUILD_PATH}
 
-LLVM_PROJ_SRC=${LLVM_PROJECT_ROOT}              \
-LLVM_PROJ_BUILD=${LLVM_PROJECT_ROOT}/build      \
-cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} .. \
+MLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
+cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} ..    \
 
 make -j$(nproc)
 make -j$(nproc) check-onnx-lit

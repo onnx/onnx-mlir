@@ -1,22 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
-set(LLVM_TARGET_DEFINITIONS ShapeInferenceInterface.td)
-onnx_mlir_tablegen(ShapeInference.hpp.inc -gen-op-interface-decls)
-onnx_mlir_tablegen(ShapeInference.cpp.inc -gen-op-interface-defs)
-add_public_tablegen_target(ShapeInferenceOpInterfaceIncGen)
+add_onnx_mlir_interface(ShapeInferenceOpInterface)
 
 add_library(OMShapeInferenceOpInterface
-        ShapeInferenceInterface.hpp
-        ShapeInferenceInterface.cpp)
+        ShapeInferenceOpInterface.hpp
+        ShapeInferenceOpInterface.cpp)
 target_include_directories(OMShapeInferenceOpInterface
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
-add_dependencies(OMShapeInferenceOpInterface ShapeInferenceOpInterfaceIncGen)
+add_dependencies(OMShapeInferenceOpInterface OMShapeInferenceOpInterfaceIncGen)
 
-set(LLVM_TARGET_DEFINITIONS ResultTypeInferenceOpInterface.td)
-onnx_mlir_tablegen(ResultTypeInferenceOpInterface.hpp.inc -gen-op-interface-decls)
-onnx_mlir_tablegen(ResultTypeInferenceOpInterface.cpp.inc -gen-op-interface-defs)
-add_public_tablegen_target(OMResultTypeInferenceOpInterfaceIncGen)
+add_onnx_mlir_interface(ResultTypeInferenceOpInterface)
 
 add_library(OMResultTypeInferenceOpInterface
         ResultTypeInferenceOpInterface.hpp
@@ -27,10 +21,7 @@ target_include_directories(OMResultTypeInferenceOpInterface
 add_dependencies(OMResultTypeInferenceOpInterface
         OMResultTypeInferenceOpInterfaceIncGen)
 
-set(LLVM_TARGET_DEFINITIONS HasOnnxSubgraphOpInterface.td)
-onnx_mlir_tablegen(HasOnnxSubgraphOpInterface.hpp.inc -gen-op-interface-decls)
-onnx_mlir_tablegen(HasOnnxSubgraphOpInterface.cpp.inc -gen-op-interface-defs)
-add_public_tablegen_target(OMHasOnnxSubgraphOpInterfaceIncGen)
+add_onnx_mlir_interface(HasOnnxSubgraphOpInterface)
 
 add_library(OMHasOnnxSubgraphOpInterface
         HasOnnxSubgraphOpInterface.hpp
@@ -42,10 +33,7 @@ target_include_directories(OMHasOnnxSubgraphOpInterface
 add_dependencies(OMHasOnnxSubgraphOpInterface
         OMHasOnnxSubgraphOpInterfaceIncGen)
 
-set(LLVM_TARGET_DEFINITIONS SpecializedKernelOpInterface.td)
-onnx_mlir_tablegen(SpecializedKernelOpInterface.hpp.inc -gen-op-interface-decls)
-onnx_mlir_tablegen(SpecializedKernelOpInterface.cpp.inc -gen-op-interface-defs)
-add_public_tablegen_target(OMSpecializedKernelOpInterfaceIncGen)
+add_onnx_mlir_interface(SpecializedKernelOpInterface)
 
 add_library(OMSpecializedKernelOpInterface
         SpecializedKernelOpInterface.hpp

@@ -20,7 +20,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "src/Interface/ShapeInferenceInterface.hpp"
+#include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -50,7 +50,7 @@ static SmallVector<mlir::FuncOp, 4> lookUpFuncsMatching(
  * its output shape only after shape inference completes for the associated
  * (sub) graph.
  *
- * In the abscence of a main computation graph, we will treat every mlir
+ * In the absence of a main computation graph, we will treat every mlir
  * function as a main computation graph; this is mostly just for testing
  * purposes.
  */
@@ -62,8 +62,10 @@ public:
     auto matchedFuncs =
         lookUpFuncsMatching(module, std::regex("[a-zA-Z0-9_]*main_graph"));
     if (!matchedFuncs.empty()) {
-      for (auto func : matchedFuncs)
-        runShapeInferenceOn(func);
+      for (auto func : matchedFuncs) {
+        if (failed(runShapeInferenceOn(func)))
+          signalPassFailure();
+      }
     } else {
       auto result = module.walk([&](FuncOp funcOp) -> WalkResult {
         return runShapeInferenceOn(funcOp);
@@ -120,7 +122,7 @@ public:
 
     // Check if a terminator op exists for function.
     if (!funcBody.empty() && !funcBody.back().empty() &&
-        funcBody.back().back().isKnownTerminator())
+        funcBody.back().back().hasTrait<OpTrait::IsTerminator>())
       if (auto returnOp = f.getBody().back().getTerminator()) {
         auto results = returnOp->getOperandTypes();
         f.setType(FunctionType::get(f.getContext(), f.getType().getInputs(),
