@@ -404,9 +404,11 @@ public:
         alignmentToMemPool->count(alignment) == 0;
 
     // This is the first dynamic alloc with this alignment.
-    if (isFirstBundledAllocWithThisAlignment)
+    if (isFirstBundledAllocWithThisAlignment) {
+      allocOp.getOperation()->moveBefore(&parentBlock->front());
       alignmentToMemPool->insert(
           std::pair<int64_t, memref::AllocOp>(alignment, allocOp));
+    }
 
     // Move the computation instructions at the start of the block.
     memref::AllocOp oldDynamicMemoryPool = alignmentToMemPool->at(alignment);
