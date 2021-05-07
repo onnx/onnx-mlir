@@ -570,7 +570,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
       allocOperands.emplace_back(batchSizeVal);
     }
     if (memRefShape[1] < 0) {
-      allocOperands.emplace_back(inputSizeVal);
+      allocOperands.emplace_back(hiddenSizeVal);
     }
     Ht = rewriter.create<AllocOp>(loc, HtType, allocOperands);
     //auto *parentBlock = Ht.getDefiningOp()->getBlock();
@@ -590,7 +590,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
       allocOperands.emplace_back(batchSizeVal);
     }
     if (memRefShape[1] < 0) {
-      allocOperands.emplace_back(inputSizeVal);
+      allocOperands.emplace_back(hiddenSizeVal);
     }
     Ct = rewriter.create<AllocOp>(loc, CtType, allocOperands);
     //auto *parentBlock = Ct.getDefiningOp()->getBlock();
@@ -610,10 +610,10 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
     auto hiddenIV = htLoops.getInductionVar(1);
     // Copy Ht.
     Value val =
-        krnl_load(state.ht, ArrayRef<Value>{sequenceIV, batchIV, hiddenIV});
+        krnl_load(state.ht, ArrayRef<Value>{directionIV, batchIV, hiddenIV});
     krnl_store(val, Ht, ArrayRef<Value>{batchIV, hiddenIV});
     // Copy Ct.
-    val = krnl_load(state.ct, ArrayRef<Value>{sequenceIV, batchIV, hiddenIV});
+    val = krnl_load(state.ct, ArrayRef<Value>{directionIV, batchIV, hiddenIV});
     krnl_store(val, Ct, ArrayRef<Value>{batchIV, hiddenIV});
   }
 
@@ -691,7 +691,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
   Value nextHt = applyActivation(rewriter, loc, activationPack.h, nextCt);
   nextHt = rewriter.create<ONNXMulOp>(loc, matrixType, ot, nextHt);
 
-  // Store the intermediate Ht if required.
+  // Store the intermediate Ht, Ct.
   BuildKrnlLoop stateLoops(rewriter, loc, 2);
   stateLoops.createDefineOp();
   stateLoops.pushBounds(0, batchSizeVal);
@@ -711,6 +711,10 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
       SmallVector<Value, 4> allHIVs{sequenceIV, directionIV, batchIV, hiddenIV};
       krnl_store(val, state.allH, allHIVs);
     }
+
+    val = krnl_load(nextCt, ArrayRef<Value>{batchIV, hiddenIV});
+    krnl_store(val, state.ct, ArrayRef<Value>{directionIV, batchIV, hiddenIV});
+
   }
 }
 
