@@ -94,10 +94,10 @@ func @test_dynamic_pool_bundling(%arg0: memref<?x?xf32>) -> memref<?x10xf32> {
   // CHECK: [[DIM:%.+]] = memref.dim %arg0, [[C0]] : memref<?x?xf32>
   // CHECK: [[MUL2:%.+]] = muli [[DIM]], [[C4]] : index
   // CHECK: [[OFFSET2:%.+]] = muli [[MUL2]], [[C10]] : index
+  // CHECK: [[DYN_MEMPOOL_ALIGNED:%.+]] = memref.alloc([[OFFSET2]]) {alignment = 4096 : i64} : memref<?xi8>
   // CHECK: [[MUL1:%.+]] = muli [[DIM]], [[C4]] : index
   // CHECK: [[OFFSET1:%.+]] = muli [[MUL1]], [[C10]] : index
   // CHECK: [[DYN_MEMPOOL:%.+]] = memref.alloc([[OFFSET1]]) : memref<?xi8>
-  // CHECK: [[DYN_MEMPOOL_ALIGNED:%.+]] = memref.alloc([[OFFSET2]]) {alignment = 4096 : i64} : memref<?xi8>
   // CHECK: [[DATA1:%.+]] = "krnl.getref"([[DYN_MEMPOOL_ALIGNED]], [[C0_I64]], [[DIM]]) : (memref<?xi8>, i64, index) -> memref<?x10xf32>
   // CHECK: [[DATA2:%.+]] = "krnl.getref"([[DYN_MEMPOOL]], [[C0_I64]], [[DIM]]) : (memref<?xi8>, i64, index) -> memref<?x10xf32>
   // CHECK: [[RES:%.+]] = memref.alloc([[DIM]]) : memref<?x10xf32>
@@ -162,10 +162,10 @@ func @test_dynamic_and_static_pool_bundling(%arg0: memref<?x?xf32>, %arg1: memre
   // CHECK: [[DIM:%.+]] = memref.dim %arg0, [[C0]] : memref<?x?xf32>
   // CHECK: [[MUL2:%.+]] = muli [[DIM]], [[C4]] : index
   // CHECK: [[OFFSET2:%.+]] = muli [[MUL2]], [[C10]] : index
+  // CHECK: [[DYN_MEMPOOL_ALIGNED:%.+]] = memref.alloc([[OFFSET2]]) {alignment = 4096 : i64} : memref<?xi8>
   // CHECK: [[MUL1:%.+]] = muli [[DIM]], [[C4]] : index
   // CHECK: [[OFFSET1:%.+]] = muli [[MUL1]], [[C10]] : index
   // CHECK: [[DYN_MEMPOOL:%.+]] = memref.alloc([[OFFSET1]]) : memref<?xi8>
-  // CHECK: [[DYN_MEMPOOL_ALIGNED:%.+]] = memref.alloc([[OFFSET2]]) {alignment = 4096 : i64} : memref<?xi8>
   // CHECK: [[DATA2:%.+]] = "krnl.getref"([[DYN_MEMPOOL_ALIGNED]], [[C0_I64]], [[DIM]]) : (memref<?xi8>, i64, index) -> memref<?x10xf32>
   // CHECK: [[STATIC_MEMPOOL:%.+]] = memref.alloc() : memref<2400xi8>
   // CHECK: [[DATA3:%.+]] = "krnl.getref"([[STATIC_MEMPOOL]], [[C1600_I64]]) : (memref<2400xi8>, i64) -> memref<10x20xf32>
