@@ -31,6 +31,9 @@ parameters:
 - name: RunAllTests
   type: boolean
   default: true
+- name: ForceCleanBuild
+  type: boolean
+  default: false
 
 variables:
 - name: System.PreferGitFromPath
@@ -40,5 +43,6 @@ jobs:
 - template: .azure-pipelines/templates/ONNXMLIRJobTemplate.yml@tools
   parameters:
     BuildConfigurations: ${{ parameters.BuildConfigurations }}
+    ForceCleanBuild: ${{ parameters.ForceCleanBuild }}
     Platforms: ${{ parameters.Platforms }}
     RunAllTests: ${{ parameters.RunAllTests }}
