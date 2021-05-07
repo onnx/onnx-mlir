@@ -237,9 +237,9 @@ OMTensorList *omtl_java_to_native(
         env, void *, jni_data, (*env)->GetDirectBufferAddress(env, jomt_data));
 
     /* Get long array associated with data shape and strides */
-    JNI_TYPE_VAR_CALL(env, long *, jni_shape,
+    JNI_TYPE_VAR_CALL(env, jlong *, jni_shape,
         (*env)->GetLongArrayElements(env, jomt_shape, NULL));
-    JNI_TYPE_VAR_CALL(env, long *, jni_strides,
+    JNI_TYPE_VAR_CALL(env, jlong *, jni_strides,
         (*env)->GetLongArrayElements(env, jomt_strides, NULL));
 
     /* Primitive type int and long can be directly used */
