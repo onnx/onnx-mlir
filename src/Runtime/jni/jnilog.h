@@ -110,10 +110,10 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
 
 /* Main macro for log output */
 #define LOG_PRINTF(level, ...)                                                 \
-  log_printf(level, __FILE__, __FUNCTION__, __LINE__, __VA_ARGS__)
+  log_printf(level, (char *)__FILE__, (char *)__FUNCTION__, __LINE__,          \
+      (char *)__VA_ARGS__)
 
 /* Generic log routine */
-void log_printf(
-    int level, char *file, const char *func, int line, char *fmt, ...);
+void log_printf(int level, char *file, char *func, int line, char *fmt, ...);
 
 #endif

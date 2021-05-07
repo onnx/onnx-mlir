@@ -57,7 +57,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm);
 
 void addKrnlToAffinePasses(mlir::PassManager &pm);
 
-void addKrnlToLLVMPasses(mlir::PassManager &pm);
+void addKrnlToLLVMPasses(mlir::OpPassManager &pm);
 
 void processInputFile(std::string inputFilename,
     EmissionTargetType emissionTarget, mlir::MLIRContext &context,

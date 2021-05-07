@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/AffineExpr.h"
 
@@ -287,7 +288,8 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
     assert(!upperBoundMustBeConstant && "Bound expected to be constant.");
     pack->pushOperandBound(
         rewriter
-            .create<DimOp>(loc, upperBoundMemRefOperand, upperBoundMemRefIndex)
+            .create<memref::DimOp>(
+                loc, upperBoundMemRefOperand, upperBoundMemRefIndex)
             .getResult());
   } else
     pack->pushConstantBound(shape[upperBoundMemRefIndex]);
@@ -351,6 +353,27 @@ ArrayRef<BlockArgument> BuildKrnlLoop::getAllInductionVar() {
       iterBlock->getArguments().begin(), iterBlock->getArguments().end());
 }
 
+// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr lambda
+// type, using ONNX and Krnl operations.
+DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value) {
+  auto definingOp = value.getDefiningOp();
+  if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
+    if (globalOp.value().hasValue())
+      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  }
+  return nullptr;
+}
+
+// This function satisfies the ArrayValueIndexCapture::LoadVal lambda
+// type, using Krnl operations.
+Value loadDenseElementArrayValueAtIndex(
+    OpBuilder &rewriter, Location loc, Value array, int64_t index) {
+  Attribute constAttr = rewriter.getIntegerAttr(rewriter.getIndexType(), index);
+  Value indexVal = rewriter.create<ConstantOp>(loc, constAttr);
+  SmallVector<Value, 1> memrefVal = {indexVal};
+  return rewriter.create<KrnlLoadOp>(loc, array, memrefVal);
+}
+
 //====---------------- Support for simple transpose ----------------------===//
 
 // create an identity
@@ -382,6 +405,14 @@ void krnl_store(Value val, Value memref, ValueRange indices) {
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   ScopedContext::getBuilderRef().create<KrnlStoreOp>(
       ScopedContext::getLocation(), val, memref, indices);
+}
+
+// Support only 1D vector type.
+Value krnl_vector_type_cast(Value sourceMemref, int64_t vectorLen) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  return ScopedContext::getBuilderRef().create<KrnlVectorTypeCastOp>(
+      ScopedContext::getLocation(), sourceMemref, vectorLen);
 }
 
 ValueRange krnl_define_loop(int64_t originalLoopNum) {

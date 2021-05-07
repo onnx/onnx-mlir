@@ -59,6 +59,6 @@ struct ONNXShapeOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXShapeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXShapeOpLowering>(ctx);
 }

@@ -394,7 +394,7 @@ custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broa
 #a dictionary to add any special definition for an operation
 custom_definition_misc = dict([ ('Constant',
  '''  let builders = [
-  OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value), [{
+  OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
     auto tensorType = value.getType();
     build($_builder, $_state, tensorType, sparse_value, value,
@@ -408,7 +408,7 @@ custom_definition_misc = dict([ ('Constant',
   ];'''),
   ('Cast',
  '''   let builders = [
-  OpBuilderDAG<(ins "Value":$input, "TypeAttr":$to), [{
+  OpBuilder<(ins "Value":$input, "TypeAttr":$to), [{
    auto resultType = mlir::UnrankedTensorType::get(to.getValue());
    build($_builder, $_state, resultType, input, to);
   }] >
@@ -950,9 +950,9 @@ def gen_op_def(schema):
         else:
             s += indent + 'let builders = [\n'
             # Custom builders with operands and attributes having a separate parameter.
-            # E.g. OpBuilderDAG<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
+            # E.g. OpBuilder<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
             indent = inc_indent(indent)
-            s += indent + 'OpBuilderDAG<(ins '
+            s += indent + 'OpBuilder<(ins '
             operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
             attrs_dict = get_attrs(schema)
             s += ', '.join('"{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
@@ -993,9 +993,9 @@ def gen_op_def(schema):
             s += indent + '}]>,\n'
 
             # Custom builders with all operands and attributes having aggregate parameters.
-            # E.g. OpBuilderDAG<(ins "ValueRange operands,
+            # E.g. OpBuilder<(ins "ValueRange operands,
             #    ArrayRef<NamedAttribute> attributes", [{}]>'
-            s += indent + 'OpBuilderDAG<(ins ' + \
+            s += indent + 'OpBuilder<(ins ' + \
                 '"ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{\n'
             indent = inc_indent(indent)
             if schema.name in custom_builder_broadcast_ops_list:

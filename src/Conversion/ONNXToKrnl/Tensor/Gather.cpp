@@ -27,7 +27,9 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     ONNXGatherOp gatherOp = llvm::cast<ONNXGatherOp>(op);
     auto loc = op->getLoc();
 
-    ONNXGatherOpShapeHelper shapeHelper(&gatherOp, &rewriter);
+    ONNXGatherOpShapeHelper shapeHelper(&gatherOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     assert(succeeded(shapecomputed));
     // Scope for krnl EDSC ops
@@ -110,6 +112,6 @@ struct ONNXGatherOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXGatherOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXGatherOpLowering>(ctx);
 }

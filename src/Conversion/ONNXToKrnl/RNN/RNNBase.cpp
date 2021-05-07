@@ -38,28 +38,28 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
       SmallVector<Value, 2> allocOperands;
       if (memRefShape[0] < 0) {
         // Get seq_length from X.
-        auto dim = rewriter.create<DimOp>(loc, X, 0);
+        auto dim = rewriter.create<memref::DimOp>(loc, X, 0);
         allocOperands.emplace_back(dim);
       }
       if (memRefShape[1] < 0) {
         // Get num_directions from W.
-        auto dim = rewriter.create<DimOp>(loc, W, 0);
+        auto dim = rewriter.create<memref::DimOp>(loc, W, 0);
         allocOperands.emplace_back(dim);
       }
       if (memRefShape[2] < 0) {
         // Get batch_size from X.
-        auto dim = rewriter.create<DimOp>(loc, X, 1);
+        auto dim = rewriter.create<memref::DimOp>(loc, X, 1);
         allocOperands.emplace_back(dim);
       }
       if (memRefShape[3] < 0) {
         // Get hidden_size from R.
-        auto dim = rewriter.create<DimOp>(loc, R, 2);
+        auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
         allocOperands.emplace_back(dim);
       }
-      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+      alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+        auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
         dealloc.getOperation()->moveBefore(&parentBlock->back());
       }
     }
@@ -94,23 +94,23 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
     SmallVector<Value, 2> allocOperands;
     if (memRefShape[0] < 0) {
       // Get num_directions from W.
-      auto dim = rewriter.create<DimOp>(loc, W, 0);
+      auto dim = rewriter.create<memref::DimOp>(loc, W, 0);
       allocOperands.emplace_back(dim);
     }
     if (memRefShape[1] < 0) {
       // Get batch_size from X.
-      auto dim = rewriter.create<DimOp>(loc, X, 1);
+      auto dim = rewriter.create<memref::DimOp>(loc, X, 1);
       allocOperands.emplace_back(dim);
     }
     if (memRefShape[2] < 0) {
       // Get hidden_size from R.
-      auto dim = rewriter.create<DimOp>(loc, R, 2);
+      auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
       allocOperands.emplace_back(dim);
     }
-    alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+    alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
     if (insertDealloc) {
       auto *parentBlock = alloc.getDefiningOp()->getBlock();
-      auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+      auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
       dealloc.getOperation()->moveBefore(&parentBlock->back());
     }
   }
@@ -155,7 +155,7 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
 
   MemRefType scalarMemRefType =
       MemRefType::get({}, scalarOperand.getType(), {}, 0);
-  Value alloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
+  Value alloc = rewriter.create<memref::AllocOp>(loc, scalarMemRefType);
   rewriter.create<KrnlStoreOp>(loc, scalarOperand, alloc, ArrayRef<Value>{});
 
   std::vector<mlir::NamedAttribute> attributes;

@@ -251,6 +251,15 @@ private:
   Block *iterBlock;
 };
 
+// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr lambda
+// type, using ONNX and Krnl operations.
+DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value);
+
+// This function satisfies the ArrayValueIndexCapture::LoadVal lambda
+// type, using Krnl operations.
+Value loadDenseElementArrayValueAtIndex(
+    OpBuilder &rewriter, Location loc, Value array, int64_t index);
+
 //====---------------- Support for simple transpose ----------------------===//
 
 void generateIndexMap(
@@ -260,6 +269,7 @@ void generateIndexMap(
 
 Value krnl_load(Value memref, ValueRange indices);
 void krnl_store(Value val, Value memref, ValueRange indices);
+Value krnl_vector_type_cast(Value sourceMemref, int64_t vectorLen);
 
 ValueRange krnl_define_loop(int64_t originalLoopNum);
 ValueRange krnl_block(Value loop, int64_t blockSize);

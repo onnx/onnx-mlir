@@ -23,6 +23,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -71,8 +72,8 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   target.addIllegalOp<ONNXScalerOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
 
-  OwningRewritePatternList patterns;
-  populateWithGenerated(context, patterns);
+  RewritePatternSet patterns(context);
+  populateWithGenerated(patterns);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
