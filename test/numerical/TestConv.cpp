@@ -77,7 +77,10 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 
   // Use the convOp shape inference method to compute output shape, and unset
   // the shape so that we don't leave IR in a inconsistent state.
-  convOp.inferShapes([](mlir::Region&) {});
+  LogicalResult res = convOp.inferShapes([](mlir::Region &) {});
+  if (failed(res)) {
+    return false;
+  }
   auto outputShape = convOp.getResult().getType().cast<ShapedType>().getShape();
   auto NOut = outputShape[0];
   auto COut = outputShape[1];
@@ -95,7 +98,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
       /*numInputs=*/2,
       /*numOutputs=*/1,
-      /*signature*/signature);
+      /*signature*/ signature);
   module.push_back(entryPoint);
 
   OwningModuleRef moduleRef(module);

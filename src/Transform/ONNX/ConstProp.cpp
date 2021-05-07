@@ -835,7 +835,8 @@ void ConstPropONNXToONNXPass::runOnFunction() {
   populateWithGenerated(patterns);
   patterns.insert<ConstPropSplitPattern>(&getContext());
 
-  applyPatternsAndFoldGreedily(function, std::move(patterns));
+  if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+    signalPassFailure();
 
   // Create DenseElementsAttr and clean up helper attributes.
   function.walk([&](ONNXConstantOp constOp) {
