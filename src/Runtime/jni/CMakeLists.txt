@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Don't require AWT to allow headless JDK to reduce docker image size
-set(JAVA_AWT_INCLUDE_PATH none)
-set(JAVA_AWT_LIBRARY none)
+set(JAVA_AWT_INCLUDE_PATH headless)
+set(JAVA_AWT_LIBRARY headless)
 find_package(Java COMPONENTS Development)
 find_package(JNI)
 
