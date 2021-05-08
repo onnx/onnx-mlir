@@ -456,7 +456,7 @@ def get_commit_data(url, token, data) {
 
 /* Parse commit message to get pull request number */
 def get_pr_number(message) {
-    def match = message =~ /.*#(\d+)( from.*|\)\n)/
+    def match = message =~ /.*#(\d+)( from.*|\)\n*)/
     return match ? match[0][1] : &apos;none&apos;
 }
 
