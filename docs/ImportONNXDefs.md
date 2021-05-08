@@ -11,8 +11,8 @@ There are two files generated for ONNX MLIR with the modified gen_onnx_mlir.py:
 2. `src/Builder/OpBuildTable.inc`: C++ code for ONNX-MLIR frontend to import operation nodes from ONNX model. `src/Builder/FrontendDialectTransformer.cpp` includes this file.
 
 ## How to use the script
-1. Install [ONNX](https://github.com/onnx/onnx). We highly recommend that you use the one located at `third_party/onnx.`
-2. Make target `OMONNXOpsIncTranslation`. For example,
+1. Install [ONNX](https://github.com/onnx/onnx). We highly recommend that you use the one located at `third_party/onnx.` On many systems, it can be installed by executing the `pip install -e third_party/onnx` command in the top onnx-mlir directory.
+2. Make target `OMONNXOpsIncTranslation`. For example, run the command below in your onnx-mlir build directory.
 ```
 make OMONNXOpsIncTranslation
 ````
