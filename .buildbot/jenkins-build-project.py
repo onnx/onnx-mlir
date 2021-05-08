@@ -7,12 +7,25 @@ import git
 import hashlib
 import json
 import logging
+import math
 import os
 import requests
 import sys
 
 logging.basicConfig(
     level = logging.INFO, format = '[%(asctime)s] %(levelname)s: %(message)s')
+
+# Set parallel jobs based on both CPU count and memory size.
+# Because using CPU count alone can result in out of memory
+# and get Jenkins killed. For example, we may have 64 CPUs
+# (128 threads) and only 32GB memory. So spawning off 128
+# cc/c++ processes is going to quickly exhaust the memory.
+#
+# Algorithm: NPROC = min(2, # of CPUs) if memory < 8GB, otherwise
+#            NPROC = min(memory / 4, # of CPUs)
+MEMORY_IN_GB                = (os.sysconf('SC_PAGE_SIZE') *
+                               os.sysconf('SC_PHYS_PAGES') / (1024.**3))
+NPROC                       = str(math.ceil(min(max(2, MEMORY_IN_GB/4), os.cpu_count())))
 
 READ_CHUNK_SIZE             = 1024*1024
 
@@ -25,7 +38,7 @@ docker_registry_login_name  = os.getenv('DOCKER_REGISTRY_LOGIN_NAME')
 docker_registry_login_token = os.getenv('DOCKER_REGISTRY_LOGIN_TOKEN')
 github_repo_name            = os.getenv('GITHUB_REPO_NAME')
 github_repo_name2           = os.getenv('GITHUB_REPO_NAME').replace('-', '_')
-github_pr_baseref           = os.getenv('GITHUB_PR_BASEREF')
+github_pr_baseref           = os.getenv('GITHUB_PR_BASEREF').lower()
 github_pr_number            = os.getenv('GITHUB_PR_NUMBER')
 github_pr_number2           = os.getenv('GITHUB_PR_NUMBER2')
 
@@ -283,6 +296,7 @@ def build_private_project(image_type, exp):
                 rm = True,
                 buildargs = {
                     'BASE_IMAGE': base_image_repo + ':' + base_image_tag,
+                    'NPROC': NPROC,
                     GITHUB_REPO_NAME2 + '_SHA1': exp[github_repo_name2 + '_sha1'],
                     GITHUB_REPO_NAME2 + '_SHA1_DATE': exp[github_repo_name2 + '_sha1_date'],
                     GITHUB_REPO_NAME2 + '_DOCKERFILE_SHA1': exp[github_repo_name2 + '_dockerfile_sha1'],
