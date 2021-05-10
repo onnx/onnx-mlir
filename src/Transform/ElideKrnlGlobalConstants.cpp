@@ -89,8 +89,9 @@ public:
     RewritePatternSet patterns(&getContext());
     patterns.insert<KrnlConstGlobalValueElision>(
         &getContext(), KrnlConstGlobalValueElision::kDefaultElisionThreshold);
-
-    applyPatternsAndFoldGreedily(function, std::move(patterns));
+    // No need to test, its ok to fail the apply.
+    LogicalResult res =
+        applyPatternsAndFoldGreedily(function, std::move(patterns));
   }
 };
 

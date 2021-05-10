@@ -1049,7 +1049,7 @@ def gen_op_def(schema):
         indent = inc_indent(indent)
         for idx, region_name in enumerate(regions.keys()):
           s += indent + "if (name == \"{}\") return {};\n".format(region_name, idx)
-        s += indent + "assert(false && \"region with the specified name does not exist\");\n"
+        s += indent + "llvm_unreachable(\"region with the specified name does not exist\");\n"
         indent = dec_indent(indent)
         s += indent + "}\n"
 

@@ -2106,7 +2106,7 @@ def ONNXIfOp:ONNX_Op<"If",
   int64_t getSubgraphRegionIdx(const std::string& name) {
     if (name == "else_branch") return 0;
     if (name == "then_branch") return 1;
-    assert(false && "region with the specified name does not exist");
+    llvm_unreachable("region with the specified name does not exist");
   }
   }];
 }
@@ -2645,7 +2645,7 @@ def ONNXLoopOp:ONNX_Op<"Loop",
     mlir::Operation::result_range scan_outputs();
     int64_t getSubgraphRegionIdx(const std::string& name) {
     if (name == "body") return 0;
-    assert(false && "region with the specified name does not exist");
+    llvm_unreachable("region with the specified name does not exist");
   }
   }];
 }
@@ -4657,7 +4657,7 @@ def ONNXScanOp:ONNX_Op<"Scan",
     mlir::Operation::result_range scan_outputs();
     int64_t getSubgraphRegionIdx(const std::string& name) {
     if (name == "body") return 0;
-    assert(false && "region with the specified name does not exist");
+    llvm_unreachable("region with the specified name does not exist");
   }
   }];
 }
