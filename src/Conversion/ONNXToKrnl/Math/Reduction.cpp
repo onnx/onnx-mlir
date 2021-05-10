@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -150,16 +151,42 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
 
-    // Get attributes
-    ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).axesAttr();
+    // Get axes value defined by op
+    // Leave empty is not defined
+    std::vector<int64_t> definedAxes;
+    if constexpr (std::is_same<ONNXReductionOp, ONNXReduceSumOp>::value) {
+      // Assume it is verified that axes are known
+      // Convert DenseElementsAttr to ArrayAttr
+      Value axesValue = llvm::dyn_cast<ONNXReductionOp>(op).axes();
+      if (getONNXConstantOp(axesValue)) {
+        DenseElementsAttr constAxes =
+            getONNXConstantOp(axesValue)
+                .valueAttr()
+                .dyn_cast_or_null<mlir::DenseElementsAttr>();
+        SmallVector<int64_t, 4> values;
+        for (auto element : constAxes.getValues<IntegerAttr>()) {
+          definedAxes.push_back(element.getInt());
+        }
+      }
+    } else {
+      ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).axesAttr();
+      if (axisAttrs) {
+        for (auto axisAttr : axisAttrs.getValue()) {
+          int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
+          definedAxes.push_back(axis);
+        }
+      }
+    }
+
     std::vector<int64_t> axes;
-    if (axisAttrs) {
-      for (auto axisAttr : axisAttrs.getValue()) {
-        int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
-        axis = axis >= 0 ? axis : (inRank + axis);
-        assert(axis >= -inRank && axis <= inRank - 1);
-        if (std::find(axes.begin(), axes.end(), axis) == axes.end())
-          axes.push_back(axis);
+    if (definedAxes.size()) {
+      for (auto axis : definedAxes) {
+        if (axis < -inRank || axis > inRank - 1) {
+          return emitError(loc, "axes value out of range");
+        }
+        int64_t newaxis = axis >= 0 ? axis : (inRank + axis);
+        if (std::find(axes.begin(), axes.end(), newaxis) == axes.end())
+          axes.push_back(newaxis);
       }
     } else {
       for (decltype(inRank) i = 0; i < inRank; ++i) {
