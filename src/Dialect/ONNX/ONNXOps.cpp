@@ -167,8 +167,10 @@ static RankedTensorType getReductionOutputType(RankedTensorType operandTy,
   if (axesAttrs) {
     for (auto element : axesAttrs.getValues<IntegerAttr>()) {
       int64_t axis = element.getInt();
+      if (axis < -rank || axis > rank - 1) {
+        return RankedTensorType();
+      }
       axis = axis >= 0 ? axis : (rank + axis);
-      assert(axis >= -rank && axis <= rank - 1);
       if (std::find(axes.begin(), axes.end(), axis) == axes.end())
         axes.emplace_back(axis);
     }
@@ -1593,8 +1595,11 @@ LogicalResult ONNXReduceSumOp::inferShapes(
   } else {
     return emitError("ReduceSum: unknown axes ");
   }
-  getResult().setType(getReductionOutputType(
-      operandTy, constAxes, keepdims(), noop_with_empty_axes()));
+  RankedTensorType type = getReductionOutputType(
+      operandTy, constAxes, keepdims(), noop_with_empty_axes());
+  if (!type)
+    return emitError("unknown shape");
+  getResult().setType(type);
   return success();
 }
 
