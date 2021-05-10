@@ -1365,7 +1365,9 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
     vector::populateVectorToVectorCanonicalizationPatterns(patterns);
     vector::populateVectorSlicesLoweringPatterns(patterns);
     vector::populateVectorContractLoweringPatterns(patterns);
-    applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
+    if (failed(
+            applyPatternsAndFoldGreedily(getOperation(), std::move(patterns))))
+      signalPassFailure();
   }
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
