@@ -181,7 +181,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     std::vector<int64_t> axes;
     if (definedAxes.size()) {
       for (auto axis : definedAxes) {
-        if (axis < -inRank || axis > inRank -1) {
+        if (axis < -inRank || axis > inRank - 1) {
           return emitError(loc, "axes value out of range");
         }
         int64_t newaxis = axis >= 0 ? axis : (inRank + axis);
