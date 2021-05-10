@@ -158,7 +158,7 @@ RankedTensorType getReductionOutputType(RankedTensorType operandTy,
 
 // Reduction with axes is from ConstantOp.
 // Only ReduceSum call this function now.
-RankedTensorType getReductionOutputType(RankedTensorType operandTy,
+static RankedTensorType getReductionOutputType(RankedTensorType operandTy,
     DenseElementsAttr axesAttrs, uint64_t keepdims,
     uint64_t noop_with_empty_axes) {
   int64_t rank = operandTy.getRank();
