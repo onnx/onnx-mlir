@@ -821,10 +821,11 @@ private:
     // Data input is imported but starts, ends, axes, and steps may come from
     // attributes, and need to be created as constant ops.
     const auto elementType = builder_.getIntegerType(64);
-    const auto tensorType = RankedTensorType::get({1}, elementType);
     const auto attributes = ImportNodeAttributes(node);
     for (auto attr : attributes) {
       if (auto arrayAttr = attr.second.dyn_cast<ArrayAttr>()) {
+        const auto tensorType =
+            RankedTensorType::get({(int64_t)arrayAttr.size()}, elementType);
         auto constantDenseAttribute =
             DenseElementsAttr::get(tensorType, arrayAttr.getValue());
         auto constantOp = builder_.create<ONNXConstantOp>(
