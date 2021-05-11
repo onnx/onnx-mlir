@@ -93,3 +93,6 @@ add_test(NAME OMTestLoop COMMAND TestLoop)
 add_test(NAME OMTestGRU COMMAND TestGRU)
 add_test(NAME OMTestLSTM COMMAND TestLSTM)
 add_test(NAME OMTestRNN COMMAND TestRNN)
+
+# Prevent TestGRU debug build from timing out
+set_tests_properties(OMTestGRU PROPERTIES TIMEOUT 4500)
