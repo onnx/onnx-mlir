@@ -57,7 +57,7 @@ DenseElementsAttr createDenseArrayAttr(
         RankedTensorType::get(wrapper.size(), elementType),
         llvm::makeArrayRef(wrapper));
   }
-  llvm - unreachable("unexpected attribute type");
+  llvm_unreachable("unexpected attribute type");
 }
 
 // Create an DenseElementsAttr of ArrayAttr.
