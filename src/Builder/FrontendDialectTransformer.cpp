@@ -577,7 +577,8 @@ private:
           region.push_back(new Block);
           OpBuilder::InsertionGuard guard(builder_);
           builder_.setInsertionPointToStart(&region.back());
-          auto funcType = importGraph(attr.g(), region, op.getOperation(), false);
+          auto funcType =
+              importGraph(attr.g(), region, op.getOperation(), false);
           // Use type info from graph to reset type of output for current op
           for (int i = 0; i < node.output().size(); i++) {
             Type type = funcType.getResults()[i];
