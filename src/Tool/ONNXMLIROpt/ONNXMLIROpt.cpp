@@ -101,10 +101,16 @@ int main(int argc, char **argv) {
   // Set up the input file.
   std::string error_message;
   auto file = mlir::openInputFile(input_filename, &error_message);
-  assert(file);
+  if (!error_message.empty()) {
+    fprintf(stderr, "%s\n", error_message.c_str());
+    return failed(LogicalResult::failure());
+  }
 
   auto output = mlir::openOutputFile(output_filename, &error_message);
-  assert(output);
+  if (!error_message.empty()) {
+    fprintf(stderr, "%s\n", error_message.c_str());
+    return failed(LogicalResult::failure());
+  }
 
   // TODO(imaihal): Change preloadDialectsInContext to false.
   return failed(mlir::MlirOptMain(output->os(), std::move(file), passPipeline,
