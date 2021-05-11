@@ -222,7 +222,7 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
       llvm::MemoryBuffer::getFileOrSTDIN(inputFilename);
   if (std::error_code EC = fileOrErr.getError()) {
     llvm::errs() << "Could not open input file: " << EC.message() << "\n";
-    return;
+    exit(1);
   }
 
   // Parse the input mlir.
@@ -231,7 +231,7 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
   module = mlir::parseSourceFile(sourceMgr, &context);
   if (!module) {
     llvm::errs() << "Error can't load file " << inputFilename << "\n";
-    return;
+    exit(1);
   }
 }
 
@@ -266,8 +266,10 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   llvm::LLVMContext llvmContext;
   mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
   auto llvmModule = mlir::translateModuleToLLVMIR(*module, llvmContext);
-  if (!llvmModule)
+  if (!llvmModule) {
     llvm::errs() << "Failed to translate module to LLVMIR.\n";
+    exit(1);
+  }
   llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();
 
