@@ -64,8 +64,6 @@ static llvm::cl::opt<bool> allowUnregisteredDialects(
     llvm::cl::desc("Allow operation with no registered dialects"),
     llvm::cl::init(false));
 
-#include <iostream>
-
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
   registry.insert<mlir::linalg::LinalgDialect>();
