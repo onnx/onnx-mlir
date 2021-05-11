@@ -1,0 +1,1 @@
+add_subdirectory(MNIST_NPU_Program)

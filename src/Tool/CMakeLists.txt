@@ -2,3 +2,4 @@
 
 add_subdirectory(ONNXMLIROpt)
 add_subdirectory(BinaryDecoder)
+add_subdirectory(Apollo)
