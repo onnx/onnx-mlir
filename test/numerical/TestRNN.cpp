@@ -21,6 +21,7 @@
 #define SHARED_LIB_BASE string("./TestRNN_main_graph")
 
 using namespace std;
+using namespace mlir;
 
 // Returns whether onnx-mlir compiled RNN is producing the same results as a
 // naive implementation of RNN for a specific set of RNN

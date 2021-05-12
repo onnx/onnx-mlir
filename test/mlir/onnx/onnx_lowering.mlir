@@ -801,11 +801,13 @@ func private @test_reduceprod(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 // -----
 
 func private @test_reducesum(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
-  %0 ="onnx.ReduceSum"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
+  %cst = "onnx.Constant"() {value = dense<[1]> : tensor<1xi64> } : () -> tensor<1xi64>
+  %0 ="onnx.ReduceSum"(%arg0, %cst) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<3x2x2xf32>, tensor<1xi64>)-> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_reducesum
   // CHECK: [[RES:%.+]] = memref.alloc() : memref<3x2xf32>
+  // CHECK: [[GLOBAL:%.+]] = "krnl.global"() {name = "constant_0", shape = [1], value = dense<1> : tensor<1xi64>} : () -> memref<1xi64>
   // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 2) {
   // CHECK: [[IDENTITY:%.+]] = constant 0.000000e+00 : f32

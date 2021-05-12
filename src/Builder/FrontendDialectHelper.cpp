@@ -15,7 +15,6 @@
 #include <llvm/Support/SwapByteOrder.h>
 
 #include "src/Builder/FrontendDialectHelper.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 namespace onnx_mlir {
 

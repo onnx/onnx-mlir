@@ -20,7 +20,6 @@ int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   mlir::MLIRContext context;
   registerDialects(context);
-  registerPassManagerCLOptions();
 
   llvm::cl::opt<string> inputFilename(llvm::cl::Positional,
       llvm::cl::desc("<input file>"), llvm::cl::init("-"),

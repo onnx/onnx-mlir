@@ -137,7 +137,8 @@ public:
     RewritePatternSet patterns(&getContext());
     patterns.insert<DisconnectKrnlDimFromAlloc>(&getContext());
 
-    applyPatternsAndFoldGreedily(function, std::move(patterns));
+    if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+      signalPassFailure();
   }
 };
 } // namespace
