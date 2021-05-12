@@ -27,19 +27,12 @@ target_include_directories(OMONNXOps
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 
-add_dependencies(OMONNXOps OMONNXOpsInc OMKrnlOpsInc)
-## TODO: remove dependency of ONNXOps on KrnlOps
-# OMONNXOps depends on symbols in OMKrnlOps, we do not specify
-# linking dependency explicitly here because OMKrnlOps also depends
-# on OMONNXOps, which is circular.
+add_dependencies(OMONNXOps OMONNXOpsInc)
 
 # Linking dependencies:
 add_dependencies(OMONNXOps
         OMResultTypeInferenceOpInterface
-        OMShapeInferenceOpInterface
-        # TODO: remove unnecessary dependency due to
-        # ONNX Krnl Helper having a dependence on KrnlOps.
-        OMSpecializedKernelOpInterface)
+        OMShapeInferenceOpInterface)
 
 add_onnx_mlir_dialect_doc(onnx ONNXOps.td)
 

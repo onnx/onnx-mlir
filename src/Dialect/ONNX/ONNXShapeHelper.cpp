@@ -14,8 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
 #include <algorithm>
 
