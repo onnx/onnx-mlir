@@ -255,8 +255,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
 
   // Write bitcode to a file.
   string unoptimizedBitcodePath = outputBaseName + ".unoptimized.bc";
-  if (!preserveBitcode)
-      llvm::FileRemover unoptimzedBitcodeRemover(unoptimizedBitcodePath);
+  llvm::FileRemover unoptimzedBitcodeRemover(unoptimizedBitcodePath,!preserveBitcode);
 
   llvm::raw_fd_ostream moduleBitcodeStream(
       unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
@@ -332,8 +331,7 @@ void compileModuleToSharedLibrary(
 
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
-  if (!preserveBitcode)
-      llvm::FileRemover bitcodeRemover(bitcodePath);
+  llvm::FileRemover bitcodeRemover(bitcodePath,!preserveBitcode);
 
   string modelObjPath = outputBaseName + ".o";
   genModelObject(module, bitcodePath, modelObjPath);
@@ -349,8 +347,7 @@ void compileModuleToJniJar(
 
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
-  if (!preserveBitcode)
-      llvm::FileRemover bitcodeRemover(bitcodePath);
+  llvm::FileRemover bitcodeRemover(bitcodePath,!preserveBitcode);
 
   string modelObjPath = outputBaseName + ".o";
   genModelObject(module, bitcodePath, modelObjPath);
