@@ -39,6 +39,7 @@ namespace bstd = mpark;
 namespace onnx_mlir {
 namespace detail {
 
+typedef SymbolMapping<Value> ValueSymbolMapping;
 class FrontendGenImpl {
 public:
   explicit FrontendGenImpl(mlir::MLIRContext &context)
@@ -96,7 +97,7 @@ private:
   InitializedTensorMapping initializedTensors;
 
   // mapping between string name and symbol
-  SymbolMapping frontend_symbols_;
+  ValueSymbolMapping frontend_symbols_;
 
   // Flag to change the inputs of function to unknown dimension.
   // Temporarily added to use the test cases with static shape to test.
@@ -332,6 +333,7 @@ private:
   mlir::FunctionType importGraph(const onnx::GraphProto &graph,
       mlir::Region &region, mlir::Operation *op, bool useStdReturn) {
     frontend_symbols_.pushScope(graph.name());
+    initializedTensors.pushScope(graph.name());
     mlir::Block *entryBlock = &region.back();
 
     // Maintain a mapping between the parameter and its initializer.
@@ -431,6 +433,7 @@ private:
     op->setAttr("output_names", builder_.getStrArrayAttr(outputNames));
 
     frontend_symbols_.popScope(graph.name());
+    initializedTensors.popScope(graph.name());
     return builder_.getFunctionType(argTypes, retTys);
   }
 
@@ -946,7 +949,7 @@ private:
     auto *fnEntryBlock = funcOp.addEntryBlock();
 
     // Save caller context, while generating callee function body.
-    SymbolMapping callerScope(std::move(frontend_symbols_));
+    ValueSymbolMapping callerScope(std::move(frontend_symbols_));
     auto prev_ip = builder_.saveInsertionPoint();
     builder_.setInsertionPointToStart(fnEntryBlock);
 
