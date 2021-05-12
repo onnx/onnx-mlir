@@ -62,6 +62,10 @@ llvm::cl::opt<bool> printIR("printIR",
     llvm::cl::desc("print the IR to stdout:"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> preserveBitcode("preserveBitcode",
+    llvm::cl::desc("dont delete the bitcode files (optimized and unoptimized):"), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
@@ -251,7 +255,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
 
   // Write bitcode to a file.
   string unoptimizedBitcodePath = outputBaseName + ".unoptimized.bc";
-  llvm::FileRemover unoptimzedBitcodeRemover(unoptimizedBitcodePath);
+  llvm::FileRemover unoptimzedBitcodeRemover(unoptimizedBitcodePath,!preserveBitcode);
 
   llvm::raw_fd_ostream moduleBitcodeStream(
       unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
@@ -327,7 +331,7 @@ void compileModuleToSharedLibrary(
 
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
-  llvm::FileRemover bitcodeRemover(bitcodePath);
+  llvm::FileRemover bitcodeRemover(bitcodePath,!preserveBitcode);
 
   string modelObjPath = outputBaseName + ".o";
   genModelObject(module, bitcodePath, modelObjPath);
@@ -343,7 +347,7 @@ void compileModuleToJniJar(
 
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
-  llvm::FileRemover bitcodeRemover(bitcodePath);
+  llvm::FileRemover bitcodeRemover(bitcodePath,!preserveBitcode);
 
   string modelObjPath = outputBaseName + ".o";
   genModelObject(module, bitcodePath, modelObjPath);
