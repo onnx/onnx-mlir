@@ -15,7 +15,6 @@
 #include <llvm/Support/SwapByteOrder.h>
 
 #include "src/Builder/FrontendDialectHelper.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 namespace onnx_mlir {
 
@@ -101,17 +100,6 @@ static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
   auto data = TransformValueToONNXData<T>::data(initializer);
   size = data.size();
   return std::vector<T>(&data[0], &data[0] + size);
-}
-
-void InitializedTensorMapping::AddMapping(
-    std::string name, onnx::TensorProto tensor) {
-  assert(nameToInitializedTensor.count(name) == 0 &&
-         "Tensor initializer already mapped.");
-  nameToInitializedTensor.emplace(name, tensor);
-}
-
-bool InitializedTensorMapping::ContainKey(std::string name) {
-  return nameToInitializedTensor.count(name) != 0;
 }
 
 mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(

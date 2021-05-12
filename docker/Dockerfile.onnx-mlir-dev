@@ -22,6 +22,8 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && python3 setup.py -q install \
     && rm -rf .eggs .setuptools-cmake-build build dist onnx.egg-info
 
+ARG NPROC=2
+
 RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && ONNX_MLIR_ROOT=${WORK_DIR}/onnx-mlir \
 # Build onnx-mlir and run tests
@@ -30,11 +32,11 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && LLVM_PROJ_SRC=${LLVM_PROJECT_ROOT} \
        LLVM_PROJ_BUILD=${LLVM_PROJECT_ROOT}/build \
        cmake .. \
-    && make -j$(nproc) \
-    && LIT_OPTS=-v make -j$(nproc) check-onnx-lit \
-    && make check-onnx-backend \
-    && make check-onnx-backend-dynamic \
-    && make ARGS=-j$(nproc) test \
+    && make -j${NPROC} \
+    && LIT_OPTS=-v make -j${NPROC} check-onnx-lit \
+    && NPROC=${NPROC} make check-onnx-backend \
+    && NPROC=${NPROC} make check-onnx-backend-dynamic \
+    && make ARGS=-j${NPROC} test \
     && make check-doc \
     && make onnx-mlir-doc \
     && rm -rf /tmp/*
