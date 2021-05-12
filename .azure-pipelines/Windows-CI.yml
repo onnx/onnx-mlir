@@ -11,14 +11,31 @@ jobs:
     maxParallel: 4
 
   steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.7.9'
-      architecture: 'x64'
-
-  - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
-    displayName: Add conda to PATH
+  - checkout: self
+    clean: true
+    submodules: recursive
+    path: onnx-mlir
 
   - script: |
-      call utils\setup-onnx-mlir-windows.cmd
-    displayName: Build onnx-mlir
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      call onnx-mlir\utils\install-protobuf.cmd
+    displayName: Install protobuf
+    workingDirectory: $(Agent.BuildDirectory)
+
+  - script: |
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      call onnx-mlir\utils\install-mlir.cmd
+    displayName: Install mlir
+    workingDirectory: $(Agent.BuildDirectory)
+
+  - script: |
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      call onnx-mlir\utils\build-onnx-mlir.cmd
+    displayName: Install onnx-mlir
+    workingDirectory: $(Agent.BuildDirectory)
+
+  - script: |
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      call onnx-mlir\utils\check-onnx-mlir.cmd
+    displayName: Test onnx-mlir
+    workingDirectory: $(Agent.BuildDirectory)

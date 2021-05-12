@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
-# Don't require AWT header to allow headless JDK to reduce docker image size
-set(JAVA_AWT_INCLUDE_PATH none)
+# Don't require AWT to allow headless JDK to reduce docker image size
+set(JAVA_AWT_INCLUDE_PATH headless)
+set(JAVA_AWT_LIBRARY headless)
 find_package(Java COMPONENTS Development)
 find_package(JNI)
 
@@ -10,15 +11,20 @@ if(Java_Development_FOUND AND JNI_FOUND)
 
   # Target for Java runtime jar
   add_jar(javaruntime
-          src/com/ibm/onnxmlir/DynEntryPoint.java
-	  src/com/ibm/onnxmlir/OMTensorList.java
-          src/com/ibm/onnxmlir/OMTensor.java
-          OUTPUT_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+          src/com/ibm/onnxmlir/OMModel.java
+          src/com/ibm/onnxmlir/OMTensorList.java
+          src/com/ibm/onnxmlir/OMTensor.java)
+
+  # ONNX_MLIR_LIBRARY_PATH is a generator expression which is not supported by add_jar as the output
+  # directory. Instead, we let add_jar place the jar file in the default location and copy it to the
+  # library path after it is built.
+  add_custom_command(TARGET javaruntime POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_PROPERTY:javaruntime,JAR_FILE> ${ONNX_MLIR_LIBRARY_PATH})
 
   # Target for JNI runtime lib
   add_library(jniruntime STATIC
           jniwrapper.c jnilog.c jnidummy.c
-          com_ibm_onnxmlir_DynEntryPoint.h jnilog.h)
+          com_ibm_onnxmlir_OMModel.h jnilog.h)
   set_target_properties(jniruntime PROPERTIES
           POSITION_INDEPENDENT_CODE TRUE)
   target_include_directories(jniruntime PRIVATE

@@ -13,16 +13,6 @@ add_dependencies(OMElideKrnlGlobalConstants OMKrnlOpsInc)
 # Linking dependencies
 add_dependencies(OMElideKrnlGlobalConstants OMKrnlOps)
 
-add_library(OMPackKrnlGlobalConstants
-        PackKrnlGlobalConstants.cpp)
-target_include_directories(OMPackKrnlGlobalConstants
-        PRIVATE
-        ${ONNX_MLIR_SRC_ROOT}
-        ${ONNX_MLIR_BIN_ROOT}
-        ${ONNX_MLIR_SRC_ROOT})
-add_dependencies(OMPackKrnlGlobalConstants
-        OMKrnlOps)
-
 add_library(OMEnableMemoryPool
         EnableMemoryPool.cpp)
 target_include_directories(OMEnableMemoryPool
@@ -90,7 +80,6 @@ add_subdirectory(ONNX)
 add_subdirectory(Krnl)
 
 install(TARGETS OMElideKrnlGlobalConstants   DESTINATION lib)
-install(TARGETS OMPackKrnlGlobalConstants    DESTINATION lib)
 install(TARGETS OMEnableMemoryPool           DESTINATION lib)
 install(TARGETS OMOptimizeMemoryPools        DESTINATION lib)
 install(TARGETS OMBundleMemoryPools          DESTINATION lib)

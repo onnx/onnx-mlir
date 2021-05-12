@@ -1,16 +1,25 @@
-import lit.llvm
+@LIT_SITE_CFG_IN_HEADER@
 
-config.llvm_tools_dir = r"@MLIR_TOOLS_DIR@"
-config.mlir_obj_root = r"@LLVM_PROJ_BUILD@"
-config.mlir_tools_dir = r"@MLIR_TOOLS_DIR@"
-config.suffixes = ['.mlir']
-config.lit_tools_dir = config.llvm_tools_dir
+config.llvm_tools_dir = r"@LLVM_TOOLS_DIR@"
+config.mlir_tools_dir = r"@LLVM_TOOLS_DIR@"
+config.python_executable = "@Python3_EXECUTABLE@"
 
 config.onnx_mlir_tools_dir = r"@ONNX_MLIR_TOOLS_DIR@"
-config.onnx_mlir_test_src_dir = r"@ONNX_MLIR_LIT_TEST_SRC_DIR@"
-config.onnx_mlir_test_build_dir = r"@ONNX_MLIR_LIT_TEST_BUILD_DIR@"
+config.onnx_mlir_obj_root = r"@ONNX_MLIR_BIN_ROOT@"
 
+# Support substitution of the tools_dir with user parameters. This is
+# used when we can't determine the tool dir at configuration time.
+try:
+    config.llvm_tools_dir = config.llvm_tools_dir % lit_config.params
+    config.mlir_tools_dir = config.mlir_tools_dir % lit_config.params
+    config.onnx_mlir_tools_dir = config.onnx_mlir_tools_dir % lit_config.params
+except KeyError:
+    e = sys.exc_info()[1]
+    key, = e.args
+    lit_config.fatal("unable to find %r parameter, use '--param=%s=VALUE'" % (key,key))
+
+import lit.llvm
 lit.llvm.initialize(lit_config, config)
 
 # Let the main config do the real work.
-lit_config.load_config(config, r"@ONNX_MLIR_LIT_TEST_SRC_DIR@/lit.cfg.py")
+lit_config.load_config(config, r"@ONNX_MLIR_SRC_ROOT@/test/mlir/lit.cfg.py")

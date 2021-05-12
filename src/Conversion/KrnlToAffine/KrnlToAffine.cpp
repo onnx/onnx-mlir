@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -22,6 +23,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/LoopUtils.h"
 
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Pass/Passes.hpp"
@@ -31,6 +33,10 @@
 #include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 #include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
+
+#define DEBUG_MALLOC 0
+#define DEBUG_GLOBAL_ALLOC_FREE 0
+#define BUFFER_ALIGN 64
 
 using namespace mlir;
 
@@ -246,6 +252,38 @@ private:
   llvm::DenseMap<mlir::Value, llvm::SmallVector<Movable, 4>> movingPlan;
 };
 
+void removeOps(llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
+  // Remove lowered operations topologically; if ops are not removed
+  // topologically, memory error will occur.
+  size_t numOpsToRemove = opsToErase.size();
+  // Given N operations to remove topologically, and that we remove
+  // at least one operation during each pass through opsToErase, we
+  // can only have a maximum of N passes through opsToErase.
+  for (size_t i = 0; i < numOpsToRemove; i++) {
+    for (auto op : opsToErase) {
+      bool safeToDelete = op->use_empty();
+      safeToDelete &= llvm::all_of(op->getRegions(), [](Region &region) {
+        return llvm::all_of(region.getBlocks(), [](Block &block) {
+          return (block.getOperations().size() == 0) ||
+                 (block.getOperations().size() == 1 &&
+                     block.getOperations()
+                         .front()
+                         .hasTrait<OpTrait::IsTerminator>());
+        });
+      });
+
+      if (safeToDelete) {
+        op->erase();
+        opsToErase.erase(op);
+        // Restart, itr has been invalidated.
+        break;
+      }
+    }
+    if (opsToErase.empty())
+      break;
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // Krnl to Affine Rewrite Patterns: KrnlTerminator operation.
 //===----------------------------------------------------------------------===//
@@ -412,6 +450,8 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     opsToErase.insert(op);
     return success();
   } else if (auto permuteOp = dyn_cast_or_null<KrnlPermuteOp>(op)) {
+    // TODO(tjingrant): call it whenever an operation lowering completes.
+    removeOps(opsToErase);
     // Collect loops to permute.
     SmallVector<AffineForOp, 4> loopsToPermute;
     std::transform(permuteOp.operand_begin(), permuteOp.operand_end(),
@@ -442,15 +482,6 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     assert(succeeded(res) && "failed to unroll");
     opsToErase.insert(op);
     return success();
-  } else if (auto convertOp =
-                 dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
-    auto zippedOperandsResults = llvm::zip(op->getOperands(), op->getResults());
-    for (const auto &operandAndResult : zippedOperandsResults) {
-      auto operand = std::get<0>(operandAndResult);
-      auto result = std::get<1>(operandAndResult);
-      result.replaceAllUsesWith(loopRefToOp[operand].getInductionVar());
-    }
-    opsToErase.insert(op);
   }
 
   return success();
@@ -482,7 +513,7 @@ public:
     if (affineIndices)
       rewriter.replaceOpWithNewOp<AffineLoadOp>(op, memref, indices);
     else
-      rewriter.replaceOpWithNewOp<LoadOp>(op, memref, indices);
+      rewriter.replaceOpWithNewOp<memref::LoadOp>(op, memref, indices);
 
     return success();
   }
@@ -515,7 +546,7 @@ public:
     if (affineIndices)
       rewriter.replaceOpWithNewOp<AffineStoreOp>(op, value, memref, indices);
     else
-      rewriter.replaceOpWithNewOp<StoreOp>(op, value, memref, indices);
+      rewriter.replaceOpWithNewOp<memref::StoreOp>(op, value, memref, indices);
 
     return success();
   }
@@ -660,21 +691,6 @@ public:
     else
       cTileSize = {cBounds.getSymbol(cRank - 2), cBounds.getSymbol(cRank - 1)};
 
-    // Check consitency. If the dimensions were padded differently for
-    // A, B, or C, and the optional A/B/C TileSize attributes were given,
-    // we take the these optional sizes into consideration. Meaning, we
-    // don't really care about the padded dimensions, we only care about
-    // the actual data.
-    if (IndexExpr::isLiteral(aTileSize) && IndexExpr::isLiteral(bTileSize) &&
-        IndexExpr::isLiteral(cTileSize)) {
-      assert(aTileSize[0].getLiteral() == cTileSize[0].getLiteral() &&
-             "I dim mismatch");
-      assert(aTileSize[1].getLiteral() == bTileSize[0].getLiteral() &&
-             "K dim mismatch");
-      assert(bTileSize[1].getLiteral() == cTileSize[1].getLiteral() &&
-             "J dim mismatch");
-    }
-
     // Gather N, M, K compute tile size. This is the size of the computations,
     // if the tile is full. Because computation in the buffers could be further
     // subtiled, the default size can be overridden from the tile sizes using
@@ -689,6 +705,28 @@ public:
       jComputeTileSize = computeSizeCapture.getLiteral(1);
       kComputeTileSize = computeSizeCapture.getLiteral(2);
     }
+
+    // If we simdize, its along M for the full compute tile.
+    IndexExpr vectorLen = jComputeTileSize;
+    if (!vectorLen.isLiteral()) {
+      // Cannot simdize if the vector length is not a compile time constant.
+      simdize = false;
+    }
+    if (!bBounds.isLiteral(bRank - 1) || !cBounds.isLiteral(cRank - 1)) {
+      // Cannot simdize if the last dim of B or C are not constant.
+      simdize = false;
+    }
+    if (simdize) {
+      int64_t VL = vectorLen.getLiteral();
+      if (bBounds.getShape(bRank - 1) % VL != 0 ||
+          cBounds.getShape(cRank - 1) % VL != 0) {
+        // If the memref of B and C are not multiple of the vector length in
+        // their last dim, then we cannot simdize either.
+        simdize = false;
+      }
+    }
+    if (!simdize)
+      vectorLen = LiteralIndexExpr(1);
 
     // Now get global start indices, which would define the first element of the
     // tiles in the original computations.
@@ -722,15 +760,10 @@ public:
     cStart.emplace_back(
         jComputeStart - DimIndexExpr(operandAdaptor.cMemStart()[cRank - 1]));
 
-    IndexExpr AStart0 = aStart[0];
-    IndexExpr AStart1 = aStart[1];
-    IndexExpr BStart0 = bStart[0];
-    IndexExpr BStart1 = bStart[1];
-    IndexExpr CStart0 = cStart[0];
-    IndexExpr CStart1 = cStart[1];
+    SmallVector<IndexExpr, 4> bVecStart(bStart), cVecStart(cStart);
+    bVecStart[bRank - 1] = bStart[bRank - 1].floorDiv(vectorLen);
+    cVecStart[cRank - 1] = cStart[cRank - 1].floorDiv(vectorLen);
 
-    // Simdize along M for the full compute tile
-    IndexExpr vectorLen = jComputeTileSize;
     // Now determine if we have full/partial tiles. This is determined by the
     // outer dimensions of the original computations, as by definition tiling
     // within the buffer always results in full tiles. In other words, partial
@@ -772,7 +805,7 @@ public:
       // clang-format off
       genIfThenElseWithoutParams(rewriter, allFullTiles,
         /* then full */ [&](ValueRange) {
-        genSimd(rewriter, op, elementType, aStart, bStart, cStart,
+        genSimd(rewriter, op, elementType, aStart, bVecStart, cVecStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
           vectorLen, fullUnrollAndJam); 
       }, /* has some partial tiles */ [&](ValueRange) {
@@ -780,13 +813,13 @@ public:
         // Test if SIMD dim (M) is full.
         genIfThenElseWithoutParams(rewriter, jFullTiles,
           /* full SIMD */ [&](ValueRange) {
-          genSimd(rewriter, op, elementType, aStart, bStart, cStart,
+          genSimd(rewriter, op, elementType, aStart, bVecStart, cVecStart,
             iTrip, jComputeTileSize, kTrip, vectorLen, false);
         }, /* else partial SIMD */ [&](ValueRange) {
           if (false && jPartialTrip.isLiteral() && jPartialTrip.getLiteral() >=2) {
             // has a known trip count along the simd dimension of at least 2
             // elements, use simd again.
-            genSimd(rewriter, op, elementType, aStart, bStart, cStart,
+            genSimd(rewriter, op, elementType, aStart, bVecStart, cVecStart,
               iTrip, jPartialTrip, kTrip, vectorLen, false);
           } else {
             genScalar(rewriter, op, elementType, aStart, bStart,  cStart,
@@ -823,6 +856,20 @@ private:
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
     int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
     MemRefType CTmpType = MemRefType::get({}, elementType);
+#if DEBUG_MALLOC
+#if DEBUG_GLOBAL_ALLOC_FREE
+    SmallVector<IndexExpr, 1> empty;
+    Value TmpC = insertAllocAndDeallocSimple(
+        rewriter, op, CTmpType, op.getLoc(), empty, true, BUFFER_ALIGN);
+#else
+    ValueRange empty;
+    IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value TmpC = std_alloc(CTmpType, empty, constAlignAttr);
+#endif
+#else
+    IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value TmpC = memref_alloca(CTmpType, constAlignAttr);
+#endif
 
     // For i, j loops.
     using namespace edsc::op;
@@ -834,7 +881,6 @@ private:
         // Defines induction variables, and possibly initialize C.
         jSaved = j;
         // Alloc and init temp c storage.
-        Value TmpC = std_alloca(CTmpType);
         AffineIndexedValue TTmpC(TmpC);
         SmallVector<Value, 4> cAccess;
         // CC(i + cStart0.getValue(), j + cStart1.getValue());
@@ -861,6 +907,12 @@ private:
         affine_store(TTmpC(), C, cAccess);
       });
     });
+#if DEBUG_MALLOC
+#if DEBUG_GLOBAL_ALLOC_FREE
+#else
+    rewriter.create<DeallocOp>(op.getLoc(), TmpC);
+#endif
+#endif
     // clang-format on
     if (unrollJam && J.isLiteral()) {
       // Unroll and jam. Seems to support only one operation at this time.
@@ -886,6 +938,23 @@ private:
     int64_t VL = vectorLen.getLiteral();
     VectorType vecType = VectorType::get({VL}, elementType);
     MemRefType CTmpType = MemRefType::get({}, vecType);
+    Value vecB = krnl_vector_type_cast(B, VL);
+    Value vecC = krnl_vector_type_cast(C, VL);
+
+#if DEBUG_MALLOC
+#if DEBUG_GLOBAL_ALLOC_FREE
+    SmallVector<IndexExpr, 1> empty;
+    Value TmpC = insertAllocAndDeallocSimple(
+        rewriter, op, CTmpType, op.getLoc(), empty, true, BUFFER_ALIGN);
+#else
+    ValueRange empty;
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value TmpC = std_alloc(CTmpType, empty, alignAttr);
+#endif
+#else
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
+    Value TmpC = memref_alloca(CTmpType, alignAttr);
+#endif
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved;
@@ -895,14 +964,12 @@ private:
     affineLoopBuilder(zero, I, 1, [&](Value i) {
       iSaved = i; // Saved for unroll and jam.
       // Alloca temp vector TmpC and save C(i)/0.0 into it.
-      Value TmpC = std_alloca(CTmpType);
       AffineIndexedValue TTmpC(TmpC);
       SmallVector<Value, 4> cAccess;
       // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
       IndexExpr::getValues(cStart, cAccess);
       cAccess[cRank-2] = i + cAccess[cRank-2];
-      TTmpC() = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType,
-        C, cAccess);
+      TTmpC() = affine_load(vecC, cAccess);
       // Sum over k.
       affineLoopBuilder(zero, K, 1, [&](Value k) {
         // Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
@@ -915,8 +982,7 @@ private:
         // bAccess = {k + bStart0.getValue(), bStart1.getValue()};
         IndexExpr::getValues(bStart, bAccess);
         bAccess[bRank-2] = k + bAccess[bRank-2];
-        Value vb = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType,
-          B, bAccess);
+        Value vb = affine_load(vecB, bAccess);
         TTmpC() = vector_fma(va, vb, TTmpC());
       });
       // Store temp result into C(i)
@@ -928,16 +994,22 @@ private:
         for(int64_t i=0; i<VL; i++)
           mask.emplace_back((i<JLit) ? i : VL+i);
         // permute
-        Value originalCvec = rewriter.create<AffineVectorLoadOp>(op.getLoc(), 
-          vecType, C, cAccess);
+        Value originalCvec = affine_load(vecC, cAccess);
         tmpResults = rewriter.create<vector::ShuffleOp>(op.getLoc(),
           tmpResults, originalCvec, mask);
       }
       //CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
-      rewriter.create<AffineVectorStoreOp>(op.getLoc(), tmpResults, C, cAccess);
+      affine_store(tmpResults, vecC, cAccess);
     });
+#if DEBUG_MALLOC
+#if DEBUG_GLOBAL_ALLOC_FREE
+#else
+    rewriter.create<DeallocOp>(op.getLoc(), TmpC);
+#endif
+#endif
+
     // clang-format on
-    if (unrollJam && I.isLiteral()) {
+    if (false && unrollJam && I.isLiteral()) {
       // Unroll and jam. Seems to support only one operation at this time.
       auto iLoop = getForInductionVarOwner(iSaved);
       LogicalResult res = loopUnrollJamUpToFactor(iLoop, I.getLiteral());
@@ -998,15 +1070,16 @@ public:
       KrnlCopyToBufferOp op, PatternRewriter &rewriter) const override {
     // Get info from operands.
     KrnlCopyToBufferOpAdaptor operandAdaptor = KrnlCopyToBufferOpAdaptor(op);
-    Value buffMemref(operandAdaptor.bufferMemref());
-    Value sourceMemref(operandAdaptor.memref());
+    Value buffMemref(operandAdaptor.buffer());
+    Value sourceMemref(operandAdaptor.source());
     ValueRange startVals(operandAdaptor.starts());
     Value padVal(operandAdaptor.padValue());
-    int64_t rank = sourceMemref.getType().cast<MemRefType>().getShape().size();
-    assert(startVals.size() == rank && "starts rank differs from memref");
-    assert(buffMemref.getType().cast<MemRefType>().getShape().size() == rank &&
-           "buffer and memref should have the same rank");
-
+    int64_t srcRank =
+        sourceMemref.getType().cast<MemRefType>().getShape().size();
+    int64_t buffRank =
+        buffMemref.getType().cast<MemRefType>().getShape().size();
+    int64_t srcOffset = srcRank - buffRank;
+    assert(srcOffset >= 0 && "offset expected non negative");
     ScopedContext scope(rewriter, op.getLoc());
     IndexExprScope indexScope(rewriter, op.getLoc());
     SmallVector<IndexExpr, 4> starts, bufferReadUBs, bufferPadUBs;
@@ -1014,11 +1087,13 @@ public:
     MemRefBoundsIndexCapture sourceBounds(sourceMemref);
     getIndexExprList<DimIndexExpr>(startVals, starts);
     ArrayAttributeIndexCapture padCapture(op.padToNextAttr(), 1);
-    assert((padCapture.size() == 0 || padCapture.size() == rank) &&
-           "optional padToNext rank differs from memref");
     ArrayAttributeIndexCapture readSizeCapture(op.tileSizeAttr());
-    assert((readSizeCapture.size() == 0 || readSizeCapture.size() == rank) &&
-           "optional readTileSize rank differs from memref");
+    // Handle possible transpose by having an indirect array for indices
+    // used in conjunction with source.
+    SmallVector<int64_t, 4> srcIndexMap, srcLoopMap;
+    generateIndexMap(srcIndexMap, srcRank, op.transpose());
+    generateIndexMap(srcLoopMap, buffRank, op.transpose());
+
     // Overread not currently used, will if we simdize reads or
     // unroll and jam loops.
     // ArrayAttributeIndexCapture overCapture(op.overreadToNextAttr(), 1);
@@ -1026,23 +1101,28 @@ public:
     // Determine here bufferReadUBs, which determine how many values of source
     // memeref to copy into the buffer. Also determine bufferPadUBs, which is
     // the upper bound past bufferReadUBs that must be padded.
+    // This is only done on the dimensions shared between src memref and buffer.
     LiteralIndexExpr zero(0);
-    for (long i = 0; i < rank; ++i) {
+    for (long buffIndex = 0; buffIndex < buffRank; ++buffIndex) {
+      long srcIndex = srcIndexMap[srcOffset + buffIndex];
       // Compute how many values to read.
-      IndexExpr sourceBound = sourceBounds.getSymbol(i); // Source memref size.
-      IndexExpr blockSize = buffBounds.getSymbol(i);     // Buffer memref size.
+      IndexExpr sourceBound =
+          sourceBounds.getSymbol(srcIndex); // Source memref size.
+      IndexExpr blockSize =
+          buffBounds.getSymbol(buffIndex); // Buffer memref size.
       if (readSizeCapture.size()) {
         int64_t memSize = blockSize.getLiteral();
-        blockSize = readSizeCapture.getLiteral(i); // Size from param.
+        blockSize = readSizeCapture.getLiteral(buffIndex); // Size from param.
         assert(blockSize.getLiteral() <= memSize &&
                "readTileSize cannot be larger than the buffer size");
       }
-      IndexExpr startGI = starts[i]; // Global index in source memref of tile.
+      IndexExpr startGI =
+          starts[srcIndex]; // Global index in source memref of tile.
       IndexExpr bufferRead = trip(sourceBound, blockSize, startGI);
       bufferRead.debugPrint("buffer read");
       bufferReadUBs.emplace_back(bufferRead);
       // Determine the UB until which to pad
-      IndexExpr padToNext = padCapture.getLiteral(i);
+      IndexExpr padToNext = padCapture.getLiteral(buffIndex);
       int64_t padToNextLit =
           padToNext.getLiteral(); // Will assert if undefined.
       int64_t blockSizeLit = blockSize.getLiteral(); // Will assert if not lit.
@@ -1067,18 +1147,18 @@ public:
       }
     }
     SmallVector<Value, 4> loopIndices;
-    genCopyLoops(buffMemref, sourceMemref, padVal, zero, starts, bufferReadUBs,
-        bufferPadUBs, loopIndices, 0, rank, false);
+    genCopyLoops(buffMemref, sourceMemref, srcLoopMap, padVal, zero, starts,
+        bufferReadUBs, bufferPadUBs, loopIndices, 0, buffRank, false);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(Value buffMemref, Value sourceMemref, Value padVal,
-      IndexExpr zero, SmallVectorImpl<IndexExpr> &starts,
-      SmallVectorImpl<IndexExpr> &readUBs, SmallVectorImpl<IndexExpr> &padUBs,
-      SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t rank,
-      bool padPhase) const {
-    if (i == rank) {
+  void genCopyLoops(Value buffMemref, Value sourceMemref,
+      SmallVectorImpl<int64_t> &srcLoopMap, Value padVal, IndexExpr zero,
+      SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &readUBs,
+      SmallVectorImpl<IndexExpr> &padUBs, SmallVectorImpl<Value> &loopIndices,
+      int64_t i, int64_t buffRank, bool padPhase) const {
+    if (i == buffRank) {
       // create new scope and import index expressions
       IndexExprScope currScope;
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
@@ -1086,8 +1166,19 @@ public:
       if (!padPhase) {
         SmallVector<IndexExpr, 4> currLoadIndices;
         getIndexExprList<DimIndexExpr>(starts, currStarts);
-        for (long i = 0; i < rank; ++i) {
-          currLoadIndices.emplace_back(currLoopIndices[i] + currStarts[i]);
+        int64_t srcRank = starts.size();
+        int64_t srcOffset = srcRank - buffRank;
+        for (long srcIndex = 0; srcIndex < srcRank; ++srcIndex) {
+          if (srcIndex < srcOffset) {
+            // Dimensions that are unique to source memref, just use starts.
+            currLoadIndices.emplace_back(currStarts[srcIndex]);
+          } else {
+            // Dimensions that are shared by source memref & buffer, add loop
+            // indices to starts.
+            int64_t buffIndex = srcIndex - srcOffset;
+            currLoadIndices.emplace_back(
+                currLoopIndices[srcLoopMap[buffIndex]] + currStarts[srcIndex]);
+          }
         }
         Value sourceVal = krnl_load(sourceMemref, currLoadIndices);
         krnl_store(sourceVal, buffMemref, currLoopIndices);
@@ -1102,8 +1193,8 @@ public:
       } else {
         affineLoopBuilder(zero, readUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(buffMemref, sourceMemref, padVal, zero, starts, readUBs,
-              padUBs, loopIndices, i + 1, rank,
+          genCopyLoops(buffMemref, sourceMemref, srcLoopMap, padVal, zero,
+              starts, readUBs, padUBs, loopIndices, i + 1, buffRank,
               /*no pad phase*/ false);
           loopIndices.pop_back_n(1);
         });
@@ -1113,8 +1204,8 @@ public:
       } else {
         affineLoopBuilder(readUBs[i], padUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(buffMemref, sourceMemref, padVal, zero, starts, readUBs,
-              padUBs, loopIndices, i + 1, rank,
+          genCopyLoops(buffMemref, sourceMemref, srcLoopMap, padVal, zero,
+              starts, readUBs, padUBs, loopIndices, i + 1, buffRank,
               /*pad phase*/ true);
           loopIndices.pop_back_n(1);
         });
@@ -1138,62 +1229,77 @@ public:
       KrnlCopyFromBufferOp op, PatternRewriter &rewriter) const override {
     KrnlCopyFromBufferOpAdaptor operandAdaptor =
         KrnlCopyFromBufferOpAdaptor(op);
-    Value buffMemref(operandAdaptor.bufferMemref());
-    Value sourceMemref(operandAdaptor.memref());
+    Value buffMemref(operandAdaptor.buffer());
+    Value destMemref(operandAdaptor.dest());
     ValueRange startVals(operandAdaptor.starts());
-    int64_t rank = sourceMemref.getType().cast<MemRefType>().getShape().size();
-    assert(startVals.size() == rank && "starts rank differs from memref");
-    assert(buffMemref.getType().cast<MemRefType>().getShape().size() == rank &&
-           "buffer and memref should have the same rank");
+    int64_t destRank =
+        destMemref.getType().cast<MemRefType>().getShape().size();
+    int64_t buffRank =
+        buffMemref.getType().cast<MemRefType>().getShape().size();
+    int64_t destOffset = destRank - buffRank;
+    assert(destOffset >= 0 && "offset expected non negative");
     ArrayAttributeIndexCapture writeSizeCapture(op.tileSizeAttr());
-    assert((writeSizeCapture.size() == 0 || writeSizeCapture.size() == rank) &&
-           "optional writeTileSize rank differs from memref");
 
     ScopedContext scope(rewriter, op.getLoc());
     IndexExprScope indexScope(rewriter, op.getLoc());
     SmallVector<IndexExpr, 4> starts, bufferWriteUBs;
     MemRefBoundsIndexCapture buffBounds(buffMemref);
-    MemRefBoundsIndexCapture sourceBounds(sourceMemref);
+    MemRefBoundsIndexCapture destBounds(destMemref);
     getIndexExprList<DimIndexExpr>(startVals, starts);
     SmallVector<Value, 4> loopIndices;
     LiteralIndexExpr zero(0);
 
-    for (long i = 0; i < rank; ++i) {
+    for (long buffIndex = 0; buffIndex < buffRank; ++buffIndex) {
+      long destIndex = destOffset + buffIndex;
       // Compute how many values to read.
-      IndexExpr sourceBound = sourceBounds.getSymbol(i); // Source memref size.
-      IndexExpr blockSize = buffBounds.getSymbol(i);     // Buffer memref size.
+      IndexExpr destBound =
+          destBounds.getSymbol(destIndex); // Source memref size.
+      IndexExpr blockSize =
+          buffBounds.getSymbol(buffIndex); // Buffer memref size.
       if (writeSizeCapture.size()) {
         int64_t memSize = blockSize.getLiteral();
-        blockSize = writeSizeCapture.getLiteral(i); // Size from param.
+        blockSize = writeSizeCapture.getLiteral(buffIndex); // Size from param.
         assert(blockSize.getLiteral() <= memSize &&
                "writeTileSize cannot be larger than the buffer size");
       }
-      IndexExpr startGI = starts[i]; // Global index in source memref of tile.
-      IndexExpr bufferWrite = trip(sourceBound, blockSize, startGI);
+      IndexExpr startGI =
+          starts[destIndex]; // Global index in dest memref of tile.
+      IndexExpr bufferWrite = trip(destBound, blockSize, startGI);
       bufferWrite.debugPrint("buffer wrote");
       bufferWriteUBs.emplace_back(bufferWrite);
     }
-    genCopyLoops(buffMemref, sourceMemref, zero, starts, bufferWriteUBs,
-        loopIndices, 0, rank);
+    genCopyLoops(buffMemref, destMemref, zero, starts, bufferWriteUBs,
+        loopIndices, 0, buffRank);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(Value buffMemref, Value sourceMemref, IndexExpr zero,
+  void genCopyLoops(Value buffMemref, Value destMemref, IndexExpr zero,
       SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &writeUBs,
-      SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t rank) const {
-    if (i == rank) {
+      SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t buffRank) const {
+    if (i == buffRank) {
       // create new scope and import index expressions
       IndexExprScope currScope;
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
       getIndexExprList<SymbolIndexExpr>(starts, currStarts);
+      int64_t destRank = starts.size();
+      int64_t destOffset = destRank - buffRank;
       SmallVector<IndexExpr, 4> currStoreIndices;
-      for (long i = 0; i < rank; ++i) {
-        currStoreIndices.emplace_back(currLoopIndices[i] + currStarts[i]);
+      for (long destIndex = 0; destIndex < destRank; ++destIndex) {
+        if (destIndex < destOffset) {
+          // Dimensions that are unique to source memref, just use starts.
+          currStoreIndices.emplace_back(currStarts[destIndex]);
+        } else {
+          // Dimensions that are shared by source memref & buffer, add loop
+          // indices to starts.
+          int64_t buffIndex = destIndex - destOffset;
+          currStoreIndices.emplace_back(
+              currLoopIndices[buffIndex] + currStarts[destIndex]);
+        }
       }
-      Value sourceVal = krnl_load(buffMemref, currLoopIndices);
-      krnl_store(sourceVal, sourceMemref, currStoreIndices);
+      Value destVal = krnl_load(buffMemref, currLoopIndices);
+      krnl_store(destVal, destMemref, currStoreIndices);
     } else {
       using namespace edsc::op;
       if (writeUBs[i].isLiteralAndIdenticalTo(0)) {
@@ -1202,8 +1308,8 @@ public:
         // Loop to copy the data.
         affineLoopBuilder(zero, writeUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(buffMemref, sourceMemref, zero, starts, writeUBs,
-              loopIndices, i + 1, rank);
+          genCopyLoops(buffMemref, destMemref, zero, starts, writeUBs,
+              loopIndices, i + 1, buffRank);
           loopIndices.pop_back_n(1);
         });
       }
@@ -1277,10 +1383,10 @@ void ConvertKrnlToAffinePass::runOnFunction() {
       [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
 
   // Interpret krnl dialect operations while looping recursively through
-  // operations within the current function, note that erasing operations while
-  // iterating is tricky because it can invalidate the iterator, so we collect
-  // the operations to be erased in a small ptr set `opsToErase`, and only erase
-  // after iteration completes.
+  // operations within the current function, note that erasing operations
+  // while iterating is tricky because it can invalidate the iterator, so we
+  // collect the operations to be erased in a small ptr set `opsToErase`, and
+  // only erase after iteration completes.
   llvm::SmallDenseMap<Value, AffineForOp, 4> loopRefToOp;
   llvm::SmallPtrSet<Operation *, 4> opsToErase;
   if (failed(interpretOperation(
@@ -1297,35 +1403,20 @@ void ConvertKrnlToAffinePass::runOnFunction() {
         opsToErase.insert(loopRefToOp[loopRef]);
       kernelOp.getLoopRefs().clear();
     }
-  });
 
-  // Remove lowered operations topologically; if ops are not removed
-  // topologically, memory error will occur.
-  size_t numOpsToRemove = opsToErase.size();
-  // Given N operations to remove topologically, and that we remove
-  // at least one operation during each pass through opsToErase, we
-  // can only have a maximum of N passes through opsToErase.
-  for (size_t i = 0; i < numOpsToRemove; i++) {
-    for (auto op : opsToErase) {
-      bool safeToDelete = op->use_empty();
-      safeToDelete &= llvm::all_of(op->getRegions(), [](Region &region) {
-        return llvm::all_of(region.getBlocks(), [](Block &block) {
-          return (block.getOperations().size() == 0) ||
-                 (block.getOperations().size() == 1 &&
-                     block.getOperations().front().isKnownTerminator());
-        });
-      });
-
-      if (safeToDelete) {
-        op->erase();
-        opsToErase.erase(op);
-        // Restart, itr has been invalidated.
-        break;
+    if (auto convertOp =
+            dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
+      auto zippedOperandsResults =
+          llvm::zip(op->getOperands(), op->getResults());
+      for (const auto &operandAndResult : zippedOperandsResults) {
+        auto operand = std::get<0>(operandAndResult);
+        auto result = std::get<1>(operandAndResult);
+        result.replaceAllUsesWith(loopRefToOp[operand].getInductionVar());
       }
+      opsToErase.insert(op);
     }
-    if (opsToErase.empty())
-      break;
-  }
+  });
+  removeOps(opsToErase);
   assert(opsToErase.empty());
 
   // Move loop body under appropriate newly created affine loops.
@@ -1342,13 +1433,11 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   target.addLegalOp<AffineYieldOp>();
   target.addLegalOp<AffineLoadOp>();
   target.addLegalOp<AffineStoreOp>();
-  target.addLegalOp<LoadOp>();
-  target.addLegalOp<StoreOp>();
   target.addLegalOp<KrnlVectorTypeCastOp>();
-  target.addLegalDialect<mlir::AffineDialect, mlir::StandardOpsDialect,
-      mlir::vector::VectorDialect>();
+  target.addLegalDialect<mlir::AffineDialect, mlir::memref::MemRefDialect,
+      mlir::StandardOpsDialect, mlir::vector::VectorDialect>();
   // Patterns.
-  OwningRewritePatternList patterns;
+  RewritePatternSet patterns(&getContext());
   patterns.insert<KrnlTerminatorLowering>(&getContext());
   patterns.insert<KrnlLoadLowering>(&getContext());
   patterns.insert<KrnlStoreLowering>(&getContext());
@@ -1361,6 +1450,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
           getFunction(), target, std::move(patterns), &unconverted)))
     signalPassFailure();
 }
+
 } // namespace
 
 std::unique_ptr<Pass> mlir::createConvertKrnlToAffinePass() {

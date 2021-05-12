@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===------- OnnxMlirRuntime.h - ONNX-MLIR Runtime API Declarations -------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -20,6 +24,7 @@
 
 #include <onnx-mlir/Runtime/OMTensor.h>
 #include <onnx-mlir/Runtime/OMTensorList.h>
+#include <onnx-mlir/Runtime/OMSignature.h>
 
 /*! \mainpage ONNX-MLIR Runtime API documentation
  *

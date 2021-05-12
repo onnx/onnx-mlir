@@ -1,11 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
-find_package(Python 3 REQUIRED COMPONENTS Interpreter)
-
 # Invoke gen_onnx_mlir.py to obtain ONNXOps.td.inc, OpBuildTable.inc.
 add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/ONNXOps.td.inc
         ${CMAKE_CURRENT_SOURCE_DIR}/OpBuildTable.inc
-        COMMAND Python::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/gen_onnx_mlir.py
+        COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/gen_onnx_mlir.py
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gen_onnx_mlir.py)
 
 # Move the generated files to respective destinations:
@@ -28,4 +26,4 @@ add_custom_target(OMONNXOpsIncTranslation
         OMONNXOpsBuildTableIncGen)
 
 add_custom_target(OMONNXCheckVersion
-        COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/gen_onnx_mlir.py --check-operation-version)
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/gen_onnx_mlir.py --check-operation-version)

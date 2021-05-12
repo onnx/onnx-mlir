@@ -72,7 +72,7 @@ def main(model_path):
         # Use the generated shared library to create an execution session.
         temp_shared_lib_path = os.path.join(temp_dir, "model.so")
         sess = ExecutionSession(temp_shared_lib_path,
-                                "_dyn_entry_point_main_graph")
+                                "run_main_graph")
 
         # Generate random data as input.
         inputs = []

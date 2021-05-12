@@ -1,21 +1,33 @@
 # SPDX-License-Identifier: Apache-2.0
 
-# Set TEST_DRIVER_BUILD_PATH to the directory of the test driver.
-# It is expected to have two sub-directories:
-# - 'bin' containing executable files, and
-# - 'lib' containing necessary libraries for runtime execution.
-set (TEST_DRIVER_BUILD_PATH ${CMAKE_BINARY_DIR})
-# Set TEST_DRIVER_COMMAND to the command used to compile models.
-# The command is expected to be found in the 'bin' directory of ${TEST_DRIVER_BUILD_PATH}
-set (TEST_DRIVER_COMMAND "onnx-mlir")
-configure_file(test.py test.py COPYONLY)
-configure_file(test_config.py.in test_config.py)
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test.py
+  )
 
-find_package(PythonInterp 3 REQUIRED)
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/test_config.py.in
+  ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
+  @ONLY
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test_config.py
+  INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
+  )
+
+# CMAKE_CFG_INTDIR is . for single-config generators such as make, and
+# it has a value (e.g. $(Configuration)) otherwise, so we can use it to
+# determine whether we are dealing with a multi-config generator.
+if (NOT "${CMAKE_CFG_INTDIR}" STREQUAL ".")
+  set(FILE_GENERATE_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+else()
+  set(FILE_GENERATE_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE})
+endif()
 
 # Detect pytest-xdist for parallel backend tests
 execute_process(
-  COMMAND ${PYTHON_EXECUTABLE} -m pip show pytest-xdist
+  COMMAND ${Python3_EXECUTABLE} -m pip show pytest-xdist
   RESULT_VARIABLE PYTEST_XDIST_FOUND
   OUTPUT_QUIET
   ERROR_QUIET
@@ -23,10 +35,10 @@ execute_process(
 if (${PYTEST_XDIST_FOUND} EQUAL 0)
   message(STATUS "Parallel backend tests  : ON")
   set(BACKEND_TEST_COMMAND "pytest")
-  set(BACKEND_TEST_ARGS "--forked" "-n" "$$(nproc)")
+  set(BACKEND_TEST_ARGS "--forked" "-n" "$\{NPROC\}")
 else()
   message(STATUS "Parallel backend tests  : OFF (install pytest-xdist to enable)")
-  set(BACKEND_TEST_COMMAND ${PYTHON_EXECUTABLE})
+  set(BACKEND_TEST_COMMAND ${Python3_EXECUTABLE})
   set(BACKEND_TEST_ARGS "")
 endif()
 
@@ -39,18 +51,29 @@ if(EXISTS ${LIBSTDCXX_LIB})
 endif()
 
 add_custom_target(check-onnx-backend
-        COMMAND ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR} ${BACKEND_TEST_COMMAND}
-        ${BACKEND_TEST_ARGS} ${CMAKE_CURRENT_BINARY_DIR}/test.py)
+  COMMAND
+    ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR} ${BACKEND_TEST_COMMAND}
+    ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+  DEPENDS
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
+   )
 
 add_custom_target(check-onnx-backend-dynamic
-        COMMAND TEST_DYNAMIC=true ${BACKEND_TEST_COMMAND}
-        ${BACKEND_TEST_ARGS} ${CMAKE_CURRENT_BINARY_DIR}/test.py)
+  COMMAND
+    TEST_DYNAMIC=true ${BACKEND_TEST_COMMAND}
+    ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+  DEPENDS
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
+  )
 
 add_custom_target(clean-onnx-backend
-        COMMAND ${CMAKE_COMMAND} -E remove
-        ${CMAKE_CURRENT_BINARY_DIR}/*.onnx
-        ${CMAKE_CURRENT_BINARY_DIR}/*.so
-        )
+  COMMAND
+    ${CMAKE_COMMAND} -E remove
+    ${CMAKE_CURRENT_BINARY_DIR}/*.onnx
+    ${CMAKE_CURRENT_BINARY_DIR}/*.so
+  )
 
 add_dependencies(check-onnx-backend onnx-mlir)
 add_dependencies(check-onnx-backend PyRuntime)

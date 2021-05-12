@@ -254,10 +254,6 @@ generate out of them expressions that are either literals or runtime values
 
 Note that in both case, runtime values may be "questionmarks" during the shape
 inference part as no code may be generated during such phases.
-
-krnl_load / krnl_store allow us to generate kernel loads or store where the
-indices are represented by index expressions.
-
 */
 
 #pragma once
@@ -343,6 +339,9 @@ public:
   void getDimAndSymbolList(SmallVectorImpl<Value> &list) const;
   int getNumDims() const { return dims.size(); }
   int getNumSymbols() const { return symbols.size(); }
+
+  // Debug (enable using DEBUG=1 at top of file).
+  void debugPrint(const std::string &msg) const;
 
 private:
   static IndexExprScope *&getCurrentScopePtr() {
@@ -628,8 +627,23 @@ inline IndexExpr operator-(int64_t const a, const IndexExpr b) {
 // constant.
 class ArrayValueIndexCapture {
 public:
-  ArrayValueIndexCapture(Operation *op, Value array);
-  ArrayValueIndexCapture(Operation *op, Value array, int64_t defaultLiteral);
+  // Lambda functions to extract/generate info. No code is provided in order to
+  // keep the IndexExpr and their support operations generic.
+
+  // GetDenseVal locate a DenseElementAttr by looking at the definition of the
+  // array value. Return null if this definition is not generating a dense
+  // array.
+  typedef std::function<DenseElementsAttr(Value array)> GetDenseVal;
+  // LoadVal will load the value at array[i] where array is a single dimensional
+  // array.
+  typedef std::function<Value(
+      OpBuilder &rewriter, Location loc, Value array, int64_t index)>
+      LoadVal;
+
+  ArrayValueIndexCapture(
+      Operation *op, Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal);
+  ArrayValueIndexCapture(Operation *op, Value array, int64_t defaultLiteral,
+      GetDenseVal fGetDenseVal, LoadVal fLoadVal);
 
   IndexExpr getSymbol(uint64_t i);
   void getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
@@ -641,6 +655,8 @@ private:
   Value array;
   int64_t defaultLiteral;
   bool hasDefault;
+  GetDenseVal fGetDenseArrayAttr;
+  LoadVal fLoadVallFromArrayAtIndex;
 };
 
 // Capture array of values given by attributes.
@@ -669,7 +685,9 @@ public:
   MemRefBoundsIndexCapture(Value tensorOrMemref);
 
   int64_t getRank() { return memRank; }
+  bool isLiteral(int64_t i);
   bool areAllLiteral();
+  int64_t getShape(int64_t i);
   IndexExpr getLiteral(uint64_t i); // Assert if bound is not compile time.
   IndexExpr getDim(uint64_t i);
   IndexExpr getSymbol(uint64_t i);

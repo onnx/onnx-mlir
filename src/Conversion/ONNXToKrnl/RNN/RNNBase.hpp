@@ -115,7 +115,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         sequenceLoops.pushBounds(0, sequenceDimSize);
       else
         sequenceLoops.pushBounds(
-            0, rewriter.create<DimOp>(loc, rnnOp.X(), 0).getResult());
+            0, rewriter.create<memref::DimOp>(loc, rnnOp.X(), 0).getResult());
       sequenceLoops.createIterateOp();
 
       auto ipSequenceLoops = rewriter.saveInsertionPoint();
@@ -138,7 +138,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         sequenceLoops.pushBounds(0, sequenceDimSize);
       else
         sequenceLoops.pushBounds(
-            0, rewriter.create<DimOp>(loc, rnnOp.X(), 0).getResult());
+            0, rewriter.create<memref::DimOp>(loc, rnnOp.X(), 0).getResult());
       sequenceLoops.createIterateOp();
 
       auto ipSequenceLoops = rewriter.saveInsertionPoint();
@@ -154,7 +154,8 @@ struct ONNXRNNOpLowering : public ConversionPattern {
           sequenceSize = emitConstantOp(
               rewriter, loc, rewriter.getIndexType(), sequenceDimSize);
         else
-          sequenceSize = rewriter.create<DimOp>(loc, rnnOp.X(), 0).getResult();
+          sequenceSize =
+              rewriter.create<memref::DimOp>(loc, rnnOp.X(), 0).getResult();
 
         Value reverseSequenceIV = rewriter.create<AffineApplyOp>(loc,
             reverseIVMap,

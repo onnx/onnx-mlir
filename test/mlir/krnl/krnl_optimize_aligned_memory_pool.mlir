@@ -8,9 +8,9 @@ func @single_chain_dataflow(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) 
   %c1200_i64 = constant 1200 : i64
   %c800_i64 = constant 800 : i64
   %c400_i64 = constant 400 : i64
-  %0 = alloc() : memref<10x10xf32>
-  %1 = alloc() : memref<1200xi8>
-  %aligned = alloc() {alignment = 4096 : i64} : memref<800xi8>
+  %0 = memref.alloc() : memref<10x10xf32>
+  %1 = memref.alloc() : memref<1200xi8>
+  %aligned = memref.alloc() {alignment = 4096 : i64} : memref<800xi8>
   %2 = "krnl.getref"(%aligned, %c400_i64) : (memref<800xi8>, i64) -> memref<10x10xf32>
   %3 = "krnl.getref"(%1, %c800_i64) : (memref<1200xi8>, i64) -> memref<10x10xf32>
   %4 = "krnl.getref"(%aligned, %c0_i64) : (memref<800xi8>, i64) -> memref<10x10xf32>
@@ -76,15 +76,15 @@ func @single_chain_dataflow(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) 
     %15 = addf %13, %14 : f32
     krnl.store %15, %0[%arg2, %arg3] : memref<10x10xf32>
   }
-  dealloc %1 : memref<1200xi8>
-  dealloc %aligned : memref<800xi8>
+  memref.dealloc %1 : memref<1200xi8>
+  memref.dealloc %aligned : memref<800xi8>
   return %0 : memref<10x10xf32>
 
   // CHECK-LABEL: single_chain_dataflow
   // CHECK: [[C400:%.+]] = constant 400 : i64
   // CHECK: [[C0:%.+]] = constant 0 : i64
-  // CHECK: [[MEMPOOL:%.+]] = alloc() : memref<800xi8>
-  // CHECK: [[MEMPOOL_ALIGNED:%.+]] = alloc() {alignment = 4096 : i64} : memref<400xi8>
+  // CHECK: [[MEMPOOL:%.+]] = memref.alloc() : memref<800xi8>
+  // CHECK: [[MEMPOOL_ALIGNED:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<400xi8>
   // CHECK: "krnl.getref"([[MEMPOOL_ALIGNED]], [[C0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<800xi8>, i64) -> memref<10x10xf32>
   // CHECK: "krnl.getref"([[MEMPOOL_ALIGNED]], [[C0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>

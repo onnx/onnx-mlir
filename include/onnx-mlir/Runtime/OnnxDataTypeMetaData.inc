@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #if defined(OM_TYPE_METADATA_DEF)
 // Data type metadata declared in the following format:
 // OM_TYPE_METADATA_DEF( dtype enum name, dtype enum value, dtype size)

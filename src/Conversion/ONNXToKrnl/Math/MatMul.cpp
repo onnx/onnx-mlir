@@ -18,6 +18,7 @@
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 #include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
+#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 #include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
 
@@ -51,8 +52,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         outputLoops.getAllInductionVar(), resAccessFct);
     // Insert res[...] = 0.
     // Create a local reduction value for res[...].
-    Value reductionVal =
-        rewriter.create<AllocaOp>(loc, MemRefType::get({}, elementType));
+    Value reductionVal = rewriter.create<memref::AllocaOp>(
+        loc, MemRefType::get({}, elementType));
     rewriter.create<KrnlStoreOp>(loc, zero, reductionVal, ArrayRef<Value>{});
 
     // Create the inner reduction loop; trip count is last dim of A.
@@ -135,12 +136,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Initialize alloc/C to zero.
     ValueRange zLoop = krnl_define_loop(2);
-    Value zi(zLoop[0]), zj(zLoop[1]);
-    krnl_iterate({zi, zj}, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
-      ValueRange indices = krnl_get_induction_var_value({zi, zj});
-      Value zii(indices[0]), zjj(indices[1]);
-      SmallVector<Value> storeIndices({zii, zjj});
-      krnl_store(zeroVal, alloc, storeIndices);
+    krnl_iterate(zLoop, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
+      ValueRange indices = krnl_get_induction_var_value(zLoop);
+      krnl_store(zeroVal, alloc, indices);
     });
 
     // Compute.
@@ -178,7 +176,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ONNXMatMulOpAdaptor operandAdaptor(operands);
     ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
     Location loc = ONNXLoc<ONNXMatMulOp>(op);
-    ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter);
+    ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
     LogicalResult shapecomputed = shapeHelper.Compute(operandAdaptor);
     assert(succeeded(shapecomputed));
     IndexExprScope outerScope(shapeHelper.scope);
@@ -209,6 +209,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXMatMulOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXMatMulOpLowering>(ctx);
 }

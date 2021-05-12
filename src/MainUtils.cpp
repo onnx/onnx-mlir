@@ -19,14 +19,17 @@
 #include <string>
 #include <vector>
 
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
-#include <llvm/Support/FileSystem.h>
-#include <llvm/Support/Program.h>
-#include <mlir/Dialect/LLVMIR/LLVMDialect.h>
-#include <mlir/IR/SymbolTable.h>
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Target/LLVMIR/Export.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Program.h"
+#include "llvm/Support/SourceMgr.h"
 
-#include "src/ExternalUtil.hpp"
-#include "src/MainUtils.hpp"
+#include "ExternalUtil.hpp"
+#include "MainUtils.hpp"
 
 #ifdef _WIN32
 #include <io.h>
@@ -34,7 +37,11 @@
 #include <unistd.h>
 #endif
 
+// If need to inspect the temp files for debugging, set flag below to true.
+#define KEEP_TEMP_FILES false
+
 using namespace std;
+using namespace mlir;
 using namespace onnx_mlir;
 
 llvm::cl::OptionCategory OnnxMlirOptions(
@@ -183,7 +190,7 @@ struct Command {
 
     // If in verbose mode, print out command before execution.
     if (verbose)
-      cout << llvm::join(argsRef, " ") << "\n";
+      cout << _path << ": " << llvm::join(argsRef, " ") << "\n";
 
     std::string errMsg;
     int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
@@ -215,7 +222,7 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
       llvm::MemoryBuffer::getFileOrSTDIN(inputFilename);
   if (std::error_code EC = fileOrErr.getError()) {
     llvm::errs() << "Could not open input file: " << EC.message() << "\n";
-    return;
+    exit(1);
   }
 
   // Parse the input mlir.
@@ -224,106 +231,22 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
   module = mlir::parseSourceFile(sourceMgr, &context);
   if (!module) {
     llvm::errs() << "Error can't load file " << inputFilename << "\n";
-    return;
+    exit(1);
   }
 }
 
-void genConstPackObj(const mlir::OwningModuleRef &module,
-    llvm::Optional<string> &constPackObjPath, string outputBaseName) {
-  // Extract constant pack file name, which is embedded as a symbol in the
-  // module being compiled.
-  auto constPackFilePathSym = (*module).lookupSymbol<mlir::LLVM::GlobalOp>(
-      mlir::KrnlPackedConstantOp::getConstPackFilePathSymbolName());
-  auto constPackFilePath = constPackFilePathSym.valueAttr()
-                               .dyn_cast_or_null<mlir::StringAttr>()
-                               .getValue()
-                               .str();
-  llvm::FileRemover constPackRemover(constPackFilePath);
-
-#if __APPLE__
-  // Create a empty stub file, compile it to an empty obj file.
-  llvm::SmallVector<char, 20> stubSrcPath;
-  llvm::sys::fs::createTemporaryFile("stub", "cpp", stubSrcPath);
-  llvm::FileRemover subSrcRemover(stubSrcPath);
-  std::string stubSrcPathStr(stubSrcPath.begin(), stubSrcPath.end());
-  Command createStubObj(/*exePath=*/kCxxPath);
-  std::string stubObjPathStr = stubSrcPathStr + ".o";
-  createStubObj.appendList({"-o", stubObjPathStr})
-      .appendList({"-c", stubSrcPathStr})
-      .exec();
-  llvm::FileRemover stubObjRemover(stubObjPathStr);
-
-  // Embed data into the empty stub obj file.
-  constPackObjPath = constPackFilePath + ".o";
-  Command genParamObj(/*exePath=*/kLinkerPath);
-  genParamObj.appendStr("-r")
-      .appendList({"-o", constPackObjPath.getValue()})
-      .appendList({"-sectcreate", "binary", "param", constPackFilePath})
-      .appendStr(stubObjPathStr)
-      .exec();
-
-#elif __linux__
-  // Create param.o holding packed parameter values.
-  constPackObjPath = constPackFilePath + ".o";
-  Command genParamObj(/*exePath=*/kLinkerPath);
-  genParamObj.appendStr("-r")
-      .appendList({"-b", "binary"})
-      .appendList({"-o", constPackObjPath.getValue()})
-      .appendStr(constPackFilePath)
-      .exec();
-
-  // Figure out what is the default symbol name describing the start/end
-  // address of the embedded data.
-  std::regex e("[^0-9A-Za-z]");
-  auto sanitizedName =
-      "_binary_" + std::regex_replace(constPackFilePath, e, "_");
-
-  // Rename the symbols to saner ones expected by the runtime function.
-  Command redefineSym(/*exePath=*/kObjCopyPath);
-  redefineSym.appendStr("--redefine-sym")
-      .appendStr(sanitizedName + "_start=_binary_param_bin_start")
-      .appendStr(constPackObjPath.getValue())
-      .exec();
-  redefineSym.resetArgs()
-      .appendStr("--redefine-sym")
-      .appendStr(sanitizedName + "_end=_binary_param_bin_end")
-      .appendStr(constPackObjPath.getValue())
-      .exec();
-
-#else
-  /* The final constant pack object file on Windows is NOT embedded into
-   * the shared library but rather is kept in a separate .bin file. So
-   * do not set it in constPackObjPath so that when this function returns
-   * the caller (compileModuleToSharedLibrary and compileModuleToJniJar)
-   * won't put it into llvm::FileRemover.
-   */
-  llvm::SmallVector<char, 10> permConstPackFileName(
-      constPackFilePath.begin(), constPackFilePath.end());
-  llvm::sys::path::replace_extension(permConstPackFileName, "bin");
-  std::string permConstPackFileNameStr(
-      permConstPackFileName.begin(), permConstPackFileName.end());
-  auto constPackFileName = llvm::sys::path::filename(outputBaseName) + "." +
-                           llvm::sys::path::filename(permConstPackFileNameStr);
-  llvm::sys::fs::rename(constPackFilePath, constPackFileName);
-
-  mlir::Builder builder(*module);
-  (*module)
-      .lookupSymbol<mlir::LLVM::GlobalOp>(
-          mlir::KrnlPackedConstantOp::getConstPackFileNameSymbolName())
-      .valueAttr(builder.getStringAttr(constPackFileName.str()));
-  (*module)
-      .lookupSymbol<mlir::LLVM::GlobalOp>(
-          mlir::KrnlPackedConstantOp::getConstPackFileNameStrLenSymbolName())
-      .valueAttr(builder.getI64IntegerAttr(constPackFileName.str().size()));
-#endif
+string getTargetCpuOption() {
+  string targetOptions = "";
+  if (mcpu != "")
+    targetOptions += "--mcpu=" + mcpu;
+  return targetOptions;
 }
 
-string getTargetOptions() {
+string getTargetTripleOption() {
   string targetOptions = "";
   if (mtriple != "")
     targetOptions = "--mtriple=" + mtriple;
-  if (mcpu != "")
-    targetOptions += " --mcpu=" + mcpu;
+  // Comand cannot tolerate extra spaces. Add only when needed.
   return targetOptions;
 }
 
@@ -334,21 +257,29 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
 
   // Write bitcode to a file.
   string unoptimizedBitcodePath = outputBaseName + ".unoptimized.bc";
-  llvm::FileRemover unoptimzedBitcodeRemover(unoptimizedBitcodePath);
+  llvm::FileRemover unoptimzedBitcodeRemover(
+      unoptimizedBitcodePath, !KEEP_TEMP_FILES);
 
   llvm::raw_fd_ostream moduleBitcodeStream(
       unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
 
   llvm::LLVMContext llvmContext;
-  llvm::WriteBitcodeToFile(*mlir::translateModuleToLLVMIR(*module, llvmContext),
-      moduleBitcodeStream);
+  mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
+  auto llvmModule = mlir::translateModuleToLLVMIR(*module, llvmContext);
+  if (!llvmModule) {
+    llvm::errs() << "Failed to translate module to LLVMIR.\n";
+    exit(1);
+  }
+  llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
   string optPath = getToolPath("opt");
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
-  optBitcode.appendStr("-O3")
-      .appendStr(getTargetOptions())
+  optBitcode
+      .appendStr("-O3") // test_scan9_sum_cpu fails on z with O3.
+      .appendStr(getTargetTripleOption())
+      .appendStr(getTargetCpuOption())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
       .exec();
@@ -361,7 +292,6 @@ void genModelObject(const mlir::OwningModuleRef &module, string bitcodePath,
   Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
   llvmToObj.appendStr("-filetype=obj")
       .appendStr("-relocation-model=pic")
-      .appendStr(getTargetOptions())
       .appendList({"-o", modelObjPath})
       .appendStr(bitcodePath)
       .exec();
@@ -408,50 +338,40 @@ void genJniJar(const mlir::OwningModuleRef &module, string modelSharedLibPath,
 void compileModuleToSharedLibrary(
     const mlir::OwningModuleRef &module, std::string outputBaseName) {
 
-  llvm::Optional<string> constPackObjPath;
-  genConstPackObj(module, constPackObjPath, outputBaseName);
-  llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
-
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
-  llvm::FileRemover bitcodeRemover(bitcodePath);
+  llvm::FileRemover bitcodeRemover(bitcodePath, !KEEP_TEMP_FILES);
 
   string modelObjPath = outputBaseName + ".o";
   genModelObject(module, bitcodePath, modelObjPath);
-  llvm::FileRemover modelObjRemover(modelObjPath);
+  llvm::FileRemover modelObjRemover(modelObjPath, !KEEP_TEMP_FILES);
 
   string modelSharedLibPath = outputBaseName + ".so";
-  genSharedLib(module, modelSharedLibPath, {"-shared", "-fPIC"},
-      {constPackObjPath.getValueOr(""), modelObjPath},
-      {"-lEmbeddedDataLoader", "-lcruntime"});
+  genSharedLib(module, modelSharedLibPath, {"-shared", "-fPIC"}, {modelObjPath},
+      {"-lcruntime"});
 }
 
 void compileModuleToJniJar(
     const mlir::OwningModuleRef &module, std::string outputBaseName) {
 
-  llvm::Optional<string> constPackObjPath;
-  genConstPackObj(module, constPackObjPath, outputBaseName);
-  llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
-
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
-  llvm::FileRemover bitcodeRemover(bitcodePath);
+  llvm::FileRemover bitcodeRemover(bitcodePath, !KEEP_TEMP_FILES);
 
   string modelObjPath = outputBaseName + ".o";
   genModelObject(module, bitcodePath, modelObjPath);
-  llvm::FileRemover modelObjRemover(modelObjPath);
+  llvm::FileRemover modelObjRemover(modelObjPath, !KEEP_TEMP_FILES);
 
   string jniSharedLibPath = getRuntimeDir() + "/libjniruntime.a";
   string jniObjPath = "jnidummy.c.o";
   genJniObject(module, jniSharedLibPath, jniObjPath);
-  llvm::FileRemover jniObjRemover(jniObjPath);
+  llvm::FileRemover jniObjRemover(jniObjPath, !KEEP_TEMP_FILES);
 
   string modelSharedLibPath = "libmodel.so";
   genSharedLib(module, modelSharedLibPath,
-      {"-shared", "-fPIC", "-z", "noexecstack"},
-      {constPackObjPath.getValueOr(""), modelObjPath, jniObjPath},
-      {"-lEmbeddedDataLoader", "-lcruntime", "-ljniruntime"});
-  llvm::FileRemover modelSharedLibRemover(modelSharedLibPath);
+      {"-shared", "-fPIC", "-z", "noexecstack"}, {modelObjPath, jniObjPath},
+      {"-ljniruntime", "-lcruntime"});
+  llvm::FileRemover modelSharedLibRemover(modelSharedLibPath, !KEEP_TEMP_FILES);
 
   string modelJniJarPath = outputBaseName + ".jar";
   genJniJar(module, modelSharedLibPath, modelJniJarPath);
@@ -465,6 +385,8 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::scf::SCFDialect>();
   context.getOrLoadDialect<mlir::StandardOpsDialect>();
   context.getOrLoadDialect<mlir::shape::ShapeDialect>();
+  context.getOrLoadDialect<mlir::math::MathDialect>();
+  context.getOrLoadDialect<mlir::memref::MemRefDialect>();
   context.getOrLoadDialect<mlir::ONNXOpsDialect>();
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
 }
@@ -483,7 +405,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerToKrnlPass());
-  pm.addPass(mlir::createPackKrnlGlobalConstantsPass());
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // oppertunities.
@@ -504,7 +425,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
   //  pm.addPass(mlir::createLoopFusionPass());
 }
 
-void addKrnlToLLVMPasses(mlir::PassManager &pm) {
+void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
   pm.addNestedPass<FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(mlir::createLowerToCFGPass());
@@ -590,7 +511,8 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
         (outputBaseName + ".onnx.mlir").c_str());
 
     // Apply specific passes to clean up the code where necessary.
-    mlir::PassManager cleanSourcePM(&context);
+    mlir::PassManager cleanSourcePM(
+        &context, mlir::OpPassManager::Nesting::Implicit);
     if (emissionTarget == EmitONNXIR || emissionTarget == EmitONNXBasic)
       cleanSourcePM.addNestedPass<FuncOp>(mlir::createElideConstantValuePass());
     if (emissionTarget == EmitMLIR)
@@ -613,7 +535,8 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
 
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
-  mlir::PassManager pm(&context);
+  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
+
   if (emissionTarget >= EmitONNXIR) {
     addONNXToMLIRPasses(pm);
   }

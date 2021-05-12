@@ -1,26 +1,32 @@
 # SPDX-License-Identifier: Apache-2.0
 
-# TODO: remove for release.
-# if(NOT CMAKE_BUILD_TYPE)
-#   set(CMAKE_BUILD_TYPE Debug CACHE STRING "build type")
-# endif()
+# Match the minimum required version of LLVM and MLIR
+cmake_minimum_required(VERSION 3.13.4)
 
-# Require 3.3 and set policy CMP0057 for IN_LIST operator support
-cmake_minimum_required(VERSION 3.3)
-cmake_policy(SET CMP0057 NEW)
 project(onnx-mlir)
 
-set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
+if (NOT CMAKE_BUILD_TYPE)
+  message(STATUS "No build type selected, default to Debug")
+  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type (default Debug)" FORCE)
+endif()
 
-set(ONNX_MLIR_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
-set(ONNX_MLIR_BIN_ROOT "${CMAKE_CURRENT_BINARY_DIR}")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/bin)
+
+set(ONNX_MLIR_SRC_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+set(ONNX_MLIR_BIN_ROOT ${CMAKE_CURRENT_BINARY_DIR})
+
+set(ONNX_MLIR_LIBRARY_PATH ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+set(ONNX_MLIR_RUNTIME_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 include(CTest)
 include(MLIR.cmake)
+
+# MLIR.cmake calls find_package(MLIR) which sets LLVM_MINIMUM_PYTHON_VERSION
+find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
 if (MSVC)
   # Disable warnings that prevent building of dependencies
@@ -35,6 +41,11 @@ endif()
 # up that way (onnx doesn't set Protobuf_USE_STATIC_LIBS at all and cmake interprets that as setting
 # Protobuf_USE_STATIC_LIBS to OFF). If/when onnx is updated to correctly set up both variables,
 # this can be removed (see https://github.com/onnx/onnx/issues/3345).
+# We are setting CMP0077 to NEW here, so that onnx does not override our regular variables for
+# protobuf when the project is included below.
+if (POLICY CMP0077)
+  set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+endif (POLICY CMP0077)
 if (NOT DEFINED ONNX_USE_PROTOBUF_SHARED_LIBS AND NOT DEFINED Protobuf_USE_STATIC_LIBS)
   set(ONNX_USE_PROTOBUF_SHARED_LIBS OFF)
   set(Protobuf_USE_STATIC_LIBS ON)
@@ -57,9 +68,6 @@ elseif ((ONNX_USE_PROTOBUF_SHARED_LIBS AND Protobuf_USE_STATIC_LIBS)
 endif()
 add_subdirectory(third_party/onnx)
 
-add_subdirectory(third_party/googletest)
-set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
-add_subdirectory(third_party/benchmark)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/variant)
 add_subdirectory(third_party/rapidcheck)
