@@ -86,7 +86,8 @@ public:
       // so the ops followed by a return op may not have dynamic shape output.
       // However, shape inference is still need on these ops
       // to infer optional attributes.
-      if (containSubgraph(&op) || isUsedByReturnOp(&op) || returnsDynamicShape(&op)) {
+      if (containSubgraph(&op) || isUsedByReturnOp(&op) ||
+          returnsDynamicShape(&op)) {
         if (auto shape_op = llvm::dyn_cast<ShapeInference>(op)) {
           if (failed(shape_op.inferShapes(doShapeInference))) {
             op.emitError("shape inference failed");
@@ -144,7 +145,7 @@ public:
   // Op needs shape inference when contains a subgraph
   // Temporary fix: only LoopOp is checked
   static bool containSubgraph(Operation *op) {
-    if(dyn_cast<ONNXLoopOp>(*op))
+    if (dyn_cast<ONNXLoopOp>(*op))
       return true;
     return false;
   }
