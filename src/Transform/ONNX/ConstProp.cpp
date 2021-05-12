@@ -25,6 +25,7 @@
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Transform/ONNX/ConstProp.hpp"
 
 #include <math.h>
 
@@ -178,19 +179,46 @@ std::vector<int64_t> getAccessIndex(
 }
 
 /// Allocate a buffer whose size is getting from a given Value's type.
-char *allocateBufferFor(Value value, bool useMaxSize = false) {
+char *allocateBufferFor(Type type, bool useMaxSize = false) {
+  assert(type.isa<ShapedType>() && "Not a shaped type");
   int64_t sizeInBytes;
   if (useMaxSize)
-    sizeInBytes = getMaxSizeInBytes(value.getType().cast<ShapedType>());
+    sizeInBytes = getMaxSizeInBytes(type.cast<ShapedType>());
   else
-    sizeInBytes = getSizeInBytes(value.getType().cast<ShapedType>());
+    sizeInBytes = getSizeInBytes(type.cast<ShapedType>());
   char *res = (char *)malloc(sizeInBytes);
   return res;
 }
 
+/// Get a data array from a given ONNXConstantOp.
+char *createArrayFromDenseAttribute(DenseElementsAttr dataAttr) {
+  Type elementType = dataAttr.getType().getElementType();
+  int64_t numElements = getNumberOfElements(dataAttr.getType().getShape());
+  char *res = allocateBufferFor(dataAttr.getType(), /*useMaxSize=*/true);
+  if (elementType.isa<FloatType>()) {
+    // Use double to avoid the precision loss during computation.
+    double *resArr = (double *)res;
+    auto valueIt = dataAttr.getFloatValues().begin();
+    for (int64_t i = 0; i < numElements; ++i) {
+      double val = (double)(*valueIt++).convertToFloat();
+      *(resArr + i) = val;
+    }
+  } else if (elementType.isa<IntegerType>()) {
+    // Use int64_t to avoid the precision loss during computation.
+    int64_t *resArr = (int64_t *)res;
+    auto valueIt = dataAttr.getIntValues().begin();
+    for (int64_t i = 0; i < numElements; ++i) {
+      int64_t val = (*valueIt++).getSExtValue();
+      *(resArr + i) = val;
+    }
+  } else
+    llvm_unreachable("Unknown data type");
+}
+
 /// Get a data array from a given ONNXConstantOp. If data were stored in memory,
 /// get from memory. Otherwise, get from the dense attribute.
-char *getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op) {
+char *getArrayFromAttributeOrBuffer(
+    PatternRewriter &rewriter, Operation *op, bool storeBufferPointer = true) {
   ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
   assert(constOp && "Not a constant operation");
   char *res;
@@ -206,39 +234,77 @@ char *getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op) {
     res = bufferPtrs[bufferId];
   } else {
     // Use maximum size (double or int64_t) to avoid the precision loss.
-    res = allocateBufferFor(constOp.getResult(), /*useMaxSize=*/true);
+    // res = allocateBufferFor(constOp.getResult().getType(), /*useMaxSize=*/true);
     DenseElementsAttr dataAttr =
         op->getAttrOfType<::mlir::Attribute>("value")
             .dyn_cast_or_null<mlir::DenseElementsAttr>();
-    if (elementType.isa<FloatType>()) {
-      // Use double to avoid the precision loss during computation.
-      double *resArr = (double *)res;
-      auto valueIt = dataAttr.getFloatValues().begin();
-      for (int64_t i = 0; i < numElements; ++i) {
-        double val = (double)(*valueIt++).convertToFloat();
-        *(resArr + i) = val;
-      }
-    } else if (elementType.isa<IntegerType>()) {
-      // Use int64_t to avoid the precision loss during computation.
-      int64_t *resArr = (int64_t *)res;
-      auto valueIt = dataAttr.getIntValues().begin();
-      for (int64_t i = 0; i < numElements; ++i) {
-        int64_t val = (*valueIt++).getSExtValue();
-        *(resArr + i) = val;
-      }
-    } else
-      llvm_unreachable("Unknown data type");
+    res = createArrayFromDenseAttribute(dataAttr);
+    //if (elementType.isa<FloatType>()) {
+    //  // Use double to avoid the precision loss during computation.
+    //  double *resArr = (double *)res;
+    //  auto valueIt = dataAttr.getFloatValues().begin();
+    //  for (int64_t i = 0; i < numElements; ++i) {
+    //    double val = (double)(*valueIt++).convertToFloat();
+    //    *(resArr + i) = val;
+    //  }
+    //} else if (elementType.isa<IntegerType>()) {
+    //  // Use int64_t to avoid the precision loss during computation.
+    //  int64_t *resArr = (int64_t *)res;
+    //  auto valueIt = dataAttr.getIntValues().begin();
+    //  for (int64_t i = 0; i < numElements; ++i) {
+    //    int64_t val = (*valueIt++).getSExtValue();
+    //    *(resArr + i) = val;
+    //  }
+    //} else
+    //  llvm_unreachable("Unknown data type");
 
-    // Store the buffer pointer.
-    bufferPtrs.emplace_back(res);
-    unsigned bufferId = bufferPtrs.size() - 1;
-    // Add an attribute to store the buffer id.
-    op->setAttr(BUFFER_ID_ATTR,
-        IntegerAttr::get(
-            rewriter.getIntegerType(/*width=*/64, /*isSigned=*/false),
-            bufferId));
+    // Store the buffer pointer for reuse.
+    if (storeBufferPointer) {
+      bufferPtrs.emplace_back(res);
+      unsigned bufferId = bufferPtrs.size() - 1;
+      // Add an attribute to store the buffer id.
+      op->setAttr(BUFFER_ID_ATTR,
+          IntegerAttr::get(
+              rewriter.getIntegerType(/*width=*/64, /*isSigned=*/false),
+              bufferId));
+    }
   }
   return res;
+}
+
+/// Convert an array whose element type is double or int_64 to an array whose
+/// element type is the one of 'outType' (smaller precision). It does not
+/// support converting from floating point to integer and vise versa.
+void convertDoubleInt64ToExactType(Type outType, char *inArr, char *outArr) {
+  ShapedType shapedType = outType.cast<ShapedType>();
+  int64_t maxSizeInBytes = getMaxSizeInBytes(shapedType);
+  int64_t numElements = getNumberOfElements(shapedType.getShape());
+  Type elementType = shapedType.getElementType();
+
+  if (elementType.isa<FloatType>()) {
+    FloatType floatTy = elementType.cast<FloatType>();
+    if (floatTy.getWidth() == 32) {
+      double *inArrDouble = (double *)inArr;
+      float *inArrFloat = (float *)outArr;
+      for (int64_t i = 0; i < numElements; ++i)
+        *(inArrFloat + i) = (float)*(inArrDouble + i);
+    } else if (floatTy.getWidth() == 64) {
+      std::copy(inArr, inArr + maxSizeInBytes, outArr);
+    } else
+      llvm_unreachable("Unknown data type");
+  } else if (elementType.isa<IntegerType>()) {
+    IntegerType intTy = elementType.cast<IntegerType>();
+    if (intTy.getWidth() == 32) {
+      int64_t *inArrInt64 = (int64_t *)inArr;
+      int32_t *inArrInt32 = (int32_t *)outArr;
+      for (int64_t i = 0; i < numElements; ++i)
+        *(inArrInt32 + i) = (int32_t)(*(inArrInt64 + i));
+    } else if (intTy.getWidth() == 64) {
+      std::copy(inArr, inArr + maxSizeInBytes, outArr);
+    } else
+      llvm_unreachable("Unknown data type");
+  } else
+    llvm_unreachable("Unknown data type");
 }
 
 /// Get array with the exact data type for the final ONNXConstantOp.
@@ -246,39 +312,11 @@ void getArrayForFinalOutput(Operation *op, char *res) {
   ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
   assert(constOp && "Not a constant operation");
 
-  ShapedType shapedType = constOp.getResult().getType().cast<ShapedType>();
-  int64_t maxSizeInBytes = getMaxSizeInBytes(shapedType);
-  int64_t numElements = getNumberOfElements(shapedType.getShape());
-  Type elementType = shapedType.getElementType();
-
   Attribute bufferIDAttr = op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR);
   if (bufferIDAttr) {
     unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
     char *resArr = bufferPtrs[bufferId];
-    if (elementType.isa<FloatType>()) {
-      FloatType floatTy = elementType.cast<FloatType>();
-      if (floatTy.getWidth() == 32) {
-        double *resArrDouble = (double *)resArr;
-        float *resArrFloat = (float *)res;
-        for (int64_t i = 0; i < numElements; ++i)
-          *(resArrFloat + i) = (float)*(resArrDouble + i);
-      } else if (floatTy.getWidth() == 64) {
-        std::copy(resArr, resArr + maxSizeInBytes, res);
-      } else
-        llvm_unreachable("Unknown data type");
-    } else if (elementType.isa<IntegerType>()) {
-      IntegerType intTy = elementType.cast<IntegerType>();
-      if (intTy.getWidth() == 32) {
-        int64_t *resArrInt64 = (int64_t *)resArr;
-        int32_t *resArrInt32 = (int32_t *)res;
-        for (int64_t i = 0; i < numElements; ++i)
-          *(resArrInt32 + i) = (int32_t)(*(resArrInt64 + i));
-      } else if (intTy.getWidth() == 64) {
-        std::copy(resArr, resArr + maxSizeInBytes, res);
-      } else
-        llvm_unreachable("Unknown data type");
-    } else
-      llvm_unreachable("Unknown data type");
+    convertDoubleInt64ToExactType(constOp.getResult().getType(), resArr, res);
   } else {
     llvm_unreachable("Could not find the input buffer");
   }
@@ -291,7 +329,7 @@ RankedTensorType constructRankedTensorType(ShapedType type) {
 }
 
 /// A helper function to construct a DenseElementsAttr from an array.
-static DenseElementsAttr createDenseElementsAttr(char *arr, Type outputType) {
+DenseElementsAttr createDenseElementsAttr(char *arr, Type outputType) {
   int64_t sizeInBytes = getSizeInBytes(outputType);
   RankedTensorType resType =
       constructRankedTensorType(outputType.cast<ShapedType>());
@@ -494,7 +532,8 @@ ONNXConstantOp ConstPropElementwiseBinary(
 
   // Do calculation.
   // Use maximum size (double or int64_t) to avoid the precision loss.
-  char *resArray = allocateBufferFor(replacingValue, /*useMaxSize=*/true);
+  char *resArray =
+      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
   if (elementType.isa<FloatType>()) {
     // Use double to avoid the precision loss during computation.
     IterateConstPropElementwiseBinary<ElementwiseBinaryOp, double>(
@@ -566,7 +605,8 @@ ONNXConstantOp ConstPropElementwiseUnary(
 
   // Do calculation.
   // Use maximum size (double or int64_t) to avoid the precision loss.
-  char *resArray = allocateBufferFor(replacingValue, /*useMaxSize=*/true);
+  char *resArray =
+      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
   if (elementType.isa<FloatType>()) {
     // Use double to avoid the precision loss during computation.
     IterateConstPropElementwiseUnary<ElementwiseUnaryOp, double>(
@@ -591,7 +631,7 @@ ONNXConstantOp ConstPropElementwiseUnary(
 
 template <typename T>
 void IterateConstPropTranspose(char *constArray, ArrayRef<int64_t> constShape,
-    ArrayRef<uint64_t> perm, char *resArray, ArrayRef<int64_t> resShape) {
+    ArrayRef<uint64_t> perm, ArrayRef<int64_t> resShape, char *resArray) {
   // Data pointers.
   T *constArrayT = reinterpret_cast<T *>(constArray);
   T *resArrayT = reinterpret_cast<T *>(resArray);
@@ -617,7 +657,7 @@ void IterateConstPropTranspose(char *constArray, ArrayRef<int64_t> constShape,
     int64_t resOffset = getLinearAccessIndex(resIndices, resStrides);
     *(resArrayT + resOffset) = *(constArrayT + constOffset);
   }
-}
+} // namespace
 
 ONNXConstantOp ConstPropTranspose(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
@@ -643,15 +683,16 @@ ONNXConstantOp ConstPropTranspose(
 
   // Do calculation.
   // Use maximum size (double or int64_t) to avoid the precision loss.
-  char *resArray = allocateBufferFor(replacingValue, /*useMaxSize=*/true);
+  char *resArray =
+      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
   if (elementType.isa<FloatType>()) {
     // Use double to avoid the precision loss during computation.
     IterateConstPropTranspose<double>(
-        constArray, constShape, perm, resArray, replacingShape);
+        constArray, constShape, perm, replacingShape, resArray);
   } else if (elementType.isa<IntegerType>()) {
     // Use int64_t to avoid the precision loss during computation.
     IterateConstPropTranspose<int64_t>(
-        constArray, constShape, perm, resArray, replacingShape);
+        constArray, constShape, perm, replacingShape, resArray);
   } else
     llvm_unreachable("Unknown data type");
 
@@ -686,13 +727,12 @@ ONNXConstantOp ConstPropUnsqueeze(
 //===----------------------------------------------------------------------===//
 
 template <typename T>
-void IterateConstPropSplit(PatternRewriter &rewriter,
-    std::vector<Value> &resValues, char *constArray,
-    ArrayRef<int64_t> constShape, ArrayRef<Value> replacingValues,
-    uint64_t splitAxis, ArrayRef<int64_t> splitOffsets) {
+void IterateConstPropSplit(char *constArray, ArrayRef<int64_t> constShape,
+    uint64_t splitAxis, ArrayRef<int64_t> splitOffsets,
+    ArrayRef<Type> replacingTypes, std::vector<char *> &resBuffers) {
   // Basic info.
   int rank = constShape.size();
-  int numOfResults = replacingValues.size();
+  int numOfResults = replacingTypes.size();
 
   // Data pointers.
   T *constArrayT = reinterpret_cast<T *>(constArray);
@@ -700,10 +740,9 @@ void IterateConstPropSplit(PatternRewriter &rewriter,
   std::vector<int64_t> constStrides = getStrides(constShape);
 
   // Allocate temporary buffers.
-  std::vector<char *> resBuffers;
   for (int i = 0; i < numOfResults; ++i) {
     // Use maximum size (double or int64_t) to avoid the precision loss.
-    char *resArray = allocateBufferFor(replacingValues[i], /*useMaxSize=*/true);
+    char *resArray = allocateBufferFor(replacingTypes[i], /*useMaxSize=*/true);
     resBuffers.emplace_back(resArray);
   }
 
@@ -730,20 +769,13 @@ void IterateConstPropSplit(PatternRewriter &rewriter,
     }
 
     // Get linear access indices.
-    std::vector<int64_t> resStrides = getStrides(
-        replacingValues[toResult].getType().cast<ShapedType>().getShape());
+    std::vector<int64_t> resStrides =
+        getStrides(replacingTypes[toResult].cast<ShapedType>().getShape());
     int64_t resOffset = getLinearAccessIndex(resIndices, resStrides);
 
     // Copy data.
     T *resArrayT = reinterpret_cast<T *>(resBuffers[toResult]);
     *(resArrayT + resOffset) = *(constArrayT + i);
-  }
-
-  // Construct result values.
-  for (int i = 0; i < numOfResults; ++i) {
-    ONNXConstantOp res = createConstantOpAndStoreBufferPtr(
-        rewriter, replacingValues[i], resBuffers[i]);
-    resValues.emplace_back(res.getResult());
   }
 }
 
@@ -789,19 +821,30 @@ public:
         getArrayFromAttributeOrBuffer(rewriter, input.getDefiningOp());
 
     SmallVector<Value, 4> replacingValues;
-    for (int i = 0; i < numOfResults; ++i)
+    SmallVector<Type, 4> replacingTypes;
+    for (int i = 0; i < numOfResults; ++i) {
       replacingValues.emplace_back(splitOp.getResults()[i]);
+      replacingTypes.emplace_back(splitOp.getResults()[i].getType());
+    }
 
     // Do splitting.
-    std::vector<Value> resValues;
+    std::vector<char *> resBuffers;
     if (elementType.isa<FloatType>()) {
-      IterateConstPropSplit<double>(rewriter, resValues, inputArray, inputShape,
-          replacingValues, splitAxis, splitOffsets);
+      IterateConstPropSplit<double>(inputArray, inputShape, splitAxis,
+          splitOffsets, replacingTypes, resBuffers);
     } else if (elementType.isa<IntegerType>()) {
-      IterateConstPropSplit<int64_t>(rewriter, resValues, inputArray,
-          inputShape, replacingValues, splitAxis, splitOffsets);
+      IterateConstPropSplit<int64_t>(inputArray, inputShape, splitAxis,
+          splitOffsets, replacingTypes, resBuffers);
     } else
       llvm_unreachable("Unknown data type");
+
+    // Construct result values.
+    std::vector<Value> resValues;
+    for (int i = 0; i < numOfResults; ++i) {
+      ONNXConstantOp res = createConstantOpAndStoreBufferPtr(
+          rewriter, replacingValues[i], resBuffers[i]);
+      resValues.emplace_back(res.getResult());
+    }
 
     rewriter.replaceOp(splitOp, resValues);
     return success();
@@ -841,7 +884,7 @@ void ConstPropONNXToONNXPass::runOnFunction() {
   function.walk([&](ONNXConstantOp constOp) {
     Operation *op = constOp.getOperation();
     if (op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR)) {
-      char *arr = allocateBufferFor(constOp.getResult());
+      char *arr = allocateBufferFor(constOp.getResult().getType());
       getArrayForFinalOutput(op, arr);
       ShapedType type = constOp.getResult().getType().cast<ShapedType>();
       DenseElementsAttr denseAttr = createDenseElementsAttr(arr, type);

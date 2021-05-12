@@ -16,11 +16,23 @@ add_onnx_mlir_rewriter(Combine)
 add_onnx_mlir_rewriter(Decompose)
 add_onnx_mlir_rewriter(ConstProp)
 
+add_library(OMConstProp
+        ConstProp.cpp)
+target_include_directories(OMConstProp
+        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
+        ${ONNF_MLIR_SRC_ROOT})
+# Header dependencies
+add_dependencies(OMConstProp
+        OMONNXOpsInc
+        OMONNXConstPropIncGen)
+# Linking dependencies
+add_dependencies(OMConstProp
+        OMONNXOps)
+
 add_library(OMONNXRewrite
         Rewrite.cpp
         Combine.cpp
-        Decompose.cpp
-        ConstProp.cpp)
+        Decompose.cpp)
 target_include_directories(OMONNXRewrite
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNF_MLIR_SRC_ROOT})
@@ -30,8 +42,7 @@ add_dependencies(OMONNXRewrite
         OMONNXOpsInc
         OMONNXRewriteIncGen
         OMONNXDecomposeIncGen
-        OMONNXCombineIncGen
-        OMONNXConstPropIncGen)
+        OMONNXCombineIncGen)
 
 # Linking dependencies
 add_dependencies(OMONNXRewrite OMONNXOps)
@@ -48,3 +59,4 @@ add_dependencies(OMShapeInference OMShapeInferenceOpInterface)
 install(TARGETS OMElideConstants     DESTINATION lib)
 install(TARGETS OMONNXRewrite        DESTINATION lib)
 install(TARGETS OMShapeInference     DESTINATION lib)
+install(TARGETS OMConstProp          DESTINATION lib)

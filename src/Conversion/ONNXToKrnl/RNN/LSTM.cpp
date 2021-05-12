@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+#include "src/Transform/ONNX/ConstProp.hpp"
 
 #include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
@@ -352,6 +353,18 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
     if (direction == FORWARD) {
       fB = rewriter.create<ONNXUnsqueezeOp>(
           loc, bType1D, B, rewriter.getI64ArrayAttr(0));
+      DenseElementsAttr dataAttr =
+          B.getDefiningOp()
+              ->getAttrOfType<::mlir::Attribute>("value")
+              .dyn_cast_or_null<mlir::DenseElementsAttr>();
+      char *fBArray = createArrayFromDenseAttribute(dataAttr);
+      // std::vector<char *> resBuffers;
+      // IterateConstPropSplit<double>(fBArray, bType1D.getShape(), 0,
+      //    ArrayRef<int64_t>{0, hiddenSize},
+      //    ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D,
+      //    bSplitType1D,
+      //        bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D},
+      //    resBuffers);
     } else if (direction == REVERSE) {
       bB = rewriter.create<ONNXUnsqueezeOp>(
           loc, bType1D, B, rewriter.getI64ArrayAttr(0));
@@ -537,9 +550,9 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
       allocOperands.emplace_back(inputSizeVal);
     }
     Xt = rewriter.create<AllocOp>(loc, XtType, allocOperands);
-    //auto *parentBlock = Xt.getDefiningOp()->getBlock();
-    //auto dealloc = rewriter.create<DeallocOp>(loc, Xt);
-    //dealloc.getOperation()->moveBefore(&parentBlock->back());
+    // auto *parentBlock = Xt.getDefiningOp()->getBlock();
+    // auto dealloc = rewriter.create<DeallocOp>(loc, Xt);
+    // dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   BuildKrnlLoop xtLoops(rewriter, loc, 2);
   xtLoops.createDefineOp();
@@ -573,9 +586,9 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
       allocOperands.emplace_back(hiddenSizeVal);
     }
     Ht = rewriter.create<AllocOp>(loc, HtType, allocOperands);
-    //auto *parentBlock = Ht.getDefiningOp()->getBlock();
-    //auto dealloc = rewriter.create<DeallocOp>(loc, Ht);
-    //dealloc.getOperation()->moveBefore(&parentBlock->back());
+    // auto *parentBlock = Ht.getDefiningOp()->getBlock();
+    // auto dealloc = rewriter.create<DeallocOp>(loc, Ht);
+    // dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   Value Ct;
   MemRefType CtType = MemRefType::get(
@@ -593,9 +606,9 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
       allocOperands.emplace_back(hiddenSizeVal);
     }
     Ct = rewriter.create<AllocOp>(loc, CtType, allocOperands);
-    //auto *parentBlock = Ct.getDefiningOp()->getBlock();
-    //auto dealloc = rewriter.create<DeallocOp>(loc, Ct);
-    //dealloc.getOperation()->moveBefore(&parentBlock->back());
+    // auto *parentBlock = Ct.getDefiningOp()->getBlock();
+    // auto dealloc = rewriter.create<DeallocOp>(loc, Ct);
+    // dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
 
   BuildKrnlLoop htLoops(rewriter, loc, 2);
@@ -714,7 +727,6 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
 
     val = krnl_load(nextCt, ArrayRef<Value>{batchIV, hiddenIV});
     krnl_store(val, state.ct, ArrayRef<Value>{directionIV, batchIV, hiddenIV});
-
   }
 }
 
