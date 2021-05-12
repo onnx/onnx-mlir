@@ -35,9 +35,9 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "onnx/onnx_pb.h"
+#include "src/Builder/SymbolTable.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
-#include "src/Builder/SymbolTable.hpp"
 
 namespace onnx_mlir {
 
