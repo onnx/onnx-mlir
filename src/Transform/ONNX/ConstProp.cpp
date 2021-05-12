@@ -756,12 +756,12 @@ public:
     // Basic info.
     unsigned numOfResults = splitOp.getNumResults();
     Value input = splitOp.input();
+    if (!isFromDenseONNXConstantOp(input))
+      return failure();
+
     ShapedType inputType = input.getType().cast<ShapedType>();
     ArrayRef<int64_t> inputShape = inputType.getShape();
     Type elementType = inputType.getElementType();
-
-    if (!isFromDenseONNXConstantOp(input))
-      return failure();
 
     // Split axis.
     uint64_t splitAxis = splitOp.axisAttr().getValue().getSExtValue();
