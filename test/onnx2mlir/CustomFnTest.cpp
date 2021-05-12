@@ -56,7 +56,8 @@ void check(ModelProto &model) {
   options.useOnnxModelTypes = true;
   onnx_mlir::ImportFrontendModel(model, context, module, options);
 
-  module->verify();
+  // TODO: use result?
+  mlir::LogicalResult res = module->verify();
   module->dump();
   std::cerr << std::endl;
 }

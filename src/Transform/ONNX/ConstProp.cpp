@@ -756,12 +756,11 @@ public:
     // Basic info.
     unsigned numOfResults = splitOp.getNumResults();
     Value input = splitOp.input();
+    if (!isFromDenseONNXConstantOp(input))
+      return failure();
     ShapedType inputType = input.getType().cast<ShapedType>();
     ArrayRef<int64_t> inputShape = inputType.getShape();
     Type elementType = inputType.getElementType();
-
-    if (!isFromDenseONNXConstantOp(input))
-      return failure();
 
     // Split axis.
     uint64_t splitAxis = splitOp.axisAttr().getValue().getSExtValue();
@@ -831,11 +830,12 @@ void ConstPropONNXToONNXPass::runOnFunction() {
   ConversionTarget target(getContext());
   target.addLegalDialect<ONNXOpsDialect>();
 
-  OwningRewritePatternList patterns;
-  populateWithGenerated(context, patterns);
+  RewritePatternSet patterns(context);
+  populateWithGenerated(patterns);
   patterns.insert<ConstPropSplitPattern>(&getContext());
 
-  applyPatternsAndFoldGreedily(function, std::move(patterns));
+  if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+    signalPassFailure();
 
   // Create DenseElementsAttr and clean up helper attributes.
   function.walk([&](ONNXConstantOp constOp) {

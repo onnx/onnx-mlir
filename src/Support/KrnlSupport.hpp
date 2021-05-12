@@ -15,6 +15,7 @@
 #pragma once
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -31,7 +32,7 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 
 /// Get the AllocOp of the current GetRef.
-AllocOp getAllocOfGetRef(KrnlGetRefOp *getRef);
+memref::AllocOp getAllocOfGetRef(KrnlGetRefOp *getRef);
 
 /// Return the top block.
 Block *getTopBlock(Operation *op);
@@ -73,7 +74,7 @@ bool usedBySameKrnlMemcpy(
 bool usedBySameOp(KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef);
 
 /// Get the number of GetRef ops associated with this AllocOp.
-int64_t getAllocGetRefNum(AllocOp *allocOp);
+int64_t getAllocGetRefNum(memref::AllocOp *allocOp);
 
 /// Check if an operation is in the top-level block of the function.
 bool opInTopLevelBlock(Operation *op);
@@ -83,7 +84,7 @@ bool opInTopLevelBlock(Operation *op);
 bool opBeforeOp(Block *block, Operation *beforeOp, Operation *afterOp);
 
 /// Check Alloc operation result is used by a krnl.getref.
-bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
+bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp);
 
 /// Check is all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType memRefType);
@@ -95,14 +96,14 @@ unsigned getMemRefEltSizeInBytes(MemRefType memRefType);
 int64_t getMemRefSizeInBytes(Value value);
 
 /// Get the size of a dynamic MemRef in bytes.
-Value getDynamicMemRefSizeInBytes(
-    MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp);
+Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
+    PatternRewriter &rewriter, memref::AllocOp allocOp);
 
 /// Get order number of dynamic index.
-int64_t getAllocArgIndex(AllocOp allocOp, int64_t index);
+int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index);
 
 /// Get AllocOp alignment if it exists otherwise return zero.
-int64_t getAllocAlignment(AllocOp allocOp);
+int64_t getAllocAlignment(memref::AllocOp allocOp);
 
 //===----------------------------------------------------------------------===//
 // Live range analysis support.

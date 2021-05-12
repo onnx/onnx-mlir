@@ -36,7 +36,9 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     int64_t rank = memRefType.getShape().size();
 
     // Get a shape helper.
-    ONNXTransposeOpShapeHelper shapeHelper(&transposeOp, &rewriter);
+    ONNXTransposeOpShapeHelper shapeHelper(&transposeOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));
@@ -79,6 +81,6 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXTransposeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXTransposeOpLowering>(ctx);
 }
