@@ -1,8 +1,6 @@
-# ISSUE-TODO-namcvica-2021-04-28: Disable tests due to upstream pointer alignment issue.
-# See https://dev.azure.com/mltools/llvm-project/_workitems/edit/254/ for tracking.
-#set (DATASET_LIST test_data_set_0
-#                  test_data_set_1
-#                  test_data_set_2)
+set (DATASET_LIST test_data_set_0
+                  test_data_set_1
+                  test_data_set_2)
 
 # These tests should never fail at compile time, only tests time,
 # since compilation is supported on platforms that can't run the tests

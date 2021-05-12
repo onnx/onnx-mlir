@@ -1,6 +1,5 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 // ISSUE-TODO-namcvica-2021-04-07: Required until https://github.com/onnx/onnx-mlir/issues/582 is fixed upstream
-// UNSUPPORTED: system-windows, system-linux
 
 // Adding canonicalize is important here as this is the only way to check the values of the map, which are otherwise
 // before the function, and thus are hard to test.
@@ -839,11 +838,11 @@ func @test_prelu_broadcast3(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf32>) 
 // -----
 // COM: Check PRelu with unidirectional broadcasting.
 // COM: Tensor slope should be unidirectional broadcastable to input tensor X
-func @test_prelu_broadcast3(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf32>) -> tensor<*xf32> {
+func @test_prelu_broadcast4(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf32>) -> tensor<*xf32> {
   %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x1x5xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
-  // CHECK-LABEL: func @test_prelu_broadcast3
+  // CHECK-LABEL: func @test_prelu_broadcast4
   // CHECK-DAG: [[ZERO_INDEX:%.+]] = constant 0 : index
   // CHECK-DAG: [[CST_0:%.+]] = constant 0.000000e+00 : f32
   // CHECK-DAG: [[RES:%.+]] = memref.alloc() : memref<3x4x5xf32>

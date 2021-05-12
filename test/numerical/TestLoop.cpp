@@ -22,6 +22,7 @@
 #define SHARED_LIB_BASE string("./TestLoop_main_graph")
 
 using namespace std;
+using namespace mlir;
 
 std::string testLoopSimpleIR = R"(
 module {
