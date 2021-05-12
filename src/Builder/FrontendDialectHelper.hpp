@@ -36,6 +36,7 @@
 
 #include "onnx/onnx_pb.h"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #if INCLUDE_ONNX_ML == 1
 #include "src/Dialect/MLONNX/MLONNXOps.hpp"
 #endif
@@ -43,37 +44,14 @@
 
 namespace onnx_mlir {
 
-struct InitializedTensorMapping {
-  // Add new entry.
-  void AddMapping(std::string name, onnx::TensorProto tensor);
-
-  // Check if input is initialized. Not all inputs are, some of the inputs
-  // require input from the user and are not stored inside the ONNX model
-  // itself.
-  bool ContainKey(std::string name);
-
-  // Emit constant argument (initialized arguments) as a ConstantOp.
-  // This method will allow operations to use the constant data contained
-  // in an ONNX model as they are being compiled.
-  // This method enables the emission of such constant operation on demand.
-  //
-  // This will allow the propagation of shape information passed in as an
-  // argument to operations such as Reshape and will enable other
-  // optimizations such as constant folding.
+struct InitializedTensorMapping : SymbolMapping<onnx::TensorProto> {
   mlir::Value EmitInitializerForInputTensor(
       mlir::Location loc, mlir::OpBuilder &builder, const std::string &name);
 
   // Get initialized tensor.
-  onnx::TensorProto &GetInitializedTensor(std::string name) {
-    assert(
-        nameToInitializedTensor.find(name) != nameToInitializedTensor.end() &&
-        "Tensor initializer not found");
-    return nameToInitializedTensor.at(name);
+  onnx::TensorProto GetInitializedTensor(std::string name) {
+    return GetTensorByOnnxName(name);
   }
-
-private:
-  // Mapping from ONNX tensor name to InitializedTensor.
-  std::map<std::string, onnx::TensorProto> nameToInitializedTensor;
 };
 
 mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(

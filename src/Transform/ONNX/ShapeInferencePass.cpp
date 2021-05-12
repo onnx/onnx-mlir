@@ -20,6 +20,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -50,7 +51,7 @@ static SmallVector<mlir::FuncOp, 4> lookUpFuncsMatching(
  * its output shape only after shape inference completes for the associated
  * (sub) graph.
  *
- * In the abscence of a main computation graph, we will treat every mlir
+ * In the absence of a main computation graph, we will treat every mlir
  * function as a main computation graph; this is mostly just for testing
  * purposes.
  */
@@ -62,8 +63,10 @@ public:
     auto matchedFuncs =
         lookUpFuncsMatching(module, std::regex("[a-zA-Z0-9_]*main_graph"));
     if (!matchedFuncs.empty()) {
-      for (auto func : matchedFuncs)
-        runShapeInferenceOn(func);
+      for (auto func : matchedFuncs) {
+        if (failed(runShapeInferenceOn(func)))
+          signalPassFailure();
+      }
     } else {
       auto result = module.walk([&](FuncOp funcOp) -> WalkResult {
         return runShapeInferenceOn(funcOp);
@@ -83,7 +86,8 @@ public:
       // so the ops followed by a return op may not have dynamic shape output.
       // However, shape inference is still need on these ops
       // to infer optional attributes.
-      if (isUsedByReturnOp(&op) || returnsDynamicShape(&op)) {
+      if (containSubgraph(&op) || isUsedByReturnOp(&op) ||
+          returnsDynamicShape(&op)) {
         if (auto shape_op = llvm::dyn_cast<ShapeInference>(op)) {
           if (failed(shape_op.inferShapes(doShapeInference))) {
             op.emitError("shape inference failed");
@@ -120,7 +124,7 @@ public:
 
     // Check if a terminator op exists for function.
     if (!funcBody.empty() && !funcBody.back().empty() &&
-        funcBody.back().back().isKnownTerminator())
+        funcBody.back().back().hasTrait<OpTrait::IsTerminator>())
       if (auto returnOp = f.getBody().back().getTerminator()) {
         auto results = returnOp->getOperandTypes();
         f.setType(FunctionType::get(f.getContext(), f.getType().getInputs(),
@@ -135,6 +139,14 @@ public:
         return true;
       }
     }
+    return false;
+  }
+
+  // Op needs shape inference when contains a subgraph
+  // Temporary fix: only LoopOp is checked
+  static bool containSubgraph(Operation *op) {
+    if (dyn_cast<ONNXLoopOp>(*op))
+      return true;
     return false;
   }
 
