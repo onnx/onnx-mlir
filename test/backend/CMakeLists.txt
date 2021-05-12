@@ -33,7 +33,10 @@ execute_process(
   ERROR_QUIET
 )
 if (${PYTEST_XDIST_FOUND} EQUAL 0)
-  message(STATUS "Parallel backend tests  : ON")
+  if (NOT NPROC)
+    set(NPROC "auto" CACHE STRING "Number of processors for pytest" FORCE)
+  endif()
+  message(STATUS "Parallel backend tests  : ON (Using ${NPROC} threads)")
   set(BACKEND_TEST_COMMAND "${Python3_EXECUTABLE}" "-m" "pytest")
   set(BACKEND_TEST_ARGS "--forked" "-n" "$\{NPROC\}")
 else()
