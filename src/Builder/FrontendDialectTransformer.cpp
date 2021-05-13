@@ -19,10 +19,6 @@
 //===----------------------------------------------------------------------===//
 
 #include <type_traits>
-// Using backported variant.
-// bstd = backported standard library.
-#include <mpark/variant.hpp>
-namespace bstd = mpark;
 
 #include "mlir/IR/BuiltinOps.h"
 #include "onnx/defs/schema.h"
@@ -566,6 +562,8 @@ private:
 
     // TODO: Handle optional inputs.
     auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
+    Operation *genericOp = op.getOperation();
+    // Type inference for results.
     for (const auto &attr : node.attribute()) {
       if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH) {
         if (auto opWithSubgraph =
@@ -575,15 +573,19 @@ private:
           region.push_back(new Block);
           OpBuilder::InsertionGuard guard(builder_);
           builder_.setInsertionPointToStart(&region.back());
-          importGraph(attr.g(), region, op.getOperation(), false);
+          auto funcType =
+              importGraph(attr.g(), region, op.getOperation(), false);
+          // Use type info from graph to reset type of output for current op
+          for (int i = 0; i < node.output().size(); i++) {
+            Type type = funcType.getResults()[i];
+            genericOp->getOpResult(i).setType(type);
+          }
         } else {
           llvm_unreachable("Op contains subgraph attributes but does not "
                            "implement HasOnnxSubgraphOpInterface interface.");
         }
       }
     }
-    Operation *genericOp = op.getOperation();
-    // Type inference for results.
     if (!options_.useOnnxModelTypes)
       if (auto opWithTypeInference =
               dyn_cast<ResultTypeInferenceOpInterface>(genericOp)) {
