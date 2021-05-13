@@ -38,7 +38,7 @@ def call() {
        */
 
       /* Docker related env vars */
-      DOCKER_PUSHPULL_RWLOCK = "/var/lock/jenkins-pipeline-${GITHUB_REPO_NAME}.lock"
+      DOCKER_PUSHPULL_RWLOCK = "/var/lock/jenkins-pipeline-${GITHUB_REPO_NAME}-${GITHUB_PR_BASEREF}.lock"
       DOCKER_DAEMON_SOCKET = 'unix://var/run/docker.sock'
       DOCKER_REGISTRY_HOST_NAME  = ''
       DOCKER_REGISTRY_USER_NAME  = 'onnxmlirczar'
