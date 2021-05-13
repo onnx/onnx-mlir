@@ -21,38 +21,31 @@ docker_registry_login_token = os.getenv('DOCKER_REGISTRY_LOGIN_TOKEN')
 github_repo_access_token    = os.getenv('GITHUB_REPO_ACCESS_TOKEN')
 github_repo_name            = os.getenv('GITHUB_REPO_NAME')
 github_repo_name2           = os.getenv('GITHUB_REPO_NAME').replace('-', '_')
-github_pr_baseref           = os.getenv('GITHUB_PR_BASEREF').lower()
+github_pr_baseref           = os.getenv('GITHUB_PR_BASEREF')
+github_pr_baseref2          = os.getenv('GITHUB_PR_BASEREF').lower()
 github_pr_number            = os.getenv('GITHUB_PR_NUMBER')
 github_pr_phrase            = os.getenv('GITHUB_PR_PHRASE')
 github_pr_request_url       = os.getenv('GITHUB_PR_REQUEST_URL')
 
 # dot can be used in docker image name
 docker_static_image_name    = (github_repo_name + '-llvm-static' +
-                               ('.' + github_pr_baseref
+                               ('.' + github_pr_baseref2
                                 if github_pr_baseref != 'master' else ''))
 docker_shared_image_name    = (github_repo_name + '-llvm-shared' +
-                               ('.' + github_pr_baseref
+                               ('.' + github_pr_baseref2
                                 if github_pr_baseref != 'master' else ''))
 docker_dev_image_name       = (github_repo_name + '-dev' +
-                               ('.' + github_pr_baseref
+                               ('.' + github_pr_baseref2
                                 if github_pr_baseref != 'master' else ''))
 docker_usr_image_name       = (github_repo_name +
-                               ('.' + github_pr_baseref
+                               ('.' + github_pr_baseref2
                                 if github_pr_baseref != 'master' else ''))
 
 # dot cannot be used in python dict key so we use dash
-python_static_image_name    = (github_repo_name + '-llvm-static' +
-                               ('-' + github_pr_baseref
-                                if github_pr_baseref != 'master' else ''))
-python_shared_image_name    = (github_repo_name + '-llvm-shared' +
-                               ('-' + github_pr_baseref
-                                if github_pr_baseref != 'master' else ''))
-python_dev_image_name       = (github_repo_name + '-dev' +
-                               ('-' + github_pr_baseref
-                                if github_pr_baseref != 'master' else ''))
-python_usr_image_name       = (github_repo_name +
-                               ('-' + github_pr_baseref
-                                if github_pr_baseref != 'master' else ''))
+python_static_image_name    = docker_static_image_name.replace('.', '-')
+python_shared_image_name    = docker_shared_image_name.replace('.', '-')
+python_dev_image_name       = docker_dev_image_name.replace('.', '-')
+python_usr_image_name       = docker_usr_image_name.replace('.', '-')
 
 LLVM_PROJECT_LABELS         = [ 'llvm_project_sha1',
                                 'llvm_project_sha1_date',
@@ -68,8 +61,7 @@ PYTHON_IMAGE_NAME           = { 'static': python_static_image_name,
                                 'shared': python_shared_image_name,
                                 'dev':    python_dev_image_name,
                                 'usr':    python_usr_image_name }
-IMAGE_TAG                   = { 'push':    github_pr_baseref,
-                                'publish': github_pr_number }
+IMAGE_TAG                   = github_pr_number.lower()
 IMAGE_LABELS                = { python_static_image_name: LLVM_PROJECT_LABELS,
                                 python_shared_image_name: LLVM_PROJECT_LABELS,
                                 python_dev_image_name:    PROJECT_LABELS,
@@ -429,7 +421,7 @@ def publish_multiarch_manifest(host_name, user_name, image_name, manifest_tag,
 
 # Publish an image if it should be published and publish multiarch manifest
 # for developer and user images if necessary.
-def publish_image(image_type, trigger_phrase):
+def publish_image(image_type):
 
     host_name         = docker_registry_host_name
     user_name         = docker_registry_user_name
@@ -438,7 +430,7 @@ def publish_image(image_type, trigger_phrase):
 
     docker_image_name = DOCKER_IMAGE_NAME[image_type]
     python_image_name = PYTHON_IMAGE_NAME[image_type]
-    image_tag         = IMAGE_TAG[trigger_phrase]
+    image_tag         = IMAGE_TAG
     image_labels      = IMAGE_LABELS[python_image_name]
 
     # Decide if the image should be published or not
@@ -459,7 +451,7 @@ def publish_image(image_type, trigger_phrase):
 
 def main():
     for image_type in [ 'static', 'shared', 'dev', 'usr' ]:
-        publish_image(image_type, github_pr_phrase)
+        publish_image(image_type)
 
 if __name__ == "__main__":
     main()
