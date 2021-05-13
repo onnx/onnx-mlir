@@ -69,7 +69,6 @@ endif()
 add_subdirectory(third_party/onnx)
 
 add_subdirectory(third_party/pybind11)
-add_subdirectory(third_party/variant)
 add_subdirectory(third_party/rapidcheck)
 
 set(CMAKE_CXX_STANDARD 14)
