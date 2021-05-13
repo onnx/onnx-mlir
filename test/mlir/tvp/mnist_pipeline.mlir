@@ -37,6 +37,7 @@
 // CHECK-TCP-H: }
 // CHECK-TCP-H: namespace Trainwave::FirmwareSDK {
 // CHECK-TCP-H:    template <> struct TileCPInterface<0> {
+// CHECK-TCP-H-NOT:   template
 // CHECK-TCP-H:       using type = Trainwave::FirmwareSDK::CommandList<[[NS]]::main_graph>;
 // CHECK-TCP-H:    };
 // CHECK-TCP-H: }

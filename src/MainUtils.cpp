@@ -55,6 +55,9 @@ using namespace onnx_mlir;
 llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX MLIR Options", "These are frontend options.");
 
+llvm::cl::opt<bool> npu("npu", llvm::cl::desc("Execute passes specific to NPU"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 namespace {
 
 llvm::Optional<std::string> getEnvVar(std::string name) {
@@ -87,9 +90,6 @@ llvm::cl::opt<string> mtriple("mtriple", llvm::cl::desc("Target architecture"),
 llvm::cl::opt<string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
     llvm::cl::value_desc("<llvm cpu value>"), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
-
-llvm::cl::opt<bool> npu("npu", llvm::cl::desc("Execute passes specific to NPU"),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<int> virtualVectorSize("virtual-vector-size",
     llvm::cl::desc("Virtual vector size to affine-super-vectorize size"),

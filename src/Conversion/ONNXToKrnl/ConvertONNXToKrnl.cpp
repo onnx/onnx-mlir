@@ -21,6 +21,8 @@
 
 using namespace mlir;
 
+extern llvm::cl::opt<bool> npu;
+
 //===----------------------------------------------------------------------===//
 // EntryPoint Op lowering to Krnl Entry Point.
 //===----------------------------------------------------------------------===//
@@ -105,11 +107,17 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     return tensorToMemRefConverter.isLegal(op);
   });
 
+  target.addDynamicallyLegalOp<ReturnOp>([&](ReturnOp op) {
+    // ReturnOp is legal only if types have been converted to Std types.
+    return tensorToMemRefConverter.isLegal(op);
+  });
+
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
   populateFuncOpTypeConversionPattern(patterns, tensorToMemRefConverter);
   populateCallOpTypeConversionPattern(patterns, tensorToMemRefConverter);
+  populateReturnOpTypeConversionPattern(patterns, tensorToMemRefConverter);
 
   // Frontend operation lowering.
   // ControlFlow
@@ -126,10 +134,16 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Tensor
   populateLoweringONNXArgMaxOpPattern(patterns, &getContext());
   populateLoweringONNXExpandOpPattern(patterns, &getContext());
-  populateLoweringONNXReshapeOpPattern(patterns, &getContext());
+  if (npu)
+    populateLoweringONNXReshapeOpApolloPattern(patterns, &getContext());
+  else
+    populateLoweringONNXReshapeOpPattern(patterns, &getContext());
   populateLoweringONNXPadOpPattern(patterns, &getContext());
   populateLoweringONNXUnsqueezeOpPattern(patterns, &getContext());
-  populateLoweringONNXTransposeOpPattern(patterns, &getContext());
+  if (npu)
+    populateLoweringONNXTransposeOpApolloPattern(patterns, &getContext());
+  else
+    populateLoweringONNXTransposeOpPattern(patterns, &getContext());
   populateLoweringONNXGatherOpPattern(patterns, &getContext());
   populateLoweringONNXIdentityOpPattern(patterns, &getContext());
   populateLoweringONNXConstantOfShapeOpPattern(patterns, &getContext());

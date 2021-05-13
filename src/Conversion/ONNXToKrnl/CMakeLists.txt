@@ -3,6 +3,8 @@
 add_library(OMONNXToKrnl
         ONNXToKrnlCommon.cpp
         ONNXToKrnlCommon.hpp
+        Apollo/Reshape.cpp
+        Apollo/Transpose.cpp
         ControlFlow/Loop.cpp
         ControlFlow/Scan.cpp
         Math/Clip.cpp

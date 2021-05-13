@@ -1007,7 +1007,7 @@ LogicalResult ONNXPowOp::inferShapes(
   Type lhsETy = lhsTy.getElementType();
   if (rhsETy != lhsETy)
     return emitError("do not support Pow with different input type yet");
-  if (lhsETy.isa<IntegerType>() || lhsETy.isa<IntegerType>())
+  if (lhsETy.isa<IntegerType>() || rhsETy.isa<IntegerType>())
     return emitError("do not support integer power yet");
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
   return success();
