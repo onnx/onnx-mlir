@@ -69,8 +69,9 @@ llvm::cl::opt<bool> printIR("printIR",
     llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> preserveBitcode("preserveBitcode",
-    llvm::cl::desc("dont delete the bitcode files (optimized and unoptimized):"), llvm::cl::init(false),
-    llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::desc(
+        "dont delete the bitcode files (optimized and unoptimized):"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
