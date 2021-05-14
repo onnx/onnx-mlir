@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.13.4)
 
 project(onnx-mlir)
 
-#TODO Alex: remove this once it passes the tests!!!
+# TODO Alex: remove this once it passes the tests!!!
 #if (NOT CMAKE_BUILD_TYPE)
 #  message(STATUS "No build type selected, default to Debug")
 #  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type (default Debug)" FORCE)
