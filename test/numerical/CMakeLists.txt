@@ -4,7 +4,6 @@ add_executable(TestConv TestConv.cpp)
 target_compile_definitions(TestConv PRIVATE RTMEMREF_INTERNAL_API)
 target_include_directories(TestConv
         PRIVATE
-        ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT}/include)
 target_link_libraries(TestConv
         rapidcheck
@@ -16,7 +15,6 @@ add_executable(TestMatMul2D TestMatMul2D.cpp)
 target_compile_definitions(TestMatMul2D PRIVATE RTMEMREF_INTERNAL_API)
 target_include_directories(TestMatMul2D
         PRIVATE
-        ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT}/include)
 target_link_libraries(TestMatMul2D
         rapidcheck
@@ -28,7 +26,6 @@ add_executable(TestGemm TestGemm.cpp)
 target_compile_definitions(TestGemm PRIVATE RTMEMREF_INTERNAL_API)
 target_include_directories(TestGemm
         PRIVATE
-        ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT}/include)
 target_link_libraries(TestGemm
         rapidcheck
@@ -40,7 +37,6 @@ add_executable(TestLSTM TestLSTM.cpp)
 target_compile_definitions(TestLSTM PRIVATE RTMEMREF_INTERNAL_API)
 target_include_directories(TestLSTM
         PRIVATE
-        ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT}/include)
 target_link_libraries(TestLSTM
         rapidcheck
@@ -52,7 +48,6 @@ add_executable(TestRNN TestRNN.cpp)
 target_compile_definitions(TestRNN PRIVATE RTMEMREF_INTERNAL_API)
 target_include_directories(TestRNN
         PRIVATE
-        ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT}/include)
 target_link_libraries(TestRNN
         rapidcheck
@@ -64,7 +59,6 @@ add_executable(TestGRU TestGRU.cpp)
 target_compile_definitions(TestGRU PRIVATE RTMEMREF_INTERNAL_API)
 target_include_directories(TestGRU
         PRIVATE
-        ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT}/include)
 target_link_libraries(TestGRU
         rapidcheck
@@ -76,7 +70,6 @@ add_executable(TestLoop TestLoop.cpp)
 target_compile_definitions(TestLoop PRIVATE RTMEMREF_INTERNAL_API)
 target_include_directories(TestLoop
         PRIVATE
-        ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT}/include)
 target_link_libraries(TestLoop
         rapidcheck
