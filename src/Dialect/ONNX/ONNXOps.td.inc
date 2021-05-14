@@ -16,11 +16,11 @@ def ONNXAbsOp:ONNX_Op<"Abs",
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$Y);
   let builders = [
     OpBuilder<(ins "Value":$X), [{
-      auto elementType = X.getType().cast<TensorType>().getElementType();
+      auto elementType = X.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), X);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
       build($_builder, $_state, outputTypes, operands, attributes);
@@ -100,7 +100,7 @@ def ONNXAddOp:ONNX_Op<"Add",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = A.getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       build($_builder, $_state, elementType, A, B);
@@ -111,7 +111,7 @@ def ONNXAddOp:ONNX_Op<"Add",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = operands[0].getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       std::vector<mlir::Type> outputTypes;
@@ -151,7 +151,7 @@ def ONNXAndOp:ONNX_Op<"And",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = A.getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       build($_builder, $_state, elementType, A, B);
@@ -162,7 +162,7 @@ def ONNXAndOp:ONNX_Op<"And",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = operands[0].getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       std::vector<mlir::Type> outputTypes;
@@ -1054,7 +1054,7 @@ def ONNXDivOp:ONNX_Op<"Div",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = A.getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       build($_builder, $_state, elementType, A, B);
@@ -1065,7 +1065,7 @@ def ONNXDivOp:ONNX_Op<"Div",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = operands[0].getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       std::vector<mlir::Type> outputTypes;
@@ -1255,7 +1255,7 @@ def ONNXEqualOp:ONNX_Op<"Equal",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = A.getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       build($_builder, $_state, elementType, A, B);
@@ -1266,7 +1266,7 @@ def ONNXEqualOp:ONNX_Op<"Equal",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = operands[0].getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       std::vector<mlir::Type> outputTypes;
@@ -1318,11 +1318,11 @@ def ONNXExpOp:ONNX_Op<"Exp",
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$output);
   let builders = [
     OpBuilder<(ins "Value":$input), [{
-      auto elementType = input.getType().cast<TensorType>().getElementType();
+      auto elementType = input.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), input);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
       build($_builder, $_state, outputTypes, operands, attributes);
@@ -1950,7 +1950,7 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = A.getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       build($_builder, $_state, elementType, A, B);
@@ -1961,7 +1961,7 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = operands[0].getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       std::vector<mlir::Type> outputTypes;
@@ -2074,19 +2074,25 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
     OpBuilder<(ins "Value":$input), [{
       auto elementType = input.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), input);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build($_builder, $_state, outputTypes, operands, attributes);
     }]>
-  ];
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXIfOp:ONNX_Op<"If",
@@ -2384,7 +2390,7 @@ def ONNXLessOp:ONNX_Op<"Less",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = A.getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       build($_builder, $_state, elementType, A, B);
@@ -2395,7 +2401,7 @@ def ONNXLessOp:ONNX_Op<"Less",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = operands[0].getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       std::vector<mlir::Type> outputTypes;
@@ -3027,7 +3033,7 @@ def ONNXMulOp:ONNX_Op<"Mul",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = A.getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       build($_builder, $_state, elementType, A, B);
@@ -3038,7 +3044,7 @@ def ONNXMulOp:ONNX_Op<"Mul",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = operands[0].getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       std::vector<mlir::Type> outputTypes;
@@ -3096,11 +3102,11 @@ def ONNXNegOp:ONNX_Op<"Neg",
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[I32]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$Y);
   let builders = [
     OpBuilder<(ins "Value":$X), [{
-      auto elementType = X.getType().cast<TensorType>().getElementType();
+      auto elementType = X.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), X);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
       build($_builder, $_state, outputTypes, operands, attributes);
@@ -3367,7 +3373,7 @@ def ONNXOrOp:ONNX_Op<"Or",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = A.getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       build($_builder, $_state, elementType, A, B);
@@ -3378,7 +3384,7 @@ def ONNXOrOp:ONNX_Op<"Or",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = operands[0].getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       std::vector<mlir::Type> outputTypes;
@@ -3511,11 +3517,11 @@ def ONNXPadOp:ONNX_Op<"Pad",
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef, NoneType]>:$output);
   let builders = [
     OpBuilder<(ins "Value":$data, "Value":$pads, "Value":$constant_value, "StringAttr":$mode), [{
-      auto elementType = data.getType().cast<TensorType>().getElementType();
+      auto elementType = data.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, pads, constant_value, mode);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
       build($_builder, $_state, outputTypes, operands, attributes);
@@ -3553,7 +3559,7 @@ def ONNXPowOp:ONNX_Op<"Pow",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = X.getType().cast<TensorType>().getElementType();
+            elementType = X.getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       build($_builder, $_state, elementType, X, Y);
@@ -3564,7 +3570,7 @@ def ONNXPowOp:ONNX_Op<"Pow",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = operands[0].getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       std::vector<mlir::Type> outputTypes;
@@ -4047,11 +4053,11 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$reduced);
   let builders = [
     OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
-      auto elementType = data.getType().cast<TensorType>().getElementType();
+      auto elementType = data.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
       build($_builder, $_state, outputTypes, operands, attributes);
@@ -4115,11 +4121,11 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>, AnyMemRef]>:$reduced);
   let builders = [
     OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
-      auto elementType = data.getType().cast<TensorType>().getElementType();
+      auto elementType = data.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
       build($_builder, $_state, outputTypes, operands, attributes);
@@ -4240,11 +4246,11 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$reduced);
   let builders = [
     OpBuilder<(ins "Value":$data, "Value":$axes, "IntegerAttr":$keepdims, "IntegerAttr":$noop_with_empty_axes), [{
-      auto elementType = data.getType().cast<TensorType>().getElementType();
+      auto elementType = data.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims, noop_with_empty_axes);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
       build($_builder, $_state, outputTypes, operands, attributes);
@@ -4280,11 +4286,11 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$reduced);
   let builders = [
     OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
-      auto elementType = data.getType().cast<TensorType>().getElementType();
+      auto elementType = data.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
       build($_builder, $_state, outputTypes, operands, attributes);
@@ -5297,11 +5303,11 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$output);
   let builders = [
     OpBuilder<(ins "Value":$input, "IntegerAttr":$axis), [{
-      auto elementType = input.getType().cast<TensorType>().getElementType();
+      auto elementType = input.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), input, axis);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
       build($_builder, $_state, outputTypes, operands, attributes);
@@ -5459,21 +5465,26 @@ def ONNXSplitOp:ONNX_Op<"Split",
   let builders = [
     OpBuilder<(ins "Value":$input, "IntegerAttr":$axis, "ArrayAttr":$split), [{
       auto elementType = input.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), input,
-            axis, split);
+      build($_builder, $_state, UnrankedTensorType::get(elementType), input, axis, split);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build($_builder, $_state, outputTypes, operands, attributes);
     }]>
     ];
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return -1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return -1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
@@ -5521,11 +5532,11 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$Y);
   let builders = [
     OpBuilder<(ins "Value":$X), [{
-      auto elementType = X.getType().cast<TensorType>().getElementType();
+      auto elementType = X.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), X);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
       build($_builder, $_state, outputTypes, operands, attributes);
@@ -5559,11 +5570,11 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$squeezed);
   let builders = [
     OpBuilder<(ins "Value":$data, "ArrayAttr":$axes), [{
-      auto elementType = data.getType().cast<TensorType>().getElementType();
+      auto elementType = data.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
       build($_builder, $_state, outputTypes, operands, attributes);
@@ -5633,7 +5644,7 @@ def ONNXSubOp:ONNX_Op<"Sub",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = A.getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       build($_builder, $_state, elementType, A, B);
@@ -5644,7 +5655,7 @@ def ONNXSubOp:ONNX_Op<"Sub",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = operands[0].getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       std::vector<mlir::Type> outputTypes;
@@ -6021,11 +6032,11 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$expanded);
   let builders = [
     OpBuilder<(ins "Value":$data, "ArrayAttr":$axes), [{
-      auto elementType = data.getType().cast<TensorType>().getElementType();
+      auto elementType = data.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
       build($_builder, $_state, outputTypes, operands, attributes);
@@ -6114,7 +6125,7 @@ def ONNXXorOp:ONNX_Op<"Xor",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = A.getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       build($_builder, $_state, elementType, A, B);
@@ -6125,7 +6136,7 @@ def ONNXXorOp:ONNX_Op<"Xor",
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
-            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = operands[0].getType().cast<ShapedType>().getElementType();
             elementType = UnrankedTensorType::get(elementType);
       }
       std::vector<mlir::Type> outputTypes;
