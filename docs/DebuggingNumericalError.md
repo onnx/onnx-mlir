@@ -7,7 +7,7 @@ numerical results that are inconsistent with those produced by the training fram
 This python script will run the model through onnx-mlir and a reference backend, and compare
 the intermediate results produced by these two backends layer by layer.
 
-## Rrerequisite
+## Prerequisite
 - Set `ONNX_MLIR_HOME` environment variable to be the path to
   the HOME directory for onnx-mlir. The HOME directory for onnx-mlir refers to 
   the parent folder containing the `bin`, `lib`, etc sub-folders in which ONNX-MLIR 

@@ -14,4 +14,5 @@ add_dependencies(OMKrnlOps OMKrnlOpsInc)
 
 # Linking dependencies:
 add_dependencies(OMKrnlOps
-        OMSpecializedKernelOpInterface)
+        OMSpecializedKernelOpInterface
+        OMSimplifyKrnl)
