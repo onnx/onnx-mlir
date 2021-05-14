@@ -173,7 +173,7 @@ OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
  * @return pointer to OMTensor created, NULL if creation failed.
  *
  */
-OMTensor *omTensorCreateEmptyDeprecated(int rank) {
+OMTensor *omTensorCreateEmptyDeprecated(int64_t rank) {
   OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
   if (!omt)
     return NULL;
