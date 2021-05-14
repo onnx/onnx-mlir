@@ -417,8 +417,8 @@ public:
           std::vector<char> rawData = denseAttr.getRawData();
           // Check data size.
           assert((rawData.size() == sizeInBytes) && "Data size mismatch.");
-          
-          if (sizeInBytes>64) {
+
+          if (sizeInBytes > 64) {
             StringRef data = StringRef((char *)rawData.data(), rawData.size());
             StringAttr llvmStringAttr = StringAttr::get(data, context);
             global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
@@ -426,8 +426,7 @@ public:
                 llvmStringAttr);
           } else {
             global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
-                /*isConstant=*/true, LLVM::Linkage::Internal, name,
-                denseAttr);
+                /*isConstant=*/true, LLVM::Linkage::Internal, name, denseAttr);
           }
         } else {
           global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
@@ -934,7 +933,7 @@ public:
       auto outMemRefTy = memRef.getType().dyn_cast<LLVM::LLVMStructType>();
       auto outMemRefRank = getRankFromMemRefType(outMemRefTy);
       auto outMemRefRankVal = rewriter.create<LLVM::ConstantOp>(
-          loc, int32Ty, rewriter.getI32IntegerAttr(outMemRefRank));
+          loc, int64Ty, rewriter.getI64IntegerAttr(outMemRefRank));
       auto outOMTensor = callApi(
           rewriter, loc, apiRegistry, API::CREATE_OMTENSOR, {outMemRefRankVal});
       fillOMTensorWithMemRef(
@@ -983,7 +982,7 @@ private:
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
         ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreateWithOwnership", opaquePtrTy, {opaquePtrPtrTy, int32Ty, int32Ty}),
-        ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmptyDeprecated", opaquePtrTy, {int32Ty}),
+        ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmptyDeprecated", opaquePtrTy, {int64Ty}),
         ApiSpec(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
         ApiSpec(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy, opaquePtrTy}),
         ApiSpec(API::GET_DATA_SHAPE, "omTensorGetShape", int64PtrTy, {opaquePtrTy}),
