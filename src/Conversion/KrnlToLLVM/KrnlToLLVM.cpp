@@ -1321,6 +1321,10 @@ public:
 
 void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     MLIRContext *ctx, LLVMTypeConverter &typeConverter) {
+  vector::populateVectorToVectorCanonicalizationPatterns(patterns);
+  vector::populateVectorSlicesLoweringPatterns(patterns);
+  vector::populateVectorContractLoweringPatterns(patterns);
+
   populateAffineToStdConversionPatterns(patterns);
   populateLoopToStdConversionPatterns(patterns);
 
@@ -1348,7 +1352,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
 }
 
 //===----------------------------------------------------------------------===//
-// KRNL + Standard + Affine dialects lowering to LLVM.
+// KRNL + Standard + Vector + Affine dialects lowering to LLVM.
 //===----------------------------------------------------------------------===//
 
 namespace {
@@ -1359,16 +1363,6 @@ struct ConvertKrnlToLLVMPass
 } // end anonymous namespace
 
 void ConvertKrnlToLLVMPass::runOnOperation() {
-
-  {
-    RewritePatternSet patterns(&getContext());
-    vector::populateVectorToVectorCanonicalizationPatterns(patterns);
-    vector::populateVectorSlicesLoweringPatterns(patterns);
-    vector::populateVectorContractLoweringPatterns(patterns);
-    if (failed(
-            applyPatternsAndFoldGreedily(getOperation(), std::move(patterns))))
-      signalPassFailure();
-  }
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
@@ -1380,8 +1374,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   options.emitCWrappers = true;
   LLVMTypeConverter typeConverter(&getContext(), options);
 
-  // We have a combination of `krnl`, `affine`, and `std` operations. We
-  // lower in stages until all the code is in the LLVM dialect.
+  // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
+  // We lower in stages until all the code is in the LLVM dialect.
   RewritePatternSet patterns(&getContext());
   populateAffineAndKrnlToLLVMConversion(patterns, &getContext(), typeConverter);
 
