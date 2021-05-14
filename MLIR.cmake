@@ -33,7 +33,6 @@ set(MLIRLibs
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
   MLIRMathTransforms
-  MLIROptLib
   MLIRSCFToStandard
   MLIRShapeToStandard
 )
@@ -91,3 +90,60 @@ function(add_onnx_mlir_interface interface)
   mlir_tablegen(${interface}.cpp.inc -gen-op-interface-defs)
   add_public_tablegen_target(OM${interface}IncGen)
 endfunction()
+
+# add_onnx_mlir_library(name sources...
+#   This function (generally) has the same semantic as add_library. In
+#   addition is supports the arguments below and it does the following
+#   by default (unless an argument overrides this):
+#   1. Add the library
+#   2. Add the default target_include_directories
+#   3. Add the library to a global property ONNX_MLIR_LIBS
+#   4. Add an install target for the library
+#   EXCLUDE_FROM_OM_LIBS
+#     Do not add the library to the ONNX_MLIR_LIBS property.
+#   NO_INSTALL
+#     Do not add an install target for the library.
+#   )
+function(add_onnx_mlir_library name)
+  cmake_parse_arguments(ARG
+    "EXCLUDE_FROM_OM_LIBS;NO_INSTALL"
+    ""
+    ""
+    ${ARGN}
+    )
+
+  if (NOT ARG_EXCLUDE_FROM_OM_LIBS)
+    set_property(GLOBAL APPEND PROPERTY ONNX_MLIR_LIBS ${name})
+  endif()
+
+  add_library(${name} ${ARG_UNPARSED_ARGUMENTS})
+  target_include_directories(${name}
+    PUBLIC
+    ${ONNX_MLIR_SRC_ROOT}
+    ${ONNX_MLIR_BIN_ROOT}
+    )
+
+  install(TARGETS ${name} DESTINATION lib)
+endfunction(add_onnx_mlir_library)
+
+# add_onnx_mlir_executable(name sources...
+#   This function (generally) has the same semantic as add_executable.
+#   In addition is supports the arguments below and it does the following
+#   by default (unless an argument overrides this):
+#   1. Add the executable
+#   2. Add an install target for the executable
+#   NO_INSTALL
+#     Do not add an install target for the executable.
+#   )
+function(add_onnx_mlir_executable name)
+  cmake_parse_arguments(ARG
+    "NO_INSTALL"
+    ""
+    ""
+    ${ARGN}
+    )
+
+  add_executable(${name} ${ARG_UNPARSED_ARGUMENTS})
+
+  install(TARGETS ${name} DESTINATION bin)
+endfunction(add_onnx_mlir_executable)

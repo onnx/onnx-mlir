@@ -17,6 +17,11 @@ jenkins_job_name       = os.getenv('JOB_NAME')
 jenkins_build_number   = os.getenv('BUILD_NUMBER')
 
 github_pr_number       = os.getenv('GITHUB_PR_NUMBER')
+github_pr_number2      = os.getenv('GITHUB_PR_NUMBER2')
+
+LOG_PULL_PUSH          = ('pull request: #'
+                          if github_pr_number == github_pr_number2 else
+                          'merge branch: ')
 
 # We allow concurrent builds for different pull request numbers
 # but for the same pull request number only one build can run. So
@@ -80,7 +85,8 @@ def stop_previous_build(job_name, build_number, pr_number):
                         continue
 
                     if 'value' in parameter and parameter['value'] == pr_number:
-                        logging.info('Stopping job %s build #%s for pull request #%s',
+                        logging.info('Stopping job %s build #%s for ' +
+                                     LOG_PULL_PUSH + '%s',
                                      build['name'], build['number'], pr_number)
                         builds_found[build['number']] = build['name']
                         builds_still_running[build['number']] = build['name']
@@ -96,18 +102,19 @@ def stop_previous_build(job_name, build_number, pr_number):
     # After JENKINS_STOP_BUILD_TIMEOUT seconds, we still found old running
     # builds, which means our attempt to stop them failed.
     if builds_still_running:
-        raise Exception(('Failed to stop {} for pull request #{} ' +
-                         'in {} seconds').format(str(builds_still_running), pr_number,
-                                                 JENKINS_STOP_BUILD_TIMEOUT))
+        raise Exception(('Failed to stop {} for ' + LOG_PULL_PUSH +
+                         '{} in {} seconds').format(str(builds_still_running),
+                                                    pr_number,
+                                                    JENKINS_STOP_BUILD_TIMEOUT))
     # Old running builds found and we successfully stopped all of them
     elif builds_found:
-        logging.info('All running builds %s for pull request #%s stopped',
+        logging.info('All running builds %s for ' + LOG_PULL_PUSH + '%s stopped',
                      str(builds_found), pr_number)
     # Otherwise, no old running builds found
     else:
-        logging.info('No running builds for pull request #%s found', pr_number)
+        logging.info('No running builds for ' + LOG_PULL_PUSH + '%s found', pr_number)
 
-    logging.info('Runninng job %s build #%s for pull request #%s',
+    logging.info('Runninng job %s build #%s for ' + LOG_PULL_PUSH + '%s',
                  job_name, build_number, pr_number)
 
 def main():
