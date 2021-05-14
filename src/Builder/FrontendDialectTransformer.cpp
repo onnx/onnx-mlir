@@ -19,10 +19,6 @@
 //===----------------------------------------------------------------------===//
 
 #include <type_traits>
-// Using backported variant.
-// bstd = backported standard library.
-#include <mpark/variant.hpp>
-namespace bstd = mpark;
 
 #include "mlir/IR/BuiltinOps.h"
 #include "onnx/defs/schema.h"

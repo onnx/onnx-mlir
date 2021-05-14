@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_library(OMONNXToKrnl
+add_onnx_mlir_library(OMONNXToKrnl
         ONNXToKrnlCommon.cpp
-        ONNXToKrnlCommon.hpp
         Apollo/Reshape.cpp
         Apollo/Transpose.cpp
         ControlFlow/Loop.cpp
@@ -18,7 +17,6 @@ add_library(OMONNXToKrnl
         NN/Normalization.cpp
         NN/Pooling.cpp
         RNN/RNNBase.cpp
-        RNN/RNNBase.hpp
         RNN/GRU.cpp
         RNN/LSTM.cpp
         RNN/RNN.cpp
@@ -44,15 +42,8 @@ add_library(OMONNXToKrnl
 target_link_libraries(OMONNXToKrnl
         OMSupport
         )
-target_include_directories(OMONNXToKrnl
-        PRIVATE
-        ${ONNX_MLIR_SRC_ROOT}
-        ${ONNX_MLIR_BIN_ROOT}
-        ${ONNX_MLIR_SRC_ROOT})
 
 # Header dependencies
 add_dependencies(OMONNXToKrnl OMKrnlOpsInc OMONNXOpsInc)
 # Linking dependencies
 add_dependencies(OMONNXToKrnl OMKrnlOps)
-
-install(TARGETS OMONNXToKrnl DESTINATION lib)
