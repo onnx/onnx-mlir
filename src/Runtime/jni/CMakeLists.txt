@@ -22,7 +22,9 @@ if(Java_Development_FOUND AND JNI_FOUND)
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_PROPERTY:javaruntime,JAR_FILE> ${ONNX_MLIR_LIBRARY_PATH})
 
   # Target for JNI runtime lib
-  add_library(jniruntime STATIC
+  add_onnx_mlir_library(jniruntime
+          EXCLUDE_FROM_OM_LIBS
+          STATIC
           jniwrapper.c jnilog.c jnidummy.c
           com_ibm_onnxmlir_OMModel.h jnilog.h)
   set_target_properties(jniruntime PROPERTIES
@@ -33,7 +35,6 @@ if(Java_Development_FOUND AND JNI_FOUND)
           ${JAVA_INCLUDE_PATH2})
 
   install_jar(javaruntime DESTINATION lib)
-  install(TARGETS jniruntime DESTINATION lib)
 
 else()
   message(WARNING "Java Development component or JNI not found, JNI targets will not work")
