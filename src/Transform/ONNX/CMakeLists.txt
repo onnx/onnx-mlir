@@ -54,6 +54,7 @@ target_include_directories(OMShapeInference
         ${ONNX_MLIR_SRC_ROOT})
 # Header dependencies
 add_dependencies(OMShapeInference ShapeInferenceOpInterfaceIncGen)
+add_dependencies(OMShapeInference OMHasOnnxSubgraphOpInterfaceIncGen)
 # Linking dependencies
 add_dependencies(OMShapeInference OMShapeInferenceOpInterface)
 
