@@ -2070,6 +2070,12 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$output);
+  let builders = [
+    OpBuilder<(ins "Value":$input), [{
+      auto elementType = input.getType().cast<ShapedType>().getElementType();
+      build($_builder, $_state, UnrankedTensorType::get(elementType), input);
+    }]>
+  ];
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -5450,6 +5456,13 @@ def ONNXSplitOp:ONNX_Op<"Split",
     DefaultValuedAttr<SI64Attr, "0">:$axis,
     OptionalAttr<I64ArrayAttr>:$split);
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$outputs);
+  let builders = [
+    OpBuilder<(ins "Value":$input, "IntegerAttr":$axis, "ArrayAttr":$split), [{
+      auto elementType = input.getType().cast<ShapedType>().getElementType();
+      build($_builder, $_state, UnrankedTensorType::get(elementType), input,
+            axis, split);
+    }]>
+    ];
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
