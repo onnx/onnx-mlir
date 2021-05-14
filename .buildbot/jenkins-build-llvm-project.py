@@ -39,15 +39,16 @@ docker_registry_login_token = os.getenv('DOCKER_REGISTRY_LOGIN_TOKEN')
 github_repo_access_token    = os.getenv('GITHUB_REPO_ACCESS_TOKEN')
 github_repo_name            = os.getenv('GITHUB_REPO_NAME')
 github_repo_name2           = os.getenv('GITHUB_REPO_NAME').replace('-', '_')
-github_pr_baseref           = os.getenv('GITHUB_PR_BASEREF').lower()
+github_pr_baseref           = os.getenv('GITHUB_PR_BASEREF')
+github_pr_baseref2          = os.getenv('GITHUB_PR_BASEREF').lower()
 github_pr_number            = os.getenv('GITHUB_PR_NUMBER')
 github_pr_number2           = os.getenv('GITHUB_PR_NUMBER2')
 
 docker_static_image_name    = (github_repo_name + '-llvm-static' +
-                               ('.' + github_pr_baseref
+                               ('.' + github_pr_baseref2
                                 if github_pr_baseref != 'master' else ''))
 docker_shared_image_name    = (github_repo_name + '-llvm-shared' +
-                               ('.' + github_pr_baseref
+                               ('.' + github_pr_baseref2
                                 if github_pr_baseref != 'master' else ''))
 
 LLVM_PROJECT_SHA1_FILE      = 'utils/clone-mlir.sh'
@@ -234,7 +235,7 @@ def setup_private_llvm(image_type, exp):
     login_name   = docker_registry_login_name
     login_token  = docker_registry_login_token
     image_name   = LLVM_PROJECT_IMAGE[image_type]
-    image_tag    = github_pr_number
+    image_tag    = github_pr_number.lower()
     image_repo   = ((host_name + '/' if host_name else '') +
                     (user_name + '/' if user_name else '') +
                     image_name)
@@ -280,7 +281,7 @@ def setup_private_llvm(image_type, exp):
 
                 # Tag pulled arch image with pull request number then remove
                 # the arch image
-                docker_api.tag(image_arch, image_repo, github_pr_number, force = True)
+                docker_api.tag(image_arch, image_repo, image_tag, force = True)
                 docker_api.remove_image(image_arch, force = True)
 
                 # For logging purpose only
