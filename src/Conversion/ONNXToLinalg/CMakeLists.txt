@@ -1,14 +1,10 @@
-add_library(OMONNXToLinalg
-        ConvertONNXToLinalg.cpp)
-
-target_include_directories(OMONNXToLinalg
-        PRIVATE
-        ${ONNX_MLIR_SRC_ROOT}
-        ${ONNX_MLIR_BIN_ROOT}
-        ${ONNX_MLIR_SRC_ROOT})
+add_onnx_mlir_library(OMONNXToLinalg
+  ConvertONNXToLinalg.cpp
+  )
 
 target_link_libraries(OMONNXToLinalg
-        onnx)
+  onnx
+  )
 
 # Header dependencies
 add_dependencies(OMONNXToLinalg OMONNXOpsInc)
