@@ -13,7 +13,6 @@ set(OMLibs
   OMBuilder
   OMONNXOps
   OMKrnlOps
-  OMKrnlOps
   OMSupport
   OMKrnlToAffine
   OMKrnlToLLVM
