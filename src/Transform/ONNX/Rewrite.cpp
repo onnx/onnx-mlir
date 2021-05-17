@@ -23,6 +23,40 @@ using namespace mlir;
 
 namespace {
 
+
+// Create an DenseElementsAttr of ArrayAttr.
+// This function is used to get Value Type of an EXISTING ArrayAttr for Scaler
+// function.
+// Duplicated from Decompose.cpp
+DenseElementsAttr createDenseArrayAttr(
+    PatternRewriter &rewriter, ArrayAttr origAttrs) {
+
+  assert(origAttrs && "handle EXISTING ArrayAttr only");
+  if (origAttrs.getValue()[0].dyn_cast<FloatAttr>()) {
+    mlir::Type elementType = rewriter.getF32Type();
+    int nElements = origAttrs.getValue().size();
+    SmallVector<float, 4> wrapper(nElements, 0);
+    for (int i = 0; i < nElements; ++i) {
+      wrapper[i] = origAttrs.getValue()[i].cast<FloatAttr>().getValueAsDouble();
+    }
+    return DenseElementsAttr::get(
+        RankedTensorType::get(wrapper.size(), elementType),
+        llvm::makeArrayRef(wrapper));
+  }
+  if (origAttrs.getValue()[0].dyn_cast<IntegerAttr>()) {
+    mlir::Type elementType = rewriter.getIntegerType(64);
+    int nElements = origAttrs.getValue().size();
+    SmallVector<int64_t, 4> wrapper(nElements, 0);
+    for (int i = 0; i < nElements; ++i) {
+      wrapper[i] = origAttrs.getValue()[i].cast<IntegerAttr>().getInt();
+    }
+    return DenseElementsAttr::get(
+        RankedTensorType::get(wrapper.size(), elementType),
+        llvm::makeArrayRef(wrapper));
+  }
+  llvm_unreachable("unexpected attribute type");
+}
+
 // Create a DenseElementsAttr from a float attribute.
 DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     PatternRewriter &rewriter, Type elementType, FloatAttr attr) {

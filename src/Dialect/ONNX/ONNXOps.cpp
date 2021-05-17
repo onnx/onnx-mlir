@@ -2198,13 +2198,13 @@ LogicalResult ONNXUnsqueezeOp::inferShapes(
   auto operandTy = data().getType().cast<RankedTensorType>();
   int inRank = operandTy.getRank();
 
-  ArrayAttr axisAttrs = axesAttr();
+  DenseElementsAttr axisAttrs = getDenseElementAttributeFromONNXValue(axes());
   SmallVector<int, 4> axes;
   int outRank = 0;
   if (axisAttrs) {
-    outRank = inRank + axisAttrs.getValue().size();
-    for (auto axisAttr : axisAttrs.getValue()) {
-      int axis = axisAttr.cast<IntegerAttr>().getInt();
+    outRank = inRank + axisAttrs.getType().getShape().size();
+    for (auto element : axisAttrs.getValues<IntegerAttr>()) {
+      int64_t axis = element.getInt();
       axis = axis >= 0 ? axis : (outRank + axis);
       // Valid range
       assert(axis >= -outRank && axis <= outRank - 1);
@@ -2214,7 +2214,7 @@ LogicalResult ONNXUnsqueezeOp::inferShapes(
         return emitError("Duplicated axes");
     }
   } else
-    return emitError("Axes attribute is required");
+    return emitError("Only constant Axes is handled");
 
   SmallVector<int64_t, 4> dims;
   for (int i = 0, j = 0; i < outRank || j < inRank; ++i) {
@@ -2240,29 +2240,19 @@ LogicalResult ONNXSqueezeOp::inferShapes(
   auto operandTy = data().getType().cast<RankedTensorType>();
   int64_t inRank = operandTy.getRank();
 
-  ArrayAttr axisAttrs = axesAttr();
-  if (!axisAttrs)
-    return emitError("Axes attribute is required");
+  DenseElementsAttr axisAttrs = getDenseElementAttributeFromONNXValue(axes());
 
   SmallVector<int64_t, 4> axes;
-  bool hasNegativeAxis = false;
-  for (auto axisAttr : axisAttrs.getValue()) {
-    int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
+  for (auto axisAttr : axisAttrs.getValues<IntegerAttr>()) {
+    int64_t axis = axisAttr.getInt();
     if (axis < -inRank || axis >= inRank)
       return emitError("Invalid axis value");
     if (axis < 0) {
       axis = inRank + axis;
-      hasNegativeAxis = true;
     }
     if (std::find(axes.begin(), axes.end(), axis) != axes.end())
       return emitError("Duplicated axes");
     axes.emplace_back(axis);
-  }
-  if (hasNegativeAxis) {
-    // Update axes attribute so that it contains only positive values.
-    auto builder = mlir::Builder(getContext());
-    ArrayRef<int64_t> defaultRefs(axes);
-    axesAttr(builder.getI64ArrayAttr(defaultRefs));
   }
 
   SmallVector<int64_t, 4> dims;

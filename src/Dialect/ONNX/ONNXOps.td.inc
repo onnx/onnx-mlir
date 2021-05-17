@@ -5561,15 +5561,15 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
   let summary = "ONNX Squeeze operation";
   let description = [{
   "Remove single-dimensional entries from the shape of a tensor."
-  "Takes a  parameter `axes` with a list of axes to squeeze."
+  "Takes an input `axes` with a list of axes to squeeze."
   "If `axes` is not provided, all the single dimensions will be removed from"
   "the shape. If an axis is selected with shape entry not equal to one, an error is raised."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
-    OptionalAttr<I64ArrayAttr>:$axes);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$squeezed);
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$squeezed);
   let builders = [
-    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes), [{
+    OpBuilder<(ins "Value":$data, "Value":$axes), [{
       auto elementType = data.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes);
     }]>,
@@ -5582,7 +5582,7 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
     ];
     let extraClassDeclaration = [{
       static int getNumberOfOperands() {
-        return 1;
+        return 2;
       }
       static int getNumberOfResults() {
         return 1;
@@ -6015,23 +6015,23 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
   let summary = "ONNX Unsqueeze operation";
   let description = [{
   "Insert single-dimensional entries to the shape of an input tensor (`data`)."
-  "Takes one required argument `axes` - which contains a list of dimension indices and this operator will insert a dimension of value `1` into the corresponding index of the output tensor (`expanded`)."
+  "Takes one required input `axes` - which contains a list of dimension indices and this operator will insert a dimension of value `1` into the corresponding index of the output tensor (`expanded`)."
   ""
   "For example:"
   "  Given an input tensor (`data`) of shape [3, 4, 5], then"
   "  Unsqueeze(data, axes=[0, 4]) outputs a tensor (`expanded`) containing same data as `data` but with shape [1, 3, 4, 5, 1]."
   ""
-  "The attribute `axes` should not contain any duplicate entries. It is an error if it contains duplicates."
+  "The input `axes` should not contain any duplicate entries. It is an error if it contains duplicates."
   "The rank of the output tensor (`output_rank`) is the rank of the input tensor (`data`) plus the number of values in `axes`."
   "Each value in `axes` should be within the (inclusive) range [-output_rank , output_rank - 1]. "
   "The order of values in `axes` does not matter and can come in any order. "
   ""
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
-    I64ArrayAttr:$axes);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$expanded);
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$expanded);
   let builders = [
-    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes), [{
+    OpBuilder<(ins "Value":$data, "Value":$axes), [{
       auto elementType = data.getType().cast<ShapedType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes);
     }]>,
@@ -6044,7 +6044,7 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
     ];
     let extraClassDeclaration = [{
       static int getNumberOfOperands() {
-        return 1;
+        return 2;
       }
       static int getNumberOfResults() {
         return 1;

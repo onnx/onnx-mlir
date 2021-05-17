@@ -28,13 +28,16 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
     auto memRefShape = memRefType.getShape();
     auto elementSizeInBytes = getMemRefEltSizeInBytes(memRefType);
     Value data = operandAdaptor.data();
+    auto operandTy = data.getType().cast<RankedTensorType>();
+    int64_t inRank = operandTy.getRank();
 
-    // Assume that `axes` has been validated by shape inference.
-    // So, here we just get it.
-    ArrayAttr axisAttrs = llvm::dyn_cast<ONNXSqueezeOp>(op).axesAttr();
+    DenseElementsAttr axisAttrs = getDenseElementAttributeFromONNXValue(llvm::dyn_cast<ONNXUnsqueezeOp>(op).axes());
+    if (!axisAttrs)
+      return emitError(loc, "Only constant axes is handled");
     SmallVector<int, 4> axes;
-    for (auto axisAttr : axisAttrs.getValue()) {
-      int axis = axisAttr.cast<IntegerAttr>().getInt();
+    for (auto axisAttr : axisAttrs.getValues<IntegerAttr>()) {
+      int axis = axisAttr.getInt();
+      axis = axis>=0?axis: inRank + axis;
       axes.emplace_back(axis);
     }
 

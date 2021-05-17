@@ -99,7 +99,7 @@ def ReduceLogSumExpOpPattern2
                          (ONNXReduceMaxOp
                              : $max $oprd, $axes, (KeepdimsTrue)))),
                $axes, $keepdims),
-              (ONNXSqueezeOp $max, $axes)),
+              (ONNXSqueezeOp $max, (ONNXConstantOpFromDenseAttr(createDenseArrayAttrOrEmpty $axes)))),
           [], (addBenefit 0)>;
 
 //===----------------------------------------------------------------------===//

@@ -88,6 +88,42 @@ bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
   return true;
 }
 
+/// Test if two axis input contain the same values or not.
+bool AreTheSameAxisConstant(int64_t rank, Attribute lhsAttrIn, Attribute rhsAttrIn) {
+  auto lhsAttr = lhsAttrIn.dyn_cast<DenseElementsAttr>();
+  auto rhsAttr = rhsAttrIn.dyn_cast<DenseElementsAttr>();
+  // false if one of the array attributes is null.
+  if (!(lhsAttr) || !(rhsAttr))
+    return false;
+
+  SmallVector<int64_t, 4> lhs;
+  int64_t lhsSize = 0;
+  for (auto attr : lhsAttr.getValues<IntegerAttr>()) {
+    int64_t axis = attr.getInt();
+    if (axis < 0)
+      axis += rank;
+    lhs.emplace_back(axis);
+    lhsSize++;
+  }
+
+  int64_t rhsSize = 0;
+  for (auto attr : rhsAttr.getValues<IntegerAttr>()) {
+    int64_t axis = attr.getInt();
+    if (axis < 0)
+      axis += rank;
+    // false if axis is not in the lhs. Early stop.
+    if (!llvm::any_of(lhs, [&](int64_t lhsAxis) { return lhsAxis == axis; }))
+      return false;
+    rhsSize++;
+  }
+
+  // false if having different number of elements.
+  if (lhs.size() != rhsSize)
+    return false;
+
+  return true;
+}
+
 //===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//

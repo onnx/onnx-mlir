@@ -36,6 +36,9 @@ def createDenseElementsAttrFromShape : NativeCodeCall<
 def createDenseElementsAttrFromSize : NativeCodeCall<
   "createDenseElementsAttrFromSize($_builder, $0)">;
 
+def createDenseArrayAttr
+    : NativeCodeCall<"createDenseArrayAttr($_builder, $0)">;
+
 // If '$1' is not NoneType, do subtraction '$1 - $2'.
 // Otherwise, take the negative of '$2'.
 def subtractOrNeg: NativeCodeCall<
@@ -161,7 +164,7 @@ def FuseBatchNormTestModeConvPattern: Pat<
                     $var,
                     (ONNXConstantOpFromDenseAttr
                        (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
-           (createArrayAttrOfOneToRankOf $w))),
+           (ONNXConstantOpFromDenseAttr(createDenseArrayAttr(createArrayAttrOfOneToRankOf $w))))),
      // b_
      (ONNXAddOp
         $B,
