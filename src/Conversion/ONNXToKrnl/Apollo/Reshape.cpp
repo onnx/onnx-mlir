@@ -46,10 +46,19 @@ struct ONNXReshapeOpApolloLowering : public ConversionPattern {
     if (auto constOp = getONNXConstantOp(reshapeOp.shape())) {
       if (auto shapeAttr =
               constOp.valueAttr().dyn_cast_or_null<DenseElementsAttr>()) {
-        for (auto elem : shapeAttr.getValues<IntegerAttr>()) {
-          auto value = elem.getInt();
-          if (value <= 0) {
-            op->emitOpError("Reshape with -1 or 0 not handled");
+        size_t i = 0;
+        for (auto e : shapeAttr.getValues<IntegerAttr>()) {
+          auto index = i++;
+          auto value = e.getInt();
+          if (value == 0) {
+            // ISSUE-TODO: opset-14 changes this behavior if `allowzero` is set
+            // default behavior for 0 is keep same as original
+            value = dataShape[index];
+          } else if (value < 0) {
+            assert(value == -1);
+            // ISSUE-TODO: validate only a single dimension is -1
+            // ISSUE-TODO: auto-compute the size of the -1 dimension
+            op->emitOpError("Reshape with -1 not handled");
             return failure();
           }
           shapeAttrValues.emplace_back(value);
