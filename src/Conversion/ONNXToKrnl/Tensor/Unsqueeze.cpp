@@ -23,25 +23,10 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXUnsqueezeOpAdaptor operandAdaptor(operands);
-    ONNXUnsqueezeOp unsqueezeOp = llvm::dyn_cast<ONNXUnsqueezeOp>(op);
     auto loc = op->getLoc();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     int outRank = memRefType.getRank();
     Value data = operandAdaptor.data();
-
-    // Input is a constant, just return a constant with the result type.
-    //if (isKrnlGlobalConstant(data)) {
-    //  char *dataBuffer = createArrayFromDenseElementsAttr(
-    //      data.getDefiningOp()
-    //          ->getAttrOfType<::mlir::Attribute>("value")
-    //          .dyn_cast_or_null<mlir::DenseElementsAttr>());
-
-    //  Value constVal = createDenseONNXConstantOp(rewriter, loc,
-    //      unsqueezeOp.expanded().getType().cast<ShapedType>(), dataBuffer)
-    //                       .getResult();
-    //  rewriter.replaceOp(op, constVal);
-    //  return success();
-    //}
 
     // Assume that `axes` has been validated by shape inference.
     // So, here we just get it.
