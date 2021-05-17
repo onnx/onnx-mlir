@@ -21,68 +21,6 @@
 
 using namespace mlir;
 
-Value emitUnsqueeze(ConversionPatternRewriter &rewriter, Location loc,
-    Type resultType, Value input, int64_t axis) {
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
-    char *inputBuffer = createArrayFromDenseElementsAttr(
-        input.getDefiningOp()
-            ->getAttrOfType<::mlir::Attribute>("value")
-            .dyn_cast_or_null<mlir::DenseElementsAttr>());
-
-    return createDenseONNXConstantOp(
-        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
-        .getResult();
-  } else {
-    return rewriter
-        .create<ONNXUnsqueezeOp>(
-            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
-        .getResult();
-  }
-}
-
-// Only support evenly splitting.
-std::vector<Value> emitSplit(ConversionPatternRewriter &rewriter, Location loc,
-    ArrayRef<Type> resultTypes, Value input, int64_t axis) {
-  std::vector<Value> resVals;
-  int outputNum = resultTypes.size();
-  auto inputType = input.getType().cast<ShapedType>();
-  auto inputShape = inputType.getShape();
-  Type elementType = inputType.getElementType();
-
-  // Compute split offsets.
-  SmallVector<int64_t, 4> splitOffsets;
-  int64_t offset = 0;
-  for (int i = 0; i < outputNum; ++i) {
-    splitOffsets.emplace_back(offset);
-    offset += inputShape[axis] / outputNum;
-  }
-
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
-    char *inputBuffer = createArrayFromDenseElementsAttr(
-        input.getDefiningOp()
-            ->getAttrOfType<::mlir::Attribute>("value")
-            .dyn_cast_or_null<mlir::DenseElementsAttr>());
-
-    std::vector<char *> resBuffers;
-    ConstPropSplitImpl(elementType, inputBuffer, inputShape,
-        /*splitAxis=*/axis, /*splitOffsets=*/splitOffsets, resultTypes,
-        resBuffers);
-
-    for (int i = 0; i < outputNum; ++i) {
-      Value constVal = createDenseONNXConstantOp(
-          rewriter, loc, resultTypes[i].cast<ShapedType>(), resBuffers[i])
-                           .getResult();
-      resVals.emplace_back(constVal);
-    }
-  } else {
-    ONNXSplitOp split = rewriter.create<ONNXSplitOp>(loc, resultTypes, input,
-        /*axis=*/axis, nullptr);
-    for (int i = 0; i < outputNum; ++i)
-      resVals.emplace_back(split.outputs()[i]);
-  }
-  return resVals;
-}
-
 Value noneVal;
 
 struct LstmState {
@@ -304,79 +242,73 @@ getWeightPack<ONNXLSTMOp, LstmWeightPack>(
     bR = emitUnsqueeze(rewriter, loc, rType2D, R, 0);
   } else { // BIDIRECTIONAL
     // W
-    ONNXSplitOp splitW =
-        rewriter.create<ONNXSplitOp>(loc, ArrayRef<Type>{wType3D, wType3D}, W,
-            /*axis=*/0, rewriter.getI64ArrayAttr({1, 1}));
-    fW = rewriter.create<ONNXUnsqueezeOp>(
-        loc, wType2D, splitW.getResults()[0], rewriter.getI64ArrayAttr(0));
-    bW = rewriter.create<ONNXUnsqueezeOp>(
-        loc, wType2D, splitW.getResults()[1], rewriter.getI64ArrayAttr(0));
+    std::vector<Value> vals;
+    vals = emitSplit(rewriter, loc, ArrayRef<Type>{wType3D, wType3D}, W, 0);
+    fW = emitUnsqueeze(rewriter, loc, wType2D, vals[0], 0);
+    bW = emitUnsqueeze(rewriter, loc, wType2D, vals[1], 0);
     // R
-    ONNXSplitOp splitR =
-        rewriter.create<ONNXSplitOp>(loc, ArrayRef<Type>{rType3D, rType3D}, R,
-            /*axis=*/0, nullptr);
-    fR = rewriter.create<ONNXUnsqueezeOp>(
-        loc, rType2D, splitR.getResults()[0], rewriter.getI64ArrayAttr(0));
-    bR = rewriter.create<ONNXUnsqueezeOp>(
-        loc, rType2D, splitR.getResults()[1], rewriter.getI64ArrayAttr(0));
+    vals.clear();
+    vals = emitSplit(rewriter, loc, ArrayRef<Type>{rType3D, rType3D}, R, 0);
+    fR = emitUnsqueeze(rewriter, loc, rType2D, vals[0], 0);
+    bR = emitUnsqueeze(rewriter, loc, rType2D, vals[1], 0);
   }
 
-  // Split W and R into invidual weight tensors, and transpose them.
+  // Split W and R into individual weight tensors, and transpose them.
   if (direction == FORWARD || direction == BIDIRECTIONAL) {
     // W
-    ONNXSplitOp splitFW = rewriter.create<ONNXSplitOp>(loc,
+    std::vector<Value> vals;
+    vals = emitSplit(rewriter, loc,
         ArrayRef<Type>{wSplitType2D, wSplitType2D, wSplitType2D, wSplitType2D},
-        fW,
-        /*axis=*/0, nullptr);
-    weightForward.Wi = rewriter.create<ONNXTransposeOp>(
-        loc, wTransposeType2D, splitFW.getResults()[0], permAttr);
-    weightForward.Wo = rewriter.create<ONNXTransposeOp>(
-        loc, wTransposeType2D, splitFW.getResults()[1], permAttr);
-    weightForward.Wf = rewriter.create<ONNXTransposeOp>(
-        loc, wTransposeType2D, splitFW.getResults()[2], permAttr);
-    weightForward.Wc = rewriter.create<ONNXTransposeOp>(
-        loc, wTransposeType2D, splitFW.getResults()[3], permAttr);
+        fW, 0);
+    weightForward.Wi =
+        emitTranspose(rewriter, loc, wTransposeType2D, vals[0], permAttr);
+    weightForward.Wo =
+        emitTranspose(rewriter, loc, wTransposeType2D, vals[1], permAttr);
+    weightForward.Wf =
+        emitTranspose(rewriter, loc, wTransposeType2D, vals[2], permAttr);
+    weightForward.Wc =
+        emitTranspose(rewriter, loc, wTransposeType2D, vals[3], permAttr);
     // R
-    ONNXSplitOp splitFR = rewriter.create<ONNXSplitOp>(loc,
+    vals.clear();
+    vals = emitSplit(rewriter, loc,
         ArrayRef<Type>{rSplitType2D, rSplitType2D, rSplitType2D, rSplitType2D},
-        fR,
-        /*axis=*/0, nullptr);
-    weightForward.Ri = rewriter.create<ONNXTransposeOp>(
-        loc, rTransposeType2D, splitFR.getResults()[0], permAttr);
-    weightForward.Ro = rewriter.create<ONNXTransposeOp>(
-        loc, rTransposeType2D, splitFR.getResults()[1], permAttr);
-    weightForward.Rf = rewriter.create<ONNXTransposeOp>(
-        loc, rTransposeType2D, splitFR.getResults()[2], permAttr);
-    weightForward.Rc = rewriter.create<ONNXTransposeOp>(
-        loc, rTransposeType2D, splitFR.getResults()[3], permAttr);
+        fR, 0);
+    weightForward.Ri =
+        emitTranspose(rewriter, loc, rTransposeType2D, vals[0], permAttr);
+    weightForward.Ro =
+        emitTranspose(rewriter, loc, rTransposeType2D, vals[1], permAttr);
+    weightForward.Rf =
+        emitTranspose(rewriter, loc, rTransposeType2D, vals[2], permAttr);
+    weightForward.Rc =
+        emitTranspose(rewriter, loc, rTransposeType2D, vals[3], permAttr);
   }
   if (direction == REVERSE || direction == BIDIRECTIONAL) {
     // W
-    ONNXSplitOp splitBW = rewriter.create<ONNXSplitOp>(loc,
+    std::vector<Value> vals;
+    vals = emitSplit(rewriter, loc,
         ArrayRef<Type>{wSplitType2D, wSplitType2D, wSplitType2D, wSplitType2D},
-        bW,
-        /*axis=*/0, nullptr);
-    weightReverse.Ri = rewriter.create<ONNXTransposeOp>(
-        loc, wTransposeType2D, splitBW.getResults()[0], permAttr);
-    weightReverse.Ro = rewriter.create<ONNXTransposeOp>(
-        loc, wTransposeType2D, splitBW.getResults()[1], permAttr);
-    weightReverse.Rf = rewriter.create<ONNXTransposeOp>(
-        loc, wTransposeType2D, splitBW.getResults()[2], permAttr);
-    weightReverse.Rc = rewriter.create<ONNXTransposeOp>(
-        loc, wTransposeType2D, splitBW.getResults()[3], permAttr);
+        bW, 0);
+    weightReverse.Ri =
+        emitTranspose(rewriter, loc, wTransposeType2D, vals[0], permAttr);
+    weightReverse.Ro =
+        emitTranspose(rewriter, loc, wTransposeType2D, vals[1], permAttr);
+    weightReverse.Rf =
+        emitTranspose(rewriter, loc, wTransposeType2D, vals[2], permAttr);
+    weightReverse.Rc =
+        emitTranspose(rewriter, loc, wTransposeType2D, vals[3], permAttr);
     // R
-    ONNXSplitOp splitBR = rewriter.create<ONNXSplitOp>(loc,
+    vals.clear();
+    vals = emitSplit(rewriter, loc,
         ArrayRef<Type>{rSplitType2D, rSplitType2D, rSplitType2D, rSplitType2D},
-        bR,
-        /*axis=*/0, nullptr);
-    weightReverse.Ri = rewriter.create<ONNXTransposeOp>(
-        loc, rTransposeType2D, splitBR.getResults()[0], permAttr);
-    weightReverse.Ro = rewriter.create<ONNXTransposeOp>(
-        loc, rTransposeType2D, splitBR.getResults()[1], permAttr);
-    weightReverse.Rf = rewriter.create<ONNXTransposeOp>(
-        loc, rTransposeType2D, splitBR.getResults()[2], permAttr);
-    weightReverse.Rc = rewriter.create<ONNXTransposeOp>(
-        loc, rTransposeType2D, splitBR.getResults()[3], permAttr);
+        bR, 0);
+    weightReverse.Ri =
+        emitTranspose(rewriter, loc, rTransposeType2D, vals[0], permAttr);
+    weightReverse.Ro =
+        emitTranspose(rewriter, loc, rTransposeType2D, vals[1], permAttr);
+    weightReverse.Rf =
+        emitTranspose(rewriter, loc, rTransposeType2D, vals[2], permAttr);
+    weightReverse.Rc =
+        emitTranspose(rewriter, loc, rTransposeType2D, vals[3], permAttr);
   }
   return std::make_tuple(weightForward, weightReverse);
 }
@@ -411,46 +343,42 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
     if (direction == FORWARD) {
       fB = emitUnsqueeze(rewriter, loc, bType1D, B, 0);
     } else if (direction == REVERSE) {
-      bB = rewriter.create<ONNXUnsqueezeOp>(
-          loc, bType1D, B, rewriter.getI64ArrayAttr(0));
+      bB = emitUnsqueeze(rewriter, loc, bType1D, B, 0);
     } else { // BIDIRECTIONAL
-      ONNXSplitOp splitW =
-          rewriter.create<ONNXSplitOp>(loc, ArrayRef<Type>{bType2D, bType2D}, B,
-              /*axis=*/0, rewriter.getI64ArrayAttr({1, 1}));
-      fB = rewriter.create<ONNXUnsqueezeOp>(
-          loc, bType1D, splitW.getResults()[0], rewriter.getI64ArrayAttr(0));
-      bB = rewriter.create<ONNXUnsqueezeOp>(
-          loc, bType1D, splitW.getResults()[1], rewriter.getI64ArrayAttr(0));
+      std::vector<Value> vals;
+      vals = emitSplit(rewriter, loc, ArrayRef<Type>{bType2D, bType2D}, B, 0);
+      fB = emitUnsqueeze(rewriter, loc, bType1D, vals[0], 0);
+      bB = emitUnsqueeze(rewriter, loc, bType1D, vals[1], 0);
     }
 
     // Split B into invidual bias tensors.
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
-      std::vector<Value> resVals = emitSplit(rewriter, loc,
+      std::vector<Value> vals = emitSplit(rewriter, loc,
           ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
               bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D},
-          fB,
-          /*axis=*/0);
-      biasForward.Wbi = resVals[0];
-      biasForward.Wbo = resVals[1];
-      biasForward.Wbf = resVals[2];
-      biasForward.Wbc = resVals[3];
-      biasForward.Rbi = resVals[4];
-      biasForward.Rbo = resVals[5];
-      biasForward.Rbf = resVals[6];
-      biasForward.Rbc = resVals[7];
+          fB, 0);
+      biasForward.Wbi = vals[0];
+      biasForward.Wbo = vals[1];
+      biasForward.Wbf = vals[2];
+      biasForward.Wbc = vals[3];
+      biasForward.Rbi = vals[4];
+      biasForward.Rbo = vals[5];
+      biasForward.Rbf = vals[6];
+      biasForward.Rbc = vals[7];
     }
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      ONNXSplitOp splitB =
-          rewriter.create<ONNXSplitOp>(loc, ArrayRef<Type>{bSplitType1D}, bB,
-              /*axis=*/0, nullptr);
-      biasReverse.Wbi = splitB.getResults()[0];
-      biasReverse.Wbo = splitB.getResults()[1];
-      biasReverse.Wbf = splitB.getResults()[2];
-      biasReverse.Wbc = splitB.getResults()[3];
-      biasReverse.Rbi = splitB.getResults()[4];
-      biasReverse.Rbo = splitB.getResults()[5];
-      biasReverse.Rbf = splitB.getResults()[6];
-      biasReverse.Rbc = splitB.getResults()[7];
+      std::vector<Value> vals = emitSplit(rewriter, loc,
+          ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
+              bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D},
+          bB, 0);
+      biasReverse.Wbi = vals[0];
+      biasReverse.Wbo = vals[1];
+      biasReverse.Wbf = vals[2];
+      biasReverse.Wbc = vals[3];
+      biasReverse.Rbi = vals[4];
+      biasReverse.Rbo = vals[5];
+      biasReverse.Rbf = vals[6];
+      biasReverse.Rbc = vals[7];
     }
   }
 
@@ -470,16 +398,13 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
     if (direction == FORWARD) {
       fP = emitUnsqueeze(rewriter, loc, pType1D, P, 0);
     } else if (direction == REVERSE) {
-      bP = rewriter.create<ONNXUnsqueezeOp>(
-          loc, pType1D, P, rewriter.getI64ArrayAttr(0));
+      bP = emitUnsqueeze(rewriter, loc, pType1D, P, 0);
     } else { // BIDIRECTIONAL
       ONNXSplitOp splitW =
           rewriter.create<ONNXSplitOp>(loc, ArrayRef<Type>{pType2D, pType2D}, P,
               /*axis=*/0, rewriter.getI64ArrayAttr({1, 1}));
-      fP = rewriter.create<ONNXUnsqueezeOp>(
-          loc, pType1D, splitW.getResults()[0], rewriter.getI64ArrayAttr(0));
-      bP = rewriter.create<ONNXUnsqueezeOp>(
-          loc, pType1D, splitW.getResults()[1], rewriter.getI64ArrayAttr(0));
+      fP = emitUnsqueeze(rewriter, loc, pType1D, splitW.getResults()[0], 0);
+      bP = emitUnsqueeze(rewriter, loc, pType1D, splitW.getResults()[1], 0);
     }
 
     // Split P into invidual tensors.

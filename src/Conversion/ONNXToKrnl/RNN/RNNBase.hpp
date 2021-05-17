@@ -50,6 +50,16 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value operand);
 
+Value emitUnsqueeze(ConversionPatternRewriter &rewriter, Location loc,
+    Type resultType, Value input, int64_t axis);
+
+// Only support evenly splitting.
+std::vector<Value> emitSplit(ConversionPatternRewriter &rewriter, Location loc,
+    ArrayRef<Type> resultTypes, Value input, int64_t axis);
+
+Value emitTranspose(ConversionPatternRewriter &rewriter, Location loc,
+    Type resultType, Value input, ArrayAttr permAttr);
+
 // Override the following methods when lowering an RNN operation:
 // - hasAllNoneOutput
 // - getActivationPack

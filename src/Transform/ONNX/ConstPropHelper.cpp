@@ -132,6 +132,7 @@ char *createArrayFromDenseElementsAttr(DenseElementsAttr dataAttr) {
     }
   } else
     llvm_unreachable("Unknown data type");
+  return res;
 }
 
 /// A helper function to construct a DenseElementsAttr from an array.
