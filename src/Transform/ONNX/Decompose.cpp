@@ -45,7 +45,8 @@ DenseElementsAttr createDenseArrayAttr(
     return DenseElementsAttr::get(
         RankedTensorType::get(wrapper.size(), elementType),
         llvm::makeArrayRef(wrapper));
-  } else if (origAttrs.getValue()[0].dyn_cast<IntegerAttr>()) {
+  }
+  if (origAttrs.getValue()[0].dyn_cast<IntegerAttr>()) {
     mlir::Type elementType = rewriter.getIntegerType(64);
     int nElements = origAttrs.getValue().size();
     SmallVector<int64_t, 4> wrapper(nElements, 0);
@@ -56,6 +57,7 @@ DenseElementsAttr createDenseArrayAttr(
         RankedTensorType::get(wrapper.size(), elementType),
         llvm::makeArrayRef(wrapper));
   }
+  llvm_unreachable("unexpected attribute type");
 }
 
 // Create an DenseElementsAttr of ArrayAttr.
