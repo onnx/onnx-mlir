@@ -15,9 +15,7 @@
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
 
-#include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
-#include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
 
 using namespace mlir;
 

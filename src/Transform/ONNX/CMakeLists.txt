@@ -26,16 +26,16 @@ add_onnx_mlir_rewriter(ConstProp)
 add_onnx_mlir_library(OMONNXRewrite
         Rewrite.cpp
         Combine.cpp
-        ConstProp.cpp
-        Decompose.cpp)
+        Decompose.cpp
+        ConstProp.cpp)
 
 # Header dependencies
 add_dependencies(OMONNXRewrite
         OMONNXOpsInc
         OMONNXRewriteIncGen
         OMONNXDecomposeIncGen
-        OMONNXConstPropIncGen
-        OMONNXCombineIncGen)
+        OMONNXCombineIncGen
+        OMONNXConstPropIncGen)
 
 # Linking dependencies
 add_dependencies(OMONNXRewrite OMConstPropHelper OMONNXOps)
@@ -46,4 +46,3 @@ add_onnx_mlir_library(OMShapeInference ShapeInferencePass.cpp)
 add_dependencies(OMShapeInference OMShapeInferenceOpInterfaceIncGen)
 # Linking dependencies
 add_dependencies(OMShapeInference OMShapeInferenceOpInterface)
-

@@ -15,10 +15,10 @@ set(OMLibs
   OMKrnlOps
   OMSupport
   OMConstPropHelper
-  OMONNXRewrite
   OMKrnlToAffine
   OMKrnlToLLVM
   OMONNXToKrnl
+  OMONNXRewrite
   OMShapeInference
   OMShapeInferenceOpInterface
   OMResultTypeInferenceOpInterface
