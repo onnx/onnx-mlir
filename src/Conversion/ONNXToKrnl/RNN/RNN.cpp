@@ -232,10 +232,10 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack, RnnWeightPack,
   } else {
     // Hidden size is a constant, so the batch size must be unknown here.
     Value batchSizeDim =
-        rewriter.create<DimOp>(loc, operandAdaptor.X(), 1).getResult();
-    xwI = rewriter.create<AllocOp>(
+        rewriter.create<memref::DimOp>(loc, operandAdaptor.X(), 1).getResult();
+    xwI = rewriter.create<memref::AllocOp>(
         loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
-    hrI = rewriter.create<AllocOp>(
+    hrI = rewriter.create<memref::AllocOp>(
         loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
   }
 
@@ -384,8 +384,8 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack, RnnWeightPack,
   }
   rewriter.restoreInsertionPoint(ipStateLoops);
   // Deallocate the temporary results of matrix multiplications.
-  rewriter.create<DeallocOp>(loc, xwI);
-  rewriter.create<DeallocOp>(loc, hrI);
+  rewriter.create<memref::DeallocOp>(loc, xwI);
+  rewriter.create<memref::DeallocOp>(loc, hrI);
 }
 
 template <>

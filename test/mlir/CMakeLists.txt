@@ -3,7 +3,7 @@
 # Set LLVM_DEFAULT_EXTERNAL_LIT to an empty string to avoid warnings about the path
 # when using multi-config generators such as VS or Xcode
 set(LLVM_DEFAULT_EXTERNAL_LIT "")
-set(LLVM_LIT_OUTPUT_DIR ${LLVM_PROJ_BIN})
+set(LLVM_LIT_OUTPUT_DIR ${LLVM_TOOLS_BINARY_DIR})
 
 # CMAKE_CFG_INTDIR is . for single-config generators such as make, and
 # it has a value (e.g. $(Configuration)) otherwise, so we can use it to

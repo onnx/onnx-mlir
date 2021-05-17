@@ -297,10 +297,10 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack, GruWeightPack,
   } else {
     // Hidden size is a constant, so the batch size must be unknown here.
     Value batchSizeDim =
-        rewriter.create<DimOp>(loc, operandAdaptor.X(), 1).getResult();
-    htMemRef = rewriter.create<AllocOp>(
+        rewriter.create<memref::DimOp>(loc, operandAdaptor.X(), 1).getResult();
+    htMemRef = rewriter.create<memref::AllocOp>(
         loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
-    ztMemRef = rewriter.create<AllocOp>(
+    ztMemRef = rewriter.create<memref::AllocOp>(
         loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
   }
 
@@ -316,12 +316,13 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack, GruWeightPack,
     } else {
       // Hidden size is a constant, so the batch size must be unknown here.
       Value batchSizeDim =
-          rewriter.create<DimOp>(loc, operandAdaptor.X(), 1).getResult();
-      xwHMemRef = rewriter.create<AllocOp>(
+          rewriter.create<memref::DimOp>(loc, operandAdaptor.X(), 1)
+              .getResult();
+      xwHMemRef = rewriter.create<memref::AllocOp>(
           loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
-      rhMemRef = rewriter.create<AllocOp>(
+      rhMemRef = rewriter.create<memref::AllocOp>(
           loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
-      rhrHMemRef = rewriter.create<AllocOp>(
+      rhrHMemRef = rewriter.create<memref::AllocOp>(
           loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
     }
   }
@@ -387,10 +388,10 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack, GruWeightPack,
       // - Ht-1*(Rh^T) is unnecessary
       if (!state.linearBeforeReset && (i == GATES - 1))
         continue;
-      Value xwAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
+      Value xwAlloc = rewriter.create<memref::AllocOp>(loc, scalarMemRefType);
       rewriter.create<KrnlStoreOp>(loc, zero, xwAlloc, ArrayRef<Value>{});
       xwZRH.emplace_back(xwAlloc);
-      Value hrAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
+      Value hrAlloc = rewriter.create<memref::AllocOp>(loc, scalarMemRefType);
       rewriter.create<KrnlStoreOp>(loc, zero, hrAlloc, ArrayRef<Value>{});
       hrZRH.emplace_back(hrAlloc);
     }
@@ -555,9 +556,9 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack, GruWeightPack,
 
     // Deallocate the temporary results of matrix multiplications.
     for (Value v : xwZRH)
-      rewriter.create<DeallocOp>(loc, v);
+      rewriter.create<memref::DeallocOp>(loc, v);
     for (Value v : hrZRH)
-      rewriter.create<DeallocOp>(loc, v);
+      rewriter.create<memref::DeallocOp>(loc, v);
   }
   rewriter.restoreInsertionPoint(ipMatrixLoops);
 
@@ -678,12 +679,12 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack, GruWeightPack,
   }
   rewriter.restoreInsertionPoint(ipStateLoops);
   // Deallocate the temporary results.
-  rewriter.create<DeallocOp>(loc, htMemRef);
-  rewriter.create<DeallocOp>(loc, ztMemRef);
+  rewriter.create<memref::DeallocOp>(loc, htMemRef);
+  rewriter.create<memref::DeallocOp>(loc, ztMemRef);
   if (!state.linearBeforeReset) {
-    rewriter.create<DeallocOp>(loc, xwHMemRef);
-    rewriter.create<DeallocOp>(loc, rhMemRef);
-    rewriter.create<DeallocOp>(loc, rhrHMemRef);
+    rewriter.create<memref::DeallocOp>(loc, xwHMemRef);
+    rewriter.create<memref::DeallocOp>(loc, rhMemRef);
+    rewriter.create<memref::DeallocOp>(loc, rhrHMemRef);
   }
 }
 

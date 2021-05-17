@@ -22,7 +22,9 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
     ONNXArgMaxOp argMaxOp = llvm::cast<ONNXArgMaxOp>(op);
 
     // shape helper
-    ONNXArgMaxOpShapeHelper shapeHelper(&argMaxOp, &rewriter);
+    ONNXArgMaxOpShapeHelper shapeHelper(&argMaxOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
 
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     (void)shapecomputed;
@@ -135,6 +137,6 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXArgMaxOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXArgMaxOpLowering>(ctx);
 }

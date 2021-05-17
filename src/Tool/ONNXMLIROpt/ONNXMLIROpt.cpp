@@ -14,6 +14,7 @@
 
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/InitLLVM.h>
+#include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/ToolOutputFile.h>
 #include <mlir/IR/AsmState.h>
 #include <mlir/IR/Dialect.h>
@@ -72,6 +73,9 @@ int main(int argc, char **argv) {
   registry.insert<mlir::StandardOpsDialect>();
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::shape::ShapeDialect>();
+  registry.insert<mlir::math::MathDialect>();
+  registry.insert<mlir::memref::MemRefDialect>();
+
   registry.insert<mlir::ONNXOpsDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
 
@@ -97,10 +101,16 @@ int main(int argc, char **argv) {
   // Set up the input file.
   std::string error_message;
   auto file = mlir::openInputFile(input_filename, &error_message);
-  assert(file);
+  if (!error_message.empty()) {
+    fprintf(stderr, "%s\n", error_message.c_str());
+    return failed(LogicalResult::failure());
+  }
 
   auto output = mlir::openOutputFile(output_filename, &error_message);
-  assert(output);
+  if (!error_message.empty()) {
+    fprintf(stderr, "%s\n", error_message.c_str());
+    return failed(LogicalResult::failure());
+  }
 
   // TODO(imaihal): Change preloadDialectsInContext to false.
   return failed(mlir::MlirOptMain(output->os(), std::move(file), passPipeline,

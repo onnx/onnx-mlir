@@ -25,8 +25,9 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/Support/FormatVariadic.h"
 
-#include "ONNXOps.hpp"
-#include "ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 #include <string>
 
@@ -42,7 +43,7 @@ using namespace mlir::onnxmlir;
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
 LogicalResult shapeHelperInferShapes(OP *op, Value typeOper) {
 
-  SHAPE_HELPER shapeHelper(op, nullptr);
+  SHAPE_HELPER shapeHelper(op);
 
   ADAPTOR operandAdaptor(*op);
   if (failed(shapeHelper.Compute(operandAdaptor)))
@@ -60,7 +61,7 @@ LogicalResult shapeHelperInferShapes(OP *op, Value typeOper) {
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
 LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
 
-  SHAPE_HELPER shapeHelper(op, nullptr);
+  SHAPE_HELPER shapeHelper(op);
 
   ADAPTOR operandAdaptor(*op);
   if (failed(shapeHelper.Compute(operandAdaptor)))
@@ -127,6 +128,58 @@ RankedTensorType getReductionOutputType(RankedTensorType operandTy,
   } else {
     for (decltype(rank) i = 0; i < rank; ++i) {
       axes.emplace_back(i);
+    }
+  }
+
+  // Mark reduction axes.
+  SmallVector<bool, 4> isReductionAxis;
+  for (decltype(rank) i = 0; i < rank; ++i) {
+    if (std::find(axes.begin(), axes.end(), i) != axes.end())
+      isReductionAxis.emplace_back(true);
+    else
+      isReductionAxis.emplace_back(false);
+  }
+
+  // KeepDims
+  bool isKeepdims = (keepdims == 1) ? true : false;
+
+  SmallVector<int64_t, 4> dims;
+  for (decltype(rank) i = 0; i < rank; ++i) {
+    if (isReductionAxis[i]) {
+      if (isKeepdims)
+        dims.emplace_back(1); // reduction dimension
+    } else {
+      dims.emplace_back(operandTy.getShape()[i]);
+    }
+  }
+
+  return RankedTensorType::get(dims, operandTy.getElementType());
+}
+
+// Reduction with axes is from ConstantOp.
+// Only ReduceSum call this function now.
+static RankedTensorType getReductionOutputType(RankedTensorType operandTy,
+    DenseElementsAttr axesAttrs, uint64_t keepdims,
+    uint64_t noop_with_empty_axes) {
+  int64_t rank = operandTy.getRank();
+
+  SmallVector<int64_t, 4> axes;
+  if (axesAttrs) {
+    for (auto element : axesAttrs.getValues<IntegerAttr>()) {
+      int64_t axis = element.getInt();
+      if (axis < -rank || axis > rank - 1) {
+        return RankedTensorType();
+      }
+      axis = axis >= 0 ? axis : (rank + axis);
+      if (std::find(axes.begin(), axes.end(), axis) == axes.end())
+        axes.emplace_back(axis);
+    }
+  }
+  if (axes.size() == 0) {
+    if (!noop_with_empty_axes) {
+      for (decltype(rank) i = 0; i < rank; ++i) {
+        axes.emplace_back(i);
+      }
     }
   }
 
@@ -1444,7 +1497,7 @@ LogicalResult ONNXTransposeOp::inferShapes(
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   ONNXTransposeOpAdaptor operandAdaptor(*this);
-  ONNXTransposeOpShapeHelper shapeHelper(this, nullptr);
+  ONNXTransposeOpShapeHelper shapeHelper(this);
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Transpose parameters successfully");
   SmallVector<int64_t, 4> outputDims;
@@ -1516,11 +1569,37 @@ LogicalResult ONNXReduceProdOp::inferShapes(
 
 LogicalResult ONNXReduceSumOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand().getType().isa<RankedTensorType>())
+  if (!data().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
-  auto operandTy = getOperand().getType().cast<RankedTensorType>();
-  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+  auto operandTy = data().getType().cast<RankedTensorType>();
+  /**
+   *    In OpSet 13, axes of ReduceSum is an input, not an attribute.
+   *    If the axes is not a constant, the output shape is unknown.
+   *    So far, only constant input for axes is handled.
+   *    Since other reduction ops still have axes as attributes,
+   *    interface of getReductionOutputType is kept.
+   *    An array attribute is generated from the constant input
+   **/
+  DenseElementsAttr constAxes;
+  if (getONNXConstantOp(axes())) {
+    constAxes = getONNXConstantOp(axes())
+                    .valueAttr()
+                    .dyn_cast_or_null<mlir::DenseElementsAttr>();
+    if (!constAxes) {
+      return emitError("ReduceSum: unknown axes ");
+    }
+  } else if (isFromNone(axes())) {
+    // constAxes should just be NULL
+    // Default value will be given in getReductionOutputType
+  } else {
+    return emitError("ReduceSum: unknown axes ");
+  }
+  RankedTensorType type = getReductionOutputType(
+      operandTy, constAxes, keepdims(), noop_with_empty_axes());
+  if (!type)
+    return emitError("unknown shape");
+  getResult().setType(type);
   return success();
 }
 
@@ -2300,7 +2379,7 @@ LogicalResult ONNXConcatOp::inferShapes(
   }
 
   ONNXConcatOpAdaptor operandAdaptor(*this);
-  ONNXConcatOpShapeHelper shapeHelper(this, nullptr);
+  ONNXConcatOpShapeHelper shapeHelper(this);
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Tile parameters successfully");
   SmallVector<int64_t, 4> outputDims;
@@ -2777,7 +2856,7 @@ LogicalResult ONNXSliceOp::inferShapes(
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   ONNXSliceOpAdaptor operandAdaptor(*this);
-  ONNXSliceOpShapeHelper shapeHelper(this, nullptr);
+  ONNXSliceOpShapeHelper shapeHelper(this);
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Slice parameters successfully");
   SmallVector<int64_t, 4> outputDims;
@@ -2946,7 +3025,7 @@ LogicalResult ONNXArgMaxOp::inferShapes(
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
-  ONNXArgMaxOpShapeHelper shapeHelper(this, nullptr);
+  ONNXArgMaxOpShapeHelper shapeHelper(this);
   ONNXArgMaxOpAdaptor operandAdaptor(*this);
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan ArgMax parameters successfully");
@@ -3104,7 +3183,7 @@ LogicalResult ONNXLRNOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   auto elementType = X().getType().cast<ShapedType>().getElementType();
   ONNXLRNOpAdaptor operandAdaptor(*this);
-  ONNXLRNOpShapeHelper shapeHelper(this, nullptr);
+  ONNXLRNOpShapeHelper shapeHelper(this);
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan LRN parameters successfully");
   SmallVector<int64_t, 4> outputDims;
@@ -3537,6 +3616,24 @@ LogicalResult ONNXZipMapOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
+
+// New Ops from onnx1.8.1
+#define NOT_IMPLEMENTED_INFERSHAPE(T)                                          \
+  LogicalResult T::inferShapes(                                                \
+      std::function<void(mlir::Region &)> doShapeInference) {                  \
+    return emitError(NOT_IMPLEMENTED_MESSAGE);                                 \
+  }
+
+NOT_IMPLEMENTED_INFERSHAPE(ONNXAdagradOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXAdamOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXCeluOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXEinsumOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXGradientOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXGreaterOrEqualOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXLessOrEqualOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXMomentumOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXNegativeLogLikelihoodLossOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXSoftmaxCrossEntropyLossOp);
 
 //===----------------------------------------------------------------------===//
 // Loop

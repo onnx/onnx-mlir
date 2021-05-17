@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_executable(binary-decoder BinaryDecoder.cpp)
-target_link_libraries(binary-decoder
-        ${LLVMSupport}
-        ${LLVMDemangle}
-        ${MLIR_SYSTEM_LIBS})
+add_onnx_mlir_executable(binary-decoder
+  BinaryDecoder.cpp
+  )
 
-message(STATUS "incl dir" ${ONNX_INCLUDE_DIRS})
-target_link_libraries(binary-decoder onnx)
+target_link_libraries(binary-decoder
+  PRIVATE
+  LLVMSupport
+  onnx
+  )

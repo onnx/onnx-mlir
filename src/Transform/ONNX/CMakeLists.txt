@@ -1,62 +1,49 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_library(OMElideConstants
+add_onnx_mlir_library(OMElideConstants
         ElideConstants.cpp)
-target_include_directories(OMElideConstants
-        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
-        ${ONNF_MLIR_SRC_ROOT})
 
 # Header dependencies
 add_dependencies(OMElideConstants OMONNXOpsInc)
 # Linking dependencies
 add_dependencies(OMElideConstants OMONNXOps)
 
+add_onnx_mlir_library(OMConstPropHelper
+  ConstPropHelper.hpp
+  ConstPropHelper.cpp)
+# Header dependencies
+add_dependencies(OMConstPropHelper
+        OMONNXOpsIncGen)
+# Linking dependencies
+add_dependencies(OMConstPropHelper
+        OMONNXOps)
+
 add_onnx_mlir_rewriter(Rewrite)
 add_onnx_mlir_rewriter(Combine)
 add_onnx_mlir_rewriter(Decompose)
 add_onnx_mlir_rewriter(ConstProp)
 
-add_library(OMConstProp
-        ConstProp.cpp)
-target_include_directories(OMConstProp
-        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
-        ${ONNF_MLIR_SRC_ROOT})
-# Header dependencies
-add_dependencies(OMConstProp
-        OMONNXOpsInc
-        OMONNXConstPropIncGen)
-# Linking dependencies
-add_dependencies(OMConstProp
-        OMONNXOps)
-
-add_library(OMONNXRewrite
+add_onnx_mlir_library(OMONNXRewrite
         Rewrite.cpp
         Combine.cpp
+        ConstProp.cpp
         Decompose.cpp)
-target_include_directories(OMONNXRewrite
-        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
-        ${ONNF_MLIR_SRC_ROOT})
 
 # Header dependencies
 add_dependencies(OMONNXRewrite
         OMONNXOpsInc
         OMONNXRewriteIncGen
         OMONNXDecomposeIncGen
+        OMONNXConstPropIncGen
         OMONNXCombineIncGen)
 
 # Linking dependencies
-add_dependencies(OMONNXRewrite OMONNXOps)
+add_dependencies(OMONNXRewrite OMConstPropHelper OMONNXOps)
 
-add_library(OMShapeInference ShapeInferencePass.cpp)
-target_include_directories(OMShapeInference
-        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
-        ${ONNX_MLIR_SRC_ROOT})
+add_onnx_mlir_library(OMShapeInference ShapeInferencePass.cpp)
+
 # Header dependencies
 add_dependencies(OMShapeInference OMShapeInferenceOpInterfaceIncGen)
 # Linking dependencies
 add_dependencies(OMShapeInference OMShapeInferenceOpInterface)
 
-install(TARGETS OMElideConstants     DESTINATION lib)
-install(TARGETS OMONNXRewrite        DESTINATION lib)
-install(TARGETS OMShapeInference     DESTINATION lib)
-install(TARGETS OMConstProp          DESTINATION lib)

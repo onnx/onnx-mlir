@@ -99,47 +99,47 @@ bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
 /// Register optimization patterns as "canonicalization" patterns
 /// on the ONNXMatMultOp.
 void ONNXAddOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
+    RewritePatternSet &results, MLIRContext *context) {
   results.insert<MulAddToGemmOptPattern>(context);
 }
 
 void ONNXGemmOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
+    RewritePatternSet &results, MLIRContext *context) {
   results.insert<FuseGemmFollowedByAddition>(context);
 }
 /// on the ONNXIdentityOp.
 void ONNXIdentityOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
+    RewritePatternSet &results, MLIRContext *context) {
   results.insert<IdentityEliminationPattern>(context);
 }
 
 /// on the ONNXCastOp.
 void ONNXCastOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &result, MLIRContext *context) {
+    RewritePatternSet &result, MLIRContext *context) {
   result.insert<CastEliminationPattern>(context);
 }
 
 /// on the ONNXTransposeOp.
 void ONNXTransposeOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &result, MLIRContext *context) {
+    RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseTransposePattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
 }
 
 /// on the ONNXDropoutOp.
 void ONNXDropoutOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &result, MLIRContext *context) {
+    RewritePatternSet &result, MLIRContext *context) {
   result.insert<DropoutEliminationPattern>(context);
 }
 
 /// on the ONNXSqueezeOp.
 void ONNXSqueezeOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &result, MLIRContext *context) {
+    RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveSqueezeUnsqueezePattern>(context);
 }
 
 /// on the ONNXUnsqueezeOp.
 void ONNXUnsqueezeOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &result, MLIRContext *context) {
+    RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveUnsqueezeSqueezePattern>(context);
 }

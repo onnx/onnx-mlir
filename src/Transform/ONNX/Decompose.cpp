@@ -23,6 +23,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -32,15 +33,51 @@ using namespace mlir;
 // function.
 DenseElementsAttr createDenseArrayAttr(
     PatternRewriter &rewriter, ArrayAttr origAttrs) {
-  mlir::Type elementType = rewriter.getF32Type();
-  int nElements = origAttrs.getValue().size();
-  SmallVector<float, 4> wrapper(nElements, 0);
-  for (int i = 0; i < nElements; ++i) {
-    wrapper[i] = origAttrs.getValue()[i].cast<FloatAttr>().getValueAsDouble();
+
+  assert(origAttrs && "handle EXISTING ArrayAttr only");
+  if (origAttrs.getValue()[0].dyn_cast<FloatAttr>()) {
+    mlir::Type elementType = rewriter.getF32Type();
+    int nElements = origAttrs.getValue().size();
+    SmallVector<float, 4> wrapper(nElements, 0);
+    for (int i = 0; i < nElements; ++i) {
+      wrapper[i] = origAttrs.getValue()[i].cast<FloatAttr>().getValueAsDouble();
+    }
+    return DenseElementsAttr::get(
+        RankedTensorType::get(wrapper.size(), elementType),
+        llvm::makeArrayRef(wrapper));
   }
-  return DenseElementsAttr::get(
-      RankedTensorType::get(wrapper.size(), elementType),
-      llvm::makeArrayRef(wrapper));
+  if (origAttrs.getValue()[0].dyn_cast<IntegerAttr>()) {
+    mlir::Type elementType = rewriter.getIntegerType(64);
+    int nElements = origAttrs.getValue().size();
+    SmallVector<int64_t, 4> wrapper(nElements, 0);
+    for (int i = 0; i < nElements; ++i) {
+      wrapper[i] = origAttrs.getValue()[i].cast<IntegerAttr>().getInt();
+    }
+    return DenseElementsAttr::get(
+        RankedTensorType::get(wrapper.size(), elementType),
+        llvm::makeArrayRef(wrapper));
+  }
+  llvm_unreachable("unexpected attribute type");
+}
+
+// Create an DenseElementsAttr of ArrayAttr.
+// When ArrayAttr is Null, an empty Integer DenseElementAttr is returned
+DenseElementsAttr createDenseArrayAttrOrEmpty(
+    PatternRewriter &rewriter, ArrayAttr origAttrs) {
+
+  if (origAttrs) {
+    return createDenseArrayAttr(rewriter, origAttrs);
+  } else {
+    mlir::Type elementType = rewriter.getIntegerType(64);
+    int nElements = 0;
+    SmallVector<int64_t, 4> wrapper(nElements, 0);
+    for (int i = 0; i < nElements; ++i) {
+      wrapper[i] = i;
+    }
+    return DenseElementsAttr::get(
+        RankedTensorType::get(wrapper.size(), elementType),
+        llvm::makeArrayRef(wrapper));
+  }
 }
 
 /// Include the patterns defined in the Declarative Rewrite framework.
@@ -71,8 +108,8 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   target.addIllegalOp<ONNXScalerOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
 
-  OwningRewritePatternList patterns;
-  populateWithGenerated(context, patterns);
+  RewritePatternSet patterns(context);
+  populateWithGenerated(patterns);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();

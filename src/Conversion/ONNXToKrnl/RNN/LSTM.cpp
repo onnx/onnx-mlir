@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
-#include "src/Transform/ONNX/ConstProp.hpp"
+#include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 #include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
@@ -349,63 +349,160 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
     MemRefType bSplitType1D = MemRefType::get({hiddenSize}, elementType);
 
     // Eliminate the direction axis from B.
-    Value fB, bB;
-    if (direction == FORWARD) {
-      fB = rewriter.create<ONNXUnsqueezeOp>(
-          loc, bType1D, B, rewriter.getI64ArrayAttr(0));
-      DenseElementsAttr dataAttr =
+    if (!llvm::dyn_cast_or_null<ONNXConstantOp>(B.getDefiningOp())) {
+      Value fB, bB;
+      if (direction == FORWARD) {
+        fB = rewriter.create<ONNXUnsqueezeOp>(
+            loc, bType1D, B, rewriter.getI64ArrayAttr(0));
+      } else if (direction == REVERSE) {
+        bB = rewriter.create<ONNXUnsqueezeOp>(
+            loc, bType1D, B, rewriter.getI64ArrayAttr(0));
+      } else { // BIDIRECTIONAL
+        ONNXSplitOp splitW = rewriter.create<ONNXSplitOp>(loc,
+            ArrayRef<Type>{bType2D, bType2D}, B,
+            /*axis=*/0, rewriter.getI64ArrayAttr({1, 1}));
+        fB = rewriter.create<ONNXUnsqueezeOp>(
+            loc, bType1D, splitW.getResults()[0], rewriter.getI64ArrayAttr(0));
+        bB = rewriter.create<ONNXUnsqueezeOp>(
+            loc, bType1D, splitW.getResults()[1], rewriter.getI64ArrayAttr(0));
+      }
+
+      // Split B into invidual bias tensors.
+      if (direction == FORWARD || direction == BIDIRECTIONAL) {
+        ONNXSplitOp splitB = rewriter.create<ONNXSplitOp>(loc,
+            ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D,
+                bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
+                bSplitType1D},
+            fB,
+            /*axis=*/0, nullptr);
+        biasForward.Wbi = splitB.getResults()[0];
+        biasForward.Wbo = splitB.getResults()[1];
+        biasForward.Wbf = splitB.getResults()[2];
+        biasForward.Wbc = splitB.getResults()[3];
+        biasForward.Rbi = splitB.getResults()[4];
+        biasForward.Rbo = splitB.getResults()[5];
+        biasForward.Rbf = splitB.getResults()[6];
+        biasForward.Rbc = splitB.getResults()[7];
+      }
+      if (direction == REVERSE || direction == BIDIRECTIONAL) {
+        ONNXSplitOp splitB =
+            rewriter.create<ONNXSplitOp>(loc, ArrayRef<Type>{bSplitType1D}, bB,
+                /*axis=*/0, nullptr);
+        biasReverse.Wbi = splitB.getResults()[0];
+        biasReverse.Wbo = splitB.getResults()[1];
+        biasReverse.Wbf = splitB.getResults()[2];
+        biasReverse.Wbc = splitB.getResults()[3];
+        biasReverse.Rbi = splitB.getResults()[4];
+        biasReverse.Rbo = splitB.getResults()[5];
+        biasReverse.Rbf = splitB.getResults()[6];
+        biasReverse.Rbc = splitB.getResults()[7];
+      }
+    } else {
+      std::vector<char *> forwardBuffers, backwardBuffers;
+      char *bArray = createArrayFromDenseElementsAttr(
           B.getDefiningOp()
               ->getAttrOfType<::mlir::Attribute>("value")
-              .dyn_cast_or_null<mlir::DenseElementsAttr>();
-      char *fBArray = createArrayFromDenseAttribute(dataAttr);
-      // std::vector<char *> resBuffers;
-      // IterateConstPropSplit<double>(fBArray, bType1D.getShape(), 0,
-      //    ArrayRef<int64_t>{0, hiddenSize},
-      //    ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D,
-      //    bSplitType1D,
-      //        bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D},
-      //    resBuffers);
-    } else if (direction == REVERSE) {
-      bB = rewriter.create<ONNXUnsqueezeOp>(
-          loc, bType1D, B, rewriter.getI64ArrayAttr(0));
-    } else { // BIDIRECTIONAL
-      ONNXSplitOp splitW =
-          rewriter.create<ONNXSplitOp>(loc, ArrayRef<Type>{bType2D, bType2D}, B,
-              /*axis=*/0, rewriter.getI64ArrayAttr({1, 1}));
-      fB = rewriter.create<ONNXUnsqueezeOp>(
-          loc, bType1D, splitW.getResults()[0], rewriter.getI64ArrayAttr(0));
-      bB = rewriter.create<ONNXUnsqueezeOp>(
-          loc, bType1D, splitW.getResults()[1], rewriter.getI64ArrayAttr(0));
-    }
+              .dyn_cast_or_null<mlir::DenseElementsAttr>());
+      if (direction == FORWARD) {
+        ConstPropSplitImpl(elementType, bArray,
+            ArrayRef<int64_t>{8 * hiddenSize},
+            /*splitAxis=*/0, /*splitOffsets=*/
+            ArrayRef<int64_t>{0, hiddenSize, 2 * hiddenSize, 3 * hiddenSize,
+                4 * hiddenSize, 5 * hiddenSize, 6 * hiddenSize, 7 * hiddenSize},
+            ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D,
+                bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
+                bSplitType1D},
+            forwardBuffers);
+      } else if (direction == REVERSE) {
+        ConstPropSplitImpl(elementType, bArray,
+            ArrayRef<int64_t>{8 * hiddenSize},
+            /*splitAxis=*/0, /*splitOffsets=*/
+            ArrayRef<int64_t>{0, hiddenSize, 2 * hiddenSize, 3 * hiddenSize,
+                4 * hiddenSize, 5 * hiddenSize, 6 * hiddenSize, 7 * hiddenSize},
+            ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D,
+                bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
+                bSplitType1D},
+            backwardBuffers);
+      } else { // BIDIRECTIONAL
+        std::vector<char *> fbBuffers;
+        // Split along the first axis (direction).
+        ConstPropSplitImpl(elementType, bArray,
+            ArrayRef<int64_t>{2, 8 * hiddenSize},
+            /*splitAxis=*/0, /*splitOffsets=*/ArrayRef<int64_t>{0, 1},
+            ArrayRef<Type>{bType2D, bType2D}, fbBuffers);
+        // Split along the second axis (hidden size) for forward.
+        ConstPropSplitImpl(elementType, fbBuffers[0],
+            ArrayRef<int64_t>{8 * hiddenSize},
+            /*splitAxis=*/0, /*splitOffsets=*/
+            ArrayRef<int64_t>{0, hiddenSize, 2 * hiddenSize, 3 * hiddenSize,
+                4 * hiddenSize, 5 * hiddenSize, 6 * hiddenSize, 7 * hiddenSize},
+            ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D,
+                bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
+                bSplitType1D},
+            forwardBuffers);
+        // Split along the second axis (hidden size) for backward.
+        ConstPropSplitImpl(elementType, fbBuffers[1],
+            ArrayRef<int64_t>{8 * hiddenSize},
+            /*splitAxis=*/0, /*splitOffsets=*/ArrayRef<int64_t>{0, hiddenSize},
+            ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D,
+                bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
+                bSplitType1D},
+            backwardBuffers);
+      }
 
-    // Split B into invidual bias tensors.
-    if (direction == FORWARD || direction == BIDIRECTIONAL) {
-      ONNXSplitOp splitB = rewriter.create<ONNXSplitOp>(loc,
-          ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
-              bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D},
-          fB,
-          /*axis=*/0, nullptr);
-      biasForward.Wbi = splitB.getResults()[0];
-      biasForward.Wbo = splitB.getResults()[1];
-      biasForward.Wbf = splitB.getResults()[2];
-      biasForward.Wbc = splitB.getResults()[3];
-      biasForward.Rbi = splitB.getResults()[4];
-      biasForward.Rbo = splitB.getResults()[5];
-      biasForward.Rbf = splitB.getResults()[6];
-      biasForward.Rbc = splitB.getResults()[7];
-    }
-    if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      ONNXSplitOp splitB =
-          rewriter.create<ONNXSplitOp>(loc, ArrayRef<Type>{bSplitType1D}, bB,
-              /*axis=*/0, nullptr);
-      biasReverse.Wbi = splitB.getResults()[0];
-      biasReverse.Wbo = splitB.getResults()[1];
-      biasReverse.Wbf = splitB.getResults()[2];
-      biasReverse.Wbc = splitB.getResults()[3];
-      biasReverse.Rbi = splitB.getResults()[4];
-      biasReverse.Rbo = splitB.getResults()[5];
-      biasReverse.Rbf = splitB.getResults()[6];
-      biasReverse.Rbc = splitB.getResults()[7];
+      // Split B into invidual bias tensors.
+      if (direction == FORWARD || direction == BIDIRECTIONAL) {
+        biasForward.Wbi = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, forwardBuffers[0])
+                              .getResult();
+        biasForward.Wbo = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, forwardBuffers[1])
+                              .getResult();
+        biasForward.Wbf = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, forwardBuffers[2])
+                              .getResult();
+        biasForward.Wbc = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, forwardBuffers[3])
+                              .getResult();
+        biasForward.Rbi = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, forwardBuffers[4])
+                              .getResult();
+        biasForward.Rbo = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, forwardBuffers[5])
+                              .getResult();
+        biasForward.Rbf = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, forwardBuffers[6])
+                              .getResult();
+        biasForward.Rbc = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, forwardBuffers[7])
+                              .getResult();
+      }
+      if (direction == REVERSE || direction == BIDIRECTIONAL) {
+        biasReverse.Wbi = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, backwardBuffers[0])
+                              .getResult();
+        biasReverse.Wbo = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, backwardBuffers[1])
+                              .getResult();
+        biasReverse.Wbf = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, backwardBuffers[2])
+                              .getResult();
+        biasReverse.Wbc = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, backwardBuffers[3])
+                              .getResult();
+        biasReverse.Rbi = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, backwardBuffers[4])
+                              .getResult();
+        biasReverse.Rbo = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, backwardBuffers[5])
+                              .getResult();
+        biasReverse.Rbf = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, backwardBuffers[6])
+                              .getResult();
+        biasReverse.Rbc = createDenseONNXConstantOp(
+            rewriter, loc, bSplitType1D, backwardBuffers[7])
+                              .getResult();
+      }
     }
   }
 
@@ -549,7 +646,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
     if (memRefShape[1] < 0) {
       allocOperands.emplace_back(inputSizeVal);
     }
-    Xt = rewriter.create<AllocOp>(loc, XtType, allocOperands);
+    Xt = rewriter.create<memref::AllocOp>(loc, XtType, allocOperands);
     // auto *parentBlock = Xt.getDefiningOp()->getBlock();
     // auto dealloc = rewriter.create<DeallocOp>(loc, Xt);
     // dealloc.getOperation()->moveBefore(&parentBlock->back());
@@ -585,7 +682,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
     if (memRefShape[1] < 0) {
       allocOperands.emplace_back(hiddenSizeVal);
     }
-    Ht = rewriter.create<AllocOp>(loc, HtType, allocOperands);
+    Ht = rewriter.create<memref::AllocOp>(loc, HtType, allocOperands);
     // auto *parentBlock = Ht.getDefiningOp()->getBlock();
     // auto dealloc = rewriter.create<DeallocOp>(loc, Ht);
     // dealloc.getOperation()->moveBefore(&parentBlock->back());
@@ -605,7 +702,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
     if (memRefShape[1] < 0) {
       allocOperands.emplace_back(hiddenSizeVal);
     }
-    Ct = rewriter.create<AllocOp>(loc, CtType, allocOperands);
+    Ct = rewriter.create<memref::AllocOp>(loc, CtType, allocOperands);
     // auto *parentBlock = Ct.getDefiningOp()->getBlock();
     // auto dealloc = rewriter.create<DeallocOp>(loc, Ct);
     // dealloc.getOperation()->moveBefore(&parentBlock->back());

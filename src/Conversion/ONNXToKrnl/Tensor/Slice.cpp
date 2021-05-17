@@ -27,7 +27,9 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     ONNXSliceOp sliceOp = llvm::cast<ONNXSliceOp>(op);
     Location loc = op->getLoc();
 
-    ONNXSliceOpShapeHelper shapeHelper(&sliceOp, &rewriter);
+    ONNXSliceOpShapeHelper shapeHelper(&sliceOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     assert(succeeded(shapecomputed));
 
@@ -71,6 +73,6 @@ struct ONNXSliceOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXSliceOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXSliceOpLowering>(ctx);
 }

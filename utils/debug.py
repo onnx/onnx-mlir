@@ -20,7 +20,12 @@ if (not os.environ.get('ONNX_MLIR_HOME', None)):
         "executables and libraries can be found.")
 
 VERBOSE = os.environ.get('VERBOSE', False)
-ONNX_MLIR = os.path.join(os.environ['ONNX_MLIR_HOME'], "bin/onnx-mlir")
+
+ONNX_MLIR_EXENAME = "onnx-mlir"
+if sys.platform == "win32":
+    ONNX_MLIR_EXENAME = "onnx-mlir.exe"
+
+ONNX_MLIR = os.path.join(os.environ['ONNX_MLIR_HOME'], "bin", ONNX_MLIR_EXENAME)
 
 # Include runtime directory in python paths, so PyRuntime can be imported.
 RUNTIME_DIR = os.path.join(os.environ['ONNX_MLIR_HOME'], "lib")
