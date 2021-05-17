@@ -21,6 +21,68 @@
 
 using namespace mlir;
 
+Value emitUnsqueeze(ConversionPatternRewriter &rewriter, Location loc,
+    Type resultType, Value input, int64_t axis) {
+  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(
+        input.getDefiningOp()
+            ->getAttrOfType<::mlir::Attribute>("value")
+            .dyn_cast_or_null<mlir::DenseElementsAttr>());
+
+    return createDenseONNXConstantOp(
+        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
+        .getResult();
+  } else {
+    return rewriter
+        .create<ONNXUnsqueezeOp>(
+            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
+        .getResult();
+  }
+}
+
+// Only support evenly splitting.
+std::vector<Value> emitSplit(ConversionPatternRewriter &rewriter, Location loc,
+    ArrayRef<Type> resultTypes, Value input, int64_t axis) {
+  std::vector<Value> resVals;
+  int outputNum = resultTypes.size();
+  auto inputType = input.getType().cast<ShapedType>();
+  auto inputShape = inputType.getShape();
+  Type elementType = inputType.getElementType();
+
+  // Compute split offsets.
+  SmallVector<int64_t, 4> splitOffsets;
+  int64_t offset = 0;
+  for (int i = 0; i < outputNum; ++i) {
+    splitOffsets.emplace_back(offset);
+    offset += inputShape[axis] / outputNum;
+  }
+
+  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(
+        input.getDefiningOp()
+            ->getAttrOfType<::mlir::Attribute>("value")
+            .dyn_cast_or_null<mlir::DenseElementsAttr>());
+
+    std::vector<char *> resBuffers;
+    ConstPropSplitImpl(elementType, inputBuffer, inputShape,
+        /*splitAxis=*/axis, /*splitOffsets=*/splitOffsets, resultTypes,
+        resBuffers);
+
+    for (int i = 0; i < outputNum; ++i) {
+      Value constVal = createDenseONNXConstantOp(
+          rewriter, loc, resultTypes[i].cast<ShapedType>(), resBuffers[i])
+                           .getResult();
+      resVals.emplace_back(constVal);
+    }
+  } else {
+    ONNXSplitOp split = rewriter.create<ONNXSplitOp>(loc, resultTypes, input,
+        /*axis=*/axis, nullptr);
+    for (int i = 0; i < outputNum; ++i)
+      resVals.emplace_back(split.outputs()[i]);
+  }
+  return resVals;
+}
+
 Value noneVal;
 
 struct LstmState {
@@ -235,15 +297,11 @@ getWeightPack<ONNXLSTMOp, LstmWeightPack>(
   // Eliminate the direction axis from W and R.
   Value fW, bW, fR, bR;
   if (direction == FORWARD) {
-    fW = rewriter.create<ONNXUnsqueezeOp>(
-        loc, wType2D, W, rewriter.getI64ArrayAttr(0));
-    fR = rewriter.create<ONNXUnsqueezeOp>(
-        loc, rType2D, R, rewriter.getI64ArrayAttr(0));
+    fW = emitUnsqueeze(rewriter, loc, wType2D, W, 0);
+    fR = emitUnsqueeze(rewriter, loc, rType2D, R, 0);
   } else if (direction == REVERSE) {
-    bW = rewriter.create<ONNXUnsqueezeOp>(
-        loc, wType2D, W, rewriter.getI64ArrayAttr(0));
-    bR = rewriter.create<ONNXUnsqueezeOp>(
-        loc, rType2D, R, rewriter.getI64ArrayAttr(0));
+    bW = emitUnsqueeze(rewriter, loc, wType2D, W, 0);
+    bR = emitUnsqueeze(rewriter, loc, rType2D, R, 0);
   } else { // BIDIRECTIONAL
     // W
     ONNXSplitOp splitW =
@@ -349,160 +407,50 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
     MemRefType bSplitType1D = MemRefType::get({hiddenSize}, elementType);
 
     // Eliminate the direction axis from B.
-    if (!llvm::dyn_cast_or_null<ONNXConstantOp>(B.getDefiningOp())) {
-      Value fB, bB;
-      if (direction == FORWARD) {
-        fB = rewriter.create<ONNXUnsqueezeOp>(
-            loc, bType1D, B, rewriter.getI64ArrayAttr(0));
-      } else if (direction == REVERSE) {
-        bB = rewriter.create<ONNXUnsqueezeOp>(
-            loc, bType1D, B, rewriter.getI64ArrayAttr(0));
-      } else { // BIDIRECTIONAL
-        ONNXSplitOp splitW = rewriter.create<ONNXSplitOp>(loc,
-            ArrayRef<Type>{bType2D, bType2D}, B,
-            /*axis=*/0, rewriter.getI64ArrayAttr({1, 1}));
-        fB = rewriter.create<ONNXUnsqueezeOp>(
-            loc, bType1D, splitW.getResults()[0], rewriter.getI64ArrayAttr(0));
-        bB = rewriter.create<ONNXUnsqueezeOp>(
-            loc, bType1D, splitW.getResults()[1], rewriter.getI64ArrayAttr(0));
-      }
+    Value fB, bB;
+    if (direction == FORWARD) {
+      fB = emitUnsqueeze(rewriter, loc, bType1D, B, 0);
+    } else if (direction == REVERSE) {
+      bB = rewriter.create<ONNXUnsqueezeOp>(
+          loc, bType1D, B, rewriter.getI64ArrayAttr(0));
+    } else { // BIDIRECTIONAL
+      ONNXSplitOp splitW =
+          rewriter.create<ONNXSplitOp>(loc, ArrayRef<Type>{bType2D, bType2D}, B,
+              /*axis=*/0, rewriter.getI64ArrayAttr({1, 1}));
+      fB = rewriter.create<ONNXUnsqueezeOp>(
+          loc, bType1D, splitW.getResults()[0], rewriter.getI64ArrayAttr(0));
+      bB = rewriter.create<ONNXUnsqueezeOp>(
+          loc, bType1D, splitW.getResults()[1], rewriter.getI64ArrayAttr(0));
+    }
 
-      // Split B into invidual bias tensors.
-      if (direction == FORWARD || direction == BIDIRECTIONAL) {
-        ONNXSplitOp splitB = rewriter.create<ONNXSplitOp>(loc,
-            ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D,
-                bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
-                bSplitType1D},
-            fB,
-            /*axis=*/0, nullptr);
-        biasForward.Wbi = splitB.getResults()[0];
-        biasForward.Wbo = splitB.getResults()[1];
-        biasForward.Wbf = splitB.getResults()[2];
-        biasForward.Wbc = splitB.getResults()[3];
-        biasForward.Rbi = splitB.getResults()[4];
-        biasForward.Rbo = splitB.getResults()[5];
-        biasForward.Rbf = splitB.getResults()[6];
-        biasForward.Rbc = splitB.getResults()[7];
-      }
-      if (direction == REVERSE || direction == BIDIRECTIONAL) {
-        ONNXSplitOp splitB =
-            rewriter.create<ONNXSplitOp>(loc, ArrayRef<Type>{bSplitType1D}, bB,
-                /*axis=*/0, nullptr);
-        biasReverse.Wbi = splitB.getResults()[0];
-        biasReverse.Wbo = splitB.getResults()[1];
-        biasReverse.Wbf = splitB.getResults()[2];
-        biasReverse.Wbc = splitB.getResults()[3];
-        biasReverse.Rbi = splitB.getResults()[4];
-        biasReverse.Rbo = splitB.getResults()[5];
-        biasReverse.Rbf = splitB.getResults()[6];
-        biasReverse.Rbc = splitB.getResults()[7];
-      }
-    } else {
-      std::vector<char *> forwardBuffers, backwardBuffers;
-      char *bArray = createArrayFromDenseElementsAttr(
-          B.getDefiningOp()
-              ->getAttrOfType<::mlir::Attribute>("value")
-              .dyn_cast_or_null<mlir::DenseElementsAttr>());
-      if (direction == FORWARD) {
-        ConstPropSplitImpl(elementType, bArray,
-            ArrayRef<int64_t>{8 * hiddenSize},
-            /*splitAxis=*/0, /*splitOffsets=*/
-            ArrayRef<int64_t>{0, hiddenSize, 2 * hiddenSize, 3 * hiddenSize,
-                4 * hiddenSize, 5 * hiddenSize, 6 * hiddenSize, 7 * hiddenSize},
-            ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D,
-                bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
-                bSplitType1D},
-            forwardBuffers);
-      } else if (direction == REVERSE) {
-        ConstPropSplitImpl(elementType, bArray,
-            ArrayRef<int64_t>{8 * hiddenSize},
-            /*splitAxis=*/0, /*splitOffsets=*/
-            ArrayRef<int64_t>{0, hiddenSize, 2 * hiddenSize, 3 * hiddenSize,
-                4 * hiddenSize, 5 * hiddenSize, 6 * hiddenSize, 7 * hiddenSize},
-            ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D,
-                bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
-                bSplitType1D},
-            backwardBuffers);
-      } else { // BIDIRECTIONAL
-        std::vector<char *> fbBuffers;
-        // Split along the first axis (direction).
-        ConstPropSplitImpl(elementType, bArray,
-            ArrayRef<int64_t>{2, 8 * hiddenSize},
-            /*splitAxis=*/0, /*splitOffsets=*/ArrayRef<int64_t>{0, 1},
-            ArrayRef<Type>{bType2D, bType2D}, fbBuffers);
-        // Split along the second axis (hidden size) for forward.
-        ConstPropSplitImpl(elementType, fbBuffers[0],
-            ArrayRef<int64_t>{8 * hiddenSize},
-            /*splitAxis=*/0, /*splitOffsets=*/
-            ArrayRef<int64_t>{0, hiddenSize, 2 * hiddenSize, 3 * hiddenSize,
-                4 * hiddenSize, 5 * hiddenSize, 6 * hiddenSize, 7 * hiddenSize},
-            ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D,
-                bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
-                bSplitType1D},
-            forwardBuffers);
-        // Split along the second axis (hidden size) for backward.
-        ConstPropSplitImpl(elementType, fbBuffers[1],
-            ArrayRef<int64_t>{8 * hiddenSize},
-            /*splitAxis=*/0, /*splitOffsets=*/ArrayRef<int64_t>{0, hiddenSize},
-            ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D,
-                bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
-                bSplitType1D},
-            backwardBuffers);
-      }
-
-      // Split B into invidual bias tensors.
-      if (direction == FORWARD || direction == BIDIRECTIONAL) {
-        biasForward.Wbi = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, forwardBuffers[0])
-                              .getResult();
-        biasForward.Wbo = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, forwardBuffers[1])
-                              .getResult();
-        biasForward.Wbf = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, forwardBuffers[2])
-                              .getResult();
-        biasForward.Wbc = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, forwardBuffers[3])
-                              .getResult();
-        biasForward.Rbi = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, forwardBuffers[4])
-                              .getResult();
-        biasForward.Rbo = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, forwardBuffers[5])
-                              .getResult();
-        biasForward.Rbf = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, forwardBuffers[6])
-                              .getResult();
-        biasForward.Rbc = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, forwardBuffers[7])
-                              .getResult();
-      }
-      if (direction == REVERSE || direction == BIDIRECTIONAL) {
-        biasReverse.Wbi = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, backwardBuffers[0])
-                              .getResult();
-        biasReverse.Wbo = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, backwardBuffers[1])
-                              .getResult();
-        biasReverse.Wbf = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, backwardBuffers[2])
-                              .getResult();
-        biasReverse.Wbc = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, backwardBuffers[3])
-                              .getResult();
-        biasReverse.Rbi = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, backwardBuffers[4])
-                              .getResult();
-        biasReverse.Rbo = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, backwardBuffers[5])
-                              .getResult();
-        biasReverse.Rbf = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, backwardBuffers[6])
-                              .getResult();
-        biasReverse.Rbc = createDenseONNXConstantOp(
-            rewriter, loc, bSplitType1D, backwardBuffers[7])
-                              .getResult();
-      }
+    // Split B into invidual bias tensors.
+    if (direction == FORWARD || direction == BIDIRECTIONAL) {
+      std::vector<Value> resVals = emitSplit(rewriter, loc,
+          ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
+              bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D},
+          fB,
+          /*axis=*/0);
+      biasForward.Wbi = resVals[0];
+      biasForward.Wbo = resVals[1];
+      biasForward.Wbf = resVals[2];
+      biasForward.Wbc = resVals[3];
+      biasForward.Rbi = resVals[4];
+      biasForward.Rbo = resVals[5];
+      biasForward.Rbf = resVals[6];
+      biasForward.Rbc = resVals[7];
+    }
+    if (direction == REVERSE || direction == BIDIRECTIONAL) {
+      ONNXSplitOp splitB =
+          rewriter.create<ONNXSplitOp>(loc, ArrayRef<Type>{bSplitType1D}, bB,
+              /*axis=*/0, nullptr);
+      biasReverse.Wbi = splitB.getResults()[0];
+      biasReverse.Wbo = splitB.getResults()[1];
+      biasReverse.Wbf = splitB.getResults()[2];
+      biasReverse.Wbc = splitB.getResults()[3];
+      biasReverse.Rbi = splitB.getResults()[4];
+      biasReverse.Rbo = splitB.getResults()[5];
+      biasReverse.Rbf = splitB.getResults()[6];
+      biasReverse.Rbc = splitB.getResults()[7];
     }
   }
 
@@ -520,8 +468,7 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
     // Eliminate the direction axis from P.
     Value fP, bP;
     if (direction == FORWARD) {
-      fP = rewriter.create<ONNXUnsqueezeOp>(
-          loc, pType1D, P, rewriter.getI64ArrayAttr(0));
+      fP = emitUnsqueeze(rewriter, loc, pType1D, P, 0);
     } else if (direction == REVERSE) {
       bP = rewriter.create<ONNXUnsqueezeOp>(
           loc, pType1D, P, rewriter.getI64ArrayAttr(0));

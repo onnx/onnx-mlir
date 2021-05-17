@@ -27,9 +27,60 @@ struct ONNXSplitOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
     ONNXSplitOpAdaptor operandAdaptor(operands);
     ONNXSplitOp splitOp = llvm::dyn_cast<ONNXSplitOp>(op);
-    auto rank = splitOp.input().getType().cast<ShapedType>().getRank();
+    auto inputType = splitOp.input().getType().cast<ShapedType>();
+    auto inputShape = inputType.getShape();
+    auto rank = inputShape.size();
     auto outputNum = splitOp.getNumResults();
+    Type elementType = inputType.getElementType();
     auto axis = splitOp.axis();
+
+    // Split axis.
+    // Compute split offsets.
+    SmallVector<int64_t, 4> splitOffsets;
+    {
+      ArrayAttr splitAttr = splitOp.splitAttr();
+      if (!splitAttr)
+        // If split attribute is not specified, split size is equally divided.
+        assert(inputShape[axis] % outputNum == 0 &&
+               "The dimension at the split axis is expected to be divisible by "
+               "the number of results");
+      int64_t offset = 0;
+      for (int i = 0; i < outputNum; ++i) {
+        splitOffsets.emplace_back(offset);
+        if (splitAttr)
+          offset += splitAttr.getValue()[i].cast<IntegerAttr>().getInt();
+        else
+          offset += inputShape[axis] / outputNum;
+      }
+    }
+
+    // Input is a constant, do constant prop and return constants.
+    if (isKrnlGlobalConstant(splitOp.input())) {
+      SmallVector<Value, 4> allocs;
+
+      char *inputBuffer = createArrayFromDenseElementsAttr(
+          splitOp.input()
+              .getDefiningOp()
+              ->getAttrOfType<::mlir::Attribute>("value")
+              .dyn_cast_or_null<mlir::DenseElementsAttr>());
+
+      std::vector<char *> resBuffers;
+      SmallVector<Type> resultTypes;
+      for (int i = 0; i < outputNum; ++i)
+        resultTypes.emplace_back(splitOp.outputs()[i].getType());
+      ConstPropSplitImpl(elementType, inputBuffer, inputShape,
+          /*splitAxis=*/axis, /*splitOffsets=*/splitOffsets, resultTypes,
+          resBuffers);
+
+      for (int i = 0; i < outputNum; ++i) {
+        Value constVal = createDenseONNXConstantOp(
+            rewriter, loc, resultTypes[i].cast<ShapedType>(), resBuffers[i])
+                             .getResult();
+        allocs.emplace_back(constVal);
+      }
+      rewriter.replaceOp(op, allocs);
+      return success();
+    }
 
     // Get a shape helper.
     ONNXSplitOpShapeHelper shapeHelper(&splitOp, rewriter,

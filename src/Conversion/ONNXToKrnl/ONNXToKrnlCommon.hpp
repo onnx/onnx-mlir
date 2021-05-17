@@ -39,6 +39,7 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
+#include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 using namespace mlir;
 
@@ -111,6 +112,12 @@ Value emitNegativeInfinityConstantOp(
 /// output of the dim op.
 Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     Value operand, int64_t axis, Type type);
+
+/// A helper fucntion to check whether a value is produced by a dense
+/// ONNXConstantOp.
+bool isDenseONNXConstant(Value result);
+
+bool isKrnlGlobalConstant(Value result); 
 
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
