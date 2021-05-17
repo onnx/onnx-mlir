@@ -1,4 +1,6 @@
 // RUN: onnx-mlir-opt --decompose-onnx %s -split-input-file | FileCheck %s
+// XFAIL: *
+//      This expansion of layernorm is disabled for now because we lower layernorm into a call during ONNX to krnl conversion
 
 // -----
 

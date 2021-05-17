@@ -3,6 +3,7 @@
 add_onnx_mlir_library(OMONNXToKrnl
         ONNXToKrnlCommon.cpp
         Apollo/Reshape.cpp
+        Apollo/LayerNormalization.cpp
         Apollo/Transpose.cpp
         ControlFlow/Loop.cpp
         ControlFlow/Scan.cpp

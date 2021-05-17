@@ -204,11 +204,13 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   target.addIllegalOp<ONNXReduceSumSquareOp>();
   target.addIllegalOp<ONNXScalerOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
-  target.addIllegalOp<ONNXLayerNormalizationOp>();
+  // ISSUE-TODO: disable LayerNorm expansion to lower it to a call
+  // target.addIllegalOp<ONNXLayerNormalizationOp>();
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
-  patterns.insert<ONNXLayerNormalizationOpPattern>(context);
+  // ISSUE-TODO: disable LayerNorm expansion to lower it to a call
+  // patterns.insert<ONNXLayerNormalizationOpPattern>(context);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();

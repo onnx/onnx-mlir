@@ -34,6 +34,24 @@ const char *const ConvertKrnlToStandardPass::kTVPGlobalMemrefName =
     "global_memref";
 int64_t ConvertKrnlToStandardPass::kTVPGlobalMemrefNameCounter = 0;
 
+bool singleUseFunc(FuncOp funcOp, Operation *parentOp) {
+  auto uses = funcOp.getSymbolUses(parentOp);
+  return uses.hasValue() && (uses->end() - uses->begin() == 1);
+}
+
+// substitute newType in for the index'th argument and update the function
+void replaceTypeInFuncSignature(
+    FuncOp funcOp, int index, Type newType, PatternRewriter &rewriter) {
+
+  auto funcType = funcOp.getType();
+  SmallVector<Type> types{};
+  for (auto i = 0; i < funcType.getNumInputs(); i++) {
+    types.emplace_back(i == index ? newType : funcType.getInput(i));
+  }
+
+  auto nType = rewriter.getFunctionType(types, funcOp.getType().getResults());
+  funcOp.setType(nType);
+}
 /// (1) For scalar constants, replace
 ///
 ///   %1 = "krnl.global"() {name = "constant_0", shape = [], value =
@@ -80,7 +98,22 @@ public:
         return failure();
 
       for (auto &use : krnlGlobalOp.output().getUses()) {
-        use.getOwner()->replaceAllUsesWith(krnlGlobalOp);
+        auto ownerOp = use.getOwner();
+
+        if (auto loadOp = dyn_cast<MemoryEffectOpInterface>(ownerOp)) {
+          // if the use we're replacing is a load, remove the load itself
+          ownerOp->replaceAllUsesWith(krnlGlobalOp);
+        } else if (auto callOp = dyn_cast<CallOpInterface>(ownerOp)) {
+          // if we're passing this to a function call, modify the function type
+          auto moduleOp = krnlGlobalOp->template getParentOfType<ModuleOp>();
+          auto funcOp = dyn_cast_or_null<FuncOp>(callOp.resolveCallable());
+          assert(funcOp && funcOp.isDeclaration() &&
+                 singleUseFunc(funcOp, moduleOp));
+
+          auto opIndex = use.getOperandNumber();
+          replaceTypeInFuncSignature(
+              funcOp, opIndex, constantAttr.getType(), rewriter);
+        }
       }
 
       rewriter.replaceOpWithNewOp<ConstantOp>(krnlGlobalOp, constantAttr);

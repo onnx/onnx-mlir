@@ -241,6 +241,9 @@ void populateLoweringONNXNormalizationOpPattern(
 void populateLoweringONNXPoolingOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXLayerNormalizationOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 // `RNN` directory methods:
 void populateLoweringONNXGRUOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);

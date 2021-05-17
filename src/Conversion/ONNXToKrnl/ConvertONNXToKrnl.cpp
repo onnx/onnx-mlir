@@ -140,10 +140,12 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     populateLoweringONNXReshapeOpPattern(patterns, &getContext());
   populateLoweringONNXPadOpPattern(patterns, &getContext());
   populateLoweringONNXUnsqueezeOpPattern(patterns, &getContext());
-  if (npu)
+  if (npu) {
     populateLoweringONNXTransposeOpApolloPattern(patterns, &getContext());
-  else
+    populateLoweringONNXLayerNormalizationOpPattern(patterns, &getContext());
+  } else {
     populateLoweringONNXTransposeOpPattern(patterns, &getContext());
+  }
   populateLoweringONNXGatherOpPattern(patterns, &getContext());
   populateLoweringONNXIdentityOpPattern(patterns, &getContext());
   populateLoweringONNXConstantOfShapeOpPattern(patterns, &getContext());

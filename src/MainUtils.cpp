@@ -634,6 +634,7 @@ int compileModuleApollo(mlir::OwningModuleRef &module,
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(mlir::createAffineForToTVPPass());
   pm.addPass(mlir::createTVPKernelOutliningPass());
+  pm.addPass(mlir::createGenerateTVPKernelsPass());
   pm.addNestedPass<tvp::TVPModuleOp>(mlir::createAssignKernelIdsPass());
 
   // TCP passes

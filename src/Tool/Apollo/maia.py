@@ -14,7 +14,8 @@ passes = [
   # TVP kernel outlining.
   # canonicalize is called to remove the empty affine loops we may have picked up
     ["mlir-opt",         ".affine.for.2.tvp.mlir",    "--canonicalize", "--convert-affine-for-to-tvp", "--allow-unregistered-dialect", "-mlir-print-debuginfo"                        ],
-    ["mlir-opt",         ".krnl.outlining.mlir",      "--tvp-kernel-outlining", "--assign-kernel-ids", "--allow-unregistered-dialect"                                                 ],
+    ["mlir-opt",         ".krnl.outlining.mlir",      "--tvp-kernel-outlining", "--allow-unregistered-dialect"                                                                        ],
+    ["mlir-opt",         ".krnl.generation.mlir",      "--generate-tvp-kernels", "--assign-kernel-ids", "--allow-unregistered-dialect"                                                ],
 
   # TCP passes with access to the full graph. Has dependency on TVP kernel body.
     ["mlir-opt",         ".nepal.dma.insertion.mlir", "--nepal-dma-insertion", "--allow-unregistered-dialect"                                                                         ],
