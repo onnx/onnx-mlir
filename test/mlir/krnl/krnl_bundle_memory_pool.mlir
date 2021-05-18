@@ -1,4 +1,5 @@
-// RUN: onnx-mlir-opt --bundle-memory-pools --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --bundle-memory-pools --canonicalize %s  | FileCheck %s
+// aee: removed -split-input-file
 
 func @test_pool_bundling(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> memref<10x20xf32> {
   %c0_i64 = constant 0 : i64

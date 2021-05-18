@@ -1,5 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "s390x")
+   # currently needed for a bug on Z for the ONNXOps.cpp.inc file
+   llvm_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "-O2" "-O1")
+   llvm_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "-O3" "-O1")
+endif()
+
 set(LLVM_TARGET_DEFINITIONS ONNXOps.td)
 onnx_mlir_tablegen(ONNXOps.hpp.inc -gen-op-decls "-I${ONNX_MLIR_SRC_ROOT}/compiler/pass")
 onnx_mlir_tablegen(ONNXOps.cpp.inc -gen-op-defs "-I${ONNX_MLIR_SRC_ROOT}/compiler/pass")

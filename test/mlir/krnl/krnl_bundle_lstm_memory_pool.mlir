@@ -1,4 +1,5 @@
-// RUN: onnx-mlir-opt --bundle-memory-pools --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --bundle-memory-pools --canonicalize %s | FileCheck %s
+// aee: removed -split-input-file
 
 #map0 = affine_map<(d0, d1, d2) -> (d0, d1, d2)>
 #map1 = affine_map<() -> (0)>
