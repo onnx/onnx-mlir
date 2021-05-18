@@ -643,6 +643,7 @@ int compileModuleApollo(mlir::OwningModuleRef &module,
   pm.addPass(mlir::createAffineDMAToNepalConversionPass());
   pm.addPass(mlir::createNepalArgumentsStructPass());
   pm.addPass(mlir::createCSEPass());
+  pm.addNestedPass<FuncOp>(mlir::createLowerAffinePass());
   pm.addPass(mlir::createApplyArtemisCallingConventionPass());
   pm.addPass(mlir::createNepalGenerationPass(outputBaseName));
 
