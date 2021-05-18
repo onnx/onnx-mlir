@@ -89,7 +89,8 @@ bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
 }
 
 /// Test if two axis input contain the same values or not.
-bool AreTheSameAxisConstant(int64_t rank, Attribute lhsAttrIn, Attribute rhsAttrIn) {
+bool AreTheSameAxisConstant(
+    int64_t rank, Attribute lhsAttrIn, Attribute rhsAttrIn) {
   auto lhsAttr = lhsAttrIn.dyn_cast<DenseElementsAttr>();
   auto rhsAttr = rhsAttrIn.dyn_cast<DenseElementsAttr>();
   // false if one of the array attributes is null.

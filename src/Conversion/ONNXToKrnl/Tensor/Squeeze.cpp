@@ -31,13 +31,14 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
     auto operandTy = data.getType().cast<ShapedType>();
     int64_t inRank = operandTy.getRank();
 
-    DenseElementsAttr axisAttrs = getDenseElementAttributeFromONNXValue(llvm::dyn_cast<ONNXSqueezeOp>(op).axes());
+    DenseElementsAttr axisAttrs = getDenseElementAttributeFromONNXValue(
+        llvm::dyn_cast<ONNXSqueezeOp>(op).axes());
     if (!axisAttrs)
       return emitError(loc, "Only constant axes is handled");
     SmallVector<int, 4> axes;
     for (auto axisAttr : axisAttrs.getValues<IntegerAttr>()) {
       int axis = axisAttr.getInt();
-      axis = axis>=0?axis: inRank + axis;
+      axis = axis >= 0 ? axis : inRank + axis;
       axes.emplace_back(axis);
     }
 

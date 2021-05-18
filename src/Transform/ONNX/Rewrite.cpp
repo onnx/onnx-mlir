@@ -23,7 +23,6 @@ using namespace mlir;
 
 namespace {
 
-
 // Create an DenseElementsAttr of ArrayAttr.
 // This function is used to get Value Type of an EXISTING ArrayAttr for Scaler
 // function.
