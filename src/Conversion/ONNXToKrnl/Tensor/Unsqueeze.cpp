@@ -30,7 +30,8 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
 
     // Assume that `axes` has been validated by shape inference.
     // So, here we just get it.
-    DenseElementsAttr axisAttrs = getDenseElementAttributeFromONNXValue(llvm::dyn_cast<ONNXUnsqueezeOp>(op).axes());
+    DenseElementsAttr axisAttrs = getDenseElementAttributeFromONNXValue(
+        llvm::dyn_cast<ONNXUnsqueezeOp>(op).axes());
     if (!axisAttrs)
       return emitError(loc, "Only constant axes is handled");
     SmallVector<int, 4> axes;
