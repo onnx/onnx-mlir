@@ -419,6 +419,25 @@ bool isKrnlGlobalConstant(Value result) {
   return true;
 }
 
+Value emitSqueeze(ConversionPatternRewriter &rewriter, Location loc,
+    Type resultType, Value input, int64_t axis) {
+  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(
+        input.getDefiningOp()
+            ->getAttrOfType<::mlir::Attribute>("value")
+            .dyn_cast_or_null<mlir::DenseElementsAttr>());
+
+    return createDenseONNXConstantOp(
+        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
+        .getResult();
+  } else {
+    return rewriter
+        .create<ONNXSqueezeOp>(
+            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
+        .getResult();
+  }
+}
+
 Value emitUnsqueeze(ConversionPatternRewriter &rewriter, Location loc,
     Type resultType, Value input, int64_t axis) {
   if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {

@@ -117,7 +117,12 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
 bool isDenseONNXConstant(Value result);
 
 /// Check whether a value is produced by a dense KrnlGlobalOp.
-bool isKrnlGlobalConstant(Value result); 
+bool isKrnlGlobalConstant(Value result);
+
+/// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
+/// return a constant.
+Value emitSqueeze(ConversionPatternRewriter &rewriter, Location loc,
+    Type resultType, Value input, int64_t axis);
 
 /// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.

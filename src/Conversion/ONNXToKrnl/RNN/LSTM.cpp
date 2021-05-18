@@ -232,21 +232,21 @@ getWeightPack<ONNXLSTMOp, LstmWeightPack>(
   // Unsqueeze the direction axis from W and R.
   Value fW, bW, fR, bR;
   if (direction == FORWARD) {
-    fW = emitUnsqueeze(rewriter, loc, w2DTy, W, /*axis=*/0);
-    fR = emitUnsqueeze(rewriter, loc, r2DTy, R, /*axis=*/0);
+    fW = emitSqueeze(rewriter, loc, w2DTy, W, /*axis=*/0);
+    fR = emitSqueeze(rewriter, loc, r2DTy, R, /*axis=*/0);
   } else if (direction == REVERSE) {
-    bW = emitUnsqueeze(rewriter, loc, w2DTy, W, /*axis=*/0);
-    bR = emitUnsqueeze(rewriter, loc, r2DTy, R, /*axis=*/0);
+    bW = emitSqueeze(rewriter, loc, w2DTy, W, /*axis=*/0);
+    bR = emitSqueeze(rewriter, loc, r2DTy, R, /*axis=*/0);
   } else { // BIDIRECTIONAL
     // W
     std::vector<Value> vals = emitSplit(rewriter, loc, w3D2Ty, W, 0);
-    fW = emitUnsqueeze(rewriter, loc, w2DTy, vals[0], /*axis=*/0);
-    bW = emitUnsqueeze(rewriter, loc, w2DTy, vals[1], /*axis=*/0);
+    fW = emitSqueeze(rewriter, loc, w2DTy, vals[0], /*axis=*/0);
+    bW = emitSqueeze(rewriter, loc, w2DTy, vals[1], /*axis=*/0);
     // R
     vals.clear();
     vals = emitSplit(rewriter, loc, r3D2Ty, R, 0);
-    fR = emitUnsqueeze(rewriter, loc, r2DTy, vals[0], /*axis=*/0);
-    bR = emitUnsqueeze(rewriter, loc, r2DTy, vals[1], /*axis=*/0);
+    fR = emitSqueeze(rewriter, loc, r2DTy, vals[0], /*axis=*/0);
+    bR = emitSqueeze(rewriter, loc, r2DTy, vals[1], /*axis=*/0);
   }
 
   // Split W and R into individual weight tensors, and transpose them.
@@ -329,14 +329,14 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
     // Unsqueeze the direction axis from B.
     Value fB, bB;
     if (direction == FORWARD) {
-      fB = emitUnsqueeze(rewriter, loc, bType1D, B, /*axis=*/0);
+      fB = emitSqueeze(rewriter, loc, bType1D, B, /*axis=*/0);
     } else if (direction == REVERSE) {
-      bB = emitUnsqueeze(rewriter, loc, bType1D, B, /*axis=*/0);
+      bB = emitSqueeze(rewriter, loc, bType1D, B, /*axis=*/0);
     } else { // BIDIRECTIONAL
       std::vector<Value> vals;
       vals = emitSplit(rewriter, loc, split2D2Ty, B, 0);
-      fB = emitUnsqueeze(rewriter, loc, bType1D, vals[0], /*axis=*/0);
-      bB = emitUnsqueeze(rewriter, loc, bType1D, vals[1], /*axis=*/0);
+      fB = emitSqueeze(rewriter, loc, bType1D, vals[0], /*axis=*/0);
+      bB = emitSqueeze(rewriter, loc, bType1D, vals[1], /*axis=*/0);
     }
 
     // Split B into invidual bias tensors.
@@ -380,13 +380,13 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
     // Unsqueeze the direction axis from P.
     Value fP, bP;
     if (direction == FORWARD) {
-      fP = emitUnsqueeze(rewriter, loc, pType1D, P, /*axis=*/0);
+      fP = emitSqueeze(rewriter, loc, pType1D, P, /*axis=*/0);
     } else if (direction == REVERSE) {
-      bP = emitUnsqueeze(rewriter, loc, pType1D, P, /*axis=*/0);
+      bP = emitSqueeze(rewriter, loc, pType1D, P, /*axis=*/0);
     } else { // BIDIRECTIONAL
       std::vector<Value> vals = emitSplit(rewriter, loc, split2D2Ty, P, 0);
-      fP = emitUnsqueeze(rewriter, loc, pType1D, vals[0], /*axis=*/0);
-      bP = emitUnsqueeze(rewriter, loc, pType1D, vals[1], /*axis=*/0);
+      fP = emitSqueeze(rewriter, loc, pType1D, vals[0], /*axis=*/0);
+      bP = emitSqueeze(rewriter, loc, pType1D, vals[1], /*axis=*/0);
     }
 
     // Split P into invidual tensors.
@@ -619,7 +619,7 @@ void stateToOutput<ONNXLSTMOp, LstmState>(ConversionPatternRewriter &rewriter,
       auto resultType =
           MemRefType::get({1, htShape[0], htShape[1]}, elementType);
       Value res = rewriter
-                      .create<ONNXSqueezeOp>(
+                      .create<ONNXUnsqueezeOp>(
                           loc, resultType, ht, rewriter.getI64ArrayAttr(0))
                       .getResult();
       outputs.emplace_back(res);
@@ -631,11 +631,11 @@ void stateToOutput<ONNXLSTMOp, LstmState>(ConversionPatternRewriter &rewriter,
       auto squeezeType =
           MemRefType::get({1, htShape[0], htShape[1]}, elementType);
       Value forward = rewriter
-                          .create<ONNXSqueezeOp>(loc, squeezeType,
+                          .create<ONNXUnsqueezeOp>(loc, squeezeType,
                               state.forwardHt, rewriter.getI64ArrayAttr(0))
                           .getResult();
       Value reverse = rewriter
-                          .create<ONNXSqueezeOp>(loc, squeezeType,
+                          .create<ONNXUnsqueezeOp>(loc, squeezeType,
                               state.reverseHt, rewriter.getI64ArrayAttr(0))
                           .getResult();
 
@@ -663,7 +663,7 @@ void stateToOutput<ONNXLSTMOp, LstmState>(ConversionPatternRewriter &rewriter,
       auto resultType =
           MemRefType::get({1, ctShape[0], ctShape[1]}, elementType);
       Value res = rewriter
-                      .create<ONNXSqueezeOp>(
+                      .create<ONNXUnsqueezeOp>(
                           loc, resultType, ct, rewriter.getI64ArrayAttr(0))
                       .getResult();
       outputs.emplace_back(res);
@@ -675,11 +675,11 @@ void stateToOutput<ONNXLSTMOp, LstmState>(ConversionPatternRewriter &rewriter,
       auto squeezeType =
           MemRefType::get({1, ctShape[0], ctShape[1]}, elementType);
       Value forward = rewriter
-                          .create<ONNXSqueezeOp>(loc, squeezeType,
+                          .create<ONNXUnsqueezeOp>(loc, squeezeType,
                               state.forwardCt, rewriter.getI64ArrayAttr(0))
                           .getResult();
       Value reverse = rewriter
-                          .create<ONNXSqueezeOp>(loc, squeezeType,
+                          .create<ONNXUnsqueezeOp>(loc, squeezeType,
                               state.reverseCt, rewriter.getI64ArrayAttr(0))
                           .getResult();
 

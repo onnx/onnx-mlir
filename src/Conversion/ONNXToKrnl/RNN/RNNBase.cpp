@@ -70,7 +70,7 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
 }
 
 /// Insert Allocate and Deallocate for the hidden or cell output.
-/// Shape :: [num_directions, batch_size, hidden_size]
+/// Shape :: [batch_size, hidden_size]
 Value allocHiddenOrCell_(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value R) {
   // The hidden or cell is not a return value but a temporary value, so always
