@@ -2202,7 +2202,7 @@ LogicalResult ONNXUnsqueezeOp::inferShapes(
   SmallVector<int, 4> axes;
   int outRank = 0;
   if (axisAttrs) {
-    outRank = inRank + axisAttrs.getType().getShape().size();
+    outRank = inRank + axisAttrs.getType().getNumElements();
     for (auto element : axisAttrs.getValues<IntegerAttr>()) {
       int64_t axis = element.getInt();
       axis = axis >= 0 ? axis : (outRank + axis);

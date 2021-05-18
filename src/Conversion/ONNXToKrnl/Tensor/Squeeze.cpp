@@ -28,10 +28,10 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
     auto memRefShape = memRefType.getShape();
     auto elementSizeInBytes = getMemRefEltSizeInBytes(memRefType);
     Value data = operandAdaptor.data();
-    auto operandTy = data.getType().cast<RankedTensorType>();
+    auto operandTy = data.getType().cast<ShapedType>();
     int64_t inRank = operandTy.getRank();
 
-    DenseElementsAttr axisAttrs = getDenseElementAttributeFromONNXValue(llvm::dyn_cast<ONNXUnsqueezeOp>(op).axes());
+    DenseElementsAttr axisAttrs = getDenseElementAttributeFromONNXValue(llvm::dyn_cast<ONNXSqueezeOp>(op).axes());
     if (!axisAttrs)
       return emitError(loc, "Only constant axes is handled");
     SmallVector<int, 4> axes;
