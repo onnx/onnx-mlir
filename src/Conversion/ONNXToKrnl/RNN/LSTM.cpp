@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
-#include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 
@@ -198,9 +197,9 @@ getWeightPack<ONNXLSTMOp, LstmWeightPack>(
   // Return values.
   LstmWeightPack weightForward, weightReverse;
 
-  // gate weight: [direction, 4*hiddenSize, inputSize]
+  // parameter weight: [direction, 4*hiddenSize, inputSize]
   Value W = op->W();
-  // recurrent weight: [direction, 4*hiddenSize, hiddenSize]
+  // recurrence weight: [direction, 4*hiddenSize, hiddenSize]
   Value R = op->R();
   // direction
   StringRef direction = op->direction();
@@ -210,103 +209,90 @@ getWeightPack<ONNXLSTMOp, LstmWeightPack>(
   int64_t hiddenSize = wShape[1] / 4;
   int64_t inputSize = wShape[2];
 
-  // MemRef types.
-  MemRefType wType3D =
-      MemRefType::get({1, 4 * hiddenSize, inputSize}, elementType);
-  MemRefType wType2D =
-      MemRefType::get({4 * hiddenSize, inputSize}, elementType);
-  MemRefType wSplitType2D =
-      MemRefType::get({hiddenSize, inputSize}, elementType);
-  MemRefType wTransposeType2D =
-      MemRefType::get({inputSize, hiddenSize}, elementType);
+  // MemRef types for parameter weights.
+  auto w3DTy = MemRefType::get({1, 4 * hiddenSize, inputSize}, elementType);
+  auto w2DTy = MemRefType::get({4 * hiddenSize, inputSize}, elementType);
+  auto wSplit2DTy = MemRefType::get({hiddenSize, inputSize}, elementType);
+  auto wTranspose2DTy = MemRefType::get({inputSize, hiddenSize}, elementType);
+  SmallVector<Type, 4> w3D2Ty(2, w3DTy);
+  SmallVector<Type, 4> wSplit2D4Ty(4, wSplit2DTy);
 
-  MemRefType rType3D =
-      MemRefType::get({1, 4 * hiddenSize, hiddenSize}, elementType);
-  MemRefType rType2D =
-      MemRefType::get({4 * hiddenSize, hiddenSize}, elementType);
-  MemRefType rSplitType2D =
-      MemRefType::get({hiddenSize, hiddenSize}, elementType);
-  MemRefType rTransposeType2D =
-      MemRefType::get({hiddenSize, hiddenSize}, elementType);
+  // MemRef types for recurrence weights.
+  auto r3DTy = MemRefType::get({1, 4 * hiddenSize, hiddenSize}, elementType);
+  auto r2DTy = MemRefType::get({4 * hiddenSize, hiddenSize}, elementType);
+  auto rSplit2DTy = MemRefType::get({hiddenSize, hiddenSize}, elementType);
+  auto rTranspose2DTy = MemRefType::get({hiddenSize, hiddenSize}, elementType);
+  SmallVector<Type, 4> r3D2Ty(2, r3DTy);
+  SmallVector<Type, 4> rSplit2D4Ty(4, rSplit2DTy);
+
   ArrayAttr permAttr = rewriter.getI64ArrayAttr({1, 0});
 
-  // Eliminate the direction axis from W and R.
+  // Unsqueeze the direction axis from W and R.
   Value fW, bW, fR, bR;
   if (direction == FORWARD) {
-    fW = emitUnsqueeze(rewriter, loc, wType2D, W, 0);
-    fR = emitUnsqueeze(rewriter, loc, rType2D, R, 0);
+    fW = emitUnsqueeze(rewriter, loc, w2DTy, W, /*axis=*/0);
+    fR = emitUnsqueeze(rewriter, loc, r2DTy, R, /*axis=*/0);
   } else if (direction == REVERSE) {
-    bW = emitUnsqueeze(rewriter, loc, wType2D, W, 0);
-    bR = emitUnsqueeze(rewriter, loc, rType2D, R, 0);
+    bW = emitUnsqueeze(rewriter, loc, w2DTy, W, /*axis=*/0);
+    bR = emitUnsqueeze(rewriter, loc, r2DTy, R, /*axis=*/0);
   } else { // BIDIRECTIONAL
     // W
-    std::vector<Value> vals;
-    vals = emitSplit(rewriter, loc, ArrayRef<Type>{wType3D, wType3D}, W, 0);
-    fW = emitUnsqueeze(rewriter, loc, wType2D, vals[0], 0);
-    bW = emitUnsqueeze(rewriter, loc, wType2D, vals[1], 0);
+    std::vector<Value> vals = emitSplit(rewriter, loc, w3D2Ty, W, 0);
+    fW = emitUnsqueeze(rewriter, loc, w2DTy, vals[0], /*axis=*/0);
+    bW = emitUnsqueeze(rewriter, loc, w2DTy, vals[1], /*axis=*/0);
     // R
     vals.clear();
-    vals = emitSplit(rewriter, loc, ArrayRef<Type>{rType3D, rType3D}, R, 0);
-    fR = emitUnsqueeze(rewriter, loc, rType2D, vals[0], 0);
-    bR = emitUnsqueeze(rewriter, loc, rType2D, vals[1], 0);
+    vals = emitSplit(rewriter, loc, r3D2Ty, R, 0);
+    fR = emitUnsqueeze(rewriter, loc, r2DTy, vals[0], /*axis=*/0);
+    bR = emitUnsqueeze(rewriter, loc, r2DTy, vals[1], /*axis=*/0);
   }
 
   // Split W and R into individual weight tensors, and transpose them.
   if (direction == FORWARD || direction == BIDIRECTIONAL) {
     // W
-    std::vector<Value> vals;
-    vals = emitSplit(rewriter, loc,
-        ArrayRef<Type>{wSplitType2D, wSplitType2D, wSplitType2D, wSplitType2D},
-        fW, 0);
+    std::vector<Value> vals = emitSplit(rewriter, loc, wSplit2D4Ty, fW, 0);
     weightForward.Wi =
-        emitTranspose(rewriter, loc, wTransposeType2D, vals[0], permAttr);
+        emitTranspose(rewriter, loc, wTranspose2DTy, vals[0], permAttr);
     weightForward.Wo =
-        emitTranspose(rewriter, loc, wTransposeType2D, vals[1], permAttr);
+        emitTranspose(rewriter, loc, wTranspose2DTy, vals[1], permAttr);
     weightForward.Wf =
-        emitTranspose(rewriter, loc, wTransposeType2D, vals[2], permAttr);
+        emitTranspose(rewriter, loc, wTranspose2DTy, vals[2], permAttr);
     weightForward.Wc =
-        emitTranspose(rewriter, loc, wTransposeType2D, vals[3], permAttr);
+        emitTranspose(rewriter, loc, wTranspose2DTy, vals[3], permAttr);
     // R
     vals.clear();
-    vals = emitSplit(rewriter, loc,
-        ArrayRef<Type>{rSplitType2D, rSplitType2D, rSplitType2D, rSplitType2D},
-        fR, 0);
+    vals = emitSplit(rewriter, loc, rSplit2D4Ty, fR, 0);
     weightForward.Ri =
-        emitTranspose(rewriter, loc, rTransposeType2D, vals[0], permAttr);
+        emitTranspose(rewriter, loc, rTranspose2DTy, vals[0], permAttr);
     weightForward.Ro =
-        emitTranspose(rewriter, loc, rTransposeType2D, vals[1], permAttr);
+        emitTranspose(rewriter, loc, rTranspose2DTy, vals[1], permAttr);
     weightForward.Rf =
-        emitTranspose(rewriter, loc, rTransposeType2D, vals[2], permAttr);
+        emitTranspose(rewriter, loc, rTranspose2DTy, vals[2], permAttr);
     weightForward.Rc =
-        emitTranspose(rewriter, loc, rTransposeType2D, vals[3], permAttr);
+        emitTranspose(rewriter, loc, rTranspose2DTy, vals[3], permAttr);
   }
   if (direction == REVERSE || direction == BIDIRECTIONAL) {
     // W
-    std::vector<Value> vals;
-    vals = emitSplit(rewriter, loc,
-        ArrayRef<Type>{wSplitType2D, wSplitType2D, wSplitType2D, wSplitType2D},
-        bW, 0);
+    std::vector<Value> vals = emitSplit(rewriter, loc, wSplit2D4Ty, bW, 0);
     weightReverse.Ri =
-        emitTranspose(rewriter, loc, wTransposeType2D, vals[0], permAttr);
+        emitTranspose(rewriter, loc, wTranspose2DTy, vals[0], permAttr);
     weightReverse.Ro =
-        emitTranspose(rewriter, loc, wTransposeType2D, vals[1], permAttr);
+        emitTranspose(rewriter, loc, wTranspose2DTy, vals[1], permAttr);
     weightReverse.Rf =
-        emitTranspose(rewriter, loc, wTransposeType2D, vals[2], permAttr);
+        emitTranspose(rewriter, loc, wTranspose2DTy, vals[2], permAttr);
     weightReverse.Rc =
-        emitTranspose(rewriter, loc, wTransposeType2D, vals[3], permAttr);
+        emitTranspose(rewriter, loc, wTranspose2DTy, vals[3], permAttr);
     // R
     vals.clear();
-    vals = emitSplit(rewriter, loc,
-        ArrayRef<Type>{rSplitType2D, rSplitType2D, rSplitType2D, rSplitType2D},
-        bR, 0);
+    vals = emitSplit(rewriter, loc, rSplit2D4Ty, bR, 0);
     weightReverse.Ri =
-        emitTranspose(rewriter, loc, rTransposeType2D, vals[0], permAttr);
+        emitTranspose(rewriter, loc, rTranspose2DTy, vals[0], permAttr);
     weightReverse.Ro =
-        emitTranspose(rewriter, loc, rTransposeType2D, vals[1], permAttr);
+        emitTranspose(rewriter, loc, rTranspose2DTy, vals[1], permAttr);
     weightReverse.Rf =
-        emitTranspose(rewriter, loc, rTransposeType2D, vals[2], permAttr);
+        emitTranspose(rewriter, loc, rTranspose2DTy, vals[2], permAttr);
     weightReverse.Rc =
-        emitTranspose(rewriter, loc, rTransposeType2D, vals[3], permAttr);
+        emitTranspose(rewriter, loc, rTranspose2DTy, vals[3], permAttr);
   }
   return std::make_tuple(weightForward, weightReverse);
 }
@@ -317,7 +303,7 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
   // Return values.
   LstmBiasPack biasForward, biasReverse;
 
-  // bias: [direction, 8*hiddenSize] for both gates and recurrent.
+  // bias: [direction, 8*hiddenSize] for both parameter and recurrence weights.
   Value B = op->B();
   // peephold: [direction, 3*hiddenSize] for input, output and forget gates.
   Value P = op->P();
@@ -332,29 +318,28 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
     int64_t hiddenSize = bShape[1] / 8;
 
     // MemRef types.
-    MemRefType bType2D = MemRefType::get({1, 8 * hiddenSize}, elementType);
-    MemRefType bType1D = MemRefType::get({8 * hiddenSize}, elementType);
-    MemRefType bSplitType1D = MemRefType::get({hiddenSize}, elementType);
+    auto bType2D = MemRefType::get({1, 8 * hiddenSize}, elementType);
+    auto bType1D = MemRefType::get({8 * hiddenSize}, elementType);
+    auto bSplitType1D = MemRefType::get({hiddenSize}, elementType);
+    SmallVector<Type, 4> split1D8Ty(8, bSplitType1D);
+    SmallVector<Type, 4> split2D2Ty(2, bType2D);
 
-    // Eliminate the direction axis from B.
+    // Unsqueeze the direction axis from B.
     Value fB, bB;
     if (direction == FORWARD) {
-      fB = emitUnsqueeze(rewriter, loc, bType1D, B, 0);
+      fB = emitUnsqueeze(rewriter, loc, bType1D, B, /*axis=*/0);
     } else if (direction == REVERSE) {
-      bB = emitUnsqueeze(rewriter, loc, bType1D, B, 0);
+      bB = emitUnsqueeze(rewriter, loc, bType1D, B, /*axis=*/0);
     } else { // BIDIRECTIONAL
       std::vector<Value> vals;
-      vals = emitSplit(rewriter, loc, ArrayRef<Type>{bType2D, bType2D}, B, 0);
-      fB = emitUnsqueeze(rewriter, loc, bType1D, vals[0], 0);
-      bB = emitUnsqueeze(rewriter, loc, bType1D, vals[1], 0);
+      vals = emitSplit(rewriter, loc, split2D2Ty, B, 0);
+      fB = emitUnsqueeze(rewriter, loc, bType1D, vals[0], /*axis=*/0);
+      bB = emitUnsqueeze(rewriter, loc, bType1D, vals[1], /*axis=*/0);
     }
 
     // Split B into invidual bias tensors.
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
-      std::vector<Value> vals = emitSplit(rewriter, loc,
-          ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
-              bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D},
-          fB, 0);
+      std::vector<Value> vals = emitSplit(rewriter, loc, split1D8Ty, fB, 0);
       biasForward.Wbi = vals[0];
       biasForward.Wbo = vals[1];
       biasForward.Wbf = vals[2];
@@ -365,10 +350,7 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
       biasForward.Rbc = vals[7];
     }
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      std::vector<Value> vals = emitSplit(rewriter, loc,
-          ArrayRef<Type>{bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D,
-              bSplitType1D, bSplitType1D, bSplitType1D, bSplitType1D},
-          bB, 0);
+      std::vector<Value> vals = emitSplit(rewriter, loc, split1D8Ty, bB, 0);
       biasReverse.Wbi = vals[0];
       biasReverse.Wbo = vals[1];
       biasReverse.Wbf = vals[2];
@@ -387,40 +369,36 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
     int64_t hiddenSize = pShape[1] / 3;
 
     // MemRef types.
-    MemRefType pType2D = MemRefType::get({1, 3 * hiddenSize}, elementType);
-    MemRefType pType1D = MemRefType::get({3 * hiddenSize}, elementType);
-    MemRefType pSplitType1D = MemRefType::get({hiddenSize}, elementType);
+    auto pType2D = MemRefType::get({1, 3 * hiddenSize}, elementType);
+    auto pType1D = MemRefType::get({3 * hiddenSize}, elementType);
+    auto pSplitType1D = MemRefType::get({hiddenSize}, elementType);
+    SmallVector<Type, 4> split1D3Ty(3, pSplitType1D);
+    SmallVector<Type, 4> split2D2Ty(2, pType2D);
 
-    // Eliminate the direction axis from P.
+    // Unsqueeze the direction axis from P.
     Value fP, bP;
     if (direction == FORWARD) {
-      fP = emitUnsqueeze(rewriter, loc, pType1D, P, 0);
+      fP = emitUnsqueeze(rewriter, loc, pType1D, P, /*axis=*/0);
     } else if (direction == REVERSE) {
-      bP = emitUnsqueeze(rewriter, loc, pType1D, P, 0);
+      bP = emitUnsqueeze(rewriter, loc, pType1D, P, /*axis=*/0);
     } else { // BIDIRECTIONAL
-      ONNXSplitOp splitW =
-          rewriter.create<ONNXSplitOp>(loc, ArrayRef<Type>{pType2D, pType2D}, P,
-              /*axis=*/0, rewriter.getI64ArrayAttr({1, 1}));
-      fP = emitUnsqueeze(rewriter, loc, pType1D, splitW.getResults()[0], 0);
-      bP = emitUnsqueeze(rewriter, loc, pType1D, splitW.getResults()[1], 0);
+      std::vector<Value> vals = emitSplit(rewriter, loc, split2D2Ty, P, 0);
+      fP = emitUnsqueeze(rewriter, loc, pType1D, vals[0], /*axis=*/0);
+      bP = emitUnsqueeze(rewriter, loc, pType1D, vals[1], /*axis=*/0);
     }
 
     // Split P into invidual tensors.
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
-      ONNXSplitOp splitP = rewriter.create<ONNXSplitOp>(loc,
-          ArrayRef<Type>{pSplitType1D, pSplitType1D, pSplitType1D}, fP,
-          /*axis=*/0, nullptr);
-      biasForward.Pi = splitP.getResults()[0];
-      biasForward.Po = splitP.getResults()[1];
-      biasForward.Pf = splitP.getResults()[2];
+      std::vector<Value> vals = emitSplit(rewriter, loc, split1D3Ty, fP, 0);
+      biasForward.Pi = vals[0];
+      biasForward.Po = vals[1];
+      biasForward.Pf = vals[2];
     }
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      ONNXSplitOp splitP =
-          rewriter.create<ONNXSplitOp>(loc, ArrayRef<Type>{pSplitType1D}, bP,
-              /*axis=*/0, nullptr);
-      biasReverse.Pi = splitP.getResults()[0];
-      biasReverse.Po = splitP.getResults()[1];
-      biasReverse.Pf = splitP.getResults()[2];
+      std::vector<Value> vals = emitSplit(rewriter, loc, split1D3Ty, bP, 0);
+      biasReverse.Pi = vals[0];
+      biasReverse.Po = vals[1];
+      biasReverse.Pf = vals[2];
     }
   }
 

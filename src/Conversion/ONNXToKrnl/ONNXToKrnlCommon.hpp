@@ -113,11 +113,27 @@ Value emitNegativeInfinityConstantOp(
 Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     Value operand, int64_t axis, Type type);
 
-/// A helper fucntion to check whether a value is produced by a dense
-/// ONNXConstantOp.
+/// Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(Value result);
 
+/// Check whether a value is produced by a dense KrnlGlobalOp.
 bool isKrnlGlobalConstant(Value result); 
+
+/// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
+/// return a constant.
+Value emitUnsqueeze(ConversionPatternRewriter &rewriter, Location loc,
+    Type resultType, Value input, int64_t axis);
+
+/// Emit an ONNXSplitOp. If the input is constant, do const propagation, and
+/// return constants.
+/// Only support evenly splitting.
+std::vector<Value> emitSplit(ConversionPatternRewriter &rewriter, Location loc,
+    ArrayRef<Type> resultTypes, Value input, int64_t axis);
+
+/// Emit an ONNXTransposeOp. If the input is constant, do const propagation, and
+/// return a constant.
+Value emitTranspose(ConversionPatternRewriter &rewriter, Location loc,
+    Type resultType, Value input, ArrayAttr permAttr);
 
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.

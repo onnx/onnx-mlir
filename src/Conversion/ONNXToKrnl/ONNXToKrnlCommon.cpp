@@ -416,3 +416,98 @@ bool isKrnlGlobalConstant(Value result) {
 
   return true;
 }
+
+Value emitUnsqueeze(ConversionPatternRewriter &rewriter, Location loc,
+    Type resultType, Value input, int64_t axis) {
+  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(
+        input.getDefiningOp()
+            ->getAttrOfType<::mlir::Attribute>("value")
+            .dyn_cast_or_null<mlir::DenseElementsAttr>());
+
+    return createDenseONNXConstantOp(
+        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
+        .getResult();
+  } else {
+    return rewriter
+        .create<ONNXUnsqueezeOp>(
+            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
+        .getResult();
+  }
+}
+
+// Only support evenly splitting.
+std::vector<Value> emitSplit(ConversionPatternRewriter &rewriter, Location loc,
+    ArrayRef<Type> resultTypes, Value input, int64_t axis) {
+  std::vector<Value> resVals;
+
+  int outputNum = resultTypes.size();
+  auto inputType = input.getType().cast<ShapedType>();
+  auto inputShape = inputType.getShape();
+  Type elementType = inputType.getElementType();
+
+  // Compute split offsets.
+  SmallVector<int64_t, 4> splitOffsets;
+  int64_t offset = 0;
+  for (int i = 0; i < outputNum; ++i) {
+    splitOffsets.emplace_back(offset);
+    offset += inputShape[axis] / outputNum;
+  }
+
+  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(
+        input.getDefiningOp()
+            ->getAttrOfType<::mlir::Attribute>("value")
+            .dyn_cast_or_null<mlir::DenseElementsAttr>());
+
+    std::vector<char *> resBuffers;
+    ConstPropSplitImpl(elementType, inputBuffer, inputShape,
+        /*splitAxis=*/axis, /*splitOffsets=*/splitOffsets, resultTypes,
+        resBuffers);
+
+    for (int i = 0; i < outputNum; ++i) {
+      Value constVal = createDenseONNXConstantOp(
+          rewriter, loc, resultTypes[i].cast<ShapedType>(), resBuffers[i])
+                           .getResult();
+      resVals.emplace_back(constVal);
+      free(resBuffers[i]);
+    }
+  } else {
+    ONNXSplitOp split = rewriter.create<ONNXSplitOp>(loc, resultTypes, input,
+        /*axis=*/axis, nullptr);
+    for (int i = 0; i < outputNum; ++i)
+      resVals.emplace_back(split.outputs()[i]);
+  }
+  return resVals;
+}
+
+Value emitTranspose(ConversionPatternRewriter &rewriter, Location loc,
+    Type resultType, Value input, ArrayAttr permAttr) {
+  auto inputType = input.getType().cast<ShapedType>();
+  auto inputShape = inputType.getShape();
+  auto resultShape = resultType.cast<ShapedType>().getShape();
+  Type elementType = inputType.getElementType();
+
+  // Get perm attribute.
+  SmallVector<uint64_t, 4> perm;
+  for (auto permVal : permAttr.getValue())
+    perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
+
+  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(
+        input.getDefiningOp()
+            ->getAttrOfType<::mlir::Attribute>("value")
+            .dyn_cast_or_null<mlir::DenseElementsAttr>());
+
+    char *resBuffer = allocateBufferFor(resultType, /*useMaxSize=*/true);
+    ConstPropTransposeImpl(
+        elementType, inputBuffer, inputShape, perm, resultShape, resBuffer);
+    Value constVal = createDenseONNXConstantOp(
+        rewriter, loc, resultType.cast<ShapedType>(), resBuffer)
+                         .getResult();
+    free(resBuffer);
+    return constVal;
+  } else
+    return rewriter.create<ONNXTransposeOp>(loc, resultType, input, permAttr)
+        .getResult();
+}
