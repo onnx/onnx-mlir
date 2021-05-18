@@ -4,9 +4,7 @@ enable_testing()
 
 set(CMAKE_CXX_STANDARD 17)
 
-if (CMAKE_GENERATOR MATCHES "Visual Studio")
-  message(FATAL_ERROR "This project does not support the Visual Studio Generator. Try Ninja instead.")
-endif()
+if (NOT CMAKE_GENERATOR MATCHES "Visual Studio")
 
 if (NOT APOLLO_SDK_PATH)
   set(APOLLO_SDK_PATH "APOLLO_SDK_PATH-NOTFOUND" CACHE PATH "Path to Apollo SDK." FORCE)
@@ -62,3 +60,5 @@ add_dependencies(MNIST MNIST_NPU_Program MNIST_Host_Program)
 add_test(NAME MNIST
          WORKING_DIRECTORY ${MNIST_BINARY_DIR}
          COMMAND Host/MNIST_Host_Program.exe NPU/MNIST_NPU_Program/MNIST_NPU_Program.zip)
+
+endif()
