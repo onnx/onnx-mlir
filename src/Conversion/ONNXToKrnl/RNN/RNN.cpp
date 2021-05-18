@@ -163,7 +163,7 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack, RnnWeightPack,
     RnnBiasPack>(ConversionPatternRewriter &rewriter, Location loc,
     typename ONNXRNNOp::Adaptor operandAdaptor, RnnState state,
     RnnActivationPack activationPack, RnnWeightPack weightPack,
-    RnnBiasPack biasPack, Value directionIV, Value sequenceIV) {
+    RnnBiasPack biasPack, Value directionIV, Value sequenceIV, bool isForward) {
 
   bool hasBiasForInput = false;
   if (!isNoneType(operandAdaptor.B()))
@@ -389,8 +389,8 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack, RnnWeightPack,
 }
 
 template <>
-void stateToOutput<ONNXRNNOp, RnnState>(
-    ONNXRNNOp *op, RnnState state, std::vector<Value> &outputs) {
+void stateToOutput<ONNXRNNOp, RnnState>(ConversionPatternRewriter &rewriter,
+    Location loc, ONNXRNNOp *op, RnnState state, std::vector<Value> &outputs) {
   Value noneValue;
   outputs.emplace_back((isNoneType(op->Y()) ? noneValue : state.allH));
   outputs.emplace_back((isNoneType(op->Y_h()) ? noneValue : state.ht));

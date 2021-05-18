@@ -71,6 +71,112 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
 
 /// Insert Allocate and Deallocate for the hidden or cell output.
 /// Shape :: [num_directions, batch_size, hidden_size]
+Value allocHiddenOrCell_(
+    ConversionPatternRewriter &rewriter, Location loc, Value X, Value R) {
+  // The hidden or cell is not a return value but a temporary value, so always
+  // dealloc it.
+  bool insertDealloc = true;
+
+  auto memRefType = MemRefType::get({/*batch_size=*/dimAt(X, 1),
+                                        /*hidden_size=*/dimAt(R, 2)},
+      X.getType().cast<ShapedType>().getElementType());
+
+  Value alloc;
+  if (hasAllConstantDimensions(memRefType))
+    alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+  else {
+    auto memRefShape = memRefType.getShape();
+    SmallVector<Value, 2> allocOperands;
+    if (memRefShape[0] < 0) {
+      // Get batch_size from X.
+      auto dim = rewriter.create<memref::DimOp>(loc, X, 1);
+      allocOperands.emplace_back(dim);
+    }
+    if (memRefShape[1] < 0) {
+      // Get hidden_size from R.
+      auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
+      allocOperands.emplace_back(dim);
+    }
+    alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
+    if (insertDealloc) {
+      auto *parentBlock = alloc.getDefiningOp()->getBlock();
+      auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
+      dealloc.getOperation()->moveBefore(&parentBlock->back());
+    }
+  }
+
+  return alloc;
+}
+
+// Initialize the hidden and cell states.
+void initializeHiddenAndCell_(ConversionPatternRewriter &rewriter, Location loc,
+    Value forwardHt, Value backwardHt, Value forwardCt, Value backwardCt,
+    Value initialH, Value initialC, Type elementType, StringRef direction,
+    bool onlyHidden) {
+  Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+  Value zeroIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+  Value oneIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
+
+  int nLoops = 2;
+  BuildKrnlLoop initializationLoops(rewriter, loc, nLoops);
+  initializationLoops.createDefineAndIterateOp(forwardHt);
+  auto ipInitializationLoops = rewriter.saveInsertionPoint();
+  rewriter.setInsertionPointToStart(initializationLoops.getIterateBlock());
+  {
+    SmallVector<Value, 4> IVs;
+    IVs.emplace_back(initializationLoops.getInductionVar(0));
+    IVs.emplace_back(initializationLoops.getInductionVar(1));
+
+    if (direction == FORWARD || direction == BIDIRECTIONAL) {
+      SmallVector<Value, 4> initialIVs;
+      initialIVs.emplace_back(zeroIndex);
+      initialIVs.emplace_back(initializationLoops.getInductionVar(0));
+      initialIVs.emplace_back(initializationLoops.getInductionVar(1));
+      if (isNoneType(initialH))
+        rewriter.create<KrnlStoreOp>(loc, zero, forwardHt, IVs);
+      else {
+        Value h = rewriter.create<KrnlLoadOp>(loc, initialH, initialIVs);
+        rewriter.create<KrnlStoreOp>(loc, h, forwardHt, IVs);
+      }
+      if (!onlyHidden) {
+        if (isNoneType(initialC))
+          rewriter.create<KrnlStoreOp>(loc, zero, forwardCt, IVs);
+        else {
+          Value c = rewriter.create<KrnlLoadOp>(loc, initialC, initialIVs);
+          rewriter.create<KrnlStoreOp>(loc, c, forwardCt, IVs);
+        }
+      }
+    }
+
+    if (direction == REVERSE || direction == BIDIRECTIONAL) {
+      SmallVector<Value, 4> initialIVs;
+      if (direction == REVERSE)
+        initialIVs.emplace_back(zeroIndex);
+      else
+        initialIVs.emplace_back(oneIndex);
+      initialIVs.emplace_back(initializationLoops.getInductionVar(0));
+      initialIVs.emplace_back(initializationLoops.getInductionVar(1));
+      if (isNoneType(initialH))
+        rewriter.create<KrnlStoreOp>(loc, zero, backwardHt, IVs);
+      else {
+        Value h = rewriter.create<KrnlLoadOp>(loc, initialH, initialIVs);
+        rewriter.create<KrnlStoreOp>(loc, h, backwardHt, IVs);
+      }
+      if (!onlyHidden) {
+        if (isNoneType(initialC))
+          rewriter.create<KrnlStoreOp>(loc, zero, backwardCt, IVs);
+        else {
+          Value c = rewriter.create<KrnlLoadOp>(loc, initialC, initialIVs);
+          rewriter.create<KrnlStoreOp>(loc, c, backwardCt, IVs);
+        }
+      }
+    }
+  }
+  rewriter.restoreInsertionPoint(ipInitializationLoops);
+}
+
+/// Insert Allocate and Deallocate for the hidden or cell output.
+/// Shape :: [num_directions, batch_size, hidden_size]
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
     Value X, Value W, Value R, Value output, bool insertDealloc) {
   MemRefType memRefType;

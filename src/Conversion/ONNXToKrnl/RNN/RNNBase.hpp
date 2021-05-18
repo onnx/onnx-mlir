@@ -46,6 +46,13 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
     Value ht, Value ct, Value initialH, Value initialC, Type elementType,
     bool onlyHidden = false);
 
+Value allocHiddenOrCell_(
+    ConversionPatternRewriter &rewriter, Location loc, Value X, Value R);
+void initializeHiddenAndCell_(ConversionPatternRewriter &rewriter, Location loc,
+    Value forwardHt, Value backwardHt, Value forwardCt, Value reverseCt,
+    Value initialH, Value initialC, Type elementType, StringRef direction,
+    bool onlyHidden);
+
 // Apply an activation function on a given operand.
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value operand);
@@ -94,11 +101,12 @@ S allocAndInitializeStates(ConversionPatternRewriter &rewriter, Location loc,
 template <typename RNNOp, typename S, typename A, typename W, typename B>
 void calculateState(ConversionPatternRewriter &rewriter, Location loc,
     typename RNNOp::Adaptor operandAdaptor, S state, A activationSet, W weight,
-    B bias, Value directionIV, Value sequenceIV);
+    B bias, Value directionIV, Value sequenceIV, bool isForward);
 
 // Write states to the RNN's outputs.
 template <typename RNNOp, typename S>
-void stateToOutput(RNNOp *op, S state, std::vector<Value> &outputs);
+void stateToOutput(ConversionPatternRewriter &rewriter, Location loc, RNNOp *op,
+    S state, std::vector<Value> &outputs);
 
 // A common template for lowering an RNN operation.
 template <typename RNNOp, typename S, typename A, typename W, typename B>
@@ -159,7 +167,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         // Emit calculation for one RNN step.
         calculateState<RNNOp, S, A, W, B>(rewriter, loc, operandAdaptor, state,
             activationForward, weightForward, biasForward, directionIV,
-            sequenceIV);
+            sequenceIV, true);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
@@ -196,13 +204,13 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         // Emit calculation for one RNN step.
         calculateState<RNNOp, S, A, W, B>(rewriter, loc, operandAdaptor, state,
             activationReverse, weightReverse, biasReverse, directionIV,
-            reverseSequenceIV);
+            reverseSequenceIV, true);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
 
     std::vector<Value> outputs;
-    stateToOutput<RNNOp, S>(&rnnOp, state, outputs);
+    stateToOutput<RNNOp, S>(rewriter, loc, &rnnOp, state, outputs);
     rewriter.replaceOp(op, outputs);
     return success();
   }

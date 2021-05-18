@@ -204,7 +204,7 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack, GruWeightPack,
     GruBiasPack>(ConversionPatternRewriter &rewriter, Location loc,
     typename ONNXGRUOp::Adaptor operandAdaptor, GruState state,
     GruActivationPack activationPack, GruWeightPack weightPack,
-    GruBiasPack biasPack, Value directionIV, Value sequenceIV) {
+    GruBiasPack biasPack, Value directionIV, Value sequenceIV, bool isForward) {
 
   // GRU has 3 gates: Update, Reset, and Hidden.
   const int GATES = 3;
@@ -689,8 +689,8 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack, GruWeightPack,
 }
 
 template <>
-void stateToOutput<ONNXGRUOp, GruState>(
-    ONNXGRUOp *op, GruState state, std::vector<Value> &outputs) {
+void stateToOutput<ONNXGRUOp, GruState>(ConversionPatternRewriter &rewriter,
+    Location loc, ONNXGRUOp *op, GruState state, std::vector<Value> &outputs) {
   Value noneValue;
   outputs.emplace_back((isNoneType(op->Y()) ? noneValue : state.allH));
   outputs.emplace_back((isNoneType(op->Y_h()) ? noneValue : state.ht));

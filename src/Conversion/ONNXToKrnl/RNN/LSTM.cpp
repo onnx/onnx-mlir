@@ -22,8 +22,10 @@ Value noneVal;
 
 struct LstmState {
   Value allH;
-  Value ht;
-  Value ct;
+  Value forwardHt;
+  Value reverseHt;
+  Value forwardCt;
+  Value reverseCt;
 };
 
 struct LstmActivationPack {
@@ -411,25 +413,38 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     typename ONNXLSTMOp::Adaptor operandAdaptor) {
   LstmState state;
 
+  // direction
+  StringRef direction = op->direction();
+
   // Insert allocation and deallocation for the results of this operation.
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
   state.allH = allocAllHidden(rewriter, loc, operandAdaptor.X(),
       operandAdaptor.W(), operandAdaptor.R(), op->Y(),
       checkInsertDealloc(op->getOperation(), 0));
-  // Y_h :: [num_directions, batch_size, hidden_size]
-  state.ht = allocHiddenOrCell(rewriter, loc, operandAdaptor.X(),
-      operandAdaptor.W(), operandAdaptor.R(), op->Y_h(),
-      checkInsertDealloc(op->getOperation(), 1));
-  // Y_c :: [num_directions, batch_size, hidden_size]
-  state.ct = allocHiddenOrCell(rewriter, loc, operandAdaptor.X(),
-      operandAdaptor.W(), operandAdaptor.R(), op->Y_c(),
-      checkInsertDealloc(op->getOperation(), 2));
+
+  if (direction == FORWARD || direction == BIDIRECTIONAL) {
+    // Y_h :: [batch_size, hidden_size]
+    state.forwardHt = allocHiddenOrCell_(
+        rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
+    // Y_c :: [batch_size, hidden_size]
+    state.forwardCt = allocHiddenOrCell_(
+        rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
+  }
+  if (direction == REVERSE || direction == BIDIRECTIONAL) {
+    // Y_h :: [batch_size, hidden_size]
+    state.reverseHt = allocHiddenOrCell_(
+        rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
+    // Y_c :: [batch_size, hidden_size]
+    state.reverseCt = allocHiddenOrCell_(
+        rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
+  }
 
   // Initialize ht and ct.
-  initializeHiddenAndCell(rewriter, loc, state.ht, state.ct,
-      operandAdaptor.initial_h(), operandAdaptor.initial_c(),
+  initializeHiddenAndCell_(rewriter, loc, state.forwardHt, state.reverseHt,
+      state.forwardCt, state.reverseCt, operandAdaptor.initial_h(),
+      operandAdaptor.initial_c(),
       operandAdaptor.X().getType().cast<MemRefType>().getElementType(),
-      /*onlyHidden=*/false);
+      direction, /*onlyHidden=*/false);
   return state;
 }
 
@@ -438,7 +453,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
     LstmBiasPack>(ConversionPatternRewriter &rewriter, Location loc,
     typename ONNXLSTMOp::Adaptor operandAdaptor, LstmState state,
     LstmActivationPack activationPack, LstmWeightPack weightPack,
-    LstmBiasPack biasPack, Value directionIV, Value sequenceIV) {
+    LstmBiasPack biasPack, Value directionIV, Value sequenceIV,
+    bool isForward) {
 
   // Scope for krnl EDSC ops
   using namespace mlir::edsc;
@@ -449,13 +465,16 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
   // Prepare dimensions.
   Value batchSizeVal = getDimOrConstant(
       rewriter, loc, operandAdaptor.X(), 1, rewriter.getIndexType());
-  Value inputSizeVal = getDimOrConstant(
-      rewriter, loc, operandAdaptor.X(), 2, rewriter.getIndexType());
   Value hiddenSizeVal = getDimOrConstant(
       rewriter, loc, operandAdaptor.R(), 2, rewriter.getIndexType());
+  int64_t batchSize = dimAt(operandAdaptor.X(), 1);
+  int64_t hiddenSize = dimAt(operandAdaptor.R(), 2);
 
+  // Frequently used types.
   auto elementType =
       operandAdaptor.X().getType().cast<ShapedType>().getElementType();
+  auto matrixType = MemRefType::get({batchSize, hiddenSize}, elementType);
+
   bool hasBiasForInput = !isNoneType(operandAdaptor.B());
   bool hasPeepholes = !isNoneType(operandAdaptor.P());
 
@@ -468,80 +487,18 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
   // Ht = ot (.) h(Ct)
   //
   // Shape information:
-  // Xt : [seq_length, batch_size, input_size]
-  // W[iofc] : [num_directions, hidden_size, input_size]
-  // R[iofc] : [num_directions, hidden_size, hidden_size]
-  // Ht, Ct, it, ot, ft, ct: [num_directions, batch_size, hidden_size]
-  // Wb[iofc] : [num_directions, hidden_size]
-  // Rb[iofc] : [num_directions, hidden_size]
+  // Xt : [batch_size, input_size]
+  // W[iofc] : [hidden_size, input_size]
+  // R[iofc] : [hidden_size, hidden_size]
+  // Ht, Ct, it, ot, ft, ct: [batch_size, hidden_size]
+  // Wb[iofc] : [hidden_size]
+  // Rb[iofc] : [hidden_size]
 
   // Get a slice of X at the current timestep.
   Value Xt = emitXSliceAt(rewriter, loc, operandAdaptor.X(), sequenceIV);
-
-  // Copy Ht
-  Value Ht;
-  MemRefType HtType = MemRefType::get(
-      {dimAt(operandAdaptor.X(), 1), dimAt(operandAdaptor.R(), 2)},
-      elementType);
-  if (hasAllConstantDimensions(HtType))
-    Ht = insertAllocAndDealloc(HtType, loc, rewriter, true);
-  else {
-    auto memRefShape = HtType.getShape();
-    SmallVector<Value, 2> allocOperands;
-    if (memRefShape[0] < 0) {
-      allocOperands.emplace_back(batchSizeVal);
-    }
-    if (memRefShape[1] < 0) {
-      allocOperands.emplace_back(hiddenSizeVal);
-    }
-    Ht = rewriter.create<memref::AllocOp>(loc, HtType, allocOperands);
-    // auto *parentBlock = Ht.getDefiningOp()->getBlock();
-    // auto dealloc = rewriter.create<DeallocOp>(loc, Ht);
-    // dealloc.getOperation()->moveBefore(&parentBlock->back());
-  }
-  Value Ct;
-  MemRefType CtType = MemRefType::get(
-      {dimAt(operandAdaptor.X(), 1), dimAt(operandAdaptor.R(), 2)},
-      elementType);
-  if (hasAllConstantDimensions(CtType))
-    Ct = insertAllocAndDealloc(CtType, loc, rewriter, true);
-  else {
-    auto memRefShape = CtType.getShape();
-    SmallVector<Value, 2> allocOperands;
-    if (memRefShape[0] < 0) {
-      allocOperands.emplace_back(batchSizeVal);
-    }
-    if (memRefShape[1] < 0) {
-      allocOperands.emplace_back(hiddenSizeVal);
-    }
-    Ct = rewriter.create<memref::AllocOp>(loc, CtType, allocOperands);
-    // auto *parentBlock = Ct.getDefiningOp()->getBlock();
-    // auto dealloc = rewriter.create<DeallocOp>(loc, Ct);
-    // dealloc.getOperation()->moveBefore(&parentBlock->back());
-  }
-
-  BuildKrnlLoop htLoops(rewriter, loc, 2);
-  htLoops.createDefineOp();
-  htLoops.pushBounds(0, batchSizeVal);
-  htLoops.pushBounds(0, hiddenSizeVal);
-  htLoops.createIterateOp();
-  {
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(htLoops.getIterateBlock());
-    auto batchIV = htLoops.getInductionVar(0);
-    auto hiddenIV = htLoops.getInductionVar(1);
-    // Copy Ht.
-    Value val =
-        krnl_load(state.ht, ArrayRef<Value>{directionIV, batchIV, hiddenIV});
-    krnl_store(val, Ht, ArrayRef<Value>{batchIV, hiddenIV});
-    // Copy Ct.
-    val = krnl_load(state.ct, ArrayRef<Value>{directionIV, batchIV, hiddenIV});
-    krnl_store(val, Ct, ArrayRef<Value>{batchIV, hiddenIV});
-  }
-
-  MemRefType matrixType = MemRefType::get(
-      {dimAt(operandAdaptor.X(), 1), dimAt(operandAdaptor.R(), 2)},
-      elementType);
+  // Get Ht, Ct.
+  Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
+  Value Ct = (isForward) ? state.forwardCt : state.reverseCt;
 
   // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
   Value XtWi =
@@ -627,7 +584,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
     auto hiddenIV = stateLoops.getInductionVar(1);
 
     Value val = krnl_load(nextHt, ArrayRef<Value>{batchIV, hiddenIV});
-    krnl_store(val, state.ht, ArrayRef<Value>{directionIV, batchIV, hiddenIV});
+    krnl_store(val, Ht, ArrayRef<Value>{batchIV, hiddenIV});
 
     if (!isNoneType(state.allH)) {
       SmallVector<Value, 4> allHIVs{sequenceIV, directionIV, batchIV, hiddenIV};
@@ -635,17 +592,107 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
     }
 
     val = krnl_load(nextCt, ArrayRef<Value>{batchIV, hiddenIV});
-    krnl_store(val, state.ct, ArrayRef<Value>{directionIV, batchIV, hiddenIV});
+    krnl_store(val, Ct, ArrayRef<Value>{batchIV, hiddenIV});
   }
 }
 
 template <>
-void stateToOutput<ONNXLSTMOp, LstmState>(
-    ONNXLSTMOp *op, LstmState state, std::vector<Value> &outputs) {
+void stateToOutput<ONNXLSTMOp, LstmState>(ConversionPatternRewriter &rewriter,
+    Location loc, ONNXLSTMOp *op, LstmState state,
+    std::vector<Value> &outputs) {
   Value noneValue;
+  auto direction = op->direction();
+
+  // First output: all sequences.
   outputs.emplace_back((isNoneType(op->Y()) ? noneValue : state.allH));
-  outputs.emplace_back((isNoneType(op->Y_h()) ? noneValue : state.ht));
-  outputs.emplace_back((isNoneType(op->Y_c()) ? noneValue : state.ct));
+
+  // Second output: hidden.
+  if (isNoneType(op->Y_h()))
+    outputs.emplace_back(noneValue);
+  else {
+    if (direction == FORWARD || direction == REVERSE) {
+      Value ht = (direction == FORWARD) ? state.forwardHt : state.reverseHt;
+      ShapedType htType = ht.getType().cast<ShapedType>();
+      ArrayRef<int64_t> htShape = htType.getShape();
+      Type elementType = htType.getElementType();
+
+      auto resultType =
+          MemRefType::get({1, htShape[0], htShape[1]}, elementType);
+      Value res = rewriter
+                      .create<ONNXSqueezeOp>(
+                          loc, resultType, ht, rewriter.getI64ArrayAttr(0))
+                      .getResult();
+      outputs.emplace_back(res);
+    } else { // BIDIRECTIONAL
+      ShapedType htType = state.forwardHt.getType().cast<ShapedType>();
+      ArrayRef<int64_t> htShape = htType.getShape();
+      Type elementType = htType.getElementType();
+
+      auto squeezeType =
+          MemRefType::get({1, htShape[0], htShape[1]}, elementType);
+      Value forward = rewriter
+                          .create<ONNXSqueezeOp>(loc, squeezeType,
+                              state.forwardHt, rewriter.getI64ArrayAttr(0))
+                          .getResult();
+      Value reverse = rewriter
+                          .create<ONNXSqueezeOp>(loc, squeezeType,
+                              state.reverseHt, rewriter.getI64ArrayAttr(0))
+                          .getResult();
+
+      auto concatType =
+          MemRefType::get({2, htShape[0], htShape[1]}, elementType);
+      Value res = rewriter
+                      .create<ONNXConcatOp>(loc, concatType,
+                          ArrayRef<Value>{forward, reverse},
+                          rewriter.getI64IntegerAttr(0))
+                      .getResult();
+      outputs.emplace_back(res);
+    }
+  }
+
+  // Second output: cell.
+  if (isNoneType(op->Y_c()))
+    outputs.emplace_back(noneValue);
+  else {
+    if (direction == FORWARD || direction == REVERSE) {
+      Value ct = (direction == FORWARD) ? state.forwardCt : state.reverseCt;
+      ShapedType ctType = ct.getType().cast<ShapedType>();
+      ArrayRef<int64_t> ctShape = ctType.getShape();
+      Type elementType = ctType.getElementType();
+
+      auto resultType =
+          MemRefType::get({1, ctShape[0], ctShape[1]}, elementType);
+      Value res = rewriter
+                      .create<ONNXSqueezeOp>(
+                          loc, resultType, ct, rewriter.getI64ArrayAttr(0))
+                      .getResult();
+      outputs.emplace_back(res);
+    } else { // BIDIRECTIONAL
+      ShapedType ctType = state.forwardCt.getType().cast<ShapedType>();
+      ArrayRef<int64_t> ctShape = ctType.getShape();
+      Type elementType = ctType.getElementType();
+
+      auto squeezeType =
+          MemRefType::get({1, ctShape[0], ctShape[1]}, elementType);
+      Value forward = rewriter
+                          .create<ONNXSqueezeOp>(loc, squeezeType,
+                              state.forwardCt, rewriter.getI64ArrayAttr(0))
+                          .getResult();
+      Value reverse = rewriter
+                          .create<ONNXSqueezeOp>(loc, squeezeType,
+                              state.reverseCt, rewriter.getI64ArrayAttr(0))
+                          .getResult();
+
+      auto concatType =
+          MemRefType::get({2, ctShape[0], ctShape[1]}, elementType);
+      Value res = rewriter
+                      .create<ONNXConcatOp>(loc, concatType,
+                          ArrayRef<Value>{forward, reverse},
+                          rewriter.getI64IntegerAttr(0))
+                      .getResult();
+      outputs.emplace_back(res);
+    }
+  }
 }
 
 void populateLoweringONNXLSTMOpPattern(
