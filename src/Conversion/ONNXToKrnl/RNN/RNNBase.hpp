@@ -50,6 +50,10 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value operand);
 
+/// Get a slice of X at a specific timestep.
+Value emitXSliceAt(
+    ConversionPatternRewriter &rewriter, Location loc, Value X, Value timestep);
+
 // Override the following methods when lowering an RNN operation:
 // - hasAllNoneOutput
 // - getActivationPack

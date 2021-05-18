@@ -456,11 +456,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
 
   auto elementType =
       operandAdaptor.X().getType().cast<ShapedType>().getElementType();
-  bool hasBiasForInput = false, hasPeepholes = false;
-  if (!isNoneType(operandAdaptor.B()))
-    hasBiasForInput = true;
-  if (!isNoneType(operandAdaptor.P()))
-    hasPeepholes = true;
+  bool hasBiasForInput = !isNoneType(operandAdaptor.B());
+  bool hasPeepholes = !isNoneType(operandAdaptor.P());
 
   // Equations for LSTM.
   // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
@@ -478,41 +475,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
   // Wb[iofc] : [num_directions, hidden_size]
   // Rb[iofc] : [num_directions, hidden_size]
 
-  // Copy Xt.
-  Value Xt;
-  MemRefType XtType = MemRefType::get(
-      {dimAt(operandAdaptor.X(), 1), dimAt(operandAdaptor.X(), 2)},
-      elementType);
-  if (hasAllConstantDimensions(XtType))
-    Xt = insertAllocAndDealloc(XtType, loc, rewriter, true);
-  else {
-    auto memRefShape = XtType.getShape();
-    SmallVector<Value, 2> allocOperands;
-    if (memRefShape[0] < 0) {
-      allocOperands.emplace_back(batchSizeVal);
-    }
-    if (memRefShape[1] < 0) {
-      allocOperands.emplace_back(inputSizeVal);
-    }
-    Xt = rewriter.create<memref::AllocOp>(loc, XtType, allocOperands);
-    // auto *parentBlock = Xt.getDefiningOp()->getBlock();
-    // auto dealloc = rewriter.create<DeallocOp>(loc, Xt);
-    // dealloc.getOperation()->moveBefore(&parentBlock->back());
-  }
-  BuildKrnlLoop xtLoops(rewriter, loc, 2);
-  xtLoops.createDefineOp();
-  xtLoops.pushBounds(0, batchSizeVal);
-  xtLoops.pushBounds(0, inputSizeVal);
-  xtLoops.createIterateOp();
-  {
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(xtLoops.getIterateBlock());
-    auto batchIV = xtLoops.getInductionVar(0);
-    auto inputIV = xtLoops.getInductionVar(1);
-    Value val = krnl_load(
-        operandAdaptor.X(), ArrayRef<Value>{sequenceIV, batchIV, inputIV});
-    krnl_store(val, Xt, ArrayRef<Value>{batchIV, inputIV});
-  }
+  // Get a slice of X at the current timestep.
+  Value Xt = emitXSliceAt(rewriter, loc, operandAdaptor.X(), sequenceIV);
 
   // Copy Ht
   Value Ht;

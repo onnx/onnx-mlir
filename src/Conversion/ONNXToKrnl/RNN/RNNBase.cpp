@@ -209,3 +209,53 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
 
   return res;
 }
+
+/// Get a slice of X at a specific timestep.
+Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
+    Value timestepIV) {
+
+  Value sliceX;
+
+  int64_t batchSize = dimAt(X, 1);
+  int64_t inputSize = dimAt(X, 2);
+  Value batchSizeVal =
+      getDimOrConstant(rewriter, loc, X, 1, rewriter.getIndexType());
+  Value inputSizeVal =
+      getDimOrConstant(rewriter, loc, X, 2, rewriter.getIndexType());
+
+  auto elementType = X.getType().cast<ShapedType>().getElementType();
+  MemRefType sliceXType = MemRefType::get({batchSize, inputSize}, elementType);
+  if (hasAllConstantDimensions(sliceXType))
+    sliceX = insertAllocAndDealloc(sliceXType, loc, rewriter, true);
+  else {
+    auto memRefShape = sliceXType.getShape();
+    SmallVector<Value, 2> allocOperands;
+    if (memRefShape[0] < 0) {
+      allocOperands.emplace_back(batchSizeVal);
+    }
+    if (memRefShape[1] < 0) {
+      allocOperands.emplace_back(inputSizeVal);
+    }
+    sliceX = rewriter.create<memref::AllocOp>(loc, sliceXType, allocOperands);
+    // FIXME: deallocate
+    // auto *parentBlock = X.getDefiningOp()->getBlock();
+    // auto dealloc = rewriter.create<DeallocOp>(loc, X);
+    // dealloc.getOperation()->moveBefore(&parentBlock->back());
+  }
+  BuildKrnlLoop xtLoops(rewriter, loc, 2);
+  xtLoops.createDefineOp();
+  xtLoops.pushBounds(0, batchSizeVal);
+  xtLoops.pushBounds(0, inputSizeVal);
+  xtLoops.createIterateOp();
+  {
+    PatternRewriter::InsertionGuard insertGuard(rewriter);
+    rewriter.setInsertionPointToStart(xtLoops.getIterateBlock());
+    auto batchIV = xtLoops.getInductionVar(0);
+    auto inputIV = xtLoops.getInductionVar(1);
+    Value val = rewriter.create<KrnlLoadOp>(
+        loc, X, ArrayRef<Value>{timestepIV, batchIV, inputIV});
+    rewriter.create<KrnlStoreOp>(
+        loc, val, sliceX, ArrayRef<Value>{batchIV, inputIV});
+  }
+  return sliceX;
+}
