@@ -69,9 +69,9 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
   return alloc;
 }
 
-/// Insert Allocate and Deallocate for the hidden or cell output.
+/// Insert Allocate and Deallocate for the intermediate hidden or cell states.
 /// Shape :: [batch_size, hidden_size]
-Value allocHiddenOrCell_(
+Value allocIntermediateState(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value R) {
   // The hidden or cell is not a return value but a temporary value, so always
   // dealloc it.
@@ -108,11 +108,11 @@ Value allocHiddenOrCell_(
   return alloc;
 }
 
-// Initialize the hidden and cell states.
-void initializeHiddenAndCell_(ConversionPatternRewriter &rewriter, Location loc,
-    Value forwardHt, Value backwardHt, Value forwardCt, Value backwardCt,
-    Value initialH, Value initialC, Type elementType, StringRef direction,
-    bool onlyHidden) {
+/// Initialize the intermediate hidden and cell states.
+void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
+    Location loc, Value forwardHt, Value backwardHt, Value forwardCt,
+    Value backwardCt, Value initialH, Value initialC, Type elementType,
+    StringRef direction, bool onlyHidden) {
   Value zero = emitConstantOp(rewriter, loc, elementType, 0);
   Value zeroIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
   Value oneIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
@@ -245,6 +245,9 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
   rewriter.restoreInsertionPoint(ipInitializationLoops);
 }
 
+/// Store a state into the output of the RNN op.
+/// The input state is 2D and the output state is 3D with '1' or '2' is
+/// pretended, depending on 'direction'.
 void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     Location loc, Value forwardVal, Value reverseVal, StringRef direction,
     Value output) {

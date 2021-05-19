@@ -204,7 +204,7 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack, GruWeightPack,
     GruBiasPack>(ConversionPatternRewriter &rewriter, Location loc,
     typename ONNXGRUOp::Adaptor operandAdaptor, GruState state,
     GruActivationPack activationPack, GruWeightPack weightPack,
-    GruBiasPack biasPack, Value directionIV, Value sequenceIV, bool isForward) {
+    GruBiasPack biasPack, Value sequenceIV, Value directionIV, bool isForward) {
 
   // GRU has 3 gates: Update, Reset, and Hidden.
   const int GATES = 3;

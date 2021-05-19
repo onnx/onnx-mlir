@@ -19,9 +19,11 @@ using namespace mlir;
 Value noneVal;
 
 struct LstmState {
-  Value allH = noneVal;
+  // returned states.
+  Value allH;
   Value ht;
   Value ct;
+  // intermediate states.
   Value forwardHt;
   Value reverseHt;
   Value forwardCt;
@@ -46,7 +48,7 @@ struct LstmWeightPack {
 };
 
 struct LstmBiasPack {
-  Value Wbi = noneVal;
+  Value Wbi;
   Value Wbo;
   Value Wbf;
   Value Wbc;
@@ -436,20 +438,20 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
   // Ht :: [batch_size, hidden_size]
   // Ct :: [batch_size, hidden_size]
   if (direction == FORWARD || direction == BIDIRECTIONAL) {
-    state.forwardHt = allocHiddenOrCell_(
+    state.forwardHt = allocIntermediateState(
         rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
-    state.forwardCt = allocHiddenOrCell_(
+    state.forwardCt = allocIntermediateState(
         rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
   }
   if (direction == REVERSE || direction == BIDIRECTIONAL) {
-    state.reverseHt = allocHiddenOrCell_(
+    state.reverseHt = allocIntermediateState(
         rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
-    state.reverseCt = allocHiddenOrCell_(
+    state.reverseCt = allocIntermediateState(
         rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
   }
 
   // Initialize Ht and Ct.
-  initializeHiddenAndCell_(rewriter, loc, state.forwardHt, state.reverseHt,
+  initializeIntermediateStates(rewriter, loc, state.forwardHt, state.reverseHt,
       state.forwardCt, state.reverseCt, operandAdaptor.initial_h(),
       operandAdaptor.initial_c(),
       operandAdaptor.X().getType().cast<MemRefType>().getElementType(),
@@ -462,7 +464,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
     LstmBiasPack>(ConversionPatternRewriter &rewriter, Location loc,
     typename ONNXLSTMOp::Adaptor operandAdaptor, LstmState state,
     LstmActivationPack activationPack, LstmWeightPack weightPack,
-    LstmBiasPack biasPack, Value directionIV, Value sequenceIV,
+    LstmBiasPack biasPack, Value sequenceIV, Value directionIV,
     bool isForward) {
 
   // Scope for krnl EDSC ops
@@ -472,10 +474,6 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
   ScopedContext scope(rewriter, loc);
 
   // Prepare dimensions.
-  Value batchSizeVal = getDimOrConstant(
-      rewriter, loc, operandAdaptor.X(), 1, rewriter.getIndexType());
-  Value hiddenSizeVal = getDimOrConstant(
-      rewriter, loc, operandAdaptor.R(), 2, rewriter.getIndexType());
   int64_t batchSize = dimAt(operandAdaptor.X(), 1);
   int64_t hiddenSize = dimAt(operandAdaptor.R(), 2);
 
@@ -575,7 +573,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
   storeIntermediateState(rewriter, loc, nextCt, Ct);
   if (!isNoneType(state.allH))
     storeIntermediateStateToAllH(
-        rewriter, loc, Ht, sequenceIV, directionIV, state.allH);
+        rewriter, loc, nextHt, sequenceIV, directionIV, state.allH);
 }
 
 template <>

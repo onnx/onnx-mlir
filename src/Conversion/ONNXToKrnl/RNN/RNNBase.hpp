@@ -30,38 +30,46 @@ struct RNNActivation {
   Optional<FloatAttr> beta;
 };
 
-// Check a Value's type is none or not.
+/// Check a Value's type is none or not.
 bool isNoneType(Value val);
 
-// Get a dimension of the tensor's shape.
+/// Get a dimension of the tensor's shape.
 int64_t dimAt(Value val, int index);
 
-// Insert Allocate and Deallocate for the all hidden output.
+/// Insert Allocate and Deallocate for the all hidden output.
 Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value W, Value R, Value output, bool insertDealloc = false);
 
-// Insert Allocate and Deallocate for the hidden or cell output.
+/// Insert Allocate and Deallocate for the hidden or cell output.
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
     Value X, Value W, Value R, Value output, bool insertDealloc = false);
 
-// Initialize the hidden and cell states.
+/// Initialize the hidden and cell states.
 void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
     Value ht, Value ct, Value initialH, Value initialC, Type elementType,
     bool onlyHidden = false);
 
-Value allocHiddenOrCell_(
+/// Allocate the intermediate hidden or cell state.
+Value allocIntermediateState(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value R);
-void initializeHiddenAndCell_(ConversionPatternRewriter &rewriter, Location loc,
-    Value forwardHt, Value backwardHt, Value forwardCt, Value reverseCt,
-    Value initialH, Value initialC, Type elementType, StringRef direction,
-    bool onlyHidden);
 
+/// Initialize the intermediate hidden and cell states.
+void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
+    Location loc, Value forwardHt, Value backwardHt, Value forwardCt,
+    Value reverseCt, Value initialH, Value initialC, Type elementType,
+    StringRef direction, bool onlyHidden);
+
+/// Store a state into 'output'.
 void storeIntermediateState(ConversionPatternRewriter &rewriter, Location loc,
     Value state, Value output);
 
+/// Store a state into all state 'allH' at a specific timestep and direction.
 void storeIntermediateStateToAllH(ConversionPatternRewriter &rewriter,
-    Location loc, Value Ht, Value allH, Value sequenceIV, Value directionIV); 
+    Location loc, Value Ht, Value sequenceIV, Value directionIV, Value allH);
 
+/// Store a state into the output of the RNN op.
+/// The input state is 2D and the output state is 3D with '1' or '2' is
+/// pretended, depending on 'direction'.
 void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     Location loc, Value forwardVal, Value reverseVal, StringRef direction,
     Value output);
@@ -114,7 +122,7 @@ S allocAndInitializeStates(ConversionPatternRewriter &rewriter, Location loc,
 template <typename RNNOp, typename S, typename A, typename W, typename B>
 void calculateState(ConversionPatternRewriter &rewriter, Location loc,
     typename RNNOp::Adaptor operandAdaptor, S state, A activationSet, W weight,
-    B bias, Value directionIV, Value sequenceIV, bool isForward);
+    B bias, Value sequenceIV, Value directionIV, bool isForward);
 
 // Write states to the RNN's outputs.
 template <typename RNNOp, typename S>
@@ -179,8 +187,8 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         Value sequenceIV = sequenceLoops.getInductionVar(0);
         // Emit calculation for one RNN step.
         calculateState<RNNOp, S, A, W, B>(rewriter, loc, operandAdaptor, state,
-            activationForward, weightForward, biasForward, directionIV,
-            sequenceIV, true);
+            activationForward, weightForward, biasForward, sequenceIV,
+            directionIV, true);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
@@ -216,8 +224,8 @@ struct ONNXRNNOpLowering : public ConversionPattern {
             std::vector<Value>{sequenceLoops.getInductionVar(0), sequenceSize});
         // Emit calculation for one RNN step.
         calculateState<RNNOp, S, A, W, B>(rewriter, loc, operandAdaptor, state,
-            activationReverse, weightReverse, biasReverse, directionIV,
-            reverseSequenceIV, true);
+            activationReverse, weightReverse, biasReverse, reverseSequenceIV,
+            directionIV, true);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }

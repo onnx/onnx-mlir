@@ -17,8 +17,12 @@
 using namespace mlir;
 
 struct RnnState {
+  // returned states.
   Value allH;
   Value ht;
+  // intermediate states.
+  Value forwardHt;
+  Value reverseHt;
 };
 
 struct RnnActivationPack {
@@ -123,14 +127,122 @@ std::tuple<RnnWeightPack, RnnWeightPack>
 getWeightPack<ONNXRNNOp, RnnWeightPack>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXRNNOp *op) {
 
+  // Return values.
   RnnWeightPack weightForward, weightReverse;
+
+  // parameter weight: [direction, hiddenSize, inputSize]
+  Value W = op->W();
+  // recurrence weight: [direction, hiddenSize, hiddenSize]
+  Value R = op->R();
+  // direction
+  StringRef direction = op->direction();
+
+  ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
+  Type elementType = W.getType().cast<ShapedType>().getElementType();
+  int64_t hiddenSize = wShape[1];
+  int64_t inputSize = wShape[2];
+
+  // MemRef types for parameter weights.
+  auto w3DTy = MemRefType::get({1, hiddenSize, inputSize}, elementType);
+  auto w2DTy = MemRefType::get({hiddenSize, inputSize}, elementType);
+  auto wTranspose2DTy = MemRefType::get({inputSize, hiddenSize}, elementType);
+  SmallVector<Type, 4> w3D2Ty(2, w3DTy);
+
+  // MemRef types for recurrence weights.
+  auto r3DTy = MemRefType::get({1, hiddenSize, hiddenSize}, elementType);
+  auto r2DTy = MemRefType::get({hiddenSize, hiddenSize}, elementType);
+  auto rTranspose2DTy = MemRefType::get({hiddenSize, hiddenSize}, elementType);
+  SmallVector<Type, 4> r3D2Ty(2, r3DTy);
+
+  ArrayAttr permAttr = rewriter.getI64ArrayAttr({1, 0});
+
+  // Unsqueeze the direction axis from W and R.
+  Value fW, bW, fR, bR;
+  if (direction == FORWARD) {
+    fW = emitSqueeze(rewriter, loc, w2DTy, W, /*axis=*/0);
+    fR = emitSqueeze(rewriter, loc, r2DTy, R, /*axis=*/0);
+  } else if (direction == REVERSE) {
+    bW = emitSqueeze(rewriter, loc, w2DTy, W, /*axis=*/0);
+    bR = emitSqueeze(rewriter, loc, r2DTy, R, /*axis=*/0);
+  } else { // BIDIRECTIONAL
+    // W
+    std::vector<Value> vals = emitSplit(rewriter, loc, w3D2Ty, W, 0);
+    fW = emitSqueeze(rewriter, loc, w2DTy, vals[0], /*axis=*/0);
+    bW = emitSqueeze(rewriter, loc, w2DTy, vals[1], /*axis=*/0);
+    // R
+    vals.clear();
+    vals = emitSplit(rewriter, loc, r3D2Ty, R, 0);
+    fR = emitSqueeze(rewriter, loc, r2DTy, vals[0], /*axis=*/0);
+    bR = emitSqueeze(rewriter, loc, r2DTy, vals[1], /*axis=*/0);
+  }
+
+  // Split W and R into individual weight tensors, and transpose them.
+  if (direction == FORWARD || direction == BIDIRECTIONAL) {
+    weightForward.Wi =
+        emitTranspose(rewriter, loc, wTranspose2DTy, fW, permAttr);
+    weightForward.Ri =
+        emitTranspose(rewriter, loc, rTranspose2DTy, fR, permAttr);
+  }
+  if (direction == REVERSE || direction == BIDIRECTIONAL) {
+    weightReverse.Wi =
+        emitTranspose(rewriter, loc, wTranspose2DTy, bW, permAttr);
+    weightReverse.Ri =
+        emitTranspose(rewriter, loc, rTranspose2DTy, bR, permAttr);
+  }
   return std::make_tuple(weightForward, weightReverse);
 }
 
 template <>
 std::tuple<RnnBiasPack, RnnBiasPack> getBiasPack<ONNXRNNOp, RnnBiasPack>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXRNNOp *op) {
+  // Return values.
   RnnBiasPack biasForward, biasReverse;
+
+  // bias: [direction, 2*hiddenSize] for both parameter and recurrence weights.
+  Value B = op->B();
+
+  // direction
+  StringRef direction = op->direction();
+
+  // Split B.
+  if (!isNoneType(B)) {
+    ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
+    Type elementType = B.getType().cast<ShapedType>().getElementType();
+    int64_t hiddenSize = bShape[1] / 2;
+
+    // MemRef types.
+    auto bType2D = MemRefType::get({1, 2 * hiddenSize}, elementType);
+    auto bType1D = MemRefType::get({2 * hiddenSize}, elementType);
+    auto bSplitType1D = MemRefType::get({hiddenSize}, elementType);
+    SmallVector<Type, 4> split1D2Ty(2, bSplitType1D);
+    SmallVector<Type, 4> split2D2Ty(2, bType2D);
+
+    // Unsqueeze the direction axis from B.
+    Value fB, bB;
+    if (direction == FORWARD) {
+      fB = emitSqueeze(rewriter, loc, bType1D, B, /*axis=*/0);
+    } else if (direction == REVERSE) {
+      bB = emitSqueeze(rewriter, loc, bType1D, B, /*axis=*/0);
+    } else { // BIDIRECTIONAL
+      std::vector<Value> vals;
+      vals = emitSplit(rewriter, loc, split2D2Ty, B, 0);
+      fB = emitSqueeze(rewriter, loc, bType1D, vals[0], /*axis=*/0);
+      bB = emitSqueeze(rewriter, loc, bType1D, vals[1], /*axis=*/0);
+    }
+
+    // Split B into invidual bias tensors.
+    if (direction == FORWARD || direction == BIDIRECTIONAL) {
+      std::vector<Value> vals = emitSplit(rewriter, loc, split1D2Ty, fB, 0);
+      biasForward.Wbi = vals[0];
+      biasForward.Rbi = vals[1];
+    }
+    if (direction == REVERSE || direction == BIDIRECTIONAL) {
+      std::vector<Value> vals = emitSplit(rewriter, loc, split1D2Ty, bB, 0);
+      biasReverse.Wbi = vals[0];
+      biasReverse.Rbi = vals[1];
+    }
+  }
+
   return std::make_tuple(biasForward, biasReverse);
 }
 
@@ -139,6 +251,10 @@ RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXRNNOp *op,
     typename ONNXRNNOp::Adaptor operandAdaptor) {
   RnnState state;
+
+  // direction
+  StringRef direction = op->direction();
+
   // Insert allocation and deallocation for the results of this operation.
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
   state.allH = allocAllHidden(rewriter, loc, operandAdaptor.X(),
@@ -149,12 +265,23 @@ RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
       operandAdaptor.W(), operandAdaptor.R(), op->Y_h(),
       checkInsertDealloc(op->getOperation(), 1));
 
+  // Insert allocation and deallocation the intermedidate Ht for the forward and
+  // reverse directions.
+  // Ht :: [batch_size, hidden_size]
+  // Ct :: [batch_size, hidden_size]
+  if (direction == FORWARD || direction == BIDIRECTIONAL)
+    state.forwardHt = allocIntermediateState(
+        rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
+  if (direction == REVERSE || direction == BIDIRECTIONAL)
+    state.reverseHt = allocIntermediateState(
+        rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
+
   // Initialize ht.
   Value noneValue;
-  initializeHiddenAndCell(rewriter, loc, state.ht, noneValue,
-      operandAdaptor.initial_h(), noneValue,
+  initializeIntermediateStates(rewriter, loc, state.forwardHt, state.reverseHt,
+      noneValue, noneValue, operandAdaptor.initial_h(), noneValue,
       operandAdaptor.X().getType().cast<MemRefType>().getElementType(),
-      /*onlyHidden=*/true);
+      direction, /*onlyHidden=*/true);
   return state;
 }
 
@@ -163,237 +290,72 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack, RnnWeightPack,
     RnnBiasPack>(ConversionPatternRewriter &rewriter, Location loc,
     typename ONNXRNNOp::Adaptor operandAdaptor, RnnState state,
     RnnActivationPack activationPack, RnnWeightPack weightPack,
-    RnnBiasPack biasPack, Value directionIV, Value sequenceIV, bool isForward) {
+    RnnBiasPack biasPack, Value sequenceIV, Value directionIV, bool isForward) {
 
-  bool hasBiasForInput = false;
-  if (!isNoneType(operandAdaptor.B()))
-    hasBiasForInput = true;
+  // Scope for krnl EDSC ops
+  using namespace mlir::edsc;
+  // Scope for std EDSC ops
+  using namespace edsc::intrinsics;
+  ScopedContext scope(rewriter, loc);
 
   // Prepare dimensions.
-  auto hiddenDimSize = dimAt(operandAdaptor.R(), 2);
-  Value hiddenDimVal =
-      emitConstantOp(rewriter, loc, rewriter.getIndexType(), hiddenDimSize);
+  int64_t batchSize = dimAt(operandAdaptor.X(), 1);
+  int64_t hiddenSize = dimAt(operandAdaptor.R(), 2);
 
+  // Frequently used types.
   auto elementType =
       operandAdaptor.X().getType().cast<ShapedType>().getElementType();
+  auto matrixType = MemRefType::get({batchSize, hiddenSize}, elementType);
 
-  // Prepare AffineMap to access bias tensor.
-  AffineMap accessByOffsetMap;
-  {
-    AffineExpr iv = rewriter.getAffineDimExpr(0);
-    AffineExpr index = rewriter.getAffineSymbolExpr(0);
-    AffineExpr size = rewriter.getAffineSymbolExpr(1);
-    AffineExpr accessByOffsetExpr = index * size + iv;
-    accessByOffsetMap = AffineMap::get(1, 2, accessByOffsetExpr);
-  }
-
-  // Prepare constant indices.
-  SmallVector<Value, 2> constantIndices;
-  for (int i = 0; i < 2; i++)
-    constantIndices.emplace_back(
-        emitConstantOp(rewriter, loc, rewriter.getIndexType(), i));
+  bool hasBiasForInput = !isNoneType(operandAdaptor.B());
 
   // Equations for RNN.
   // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
-  //
   // Shape information:
   // Xt : [seq_length, batch_size, input_size]
-  // Wi : [num_directions, hidden_size, input_size]
-  // Ri : [num_directions, hidden_size, hidden_size]
-  // Ht : [num_directions, batch_size, hidden_size]
-  // Wbi: [num_directions, hidden_size]
-  // Rbi: [num_directions, hidden_size]
-  //
-  // The following code will emit loops as follows:
-  //     for b in 0 .. BatchDimSize
-  //       for h in 0 .. HiddenDimSize
-  //         for i in 0 .. InputDimSize
-  //           compute Xt*(Wi^T)
-  //         for i in 0 .. HiddenDimSize
-  //           compute Ht-1*(Ri^T)
-  //     for b in 0 .. BatchDimSize
-  //       for h in 0 .. HiddenDimSize
-  //         compute Ht
-  //         update the hidden state with the new state Ht.
-  //
-  // The reason to have two loops at the top level is to avoid updating any
-  // element of the hidden state while computing Ht-1*(Ri^T).
+  // Wi : [hidden_size, input_size]
+  // Ri : [hidden_size, hidden_size]
+  // Ht : [batch_size, hidden_size]
+  // Wbi: [hidden_size]
+  // Rbi: [hidden_size]
 
-  // Create temporary buffers for
-  //   - Xt*(Wi^T), Ht-1*(Ri^T)
-  // These tensors have shape of [batch_size, hidden_size],
-  MemRefType bufMemRefType = MemRefType::get(
-      {dimAt(operandAdaptor.X(), 1), hiddenDimSize}, elementType);
-  bool staticDimensions = hasAllConstantDimensions(bufMemRefType);
-  Value xwI, hrI;
-  if (staticDimensions) {
-    xwI = insertAllocAndDealloc(bufMemRefType, loc, rewriter, false);
-    hrI = insertAllocAndDealloc(bufMemRefType, loc, rewriter, false);
-  } else {
-    // Hidden size is a constant, so the batch size must be unknown here.
-    Value batchSizeDim =
-        rewriter.create<memref::DimOp>(loc, operandAdaptor.X(), 1).getResult();
-    xwI = rewriter.create<memref::AllocOp>(
-        loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
-    hrI = rewriter.create<memref::AllocOp>(
-        loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
+  // Get a slice of X at the current timestep.
+  Value Xt = emitXSliceAt(rewriter, loc, operandAdaptor.X(), sequenceIV);
+  // Get Ht.
+  Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
+  // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
+  Value XtWi = onnx_matmul(matrixType, Xt, weightPack.Wi);
+  Value HtRi = onnx_matmul(matrixType, Ht, weightPack.Ri);
+  Value nextHt = onnx_add(matrixType, XtWi, HtRi);
+  if (hasBiasForInput) {
+    nextHt = onnx_add(matrixType, nextHt, biasPack.Wbi);
+    nextHt = onnx_add(matrixType, nextHt, biasPack.Rbi);
   }
+  nextHt = applyActivation(rewriter, loc, activationPack.f, nextHt);
 
-  // Emit instructions for matrix multiplications: Xt*(Wi^T) and Ht-1*(Ri^T)
-  BuildKrnlLoop matrixLoops(rewriter, loc, 2);
-  matrixLoops.createDefineOp();
-  // Batch size dim.
-  matrixLoops.pushBounds(0, operandAdaptor.X(), 1);
-  // Hidden size dim.
-  matrixLoops.pushBounds(0, hiddenDimSize);
-  matrixLoops.createIterateOp();
-  auto ipMatrixLoops = rewriter.saveInsertionPoint();
-  rewriter.setInsertionPointToStart(matrixLoops.getIterateBlock());
-  {
-    auto batchIV = matrixLoops.getInductionVar(0);
-    auto hiddenIV = matrixLoops.getInductionVar(1);
-
-    // IVs to access tensors.
-    // [num_directions, batch_size, hidden_size]
-    SmallVector<Value, 3> IVs = {directionIV, batchIV, hiddenIV};
-    SmallVector<Value, 2> mIVs = {batchIV, hiddenIV};
-
-    // Initialize matrix multiplication result.
-    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
-    rewriter.create<KrnlStoreOp>(loc, zero, xwI, mIVs);
-    rewriter.create<KrnlStoreOp>(loc, zero, hrI, mIVs);
-
-    { // Emit instructions for matrix multiplication Xt*(Wi^T).
-      // input_size is the reduction dimension.
-      BuildKrnlLoop reductionLoops(rewriter, loc, 1);
-      reductionLoops.createDefineOp();
-      // Input size dim.
-      reductionLoops.pushBounds(0, operandAdaptor.X(), 2);
-      reductionLoops.createIterateOp();
-
-      auto ipReductionLoops = rewriter.saveInsertionPoint();
-      rewriter.setInsertionPointToStart(reductionLoops.getIterateBlock());
-      {
-        auto reductionIV = reductionLoops.getInductionVar(0);
-        // Prepare IVs for accessing the input tensor and parameters.
-        // X :: [seq_length, batch_size, input_size]
-        SmallVector<Value, 3> xIVs = {sequenceIV, batchIV, reductionIV};
-        // Wi :: [num_directions, hidden_size, input_size]
-        SmallVector<Value, 3> wIIVs = {directionIV, hiddenIV, reductionIV};
-
-        // Xt * Wi
-        Value loadX =
-            rewriter.create<KrnlLoadOp>(loc, operandAdaptor.X(), xIVs);
-        Value loadW =
-            rewriter.create<KrnlLoadOp>(loc, operandAdaptor.W(), wIIVs);
-        Value xwVal = rewriter.create<MulFOp>(loc, loadX, loadW);
-        Value loadXW = rewriter.create<KrnlLoadOp>(loc, xwI, mIVs);
-        Value nextXW = rewriter.create<AddFOp>(loc, loadXW, xwVal);
-        rewriter.create<KrnlStoreOp>(loc, nextXW, xwI, mIVs);
-      }
-      rewriter.restoreInsertionPoint(ipReductionLoops);
-    }
-
-    { // Emit instructions for matrix multiplication Ht-1*(Ri^T)
-      // hidden_size is the reduction dimension.
-      BuildKrnlLoop reductionLoops(rewriter, loc, 1);
-      reductionLoops.createDefineOp();
-      reductionLoops.pushBounds(0, hiddenDimSize);
-      reductionLoops.createIterateOp();
-
-      auto ipReductionLoops = rewriter.saveInsertionPoint();
-      rewriter.setInsertionPointToStart(reductionLoops.getIterateBlock());
-      {
-        auto reductionIV = reductionLoops.getInductionVar(0);
-        // Prepare IVs for accessing the input tensor and parameters.
-        // H :: [num_directions, batch_size, hidden_size]
-        SmallVector<Value, 3> hIVs = {directionIV, batchIV, reductionIV};
-        // Ri :: [num_directions, hidden_size, hidden_size]
-        SmallVector<Value, 3> rIIVs = {directionIV, hiddenIV, reductionIV};
-
-        // Ht-1 * Riofc
-        Value loadH = rewriter.create<KrnlLoadOp>(loc, state.ht, hIVs);
-        Value loadR =
-            rewriter.create<KrnlLoadOp>(loc, operandAdaptor.R(), rIIVs);
-        Value hrVal = rewriter.create<MulFOp>(loc, loadH, loadR);
-        Value loadHR = rewriter.create<KrnlLoadOp>(loc, hrI, mIVs);
-        Value nextHR = rewriter.create<AddFOp>(loc, loadHR, hrVal);
-        rewriter.create<KrnlStoreOp>(loc, nextHR, hrI, mIVs);
-      }
-      rewriter.restoreInsertionPoint(ipReductionLoops);
-    }
-  }
-  rewriter.restoreInsertionPoint(ipMatrixLoops);
-
-  // Emit instructions for computing gate outputs.
-  BuildKrnlLoop stateLoops(rewriter, loc, 2);
-  stateLoops.createDefineOp();
-  // Batch size dim.
-  stateLoops.pushBounds(0, operandAdaptor.X(), 1);
-  // Hidden size dim.
-  stateLoops.pushBounds(0, hiddenDimSize);
-  stateLoops.createIterateOp();
-  auto ipStateLoops = rewriter.saveInsertionPoint();
-  rewriter.setInsertionPointToStart(stateLoops.getIterateBlock());
-  {
-    auto batchIV = stateLoops.getInductionVar(0);
-    auto hiddenIV = stateLoops.getInductionVar(1);
-
-    // IVs for the hidden state tensor.
-    // H :: [num_directions, batch_size, hidden_size]
-    SmallVector<Value, 3> hIVs = {directionIV, batchIV, hiddenIV};
-    // IVs for the bias tensors for W and R.
-    // Bias [Wb[i], Rb[i]] :: [num_directions, 2*hidden_size]
-    SmallVector<Value, 2> wbiIVs, rbiIVs;
-    if (hasBiasForInput) {
-      // Wb[i]
-      Value wHiddenIV = rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
-          std::vector<Value>{/*iv=*/hiddenIV,
-              /*index=*/constantIndices[0], /*size=*/hiddenDimVal});
-      wbiIVs = {directionIV, wHiddenIV};
-      // Rb[i]
-      Value rHiddenIV = rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
-          std::vector<Value>{/*iv=*/hiddenIV,
-              /*index=*/constantIndices[1], /*size=*/hiddenDimVal});
-      rbiIVs = {directionIV, rHiddenIV};
-    }
-    // IVs for the matrix multiplication results.
-    // M :: [batch_size, hidden_size] for matmul
-    SmallVector<Value, 2> mIVs = {batchIV, hiddenIV};
-
-    // Emit instructions for 'Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)'
-    Value loadXWI = rewriter.create<KrnlLoadOp>(loc, xwI, mIVs);
-    Value loadHRI = rewriter.create<KrnlLoadOp>(loc, hrI, mIVs);
-    Value Ht = rewriter.create<AddFOp>(loc, loadXWI, loadHRI);
-    if (hasBiasForInput) {
-      Value loadWB =
-          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), wbiIVs);
-      Ht = rewriter.create<AddFOp>(loc, Ht, loadWB);
-      Value loadRB =
-          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), rbiIVs);
-      Ht = rewriter.create<AddFOp>(loc, Ht, loadRB);
-    }
-    Ht = applyActivation(rewriter, loc, activationPack.f, Ht);
-    rewriter.create<KrnlStoreOp>(loc, Ht, state.ht, hIVs);
-
-    // Store the current Ht if required.
-    if (!isNoneType(state.allH)) {
-      SmallVector<Value, 4> allHIVs{sequenceIV, directionIV, batchIV, hiddenIV};
-      rewriter.create<KrnlStoreOp>(loc, Ht, state.allH, allHIVs);
-    }
-  }
-  rewriter.restoreInsertionPoint(ipStateLoops);
-  // Deallocate the temporary results of matrix multiplications.
-  rewriter.create<memref::DeallocOp>(loc, xwI);
-  rewriter.create<memref::DeallocOp>(loc, hrI);
+  // Store the intermediate Ht.
+  storeIntermediateState(rewriter, loc, nextHt, Ht);
+  if (!isNoneType(state.allH))
+    storeIntermediateStateToAllH(
+        rewriter, loc, nextHt, sequenceIV, directionIV, state.allH);
 }
 
 template <>
 void stateToOutput<ONNXRNNOp, RnnState>(ConversionPatternRewriter &rewriter,
     Location loc, ONNXRNNOp *op, RnnState state, std::vector<Value> &outputs) {
   Value noneValue;
+  auto direction = op->direction();
+
+  // First output: all sequences.
   outputs.emplace_back((isNoneType(op->Y()) ? noneValue : state.allH));
-  outputs.emplace_back((isNoneType(op->Y_h()) ? noneValue : state.ht));
+  // Second output: hidden.
+  if (isNoneType(op->Y_h()))
+    outputs.emplace_back(noneValue);
+  else {
+    stateToOutputForHiddenOrCell(
+        rewriter, loc, state.forwardHt, state.reverseHt, direction, state.ht);
+    outputs.emplace_back(state.ht);
+  }
 }
 
 void populateLoweringONNXRNNOpPattern(
