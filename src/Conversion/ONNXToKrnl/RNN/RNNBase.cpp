@@ -313,7 +313,7 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value operand) {
   Value res;
 
-  // TODO: remove this once all implementations has changed.
+  // TODO: remove this once all implementations have changed.
   bool isScalar = !operand.getType().isa<ShapedType>();
 
   MemRefType memRefType;

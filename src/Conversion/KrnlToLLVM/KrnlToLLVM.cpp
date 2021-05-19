@@ -418,11 +418,16 @@ public:
           // Check data size.
           assert((rawData.size() == sizeInBytes) && "Data size mismatch.");
 
-          StringRef data = StringRef((char *)rawData.data(), rawData.size());
-          StringAttr llvmStringAttr = StringAttr::get(context, data);
-          global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
-              /*isConstant=*/true, LLVM::Linkage::Internal, name,
-              llvmStringAttr);
+          if (sizeInBytes > 512) {
+            StringRef data = StringRef((char *)rawData.data(), rawData.size());
+            StringAttr llvmStringAttr = StringAttr::get(context, data);
+            global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
+                /*isConstant=*/true, LLVM::Linkage::Internal, name,
+                llvmStringAttr);
+          } else {
+            global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
+                /*isConstant=*/true, LLVM::Linkage::Internal, name, denseAttr);
+          }
         } else {
           global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
               /*isConstant=*/true, LLVM::Linkage::Internal, name,

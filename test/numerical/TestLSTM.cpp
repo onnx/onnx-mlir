@@ -26,6 +26,22 @@ using namespace mlir;
 // Sigmoid
 float sigmoid(float x) { return 1 / (1 + exp(-x)); }
 
+// Create a constant tensor.
+ONNXConstantOp buildONNXConstantOp(MLIRContext *ctx, OpBuilder builder,
+    unique_ptr<OMTensor, decltype(&omTensorDestroy)> &omt,
+    RankedTensorType resultType) {
+  int64_t numElems = omTensorGetNumElems(omt.get());
+  auto bufferPtr = omTensorGetDataPtr(omt.get());
+  float *arrayPtr = reinterpret_cast<float *>(bufferPtr);
+  auto array = std::vector<float>(arrayPtr, arrayPtr + numElems);
+  auto denseAttr =
+      DenseElementsAttr::get(resultType, llvm::makeArrayRef(array));
+  ONNXConstantOp constantTensor = builder.create<ONNXConstantOp>(
+      UnknownLoc::get(ctx), resultType, Attribute(), denseAttr, FloatAttr(),
+      ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+  return constantTensor;
+}
+
 // Returns whether onnx-mlir compiled LSTM is producing the same results as a
 // naive implementation of LSTM for a specific set of LSTM
 // parameters/configuration.
@@ -66,8 +82,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   auto yHType = UnrankedTensorType::get(builder.getF32Type());
   auto yCType = UnrankedTensorType::get(builder.getF32Type());
 
-  llvm::SmallVector<Type, 7> inputsType{
-      xType, wType, rType, bType, hType, cType, pType};
+  llvm::SmallVector<Type, 3> inputsType{xType, hType, cType};
   llvm::SmallVector<Type, 3> outputsType{yType, yHType, yCType};
 
   auto funcType = builder.getFunctionType(inputsType, outputsType);
@@ -84,13 +99,9 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
                          UnknownLoc::get(&ctx), builder.getUnitAttr())
                      .getResult();
   auto xVal = entryBlock->getArgument(0);
-  auto wVal = entryBlock->getArgument(1);
-  auto rVal = entryBlock->getArgument(2);
-  auto bVal = entryBlock->getArgument(3);
+  auto hVal = entryBlock->getArgument(1);
+  auto cVal = entryBlock->getArgument(2);
   auto sVal = noneVal;
-  auto hVal = entryBlock->getArgument(4);
-  auto cVal = entryBlock->getArgument(5);
-  auto pVal = entryBlock->getArgument(6);
 
   StringAttr directionAttr;
   if (direction == 1)
@@ -106,11 +117,33 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, 0, /*isSigned=*/true));
 
+  std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> constants;
+  auto wOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1),
+      omTensorDestroy);
+  constants.emplace_back(move(wOmt));
+  auto rOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1),
+      omTensorDestroy);
+  constants.emplace_back(move(rOmt));
+  auto bOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1),
+      omTensorDestroy);
+  constants.emplace_back(move(bOmt));
+  auto pOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape), 0, 1),
+      omTensorDestroy);
+  constants.emplace_back(move(pOmt));
+  auto wConstant = buildONNXConstantOp(&ctx, builder, constants.at(0), wType);
+  auto rConstant = buildONNXConstantOp(&ctx, builder, constants.at(1), rType);
+  auto bConstant = buildONNXConstantOp(&ctx, builder, constants.at(2), bType);
+  auto pConstant = buildONNXConstantOp(&ctx, builder, constants.at(3), pType);
+
   auto lstmOp = builder.create<ONNXLSTMOp>(UnknownLoc::get(&ctx),
       /*Y=*/yType, /*Y_h=*/yHType, /*Y_c=*/yCType,
-      /*X=*/xVal, /*W=*/wVal, /*R=*/rVal, /*B=*/bVal,
+      /*X=*/xVal, /*W=*/wConstant, /*R=*/rConstant, /*B=*/bConstant,
       /*sequence_lens=*/sVal, /*initial_h=*/hVal,
-      /*initial_c=*/cVal, /*P=*/pVal,
+      /*initial_c=*/cVal, /*P=*/pConstant,
       /*activation_alpha=*/ArrayAttr(), /*activation_beta=*/ArrayAttr(),
       /*activations=*/ArrayAttr(), /*clip=*/FloatAttr(),
       /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
@@ -127,7 +160,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   // inputs and outputs.
   std::string signature("");
   auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
-      /*numInputs=*/7,
+      /*numInputs=*/3,
       /*numOutputs=*/3,
       /*signature*/ signature);
   module.push_back(entryPoint);
@@ -142,18 +175,6 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(xOmt));
-  auto wOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1),
-      omTensorDestroy);
-  inputs.emplace_back(move(wOmt));
-  auto rOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1),
-      omTensorDestroy);
-  inputs.emplace_back(move(rOmt));
-  auto bOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1),
-      omTensorDestroy);
-  inputs.emplace_back(move(bOmt));
   auto hOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape), 0, 1),
       omTensorDestroy);
@@ -162,10 +183,6 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(cOmt));
-  auto pOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape), 0, 1),
-      omTensorDestroy);
-  inputs.emplace_back(move(pOmt));
 
   auto refY = omTensorCreateWithShape<float>({S, D, B, H});
   auto refYh = omTensorCreateWithShape<float>({D, B, H});
@@ -179,13 +196,14 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
   // Ht = ot (.) h(Ct)
 
+  auto &weight = constants.at(0);
+  auto &recurr = constants.at(1);
+  auto &bias = constants.at(2);
+  auto &peepholes = constants.at(3);
+
   auto &input = inputs.at(0);
-  auto &weight = inputs.at(1);
-  auto &recurr = inputs.at(2);
-  auto &bias = inputs.at(3);
-  auto &initialH = inputs.at(4);
-  auto &initialC = inputs.at(5);
-  auto &peepholes = inputs.at(6);
+  auto &initialH = inputs.at(1);
+  auto &initialC = inputs.at(2);
 
   // Initialize refYh and refYc.
   for (int64_t d = 0; d < D; d++)

@@ -229,7 +229,7 @@ getWeightPack<ONNXLSTMOp, LstmWeightPack>(
 
   ArrayAttr permAttr = rewriter.getI64ArrayAttr({1, 0});
 
-  // Unsqueeze the direction axis from W and R.
+  // Squeeze the direction axis from W and R.
   Value fW, bW, fR, bR;
   if (direction == FORWARD) {
     fW = emitSqueeze(rewriter, loc, w2DTy, W, /*axis=*/0);
@@ -326,7 +326,7 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
     SmallVector<Type, 4> split1D8Ty(8, bSplitType1D);
     SmallVector<Type, 4> split2D2Ty(2, bType2D);
 
-    // Unsqueeze the direction axis from B.
+    // Squeeze the direction axis from B.
     Value fB, bB;
     if (direction == FORWARD) {
       fB = emitSqueeze(rewriter, loc, bType1D, B, /*axis=*/0);
@@ -377,7 +377,7 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
     SmallVector<Type, 4> split1D3Ty(3, pSplitType1D);
     SmallVector<Type, 4> split2D2Ty(2, pType2D);
 
-    // Unsqueeze the direction axis from P.
+    // Squeeze the direction axis from P.
     Value fP, bP;
     if (direction == FORWARD) {
       fP = emitSqueeze(rewriter, loc, pType1D, P, /*axis=*/0);
