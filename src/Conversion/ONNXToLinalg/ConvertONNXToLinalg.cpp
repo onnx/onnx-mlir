@@ -23,7 +23,7 @@ class ONNXToLinalgMatMulConverter : public ConversionPattern {
 
   // ISSUE-MAKUDRYA-TODO: #244 Create target description structure which can
   // be used across all passes. Use Apollo 0.5 (Artemis) value for now.
-  static const int64_t kTargetDimensionDenominator = 16;
+  static const int64_t kTargetDimensionDenominator = 128;
 
   // Each matrix multiply utilizes the innermost two dimensions. Given a
   // MemRefType, this functions creates the loops to iterate over the N-2 outer
