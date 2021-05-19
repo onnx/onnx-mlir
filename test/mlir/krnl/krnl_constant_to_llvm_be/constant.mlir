@@ -1,4 +1,6 @@
-// RUN: onnx-mlir-opt --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-krnl-to-llvm %s -split-input-file
+
+// | FileCheck %s
 
 // COM: Check lowering a krnl constant with a dense attribute.
 // COM: The dense attribute's data pointer will be used in the returned MemRef
