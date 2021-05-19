@@ -149,8 +149,6 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
     // If there is at least one result to investigate.
     if (currentOp->getNumResults() > 0) {
       auto result = currentOp->getResult(resultIndex);
-      if (result.isa<BlockArgument>())
-        insertDealloc = false;
       for (const auto &operand : op.getOperands())
         if (operand == result)
           insertDealloc = false;

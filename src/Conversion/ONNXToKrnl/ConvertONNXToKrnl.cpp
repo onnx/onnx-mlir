@@ -88,7 +88,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // TODO: add any other ops which are considered legal.
   // Some operations can be marked as being still legal.
   // Example: target.addLegalOp<mlir::OpName>();
-  //target.addLegalOp<ONNXSqueezeOp>();
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.

@@ -16,8 +16,6 @@
 
 using namespace mlir;
 
-Value noneVal;
-
 struct LstmState {
   // returned states.
   Value allH;
