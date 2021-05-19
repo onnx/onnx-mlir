@@ -276,13 +276,13 @@ getWeightPack<ONNXLSTMOp, LstmWeightPack>(
   if (direction == REVERSE || direction == BIDIRECTIONAL) {
     // W
     std::vector<Value> vals = emitSplit(rewriter, loc, wSplit2D4Ty, bW, 0);
-    weightReverse.Ri =
+    weightReverse.Wi =
         emitTranspose(rewriter, loc, wTranspose2DTy, vals[0], permAttr);
-    weightReverse.Ro =
+    weightReverse.Wo =
         emitTranspose(rewriter, loc, wTranspose2DTy, vals[1], permAttr);
-    weightReverse.Rf =
+    weightReverse.Wf =
         emitTranspose(rewriter, loc, wTranspose2DTy, vals[2], permAttr);
-    weightReverse.Rc =
+    weightReverse.Wc =
         emitTranspose(rewriter, loc, wTranspose2DTy, vals[3], permAttr);
     // R
     vals.clear();

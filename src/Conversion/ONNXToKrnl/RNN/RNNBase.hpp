@@ -55,7 +55,7 @@ Value allocIntermediateState(
 
 /// Initialize the intermediate hidden and cell states.
 void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
-    Location loc, Value forwardHt, Value backwardHt, Value forwardCt,
+    Location loc, Value forwardHt, Value reverseHt, Value forwardCt,
     Value reverseCt, Value initialH, Value initialC, Type elementType,
     StringRef direction, bool onlyHidden);
 
@@ -188,7 +188,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         // Emit calculation for one RNN step.
         calculateState<RNNOp, S, A, W, B>(rewriter, loc, operandAdaptor, state,
             activationForward, weightForward, biasForward, sequenceIV,
-            directionIV, true);
+            directionIV, /*isForward=*/true);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
@@ -225,7 +225,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         // Emit calculation for one RNN step.
         calculateState<RNNOp, S, A, W, B>(rewriter, loc, operandAdaptor, state,
             activationReverse, weightReverse, biasReverse, reverseSequenceIV,
-            directionIV, true);
+            directionIV, /*isForward=*/false);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }

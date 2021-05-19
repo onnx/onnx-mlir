@@ -110,8 +110,8 @@ Value allocIntermediateState(
 
 /// Initialize the intermediate hidden and cell states.
 void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
-    Location loc, Value forwardHt, Value backwardHt, Value forwardCt,
-    Value backwardCt, Value initialH, Value initialC, Type elementType,
+    Location loc, Value forwardHt, Value reverseHt, Value forwardCt,
+    Value reverseCt, Value initialH, Value initialC, Type elementType,
     StringRef direction, bool onlyHidden) {
   Value zero = emitConstantOp(rewriter, loc, elementType, 0);
   Value zeroIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
@@ -119,7 +119,10 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
 
   int nLoops = 2;
   BuildKrnlLoop initializationLoops(rewriter, loc, nLoops);
-  initializationLoops.createDefineAndIterateOp(forwardHt);
+  if (direction == FORWARD || direction == BIDIRECTIONAL)
+    initializationLoops.createDefineAndIterateOp(forwardHt);
+  else
+    initializationLoops.createDefineAndIterateOp(reverseHt);
   auto ipInitializationLoops = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(initializationLoops.getIterateBlock());
   {
@@ -157,17 +160,17 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
       initialIVs.emplace_back(initializationLoops.getInductionVar(0));
       initialIVs.emplace_back(initializationLoops.getInductionVar(1));
       if (isNoneType(initialH))
-        rewriter.create<KrnlStoreOp>(loc, zero, backwardHt, IVs);
+        rewriter.create<KrnlStoreOp>(loc, zero, reverseHt, IVs);
       else {
         Value h = rewriter.create<KrnlLoadOp>(loc, initialH, initialIVs);
-        rewriter.create<KrnlStoreOp>(loc, h, backwardHt, IVs);
+        rewriter.create<KrnlStoreOp>(loc, h, reverseHt, IVs);
       }
       if (!onlyHidden) {
         if (isNoneType(initialC))
-          rewriter.create<KrnlStoreOp>(loc, zero, backwardCt, IVs);
+          rewriter.create<KrnlStoreOp>(loc, zero, reverseCt, IVs);
         else {
           Value c = rewriter.create<KrnlLoadOp>(loc, initialC, initialIVs);
-          rewriter.create<KrnlStoreOp>(loc, c, backwardCt, IVs);
+          rewriter.create<KrnlStoreOp>(loc, c, reverseCt, IVs);
         }
       }
     }
