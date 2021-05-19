@@ -12,7 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
+#include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 #include "mlir/IR/AffineExpr.h"
+
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
@@ -53,7 +56,17 @@ void initializeHiddenAndCell_(ConversionPatternRewriter &rewriter, Location loc,
     Value initialH, Value initialC, Type elementType, StringRef direction,
     bool onlyHidden);
 
-// Apply an activation function on a given operand.
+void storeIntermediateState(ConversionPatternRewriter &rewriter, Location loc,
+    Value state, Value output);
+
+void storeIntermediateStateToAllH(ConversionPatternRewriter &rewriter,
+    Location loc, Value Ht, Value allH, Value sequenceIV, Value directionIV); 
+
+void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
+    Location loc, Value forwardVal, Value reverseVal, StringRef direction,
+    Value output);
+
+/// Apply an activation function on a given operand.
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value operand);
 

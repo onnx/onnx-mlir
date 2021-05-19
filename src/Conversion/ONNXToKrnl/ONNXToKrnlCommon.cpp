@@ -144,7 +144,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
 bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   auto parentBlock = currentOp->getBlock();
 
-  bool insertDealloc = false;
+  bool insertDealloc = true;
   parentBlock->walk([&insertDealloc, currentOp, resultIndex](ReturnOp op) {
     // If there is at least one result to investigate.
     if (currentOp->getNumResults() > 0) {

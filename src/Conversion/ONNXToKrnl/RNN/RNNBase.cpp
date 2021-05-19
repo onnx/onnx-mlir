@@ -179,48 +179,39 @@ void initializeHiddenAndCell_(ConversionPatternRewriter &rewriter, Location loc,
 /// Shape :: [num_directions, batch_size, hidden_size]
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
     Value X, Value W, Value R, Value output, bool insertDealloc) {
-  MemRefType memRefType;
-  if (!isNoneType(output))
-    memRefType = convertToMemRefType(output.getType());
-  else {
-    memRefType = MemRefType::get(
-        {/*num_directions=*/dimAt(W, 0), /*batch_size=*/dimAt(X, 1),
-            /*hidden_size=*/dimAt(R, 2)},
-        X.getType().cast<ShapedType>().getElementType());
-    // The hidden or cell is not a return value but a temporary value, so always
-    // dealloc it.
-    insertDealloc = true;
-  }
-
   Value alloc;
-  if (hasAllConstantDimensions(memRefType))
-    alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-  else {
-    auto memRefShape = memRefType.getShape();
-    SmallVector<Value, 2> allocOperands;
-    if (memRefShape[0] < 0) {
-      // Get num_directions from W.
-      auto dim = rewriter.create<memref::DimOp>(loc, W, 0);
-      allocOperands.emplace_back(dim);
+  if (!isNoneType(output)) {
+    MemRefType memRefType = convertToMemRefType(output.getType());
+    if (hasAllConstantDimensions(memRefType))
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+    else {
+      auto memRefShape = memRefType.getShape();
+      SmallVector<Value, 2> allocOperands;
+      if (memRefShape[0] < 0) {
+        // Get num_directions from W.
+        auto dim = rewriter.create<memref::DimOp>(loc, W, 0);
+        allocOperands.emplace_back(dim);
+      }
+      if (memRefShape[1] < 0) {
+        // Get batch_size from X.
+        auto dim = rewriter.create<memref::DimOp>(loc, X, 1);
+        allocOperands.emplace_back(dim);
+      }
+      if (memRefShape[2] < 0) {
+        // Get hidden_size from R.
+        auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
+        allocOperands.emplace_back(dim);
+      }
+      alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
+      if (insertDealloc) {
+        auto *parentBlock = alloc.getDefiningOp()->getBlock();
+        auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
+        dealloc.getOperation()->moveBefore(&parentBlock->back());
+      }
     }
-    if (memRefShape[1] < 0) {
-      // Get batch_size from X.
-      auto dim = rewriter.create<memref::DimOp>(loc, X, 1);
-      allocOperands.emplace_back(dim);
-    }
-    if (memRefShape[2] < 0) {
-      // Get hidden_size from R.
-      auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
-      allocOperands.emplace_back(dim);
-    }
-    alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
-    if (insertDealloc) {
-      auto *parentBlock = alloc.getDefiningOp()->getBlock();
-      auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
-      dealloc.getOperation()->moveBefore(&parentBlock->back());
-    }
+  } else {
+    alloc = output;
   }
-
   return alloc;
 }
 
@@ -252,6 +243,63 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
     }
   }
   rewriter.restoreInsertionPoint(ipInitializationLoops);
+}
+
+void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
+    Location loc, Value forwardVal, Value reverseVal, StringRef direction,
+    Value output) {
+  // Scope for krnl EDSC ops
+  using namespace mlir::edsc;
+  // Scope for std EDSC ops
+  using namespace edsc::intrinsics;
+  ScopedContext scope(rewriter, loc);
+
+  if (direction == FORWARD || direction == REVERSE) {
+    Value val = (direction == FORWARD) ? forwardVal : reverseVal;
+    Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, val);
+    rewriter.create<KrnlMemcpyOp>(loc, output, val, sizeInBytes);
+  } else { // BIDIRECTIONAL
+    MemRefBoundsCapture bounds(forwardVal);
+    Value zero = std_constant_index(0);
+    Value one = std_constant_index(1);
+    ValueRange loops = krnl_define_loop(2);
+    krnl_iterate(
+        loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
+          ValueRange indices = krnl_get_induction_var_value(loops);
+          Value b(indices[0]), h(indices[1]);
+          // Forward.
+          Value val = krnl_load(forwardVal, {b, h});
+          krnl_store(val, output, {zero, b, h});
+          // Reverse.
+          val = krnl_load(reverseVal, {b, h});
+          krnl_store(val, output, {one, b, h});
+        });
+  }
+}
+
+void storeIntermediateState(ConversionPatternRewriter &rewriter, Location loc,
+    Value state, Value output) {
+  Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, state);
+  rewriter.create<KrnlMemcpyOp>(loc, output, state, sizeInBytes);
+}
+
+void storeIntermediateStateToAllH(ConversionPatternRewriter &rewriter,
+    Location loc, Value Ht, Value sequenceIV, Value directionIV, Value allH) {
+  // Scope for krnl EDSC ops
+  using namespace mlir::edsc;
+  // Scope for std EDSC ops
+  using namespace edsc::intrinsics;
+  ScopedContext scope(rewriter, loc);
+
+  MemRefBoundsCapture bounds(Ht);
+  ValueRange loops = krnl_define_loop(2);
+  krnl_iterate(
+      loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
+        ValueRange indices = krnl_get_induction_var_value(loops);
+        Value s(sequenceIV), d(directionIV), b(indices[0]), h(indices[1]);
+        Value val = krnl_load(Ht, {b, h});
+        krnl_store(val, allH, {s, d, b, h});
+      });
 }
 
 // Apply an activation function on a given operand.

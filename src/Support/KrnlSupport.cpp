@@ -268,6 +268,38 @@ int64_t getMemRefSizeInBytes(Value value) {
   return size;
 }
 
+/// Get the size of a MemRef in bytes.
+/// If all the dimensions are static, emit a constant.
+/// Otherwise, emit runtime computations.
+Value getDynamicMemRefSizeInBytes(
+    PatternRewriter &rewriter, Location loc, Value val) {
+  MemRefType memRefType = val.getType().cast<MemRefType>();
+  auto shape = memRefType.getShape();
+  // Accumulate static dimensions first.
+  int64_t staticSizeInBytes = getMemRefEltSizeInBytes(memRefType);
+  bool allStaticDimensions = true;
+  for (unsigned i = 0; i < shape.size(); i++) {
+    if (shape[i] != -1)
+      staticSizeInBytes *= shape[i];
+    else
+      allStaticDimensions = false;
+  }
+  // Accumulate the remaining dimensions that are unknown.
+  Value sizeInBytes =
+      emitConstantOp(rewriter, loc, rewriter.getI64Type(), staticSizeInBytes);
+  if (!allStaticDimensions) {
+    for (unsigned i = 0; i < shape.size(); i++) {
+      if (shape[i] == -1) {
+        Value index = rewriter.create<memref::DimOp>(loc, val, i);
+        Value dim =
+            rewriter.create<IndexCastOp>(loc, index, rewriter.getI64Type());
+        sizeInBytes = rewriter.create<MulIOp>(loc, sizeInBytes, dim);
+      }
+    }
+  }
+  return sizeInBytes;
+}
+
 /// Get the size of a dynamic MemRef in bytes.
 Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
     PatternRewriter &rewriter, memref::AllocOp allocOp) {
