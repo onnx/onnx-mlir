@@ -52,7 +52,16 @@ public:
 namespace {
 struct FrontendToKrnlLoweringPass
     : public PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>> {
+  /// Make sure that we have a valid default constructor and copy
+  // constructor to make sure that the options are initialized properly.
+  FrontendToKrnlLoweringPass() = default;
+  FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass) {}
+
   void runOnOperation() final;
+
+public:
+  Option<bool> testRNNOps{*this, "test-rnn-ops-lowering",
+      llvm::cl::desc("For testing RNN ops only."), llvm::cl::init(false)};
 };
 } // end anonymous namespace.
 
@@ -88,6 +97,18 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // TODO: add any other ops which are considered legal.
   // Some operations can be marked as being still legal.
   // Example: target.addLegalOp<mlir::OpName>();
+  if (testRNNOps) {
+    // For the purpose of testing generated code for RNN ops, we do not go
+    // further lowering the following ops.
+    target.addLegalOp<ONNXTransposeOp>();
+    target.addLegalOp<ONNXSqueezeOp>();
+    target.addLegalOp<ONNXSplitOp>();
+    target.addLegalOp<ONNXMatMulOp>();
+    target.addLegalOp<ONNXAddOp>();
+    target.addLegalOp<ONNXMulOp>();
+    target.addLegalOp<ONNXSigmoidOp>();
+    target.addLegalOp<ONNXTanhOp>();
+  }
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.

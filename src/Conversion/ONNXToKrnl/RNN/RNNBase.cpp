@@ -386,7 +386,8 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
   auto elementType = X.getType().cast<ShapedType>().getElementType();
   MemRefType sliceXType = MemRefType::get({batchSize, inputSize}, elementType);
   if (hasAllConstantDimensions(sliceXType))
-    sliceX = insertAllocAndDealloc(sliceXType, loc, rewriter, true);
+    // FIXME: deallocate
+    sliceX = insertAllocAndDealloc(sliceXType, loc, rewriter, false);
   else {
     auto memRefShape = sliceXType.getShape();
     SmallVector<Value, 2> allocOperands;
