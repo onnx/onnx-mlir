@@ -413,21 +413,16 @@ public:
       } else if (krnlGlobalOp.value().getValue().isa<DenseElementsAttr>()) {
         DenseElementsAttr denseAttr =
             krnlGlobalOp.value().getValue().cast<DenseElementsAttr>();
-        if (!denseAttr.isSplat()) {
+        if ((!denseAttr.isSplat()) && (sizeInBytes > 512)) {
           std::vector<char> rawData = denseAttr.getRawData();
           // Check data size.
           assert((rawData.size() == sizeInBytes) && "Data size mismatch.");
 
-          if (sizeInBytes > 512) {
-            StringRef data = StringRef((char *)rawData.data(), rawData.size());
-            StringAttr llvmStringAttr = StringAttr::get(context, data);
-            global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
-                /*isConstant=*/true, LLVM::Linkage::Internal, name,
-                llvmStringAttr);
-          } else {
-            global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
-                /*isConstant=*/true, LLVM::Linkage::Internal, name, denseAttr);
-          }
+          StringRef data = StringRef((char *)rawData.data(), rawData.size());
+          StringAttr llvmStringAttr = StringAttr::get(context, data);
+          global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
+              /*isConstant=*/true, LLVM::Linkage::Internal, name,
+              llvmStringAttr);
         } else {
           global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
               /*isConstant=*/true, LLVM::Linkage::Internal, name,
