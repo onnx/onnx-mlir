@@ -386,7 +386,6 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
   auto elementType = X.getType().cast<ShapedType>().getElementType();
   MemRefType sliceXType = MemRefType::get({batchSize, inputSize}, elementType);
   if (hasAllConstantDimensions(sliceXType))
-    // FIXME: deallocate
     sliceX = insertAllocAndDealloc(sliceXType, loc, rewriter, false);
   else {
     auto memRefShape = sliceXType.getShape();
@@ -398,10 +397,6 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
       allocOperands.emplace_back(inputSizeVal);
     }
     sliceX = rewriter.create<memref::AllocOp>(loc, sliceXType, allocOperands);
-    // FIXME: deallocate
-    // auto *parentBlock = X.getDefiningOp()->getBlock();
-    // auto dealloc = rewriter.create<DeallocOp>(loc, X);
-    // dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   BuildKrnlLoop xtLoops(rewriter, loc, 2);
   xtLoops.createDefineOp();

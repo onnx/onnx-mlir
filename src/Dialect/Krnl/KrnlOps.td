@@ -155,7 +155,7 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
   let printer = ?;
 }
 
-def KrnlGlobalOp : Op<Krnl_Dialect, "global", [MemRefsNormalizable]> {
+def KrnlGlobalOp : Op<Krnl_Dialect, "global", [NoSideEffect, MemRefsNormalizable]> {
   let summary = "Krnl global operation";
   let description = [{
     Operation for holding global data values. A global constant can have a
