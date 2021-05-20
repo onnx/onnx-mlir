@@ -26,7 +26,7 @@ using namespace mlir;
 // Sigmoid
 float sigmoid(float x) { return 1 / (1 + exp(-x)); }
 
-// Create a constant tensor.
+// Build an ONNXConstantOp from an OMTensor. 
 ONNXConstantOp buildONNXConstantOp(MLIRContext *ctx, OpBuilder builder,
     unique_ptr<OMTensor, decltype(&omTensorDestroy)> &omt,
     RankedTensorType resultType) {
