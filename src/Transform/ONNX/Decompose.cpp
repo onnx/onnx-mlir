@@ -60,6 +60,10 @@ DenseElementsAttr createDenseArrayAttr(
   llvm_unreachable("unexpected attribute type");
 }
 
+ConstantOp createUnitConstant(PatternRewriter &rewriter, Location loc) {
+  return rewriter.create<ConstantOp>(loc, rewriter.getUnitAttr());
+}
+
 // Create an DenseElementsAttr of ArrayAttr.
 // When ArrayAttr is Null, an empty Integer DenseElementAttr is returned
 DenseElementsAttr createDenseArrayAttrOrEmpty(
@@ -96,7 +100,7 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());
-  target.addLegalDialect<ONNXOpsDialect>();
+  target.addLegalDialect<ONNXOpsDialect, StandardOpsDialect>();
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
