@@ -61,7 +61,7 @@ DenseElementsAttr createDenseArrayAttr(
 }
 
 ConstantOp createUnitConstant(PatternRewriter &rewriter, Location loc) {
-  return  rewriter.create<ConstantOp>(loc, rewriter.getUnitAttr());
+  return rewriter.create<ConstantOp>(loc, rewriter.getUnitAttr());
 }
 
 // Create an DenseElementsAttr of ArrayAttr.
