@@ -392,7 +392,8 @@ OpsWithResultTypeInference = {
 #  - one with operands and attributes having aggregated parameters.
 custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSum', 'ReduceSumSquare',
                                     'Pad', 'Sqrt', 'Neg', 'Unsqueeze', 'Softmax',
-                                    'ReduceMax', 'ReduceLogSum', 'Squeeze']
+                                    'ReduceMax', 'ReduceLogSum', 'Squeeze',
+                                    'Identity', 'Split']
 # Custom builder op list for operations with broadcast; we can deduce the right
 # output type, no need to leave it undef as in the above list.
 # Ops must have two operands, not one, not three... And there shall be two.
@@ -987,13 +988,13 @@ def gen_op_def(schema):
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
                 s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
                 s += indent + indent + 'elementType = {}'.format(first_operand_name) + \
-                    '.getType().cast<TensorType>().getElementType();\n';
+                    '.getType().cast<ShapedType>().getElementType();\n';
                 s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
                 s += indent + '}\n';
                 build_type_name = 'elementType'
             else:
                 s += indent + 'auto elementType = {}'.format(first_operand_name) + \
-                    '.getType().cast<TensorType>().getElementType();\n'
+                    '.getType().cast<ShapedType>().getElementType();\n'
                 build_type_name = 'UnrankedTensorType::get(elementType)'
             s += indent + 'build($_builder, $_state, {}'.format(build_type_name)
             for name, _ in ins.items():
@@ -1015,12 +1016,12 @@ def gen_op_def(schema):
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
                 s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
                 s += indent + indent + 'elementType = operands[0]' + \
-                    '.getType().cast<TensorType>().getElementType();\n';
+                    '.getType().cast<ShapedType>().getElementType();\n';
                 s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
                 s += indent + '}\n';
             else:
                 s += indent + 'auto elementType = operands[0].getType().' + \
-                    'cast<TensorType>().getElementType();\n'
+                    'cast<ShapedType>().getElementType();\n'
             s += indent + 'std::vector<mlir::Type> outputTypes;\n'
             s += indent + 'outputTypes.emplace_back({});\n'.format(build_type_name)
             s += indent + 'build($_builder, $_state, outputTypes, operands, attributes);\n'
