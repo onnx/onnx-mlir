@@ -37,6 +37,7 @@ struct RnnWeightPack {
 };
 
 struct RnnBiasPack {
+  bool hasBias = false;
   Value Wbi;
   Value Rbi;
 };
@@ -237,11 +238,13 @@ std::tuple<RnnBiasPack, RnnBiasPack> getBiasPack<ONNXRNNOp, RnnBiasPack>(
       std::vector<Value> vals = emitSplit(rewriter, loc, split1D2Ty, fB, 0);
       biasForward.Wbi = vals[0];
       biasForward.Rbi = vals[1];
+      biasForward.hasBias = true;
     }
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
       std::vector<Value> vals = emitSplit(rewriter, loc, split1D2Ty, bB, 0);
       biasReverse.Wbi = vals[0];
       biasReverse.Rbi = vals[1];
+      biasReverse.hasBias = true;
     }
   }
 
@@ -288,15 +291,10 @@ RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
 }
 
 template <>
-void calculateState<ONNXRNNOp, RnnState, RnnActivationPack, RnnWeightPack,
-    RnnBiasPack>(ConversionPatternRewriter &rewriter, Location loc,
-    typename ONNXRNNOp::Adaptor operandAdaptor, Value Xt, RnnState state,
+void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
+    ConversionPatternRewriter &rewriter, Location loc, Value Xt, RnnState state,
     RnnActivationPack activationPack, RnnWeightPack weightPack,
     RnnBiasPack biasPack, Value sequenceIV, Value directionIV, bool isForward) {
-  ScopedContext scope(rewriter, loc);
-
-  bool hasBiasForInput = !isNoneType(operandAdaptor.B());
-
   // Equations for RNN.
   // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
   // Shape information:
@@ -307,15 +305,17 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack, RnnWeightPack,
   // Wbi: [hidden_size]
   // Rbi: [hidden_size]
 
+  ScopedContext scope(rewriter, loc);
+
   // Get Ht.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
-  auto matrixType = Ht.getType();
+  MemRefType matrixType = Ht.getType().cast<MemRefType>();
 
   // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
   Value XtWi = onnx_matmul(matrixType, Xt, weightPack.Wi);
   Value HtRi = onnx_matmul(matrixType, Ht, weightPack.Ri);
   Value nextHt = onnx_add(matrixType, XtWi, HtRi);
-  if (hasBiasForInput) {
+  if (biasPack.hasBias) {
     nextHt = onnx_add(matrixType, nextHt, biasPack.Wbi);
     nextHt = onnx_add(matrixType, nextHt, biasPack.Rbi);
   }

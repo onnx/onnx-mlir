@@ -119,10 +119,10 @@ S allocAndInitializeStates(ConversionPatternRewriter &rewriter, Location loc,
     RNNOp *op, typename RNNOp::Adaptor operandAdaptor);
 
 // Calculate new states from the current input and states.
-template <typename RNNOp, typename S, typename A, typename W, typename B>
-void calculateState(ConversionPatternRewriter &rewriter, Location loc,
-    typename RNNOp::Adaptor operandAdaptor, Value Xt, S state, A activationSet,
-    W weight, B bias, Value sequenceIV, Value directionIV, bool isForward);
+template <typename S, typename A, typename W, typename B>
+void calculateState(ConversionPatternRewriter &rewriter, Location loc, Value Xt,
+    S state, A activationSet, W weight, B bias, Value sequenceIV,
+    Value directionIV, bool isForward);
 
 // Write states to the RNN's outputs.
 template <typename RNNOp, typename S>
@@ -189,9 +189,9 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         // Get a slice of X at the current timestep.
         Value Xt = emitXSliceAt(rewriter, loc, X, sequenceIV);
         // Emit calculation for one RNN step.
-        calculateState<RNNOp, S, A, W, B>(rewriter, loc, operandAdaptor, Xt,
-            state, activationForward, weightForward, biasForward, sequenceIV,
-            directionIV, /*isForward=*/true);
+        calculateState<S, A, W, B>(rewriter, loc, Xt, state, activationForward,
+            weightForward, biasForward, sequenceIV, directionIV,
+            /*isForward=*/true);
         // Clean up
         rewriter.create<memref::DeallocOp>(loc, Xt);
       }
@@ -229,9 +229,9 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         // Get a slice of X at the current timestep.
         Value Xt = emitXSliceAt(rewriter, loc, X, reverseSequenceIV);
         // Emit calculation for one RNN step.
-        calculateState<RNNOp, S, A, W, B>(rewriter, loc, operandAdaptor, Xt,
-            state, activationReverse, weightReverse, biasReverse,
-            reverseSequenceIV, directionIV, /*isForward=*/false);
+        calculateState<S, A, W, B>(rewriter, loc, Xt, state, activationReverse,
+            weightReverse, biasReverse, reverseSequenceIV, directionIV,
+            /*isForward=*/false);
         // Clean up
         rewriter.create<memref::DeallocOp>(loc, Xt);
       }

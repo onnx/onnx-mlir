@@ -239,11 +239,11 @@ int main(int argc, char *argv[]) {
     // Sequence length.
     const auto S = *rc::gen::inRange(1, 5);
     // Batch size.
-    const auto B = *rc::gen::inRange(5, 20);
+    const auto B = *rc::gen::inRange(5, 10);
     // Input size.
-    const auto I = *rc::gen::inRange(20, 30);
+    const auto I = *rc::gen::inRange(5, 10);
     // Hidden size.
-    const auto H = *rc::gen::inRange(30, 40);
+    const auto H = *rc::gen::inRange(5, 10);
     // Whether test dynamic dimension for sequence.
     // const auto isDynS = *rc::gen::element(0, 1);
     // FIXME: dynamic

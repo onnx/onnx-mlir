@@ -48,6 +48,7 @@ struct LstmWeightPack {
 };
 
 struct LstmBiasPack {
+  bool hasBias = false;
   Value Wbi;
   Value Wbo;
   Value Wbf;
@@ -57,6 +58,7 @@ struct LstmBiasPack {
   Value Rbf;
   Value Rbc;
   // Put peephole here.
+  bool hasPeephole = false;
   Value Pi;
   Value Po;
   Value Pf;
@@ -352,6 +354,7 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
       biasForward.Rbo = vals[5];
       biasForward.Rbf = vals[6];
       biasForward.Rbc = vals[7];
+      biasForward.hasBias = true;
     }
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
       std::vector<Value> vals = emitSplit(rewriter, loc, split1D8Ty, bB, 0);
@@ -363,6 +366,7 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
       biasReverse.Rbo = vals[5];
       biasReverse.Rbf = vals[6];
       biasReverse.Rbc = vals[7];
+      biasReverse.hasBias = true;
     }
   }
 
@@ -397,12 +401,14 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
       biasForward.Pi = vals[0];
       biasForward.Po = vals[1];
       biasForward.Pf = vals[2];
+      biasForward.hasPeephole = true;
     }
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
       std::vector<Value> vals = emitSplit(rewriter, loc, split1D3Ty, bP, 0);
       biasReverse.Pi = vals[0];
       biasReverse.Po = vals[1];
       biasReverse.Pf = vals[2];
+      biasReverse.hasPeephole = true;
     }
   }
 
@@ -460,17 +466,11 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
 }
 
 template <>
-void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
-    LstmBiasPack>(ConversionPatternRewriter &rewriter, Location loc,
-    typename ONNXLSTMOp::Adaptor operandAdaptor, Value Xt, LstmState state,
-    LstmActivationPack activationPack, LstmWeightPack weightPack,
-    LstmBiasPack biasPack, Value sequenceIV, Value directionIV,
-    bool isForward) {
-  ScopedContext scope(rewriter, loc);
-
-  bool hasBiasForInput = !isNoneType(operandAdaptor.B());
-  bool hasPeepholes = !isNoneType(operandAdaptor.P());
-
+void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
+    LstmBiasPack>(ConversionPatternRewriter &rewriter, Location loc, Value Xt,
+    LstmState state, LstmActivationPack activationPack,
+    LstmWeightPack weightPack, LstmBiasPack biasPack, Value sequenceIV,
+    Value directionIV, bool isForward) {
   // Equations for LSTM.
   // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
   // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
@@ -478,31 +478,25 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
   // Ct = ft (.) Ct-1 + it (.) ct
   // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
   // Ht = ot (.) h(Ct)
-  //
-  // Shape information:
-  // Xt : [batch_size, input_size]
-  // W[iofc] : [hidden_size, input_size]
-  // R[iofc] : [hidden_size, hidden_size]
-  // Ht, Ct, it, ot, ft, ct: [batch_size, hidden_size]
-  // Wb[iofc] : [hidden_size]
-  // Rb[iofc] : [hidden_size]
+
+  ScopedContext scope(rewriter, loc);
 
   // Get Ht, Ct.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
   Value Ct = (isForward) ? state.forwardCt : state.reverseCt;
 
   // Frequently used types.
-  auto matrixType = Ht.getType();
+  MemRefType matrixType = Ht.getType().cast<MemRefType>();
 
   // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
   Value XtWi = onnx_matmul(matrixType, Xt, weightPack.Wi);
   Value HtRi = onnx_matmul(matrixType, Ht, weightPack.Ri);
   Value it = onnx_add(matrixType, XtWi, HtRi);
-  if (hasBiasForInput) {
+  if (biasPack.hasBias) {
     it = onnx_add(matrixType, it, biasPack.Wbi);
     it = onnx_add(matrixType, it, biasPack.Rbi);
   }
-  if (hasPeepholes) {
+  if (biasPack.hasPeephole) {
     Value PiCt = onnx_mul(matrixType, biasPack.Pi, Ct);
     it = onnx_add(matrixType, it, PiCt);
   }
@@ -512,11 +506,11 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
   Value XtWf = onnx_matmul(matrixType, Xt, weightPack.Wf);
   Value HtRf = onnx_matmul(matrixType, Ht, weightPack.Rf);
   Value ft = onnx_add(matrixType, XtWf, HtRf);
-  if (hasBiasForInput) {
+  if (biasPack.hasBias) {
     ft = onnx_add(matrixType, ft, biasPack.Wbf);
     ft = onnx_add(matrixType, ft, biasPack.Rbf);
   }
-  if (hasPeepholes) {
+  if (biasPack.hasPeephole) {
     Value PfCt = onnx_mul(matrixType, biasPack.Pf, Ct);
     ft = onnx_add(matrixType, ft, PfCt);
   }
@@ -526,7 +520,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
   Value XtWc = onnx_matmul(matrixType, Xt, weightPack.Wc);
   Value HtRc = onnx_matmul(matrixType, Ht, weightPack.Rc);
   Value ct = onnx_add(matrixType, XtWc, HtRc);
-  if (hasBiasForInput) {
+  if (biasPack.hasBias) {
     ct = onnx_add(matrixType, ct, biasPack.Wbc);
     ct = onnx_add(matrixType, ct, biasPack.Rbc);
   }
@@ -541,11 +535,11 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
   Value XtWo = onnx_matmul(matrixType, Xt, weightPack.Wo);
   Value HtRo = onnx_matmul(matrixType, Ht, weightPack.Ro);
   Value ot = onnx_add(matrixType, XtWo, HtRo);
-  if (hasBiasForInput) {
+  if (biasPack.hasBias) {
     ot = onnx_add(matrixType, ot, biasPack.Wbo);
     ot = onnx_add(matrixType, ot, biasPack.Rbo);
   }
-  if (hasPeepholes) {
+  if (biasPack.hasPeephole) {
     Value PoCt = onnx_mul(matrixType, biasPack.Po, nextCt);
     ot = onnx_add(matrixType, ot, PoCt);
   }
