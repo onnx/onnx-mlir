@@ -410,9 +410,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerToKrnlPass());
-  // Call this pass to automatically add all required dealloc operations for all
-  // allocations in the program to avoid memory leak.
-  pm.addPass(mlir::createBufferDeallocationPass());
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // oppertunities.
