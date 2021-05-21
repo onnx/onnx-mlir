@@ -59,14 +59,6 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
     Value reverseCt, Value initialH, Value initialC, Type elementType,
     StringRef direction, bool onlyHidden);
 
-/// Store a state into 'output'.
-void storeIntermediateState(ConversionPatternRewriter &rewriter, Location loc,
-    Value state, Value output);
-
-/// Store a state into all state 'allH' at a specific timestep and direction.
-void storeIntermediateStateToAllH(ConversionPatternRewriter &rewriter,
-    Location loc, Value Ht, Value sequenceIV, Value directionIV, Value allH);
-
 /// Store a state into the output of the RNN op.
 /// The input state is 2D and the output state is 3D with '1' or '2' is
 /// pretended, depending on 'direction'.

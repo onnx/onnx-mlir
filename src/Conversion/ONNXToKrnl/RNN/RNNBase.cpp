@@ -276,37 +276,11 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
   }
 }
 
-void storeIntermediateState(ConversionPatternRewriter &rewriter, Location loc,
-    Value state, Value output) {
-  Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, state);
-  rewriter.create<KrnlMemcpyOp>(loc, output, state, sizeInBytes);
-}
-
-void storeIntermediateStateToAllH(ConversionPatternRewriter &rewriter,
-    Location loc, Value Ht, Value sequenceIV, Value directionIV, Value allH) {
-  // Scope for krnl EDSC ops
-  using namespace mlir::edsc;
-  // Scope for std EDSC ops
-  using namespace edsc::intrinsics;
-  ScopedContext scope(rewriter, loc);
-
-  MemRefBoundsCapture bounds(Ht);
-  ValueRange loops = krnl_define_loop(2);
-  krnl_iterate(
-      loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
-        ValueRange indices = krnl_get_induction_var_value(loops);
-        Value s(sequenceIV), d(directionIV), b(indices[0]), h(indices[1]);
-        Value val = krnl_load(Ht, {b, h});
-        krnl_store(val, allH, {s, d, b, h});
-      });
-}
-
 // Apply an activation function on a given operand.
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value operand) {
   Value res;
 
-  // TODO: remove this once all implementations have changed.
   bool isScalar = !operand.getType().isa<ShapedType>();
 
   MemRefType memRefType;

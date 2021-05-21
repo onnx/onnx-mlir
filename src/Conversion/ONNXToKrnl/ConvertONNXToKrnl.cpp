@@ -103,13 +103,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     target.addLegalOp<ONNXTransposeOp>();
     target.addLegalOp<ONNXSqueezeOp>();
     target.addLegalOp<ONNXSplitOp>();
-    target.addLegalOp<ONNXAddOp>();
-    target.addLegalOp<ONNXSubOp>();
-    target.addLegalOp<ONNXMulOp>();
     target.addLegalOp<ONNXMatMulOp>();
     target.addLegalOp<ONNXSigmoidOp>();
     target.addLegalOp<ONNXTanhOp>();
-    target.addLegalOp<ONNXConstantOp>();
   }
 
   // Now that the conversion target has been defined, we just need to provide
