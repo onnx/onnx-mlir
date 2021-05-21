@@ -18,9 +18,7 @@
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 #include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
-#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
-#include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
 
 using namespace mlir;
 
@@ -122,7 +120,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter, Location loc) const {
 
     using namespace mlir::edsc;
-    using namespace mlir::edsc::ops;
     using namespace mlir::edsc::intrinsics;
 
     // Define scopes

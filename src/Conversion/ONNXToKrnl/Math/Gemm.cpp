@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
@@ -38,7 +37,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter, Location loc) const {
     // Scope for krnl EDSC ops
     using namespace mlir::edsc;
-    using namespace mlir::edsc::intrinsics;
     // ScopedContext scope(rewriter, loc);
 
     // R is result (alloc).
@@ -52,12 +50,13 @@ struct ONNXGemmOpLowering : public ConversionPattern {
           // Outer loop indices.
           ValueRange outerIndices = krnl_get_induction_var_value(outerLoops);
           // Create temp and set to zero.
-          Value red = memref_alloca(MemRefType::get({}, elementType));
+          Value red =
+              ValueBuilder<memref::AllocaOp>(MemRefType::get({}, elementType));
           SmallVector<Value, 2> redAccess; // Empty.
           krnl_store(zeroVal, red, redAccess);
           // Inner loop
           ValueRange innerLoop = krnl_define_loop(1);
-          Value lb = std_constant_index(0);
+          Value lb = ValueBuilder<ConstantIndexOp>(0);
           Value ub = shapeHelper.aDims[1].getValue();
           krnl_iterate(innerLoop, {lb}, {ub}, {}, [&](ValueRange args) {
             ValueRange innerIndex = krnl_get_induction_var_value(innerLoop);
@@ -73,12 +72,13 @@ struct ONNXGemmOpLowering : public ConversionPattern {
             else
               bAccess = {k, j};
             // Perform the reduction by adding a*b to reduction.
-            Value tmp = std_mulf(krnl_load(A, aAccess), krnl_load(B, bAccess));
-            krnl_store(
-                std_addf(tmp, krnl_load(red, redAccess)), red, redAccess);
+            Value tmp = ValueBuilder<MulFOp>(
+                krnl_load(A, aAccess), krnl_load(B, bAccess));
+            krnl_store(ValueBuilder<AddFOp>(tmp, krnl_load(red, redAccess)),
+                red, redAccess);
           });
           // Handle alpha/beta coefficients.
-          Value res = std_mulf(alphaVal, krnl_load(red, redAccess));
+          Value res = ValueBuilder<MulFOp>(alphaVal, krnl_load(red, redAccess));
           if (shapeHelper.hasBias) {
             SmallVector<IndexExpr, 2> cAccess;
             for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
@@ -88,7 +88,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                   IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0));
             }
             Value c = krnl_load(operandAdaptor.C(), cAccess);
-            res = std_addf(res, std_mulf(betaVal, c));
+            res = ValueBuilder<AddFOp>(res, ValueBuilder<MulFOp>(betaVal, c));
           }
           krnl_store(res, R, outerIndices);
         });
@@ -101,7 +101,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       Location loc) const {
     // Scope for krnl EDSC ops
     using namespace mlir::edsc;
-    using namespace mlir::edsc::intrinsics;
 
     // R is result (alloc).
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), R(alloc);
@@ -172,11 +171,11 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 #else
     ValueRange empty;
     IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
-    Value aBuff = memref_alloc(aTileType, empty, alignAttr);
-    Value bBuff = memref_alloc(bTileType, empty, alignAttr);
+    Value aBuff = ValueBuilder<memref::AllocOp>(aTileType, empty, alignAttr);
+    Value bBuff = ValueBuilder<memref::AllocOp>(bTileType, empty, alignAttr);
     Value rBuff;
     if (mustTileR)
-      rBuff = memref_alloc(rTileType, empty, alignAttr);
+      rBuff = ValueBuilder<memref::AllocOp>(rTileType, empty, alignAttr);
 #endif
 
     // 3) introduce the loops and permute them
@@ -293,7 +292,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       // Handle alpha/beta coefficients.
       Value res = krnl_load(R, outerIndices);
       if (alphaLit != 1.0)
-        res = std_mulf(alphaVal, res);
+        res = ValueBuilder<MulFOp>(alphaVal, res);
       if (shapeHelper.hasBias) {
         IndexExprScope innerScope;
         SmallVector<IndexExpr, 2> cAccess;
@@ -305,8 +304,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         }
         Value c = krnl_load(operandAdaptor.C(), cAccess);
         if (betaLit != 1.0)
-          c = std_mulf(betaVal, c);
-        res = std_addf(res, c);
+          c = ValueBuilder<MulFOp>(betaVal, c);
+        res = ValueBuilder<AddFOp>(res, c);
       }
       krnl_store(res, R, outerIndices);
     });

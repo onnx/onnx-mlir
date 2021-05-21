@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -32,7 +31,6 @@
 // EDSC intrinsics (which include all builder methods too).
 #include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
-#include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
 
 #define DEBUG_MALLOC 0
 #define DEBUG_GLOBAL_ALLOC_FREE 0
@@ -557,7 +555,6 @@ public:
 //===----------------------------------------------------------------------===//
 
 using namespace mlir::edsc;
-using namespace mlir::edsc::ops;
 using namespace mlir::edsc::intrinsics;
 
 static void affineLoopBuilder(ValueRange lbOperands, AffineMap &lbMap,
@@ -868,7 +865,7 @@ private:
 #endif
 #else
     IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
-    Value TmpC = memref_alloca(CTmpType, constAlignAttr);
+    Value TmpC = ValueBuilder<memref::AllocaOp>(CTmpType, constAlignAttr);
 #endif
 
     // For i, j loops.
@@ -881,13 +878,13 @@ private:
         // Defines induction variables, and possibly initialize C.
         jSaved = j;
         // Alloc and init temp c storage.
-        AffineIndexedValue TTmpC(TmpC);
+        SmallVector<Value, 4> emptyIndices;
         SmallVector<Value, 4> cAccess;
         // CC(i + cStart0.getValue(), j + cStart1.getValue());
         IndexExpr::getValues(cStart, cAccess);
         cAccess[cRank-2] = i + cAccess[cRank-2];
         cAccess[cRank-1] = j + cAccess[cRank-1];
-        TTmpC() = affine_load(C, cAccess);
+        OperationBuilder<AffineStoreOp>(ValueBuilder<AffineLoadOp>(C, cAccess), TmpC, emptyIndices);
         // Sum over k.
         affineLoopBuilder(zero, K, 1, [&](Value k) {
           SmallVector<Value, 4> aAccess, bAccess;
@@ -895,16 +892,16 @@ private:
           IndexExpr::getValues(aStart, aAccess);
           aAccess[aRank-2] = i + aAccess[aRank-2];
           aAccess[aRank-1] = k + aAccess[aRank-1];
-          Value a = affine_load(A, aAccess);
+          Value a = ValueBuilder<AffineLoadOp>(A, aAccess);
           // BB(k + bStart0.getValue(), j + bStart1.getValue())
           IndexExpr::getValues(bStart, bAccess);
           bAccess[bRank-2] = k + bAccess[bRank-2];
           bAccess[bRank-1] = j + bAccess[bRank-1];
-          Value b = affine_load(B, bAccess);
-          TTmpC() = a * b + TTmpC();
+          Value b = ValueBuilder<AffineLoadOp>(B, bAccess);
+          OperationBuilder<AffineStoreOp>(a * b + ValueBuilder<AffineLoadOp>(TmpC, emptyIndices), TmpC, emptyIndices);
         });
         // Store temp result into C(i, j)
-        affine_store(TTmpC(), C, cAccess);
+        OperationBuilder<AffineStoreOp>(ValueBuilder<AffineLoadOp>(TmpC, emptyIndices), C, cAccess);
       });
     });
 #if DEBUG_MALLOC
@@ -953,7 +950,7 @@ private:
 #endif
 #else
     IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
-    Value TmpC = memref_alloca(CTmpType, alignAttr);
+    Value TmpC = ValueBuilder<memref::AllocaOp>(CTmpType, alignAttr);
 #endif
 
     // Iterates over the I indices (j are simd dim).
@@ -964,12 +961,12 @@ private:
     affineLoopBuilder(zero, I, 1, [&](Value i) {
       iSaved = i; // Saved for unroll and jam.
       // Alloca temp vector TmpC and save C(i)/0.0 into it.
-      AffineIndexedValue TTmpC(TmpC);
+      SmallVector<Value, 4> emptyIndices;
       SmallVector<Value, 4> cAccess;
       // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
       IndexExpr::getValues(cStart, cAccess);
       cAccess[cRank-2] = i + cAccess[cRank-2];
-      TTmpC() = affine_load(vecC, cAccess);
+      OperationBuilder<AffineStoreOp>(ValueBuilder<AffineLoadOp>(vecC, cAccess), TmpC, emptyIndices);
       // Sum over k.
       affineLoopBuilder(zero, K, 1, [&](Value k) {
         // Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
@@ -977,16 +974,16 @@ private:
         IndexExpr::getValues(aStart, aAccess);
         aAccess[aRank-2] = i + aAccess[aRank-2];
         aAccess[aRank-1] = k + aAccess[aRank-1];
-        Value a = affine_load(A, aAccess);
-        Value va = vector_broadcast(vecType, a);
+        Value a = ValueBuilder<AffineLoadOp>(A, aAccess);
+        Value va = ValueBuilder<vector::BroadcastOp>(vecType, a);
         // bAccess = {k + bStart0.getValue(), bStart1.getValue()};
         IndexExpr::getValues(bStart, bAccess);
         bAccess[bRank-2] = k + bAccess[bRank-2];
-        Value vb = affine_load(vecB, bAccess);
-        TTmpC() = vector_fma(va, vb, TTmpC());
+        Value vb = ValueBuilder<AffineLoadOp>(vecB, bAccess);
+        OperationBuilder<AffineStoreOp>(ValueBuilder<vector::FMAOp>(va, vb, ValueBuilder<AffineLoadOp>(TmpC, emptyIndices)), TmpC, emptyIndices);
       });
       // Store temp result into C(i)
-      Value tmpResults = TTmpC();
+      Value tmpResults = ValueBuilder<AffineLoadOp>(TmpC, emptyIndices);
       int64_t JLit = J.getLiteral();
       if (JLit != VL) {
         // create vector constant
@@ -994,7 +991,7 @@ private:
         for(int64_t i=0; i<VL; i++)
           mask.emplace_back((i<JLit) ? i : VL+i);
         // permute
-        Value originalCvec = affine_load(vecC, cAccess);
+        Value originalCvec = ValueBuilder<AffineLoadOp>(vecC, cAccess);
         tmpResults = rewriter.create<vector::ShuffleOp>(op.getLoc(),
           tmpResults, originalCvec, mask);
       }

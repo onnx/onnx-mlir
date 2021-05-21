@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/AffineToTVP/AffineToTVPPass.h"
 #include "mlir/Conversion/StandardToTVP/ConvertStandardToTVP.h"
 #include "mlir/Conversion/TVPToLLVM/ConvertTVPToLLVM.h"
@@ -617,6 +618,8 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
 int compileModuleApollo(mlir::OwningModuleRef &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     EmissionTargetType emissionTarget) {
+  // ISSUE-TODO-namcvica-2021-05-20: Required for crash reproducer, see #418
+  context.disableMultithreading();
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Explicit);
   pm.enableCrashReproducerGeneration(outputBaseName + ".crash.mlir", true);
 #ifdef NDEBUG

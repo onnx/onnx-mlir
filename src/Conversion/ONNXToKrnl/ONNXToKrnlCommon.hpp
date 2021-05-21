@@ -342,3 +342,42 @@ Location ONNXLoc(Operation *op) {
       Identifier::get(OP_TYPE::getOperationName(), op->getContext()),
       op->getLoc());
 }
+
+/// Stripped down version of removed EDSC MemRefBoundsCapture
+/// See https://reviews.llvm.org/D102868 for more info
+static inline ::llvm::SmallVector<mlir::Value, 8> getMemRefSizes(
+    mlir::Value memRef) {
+  mlir::MemRefType memRefType = memRef.getType().cast<mlir::MemRefType>();
+  assert(isStrided(memRefType) && "Expected strided MemRef type");
+
+  SmallVector<mlir::Value, 8> res;
+  res.reserve(memRefType.getShape().size());
+  const auto &shape = memRefType.getShape();
+  for (unsigned idx = 0, n = shape.size(); idx < n; ++idx) {
+    if (shape[idx] == -1)
+      res.push_back(mlir::edsc::ValueBuilder<memref::DimOp>(memRef, idx));
+    else
+      res.push_back(mlir::edsc::ValueBuilder<ConstantIndexOp>(shape[idx]));
+  }
+  return res;
+}
+
+class MemRefBoundsCapture {
+public:
+  explicit MemRefBoundsCapture(Value v) {
+    auto memrefSizeValues = getMemRefSizes(v);
+    for (auto s : memrefSizeValues) {
+      lbs.push_back(mlir::edsc::ValueBuilder<ConstantIndexOp>(0));
+      ubs.push_back(s);
+    }
+  }
+
+  Value lb(unsigned idx) const { return lbs[idx]; }
+  Value ub(unsigned idx) const { return ubs[idx]; }
+  ArrayRef<Value> getLbs() const { return lbs; }
+  ArrayRef<Value> getUbs() const { return ubs; }
+
+private:
+  SmallVector<Value, 8> lbs;
+  SmallVector<Value, 8> ubs;
+};
