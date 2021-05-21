@@ -28,6 +28,8 @@
 
 using namespace mlir;
 
+extern llvm::cl::opt<bool> npu;
+
 // Create an DenseElementsAttr of ArrayAttr.
 // This function is used to get Value Type of an EXISTING ArrayAttr for Scaler
 // function.
@@ -210,13 +212,15 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   target.addIllegalOp<ONNXReduceSumSquareOp>();
   target.addIllegalOp<ONNXScalerOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
-  // ISSUE-TODO: disable LayerNorm expansion to lower it to a call
-  // target.addIllegalOp<ONNXLayerNormalizationOp>();
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
-  // ISSUE-TODO: disable LayerNorm expansion to lower it to a call
-  // patterns.insert<ONNXLayerNormalizationOpPattern>(context);
+  if (!npu) {
+    // if we're targeting NPU, LayerNormalization is turned into a call and then
+    // expanded later on in the --generate-tvp-kernels pass
+    target.addIllegalOp<ONNXLayerNormalizationOp>();
+    patterns.insert<ONNXLayerNormalizationOpPattern>(context);
+  }
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
