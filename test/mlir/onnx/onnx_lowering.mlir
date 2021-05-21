@@ -895,8 +895,9 @@ func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // -----
 
 func private @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Unsqueeze"(%arg0) {axes=[0,3]} : (tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  %0 = "onnx.Constant"() { value = dense<[0, 3]> : tensor<2xi64> } : () -> (tensor<2xi64>) 
+  %1 = "onnx.Unsqueeze"(%arg0, %0) : (tensor<10x10xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_unsqueeze
   // CHECK: [[RES:%.+]] = memref.alloc() : memref<1x10x10x1xf32>
@@ -2592,8 +2593,9 @@ func private @test_rnn_unkown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: t
 // -----
 
 func private @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Squeeze"(%arg0) { axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  %0 = "onnx.Constant"() { value = dense<[1, -2]> : tensor<2xi64> } : () -> (tensor<2xi64>) 
+  %1 = "onnx.Squeeze"(%arg0, %0) : (tensor<16x1x32x1x64xf32>, tensor<2xi64>) -> (tensor<*xf32>)
+  "std.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: @test_squeeze
   // CHECK: [[RES:%.+]] = memref.alloc() : memref<16x32x64xf32>
@@ -2605,8 +2607,9 @@ func private @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
 // -----
 
 func private @test_squeeze_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Squeeze"(%arg0) { axes = [1,-2]} : (tensor<?x1x32x?x64xf32>) -> (tensor<*xf32>)
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  %0 = "onnx.Constant"() { value = dense<[1, -2]> : tensor<2xi64> } : () -> (tensor<2xi64>) 
+  %1 = "onnx.Squeeze"(%arg0, %0) : (tensor<?x1x32x?x64xf32>, tensor<2xi64>) -> (tensor<*xf32>)
+  "std.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: @test_squeeze_unknown_dimensions
   // CHECK: [[C0:%.+]] = constant 0 : index
