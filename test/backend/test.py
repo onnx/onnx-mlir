@@ -349,9 +349,9 @@ test_to_enable_static_dynamic = {
     # Greater
 
     # GRU
-    "test_gru_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    "test_gru_seq_length_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    "test_gru_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_gru_defaults_cpu": (test_static_dynamicNA,{0:{0,1,2}}),
+    "test_gru_seq_length_cpu": (test_static_dynamicNA,{0:{0,1,2}}),
+    "test_gru_with_initial_bias_cpu": (test_static_dynamicNA,{0:{0,1,2}}),
 
     # Hard Max
 
