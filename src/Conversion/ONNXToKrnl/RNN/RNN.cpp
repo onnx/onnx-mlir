@@ -311,21 +311,34 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
   MemRefType matrixType = Ht.getType().cast<MemRefType>();
 
-  // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
+  // Do matrix multiplications.
   Value XtWi = onnx_matmul(matrixType, Xt, weightPack.Wi);
   Value HtRi = onnx_matmul(matrixType, Ht, weightPack.Ri);
-  Value nextHt = onnx_add(matrixType, XtWi, HtRi);
-  if (biasPack.hasBias) {
-    nextHt = onnx_add(matrixType, nextHt, biasPack.Wbi);
-    nextHt = onnx_add(matrixType, nextHt, biasPack.Rbi);
-  }
-  nextHt = applyActivation(rewriter, loc, activationPack.f, nextHt);
 
-  // Store the intermediate Ht.
-  storeIntermediateState(rewriter, loc, nextHt, Ht);
-  if (!isNoneType(state.allH))
-    storeIntermediateStateToAllH(
-        rewriter, loc, nextHt, sequenceIV, directionIV, state.allH);
+  // Do element-wise computations. Fuse them into a single nested loop.
+  MemRefBoundsCapture bounds(Ht);
+  ValueRange loops = krnl_define_loop(bounds.rank());
+  krnl_iterate(
+      loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
+        ValueRange indices = krnl_get_induction_var_value(loops);
+        Value bs(indices[0]), hs(indices[1]);
+        // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
+        Value XtWiVal = krnl_load(XtWi, indices);
+        Value HtRiVal = krnl_load(HtRi, indices);
+        Value nextHt = std_addf(XtWiVal, HtRiVal);
+        if (biasPack.hasBias) {
+          Value WbiVal = krnl_load(biasPack.Wbi, {hs});
+          Value RbiVal = krnl_load(biasPack.Rbi, {hs});
+          nextHt = std_addf(nextHt, WbiVal);
+          nextHt = std_addf(nextHt, RbiVal);
+        }
+        nextHt = applyActivation(rewriter, loc, activationPack.f, nextHt);
+
+        // Store the intermediate Ht.
+        krnl_store(nextHt, Ht, indices);
+        if (!isNoneType(state.allH))
+          krnl_store(nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
+      });
 }
 
 template <>

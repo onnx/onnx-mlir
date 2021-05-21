@@ -488,73 +488,102 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // Frequently used types.
   MemRefType matrixType = Ht.getType().cast<MemRefType>();
 
-  // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
+  // Do matrix multiplications.
   Value XtWi = onnx_matmul(matrixType, Xt, weightPack.Wi);
   Value HtRi = onnx_matmul(matrixType, Ht, weightPack.Ri);
-  Value it = onnx_add(matrixType, XtWi, HtRi);
-  if (biasPack.hasBias) {
-    it = onnx_add(matrixType, it, biasPack.Wbi);
-    it = onnx_add(matrixType, it, biasPack.Rbi);
-  }
-  if (biasPack.hasPeephole) {
-    Value PiCt = onnx_mul(matrixType, biasPack.Pi, Ct);
-    it = onnx_add(matrixType, it, PiCt);
-  }
-  it = applyActivation(rewriter, loc, activationPack.f, it);
-
-  // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
   Value XtWf = onnx_matmul(matrixType, Xt, weightPack.Wf);
   Value HtRf = onnx_matmul(matrixType, Ht, weightPack.Rf);
-  Value ft = onnx_add(matrixType, XtWf, HtRf);
-  if (biasPack.hasBias) {
-    ft = onnx_add(matrixType, ft, biasPack.Wbf);
-    ft = onnx_add(matrixType, ft, biasPack.Rbf);
-  }
-  if (biasPack.hasPeephole) {
-    Value PfCt = onnx_mul(matrixType, biasPack.Pf, Ct);
-    ft = onnx_add(matrixType, ft, PfCt);
-  }
-  ft = applyActivation(rewriter, loc, activationPack.f, ft);
-
-  // ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
   Value XtWc = onnx_matmul(matrixType, Xt, weightPack.Wc);
   Value HtRc = onnx_matmul(matrixType, Ht, weightPack.Rc);
-  Value ct = onnx_add(matrixType, XtWc, HtRc);
-  if (biasPack.hasBias) {
-    ct = onnx_add(matrixType, ct, biasPack.Wbc);
-    ct = onnx_add(matrixType, ct, biasPack.Rbc);
-  }
-  ct = applyActivation(rewriter, loc, activationPack.g, ct);
-
-  // Ct = ft (.) Ct-1 + it (.) ct
-  Value ftCt = onnx_mul(matrixType, ft, Ct);
-  Value itct = onnx_mul(matrixType, it, ct);
-  Value nextCt = onnx_add(matrixType, ftCt, itct);
-
-  // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
   Value XtWo = onnx_matmul(matrixType, Xt, weightPack.Wo);
   Value HtRo = onnx_matmul(matrixType, Ht, weightPack.Ro);
-  Value ot = onnx_add(matrixType, XtWo, HtRo);
-  if (biasPack.hasBias) {
-    ot = onnx_add(matrixType, ot, biasPack.Wbo);
-    ot = onnx_add(matrixType, ot, biasPack.Rbo);
-  }
-  if (biasPack.hasPeephole) {
-    Value PoCt = onnx_mul(matrixType, biasPack.Po, nextCt);
-    ot = onnx_add(matrixType, ot, PoCt);
-  }
-  ot = applyActivation(rewriter, loc, activationPack.f, ot);
 
-  // Ht = ot (.) h(Ct)
-  Value nextHt = applyActivation(rewriter, loc, activationPack.h, nextCt);
-  nextHt = onnx_mul(matrixType, ot, nextHt);
+  // Do element-wise computations. Fuse them into a single nested loop.
+  MemRefBoundsCapture bounds(Ht);
+  ValueRange loops = krnl_define_loop(bounds.rank());
+  krnl_iterate(
+      loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
+        ValueRange indices = krnl_get_induction_var_value(loops);
+        Value bs(indices[0]), hs(indices[1]);
+        Value CtVal = krnl_load(Ct, indices);
+        // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
+        Value XtWiVal = krnl_load(XtWi, indices);
+        Value HtRiVal = krnl_load(HtRi, indices);
+        Value it = std_addf(XtWiVal, HtRiVal);
+        if (biasPack.hasBias) {
+          Value WbiVal = krnl_load(biasPack.Wbi, {hs});
+          Value RbiVal = krnl_load(biasPack.Rbi, {hs});
+          it = std_addf(it, WbiVal);
+          it = std_addf(it, RbiVal);
+        }
+        if (biasPack.hasPeephole) {
+          Value PiVal = krnl_load(biasPack.Pi, {hs});
+          Value PiCt = std_mulf(PiVal, CtVal);
+          it = std_addf(it, PiCt);
+        }
+        it = applyActivation(rewriter, loc, activationPack.f, it);
 
-  // Store the intermediate Ht, Ct.
-  storeIntermediateState(rewriter, loc, nextHt, Ht);
-  storeIntermediateState(rewriter, loc, nextCt, Ct);
-  if (!isNoneType(state.allH))
-    storeIntermediateStateToAllH(
-        rewriter, loc, nextHt, sequenceIV, directionIV, state.allH);
+        // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
+        Value XtWfVal = krnl_load(XtWf, indices);
+        Value HtRfVal = krnl_load(HtRf, indices);
+        Value ft = std_addf(XtWfVal, HtRfVal);
+        if (biasPack.hasBias) {
+          Value WbfVal = krnl_load(biasPack.Wbf, {hs});
+          Value RbfVal = krnl_load(biasPack.Rbf, {hs});
+          ft = std_addf(ft, WbfVal);
+          ft = std_addf(ft, RbfVal);
+        }
+        if (biasPack.hasPeephole) {
+          Value PfVal = krnl_load(biasPack.Pf, {hs});
+          Value PfCt = std_mulf(PfVal, CtVal);
+          ft = std_addf(ft, PfCt);
+        }
+        ft = applyActivation(rewriter, loc, activationPack.f, ft);
+
+        // ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
+        Value XtWcVal = krnl_load(XtWc, indices);
+        Value HtRcVal = krnl_load(HtRc, indices);
+        Value ct = std_addf(XtWcVal, HtRcVal);
+        if (biasPack.hasBias) {
+          Value WbcVal = krnl_load(biasPack.Wbc, {hs});
+          Value RbcVal = krnl_load(biasPack.Rbc, {hs});
+          ct = std_addf(ct, WbcVal);
+          ct = std_addf(ct, RbcVal);
+        }
+        ct = applyActivation(rewriter, loc, activationPack.g, ct);
+
+        // Ct = ft (.) Ct-1 + it (.) ct
+        Value ftCt = std_mulf(ft, CtVal);
+        Value itct = std_mulf(it, ct);
+        Value nextCt = std_addf(ftCt, itct);
+
+        // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
+        Value XtWoVal = krnl_load(XtWo, indices);
+        Value HtRoVal = krnl_load(HtRo, indices);
+        Value ot = std_addf(XtWoVal, HtRoVal);
+        if (biasPack.hasBias) {
+          Value WboVal = krnl_load(biasPack.Wbo, {hs});
+          Value RboVal = krnl_load(biasPack.Rbo, {hs});
+          ot = std_addf(ot, WboVal);
+          ot = std_addf(ot, RboVal);
+        }
+        if (biasPack.hasPeephole) {
+          Value PoVal = krnl_load(biasPack.Po, {hs});
+          Value PoCt = std_mulf(PoVal, nextCt);
+          ot = std_addf(ot, PoCt);
+        }
+        ot = applyActivation(rewriter, loc, activationPack.f, ot);
+
+        // Ht = ot (.) h(Ct)
+        Value nextHt = applyActivation(rewriter, loc, activationPack.h, nextCt);
+        nextHt = std_mulf(ot, nextHt);
+
+        // Store the intermediate Ht, Ct.
+        krnl_store(nextCt, Ct, indices);
+        krnl_store(nextHt, Ht, indices);
+        if (!isNoneType(state.allH))
+          krnl_store(nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
+      });
 }
 
 template <>
