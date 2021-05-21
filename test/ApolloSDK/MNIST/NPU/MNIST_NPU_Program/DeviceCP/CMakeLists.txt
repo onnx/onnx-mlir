@@ -3,9 +3,9 @@ project(MNIST_NPU_Program_DeviceCP)
 
 include(ApolloNPUProgram)
 
-include_directories(${MNIST_NPU_BINARY_DIR})
+set_source_files_properties(${MNIST_NPU_BINARY_DIR}/tcp_driver.dcp.cpp PROPERTIES GENERATED true)
 
 add_devicecp_firmware(MNIST_NPU_Program_DeviceCP
   CPPFILES
-  MnistClusterCommand.cpp
+  ${MNIST_NPU_BINARY_DIR}/tcp_driver.dcp.cpp
 )

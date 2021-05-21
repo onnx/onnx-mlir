@@ -2,13 +2,16 @@
 // RUN: FileCheck %s --input-file %t.s -check-prefix=CHECK-ASM
 // RUN: FileCheck %s --input-file %t.tcp.h -check-prefix=CHECK-TCP-H
 // RUN: FileCheck %s --input-file %t.tvp.h -check-prefix=CHECK-TVP-H
+// RUN: FileCheck %s --input-file %t.dcp.h -check-prefix=CHECK-DCP-H
 // RUN: FileCheck %s --input-file %t.tcp.cpp -check-prefix=CHECK-TCP-CPP
 // RUN: FileCheck %s --input-file %t.tvp.cpp -check-prefix=CHECK-TVP-CPP
+// RUN: FileCheck %s --input-file %t.dcp.cpp -check-prefix=CHECK-DCP-CPP
 
 // This is the template for e2e test for MNIST pipeline.
 //   - check that each file contains the appropriate prologue
 //   - check that the TCP implementation code (.tcp.cpp) contains an implementation (further checking is NYI)
 //   - check that the TVP implementation code (.s) contains an implementation (further checking is NYI)
+//   - check that the DCP implementation code (.dcp.cpp) contains an implementation (further checking is NYI)
 
 // CHECK-TCP-H: //
 // CHECK-TCP-H: // Copyright (C) Microsoft Corporation. All rights reserved.
@@ -140,6 +143,26 @@
 // CHECK-TPV-H:    };
 // CHECK-TVP-H: }
 
+
+// CHECK-DCP-H: //
+// CHECK-DCP-H: // Copyright (C) Microsoft Corporation. All rights reserved.
+// CHECK-DCP-H: //
+// CHECK-DCP-H: #pragma once
+// CHECK-DCP-H: #include "Commands/CommandRuntime.h"
+// CHECK-DCP-H: #include "KernelParams.h"
+// CHECK-DCP-H: namespace {{.*}} {
+// CHECK-DCP-H:    struct ClusterCommand {
+// CHECK-DCP-H:       #pragma pack(push, 1)
+// CHECK-DCP-H:       struct Arguments {
+// CHECK-DCP-H:          KernelParams params;
+// CHECK-DCP-H:       };
+// CHECK-DCP-H:       #pragma pack(pop)
+// CHECK-DCP-H:       static void Execute(const Arguments &);
+// CHECK-DCP-H:     };
+// CHECK-DCP-H:     using Interface = Trainwave::FirmwareSDK::CommandList<ClusterCommand>;
+// CHECK-DCP-H: }
+
+
 // CHECK-TVP-CPP: //
 // CHECK-TVP-CPP: // Copyright (C) Microsoft Corporation. All rights reserved.
 // CHECK-TVP-CPP: //
@@ -181,6 +204,29 @@
 // CHECK-TCP-CPP: }
 // CHECK-TCP-CPP: namespace [[NS]] {
 // CHECK-TCP-CPP: void main_graph::Execute(const Arguments &args)
+
+
+// CHECK-DCP-CPP: //
+// CHECK-DCP-CPP: // Copyright (C) Microsoft Corporation. All rights reserved.
+// CHECK-DCP-CPP: //
+// CHECK-DCP-CPP: #include "Nepal/ArrayRef.h"
+// CHECK-DCP-CPP: #include "Commands/CommandRuntime.h"
+// CHECK-DCP-CPP: #include "TrainwaveClusterSDK.h"
+// CHECK-DCP-CPP: #include "KernelParams.h"
+// CHECK-DCP-CPP: #include "[[FILE:.*]].tcp.h"
+// CHECK-DCP-CPP: #include "[[FILE]].dcp.h"
+// CHECK-DCP-CPP: REGISTER_CLUSTERCP_INTERFACE([[NS:.*]]::Interface)
+// CHECK-DCP-CPP: namespace [[NS]] {
+// CHECK-DCP-CPP:    namespace npl = Apollo::Nepal;
+// CHECK-DCP-CPP:    namespace twf = Trainwave::FirmwareSDK;
+// CHECK-DCP-CPP:    namespace twr = Trainwave::FirmwareRT;
+// CHECK-DCP-CPP:    template <npl::MemoryKind TMemory, npl::ElementDataType TDataType>
+// CHECK-DCP-CPP:    using Array2D = npl::ArrayRef<2, TMemory, TDataType, Apollo::Nepal::FormatKind::Tile>;
+// CHECK-DCP-CPP:    template <npl::MemoryKind TMemory, npl::ElementDataType TDataType>
+// CHECK-DCP-CPP:    using Array1D = npl::ArrayRef<1, TMemory, TDataType, Apollo::Nepal::FormatKind::Tile>;
+// CHECK-DCP-CPP:    void ClusterCommand::Execute(const ClusterCommand::Arguments &args) {
+// CHECK-DCP-CPP:    }
+// CHECK-DCP-CPP: }
 
 // CHECK-ASM: Execute:
 

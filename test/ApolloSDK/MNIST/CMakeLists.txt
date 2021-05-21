@@ -32,6 +32,8 @@ else()
                                 ${MNIST_BINARY_DIR}/tcp_driver.tcp.h
                                 ${MNIST_BINARY_DIR}/tcp_driver.tvp.cpp
                                 ${MNIST_BINARY_DIR}/tcp_driver.tvp.h
+                                ${MNIST_BINARY_DIR}/tcp_driver.dcp.cpp
+                                ${MNIST_BINARY_DIR}/tcp_driver.dcp.h
                      VERBATIM)
 
   add_custom_command(OUTPUT ${MNIST_BINARY_DIR}/${ONNX_MODEL_NAME}.nounwind.ll

@@ -1,4 +1,4 @@
-#include "MnistClusterCommand.h"
+#include "tcp_driver.dcp.h"
 
 #include <Commands/CommandMappingUtils.h>
 #include <ControlMessage.h>
@@ -19,10 +19,10 @@ gsl::span<T> AsSpan(U &obj) {
   return gsl::span<T>(reinterpret_cast<T *>(&obj), sizeof(U) / sizeof(T));
 }
 
-Mnist::ClusterCP::MnistClusterCommand::Arguments CreateKernelParams(
-    std::vector<KernelParams::ArrayRef> &kernelInputs,
+MaiaCompiler::GeneratedCode::ClusterCP::ClusterCommand::Arguments
+CreateKernelParams(std::vector<KernelParams::ArrayRef> &kernelInputs,
     std::vector<KernelParams::ArrayRef> &kernelOutputs) {
-  Mnist::ClusterCP::MnistClusterCommand::Arguments args{};
+  MaiaCompiler::GeneratedCode::ClusterCP::ClusterCommand::Arguments args{};
   args.params.numInputTensors = gsl::narrow<uint8_t>(kernelInputs.size());
   args.params.numOutputTensors = gsl::narrow<uint8_t>(kernelOutputs.size());
   gsl::span<uint32_t> buffer(args.params.data);
@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
   kernelOutputs.push_back(
       KernelParams::ArrayRef{arg5_output_Dims, resultDMemAddress});
 
-  // Create MnistClusterCommand args
+  // Create ClusterCommand args
   auto args = CreateKernelParams(kernelInputs, kernelOutputs);
 
   // Re-Initialize DMem with host pre-allocations
@@ -146,7 +146,8 @@ int main(int argc, char *argv[]) {
       bias1DMemAddress, dataBias1, Apollo::Primitives::DataType::BFloat16);
 
   constexpr size_t funcId = Trainwave::FirmwareSDK::GetCommandID<
-      Mnist::ClusterCP::MnistClusterCommand, Mnist::ClusterCP::Interface>();
+      MaiaCompiler::GeneratedCode::ClusterCP::ClusterCommand,
+      MaiaCompiler::GeneratedCode::ClusterCP::Interface>();
 
   Apollo::Message::ControlMessage ctrlMsg =
       Apollo::Message::WrapIntoControlMessage(args, funcId);

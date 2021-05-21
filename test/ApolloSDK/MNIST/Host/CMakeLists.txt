@@ -6,9 +6,10 @@ set(CMAKE_MODULE_PATH
 include(EmulatorTargets)
 include(RuntimeTargets)
 
-include_directories(${MNIST_SOURCE_DIR}/NPU/MNIST_NPU_Program/DeviceCP)
+include_directories(${MNIST_BINARY_DIR})
 add_executable(MNIST_Host_Program mnist_main.cpp)
 target_link_libraries(MNIST_Host_Program PUBLIC Runtime)
+add_dependencies(MNIST_Host_Program MNIST_NPU_Program)
 
 set_target_properties(MNIST_Host_Program
   PROPERTIES
