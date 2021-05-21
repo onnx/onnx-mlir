@@ -45,7 +45,8 @@ DenseElementsAttr createDenseArrayAttr(
     return DenseElementsAttr::get(
         RankedTensorType::get(wrapper.size(), elementType),
         llvm::makeArrayRef(wrapper));
-  } else if (origAttrs.getValue()[0].dyn_cast<IntegerAttr>()) {
+  }
+  if (origAttrs.getValue()[0].dyn_cast<IntegerAttr>()) {
     mlir::Type elementType = rewriter.getIntegerType(64);
     int nElements = origAttrs.getValue().size();
     SmallVector<int64_t, 4> wrapper(nElements, 0);
@@ -56,6 +57,11 @@ DenseElementsAttr createDenseArrayAttr(
         RankedTensorType::get(wrapper.size(), elementType),
         llvm::makeArrayRef(wrapper));
   }
+  llvm_unreachable("unexpected attribute type");
+}
+
+ConstantOp createUnitConstant(PatternRewriter &rewriter, Location loc) {
+  return rewriter.create<ConstantOp>(loc, rewriter.getUnitAttr());
 }
 
 // Create an DenseElementsAttr of ArrayAttr.
@@ -193,7 +199,7 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());
-  target.addLegalDialect<ONNXOpsDialect>();
+  target.addLegalDialect<ONNXOpsDialect, StandardOpsDialect>();
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
