@@ -15,6 +15,8 @@
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 
 using namespace mlir;
+using namespace mlir::edsc;
+using namespace mlir::edsc::intrinsics;
 
 // Check a Value's type is none or not.
 bool isNoneType(Value val) { return val.getType().isa<NoneType>(); }
@@ -222,30 +224,25 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
 void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
     Value ht, Value ct, Value initialH, Value initialC, Type elementType,
     bool onlyHidden) {
+  ScopedContext scope(rewriter, loc);
   Value zero = emitConstantOp(rewriter, loc, elementType, 0);
-  int nLoops = 3;
-  BuildKrnlLoop initializationLoops(rewriter, loc, nLoops);
-  initializationLoops.createDefineAndIterateOp(ht);
-  auto ipInitializationLoops = rewriter.saveInsertionPoint();
-  rewriter.setInsertionPointToStart(initializationLoops.getIterateBlock());
-  {
-    SmallVector<Value, 4> IVs;
-    for (int i = 0; i < nLoops; ++i)
-      IVs.emplace_back(initializationLoops.getInductionVar(i));
+  MemRefBoundsCapture bounds(ht);
+  ValueRange loops = krnl_define_loop(bounds.rank());
+  krnl_iterate(
+      loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
+        ValueRange indices = krnl_get_induction_var_value(loops);
+        Value hiddenVal = zero;
+        if (!isNoneType(initialH))
+          hiddenVal = krnl_load(initialH, indices);
+        krnl_store(hiddenVal, ht, indices);
 
-    Value hiddenVal = zero;
-    if (!isNoneType(initialH))
-      hiddenVal = rewriter.create<KrnlLoadOp>(loc, initialH, IVs);
-    rewriter.create<KrnlStoreOp>(loc, hiddenVal, ht, IVs);
-
-    if (!onlyHidden) {
-      Value cellVal = zero;
-      if (!isNoneType(initialC))
-        cellVal = rewriter.create<KrnlLoadOp>(loc, initialC, IVs);
-      rewriter.create<KrnlStoreOp>(loc, cellVal, ct, IVs);
-    }
-  }
-  rewriter.restoreInsertionPoint(ipInitializationLoops);
+        if (!onlyHidden) {
+          Value cellVal = zero;
+          if (!isNoneType(initialC))
+            cellVal = krnl_load(initialC, indices);
+          krnl_store(cellVal, ct, indices);
+        }
+      });
 }
 
 /// Store a state into the output of the RNN op.
@@ -254,10 +251,6 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
 void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     Location loc, Value forwardVal, Value reverseVal, StringRef direction,
     Value output) {
-  // Scope for krnl EDSC ops
-  using namespace mlir::edsc;
-  // Scope for std EDSC ops
-  using namespace edsc::intrinsics;
   ScopedContext scope(rewriter, loc);
 
   if (direction == FORWARD || direction == REVERSE) {
@@ -370,48 +363,51 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
   return res;
 }
 
-/// Get a slice of X at a specific timestep.
+/// Create a copy of a slice of X at a specific timestep.
+/// This function is not able correctly to emit 'dealloc' for the copy since it
+/// does not have enough information about the parent context. Users must
+/// deallocate the copy by themselves.
 Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value timestepIV) {
+  ScopedContext scope(rewriter, loc);
 
   Value sliceX;
 
   int64_t batchSize = dimAt(X, 1);
   int64_t inputSize = dimAt(X, 2);
-  Value batchSizeVal =
-      getDimOrConstant(rewriter, loc, X, 1, rewriter.getIndexType());
-  Value inputSizeVal =
-      getDimOrConstant(rewriter, loc, X, 2, rewriter.getIndexType());
-
   auto elementType = X.getType().cast<ShapedType>().getElementType();
   MemRefType sliceXType = MemRefType::get({batchSize, inputSize}, elementType);
+
+  // Allocate a buffer
   if (hasAllConstantDimensions(sliceXType))
-    sliceX = insertAllocAndDealloc(sliceXType, loc, rewriter, false);
+    sliceX =
+        insertAllocAndDealloc(sliceXType, loc, rewriter, /*deallocate=*/false);
   else {
     auto memRefShape = sliceXType.getShape();
     SmallVector<Value, 2> allocOperands;
     if (memRefShape[0] < 0) {
+      Value batchSizeVal =
+          getDimOrConstant(rewriter, loc, X, 1, rewriter.getIndexType());
       allocOperands.emplace_back(batchSizeVal);
     }
     if (memRefShape[1] < 0) {
+      Value inputSizeVal =
+          getDimOrConstant(rewriter, loc, X, 2, rewriter.getIndexType());
       allocOperands.emplace_back(inputSizeVal);
     }
     sliceX = rewriter.create<memref::AllocOp>(loc, sliceXType, allocOperands);
   }
-  BuildKrnlLoop xtLoops(rewriter, loc, 2);
-  xtLoops.createDefineOp();
-  xtLoops.pushBounds(0, batchSizeVal);
-  xtLoops.pushBounds(0, inputSizeVal);
-  xtLoops.createIterateOp();
-  {
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(xtLoops.getIterateBlock());
-    auto batchIV = xtLoops.getInductionVar(0);
-    auto inputIV = xtLoops.getInductionVar(1);
-    Value val = rewriter.create<KrnlLoadOp>(
-        loc, X, ArrayRef<Value>{timestepIV, batchIV, inputIV});
-    rewriter.create<KrnlStoreOp>(
-        loc, val, sliceX, ArrayRef<Value>{batchIV, inputIV});
-  }
+
+  // Copy data from X.
+  MemRefBoundsCapture bounds(sliceX);
+  ValueRange loops = krnl_define_loop(2);
+  krnl_iterate(
+      loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
+        ValueRange indices = krnl_get_induction_var_value(loops);
+        Value b(indices[0]), i(indices[1]);
+        Value val = krnl_load(X, {timestepIV, b, i});
+        krnl_store(val, sliceX, {b, i});
+      });
+
   return sliceX;
 }

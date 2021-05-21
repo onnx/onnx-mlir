@@ -15,6 +15,8 @@
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 
 using namespace mlir;
+using namespace mlir::edsc;
+using namespace mlir::edsc::intrinsics;
 
 struct RnnState {
   // returned states.
@@ -230,7 +232,7 @@ std::tuple<RnnBiasPack, RnnBiasPack> getBiasPack<ONNXRNNOp, RnnBiasPack>(
       bB = emitSqueeze(rewriter, loc, bType1D, vals[1], /*axis=*/0);
     }
 
-    // Split B into invidual bias tensors.
+    // Split B into individual bias tensors.
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       std::vector<Value> vals = emitSplit(rewriter, loc, split1D2Ty, fB, 0);
       biasForward.Wbi = vals[0];
@@ -288,24 +290,10 @@ RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
 template <>
 void calculateState<ONNXRNNOp, RnnState, RnnActivationPack, RnnWeightPack,
     RnnBiasPack>(ConversionPatternRewriter &rewriter, Location loc,
-    typename ONNXRNNOp::Adaptor operandAdaptor, RnnState state,
+    typename ONNXRNNOp::Adaptor operandAdaptor, Value Xt, RnnState state,
     RnnActivationPack activationPack, RnnWeightPack weightPack,
     RnnBiasPack biasPack, Value sequenceIV, Value directionIV, bool isForward) {
-
-  // Scope for krnl EDSC ops
-  using namespace mlir::edsc;
-  // Scope for std EDSC ops
-  using namespace edsc::intrinsics;
   ScopedContext scope(rewriter, loc);
-
-  // Prepare dimensions.
-  int64_t batchSize = dimAt(operandAdaptor.X(), 1);
-  int64_t hiddenSize = dimAt(operandAdaptor.R(), 2);
-
-  // Frequently used types.
-  auto elementType =
-      operandAdaptor.X().getType().cast<ShapedType>().getElementType();
-  auto matrixType = MemRefType::get({batchSize, hiddenSize}, elementType);
 
   bool hasBiasForInput = !isNoneType(operandAdaptor.B());
 
@@ -319,10 +307,10 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack, RnnWeightPack,
   // Wbi: [hidden_size]
   // Rbi: [hidden_size]
 
-  // Get a slice of X at the current timestep.
-  Value Xt = emitXSliceAt(rewriter, loc, operandAdaptor.X(), sequenceIV);
   // Get Ht.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
+  auto matrixType = Ht.getType();
+
   // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
   Value XtWi = onnx_matmul(matrixType, Xt, weightPack.Wi);
   Value HtRi = onnx_matmul(matrixType, Ht, weightPack.Ri);

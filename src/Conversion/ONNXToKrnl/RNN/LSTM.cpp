@@ -15,6 +15,8 @@
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 
 using namespace mlir;
+using namespace mlir::edsc;
+using namespace mlir::edsc::intrinsics;
 
 struct LstmState {
   // returned states.
@@ -339,7 +341,7 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
       bB = emitSqueeze(rewriter, loc, bType1D, vals[1], /*axis=*/0);
     }
 
-    // Split B into invidual bias tensors.
+    // Split B into individual bias tensors.
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       std::vector<Value> vals = emitSplit(rewriter, loc, split1D8Ty, fB, 0);
       biasForward.Wbi = vals[0];
@@ -389,7 +391,7 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
       bP = emitSqueeze(rewriter, loc, pType1D, vals[1], /*axis=*/0);
     }
 
-    // Split P into invidual tensors.
+    // Split P into individual tensors.
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       std::vector<Value> vals = emitSplit(rewriter, loc, split1D3Ty, fP, 0);
       biasForward.Pi = vals[0];
@@ -460,25 +462,11 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
 template <>
 void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
     LstmBiasPack>(ConversionPatternRewriter &rewriter, Location loc,
-    typename ONNXLSTMOp::Adaptor operandAdaptor, LstmState state,
+    typename ONNXLSTMOp::Adaptor operandAdaptor, Value Xt, LstmState state,
     LstmActivationPack activationPack, LstmWeightPack weightPack,
     LstmBiasPack biasPack, Value sequenceIV, Value directionIV,
     bool isForward) {
-
-  // Scope for krnl EDSC ops
-  using namespace mlir::edsc;
-  // Scope for std EDSC ops
-  using namespace edsc::intrinsics;
   ScopedContext scope(rewriter, loc);
-
-  // Prepare dimensions.
-  int64_t batchSize = dimAt(operandAdaptor.X(), 1);
-  int64_t hiddenSize = dimAt(operandAdaptor.R(), 2);
-
-  // Frequently used types.
-  auto elementType =
-      operandAdaptor.X().getType().cast<ShapedType>().getElementType();
-  auto matrixType = MemRefType::get({batchSize, hiddenSize}, elementType);
 
   bool hasBiasForInput = !isNoneType(operandAdaptor.B());
   bool hasPeepholes = !isNoneType(operandAdaptor.P());
@@ -499,11 +487,12 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack, LstmWeightPack,
   // Wb[iofc] : [hidden_size]
   // Rb[iofc] : [hidden_size]
 
-  // Get a slice of X at the current timestep.
-  Value Xt = emitXSliceAt(rewriter, loc, operandAdaptor.X(), sequenceIV);
   // Get Ht, Ct.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
   Value Ct = (isForward) ? state.forwardCt : state.reverseCt;
+
+  // Frequently used types.
+  auto matrixType = Ht.getType();
 
   // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
   Value XtWi = onnx_matmul(matrixType, Xt, weightPack.Wi);

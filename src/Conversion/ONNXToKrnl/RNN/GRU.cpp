@@ -202,7 +202,7 @@ GruState allocAndInitializeStates<ONNXGRUOp, GruState>(
 template <>
 void calculateState<ONNXGRUOp, GruState, GruActivationPack, GruWeightPack,
     GruBiasPack>(ConversionPatternRewriter &rewriter, Location loc,
-    typename ONNXGRUOp::Adaptor operandAdaptor, GruState state,
+    typename ONNXGRUOp::Adaptor operandAdaptor, Value Xt, GruState state,
     GruActivationPack activationPack, GruWeightPack weightPack,
     GruBiasPack biasPack, Value sequenceIV, Value directionIV, bool isForward) {
 

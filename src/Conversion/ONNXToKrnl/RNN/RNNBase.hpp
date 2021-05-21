@@ -121,8 +121,8 @@ S allocAndInitializeStates(ConversionPatternRewriter &rewriter, Location loc,
 // Calculate new states from the current input and states.
 template <typename RNNOp, typename S, typename A, typename W, typename B>
 void calculateState(ConversionPatternRewriter &rewriter, Location loc,
-    typename RNNOp::Adaptor operandAdaptor, S state, A activationSet, W weight,
-    B bias, Value sequenceIV, Value directionIV, bool isForward);
+    typename RNNOp::Adaptor operandAdaptor, Value Xt, S state, A activationSet,
+    W weight, B bias, Value sequenceIV, Value directionIV, bool isForward);
 
 // Write states to the RNN's outputs.
 template <typename RNNOp, typename S>
@@ -141,6 +141,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
 
     RNNOp rnnOp = llvm::dyn_cast<RNNOp>(op);
     typename RNNOp::Adaptor operandAdaptor(operands);
+    Value X = operandAdaptor.X();
 
     if (hasAllNoneOutput<RNNOp>(&rnnOp)) {
       rewriter.eraseOp(op);
@@ -176,7 +177,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         sequenceLoops.pushBounds(0, sequenceDimSize);
       else
         sequenceLoops.pushBounds(
-            0, rewriter.create<memref::DimOp>(loc, rnnOp.X(), 0).getResult());
+            0, rewriter.create<memref::DimOp>(loc, X, 0).getResult());
       sequenceLoops.createIterateOp();
 
       auto ipSequenceLoops = rewriter.saveInsertionPoint();
@@ -185,10 +186,14 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         Value directionIV =
             emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
         Value sequenceIV = sequenceLoops.getInductionVar(0);
+        // Get a slice of X at the current timestep.
+        Value Xt = emitXSliceAt(rewriter, loc, X, sequenceIV);
         // Emit calculation for one RNN step.
-        calculateState<RNNOp, S, A, W, B>(rewriter, loc, operandAdaptor, state,
-            activationForward, weightForward, biasForward, sequenceIV,
+        calculateState<RNNOp, S, A, W, B>(rewriter, loc, operandAdaptor, Xt,
+            state, activationForward, weightForward, biasForward, sequenceIV,
             directionIV, /*isForward=*/true);
+        // Clean up
+        rewriter.create<memref::DeallocOp>(loc, Xt);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
@@ -200,7 +205,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         sequenceLoops.pushBounds(0, sequenceDimSize);
       else
         sequenceLoops.pushBounds(
-            0, rewriter.create<memref::DimOp>(loc, rnnOp.X(), 0).getResult());
+            0, rewriter.create<memref::DimOp>(loc, X, 0).getResult());
       sequenceLoops.createIterateOp();
 
       auto ipSequenceLoops = rewriter.saveInsertionPoint();
@@ -216,16 +221,19 @@ struct ONNXRNNOpLowering : public ConversionPattern {
           sequenceSize = emitConstantOp(
               rewriter, loc, rewriter.getIndexType(), sequenceDimSize);
         else
-          sequenceSize =
-              rewriter.create<memref::DimOp>(loc, rnnOp.X(), 0).getResult();
+          sequenceSize = rewriter.create<memref::DimOp>(loc, X, 0).getResult();
 
         Value reverseSequenceIV = rewriter.create<AffineApplyOp>(loc,
             reverseIVMap,
             std::vector<Value>{sequenceLoops.getInductionVar(0), sequenceSize});
+        // Get a slice of X at the current timestep.
+        Value Xt = emitXSliceAt(rewriter, loc, X, reverseSequenceIV);
         // Emit calculation for one RNN step.
-        calculateState<RNNOp, S, A, W, B>(rewriter, loc, operandAdaptor, state,
-            activationReverse, weightReverse, biasReverse, reverseSequenceIV,
-            directionIV, /*isForward=*/false);
+        calculateState<RNNOp, S, A, W, B>(rewriter, loc, operandAdaptor, Xt,
+            state, activationReverse, weightReverse, biasReverse,
+            reverseSequenceIV, directionIV, /*isForward=*/false);
+        // Clean up
+        rewriter.create<memref::DeallocOp>(loc, Xt);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
