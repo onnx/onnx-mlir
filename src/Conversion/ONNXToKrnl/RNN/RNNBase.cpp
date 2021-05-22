@@ -276,23 +276,17 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
   }
 }
 
-// Apply an activation function on a given operand.
+// Apply an activation function on a given scalar operand.
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value operand) {
   Value res;
 
   bool isScalar = !operand.getType().isa<ShapedType>();
+  assert(isScalar && "Not a scalar operand");
 
-  MemRefType memRefType;
-  Value alloc;
-  if (isScalar) {
-    memRefType = MemRefType::get({}, operand.getType(), {}, 0);
-    alloc = rewriter.create<memref::AllocOp>(loc, memRefType);
-    rewriter.create<KrnlStoreOp>(loc, operand, alloc, ArrayRef<Value>{});
-  } else {
-    memRefType = operand.getType().cast<MemRefType>();
-    alloc = operand;
-  }
+  MemRefType memRefType = MemRefType::get({}, operand.getType(), {}, 0);
+  Value alloc = rewriter.create<memref::AllocOp>(loc, memRefType);
+  rewriter.create<KrnlStoreOp>(loc, operand, alloc, ArrayRef<Value>{});
 
   std::vector<mlir::NamedAttribute> attributes;
   if (activation.alpha) {
@@ -331,8 +325,8 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
   else
     llvm_unreachable("Unsupported activation");
 
-  if (isScalar)
-    res = rewriter.create<KrnlLoadOp>(loc, res);
+  res = rewriter.create<KrnlLoadOp>(loc, res);
+  rewriter.create<memref::DeallocOp>(loc, alloc);
 
   return res;
 }
