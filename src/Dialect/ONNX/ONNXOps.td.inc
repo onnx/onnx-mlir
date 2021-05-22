@@ -4266,6 +4266,9 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
       static std::vector<int> getTypeMap() {
         return {20};
       }
+      static std::map<int, std::string> attrToInput() {
+        return {{1, "axes"}};
+      }
     }];
 }
 
