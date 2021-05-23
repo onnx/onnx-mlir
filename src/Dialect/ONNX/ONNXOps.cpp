@@ -1603,6 +1603,16 @@ LogicalResult ONNXReduceSumOp::inferShapes(
   return success();
 }
 
+LogicalResult ONNXReduceSumV11Op::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // Conv
 //===----------------------------------------------------------------------===//
