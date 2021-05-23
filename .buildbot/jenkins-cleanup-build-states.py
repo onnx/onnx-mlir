@@ -33,6 +33,22 @@ LOG_PULL_PUSH             = ('pull request: #'
 
 docker_api                = docker.APIClient(base_url=docker_daemon_socket)
 
+# Remove all the containers depending on an (dangling) image.
+def remove_dependent_containers(image):
+    containers = docker_api.containers(
+        filters = { 'ancestor': image }, all = True, quiet = True)
+    for container in containers:
+        try:
+            container_info = docker_api.inspect_container(container['Id'])
+            logging.info('Removing     Id:%s', container['Id'])
+            logging.info('   Image %s', container_info['Image'])
+            logging.info('     Cmd %s', str(container_info['Config']['Cmd']))
+            logging.info('  Labels %s', str(container_info['Config']['Labels']))
+            docker_api.remove_container(container['Id'], v = True, force = True)
+        except:
+            logging.info(sys.exc_info()[1])
+            logging.info('errors ignored while removing dependent containers')
+
 # Cleanup docker images and containers associated with a pull request number.
 # For action open/reopen/synchronize, only dangling images and containers are
 # removed. For action close, non-dangling images and containers are removed.
@@ -58,18 +74,7 @@ def cleanup_docker_images(host_name,
     # For each dangling image found, find and remove all the dependant
     # containers
     for image in images:
-        containers = docker_api.containers(
-            filters = { 'ancestor': image }, all = True, quiet = True)
-        for container in containers:
-            try:
-                container_info = docker_api.inspect_container(container['Id'])
-                logging.info('Removing     Id:%s', container['Id'])
-                logging.info('   Image %s', container_info['Image'])
-                logging.info('     Cmd %s', str(container_info['Config']['Cmd']))
-                logging.info('  Labels %s', str(container_info['Config']['Labels']))
-                docker_api.remove_container(container['Id'], v = True, force = True)
-            except:
-                logging.info(sys.exc_info()[1])
+        remove_dependent_containers(image)
 
     # If we are doing final cleanup, i.e., dangling = False, add non-dangling
     # images to the list of images to be removed. The non-dangling images

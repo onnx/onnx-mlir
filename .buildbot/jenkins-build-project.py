@@ -8,6 +8,7 @@ import hashlib
 import json
 import logging
 import math
+import re
 import os
 import requests
 import sys
@@ -203,6 +204,21 @@ def get_remote_image_labels(host_name, user_name, image_name, image_tag,
     except:
         logging.info(sys.exc_info()[1])
         return ''
+# Remove all the containers depending on an (dangling) image.
+def remove_dependent_containers(image):
+    containers = docker_api.containers(
+        filters = { 'ancestor': image }, all = True, quiet = True)
+    for container in containers:
+        try:
+            container_info = docker_api.inspect_container(container['Id'])
+            logging.info('Removing     Id:%s', container['Id'])
+            logging.info('   Image %s', container_info['Image'])
+            logging.info('     Cmd %s', str(container_info['Config']['Cmd']))
+            logging.info('  Labels %s', str(container_info['Config']['Labels']))
+            docker_api.remove_container(container['Id'], v = True, force = True)
+        except:
+            logging.info(sys.exc_info()[1])
+            logging.info('errors ignored while removing dependent containers')
 
 # Build project dev and user images.
 def build_private_project(image_type, exp):
@@ -289,6 +305,7 @@ def build_private_project(image_type, exp):
         # - image in registry has a project repo commit sha1 different
         #   from what we expect
         #
+        layer_sha256 = ''
         for line in docker_api.build(
                 path = '.',
                 dockerfile = PROJECT_DOCKERFILE[image_type],
@@ -304,12 +321,26 @@ def build_private_project(image_type, exp):
                     GITHUB_REPO_NAME2 + '_PR_NUMBER': github_pr_number,
                     GITHUB_REPO_NAME2 + '_PR_NUMBER2': github_pr_number2
                 }):
-            print(line['stream'] if 'stream' in line else '',
-                  end='', flush=True)
+
+            if 'stream' in line:
+                # Keep track of the latest successful image layer
+                m = re.match('^\s*---> ([0-9a-f]+)$', line['stream'])
+                if m:
+                    layer_sha256 = m.group(1)
+                print(line['stream'], end='', flush=True)
+
             if 'error' in line:
+                # Tag the latest successful image layer for easier debugging
+                if layer_sha256:
+                    image_layer = 'sha256:' + layer_sha256
+                    remove_dependent_containers(image_layer)
+                    logging.info('tagging %s -> %s', image_layer, image_full)
+                    docker_api.tag(image_layer, image_repo, image_tag, force=True)
+                else:
+                    logging.info('no successful image layer for tagging')
                 raise Exception(line['error'])
 
-        id = docker_api.images(name = image_full, all = False, quiet = True)
+        id = docker_api.images(name=image_full, all=False, quiet=True)
         logging.info('image %s (%s) built', image_full, id[0][0:19])
 
     # Found useable local image
