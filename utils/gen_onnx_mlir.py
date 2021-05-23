@@ -174,7 +174,7 @@ version_dict = {'Abs': [13],
  'ReduceMean': [13],
  'ReduceMin': [13],
  'ReduceProd': [13],
- 'ReduceSum': [13],
+ 'ReduceSum': [13, 11],
  'ReduceSumSquare': [13],
  'Relu': [13],
  'Reshape': [13],
@@ -883,9 +883,13 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
         print('No typeStr ', schema.name)
         return []
 
-def gen_op_def(schema):
+def gen_op_def(schema, with_version = False):
     indent = inc_indent()
-    s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
+    if with_version :
+        opName = schema.name+"V"+str(schema.since_version)
+    else :
+        opName = schema.name
+    s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(opName)
 
     regions = OrderedDict()
     for _, attr in sorted(schema.attributes.items()):
@@ -1072,9 +1076,13 @@ special cases:
 """
 
 
-def gen_op_importer(schema, file):
+def gen_op_importer(schema, file, with_version=False):
     indent = inc_indent()
-    s = indent + 'import_handler_map_["' + schema.name +'"] = \n '
+    if with_version :
+        opName = schema.name + "V"+str(schema.since_version)
+    else :
+        opName = schema.name
+    s = indent + 'import_handler_map_["' + opName +'"] = \n '
 
     expected_num_operands = len(schema.inputs)
     expected_num_results = len(schema.outputs)
@@ -1086,7 +1094,7 @@ def gen_op_importer(schema, file):
             expected_num_results = -1
 
     handler_func = special_op_handler.get(
-        schema.name, "buildOperation<mlir::ONNX{}Op>".format(schema.name))
+        schema.name, "buildOperation<mlir::ONNX{}Op>".format(opName))
 
     # Special handlers currently require expected num operands/results to be specified.
     # TODO: remove special handlers.
@@ -1149,14 +1157,17 @@ def build_operator_schemas():
                     if schema.name not in version_dict :
                         continue
                     found = False
+                    vcounter = 0
                     for schema in reversed(versions):
                         # Check the version number against the version_dict
-                        specified_version = version_dict[schema.name][0]
+                        specified_version = version_dict[schema.name][vcounter]
                         if schema.since_version == specified_version:
                             exsting_ops.add(schema.name)
                             processed_namemap.append((n, schema, versions))
                             found = True
-                            break
+                            vcounter += 1
+                            if len(version_dict[schema.name]) == vcounter :
+                                break
                     if not found:
                         print("Your onnx installation may be too old. "
                            "The desired version for operation {} is not found.".format(
@@ -1187,13 +1198,17 @@ def main(args):  # type: (Type[Args]) -> None
     version_dict = dict()
     for domain, supportmap in build_operator_schemas():
         for _, namemap in supportmap:
+            # Generate Op with version number if not the latest version
+            previous_name = ""
             for op_type, schema, versions in namemap:
                 if check_operation_version:
                     version_dict[schema.name] = schema.since_version
                 else:
-                    gen_op_importer(schema, op_importer)
-                    r = gen_op_def(schema)
+                    with_version = previous_name == schema.name
+                    gen_op_importer(schema, op_importer, with_version)
+                    r = gen_op_def(schema, with_version)
                     op_def.write(r)
+                    previous_name = schema.name
     if check_operation_version :
         pprint.pprint(version_dict)
 

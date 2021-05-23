@@ -228,6 +228,8 @@ import_handler_map_["ReduceProd"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceProdOp>;
 import_handler_map_["ReduceSum"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumOp>;
+import_handler_map_["ReduceSumV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumV11Op>;
 import_handler_map_["ReduceSumSquare"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumSquareOp>;
 import_handler_map_["Relu"] = 
