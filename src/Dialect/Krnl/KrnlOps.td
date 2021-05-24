@@ -10,6 +10,7 @@
 
 include "mlir/IR/OpBase.td"
 include "mlir/Dialect/Shape/IR/ShapeBase.td"
+include "mlir/Interfaces/LoopLikeInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "src/Interface/SpecializedKernelOpInterface.td"
 
@@ -50,7 +51,8 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
 }];
 }
 
-def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator]> {
+def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
+    DeclareOpInterfaceMethods<LoopLikeOpInterface>]> {
   let summary = "iterate operation";
   let description = [{
     The "krnl.iterate" operation is conceptually equivalent to a nested for loops.
