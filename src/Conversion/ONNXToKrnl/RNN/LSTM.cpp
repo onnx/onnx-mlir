@@ -603,7 +603,7 @@ void stateToOutput<ONNXLSTMOp, LstmState>(ConversionPatternRewriter &rewriter,
         rewriter, loc, state.forwardHt, state.reverseHt, direction, state.ht);
     outputs.emplace_back(state.ht);
   }
-  // Second output: cell.
+  // Third output: cell.
   if (isNoneType(op->Y_c()))
     outputs.emplace_back(noneValue);
   else {

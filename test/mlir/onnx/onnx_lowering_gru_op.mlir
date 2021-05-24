@@ -68,6 +68,7 @@ func private @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
 // CHECK:               krnl.store %[[VAL_54]], %[[VAL_55]][] : memref<f32>
 // CHECK:               %[[VAL_56:.*]] = "onnx.Sigmoid"(%[[VAL_55]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_57:.*]] = krnl.load %[[VAL_56]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_55]] : memref<f32>
 // CHECK:               krnl.store %[[VAL_57]], %[[VAL_25]]{{\[}}%[[VAL_50]]#0, %[[VAL_50]]#1] : memref<3x3xf32>
 // CHECK:               %[[VAL_58:.*]] = mulf %[[VAL_57]], %[[VAL_51]] : f32
 // CHECK:               krnl.store %[[VAL_58]], %[[VAL_24]]{{\[}}%[[VAL_50]]#0, %[[VAL_50]]#1] : memref<3x3xf32>
@@ -84,6 +85,7 @@ func private @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
 // CHECK:               krnl.store %[[VAL_67]], %[[VAL_68]][] : memref<f32>
 // CHECK:               %[[VAL_69:.*]] = "onnx.Sigmoid"(%[[VAL_68]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_70:.*]] = krnl.load %[[VAL_69]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_68]] : memref<f32>
 // CHECK:               %[[VAL_71:.*]] = krnl.load %[[VAL_41]]{{\[}}%[[VAL_63]]#0, %[[VAL_63]]#1] : memref<3x3xf32>
 // CHECK:               %[[VAL_72:.*]] = krnl.load %[[VAL_59]]{{\[}}%[[VAL_63]]#0, %[[VAL_63]]#1] : memref<3x3xf32>
 // CHECK:               %[[VAL_73:.*]] = addf %[[VAL_71]], %[[VAL_72]] : f32
@@ -91,6 +93,7 @@ func private @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
 // CHECK:               krnl.store %[[VAL_73]], %[[VAL_74]][] : memref<f32>
 // CHECK:               %[[VAL_75:.*]] = "onnx.Tanh"(%[[VAL_74]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_76:.*]] = krnl.load %[[VAL_75]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_74]] : memref<f32>
 // CHECK:               %[[VAL_77:.*]] = subf %[[VAL_42]], %[[VAL_70]] : f32
 // CHECK:               %[[VAL_78:.*]] = mulf %[[VAL_77]], %[[VAL_76]] : f32
 // CHECK:               %[[VAL_79:.*]] = mulf %[[VAL_70]], %[[VAL_64]] : f32
@@ -178,6 +181,7 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
 // CHECK:               krnl.store %[[VAL_53]], %[[VAL_54]][] : memref<f32>
 // CHECK:               %[[VAL_55:.*]] = "onnx.Sigmoid"(%[[VAL_54]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_56:.*]] = krnl.load %[[VAL_55]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_54]] : memref<f32>
 // CHECK:               %[[VAL_57:.*]] = krnl.load %[[VAL_37]]{{\[}}%[[VAL_49]]#0, %[[VAL_49]]#1] : memref<3x3xf32>
 // CHECK:               %[[VAL_58:.*]] = krnl.load %[[VAL_38]]{{\[}}%[[VAL_49]]#0, %[[VAL_49]]#1] : memref<3x3xf32>
 // CHECK:               %[[VAL_59:.*]] = addf %[[VAL_57]], %[[VAL_58]] : f32
@@ -185,6 +189,7 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
 // CHECK:               krnl.store %[[VAL_59]], %[[VAL_60]][] : memref<f32>
 // CHECK:               %[[VAL_61:.*]] = "onnx.Sigmoid"(%[[VAL_60]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_62:.*]] = krnl.load %[[VAL_61]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_60]] : memref<f32>
 // CHECK:               %[[VAL_63:.*]] = krnl.load %[[VAL_39]]{{\[}}%[[VAL_49]]#0, %[[VAL_49]]#1] : memref<3x3xf32>
 // CHECK:               %[[VAL_64:.*]] = krnl.load %[[VAL_41]]{{\[}}%[[VAL_49]]#0, %[[VAL_49]]#1] : memref<3x3xf32>
 // CHECK:               %[[VAL_65:.*]] = mulf %[[VAL_62]], %[[VAL_64]] : f32
@@ -193,6 +198,7 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
 // CHECK:               krnl.store %[[VAL_66]], %[[VAL_67]][] : memref<f32>
 // CHECK:               %[[VAL_68:.*]] = "onnx.Tanh"(%[[VAL_67]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_69:.*]] = krnl.load %[[VAL_68]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_67]] : memref<f32>
 // CHECK:               %[[VAL_70:.*]] = subf %[[VAL_40]], %[[VAL_56]] : f32
 // CHECK:               %[[VAL_71:.*]] = mulf %[[VAL_70]], %[[VAL_69]] : f32
 // CHECK:               %[[VAL_72:.*]] = mulf %[[VAL_56]], %[[VAL_50]] : f32
@@ -206,7 +212,6 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
 // CHECK:           memref.dealloc %[[VAL_3]] : memref<3x3xf32>
 // CHECK:           return %[[VAL_4]] : memref<1x3x3xf32>
 // CHECK:         }
-
 
 }
 
@@ -286,6 +291,7 @@ func private @test_gru_with_bias(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x9x2xf
 // CHECK:               krnl.store %[[VAL_61]], %[[VAL_62]][] : memref<f32>
 // CHECK:               %[[VAL_63:.*]] = "onnx.Sigmoid"(%[[VAL_62]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_64:.*]] = krnl.load %[[VAL_63]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_62]] : memref<f32>
 // CHECK:               krnl.store %[[VAL_64]], %[[VAL_28]]{{\[}}%[[VAL_53]]#0, %[[VAL_53]]#1] : memref<3x3xf32>
 // CHECK:               %[[VAL_65:.*]] = mulf %[[VAL_64]], %[[VAL_54]] : f32
 // CHECK:               krnl.store %[[VAL_65]], %[[VAL_27]]{{\[}}%[[VAL_53]]#0, %[[VAL_53]]#1] : memref<3x3xf32>
@@ -306,6 +312,7 @@ func private @test_gru_with_bias(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x9x2xf
 // CHECK:               krnl.store %[[VAL_78]], %[[VAL_79]][] : memref<f32>
 // CHECK:               %[[VAL_80:.*]] = "onnx.Sigmoid"(%[[VAL_79]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_81:.*]] = krnl.load %[[VAL_80]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_79]] : memref<f32>
 // CHECK:               %[[VAL_82:.*]] = krnl.load %[[VAL_44]]{{\[}}%[[VAL_70]]#0, %[[VAL_70]]#1] : memref<3x3xf32>
 // CHECK:               %[[VAL_83:.*]] = krnl.load %[[VAL_66]]{{\[}}%[[VAL_70]]#0, %[[VAL_70]]#1] : memref<3x3xf32>
 // CHECK:               %[[VAL_84:.*]] = addf %[[VAL_82]], %[[VAL_83]] : f32
@@ -317,6 +324,7 @@ func private @test_gru_with_bias(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x9x2xf
 // CHECK:               krnl.store %[[VAL_88]], %[[VAL_89]][] : memref<f32>
 // CHECK:               %[[VAL_90:.*]] = "onnx.Tanh"(%[[VAL_89]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_91:.*]] = krnl.load %[[VAL_90]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_89]] : memref<f32>
 // CHECK:               %[[VAL_92:.*]] = subf %[[VAL_45]], %[[VAL_81]] : f32
 // CHECK:               %[[VAL_93:.*]] = mulf %[[VAL_92]], %[[VAL_91]] : f32
 // CHECK:               %[[VAL_94:.*]] = mulf %[[VAL_81]], %[[VAL_71]] : f32
@@ -343,7 +351,6 @@ func private @test_gru_unknown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: 
   %cst = constant unit
   %Y, %Y_h = "onnx.GRU"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<?x?x?xf32>, tensor<1x9x?xf32>, tensor<1x9x3xf32>, none, none, none) -> (none, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
-
 // CHECK-LABEL:   func private @test_gru_unknown_dims_allocation(
 // CHECK-SAME:                                                   %[[VAL_0:.*]]: memref<?x?x?xf32>,
 // CHECK-SAME:                                                   %[[VAL_1:.*]]: memref<1x9x?xf32>,
@@ -422,6 +429,7 @@ func private @test_gru_unknown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: 
 // CHECK:               krnl.store %[[VAL_71]], %[[VAL_72]][] : memref<f32>
 // CHECK:               %[[VAL_73:.*]] = "onnx.Sigmoid"(%[[VAL_72]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_74:.*]] = krnl.load %[[VAL_73]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_72]] : memref<f32>
 // CHECK:               krnl.store %[[VAL_74]], %[[VAL_57]]{{\[}}%[[VAL_67]]#0, %[[VAL_67]]#1] : memref<?x3xf32>
 // CHECK:               %[[VAL_75:.*]] = mulf %[[VAL_74]], %[[VAL_68]] : f32
 // CHECK:               krnl.store %[[VAL_75]], %[[VAL_58]]{{\[}}%[[VAL_67]]#0, %[[VAL_67]]#1] : memref<?x3xf32>
@@ -438,6 +446,7 @@ func private @test_gru_unknown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: 
 // CHECK:               krnl.store %[[VAL_84]], %[[VAL_85]][] : memref<f32>
 // CHECK:               %[[VAL_86:.*]] = "onnx.Sigmoid"(%[[VAL_85]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_87:.*]] = krnl.load %[[VAL_86]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_85]] : memref<f32>
 // CHECK:               %[[VAL_88:.*]] = krnl.load %[[VAL_53]]{{\[}}%[[VAL_80]]#0, %[[VAL_80]]#1] : memref<?x3xf32>
 // CHECK:               %[[VAL_89:.*]] = krnl.load %[[VAL_76]]{{\[}}%[[VAL_80]]#0, %[[VAL_80]]#1] : memref<?x3xf32>
 // CHECK:               %[[VAL_90:.*]] = addf %[[VAL_88]], %[[VAL_89]] : f32
@@ -445,6 +454,7 @@ func private @test_gru_unknown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: 
 // CHECK:               krnl.store %[[VAL_90]], %[[VAL_91]][] : memref<f32>
 // CHECK:               %[[VAL_92:.*]] = "onnx.Tanh"(%[[VAL_91]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_93:.*]] = krnl.load %[[VAL_92]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_91]] : memref<f32>
 // CHECK:               %[[VAL_94:.*]] = subf %[[VAL_54]], %[[VAL_87]] : f32
 // CHECK:               %[[VAL_95:.*]] = mulf %[[VAL_94]], %[[VAL_93]] : f32
 // CHECK:               %[[VAL_96:.*]] = mulf %[[VAL_87]], %[[VAL_81]] : f32

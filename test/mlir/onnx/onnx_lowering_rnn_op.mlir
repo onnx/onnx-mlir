@@ -54,6 +54,7 @@ func private @test_rnn_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
 // CHECK:               krnl.store %[[VAL_41]], %[[VAL_42]][] : memref<f32>
 // CHECK:               %[[VAL_43:.*]] = "onnx.Tanh"(%[[VAL_42]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_44:.*]] = krnl.load %[[VAL_43]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_42]] : memref<f32>
 // CHECK:               krnl.store %[[VAL_44]], %[[VAL_3]]{{\[}}%[[VAL_38]]#0, %[[VAL_38]]#1] : memref<3x3xf32>
 // CHECK:             }
 // CHECK:             memref.dealloc %[[VAL_18]] : memref<3x2xf32>
@@ -129,6 +130,7 @@ func private @test_rnn_with_bias(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x3x2xf
 // CHECK:               krnl.store %[[VAL_48]], %[[VAL_49]][] : memref<f32>
 // CHECK:               %[[VAL_50:.*]] = "onnx.Tanh"(%[[VAL_49]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_51:.*]] = krnl.load %[[VAL_50]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_49]] : memref<f32>
 // CHECK:               krnl.store %[[VAL_51]], %[[VAL_4]]{{\[}}%[[VAL_41]]#0, %[[VAL_41]]#1] : memref<3x3xf32>
 // CHECK:             }
 // CHECK:             memref.dealloc %[[VAL_21]] : memref<3x2xf32>
@@ -213,6 +215,7 @@ func private @test_rnn_unknown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: 
 // CHECK:               krnl.store %[[VAL_56]], %[[VAL_57]][] : memref<f32>
 // CHECK:               %[[VAL_58:.*]] = "onnx.Tanh"(%[[VAL_57]]) : (memref<f32>) -> memref<f32>
 // CHECK:               %[[VAL_59:.*]] = krnl.load %[[VAL_58]][] : memref<f32>
+// CHECK:               memref.dealloc %[[VAL_57]] : memref<f32>
 // CHECK:               krnl.store %[[VAL_59]], %[[VAL_9]]{{\[}}%[[VAL_53]]#0, %[[VAL_53]]#1] : memref<?x3xf32>
 // CHECK:             }
 // CHECK:             memref.dealloc %[[VAL_31]] : memref<?x?xf32>
