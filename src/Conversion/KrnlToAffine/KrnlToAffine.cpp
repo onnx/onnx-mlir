@@ -19,6 +19,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/Types.h"
+#include "mlir/Interfaces/LoopLikeInterface.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/LoopUtils.h"
@@ -1374,6 +1375,12 @@ void markLoopBodyAsMovable(
 void ConvertKrnlToAffinePass::runOnFunction() {
   OpBuilder builder(&getContext());
   FuncOp funcOp = getFunction();
+
+  // Move invariant instructions outside of the loops as many as possible. This
+  // helps make loops perfectly nested, which faciliates transformations. 
+  funcOp.walk([&](KrnlIterateOp loopOp) {
+    moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
+  });
 
   // We use the end of the function body as a staging area for movable ops.
   builder.setInsertionPoint(

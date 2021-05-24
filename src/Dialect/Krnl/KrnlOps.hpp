@@ -15,6 +15,7 @@
 #pragma once
 
 #include "mlir/Dialect/Shape/IR/Shape.h"
+#include "mlir/Interfaces/LoopLikeInterface.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
