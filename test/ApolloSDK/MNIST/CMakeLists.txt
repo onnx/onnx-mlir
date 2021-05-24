@@ -4,6 +4,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 if (CMAKE_GENERATOR MATCHES "Visual Studio")
   message(WARNING "Apollo MNIST testing does not support Visual Studio; please use ninja.")
+elseif(NOT WIN32)
+  message(WARNING "Apollo MNIST testing does not support non-Windows platforms.")
 else()
   if (NOT APOLLO_SDK_PATH)
     set(APOLLO_SDK_PATH "APOLLO_SDK_PATH-NOTFOUND" CACHE PATH "Path to Apollo SDK." FORCE)
@@ -56,9 +58,9 @@ else()
 
   add_custom_target(MNIST)
 
-  add_dependencies(MNIST MNIST_NPU_Program MNIST_Host_Program)
+  add_dependencies(MNIST MNIST_Host_Program)
 
-  add_test(NAME MNIST
+  add_test(NAME MNIST_NPU_SDK
            WORKING_DIRECTORY ${MNIST_BINARY_DIR}
            COMMAND Host/MNIST_Host_Program.exe NPU/MNIST_NPU_Program/MNIST_NPU_Program.zip)
 endif()
