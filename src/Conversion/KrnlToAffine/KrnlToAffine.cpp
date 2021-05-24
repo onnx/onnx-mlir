@@ -1377,7 +1377,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   FuncOp funcOp = getFunction();
 
   // Move invariant instructions outside of the loops as many as possible. This
-  // helps make loops perfectly nested, which faciliates transformations. 
+  // helps make loops perfectly nested, which faciliates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
     moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
   });
