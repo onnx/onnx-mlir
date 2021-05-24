@@ -1067,6 +1067,14 @@ def gen_op_def(schema, with_version = False):
     return s
 
 
+def gen_op_versions(file) :
+    indent = inc_indent()
+    s = ""
+    for key, item in version_dict.items() :
+        s += indent + 'op_dialect_version_map_["' + key +'"] = '
+        s += "{" +  "{}".format(", ".join(str(x) for x in item)) + "};\n"
+    file.write(s)
+
 """
 special cases:
 * Split: attr split default value: sizeof(output1) namely 1
@@ -1194,6 +1202,7 @@ def main(args):  # type: (Type[Args]) -> None
 
     op_importer = args.op_importer
     op_importer.write(autogen_warning)
+    gen_op_versions(op_importer)
 
     version_dict = dict()
     for domain, supportmap in build_operator_schemas():

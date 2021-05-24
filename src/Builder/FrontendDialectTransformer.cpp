@@ -89,6 +89,7 @@ private:
 
   Value none_;
   std::map<FuncOp, Value> func2None_;
+  std::map<std::string, std::vector<int>> op_dialect_version_map_;
 
   /*!
    *  The list of tensors initialized by the ONNX model.
@@ -871,6 +872,21 @@ private:
     return onnx::OpSchemaRegistry::Schema(node.op_type(), version, domain);
   }
 
+  std::string GetImportVersionOfNode(const onnx::NodeProto &node) {
+    auto schema = GetOpSchema(node);
+    if(schema == nullptr) {
+      return std::string("");
+    }
+    auto current_opset = opset_map_.find(node.domain())->second;
+    auto opset_list = op_dialect_version_map_.find(node.op_type())->second;
+    for (int i = opset_list.size()-1; i > 0; i--) {
+      if (current_opset <= opset_list[i]) {
+        return "V"+std::to_string(opset_list[i]);
+      }
+    }
+    return std::string("");
+  }
+
   FuncOp CreateFuncOp(
       std::string namePrefix, TypeRange operandTypes, TypeRange resultTypes) {
     auto funcType = builder_.getFunctionType(operandTypes, resultTypes);
@@ -1011,7 +1027,8 @@ private:
   }
 
   void ImportNode(const onnx::NodeProto &node) {
-    llvm::StringRef opName = node.op_type();
+    std::string versionStr = GetImportVersionOfNode(node);
+    llvm::StringRef opName = node.op_type()+versionStr.c_str();
 
     // look up handler for the opName. If not found, create a node
     // for a custom op, and issue a warning.
