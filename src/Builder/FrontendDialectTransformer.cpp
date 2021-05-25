@@ -874,14 +874,14 @@ private:
 
   std::string GetImportVersionOfNode(const onnx::NodeProto &node) {
     auto schema = GetOpSchema(node);
-    if(schema == nullptr) {
+    if (schema == nullptr) {
       return std::string("");
     }
     auto current_opset = opset_map_.find(node.domain())->second;
     auto opset_list = op_dialect_version_map_.find(node.op_type())->second;
-    for (int i = opset_list.size()-1; i > 0; i--) {
+    for (int i = opset_list.size() - 1; i > 0; i--) {
       if (current_opset <= opset_list[i]) {
-        return "V"+std::to_string(opset_list[i]);
+        return "V" + std::to_string(opset_list[i]);
       }
     }
     return std::string("");
@@ -1031,7 +1031,8 @@ private:
 
     // look up handler for the opName. If not found, create a node
     // for a custom op, and issue a warning.
-    auto handler = import_handler_map_.find(node.op_type()+versionStr.c_str());
+    auto handler =
+        import_handler_map_.find(node.op_type() + versionStr.c_str());
     if (handler != import_handler_map_.end()) {
       (this->*(handler->second))(node);
     } else {

@@ -588,8 +588,7 @@ void populateLoweringONNXReductionOpPattern(
       ONNXReductionOpLowering<mlir::ONNXReduceMinOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceProdOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceSumV11Op>,
-      ONNXReduceSumOpLowering>(
-      ctx);
+      ONNXReduceSumOpLowering>(ctx);
   patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMeanOp>>(
       ctx, /*computeMean=*/true);
 }
