@@ -499,34 +499,35 @@ private:
     }
   }
 
-  Value ConvertAttrToInput(const std::map<int, std::string> &attrToInputMap, int i, const std::vector<NamedAttribute> &attributes) {
-   auto item = attrToInputMap.find(i);
-   if (item == attrToInputMap.end())
-     return nullptr;
-   std::string name = item->second;
-   ArrayAttr arrayAttr;
-   for (auto &t : attributes) {
-     if (t.first == name) {
-       arrayAttr = t.second.dyn_cast<ArrayAttr>();
-       break;
-     }
-   }
-   if (!arrayAttr) 
-     return nullptr;
-       
-    // ToFix: Duplicate the code from Decompose.cpp 
+  Value ConvertAttrToInput(const std::map<int, std::string> &attrToInputMap,
+      int i, const std::vector<NamedAttribute> &attributes) {
+    auto item = attrToInputMap.find(i);
+    if (item == attrToInputMap.end())
+      return nullptr;
+    std::string name = item->second;
+    ArrayAttr arrayAttr;
+    for (auto &t : attributes) {
+      if (t.first == name) {
+        arrayAttr = t.second.dyn_cast<ArrayAttr>();
+        break;
+      }
+    }
+    if (!arrayAttr)
+      return nullptr;
+
+    // ToFix: Duplicate the code from Decompose.cpp
     // Or the new format of constant can be used
     const auto elementType = builder_.getIntegerType(64);
     const auto tensorType =
-            RankedTensorType::get({(int64_t)arrayAttr.size()}, elementType);
+        RankedTensorType::get({(int64_t)arrayAttr.size()}, elementType);
     auto constantDenseAttribute =
-            DenseElementsAttr::get(tensorType, arrayAttr.getValue());
+        DenseElementsAttr::get(tensorType, arrayAttr.getValue());
     auto constantOp = builder_.create<ONNXConstantOp>(
-            UnknownLoc(), Attribute(), constantDenseAttribute);
+        UnknownLoc(), Attribute(), constantDenseAttribute);
     Value constantValue = constantOp.output();
-    return  constantValue;
+    return constantValue;
   }
- 
+
   template <typename T>
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<Value> inputs, int expectedNumOperands,
@@ -542,14 +543,15 @@ private:
     // Here, we import optional inputs and outputs as NoneType.
 
     // Trailing optional inputs.
-    std::map<int, std::string> attrToInputMap ;
+    std::map<int, std::string> attrToInputMap;
+    // TOFIX: Should try to use the trait implementation.
     if constexpr (std::is_same<T, ONNXReduceSumOp>().value) {
       attrToInputMap = T::attrToInput();
-    } 
+    }
     if (!variadicIn) {
       for (auto i = inputs.size(); i < expectedNumOperands; i++) {
         // Convert the attribute to input due to the standard change
-        if (Value v = ConvertAttrToInput(attrToInputMap, i, attributes)) 
+        if (Value v = ConvertAttrToInput(attrToInputMap, i, attributes))
           inputs.emplace_back(v);
         else
           inputs.emplace_back(none());
