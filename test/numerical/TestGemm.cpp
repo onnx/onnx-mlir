@@ -54,28 +54,30 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
   MLIRContext ctx;
   registerDialects(ctx);
   static int testNum = 0;
-  printf("attempt %d with i %d, j %d, k %d%s%s, cRank %d\n", ++testNum, I, J, K,
-      (aTrans ? ", aTrans" : ""), (bTrans ? ", bTrans" : ""), cRank);
+  printf("attempt %d with i %d, j %d, k %d%s%s, cRank %d, alpha %7.3f, beta "
+         "%7.3f\n",
+      ++testNum, I, J, K, (aTrans ? ", aTrans" : ""),
+      (bTrans ? ", bTrans" : ""), cRank, (double)alphaVal, (double)betaVal);
 
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);
 
-  llvm::SmallVector<int64_t, 4> aShape({I, K}), bShape({K, J});
-  if (aTrans) {
-    aShape = {K, I};
-  }
-  if (bTrans) {
-    bShape = {J, K};
-  }
-  llvm::SmallVector<int64_t, 4> cShape;
-  if (cRank == 1)
-    cShape = {J};
-  else if (cRank == 2)
-    cShape = {I, J};
+  llvm::SmallVector<int64_t, 2> aShape = {I, K};
+  llvm::SmallVector<int64_t, 2> aShapeT = {K, I};
+  llvm::SmallVector<int64_t, 2> bShape = {K, J};
+  llvm::SmallVector<int64_t, 2> bShapeT = {J, K};
+  if (aTrans)
+    aShape = aShapeT;
+  if (bTrans)
+    bShape = bShapeT;
+  llvm::SmallVector<int64_t, 2> cShape = {J};
+  llvm::SmallVector<int64_t, 2> cShape2 = {I, J};
+  if (cRank == 2)
+    cShape = cShape2;
   else
-    assert(false && "cRank == 1 or 2");
+    assert(cRank == 1 && "cRank == 1 or 2");
 
-  llvm::SmallVector<int64_t, 4> yShape = {I, J};
+  llvm::SmallVector<int64_t, 2> yShape = {I, J};
   auto aType = RankedTensorType::get(aShape, builder.getF32Type());
   auto bType = RankedTensorType::get(bShape, builder.getF32Type());
   auto cType = RankedTensorType::get(cShape, builder.getF32Type());
@@ -103,11 +105,12 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
       IntegerAttr::get(builder.getIntegerType(64, true), aTrans);
   IntegerAttr bTransAttr =
       IntegerAttr::get(builder.getIntegerType(64, true), bTrans);
-  auto GemmOp = builder.create<ONNXGemmOp>(UnknownLoc::get(&ctx),
+  auto gemmOp = builder.create<ONNXGemmOp>(UnknownLoc::get(&ctx),
       /*Y=*/yType, /*A=*/aVal, /*B=*/bVal, /*C=*/cVal, alphaAttr, betaAttr,
       aTransAttr, bTransAttr);
+  gemmOp.getResult().setType(yType);
 
-  llvm::SmallVector<Value, 1> results = {GemmOp.getResult()};
+  llvm::SmallVector<Value, 1> results = {gemmOp.getResult()};
   builder.create<ReturnOp>(UnknownLoc::get(&ctx), results);
   module.push_back(funcOp);
 
@@ -129,14 +132,21 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
   auto aOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(aShape)),
       omTensorDestroy);
+  void *aPtr = omTensorGetDataPtr(aOmt.get());
+  printf("A ptr is 0x%llx\n", (long long)aPtr);
   inputs.emplace_back(move(aOmt));
   auto bOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape)),
       omTensorDestroy);
+  void *bPtr = omTensorGetDataPtr(bOmt.get());
+  printf("B ptr is 0x%llx\n", (long long)bPtr);
   inputs.emplace_back(move(bOmt));
   auto cOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape)),
       omTensorDestroy);
+  void *cPtr = omTensorGetDataPtr(cOmt.get());
+  printf("C ptr is 0x%llx\n", (long long)cPtr);
+
   inputs.emplace_back(move(cOmt));
 
   auto ref = omTensorCreateWithShape<float>({I, J});
@@ -176,37 +186,45 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
   }
 
   auto outputs = sess.run(move(inputs));
-  auto &Gemm = outputs.at(0);
+  auto &gemm = outputs.at(0);
+  void *rPtr = omTensorGetDataPtr(gemm.get());
+  printf("Res ptr is 0x%llx\n", (long long)rPtr);
+
   float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
   float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
 
-  return omTensorAreTwoOmtsClose<float>(Gemm.get(), ref, rtol, atol);
+  return omTensorAreTwoOmtsClose<float>(gemm.get(), ref, rtol, atol);
 }
 
 int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
 
-  printf("RapidCheck test case generation.\n");
-  rc::check("Gemm implementation correctness", []() {
-    const int maxRange = 50;
-    const auto I = *rc::gen::inRange(1, maxRange);
-    const auto J = *rc::gen::inRange(1, maxRange);
-    const auto K = *rc::gen::inRange(1, maxRange);
-    const auto aTrans = *rc::gen::inRange(0, 2);
-    const auto bTrans = *rc::gen::inRange(0, 2);
-    const auto cRank = *rc::gen::inRange(1, 3);
-    const auto hasAlpha = *rc::gen::inRange(0, 2);
-    const auto hasBeta = *rc::gen::inRange(0, 2);
-    float alpha = hasAlpha ? 1.2 : 1.0;
-    float beta = hasBeta ? 0.8 : 1.0;
-    RC_ASSERT(isOMGemmTheSameAsNaiveImplFor(
-        I, J, K, aTrans, bTrans, cRank, alpha, beta));
-  });
-
+  if (true) {
+    printf("RapidCheck test case generation.\n");
+    bool successful = rc::check("Gemm implementation correctness", []() {
+      const int maxRange = 50;
+      const auto I = *rc::gen::inRange(1, maxRange);
+      const auto J = *rc::gen::inRange(16, maxRange);
+      const auto K = *rc::gen::inRange(1, maxRange);
+      const auto aTrans = *rc::gen::inRange(0, 2);
+      const auto bTrans = *rc::gen::inRange(0, 2);
+      const auto cRank = *rc::gen::inRange(1, 3);
+      const auto hasAlpha = *rc::gen::inRange(0, 2);
+      const auto hasBeta = *rc::gen::inRange(0, 2);
+      float alpha = hasAlpha ? 1.2 : 1.0;
+      float beta = hasBeta ? 0.8 : 1.0;
+      RC_ASSERT(isOMGemmTheSameAsNaiveImplFor(
+          I, J, K, aTrans, bTrans, cRank, alpha, beta));
+    });
+    if (!successful) 
+      return 1;
+  }
   if (false) {
     // Was too slow on some machines, disable test.
     printf("\n\nIndividual test case generation (benchmarks).\n");
+    assert(isOMGemmTheSameAsNaiveImplFor(3, 5, 4, 0, 0, 2, 0.25, 0.35));
+
     assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 1024, 0, 1, 1, 1.0, 1.0));
     assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 2048, 0, 1, 2, 1.0, 1.0));
     assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 25088, 0, 1, 1, 1.0, 1.0));

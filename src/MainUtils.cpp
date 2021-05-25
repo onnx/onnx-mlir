@@ -282,7 +282,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   string optPath = getToolPath("opt");
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
   optBitcode
-      .appendStr("-O3") // test_scan9_sum_cpu fails on z with O3.
+      .appendStr("-O3") 
       .appendStr(getTargetTripleOption())
       .appendStr(getTargetCpuOption())
       .appendList({"-o", optimizedBitcodePath})
