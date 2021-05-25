@@ -146,13 +146,29 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
       omTensorDestroy);
   void *cPtr = omTensorGetDataPtr(cOmt.get());
   printf("C ptr is 0x%llx\n", (long long)cPtr);
-
   inputs.emplace_back(move(cOmt));
 
   auto ref = omTensorCreateWithShape<float>({I, J});
   auto &a = inputs.at(0);
   auto &b = inputs.at(1);
   auto &c = inputs.at(2);
+
+  if (true) {
+    printf("init data with no random values\n");
+    assert(cRank == 1);
+    // init A
+    for (int64_t i = 0; i < I; ++i)
+      for (int64_t k = 0; k < K; k++)
+        omTensorGetElem<float>(a.get(), {i, k}) = 100.0 * i + 1.0 * k;
+    // init B
+    for (int64_t k = 0; k < K; k++)
+      for (int64_t j = 0; j < J; ++j)
+        omTensorGetElem<float>(b.get(), {k, j}) = 10 * j + 1.0 * k;
+    // init C
+    for (int64_t j = 0; j < J; ++j) {
+      omTensorGetElem<float>(c.get(), {j}) = 0.0;
+    }
+  }
 
   for (int64_t i = 0; i < I; ++i) {
     for (int64_t j = 0; j < J; ++j) {
@@ -200,9 +216,12 @@ int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
 
+  assert(isOMGemmTheSameAsNaiveImplFor(1, 4, 4, 0, 0, 1, 1, 0));
+  return 1;
+
   if (true) {
     printf("RapidCheck test case generation.\n");
-    bool successful = rc::check("Gemm implementation correctness", []() {
+    bool success = rc::check("Gemm implementation correctness", []() {
       const int maxRange = 50;
       const auto I = *rc::gen::inRange(1, maxRange);
       const auto J = *rc::gen::inRange(16, maxRange);
@@ -217,9 +236,10 @@ int main(int argc, char *argv[]) {
       RC_ASSERT(isOMGemmTheSameAsNaiveImplFor(
           I, J, K, aTrans, bTrans, cRank, alpha, beta));
     });
-    if (!successful) 
+    if (!success)
       return 1;
   }
+
   if (false) {
     // Was too slow on some machines, disable test.
     printf("\n\nIndividual test case generation (benchmarks).\n");
