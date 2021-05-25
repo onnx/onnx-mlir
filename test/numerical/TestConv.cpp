@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
     RC_ASSERT(isOMConvTheSameAsNaiveImplFor(
         N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd));
   });
-  // Todo: fix the test
+  // Todo: fix the test and remove comment below
   //if (!success)
   //  return 1;
 
