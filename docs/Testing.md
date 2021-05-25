@@ -122,4 +122,9 @@ test case parameters and invoke the value checking function `isOMConvTheSameAsNa
   assert(success && "error while performing RapidCheck tests");
 ```
   
-Sometimes it is convenient to be able to see the mlir files associated with a numerical tests. To do so, the easiest is to set the `KEEP_TEMP_FILES` variable in `src/MainUtils.cpp` to true. Then, no matter how you compile your model, input and output mlir files will be preserved, as well as unoptimized and optimized bytecode files as well as a few additional binaries.
+Sometimes it is convenient to be able to see the mlir files associated with a
+numerical tests. To do so, the easiest is to set the `overridePreserveFiles`
+variable in `src/MainUtils.cpp` to the types of files that you want to
+preserve (e.g. `KeepFilesOfType::All`). Then, no matter how you compile
+your model, input and output mlir files will be preserved, as well as
+unoptimized and optimized bytecode files as well as a few additional binaries.

@@ -18,7 +18,7 @@
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 // Used to trace which op are used, good for profiling apps.
-#define TRACE 1
+#define TRACE 0
 #define DEBUG_SIMD_OFF 0
 #define DEBUG_UNROLL_OFF 0
 #define DEBUG_OPTIMIZED_OFF 0

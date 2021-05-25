@@ -23,11 +23,16 @@
 using namespace std;
 using namespace mlir;
 
+void *omTensorGetAllocatedPtr(OMTensor *tensor);
 template <typename TYPE>
 void omPrintAsPython(OMTensor *tensor, string name) {
   int rank = omTensorGetRank(tensor);
   int64_t *shape = omTensorGetShape(tensor);
-
+  if (false) {
+    printf("# tensor 0x%llx, allocated addr 0x%llx, data addr 0x%llx\n",
+        (long long)tensor, (long long)omTensorGetAllocatedPtr(tensor),
+        (long long)omTensorGetDataPtr(tensor));
+  }
   if (rank == 2) {
     cout << name << " = np.array([";
     for (int64_t i = 0; i < shape[0]; ++i) {
@@ -132,20 +137,14 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
   auto aOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(aShape)),
       omTensorDestroy);
-  void *aPtr = omTensorGetDataPtr(aOmt.get());
-  printf("A ptr is 0x%llx\n", (long long)aPtr);
   inputs.emplace_back(move(aOmt));
   auto bOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape)),
       omTensorDestroy);
-  void *bPtr = omTensorGetDataPtr(bOmt.get());
-  printf("B ptr is 0x%llx\n", (long long)bPtr);
   inputs.emplace_back(move(bOmt));
   auto cOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape)),
       omTensorDestroy);
-  void *cPtr = omTensorGetDataPtr(cOmt.get());
-  printf("C ptr is 0x%llx\n", (long long)cPtr);
   inputs.emplace_back(move(cOmt));
 
   auto ref = omTensorCreateWithShape<float>({I, J});
@@ -153,8 +152,8 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
   auto &b = inputs.at(1);
   auto &c = inputs.at(2);
 
-  if (true) {
-    printf("init data with no random values\n");
+  if (false) {
+    printf("Initializes using defined values, better for debugging\n");
     assert(cRank == 1);
     // init A
     for (int64_t i = 0; i < I; ++i)
@@ -202,29 +201,26 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
   }
 
   auto outputs = sess.run(move(inputs));
-  auto &gemm = outputs.at(0);
-  void *rPtr = omTensorGetDataPtr(gemm.get());
-  printf("Res ptr is 0x%llx\n", (long long)rPtr);
 
+  auto &gemm = outputs.at(0);
   float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
   float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
 
-  return omTensorAreTwoOmtsClose<float>(gemm.get(), ref, rtol, atol);
+  bool success = omTensorAreTwoOmtsClose<float>(gemm.get(), ref, rtol, atol);
+  return success;
 }
 
 int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
 
-  assert(isOMGemmTheSameAsNaiveImplFor(1, 4, 4, 0, 0, 1, 1, 0));
-  return 1;
 
   if (true) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Gemm implementation correctness", []() {
       const int maxRange = 50;
       const auto I = *rc::gen::inRange(1, maxRange);
-      const auto J = *rc::gen::inRange(16, maxRange);
+      const auto J = *rc::gen::inRange(1, maxRange);
       const auto K = *rc::gen::inRange(1, maxRange);
       const auto aTrans = *rc::gen::inRange(0, 2);
       const auto bTrans = *rc::gen::inRange(0, 2);
