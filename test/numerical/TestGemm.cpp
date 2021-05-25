@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
   llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
 
   printf("RapidCheck test case generation.\n");
-  rc::check("Gemm implementation correctness", []() {
+  bool success = rc::check("Gemm implementation correctness", []() {
     const int maxRange = 50;
     const auto I = *rc::gen::inRange(1, maxRange);
     const auto J = *rc::gen::inRange(1, maxRange);
@@ -203,6 +203,8 @@ int main(int argc, char *argv[]) {
     RC_ASSERT(isOMGemmTheSameAsNaiveImplFor(
         I, J, K, aTrans, bTrans, cRank, alpha, beta));
   });
+  if (!success)
+    return 1;
 
   if (false) {
     // Was too slow on some machines, disable test.
