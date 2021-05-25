@@ -303,6 +303,18 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
   return success();
 }
 
+Region &KrnlIterateOp::getLoopBody() { return bodyRegion(); }
+
+LogicalResult KrnlIterateOp::moveOutOfLoop(ArrayRef<Operation *> ops) {
+  for (auto *op : ops)
+    op->moveBefore(*this);
+  return success();
+}
+
+bool KrnlIterateOp::isDefinedOutsideOfLoop(Value value) {
+  return !bodyRegion().isAncestor(value.getParentRegion());
+}
+
 static LogicalResult verify(KrnlIterateOp op) {
   // TODO: Verify number of induction variable bounds matches the number of
   // input loops.
