@@ -374,7 +374,6 @@ void compileModuleToSharedLibrary(
 
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
-
   llvm::FileRemover bitcodeRemover(
       bitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
 
@@ -506,7 +505,6 @@ void outputCode(
 #else
   int stderrOrigin = dup(fileno(stderr));
 #endif
-  // printf("hi alex in output code, print %s\n", tempFilename.c_str());
   freopen(tempFilename.c_str(), "w", stderr);
   module->print(llvm::errs(), flags);
   fflush(stderr);
