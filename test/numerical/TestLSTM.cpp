@@ -26,7 +26,7 @@ using namespace mlir;
 // Sigmoid
 float sigmoid(float x) { return 1 / (1 + exp(-x)); }
 
-// Build an ONNXConstantOp from an OMTensor. 
+// Build an ONNXConstantOp from an OMTensor.
 ONNXConstantOp buildONNXConstantOp(MLIRContext *ctx, OpBuilder builder,
     unique_ptr<OMTensor, decltype(&omTensorDestroy)> &omt,
     RankedTensorType resultType) {
@@ -341,21 +341,17 @@ int main(int argc, char *argv[]) {
     // Hidden size.
     const auto H = *rc::gen::inRange(5, 10);
     // Whether test dynamic dimension for sequence.
-    // const auto isDynS = *rc::gen::element(0, 1);
-    // FIXME: dynamic
-    const auto isDynS = *rc::gen::element(-1, 1);
+    const auto isDynS = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for batch size.
-    // const auto isDynB = *rc::gen::element(0, 1);
-    // FIXME: dynamic
-    const auto isDynB = *rc::gen::element(-1, 1);
+    const auto isDynB = *rc::gen::element(0, 1);
 
     RC_ASSERT(
         isOMLSTMTheSameAsNaiveImplFor(D, S, B, I, H, isDynS == 0, isDynB == 0));
   });
 
   // Exhaustive test case generation.
-  for (int64_t s = 2; s < 5; s++)
-    for (int64_t b = 2; b < 5; b++)
+  for (int64_t s = 3; s < 4; s++)
+    for (int64_t b = 3; b < 4; b++)
       for (int64_t i = 2; i < 5; i++)
         for (int64_t h = 2; h < 5; h++) {
           // Static dimensions.
@@ -366,14 +362,13 @@ int main(int argc, char *argv[]) {
           // bidirectional
           assert(isOMLSTMTheSameAsNaiveImplFor(2, s, b, i, h));
 
-          // FIXME: enable these tests.
           // Dynamic dimensions for sequence, batch size.
           // forward
-          // assert(isOMLSTMTheSameAsNaiveImplFor(1, s, b, i, h, true, true));
+          assert(isOMLSTMTheSameAsNaiveImplFor(1, s, b, i, h, true, true));
           // reverse
-          // assert(isOMLSTMTheSameAsNaiveImplFor(-1, s, b, i, h, true, true));
+          assert(isOMLSTMTheSameAsNaiveImplFor(-1, s, b, i, h, true, true));
           // bidirectional
-          // assert(isOMLSTMTheSameAsNaiveImplFor(2, s, b, i, h, true, true));
+          assert(isOMLSTMTheSameAsNaiveImplFor(2, s, b, i, h, true, true));
         }
   return 0;
 }

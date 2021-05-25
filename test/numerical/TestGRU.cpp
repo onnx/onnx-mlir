@@ -334,21 +334,17 @@ int main(int argc, char *argv[]) {
     // LinearBeforeReset.
     const auto L = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for sequence.
-    // const auto isDynS = *rc::gen::element(0, 1);
-    // FIXME: dynamic
-    const auto isDynS = *rc::gen::element(-1, 1);
+    const auto isDynS = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for batch size.
-    // const auto isDynB = *rc::gen::element(0, 1);
-    // FIXME: dynamic
-    const auto isDynB = *rc::gen::element(-1, 1);
+    const auto isDynB = *rc::gen::element(0, 1);
 
     RC_ASSERT(isOMGRUTheSameAsNaiveImplFor(
         D, S, B, I, H, L, isDynS == 0, isDynB == 0));
   });
 
   // Exhaustive test case generation.
-  for (int64_t s = 2; s < 5; s++)
-    for (int64_t b = 2; b < 5; b++)
+  for (int64_t s = 3; s < 4; s++)
+    for (int64_t b = 3; b < 4; b++)
       for (int64_t i = 2; i < 5; i++)
         for (int64_t h = 2; h < 5; h++)
           for (int64_t l = 0; l < 2; l++) {
@@ -360,17 +356,13 @@ int main(int argc, char *argv[]) {
             // bidirectional
             assert(isOMGRUTheSameAsNaiveImplFor(2, s, b, i, h, l));
 
-            // FIXME: enable these tests.
             // Dynamic dimensions for sequence, batch size.
             // forward
-            // assert(isOMGRUTheSameAsNaiveImplFor(1, s, b, i, h, l, true,
-            // true));
+            assert(isOMGRUTheSameAsNaiveImplFor(1, s, b, i, h, l, true, true));
             // reverse
-            // assert(isOMGRUTheSameAsNaiveImplFor(-1, s, b, i, h, l, true,
-            // true));
+            assert(isOMGRUTheSameAsNaiveImplFor(-1, s, b, i, h, l, true, true));
             // bidirectional
-            // assert(isOMGRUTheSameAsNaiveImplFor(2, s, b, i, h, l, true,
-            // true));
+            assert(isOMGRUTheSameAsNaiveImplFor(2, s, b, i, h, l, true, true));
           }
   return 0;
 }
