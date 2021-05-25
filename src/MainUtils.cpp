@@ -369,41 +369,11 @@ void genJniJar(const mlir::OwningModuleRef &module, string modelSharedLibPath,
   jar.appendList({"uf", modelJniJarPath}).appendStr(modelSharedLibPath).exec();
 }
 
-void outputCode(
-    mlir::OwningModuleRef &module, string filename, string extension) {
-  string tempFilename = filename + extension;
-  mlir::OpPrintingFlags flags;
-  if (preserveLocations)
-    flags.enableDebugInfo();
-
-#ifdef _WIN32
-  // copy original stderr file number
-  int stderrOrigin = _dup(_fileno(stderr));
-#else
-  int stderrOrigin = dup(fileno(stderr));
-#endif
-  // printf("hi alex in output code, print %s\n", tempFilename.c_str());
-  freopen(tempFilename.c_str(), "w", stderr);
-  module->print(llvm::errs(), flags);
-  fflush(stderr);
-  // set modified stderr as original stderr
-#ifdef _WIN32
-  _dup2(stderrOrigin, _fileno(stderr));
-#else
-  dup2(stderrOrigin, fileno(stderr));
-#endif
-  if (printIR)
-    module->print(llvm::outs(), flags);
-}
-
 void compileModuleToSharedLibrary(
-    mlir::OwningModuleRef &module, std::string outputBaseName) {
+    const mlir::OwningModuleRef &module, std::string outputBaseName) {
 
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
-
-  if (keepFiles(KeepFilesOfType::MLIR))
-    outputCode(module, outputBaseName, ".llvm.mlir");
 
   llvm::FileRemover bitcodeRemover(
       bitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
@@ -523,6 +493,33 @@ void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
   }
 }
 
+void outputCode(
+    mlir::OwningModuleRef &module, string filename, string extension) {
+  string tempFilename = filename + extension;
+  mlir::OpPrintingFlags flags;
+  if (preserveLocations)
+    flags.enableDebugInfo();
+
+#ifdef _WIN32
+  // copy original stderr file number
+  int stderrOrigin = _dup(_fileno(stderr));
+#else
+  int stderrOrigin = dup(fileno(stderr));
+#endif
+  // printf("hi alex in output code, print %s\n", tempFilename.c_str());
+  freopen(tempFilename.c_str(), "w", stderr);
+  module->print(llvm::errs(), flags);
+  fflush(stderr);
+  // set modified stderr as original stderr
+#ifdef _WIN32
+  _dup2(stderrOrigin, _fileno(stderr));
+#else
+  dup2(stderrOrigin, fileno(stderr));
+#endif
+  if (printIR)
+    module->print(llvm::outs(), flags);
+}
+
 void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
     mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
   // For EmitONNXIR and EmitMLIR the constant value are embedded in the code
@@ -545,9 +542,13 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   if (emissionTarget == EmitLib) {
     // Write LLVM bitcode to disk, compile & link.
     compileModuleToSharedLibrary(module, outputBaseName);
+    if (keepFiles(KeepFilesOfType::MLIR))
+      outputCode(module, outputBaseName, ".llvm.mlir");
     printf("Shared library %s.so has been compiled.\n", outputBaseName.c_str());
   } else if (emissionTarget == EmitJNI) {
     compileModuleToJniJar(module, outputBaseName);
+    if (keepFiles(KeepFilesOfType::MLIR))
+      outputCode(module, outputBaseName, ".llvm.mlir");
     printf("JNI archive %s.jar has been compiled.\n", outputBaseName.c_str());
   } else {
     // Emit the version with all constants included.
