@@ -37,11 +37,6 @@
 #include <unistd.h>
 #endif
 
-// If need to inspect the temp files for debugging, set flag below to true.
-// Can also use the --preserveBitcode and --preserveMLIR runtime flats for some
-// of the functionality.
-#define KEEP_TEMP_FILES false
-
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
@@ -92,25 +87,27 @@ llvm::cl::opt<string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
     llvm::cl::ValueRequired);
 
 // Make a function that forces preserving all files using the runtime arguments
-// and/or the KEEP_TEMP_FILES define flag.
+// and/or the overridePreserveFiles enum.
+enum class KeepFilesOfType { All, MLIR, Bitcode, Object, None };
 
-enum class KeepFilesOfType { MLIR, Bitcode, Object };
+static const KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
 
 static bool keepFiles(KeepFilesOfType preserve) {
   // When wanting to preserve all files, do it regardles of isBitcode.
-  if (KEEP_TEMP_FILES)
+  if (overridePreserveFiles == KeepFilesOfType::All)
     return true;
   // When file is bitcode, check the runtime flag preserveBitcode.
   switch (preserve) {
   case KeepFilesOfType::Bitcode:
-    return preserveBitcode;
+    return overridePreserveFiles == KeepFilesOfType::Bitcode || preserveBitcode;
   case KeepFilesOfType::MLIR:
-    return preserveMLIR;
+    return overridePreserveFiles == KeepFilesOfType::MLIR || preserveMLIR;
   case KeepFilesOfType::Object:
-    // Currently no option, enable using the KEEP_TEMP_FILES flag.
-    return false;
+    // Currently no option, enable using the overridePreserveFiles enum.
+    return overridePreserveFiles == KeepFilesOfType::Object;
   default:
-    llvm_unreachable("unkown keep file type enum");
+    // All, None should not be used in the parameter
+    llvm_unreachable("illegal KeepFilesOfType enum value");
   }
   return false;
 }
