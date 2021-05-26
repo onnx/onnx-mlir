@@ -186,6 +186,17 @@ Value getONNXConstantOpFromDenseAttr(
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), dense);
 }
 
+// Returns true if the Value is defined by none constant
+bool isFromNone(Value v) {
+  if (v.getDefiningOp() &&
+      llvm::dyn_cast_or_null<mlir::ConstantOp>(v.getDefiningOp())) {
+    mlir::ConstantOp c = llvm::dyn_cast<mlir::ConstantOp>(v.getDefiningOp());
+    if (c.getValue().isa<UnitAttr>())
+      return true;
+  }
+  return false;
+}
+
 //===----------------------------------------------------------------------===//
 // Get a broadcasted type for RankedTensorType and MemRefType.
 //===----------------------------------------------------------------------===//

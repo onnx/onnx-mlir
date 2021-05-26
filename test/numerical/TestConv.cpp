@@ -77,7 +77,10 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 
   // Use the convOp shape inference method to compute output shape, and unset
   // the shape so that we don't leave IR in a inconsistent state.
-  convOp.inferShapes([](mlir::Region&) {});
+  LogicalResult res = convOp.inferShapes([](mlir::Region &) {});
+  if (failed(res)) {
+    return false;
+  }
   auto outputShape = convOp.getResult().getType().cast<ShapedType>().getShape();
   auto NOut = outputShape[0];
   auto COut = outputShape[1];
@@ -95,7 +98,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
       /*numInputs=*/2,
       /*numOutputs=*/1,
-      /*signature*/signature);
+      /*signature*/ signature);
   module.push_back(entryPoint);
 
   OwningModuleRef moduleRef(module);
@@ -144,7 +147,7 @@ int main(int argc, char *argv[]) {
   llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
 
   // RapidCheck test case generation.
-  rc::check("convolution implementation correctness", []() {
+  bool success = rc::check("convolution implementation correctness", []() {
     const auto N = *rc::gen::inRange(1, 10);
     const auto C = *rc::gen::inRange(1, 20);
     const auto H = *rc::gen::inRange(5, 20);
@@ -165,6 +168,8 @@ int main(int argc, char *argv[]) {
     RC_ASSERT(isOMConvTheSameAsNaiveImplFor(
         N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd));
   });
+  if (!success)
+    return 1;
 
   // Exhaustive test case generation.
   for (int pHBegin = 0; pHBegin < 3; pHBegin++)

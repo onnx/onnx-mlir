@@ -6,7 +6,8 @@ func @simple_imperfectly_nested() {
   krnl.iterate(%ib) with (%ii -> %i = 0 to 10) {
     %alloc = memref.alloc() : memref<10 x f32>
     krnl.iterate(%il) with () {
-      %v0 = krnl.load %alloc[%i] : memref<10xf32>
+      %il_idx = krnl.get_induction_var_value(%il) : (!krnl.loop) -> (index)
+      %v0 = krnl.load %alloc[%il_idx] : memref<10xf32>
       %foo = addf %v0, %v0 : f32
     }
     memref.dealloc %alloc : memref<10 x f32>
@@ -38,7 +39,8 @@ func @test_2d_tiling_imperfectly_nested() {
   krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 10, %ij -> %j = 0 to 20) {
     %alloc = memref.alloc() : memref<10 x f32>
     krnl.iterate(%il, %jl) with () {
-      %foo = addi %i, %j : index
+      %il_idx, %jl_idx = krnl.get_induction_var_value(%il, %jl) : (!krnl.loop, !krnl.loop) -> (index, index)
+      %foo = addi %il_idx, %jl_idx : index
     }
     memref.dealloc %alloc : memref<10 x f32>
   }

@@ -935,7 +935,7 @@ public:
       auto outMemRefTy = memRef.getType().dyn_cast<LLVM::LLVMStructType>();
       auto outMemRefRank = getRankFromMemRefType(outMemRefTy);
       auto outMemRefRankVal = rewriter.create<LLVM::ConstantOp>(
-          loc, int32Ty, rewriter.getI32IntegerAttr(outMemRefRank));
+          loc, int64Ty, rewriter.getI64IntegerAttr(outMemRefRank));
       auto outOMTensor = callApi(
           rewriter, loc, apiRegistry, API::CREATE_OMTENSOR, {outMemRefRankVal});
       fillOMTensorWithMemRef(
@@ -982,7 +982,7 @@ private:
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
         ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreateWithOwnership", opaquePtrTy, {opaquePtrPtrTy, int32Ty, int32Ty}),
-        ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmptyDeprecated", opaquePtrTy, {int32Ty}),
+        ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmptyDeprecated", opaquePtrTy, {int64Ty}),
         ApiSpec(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
         ApiSpec(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy, opaquePtrTy}),
         ApiSpec(API::GET_DATA_SHAPE, "omTensorGetShape", int64PtrTy, {opaquePtrTy}),
@@ -1321,6 +1321,10 @@ public:
 
 void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     MLIRContext *ctx, LLVMTypeConverter &typeConverter) {
+  vector::populateVectorToVectorCanonicalizationPatterns(patterns);
+  vector::populateVectorSlicesLoweringPatterns(patterns);
+  vector::populateVectorContractLoweringPatterns(patterns);
+
   populateAffineToStdConversionPatterns(patterns);
   populateLoopToStdConversionPatterns(patterns);
 
@@ -1348,7 +1352,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
 }
 
 //===----------------------------------------------------------------------===//
-// KRNL + Standard + Affine dialects lowering to LLVM.
+// KRNL + Standard + Vector + Affine dialects lowering to LLVM.
 //===----------------------------------------------------------------------===//
 
 namespace {
@@ -1359,14 +1363,6 @@ struct ConvertKrnlToLLVMPass
 } // end anonymous namespace
 
 void ConvertKrnlToLLVMPass::runOnOperation() {
-
-  {
-    RewritePatternSet patterns(&getContext());
-    vector::populateVectorToVectorCanonicalizationPatterns(patterns);
-    vector::populateVectorSlicesLoweringPatterns(patterns);
-    vector::populateVectorContractLoweringPatterns(patterns);
-    applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
-  }
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
@@ -1378,8 +1374,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   options.emitCWrappers = true;
   LLVMTypeConverter typeConverter(&getContext(), options);
 
-  // We have a combination of `krnl`, `affine`, and `std` operations. We
-  // lower in stages until all the code is in the LLVM dialect.
+  // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
+  // We lower in stages until all the code is in the LLVM dialect.
   RewritePatternSet patterns(&getContext());
   populateAffineAndKrnlToLLVMConversion(patterns, &getContext(), typeConverter);
 

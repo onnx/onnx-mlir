@@ -303,6 +303,18 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
   return success();
 }
 
+Region &KrnlIterateOp::getLoopBody() { return bodyRegion(); }
+
+LogicalResult KrnlIterateOp::moveOutOfLoop(ArrayRef<Operation *> ops) {
+  for (auto *op : ops)
+    op->moveBefore(*this);
+  return success();
+}
+
+bool KrnlIterateOp::isDefinedOutsideOfLoop(Value value) {
+  return !bodyRegion().isAncestor(value.getParentRegion());
+}
+
 static LogicalResult verify(KrnlIterateOp op) {
   // TODO: Verify number of induction variable bounds matches the number of
   // input loops.
@@ -328,8 +340,7 @@ void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
 
 void KrnlBlockOp::build(::mlir::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsLoop, int64_t odsTileSize) {
-  Type loopType = LoopType::get(odsBuilder.getContext());
-  TypeRange blockResType({loopType, loopType});
+  SmallVector<Type, 4> blockResType(2, LoopType::get(odsBuilder.getContext()));
   build(odsBuilder, odsState, blockResType, odsLoop,
       odsBuilder.getI64IntegerAttr(odsTileSize));
 }
@@ -362,11 +373,9 @@ void KrnlPermuteOp::build(::mlir::OpBuilder &odsBuilder,
 void KrnlGetInductionVariableValueOp::build(::mlir::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, ValueRange odsLoops) {
   int64_t rank = odsLoops.size();
-  Type loopType = LoopType::get(odsBuilder.getContext());
   SmallVector<Type, 6> types(rank, odsBuilder.getIndexType());
-  TypeRange typeRange(types);
   ArrayRef<NamedAttribute> noAttr({});
-  build(odsBuilder, odsState, typeRange, odsLoops, noAttr);
+  build(odsBuilder, odsState, types, odsLoops, noAttr);
 }
 
 //===----------------------------------------------------------------------===//

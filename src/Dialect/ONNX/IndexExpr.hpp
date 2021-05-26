@@ -254,10 +254,6 @@ generate out of them expressions that are either literals or runtime values
 
 Note that in both case, runtime values may be "questionmarks" during the shape
 inference part as no code may be generated during such phases.
-
-krnl_load / krnl_store allow us to generate kernel loads or store where the
-indices are represented by index expressions.
-
 */
 
 #pragma once
