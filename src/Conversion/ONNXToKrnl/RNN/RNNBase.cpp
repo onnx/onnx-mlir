@@ -285,7 +285,7 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
   assert(isScalar && "Not a scalar operand");
 
   MemRefType memRefType = MemRefType::get({}, operand.getType(), {}, 0);
-  Value alloc = rewriter.create<memref::AllocOp>(loc, memRefType);
+  Value alloc = rewriter.create<memref::AllocaOp>(loc, memRefType);
   rewriter.create<KrnlStoreOp>(loc, operand, alloc, ArrayRef<Value>{});
 
   std::vector<mlir::NamedAttribute> attributes;
@@ -326,7 +326,6 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     llvm_unreachable("Unsupported activation");
 
   res = rewriter.create<KrnlLoadOp>(loc, res);
-  rewriter.create<memref::DeallocOp>(loc, alloc);
 
   return res;
 }
