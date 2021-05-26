@@ -31,6 +31,7 @@
 // structure. Reduces the number of memory allocation/freeing.
 #define OMTENSOR_SUPPORTED_INTERNAL_SIZE 16
 
+// Methods local to this file to initialize and cleanup the lists.
 struct OMTensorList;
 static int init(OMTensorList *list, size_t size, OMTensor **omts);
 static void cleanup(OMTensorList *list, int reset);
@@ -71,9 +72,11 @@ struct OMTensorList {
    */
   OMTensor **_omts; // OMTensor array
   size_t _size;     // Number of elements in _omts.
-  OMTensor *_internal_omts[OMTENSOR_SUPPORTED_INTERNAL_SIZE];
+  OMTensor *_internalOmts[OMTENSOR_SUPPORTED_INTERNAL_SIZE];
 };
 
+// Cleanup the list, which include removing all tensors present in the list.
+// With reset on, the fields will be reset (safer if used after cleanup).
 static void cleanup(OMTensorList *list, int reset) {
   for (int i = 0; i < list->_size; i++)
     if (list->_omts[i])
@@ -95,7 +98,9 @@ static int init(OMTensorList *list, size_t size, OMTensor **omts) {
   // Initialize fields.
   list->_size = size;
   if (size <= OMTENSOR_SUPPORTED_INTERNAL_SIZE) {
-    list->_omts = &(list->_internal_omts[0]);
+    // When the list can be accommodated in the internal field, do so to avoid
+    // malloc/free.
+    list->_omts = &(list->_internalOmts[0]);
   } else if (!(list->_omts = (OMTensor **)malloc(sizeof(OMTensor *) * size))) {
     // Failed to alloc, reset and return failure.
     list->_size = 0;
@@ -117,13 +122,6 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int n) {
     return NULL;
   }
   return list;
-}
-
-// TODO remove from ONNX-MLIR
-/* OMTensorList creator with ownership */
-OMTensorList *omTensorListCreateWithOwnership(
-    OMTensor **tensors, int n, int owning) {
-  return omTensorListCreate(tensors, n);
 }
 
 /* OMTensorList destroyer */

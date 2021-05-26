@@ -105,11 +105,12 @@ struct OMTensor {
                // referenced by _allocatedPtr. Omt struct will release the
                // memory space referred to by _allocatedPtr upon destruction if
                // and only if it owns it.
-  int64_t _internal_shape[OMTENSOR_SUPPORTED_INTERNAL_RANK];
-  int64_t _internal_strides[OMTENSOR_SUPPORTED_INTERNAL_RANK];
+  int64_t _internalShape[OMTENSOR_SUPPORTED_INTERNAL_RANK];
+  int64_t _internalStrides[OMTENSOR_SUPPORTED_INTERNAL_RANK];
 };
 
 /* Helper function to compute the number of data elements */
+// TODO: why is this one static when it is actually used in java wrapper?
 static inline int64_t getNumElems(int64_t *shape, int rank) {
   int64_t numElem = 1;
   for (int i = 0; i < rank; i++)
@@ -156,8 +157,8 @@ static int init(OMTensor *tensor, void *allocatedPtr, void *alignedPtr,
     // Use internal buffers. By setting the pointers to their corresponding
     // internal structure, no further special case is needed except when
     // destroying the object.
-    tensor->_shape = &(tensor->_internal_shape[0]);
-    tensor->_strides = &(tensor->_internal_strides[0]);
+    tensor->_shape = &(tensor->_internalShape[0]);
+    tensor->_strides = &(tensor->_internalStrides[0]);
   } else if (!(tensor->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) ||
              !(tensor->_strides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
     // Failure to allocate, cleanup tensor.
