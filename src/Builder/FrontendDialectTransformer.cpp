@@ -500,15 +500,16 @@ private:
   }
 
   Value ConvertAttrToInput(const std::map<int, std::string> &attrToInputMap,
-      int i, const std::vector<NamedAttribute> &attributes) {
+      int i, std::vector<NamedAttribute> &attributes) {
     auto item = attrToInputMap.find(i);
     if (item == attrToInputMap.end())
       return nullptr;
     std::string name = item->second;
     ArrayAttr arrayAttr;
-    for (auto &t : attributes) {
-      if (t.first == name) {
-        arrayAttr = t.second.dyn_cast<ArrayAttr>();
+    for (auto it = attributes.begin(); it != attributes.end(); it++) {
+      if (it->first == name) {
+        arrayAttr = it->second.dyn_cast<ArrayAttr>();
+        attributes.erase(it);
         break;
       }
     }
@@ -531,7 +532,7 @@ private:
   template <typename T>
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<Value> inputs, int expectedNumOperands,
-      int expectedNumResults, const std::vector<NamedAttribute> &attributes) {
+      int expectedNumResults, std::vector<NamedAttribute> &attributes) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
@@ -862,7 +863,7 @@ private:
     // Data input is imported but starts, ends, axes, and steps may come from
     // attributes, and need to be created as constant ops.
     const auto elementType = builder_.getIntegerType(64);
-    const auto attributes = ImportNodeAttributes(node);
+    auto attributes = ImportNodeAttributes(node);
     for (auto attr : attributes) {
       if (auto arrayAttr = attr.second.dyn_cast<ArrayAttr>()) {
         const auto tensorType =
