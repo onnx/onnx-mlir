@@ -17,10 +17,6 @@ func @test_slice_constant_default_axes(%arg0 : tensor<2x4xf32>) -> tensor<*xf32>
 // CHECK-LABEL:  func @test_slice_constant_default_axes
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x4xf32>) -> memref<1x2xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<1x2xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[1, 0]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[2, 3]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() {name = "constant_2", shape = [2], value = dense<[1, 2]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "krnl.global"() {name = "constant_3", shape = [2], value = dense<[0, 1]> : tensor<2xi64>} : () -> memref<2xi64>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2) {
 // CHECK-DAG:         [[VAR_6_:%.+]] = affine.apply #map0([[I_0_]])
@@ -45,10 +41,6 @@ func @test_slice_constant_default_steps(%arg0 : tensor<2x4xf32>) -> tensor<*xf32
 // CHECK-LABEL:  func @test_slice_constant_default_steps
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x4xf32>) -> memref<1x3xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<1x3xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[0, 1]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[1, 0]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() {name = "constant_2", shape = [2], value = dense<[2, 3]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "krnl.global"() {name = "constant_3", shape = [2], value = dense<1> : tensor<2xi64>} : () -> memref<2xi64>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 3) {
 // CHECK:             [[VAR_6_:%.+]] = affine.apply #map([[I_0_]])
@@ -72,10 +64,6 @@ func @test_slice_all_constant(%arg0 : tensor<2x4xf32>) -> tensor<*xf32> {
 // CHECK-LABEL:  func @test_slice_all_constant
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x4xf32>) -> memref<1x2xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<1x2xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[0, 1]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[1, 0]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() {name = "constant_2", shape = [2], value = dense<[2, 3]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "krnl.global"() {name = "constant_3", shape = [2], value = dense<[1, 2]> : tensor<2xi64>} : () -> memref<2xi64>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2) {
 // CHECK-DAG:         [[VAR_6_:%.+]] = affine.apply #map0([[I_0_]])
@@ -100,10 +88,6 @@ func @test_slice_all_constant_negative(%arg0 : tensor<2x4xf32>) -> tensor<*xf32>
 // CHECK-LABEL:  func @test_slice_all_constant_negative
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x4xf32>) -> memref<1x2xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<1x2xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[0, -1]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[1, 0]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() {name = "constant_2", shape = [2], value = dense<[2, -1]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "krnl.global"() {name = "constant_3", shape = [2], value = dense<[1, 2]> : tensor<2xi64>} : () -> memref<2xi64>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2) {
 // CHECK-DAG:         [[VAR_6_:%.+]] = affine.apply #map0([[I_0_]])
@@ -128,10 +112,6 @@ func @test_slice_all_constant_end_outofbound(%arg0 : tensor<2x4xf32>) -> tensor<
 // CHECK-LABEL:  func @test_slice_all_constant_end_outofbound
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x4xf32>) -> memref<1x2xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<1x2xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[0, 1]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[1, 0]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() {name = "constant_2", shape = [2], value = dense<[5, 3]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "krnl.global"() {name = "constant_3", shape = [2], value = dense<[1, 2]> : tensor<2xi64>} : () -> memref<2xi64>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2) {
 // CHECK-DAG:         [[VAR_6_:%.+]] = affine.apply #map0([[I_0_]])
@@ -156,10 +136,6 @@ func @test_slice_all_constant_negative_steps(%arg0 : tensor<2x4xf32>) -> tensor<
 // CHECK-LABEL:  func @test_slice_all_constant_negative_steps
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x4xf32>) -> memref<1x2xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<1x2xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[0, 1]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[1, 3]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() {name = "constant_2", shape = [2], value = dense<[2, 0]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "krnl.global"() {name = "constant_3", shape = [2], value = dense<[1, -2]> : tensor<2xi64>} : () -> memref<2xi64>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2) {
 // CHECK-DAG:         [[VAR_6_:%.+]] = affine.apply #map0([[I_0_]])
@@ -187,10 +163,6 @@ func @dyntest_slice_constant_dynshape_not_spliced(%arg0 : tensor<?x4x5xf32>) -> 
 // CHECK-LABEL:  func @dyntest_slice_constant_dynshape_not_spliced
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x4x5xf32>) -> memref<?x2x3xf32> {
 // CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[2, 1]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<1> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = "constant_2", shape = [2], value = dense<-1> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() {name = "constant_3", shape = [2], value = dense<1> : tensor<2xi64>} : () -> memref<2xi64>
 // CHECK:           [[DIM_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x4x5xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[DIM_0_]]) : memref<?x2x3xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
@@ -229,7 +201,6 @@ func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %arg2 
 // CHECK-DAG:       [[CST_minus_2147483648_:%.+]] = constant -2147483648 : index
 // CHECK-DAG:       [[CST_2147483647_:%.+]] = constant 2147483647 : index
 // CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_0", shape = [3, 4, 5], value = dense<{{.}}{{.}}[0, 1, 2, 3, 4], [10, 11, 12, 13, 14], [20, 21, 22, 23, 24], [30, 31, 32, 33, 34]{{.}}, {{.}}[100, 101, 102, 103, 104], [110, 111, 112, 113, 114], [120, 121, 122, 123, 124], [130, 131, 132, 133, 134]{{.}}, {{.}}[200, 201, 202, 203, 204], [210, 211, 212, 213, 214], [220, 221, 222, 223, 224], [230, 231, 232, 233, 234]{{.}}{{.}}> : tensor<3x4x5xi64>} : () -> memref<3x4x5xi64>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[2, 1]> : tensor<2xi64>} : () -> memref<2xi64>
 // CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{\[}}[[CST_0_]]{{\]}} : memref<2xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_3_:%.+]] = index_cast [[LOAD_PARAM_0_MEM_]] : i64 to index
@@ -389,7 +360,6 @@ func @test_tile1(%arg0 : tensor<4x8xf32>) -> tensor<*xf32> {
 // CHECK-LABEL:  func @test_tile1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<4x8xf32>) -> memref<12x16xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<12x16xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[3, 2]> : tensor<2xi64>} : () -> memref<2xi64>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 12, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 16) {
 // CHECK-DAG:         [[VAR_3_:%.+]] = affine.apply #map0([[I_0_]])
@@ -837,11 +807,11 @@ func @test_prelu_broadcast3(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf32>) 
 // -----
 // COM: Check PRelu with unidirectional broadcasting.
 // COM: Tensor slope should be unidirectional broadcastable to input tensor X
-func @test_prelu_broadcast3(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf32>) -> tensor<*xf32> {
+func @test_prelu_broadcast4(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf32>) -> tensor<*xf32> {
   %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x1x5xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
-  // CHECK-LABEL: func @test_prelu_broadcast3
+  // CHECK-LABEL: func @test_prelu_broadcast4
   // CHECK-DAG: [[ZERO_INDEX:%.+]] = constant 0 : index
   // CHECK-DAG: [[CST_0:%.+]] = constant 0.000000e+00 : f32
   // CHECK-DAG: [[RES:%.+]] = memref.alloc() : memref<3x4x5xf32>

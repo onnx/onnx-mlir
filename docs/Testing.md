@@ -38,7 +38,7 @@ IMPORTER_FORCE_DYNAMIC='0:-1|1:0,1' all dimensions of the first input and the 1s
 
 The Backus–Naur Form (BNF) for IMPORTER_FORCE_DYNAMIC is as follows.
 ```
-<ImportForceDymanicExpr> :== `'` <expr> `'`
+<ImportForceDynamicExpr> :== `'` <expr> `'`
                   <expr> ::= <inputString> | <inputString> `|` <expr>
             <inputString ::= <inputIndex> `:` <dimString>
              <dimString> ::= <dimIndex> | <dimIndex> `,` <dimString>
@@ -88,7 +88,7 @@ Numerical tests should be structured such that the following two components are 
 
 The motivation is that there are two ways we want to generate test case parameters:
 - Exhaustive generation of test case parameters. Where we want to exhaustively test the correctness of a small range
-of parameters (for instance, if we would like to test and verify that 3x3 convolution is correctly implmented for
+of parameters (for instance, if we would like to test and verify that 3x3 convolution is correctly implemented for
 all valid padding configurations.)
 - When the possible parameter space is extremely large, we can rely on RapidCheck to randomly generate test cases
 that becomes increasingly large as smaller test cases succeed. And it also automatically shrinks the test cases
@@ -98,7 +98,7 @@ test case parameters and invoke the value checking function `isOMConvTheSameAsNa
 
 ```cpp
   // RapidCheck test case generation.
-  rc::check("convolution implementation correctness", []() {
+  bool success = rc::check("convolution implementation correctness", []() {
     const auto N = *rc::gen::inRange(1, 10);
     const auto C = *rc::gen::inRange(1, 20);
     const auto H = *rc::gen::inRange(5, 20);
@@ -119,5 +119,12 @@ test case parameters and invoke the value checking function `isOMConvTheSameAsNa
     RC_ASSERT(isOMConvTheSameAsNaiveImplFor(
         N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd));
   });
+  assert(success && "error while performing RapidCheck tests");
 ```
   
+Sometimes it is convenient to be able to see the mlir files associated with a
+numerical tests. To do so, the easiest is to set the `overridePreserveFiles`
+variable in `src/MainUtils.cpp` to the types of files that you want to
+preserve (e.g. `KeepFilesOfType::All`). Then, no matter how you compile
+your model, input and output mlir files will be preserved, as well as
+unoptimized and optimized bytecode files as well as a few additional binaries.

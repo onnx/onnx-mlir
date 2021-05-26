@@ -31,7 +31,7 @@ bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
   registerDialects(ctx);
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
-  
+
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);
   llvm::SmallVector<int64_t, 4> aShape = {I, K};
@@ -69,7 +69,7 @@ bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
   auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
       /*numInputs=*/2,
       /*numOutputs=*/1,
-      /*signature*/signature);
+      /*signature*/ signature);
   module.push_back(entryPoint);
 
   OwningModuleRef moduleRef(module);
@@ -113,13 +113,15 @@ int main(int argc, char *argv[]) {
   llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
 
   printf("RapidCheck test case generation.\n");
-  rc::check("Matmul implementation correctness", []() {
+  bool success = rc::check("Matmul implementation correctness", []() {
     const auto I = *rc::gen::inRange(1, 50);
     const auto J = *rc::gen::inRange(1, 50);
     const auto K = *rc::gen::inRange(1, 50);
 
     RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(I, J, K));
   });
+  if (!success)
+    return 1;
 
   printf("\n\nExhaustive test case generation.\n");
   for (int I = 1; I < 9; I++)

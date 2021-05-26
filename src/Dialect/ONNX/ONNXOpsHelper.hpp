@@ -93,4 +93,5 @@ mlir::DenseElementsAttr getDenseElementAttributeFromONNXValue(
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
 mlir::Value getONNXConstantOpFromDenseAttr(
     mlir::PatternRewriter &rewriter, mlir::Location loc, mlir::Attribute dense);
+bool isFromNone(mlir::Value value);
 mlir::Type getBroadcastedRankedType(mlir::Type type1, mlir::Type type2);
