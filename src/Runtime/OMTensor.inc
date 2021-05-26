@@ -40,6 +40,16 @@
 #include "src/Runtime/OMTensorHelper.h"
 #endif
 
+// Number of shape and strides that are stored directly in the tensor data
+// structure. Reduces the number of memory allocation/freeing.
+#define OMTENSOR_SUPPORTED_INTERNAL_RANK 6
+
+// Definitions of methods to init and clean tensors.
+struct OMTensor;
+static int init(OMTensor *tensor, void *allocatedPtr, void *alignedPtr,
+    int64_t *shape, int64_t rank, OM_DATA_TYPE dataType, int owning);
+static void cleanup(OMTensor *tensor, int reset);
+
 struct OMTensor {
 #ifdef __cplusplus
   /**
@@ -51,17 +61,8 @@ struct OMTensor {
    * are allocated.
    */
   OMTensor(int rank) {
-    if ((_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
-        (_strides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-      _allocatedPtr = NULL;
-      _alignedPtr = NULL;
-      _offset = 0;
-      _dataType = ONNX_TYPE_UNDEFINED;
-      _rank = rank;
-      _owning = false;
-    } else {
-      if (_shape)
-        free(_shape);
+    if (!init(this, /*data ptr*/ NULL, /*data ptr*/ NULL,
+            /*shape*/ NULL, rank, ONNX_TYPE_UNDEFINED, /*owning*/ false)) {
       throw std::runtime_error(
           "OMTensor(" + std::to_string(rank) + ") malloc error");
     }
@@ -74,12 +75,7 @@ struct OMTensor {
    *
    * Destroy the OMTensor struct.
    */
-  ~OMTensor() {
-    if (_owning)
-      free(_allocatedPtr);
-    free(_shape);
-    free(_strides);
-  };
+  ~OMTensor() { cleanup(this, false); };
 #endif
   // Fields are named according to:
   // https://mlir.llvm.org/docs/Dialects/SPIR-V/#lowering-memrefs-to-spvarray-and-spvrtarray
@@ -109,6 +105,8 @@ struct OMTensor {
                // referenced by _allocatedPtr. Omt struct will release the
                // memory space referred to by _allocatedPtr upon destruction if
                // and only if it owns it.
+  int64_t _internal_shape[OMTENSOR_SUPPORTED_INTERNAL_RANK];
+  int64_t _internal_strides[OMTENSOR_SUPPORTED_INTERNAL_RANK];
 };
 
 /* Helper function to compute the number of data elements */
@@ -119,34 +117,78 @@ static inline int64_t getNumElems(int64_t *shape, int rank) {
   return numElem;
 }
 
+static void cleanup(OMTensor *tensor, int reset) {
+  if (tensor->_owning)
+    free(tensor->_allocatedPtr);
+  if (tensor->_rank > OMTENSOR_SUPPORTED_INTERNAL_RANK) {
+    // Free only if explicit malloc were used for large ranks.
+    free(tensor->_shape);
+    free(tensor->_strides);
+  }
+  if (reset) {
+    // If the tensor may be reused, make sure it is properly reset to avoid
+    // issues.
+    tensor->_allocatedPtr = NULL;
+    tensor->_alignedPtr = NULL;
+    tensor->_shape = NULL;
+    tensor->_strides = NULL;
+  }
+}
+
+// Internal only function to initialize a  tensor.  Minimally requires tensor
+// and rank. On failure, cleanup any internal data structures.
+static int init(OMTensor *tensor, void *allocatedPtr, void *alignedPtr,
+    int64_t *shape, int64_t rank, OM_DATA_TYPE dataType, int owning) {
+  assert(tensor);
+  assert(rank >= 0);
+  // Initialize simple fields.
+  tensor->_allocatedPtr = allocatedPtr;
+  tensor->_alignedPtr = alignedPtr;
+  tensor->_offset = 0;
+  tensor->_shape = NULL;   // Set to null to avoid memory corruption on failure.
+  tensor->_strides = NULL; // Set to null to avoid memory corruption on failure.
+  tensor->_dataType = dataType;
+  tensor->_rank = rank;
+  tensor->_dataType = dataType;
+  tensor->_owning = owning;
+  // Initialize pointers to shape and strides.
+  if (rank <= OMTENSOR_SUPPORTED_INTERNAL_RANK) {
+    // Use internal buffers. By setting the pointers to their corresponding
+    // internal structure, no further special case is needed except when
+    // destroying the object.
+    tensor->_shape = &(tensor->_internal_shape[0]);
+    tensor->_strides = &(tensor->_internal_strides[0]);
+  } else if (!(tensor->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) ||
+             !(tensor->_strides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
+    // Failure to allocate, cleanup tensor.
+    cleanup(tensor, true);
+    return 0;
+  }
+  // Init shape when provided.
+  if (shape) {
+    // Using signed indices helps detect when index falls below 0.
+    for (int64_t i = rank - 1; i >= 0; i--) {
+      assert(shape[i] > 0);
+      tensor->_shape[i] = shape[i];
+      if (i == rank - 1)
+        tensor->_strides[i] = 1;
+      else
+        tensor->_strides[i] = tensor->_strides[i + 1] * tensor->_shape[i + 1];
+    }
+  }
+  return 1;
+}
+
 // Create a OMTensor.
 OMTensor *omTensorCreate(
     void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
   OMTensor *tensor = (OMTensor *)malloc(sizeof(OMTensor));
   if (!tensor)
     return NULL;
-  if ((tensor->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
-      (tensor->_strides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-    tensor->_allocatedPtr = data_ptr;
-    tensor->_alignedPtr = data_ptr;
-    tensor->_offset = 0;
-    tensor->_rank = rank;
-    tensor->_dataType = dtype;
-    tensor->_owning = false;
-  } else {
-    if (tensor->_shape)
-      free(tensor->_shape);
+  if (!init(tensor, data_ptr, data_ptr, shape, rank, dtype,
+          /*owning*/ false)) {
     free(tensor);
     return NULL;
-  }
-
-  // Using signed indices helps detect when index falls below 0.
-  for (int64_t i = rank - 1; i >= 0; i--) {
-    tensor->_shape[i] = shape[i];
-    if (i == rank - 1)
-      tensor->_strides[i] = 1;
-    else
-      tensor->_strides[i] = tensor->_strides[i + 1] * tensor->_shape[i + 1];
   }
   return tensor;
 }
@@ -154,11 +196,13 @@ OMTensor *omTensorCreate(
 // Create a OMTensor with specified ownership.
 OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
     int64_t rank, OM_DATA_TYPE dtype, int owning) {
-  OMTensor *tensor = omTensorCreate(data_ptr, shape, rank, dtype);
-  // If ctor fails, return NULL.
+  OMTensor *tensor = (OMTensor *)malloc(sizeof(OMTensor));
   if (!tensor)
     return NULL;
-  tensor->_owning = owning;
+  if (!init(tensor, data_ptr, data_ptr, shape, rank, dtype, owning)) {
+    free(tensor);
+    return NULL;
+  }
   return tensor;
 }
 
@@ -177,51 +221,37 @@ OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
  *
  */
 OMTensor *omTensorCreateEmptyDeprecated(int64_t rank) {
-  OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
-  if (!omt)
+  OMTensor *tensor = (OMTensor *)malloc(sizeof(OMTensor));
+  if (!tensor)
     return NULL;
-  if ((omt->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
-      (omt->_strides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-    omt->_allocatedPtr = NULL;
-    omt->_alignedPtr = NULL;
-    omt->_offset = 0;
-    omt->_dataType = ONNX_TYPE_UNDEFINED;
-    omt->_rank = rank;
-    omt->_owning = false;
-  } else {
-    if (omt->_shape)
-      free(omt->_shape);
-    free(omt);
+  if (!init(tensor, /*data ptr*/ NULL, /*data ptr*/ NULL,
+          /*shape*/ NULL, rank, ONNX_TYPE_UNDEFINED, /*owning*/ false)) {
+    free(tensor);
     return NULL;
   }
-
-  return omt;
+  return tensor;
 }
 
 OMTensor *omTensorCreateEmpty(
     int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
-  OMTensor *tensor =
-      omTensorCreateWithOwnership(NULL, shape, rank, dtype, /*owning=*/true);
-  // If ctor fails, return null.
+  OMTensor *tensor = (OMTensor *)malloc(sizeof(OMTensor));
   if (!tensor)
     return NULL;
-
   void *dataPtr = malloc(omTensorGetNumElems(tensor) * getDataTypeSize(dtype));
-  if (!dataPtr)
+  if (!dataPtr) {
+    free(tensor);
     return NULL;
-
-  tensor->_alignedPtr = dataPtr;
-  tensor->_allocatedPtr = dataPtr;
+  }
+  if (!init(tensor, dataPtr, dataPtr, shape, rank, dtype, /*owning*/ true)) {
+    free(tensor);
+    return NULL;
+  }
   return tensor;
 }
 
 /* OMTensor destroyer */
 void omTensorDestroy(OMTensor *tensor) {
-  if (tensor->_owning) {
-    free(tensor->_allocatedPtr);
-  }
-  free(tensor->_shape);
-  free(tensor->_strides);
+  cleanup(tensor, false);
   free(tensor);
 }
 
@@ -338,6 +368,7 @@ void *omTensorGetAllocatedPtr(OMTensor *tensor) {
 /* OMTensor creator with data shape and element type  */
 template <typename T>
 OMTensor *omTensorCreateWithShape(std::vector<int64_t> shape) {
+
   /* Create a OMTensor with data shape and strides allocated */
   auto omt = omTensorCreateEmptyDeprecated(shape.size());
   if (omt == NULL)
