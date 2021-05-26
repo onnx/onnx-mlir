@@ -394,7 +394,7 @@ OpsWithResultTypeInference = {
 custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSum', 'ReduceSumSquare',
                                     'Pad', 'Sqrt', 'Neg', 'Unsqueeze', 'Softmax',
                                     'ReduceMax', 'ReduceLogSum', 'Squeeze',
-                                    'Identity', 'Split']
+                                    'Identity']
 # Custom builder op list for operations with broadcast; we can deduce the right
 # output type, no need to leave it undef as in the above list.
 # Ops must have two operands, not one, not three... And there shall be two.
@@ -425,6 +425,29 @@ custom_definition_misc = dict([ ('Constant',
    auto resultType = mlir::UnrankedTensorType::get(to.getValue());
    build($_builder, $_state, resultType, input, to);
   }] >
+  ];'''),
+  ('Split',
+ '''   let builders = [
+  OpBuilder<(ins "Value":$input, "IntegerAttr":$axis, "ArrayAttr":$split), [{
+   Type elementType = input.getType().cast<ShapedType>().getElementType();
+   std::vector<mlir::Type> outputTypes;
+   if (split.size() == 0) {
+     outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+   } else {
+     std::vector<int64_t> inputShape = input.getType().cast<MemRefType>().getShape();
+     int64_t splitAxis = axis.cast<IntegerAttr>().getSInt();
+     int64_t splitNum = (split.size() == 0) ? inputShape[splitAxis] : split.size();
+     for (int i = 0 ; i < splitNum; i++) {
+       std::vector<int64_t> outputShape;
+       for (int dim = 0; dim < inputShape.size(); dim++) {
+         outputShape.emplace_back((dim == splitAxis) ?
+             split[dim].cast<IntegerAttr>().getInt() : inputShape[dim]);
+       }
+       outputTypes.emplace_back(MemRefType::get(outputShape, elementType));
+     }
+   }
+   build($_builder, $_state, outputTypes, input, axis, split);
+  }]>
   ];'''
  )])
 

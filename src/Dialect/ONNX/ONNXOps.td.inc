@@ -5462,29 +5462,39 @@ def ONNXSplitOp:ONNX_Op<"Split",
     DefaultValuedAttr<SI64Attr, "0">:$axis,
     OptionalAttr<I64ArrayAttr>:$split);
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$outputs);
-  let builders = [
-    OpBuilder<(ins "Value":$input, "IntegerAttr":$axis, "ArrayAttr":$split), [{
-      auto elementType = input.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), input, axis, split);
-    }]>,
-    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
-    }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return -1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return -1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+   let builders = [
+  OpBuilder<(ins "Value":$input, "IntegerAttr":$axis, "ArrayAttr":$split), [{
+   Type elementType = input.getType().cast<ShapedType>().getElementType();
+   std::vector<mlir::Type> outputTypes;
+   if (split.size() == 0) {
+     outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+   } else {
+     std::vector<int64_t> inputShape = input.getType().cast<MemRefType>().getShape();
+     int64_t splitAxis = axis.cast<IntegerAttr>().getSInt();
+     int64_t splitNum = (split.size() == 0) ? inputShape[splitAxis] : split.size();
+     for (int i = 0 ; i < splitNum; i++) {
+       std::vector<int64_t> outputShape;
+       for (int dim = 0; dim < inputShape.size(); dim++) {
+         outputShape.emplace_back((dim == splitAxis) ?
+             split[dim].cast<IntegerAttr>().getInt() : inputShape[dim]);
+       }
+       outputTypes.emplace_back(MemRefType::get(outputShape, elementType));
+     }
+   }
+   build($_builder, $_state, outputTypes, input, axis, split);
+  }]>
+  ];
 }
 
 def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
