@@ -90,6 +90,8 @@ llvm::cl::opt<string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
 // and/or the overridePreserveFiles enum.
 enum class KeepFilesOfType { All, MLIR, Bitcode, Object, None };
 
+// Value below override at compile time by effectively setting the requested
+// flags.
 static const KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
 
 static bool keepFiles(KeepFilesOfType preserve) {

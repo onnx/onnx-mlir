@@ -96,6 +96,8 @@ struct OMTensor {
   void *_allocatedPtr; // data buffer
   void *_alignedPtr;   // aligned data buffer that the omt indexes.
 
+  // TODO: remove or use _offset. Currently only set to zero, never used. It
+  // may be in use in LLVM memrefs, so someone needs to look into this.
   int64_t _offset;   // offset of 1st element
   int64_t *_shape;   // shape array
   int64_t *_strides; // strides array
@@ -127,6 +129,7 @@ OMTensor *omTensorCreate(
       (tensor->_strides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
     tensor->_allocatedPtr = data_ptr;
     tensor->_alignedPtr = data_ptr;
+    tensor->_offset = 0;
     tensor->_rank = rank;
     tensor->_dataType = dtype;
     tensor->_owning = false;
@@ -214,8 +217,9 @@ OMTensor *omTensorCreateEmpty(
 
 /* OMTensor destroyer */
 void omTensorDestroy(OMTensor *tensor) {
-  if (tensor->_owning)
+  if (tensor->_owning) {
     free(tensor->_allocatedPtr);
+  }
   free(tensor->_shape);
   free(tensor->_strides);
   free(tensor);
@@ -270,11 +274,11 @@ void omTensorSetStrides(OMTensor *tensor, int64_t *strides) {
 }
 
 /* OMTensor data strides setter with PyArray stride values */
-void omTensorSetStridesWithPyArrayStrides(OMTensor *tensor,
-  int64_t *stridesInBytes) {
+void omTensorSetStridesWithPyArrayStrides(
+    OMTensor *tensor, int64_t *stridesInBytes) {
   for (int i = 0; i < tensor->_rank; i++)
     tensor->_strides[i] =
-      stridesInBytes[i] / getDataTypeSize(tensor->_dataType);
+        stridesInBytes[i] / getDataTypeSize(tensor->_dataType);
 }
 
 /* OMTensor data type getter */
@@ -368,7 +372,6 @@ OMTensor *omTensorCreateWithShape(std::vector<int64_t> shape) {
 
   /* Set flag for destructor */
   omt->_owning = true;
-
   return omt;
 }
 
@@ -386,8 +389,8 @@ OMTensor *omTensorCreateWithRandomData(
   if (omt == NULL)
     return NULL;
 
-  std::generate((T *)omt->_allocatedPtr,
-      (T *)omt->_allocatedPtr + getNumElems(omt->_shape, omt->_rank),
+  std::generate((T *)omt->_alignedPtr,
+      (T *)omt->_alignedPtr + getNumElems(omt->_shape, omt->_rank),
       [&]() { return dis(gen); });
   return omt;
 }
@@ -396,13 +399,13 @@ OMTensor *omTensorCreateWithRandomData(
 template <typename T>
 T &omTensorGetElem(OMTensor *omt, std::vector<int64_t> indexes) {
   int64_t elemOffset = omTensorComputeElemOffset(omt, indexes);
-  return ((T *)omt->_allocatedPtr)[elemOffset];
+  return ((T *)omt->_alignedPtr)[elemOffset];
 }
 
 /* Access an element (by reference) at linear offset */
 template <typename T>
 T &omTensorGetElemByOffset(OMTensor *omt, int64_t index) {
-  return ((T *)omt->_allocatedPtr)[index];
+  return ((T *)omt->_alignedPtr)[index];
 }
 
 /* Compute strides vector from shape vector */
@@ -454,7 +457,9 @@ inline bool omTensorAreTwoOmtsClose(
   auto anum = omTensorGetNumElems(a);
   auto bnum = omTensorGetNumElems(b);
   auto rtolT = omTensorCreateWithShape<T>(aShape);
+  assert(rtolT && "failed to allocate memory");
   auto atolT = omTensorCreateWithShape<T>(aShape);
+  assert(atolT && "failed to allocate memory");
   for (const auto &idx : omTensorComputeIndexSet(rtolT)) {
     omTensorGetElem<T>(rtolT, idx) = rtol;
     omTensorGetElem<T>(atolT, idx) = atol;
@@ -462,27 +467,25 @@ inline bool omTensorAreTwoOmtsClose(
   std::vector<T> absoluteDiff(anum);
   std::vector<T> eqAllclose(anum);
   // abs(a - b)
-  std::transform((T *)a->_allocatedPtr, (T *)a->_allocatedPtr + anum,
-      (T *)b->_allocatedPtr, absoluteDiff.begin(), std::minus<>());
+  std::transform((T *)a->_alignedPtr, (T *)a->_alignedPtr + anum,
+      (T *)b->_alignedPtr, absoluteDiff.begin(), std::minus<>());
   std::transform(absoluteDiff.begin(), absoluteDiff.end(), absoluteDiff.begin(),
       static_cast<T (*)(T)>(&std::abs));
   // rtol * abs(b)
-  std::transform((T *)b->_allocatedPtr, (T *)b->_allocatedPtr + bnum,
-      (T *)b->_allocatedPtr, static_cast<T (*)(T)>(&std::abs));
-  std::transform((T *)b->_allocatedPtr, (T *)b->_allocatedPtr + bnum,
-      (T *)rtolT->_allocatedPtr, eqAllclose.begin(), std::multiplies<>());
+  std::transform((T *)b->_alignedPtr, (T *)b->_alignedPtr + bnum,
+      (T *)b->_alignedPtr, static_cast<T (*)(T)>(&std::abs));
+  std::transform((T *)b->_alignedPtr, (T *)b->_alignedPtr + bnum,
+      (T *)rtolT->_alignedPtr, eqAllclose.begin(), std::multiplies<>());
   // rtol * abs(b) + atol
-  std::transform(eqAllclose.begin(), eqAllclose.end(),
-      (T *)atolT->_allocatedPtr, eqAllclose.begin(), std::plus<>());
+  std::transform(eqAllclose.begin(), eqAllclose.end(), (T *)atolT->_alignedPtr,
+      eqAllclose.begin(), std::plus<>());
   // (rtol * b + atol) - abs(a - b)
   std::transform(eqAllclose.begin(), eqAllclose.end(), absoluteDiff.begin(),
       eqAllclose.begin(), std::minus<>());
   bool satisfied = std::all_of(
       eqAllclose.begin(), eqAllclose.end(), [&](T eq) { return eq >= 0; });
 
-  if (satisfied) {
-    return true;
-  } else {
+  if (!satisfied) {
     // Figure out where and what went wrong, this can be slow; but hopefully we
     // don't need this often.
     for (const auto &idx : omTensorComputeIndexSet(a)) {
@@ -500,8 +503,10 @@ inline bool omTensorAreTwoOmtsClose(
         std::cerr << "] = " << bElem << std::endl;
       }
     }
-    return false;
   }
+  omTensorDestroy(rtolT);
+  omTensorDestroy(atolT);
+  return satisfied;
 }
 
 // Explicit instantiation of all templated API functions.
@@ -520,8 +525,7 @@ template OMTensor *omTensorCreateWithRandomData<float>(
 template OMTensor *omTensorCreateWithRandomData<double>(
     std::vector<int64_t> shape, double lbound, double ubound);
 
-template bool &omTensorGetElem<bool>(
-    OMTensor *, std::vector<int64_t> indexes);
+template bool &omTensorGetElem<bool>(OMTensor *, std::vector<int64_t> indexes);
 template int32_t &omTensorGetElem<int32_t>(
     OMTensor *, std::vector<int64_t> indexes);
 template int64_t &omTensorGetElem<int64_t>(
