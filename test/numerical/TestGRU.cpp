@@ -319,7 +319,7 @@ int main(int argc, char *argv[]) {
   llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
 
   // RapidCheck test case generation.
-  rc::check("GRU implementation correctness", []() {
+  bool success = rc::check("GRU implementation correctness", []() {
     // The number of directions.
     // 1: forward, -1: reverse, 2: bidirectional
     const auto D = *rc::gen::element(1, -1, 2);
@@ -341,6 +341,8 @@ int main(int argc, char *argv[]) {
     RC_ASSERT(isOMGRUTheSameAsNaiveImplFor(
         D, S, B, I, H, L, isDynS == 0, isDynB == 0));
   });
+  if (!success)
+    return 1;
 
   // Exhaustive test case generation.
   for (int64_t s = 3; s < 4; s++)
