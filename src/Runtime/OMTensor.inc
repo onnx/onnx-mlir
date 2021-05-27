@@ -369,7 +369,6 @@ void *omTensorGetAllocatedPtr(OMTensor *tensor) {
 /* OMTensor creator with data shape and element type  */
 template <typename T>
 OMTensor *omTensorCreateWithShape(std::vector<int64_t> shape) {
-
   /* Create a OMTensor with data shape and strides allocated */
   auto omt = omTensorCreateEmptyDeprecated(shape.size());
   if (omt == NULL)

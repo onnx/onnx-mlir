@@ -94,7 +94,8 @@ static void cleanup(OMTensorList *list, int reset) {
 // on failure, and cleanup the data structure.
 static int init(OMTensorList *list, size_t size, OMTensor **omts) {
   assert(list);
-  assert(omts);
+  if (size > 0)
+    assert(omts);
   // Initialize fields.
   list->_size = size;
   if (size <= OMTENSOR_SUPPORTED_INTERNAL_SIZE) {
