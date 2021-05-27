@@ -83,7 +83,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
             SmallVector<IndexExpr, 2> cAccess;
             for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
               // If dim > 1, use loop index, otherwise broadcast on 0's element.
-              SymbolIndexExpr dim(shapeHelper.cDims[x]);
+              DimIndexExpr dim(shapeHelper.cDims[x]);
               cAccess.emplace_back(
                   IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0));
             }
