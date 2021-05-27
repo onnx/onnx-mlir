@@ -33,7 +33,7 @@
 
 // Methods local to this file to initialize and cleanup the lists.
 struct OMTensorList;
-static int init(OMTensorList *list, size_t size, OMTensor **omts);
+static int init(OMTensorList *list, size_t size, int owning, OMTensor **omts);
 static void cleanup(OMTensorList *list, int reset);
 
 struct OMTensorList {
@@ -45,7 +45,7 @@ struct OMTensorList {
    * and the size of the array
    */
   OMTensorList(OMTensor *omts[], int n) {
-    if (!init(this, n, omts)) {
+    if (!init(this, n, /*owning*/ false, omts)) {
       throw std::runtime_error(
           "OMTensorList(" + std::to_string(n) + ") malloc error");
     }
@@ -72,6 +72,10 @@ struct OMTensorList {
    */
   OMTensor **_omts; // OMTensor array
   size_t _size;     // Number of elements in _omts.
+  int _owning;      // indicates whether the OMTensorList owns the pointer to
+               // OMTensor array or not. OMTensorList struct will release the
+               // memory space referred to by '_omts' upon destruction if and
+               // only if it owns it.
   OMTensor *_internalOmts[OMTENSOR_SUPPORTED_INTERNAL_SIZE];
 };
 
@@ -81,9 +85,8 @@ static void cleanup(OMTensorList *list, int reset) {
   for (int i = 0; i < list->_size; i++)
     if (list->_omts[i])
       omTensorDestroy(list->_omts[i]);
-  if (list->_size > OMTENSOR_SUPPORTED_INTERNAL_SIZE)
+  if (list->_owning || list->_size > OMTENSOR_SUPPORTED_INTERNAL_SIZE)
     free(list->_omts);
-  free(list);
   if (reset) {
     list->_size = 0;
     list->_omts = NULL;
@@ -92,24 +95,32 @@ static void cleanup(OMTensorList *list, int reset) {
 
 // Initialize an OMTensorList with mandatory size and list of tensors. Return 0
 // on failure, and cleanup the data structure.
-static int init(OMTensorList *list, size_t size, OMTensor **omts) {
+static int init(OMTensorList *list, size_t size, int owning, OMTensor **omts) {
   assert(list);
   if (size > 0)
     assert(omts);
   // Initialize fields.
   list->_size = size;
-  if (size <= OMTENSOR_SUPPORTED_INTERNAL_SIZE) {
-    // When the list can be accommodated in the internal field, do so to avoid
-    // malloc/free.
-    list->_omts = &(list->_internalOmts[0]);
-  } else if (!(list->_omts = (OMTensor **)malloc(sizeof(OMTensor *) * size))) {
-    // Failed to alloc, reset and return failure.
-    list->_size = 0;
-    return 0;
+  list->_owning = owning;
+  if (owning) {
+    // no copying, just reuse the list
+    list->_omts = omts;
+  } else {
+    // will copy the list
+    if (size <= OMTENSOR_SUPPORTED_INTERNAL_SIZE) {
+      // When the list can be accommodated in the internal field, do so to avoid
+      // malloc/free.
+      list->_omts = &(list->_internalOmts[0]);
+    } else if (!(list->_omts =
+                       (OMTensor **)malloc(sizeof(OMTensor *) * size))) {
+      // Failed to alloc, reset and return failure.
+      list->_size = 0;
+      return 0;
+    }
+    // Copy pointers (use private list only).
+    for (int i = 0; i < list->_size; i++)
+      list->_omts[i] = omts[i];
   }
-  // Copy pointers (use private list only).
-  for (int i = 0; i < list->_size; i++)
-    list->_omts[i] = omts[i];
   return 1;
 }
 
@@ -118,7 +129,20 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int n) {
   OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
   if (!list)
     return NULL;
-  if (!init(list, n, tensors)) {
+  if (!init(list, n, /*owning*/ false, tensors)) {
+    free(list);
+    return NULL;
+  }
+  return list;
+}
+
+/* OMTensorList creator with ownership */
+OMTensorList *omTensorListCreateWithOwnership(
+    OMTensor **tensors, int n, int owning) {
+  OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
+  if (!list)
+    return NULL;
+  if (!init(list, n, owning, tensors)) {
     free(list);
     return NULL;
   }
@@ -126,7 +150,10 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int n) {
 }
 
 /* OMTensorList destroyer */
-void omTensorListDestroy(OMTensorList *list) { cleanup(list, true); }
+void omTensorListDestroy(OMTensorList *list) {
+  cleanup(list, false);
+  free(list);
+}
 
 /* OMTensorList OMTensor array getter */
 OMTensor **omTensorListGetOmtArray(OMTensorList *list) { return list->_omts; }
