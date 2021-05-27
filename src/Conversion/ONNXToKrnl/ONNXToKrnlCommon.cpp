@@ -425,9 +425,11 @@ Value emitSqueeze(ConversionPatternRewriter &rewriter, Location loc,
             ->getAttrOfType<::mlir::Attribute>("value")
             .dyn_cast_or_null<mlir::DenseElementsAttr>());
 
-    return createDenseONNXConstantOp(
+    Value constVal = createDenseONNXConstantOp(
         rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
-        .getResult();
+                         .getResult();
+    free(inputBuffer);
+    return constVal;
   } else {
     return rewriter
         .create<ONNXSqueezeOp>(
@@ -444,9 +446,11 @@ Value emitUnsqueeze(ConversionPatternRewriter &rewriter, Location loc,
             ->getAttrOfType<::mlir::Attribute>("value")
             .dyn_cast_or_null<mlir::DenseElementsAttr>());
 
-    return createDenseONNXConstantOp(
+    Value constVal = createDenseONNXConstantOp(
         rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
-        .getResult();
+                         .getResult();
+    free(inputBuffer);
+    return constVal;
   } else {
     return rewriter
         .create<ONNXUnsqueezeOp>(
@@ -491,6 +495,7 @@ std::vector<Value> emitSplit(ConversionPatternRewriter &rewriter, Location loc,
       resVals.emplace_back(constVal);
       free(resBuffers[i]);
     }
+    free(inputBuffer);
   } else {
     ONNXSplitOp split = rewriter.create<ONNXSplitOp>(loc, resultTypes, input,
         /*axis=*/axis, nullptr);
@@ -525,6 +530,7 @@ Value emitTranspose(ConversionPatternRewriter &rewriter, Location loc,
         rewriter, loc, resultType.cast<ShapedType>(), resBuffer)
                          .getResult();
     free(resBuffer);
+    free(inputBuffer);
     return constVal;
   } else
     return rewriter.create<ONNXTransposeOp>(loc, resultType, input, permAttr)
