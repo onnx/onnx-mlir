@@ -18,6 +18,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
+#define BUFFER_ALIGN 128
 using namespace mlir;
 
 static const StringRef FORWARD = "forward";
@@ -73,6 +74,12 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
 /// Get a slice of X at a specific timestep.
 Value emitXSliceAt(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value timestep);
+
+/// Emit multiple matrix multiplications where A is shared and all Bs have the
+/// same dimensions.
+void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
+    MemRefType matrixType, Value A, ArrayRef<Value> Bs, Value zero,
+    Value zeroVal, ArrayRef<Value> Cs);
 
 // Override the following methods when lowering an RNN operation:
 // - hasAllNoneOutput

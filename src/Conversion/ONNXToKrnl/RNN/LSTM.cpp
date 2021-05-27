@@ -14,6 +14,8 @@
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 
+#define TEST_FUSED_MATMUL false
+
 using namespace mlir;
 using namespace mlir::edsc;
 using namespace mlir::edsc::intrinsics;
@@ -489,14 +491,36 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   MemRefType matrixType = Ht.getType().cast<MemRefType>();
 
   // Do matrix multiplications.
-  Value XtWi = onnx_matmul(matrixType, Xt, weightPack.Wi);
-  Value HtRi = onnx_matmul(matrixType, Ht, weightPack.Ri);
-  Value XtWf = onnx_matmul(matrixType, Xt, weightPack.Wf);
-  Value HtRf = onnx_matmul(matrixType, Ht, weightPack.Rf);
-  Value XtWc = onnx_matmul(matrixType, Xt, weightPack.Wc);
-  Value HtRc = onnx_matmul(matrixType, Ht, weightPack.Rc);
-  Value XtWo = onnx_matmul(matrixType, Xt, weightPack.Wo);
-  Value HtRo = onnx_matmul(matrixType, Ht, weightPack.Ro);
+  Value XtWi, XtWf, XtWc, XtWo, HtRi, HtRf, HtRc, HtRo;
+  if (TEST_FUSED_MATMUL) {
+    // For testing purpose, support only static dimensions.
+    Type elementType = matrixType.getElementType();
+    Value zero = std_constant_index(0);
+    Value zeroVal = emitConstantOp(rewriter, loc, elementType, 0);
+    XtWi = rewriter.create<memref::AllocOp>(loc, matrixType);
+    XtWf = rewriter.create<memref::AllocOp>(loc, matrixType);
+    XtWc = rewriter.create<memref::AllocOp>(loc, matrixType);
+    XtWo = rewriter.create<memref::AllocOp>(loc, matrixType);
+    emitFusedMatMul(rewriter, loc, matrixType, Xt,
+        {weightPack.Wi, weightPack.Wf, weightPack.Wc, weightPack.Wo}, zero,
+        zeroVal, {XtWi, XtWf, XtWc, XtWo});
+    HtRi = rewriter.create<memref::AllocOp>(loc, matrixType);
+    HtRf = rewriter.create<memref::AllocOp>(loc, matrixType);
+    HtRc = rewriter.create<memref::AllocOp>(loc, matrixType);
+    HtRo = rewriter.create<memref::AllocOp>(loc, matrixType);
+    emitFusedMatMul(rewriter, loc, matrixType, Ht,
+        {weightPack.Ri, weightPack.Rf, weightPack.Rc, weightPack.Ro}, zero,
+        zeroVal, {HtRi, HtRf, HtRc, HtRo});
+  } else {
+    XtWi = onnx_matmul(matrixType, Xt, weightPack.Wi);
+    HtRi = onnx_matmul(matrixType, Ht, weightPack.Ri);
+    XtWf = onnx_matmul(matrixType, Xt, weightPack.Wf);
+    HtRf = onnx_matmul(matrixType, Ht, weightPack.Rf);
+    XtWc = onnx_matmul(matrixType, Xt, weightPack.Wc);
+    HtRc = onnx_matmul(matrixType, Ht, weightPack.Rc);
+    XtWo = onnx_matmul(matrixType, Xt, weightPack.Wo);
+    HtRo = onnx_matmul(matrixType, Ht, weightPack.Ro);
+  }
 
   // Do element-wise computations. Fuse them into a single nested loop.
   MemRefBoundsCapture bounds(Ht);
@@ -584,6 +608,17 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
         if (!isNoneType(state.allH))
           krnl_store(nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
       });
+
+  if (TEST_FUSED_MATMUL) {
+    rewriter.create<memref::DeallocOp>(loc, XtWi);
+    rewriter.create<memref::DeallocOp>(loc, XtWf);
+    rewriter.create<memref::DeallocOp>(loc, XtWc);
+    rewriter.create<memref::DeallocOp>(loc, XtWo);
+    rewriter.create<memref::DeallocOp>(loc, HtRi);
+    rewriter.create<memref::DeallocOp>(loc, HtRf);
+    rewriter.create<memref::DeallocOp>(loc, HtRc);
+    rewriter.create<memref::DeallocOp>(loc, HtRo);
+  }
 }
 
 template <>
