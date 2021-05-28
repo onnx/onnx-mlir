@@ -79,6 +79,13 @@ public:
     if (checkOpResultIsUsedByGetRef(&allocOp))
       return failure();
 
+    // Get parent block.
+    Block *parentBlock = allocOp.getOperation()->getBlock();
+
+    // Only enable pooling for top level memrefs.
+    if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
+      return failure();
+
     memref::AllocOp newAlloc;
     SmallVector<int64_t, 1> memPoolShape;
     if (hasAllConstantDimensions(memRefType)) {
@@ -104,7 +111,6 @@ public:
 
     // Emit new dealloc.
     auto dealloc = rewriter.create<memref::DeallocOp>(loc, newAlloc);
-    auto parentBlock = allocOp.getOperation()->getBlock();
     dealloc.getOperation()->moveBefore(&parentBlock->back());
 
     // Get reference to local MemRef.
