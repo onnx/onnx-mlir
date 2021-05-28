@@ -40,6 +40,8 @@ Usage: run-onnx-lib [options] model.so
 
 //===----------------------------------------------------------------------===//
 
+#define LOAD_MODEL_STATICALLY 1
+
 #include <assert.h>
 #include <dlfcn.h>
 #include <getopt.h>
@@ -53,6 +55,13 @@ Usage: run-onnx-lib [options] model.so
 
 using namespace std;
 
+// Interface definitions
+extern "C" OMTensorList *run_main_graph(OMTensorList *);
+extern "C" const char *omInputSignature();
+extern "C" const char *omOutputSignature();
+extern "C" OMTensor *omTensorCreate(void *, int64_t *, int64_t, OM_DATA_TYPE);
+extern "C" OMTensorList *TensorListCreate(OMTensor **, int);
+extern "C" void omTensorListDestroy(OMTensorList *list);
 // DLL definitions
 OMTensorList *(*dll_run_main_graph)(OMTensorList *);
 const char *(*dll_omInputSignature)();
@@ -61,11 +70,33 @@ OMTensor *(*dll_omTensorCreate)(void *, int64_t *, int64_t, OM_DATA_TYPE);
 OMTensorList *(*dll_omTensorListCreate)(OMTensor **, int);
 void (*dll_omTensorListDestroy)(OMTensorList *);
 
+#if LOAD_MODEL_STATICALLY
+#define RUN_MAIN_GRAPH run_main_graph
+#define OM_INPUT_SIGNATURE omInputSignature
+#define OM_OUTPUT_SIGNATURE omOutputSignature
+#define OM_TENSOR_CREATE omTensorCreate
+#define OM_TENSOR_LIST_CREATE omTensorListCreate
+#define OM_TENSOR_LIST_DESTROY omTensorListDestroy
+#define OPTIONS "hn:v"
+#else
+#define RUN_MAIN_GRAPH dll_run_main_graph
+#define OM_INPUT_SIGNATURE dll_omInputSignature
+#define OM_OUTPUT_SIGNATURE dll_omOutputSignature
+#define OM_TENSOR_CREATE dll_omTensorCreate
+#define OM_TENSOR_LIST_CREATE dll_omTensorListCreate
+#define OM_TENSOR_LIST_DESTROY dll_omTensorListDestroy
+#define OPTIONS "e:hn:v"
+#endif
+
 static int sIterations = 1;
 static bool verbose = false;
 
 void usage(const char *name) {
+#if LOAD_MODEL_STATICALLY
+  cout << "Usage: " << name << " [options]";
+#else
   cout << "Usage: " << name << " [options] model.so";
+#endif
   cout << endl << endl;
   cout << "  Program will instantiate the model given by \"model.so\"" << endl;
   cout << "  with random inputs, launch the computation, and ignore" << endl;
@@ -75,9 +106,11 @@ void usage(const char *name) {
   cout << "  path to the local directory is also prepended." << endl;
   cout << endl;
   cout << "  Options:" << endl;
+#if !LOAD_MODEL_STATICALLY
   cout << "    -e name | --entry-point name" << endl;
   cout << "         Name of the ONNX model entry point." << endl;
   cout << "         Default is \"run_main_graph\"." << endl;
+#endif
   cout << "    -n NUM | --iterations NUM" << endl;
   cout << "         Number of times to run the tests, default 1" << endl;
   cout << "    -v | --verbose" << endl;
@@ -128,7 +161,7 @@ void parseArgs(int argc, char **argv) {
 
   while (true) {
     int index = 0;
-    c = getopt_long(argc, argv, "e:hn:v", long_options, &index);
+    c = getopt_long(argc, argv, OPTIONS, long_options, &index);
     if (c == -1)
       break;
     switch (c) {
@@ -149,20 +182,27 @@ void parseArgs(int argc, char **argv) {
     }
   }
 
-  // Process the DLL.
+// Process the DLL.
+#if LOAD_MODEL_STATICALLY
+  if (optind < argc) {
+    cout << "error: model.so was compiled in, cannot provide one now" << endl;
+    usage(argv[0]);
+    exit(1);
+  }
+#else
   if (optind == argc) {
     cout << "error: need one model.so dynamic library" << endl;
     usage(argv[0]);
     exit(1);
-  } else if (optind + 1 > argc) {
+  } else if (optind + 1 == argc) {
+    string name = argv[optind];
+    loadDLL(name, entryPointName);
+  } else {
     cout << "error: handle only one model.so dynamic library at a time" << endl;
     usage(argv[0]);
     exit(1);
-  } else {
-
-    string name = argv[optind];
-    loadDLL(name, entryPointName);
   }
+#endif
 }
 
 /**
@@ -187,10 +227,10 @@ void parseArgs(int argc, char **argv) {
  */
 OMTensorList *omTensorListCreateFromInputSignature(
     void **dataPtrList, bool dataAlloc, bool trace) {
-  const char *sigIn = dll_omInputSignature();
+  const char *sigIn = OM_INPUT_SIGNATURE();
   if (trace) {
     cout << "Model Input Signature " << (sigIn ? sigIn : "(empty)") << endl;
-    const char *sigOut = dll_omInputSignature();
+    const char *sigOut = OM_OUTPUT_SIGNATURE();
     cout << "Output signature: " << (sigOut ? sigOut : "(empty)") << endl;
   }
   if (!sigIn)
@@ -239,7 +279,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
         data = new float[size];
         assert(data && "failed to allocate data");
       }
-      tensor = dll_omTensorCreate(data, shape, rank, ONNX_TYPE_FLOAT);
+      tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_FLOAT);
     }
     assert(tensor && "addd support for the desired type");
     // Add tensor to list.
@@ -251,7 +291,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
       cout << "and " << size << " elements" << endl;
     }
   }
-  return dll_omTensorListCreate(inputTensors, inputNum);
+  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum);
 }
 
 int main(int argc, char **argv) {
@@ -265,15 +305,15 @@ int main(int argc, char **argv) {
   cout << "Start computing " << sIterations << " iterations" << endl;
   for (int i = 0; i < sIterations; ++i) {
     OMTensorList *tensorListOut = nullptr;
-    tensorListOut = dll_run_main_graph(tensorListIn);
+    tensorListOut = RUN_MAIN_GRAPH(tensorListIn);
     if (tensorListOut)
-      dll_omTensorListDestroy(tensorListOut);
+      OM_TENSOR_LIST_DESTROY(tensorListOut);
     if (i > 0 && i % 10 == 0)
       cout << "  computed " << i << " iterations" << endl;
   }
   cout << "Finish computing " << sIterations << " iterations" << endl;
 
   // Cleanup.
-  dll_omTensorListDestroy(tensorListIn);
+  OM_TENSOR_LIST_DESTROY(tensorListIn);
   return 0;
 }
