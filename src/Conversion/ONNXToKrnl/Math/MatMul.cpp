@@ -12,13 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/EDSCBuilder/EDSC/Builders.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
-
-#include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
-#include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 
 using namespace mlir;
 
@@ -120,7 +118,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter, Location loc) const {
 
     using namespace mlir::edsc;
-    using namespace mlir::edsc::intrinsics;
+    using std_constant_index = ValueBuilder<ConstantIndexOp>;
 
     // Define scopes
     ScopedContext scope(rewriter, loc);

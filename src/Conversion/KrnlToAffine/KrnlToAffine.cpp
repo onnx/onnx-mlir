@@ -29,8 +29,8 @@
 #include "src/Support/KrnlSupport.hpp"
 
 // EDSC intrinsics (which include all builder methods too).
-#include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
-#include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
+#include "src/EDSCBuilder/Affine/EDSC/Intrinsics.h"
+#include "src/EDSCBuilder/StandardOps/EDSC/Intrinsics.h"
 
 #define DEBUG_MALLOC 0
 #define DEBUG_GLOBAL_ALLOC_FREE 0

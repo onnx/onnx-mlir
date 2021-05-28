@@ -16,7 +16,7 @@
 
 #include <queue>
 
-#include "mlir/EDSC/Builders.h"
+#include "src/EDSCBuilder/EDSC/Builders.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"

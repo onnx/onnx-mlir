@@ -6,6 +6,7 @@ add_subdirectory(Support)
 add_subdirectory(Conversion)
 add_subdirectory(Transform)
 add_subdirectory(Builder)
+add_subdirectory(EDSCBuilder)
 add_subdirectory(Runtime)
 
 # All ONNX-MLIR libraries.
@@ -32,7 +33,8 @@ set(OMLibs
   OMOptimizeMemoryPools
   OMDisconnectKrnlDimFromAlloc
   OMLowerKrnlShape
-  OMSimplifyKrnl
+  OMSimplifyKrnl  
+  EDSCBuilder
   )
 set(OMLibs ${OMLibs} PARENT_SCOPE)
 
