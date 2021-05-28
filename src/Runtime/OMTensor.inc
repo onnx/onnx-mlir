@@ -48,7 +48,7 @@
 struct OMTensor;
 static int init(OMTensor *tensor, void *allocatedPtr, void *alignedPtr,
     int64_t *shape, int64_t rank, OM_DATA_TYPE dataType, int owning);
-static void cleanup(OMTensor *tensor, int reset);
+static void cleanup(OMTensor *tensor);
 
 struct OMTensor {
 #ifdef __cplusplus
@@ -75,7 +75,7 @@ struct OMTensor {
    *
    * Destroy the OMTensor struct.
    */
-  ~OMTensor() { cleanup(this, false); };
+  ~OMTensor() { cleanup(this); };
 #endif
   // Fields are named according to:
   // https://mlir.llvm.org/docs/Dialects/SPIR-V/#lowering-memrefs-to-spvarray-and-spvrtarray
@@ -118,21 +118,13 @@ static inline int64_t getNumElems(int64_t *shape, int rank) {
   return numElem;
 }
 
-static void cleanup(OMTensor *tensor, int reset) {
+static void cleanup(OMTensor *tensor) {
   if (tensor->_owning)
     free(tensor->_allocatedPtr);
   if (tensor->_rank > OMTENSOR_SUPPORTED_INTERNAL_RANK) {
     // Free only if explicit malloc were used for large ranks.
     free(tensor->_shape);
     free(tensor->_strides);
-  }
-  if (reset) {
-    // If the tensor may be reused, make sure it is properly reset to avoid
-    // issues.
-    tensor->_allocatedPtr = NULL;
-    tensor->_alignedPtr = NULL;
-    tensor->_shape = NULL;
-    tensor->_strides = NULL;
   }
 }
 
@@ -162,7 +154,7 @@ static int init(OMTensor *tensor, void *allocatedPtr, void *alignedPtr,
   } else if (!(tensor->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) ||
              !(tensor->_strides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
     // Failure to allocate, cleanup tensor.
-    cleanup(tensor, true);
+    cleanup(tensor);
     return 0;
   }
   // Init shape when provided.
@@ -252,7 +244,7 @@ OMTensor *omTensorCreateEmpty(
 
 /* OMTensor destroyer */
 void omTensorDestroy(OMTensor *tensor) {
-  cleanup(tensor, false);
+  cleanup(tensor);
   free(tensor);
 }
 

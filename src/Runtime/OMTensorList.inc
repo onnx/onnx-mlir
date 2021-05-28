@@ -34,7 +34,7 @@
 // Methods local to this file to initialize and cleanup the lists.
 struct OMTensorList;
 static int init(OMTensorList *list, size_t size, int owning, OMTensor **omts);
-static void cleanup(OMTensorList *list, int reset);
+static void cleanup(OMTensorList *list);
 
 struct OMTensorList {
 #ifdef __cplusplus
@@ -63,7 +63,7 @@ struct OMTensorList {
    *
    * Destroy the OMTensorList struct.
    */
-  ~OMTensorList() { cleanup(this, false); };
+  ~OMTensorList() { cleanup(this); };
 #endif
 
   /* To facilitate user facing API getOmts, OMTensors are kept in a vector
@@ -81,16 +81,12 @@ struct OMTensorList {
 
 // Cleanup the list, which include removing all tensors present in the list.
 // With reset on, the fields will be reset (safer if used after cleanup).
-static void cleanup(OMTensorList *list, int reset) {
+static void cleanup(OMTensorList *list) {
   for (int i = 0; i < list->_size; i++)
     if (list->_omts[i])
       omTensorDestroy(list->_omts[i]);
   if (list->_owning || list->_size > OMTENSOR_SUPPORTED_INTERNAL_SIZE)
     free(list->_omts);
-  if (reset) {
-    list->_size = 0;
-    list->_omts = NULL;
-  }
 }
 
 // Initialize an OMTensorList with mandatory size and list of tensors. Return 0
@@ -151,7 +147,7 @@ OMTensorList *omTensorListCreateWithOwnership(
 
 /* OMTensorList destroyer */
 void omTensorListDestroy(OMTensorList *list) {
-  cleanup(list, false);
+  cleanup(list);
   free(list);
 }
 
