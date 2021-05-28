@@ -78,7 +78,7 @@ int omTensorListGetSize(OMTensorList *list);
  *
  * @param list pointer to the OMTensorList
  * @param index index of the OMTensor
- * @reutrn pointer to the OMTensor, NULL if not found.
+ * @return pointer to the OMTensor, NULL if not found.
  */
 OMTensor *omTensorListGetOmtByIndex(OMTensorList *list, size_t index);
 

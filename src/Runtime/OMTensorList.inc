@@ -25,7 +25,14 @@
 #include <assert.h>
 #endif
 
+#include <stdio.h>
+#include <string.h>
+
 #include "onnx-mlir/Runtime/OMTensorList.h"
+
+// TODO In debug mode (which we should turn off eventually) we don't exit on
+// errors.
+#define DEBUG 1
 
 // Number of shape and strides that are stored directly in the tensor data
 // structure. Reduces the number of memory allocation/freeing.
@@ -33,7 +40,7 @@
 
 // Methods local to this file to initialize and cleanup the lists.
 struct OMTensorList;
-static int init(OMTensorList *list, size_t size, int owning, OMTensor **omts);
+static bool init(OMTensorList *list, size_t size, int owning, OMTensor **omts);
 static void cleanup(OMTensorList *list);
 
 struct OMTensorList {
@@ -91,10 +98,14 @@ static void cleanup(OMTensorList *list) {
 
 // Initialize an OMTensorList with mandatory size and list of tensors. Return 0
 // on failure, and cleanup the data structure.
-static int init(OMTensorList *list, size_t size, int owning, OMTensor **omts) {
-  assert(list);
-  if (size > 0)
-    assert(omts);
+static bool init(OMTensorList *list, size_t size, int owning, OMTensor **omts) {
+  if (size > 0 && !omts) {
+    fprintf(stderr,
+        "Error: with positive sizes, expect a nonnull list of tensors\n");
+    if (DEBUG)
+      return false;
+    exit(1);
+  }
   // Initialize fields.
   list->_size = size;
   list->_owning = owning;
@@ -111,13 +122,12 @@ static int init(OMTensorList *list, size_t size, int owning, OMTensor **omts) {
                        (OMTensor **)malloc(sizeof(OMTensor *) * size))) {
       // Failed to alloc, reset and return failure.
       list->_size = 0;
-      return 0;
+      return false;
     }
     // Copy pointers (use private list only).
-    for (int i = 0; i < list->_size; i++)
-      list->_omts[i] = omts[i];
+    memcpy(list->_omts, omts, size * sizeof(OMTensor *));
   }
-  return 1;
+  return true;
 }
 
 /* OMTensorList creator */
@@ -152,14 +162,36 @@ void omTensorListDestroy(OMTensorList *list) {
 }
 
 /* OMTensorList OMTensor array getter */
-OMTensor **omTensorListGetOmtArray(OMTensorList *list) { return list->_omts; }
+OMTensor **omTensorListGetOmtArray(OMTensorList *list) {
+  if (!list) {
+    fprintf(stderr, "Error: expected nonnull list to query\n");
+    if (DEBUG)
+      return NULL;
+    exit(1);
+  }
+  return list->_omts;
+}
 
 /* OMTensorList number of OMTensor getter */
-int omTensorListGetSize(OMTensorList *list) { return list->_size; }
+int omTensorListGetSize(OMTensorList *list) {
+  if (!list) {
+    fprintf(stderr, "Error: expected nonnull list to query\n");
+    if (DEBUG)
+      return 0;
+    exit(1);
+  }
+  return list->_size;
+}
 
 /* Return OMTensor at specified index in the OMTensorList */
 OMTensor *omTensorListGetOmtByIndex(OMTensorList *list, size_t index) {
-  assert(index >= 0);
-  assert(index < list->_size);
+  if (!list) {
+    fprintf(stderr, "Error: expected nonnull list to query\n");
+    if (DEBUG)
+      return NULL;
+    exit(1);
+  }
+  if (index < 0 || index >= list->_size)
+    return NULL;
   return list->_omts[index];
 }

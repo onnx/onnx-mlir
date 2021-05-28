@@ -40,13 +40,17 @@
 #include "src/Runtime/OMTensorHelper.h"
 #endif
 
+// TODO In debug mode (which we should turn off eventually) we don't exit on
+// errors.
+#define DEBUG 1
+
 // Number of shape and strides that are stored directly in the tensor data
 // structure. Reduces the number of memory allocation/freeing.
 #define OMTENSOR_SUPPORTED_INTERNAL_RANK 6
 
 // Definitions of methods to init and clean tensors.
 struct OMTensor;
-static int init(OMTensor *tensor, void *allocatedPtr, void *alignedPtr,
+static bool init(OMTensor *tensor, void *allocatedPtr, void *alignedPtr,
     int64_t *shape, int64_t rank, OM_DATA_TYPE dataType, int owning);
 static void cleanup(OMTensor *tensor);
 
@@ -110,7 +114,6 @@ struct OMTensor {
 };
 
 /* Helper function to compute the number of data elements */
-// TODO: why is this one static when it is actually used in java wrapper?
 static inline int64_t getNumElems(int64_t *shape, int rank) {
   int64_t numElem = 1;
   for (int i = 0; i < rank; i++)
@@ -118,7 +121,7 @@ static inline int64_t getNumElems(int64_t *shape, int rank) {
   return numElem;
 }
 
-static void cleanup(OMTensor *tensor) {
+static inline void cleanup(OMTensor *tensor) {
   if (tensor->_owning)
     free(tensor->_allocatedPtr);
   if (tensor->_rank > OMTENSOR_SUPPORTED_INTERNAL_RANK) {
@@ -130,10 +133,14 @@ static void cleanup(OMTensor *tensor) {
 
 // Internal only function to initialize a  tensor.  Minimally requires tensor
 // and rank. On failure, cleanup any internal data structures.
-static int init(OMTensor *tensor, void *allocatedPtr, void *alignedPtr,
+static inline bool init(OMTensor *tensor, void *allocatedPtr, void *alignedPtr,
     int64_t *shape, int64_t rank, OM_DATA_TYPE dataType, int owning) {
-  assert(tensor);
-  assert(rank >= 0);
+  if (rank < 0) {
+    fprintf(stderr, "Error: tensor rank cannot be negative\n");
+    if (DEBUG)
+      return false;
+    exit(1);
+  }
   // Initialize simple fields.
   tensor->_allocatedPtr = allocatedPtr;
   tensor->_alignedPtr = alignedPtr;
@@ -155,13 +162,20 @@ static int init(OMTensor *tensor, void *allocatedPtr, void *alignedPtr,
              !(tensor->_strides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
     // Failure to allocate, cleanup tensor.
     cleanup(tensor);
-    return 0;
+    return false;
   }
   // Init shape when provided.
   if (shape) {
     // Using signed indices helps detect when index falls below 0.
     for (int64_t i = rank - 1; i >= 0; i--) {
-      assert(shape[i] > 0);
+      if (shape[i] <= 0) {
+        fprintf(stderr, "Error: Tensor shape must be positive\n");
+        if (DEBUG) {
+          cleanup(tensor);
+          return false;
+        }
+        exit(1);
+      }
       tensor->_shape[i] = shape[i];
       if (i == rank - 1)
         tensor->_strides[i] = 1;
@@ -169,7 +183,7 @@ static int init(OMTensor *tensor, void *allocatedPtr, void *alignedPtr,
         tensor->_strides[i] = tensor->_strides[i + 1] * tensor->_shape[i + 1];
     }
   }
-  return 1;
+  return true;
 }
 
 // Create a OMTensor.
@@ -249,7 +263,16 @@ void omTensorDestroy(OMTensor *tensor) {
 }
 
 /* OMTensor data getter */
-void *omTensorGetDataPtr(OMTensor *tensor) { return tensor->_alignedPtr; }
+void *omTensorGetDataPtr(OMTensor *tensor) {
+  if (!tensor) {
+    fprintf(stderr,
+        "Error: expected nonnull tensor to query in omTensorGetDataPtr\n");
+    if (DEBUG)
+      return NULL;
+    exit(1);
+  }
+  return tensor->_alignedPtr;
+}
 
 /**
  * OMTensor allocated and aligned pointer setter.
@@ -266,6 +289,13 @@ void *omTensorGetDataPtr(OMTensor *tensor) { return tensor->_alignedPtr; }
  */
 void omTensorSetDataPtr(
     OMTensor *tensor, int owning, void *allocatedPtr, void *alignedPtr) {
+  if (!tensor) {
+    fprintf(stderr,
+        "Error: expected nonnull tensor to query in omTensorSetDataPtr\n");
+    if (DEBUG)
+      return;
+    exit(1);
+  }
   if (tensor->_owning) {
     /* If we own the allocated buffer, free it first. */
     free(tensor->_allocatedPtr);
@@ -279,50 +309,147 @@ void omTensorSetDataPtr(
 }
 
 /* OMTensor data shape getter */
-int64_t *omTensorGetShape(OMTensor *tensor) { return tensor->_shape; }
+int64_t *omTensorGetShape(OMTensor *tensor) {
+  if (!tensor) {
+    fprintf(stderr,
+        "Error: expected nonnull tensor to query in omTensorGetShape\n");
+    if (DEBUG)
+      return NULL;
+    exit(1);
+  }
+  return tensor->_shape;
+}
 
 /* OMTensor data shape setter */
 void omTensorSetShape(OMTensor *tensor, int64_t *shape) {
-  for (int i = 0; i < tensor->_rank; i++)
-    tensor->_shape[i] = shape[i];
+  if (!tensor) {
+    fprintf(stderr,
+        "Error: expected nonnull tensor to query in omTensorSetShape\n");
+    if (DEBUG)
+      return;
+    exit(1);
+  }
+  if (tensor->_rank && !shape) {
+    fprintf(stderr,
+        "Error: expected nonnull shape for tensor with positive ranks\n");
+    if (DEBUG)
+      return;
+    exit(1);
+  }
+  memcpy(tensor->_shape, shape, tensor->_rank * sizeof(int64_t));
 }
 
 /* OMTensor data strides getter */
-int64_t *omTensorGetStrides(OMTensor *tensor) { return tensor->_strides; }
+int64_t *omTensorGetStrides(OMTensor *tensor) {
+  if (!tensor) {
+    fprintf(stderr,
+        "Error: expected nonnull tensor to query in omTensorGetStrides\n");
+    if (DEBUG)
+      return NULL;
+    exit(1);
+  }
+  return tensor->_strides;
+}
 
 /* OMTensor data strides setter */
 void omTensorSetStrides(OMTensor *tensor, int64_t *strides) {
-  for (int i = 0; i < tensor->_rank; i++)
-    tensor->_strides[i] = strides[i];
+  if (!tensor) {
+    fprintf(stderr,
+        "Error: expected nonnull tensor to query in omTensorSetStrides\n");
+    if (DEBUG)
+      return;
+    exit(1);
+  }
+  if (tensor->_rank && !strides) {
+    fprintf(stderr,
+        "Error: expected nonnull strides for tensor with positive ranks\n");
+    if (DEBUG)
+      return;
+    exit(1);
+  }
+  memcpy(tensor->_strides, strides, tensor->_rank * sizeof(int64_t));
 }
 
 /* OMTensor data strides setter with PyArray stride values */
 void omTensorSetStridesWithPyArrayStrides(
     OMTensor *tensor, int64_t *stridesInBytes) {
+  if (!tensor) {
+    fprintf(stderr, "Error: expected nonnull tensor to query in "
+                    "omTensorSetStridesWithPyArrayStrides\n");
+    if (DEBUG)
+      return;
+    exit(1);
+  }
+  if (tensor->_rank && !stridesInBytes) {
+    fprintf(stderr,
+        "Error: expected nonnull strides for tensor with positive ranks\n");
+    if (DEBUG)
+      return;
+    exit(1);
+  }
   for (int i = 0; i < tensor->_rank; i++)
     tensor->_strides[i] =
         stridesInBytes[i] / getDataTypeSize(tensor->_dataType);
 }
 
 /* OMTensor data type getter */
-OM_DATA_TYPE omTensorGetDataType(OMTensor *tensor) { return tensor->_dataType; }
+OM_DATA_TYPE omTensorGetDataType(OMTensor *tensor) {
+  if (!tensor) {
+    fprintf(stderr,
+        "Error: expected nonnull tensor to query in omTensorGetDataType\n");
+    if (DEBUG)
+      return ONNX_TYPE_UNDEFINED;
+    exit(1);
+  }
+  return tensor->_dataType;
+}
 
 /* OMTensor data type setter */
 void omTensorSetDataType(OMTensor *tensor, OM_DATA_TYPE dataType) {
+  if (!tensor) {
+    fprintf(stderr,
+        "Error: expected nonnull tensor to query in omTensorSetDataType\n");
+    if (DEBUG)
+      return;
+    exit(1);
+  }
   tensor->_dataType = dataType;
 }
 
 /* OMTensor data buffer size getter */
 int64_t omTensorGetBufferSize(OMTensor *tensor) {
+  if (!tensor) {
+    fprintf(stderr,
+        "Error: expected nonnull tensor to query in omTensorGetBufferSize\n");
+    if (DEBUG)
+      return 0;
+    exit(1);
+  }
   return getNumElems(tensor->_shape, tensor->_rank) *
          getDataTypeSize(tensor->_dataType);
 }
 
 /* OMTensor rank getter */
-int omTensorGetRank(OMTensor *tensor) { return tensor->_rank; }
+int omTensorGetRank(OMTensor *tensor) {
+  if (!tensor) {
+    fprintf(
+        stderr, "Error: expected nonnull tensor to query in omTensorGetRank\n");
+    if (DEBUG)
+      return -1;
+    exit(1);
+  }
+  return tensor->_rank;
+}
 
 /* OMTensor number of elements getter */
 int64_t omTensorGetNumElems(OMTensor *tensor) {
+  if (!tensor) {
+    fprintf(stderr,
+        "Error: expected nonnull tensor to query in omTensorGetNumElems\n");
+    if (DEBUG)
+      return 0;
+    exit(1);
+  }
   // Using signed indices helps detect when index falls below 0.
   // Verify that strides are dense, meaning that there're
   // no skipping elements.
@@ -341,7 +468,16 @@ int64_t omTensorGetNumElems(OMTensor *tensor) {
  *
  * @return owning flag of the OMTensor.
  */
-int omTensorGetOwning(OMTensor *tensor) { return tensor->_owning; }
+int omTensorGetOwning(OMTensor *tensor) {
+  if (!tensor) {
+    fprintf(stderr,
+        "Error: expected nonnull tensor to query in omTensorGetOwning\n");
+    if (DEBUG)
+      return 0;
+    exit(1);
+  }
+  return tensor->_owning;
+}
 
 /**
  * OMTensor allocated ptr getter.
@@ -354,6 +490,13 @@ int omTensorGetOwning(OMTensor *tensor) { return tensor->_owning; }
  *         NULL if the allocated data buffer is not set.
  */
 void *omTensorGetAllocatedPtr(OMTensor *tensor) {
+  if (!tensor) {
+    fprintf(stderr,
+        "Error: expected nonnull tensor to query in omTensorGetAllocatedPtr\n");
+    if (DEBUG)
+      return NULL;
+    exit(1);
+  }
   return tensor->_allocatedPtr;
 }
 
@@ -421,6 +564,13 @@ OMTensor *omTensorCreateWithRandomData(
 /* Access an element (by reference) at offset computed by index array */
 template <typename T>
 T &omTensorGetElem(OMTensor *omt, std::vector<int64_t> indexes) {
+  if (!omt) {
+    fprintf(
+        stderr, "Error: expected nonnull tensor to query in omTensorGetElem\n");
+    if (DEBUG)
+      return 0;
+    exit(1);
+  }
   int64_t elemOffset = omTensorComputeElemOffset(omt, indexes);
   return ((T *)omt->_alignedPtr)[elemOffset];
 }
@@ -428,17 +578,38 @@ T &omTensorGetElem(OMTensor *omt, std::vector<int64_t> indexes) {
 /* Access an element (by reference) at linear offset */
 template <typename T>
 T &omTensorGetElemByOffset(OMTensor *omt, int64_t index) {
+  if (!omt) {
+    fprintf(stderr,
+        "Error: expected nonnull tensor to query in omTensorGetElemByOffset\n");
+    if (DEBUG)
+      return 0;
+    exit(1);
+  }
   return ((T *)omt->_alignedPtr)[index];
 }
 
 /* Compute strides vector from shape vector */
 std::vector<int64_t> omTensorComputeStridesFromShape(OMTensor *omt) {
+  if (!omt) {
+    fprintf(stderr, "Error: expected nonnull tensor to query in "
+                    "omTensorComputeStridesFromShape\n");
+    if (DEBUG)
+      return NULL;
+    exit(1);
+  }
   return computeStridesFromShape(omt->_shape, omt->_rank);
 }
 
 /* Compute linear element offset from multi-dimensional index array */
 int64_t omTensorComputeElemOffset(
     OMTensor *omt, std::vector<int64_t> &indexes) {
+  if (!omt) {
+    fprintf(stderr, "Error: expected nonnull tensor to query in "
+                    "omTensorComputeElemOffset\n");
+    if (DEBUG)
+      return 0;
+    exit(1);
+  }
   return computeElemOffset(omt->_strides, omt->_rank, indexes);
 }
 
@@ -447,6 +618,13 @@ std::vector<std::vector<int64_t>> omTensorComputeIndexSet(OMTensor *omt) {
   // First, we create index set of each dimension separately.
   // i.e., for a tensor/OMT of shape (2, 3), its dimWiseIdxSet will be:
   // {{0,1}, {0,1,2}};
+  if (!omt) {
+    fprintf(stderr,
+        "Error: expected nonnull tensor to query in omTensorComputeIndexSet\n");
+    if (DEBUG)
+      return NULL;
+    exit(1);
+  }
   std::vector<std::vector<int64_t>> dimWiseIdxSet;
   for (auto dimSize :
       std::vector<int64_t>(omt->_shape, omt->_shape + omt->_rank)) {
@@ -463,6 +641,13 @@ std::vector<std::vector<int64_t>> omTensorComputeIndexSet(OMTensor *omt) {
 template <typename T>
 inline bool omTensorAreTwoOmtsClose(
     OMTensor *a, OMTensor *b, float rtol, float atol) {
+  if (!a || !b) {
+    fprintf(stderr, "Error: expected nonnull tensor(s) to query in "
+                    "omTensorAreTwoOmtsClose\n");
+    if (DEBUG)
+      return false;
+    exit(1);
+  }
 
   // Compare shape.
   auto aShape = std::vector<int64_t>(a->_shape, a->_shape + a->_rank);
