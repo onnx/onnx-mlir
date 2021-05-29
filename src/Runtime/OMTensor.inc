@@ -161,6 +161,7 @@ static inline bool init(OMTensor *tensor, void *allocatedPtr, void *alignedPtr,
   } else if (!(tensor->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) ||
              !(tensor->_strides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
     // Failure to allocate, cleanup tensor.
+    fprintf(stderr, "Error: Fail to allocate a tensor data\n");
     cleanup(tensor);
     return false;
   }
@@ -567,8 +568,6 @@ T &omTensorGetElem(OMTensor *omt, std::vector<int64_t> indexes) {
   if (!omt) {
     fprintf(
         stderr, "Error: expected nonnull tensor to query in omTensorGetElem\n");
-    if (DEBUG)
-      return 0;
     exit(1);
   }
   int64_t elemOffset = omTensorComputeElemOffset(omt, indexes);
@@ -581,8 +580,6 @@ T &omTensorGetElemByOffset(OMTensor *omt, int64_t index) {
   if (!omt) {
     fprintf(stderr,
         "Error: expected nonnull tensor to query in omTensorGetElemByOffset\n");
-    if (DEBUG)
-      return 0;
     exit(1);
   }
   return ((T *)omt->_alignedPtr)[index];
@@ -593,8 +590,6 @@ std::vector<int64_t> omTensorComputeStridesFromShape(OMTensor *omt) {
   if (!omt) {
     fprintf(stderr, "Error: expected nonnull tensor to query in "
                     "omTensorComputeStridesFromShape\n");
-    if (DEBUG)
-      return NULL;
     exit(1);
   }
   return computeStridesFromShape(omt->_shape, omt->_rank);
@@ -621,8 +616,6 @@ std::vector<std::vector<int64_t>> omTensorComputeIndexSet(OMTensor *omt) {
   if (!omt) {
     fprintf(stderr,
         "Error: expected nonnull tensor to query in omTensorComputeIndexSet\n");
-    if (DEBUG)
-      return NULL;
     exit(1);
   }
   std::vector<std::vector<int64_t>> dimWiseIdxSet;
@@ -644,8 +637,6 @@ inline bool omTensorAreTwoOmtsClose(
   if (!a || !b) {
     fprintf(stderr, "Error: expected nonnull tensor(s) to query in "
                     "omTensorAreTwoOmtsClose\n");
-    if (DEBUG)
-      return false;
     exit(1);
   }
 

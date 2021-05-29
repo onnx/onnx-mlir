@@ -119,7 +119,9 @@ static bool init(OMTensorList *list, size_t size, int owning, OMTensor **omts) {
       // malloc/free.
       list->_omts = &(list->_internalOmts[0]);
     } else if (!(list->_omts =
-                       (OMTensor **)malloc(sizeof(OMTensor *) * size))) {
+                       (OMTensor **)malloc(size * sizeof(OMTensor *)))) {
+      fprintf(stderr, "Error: failed to allocate memory when initializing a "
+                      "list of tensors\n");
       // Failed to alloc, reset and return failure.
       list->_size = 0;
       return false;
