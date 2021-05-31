@@ -30,6 +30,7 @@ int64_t dimAt(Value val, int index) {
 /// Shape :: [seq_length, num_directions, batch_size, hidden_size]
 Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value W, Value R, Value output, bool insertDealloc) {
+  ScopedContext scope(rewriter, loc);
   Value alloc;
   if (!isNoneType(output)) {
     auto memRefType = convertToMemRefType(output.getType());
@@ -116,6 +117,7 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
     Location loc, Value forwardHt, Value reverseHt, Value forwardCt,
     Value reverseCt, Value initialH, Value initialC, Type elementType,
     StringRef direction, bool onlyHidden) {
+  ScopedContext scope(rewriter, loc);
   Value zero = emitConstantOp(rewriter, loc, elementType, 0);
   Value zeroIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
   Value oneIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
@@ -139,17 +141,17 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
       initialIVs.emplace_back(initializationLoops.getInductionVar(0));
       initialIVs.emplace_back(initializationLoops.getInductionVar(1));
       if (isNoneType(initialH))
-        rewriter.create<KrnlStoreOp>(loc, zero, forwardHt, IVs);
+        krnl_store(zero, forwardHt, IVs);
       else {
-        Value h = rewriter.create<KrnlLoadOp>(loc, initialH, initialIVs);
-        rewriter.create<KrnlStoreOp>(loc, h, forwardHt, IVs);
+        Value h = krnl_load(initialH, initialIVs);
+        krnl_store(h, forwardHt, IVs);
       }
       if (!onlyHidden) {
         if (isNoneType(initialC))
-          rewriter.create<KrnlStoreOp>(loc, zero, forwardCt, IVs);
+          krnl_store(zero, forwardCt, IVs);
         else {
-          Value c = rewriter.create<KrnlLoadOp>(loc, initialC, initialIVs);
-          rewriter.create<KrnlStoreOp>(loc, c, forwardCt, IVs);
+          Value c = krnl_load(initialC, initialIVs);
+          krnl_store(c, forwardCt, IVs);
         }
       }
     }
@@ -165,15 +167,15 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
       if (isNoneType(initialH))
         rewriter.create<KrnlStoreOp>(loc, zero, reverseHt, IVs);
       else {
-        Value h = rewriter.create<KrnlLoadOp>(loc, initialH, initialIVs);
-        rewriter.create<KrnlStoreOp>(loc, h, reverseHt, IVs);
+        Value h = krnl_load(initialH, initialIVs);
+        krnl_store(h, reverseHt, IVs);
       }
       if (!onlyHidden) {
         if (isNoneType(initialC))
-          rewriter.create<KrnlStoreOp>(loc, zero, reverseCt, IVs);
+          krnl_store(zero, reverseCt, IVs);
         else {
-          Value c = rewriter.create<KrnlLoadOp>(loc, initialC, initialIVs);
-          rewriter.create<KrnlStoreOp>(loc, c, reverseCt, IVs);
+          Value c = krnl_load(initialC, initialIVs);
+          krnl_store(c, reverseCt, IVs);
         }
       }
     }
@@ -384,6 +386,8 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
 void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
     MemRefType matrixType, Value A, ArrayRef<Value> Bs, Value zero,
     Value zeroVal, ArrayRef<Value> Cs) {
+  ScopedContext scope(rewriter, loc);
+
   Type elementType = matrixType.getElementType();
   // Get bounds I, J, K.
   MemRefBoundsCapture aBounds(A), bBounds(Bs[0]);
