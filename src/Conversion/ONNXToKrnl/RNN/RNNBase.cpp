@@ -58,7 +58,7 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
         auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
         allocOperands.emplace_back(dim);
       }
-      alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
+      alloc = memref_alloc(memRefType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
         auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
@@ -75,6 +75,7 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
 /// Shape :: [batch_size, hidden_size]
 Value allocIntermediateState(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value R) {
+  ScopedContext scope(rewriter, loc);
   // The hidden or cell is not a return value but a temporary value, so always
   // dealloc it.
   bool insertDealloc = true;
@@ -99,7 +100,7 @@ Value allocIntermediateState(
       auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
       allocOperands.emplace_back(dim);
     }
-    alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
+    alloc = memref_alloc(memRefType, allocOperands);
     if (insertDealloc) {
       auto *parentBlock = alloc.getDefiningOp()->getBlock();
       auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
@@ -184,6 +185,7 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
 /// Shape :: [num_directions, batch_size, hidden_size]
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
     Value X, Value W, Value R, Value output, bool insertDealloc) {
+  ScopedContext scope(rewriter, loc);
   Value alloc;
   if (!isNoneType(output)) {
     MemRefType memRefType = convertToMemRefType(output.getType());
@@ -207,7 +209,7 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
         auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
         allocOperands.emplace_back(dim);
       }
-      alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
+      alloc = memref_alloc(memRefType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
         auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
@@ -362,7 +364,7 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
           getDimOrConstant(rewriter, loc, X, 2, rewriter.getIndexType());
       allocOperands.emplace_back(inputSizeVal);
     }
-    sliceX = rewriter.create<memref::AllocOp>(loc, sliceXType, allocOperands);
+    sliceX = memref_alloc(sliceXType, allocOperands);
   }
 
   // Copy data from X.

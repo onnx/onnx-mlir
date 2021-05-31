@@ -497,17 +497,17 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
     Type elementType = matrixType.getElementType();
     Value zero = std_constant_index(0);
     Value zeroVal = emitConstantOp(rewriter, loc, elementType, 0);
-    XtWi = rewriter.create<memref::AllocOp>(loc, matrixType);
-    XtWf = rewriter.create<memref::AllocOp>(loc, matrixType);
-    XtWc = rewriter.create<memref::AllocOp>(loc, matrixType);
-    XtWo = rewriter.create<memref::AllocOp>(loc, matrixType);
+    XtWi = memref_alloc(matrixType);
+    XtWf = memref_alloc(matrixType);
+    XtWc = memref_alloc(matrixType);
+    XtWo = memref_alloc(matrixType);
     emitFusedMatMul(rewriter, loc, matrixType, Xt,
         {weightPack.Wi, weightPack.Wf, weightPack.Wc, weightPack.Wo}, zero,
         zeroVal, {XtWi, XtWf, XtWc, XtWo});
-    HtRi = rewriter.create<memref::AllocOp>(loc, matrixType);
-    HtRf = rewriter.create<memref::AllocOp>(loc, matrixType);
-    HtRc = rewriter.create<memref::AllocOp>(loc, matrixType);
-    HtRo = rewriter.create<memref::AllocOp>(loc, matrixType);
+    HtRi = memref_alloc(matrixType);
+    HtRf = memref_alloc(matrixType);
+    HtRc = memref_alloc(matrixType);
+    HtRo = memref_alloc(matrixType);
     emitFusedMatMul(rewriter, loc, matrixType, Ht,
         {weightPack.Ri, weightPack.Rf, weightPack.Rc, weightPack.Ro}, zero,
         zeroVal, {HtRi, HtRf, HtRc, HtRo});

@@ -477,12 +477,11 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
       rt = insertAllocAndDealloc(matrixType, loc, rewriter, false);
       rtHt = insertAllocAndDealloc(matrixType, loc, rewriter, false);
     } else {
+      // matrixType's shape is of [BatchSize, HiddenSize].
       // HiddenSize is always static. Thus, only BatchSize is dynamic.
       Value batchSize = rewriter.create<memref::DimOp>(loc, Ht, 0).getResult();
-      rt = rewriter.create<memref::AllocOp>(
-          loc, matrixType, llvm::makeArrayRef({batchSize}));
-      rtHt = rewriter.create<memref::AllocOp>(
-          loc, matrixType, llvm::makeArrayRef({batchSize}));
+      rt = memref_alloc(matrixType, llvm::makeArrayRef({batchSize}));
+      rtHt = memref_alloc(matrixType, llvm::makeArrayRef({batchSize}));
     }
 
     // Emit rt and (rt (.) Ht-1).
