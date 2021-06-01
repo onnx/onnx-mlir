@@ -69,7 +69,11 @@ struct ONNXLayerNormalizationOpLowering : public ConversionPattern {
     auto moduleOp = op->template getParentOfType<ModuleOp>();
     assert(!moduleOp.lookupSymbol<FuncOp>(funcName));
 
-    auto resultTypes = op->getResultTypes();
+    SmallVector<Type> resultTypes;
+    for (auto rType : op->getResultTypes()) {
+      resultTypes.emplace_back(
+          !rType.isa<NoneType>() ? convertToMemRefType(rType) : rType);
+    }
     auto callOp = rewriter.replaceOpWithNewOp<mlir::CallOp>(
         op, funcName, resultTypes, operands);
 
