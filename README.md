@@ -71,7 +71,6 @@ WORKDIR /workdir
 ENV MLIR_DIR=/workdir/llvm-project/build/lib/cmake/mlir
 ENV NPROC=4
 ENV PATH=$PATH:/workdir/onnx-mlir/build/Debug/bin/:/workdir/onnx-mlir/build/Debug/lib:/workdir/llvm-project/build/bin
-
 ```
 
 ## Prerequisites
