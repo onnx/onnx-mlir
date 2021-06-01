@@ -57,6 +57,10 @@ llvm::Optional<std::string> getEnvVar(std::string name) {
 // TODO: Find a respectable home for the wain
 
 // the option is used in this file, so defined here
+llvm::cl::opt<bool> invokeOnnxVersionConverter("invokeOnnxVersionConverter",
+    llvm::cl::desc("call onnx vesion converter to convert ONNX model to current version" ),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<bool> preserveLocations("preserveLocations",
     llvm::cl::desc("emit location data:"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
@@ -485,6 +489,7 @@ void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
   if (inputIsONNX) {
     ImportOptions options;
     options.useOnnxModelTypes = useOnnxModelTypes;
+    options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     ImportFrontendModelFile(inputFilename, context, module, options);
   } else {
     LoadMLIR(inputFilename, context, module);

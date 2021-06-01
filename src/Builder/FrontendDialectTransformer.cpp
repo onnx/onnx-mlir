@@ -1180,11 +1180,14 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
   std::fstream input(model_fname, std::ios::in | std::ios::binary);
 
   auto parse_success = model.ParseFromIstream(&input);
-  onnx::ModelProto convertModel =
-      onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
   assert(parse_success && "Onnx Model Parsing Failed.");
-
-  ImportFrontendModel(convertModel, context, module, options);
+  if (options.invokeOnnxVersionConverter) {
+    onnx::ModelProto convertModel =
+        onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
+    ImportFrontendModel(convertModel, context, module, options);
+  } else {
+    ImportFrontendModel(model, context, module, options);
+  }
 }
 
 void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,
