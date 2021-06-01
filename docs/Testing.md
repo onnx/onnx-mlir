@@ -68,6 +68,22 @@ with IMPORTER_FORCE_DYNAMIC='0:0,2|1:1', the result is:
 
 This is a way to use existing node test for dynamic tensors. Since not all test case can pass with dynamic tensor, there is a list in test/backend/test.py, test_not_for_dynamic, to specify which test can not pass with IMPORTER_FORCE_DYNAMIC is defined.
 
+### Execution of backend tests
+
+A program set in `utils/RunONNXLib.cpp` can be used to easily execute files from their `.so` models,
+such as the ones generated using the `TEST_CASE_BY_USER=selected_test_name make check-onnx-backend` command. Models can also be preserved when setting the `overridePreserveFiles` value
+in the `onnx-mlir/src/MainUtils.cpp` file to `KeepFilesOfType::All`, for example.
+
+The utility needs to be compiled first (see command at beginning of the program) and can be used
+in one of two modes. First, for maximal debugging, the `.so` model can be statically linked
+with the tool using the `-D LOAD_MODEL_STATICALLY=0` option. Second, the tool may also
+be compiled without a model, which is then passed as a runtime argument.
+To enable this option, simply use the `-D LOAD_MODEL_STATICALLY=1` option.
+
+The tool directly scan the signature provided by the model, initialize the needed inputs with random
+values, and then make a function call into the model. The program can then be used in conjunction
+with other tools, such as `gdb`, `lldb`, or `valgrind`.
+To list the utility options, simply use the `-h` or `--help` flags at runtime.
 
 ## LLVM FileCheck Tests
 
