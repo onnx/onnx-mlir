@@ -70,20 +70,45 @@ This is a way to use existing node test for dynamic tensors. Since not all test 
 
 ### Execution of backend tests
 
-A program set in `utils/RunONNXLib.cpp` can be used to easily execute files from their `.so` models,
-such as the ones generated using the `TEST_CASE_BY_USER=selected_test_name make check-onnx-backend` command. Models can also be preserved when setting the `overridePreserveFiles` value
-in the `onnx-mlir/src/MainUtils.cpp` file to `KeepFilesOfType::All`, for example.
+A tool defined in `utils/RunONNXLib.cpp` can be used to easily execute files from their `.so`
+models, such as the ones generated using the
+`TEST_CASE_BY_USER=selected_test_name make check-onnx-backend` command.
+Models can also be preserved when built in other manners by setting the
+`overridePreserveFiles` value in the `onnx-mlir/src/MainUtils.cpp` file to
+`KeepFilesOfType::All`, for example.
 
-The utility needs to be compiled first (see command at beginning of the program) and can be used
-in one of two modes. First, for maximal debugging, the `.so` model can be statically linked
-with the tool using the `-D LOAD_MODEL_STATICALLY=0` option. Second, the tool may also
-be compiled without a model, which is then passed as a runtime argument.
-To enable this option, simply use the `-D LOAD_MODEL_STATICALLY=1` option.
-
-The tool directly scan the signature provided by the model, initialize the needed inputs with random
-values, and then make a function call into the model. The program can then be used in conjunction
+The tool directly scans the signature provided by the model, initializes the needed inputs with random
+values, and then makes a function call into the model. The program can then be used in conjunction
 with other tools, such as `gdb`, `lldb`, or `valgrind`.
 To list the utility options, simply use the `-h` or `--help` flags at runtime.
+
+We first need to compile the tool, which can be done in one of two modes.
+In the first mode, the tool is compiled with a statically linked model. 
+This mode requires the `-D LOAD_MODEL_STATICALLY=0` option during compilation in addition to including the `.so` file.
+Best is to use the `build-run-onnx-lib.sh` script in `onnx-mlir/utils` to compile the tool with its model, which is passed as a parameter to the script. 
+To avoid library path issue, just run the tool in the home directory of the model.
+
+``` sh
+# Compile tool with model.
+cd onnx-mlir/built
+. ../utils/build-run-onnx-lib.sh test/backend/test_add.so
+# Run tool in the directory of the model.
+cd test/backend
+run-onnx-lib
+```
+
+In the second mode, the tool is compiled without model, which will be passed at runtime.
+To enable this option, simply compile the tool with the `-D LOAD_MODEL_STATICALLY=1` option.
+You may use the same script, without arguments. The tool can be then be run from
+any directories as long as you pass the `.so` model file at runtime to the tool.
+
+``` sh
+# Compile tool without a model.
+cd onnx-mlir/built
+. ../utils/build-run-onnx-lib.sh
+# Run the tool with an argument pointing to the model.
+run-onnx-lib test/backend/test_add.so
+```
 
 ## LLVM FileCheck Tests
 

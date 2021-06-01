@@ -9,21 +9,21 @@
 // =============================================================================
 /*
   This file help run a onnx model as simply as possible for testing.
-  Compile as follows in the onnx-mlir build subdirectory. Command was verified
-  on MacOS, Linux x86 and Z.
-  Path below are set for the docker debug installation. Update path as fit for
-  your installation.
+  Compile as follows in the onnx-mlir build subdirectory. The tool is built as
+  follows. For dinamically loaded models:
 
-export LLVM_PROJ_SRC=/workdir/llvm-project
-export ONNX_MLIR_SRC=/workdir/onnx-mlir
-export LLVM_PROJ_BUILD=$LLVM_PROJ_SRC/build
-export ONNX_MLIR_UTIL=$ONNX_MLIR_SRC/utils
+cd onnx-mlir/built
+. ../utils/build-run-onnx-lib.sh
+run-onnx-lib test/backend/test_add.so
 
-g++ $ONNX_MLIR_UTIL/RunONNXLib.cpp -o Debug/bin/run-onnx-lib -std=c++14 \
-  -D LOAD_MODEL_STATICALLY=0 -I $LLVM_PROJ_SRC/llvm/include \
-  -I $LLVM_PROJ_BUILD/include -I $ONNX_PROJ_SRC/include \
-  -L $LLVM_PROJ_BUILD/lib -lLLVMSupport -lLLVMDemangle -lcurses -lpthread -ldl
+  For statically loaded models, best is to run the utility in the directory
+  of the model.
 
+cd onnx-mlir/built
+. ../utils/build-run-onnx-lib.sh test/backend/test_add.so
+cd test/backend
+run-onnx-lib
+  
   Usage of program is as follows.
 
 Usage: run-onnx-lib [options] model.so
