@@ -83,10 +83,10 @@ with other tools, such as `gdb`, `lldb`, or `valgrind`.
 To list the utility options, simply use the `-h` or `--help` flags at runtime.
 
 We first need to compile the tool, which can be done in one of two modes.
-In the first mode, the tool is compiled with a statically linked model. 
+In the first mode, the tool is compiled with a statically linked model.
 This mode requires the `-D LOAD_MODEL_STATICALLY=0` option during compilation in addition to including the `.so` file.
-Best is to use the `build-run-onnx-lib.sh` script in `onnx-mlir/utils` to compile the tool with its model, which is passed as a parameter to the script. 
-To avoid library path issue, just run the tool in the home directory of the model.
+Best is to use the `build-run-onnx-lib.sh` script in the `onnx-mlir/utils` directory to compile the tool with its model, which is passed as a parameter to the script.
+To avoid library path issues, just run the tool in the home directory of the model.
 
 ``` sh
 # Compile tool with model.
@@ -97,9 +97,9 @@ cd test/backend
 run-onnx-lib
 ```
 
-In the second mode, the tool is compiled without model, which will be passed at runtime.
+In the second mode, the tool is compiled without models, which will be passed at runtime.
 To enable this option, simply compile the tool with the `-D LOAD_MODEL_STATICALLY=1` option.
-You may use the same script, without arguments. The tool can be then be run from
+You may use the same script as above but without arguments. The tool can then be be run from
 any directories as long as you pass the `.so` model file at runtime to the tool.
 
 ``` sh

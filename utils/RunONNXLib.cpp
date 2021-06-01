@@ -23,7 +23,7 @@ cd onnx-mlir/built
 . ../utils/build-run-onnx-lib.sh test/backend/test_add.so
 cd test/backend
 run-onnx-lib
-  
+
   Usage of program is as follows.
 
 Usage: run-onnx-lib [options] model.so
