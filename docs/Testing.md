@@ -93,8 +93,7 @@ To avoid library path issues, just run the tool in the home directory of the mod
 cd onnx-mlir/built
 . ../utils/build-run-onnx-lib.sh test/backend/test_add.so
 # Run tool in the directory of the model.
-cd test/backend
-run-onnx-lib
+(cd test/backend; run-onnx-lib)
 ```
 
 In the second mode, the tool is compiled without models, which will be passed at runtime.
