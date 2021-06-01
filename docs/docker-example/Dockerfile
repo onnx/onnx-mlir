@@ -25,12 +25,12 @@ RUN apt-get install -y vim
 # RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 
 # 3) When using vscode, copy your .vscode in the Dockerfile dir and
-# uncomment the two lines below.
+#    uncomment the two lines below.
 # WORKDIR /workdir/.vscode
 # ADD .vscode /workdir/.vscode
 
 # 4) When using a personal workspace folder, set your workspace sub-directory
-# in the Dockerfile dir and uncomment the two lines below.
+#    in the Dockerfile dir and uncomment the two lines below.
 # WORKDIR /workdir/workspace
 # ADD workspace /workdir/workspace
 
@@ -39,7 +39,8 @@ WORKDIR /workdir/onnx-mlir
 RUN git checkout master
 RUN git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
 
-# 6) Set the PATH environment vars for make/debug vserion.
+# 6) Set the PATH environment vars for make/debug mode. Replace Debug 
+#    with Release in the PATH below when using Release mode.
 WORKDIR /workdir
 ENV MLIR_DIR=/workdir/llvm-project/build/lib/cmake/mlir
 ENV NPROC=4
