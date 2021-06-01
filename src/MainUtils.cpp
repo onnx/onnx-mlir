@@ -59,7 +59,7 @@ llvm::Optional<std::string> getEnvVar(std::string name) {
 // the option is used in this file, so defined here
 llvm::cl::opt<bool> invokeOnnxVersionConverter("invokeOnnxVersionConverter",
     llvm::cl::desc(
-        "call onnx vesion converter to convert ONNX model to current version" ),
+        "call onnx vesion converter to convert ONNX model to current version"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> preserveLocations("preserveLocations",
