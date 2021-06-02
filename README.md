@@ -11,16 +11,19 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 | x86-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/workflows/Build%20x86%20onnx-mlir%20on%20macOS/badge.svg)](https://github.com/onnx/onnx-mlir/actions?query=workflow%3A%22Build+x86+onnx-mlir+on+macOS%22)             |
 
 ## Prebuilt Container
-An easy way to get started with ONNX-MLIR is to use a prebuilt docker image. These images are created as a result of a successful merge build on the trunk.
+An easy way to get started with ONNX-MLIR is to use a prebuilt docker image.
+These images are created as a result of a successful merge build on the trunk.
 This means that the latest image represents the tip of the trunk.
-Currently there are both Release and Debug mode images for amd64, ppc64le and IBM System Z saved in Docker Hub as, respectively, onnxmlirczar/onnx-mlir
-and onnxmlirczar/onnx-mlir-dev. To use one of these images either pull it directly from Docker Hub,
-launch a container and run an interactive bash shell in it, or use it as the base image in a dockerfile. The onnx-mlir container just contains the 
-built compiler and can be used to compile models. The onnx-mlir-dev container contains the full build tree including the prerequisites and a clone
-of the source code. The source can be modified and onnx-mlir rebuilt from within the container, so it is possible to use it
-as a development environment. It is also possible to attach vscode to the running container. An example Dockerfile useful for development and vscode 
-configuration files can be seen in the docs folder. If the workspace directory and the vscode files are not present in the directory where the Docker build is run, then the lines 
-referencing them should be commented out or deleted. The Dockerfile is shown here.
+Currently there are both Release and Debug mode images for `amd64`, `ppc64le` and `s390x` saved in Docker Hub as, respectively, onnxmlirczar/onnx-mlir and onnxmlirczar/onnx-mlir-dev.
+To use one of these images either pull it directly from Docker Hub, launch a container and run an interactive bash shell in it, or use it as the base image in a dockerfile.
+The onnx-mlir image just contains the built compiler and can be used to compile models.
+The onnx-mlir-dev image contains the full build tree including the prerequisites and a clone of the source code.
+The source can be modified and onnx-mlir rebuilt from within the container, so it is possible to use it
+as a development environment.
+It is also possible to attach vscode to the running container.
+An example Dockerfile useful for development and vscode configuration files can be seen in the docs folder.
+If the workspace directory and the vscode files are not present in the directory where the Docker build is run, then the lines referencing them should be commented out or deleted.
+The Dockerfile is shown here.
 
 [same-as-file]: <> (docs/docker-example/Dockerfile)
 ```
@@ -63,7 +66,7 @@ RUN apt-get install -y vim
 # 5) Fix git by reattaching head and making git see other branches than master.
 WORKDIR /workdir/onnx-mlir
 RUN git checkout master
-RUN git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+RUN git fetch --unshallow
 
 # 6) Set the PATH environment vars for make/debug mode. Replace Debug 
 #    with Release in the PATH below when using Release mode.

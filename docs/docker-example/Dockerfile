@@ -37,7 +37,7 @@ RUN apt-get install -y vim
 # 5) Fix git by reattaching head and making git see other branches than master.
 WORKDIR /workdir/onnx-mlir
 RUN git checkout master
-RUN git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+RUN git fetch --unshallow
 
 # 6) Set the PATH environment vars for make/debug mode. Replace Debug 
 #    with Release in the PATH below when using Release mode.
