@@ -11,37 +11,69 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 | x86-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/workflows/Build%20x86%20onnx-mlir%20on%20macOS/badge.svg)](https://github.com/onnx/onnx-mlir/actions?query=workflow%3A%22Build+x86+onnx-mlir+on+macOS%22)             |
 
 ## Prebuilt Container
-An easy way to get started with ONNX-MLIR is to use a prebuilt docker image. These images are created as a result of a successful merge build on the trunk.
+An easy way to get started with ONNX-MLIR is to use a prebuilt docker image.
+These images are created as a result of a successful merge build on the trunk.
 This means that the latest image represents the tip of the trunk.
-Currently there are images for amd64, ppc64le and IBM System Z respectively saved in Docker Hub as onnxmlirczar/onnx-mlir-build:amd64,
-onnxmlirczar/onnx-mlir-build:ppc64le and onnxmlirczar/onnx-mlir-build:s390x. To use one of these images either pull it directly from Docker Hub,
-launch a container and run an interactive bash shell in it, or use it as the base image in a dockerfile. The container contains the full build tree including
-the prerequisites and a clone of the source code. The source can be modified and onnx-mlir rebuilt from within the container, so it is possible to use it
-as a development environment. It is also possible to attach vscode to the running container. An example Dockerfile and vscode configuration files can be
-seen in the docs folder. The Dockerfile is shown here.
+Currently there are both Release and Debug mode images for `amd64`, `ppc64le` and `s390x` saved in Docker Hub as, respectively, onnxmlirczar/onnx-mlir and onnxmlirczar/onnx-mlir-dev.
+To use one of these images either pull it directly from Docker Hub, launch a container and run an interactive bash shell in it, or use it as the base image in a dockerfile.
+The onnx-mlir image just contains the built compiler and can be used to compile models.
+The onnx-mlir-dev image contains the full build tree including the prerequisites and a clone of the source code.
+The source can be modified and onnx-mlir rebuilt from within the container, so it is possible to use it
+as a development environment.
+It is also possible to attach vscode to the running container.
+An example Dockerfile useful for development and vscode configuration files can be seen in the docs folder.
+If the workspace directory and the vscode files are not present in the directory where the Docker build is run, then the lines referencing them should be commented out or deleted.
+The Dockerfile is shown here.
 
 [same-as-file]: <> (docs/docker-example/Dockerfile)
 ```
-FROM onnxmlirczar/onnx-mlir-build:amd64
+FROM onnxmlirczar/onnx-mlir-dev
+WORKDIR /workdir
+ENV HOME=/workdir
 
-WORKDIR /build
-ENV HOME=/build
-ENV PYENV_ROOT=$HOME/.pyenv
-ENV PATH=$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH
-RUN pyenv global 3.7.0
-RUN pyenv rehash
-
-ENV PATH=$PATH:/build/bin
+# 1) Install packages.
+ENV PATH=$PATH:/workdir/bin
 RUN apt-get update
 RUN apt-get install -y python-numpy
 RUN apt-get install -y python3-pip
+RUN python -m pip install --upgrade pip
 RUN apt-get install -y gdb
 RUN apt-get install -y lldb
 RUN apt-get install -y emacs
-WORKDIR /build/.vscode
-ADD .vscode /build/.vscode
-WORKDIR /build
+RUN apt-get install -y vim
+# 2) Instal optional packages, uncomment/add as you see fit.
+# RUN apt-get install -y valgrind
+# RUN apt-get install -y libeigen3-dev
+# RUN apt-get install -y clang-format
+# RUN python -m pip install wheel
+# RUN python -m pip install numpy
+# RUN python -m pip install torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+# RUN git clone https://github.com/onnx/tutorials.git
+# Install clang-12.
+# RUN apt-get install -y lsb-release wget software-properties-common
+# RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 
+# 3) When using vscode, copy your .vscode in the Dockerfile dir and
+#    uncomment the two lines below.
+# WORKDIR /workdir/.vscode
+# ADD .vscode /workdir/.vscode
+
+# 4) When using a personal workspace folder, set your workspace sub-directory
+#    in the Dockerfile dir and uncomment the two lines below.
+# WORKDIR /workdir/workspace
+# ADD workspace /workdir/workspace
+
+# 5) Fix git by reattaching head and making git see other branches than master.
+WORKDIR /workdir/onnx-mlir
+RUN git checkout master
+RUN git fetch --unshallow
+
+# 6) Set the PATH environment vars for make/debug mode. Replace Debug
+#    with Release in the PATH below when using Release mode.
+WORKDIR /workdir
+ENV MLIR_DIR=/workdir/llvm-project/build/lib/cmake/mlir
+ENV NPROC=4
+ENV PATH=$PATH:/workdir/onnx-mlir/build/Debug/bin/:/workdir/onnx-mlir/build/Debug/lib:/workdir/llvm-project/build/bin
 ```
 
 ## Prerequisites
