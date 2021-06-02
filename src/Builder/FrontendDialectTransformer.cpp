@@ -24,6 +24,8 @@
 #include "onnx/defs/schema.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "onnx/version_converter/convert.h"
+
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 
@@ -1179,8 +1181,13 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
 
   auto parse_success = model.ParseFromIstream(&input);
   assert(parse_success && "Onnx Model Parsing Failed.");
-
-  ImportFrontendModel(model, context, module, options);
+  if (options.invokeOnnxVersionConverter) {
+    onnx::ModelProto convertModel =
+        onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
+    ImportFrontendModel(convertModel, context, module, options);
+  } else {
+    ImportFrontendModel(model, context, module, options);
+  }
 }
 
 void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,
