@@ -39,7 +39,7 @@ WORKDIR /workdir/onnx-mlir
 RUN git checkout master
 RUN git fetch --unshallow
 
-# 6) Set the PATH environment vars for make/debug mode. Replace Debug 
+# 6) Set the PATH environment vars for make/debug mode. Replace Debug
 #    with Release in the PATH below when using Release mode.
 WORKDIR /workdir
 ENV MLIR_DIR=/workdir/llvm-project/build/lib/cmake/mlir
