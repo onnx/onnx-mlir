@@ -146,7 +146,7 @@ mlir::DenseElementsAttr createDenseElementsAttrFromStringAttrs(
     llvm::SmallVector<mlir::Attribute> attrs);
 
 mlir::Value normalizeConstantOp(
-     mlir::PatternRewriter &rewriter, mlir::Value output, mlir::Attribute attr);
+    mlir::PatternRewriter &rewriter, mlir::Value output, mlir::Attribute attr);
 
 // Create a DenseElementsAttr based on the shape of type.
 mlir::DenseElementsAttr createDenseElementsAttrFromShape(
