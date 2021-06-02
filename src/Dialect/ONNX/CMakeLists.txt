@@ -9,6 +9,9 @@ endif()
 add_onnx_mlir_dialect(ONNXOps)
 add_onnx_mlir_dialect_doc(onnx ONNXOps.td)
 
+add_onnx_mlir_rewriter(Rewrite)
+add_onnx_mlir_rewriter(Combine)
+
 # Header dependencies target for ONNXOps.hpp
 add_custom_target(OMONNXOpsInc
         DEPENDS OMONNXOpsIncGen
@@ -17,9 +20,6 @@ add_custom_target(OMONNXOpsInc
                 OMHasOnnxSubgraphOpInterfaceIncGen
                 OMONNXRewriteIncGen
                 OMONNXCombineIncGen)
-
-add_onnx_mlir_rewriter(Rewrite)
-add_onnx_mlir_rewriter(Combine)
 
 add_onnx_mlir_library(OMONNXOps
         ONNXOps.cpp
@@ -31,6 +31,8 @@ add_onnx_mlir_library(OMONNXOps
         IndexExprDetail.cpp)
 
 add_dependencies(OMONNXOps OMONNXOpsInc)
+add_dependencies(OMONNXRewriteIncGen OMONNXOpsIncGen)
+add_dependencies(OMONNXCombineIncGen OMONNXOpsIncGen)
 
 # Linking dependencies:
 add_dependencies(OMONNXOps

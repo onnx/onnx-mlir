@@ -95,3 +95,63 @@ mlir::Value getONNXConstantOpFromDenseAttr(
     mlir::PatternRewriter &rewriter, mlir::Location loc, mlir::Attribute dense);
 bool isFromNone(mlir::Value value);
 mlir::Type getBroadcastedRankedType(mlir::Type type1, mlir::Type type2);
+
+//===----------------------------------------------------------------------===//
+// Support for transpose patterns.
+//===----------------------------------------------------------------------===//
+
+/// Compute the combined permute pattern from a pair of permute patterns.
+mlir::ArrayAttr CombinedTransposePattern(mlir::PatternRewriter &rewriter,
+    mlir::ArrayAttr firstPermAttr, mlir::ArrayAttr secondPermAttr);
+
+/// Test if the permute pattern correspond to an identity pattern.
+/// Identity patterns are {0, 1, 2, ... , rank -1}.
+bool IsIdentityPermuteVector(mlir::ArrayAttr permAttr);
+
+/// Test if two axis arrays contain the same values or not.
+bool AreTheSameAxisArray(
+    int64_t rank, mlir::ArrayAttr lhsAttr, mlir::ArrayAttr rhsAttr);
+
+//===----------------------------------------------------------------------===//
+// Support for Rewrite.
+//===----------------------------------------------------------------------===//
+
+// Create a DenseElementsAttr from a float attribute.
+mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttr(
+    mlir::PatternRewriter &rewriter, mlir::Type elementType,
+    mlir::FloatAttr attr);
+
+mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttrs(
+    mlir::PatternRewriter &rewriter, mlir::Type elementType,
+    llvm::SmallVector<mlir::Attribute> attrs);
+
+// Create a DenseElementsAttr from a integer attribute.
+// The attribute is assumed to be SingedInteger.
+mlir::DenseElementsAttr createDenseElementsAttrFromIntegerAttr(
+    mlir::PatternRewriter &rewriter, mlir::Type elementType,
+    mlir::IntegerAttr attr);
+
+mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttrs(
+    mlir::PatternRewriter &rewriter, mlir::Type elementType,
+    llvm::SmallVector<mlir::Attribute> attrs);
+
+// Integer attribute is assumed to be Signedless
+mlir::DenseElementsAttr createDenseElementsAttrFromIntegerAttrs(
+    mlir::PatternRewriter &rewriter, mlir::Type elementType,
+    llvm::SmallVector<mlir::Attribute> attrs);
+
+// Create a DenseElementsAttr from a String attribute.
+mlir::DenseElementsAttr createDenseElementsAttrFromStringAttrs(
+    mlir::PatternRewriter &rewriter, mlir::Type elementType,
+    llvm::SmallVector<mlir::Attribute> attrs);
+
+mlir::Value normalizeConstantOp(
+     mlir::PatternRewriter &rewriter, mlir::Value output, mlir::Attribute attr);
+
+// Create a DenseElementsAttr based on the shape of type.
+mlir::DenseElementsAttr createDenseElementsAttrFromShape(
+    mlir::PatternRewriter &rewriter, mlir::Value value);
+
+// Create a DenseElementsAttr based on the size of type.
+mlir::DenseElementsAttr createDenseElementsAttrFromSize(
+    mlir::PatternRewriter &rewriter, mlir::Value value);
