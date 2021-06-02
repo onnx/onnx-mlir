@@ -3,8 +3,7 @@ set(CMAKE_MODULE_PATH
   "${ApolloSDK_Lib_PATH}/Host"
 )
 
-include(EmulatorTargets)
-include(RuntimeTargets)
+include(HostTargets)
 
 include_directories(${MNIST_BINARY_DIR})
 add_executable(MNIST_Host_Program mnist_main.cpp)

@@ -1,9 +1,10 @@
 #include "tcp_driver.dcp.h"
 
-#include <Commands/CommandMappingUtils.h>
-#include <ControlMessage.h>
-#include <KernelParams.h>
-#include <Runtime/Device.h>
+#include "Commands/CommandMappingUtils.h"
+#include "Common/DeviceOptions.h"
+#include "ControlMessage.h"
+#include "KernelParams.h"
+#include "Runtime/Device.h"
 
 #include <cstddef>
 #include <iomanip>
@@ -46,7 +47,7 @@ int main(int argc, char *argv[]) {
   using BFloat16Type = typename SKU::BFloat16Type;
 
   // Load the NPU Program.
-  auto options = DeviceOptions();
+  auto options = Trainwave::DeviceOptions();
   options.skuName = SKU::Name;
   auto device = twr::Device::CreateEmulatorDevice(options);
 
@@ -81,7 +82,9 @@ int main(int argc, char *argv[]) {
       arg5_output_Dims[0] * arg5_output_Dims[1], 257.f);
 
   // Transfer the first tensor, dataInput, to the device.
-  constexpr uint64_t inputDMemAddress = 0;
+  // Start at the beginning of reserved Device space in HBM
+  constexpr uint64_t inputDMemAddress =
+      Apollo::HbmAllocations::HbmRuntimeReservedEnd;
   kernelInputs.push_back(
       KernelParams::ArrayRef{arg0_input_Dims, inputDMemAddress});
 
@@ -120,20 +123,6 @@ int main(int argc, char *argv[]) {
   // Create ClusterCommand args
   auto args = CreateKernelParams(kernelInputs, kernelOutputs);
 
-  // Re-Initialize DMem with host pre-allocations
-  uint64_t dMemOffset =
-      resultDMemAddress + expectedOutput.size() * sizeof(bfloat16_t);
-
-  // device.template InitializeMemoryManager<bfloat16_t>(dMemOffset);
-  device.InitializeMemoryManager(dMemOffset);
-  uint32_t retCode = device.RetrieveMessageWord();
-
-  // Re-Initialize the cluster semaphore stack to begin after an offset of 13
-  // for testing.
-  // device.template InitializeSemaphoreStack<bfloat16_t>(13);
-  device.InitializeSemaphoreStack(13);
-  retCode = device.RetrieveMessageWord();
-
   device.WriteToHbm<bfloat16_t>(
       inputDMemAddress, dataInput, Apollo::Primitives::DataType::BFloat16);
   device.WriteToHbm<bfloat16_t>(
@@ -157,7 +146,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   device.ExecuteAsync(ctrlMsg);
-  retCode = device.RetrieveMessageWord();
+  auto retCode = device.RetrieveMessageWord();
 
   assert(funcId == retCode);
 
