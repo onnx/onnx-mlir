@@ -93,7 +93,7 @@ bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
 //===----------------------------------------------------------------------===//
 
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Transform/ONNX/ONNXCombine.inc"
+#include "src/Dialect/ONNX/ONNXCombine.inc"
 } // end anonymous namespace
 
 /// Register optimization patterns as "canonicalization" patterns

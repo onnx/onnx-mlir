@@ -237,7 +237,7 @@ DenseElementsAttr insertZerosForNonPaddedDims(
 }
 
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Transform/ONNX/ONNXRewrite.inc"
+#include "src/Dialect/ONNX/ONNXRewrite.inc"
 
 } // end anonymous namespace
 

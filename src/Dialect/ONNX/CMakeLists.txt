@@ -14,12 +14,19 @@ add_custom_target(OMONNXOpsInc
         DEPENDS OMONNXOpsIncGen
                 OMResultTypeInferenceOpInterfaceIncGen
                 OMShapeInferenceOpInterfaceIncGen
-                OMHasOnnxSubgraphOpInterfaceIncGen)
+                OMHasOnnxSubgraphOpInterfaceIncGen
+                OMONNXRewriteIncGen
+                OMONNXCombineIncGen)
+
+add_onnx_mlir_rewriter(Rewrite)
+add_onnx_mlir_rewriter(Combine)
 
 add_onnx_mlir_library(OMONNXOps
         ONNXOps.cpp
         ONNXOpsHelper.cpp
         ONNXShapeHelper.cpp
+        Rewrite.cpp
+        Combine.cpp
         IndexExpr.cpp
         IndexExprDetail.cpp)
 
