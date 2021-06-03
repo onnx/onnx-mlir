@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
     // Input size.
     const auto I = *rc::gen::inRange(5, 10);
     // Hidden size.
-    const auto H = *rc::gen::inRange(9, 12);
+    const auto H = *rc::gen::inRange(5, 10);
     // Whether test dynamic dimension for sequence.
     const auto isDynS = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for batch size.
