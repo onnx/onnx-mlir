@@ -23,127 +23,6 @@ using namespace mlir;
 
 namespace {
 
-// Create a DenseElementsAttr from a float attribute.
-DenseElementsAttr createDenseElementsAttrFromFloatAttr(
-    PatternRewriter &rewriter, Type elementType, FloatAttr attr) {
-  SmallVector<int64_t, 1> dims(1, 1);
-  SmallVector<float, 1> values(1, attr.getValue().convertToFloat());
-  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
-}
-
-// Create a DenseElementsAttr from a integer attribute.
-// The attribute is assumed to be SingedInteger
-DenseElementsAttr createDenseElementsAttrFromIntegerAttr(
-    PatternRewriter &rewriter, Type elementType, IntegerAttr attr) {
-  SmallVector<int64_t, 1> dims(1, 1);
-  SmallVector<int64_t, 1> values(1, attr.getSInt());
-  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
-}
-
-DenseElementsAttr createDenseElementsAttrFromFloatAttrs(
-    PatternRewriter &rewriter, Type elementType, SmallVector<Attribute> attrs) {
-  SmallVector<int64_t, 1> dims(1, attrs.size());
-  SmallVector<float, 1> values;
-  for (auto attr : attrs) {
-    values.push_back(attr.cast<FloatAttr>().getValue().convertToFloat());
-  }
-  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
-}
-
-// Integer attribute is assumed to be Signedless
-DenseElementsAttr createDenseElementsAttrFromIntegerAttrs(
-    PatternRewriter &rewriter, Type elementType, SmallVector<Attribute> attrs) {
-  SmallVector<int64_t, 1> dims(1, attrs.size());
-  SmallVector<int64_t, 1> values;
-  for (auto attr : attrs) {
-    values.push_back(attr.cast<IntegerAttr>().getInt());
-  }
-  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
-}
-
-// Create a DenseElementsAttr from a String attribute.
-DenseElementsAttr createDenseElementsAttrFromStringAttrs(
-    PatternRewriter &rewriter, Type elementType, SmallVector<Attribute> attrs) {
-  SmallVector<int64_t, 1> dims(1, attrs.size());
-  SmallVector<StringRef, 1> values;
-  for (auto attr : attrs) {
-    values.push_back(attr.cast<StringAttr>().getValue());
-  }
-  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
-}
-
-Value normalizeConstantOp(
-    PatternRewriter &rewriter, Value output, Attribute attr) {
-  Type elementType;
-  Type outputType = output.getType();
-  if (outputType.dyn_cast<ShapedType>()) {
-    elementType = outputType.cast<ShapedType>().getElementType();
-  } else {
-    elementType = outputType;
-  }
-
-  DenseElementsAttr denseAttr;
-  if (attr.dyn_cast<FloatAttr>()) {
-    denseAttr =
-        createDenseElementsAttrFromFloatAttrs(rewriter, elementType, {attr});
-  } else if (attr.dyn_cast<IntegerAttr>()) {
-    denseAttr = createDenseElementsAttrFromIntegerAttr(
-        rewriter, elementType, attr.cast<IntegerAttr>());
-  } else if (attr.dyn_cast<StringAttr>()) {
-    denseAttr =
-        createDenseElementsAttrFromStringAttrs(rewriter, elementType, {attr});
-  } else if (attr.dyn_cast<ArrayAttr>()) {
-    ArrayAttr myAttr = attr.cast<ArrayAttr>();
-    SmallVector<Attribute> attrs(
-        myAttr.getValue().begin(), myAttr.getValue().end());
-    if (attrs[0].dyn_cast<FloatAttr>()) {
-      denseAttr =
-          createDenseElementsAttrFromFloatAttrs(rewriter, elementType, attrs);
-    } else if (attrs[0].dyn_cast<IntegerAttr>()) {
-      denseAttr =
-          createDenseElementsAttrFromIntegerAttrs(rewriter, elementType, attrs);
-    } else if (attrs[0].dyn_cast<StringAttr>()) {
-      denseAttr =
-          createDenseElementsAttrFromStringAttrs(rewriter, elementType, attrs);
-    } else {
-      llvm_unreachable("unexpected Attribute");
-    }
-  } else {
-    llvm_unreachable("unexpected Attribute");
-  }
-  return rewriter.create<ONNXConstantOp>(output.getLoc(), output.getType(),
-      Attribute(), denseAttr, FloatAttr(), ArrayAttr(), IntegerAttr(),
-      ArrayAttr(), StringAttr(), ArrayAttr());
-}
-
-// Create a DenseElementsAttr based on the shape of type.
-DenseElementsAttr createDenseElementsAttrFromShape(
-    PatternRewriter &rewriter, Value value) {
-  auto inType = value.getType().cast<ShapedType>();
-  auto shape = inType.getShape();
-  SmallVector<int64_t, 1> dims = {inType.getRank()};
-  SmallVector<int64_t, 4> values(shape.begin(), shape.end());
-  auto tensorType =
-      mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
-}
-
-// Create a DenseElementsAttr based on the size of type.
-DenseElementsAttr createDenseElementsAttrFromSize(
-    PatternRewriter &rewriter, Value value) {
-  auto inType = value.getType().cast<ShapedType>();
-  SmallVector<int64_t, 1> dims(1, 1);
-  SmallVector<int64_t, 1> values = {inType.getNumElements()};
-  auto tensorType =
-      mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
-}
-
 // If 'lhs' is not NoneType, return 'lhs - rhs'.
 // Otherwise, return '-rhs'.
 Value subtractOrNeg(
@@ -237,7 +116,7 @@ DenseElementsAttr insertZerosForNonPaddedDims(
 }
 
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Transform/ONNX/ONNXRewrite.inc"
+#include "src/Dialect/ONNX/ONNXRewrite.inc"
 
 } // end anonymous namespace
 
