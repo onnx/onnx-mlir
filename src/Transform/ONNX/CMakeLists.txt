@@ -18,23 +18,17 @@ add_dependencies(OMConstPropHelper
 add_dependencies(OMConstPropHelper
         OMONNXOps)
 
-add_onnx_mlir_rewriter(Rewrite)
-add_onnx_mlir_rewriter(Combine)
 add_onnx_mlir_rewriter(Decompose)
 add_onnx_mlir_rewriter(ConstProp)
 
 add_onnx_mlir_library(OMONNXRewrite
-        Rewrite.cpp
-        Combine.cpp
         Decompose.cpp
         ConstProp.cpp)
 
 # Header dependencies
 add_dependencies(OMONNXRewrite
         OMONNXOpsInc
-        OMONNXRewriteIncGen
         OMONNXDecomposeIncGen
-        OMONNXCombineIncGen
         OMONNXConstPropIncGen)
 
 # Linking dependencies

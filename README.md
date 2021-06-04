@@ -14,7 +14,7 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 An easy way to get started with ONNX-MLIR is to use a prebuilt docker image.
 These images are created as a result of a successful merge build on the trunk.
 This means that the latest image represents the tip of the trunk.
-Currently there are both Release and Debug mode images for `amd64`, `ppc64le` and `s390x` saved in Docker Hub as, respectively, onnxmlirczar/onnx-mlir and onnxmlirczar/onnx-mlir-dev.
+Currently there are both Release and Debug mode images for `amd64`, `ppc64le` and `s390x` saved in Docker Hub as, respectively, [onnxmlirczar/onnx-mlir](https://hub.docker.com/r/onnxmlirczar/onnx-mlir) and [onnxmlirczar/onnx-mlir-dev](https://hub.docker.com/r/onnxmlirczar/onnx-mlir-dev).
 To use one of these images either pull it directly from Docker Hub, launch a container and run an interactive bash shell in it, or use it as the base image in a dockerfile.
 The onnx-mlir image just contains the built compiler and can be used to compile models.
 The onnx-mlir-dev image contains the full build tree including the prerequisites and a clone of the source code.
@@ -82,6 +82,7 @@ ENV PATH=$PATH:/workdir/onnx-mlir/build/Debug/bin/:/workdir/onnx-mlir/build/Debu
 gcc >= 6.4
 libprotoc >= 3.11.0
 cmake >= 3.15.4
+ninja >= 1.10.2
 ```
 At any point in time, ONNX MLIR depends on a specific commit of the LLVM project that has been shown to work with the project. Periodically the maintainers
 need to move to a more recent LLVM level. Among other things, this requires that the commit string in utils/clone-mlir.sh be updated. A consequence of
