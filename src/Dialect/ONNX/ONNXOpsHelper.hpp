@@ -169,4 +169,3 @@ mlir::DenseElementsAttr createDenseElementsAttrFromSize(
 
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);
-
