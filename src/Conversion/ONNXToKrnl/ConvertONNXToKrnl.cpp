@@ -52,7 +52,7 @@ public:
 namespace {
 struct FrontendToKrnlLoweringPass
     : public PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>> {
-  /// Make sure that we have a valid default constructor and copy
+  // Make sure that we have a valid default constructor and copy
   // constructor to make sure that the options are initialized properly.
   FrontendToKrnlLoweringPass() = default;
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass) {}
@@ -60,8 +60,19 @@ struct FrontendToKrnlLoweringPass
   void runOnOperation() final;
 
 public:
-  Option<bool> testRNNOps{*this, "test-rnn-ops-lowering",
-      llvm::cl::desc("For testing RNN ops only."), llvm::cl::init(false)};
+  // RNN ops are lowered to other ONNX ops such as ONNXMatMulOp, ONNXSplitOp,
+  // ONNXTransposeOp, etc. These ONNX ops are then lowered into krnl ops in this
+  // pass.
+  //
+  // To write LIT tests for RNN ops, we need not to check the final generated
+  // krnl code that is lengthy but the intermediate generated code including
+  // ONNX ops. We trust the lowering of the other ONNX ops.
+  //
+  // This flag is used in LIT tests to stop the lowering of the other ONNX ops.
+  // Usage: onnx-mlir-opt --convert-onnx-to-krnl='test-rnn-ops-lowering'
+  Option<bool> checkRNNOps{*this, "check-rnn-ops-lowering",
+      llvm::cl::desc("Only used for writing LIT tests for RNN ops."),
+      llvm::cl::init(false)};
 };
 } // end anonymous namespace.
 
@@ -97,9 +108,11 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // TODO: add any other ops which are considered legal.
   // Some operations can be marked as being still legal.
   // Example: target.addLegalOp<mlir::OpName>();
-  if (testRNNOps) {
-    // For the purpose of testing generated code for RNN ops, we do not go
-    // further lowering the following ops.
+
+  if (checkRNNOps) {
+    // Only used for writing LIT tests for RNN ops. We do not go further
+    // lowering the following ops. See the comment in the declaration of
+    // 'checkRNNOps' for more details.
     target.addLegalOp<ONNXTransposeOp>();
     target.addLegalOp<ONNXSqueezeOp>();
     target.addLegalOp<ONNXSplitOp>();
