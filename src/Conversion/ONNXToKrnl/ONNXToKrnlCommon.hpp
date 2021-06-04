@@ -113,12 +113,6 @@ Value emitNegativeInfinityConstantOp(
 Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     Value operand, int64_t axis, Type type);
 
-/// Check whether a value is produced by a dense ONNXConstantOp.
-bool isDenseONNXConstant(Value result);
-
-/// Check whether a value is produced by a dense KrnlGlobalOp.
-bool isKrnlGlobalConstant(Value result);
-
 /// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.
 Value emitSqueeze(ConversionPatternRewriter &rewriter, Location loc,

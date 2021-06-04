@@ -69,7 +69,7 @@ public:
   // ONNX ops. We trust the lowering of the other ONNX ops.
   //
   // This flag is used in LIT tests to stop the lowering of the other ONNX ops.
-  // Usage: onnx-mlir-opt --convert-onnx-to-krnl='test-rnn-ops-lowering'
+  // Usage: onnx-mlir-opt --convert-onnx-to-krnl='check-rnn-ops-lowering'
   Option<bool> checkRNNOps{*this, "check-rnn-ops-lowering",
       llvm::cl::desc("Only used for writing LIT tests for RNN ops."),
       llvm::cl::init(false)};

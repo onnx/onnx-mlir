@@ -166,3 +166,7 @@ mlir::DenseElementsAttr createDenseElementsAttrFromShape(
 // Create a DenseElementsAttr based on the size of type.
 mlir::DenseElementsAttr createDenseElementsAttrFromSize(
     mlir::PatternRewriter &rewriter, mlir::Value value);
+
+// Check whether a value is produced by a dense ONNXConstantOp.
+bool isDenseONNXConstant(mlir::Value result);
+

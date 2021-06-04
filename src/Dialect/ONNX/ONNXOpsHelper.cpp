@@ -408,3 +408,35 @@ DenseElementsAttr createDenseElementsAttrFromSize(
       mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
   return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
 }
+
+/// Check whether a value is produced by a dense ONNXConstantOp.
+bool isDenseONNXConstant(Value result) {
+  Operation *op = result.getDefiningOp();
+
+  ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
+  // Not a constant.
+  if (!constOp)
+    return false;
+
+  // If the dense attribute is null, there must be buffer_id
+  // attribute.
+  if (!(op->getAttrOfType<::mlir::Attribute>("value")))
+    return false;
+  // The other attributes must be null.
+  if (op->getAttrOfType<::mlir::Attribute>("sparse_value"))
+    return false;
+  if (op->getAttrOfType<::mlir::Attribute>("value_float"))
+    return false;
+  if (op->getAttrOfType<::mlir::Attribute>("value_floats"))
+    return false;
+  if (op->getAttrOfType<::mlir::Attribute>("value_int"))
+    return false;
+  if (op->getAttrOfType<::mlir::Attribute>("value_ints"))
+    return false;
+  if (op->getAttrOfType<::mlir::Attribute>("value_string"))
+    return false;
+  if (op->getAttrOfType<::mlir::Attribute>("value_strings"))
+    return false;
+
+  return true;
+}
