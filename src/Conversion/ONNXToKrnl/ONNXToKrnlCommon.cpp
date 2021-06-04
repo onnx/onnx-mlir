@@ -370,6 +370,8 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
   return dimVal;
 }
 
+/// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
+/// return a constant.
 Value foldOrEmitONNXSqueezeOp(ConversionPatternRewriter &rewriter, Location loc,
     Type resultType, Value input, int64_t axis) {
   if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
@@ -391,6 +393,8 @@ Value foldOrEmitONNXSqueezeOp(ConversionPatternRewriter &rewriter, Location loc,
   }
 }
 
+/// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
+/// return a constant.
 Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
   if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
@@ -412,7 +416,9 @@ Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
   }
 }
 
-// Only support evenly splitting.
+/// Emit an ONNXSplitOp. If the input is constant, do const propagation, and
+/// return constants.
+/// Only support evenly splitting.
 std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
     Location loc, ArrayRef<Type> resultTypes, Value input, int64_t axis) {
   std::vector<Value> resVals;
@@ -458,6 +464,8 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
   return resVals;
 }
 
+/// Emit an ONNXTransposeOp. If the input is constant, do const propagation, and
+/// return a constant.
 Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, ArrayAttr permAttr) {
   auto inputType = input.getType().cast<ShapedType>();
