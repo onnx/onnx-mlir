@@ -38,6 +38,13 @@ enum EmissionTargetType {
   EmitJNI,
 };
 
+enum InputIRLevelType {
+  ONNXLevel,
+  MLIRLevel,
+  LLVMLevel,
+};
+
+
 void setExecPath(const char *argv0, void *fmain);
 
 void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
@@ -62,6 +69,8 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm);
 void processInputFile(std::string inputFilename,
     EmissionTargetType emissionTarget, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);
+
+InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module);
 
 void outputCode(
     mlir::OwningModuleRef &module, std::string filename, std::string extension);

@@ -497,6 +497,34 @@ void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
   }
 }
 
+InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
+  Operation *moduleOp = module->getOperation();
+
+  // Collect dialect namespaces.
+  llvm::SmallDenseSet<StringRef> dialectNamespace;
+  moduleOp->walk([&](mlir::Operation *op) {
+    dialectNamespace.insert(op->getDialect()->getNamespace());
+  });
+
+  // If there are ONNX ops, the input level is ONNX.
+  bool hasONNXOps = llvm::any_of(dialectNamespace, [&](StringRef ns) {
+    return (ns == ONNXOpsDialect::getDialectNamespace());
+  });
+  if (hasONNXOps)
+    return ONNXLevel;
+
+  // If there are Krnl ops, the input level is MLIR.
+  bool hasKrnlOps = llvm::any_of(dialectNamespace, [&](StringRef ns) {
+    return (ns == KrnlOpsDialect::getDialectNamespace());
+  });
+  if (hasKrnlOps) {
+    return MLIRLevel;
+  }
+
+  // Otherwise, set to the lowest level, LLVMLevel.
+  return LLVMLevel;
+}
+
 void outputCode(
     mlir::OwningModuleRef &module, string filename, string extension) {
   string tempFilename = filename + extension;
@@ -590,16 +618,20 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     outputCode(module, outputBaseName, ".input.mlir");
   }
 
-  if (emissionTarget >= EmitONNXIR) {
+  InputIRLevelType inputIRLevel = determineInputIRLevel(module);
+
+  if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR) {
     addONNXToMLIRPasses(pm);
   }
 
   if (emissionTarget >= EmitMLIR) {
-    addONNXToKrnlPasses(pm);
-    addKrnlToAffinePasses(pm);
+    if (inputIRLevel <= ONNXLevel)
+      addONNXToKrnlPasses(pm);
+    if (inputIRLevel <= MLIRLevel)
+      addKrnlToAffinePasses(pm);
   }
 
-  if (emissionTarget >= EmitLLVMIR)
+  if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
     addKrnlToLLVMPasses(pm);
 
   mlir::applyPassManagerCLOptions(pm);
