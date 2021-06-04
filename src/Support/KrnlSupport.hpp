@@ -95,6 +95,12 @@ unsigned getMemRefEltSizeInBytes(MemRefType memRefType);
 /// Get the size of a MemRef in bytes.
 int64_t getMemRefSizeInBytes(Value value);
 
+/// Get the size of a MemRef in bytes.
+/// If all the dimensions are static, emit a constant.
+/// Otherwise, emit runtime computations.
+Value getDynamicMemRefSizeInBytes(
+    PatternRewriter &rewriter, Location loc, Value val);
+
 /// Get the size of a dynamic MemRef in bytes.
 Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
     PatternRewriter &rewriter, memref::AllocOp allocOp);

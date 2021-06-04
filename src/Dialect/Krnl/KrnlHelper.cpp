@@ -617,4 +617,18 @@ void krnl_copy_from_buffer_ie(
   krnl_copy_from_buffer_ie(bufferMemref, memref, starts, empty);
 }
 
+bool isKrnlGlobalConstant(Value result) {
+  Operation *op = result.getDefiningOp();
+
+  KrnlGlobalOp constOp = llvm::dyn_cast_or_null<KrnlGlobalOp>(op);
+  // Not a constant.
+  if (!constOp)
+    return false;
+
+  if (!(op->getAttrOfType<::mlir::Attribute>("value")))
+    return false;
+
+  return true;
+}
+
 } // namespace mlir

@@ -37,6 +37,7 @@ add_onnx_mlir_library(OMONNXToKrnl
         Tensor/Tile.cpp
         ConvertONNXToKrnl.cpp)
 target_link_libraries(OMONNXToKrnl
+        OMConstPropHelper
         OMSupport
         )
 
