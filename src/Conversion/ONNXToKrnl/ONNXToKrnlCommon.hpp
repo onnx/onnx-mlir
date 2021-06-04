@@ -115,24 +115,24 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
 
 /// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.
-Value emitSqueeze(ConversionPatternRewriter &rewriter, Location loc,
+Value foldOrEmitONNXSqueezeOp(ConversionPatternRewriter &rewriter, Location loc,
     Type resultType, Value input, int64_t axis);
 
 /// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.
-Value emitUnsqueeze(ConversionPatternRewriter &rewriter, Location loc,
-    Type resultType, Value input, int64_t axis);
+Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, int64_t axis);
 
 /// Emit an ONNXSplitOp. If the input is constant, do const propagation, and
 /// return constants.
 /// Only support evenly splitting.
-std::vector<Value> emitSplit(ConversionPatternRewriter &rewriter, Location loc,
-    ArrayRef<Type> resultTypes, Value input, int64_t axis);
+std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
+    Location loc, ArrayRef<Type> resultTypes, Value input, int64_t axis);
 
 /// Emit an ONNXTransposeOp. If the input is constant, do const propagation, and
 /// return a constant.
-Value emitTranspose(ConversionPatternRewriter &rewriter, Location loc,
-    Type resultType, Value input, ArrayAttr permAttr);
+Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, ArrayAttr permAttr);
 
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.

@@ -370,7 +370,7 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
   return dimVal;
 }
 
-Value emitSqueeze(ConversionPatternRewriter &rewriter, Location loc,
+Value foldOrEmitONNXSqueezeOp(ConversionPatternRewriter &rewriter, Location loc,
     Type resultType, Value input, int64_t axis) {
   if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
@@ -391,8 +391,8 @@ Value emitSqueeze(ConversionPatternRewriter &rewriter, Location loc,
   }
 }
 
-Value emitUnsqueeze(ConversionPatternRewriter &rewriter, Location loc,
-    Type resultType, Value input, int64_t axis) {
+Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, int64_t axis) {
   if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
@@ -413,8 +413,8 @@ Value emitUnsqueeze(ConversionPatternRewriter &rewriter, Location loc,
 }
 
 // Only support evenly splitting.
-std::vector<Value> emitSplit(ConversionPatternRewriter &rewriter, Location loc,
-    ArrayRef<Type> resultTypes, Value input, int64_t axis) {
+std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
+    Location loc, ArrayRef<Type> resultTypes, Value input, int64_t axis) {
   std::vector<Value> resVals;
 
   int outputNum = resultTypes.size();
@@ -458,8 +458,8 @@ std::vector<Value> emitSplit(ConversionPatternRewriter &rewriter, Location loc,
   return resVals;
 }
 
-Value emitTranspose(ConversionPatternRewriter &rewriter, Location loc,
-    Type resultType, Value input, ArrayAttr permAttr) {
+Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, ArrayAttr permAttr) {
   auto inputType = input.getType().cast<ShapedType>();
   auto inputShape = inputType.getShape();
   auto resultShape = resultType.cast<ShapedType>().getShape();
