@@ -1,0 +1,1 @@
+The ONNX files in this directory are generated from the python script alongside them.

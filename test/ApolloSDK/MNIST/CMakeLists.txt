@@ -23,13 +23,14 @@ else()
   set(ApolloSDK_Package_PATH ${ApolloSDK_PATH}/packages)
 
   set(ONNX_MODEL_NAME mnist_padded_static_noconsts_2d_bias.onnx)
+  set(ONNX_MODEL_F32_NAME mnist_padded_static_noconsts_2d_bias.f32.onnx)
   set(MNIST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
   set(MNIST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
   add_custom_command(OUTPUT ${MNIST_BINARY_DIR}/${ONNX_MODEL_NAME}.ll
                      COMMAND ${Python3_EXECUTABLE} ${ONNX_MLIR_RUNTIME_PATH}/maia.py --f ${CMAKE_CURRENT_SOURCE_DIR}/Model/${ONNX_MODEL_NAME} --omb ${ONNX_MLIR_RUNTIME_PATH} --mb ${LLVM_TOOLS_BINARY_DIR}
                      MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/Model/${ONNX_MODEL_NAME}
-                     DEPENDS copy-maia
+                     DEPENDS copy-maia-tools
                      BYPRODUCTS ${MNIST_BINARY_DIR}/tcp_driver.tcp.cpp
                                 ${MNIST_BINARY_DIR}/tcp_driver.tcp.h
                                 ${MNIST_BINARY_DIR}/tcp_driver.tvp.cpp
