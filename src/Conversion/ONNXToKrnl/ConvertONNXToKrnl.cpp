@@ -128,7 +128,10 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXElementwiseOpPattern(patterns, &getContext());
   populateLoweringONNXGemmOpPattern(patterns, &getContext());
   populateLoweringONNXReductionOpPattern(patterns, &getContext());
-  populateLoweringONNXSoftmaxOpPattern(patterns, &getContext());
+  if (npu)
+    populateLoweringONNXSoftmaxOpApolloPattern(patterns, &getContext());
+  else
+    populateLoweringONNXSoftmaxOpPattern(patterns, &getContext());
   populateLoweringONNXMatMulOpPattern(patterns, &getContext());
   populateLoweringONNXLRNOpPattern(patterns, &getContext());
   // Tensor

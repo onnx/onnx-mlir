@@ -14,6 +14,7 @@ add_onnx_mlir_library(OMONNXToKrnl
         Math/MatMul.cpp
         Math/Reduction.cpp
         Math/Softmax.cpp
+        Apollo/Softmax.cpp
         NN/Conv.cpp
         NN/Normalization.cpp
         NN/Pooling.cpp

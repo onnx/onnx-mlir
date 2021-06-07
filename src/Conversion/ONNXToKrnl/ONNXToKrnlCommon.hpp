@@ -318,6 +318,10 @@ void populateLoweringONNXReshapeOpApolloPattern(
 void populateLoweringONNXTransposeOpApolloPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+// `Apollo` directory methods:
+void populateLoweringONNXSoftmaxOpApolloPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp);
 
 /// This function returns the index in the list of alloc arguments of the
