@@ -1184,7 +1184,8 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
   int originVersion = CURRENT_ONNX_OPSET;
   // Get the version of the model
   // Code copied from onnx/onnx/version_coverter/convert.cc
-  for (auto it = model.opset_import().begin(); it != model.opset_import().end(); ++it) {
+  for (auto it = model.opset_import().begin(); it != model.opset_import().end();
+       ++it) {
     if (it->domain() == "" || it->domain() == "ai.onnx") {
       originVersion = it->version();
       break;
@@ -1192,7 +1193,8 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
   }
 
   // Didnot do downward convert because support for batchnoram is missing
-  if (options.invokeOnnxVersionConverter && originVersion < CURRENT_ONNX_OPSET) {
+  if (options.invokeOnnxVersionConverter &&
+      originVersion < CURRENT_ONNX_OPSET) {
     onnx::ModelProto convertModel =
         onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
     ImportFrontendModel(convertModel, context, module, options);
