@@ -2,8 +2,9 @@
 
 add_onnx_mlir_library(OMONNXToKrnl
         ONNXToKrnlCommon.cpp
-        Apollo/Reshape.cpp
         Apollo/LayerNormalization.cpp
+        Apollo/Reshape.cpp
+        Apollo/Softmax.cpp
         Apollo/Transpose.cpp
         ControlFlow/Loop.cpp
         ControlFlow/Scan.cpp
@@ -14,7 +15,6 @@ add_onnx_mlir_library(OMONNXToKrnl
         Math/MatMul.cpp
         Math/Reduction.cpp
         Math/Softmax.cpp
-        Apollo/Softmax.cpp
         NN/Conv.cpp
         NN/Normalization.cpp
         NN/Pooling.cpp
