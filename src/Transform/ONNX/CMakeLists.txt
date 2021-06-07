@@ -8,6 +8,16 @@ add_dependencies(OMElideConstants OMONNXOpsInc)
 # Linking dependencies
 add_dependencies(OMElideConstants OMONNXOps)
 
+add_onnx_mlir_library(OMConstPropHelper
+  ConstPropHelper.hpp
+  ConstPropHelper.cpp)
+# Header dependencies
+add_dependencies(OMConstPropHelper
+        OMONNXOpsIncGen)
+# Linking dependencies
+add_dependencies(OMConstPropHelper
+        OMONNXOps)
+
 add_onnx_mlir_rewriter(Decompose)
 add_onnx_mlir_rewriter(ConstProp)
 
@@ -22,7 +32,7 @@ add_dependencies(OMONNXRewrite
         OMONNXConstPropIncGen)
 
 # Linking dependencies
-add_dependencies(OMONNXRewrite OMONNXOps)
+add_dependencies(OMONNXRewrite OMConstPropHelper OMONNXOps)
 
 add_onnx_mlir_library(OMShapeInference ShapeInferencePass.cpp)
 
