@@ -117,11 +117,16 @@ def run_passes(passes, args, first_input, vector_length, from_pass, to_pass, sub
 
         convert_std_to_tvp = "convert-std-to-tvp" if subtarget == 'apollo' else 'convert-std-to-tvp=' + subtarget
         command_list[2] = command_list[2].replace("convert-std-to-tvp", convert_std_to_tvp)
+        if subtarget == 'athena':
+            # set target triple for llc to 'athena-none-none instead of default 'apollo-none-none'
+            command_list[2] = command_list[2].replace('-mtriple=apollo', '-mtriple=' + subtarget)
 
         if command == "onnx-mlir":
             outputFileNoExt, _ = os.path.splitext(outputFileBase)
             command_list.append(str("-o=" + outputFileNoExt))
             output = os.devnull
+        elif ( command == "mlir-opt" or command == "mlir-translate" or command == "llc" ) :
+            command_list.append(str("-o=" + outputFileBase + curr_pass[1]))
         else:         
             output = outputFileBase + curr_pass[1]
 
