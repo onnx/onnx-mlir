@@ -133,9 +133,13 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
     break;
   }
   case (onnx::TensorProto::BFLOAT16): {
-    // TODO (kevin): Verify if 32-bits is correct
-    const auto &arrayAttrInitializer = CreateArrayAttribute<int32_t>(initializer);
-    std::vector<int16_t> arrayAttr16Bits(arrayAttrInitializer.begin(), arrayAttrInitializer.end());
+    const auto &arrayAttrInitializer =
+        CreateArrayAttribute<int32_t>(initializer);
+    // issue-todo: do we need to round or is truncation always okay?
+    std::vector<int16_t> arrayAttr16Bits;
+    std::transform(arrayAttrInitializer.begin(), arrayAttrInitializer.end(),
+        std::back_inserter(arrayAttr16Bits),
+        [](int32_t v) -> int16_t { return v >> 16; });
     auto elmType = builder.getBF16Type();
     auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
     denseElmAttr = mlir::DenseElementsAttr::get(

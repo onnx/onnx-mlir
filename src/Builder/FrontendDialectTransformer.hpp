@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <fstream>
 #include <functional>
 #include <map>

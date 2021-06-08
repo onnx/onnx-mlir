@@ -65,8 +65,8 @@ def create_mnist_model(layer_dims, float_type=TensorProto.BFLOAT16):
     mul_output = helper.make_tensor_value_info('mul_output',
                                                temp_input.type.tensor_type.elem_type,
                                                [256, 256])
-    #this constant will become a scalar constant, so keep it                                           
-    mul_value_np = np.array([1/255], dtype=np.float32).reshape(())
+    constant_value = 0.00390625 # 1/255 rounded to fit in bfloat16
+    mul_value_np = np.array([constant_value], dtype=np.float32).reshape(())
     mul_value = numpy_helper.from_array(mul_value_np)
     mul_value.data_type = float_type
     mul_value.name = 'mul_operand'
