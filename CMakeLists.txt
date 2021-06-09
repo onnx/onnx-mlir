@@ -31,7 +31,7 @@ find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpre
 if (MSVC)
   # Disable warnings that prevent building of dependencies
   # like onnx
-  set(CMAKE_CXX_FLAGS "-wd4244 -wd4267 -wd4530 -wd4624 /bigobj")
+  set(CMAKE_CXX_FLAGS "-wd4244 -wd4267 -wd4530 -wd4624")
 endif()
 
 # The onnx build on windows requires the provision of either static or shared libs for protobuf

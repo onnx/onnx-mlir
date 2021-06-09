@@ -1,8 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_executable(CustomFnTest CustomFnTest.cpp)
+get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
-target_link_libraries(CustomFnTest
-        ${OMLibs}
-        ${MLIRLibs}
-        onnx)
+add_onnx_mlir_executable(CustomFnTest
+  CustomFnTest.cpp
+
+  NO_INSTALL
+
+  LINK_LIBS PRIVATE
+  ${OMLibs}
+  )
