@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
       argc, argv, "ONNX MLIR modular optimizer driver\n");
 
   mlir::OwningModuleRef module;
-  processInputFile(inputFilename, emissionTarget, context, module);
+  processInputFile(inputFilename, context, module);
 
   // Input file base name, replace path if required.
   if (outputBaseName == "")

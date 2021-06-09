@@ -14,6 +14,7 @@ set(OMLibs
   OMONNXOps
   OMKrnlOps
   OMSupport
+  OMConstPropHelper
   OMKrnlToAffine
   OMKrnlToLLVM
   OMONNXToKrnl

@@ -193,6 +193,12 @@ These are frontend options.
       --EmitLLVMBC - Lower model to LLVM IR and emit (to file) LLVM bitcode for model.
 ```
 
+### Backward compactibility for ONNX versions 
+Current onnx-mlir supports operations of onnx v1.8.1. The dialect defined in onnx-mlir
+is able to handle some operation in previous onnx version if the operation in current version is inclusive.
+Otherwise, onnx version converter should be called explicitly outside of onnx-mlir, or inside onnx-mlir with
+option `--invokeOnnxVersionConverter`.   
+
 ## Example
 
 For example, to lower an ONNX model (e.g., add.onnx) to ONNX dialect, use the following command:
