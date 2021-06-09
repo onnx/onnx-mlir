@@ -77,6 +77,12 @@ Models can also be preserved when built in other manners by setting the
 `overridePreserveFiles` value in the `onnx-mlir/src/MainUtils.cpp` file to
 `KeepFilesOfType::All`, for example.
 
+When the onnx model is older than the current version supported by onnx-mlir, 
+onnx version converter can be invoked with environment variable `INVOKECONVERTER` set 
+to true. For example, converter will be called for all test cases for 
+`INVOKECONVERTER=true make check-onnx-backend`. 
+In test.py, there is a list called `test_need_converter` for you to invoke converter on individual cases.
+
 The tool directly scans the signature provided by the model, initializes the needed inputs with random
 values, and then makes a function call into the model. The program can then be used in conjunction
 with other tools, such as `gdb`, `lldb`, or `valgrind`.
