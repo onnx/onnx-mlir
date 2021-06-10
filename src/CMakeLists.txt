@@ -51,6 +51,10 @@ add_onnx_mlir_library(MainUtils
   MLIRLLVMToLLVMIRTranslation
   )
 
+# MainUtils does not require cruntime to build, however, it is required
+# for execution when using the EmitLib or EmitJNI options
+add_dependencies(MainUtils cruntime)
+
 add_onnx_mlir_executable(onnx-mlir
   main.cpp
 

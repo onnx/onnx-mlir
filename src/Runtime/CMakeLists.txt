@@ -41,6 +41,7 @@ target_include_directories(ExecutionSession PRIVATE
         ${ONNX_MLIR_SRC_ROOT}/src/Runtime
         ${ONNX_MLIR_SRC_ROOT}/include)
 target_link_libraries(ExecutionSession
+        OMTensorUtils
         ${CMAKE_DL_LIBS})
 set_target_properties(ExecutionSession PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
