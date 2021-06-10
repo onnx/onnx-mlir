@@ -7,12 +7,12 @@
 // CHECK: %0 = memref.alloc() : memref<1x512x12x256xbf16>
 // CHECK: %1 = memref.alloc() : memref<1x12x256x512xbf16>
 // CHECK: %2 = memref.alloc() : memref<1x12x512x256xbf16>
-// CHECK: %3 = linalg.reshape %arg0 {{\[}}[0], [1], [2, 3]] : memref<1x512x3072xbf16> into memref<1x512x12x256xbf16>
+// CHECK: %3 = linalg.expand_shape %arg0 {{\[}}[0], [1], [2, 3]] : memref<1x512x3072xbf16> into memref<1x512x12x256xbf16>
 // CHECK: linalg.copy(%3, %2) {outputPermutation = #map0} : memref<1x512x12x256xbf16>, memref<1x12x512x256xbf16>
-// CHECK: %4 = linalg.reshape %arg1 {{\[}}[0], [1], [2, 3]] : memref<1x512x3072xbf16> into memref<1x512x12x256xbf16>
+// CHECK: %4 = linalg.expand_shape %arg1 {{\[}}[0], [1], [2, 3]] : memref<1x512x3072xbf16> into memref<1x512x12x256xbf16>
 // CHECK: linalg.copy(%4, %1) {outputPermutation = #map1} : memref<1x512x12x256xbf16>, memref<1x12x256x512xbf16>
 // CHECK: linalg.copy(%arg2, %0) {outputPermutation = #map0} : memref<1x12x512x256xbf16>, memref<1x512x12x256xbf16
-// CHECK: %5 = linalg.reshape %0 {{\[}}[0], [1], [2, 3]] : memref<1x512x12x256xbf16> into memref<1x512x3072xbf16>
+// CHECK: %5 = linalg.collapse_shape %0 {{\[}}[0], [1], [2, 3]] : memref<1x512x12x256xbf16> into memref<1x512x3072xbf16>
 // CHECK: memref.dealloc %0 : memref<1x512x12x256xbf16>
 // CHECK: return %2, %1, %5 : memref<1x12x512x256xbf16>, memref<1x12x256x512xbf16>, memref<1x512x3072xbf16>
 

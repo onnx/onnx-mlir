@@ -129,10 +129,14 @@ struct ONNXReshapeOpApolloLowering : public ConversionPattern {
 
     auto resultType = MemRefType::get(
         shapeAttrValues, data.getType().cast<MemRefType>().getElementType());
-    auto reshape = rewriter.create<linalg::ReshapeOp>(
-        loc, resultType, data, reassociationMap);
 
-    rewriter.replaceOp(op, {reshape});
+    if (resultType.getRank() <
+        operands[0].getType().cast<ShapedType>().getRank())
+      rewriter.replaceOpWithNewOp<linalg::CollapseShapeOp>(
+          op, resultType, operands[0], reassociationMap);
+    else
+      rewriter.replaceOpWithNewOp<linalg::ExpandShapeOp>(
+          op, resultType, operands[0], reassociationMap);
 
     return success();
   }
