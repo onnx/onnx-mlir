@@ -876,11 +876,14 @@ private:
 
   std::string GetImportVersionOfNode(const onnx::NodeProto &node) {
     auto schema = GetOpSchema(node);
+    // Assume the top version
     if (schema == nullptr) {
       return std::string("");
     }
     auto current_opset = opset_map_.find(node.domain())->second;
     auto opset_list = op_dialect_version_map_.find(node.op_type())->second;
+    // Traverse backward to find the closest version
+    // Some old versions may be compatible
     for (int i = opset_list.size() - 1; i > 0; i--) {
       if (current_opset <= opset_list[i]) {
         return "V" + std::to_string(opset_list[i]);
