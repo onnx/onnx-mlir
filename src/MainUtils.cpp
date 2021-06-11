@@ -37,9 +37,6 @@
 #include <unistd.h>
 #endif
 
-// If need to inspect the temp files for debugging, set flag below to true.
-#define KEEP_TEMP_FILES false
-
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
@@ -60,6 +57,11 @@ llvm::Optional<std::string> getEnvVar(std::string name) {
 // TODO: Find a respectable home for the wain
 
 // the option is used in this file, so defined here
+llvm::cl::opt<bool> invokeOnnxVersionConverter("invokeOnnxVersionConverter",
+    llvm::cl::desc(
+        "call onnx vesion converter to convert ONNX model to current version"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<bool> preserveLocations("preserveLocations",
     llvm::cl::desc("emit location data:"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
@@ -73,6 +75,10 @@ llvm::cl::opt<bool> preserveBitcode("preserveBitcode",
         "dont delete the bitcode files (optimized and unoptimized):"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> preserveMLIR("preserveMLIR",
+    llvm::cl::desc("dont delete the MLIR files (input and llvm):"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
@@ -84,6 +90,34 @@ llvm::cl::opt<string> mtriple("mtriple", llvm::cl::desc("Target architecture"),
 llvm::cl::opt<string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
     llvm::cl::value_desc("<llvm cpu value>"), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
+
+// Make a function that forces preserving all files using the runtime arguments
+// and/or the overridePreserveFiles enum.
+enum class KeepFilesOfType { All, MLIR, Bitcode, Object, None };
+
+// Value below override at compile time by effectively setting the requested
+// flags.
+static const KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
+
+static bool keepFiles(KeepFilesOfType preserve) {
+  // When wanting to preserve all files, do it regardles of isBitcode.
+  if (overridePreserveFiles == KeepFilesOfType::All)
+    return true;
+  // When file is bitcode, check the runtime flag preserveBitcode.
+  switch (preserve) {
+  case KeepFilesOfType::Bitcode:
+    return overridePreserveFiles == KeepFilesOfType::Bitcode || preserveBitcode;
+  case KeepFilesOfType::MLIR:
+    return overridePreserveFiles == KeepFilesOfType::MLIR || preserveMLIR;
+  case KeepFilesOfType::Object:
+    // Currently no option, enable using the overridePreserveFiles enum.
+    return overridePreserveFiles == KeepFilesOfType::Object;
+  default:
+    // All, None should not be used in the parameter
+    llvm_unreachable("illegal KeepFilesOfType enum value");
+  }
+  return false;
+}
 
 // Runtime directory contains all the libraries, jars, etc. that are
 // necessary for running onnx-mlir. It's resolved in the following order:
@@ -263,7 +297,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   // Write bitcode to a file.
   string unoptimizedBitcodePath = outputBaseName + ".unoptimized.bc";
   llvm::FileRemover unoptimzedBitcodeRemover(
-      unoptimizedBitcodePath, !preserveBitcode);
+      unoptimizedBitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
 
   llvm::raw_fd_ostream moduleBitcodeStream(
       unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
@@ -281,8 +315,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   // Use the LLVM's 'opt' command to optimize the bitcode.
   string optPath = getToolPath("opt");
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
-  optBitcode
-      .appendStr("-O3") // test_scan9_sum_cpu fails on z with O3.
+  optBitcode.appendStr("-O3")
       .appendStr(getTargetTripleOption())
       .appendStr(getTargetCpuOption())
       .appendList({"-o", optimizedBitcodePath})
@@ -345,11 +378,13 @@ void compileModuleToSharedLibrary(
 
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
-  llvm::FileRemover bitcodeRemover(bitcodePath, !preserveBitcode);
+  llvm::FileRemover bitcodeRemover(
+      bitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
 
   string modelObjPath = outputBaseName + ".o";
   genModelObject(module, bitcodePath, modelObjPath);
-  llvm::FileRemover modelObjRemover(modelObjPath, !KEEP_TEMP_FILES);
+  llvm::FileRemover modelObjRemover(
+      modelObjPath, !keepFiles(KeepFilesOfType::Object));
 
   string modelSharedLibPath = outputBaseName + ".so";
   genSharedLib(module, modelSharedLibPath, {"-shared", "-fPIC"}, {modelObjPath},
@@ -361,22 +396,26 @@ void compileModuleToJniJar(
 
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
-  llvm::FileRemover bitcodeRemover(bitcodePath, !preserveBitcode);
+  llvm::FileRemover bitcodeRemover(
+      bitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
 
   string modelObjPath = outputBaseName + ".o";
   genModelObject(module, bitcodePath, modelObjPath);
-  llvm::FileRemover modelObjRemover(modelObjPath, !KEEP_TEMP_FILES);
+  llvm::FileRemover modelObjRemover(
+      modelObjPath, !keepFiles(KeepFilesOfType::Object));
 
   string jniSharedLibPath = getRuntimeDir() + "/libjniruntime.a";
   string jniObjPath = "jnidummy.c.o";
   genJniObject(module, jniSharedLibPath, jniObjPath);
-  llvm::FileRemover jniObjRemover(jniObjPath, !KEEP_TEMP_FILES);
+  llvm::FileRemover jniObjRemover(
+      jniObjPath, !keepFiles(KeepFilesOfType::Object));
 
   string modelSharedLibPath = "libmodel.so";
   genSharedLib(module, modelSharedLibPath,
       {"-shared", "-fPIC", "-z", "noexecstack"}, {modelObjPath, jniObjPath},
       {"-ljniruntime", "-lcruntime"});
-  llvm::FileRemover modelSharedLibRemover(modelSharedLibPath, !KEEP_TEMP_FILES);
+  llvm::FileRemover modelSharedLibRemover(
+      modelSharedLibPath, !keepFiles(KeepFilesOfType::Object));
 
   string modelJniJarPath = outputBaseName + ".jar";
   genJniJar(module, modelSharedLibPath, modelJniJarPath);
@@ -438,8 +477,8 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
-void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
-    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
+void processInputFile(string inputFilename, mlir::MLIRContext &context,
+    mlir::OwningModuleRef &module) {
   // Decide if the input file is an ONNX model or a model specified
   // in MLIR. The extension of the file is the decider.
   string extension = inputFilename.substr(inputFilename.find_last_of(".") + 1);
@@ -451,10 +490,39 @@ void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
   if (inputIsONNX) {
     ImportOptions options;
     options.useOnnxModelTypes = useOnnxModelTypes;
+    options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     ImportFrontendModelFile(inputFilename, context, module, options);
   } else {
     LoadMLIR(inputFilename, context, module);
   }
+}
+
+InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
+  Operation *moduleOp = module->getOperation();
+
+  // Collect dialect namespaces.
+  llvm::SmallDenseSet<StringRef> dialectNamespace;
+  moduleOp->walk([&](mlir::Operation *op) {
+    dialectNamespace.insert(op->getDialect()->getNamespace());
+  });
+
+  // If there are ONNX ops, the input level is ONNX.
+  bool hasONNXOps = llvm::any_of(dialectNamespace, [&](StringRef ns) {
+    return (ns == ONNXOpsDialect::getDialectNamespace());
+  });
+  if (hasONNXOps)
+    return ONNXLevel;
+
+  // If there are Krnl ops, the input level is MLIR.
+  bool hasKrnlOps = llvm::any_of(dialectNamespace, [&](StringRef ns) {
+    return (ns == KrnlOpsDialect::getDialectNamespace());
+  });
+  if (hasKrnlOps) {
+    return MLIRLevel;
+  }
+
+  // Otherwise, set to the lowest level, LLVMLevel.
+  return LLVMLevel;
 }
 
 void outputCode(
@@ -505,9 +573,13 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   if (emissionTarget == EmitLib) {
     // Write LLVM bitcode to disk, compile & link.
     compileModuleToSharedLibrary(module, outputBaseName);
+    if (keepFiles(KeepFilesOfType::MLIR))
+      outputCode(module, outputBaseName, ".llvm.mlir");
     printf("Shared library %s.so has been compiled.\n", outputBaseName.c_str());
   } else if (emissionTarget == EmitJNI) {
     compileModuleToJniJar(module, outputBaseName);
+    if (keepFiles(KeepFilesOfType::MLIR))
+      outputCode(module, outputBaseName, ".llvm.mlir");
     printf("JNI archive %s.jar has been compiled.\n", outputBaseName.c_str());
   } else {
     // Emit the version with all constants included.
@@ -542,16 +614,24 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
 
-  if (emissionTarget >= EmitONNXIR) {
+  if (keepFiles(KeepFilesOfType::MLIR)) {
+    outputCode(module, outputBaseName, ".input.mlir");
+  }
+
+  InputIRLevelType inputIRLevel = determineInputIRLevel(module);
+
+  if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR) {
     addONNXToMLIRPasses(pm);
   }
 
   if (emissionTarget >= EmitMLIR) {
-    addONNXToKrnlPasses(pm);
-    addKrnlToAffinePasses(pm);
+    if (inputIRLevel <= ONNXLevel)
+      addONNXToKrnlPasses(pm);
+    if (inputIRLevel <= MLIRLevel)
+      addKrnlToAffinePasses(pm);
   }
 
-  if (emissionTarget >= EmitLLVMIR)
+  if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
     addKrnlToLLVMPasses(pm);
 
   mlir::applyPassManagerCLOptions(pm);

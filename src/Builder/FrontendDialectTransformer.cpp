@@ -24,6 +24,8 @@
 #include "onnx/defs/schema.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "onnx/version_converter/convert.h"
+
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 
@@ -1196,8 +1198,26 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
 
   auto parse_success = model.ParseFromIstream(&input);
   assert(parse_success && "Onnx Model Parsing Failed.");
+  int originVersion = CURRENT_ONNX_OPSET;
+  // Get the version of the model
+  // Code copied from onnx/onnx/version_coverter/convert.cc
+  for (auto it = model.opset_import().begin(); it != model.opset_import().end();
+       ++it) {
+    if (it->domain() == "" || it->domain() == "ai.onnx") {
+      originVersion = it->version();
+      break;
+    }
+  }
 
-  ImportFrontendModel(model, context, module, options);
+  // Didnot do downward convert because support for BatchNorm is missing
+  if (options.invokeOnnxVersionConverter &&
+      originVersion < CURRENT_ONNX_OPSET) {
+    onnx::ModelProto convertModel =
+        onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
+    ImportFrontendModel(convertModel, context, module, options);
+  } else {
+    ImportFrontendModel(model, context, module, options);
+  }
 }
 
 void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,

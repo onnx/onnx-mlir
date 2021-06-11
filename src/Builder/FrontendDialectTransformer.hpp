@@ -42,6 +42,7 @@ struct ImportOptions {
   // Use types/shapes in the input-model for translation (for intermediate
   // variables)
   bool useOnnxModelTypes = false;
+  bool invokeOnnxVersionConverter = false;
 };
 
 /*!

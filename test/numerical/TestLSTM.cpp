@@ -23,8 +23,8 @@
 using namespace std;
 using namespace mlir;
 
-// Sigmoid
-float sigmoid(float x) { return 1 / (1 + exp(-x)); }
+// Include some helper functions.
+#include "test/numerical/Helper.hpp"
 
 // Returns whether onnx-mlir compiled LSTM is producing the same results as a
 // naive implementation of LSTM for a specific set of LSTM
@@ -66,8 +66,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   auto yHType = UnrankedTensorType::get(builder.getF32Type());
   auto yCType = UnrankedTensorType::get(builder.getF32Type());
 
-  llvm::SmallVector<Type, 7> inputsType{
-      xType, wType, rType, bType, hType, cType, pType};
+  llvm::SmallVector<Type, 3> inputsType{xType, hType, cType};
   llvm::SmallVector<Type, 3> outputsType{yType, yHType, yCType};
 
   auto funcType = builder.getFunctionType(inputsType, outputsType);
@@ -84,13 +83,9 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
                          UnknownLoc::get(&ctx), builder.getUnitAttr())
                      .getResult();
   auto xVal = entryBlock->getArgument(0);
-  auto wVal = entryBlock->getArgument(1);
-  auto rVal = entryBlock->getArgument(2);
-  auto bVal = entryBlock->getArgument(3);
+  auto hVal = entryBlock->getArgument(1);
+  auto cVal = entryBlock->getArgument(2);
   auto sVal = noneVal;
-  auto hVal = entryBlock->getArgument(4);
-  auto cVal = entryBlock->getArgument(5);
-  auto pVal = entryBlock->getArgument(6);
 
   StringAttr directionAttr;
   if (direction == 1)
@@ -106,11 +101,33 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, 0, /*isSigned=*/true));
 
+  std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> constants;
+  auto wOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1),
+      omTensorDestroy);
+  constants.emplace_back(move(wOmt));
+  auto rOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1),
+      omTensorDestroy);
+  constants.emplace_back(move(rOmt));
+  auto bOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1),
+      omTensorDestroy);
+  constants.emplace_back(move(bOmt));
+  auto pOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape), 0, 1),
+      omTensorDestroy);
+  constants.emplace_back(move(pOmt));
+  auto wConstant = buildONNXConstantOp(&ctx, builder, constants.at(0), wType);
+  auto rConstant = buildONNXConstantOp(&ctx, builder, constants.at(1), rType);
+  auto bConstant = buildONNXConstantOp(&ctx, builder, constants.at(2), bType);
+  auto pConstant = buildONNXConstantOp(&ctx, builder, constants.at(3), pType);
+
   auto lstmOp = builder.create<ONNXLSTMOp>(UnknownLoc::get(&ctx),
       /*Y=*/yType, /*Y_h=*/yHType, /*Y_c=*/yCType,
-      /*X=*/xVal, /*W=*/wVal, /*R=*/rVal, /*B=*/bVal,
+      /*X=*/xVal, /*W=*/wConstant, /*R=*/rConstant, /*B=*/bConstant,
       /*sequence_lens=*/sVal, /*initial_h=*/hVal,
-      /*initial_c=*/cVal, /*P=*/pVal,
+      /*initial_c=*/cVal, /*P=*/pConstant,
       /*activation_alpha=*/ArrayAttr(), /*activation_beta=*/ArrayAttr(),
       /*activations=*/ArrayAttr(), /*clip=*/FloatAttr(),
       /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
@@ -127,7 +144,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   // inputs and outputs.
   std::string signature("");
   auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
-      /*numInputs=*/7,
+      /*numInputs=*/3,
       /*numOutputs=*/3,
       /*signature*/ signature);
   module.push_back(entryPoint);
@@ -142,18 +159,6 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(xOmt));
-  auto wOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1),
-      omTensorDestroy);
-  inputs.emplace_back(move(wOmt));
-  auto rOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1),
-      omTensorDestroy);
-  inputs.emplace_back(move(rOmt));
-  auto bOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1),
-      omTensorDestroy);
-  inputs.emplace_back(move(bOmt));
   auto hOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape), 0, 1),
       omTensorDestroy);
@@ -162,10 +167,6 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(cOmt));
-  auto pOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape), 0, 1),
-      omTensorDestroy);
-  inputs.emplace_back(move(pOmt));
 
   auto refY = omTensorCreateWithShape<float>({S, D, B, H});
   auto refYh = omTensorCreateWithShape<float>({D, B, H});
@@ -179,13 +180,14 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
   // Ht = ot (.) h(Ct)
 
+  auto &weight = constants.at(0);
+  auto &recurr = constants.at(1);
+  auto &bias = constants.at(2);
+  auto &peepholes = constants.at(3);
+
   auto &input = inputs.at(0);
-  auto &weight = inputs.at(1);
-  auto &recurr = inputs.at(2);
-  auto &bias = inputs.at(3);
-  auto &initialH = inputs.at(4);
-  auto &initialC = inputs.at(5);
-  auto &peepholes = inputs.at(6);
+  auto &initialH = inputs.at(1);
+  auto &initialC = inputs.at(2);
 
   // Initialize refYh and refYc.
   for (int64_t d = 0; d < D; d++)
@@ -310,18 +312,18 @@ int main(int argc, char *argv[]) {
   llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
 
   // RapidCheck test case generation.
-  rc::check("LSTM implementation correctness", []() {
+  bool success = rc::check("LSTM implementation correctness", []() {
     // The number of directions.
     // 1: forward, -1: reverse, 2: bidirectional
     const auto D = *rc::gen::element(1, -1, 2);
     // Sequence length.
     const auto S = *rc::gen::inRange(1, 5);
     // Batch size.
-    const auto B = *rc::gen::inRange(5, 20);
+    const auto B = *rc::gen::inRange(5, 10);
     // Input size.
-    const auto I = *rc::gen::inRange(20, 30);
+    const auto I = *rc::gen::inRange(5, 10);
     // Hidden size.
-    const auto H = *rc::gen::inRange(30, 40);
+    const auto H = *rc::gen::inRange(5, 10);
     // Whether test dynamic dimension for sequence.
     const auto isDynS = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for batch size.
@@ -330,10 +332,12 @@ int main(int argc, char *argv[]) {
     RC_ASSERT(
         isOMLSTMTheSameAsNaiveImplFor(D, S, B, I, H, isDynS == 0, isDynB == 0));
   });
+  if (!success)
+    return 1;
 
   // Exhaustive test case generation.
-  for (int64_t s = 2; s < 5; s++)
-    for (int64_t b = 2; b < 5; b++)
+  for (int64_t s = 3; s < 4; s++)
+    for (int64_t b = 3; b < 4; b++)
       for (int64_t i = 2; i < 5; i++)
         for (int64_t h = 2; h < 5; h++) {
           // Static dimensions.

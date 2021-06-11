@@ -30,6 +30,9 @@
 
 namespace mlir {
 
+// OpSet level supported by onnx-mlir
+static const int CURRENT_ONNX_OPSET = 13;
+
 class ONNXOpsDialect : public Dialect {
 public:
   ONNXOpsDialect(MLIRContext *context);

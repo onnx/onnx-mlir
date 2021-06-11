@@ -225,6 +225,22 @@ def extract_llvm_info():
              'llvm_project_dockerfile_sha1': exp_llvm_project_dockerfile_sha1,
              'llvm_project_filter': exp_llvm_project_filter }
 
+# Remove all the containers depending on an (dangling) image.
+def remove_dependent_containers(image):
+    containers = docker_api.containers(
+        filters = { 'ancestor': image }, all=True, quiet=True)
+    for container in containers:
+        try:
+            container_info = docker_api.inspect_container(container['Id'])
+            logging.info('Removing     Id:%s', container['Id'])
+            logging.info('   Image %s', container_info['Image'])
+            logging.info('     Cmd %s', str(container_info['Config']['Cmd']))
+            logging.info('  Labels %s', str(container_info['Config']['Labels']))
+            docker_api.remove_container(container['Id'], v=True, force=True)
+        except:
+            logging.info(sys.exc_info()[1])
+            logging.info('errors ignored while removing dependent containers')
+
 # Pull or build llvm-project images, which is required for building our
 # onnx-mlir dev and user images. Each pull request will be using its own
 # "private" llvm-project images, which have the pull request number as
@@ -313,6 +329,7 @@ def setup_private_llvm(image_type, exp):
             not valid_sha1_date(labels['llvm_project_sha1_date']) or
             not valid_sha1_date(exp['llvm_project_sha1_date']) or
             labels['llvm_project_sha1_date'] <= exp['llvm_project_sha1_date']):
+            layer_sha256 = ''
             for line in docker_api.build(
                     path = '.',
                     dockerfile = LLVM_PROJECT_DOCKERFILE,
@@ -328,13 +345,26 @@ def setup_private_llvm(image_type, exp):
                         GITHUB_REPO_NAME2 + '_PR_NUMBER': github_pr_number,
                         GITHUB_REPO_NAME2 + '_PR_NUMBER2': github_pr_number2
                     }):
-                print(line['stream'] if 'stream' in line else '',
-                      end='', flush=True)
+
+                if 'stream' in line:
+                    # Keep track of the latest successful image layer
+                    m = re.match('^\s*---> ([0-9a-f]+)$', line['stream'])
+                    if m:
+                        layer_sha256 = m.group(1)
+                    print(line['stream'], end='', flush=True)
+
                 if 'error' in line:
+                    # Tag the latest successful image layer for easier debugging
+                    if layer_sha256:
+                        image_layer = 'sha256:' + layer_sha256
+                        remove_dependent_containers(image_layer)
+                        logging.info('tagging %s -> %s', image_layer, image_full)
+                        docker_api.tag(image_layer, image_repo, image_tag, force=True)
+                    else:
+                        logging.info('no successful image layer for tagging')
                     raise Exception(line['error'])
 
-            id = docker_api.images(name = image_full,
-                                   all = False, quiet = True)
+            id = docker_api.images(name=image_full, all=False, quiet=True)
             logging.info('image %s (%s) built', image_full, id[0][0:19])
 
         # Registry image has an llvm-project commit sha1 date later than what
