@@ -1192,7 +1192,7 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
     }
   }
 
-  // Didnot do downward convert because support for batchnoram is missing
+  // Didnot do downward convert because support for BatchNorm is missing
   if (options.invokeOnnxVersionConverter &&
       originVersion < CURRENT_ONNX_OPSET) {
     onnx::ModelProto convertModel =

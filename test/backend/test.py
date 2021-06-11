@@ -903,9 +903,7 @@ class DummyBackend(onnx.backend.base.Backend):
             command_list.append("--mcpu="+args.mcpu)
         if args.mtriple:
             command_list.append("--mtriple="+args.mtriple)
-        if args.converter:
-            command_list.append("--invokeOnnxVersionConverter=true")
-        elif name in test_need_converter :
+        if args.converter or name in test_need_converter :
             command_list.append("--invokeOnnxVersionConverter=true")
         command_list.append(model_name)
         # Call frontend to process temp_model.onnx, bit code will be generated.
