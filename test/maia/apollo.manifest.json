@@ -1,0 +1,5 @@
+{
+  "DeviceCP": "apollo.DeviceCP/DeviceCP",
+  "TileCP": [ "apollo.TileCP/TileCP" ],
+  "TVP": [ "apollo.TVP/TVP" ]
+}

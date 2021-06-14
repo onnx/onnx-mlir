@@ -1,0 +1,32 @@
+// CHECK-TCP-H: //
+// CHECK-TCP-H: // Copyright (C) Microsoft Corporation. All rights reserved.
+// CHECK-TCP-H: //
+// CHECK-TCP-H: #pragma once
+// CHECK-TCP-H: #include "Nepal/ArrayRef.h"
+// CHECK-TCP-H: #include "Notification.h"
+// CHECK-TCP-H: #include "Commands/CommandInterfaces.h"
+// CHECK-TCP-H: #include "Commands/CommandList.h"
+
+// CHECK-TVP-H: //
+// CHECK-TVP-H: // Copyright (C) Microsoft Corporation. All rights reserved.
+// CHECK-TVP-H: //
+// CHECK-TVP-H: #pragma once
+
+// CHECK-TVP-CPP: //
+// CHECK-TVP-CPP: // Copyright (C) Microsoft Corporation. All rights reserved.
+// CHECK-TVP-CPP: //
+// CHECK-TVP-CPP: #include "Commands/CommandRuntime.h"
+// CHECK-TVP-CPP: using int32_t = int;
+// CHECK-TVP-CPP: #include "{{.*}}.tvp.h"
+
+// CHECK-TCP-CPP: //
+// CHECK-TCP-CPP: // Copyright (C) Microsoft Corporation. All rights reserved.
+// CHECK-TCP-CPP: //
+// CHECK-TCP-CPP: #include "Commands/CommandRuntime.h"
+// CHECK-TCP-CPP: #include "TileCP/TrainwaveTileSDK.h"
+// CHECK-TCP-CPP: #include "TtuCommands/MatMulCommandInternal.h"
+// CHECK-TCP-CPP: #include "TtuCommands/MatMulNoBiasCommand.h"
+// CHECK-TCP-CPP: #include "[[FILE:.*]].tcp.h"
+// CHECK-TCP-CPP: #include "[[FILE]].tvp.h"
+
+// CHECK-ASM: Execute:

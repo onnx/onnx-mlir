@@ -1,5 +1,0 @@
-{
-  "DeviceCP": "DeviceCP/MNIST_NPU_Program_DeviceCP",
-  "TileCP": [ "TileCP/MNIST_NPU_Program_TileCP" ],
-  "TVP": [ "TVP/MNIST_NPU_Program_TVP" ]
-}
