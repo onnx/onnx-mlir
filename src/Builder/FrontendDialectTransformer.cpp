@@ -501,10 +501,40 @@ private:
     }
   }
 
+  Value ConvertAttrToInput(const std::map<int, std::string> &attrToInputMap,
+      int i, std::vector<NamedAttribute> &attributes) {
+    auto item = attrToInputMap.find(i);
+    if (item == attrToInputMap.end())
+      return nullptr;
+    std::string name = item->second;
+    ArrayAttr arrayAttr;
+    for (auto it = attributes.begin(); it != attributes.end(); it++) {
+      if (it->first == name) {
+        arrayAttr = it->second.dyn_cast<ArrayAttr>();
+        attributes.erase(it);
+        break;
+      }
+    }
+    if (!arrayAttr)
+      return nullptr;
+
+    // ToFix: Duplicate the code from Decompose.cpp
+    // Or the new format of constant can be used
+    const auto elementType = builder_.getIntegerType(64);
+    const auto tensorType =
+        RankedTensorType::get({(int64_t)arrayAttr.size()}, elementType);
+    auto constantDenseAttribute =
+        DenseElementsAttr::get(tensorType, arrayAttr.getValue());
+    auto constantOp = builder_.create<ONNXConstantOp>(
+        UnknownLoc(), Attribute(), constantDenseAttribute);
+    Value constantValue = constantOp.output();
+    return constantValue;
+  }
+
   template <typename T>
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<Value> inputs, int expectedNumOperands,
-      int expectedNumResults, const std::vector<NamedAttribute> &attributes) {
+      int expectedNumResults, std::vector<NamedAttribute> &attributes) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
@@ -516,10 +546,20 @@ private:
     // Here, we import optional inputs and outputs as NoneType.
 
     // Trailing optional inputs.
-    if (!variadicIn)
+    std::map<int, std::string> attrToInputMap;
+    // TOFIX: Should try to use the trait implementation.
+    if constexpr (std::is_same<T, ONNXReduceSumOp>().value) {
+      attrToInputMap = T::attrToInput();
+    }
+    if (!variadicIn) {
       for (auto i = inputs.size(); i < expectedNumOperands; i++) {
-        inputs.emplace_back(none());
+        // Convert the attribute to input due to the standard change
+        if (Value v = ConvertAttrToInput(attrToInputMap, i, attributes))
+          inputs.emplace_back(v);
+        else
+          inputs.emplace_back(none());
       }
+    }
 
     std::vector<Type> outputTypes;
 
@@ -825,7 +865,7 @@ private:
     // Data input is imported but starts, ends, axes, and steps may come from
     // attributes, and need to be created as constant ops.
     const auto elementType = builder_.getIntegerType(64);
-    const auto attributes = ImportNodeAttributes(node);
+    auto attributes = ImportNodeAttributes(node);
     for (auto attr : attributes) {
       if (auto arrayAttr = attr.second.dyn_cast<ArrayAttr>()) {
         const auto tensorType =
