@@ -75,6 +75,12 @@ def CastEliminationPattern : Pat<
 	(replaceWithValue $arg),
   [(HasSameElementType $arg, $type)]>;
 
+// (onnx.Cast (onnx.Cast(%X, $type2), $type1)) = (onnx.Cast(%X, $type1))
+def CastPropagationPattern : Pat<
+	(ONNXCastOp (ONNXCastOp $arg, $type2), $type1),
+	(ONNXCastOp $arg, $type1)>;
+
+
 // Combine transposes.
 def CreateCombinedTransposedPattern :
    NativeCodeCall<"CombinedTransposePattern($_builder, $0, $1)">;

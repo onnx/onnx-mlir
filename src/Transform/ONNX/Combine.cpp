@@ -86,6 +86,7 @@ void ONNXPadConstantValueOp::getCanonicalizationPatterns(
 /// on the ONNXCastOp.
 void ONNXCastOp::getCanonicalizationPatterns(
     OwningRewritePatternList &result, MLIRContext *context) {
+  result.insert<CastPropagationPattern>(context);
   result.insert<CastEliminationPattern>(context);
 }
 
