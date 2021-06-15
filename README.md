@@ -84,6 +84,16 @@ libprotoc >= 3.11.0
 cmake >= 3.15.4
 ninja >= 1.10.2
 ```
+GCC can be found [here](https://gcc.gnu.org/install/), or if you have [Homebrew](https://docs.brew.sh/Installation), you can use `brew install gcc`. To check what version of gcc you have installed, run `gcc --version`.
+
+The instructions to install libprotoc can be found [here](http://google.github.io/proto-lens/installing-protoc.htm). Or alternatively, if you have Homebrew, you can run `brew install protobuf`. To check what version you have installed, run `protoc --version`.
+
+Cmake can be found [here](https://cmake.org/download/). However, to use Cmake, you need to follow the "How to Install For Command Line Use" tutorial, which can be found in Cmake under Tools>How to Install For Command Line Use. To check which version you have, you can either look in the desktop version under CMake>About, or run `cmake --version`.
+
+The instructions for installing Ninja can be found [here](https://ninja-build.org/). Or, using Homebrew, you can run `brew install ninja`. To check the version, run `ninja --version`.
+
+
+
 At any point in time, ONNX MLIR depends on a specific commit of the LLVM project that has been shown to work with the project. Periodically the maintainers
 need to move to a more recent LLVM level. Among other things, this requires that the commit string in utils/clone-mlir.sh be updated. A consequence of
 making this change is that the TravisCI build will fail until the Docker images that contain the prereqs are rebuilt. There is a GitHub workflow that rebuilds
@@ -142,7 +152,7 @@ cmake --build . --target check-onnx-lit
 
 If you are running on OSX Big Sur, you need to add `-DCMAKE_CXX_COMPILER=/usr/bin/c++`
 to the `cmake ..` command due to changes in the compilers.
-After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory. 
+After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory.
 
 ## Installation on Windows
 Building onnx-mlir on Windows requires building some additional prerequisites that are not available by default.
@@ -298,10 +308,10 @@ Backend tests are triggered by `make check-onnx-backend` in the build directory 
 
 You will need to install python 3.x if its not default in your environment, and possibly set the cmake `PYTHON_EXECUTABLE` varialbe in your top cmake file.
 
-You will also need `pybind11` which may need to be installed (mac: `brew install pybind` for example) and you may need to indicate where to find the software (Mac, POWER, possibly other platforms: `export pybind11_DIR=<your path to pybind>`). Then install the `third_party/onnx` software (Mac: `pip install -e third_party/onnx`) typed in the top directory.
+You will also need `pybind11` which may need to be installed (mac: `brew install pybind11` for example) and you may need to indicate where to find the software (Mac, POWER, possibly other platforms: `export pybind11_DIR=<your path to pybind>`). Then install the `third_party/onnx` software (Mac: `pip install -e third_party/onnx`) typed in the top directory.
 
 On Macs/POWER and possibly other platforms, there is currently an issue that arises when installing ONNX. If you get an error during the build, try a fix where you edit the top CMakefile as reported in this PR: `https://github.com/onnx/onnx/pull/2482/files`.
 
 ## Slack channel
 
-We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`. THis channel can be used for asking quick questions related to this project. A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
+We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`. This channel can be used for asking quick questions related to this project. A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
