@@ -19,26 +19,34 @@ include(TableGen)
 include(AddLLVM)
 include(AddMLIR)
 
+# When LLVM_ENABLE_ASSERTIONS is set to ON, the build is not Debug and the compiler
+# is clang, onnx_proto will fail to link to libprotobuf due to missing symbols when
+# we let HandleLLVMOptions actually set all the expected properties correctly (such
+# as removing NDEBUG from the compiler options). This appears to be a bug in the way
+# the libs interact with clang, because everything links fine with gcc in this situation
+# and everything links fine with clang when LLVM_ENABLE_ASSERTIONS is OFF. In order to
+# support the build with clang until this can be resolved, we set LLVM_ENABLE_ASSERTIONS
+# to OFF before including HandleLLVMOptions. This does not reproduce with clang on
+# Windows.
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" AND (NOT CMAKE_BUILD_TYPE STREQUAL "Debug"))
+  set(LLVM_ENABLE_ASSERTIONS OFF)
+  message(STATUS "LLVM_ENABLE_ASSERTIONS  : " ${LLVM_ENABLE_ASSERTIONS})
+endif()
+
+include(HandleLLVMOptions)
+
 include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${MLIR_INCLUDE_DIRS})
 
-# This is the list of all MLIR libs needed by *any* of the libs or execurables
-# in the project. Making a list of all the libs here most closely matches the
-# existing behavior, but in the future, each of these libs can be added as
-# dependencies in the appropriate locations removing the need for a centralized
-# list.
-set(MLIRLibs
-  MLIRAffineToStandard
-  MLIRAffineTransforms
-  MLIRLinalgTransforms
-  MLIRLLVMToLLVMIRTranslation
-  MLIRMathTransforms
-  MLIRSCFToStandard
-  MLIRShapeToStandard
-)
+add_definitions(${LLVM_DEFINITIONS})
 
 set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
 message(STATUS "BUILD_SHARED_LIBS       : " ${BUILD_SHARED_LIBS})
+
+# onnx uses exceptions, so we need to make sure that LLVM_REQUIRES_EH is set to ON, so that
+# the functions from HandleLLVMOptions and AddLLVM don't disable exceptions.
+set(LLVM_REQUIRES_EH ON)
+message(STATUS "LLVM_REQUIRES_EH        : " ${LLVM_REQUIRES_EH})
 
 # If CMAKE_INSTALL_PREFIX was not provided explicitly and we are not using an install of
 # LLVM and a CMakeCache.txt exists,
@@ -103,12 +111,18 @@ endfunction()
 #     Do not add the library to the ONNX_MLIR_LIBS property.
 #   NO_INSTALL
 #     Do not add an install target for the library.
+#   DEPENDS targets...
+#     Same semantics as add_dependencies().
+#   INCLUDE_DIRS include_dirs...
+#     Same semantics as target_include_directories().
+#   LINK_LIBS lib_targets...
+#     Same semantics as target_link_libraries().
 #   )
 function(add_onnx_mlir_library name)
   cmake_parse_arguments(ARG
     "EXCLUDE_FROM_OM_LIBS;NO_INSTALL"
     ""
-    ""
+    "DEPENDS;INCLUDE_DIRS;LINK_LIBS"
     ${ARGN}
     )
 
@@ -117,13 +131,29 @@ function(add_onnx_mlir_library name)
   endif()
 
   add_library(${name} ${ARG_UNPARSED_ARGUMENTS})
+  llvm_update_compile_flags(${name})
+
+  if (ARG_DEPENDS)
+    add_dependencies(${name} ${ARG_DEPENDS})
+  endif()
+
+  if (ARG_INCLUDE_DIRS)
+    target_include_directories(${name} ${ARG_INCLUDE_DIRS})
+  endif()
+
   target_include_directories(${name}
     PUBLIC
     ${ONNX_MLIR_SRC_ROOT}
     ${ONNX_MLIR_BIN_ROOT}
     )
 
-  install(TARGETS ${name} DESTINATION lib)
+  if (ARG_LINK_LIBS)
+    target_link_libraries(${name} ${ARG_LINK_LIBS})
+  endif()
+
+  if (NOT ARG_NO_INSTALL)
+    install(TARGETS ${name} DESTINATION lib)
+  endif()
 endfunction(add_onnx_mlir_library)
 
 # add_onnx_mlir_executable(name sources...
@@ -134,16 +164,37 @@ endfunction(add_onnx_mlir_library)
 #   2. Add an install target for the executable
 #   NO_INSTALL
 #     Do not add an install target for the executable.
+#   DEPENDS targets...
+#     Same semantics as add_dependencies().
+#   INCLUDE_DIRS include_dirs...
+#     Same semantics as target_include_directories().
+#   LINK_LIBS lib_targets...
+#     Same semantics as target_link_libraries().
 #   )
 function(add_onnx_mlir_executable name)
   cmake_parse_arguments(ARG
     "NO_INSTALL"
     ""
-    ""
+    "DEPENDS;INCLUDE_DIRS;LINK_LIBS"
     ${ARGN}
     )
 
   add_executable(${name} ${ARG_UNPARSED_ARGUMENTS})
+  llvm_update_compile_flags(${name})
 
-  install(TARGETS ${name} DESTINATION bin)
+  if (ARG_DEPENDS)
+    add_dependencies(${name} ${ARG_DEPENDS})
+  endif()
+
+  if (ARG_INCLUDE_DIRS)
+    target_include_directories(${name} ${ARG_INCLUDE_DIRS})
+  endif()
+
+  if (ARG_LINK_LIBS)
+    target_link_libraries(${name} ${ARG_LINK_LIBS})
+  endif()
+
+  if (NOT ARG_NO_INSTALL)
+    install(TARGETS ${name} DESTINATION bin)
+  endif()
 endfunction(add_onnx_mlir_executable)
