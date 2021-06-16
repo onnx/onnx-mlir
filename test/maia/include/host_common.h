@@ -30,6 +30,26 @@ span<T> AsSpan(U &obj) {
   return span<T>(reinterpret_cast<T *>(&obj), sizeof(U) / sizeof(T));
 }
 
+// This function sets the network ports used by the simulator
+//   Defult ports are [9000,9004], each device consumes 5 ports
+//   This function changes the range to [firstPort, firstPort+4]
+//   Each test needs a unique set of ports to allow tests to run in parallel
+//   This code is stolen from the DeviceOptions constructor
+inline void SetNetworkConfiguration(Trainwave::DeviceOptions &options, uint32_t firstPort)
+{
+    options.host = Trainwave::Endpoint{firstPort};                // Host endpoint
+    options.mgmtEndpoint = Trainwave::Endpoint{firstPort + 1};    // Management endpoint
+    options.frontend = Trainwave::Endpoint{firstPort + 2};        // FrontEnd endpoint
+    options.backendNorth = Trainwave::Endpoint{firstPort + 3};    // BackEndNorth endpoint
+    options.backendSouth = Trainwave::Endpoint{firstPort + 4};    // BackEndSouth endpoint
+
+    // Note: The ConnectionTables are set up using the DESTINATION port address.
+    options.hostConnectionTables = Trainwave::Emulator::Ltl::ConnectionTables(firstPort + 2);
+    options.deviceFrontendTables = Trainwave::Emulator::Ltl::ConnectionTables(firstPort);
+    options.deviceBackendNorthTables = Trainwave::Emulator::Ltl::ConnectionTables(firstPort + 4);    // By default connects only to other BE RDMA
+    options.deviceBackendSouthTables = Trainwave::Emulator::Ltl::ConnectionTables(firstPort + 3);    // By default connects only to other BE RDMA
+}
+
 inline MaiaCompiler::GeneratedCode::ClusterCP::ClusterCommand::Arguments
 CreateKernelParams(std::vector<KernelParams::ArrayRef> &kernelInputs,
     std::vector<KernelParams::ArrayRef> &kernelOutputs) {

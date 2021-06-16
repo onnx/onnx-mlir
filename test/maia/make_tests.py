@@ -18,11 +18,14 @@ parser.add_argument('--list', dest='list_only', action='store_true', default=Fal
                     help='list tests')
 parser.add_argument('--test', dest='test_list', action='append', default=[], metavar="TEST",
                     help='run the listed test (can specify multiple times)')
+parser.add_argument('--test-index', dest='test_index', type=int, default=0,
+                    help='index of the test (each test needs a unique index)')
 args = parser.parse_args()
 
 utility.list_only = args.list_only
 utility.out_dir = args.outdir
 utility.test_list = args.test_list
+utility.test_index = args.test_index
 
 # if printing the test list, don't print any other output so that tools can easily parse the list
 if not utility.list_only:

@@ -11,6 +11,7 @@ from onnx import TensorProto, ModelProto, TypeProto
 list_only = False
 out_dir = ""
 test_list = []
+test_index = 0
 
 
 class TestType(Flag):
@@ -33,6 +34,8 @@ def get_outputs(model : ModelProto) -> list[int]:
 
 
 def add_test(gen_model: Callable[[TensorProto], ModelProto], test_name: str, test_type: TestType = TestType.COMPILE_ONLY, epsilon: float = 0.0, **kwargs):
+  global test_index
+  
   # check if we're just listing available tests
   if list_only:
     print(f'{test_name}\t{test_type}')
@@ -67,4 +70,8 @@ def add_test(gen_model: Callable[[TensorProto], ModelProto], test_name: str, tes
       generate_input(inputs_dir, input.name, get_shape(input.type), generator)
 
     # generate the host code
-    generate_host(test_dir / 'host.cpp', "", "Sku_ArrayFloat32", get_inputs(model_bf16), get_outputs(model_bf16))
+    generate_host(test_dir / 'host.cpp', "", "Sku_ArrayFloat32", get_inputs(model_bf16), get_outputs(model_bf16), 9000 + (test_index * 5))
+    
+    # increment the test index for the next test
+    test_index += 1
+

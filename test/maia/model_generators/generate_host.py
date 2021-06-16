@@ -12,7 +12,7 @@ def format_shape(shape) -> str:
   return str(shape).replace('[', '{').replace(']', '}')
 
 
-def generate_host(out_path: str, interface_header: str, sku: str, inputs, outputs):
+def generate_host(out_path: str, interface_header: str, sku: str, inputs, outputs, firstPort: int = 0):
   out_file = open(out_path, 'w') if out_path != '' else sys.stdout
   interface_header = DefaultInterfaceHeader if interface_header == '' else interface_header
 
@@ -73,6 +73,8 @@ def generate_host(out_path: str, interface_header: str, sku: str, inputs, output
   out_file.write('  // Load the NPU Program.\n')
   out_file.write('  auto options = Trainwave::DeviceOptions();\n')
   out_file.write('  options.skuName = SKU::Name;\n')
+  if firstPort != 0:
+    out_file.write(f'  SetNetworkConfiguration(options, {firstPort});\n')
   out_file.write('  auto device = twr::Device::CreateEmulatorDevice(options);\n')
   out_file.write('  device.LoadNPUProgram(package);\n')
   out_file.write('\n')
@@ -164,6 +166,8 @@ if __name__ == "__main__":
                       help=f'header for DCP inteface (defaults to: {DefaultInterfaceHeader})')
   parser.add_argument('--sku', dest='sku', action='store', default="Sku_NpuTransformersSP",
                       help='the target SKU (defaults to: Sku_NpuTransformersSP). Valid options: Sku_NpuTransformersSP", "Sku_ArrayFloat32"')
+  parser.add_argument('--first-port', dest='first_port', action='store', default="0",
+                      help='override the port range used by the device to [first_port, first_port + 4]')
   args = parser.parse_args()
 
   # load the graph to parse inputs/outputs
@@ -172,5 +176,5 @@ if __name__ == "__main__":
   inputs = session.get_inputs()
   outputs = session.get_outputs()
 
-  generate_host(args.out_path, args.interface_header, args.sku, inputs, outputs)
+  generate_host(args.out_path, args.interface_header, args.sku, inputs, outputs, args.first_port)
 

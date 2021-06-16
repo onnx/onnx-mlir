@@ -78,6 +78,7 @@ file(GLOB_RECURSE PY_SCRIPT_LIST ${MAIA_SOURCE_DIR}/*.py)
 add_custom_target(MAIA_TEST)
 
 # walk the list of tests computed above and add appropriate builds/tests for each
+set(TEST_INDEX 0)
 foreach(TEST ${TEST_LIST})
   list(FIND EXECUTE_LIST ${TEST} TEST_EXECUTE)
   list(FIND DIFF_LIST ${TEST} TEST_DIFF)
@@ -85,7 +86,7 @@ foreach(TEST ${TEST_LIST})
 
   # generate the ONNX graphs for this test
   add_custom_command(OUTPUT ${TEST_DIR}/${TEST}.onnx ${TEST_DIR}/${TEST}.f32.onnx ${TEST_DIR}/host.cpp
-                     COMMAND ${Python3_EXECUTABLE} ${MAIA_SOURCE_DIR}/make_tests.py --outdir=${MAIA_BINARY_DIR} --test ${TEST}
+                     COMMAND ${Python3_EXECUTABLE} ${MAIA_SOURCE_DIR}/make_tests.py --outdir=${MAIA_BINARY_DIR} --test ${TEST} --test-index ${TEST_INDEX}
                      MAIN_DEPENDENCY ${MAIA_SOURCE_DIR}/make_tests.py
                      DEPENDS ${PY_SCRIPT_LIST}
                      VERBATIM)
@@ -114,4 +115,5 @@ foreach(TEST ${TEST_LIST})
 #   add_test(NAME maia-diff-${TEST}-tvp-cpp COMMAND FileCheck --input-file=./${TEST}.tvp.cpp -check-prefix=CHECK-TVP-CPP ${MAIA_SOURCE_DIR}/golden/${TEST}.golden)
   endif()
 
+  math(EXPR TEST_INDEX "${TEST_INDEX} + 1")
 endforeach()
