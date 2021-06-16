@@ -111,15 +111,6 @@ void testCustomFunTranslation() {
   node->set_op_type("SquareFn");
   node->set_name("node1");
 
-  // auto *t = graph->add_value_info();
-  // t->set_name("t");
-  // t->mutable_type()->mutable_tensor_type()->set_elem_type(elt_type);
-
-  // node = graph->add_node();
-  // node->add_input("x");
-  // node->add_output("t");
-  // node->set_op_type("SquareFn");
-
   check(model_proto);
 }
 
