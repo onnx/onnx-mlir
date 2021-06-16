@@ -182,3 +182,6 @@ dmypy.json
 
 # Visual Studio Code Files
 .vscode
+
+# Visual Studio Files
+.vs
