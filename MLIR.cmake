@@ -19,20 +19,6 @@ include(TableGen)
 include(AddLLVM)
 include(AddMLIR)
 
-# When LLVM_ENABLE_ASSERTIONS is set to ON, the build is not Debug and the compiler
-# is clang, onnx_proto will fail to link to libprotobuf due to missing symbols when
-# we let HandleLLVMOptions actually set all the expected properties correctly (such
-# as removing NDEBUG from the compiler options). This appears to be a bug in the way
-# the libs interact with clang, because everything links fine with gcc in this situation
-# and everything links fine with clang when LLVM_ENABLE_ASSERTIONS is OFF. In order to
-# support the build with clang until this can be resolved, we set LLVM_ENABLE_ASSERTIONS
-# to OFF before including HandleLLVMOptions. This does not reproduce with clang on
-# Windows.
-if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" AND (NOT CMAKE_BUILD_TYPE STREQUAL "Debug"))
-  set(LLVM_ENABLE_ASSERTIONS OFF)
-  message(STATUS "LLVM_ENABLE_ASSERTIONS  : " ${LLVM_ENABLE_ASSERTIONS})
-endif()
-
 include(HandleLLVMOptions)
 
 include_directories(${LLVM_INCLUDE_DIRS})
