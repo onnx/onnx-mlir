@@ -47,193 +47,193 @@ check_operation_version = args.check_operation_version
 # run this script with --check-operation-version flag.
 # Update this dictionary when a newer version is implemented
 # TODO: how to keep the old version
-version_dict = {'Abs': 13,
- 'Acos': 7,
- 'Acosh': 9,
- 'Adagrad': 1,
- 'Adam': 1,
- 'Add': 13,
- 'And': 7,
- 'ArgMax': 13,
- 'ArgMin': 13,
- 'ArrayFeatureExtractor': 1,
- 'Asin': 7,
- 'Asinh': 9,
- 'Atan': 7,
- 'Atanh': 9,
- 'AveragePool': 11,
- 'BatchNormalization': 9,
- 'Binarizer': 1,
- 'BitShift': 11,
- 'Cast': 13,
- 'CastMap': 1,
- 'CategoryMapper': 1,
- 'Ceil': 13,
- 'Celu': 12,
- 'Clip': 13,
- 'Compress': 11,
- 'Concat': 13,
- 'ConcatFromSequence': 11,
- 'Constant': 13,
- 'ConstantOfShape': 9,
- 'Conv': 11,
- 'ConvInteger': 10,
- 'ConvTranspose': 11,
- 'Cos': 7,
- 'Cosh': 9,
- 'CumSum': 11,
- 'DepthToSpace': 13,
- 'DequantizeLinear': 13,
- 'Det': 11,
- 'DictVectorizer': 1,
- 'Div': 13,
- 'Dropout': 13,
- 'DynamicQuantizeLinear': 11,
- 'Einsum': 12,
- 'Elu': 6,
- 'Equal': 13,
- 'Erf': 13,
- 'Exp': 13,
- 'Expand': 13,
- 'EyeLike': 9,
- 'FeatureVectorizer': 1,
- 'Flatten': 13,
- 'Floor': 13,
- 'GRU': 7,
- 'Gather': 13,
- 'GatherElements': 13,
- 'GatherND': 13,
- 'Gemm': 13,
- 'GlobalAveragePool': 1,
- 'GlobalLpPool': 2,
- 'GlobalMaxPool': 1,
- 'Gradient': 1,
- 'Greater': 13,
- 'GreaterOrEqual': 12,
- 'HardSigmoid': 6,
- 'Hardmax': 13,
- 'Identity': 13,
- 'If': 13,
- 'Imputer': 1,
- 'InstanceNormalization': 6,
- 'IsInf': 10,
- 'IsNaN': 13,
- 'LRN': 13,
- 'LSTM': 7,
- 'LabelEncoder': 2,
- 'LeakyRelu': 6,
- 'Less': 13,
- 'LessOrEqual': 12,
- 'LinearClassifier': 1,
- 'LinearRegressor': 1,
- 'Log': 13,
- 'LogSoftmax': 13,
- 'Loop': 13,
- 'LpNormalization': 1,
- 'LpPool': 11,
- 'MatMul': 13,
- 'MatMulInteger': 10,
- 'Max': 13,
- 'MaxPool': 12,
- 'MaxRoiPool': 1,
- 'MaxUnpool': 11,
- 'Mean': 13,
- 'MeanVarianceNormalization': 13,
- 'Min': 13,
- 'Mod': 13,
- 'Momentum': 1,
- 'Mul': 13,
- 'Multinomial': 7,
- 'Neg': 13,
- 'NegativeLogLikelihoodLoss': 13,
- 'NonMaxSuppression': 11,
- 'NonZero': 13,
- 'Normalizer': 1,
- 'Not': 1,
- 'OneHot': 11,
- 'OneHotEncoder': 1,
- 'Or': 7,
- 'PRelu': 9,
- 'Pad': 13,
- 'Pow': 13,
- 'QLinearConv': 10,
- 'QLinearMatMul': 10,
- 'QuantizeLinear': 13,
- 'RNN': 7,
- 'RandomNormal': 1,
- 'RandomNormalLike': 1,
- 'RandomUniform': 1,
- 'RandomUniformLike': 1,
- 'Range': 11,
- 'Reciprocal': 13,
- 'ReduceL1': 13,
- 'ReduceL2': 13,
- 'ReduceLogSum': 13,
- 'ReduceLogSumExp': 13,
- 'ReduceMax': 13,
- 'ReduceMean': 13,
- 'ReduceMin': 13,
- 'ReduceProd': 13,
- 'ReduceSum': 13,
- 'ReduceSumSquare': 13,
- 'Relu': 13,
- 'Reshape': 13,
- 'Resize': 13,
- 'ReverseSequence': 10,
- 'RoiAlign': 10,
- 'Round': 11,
- 'SVMClassifier': 1,
- 'SVMRegressor': 1,
- 'Scaler': 1,
- 'Scan': 11,
- 'Scatter': 11,
- 'ScatterElements': 13,
- 'ScatterND': 13,
- 'Selu': 6,
- 'SequenceAt': 11,
- 'SequenceConstruct': 11,
- 'SequenceEmpty': 11,
- 'SequenceErase': 11,
- 'SequenceInsert': 11,
- 'SequenceLength': 11,
- 'Shape': 13,
- 'Shrink': 9,
- 'Sigmoid': 13,
- 'Sign': 13,
- 'Sin': 7,
- 'Sinh': 9,
- 'Size': 13,
- 'Slice': 13,
- 'Softmax': 13,
- 'SoftmaxCrossEntropyLoss': 13,
- 'Softplus': 1,
- 'Softsign': 1,
- 'SpaceToDepth': 13,
- #'Split': 13,
- 'Split': 11,
- 'SplitToSequence': 11,
- 'Sqrt': 13,
- #'Squeeze': 13,
- 'Squeeze': 11,
- 'StringNormalizer': 10,
- 'Sub': 13,
- 'Sum': 13,
- 'Tan': 7,
- 'Tanh': 13,
- 'TfIdfVectorizer': 9,
- 'ThresholdedRelu': 10,
- 'Tile': 13,
- 'TopK': 11,
- 'Transpose': 13,
- 'TreeEnsembleClassifier': 1,
- 'TreeEnsembleRegressor': 1,
- 'Unique': 11,
- #'Unsqueeze': 13,
- 'Unsqueeze': 11,
- 'Upsample': 10,
- 'Where': 9,
- 'Xor': 7,
- 'ZipMap': 1}
+version_dict = {'Abs': [13],
+ 'Acos': [7],
+ 'Acosh': [9],
+ 'Adagrad': [1],
+ 'Adam': [1],
+ 'Add': [13],
+ 'And': [7],
+ 'ArgMax': [13],
+ 'ArgMin': [13],
+ 'ArrayFeatureExtractor': [1],
+ 'Asin': [7],
+ 'Asinh': [9],
+ 'Atan': [7],
+ 'Atanh': [9],
+ 'AveragePool': [11],
+ 'BatchNormalization': [9],
+ 'Binarizer': [1],
+ 'BitShift': [11],
+ 'Cast': [13],
+ 'CastMap': [1],
+ 'CategoryMapper': [1],
+ 'Ceil': [13],
+ 'Celu': [12],
+ 'Clip': [13],
+ 'Compress': [11],
+ 'Concat': [13],
+ 'ConcatFromSequence': [11],
+ 'Constant': [13],
+ 'ConstantOfShape': [9],
+ 'Conv': [11],
+ 'ConvInteger': [10],
+ 'ConvTranspose': [11],
+ 'Cos': [7],
+ 'Cosh': [9],
+ 'CumSum': [11],
+ 'DepthToSpace': [13],
+ 'DequantizeLinear': [13],
+ 'Det': [11],
+ 'DictVectorizer': [1],
+ 'Div': [13],
+ 'Dropout': [13],
+ 'DynamicQuantizeLinear': [11],
+ 'Einsum': [12],
+ 'Elu': [6],
+ 'Equal': [13],
+ 'Erf': [13],
+ 'Exp': [13],
+ 'Expand': [13],
+ 'EyeLike': [9],
+ 'FeatureVectorizer': [1],
+ 'Flatten': [13],
+ 'Floor': [13],
+ 'GRU': [7],
+ 'Gather': [13],
+ 'GatherElements': [13],
+ 'GatherND': [13],
+ 'Gemm': [13],
+ 'GlobalAveragePool': [1],
+ 'GlobalLpPool': [2],
+ 'GlobalMaxPool': [1],
+ 'Gradient': [1],
+ 'Greater': [13],
+ 'GreaterOrEqual': [12],
+ 'HardSigmoid': [6],
+ 'Hardmax': [13],
+ 'Identity': [13],
+ 'If': [13],
+ 'Imputer': [1],
+ 'InstanceNormalization': [6],
+ 'IsInf': [10],
+ 'IsNaN': [13],
+ 'LRN': [13],
+ 'LSTM': [7],
+ 'LabelEncoder': [2],
+ 'LeakyRelu': [6],
+ 'Less': [13],
+ 'LessOrEqual': [12],
+ 'LinearClassifier': [1],
+ 'LinearRegressor': [1],
+ 'Log': [13],
+ 'LogSoftmax': [13],
+ 'Loop': [13],
+ 'LpNormalization': [1],
+ 'LpPool': [11],
+ 'MatMul': [13],
+ 'MatMulInteger': [10],
+ 'Max': [13],
+ 'MaxPool': [12],
+ 'MaxRoiPool': [1],
+ 'MaxUnpool': [11],
+ 'Mean': [13],
+ 'MeanVarianceNormalization': [13],
+ 'Min': [13],
+ 'Mod': [13],
+ 'Momentum': [1],
+ 'Mul': [13],
+ 'Multinomial': [7],
+ 'Neg': [13],
+ 'NegativeLogLikelihoodLoss': [13],
+ 'NonMaxSuppression': [11],
+ 'NonZero': [13],
+ 'Normalizer': [1],
+ 'Not': [1],
+ 'OneHot': [11],
+ 'OneHotEncoder': [1],
+ 'Or': [7],
+ 'PRelu': [9],
+ 'Pad': [13],
+ 'Pow': [13],
+ 'QLinearConv': [10],
+ 'QLinearMatMul': [10],
+ 'QuantizeLinear': [13],
+ 'RNN': [7],
+ 'RandomNormal': [1],
+ 'RandomNormalLike': [1],
+ 'RandomUniform': [1],
+ 'RandomUniformLike': [1],
+ 'Range': [11],
+ 'Reciprocal': [13],
+ 'ReduceL1': [13],
+ 'ReduceL2': [13],
+ 'ReduceLogSum': [13],
+ 'ReduceLogSumExp': [13],
+ 'ReduceMax': [13],
+ 'ReduceMean': [13],
+ 'ReduceMin': [13],
+ 'ReduceProd': [13],
+ 'ReduceSum': [13, 11],
+ 'ReduceSumSquare': [13],
+ 'Relu': [13],
+ 'Reshape': [13],
+ 'Resize': [13],
+ 'ReverseSequence': [10],
+ 'RoiAlign': [10],
+ 'Round': [11],
+ 'SVMClassifier': [1],
+ 'SVMRegressor': [1],
+ 'Scaler': [1],
+ 'Scan': [11],
+ 'Scatter': [11],
+ 'ScatterElements': [13],
+ 'ScatterND': [13],
+ 'Selu': [6],
+ 'SequenceAt': [11],
+ 'SequenceConstruct': [11],
+ 'SequenceEmpty': [11],
+ 'SequenceErase': [11],
+ 'SequenceInsert': [11],
+ 'SequenceLength': [11],
+ 'Shape': [13],
+ 'Shrink': [9],
+ 'Sigmoid': [13],
+ 'Sign': [13],
+ 'Sin': [7],
+ 'Sinh': [9],
+ 'Size': [13],
+ 'Slice': [13],
+ 'Softmax': [13],
+ 'SoftmaxCrossEntropyLoss': [13],
+ 'Softplus': [1],
+ 'Softsign': [1],
+ 'SpaceToDepth': [13],
+ #'Split': [13],
+ 'Split': [11],
+ 'SplitToSequence': [11],
+ 'Sqrt': [13],
+ #'Squeeze': [13],
+ 'Squeeze': [11],
+ 'StringNormalizer': [10],
+ 'Sub': [13],
+ 'Sum': [13],
+ 'Tan': [7],
+ 'Tanh': [13],
+ 'TfIdfVectorizer': [9],
+ 'ThresholdedRelu': [10],
+ 'Tile': [13],
+ 'TopK': [11],
+ 'Transpose': [13],
+ 'TreeEnsembleClassifier': [1],
+ 'TreeEnsembleRegressor': [1],
+ 'Unique': [11],
+ #'Unsqueeze': [13],
+ 'Unsqueeze': [11],
+ 'Upsample': [10],
+ 'Where': [9],
+ 'Xor': [7],
+ 'ZipMap': [1]}
 # Manual specification of attribute defaults.
 special_attr_defaults = dict([
     # ("AveragePool.kernel_shape", ('ints', '{}')),
@@ -883,9 +883,13 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
         print('No typeStr ', schema.name)
         return []
 
-def gen_op_def(schema):
+def gen_op_def(schema, with_version = False):
     indent = inc_indent()
-    s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
+    if with_version :
+        opName = schema.name+"V"+str(schema.since_version)
+    else :
+        opName = schema.name
+    s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(opName)
 
     regions = OrderedDict()
     for _, attr in sorted(schema.attributes.items()):
@@ -1063,6 +1067,14 @@ def gen_op_def(schema):
     return s
 
 
+def gen_op_versions(file) :
+    indent = inc_indent()
+    s = ""
+    for key, item in version_dict.items() :
+        s += indent + 'op_dialect_version_map_["' + key +'"] = '
+        s += "{" +  "{}".format(", ".join(str(x) for x in item)) + "};\n"
+    file.write(s)
+
 """
 special cases:
 * Split: attr split default value: sizeof(output1) namely 1
@@ -1072,9 +1084,13 @@ special cases:
 """
 
 
-def gen_op_importer(schema, file):
+def gen_op_importer(schema, file, with_version=False):
     indent = inc_indent()
-    s = indent + 'import_handler_map_["' + schema.name +'"] = \n '
+    if with_version :
+        opName = schema.name + "V"+str(schema.since_version)
+    else :
+        opName = schema.name
+    s = indent + 'import_handler_map_["' + opName +'"] = \n '
 
     expected_num_operands = len(schema.inputs)
     expected_num_results = len(schema.outputs)
@@ -1086,7 +1102,7 @@ def gen_op_importer(schema, file):
             expected_num_results = -1
 
     handler_func = special_op_handler.get(
-        schema.name, "buildOperation<mlir::ONNX{}Op>".format(schema.name))
+        schema.name, "buildOperation<mlir::ONNX{}Op>".format(opName))
 
     # Special handlers currently require expected num operands/results to be specified.
     # TODO: remove special handlers.
@@ -1139,23 +1155,27 @@ def build_operator_schemas():
                     if schema.name not in version_dict :
                         print("Check-operation-version: Operation {} is new  with version {}"
                             .format(schema.name, schema.since_version))
-                    elif schema.since_version >  version_dict[schema.name]:
+                    elif schema.since_version >  version_dict[schema.name][0]:
                         print("Check-operation-version: Operation {}"
                             .format(schema.name)+
                             " has a newer version {} over old version {}"
-                            .format(schema.since_version, version_dict[schema.name]))
+                            .format(schema.since_version, version_dict[schema.name][0]))
                 else:
                     # Generate operation according to the version in version_dict.
                     if schema.name not in version_dict :
                         continue
                     found = False
+                    vcounter = 0
                     for schema in reversed(versions):
                         # Check the version number against the version_dict
-                        if schema.since_version == version_dict[schema.name]:
+                        specified_version = version_dict[schema.name][vcounter]
+                        if schema.since_version == specified_version:
                             exsting_ops.add(schema.name)
                             processed_namemap.append((n, schema, versions))
                             found = True
-                            break
+                            vcounter += 1
+                            if len(version_dict[schema.name]) == vcounter :
+                                break
                     if not found:
                         print("Your onnx installation may be too old. "
                            "The desired version for operation {} is not found.".format(
@@ -1182,19 +1202,31 @@ def main(args):  # type: (Type[Args]) -> None
 
     op_importer = args.op_importer
     op_importer.write(autogen_warning)
+    gen_op_versions(op_importer)
 
-    version_dict = dict()
+    new_version_dict = dict()
     for domain, supportmap in build_operator_schemas():
         for _, namemap in supportmap:
+            # Generate Op with version number if not the latest version
+            previous_name = ""
             for op_type, schema, versions in namemap:
                 if check_operation_version:
-                    version_dict[schema.name] = schema.since_version
+                    new_version_dict[schema.name] = [schema.since_version]
                 else:
-                    gen_op_importer(schema, op_importer)
-                    r = gen_op_def(schema)
+                    with_version = previous_name == schema.name
+                    gen_op_importer(schema, op_importer, with_version)
+                    r = gen_op_def(schema, with_version)
                     op_def.write(r)
+                    previous_name = schema.name
     if check_operation_version :
-        pprint.pprint(version_dict)
+        for key in version_dict :
+            if not key in new_version_dict :
+                print("op {} is not in the version".format(key))
+            # Assume the top version will be upgreaded to the latest version
+            # The existing extra version (from index 1) will be kept
+            for x in version_dict[key][1:] :
+                new_version_dict[key].append(x)
+        pprint.pprint(new_version_dict)
 
 if __name__ == '__main__':
     curr_dir = os.path.dirname(os.path.realpath(__file__))

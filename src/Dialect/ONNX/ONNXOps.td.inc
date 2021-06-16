@@ -4269,6 +4269,46 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
     }];
 }
 
+def ONNXReduceSumV11Op:ONNX_Op<"ReduceSumV11",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX ReduceSum operation";
+  let description = [{
+  "Computes the sum of the input tensor's element along the provided axes. The resulted"
+  "tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then"
+  "the resulted tensor have the reduced dimension pruned."
+  ""
+  "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
+  "False instead of True."
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$data,
+    OptionalAttr<I64ArrayAttr>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$reduced);
+  let builders = [
+    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
+      auto elementType = data.getType().cast<ShapedType>().getElementType();
+      build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build($_builder, $_state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
+}
+
 def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceSumSquare operation";

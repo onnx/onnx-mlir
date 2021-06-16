@@ -37,6 +37,12 @@ Value getIdentityValue<ONNXReduceProdOp>(
 }
 
 template <>
+Value getIdentityValue<ONNXReduceSumV11Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return emitConstantOp(rewriter, loc, type, 0);
+}
+
+template <>
 Value getIdentityValue<ONNXReduceSumOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
   return emitConstantOp(rewriter, loc, type, 0);
@@ -53,6 +59,12 @@ template <>
 struct ScalarOp<ONNXReduceProdOp> {
   using FOp = MulFOp;
   using IOp = MulIOp;
+};
+
+template <>
+struct ScalarOp<ONNXReduceSumV11Op> {
+  using FOp = AddFOp;
+  using IOp = AddIOp;
 };
 
 template <>
@@ -574,8 +586,9 @@ void populateLoweringONNXReductionOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMaxOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceMinOp>,
-      ONNXReductionOpLowering<mlir::ONNXReduceProdOp>, ONNXReduceSumOpLowering>(
-      ctx);
+      ONNXReductionOpLowering<mlir::ONNXReduceProdOp>,
+      ONNXReductionOpLowering<mlir::ONNXReduceSumV11Op>,
+      ONNXReduceSumOpLowering>(ctx);
   patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMeanOp>>(
       ctx, /*computeMean=*/true);
 }
