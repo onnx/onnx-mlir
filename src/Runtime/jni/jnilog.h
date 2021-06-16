@@ -52,8 +52,10 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
      * add "... " at the end to denote that the last element is                \
      * truncated.                                                              \
      */                                                                        \
-    snprintf(                                                                  \
-        buf + strlen(buf), 6, (i == l) ? " " : (j == 1) ? " ... " : "... ");   \
+    snprintf(buf + strlen(buf), 6,                                             \
+        (i == l)   ? " "                                                       \
+        : (j == 1) ? " ... "                                                   \
+                   : "... ");                                                  \
   } while (0)
 
 /* Construct string of up to LOG_MAX_NUM elements of an array of ONNX type.
@@ -84,7 +86,7 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
     case ONNX_TYPE_DOUBLE:                                                     \
       LOG_BUF_C_TYPE(double, hex ? " %016x" : " %lf", buf, data, n);           \
       break;                                                                   \
-    defaut:                                                                    \
+    default:                                                                   \
       sprintf(buf, " unsupported data type %d ", type);                        \
     }                                                                          \
   } while (0)
