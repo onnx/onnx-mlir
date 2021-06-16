@@ -7,7 +7,6 @@ add_subdirectory(jni)
 # such static library in a shared library can cause runtime failure on some architectures,
 # such as z. So we override the default and explicitly compile with -fPIC.
 add_onnx_mlir_library(cruntime STATIC
-  STATIC
   OMTensor.c
   OMTensorList.c
   OnnxDataType.cpp
