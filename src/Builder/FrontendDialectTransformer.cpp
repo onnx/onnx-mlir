@@ -594,7 +594,7 @@ private:
             dyn_cast<ResultTypeInferenceOpInterface>(genericOp)) {
       auto outTypes = opWithTypeInference.resultTypeInference();
       for (int i = 0; i < node.output().size(); i++) {
-        auto &result = genericOp->getOpResult(i);
+        auto result = genericOp->getOpResult(i);
         if (!options_.useOnnxModelTypes || result.getType().isa<NoneType>())
           genericOp->getOpResult(i).setType(outTypes[i]);
       }
