@@ -1204,14 +1204,14 @@ def main(args):  # type: (Type[Args]) -> None
     op_importer.write(autogen_warning)
     gen_op_versions(op_importer)
 
-    version_dict = dict()
+    new_version_dict = dict()
     for domain, supportmap in build_operator_schemas():
         for _, namemap in supportmap:
             # Generate Op with version number if not the latest version
             previous_name = ""
             for op_type, schema, versions in namemap:
                 if check_operation_version:
-                    version_dict[schema.name] = schema.since_version
+                    new_version_dict[schema.name] = [schema.since_version]
                 else:
                     with_version = previous_name == schema.name
                     gen_op_importer(schema, op_importer, with_version)
@@ -1219,7 +1219,14 @@ def main(args):  # type: (Type[Args]) -> None
                     op_def.write(r)
                     previous_name = schema.name
     if check_operation_version :
-        pprint.pprint(version_dict)
+        for key in version_dict :
+            if not key in new_version_dict :
+                print("op {} is not in the version".format(key))
+            # Assume the top version will be upgreaded to the latest version
+            # The existing extra version (from index 1) will be kept
+            for x in version_dict[key][1:] :
+                new_version_dict[key].append(x)
+        pprint.pprint(new_version_dict)
 
 if __name__ == '__main__':
     curr_dir = os.path.dirname(os.path.realpath(__file__))
