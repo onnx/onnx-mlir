@@ -8,11 +8,17 @@
 
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Transforms/Passes.h"
 
 #include "onnx/defs/function.h"
 #include "onnx/defs/schema.h"
 
 #include "src/Builder/FrontendDialectTransformer.hpp"
+
+#include "src/Interface/ShapeInferenceOpInterface.hpp"
+#include "src/Pass/Passes.hpp"
 
 using namespace std;
 using namespace ONNX_NAMESPACE;
@@ -56,10 +62,20 @@ void check(ModelProto &model) {
   options.useOnnxModelTypes = true;
   onnx_mlir::ImportFrontendModel(model, context, module, options);
 
-  // TODO: use result?
-  mlir::LogicalResult res = module->verify();
-  module->dump();
-  std::cerr << std::endl;
+  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
+  pm.addPass(mlir::createShapeInferencePass(true));
+  mlir::applyPassManagerCLOptions(pm);
+  if (mlir::failed(pm.run(*module))) {
+    module->dump();
+    std::cerr << "Error applying shape inference!\n";
+    return;
+  }
+
+  if (mlir::failed(module->verify())) {
+    module->dump();
+    std::cerr << "Error verifying module!\n";
+    return;
+  }
 }
 
 void testCustomFunTranslation() {
@@ -77,11 +93,17 @@ void testCustomFunTranslation() {
 
   auto *x = graph->add_input();
   x->set_name("x");
-  x->mutable_type()->mutable_tensor_type()->set_elem_type(elt_type);
+  auto *x_type = x->mutable_type()->mutable_tensor_type();
+  x_type->set_elem_type(elt_type);
+  auto *x_shape = x_type->mutable_shape();
+  x_shape->add_dim()->set_dim_value(10);
 
   auto *y = graph->add_output();
   y->set_name("y");
-  y->mutable_type()->mutable_tensor_type()->set_elem_type(elt_type);
+  auto *y_type = y->mutable_type()->mutable_tensor_type();
+  y_type->set_elem_type(elt_type);
+  auto *y_shape = y_type->mutable_shape();
+  y_shape->add_dim()->set_dim_value(10);
 
   auto *node = graph->add_node();
   node->add_input("x");
@@ -89,14 +111,14 @@ void testCustomFunTranslation() {
   node->set_op_type("SquareFn");
   node->set_name("node1");
 
-  auto *t = graph->add_value_info();
-  t->set_name("t");
-  t->mutable_type()->mutable_tensor_type()->set_elem_type(elt_type);
+  // auto *t = graph->add_value_info();
+  // t->set_name("t");
+  // t->mutable_type()->mutable_tensor_type()->set_elem_type(elt_type);
 
-  node = graph->add_node();
-  node->add_input("x");
-  node->add_output("t");
-  node->set_op_type("SquareFn");
+  // node = graph->add_node();
+  // node->add_input("x");
+  // node->add_output("t");
+  // node->set_op_type("SquareFn");
 
   check(model_proto);
 }
