@@ -8,17 +8,16 @@ endif()
 
 add_onnx_mlir_dialect(KrnlOps)
 
-# Header dependencies target for KrnOps.hpp
-add_custom_target(OMKrnlOpsInc
-        DEPENDS OMKrnlOpsIncGen)
-
 add_onnx_mlir_library(OMKrnlOps
-        KrnlOps.cpp
-        KrnlTypes.cpp
-        KrnlHelper.cpp)
-add_dependencies(OMKrnlOps OMKrnlOpsInc)
+  KrnlOps.cpp
+  KrnlTypes.cpp
+  KrnlHelper.cpp
 
-# Linking dependencies:
-add_dependencies(OMKrnlOps
-        OMSpecializedKernelOpInterface
-        OMSimplifyKrnl)
+  DEPENDS
+  OMKrnlOpsIncGen
+  OMSpecializedKernelOpInterfaceIncGen
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMSimplifyKrnl
+  )
