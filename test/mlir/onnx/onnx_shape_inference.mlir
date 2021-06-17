@@ -1747,3 +1747,39 @@ func @test_scan_simple_main_graph(%arg0: tensor<2xf32>, %arg1: tensor<3x2xf32>) 
 // CHECK:         }
 // CHECK:       }
 }
+
+// -----
+
+func @test_range(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<*xf32> {
+  %0 = "onnx.Range"(%arg0, %arg1, %arg2) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_range
+  // CHECK: {{.*}} = "onnx.Range"(%arg0, %arg1, %arg2) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<?xf32>
+}
+
+// -----
+
+func @test_range_constant() -> tensor<*xf32> {
+  %start = "onnx.Constant"() {value = dense<[1.0]> : tensor<1xf32>} : () -> tensor<1xf32>
+  %limit = "onnx.Constant"() {value = dense<[10.0]> : tensor<1xf32>} : () -> tensor<1xf32>
+  %delta = "onnx.Constant"() {value = dense<[1.0]> : tensor<1xf32>} : () -> tensor<1xf32>
+  %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_range_constant
+  // CHECK: {{.*}} = "onnx.Range"(%0, %1, %2) : (tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<9xf32>
+}
+
+// -----
+
+func @test_range_constant() -> tensor<*xi32> {
+  %start = "onnx.Constant"() {value = dense<[1]> : tensor<1xi32>} : () -> tensor<1xi32>
+  %limit = "onnx.Constant"() {value = dense<[10]> : tensor<1xi32>} : () -> tensor<1xi32>
+  %delta = "onnx.Constant"() {value = dense<[1]> : tensor<1xi32>} : () -> tensor<1xi32>
+  %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<*xi32>
+  return %0 : tensor<*xi32>
+
+  // CHECK-LABEL: test_range_constant
+  // CHECK: {{.*}} = "onnx.Range"(%0, %1, %2) : (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<9xi32>
+}
