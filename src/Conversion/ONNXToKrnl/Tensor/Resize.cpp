@@ -62,12 +62,18 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     SmallVector<Value, 4> writeIndices;
     for (decltype(rank) i = 0; i < rank; ++i) {
       Value outIndex = outputLoops.getInductionVar(i);
-      Value outIndexInteger = rewriter.create<IndexCastOp>(loc, outIndex, rewriter.getIntegerType(64));
-      Value outIndexFloat = rewriter.create<SIToFPOp>(loc, rewriter.getF32Type(), outIndexInteger);
-      Value scaleVal = emitConstantOp(rewriter, loc, rewriter.getF32Type(), scalesConstant[i]);
-      Value inIndexFloat = rewriter.create<DivFOp>(loc, outIndexFloat, scaleVal);
-      Value inIndexInteger = rewriter.create<FPToSIOp>(loc, rewriter.getIntegerType(64), inIndexFloat);
-      Value inIndex = rewriter.create<IndexCastOp>(loc, rewriter.getIndexType(), inIndexInteger);
+      Value outIndexInteger = rewriter.create<IndexCastOp>(
+          loc, outIndex, rewriter.getIntegerType(64));
+      Value outIndexFloat = rewriter.create<SIToFPOp>(
+          loc, rewriter.getF32Type(), outIndexInteger);
+      Value scaleVal = emitConstantOp(
+          rewriter, loc, rewriter.getF32Type(), scalesConstant[i]);
+      Value inIndexFloat =
+          rewriter.create<DivFOp>(loc, outIndexFloat, scaleVal);
+      Value inIndexInteger = rewriter.create<FPToSIOp>(
+          loc, rewriter.getIntegerType(64), inIndexFloat);
+      Value inIndex = rewriter.create<IndexCastOp>(
+          loc, rewriter.getIndexType(), inIndexInteger);
       readIndices.emplace_back(inIndex);
       writeIndices.emplace_back(outIndex);
     }
