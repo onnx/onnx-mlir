@@ -81,7 +81,13 @@ def generate_host(out_path: str, interface_header: str, sku: str, inputs, output
 
   out_file.write('  // send the data to the device\n')
   for index, input in enumerate(inputs):
-    out_file.write(f'  device.WriteToHbm<npufloat_t>(arg{index}_address, arg{index}_data, Apollo::Primitives::DataType::BFloat16);\n')
+    out_file.write(f'  int16_t arg{index}_wait = {900 + index};\n')
+    out_file.write(f'  device.WriteToHbm<npufloat_t>(arg{index}_address, arg{index}_data, Apollo::Primitives::DataType::BFloat16, -1, arg{index}_wait);\n')
+  out_file.write('\n')
+
+  out_file.write('  // WORKAROUND: not yet passing the argument semaphores to device, so wait here to ensure copy completed\n')
+  for index, input in enumerate(inputs):
+    out_file.write(f'  device.ReadFromHbm(arg{index}_address, compute_size(arg{index}_dims), Apollo::Primitives::DataType::BFloat16, arg{index}_wait, -1);\n')
   out_file.write('\n')
 
   out_file.write('  // invoke the kernel\n')
