@@ -39,6 +39,7 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
+#include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 using namespace mlir;
 
@@ -111,6 +112,27 @@ Value emitNegativeInfinityConstantOp(
 /// output of the dim op.
 Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     Value operand, int64_t axis, Type type);
+
+/// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
+/// return a constant.
+Value foldOrEmitONNXSqueezeOp(ConversionPatternRewriter &rewriter, Location loc,
+    Type resultType, Value input, int64_t axis);
+
+/// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
+/// return a constant.
+Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, int64_t axis);
+
+/// Emit an ONNXSplitOp. If the input is constant, do const propagation, and
+/// return constants.
+/// Only support evenly splitting.
+std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
+    Location loc, ArrayRef<Type> resultTypes, Value input, int64_t axis);
+
+/// Emit an ONNXTransposeOp. If the input is constant, do const propagation, and
+/// return a constant.
+Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, ArrayAttr permAttr);
 
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.

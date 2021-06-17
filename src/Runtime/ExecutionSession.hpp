@@ -16,11 +16,11 @@
 #pragma once
 
 #include <cassert>
-#include <dlfcn.h>
 #include <memory>
 #include <string>
 
 #include "OnnxMlirRuntime.h"
+#include "llvm/Support/DynamicLibrary.h"
 
 namespace onnx_mlir {
 
@@ -38,7 +38,7 @@ public:
 
 protected:
   // Handler to the shared library file being loaded.
-  void *_sharedLibraryHandle = nullptr;
+  llvm::sys::DynamicLibrary _sharedLibraryHandle;
 
   // Entry point function.
   entryPointFuncType _entryPointFunc = nullptr;

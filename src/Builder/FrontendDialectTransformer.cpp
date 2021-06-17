@@ -24,6 +24,8 @@
 #include "onnx/defs/schema.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "onnx/version_converter/convert.h"
+
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 
@@ -89,6 +91,7 @@ private:
 
   Value none_;
   std::map<FuncOp, Value> func2None_;
+  std::map<std::string, std::vector<int>> op_dialect_version_map_;
 
   /*!
    *  The list of tensors initialized by the ONNX model.
@@ -871,6 +874,24 @@ private:
     return onnx::OpSchemaRegistry::Schema(node.op_type(), version, domain);
   }
 
+  std::string GetImportVersionOfNode(const onnx::NodeProto &node) {
+    auto schema = GetOpSchema(node);
+    // Assume the top version
+    if (schema == nullptr) {
+      return std::string("");
+    }
+    auto current_opset = opset_map_.find(node.domain())->second;
+    auto opset_list = op_dialect_version_map_.find(node.op_type())->second;
+    // Traverse backward to find the closest version
+    // Some old versions may be compatible
+    for (int i = opset_list.size() - 1; i > 0; i--) {
+      if (current_opset <= opset_list[i]) {
+        return "V" + std::to_string(opset_list[i]);
+      }
+    }
+    return std::string("");
+  }
+
   FuncOp CreateFuncOp(
       std::string namePrefix, TypeRange operandTypes, TypeRange resultTypes) {
     auto funcType = builder_.getFunctionType(operandTypes, resultTypes);
@@ -946,6 +967,7 @@ private:
 
     // Save caller context, while generating callee function body.
     ValueSymbolMapping callerScope(std::move(frontend_symbols_));
+    frontend_symbols_.pushScope(func_name_prefix);
     auto prev_ip = builder_.saveInsertionPoint();
     builder_.setInsertionPointToStart(fnEntryBlock);
 
@@ -968,6 +990,7 @@ private:
     builder_.create<ReturnOp>(UnknownLoc(), ret_vals);
 
     // Restore caller context
+    frontend_symbols_.popScope(func_name_prefix);
     frontend_symbols_ = std::move(callerScope);
     builder_.restoreInsertionPoint(prev_ip);
 
@@ -1011,11 +1034,12 @@ private:
   }
 
   void ImportNode(const onnx::NodeProto &node) {
-    llvm::StringRef opName = node.op_type();
+    std::string versionStr = GetImportVersionOfNode(node);
 
     // look up handler for the opName. If not found, create a node
     // for a custom op, and issue a warning.
-    auto handler = import_handler_map_.find(opName.str());
+    auto handler =
+        import_handler_map_.find(node.op_type() + versionStr.c_str());
     if (handler != import_handler_map_.end()) {
       (this->*(handler->second))(node);
     } else {
@@ -1179,8 +1203,26 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
 
   auto parse_success = model.ParseFromIstream(&input);
   assert(parse_success && "Onnx Model Parsing Failed.");
+  int originVersion = CURRENT_ONNX_OPSET;
+  // Get the version of the model
+  // Code copied from onnx/onnx/version_coverter/convert.cc
+  for (auto it = model.opset_import().begin(); it != model.opset_import().end();
+       ++it) {
+    if (it->domain() == "" || it->domain() == "ai.onnx") {
+      originVersion = it->version();
+      break;
+    }
+  }
 
-  ImportFrontendModel(model, context, module, options);
+  // Didnot do downward convert because support for BatchNorm is missing
+  if (options.invokeOnnxVersionConverter &&
+      originVersion < CURRENT_ONNX_OPSET) {
+    onnx::ModelProto convertModel =
+        onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
+    ImportFrontendModel(convertModel, context, module, options);
+  } else {
+    ImportFrontendModel(model, context, module, options);
+  }
 }
 
 void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,

@@ -57,6 +57,11 @@ llvm::Optional<std::string> getEnvVar(std::string name) {
 // TODO: Find a respectable home for the wain
 
 // the option is used in this file, so defined here
+llvm::cl::opt<bool> invokeOnnxVersionConverter("invokeOnnxVersionConverter",
+    llvm::cl::desc(
+        "call onnx vesion converter to convert ONNX model to current version"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<bool> preserveLocations("preserveLocations",
     llvm::cl::desc("emit location data:"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
@@ -90,6 +95,8 @@ llvm::cl::opt<string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
 // and/or the overridePreserveFiles enum.
 enum class KeepFilesOfType { All, MLIR, Bitcode, Object, None };
 
+// Value below override at compile time by effectively setting the requested
+// flags.
 static const KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
 
 static bool keepFiles(KeepFilesOfType preserve) {
@@ -470,8 +477,8 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
-void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
-    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
+void processInputFile(string inputFilename, mlir::MLIRContext &context,
+    mlir::OwningModuleRef &module) {
   // Decide if the input file is an ONNX model or a model specified
   // in MLIR. The extension of the file is the decider.
   string extension = inputFilename.substr(inputFilename.find_last_of(".") + 1);
@@ -483,10 +490,39 @@ void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
   if (inputIsONNX) {
     ImportOptions options;
     options.useOnnxModelTypes = useOnnxModelTypes;
+    options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     ImportFrontendModelFile(inputFilename, context, module, options);
   } else {
     LoadMLIR(inputFilename, context, module);
   }
+}
+
+InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
+  Operation *moduleOp = module->getOperation();
+
+  // Collect dialect namespaces.
+  llvm::SmallDenseSet<StringRef> dialectNamespace;
+  moduleOp->walk([&](mlir::Operation *op) {
+    dialectNamespace.insert(op->getDialect()->getNamespace());
+  });
+
+  // If there are ONNX ops, the input level is ONNX.
+  bool hasONNXOps = llvm::any_of(dialectNamespace, [&](StringRef ns) {
+    return (ns == ONNXOpsDialect::getDialectNamespace());
+  });
+  if (hasONNXOps)
+    return ONNXLevel;
+
+  // If there are Krnl ops, the input level is MLIR.
+  bool hasKrnlOps = llvm::any_of(dialectNamespace, [&](StringRef ns) {
+    return (ns == KrnlOpsDialect::getDialectNamespace());
+  });
+  if (hasKrnlOps) {
+    return MLIRLevel;
+  }
+
+  // Otherwise, set to the lowest level, LLVMLevel.
+  return LLVMLevel;
 }
 
 void outputCode(
@@ -582,16 +618,20 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     outputCode(module, outputBaseName, ".input.mlir");
   }
 
-  if (emissionTarget >= EmitONNXIR) {
+  InputIRLevelType inputIRLevel = determineInputIRLevel(module);
+
+  if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR) {
     addONNXToMLIRPasses(pm);
   }
 
   if (emissionTarget >= EmitMLIR) {
-    addONNXToKrnlPasses(pm);
-    addKrnlToAffinePasses(pm);
+    if (inputIRLevel <= ONNXLevel)
+      addONNXToKrnlPasses(pm);
+    if (inputIRLevel <= MLIRLevel)
+      addKrnlToAffinePasses(pm);
   }
 
-  if (emissionTarget >= EmitLLVMIR)
+  if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
     addKrnlToLLVMPasses(pm);
 
   mlir::applyPassManagerCLOptions(pm);

@@ -23,8 +23,8 @@
 using namespace std;
 using namespace mlir;
 
-// Sigmoid
-float sigmoid(float x) { return 1 / (1 + exp(-x)); }
+// Include some helper functions.
+#include "test/numerical/Helper.hpp"
 
 // Returns whether onnx-mlir compiled GRU is producing the same results as a
 // naive implementation of GRU for a specific set of GRU
@@ -61,7 +61,7 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   auto yType = UnrankedTensorType::get(builder.getF32Type());
   auto yHType = UnrankedTensorType::get(builder.getF32Type());
 
-  llvm::SmallVector<Type, 5> inputsType{xType, wType, rType, bType, hType};
+  llvm::SmallVector<Type, 2> inputsType{xType, hType};
   llvm::SmallVector<Type, 2> outputsType{yType, yHType};
 
   auto funcType = builder.getFunctionType(inputsType, outputsType);
@@ -78,11 +78,8 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
                          UnknownLoc::get(&ctx), builder.getUnitAttr())
                      .getResult();
   auto xVal = entryBlock->getArgument(0);
-  auto wVal = entryBlock->getArgument(1);
-  auto rVal = entryBlock->getArgument(2);
-  auto bVal = entryBlock->getArgument(3);
   auto sVal = noneVal;
-  auto hVal = entryBlock->getArgument(4);
+  auto hVal = entryBlock->getArgument(1);
 
   StringAttr directionAttr;
   if (direction == 1)
@@ -98,9 +95,26 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, LinearBeforeReset, /*isSigned=*/true));
 
+  std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> constants;
+  auto wOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1),
+      omTensorDestroy);
+  constants.emplace_back(move(wOmt));
+  auto rOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1),
+      omTensorDestroy);
+  constants.emplace_back(move(rOmt));
+  auto bOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1),
+      omTensorDestroy);
+  constants.emplace_back(move(bOmt));
+  auto wConstant = buildONNXConstantOp(&ctx, builder, constants.at(0), wType);
+  auto rConstant = buildONNXConstantOp(&ctx, builder, constants.at(1), rType);
+  auto bConstant = buildONNXConstantOp(&ctx, builder, constants.at(2), bType);
+
   auto gruOp = builder.create<ONNXGRUOp>(UnknownLoc::get(&ctx),
       /*Y=*/yType, /*Y_h=*/yHType,
-      /*X=*/xVal, /*W=*/wVal, /*R=*/rVal, /*B=*/bVal,
+      /*X=*/xVal, /*W=*/wConstant, /*R=*/rConstant, /*B=*/bConstant,
       /*sequence_lens=*/sVal, /*initial_h=*/hVal,
       /*activation_alpha=*/ArrayAttr(), /*activation_beta=*/ArrayAttr(),
       /*activations=*/ArrayAttr(), /*clip=*/FloatAttr(),
@@ -132,18 +146,6 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(xOmt));
-  auto wOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1),
-      omTensorDestroy);
-  inputs.emplace_back(move(wOmt));
-  auto rOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1),
-      omTensorDestroy);
-  inputs.emplace_back(move(rOmt));
-  auto bOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1),
-      omTensorDestroy);
-  inputs.emplace_back(move(bOmt));
   auto hOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape), 0, 1),
       omTensorDestroy);
@@ -161,10 +163,10 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   //  - ht = g(Xt*(Wh^T) + (rt (.) (Ht-1*(Rh^T) + Rbh)) + Wbh) #
   // Ht = (1 - zt) (.) ht + zt (.) Ht-1
   auto &input = inputs.at(0);
-  auto &weight = inputs.at(1);
-  auto &recurr = inputs.at(2);
-  auto &bias = inputs.at(3);
-  auto &initialH = inputs.at(4);
+  auto &initialH = inputs.at(1);
+  auto &weight = constants.at(0);
+  auto &recurr = constants.at(1);
+  auto &bias = constants.at(2);
 
   // Initialize refYh and refYc.
   for (int64_t d = 0; d < D; d++)
@@ -308,11 +310,11 @@ int main(int argc, char *argv[]) {
     // Sequence length.
     const auto S = *rc::gen::inRange(1, 5);
     // Batch size.
-    const auto B = *rc::gen::inRange(5, 20);
+    const auto B = *rc::gen::inRange(5, 10);
     // Input size.
-    const auto I = *rc::gen::inRange(20, 30);
+    const auto I = *rc::gen::inRange(5, 10);
     // Hidden size.
-    const auto H = *rc::gen::inRange(30, 40);
+    const auto H = *rc::gen::inRange(5, 10);
     // LinearBeforeReset.
     const auto L = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for sequence.
@@ -327,8 +329,8 @@ int main(int argc, char *argv[]) {
     return 1;
 
   // Exhaustive test case generation.
-  for (int64_t s = 2; s < 5; s++)
-    for (int64_t b = 2; b < 5; b++)
+  for (int64_t s = 3; s < 4; s++)
+    for (int64_t b = 3; b < 4; b++)
       for (int64_t i = 2; i < 5; i++)
         for (int64_t h = 2; h < 5; h++)
           for (int64_t l = 0; l < 2; l++) {

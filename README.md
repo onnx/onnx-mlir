@@ -11,37 +11,69 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 | x86-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/workflows/Build%20x86%20onnx-mlir%20on%20macOS/badge.svg)](https://github.com/onnx/onnx-mlir/actions?query=workflow%3A%22Build+x86+onnx-mlir+on+macOS%22)             |
 
 ## Prebuilt Container
-An easy way to get started with ONNX-MLIR is to use a prebuilt docker image. These images are created as a result of a successful merge build on the trunk.
+An easy way to get started with ONNX-MLIR is to use a prebuilt docker image.
+These images are created as a result of a successful merge build on the trunk.
 This means that the latest image represents the tip of the trunk.
-Currently there are images for amd64, ppc64le and IBM System Z respectively saved in Docker Hub as onnxmlirczar/onnx-mlir-build:amd64,
-onnxmlirczar/onnx-mlir-build:ppc64le and onnxmlirczar/onnx-mlir-build:s390x. To use one of these images either pull it directly from Docker Hub,
-launch a container and run an interactive bash shell in it, or use it as the base image in a dockerfile. The container contains the full build tree including
-the prerequisites and a clone of the source code. The source can be modified and onnx-mlir rebuilt from within the container, so it is possible to use it
-as a development environment. It is also possible to attach vscode to the running container. An example Dockerfile and vscode configuration files can be
-seen in the docs folder. The Dockerfile is shown here.
+Currently there are both Release and Debug mode images for `amd64`, `ppc64le` and `s390x` saved in Docker Hub as, respectively, [onnxmlirczar/onnx-mlir](https://hub.docker.com/r/onnxmlirczar/onnx-mlir) and [onnxmlirczar/onnx-mlir-dev](https://hub.docker.com/r/onnxmlirczar/onnx-mlir-dev).
+To use one of these images either pull it directly from Docker Hub, launch a container and run an interactive bash shell in it, or use it as the base image in a dockerfile.
+The onnx-mlir image just contains the built compiler and can be used to compile models.
+The onnx-mlir-dev image contains the full build tree including the prerequisites and a clone of the source code.
+The source can be modified and onnx-mlir rebuilt from within the container, so it is possible to use it
+as a development environment.
+It is also possible to attach vscode to the running container.
+An example Dockerfile useful for development and vscode configuration files can be seen in the docs folder.
+If the workspace directory and the vscode files are not present in the directory where the Docker build is run, then the lines referencing them should be commented out or deleted.
+The Dockerfile is shown here.
 
 [same-as-file]: <> (docs/docker-example/Dockerfile)
 ```
-FROM onnxmlirczar/onnx-mlir-build:amd64
+FROM onnxmlirczar/onnx-mlir-dev
+WORKDIR /workdir
+ENV HOME=/workdir
 
-WORKDIR /build
-ENV HOME=/build
-ENV PYENV_ROOT=$HOME/.pyenv
-ENV PATH=$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH
-RUN pyenv global 3.7.0
-RUN pyenv rehash
-
-ENV PATH=$PATH:/build/bin
+# 1) Install packages.
+ENV PATH=$PATH:/workdir/bin
 RUN apt-get update
 RUN apt-get install -y python-numpy
 RUN apt-get install -y python3-pip
+RUN python -m pip install --upgrade pip
 RUN apt-get install -y gdb
 RUN apt-get install -y lldb
 RUN apt-get install -y emacs
-WORKDIR /build/.vscode
-ADD .vscode /build/.vscode
-WORKDIR /build
+RUN apt-get install -y vim
+# 2) Instal optional packages, uncomment/add as you see fit.
+# RUN apt-get install -y valgrind
+# RUN apt-get install -y libeigen3-dev
+# RUN apt-get install -y clang-format
+# RUN python -m pip install wheel
+# RUN python -m pip install numpy
+# RUN python -m pip install torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+# RUN git clone https://github.com/onnx/tutorials.git
+# Install clang-12.
+# RUN apt-get install -y lsb-release wget software-properties-common
+# RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 
+# 3) When using vscode, copy your .vscode in the Dockerfile dir and
+#    uncomment the two lines below.
+# WORKDIR /workdir/.vscode
+# ADD .vscode /workdir/.vscode
+
+# 4) When using a personal workspace folder, set your workspace sub-directory
+#    in the Dockerfile dir and uncomment the two lines below.
+# WORKDIR /workdir/workspace
+# ADD workspace /workdir/workspace
+
+# 5) Fix git by reattaching head and making git see other branches than master.
+WORKDIR /workdir/onnx-mlir
+RUN git checkout master
+RUN git fetch --unshallow
+
+# 6) Set the PATH environment vars for make/debug mode. Replace Debug
+#    with Release in the PATH below when using Release mode.
+WORKDIR /workdir
+ENV MLIR_DIR=/workdir/llvm-project/build/lib/cmake/mlir
+ENV NPROC=4
+ENV PATH=$PATH:/workdir/onnx-mlir/build/Debug/bin/:/workdir/onnx-mlir/build/Debug/lib:/workdir/llvm-project/build/bin
 ```
 
 ## Prerequisites
@@ -50,7 +82,18 @@ WORKDIR /build
 gcc >= 6.4
 libprotoc >= 3.11.0
 cmake >= 3.15.4
+ninja >= 1.10.2
 ```
+GCC can be found [here](https://gcc.gnu.org/install/), or if you have [Homebrew](https://docs.brew.sh/Installation), you can use `brew install gcc`. To check what version of gcc you have installed, run `gcc --version`.
+
+The instructions to install libprotoc can be found [here](http://google.github.io/proto-lens/installing-protoc.htm). Or alternatively, if you have Homebrew, you can run `brew install protobuf`. To check what version you have installed, run `protoc --version`.
+
+Cmake can be found [here](https://cmake.org/download/). However, to use Cmake, you need to follow the "How to Install For Command Line Use" tutorial, which can be found in Cmake under Tools>How to Install For Command Line Use. To check which version you have, you can either look in the desktop version under CMake>About, or run `cmake --version`.
+
+The instructions for installing Ninja can be found [here](https://ninja-build.org/). Or, using Homebrew, you can run `brew install ninja`. To check the version, run `ninja --version`.
+
+
+
 At any point in time, ONNX MLIR depends on a specific commit of the LLVM project that has been shown to work with the project. Periodically the maintainers
 need to move to a more recent LLVM level. Among other things, this requires that the commit string in utils/clone-mlir.sh be updated. A consequence of
 making this change is that the TravisCI build will fail until the Docker images that contain the prereqs are rebuilt. There is a GitHub workflow that rebuilds
@@ -109,7 +152,7 @@ cmake --build . --target check-onnx-lit
 
 If you are running on OSX Big Sur, you need to add `-DCMAKE_CXX_COMPILER=/usr/bin/c++`
 to the `cmake ..` command due to changes in the compilers.
-After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory. 
+After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory.
 
 ## Installation on Windows
 Building onnx-mlir on Windows requires building some additional prerequisites that are not available by default.
@@ -265,10 +308,10 @@ Backend tests are triggered by `make check-onnx-backend` in the build directory 
 
 You will need to install python 3.x if its not default in your environment, and possibly set the cmake `PYTHON_EXECUTABLE` varialbe in your top cmake file.
 
-You will also need `pybind11` which may need to be installed (mac: `brew install pybind` for example) and you may need to indicate where to find the software (Mac, POWER, possibly other platforms: `export pybind11_DIR=<your path to pybind>`). Then install the `third_party/onnx` software (Mac: `pip install -e third_party/onnx`) typed in the top directory.
+You will also need `pybind11` which may need to be installed (mac: `brew install pybind11` for example) and you may need to indicate where to find the software (Mac, POWER, possibly other platforms: `export pybind11_DIR=<your path to pybind>`). Then install the `third_party/onnx` software (Mac: `pip install -e third_party/onnx`) typed in the top directory.
 
 On Macs/POWER and possibly other platforms, there is currently an issue that arises when installing ONNX. If you get an error during the build, try a fix where you edit the top CMakefile as reported in this PR: `https://github.com/onnx/onnx/pull/2482/files`.
 
 ## Slack channel
 
-We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`. THis channel can be used for asking quick questions related to this project. A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
+We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`. This channel can be used for asking quick questions related to this project. A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).

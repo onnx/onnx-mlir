@@ -7,51 +7,9 @@ add_subdirectory(Conversion)
 add_subdirectory(Transform)
 add_subdirectory(Builder)
 add_subdirectory(Runtime)
-
-# All ONNX-MLIR libraries.
-set(OMLibs
-  OMBuilder
-  OMONNXOps
-  OMKrnlOps
-  OMSupport
-  OMKrnlToAffine
-  OMKrnlToLLVM
-  OMONNXToKrnl
-  OMONNXRewrite
-  OMShapeInference
-  OMShapeInferenceOpInterface
-  OMResultTypeInferenceOpInterface
-  OMHasOnnxSubgraphOpInterface
-  OMSpecializedKernelOpInterface
-  OMElideConstants
-  OMElideKrnlGlobalConstants
-  OMEnableMemoryPool
-  OMBundleMemoryPools
-  OMOptimizeMemoryPools
-  OMDisconnectKrnlDimFromAlloc
-  OMLowerKrnlShape
-  OMSimplifyKrnl
-  )
-set(OMLibs ${OMLibs} PARENT_SCOPE)
-
 add_subdirectory(Tool)
 
-add_onnx_mlir_library(MainUtils
-  EXCLUDE_FROM_OM_LIBS
-  MainUtils.cpp
-  )
-
-target_link_libraries(MainUtils
-  PUBLIC
-  ${OMLibs}
-  ${MLIRLibs}
-  ${CMAKE_DL_LIBS}
-  onnx
-  )
-
-add_onnx_mlir_executable(onnx-mlir
-        main.cpp)
-target_link_libraries(onnx-mlir MainUtils)
+get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
@@ -74,17 +32,32 @@ else()
 endif()
 
 add_custom_target(ExternalUtil DEPENDS ${FILE_GENERATE_DIR}/ExternalUtil.hpp)
-add_dependencies(MainUtils ExternalUtil)
-target_include_directories(MainUtils PRIVATE ${FILE_GENERATE_DIR})
 
-# Libraries specified on the target_link_libraries for the add_subdirectory
-# targets get added to the end of the list here. This creates two problems:
-# 1. It produces duplicated libraries being specified for the link command.
-# 2. The libraries added at the end may depend on other libraries thus
-#    cause linkage errors due to undefined symbols.
-# So it's better not to use target_link_libraries for the add_subdirectory
-# targets, or only use it for libraries that have no further dependencies
-# (except system libraries such as libc).
-add_dependencies(onnx-mlir OMKrnlOpsInc OMONNXOpsInc)
+add_onnx_mlir_library(MainUtils
+  MainUtils.cpp
 
-add_dependencies(onnx-mlir cruntime)
+  EXCLUDE_FROM_OM_LIBS
+
+  DEPENDS
+  ExternalUtil
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+
+  LINK_LIBS PUBLIC
+  ${OMLibs}
+  MLIRAffineTransforms
+  MLIRLinalgTransforms
+  MLIRLLVMToLLVMIRTranslation
+  )
+
+# MainUtils does not require cruntime to build, however, it is required
+# for execution when using the EmitLib or EmitJNI options
+add_dependencies(MainUtils cruntime)
+
+add_onnx_mlir_executable(onnx-mlir
+  main.cpp
+
+  LINK_LIBS PRIVATE
+  MainUtils
+  )

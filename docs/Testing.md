@@ -68,6 +68,52 @@ with IMPORTER_FORCE_DYNAMIC='0:0,2|1:1', the result is:
 
 This is a way to use existing node test for dynamic tensors. Since not all test case can pass with dynamic tensor, there is a list in test/backend/test.py, test_not_for_dynamic, to specify which test can not pass with IMPORTER_FORCE_DYNAMIC is defined.
 
+### Execution of backend tests
+
+A tool defined in `utils/RunONNXLib.cpp` can be used to easily execute files from their `.so`
+models, such as the ones generated using the
+`TEST_CASE_BY_USER=selected_test_name make check-onnx-backend` command.
+Models can also be preserved when built in other manners by setting the
+`overridePreserveFiles` value in the `onnx-mlir/src/MainUtils.cpp` file to
+`KeepFilesOfType::All`, for example.
+
+When the onnx model is older than the current version supported by onnx-mlir, 
+onnx version converter can be invoked with environment variable `INVOKECONVERTER` set 
+to true. For example, converter will be called for all test cases for 
+`INVOKECONVERTER=true make check-onnx-backend`. 
+In test.py, there is a list called `test_need_converter` for you to invoke converter on individual cases.
+
+The tool directly scans the signature provided by the model, initializes the needed inputs with random
+values, and then makes a function call into the model. The program can then be used in conjunction
+with other tools, such as `gdb`, `lldb`, or `valgrind`.
+To list the utility options, simply use the `-h` or `--help` flags at runtime.
+
+We first need to compile the tool, which can be done in one of two modes.
+In the first mode, the tool is compiled with a statically linked model.
+This mode requires the `-D LOAD_MODEL_STATICALLY=0` option during compilation in addition to including the `.so` file.
+Best is to use the `build-run-onnx-lib.sh` script in the `onnx-mlir/utils` directory to compile the tool with its model, which is passed as a parameter to the script.
+To avoid library path issues, just run the tool in the home directory of the model.
+
+``` sh
+# Compile tool with model.
+cd onnx-mlir/build
+. ../utils/build-run-onnx-lib.sh test/backend/test_add.so
+# Run tool in the directory of the model.
+(cd test/backend; run-onnx-lib)
+```
+
+In the second mode, the tool is compiled without models, which will be passed at runtime.
+To enable this option, simply compile the tool with the `-D LOAD_MODEL_STATICALLY=1` option.
+You may use the same script as above but without arguments. The tool can then be be run from
+any directories as long as you pass the `.so` model file at runtime to the tool.
+
+``` sh
+# Compile tool without a model.
+cd onnx-mlir/build
+. ../utils/build-run-onnx-lib.sh
+# Run the tool with an argument pointing to the model.
+run-onnx-lib test/backend/test_add.so
+```
 
 ## LLVM FileCheck Tests
 

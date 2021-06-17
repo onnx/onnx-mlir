@@ -359,4 +359,9 @@ void krnl_copy_from_buffer_ie(Value bufferMemref, Value memref,
 void krnl_copy_from_buffer_ie(
     Value bufferMemref, Value memref, ArrayRef<IndexExpr> starts);
 
+//====---------------- Common helper functions ----------------------------===//
+
+/// Check whether a value is produced by a dense KrnlGlobalOp.
+bool isKrnlGlobalConstant(Value result);
+
 } // namespace mlir

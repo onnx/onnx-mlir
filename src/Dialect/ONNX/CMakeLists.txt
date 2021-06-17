@@ -9,23 +9,26 @@ endif()
 add_onnx_mlir_dialect(ONNXOps)
 add_onnx_mlir_dialect_doc(onnx ONNXOps.td)
 
-# Header dependencies target for ONNXOps.hpp
-add_custom_target(OMONNXOpsInc
-        DEPENDS OMONNXOpsIncGen
-                OMResultTypeInferenceOpInterfaceIncGen
-                OMShapeInferenceOpInterfaceIncGen
-                OMHasOnnxSubgraphOpInterfaceIncGen)
+add_onnx_mlir_rewriter(Rewrite)
+add_onnx_mlir_rewriter(Combine)
 
 add_onnx_mlir_library(OMONNXOps
-        ONNXOps.cpp
-        ONNXOpsHelper.cpp
-        ONNXShapeHelper.cpp
-        IndexExpr.cpp
-        IndexExprDetail.cpp)
+  ONNXOps.cpp
+  ONNXOpsHelper.cpp
+  ONNXShapeHelper.cpp
+  Rewrite.cpp
+  Combine.cpp
+  IndexExpr.cpp
+  IndexExprDetail.cpp
 
-add_dependencies(OMONNXOps OMONNXOpsInc)
+  DEPENDS
+  OMHasOnnxSubgraphOpInterfaceIncGen
+  OMONNXCombineIncGen
+  OMONNXOpsIncGen
+  OMONNXRewriteIncGen
+  OMResultTypeInferenceOpInterfaceIncGen
+  OMShapeInferenceOpInterfaceIncGen
 
-# Linking dependencies:
-add_dependencies(OMONNXOps
-        OMResultTypeInferenceOpInterface
-        OMShapeInferenceOpInterface)
+  LINK_LIBS PUBLIC
+  MLIRAffine
+  )
