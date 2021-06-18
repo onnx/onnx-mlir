@@ -36,6 +36,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/Flatten.cpp
   Tensor/Tile.cpp
   Tensor/Range.cpp
+  Tensor/Resize.cpp
   ConvertONNXToKrnl.cpp
 
   LINK_LIBS PUBLIC

@@ -2493,6 +2493,46 @@ LogicalResult ONNXFlattenOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// Resize
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXResizeOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!X().getType().isa<RankedTensorType>()) {
+    return emitError("X tensor has to be ranked in current implementation");
+  }
+  auto inputTy = X().getType().cast<RankedTensorType>();
+
+  if (isFromNone(scales()) == isFromNone(sizes())) {
+    return emitError("scales() and sizes() can not both None/not None");
+  }
+
+  // Current implementation handles constant scales only
+  DenseElementsAttr scalesAttrs =
+      getDenseElementAttributeFromONNXValue(scales());
+  if (!scalesAttrs)
+    return emitError("Not implemented yet");
+
+  SmallVector<float, 4> scalesConstant;
+  for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
+    scalesConstant.emplace_back(scaleAttr.getValueAsDouble());
+  }
+
+  SmallVector<int64_t, 4> dims;
+  for (int i = 0; i < inputTy.getRank(); i++) {
+    int newDim;
+    if (inputTy.getShape()[i] == -1)
+      newDim = -1;
+    else
+      newDim = inputTy.getShape()[i] * scalesConstant[i];
+    dims.emplace_back(newDim);
+  }
+
+  getResult().setType(RankedTensorType::get(dims, inputTy.getElementType()));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // DynamicQuantizeLinear
 //===----------------------------------------------------------------------===//
 
@@ -3395,11 +3435,6 @@ LogicalResult ONNXReduceLogSumExpOp::inferShapes(
 }
 
 LogicalResult ONNXReduceSumSquareOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXResizeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
