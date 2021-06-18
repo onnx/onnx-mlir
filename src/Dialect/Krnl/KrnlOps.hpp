@@ -31,7 +31,6 @@
 #include "KrnlHelper.hpp"
 #include "KrnlTypes.hpp"
 
-
 namespace mlir {
 class KrnlOpsDialect : public Dialect {
 public:

@@ -130,9 +130,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Initialize alloc/C to zero.
     ValueRange zLoop = lb.create<KrnlDefineLoopsOp>(2).getResults();
-    lb.create<KrnlIterateOp>(zLoop, ValueRange{zero, zero},
-        ValueRange{I, J}, ValueRange{},
-        [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+    lb.create<KrnlIterateOp>(zLoop, ValueRange{zero, zero}, ValueRange{I, J},
+        ValueRange{}, [&](ImplicitLocOpBuilder &lb, ValueRange args) {
           ValueRange indices =
               lb.create<KrnlGetInductionVariableValueOp>(zLoop).getResults();
           lb.create<KrnlStoreOp>(zeroVal, alloc, indices);
@@ -166,8 +165,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
               ValueRange{zero, zero}, C, ValueRange{zero, zero},
               ValueRange{ii2, jj2, kk2}, i1, j1, k1, I, J, K,
               ArrayRef<int64_t>{iRegTile, jRegTile, kRegTile},
-              ArrayRef<int64_t>{}, ArrayRef<int64_t>{},
-              ArrayRef<int64_t>{}, true, true, false);
+              ArrayRef<int64_t>{}, ArrayRef<int64_t>{}, ArrayRef<int64_t>{},
+              true, true, false);
         });
   }
 

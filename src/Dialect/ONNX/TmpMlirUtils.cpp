@@ -11,9 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "TmpMlirUtils.hpp"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 using namespace mlir;
 
