@@ -27,11 +27,16 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
-    ONNXResizeOp sizeOp = llvm::dyn_cast<ONNXResizeOp>(op);
+    ONNXResizeOp resizeOp = llvm::cast<ONNXResizeOp>(op);
+
+    // Check implementation constraints
+    if (resizeOp.mode() != "nearest" ||
+        resizeOp.coordinate_transformation_mode() != "asymmetric" ||
+        resizeOp.nearest_mode() != "floor")
+      llvm_unreachable("not implemented yet");
 
     ONNXResizeOpAdaptor operandAdaptor(operands);
     Value data = operandAdaptor.X();
-    ArrayRef<int64_t> dataShape = data.getType().cast<MemRefType>().getShape();
 
     MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
     int64_t rank = memRefType.getShape().size();
@@ -42,7 +47,6 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       llvm_unreachable("unknown shape for output");
 
     // Get the scales
-    ONNXResizeOp resizeOp = llvm::cast<ONNXResizeOp>(op);
     DenseElementsAttr scalesAttrs =
         getDenseElementAttributeFromONNXValue(resizeOp.scales());
     if (!scalesAttrs)
@@ -79,7 +83,6 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     }
     Value loadVal = rewriter.create<KrnlLoadOp>(loc, data, readIndices);
     rewriter.create<KrnlStoreOp>(loc, loadVal, alloc, writeIndices);
-    loadVal.dump();
 
     rewriter.replaceOp(op, alloc);
     return success();
