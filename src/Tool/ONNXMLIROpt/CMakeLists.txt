@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
+get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
+
 add_onnx_mlir_executable(onnx-mlir-opt
   ONNXMLIROpt.cpp
-  )
 
-target_link_libraries(onnx-mlir-opt
+  LINK_LIBS PRIVATE
   ${OMLibs}
-  ${MLIRLibs}
+  MLIRAffineTransforms
+  MLIRLinalgTransforms
   MLIROptLib
-  onnx
   )
