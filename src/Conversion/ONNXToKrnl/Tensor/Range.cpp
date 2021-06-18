@@ -84,8 +84,6 @@ struct ONNXRangeOpLowering : public ConversionPattern {
     // Emit the definition.
     krnlLoop.createDefineOp();
 
-    // Emit body of the loop:
-    // output[i] = start + (i * delta);
     SmallVector<int64_t, 1> accShape;
     accShape.emplace_back(1);
     auto accType = MemRefType::get(accShape, rewriter.getF32Type());
@@ -98,6 +96,8 @@ struct ONNXRangeOpLowering : public ConversionPattern {
     // Initialize accumulator with value:
     krnl_store(loadedStart, acc, accIndex);
 
+    // Emit body of the loop:
+    // output[i] = start + (i * delta);
     int nIndex = krnlLoop.pushBounds(0, alloc, 0);
     krnlLoop.createIterateOp();
     rewriter.setInsertionPointToStart(krnlLoop.getIterateBlock());
