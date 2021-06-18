@@ -2352,3 +2352,36 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
   // CHECK:       }
 }
 
+// -----
+
+func @test_resize1(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
+    %cst = constant unit
+    %0 = "onnx.Constant"() {value = dense<[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
+    %1 = "onnx.Constant"() {value = dense<[1.000000e+00,  3.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
+    %2 = "onnx.Resize"(%arg0, %0, %1, %cst) {coordinate_transformation_mode = "asymmetric", mode = "nearest", nearest_mode = "floor"} : (tensor<3x4xf32>, tensor<4xf32>, tensor<2xf32>, none) -> tensor<*xf32>
+    "std.return"(%2) : (tensor<*xf32>) -> ()
+// CHECK-LABEL:       func @test_resize1
+// CHECK-SAME:     ([[VAR_arg0:%.+]]: memref<3x4xf32>) -> memref<3x12xf32> {
+// CHECK:           [[VAR_0:%.+]] = memref.alloc() : memref<3x12xf32>
+// CHECK:           [[VAR_cst:%.+]] = constant unit
+// CHECK:           [[VAR_1:%.+]] = "krnl.global"() {name = "constant_0", shape = [4], value = dense<[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<4xf32>} : () -> memref<4xf32>
+// CHECK:           [[VAR_2:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[1.000000e+00, 3.000000e+00]> : tensor<2xf32>} : () -> memref<2xf32>
+// CHECK:           [[VAR_3:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[VAR_3]]#0, [[VAR_3]]#1) with ([[VAR_3]]#0 -> [[VAR_arg1:%.+]] = 0 to 3, [[VAR_3]]#1 -> [[VAR_arg2:%.+]] = 0 to 12) {
+// CHECK:             [[VAR_4:%.+]] = index_cast [[VAR_arg1]] : index to i64
+// CHECK:             [[VAR_5:%.+]] = sitofp [[VAR_4]] : i64 to f32
+// CHECK:             [[VAR_cst_0:%.+]] = constant 1.000000e+00 : f32
+// CHECK:             [[VAR_6:%.+]] = divf [[VAR_5]], [[VAR_cst_0]] : f32
+// CHECK:             [[VAR_7:%.+]] = fptosi [[VAR_6]] : f32 to i64
+// CHECK:             [[VAR_8:%.+]] = index_cast [[VAR_7]] : i64 to index
+// CHECK:             [[VAR_9:%.+]] = index_cast [[VAR_arg2]] : index to i64
+// CHECK:             [[VAR_10:%.+]] = sitofp [[VAR_9]] : i64 to f32
+// CHECK:             [[VAR_cst_1:%.+]] = constant 3.000000e+00 : f32
+// CHECK:             [[VAR_11:%.+]] = divf [[VAR_10]], [[VAR_cst_1]] : f32
+// CHECK:             [[VAR_12:%.+]] = fptosi [[VAR_11]] : f32 to i64
+// CHECK:             [[VAR_13:%.+]] = index_cast [[VAR_12]] : i64 to index
+// CHECK:             [[VAR_14:%.+]] = krnl.load [[VAR_arg0]]{{.}}[[VAR_8]], [[VAR_13]]{{.}} : memref<3x4xf32>
+// CHECK:             krnl.store [[VAR_14]], [[VAR_0]]{{.}}[[VAR_arg1]], [[VAR_arg2]]{{.}} : memref<3x12xf32>
+// CHECK:           }
+// CHECK:           return [[VAR_0]] : memref<3x12xf32>
+}
