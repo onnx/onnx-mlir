@@ -8,25 +8,25 @@ import numpy as np
 # TODO: this should be configurable
 np.random.seed(0)
 
-def get_size(shape : list[int]):
+def get_size(shape : "list[int]"):
   prod = 1
   for dim in shape:
     prod *= dim
   return prod
 
-def generate_random(shape : list[int]):
+def generate_random(shape : "list[int]"):
   return np.random.ranf(shape).astype(np.float32)
 
-def generate_sequential(shape : list[int], start, stop):
+def generate_sequential(shape : "list[int]", start, stop):
   iterable = (x%stop+start for x in range(get_size(shape)))
   return np.fromiter(iterable, np.float32).reshape(shape)
 
-def generate_fixed(shape : list[int], value):
+def generate_fixed(shape : "list[int]", value):
   iterable = (value for _ in range(get_size(shape)))
   return np.fromiter(iterable, np.float32).reshape(shape)
 
 
-def generate_input(output_dir : Path, data_name : str, shape, generator : Callable[[list[int]], list[float]]):
+def generate_input(output_dir : Path, data_name : str, shape, generator : Callable[["list[int]"], "list[float]"]):
   input_data = generator(shape)
   (output_dir / data_name).write_bytes(input_data)
 

@@ -37,6 +37,15 @@ def generate_host(out_path: str, interface_header: str, sku: str, inputs, output
     out_file.write(f', span<npufloat_t> out{index}_data')
   out_file.write(')\n{\n')
 
+  out_file.write('  // Load the NPU Program.\n')
+  out_file.write('  auto options = Trainwave::DeviceOptions();\n')
+  out_file.write('  options.skuName = SKU::Name;\n')
+  if firstPort != 0:
+    out_file.write(f'  SetNetworkConfiguration(options, {firstPort});\n')
+  out_file.write('  auto device = twr::Device::CreateEmulatorDevice(options);\n')
+  out_file.write('  device.LoadNPUProgram(package);\n')
+  out_file.write('\n')
+
   for index, input in enumerate(inputs):
     out_file.write(f'  KernelParams::ArrayRef::DimsType arg{index}_dims = {format_shape(input.shape)};\n')
   for index, output in enumerate(outputs):
@@ -49,16 +58,10 @@ def generate_host(out_path: str, interface_header: str, sku: str, inputs, output
     out_file.write(f'  assert(out{index}_data.size() == compute_size(out{index}_dims));\n')
   out_file.write('\n')
 
-  out_file.write('  const uint64_t arg0_address = Apollo::HbmAllocations::HbmRuntimeReservedEnd;\n')
-  prev_var = 'arg0'
   for index, input in enumerate(inputs):
-    if index == 0:
-      continue
-    out_file.write(f'  const uint64_t arg{index}_address = {prev_var}_address + {prev_var}_data.size() * sizeof(npufloat_t);\n')
-    prev_var = f'arg{index}'
+    out_file.write(f'  const uint64_t arg{index}_address = device.AllocMemory(arg{index}_data.size() * sizeof(npufloat_t));\n')
   for index, output in enumerate(outputs):
-    out_file.write(f'  const uint64_t out{index}_address = {prev_var}_address + {prev_var}_data.size() * sizeof(npufloat_t);\n')
-    prev_var = f'out{index}'
+    out_file.write(f'  const uint64_t out{index}_address = device.AllocMemory(out{index}_data.size() * sizeof(npufloat_t));\n')
   out_file.write('\n')
 
   out_file.write('  std::vector<KernelParams::ArrayRef> kernelInputs;\n')
@@ -68,15 +71,6 @@ def generate_host(out_path: str, interface_header: str, sku: str, inputs, output
   for index, output in enumerate(outputs):
     out_file.write(f'  kernelOutputs.push_back(KernelParams::ArrayRef{{out{index}_dims, out{index}_address}});\n')
   out_file.write('  auto args = CreateKernelParams(kernelInputs, kernelOutputs);\n')
-  out_file.write('\n')
-
-  out_file.write('  // Load the NPU Program.\n')
-  out_file.write('  auto options = Trainwave::DeviceOptions();\n')
-  out_file.write('  options.skuName = SKU::Name;\n')
-  if firstPort != 0:
-    out_file.write(f'  SetNetworkConfiguration(options, {firstPort});\n')
-  out_file.write('  auto device = twr::Device::CreateEmulatorDevice(options);\n')
-  out_file.write('  device.LoadNPUProgram(package);\n')
   out_file.write('\n')
 
   out_file.write('  // send the data to the device\n')
@@ -122,7 +116,8 @@ def generate_host(out_path: str, interface_header: str, sku: str, inputs, output
   out_file.write('\n')
   out_file.write('    // row major -> tiled format\n')
   for index, input in enumerate(inputs):
-    out_file.write(f'    arg{index} = RowMajorToTileMajor<npufloat_t, TILE_SIZE>(arg{index}, std::vector<size_t>{format_shape(input.shape)});\n')
+    out_file.write(f'    auto arg{index}_shape = std::vector<size_t>{format_shape(input.shape)};\n')
+    out_file.write(f'    arg{index} = RowMajorToTileMajor<npufloat_t, TILE_SIZE>(arg{index}, arg{index}_shape);\n')
   out_file.write('\n')
   out_file.write('    ExecuteModel(argv[1]')
   for index, input in enumerate(inputs):
@@ -133,7 +128,8 @@ def generate_host(out_path: str, interface_header: str, sku: str, inputs, output
   out_file.write('\n')
   out_file.write('    // tiled format -> row major\n')
   for index, output in enumerate(outputs):
-    out_file.write(f'    out{index} = TileMajorToRowMajor<npufloat_t, TILE_SIZE>(out{index}, std::vector<size_t>{format_shape(output.shape)});\n')
+    out_file.write(f'    auto out{index}_shape = std::vector<size_t>{format_shape(output.shape)};\n')
+    out_file.write(f'    out{index} = TileMajorToRowMajor<npufloat_t, TILE_SIZE>(out{index}, out{index}_shape);\n')
   out_file.write('\n')
   for index, output in enumerate(outputs):
     out_file.write(f'    if (out{index} != out{index}_expected) {{\n')  
@@ -149,7 +145,7 @@ def generate_host(out_path: str, interface_header: str, sku: str, inputs, output
     out_file.write(f'        }}\n')
     out_file.write(f'      }}\n')
     out_file.write('\n')
-    out_file.write(f'      throw std::exception("\'{output.name}\' did not match expected output");\n')
+    out_file.write(f'      throw std::logic_error("\'{output.name}\' did not match expected output");\n')
     out_file.write('    }\n')
     out_file.write('\n')
   out_file.write('  } catch (std::exception &e) {\n')

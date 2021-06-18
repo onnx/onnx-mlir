@@ -21,11 +21,6 @@ if (CMAKE_GENERATOR MATCHES "Visual Studio")
   return()
 endif()
 
-if(NOT WIN32)
-  message(WARNING "MAIA NPU testing does not support non-Windows platforms.")
-  return()
-endif()
-
 if (NOT APOLLO_SDK_PATH)
   set(APOLLO_SDK_PATH "APOLLO_SDK_PATH-NOTFOUND" CACHE PATH "Path to Apollo SDK." FORCE)
 endif()
@@ -44,12 +39,6 @@ set(CMAKE_MODULE_PATH "${ApolloSDK_PATH}/cmake")
 set(MAIA_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 set(MAIA_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(HOST_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-# Add all of our python dependencies
-# ISSUE-TODO: Remove this install once building the local ONNX wheel is supported on Windows
-find_package (Python3 COMPONENTS Interpreter NumPy)
-execute_process(COMMAND ${Python3_EXECUTABLE} -m pip install onnx)
-execute_process(COMMAND ${Python3_EXECUTABLE} -m pip install onnxruntime)
 
 # build our test lists
 #  `make_tests --list` produces a tab-delimited output which is parsed by this code
@@ -100,7 +89,7 @@ foreach(TEST ${TEST_LIST})
     apollo_compile_npu(${TEST})
     generate_baseline_output(${TEST})
     add_test(NAME maia-execute-${TEST}
-             COMMAND ${TEST}.host.exe ${TEST}_NPU.zip
+             COMMAND ${TEST}.host ${TEST}_NPU.zip
              WORKING_DIRECTORY ${TEST_DIR})
   elseif(${TEST_DIFF} GREATER_EQUAL 0)
 # This is skeleton/placeholder code for what the diff tests should look like.

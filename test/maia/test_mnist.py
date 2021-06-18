@@ -8,13 +8,13 @@ import onnx
 from onnx import TensorProto, ModelProto
 
 # generate model and name given the parameters
-def generate_mnist_model(layer_dims : list[int]) -> Tuple[Callable[[TensorProto], ModelProto], str]:
+def generate_mnist_model(layer_dims : "list[int]") -> Tuple[Callable[[TensorProto], ModelProto], str]:
   model_name = f'mnist_padded_static_noconsts_2d_bias'
   def make_model(float_mode: TensorProto) -> ModelProto:
     return create_mnist_model(layer_dims, float_mode)
   return make_model, model_name
 
-def all_ones(shape: list[int]):
+def all_ones(shape: "list[int]"):
   return generate_fixed(shape, 1.0)
 
 ##

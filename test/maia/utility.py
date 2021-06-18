@@ -23,13 +23,13 @@ class TestType(Flag):
 
 in_out = namedtuple('in_out', ['name', 'shape'])
 
-def get_shape(type : TypeProto) -> list[int]:
+def get_shape(type : TypeProto) -> "list[int]":
   return list(map(lambda x: x.dim_value, type.tensor_type.shape.dim))
 
-def get_inputs(model : ModelProto) -> list[int]:
+def get_inputs(model : ModelProto) -> "list[int]":
   return list(map(lambda x: in_out(x.name, get_shape(x.type)), model.graph.input))
 
-def get_outputs(model : ModelProto) -> list[int]:
+def get_outputs(model : ModelProto) -> "list[int]":
   return list(map(lambda x: in_out(x.name, get_shape(x.type)), model.graph.output))
 
 

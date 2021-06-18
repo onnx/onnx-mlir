@@ -32,7 +32,7 @@ include(CTest)
 include(MLIR.cmake)
 
 # MLIR.cmake calls find_package(MLIR) which sets LLVM_MINIMUM_PYTHON_VERSION
-find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
+find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development NumPy)
 
 if (MSVC)
   # Disable warnings that prevent building of dependencies
