@@ -3314,13 +3314,21 @@ LogicalResult ONNXRangeOp::inferShapes(
   auto limitTensorTy = limit().getType().cast<RankedTensorType>();
   auto deltaTensorTy = delta().getType().cast<RankedTensorType>();
 
-  // Only rank 1 input tensors are supported.
+  // Only rank 0 or 1 input tensors are supported.
   if (startTensorTy.getShape().size() > 1)
     return emitError("start tensor must have rank zero or one");
   if (limitTensorTy.getShape().size() > 1)
     return emitError("limit tensor must have rank zero or one");
   if (deltaTensorTy.getShape().size() > 1)
     return emitError("delta tensor must have rank zero or one");
+
+  // If tensor is rank 1 then the dimension has to be 1.
+  if (startTensorTy.getShape().size() == 1 && startTensorTy.getShape()[0] > 1)
+    return emitError("start tensor of rank one must have size one");
+  if (limitTensorTy.getShape().size() == 1 && limitTensorTy.getShape()[0] > 1)
+    return emitError("limit tensor of rank one must have size one");
+  if (deltaTensorTy.getShape().size() == 1 && deltaTensorTy.getShape()[0] > 1)
+    return emitError("delta tensor of rank one must have size one");
 
   // Only int or float input types are supported:
   // tensor(float), tensor(double), tensor(int16), tensor(int32), tensor(int64)

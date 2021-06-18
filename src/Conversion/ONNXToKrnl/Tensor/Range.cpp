@@ -44,33 +44,53 @@ struct ONNXRangeOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
+    Type elementType = memRefType.getElementType();
     auto memRefShape = memRefType.getShape();
 
     // Allocate result.
     Value alloc;
-    Value loadedStart;
-    Value loadedDelta;
+    Value zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+    Value loadedStart = rewriter.create<KrnlLoadOp>(loc, start, zero);
+    Value loadedDelta = rewriter.create<KrnlLoadOp>(loc, delta, zero);
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType)) {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-
-      // TODO:
-      // loadedStart
-      // loadedDelta
     } else {
-      Value zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
       Value loadedLimit = rewriter.create<KrnlLoadOp>(loc, limit, zero);
-      loadedStart = rewriter.create<KrnlLoadOp>(loc, start, zero);
-      loadedDelta = rewriter.create<KrnlLoadOp>(loc, delta, zero);
 
-      Value elements = rewriter.create<DivFOp>(loc,
-          rewriter.create<SubFOp>(loc, loadedLimit, loadedStart), loadedDelta);
+      Value numberOfElements;
+      TypeSwitch<Type>(elementType)
+          .Case<Float16Type>([&](Type) {
+            llvm_unreachable("Float 16 type not supported for Range op.");
+          })
+          .Case<Float32Type>([&](Type) {
+            Value elements = rewriter.create<DivFOp>(loc,
+                rewriter.create<SubFOp>(loc, loadedLimit, loadedStart),
+                loadedDelta);
+            numberOfElements = rewriter.create<IndexCastOp>(loc,
+                rewriter.create<mlir::FPToUIOp>(loc,
+                    rewriter.create<mlir::CeilFOp>(loc, elements),
+                    rewriter.getIntegerType(64)),
+                rewriter.getIndexType());
+          })
+          .Case<Float64Type>([&](Type) {
+            Value elements = rewriter.create<DivFOp>(loc,
+                rewriter.create<SubFOp>(loc, loadedLimit, loadedStart),
+                loadedDelta);
+            numberOfElements = rewriter.create<IndexCastOp>(loc,
+                rewriter.create<mlir::FPToUIOp>(loc,
+                    rewriter.create<mlir::CeilFOp>(loc, elements),
+                    rewriter.getIntegerType(64)),
+                rewriter.getIndexType());
+          })
+          .Case<IntegerType>([&](Type) {
+            Value elements = rewriter.create<SignedCeilDivIOp>(loc,
+                rewriter.create<SubIOp>(loc, loadedLimit, loadedStart),
+                loadedDelta);
+            numberOfElements = rewriter.create<IndexCastOp>(
+                loc, elements, rewriter.getIndexType());
+          });
 
-      Value numberOfElements = rewriter.create<IndexCastOp>(loc,
-          rewriter.create<mlir::FPToUIOp>(loc,
-              rewriter.create<mlir::CeilFOp>(loc, elements),
-              rewriter.getIntegerType(64)),
-          rewriter.getIndexType());
       SmallVector<Value, 4> allocOperands;
       allocOperands.push_back(numberOfElements);
       memref::AllocOp allocateMemref =
@@ -86,7 +106,30 @@ struct ONNXRangeOpLowering : public ConversionPattern {
 
     SmallVector<int64_t, 1> accShape;
     accShape.emplace_back(1);
-    auto accType = MemRefType::get(accShape, rewriter.getF32Type());
+
+    MemRefType accType;
+    TypeSwitch<Type>(elementType)
+        .Case<Float32Type>([&](Type) {
+          accType = MemRefType::get(accShape, rewriter.getF32Type());
+        })
+        .Case<Float64Type>([&](Type) {
+          accType = MemRefType::get(accShape, rewriter.getF64Type());
+        })
+        .Case<IntegerType>([&](Type) {
+          auto width = elementType.cast<IntegerType>().getWidth();
+          if (width == 8) {
+            llvm_unreachable("Integer 8 type not supported for Range op.");
+          } else if (width == 16) {
+            accType = MemRefType::get(accShape, rewriter.getIntegerType(16));
+          } else if (width == 32) {
+            accType = MemRefType::get(accShape, rewriter.getIntegerType(32));
+          } else if (width == 64) {
+            accType = MemRefType::get(accShape, rewriter.getIntegerType(64));
+          } else {
+            llvm_unreachable(
+                "Integer type over 64 bits not supported for Range op.");
+          }
+        });
     auto acc = rewriter.create<memref::AllocOp>(loc, accType);
 
     // Acc index:
@@ -112,7 +155,17 @@ struct ONNXRangeOpLowering : public ConversionPattern {
       krnl_store(result, alloc, resultIndices);
 
       // Increment result:
-      Value accResult = rewriter.create<AddFOp>(loc, result, loadedDelta);
+      Value accResult;
+      TypeSwitch<Type>(elementType)
+          .Case<Float32Type>([&](Type) {
+            accResult = rewriter.create<AddFOp>(loc, result, loadedDelta);
+          })
+          .Case<Float64Type>([&](Type) {
+            accResult = rewriter.create<AddFOp>(loc, result, loadedDelta);
+          })
+          .Case<IntegerType>([&](Type) {
+            accResult = rewriter.create<AddIOp>(loc, result, loadedDelta);
+          });
       krnl_store(accResult, acc, accIndex);
     }
 

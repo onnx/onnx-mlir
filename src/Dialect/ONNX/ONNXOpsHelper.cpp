@@ -458,9 +458,14 @@ double getScalarValue(
   if (isCommonInteger(tensorType)) {
     auto valueIt = attr.getValues<IntegerAttr>().begin();
     value = (double)(*valueIt).cast<IntegerAttr>().getInt();
-  } else {
+  } else if (tensorType.getElementType().isF32()) {
     auto valueIt = attr.getFloatValues().begin();
-    value = (*valueIt).convertToFloat();
+    value = (double)(*valueIt).convertToFloat();
+  } else if (tensorType.getElementType().isF64()) {
+    auto valueIt = attr.getFloatValues().begin();
+    value = (double)(*valueIt).convertToDouble();
+  } else {
+    llvm_unreachable("Unexpected type.");
   }
   return value;
 }
