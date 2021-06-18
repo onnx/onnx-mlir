@@ -44,13 +44,14 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
-      llvm_unreachable("unknown shape for output");
+      // TODO: handle dynamic shape in alloc
+      return emitError(loc, "unknown shape for output");
 
     // Get the scales
     DenseElementsAttr scalesAttrs =
         getDenseElementAttributeFromONNXValue(resizeOp.scales());
     if (!scalesAttrs)
-      llvm_unreachable("Not implemented yet");
+      return emitError(loc, "Not implemented yet");
     SmallVector<float, 4> scalesConstant;
     for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
       scalesConstant.emplace_back(scaleAttr.getValueAsDouble());
