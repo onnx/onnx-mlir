@@ -7,11 +7,10 @@ func @test_range_dynamic_f32(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tens
   return %0 : tensor<*xf32>
 
   // CHECK-LABEL: test_range_dynamic
-  // CHECK: %[[C0:.*]] = constant 0 : index
-  // CHECK: [[START:%.*]] = krnl.load %arg0[%[[C0]]] : memref<f32>
-  // CHECK: [[DELTA:%.*]] = krnl.load %arg2[%[[C0]]] : memref<f32>
+  // CHECK: [[START:%.*]] = krnl.load %arg0[] : memref<f32>
+  // CHECK: [[DELTA:%.*]] = krnl.load %arg2[] : memref<f32>
 
-  // CHECK: [[LIMIT:%.*]] = krnl.load %arg1[%[[C0]]] : memref<f32>
+  // CHECK: [[LIMIT:%.*]] = krnl.load %arg1[] : memref<f32>
   // CHECK: [[SUB:%.*]] = subf [[LIMIT]], [[START]] : f32
   // CHECK: [[DIV:%.*]] = divf [[SUB]], [[DELTA]] : f32
   // CHECK: [[CEIL:%.*]] = ceilf [[DIV]] : f32
@@ -43,11 +42,10 @@ func @test_range_dynamic_f64(%arg0: tensor<f64>, %arg1: tensor<f64>, %arg2: tens
   return %0 : tensor<*xf64>
 
   // CHECK-LABEL: test_range_dynamic_f64
-  // CHECK: %[[C0:.*]] = constant 0 : index
-  // CHECK: [[START:%.*]] = krnl.load %arg0[%[[C0]]] : memref<f64>
-  // CHECK: [[DELTA:%.*]] = krnl.load %arg2[%[[C0]]] : memref<f64>
+  // CHECK: [[START:%.*]] = krnl.load %arg0[] : memref<f64>
+  // CHECK: [[DELTA:%.*]] = krnl.load %arg2[] : memref<f64>
 
-  // CHECK: [[LIMIT:%.*]] = krnl.load %arg1[%[[C0]]] : memref<f64>
+  // CHECK: [[LIMIT:%.*]] = krnl.load %arg1[] : memref<f64>
   // CHECK: [[SUB:%.*]] = subf [[LIMIT]], [[START]] : f64
   // CHECK: [[DIV:%.*]] = divf [[SUB]], [[DELTA]] : f64
   // CHECK: [[CEIL:%.*]] = ceilf [[DIV]] : f64
@@ -79,11 +77,10 @@ func @test_range_dynamic_i16(%arg0: tensor<i16>, %arg1: tensor<i16>, %arg2: tens
   return %0 : tensor<*xi16>
 
   // CHECK-LABEL: test_range_dynamic_i16
-  // CHECK: %[[C0:.*]] = constant 0 : index
-  // CHECK: [[START:%.*]] = krnl.load %arg0[%[[C0]]] : memref<i16>
-  // CHECK: [[DELTA:%.*]] = krnl.load %arg2[%[[C0]]] : memref<i16>
+  // CHECK: [[START:%.*]] = krnl.load %arg0[] : memref<i16>
+  // CHECK: [[DELTA:%.*]] = krnl.load %arg2[] : memref<i16>
 
-  // CHECK: [[LIMIT:%.*]] = krnl.load %arg1[%[[C0]]] : memref<i16>
+  // CHECK: [[LIMIT:%.*]] = krnl.load %arg1[] : memref<i16>
   // CHECK: [[SUB:%.*]] = subi [[LIMIT]], [[START]] : i16
   // CHECK: [[CEILDIV:%.*]] = ceildivi_signed [[SUB]], [[DELTA]] : i16
   // CHECK: [[CAST:%.*]] = index_cast [[CEILDIV]] : i16 to index
@@ -113,11 +110,10 @@ func @test_range_dynamic_i32(%arg0: tensor<i32>, %arg1: tensor<i32>, %arg2: tens
   return %0 : tensor<*xi32>
 
   // CHECK-LABEL: test_range_dynamic_i32
-  // CHECK: %[[C0:.*]] = constant 0 : index
-  // CHECK: [[START:%.*]] = krnl.load %arg0[%[[C0]]] : memref<i32>
-  // CHECK: [[DELTA:%.*]] = krnl.load %arg2[%[[C0]]] : memref<i32>
+  // CHECK: [[START:%.*]] = krnl.load %arg0[] : memref<i32>
+  // CHECK: [[DELTA:%.*]] = krnl.load %arg2[] : memref<i32>
 
-  // CHECK: [[LIMIT:%.*]] = krnl.load %arg1[%[[C0]]] : memref<i32>
+  // CHECK: [[LIMIT:%.*]] = krnl.load %arg1[] : memref<i32>
   // CHECK: [[SUB:%.*]] = subi [[LIMIT]], [[START]] : i32
   // CHECK: [[CEILDIV:%.*]] = ceildivi_signed [[SUB]], [[DELTA]] : i32
   // CHECK: [[CAST:%.*]] = index_cast [[CEILDIV]] : i32 to index
@@ -147,11 +143,10 @@ func @test_range_dynamic_i64(%arg0: tensor<i64>, %arg1: tensor<i64>, %arg2: tens
   return %0 : tensor<*xi64>
 
   // CHECK-LABEL: test_range_dynamic_i64
-  // CHECK: %[[C0:.*]] = constant 0 : index
-  // CHECK: [[START:%.*]] = krnl.load %arg0[%[[C0]]] : memref<i64>
-  // CHECK: [[DELTA:%.*]] = krnl.load %arg2[%[[C0]]] : memref<i64>
+  // CHECK: [[START:%.*]] = krnl.load %arg0[] : memref<i64>
+  // CHECK: [[DELTA:%.*]] = krnl.load %arg2[] : memref<i64>
 
-  // CHECK: [[LIMIT:%.*]] = krnl.load %arg1[%[[C0]]] : memref<i64>
+  // CHECK: [[LIMIT:%.*]] = krnl.load %arg1[] : memref<i64>
   // CHECK: [[SUB:%.*]] = subi [[LIMIT]], [[START]] : i64
   // CHECK: [[CEILDIV:%.*]] = ceildivi_signed [[SUB]], [[DELTA]] : i64
   // CHECK: [[CAST:%.*]] = index_cast [[CEILDIV]] : i64 to index

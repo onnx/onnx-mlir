@@ -50,13 +50,36 @@ struct ONNXRangeOpLowering : public ConversionPattern {
     // Allocate result.
     Value alloc;
     Value zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
-    Value loadedStart = rewriter.create<KrnlLoadOp>(loc, start, zero);
-    Value loadedDelta = rewriter.create<KrnlLoadOp>(loc, delta, zero);
+
+    // Load values depending on shape.
+    Value loadedStart;
+    if (startShape.size() == 0)
+      loadedStart = rewriter.create<KrnlLoadOp>(loc, start, ArrayRef<Value>{});
+    else if (startShape.size() == 1 && startShape[0] == 1)
+      loadedStart = rewriter.create<KrnlLoadOp>(loc, start, zero);
+    else
+      llvm_unreachable("start shape must be 0 or if 1, size must be 1");
+
+    Value loadedDelta;
+    if (deltaShape.size() == 0)
+      loadedDelta = rewriter.create<KrnlLoadOp>(loc, delta, ArrayRef<Value>{});
+    else if (deltaShape.size() == 1 && deltaShape[0] == 1)
+      loadedDelta = rewriter.create<KrnlLoadOp>(loc, delta, zero);
+    else
+      llvm_unreachable("delta shape must be 0 or if 1, size must be 1");
+
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType)) {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     } else {
-      Value loadedLimit = rewriter.create<KrnlLoadOp>(loc, limit, zero);
+      Value loadedLimit;
+      if (limitShape.size() == 0)
+        loadedLimit =
+            rewriter.create<KrnlLoadOp>(loc, limit, ArrayRef<Value>{});
+      else if (limitShape.size() == 1 && limitShape[0] == 1)
+        loadedLimit = rewriter.create<KrnlLoadOp>(loc, limit, zero);
+      else
+        llvm_unreachable("limit shape must be 0 or if 1, size must be 1");
 
       Value numberOfElements;
       TypeSwitch<Type>(elementType)
