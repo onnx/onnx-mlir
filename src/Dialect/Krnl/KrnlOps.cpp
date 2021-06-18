@@ -110,12 +110,12 @@ ParseResult parseKrnlDefineLoopsOp(
  *   %i0 = 10 to N : %i1 = M to 20
  */
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
-    KrnlIterateOperandPack operandPack) {
+    KrnlIterateOperandPack operandPack, ValueRange iterArgs,
+    function_ref<void(ImplicitLocOpBuilder &, ValueRange)> bodyBuilderFn) {
   // Record optimized loops and the number of such loops.
   result.addOperands(operandPack.getOperands());
   result.addAttribute(
       KrnlIterateOp::getBoundsAttrName(), operandPack.getAttributes());
-
   result.addAttribute(getNumOptimizedLoopsAttrName(),
       builder.getI64IntegerAttr(operandPack.getNumOptimizedLoops()));
 
@@ -129,7 +129,48 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   body->addArguments(body_args);
   bodyRegion->push_back(body);
 
-  ensureTerminator(*bodyRegion, builder, result.location);
+  // If nonnull, invoke the lambda function that creates the loop body. This
+  // feature is used to build structured operations using lambda. Parameters to
+  // the functions are the builder, location, and arguments passed as iterArgs.
+  if (bodyBuilderFn) {
+    PatternRewriter::InsertionGuard insertGuard(builder);
+    builder.setInsertionPointToStart(body);
+    ImplicitLocOpBuilder lb(result.location, builder);
+    bodyBuilderFn(lb, iterArgs);
+    ensureTerminator(*bodyRegion, builder, result.location);
+  } else {
+    ensureTerminator(*bodyRegion, builder, result.location);
+  }
+}
+
+void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
+    ValueRange originalLoops, ValueRange lbs, ValueRange ubs,
+    ValueRange iterArgs,
+    function_ref<void(ImplicitLocOpBuilder &, ValueRange)> bodyBuilderFn) {
+  // For unoptimized iterate operations, where we have no optimized loops, we
+  // just pass the original loops argument in the optimized loops argument.
+  build(builder, result, originalLoops, originalLoops, lbs, ubs, iterArgs,
+      bodyBuilderFn);
+}
+
+void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
+    ValueRange originalLoops, ValueRange optimizedLoops, ValueRange lbs,
+    ValueRange ubs, ValueRange iterArgs,
+    function_ref<void(ImplicitLocOpBuilder &, ValueRange)> bodyBuilderFn) {
+  assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
+  // TODO: May want to change KrnlIterateOperandPack to use ValueRanges...
+  SmallVector<Value, 4> origLoops, optLoops;
+  for (auto org : originalLoops)
+    origLoops.emplace_back(org);
+  for (auto opt : optimizedLoops)
+    optLoops.emplace_back(opt);
+  KrnlIterateOperandPack pack(builder, origLoops, optLoops);
+  for (int i = 0; i < lbs.size(); ++i) {
+    pack.pushOperandBound(lbs[i]);
+    pack.pushOperandBound(ubs[i]);
+  }
+  // Fill in this iterate op using the main build function.
+  build(builder, result, pack, iterArgs, bodyBuilderFn);
 }
 
 void print(OpAsmPrinter &p, KrnlIterateOp &op) {
@@ -520,6 +561,22 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
       iOdsGlobalUB, jOdsGlobalUB, kOdsGlobalUB, computeTileSizeAttr,
       aTileSizeAttr, bTileSizeAttr, cTileSizeAttr, odsSimdize, odsUnroll,
       odsOvercompute);
+}
+
+void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, Value odsA, ValueRange aOdsStart,
+    Value odsB, ValueRange bOdsStart, Value odsC, ValueRange cOdsStart,
+    ValueRange odsLoops, Value iOdsComputeStart, Value jOdsComputeStart,
+    Value kOdsComputeStart, Value iOdsGlobalUB, Value jOdsGlobalUB,
+    Value kOdsGlobalUB, bool odsSimdize, bool odsUnroll, bool odsOvercompute) {
+  // Massage types.
+  ValueRange loopRange(odsLoops);
+  ArrayRef<int64_t> empty;
+
+  build(odsBuilder, odsState, odsA, aOdsStart, odsB, bOdsStart, odsC, cOdsStart,
+      loopRange, iOdsComputeStart, jOdsComputeStart, kOdsComputeStart,
+      iOdsGlobalUB, jOdsGlobalUB, kOdsGlobalUB, empty, empty, empty, empty,
+      odsSimdize, odsUnroll, odsOvercompute);
 }
 
 static LogicalResult verify(KrnlMatMulOp op) {

@@ -17,10 +17,8 @@
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
-#include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
-#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
-#include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
-#include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
+// TODO rename to MLIR file
+#include "src/Dialect/ONNX/TmpMlirUtils.hpp"
 
 using namespace mlir;
 
@@ -121,48 +119,55 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
 
-    using namespace mlir::edsc;
-    using namespace mlir::edsc::ops;
-    using namespace mlir::edsc::intrinsics;
-
-    // Define scopes
-    ScopedContext scope(rewriter, loc);
-
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
-    MemRefBoundsCapture aBounds(A), cBounds(C);
-    Value I(cBounds.ub(0)), J(cBounds.ub(1)), K(aBounds.ub(1));
-    Value zero = std_constant_index(0);
+    ImplicitLocOpBuilder lb(loc, rewriter);
+    Value zero = lb.create<ConstantIndexOp>(0);
+    Value one = lb.create<ConstantIndexOp>(1);
+    Value I = lb.createOrFold<memref::DimOp>(C, zero);
+    Value J = lb.createOrFold<memref::DimOp>(C, one);
+    Value K = lb.createOrFold<memref::DimOp>(A, one);
 
     // Initialize alloc/C to zero.
-    ValueRange zLoop = krnl_define_loop(2);
-    krnl_iterate(zLoop, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
-      ValueRange indices = krnl_get_induction_var_value(zLoop);
-      krnl_store(zeroVal, alloc, indices);
-    });
+    ValueRange zLoop = lb.create<KrnlDefineLoopsOp>(2).getResults();
+    lb.create<KrnlIterateOp>(zLoop, ValueRange{zero, zero},
+        ValueRange{I, J}, ValueRange{},
+        [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+          ValueRange indices =
+              lb.create<KrnlGetInductionVariableValueOp>(zLoop).getResults();
+          lb.create<KrnlStoreOp>(zeroVal, alloc, indices);
+        });
 
     // Compute.
     // Define blocking, with simdization along the j axis.
     const int64_t iRegTile(4), jRegTile(8), kRegTile(4);
     // I, J, K loop.
-    ValueRange origLoop = krnl_define_loop(3);
+    ValueRange origLoop = lb.create<KrnlDefineLoopsOp>(3).getResults();
     Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
     // Define blocked loop and permute.
-    ValueRange iRegBlock = krnl_block(ii, iRegTile);
+    ValueRange iRegBlock = lb.create<KrnlBlockOp>(ii, iRegTile).getResults();
     Value ii1(iRegBlock[0]), ii2(iRegBlock[1]);
-    ValueRange jRegBlock = krnl_block(jj, jRegTile);
+    ValueRange jRegBlock = lb.create<KrnlBlockOp>(jj, jRegTile).getResults();
     Value jj1(jRegBlock[0]), jj2(jRegBlock[1]);
-    ValueRange kRegBlock = krnl_block(kk, kRegTile);
+    ValueRange kRegBlock = lb.create<KrnlBlockOp>(kk, kRegTile).getResults();
     Value kk1(kRegBlock[0]), kk2(kRegBlock[1]);
-    krnl_permute({ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
+    lb.create<KrnlPermuteOp>(ValueRange{ii1, ii2, jj1, jj2, kk1, kk2},
+        ArrayRef<int64_t>{0, 3, 1, 4, 2, 5});
 
-    krnl_iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero}, {I, J, K},
-        {}, [&](ValueRange args) {
-          ValueRange indices = krnl_get_induction_var_value({ii1, jj1, kk1});
+    lb.create<KrnlIterateOp>(ValueRange({ii, jj, kk}),
+        ValueRange({ii1, jj1, kk1}), ValueRange({zero, zero, zero}),
+        ValueRange({I, J, K}), ValueRange({}),
+        [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+          ValueRange indices = lb.create<KrnlGetInductionVariableValueOp>(
+                                     ValueRange{ii1, jj1, kk1})
+                                   .getResults();
           Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
-          krnl_matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},
-              {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
-              {iRegTile, jRegTile, kRegTile}, {}, {}, {}, true, true, false);
+          lb.create<KrnlMatMulOp>(A, ValueRange{zero, zero}, B,
+              ValueRange{zero, zero}, C, ValueRange{zero, zero},
+              ValueRange{ii2, jj2, kk2}, i1, j1, k1, I, J, K,
+              ArrayRef<int64_t>{iRegTile, jRegTile, kRegTile},
+              ArrayRef<int64_t>{}, ArrayRef<int64_t>{},
+              ArrayRef<int64_t>{}, true, true, false);
         });
   }
 
@@ -193,9 +198,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B());
-    MemRefBoundsIndexCapture aBounds(A), bBounds(B);
-
-    if (aBounds.getRank() == 2 && bBounds.getRank() == 2) {
+    auto aRank = A.getType().cast<MemRefType>().getShape().size();
+    auto bRank = B.getType().cast<MemRefType>().getShape().size();
+    if (aRank == 2 && bRank == 2) {
       replace2x2Matmul2d(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);
     } else {

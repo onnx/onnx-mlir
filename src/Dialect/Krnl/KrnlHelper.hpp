@@ -268,12 +268,18 @@ void generateIndexMap(
 //====---------------- EDSC Support with Value ---------------------------===//
 
 Value krnl_load(Value memref, ValueRange indices);
+
+// lb.create<KrnlStoreOp>(zeroVal, alloc, indices);
 void krnl_store(Value val, Value memref, ValueRange indices);
 Value krnl_vector_type_cast(Value sourceMemref, int64_t vectorLen);
 
+//     ValueRange zLoop = rewriter.create<KrnlDefineLoopsOp>(loc, 2).getResults();
 ValueRange krnl_define_loop(int64_t originalLoopNum);
+
 ValueRange krnl_block(Value loop, int64_t blockSize);
 void krnl_permute(ValueRange loops, ArrayRef<int64_t> map);
+
+// ValueRange indices =lb.create<KrnlGetInductionVariableValueOp>(zLoop).getResults();
 ValueRange krnl_get_induction_var_value(ValueRange loops);
 
 void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,

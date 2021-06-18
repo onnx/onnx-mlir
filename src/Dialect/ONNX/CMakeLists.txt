@@ -28,7 +28,8 @@ add_onnx_mlir_library(OMONNXOps
         Rewrite.cpp
         Combine.cpp
         IndexExpr.cpp
-        IndexExprDetail.cpp)
+        IndexExprDetail.cpp
+        TmpMlirUtils.cpp)
 
 add_dependencies(OMONNXOps OMONNXOpsInc)
 add_dependencies(OMONNXRewriteIncGen OMONNXOpsIncGen)
