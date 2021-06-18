@@ -3300,7 +3300,7 @@ LogicalResult ONNXRandomUniformLikeOp::inferShapes(
 
 LogicalResult ONNXRangeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer shape if no shape tensor is specified.
+  // All inputs must be valid ranked tensors.
   if (!start().getType().isa<RankedTensorType>())
     return emitError("start tensor not ranked");
 
