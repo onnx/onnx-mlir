@@ -496,6 +496,10 @@ test_to_enable_static_dynamic = {
 
     # Quantize Linear
 
+    # Range
+    "test_range_float_type_positive_delta_cpu": (test_static_dynamic,),
+    "test_range_int32_type_negative_delta_cpu": (test_static_dynamic,),
+
     # Reciprocal Op:
     "test_reciprocal_cpu": (test_static_dynamic,),
     "test_reciprocal_example_cpu": (test_static_dynamic,),
