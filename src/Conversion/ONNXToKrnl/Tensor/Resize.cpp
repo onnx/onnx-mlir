@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -28,24 +29,14 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     ONNXResizeOp resizeOp = llvm::cast<ONNXResizeOp>(op);
+    ONNXResizeOpAdaptor operandAdaptor(operands);
+    Value data = operandAdaptor.X();
 
     // Check implementation constraints
     if (resizeOp.mode() != "nearest" ||
         resizeOp.coordinate_transformation_mode() != "asymmetric" ||
         resizeOp.nearest_mode() != "floor")
       llvm_unreachable("not implemented yet");
-
-    ONNXResizeOpAdaptor operandAdaptor(operands);
-    Value data = operandAdaptor.X();
-
-    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
-    int64_t rank = memRefType.getShape().size();
-
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      // TODO: handle dynamic shape in alloc
-      return emitError(loc, "unknown shape for output");
 
     // Get the scales
     DenseElementsAttr scalesAttrs =
@@ -55,6 +46,39 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     SmallVector<float, 4> scalesConstant;
     for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
       scalesConstant.emplace_back(scaleAttr.getValueAsDouble());
+    }
+
+    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+    int64_t rank = memRefType.getShape().size();
+
+    if (hasAllConstantDimensions(memRefType))
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+    else {
+      IndexExprScope outerloopContex(&rewriter, loc);
+      DimsExpr outputDims(rank);
+      MemRefBoundsIndexCapture dataBounds(data);
+      for (decltype(rank) i = 0; i < rank; i++) {
+        if (memRefType.getShape()[i] != -1) {
+	  outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
+        } else {
+          Value inputDim = dataBounds.getDim(i).getValue();
+          Value inputDimInteger = rewriter.create<IndexCastOp>(
+              loc, inputDim, rewriter.getIntegerType(64));
+          Value inputDimFloat = rewriter.create<SIToFPOp>(
+              loc, rewriter.getF32Type(), inputDimInteger);
+          Value scaleVal = emitConstantOp(
+              rewriter, loc, rewriter.getF32Type(), scalesConstant[i]);
+          Value outputDimFloat = rewriter.create<MulFOp>(
+              loc, inputDimFloat, scaleVal);         
+          Value outputDimInteger = rewriter.create<FPToSIOp>(
+              loc, rewriter.getIntegerType(64), outputDimFloat);
+          Value outDim = rewriter.create<IndexCastOp>(
+              loc, rewriter.getIndexType(), outputDimInteger);
+          SymbolIndexExpr outDimIE(outDim);
+          outputDims[i] = SymbolIndexExpr(outDimIE);
+        }
+      }
+      alloc = insertAllocAndDeallocSimple(rewriter, op, memRefType, loc, outputDims, insertDealloc);
     }
 
     // Create loops
