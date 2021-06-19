@@ -36,15 +36,17 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     int64_t rank = memRefType.getShape().size();
 
 
-#if 0
     // Check implementation constraints
     if (resizeOp.mode() != "nearest" ||
         resizeOp.coordinate_transformation_mode() != "asymmetric" ||
         resizeOp.nearest_mode() != "floor")
-      llvm_unreachable("not implemented yet");
-#endif
+      return emitError(loc, "not implemented yet");
 
     // Get the scales
+    // SymbolIndexExpr was tried but got runtime error
+    // Attribute::cast() const [with U = mlir::IntegerAttr]
+    // The reason seems to be that IntegerAttr is assumed
+    //
     SmallVector<Value, 4> scaleValues;
     DenseElementsAttr scalesAttrs =
         getDenseElementAttributeFromONNXValue(resizeOp.scales());
@@ -59,9 +61,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       for (decltype(rank) i = 0; i < rank; i++) {
         Value indexValue = emitConstantOp(
             rewriter, loc, rewriter.getIndexType(), i);
-        SmallVector<Value, 1> loadIndex;
-        loadIndex.emplace_back(indexValue);
-        Value scaleVal = rewriter.create<KrnlLoadOp>(loc, scales, loadIndex);
+        Value scaleVal = rewriter.create<KrnlLoadOp>(loc, scales, indexValue);
         scaleValues.emplace_back(scaleVal);
       }
     }
@@ -69,7 +69,11 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     IndexExprScope outerloopContex(&rewriter, loc);
     DimsExpr outputDims(rank);
     MemRefBoundsIndexCapture dataBounds(data);
-    ArrayValueIndexCapture scaleIEs(op, resizeOp.scales(), getDenseElementAttributeFromKrnlValue, loadDenseElementArrayValueAtIndex);
+    // Keep the code using IndexExpr for bug fixing
+    // ArrayValueIndexCapture scaleIEs(op, scales, getDenseElementAttributeFromKrnlValue, loadDenseElementArrayValueAtIndex);
+    // for (decltype(rank) i = 0; i < rank; i++) {
+    //  scaleValues.emplace_back(scaleIEs.getSymbol(i).getValue());
+    // }
 
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
