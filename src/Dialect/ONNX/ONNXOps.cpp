@@ -223,7 +223,7 @@ static LogicalResult processConvDilationParam(
       return op->emitError("dilation rank is not the same as the spatial rank");
     }
     // Test values to be greater than 0.
-    for (int i = 0; i < kernelRank; ++i) {
+    for (decltype(kernelRank) i = 0; i < kernelRank; ++i) {
       if (ArrayAttrIntVal(dilationsOpt, i) < 1) {
         return op->emitError("dilation value must be nonzero positive");
       }
@@ -252,7 +252,7 @@ static LogicalResult processConvStrideParam(
     if (ArrayAttrSize(stridesOpt) != kernelRank)
       return op->emitError("strides rank is not the same as the spatial rank");
     // Check values to be greater than 0.
-    for (int i = 0; i < kernelRank; ++i) {
+    for (decltype(kernelRank) i = 0; i < kernelRank; ++i) {
       if (ArrayAttrIntVal(stridesOpt, i) < 1)
         return op->emitError("strides value must be nonzero positive");
     }
@@ -294,7 +294,7 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
         return op->emitError("pads rank is not twice the spatial rank");
       }
       // Check values, pads cannot be negative.
-      for (int i = 0; i < 2 * kernelRank; ++i) {
+      for (decltype(kernelRank) i = 0; i < 2 * kernelRank; ++i) {
         if (ArrayAttrIntVal(padsOpt, i) < 0) {
           return op->emitError("pads value must be nonnegative");
         }
@@ -307,7 +307,7 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
     // Reload dilation and strides as they may have gotten default values.
     updatedPad = true;
     int64_t dilationVal = 1;
-    for (int i = 0; i < kernelRank; ++i) {
+    for (decltype(kernelRank) i = 0; i < kernelRank; ++i) {
       auto inputSize = inputShape[kernelOffset + i];
       auto kernelSize = ArrayAttrIntVal(kernelShape, i);
       if (dilationsOpt.hasValue())
@@ -2507,11 +2507,21 @@ LogicalResult ONNXResizeOp::inferShapes(
     return emitError("scales() and sizes() can not both None/not None");
   }
 
+  if (isFromNone(scales())) {
+    return emitError("using sizes() not implemented yet");
+  }
+
+  if (!(mode() == "nearest" && (coordinate_transformation_mode() == "half_pixel" 
+      || coordinate_transformation_mode() == "asymmetric"))) {
+    return emitError("these modes() or coordinate_transformation_mode() not supported yet");
+  }
+
   // Current implementation handles constant scales only
   DenseElementsAttr scalesAttrs =
       getDenseElementAttributeFromONNXValue(scales());
-  if (!scalesAttrs)
-    return emitError("Not implemented yet");
+  if (!scalesAttrs) {
+    return success();
+  }
 
   SmallVector<float, 4> scalesConstant;
   for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
