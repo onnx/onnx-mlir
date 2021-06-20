@@ -169,3 +169,10 @@ mlir::DenseElementsAttr createDenseElementsAttrFromSize(
 
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);
+
+// Check if a value is a 16, 32 or 64 bit integer.
+bool isCommonInteger(mlir::RankedTensorType tensorType);
+
+// Get scalar value when it is a constant.
+double getScalarValue(
+    mlir::ONNXConstantOp constantOp, mlir::RankedTensorType tensorType);
