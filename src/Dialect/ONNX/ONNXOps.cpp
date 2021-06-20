@@ -2511,9 +2511,11 @@ LogicalResult ONNXResizeOp::inferShapes(
     return emitError("using sizes() not implemented yet");
   }
 
-  if (!(mode() == "nearest" && (coordinate_transformation_mode() == "half_pixel" 
-      || coordinate_transformation_mode() == "asymmetric"))) {
-    return emitError("these modes() or coordinate_transformation_mode() not supported yet");
+  if (!(mode() == "nearest" &&
+          (coordinate_transformation_mode() == "half_pixel" ||
+              coordinate_transformation_mode() == "asymmetric"))) {
+    return emitError(
+        "these modes() or coordinate_transformation_mode() not supported yet");
   }
 
   // Current implementation handles constant scales only

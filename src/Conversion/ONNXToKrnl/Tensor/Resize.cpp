@@ -128,9 +128,8 @@ struct ONNXResizeOpLowering : public ConversionPattern {
               rewriter, loc, rewriter.getF32Type(), 0.4999999999);
           inIndexFloat =
               rewriter.create<AddFOp>(loc, inIndexFloat, deltaConstant);
-        } else if (resizeOp.nearest_mode() == "round_prefer_floor") {
-          inIndexFloat =
-              rewriter.create<FloorFOp>(loc, inIndexFloat);
+        } else if (resizeOp.nearest_mode() == "floor") {
+          inIndexFloat = rewriter.create<FloorFOp>(loc, inIndexFloat);
         }
         Value inIndexInteger = rewriter.create<FPToSIOp>(
             loc, rewriter.getIntegerType(64), inIndexFloat);
@@ -158,9 +157,8 @@ struct ONNXResizeOpLowering : public ConversionPattern {
               rewriter, loc, rewriter.getF32Type(), 0.4999999999);
           inIndexFloat =
               rewriter.create<AddFOp>(loc, inIndexFloat, deltaConstant);
-        } else if (resizeOp.nearest_mode() == "round_prefer_floor") {
-          inIndexFloat =
-              rewriter.create<FloorFOp>(loc, inIndexFloat);
+        } else if (resizeOp.nearest_mode() == "floor") {
+          inIndexFloat = rewriter.create<FloorFOp>(loc, inIndexFloat);
         }
         Value inIndexInteger = rewriter.create<FPToSIOp>(
             loc, rewriter.getIntegerType(64), inIndexFloat);
