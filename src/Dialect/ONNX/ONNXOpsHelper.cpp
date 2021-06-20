@@ -440,3 +440,32 @@ bool isDenseONNXConstant(Value result) {
 
   return true;
 }
+
+/// Check if a value is a 16, 32 or 64 bit integer.
+bool isCommonInteger(mlir::RankedTensorType tensorType) {
+  return tensorType.getElementType().isInteger(16) ||
+         tensorType.getElementType().isInteger(32) ||
+         tensorType.getElementType().isInteger(64);
+}
+
+/// Get scalar value when it is a constant.
+double getScalarValue(
+    mlir::ONNXConstantOp constantOp, mlir::RankedTensorType tensorType) {
+  double value;
+  DenseElementsAttr attr = constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  if (!attr)
+    constantOp.emitError("DenseElementsAttr expected");
+  if (isCommonInteger(tensorType)) {
+    auto valueIt = attr.getValues<IntegerAttr>().begin();
+    value = (double)(*valueIt).cast<IntegerAttr>().getInt();
+  } else if (tensorType.getElementType().isF32()) {
+    auto valueIt = attr.getFloatValues().begin();
+    value = (double)(*valueIt).convertToFloat();
+  } else if (tensorType.getElementType().isF64()) {
+    auto valueIt = attr.getFloatValues().begin();
+    value = (double)(*valueIt).convertToDouble();
+  } else {
+    llvm_unreachable("Unexpected type.");
+  }
+  return value;
+}
