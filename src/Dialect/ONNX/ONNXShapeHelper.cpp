@@ -570,7 +570,7 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
     aDims[i] = one;
     aPadDims[i] = true;
   }
-  for (int i = 0; i < ABounds.getRank(); ++i) {
+  for (unsigned int i = 0; i < ABounds.getRank(); ++i) {
     aDims[i + aOffset] = ABounds.getDim(i);
     aPadDims[i + aOffset] = false; // Pad false even if dim is sized 1.
   }
@@ -588,7 +588,7 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
     bDims[i] = one;
     bPadDims[i] = true;
   }
-  for (int i = 0; i < BBounds.getRank(); ++i) {
+  for (unsigned int i = 0; i < BBounds.getRank(); ++i) {
     bDims[i + bOffset] = BBounds.getDim(i);
     bPadDims[i + bOffset] = false; // Pad false even if dim is sized 1.
   }

@@ -601,38 +601,41 @@ func @test_binary_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x5xf32>,
 func @test_variadic_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x1xf32>, %arg1: tensor<?x?x5xf32>, %arg2: tensor<?x1x5xf32>) -> tensor<?x4x5xf32> {
   %0 = "onnx.Max"(%arg0, %arg1, %arg2) : (tensor<?x4x1xf32>, tensor<?x?x5xf32>, tensor<?x1x5xf32>) -> tensor<?x4x5xf32>
   return %0 : tensor<?x4x5xf32>
+// CHECK-DAG: #map = affine_map<()[s0, s1] -> (s0, s1)>
 // CHECK-LABEL:  func @test_variadic_elementwise_op_template_unknown_dims
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x4x1xf32>, [[PARAM_1_:%.+]]: memref<?x?x5xf32>, [[PARAM_2_:%.+]]: memref<?x1x5xf32>) -> memref<?x4x5xf32> {
 // CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
 // CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[DIM_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x4x1xf32>
-// CHECK-DAG:       [[DIM_1_:%.+]] = memref.dim [[PARAM_1_]], [[CST_0_]] : memref<?x?x5xf32>
-// CHECK-DAG:       [[DIM_2_:%.+]] = memref.dim [[PARAM_1_]], [[CST_1_]] : memref<?x?x5xf32>
-// CHECK-DAG:       [[DIM_3_:%.+]] = memref.dim [[PARAM_2_]], [[CST_0_]] : memref<?x1x5xf32>
-// CHECK:           [[VAR_4_:%.+]] = affine.max #map(){{.}}[[DIM_0_]], [[DIM_1_]]{{.}}
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_4_]]) : memref<?x4x5xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x4x1xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = memref.dim [[PARAM_1_]], [[CST_0_]] : memref<?x?x5xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = memref.dim [[PARAM_1_]], [[CST_1_]] : memref<?x?x5xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = memref.dim [[PARAM_2_]], [[CST_0_]] : memref<?x1x5xf32>
+// CHECK:           [[VAR_4_:%.+]] = affine.max #map(){{.}}[[VAR_0_]], [[VAR_1_]]{{.}}
+// CHECK:           [[VAR_5_:%.+]] = cmpi sgt, [[VAR_3_]], [[VAR_4_]] : index
+// CHECK:           [[VAR_6_:%.+]] = select [[VAR_5_]], [[VAR_3_]], [[VAR_4_]] : index
+// CHECK-DAG:       [[VAR_7_:%.+]] = memref.alloc([[VAR_6_]]) : memref<?x4x5xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[VAR_4_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5) {
-// CHECK:             [[VAR_7_:%.+]] = cmpi sgt, [[DIM_0_]], [[CST_1_]] : index
-// CHECK:             [[VAR_8_:%.+]] = select [[VAR_7_]], [[I_0_]], [[CST_0_]] : index
-// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_8_]], [[I_1_]], [[CST_0_]]{{.}} : memref<?x4x1xf32>
-// CHECK-DAG:         [[VAR_10_:%.+]] = cmpi sgt, [[DIM_1_]], [[CST_1_]] : index
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[VAR_6_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5) {
+// CHECK:             [[VAR_9_:%.+]] = cmpi sgt, [[VAR_0_]], [[CST_1_]] : index
+// CHECK:             [[VAR_10_:%.+]] = select [[VAR_9_]], [[I_0_]], [[CST_0_]] : index
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_10_]], [[I_1_]], [[CST_0_]]{{.}} : memref<?x4x1xf32>
+// CHECK-DAG:         [[VAR_12_:%.+]] = cmpi sgt, [[VAR_1_]], [[CST_1_]] : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_11_:%.+]] = select [[VAR_10_]], [[I_0_]], [[CST_0_]] : index
-// CHECK-DAG:         [[VAR_12_:%.+]] = cmpi sgt, [[DIM_2_]], [[CST_1_]] : index
-// CHECK:             [[VAR_13_:%.+]] = select [[VAR_12_]], [[I_1_]], [[CST_0_]] : index
-// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_11_]], [[VAR_13_]], [[I_2_]]{{.}} : memref<?x?x5xf32>
-// CHECK:             [[VAR_15_:%.+]] = cmpf ogt, [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
-// CHECK-DAG:         [[VAR_16_:%.+]] = select [[VAR_15_]], [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
-// CHECK-DAG:         [[VAR_17_:%.+]] = cmpi sgt, [[DIM_3_]], [[CST_1_]] : index
-// CHECK:             [[VAR_18_:%.+]] = select [[VAR_17_]], [[I_0_]], [[CST_0_]] : index
-// CHECK:             [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]]{{.}}[[VAR_18_]], [[CST_0_]], [[I_2_]]{{.}} : memref<?x1x5xf32>
-// CHECK:             [[VAR_20_:%.+]] = cmpf ogt, [[VAR_16_]], [[LOAD_PARAM_2_MEM_]] : f32
-// CHECK:             [[VAR_21_:%.+]] = select [[VAR_20_]], [[VAR_16_]], [[LOAD_PARAM_2_MEM_]] : f32
-// CHECK:             krnl.store [[VAR_21_]], [[RES_]]{{\[}}[[I_0_]], [[I_1_]], [[I_2_]]{{\]}} : memref<?x4x5xf32>
+// CHECK-DAG:         [[VAR_13_:%.+]] = select [[VAR_12_]], [[I_0_]], [[CST_0_]] : index
+// CHECK-DAG:         [[VAR_14_:%.+]] = cmpi sgt, [[VAR_2_]], [[CST_1_]] : index
+// CHECK:             [[VAR_15_:%.+]] = select [[VAR_14_]], [[I_1_]], [[CST_0_]] : index
+// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_13_]], [[VAR_15_]], [[I_2_]]{{.}} : memref<?x?x5xf32>
+// CHECK:             [[VAR_17_:%.+]] = cmpf ogt, [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
+// CHECK-DAG:         [[VAR_18_:%.+]] = select [[VAR_17_]], [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
+// CHECK-DAG:         [[VAR_19_:%.+]] = cmpi sgt, [[VAR_3_]], [[CST_1_]] : index
+// CHECK:             [[VAR_20_:%.+]] = select [[VAR_19_]], [[I_0_]], [[CST_0_]] : index
+// CHECK:             [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]]{{.}}[[VAR_20_]], [[CST_0_]], [[I_2_]]{{.}} : memref<?x1x5xf32>
+// CHECK:             [[VAR_22_:%.+]] = cmpf ogt, [[VAR_18_]], [[LOAD_PARAM_2_MEM_]] : f32
+// CHECK:             [[VAR_23_:%.+]] = select [[VAR_22_]], [[VAR_18_]], [[LOAD_PARAM_2_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_23_]], [[VAR_7_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]]{{.}} : memref<?x4x5xf32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<?x4x5xf32>
+// CHECK:           return [[VAR_7_]] : memref<?x4x5xf32>
 // CHECK:         }
 }
 

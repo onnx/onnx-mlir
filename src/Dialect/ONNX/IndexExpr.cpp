@@ -265,8 +265,6 @@ bool IndexExpr::canBeUsedInScope() const {
     // be converted to the current scope before being used. They cannot be used
     // out of current scope.
     return false;
-  default:
-    break;
   }
   llvm_unreachable("unkown kind");
 }
@@ -1015,8 +1013,6 @@ NonAffineIndexExpr::NonAffineIndexExpr(IndexExpr const otherIndexExpr) {
         otherIndexExpr.getValue(), IndexExprKind::NonAffine);
     return;
   }
-  default:
-    break;
   }
   llvm_unreachable("bad path");
 }
@@ -1102,8 +1098,6 @@ AffineIndexExpr::AffineIndexExpr(IndexExpr const otherIndexExpr) {
     indexExprObj->initAsAffineExpr(otherIndexExpr.getAffineExpr());
     return;
   }
-  default:
-    break;
   }
   llvm_unreachable("bad path");
 }
@@ -1152,8 +1146,6 @@ DimIndexExpr::DimIndexExpr(IndexExpr const otherIndexExpr) {
     indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Dim);
     return;
   }
-  default:
-    break;
   }
   llvm_unreachable("bad path");
 }
@@ -1202,8 +1194,6 @@ SymbolIndexExpr::SymbolIndexExpr(IndexExpr const otherIndexExpr) {
     indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Symbol);
     return;
   }
-  default:
-    break;
   }
   llvm_unreachable("bad path");
 }
@@ -1240,7 +1230,7 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
   assert(fGetDenseArrayAttr && "expected method to get a dense array");
   if (DenseElementsAttr attrArray = fGetDenseArrayAttr(array)) {
     // We extracted an dense attribute from definition of operand.
-    if (i >= attrArray.getType().getDimSize(0)) {
+    if ((int64_t) i >= attrArray.getType().getDimSize(0)) {
       // Request beyond available size.
       if (hasDefault)
         return LiteralIndexExpr(defaultLiteral);

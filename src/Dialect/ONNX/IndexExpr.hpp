@@ -666,13 +666,13 @@ public:
   ArrayAttributeIndexCapture(ArrayAttr array, int64_t defaultLiteral);
 
   IndexExpr getLiteral(uint64_t i);
-  int64_t size() { return arraySize; }
+  uint64_t size() { return arraySize; }
 
 private:
   ArrayAttributeIndexCapture() { llvm_unreachable("forbidden constructor"); };
 
   ArrayAttr array;
-  int64_t arraySize;
+  uint64_t arraySize;
   int64_t defaultLiteral;
   bool hasDefault;
 };
@@ -684,7 +684,7 @@ class MemRefBoundsIndexCapture {
 public:
   MemRefBoundsIndexCapture(Value tensorOrMemref);
 
-  int64_t getRank() { return memRank; }
+  uint64_t getRank() { return memRank; }
   bool isLiteral(int64_t i);
   bool areAllLiteral();
   int64_t getShape(int64_t i);
@@ -704,7 +704,7 @@ private:
   void getList(SmallVectorImpl<IndexExpr> &dimList);
 
   Value tensorOrMemref;
-  int64_t memRank;
+  uint64_t memRank;
 };
 
 //===----------------------------------------------------------------------===//
