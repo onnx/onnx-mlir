@@ -121,9 +121,12 @@ static FILE *get_log_file_by_name(char *name) {
     fp = stderr;
   else {
     char *tname = malloc(strlen(name) + 32);
-    snprintf(tname, strlen(name) + 32, "%s.%lx", name, get_threadid());
-    fp = fopen(tname, "w");
-    free(tname);
+    if (tname)
+    {
+      snprintf(tname, strlen(name) + 32, "%s.%lx", name, get_threadid());
+      fp = fopen(tname, "w");
+      free(tname);
+    }
   }
   return fp;
 }
