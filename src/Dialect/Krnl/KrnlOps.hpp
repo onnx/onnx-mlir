@@ -25,6 +25,9 @@
 #include "src/Interface/SpecializedKernelOpInterface.hpp"
 #include "llvm/ADT/TypeSwitch.h"
 
+// TODO rename to MLIR file
+#include "src/Dialect/ONNX/TmpMlirUtils.hpp"
+
 #include "KrnlHelper.hpp"
 #include "KrnlTypes.hpp"
 
