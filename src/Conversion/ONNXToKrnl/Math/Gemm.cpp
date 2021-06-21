@@ -157,8 +157,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         MemRefType::get({iCacheTile, kCacheTile}, elementType);
     MemRefType bTileType =
         MemRefType::get({kCacheTile, jCacheTile}, elementType);
-    MemRefType rTileType =
-        MemRefType::get({iCacheTile, jCacheTile}, elementType);
 #if DEBUG_GLOBAL_ALLOC_FREE
     SmallVector<IndexExpr, 1> empty;
     Value aBuff = insertAllocAndDeallocSimple(
@@ -170,6 +168,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       rBuff = insertAllocAndDeallocSimple(
           rewriter, gemmOp, aTileType, loc, empty, true, BUFFER_ALIGN);
 #else
+    MemRefType rTileType =
+        MemRefType::get({iCacheTile, jCacheTile}, elementType);
     ValueRange empty;
     IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
     Value aBuff = memref_alloc(aTileType, empty, alignAttr);

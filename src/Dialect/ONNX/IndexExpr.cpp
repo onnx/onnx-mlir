@@ -1313,7 +1313,7 @@ int64_t MemRefBoundsIndexCapture::getShape(int64_t i) {
 bool MemRefBoundsIndexCapture::areAllLiteral() {
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
-  for (int i = 0; i < memRank; ++i)
+  for (unsigned int i = 0; i < memRank; ++i)
     if (shape[i] < 0)
       return false;
   return true;
@@ -1354,7 +1354,7 @@ void MemRefBoundsIndexCapture::getLiteralList(
   // Clear output.
   literalList.clear();
   // Scan tensor or memref.
-  for (int i = 0; i < memRank; ++i)
+  for (unsigned int i = 0; i < memRank; ++i)
     literalList.emplace_back(getLiteral(i));
 }
 
@@ -1384,6 +1384,6 @@ void MemRefBoundsIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
   // Clear output.
   list.clear();
   // Scan tensor or memref.
-  for (int i = 0; i < memRank; ++i)
+  for (unsigned int i = 0; i < memRank; ++i)
     list.emplace_back(get<INDEX>(i));
 }

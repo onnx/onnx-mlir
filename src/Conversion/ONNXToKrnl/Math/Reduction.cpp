@@ -158,7 +158,6 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
     auto input = operands[0];
     auto memRefInType = input.getType().cast<MemRefType>();
-    auto memRefInShape = memRefInType.getShape();
     auto memRefOutType = convertToMemRefType(*op->result_type_begin());
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
@@ -274,7 +273,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     // Handle the operation:
     SmallVector<Value, 4> inLoopIVs, outLoopIVs;
     auto args = iterationBlock.getArguments();
-    for (int i = 0; i < args.size(); ++i) {
+    for (unsigned int i = 0; i < args.size(); ++i) {
       inLoopIVs.push_back(args[i]);
     }
     Value zeroIndex = nullptr;
@@ -384,7 +383,6 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
     auto input = operands[0];
     auto memRefInType = input.getType().cast<MemRefType>();
-    auto memRefInShape = memRefInType.getShape();
     auto memRefOutType = convertToMemRefType(*op->result_type_begin());
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
@@ -507,7 +505,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     // Handle the operation:
     SmallVector<Value, 4> inLoopIVs, outLoopIVs;
     auto args = iterationBlock.getArguments();
-    for (int i = 0; i < args.size(); ++i) {
+    for (unsigned int i = 0; i < args.size(); ++i) {
       inLoopIVs.push_back(args[i]);
     }
     Value zeroIndex = nullptr;

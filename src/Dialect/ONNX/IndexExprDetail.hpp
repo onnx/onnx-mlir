@@ -74,11 +74,11 @@ class IndexExprImpl {
   IndexExprScope *scope;
   // Defined implies having a valid intLit, affineExpr, or value expression.
   bool defined;
-  // Type of IndexExpr. Literal are by default affine.
-  IndexExprKind kind;
   // Literal implies having a valid intLit; may also have an affineExpr or
   // value.
   bool literal;
+  // Type of IndexExpr. Literal are by default affine.
+  IndexExprKind kind;
   // Integer value, valid when "literal" is true.
   int64_t intLit;
   // Affine expression, may be defined for literal, symbols, dims, or affine

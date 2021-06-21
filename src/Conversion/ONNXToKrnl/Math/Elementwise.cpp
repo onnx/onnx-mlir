@@ -725,7 +725,6 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
         NameLoc::get(Identifier::get(ElementwiseBinaryOp::getOperationName(),
                          op->getContext()),
             op->getLoc());
-    auto numArgs = op->getNumOperands();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputElementType = outputMemRefType.getElementType();
     auto outputRank = outputMemRefType.getRank();
