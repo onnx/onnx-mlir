@@ -266,7 +266,7 @@ bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
     lhs.emplace_back(axis);
   }
 
-  int64_t rhsSize = 0;
+  size_t rhsSize = 0;
   for (auto attr : rhsAttr.getValue()) {
     int64_t axis = attr.cast<IntegerAttr>().getInt();
     if (axis < 0)

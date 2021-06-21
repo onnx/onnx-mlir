@@ -783,10 +783,10 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   // Res is already defined, we are reducing into it.
   F2Self valueFct = [](IndexExpr res, IndexExpr const aa) {
     Value compareVal = res.getRewriter().create<CmpIOp>(
-        aa.getLoc(), CmpIPredicate::slt, aa.getValue(), res.getValue());
-    Value resVal = aa.getRewriter().create<SelectOp>(
-        aa.getLoc(), compareVal, aa.getValue(), res.getValue());
-    res.getObj().initAsKind(res.getValue(), IndexExprKind::NonAffine);
+        res.getLoc(), CmpIPredicate::slt, aa.getValue(), res.getValue());
+    Value resVal = res.getRewriter().create<SelectOp>(
+        res.getLoc(), compareVal, aa.getValue(), res.getValue());
+    res.getObj().initAsKind(resVal, IndexExprKind::NonAffine);
     return res;
   };
   return reductionOp(vals, litFct, affineExprFct, valueFct);
@@ -839,10 +839,10 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   // Res is already defined, we are reducing into it.
   F2Self valueFct = [](IndexExpr res, IndexExpr const aa) {
     Value compareVal = res.getRewriter().create<CmpIOp>(
-        aa.getLoc(), CmpIPredicate::sgt, aa.getValue(), res.getValue());
-    Value resVal = aa.getRewriter().create<SelectOp>(
-        aa.getLoc(), compareVal, aa.getValue(), res.getValue());
-    res.getObj().initAsKind(res.getValue(), IndexExprKind::NonAffine);
+        res.getLoc(), CmpIPredicate::sgt, aa.getValue(), res.getValue());
+    Value resVal = res.getRewriter().create<SelectOp>(
+        res.getLoc(), compareVal, aa.getValue(), res.getValue());
+    res.getObj().initAsKind(resVal, IndexExprKind::NonAffine);
     return res;
   };
   return reductionOp(vals, litFct, affineExprFct, valueFct);

@@ -231,7 +231,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(Value operand,
     // If all other operand dims are 1, just use the output access index.
     // Otherwise, emit a select op.
     bool allOtherInputDimsAreOne = true;
-    for (int i = 0; i < inputsDims.size(); ++i) {
+    for (unsigned int i = 0; i < inputsDims.size(); ++i) {
       if (i == operandIndex)
         continue;
       IndexExpr dim = inputsDims[i][dimIndex];
@@ -274,14 +274,14 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
 
   // Get info about input data operand.
   Value data = operandAdaptor.data();
-  int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
+  uint64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
 
   // Get each of the axes, and save the literal values in axesIntLit.
   SmallVector<int64_t, 2> axesIntLit;
   Value axes = operandAdaptor.axes();
   if (axes.getType().isa<NoneType>()) {
     // If `axes` are omitted, they are set to `[0, ..., nDim-1]`."
-    for (int i = 0; i < dataRank; ++i)
+    for (unsigned int i = 0; i < dataRank; ++i)
       axesIntLit.emplace_back(i);
   } else if (auto valueAttribute = fGetDenseVal(axes)) {
     // If `axes` are constants, read them."
@@ -289,14 +289,14 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
       int64_t axis = value.cast<IntegerAttr>().getInt();
       if (axis < 0)
         axis += dataRank;
-      if (!(axis >= 0 && axis < dataRank))
+      if (!(axis >= 0 && axis < (int64_t) dataRank))
         return op->emitError("Axes contains an out-of-bound index");
       axesIntLit.emplace_back(axis);
     }
   } else {
     return op->emitError("Axes must be known at compile time");
   }
-  int sliceRank = axesIntLit.size();
+  uint64_t sliceRank = axesIntLit.size();
 
   // Initialize context and results (start & output)
   starts.resize(dataRank);
@@ -370,7 +370,6 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
 
   // Handle the default for the non-axis arrays; they are detected with 0
   // steps (illegal value).
-  bool allOutputLit;
   for (uint64_t i = 0; i < dataRank; ++i) {
     if (steps[i].isUndefined()) {
       // have one unset, put the defaults (start was already at zero, so we
@@ -672,7 +671,7 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
     ONNXSplitOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Get info about input and output data.
-  int numOfResults = op->getNumResults();
+  unsigned int numOfResults = op->getNumResults();
   auto rank = operandAdaptor.input().getType().cast<ShapedType>().getRank();
 
   // Checking value of axis parameter.
@@ -694,7 +693,7 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
   if (splitAttribute.hasValue()) {
     if (ArrayAttrSize(splitAttribute) != numOfResults)
       return op->emitError("Split size not equal to the number of results");
-    for (int i = 0; i < numOfResults; ++i) {
+    for (unsigned int i = 0; i < numOfResults; ++i) {
       LiteralIndexExpr dim(ArrayAttrIntVal(splitAttribute, i));
       splitDims.emplace_back(dim);
     }
@@ -707,17 +706,17 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
         (splitInputDim.getLiteral() % numOfResults != 0))
       return op->emitError("The dimension at the split axis is "
                            "expected to be divisible by the number of results");
-    for (int i = 0; i < numOfResults; ++i) {
+    for (unsigned int i = 0; i < numOfResults; ++i) {
       IndexExpr splitDim = splitInputDim.ceilDiv(numOfPartitions);
       splitDims.emplace_back(splitDim);
     }
   }
 
   // Build result types.
-  for (int i = 0; i < numOfResults; ++i) {
+  for (unsigned int i = 0; i < numOfResults; ++i) {
     DimsExpr outputDims;
     outputDims.resize(rank);
-    for (int j = 0; j < rank; ++j) {
+    for (unsigned int j = 0; j < rank; ++j) {
       if (j == axisIndex) {
         outputDims[j] = splitDims[i];
       } else {
@@ -840,7 +839,7 @@ LogicalResult ONNXConcatOpShapeHelper::Compute(
   DimsExpr outputDims;
   MemRefBoundsIndexCapture firstInputBounds(firstInput);
   outputDims.resize(commonRank);
-  for (int i = 0; i < commonRank; i++) {
+  for (unsigned int i = 0; i < commonRank; i++) {
     if (i == axisIndex) {
       outputDims[i] = cumulativeAxisSize;
     } else {
@@ -869,7 +868,7 @@ ONNXTransposeOpShapeHelper::ONNXTransposeOpShapeHelper(ONNXTransposeOp *newOp,
 LogicalResult ONNXTransposeOpShapeHelper::Compute(
     ONNXTransposeOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
+  //aee Operation *genericOp = reinterpret_cast<Operation *>(op);
 
   // Basic information.
   auto rank = operandAdaptor.data().getType().cast<ShapedType>().getRank();
@@ -916,7 +915,7 @@ ONNXLRNOpShapeHelper::ONNXLRNOpShapeHelper(ONNXLRNOp *newOp,
 
 LogicalResult ONNXLRNOpShapeHelper::Compute(ONNXLRNOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
+  //aee Operation *genericOp = reinterpret_cast<Operation *>(op);
 
   // Basic information.
   auto rank = operandAdaptor.X().getType().cast<ShapedType>().getRank();

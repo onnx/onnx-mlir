@@ -26,7 +26,8 @@ namespace mlir {
 // structure is allocated in dynamic memory and resides in the scope. It will
 // be automaticaly destroyed at the same time as the scope.
 
-struct IndexExprImpl {
+class IndexExprImpl {
+  public:
   // Public constructor.
   IndexExprImpl();
 
