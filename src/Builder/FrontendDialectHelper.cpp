@@ -112,15 +112,6 @@ struct TransformValueToONNXData<int8_t> {
   }
 };
 
-template <>
-struct TransformValueToONNXData<bool> {
-  static const google::protobuf::RepeatedField<int32_t> data(
-      onnx::TensorProto initializer) {
-    return initializer.int32_data();
-  }
-};
-
-
 // Helper method for constructing an array attribute from a model input.
 template <typename T>
 static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
@@ -266,18 +257,16 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
     break;
   }
   case (onnx::TensorProto::BOOL): {
-    const auto &arrayAttrInitializer =
-        CreateArrayAttribute<char>(initializer); // bool is 1 byte rather than 1 bit, may want to define a custom template
+    // extend 1 bit data to 1 byte bool type
+    const auto &arrayAttrInitializer = CreateArrayAttribute<char>(initializer);
     auto elmType = builder.getI1Type(); // equivalent to getIntegerType(1)
     auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
 
     auto raw_data = initializer.raw_data();
     auto size = raw_data.size();
-    printf("raw data size is %d\n", size);
 
-    // std::vector<bool> array;
-    bool* array = new bool[size]; 
-    memset(array, false, (size)*sizeof(bool));
+    bool *array = new bool[size];
+    memset(array, false, (size) * sizeof(bool));
 
     std::vector<char> byteInitializer;
     std::copy(initializer.raw_data().begin(), initializer.raw_data().end(),
@@ -285,16 +274,11 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
     for (int i = 0; i < size; i++) {
       if (byteInitializer[i]) {
         array[i] = true;
-        printf("%d\n", (int)byteInitializer[i]);
-      } 
+      }
     }
-    
-    // size = initializer.raw_data().size() / ;
-    // T *arrayPtr = reinterpret_cast<T *>(&byteInitializer[0]);
-    // auto array = std::vector<T>(arrayPtr, arrayPtr + size);
 
     denseElmAttr = mlir::DenseElementsAttr::get(
-        tensorType, llvm::makeArrayRef(array,size));
+        tensorType, llvm::makeArrayRef(array, size));
     break;
   }
   default:
