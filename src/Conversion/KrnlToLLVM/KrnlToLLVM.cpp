@@ -404,7 +404,7 @@ public:
                              .cast<OpaqueElementsAttr>()
                              .getValue();
         // Check data size.
-        assert(((int64_t) data.size() == sizeInBytes) && "Data size mismatch.");
+        assert(((int64_t)data.size() == sizeInBytes) && "Data size mismatch.");
 
         StringAttr llvmStringAttr = StringAttr::get(context, data);
         global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
@@ -415,7 +415,8 @@ public:
         if ((!denseAttr.isSplat()) && (sizeInBytes > 512)) {
           std::vector<char> rawData = denseAttr.getRawData();
           // Check data size.
-          assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
+          assert(((int64_t)rawData.size() == sizeInBytes) &&
+                 "Data size mismatch.");
 
           StringRef data = StringRef((char *)rawData.data(), rawData.size());
           StringAttr llvmStringAttr = StringAttr::get(context, data);

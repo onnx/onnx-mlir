@@ -57,7 +57,8 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
     } else {
       // Unknown dimensions are always the operand's dimensions.
       SmallVector<Value, 4> allocOperands;
-      for (unsigned int outIdx = 0, inIdx = 0; outIdx < memRefShape.size(); ++outIdx) {
+      for (unsigned int outIdx = 0, inIdx = 0; outIdx < memRefShape.size();
+           ++outIdx) {
         Value dimVal = nullptr;
         if (memRefShape[outIdx] < 0) {
           Value index = rewriter.create<memref::DimOp>(loc, data, inIdx);

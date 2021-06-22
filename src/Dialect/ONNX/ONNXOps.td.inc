@@ -496,7 +496,7 @@ def ONNXCastOp:ONNX_Op<"Cast",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      auto builder = mlir::OpBuilder(getContext());
+      // ae auto builder = mlir::OpBuilder(getContext());
       resultTypes.push_back(mlir::UnrankedTensorType::get(to()));
       return resultTypes;
     }

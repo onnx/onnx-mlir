@@ -83,8 +83,8 @@ struct KrnlIterateOperandPack {
   KrnlIterateOperandPack(mlir::Builder &builder,
       llvm::ArrayRef<mlir::Value> inputLoops,
       llvm::ArrayRef<mlir::Value> optimizedLoops)
-      : inputLoops(inputLoops),
-        optimizedLoops(optimizedLoops), builder(builder) {
+      : inputLoops(inputLoops), optimizedLoops(optimizedLoops),
+        builder(builder) {
     _operands.insert(
         _operands.end(), optimizedLoops.begin(), optimizedLoops.end());
   }
@@ -117,8 +117,6 @@ struct KrnlIterateOperandPack {
   size_t getNumInputLoops() const { return inputLoops.size(); }
 
 private:
-  //aee int _boundIdx = 0;
-
   llvm::SmallVector<mlir::Value, 8> _operands;
 
   llvm::SmallVector<mlir::Attribute, 8> boundMaps;

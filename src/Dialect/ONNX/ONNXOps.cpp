@@ -364,8 +364,6 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
 //===----------------------------------------------------------------------===//
 template <class T>
 static LogicalResult processConvTypeParams(T *op, Value inputOperand) {
-  // aee auto builder = mlir::Builder(op->getContext());
-
   // 1) Get shape of input.
   auto inputShape = inputOperand.getType().cast<RankedTensorType>().getShape();
 
@@ -586,7 +584,7 @@ mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
 
     SmallVector<mlir::Type, 1> elementTypes;
     do {
-      //aee llvm::SMLoc typeLoc = parser.getCurrentLocation();
+      // llvm::SMLoc typeLoc = parser.getCurrentLocation();
       mlir::Type elementType;
       if (parser.parseType(elementType))
         return Type();
@@ -1690,7 +1688,7 @@ LogicalResult ONNXConvOp::inferShapes(
   // argument.
   auto kernelShape = kernel_shape();
   if (kernelShape.hasValue()) {
-    if ((int32_t) ArrayAttrSize(kernelShape) != spatialRank)
+    if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank)
       return emitError(
           "kernel_shape length incompatible with spatial dimensions");
     // Have the right number of values, check them.
@@ -1819,7 +1817,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   // argument.
   auto kernelShape = kernel_shape();
   if (kernelShape.hasValue()) {
-    if ((int32_t) ArrayAttrSize(kernelShape) != spatialRank) {
+    if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank) {
       return emitError(
           "kernel_shape length incompatible with spatial dimensions");
     }
@@ -1940,7 +1938,7 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
   // argument.
   auto kernelShape = kernel_shape();
   if (kernelShape.hasValue()) {
-    if ((int32_t) ArrayAttrSize(kernelShape) != spatialRank)
+    if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank)
       return emitError(
           "kernel_shape length incompatible with spatial dimensions");
     // Have the right number of values, check them.
@@ -2372,7 +2370,7 @@ LogicalResult ONNXConcatOp::inferShapes(
   for (int i = 1; i < inputNum; ++i) {
     auto currShape =
         getOperand(i).getType().cast<RankedTensorType>().getShape();
-    if ((int64_t) currShape.size() != commonRank)
+    if ((int64_t)currShape.size() != commonRank)
       return emitError("Concat input must all have the same rank");
     for (int j = 0; j < commonRank; ++j) {
       if (j == axisIndex) {
@@ -2690,7 +2688,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
   // argument.
   auto kernelShape = kernel_shape();
   if (kernelShape.hasValue()) {
-    if ((int32_t) ArrayAttrSize(kernelShape) != spatialRank) {
+    if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank) {
       return emitOpError(
           "kernel_shape length incompatible with spatial dimensions");
     }
@@ -3466,7 +3464,6 @@ LogicalResult ONNXRoundOp::inferShapes(
 
 LogicalResult ONNXScanOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  //aee auto builder = mlir::Builder(getContext());
   auto &loopBody = getRegion();
   assert(!scan_input_axes().hasValue());
 

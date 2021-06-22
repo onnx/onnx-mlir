@@ -289,7 +289,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
       int64_t axis = value.cast<IntegerAttr>().getInt();
       if (axis < 0)
         axis += dataRank;
-      if (!(axis >= 0 && axis < (int64_t) dataRank))
+      if (!(axis >= 0 && axis < (int64_t)dataRank))
         return op->emitError("Axes contains an out-of-bound index");
       axesIntLit.emplace_back(axis);
     }
@@ -868,8 +868,6 @@ ONNXTransposeOpShapeHelper::ONNXTransposeOpShapeHelper(ONNXTransposeOp *newOp,
 LogicalResult ONNXTransposeOpShapeHelper::Compute(
     ONNXTransposeOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  //aee Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Basic information.
   auto rank = operandAdaptor.data().getType().cast<ShapedType>().getRank();
 
@@ -915,8 +913,6 @@ ONNXLRNOpShapeHelper::ONNXLRNOpShapeHelper(ONNXLRNOp *newOp,
 
 LogicalResult ONNXLRNOpShapeHelper::Compute(ONNXLRNOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  //aee Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Basic information.
   auto rank = operandAdaptor.X().getType().cast<ShapedType>().getRank();
 

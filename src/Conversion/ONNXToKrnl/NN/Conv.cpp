@@ -199,7 +199,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
       int64_t nSpatialLoops = resultShape.size() - spatialStartIndex;
       BuildKrnlLoop spatialLoops(rewriter, loc, nSpatialLoops);
       spatialLoops.createDefineOp();
-      for (int i = spatialStartIndex; i < (int) resultShape.size(); ++i)
+      for (int i = spatialStartIndex; i < (int)resultShape.size(); ++i)
         spatialLoops.pushBounds(0, alloc, i);
 
       // 2.4 Emit loop nest over output spatial dimensions.
@@ -272,7 +272,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
         //     for cw2 in range(end2 - start2):
         AffineMap windowSizeMap =
             getWindowAffineMap(rewriter, /*ceilMode=*/true, isDilated);
-        for (int i = spatialStartIndex; i < (int) kernelShape.size(); ++i) {
+        for (int i = spatialStartIndex; i < (int)kernelShape.size(); ++i) {
           // Affine map's operands.
           SmallVector<Value, 4> operands;
           for (IndexExpr expr : IVExprs[i - spatialStartIndex])
@@ -334,7 +334,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
           kernelIndices.emplace_back(
               DimIndexExpr(innerLoops.getInductionVar(cIndex)));
           // k1 = h1 - kernelOffset1
-          for (int i = 0; i < (int) kernelShape.size() - spatialStartIndex; ++i) {
+          for (int i = 0; i < (int)kernelShape.size() - spatialStartIndex;
+               ++i) {
             // Since the window at borders may be smaller than the kernel, we
             // have to shift kernel indices with a suitalbe offset.
             DimIndexExpr h1(innerLoops.getInductionVar(i + 1));

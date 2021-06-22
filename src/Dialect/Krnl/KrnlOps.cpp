@@ -397,7 +397,7 @@ void KrnlPermuteOp::build(::mlir::OpBuilder &odsBuilder,
   assert(rank >= 2 && "permute needs 2 or more loops");
   assert(odsMap.size() == rank && "loop and size size must be identical");
   for (unsigned int i = 0; i < rank; ++i) {
-    assert(odsMap[i] >= 0 && odsMap[i] < (int64_t) rank && "bad permute");
+    assert(odsMap[i] >= 0 && odsMap[i] < (int64_t)rank && "bad permute");
     for (unsigned int j = i + 1; j < rank; ++j)
       assert(
           odsMap[i] != odsMap[j] && "map should be a strict permute pattern");

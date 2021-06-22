@@ -232,7 +232,7 @@ void IterateConstPropSplit(char *constArray, ArrayRef<int64_t> constShape,
     SmallVector<int64_t, 4> resIndices(rank, 0);
     for (unsigned int r = 0; r < rank; ++r) {
       if (r == splitAxis) {
-        for (int k = 0; k < (int) numOfResults - 1; ++k)
+        for (int k = 0; k < (int)numOfResults - 1; ++k)
           if (constIndices[r] >= splitOffsets[k] &&
               constIndices[r] < splitOffsets[k + 1]) {
             toResult = k;

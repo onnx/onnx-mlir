@@ -27,7 +27,7 @@ namespace mlir {
 // be automaticaly destroyed at the same time as the scope.
 
 class IndexExprImpl {
-  public:
+public:
   // Public constructor.
   IndexExprImpl();
 

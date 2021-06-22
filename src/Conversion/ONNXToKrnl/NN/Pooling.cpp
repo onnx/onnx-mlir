@@ -153,7 +153,7 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
 
   // Obtain an affine map to compute the output dimension.
   AffineMap dimMap = getConvDimMap(rewriter, ceilMode);
-  for (int i = kernelOffset; i < (int) resultShape.size(); ++i) {
+  for (int i = kernelOffset; i < (int)resultShape.size(); ++i) {
     if (resultShape[i] < 0) {
       int spatialIndex = i - kernelOffset;
       // Prepare arguments for the affine map.
@@ -461,7 +461,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         { // Construct inputIndices
           for (int i = 0; i < kernelOffset; ++i)
             inputIndices.emplace_back(outputIndices[i]);
-          for (int i = kernelOffset; i < (int) inputShape.size(); ++i) {
+          for (int i = kernelOffset; i < (int)inputShape.size(); ++i) {
             int j = i - kernelOffset;
             DimIndexExpr hp(poolingLoops.getInductionVar(j));
             IndexExpr startH = windowStartExprs[j];

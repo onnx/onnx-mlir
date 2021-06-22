@@ -500,7 +500,6 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlLoadOp op, PatternRewriter &rewriter) const override {
-    Location loc = op.getLoc();
     KrnlLoadOpAdaptor operandAdaptor = KrnlLoadOpAdaptor(op);
 
     // Prepare inputs.
@@ -532,7 +531,6 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlStoreOp op, PatternRewriter &rewriter) const override {
-    Location loc = op.getLoc();
     KrnlStoreOpAdaptor operandAdaptor = KrnlStoreOpAdaptor(op);
 
     // Prepare inputs.
@@ -653,7 +651,6 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlMatMulOp op, PatternRewriter &rewriter) const override {
-    Location loc = op.getLoc();
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
 
     // Option.
@@ -1188,7 +1185,7 @@ public:
       }
     } else {
       using namespace edsc::op;
-      Value readUBVal = readUBs[i].getValue();
+      readUBs[i].getValue();
       if (readUBs[i].isLiteralAndIdenticalTo(0)) {
         // Nothing to read, skip.
       } else {
@@ -1377,9 +1374,11 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   FuncOp funcOp = getFunction();
 
   // Move invariant instructions outside of the loops as many as possible. This
-  // helps make loops perfectly nested, which faciliates transformations.
+  // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
-    moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
+    LogicalResult res =
+        moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
+    assert(succeeded(res) && "failed to move loop invariant code");
   });
 
   // We use the end of the function body as a staging area for movable ops.

@@ -106,7 +106,8 @@ public:
       // If dimension is dynamic we need to return the input alloc Value which
       // corresponds to it.
       int64_t dynDimIdx = getAllocArgIndex(allocOp, index);
-      assert(dynDimIdx >= 0 && dynDimIdx < (int64_t) allocOp.getOperands().size() &&
+      assert(dynDimIdx >= 0 &&
+             dynDimIdx < (int64_t)allocOp.getOperands().size() &&
              "Dynamic index outside range of alloc argument list.");
       result = allocOp.getOperands()[dynDimIdx];
     } else if (memRefType.getAffineMaps().empty()) {

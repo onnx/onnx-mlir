@@ -314,7 +314,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
     auto srcTy = src.getType().cast<MemRefType>();
     SmallVector<Value, 4> readIV(readPrefix.begin(), readPrefix.end());
     SmallVector<Value, 4> writeIV;
-    if ((size_t) srcTy.getRank() > readIV.size()) {
+    if ((size_t)srcTy.getRank() > readIV.size()) {
       BuildKrnlLoop loop(rewriter, loc, srcTy.getRank() - readPrefix.size());
       loop.createDefineOp();
       for (int i = readIV.size(); i < srcTy.getRank(); i++)
