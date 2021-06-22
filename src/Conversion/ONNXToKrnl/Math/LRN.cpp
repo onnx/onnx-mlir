@@ -66,7 +66,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     // and i<= min(C - 1, c + ceil((size - 1) / 2)).
 
     // Get a child IndexExpr context.
-    IndexExprScope childScope(shapeHelper.scope);
+    IndexExprScope childScope(rewriter, shapeHelper.scope);
 
     // Compute the lower bound and upper bound for square_sum.
     const int loopIndexForC = 1;

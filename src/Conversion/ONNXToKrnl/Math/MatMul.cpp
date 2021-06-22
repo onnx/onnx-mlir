@@ -185,7 +185,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         loadDenseElementArrayValueAtIndex);
     LogicalResult shapecomputed = shapeHelper.Compute(operandAdaptor);
     assert(succeeded(shapecomputed));
-    IndexExprScope outerScope(shapeHelper.scope);
+    IndexExprScope outerScope(rewriter, shapeHelper.scope);
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());

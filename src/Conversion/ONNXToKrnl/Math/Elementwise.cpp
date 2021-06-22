@@ -736,7 +736,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     // Scope for krnl EDSC ops
     using namespace mlir::edsc;
     ScopedContext scope(rewriter, loc);
-    IndexExprScope outerScope(shapeHelper.scope);
+    IndexExprScope outerScope(rewriter, shapeHelper.scope);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
@@ -807,7 +807,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     assert(succeeded(shapecomputed));
     using namespace mlir::edsc;
     ScopedContext scope(rewriter, loc);
-    IndexExprScope outerScope;
+    IndexExprScope outerScope(rewriter, shapeHelper.scope);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(

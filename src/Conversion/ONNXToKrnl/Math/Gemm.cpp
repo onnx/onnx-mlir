@@ -295,7 +295,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       if (alphaLit != 1.0)
         res = std_mulf(alphaVal, res);
       if (shapeHelper.hasBias) {
-        IndexExprScope innerScope;
+        IndexExprScope innerScope(rewriter, shapeHelper.scope);
         SmallVector<IndexExpr, 2> cAccess;
         for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
           // If dim > 1, use loop index, otherwise broadcast on 0's element.

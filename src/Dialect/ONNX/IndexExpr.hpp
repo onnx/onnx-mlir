@@ -322,8 +322,8 @@ public:
   // Constructor for subsequent nested scopes. Providing enclosing scope is not
   // necessary; it is provided for convenience if a user prefer to name the
   // enclosing scope explicitly.
-  IndexExprScope();
-  IndexExprScope(IndexExprScope &explicitEnclosingScope);
+  IndexExprScope(OpBuilder *rewriter, IndexExprScope &enclosingScope);
+  IndexExprScope(OpBuilder &rewriter, IndexExprScope &enclosingScope);
   // Destructor which release all IndexExpr associated with this scope.
   ~IndexExprScope();
 
@@ -344,6 +344,8 @@ public:
   void debugPrint(const std::string &msg) const;
 
 private:
+  IndexExprScope();
+
   static IndexExprScope *&getCurrentScopePtr() {
     thread_local IndexExprScope *scope = nullptr; // Thread local, null init.
     return scope;
