@@ -72,6 +72,21 @@ func @test_add_constant_5(%arg0 : tensor<3xi32>, %arg1: tensor<3xi32>, %arg2: te
   // CHECK-NEXT: [[ADD3:%.+]] = "onnx.Add"([[ADD2]], [[CONST1]]) : (tensor<3xi32>, tensor<3xi32>) -> tensor<3xi32>
 }
 
+/// Test that we distribute a(b+c) operations to ab + ac when a and c are constants
+// -----
+// CHECK-LABEL: @test_distribute_mul(%arg0: tensor<3xf32>) -> tensor<3xf32>
+func @test_distribute_mul(%arg0 : tensor<3xf32>) -> tensor<3xf32> {
+  %0 = "onnx.Constant"() {value = dense<[1.0, 2.0, 3.0]> : tensor<3xf32>} : () -> tensor<3xf32>
+  %1 = "onnx.Constant"() {value = dense<[4.0, 5.0, 6.0]> : tensor<3xf32>} : () -> tensor<3xf32>
+  %2 = "onnx.Add"(%arg0, %0) : (tensor<3xf32> , tensor<3xf32>) -> tensor<3xf32>
+  %3 = "onnx.Mul"(%1, %2) : (tensor<3xf32> , tensor<3xf32>) -> tensor<3xf32>
+  "std.return"(%1) : (tensor<3xf32>) -> ()
+  // CHECK-NEXT: [[MUL1:%.+]] = "onnx.Mul"(%arg0, %1) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+  // CHECK-NEXT: [[CONST1:%.+]] = "onnx.Constant"() {value = dense<[4.0, 10.0, 18.0]> : tensor<3xf32>} : () -> tensor<3xf32>
+  // CHECK-NEXT: [[ADD1:%.+]] = "onnx.Add"([[MUL1]], [[CONST1]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+}
+
+
 /// Test broadcast 1 -> 2d
 // -----
 // CHECK-LABEL: @test_broadcast_1(%arg0: tensor<3x2xi32>) -> tensor<3x2xi32>
@@ -270,4 +285,3 @@ func @test_unsqueeze() -> tensor<*xf32> {
   // CHECK: {{.*}} = "onnx.Constant"() {value = dense<{{\[}}{{\[}}[4.000000e+00]{{\]}}, {{\[}}[1.600000e+01]{{\]}}{{\]}}> : tensor<2x1x1xf32>} : () -> tensor<2x1x1xf32>
   // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
 }
-

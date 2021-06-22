@@ -47,7 +47,6 @@ def AttributeIsNull :
     Constraint<CPred<"! ($_self)">,
   "Attribute is null">;
 
-
 // Usefult code generation invokation.
 def GetNullAttr : NativeCodeCall<"Attribute()">;
   
@@ -185,6 +184,18 @@ def SqrtofConst :  Pat<
 // Exactly the same pattern as for the elementwise ADD operations.
 //===----------------------------------------------------------------------===//
 
+
+def MulAddDistribitive : Pat<
+  // From mul(add(x, c1), c2).
+  (ONNXMulOp: $mulOp
+    (ONNXAddOp $x,(ONNXConstantOp:$c1 $s1, $_)),
+    (ONNXConstantOp:$c2 $s2, $_)),
+  // To add(mul(c2,x), mul(c1, c2)).
+  (ONNXAddOp
+    (ONNXMulOp $x, $c2),
+    (ONNXMulOp $c1, $c2)),
+    [(IsNotAConstant:$x),(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
+
 // Use commutativity to normalize constants in the second position of Mul.
 def MulConstCommutative1 : Pat<
   // From mul(c, x).
@@ -243,7 +254,7 @@ def MulConstAssociative4 : Pat<
 def MulConstProp : Pat<
     // From mul(c1, c2).
     (ONNXMulOp:$mulOp (ONNXConstantOp $s1, $v1), (ONNXConstantOp $s2, $v2)),
-    // To c1+c2
+    // To c1*c2
     (ONNXConstantOp (GetNullAttr), (CreateMulOfTwoConst $mulOp, $v1, $v2)),
     // Mulitional constraints (no sparse)
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
