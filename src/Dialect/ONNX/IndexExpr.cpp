@@ -52,9 +52,8 @@ IndexExprScope::IndexExprScope(OpBuilder &rewriter, Location loc)
 // Nested scopes.
 IndexExprScope::IndexExprScope(
     OpBuilder *innerRewriter, IndexExprScope &enclosingScope)
-    : dims(), symbols(), rewriter(innerRewriter),
-      loc(enclosingScope.loc), parentScope(&enclosingScope),
-      container() {
+    : dims(), symbols(), rewriter(innerRewriter), loc(enclosingScope.loc),
+      parentScope(&enclosingScope), container() {
   // Check the enclosing scope is the current one.
   assert(&enclosingScope == getCurrentScopePtr() &&
          "provided parent scope was not the previously active scope");
