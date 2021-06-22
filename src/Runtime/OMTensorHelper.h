@@ -55,6 +55,11 @@ static inline std::vector<int64_t> computeStridesFromShape(
  */
 static inline int64_t computeElemOffset(
     int64_t *dataStrides, int rank, std::vector<int64_t> &indexes) {
+  if (indexes.size() != rank) {
+    fprintf(stderr, "Error: not enough indices to fully determine the element "
+                    "offset in tensor\n");
+    exit(1);
+  }
   auto dimStrides = std::vector<int64_t>(dataStrides, dataStrides + rank);
   int64_t elemOffset = inner_product(
       indexes.begin(), indexes.end(), dimStrides.begin(), (int64_t)0);

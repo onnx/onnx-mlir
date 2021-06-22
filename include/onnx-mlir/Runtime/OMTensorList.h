@@ -32,8 +32,8 @@ extern "C" {
  * \brief OMTensorList creator
  *
  * Create an OMTensorList with specified OMTensor array. The array of pointers
- * to OMTensor pointers is used without copying, so caller should not free the
- * `tensors` ptr.
+ * to OMTensor pointers is copyied, so caller can free the `tensors` ptr after
+ * the call.
  *
  * @param tensors array of pointers to OMTensor
  * @param n number of elements in tensors array
@@ -78,7 +78,7 @@ int omTensorListGetSize(OMTensorList *list);
  *
  * @param list pointer to the OMTensorList
  * @param index index of the OMTensor
- * @reutrn pointer to the OMTensor, NULL if not found.
+ * @return pointer to the OMTensor, NULL if not found.
  */
 OMTensor *omTensorListGetOmtByIndex(OMTensorList *list, size_t index);
 
