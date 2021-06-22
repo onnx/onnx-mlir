@@ -12,6 +12,7 @@ if(Java_Development_FOUND AND JNI_FOUND)
   # Target for Java runtime jar
   add_jar(javaruntime
           src/com/ibm/onnxmlir/OMModel.java
+          src/com/ibm/onnxmlir/OMLogger.java
           src/com/ibm/onnxmlir/OMTensorList.java
           src/com/ibm/onnxmlir/OMTensor.java)
 
