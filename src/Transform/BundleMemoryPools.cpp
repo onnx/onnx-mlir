@@ -521,7 +521,7 @@ public:
     // No need to test, its ok to fail the apply.
     LogicalResult res =
         applyPatternsAndFoldGreedily(function, std::move(patterns));
-    assert((succeeded(res) || failed(res)) && "remove unused var");
+    assert((succeeded(res) || failed(res)) && "remove unused var warning");
 
     BlockToMemPool::iterator it;
     for (it = blockToStaticPool.begin(); it != blockToStaticPool.end(); it++)
