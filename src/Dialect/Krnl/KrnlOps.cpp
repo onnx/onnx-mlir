@@ -165,7 +165,7 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   for (auto opt : optimizedLoops)
     optLoops.emplace_back(opt);
   KrnlIterateOperandPack pack(builder, origLoops, optLoops);
-  for (int i = 0; i < lbs.size(); ++i) {
+  for (unsigned int i = 0; i < lbs.size(); ++i) {
     pack.pushOperandBound(lbs[i]);
     pack.pushOperandBound(ubs[i]);
   }
@@ -393,12 +393,12 @@ void KrnlBlockOp::build(::mlir::OpBuilder &odsBuilder,
 void KrnlPermuteOp::build(::mlir::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, ValueRange odsLoops,
     ArrayRef<int64_t> odsMap) {
-  int64_t rank = odsLoops.size();
+  uint64_t rank = odsLoops.size();
   assert(rank >= 2 && "permute needs 2 or more loops");
   assert(odsMap.size() == rank && "loop and size size must be identical");
-  for (int i = 0; i < rank; ++i) {
-    assert(odsMap[i] >= 0 && odsMap[i] < rank && "bad permute");
-    for (int j = i + 1; j < rank; ++j)
+  for (unsigned int i = 0; i < rank; ++i) {
+    assert(odsMap[i] >= 0 && odsMap[i] < (int64_t)rank && "bad permute");
+    for (unsigned int j = i + 1; j < rank; ++j)
       assert(
           odsMap[i] != odsMap[j] && "map should be a strict permute pattern");
   }
@@ -581,11 +581,11 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
 
 static LogicalResult verify(KrnlMatMulOp op) {
   KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
-  int64_t aRank =
+  uint64_t aRank =
       operandAdaptor.A().getType().cast<MemRefType>().getShape().size();
-  int64_t bRank =
+  uint64_t bRank =
       operandAdaptor.B().getType().cast<MemRefType>().getShape().size();
-  int64_t cRank =
+  uint64_t cRank =
       operandAdaptor.C().getType().cast<MemRefType>().getShape().size();
   if (!(aRank >= 2 && bRank >= 2 && cRank >= 2))
     return op.emitOpError("currently only support ranks >=2");

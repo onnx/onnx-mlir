@@ -35,7 +35,6 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
-    auto resultOperand = lrnOp.Y();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputMemRefShape = outputMemRefType.getShape();
     auto elementType = outputMemRefType.getElementType();

@@ -37,7 +37,7 @@ namespace {
 // Instructions to add a constant operation.
 //===----------------------------------------------------------------------===//
 // There is currently support for adding constant propagation for unary and
-// binary athythmetic ops (binary ops support broadcast). To add an operation,
+// binary arithmetic ops (binary ops support broadcast). To add an operation,
 // you simply have to add a templated method on how to compute the result in
 // terms of one or two inputs.
 //
@@ -109,11 +109,6 @@ char *getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op) {
   assert(constOp && "Not a constant operation");
   char *res;
 
-  ShapedType shapedType = constOp.getResult().getType().cast<ShapedType>();
-  int64_t maxSizeInBytes = getMaxSizeInBytes(shapedType);
-  int64_t numElements = getNumberOfElements(shapedType.getShape());
-  Type elementType = shapedType.getElementType();
-
   Attribute bufferIDAttr = op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR);
   if (bufferIDAttr) {
     unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
@@ -149,13 +144,13 @@ void getArrayForFinalOutput(Operation *op, char *res) {
   }
 }
 
-/// A helper function to contruct a RankedTensorType from a ShapedType.
+/// A helper function to construct a RankedTensorType from a ShapedType.
 RankedTensorType constructRankedTensorType(ShapedType type) {
   assert(type.hasRank() && "Not a ranked type");
   return RankedTensorType::get(type.getShape(), type.getElementType());
 }
 
-/// A helper fucntion to check whether a value is produced by a dense
+/// A helper function to check whether a value is produced by a dense
 /// ONNXConstantOp.
 bool isFromDenseONNXConstantOp(Value result) {
   Operation *op = result.getDefiningOp();
@@ -194,20 +189,20 @@ bool isFromDenseONNXConstantOp(Value result) {
 ONNXConstantOp createConstantOpAndStoreBufferPtr(
     PatternRewriter &rewriter, Value replacingValue, char *vt) {
   Location loc = replacingValue.getLoc();
-  int64_t maxSizeInBytes = getMaxSizeInBytes(replacingValue.getType());
+  // int64_t maxSizeInBytes = getMaxSizeInBytes(replacingValue.getType());
 
   ONNXConstantOp constOp = rewriter.create<ONNXConstantOp>(loc,
       replacingValue.getType(), Attribute(), Attribute(), FloatAttr(),
       ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
 
   // Store the buffer pointer.
-  unsigned bufferId = -1;
+  unsigned bufferId = (unsigned)-1;
   for (unsigned i = 0; i < bufferPtrs.size(); ++i)
     if (bufferPtrs[i] == vt) {
       bufferId = i;
       break;
     }
-  if (bufferId == -1) {
+  if (bufferId == (unsigned)-1) {
     bufferPtrs.emplace_back(vt);
     bufferId = bufferPtrs.size() - 1;
   }
@@ -223,7 +218,7 @@ ONNXConstantOp createConstantOpAndStoreBufferPtr(
 // Code to perform constant propagation for binary in presence of broadcast.
 //===----------------------------------------------------------------------===//
 
-// Template to generate binary operation results. It takes as inupt the element
+// Template to generate binary operation results. It takes as input the element
 // type as well as the two element attributes for the operation, and return the
 // result of the operation.
 
@@ -415,7 +410,6 @@ ONNXConstantOp ConstPropElementwiseUnary(
   ShapedType replacingType = replacingValue.getType().cast<ShapedType>();
   ArrayRef<int64_t> replacingShape = replacingType.getShape();
   Type elementType = replacingType.getElementType();
-  int64_t maxSizeInBytes = getMaxSizeInBytes(constValue.getType());
 
   // Get the const value.
   char *constArray =
@@ -455,7 +449,6 @@ ONNXConstantOp ConstPropTranspose(
       constValue.getType().cast<ShapedType>().getShape();
   Type elementType =
       replacingValue.getType().cast<ShapedType>().getElementType();
-  int64_t maxSizeInBytes = getMaxSizeInBytes(replacingValue.getType());
 
   // Get perm attribute.
   SmallVector<uint64_t, 4> perm;
@@ -490,7 +483,6 @@ ONNXConstantOp ConstPropTranspose(
 ONNXConstantOp ConstPropUnsqueeze(
     PatternRewriter &rewriter, Value replacingValue, Value input) {
   Type replacingType = replacingValue.getType();
-  Type elementType = replacingType.cast<ShapedType>().getElementType();
   Operation *inputOp = input.getDefiningOp();
 
   char *resArray = getArrayFromAttributeOrBuffer(rewriter, inputOp);
@@ -533,7 +525,7 @@ public:
                "The dimension at the split axis is expected to be divisible by "
                "the number of results");
       int64_t offset = 0;
-      for (int i = 0; i < numOfResults; ++i) {
+      for (unsigned int i = 0; i < numOfResults; ++i) {
         splitOffsets.emplace_back(offset);
         if (splitAttr)
           offset += splitAttr.getValue()[i].cast<IntegerAttr>().getInt();
@@ -548,7 +540,7 @@ public:
 
     SmallVector<Value, 4> replacingValues;
     SmallVector<Type, 4> replacingTypes;
-    for (int i = 0; i < numOfResults; ++i) {
+    for (unsigned int i = 0; i < numOfResults; ++i) {
       replacingValues.emplace_back(splitOp.getResults()[i]);
       replacingTypes.emplace_back(splitOp.getResults()[i].getType());
     }
@@ -560,7 +552,7 @@ public:
 
     // Construct result values.
     std::vector<Value> resValues;
-    for (int i = 0; i < numOfResults; ++i) {
+    for (unsigned int i = 0; i < numOfResults; ++i) {
       ONNXConstantOp res = createConstantOpAndStoreBufferPtr(
           rewriter, replacingValues[i], resBuffers[i]);
       resValues.emplace_back(res.getResult());

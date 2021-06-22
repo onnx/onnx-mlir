@@ -31,7 +31,7 @@
 
 using namespace mlir;
 
-const int64_t KrnlConstGlobalValueElision::kDefaultElisionThreshold = 32;
+const uint64_t KrnlConstGlobalValueElision::kDefaultElisionThreshold = 32;
 
 mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
     mlir::KrnlGlobalOp op, mlir::PatternRewriter &rewriter) const {
@@ -61,7 +61,7 @@ mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
   } else {
     // Elide the opaque attribute.
     const auto &valAttr = op.valueAttr().dyn_cast_or_null<OpaqueElementsAttr>();
-    if (valAttr.getValue().size() > elisionThreshold) {
+    if ((unsigned int)valAttr.getValue().size() > elisionThreshold) {
       IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
       IntegerAttr alignmentAttr = op.alignment() ? op.alignmentAttr() : nullptr;
       auto newGlobalOp = rewriter.create<KrnlGlobalOp>(loc,
@@ -92,6 +92,7 @@ public:
     // No need to test, its ok to fail the apply.
     LogicalResult res =
         applyPatternsAndFoldGreedily(function, std::move(patterns));
+    assert((succeeded(res) || failed(res)) && "remove unused var warning");
   }
 };
 

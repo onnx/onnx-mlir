@@ -24,7 +24,7 @@ public:
    * option is enabled, stored as a  binary file on disk. This can help preserve
    * readability of IR dump and improve compilation speed.
    */
-  static const int64_t kDefaultElisionThreshold;
+  static const uint64_t kDefaultElisionThreshold;
 
   int64_t elisionThreshold;
 

@@ -49,7 +49,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     auto rank = memRefShape.size();
 
     SmallVector<Value, 4> allocOperands;
-    for (int i = 0; i < rank; ++i)
+    for (unsigned int i = 0; i < rank; ++i)
       if (memRefShape[i] < 0) {
         auto dim = rewriter.create<memref::DimOp>(loc, operand, i);
         allocOperands.push_back(dim);
@@ -106,7 +106,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   auto memRefShape = type.getShape();
   auto rank = memRefShape.size();
 
-  for (int i = 0; i < rank; ++i) {
+  for (unsigned int i = 0; i < rank; ++i) {
     if (memRefShape[i] < 0) {
       // have dyn shape
       allocOperands.emplace_back(outputDims[i].getValue());

@@ -70,7 +70,7 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   auto elementType = typeOper.getType().cast<ShapedType>().getElementType();
-  for (int i = 0; i < op->getNumResults(); ++i) {
+  for (unsigned int i = 0; i < op->getNumResults(); ++i) {
     SmallVector<int64_t, 4> outputDims;
     IndexExpr::getShape(shapeHelper.dimsForOutput(i), outputDims);
     op->getResults()[i].setType(RankedTensorType::get(outputDims, elementType));
@@ -364,11 +364,8 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
 //===----------------------------------------------------------------------===//
 template <class T>
 static LogicalResult processConvTypeParams(T *op, Value inputOperand) {
-  auto builder = mlir::Builder(op->getContext());
-
   // 1) Get shape of input.
   auto inputShape = inputOperand.getType().cast<RankedTensorType>().getShape();
-  auto inputRank = inputShape.size();
 
   // 2) Get kernel_shape attribute.
   auto kernelShape = op->kernel_shape();
@@ -402,7 +399,7 @@ static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
 
   // Get an affine map to compute the output dimension.
   AffineMap dimMap = getConvDimMap(builder, ceilMode);
-  for (int i = 0; i < spatialRank; ++i) {
+  for (unsigned int i = 0; i < spatialRank; ++i) {
     int64_t res = -1;
     if (xShape[spatialOffset + i] != -1) {
       auto inputSize = xShape[spatialOffset + i];
@@ -458,7 +455,6 @@ static LogicalResult RNNShapeInference(T *op) {
   // Get sequence length, batch size and input size.
   auto sequenceLength = xShape[0];
   auto batchSize = xShape[1];
-  auto inputSize = xShape[2];
 
   // Get hidden size from hidden_size attribute.
   int64_t hiddenSize = -1;
@@ -541,7 +537,7 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
   int64_t outputPadsVal = 0;
   // output_shape[i] = stride[i] * (input_size[i] - 1) + output_padding[i] +
   // ((kernel_shape[i] - 1) * dilations[i] + 1) - pads[start_i] - pads[end_i]
-  for (int i = 0; i < spatialRank; ++i) {
+  for (unsigned int i = 0; i < spatialRank; ++i) {
     auto inputSize = xShape[spatialOffset + i];
     auto sumOfPads =
         ArrayAttrIntVal(padsOpt, i) + ArrayAttrIntVal(padsOpt, spatialRank + i);
@@ -588,7 +584,7 @@ mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
 
     SmallVector<mlir::Type, 1> elementTypes;
     do {
-      llvm::SMLoc typeLoc = parser.getCurrentLocation();
+      // llvm::SMLoc typeLoc = parser.getCurrentLocation();
       mlir::Type elementType;
       if (parser.parseType(elementType))
         return Type();
@@ -886,7 +882,7 @@ LogicalResult ONNXPReluOp::inferShapes(
   // Bidirectional broadcasting rules.
   getBroadcastedShape(xShape, slopeShape, shape);
   // Fine-tune.
-  for (int i = 0; i < shape.size(); ++i)
+  for (unsigned int i = 0; i < shape.size(); ++i)
     if (xShape[i] != -1)
       shape[i] = xShape[i];
 
@@ -1122,12 +1118,12 @@ LogicalResult ONNXXorOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXSumOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  for (int i = 0; i < getNumOperands(); ++i) {
+  for (unsigned int i = 0; i < getNumOperands(); ++i) {
     if (!getOperand(i).getType().cast<RankedTensorType>())
       return emitError("Input tensor(s) not ranked");
   }
   Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
-  for (int i = 1; i < getNumOperands(); ++i) {
+  for (unsigned int i = 1; i < getNumOperands(); ++i) {
     Type nextTy = getOperand(i).getType().cast<RankedTensorType>();
     resultTy = getBroadcastedType(resultTy, nextTy);
   }
@@ -1142,12 +1138,12 @@ LogicalResult ONNXSumOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXMaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  for (int i = 0; i < getNumOperands(); ++i) {
+  for (unsigned int i = 0; i < getNumOperands(); ++i) {
     if (!getOperand(i).getType().cast<RankedTensorType>())
       return emitError("Input tensor(s) not ranked");
   }
   Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
-  for (int i = 1; i < getNumOperands(); ++i) {
+  for (unsigned int i = 1; i < getNumOperands(); ++i) {
     Type nextTy = getOperand(i).getType().cast<RankedTensorType>();
     resultTy = getBroadcastedType(resultTy, nextTy);
   }
@@ -1162,12 +1158,12 @@ LogicalResult ONNXMaxOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXMinOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  for (int i = 0; i < getNumOperands(); ++i) {
+  for (unsigned int i = 0; i < getNumOperands(); ++i) {
     if (!getOperand(i).getType().cast<RankedTensorType>())
       return emitError("Input tensor(s) not ranked");
   }
   Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
-  for (int i = 1; i < getNumOperands(); ++i) {
+  for (unsigned int i = 1; i < getNumOperands(); ++i) {
     Type nextTy = getOperand(i).getType().cast<RankedTensorType>();
     resultTy = getBroadcastedType(resultTy, nextTy);
   }
@@ -1692,7 +1688,7 @@ LogicalResult ONNXConvOp::inferShapes(
   // argument.
   auto kernelShape = kernel_shape();
   if (kernelShape.hasValue()) {
-    if (ArrayAttrSize(kernelShape) != spatialRank)
+    if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank)
       return emitError(
           "kernel_shape length incompatible with spatial dimensions");
     // Have the right number of values, check them.
@@ -1821,7 +1817,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   // argument.
   auto kernelShape = kernel_shape();
   if (kernelShape.hasValue()) {
-    if (ArrayAttrSize(kernelShape) != spatialRank) {
+    if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank) {
       return emitError(
           "kernel_shape length incompatible with spatial dimensions");
     }
@@ -1942,7 +1938,7 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
   // argument.
   auto kernelShape = kernel_shape();
   if (kernelShape.hasValue()) {
-    if (ArrayAttrSize(kernelShape) != spatialRank)
+    if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank)
       return emitError(
           "kernel_shape length incompatible with spatial dimensions");
     // Have the right number of values, check them.
@@ -2356,7 +2352,7 @@ LogicalResult ONNXConcatOp::inferShapes(
   // Checking value of axis parameter.
   auto commonType = getOperand(0).getType().cast<RankedTensorType>();
   auto commonShape = commonType.getShape();
-  auto commonRank = commonShape.size();
+  int64_t commonRank = commonShape.size();
   int64_t axisIndex = axis();
   // Negative axis means values are counted from the opposite side.
   if (axisIndex < 0) {
@@ -2374,7 +2370,7 @@ LogicalResult ONNXConcatOp::inferShapes(
   for (int i = 1; i < inputNum; ++i) {
     auto currShape =
         getOperand(i).getType().cast<RankedTensorType>().getShape();
-    if (currShape.size() != commonRank)
+    if ((int64_t)currShape.size() != commonRank)
       return emitError("Concat input must all have the same rank");
     for (int j = 0; j < commonRank; ++j) {
       if (j == axisIndex) {
@@ -2451,10 +2447,10 @@ LogicalResult ONNXFlattenOp::inferShapes(
     return emitOpError("Input is a non-shaped type");
   }
 
-  auto axisValue = axis();
+  int64_t axisValue = axis();
   auto inputShape = inTy.getShape();
-  auto inputRank = inputShape.size();
-  if (axisValue < -1 * (int64_t)inputRank || axisValue > (int64_t)inputRank) {
+  int64_t inputRank = inputShape.size();
+  if (axisValue < -1 * inputRank || axisValue > inputRank) {
     return emitOpError("ONNXFlattenOP: axis() value is out of range");
   }
 
@@ -2692,7 +2688,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
   // argument.
   auto kernelShape = kernel_shape();
   if (kernelShape.hasValue()) {
-    if (ArrayAttrSize(kernelShape) != spatialRank) {
+    if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank) {
       return emitOpError(
           "kernel_shape length incompatible with spatial dimensions");
     }
@@ -2892,7 +2888,7 @@ LogicalResult ONNXSliceOp::inferShapes(
     // If axes is not specified, default to [0, ..., ndim-1]
     if (this->getOperand(3).getType().isa<NoneType>()) {
       SmallVector<int64_t, 1> vals = {};
-      for (size_t s = 0; s < startsDim; ++s)
+      for (size_t s = 0; s < (size_t)startsDim; ++s)
         vals.emplace_back(s);
       auto constantDenseAttribute =
           mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
@@ -3045,7 +3041,7 @@ LogicalResult ONNXOneHotEncoderOp::inferShapes(
   // Encoded output data, having one more dimension than X
   // total category count will determine the size of the extra dimension
   SmallVector<int64_t, 2> dims;
-  for (int i = 0; i != shape.size(); ++i) {
+  for (unsigned int i = 0; i != shape.size(); ++i) {
     dims.emplace_back(shape[i]);
   }
   dims.emplace_back(outDim);
@@ -3062,7 +3058,7 @@ LogicalResult ONNXOneHotEncoderOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXLessOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  for (int i = 0; i < getNumOperands(); ++i) {
+  for (unsigned int i = 0; i < getNumOperands(); ++i) {
     if (!getOperand(i).getType().cast<RankedTensorType>())
       return emitError("Input tensor(s) not ranked");
   }
@@ -3468,13 +3464,12 @@ LogicalResult ONNXRoundOp::inferShapes(
 
 LogicalResult ONNXScanOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  auto builder = mlir::Builder(getContext());
   auto &loopBody = getRegion();
   assert(!scan_input_axes().hasValue());
 
   // We proceed to set types for loop body function inputs.
   // Set types for loop carried dependencies (i.e., set these loop carried
-  // depdencies that appear in the body function input signature to have the
+  // dependencies that appear in the body function input signature to have the
   // same type as their counterpart in LoopOp inputs).
   auto bodyInputs = loopBody.getArguments();
   auto bodyVRange = llvm::make_range(bodyInputs.begin(), bodyInputs.end());

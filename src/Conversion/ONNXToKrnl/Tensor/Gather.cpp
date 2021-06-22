@@ -39,7 +39,6 @@ struct ONNXGatherOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
-    Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 

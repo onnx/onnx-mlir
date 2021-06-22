@@ -40,7 +40,7 @@ int64_t getEltSizeInBytes(Type ty) {
 /// Get the number of elements.
 int64_t getNumberOfElements(ArrayRef<int64_t> shape) {
   int64_t count = 1;
-  for (int i = 0; i < shape.size(); ++i) {
+  for (unsigned int i = 0; i < shape.size(); ++i) {
     count *= shape[i];
   }
   return count;
@@ -76,7 +76,7 @@ std::vector<int64_t> getStrides(ArrayRef<int64_t> shape) {
 int64_t getLinearAccessIndex(
     ArrayRef<int64_t> indices, ArrayRef<int64_t> strides) {
   int64_t index = 0;
-  for (int i = 0; i < strides.size(); ++i)
+  for (unsigned int i = 0; i < strides.size(); ++i)
     index += indices[i] * strides[i];
   return index;
 }
@@ -85,7 +85,7 @@ int64_t getLinearAccessIndex(
 std::vector<int64_t> getAccessIndex(
     int64_t linearIndex, ArrayRef<int64_t> strides) {
   std::vector<int64_t> res;
-  for (int i = 0; i < strides.size(); ++i) {
+  for (unsigned int i = 0; i < strides.size(); ++i) {
     int64_t s = strides[i];
     if (linearIndex < s) {
       res.emplace_back(0);
@@ -207,8 +207,8 @@ void IterateConstPropSplit(char *constArray, ArrayRef<int64_t> constShape,
     uint64_t splitAxis, ArrayRef<int64_t> splitOffsets,
     ArrayRef<Type> replacingTypes, std::vector<char *> &resBuffers) {
   // Basic info.
-  int rank = constShape.size();
-  int numOfResults = replacingTypes.size();
+  unsigned int rank = constShape.size();
+  unsigned int numOfResults = replacingTypes.size();
 
   // Data pointers.
   T *constArrayT = reinterpret_cast<T *>(constArray);
@@ -216,7 +216,7 @@ void IterateConstPropSplit(char *constArray, ArrayRef<int64_t> constShape,
   std::vector<int64_t> constStrides = getStrides(constShape);
 
   // Allocate temporary buffers.
-  for (int i = 0; i < numOfResults; ++i) {
+  for (unsigned int i = 0; i < numOfResults; ++i) {
     // Use maximum size (double or int64_t) to avoid the precision loss.
     char *resArray = allocateBufferFor(replacingTypes[i], /*useMaxSize=*/true);
     resBuffers.emplace_back(resArray);
@@ -230,9 +230,9 @@ void IterateConstPropSplit(char *constArray, ArrayRef<int64_t> constShape,
     // Find the corresponding output and compute access indices.
     int toResult = numOfResults - 1;
     SmallVector<int64_t, 4> resIndices(rank, 0);
-    for (int r = 0; r < rank; ++r) {
+    for (unsigned int r = 0; r < rank; ++r) {
       if (r == splitAxis) {
-        for (int k = 0; k < numOfResults - 1; ++k)
+        for (int k = 0; k < (int)numOfResults - 1; ++k)
           if (constIndices[r] >= splitOffsets[k] &&
               constIndices[r] < splitOffsets[k + 1]) {
             toResult = k;
@@ -283,7 +283,7 @@ void IterateConstPropTranspose(char *constArray, ArrayRef<int64_t> constShape,
 
   // Get a reversed perm.
   SmallVector<uint64_t, 4> reversedPerm(perm.size(), 0);
-  for (int i = 0; i < perm.size(); ++i)
+  for (unsigned int i = 0; i < perm.size(); ++i)
     reversedPerm[perm[i]] = i;
 
   // Strides info.
@@ -295,7 +295,7 @@ void IterateConstPropTranspose(char *constArray, ArrayRef<int64_t> constShape,
     // Indices.
     std::vector<int64_t> resIndices = getAccessIndex(i, resStrides);
     SmallVector<int64_t, 4> constIndices(perm.size(), 0);
-    for (int j = 0; j < constIndices.size(); ++j)
+    for (unsigned int j = 0; j < constIndices.size(); ++j)
       constIndices[j] = resIndices[reversedPerm[j]];
     // Transpose.
     int64_t constOffset = getLinearAccessIndex(constIndices, constStrides);

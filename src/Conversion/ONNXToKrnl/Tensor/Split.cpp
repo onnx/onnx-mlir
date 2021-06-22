@@ -40,7 +40,8 @@ struct ONNXSplitOpLowering : public ConversionPattern {
 
     // Alloc and dealloc.
     SmallVector<Value, 4> allocs;
-    for (int i = 0; i < outputNum; ++i) {
+    for (unsigned int i = 0; i < outputNum; ++i) {
+      // Warning: insertDealloc is not used.
       bool insertDealloc = checkInsertDealloc(op, i);
       auto memRefType = convertToMemRefType(splitOp.outputs()[i].getType());
       Value alloc = insertAllocAndDeallocSimple(
@@ -49,7 +50,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
     }
 
     // Creates loops, one for each output.
-    for (int i = 0; i < outputNum; ++i) {
+    for (unsigned int i = 0; i < outputNum; ++i) {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Create loop.
       BuildKrnlLoop outputLoops(rewriter, loc, rank);
@@ -71,7 +72,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
         DimIndexExpr writeIndex(readVal);
         // If the split axis, compute read index for the split axis.
         if (r == axis) {
-          for (int k = 0; k < i; ++k) {
+          for (unsigned int k = 0; k < i; ++k) {
             IndexExpr splitDim =
                 SymbolIndexExpr(shapeHelper.dimsForOutput(k)[r]);
             readIndex = readIndex + splitDim;
