@@ -232,13 +232,14 @@ private:
     return RankedTensorType::get(tensor_dims, elementType);
   }
 
-  Type ConvertOnnxType(const std::string &onnx_name) {
-    auto it = value_info_map.find(onnx_name);
-    if (it != value_info_map.end()) {
-      return ImportTensorType(it->second);
-    } else {
-      return builder_.getNoneType();
+  llvm::Optional<Type> ConvertOnnxType(const std::string &onnx_name) {
+    if (options_.useOnnxModelTypes) {
+      auto it = value_info_map.find(onnx_name);
+      if (it != value_info_map.end()) {
+        return llvm::Optional<Type>(ImportTensorType(it->second));
+      }
     }
+    return llvm::Optional<Type>();
   }
 
   /*!
@@ -531,8 +532,8 @@ private:
       // Optional outputs using empty string.
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
-      } else if (options_.useOnnxModelTypes) {
-        outputTypes.emplace_back(ConvertOnnxType(node.output(i)));
+      } else if (auto onnxModelType = ConvertOnnxType(node.output(i))) {
+        outputTypes.emplace_back(onnxModelType.getValue());
       } else {
         unsigned int j = i;
         // Variadic output is a single ODS result.
@@ -589,13 +590,15 @@ private:
         }
       }
     }
-    if (!options_.useOnnxModelTypes)
-      if (auto opWithTypeInference =
-              dyn_cast<ResultTypeInferenceOpInterface>(genericOp)) {
-        auto outTypes = opWithTypeInference.resultTypeInference();
-        for (int i = 0; i < node.output().size(); i++)
+    if (auto opWithTypeInference =
+            dyn_cast<ResultTypeInferenceOpInterface>(genericOp)) {
+      auto outTypes = opWithTypeInference.resultTypeInference();
+      for (int i = 0; i < node.output().size(); i++) {
+        auto result = genericOp->getOpResult(i);
+        if (!options_.useOnnxModelTypes || result.getType().isa<NoneType>())
           genericOp->getOpResult(i).setType(outTypes[i]);
       }
+    }
 
     for (const auto &output : llvm::enumerate(node.output()))
       frontend_symbols_.AddMapping(
