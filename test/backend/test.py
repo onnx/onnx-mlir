@@ -617,6 +617,8 @@ test_to_enable_static_dynamic = {
     "test_reshape_zero_dim_cpu": (test_static_dynamic,{0:{-1}}),
 
     # Resize
+    "test_resize_upsample_scales_nearest_cpu": (test_static_dynamic, {0:{-1}}),
+    "test_resize_downsample_scales_nearest_cpu": (test_static_dynamic, {0:{-1}}),
 
     # Reverse Sequence
 
