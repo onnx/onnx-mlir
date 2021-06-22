@@ -433,13 +433,13 @@ void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
   ValueRange empty;
   Value aBuff = memref_alloc(aTileType, empty, alignAttr);
   SmallVector<Value, 4> bBuffs;
-  for (int i = 0; i < Bs.size(); ++i) {
+  for (unsigned int i = 0; i < Bs.size(); ++i) {
     Value bBuff = memref_alloc(bTileType, empty, alignAttr);
     bBuffs.emplace_back(bBuff);
   }
   SmallVector<Value, 4> cBuffs;
   if (mustTileR) {
-    for (int i = 0; i < Cs.size(); ++i) {
+    for (unsigned int i = 0; i < Cs.size(); ++i) {
       Value cBuff = memref_alloc(cTileType, empty, alignAttr);
       cBuffs.emplace_back(cBuff);
     }
@@ -473,19 +473,19 @@ void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
         {ii, jj}, {ii1, jj1}, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
           ValueRange i1_j1_indices = krnl_get_induction_var_value({ii1, jj1});
           Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
-          for (int n = 0; n < cBuffs.size(); ++n)
+          for (unsigned int n = 0; n < cBuffs.size(); ++n)
             krnl_copy_to_buffer(cBuffs[n], Cs[n], {i1, j1}, zeroVal, false);
           krnl_iterate({kk}, {kk1}, {zero}, {K}, {}, [&](ValueRange args) {
             ValueRange k1_index = krnl_get_induction_var_value({kk1});
             Value k1(k1_index[0]);
             krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, false);
-            for (int n = 0; n < bBuffs.size(); ++n)
+            for (unsigned int n = 0; n < bBuffs.size(); ++n)
               krnl_copy_to_buffer(bBuffs[n], Bs[n], {k1, j1}, zeroVal, false);
             krnl_iterate({}, {jj2, ii2}, {}, {}, {}, [&](ValueRange args) {
               ValueRange j2_i2_indices =
                   krnl_get_induction_var_value({jj2, ii2});
               Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
-              for (int n = 0; n < bBuffs.size(); ++n) {
+              for (unsigned int n = 0; n < bBuffs.size(); ++n) {
                 krnl_matmul(aBuff, {i1, k1}, bBuffs[n], {k1, j1}, cBuffs[n],
                     {i1, j1},
                     /*loops*/ {ii3, jj3, kk2},
@@ -496,7 +496,7 @@ void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
               }
             });
           });
-          for (int n = 0; n < cBuffs.size(); ++n)
+          for (unsigned int n = 0; n < cBuffs.size(); ++n)
             krnl_copy_from_buffer(cBuffs[n], Cs[n], {i1, j1});
         });
   } else {
@@ -509,7 +509,7 @@ void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
         {jj, kk}, {jj1, kk1}, {zero, zero}, {J, K}, {}, [&](ValueRange args) {
           ValueRange j1_k1_indices = krnl_get_induction_var_value({jj1, kk1});
           Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
-          for (int n = 0; n < bBuffs.size(); ++n)
+          for (unsigned int n = 0; n < bBuffs.size(); ++n)
             krnl_copy_to_buffer(bBuffs[n], Bs[n], {k1, j1}, zeroVal, false);
           krnl_iterate({ii}, {ii1}, {zero}, {I}, {}, [&](ValueRange args) {
             ValueRange i1_index = krnl_get_induction_var_value({ii1});
@@ -519,7 +519,7 @@ void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
               ValueRange j2_i2_indices =
                   krnl_get_induction_var_value({jj2, ii2});
               Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
-              for (int n = 0; n < bBuffs.size(); ++n)
+              for (unsigned int n = 0; n < bBuffs.size(); ++n)
                 krnl_matmul(aBuff, {i1, k1}, bBuffs[n], {k1, j1}, Cs[n],
                     {zero, zero},
                     /*loops*/ {ii3, jj3, kk2},

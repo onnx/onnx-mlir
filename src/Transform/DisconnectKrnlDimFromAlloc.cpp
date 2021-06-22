@@ -84,7 +84,7 @@ public:
     // Get the shape of the MemRef argument.
     auto memRefType = krnlDimOp.alloc().getType().dyn_cast<MemRefType>();
     auto memRefShape = memRefType.getShape();
-    auto rank = memRefShape.size();
+    int64_t rank = memRefShape.size();
     assert(index >= 0 && index < rank && "Index must be in bounds");
 
     // Get the defining operation of the first argument of krnl.dim.
@@ -106,7 +106,7 @@ public:
       // If dimension is dynamic we need to return the input alloc Value which
       // corresponds to it.
       int64_t dynDimIdx = getAllocArgIndex(allocOp, index);
-      assert(dynDimIdx >= 0 && dynDimIdx < allocOp.getOperands().size() &&
+      assert(dynDimIdx >= 0 && dynDimIdx < (int64_t) allocOp.getOperands().size() &&
              "Dynamic index outside range of alloc argument list.");
       result = allocOp.getOperands()[dynDimIdx];
     } else if (memRefType.getAffineMaps().empty()) {

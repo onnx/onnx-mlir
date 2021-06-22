@@ -33,7 +33,6 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
     // reduced output
     auto reducedMemRefType = convertToMemRefType(*op->result_type_begin());
     auto reducedElementType = reducedMemRefType.getElementType();
-    auto reducedMemrefShape = reducedMemRefType.getShape();
     int64_t reducedRank = reducedMemRefType.getRank();
 
     // data input

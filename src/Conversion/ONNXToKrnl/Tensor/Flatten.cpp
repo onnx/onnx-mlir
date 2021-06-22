@@ -26,7 +26,7 @@ Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
     int64_t axisValue) {
   memref::AllocOp alloc;
   auto inputShape = input.getType().cast<MemRefType>().getShape();
-  auto inputRank = inputShape.size();
+  int64_t inputRank = inputShape.size();
 
   SmallVector<Value, 2> allocOperands;
   // Compute size for the first dimension when not constant
@@ -73,7 +73,7 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     Value input = operandAdaptor.input();
     auto inputTy = input.getType().cast<MemRefType>();
     auto inputShape = inputTy.getShape();
-    auto inputRank = inputShape.size();
+    int inputRank = inputShape.size();
     auto axisValue = flattenOp.axis();
     if (axisValue < 0)
       axisValue = inputRank + axisValue;

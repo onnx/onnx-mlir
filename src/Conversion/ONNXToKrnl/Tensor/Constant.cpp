@@ -51,7 +51,7 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     // Shape based computations.
     auto shape = memRefType.getShape();
     int64_t numElements = 1;
-    for (int i = 0; i < shape.size(); ++i)
+    for (unsigned int i = 0; i < shape.size(); ++i)
       numElements *= shape[i];
 
     // Emit the constant global in Krnl dialect.

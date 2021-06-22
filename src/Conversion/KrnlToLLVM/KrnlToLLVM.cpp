@@ -216,7 +216,6 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     KrnlGetRefOp getRefOp = llvm::dyn_cast<KrnlGetRefOp>(op);
-    auto *context = op->getContext();
     auto loc = op->getLoc();
 
     KrnlGetRefOpAdaptor operandAdaptor(operands);
@@ -226,7 +225,7 @@ public:
     auto type = op->getResult(0).getType();
     auto memRefTy = type.cast<mlir::MemRefType>();
 
-    auto llvmMemRefType = typeConverter->convertType(type).cast<Type>();
+    // auto llvmMemRefType = typeConverter->convertType(type).cast<Type>();
     auto outputElementType =
         typeConverter->convertType(memRefTy.getElementType());
 
@@ -361,14 +360,14 @@ public:
     // Compute total number of elements.
     auto shape = (krnlGlobalOp.shape()).dyn_cast<ArrayAttr>();
     int64_t numElements = 1;
-    for (int i = 0; i < shape.size(); ++i)
+    for (unsigned int i = 0; i < shape.size(); ++i)
       numElements *= ArrayAttrIntVal(shape, i);
 
     // Create the global at the entry of the module.
     LLVM::GlobalOp global;
     auto type = op->getResult(0).getType();
     auto memRefTy = type.cast<mlir::MemRefType>();
-    auto llvmMemRefType = typeConverter->convertType(type).cast<Type>();
+    // auto llvmMemRefType = typeConverter->convertType(type).cast<Type>();
 
     // The element type of the array.
     auto constantElementType =
@@ -405,7 +404,7 @@ public:
                              .cast<OpaqueElementsAttr>()
                              .getValue();
         // Check data size.
-        assert((data.size() == sizeInBytes) && "Data size mismatch.");
+        assert(((int64_t) data.size() == sizeInBytes) && "Data size mismatch.");
 
         StringAttr llvmStringAttr = StringAttr::get(context, data);
         global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
@@ -416,7 +415,7 @@ public:
         if ((!denseAttr.isSplat()) && (sizeInBytes > 512)) {
           std::vector<char> rawData = denseAttr.getRawData();
           // Check data size.
-          assert((rawData.size() == sizeInBytes) && "Data size mismatch.");
+          assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
 
           StringRef data = StringRef((char *)rawData.data(), rawData.size());
           StringAttr llvmStringAttr = StringAttr::get(context, data);
@@ -877,7 +876,7 @@ public:
     }
 
     // Call static entry point with the memref ptrs created, and get output.
-    auto outCallOp = rewriter.create<LLVM::CallOp>(loc, ArrayRef<Type>({}),
+    rewriter.create<LLVM::CallOp>(loc, ArrayRef<Type>({}),
         rewriter.getSymbolRefAttr(wrappedStaticEntryPointFuncName),
         staticInputs);
     auto outMemRefs = rewriter.create<LLVM::LoadOp>(loc, ptrToOutMemRef);
@@ -927,7 +926,7 @@ public:
                             outOmtPtrsArr)
                         .getResult();
 
-    for (decltype(numOutputs) i = 0; i < outMemRefList.size(); i++) {
+    for (unsigned int i = 0; i < outMemRefList.size(); i++) {
       // Get the i-th memref returned, convert to a dynamic memref and store it
       // in the wrappedOutput.
 
