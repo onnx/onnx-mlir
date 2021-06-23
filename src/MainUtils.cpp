@@ -282,7 +282,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
       unoptimizedBitcodePath, !preserveBitcode);
 
   llvm::raw_fd_ostream moduleBitcodeStream(
-      unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
+      unoptimizedBitcodePath, error, llvm::sys::fs::OF_None);
 
   llvm::LLVMContext llvmContext;
   mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
