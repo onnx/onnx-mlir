@@ -72,6 +72,9 @@ elseif ((ONNX_USE_PROTOBUF_SHARED_LIBS AND Protobuf_USE_STATIC_LIBS)
   message(FATAL_ERROR
     "ONNX_USE_PROTOBUF_SHARED_LIBS and Protobuf_USE_STATIC_LIBS must be opposites of each other.")
 endif()
+
+option(MAIA_ENABLE_SDK_TESTS "Enable MAIA tests that rely on Apollo/Athena SDK" ON)
+
 add_subdirectory(third_party/onnx)
 
 add_subdirectory(third_party/pybind11)
