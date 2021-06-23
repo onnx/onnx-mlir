@@ -322,8 +322,8 @@ public:
   // Constructor for subsequent nested scopes. Providing enclosing scope is not
   // necessary; it is provided for convenience if a user prefer to name the
   // enclosing scope explicitly.
-  IndexExprScope();
-  IndexExprScope(IndexExprScope &explicitEnclosingScope);
+  IndexExprScope(OpBuilder *rewriter, IndexExprScope &enclosingScope);
+  IndexExprScope(OpBuilder &rewriter, IndexExprScope &enclosingScope);
   // Destructor which release all IndexExpr associated with this scope.
   ~IndexExprScope();
 
@@ -344,6 +344,8 @@ public:
   void debugPrint(const std::string &msg) const;
 
 private:
+  IndexExprScope();
+
   static IndexExprScope *&getCurrentScopePtr() {
     thread_local IndexExprScope *scope = nullptr; // Thread local, null init.
     return scope;
@@ -666,13 +668,13 @@ public:
   ArrayAttributeIndexCapture(ArrayAttr array, int64_t defaultLiteral);
 
   IndexExpr getLiteral(uint64_t i);
-  int64_t size() { return arraySize; }
+  uint64_t size() { return arraySize; }
 
 private:
   ArrayAttributeIndexCapture() { llvm_unreachable("forbidden constructor"); };
 
   ArrayAttr array;
-  int64_t arraySize;
+  uint64_t arraySize;
   int64_t defaultLiteral;
   bool hasDefault;
 };
@@ -684,7 +686,7 @@ class MemRefBoundsIndexCapture {
 public:
   MemRefBoundsIndexCapture(Value tensorOrMemref);
 
-  int64_t getRank() { return memRank; }
+  uint64_t getRank() { return memRank; }
   bool isLiteral(int64_t i);
   bool areAllLiteral();
   int64_t getShape(int64_t i);
@@ -704,7 +706,7 @@ private:
   void getList(SmallVectorImpl<IndexExpr> &dimList);
 
   Value tensorOrMemref;
-  int64_t memRank;
+  uint64_t memRank;
 };
 
 //===----------------------------------------------------------------------===//

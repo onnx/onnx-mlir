@@ -371,7 +371,7 @@ OpsWithResultTypeInference = {
         resultTypes.push_back(attr.getType());
       }''',
   "Cast":
-    '''auto builder = mlir::OpBuilder(getContext());
+    '''// ae auto builder = mlir::OpBuilder(getContext());
       resultTypes.push_back(mlir::UnrankedTensorType::get(to()));''',
   "ConstantOfShape":
   '''if (auto attr = valueAttr()) {

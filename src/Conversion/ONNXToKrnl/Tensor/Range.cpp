@@ -24,7 +24,6 @@ struct ONNXRangeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXRangeOpAdaptor operandAdaptor(operands);
-    ONNXRangeOp rangeOp = dyn_cast_or_null<ONNXRangeOp>(op);
     auto loc = op->getLoc();
 
     // Create an index expression scope.
@@ -45,7 +44,6 @@ struct ONNXRangeOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = memRefType.getElementType();
-    auto memRefShape = memRefType.getShape();
 
     // Allocate result.
     Value alloc;

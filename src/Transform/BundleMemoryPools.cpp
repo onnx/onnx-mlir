@@ -316,7 +316,6 @@ public:
     }
 
     // Initialize work queue data structure.
-    Operation *op = allocOp.getOperation();
     std::vector<Value> operandList;
     for (const auto &operand : allocOp.getOperands()) {
       operandList.emplace_back(operand);
@@ -522,6 +521,8 @@ public:
     // No need to test, its ok to fail the apply.
     LogicalResult res =
         applyPatternsAndFoldGreedily(function, std::move(patterns));
+    assert((succeeded(res) || failed(res)) && "remove unused var warning");
+
     BlockToMemPool::iterator it;
     for (it = blockToStaticPool.begin(); it != blockToStaticPool.end(); it++)
       free(it->second);

@@ -157,8 +157,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         MemRefType::get({iCacheTile, kCacheTile}, elementType);
     MemRefType bTileType =
         MemRefType::get({kCacheTile, jCacheTile}, elementType);
-    MemRefType rTileType =
-        MemRefType::get({iCacheTile, jCacheTile}, elementType);
 #if DEBUG_GLOBAL_ALLOC_FREE
     SmallVector<IndexExpr, 1> empty;
     Value aBuff = insertAllocAndDeallocSimple(
@@ -170,6 +168,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       rBuff = insertAllocAndDeallocSimple(
           rewriter, gemmOp, aTileType, loc, empty, true, BUFFER_ALIGN);
 #else
+    MemRefType rTileType =
+        MemRefType::get({iCacheTile, jCacheTile}, elementType);
     ValueRange empty;
     IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
     Value aBuff = memref_alloc(aTileType, empty, alignAttr);
@@ -295,7 +295,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       if (alphaLit != 1.0)
         res = std_mulf(alphaVal, res);
       if (shapeHelper.hasBias) {
-        IndexExprScope innerScope;
+        IndexExprScope innerScope(rewriter, shapeHelper.scope);
         SmallVector<IndexExpr, 2> cAccess;
         for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
           // If dim > 1, use loop index, otherwise broadcast on 0's element.

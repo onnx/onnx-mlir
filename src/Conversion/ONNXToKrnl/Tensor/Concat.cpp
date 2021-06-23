@@ -36,27 +36,24 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     assert(succeeded(shapecomputed));
 
     auto axis = concatOp.axis();
-    int inputNum = operands.size();
+    unsigned int inputNum = operands.size();
 
     // Alloc and dealloc.
-    auto resultOperand = concatOp.concat_result();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto resultShape = outputMemRefType.getShape();
-    auto rank = resultShape.size();
+    unsigned int rank = resultShape.size();
 
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
     ;
 
     // Creates loops, one for each input.
-    for (int i = 0; i < inputNum; ++i) {
+    for (unsigned int i = 0; i < inputNum; ++i) {
       OpBuilder::InsertionGuard insertGuard(rewriter);
-      // Operand info.
-      auto currShape = operands[i].getType().cast<MemRefType>().getShape();
       // Create loop.
       BuildKrnlLoop inputLoops(rewriter, loc, rank);
       inputLoops.createDefineOp();
-      for (int r = 0; r < rank; ++r)
+      for (unsigned int r = 0; r < rank; ++r)
         inputLoops.pushBounds(0, operands[i], r);
       inputLoops.createIterateOp();
       rewriter.setInsertionPointToStart(inputLoops.getIterateBlock());
@@ -64,14 +61,14 @@ struct ONNXConcatOpLowering : public ConversionPattern {
       // Indices for the read and write.
       SmallVector<Value, 4> readIndices;
       SmallVector<Value, 4> writeIndices;
-      for (int r = 0; r < rank; ++r) {
+      for (unsigned int r = 0; r < rank; ++r) {
         readIndices.emplace_back(inputLoops.getInductionVar(r));
         if (r != axis || i == 0) {
           writeIndices.emplace_back(inputLoops.getInductionVar(r));
         } else {
           IndexExprScope IEScope(&rewriter, loc);
           IndexExpr writeOffset = DimIndexExpr(inputLoops.getInductionVar(r));
-          for (int j = 0; j < i; j++) {
+          for (unsigned int j = 0; j < i; j++) {
             MemRefBoundsIndexCapture operandJBounds(operands[j]);
             writeOffset = writeOffset + operandJBounds.getDim(r);
           }
