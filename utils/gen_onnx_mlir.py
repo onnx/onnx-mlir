@@ -324,6 +324,7 @@ OpsWithShapeInference=[
     'Tile',
     'Transpose',
     'Unsqueeze',
+    'Where'
     'Xor',
 ]
 

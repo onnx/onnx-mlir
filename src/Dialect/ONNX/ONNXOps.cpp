@@ -3636,7 +3636,33 @@ LogicalResult ONNXUpsampleOp::inferShapes() {
 }
 
 LogicalResult ONNXWhereOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!condition().getType().isa<RankedTensorType>() ||
+      !X().getType().isa<RankedTensorType>() ||
+      !Y().getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+  RankedTensorType condTy = condition().getType().cast<RankedTensorType>();
+  RankedTensorType xTy = X().getType().cast<RankedTensorType>();
+  RankedTensorType yTy = Y().getType().cast<RankedTensorType>();
+
+  // Check operands type
+  // constraint condition to be boolean
+  if (!condTy.getElementType().isInteger(1))
+    return emitError("Condition must be boolean");
+
+  // constraint x and y to be the same type
+  if (xTy.getElementType() != yTy.getElementType())
+    return emitError("Do not support where op with different input type");
+
+  SmallVector<int64_t, 4> outShape;
+  auto broadcastedType = getBroadcastedType(xTy, yTy);
+  if (!broadcastedType.isa<RankedTensorType>())
+    return emitError("Failed to get broadcasted shape");
+  RankedTensorType interType = broadcastedType.cast<RankedTensorType>();
+  if (!getBroadcastedShape(interType.getShape(), condTy.getShape(), outShape))
+    return emitError("Failed to get broadcasted shape");
+  getResult().setType(RankedTensorType::get(outShape, xTy.getElementType()));
+
+  return success();
 }
 
 LogicalResult ONNXArrayFeatureExtractorOp::inferShapes() {
