@@ -28,9 +28,6 @@ parameters:
 - name: BuildLabel
   type: string
   default: 'Manual'
-- name: RunAllTests
-  type: boolean
-  default: false
 - name: ForceCleanBuild
   type: boolean
   default: false
@@ -45,4 +42,3 @@ jobs:
     BuildConfigurations: ${{ parameters.BuildConfigurations }}
     ForceCleanBuild: ${{ parameters.ForceCleanBuild }}
     Platforms: ${{ parameters.Platforms }}
-    RunAllTests: ${{ parameters.RunAllTests }}
