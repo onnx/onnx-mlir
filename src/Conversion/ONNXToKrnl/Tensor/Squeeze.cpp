@@ -45,7 +45,7 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType)) {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
       auto tensorSizeInBytes = elementSizeInBytes;
-      for (int i = 0; i < memRefShape.size(); ++i) {
+      for (unsigned int i = 0; i < memRefShape.size(); ++i) {
         tensorSizeInBytes *= memRefShape[i];
       }
       tensorSize = emitConstantOp(
@@ -57,7 +57,6 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
       auto tensorSizeConstant = elementSizeInBytes;
       int64_t inRank = data.getType().cast<ShapedType>().getRank();
       for (decltype(inRank) inIdx = 0, outIdx = 0; inIdx < inRank; ++inIdx) {
-        Value dimVal = nullptr;
         // Squeeze dimension is not in the output, ignore it.
         if (std::find(axes.begin(), axes.end(), inIdx) != axes.end())
           continue;

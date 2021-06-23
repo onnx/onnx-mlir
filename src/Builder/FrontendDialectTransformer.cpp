@@ -371,7 +371,7 @@ private:
             forced_dims = forced_inputs_dims.at(numInputs);
           auto argShape = shapedTy.getShape();
           llvm::SmallVector<int64_t, 4> newDims;
-          for (auto i = 0; i < argShape.size(); i++) {
+          for (unsigned int i = 0; i < argShape.size(); i++) {
             if (llvm::is_contained(forced_dims, -1) ||
                 llvm::is_contained(forced_dims, i)) {
               newDims.push_back(-1);
@@ -519,7 +519,7 @@ private:
 
     // Trailing optional inputs.
     if (!variadicIn)
-      for (auto i = inputs.size(); i < expectedNumOperands; i++) {
+      for (int i = (int)inputs.size(); i < expectedNumOperands; i++) {
         inputs.emplace_back(none());
       }
 
@@ -528,14 +528,14 @@ private:
     // Use the type map or types in input model to determine the data type of
     // output.
     std::vector<int> outputMap = T::getTypeMap();
-    for (auto i = 0; i < node.output().size(); i++) {
+    for (unsigned int i = 0; i < (unsigned int)node.output().size(); i++) {
       // Optional outputs using empty string.
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
       } else if (auto onnxModelType = ConvertOnnxType(node.output(i))) {
         outputTypes.emplace_back(onnxModelType.getValue());
       } else {
-        auto j = i;
+        unsigned int j = i;
         // Variadic output is a single ODS result.
         if (variadicOut)
           j = 0;
@@ -1013,7 +1013,6 @@ private:
                                 "represents a custom operator.");
 
       llvm::StringRef opName = node.op_type();
-      int nOps = node.input().size();
       auto funcName = opName.str();
       std::vector<Type> outputTypes;
       std::vector<Value> inputs;
@@ -1028,6 +1027,7 @@ private:
       int nOut = 0;
       getNodeInputs(node, inputs);
 
+      // TODO: isn't nOut just node.output().size()?
       for (const auto &item : node.output())
         ++nOut;
 
@@ -1125,7 +1125,7 @@ private:
     llvm::raw_string_ostream dstream(dstring);
     dstream << "[ ";
     std::string comma = std::string("");
-    for (int i = 0; i < funcType.getNumInputs(); i++) {
+    for (unsigned int i = 0; i < funcType.getNumInputs(); i++) {
       dstream << comma;
       concatTypeString(inputs[i], dstream);
       comma = std::string(" , ");
@@ -1135,7 +1135,7 @@ private:
     dstring.push_back('\0'); // null terminate the input signature string
     dstream << "@[";
     comma = std::string("");
-    for (int i = 0; i < funcType.getNumResults(); i++) {
+    for (unsigned int i = 0; i < funcType.getNumResults(); i++) {
       dstream << comma;
       concatTypeString(outputs[i], dstream);
       comma = std::string(" , ");

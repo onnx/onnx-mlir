@@ -72,9 +72,9 @@ public:
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
     patterns.insert<ConstantValueElision>(&getContext());
-
     LogicalResult res =
         applyPatternsAndFoldGreedily(function, std::move(patterns));
+    assert((succeeded(res) || failed(res)) && "remove unused var warning");
   }
 };
 } // end anonymous namespace

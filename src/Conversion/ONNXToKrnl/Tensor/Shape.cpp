@@ -23,7 +23,6 @@ struct ONNXShapeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXShapeOpAdaptor operandAdaptor(operands);
-    ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
     bool insertDealloc = checkInsertDealloc(op);
     Location loc = op->getLoc();
     // Get input data.
@@ -31,7 +30,6 @@ struct ONNXShapeOpLowering : public ConversionPattern {
     ArrayRef<int64_t> dataShape = data.getType().cast<MemRefType>().getShape();
     unsigned dataRank = dataShape.size();
 
-    Value resultOperand = shapeOp.shape();
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
 
     Value alloc;
@@ -44,7 +42,7 @@ struct ONNXShapeOpLowering : public ConversionPattern {
       llvm_unreachable("unknown dimension for ShapeOp is not supported yet");
 
     // Iterate along the data shape storing dim value to result.
-    for (int i = 0; i < dataRank; i++) {
+    for (unsigned int i = 0; i < dataRank; i++) {
       IndexExprScope scope(&rewriter, loc);
       LiteralIndexExpr storeIndex(i);
       MemRefBoundsIndexCapture dataBounds(data);
