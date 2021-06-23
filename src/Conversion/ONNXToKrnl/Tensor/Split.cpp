@@ -60,7 +60,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
       // Scope for krnl EDSC ops
       using namespace mlir::edsc;
       ScopedContext scope(rewriter, loc);
-      IndexExprScope childScope(shapeHelper.scope);
+      IndexExprScope childScope(rewriter, shapeHelper.scope);
 
       // Indices for the read and write.
       SmallVector<IndexExpr, 4> readIndices;

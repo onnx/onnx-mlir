@@ -35,7 +35,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     // Scope for krnl EDSC ops
     using namespace mlir::edsc;
     ScopedContext scope(rewriter, loc);
-    IndexExprScope outerScope(shapeHelper.scope);
+    IndexExprScope outerScope(rewriter, shapeHelper.scope);
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -69,7 +69,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
 
     // Insert code inside the loop.
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
-    IndexExprScope innerLoopScope;
+    IndexExprScope innerLoopScope(rewriter, outerScope);
     LiteralIndexExpr zero(0);
     LiteralIndexExpr axis(axisLit);
     SymbolIndexExpr axisDim(shapeHelper.dataDims[axisLit]);

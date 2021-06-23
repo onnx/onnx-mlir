@@ -801,7 +801,7 @@ public:
     if (simdize) {
       // SIMD code generator.
       // clang-format off
-      genIfThenElseWithoutParams(rewriter, allFullTiles,
+      genIfThenElseWithoutParams(rewriter, indexScope, allFullTiles,
         /* then full */ [&](ValueRange) {
         genSimd(rewriter, op, elementType, aStart, bVecStart, cVecStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
@@ -809,7 +809,7 @@ public:
       }, /* has some partial tiles */ [&](ValueRange) {
         // Trip regardless of full/partial for N & K
         // Test if SIMD dim (M) is full.
-        genIfThenElseWithoutParams(rewriter, jFullTiles,
+        genIfThenElseWithoutParams(rewriter, indexScope, jFullTiles,
           /* full SIMD */ [&](ValueRange) {
           genSimd(rewriter, op, elementType, aStart, bVecStart, cVecStart,
             iTrip, jComputeTileSize, kTrip, vectorLen, false);
@@ -829,7 +829,7 @@ public:
     } else {
       // Scalar code generator.
       // clang-format off
-      genIfThenElseWithoutParams(rewriter, allFullTiles,
+      genIfThenElseWithoutParams(rewriter, indexScope, allFullTiles,
         /* then full */ [&](ValueRange) {
         genScalar(rewriter, op, elementType, aStart, bStart, cStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
@@ -1016,7 +1016,7 @@ private:
   }
 
   void genIfThenElseWithoutParams(PatternRewriter &rewriter,
-      SmallVectorImpl<IndexExpr> &conditions,
+      IndexExprScope &enclosingScope, SmallVectorImpl<IndexExpr> &conditions,
       function_ref<void(ValueRange)> thenFn,
       function_ref<void(ValueRange)> elseFn) const {
 
@@ -1145,20 +1145,22 @@ public:
       }
     }
     SmallVector<Value, 4> loopIndices;
-    genCopyLoops(buffMemref, sourceMemref, srcLoopMap, padVal, zero, starts,
-        bufferReadUBs, bufferPadUBs, loopIndices, 0, buffRank, false);
+    genCopyLoops(rewriter, indexScope, buffMemref, sourceMemref, srcLoopMap,
+        padVal, zero, starts, bufferReadUBs, bufferPadUBs, loopIndices, 0,
+        buffRank, false);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(Value buffMemref, Value sourceMemref,
+  void genCopyLoops(OpBuilder &rewriter, IndexExprScope &enclosingScope,
+      Value buffMemref, Value sourceMemref,
       SmallVectorImpl<int64_t> &srcLoopMap, Value padVal, IndexExpr zero,
       SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &readUBs,
       SmallVectorImpl<IndexExpr> &padUBs, SmallVectorImpl<Value> &loopIndices,
       int64_t i, int64_t buffRank, bool padPhase) const {
     if (i == buffRank) {
       // create new scope and import index expressions
-      IndexExprScope currScope;
+      IndexExprScope currScope(rewriter, enclosingScope);
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
       if (!padPhase) {
@@ -1191,8 +1193,9 @@ public:
       } else {
         affineLoopBuilder(zero, readUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(buffMemref, sourceMemref, srcLoopMap, padVal, zero,
-              starts, readUBs, padUBs, loopIndices, i + 1, buffRank,
+          genCopyLoops(rewriter, enclosingScope, buffMemref, sourceMemref,
+              srcLoopMap, padVal, zero, starts, readUBs, padUBs, loopIndices,
+              i + 1, buffRank,
               /*no pad phase*/ false);
           loopIndices.pop_back_n(1);
         });
@@ -1202,8 +1205,9 @@ public:
       } else {
         affineLoopBuilder(readUBs[i], padUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(buffMemref, sourceMemref, srcLoopMap, padVal, zero,
-              starts, readUBs, padUBs, loopIndices, i + 1, buffRank,
+          genCopyLoops(rewriter, enclosingScope, buffMemref, sourceMemref,
+              srcLoopMap, padVal, zero, starts, readUBs, padUBs, loopIndices,
+              i + 1, buffRank,
               /*pad phase*/ true);
           loopIndices.pop_back_n(1);
         });
@@ -1266,18 +1270,19 @@ public:
       bufferWrite.debugPrint("buffer wrote");
       bufferWriteUBs.emplace_back(bufferWrite);
     }
-    genCopyLoops(buffMemref, destMemref, zero, starts, bufferWriteUBs,
-        loopIndices, 0, buffRank);
+    genCopyLoops(rewriter, indexScope, buffMemref, destMemref, zero, starts,
+        bufferWriteUBs, loopIndices, 0, buffRank);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(Value buffMemref, Value destMemref, IndexExpr zero,
+  void genCopyLoops(OpBuilder &rewriter, IndexExprScope &enclosingScope,
+      Value buffMemref, Value destMemref, IndexExpr zero,
       SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &writeUBs,
       SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t buffRank) const {
     if (i == buffRank) {
       // create new scope and import index expressions
-      IndexExprScope currScope;
+      IndexExprScope currScope(rewriter, enclosingScope);
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
       getIndexExprList<SymbolIndexExpr>(starts, currStarts);
@@ -1306,8 +1311,8 @@ public:
         // Loop to copy the data.
         affineLoopBuilder(zero, writeUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(buffMemref, destMemref, zero, starts, writeUBs,
-              loopIndices, i + 1, buffRank);
+          genCopyLoops(rewriter, enclosingScope, buffMemref, destMemref, zero,
+              starts, writeUBs, loopIndices, i + 1, buffRank);
           loopIndices.pop_back_n(1);
         });
       }

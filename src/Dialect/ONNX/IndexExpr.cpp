@@ -35,6 +35,11 @@ using namespace mlir;
 // IndexExprScope constructors.
 //===----------------------------------------------------------------------===//
 
+IndexExprScope::IndexExprScope() : loc(Location(nullptr)) {
+  llvm_unreachable("illegal");
+}
+
+// Initial scope.
 IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
     : dims(), symbols(), rewriter(rewriter), loc(loc),
       parentScope(getCurrentScopePtr()), container() {
@@ -44,18 +49,21 @@ IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
 IndexExprScope::IndexExprScope(OpBuilder &rewriter, Location loc)
     : IndexExprScope(&rewriter, loc){};
 
-IndexExprScope::IndexExprScope()
-    : dims(), symbols(), rewriter(getCurrentScope().rewriter),
-      loc(getCurrentScope().loc), parentScope(getCurrentScopePtr()),
-      container() {
+// Nested scopes.
+IndexExprScope::IndexExprScope(
+    OpBuilder *innerRewriter, IndexExprScope &enclosingScope)
+    : dims(), symbols(), rewriter(innerRewriter), loc(enclosingScope.loc),
+      parentScope(&enclosingScope), container() {
+  // Check the enclosing scope is the current one.
+  assert(&enclosingScope == getCurrentScopePtr() &&
+         "provided parent scope was not the previously active scope");
+  // Install new inner scope as current one.
   getCurrentScopePtr() = this;
 }
 
-IndexExprScope::IndexExprScope(IndexExprScope &explicitEnclosingScope)
-    : IndexExprScope() {
-  assert(&explicitEnclosingScope == parentScope &&
-         "provided parent scope was not the previously active scope");
-}
+IndexExprScope::IndexExprScope(
+    OpBuilder &innerRewriter, IndexExprScope &enclosingScope)
+    : IndexExprScope(&innerRewriter, enclosingScope) {}
 
 IndexExprScope::~IndexExprScope() {
   // Free the memory of each IndexExprImpl in scope's container.
