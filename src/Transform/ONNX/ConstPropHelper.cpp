@@ -140,8 +140,15 @@ DenseElementsAttr createDenseElementsAttrFromArray(char *arr, Type outputType) {
   int64_t sizeInBytes = getSizeInBytes(outputType);
   RankedTensorType resType =
       constructRankedTensorType(outputType.cast<ShapedType>());
+  bool isSplat;
+  if (resType.getShape().size() == 0)
+    isSplat = true;
+  else if (resType.getShape().size() == 1 && resType.getShape()[0] == 1)
+    isSplat = true;
+  else
+    isSplat = false;
   return DenseElementsAttr::getFromRawBuffer(
-      resType, ArrayRef<char>(arr, sizeInBytes), /*isSplat=*/false);
+      resType, ArrayRef<char>(arr, sizeInBytes), /*isSplat=*/isSplat);
 }
 
 /// Create a dense ONNXConstantOp from a byte array.
