@@ -27,13 +27,18 @@
 // CHECK-TCP-H:    using Array2D = npl::ArrayRef<2, TMemory, TDataType, Apollo::Nepal::FormatKind::Tile>;
 // CHECK-TCP-H:    struct main_graph {
 // CHECK-TCP-H:       struct Arguments {
-// CHECK-TCP-H:          Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16> {{.*}};
-// CHECK-TCP-H:          Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16> {{.*}};
-// CHECK-TCP-H:          Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16> {{.*}};
-// CHECK-TCP-H:          Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16> {{.*}};
-// CHECK-TCP-H:          Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16> {{.*}};
-// CHECK-TCP-H:          Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16> {{.*}};
-// CHECK-TCP-H:          npl::NotificationList {{.*}};
+// CHECK-TCP-H:          Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16> {{var.*}};
+// CHECK-TCP-H:          Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16> {{var.*}};
+// CHECK-TCP-H:          Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16> {{var.*}};
+// CHECK-TCP-H:          Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16> {{var.*}};
+// CHECK-TCP-H:          Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16> {{var.*}};
+// CHECK-TCP-H:          Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16> {{var.*}};
+// CHECK-TCP-H:          npl::NotificationList {{var.*}};
+// CHECK-TCP-H:          npl::NotificationList {{var.*}};
+// CHECK-TCP-H:          npl::NotificationList {{var.*}};
+// CHECK-TCP-H:          npl::NotificationList {{var.*}};
+// CHECK-TCP-H:          npl::NotificationList {{var.*}};
+// CHECK-TCP-H:          npl::NotificationList {{var.*}};
 // CHECK-TCP-H:       };
 // CHECK-TCP-H:       static void Execute(const Arguments&);
 // CHECK-TCP-H:    };
@@ -155,6 +160,7 @@
 // CHECK-DCP-H:       #pragma pack(push, 1)
 // CHECK-DCP-H:       struct Arguments {
 // CHECK-DCP-H:          KernelParams params;
+// CHECK-DCP-H:          int16_t waitIds[KernelParams::MaxDataSize]{};
 // CHECK-DCP-H:       };
 // CHECK-DCP-H:       #pragma pack(pop)
 // CHECK-DCP-H:       static void Execute(const Arguments &);
@@ -225,6 +231,23 @@
 // CHECK-DCP-CPP:    template <npl::MemoryKind TMemory, npl::ElementDataType TDataType>
 // CHECK-DCP-CPP:    using Array1D = npl::ArrayRef<1, TMemory, TDataType, Apollo::Nepal::FormatKind::Tile>;
 // CHECK-DCP-CPP:    void ClusterCommand::Execute(const ClusterCommand::Arguments &args) {
+// CHECK-DCP-CPP:       auto params = reinterpret_cast<KernelParams::ArrayRef const *>(args.params.data);
+// CHECK-DCP-CPP:       auto arg0 = Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16>{{\{}}{256, 1024}, params[0].dramAddress};
+// CHECK-DCP-CPP:       auto arg1 = Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16>{{\{}}{1024, 256}, params[1].dramAddress};
+// CHECK-DCP-CPP:       auto arg2 = Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16>{{\{}}{256, 128}, params[2].dramAddress};
+// CHECK-DCP-CPP:       auto arg3 = Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16>{{\{}}{256, 256}, params[3].dramAddress};
+// CHECK-DCP-CPP:       auto arg4 = Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16>{{\{}}{256, 128}, params[4].dramAddress};
+// CHECK-DCP-CPP:       auto arg5 = Array2D<npl::MemoryKind::DeviceMem, npl::ElementDataType::BFloat16>{{\{}}{256, 256}, params[5].dramAddress};
+// CHECK-DCP-CPP:       auto arg6 = npl::NotificationList{npl::Notification(1, {npl::NotifConsumerKind::Any}, args.waitIds[0])};
+// CHECK-DCP-CPP:       auto arg7 = npl::NotificationList{npl::Notification(1, {npl::NotifConsumerKind::Any}, args.waitIds[1])};
+// CHECK-DCP-CPP:       auto arg8 = npl::NotificationList{npl::Notification(1, {npl::NotifConsumerKind::Any}, args.waitIds[2])};
+// CHECK-DCP-CPP:       auto arg9 = npl::NotificationList{npl::Notification(1, {npl::NotifConsumerKind::Any}, args.waitIds[3])};
+// CHECK-DCP-CPP:       auto arg10 = npl::NotificationList{npl::Notification(1, {npl::NotifConsumerKind::Any}, args.waitIds[4])};
+// CHECK-DCP-CPP:       auto arg11 = npl::NotificationList{npl::Notification(1, {npl::NotifConsumerKind::Any}, args.waitIds[5])};
+// CHECK-DCP-CPP:       auto controlSemId = twf::SemManager::MapClusterSemOffset(twf::SemManager::GetNumClusterSem() - 1);
+// CHECK-DCP-CPP:       twf::Cluster::template CallTileCPAsync<MaiaCompiler::GeneratedCode::main_graph>({arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11}, controlSemId);
+// CHECK-DCP-CPP:       const uint32_t funcId = twf::GetCommandID<ClusterCommand, Interface>();
+// CHECK-DCP-CPP:       twr::Program::WriteMessageWord(funcId);
 // CHECK-DCP-CPP:    }
 // CHECK-DCP-CPP: }
 

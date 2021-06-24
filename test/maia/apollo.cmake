@@ -6,7 +6,11 @@ function(apollo_compile_graph TEST ADDITIONAL_ARGS)
                      COMMAND ${Python3_EXECUTABLE} ${ONNX_MLIR_RUNTIME_PATH}/maia.py --f ${TEST_DIR}/${MODEL} --omb ${ONNX_MLIR_RUNTIME_PATH} --mb ${LLVM_TOOLS_BINARY_DIR} ${ADDITIONAL_ARGS}
                      WORKING_DIRECTORY ${TEST_DIR}
                      MAIN_DEPENDENCY ${TEST_DIR}/${MODEL}
-                     DEPENDS copy-maia-tools
+                     DEPENDS
+                       copy-maia-tools
+                       $<TARGET_FILE:mlir-opt>
+                       $<TARGET_FILE:mlir-translate>
+                       $<TARGET_FILE:llc>
                      BYPRODUCTS
                        ${TEST_DIR}/tcp_driver.tcp.cpp
                        ${TEST_DIR}/tcp_driver.tcp.h

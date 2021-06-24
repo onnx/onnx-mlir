@@ -59,29 +59,47 @@ def generate_host(out_path: str, interface_header: str, sku: str, inputs, output
   out_file.write('\n')
 
   for index, input in enumerate(inputs):
+    out_file.write(f'  const int16_t arg{index}_wait = FirstHostSemaphoreId + {index};\n')
+  for index, output in enumerate(outputs):
+    out_file.write(f'  const int16_t out{index}_wait = FirstHostSemaphoreId + {index + len(inputs)};\n')
+  out_file.write('\n')
+
+  for index, input in enumerate(inputs):
     out_file.write(f'  const uint64_t arg{index}_address = device.AllocMemory(arg{index}_data.size() * sizeof(npufloat_t));\n')
   for index, output in enumerate(outputs):
     out_file.write(f'  const uint64_t out{index}_address = device.AllocMemory(out{index}_data.size() * sizeof(npufloat_t));\n')
   out_file.write('\n')
 
-  out_file.write('  std::vector<KernelParams::ArrayRef> kernelInputs;\n')
-  out_file.write('  std::vector<KernelParams::ArrayRef> kernelOutputs;\n')
+  out_file.write('  auto kernelInputs = std::vector<KernelParams::ArrayRef>{')
   for index, input in enumerate(inputs):
-    out_file.write(f'  kernelInputs.push_back(KernelParams::ArrayRef{{arg{index}_dims, arg{index}_address}});\n')
+    if index != 0:
+      out_file.write(', ')
+    out_file.write(f'{{arg{index}_dims, arg{index}_address}}')
+  out_file.write('};\n')
+  
+  out_file.write('  auto kernelOutputs = std::vector<KernelParams::ArrayRef>{')
   for index, output in enumerate(outputs):
-    out_file.write(f'  kernelOutputs.push_back(KernelParams::ArrayRef{{out{index}_dims, out{index}_address}});\n')
-  out_file.write('  auto args = CreateKernelParams(kernelInputs, kernelOutputs);\n')
+    if index != 0:
+      out_file.write(', ')
+    out_file.write(f'{{out{index}_dims, out{index}_address}}')
+  out_file.write('};\n')
+
+  out_file.write('  auto waitIds = std::vector<int16_t>{')
+  for index, input in enumerate(inputs):
+    if index != 0:
+      out_file.write(', ')
+    out_file.write(f'{{arg{index}_wait}}')
+  for index, output in enumerate(outputs):
+    if len(inputs) > 0:
+      out_file.write(', ')
+    out_file.write(f'{{out{index}_wait}}')
+  out_file.write('};\n')
+  out_file.write('  auto args = CreateKernelParams(kernelInputs, kernelOutputs, waitIds);\n')
   out_file.write('\n')
 
   out_file.write('  // send the data to the device\n')
   for index, input in enumerate(inputs):
-    out_file.write(f'  int16_t arg{index}_wait = {900 + index};\n')
-    out_file.write(f'  device.WriteToHbm<npufloat_t>(arg{index}_address, arg{index}_data, Apollo::Primitives::DataType::BFloat16, -1, arg{index}_wait);\n')
-  out_file.write('\n')
-
-  out_file.write('  // WORKAROUND: not yet passing the argument semaphores to device, so wait here to ensure copy completed\n')
-  for index, input in enumerate(inputs):
-    out_file.write(f'  device.ReadFromHbm(arg{index}_address, compute_size(arg{index}_dims), Apollo::Primitives::DataType::BFloat16, arg{index}_wait, -1);\n')
+    out_file.write(f'  device.WriteToHbm<npufloat_t>(arg{index}_address, arg{index}_data, Apollo::Primitives::DataType::BFloat16, NO_WAIT, arg{index}_wait);\n')
   out_file.write('\n')
 
   out_file.write('  // invoke the kernel\n')
@@ -94,7 +112,7 @@ def generate_host(out_path: str, interface_header: str, sku: str, inputs, output
 
   out_file.write('  // read the results\n')
   for index, output in enumerate(outputs):
-    out_file.write(f'  auto out{index}_rawdata = device.ReadFromHbm(out{index}_address, compute_size(out{index}_dims), Apollo::Primitives::DataType::BFloat16);\n')
+    out_file.write(f'  auto out{index}_rawdata = device.ReadFromHbm(out{index}_address, compute_size(out{index}_dims), Apollo::Primitives::DataType::BFloat16, out{index}_wait, NO_WAIT);\n')
     out_file.write(f'  auto out{index}_span = ReinterpretSpan<npufloat_t>(gsl::make_span(out{index}_rawdata));\n')
     out_file.write(f'  std::transform(out{index}_span.begin(), out{index}_span.end(), out{index}_data.begin(), [](npufloat_t elem) {{ return elem; }});\n')
 
@@ -104,6 +122,11 @@ def generate_host(out_path: str, interface_header: str, sku: str, inputs, output
   # emit main() function
   out_file.write('int main(int argc, char *argv[])\n')
   out_file.write('{\n')
+  out_file.write('  if (argc != 2) {\n')
+  out_file.write('    std::cerr << "Usage: " << argv[0] << " [binary-package]" << std::endl;\n')
+  out_file.write('    return -1;\n')
+  out_file.write('  }\n')
+  out_file.write('\n')
   out_file.write('  try {\n')
   out_file.write('    auto data_loc = fs::path{argv[0]}.parent_path();\n')
   out_file.write('\n')

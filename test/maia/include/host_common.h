@@ -17,6 +17,11 @@
 using npufloat_t = SKU::BFloat16Type;
 constexpr auto TILE_SIZE = SKU::NativeMatrixDim;
 
+// Raw semaphore IDs are required until we get NEPAL API enhancements
+// See https://mscatapult.visualstudio.com/Trainwave/_workitems/edit/30730
+constexpr int16_t NO_WAIT = -1;
+constexpr int16_t FirstHostSemaphoreId = 900;
+
 namespace fs = std::filesystem;
 namespace twr = Trainwave::Runtime;
 namespace twe = Trainwave::Emulator;
@@ -35,24 +40,31 @@ span<T> AsSpan(U &obj) {
 //   This function changes the range to [firstPort, firstPort+4]
 //   Each test needs a unique set of ports to allow tests to run in parallel
 //   This code is stolen from the DeviceOptions constructor
-inline void SetNetworkConfiguration(Trainwave::DeviceOptions &options, uint32_t firstPort)
-{
-    options.host = Trainwave::Endpoint{firstPort};                // Host endpoint
-    options.mgmtEndpoint = Trainwave::Endpoint{firstPort + 1};    // Management endpoint
-    options.frontend = Trainwave::Endpoint{firstPort + 2};        // FrontEnd endpoint
-    options.backendNorth = Trainwave::Endpoint{firstPort + 3};    // BackEndNorth endpoint
-    options.backendSouth = Trainwave::Endpoint{firstPort + 4};    // BackEndSouth endpoint
+inline void SetNetworkConfiguration(
+    Trainwave::DeviceOptions &options, uint32_t firstPort) {
 
-    // Note: The ConnectionTables are set up using the DESTINATION port address.
-    options.hostConnectionTables = Trainwave::Emulator::Ltl::ConnectionTables(firstPort + 2);
-    options.deviceFrontendTables = Trainwave::Emulator::Ltl::ConnectionTables(firstPort);
-    options.deviceBackendNorthTables = Trainwave::Emulator::Ltl::ConnectionTables(firstPort + 4);    // By default connects only to other BE RDMA
-    options.deviceBackendSouthTables = Trainwave::Emulator::Ltl::ConnectionTables(firstPort + 3);    // By default connects only to other BE RDMA
+  options.host = Trainwave::Endpoint{firstPort};
+  options.mgmtEndpoint = Trainwave::Endpoint{firstPort + 1};
+  options.frontend = Trainwave::Endpoint{firstPort + 2};
+  options.backendNorth = Trainwave::Endpoint{firstPort + 3};
+  options.backendSouth = Trainwave::Endpoint{firstPort + 4};
+
+  // Note: The ConnectionTables are set up using the DESTINATION port address.
+  options.hostConnectionTables =
+      Trainwave::Emulator::Ltl::ConnectionTables(firstPort + 2);
+  options.deviceFrontendTables =
+      Trainwave::Emulator::Ltl::ConnectionTables(firstPort);
+  options.deviceBackendNorthTables =
+      Trainwave::Emulator::Ltl::ConnectionTables(firstPort + 4);
+  options.deviceBackendSouthTables =
+      Trainwave::Emulator::Ltl::ConnectionTables(firstPort + 3);
 }
 
 inline MaiaCompiler::GeneratedCode::ClusterCP::ClusterCommand::Arguments
-CreateKernelParams(std::vector<KernelParams::ArrayRef> &kernelInputs,
-    std::vector<KernelParams::ArrayRef> &kernelOutputs) {
+CreateKernelParams(const std::vector<KernelParams::ArrayRef> &kernelInputs,
+    const std::vector<KernelParams::ArrayRef> &kernelOutputs,
+    const std::vector<int16_t> &waitIds) {
+
   MaiaCompiler::GeneratedCode::ClusterCP::ClusterCommand::Arguments args{};
   args.params.numInputTensors = gsl::narrow<uint8_t>(kernelInputs.size());
   args.params.numOutputTensors = gsl::narrow<uint8_t>(kernelOutputs.size());
@@ -67,6 +79,9 @@ CreateKernelParams(std::vector<KernelParams::ArrayRef> &kernelInputs,
     auto src = AsSpan<const uint32_t>(ref);
     it = std::copy(src.begin(), src.end(), it);
   }
+
+  std::copy(waitIds.begin(), waitIds.end(), std::begin(args.waitIds));
+
   return args;
 }
 
