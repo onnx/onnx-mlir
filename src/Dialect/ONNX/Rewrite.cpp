@@ -121,6 +121,8 @@ DenseElementsAttr insertZerosForNonPaddedDims(
 void ONNXBatchNormalizationTestModeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<FuseBatchNormTestModeConvPattern>(context);
+  results.insert<RewriteBatchNormTestModeConvPattern1>(context);
+  results.insert<RewriteBatchNormTestModeConvPattern2>(context);
 }
 
 /// on the ONNXShapeOp.

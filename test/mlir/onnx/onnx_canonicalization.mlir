@@ -373,3 +373,65 @@ func @test_constant_1() -> tensor<?xi64> {
 // CHECK:           [[VAR_0:%.+]] = "onnx.Constant"() {value = dense<[1, 2, 3]> : tensor<3xi64>} : () -> tensor<?xi64>
 // CHECK:           return [[VAR_0]] : tensor<?xi64>
 }
+
+// -----
+
+func @test_rewrite_batchnormtestmode_Nd(%arg0 : tensor<1x64x112x112xf32>) -> tensor<1x64x112x112xf32> {
+    %scale = "onnx.Constant"() : () -> tensor<64xf32>
+    %bias = "onnx.Constant"() : () -> tensor<64xf32>
+    %mean = "onnx.Constant"() : () -> tensor<64xf32>
+    %var = "onnx.Constant"() : () -> tensor<64xf32>
+    %0 = "onnx.BatchNormalizationTestMode"(%arg0, %scale, %bias, %mean, %var) {epsilon = 1.00000007E-5 : f32} : (tensor<1x64x112x112xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
+    return %0 :  tensor<1x64x112x112xf32>
+
+    // CHECK-LABEL: test_rewrite_batchnormtestmode_Nd
+    // CHECK: [[SCALE:%.*]] = "onnx.Constant"() : () -> tensor<64xf32>
+    // CHECK: [[BIAS:%.*]] = "onnx.Constant"() : () -> tensor<64xf32>
+    // CHECK: [[MEAN:%.*]] = "onnx.Constant"() : () -> tensor<64xf32>
+    // CHECK: [[VAR:%.*]] = "onnx.Constant"() : () -> tensor<64xf32>
+    // CHECK: [[EPSILON:%.*]] = "onnx.Constant"() {value = dense<1.00000007E-5> : tensor<1xf32>} : () -> tensor<1xf32>
+
+    // CHECK: [[ADD:%.*]] = "onnx.Add"([[VAR]], [[EPSILON]]) : (tensor<64xf32>, tensor<1xf32>) -> tensor<64xf32>
+    // CHECK: [[SQRT:%.*]] = "onnx.Sqrt"([[ADD]]) : (tensor<64xf32>) -> tensor<*xf32>
+    // CHECK: [[A:%.*]] = "onnx.Div"([[SCALE]], [[SQRT]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[A_UNSQUEEZE:%.*]] = "onnx.Unsqueeze"([[A]]) {axes = [1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
+
+    // CHECK: [[X_A:%.*]] = "onnx.Mul"(%arg0, [[A_UNSQUEEZE]]) : (tensor<1x64x112x112xf32>, tensor<*xf32>) -> tensor<*xf32>
+
+    // CHECK: [[SUB:%.*]] = "onnx.Mul"([[MEAN]], [[A]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[B:%.*]] = "onnx.Sub"([[BIAS]], [[SUB]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[B_UNSQUEEZE:%.*]] = "onnx.Unsqueeze"([[B]]) {axes = [1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
+
+    // CHECK: [[RES:%.*]] = "onnx.Add"([[X_A]], [[B_UNSQUEEZE]]) : (tensor<*xf32>, tensor<*xf32>) -> tensor<1x64x112x112xf32>
+    // CHECK: return [[RES]] : tensor<1x64x112x112xf32>
+}
+
+// -----
+
+func @test_rewrite_batchnormtestmode_1d(%arg0 : tensor<64xf32>) -> tensor<64xf32> {
+    %scale = "onnx.Constant"() : () -> tensor<1xf32>
+    %bias = "onnx.Constant"() : () -> tensor<1xf32>
+    %mean = "onnx.Constant"() : () -> tensor<1xf32>
+    %var = "onnx.Constant"() : () -> tensor<1xf32>
+    %0 = "onnx.BatchNormalizationTestMode"(%arg0, %scale, %bias, %mean, %var) {epsilon = 1.00000007E-5 : f32} : (tensor<64xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<64xf32>
+    return %0 :  tensor<64xf32>
+
+    // CHECK-LABEL: test_rewrite_batchnormtestmode_1d
+    // CHECK: [[SCALE:%.*]] = "onnx.Constant"() : () -> tensor<1xf32>
+    // CHECK: [[BIAS:%.*]] = "onnx.Constant"() : () -> tensor<1xf32>
+    // CHECK: [[MEAN:%.*]] = "onnx.Constant"() : () -> tensor<1xf32>
+    // CHECK: [[VAR:%.*]] = "onnx.Constant"() : () -> tensor<1xf32>
+    // CHECK: [[EPSILON:%.*]] = "onnx.Constant"() {value = dense<1.00000007E-5> : tensor<1xf32>} : () -> tensor<1xf32>
+
+    // CHECK: [[ADD:%.*]] = "onnx.Add"([[VAR]], [[EPSILON]]) : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+    // CHECK: [[SQRT:%.*]] = "onnx.Sqrt"([[ADD]]) : (tensor<1xf32>) -> tensor<*xf32>
+    // CHECK: [[A:%.*]] = "onnx.Div"([[SCALE]], [[SQRT]]) : (tensor<1xf32>, tensor<*xf32>) -> tensor<*xf32>
+
+    // CHECK: [[X_A:%.*]] = "onnx.Mul"(%arg0, [[A]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
+
+    // CHECK: [[SUB:%.*]] = "onnx.Mul"([[MEAN]], [[A]]) : (tensor<1xf32>, tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[B:%.*]] = "onnx.Sub"([[BIAS]], [[SUB]]) : (tensor<1xf32>, tensor<*xf32>) -> tensor<*xf32>
+
+    // CHECK: [[RES:%.*]] = "onnx.Add"([[X_A]], [[B]]) : (tensor<*xf32>, tensor<*xf32>) -> tensor<64xf32>
+    // CHECK: return [[RES]] : tensor<64xf32>
+}
