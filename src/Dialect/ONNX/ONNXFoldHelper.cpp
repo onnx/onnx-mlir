@@ -292,17 +292,22 @@ DenseElementsAttr ConstPropCast(
   // auto resultType = mlir::UnrankedTensorType::get(
   //   myConvertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr)));
 
-  auto inputElems = input.cast<mlir::DenseElementsAttr>().getValues<Attribute>();
+  auto inputElems = input.cast<mlir::DenseElementsAttr>();
   std::vector<Attribute> result;
 
+  printf("Constant Propagation...\n");
+  llvm::outs() << "Constant Propagation...\n";
+  llvm::outs() << "Input Type: " << inputElems.getType() << "\n";
+  llvm::outs() << "Result Type: " << resType << "\n";
+
   if (elementType.isa<IntegerType>()) {
-    for (Attribute elem : inputElems) {
-      APInt val = elem.cast<IntegerAttr>().getValue();
+    for (IntegerAttr elem : inputElems.getValues<IntegerAttr>()) {
+      APInt val = elem.getValue();
       result.push_back(builder.getIntegerAttr(elementType, val));
     }
   } else if (elementType.isa<FloatType>()) {
-    for (Attribute elem : inputElems) {
-      APFloat val = elem.cast<FloatAttr>().getValue();
+    for (FloatAttr elem : inputElems.getValues<FloatAttr>()) {
+      APFloat val = elem.getValue();
       result.push_back(builder.getFloatAttr(elementType, val));
     }
   } else {
