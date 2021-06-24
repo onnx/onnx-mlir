@@ -26,8 +26,8 @@
 #include "llvm/ADT/TypeSwitch.h"
 
 // TODO rename to MLIR file
-#include "src/Dialect/ONNX/TmpMlirUtils.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/ONNX/TmpMlirUtils.hpp"
 
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlTypes.hpp"
