@@ -50,10 +50,11 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           int aRank = shapeHelper.aDims.size();
           int bRank = aRank; // Add for better readability.
           ValueRange innerLoop = lb.create<KrnlDefineLoopsOp>(1).getResults();
-          ValueRange ub{shapeHelper.aDims[aRank - 1].getValue()};
+          Value innerUb = shapeHelper.aDims[aRank - 1].getValue();
           Value izero = lb.create<ConstantIndexOp>(0);
-          lb.create<KrnlIterateOp>(innerLoop, innerLoop, ValueRange{izero}, ub,
-              ValueRange{}, [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+          lb.create<KrnlIterateOp>(innerLoop, innerLoop, ValueRange{izero},
+              ValueRange{innerUb}, ValueRange{},
+              [&](ImplicitLocOpBuilder &lb, ValueRange args) {
                 ValueRange innerIndex =
                     lb.create<KrnlGetInductionVariableValueOp>(innerLoop)
                         .getResults();
