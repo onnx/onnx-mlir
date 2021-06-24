@@ -76,7 +76,7 @@ bool hasNonZeroInArrayAttr(ArrayAttr attrs) {
   bool allZeros = true;
   if (attrs) {
     for (auto attr : attrs.getValue()) {
-      if (attr.cast<IntegerAttr>().getInt() != 0) {
+      if (attr.cast<IntegerAttr>().getInt() > 0) {
         allZeros = false;
         break;
       }
