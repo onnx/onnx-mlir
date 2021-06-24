@@ -14,11 +14,6 @@ resources:
     type: git
     name: tools
     ref: refs/heads/main
-  - repository: protobuf
-    type: github
-    name: protocolbuffers/protobuf
-    endpoint: ProtobufGitHubServiceConnection
-    ref: refs/tags/v3.12.3
 
 trigger:
   batch: true
@@ -34,11 +29,6 @@ schedules:
     - apollo
   always: true
 
-parameters:
-- name: ForceCleanBuild
-  type: boolean
-  default: false
-
 variables:
 - name: System.PreferGitFromPath
   value: true
@@ -53,7 +43,6 @@ jobs:
     ${{ if ne(variables['Build.Reason'], 'Schedule') }}:
       BuildConfigurations:
       - Release
-    ForceCleanBuild: ${{ parameters.ForceCleanBuild }}
     Platforms:
     - Ubuntu
     - Windows

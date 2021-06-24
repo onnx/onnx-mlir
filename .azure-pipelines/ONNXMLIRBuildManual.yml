@@ -10,11 +10,6 @@ resources:
     type: git
     name: tools
     ref: refs/heads/main
-  - repository: protobuf
-    type: github
-    name: protocolbuffers/protobuf
-    endpoint: ProtobufGitHubServiceConnection
-    ref: refs/tags/v3.12.3
 
 trigger: none
 
@@ -28,9 +23,6 @@ parameters:
 - name: BuildLabel
   type: string
   default: 'Manual'
-- name: ForceCleanBuild
-  type: boolean
-  default: false
 
 variables:
 - name: System.PreferGitFromPath
@@ -40,5 +32,4 @@ jobs:
 - template: .azure-pipelines/templates/ONNXMLIRJobTemplate.yml@tools
   parameters:
     BuildConfigurations: ${{ parameters.BuildConfigurations }}
-    ForceCleanBuild: ${{ parameters.ForceCleanBuild }}
     Platforms: ${{ parameters.Platforms }}
