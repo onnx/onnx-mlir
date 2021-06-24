@@ -27,9 +27,10 @@
 
 // TODO rename to MLIR file
 #include "src/Dialect/ONNX/TmpMlirUtils.hpp"
+#include "src/Dialect/ONNX/IndexExpr.hpp"
 
-#include "KrnlHelper.hpp"
-#include "KrnlTypes.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
+#include "src/Dialect/Krnl/KrnlTypes.hpp"
 
 namespace mlir {
 class KrnlOpsDialect : public Dialect {
