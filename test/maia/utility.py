@@ -33,12 +33,13 @@ def get_outputs(model : ModelProto) -> "list[int]":
   return list(map(lambda x: in_out(x.name, get_shape(x.type)), model.graph.output))
 
 
-def add_test(gen_model: Callable[[TensorProto], ModelProto], test_name: str, test_type: TestType = TestType.COMPILE_ONLY, epsilon: float = 0.0, **kwargs):
+def add_test(gen_model: Callable[[TensorProto], ModelProto], test_name: str, test_type: TestType = TestType.COMPILE_ONLY, test_args: str = "", epsilon: float = 0.0, **kwargs):
   global test_index
   
   # check if we're just listing available tests
+  # ARGS must be printed last as regex goes to end of line
   if list_only:
-    print(f'{test_name}\t{test_type}')
+    print(f'{test_name}\t{test_type}\tARGS {test_args}')
     return
 
   # if the users has specificed specific tests, gen those only

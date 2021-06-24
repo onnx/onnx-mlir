@@ -121,6 +121,13 @@ def run_passes(passes, args, first_input, vector_length, from_pass, to_pass, sub
             # set target triple for llc to 'athena-none-none instead of default 'apollo-none-none'
             command_list[2] = command_list[2].replace('-mtriple=apollo', '-mtriple=' + subtarget)
 
+        # Set the correct TTU command type
+        if subtarget == 'apollo':
+            if args.ttu_type2:
+                command_list[2] = command_list[2].replace('nepal-generation=', 'nepal-generation=' + 'target=Apollo ' + 'TTU-command-type=2 ')
+            else:
+                command_list[2] = command_list[2].replace('nepal-generation=', 'nepal-generation=' + 'target=Apollo ' + 'TTU-command-type=1 ')
+
         if command == "onnx-mlir":
             outputFileNoExt, _ = os.path.splitext(outputFileBase)
             command_list.append(str("-o=" + outputFileNoExt))
@@ -162,6 +169,7 @@ def main():
     parser.add_argument('--omb', '--onnx-mlir-bin', type=str, required=False, help='set the path to onnx-mlir binaries')
     parser.add_argument('--mb', '--mlir-bin', type=str, required=False, help='set the path to mlir binaries')
     parser.add_argument('--athena', type=str2bool, nargs='?', const=True, default=False, required=False, help='Lower to LLVM for Athena')
+    parser.add_argument('--ttu_type2', action='store_true', help='Use Type 2 TTU commands')
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)

@@ -25,3 +25,8 @@ def generate_tests():
   model_gen, name = generate_mnist_model([256, 256])
   add_test(model_gen, name, test_type = TestType.EXECUTE, epsilon = 0.0,
      X = all_ones, weight_0 = all_ones, weight_1 = all_ones, bias_0 = all_ones, bias_1 = all_ones)
+  model_gen_1d, name_1d = generate_mnist_model([256])
+  add_test(model_gen_1d, name_1d + "_1d", test_type = TestType.EXECUTE, epsilon = 0.0,
+     X = all_ones, weight_0 = all_ones, weight_1 = all_ones, bias_0 = all_ones, bias_1 = all_ones)
+  add_test(model_gen_1d, name_1d + "_1d_type2", test_type = TestType.EXECUTE, test_args = "--ttu_type2", epsilon = 0.0,
+     X = all_ones, weight_0 = all_ones, weight_1 = all_ones, bias_0 = all_ones, bias_1 = all_ones)

@@ -45,8 +45,9 @@ set(HOST_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 execute_process(COMMAND ${Python3_EXECUTABLE} ${MAIA_SOURCE_DIR}/make_tests.py --list
                 OUTPUT_VARIABLE TEST_CONFIG)
 string(REPLACE "\n" ";" TEST_CONFIG ${TEST_CONFIG})
+
 foreach(ENTRY ${TEST_CONFIG})
-  string(REGEX REPLACE "^(.*)\t(.*)$" "\\1" TEST_NAME ${ENTRY})
+  string(REGEX REPLACE "^([^\t]+).*$" "\\1" TEST_NAME ${ENTRY})
   list(APPEND TEST_LIST ${TEST_NAME})
   string(REGEX MATCH "^.*\t.*EXECUTE" TEST_EXECUTE ${ENTRY})
   if(NOT ${TEST_EXECUTE} EQUAL "")
@@ -56,7 +57,14 @@ foreach(ENTRY ${TEST_CONFIG})
   if(NOT ${TEST_DIFF} EQUAL "")
     list(APPEND DIFF_LIST ${TEST_NAME})
   endif()
+  string(REGEX REPLACE "^.*\tARGS( .*)$" "\\1" TEST_ARGS ${ENTRY})
+  # Empty values must be appended because list index is used to find args
+  list(APPEND MAIA_ARGS_LIST "${TEST_ARGS}")
 endforeach()
+
+# Replace empty args (representaed by a space " " char). They are required to
+# avoid trying to append an empty string, which CMake won't do to an empty list.
+list(TRANSFORM MAIA_ARGS_LIST REPLACE "^ " "")
 
 # compute a list of all the python scripts in our domain.
 #   - many of these scripts are used as modules by the python scripts below
@@ -71,6 +79,7 @@ set(TEST_INDEX 0)
 foreach(TEST ${TEST_LIST})
   list(FIND EXECUTE_LIST ${TEST} TEST_EXECUTE)
   list(FIND DIFF_LIST ${TEST} TEST_DIFF)
+  list(GET MAIA_ARGS_LIST ${TEST_INDEX} TEST_ARGS)
   set(TEST_DIR ${MAIA_BINARY_DIR}/${TEST})
 
   # generate the ONNX graphs for this test
@@ -81,7 +90,7 @@ foreach(TEST ${TEST_LIST})
                      VERBATIM)
 
   # invoke the MAIA compiler
-  apollo_compile_graph(${TEST})
+  apollo_compile_graph(${TEST} "${TEST_ARGS}")
 
   if(${TEST_EXECUTE} GREATER_EQUAL 0)
     # compile output code and execute as a test

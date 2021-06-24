@@ -1,9 +1,9 @@
 
 # Invoke the MAIA graph compiler targeting Apollo
-function(apollo_compile_graph TEST)
+function(apollo_compile_graph TEST ADDITIONAL_ARGS)
   set (MODEL ${TEST}.onnx)
   add_custom_command(OUTPUT ${TEST_DIR}/${MODEL}.ll
-                     COMMAND ${Python3_EXECUTABLE} ${ONNX_MLIR_RUNTIME_PATH}/maia.py --f ${TEST_DIR}/${MODEL} --omb ${ONNX_MLIR_RUNTIME_PATH} --mb ${LLVM_TOOLS_BINARY_DIR}
+                     COMMAND ${Python3_EXECUTABLE} ${ONNX_MLIR_RUNTIME_PATH}/maia.py --f ${TEST_DIR}/${MODEL} --omb ${ONNX_MLIR_RUNTIME_PATH} --mb ${LLVM_TOOLS_BINARY_DIR} ${ADDITIONAL_ARGS}
                      WORKING_DIRECTORY ${TEST_DIR}
                      MAIN_DEPENDENCY ${TEST_DIR}/${MODEL}
                      DEPENDS copy-maia-tools
