@@ -280,3 +280,36 @@ DenseElementsAttr ConstPropSlice(Builder &builder, Value resOperand,
   ArrayRef<Attribute> resRef(resVector);
   return DenseElementsAttr::get(resType, resRef);
 }
+
+
+DenseElementsAttr ConstPropCast(
+    Builder &builder, Value resOperand, Attribute input, IntegerAttr to) {
+
+  mlir::RankedTensorType resType = resOperand.getType().cast<mlir::RankedTensorType>();
+  Type elementType = resType.getElementType();
+
+  // auto toAttr = to.getValue().getSExtValue();
+  // auto resultType = mlir::UnrankedTensorType::get(
+  //   myConvertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr)));
+
+  auto inputElems = input.cast<mlir::DenseElementsAttr>().getValues<Attribute>();
+  std::vector<Attribute> result;
+
+  if (elementType.isa<IntegerType>()) {
+    for (Attribute elem : inputElems) {
+      APInt val = elem.cast<IntegerAttr>().getValue();
+      result.push_back(builder.getIntegerAttr(elementType, val));
+    }
+  } else if (elementType.isa<FloatType>()) {
+    for (Attribute elem : inputElems) {
+      APFloat val = elem.cast<FloatAttr>().getValue();
+      result.push_back(builder.getFloatAttr(elementType, val));
+    }
+  } else {
+    llvm::outs() << elementType << "\n";
+    llvm_unreachable("Couldn't handle the element type printed above during constant propagation of Casts");
+  }
+
+  return DenseElementsAttr::get(resType, llvm::makeArrayRef(result));
+}
+

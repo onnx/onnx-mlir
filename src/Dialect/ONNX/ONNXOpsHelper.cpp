@@ -49,7 +49,7 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
 // <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
 // TODO: Update Int*/Uint* to emit signed/unsigned MLIR types
 mlir::Type convertONNXTypeToMLIRType(
-    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType) {
+    mlir::Builder &builder_, onnx::TensorProto_DataType onnxType) {
   switch (onnxType) {
   case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
     return builder_.getF16Type();

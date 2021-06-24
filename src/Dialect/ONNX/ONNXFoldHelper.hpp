@@ -211,3 +211,5 @@ DenseElementsAttr ConstPropConcat(
 DenseElementsAttr ConstPropSlice(Builder &builder, Value resOperand,
     Attribute data, Attribute starts, Attribute ends, Attribute axes,
     Attribute steps);
+DenseElementsAttr ConstPropCast(
+    Builder &builder, Value resOperand, Attribute input, IntegerAttr toType);

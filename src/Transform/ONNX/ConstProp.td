@@ -36,7 +36,7 @@ include "src/Dialect/ONNX/ONNXOps.td"
 //
 // Then you will need to add substitution rules, see examples below.
 
-  
+
 // Useful test definitions.
 
 def IsNotAConstant :
@@ -47,10 +47,9 @@ def AttributeIsNull :
     Constraint<CPred<"! ($_self)">,
   "Attribute is null">;
 
-
 // Usefult code generation invokation.
 def GetNullAttr : NativeCodeCall<"Attribute()">;
-  
+
 def CreateAddOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXAddOp>($_builder, $0, $1, $2)">;
 
@@ -75,10 +74,13 @@ def CreateTransposeOfConst :
 def CreateUnsqueezeOfConst:
    NativeCodeCall<"ConstPropUnsqueeze($_builder, $0, $1)">;
 
+def CreateCastOfConst :
+   NativeCodeCall<"ConstPropCast($_builder, $0, $1, $2)">;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
 //===----------------------------------------------------------------------===//
-  
+
 // Use commutativity to normalize constants in the second position of Add.
 def AddConstCommutative1 : Pat<
   // From add(c, x).
@@ -87,7 +89,7 @@ def AddConstCommutative1 : Pat<
   (ONNXAddOp $x, $c),
   // To avoid infinite loop, constrain the first arguments to be anything but a constant.
   [(IsNotAConstant:$x)]>;
-  
+
 // Use associativity to add constants together.
 def AddConstAssociative1 : Pat<
   // From add(add(x, c1), c2).
@@ -132,7 +134,7 @@ def AddConstAssociative4 : Pat<
     (ONNXAddOp $x, $y),
     (ONNXAddOp $c1, $c2)),
     [(IsNotAConstant:$x), (IsNotAConstant:$y)]>;
-  
+
 // Constant Propagation for Add
 def AddConstProp : Pat<
     // From add(c1, c2).
@@ -162,7 +164,7 @@ def NegofConst :  Pat<
     // To (-c)
     (ONNXConstantOp (GetNullAttr), (CreateNegOfConst $constOp, $v)),
     [(AttributeIsNull:$s)]>;
-  
+
 // Change a subtraction of a constant c by an addition of -c. Helpfull to combine
 // with other add optimizations.
 def SubConstToNeg : Pat<
@@ -179,7 +181,15 @@ def SqrtofConst :  Pat<
     // To sqrt(c)
     (ONNXConstantOp (GetNullAttr), (CreateSqrtOfConst $constOp, $v)),
     [(AttributeIsNull:$s)]>;
- 
+
+// Constant Propagation for Cast
+def CastofConst :  Pat<
+    // From  onnx.Cast(c)
+    (ONNXCastOp (ONNXConstantOp:$constOp $s, $v), $toType),
+    // To cast(c)
+    (ONNXConstantOp (GetNullAttr), (CreateCastOfConst $constOp, $v, $toType)),
+    [(AttributeIsNull:$s)]>;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise MUL operations.
 // Exactly the same pattern as for the elementwise ADD operations.
@@ -193,7 +203,7 @@ def MulConstCommutative1 : Pat<
   (ONNXMulOp $x, $c),
   // To avoid infinite loop, constrain the first arguments to be anything but a constant.
   [(IsNotAConstant:$x)]>;
-  
+
 // Use associativity to mul constants together.
 def MulConstAssociative1 : Pat<
   // From mul(mul(x, c1), c2).
@@ -205,7 +215,7 @@ def MulConstAssociative1 : Pat<
     $x,
     (ONNXMulOp $c1, $c2)),
     [(IsNotAConstant:$x)]>;
-  
+
 def MulConstAssociative2 : Pat<
   // From mul(mul(x, c), y).
   (ONNXMulOp
@@ -243,12 +253,12 @@ def MulConstAssociative4 : Pat<
 def MulConstProp : Pat<
     // From mul(c1, c2).
     (ONNXMulOp:$mulOp (ONNXConstantOp $s1, $v1), (ONNXConstantOp $s2, $v2)),
-    // To c1+c2
+    // To c1*c2
     (ONNXConstantOp (GetNullAttr), (CreateMulOfTwoConst $mulOp, $v1, $v2)),
     // Mulitional constraints (no sparse)
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
 
-// Constant Propagation for Div 
+// Constant Propagation for Div
 def DivConstProp : Pat<
     // From div(c1, c2).
     (ONNXDivOp:$mulOp (ONNXConstantOp $s1, $v1), (ONNXConstantOp $s2, $v2)),
