@@ -13,7 +13,8 @@ passes = [
 
   # TVP kernel outlining.
   # canonicalize is called to remove the empty affine loops we may have picked up
-    ["mlir-opt",         ".affine.for.2.tvp.mlir",    "--canonicalize", "--convert-affine-for-to-tvp", "--allow-unregistered-dialect", "-mlir-print-debuginfo"                        ],
+    ["mlir-opt",         ".normalize.mlir",           "--affine-loop-normalize", "--symbol-dce", "--canonicalize", "--allow-unregistered-dialect", "-mlir-print-debuginfo"            ],
+    ["mlir-opt",         ".affine.for.2.tvp.mlir",    "--convert-affine-for-to-tvp", "--allow-unregistered-dialect", "-mlir-print-debuginfo"                                          ],
     ["mlir-opt",         ".krnl.outlining.mlir",      "--tvp-kernel-outlining", "--allow-unregistered-dialect"                                                                        ],
     ["mlir-opt",         ".krnl.generation.mlir",      "--generate-tvp-kernels", "--assign-kernel-ids", "--allow-unregistered-dialect"                                                ],
 

@@ -634,6 +634,11 @@ int compileModuleApollo(mlir::OwningModuleRef &module,
   addKrnlToAffinePasses(pm);
 
   // Outlining passes
+  // Affine loop normalization removes loops iterating over 1 element
+  // tensors, found in GPT-2 model.
+  pm.addNestedPass<FuncOp>(mlir::createAffineLoopNormalizePass());
+  // Symbol DCE pass removes unreferenced constants (GPT-2).
+  pm.addPass(mlir::createSymbolDCEPass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(mlir::createAffineForToTVPPass());
   pm.addPass(mlir::createTVPKernelOutliningPass());
