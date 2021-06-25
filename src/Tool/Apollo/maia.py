@@ -129,10 +129,10 @@ def run_passes(passes, args, first_input, vector_length, from_pass, to_pass, sub
             else:
                 command_list[2] = command_list[2].replace('nepal-generation=', 'nepal-generation=' + 'target=Apollo ' + 'TTU-command-type=1 ')
 
+        output = os.devnull
         if command == "onnx-mlir":
             outputFileNoExt, _ = os.path.splitext(outputFileBase)
             command_list.append(str("-o=" + outputFileNoExt))
-            output = os.devnull
         elif ( command == "mlir-opt" or command == "mlir-translate" or command == "llc" ) :
             command_list.append(str("-o=" + outputFileBase + curr_pass[1]))
         else:         
