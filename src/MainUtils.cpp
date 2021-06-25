@@ -34,8 +34,16 @@
 
 #ifdef _WIN32
 #include <io.h>
+#define DUP _dup
+#define DUP2 _dup2
+#define FDOPEN _fdopen
+#define FILENO _fileno
 #else
 #include <unistd.h>
+#define DUP dup
+#define DUP2 dup2
+#define FDOPEN fdopen
+#define FILENO fileno
 #endif
 
 using namespace std;
@@ -252,7 +260,8 @@ struct Command {
       fprintf(stderr, "%s\n", llvm::join(argsRef, " ").c_str());
       fprintf(stderr, "Error message: %s\n", errMsg.c_str());
       fprintf(stderr, "Program path: %s\n", _path.c_str());
-      llvm_unreachable("Command execution failed.");
+      fprintf(stderr, "Command execution failed.");
+      exit(rc);
     }
   }
 };
@@ -545,21 +554,24 @@ void outputCode(
   if (preserveLocations)
     flags.enableDebugInfo();
 
-#ifdef _WIN32
   // copy original stderr file number
-  int stderrOrigin = _dup(_fileno(stderr));
-#else
-  int stderrOrigin = dup(fileno(stderr));
-#endif
-  freopen(tempFilename.c_str(), "w", stderr);
+  int stderrOrigin = DUP(FILENO(stderr));
+
+  if (freopen(tempFilename.c_str(), "w", stderr) == NULL) {
+    // stderr already closed when freopen fails, so restore it
+    stderr = FDOPEN(stderrOrigin, "w");
+    fprintf(stderr, "%s: %s\n", tempFilename.c_str(), strerror(errno));
+    exit(errno);
+  }
   module->print(llvm::errs(), flags);
   fflush(stderr);
   // set modified stderr as original stderr
-#ifdef _WIN32
-  _dup2(stderrOrigin, _fileno(stderr));
-#else
-  dup2(stderrOrigin, fileno(stderr));
-#endif
+  // dup2(stderrOrigin, fileno(stderr)) does NOT restore stderr since
+  // it simply duplicates the file descriptor (int) but the file stream
+  // (FILE *) is still closed. Proper way to restore stderr is to reopen
+  // stderr with fdopen.
+  stderr = FDOPEN(stderrOrigin, "w");
+
   if (printIR)
     module->print(llvm::outs(), flags);
 }
