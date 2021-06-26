@@ -111,18 +111,6 @@ public:
         }
       }
     }
-
-    int64_t dynamicOperations = 0;
-    for (Operation &op : r.getOps()) {
-      if (returnsDynamicShape(&op))
-        dynamicOperations++;
-    }
-
-    // If any dynamic operations remain, this indicates a failure.
-    if (dynamicOperations != 0) {
-      return r.getParentOp()->emitError("Region shape inference failed!");
-    }
-
     return success();
   }
 
@@ -166,8 +154,12 @@ public:
    */
   static bool returnsDynamicShape(Operation *op) {
     return llvm::any_of(op->getResultTypes(), [](Type result_type) {
-      return !result_type.isa<NoneType>() &&
-             !result_type.isa<RankedTensorType>();
+      if (result_type.isa<RankedTensorType>()) {
+        return llvm::any_of(result_type.dyn_cast<RankedTensorType>().getShape(),
+            [](int64_t dim) { return dim < 0; });
+      } else {
+        return !result_type.isa<NoneType>();
+      }
     });
   }
 };
