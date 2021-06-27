@@ -84,7 +84,7 @@ void markLoopBodyAsMovable(
 
 LoopBodyMover preprocessKrnlLoops(
     mlir::FuncOp funcOp, mlir::OpBuilder &builder) {
-  // We use the end of the function body as a staging area for movable ops.
+  // Use the end of the function body as a staging area for movable ops.
   builder.setInsertionPoint(
       &funcOp.body().front(), funcOp.body().front().without_terminator().end());
   LoopBodyMover mover;
