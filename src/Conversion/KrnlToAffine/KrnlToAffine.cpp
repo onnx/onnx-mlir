@@ -381,7 +381,18 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
 /// add and multiply, this pass will leave these operations intact.
 struct ConvertKrnlToAffinePass
     : public PassWrapper<ConvertKrnlToAffinePass, FunctionPass> {
+  // Make sure that we have a valid default constructor and copy constructor to
+  // make sure that the options are initialized properly.
+  // c.f.
+  // https://mlir.llvm.org/docs/PassManagement/#instance-specific-pass-options
+  ConvertKrnlToAffinePass() = default;
+  ConvertKrnlToAffinePass(const ConvertKrnlToAffinePass &pass) {}
+
   void runOnFunction() final;
+
+  Option<bool> preprocessing_only{*this, "preprocessing-only",
+      llvm::cl::desc("Whether to move the packed constant to a file."),
+      llvm::cl::init(false)};
 };
 
 LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
@@ -1320,12 +1331,16 @@ public:
 
 /*!
  * Helper function to separate the operations nested directly within a
- * Krnl.iterate op into two kinds:
- * - the first kind is contiguous sequence of operations that will need to be
- *     moved to a concrete loop when it materializes.
- * - the second kind is anchors, which are Krnl loop operations. They need not
- *     be moved because they are the references, and IR blocks will be
- *     positioned relative to these anchors.
+ * krnl.iterate op `root` into two kinds:
+ * - the first kind are anchors, which are Krnl loop operations. They will be
+ *   replaced by the lowered loop operations (affine for loops); furthermore,
+ *   they act as positional references for moving other operations around.
+ *
+ * - the second kind of operations are all the other operations. Contiguous
+ *   sequence of them will be stored together for efficiency and
+ *   clarity. Upon the materialization of the lowered loop corresponding to the
+ *   `root` operation , they will be moved under the lowered loop operation.
+ *   TODO(tjingrant): additional constraints apply, explain.
  *
  * And record the moving plans in mover.
  *
@@ -1343,31 +1358,36 @@ void markLoopBodyAsMovable(
   for (auto &block : bodyRegion.getBlocks()) {
     assert(!block.empty() && "IterateOp body block shouldn't be empty.");
 
-    // Delimeter ops are delimeters of a movable chunk of code.
+    // Delimeter ops are delimeters of movable chunks of code. Movable chunks of
+    // code are separated by krnl.iterate operations and terminator operations.
     llvm::SmallVector<Operation *> delimeterOps(block.getOps<KrnlIterateOp>());
     delimeterOps.push_back(block.getTerminator());
-    Operation *movableBeginOp = &block.front();
-    for (auto delimeterOp : delimeterOps) {
-      Block::iterator movableBegin = movableBeginOp->getIterator();
 
+    Operation *movableChunkBegin = &block.front();
+    for (auto delimeterOp : delimeterOps) {
       // If no op to extract, continue;
-      if (movableBegin == delimeterOp->getIterator())
+      if (movableChunkBegin->getIterator() == delimeterOp->getIterator())
         continue;
 
+      // Stuff identified chunks of operations into a krnl.movable operation.
       auto movableOp = builder.create<KrnlMovableOp>(delimeterOp->getLoc());
+      //      movableOp->setLoc(NameLoc::get("Random Name For Debug"));
       auto &movableRegion = movableOp.region();
       auto *entryBlock = new Block;
       movableRegion.push_back(entryBlock);
       entryBlock->getOperations().splice(entryBlock->end(),
-          block.getOperations(), movableBegin, delimeterOp->getIterator());
+          block.getOperations(), movableChunkBegin->getIterator(),
+          delimeterOp->getIterator());
       KrnlMovableOp::ensureTerminator(
           movableRegion, builder, delimeterOp->getLoc());
-
+      // Let mover know to move the content of movable operations under the
+      // lowered loop corresponding to `root`. For the delimeter op, let mover
+      // know to expect an iterate operation.
       mover.toMoveUnder(LoopBodyMover::Movable(movableOp), root);
       if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(delimeterOp))
         mover.toMoveUnder(LoopBodyMover::Movable(iterateOp), root);
 
-      movableBeginOp = delimeterOp->getNextNode();
+      movableChunkBegin = delimeterOp->getNextNode();
     }
   }
 }
@@ -1377,9 +1397,10 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   FuncOp funcOp = getFunction();
 
   // Move invariant instructions outside of the loops as many as possible. This
-  // helps make loops perfectly nested, which faciliates transformations.
+  // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
-    moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
+    if (failed(moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()))))
+      signalPassFailure();
   });
 
   // We use the end of the function body as a staging area for movable ops.
@@ -1388,6 +1409,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   LoopBodyMover mover;
   funcOp.walk(
       [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
+  if (preprocessing_only) return;
 
   // Interpret krnl dialect operations while looping recursively through
   // operations within the current function, note that erasing operations
