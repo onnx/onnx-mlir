@@ -91,6 +91,7 @@ private:
 
   Value none_;
   std::map<FuncOp, Value> func2None_;
+  std::map<std::string, std::vector<int>> op_dialect_version_map_;
 
   /*!
    *  The list of tensors initialized by the ONNX model.
@@ -231,13 +232,14 @@ private:
     return RankedTensorType::get(tensor_dims, elementType);
   }
 
-  Type ConvertOnnxType(const std::string &onnx_name) {
-    auto it = value_info_map.find(onnx_name);
-    if (it != value_info_map.end()) {
-      return ImportTensorType(it->second);
-    } else {
-      return builder_.getNoneType();
+  llvm::Optional<Type> ConvertOnnxType(const std::string &onnx_name) {
+    if (options_.useOnnxModelTypes) {
+      auto it = value_info_map.find(onnx_name);
+      if (it != value_info_map.end()) {
+        return llvm::Optional<Type>(ImportTensorType(it->second));
+      }
     }
+    return llvm::Optional<Type>();
   }
 
   /*!
@@ -369,7 +371,7 @@ private:
             forced_dims = forced_inputs_dims.at(numInputs);
           auto argShape = shapedTy.getShape();
           llvm::SmallVector<int64_t, 4> newDims;
-          for (auto i = 0; i < argShape.size(); i++) {
+          for (unsigned int i = 0; i < argShape.size(); i++) {
             if (llvm::is_contained(forced_dims, -1) ||
                 llvm::is_contained(forced_dims, i)) {
               newDims.push_back(-1);
@@ -517,7 +519,7 @@ private:
 
     // Trailing optional inputs.
     if (!variadicIn)
-      for (auto i = inputs.size(); i < expectedNumOperands; i++) {
+      for (int i = (int)inputs.size(); i < expectedNumOperands; i++) {
         inputs.emplace_back(none());
       }
 
@@ -526,14 +528,14 @@ private:
     // Use the type map or types in input model to determine the data type of
     // output.
     std::vector<int> outputMap = T::getTypeMap();
-    for (auto i = 0; i < node.output().size(); i++) {
+    for (unsigned int i = 0; i < (unsigned int)node.output().size(); i++) {
       // Optional outputs using empty string.
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
-      } else if (options_.useOnnxModelTypes) {
-        outputTypes.emplace_back(ConvertOnnxType(node.output(i)));
+      } else if (auto onnxModelType = ConvertOnnxType(node.output(i))) {
+        outputTypes.emplace_back(onnxModelType.getValue());
       } else {
-        auto j = i;
+        unsigned int j = i;
         // Variadic output is a single ODS result.
         if (variadicOut)
           j = 0;
@@ -588,13 +590,15 @@ private:
         }
       }
     }
-    if (!options_.useOnnxModelTypes)
-      if (auto opWithTypeInference =
-              dyn_cast<ResultTypeInferenceOpInterface>(genericOp)) {
-        auto outTypes = opWithTypeInference.resultTypeInference();
-        for (int i = 0; i < node.output().size(); i++)
+    if (auto opWithTypeInference =
+            dyn_cast<ResultTypeInferenceOpInterface>(genericOp)) {
+      auto outTypes = opWithTypeInference.resultTypeInference();
+      for (int i = 0; i < node.output().size(); i++) {
+        auto result = genericOp->getOpResult(i);
+        if (!options_.useOnnxModelTypes || result.getType().isa<NoneType>())
           genericOp->getOpResult(i).setType(outTypes[i]);
       }
+    }
 
     for (const auto &output : llvm::enumerate(node.output()))
       frontend_symbols_.AddMapping(
@@ -873,6 +877,24 @@ private:
     return onnx::OpSchemaRegistry::Schema(node.op_type(), version, domain);
   }
 
+  std::string GetImportVersionOfNode(const onnx::NodeProto &node) {
+    auto schema = GetOpSchema(node);
+    // Assume the top version
+    if (schema == nullptr) {
+      return std::string("");
+    }
+    auto current_opset = opset_map_.find(node.domain())->second;
+    auto opset_list = op_dialect_version_map_.find(node.op_type())->second;
+    // Traverse backward to find the closest version
+    // Some old versions may be compatible
+    for (int i = opset_list.size() - 1; i > 0; i--) {
+      if (current_opset <= opset_list[i]) {
+        return "V" + std::to_string(opset_list[i]);
+      }
+    }
+    return std::string("");
+  }
+
   FuncOp CreateFuncOp(
       std::string namePrefix, TypeRange operandTypes, TypeRange resultTypes) {
     auto funcType = builder_.getFunctionType(operandTypes, resultTypes);
@@ -948,6 +970,7 @@ private:
 
     // Save caller context, while generating callee function body.
     ValueSymbolMapping callerScope(std::move(frontend_symbols_));
+    frontend_symbols_.pushScope(func_name_prefix);
     auto prev_ip = builder_.saveInsertionPoint();
     builder_.setInsertionPointToStart(fnEntryBlock);
 
@@ -970,6 +993,7 @@ private:
     builder_.create<ReturnOp>(UnknownLoc(), ret_vals);
 
     // Restore caller context
+    frontend_symbols_.popScope(func_name_prefix);
     frontend_symbols_ = std::move(callerScope);
     builder_.restoreInsertionPoint(prev_ip);
 
@@ -989,7 +1013,6 @@ private:
                                 "represents a custom operator.");
 
       llvm::StringRef opName = node.op_type();
-      int nOps = node.input().size();
       auto funcName = opName.str();
       std::vector<Type> outputTypes;
       std::vector<Value> inputs;
@@ -1004,6 +1027,7 @@ private:
       int nOut = 0;
       getNodeInputs(node, inputs);
 
+      // TODO: isn't nOut just node.output().size()?
       for (const auto &item : node.output())
         ++nOut;
 
@@ -1013,11 +1037,12 @@ private:
   }
 
   void ImportNode(const onnx::NodeProto &node) {
-    llvm::StringRef opName = node.op_type();
+    std::string versionStr = GetImportVersionOfNode(node);
 
     // look up handler for the opName. If not found, create a node
     // for a custom op, and issue a warning.
-    auto handler = import_handler_map_.find(opName.str());
+    auto handler =
+        import_handler_map_.find(node.op_type() + versionStr.c_str());
     if (handler != import_handler_map_.end()) {
       (this->*(handler->second))(node);
     } else {
@@ -1100,7 +1125,7 @@ private:
     llvm::raw_string_ostream dstream(dstring);
     dstream << "[ ";
     std::string comma = std::string("");
-    for (int i = 0; i < funcType.getNumInputs(); i++) {
+    for (unsigned int i = 0; i < funcType.getNumInputs(); i++) {
       dstream << comma;
       concatTypeString(inputs[i], dstream);
       comma = std::string(" , ");
@@ -1110,7 +1135,7 @@ private:
     dstring.push_back('\0'); // null terminate the input signature string
     dstream << "@[";
     comma = std::string("");
-    for (int i = 0; i < funcType.getNumResults(); i++) {
+    for (unsigned int i = 0; i < funcType.getNumResults(); i++) {
       dstream << comma;
       concatTypeString(outputs[i], dstream);
       comma = std::string(" , ");
@@ -1181,7 +1206,20 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
 
   auto parse_success = model.ParseFromIstream(&input);
   assert(parse_success && "Onnx Model Parsing Failed.");
-  if (options.invokeOnnxVersionConverter) {
+  int originVersion = CURRENT_ONNX_OPSET;
+  // Get the version of the model
+  // Code copied from onnx/onnx/version_coverter/convert.cc
+  for (auto it = model.opset_import().begin(); it != model.opset_import().end();
+       ++it) {
+    if (it->domain() == "" || it->domain() == "ai.onnx") {
+      originVersion = it->version();
+      break;
+    }
+  }
+
+  // Didnot do downward convert because support for BatchNorm is missing
+  if (options.invokeOnnxVersionConverter &&
+      originVersion < CURRENT_ONNX_OPSET) {
     onnx::ModelProto convertModel =
         onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
     ImportFrontendModel(convertModel, context, module, options);

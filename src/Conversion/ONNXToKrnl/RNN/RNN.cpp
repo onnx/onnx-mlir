@@ -74,7 +74,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
 
     // Reverse activations.
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      int startIndex = (direction == REVERSE) ? 0 : 1;
+      unsigned int startIndex = (direction == REVERSE) ? 0 : 1;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.name =
             activationArrAttr[startIndex].cast<StringAttr>().getValue();
@@ -94,7 +94,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
 
     // Reverse activations.
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      int startIndex = (direction == REVERSE) ? 0 : 1;
+      unsigned int startIndex = (direction == REVERSE) ? 0 : 1;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.alpha =
             activationArrAttr[startIndex].cast<FloatAttr>();
@@ -114,7 +114,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
 
     // Reverse activations.
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      int startIndex = (direction == REVERSE) ? 0 : 1;
+      unsigned int startIndex = (direction == REVERSE) ? 0 : 1;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.beta =
             activationArrAttr[startIndex].cast<FloatAttr>();

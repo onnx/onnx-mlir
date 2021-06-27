@@ -51,6 +51,7 @@ ArrayAttr createArrayAttrOfNToM(PatternRewriter &rewriter, int N, int M) {
     vals.emplace_back(i);
   return rewriter.getI64ArrayAttr(vals);
 }
+
 // Check whether an ArrayAttr contains non-zero values or not.
 bool hasNonZeroInArrayAttr(ArrayAttr attrs) {
   bool allZeros = true;
@@ -108,10 +109,6 @@ DenseElementsAttr insertZerosForNonPaddedDims(
     pads[nDims + extensionLength + i + extensionLength] = endPad;
   }
 
-  mlir::Type elementType = rewriter.getIntegerType(64);
-  llvm::ArrayRef<int64_t> tensorDims(pads.data(), pads.size());
-  mlir::ShapedType tensorType =
-      mlir::RankedTensorType::get(tensorDims, elementType);
   return rewriter.getI64TensorAttr(llvm::makeArrayRef(pads));
 }
 

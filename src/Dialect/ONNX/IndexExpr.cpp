@@ -35,6 +35,11 @@ using namespace mlir;
 // IndexExprScope constructors.
 //===----------------------------------------------------------------------===//
 
+IndexExprScope::IndexExprScope() : loc(Location(nullptr)) {
+  llvm_unreachable("illegal");
+}
+
+// Initial scope.
 IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
     : dims(), symbols(), rewriter(rewriter), loc(loc),
       parentScope(getCurrentScopePtr()), container() {
@@ -44,18 +49,21 @@ IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
 IndexExprScope::IndexExprScope(OpBuilder &rewriter, Location loc)
     : IndexExprScope(&rewriter, loc){};
 
-IndexExprScope::IndexExprScope()
-    : dims(), symbols(), rewriter(getCurrentScope().rewriter),
-      loc(getCurrentScope().loc), parentScope(getCurrentScopePtr()),
-      container() {
+// Nested scopes.
+IndexExprScope::IndexExprScope(
+    OpBuilder *innerRewriter, IndexExprScope &enclosingScope)
+    : dims(), symbols(), rewriter(innerRewriter), loc(enclosingScope.loc),
+      parentScope(&enclosingScope), container() {
+  // Check the enclosing scope is the current one.
+  assert(&enclosingScope == getCurrentScopePtr() &&
+         "provided parent scope was not the previously active scope");
+  // Install new inner scope as current one.
   getCurrentScopePtr() = this;
 }
 
-IndexExprScope::IndexExprScope(IndexExprScope &explicitEnclosingScope)
-    : IndexExprScope() {
-  assert(&explicitEnclosingScope == parentScope &&
-         "provided parent scope was not the previously active scope");
-}
+IndexExprScope::IndexExprScope(
+    OpBuilder &innerRewriter, IndexExprScope &enclosingScope)
+    : IndexExprScope(&innerRewriter, enclosingScope) {}
 
 IndexExprScope::~IndexExprScope() {
   // Free the memory of each IndexExprImpl in scope's container.
@@ -265,8 +273,6 @@ bool IndexExpr::canBeUsedInScope() const {
     // be converted to the current scope before being used. They cannot be used
     // out of current scope.
     return false;
-  default:
-    break;
   }
   llvm_unreachable("unkown kind");
 }
@@ -783,10 +789,10 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   // Res is already defined, we are reducing into it.
   F2Self valueFct = [](IndexExpr res, IndexExpr const aa) {
     Value compareVal = res.getRewriter().create<CmpIOp>(
-        aa.getLoc(), CmpIPredicate::slt, aa.getValue(), res.getValue());
-    Value resVal = aa.getRewriter().create<SelectOp>(
-        aa.getLoc(), compareVal, aa.getValue(), res.getValue());
-    res.getObj().initAsKind(res.getValue(), IndexExprKind::NonAffine);
+        res.getLoc(), CmpIPredicate::slt, aa.getValue(), res.getValue());
+    Value resVal = res.getRewriter().create<SelectOp>(
+        res.getLoc(), compareVal, aa.getValue(), res.getValue());
+    res.getObj().initAsKind(resVal, IndexExprKind::NonAffine);
     return res;
   };
   return reductionOp(vals, litFct, affineExprFct, valueFct);
@@ -839,10 +845,10 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   // Res is already defined, we are reducing into it.
   F2Self valueFct = [](IndexExpr res, IndexExpr const aa) {
     Value compareVal = res.getRewriter().create<CmpIOp>(
-        aa.getLoc(), CmpIPredicate::sgt, aa.getValue(), res.getValue());
-    Value resVal = aa.getRewriter().create<SelectOp>(
-        aa.getLoc(), compareVal, aa.getValue(), res.getValue());
-    res.getObj().initAsKind(res.getValue(), IndexExprKind::NonAffine);
+        res.getLoc(), CmpIPredicate::sgt, aa.getValue(), res.getValue());
+    Value resVal = res.getRewriter().create<SelectOp>(
+        res.getLoc(), compareVal, aa.getValue(), res.getValue());
+    res.getObj().initAsKind(resVal, IndexExprKind::NonAffine);
     return res;
   };
   return reductionOp(vals, litFct, affineExprFct, valueFct);
@@ -1015,8 +1021,6 @@ NonAffineIndexExpr::NonAffineIndexExpr(IndexExpr const otherIndexExpr) {
         otherIndexExpr.getValue(), IndexExprKind::NonAffine);
     return;
   }
-  default:
-    break;
   }
   llvm_unreachable("bad path");
 }
@@ -1102,8 +1106,6 @@ AffineIndexExpr::AffineIndexExpr(IndexExpr const otherIndexExpr) {
     indexExprObj->initAsAffineExpr(otherIndexExpr.getAffineExpr());
     return;
   }
-  default:
-    break;
   }
   llvm_unreachable("bad path");
 }
@@ -1152,8 +1154,6 @@ DimIndexExpr::DimIndexExpr(IndexExpr const otherIndexExpr) {
     indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Dim);
     return;
   }
-  default:
-    break;
   }
   llvm_unreachable("bad path");
 }
@@ -1202,8 +1202,6 @@ SymbolIndexExpr::SymbolIndexExpr(IndexExpr const otherIndexExpr) {
     indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Symbol);
     return;
   }
-  default:
-    break;
   }
   llvm_unreachable("bad path");
 }
@@ -1240,7 +1238,7 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
   assert(fGetDenseArrayAttr && "expected method to get a dense array");
   if (DenseElementsAttr attrArray = fGetDenseArrayAttr(array)) {
     // We extracted an dense attribute from definition of operand.
-    if (i >= attrArray.getType().getDimSize(0)) {
+    if ((int64_t)i >= attrArray.getType().getDimSize(0)) {
       // Request beyond available size.
       if (hasDefault)
         return LiteralIndexExpr(defaultLiteral);
@@ -1323,7 +1321,7 @@ int64_t MemRefBoundsIndexCapture::getShape(int64_t i) {
 bool MemRefBoundsIndexCapture::areAllLiteral() {
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
-  for (int i = 0; i < memRank; ++i)
+  for (unsigned int i = 0; i < memRank; ++i)
     if (shape[i] < 0)
       return false;
   return true;
@@ -1364,7 +1362,7 @@ void MemRefBoundsIndexCapture::getLiteralList(
   // Clear output.
   literalList.clear();
   // Scan tensor or memref.
-  for (int i = 0; i < memRank; ++i)
+  for (unsigned int i = 0; i < memRank; ++i)
     literalList.emplace_back(getLiteral(i));
 }
 
@@ -1394,6 +1392,6 @@ void MemRefBoundsIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
   // Clear output.
   list.clear();
   // Scan tensor or memref.
-  for (int i = 0; i < memRank; ++i)
+  for (unsigned int i = 0; i < memRank; ++i)
     list.emplace_back(get<INDEX>(i));
 }

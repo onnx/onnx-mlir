@@ -1,19 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_onnx_mlir_library(OMBuilder
-        FrontendDialectHelper.cpp
-        FrontendDialectTransformer.cpp)
-
 # This will cause onnx to be built. More importantly, some variable definitions
 # when building onnx such as -DONNX_ML=1 -DONNX_NAMESPACE=onnx will be carried over
-# when compiling FrontendDialectHelper.cpp, etc.
-target_link_libraries(OMBuilder
-        onnx)
+# when compiling FrontendDialectHelper.cpp, etc. because they are properly exported
+# as part of the onnx target and target_link_libraries interprets them correctly.
+add_onnx_mlir_library(OMBuilder
+  FrontendDialectHelper.cpp
+  FrontendDialectTransformer.cpp
 
-# If you add onnx here, it will also cause onnx to be built. However, some
-# variable definitions when building onnx such as -DONNX_ML=1 -DONNX_NAMESPACE=onnx
-# will NOT be carried over when compiling FrontendDialectHelper.cpp, etc. so
-# the compilation will fail.
-add_dependencies(OMBuilder OMONNXOpsInc)
-add_dependencies(OMBuilder OMONNXOps OMResultTypeInferenceOpInterface)
-add_dependencies(OMBuilder OMONNXOps OMHasOnnxSubgraphOpInterface)
+  LINK_LIBS PUBLIC
+  OMHasOnnxSubgraphOpInterface
+  OMONNXOps
+  OMResultTypeInferenceOpInterface
+  onnx
+  )

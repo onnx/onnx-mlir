@@ -463,7 +463,7 @@ void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
   for (auto opt : optimizedLoops)
     optLoops.emplace_back(opt);
   KrnlIterateOperandPack pack(builder, origLoops, optLoops);
-  for (int i = 0; i < lbs.size(); ++i) {
+  for (unsigned int i = 0; i < lbs.size(); ++i) {
     pack.pushOperandBound(lbs[i]);
     pack.pushOperandBound(ubs[i]);
   }
@@ -566,7 +566,7 @@ void krnl_iterate_ie(ValueRange originalLoops, ValueRange optimizedLoops,
   for (auto opt : optimizedLoops)
     optLoops.emplace_back(opt);
   KrnlIterateOperandPack pack(builder, origLoops, optLoops);
-  for (int i = 0; i < lbs.size(); ++i) {
+  for (unsigned int i = 0; i < lbs.size(); ++i) {
     pack.pushIndexExprBound(lbs[i]);
     pack.pushIndexExprBound(ubs[i]);
   }

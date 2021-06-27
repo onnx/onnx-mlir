@@ -49,7 +49,7 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
     auto memRefShape = memRefType.getShape();
     if (hasAllConstantDimensions(memRefType)) {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-      for (int i = 0; i < memRefShape.size(); ++i) {
+      for (unsigned int i = 0; i < memRefShape.size(); ++i) {
         Value dimVal = emitConstantOp(
             rewriter, loc, rewriter.getIntegerType(64), memRefShape[i]);
         tensorSize = rewriter.create<MulIOp>(loc, tensorSize, dimVal);
@@ -57,7 +57,8 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
     } else {
       // Unknown dimensions are always the operand's dimensions.
       SmallVector<Value, 4> allocOperands;
-      for (int outIdx = 0, inIdx = 0; outIdx < memRefShape.size(); ++outIdx) {
+      for (unsigned int outIdx = 0, inIdx = 0; outIdx < memRefShape.size();
+           ++outIdx) {
         Value dimVal = nullptr;
         if (memRefShape[outIdx] < 0) {
           Value index = rewriter.create<memref::DimOp>(loc, data, inIdx);

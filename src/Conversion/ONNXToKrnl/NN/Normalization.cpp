@@ -91,11 +91,11 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
     for (int64_t i = 2; i < rank; ++i)
       axes.emplace_back(i);
     std::vector<Value> packLoops;
-    for (int i = 0; i < axes.size(); ++i) {
+    for (unsigned int i = 0; i < axes.size(); ++i) {
       packLoops.emplace_back(originalLoops[axes[i]]);
     }
     KrnlIterateOperandPack pack(rewriter, packLoops);
-    for (int i = 0; i < axes.size(); ++i) {
+    for (unsigned int i = 0; i < axes.size(); ++i) {
       addDimensionToPack(rewriter, loc, pack, operand, axes[i]);
     }
     auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
@@ -108,7 +108,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
     if (args.size() > 1) {
       loopIVs.emplace_back(args[0]);
       loopIVs.emplace_back(loopCIVs[0]); // Insert C back.
-      for (int i = 1; i < args.size(); ++i)
+      for (unsigned int i = 1; i < args.size(); ++i)
         loopIVs.emplace_back(args[i]);
     } else if (rank == 2) {
       loopIVs.emplace_back(args[0]);

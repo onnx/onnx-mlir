@@ -108,13 +108,13 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
   Value denominator;
   if (countIncludePad) {
     int64_t kernelSize = 1;
-    for (int i = 0; i < kernelShape.size(); ++i)
+    for (unsigned int i = 0; i < kernelShape.size(); ++i)
       kernelSize *= kernelShape[i];
     denominator =
         emitConstantOp(rewriter, loc, numerator.getType(), kernelSize);
   } else {
     denominator = poolDimValues[0];
-    for (int i = 1; i < poolDimValues.size(); ++i)
+    for (unsigned int i = 1; i < poolDimValues.size(); ++i)
       denominator = rewriter.create<MulIOp>(loc, denominator, poolDimValues[i]);
     denominator = rewriter.create<IndexCastOp>(
         loc, denominator, rewriter.getIntegerType(64));
@@ -140,7 +140,7 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
   auto resultShape = memRefType.getShape();
   auto resultRank = resultShape.size();
   auto kernelRank = kernelShape.size();
-  auto kernelOffset = resultRank - kernelRank;
+  int kernelOffset = resultRank - kernelRank;
 
   // Compute dimensions of the result of this operation.
   SmallVector<Value, 2> allocOperands;
@@ -153,7 +153,7 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
 
   // Obtain an affine map to compute the output dimension.
   AffineMap dimMap = getConvDimMap(rewriter, ceilMode);
-  for (int i = kernelOffset; i < resultShape.size(); ++i) {
+  for (int i = kernelOffset; i < (int)resultShape.size(); ++i) {
     if (resultShape[i] < 0) {
       int spatialIndex = i - kernelOffset;
       // Prepare arguments for the affine map.
@@ -348,7 +348,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // 2. Emit the body of the output loop nest, which applies a pooling
       // window to a region in the input, producing one output pixel.
       SmallVector<IndexExpr, 4> outputIndices;
-      for (int i = 0; i < outputShape.size(); ++i)
+      for (unsigned int i = 0; i < outputShape.size(); ++i)
         outputIndices.emplace_back(
             DimIndexExpr(outputLoops.getInductionVar(i)));
 
@@ -373,7 +373,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
       {
         MemRefBoundsIndexCapture inputBounds(inputOperand);
-        for (int i = 0; i < kernelShape.size(); ++i) {
+        for (unsigned int i = 0; i < kernelShape.size(); ++i) {
           int j = i + kernelOffset;
           SmallVector<IndexExpr, 4> ic;
           // d0, output
@@ -397,7 +397,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //   startH = max(firstValidH, ho * sH - ptH)
       //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
       SmallVector<IndexExpr, 4> windowStartExprs, windowEndExprs;
-      for (int i = 0; i < kernelShape.size(); ++i) {
+      for (unsigned int i = 0; i < kernelShape.size(); ++i) {
         std::vector<mlir::IndexExpr> exprs =
             getIndexExprsForConvWindow(IVExprs[i], ceilMode, isDilated);
         windowStartExprs.emplace_back(exprs[0]);
@@ -408,7 +408,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //   hDim = round(float(endH - startH) / float(dH))
       //   wDim = round(float(endW - startW) / float(dW))
       SmallVector<Value, 4> fullWindowSize;
-      for (int i = 0; i < kernelShape.size(); ++i) {
+      for (unsigned int i = 0; i < kernelShape.size(); ++i) {
         Value dim = rewriter.create<SubIOp>(
             loc, windowEndExprs[i].getValue(), windowStartExprs[i].getValue());
         if (isDilated) {
@@ -442,7 +442,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // Push bounds.
       AffineMap windowSizeMap =
           getWindowAffineMap(rewriter, ceilMode, isDilated);
-      for (int i = 0; i < kernelShape.size(); ++i) {
+      for (unsigned int i = 0; i < kernelShape.size(); ++i) {
         // Affine map's operands.
         SmallVector<Value, 4> operands;
         for (IndexExpr expr : IVExprs[i])
@@ -461,7 +461,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         { // Construct inputIndices
           for (int i = 0; i < kernelOffset; ++i)
             inputIndices.emplace_back(outputIndices[i]);
-          for (int i = kernelOffset; i < inputShape.size(); ++i) {
+          for (int i = kernelOffset; i < (int)inputShape.size(); ++i) {
             int j = i - kernelOffset;
             DimIndexExpr hp(poolingLoops.getInductionVar(j));
             IndexExpr startH = windowStartExprs[j];

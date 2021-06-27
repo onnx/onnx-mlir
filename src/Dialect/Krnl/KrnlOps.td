@@ -78,7 +78,23 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   let arguments = (ins Variadic<AnyType>);
   let regions = (region SizedRegion<1>:$bodyRegion);
   let skipDefaultBuilders = 1;
-  let builders = [ OpBuilder<(ins "KrnlIterateOperandPack":$operandPack)> ];
+  let builders = [
+    // Main builder.
+    OpBuilder<(ins "KrnlIterateOperandPack":$operandPack,
+      CArg<"ValueRange", "llvm::None">:$iterArgs,
+      CArg<"function_ref<void(ImplicitLocOpBuilder &, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
+    // Builder for the optimized iterate op.
+    OpBuilder<(ins
+      CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
+      CArg<"ValueRange">:$lbs, CArg<"ValueRange">:$ubs, CArg<"ValueRange">:$iterArgs,
+      CArg<"function_ref<void(ImplicitLocOpBuilder &, ValueRange)>">:$bodyBuilderFn)>,
+    // Builder for the optimized iterate op with IndexExpr
+    OpBuilder<(ins
+      CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
+      CArg<"ArrayRef<IndexExpr>">:$lbs, CArg<"ArrayRef<IndexExpr>">:$ubs, 
+      CArg<"ValueRange">:$iterArgs,
+      CArg<"function_ref<void(ImplicitLocOpBuilder &, ValueRange)>">:$bodyBuilderFn)>
+ ];
 
   let extraClassDeclaration = [{
     // In krnl.iterate operation, operands are stored as such
@@ -800,21 +816,34 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     DefaultValuedAttr<BoolAttr, "true">:$unroll,
     DefaultValuedAttr<BoolAttr, "false">:$overcompute);
 
-  let builders = [ OpBuilder<(ins 
-      "Value": $A, "ValueRange": $aStart, // Both same rank.
+  let builders = [
+    // include all parameters
+    OpBuilder<(ins
+      "Value": $A, "ValueRange": $aStart, // Both same rank
       "Value": $B, "ValueRange": $bStart, // Both same rank.
       "Value": $C, "ValueRange": $cStart, // Both same rank.
       "ValueRange": $loops, // Rank 3: (i,j,k).
-      "Value": $iComputeStart, "Value": $jComputeStart, "Value": $kComputeStart, 
+      "Value": $iComputeStart, "Value": $jComputeStart, "Value": $kComputeStart,
       "Value": $iGlobalUB, "Value": $jGlobalUB, "Value": $kGlobalUB,
       "ArrayRef<int64_t>": $computeTileSize, // Rank 3: (i,j,k).
       "ArrayRef<int64_t>": $aTileSize, // Rank 2: (rightmost 2 dims).
       "ArrayRef<int64_t>": $bTileSize, // Rank 2: (rightmost 2 dims).
       "ArrayRef<int64_t>": $cTileSize, // Rank 2: (rightmost 2 dims).
       "bool": $simdize,
-      "bool": $unroll, 
-      "bool": $overcompute 
-    )> ];
+      "bool": $unroll,
+      "bool": $overcompute)>,
+    // use default for all tile sizes
+    OpBuilder<(ins
+      "Value": $A, "ValueRange": $aStart, // Both same rank.
+      "Value": $B, "ValueRange": $bStart, // Both same rank.
+      "Value": $C, "ValueRange": $cStart, // Both same rank.
+      "ValueRange": $loops, // Rank 3: (i,j,k).
+      "Value": $iComputeStart, "Value": $jComputeStart, "Value": $kComputeStart,
+      "Value": $iGlobalUB, "Value": $jGlobalUB, "Value": $kGlobalUB,
+      "bool": $simdize,
+      "bool": $unroll,
+      "bool": $overcompute)>
+    ];
 
   let verifier = [{ return ::verify(*this); }];
 

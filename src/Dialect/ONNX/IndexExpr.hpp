@@ -122,7 +122,7 @@ computations derived before the loop to compute the output bounds/shape of the
 loop iterations.
 
 When all the computations in a) are constant or affine, then the same
-IndexExprContext can be reused between a) and b). It is recommended as it
+IndexExprScope can be reused between a) and b). It is recommended as it
 enables bigger AffineExpr. But when the computations in a) are not affine, then
 a new scope can be started for the b) part. The non-affine parts of a)
 becomes symbols.
@@ -143,11 +143,11 @@ also means that one can only geneate code in one index scope at a time.
 
     // During shape inference: no rewriter.
 
-    IndexExprContext scope(nullptr, getLoc());
+    IndexExprScope scope(nullptr, getLoc());
 
     // During lowering.
 
-    IndexExprContext outerloopContex(&rewriter, sliceOp.getLoc());
+    IndexExprScope outerloopContex(&rewriter, sliceOp.getLoc());
 
 3b) Computations on IndexExpr (examples from processing of ONNXSliceOp)
 
@@ -212,7 +212,7 @@ compile time sizes, -1 for runtime sizes).
 
     // Create a sub-scope for computations inside the loop iteration.
 
-    IndexExprContext childContext(outerloopContex);
+    IndexExprScope childContext(outerloopContex);
 
     // Create indices with computations for a load.
 
@@ -322,8 +322,8 @@ public:
   // Constructor for subsequent nested scopes. Providing enclosing scope is not
   // necessary; it is provided for convenience if a user prefer to name the
   // enclosing scope explicitly.
-  IndexExprScope();
-  IndexExprScope(IndexExprScope &explicitEnclosingScope);
+  IndexExprScope(OpBuilder *rewriter, IndexExprScope &enclosingScope);
+  IndexExprScope(OpBuilder &rewriter, IndexExprScope &enclosingScope);
   // Destructor which release all IndexExpr associated with this scope.
   ~IndexExprScope();
 
@@ -344,6 +344,8 @@ public:
   void debugPrint(const std::string &msg) const;
 
 private:
+  IndexExprScope();
+
   static IndexExprScope *&getCurrentScopePtr() {
     thread_local IndexExprScope *scope = nullptr; // Thread local, null init.
     return scope;
@@ -666,13 +668,13 @@ public:
   ArrayAttributeIndexCapture(ArrayAttr array, int64_t defaultLiteral);
 
   IndexExpr getLiteral(uint64_t i);
-  int64_t size() { return arraySize; }
+  uint64_t size() { return arraySize; }
 
 private:
   ArrayAttributeIndexCapture() { llvm_unreachable("forbidden constructor"); };
 
   ArrayAttr array;
-  int64_t arraySize;
+  uint64_t arraySize;
   int64_t defaultLiteral;
   bool hasDefault;
 };
@@ -684,7 +686,7 @@ class MemRefBoundsIndexCapture {
 public:
   MemRefBoundsIndexCapture(Value tensorOrMemref);
 
-  int64_t getRank() { return memRank; }
+  uint64_t getRank() { return memRank; }
   bool isLiteral(int64_t i);
   bool areAllLiteral();
   int64_t getShape(int64_t i);
@@ -704,7 +706,7 @@ private:
   void getList(SmallVectorImpl<IndexExpr> &dimList);
 
   Value tensorOrMemref;
-  int64_t memRank;
+  uint64_t memRank;
 };
 
 //===----------------------------------------------------------------------===//

@@ -46,9 +46,6 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
       alloc = insertAllocAndDealloc(
           memRefType, loc, rewriter, insertDealloc, input);
 
-    // Shape of the result
-    auto memRefShape = memRefType.getShape();
-
     // Insert allocations and deallocations for sum and max.
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
     Value sumOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);

@@ -26,7 +26,8 @@ namespace mlir {
 // structure is allocated in dynamic memory and resides in the scope. It will
 // be automaticaly destroyed at the same time as the scope.
 
-struct IndexExprImpl {
+class IndexExprImpl {
+public:
   // Public constructor.
   IndexExprImpl();
 
@@ -73,11 +74,11 @@ struct IndexExprImpl {
   IndexExprScope *scope;
   // Defined implies having a valid intLit, affineExpr, or value expression.
   bool defined;
-  // Type of IndexExpr. Literal are by default affine.
-  IndexExprKind kind;
   // Literal implies having a valid intLit; may also have an affineExpr or
   // value.
   bool literal;
+  // Type of IndexExpr. Literal are by default affine.
+  IndexExprKind kind;
   // Integer value, valid when "literal" is true.
   int64_t intLit;
   // Affine expression, may be defined for literal, symbols, dims, or affine

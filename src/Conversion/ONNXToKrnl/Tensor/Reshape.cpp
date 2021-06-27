@@ -55,7 +55,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     // Compute size in bytes using the input tensor.
     Value tensorSizeFromInput = emitConstantOp(rewriter, loc,
         rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
-    for (int i = 0; i < dataShape.size(); ++i) {
+    for (unsigned int i = 0; i < dataShape.size(); ++i) {
       Value dimVal =
           getDimOrConstant(rewriter, loc, data, i, rewriter.getIntegerType(64));
       tensorSizeFromInput =
@@ -84,7 +84,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
           rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
 
       SmallVector<Value, 4> outputDimInfo;
-      for (int i = 0; i < memRefShape.size(); ++i) {
+      for (unsigned int i = 0; i < memRefShape.size(); ++i) {
         Value outputDimVal;
         if (!shapeAttrValues.empty()) {
           // Compute the output dimension using shape attribute.
@@ -140,7 +140,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
 
       // Obtain operands for AllocOp.
       SmallVector<Value, 4> allocOperands;
-      for (int i = 0; i < memRefShape.size(); ++i) {
+      for (unsigned int i = 0; i < memRefShape.size(); ++i) {
         if (memRefShape[i] != -1)
           continue;
         auto dimVal = outputDimInfo[i];
