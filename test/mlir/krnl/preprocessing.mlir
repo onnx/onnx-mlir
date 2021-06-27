@@ -15,7 +15,7 @@ func @simple_imperfectly_nested() {
   }
   return
 
-  // CHECK-LABEL:       func @simple_imperfectly_nested
+  // CHECK-LABEL:  func @simple_imperfectly_nested
   // CHECK-SAME:     () {
   // CHECK:           [[VAR_0:%.+]] = krnl.define_loops 1
   // CHECK:           [[VAR_loop_block:%.+]], [[VAR_loop_local:%.+]] = krnl.block [[VAR_0]] 2 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)

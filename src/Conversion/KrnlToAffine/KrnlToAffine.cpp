@@ -24,6 +24,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/LoopUtils.h"
 
+#include "src/Conversion/KrnlToAffine/KrnlLoopsLowering.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
@@ -40,218 +41,9 @@
 #define BUFFER_ALIGN 64
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace {
-// Since Krnl Dialect allows optimizations to be specified in the form of
-// recipes without being applied, some IR block may exist under Krnl loops
-// corresponding to loops that will be materialized only after relevant
-// optimization recipes are applied; these Krnl loops serve as anchors for IR
-// placement as we progressively apply optimization recipes, creating new
-// concrete loops that will correspond to these optimized loop references.
-// Whenever a concrete loop gets materialized and is referred to by Krnl loop
-// reference %loop_ref, we will need to maintain the relative positioning of IR
-// block and their parent loop operations; we do so by moving IR blocks while
-// Krnl Dialect lowering proceeds.
-//
-// Consider the following example, where we specify the recipe for a
-// 2-dimensional tiled loop, and insert memory allocation/deallocation aimed to
-// set up and clean up per-tile temporary buffer:
-//
-// %ii, %ij = krnl.define_loops 2
-// %ib, %il = krnl.block %ii 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// %jb, %jl = krnl.block %ij 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// krnl.permute(%ib, %il, %jb, %jl) [0, 2, 1, 3] : !krnl.loop, !krnl.loop,
-//     !krnl.loop, !krnl.loop
-// krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 10, %ij -> %j = 0 to 20) {
-//   %alloc = alloc() : memref<10 x f32>
-//   krnl.iterate(%il, %jl) with () {
-//     %foo = addi %i, %j : index
-//   }
-//   dealloc %alloc : memref<10 x f32>
-//  }
-//
-// The temporary buffer allocation/deallocation are placed within loops that
-// have yet to be materialized because loop tiling and loop permutation are only
-// specified as recipes without actually being applied at Krnl Dialect level.
-// Therefore as we proceed to lower Krnl Dialect, there will be no place for
-// these (blocks of) operations to exist until the corresponding concrete outer
-// loops emerge, as a result of optimizations being applied. Upon materializing
-// such a loop, we will move these (blocks of) operations to the corresponding
-// regions in the newly created loops.
-//
-// We use LoopBody mover to:
-// - register, for each Krnl loop reference, blocks of operations
-//   that should be contained directly beneath the corresponding concrete loops
-//   as the moving plan in the beginning of the Krnl Dialect lowering.
-// - subsequently, when the concrete loops corresponding to the Krnl loop
-//   reference is materialized, IR blocks will be moved to appropriate locations
-//   based on information recorded as moving plan.
-//
-// Thus, for the above IR, the following moving plan will be registered:
-// - For %ib, %jb, the list of operation nested directly under is:
-//    - alloc() operation,
-//    - materialized loops corresponding to %il, %jl,
-//    - dealloc() operation.
-// - For %il, %jl, the list of operations nested directly under is:
-//    - addi operation.
-//
-// Subsequently, lowering will start with affine ops materialized corresponding
-// to the reference to un-optimized loops:
-//
-// affine.for %i = 0 to 10 {
-//   affine.for %j = 0 to 20 {
-//     %foo = addi %i, %j : index
-//   }
-// }
-//
-// Since the tiling has not taken place yet, tile coordinate iteration loops
-// have not been materialized, therefore the alloc and dealloc operations do not
-// fit in the IR presently yet. Instead, they will be placed within a
-// krnl.movable op region, to indicate that their positioning is subject to
-// change.
-//
-// krnl.movable {
-//   %alloc = alloc() : memref<10 x f32>;
-// }
-// krnl.movable {
-//   dealloc %alloc : memref<10 x f32>
-// }
-//
-// As we lower the optimization recipes, outer loops will eventually manifest as
-// affine loops. When the destination loops emerge, content within the
-// krnl.movable op will be transferred to appropriate locations, too, resulting
-// in the following final lowered IR:
-//
-// affine.for ib = 0 to 10 step 5 {
-//   affine.for jb = 0 to 20 step 4 {
-//     %alloc = alloc() : memref<10xf32>
-//     affine.for %il = ... {
-//       affine.for %jl = ... {
-//         %foo = addi %il, %jl : index
-//       }
-//     }
-//     dealloc %alloc : memref<10xf32>
-//   }
-// }
-//
-// As specified by the high-level Krnl Dialect.
-class LoopBodyMover {
-public:
-  /*!
-   * Represents either:
-   * - a list of operations to be moved, or
-   * - a particular set of loop nests expected in the destination loop body.
-   *     This is helpful because we're only adjusting the relative positioning
-   *     of IR blocks with respect to the concrete loops as we lowering the Krnl
-   *     Dialect by applying the optimization recipes. Therefore, clearly
-   *     moving IR blocks alone is sufficient to achieve our goal, and recording
-   *     the position of expected loop nests in the destination loop body simply
-   *     helps determine the correct relative position of IR blocks with respect
-   *     to inner loops.
-   */
-  struct Movable {
-    llvm::Optional<KrnlMovableOp> movableOp;
-    llvm::Optional<llvm::SmallVector<mlir::Value, 4>> loopsToSkip;
-
-    explicit Movable(KrnlMovableOp op) : movableOp(op) {}
-    explicit Movable(KrnlIterateOp op) {
-      auto operandRange = op->getOperands();
-      loopsToSkip = llvm::SmallVector<Value, 4>(operandRange.begin(),
-          operandRange.begin() + op.getNumOptimizedLoops());
-    }
-  };
-
-  /*!
-   * Register in our moving plan that content in the movable op should be moved
-   * under the concrete loops corresponding to loop.
-   * @param movable IR blocks enclosed in krnl.movable op to move around.
-   * @param loop The Krnl Loop referring to the concrete loop sourrounding the
-   * content of the movable op in the lowered IR.
-   */
-  void toMoveUnder(const Movable &movable, KrnlIterateOp loop) {
-    Value innerMostLoopHandler =
-        loop.getOperand(loop.getNumOptimizedLoops() - 1);
-    movingPlan[innerMostLoopHandler].push_back(movable);
-  }
-
-  /*!
-   * Signal that the concrete loop corresponding to loopRef has been
-   * materialized, and therefore we can transfer operations to its loop body as
-   * specified by moving plan.
-   * @param loopRef Krnl loop ref corresponding to the concrete loop being
-   * materialized.
-   * @param loopRefToOp A dictionary keeping track of the correspondence between
-   * Krnl loop references and concrete loops.
-   * @param erase whether to erase entries in the moving plan corresponding to
-   * this action.
-   */
-  void moveOne(Value loopRef,
-      llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp,
-      bool erase = true) {
-    assert(loopRefToOp.count(loopRef) >= 0 &&
-           "Can't find affine for operation associated with .");
-    AffineForOp forOp = loopRefToOp[loopRef];
-    Block &loopBody = forOp.getLoopBody().front();
-    auto insertPt = loopBody.begin();
-
-    auto opsToTransfer = movingPlan[loopRef];
-    if (erase)
-      movingPlan.erase(loopRef);
-
-    for (Movable transferPt : opsToTransfer) {
-      assert(insertPt != loopBody.end());
-      assert(
-          transferPt.loopsToSkip.hasValue() != transferPt.movableOp.hasValue());
-      if (transferPt.movableOp.hasValue()) {
-        auto movableOp = transferPt.movableOp.getValue();
-
-        loopBody.getOperations().splice(insertPt,
-            movableOp.getBody()->getOperations(), movableOp.getBody()->begin(),
-            movableOp.getBody()->getTerminator()->getIterator());
-
-        // After insertion, the insertion point iterator will remain valid
-        // and points to the operation before which new operations can be
-        // inserted, unless it happens to point to the extraction point, too
-        // (aka, the movable op from which operations are drawn). In this
-        // case, we increment it to its next operation. Notably, this has to
-        // be done after the movable op is disconnected from the basic block.
-        // Otherwise the iterator is invalidated and iterator increment
-        // doesn't work anymore.
-        if (insertPt == movableOp->getIterator())
-          insertPt++;
-        movableOp->erase();
-      } else if (transferPt.loopsToSkip.hasValue()) {
-        llvm::Optional<AffineForOp> loopToSkip;
-        loopToSkip =
-            transferPt.loopsToSkip.getValue().empty()
-                ? loopToSkip
-                : loopRefToOp[transferPt.loopsToSkip.getValue().front()];
-
-        // Move iterator to point to the next AffineFor Op.
-        while (insertPt != loopBody.end() &&
-               !dyn_cast_or_null<AffineForOp>(&*insertPt)) {
-          assert(dyn_cast_or_null<KrnlMovableOp>(&*insertPt));
-          insertPt++;
-        }
-
-        // Assert that now insertion point points to the loop to skip.
-        if (loopToSkip)
-          assert(insertPt == loopToSkip.getValue()->getIterator());
-
-        // Skip loop by incrementing insertion point.
-        insertPt++;
-      }
-    }
-  }
-
-  void moveAll(llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp) {
-    for (const auto &pair : movingPlan)
-      moveOne(pair.first, loopRefToOp, /*erase=*/false);
-  }
-
-private:
-  llvm::DenseMap<mlir::Value, llvm::SmallVector<Movable, 4>> movingPlan;
-};
 
 void removeOps(llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
   // Remove lowered operations topologically; if ops are not removed
@@ -1331,69 +1123,6 @@ public:
   }
 };
 
-/*!
- * Helper function to separate the operations nested directly within a
- * krnl.iterate op `root` into two kinds:
- * - the first kind are anchors, which are Krnl loop operations. They will be
- *   replaced by the lowered loop operations (affine for loops); furthermore,
- *   they act as positional references for moving other operations around.
- *
- * - the second kind of operations are all the other operations. Contiguous
- *   sequence of them will be stored together for efficiency and
- *   clarity. Upon the materialization of the lowered loop corresponding to the
- *   `root` operation , they will be moved under the lowered loop operation.
- *   TODO(tjingrant): additional constraints apply, explain.
- *
- * And record the moving plans in mover.
- *
- * @param root root Krnl iterate operation.
- * @param builder operation builder.
- * @param mover loop body mover.
- */
-void markLoopBodyAsMovable(
-    KrnlIterateOp root, OpBuilder builder, LoopBodyMover &mover) {
-  auto &bodyRegion = root.bodyRegion();
-
-  if (root.getNumOptimizedLoops() == 0)
-    return;
-
-  for (auto &block : bodyRegion.getBlocks()) {
-    assert(!block.empty() && "IterateOp body block shouldn't be empty.");
-
-    // Delimeter ops are delimeters of movable chunks of code. Movable chunks of
-    // code are separated by krnl.iterate operations and terminator operations.
-    llvm::SmallVector<Operation *> delimeterOps(block.getOps<KrnlIterateOp>());
-    delimeterOps.push_back(block.getTerminator());
-
-    Operation *movableChunkBegin = &block.front();
-    for (auto delimeterOp : delimeterOps) {
-      // If no op to extract, continue;
-      if (movableChunkBegin->getIterator() == delimeterOp->getIterator())
-        continue;
-
-      // Stuff identified chunks of operations into a krnl.movable operation.
-      auto movableOp = builder.create<KrnlMovableOp>(delimeterOp->getLoc());
-      //      movableOp->setLoc(NameLoc::get("Random Name For Debug"));
-      auto &movableRegion = movableOp.region();
-      auto *entryBlock = new Block;
-      movableRegion.push_back(entryBlock);
-      entryBlock->getOperations().splice(entryBlock->end(),
-          block.getOperations(), movableChunkBegin->getIterator(),
-          delimeterOp->getIterator());
-      KrnlMovableOp::ensureTerminator(
-          movableRegion, builder, delimeterOp->getLoc());
-      // Let mover know to move the content of movable operations under the
-      // lowered loop corresponding to `root`. For the delimeter op, let mover
-      // know to expect an iterate operation.
-      mover.toMoveUnder(LoopBodyMover::Movable(movableOp), root);
-      if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(delimeterOp))
-        mover.toMoveUnder(LoopBodyMover::Movable(iterateOp), root);
-
-      movableChunkBegin = delimeterOp->getNextNode();
-    }
-  }
-}
-
 void ConvertKrnlToAffinePass::runOnFunction() {
   OpBuilder builder(&getContext());
   FuncOp funcOp = getFunction();
@@ -1401,17 +1130,23 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
-    if (failed(moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()))))
+    if (failed(moveLoopInvariantCode(
+            cast<LoopLikeOpInterface>(loopOp.getOperation()))))
       signalPassFailure();
   });
 
-  // We use the end of the function body as a staging area for movable ops.
-  builder.setInsertionPoint(
-      &funcOp.body().front(), funcOp.body().front().without_terminator().end());
-  LoopBodyMover mover;
-  funcOp.walk(
-      [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
-  if (preprocessing_only) return;
+  LoopBodyMover mover = preprocessKrnlLoops(funcOp, builder);
+  //
+  //  // We use the end of the function body as a staging area for movable ops.
+  //  builder.setInsertionPoint(
+  //      &funcOp.body().front(),
+  //      funcOp.body().front().without_terminator().end());
+  //  LoopBodyMover mover;
+  //  funcOp.walk(
+  //      [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
+  //  preprocessKrnlLoops()
+  if (preprocessing_only)
+    return;
 
   // Interpret krnl dialect operations while looping recursively through
   // operations within the current function, note that erasing operations
