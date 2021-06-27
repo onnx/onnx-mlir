@@ -132,11 +132,7 @@ public:
    * @param loop The Krnl Loop referring to the concrete loop sourrounding the
    * content of the movable op in the lowered IR.
    */
-  void toMoveUnder(const Movable &movable, mlir::KrnlIterateOp loop) {
-    mlir::Value innerMostLoopHandler =
-        loop.getOperand(loop.getNumOptimizedLoops() - 1);
-    movingPlan[innerMostLoopHandler].push_back(movable);
-  }
+  void toMoveUnder(const Movable &movable, mlir::KrnlIterateOp loop);
 
   /*!
    * Signal that the concrete loop corresponding to loopRef has been
@@ -151,68 +147,10 @@ public:
    */
   void moveOne(mlir::Value loopRef,
       llvm::SmallDenseMap<mlir::Value, mlir::AffineForOp, 4> &loopRefToOp,
-      bool erase = true) {
-    assert(loopRefToOp.count(loopRef) >= 0 &&
-           "Can't find affine for operation associated with .");
-    mlir::AffineForOp forOp = loopRefToOp[loopRef];
-    mlir::Block &loopBody = forOp.getLoopBody().front();
-    auto insertPt = loopBody.begin();
-
-    auto opsToTransfer = movingPlan[loopRef];
-    if (erase)
-      movingPlan.erase(loopRef);
-
-    for (Movable transferPt : opsToTransfer) {
-      assert(insertPt != loopBody.end());
-      assert(
-          transferPt.loopsToSkip.hasValue() != transferPt.movableOp.hasValue());
-      if (transferPt.movableOp.hasValue()) {
-        auto movableOp = transferPt.movableOp.getValue();
-
-        loopBody.getOperations().splice(insertPt,
-            movableOp.getBody()->getOperations(), movableOp.getBody()->begin(),
-            movableOp.getBody()->getTerminator()->getIterator());
-
-        // After insertion, the insertion point iterator will remain valid
-        // and points to the operation before which new operations can be
-        // inserted, unless it happens to point to the extraction point, too
-        // (aka, the movable op from which operations are drawn). In this
-        // case, we increment it to its next operation. Notably, this has to
-        // be done after the movable op is disconnected from the basic block.
-        // Otherwise the iterator is invalidated and iterator increment
-        // doesn't work anymore.
-        if (insertPt == movableOp->getIterator())
-          insertPt++;
-        movableOp->erase();
-      } else if (transferPt.loopsToSkip.hasValue()) {
-        llvm::Optional<mlir::AffineForOp> loopToSkip;
-        loopToSkip =
-            transferPt.loopsToSkip.getValue().empty()
-                ? loopToSkip
-                : loopRefToOp[transferPt.loopsToSkip.getValue().front()];
-
-        // Move iterator to point to the next AffineFor Op.
-        while (insertPt != loopBody.end() &&
-               !llvm::dyn_cast_or_null<mlir::AffineForOp>(&*insertPt)) {
-          assert(llvm::dyn_cast_or_null<mlir::KrnlMovableOp>(&*insertPt));
-          insertPt++;
-        }
-
-        // Assert that now insertion point points to the loop to skip.
-        if (loopToSkip)
-          assert(insertPt == loopToSkip.getValue()->getIterator());
-
-        // Skip loop by incrementing insertion point.
-        insertPt++;
-      }
-    }
-  }
+      bool erase = true);
 
   void moveAll(
-      llvm::SmallDenseMap<mlir::Value, mlir::AffineForOp, 4> &loopRefToOp) {
-    for (const auto &pair : movingPlan)
-      moveOne(pair.first, loopRefToOp, /*erase=*/false);
-  }
+      llvm::SmallDenseMap<mlir::Value, mlir::AffineForOp, 4> &loopRefToOp);
 
 private:
   llvm::DenseMap<mlir::Value, llvm::SmallVector<Movable, 4>> movingPlan;

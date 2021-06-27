@@ -92,4 +92,74 @@ LoopBodyMover preprocessKrnlLoops(
       [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
   return mover;
 }
+void LoopBodyMover::toMoveUnder(
+    const LoopBodyMover::Movable &movable, mlir::KrnlIterateOp loop) {
+  mlir::Value innerMostLoopHandler =
+      loop.getOperand(loop.getNumOptimizedLoops() - 1);
+  movingPlan[innerMostLoopHandler].push_back(movable);
+}
+void LoopBodyMover::moveOne(mlir::Value loopRef,
+    llvm::SmallDenseMap<mlir::Value, mlir::AffineForOp, 4> &loopRefToOp,
+    bool erase) {
+  assert(loopRefToOp.count(loopRef) >= 0 &&
+         "Can't find affine for operation associated with .");
+  mlir::AffineForOp forOp = loopRefToOp[loopRef];
+  mlir::Block &loopBody = forOp.getLoopBody().front();
+  auto insertPt = loopBody.begin();
+
+  auto opsToTransfer = movingPlan[loopRef];
+  if (erase)
+    movingPlan.erase(loopRef);
+
+  for (Movable transferPt : opsToTransfer) {
+    assert(insertPt != loopBody.end());
+    assert(
+        transferPt.loopsToSkip.hasValue() != transferPt.movableOp.hasValue());
+    if (transferPt.movableOp.hasValue()) {
+      auto movableOp = transferPt.movableOp.getValue();
+
+      loopBody.getOperations().splice(insertPt,
+                                      movableOp.getBody()->getOperations(), movableOp.getBody()->begin(),
+                                      movableOp.getBody()->getTerminator()->getIterator());
+
+      // After insertion, the insertion point iterator will remain valid
+      // and points to the operation before which new operations can be
+      // inserted, unless it happens to point to the extraction point, too
+      // (aka, the movable op from which operations are drawn). In this
+      // case, we increment it to its next operation. Notably, this has to
+      // be done after the movable op is disconnected from the basic block.
+      // Otherwise the iterator is invalidated and iterator increment
+      // doesn't work anymore.
+      if (insertPt == movableOp->getIterator())
+        insertPt++;
+      movableOp->erase();
+    } else if (transferPt.loopsToSkip.hasValue()) {
+      llvm::Optional<mlir::AffineForOp> loopToSkip;
+      loopToSkip =
+          transferPt.loopsToSkip.getValue().empty()
+          ? loopToSkip
+          : loopRefToOp[transferPt.loopsToSkip.getValue().front()];
+
+      // Move iterator to point to the next AffineFor Op.
+      while (insertPt != loopBody.end() &&
+             !llvm::dyn_cast_or_null<mlir::AffineForOp>(&*insertPt)) {
+        assert(llvm::dyn_cast_or_null<mlir::KrnlMovableOp>(&*insertPt));
+        insertPt++;
+      }
+
+      // Assert that now insertion point points to the loop to skip.
+      if (loopToSkip)
+        assert(insertPt == loopToSkip.getValue()->getIterator());
+
+      // Skip loop by incrementing insertion point.
+      insertPt++;
+    }
+  }
+}
+
+void LoopBodyMover::moveAll(
+    llvm::SmallDenseMap<mlir::Value, mlir::AffineForOp, 4> &loopRefToOp) {
+  for (const auto &pair : movingPlan)
+    moveOne(pair.first, loopRefToOp, /*erase=*/false);
+}
 } // namespace onnx_mlir

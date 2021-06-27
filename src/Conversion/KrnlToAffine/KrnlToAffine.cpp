@@ -1136,15 +1136,6 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   });
 
   LoopBodyMover mover = preprocessKrnlLoops(funcOp, builder);
-  //
-  //  // We use the end of the function body as a staging area for movable ops.
-  //  builder.setInsertionPoint(
-  //      &funcOp.body().front(),
-  //      funcOp.body().front().without_terminator().end());
-  //  LoopBodyMover mover;
-  //  funcOp.walk(
-  //      [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
-  //  preprocessKrnlLoops()
   if (preprocessing_only)
     return;
 
