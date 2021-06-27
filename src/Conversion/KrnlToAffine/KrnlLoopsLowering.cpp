@@ -119,8 +119,8 @@ void LoopBodyMover::moveOne(mlir::Value loopRef,
       auto movableOp = transferPt.movableOp.getValue();
 
       loopBody.getOperations().splice(insertPt,
-                                      movableOp.getBody()->getOperations(), movableOp.getBody()->begin(),
-                                      movableOp.getBody()->getTerminator()->getIterator());
+          movableOp.getBody()->getOperations(), movableOp.getBody()->begin(),
+          movableOp.getBody()->getTerminator()->getIterator());
 
       // After insertion, the insertion point iterator will remain valid
       // and points to the operation before which new operations can be
@@ -135,10 +135,9 @@ void LoopBodyMover::moveOne(mlir::Value loopRef,
       movableOp->erase();
     } else if (transferPt.loopsToSkip.hasValue()) {
       llvm::Optional<mlir::AffineForOp> loopToSkip;
-      loopToSkip =
-          transferPt.loopsToSkip.getValue().empty()
-          ? loopToSkip
-          : loopRefToOp[transferPt.loopsToSkip.getValue().front()];
+      loopToSkip = transferPt.loopsToSkip.getValue().empty()
+                       ? loopToSkip
+                       : loopRefToOp[transferPt.loopsToSkip.getValue().front()];
 
       // Move iterator to point to the next AffineFor Op.
       while (insertPt != loopBody.end() &&
