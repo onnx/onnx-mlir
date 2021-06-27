@@ -53,7 +53,7 @@ func @simple_imperfectly_nested() {
 // WITH-LOC:           } {moving_plan = "outer_i,inner_i,"} loc({{.*}})
 // WITH-LOC:           krnl.movable  {
 // WITH-LOC:             [[VAR_1:%.+]] = memref.alloc() : memref<10xf32> loc({{.*}})
-// WITH-LOC:           } {moving_plan = "outer_i,"} loc("inner_i")
+// WITH-LOC:           } {moving_plan = "outer_i,"} loc({{.*}})
 // WITH-LOC:           krnl.movable  {
 // WITH-LOC:             memref.dealloc [[VAR_1]] : memref<10xf32> loc({{.*}})
 // WITH-LOC:           } {moving_plan = "outer_i,"} loc({{.*}})
