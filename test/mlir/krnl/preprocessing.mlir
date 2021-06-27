@@ -1,4 +1,5 @@
 // RUN: onnx-mlir-opt --convert-krnl-to-affine="preprocessing-only=true"  --verify-each=0 %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-krnl-to-affine="preprocessing-only=true"  --verify-each=0 %s -split-input-file -mlir-print-debuginfo -mlir-print-local-scope | FileCheck %s --check-prefix="WITH-LOC"
 // Note that turning off verification is necessary - moving chunks of IRs around necessarily breaks dominance temporarily.
 
 func @simple_imperfectly_nested() {
@@ -10,30 +11,53 @@ func @simple_imperfectly_nested() {
       %il_idx = krnl.get_induction_var_value(%il) : (!krnl.loop) -> (index)
       %v0 = krnl.load %alloc[%il_idx] : memref<10xf32>
       %foo = addf %v0, %v0 : f32
-    }
+    } loc("inner_i")
     memref.dealloc %alloc : memref<10 x f32>
-  }
+  } loc("outer_i")
   return
 
-  // CHECK-LABEL:  func @simple_imperfectly_nested
-  // CHECK-SAME:     () {
-  // CHECK:           [[VAR_0:%.+]] = krnl.define_loops 1
-  // CHECK:           [[VAR_loop_block:%.+]], [[VAR_loop_local:%.+]] = krnl.block [[VAR_0]] 2 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-  // CHECK:           krnl.iterate([[VAR_loop_block]]) with ([[VAR_0]] -> [[VAR_arg0:%.+]] = 0 to 10) {
-  // CHECK:             krnl.iterate([[VAR_loop_local]]) with () {
-  // CHECK:             }
-  // CHECK:           }
-  // CHECK:           krnl.movable  {
-  // CHECK:             [[VAR_1:%.+]] = krnl.get_induction_var_value([[VAR_loop_local]]) : (!krnl.loop) -> index
-  // CHECK:             [[VAR_2:%.+]] = krnl.load [[VAR_1]]{{.}}[[VAR_1]]{{.}} : memref<10xf32>
-  // CHECK:             [[VAR_3:%.+]] = addf [[VAR_2]], [[VAR_2]] : f32
-  // CHECK:           }
-  // CHECK:           krnl.movable  {
-  // CHECK:             [[VAR_1:%.+]] = memref.alloc() : memref<10xf32>
-  // CHECK:           }
-  // CHECK:           krnl.movable  {
-  // CHECK:             memref.dealloc [[VAR_1]] : memref<10xf32>
-  // CHECK:           }
-  // CHECK:           return
-  // CHECK:         }
+// CHECK-LABEL:  func @simple_imperfectly_nested
+// CHECK-SAME:     () {
+// CHECK:           [[VAR_0:%.+]] = krnl.define_loops 1
+// CHECK:           [[VAR_loop_block:%.+]], [[VAR_loop_local:%.+]] = krnl.block [[VAR_0]] 2 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           krnl.iterate([[VAR_loop_block]]) with ([[VAR_0]] -> [[VAR_arg0:%.+]] = 0 to 10) {
+// CHECK:             krnl.iterate([[VAR_loop_local]]) with () {
+// CHECK:             }
+// CHECK:           }
+// CHECK:           krnl.movable  {
+// CHECK:             [[VAR_1:%.+]] = krnl.get_induction_var_value([[VAR_loop_local]]) : (!krnl.loop) -> index
+// CHECK:             [[VAR_2:%.+]] = krnl.load [[VAR_1]]{{.}}[[VAR_1]]{{.}} : memref<10xf32>
+// CHECK:             [[VAR_3:%.+]] = addf [[VAR_2]], [[VAR_2]] : f32
+// CHECK:           }
+// CHECK:           krnl.movable  {
+// CHECK:             [[VAR_1:%.+]] = memref.alloc() : memref<10xf32>
+// CHECK:           }
+// CHECK:           krnl.movable  {
+// CHECK:             memref.dealloc [[VAR_1]] : memref<10xf32>
+// CHECK:           }
+// CHECK:           return
+// CHECK:         }
+
+// WITH-LOC-LABEL:  func @simple_imperfectly_nested
+// WITH-LOC-SAME:     () {
+// WITH-LOC:           [[VAR_0:%.+]] = krnl.define_loops 1 loc({{.*}})
+// WITH-LOC:           [[VAR_loop_block:%.+]], [[VAR_loop_local:%.+]] = krnl.block [[VAR_0]] 2 : (!krnl.loop) -> (!krnl.loop, !krnl.loop) loc({{.*}})
+// WITH-LOC:           krnl.iterate([[VAR_loop_block]]) with ([[VAR_0]] -> [[VAR_arg0:%.+]] = 0 to 10) {
+// WITH-LOC:             krnl.iterate([[VAR_loop_local]]) with () {
+// WITH-LOC:             } loc("inner_i")
+// WITH-LOC:           } loc("outer_i")
+// WITH-LOC:           krnl.movable  {
+// WITH-LOC:             [[VAR_1:%.+]] = krnl.get_induction_var_value([[VAR_loop_local]]) : (!krnl.loop) -> index loc({{.*}})
+// WITH-LOC:             [[VAR_2:%.+]] = krnl.load [[VAR_1]]{{.}}[[VAR_1]]{{.}} : memref<10xf32> loc({{.*}})
+// WITH-LOC:             [[VAR_3:%.+]] = addf [[VAR_2]], [[VAR_2]] : f32 loc({{.*}})
+// WITH-LOC:           } {moving_plan = "outer_i,inner_i,"} loc({{.*}})
+// WITH-LOC:           krnl.movable  {
+// WITH-LOC:             [[VAR_1:%.+]] = memref.alloc() : memref<10xf32> loc({{.*}})
+// WITH-LOC:           } {moving_plan = "outer_i,"} loc("inner_i")
+// WITH-LOC:           krnl.movable  {
+// WITH-LOC:             memref.dealloc [[VAR_1]] : memref<10xf32> loc({{.*}})
+// WITH-LOC:           } {moving_plan = "outer_i,"} loc({{.*}})
+// WITH-LOC:           return loc({{.*}})
+// WITH-LOC:         } loc({{.*}})
+// WITH-LOC:       } loc({{.*}})
 }

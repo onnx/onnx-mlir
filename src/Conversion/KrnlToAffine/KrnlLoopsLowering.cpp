@@ -59,8 +59,18 @@ void markLoopBodyAsMovable(
         continue;
 
       // Stuff identified chunks of operations into a krnl.movable operation.
-      auto movableOp = builder.create<KrnlMovableOp>(delimeterOp->getLoc());
-      //      movableOp->setLoc(NameLoc::get("Random Name For Debug"));
+      llvm::SmallVector<mlir::KrnlIterateOp, 4> loopStack = {root};
+      while (auto parentOp = loopStack.back()->getParentOfType<KrnlIterateOp>())
+        loopStack.push_back(parentOp);
+
+      std::string movingPlanStr = "";
+      llvm::for_each(llvm::reverse(loopStack), [&](mlir::KrnlIterateOp op) {
+        if (op->getLoc().isa<NameLoc>())
+          movingPlanStr.append(
+              op->getLoc().cast<NameLoc>().getName().str() + ",");
+      });
+      auto movableOp =
+          builder.create<KrnlMovableOp>(delimeterOp->getLoc(), movingPlanStr);
       auto &movableRegion = movableOp.region();
       auto *entryBlock = new Block;
       movableRegion.push_back(entryBlock);
@@ -69,6 +79,7 @@ void markLoopBodyAsMovable(
           delimeterOp->getIterator());
       mlir::KrnlMovableOp::ensureTerminator(
           movableRegion, builder, delimeterOp->getLoc());
+
       // Let mover know to move the content of movable operations under the
       // lowered loop corresponding to `root`. For the delimeter op, let mover
       // know to expect an iterate operation.
@@ -83,7 +94,7 @@ void markLoopBodyAsMovable(
 } // namespace
 
 LoopBodyMover preprocessKrnlLoops(
-    mlir::FuncOp funcOp, mlir::OpBuilder &builder) {
+    mlir::FuncOp funcOp, mlir::OpBuilder &builder, bool debug) {
   // Use the end of the function body as a staging area for movable ops.
   builder.setInsertionPoint(
       &funcOp.body().front(), funcOp.body().front().without_terminator().end());
@@ -92,12 +103,14 @@ LoopBodyMover preprocessKrnlLoops(
       [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
   return mover;
 }
+
 void LoopBodyMover::toMoveUnder(
     const LoopBodyMover::Movable &movable, mlir::KrnlIterateOp loop) {
   mlir::Value innerMostLoopHandler =
       loop.getOperand(loop.getNumOptimizedLoops() - 1);
   movingPlan[innerMostLoopHandler].push_back(movable);
 }
+
 void LoopBodyMover::moveOne(mlir::Value loopRef,
     llvm::SmallDenseMap<mlir::Value, mlir::AffineForOp, 4> &loopRefToOp,
     bool erase) {

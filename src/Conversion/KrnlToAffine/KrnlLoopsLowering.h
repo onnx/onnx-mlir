@@ -157,6 +157,6 @@ private:
 };
 
 LoopBodyMover preprocessKrnlLoops(
-    mlir::FuncOp funcOp, mlir::OpBuilder &builder);
+    mlir::FuncOp funcOp, mlir::OpBuilder &builder, bool debug = true);
 
 } // namespace onnx_mlir

@@ -584,7 +584,7 @@ def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
      are nested imperfectly between an "eager" and a "lazy" loop.
   }];
 
-  let arguments = (ins );
+  let arguments = (ins Arg<StrAttr, "moving plan">:$moving_plan);
 
   let regions = (region AnyRegion:$region);
 
