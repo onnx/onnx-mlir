@@ -90,7 +90,7 @@ getActivationPack<ONNXGRUOp, GruActivationPack>(ONNXGRUOp *op) {
 
     // Reverse activations.
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      int startIndex = (direction == REVERSE) ? 0 : 2;
+      unsigned int startIndex = (direction == REVERSE) ? 0 : 2;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.name =
             activationArrAttr[startIndex].cast<StringAttr>().getValue();
@@ -117,7 +117,7 @@ getActivationPack<ONNXGRUOp, GruActivationPack>(ONNXGRUOp *op) {
 
     // Reverse activations.
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      int startIndex = (direction == REVERSE) ? 0 : 2;
+      unsigned int startIndex = (direction == REVERSE) ? 0 : 2;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.alpha =
             activationArrAttr[startIndex].cast<FloatAttr>();
@@ -144,7 +144,7 @@ getActivationPack<ONNXGRUOp, GruActivationPack>(ONNXGRUOp *op) {
 
     // Reverse activations.
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      int startIndex = (direction == REVERSE) ? 0 : 2;
+      unsigned int startIndex = (direction == REVERSE) ? 0 : 2;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.beta =
             activationArrAttr[startIndex].cast<FloatAttr>();
@@ -495,7 +495,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     krnl_iterate(
         loops1, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
           ValueRange indices = krnl_get_induction_var_value(loops1);
-          Value bs(indices[0]), hs(indices[1]);
+          Value hs(indices[1]);
           Value HtVal = krnl_load(Ht, indices);
           // rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)"
           Value XtWrVal = krnl_load(XtWr, indices);

@@ -287,6 +287,9 @@ void populateLoweringONNXPadConstantValuePadOpPattern(
 void populateLoweringONNXPadOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXRangeOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXReshapeOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
@@ -321,6 +324,9 @@ void populateLoweringONNXTileOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXFlattenOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXResizeOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp);

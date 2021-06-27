@@ -111,7 +111,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
 
     // Reverse activations.
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      int startIndex = (direction == REVERSE) ? 0 : 3;
+      unsigned int startIndex = (direction == REVERSE) ? 0 : 3;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.name =
             activationArrAttr[startIndex].cast<StringAttr>().getValue();
@@ -145,7 +145,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
 
     // Reverse activations.
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      int startIndex = (direction == REVERSE) ? 0 : 3;
+      unsigned int startIndex = (direction == REVERSE) ? 0 : 3;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.alpha =
             activationArrAttr[startIndex].cast<FloatAttr>();
@@ -179,7 +179,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
 
     // Reverse activations.
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      int startIndex = (direction == REVERSE) ? 0 : 3;
+      unsigned int startIndex = (direction == REVERSE) ? 0 : 3;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.beta =
             activationArrAttr[startIndex].cast<FloatAttr>();

@@ -45,7 +45,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
-    IndexExprScope childScope(shapeHelper.scope);
+    IndexExprScope childScope(rewriter, shapeHelper.scope);
     // Scope for krnl EDSC ops
     using namespace mlir::edsc;
     ScopedContext scope(rewriter, loc);

@@ -135,7 +135,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // thus becomes redundant.
       SmallVector<Value, 4> bodyOutputs(
           resultsRange.begin(), resultsRange.end());
-      for (int i = 0; i < bodyOutputs.size(); i++) {
+      for (unsigned int i = 0; i < bodyOutputs.size(); i++) {
         auto output = bodyOutputs[i];
         assert((output.getType().isa<TensorType>() ||
                    output.getType().isa<MemRefType>()) &&

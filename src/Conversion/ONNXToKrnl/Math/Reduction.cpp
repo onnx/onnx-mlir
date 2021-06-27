@@ -37,6 +37,12 @@ Value getIdentityValue<ONNXReduceProdOp>(
 }
 
 template <>
+Value getIdentityValue<ONNXReduceSumV11Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return emitConstantOp(rewriter, loc, type, 0);
+}
+
+template <>
 Value getIdentityValue<ONNXReduceSumOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
   return emitConstantOp(rewriter, loc, type, 0);
@@ -53,6 +59,12 @@ template <>
 struct ScalarOp<ONNXReduceProdOp> {
   using FOp = MulFOp;
   using IOp = MulIOp;
+};
+
+template <>
+struct ScalarOp<ONNXReduceSumV11Op> {
+  using FOp = AddFOp;
+  using IOp = AddIOp;
 };
 
 template <>
@@ -146,7 +158,6 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
     auto input = operands[0];
     auto memRefInType = input.getType().cast<MemRefType>();
-    auto memRefInShape = memRefInType.getShape();
     auto memRefOutType = convertToMemRefType(*op->result_type_begin());
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
@@ -262,7 +273,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     // Handle the operation:
     SmallVector<Value, 4> inLoopIVs, outLoopIVs;
     auto args = iterationBlock.getArguments();
-    for (int i = 0; i < args.size(); ++i) {
+    for (unsigned int i = 0; i < args.size(); ++i) {
       inLoopIVs.push_back(args[i]);
     }
     Value zeroIndex = nullptr;
@@ -372,7 +383,6 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
     auto input = operands[0];
     auto memRefInType = input.getType().cast<MemRefType>();
-    auto memRefInShape = memRefInType.getShape();
     auto memRefOutType = convertToMemRefType(*op->result_type_begin());
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
@@ -495,7 +505,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     // Handle the operation:
     SmallVector<Value, 4> inLoopIVs, outLoopIVs;
     auto args = iterationBlock.getArguments();
-    for (int i = 0; i < args.size(); ++i) {
+    for (unsigned int i = 0; i < args.size(); ++i) {
       inLoopIVs.push_back(args[i]);
     }
     Value zeroIndex = nullptr;
@@ -574,8 +584,9 @@ void populateLoweringONNXReductionOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMaxOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceMinOp>,
-      ONNXReductionOpLowering<mlir::ONNXReduceProdOp>, ONNXReduceSumOpLowering>(
-      ctx);
+      ONNXReductionOpLowering<mlir::ONNXReduceProdOp>,
+      ONNXReductionOpLowering<mlir::ONNXReduceSumV11Op>,
+      ONNXReduceSumOpLowering>(ctx);
   patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMeanOp>>(
       ctx, /*computeMean=*/true);
 }

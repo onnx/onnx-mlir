@@ -24,6 +24,7 @@ import argparse
 # to do the conversion. But note that strtobool can't take an emtpy string.
 
 VERBOSE = os.getenv("VERBOSE")
+INVOKECONVERTER = os.getenv("INVOKECONVERTER")
 IMPORTER_FORCE_DYNAMIC = os.getenv("IMPORTER_FORCE_DYNAMIC")
 TEST_DYNAMIC = os.getenv("TEST_DYNAMIC")
 
@@ -44,6 +45,9 @@ parser.add_argument('--mtriple', type=str, default=os.getenv("TEST_MTRIPLE", "")
     help='triple to pass to the compiler')
 parser.add_argument('--mcpu', type=str, default=os.getenv("TEST_MCPU", ""),
     help='target a specific cpu, passed to the compiler')
+parser.add_argument('--converter', action='store_true',
+    default=(strtobool(INVOKECONVERTER) if INVOKECONVERTER else False),
+    help='invoke version converter (default: false if INVOKECONVERTER env var not set)')
 parser.add_argument('unittest_args', nargs='*')
 args = parser.parse_args()
 sys.argv[1:] = args.unittest_args
@@ -492,6 +496,10 @@ test_to_enable_static_dynamic = {
 
     # Quantize Linear
 
+    # Range
+    "test_range_float_type_positive_delta_cpu": (test_static_dynamic,),
+    "test_range_int32_type_negative_delta_cpu": (test_static_dynamic,),
+
     # Reciprocal Op:
     "test_reciprocal_cpu": (test_static_dynamic,),
     "test_reciprocal_example_cpu": (test_static_dynamic,),
@@ -609,6 +617,8 @@ test_to_enable_static_dynamic = {
     "test_reshape_zero_dim_cpu": (test_static_dynamic,{0:{-1}}),
 
     # Resize
+    "test_resize_upsample_scales_nearest_cpu": (test_static_dynamic, {0:{-1}}),
+    "test_resize_downsample_scales_nearest_cpu": (test_static_dynamic, {0:{-1}}),
 
     # Reverse Sequence
 
@@ -780,6 +790,9 @@ test_to_enable = [ key for (key, value) in test_to_enable_static_dynamic.items()
 # or big models
 test_for_dynamic = [ key for (key, value) in test_to_enable_static_dynamic.items() if value[0] & test_dynamic ]
 
+# Specify the test cases which need version converter
+test_need_converter = []
+
 if args.dynamic :
     print("dynamic shape is enabled")
     test_to_enable = test_for_dynamic
@@ -896,6 +909,8 @@ class DummyBackend(onnx.backend.base.Backend):
             command_list.append("--mcpu="+args.mcpu)
         if args.mtriple:
             command_list.append("--mtriple="+args.mtriple)
+        if args.converter or name in test_need_converter :
+            command_list.append("--invokeOnnxVersionConverter=true")
         command_list.append(model_name)
         # Call frontend to process temp_model.onnx, bit code will be generated.
         dynamic_inputs_dims = determine_dynamic_parameters(name)

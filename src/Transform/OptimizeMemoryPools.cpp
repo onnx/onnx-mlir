@@ -448,7 +448,6 @@ public:
       KrnlGetRefOp firstGetRef, PatternRewriter &rewriter) const override {
     auto loc = firstGetRef.getLoc();
     auto memRefType = firstGetRef.getResult().getType().dyn_cast<MemRefType>();
-    auto memRefShape = memRefType.getShape();
 
     // Only handle krnl.getref ops that return a constant shaped MemRef.
     if (!hasAllConstantDimensions(memRefType))
@@ -795,6 +794,7 @@ public:
     // No need to test, its ok to fail the apply.
     LogicalResult res =
         applyPatternsAndFoldGreedily(function, std::move(patterns));
+    assert((succeeded(res) || failed(res)) && "remove unused var warning");
   }
 };
 } // namespace

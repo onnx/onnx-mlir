@@ -30,7 +30,7 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
   auto outputShape = memRefType.getShape();
 
   SmallVector<Value, 4> allocOperands;
-  for (int i = 0; i < inputRank; ++i) {
+  for (unsigned int i = 0; i < inputRank; ++i) {
     if (outputShape[i] == -1) {
       auto indexVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
@@ -71,7 +71,6 @@ struct ONNXTileOpLowering : public ConversionPattern {
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
-    auto resultOperand = tileOp.output();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
@@ -134,7 +133,6 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXTileOpAdaptor operandAdaptor(operands);
-    ONNXTileOp tileOp = llvm::cast<ONNXTileOp>(op);
     auto loc = op->getLoc();
     // get input operands, shapes, and rank
     Value input = operandAdaptor.input();
@@ -143,7 +141,6 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     Value repeats = operandAdaptor.repeats();
 
     // get output info
-    auto resultOperand = tileOp.output();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();

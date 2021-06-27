@@ -12,10 +12,12 @@
 // shapes through function specialization.
 //
 //===----------------------------------------------------------------------===//
+
 #include <regex>
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
@@ -37,6 +39,7 @@ static SmallVector<mlir::FuncOp, 4> lookUpFuncsMatching(
   });
   return matchedFuncs;
 }
+
 /*!
  *  FunctionPass that performs shape inference by iterating over a list of
  *  candidate operations and propagating the shape information until the list
@@ -57,23 +60,31 @@ static SmallVector<mlir::FuncOp, 4> lookUpFuncsMatching(
  */
 class ShapeInferencePass : public mlir::PassWrapper<ShapeInferencePass,
                                OperationPass<mlir::ModuleOp>> {
+private:
+  bool analyzeAllFunctions;
+
 public:
+  ShapeInferencePass(bool analyzeAllFunctions_)
+      : analyzeAllFunctions(analyzeAllFunctions_) {}
+
   void runOnOperation() override {
     auto module = getOperation();
-    auto matchedFuncs =
-        lookUpFuncsMatching(module, std::regex("[a-zA-Z0-9_]*main_graph"));
-    if (!matchedFuncs.empty()) {
-      for (auto func : matchedFuncs) {
-        if (failed(runShapeInferenceOn(func)))
-          signalPassFailure();
+    if (!analyzeAllFunctions) {
+      auto matchedFuncs =
+          lookUpFuncsMatching(module, std::regex("[a-zA-Z0-9_]*main_graph"));
+      if (!matchedFuncs.empty()) {
+        for (auto func : matchedFuncs) {
+          if (failed(runShapeInferenceOn(func)))
+            signalPassFailure();
+        }
+        return;
       }
-    } else {
-      auto result = module.walk([&](FuncOp funcOp) -> WalkResult {
-        return runShapeInferenceOn(funcOp);
-      });
-      if (result.wasInterrupted())
-        signalPassFailure();
     }
+    auto result = module.walk([&](FuncOp funcOp) -> WalkResult {
+      return runShapeInferenceOn(funcOp);
+    });
+    if (result.wasInterrupted())
+      signalPassFailure();
   }
 
   static LogicalResult runShapeInferenceOnRegion(mlir::Region &r) {
@@ -93,7 +104,7 @@ public:
             op.emitError("shape inference failed");
             return failure();
           }
-        } else {
+        } else if (!llvm::dyn_cast<CallOpInterface>(op)) {
           op.emitError("unable to infer shape of operation without shape "
                        "inference interface");
           return failure();
@@ -165,6 +176,7 @@ public:
 /*!
  * Create a Shape Inference pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createShapeInferencePass() {
-  return std::make_unique<ShapeInferencePass>();
+std::unique_ptr<mlir::Pass> mlir::createShapeInferencePass(
+    bool analyzeAllFunctions) {
+  return std::make_unique<ShapeInferencePass>(analyzeAllFunctions);
 }
