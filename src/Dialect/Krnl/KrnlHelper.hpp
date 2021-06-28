@@ -296,12 +296,12 @@ struct KrnlBuilder: public DialectBuilder {
 
   void iterate(ValueRange originalLoops, ValueRange optimizedLoops,
       ValueRange lbs, ValueRange ubs, ValueRange iterArgs,
-      function_ref<void(ImplicitLocOpBuilder &lb, ValueRange args)>
+      function_ref<void(KrnlBuilder &createKrnl, ValueRange args)>
           bodyBuilderFn);
 
   void iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
       ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
-      function_ref<void(ImplicitLocOpBuilder &lb, ValueRange args)>
+      function_ref<void(KrnlBuilder &createKrnl, ValueRange args)>
           bodyBuilderFn);
 
   void copyToBuffer(

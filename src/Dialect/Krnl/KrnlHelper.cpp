@@ -421,18 +421,24 @@ ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) {
 
 void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
     ValueRange lbs, ValueRange ubs, ValueRange iterArgs,
-    function_ref<void(ImplicitLocOpBuilder &lb, ValueRange args)>
+    function_ref<void(KrnlBuilder &createKrnl, ValueRange args)>
         bodyBuilderFn) {
-  b.create<KrnlIterateOp>(
-      loc, originalLoops, optimizedLoops, lbs, ubs, iterArgs, bodyBuilderFn);
+  b.create<KrnlIterateOp>(loc, originalLoops, optimizedLoops, lbs, ubs,
+      iterArgs, [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+        KrnlBuilder kb(lb);
+        bodyBuilderFn(kb, args);
+      });
 }
 
 void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
-    function_ref<void(ImplicitLocOpBuilder &lb, ValueRange args)>
+    function_ref<void(KrnlBuilder &createKrnl, ValueRange args)>
         bodyBuilderFn) {
-  b.create<KrnlIterateOp>(
-      loc, originalLoops, optimizedLoops, lbs, ubs, iterArgs, bodyBuilderFn);
+  b.create<KrnlIterateOp>(loc, originalLoops, optimizedLoops, lbs, ubs,
+      iterArgs, [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+        KrnlBuilder kb(lb);
+        bodyBuilderFn(kb, args);
+      });
 }
 
 void KrnlBuilder::copyToBuffer(Value bufferMemref, Value sourceMemref,
