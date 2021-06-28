@@ -98,7 +98,7 @@ public:
       // However, shape inference is still need on these ops
       // to infer optional attributes.
       if (containSubgraph(&op) || isUsedByReturnOp(&op) ||
-          returnsDynamicShape(&op)) {
+          returnsDynamicOrUnknownShape(&op)) {
         if (auto shape_op = llvm::dyn_cast<ShapeInference>(op)) {
           if (failed(shape_op.inferShapes(doShapeInference))) {
             op.emitError("shape inference failed");
@@ -152,7 +152,7 @@ public:
   /*!
    *  Check if the given operation has a dynamically shaped result.
    */
-  static bool returnsDynamicShape(Operation *op) {
+  static bool returnsDynamicOrUnknownShape(Operation *op) {
     return llvm::any_of(op->getResultTypes(), [](Type result_type) {
       if (result_type.isa<RankedTensorType>()) {
         return llvm::any_of(result_type.dyn_cast<RankedTensorType>().getShape(),
