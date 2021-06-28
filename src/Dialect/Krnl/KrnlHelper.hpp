@@ -267,9 +267,23 @@ void generateIndexMap(
 
 //====---------------- Support for Krnl Builder ----------------------===//
 
-struct KrnlBuilder {
-  KrnlBuilder(OpBuilder &b, Location loc) : b(b), loc(loc) {}
-  KrnlBuilder(ImplicitLocOpBuilder &lb) : b(lb), loc(lb.getLoc()) {}
+struct DialectBuilder {
+  DialectBuilder(OpBuilder &b, Location loc) : b(b), loc(loc) {}
+  DialectBuilder(ImplicitLocOpBuilder &lb) : b(lb), loc(lb.getLoc()) {}
+  DialectBuilder(DialectBuilder &db) : b(db.b), loc(db.loc) {}
+
+  OpBuilder &getBuilder() { return b; }
+  Location getLoc() { return loc; }
+
+protected:
+  OpBuilder &b;
+  Location loc;
+};
+
+struct KrnlBuilder: public DialectBuilder {
+  KrnlBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  KrnlBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
+  KrnlBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
   Value load(Value memref, ValueRange indices);
   void store(Value val, Value memref, ValueRange indices);
@@ -342,10 +356,6 @@ struct KrnlBuilder {
   void matmul(Value A, ValueRange aStart, Value B, ValueRange bStart, Value C,
       ValueRange cStart, ValueRange loops, ValueRange computeStarts,
       ValueRange globalUBs, bool simdize, bool unroll, bool overcompute);
-
-private:
-  OpBuilder &b;
-  Location loc;
 };
 
 //====---------------- EDSC Support with Value
