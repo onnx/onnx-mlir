@@ -35,7 +35,7 @@ elif  [ "$#" -eq 1 ] ; then
     echo "Compile run-onnx-lib for model $1"
     g++ $ONNX_MLIR_UTIL/$DRIVERNAME -o $ONNX_MLIR_BIN/run-onnx-lib -std=c++14 \
     -D LOAD_MODEL_STATICALLY=1 -I $LLVM_PROJ_SRC/llvm/include \
-    -I $LLVM_PROJ_BUILD/include -I $ONNX_PROJ_SRC/include \
+    -I $LLVM_PROJ_BUILD/include -I $ONNX_MLIR_SRC/include \
     -L $LLVM_PROJ_BUILD/lib -lLLVMSupport -lLLVMDemangle -lcurses -lpthread -ldl $1 \
       &&
     echo "  success, statically linked run-onnx-lib built in $ONNX_MLIR_BIN"
