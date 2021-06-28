@@ -113,6 +113,30 @@ static size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
     return memRefTy.getBody()[3].cast<LLVM::LLVMArrayType>().getNumElements();
 }
 
+static FlatSymbolRefAttr getOrInsertInstrument(
+    PatternRewriter &rewriter, ModuleOp module) {
+  auto *context = module.getContext();
+  const char funcName[] = "InstrumentEntryPoint";
+  if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
+    return SymbolRefAttr::get(context, funcName);
+  // Create a function declaration for memcpy, the signature is:
+  //   * `void (i8*, i8* , i64, i1)`
+  auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
+  auto llvmI64Ty = IntegerType::get(context, 64);
+  //auto llvmI1Ty = IntegerType::get(context, 1);
+  auto llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy,
+      ArrayRef<mlir::Type>({llvmI64Ty}),
+      false);
+
+  // Insert the memcpy function into the body of the parent module.
+  PatternRewriter::InsertionGuard insertGuard(rewriter);
+  rewriter.setInsertionPointToStart(module.getBody());
+  rewriter.create<LLVM::LLVMFuncOp>(
+      module.getLoc(), funcName, llvmFnType);
+  return SymbolRefAttr::get(context, funcName);
+}
+
+
 /// Return a symbol reference to the memcpy function, inserting it into the
 /// module if necessary.
 static FlatSymbolRefAttr getOrInsertMemcpy(
@@ -498,6 +522,42 @@ public:
 private:
   static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
     return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+  }
+};
+
+class KrnlInstrumentOpLowering : public ConversionPattern {
+public:
+  explicit KrnlInstrumentOpLowering(MLIRContext *context)
+      : ConversionPattern(KrnlInstrumentOp::getOperationName(), 1, context) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    auto *context = op->getContext();
+    KrnlInstrumentOpAdaptor operandAdaptor(operands);
+    auto loc = op->getLoc();
+    KrnlInstrumentOp instrumentOp = llvm::dyn_cast<KrnlInstrumentOp>(op);
+
+    // Get a symbol reference to the memcpy function, inserting it if necessary.
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
+    auto llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
+    auto llvmI64Ty = IntegerType::get(context, 64);
+    auto llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy,
+      ArrayRef<mlir::Type>({llvmI8PtrTy}),
+      false);
+
+    auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
+
+    Value nodeName = rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
+            rewriter.getIntegerAttr(rewriter.getIntegerType(64), 0));
+    //StringRef txt = instrumentOp->op_name();
+    //Value nodeName = rewriter.create<LLVM::ConstantOp>(loc, llvmI8PtrTy, instrumentOp->op_name());
+
+    rewriter.create<CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
+        ArrayRef<Value>({nodeName}));
+
+    rewriter.eraseOp(op);
+    return success();
   }
 };
 
@@ -1339,6 +1399,8 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
       ctx, typeConverter);
   patterns.insert<KrnlGetRefOpLowering>(ctx, typeConverter);
   patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(ctx);
+
+  patterns.insert<KrnlInstrumentOpLowering>(ctx);
 
   // Math library functions.
   patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(ctx);

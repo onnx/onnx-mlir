@@ -385,6 +385,11 @@ void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
   state.addAttribute(KrnlEntryPointOp::getSignatureAttrName(), signature);
 }
 
+void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state, Operation *op) {
+	StringAttr attr = StringAttr::get(builder.getContext(), op->getName().getStringRef());
+	state.addAttribute("op_name", attr);
+}
+
 //===----------------------------------------------------------------------===//
 // KrnlBlockOp
 //===----------------------------------------------------------------------===//

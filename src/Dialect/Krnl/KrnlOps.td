@@ -957,3 +957,16 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
     $buffer `,` $dest `[` $starts `]`  attr-dict `:` type($buffer) `,` type($dest)
   }];
 }
+
+def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
+    []> {
+  let summary = "instrumentation point.";
+  let description = [{
+    Operation that invokes the runtime instrument utility.
+    May be used for gdb.
+  }];
+
+  let arguments = (ins StrAttr:$op_name);
+
+  let builders = [ OpBuilder<(ins "Operation *": $op)> ];
+}
