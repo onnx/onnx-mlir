@@ -182,14 +182,17 @@ struct ConvertKrnlToAffinePass
 
   void runOnFunction() final;
 
-  Option<bool> preprocessing_only{*this, "preprocessing-only",
-      llvm::cl::desc("Whether to move the packed constant to a file."),
+  Option<bool> preprocessingOnly{*this, "preprocessing-only",
+      llvm::cl::desc("Whether to preprocess IR only, without actually lowering "
+                     "for debugging purposes."),
       llvm::cl::init(false)};
 };
 
 LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp,
     llvm::SmallPtrSetImpl<Operation *> &opsToErase, LoopBodyMover &mover) {
+
+  mover.moveNext(loopRefToOp);
   // Recursively interpret nested operations.
   for (auto &region : op->getRegions())
     for (auto &block : region.getBlocks()) {
@@ -276,7 +279,7 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     // Unroll the affine for loop fully.
     auto loopRef = unrollOp.loop();
     auto loopToUnroll = loopRefToOp[loopRef];
-    mover.moveOne(loopRef, loopRefToOp);
+    //    mover.moveOne(loopRef, loopRefToOp);
 
     // Assert that there's no floating code within the loop to be unrolled.
     loopToUnroll.walk([](KrnlMovableOp op) {
@@ -287,7 +290,6 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     opsToErase.insert(op);
     return success();
   }
-
   return success();
 }
 
@@ -1136,7 +1138,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   });
 
   LoopBodyMover mover = preprocessKrnlLoops(funcOp, builder);
-  if (preprocessing_only)
+  if (preprocessingOnly)
     return;
 
   // Interpret krnl dialect operations while looping recursively through
@@ -1151,6 +1153,15 @@ void ConvertKrnlToAffinePass::runOnFunction() {
     signalPassFailure();
     return;
   }
+  //
+  //  if (failed(interpretOperation(
+  //      funcOp, builder, loopRefToOp, opsToErase, mover))) {
+  //    signalPassFailure();
+  //    return;
+  //  }
+
+  if (!mover.empty())
+    signalPassFailure();
 
   funcOp->walk([&](Operation *op) {
     if (SpecializedKernelOpInterface kernelOp =
@@ -1173,11 +1184,9 @@ void ConvertKrnlToAffinePass::runOnFunction() {
       opsToErase.insert(op);
     }
   });
+
   removeOps(opsToErase);
   assert(opsToErase.empty());
-
-  // Move loop body under appropriate newly created affine loops.
-  mover.moveAll(loopRefToOp);
 
   ConversionTarget target(getContext());
   // Legal/illegal ops.

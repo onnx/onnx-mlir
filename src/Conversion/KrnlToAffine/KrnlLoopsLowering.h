@@ -127,12 +127,13 @@ public:
 
   /*!
    * Register in our moving plan that content in the movable op should be moved
-   * under the concrete loops corresponding to loop.
+   * under the concrete loops corresponding to iterateOp.
    * @param movable IR blocks enclosed in krnl.movable op to move around.
-   * @param loop The Krnl Loop referring to the concrete loop sourrounding the
-   * content of the movable op in the lowered IR.
+   * @param iterateOp The Krnl Loop referring to the concrete iterateOp
+   * sourrounding the content of the movable op in the lowered IR.
    */
-  void toMoveUnder(const Movable &movable, mlir::KrnlIterateOp loop);
+  void toMoveUnder(const Movable &movable, mlir::KrnlIterateOp iterateOp,
+      llvm::SmallVector<mlir::KrnlIterateOp, 4> loopStack = {});
 
   /*!
    * Signal that the concrete loop corresponding to loopRef has been
@@ -152,8 +153,15 @@ public:
   void moveAll(
       llvm::SmallDenseMap<mlir::Value, mlir::AffineForOp, 4> &loopRefToOp);
 
+  void moveNext(
+      llvm::SmallDenseMap<mlir::Value, mlir::AffineForOp, 4> &loopRefToOp);
+
+  bool empty();
+
 private:
   llvm::DenseMap<mlir::Value, llvm::SmallVector<Movable, 4>> movingPlan;
+
+  llvm::DenseMap<mlir::Value, llvm::SmallVector<mlir::Value, 4>> structurePlan;
 };
 
 LoopBodyMover preprocessKrnlLoops(

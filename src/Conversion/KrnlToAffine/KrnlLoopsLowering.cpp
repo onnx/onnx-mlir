@@ -37,8 +37,9 @@ namespace {
  * @param builder operation builder.
  * @param mover loop body mover.
  */
-void markLoopBodyAsMovable(
-    mlir::KrnlIterateOp root, mlir::OpBuilder builder, LoopBodyMover &mover) {
+void markLoopBodyAsMovable(mlir::KrnlIterateOp root, mlir::OpBuilder builder,
+    LoopBodyMover &mover,
+    DenseMap<Operation *, llvm::SmallVector<KrnlIterateOp, 4>> &structureMap) {
   auto &bodyRegion = root.bodyRegion();
 
   if (root.getNumOptimizedLoops() == 0)
@@ -57,13 +58,9 @@ void markLoopBodyAsMovable(
       // If no op to extract, continue;
       if (movableChunkBegin->getIterator() == delimeterOp->getIterator())
         continue;
+      auto loopStack = structureMap[root];
 
-      // Stuff identified chunks of operations into a krnl.movable operation.
-      llvm::SmallVector<mlir::KrnlIterateOp, 4> loopStack = {root};
-      while (auto parentOp = loopStack.back()->getParentOfType<KrnlIterateOp>())
-        loopStack.push_back(parentOp);
-
-      std::string movingPlanStr = "";
+      std::string movingPlanStr;
       llvm::for_each(llvm::reverse(loopStack), [&](mlir::KrnlIterateOp op) {
         if (op->getLoc().isa<NameLoc>())
           movingPlanStr.append(
@@ -83,7 +80,7 @@ void markLoopBodyAsMovable(
       // Let mover know to move the content of movable operations under the
       // lowered loop corresponding to `root`. For the delimeter op, let mover
       // know to expect an iterate operation.
-      mover.toMoveUnder(LoopBodyMover::Movable(movableOp), root);
+      mover.toMoveUnder(LoopBodyMover::Movable(movableOp), root, loopStack);
       if (auto iterateOp = dyn_cast_or_null<mlir::KrnlIterateOp>(delimeterOp))
         mover.toMoveUnder(LoopBodyMover::Movable(iterateOp), root);
 
@@ -91,6 +88,18 @@ void markLoopBodyAsMovable(
     }
   }
 }
+
+// Pre-compute loop structure map, which maps from each krnl.iterate op to its
+// surrounding krnl.iterate ops ordered from inner to outer.
+void computeLoopStructureMap(KrnlIterateOp iterateOp,
+    DenseMap<Operation *, llvm::SmallVector<KrnlIterateOp, 4>> &structureMap) {
+  // Stuff identified chunks of operations into a krnl.movable operation.
+  llvm::SmallVector<mlir::KrnlIterateOp, 4> loopStack = {iterateOp};
+  while (auto parentOp = loopStack.back()->getParentOfType<KrnlIterateOp>())
+    loopStack.push_back(parentOp);
+  structureMap[iterateOp.getOperation()] = loopStack;
+}
+
 } // namespace
 
 LoopBodyMover preprocessKrnlLoops(
@@ -98,17 +107,33 @@ LoopBodyMover preprocessKrnlLoops(
   // Use the end of the function body as a staging area for movable ops.
   builder.setInsertionPoint(
       &funcOp.body().front(), funcOp.body().front().without_terminator().end());
-  LoopBodyMover mover;
+  DenseMap<Operation *, llvm::SmallVector<KrnlIterateOp, 4>> structureMap;
   funcOp.walk(
-      [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
+      [&](KrnlIterateOp op) { computeLoopStructureMap(op, structureMap); });
+
+  LoopBodyMover mover;
+  funcOp.walk([&](KrnlIterateOp op) {
+    markLoopBodyAsMovable(op, builder, mover, structureMap);
+  });
   return mover;
 }
 
-void LoopBodyMover::toMoveUnder(
-    const LoopBodyMover::Movable &movable, mlir::KrnlIterateOp loop) {
+void LoopBodyMover::toMoveUnder(const LoopBodyMover::Movable &movable,
+    mlir::KrnlIterateOp iterateOp,
+    llvm::SmallVector<mlir::KrnlIterateOp, 4> loopStack) {
+  assert(iterateOp.getNumOptimizedLoops() > 0);
+
   mlir::Value innerMostLoopHandler =
-      loop.getOperand(loop.getNumOptimizedLoops() - 1);
+      iterateOp.getOperand(iterateOp.getNumOptimizedLoops() - 1);
   movingPlan[innerMostLoopHandler].push_back(movable);
+
+  llvm::SmallVector<mlir::Value, 4> enclosingLoopRefs;
+  for (auto iterateOp : llvm::reverse(loopStack))
+    for (int outIdx = 0; outIdx < iterateOp.getNumOptimizedLoops(); outIdx++)
+      enclosingLoopRefs.emplace_back(iterateOp->getResult(outIdx));
+
+  if (movable.movableOp.hasValue())
+    structurePlan[innerMostLoopHandler] = enclosingLoopRefs;
 }
 
 void LoopBodyMover::moveOne(mlir::Value loopRef,
@@ -152,16 +177,19 @@ void LoopBodyMover::moveOne(mlir::Value loopRef,
                        ? loopToSkip
                        : loopRefToOp[transferPt.loopsToSkip.getValue().front()];
 
-      // Move iterator to point to the next AffineFor Op.
+      // Move iterator to point to the next AffineFor/KrnlIterate Op.
       while (insertPt != loopBody.end() &&
-             !llvm::dyn_cast_or_null<mlir::AffineForOp>(&*insertPt)) {
+             !llvm::dyn_cast_or_null<mlir::AffineForOp>(&*insertPt) &&
+             !llvm::dyn_cast_or_null<mlir::KrnlIterateOp>(&*insertPt)) {
         assert(llvm::dyn_cast_or_null<mlir::KrnlMovableOp>(&*insertPt));
         insertPt++;
       }
 
-      // Assert that now insertion point points to the loop to skip.
-      if (loopToSkip)
-        assert(insertPt == loopToSkip.getValue()->getIterator());
+      // TODO(tjingrant): Fix this, sanity check needs to be done with
+      // krnl.iterate pointers as well. Assert that now insertion point points
+      // to the loop to skip.
+      //      if (loopToSkip)
+      //        assert(insertPt == loopToSkip.getValue()->getIterator());
 
       // Skip loop by incrementing insertion point.
       insertPt++;
@@ -173,5 +201,41 @@ void LoopBodyMover::moveAll(
     llvm::SmallDenseMap<mlir::Value, mlir::AffineForOp, 4> &loopRefToOp) {
   for (const auto &pair : movingPlan)
     moveOne(pair.first, loopRefToOp, /*erase=*/false);
+  movingPlan.clear();
 }
+
+void LoopBodyMover::moveNext(
+    llvm::SmallDenseMap<mlir::Value, mlir::AffineForOp, 4> &loopRefToOp) {
+  llvm::SmallVector<mlir::Value, 4> readyLoopRefs;
+  for (const auto &pair : movingPlan) {
+    if (loopRefToOp.count(pair.first)) {
+      auto loop = loopRefToOp[pair.first];
+      llvm::SmallVector<mlir::AffineForOp, 4> actualEnclosingLoops = {loop};
+      while (
+          auto parent =
+              actualEnclosingLoops.back()->getParentOfType<mlir::AffineForOp>())
+        actualEnclosingLoops.push_back(parent);
+
+      auto plannedEnclosingLoopRefs = structurePlan[pair.first];
+      if (plannedEnclosingLoopRefs.size() != actualEnclosingLoops.size())
+        continue;
+
+      for (auto actualAndPlanned : llvm::zip(
+               actualEnclosingLoops, llvm::reverse(plannedEnclosingLoopRefs))) {
+        auto actual = std::get<0>(actualAndPlanned);
+        auto planned = std::get<1>(actualAndPlanned);
+        if (loopRefToOp.count(planned) == 0 || actual != loopRefToOp[planned])
+          continue;
+      }
+
+      readyLoopRefs.emplace_back(pair.first);
+    }
+  }
+
+  for (auto readyLoopRef : readyLoopRefs) {
+    moveOne(readyLoopRef, loopRefToOp, /*erase=*/true);
+  }
+}
+
+bool LoopBodyMover::empty() { return movingPlan.empty(); }
 } // namespace onnx_mlir
