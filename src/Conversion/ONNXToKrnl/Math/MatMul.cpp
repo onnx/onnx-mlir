@@ -145,9 +145,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     lb.create<KrnlPermuteOp>(ValueRange{ii1, ii2, jj1, jj2, kk1, kk2},
         ArrayRef<int64_t>{0, 3, 1, 4, 2, 5});
 
-    lb.create<KrnlIterateOp>(ValueRange({ii, jj, kk}),
-        ValueRange({ii1, jj1, kk1}), ValueRange({zero, zero, zero}),
-        ValueRange({I, J, K}), ValueRange({}),
+    lb.create<KrnlIterateOp>(ValueRange{ii, jj, kk},
+        ValueRange{ii1, jj1, kk1}, ValueRange{zero, zero, zero},
+        ValueRange{I, J, K}, ValueRange{},
         [&](ImplicitLocOpBuilder &lb, ValueRange args) {
           ValueRange indices = lb.create<KrnlGetInductionVariableValueOp>(
                                      ValueRange{ii1, jj1, kk1})

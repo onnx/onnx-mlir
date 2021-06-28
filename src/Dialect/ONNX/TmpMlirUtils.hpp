@@ -23,27 +23,6 @@
 namespace mlir {
 
 //===----------------------------------------------------------------------===//
-// from Utils.h
-//===----------------------------------------------------------------------===//
-
-/// Helper struct to build simple arithmetic quantities with minimal type
-/// inference support.
-struct ArithBuilder {
-  ArithBuilder(OpBuilder &b, Location loc) : b(b), loc(loc) {}
-
-  Value _and(Value lhs, Value rhs);
-  Value add(Value lhs, Value rhs);
-  Value mul(Value lhs, Value rhs);
-  Value select(Value cmp, Value lhs, Value rhs);
-  Value sgt(Value lhs, Value rhs);
-  Value slt(Value lhs, Value rhs);
-
-private:
-  OpBuilder &b;
-  Location loc;
-};
-
-//===----------------------------------------------------------------------===//
 // from ImplicitLocObBuilder.h
 //===----------------------------------------------------------------------===//
 
@@ -138,5 +117,28 @@ public:
 private:
   Location curLoc;
 };
+
+//===----------------------------------------------------------------------===//
+// from Utils.h
+//===----------------------------------------------------------------------===//
+
+/// Helper struct to build simple arithmetic quantities with minimal type
+/// inference support.
+struct ArithBuilder {
+  ArithBuilder(OpBuilder &b, Location loc) : b(b), loc(loc) {}
+  ArithBuilder(ImplicitLocOpBuilder &lb) : b(lb), loc(lb.getLoc()) {}
+
+  Value _and(Value lhs, Value rhs);
+  Value add(Value lhs, Value rhs);
+  Value mul(Value lhs, Value rhs);
+  Value select(Value cmp, Value lhs, Value rhs);
+  Value sgt(Value lhs, Value rhs);
+  Value slt(Value lhs, Value rhs);
+
+private:
+  OpBuilder &b;
+  Location loc;
+};
+
 } // namespace mlir
 #endif
