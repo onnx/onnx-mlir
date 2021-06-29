@@ -2414,13 +2414,13 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   "      for (int i=0; i < max_trip_count && keepgoing_out; ++i) {"
   "        /* Implicitly-defined code: bind actual parameter values"
   "           to formal parameter variables of loop-body */"
-  "        bool keepgoing_in = keepgoing_out;"
+  "        bool keepgoing_in = keepgoing_out; "
   "        bool b_in = b_out;"
   ""
   "        /* User-defined code (loop body) */"
   "        int my_local = a + b_in; // Reading value \"a\" from the enclosing scope is fine"
   "        b_out = a - b_in;"
-  "        keepgoing_out = my_local > b_out;"
+  "        keepgoing_out = my_local > b_out; "
   "        user_defined_val = b_in + b_in; // b_in and b_out are different variables"
   "        /* End user-defined code */"
   ""
@@ -3169,9 +3169,11 @@ def ONNXPadOp:ONNX_Op<"Pad",
   ""
   "  output = "
   "  ["
-  "      [0.0, 0.0, 1.0, 1.2],"
-  "      [0.0, 0.0, 2.3, 3.4],"
-  "      [0.0, 0.0, 4.5, 5.7],"
+  "      ["
+  "          [0.0, 0.0, 1.0, 1.2],"
+  "          [0.0, 0.0, 2.3, 3.4],"
+  "          [0.0, 0.0, 4.5, 5.7],"
+  "      ],"
   "  ]"
   ""
   ""
@@ -3189,9 +3191,11 @@ def ONNXPadOp:ONNX_Op<"Pad",
   ""
   "  output = "
   "  ["
-  "      [1.0, 1.2, 1.0, 1.2],"
-  "      [2.3, 3.4, 2.3, 3.4],"
-  "      [4.5, 5.7, 4.5, 5.7],"
+  "      ["
+  "          [1.0, 1.2, 1.0, 1.2],"
+  "          [2.3, 3.4, 2.3, 3.4],"
+  "          [4.5, 5.7, 4.5, 5.7],"
+  "      ],"
   "  ]"
   ""
   ""
@@ -3209,9 +3213,11 @@ def ONNXPadOp:ONNX_Op<"Pad",
   ""
   "  output = "
   "  ["
-  "      [1.0, 1.0, 1.0, 1.2],"
-  "      [2.3, 2.3, 2.3, 3.4],"
-  "      [4.5, 4.5, 4.5, 5.7],"
+  "      ["
+  "          [1.0, 1.0, 1.0, 1.2],"
+  "          [2.3, 2.3, 2.3, 3.4],"
+  "          [4.5, 4.5, 4.5, 5.7],"
+  "      ],"
   "  ]"
   ""
   }];
@@ -3813,17 +3819,29 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$reduced);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value data, ArrayAttr axes, IntegerAttr keepdims", [{
+      auto elementType = data.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), data, axes, keepdims);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
@@ -3869,17 +3887,29 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$reduced);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value data, ArrayAttr axes, IntegerAttr keepdims", [{
+      auto elementType = data.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), data, axes, keepdims);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
@@ -3897,17 +3927,29 @@ def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$reduced);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value data, ArrayAttr axes, IntegerAttr keepdims", [{
+      auto elementType = data.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), data, axes, keepdims);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
@@ -4303,7 +4345,7 @@ def ONNXScanOp:ONNX_Op<"Scan",
   "values are computed in the outer graph, they need to be passed in as extra state_variables."
   ""
   "    graph rnn-encoding {"
-  "      %H_0 = ..."
+  "      %H_0 = ... "
   "      %X = ..."
   "      %Y_h, %Y = Scan[body = <graph rnn-cell-1>, num_scan_inputs=1](%H_0, %X)"
   "      return %Y, %Y_h"
