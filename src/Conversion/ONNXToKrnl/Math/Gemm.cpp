@@ -39,7 +39,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     // Outer loops.
     KrnlBuilder createKrnl(rewriter, loc);
-
     ValueRange outerLoops = createKrnl.defineLoops(2);
     SmallVector<IndexExpr, 0> outerLbs(2, LiteralIndexExpr(0));
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs,

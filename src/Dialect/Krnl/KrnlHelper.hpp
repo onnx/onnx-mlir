@@ -267,7 +267,7 @@ void generateIndexMap(
 
 //====---------------- Support for Krnl Builder ----------------------===//
 
-struct KrnlBuilder: public DialectBuilder {
+struct KrnlBuilder : public DialectBuilder {
   KrnlBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   KrnlBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
   KrnlBuilder(DialectBuilder &db) : DialectBuilder(db) {}
@@ -345,44 +345,20 @@ struct KrnlBuilder: public DialectBuilder {
       ValueRange globalUBs, bool simdize, bool unroll, bool overcompute);
 };
 
-//====---------------- EDSC Support with Value
-//---------------------------===//
+//====---------------- EDSC Support with Value ------------------------===//
 
-// lb.create<KrnlLoadOp>(alloc, indices);
 Value krnl_load(Value memref, ValueRange indices);
 
-// lb.create<KrnlStoreOp>(zeroVal, alloc, indices);
 void krnl_store(Value val, Value memref, ValueRange indices);
 Value krnl_vector_type_cast(Value sourceMemref, int64_t vectorLen);
 
-// ValueRange zLoop = lb.create<KrnlDefineLoopsOp>(2).getResults();
 ValueRange krnl_define_loop(int64_t originalLoopNum);
 
 ValueRange krnl_block(Value loop, int64_t blockSize);
 void krnl_permute(ValueRange loops, ArrayRef<int64_t> map);
 
-// ValueRange indices
-// =lb.create<KrnlGetInductionVariableValueOp>(zLoop).getResults();
 ValueRange krnl_get_induction_var_value(ValueRange loops);
 
-/*
-    lb.create<KrnlIterateOp>(ValueRange({ii, jj, kk}),
-        ValueRange({ii1, jj1, kk1}), ValueRange({zero, zero, zero}),
-        ValueRange({I, J, K}), ValueRange({}),
-        [&](ImplicitLocOpBuilder &lb, ValueRange args) {
-          ValueRange indices = lb.create<KrnlGetInductionVariableValueOp>(
-                                     ValueRange{ii1, jj1, kk1})
-                                   .getResults();
-          Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
-          lb.create<KrnlMatMulOp>(A, ValueRange{zero, zero}, B,
-              ValueRange{zero, zero}, C, ValueRange{zero, zero},
-              ValueRange{ii2, jj2, kk2}, i1, j1, k1, I, J, K,
-              ArrayRef<int64_t>{iRegTile, jRegTile, kRegTile},
-              ArrayRef<int64_t>{}, ArrayRef<int64_t>{}, ArrayRef<int64_t>{},
-              true, true, false);
-        });
-
-*/
 void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
     ValueRange lbs, ValueRange ubs, ValueRange iterArgs,
     function_ref<void(ValueRange args)> bodyBuilderFn);
@@ -440,8 +416,7 @@ void krnl_matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
     Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
     ValueRange globalUBs, bool simdize, bool unroll, bool overcompute);
 
-//====---------------- EDSC Support with IndexExpr
-//-----------------------===//
+//====---------------- EDSC Support with IndexExpr ---------------------===//
 
 Value krnl_load(Value memref, ArrayRef<IndexExpr> indices);
 void krnl_store(Value val, Value memref, ArrayRef<IndexExpr> indices);
