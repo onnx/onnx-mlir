@@ -20,7 +20,7 @@ LLVM_PROJ_BUILD=$LLVM_PROJ_SRC/build
 ONNX_MLIR_SRC=$TOP_DIR/onnx-mlir
 ONNX_MLIR_UTIL=$ONNX_MLIR_SRC/utils
 ONNX_MLIR_BIN=$ONNX_MLIR_SRC/build/Debug/bin
-DRIVERNAME=RunONNXLib.cpp
+DRIVERNAME=RunYoyo.cpp
 echo $ONNX_MLIR_SRC
 
 if [ "$#" -eq 0 ] ; then
