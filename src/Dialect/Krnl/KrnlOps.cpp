@@ -31,9 +31,9 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
 
-#include "KrnlHelper.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
 
-#include "KrnlOps.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
 
@@ -168,7 +168,6 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
     function_ref<void(ImplicitLocOpBuilder &, ValueRange)> bodyBuilderFn) {
   assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
-  // TODO: May want to change KrnlIterateOperandPack to use ValueRanges...
   SmallVector<Value, 4> origLoops, optLoops;
   for (auto org : originalLoops)
     origLoops.emplace_back(org);
