@@ -144,16 +144,6 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
 }
 
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
-    ValueRange originalLoops, ValueRange lbs, ValueRange ubs,
-    ValueRange iterArgs,
-    function_ref<void(ImplicitLocOpBuilder &, ValueRange)> bodyBuilderFn) {
-  // For unoptimized iterate operations, where we have no optimized loops, we
-  // just pass the original loops argument in the optimized loops argument.
-  build(builder, result, originalLoops, originalLoops, lbs, ubs, iterArgs,
-      bodyBuilderFn);
-}
-
-void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     ValueRange originalLoops, ValueRange optimizedLoops, ValueRange lbs,
     ValueRange ubs, ValueRange iterArgs,
     function_ref<void(ImplicitLocOpBuilder &, ValueRange)> bodyBuilderFn) {
@@ -168,6 +158,26 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   for (unsigned int i = 0; i < lbs.size(); ++i) {
     pack.pushOperandBound(lbs[i]);
     pack.pushOperandBound(ubs[i]);
+  }
+  // Fill in this iterate op using the main build function.
+  build(builder, result, pack, iterArgs, bodyBuilderFn);
+}
+
+void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
+    ValueRange originalLoops, ValueRange optimizedLoops,
+    ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
+    function_ref<void(ImplicitLocOpBuilder &, ValueRange)> bodyBuilderFn) {
+  assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
+  // TODO: May want to change KrnlIterateOperandPack to use ValueRanges...
+  SmallVector<Value, 4> origLoops, optLoops;
+  for (auto org : originalLoops)
+    origLoops.emplace_back(org);
+  for (auto opt : optimizedLoops)
+    optLoops.emplace_back(opt);
+  KrnlIterateOperandPack pack(builder, origLoops, optLoops);
+  for (unsigned int i = 0; i < lbs.size(); ++i) {
+    pack.pushIndexExprBound(lbs[i]);
+    pack.pushIndexExprBound(ubs[i]);
   }
   // Fill in this iterate op using the main build function.
   build(builder, result, pack, iterArgs, bodyBuilderFn);
