@@ -267,26 +267,13 @@ void generateIndexMap(
 
 //====---------------- Support for Krnl Builder ----------------------===//
 
-struct DialectBuilder {
-  DialectBuilder(OpBuilder &b, Location loc) : b(b), loc(loc) {}
-  DialectBuilder(ImplicitLocOpBuilder &lb) : b(lb), loc(lb.getLoc()) {}
-  DialectBuilder(DialectBuilder &db) : b(db.b), loc(db.loc) {}
-
-  OpBuilder &getBuilder() { return b; }
-  Location getLoc() { return loc; }
-
-protected:
-  OpBuilder &b;
-  Location loc;
-};
-
 struct KrnlBuilder: public DialectBuilder {
   KrnlBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   KrnlBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
   KrnlBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  Value load(Value memref, ValueRange indices);
-  void store(Value val, Value memref, ValueRange indices);
+  Value load(Value memref, ValueRange indices = {});
+  void store(Value val, Value memref, ValueRange indices = {});
   Value vectorTypeCast(Value sourceMemref, int64_t vectorLen);
 
   ValueRange defineLoops(int64_t originalLoopNum);
