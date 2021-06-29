@@ -168,30 +168,30 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
         rewriter.getNamedAttr("beta", activation.beta.getValue()));
   }
 
-  if (activation.name.equals_lower("relu"))
+  if (activation.name.equals_insensitive("relu"))
     res = rewriter.create<ONNXReluOp>(loc, scalarMemRefType, alloc);
-  else if (activation.name.equals_lower("tanh"))
+  else if (activation.name.equals_insensitive("tanh"))
     res = rewriter.create<ONNXTanhOp>(loc, scalarMemRefType, alloc);
-  else if (activation.name.equals_lower("sigmoid"))
+  else if (activation.name.equals_insensitive("sigmoid"))
     res = rewriter.create<ONNXSigmoidOp>(loc, scalarMemRefType, alloc);
-  else if (activation.name.equals_lower("affine"))
+  else if (activation.name.equals_insensitive("affine"))
     llvm_unreachable("Unsupported activation");
-  else if (activation.name.equals_lower("leakyrelu"))
+  else if (activation.name.equals_insensitive("leakyrelu"))
     res = rewriter.create<ONNXLeakyReluOp>(
         loc, scalarMemRefType, alloc, attributes);
-  else if (activation.name.equals_lower("thresholdedrelu"))
+  else if (activation.name.equals_insensitive("thresholdedrelu"))
     res = rewriter.create<ONNXThresholdedReluOp>(
         loc, scalarMemRefType, alloc, attributes);
-  else if (activation.name.equals_lower("scaledtanh"))
+  else if (activation.name.equals_insensitive("scaledtanh"))
     llvm_unreachable("Unsupported activation");
-  else if (activation.name.equals_lower("hardsigmoid"))
+  else if (activation.name.equals_insensitive("hardsigmoid"))
     res = rewriter.create<ONNXHardSigmoidOp>(
         loc, scalarMemRefType, alloc, attributes);
-  else if (activation.name.equals_lower("elu"))
+  else if (activation.name.equals_insensitive("elu"))
     res = rewriter.create<ONNXEluOp>(loc, scalarMemRefType, alloc, attributes);
-  else if (activation.name.equals_lower("softsign"))
+  else if (activation.name.equals_insensitive("softsign"))
     res = rewriter.create<ONNXSoftsignOp>(loc, scalarMemRefType, alloc);
-  else if (activation.name.equals_lower("softplus"))
+  else if (activation.name.equals_insensitive("softplus"))
     res = rewriter.create<ONNXSoftplusOp>(loc, scalarMemRefType, alloc);
   else
     llvm_unreachable("Unsupported activation");
