@@ -43,7 +43,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     ONNXConvOpAdaptor operandAdaptor(operands);
     ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 
-    rewriter.create<KrnlInstrumentOp>(loc, op);
+    rewriter.create<KrnlInstrumentOp>(loc, op, 1);
 
     // Read dilations attribute if the op has.
     std::vector<int64_t> dilations = getDilations(convOp);
@@ -183,7 +183,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Outer loop iterations.
     outerLoops.createIterateOp();
 
-    rewriter.create<KrnlInstrumentOp>(loc, op);
+    rewriter.create<KrnlInstrumentOp>(loc, op, 0);
 
     rewriter.setInsertionPointToStart(outerLoops.getIterateBlock());
     {

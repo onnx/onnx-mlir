@@ -385,9 +385,20 @@ void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
   state.addAttribute(KrnlEntryPointOp::getSignatureAttrName(), signature);
 }
 
-void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state, Operation *op) {
-	StringAttr attr = StringAttr::get(builder.getContext(), op->getName().getStringRef());
-	state.addAttribute("op_name", attr);
+void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state, Operation *op, int tag = 0) {
+	//StringAttr attr = StringAttr::get(builder.getContext(), op->getName().getStringRef());
+	IntegerAttr attr;
+	auto opName = op->getName().getStringRef();
+	if (opName == "onnx.Conv") {
+       	  attr = builder.getI64IntegerAttr(1);
+	} else if (opName == "onnx.Mul") {
+       	  attr = builder.getI64IntegerAttr(2);
+	} else {
+       	  attr = builder.getI64IntegerAttr(0);
+	}
+	auto tagAttr = builder.getI64IntegerAttr(tag);
+	state.addAttribute("opID", attr);
+	state.addAttribute("tag", tagAttr);
 }
 
 //===----------------------------------------------------------------------===//

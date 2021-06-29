@@ -966,7 +966,7 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
     May be used for gdb.
   }];
 
-  let arguments = (ins StrAttr:$op_name);
+  let arguments = (ins I64Attr:$opID, I64Attr:$tag);
 
-  let builders = [ OpBuilder<(ins "Operation *": $op)> ];
+  let builders = [ OpBuilder<(ins "Operation *": $op, "int ": $tag)> ];
 }
