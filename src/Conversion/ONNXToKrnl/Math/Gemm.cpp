@@ -104,9 +104,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       ONNXGemmOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
       Value alphaVal, Value betaVal, ConversionPatternRewriter &rewriter,
       Location loc) const {
-    // Scope for krnl EDSC ops
-    // using namespace mlir::edsc;
-    // using namespace mlir::edsc::intrinsics;
 
     // R is result (alloc).
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), R(alloc);
@@ -123,7 +120,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ValueRange zeroLoop = createKrnl.defineLoops(2);
     createKrnl.iterateIE(zeroLoop, zeroLoop, {zero, zero}, {I, J}, {},
         [&](KrnlBuilder &createKrnl, ValueRange args) {
-          // KrnlBuilder createKrnl(lb);
           ValueRange indices = createKrnl.getInductionVarValue(zeroLoop);
           createKrnl.store(zeroVal, R, indices);
         });
@@ -178,8 +174,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ValueRange origLoop = createKrnl.defineLoops(3);
     Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
     // Tile I.
-    // ValueRange iCacheBlock = krnl_block(ii, iCacheTile);
-    // ValueRange iRegBlock = krnl_block(iCacheBlock[1], iRegTile);
     ValueRange iCacheBlock = createKrnl.block(ii, iCacheTile);
     ValueRange iRegBlock = createKrnl.block(iCacheBlock[1], iRegTile);
     Value ii1(iCacheBlock[0]), ii2(iRegBlock[0]), ii3(iRegBlock[1]);
@@ -208,7 +202,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
             createKrnl.copyToBuffer(rBuff, R, {i1, j1}, zeroVal, false);
             createKrnl.iterateIE({kk}, {kk1}, {zero}, {K}, {},
                 [&](KrnlBuilder &createKrnl, ValueRange args) {
-                  // KrnlBuilder createKrnl(lb);
                   ValueRange k1_index = createKrnl.getInductionVarValue({kk1});
                   Value k1(k1_index[0]);
                   if (aTrans)
@@ -221,7 +214,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                     createKrnl.copyToBuffer(bBuff, B, {k1, j1}, zeroVal, false);
                   createKrnl.iterate({}, {jj2, ii2}, {}, {}, {},
                       [&](KrnlBuilder &createKrnl, ValueRange args) {
-                        // KrnlBuilder createKrnl(lb);
                         ValueRange j2_i2_indices =
                             createKrnl.getInductionVarValue({jj2, ii2});
                         Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
