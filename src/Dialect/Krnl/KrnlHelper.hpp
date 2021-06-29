@@ -273,7 +273,10 @@ struct KrnlBuilder : public DialectBuilder {
   KrnlBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
   Value load(Value memref, ValueRange indices = {});
+  Value loadIE(Value memref, ArrayRef<IndexExpr> indices);
   void store(Value val, Value memref, ValueRange indices = {});
+  void storeIE(Value val, Value memref, ArrayRef<IndexExpr> indices);
+
   Value vectorTypeCast(Value sourceMemref, int64_t vectorLen);
 
   ValueRange defineLoops(int64_t originalLoopNum);

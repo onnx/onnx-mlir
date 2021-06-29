@@ -395,8 +395,21 @@ Value KrnlBuilder::load(Value memref, ValueRange indices) {
   return b.create<KrnlLoadOp>(loc, memref, indices);
 }
 
+Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) {
+  SmallVector<Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  return b.create<KrnlLoadOp>(loc, memref, indexValues);
+}
+
 void KrnlBuilder::store(Value val, Value memref, ValueRange indices) {
   b.create<KrnlStoreOp>(loc, val, memref, indices);
+}
+
+void KrnlBuilder::storeIE(
+    Value val, Value memref, ArrayRef<IndexExpr> indices) {
+  SmallVector<Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  b.create<KrnlStoreOp>(loc, val, memref, indexValues);
 }
 
 Value KrnlBuilder::vectorTypeCast(Value sourceMemref, int64_t vectorLen) {

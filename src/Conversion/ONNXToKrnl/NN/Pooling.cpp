@@ -235,11 +235,9 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     // Kernel offset in the input shape.
     int kernelOffset = inputShape.size() - kernelShape.size();
 
-    // Scope for krnl EDSC ops
-    using namespace mlir::edsc;
-    ScopedContext scope(rewriter, loc);
-    // Scope for IndexExpr.
-    IndexExprScope ieScope(&rewriter, loc);
+    // Scope for krnl ops
+    IndexExprScope ieScope(rewriter, loc);
+    KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc;
@@ -356,8 +354,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // Create a local reduction value for output[n][c][ho][wo].
       Value reductionVal = rewriter.create<memref::AllocaOp>(
           loc, MemRefType::get({}, memRefType.getElementType()));
-      rewriter.create<KrnlStoreOp>(
-          loc, identity, reductionVal, ArrayRef<Value>{});
+      createKrnl.store(identity, reductionVal);
 
       // 2.2 Emit affine maps which express the lower and upper bounds for the
       // pooling window's dimensions.
@@ -479,18 +476,15 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         // Apply pooling operation.
         //      output[n][c][ho][wo] =
         //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
-        Value loadInput = krnl_load(inputOperand, inputIndices);
-        Value loadPartialOutput =
-            rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+        Value loadInput = createKrnl.loadIE(inputOperand, inputIndices);
+        Value loadPartialOutput = createKrnl.load(reductionVal);
         Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
             outputElementType, {loadPartialOutput, loadInput});
-        rewriter.create<KrnlStoreOp>(
-            loc, output, reductionVal, ArrayRef<Value>{});
+        createKrnl.store(output, reductionVal);
       }
       rewriter.restoreInsertionPoint(ipOuterLoopRegion);
-      Value output =
-          rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
-      krnl_store(output, alloc, outputIndices);
+      Value output = createKrnl.load(reductionVal);
+      createKrnl.storeIE(output, alloc, outputIndices);
 
       // 2.5 Post-processing for the pooling window, e.g. taking average.
       SmallVector<Value, 4> outputIndicesInValue;
