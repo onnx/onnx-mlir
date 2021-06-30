@@ -14,6 +14,9 @@
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 
+// TODO: change to MLIR file
+#include "src/Dialect/ONNX/TmpMlirUtils.hpp"
+
 #define TEST_FUSED_MATMUL false
 
 using namespace mlir;
@@ -489,7 +492,9 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
   // Ht = ot (.) h(Ct)
 
+  // TODO remove scope
   ScopedContext scope(rewriter, loc);
+  KrnlBuilder createKrnl(rewriter, loc);
 
   // Get Ht, Ct.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
@@ -503,7 +508,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   if (TEST_FUSED_MATMUL) {
     // For testing purpose, support only static dimensions.
     Type elementType = matrixType.getElementType();
-    Value zero = std_constant_index(0);
+    Value zero = rewriter.create<ConstantIndexOp>(loc, 0);
     Value zeroVal = emitConstantOp(rewriter, loc, elementType, 0);
     XtWi = memref_alloc(matrixType);
     XtWf = memref_alloc(matrixType);
@@ -532,89 +537,90 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
 
   // Do element-wise computations. Fuse them into a single nested loop.
   MemRefBoundsCapture bounds(Ht);
-  ValueRange loops = krnl_define_loop(bounds.rank());
-  krnl_iterate(
-      loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
-        ValueRange indices = krnl_get_induction_var_value(loops);
+  ValueRange loops = createKrnl.defineLoops(bounds.rank());
+  createKrnl.iterate(loops, loops, bounds.getLbs(), bounds.getUbs(), {},
+      [&](KrnlBuilder &createKrnl, ValueRange args) {
+        ArithBuilder createMath(createKrnl);
+        ValueRange indices = createKrnl.getInductionVarValue(loops);
         Value bs(indices[0]), hs(indices[1]);
-        Value CtVal = krnl_load(Ct, indices);
+        Value CtVal = createKrnl.load(Ct, indices);
         // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
-        Value XtWiVal = krnl_load(XtWi, indices);
-        Value HtRiVal = krnl_load(HtRi, indices);
-        Value it = std_addf(XtWiVal, HtRiVal);
+        Value XtWiVal = createKrnl.load(XtWi, indices);
+        Value HtRiVal = createKrnl.load(HtRi, indices);
+        Value it = createMath.add(XtWiVal, HtRiVal);
         if (biasPack.hasBias) {
-          Value WbiVal = krnl_load(biasPack.Wbi, {hs});
-          Value RbiVal = krnl_load(biasPack.Rbi, {hs});
-          it = std_addf(it, WbiVal);
-          it = std_addf(it, RbiVal);
+          Value WbiVal = createKrnl.load(biasPack.Wbi, {hs});
+          Value RbiVal = createKrnl.load(biasPack.Rbi, {hs});
+          it = createMath.add(it, WbiVal);
+          it = createMath.add(it, RbiVal);
         }
         if (biasPack.hasPeephole) {
-          Value PiVal = krnl_load(biasPack.Pi, {hs});
-          Value PiCt = std_mulf(PiVal, CtVal);
-          it = std_addf(it, PiCt);
+          Value PiVal = createKrnl.load(biasPack.Pi, {hs});
+          Value PiCt = createMath.mul(PiVal, CtVal);
+          it = createMath.add(it, PiCt);
         }
-        it = applyActivation(rewriter, loc, activationPack.f, it);
+        it = applyActivation(createKrnl.getBuilder(), loc, activationPack.f, it);
 
         // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
-        Value XtWfVal = krnl_load(XtWf, indices);
-        Value HtRfVal = krnl_load(HtRf, indices);
-        Value ft = std_addf(XtWfVal, HtRfVal);
+        Value XtWfVal = createKrnl.load(XtWf, indices);
+        Value HtRfVal = createKrnl.load(HtRf, indices);
+        Value ft = createMath.add(XtWfVal, HtRfVal);
         if (biasPack.hasBias) {
-          Value WbfVal = krnl_load(biasPack.Wbf, {hs});
-          Value RbfVal = krnl_load(biasPack.Rbf, {hs});
-          ft = std_addf(ft, WbfVal);
-          ft = std_addf(ft, RbfVal);
+          Value WbfVal = createKrnl.load(biasPack.Wbf, {hs});
+          Value RbfVal = createKrnl.load(biasPack.Rbf, {hs});
+          ft = createMath.add(ft, WbfVal);
+          ft = createMath.add(ft, RbfVal);
         }
         if (biasPack.hasPeephole) {
-          Value PfVal = krnl_load(biasPack.Pf, {hs});
-          Value PfCt = std_mulf(PfVal, CtVal);
-          ft = std_addf(ft, PfCt);
+          Value PfVal = createKrnl.load(biasPack.Pf, {hs});
+          Value PfCt = createMath.mul(PfVal, CtVal);
+          ft = createMath.add(ft, PfCt);
         }
-        ft = applyActivation(rewriter, loc, activationPack.f, ft);
+        ft = applyActivation(createKrnl.getBuilder(), loc, activationPack.f, ft);
 
         // ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
-        Value XtWcVal = krnl_load(XtWc, indices);
-        Value HtRcVal = krnl_load(HtRc, indices);
-        Value ct = std_addf(XtWcVal, HtRcVal);
+        Value XtWcVal = createKrnl.load(XtWc, indices);
+        Value HtRcVal = createKrnl.load(HtRc, indices);
+        Value ct = createMath.add(XtWcVal, HtRcVal);
         if (biasPack.hasBias) {
-          Value WbcVal = krnl_load(biasPack.Wbc, {hs});
-          Value RbcVal = krnl_load(biasPack.Rbc, {hs});
-          ct = std_addf(ct, WbcVal);
-          ct = std_addf(ct, RbcVal);
+          Value WbcVal = createKrnl.load(biasPack.Wbc, {hs});
+          Value RbcVal = createKrnl.load(biasPack.Rbc, {hs});
+          ct = createMath.add(ct, WbcVal);
+          ct = createMath.add(ct, RbcVal);
         }
-        ct = applyActivation(rewriter, loc, activationPack.g, ct);
+        ct = applyActivation(createKrnl.getBuilder(), loc, activationPack.g, ct);
 
         // Ct = ft (.) Ct-1 + it (.) ct
-        Value ftCt = std_mulf(ft, CtVal);
-        Value itct = std_mulf(it, ct);
-        Value nextCt = std_addf(ftCt, itct);
+        Value ftCt = createMath.mul(ft, CtVal);
+        Value itct = createMath.mul(it, ct);
+        Value nextCt = createMath.add(ftCt, itct);
 
         // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
-        Value XtWoVal = krnl_load(XtWo, indices);
-        Value HtRoVal = krnl_load(HtRo, indices);
-        Value ot = std_addf(XtWoVal, HtRoVal);
+        Value XtWoVal = createKrnl.load(XtWo, indices);
+        Value HtRoVal = createKrnl.load(HtRo, indices);
+        Value ot = createMath.add(XtWoVal, HtRoVal);
         if (biasPack.hasBias) {
-          Value WboVal = krnl_load(biasPack.Wbo, {hs});
-          Value RboVal = krnl_load(biasPack.Rbo, {hs});
-          ot = std_addf(ot, WboVal);
-          ot = std_addf(ot, RboVal);
+          Value WboVal = createKrnl.load(biasPack.Wbo, {hs});
+          Value RboVal = createKrnl.load(biasPack.Rbo, {hs});
+          ot = createMath.add(ot, WboVal);
+          ot = createMath.add(ot, RboVal);
         }
         if (biasPack.hasPeephole) {
-          Value PoVal = krnl_load(biasPack.Po, {hs});
-          Value PoCt = std_mulf(PoVal, nextCt);
-          ot = std_addf(ot, PoCt);
+          Value PoVal = createKrnl.load(biasPack.Po, {hs});
+          Value PoCt = createMath.mul(PoVal, nextCt);
+          ot = createMath.add(ot, PoCt);
         }
-        ot = applyActivation(rewriter, loc, activationPack.f, ot);
+        ot = applyActivation(createKrnl.getBuilder(), loc, activationPack.f, ot);
 
         // Ht = ot (.) h(Ct)
-        Value nextHt = applyActivation(rewriter, loc, activationPack.h, nextCt);
-        nextHt = std_mulf(ot, nextHt);
+        Value nextHt = applyActivation(createKrnl.getBuilder(), loc, activationPack.h, nextCt);
+        nextHt = createMath.mul(ot, nextHt);
 
         // Store the intermediate Ht, Ct.
-        krnl_store(nextCt, Ct, indices);
-        krnl_store(nextHt, Ht, indices);
+        createKrnl.store(nextCt, Ct, indices);
+        createKrnl.store(nextHt, Ht, indices);
         if (!isNoneType(state.allH))
-          krnl_store(nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
+          createKrnl.store(nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
       });
 
   if (TEST_FUSED_MATMUL) {

@@ -13,6 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+
+// TODO: change to MLIR file
 #include "src/Dialect/ONNX/TmpMlirUtils.hpp"
 
 using namespace mlir;
@@ -435,7 +437,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
             zt = createMath.add(zt, WbzVal);
             zt = createMath.add(zt, RbzVal);
           }
-          zt = applyActivation(createKrnl.getBuilder(), loc, activationPack.f, zt);
+          zt = applyActivation(
+              createKrnl.getBuilder(), loc, activationPack.f, zt);
           // rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)"
           Value XtWrVal = createKrnl.load(XtWr, indices);
           Value HtRrVal = createKrnl.load(HtRr, indices);
@@ -446,7 +449,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
             rt = createMath.add(rt, WbrVal);
             rt = createMath.add(rt, RbrVal);
           }
-          rt = applyActivation(createKrnl.getBuilder(), loc, activationPack.f, rt);
+          rt = applyActivation(
+              createKrnl.getBuilder(), loc, activationPack.f, rt);
           // ht = g(Xt*(Wh^T) + (rt (.) (Ht-1*(Rh^T) + Rbh)) + Wbh)
           Value XtWhVal = createKrnl.load(XtWh, indices);
           Value HtRhVal = createKrnl.load(HtRh, indices);
@@ -454,13 +458,14 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
             Value RbhVal = createKrnl.load(biasPack.Rbh, {hs});
             HtRhVal = createMath.add(HtRhVal, RbhVal);
           }
-          Value rtHtRhVal = std_mulf(rt, HtRhVal);
+          Value rtHtRhVal = createMath.mul(rt, HtRhVal);
           Value ht = createMath.add(XtWhVal, rtHtRhVal);
           if (biasPack.hasBias) {
             Value WbhVal = createKrnl.load(biasPack.Wbh, {hs});
             ht = createMath.add(ht, WbhVal);
           }
-          ht = applyActivation(createKrnl.getBuilder(), loc, activationPack.g, ht);
+          ht = applyActivation(
+              createKrnl.getBuilder(), loc, activationPack.g, ht);
           // Ht = (1 - zt) (.) ht + zt (.) Ht-1
           // Value oneMinusZt = std_subf(one, zt);
           Value oneMinusZt = createMath.sub(one, zt);
@@ -525,44 +530,46 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     Value rtHtRh = onnx_matmul(matrixType, rtHt, weightPack.Rh);
 
     // Do element-wise computations. Fuse them into a single nested loop.
-    ValueRange loops2 = krnl_define_loop(bounds.rank());
-    krnl_iterate(
-        loops2, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
-          ValueRange indices = krnl_get_induction_var_value(loops2);
+    ValueRange loops2 = createKrnl.defineLoops(bounds.rank());
+    createKrnl.iterate(loops2, loops2, bounds.getLbs(), bounds.getUbs(), {},
+        [&](KrnlBuilder &createKrnl, ValueRange args) {
+          ArithBuilder createMath(createKrnl);
+          ValueRange indices = createKrnl.getInductionVarValue(loops2);
           Value bs(indices[0]), hs(indices[1]);
-          Value HtVal = krnl_load(Ht, indices);
+          Value HtVal = createKrnl.load(Ht, indices);
           // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)
-          Value XtWzVal = krnl_load(XtWz, indices);
-          Value HtRzVal = krnl_load(HtRz, indices);
-          Value zt = std_addf(XtWzVal, HtRzVal);
+          Value XtWzVal = createKrnl.load(XtWz, indices);
+          Value HtRzVal = createKrnl.load(HtRz, indices);
+          Value zt = createMath.add(XtWzVal, HtRzVal);
           if (biasPack.hasBias) {
-            Value WbzVal = krnl_load(biasPack.Wbz, {hs});
-            Value RbzVal = krnl_load(biasPack.Rbz, {hs});
-            zt = std_addf(zt, WbzVal);
-            zt = std_addf(zt, RbzVal);
+            Value WbzVal = createKrnl.load(biasPack.Wbz, {hs});
+            Value RbzVal = createKrnl.load(biasPack.Rbz, {hs});
+            zt = createMath.add(zt, WbzVal);
+            zt = createMath.add(zt, RbzVal);
           }
-          zt = applyActivation(rewriter, loc, activationPack.f, zt);
+          zt = applyActivation(createKrnl.getBuilder(), loc, activationPack.f, zt);
           // ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh)
-          Value XtWhVal = krnl_load(XtWh, indices);
-          Value rtHtRhVal = krnl_load(rtHtRh, indices);
-          Value ht = std_addf(XtWhVal, rtHtRhVal);
+          Value XtWhVal = createKrnl.load(XtWh, indices);
+          Value rtHtRhVal = createKrnl.load(rtHtRh, indices);
+          Value ht = createMath.add(XtWhVal, rtHtRhVal);
           if (biasPack.hasBias) {
-            Value WbhVal = krnl_load(biasPack.Wbh, {hs});
-            Value RbhVal = krnl_load(biasPack.Rbh, {hs});
-            ht = std_addf(ht, WbhVal);
-            ht = std_addf(ht, RbhVal);
+            Value WbhVal = createKrnl.load(biasPack.Wbh, {hs});
+            Value RbhVal = createKrnl.load(biasPack.Rbh, {hs});
+            ht = createMath.add(ht, WbhVal);
+            ht = createMath.add(ht, RbhVal);
           }
-          ht = applyActivation(rewriter, loc, activationPack.g, ht);
+          ht = applyActivation(createKrnl.getBuilder(), loc, activationPack.g, ht);
           // Ht = (1 - zt) (.) ht + zt (.) Ht-1
-          Value oneMinusZt = std_subf(one, zt);
-          Value ztht = std_mulf(oneMinusZt, ht);
-          Value ztHt = std_mulf(zt, HtVal);
-          Value nextHt = std_addf(ztht, ztHt);
+          // Value oneMinusZt = std_subf(one, zt);
+          Value oneMinusZt = createMath.sub(one, zt);
+          Value ztht = createMath.mul(oneMinusZt, ht);
+          Value ztHt = createMath.mul(zt, HtVal);
+          Value nextHt = createMath.add(ztht, ztHt);
 
           // Store the intermediate Ht.
-          krnl_store(nextHt, Ht, indices);
+          createKrnl.store(nextHt, Ht, indices);
           if (!isNoneType(state.allH))
-            krnl_store(nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
+            createKrnl.store(nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
         });
 
     // Clean up
