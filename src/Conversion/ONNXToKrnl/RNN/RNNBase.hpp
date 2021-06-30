@@ -68,7 +68,7 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     Value output);
 
 /// Apply an activation function on a given operand.
-Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
+Value applyActivation(OpBuilder &rewriter, Location loc,
     RNNActivation activation, Value operand);
 
 /// Get a slice of X at a specific timestep.

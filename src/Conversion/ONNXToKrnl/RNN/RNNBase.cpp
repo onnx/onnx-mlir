@@ -281,7 +281,7 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
 }
 
 // Apply an activation function on a given scalar operand.
-Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
+Value applyActivation(OpBuilder &rewriter, Location loc,
     RNNActivation activation, Value operand) {
   Value res;
 
