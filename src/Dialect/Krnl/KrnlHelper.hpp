@@ -294,6 +294,7 @@ struct KrnlBuilder : public DialectBuilder {
       function_ref<void(KrnlBuilder &createKrnl, ValueRange args)>
           bodyBuilderFn);
 
+  void memcpy(Value dest, Value src, Value size);
   void copyToBuffer(
       // Buffer and source memory. Source memref may have a higher rank than
       // buffer.

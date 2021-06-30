@@ -454,6 +454,10 @@ void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
       });
 }
 
+void KrnlBuilder::memcpy(Value dest, Value src, Value size) {
+  b.create<KrnlMemcpyOp>(loc, dest, src, size);
+}
+
 void KrnlBuilder::copyToBuffer(Value bufferMemref, Value sourceMemref,
     ValueRange starts, Value padValue, ArrayRef<int64_t> tileSize,
     ArrayRef<int64_t> padToNext, bool transpose) {

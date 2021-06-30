@@ -547,7 +547,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
             zt = createMath.add(zt, WbzVal);
             zt = createMath.add(zt, RbzVal);
           }
-          zt = applyActivation(createKrnl.getBuilder(), loc, activationPack.f, zt);
+          zt = applyActivation(
+              createKrnl.getBuilder(), loc, activationPack.f, zt);
           // ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh)
           Value XtWhVal = createKrnl.load(XtWh, indices);
           Value rtHtRhVal = createKrnl.load(rtHtRh, indices);
@@ -558,7 +559,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
             ht = createMath.add(ht, WbhVal);
             ht = createMath.add(ht, RbhVal);
           }
-          ht = applyActivation(createKrnl.getBuilder(), loc, activationPack.g, ht);
+          ht = applyActivation(
+              createKrnl.getBuilder(), loc, activationPack.g, ht);
           // Ht = (1 - zt) (.) ht + zt (.) Ht-1
           // Value oneMinusZt = std_subf(one, zt);
           Value oneMinusZt = createMath.sub(one, zt);
@@ -569,7 +571,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
           // Store the intermediate Ht.
           createKrnl.store(nextHt, Ht, indices);
           if (!isNoneType(state.allH))
-            createKrnl.store(nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
+            createKrnl.store(
+                nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
         });
 
     // Clean up

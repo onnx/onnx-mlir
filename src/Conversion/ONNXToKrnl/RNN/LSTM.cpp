@@ -559,7 +559,8 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
           Value PiCt = createMath.mul(PiVal, CtVal);
           it = createMath.add(it, PiCt);
         }
-        it = applyActivation(createKrnl.getBuilder(), loc, activationPack.f, it);
+        it =
+            applyActivation(createKrnl.getBuilder(), loc, activationPack.f, it);
 
         // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
         Value XtWfVal = createKrnl.load(XtWf, indices);
@@ -576,7 +577,8 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
           Value PfCt = createMath.mul(PfVal, CtVal);
           ft = createMath.add(ft, PfCt);
         }
-        ft = applyActivation(createKrnl.getBuilder(), loc, activationPack.f, ft);
+        ft =
+            applyActivation(createKrnl.getBuilder(), loc, activationPack.f, ft);
 
         // ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
         Value XtWcVal = createKrnl.load(XtWc, indices);
@@ -588,7 +590,8 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
           ct = createMath.add(ct, WbcVal);
           ct = createMath.add(ct, RbcVal);
         }
-        ct = applyActivation(createKrnl.getBuilder(), loc, activationPack.g, ct);
+        ct =
+            applyActivation(createKrnl.getBuilder(), loc, activationPack.g, ct);
 
         // Ct = ft (.) Ct-1 + it (.) ct
         Value ftCt = createMath.mul(ft, CtVal);
@@ -610,17 +613,20 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
           Value PoCt = createMath.mul(PoVal, nextCt);
           ot = createMath.add(ot, PoCt);
         }
-        ot = applyActivation(createKrnl.getBuilder(), loc, activationPack.f, ot);
+        ot =
+            applyActivation(createKrnl.getBuilder(), loc, activationPack.f, ot);
 
         // Ht = ot (.) h(Ct)
-        Value nextHt = applyActivation(createKrnl.getBuilder(), loc, activationPack.h, nextCt);
+        Value nextHt = applyActivation(
+            createKrnl.getBuilder(), loc, activationPack.h, nextCt);
         nextHt = createMath.mul(ot, nextHt);
 
         // Store the intermediate Ht, Ct.
         createKrnl.store(nextCt, Ct, indices);
         createKrnl.store(nextHt, Ht, indices);
         if (!isNoneType(state.allH))
-          createKrnl.store(nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
+          createKrnl.store(
+              nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
       });
 
   if (TEST_FUSED_MATMUL) {
