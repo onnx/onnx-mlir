@@ -23,8 +23,22 @@
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
-//====---------------- EDSC Support with Value ---------------------------===//
 namespace mlir {
+
+struct OnnxBuilder : DialectBuilder {
+  OnnxBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  OnnxBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
+  OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+
+  Value add(Value A, Value B);
+  Value sub(Value A, Value B);
+  Value mul(Value A, Value B);
+  Value div(Value A, Value B);
+  Value matmul(Value A, Value B)
+};
+
+//====---------------- EDSC Support with Value ---------------------------===//
+
 using onnx_add = mlir::edsc::ValueBuilder<ONNXAddOp>;
 using onnx_sub = mlir::edsc::ValueBuilder<ONNXSubOp>;
 using onnx_mul = mlir::edsc::ValueBuilder<ONNXMulOp>;
