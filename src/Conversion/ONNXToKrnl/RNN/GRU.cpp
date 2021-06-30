@@ -394,6 +394,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
   // TODO: remove once all EDSC is gone
   ScopedContext scope(rewriter, loc);
   KrnlBuilder createKrnl(rewriter, loc);
+  OnnxBuilder createONNX(rewriter, loc);
+
   // Get Ht.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
 
@@ -402,11 +404,11 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
   Type elementType = matrixType.getElementType();
 
   // Common matrix multiplications.
-  Value XtWz = onnx_matmul(matrixType, Xt, weightPack.Wz);
-  Value HtRz = onnx_matmul(matrixType, Ht, weightPack.Rz);
-  Value XtWr = onnx_matmul(matrixType, Xt, weightPack.Wr);
-  Value HtRr = onnx_matmul(matrixType, Ht, weightPack.Rr);
-  Value XtWh = onnx_matmul(matrixType, Xt, weightPack.Wh);
+  Value XtWz = createONNX.matmul(matrixType, Xt, weightPack.Wz);
+  Value HtRz = createONNX.matmul(matrixType, Ht, weightPack.Rz);
+  Value XtWr = createONNX.matmul(matrixType, Xt, weightPack.Wr);
+  Value HtRr = createONNX.matmul(matrixType, Ht, weightPack.Rr);
+  Value XtWh = createONNX.matmul(matrixType, Xt, weightPack.Wh);
   Value one = emitConstantOp(rewriter, loc, elementType, 1);
 
   if (state.linearBeforeReset) {
@@ -416,7 +418,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     // Ht = (1 - zt) (.) ht + zt (.) Ht-1"
     // In this case, we can do all matrix multiplications first, then fuse all
     // element-wise computations into a single nested loop.
-    Value HtRh = onnx_matmul(matrixType, Ht, weightPack.Rh);
+    Value HtRh = createONNX.matmul(matrixType, Ht, weightPack.Rh);
 
     // Do element-wise computations. Fuse them into a single nested loop.
     MemRefBoundsCapture bounds(Ht);
@@ -527,7 +529,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
         });
 
     // Emit (rt (.) Ht-1)*(Rh^T)
-    Value rtHtRh = onnx_matmul(matrixType, rtHt, weightPack.Rh);
+    Value rtHtRh = createONNX.matmul(matrixType, rtHt, weightPack.Rh);
 
     // Do element-wise computations. Fuse them into a single nested loop.
     ValueRange loops2 = createKrnl.defineLoops(bounds.rank());
