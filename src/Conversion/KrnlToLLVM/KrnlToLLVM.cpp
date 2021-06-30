@@ -469,7 +469,7 @@ public:
       localValue =
           rewriter.create<LLVM::BitcastOp>(loc, globalPtrType, i8PtrLocal);
 
-      // Compute alignedPtr.
+      // Compute the aligned pointer.
       Type intPtrType = getIntPtrType(memRefTy.getMemorySpaceAsInt());
       Value intPtrLocal =
           rewriter.create<LLVM::PtrToIntOp>(loc, intPtrType, localValue);
@@ -477,7 +477,7 @@ public:
       alignedLocalValue =
           rewriter.create<LLVM::IntToPtrOp>(loc, globalPtrType, intAlignment);
 
-      // Copy constant value into the local aligned buffer:
+      // Copy constant values into the local aligned buffer:
       //  - Bitcast alignedPtr to i8*
       Value i8AlignedPtrLocal =
           rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, alignedLocalValue);
@@ -488,7 +488,7 @@ public:
       Value isVolatile =
           rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 1),
               rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
-      //  - Copy constant data into the local buffer.
+      //  - Call memcpy.
       FlatSymbolRefAttr memcpyRef = getOrInsertMemcpy(rewriter, module);
       rewriter.create<CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
           ArrayRef<Value>(

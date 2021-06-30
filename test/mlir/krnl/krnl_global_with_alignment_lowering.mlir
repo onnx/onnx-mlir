@@ -28,7 +28,7 @@ func @test_krnl_global_constant_alignment() -> memref<3xf32> {
 // CHECK:           %[[ALIGNED:.*]] = llvm.sub %[[BUMPED]], %[[REM]]  : i64
 // CHECK:           %[[ALIGNED_PTR_LOCAL:.*]] = llvm.inttoptr %[[ALIGNED]] : i64 to !llvm.ptr<f32>
 
-// COM: Compute constant values to the aligned buffer.
+// COM: Copy constant values to the aligned buffer.
 // CHECK:           %[[I8_ALIGNED_PTR_LOCAL:.*]] = llvm.bitcast %[[ALIGNED_PTR_LOCAL]] : !llvm.ptr<f32> to !llvm.ptr<i8>
 // CHECK:           %[[I8_ALIGNED_PTR_GLOBAL:.*]] = llvm.bitcast %[[GLOBAL_VALUE]] : !llvm.ptr<array<3 x f32>> to !llvm.ptr<i8>
 // CHECK:           %[[VOLATILE:.*]] = llvm.mlir.constant(false) : i1
@@ -45,7 +45,7 @@ func @test_krnl_global_constant_alignment() -> memref<3xf32> {
 // CHECK:           %[[CONSTANT_1:.*]] = llvm.mlir.constant(1 : index) : i64
 // CHECK:           %[[MEMREF_5:.*]] = llvm.insertvalue %[[CONSTANT_1]], %[[MEMREF_4]][4, 0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
 
-// COM: Update the MemRef with a new aligned pointer.
+// COM: Update the MemRef with the new aligned pointer.
 // CHECK:           %[[RES:.*]] = llvm.insertvalue %[[ALIGNED_PTR_LOCAL]], %[[MEMREF_5]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK:           %[[DEALLOCATION:.*]] = llvm.call @free(%[[I8_PTR_LOCAL]]) : (!llvm.ptr<i8>) -> !llvm.void
 // CHECK:           llvm.return %[[RES]] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
