@@ -61,7 +61,7 @@ extern "C" {
 #endif
 
 	void InstrumentInit();
-	void InstrumentEntryPoint(int64_t id);
+	void InstrumentEntryPoint(int64_t id, int64_t tag);
 
 /**
  * \brief Create a OMTensor with specified data pointer, shape, rank and element

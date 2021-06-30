@@ -125,10 +125,9 @@ static FlatSymbolRefAttr getOrInsertInstrument(
   auto llvmI64Ty = IntegerType::get(context, 64);
   //auto llvmI1Ty = IntegerType::get(context, 1);
   auto llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy,
-      ArrayRef<mlir::Type>({llvmI64Ty}),
+      ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}),
       false);
 
-  // Insert the memcpy function into the body of the parent module.
   PatternRewriter::InsertionGuard insertGuard(rewriter);
   rewriter.setInsertionPointToStart(module.getBody());
   rewriter.create<LLVM::LLVMFuncOp>(
@@ -543,18 +542,20 @@ public:
     auto llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
     auto llvmI64Ty = IntegerType::get(context, 64);
     auto llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy,
-      ArrayRef<mlir::Type>({llvmI8PtrTy}),
+      ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}),
       false);
 
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 
     Value nodeName = rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
-            rewriter.getIntegerAttr(rewriter.getIntegerType(64), 0));
+            rewriter.getIntegerAttr(rewriter.getIntegerType(64), instrumentOp.opID()));
+    Value tag = rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
+            rewriter.getIntegerAttr(rewriter.getIntegerType(64), instrumentOp.tag()));
     //StringRef txt = instrumentOp->op_name();
     //Value nodeName = rewriter.create<LLVM::ConstantOp>(loc, llvmI8PtrTy, instrumentOp->op_name());
 
     rewriter.create<CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
-        ArrayRef<Value>({nodeName}));
+        ArrayRef<Value>({nodeName, tag}));
 
     rewriter.eraseOp(op);
     return success();

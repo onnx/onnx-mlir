@@ -394,7 +394,7 @@ void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state, Op
 	} else if (opName == "onnx.Mul") {
        	  attr = builder.getI64IntegerAttr(2);
 	} else {
-       	  attr = builder.getI64IntegerAttr(0);
+       	  attr = builder.getI64IntegerAttr(100);
 	}
 	auto tagAttr = builder.getI64IntegerAttr(tag);
 	state.addAttribute("opID", attr);
