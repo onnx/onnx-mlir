@@ -3322,7 +3322,8 @@ LogicalResult ONNXCeilOp::inferShapes() {
 }
 
 LogicalResult ONNXClipOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(getOperand(0).getType());
+  return success();
 }
 
 LogicalResult ONNXCompressOp::inferShapes() {

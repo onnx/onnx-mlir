@@ -251,6 +251,7 @@ OpsWithShapeInference=[
     'Atan',
     'AveragePool',
     'Cast',
+    'Clip',
     'Concat',
     'Constant',
     'ConstantOfShape',
