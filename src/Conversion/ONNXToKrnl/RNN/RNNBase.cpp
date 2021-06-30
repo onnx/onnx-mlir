@@ -484,8 +484,8 @@ void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
           Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
           for (unsigned int n = 0; n < cBuffs.size(); ++n)
             createKrnl.copyToBuffer(cBuffs[n], Cs[n], {i1, j1}, zeroVal, false);
-          createKrnl.iterate(
-              {kk}, {kk1}, {zero}, {K}, {}, [&](KrnlBuilder &createKrnl, ValueRange args) {
+          createKrnl.iterate({kk}, {kk1}, {zero}, {K}, {},
+              [&](KrnlBuilder &createKrnl, ValueRange args) {
                 ValueRange k1_index = createKrnl.getInductionVarValue({kk1});
                 Value k1(k1_index[0]);
                 createKrnl.copyToBuffer(aBuff, A, {i1, k1}, zeroVal, false);
@@ -536,8 +536,8 @@ void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
                           createKrnl.getInductionVarValue({jj2, ii2});
                       Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
                       for (unsigned int n = 0; n < bBuffs.size(); ++n)
-                        createKrnl.matmul(aBuff, {i1, k1}, bBuffs[n], {k1, j1}, Cs[n],
-                            {zero, zero},
+                        createKrnl.matmul(aBuff, {i1, k1}, bBuffs[n], {k1, j1},
+                            Cs[n], {zero, zero},
                             /*loops*/ {ii3, jj3, kk2},
                             /*compute start*/ {i2, j2, k1},
                             /*ubs*/ {I, J, K},
