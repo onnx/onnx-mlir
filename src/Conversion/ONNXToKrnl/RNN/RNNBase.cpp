@@ -30,7 +30,9 @@ int64_t dimAt(Value val, int index) {
 /// Shape :: [seq_length, num_directions, batch_size, hidden_size]
 Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value W, Value R, Value output, bool insertDealloc) {
+  // TODO remove
   ScopedContext scope(rewriter, loc);
+  ImplicitLocOpBuilder lb(loc, rewriter);
   Value alloc;
   if (!isNoneType(output)) {
     auto memRefType = convertToMemRefType(output.getType());
@@ -59,7 +61,7 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
         auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
         allocOperands.emplace_back(dim);
       }
-      alloc = memref_alloc(memRefType, allocOperands);
+      alloc = lb.create<memref::AllocOp>(memRefType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
         auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
@@ -77,6 +79,7 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
 Value allocIntermediateState(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value R) {
   ScopedContext scope(rewriter, loc);
+  ImplicitLocOpBuilder lb(loc, rewriter);
   // The hidden or cell is not a return value but a temporary value, so always
   // dealloc it.
   bool insertDealloc = true;
@@ -101,7 +104,7 @@ Value allocIntermediateState(
       auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
       allocOperands.emplace_back(dim);
     }
-    alloc = memref_alloc(memRefType, allocOperands);
+    alloc = lb.create<memref::AllocOp>(memRefType, allocOperands);
     if (insertDealloc) {
       auto *parentBlock = alloc.getDefiningOp()->getBlock();
       auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
@@ -189,6 +192,8 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
     Value X, Value W, Value R, Value output, bool insertDealloc) {
   ScopedContext scope(rewriter, loc);
+  ImplicitLocOpBuilder lb(loc, rewriter);
+
   Value alloc;
   if (!isNoneType(output)) {
     MemRefType memRefType = convertToMemRefType(output.getType());
@@ -212,7 +217,7 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
         auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
         allocOperands.emplace_back(dim);
       }
-      alloc = memref_alloc(memRefType, allocOperands);
+      alloc = lb.create<memref::AllocOp>(memRefType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
         auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
@@ -346,6 +351,7 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value timestepIV) {
   // TODO remove
   ScopedContext scope(rewriter, loc);
+  ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(rewriter, loc);
   Value sliceX;
 
@@ -371,7 +377,7 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
           getDimOrConstant(rewriter, loc, X, 2, rewriter.getIndexType());
       allocOperands.emplace_back(inputSizeVal);
     }
-    sliceX = memref_alloc(sliceXType, allocOperands);
+    sliceX = lb.create<memref::AllocOp>(sliceXType, allocOperands);
   }
 
   // Copy data from X.
@@ -393,6 +399,7 @@ void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
     Value zeroVal, ArrayRef<Value> Cs) {
   // TODO remove
   ScopedContext scope(rewriter, loc);
+  ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(rewriter, loc);
 
   Type elementType = matrixType.getElementType();
@@ -439,16 +446,16 @@ void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
   MemRefType cTileType = MemRefType::get({iCacheTile, jCacheTile}, elementType);
   IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
   ValueRange empty;
-  Value aBuff = memref_alloc(aTileType, empty, alignAttr);
+  Value aBuff = lb.create<memref::AllocOp>(aTileType, empty, alignAttr);
   SmallVector<Value, 4> bBuffs;
   for (unsigned int i = 0; i < Bs.size(); ++i) {
-    Value bBuff = memref_alloc(bTileType, empty, alignAttr);
+    Value bBuff = lb.create<memref::AllocOp>(bTileType, empty, alignAttr);
     bBuffs.emplace_back(bBuff);
   }
   SmallVector<Value, 4> cBuffs;
   if (mustTileR) {
     for (unsigned int i = 0; i < Cs.size(); ++i) {
-      Value cBuff = memref_alloc(cTileType, empty, alignAttr);
+      Value cBuff = lb.create<memref::AllocOp>(cTileType, empty, alignAttr);
       cBuffs.emplace_back(cBuff);
     }
   }

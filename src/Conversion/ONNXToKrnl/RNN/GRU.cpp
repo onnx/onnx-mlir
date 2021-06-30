@@ -393,8 +393,9 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
 
   // TODO: remove once all EDSC is gone
   ScopedContext scope(rewriter, loc);
-  KrnlBuilder createKrnl(rewriter, loc);
-  OnnxBuilder createONNX(rewriter, loc);
+  ImplicitLocOpBuilder lb(loc, rewriter);
+  KrnlBuilder createKrnl(lb);
+  OnnxBuilder createONNX(lb);
 
   // Get Ht.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
@@ -469,7 +470,6 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
           ht = applyActivation(
               createKrnl.getBuilder(), loc, activationPack.g, ht);
           // Ht = (1 - zt) (.) ht + zt (.) Ht-1
-          // Value oneMinusZt = std_subf(one, zt);
           Value oneMinusZt = createMath.sub(one, zt);
           Value ztht = createMath.mul(oneMinusZt, ht);
           Value ztHt = createMath.mul(zt, HtVal);
@@ -497,8 +497,10 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
       // matrixType's shape is of [BatchSize, HiddenSize].
       // HiddenSize is always static. Thus, only BatchSize is dynamic.
       Value batchSize = rewriter.create<memref::DimOp>(loc, Ht, 0).getResult();
-      rt = memref_alloc(matrixType, llvm::makeArrayRef({batchSize}));
-      rtHt = memref_alloc(matrixType, llvm::makeArrayRef({batchSize}));
+      rt = lb.create<memref::AllocOp>(
+          matrixType, llvm::makeArrayRef({batchSize}));
+      rtHt = lb.create<memref::AllocOp>(
+          matrixType, llvm::makeArrayRef({batchSize}));
     }
 
     // Emit rt and (rt (.) Ht-1).
@@ -564,7 +566,6 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
           ht = applyActivation(
               createKrnl.getBuilder(), loc, activationPack.g, ht);
           // Ht = (1 - zt) (.) ht + zt (.) Ht-1
-          // Value oneMinusZt = std_subf(one, zt);
           Value oneMinusZt = createMath.sub(one, zt);
           Value ztht = createMath.mul(oneMinusZt, ht);
           Value ztHt = createMath.mul(zt, HtVal);
