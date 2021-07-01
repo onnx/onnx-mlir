@@ -143,7 +143,7 @@ class HasRankOf<int rank> :
 //   b_ = B + scale * (b - mean) / sqrt(var + eps)
 //
 // Hence, we rewrite: 
-//   onnx.BatchNormalizationTestMode(
+//   onnx.BatchNormalizationInferenceMode(
 //       onnx.Conv(x, w, b),
 //       scale, B, mean, var
 //   ) {eps = ...}
@@ -157,8 +157,8 @@ class HasRankOf<int rank> :
 //
 //===----------------------------------------------------------------------===//
 
-def FuseBatchNormTestModeConvPattern: Pat<
-  (ONNXBatchNormalizationTestModeOp:$res
+def FuseBatchNormInferenceModeConvPattern: Pat<
+  (ONNXBatchNormalizationInferenceModeOp:$res
     (ONNXConvOp $x, $w, $b,
                 $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
     $scale, $B, $mean, $var, $epsilon, $momentum),
@@ -203,8 +203,8 @@ def FuseBatchNormTestModeConvPattern: Pat<
 //
 //===----------------------------------------------------------------------===//
 
-def RewriteBatchNormTestModeConvPattern1: Pat<
-  (ONNXBatchNormalizationTestModeOp:$res
+def RewriteBatchNormInferenceModeConvPattern1: Pat<
+  (ONNXBatchNormalizationInferenceModeOp:$res
     $x, $scale, $bias, $mean, $var, $epsilon, $_),
   (ONNXAddOp
      // x * a
@@ -230,8 +230,8 @@ def RewriteBatchNormTestModeConvPattern1: Pat<
 // 'bias', 'mean', and 'var' will have shape of [1], according to ONNXBatchNorm
 // decription: https://github.com/onnx/onnx/blob/master/docs/Operators.md#inputs-12.
 // Thus, we need not unsqueeze intermediate results.
-def RewriteBatchNormTestModeConvPattern2: Pat<
-  (ONNXBatchNormalizationTestModeOp:$res
+def RewriteBatchNormInferenceModeConvPattern2: Pat<
+  (ONNXBatchNormalizationInferenceModeOp:$res
     $x, $scale, $bias, $mean, $var, $epsilon, $_),
   (ONNXAddOp
      // x * a

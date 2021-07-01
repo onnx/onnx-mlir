@@ -694,8 +694,8 @@ private:
   void ImportNodeBatchNormalization(const onnx::NodeProto &node) {
     int nOuts = node.output().size();
     if (nOuts == 1) {
-      // Test mode with one output.
-      buildOperation<ONNXBatchNormalizationTestModeOp>(node);
+      // Inference mode with one output.
+      buildOperation<ONNXBatchNormalizationInferenceModeOp>(node);
     } else {
       // Training mode with four trailing optional outputs. Not handled yet.
       buildOperation<ONNXBatchNormalizationOp>(node);

@@ -91,7 +91,7 @@ func @test_conv_batchnormtestmode_fusion_nobias(%arg0 : tensor<1x3x224x224xf32>)
     %3 = "onnx.Constant"() : () -> tensor<64xf32>
     %4 = "onnx.Constant"() : () -> tensor<64xf32>
     %5 = "onnx.Constant"() : () -> tensor<64xf32>
-    %6 = "onnx.BatchNormalizationTestMode"(%1, %2, %3, %4, %5) {epsilon = 1.00000007E-5 : f32} : (tensor<1x64x112x112xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
+    %6 = "onnx.BatchNormalizationInferenceMode"(%1, %2, %3, %4, %5) {epsilon = 1.00000007E-5 : f32} : (tensor<1x64x112x112xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
     return %6 :  tensor<1x64x112x112xf32>
 
     // CHECK-LABEL: test_conv_batchnormtestmode_fusion_nobias
@@ -114,7 +114,7 @@ func @test_conv_batchnormtestmode_fusion_nobias(%arg0 : tensor<1x3x224x224xf32>)
 
     // CHECK: [[RES:%.+]] = "onnx.Conv"(%arg0, [[NEW_WEIGHT]], [[NEW_BIAS]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x224x224xf32>, tensor<*xf32>, tensor<*xf32>) -> tensor<1x64x112x112xf32>
 
-    // CHECK-NOT: {{.*}} = "onnx.BatchNormalizationTestMode"{{.*}}
+    // CHECK-NOT: {{.*}} = "onnx.BatchNormalizationInferenceMode"{{.*}}
 
     // CHECK: return [[RES]] : tensor<1x64x112x112xf32>
 }
@@ -129,7 +129,7 @@ func @test_conv_batchnormtestmode_fusion(%arg0 : tensor<1x3x224x224xf32>, %arg1 
     %3 = "onnx.Constant"() : () -> tensor<64xf32>
     %4 = "onnx.Constant"() : () -> tensor<64xf32>
     %5 = "onnx.Constant"() : () -> tensor<64xf32>
-    %6 = "onnx.BatchNormalizationTestMode"(%1, %2, %3, %4, %5) {epsilon = 1.00000007E-5 : f32} : (tensor<1x64x112x112xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
+    %6 = "onnx.BatchNormalizationInferenceMode"(%1, %2, %3, %4, %5) {epsilon = 1.00000007E-5 : f32} : (tensor<1x64x112x112xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
     return %6 :  tensor<1x64x112x112xf32>
 
     // CHECK-LABEL: test_conv_batchnormtestmode_fusion
@@ -152,7 +152,7 @@ func @test_conv_batchnormtestmode_fusion(%arg0 : tensor<1x3x224x224xf32>, %arg1 
 
     // CHECK: [[RES:%.+]] = "onnx.Conv"(%arg0, [[NEW_WEIGHT]], [[NEW_BIAS]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x224x224xf32>, tensor<*xf32>, tensor<*xf32>) -> tensor<1x64x112x112xf32>
 
-    // CHECK-NOT: {{.*}} = "onnx.BatchNormalizationTestMode"{{.*}}
+    // CHECK-NOT: {{.*}} = "onnx.BatchNormalizationInferenceMode"{{.*}}
 
     // CHECK: return [[RES]] : tensor<1x64x112x112xf32>
 }
@@ -381,7 +381,7 @@ func @test_rewrite_batchnormtestmode_Nd(%arg0 : tensor<1x64x112x112xf32>) -> ten
     %bias = "onnx.Constant"() : () -> tensor<64xf32>
     %mean = "onnx.Constant"() : () -> tensor<64xf32>
     %var = "onnx.Constant"() : () -> tensor<64xf32>
-    %0 = "onnx.BatchNormalizationTestMode"(%arg0, %scale, %bias, %mean, %var) {epsilon = 1.00000007E-5 : f32} : (tensor<1x64x112x112xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
+    %0 = "onnx.BatchNormalizationInferenceMode"(%arg0, %scale, %bias, %mean, %var) {epsilon = 1.00000007E-5 : f32} : (tensor<1x64x112x112xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
     return %0 :  tensor<1x64x112x112xf32>
 
     // CHECK-LABEL: test_rewrite_batchnormtestmode_Nd
@@ -413,7 +413,7 @@ func @test_rewrite_batchnormtestmode_1d(%arg0 : tensor<64xf32>) -> tensor<64xf32
     %bias = "onnx.Constant"() : () -> tensor<1xf32>
     %mean = "onnx.Constant"() : () -> tensor<1xf32>
     %var = "onnx.Constant"() : () -> tensor<1xf32>
-    %0 = "onnx.BatchNormalizationTestMode"(%arg0, %scale, %bias, %mean, %var) {epsilon = 1.00000007E-5 : f32} : (tensor<64xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<64xf32>
+    %0 = "onnx.BatchNormalizationInferenceMode"(%arg0, %scale, %bias, %mean, %var) {epsilon = 1.00000007E-5 : f32} : (tensor<64xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<64xf32>
     return %0 :  tensor<64xf32>
 
     // CHECK-LABEL: test_rewrite_batchnormtestmode_1d

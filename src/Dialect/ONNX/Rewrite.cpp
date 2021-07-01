@@ -117,12 +117,12 @@ DenseElementsAttr insertZerosForNonPaddedDims(
 
 } // end anonymous namespace
 
-/// on the ONNXBatchNormalizationTestModeOp.
-void ONNXBatchNormalizationTestModeOp::getCanonicalizationPatterns(
+/// on the ONNXBatchNormalizationInferenceModeOp.
+void ONNXBatchNormalizationInferenceModeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
-  results.insert<FuseBatchNormTestModeConvPattern>(context);
-  results.insert<RewriteBatchNormTestModeConvPattern1>(context);
-  results.insert<RewriteBatchNormTestModeConvPattern2>(context);
+  results.insert<FuseBatchNormInferenceModeConvPattern>(context);
+  results.insert<RewriteBatchNormInferenceModeConvPattern1>(context);
+  results.insert<RewriteBatchNormInferenceModeConvPattern2>(context);
 }
 
 /// on the ONNXShapeOp.
