@@ -389,6 +389,100 @@ void generateIndexMap(
   }
 }
 
+//====---------------- Support for Krnl Builder ----------------------===//
+
+Value KrnlBuilder::load(Value memref, ValueRange indices) {
+  return b.create<KrnlLoadOp>(loc, memref, indices);
+}
+
+void KrnlBuilder::store(Value val, Value memref, ValueRange indices) {
+  b.create<KrnlStoreOp>(loc, val, memref, indices);
+}
+
+Value KrnlBuilder::vectorTypeCast(Value sourceMemref, int64_t vectorLen) {
+  return b.create<KrnlVectorTypeCastOp>(loc, sourceMemref, vectorLen);
+}
+
+ValueRange KrnlBuilder::defineLoops(int64_t originalLoopNum) {
+  return b.create<KrnlDefineLoopsOp>(loc, originalLoopNum).getResults();
+}
+
+ValueRange KrnlBuilder::block(Value loop, int64_t blockSize) {
+  return b.create<KrnlBlockOp>(loc, loop, blockSize).getResults();
+}
+
+void KrnlBuilder::permute(ValueRange loops, ArrayRef<int64_t> map) {
+  b.create<KrnlPermuteOp>(loc, loops, map);
+}
+
+ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) {
+  return b.create<KrnlGetInductionVariableValueOp>(loc, loops).getResults();
+}
+
+void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
+    ValueRange lbs, ValueRange ubs, ValueRange iterArgs,
+    function_ref<void(KrnlBuilder &createKrnl, ValueRange args)>
+        bodyBuilderFn) {
+  b.create<KrnlIterateOp>(loc, originalLoops, optimizedLoops, lbs, ubs,
+      iterArgs, [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+        KrnlBuilder kb(lb);
+        bodyBuilderFn(kb, args);
+      });
+}
+
+void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
+    ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
+    function_ref<void(KrnlBuilder &createKrnl, ValueRange args)>
+        bodyBuilderFn) {
+  b.create<KrnlIterateOp>(loc, originalLoops, optimizedLoops, lbs, ubs,
+      iterArgs, [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+        KrnlBuilder kb(lb);
+        bodyBuilderFn(kb, args);
+      });
+}
+
+void KrnlBuilder::copyToBuffer(Value bufferMemref, Value sourceMemref,
+    ValueRange starts, Value padValue, ArrayRef<int64_t> tileSize,
+    ArrayRef<int64_t> padToNext, bool transpose) {
+  b.create<KrnlCopyToBufferOp>(loc, bufferMemref, sourceMemref, starts,
+      padValue, tileSize, padToNext, transpose);
+}
+
+void KrnlBuilder::copyToBuffer(Value bufferMemref, Value sourceMemref,
+    ValueRange starts, Value padValue, bool transpose) {
+  b.create<KrnlCopyToBufferOp>(
+      loc, bufferMemref, sourceMemref, starts, padValue, transpose);
+}
+
+void KrnlBuilder::copyFromBuffer(Value bufferMemref, Value memref,
+    ValueRange starts, ArrayRef<int64_t> tileSize) {
+  b.create<KrnlCopyFromBufferOp>(loc, bufferMemref, memref, starts, tileSize);
+}
+
+void KrnlBuilder::copyFromBuffer(
+    Value bufferMemref, Value memref, ValueRange starts) {
+  b.create<KrnlCopyFromBufferOp>(loc, bufferMemref, memref, starts);
+}
+
+void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
+    Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
+    ValueRange globalUBs, ArrayRef<int64_t> computeTileSize,
+    ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
+    ArrayRef<int64_t> cTileSize, bool simdize, bool unroll, bool overcompute) {
+  b.create<KrnlMatMulOp>(loc, A, aStart, B, bStart, C, cStart, loops,
+      computeStarts[0], computeStarts[1], computeStarts[2], globalUBs[0],
+      globalUBs[1], globalUBs[2], computeTileSize, aTileSize, bTileSize,
+      cTileSize, simdize, unroll, overcompute);
+}
+
+void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
+    Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
+    ValueRange globalUBs, bool simdize, bool unroll, bool overcompute) {
+  b.create<KrnlMatMulOp>(loc, A, aStart, B, bStart, C, cStart, loops,
+      computeStarts[0], computeStarts[1], computeStarts[2], globalUBs[0],
+      globalUBs[1], globalUBs[2], simdize, unroll, overcompute);
+}
+
 // TODO: only in the EDSC scope
 
 //====---------------- EDSC Support with Value ---------------------------===//

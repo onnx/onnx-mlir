@@ -640,6 +640,16 @@ void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
       odsPadValue, tileSizeAttr, padToNextAttr, odsTranspose);
 }
 
+void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
+    ValueRange odsStarts, Value odsPadValue, bool odsTranspose) {
+  // Massage types.
+  ValueRange startsRange(odsStarts);
+  ArrayRef<int64_t> empty;
+  build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange,
+      odsPadValue, empty, empty, odsTranspose);
+}
+
 static LogicalResult verify(KrnlCopyToBufferOp op) {
   KrnlCopyToBufferOpAdaptor opAdaptor = KrnlCopyToBufferOpAdaptor(op);
   MemRefBoundsIndexCapture buffCapture(opAdaptor.buffer());
@@ -684,6 +694,15 @@ void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
   ArrayAttr tileSizeAttr = odsBuilder.getI64ArrayAttr(odsTileSize);
   build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange,
       tileSizeAttr);
+}
+
+void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
+    ValueRange odsStarts) {
+  // Massage types.
+  ValueRange startsRange(odsStarts);
+  ArrayRef<int64_t> empty;
+  build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange, empty);
 }
 
 static LogicalResult verify(KrnlCopyFromBufferOp op) {
