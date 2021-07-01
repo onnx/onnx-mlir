@@ -54,9 +54,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     {
       // Get a child IndexExpr context.
       IndexExprScope childScope(rewriter, shapeHelper.scope);
-      // Scope for krnl EDSC ops
-      using namespace mlir::edsc;
-      ScopedContext scope(rewriter, loc);
+      KrnlBuilder createKrnl(rewriter, loc);
 
       // Get read/write indices.
       SmallVector<IndexExpr, 4> readIndices;
@@ -70,8 +68,8 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
       }
 
       // Copy data.
-      Value loadData = krnl_load(data, readIndices);
-      krnl_store(loadData, alloc, writeIndices);
+      Value loadData = createKrnl.loadIE(data, readIndices);
+      createKrnl.storeIE(loadData, alloc, writeIndices);
     }
 
     rewriter.replaceOp(op, alloc);

@@ -308,7 +308,9 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   // Wbi: [hidden_size]
   // Rbi: [hidden_size]
 
+  // TODO remove
   ScopedContext scope(rewriter, loc);
+  KrnlBuilder createKrnl(rewriter, loc);
 
   // Get Ht.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
@@ -320,27 +322,30 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
 
   // Do element-wise computations. Fuse them into a single nested loop.
   MemRefBoundsCapture bounds(Ht);
-  ValueRange loops = krnl_define_loop(bounds.rank());
-  krnl_iterate(
-      loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
-        ValueRange indices = krnl_get_induction_var_value(loops);
+  ValueRange loops = createKrnl.defineLoops(bounds.rank());
+  createKrnl.iterate(loops, loops, bounds.getLbs(), bounds.getUbs(), {},
+      [&](KrnlBuilder &createKrnl, ValueRange args) {
+        ArithBuilder createMath(createKrnl);
+        ValueRange indices = createKrnl.getInductionVarValue(loops);
         Value bs(indices[0]), hs(indices[1]);
         // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
-        Value XtWiVal = krnl_load(XtWi, indices);
-        Value HtRiVal = krnl_load(HtRi, indices);
-        Value nextHt = std_addf(XtWiVal, HtRiVal);
+        Value XtWiVal = createKrnl.load(XtWi, indices);
+        Value HtRiVal = createKrnl.load(HtRi, indices);
+        Value nextHt = createMath.add(XtWiVal, HtRiVal);
         if (biasPack.hasBias) {
-          Value WbiVal = krnl_load(biasPack.Wbi, {hs});
-          Value RbiVal = krnl_load(biasPack.Rbi, {hs});
-          nextHt = std_addf(nextHt, WbiVal);
-          nextHt = std_addf(nextHt, RbiVal);
+          Value WbiVal = createKrnl.load(biasPack.Wbi, {hs});
+          Value RbiVal = createKrnl.load(biasPack.Rbi, {hs});
+          nextHt = createMath.add(nextHt, WbiVal);
+          nextHt = createMath.add(nextHt, RbiVal);
         }
-        nextHt = applyActivation(rewriter, loc, activationPack.f, nextHt);
+        nextHt = applyActivation(
+            createKrnl.getBuilder(), loc, activationPack.f, nextHt);
 
         // Store the intermediate Ht.
-        krnl_store(nextHt, Ht, indices);
+        createKrnl.store(nextHt, Ht, indices);
         if (!isNoneType(state.allH))
-          krnl_store(nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
+          createKrnl.store(
+              nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
       });
 }
 

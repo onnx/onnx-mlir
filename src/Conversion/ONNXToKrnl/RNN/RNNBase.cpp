@@ -131,6 +131,7 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
   auto ipInitializationLoops = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(initializationLoops.getIterateBlock());
   {
+    KrnlBuilder createKrnl(rewriter, loc);
     SmallVector<Value, 4> IVs;
     IVs.emplace_back(initializationLoops.getInductionVar(0));
     IVs.emplace_back(initializationLoops.getInductionVar(1));
@@ -141,17 +142,17 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
       initialIVs.emplace_back(initializationLoops.getInductionVar(0));
       initialIVs.emplace_back(initializationLoops.getInductionVar(1));
       if (isNoneType(initialH))
-        krnl_store(zero, forwardHt, IVs);
+        createKrnl.store(zero, forwardHt, IVs);
       else {
-        Value h = krnl_load(initialH, initialIVs);
-        krnl_store(h, forwardHt, IVs);
+        Value h = createKrnl.load(initialH, initialIVs);
+        createKrnl.store(h, forwardHt, IVs);
       }
       if (!onlyHidden) {
         if (isNoneType(initialC))
-          krnl_store(zero, forwardCt, IVs);
+          createKrnl.store(zero, forwardCt, IVs);
         else {
-          Value c = krnl_load(initialC, initialIVs);
-          krnl_store(c, forwardCt, IVs);
+          Value c = createKrnl.load(initialC, initialIVs);
+          createKrnl.store(c, forwardCt, IVs);
         }
       }
     }
@@ -165,17 +166,17 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
       initialIVs.emplace_back(initializationLoops.getInductionVar(0));
       initialIVs.emplace_back(initializationLoops.getInductionVar(1));
       if (isNoneType(initialH))
-        rewriter.create<KrnlStoreOp>(loc, zero, reverseHt, IVs);
+        createKrnl.store(zero, reverseHt, IVs);
       else {
-        Value h = krnl_load(initialH, initialIVs);
-        krnl_store(h, reverseHt, IVs);
+        Value h = createKrnl.load(initialH, initialIVs);
+        createKrnl.store(h, reverseHt, IVs);
       }
       if (!onlyHidden) {
         if (isNoneType(initialC))
-          krnl_store(zero, reverseCt, IVs);
+          createKrnl.store(zero, reverseCt, IVs);
         else {
-          Value c = krnl_load(initialC, initialIVs);
-          krnl_store(c, reverseCt, IVs);
+          Value c = createKrnl.load(initialC, initialIVs);
+          createKrnl.store(c, reverseCt, IVs);
         }
       }
     }
@@ -228,23 +229,25 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
 void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
     Value ht, Value ct, Value initialH, Value initialC, Type elementType,
     bool onlyHidden) {
+  // TODO remove
   ScopedContext scope(rewriter, loc);
+  KrnlBuilder createKrnl(rewriter, loc);
   Value zero = emitConstantOp(rewriter, loc, elementType, 0);
   MemRefBoundsCapture bounds(ht);
-  ValueRange loops = krnl_define_loop(bounds.rank());
-  krnl_iterate(
-      loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
-        ValueRange indices = krnl_get_induction_var_value(loops);
+  ValueRange loops = createKrnl.defineLoops(bounds.rank());
+  createKrnl.iterate(loops, loops, bounds.getLbs(), bounds.getUbs(), {},
+      [&](KrnlBuilder &createKrnl, ValueRange args) {
+        ValueRange indices = createKrnl.getInductionVarValue(loops);
         Value hiddenVal = zero;
         if (!isNoneType(initialH))
-          hiddenVal = krnl_load(initialH, indices);
-        krnl_store(hiddenVal, ht, indices);
+          hiddenVal = createKrnl.load(initialH, indices);
+        createKrnl.store(hiddenVal, ht, indices);
 
         if (!onlyHidden) {
           Value cellVal = zero;
           if (!isNoneType(initialC))
-            cellVal = krnl_load(initialC, indices);
-          krnl_store(cellVal, ct, indices);
+            cellVal = createKrnl.load(initialC, indices);
+          createKrnl.store(cellVal, ct, indices);
         }
       });
 }
@@ -255,33 +258,34 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
 void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     Location loc, Value forwardVal, Value reverseVal, StringRef direction,
     Value output) {
+  // TODO remove
   ScopedContext scope(rewriter, loc);
-
+  KrnlBuilder createKrnl(rewriter, loc);
   if (direction == FORWARD || direction == REVERSE) {
     Value val = (direction == FORWARD) ? forwardVal : reverseVal;
     Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, val);
-    rewriter.create<KrnlMemcpyOp>(loc, output, val, sizeInBytes);
+    createKrnl.memcpy(output, val, sizeInBytes);
   } else { // BIDIRECTIONAL
     MemRefBoundsCapture bounds(forwardVal);
-    Value zero = std_constant_index(0);
-    Value one = std_constant_index(1);
-    ValueRange loops = krnl_define_loop(2);
-    krnl_iterate(
-        loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
-          ValueRange indices = krnl_get_induction_var_value(loops);
+    Value zero = rewriter.create<ConstantIndexOp>(loc, 0);
+    Value one = rewriter.create<ConstantIndexOp>(loc, 1);
+    ValueRange loops = createKrnl.defineLoops(2);
+    createKrnl.iterate(loops, loops, bounds.getLbs(), bounds.getUbs(), {},
+        [&](KrnlBuilder &createKrnl, ValueRange args) {
+          ValueRange indices = createKrnl.getInductionVarValue(loops);
           Value b(indices[0]), h(indices[1]);
           // Forward.
-          Value val = krnl_load(forwardVal, {b, h});
-          krnl_store(val, output, {zero, b, h});
+          Value val = createKrnl.load(forwardVal, {b, h});
+          createKrnl.store(val, output, {zero, b, h});
           // Reverse.
-          val = krnl_load(reverseVal, {b, h});
-          krnl_store(val, output, {one, b, h});
+          val = createKrnl.load(reverseVal, {b, h});
+          createKrnl.store(val, output, {one, b, h});
         });
   }
 }
 
 // Apply an activation function on a given scalar operand.
-Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
+Value applyActivation(OpBuilder &rewriter, Location loc,
     RNNActivation activation, Value operand) {
   Value res;
 
@@ -340,8 +344,9 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
 /// deallocate the copy by themselves.
 Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value timestepIV) {
+  // TODO remove
   ScopedContext scope(rewriter, loc);
-
+  KrnlBuilder createKrnl(rewriter, loc);
   Value sliceX;
 
   int64_t batchSize = dimAt(X, 1);
@@ -371,13 +376,13 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
 
   // Copy data from X.
   MemRefBoundsCapture bounds(sliceX);
-  ValueRange loops = krnl_define_loop(2);
-  krnl_iterate(
-      loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
-        ValueRange indices = krnl_get_induction_var_value(loops);
+  ValueRange loops = createKrnl.defineLoops(2);
+  createKrnl.iterate(loops, loops, bounds.getLbs(), bounds.getUbs(), {},
+      [&](KrnlBuilder &createKrnl, ValueRange args) {
+        ValueRange indices = createKrnl.getInductionVarValue(loops);
         Value b(indices[0]), i(indices[1]);
-        Value val = krnl_load(X, {timestepIV, b, i});
-        krnl_store(val, sliceX, {b, i});
+        Value val = createKrnl.load(X, {timestepIV, b, i});
+        createKrnl.store(val, sliceX, {b, i});
       });
 
   return sliceX;
@@ -386,7 +391,9 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
 void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
     MemRefType matrixType, Value A, ArrayRef<Value> Bs, Value zero,
     Value zeroVal, ArrayRef<Value> Cs) {
+  // TODO remove
   ScopedContext scope(rewriter, loc);
+  KrnlBuilder createKrnl(rewriter, loc);
 
   Type elementType = matrixType.getElementType();
   // Get bounds I, J, K.
@@ -394,12 +401,13 @@ void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
   Value I(aBounds.ub(0)), J(bBounds.ub(1)), K(aBounds.ub(1));
 
   // Initialize alloc/C to zero.
-  ValueRange zeroLoop = krnl_define_loop(2);
-  krnl_iterate(zeroLoop, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
-    ValueRange indices = krnl_get_induction_var_value(zeroLoop);
-    for (Value C : Cs)
-      krnl_store(zeroVal, C, indices);
-  });
+  ValueRange zeroLoop = createKrnl.defineLoops(2);
+  createKrnl.iterate(zeroLoop, zeroLoop, {zero, zero}, {I, J}, {},
+      [&](KrnlBuilder &createKrnl, ValueRange args) {
+        ValueRange indices = createKrnl.getInductionVarValue(zeroLoop);
+        for (Value C : Cs)
+          createKrnl.store(zeroVal, C, indices);
+      });
 
   // Prepare for the computations.
   // 1) Define blocking, with simdization along the j axis.
@@ -447,18 +455,18 @@ void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
 
   // 3) introduce the loops and permute them
   // I, J, K loop.
-  ValueRange origLoop = krnl_define_loop(3);
+  ValueRange origLoop = createKrnl.defineLoops(3);
   Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
   // Tile I.
-  ValueRange iCacheBlock = krnl_block(ii, iCacheTile);
-  ValueRange iRegBlock = krnl_block(iCacheBlock[1], iRegTile);
+  ValueRange iCacheBlock = createKrnl.block(ii, iCacheTile);
+  ValueRange iRegBlock = createKrnl.block(iCacheBlock[1], iRegTile);
   Value ii1(iCacheBlock[0]), ii2(iRegBlock[0]), ii3(iRegBlock[1]);
   // Tile J.
-  ValueRange jCacheBlock = krnl_block(jj, jCacheTile);
-  ValueRange jRegBlock = krnl_block(jCacheBlock[1], jRegTile);
+  ValueRange jCacheBlock = createKrnl.block(jj, jCacheTile);
+  ValueRange jRegBlock = createKrnl.block(jCacheBlock[1], jRegTile);
   Value jj1(jCacheBlock[0]), jj2(jRegBlock[0]), jj3(jRegBlock[1]);
   // Tile K.
-  ValueRange kCacheBlock = krnl_block(kk, kCacheTile);
+  ValueRange kCacheBlock = createKrnl.block(kk, kCacheTile);
   Value kk1(kCacheBlock[0]), kk2(kCacheBlock[1]);
 
   // If we must tile the result R, then we put I & J in the outermost.
@@ -466,69 +474,78 @@ void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
   // outermost.
   if (mustTileR) {
     // (cache) ii1 jj1 kk1,    (reg) jj2, ii2,    (matmul) ii3, jj3, kk3
-    krnl_permute({ii1, ii2, ii3, jj1, jj2, jj3, kk1, kk2},
+    createKrnl.permute({ii1, ii2, ii3, jj1, jj2, jj3, kk1, kk2},
         {/*i*/ 0, 4, 5, /*j*/ 1, 3, 6, /*k*/ 2, 7});
     // Compute: A[i, k] * b[k, j] -> R[i, j])
-    krnl_iterate(
-        {ii, jj}, {ii1, jj1}, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
-          ValueRange i1_j1_indices = krnl_get_induction_var_value({ii1, jj1});
+    createKrnl.iterate({ii, jj}, {ii1, jj1}, {zero, zero}, {I, J}, {},
+        [&](KrnlBuilder &createKrnl, ValueRange args) {
+          ValueRange i1_j1_indices =
+              createKrnl.getInductionVarValue({ii1, jj1});
           Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
           for (unsigned int n = 0; n < cBuffs.size(); ++n)
-            krnl_copy_to_buffer(cBuffs[n], Cs[n], {i1, j1}, zeroVal, false);
-          krnl_iterate({kk}, {kk1}, {zero}, {K}, {}, [&](ValueRange args) {
-            ValueRange k1_index = krnl_get_induction_var_value({kk1});
-            Value k1(k1_index[0]);
-            krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, false);
-            for (unsigned int n = 0; n < bBuffs.size(); ++n)
-              krnl_copy_to_buffer(bBuffs[n], Bs[n], {k1, j1}, zeroVal, false);
-            krnl_iterate({}, {jj2, ii2}, {}, {}, {}, [&](ValueRange args) {
-              ValueRange j2_i2_indices =
-                  krnl_get_induction_var_value({jj2, ii2});
-              Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
-              for (unsigned int n = 0; n < bBuffs.size(); ++n) {
-                krnl_matmul(aBuff, {i1, k1}, bBuffs[n], {k1, j1}, cBuffs[n],
-                    {i1, j1},
-                    /*loops*/ {ii3, jj3, kk2},
-                    /*compute start*/ {i2, j2, k1},
-                    /*ubs*/ {I, J, K},
-                    /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
-                    /* a/b/c tiles*/ {}, {}, {}, simdize, unrollAndJam, false);
-              }
-            });
-          });
+            createKrnl.copyToBuffer(cBuffs[n], Cs[n], {i1, j1}, zeroVal, false);
+          createKrnl.iterate({kk}, {kk1}, {zero}, {K}, {},
+              [&](KrnlBuilder &createKrnl, ValueRange args) {
+                ValueRange k1_index = createKrnl.getInductionVarValue({kk1});
+                Value k1(k1_index[0]);
+                createKrnl.copyToBuffer(aBuff, A, {i1, k1}, zeroVal, false);
+                for (unsigned int n = 0; n < bBuffs.size(); ++n)
+                  createKrnl.copyToBuffer(
+                      bBuffs[n], Bs[n], {k1, j1}, zeroVal, false);
+                createKrnl.iterate({}, {jj2, ii2}, {}, {}, {},
+                    [&](KrnlBuilder &createKrnl, ValueRange args) {
+                      ValueRange j2_i2_indices =
+                          createKrnl.getInductionVarValue({jj2, ii2});
+                      Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
+                      for (unsigned int n = 0; n < bBuffs.size(); ++n) {
+                        createKrnl.matmul(aBuff, {i1, k1}, bBuffs[n], {k1, j1},
+                            cBuffs[n], {i1, j1},
+                            /*loops*/ {ii3, jj3, kk2},
+                            /*compute start*/ {i2, j2, k1},
+                            /*ubs*/ {I, J, K},
+                            /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
+                            /* a/b/c tiles*/ {}, {}, {}, simdize, unrollAndJam,
+                            false);
+                      }
+                    });
+              });
           for (unsigned int n = 0; n < cBuffs.size(); ++n)
-            krnl_copy_from_buffer(cBuffs[n], Cs[n], {i1, j1});
+            createKrnl.copyFromBuffer(cBuffs[n], Cs[n], {i1, j1});
         });
   } else {
     // Does not have to tile the result.
     // (cache) jj1 kk1, ii1, (reg) jj2, ii2, (matmul) ii3, jj3, kk3
-    krnl_permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
+    createKrnl.permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
         {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
     // Compute: A[i, k] * b[k, j] -> C[i, j])
-    krnl_iterate(
-        {jj, kk}, {jj1, kk1}, {zero, zero}, {J, K}, {}, [&](ValueRange args) {
-          ValueRange j1_k1_indices = krnl_get_induction_var_value({jj1, kk1});
+    createKrnl.iterate({jj, kk}, {jj1, kk1}, {zero, zero}, {J, K}, {},
+        [&](KrnlBuilder &createKrnl, ValueRange args) {
+          ValueRange j1_k1_indices =
+              createKrnl.getInductionVarValue({jj1, kk1});
           Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
           for (unsigned int n = 0; n < bBuffs.size(); ++n)
-            krnl_copy_to_buffer(bBuffs[n], Bs[n], {k1, j1}, zeroVal, false);
-          krnl_iterate({ii}, {ii1}, {zero}, {I}, {}, [&](ValueRange args) {
-            ValueRange i1_index = krnl_get_induction_var_value({ii1});
-            Value i1(i1_index[0]);
-            krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, false);
-            krnl_iterate({}, {jj2, ii2}, {}, {}, {}, [&](ValueRange args) {
-              ValueRange j2_i2_indices =
-                  krnl_get_induction_var_value({jj2, ii2});
-              Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
-              for (unsigned int n = 0; n < bBuffs.size(); ++n)
-                krnl_matmul(aBuff, {i1, k1}, bBuffs[n], {k1, j1}, Cs[n],
-                    {zero, zero},
-                    /*loops*/ {ii3, jj3, kk2},
-                    /*compute start*/ {i2, j2, k1},
-                    /*ubs*/ {I, J, K},
-                    /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
-                    /* a/b/c tiles*/ {}, {}, {}, simdize, unrollAndJam, false);
-            });
-          });
+            createKrnl.copyToBuffer(bBuffs[n], Bs[n], {k1, j1}, zeroVal, false);
+          createKrnl.iterate({ii}, {ii1}, {zero}, {I}, {},
+              [&](KrnlBuilder &createKrnl, ValueRange args) {
+                ValueRange i1_index = createKrnl.getInductionVarValue({ii1});
+                Value i1(i1_index[0]);
+                createKrnl.copyToBuffer(aBuff, A, {i1, k1}, zeroVal, false);
+                createKrnl.iterate({}, {jj2, ii2}, {}, {}, {},
+                    [&](KrnlBuilder &createKrnl, ValueRange args) {
+                      ValueRange j2_i2_indices =
+                          createKrnl.getInductionVarValue({jj2, ii2});
+                      Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
+                      for (unsigned int n = 0; n < bBuffs.size(); ++n)
+                        createKrnl.matmul(aBuff, {i1, k1}, bBuffs[n], {k1, j1},
+                            Cs[n], {zero, zero},
+                            /*loops*/ {ii3, jj3, kk2},
+                            /*compute start*/ {i2, j2, k1},
+                            /*ubs*/ {I, J, K},
+                            /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
+                            /* a/b/c tiles*/ {}, {}, {}, simdize, unrollAndJam,
+                            false);
+                    });
+              });
         });
   }
 }

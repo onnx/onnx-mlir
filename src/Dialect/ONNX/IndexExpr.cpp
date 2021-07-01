@@ -49,6 +49,9 @@ IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
 IndexExprScope::IndexExprScope(OpBuilder &rewriter, Location loc)
     : IndexExprScope(&rewriter, loc){};
 
+IndexExprScope::IndexExprScope(ImplicitLocOpBuilder &lb)
+    : IndexExprScope(&lb, lb.getLoc()){};
+
 // Nested scopes.
 IndexExprScope::IndexExprScope(
     OpBuilder *innerRewriter, IndexExprScope &enclosingScope)
