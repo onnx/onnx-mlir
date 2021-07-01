@@ -525,14 +525,15 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
         {weightPack.Ri, weightPack.Rf, weightPack.Rc, weightPack.Ro}, zero,
         zeroVal, {HtRi, HtRf, HtRc, HtRo});
   } else {
-    XtWi = onnx_matmul(matrixType, Xt, weightPack.Wi);
-    HtRi = onnx_matmul(matrixType, Ht, weightPack.Ri);
-    XtWf = onnx_matmul(matrixType, Xt, weightPack.Wf);
-    HtRf = onnx_matmul(matrixType, Ht, weightPack.Rf);
-    XtWc = onnx_matmul(matrixType, Xt, weightPack.Wc);
-    HtRc = onnx_matmul(matrixType, Ht, weightPack.Rc);
-    XtWo = onnx_matmul(matrixType, Xt, weightPack.Wo);
-    HtRo = onnx_matmul(matrixType, Ht, weightPack.Ro);
+    OnnxBuilder createONNX(createKrnl);
+    XtWi = createONNX.matmul(matrixType, Xt, weightPack.Wi);
+    HtRi = createONNX.matmul(matrixType, Ht, weightPack.Ri);
+    XtWf = createONNX.matmul(matrixType, Xt, weightPack.Wf);
+    HtRf = createONNX.matmul(matrixType, Ht, weightPack.Rf);
+    XtWc = createONNX.matmul(matrixType, Xt, weightPack.Wc);
+    HtRc = createONNX.matmul(matrixType, Ht, weightPack.Rc);
+    XtWo = createONNX.matmul(matrixType, Xt, weightPack.Wo);
+    HtRo = createONNX.matmul(matrixType, Ht, weightPack.Ro);
   }
 
   // Do element-wise computations. Fuse them into a single nested loop.

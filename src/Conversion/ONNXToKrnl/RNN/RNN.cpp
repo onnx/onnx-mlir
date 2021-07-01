@@ -311,14 +311,15 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   // TODO remove
   ScopedContext scope(rewriter, loc);
   KrnlBuilder createKrnl(rewriter, loc);
+  OnnxBuilder createONNX(createKrnl);
 
   // Get Ht.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
   MemRefType matrixType = Ht.getType().cast<MemRefType>();
 
   // Do matrix multiplications.
-  Value XtWi = onnx_matmul(matrixType, Xt, weightPack.Wi);
-  Value HtRi = onnx_matmul(matrixType, Ht, weightPack.Ri);
+  Value XtWi = createONNX.matmul(matrixType, Xt, weightPack.Wi);
+  Value HtRi = createONNX.matmul(matrixType, Ht, weightPack.Ri);
 
   // Do element-wise computations. Fuse them into a single nested loop.
   MemRefBoundsCapture bounds(Ht);
