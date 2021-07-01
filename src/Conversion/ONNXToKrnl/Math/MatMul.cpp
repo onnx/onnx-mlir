@@ -29,87 +29,78 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   // Handle the generic cases, including when there are broadcasts.
   void replaceGenericMatmul(ONNXMatMulOp &matMulOp,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
-      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zero,
+      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value fzero,
       ConversionPatternRewriter &rewriter, Location loc) const {
-
-    // Scope for krnl EDSC ops
-    using namespace mlir::edsc;
-    ScopedContext scope(rewriter, loc);
+    ImplicitLocOpBuilder lb(loc, rewriter);
 
     // Non-reduction loop iterations: output-rank.
     int outerloopNum = shapeHelper.dimsForOutput(0).size();
-    BuildKrnlLoop outputLoops(rewriter, loc, outerloopNum);
-    outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
-    outputLoops.createIterateOp();
-    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
-
-    // Access function for the output, and set it to zero.
-    SmallVector<IndexExpr, 4> resAccessFct;
-    getIndexExprList<DimIndexExpr>(
-        outputLoops.getAllInductionVar(), resAccessFct);
-    // Insert res[...] = 0.
-    // Create a local reduction value for res[...].
-    Value reductionVal = rewriter.create<memref::AllocaOp>(
-        loc, MemRefType::get({}, elementType));
-    rewriter.create<KrnlStoreOp>(loc, zero, reductionVal, ArrayRef<Value>{});
-
-    // Create the inner reduction loop; trip count is last dim of A.
-    BuildKrnlLoop innerLoops(rewriter, loc, 1);
-    innerLoops.createDefineOp();
-    int aRank = shapeHelper.aDims.size();
-    int bRank = aRank; // Add for better readability.
-    innerLoops.pushBounds(0, shapeHelper.aDims[aRank - 1]);
-    innerLoops.createIterateOp();
-
-    // Now start writing code inside the inner loop: get A & B access functions.
-    auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
-    rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
-
-    DimIndexExpr k(innerLoops.getInductionVar(0));
-    SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
-    for (int i = 0; i < aRank; ++i) {
-      // Add index if dim is not a padded dimension.
-      if (!shapeHelper.aPadDims[i]) {
-        // For A, reduction index is last
-        if (i == aRank - 1) {
-          aAccessFct.emplace_back(k);
-        } else {
-          aAccessFct.emplace_back(resAccessFct[i]);
-        }
-      }
-      if (!shapeHelper.bPadDims[i]) {
-        // For B, reduction index is second to last.
-        if (i == bRank - 2) {
-          bAccessFct.emplace_back(k);
-        } else if (i == outerloopNum) {
-          // When the rank of A 1D, then the output lost one dimension.
-          // E,g, (5) x (10, 5, 4) -> padded (1, 5) x (10, 5, 4) = (10, 1, 4).
-          // But we drop the "1" so its really (10, 4). When processing the
-          // last dim of the reduction (i=2 here), we would normally access
-          // output[2] but it does not exist, because we lost a dim in the
-          // output due to 1D A.
-          bAccessFct.emplace_back(resAccessFct[i - 1]);
-        } else {
-          bAccessFct.emplace_back(resAccessFct[i]);
-        }
-      }
-    }
-
-    // Add mat mul operation.
-    Value loadedA = krnl_load(operandAdaptor.A(), aAccessFct);
-    Value loadedB = krnl_load(operandAdaptor.B(), bAccessFct);
-    Value loadedY =
-        rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
-    Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
-    Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-    rewriter.create<KrnlStoreOp>(
-        loc, accumulated, reductionVal, ArrayRef<Value>{});
-
-    rewriter.restoreInsertionPoint(ipOuterLoopRegion);
-    accumulated =
-        rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
-    krnl_store(accumulated, alloc, resAccessFct);
+    ValueRange outerLoops =
+        lb.create<KrnlDefineLoopsOp>(outerloopNum).getResults();
+    SmallVector<IndexExpr, 4> outerLbs(outerloopNum, LiteralIndexExpr(0));
+    lb.create<KrnlIterateOp>(outerLoops, outerLoops, outerLbs,
+        shapeHelper.dimsForOutput(0), ValueRange{},
+        [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+          ValueRange outerIndices =
+              lb.create<KrnlGetInductionVariableValueOp>(outerLoops)
+                  .getResults();
+          Value reductionVal =
+              lb.create<memref::AllocaOp>(MemRefType::get({}, elementType));
+          lb.create<KrnlStoreOp>(fzero, reductionVal);
+          int aRank = shapeHelper.aDims.size();
+          int bRank = aRank; // Add for better readability.
+          ValueRange innerLoop = lb.create<KrnlDefineLoopsOp>(1).getResults();
+          Value innerUb = shapeHelper.aDims[aRank - 1].getValue();
+          Value izero = lb.create<ConstantIndexOp>(0);
+          lb.create<KrnlIterateOp>(innerLoop, innerLoop, ValueRange{izero},
+              ValueRange{innerUb}, ValueRange{},
+              [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+                ValueRange innerIndex =
+                    lb.create<KrnlGetInductionVariableValueOp>(innerLoop)
+                        .getResults();
+                Value k = innerIndex[0];
+                SmallVector<Value, 4> aAccessFct, bAccessFct;
+                for (int i = 0; i < aRank; ++i) {
+                  // Add index if dim is not a padded dimension.
+                  if (!shapeHelper.aPadDims[i]) {
+                    // For A, reduction index is last
+                    if (i == aRank - 1) {
+                      aAccessFct.emplace_back(k);
+                    } else {
+                      aAccessFct.emplace_back(outerIndices[i]);
+                    }
+                  }
+                  if (!shapeHelper.bPadDims[i]) {
+                    // For B, reduction index is second to last.
+                    if (i == bRank - 2) {
+                      bAccessFct.emplace_back(k);
+                    } else if (i == outerloopNum) {
+                      // When the rank of A 1D, then the output lost one
+                      // dimension. E,g, (5) x (10, 5, 4) -> padded (1, 5) x
+                      // (10, 5, 4) = (10, 1, 4). But we drop the "1" so its
+                      // really (10, 4). When processing the last dim of the
+                      // reduction (i=2 here), we would normally access
+                      // output[2] but it does not exist, because we lost a dim
+                      // in the output due to 1D A.
+                      bAccessFct.emplace_back(outerIndices[i - 1]);
+                    } else {
+                      bAccessFct.emplace_back(outerIndices[i]);
+                    }
+                  }
+                }
+                // Add mat mul operation.
+                Value loadedA =
+                    lb.create<KrnlLoadOp>(operandAdaptor.A(), aAccessFct);
+                Value loadedB =
+                    lb.create<KrnlLoadOp>(operandAdaptor.B(), bAccessFct);
+                Value loadedY = lb.create<KrnlLoadOp>(reductionVal);
+                Value AB = lb.create<MulFOp>(loadedA, loadedB);
+                Value accumulated = lb.create<AddFOp>(loadedY, AB);
+                lb.create<KrnlStoreOp>(accumulated, reductionVal);
+              });
+          Value accumulated = lb.create<KrnlLoadOp>(reductionVal);
+          lb.create<KrnlStoreOp>(accumulated, alloc, outerIndices);
+        });
   }
 
   // Handle the cases with 2x2 matrices both for A, B, and C without broadcast.
@@ -130,8 +121,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Initialize alloc/C to zero.
     ValueRange zLoop = lb.create<KrnlDefineLoopsOp>(2).getResults();
-    lb.create<KrnlIterateOp>(zLoop, ValueRange{zero, zero}, ValueRange{I, J},
-        ValueRange{}, [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+    lb.create<KrnlIterateOp>(zLoop, zLoop, ValueRange{zero, zero},
+        ValueRange{I, J}, ValueRange{},
+        [&](ImplicitLocOpBuilder &lb, ValueRange args) {
           ValueRange indices =
               lb.create<KrnlGetInductionVariableValueOp>(zLoop).getResults();
           lb.create<KrnlStoreOp>(zeroVal, alloc, indices);
@@ -185,7 +177,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         loadDenseElementArrayValueAtIndex);
     LogicalResult shapecomputed = shapeHelper.Compute(operandAdaptor);
     assert(succeeded(shapecomputed));
-    IndexExprScope outerScope(rewriter, shapeHelper.scope);
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
