@@ -350,7 +350,8 @@ void genJniObject(const mlir::OwningModuleRef &module, string jniSharedLibPath,
 
 // Link everything into a shared object.
 string genSharedLib(string outputBaseName, std::vector<string> opts,
-    std::vector<string> objs, std::vector<string> libs, std::vector<string> libDirs) {
+    std::vector<string> objs, std::vector<string> libs,
+    std::vector<string> libDirs) {
 
 #ifdef _WIN32
   // These files are automatically generated for DLLs on Windows
@@ -361,17 +362,20 @@ string genSharedLib(string outputBaseName, std::vector<string> opts,
 
   string sharedLibPath = outputBaseName + ".dll";
   std::vector<string> outputOpt = {"/Fe:" + sharedLibPath};
-  // link has to be before def and libpath since they need to be passed through to the linker
-  std::vector<string> sharedLibOpts = {"/LD", "/link", "/def:" + outputBaseName + ".def"};
+  // link has to be before def and libpath since they need to be passed through
+  // to the linker
+  std::vector<string> sharedLibOpts = {
+      "/LD", "/link", "/def:" + outputBaseName + ".def"};
 
-  llvm::for_each(libs, [](string &lib){ lib = lib + ".lib"; });
-  llvm::for_each(libDirs, [](string &libDir){ libDir = "/libpath:\"" + libDir + "\""; });
+  llvm::for_each(libs, [](string &lib) { lib = lib + ".lib"; });
+  llvm::for_each(
+      libDirs, [](string &libDir) { libDir = "/libpath:\"" + libDir + "\""; });
 #else
   string sharedLibPath = outputBaseName + ".so";
   std::vector<string> outputOpt = {"-o", sharedLibPath};
   std::vector<string> sharedLibOpts = {"-shared", "-fPIC"};
-  llvm::for_each(libs, [](string &lib){ lib = "-l" + lib; });
-  llvm::for_each(libDirs, [](string &libDir){ libDir = "-L" + libDir; });
+  llvm::for_each(libs, [](string &lib) { lib = "-l" + lib; });
+  llvm::for_each(libDirs, [](string &libDir) { libDir = "-L" + libDir; });
 #endif
 
   Command link(kCxxPath);
@@ -414,7 +418,8 @@ string compileModuleToSharedLibrary(
   llvm::FileRemover modelObjRemover(
       modelObjPath, !keepFiles(KeepFilesOfType::Object));
 
-  return genSharedLib(outputBaseName, {}, {modelObjPath}, {"cruntime"}, {getRuntimeDir()});
+  return genSharedLib(
+      outputBaseName, {}, {modelObjPath}, {"cruntime"}, {getRuntimeDir()});
 }
 
 void compileModuleToJniJar(
@@ -435,9 +440,9 @@ void compileModuleToJniJar(
   llvm::FileRemover jniObjRemover(
       jniObjPath, !keepFiles(KeepFilesOfType::Object));
 
-  string modelSharedLibPath = genSharedLib("libmodel",
-      {"-z", "noexecstack"}, {modelObjPath, jniObjPath},
-      {"jniruntime", "cruntime"}, {getRuntimeDir()});
+  string modelSharedLibPath = genSharedLib("libmodel", {"-z", "noexecstack"},
+      {modelObjPath, jniObjPath}, {"jniruntime", "cruntime"},
+      {getRuntimeDir()});
   llvm::FileRemover modelSharedLibRemover(
       modelSharedLibPath, !keepFiles(KeepFilesOfType::Object));
 

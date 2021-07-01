@@ -78,7 +78,8 @@ bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
   OwningModuleRef moduleRef(module);
 
   compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
-  onnx_mlir::ExecutionSession sess(getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
+  onnx_mlir::ExecutionSession sess(
+      getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto aOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
