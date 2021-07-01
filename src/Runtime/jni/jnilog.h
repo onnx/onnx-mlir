@@ -84,7 +84,7 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
     case ONNX_TYPE_DOUBLE:                                                     \
       LOG_BUF_C_TYPE(double, hex ? " %016x" : " %lf", buf, data, n);           \
       break;                                                                   \
-    defaut:                                                                    \
+    default:                                                                   \
       sprintf(buf, " unsupported data type %d ", type);                        \
     }                                                                          \
   } while (0)
