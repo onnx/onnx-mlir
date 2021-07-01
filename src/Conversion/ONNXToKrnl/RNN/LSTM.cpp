@@ -538,9 +538,18 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   }
 
   // Do element-wise computations. Fuse them into a single nested loop.
-  MemRefBoundsCapture bounds(Ht);
-  ValueRange loops = createKrnl.defineLoops(bounds.rank());
-  createKrnl.iterate(loops, loops, bounds.getLbs(), bounds.getUbs(), {},
+  // Lower and upper bounds derived from Ht tensor.
+  unsigned HtRank = matrixType.getRank();
+  Value iZero = lb.create<ConstantIndexOp>(0);
+  SmallVector<Value, 4> HtLbs(HtRank, iZero);
+  SmallVector<Value, 4> HtUbs;
+  for (unsigned r = 0; r < HtRank; ++r) {
+    Value idx = lb.create<ConstantIndexOp>(r);
+    HtUbs.emplace_back(lb.createOrFold<memref::DimOp>(Ht, idx));
+  }
+
+  ValueRange loops = createKrnl.defineLoops(HtRank);
+  createKrnl.iterate(loops, loops, HtLbs, HtUbs, {},
       [&](KrnlBuilder &createKrnl, ValueRange args) {
         ArithBuilder createMath(createKrnl);
         ValueRange indices = createKrnl.getInductionVarValue(loops);
