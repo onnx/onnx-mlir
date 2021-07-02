@@ -389,232 +389,115 @@ void generateIndexMap(
   }
 }
 
-// TODO: only in the EDSC scope
+//====---------------- Support for Krnl Builder ----------------------===//
 
-//====---------------- EDSC Support with Value ---------------------------===//
-
-Value krnl_load(Value memref, ValueRange indices) {
-  using namespace mlir::edsc;
-  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  return ScopedContext::getBuilderRef().create<KrnlLoadOp>(
-      ScopedContext::getLocation(), memref, indices);
+Value KrnlBuilder::load(Value memref, ValueRange indices) {
+  return b.create<KrnlLoadOp>(loc, memref, indices);
 }
 
-void krnl_store(Value val, Value memref, ValueRange indices) {
-  using namespace mlir::edsc;
-  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  ScopedContext::getBuilderRef().create<KrnlStoreOp>(
-      ScopedContext::getLocation(), val, memref, indices);
+Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) {
+  SmallVector<Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  return b.create<KrnlLoadOp>(loc, memref, indexValues);
 }
 
-// Support only 1D vector type.
-Value krnl_vector_type_cast(Value sourceMemref, int64_t vectorLen) {
-  using namespace mlir::edsc;
-  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  return ScopedContext::getBuilderRef().create<KrnlVectorTypeCastOp>(
-      ScopedContext::getLocation(), sourceMemref, vectorLen);
+void KrnlBuilder::store(Value val, Value memref, ValueRange indices) {
+  b.create<KrnlStoreOp>(loc, val, memref, indices);
 }
 
-ValueRange krnl_define_loop(int64_t originalLoopNum) {
-  using namespace mlir::edsc;
-  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  KrnlDefineLoopsOp newOp =
-      ScopedContext::getBuilderRef().create<KrnlDefineLoopsOp>(
-          ScopedContext::getLocation(), originalLoopNum);
-  return newOp.getResults();
+void KrnlBuilder::storeIE(
+    Value val, Value memref, ArrayRef<IndexExpr> indices) {
+  SmallVector<Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  b.create<KrnlStoreOp>(loc, val, memref, indexValues);
 }
 
-ValueRange krnl_block(Value loop, int64_t blockSize) {
-  using namespace mlir::edsc;
-  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  return ScopedContext::getBuilderRef()
-      .create<KrnlBlockOp>(ScopedContext::getLocation(), loop, blockSize)
-      .getResults();
+Value KrnlBuilder::vectorTypeCast(Value sourceMemref, int64_t vectorLen) {
+  return b.create<KrnlVectorTypeCastOp>(loc, sourceMemref, vectorLen);
 }
 
-void krnl_permute(ValueRange loops, ArrayRef<int64_t> map) {
-  using namespace mlir::edsc;
-  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  ScopedContext::getBuilderRef().create<KrnlPermuteOp>(
-      ScopedContext::getLocation(), loops, map);
+ValueRange KrnlBuilder::defineLoops(int64_t originalLoopNum) {
+  return b.create<KrnlDefineLoopsOp>(loc, originalLoopNum).getResults();
 }
 
-ValueRange krnl_get_induction_var_value(ValueRange loops) {
-  using namespace mlir::edsc;
-  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  return ScopedContext::getBuilderRef()
-      .create<KrnlGetInductionVariableValueOp>(
-          ScopedContext::getLocation(), loops)
-      .getResults();
+ValueRange KrnlBuilder::block(Value loop, int64_t blockSize) {
+  return b.create<KrnlBlockOp>(loc, loop, blockSize).getResults();
 }
 
-void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
+void KrnlBuilder::permute(ValueRange loops, ArrayRef<int64_t> map) {
+  b.create<KrnlPermuteOp>(loc, loops, map);
+}
+
+ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) {
+  return b.create<KrnlGetInductionVariableValueOp>(loc, loops).getResults();
+}
+
+void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
     ValueRange lbs, ValueRange ubs, ValueRange iterArgs,
-    function_ref<void(ValueRange)> bodyBuilderFn) {
-  using namespace mlir::edsc;
-  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
-  OpBuilder &builder = ScopedContext::getBuilderRef();
-  Location loc = ScopedContext::getLocation();
-  // TODO: May want to change KrnlIterateOperandPack to use ValueRanges...
-  SmallVector<Value, 4> origLoops, optLoops;
-  for (auto org : originalLoops)
-    origLoops.emplace_back(org);
-  for (auto opt : optimizedLoops)
-    optLoops.emplace_back(opt);
-  KrnlIterateOperandPack pack(builder, origLoops, optLoops);
-  for (unsigned int i = 0; i < lbs.size(); ++i) {
-    pack.pushOperandBound(lbs[i]);
-    pack.pushOperandBound(ubs[i]);
-  }
-  KrnlIterateOp iterateOp =
-      builder.create<KrnlIterateOp>(ScopedContext::getLocation(), pack);
-  // auto savedInsertionPoint = builder.saveInsertionPoint();
-  Block *iterBlock = &iterateOp.bodyRegion().front();
-
-  if (bodyBuilderFn) { // Scope for the scoped context of the loop.
-    ScopedContext nestedContext(builder, loc);
-    builder.setInsertionPointToStart(iterBlock);
-    bodyBuilderFn(iterArgs);
-  }
+    function_ref<void(KrnlBuilder &createKrnl, ValueRange args)>
+        bodyBuilderFn) {
+  b.create<KrnlIterateOp>(loc, originalLoops, optimizedLoops, lbs, ubs,
+      iterArgs, [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+        KrnlBuilder kb(lb);
+        bodyBuilderFn(kb, args);
+      });
 }
 
-void krnl_iterate(ValueRange originalLoops, ValueRange lbs, ValueRange ubs,
-    ValueRange iterArgs, function_ref<void(ValueRange)> bodyBuilderFn) {
-  // When no optimized loops are given, use original for the optimized.
-  krnl_iterate(originalLoops, originalLoops, lbs, ubs, iterArgs, bodyBuilderFn);
+void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
+    ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
+    function_ref<void(KrnlBuilder &createKrnl, ValueRange args)>
+        bodyBuilderFn) {
+  b.create<KrnlIterateOp>(loc, originalLoops, optimizedLoops, lbs, ubs,
+      iterArgs, [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+        KrnlBuilder kb(lb);
+        bodyBuilderFn(kb, args);
+      });
 }
 
-void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
-    Value padValue, ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext,
-    bool transpose) {
-  using namespace mlir::edsc;
-  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  ScopedContext::getBuilderRef().create<KrnlCopyToBufferOp>(
-      ScopedContext::getLocation(), bufferMemref, memref, starts, padValue,
-      tileSize, padToNext, transpose);
+void KrnlBuilder::memcpy(Value dest, Value src, Value size) {
+  b.create<KrnlMemcpyOp>(loc, dest, src, size);
 }
 
-void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
-    Value padValue, bool transpose) {
-  ArrayRef<int64_t> empty;
-  krnl_copy_to_buffer(
-      bufferMemref, memref, starts, padValue, empty, empty, transpose);
+void KrnlBuilder::copyToBuffer(Value bufferMemref, Value sourceMemref,
+    ValueRange starts, Value padValue, ArrayRef<int64_t> tileSize,
+    ArrayRef<int64_t> padToNext, bool transpose) {
+  b.create<KrnlCopyToBufferOp>(loc, bufferMemref, sourceMemref, starts,
+      padValue, tileSize, padToNext, transpose);
 }
 
-void krnl_copy_from_buffer(Value bufferMemref, Value memref, ValueRange starts,
-    ArrayRef<int64_t> tileSize) {
-  using namespace mlir::edsc;
-  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  ScopedContext::getBuilderRef().create<KrnlCopyFromBufferOp>(
-      ScopedContext::getLocation(), bufferMemref, memref, starts, tileSize);
+void KrnlBuilder::copyToBuffer(Value bufferMemref, Value sourceMemref,
+    ValueRange starts, Value padValue, bool transpose) {
+  b.create<KrnlCopyToBufferOp>(
+      loc, bufferMemref, sourceMemref, starts, padValue, transpose);
 }
-void krnl_copy_from_buffer(
+
+void KrnlBuilder::copyFromBuffer(Value bufferMemref, Value memref,
+    ValueRange starts, ArrayRef<int64_t> tileSize) {
+  b.create<KrnlCopyFromBufferOp>(loc, bufferMemref, memref, starts, tileSize);
+}
+
+void KrnlBuilder::copyFromBuffer(
     Value bufferMemref, Value memref, ValueRange starts) {
-  ArrayRef<int64_t> empty;
-  krnl_copy_from_buffer(bufferMemref, memref, starts, empty);
+  b.create<KrnlCopyFromBufferOp>(loc, bufferMemref, memref, starts);
 }
 
-void krnl_matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
+void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
     Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
     ValueRange globalUBs, ArrayRef<int64_t> computeTileSize,
     ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
     ArrayRef<int64_t> cTileSize, bool simdize, bool unroll, bool overcompute) {
-  using namespace mlir::edsc;
-  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  ScopedContext::getBuilderRef().create<KrnlMatMulOp>(
-      ScopedContext::getLocation(), A, aStart, B, bStart, C, cStart, loops,
+  b.create<KrnlMatMulOp>(loc, A, aStart, B, bStart, C, cStart, loops,
       computeStarts[0], computeStarts[1], computeStarts[2], globalUBs[0],
       globalUBs[1], globalUBs[2], computeTileSize, aTileSize, bTileSize,
       cTileSize, simdize, unroll, overcompute);
 }
 
-void krnl_matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
+void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
     Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
     ValueRange globalUBs, bool simdize, bool unroll, bool overcompute) {
-  ArrayRef<int64_t> empty;
-  krnl_matmul(A, aStart, B, bStart, C, cStart, loops, computeStarts, globalUBs,
-      empty, empty, empty, empty, simdize, unroll, overcompute);
-}
-
-//====---------------- EDSC Support with IndexExpr -----------------------===//
-
-Value krnl_load(Value memref, ArrayRef<IndexExpr> indices) {
-  SmallVector<Value, 4> indexValues;
-  IndexExpr::getValues(indices, indexValues);
-  return krnl_load(memref, ValueRange(indexValues));
-}
-
-void krnl_store(Value val, Value memref, ArrayRef<IndexExpr> indices) {
-  SmallVector<Value, 4> indexValues;
-  IndexExpr::getValues(indices, indexValues);
-  krnl_store(val, memref, ValueRange(indexValues));
-}
-
-void krnl_iterate_ie(ValueRange originalLoops, ValueRange optimizedLoops,
-    ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
-    function_ref<void(ValueRange)> bodyBuilderFn) {
-  using namespace mlir::edsc;
-  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
-  OpBuilder &builder = ScopedContext::getBuilderRef();
-  Location loc = ScopedContext::getLocation();
-  // TODO: May want to change KrnlIterateOperandPack to use ValueRanges...
-  SmallVector<Value, 4> origLoops, optLoops;
-  for (auto org : originalLoops)
-    origLoops.emplace_back(org);
-  for (auto opt : optimizedLoops)
-    optLoops.emplace_back(opt);
-  KrnlIterateOperandPack pack(builder, origLoops, optLoops);
-  for (unsigned int i = 0; i < lbs.size(); ++i) {
-    pack.pushIndexExprBound(lbs[i]);
-    pack.pushIndexExprBound(ubs[i]);
-  }
-  KrnlIterateOp iterateOp =
-      builder.create<KrnlIterateOp>(ScopedContext::getLocation(), pack);
-  // auto savedInsertionPoint = builder.saveInsertionPoint();
-  Block *iterBlock = &iterateOp.bodyRegion().front();
-
-  if (bodyBuilderFn) { // Scope for the scoped context of the loop.
-    ScopedContext nestedContext(builder, loc);
-    builder.setInsertionPointToStart(iterBlock);
-    bodyBuilderFn(iterArgs);
-  }
-}
-
-void krnl_iterate_ie(ValueRange originalLoops, ArrayRef<IndexExpr> lbs,
-    ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
-    function_ref<void(ValueRange)> bodyBuilderFn) {
-  // When no optimized loops are given, use original for the optimized.
-  krnl_iterate_ie(
-      originalLoops, originalLoops, lbs, ubs, iterArgs, bodyBuilderFn);
-}
-
-void krnl_copy_to_buffer_ie(Value bufferMemref, Value memref,
-    ArrayRef<IndexExpr> starts, Value padValue, ArrayRef<int64_t> tileSize,
-    ArrayRef<int64_t> padToNext) {
-  SmallVector<Value, 4> startValues;
-  IndexExpr::getValues(starts, startValues);
-  krnl_copy_to_buffer(
-      bufferMemref, memref, startValues, padValue, tileSize, padToNext);
-}
-
-void krnl_copy_to_buffer_ie(Value bufferMemref, Value memref,
-    ArrayRef<IndexExpr> starts, Value padValue) {
-  ArrayRef<int64_t> empty;
-  krnl_copy_to_buffer_ie(bufferMemref, memref, starts, padValue, empty, empty);
-}
-
-void krnl_copy_from_buffer_ie(Value bufferMemref, Value memref,
-    ArrayRef<IndexExpr> starts, ArrayRef<int64_t> tileSize) {
-  SmallVector<Value, 4> startValues;
-  IndexExpr::getValues(starts, startValues);
-  krnl_copy_from_buffer(bufferMemref, memref, startValues, tileSize);
-}
-void krnl_copy_from_buffer_ie(
-    Value bufferMemref, Value memref, ArrayRef<IndexExpr> starts) {
-  ArrayRef<int64_t> empty;
-  krnl_copy_from_buffer_ie(bufferMemref, memref, starts, empty);
+  b.create<KrnlMatMulOp>(loc, A, aStart, B, bStart, C, cStart, loops,
+      computeStarts[0], computeStarts[1], computeStarts[2], globalUBs[0],
+      globalUBs[1], globalUBs[2], simdize, unroll, overcompute);
 }
 
 bool isKrnlGlobalConstant(Value result) {

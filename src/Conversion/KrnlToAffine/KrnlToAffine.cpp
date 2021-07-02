@@ -661,8 +661,10 @@ public:
         operandAdaptor.A().getType().cast<MemRefType>().getElementType();
     bool simdize = op.simdize();
     // Init scope and emit constants.
-    ScopedContext scope(rewriter, op.getLoc());
-    IndexExprScope indexScope(rewriter, op.getLoc());
+    Location loc = op.getLoc();
+    // TODO remove scope and affine edsc
+    ScopedContext scope(rewriter, loc);
+    IndexExprScope indexScope(rewriter, loc);
 
     // Gather A, B, C tile sizes.
     SmallVector<IndexExpr, 2> aTileSize, bTileSize, cTileSize;
@@ -803,7 +805,7 @@ public:
       // clang-format off
       genIfThenElseWithoutParams(rewriter, indexScope, allFullTiles,
         /* then full */ [&](ValueRange) {
-        genSimd(rewriter, op, elementType, aStart, bVecStart, cVecStart,
+        genSimd(rewriter, loc, op, elementType, aStart, bVecStart, cVecStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
           vectorLen, fullUnrollAndJam); 
       }, /* has some partial tiles */ [&](ValueRange) {
@@ -811,13 +813,13 @@ public:
         // Test if SIMD dim (M) is full.
         genIfThenElseWithoutParams(rewriter, indexScope, jFullTiles,
           /* full SIMD */ [&](ValueRange) {
-          genSimd(rewriter, op, elementType, aStart, bVecStart, cVecStart,
+          genSimd(rewriter, loc, op, elementType, aStart, bVecStart, cVecStart,
             iTrip, jComputeTileSize, kTrip, vectorLen, false);
         }, /* else partial SIMD */ [&](ValueRange) {
           if (false && jPartialTrip.isLiteral() && jPartialTrip.getLiteral() >=2) {
             // has a known trip count along the simd dimension of at least 2
             // elements, use simd again.
-            genSimd(rewriter, op, elementType, aStart, bVecStart, cVecStart,
+            genSimd(rewriter, loc, op, elementType, aStart, bVecStart, cVecStart,
               iTrip, jPartialTrip, kTrip, vectorLen, false);
           } else {
             genScalar(rewriter, op, elementType, aStart, bStart,  cStart,
@@ -920,8 +922,8 @@ private:
     }
   }
 
-  void genSimd(PatternRewriter &rewriter, KrnlMatMulOp op, Type elementType,
-      ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
+  void genSimd(PatternRewriter &rewriter, Location loc, KrnlMatMulOp op,
+      Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
       ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
       IndexExpr vectorLen, bool unrollJam) const {
     // can simdize only if K is compile time
@@ -936,8 +938,9 @@ private:
     int64_t VL = vectorLen.getLiteral();
     VectorType vecType = VectorType::get({VL}, elementType);
     MemRefType CTmpType = MemRefType::get({}, vecType);
-    Value vecB = krnl_vector_type_cast(B, VL);
-    Value vecC = krnl_vector_type_cast(C, VL);
+    KrnlBuilder createKrnl(rewriter, loc);
+    Value vecB = createKrnl.vectorTypeCast(B, VL);
+    Value vecC = createKrnl.vectorTypeCast(C, VL);
 
 #if DEBUG_MALLOC
 #if DEBUG_GLOBAL_ALLOC_FREE
@@ -1078,8 +1081,9 @@ public:
         buffMemref.getType().cast<MemRefType>().getShape().size();
     int64_t srcOffset = srcRank - buffRank;
     assert(srcOffset >= 0 && "offset expected non negative");
-    ScopedContext scope(rewriter, op.getLoc());
-    IndexExprScope indexScope(rewriter, op.getLoc());
+    Location loc = op.getLoc();
+    ScopedContext scope(rewriter, loc);
+    IndexExprScope indexScope(rewriter, loc);
     SmallVector<IndexExpr, 4> starts, bufferReadUBs, bufferPadUBs;
     MemRefBoundsIndexCapture buffBounds(buffMemref);
     MemRefBoundsIndexCapture sourceBounds(sourceMemref);
@@ -1145,15 +1149,15 @@ public:
       }
     }
     SmallVector<Value, 4> loopIndices;
-    genCopyLoops(rewriter, indexScope, buffMemref, sourceMemref, srcLoopMap,
-        padVal, zero, starts, bufferReadUBs, bufferPadUBs, loopIndices, 0,
-        buffRank, false);
+    genCopyLoops(rewriter, loc, indexScope, buffMemref, sourceMemref,
+        srcLoopMap, padVal, zero, starts, bufferReadUBs, bufferPadUBs,
+        loopIndices, 0, buffRank, false);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(OpBuilder &rewriter, IndexExprScope &enclosingScope,
-      Value buffMemref, Value sourceMemref,
+  void genCopyLoops(OpBuilder &rewriter, Location loc,
+      IndexExprScope &enclosingScope, Value buffMemref, Value sourceMemref,
       SmallVectorImpl<int64_t> &srcLoopMap, Value padVal, IndexExpr zero,
       SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &readUBs,
       SmallVectorImpl<IndexExpr> &padUBs, SmallVectorImpl<Value> &loopIndices,
@@ -1161,6 +1165,7 @@ public:
     if (i == buffRank) {
       // create new scope and import index expressions
       IndexExprScope currScope(rewriter, enclosingScope);
+      KrnlBuilder createKrnl(rewriter, loc);
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
       if (!padPhase) {
@@ -1180,10 +1185,10 @@ public:
                 currLoopIndices[srcLoopMap[buffIndex]] + currStarts[srcIndex]);
           }
         }
-        Value sourceVal = krnl_load(sourceMemref, currLoadIndices);
-        krnl_store(sourceVal, buffMemref, currLoopIndices);
+        Value sourceVal = createKrnl.loadIE(sourceMemref, currLoadIndices);
+        createKrnl.storeIE(sourceVal, buffMemref, currLoopIndices);
       } else {
-        krnl_store(padVal, buffMemref, currLoopIndices);
+        createKrnl.storeIE(padVal, buffMemref, currLoopIndices);
       }
     } else {
       using namespace edsc::op;
@@ -1193,7 +1198,7 @@ public:
       } else {
         affineLoopBuilder(zero, readUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(rewriter, enclosingScope, buffMemref, sourceMemref,
+          genCopyLoops(rewriter, loc, enclosingScope, buffMemref, sourceMemref,
               srcLoopMap, padVal, zero, starts, readUBs, padUBs, loopIndices,
               i + 1, buffRank,
               /*no pad phase*/ false);
@@ -1205,7 +1210,7 @@ public:
       } else {
         affineLoopBuilder(readUBs[i], padUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(rewriter, enclosingScope, buffMemref, sourceMemref,
+          genCopyLoops(rewriter, loc, enclosingScope, buffMemref, sourceMemref,
               srcLoopMap, padVal, zero, starts, readUBs, padUBs, loopIndices,
               i + 1, buffRank,
               /*pad phase*/ true);
@@ -1242,8 +1247,9 @@ public:
     assert(destOffset >= 0 && "offset expected non negative");
     ArrayAttributeIndexCapture writeSizeCapture(op.tileSizeAttr());
 
-    ScopedContext scope(rewriter, op.getLoc());
-    IndexExprScope indexScope(rewriter, op.getLoc());
+    Location loc = op.getLoc();
+    ScopedContext scope(rewriter, loc);
+    IndexExprScope indexScope(rewriter, loc);
     SmallVector<IndexExpr, 4> starts, bufferWriteUBs;
     MemRefBoundsIndexCapture buffBounds(buffMemref);
     MemRefBoundsIndexCapture destBounds(destMemref);
@@ -1270,19 +1276,21 @@ public:
       bufferWrite.debugPrint("buffer wrote");
       bufferWriteUBs.emplace_back(bufferWrite);
     }
-    genCopyLoops(rewriter, indexScope, buffMemref, destMemref, zero, starts,
-        bufferWriteUBs, loopIndices, 0, buffRank);
+    genCopyLoops(rewriter, loc, indexScope, buffMemref, destMemref, zero,
+        starts, bufferWriteUBs, loopIndices, 0, buffRank);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(OpBuilder &rewriter, IndexExprScope &enclosingScope,
-      Value buffMemref, Value destMemref, IndexExpr zero,
-      SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &writeUBs,
-      SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t buffRank) const {
+  void genCopyLoops(OpBuilder &rewriter, Location loc,
+      IndexExprScope &enclosingScope, Value buffMemref, Value destMemref,
+      IndexExpr zero, SmallVectorImpl<IndexExpr> &starts,
+      SmallVectorImpl<IndexExpr> &writeUBs, SmallVectorImpl<Value> &loopIndices,
+      int64_t i, int64_t buffRank) const {
     if (i == buffRank) {
       // create new scope and import index expressions
       IndexExprScope currScope(rewriter, enclosingScope);
+      KrnlBuilder createKrnl(rewriter, loc);
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
       getIndexExprList<SymbolIndexExpr>(starts, currStarts);
@@ -1301,8 +1309,8 @@ public:
               currLoopIndices[buffIndex] + currStarts[destIndex]);
         }
       }
-      Value destVal = krnl_load(buffMemref, currLoopIndices);
-      krnl_store(destVal, destMemref, currStoreIndices);
+      Value destVal = createKrnl.loadIE(buffMemref, currLoopIndices);
+      createKrnl.storeIE(destVal, destMemref, currStoreIndices);
     } else {
       using namespace edsc::op;
       if (writeUBs[i].isLiteralAndIdenticalTo(0)) {
@@ -1311,8 +1319,8 @@ public:
         // Loop to copy the data.
         affineLoopBuilder(zero, writeUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(rewriter, enclosingScope, buffMemref, destMemref, zero,
-              starts, writeUBs, loopIndices, i + 1, buffRank);
+          genCopyLoops(rewriter, loc, enclosingScope, buffMemref, destMemref,
+              zero, starts, writeUBs, loopIndices, i + 1, buffRank);
           loopIndices.pop_back_n(1);
         });
       }
