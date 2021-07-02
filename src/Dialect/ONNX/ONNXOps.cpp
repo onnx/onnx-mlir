@@ -3347,7 +3347,14 @@ LogicalResult ONNXDetOp::inferShapes() {
 }
 
 LogicalResult ONNXEqualOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  getResult().setType(
+      getBroadcastedType(lhsTy, rhsTy, IntegerType::get(1, getContext())));
+  return success();
 }
 
 LogicalResult ONNXEyeLikeOp::inferShapes() {
