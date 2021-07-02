@@ -35,6 +35,9 @@
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 #include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
 
+#include "src/Dialect/ONNX/TmpMlirUtils.hpp"
+#include <functional>
+
 #define BUFFER_ALIGN 64
 
 using namespace mlir;
@@ -249,6 +252,43 @@ public:
 
 private:
   llvm::DenseMap<mlir::Value, llvm::SmallVector<Movable, 4>> movingPlan;
+};
+
+//===----------------- Support to gen Affine ops --------------------------===//
+// Could eventually migrate to MLIR, but use IndexExpr, so probably not.
+// aee
+
+struct AffineBuilder : DialectBuilder {
+  AffineBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  AffineBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
+  AffineBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+
+  Value load(Value memref, ValueRange indices = {}) {
+    return b.create<AffineLoadOp>(loc, memref, indices);
+  }
+
+  void store(Value val, Value memref, ValueRange indices = {}) {
+    b.create<AffineStoreOp>(loc, val, memref, indices);
+  }
+
+  void forIE(IndexExpr lb, IndexExpr ub, int64_t step,
+      function_ref<void(AffineBuilder &, Value)> builderFn) {
+    // Transform IndexExpressions into value maps and list of operands.
+    AffineMap lbMap, ubMap;
+    SmallVector<Value, 8> lbOperands, ubOperands;
+    lb.getAffineMapAndOperands(lbMap, lbOperands);
+    ub.getAffineMapAndOperands(ubMap, ubOperands);
+    // Create affine for.
+    b.create<AffineForOp>(loc, lbOperands, lbMap, ubOperands, ubMap, step,
+        ValueRange{},
+        [&](OpBuilder &b, Location loc, Value index, ValueRange args) {
+          AffineBuilder createAffine(b, loc);
+          builderFn(createAffine, index);
+          createAffine.yield();
+        });
+  }
+
+  void yield() { b.create<AffineYieldOp>(loc); }
 };
 
 void removeOps(llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
@@ -1048,7 +1088,8 @@ public:
     assert(srcOffset >= 0 && "offset expected non negative");
     Location loc = op.getLoc();
     ScopedContext scope(rewriter, loc);
-    IndexExprScope indexScope(rewriter, loc);
+    AffineBuilder createAffine(rewriter, loc);
+    IndexExprScope indexScope(createAffine);
     SmallVector<IndexExpr, 4> starts, bufferReadUBs, bufferPadUBs;
     MemRefBoundsIndexCapture buffBounds(buffMemref);
     MemRefBoundsIndexCapture sourceBounds(sourceMemref);
@@ -1114,23 +1155,23 @@ public:
       }
     }
     SmallVector<Value, 4> loopIndices;
-    genCopyLoops(rewriter, loc, indexScope, buffMemref, sourceMemref,
-        srcLoopMap, padVal, zero, starts, bufferReadUBs, bufferPadUBs,
-        loopIndices, 0, buffRank, false);
+    genCopyLoops(createAffine, indexScope, buffMemref, sourceMemref, srcLoopMap,
+        padVal, zero, starts, bufferReadUBs, bufferPadUBs, loopIndices, 0,
+        buffRank, false);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(OpBuilder &rewriter, Location loc,
-      IndexExprScope &enclosingScope, Value buffMemref, Value sourceMemref,
+  void genCopyLoops(AffineBuilder &createAffine, IndexExprScope &enclosingScope,
+      Value buffMemref, Value sourceMemref,
       SmallVectorImpl<int64_t> &srcLoopMap, Value padVal, IndexExpr zero,
       SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &readUBs,
       SmallVectorImpl<IndexExpr> &padUBs, SmallVectorImpl<Value> &loopIndices,
       int64_t i, int64_t buffRank, bool padPhase) const {
     if (i == buffRank) {
       // create new scope and import index expressions
-      IndexExprScope currScope(rewriter, enclosingScope);
-      KrnlBuilder createKrnl(rewriter, loc);
+      IndexExprScope currScope(createAffine, enclosingScope);
+      KrnlBuilder createKrnl(createAffine);
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
       if (!padPhase) {
@@ -1161,26 +1202,28 @@ public:
       if (readUBs[i].isLiteralAndIdenticalTo(0)) {
         // Nothing to read, skip.
       } else {
-        affineLoopBuilder(zero, readUBs[i], 1, [&](Value index) {
-          loopIndices.emplace_back(index);
-          genCopyLoops(rewriter, loc, enclosingScope, buffMemref, sourceMemref,
-              srcLoopMap, padVal, zero, starts, readUBs, padUBs, loopIndices,
-              i + 1, buffRank,
-              /*no pad phase*/ false);
-          loopIndices.pop_back_n(1);
-        });
+        createAffine.forIE(
+            zero, readUBs[i], 1, [&](AffineBuilder &createAffine, Value index) {
+              loopIndices.emplace_back(index);
+              genCopyLoops(createAffine, enclosingScope, buffMemref,
+                  sourceMemref, srcLoopMap, padVal, zero, starts, readUBs,
+                  padUBs, loopIndices, i + 1, buffRank,
+                  /*no pad phase*/ false);
+              loopIndices.pop_back_n(1);
+            });
       }
       if (padUBs[i].isLiteralAndIdenticalTo(0)) {
         // No padding needed.
       } else {
-        affineLoopBuilder(readUBs[i], padUBs[i], 1, [&](Value index) {
-          loopIndices.emplace_back(index);
-          genCopyLoops(rewriter, loc, enclosingScope, buffMemref, sourceMemref,
-              srcLoopMap, padVal, zero, starts, readUBs, padUBs, loopIndices,
-              i + 1, buffRank,
-              /*pad phase*/ true);
-          loopIndices.pop_back_n(1);
-        });
+        createAffine.forIE(readUBs[i], padUBs[i], 1,
+            [&](AffineBuilder &createAffine, Value index) {
+              loopIndices.emplace_back(index);
+              genCopyLoops(createAffine, enclosingScope, buffMemref,
+                  sourceMemref, srcLoopMap, padVal, zero, starts, readUBs,
+                  padUBs, loopIndices, i + 1, buffRank,
+                  /*pad phase*/ true);
+              loopIndices.pop_back_n(1);
+            });
       }
       // For next level up of padding, if any, will not copy data anymore
       readUBs[i] = zero;
@@ -1214,7 +1257,9 @@ public:
 
     Location loc = op.getLoc();
     ScopedContext scope(rewriter, loc);
-    IndexExprScope indexScope(rewriter, loc);
+    AffineBuilder createAffine(rewriter, loc);
+    IndexExprScope indexScope(createAffine);
+
     SmallVector<IndexExpr, 4> starts, bufferWriteUBs;
     MemRefBoundsIndexCapture buffBounds(buffMemref);
     MemRefBoundsIndexCapture destBounds(destMemref);
@@ -1241,21 +1286,20 @@ public:
       bufferWrite.debugPrint("buffer wrote");
       bufferWriteUBs.emplace_back(bufferWrite);
     }
-    genCopyLoops(rewriter, loc, indexScope, buffMemref, destMemref, zero,
-        starts, bufferWriteUBs, loopIndices, 0, buffRank);
+    genCopyLoops(createAffine, indexScope, buffMemref, destMemref, zero, starts,
+        bufferWriteUBs, loopIndices, 0, buffRank);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(OpBuilder &rewriter, Location loc,
-      IndexExprScope &enclosingScope, Value buffMemref, Value destMemref,
-      IndexExpr zero, SmallVectorImpl<IndexExpr> &starts,
-      SmallVectorImpl<IndexExpr> &writeUBs, SmallVectorImpl<Value> &loopIndices,
-      int64_t i, int64_t buffRank) const {
+  void genCopyLoops(AffineBuilder &createAffine, IndexExprScope &enclosingScope,
+      Value buffMemref, Value destMemref, IndexExpr zero,
+      SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &writeUBs,
+      SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t buffRank) const {
     if (i == buffRank) {
       // create new scope and import index expressions
-      IndexExprScope currScope(rewriter, enclosingScope);
-      KrnlBuilder createKrnl(rewriter, loc);
+      IndexExprScope currScope(createAffine, enclosingScope);
+      KrnlBuilder createKrnl(createAffine);
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
       getIndexExprList<SymbolIndexExpr>(starts, currStarts);
@@ -1282,12 +1326,13 @@ public:
         // Nothing to write.
       } else {
         // Loop to copy the data.
-        affineLoopBuilder(zero, writeUBs[i], 1, [&](Value index) {
-          loopIndices.emplace_back(index);
-          genCopyLoops(rewriter, loc, enclosingScope, buffMemref, destMemref,
-              zero, starts, writeUBs, loopIndices, i + 1, buffRank);
-          loopIndices.pop_back_n(1);
-        });
+        createAffine.forIE(zero, writeUBs[i], 1,
+            [&](AffineBuilder &createAffine, Value index) {
+              loopIndices.emplace_back(index);
+              genCopyLoops(createAffine, enclosingScope, buffMemref, destMemref,
+                  zero, starts, writeUBs, loopIndices, i + 1, buffRank);
+              loopIndices.pop_back_n(1);
+            });
       }
     }
   }
