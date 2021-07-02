@@ -494,7 +494,6 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
 
   // TODO remove scope
   ImplicitLocOpBuilder lb(loc, rewriter);
-  ScopedContext scope(lb);
   KrnlBuilder createKrnl(lb);
 
   // Get Ht, Ct.

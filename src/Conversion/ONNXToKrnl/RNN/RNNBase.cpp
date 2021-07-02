@@ -30,8 +30,6 @@ int64_t dimAt(Value val, int index) {
 /// Shape :: [seq_length, num_directions, batch_size, hidden_size]
 Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value W, Value R, Value output, bool insertDealloc) {
-  // TODO remove
-  ScopedContext scope(rewriter, loc);
   ImplicitLocOpBuilder lb(loc, rewriter);
   Value alloc;
   if (!isNoneType(output)) {
@@ -78,7 +76,6 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
 /// Shape :: [batch_size, hidden_size]
 Value allocIntermediateState(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value R) {
-  ScopedContext scope(rewriter, loc);
   ImplicitLocOpBuilder lb(loc, rewriter);
   // The hidden or cell is not a return value but a temporary value, so always
   // dealloc it.
@@ -120,7 +117,6 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
     Location loc, Value forwardHt, Value reverseHt, Value forwardCt,
     Value reverseCt, Value initialH, Value initialC, Type elementType,
     StringRef direction, bool onlyHidden) {
-  ScopedContext scope(rewriter, loc);
   Value zero = emitConstantOp(rewriter, loc, elementType, 0);
   Value zeroIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
   Value oneIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
@@ -191,7 +187,6 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
 /// Shape :: [num_directions, batch_size, hidden_size]
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
     Value X, Value W, Value R, Value output, bool insertDealloc) {
-  ScopedContext scope(rewriter, loc);
   ImplicitLocOpBuilder lb(loc, rewriter);
 
   Value alloc;
@@ -235,7 +230,7 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
     Value ht, Value ct, Value initialH, Value initialC, Type elementType,
     bool onlyHidden) {
   // TODO remove
-  ScopedContext scope(rewriter, loc);
+  // scope(rewriter, loc);
   ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(lb);
   Value zero = emitConstantOp(rewriter, loc, elementType, 0);
@@ -272,7 +267,6 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     Location loc, Value forwardVal, Value reverseVal, StringRef direction,
     Value output) {
   // TODO remove
-  ScopedContext scope(rewriter, loc);
   ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(lb);
   if (direction == FORWARD || direction == REVERSE) {
@@ -365,7 +359,6 @@ Value applyActivation(OpBuilder &rewriter, Location loc,
 Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value timestepIV) {
   // TODO remove
-  ScopedContext scope(rewriter, loc);
   ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(rewriter, loc);
   Value sliceX;
@@ -418,8 +411,6 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
 void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
     MemRefType matrixType, Value A, ArrayRef<Value> Bs, Value zero,
     Value zeroVal, ArrayRef<Value> Cs) {
-  // TODO remove
-  ScopedContext scope(rewriter, loc);
   ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(lb);
 

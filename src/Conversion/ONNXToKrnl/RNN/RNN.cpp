@@ -308,8 +308,6 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   // Wbi: [hidden_size]
   // Rbi: [hidden_size]
 
-  // TODO remove
-  ScopedContext scope(rewriter, loc);
   ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(lb);
   OnnxBuilder createONNX(lb);

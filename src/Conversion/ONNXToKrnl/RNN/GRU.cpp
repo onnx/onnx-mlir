@@ -391,8 +391,6 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
   //   ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh)
   // Ht = (1 - zt) (.) ht + zt (.) Ht-1"
 
-  // TODO: remove once all EDSC is gone
-  ScopedContext scope(rewriter, loc);
   ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(lb);
   OnnxBuilder createONNX(lb);
