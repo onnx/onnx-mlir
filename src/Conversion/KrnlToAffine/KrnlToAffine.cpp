@@ -597,38 +597,6 @@ using namespace mlir::edsc;
 using namespace mlir::edsc::ops;
 using namespace mlir::edsc::intrinsics;
 
-static void affineLoopBuilder(ValueRange lbOperands, AffineMap &lbMap,
-    ValueRange ubOperands, AffineMap &ubMap, int64_t step,
-    function_ref<void(Value)> bodyBuilderFn) {
-  // Fetch the builder and location.
-  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  OpBuilder &builder = ScopedContext::getBuilderRef();
-  Location loc = ScopedContext::getLocation();
-
-  // Create the actual loop and call the body builder, if provided, after
-  // updating the scoped context.
-  builder.create<AffineForOp>(loc, lbOperands, lbMap, ubOperands, ubMap, step,
-      llvm::None,
-      [&](OpBuilder &nestedBuilder, Location nestedLoc, Value iv,
-          ValueRange itrArgs) {
-        if (bodyBuilderFn) {
-          ScopedContext nestedContext(nestedBuilder, nestedLoc);
-          OpBuilder::InsertionGuard guard(nestedBuilder);
-          bodyBuilderFn(iv);
-        }
-        nestedBuilder.create<AffineYieldOp>(nestedLoc);
-      });
-}
-
-static void affineLoopBuilder(IndexExpr lb, IndexExpr ub, int64_t step,
-    function_ref<void(Value)> bodyBuilderFn) {
-  AffineMap lbMap, ubMap;
-  SmallVector<Value, 8> lbOperands, ubOperands;
-  lb.getAffineMapAndOperands(lbMap, lbOperands);
-  ub.getAffineMapAndOperands(ubMap, ubOperands);
-  affineLoopBuilder(lbOperands, lbMap, ubOperands, ubMap, step, bodyBuilderFn);
-}
-
 // Affine expressions compared to >= 0
 static IndexExpr isFullTile(IndexExpr UB, IndexExpr block, IndexExpr GI) {
   // Determine if the current tile is full. It is full if the begining of
@@ -910,14 +878,12 @@ private:
         // Defines induction variables, and possibly initialize C.
         jSaved = j;
         // Alloc and init temp c storage.
-        // AffineIndexedValue TTmpC(TmpC);
         SmallVector<Value, 4> cAccess;
         // CC(i + cStart0.getValue(), j + cStart1.getValue());
         IndexExpr::getValues(cStart, cAccess);
         cAccess[cRank - 2] = i + cAccess[cRank - 2];
         cAccess[cRank - 1] = j + cAccess[cRank - 1];
-        Value cVal = createAffine.load(C, cAccess);
-        createAffine.store(cVal, TmpC);
+        createAffine.store(createAffine.load(C, cAccess), TmpC);
         // TTmpC() = affine_load(C, cAccess);
         // Sum over k.
         createAffine.forIE(
@@ -960,6 +926,7 @@ private:
     assert(J.isLiteral() &&
            "can only simdize with compile time blocking factor on simd axis");
     ImplicitLocOpBuilder lb(loc, rewriter);
+    AffineBuilder createAffine(rewriter, loc);
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
@@ -979,49 +946,49 @@ private:
     Value iSaved;
     using namespace edsc::op;
     LiteralIndexExpr zero(0);
-    // clang-format off
-    affineLoopBuilder(zero, I, 1, [&](Value i) {
+    createAffine.forIE(zero, I, 1, [&](AffineBuilder &createAffine, Value i) {
       iSaved = i; // Saved for unroll and jam.
       // Alloca temp vector TmpC and save C(i)/0.0 into it.
-      AffineIndexedValue TTmpC(TmpC);
       SmallVector<Value, 4> cAccess;
       // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
       IndexExpr::getValues(cStart, cAccess);
-      cAccess[cRank-2] = i + cAccess[cRank-2];
-      TTmpC() = affine_load(vecC, cAccess);
+      cAccess[cRank - 2] = i + cAccess[cRank - 2];
+      createAffine.store(createAffine.load(vecC, cAccess), TmpC);
       // Sum over k.
-      affineLoopBuilder(zero, K, 1, [&](Value k) {
+      createAffine.forIE(zero, K, 1, [&](AffineBuilder &createAffine, Value k) {
         // Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
         SmallVector<Value, 4> aAccess, bAccess;
         IndexExpr::getValues(aStart, aAccess);
-        aAccess[aRank-2] = i + aAccess[aRank-2];
-        aAccess[aRank-1] = k + aAccess[aRank-1];
-        Value a = affine_load(A, aAccess);
+        aAccess[aRank - 2] = i + aAccess[aRank - 2];
+        aAccess[aRank - 1] = k + aAccess[aRank - 1];
+        Value a = createAffine.load(A, aAccess);
         Value va = vector_broadcast(vecType, a);
         // bAccess = {k + bStart0.getValue(), bStart1.getValue()};
         IndexExpr::getValues(bStart, bAccess);
-        bAccess[bRank-2] = k + bAccess[bRank-2];
-        Value vb = affine_load(vecB, bAccess);
-        TTmpC() = vector_fma(va, vb, TTmpC());
+        bAccess[bRank - 2] = k + bAccess[bRank - 2];
+        Value vb = createAffine.load(vecB, bAccess);
+        // TTmpC() = vector_fma(va, vb, TTmpC());
+        Value res = createAffine.getBuilder().create<vector::FMAOp>(
+            createAffine.getLoc(), va, vb, createAffine.load(TmpC));
+        createAffine.store(res, TmpC);
       });
       // Store temp result into C(i)
-      Value tmpResults = TTmpC();
+      Value tmpResults = createAffine.load(TmpC);
       int64_t JLit = J.getLiteral();
       if (JLit != VL) {
         // create vector constant
         SmallVector<int64_t, 8> mask;
-        for(int64_t i=0; i<VL; i++)
-          mask.emplace_back((i<JLit) ? i : VL+i);
+        for (int64_t i = 0; i < VL; i++)
+          mask.emplace_back((i < JLit) ? i : VL + i);
         // permute
-        Value originalCvec = affine_load(vecC, cAccess);
-        tmpResults = rewriter.create<vector::ShuffleOp>(op.getLoc(),
-          tmpResults, originalCvec, mask);
+        Value originalCvec = createAffine.load(vecC, cAccess);
+        tmpResults = createAffine.getBuilder().create<vector::ShuffleOp>(
+            createAffine.getLoc(), tmpResults, originalCvec, mask);
       }
-      //CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
-      affine_store(tmpResults, vecC, cAccess);
+      // CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
+      createAffine.store(tmpResults, vecC, cAccess);
     });
 
-    // clang-format on
     if (false && unrollJam && I.isLiteral()) {
       // Unroll and jam. Seems to support only one operation at this time.
       auto iLoop = getForInductionVarOwner(iSaved);
