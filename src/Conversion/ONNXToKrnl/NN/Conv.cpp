@@ -59,11 +59,10 @@ struct ONNXConvOpLowering : public ConversionPattern {
     for (Attribute stride : stridesAttribute.getValue())
       strides.emplace_back(stride.cast<IntegerAttr>().getInt());
 
-    // Scope for krnl EDSC ops
-    using namespace mlir::edsc;
-    ScopedContext scope(rewriter, loc);
-    // Scope for IndexExpr.
-    IndexExprScope ieScope(&rewriter, loc);
+    // Scope for krnl ops
+    IndexExprScope ieScope(rewriter, loc);
+    KrnlBuilder createKrnl(rewriter, loc);
+    ArithBuilder createMath(rewriter, loc);
 
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;
@@ -163,7 +162,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
     MemRefBoundsIndexCapture kernelBounds(kernelOperand);
     DimIndexExpr subchannels(kernelBounds.getDim(1));
-    SmallVector<Value> empty;
 
     // 1. Define outer loops and emit empty optimization block:
     int64_t nOuterLoops =
@@ -220,12 +218,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
           resultIndices.emplace_back(DimIndexExpr(arg));
 
         // Initialize the output.
-        krnl_store(zero, alloc, resultIndices);
+        createKrnl.storeIE(zero, alloc, resultIndices);
 
         // Create a local reduction value.
         Value reductionVal = rewriter.create<memref::AllocaOp>(
             loc, MemRefType::get({}, memRefType.getElementType()));
-        krnl_store(zero, reductionVal, empty);
+        createKrnl.store(zero, reductionVal);
 
         // Prepare induction variables.
         SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
@@ -337,36 +335,35 @@ struct ONNXConvOpLowering : public ConversionPattern {
           for (int i = 0; i < (int)kernelShape.size() - spatialStartIndex;
                ++i) {
             // Since the window at borders may be smaller than the kernel, we
-            // have to shift kernel indices with a suitalbe offset.
+            // have to shift kernel indices with a suitable offset.
             DimIndexExpr h1(innerLoops.getInductionVar(i + 1));
             kernelIndices.emplace_back(h1 - kernelOffsetExprs[i]);
           }
 
           // 4.3 Compute convolution.
-          auto loadData = krnl_load(inputOperand, dataIndices);
-          auto loadKernel = krnl_load(kernelOperand, kernelIndices);
-          auto loadPartialSum = krnl_load(reductionVal, empty);
-          Value result = rewriter.create<AddFOp>(loc, loadPartialSum,
-              rewriter.create<MulFOp>(loc, loadData, loadKernel));
+          auto loadData = createKrnl.loadIE(inputOperand, dataIndices);
+          auto loadKernel = createKrnl.loadIE(kernelOperand, kernelIndices);
+          auto loadPartialSum = createKrnl.load(reductionVal);
+          Value result = createMath.add(
+              loadPartialSum, createMath.mul(loadData, loadKernel));
           // 4.4 Store computed value into output location.
-          krnl_store(result, reductionVal, empty);
+          createKrnl.store(result, reductionVal);
         }
         rewriter.restoreInsertionPoint(ipOuterLoopRegion);
 
-        auto result = krnl_load(reductionVal, empty);
+        auto result = createKrnl.load(reductionVal);
         // Store the result. Optionally add bias.
         if (hasBias) {
           SmallVector<IndexExpr, 4> biasIndices;
           biasIndices.emplace_back(kernel);
-          auto loadBias = krnl_load(biasOperand, biasIndices);
-          auto resultWithBias = rewriter.create<AddFOp>(loc, result, loadBias);
-          krnl_store(resultWithBias, alloc, resultIndices);
+          auto loadBias = createKrnl.loadIE(biasOperand, biasIndices);
+          auto resultWithBias = createMath.add(result, loadBias);
+          createKrnl.storeIE(resultWithBias, alloc, resultIndices);
         } else
-          krnl_store(result, alloc, resultIndices);
+          createKrnl.storeIE(result, alloc, resultIndices);
       }
     }
     rewriter.replaceOp(op, alloc);
-
     return success();
   }
 };

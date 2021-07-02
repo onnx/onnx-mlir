@@ -32,10 +32,9 @@ struct ONNXGatherOpLowering : public ConversionPattern {
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     assert(succeeded(shapecomputed));
-    // Scope for krnl EDSC ops
-    using namespace mlir::edsc;
-    ScopedContext scope(rewriter, loc);
+    // Scope for krnl ops
     IndexExprScope outerScope(rewriter, shapeHelper.scope);
+    KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -83,7 +82,8 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> indicesAccessFct;
     for (int j = 0; j < indicesRank; ++j)
       indicesAccessFct.emplace_back(outputAccessFct[jIndexStart + j]);
-    Value indexVal = krnl_load(operandAdaptor.indices(), indicesAccessFct);
+    Value indexVal =
+        createKrnl.loadIE(operandAdaptor.indices(), indicesAccessFct);
     // Loaded value is an index that is not affine
     IndexExpr index = NonAffineIndexExpr(indexVal);
     // When index may be negative, add axis Dim to it.
@@ -101,10 +101,10 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     // Then add kks.
     for (int k = axisLit + 1; k < dataRank; ++k)
       dataAccessFct.emplace_back(outputAccessFct[kIndexStart + k]);
-    Value data = krnl_load(operandAdaptor.data(), dataAccessFct);
+    Value data = createKrnl.loadIE(operandAdaptor.data(), dataAccessFct);
 
     // Save data into output
-    krnl_store(data, alloc, outputAccessFct);
+    createKrnl.storeIE(data, alloc, outputAccessFct);
     rewriter.replaceOp(op, alloc);
     return success();
   }

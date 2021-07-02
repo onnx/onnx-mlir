@@ -20,6 +20,28 @@
 using namespace mlir;
 using namespace mlir::onnxmlir;
 
+//====-------------------------- ONNX Builder ---------------------------===//
+
+Value OnnxBuilder::add(Value A, Value B) {
+  return b.create<ONNXAddOp>(loc, A, B);
+}
+
+Value OnnxBuilder::sub(Value A, Value B) {
+  return b.create<ONNXSubOp>(loc, A, B);
+}
+
+Value OnnxBuilder::mul(Value A, Value B) {
+  return b.create<ONNXMulOp>(loc, A, B);
+}
+
+Value OnnxBuilder::div(Value A, Value B) {
+  return b.create<ONNXDivOp>(loc, A, B);
+}
+
+Value OnnxBuilder::matmul(Type Y, Value A, Value B) {
+  return b.create<ONNXMatMulOp>(loc, Y, A, B);
+}
+
 AffineMap getIdentityDimMap(Builder &builder) {
   return AffineMap::get(1, 0, {builder.getAffineDimExpr(0)});
 }
