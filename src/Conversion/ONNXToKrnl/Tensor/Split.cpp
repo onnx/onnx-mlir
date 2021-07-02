@@ -57,10 +57,9 @@ struct ONNXSplitOpLowering : public ConversionPattern {
       outputLoops.createDefineAndIterateOp(allocs[i]);
       rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
-      // Scope for krnl EDSC ops
-      using namespace mlir::edsc;
-      ScopedContext scope(rewriter, loc);
+      // Scope for krnl ops
       IndexExprScope childScope(rewriter, shapeHelper.scope);
+      KrnlBuilder createKrnl(rewriter, loc);
 
       // Indices for the read and write.
       SmallVector<IndexExpr, 4> readIndices;
@@ -82,8 +81,8 @@ struct ONNXSplitOpLowering : public ConversionPattern {
         writeIndices.emplace_back(writeIndex);
       }
       // Insert copy.
-      Value loadData = krnl_load(operandAdaptor.input(), readIndices);
-      krnl_store(loadData, allocs[i], writeIndices);
+      Value loadData = createKrnl.loadIE(operandAdaptor.input(), readIndices);
+      createKrnl.storeIE(loadData, allocs[i], writeIndices);
     }
     rewriter.replaceOp(op, allocs);
     return success();
