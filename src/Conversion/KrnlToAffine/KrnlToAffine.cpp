@@ -892,6 +892,7 @@ private:
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor(op);
     Location loc = op.getLoc();
+    AffineBuilder createAffine(rewriter, loc);
     ImplicitLocOpBuilder lb(loc, rewriter);
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
@@ -904,39 +905,45 @@ private:
     using namespace edsc::op;
     LiteralIndexExpr zero(0);
     Value jSaved;
-    // clang-format off
-    affineLoopBuilder(zero, I, 1, [&](Value i) {
-      affineLoopBuilder(zero, J, 1, [&](Value j) {
+    createAffine.forIE(zero, I, 1, [&](AffineBuilder &createAffine, Value i) {
+      createAffine.forIE(zero, J, 1, [&](AffineBuilder &createAffine, Value j) {
         // Defines induction variables, and possibly initialize C.
         jSaved = j;
         // Alloc and init temp c storage.
-        AffineIndexedValue TTmpC(TmpC);
+        // AffineIndexedValue TTmpC(TmpC);
         SmallVector<Value, 4> cAccess;
         // CC(i + cStart0.getValue(), j + cStart1.getValue());
         IndexExpr::getValues(cStart, cAccess);
-        cAccess[cRank-2] = i + cAccess[cRank-2];
-        cAccess[cRank-1] = j + cAccess[cRank-1];
-        TTmpC() = affine_load(C, cAccess);
+        cAccess[cRank - 2] = i + cAccess[cRank - 2];
+        cAccess[cRank - 1] = j + cAccess[cRank - 1];
+        Value cVal = createAffine.load(C, cAccess);
+        createAffine.store(cVal, TmpC);
+        // TTmpC() = affine_load(C, cAccess);
         // Sum over k.
-        affineLoopBuilder(zero, K, 1, [&](Value k) {
-          SmallVector<Value, 4> aAccess, bAccess;
-          // AA(i + aStart0.getValue(), k + aStart1.getValue())
-          IndexExpr::getValues(aStart, aAccess);
-          aAccess[aRank-2] = i + aAccess[aRank-2];
-          aAccess[aRank-1] = k + aAccess[aRank-1];
-          Value a = affine_load(A, aAccess);
-          // BB(k + bStart0.getValue(), j + bStart1.getValue())
-          IndexExpr::getValues(bStart, bAccess);
-          bAccess[bRank-2] = k + bAccess[bRank-2];
-          bAccess[bRank-1] = j + bAccess[bRank-1];
-          Value b = affine_load(B, bAccess);
-          TTmpC() = a * b + TTmpC();
-        });
+        createAffine.forIE(
+            zero, K, 1, [&](AffineBuilder &createAffine, Value k) {
+              SmallVector<Value, 4> aAccess, bAccess;
+              // AA(i + aStart0.getValue(), k + aStart1.getValue())
+              IndexExpr::getValues(aStart, aAccess);
+              aAccess[aRank - 2] = i + aAccess[aRank - 2];
+              aAccess[aRank - 1] = k + aAccess[aRank - 1];
+              Value a = createAffine.load(A, aAccess);
+              // BB(k + bStart0.getValue(), j + bStart1.getValue())
+              IndexExpr::getValues(bStart, bAccess);
+              bAccess[bRank - 2] = k + bAccess[bRank - 2];
+              bAccess[bRank - 1] = j + bAccess[bRank - 1];
+              Value b = createAffine.load(B, bAccess);
+              ArithBuilder createMath(createAffine);
+              Value res = createMath.mul(a, b);
+              res = createMath.add(res, createAffine.load(TmpC));
+              createAffine.store(res, TmpC);
+              // TTmpC() = a * b + TTmpC();
+            });
         // Store temp result into C(i, j)
-        affine_store(TTmpC(), C, cAccess);
+        createAffine.store(createAffine.load(TmpC), C, cAccess);
+        // affine_store(TTmpC(), C, cAccess);
       });
     });
-    // clang-format on
     if (unrollJam && J.isLiteral()) {
       // Unroll and jam. Seems to support only one operation at this time.
       auto jLoop = getForInductionVarOwner(jSaved);
