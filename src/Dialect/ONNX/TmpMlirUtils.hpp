@@ -23,27 +23,6 @@
 namespace mlir {
 
 //===----------------------------------------------------------------------===//
-// from Utils.h
-//===----------------------------------------------------------------------===//
-
-/// Helper struct to build simple arithmetic quantities with minimal type
-/// inference support.
-struct ArithBuilder {
-  ArithBuilder(OpBuilder &b, Location loc) : b(b), loc(loc) {}
-
-  Value _and(Value lhs, Value rhs);
-  Value add(Value lhs, Value rhs);
-  Value mul(Value lhs, Value rhs);
-  Value select(Value cmp, Value lhs, Value rhs);
-  Value sgt(Value lhs, Value rhs);
-  Value slt(Value lhs, Value rhs);
-
-private:
-  OpBuilder &b;
-  Location loc;
-};
-
-//===----------------------------------------------------------------------===//
 // from ImplicitLocObBuilder.h
 //===----------------------------------------------------------------------===//
 
@@ -138,5 +117,39 @@ public:
 private:
   Location curLoc;
 };
+
+struct DialectBuilder {
+  DialectBuilder(OpBuilder &b, Location loc) : b(b), loc(loc) {}
+  DialectBuilder(ImplicitLocOpBuilder &lb) : b(lb), loc(lb.getLoc()) {}
+  DialectBuilder(DialectBuilder &db) : b(db.b), loc(db.loc) {}
+
+  OpBuilder &getBuilder() { return b; }
+  Location getLoc() { return loc; }
+
+protected:
+  OpBuilder &b;
+  Location loc;
+};
+
+//===----------------------------------------------------------------------===//
+// from Utils.h
+//===----------------------------------------------------------------------===//
+
+/// Helper struct to build simple arithmetic quantities with minimal type
+/// inference support.
+struct ArithBuilder : DialectBuilder {
+  ArithBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  ArithBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
+  ArithBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+
+  Value _and(Value lhs, Value rhs);
+  Value add(Value lhs, Value rhs);
+  Value sub(Value lhs, Value rhs);
+  Value mul(Value lhs, Value rhs);
+  Value select(Value cmp, Value lhs, Value rhs);
+  Value sgt(Value lhs, Value rhs);
+  Value slt(Value lhs, Value rhs);
+};
+
 } // namespace mlir
 #endif

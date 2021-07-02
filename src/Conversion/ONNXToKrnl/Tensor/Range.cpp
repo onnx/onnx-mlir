@@ -27,11 +27,9 @@ struct ONNXRangeOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
 
     // Create an index expression scope.
-    // Scope for krnl EDSC ops
-    using namespace mlir::edsc;
-    ScopedContext scope(rewriter, loc);
-    // Scope for IndexExpr.
-    IndexExprScope ieScope(&rewriter, loc);
+    // Scope for krnl ops
+    IndexExprScope ieScope(rewriter, loc);
+    KrnlBuilder createKrnl(rewriter, loc);
 
     Value start = operandAdaptor.start();
     Value limit = operandAdaptor.limit();
@@ -158,7 +156,7 @@ struct ONNXRangeOpLowering : public ConversionPattern {
     accIndex.emplace_back(LiteralIndexExpr(0));
 
     // Initialize accumulator with value:
-    krnl_store(loadedStart, acc, accIndex);
+    createKrnl.storeIE(loadedStart, acc, accIndex);
 
     // Emit body of the loop:
     // output[i] = start + (i * delta);
@@ -167,13 +165,13 @@ struct ONNXRangeOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(krnlLoop.getIterateBlock());
     {
       // Read value:
-      Value result = krnl_load(acc, accIndex);
+      Value result = createKrnl.loadIE(acc, accIndex);
 
       // Store result:
       SmallVector<IndexExpr, 4> resultIndices;
       resultIndices.emplace_back(
           DimIndexExpr(krnlLoop.getInductionVar(nIndex)));
-      krnl_store(result, alloc, resultIndices);
+      createKrnl.storeIE(result, alloc, resultIndices);
 
       // Increment result:
       Value accResult;
@@ -187,7 +185,7 @@ struct ONNXRangeOpLowering : public ConversionPattern {
           .Case<IntegerType>([&](Type) {
             accResult = rewriter.create<AddIOp>(loc, result, loadedDelta);
           });
-      krnl_store(accResult, acc, accIndex);
+      createKrnl.storeIE(accResult, acc, accIndex);
     }
 
     rewriter.replaceOp(op, alloc);
