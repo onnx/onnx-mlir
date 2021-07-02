@@ -402,7 +402,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
 
   // Frequently used types.
   MemRefType matrixType = Ht.getType().cast<MemRefType>();
-  unsigned HtRank = matrixType.getRank();
+  unsigned htRank = matrixType.getRank();
   Type elementType = matrixType.getElementType();
 
   // Common matrix multiplications.
@@ -415,11 +415,11 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
 
   // Lower and upper bounds derived from Ht tensor.
   Value iZero = lb.create<ConstantIndexOp>(0);
-  SmallVector<Value, 4> HtLbs(HtRank, iZero);
-  SmallVector<Value, 4> HtUbs;
-  for (unsigned r = 0; r < HtRank; ++r) {
+  SmallVector<Value, 4> htLbs(htRank, iZero);
+  SmallVector<Value, 4> htUbs;
+  for (unsigned r = 0; r < htRank; ++r) {
     Value idx = lb.create<ConstantIndexOp>(r);
-    HtUbs.emplace_back(lb.createOrFold<memref::DimOp>(Ht, idx));
+    htUbs.emplace_back(lb.createOrFold<memref::DimOp>(Ht, idx));
   }
 
   if (state.linearBeforeReset) {
@@ -432,8 +432,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     Value HtRh = createONNX.matmul(matrixType, Ht, weightPack.Rh);
 
     // Do element-wise computations. Fuse them into a single nested loop.
-    ValueRange loops = createKrnl.defineLoops(HtRank);
-    createKrnl.iterate(loops, loops, HtLbs, HtUbs, {},
+    ValueRange loops = createKrnl.defineLoops(htRank);
+    createKrnl.iterate(loops, loops, htLbs, htUbs, {},
         [&](KrnlBuilder &createKrnl, ValueRange args) {
           ArithBuilder createMath(createKrnl);
           ValueRange indices = createKrnl.getInductionVarValue(loops);
@@ -513,8 +513,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     }
 
     // Emit rt and (rt (.) Ht-1).
-    ValueRange loops1 = createKrnl.defineLoops(HtRank);
-    createKrnl.iterate(loops1, loops1, HtLbs, HtUbs, {},
+    ValueRange loops1 = createKrnl.defineLoops(htRank);
+    createKrnl.iterate(loops1, loops1, htLbs, htUbs, {},
         [&](KrnlBuilder &createKrnl, ValueRange args) {
           ArithBuilder createMath(createKrnl);
           ValueRange indices = createKrnl.getInductionVarValue(loops1);
@@ -542,8 +542,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     Value rtHtRh = createONNX.matmul(matrixType, rtHt, weightPack.Rh);
 
     // Do element-wise computations. Fuse them into a single nested loop.
-    ValueRange loops2 = createKrnl.defineLoops(HtRank);
-    createKrnl.iterate(loops2, loops2, HtLbs, HtUbs, {},
+    ValueRange loops2 = createKrnl.defineLoops(htRank);
+    createKrnl.iterate(loops2, loops2, htLbs, htUbs, {},
         [&](KrnlBuilder &createKrnl, ValueRange args) {
           ArithBuilder createMath(createKrnl);
           ValueRange indices = createKrnl.getInductionVarValue(loops2);

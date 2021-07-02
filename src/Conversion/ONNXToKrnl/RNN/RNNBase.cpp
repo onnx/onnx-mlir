@@ -236,11 +236,19 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
     bool onlyHidden) {
   // TODO remove
   ScopedContext scope(rewriter, loc);
-  KrnlBuilder createKrnl(rewriter, loc);
+  ImplicitLocOpBuilder lb(loc, rewriter);
+  KrnlBuilder createKrnl(lb);
   Value zero = emitConstantOp(rewriter, loc, elementType, 0);
-  MemRefBoundsCapture bounds(ht);
-  ValueRange loops = createKrnl.defineLoops(bounds.rank());
-  createKrnl.iterate(loops, loops, bounds.getLbs(), bounds.getUbs(), {},
+  unsigned htRank = ht.getType().cast<MemRefType>().getRank();
+  Value iZero = lb.create<ConstantIndexOp>(0);
+  SmallVector<Value, 4> htLbs(htRank, iZero);
+  SmallVector<Value, 4> htUbs;
+  for (unsigned r = 0; r < htRank; ++r) {
+    Value idx = lb.create<ConstantIndexOp>(r);
+    htUbs.emplace_back(lb.createOrFold<memref::DimOp>(ht, idx));
+  }
+  ValueRange loops = createKrnl.defineLoops(htRank);
+  createKrnl.iterate(loops, loops, htLbs, htUbs, {},
       [&](KrnlBuilder &createKrnl, ValueRange args) {
         ValueRange indices = createKrnl.getInductionVarValue(loops);
         Value hiddenVal = zero;
@@ -265,17 +273,24 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     Value output) {
   // TODO remove
   ScopedContext scope(rewriter, loc);
-  KrnlBuilder createKrnl(rewriter, loc);
+  ImplicitLocOpBuilder lb(loc, rewriter);
+  KrnlBuilder createKrnl(lb);
   if (direction == FORWARD || direction == REVERSE) {
     Value val = (direction == FORWARD) ? forwardVal : reverseVal;
     Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, val);
     createKrnl.memcpy(output, val, sizeInBytes);
   } else { // BIDIRECTIONAL
-    MemRefBoundsCapture bounds(forwardVal);
-    Value zero = rewriter.create<ConstantIndexOp>(loc, 0);
-    Value one = rewriter.create<ConstantIndexOp>(loc, 1);
+    unsigned rank = forwardVal.getType().cast<MemRefType>().getRank();
+    Value zero = lb.create<ConstantIndexOp>(0);
+    Value one = lb.create<ConstantIndexOp>(1);
+    SmallVector<Value, 4> lbs(rank, zero);
+    SmallVector<Value, 4> ubs;
+    for (unsigned r = 0; r < rank; ++r) {
+      Value idx = lb.create<ConstantIndexOp>(r);
+      ubs.emplace_back(lb.createOrFold<memref::DimOp>(forwardVal, idx));
+    }
     ValueRange loops = createKrnl.defineLoops(2);
-    createKrnl.iterate(loops, loops, bounds.getLbs(), bounds.getUbs(), {},
+    createKrnl.iterate(loops, loops, lbs, ubs, {},
         [&](KrnlBuilder &createKrnl, ValueRange args) {
           ValueRange indices = createKrnl.getInductionVarValue(loops);
           Value b(indices[0]), h(indices[1]);
@@ -381,9 +396,15 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
   }
 
   // Copy data from X.
-  MemRefBoundsCapture bounds(sliceX);
+  Value iZero = lb.create<ConstantIndexOp>(0);
+  SmallVector<Value, 2> lbs(2, iZero);
+  SmallVector<Value, 2> ubs;
+  for (unsigned r = 0; r < 2; ++r) {
+    Value idx = lb.create<ConstantIndexOp>(r);
+    ubs.emplace_back(lb.createOrFold<memref::DimOp>(sliceX, idx));
+  }
   ValueRange loops = createKrnl.defineLoops(2);
-  createKrnl.iterate(loops, loops, bounds.getLbs(), bounds.getUbs(), {},
+  createKrnl.iterate(loops, loops, lbs, ubs, {},
       [&](KrnlBuilder &createKrnl, ValueRange args) {
         ValueRange indices = createKrnl.getInductionVarValue(loops);
         Value b(indices[0]), i(indices[1]);
@@ -400,12 +421,15 @@ void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
   // TODO remove
   ScopedContext scope(rewriter, loc);
   ImplicitLocOpBuilder lb(loc, rewriter);
-  KrnlBuilder createKrnl(rewriter, loc);
+  KrnlBuilder createKrnl(lb);
 
   Type elementType = matrixType.getElementType();
   // Get bounds I, J, K.
-  MemRefBoundsCapture aBounds(A), bBounds(Bs[0]);
-  Value I(aBounds.ub(0)), J(bBounds.ub(1)), K(aBounds.ub(1));
+  Value iZero = lb.create<ConstantIndexOp>(0);
+  Value iOne = lb.create<ConstantIndexOp>(0);
+  Value I = lb.createOrFold<memref::DimOp>(A, iZero);    // (aBounds.ub(0))
+  Value J = lb.createOrFold<memref::DimOp>(Bs[0], iOne); // (bBounds.ub(1))
+  Value K = lb.createOrFold<memref::DimOp>(A, iOne);     // (aBounds.ub(1))
 
   // Initialize alloc/C to zero.
   ValueRange zeroLoop = createKrnl.defineLoops(2);
