@@ -31,9 +31,9 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
 
-#include "KrnlHelper.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
 
-#include "KrnlOps.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
 
@@ -168,7 +168,6 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
     function_ref<void(ImplicitLocOpBuilder &, ValueRange)> bodyBuilderFn) {
   assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
-  // TODO: May want to change KrnlIterateOperandPack to use ValueRanges...
   SmallVector<Value, 4> origLoops, optLoops;
   for (auto org : originalLoops)
     origLoops.emplace_back(org);
@@ -640,6 +639,16 @@ void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
       odsPadValue, tileSizeAttr, padToNextAttr, odsTranspose);
 }
 
+void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
+    ValueRange odsStarts, Value odsPadValue, bool odsTranspose) {
+  // Massage types.
+  ValueRange startsRange(odsStarts);
+  ArrayRef<int64_t> empty;
+  build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange,
+      odsPadValue, empty, empty, odsTranspose);
+}
+
 static LogicalResult verify(KrnlCopyToBufferOp op) {
   KrnlCopyToBufferOpAdaptor opAdaptor = KrnlCopyToBufferOpAdaptor(op);
   MemRefBoundsIndexCapture buffCapture(opAdaptor.buffer());
@@ -684,6 +693,15 @@ void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
   ArrayAttr tileSizeAttr = odsBuilder.getI64ArrayAttr(odsTileSize);
   build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange,
       tileSizeAttr);
+}
+
+void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
+    ValueRange odsStarts) {
+  // Massage types.
+  ValueRange startsRange(odsStarts);
+  ArrayRef<int64_t> empty;
+  build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange, empty);
 }
 
 static LogicalResult verify(KrnlCopyFromBufferOp op) {
