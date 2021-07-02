@@ -46,9 +46,8 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     IndexExprScope childScope(rewriter, shapeHelper.scope);
-    // Scope for krnl EDSC ops
-    using namespace mlir::edsc;
-    ScopedContext scope(rewriter, loc);
+    // Scope for krnl ops
+    KrnlBuilder createKrnl(rewriter, loc);
 
     // Compute indices for the load and store op.
     // Load: "i * step + start" for all dim.
@@ -64,8 +63,8 @@ struct ONNXSliceOpLowering : public ConversionPattern {
       storeIndices.emplace_back(inductionIndex);
     }
     // Load data and store in alloc data.
-    Value loadVal = krnl_load(operandAdaptor.data(), loadIndices);
-    krnl_store(loadVal, alloc, storeIndices);
+    Value loadVal = createKrnl.loadIE(operandAdaptor.data(), loadIndices);
+    createKrnl.storeIE(loadVal, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
     return success();
