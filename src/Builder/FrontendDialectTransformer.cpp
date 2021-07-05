@@ -79,6 +79,7 @@ public:
       const onnx::ModelProto &model, ImportOptions options) {
     options_ = options;
     SetOpSetImport(model); // Determines which opsets to use.
+    SetCustomShapeInfo();  // Set custom shapes for the inputs if available.
     importGraph(model.graph());
     return module_;
   }
@@ -140,6 +141,31 @@ private:
   // A map from an input index to a list of dim indices those are changed to
   // dynamic. Default value corresponds to IMPORTER_FORCE_DYNAMIC='-1:-1'
   std::map<int, std::vector<int>> forced_inputs_dims;
+
+  // Custom shape information for the graph inputs.
+  std::map<int64_t, std::vector<int64_t>> inputs_shape_information;
+  void SetCustomShapeInfo() {
+    // Use the custom shape for the inputs if avaiable.
+    if (options_.shapeInformation.empty()) {
+      return;
+    }
+
+    std::stringstream shapeInfoString(options_.shapeInformation);
+    std::string shapeString;
+    while (getline(shapeInfoString, shapeString, '|')) {
+      size_t pos = shapeString.find(':');
+      std::string inputString = shapeString.substr(0, pos);
+      std::string dimString = shapeString.substr(pos + 1);
+
+      std::stringstream dimIndices(dimString);
+      std::string dimIndex;
+      std::vector<int64_t> dims;
+      while (getline(dimIndices, dimIndex, ',')) {
+        dims.emplace_back(stoi(dimIndex));
+      }
+      inputs_shape_information.insert(std::make_pair(stoi(inputString), dims));
+    }
+  }
 
   typedef void (onnx_mlir::detail::FrontendGenImpl::*ImportHandlerType)(
       const onnx::NodeProto &);
@@ -380,7 +406,11 @@ private:
             }
           }
           argTy = RankedTensorType::get(newDims, shapedTy.getElementType());
+        } else if (shapedTy && !inputs_shape_information.empty()) {
+          std::vector<int64_t> shape = inputs_shape_information.at(numInputs);
+          argTy = RankedTensorType::get(shape, shapedTy.getElementType());
         }
+
         argTypes.emplace_back(argTy);
 
         // numInputs is the number of graph inputs not contained within the

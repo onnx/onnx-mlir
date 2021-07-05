@@ -83,6 +83,11 @@ llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<string> shapeInformation("shapeInformation",
+    llvm::cl::desc("Custom shapes for the inputs of the ONNX model"),
+    llvm::cl::value_desc("<input_id:dim,dim,dim|input_id:dim,dim,dim>"),
+    llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<string> mtriple("mtriple", llvm::cl::desc("Target architecture"),
     llvm::cl::value_desc("<llvm target triple>"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
@@ -491,6 +496,7 @@ void processInputFile(string inputFilename, mlir::MLIRContext &context,
     ImportOptions options;
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
+    options.shapeInformation = shapeInformation;
     ImportFrontendModelFile(inputFilename, context, module, options);
   } else {
     LoadMLIR(inputFilename, context, module);
