@@ -884,12 +884,17 @@ private:
       return std::string("");
     }
     auto current_opset = opset_map_.find(node.domain())->second;
-    auto opset_list = op_dialect_version_map_.find(node.op_type())->second;
-    // Traverse backward to find the closest version
-    // Some old versions may be compatible
-    for (int i = opset_list.size() - 1; i > 0; i--) {
-      if (current_opset <= opset_list[i]) {
-        return "V" + std::to_string(opset_list[i]);
+    // Custom ops may not be present in op_dialect_version_map_. If no version
+    // info is found, treat as unversioned (no renaming).
+    auto opset_list_it = op_dialect_version_map_.find(node.op_type());
+    if (opset_list_it != op_dialect_version_map_.end()) {
+      auto opset_list = opset_list_it->second;
+      // Traverse backward to find the closest version
+      // Some old versions may be compatible
+      for (int i = opset_list.size() - 1; i > 0; i--) {
+        if (current_opset <= opset_list[i]) {
+          return "V" + std::to_string(opset_list[i]);
+        }
       }
     }
     return std::string("");
