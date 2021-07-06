@@ -265,6 +265,7 @@ OpsWithShapeInference=[
     'Dropout',
     'DynamicQuantizeLinear',
     'Elu',
+    'Equal',
     'Erf',
     'Exp',
     'Expand',
