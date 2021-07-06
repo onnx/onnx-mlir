@@ -53,7 +53,7 @@ IndexExprScope::IndexExprScope(ImplicitLocOpBuilder &lb)
     : IndexExprScope(&lb, lb.getLoc()){};
 
 IndexExprScope::IndexExprScope(DialectBuilder &db)
- : IndexExprScope(&db.getBuilder(), db.getLoc()){};
+    : IndexExprScope(&db.getBuilder(), db.getLoc()){};
 
 // Nested scopes.
 IndexExprScope::IndexExprScope(
