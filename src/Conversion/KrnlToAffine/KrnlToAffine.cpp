@@ -868,7 +868,7 @@ private:
     Value jSaved;
     createAffine.forIE(zero, I, 1, [&](AffineBuilder &createAffine, Value i) {
       createAffine.forIE(zero, J, 1, [&](AffineBuilder &createAffine, Value j) {
-        ArithBuilder createMath(createAffine);
+        MathBuilder createMath(createAffine);
         // Defines induction variables, and possibly initialize C.
         jSaved = j;
         // Alloc and init temp c storage.
@@ -882,7 +882,7 @@ private:
         // Sum over k.
         createAffine.forIE(
             zero, K, 1, [&](AffineBuilder &createAffine, Value k) {
-              ArithBuilder createMath(createAffine);
+              MathBuilder createMath(createAffine);
               SmallVector<Value, 4> aAccess, bAccess;
               // AA(i + aStart0.getValue(), k + aStart1.getValue())
               IndexExpr::getValues(aStart, aAccess);
@@ -940,7 +940,7 @@ private:
     Value iSaved;
     LiteralIndexExpr zero(0);
     createAffine.forIE(zero, I, 1, [&](AffineBuilder &createAffine, Value i) {
-      ArithBuilder createMath(createAffine);
+      MathBuilder createMath(createAffine);
       iSaved = i; // Saved for unroll and jam.
       // Alloca temp vector TmpC and save C(i)/0.0 into it.
       SmallVector<Value, 4> cAccess;
@@ -950,7 +950,7 @@ private:
       createAffine.store(createAffine.load(vecC, cAccess), TmpC);
       // Sum over k.
       createAffine.forIE(zero, K, 1, [&](AffineBuilder &createAffine, Value k) {
-        ArithBuilder createMath(createAffine);
+        MathBuilder createMath(createAffine);
         // Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
         SmallVector<Value, 4> aAccess, bAccess;
         IndexExpr::getValues(aStart, aAccess);

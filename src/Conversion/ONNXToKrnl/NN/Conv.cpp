@@ -62,7 +62,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Scope for krnl ops
     IndexExprScope ieScope(rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
-    ArithBuilder createMath(rewriter, loc);
+    MathBuilder createMath(rewriter, loc);
 
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;

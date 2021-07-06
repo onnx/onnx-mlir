@@ -88,7 +88,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
                 Value loadedA = createKrnl.load(operandAdaptor.A(), aAccessFct);
                 Value loadedB = createKrnl.load(operandAdaptor.B(), bAccessFct);
                 Value loadedY = createKrnl.load(reductionVal);
-                ArithBuilder createMath(createKrnl);
+                MathBuilder createMath(createKrnl);
                 Value AB = createMath.mul(loadedA, loadedB);
                 Value accumulated = createMath.add(loadedY, AB);
                 createKrnl.store(accumulated, reductionVal);
