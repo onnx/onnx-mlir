@@ -548,7 +548,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   ValueRange loops = createKrnl.defineLoops(HtRank);
   createKrnl.iterate(loops, loops, HtLbs, HtUbs, {},
       [&](KrnlBuilder &createKrnl, ValueRange args) {
-        ArithBuilder createMath(createKrnl);
+        MathBuilder createMath(createKrnl);
         ValueRange indices = createKrnl.getInductionVarValue(loops);
         Value bs(indices[0]), hs(indices[1]);
         Value CtVal = createKrnl.load(Ct, indices);

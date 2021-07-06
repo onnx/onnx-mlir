@@ -431,7 +431,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     ValueRange loops = createKrnl.defineLoops(htRank);
     createKrnl.iterate(loops, loops, htLbs, htUbs, {},
         [&](KrnlBuilder &createKrnl, ValueRange args) {
-          ArithBuilder createMath(createKrnl);
+          MathBuilder createMath(createKrnl);
           ValueRange indices = createKrnl.getInductionVarValue(loops);
           Value bs(indices[0]), hs(indices[1]);
           Value HtVal = createKrnl.load(Ht, indices);
@@ -512,7 +512,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     ValueRange loops1 = createKrnl.defineLoops(htRank);
     createKrnl.iterate(loops1, loops1, htLbs, htUbs, {},
         [&](KrnlBuilder &createKrnl, ValueRange args) {
-          ArithBuilder createMath(createKrnl);
+          MathBuilder createMath(createKrnl);
           ValueRange indices = createKrnl.getInductionVarValue(loops1);
           Value hs(indices[1]);
           Value HtVal = createKrnl.load(Ht, indices);
@@ -541,7 +541,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     ValueRange loops2 = createKrnl.defineLoops(htRank);
     createKrnl.iterate(loops2, loops2, htLbs, htUbs, {},
         [&](KrnlBuilder &createKrnl, ValueRange args) {
-          ArithBuilder createMath(createKrnl);
+          MathBuilder createMath(createKrnl);
           ValueRange indices = createKrnl.getInductionVarValue(loops2);
           Value bs(indices[0]), hs(indices[1]);
           Value HtVal = createKrnl.load(Ht, indices);
