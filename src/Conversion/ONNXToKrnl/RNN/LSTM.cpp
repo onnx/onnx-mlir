@@ -20,8 +20,6 @@
 #define TEST_FUSED_MATMUL false
 
 using namespace mlir;
-using namespace mlir::edsc;
-using namespace mlir::edsc::intrinsics;
 
 struct LstmState {
   // returned states.

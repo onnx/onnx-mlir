@@ -18,8 +18,6 @@
 #include "src/Dialect/ONNX/TmpMlirUtils.hpp"
 
 using namespace mlir;
-using namespace mlir::edsc;
-using namespace mlir::edsc::intrinsics;
 
 struct GruState {
   // returned states.
