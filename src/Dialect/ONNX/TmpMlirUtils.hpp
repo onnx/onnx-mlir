@@ -16,12 +16,14 @@
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Value.h"
 
 namespace mlir {
 
+#if 0
 //===----------------------------------------------------------------------===//
 // from ImplicitLocObBuilder.h
 //===----------------------------------------------------------------------===//
@@ -117,6 +119,7 @@ public:
 private:
   Location curLoc;
 };
+#endif
 
 struct DialectBuilder {
   DialectBuilder(OpBuilder &b, Location loc) : b(b), loc(loc) {}

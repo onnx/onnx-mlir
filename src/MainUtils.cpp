@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
@@ -300,7 +301,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
       unoptimizedBitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
 
   llvm::raw_fd_ostream moduleBitcodeStream(
-      unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
+      unoptimizedBitcodePath, error, llvm::sys::fs::OF_None);
 
   llvm::LLVMContext llvmContext;
   mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
