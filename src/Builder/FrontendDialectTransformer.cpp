@@ -157,13 +157,18 @@ private:
       std::string inputString = shapeString.substr(0, pos);
       std::string dimString = shapeString.substr(pos + 1);
 
-      std::stringstream dimIndices(dimString);
-      std::string dimIndex;
+      int64_t inputID = std::stoi(inputString);
+      assert(inputID >= 0 && "input_id must be >= 0");
+
+      std::stringstream dimSizes(dimString);
+      std::string dimStr;
       std::vector<int64_t> dims;
-      while (getline(dimIndices, dimIndex, ',')) {
-        dims.emplace_back(stoi(dimIndex));
+      while (getline(dimSizes, dimStr, ',')) {
+        int64_t dimSize = std::stoi(dimStr);
+        assert((dimSize == -1 || dimSize > 0) && "dim must be -1 or > 0");
+        dims.emplace_back(dimSize);
       }
-      inputs_shape_information.insert(std::make_pair(stoi(inputString), dims));
+      inputs_shape_information.insert(std::make_pair(inputID, dims));
     }
   }
 
@@ -406,7 +411,10 @@ private:
             }
           }
           argTy = RankedTensorType::get(newDims, shapedTy.getElementType());
-        } else if (shapedTy && !inputs_shape_information.empty()) {
+        } else if (shapedTy && !inputs_shape_information.empty() &&
+                   (inputs_shape_information.find(numInputs) !=
+                       inputs_shape_information.end())) {
+          // Change to the custom shape if users provide.
           std::vector<int64_t> shape = inputs_shape_information.at(numInputs);
           argTy = RankedTensorType::get(shape, shapedTy.getElementType());
         }
