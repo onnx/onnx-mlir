@@ -10,3 +10,5 @@ add_onnx_mlir_executable(CustomFnTest
   LINK_LIBS PRIVATE
   ${OMLibs}
   )
+
+add_test(NAME CustomFnTest COMMAND CustomFnTest)
