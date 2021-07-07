@@ -146,7 +146,7 @@ mkdir onnx-mlir/build && cd onnx-mlir/build
 cmake ..
 cmake --build .
 
-# Run FileCheck tests:
+# Run lit tests:
 export LIT_OPTS=-v
 cmake --build . --target check-onnx-lit
 ```
@@ -154,6 +154,18 @@ cmake --build . --target check-onnx-lit
 If you are running on OSX Big Sur, you need to add `-DCMAKE_CXX_COMPILER=/usr/bin/c++`
 to the `cmake ..` command due to changes in the compilers.
 After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory.
+
+##### LLVM and ONNX-MLIR CMake variables
+
+The following CMake variables from LLVM and ONNX MLIR can be used when compiling ONNX MLIR.
+
+**MLIR_DIR**:PATH
+  Path to to the mlir cmake module inside an llvm-project build or install directory (e.g., c:/repos/llvm-project/build/lib/cmake/mlir).
+  This is required if **MLIR_DIR** is not specified as an environment variable.
+
+**LLVM_EXTERNAL_LIT**:PATH
+  Path to the lit tool. Defaults to an empty string and LLVM will find the tool based on **MLIR_DIR** if possible.
+  This is required when **MLIR_DIR** points to an install directory.
 
 ## Installation on Windows
 Building onnx-mlir on Windows requires building some additional prerequisites that are not available by default.
@@ -255,6 +267,18 @@ call cmake --build . --config Release --target check-onnx-lit -- /m
 ```
 
 After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory.
+
+##### LLVM and ONNX-MLIR CMake variables
+
+The following CMake variables from LLVM and ONNX MLIR can be used when compiling ONNX MLIR.
+
+**MLIR_DIR**:PATH
+  Path to to the mlir cmake module inside an llvm-project build or install directory (e.g., c:/repos/llvm-project/build/lib/cmake/mlir).
+  This is required if **MLIR_DIR** is not specified as an environment variable.
+
+**LLVM_EXTERNAL_LIT**:PATH
+  Path to the lit tool. Defaults to an empty string and LLVM will find the tool based on **MLIR_DIR** if possible.
+  This is required when **MLIR_DIR** points to an install directory.
 
 ## Using ONNX-MLIR
 
