@@ -436,12 +436,14 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
   return state;
 }
 
+#define KEEPIT 0
 template <>
 void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
     LstmBiasPack>(ConversionPatternRewriter &rewriter, Location loc, Value Xt,
     LstmState state, LstmActivationPack activationPack,
     LstmWeightPack weightPack, LstmBiasPack biasPack, Value sequenceIV,
     Value directionIV, bool isForward) {
+  printf("hi alex in calculateState\n");
   // Equations for LSTM.
   // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
   // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
@@ -551,8 +553,10 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
           Value PiCt = createMath.mul(PiVal, CtVal);
           it = createMath.add(it, PiCt);
         }
+#if KEEPIT
         it =
             applyActivation(createKrnl.getBuilder(), loc, activationPack.f, it);
+#endif
 
         // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
         Value XtWfVal = createKrnl.loadIE(XtW, {hsie + 2 * hiddenSize, bsie});
@@ -569,8 +573,11 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
           Value PfCt = createMath.mul(PfVal, CtVal);
           ft = createMath.add(ft, PfCt);
         }
+
+#if KEEPIT
         ft =
             applyActivation(createKrnl.getBuilder(), loc, activationPack.f, ft);
+#endif
 
         // ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
         Value XtWcVal = createKrnl.loadIE(XtW, {hsie + 3 * hiddenSize, bsie});
@@ -582,8 +589,10 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
           ct = createMath.add(ct, WbcVal);
           ct = createMath.add(ct, RbcVal);
         }
+#if KEEPIT
         ct =
             applyActivation(createKrnl.getBuilder(), loc, activationPack.g, ct);
+#endif
 
         // Ct = ft (.) Ct-1 + it (.) ct
         Value ftCt = createMath.mul(ft, CtVal);
@@ -605,14 +614,19 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
           Value PoCt = createMath.mul(PoVal, nextCt);
           ot = createMath.add(ot, PoCt);
         }
+#if KEEPIT
         ot =
             applyActivation(createKrnl.getBuilder(), loc, activationPack.f, ot);
+#endif
 
+#if KEEPIT
         // Ht = ot (.) h(Ct)
         Value nextHt = applyActivation(
             createKrnl.getBuilder(), loc, activationPack.h, nextCt);
         nextHt = createMath.mul(ot, nextHt);
-
+#else
+        Value nextHt = createMath.mul(ot, ot);
+#endif
         // Store the intermediate Ht, Ct.
         createKrnl.store(nextCt, Ct, indices);
         createKrnl.store(nextHt, Ht, indices);
@@ -631,6 +645,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
     rewriter.create<memref::DeallocOp>(loc, HtRc);
     rewriter.create<memref::DeallocOp>(loc, HtRo);
   }
+  printf("bye alex in calculateState\n");
 }
 
 template <>
