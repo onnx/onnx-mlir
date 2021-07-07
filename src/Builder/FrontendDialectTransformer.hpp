@@ -43,6 +43,16 @@ struct ImportOptions {
   // variables)
   bool useOnnxModelTypes = false;
   bool invokeOnnxVersionConverter = false;
+  // Custom shape information for the graph inputs.
+  // Its format is 'input_id:dim,dim,dim|input_id:dim,dim,dim'
+  // E.g. An ONNX model has two dynamic inputs
+  //   - (arg0: tensor<?x?x?xf32>, arg1: tensor<?x5xf32>)
+  // If we want to compile the model for static dimensions, we can use:
+  //   - shapeInformation = '0:3,4,5|1:10,5'
+  // to obtain a model with two staic inputs:
+  //   - (arg0: tensor<3x4x5xf32>, arg1: tensor<10x5xf32>)
+  //
+  std::string shapeInformation = "";
 };
 
 /*!
