@@ -520,7 +520,7 @@ ONNX BatchNormalization operation
 `saved_mean` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values or none type or none type or none type
 `saved_var` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values or none type or none type or none type or none type
 
-### `onnx.BatchNormalizationTestMode` (::mlir::ONNXBatchNormalizationTestModeOp)
+### `onnx.BatchNormalizationInferenceMode` (::mlir::ONNXBatchNormalizationInferenceModeOp)
 
 ONNX BatchNormalization operation in test mode
 
