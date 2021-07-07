@@ -308,23 +308,30 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   // Wbi: [hidden_size]
   // Rbi: [hidden_size]
 
-  // TODO remove
-  ScopedContext scope(rewriter, loc);
-  KrnlBuilder createKrnl(rewriter, loc);
-  OnnxBuilder createONNX(createKrnl);
+  ImplicitLocOpBuilder lb(loc, rewriter);
+  KrnlBuilder createKrnl(lb);
+  OnnxBuilder createONNX(lb);
 
   // Get Ht.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
   MemRefType matrixType = Ht.getType().cast<MemRefType>();
+  unsigned htRank = matrixType.getRank();
 
   // Do matrix multiplications.
   Value XtWi = createONNX.matmul(matrixType, Xt, weightPack.Wi);
   Value HtRi = createONNX.matmul(matrixType, Ht, weightPack.Ri);
 
   // Do element-wise computations. Fuse them into a single nested loop.
-  MemRefBoundsCapture bounds(Ht);
-  ValueRange loops = createKrnl.defineLoops(bounds.rank());
-  createKrnl.iterate(loops, loops, bounds.getLbs(), bounds.getUbs(), {},
+  // Lower and upper bounds derived from Ht tensor.
+  Value iZero = lb.create<ConstantIndexOp>(0);
+  SmallVector<Value, 4> htLbs(htRank, iZero);
+  SmallVector<Value, 4> htUbs;
+  for (unsigned r = 0; r < htRank; ++r) {
+    Value idx = lb.create<ConstantIndexOp>(r);
+    htUbs.emplace_back(lb.createOrFold<memref::DimOp>(Ht, idx));
+  }
+  ValueRange loops = createKrnl.defineLoops(htRank);
+  createKrnl.iterate(loops, loops, htLbs, htUbs, {},
       [&](KrnlBuilder &createKrnl, ValueRange args) {
         ArithBuilder createMath(createKrnl);
         ValueRange indices = createKrnl.getInductionVarValue(loops);

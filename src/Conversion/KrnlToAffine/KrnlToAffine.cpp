@@ -35,8 +35,6 @@
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 #include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
 
-#define DEBUG_MALLOC 0
-#define DEBUG_GLOBAL_ALLOC_FREE 0
 #define BUFFER_ALIGN 64
 
 using namespace mlir;
@@ -851,25 +849,16 @@ private:
       ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
       ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
       bool unrollJam) const {
-    // Get operands.Î
+    // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor(op);
+    Location loc = op.getLoc();
+    ImplicitLocOpBuilder lb(loc, rewriter);
+
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
     int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
     MemRefType CTmpType = MemRefType::get({}, elementType);
-#if DEBUG_MALLOC
-#if DEBUG_GLOBAL_ALLOC_FREE
-    SmallVector<IndexExpr, 1> empty;
-    Value TmpC = insertAllocAndDeallocSimple(
-        rewriter, op, CTmpType, op.getLoc(), empty, true, BUFFER_ALIGN);
-#else
-    ValueRange empty;
     IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
-    Value TmpC = std_alloc(CTmpType, empty, constAlignAttr);
-#endif
-#else
-    IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
-    Value TmpC = memref_alloca(CTmpType, constAlignAttr);
-#endif
+    Value TmpC = lb.create<memref::AllocaOp>(CTmpType, constAlignAttr);
 
     // For i, j loops.
     using namespace edsc::op;
@@ -907,12 +896,6 @@ private:
         affine_store(TTmpC(), C, cAccess);
       });
     });
-#if DEBUG_MALLOC
-#if DEBUG_GLOBAL_ALLOC_FREE
-#else
-    rewriter.create<DeallocOp>(op.getLoc(), TmpC);
-#endif
-#endif
     // clang-format on
     if (unrollJam && J.isLiteral()) {
       // Unroll and jam. Seems to support only one operation at this time.
@@ -929,6 +912,7 @@ private:
     // can simdize only if K is compile time
     assert(J.isLiteral() &&
            "can only simdize with compile time blocking factor on simd axis");
+    ImplicitLocOpBuilder lb(loc, rewriter);
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
@@ -941,21 +925,8 @@ private:
     KrnlBuilder createKrnl(rewriter, loc);
     Value vecB = createKrnl.vectorTypeCast(B, VL);
     Value vecC = createKrnl.vectorTypeCast(C, VL);
-
-#if DEBUG_MALLOC
-#if DEBUG_GLOBAL_ALLOC_FREE
-    SmallVector<IndexExpr, 1> empty;
-    Value TmpC = insertAllocAndDeallocSimple(
-        rewriter, op, CTmpType, op.getLoc(), empty, true, BUFFER_ALIGN);
-#else
-    ValueRange empty;
     IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
-    Value TmpC = std_alloc(CTmpType, empty, alignAttr);
-#endif
-#else
-    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
-    Value TmpC = memref_alloca(CTmpType, alignAttr);
-#endif
+    Value TmpC = lb.create<memref::AllocaOp>(CTmpType, alignAttr);
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved;
@@ -1002,12 +973,6 @@ private:
       //CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
       affine_store(tmpResults, vecC, cAccess);
     });
-#if DEBUG_MALLOC
-#if DEBUG_GLOBAL_ALLOC_FREE
-#else
-    rewriter.create<DeallocOp>(op.getLoc(), TmpC);
-#endif
-#endif
 
     // clang-format on
     if (false && unrollJam && I.isLiteral()) {

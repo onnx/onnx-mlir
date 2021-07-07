@@ -5,71 +5,72 @@ func private @test_rnn_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x4x
   %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %arg3, %cst, %arg4) {hidden_size = 4 : si64} : (tensor<7x2x3xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, none, tensor<1x2x4xf32>) -> (none, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
 
-// CHECK-LABEL:   func private @test_rnn_forward_mode(
-// CHECK-SAME:                                        %[[VAL_0:.*]]: memref<7x2x3xf32>,
-// CHECK-SAME:                                        %[[VAL_1:.*]]: memref<1x4x3xf32>,
-// CHECK-SAME:                                        %[[VAL_2:.*]]: memref<1x4x4xf32>,
-// CHECK-SAME:                                        %[[VAL_3:.*]]: memref<1x8xf32>,
-// CHECK-SAME:                                        %[[VAL_4:.*]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
-// CHECK:           %[[VAL_5:.*]] = memref.alloc() : memref<2x4xf32>
-// CHECK:           %[[VAL_6:.*]] = memref.alloc() : memref<1x2x4xf32>
-// CHECK:           %[[VAL_7:.*]] = constant unit
-// CHECK:           %[[VAL_8:.*]] = constant 0.000000e+00 : f32
-// CHECK:           %[[VAL_9:.*]] = constant 0 : index
-// CHECK:           %[[VAL_10:.*]] = constant 1 : index
-// CHECK:           %[[VAL_11:.*]]:2 = krnl.define_loops 2
-// CHECK:           krnl.iterate(%[[VAL_11]]#0, %[[VAL_11]]#1) with (%[[VAL_11]]#0 -> %[[VAL_12:.*]] = 0 to 2, %[[VAL_11]]#1 -> %[[VAL_13:.*]] = 0 to 4) {
-// CHECK:             %[[VAL_14:.*]] = krnl.load %[[VAL_4]]{{\[}}%[[VAL_9]], %[[VAL_12]], %[[VAL_13]]] : memref<1x2x4xf32>
-// CHECK:             krnl.store %[[VAL_14]], %[[VAL_5]]{{\[}}%[[VAL_12]], %[[VAL_13]]] : memref<2x4xf32>
+// CHECK-LABEL:  func private @test_rnn_forward_mode
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<1x4x3xf32>, [[PARAM_2_:%.+]]: memref<1x4x4xf32>, [[PARAM_3_:%.+]]: memref<1x8xf32>, [[PARAM_4_:%.+]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() : memref<2x4xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() : memref<1x2x4xf32>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = constant unit
+// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = constant 0.000000e+00 : f32
+// CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4) {
+// CHECK:             [[LOAD_PARAM_4_MEM_:%.+]] = krnl.load [[PARAM_4_]]{{.}}[[CST_0_]], [[I_0_]], [[I_1_]]{{.}} : memref<1x2x4xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_4_MEM_]], [[VAR_0_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<2x4xf32>
 // CHECK:           }
-// CHECK:           %[[VAL_15:.*]] = "onnx.Squeeze"(%[[VAL_1]]) {axes = [0]} : (memref<1x4x3xf32>) -> memref<4x3xf32>
-// CHECK:           %[[VAL_16:.*]] = "onnx.Squeeze"(%[[VAL_2]]) {axes = [0]} : (memref<1x4x4xf32>) -> memref<4x4xf32>
-// CHECK:           %[[VAL_17:.*]] = "onnx.Transpose"(%[[VAL_15]]) {perm = [1, 0]} : (memref<4x3xf32>) -> memref<3x4xf32>
-// CHECK:           %[[VAL_18:.*]] = "onnx.Transpose"(%[[VAL_16]]) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
-// CHECK:           %[[VAL_19:.*]] = "onnx.Squeeze"(%[[VAL_3]]) {axes = [0]} : (memref<1x8xf32>) -> memref<8xf32>
-// CHECK:           %[[VAL_20:.*]]:2 = "onnx.Split"(%[[VAL_19]]) {axis = 0 : si64} : (memref<8xf32>) -> (memref<4xf32>, memref<4xf32>)
-// CHECK:           %[[VAL_21:.*]] = krnl.define_loops 1
-// CHECK:           krnl.iterate(%[[VAL_21]]) with (%[[VAL_21]] -> %[[VAL_22:.*]] = 0 to 7) {
-// CHECK:             %[[VAL_23:.*]] = memref.alloc() : memref<2x3xf32>
-// CHECK:             %[[VAL_24:.*]] = constant 0 : index
-// CHECK:             %[[VAL_25:.*]] = constant 2 : index
-// CHECK:             %[[VAL_26:.*]] = constant 3 : index
-// CHECK:             %[[VAL_27:.*]] = constant 0 : index
-// CHECK:             %[[VAL_28:.*]] = constant 0 : index
-// CHECK:             %[[VAL_29:.*]]:2 = krnl.define_loops 2
-// CHECK:             krnl.iterate(%[[VAL_29]]#0, %[[VAL_29]]#1) with (%[[VAL_29]]#0 -> %[[VAL_30:.*]] = %[[VAL_27]] to %[[VAL_25]], %[[VAL_29]]#1 -> %[[VAL_31:.*]] = %[[VAL_28]] to %[[VAL_26]]) {
-// CHECK:               %[[VAL_32:.*]]:2 = krnl.get_induction_var_value(%[[VAL_29]]#0, %[[VAL_29]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               %[[VAL_33:.*]] = krnl.load %[[VAL_0]]{{\[}}%[[VAL_22]], %[[VAL_32]]#0, %[[VAL_32]]#1] : memref<7x2x3xf32>
-// CHECK:               krnl.store %[[VAL_33]], %[[VAL_23]]{{\[}}%[[VAL_32]]#0, %[[VAL_32]]#1] : memref<2x3xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Squeeze"([[PARAM_1_]]) {axes = [0]} : (memref<1x4x3xf32>) -> memref<4x3xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Squeeze"([[PARAM_2_]]) {axes = [0]} : (memref<1x4x4xf32>) -> memref<4x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [1, 0]} : (memref<4x3xf32>) -> memref<3x4xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Transpose"([[VAR_4_]]) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Squeeze"([[PARAM_3_]]) {axes = [0]} : (memref<1x8xf32>) -> memref<8xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_8_:%.+]]:2 = "onnx.Split"([[VAR_7_]]) {axis = 0 : si64} : (memref<8xf32>) -> (memref<4xf32>, memref<4xf32>)
+// CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 7) {
+// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_:%.+]] = memref.alloc() : memref<2x3xf32>
+// CHECK-DAG:         [[CST_0_1_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_2_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_3_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_2_:%.+]] = constant 2 : index
+// CHECK-DAG:         [[CST_1_1_:%.+]] = constant 1 : index
+// CHECK-DAG:         [[CST_3_:%.+]] = constant 3 : index
+// CHECK-DAG:         [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = [[CST_0_2_]] to [[CST_2_]], [[LOOP_2_]]#1 -> [[I_4_:%.+]] = [[CST_0_2_]] to [[CST_3_]]) {
+// CHECK:               [[VAR_15_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:               [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[I_2_]], [[VAR_15_]]#0, [[VAR_15_]]#1] : memref<7x2x3xf32>
+// CHECK:               krnl.store [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_4_MEM_1_]]{{.}}[[VAR_15_]]#0, [[VAR_15_]]#1] : memref<2x3xf32>
 // CHECK:             }
-// CHECK:             %[[VAL_34:.*]] = "onnx.MatMul"(%[[VAL_23]], %[[VAL_17]]) : (memref<2x3xf32>, memref<3x4xf32>) -> memref<2x4xf32>
-// CHECK:             %[[VAL_35:.*]] = "onnx.MatMul"(%[[VAL_5]], %[[VAL_18]]) : (memref<2x4xf32>, memref<4x4xf32>) -> memref<2x4xf32>
-// CHECK:             %[[VAL_36:.*]] = constant 2 : index
-// CHECK:             %[[VAL_37:.*]] = constant 4 : index
-// CHECK:             %[[VAL_38:.*]] = constant 0 : index
-// CHECK:             %[[VAL_39:.*]] = constant 0 : index
-// CHECK:             %[[VAL_40:.*]]:2 = krnl.define_loops 2
-// CHECK:             krnl.iterate(%[[VAL_40]]#0, %[[VAL_40]]#1) with (%[[VAL_40]]#0 -> %[[VAL_41:.*]] = %[[VAL_38]] to %[[VAL_36]], %[[VAL_40]]#1 -> %[[VAL_42:.*]] = %[[VAL_39]] to %[[VAL_37]]) {
-// CHECK:               %[[VAL_43:.*]]:2 = krnl.get_induction_var_value(%[[VAL_40]]#0, %[[VAL_40]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               %[[VAL_44:.*]] = krnl.load %[[VAL_34]]{{\[}}%[[VAL_43]]#0, %[[VAL_43]]#1] : memref<2x4xf32>
-// CHECK:               %[[VAL_45:.*]] = krnl.load %[[VAL_35]]{{\[}}%[[VAL_43]]#0, %[[VAL_43]]#1] : memref<2x4xf32>
-// CHECK:               %[[VAL_46:.*]] = addf %[[VAL_44]], %[[VAL_45]] : f32
-// CHECK:               %[[VAL_47:.*]] = krnl.load %[[VAL_20]]#0{{\[}}%[[VAL_43]]#1] : memref<4xf32>
-// CHECK:               %[[VAL_48:.*]] = krnl.load %[[VAL_20]]#1{{\[}}%[[VAL_43]]#1] : memref<4xf32>
-// CHECK:               %[[VAL_49:.*]] = addf %[[VAL_46]], %[[VAL_47]] : f32
-// CHECK:               %[[VAL_50:.*]] = addf %[[VAL_49]], %[[VAL_48]] : f32
-// CHECK:               %[[VAL_51:.*]] = memref.alloca() : memref<f32>
-// CHECK:               krnl.store %[[VAL_50]], %[[VAL_51]][] : memref<f32>
-// CHECK:               %[[VAL_52:.*]] = "onnx.Tanh"(%[[VAL_51]]) : (memref<f32>) -> memref<f32>
-// CHECK:               %[[VAL_53:.*]] = krnl.load %[[VAL_52]][] : memref<f32>
-// CHECK:               krnl.store %[[VAL_53]], %[[VAL_5]]{{\[}}%[[VAL_43]]#0, %[[VAL_43]]#1] : memref<2x4xf32>
+// CHECK-DAG:         [[VAR_12_:%.+]] = "onnx.MatMul"([[LOAD_PARAM_4_MEM_1_]], [[VAR_5_]]) : (memref<2x3xf32>, memref<3x4xf32>) -> memref<2x4xf32>
+// CHECK-DAG:         [[VAR_13_:%.+]] = "onnx.MatMul"([[VAR_0_]], [[VAR_6_]]) : (memref<2x4xf32>, memref<4x4xf32>) -> memref<2x4xf32>
+// CHECK-DAG:         [[CST_0_4_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_5_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_2_1_:%.+]] = constant 2 : index
+// CHECK-DAG:         [[CST_1_2_:%.+]] = constant 1 : index
+// CHECK-DAG:         [[CST_4_:%.+]] = constant 4 : index
+// CHECK-DAG:         [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = [[CST_0_4_]] to [[CST_2_1_]], [[LOOP_3_]]#1 -> [[I_6_:%.+]] = [[CST_0_4_]] to [[CST_4_]]) {
+// CHECK:               [[VAR_15_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[VAR_12_]]{{.}}[[VAR_15_1_]]#0, [[VAR_15_1_]]#1] : memref<2x4xf32>
+// CHECK-DAG:           [[LOAD_VAR_13_MEM_:%.+]] = krnl.load [[VAR_13_]]{{.}}[[VAR_15_1_]]#0, [[VAR_15_1_]]#1] : memref<2x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_18_:%.+]] = addf [[LOAD_PARAM_0_MEM_1_]], [[LOAD_VAR_13_MEM_]] : f32
+// CHECK-DAG:           [[LOAD_VAR_8_MEM_:%.+]] = krnl.load [[VAR_8_]]#0{{.}}[[VAR_15_1_]]#1] : memref<4xf32>
+// CHECK-DAG:           [[LOAD_VAR_8_MEM_1_:%.+]] = krnl.load [[VAR_8_]]#1{{.}}[[VAR_15_1_]]#1] : memref<4xf32>
+// CHECK:               [[VAR_21_:%.+]] = addf [[VAR_18_]], [[LOAD_VAR_8_MEM_]] : f32
+// CHECK-DAG:           [[VAR_22_:%.+]] = addf [[VAR_21_]], [[LOAD_VAR_8_MEM_1_]] : f32
+// CHECK-DAG:           [[VAR_23_:%.+]] = memref.alloca() : memref<f32>
+// CHECK:               krnl.store [[VAR_22_]], [[VAR_23_]][] : memref<f32>
+// CHECK:               [[VAR_24_:%.+]] = "onnx.Tanh"([[VAR_23_]]) : (memref<f32>) -> memref<f32>
+// CHECK:               [[LOAD_VAR_24_MEM_:%.+]] = krnl.load [[VAR_24_]][] : memref<f32>
+// CHECK:               krnl.store [[LOAD_VAR_24_MEM_]], [[VAR_0_]]{{.}}[[VAR_15_1_]]#0, [[VAR_15_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc %[[VAL_23]] : memref<2x3xf32>
+// CHECK:             memref.dealloc [[LOAD_PARAM_4_MEM_1_]] : memref<2x3xf32>
 // CHECK:           }
-// CHECK:           %[[VAL_54:.*]] = constant 32 : i64
-// CHECK:           "krnl.memcpy"(%[[VAL_6]], %[[VAL_5]], %[[VAL_54]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
-// CHECK:           memref.dealloc %[[VAL_5]] : memref<2x4xf32>
-// CHECK:           return %[[VAL_6]] : memref<1x2x4xf32>
+// CHECK:           [[CST_32_:%.+]] = constant 32 : i64
+// CHECK:           "krnl.memcpy"([[VAR_1_]], [[VAR_0_]], [[CST_32_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
+// CHECK:           memref.dealloc [[VAR_0_]] : memref<2x4xf32>
+// CHECK:           return [[VAR_1_]] : memref<1x2x4xf32>
 // CHECK:         }
 
 }
@@ -85,72 +86,74 @@ func private @test_rnn_forward_mode_constant_weight_and_bias(%arg0: tensor<7x2x3
   %Y, %Y_h = "onnx.RNN"(%arg0, %w, %r, %b, %cst, %arg1) {hidden_size = 4 : si64} : (tensor<7x2x3xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, none, tensor<1x2x4xf32>) -> (none, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
 
-// CHECK-LABEL:   func private @test_rnn_forward_mode_constant_weight_and_bias(
-// CHECK-SAME:                                                                 %[[VAL_0:.*]]: memref<7x2x3xf32>,
-// CHECK-SAME:                                                                 %[[VAL_1:.*]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
-// CHECK:           %[[VAL_2:.*]] = memref.alloc() : memref<2x4xf32>
-// CHECK:           %[[VAL_3:.*]] = memref.alloc() : memref<1x2x4xf32>
-// CHECK:           %[[VAL_4:.*]] = constant unit
-// CHECK:           %[[VAL_5:.*]] = "krnl.global"() {name = "constant_0", shape = [1, 4, 3], value = dense<1.000000e+00> : tensor<1x4x3xf32>} : () -> memref<1x4x3xf32>
-// CHECK:           %[[VAL_6:.*]] = "krnl.global"() {name = "constant_1", shape = [1, 4, 4], value = dense<2.000000e+00> : tensor<1x4x4xf32>} : () -> memref<1x4x4xf32>
-// CHECK:           %[[VAL_7:.*]] = "krnl.global"() {name = "constant_2", shape = [1, 8], value = dense<{{\[\[}}1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00, 6.000000e+00, 7.000000e+00, 8.000000e+00]]> : tensor<1x8xf32>} : () -> memref<1x8xf32>
-// CHECK:           %[[VAL_8:.*]] = constant 0.000000e+00 : f32
-// CHECK:           %[[VAL_9:.*]] = constant 0 : index
-// CHECK:           %[[VAL_10:.*]] = constant 1 : index
-// CHECK:           %[[VAL_11:.*]]:2 = krnl.define_loops 2
-// CHECK:           krnl.iterate(%[[VAL_11]]#0, %[[VAL_11]]#1) with (%[[VAL_11]]#0 -> %[[VAL_12:.*]] = 0 to 2, %[[VAL_11]]#1 -> %[[VAL_13:.*]] = 0 to 4) {
-// CHECK:             %[[VAL_14:.*]] = krnl.load %[[VAL_1]]{{\[}}%[[VAL_9]], %[[VAL_12]], %[[VAL_13]]] : memref<1x2x4xf32>
-// CHECK:             krnl.store %[[VAL_14]], %[[VAL_2]]{{\[}}%[[VAL_12]], %[[VAL_13]]] : memref<2x4xf32>
+// CHECK-LABEL:  func private @test_rnn_forward_mode_constant_weight_and_bias
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() : memref<2x4xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() : memref<1x2x4xf32>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = constant unit
+// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = "constant_0", shape = [1, 4, 3], value = dense<1.000000e+00> : tensor<1x4x3xf32>} : () -> memref<1x4x3xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() {name = "constant_1", shape = [1, 4, 4], value = dense<2.000000e+00> : tensor<1x4x4xf32>} : () -> memref<1x4x4xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "krnl.global"() {name = "constant_2", shape = [1, 8], value = dense<{{.}}[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00, 6.000000e+00, 7.000000e+00, 8.000000e+00]{{.}}> : tensor<1x8xf32>} : () -> memref<1x8xf32>
+// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = constant 0.000000e+00 : f32
+// CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4) {
+// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_0_]], [[I_0_]], [[I_1_]]{{.}} : memref<1x2x4xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_1_MEM_]], [[VAR_0_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<2x4xf32>
 // CHECK:           }
-// CHECK:           %[[VAL_15:.*]] = "krnl.global"() {name = "constant_3", shape = [4, 3], value = dense<1.000000e+00> : tensor<4x3xf32>} : () -> memref<4x3xf32>
-// CHECK:           %[[VAL_16:.*]] = "krnl.global"() {name = "constant_4", shape = [4, 4], value = dense<2.000000e+00> : tensor<4x4xf32>} : () -> memref<4x4xf32>
-// CHECK:           %[[VAL_17:.*]] = "krnl.global"() {name = "constant_5", shape = [3, 4], value = dense<1.000000e+00> : tensor<3x4xf32>} : () -> memref<3x4xf32>
-// CHECK:           %[[VAL_18:.*]] = "krnl.global"() {name = "constant_6", shape = [4, 4], value = dense<2.000000e+00> : tensor<4x4xf32>} : () -> memref<4x4xf32>
-// CHECK:           %[[VAL_19:.*]] = "krnl.global"() {name = "constant_7", shape = [8], value = dense<[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00, 6.000000e+00, 7.000000e+00, 8.000000e+00]> : tensor<8xf32>} : () -> memref<8xf32>
-// CHECK:           %[[VAL_20:.*]] = "krnl.global"() {name = "constant_8", shape = [4], value = dense<[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00]> : tensor<4xf32>} : () -> memref<4xf32>
-// CHECK:           %[[VAL_21:.*]] = "krnl.global"() {name = "constant_9", shape = [4], value = dense<[5.000000e+00, 6.000000e+00, 7.000000e+00, 8.000000e+00]> : tensor<4xf32>} : () -> memref<4xf32>
-// CHECK:           %[[VAL_22:.*]] = krnl.define_loops 1
-// CHECK:           krnl.iterate(%[[VAL_22]]) with (%[[VAL_22]] -> %[[VAL_23:.*]] = 0 to 7) {
-// CHECK:             %[[VAL_24:.*]] = memref.alloc() : memref<2x3xf32>
-// CHECK:             %[[VAL_25:.*]] = constant 0 : index
-// CHECK:             %[[VAL_26:.*]] = constant 2 : index
-// CHECK:             %[[VAL_27:.*]] = constant 3 : index
-// CHECK:             %[[VAL_28:.*]] = constant 0 : index
-// CHECK:             %[[VAL_29:.*]] = constant 0 : index
-// CHECK:             %[[VAL_30:.*]]:2 = krnl.define_loops 2
-// CHECK:             krnl.iterate(%[[VAL_30]]#0, %[[VAL_30]]#1) with (%[[VAL_30]]#0 -> %[[VAL_31:.*]] = %[[VAL_28]] to %[[VAL_26]], %[[VAL_30]]#1 -> %[[VAL_32:.*]] = %[[VAL_29]] to %[[VAL_27]]) {
-// CHECK:               %[[VAL_33:.*]]:2 = krnl.get_induction_var_value(%[[VAL_30]]#0, %[[VAL_30]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               %[[VAL_34:.*]] = krnl.load %[[VAL_0]]{{\[}}%[[VAL_23]], %[[VAL_33]]#0, %[[VAL_33]]#1] : memref<7x2x3xf32>
-// CHECK:               krnl.store %[[VAL_34]], %[[VAL_24]]{{\[}}%[[VAL_33]]#0, %[[VAL_33]]#1] : memref<2x3xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "krnl.global"() {name = "constant_3", shape = [4, 3], value = dense<1.000000e+00> : tensor<4x3xf32>} : () -> memref<4x3xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "krnl.global"() {name = "constant_4", shape = [4, 4], value = dense<2.000000e+00> : tensor<4x4xf32>} : () -> memref<4x4xf32>
+// CHECK-DAG:       [[VAR_8_:%.+]] = "krnl.global"() {name = "constant_5", shape = [3, 4], value = dense<1.000000e+00> : tensor<3x4xf32>} : () -> memref<3x4xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "krnl.global"() {name = "constant_6", shape = [4, 4], value = dense<2.000000e+00> : tensor<4x4xf32>} : () -> memref<4x4xf32>
+// CHECK-DAG:       [[VAR_10_:%.+]] = "krnl.global"() {name = "constant_7", shape = [8], value = dense<[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00, 6.000000e+00, 7.000000e+00, 8.000000e+00]> : tensor<8xf32>} : () -> memref<8xf32>
+// CHECK-DAG:       [[VAR_11_:%.+]] = "krnl.global"() {name = "constant_8", shape = [4], value = dense<[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00]> : tensor<4xf32>} : () -> memref<4xf32>
+// CHECK-DAG:       [[VAR_12_:%.+]] = "krnl.global"() {name = "constant_9", shape = [4], value = dense<[5.000000e+00, 6.000000e+00, 7.000000e+00, 8.000000e+00]> : tensor<4xf32>} : () -> memref<4xf32>
+// CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 7) {
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_1_:%.+]] = memref.alloc() : memref<2x3xf32>
+// CHECK-DAG:         [[CST_0_1_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_2_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_3_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_2_:%.+]] = constant 2 : index
+// CHECK-DAG:         [[CST_1_1_:%.+]] = constant 1 : index
+// CHECK-DAG:         [[CST_3_:%.+]] = constant 3 : index
+// CHECK-DAG:         [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = [[CST_0_2_]] to [[CST_2_]], [[LOOP_2_]]#1 -> [[I_4_:%.+]] = [[CST_0_2_]] to [[CST_3_]]) {
+// CHECK:               [[VAR_19_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:               [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[I_2_]], [[VAR_19_]]#0, [[VAR_19_]]#1] : memref<7x2x3xf32>
+// CHECK:               krnl.store [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_1_]]{{.}}[[VAR_19_]]#0, [[VAR_19_]]#1] : memref<2x3xf32>
 // CHECK:             }
-// CHECK:             %[[VAL_35:.*]] = "onnx.MatMul"(%[[VAL_24]], %[[VAL_17]]) : (memref<2x3xf32>, memref<3x4xf32>) -> memref<2x4xf32>
-// CHECK:             %[[VAL_36:.*]] = "onnx.MatMul"(%[[VAL_2]], %[[VAL_18]]) : (memref<2x4xf32>, memref<4x4xf32>) -> memref<2x4xf32>
-// CHECK:             %[[VAL_37:.*]] = constant 2 : index
-// CHECK:             %[[VAL_38:.*]] = constant 4 : index
-// CHECK:             %[[VAL_39:.*]] = constant 0 : index
-// CHECK:             %[[VAL_40:.*]] = constant 0 : index
-// CHECK:             %[[VAL_41:.*]]:2 = krnl.define_loops 2
-// CHECK:             krnl.iterate(%[[VAL_41]]#0, %[[VAL_41]]#1) with (%[[VAL_41]]#0 -> %[[VAL_42:.*]] = %[[VAL_39]] to %[[VAL_37]], %[[VAL_41]]#1 -> %[[VAL_43:.*]] = %[[VAL_40]] to %[[VAL_38]]) {
-// CHECK:               %[[VAL_44:.*]]:2 = krnl.get_induction_var_value(%[[VAL_41]]#0, %[[VAL_41]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               %[[VAL_45:.*]] = krnl.load %[[VAL_35]]{{\[}}%[[VAL_44]]#0, %[[VAL_44]]#1] : memref<2x4xf32>
-// CHECK:               %[[VAL_46:.*]] = krnl.load %[[VAL_36]]{{\[}}%[[VAL_44]]#0, %[[VAL_44]]#1] : memref<2x4xf32>
-// CHECK:               %[[VAL_47:.*]] = addf %[[VAL_45]], %[[VAL_46]] : f32
-// CHECK:               %[[VAL_48:.*]] = krnl.load %[[VAL_20]]{{\[}}%[[VAL_44]]#1] : memref<4xf32>
-// CHECK:               %[[VAL_49:.*]] = krnl.load %[[VAL_21]]{{\[}}%[[VAL_44]]#1] : memref<4xf32>
-// CHECK:               %[[VAL_50:.*]] = addf %[[VAL_47]], %[[VAL_48]] : f32
-// CHECK:               %[[VAL_51:.*]] = addf %[[VAL_50]], %[[VAL_49]] : f32
-// CHECK:               %[[VAL_52:.*]] = memref.alloca() : memref<f32>
-// CHECK:               krnl.store %[[VAL_51]], %[[VAL_52]][] : memref<f32>
-// CHECK:               %[[VAL_53:.*]] = "onnx.Tanh"(%[[VAL_52]]) : (memref<f32>) -> memref<f32>
-// CHECK:               %[[VAL_54:.*]] = krnl.load %[[VAL_53]][] : memref<f32>
-// CHECK:               krnl.store %[[VAL_54]], %[[VAL_2]]{{\[}}%[[VAL_44]]#0, %[[VAL_44]]#1] : memref<2x4xf32>
+// CHECK-DAG:         [[VAR_16_:%.+]] = "onnx.MatMul"([[LOAD_PARAM_1_MEM_1_]], [[VAR_8_]]) : (memref<2x3xf32>, memref<3x4xf32>) -> memref<2x4xf32>
+// CHECK-DAG:         [[VAR_17_:%.+]] = "onnx.MatMul"([[VAR_0_]], [[VAR_9_]]) : (memref<2x4xf32>, memref<4x4xf32>) -> memref<2x4xf32>
+// CHECK-DAG:         [[CST_0_4_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_5_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_2_1_:%.+]] = constant 2 : index
+// CHECK-DAG:         [[CST_1_2_:%.+]] = constant 1 : index
+// CHECK-DAG:         [[CST_4_:%.+]] = constant 4 : index
+// CHECK-DAG:         [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = [[CST_0_4_]] to [[CST_2_1_]], [[LOOP_3_]]#1 -> [[I_6_:%.+]] = [[CST_0_4_]] to [[CST_4_]]) {
+// CHECK:               [[VAR_19_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[VAR_16_]]{{.}}[[VAR_19_1_]]#0, [[VAR_19_1_]]#1] : memref<2x4xf32>
+// CHECK-DAG:           [[LOAD_VAR_17_MEM_:%.+]] = krnl.load [[VAR_17_]]{{.}}[[VAR_19_1_]]#0, [[VAR_19_1_]]#1] : memref<2x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_22_:%.+]] = addf [[LOAD_PARAM_0_MEM_1_]], [[LOAD_VAR_17_MEM_]] : f32
+// CHECK-DAG:           [[LOAD_VAR_11_MEM_:%.+]] = krnl.load [[VAR_11_]]{{.}}[[VAR_19_1_]]#1] : memref<4xf32>
+// CHECK-DAG:           [[LOAD_VAR_12_MEM_:%.+]] = krnl.load [[VAR_12_]]{{.}}[[VAR_19_1_]]#1] : memref<4xf32>
+// CHECK:               [[VAR_25_:%.+]] = addf [[VAR_22_]], [[LOAD_VAR_11_MEM_]] : f32
+// CHECK-DAG:           [[VAR_26_:%.+]] = addf [[VAR_25_]], [[LOAD_VAR_12_MEM_]] : f32
+// CHECK-DAG:           [[VAR_27_:%.+]] = memref.alloca() : memref<f32>
+// CHECK:               krnl.store [[VAR_26_]], [[VAR_27_]][] : memref<f32>
+// CHECK:               [[VAR_28_:%.+]] = "onnx.Tanh"([[VAR_27_]]) : (memref<f32>) -> memref<f32>
+// CHECK:               [[LOAD_VAR_28_MEM_:%.+]] = krnl.load [[VAR_28_]][] : memref<f32>
+// CHECK:               krnl.store [[LOAD_VAR_28_MEM_]], [[VAR_0_]]{{.}}[[VAR_19_1_]]#0, [[VAR_19_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc %[[VAL_24]] : memref<2x3xf32>
+// CHECK:             memref.dealloc [[LOAD_PARAM_1_MEM_1_]] : memref<2x3xf32>
 // CHECK:           }
-// CHECK:           %[[VAL_55:.*]] = constant 32 : i64
-// CHECK:           "krnl.memcpy"(%[[VAL_3]], %[[VAL_2]], %[[VAL_55]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
-// CHECK:           memref.dealloc %[[VAL_2]] : memref<2x4xf32>
-// CHECK:           return %[[VAL_3]] : memref<1x2x4xf32>
+// CHECK:           [[CST_32_:%.+]] = constant 32 : i64
+// CHECK:           "krnl.memcpy"([[VAR_1_]], [[VAR_0_]], [[CST_32_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
+// CHECK:           memref.dealloc [[VAR_0_]] : memref<2x4xf32>
+// CHECK:           return [[VAR_1_]] : memref<1x2x4xf32>
 // CHECK:         }
 
 }
@@ -162,73 +165,75 @@ func private @test_rnn_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x4x
   %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %arg3, %cst, %arg4) {hidden_size = 4 : si64, direction = "reverse"} : (tensor<7x2x3xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, none, tensor<1x2x4xf32>) -> (none, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
 
-// CHECK-LABEL:   func private @test_rnn_reverse_mode(
-// CHECK-SAME:                                        %[[VAL_0:.*]]: memref<7x2x3xf32>,
-// CHECK-SAME:                                        %[[VAL_1:.*]]: memref<1x4x3xf32>,
-// CHECK-SAME:                                        %[[VAL_2:.*]]: memref<1x4x4xf32>,
-// CHECK-SAME:                                        %[[VAL_3:.*]]: memref<1x8xf32>,
-// CHECK-SAME:                                        %[[VAL_4:.*]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
-// CHECK:           %[[VAL_5:.*]] = memref.alloc() : memref<2x4xf32>
-// CHECK:           %[[VAL_6:.*]] = memref.alloc() : memref<1x2x4xf32>
-// CHECK:           %[[VAL_7:.*]] = constant unit
-// CHECK:           %[[VAL_8:.*]] = constant 0.000000e+00 : f32
-// CHECK:           %[[VAL_9:.*]] = constant 0 : index
-// CHECK:           %[[VAL_10:.*]] = constant 1 : index
-// CHECK:           %[[VAL_11:.*]]:2 = krnl.define_loops 2
-// CHECK:           krnl.iterate(%[[VAL_11]]#0, %[[VAL_11]]#1) with (%[[VAL_11]]#0 -> %[[VAL_12:.*]] = 0 to 2, %[[VAL_11]]#1 -> %[[VAL_13:.*]] = 0 to 4) {
-// CHECK:             %[[VAL_14:.*]] = krnl.load %[[VAL_4]]{{\[}}%[[VAL_9]], %[[VAL_12]], %[[VAL_13]]] : memref<1x2x4xf32>
-// CHECK:             krnl.store %[[VAL_14]], %[[VAL_5]]{{\[}}%[[VAL_12]], %[[VAL_13]]] : memref<2x4xf32>
+// CHECK-LABEL:  func private @test_rnn_reverse_mode
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<1x4x3xf32>, [[PARAM_2_:%.+]]: memref<1x4x4xf32>, [[PARAM_3_:%.+]]: memref<1x8xf32>, [[PARAM_4_:%.+]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() : memref<2x4xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() : memref<1x2x4xf32>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = constant unit
+// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = constant 0.000000e+00 : f32
+// CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4) {
+// CHECK:             [[LOAD_PARAM_4_MEM_:%.+]] = krnl.load [[PARAM_4_]]{{.}}[[CST_0_]], [[I_0_]], [[I_1_]]{{.}} : memref<1x2x4xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_4_MEM_]], [[VAR_0_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<2x4xf32>
 // CHECK:           }
-// CHECK:           %[[VAL_15:.*]] = "onnx.Squeeze"(%[[VAL_1]]) {axes = [0]} : (memref<1x4x3xf32>) -> memref<4x3xf32>
-// CHECK:           %[[VAL_16:.*]] = "onnx.Squeeze"(%[[VAL_2]]) {axes = [0]} : (memref<1x4x4xf32>) -> memref<4x4xf32>
-// CHECK:           %[[VAL_17:.*]] = "onnx.Transpose"(%[[VAL_15]]) {perm = [1, 0]} : (memref<4x3xf32>) -> memref<3x4xf32>
-// CHECK:           %[[VAL_18:.*]] = "onnx.Transpose"(%[[VAL_16]]) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
-// CHECK:           %[[VAL_19:.*]] = "onnx.Squeeze"(%[[VAL_3]]) {axes = [0]} : (memref<1x8xf32>) -> memref<8xf32>
-// CHECK:           %[[VAL_20:.*]]:2 = "onnx.Split"(%[[VAL_19]]) {axis = 0 : si64} : (memref<8xf32>) -> (memref<4xf32>, memref<4xf32>)
-// CHECK:           %[[VAL_21:.*]] = krnl.define_loops 1
-// CHECK:           krnl.iterate(%[[VAL_21]]) with (%[[VAL_21]] -> %[[VAL_22:.*]] = 0 to 7) {
-// CHECK:             %[[VAL_23:.*]] = memref.alloc() : memref<2x3xf32>
-// CHECK:             %[[VAL_24:.*]] = constant 0 : index
-// CHECK:             %[[VAL_25:.*]] = constant 7 : index
-// CHECK:             %[[VAL_26:.*]] = affine.apply #map(%[[VAL_22]]){{\[}}%[[VAL_25]]]
-// CHECK:             %[[VAL_27:.*]] = constant 2 : index
-// CHECK:             %[[VAL_28:.*]] = constant 3 : index
-// CHECK:             %[[VAL_29:.*]] = constant 0 : index
-// CHECK:             %[[VAL_30:.*]] = constant 0 : index
-// CHECK:             %[[VAL_31:.*]]:2 = krnl.define_loops 2
-// CHECK:             krnl.iterate(%[[VAL_31]]#0, %[[VAL_31]]#1) with (%[[VAL_31]]#0 -> %[[VAL_32:.*]] = %[[VAL_29]] to %[[VAL_27]], %[[VAL_31]]#1 -> %[[VAL_33:.*]] = %[[VAL_30]] to %[[VAL_28]]) {
-// CHECK:               %[[VAL_34:.*]]:2 = krnl.get_induction_var_value(%[[VAL_31]]#0, %[[VAL_31]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               %[[VAL_35:.*]] = krnl.load %[[VAL_0]]{{\[}}%[[VAL_26]], %[[VAL_34]]#0, %[[VAL_34]]#1] : memref<7x2x3xf32>
-// CHECK:               krnl.store %[[VAL_35]], %[[VAL_23]]{{\[}}%[[VAL_34]]#0, %[[VAL_34]]#1] : memref<2x3xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Squeeze"([[PARAM_1_]]) {axes = [0]} : (memref<1x4x3xf32>) -> memref<4x3xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Squeeze"([[PARAM_2_]]) {axes = [0]} : (memref<1x4x4xf32>) -> memref<4x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [1, 0]} : (memref<4x3xf32>) -> memref<3x4xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Transpose"([[VAR_4_]]) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Squeeze"([[PARAM_3_]]) {axes = [0]} : (memref<1x8xf32>) -> memref<8xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_8_:%.+]]:2 = "onnx.Split"([[VAR_7_]]) {axis = 0 : si64} : (memref<8xf32>) -> (memref<4xf32>, memref<4xf32>)
+// CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 7) {
+// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_:%.+]] = memref.alloc() : memref<2x3xf32>
+// CHECK-DAG:         [[CST_0_1_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_7_:%.+]] = constant 7 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_11_:%.+]] = affine.apply #map([[I_2_]]){{.}}[[CST_7_]]{{.}}
+// CHECK-DAG:         [[CST_0_2_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_3_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_2_:%.+]] = constant 2 : index
+// CHECK-DAG:         [[CST_1_1_:%.+]] = constant 1 : index
+// CHECK-DAG:         [[CST_3_:%.+]] = constant 3 : index
+// CHECK-DAG:         [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = [[CST_0_2_]] to [[CST_2_]], [[LOOP_2_]]#1 -> [[I_4_:%.+]] = [[CST_0_2_]] to [[CST_3_]]) {
+// CHECK:               [[VAR_16_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:               [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_11_]], [[VAR_16_]]#0, [[VAR_16_]]#1] : memref<7x2x3xf32>
+// CHECK:               krnl.store [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_4_MEM_1_]]{{.}}[[VAR_16_]]#0, [[VAR_16_]]#1] : memref<2x3xf32>
 // CHECK:             }
-// CHECK:             %[[VAL_36:.*]] = "onnx.MatMul"(%[[VAL_23]], %[[VAL_17]]) : (memref<2x3xf32>, memref<3x4xf32>) -> memref<2x4xf32>
-// CHECK:             %[[VAL_37:.*]] = "onnx.MatMul"(%[[VAL_5]], %[[VAL_18]]) : (memref<2x4xf32>, memref<4x4xf32>) -> memref<2x4xf32>
-// CHECK:             %[[VAL_38:.*]] = constant 2 : index
-// CHECK:             %[[VAL_39:.*]] = constant 4 : index
-// CHECK:             %[[VAL_40:.*]] = constant 0 : index
-// CHECK:             %[[VAL_41:.*]] = constant 0 : index
-// CHECK:             %[[VAL_42:.*]]:2 = krnl.define_loops 2
-// CHECK:             krnl.iterate(%[[VAL_42]]#0, %[[VAL_42]]#1) with (%[[VAL_42]]#0 -> %[[VAL_43:.*]] = %[[VAL_40]] to %[[VAL_38]], %[[VAL_42]]#1 -> %[[VAL_44:.*]] = %[[VAL_41]] to %[[VAL_39]]) {
-// CHECK:               %[[VAL_45:.*]]:2 = krnl.get_induction_var_value(%[[VAL_42]]#0, %[[VAL_42]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               %[[VAL_46:.*]] = krnl.load %[[VAL_36]]{{\[}}%[[VAL_45]]#0, %[[VAL_45]]#1] : memref<2x4xf32>
-// CHECK:               %[[VAL_47:.*]] = krnl.load %[[VAL_37]]{{\[}}%[[VAL_45]]#0, %[[VAL_45]]#1] : memref<2x4xf32>
-// CHECK:               %[[VAL_48:.*]] = addf %[[VAL_46]], %[[VAL_47]] : f32
-// CHECK:               %[[VAL_49:.*]] = krnl.load %[[VAL_20]]#0{{\[}}%[[VAL_45]]#1] : memref<4xf32>
-// CHECK:               %[[VAL_50:.*]] = krnl.load %[[VAL_20]]#1{{\[}}%[[VAL_45]]#1] : memref<4xf32>
-// CHECK:               %[[VAL_51:.*]] = addf %[[VAL_48]], %[[VAL_49]] : f32
-// CHECK:               %[[VAL_52:.*]] = addf %[[VAL_51]], %[[VAL_50]] : f32
-// CHECK:               %[[VAL_53:.*]] = memref.alloca() : memref<f32>
-// CHECK:               krnl.store %[[VAL_52]], %[[VAL_53]][] : memref<f32>
-// CHECK:               %[[VAL_54:.*]] = "onnx.Tanh"(%[[VAL_53]]) : (memref<f32>) -> memref<f32>
-// CHECK:               %[[VAL_55:.*]] = krnl.load %[[VAL_54]][] : memref<f32>
-// CHECK:               krnl.store %[[VAL_55]], %[[VAL_5]]{{\[}}%[[VAL_45]]#0, %[[VAL_45]]#1] : memref<2x4xf32>
+// CHECK-DAG:         [[VAR_13_:%.+]] = "onnx.MatMul"([[LOAD_PARAM_4_MEM_1_]], [[VAR_5_]]) : (memref<2x3xf32>, memref<3x4xf32>) -> memref<2x4xf32>
+// CHECK-DAG:         [[VAR_14_:%.+]] = "onnx.MatMul"([[VAR_0_]], [[VAR_6_]]) : (memref<2x4xf32>, memref<4x4xf32>) -> memref<2x4xf32>
+// CHECK-DAG:         [[CST_0_4_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_5_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_2_1_:%.+]] = constant 2 : index
+// CHECK-DAG:         [[CST_1_2_:%.+]] = constant 1 : index
+// CHECK-DAG:         [[CST_4_:%.+]] = constant 4 : index
+// CHECK-DAG:         [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = [[CST_0_4_]] to [[CST_2_1_]], [[LOOP_3_]]#1 -> [[I_6_:%.+]] = [[CST_0_4_]] to [[CST_4_]]) {
+// CHECK:               [[VAR_16_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[VAR_13_]]{{.}}[[VAR_16_1_]]#0, [[VAR_16_1_]]#1] : memref<2x4xf32>
+// CHECK-DAG:           [[LOAD_VAR_14_MEM_:%.+]] = krnl.load [[VAR_14_]]{{.}}[[VAR_16_1_]]#0, [[VAR_16_1_]]#1] : memref<2x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_19_:%.+]] = addf [[LOAD_PARAM_0_MEM_1_]], [[LOAD_VAR_14_MEM_]] : f32
+// CHECK-DAG:           [[LOAD_VAR_8_MEM_:%.+]] = krnl.load [[VAR_8_]]#0{{.}}[[VAR_16_1_]]#1] : memref<4xf32>
+// CHECK-DAG:           [[LOAD_VAR_8_MEM_1_:%.+]] = krnl.load [[VAR_8_]]#1{{.}}[[VAR_16_1_]]#1] : memref<4xf32>
+// CHECK:               [[VAR_22_:%.+]] = addf [[VAR_19_]], [[LOAD_VAR_8_MEM_]] : f32
+// CHECK-DAG:           [[VAR_23_:%.+]] = addf [[VAR_22_]], [[LOAD_VAR_8_MEM_1_]] : f32
+// CHECK-DAG:           [[VAR_24_:%.+]] = memref.alloca() : memref<f32>
+// CHECK:               krnl.store [[VAR_23_]], [[VAR_24_]][] : memref<f32>
+// CHECK:               [[VAR_25_:%.+]] = "onnx.Tanh"([[VAR_24_]]) : (memref<f32>) -> memref<f32>
+// CHECK:               [[LOAD_VAR_25_MEM_:%.+]] = krnl.load [[VAR_25_]][] : memref<f32>
+// CHECK:               krnl.store [[LOAD_VAR_25_MEM_]], [[VAR_0_]]{{.}}[[VAR_16_1_]]#0, [[VAR_16_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc %[[VAL_23]] : memref<2x3xf32>
+// CHECK:             memref.dealloc [[LOAD_PARAM_4_MEM_1_]] : memref<2x3xf32>
 // CHECK:           }
-// CHECK:           %[[VAL_56:.*]] = constant 32 : i64
-// CHECK:           "krnl.memcpy"(%[[VAL_6]], %[[VAL_5]], %[[VAL_56]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
-// CHECK:           memref.dealloc %[[VAL_5]] : memref<2x4xf32>
-// CHECK:           return %[[VAL_6]] : memref<1x2x4xf32>
+// CHECK:           [[CST_32_:%.+]] = constant 32 : i64
+// CHECK:           "krnl.memcpy"([[VAR_1_]], [[VAR_0_]], [[CST_32_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
+// CHECK:           memref.dealloc [[VAR_0_]] : memref<2x4xf32>
+// CHECK:           return [[VAR_1_]] : memref<1x2x4xf32>
 // CHECK:         }
 
 }
@@ -240,136 +245,143 @@ func private @test_rnn_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
   %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %arg3, %cst, %arg4) {hidden_size = 4 : si64, direction = "bidirectional"} : (tensor<7x2x3xf32>, tensor<2x4x3xf32>, tensor<2x4x4xf32>, tensor<2x8xf32>, none, tensor<2x2x4xf32>) -> (none, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
 
-// CHECK-LABEL:   func private @test_rnn_bidirectional_mode(
-// CHECK-SAME:                                              %[[VAL_0:.*]]: memref<7x2x3xf32>,
-// CHECK-SAME:                                              %[[VAL_1:.*]]: memref<2x4x3xf32>,
-// CHECK-SAME:                                              %[[VAL_2:.*]]: memref<2x4x4xf32>,
-// CHECK-SAME:                                              %[[VAL_3:.*]]: memref<2x8xf32>,
-// CHECK-SAME:                                              %[[VAL_4:.*]]: memref<2x2x4xf32>) -> memref<2x2x4xf32> {
-// CHECK:           %[[VAL_5:.*]] = memref.alloc() : memref<2x4xf32>
-// CHECK:           %[[VAL_6:.*]] = memref.alloc() : memref<2x4xf32>
-// CHECK:           %[[VAL_7:.*]] = memref.alloc() : memref<2x2x4xf32>
-// CHECK:           %[[VAL_8:.*]] = constant unit
-// CHECK:           %[[VAL_9:.*]] = constant 0.000000e+00 : f32
-// CHECK:           %[[VAL_10:.*]] = constant 0 : index
-// CHECK:           %[[VAL_11:.*]] = constant 1 : index
-// CHECK:           %[[VAL_12:.*]]:2 = krnl.define_loops 2
-// CHECK:           krnl.iterate(%[[VAL_12]]#0, %[[VAL_12]]#1) with (%[[VAL_12]]#0 -> %[[VAL_13:.*]] = 0 to 2, %[[VAL_12]]#1 -> %[[VAL_14:.*]] = 0 to 4) {
-// CHECK:             %[[VAL_15:.*]] = krnl.load %[[VAL_4]]{{\[}}%[[VAL_10]], %[[VAL_13]], %[[VAL_14]]] : memref<2x2x4xf32>
-// CHECK:             krnl.store %[[VAL_15]], %[[VAL_6]]{{\[}}%[[VAL_13]], %[[VAL_14]]] : memref<2x4xf32>
-// CHECK:             %[[VAL_16:.*]] = krnl.load %[[VAL_4]]{{\[}}%[[VAL_11]], %[[VAL_13]], %[[VAL_14]]] : memref<2x2x4xf32>
-// CHECK:             krnl.store %[[VAL_16]], %[[VAL_5]]{{\[}}%[[VAL_13]], %[[VAL_14]]] : memref<2x4xf32>
+// CHECK-LABEL:  func private @test_rnn_bidirectional_mode
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<2x4x3xf32>, [[PARAM_2_:%.+]]: memref<2x4x4xf32>, [[PARAM_3_:%.+]]: memref<2x8xf32>, [[PARAM_4_:%.+]]: memref<2x2x4xf32>) -> memref<2x2x4xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() : memref<2x4xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() : memref<2x4xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = memref.alloc() : memref<2x2x4xf32>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = constant unit
+// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = constant 0.000000e+00 : f32
+// CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4) {
+// CHECK:             [[LOAD_PARAM_4_MEM_:%.+]] = krnl.load [[PARAM_4_]]{{.}}[[CST_0_]], [[I_0_]], [[I_1_]]{{.}} : memref<2x2x4xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_4_MEM_]], [[VAR_1_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<2x4xf32>
+// CHECK:             [[LOAD_PARAM_4_MEM_1_:%.+]] = krnl.load [[PARAM_4_]]{{.}}[[CST_1_]], [[I_0_]], [[I_1_]]{{.}} : memref<2x2x4xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_4_MEM_1_]], [[VAR_0_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<2x4xf32>
 // CHECK:           }
-// CHECK:           %[[VAL_17:.*]]:2 = "onnx.Split"(%[[VAL_1]]) {axis = 0 : si64} : (memref<2x4x3xf32>) -> (memref<1x4x3xf32>, memref<1x4x3xf32>)
-// CHECK:           %[[VAL_18:.*]] = "onnx.Squeeze"(%[[VAL_17]]#0) {axes = [0]} : (memref<1x4x3xf32>) -> memref<4x3xf32>
-// CHECK:           %[[VAL_19:.*]] = "onnx.Squeeze"(%[[VAL_17]]#1) {axes = [0]} : (memref<1x4x3xf32>) -> memref<4x3xf32>
-// CHECK:           %[[VAL_20:.*]]:2 = "onnx.Split"(%[[VAL_2]]) {axis = 0 : si64} : (memref<2x4x4xf32>) -> (memref<1x4x4xf32>, memref<1x4x4xf32>)
-// CHECK:           %[[VAL_21:.*]] = "onnx.Squeeze"(%[[VAL_20]]#0) {axes = [0]} : (memref<1x4x4xf32>) -> memref<4x4xf32>
-// CHECK:           %[[VAL_22:.*]] = "onnx.Squeeze"(%[[VAL_20]]#1) {axes = [0]} : (memref<1x4x4xf32>) -> memref<4x4xf32>
-// CHECK:           %[[VAL_23:.*]] = "onnx.Transpose"(%[[VAL_18]]) {perm = [1, 0]} : (memref<4x3xf32>) -> memref<3x4xf32>
-// CHECK:           %[[VAL_24:.*]] = "onnx.Transpose"(%[[VAL_21]]) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
-// CHECK:           %[[VAL_25:.*]] = "onnx.Transpose"(%[[VAL_19]]) {perm = [1, 0]} : (memref<4x3xf32>) -> memref<3x4xf32>
-// CHECK:           %[[VAL_26:.*]] = "onnx.Transpose"(%[[VAL_22]]) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
-// CHECK:           %[[VAL_27:.*]]:2 = "onnx.Split"(%[[VAL_3]]) {axis = 0 : si64} : (memref<2x8xf32>) -> (memref<1x8xf32>, memref<1x8xf32>)
-// CHECK:           %[[VAL_28:.*]] = "onnx.Squeeze"(%[[VAL_27]]#0) {axes = [0]} : (memref<1x8xf32>) -> memref<8xf32>
-// CHECK:           %[[VAL_29:.*]] = "onnx.Squeeze"(%[[VAL_27]]#1) {axes = [0]} : (memref<1x8xf32>) -> memref<8xf32>
-// CHECK:           %[[VAL_30:.*]]:2 = "onnx.Split"(%[[VAL_28]]) {axis = 0 : si64} : (memref<8xf32>) -> (memref<4xf32>, memref<4xf32>)
-// CHECK:           %[[VAL_31:.*]]:2 = "onnx.Split"(%[[VAL_29]]) {axis = 0 : si64} : (memref<8xf32>) -> (memref<4xf32>, memref<4xf32>)
-// CHECK:           %[[VAL_32:.*]] = krnl.define_loops 1
-// CHECK:           krnl.iterate(%[[VAL_32]]) with (%[[VAL_32]] -> %[[VAL_33:.*]] = 0 to 7) {
-// CHECK:             %[[VAL_34:.*]] = memref.alloc() : memref<2x3xf32>
-// CHECK:             %[[VAL_35:.*]] = constant 0 : index
-// CHECK:             %[[VAL_36:.*]] = constant 2 : index
-// CHECK:             %[[VAL_37:.*]] = constant 3 : index
-// CHECK:             %[[VAL_38:.*]] = constant 0 : index
-// CHECK:             %[[VAL_39:.*]] = constant 0 : index
-// CHECK:             %[[VAL_40:.*]]:2 = krnl.define_loops 2
-// CHECK:             krnl.iterate(%[[VAL_40]]#0, %[[VAL_40]]#1) with (%[[VAL_40]]#0 -> %[[VAL_41:.*]] = %[[VAL_38]] to %[[VAL_36]], %[[VAL_40]]#1 -> %[[VAL_42:.*]] = %[[VAL_39]] to %[[VAL_37]]) {
-// CHECK:               %[[VAL_43:.*]]:2 = krnl.get_induction_var_value(%[[VAL_40]]#0, %[[VAL_40]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               %[[VAL_44:.*]] = krnl.load %[[VAL_0]]{{\[}}%[[VAL_33]], %[[VAL_43]]#0, %[[VAL_43]]#1] : memref<7x2x3xf32>
-// CHECK:               krnl.store %[[VAL_44]], %[[VAL_34]]{{\[}}%[[VAL_43]]#0, %[[VAL_43]]#1] : memref<2x3xf32>
+// CHECK:           [[VAR_4_:%.+]]:2 = "onnx.Split"([[PARAM_1_]]) {axis = 0 : si64} : (memref<2x4x3xf32>) -> (memref<1x4x3xf32>, memref<1x4x3xf32>)
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Squeeze"([[VAR_4_]]#0) {axes = [0]} : (memref<1x4x3xf32>) -> memref<4x3xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Squeeze"([[VAR_4_]]#1) {axes = [0]} : (memref<1x4x3xf32>) -> memref<4x3xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]]:2 = "onnx.Split"([[PARAM_2_]]) {axis = 0 : si64} : (memref<2x4x4xf32>) -> (memref<1x4x4xf32>, memref<1x4x4xf32>)
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Squeeze"([[VAR_7_]]#0) {axes = [0]} : (memref<1x4x4xf32>) -> memref<4x4xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Squeeze"([[VAR_7_]]#1) {axes = [0]} : (memref<1x4x4xf32>) -> memref<4x4xf32>
+// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.Transpose"([[VAR_5_]]) {perm = [1, 0]} : (memref<4x3xf32>) -> memref<3x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Transpose"([[VAR_8_]]) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
+// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Transpose"([[VAR_6_]]) {perm = [1, 0]} : (memref<4x3xf32>) -> memref<3x4xf32>
+// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Transpose"([[VAR_9_]]) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
+// CHECK-DAG:       [[VAR_14_:%.+]]:2 = "onnx.Split"([[PARAM_3_]]) {axis = 0 : si64} : (memref<2x8xf32>) -> (memref<1x8xf32>, memref<1x8xf32>)
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Squeeze"([[VAR_14_]]#0) {axes = [0]} : (memref<1x8xf32>) -> memref<8xf32>
+// CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.Squeeze"([[VAR_14_]]#1) {axes = [0]} : (memref<1x8xf32>) -> memref<8xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_17_:%.+]]:2 = "onnx.Split"([[VAR_15_]]) {axis = 0 : si64} : (memref<8xf32>) -> (memref<4xf32>, memref<4xf32>)
+// CHECK-DAG:       [[VAR_18_:%.+]]:2 = "onnx.Split"([[VAR_16_]]) {axis = 0 : si64} : (memref<8xf32>) -> (memref<4xf32>, memref<4xf32>)
+// CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 7) {
+// CHECK-DAG:         [[LOAD_PARAM_4_MEM_2_:%.+]] = memref.alloc() : memref<2x3xf32>
+// CHECK-DAG:         [[CST_0_1_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_2_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_3_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_2_:%.+]] = constant 2 : index
+// CHECK-DAG:         [[CST_1_1_:%.+]] = constant 1 : index
+// CHECK-DAG:         [[CST_3_:%.+]] = constant 3 : index
+// CHECK-DAG:         [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = [[CST_0_2_]] to [[CST_2_]], [[LOOP_2_]]#1 -> [[I_4_:%.+]] = [[CST_0_2_]] to [[CST_3_]]) {
+// CHECK:               [[VAR_27_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:               [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[I_2_]], [[VAR_27_]]#0, [[VAR_27_]]#1] : memref<7x2x3xf32>
+// CHECK:               krnl.store [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_4_MEM_2_]]{{.}}[[VAR_27_]]#0, [[VAR_27_]]#1] : memref<2x3xf32>
 // CHECK:             }
-// CHECK:             %[[VAL_45:.*]] = "onnx.MatMul"(%[[VAL_34]], %[[VAL_23]]) : (memref<2x3xf32>, memref<3x4xf32>) -> memref<2x4xf32>
-// CHECK:             %[[VAL_46:.*]] = "onnx.MatMul"(%[[VAL_6]], %[[VAL_24]]) : (memref<2x4xf32>, memref<4x4xf32>) -> memref<2x4xf32>
-// CHECK:             %[[VAL_47:.*]] = constant 2 : index
-// CHECK:             %[[VAL_48:.*]] = constant 4 : index
-// CHECK:             %[[VAL_49:.*]] = constant 0 : index
-// CHECK:             %[[VAL_50:.*]] = constant 0 : index
-// CHECK:             %[[VAL_51:.*]]:2 = krnl.define_loops 2
-// CHECK:             krnl.iterate(%[[VAL_51]]#0, %[[VAL_51]]#1) with (%[[VAL_51]]#0 -> %[[VAL_52:.*]] = %[[VAL_49]] to %[[VAL_47]], %[[VAL_51]]#1 -> %[[VAL_53:.*]] = %[[VAL_50]] to %[[VAL_48]]) {
-// CHECK:               %[[VAL_54:.*]]:2 = krnl.get_induction_var_value(%[[VAL_51]]#0, %[[VAL_51]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               %[[VAL_55:.*]] = krnl.load %[[VAL_45]]{{\[}}%[[VAL_54]]#0, %[[VAL_54]]#1] : memref<2x4xf32>
-// CHECK:               %[[VAL_56:.*]] = krnl.load %[[VAL_46]]{{\[}}%[[VAL_54]]#0, %[[VAL_54]]#1] : memref<2x4xf32>
-// CHECK:               %[[VAL_57:.*]] = addf %[[VAL_55]], %[[VAL_56]] : f32
-// CHECK:               %[[VAL_58:.*]] = krnl.load %[[VAL_30]]#0{{\[}}%[[VAL_54]]#1] : memref<4xf32>
-// CHECK:               %[[VAL_59:.*]] = krnl.load %[[VAL_30]]#1{{\[}}%[[VAL_54]]#1] : memref<4xf32>
-// CHECK:               %[[VAL_60:.*]] = addf %[[VAL_57]], %[[VAL_58]] : f32
-// CHECK:               %[[VAL_61:.*]] = addf %[[VAL_60]], %[[VAL_59]] : f32
-// CHECK:               %[[VAL_62:.*]] = memref.alloca() : memref<f32>
-// CHECK:               krnl.store %[[VAL_61]], %[[VAL_62]][] : memref<f32>
-// CHECK:               %[[VAL_63:.*]] = "onnx.Tanh"(%[[VAL_62]]) : (memref<f32>) -> memref<f32>
-// CHECK:               %[[VAL_64:.*]] = krnl.load %[[VAL_63]][] : memref<f32>
-// CHECK:               krnl.store %[[VAL_64]], %[[VAL_6]]{{\[}}%[[VAL_54]]#0, %[[VAL_54]]#1] : memref<2x4xf32>
+// CHECK-DAG:         [[VAR_24_:%.+]] = "onnx.MatMul"([[LOAD_PARAM_4_MEM_2_]], [[VAR_10_]]) : (memref<2x3xf32>, memref<3x4xf32>) -> memref<2x4xf32>
+// CHECK-DAG:         [[VAR_25_:%.+]] = "onnx.MatMul"([[VAR_1_]], [[VAR_1_]]1) : (memref<2x4xf32>, memref<4x4xf32>) -> memref<2x4xf32>
+// CHECK-DAG:         [[CST_0_4_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_5_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_2_1_:%.+]] = constant 2 : index
+// CHECK-DAG:         [[CST_1_2_:%.+]] = constant 1 : index
+// CHECK-DAG:         [[CST_4_:%.+]] = constant 4 : index
+// CHECK-DAG:         [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = [[CST_0_4_]] to [[CST_2_1_]], [[LOOP_3_]]#1 -> [[I_6_:%.+]] = [[CST_0_4_]] to [[CST_4_]]) {
+// CHECK:               [[VAR_27_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[VAR_24_]]{{.}}[[VAR_27_1_]]#0, [[VAR_27_1_]]#1] : memref<2x4xf32>
+// CHECK-DAG:           [[LOAD_VAR_25_MEM_:%.+]] = krnl.load [[VAR_25_]]{{.}}[[VAR_27_1_]]#0, [[VAR_27_1_]]#1] : memref<2x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_30_:%.+]] = addf [[LOAD_PARAM_0_MEM_1_]], [[LOAD_VAR_25_MEM_]] : f32
+// CHECK-DAG:           [[LOAD_VAR_17_MEM_:%.+]] = krnl.load [[VAR_17_]]#0{{.}}[[VAR_27_1_]]#1] : memref<4xf32>
+// CHECK-DAG:           [[LOAD_VAR_17_MEM_1_:%.+]] = krnl.load [[VAR_17_]]#1{{.}}[[VAR_27_1_]]#1] : memref<4xf32>
+// CHECK:               [[VAR_33_:%.+]] = addf [[VAR_30_]], [[LOAD_VAR_17_MEM_]] : f32
+// CHECK-DAG:           [[VAR_34_:%.+]] = addf [[VAR_33_]], [[LOAD_VAR_17_MEM_1_]] : f32
+// CHECK-DAG:           [[VAR_35_:%.+]] = memref.alloca() : memref<f32>
+// CHECK:               krnl.store [[VAR_34_]], [[VAR_35_]][] : memref<f32>
+// CHECK:               [[VAR_36_:%.+]] = "onnx.Tanh"([[VAR_35_]]) : (memref<f32>) -> memref<f32>
+// CHECK:               [[LOAD_VAR_36_MEM_:%.+]] = krnl.load [[VAR_36_]][] : memref<f32>
+// CHECK:               krnl.store [[LOAD_VAR_36_MEM_]], [[VAR_1_]]{{.}}[[VAR_27_1_]]#0, [[VAR_27_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc %[[VAL_34]] : memref<2x3xf32>
+// CHECK:             memref.dealloc [[LOAD_PARAM_4_MEM_2_]] : memref<2x3xf32>
 // CHECK:           }
-// CHECK:           %[[VAL_65:.*]] = krnl.define_loops 1
-// CHECK:           krnl.iterate(%[[VAL_65]]) with (%[[VAL_65]] -> %[[VAL_66:.*]] = 0 to 7) {
-// CHECK:             %[[VAL_67:.*]] = memref.alloc() : memref<2x3xf32>
-// CHECK:             %[[VAL_68:.*]] = constant 1 : index
-// CHECK:             %[[VAL_69:.*]] = constant 7 : index
-// CHECK:             %[[VAL_70:.*]] = affine.apply #map(%[[VAL_66]]){{\[}}%[[VAL_69]]]
-// CHECK:             %[[VAL_71:.*]] = constant 2 : index
-// CHECK:             %[[VAL_72:.*]] = constant 3 : index
-// CHECK:             %[[VAL_73:.*]] = constant 0 : index
-// CHECK:             %[[VAL_74:.*]] = constant 0 : index
-// CHECK:             %[[VAL_75:.*]]:2 = krnl.define_loops 2
-// CHECK:             krnl.iterate(%[[VAL_75]]#0, %[[VAL_75]]#1) with (%[[VAL_75]]#0 -> %[[VAL_76:.*]] = %[[VAL_73]] to %[[VAL_71]], %[[VAL_75]]#1 -> %[[VAL_77:.*]] = %[[VAL_74]] to %[[VAL_72]]) {
-// CHECK:               %[[VAL_78:.*]]:2 = krnl.get_induction_var_value(%[[VAL_75]]#0, %[[VAL_75]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               %[[VAL_79:.*]] = krnl.load %[[VAL_0]]{{\[}}%[[VAL_70]], %[[VAL_78]]#0, %[[VAL_78]]#1] : memref<7x2x3xf32>
-// CHECK:               krnl.store %[[VAL_79]], %[[VAL_67]]{{\[}}%[[VAL_78]]#0, %[[VAL_78]]#1] : memref<2x3xf32>
+// CHECK:           [[LOOP_4_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_4_]]) with ([[LOOP_4_]] -> [[I_7_:%.+]] = 0 to 7) {
+// CHECK-DAG:         [[LOAD_PARAM_4_MEM_2_:%.+]] = memref.alloc() : memref<2x3xf32>
+// CHECK-DAG:         [[CST_1_3_:%.+]] = constant 1 : index
+// CHECK-DAG:         [[CST_7_:%.+]] = constant 7 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[LOOP_2_:%.+]] = affine.apply #map([[I_7_]]){{.}}[[CST_7_]]{{.}}
+// CHECK-DAG:         [[CST_0_6_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_7_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_2_2_:%.+]] = constant 2 : index
+// CHECK-DAG:         [[CST_1_4_:%.+]] = constant 1 : index
+// CHECK-DAG:         [[CST_3_1_:%.+]] = constant 3 : index
+// CHECK-DAG:         [[LOOP_5_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_5_]]#0, [[LOOP_5_]]#1) with ([[LOOP_5_]]#0 -> [[I_8_:%.+]] = [[CST_0_6_]] to [[CST_2_2_]], [[LOOP_5_]]#1 -> [[I_9_:%.+]] = [[CST_0_6_]] to [[CST_3_1_]]) {
+// CHECK:               [[LOAD_PARAM_0_MEM_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_5_]]#0, [[LOOP_5_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:               [[LOAD_PARAM_0_MEM_2_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[LOOP_2_]], [[LOAD_PARAM_0_MEM_1_]]#0, [[LOAD_PARAM_0_MEM_1_]]#1] : memref<7x2x3xf32>
+// CHECK:               krnl.store [[LOAD_PARAM_0_MEM_2_]], [[LOAD_PARAM_4_MEM_2_]]{{.}}[[LOAD_PARAM_0_MEM_1_]]#0, [[LOAD_PARAM_0_MEM_1_]]#1] : memref<2x3xf32>
 // CHECK:             }
-// CHECK:             %[[VAL_80:.*]] = "onnx.MatMul"(%[[VAL_67]], %[[VAL_25]]) : (memref<2x3xf32>, memref<3x4xf32>) -> memref<2x4xf32>
-// CHECK:             %[[VAL_81:.*]] = "onnx.MatMul"(%[[VAL_5]], %[[VAL_26]]) : (memref<2x4xf32>, memref<4x4xf32>) -> memref<2x4xf32>
-// CHECK:             %[[VAL_82:.*]] = constant 2 : index
-// CHECK:             %[[VAL_83:.*]] = constant 4 : index
-// CHECK:             %[[VAL_84:.*]] = constant 0 : index
-// CHECK:             %[[VAL_85:.*]] = constant 0 : index
-// CHECK:             %[[VAL_86:.*]]:2 = krnl.define_loops 2
-// CHECK:             krnl.iterate(%[[VAL_86]]#0, %[[VAL_86]]#1) with (%[[VAL_86]]#0 -> %[[VAL_87:.*]] = %[[VAL_84]] to %[[VAL_82]], %[[VAL_86]]#1 -> %[[VAL_88:.*]] = %[[VAL_85]] to %[[VAL_83]]) {
-// CHECK:               %[[VAL_89:.*]]:2 = krnl.get_induction_var_value(%[[VAL_86]]#0, %[[VAL_86]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               %[[VAL_90:.*]] = krnl.load %[[VAL_80]]{{\[}}%[[VAL_89]]#0, %[[VAL_89]]#1] : memref<2x4xf32>
-// CHECK:               %[[VAL_91:.*]] = krnl.load %[[VAL_81]]{{\[}}%[[VAL_89]]#0, %[[VAL_89]]#1] : memref<2x4xf32>
-// CHECK:               %[[VAL_92:.*]] = addf %[[VAL_90]], %[[VAL_91]] : f32
-// CHECK:               %[[VAL_93:.*]] = krnl.load %[[VAL_31]]#0{{\[}}%[[VAL_89]]#1] : memref<4xf32>
-// CHECK:               %[[VAL_94:.*]] = krnl.load %[[VAL_31]]#1{{\[}}%[[VAL_89]]#1] : memref<4xf32>
-// CHECK:               %[[VAL_95:.*]] = addf %[[VAL_92]], %[[VAL_93]] : f32
-// CHECK:               %[[VAL_96:.*]] = addf %[[VAL_95]], %[[VAL_94]] : f32
-// CHECK:               %[[VAL_97:.*]] = memref.alloca() : memref<f32>
-// CHECK:               krnl.store %[[VAL_96]], %[[VAL_97]][] : memref<f32>
-// CHECK:               %[[VAL_98:.*]] = "onnx.Tanh"(%[[VAL_97]]) : (memref<f32>) -> memref<f32>
-// CHECK:               %[[VAL_99:.*]] = krnl.load %[[VAL_98]][] : memref<f32>
-// CHECK:               krnl.store %[[VAL_99]], %[[VAL_5]]{{\[}}%[[VAL_89]]#0, %[[VAL_89]]#1] : memref<2x4xf32>
+// CHECK-DAG:         [[VAR_25_1_:%.+]] = "onnx.MatMul"([[LOAD_PARAM_4_MEM_2_]], [[VAR_12_]]) : (memref<2x3xf32>, memref<3x4xf32>) -> memref<2x4xf32>
+// CHECK-DAG:         [[LOOP_3_:%.+]] = "onnx.MatMul"([[VAR_0_]], [[VAR_13_]]) : (memref<2x4xf32>, memref<4x4xf32>) -> memref<2x4xf32>
+// CHECK-DAG:         [[CST_0_8_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_9_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_2_3_:%.+]] = constant 2 : index
+// CHECK-DAG:         [[CST_1_5_:%.+]] = constant 1 : index
+// CHECK-DAG:         [[CST_4_1_:%.+]] = constant 4 : index
+// CHECK-DAG:         [[LOOP_6_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_6_]]#0, [[LOOP_6_]]#1) with ([[LOOP_6_]]#0 -> [[I_10_:%.+]] = [[CST_0_8_]] to [[CST_2_3_]], [[LOOP_6_]]#1 -> [[I_11_:%.+]] = [[CST_0_8_]] to [[CST_4_1_]]) {
+// CHECK:               [[LOAD_PARAM_0_MEM_1_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_6_]]#0, [[LOOP_6_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:           [[LOAD_PARAM_0_MEM_2_:%.+]] = krnl.load [[VAR_25_1_]]{{.}}[[LOAD_PARAM_0_MEM_1_1_]]#0, [[LOAD_PARAM_0_MEM_1_1_]]#1] : memref<2x4xf32>
+// CHECK-DAG:           [[VAR_30_1_:%.+]] = krnl.load [[LOOP_3_]]{{.}}[[LOAD_PARAM_0_MEM_1_1_]]#0, [[LOAD_PARAM_0_MEM_1_1_]]#1] : memref<2x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[LOAD_VAR_17_MEM_2_:%.+]] = addf [[LOAD_PARAM_0_MEM_2_]], [[VAR_30_1_]] : f32
+// CHECK-DAG:           [[LOAD_VAR_17_MEM_1_:%.+]] = krnl.load [[VAR_18_]]#0{{.}}[[LOAD_PARAM_0_MEM_1_1_]]#1] : memref<4xf32>
+// CHECK-DAG:           [[VAR_33_1_:%.+]] = krnl.load [[VAR_18_]]#1{{.}}[[LOAD_PARAM_0_MEM_1_1_]]#1] : memref<4xf32>
+// CHECK:               [[VAR_34_1_:%.+]] = addf [[LOAD_VAR_17_MEM_2_]], [[LOAD_VAR_17_MEM_1_]] : f32
+// CHECK-DAG:           [[VAR_35_1_:%.+]] = addf [[VAR_34_1_]], [[VAR_33_1_]] : f32
+// CHECK-DAG:           [[VAR_36_1_:%.+]] = memref.alloca() : memref<f32>
+// CHECK:               krnl.store [[VAR_35_1_]], [[VAR_36_1_]][] : memref<f32>
+// CHECK:               [[LOAD_VAR_36_MEM_1_:%.+]] = "onnx.Tanh"([[VAR_36_1_]]) : (memref<f32>) -> memref<f32>
+// CHECK:               [[LOAD_LOAD_VAR_36_MEM_1_MEM_:%.+]] = krnl.load [[LOAD_VAR_36_MEM_1_]][] : memref<f32>
+// CHECK:               krnl.store [[LOAD_LOAD_VAR_36_MEM_1_MEM_]], [[VAR_0_]]{{.}}[[LOAD_PARAM_0_MEM_1_1_]]#0, [[LOAD_PARAM_0_MEM_1_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc %[[VAL_67]] : memref<2x3xf32>
+// CHECK:             memref.dealloc [[LOAD_PARAM_4_MEM_2_]] : memref<2x3xf32>
 // CHECK:           }
-// CHECK:           %[[VAL_100:.*]] = constant 2 : index
-// CHECK:           %[[VAL_101:.*]] = constant 4 : index
-// CHECK:           %[[VAL_102:.*]] = constant 0 : index
-// CHECK:           %[[VAL_103:.*]] = constant 0 : index
-// CHECK:           %[[VAL_104:.*]] = constant 0 : index
-// CHECK:           %[[VAL_105:.*]] = constant 1 : index
-// CHECK:           %[[VAL_106:.*]]:2 = krnl.define_loops 2
-// CHECK:           krnl.iterate(%[[VAL_106]]#0, %[[VAL_106]]#1) with (%[[VAL_106]]#0 -> %[[VAL_107:.*]] = %[[VAL_102]] to %[[VAL_100]], %[[VAL_106]]#1 -> %[[VAL_108:.*]] = %[[VAL_103]] to %[[VAL_101]]) {
-// CHECK:             %[[VAL_109:.*]]:2 = krnl.get_induction_var_value(%[[VAL_106]]#0, %[[VAL_106]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:             %[[VAL_110:.*]] = krnl.load %[[VAL_6]]{{\[}}%[[VAL_109]]#0, %[[VAL_109]]#1] : memref<2x4xf32>
-// CHECK:             krnl.store %[[VAL_110]], %[[VAL_7]]{{\[}}%[[VAL_104]], %[[VAL_109]]#0, %[[VAL_109]]#1] : memref<2x2x4xf32>
-// CHECK:             %[[VAL_111:.*]] = krnl.load %[[VAL_5]]{{\[}}%[[VAL_109]]#0, %[[VAL_109]]#1] : memref<2x4xf32>
-// CHECK:             krnl.store %[[VAL_111]], %[[VAL_7]]{{\[}}%[[VAL_105]], %[[VAL_109]]#0, %[[VAL_109]]#1] : memref<2x2x4xf32>
+// CHECK-DAG:       [[CST_0_10_:%.+]] = constant 0 : index
+// CHECK-DAG:       [[CST_1_6_:%.+]] = constant 1 : index
+// CHECK-DAG:       [[CST_0_11_:%.+]] = constant 0 : index
+// CHECK-DAG:       [[CST_2_4_:%.+]] = constant 2 : index
+// CHECK-DAG:       [[CST_1_7_:%.+]] = constant 1 : index
+// CHECK-DAG:       [[CST_4_2_:%.+]] = constant 4 : index
+// CHECK-DAG:       [[LOOP_7_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_7_]]#0, [[LOOP_7_]]#1) with ([[LOOP_7_]]#0 -> [[I_12_:%.+]] = [[CST_0_10_]] to [[CST_2_4_]], [[LOOP_7_]]#1 -> [[I_13_:%.+]] = [[CST_0_10_]] to [[CST_4_2_]]) {
+// CHECK:             [[LOAD_PARAM_4_MEM_2_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_7_]]#0, [[LOOP_7_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOOP_2_1_:%.+]] = krnl.load [[VAR_1_]]{{.}}[[LOAD_PARAM_4_MEM_2_1_]]#0, [[LOAD_PARAM_4_MEM_2_1_]]#1] : memref<2x4xf32>
+// CHECK:             krnl.store [[LOOP_2_1_]], [[VAR_2_]]{{.}}[[CST_0_10_]], [[VAR_2_]]2#0, [[VAR_2_]]2#1] : memref<2x2x4xf32>
+// CHECK:             [[LOOP_5_:%.+]] = krnl.load [[VAR_0_]]{{.}}[[LOAD_PARAM_4_MEM_2_1_]]#0, [[LOAD_PARAM_4_MEM_2_1_]]#1] : memref<2x4xf32>
+// CHECK:             krnl.store [[LOOP_5_]], [[VAR_2_]]{{.}}[[CST_1_6_]], [[VAR_2_]]2#0, [[VAR_2_]]2#1] : memref<2x2x4xf32>
 // CHECK:           }
-// CHECK:           memref.dealloc %[[VAL_6]] : memref<2x4xf32>
-// CHECK:           memref.dealloc %[[VAL_5]] : memref<2x4xf32>
-// CHECK:           return %[[VAL_7]] : memref<2x2x4xf32>
+// CHECK:           memref.dealloc [[VAR_1_]] : memref<2x4xf32>
+// CHECK:           memref.dealloc [[VAR_0_]] : memref<2x4xf32>
+// CHECK:           return [[VAR_2_]] : memref<2x2x4xf32>
 // CHECK:         }
 
 }
@@ -381,90 +393,85 @@ func private @test_rnn_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x4x
   %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %arg3, %cst, %arg4) {hidden_size = 4 : si64} : (tensor<?x?x?xf32>, tensor<1x4x?xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, none, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
 
-// CHECK-LABEL:   func private @test_rnn_unknown_dims(
-// CHECK-SAME:                                        %[[VAL_0:.*]]: memref<?x?x?xf32>,
-// CHECK-SAME:                                        %[[VAL_1:.*]]: memref<1x4x?xf32>,
-// CHECK-SAME:                                        %[[VAL_2:.*]]: memref<1x4x4xf32>,
-// CHECK-SAME:                                        %[[VAL_3:.*]]: memref<1x8xf32>,
-// CHECK-SAME:                                        %[[VAL_4:.*]]: memref<1x?x4xf32>) -> memref<1x?x4xf32> {
-// CHECK:           %[[VAL_5:.*]] = constant unit
-// CHECK:           %[[VAL_6:.*]] = constant 1 : index
-// CHECK:           %[[VAL_7:.*]] = memref.dim %[[VAL_0]], %[[VAL_6]] : memref<?x?x?xf32>
-// CHECK:           %[[VAL_8:.*]] = memref.alloc(%[[VAL_7]]) : memref<1x?x4xf32>
-// CHECK:           %[[VAL_9:.*]] = constant 1 : index
-// CHECK:           %[[VAL_10:.*]] = memref.dim %[[VAL_0]], %[[VAL_9]] : memref<?x?x?xf32>
-// CHECK:           %[[VAL_11:.*]] = memref.alloc(%[[VAL_10]]) : memref<?x4xf32>
-// CHECK:           %[[VAL_12:.*]] = constant 0.000000e+00 : f32
-// CHECK:           %[[VAL_13:.*]] = constant 0 : index
-// CHECK:           %[[VAL_14:.*]] = constant 1 : index
-// CHECK:           %[[VAL_15:.*]]:2 = krnl.define_loops 2
-// CHECK:           %[[VAL_16:.*]] = constant 0 : index
-// CHECK:           %[[VAL_17:.*]] = memref.dim %[[VAL_11]], %[[VAL_16]] : memref<?x4xf32>
-// CHECK:           krnl.iterate(%[[VAL_15]]#0, %[[VAL_15]]#1) with (%[[VAL_15]]#0 -> %[[VAL_18:.*]] = 0 to %[[VAL_17]], %[[VAL_15]]#1 -> %[[VAL_19:.*]] = 0 to 4) {
-// CHECK:             %[[VAL_20:.*]] = krnl.load %[[VAL_4]]{{\[}}%[[VAL_13]], %[[VAL_18]], %[[VAL_19]]] : memref<1x?x4xf32>
-// CHECK:             krnl.store %[[VAL_20]], %[[VAL_11]]{{\[}}%[[VAL_18]], %[[VAL_19]]] : memref<?x4xf32>
+// CHECK-LABEL:  func private @test_rnn_unknown_dims
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x?xf32>, [[PARAM_1_:%.+]]: memref<1x4x?xf32>, [[PARAM_2_:%.+]]: memref<1x4x4xf32>, [[PARAM_3_:%.+]]: memref<1x8xf32>, [[PARAM_4_:%.+]]: memref<1x?x4xf32>) -> memref<1x?x4xf32> {
+// CHECK-DAG:       [[VAR_cst_:%.+]] = constant unit
+// CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
+// CHECK:           [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_1_]] : memref<?x?x?xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc([[VAR_0_]]) : memref<1x?x4xf32>
+// CHECK-DAG:       [[CST_1_1_:%.+]] = constant 1 : index
+// CHECK:           [[VAR_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_1_1_]] : memref<?x?x?xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = memref.alloc([[VAR_2_]]) : memref<?x4xf32>
+// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = constant 0.000000e+00 : f32
+// CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = constant 1 : index
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK-DAG:       [[CST_0_1_:%.+]] = constant 0 : index
+// CHECK:           [[VAR_5_:%.+]] = memref.dim [[VAR_3_]], [[CST_0_1_]] : memref<?x4xf32>
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[VAR_5_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4) {
+// CHECK:             [[LOAD_PARAM_4_MEM_:%.+]] = krnl.load [[PARAM_4_]]{{.}}[[CST_0_]], [[I_0_]], [[I_1_]]{{.}} : memref<1x?x4xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_4_MEM_]], [[VAR_3_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<?x4xf32>
 // CHECK:           }
-// CHECK:           %[[VAL_21:.*]] = "onnx.Squeeze"(%[[VAL_1]]) {axes = [0]} : (memref<1x4x?xf32>) -> memref<4x?xf32>
-// CHECK:           %[[VAL_22:.*]] = "onnx.Squeeze"(%[[VAL_2]]) {axes = [0]} : (memref<1x4x4xf32>) -> memref<4x4xf32>
-// CHECK:           %[[VAL_23:.*]] = "onnx.Transpose"(%[[VAL_21]]) {perm = [1, 0]} : (memref<4x?xf32>) -> memref<?x4xf32>
-// CHECK:           %[[VAL_24:.*]] = "onnx.Transpose"(%[[VAL_22]]) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
-// CHECK:           %[[VAL_25:.*]] = "onnx.Squeeze"(%[[VAL_3]]) {axes = [0]} : (memref<1x8xf32>) -> memref<8xf32>
-// CHECK:           %[[VAL_26:.*]]:2 = "onnx.Split"(%[[VAL_25]]) {axis = 0 : si64} : (memref<8xf32>) -> (memref<4xf32>, memref<4xf32>)
-// CHECK:           %[[VAL_27:.*]] = krnl.define_loops 1
-// CHECK:           %[[VAL_28:.*]] = constant 0 : index
-// CHECK:           %[[VAL_29:.*]] = memref.dim %[[VAL_0]], %[[VAL_28]] : memref<?x?x?xf32>
-// CHECK:           krnl.iterate(%[[VAL_27]]) with (%[[VAL_27]] -> %[[VAL_30:.*]] = 0 to %[[VAL_29]]) {
-// CHECK:             %[[VAL_31:.*]] = constant 0 : index
-// CHECK:             %[[VAL_32:.*]] = constant 1 : index
-// CHECK:             %[[VAL_33:.*]] = memref.dim %[[VAL_0]], %[[VAL_32]] : memref<?x?x?xf32>
-// CHECK:             %[[VAL_34:.*]] = constant 2 : index
-// CHECK:             %[[VAL_35:.*]] = memref.dim %[[VAL_0]], %[[VAL_34]] : memref<?x?x?xf32>
-// CHECK:             %[[VAL_36:.*]] = memref.alloc(%[[VAL_33]], %[[VAL_35]]) : memref<?x?xf32>
-// CHECK:             %[[VAL_37:.*]] = constant 0 : index
-// CHECK:             %[[VAL_38:.*]] = memref.dim %[[VAL_36]], %[[VAL_37]] : memref<?x?xf32>
-// CHECK:             %[[VAL_39:.*]] = constant 1 : index
-// CHECK:             %[[VAL_40:.*]] = memref.dim %[[VAL_36]], %[[VAL_39]] : memref<?x?xf32>
-// CHECK:             %[[VAL_41:.*]] = constant 0 : index
-// CHECK:             %[[VAL_42:.*]] = constant 0 : index
-// CHECK:             %[[VAL_43:.*]]:2 = krnl.define_loops 2
-// CHECK:             krnl.iterate(%[[VAL_43]]#0, %[[VAL_43]]#1) with (%[[VAL_43]]#0 -> %[[VAL_44:.*]] = %[[VAL_41]] to %[[VAL_38]], %[[VAL_43]]#1 -> %[[VAL_45:.*]] = %[[VAL_42]] to %[[VAL_40]]) {
-// CHECK:               %[[VAL_46:.*]]:2 = krnl.get_induction_var_value(%[[VAL_43]]#0, %[[VAL_43]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               %[[VAL_47:.*]] = krnl.load %[[VAL_0]]{{\[}}%[[VAL_30]], %[[VAL_46]]#0, %[[VAL_46]]#1] : memref<?x?x?xf32>
-// CHECK:               krnl.store %[[VAL_47]], %[[VAL_36]]{{\[}}%[[VAL_46]]#0, %[[VAL_46]]#1] : memref<?x?xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Squeeze"([[PARAM_1_]]) {axes = [0]} : (memref<1x4x?xf32>) -> memref<4x?xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Squeeze"([[PARAM_2_]]) {axes = [0]} : (memref<1x4x4xf32>) -> memref<4x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Transpose"([[VAR_6_]]) {perm = [1, 0]} : (memref<4x?xf32>) -> memref<?x4xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Transpose"([[VAR_7_]]) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
+// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.Squeeze"([[PARAM_3_]]) {axes = [0]} : (memref<1x8xf32>) -> memref<8xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_11_:%.+]]:2 = "onnx.Split"([[VAR_10_]]) {axis = 0 : si64} : (memref<8xf32>) -> (memref<4xf32>, memref<4xf32>)
+// CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
+// CHECK-DAG:       [[CST_0_2_:%.+]] = constant 0 : index
+// CHECK:           [[VAR_13_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x?x?xf32>
+// CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to [[VAR_13_]]) {
+// CHECK-DAG:         [[CST_0_3_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_1_3_:%.+]] = constant 1 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_:%.+]] = memref.dim [[PARAM_0_]], [[CST_1_3_]] : memref<?x?x?xf32>
+// CHECK-DAG:         [[CST_2_:%.+]] = constant 2 : index
+// CHECK:             [[VAR_18_:%.+]] = memref.dim [[PARAM_0_]], [[CST_2_]] : memref<?x?x?xf32>
+// CHECK-DAG:         [[VAR_19_:%.+]] = memref.alloc([[LOAD_PARAM_4_MEM_1_]], [[VAR_18_]]) : memref<?x?xf32>
+// CHECK-DAG:         [[CST_0_4_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_5_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_1_4_:%.+]] = constant 1 : index
+// CHECK-DAG:         [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = [[CST_0_4_]] to [[LOAD_PARAM_4_MEM_1_]], [[LOOP_2_]]#1 -> [[I_4_:%.+]] = [[CST_0_4_]] to [[VAR_18_]]) {
+// CHECK:               [[VAR_24_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:               [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[I_2_]], [[VAR_24_]]#0, [[VAR_24_]]#1] : memref<?x?x?xf32>
+// CHECK:               krnl.store [[LOAD_PARAM_0_MEM_]], [[VAR_19_]]{{.}}[[VAR_24_]]#0, [[VAR_24_]]#1] : memref<?x?xf32>
 // CHECK:             }
-// CHECK:             %[[VAL_48:.*]] = "onnx.MatMul"(%[[VAL_36]], %[[VAL_23]]) : (memref<?x?xf32>, memref<?x4xf32>) -> memref<?x4xf32>
-// CHECK:             %[[VAL_49:.*]] = "onnx.MatMul"(%[[VAL_11]], %[[VAL_24]]) : (memref<?x4xf32>, memref<4x4xf32>) -> memref<?x4xf32>
-// CHECK:             %[[VAL_50:.*]] = constant 0 : index
-// CHECK:             %[[VAL_51:.*]] = memref.dim %[[VAL_11]], %[[VAL_50]] : memref<?x4xf32>
-// CHECK:             %[[VAL_52:.*]] = constant 4 : index
-// CHECK:             %[[VAL_53:.*]] = constant 0 : index
-// CHECK:             %[[VAL_54:.*]] = constant 0 : index
-// CHECK:             %[[VAL_55:.*]]:2 = krnl.define_loops 2
-// CHECK:             krnl.iterate(%[[VAL_55]]#0, %[[VAL_55]]#1) with (%[[VAL_55]]#0 -> %[[VAL_56:.*]] = %[[VAL_53]] to %[[VAL_51]], %[[VAL_55]]#1 -> %[[VAL_57:.*]] = %[[VAL_54]] to %[[VAL_52]]) {
-// CHECK:               %[[VAL_58:.*]]:2 = krnl.get_induction_var_value(%[[VAL_55]]#0, %[[VAL_55]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               %[[VAL_59:.*]] = krnl.load %[[VAL_48]]{{\[}}%[[VAL_58]]#0, %[[VAL_58]]#1] : memref<?x4xf32>
-// CHECK:               %[[VAL_60:.*]] = krnl.load %[[VAL_49]]{{\[}}%[[VAL_58]]#0, %[[VAL_58]]#1] : memref<?x4xf32>
-// CHECK:               %[[VAL_61:.*]] = addf %[[VAL_59]], %[[VAL_60]] : f32
-// CHECK:               %[[VAL_62:.*]] = krnl.load %[[VAL_26]]#0{{\[}}%[[VAL_58]]#1] : memref<4xf32>
-// CHECK:               %[[VAL_63:.*]] = krnl.load %[[VAL_26]]#1{{\[}}%[[VAL_58]]#1] : memref<4xf32>
-// CHECK:               %[[VAL_64:.*]] = addf %[[VAL_61]], %[[VAL_62]] : f32
-// CHECK:               %[[VAL_65:.*]] = addf %[[VAL_64]], %[[VAL_63]] : f32
-// CHECK:               %[[VAL_66:.*]] = memref.alloca() : memref<f32>
-// CHECK:               krnl.store %[[VAL_65]], %[[VAL_66]][] : memref<f32>
-// CHECK:               %[[VAL_67:.*]] = "onnx.Tanh"(%[[VAL_66]]) : (memref<f32>) -> memref<f32>
-// CHECK:               %[[VAL_68:.*]] = krnl.load %[[VAL_67]][] : memref<f32>
-// CHECK:               krnl.store %[[VAL_68]], %[[VAL_11]]{{\[}}%[[VAL_58]]#0, %[[VAL_58]]#1] : memref<?x4xf32>
+// CHECK-DAG:         [[VAR_21_:%.+]] = "onnx.MatMul"([[VAR_19_]], [[VAR_8_]]) : (memref<?x?xf32>, memref<?x4xf32>) -> memref<?x4xf32>
+// CHECK-DAG:         [[VAR_22_:%.+]] = "onnx.MatMul"([[VAR_3_]], [[VAR_9_]]) : (memref<?x4xf32>, memref<4x4xf32>) -> memref<?x4xf32>
+// CHECK-DAG:         [[CST_0_6_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_7_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_1_5_:%.+]] = constant 1 : index
+// CHECK-DAG:         [[CST_4_:%.+]] = constant 4 : index
+// CHECK-DAG:         [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = [[CST_0_6_]] to [[VAR_2_]], [[LOOP_3_]]#1 -> [[I_6_:%.+]] = [[CST_0_6_]] to [[CST_4_]]) {
+// CHECK:               [[VAR_24_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[VAR_21_]]{{.}}[[VAR_24_1_]]#0, [[VAR_24_1_]]#1] : memref<?x4xf32>
+// CHECK-DAG:           [[LOAD_VAR_22_MEM_:%.+]] = krnl.load [[VAR_22_]]{{.}}[[VAR_24_1_]]#0, [[VAR_24_1_]]#1] : memref<?x4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_27_:%.+]] = addf [[LOAD_PARAM_0_MEM_1_]], [[LOAD_VAR_22_MEM_]] : f32
+// CHECK-DAG:           [[LOAD_VAR_11_MEM_:%.+]] = krnl.load [[VAR_11_]]#0{{.}}[[VAR_24_1_]]#1] : memref<4xf32>
+// CHECK-DAG:           [[LOAD_VAR_11_MEM_1_:%.+]] = krnl.load [[VAR_11_]]#1{{.}}[[VAR_24_1_]]#1] : memref<4xf32>
+// CHECK:               [[VAR_30_:%.+]] = addf [[VAR_27_]], [[LOAD_VAR_11_MEM_]] : f32
+// CHECK-DAG:           [[VAR_31_:%.+]] = addf [[VAR_30_]], [[LOAD_VAR_11_MEM_1_]] : f32
+// CHECK-DAG:           [[VAR_32_:%.+]] = memref.alloca() : memref<f32>
+// CHECK:               krnl.store [[VAR_31_]], [[VAR_32_]][] : memref<f32>
+// CHECK:               [[VAR_33_:%.+]] = "onnx.Tanh"([[VAR_32_]]) : (memref<f32>) -> memref<f32>
+// CHECK:               [[LOAD_VAR_33_MEM_:%.+]] = krnl.load [[VAR_33_]][] : memref<f32>
+// CHECK:               krnl.store [[LOAD_VAR_33_MEM_]], [[VAR_3_]]{{.}}[[VAR_24_1_]]#0, [[VAR_24_1_]]#1] : memref<?x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc %[[VAL_36]] : memref<?x?xf32>
+// CHECK:             memref.dealloc [[VAR_19_]] : memref<?x?xf32>
 // CHECK:           }
-// CHECK:           %[[VAL_69:.*]] = constant 16 : i64
-// CHECK:           %[[VAL_70:.*]] = constant 0 : index
-// CHECK:           %[[VAL_71:.*]] = memref.dim %[[VAL_11]], %[[VAL_70]] : memref<?x4xf32>
-// CHECK:           %[[VAL_72:.*]] = index_cast %[[VAL_71]] : index to i64
-// CHECK:           %[[VAL_73:.*]] = muli %[[VAL_69]], %[[VAL_72]] : i64
-// CHECK:           "krnl.memcpy"(%[[VAL_8]], %[[VAL_11]], %[[VAL_73]]) : (memref<1x?x4xf32>, memref<?x4xf32>, i64) -> ()
-// CHECK:           memref.dealloc %[[VAL_11]] : memref<?x4xf32>
-// CHECK:           return %[[VAL_8]] : memref<1x?x4xf32>
+// CHECK-DAG:       [[CST_16_:%.+]] = constant 16 : i64
+// CHECK-DAG:       [[CST_0_8_:%.+]] = constant 0 : index
+// CHECK:           [[VAR_14_:%.+]] = memref.dim [[VAR_3_]], [[CST_0_8_]] : memref<?x4xf32>
+// CHECK:           [[VAR_15_:%.+]] = index_cast [[VAR_14_]] : index to i64
+// CHECK:           [[VAR_16_:%.+]] = muli [[CST_16_]], [[VAR_15_]] : i64
+// CHECK:           "krnl.memcpy"([[VAR_1_]], [[VAR_3_]], [[VAR_1_]]6) : (memref<1x?x4xf32>, memref<?x4xf32>, i64) -> ()
+// CHECK:           memref.dealloc [[VAR_3_]] : memref<?x4xf32>
+// CHECK:           return [[VAR_1_]] : memref<1x?x4xf32>
 // CHECK:         }
-
 }
