@@ -41,9 +41,13 @@ def createDenseElementsAttrFromSize : NativeCodeCall<
 def subtractOrNeg: NativeCodeCall<
   "subtractOrNeg($_builder, $0.getDefiningOp()->getLoc(), $1, $2)">;
 
-// Create an ArrayAttr of IntergerAttr(s) of values in [1, N].
+// Create an ArrayAttr of IntergerAttr(s) of values in [1, N-1].
 def createArrayAttrOfOneToRankOf : NativeCodeCall<
   "createArrayAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 1)">;
+
+// Create an ArrayAttr of IntergerAttr(s) of values in [1, N-2].
+def createArrayAttrOfOneToRankOfExclusive : NativeCodeCall<
+  "createArrayAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 2)">;
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [2, rank - 1].
 def createArrayAttrOfTwoToRankOf : NativeCodeCall<
@@ -114,6 +118,16 @@ def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
 class IsNotStringAttrOfValue<string val>:
   Constraint<CPred<"$0.cast<StringAttr>().getValue() != \"" # val # "\"">>;
 
+// Check the rank of a value is greater than a given integer.
+class HasRankGT<int rank> :
+  Constraint<CPred<"$0.getType().isa<ShapedType>() && "
+                   "$0.getType().cast<ShapedType>().getRank() > " # rank>>;
+
+// Check the rank of a value is of a given integer.
+class HasRankOf<int rank> :
+  Constraint<CPred<"$0.getType().isa<ShapedType>() && "
+                   "$0.getType().cast<ShapedType>().getRank() == " # rank>>;
+
 //===----------------------------------------------------------------------===//
 // This is to fuse the composition: 'BatchNorm o Conv' into 'Conv'
 // by deriving new 'w' and 'b' for 'Conv':
@@ -129,7 +143,7 @@ class IsNotStringAttrOfValue<string val>:
 //   b_ = B + scale * (b - mean) / sqrt(var + eps)
 //
 // Hence, we rewrite: 
-//   onnx.BatchNormalizationTestMode(
+//   onnx.BatchNormalizationInferenceMode(
 //       onnx.Conv(x, w, b),
 //       scale, B, mean, var
 //   ) {eps = ...}
@@ -143,8 +157,8 @@ class IsNotStringAttrOfValue<string val>:
 //
 //===----------------------------------------------------------------------===//
 
-def FuseBatchNormTestModeConvPattern: Pat<
-  (ONNXBatchNormalizationTestModeOp:$res
+def FuseBatchNormInferenceModeConvPattern: Pat<
+  (ONNXBatchNormalizationInferenceModeOp:$res
     (ONNXConvOp $x, $w, $b,
                 $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
     $scale, $B, $mean, $var, $epsilon, $momentum),
@@ -169,7 +183,70 @@ def FuseBatchNormTestModeConvPattern: Pat<
            $coefficientW,
            (subtractOrNeg $res, $b, $mean))),
 
-     $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides)
+     $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
+     [], (addBenefit 1)
+>;
+
+//===----------------------------------------------------------------------===//
+// This is to rewrite BatchNorm into 'x * a + b'
+//
+// We have:
+//   (BatchNorm) y = scale * (x - mean) / sqrt(var + eps) + bias
+//                 = x * a + b
+//
+// where
+//   a = scale / sqrt(var + eps)
+//   b = bias - mean * a
+//
+// In inference mode, 'scale', 'mean', 'var', 'eps', and 'bias' are expected to
+// be constants. Thus, 'a' and 'b' would be constants after constant propagation.
+//
+//===----------------------------------------------------------------------===//
+
+def RewriteBatchNormInferenceModeConvPattern1: Pat<
+  (ONNXBatchNormalizationInferenceModeOp:$res
+    $x, $scale, $bias, $mean, $var, $epsilon, $_),
+  (ONNXAddOp
+     // x * a
+     (ONNXMulOp
+        $x,
+        (ONNXUnsqueezeOp
+           (ONNXDivOp:$a
+              $scale,
+              (ONNXSqrtOp
+                 (ONNXAddOp
+                    $var,
+                    (ONNXConstantOpFromDenseAttr
+                       (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
+           (createArrayAttrOfOneToRankOfExclusive $x))),
+     // b
+     (ONNXUnsqueezeOp
+       (ONNXSubOp $bias, (ONNXMulOp $mean, $a)),
+       (createArrayAttrOfOneToRankOfExclusive $x))),
+  [(HasRankGT<2> $x)], (addBenefit 0)
+>;
+
+// Special case of BatchNorm whose input shape is [N]. In this case, 'scale',
+// 'bias', 'mean', and 'var' will have shape of [1], according to ONNXBatchNorm
+// decription: https://github.com/onnx/onnx/blob/master/docs/Operators.md#inputs-12.
+// Thus, we need not unsqueeze intermediate results.
+def RewriteBatchNormInferenceModeConvPattern2: Pat<
+  (ONNXBatchNormalizationInferenceModeOp:$res
+    $x, $scale, $bias, $mean, $var, $epsilon, $_),
+  (ONNXAddOp
+     // x * a
+     (ONNXMulOp
+        $x,
+        (ONNXDivOp:$a
+           $scale,
+           (ONNXSqrtOp
+              (ONNXAddOp
+                 $var,
+                 (ONNXConstantOpFromDenseAttr
+                    (createDenseElementsAttrFromFloatAttr $res, $epsilon)))))),
+     // b
+     (ONNXSubOp $bias, (ONNXMulOp $mean, $a))),
+  [(HasRankOf<1> $x)], (addBenefit 0)
 >;
 
 def IsStaticShapeTensor:

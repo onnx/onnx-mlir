@@ -3,6 +3,7 @@
 if (ONNX_MLIR_ENABLE_JNI)
   add_jar(javaruntime
     src/com/ibm/onnxmlir/OMModel.java
+    src/com/ibm/onnxmlir/OMLogger.java
     src/com/ibm/onnxmlir/OMTensorList.java
     src/com/ibm/onnxmlir/OMTensor.java
     )
