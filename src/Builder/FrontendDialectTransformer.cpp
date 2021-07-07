@@ -79,6 +79,7 @@ public:
       const onnx::ModelProto &model, ImportOptions options) {
     options_ = options;
     SetOpSetImport(model); // Determines which opsets to use.
+    SetCustomShapeInfo();  // Set custom shapes for the inputs if available.
     importGraph(model.graph());
     return module_;
   }
@@ -140,6 +141,36 @@ private:
   // A map from an input index to a list of dim indices those are changed to
   // dynamic. Default value corresponds to IMPORTER_FORCE_DYNAMIC='-1:-1'
   std::map<int, std::vector<int>> forced_inputs_dims;
+
+  // Custom shape information for the graph inputs.
+  std::map<int64_t, std::vector<int64_t>> inputs_shape_information;
+  void SetCustomShapeInfo() {
+    // Use the custom shape for the inputs if avaiable.
+    if (options_.shapeInformation.empty()) {
+      return;
+    }
+
+    std::stringstream shapeInfoString(options_.shapeInformation);
+    std::string shapeString;
+    while (getline(shapeInfoString, shapeString, '|')) {
+      size_t pos = shapeString.find(':');
+      std::string inputString = shapeString.substr(0, pos);
+      std::string dimString = shapeString.substr(pos + 1);
+
+      int64_t inputID = std::stoi(inputString);
+      assert(inputID >= 0 && "input_id must be >= 0");
+
+      std::stringstream dimSizes(dimString);
+      std::string dimStr;
+      std::vector<int64_t> dims;
+      while (getline(dimSizes, dimStr, ',')) {
+        int64_t dimSize = std::stoi(dimStr);
+        assert((dimSize == -1 || dimSize > 0) && "dim must be -1 or > 0");
+        dims.emplace_back(dimSize);
+      }
+      inputs_shape_information.insert(std::make_pair(inputID, dims));
+    }
+  }
 
   typedef void (onnx_mlir::detail::FrontendGenImpl::*ImportHandlerType)(
       const onnx::NodeProto &);
@@ -380,7 +411,14 @@ private:
             }
           }
           argTy = RankedTensorType::get(newDims, shapedTy.getElementType());
+        } else if (shapedTy && !inputs_shape_information.empty() &&
+                   (inputs_shape_information.find(numInputs) !=
+                       inputs_shape_information.end())) {
+          // Change to the custom shape if users provide.
+          std::vector<int64_t> shape = inputs_shape_information.at(numInputs);
+          argTy = RankedTensorType::get(shape, shapedTy.getElementType());
         }
+
         argTypes.emplace_back(argTy);
 
         // numInputs is the number of graph inputs not contained within the
@@ -694,8 +732,8 @@ private:
   void ImportNodeBatchNormalization(const onnx::NodeProto &node) {
     int nOuts = node.output().size();
     if (nOuts == 1) {
-      // Test mode with one output.
-      buildOperation<ONNXBatchNormalizationTestModeOp>(node);
+      // Inference mode with one output.
+      buildOperation<ONNXBatchNormalizationInferenceModeOp>(node);
     } else {
       // Training mode with four trailing optional outputs. Not handled yet.
       buildOperation<ONNXBatchNormalizationOp>(node);

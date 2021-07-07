@@ -3,12 +3,13 @@
 # ONNX MLIR
 The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mlir/).
 
-| System      | Build Status |
-|-------------|--------------|
-| x86-Linux   | [![CircleCI](https://circleci.com/gh/onnx/onnx-mlir/tree/master.svg?style=svg)](https://circleci.com/gh/onnx/onnx-mlir/tree/master)             |
-| s390-Linux  | [![Build Status](https://yktpandb.watson.ibm.com/jenkins/buildStatus/icon?job=ONNX-MLIR-Linux-s390x-Build)](https://yktpandb.watson.ibm.com/jenkins/job/ONNX-MLIR-Linux-s390x-Build/)             |
-| x86-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)             |
-| x86-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/workflows/Build%20x86%20onnx-mlir%20on%20macOS/badge.svg)](https://github.com/onnx/onnx-mlir/actions?query=workflow%3A%22Build+x86+onnx-mlir+on+macOS%22)             |
+| System        | Build Status |
+|---------------|--------------|
+| s390x-Linux   | [![Build Status](https://yktpandb.watson.ibm.com/jenkins/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build)](https://yktpandb.watson.ibm.com/jenkins/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| ppc64le-Linux | [![Build Status](https://yktpandb.watson.ibm.com/jenkinp/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build)](https://yktpandb.watson.ibm.com/jenkinp/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| amd64-Linux   | [![Build Status](https://yktpandb.watson.ibm.com/jenkinx/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build)](https://yktpandb.watson.ibm.com/jenkinx/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| amd64-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)             |
+| amd64-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/workflows/Build%20x86%20onnx-mlir%20on%20macOS/badge.svg)](https://github.com/onnx/onnx-mlir/actions?query=workflow%3A%22Build+x86+onnx-mlir+on+macOS%22)             |
 
 ## Prebuilt Container
 An easy way to get started with ONNX-MLIR is to use a prebuilt docker image.
@@ -122,7 +123,7 @@ cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_ASSERTIONS=ON \
    -DLLVM_ENABLE_RTTI=ON
 
-cmake --build . --target -- ${MAKEFLAGS}
+cmake --build . -- ${MAKEFLAGS}
 cmake --build . --target check-mlir
 ```
 
