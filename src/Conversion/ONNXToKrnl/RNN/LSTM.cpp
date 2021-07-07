@@ -513,9 +513,6 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
         htTranspose);
   }
 
-  // IndexExpr scope
-  // IndexExprScope ieScope(rewriter, loc);
-
   // Do element-wise computations. Fuse them into a single nested loop.
   // Lower and upper bounds derived from Ht tensor.
   unsigned HtRank = matrixType.getRank();
