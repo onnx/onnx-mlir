@@ -15,8 +15,6 @@
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 
 using namespace mlir;
-using namespace mlir::edsc;
-using namespace mlir::edsc::intrinsics;
 
 struct RnnState {
   // returned states.
@@ -333,7 +331,7 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   ValueRange loops = createKrnl.defineLoops(htRank);
   createKrnl.iterate(loops, loops, htLbs, htUbs, {},
       [&](KrnlBuilder &createKrnl, ValueRange args) {
-        ArithBuilder createMath(createKrnl);
+        MathBuilder createMath(createKrnl);
         ValueRange indices = createKrnl.getInductionVarValue(loops);
         Value bs(indices[0]), hs(indices[1]);
         // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)

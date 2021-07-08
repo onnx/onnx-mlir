@@ -15,8 +15,6 @@
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 
 using namespace mlir;
-using namespace mlir::edsc;
-using namespace mlir::edsc::intrinsics;
 
 // Check a Value's type is none or not.
 bool isNoneType(Value val) { return val.getType().isa<NoneType>(); }
