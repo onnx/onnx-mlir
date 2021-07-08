@@ -216,3 +216,5 @@ DenseElementsAttr ConstPropSlice(Builder &builder, Value resOperand,
 DenseElementsAttr ConstPropCastIntToInt(
     Builder &builder, Value constOp, Attribute input, IntegerAttr to);
 bool canConstPropCastIntToInt(Builder &builder, Value constOp, Attribute input, IntegerAttr to);
+bool isConstOfZeros(Builder &builder, Attribute attr);
+DenseElementsAttr CreateZerosFromTemplate(Builder &builder, Value templateTensor);

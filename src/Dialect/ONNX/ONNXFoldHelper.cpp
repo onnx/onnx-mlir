@@ -342,3 +342,35 @@ bool canConstPropCastIntToInt(Builder &builder, Value constOp, Attribute input, 
 
   return fromElemType.isa<IntegerType>() && toElemType.isa<IntegerType>();
 }
+
+
+bool isConstOfZeros(Builder &builder, Attribute attr) {
+
+  DenseElementsAttr denseAttr = attr.cast<DenseElementsAttr>();
+  mlir::Type constElemType = denseAttr.getType().getElementType();
+  if (constElemType.isa<IntegerType>()) {
+    for (IntegerAttr value : denseAttr.getValues<IntegerAttr>()) {
+      APInt inVal = value.getValue();
+      if (!inVal.isNullValue()) {
+        return false;
+      }
+    }
+  } else if (constElemType.isa<FloatType>()) {
+    for (FloatAttr value : denseAttr.getValues<FloatAttr>()) {
+      APFloat inVal = value.getValue();
+      if (!inVal.isZero()) {
+        return false;
+      }
+    }
+  } else {
+    return false;
+  }
+
+  return true;
+}
+
+DenseElementsAttr CreateZerosFromTemplate(Builder &builder, Value templateTensor) {
+  ShapedType shapedType = templateTensor.getType().cast<ShapedType>();
+  DenseElementsAttr resultAttr = DenseElementsAttr::get(shapedType, 0);
+  return resultAttr;
+}
