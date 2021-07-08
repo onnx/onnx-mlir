@@ -1,23 +1,18 @@
-//===- TmpMLIRUtils.cpp - Support migration to MLIR without EDSC --===//
+//===- MLIRDialectBuilder.cpp - Support migration to MLIR without EDSC --===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-// Code here is lifted from MLIR to facilitate the migration to EDSC-free MLIR.
-// TODO: remove file once transition is completed.
-//
-//===----------------------------------------------------------------------===//
 
-#include "TmpMlirUtils.hpp"
+#include "MLIRDialectBuilder.hpp"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 using namespace mlir;
 
 //===----------------------------------------------------------------------===//
-// from Utils.cpp
+// from MLIR Utils.cpp, modified to handle index values too.
 //===----------------------------------------------------------------------===//
 
 Value MathBuilder::_and(Value lhs, Value rhs) {
@@ -53,9 +48,3 @@ Value MathBuilder::slt(Value lhs, Value rhs) {
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) {
   return b.create<SelectOp>(loc, cmp, lhs, rhs);
 }
-
-//===----------------------------------------------------------------------===//
-// from ImplicitLocObBuilder.cpp
-//===----------------------------------------------------------------------===//
-
-// none, all in the header file

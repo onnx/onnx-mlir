@@ -26,11 +26,10 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
-// TODO update once not needed.
-#include "src/Dialect/ONNX/TmpMlirUtils.hpp"
 #include <functional>
 
 #define BUFFER_ALIGN 64
@@ -666,7 +665,7 @@ public:
     // Init scope and emit constants.
     Location loc = op.getLoc();
     AffineBuilder createAffine(rewriter, loc);
-    IndexExprScope indexScope(rewriter, loc);
+    IndexExprScope indexScope(createAffine);
 
     // Gather A, B, C tile sizes.
     SmallVector<IndexExpr, 2> aTileSize, bTileSize, cTileSize;

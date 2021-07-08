@@ -1,15 +1,9 @@
-//===- TmpMLIRUtils.hpp - Support migration to MLIR without EDSC --===//
+//===- MLIRDialectBuilder.hpp - Support migration to MLIR without EDSC --===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-//===----------------------------------------------------------------------===//
-//
-// Code here is lifted from MLIR to facilitate the migration to EDSC-free MLIR.
-// TODO: remove file once transition is completed.
-//
-//===----------------------------------------------------------------------===//
 
 #ifndef TMP_MLIR_DIALECT_STANDARDOPS_UTILS_UTILS_H
 #define TMP_MLIR_DIALECT_STANDARDOPS_UTILS_UTILS_H

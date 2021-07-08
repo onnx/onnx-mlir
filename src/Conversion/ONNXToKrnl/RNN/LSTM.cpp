@@ -13,9 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
-
-// TODO: change to MLIR file
-#include "src/Dialect/ONNX/TmpMlirUtils.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 
 #define TEST_FUSED_MATMUL false
 
@@ -526,7 +524,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   createKrnl.iterate(loops, loops, HtLbs, HtUbs, {},
       [&](KrnlBuilder &createKrnl, ValueRange args) {
         MathBuilder createMath(createKrnl);
-        IndexExprScope ieScope(createKrnl.getBuilder(), createKrnl.getLoc());
+        IndexExprScope ieScope(createKrnl);
         ValueRange indices = createKrnl.getInductionVarValue(loops);
         Value bs(indices[0]), hs(indices[1]);
         SymbolIndexExpr bsie(bs), hsie(hs);

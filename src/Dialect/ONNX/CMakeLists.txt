@@ -20,7 +20,7 @@ add_onnx_mlir_library(OMONNXOps
   Combine.cpp
   IndexExpr.cpp
   IndexExprDetail.cpp
-  TmpMlirUtils.cpp
+  MlirDialectBuilder.cpp
 
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen
