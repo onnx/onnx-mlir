@@ -149,7 +149,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
   }];
 }
 
-def ONNXBatchNormalizationTestModeOp: ONNX_Op<"BatchNormalizationTestMode",
+def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceMode",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX BatchNormalization operation in test mode";
   let hasCanonicalizer = 1;

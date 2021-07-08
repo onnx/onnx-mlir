@@ -16,21 +16,22 @@
 
 using namespace mlir;
 
-struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
-  ONNXBatchNormalizationTestModeOpLowering(MLIRContext *ctx)
+struct ONNXBatchNormalizationInferenceModeOpLowering
+    : public ConversionPattern {
+  ONNXBatchNormalizationInferenceModeOpLowering(MLIRContext *ctx)
       : ConversionPattern(
-            mlir::ONNXBatchNormalizationTestModeOp::getOperationName(), 1,
+            mlir::ONNXBatchNormalizationInferenceModeOp::getOperationName(), 1,
             ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // batchnorm{epsilon}(x, scale, bias, mean, variance) =
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
-    ONNXBatchNormalizationTestModeOpAdaptor operandAdaptor(operands);
+    ONNXBatchNormalizationInferenceModeOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
 
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     auto epsilonAttr = FloatAttr::get(memRefType.getElementType(),
-        llvm::dyn_cast<ONNXBatchNormalizationTestModeOp>(op)
+        llvm::dyn_cast<ONNXBatchNormalizationInferenceModeOp>(op)
             .epsilon()
             .convertToFloat());
     auto epsilon = rewriter.create<ConstantOp>(loc, epsilonAttr);
@@ -138,5 +139,5 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
 
 void populateLoweringONNXNormalizationOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXBatchNormalizationTestModeOpLowering>(ctx);
+  patterns.insert<ONNXBatchNormalizationInferenceModeOpLowering>(ctx);
 }

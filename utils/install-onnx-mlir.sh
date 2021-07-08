@@ -5,6 +5,6 @@ mkdir onnx-mlir/build && cd onnx-mlir/build
 cmake ..
 cmake --build .
 
-# Run FileCheck tests:
+# Run lit tests:
 export LIT_OPTS=-v
 cmake --build . --target check-onnx-lit
