@@ -451,8 +451,8 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // Ht = ot (.) h(Ct)
 
   // TODO remove scope
-  ScopedContext scope(rewriter, loc);
-  KrnlBuilder createKrnl(rewriter, loc);
+  ImplicitLocOpBuilder lb(loc, rewriter);
+  KrnlBuilder createKrnl(lb);
 
   ArrayRef<int64_t> xtShape = Xt.getType().cast<ShapedType>().getShape();
   int64_t batchSize = xtShape[0];
@@ -474,19 +474,19 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   if (TEST_FUSED_MATMUL) {
     // For testing purpose, support only static dimensions.
     Type elementType = matrixType.getElementType();
-    Value zero = rewriter.create<ConstantIndexOp>(loc, 0);
+    Value zero = lb.create<ConstantIndexOp>(0);
     Value zeroVal = emitConstantOp(rewriter, loc, elementType, 0);
-    XtWi = memref_alloc(matrixType);
-    XtWf = memref_alloc(matrixType);
-    XtWc = memref_alloc(matrixType);
-    XtWo = memref_alloc(matrixType);
+    XtWi = lb.create<memref::AllocOp>(matrixType);
+    XtWf = lb.create<memref::AllocOp>(matrixType);
+    XtWc = lb.create<memref::AllocOp>(matrixType);
+    XtWo = lb.create<memref::AllocOp>(matrixType);
     emitFusedMatMul(rewriter, loc, matrixType, Xt,
         {weightPack.Wi, weightPack.Wf, weightPack.Wc, weightPack.Wo}, zero,
         zeroVal, {XtWi, XtWf, XtWc, XtWo});
-    HtRi = memref_alloc(matrixType);
-    HtRf = memref_alloc(matrixType);
-    HtRc = memref_alloc(matrixType);
-    HtRo = memref_alloc(matrixType);
+    HtRi = lb.create<memref::AllocOp>(matrixType);
+    HtRf = lb.create<memref::AllocOp>(matrixType);
+    HtRc = lb.create<memref::AllocOp>(matrixType);
+    HtRo = lb.create<memref::AllocOp>(matrixType);
     emitFusedMatMul(rewriter, loc, matrixType, Ht,
         {weightPack.Ri, weightPack.Rf, weightPack.Rc, weightPack.Ro}, zero,
         zeroVal, {HtRi, HtRf, HtRc, HtRo});
@@ -513,15 +513,22 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
         htTranspose);
   }
 
-  // IndexExpr scope
-  IndexExprScope ieScope(rewriter, loc);
-
   // Do element-wise computations. Fuse them into a single nested loop.
-  MemRefBoundsCapture bounds(Ht);
-  ValueRange loops = createKrnl.defineLoops(bounds.rank());
-  createKrnl.iterate(loops, loops, bounds.getLbs(), bounds.getUbs(), {},
+  // Lower and upper bounds derived from Ht tensor.
+  unsigned HtRank = matrixType.getRank();
+  Value iZero = lb.create<ConstantIndexOp>(0);
+  SmallVector<Value, 4> HtLbs(HtRank, iZero);
+  SmallVector<Value, 4> HtUbs;
+  for (unsigned r = 0; r < HtRank; ++r) {
+    Value idx = lb.create<ConstantIndexOp>(r);
+    HtUbs.emplace_back(lb.createOrFold<memref::DimOp>(Ht, idx));
+  }
+
+  ValueRange loops = createKrnl.defineLoops(HtRank);
+  createKrnl.iterate(loops, loops, HtLbs, HtUbs, {},
       [&](KrnlBuilder &createKrnl, ValueRange args) {
         ArithBuilder createMath(createKrnl);
+        IndexExprScope ieScope(createKrnl.getBuilder(), createKrnl.getLoc());
         ValueRange indices = createKrnl.getInductionVarValue(loops);
         Value bs(indices[0]), hs(indices[1]);
         SymbolIndexExpr bsie(bs), hsie(hs);

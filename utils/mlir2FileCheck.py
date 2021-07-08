@@ -223,7 +223,7 @@ def process_line(i, line):
         new_line = process_name(new_line, def_qual_pat,
                                 "LOAD_"+mem+"_MEM", " =", 0)
     # Special handling for constant operations.
-    elif re.search(r'\sconstant\s', line) is not None:
+    elif re.search(r'\sconstant\s(-?[0-9\.]+)', line) is not None:
         res = re.search(r'\sconstant\s(-?[0-9\.]+)', line)
         num = res.group(1)
         num = res.group(1).replace("-", "minus_")
