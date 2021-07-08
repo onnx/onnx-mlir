@@ -13,17 +13,17 @@ template <>
 Attribute ComputeConstPropElementwiseBinary<ONNXAddOp>(Builder &builder,
     Type elementType, Attribute lhsAttr, Attribute secondAttr) {
   if (elementType.isa<FloatType>()) {
-    double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
-    double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
-    double res = lhsVal + rhsVal;
+    APFloat lhsVal = lhsAttr.cast<FloatAttr>().getValue();
+    APFloat rhsVal = secondAttr.cast<FloatAttr>().getValue();
+    APFloat res = lhsVal + rhsVal;
     // Could use the APFloat interface to emulate the results, are ok to simply
     // perform them in the highest possible precision.
     return builder.getFloatAttr(elementType, res);
   }
   if (elementType.isa<IntegerType>()) {
-    uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
-    uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
-    uint64_t res = lhsVal + rhsVal;
+    APInt lhsVal = lhsAttr.cast<IntegerAttr>().getValue();
+    APInt rhsVal = secondAttr.cast<IntegerAttr>().getValue();
+    APInt res = lhsVal + rhsVal;
     return builder.getIntegerAttr(elementType, res);
   }
   llvm_unreachable("constant propagation for AddOp: unkonwn data type");
@@ -33,15 +33,15 @@ template <>
 Attribute ComputeConstPropElementwiseBinary<ONNXSubOp>(Builder &builder,
     Type elementType, Attribute lhsAttr, Attribute secondAttr) {
   if (elementType.isa<FloatType>()) {
-    double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
-    double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
-    double res = lhsVal - rhsVal;
+    APFloat lhsVal = lhsAttr.cast<FloatAttr>().getValue();
+    APFloat rhsVal = secondAttr.cast<FloatAttr>().getValue();
+    APFloat res = lhsVal - rhsVal;
     return builder.getFloatAttr(elementType, res);
   }
   if (elementType.isa<IntegerType>()) {
-    uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
-    uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
-    uint64_t res = lhsVal - rhsVal;
+    APInt lhsVal = lhsAttr.cast<IntegerAttr>().getValue();
+    APInt rhsVal = secondAttr.cast<IntegerAttr>().getValue();
+    APInt res = lhsVal - rhsVal;
     return builder.getIntegerAttr(elementType, res);
   }
   llvm_unreachable("constant propagation for SubOp: unkonwn data type");
@@ -51,35 +51,43 @@ template <>
 Attribute ComputeConstPropElementwiseBinary<ONNXMulOp>(Builder &builder,
     Type elementType, Attribute lhsAttr, Attribute secondAttr) {
   if (elementType.isa<FloatType>()) {
-    double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
-    double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
-    double res = lhsVal * rhsVal;
+    APFloat lhsVal = lhsAttr.cast<FloatAttr>().getValue();
+    APFloat rhsVal = secondAttr.cast<FloatAttr>().getValue();
+    APFloat res = lhsVal * rhsVal;
     return builder.getFloatAttr(elementType, res);
   }
   if (elementType.isa<IntegerType>()) {
-    uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
-    uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
-    uint64_t res = lhsVal * rhsVal;
+    APInt lhsVal = lhsAttr.cast<IntegerAttr>().getValue();
+    APInt rhsVal = secondAttr.cast<IntegerAttr>().getValue();
+    APInt res = lhsVal * rhsVal;
     return builder.getIntegerAttr(elementType, res);
   }
   llvm_unreachable("constant propagation for MulOp: unkonwn data type");
+}
+
+namespace {
+  APInt divideAPInts(const IntegerType type, const APInt a, const APInt b) {
+    if (type.isUnsigned()) {
+      return a.udiv(b);
+    } else { // Signed or Signless are both treated as Signed in Onnx-Mlir
+      return a.sdiv(b);
+    }
+  }
 }
 
 template <>
 Attribute ComputeConstPropElementwiseBinary<ONNXDivOp>(Builder &builder,
     Type elementType, Attribute lhsAttr, Attribute secondAttr) {
   if (elementType.isa<FloatType>()) {
-    double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
-    double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
-    assert(rhsVal != 0 && "division by a zero");
-    double res = lhsVal / rhsVal;
+    APFloat lhsVal = lhsAttr.cast<FloatAttr>().getValue();
+    APFloat rhsVal = secondAttr.cast<FloatAttr>().getValue();
+    APFloat res = lhsVal / rhsVal;
     return builder.getFloatAttr(elementType, res);
   }
   if (elementType.isa<IntegerType>()) {
-    uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
-    uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
-    assert(rhsVal != 0 && "division by a zero");
-    uint64_t res = lhsVal / rhsVal;
+    APInt lhsVal = lhsAttr.cast<IntegerAttr>().getValue();
+    APInt rhsVal = secondAttr.cast<IntegerAttr>().getValue();
+    APInt res = divideAPInts(elementType.cast<IntegerType>(), lhsVal, rhsVal);
     return builder.getIntegerAttr(elementType, res);
   }
   llvm_unreachable("constant propagation for DivOp: unkonwn data type");
@@ -93,13 +101,13 @@ template <>
 Attribute ComputeConstPropElementwiseUnary<ONNXNegOp>(
     Builder &builder, Type elementType, Attribute attr) {
   if (elementType.isa<FloatType>()) {
-    double val = attr.cast<FloatAttr>().getValueAsDouble();
-    double res = -val;
+    APFloat val = attr.cast<FloatAttr>().getValue();
+    APFloat res = -val;
     return builder.getFloatAttr(elementType, res);
   }
   if (elementType.isa<IntegerType>()) {
-    uint64_t val = attr.cast<IntegerAttr>().getInt();
-    uint64_t res = -val;
+    APInt val = attr.cast<IntegerAttr>().getValue();
+    APInt res = -val;
     return builder.getIntegerAttr(elementType, res);
   }
   llvm_unreachable("constant propagation for NegOp: unkonwn data type");
@@ -279,4 +287,58 @@ DenseElementsAttr ConstPropSlice(Builder &builder, Value resOperand,
 
   ArrayRef<Attribute> resRef(resVector);
   return DenseElementsAttr::get(resType, resRef);
+}
+
+
+namespace {
+  APInt castIntToInt(APInt inVal, IntegerType toType) {
+    unsigned toWidth = toType.getWidth();
+    bool isUnsigned = toType.isUnsigned();
+    if (isUnsigned) {
+      return inVal.zextOrTrunc(toWidth);
+    } else {
+      return inVal.sextOrTrunc(toWidth);
+    }
+  }
+}
+
+DenseElementsAttr ConstPropCastIntToInt(
+    Builder &builder, Value constOp, Attribute input, IntegerAttr to) {
+
+  mlir::RankedTensorType constType = constOp.getType().cast<mlir::RankedTensorType>();
+  Type fromElemType = constType.getElementType();
+
+  auto toAttr = to.getValue().getSExtValue();
+  auto toElemType = mlir::UnrankedTensorType::get(
+    convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr)))
+    .getElementType();
+
+  assert(fromElemType.isa<IntegerType>() && toElemType.isa<IntegerType>());
+
+  auto inputElems = input.cast<mlir::DenseElementsAttr>();
+  std::vector<Attribute> result;
+
+  for (IntegerAttr inputElement : inputElems.getValues<IntegerAttr>()) {
+    APInt inVal = inputElement.getValue();
+    APInt outVal = castIntToInt(inVal, toElemType.cast<IntegerType>());
+    IntegerAttr attr = builder.getIntegerAttr(toElemType, outVal);
+    result.push_back(attr);
+  }
+
+  auto constShape = constType.getShape();
+  auto resultType = mlir::RankedTensorType::get(constShape, toElemType);
+  auto resultAttr = DenseElementsAttr::get(resultType, llvm::makeArrayRef(result));
+  return resultAttr;
+}
+
+bool canConstPropCastIntToInt(Builder &builder, Value constOp, Attribute input, IntegerAttr to) {
+  mlir::RankedTensorType constType = constOp.getType().cast<mlir::RankedTensorType>();
+  Type fromElemType = constType.getElementType();
+
+  auto toAttr = to.getValue().getSExtValue();
+  auto toElemType = mlir::UnrankedTensorType::get(
+    convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr)))
+    .getElementType();
+
+  return fromElemType.isa<IntegerType>() && toElemType.isa<IntegerType>();
 }

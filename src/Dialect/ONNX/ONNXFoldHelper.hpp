@@ -46,10 +46,12 @@ void RecurseConstPropElementwiseBinary(Builder &builder,
     std::vector<Attribute> &resVector, DenseElementsAttr lhsAttr,
     DenseElementsAttr rhsAttr, SmallVector<uint64_t, 4> &lhsIndices,
     SmallVector<uint64_t, 4> &rhsIndices, int lhsFreeRank, int rhsFreeRank) {
-  if (lhsFreeRank == 0) {
+
+  assert(lhsFreeRank >= 0);
+  assert(rhsFreeRank >= 0);
+
+  if (lhsFreeRank == 0 && rhsFreeRank == 0) {
     // Fully defined ranks.
-    assert(
-        rhsFreeRank == 0 && "expect both to recurse to zero at the same time");
     auto lhsElementAttr = lhsAttr.getValue(ArrayRef<uint64_t>(lhsIndices));
     auto rhsElementAttr = rhsAttr.getValue(ArrayRef<uint64_t>(rhsIndices));
     auto elementaryType = lhsAttr.getType().getElementType();
@@ -211,3 +213,6 @@ DenseElementsAttr ConstPropConcat(
 DenseElementsAttr ConstPropSlice(Builder &builder, Value resOperand,
     Attribute data, Attribute starts, Attribute ends, Attribute axes,
     Attribute steps);
+DenseElementsAttr ConstPropCastIntToInt(
+    Builder &builder, Value constOp, Attribute input, IntegerAttr to);
+bool canConstPropCastIntToInt(Builder &builder, Value constOp, Attribute input, IntegerAttr to);

@@ -39,7 +39,7 @@ AffineMap getIdentityDimMap(Builder &builder);
 AffineMap getConvDimMap(Builder &builder, bool ceilMode);
 
 mlir::Type convertONNXTypeToMLIRType(
-    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType);
+    mlir::Builder &builder_, onnx::TensorProto_DataType onnxType);
 
 // Helper functions to get values from attribute arrays.
 size_t ArrayAttrSize(ArrayAttr a);
