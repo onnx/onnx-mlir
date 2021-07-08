@@ -320,10 +320,12 @@ int main(int argc, char *argv[]) {
   assert(isOMLSTMTheSameAsNaiveImplFor(-1, 1, 9, 5, 9, false, false));
 
   // Wrong results if using matmul in LSTM or using -O3 in `opt`.
-  // Only happened when batch_size = hidden_size = 8, where we have:
+  // Only happened when batch_size = hidden_size = 8, where we do:
   //     A[batch_size, k] * B[k, 4*hidden_size]
   //
-  // Note: there is no problem when using gemm in LSTM or using -O2 in `opt`.
+  // Note: there is no problem
+  //     - when using gemm in LSTM or using -O2 in `opt`, or
+  //     - when doing B^T * A^T: B[4*hidden_size, k] * A[k, batch_size]
   assert(isOMLSTMTheSameAsNaiveImplFor(-1, 1, 8, 5, 8, false, false));
 
   // RapidCheck test case generation.
