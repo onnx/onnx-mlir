@@ -20,8 +20,6 @@
 #define TEST_FUSED_MATMUL false
 
 using namespace mlir;
-using namespace mlir::edsc;
-using namespace mlir::edsc::intrinsics;
 
 struct LstmState {
   // returned states.
@@ -411,7 +409,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
       operandAdaptor.W(), operandAdaptor.R(), op->Y_c(),
       checkInsertDealloc(op->getOperation(), 2));
 
-  // Insert allocation and deallocation the intermedidate Ht and Ct for the
+  // Insert allocation and deallocation the intermediate Ht and Ct for the
   // forward and reverse directions.
   // Ht :: [batch_size, hidden_size]
   // Ct :: [batch_size, hidden_size]
@@ -510,7 +508,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   ValueRange loops = createKrnl.defineLoops(HtRank);
   createKrnl.iterate(loops, loops, HtLbs, HtUbs, {},
       [&](KrnlBuilder &createKrnl, ValueRange args) {
-        ArithBuilder createMath(createKrnl);
+        MathBuilder createMath(createKrnl);
         IndexExprScope ieScope(createKrnl.getBuilder(), createKrnl.getLoc());
         ValueRange indices = createKrnl.getInductionVarValue(loops);
         Value bs(indices[0]), hs(indices[1]);

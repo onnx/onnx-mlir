@@ -12,8 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
-#include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 #include "mlir/IR/AffineExpr.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"

@@ -71,7 +71,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                 else
                   bAccess = {k, j};
                 // Perform the reduction by adding a*b to reduction.
-                ArithBuilder createMath(createKrnl);
+                MathBuilder createMath(createKrnl);
                 Value aVal = createKrnl.load(A, aAccess);
                 Value bVal = createKrnl.load(B, bAccess);
                 Value tmp = createMath.mul(aVal, bVal);
@@ -79,7 +79,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                 createKrnl.store(createMath.add(tmp, rVal), red);
               });
           // Handle alpha/beta coefficients.
-          ArithBuilder createMath(createKrnl);
+          MathBuilder createMath(createKrnl);
           // new scope
           IndexExprScope innerScope(createKrnl.getBuilder(), shapeHelper.scope);
           Value res = createMath.mul(alphaVal, createKrnl.load(red));
@@ -287,7 +287,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
           // Handle alpha/beta coefficients.
           Value res = createKrnl.load(R, outerIndices);
-          ArithBuilder createMath(createKrnl);
+          MathBuilder createMath(createKrnl);
           if (alphaLit != 1.0)
             res = createMath.mul(alphaVal, res);
           if (shapeHelper.hasBias) {
