@@ -1,58 +1,81 @@
 package com.ibm.onnxmlir;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.Comparator;
+import java.util.Enumeration;
+import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.logging.Logger;
 
 public class OMModel {
-    static String libname = "libmodel.so";
+    private static final Logger logger = Logger.getLogger(OMModel.class.getName());
 
     static {
-        File jar;
-        JarFile jf;
-        String jarDir = null;
-        String libPath = null;
-        try {
-            // Get path name of jar
-            jar = new File(OMModel.class.getProtectionDomain()
-                                        .getCodeSource()
-                                        .getLocation().toURI());
-            jarDir = jar.getParentFile().getAbsolutePath();
-            libPath = jarDir + "/" + libname;
+	OMLogger.initLogger(logger);
 
-            // Open jar file to read and check libname inside jar.
-            // If IOException thrown, load .so from where .jar is.
-            //
-            // Checking whether DynEntryPoint.class.getResourceAsStream returns null
-            // does NOT work. Because it checks whether the resource is
-            // available on the classpath, not only just inside the jar file.
-            jf = new JarFile(jar);
-            if (jf.getEntry(libname) != null) {
-                File libFile = new File(libPath);
-                // Copy .so to where jar is
-                Files.copy(jf.getInputStream(jf.getEntry(libname)),
-                        libFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                // z/OS USS requires "x" permission bit
-                libFile.setExecutable(true, false);
-                // Load the temporary .so copy
-                System.load(libPath);
-                // POSIX can unlink file after loading
-                libFile.delete();
-            }
-            else {
-                // Throw subclass of IOException
-                throw new FileNotFoundException(".so not found inside jar");
-            }
-        } catch (URISyntaxException e) {
-            // Failed to find jar path, assume the .so is in cwd
-            System.load(libname);
-        } catch (IOException e) {
-            // .so not found in jar, assume it's where jar is
-            System.load(libPath);
+        try {
+            // Get path of jar
+	    Path jar = Paths.get(OMModel.class.getProtectionDomain()
+                                              .getCodeSource()
+                                              .getLocation().toURI());
+	    Path jarDir = jar.getParent();
+
+	    // All .so files found will be copied under the ./native subdirectory
+	    // where the jar file resides.
+	    Path tmpDir = Files.createTempDirectory(jarDir, "native_");
+
+            // Open jar file to load all .so libs inside. The .so is loaded
+            // by OS so it must be extracted to the file system.
+            JarFile jf = new JarFile(jar.toFile());
+	    for (Enumeration<JarEntry> e = jf.entries(); e.hasMoreElements(); ) {
+		String libFile = e.nextElement().getName();
+
+		if (libFile.endsWith(".so")) {
+		    try {
+			Path lib = Paths.get(tmpDir.toString(), libFile);
+			Path libDir = lib.getParent();
+
+			Files.createDirectories(libDir);
+
+			// Copy .so to the temporary directory
+			Files.copy(jf.getInputStream(jf.getEntry(libFile)), lib,
+				   StandardCopyOption.REPLACE_EXISTING);
+
+			// z/OS USS requires "x" permission bit
+			Files.setPosixFilePermissions(lib,
+			      PosixFilePermissions.fromString("rwxr-xr-x"));
+
+			// Load the temporary .so copy
+			System.load(lib.toString());
+			logger.finer(lib.toString() + " loaded");
+
+		    } catch (IOException e2) {
+			e2.printStackTrace();
+		    }
+		} // if
+            } // for
+
+	    // POSIX can unlink the .so once they have been loaded so
+	    // remove ./native and all subdirectories. Note it's important
+	    // to sort in reverse order so we delete all the files under
+	    // a subdirectory first before deleting the subdirectory itself.
+	    // Otherwise, the subdirectory may fail to be deleted since
+	    // it may not be empty.
+	    Files.walk(tmpDir)
+                 .sorted(Comparator.reverseOrder())
+                 .peek(p -> logger.finer(p.toString()))
+                 .map(p -> p.toFile())
+                 .forEach(f -> f.delete());
+
+        } catch (URISyntaxException|IOException e) {
+            e.printStackTrace();
         }
     }
 
