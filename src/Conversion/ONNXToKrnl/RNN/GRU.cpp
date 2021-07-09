@@ -13,9 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
-
-// TODO: change to MLIR file
-#include "src/Dialect/ONNX/TmpMlirUtils.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 
 using namespace mlir;
 
