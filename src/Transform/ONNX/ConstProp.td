@@ -53,6 +53,9 @@ def canConstPropCastIntToInt : Constraint<
 def isConstOfZeros : Constraint<
   CPred<"isConstOfZeros($_builder, $0)">>;
 
+def isRankTwo : Constraint<
+  CPred<"isRankTwo($_builder, $0)">>;
+
 // Usefult code generation invokation.
 def GetNullAttr : NativeCodeCall<"Attribute()">;
 
@@ -85,6 +88,9 @@ def CreateIntToIntCastOfConst :
 
 def CreateZerosFromTemplate :
   NativeCodeCall<"CreateZerosFromTemplate($_builder, $0)">;
+
+def CreateMatMulIntegerOfRankTwoConsts :
+  NativeCodeCall<"CreateMatMulIntegerOfRankTwoConsts($_builder, $0, $1, $2)">;
 
 
 //===----------------------------------------------------------------------===//
@@ -231,6 +237,24 @@ def MatMulIntegerZeroOnLhs : Pat<
     ),
     [
       (AttributeIsNull:$as), (isConstOfZeros $av),
+      (AttributeIsNull:$ass), (isConstOfZeros $asv),
+      (AttributeIsNull:$bss), (isConstOfZeros $bsv)
+    ]
+>;
+
+def MatMulIntegerOfConsts : Pat<
+    (ONNXMatMulIntegerOp:$resOp
+      (ONNXConstantOp $as, $av),
+      (ONNXConstantOp $bs, $bv),
+      (ONNXConstantOp $ass, $asv),
+      (ONNXConstantOp $bss, $bsv)
+    ),
+    (ONNXConstantOp
+      (GetNullAttr), (CreateMatMulIntegerOfRankTwoConsts $resOp, $av, $bv)
+    ),
+    [
+      (AttributeIsNull:$as), (isRankTwo $av),
+      (AttributeIsNull:$bs), (isRankTwo $bv),
       (AttributeIsNull:$ass), (isConstOfZeros $asv),
       (AttributeIsNull:$bss), (isConstOfZeros $bsv)
     ]

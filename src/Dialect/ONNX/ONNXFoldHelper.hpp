@@ -218,3 +218,6 @@ DenseElementsAttr ConstPropCastIntToInt(
 bool canConstPropCastIntToInt(Builder &builder, Value constOp, Attribute input, IntegerAttr to);
 bool isConstOfZeros(Builder &builder, Attribute attr);
 DenseElementsAttr CreateZerosFromTemplate(Builder &builder, Value templateTensor);
+DenseElementsAttr CreateMatMulIntegerOfRankTwoConsts(Builder &builder, Value resultTensor, Attribute lhs, Attribute rhs);
+bool isRankTwo(Builder &builder, Attribute attr);
+

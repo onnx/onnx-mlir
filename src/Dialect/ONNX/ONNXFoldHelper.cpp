@@ -374,3 +374,52 @@ DenseElementsAttr CreateZerosFromTemplate(Builder &builder, Value templateTensor
   DenseElementsAttr resultAttr = DenseElementsAttr::get(shapedType, 0);
   return resultAttr;
 }
+
+DenseElementsAttr CreateMatMulIntegerOfRankTwoConsts(Builder &builder, Value resultValue, Attribute _lhs, Attribute _rhs) {
+  // TODO
+  ShapedType resultType = resultValue.getType().cast<ShapedType>();
+  ArrayRef<int64_t> resultShape = resultType.getShape();
+  IntegerType resultElementType = resultType.getElementType().cast<IntegerType>();
+
+  DenseElementsAttr lhs = _lhs.cast<DenseElementsAttr>();
+  DenseElementsAttr rhs = _rhs.cast<DenseElementsAttr>();
+  ArrayRef<int64_t> lhsShape = lhs.getType().getShape();
+  ArrayRef<int64_t> rhsShape = rhs.getType().getShape();
+
+  assert(lhsShape.size() == 2);
+  assert(rhsShape.size() == 2);
+  assert(resultShape.size() == 2);
+  assert(lhsShape[1] == rhsShape[0]);
+  assert(resultShape[0] == lhsShape[0]);
+  assert(resultShape[1] == rhsShape[1]);
+
+  int64_t M = lhsShape[0];
+  int64_t K = lhsShape[1];
+  int64_t N = rhsShape[1];
+
+  const APInt emptyInt(resultElementType.getWidth(), 0, !resultElementType.isUnsigned());
+  std::vector<APInt> resultAttr(resultType.getNumElements(), emptyInt);
+
+  // Slow implementation of MatMul. Someone can try Tiling if performance becomes an issue.
+  for (uint64_t i = 0; (int64_t)i < M; ++i) {
+    for (uint64_t j = 0; (int64_t)j < N; ++j) {
+      const uint64_t flattenedIdx = i * M + j;
+      for (uint64_t k = 0; (int64_t)k < K; ++k) {
+        APInt aRaw = lhs.getValue({i, k}).cast<IntegerAttr>().getValue();
+        APInt bRaw = rhs.getValue({k, j}).cast<IntegerAttr>().getValue();
+        APInt a = castIntToInt(aRaw, resultElementType);
+        APInt b = castIntToInt(bRaw, resultElementType);
+        APInt ab = a * b;
+        resultAttr.at(flattenedIdx) += ab;
+      }
+    }
+  }
+
+  return DenseElementsAttr::get(resultType, resultAttr);;
+}
+
+bool isRankTwo(Builder &builder, Attribute attr) {
+  DenseElementsAttr denseAttr = attr.cast<DenseElementsAttr>();
+  int numRank = denseAttr.getType().getRank();
+  return (numRank == 2);
+}
