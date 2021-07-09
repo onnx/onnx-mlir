@@ -137,10 +137,10 @@ protected:
 
 /// Helper struct to build simple arithmetic quantities with minimal type
 /// inference support.
-struct ArithBuilder : DialectBuilder {
-  ArithBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
-  ArithBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
-  ArithBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+struct MathBuilder : DialectBuilder {
+  MathBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  MathBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
+  MathBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
   Value _and(Value lhs, Value rhs);
   Value add(Value lhs, Value rhs);

@@ -36,7 +36,7 @@ cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_ASSERTIONS=ON \
    -DLLVM_ENABLE_RTTI=ON
 
-cmake --build . --target -- ${MAKEFLAGS}
+cmake --build . -- ${MAKEFLAGS}
 cmake --build . --target check-mlir
 ```
 
@@ -59,7 +59,7 @@ mkdir onnx-mlir/build && cd onnx-mlir/build
 cmake ..
 cmake --build .
 
-# Run FileCheck tests:
+# Run lit tests:
 export LIT_OPTS=-v
 cmake --build . --target check-onnx-lit
 ```
