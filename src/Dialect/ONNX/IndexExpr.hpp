@@ -323,11 +323,13 @@ public:
   IndexExprScope(OpBuilder *rewriter, Location loc);
   IndexExprScope(OpBuilder &rewriter, Location loc);
   IndexExprScope(ImplicitLocOpBuilder &lb);
+  IndexExprScope(DialectBuilder &db);
   // Constructor for subsequent nested scopes. Providing enclosing scope is not
   // necessary; it is provided for convenience if a user prefer to name the
   // enclosing scope explicitly.
   IndexExprScope(OpBuilder *rewriter, IndexExprScope &enclosingScope);
   IndexExprScope(OpBuilder &rewriter, IndexExprScope &enclosingScope);
+  IndexExprScope(DialectBuilder &db, IndexExprScope &enclosingScope);
   // Destructor which release all IndexExpr associated with this scope.
   ~IndexExprScope();
 
