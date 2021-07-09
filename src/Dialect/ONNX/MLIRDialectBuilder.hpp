@@ -5,8 +5,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 
-#ifndef TMP_MLIR_DIALECT_STANDARDOPS_UTILS_UTILS_H
-#define TMP_MLIR_DIALECT_STANDARDOPS_UTILS_UTILS_H
+#ifndef ONNX_AND_MLIR_DIALECT_BUILDER_H
+#define ONNX_AND_MLIR_DIALECT_BUILDER_H
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Builders.h"
@@ -31,11 +31,14 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
-// from Utils.h
+// Adapted from mlir/Dialect/StandardOps/Utils/Utils.h
 //===----------------------------------------------------------------------===//
 
 /// Helper struct to build simple arithmetic quantities with minimal type
-/// inference support.
+/// inference support. Code is adapted to support the DialectBuilder super-class
+/// that facilitate the building of other dialect builders using another dialect
+/// builder.
+
 struct MathBuilder : DialectBuilder {
   MathBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   MathBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}

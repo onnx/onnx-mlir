@@ -10,7 +10,6 @@ add_onnx_mlir_library(OMKrnlToLLVM
   MLIRSCFToStandard
   MLIRShapeToStandard
   MLIRStandardOpsTransforms
-  MLIRStandardToLLVM
   MLIRVectorToLLVM
   onnx
   )
