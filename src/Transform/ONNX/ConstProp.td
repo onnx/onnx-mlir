@@ -92,6 +92,11 @@ def CreateZerosFromTemplate :
 def CreateMatMulIntegerOfRankTwoConsts :
   NativeCodeCall<"CreateMatMulIntegerOfRankTwoConsts($_builder, $0, $1, $2)">;
 
+def ValuesHaveSameType : Constraint<
+    CPred<"$0.getType() == "
+          "$1.getType()">,
+    "ValuesHaveSameType">;
+
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
@@ -160,6 +165,18 @@ def AddConstProp : Pat<
     // Additional constraints (no sparse)
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
 
+def AddByZeroOnRhs : Pat<
+    (ONNXAddOp:$result
+      $a,
+      (ONNXConstantOp $bs, $bv)
+    ),
+    (replaceWithValue $a),
+    [
+      (IsNotAConstant:$a),
+      (AttributeIsNull:$bs), (isConstOfZeros $bv),
+      (ValuesHaveSameType $result, $a)
+    ]>;
+
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise SUB / NEG operations.
@@ -197,8 +214,6 @@ def SqrtofConst :  Pat<
     // To sqrt(c)
     (ONNXConstantOp (GetNullAttr), (CreateSqrtOfConst $constOp, $v)),
     [(AttributeIsNull:$s)]>;
-
-
 
 // Constant Propagation for Cast
 def IntToIntCastofConst :  Pat<
