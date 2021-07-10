@@ -119,27 +119,6 @@ static inline int64_t getNumElems(int64_t *shape, int rank) {
   return numElem;
 }
 
-#include <sys/time.h>
-
-static struct timeval globalTimeVal, initTimeVal;
-
-void InstrumentInit() {
-  gettimeofday(&globalTimeVal, NULL);
-  initTimeVal = globalTimeVal;
-  printf("Instrument init\n");
-}
-
-void InstrumentEntryPoint(int64_t id, int64_t tag) {
-	struct timeval newTimeValue, result;
-	gettimeofday(&newTimeValue, NULL);
-	printf("ID=%s TAG=%ld ",(char *)&id, tag);
-  timersub(&newTimeValue, &globalTimeVal, &result);
-  printf("Time elapsed: %ld.%06ld ", (long int)result.tv_sec, (long int)result.tv_usec);
-  timersub(&newTimeValue, &initTimeVal, &result);
-  printf("accumulated: %ld.%06ld\n", (long int)result.tv_sec, (long int)result.tv_usec);
-  globalTimeVal = newTimeValue;
-}
-
 // Create a OMTensor.
 OMTensor *omTensorCreate(
     void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
