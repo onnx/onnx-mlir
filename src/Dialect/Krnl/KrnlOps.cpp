@@ -387,18 +387,14 @@ void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
 
 void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state, Operation *op, int tag = 0) {
 	//StringAttr attr = StringAttr::get(builder.getContext(), op->getName().getStringRef());
-	IntegerAttr attr;
-	auto opName = op->getName().getStringRef();
-	if (opName == "onnx.Conv") {
-       	  attr = builder.getI64IntegerAttr(1);
-	} else if (opName == "onnx.Mul") {
-       	  attr = builder.getI64IntegerAttr(2);
-	} else {
-       	  attr = builder.getI64IntegerAttr(100);
-	}
-	auto tagAttr = builder.getI64IntegerAttr(tag);
-	state.addAttribute("opID", attr);
-	state.addAttribute("tag", tagAttr);
+  const char *opName = op->getName().getStringRef().data();
+  int64_t opID = 0;
+  // getName() result is e.g. onnx.Conv 
+  strncpy((char *)&opID, opName+5, 7);
+  IntegerAttr attr = builder.getI64IntegerAttr(opID);
+  auto tagAttr = builder.getI64IntegerAttr(tag);
+  state.addAttribute("opID", attr);
+  state.addAttribute("tag", tagAttr);
 }
 
 //===----------------------------------------------------------------------===//

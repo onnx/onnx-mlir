@@ -132,7 +132,7 @@ void InstrumentInit() {
 void InstrumentEntryPoint(int64_t id, int64_t tag) {
 	struct timeval newTimeValue, result;
 	gettimeofday(&newTimeValue, NULL);
-	printf("ID=%ld TAG=%ld ",id, tag);
+	printf("ID=%s TAG=%ld ",(char *)&id, tag);
   timersub(&newTimeValue, &globalTimeVal, &result);
   printf("Time elapsed: %ld.%06ld ", (long int)result.tv_sec, (long int)result.tv_usec);
   timersub(&newTimeValue, &initTimeVal, &result);
