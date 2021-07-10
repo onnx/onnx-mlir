@@ -806,6 +806,10 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
+
+    // The following call is used to force no broadcasting check at runtime
+    // Even when the dim is unknown at compile time
+    // ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc, true, true);
     LogicalResult shapecomputed = shapeHelper.Compute(operands);
     assert(succeeded(shapecomputed));
     using namespace mlir::edsc;
