@@ -445,8 +445,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
-  // Add instrumentation for Onnx Ops
-  pm.addPass(mlir::createInstrumentONNXPass());
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {

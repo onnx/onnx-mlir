@@ -34,12 +34,6 @@ void initOMPasses() {
         return mlir::createElideConstantValuePass();
       });
 
-  mlir::registerPass("instrument-onnx",
-      "instrument on onnx ops.",
-      []() -> std::unique_ptr<mlir::Pass> {
-        return mlir::createInstrumentONNXPass();
-      });
-
   mlir::registerPass("enable-memory-pool",
       "Enable a memory pool for allocating internal MemRefs.",
       []() -> std::unique_ptr<mlir::Pass> {
