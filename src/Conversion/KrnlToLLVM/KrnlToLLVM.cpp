@@ -116,7 +116,7 @@ static size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
 static FlatSymbolRefAttr getOrInsertInstrument(
     PatternRewriter &rewriter, ModuleOp module) {
   auto *context = module.getContext();
-  const char funcName[] = "InstrumentEntryPoint";
+  const char funcName[] = "OMInstrumentPoint";
   if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
     return SymbolRefAttr::get(context, funcName);
   // Create a function declaration for memcpy, the signature is:

@@ -23,9 +23,11 @@
 #include <numeric>
 #include <string>
 #include <vector>
+#include <cstdlib>
 #else
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 #endif // #ifdef __cplusplus
 
 #ifdef __APPLE__
@@ -43,7 +45,7 @@ extern "C" {
  * Initialize counter and read env variables for control
  *
  */
-void InstrumentInit();
+void OMInstrumentInit();
 
 /**
  * Create an instrument point.
@@ -56,7 +58,7 @@ void InstrumentInit();
  * @return void
  *
  */
-void InstrumentPoint(int64_t id, int64_t tag);
+void OMInstrumentPoint(int64_t id, int64_t tag);
 
 #ifdef __cplusplus
 }

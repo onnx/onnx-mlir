@@ -340,7 +340,7 @@ int main(int argc, char **argv) {
   assert(tensorListIn && "failed to scan signature");
   // Call the compiled onnx model function.
   cout << "Start computing " << sIterations << " iterations" << endl;
-  InstrumentInit();
+  OMInstrumentInit();
   for (int i = 0; i < sIterations; ++i) {
     OMTensorList *tensorListOut = nullptr;
     tensorListOut = RUN_MAIN_GRAPH(tensorListIn);
