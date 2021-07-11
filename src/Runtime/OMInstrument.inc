@@ -51,7 +51,7 @@ void OMInstrumentInit() {
   if (getenv("OMINSTRUMENTTIME")) {
 	  timeEnabled = !timeEnabled;
   }
-  if (getenv("OMINSTRUMENTTIME")) {
+  if (getenv("OMINSTRUMENTMEMORY")) {
 	  virtualMemEnabled = !virtualMemEnabled;
   }
 
