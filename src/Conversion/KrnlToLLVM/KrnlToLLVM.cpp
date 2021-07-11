@@ -123,18 +123,15 @@ static FlatSymbolRefAttr getOrInsertInstrument(
   //   * `void (i8*, i8* , i64, i1)`
   auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
   auto llvmI64Ty = IntegerType::get(context, 64);
-  //auto llvmI1Ty = IntegerType::get(context, 1);
-  auto llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy,
-      ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}),
-      false);
+  // auto llvmI1Ty = IntegerType::get(context, 1);
+  auto llvmFnType = LLVM::LLVMFunctionType::get(
+      llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
 
   PatternRewriter::InsertionGuard insertGuard(rewriter);
   rewriter.setInsertionPointToStart(module.getBody());
-  rewriter.create<LLVM::LLVMFuncOp>(
-      module.getLoc(), funcName, llvmFnType);
+  rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, llvmFnType);
   return SymbolRefAttr::get(context, funcName);
 }
-
 
 /// Return a symbol reference to the memcpy function, inserting it into the
 /// module if necessary.
@@ -541,18 +538,22 @@ public:
     auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
     auto llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
     auto llvmI64Ty = IntegerType::get(context, 64);
-    auto llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy,
-      ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}),
-      false);
+    auto llvmFnType = LLVM::LLVMFunctionType::get(
+        llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
 
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 
-    Value nodeName = rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
-            rewriter.getIntegerAttr(rewriter.getIntegerType(64), instrumentOp.opID()));
-    Value tag = rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
-            rewriter.getIntegerAttr(rewriter.getIntegerType(64), instrumentOp.tag()));
-    //StringRef txt = instrumentOp->op_name();
-    //Value nodeName = rewriter.create<LLVM::ConstantOp>(loc, llvmI8PtrTy, instrumentOp->op_name());
+    Value nodeName =
+        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
+            rewriter.getIntegerAttr(
+                rewriter.getIntegerType(64), instrumentOp.opID()));
+    Value tag =
+        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
+            rewriter.getIntegerAttr(
+                rewriter.getIntegerType(64), instrumentOp.tag()));
+    // StringRef txt = instrumentOp->op_name();
+    // Value nodeName = rewriter.create<LLVM::ConstantOp>(loc, llvmI8PtrTy,
+    // instrumentOp->op_name());
 
     rewriter.create<CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
         ArrayRef<Value>({nodeName, tag}));

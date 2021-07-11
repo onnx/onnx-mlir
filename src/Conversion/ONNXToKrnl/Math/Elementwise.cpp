@@ -751,7 +751,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
       BuildKrnlLoop loops(rewriter, loc, outputRank);
       loops.createDefineAndIterateOp(alloc);
       Block *iterationBlock = loops.getIterateBlock();
-    rewriter.create<KrnlInstrumentOp>(loc, op, 0);
+      rewriter.create<KrnlInstrumentOp>(loc, op, 0);
       // Insert instructions inside the KernelIterateOp body.
       rewriter.setInsertionPointToStart(iterationBlock);
       // Handle the operation:
@@ -827,7 +827,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       // Create iterateOp & get block within iterate op.
       BuildKrnlLoop loops(rewriter, loc, outputRank);
       loops.createDefineAndIterateOp(alloc);
-    rewriter.create<KrnlInstrumentOp>(loc, op, 0);
+      rewriter.create<KrnlInstrumentOp>(loc, op, 0);
 
       Block *iterationBlock = loops.getIterateBlock();
       // Insert instructions inside the KernelIterateOp body.

@@ -124,8 +124,10 @@ LogicalResult ONNXArgMaxOpShapeHelper::Compute(
 //===----------------------------------------------------------------------===//
 
 ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
-    ConversionPatternRewriter *rewriter, Location loc, bool uniBroadcasting, bool noBroadcasting)
-    : scope(rewriter, loc), isUniBroadcasting(uniBroadcasting), isNoBroadcasting(noBroadcasting) {}
+    ConversionPatternRewriter *rewriter, Location loc, bool uniBroadcasting,
+    bool noBroadcasting)
+    : scope(rewriter, loc), isUniBroadcasting(uniBroadcasting),
+      isNoBroadcasting(noBroadcasting) {}
 
 LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
   // A temporary IndexExpr vector for the output.
