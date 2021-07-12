@@ -1714,17 +1714,14 @@ LogicalResult ONNXConvOp::inferShapes(
   auto stridesOpt = strides();
   auto padsOpt = pads();
 
-  // First two output dimensions consist of the number of batches and the
-  // number of kernels being applied.
+  // Infer shape for the output.
+  ONNXConvOpAdaptor operandAdaptor(*this);
+  ONNXConvOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.Compute(
+          operandAdaptor, kernelShape, padsOpt, stridesOpt, dilationsOpt)))
+    return emitError("Failed to scan Conv parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  // Insert batch size.
-  outputDims.emplace_back(xShape[0]);
-  // Insert number of filters being applied (number of output channels).
-  outputDims.emplace_back(weightShape[0]);
-  // Compute and insert spatial dims.
-  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
-      stridesOpt, dilationsOpt);
-
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return success();
 }
@@ -1994,8 +1991,6 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
   if (!X().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
-  auto builder = mlir::Builder(getContext());
-
   // Get shape of input.
   auto xTy = X().getType().cast<RankedTensorType>();
   auto xShape = xTy.getShape();
@@ -2021,14 +2016,15 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
     return res;
   auto padsOpt = pads();
 
+  // Infer shape for the output.
+  ONNXAveragePoolOpAdaptor operandAdaptor(*this);
+  ONNXPoolOpShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>
+      shapeHelper(this);
+  if (failed(shapeHelper.Compute(operandAdaptor, kernelShape, padsOpt,
+          stridesOpt, llvm::None, ceilMode)))
+    return emitError("Failed to scan AveragePool parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  // Insert batch size.
-  outputDims.emplace_back(xShape[0]);
-  outputDims.emplace_back(xShape[1]);
-  // Compute and insert spatial dims.
-  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
-      stridesOpt, llvm::None, ceilMode);
-
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return success();
 }
@@ -2048,11 +2044,8 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
   if (!X().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
-  auto builder = mlir::Builder(getContext());
-
   // Get shape of input.
   auto xTy = X().getType().cast<RankedTensorType>();
-  auto xShape = xTy.getShape();
 
   // Kernel shape.
   auto kernelShape = kernel_shape();
@@ -2075,14 +2068,15 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
   // Ceil mode.
   auto ceilMode = ceil_mode();
 
+  // Infer shape for the output.
+  ONNXMaxPoolSingleOutOpAdaptor operandAdaptor(*this);
+  ONNXPoolOpShapeHelper<ONNXMaxPoolSingleOutOp, ONNXMaxPoolSingleOutOpAdaptor>
+      shapeHelper(this);
+  if (failed(shapeHelper.Compute(operandAdaptor, kernelShape, padsOpt,
+          stridesOpt, dilationsOpt, ceilMode)))
+    return emitError("Failed to scan MaxPool parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  // Insert batch size.
-  outputDims.emplace_back(xShape[0]);
-  outputDims.emplace_back(xShape[1]);
-  // Compute and insert spatial dims.
-  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
-      stridesOpt, dilationsOpt, ceilMode);
-
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return success();
 }

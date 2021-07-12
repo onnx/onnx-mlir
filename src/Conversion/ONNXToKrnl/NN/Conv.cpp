@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -59,6 +60,15 @@ struct ONNXConvOpLowering : public ConversionPattern {
     for (Attribute stride : stridesAttribute.getValue())
       strides.emplace_back(stride.cast<IntegerAttr>().getInt());
 
+    // Get shape.
+    ONNXConvOpShapeHelper shapeHelper(&convOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    auto shapecomputed =
+        shapeHelper.Compute(operandAdaptor, convOp.kernel_shape(),
+            padsAttribute, stridesAttribute, convOp.dilations());
+    assert(succeeded(shapecomputed));
+
     // Scope for krnl ops
     IndexExprScope ieScope(rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
@@ -69,8 +79,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
 
     auto resultShape = memRefType.getShape();
     auto inputOperand = operandAdaptor.X();
@@ -78,12 +88,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
     auto kernelShape = kernelOperand.getType().cast<MemRefType>().getShape();
     auto biasOperand = operandAdaptor.B();
     bool hasBias = !biasOperand.getType().isa<NoneType>();
-
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {inputOperand});
 
     // R = Conv(D, K)
     //
