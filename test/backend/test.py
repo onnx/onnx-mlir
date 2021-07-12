@@ -232,10 +232,10 @@ test_to_enable_static_dynamic = {
     "test_constantofshape_int_zeros_cpu": (test_static_dynamicNA,),
 
     # Conv
-    "test_basic_conv_without_padding_cpu": (test_static_dynamic,{0:{0}}),
-    "test_conv_with_strides_no_padding_cpu": (test_static_dynamic,{0:{0}}),
-    "test_conv_with_strides_padding_cpu": (test_static_dynamic,{0:{0}}),
-    "test_conv_with_strides_and_asymmetric_padding_cpu": (test_static_dynamic,{0:{0}}),
+    "test_basic_conv_without_padding_cpu": (test_static_dynamic,{0:{-1}}),
+    "test_conv_with_strides_no_padding_cpu": (test_static_dynamic,{0:{-1}}),
+    "test_conv_with_strides_padding_cpu": (test_static_dynamic,{0:{-1}}),
+    "test_conv_with_strides_and_asymmetric_padding_cpu": (test_static_dynamic,{0:{-1}}),
 
     # ConvInteger
 
@@ -775,7 +775,7 @@ test_to_enable_static_dynamic = {
     # Model (alphabetical order)
 
     "test_shufflenet_cpu": (test_static,),
-    "test_resnet50_cpu": (test_static,),
+    "test_resnet50_cpu": (test_static_dynamic,{0:{-1}}),
     "test_vgg19_cpu": (test_static,),
     "test_densenet121_cpu": (test_static,),
     "test_inception_v1_cpu": (test_static,),
