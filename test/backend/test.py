@@ -775,7 +775,7 @@ test_to_enable_static_dynamic = {
     # Model (alphabetical order)
 
     "test_shufflenet_cpu": (test_static,),
-    "test_resnet50_cpu": (test_static,),
+    "test_resnet50_cpu": (test_static_dynamic,{0:{-1}}),
     "test_vgg19_cpu": (test_static,),
     "test_densenet121_cpu": (test_static,),
     "test_inception_v1_cpu": (test_static,),
