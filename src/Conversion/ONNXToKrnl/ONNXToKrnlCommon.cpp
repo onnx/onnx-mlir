@@ -15,6 +15,9 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
+// Temporarily used to control instrumentation
+static bool instrumentEnabled = false;
+
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values) {
   for (Value value : values) {
@@ -161,13 +164,15 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
 // Insert an instrument function before an op
 void insertInstrumentBefore(
     Operation *op, PatternRewriter &rewriter, Location loc) {
-  rewriter.create<mlir::KrnlInstrumentOp>(loc, op, 0);
+  if (instrumentEnabled) 
+    rewriter.create<mlir::KrnlInstrumentOp>(loc, op, 0);
 }
 
 // Insert an instrument function after an op
 void insertInstrumentAfter(
     Operation *op, PatternRewriter &rewriter, Location loc) {
-  rewriter.create<mlir::KrnlInstrumentOp>(loc, op, 1);
+  if (instrumentEnabled) 
+    rewriter.create<mlir::KrnlInstrumentOp>(loc, op, 1);
 }
 
 // Create a mapping from result type's dimensions to input type's dimensions,
