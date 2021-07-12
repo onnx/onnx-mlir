@@ -265,8 +265,7 @@ inference part as no code may be generated during such phases.
 #include "mlir/IR/Value.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-// TODO move to MLIR version
-#include "src/Dialect/ONNX/TmpMlirUtils.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 
 #include <functional>
 #include <stdint.h>

@@ -29,14 +29,14 @@ func @test_pool_bundling(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> 
   return %0 : memref<10x20xf32>
 
   // CHECK-LABEL: test_pool_bundling
-  // CHECK: [[CONST_0:%.+]] = constant 0 : i64
+  // CHECK-DAG: [[CONST_0:%.+]] = constant 0 : i64
   // CHECK-DAG: [[CONST_0_INDEX:%.+]] = constant 0 : index
-  // CHECK: [[CONST_CST:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[CONST_1200:%.+]] = constant 1200 : i64
-  // CHECK: [[CONST_800:%.+]] = constant 800 : i64
-  // CHECK: [[CONST_400:%.+]] = constant 400 : i64
-  // CHECK: [[RES:%.+]] = memref.alloc() : memref<10x20xf32>
-  // CHECK: [[MEMPOOL_ALIGNED:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<2000xi8>
+  // CHECK-DAG: [[CONST_CST:%.+]] = constant 0.000000e+00 : f32
+  // CHECK-DAG: [[CONST_1200:%.+]] = constant 1200 : i64
+  // CHECK-DAG: [[CONST_800:%.+]] = constant 800 : i64
+  // CHECK-DAG: [[CONST_400:%.+]] = constant 400 : i64
+  // CHECK-DAG: [[RES:%.+]] = memref.alloc() : memref<10x20xf32>
+  // CHECK-DAG: [[MEMPOOL_ALIGNED:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<2000xi8>
   // CHECK: [[MEMREF1:%.+]] = "krnl.getref"([[MEMPOOL_ALIGNED]], [[CONST_1200]]) : (memref<2000xi8>, i64) -> memref<10x20xf32>
   // CHECK: [[MEMREF2:%.+]] = "krnl.getref"([[MEMPOOL_ALIGNED]], [[CONST_800]]) : (memref<2000xi8>, i64) -> memref<10x10xf32>
   // CHECK: [[MEMPOOL:%.+]] = memref.alloc() : memref<1200xi8>
@@ -86,11 +86,11 @@ func @test_dynamic_pool_bundling(%arg0: memref<?x?xf32>) -> memref<?x10xf32> {
   return %15 : memref<?x10xf32>
 
   // CHECK-LABEL: test_dynamic_pool_bundling
-  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[C0:%.+]] = constant 0 : index
-  // CHECK: [[C4:%.+]] = constant 4 : index
-  // CHECK: [[C10:%.+]] = constant 10 : index
-  // CHECK: [[C0_I64:%.+]] = constant 0 : i64
+  // CHECK-DAG: [[CST:%.+]] = constant 0.000000e+00 : f32
+  // CHECK-DAG: [[C0:%.+]] = constant 0 : index
+  // CHECK-DAG: [[C4:%.+]] = constant 4 : index
+  // CHECK-DAG: [[C10:%.+]] = constant 10 : index
+  // CHECK-DAG: [[C0_I64:%.+]] = constant 0 : i64
   // CHECK: [[DIM:%.+]] = memref.dim %arg0, [[C0]] : memref<?x?xf32>
   // CHECK: [[MUL2:%.+]] = muli [[DIM]], [[C4]] : index
   // CHECK: [[OFFSET2:%.+]] = muli [[MUL2]], [[C10]] : index
@@ -153,12 +153,12 @@ func @test_dynamic_and_static_pool_bundling(%arg0: memref<?x?xf32>, %arg1: memre
   return %15 : memref<?x10xf32>
 
   // CHECK-LABEL: test_dynamic_and_static_pool_bundling
-  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[C0:%.+]] = constant 0 : index
-  // CHECK: [[C4:%.+]] = constant 4 : index
-  // CHECK: [[C10:%.+]] = constant 10 : index
-  // CHECK: [[C1600_I64:%.+]] = constant 1600 : i64
-  // CHECK: [[C0_I64:%.+]] = constant 0 : i64
+  // CHECK-DAG: [[CST:%.+]] = constant 0.000000e+00 : f32
+  // CHECK-DAG: [[C0:%.+]] = constant 0 : index
+  // CHECK-DAG: [[C4:%.+]] = constant 4 : index
+  // CHECK-DAG: [[C10:%.+]] = constant 10 : index
+  // CHECK-DAG: [[C1600_I64:%.+]] = constant 1600 : i64
+  // CHECK-DAG: [[C0_I64:%.+]] = constant 0 : i64
   // CHECK: [[DIM:%.+]] = memref.dim %arg0, [[C0]] : memref<?x?xf32>
   // CHECK: [[MUL2:%.+]] = muli [[DIM]], [[C4]] : index
   // CHECK: [[OFFSET2:%.+]] = muli [[MUL2]], [[C10]] : index

@@ -15,10 +15,8 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
-
-// TODO rename to MLIR file
-#include "src/Dialect/ONNX/TmpMlirUtils.hpp"
 
 using namespace mlir;
 

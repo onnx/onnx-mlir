@@ -24,8 +24,7 @@
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
-
-#include "src/Dialect/ONNX/TmpMlirUtils.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 
 namespace onnx_mlir {
 

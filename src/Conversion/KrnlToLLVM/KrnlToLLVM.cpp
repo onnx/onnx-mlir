@@ -13,6 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
+#include "mlir/Conversion/LLVMCommon/Pattern.h"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
@@ -27,8 +30,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "onnx/onnx_pb.h"
 #include "llvm/ADT/Sequence.h"
+
+#include "onnx/onnx_pb.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVM.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -1359,9 +1363,16 @@ public:
 
 void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     MLIRContext *ctx, LLVMTypeConverter &typeConverter) {
+  // TODO: look at what is done in
+  // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
+  // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
+  // They run it in two steps, and add additional lowerings.
+
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
-  vector::populateVectorSlicesLoweringPatterns(patterns);
+  // Removed in upgrade of LLVM:
+  // vector::populateVectorSlicesLoweringPatterns(patterns);
   vector::populateVectorContractLoweringPatterns(patterns);
+  vector::populateVectorTransposeLoweringPatterns(patterns);
 
   populateAffineToStdConversionPatterns(patterns);
   populateLoopToStdConversionPatterns(patterns);
@@ -1372,6 +1383,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateStdExpandOpsPatterns(patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
+  populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlVectorTypeCastOpLowering>(
       ctx, typeConverter);

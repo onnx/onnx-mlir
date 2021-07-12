@@ -81,7 +81,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
           // Handle alpha/beta coefficients.
           MathBuilder createMath(createKrnl);
           // new scope
-          IndexExprScope innerScope(createKrnl.getBuilder(), shapeHelper.scope);
+          IndexExprScope innerScope(createKrnl, shapeHelper.scope);
           Value res = createMath.mul(alphaVal, createKrnl.load(red));
           if (shapeHelper.hasBias) {
             SmallVector<Value, 2> cAccess;
@@ -291,8 +291,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
           if (alphaLit != 1.0)
             res = createMath.mul(alphaVal, res);
           if (shapeHelper.hasBias) {
-            IndexExprScope innerScope(
-                createKrnl.getBuilder(), shapeHelper.scope);
+            IndexExprScope innerScope(createKrnl, shapeHelper.scope);
             SmallVector<Value, 2> cAccess;
             for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
               // If dim > 1, use loop index, otherwise broadcast on 0's element.

@@ -67,7 +67,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       }
     }
 
-    IndexExprScope outerloopContex(&rewriter, loc);
+    IndexExprScope outerloopContex(rewriter, loc);
     DimsExpr outputDims(rank);
     MemRefBoundsIndexCapture dataBounds(data);
     // Keep the code using IndexExpr for bug fixing
