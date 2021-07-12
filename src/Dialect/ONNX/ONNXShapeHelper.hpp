@@ -246,3 +246,16 @@ struct ONNXLRNOpShapeHelper : public ONNXOpShapeHelper<ONNXLRNOp> {
 
   LogicalResult Compute(ONNXLRNOpAdaptor operandAdaptor);
 };
+
+// Shape for Conv.
+struct ONNXConvOpShapeHelper : public ONNXOpShapeHelper<ONNXConvOp> {
+  ONNXConvOpShapeHelper(ONNXConvOp *newOp);
+  ONNXConvOpShapeHelper(ONNXConvOp *newOp, ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXConvOpAdaptor operandAdaptor,
+      Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> pads,
+      Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations,
+      bool ceilMode);
+};
