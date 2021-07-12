@@ -164,14 +164,14 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
 // Insert an instrument function before an op
 void insertInstrumentBefore(
     Operation *op, PatternRewriter &rewriter, Location loc) {
-  if (instrumentEnabled) 
+  if (instrumentEnabled)
     rewriter.create<mlir::KrnlInstrumentOp>(loc, op, 0);
 }
 
 // Insert an instrument function after an op
 void insertInstrumentAfter(
     Operation *op, PatternRewriter &rewriter, Location loc) {
-  if (instrumentEnabled) 
+  if (instrumentEnabled)
     rewriter.create<mlir::KrnlInstrumentOp>(loc, op, 1);
 }
 
