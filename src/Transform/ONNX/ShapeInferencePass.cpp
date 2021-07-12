@@ -101,15 +101,10 @@ public:
       }
     }
 
-    int64_t dynamicOperations = 0;
+    // If any dynamic operations remain, this indicates a failure.
     for (Operation &op : r.getOps()) {
       if (returnsDynamicShape(&op))
-        dynamicOperations++;
-    }
-
-    // If any dynamic operations remain, this indicates a failure.
-    if (dynamicOperations != 0) {
-      return r.getParentOp()->emitError("Region shape inference failed!");
+        return r.getParentOp()->emitError("Region shape inference failed!");
     }
 
     return success();
