@@ -646,8 +646,22 @@ static IndexExpr startInBuffer(
   return globalStart % tileSize;
 }
 
+// aee
+#define UNROLL_DELAYED 0 /* use global list to unroll an jam after the fact */
+#define UNROLL_IT 0      /* enable unrolling and jam */
+#define FORCE_IF_THEN_ELSE 0 /* disable if-then-else opt, made no diff. */
+
+mlir::FuncOp *processFunction;
+
+#if UNROLL_DELAYED
+// Have to make it global at this stage (ease of implementation).
+SmallVector<mlir::AffineForOp, 2> KrnlMatmulLoweringUnrollLoop;
+SmallVector<int64_t, 2> KrnlMatmulLoweringUnrollLoopFactor;
+#endif
+
 // KrnlMatmul will be lowered to vector and affine expressions
 class KrnlMatmulLowering : public OpRewritePattern<KrnlMatMulOp> {
+
 public:
   using OpRewritePattern<KrnlMatMulOp>::OpRewritePattern;
 
@@ -657,6 +671,16 @@ public:
 
     // Option.
     bool fullUnrollAndJam = op.unroll();
+
+    fprintf(stderr, "\n\n\n***********************\nhi alex: before matmul op\n");
+    processFunction->dump();
+    fprintf(stderr, "\n***********************\nhi alex: before matmul op (done)\n\n\n");
+
+#if UNROLL_DELAYED
+    printf("hi alex: delayed implemenation\n");
+    KrnlMatmulLoweringUnrollLoop.clear();
+    KrnlMatmulLoweringUnrollLoopFactor.clear();
+#endif
 
     // Operands and types.
     Type elementType =
@@ -797,7 +821,8 @@ public:
         kIsFullTile.isLiteralAndGreaterThan(-1)) {
       // this is ok, only a if-then below.
     } else {
-      fullUnrollAndJam = false;
+      printf("disable disabling of unroll and jam\n");
+      // fullUnrollAndJam = false;
     }
     if (simdize) {
       // SIMD code generator.
@@ -841,7 +866,24 @@ public:
       });
       // clang-format on
     }
+#if UNROLL_DELAYED && UNROLL_IT
+    for (size_t i = 0; i < KrnlMatmulLoweringUnrollLoop.size(); ++i) {
+      printf("start unroll and jam late\n");
+      LogicalResult res =
+          loopUnrollJamUpToFactor(KrnlMatmulLoweringUnrollLoop[i],
+              KrnlMatmulLoweringUnrollLoopFactor[i]);
+      assert(succeeded(res) && "failed to optimize");
+      printf("stop unroll and jam late\n");
+    }
+#endif
+
+    printf("hi alex, about to erase matmul op\n");
     rewriter.eraseOp(op);
+    printf("hi alex, done erasing matmul op\n");
+
+    fprintf(stderr, "\n\n\n***********************\nhi alex: after erase op\n");
+    processFunction->dump();
+    fprintf(stderr, "\n***********************\nhi alex: after erase op (done)\n\n\n");
     return success();
   }
 
@@ -904,10 +946,16 @@ private:
       });
     });
     if (unrollJam && J.isLiteral()) {
+#if UNROLL_DELAYED
+      KrnlMatmulLoweringUnrollLoop.emplace_back(
+          getForInductionVarOwner(jSaved));
+      KrnlMatmulLoweringUnrollLoopFactor.emplace_back(J.getLiteral());
+#elif UNROLL_IT
       // Unroll and jam. Seems to support only one operation at this time.
       auto jLoop = getForInductionVarOwner(jSaved);
       LogicalResult res = loopUnrollJamUpToFactor(jLoop, J.getLiteral());
       assert(succeeded(res) && "failed to optimize");
+#endif
     }
   }
 
@@ -985,11 +1033,19 @@ private:
       createAffine.store(tmpResults, vecC, cAccess);
     });
 
-    if (false && unrollJam && I.isLiteral()) {
+    if (unrollJam && I.isLiteral()) {
+#if UNROLL_DELAYED
+      KrnlMatmulLoweringUnrollLoop.emplace_back(
+          getForInductionVarOwner(iSaved));
+      KrnlMatmulLoweringUnrollLoopFactor.emplace_back(I.getLiteral());
+#elif UNROLL_IT
+      printf(" .    hi alex: try unroll and jam\n");
       // Unroll and jam. Seems to support only one operation at this time.
       auto iLoop = getForInductionVarOwner(iSaved);
       LogicalResult res = loopUnrollJamUpToFactor(iLoop, I.getLiteral());
       assert(succeeded(res) && "failed to optimize");
+      printf(" .    hi alex: done unroll and jam\n");
+#endif
     }
   }
 
@@ -997,11 +1053,14 @@ private:
       function_ref<void(ValueRange)> builderFn) const {
     OpBuilder::InsertionGuard guard(createAffine.getBuilder());
     if (block->empty() ||
-        !block->back().mightHaveTrait<OpTrait::IsTerminator>())
+        !block->back().mightHaveTrait<OpTrait::IsTerminator>()) {
+      printf(" .  hi alex: no terminators I think\n");
       createAffine.getBuilder().setInsertionPointToEnd(block);
-    else
+    } else
       createAffine.getBuilder().setInsertionPoint(&block->back());
+    printf(" . hi alex: start then/else code\n");
     builderFn(block->getArguments());
+    printf(" . hi alex: stop then/else code\n");
   }
 
   void genIfThenElseWithoutParams(AffineBuilder &createAffine,
@@ -1027,6 +1086,12 @@ private:
         allFalse = false;
       }
     }
+#if FORCE_IF_THEN_ELSE
+    allTrue = false;
+    allFalse = false;
+#endif
+    printf("hi alex all true %s, all false %s\n", (allTrue ? "yes" : "no"),
+        (allFalse ? "yes" : "no"));
     auto inset = IntegerSet::get(
         scope.getNumDims(), scope.getNumSymbols(), affineCond, isEq);
     SmallVector<Value, 8> dimAndSymbolList;
@@ -1036,12 +1101,16 @@ private:
     Block *thenBlock = ifOp.getThenBlock();
     Block *elseBlock = ifOp.getElseBlock();
     if (!allFalse) {
+      printf("hi alex: start then\n");
       appendToBlock(
           createAffine, thenBlock, [&](ValueRange args) { thenFn(args); });
+      printf("hi alex: stop then\n");
     }
     if (!allTrue) {
+      printf("hi alex: start else\n");
       appendToBlock(
           createAffine, elseBlock, [&](ValueRange args) { elseFn(args); });
+      printf("hi alex: stop else\n");
     }
   }
 };
@@ -1374,6 +1443,9 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   OpBuilder builder(&getContext());
   FuncOp funcOp = getFunction();
 
+  // aee
+  processFunction = &funcOp;
+  printf("hi alex, starting Step 1 to run convert krnl to affine\n");
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
@@ -1381,6 +1453,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
         moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
     assert(succeeded(res) && "failed to move loop invariant code");
   });
+  printf("hi alex, starting Step 2 to run convert krnl to affine\n");
 
   // We use the end of the function body as a staging area for movable ops.
   builder.setInsertionPoint(
@@ -1389,6 +1462,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   funcOp.walk(
       [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
 
+  printf("hi alex, starting Step 3 to run convert krnl to affine\n");
   // Interpret krnl dialect operations while looping recursively through
   // operations within the current function, note that erasing operations
   // while iterating is tricky because it can invalidate the iterator, so we
@@ -1401,6 +1475,8 @@ void ConvertKrnlToAffinePass::runOnFunction() {
     signalPassFailure();
     return;
   }
+
+  printf("hi alex, starting Step 4 to run convert krnl to affine\n");
 
   funcOp->walk([&](Operation *op) {
     if (SpecializedKernelOpInterface kernelOp =
@@ -1425,6 +1501,8 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   });
   removeOps(opsToErase);
   assert(opsToErase.empty());
+
+  printf("hi alex, starting Step 5 to run convert krnl to affine\n");
 
   // Move loop body under appropriate newly created affine loops.
   mover.moveAll(loopRefToOp);
@@ -1452,10 +1530,16 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   patterns.insert<KrnlCopyToBufferLowering>(&getContext());
   patterns.insert<KrnlCopyFromBufferLowering>(&getContext());
 
+  printf("hi alex, starting Step 6 to run convert krnl to affine\n");
+
   DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
-          getFunction(), target, std::move(patterns), &unconverted)))
+          getFunction(), target, std::move(patterns), &unconverted))) {
+    printf("hi alex, signal failure while in convert krnl to affine\n");
     signalPassFailure();
+  }
+
+  printf("hi alex, done to run convert krnl to affine\n");
 }
 
 } // namespace
