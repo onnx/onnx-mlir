@@ -942,8 +942,7 @@ ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp,
 
 LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor,
     Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> pads,
-    Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations = llvm::None,
-    bool ceilMode = false) {
+    Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Basic information.
   auto xRank = operandAdaptor.X().getType().cast<ShapedType>().getRank();

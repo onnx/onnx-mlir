@@ -72,12 +72,6 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
     MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
     bool insertDealloc, int64_t alignment = -1);
 
-// Insert alloc and dealloc ops for memref of dynamic shape for conv/pooling.
-Value insertAllocAndDeallocForConvPooling(ConversionPatternRewriter &rewriter,
-    Location loc, bool insertDealloc, MemRefType memRefType, Value inputOperand,
-    ArrayRef<int64_t> kernelShape, ArrayRef<int64_t> pads,
-    ArrayRef<int64_t> strides, ArrayRef<int64_t> dilations, bool ceilMode);
-
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
 // inserted.

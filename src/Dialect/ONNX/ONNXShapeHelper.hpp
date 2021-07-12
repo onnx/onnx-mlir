@@ -256,6 +256,5 @@ struct ONNXConvOpShapeHelper : public ONNXOpShapeHelper<ONNXConvOp> {
 
   LogicalResult Compute(ONNXConvOpAdaptor operandAdaptor,
       Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> pads,
-      Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations,
-      bool ceilMode);
+      Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations, );
 };
