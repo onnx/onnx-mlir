@@ -648,7 +648,7 @@ static IndexExpr startInBuffer(
 
 // aee
 #define UNROLL_DELAYED 0 /* use global list to unroll an jam after the fact */
-#define UNROLL_IT 0      /* enable unrolling and jam */
+#define UNROLL_IT 1      /* enable unrolling and jam */
 #define FORCE_IF_THEN_ELSE 0 /* disable if-then-else opt, made no diff. */
 
 mlir::FuncOp *processFunction;
