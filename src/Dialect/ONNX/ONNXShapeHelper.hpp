@@ -258,3 +258,16 @@ struct ONNXConvOpShapeHelper : public ONNXOpShapeHelper<ONNXConvOp> {
       Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> pads,
       Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations);
 };
+
+// Shape for Pooling.
+template <typename OP_TYPE, typename OP_ADAPTOR>
+struct ONNXPoolOpShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
+  ONNXPoolOpShapeHelper(OP_TYPE *newOp);
+  ONNXPoolOpShapeHelper(OP_TYPE *newOp, ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(OP_ADAPTOR operandAdaptor,
+      Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> pads,
+      Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations, bool ceilMode);
+};
