@@ -158,6 +158,18 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   return insertDealloc;
 }
 
+// Insert an instrument function before an op
+void insertInstrumentBefore(
+    Operation *op, PatternRewriter &rewriter, Location loc) {
+  rewriter.create<mlir::KrnlInstrumentOp>(loc, op, 0);
+}
+
+// Insert an instrument function after an op
+void insertInstrumentAfter(
+    Operation *op, PatternRewriter &rewriter, Location loc) {
+  rewriter.create<mlir::KrnlInstrumentOp>(loc, op, 1);
+}
+
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
 // type.
