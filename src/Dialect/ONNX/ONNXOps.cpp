@@ -1714,25 +1714,14 @@ LogicalResult ONNXConvOp::inferShapes(
   auto stridesOpt = strides();
   auto padsOpt = pads();
 
+  // Infer shape for the output.
   ONNXConvOpAdaptor operandAdaptor(*this);
   ONNXConvOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor, kernelShape, padsOpt,
-          stridesOpt, dilationsOpt, /*ceilMode=*/false)))
+  if (failed(shapeHelper.Compute(
+          operandAdaptor, kernelShape, padsOpt, stridesOpt, dilationsOpt)))
     return emitError("Failed to scan Conv parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-
-  //// First two output dimensions consist of the number of batches and the
-  //// number of kernels being applied.
-  // SmallVector<int64_t, 4> outputDims;
-  //// Insert batch size.
-  // outputDims.emplace_back(xShape[0]);
-  //// Insert number of filters being applied (number of output channels).
-  // outputDims.emplace_back(weightShape[0]);
-  //// Compute and insert spatial dims.
-  // insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
-  //    stridesOpt, dilationsOpt);
-
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return success();
 }

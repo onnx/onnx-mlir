@@ -44,9 +44,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
     ONNXConvOpAdaptor operandAdaptor(operands);
     ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 
-    // Read kernel_shape attribute
-    auto kernelShapeAttribute = convOp.kernel_shapeAttr();
-
     // Read dilations attribute if the op has.
     std::vector<int64_t> dilations = getDilations(convOp);
     bool isDilated = !dilations.empty();
@@ -68,8 +65,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed =
-        shapeHelper.Compute(operandAdaptor, kernelShapeAttribute, padsAttribute,
-            stridesAttribute, convOp.dilations(), /*ceilMode=*/false);
+        shapeHelper.Compute(operandAdaptor, convOp.kernel_shape(),
+            padsAttribute, stridesAttribute, convOp.dilations());
     assert(succeeded(shapecomputed));
 
     // Scope for krnl ops

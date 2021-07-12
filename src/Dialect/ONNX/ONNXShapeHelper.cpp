@@ -972,11 +972,8 @@ LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor,
       dilation =
           LiteralIndexExpr(ArrayAttrIntVal(dilations.getValue(), spatialIndex));
 
-    IndexExpr dimExp;
-    if (ceilMode)
-      dimExp = (input + pad - (kernel - 1) * dilation - 1).ceilDiv(stride) + 1;
-    else
-      dimExp = (input + pad - (kernel - 1) * dilation - 1).floorDiv(stride) + 1;
+    IndexExpr dimExp =
+        (input + pad - (kernel - 1) * dilation - 1).floorDiv(stride) + 1;
     outputDims.emplace_back(dimExp);
   }
 
