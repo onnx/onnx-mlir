@@ -103,7 +103,7 @@ void log_printf(
 /* Return numerical log level of give level name */
 static int get_log_level_by_name(char *name) {
   int level = -1;
-  for (int i = 0; i < (int) (sizeof(log_level_name) / sizeof(char *)); i++) {
+  for (int i = 0; i < (int)(sizeof(log_level_name) / sizeof(char *)); i++) {
     if (!strcmp(name, log_level_name[i])) {
       level = i;
       break;
