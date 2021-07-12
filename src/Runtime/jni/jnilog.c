@@ -40,7 +40,7 @@ static THREAD_LOCAL_SPEC int log_level;
 static THREAD_LOCAL_SPEC FILE *log_fp;
 
 /* Must match enum in log.h */
-static char *log_level_name[] = {
+static const char *log_level_name[] = {
     "trace", "debug", "info", "warning", "error", "fatal"};
 
 unsigned long get_threadid() {
@@ -103,7 +103,7 @@ void log_printf(
 /* Return numerical log level of give level name */
 static int get_log_level_by_name(char *name) {
   int level = -1;
-  for (int i = 0; i < sizeof(log_level_name) / sizeof(char *); i++) {
+  for (int i = 0; i < (int) (sizeof(log_level_name) / sizeof(char *)); i++) {
     if (!strcmp(name, log_level_name[i])) {
       level = i;
       break;
