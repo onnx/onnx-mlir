@@ -113,17 +113,16 @@ static size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
     return memRefTy.getBody()[3].cast<LLVM::LLVMArrayType>().getNumElements();
 }
 
+// Create a function declaration for OMInstrumentPoint, the signature is:
+//   `void (i64, i64)`
 static FlatSymbolRefAttr getOrInsertInstrument(
     PatternRewriter &rewriter, ModuleOp module) {
   auto *context = module.getContext();
   const char funcName[] = "OMInstrumentPoint";
   if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
     return SymbolRefAttr::get(context, funcName);
-  // Create a function declaration for memcpy, the signature is:
-  //   * `void (i8*, i8* , i64, i1)`
   auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
   auto llvmI64Ty = IntegerType::get(context, 64);
-  // auto llvmI1Ty = IntegerType::get(context, 1);
   auto llvmFnType = LLVM::LLVMFunctionType::get(
       llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
 
