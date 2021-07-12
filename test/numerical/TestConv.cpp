@@ -48,11 +48,12 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   llvm::SmallVector<int64_t, 3> xShapeSymbol = {N, C, H1, W};
   llvm::SmallVector<int64_t, 1> bShape = {C};
   llvm::SmallVector<int64_t, 4> wShape = {C, C, kH, kW};
-  auto xType = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
+  auto xType = RankedTensorType::get(xShape, builder.getF32Type());
+  auto xTypeSymbol = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
   auto wType = RankedTensorType::get(wShape, builder.getF32Type());
   auto yType = UnrankedTensorType::get(builder.getF32Type());
 
-  llvm::SmallVector<Type, 2> inputsType{xType, wType};
+  llvm::SmallVector<Type, 2> inputsType{xTypeSymbol, wType};
   llvm::SmallVector<Type, 1> outputsType{yType};
 
   auto funcType = builder.getFunctionType(inputsType, outputsType);
@@ -88,6 +89,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 
   // Use the convOp shape inference method to compute output shape, and unset
   // the shape so that we don't leave IR in a inconsistent state.
+  convOp.X().setType(xType); // Use static dims to infer shape.
   LogicalResult res = convOp.inferShapes([](mlir::Region &) {});
   if (failed(res)) {
     return false;
@@ -98,6 +100,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   auto HOut = outputShape[2];
   auto WOut = outputShape[3];
   convOp.getResult().setType(yType);
+  convOp.X().setType(xTypeSymbol);
 
   llvm::SmallVector<Value, 1> results = {convOp.getResult()};
   builder.create<ReturnOp>(UnknownLoc::get(&ctx), results);

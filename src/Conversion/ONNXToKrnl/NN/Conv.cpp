@@ -43,6 +43,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
     ONNXConvOpAdaptor operandAdaptor(operands);
     ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 
+    // Read kernel_shape attribute
+    SmallVector<int64_t, 4> kernelShapeAttr;
+    for (Attribute dim : convOp.kernel_shapeAttr().getValue())
+      kernelShapeAttr.emplace_back(dim.cast<IntegerAttr>().getInt());
+
     // Read dilations attribute if the op has.
     std::vector<int64_t> dilations = getDilations(convOp);
     bool isDilated = !dilations.empty();
@@ -81,9 +86,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {inputOperand});
+    else {
+      alloc = insertAllocAndDeallocForConvPooling(rewriter, loc, insertDealloc,
+          memRefType, inputOperand, kernelShapeAttr, pads, strides, dilations,
+          /*ceilMode=*/false);
+    }
 
     // R = Conv(D, K)
     //

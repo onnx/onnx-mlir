@@ -128,64 +128,6 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
 }
 
 //===----------------------------------------------------------------------===//
-// Helper function to insert alloc and dealloc ops for memref of dynamic shape.
-//
-Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
-    Location loc, bool insertDealloc, MemRefType memRefType, Value inputOperand,
-    ArrayRef<int64_t> kernelShape, ArrayRef<int64_t> pads,
-    ArrayRef<int64_t> strides, ArrayRef<int64_t> dilations, bool ceilMode) {
-  memref::AllocOp alloc;
-
-  // Shape and rank information related to result and kernel.
-  auto resultShape = memRefType.getShape();
-  auto resultRank = resultShape.size();
-  auto kernelRank = kernelShape.size();
-  int kernelOffset = resultRank - kernelRank;
-
-  // Compute dimensions of the result of this operation.
-  SmallVector<Value, 2> allocOperands;
-  for (int i = 0; i < kernelOffset; ++i) {
-    if (resultShape[i] < 0) {
-      auto dim = rewriter.create<memref::DimOp>(loc, inputOperand, i);
-      allocOperands.emplace_back(dim);
-    }
-  }
-
-  // Obtain an affine map to compute the output dimension.
-  AffineMap dimMap = getConvDimMap(rewriter, ceilMode);
-  for (int i = kernelOffset; i < (int)resultShape.size(); ++i) {
-    if (resultShape[i] < 0) {
-      int spatialIndex = i - kernelOffset;
-      // Prepare arguments for the affine map.
-      SmallVector<Value, 4> dimArgs;
-      dimArgs.emplace_back(
-          rewriter.create<memref::DimOp>(loc, inputOperand, i));
-      dimArgs.emplace_back(emitConstantOp(
-          rewriter, loc, rewriter.getIndexType(), kernelShape[spatialIndex]));
-      dimArgs.emplace_back(
-          emitConstantOp(rewriter, loc, rewriter.getIndexType(),
-              (pads[spatialIndex] + pads[spatialIndex + kernelRank])));
-      dimArgs.emplace_back(emitConstantOp(
-          rewriter, loc, rewriter.getIndexType(), strides[spatialIndex]));
-      dimArgs.emplace_back(
-          emitConstantOp(rewriter, loc, rewriter.getIndexType(),
-              dilations.empty() ? 1 : dilations[spatialIndex]));
-
-      // Apply the affine map.
-      Value dimVal = rewriter.create<AffineApplyOp>(loc, dimMap, dimArgs);
-      allocOperands.emplace_back(dimVal);
-    }
-  }
-  alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
-  if (insertDealloc) {
-    auto *parentBlock = alloc.getOperation()->getBlock();
-    auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
-    dealloc.getOperation()->moveBefore(&parentBlock->back());
-  }
-  return alloc;
-}
-
-//===----------------------------------------------------------------------===//
 // Template function that does pooling.
 //
 template <typename PoolOp>
@@ -246,7 +188,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else {
-      alloc = insertAllocAndDeallocForPooling(rewriter, loc, insertDealloc,
+      alloc = insertAllocAndDeallocForConvPooling(rewriter, loc, insertDealloc,
           memRefType, inputOperand, kernelShape, pads, strides, dilations,
           ceilMode);
     }
