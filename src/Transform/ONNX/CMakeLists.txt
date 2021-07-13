@@ -70,3 +70,10 @@ add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
   MLIRPass
   OMSupport
   )
+add_onnx_mlir_library(OMOutlineOperations
+  OutlineOperatorsPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  )

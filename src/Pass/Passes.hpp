@@ -83,4 +83,7 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass();
 
 } // namespace krnl
 
-} // namespace onnx_mlir
+/// Pass for lowering Krnl dialect to LLVM dialect.
+std::unique_ptr<Pass> createOutlineOperatorsPass();
+
+} // end namespace mlir
