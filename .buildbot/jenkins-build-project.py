@@ -38,21 +38,22 @@ docker_registry_login_name  = os.getenv('DOCKER_REGISTRY_LOGIN_NAME')
 docker_registry_login_token = os.getenv('DOCKER_REGISTRY_LOGIN_TOKEN')
 github_repo_name            = os.getenv('GITHUB_REPO_NAME')
 github_repo_name2           = os.getenv('GITHUB_REPO_NAME').replace('-', '_')
-github_pr_baseref           = os.getenv('GITHUB_PR_BASEREF').lower()
+github_pr_baseref           = os.getenv('GITHUB_PR_BASEREF')
+github_pr_baseref2          = os.getenv('GITHUB_PR_BASEREF').lower()
 github_pr_number            = os.getenv('GITHUB_PR_NUMBER')
 github_pr_number2           = os.getenv('GITHUB_PR_NUMBER2')
 
 docker_static_image_name    = (github_repo_name + '-llvm-static' +
-                               ('.' + github_pr_baseref
+                               ('.' + github_pr_baseref2
                                 if github_pr_baseref != 'master' else ''))
 docker_shared_image_name    = (github_repo_name + '-llvm-shared' +
-                               ('.' + github_pr_baseref
+                               ('.' + github_pr_baseref2
                                 if github_pr_baseref != 'master' else ''))
 docker_dev_image_name       = (github_repo_name + '-dev' +
-                               ('.' + github_pr_baseref
+                               ('.' + github_pr_baseref2
                                 if github_pr_baseref != 'master' else ''))
 docker_usr_image_name       = (github_repo_name +
-                               ('.' + github_pr_baseref
+                               ('.' + github_pr_baseref2
                                 if github_pr_baseref != 'master' else ''))
 
 LLVM_PROJECT_IMAGE          = { 'dev': docker_static_image_name,
@@ -213,12 +214,12 @@ def build_private_project(image_type, exp):
     base_image_repo = ((host_name + '/' if host_name else '') +
                        (user_name + '/' if user_name else '') +
                        base_image_name)
-    base_image_tag  = github_pr_number
+    base_image_tag  = github_pr_number.lower()
     image_name      = PROJECT_IMAGE[image_type]
     image_repo      = ((host_name + '/' if host_name else '') +
                        (user_name + '/' if user_name else '') +
                        image_name)
-    image_tag       = github_pr_number
+    image_tag       = github_pr_number.lower()
     image_full      = image_repo + ':' + image_tag
     image_arch      = image_repo + ':' + cpu_arch
     image_filter    = exp[github_repo_name2 + '_filter']
