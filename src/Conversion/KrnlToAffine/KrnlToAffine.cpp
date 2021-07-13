@@ -666,7 +666,10 @@ static IndexExpr startInBuffer(
 // aee
 #define UNROLL_IT 1 /* enable unrolling and jam */
 #define AEE_DEBUG 0
+
+#if AEE_DEBUG
 mlir::FuncOp *processFunction;
+#endif
 
 // KrnlMatmul will be lowered to vector and affine expressions
 class KrnlMatmulLowering : public OpRewritePattern<KrnlMatMulOp> {
@@ -1430,8 +1433,10 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   OpBuilder builder(&getContext());
   FuncOp funcOp = getFunction();
 
-  // aee
+#if AEE_DEBUG
   processFunction = &funcOp;
+#endif
+
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
