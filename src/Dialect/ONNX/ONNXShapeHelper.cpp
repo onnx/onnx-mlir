@@ -124,8 +124,10 @@ LogicalResult ONNXArgMaxOpShapeHelper::Compute(
 //===----------------------------------------------------------------------===//
 
 ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
-    ConversionPatternRewriter *rewriter, Location loc, bool uniBroadcasting)
-    : scope(rewriter, loc), isUniBroadcasting(uniBroadcasting) {}
+    ConversionPatternRewriter *rewriter, Location loc, bool uniBroadcasting,
+    bool noBroadcasting)
+    : scope(rewriter, loc), isUniBroadcasting(uniBroadcasting),
+      isNoBroadcasting(noBroadcasting) {}
 
 LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
   // A temporary IndexExpr vector for the output.
@@ -171,7 +173,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
       // 1 - LiteralNot1
       // 1 - 1
       if (currentDimExpr.isLiteralAndIdenticalTo(1)) {
-        if (!isUniBroadcasting)
+        if (!isUniBroadcasting && !isNoBroadcasting)
           dimsExpr[j] = nextDimExpr;
         continue;
       }
@@ -215,7 +217,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
 LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(Value operand,
     unsigned operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {
-  if (isUniBroadcasting && operandIndex == 0) {
+  if (isNoBroadcasting || (isUniBroadcasting && operandIndex == 0)) {
     for (IndexExpr ie : outputAccessExprs)
       operandAccessExprs.emplace_back(ie);
     return success();
