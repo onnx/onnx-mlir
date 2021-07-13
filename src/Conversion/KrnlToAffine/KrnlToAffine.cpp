@@ -308,6 +308,15 @@ Operation *getContainingFunction(Operation *op) {
   return parentFuncOp;
 }
 
+UnrollAndJamList *getUnrollAndJamList(Operation *op) {
+  Operation *currFuncOp = getContainingFunction(op);
+  assert(currFuncOp && "function expected");
+  const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
+  UnrollAndJamList *currUnrollAndJamList = unrollAndJamMap[currFuncOp];
+  assert(currUnrollAndJamList && "expected list for function");
+  return currUnrollAndJamList;
+}
+
 void removeOps(llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
   // Remove lowered operations topologically; if ops are not removed
   // topologically, memory error will occur.
@@ -949,17 +958,9 @@ private:
       });
     });
     if (unrollJam && J.isLiteral()) {
-      Operation *currFuncOp = getContainingFunction(op.getOperation());
-      assert(currFuncOp && "function expected");
-      UnrollAndJamList *currUnrollAndJamList = nullptr;
-      {
-        const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
-        currUnrollAndJamList = unrollAndJamMap[currFuncOp];
-      }
-      assert(currUnrollAndJamList && "expected list for function");
       UnrollAndJamRecord record(
           getForInductionVarOwner(jSaved), J.getLiteral());
-      currUnrollAndJamList->emplace_back(record);
+      getUnrollAndJamList(op.getOperation())->emplace_back(record);
     }
   }
 
@@ -1038,17 +1039,9 @@ private:
     });
 
     if (unrollJam && I.isLiteral()) {
-      Operation *currFuncOp = getContainingFunction(op.getOperation());
-      assert(currFuncOp && "function expected");
-      UnrollAndJamList *currUnrollAndJamList = nullptr;
-      {
-        const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
-        currUnrollAndJamList = unrollAndJamMap[currFuncOp];
-      }
-      assert(currUnrollAndJamList && "expected list for function");
       UnrollAndJamRecord record(
           getForInductionVarOwner(iSaved), I.getLiteral());
-      currUnrollAndJamList->emplace_back(record);
+      getUnrollAndJamList(op.getOperation())->emplace_back(record);
     }
   }
 
