@@ -47,15 +47,35 @@ private:
 public:
   OutlineOperatorsPass() {}
 
-  std::string getOpName(Operation &op) {
+  std::string getOpName(Operation *op) {
     auto symbolAttr =
-        op.getAttrOfType<StringAttr>(SymbolTable::getSymbolAttrName());
+        op->getAttrOfType<StringAttr>(SymbolTable::getSymbolAttrName());
     if (symbolAttr)
       return std::string(symbolAttr.getValue());
-    return (op.getName().getStringRef().str());
+    return (op->getName().getStringRef().str());
   }
 
   // Print all the ops in a module.
+  void processOp(Operation *op) {
+      auto opName = getOpName(op);
+      std::cout << "Operation is " << opName << std::endl;
+      for (Region &region : op->getRegions())
+         processRegion(region);
+  }
+
+ void processRegion(Region &region) {
+     std::cout << "   -- entering region" << std::endl;
+     for (mlir::Block &block : region.getBlocks())
+        processBlock(block);
+  } 
+
+  void processBlock(mlir::Block &block) {
+    std::cout << "   -- entering block" << std::endl;
+    for (mlir::Operation &op : block.getOperations())
+        processOp(&op);
+  }
+
+/*
   void processModule(ModuleOp module) {
     for (Operation &op : module) {
       // Modules may actually be nested, recurse on nesting.
@@ -78,8 +98,8 @@ public:
       }
     }
   }
-
-  void runOnOperation() override { processModule(getOperation()); }
+*/
+  void runOnOperation() override { processOp(getOperation()); }
   /*
   void runOnOperation() override {
     auto module = getOperation();
