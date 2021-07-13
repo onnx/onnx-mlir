@@ -38,11 +38,12 @@ using namespace mlir::onnxmlir;
 
 namespace {
 
-LogicalResult inferMatMulResultShape(mlir::Operation * op, Value a, Value b, Value result) {
+LogicalResult inferMatMulResultShape(
+    mlir::Operation *op, Value a, Value b, Value result) {
   // Cannot infer shape if no shape exists.
   if (!a.getType().isa<RankedTensorType>() ||
       !b.getType().isa<RankedTensorType>())
-  return op->emitError("Input tensor(s) not ranked");
+    return op->emitError("Input tensor(s) not ranked");
 
   auto lhsTy = a.getType().cast<RankedTensorType>();
   auto rhsTy = b.getType().cast<RankedTensorType>();
@@ -161,7 +162,8 @@ LogicalResult inferMatMulResultShape(mlir::Operation * op, Value a, Value b, Val
       dims.emplace_back(rhsShape[1]);
   }
 
-  result.setType(RankedTensorType::get(dims, lhsTy.getElementType()));
+  Type elementType = result.getType().cast<ShapedType>().getElementType();
+  result.setType(RankedTensorType::get(dims, elementType));
   return success();
 }
 
