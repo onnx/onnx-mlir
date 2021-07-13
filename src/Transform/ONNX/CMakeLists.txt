@@ -39,3 +39,11 @@ add_onnx_mlir_library(OMShapeInference
   OMShapeInferenceOpInterface
   MLIRPass
   )
+
+add_onnx_mlir_library(OMOutlineOperations
+  OutlineOperatorsPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  )
