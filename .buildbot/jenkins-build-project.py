@@ -8,8 +8,8 @@ import hashlib
 import json
 import logging
 import math
-import re
 import os
+import re
 import requests
 import sys
 
@@ -204,6 +204,7 @@ def get_remote_image_labels(host_name, user_name, image_name, image_tag,
     except:
         logging.info(sys.exc_info()[1])
         return ''
+
 # Remove all the containers depending on an (dangling) image.
 def remove_dependent_containers(image):
     containers = docker_api.containers(
