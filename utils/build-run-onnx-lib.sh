@@ -20,20 +20,22 @@ LLVM_PROJ_BUILD=$LLVM_PROJ_SRC/build
 ONNX_MLIR_SRC=$TOP_DIR/onnx-mlir
 ONNX_MLIR_UTIL=$ONNX_MLIR_SRC/utils
 ONNX_MLIR_BIN=$ONNX_MLIR_SRC/build/Debug/bin
+DRIVERNAME=RunONNXLib.cpp
+echo $ONNX_MLIR_SRC
 
 if [ "$#" -eq 0 ] ; then
   echo "Compile run-onnx-lib for models passed at runtime"
-  g++ $ONNX_MLIR_UTIL/RunONNXLib.cpp -o $ONNX_MLIR_BIN/run-onnx-lib -std=c++14 \
+  g++ $ONNX_MLIR_UTIL/$DRIVERNAME -o $ONNX_MLIR_BIN/run-onnx-lib -std=c++14 \
   -D LOAD_MODEL_STATICALLY=0 -I $LLVM_PROJ_SRC/llvm/include \
-  -I $LLVM_PROJ_BUILD/include -I $ONNX_PROJ_SRC/include \
+  -I $LLVM_PROJ_BUILD/include -I $ONNX_MLIR_SRC/include \
   -L $LLVM_PROJ_BUILD/lib -lLLVMSupport -lLLVMDemangle -lcurses -lpthread -ldl &&
   echo "  success, dynamically linked run-onnx-lib built in $ONNX_MLIR_BIN"
 elif  [ "$#" -eq 1 ] ; then
   if [ -e $1 ] ; then
     echo "Compile run-onnx-lib for model $1"
-    g++ $ONNX_MLIR_UTIL/RunONNXLib.cpp -o $ONNX_MLIR_BIN/run-onnx-lib -std=c++14 \
+    g++ $ONNX_MLIR_UTIL/$DRIVERNAME -o $ONNX_MLIR_BIN/run-onnx-lib -std=c++14 \
     -D LOAD_MODEL_STATICALLY=1 -I $LLVM_PROJ_SRC/llvm/include \
-    -I $LLVM_PROJ_BUILD/include -I $ONNX_PROJ_SRC/include \
+    -I $LLVM_PROJ_BUILD/include -I $ONNX_MLIR_SRC/include \
     -L $LLVM_PROJ_BUILD/lib -lLLVMSupport -lLLVMDemangle -lcurses -lpthread -ldl $1 \
       &&
     echo "  success, statically linked run-onnx-lib built in $ONNX_MLIR_BIN"
