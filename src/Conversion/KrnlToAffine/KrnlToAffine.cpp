@@ -291,11 +291,12 @@ struct AffineBuilder : DialectBuilder {
   void yield() { b.create<AffineYieldOp>(loc); }
 };
 
-// to assist unroll and jam
+// To assist unroll and jam
 typedef std::pair<AffineForOp, int64_t> UnrollAndJamRecord;
 typedef SmallVector<UnrollAndJamRecord, 4> UnrollAndJamList;
 typedef std::map<Operation *, UnrollAndJamList *> UnrollAndJamMap;
 UnrollAndJamMap unrollAndJamMap;
+std::mutex unrollAndJamMutex;
 
 /// Retrieve function which contains the current operation.
 Operation *getContainingFunction(Operation *op) {
@@ -819,6 +820,8 @@ public:
     IndexExpr jPartialTrip =
         partialTrip(jGlobalUB, jComputeTileSize, jComputeStart);
 
+#if 0
+    // aee : remove
     // Currently, there is a bug in unroll and jam which crashes if there is an
     // affine if/then/else. No crash if only if-then.
     if (iIsFullTile.isLiteralAndGreaterThan(-1) &&
@@ -829,6 +832,7 @@ public:
       // printf("disable disabling of unroll and jam\n");
       // fullUnrollAndJam = false;
     }
+#endif
     if (simdize) {
       // SIMD code generator.
       // clang-format off
@@ -942,7 +946,12 @@ private:
     });
     if (unrollJam && J.isLiteral()) {
       Operation *currFuncOp = getContainingFunction(op.getOperation());
-      UnrollAndJamList *currUnrollAndJamList = unrollAndJamMap[currFuncOp];
+      assert(currFuncOp && "function expected");
+      UnrollAndJamList *currUnrollAndJamList = nullptr;
+      {
+        const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
+        currUnrollAndJamList = unrollAndJamMap[currFuncOp];
+      }
       assert(currUnrollAndJamList && "expected list for function");
       UnrollAndJamRecord record(
           getForInductionVarOwner(jSaved), J.getLiteral());
@@ -1026,7 +1035,12 @@ private:
 
     if (unrollJam && I.isLiteral()) {
       Operation *currFuncOp = getContainingFunction(op.getOperation());
-      UnrollAndJamList *currUnrollAndJamList = unrollAndJamMap[currFuncOp];
+      assert(currFuncOp && "function expected");
+      UnrollAndJamList *currUnrollAndJamList = nullptr;
+      {
+        const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
+        currUnrollAndJamList = unrollAndJamMap[currFuncOp];
+      }
       assert(currUnrollAndJamList && "expected list for function");
       UnrollAndJamRecord record(
           getForInductionVarOwner(iSaved), I.getLiteral());
@@ -1417,7 +1431,6 @@ void ConvertKrnlToAffinePass::runOnFunction() {
 
   // aee
   processFunction = &funcOp;
-  //printf("hi alex, starting Step 1 to run convert krnl to affine\n");
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
@@ -1496,34 +1509,37 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   patterns.insert<KrnlCopyToBufferLowering>(&getContext());
   patterns.insert<KrnlCopyFromBufferLowering>(&getContext());
 
-  //printf("hi alex, starting Step 6 to run convert krnl to affine\n");
   // Create list for recording the <loop, unroll factor> pairs associated with
   // this function.
   UnrollAndJamList *currUnrollAndJamList = new UnrollAndJamList();
   Operation *currFuncOp = funcOp.getOperation();
-  unrollAndJamMap[currFuncOp] = currUnrollAndJamList;
+  {
+    const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
+    unrollAndJamMap[currFuncOp] = currUnrollAndJamList;
+  }
 
   DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
           getFunction(), target, std::move(patterns), &unconverted))) {
-    //printf("hi alex, signal failure while in convert krnl to affine\n");
+    {
+      const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
+      unrollAndJamMap.erase(currFuncOp);
+    }
+    free(currUnrollAndJamList);
     signalPassFailure();
   }
 
 #if UNROLL_IT
-  //printf("hi alex, starting Step 7 to run convert krnl to affine\n");
-  for (size_t i = 0; i < currUnrollAndJamList->size(); ++i) {
-    //printf("start unroll and jam super late\n");
-    UnrollAndJamRecord record = (*currUnrollAndJamList)[i];
+  for (auto record : *currUnrollAndJamList) {
     LogicalResult res = loopUnrollJamUpToFactor(record.first, record.second);
     assert(succeeded(res) && "failed to optimize");
-    //printf("stop unroll and jam super late\n");
+  }
+#endif
+  {
+    const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
+    unrollAndJamMap.erase(currFuncOp);
   }
   free(currUnrollAndJamList);
-  unrollAndJamMap.erase(currFuncOp);
-#endif
-
-  //printf("hi alex, done to run convert krnl to affine\n");
 }
 
 } // namespace
