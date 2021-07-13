@@ -291,6 +291,21 @@ struct AffineBuilder : DialectBuilder {
   void yield() { b.create<AffineYieldOp>(loc); }
 };
 
+// to assist unroll and jam
+typedef std::pair<AffineForOp, int64_t> UnrollAndJamRecord;
+typedef SmallVector<UnrollAndJamRecord, 4> UnrollAndJamList;
+typedef std::map<Operation *, UnrollAndJamList *> UnrollAndJamMap;
+UnrollAndJamMap unrollAndJamMap;
+
+/// Retrieve function which contains the current operation.
+Operation *getContainingFunction(Operation *op) {
+  Operation *parentFuncOp = op->getParentOp();
+  // While parent is not a FuncOp and its cast to a FuncOp is null.
+  while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
+    parentFuncOp = parentFuncOp->getParentOp();
+  return parentFuncOp;
+}
+
 void removeOps(llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
   // Remove lowered operations topologically; if ops are not removed
   // topologically, memory error will occur.
@@ -647,17 +662,9 @@ static IndexExpr startInBuffer(
 }
 
 // aee
-#define UNROLL_DELAYED 0 /* use global list to unroll an jam after the fact */
-#define UNROLL_IT 1      /* enable unrolling and jam */
-#define FORCE_IF_THEN_ELSE 0 /* disable if-then-else opt, made no diff. */
-
+#define UNROLL_IT 1 /* enable unrolling and jam */
+#define AEE_DEBUG 0
 mlir::FuncOp *processFunction;
-
-#if UNROLL_DELAYED
-// Have to make it global at this stage (ease of implementation).
-SmallVector<mlir::AffineForOp, 2> KrnlMatmulLoweringUnrollLoop;
-SmallVector<int64_t, 2> KrnlMatmulLoweringUnrollLoopFactor;
-#endif
 
 // KrnlMatmul will be lowered to vector and affine expressions
 class KrnlMatmulLowering : public OpRewritePattern<KrnlMatMulOp> {
@@ -672,14 +679,12 @@ public:
     // Option.
     bool fullUnrollAndJam = op.unroll();
 
-    fprintf(stderr, "\n\n\n***********************\nhi alex: before matmul op\n");
+#if AEE_DEBUG
+    fprintf(
+        stderr, "\n\n\n***********************\nhi alex: before matmul op\n");
     processFunction->dump();
-    fprintf(stderr, "\n***********************\nhi alex: before matmul op (done)\n\n\n");
-
-#if UNROLL_DELAYED
-    printf("hi alex: delayed implemenation\n");
-    KrnlMatmulLoweringUnrollLoop.clear();
-    KrnlMatmulLoweringUnrollLoopFactor.clear();
+    fprintf(stderr,
+        "\n***********************\nhi alex: before matmul op (done)\n\n\n");
 #endif
 
     // Operands and types.
@@ -821,7 +826,7 @@ public:
         kIsFullTile.isLiteralAndGreaterThan(-1)) {
       // this is ok, only a if-then below.
     } else {
-      printf("disable disabling of unroll and jam\n");
+      // printf("disable disabling of unroll and jam\n");
       // fullUnrollAndJam = false;
     }
     if (simdize) {
@@ -866,24 +871,14 @@ public:
       });
       // clang-format on
     }
-#if UNROLL_DELAYED && UNROLL_IT
-    for (size_t i = 0; i < KrnlMatmulLoweringUnrollLoop.size(); ++i) {
-      printf("start unroll and jam late\n");
-      LogicalResult res =
-          loopUnrollJamUpToFactor(KrnlMatmulLoweringUnrollLoop[i],
-              KrnlMatmulLoweringUnrollLoopFactor[i]);
-      assert(succeeded(res) && "failed to optimize");
-      printf("stop unroll and jam late\n");
-    }
-#endif
-
-    printf("hi alex, about to erase matmul op\n");
     rewriter.eraseOp(op);
-    printf("hi alex, done erasing matmul op\n");
 
+#if AEE_DEBUG
     fprintf(stderr, "\n\n\n***********************\nhi alex: after erase op\n");
     processFunction->dump();
-    fprintf(stderr, "\n***********************\nhi alex: after erase op (done)\n\n\n");
+    fprintf(stderr,
+        "\n***********************\nhi alex: after erase op (done)\n\n\n");
+#endif
     return success();
   }
 
@@ -946,16 +941,12 @@ private:
       });
     });
     if (unrollJam && J.isLiteral()) {
-#if UNROLL_DELAYED
-      KrnlMatmulLoweringUnrollLoop.emplace_back(
-          getForInductionVarOwner(jSaved));
-      KrnlMatmulLoweringUnrollLoopFactor.emplace_back(J.getLiteral());
-#elif UNROLL_IT
-      // Unroll and jam. Seems to support only one operation at this time.
-      auto jLoop = getForInductionVarOwner(jSaved);
-      LogicalResult res = loopUnrollJamUpToFactor(jLoop, J.getLiteral());
-      assert(succeeded(res) && "failed to optimize");
-#endif
+      Operation *currFuncOp = getContainingFunction(op.getOperation());
+      UnrollAndJamList *currUnrollAndJamList = unrollAndJamMap[currFuncOp];
+      assert(currUnrollAndJamList && "expected list for function");
+      UnrollAndJamRecord record(
+          getForInductionVarOwner(jSaved), J.getLiteral());
+      currUnrollAndJamList->emplace_back(record);
     }
   }
 
@@ -1034,18 +1025,12 @@ private:
     });
 
     if (unrollJam && I.isLiteral()) {
-#if UNROLL_DELAYED
-      KrnlMatmulLoweringUnrollLoop.emplace_back(
-          getForInductionVarOwner(iSaved));
-      KrnlMatmulLoweringUnrollLoopFactor.emplace_back(I.getLiteral());
-#elif UNROLL_IT
-      printf(" .    hi alex: try unroll and jam\n");
-      // Unroll and jam. Seems to support only one operation at this time.
-      auto iLoop = getForInductionVarOwner(iSaved);
-      LogicalResult res = loopUnrollJamUpToFactor(iLoop, I.getLiteral());
-      assert(succeeded(res) && "failed to optimize");
-      printf(" .    hi alex: done unroll and jam\n");
-#endif
+      Operation *currFuncOp = getContainingFunction(op.getOperation());
+      UnrollAndJamList *currUnrollAndJamList = unrollAndJamMap[currFuncOp];
+      assert(currUnrollAndJamList && "expected list for function");
+      UnrollAndJamRecord record(
+          getForInductionVarOwner(iSaved), I.getLiteral());
+      currUnrollAndJamList->emplace_back(record);
     }
   }
 
@@ -1054,13 +1039,10 @@ private:
     OpBuilder::InsertionGuard guard(createAffine.getBuilder());
     if (block->empty() ||
         !block->back().mightHaveTrait<OpTrait::IsTerminator>()) {
-      printf(" .  hi alex: no terminators I think\n");
       createAffine.getBuilder().setInsertionPointToEnd(block);
     } else
       createAffine.getBuilder().setInsertionPoint(&block->back());
-    printf(" . hi alex: start then/else code\n");
     builderFn(block->getArguments());
-    printf(" . hi alex: stop then/else code\n");
   }
 
   void genIfThenElseWithoutParams(AffineBuilder &createAffine,
@@ -1086,12 +1068,6 @@ private:
         allFalse = false;
       }
     }
-#if FORCE_IF_THEN_ELSE
-    allTrue = false;
-    allFalse = false;
-#endif
-    printf("hi alex all true %s, all false %s\n", (allTrue ? "yes" : "no"),
-        (allFalse ? "yes" : "no"));
     auto inset = IntegerSet::get(
         scope.getNumDims(), scope.getNumSymbols(), affineCond, isEq);
     SmallVector<Value, 8> dimAndSymbolList;
@@ -1101,16 +1077,12 @@ private:
     Block *thenBlock = ifOp.getThenBlock();
     Block *elseBlock = ifOp.getElseBlock();
     if (!allFalse) {
-      printf("hi alex: start then\n");
       appendToBlock(
           createAffine, thenBlock, [&](ValueRange args) { thenFn(args); });
-      printf("hi alex: stop then\n");
     }
     if (!allTrue) {
-      printf("hi alex: start else\n");
       appendToBlock(
           createAffine, elseBlock, [&](ValueRange args) { elseFn(args); });
-      printf("hi alex: stop else\n");
     }
   }
 };
@@ -1445,7 +1417,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
 
   // aee
   processFunction = &funcOp;
-  printf("hi alex, starting Step 1 to run convert krnl to affine\n");
+  //printf("hi alex, starting Step 1 to run convert krnl to affine\n");
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
@@ -1453,7 +1425,6 @@ void ConvertKrnlToAffinePass::runOnFunction() {
         moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
     assert(succeeded(res) && "failed to move loop invariant code");
   });
-  printf("hi alex, starting Step 2 to run convert krnl to affine\n");
 
   // We use the end of the function body as a staging area for movable ops.
   builder.setInsertionPoint(
@@ -1462,7 +1433,6 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   funcOp.walk(
       [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
 
-  printf("hi alex, starting Step 3 to run convert krnl to affine\n");
   // Interpret krnl dialect operations while looping recursively through
   // operations within the current function, note that erasing operations
   // while iterating is tricky because it can invalidate the iterator, so we
@@ -1475,8 +1445,6 @@ void ConvertKrnlToAffinePass::runOnFunction() {
     signalPassFailure();
     return;
   }
-
-  printf("hi alex, starting Step 4 to run convert krnl to affine\n");
 
   funcOp->walk([&](Operation *op) {
     if (SpecializedKernelOpInterface kernelOp =
@@ -1501,8 +1469,6 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   });
   removeOps(opsToErase);
   assert(opsToErase.empty());
-
-  printf("hi alex, starting Step 5 to run convert krnl to affine\n");
 
   // Move loop body under appropriate newly created affine loops.
   mover.moveAll(loopRefToOp);
@@ -1530,16 +1496,34 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   patterns.insert<KrnlCopyToBufferLowering>(&getContext());
   patterns.insert<KrnlCopyFromBufferLowering>(&getContext());
 
-  printf("hi alex, starting Step 6 to run convert krnl to affine\n");
+  //printf("hi alex, starting Step 6 to run convert krnl to affine\n");
+  // Create list for recording the <loop, unroll factor> pairs associated with
+  // this function.
+  UnrollAndJamList *currUnrollAndJamList = new UnrollAndJamList();
+  Operation *currFuncOp = funcOp.getOperation();
+  unrollAndJamMap[currFuncOp] = currUnrollAndJamList;
 
   DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
           getFunction(), target, std::move(patterns), &unconverted))) {
-    printf("hi alex, signal failure while in convert krnl to affine\n");
+    //printf("hi alex, signal failure while in convert krnl to affine\n");
     signalPassFailure();
   }
 
-  printf("hi alex, done to run convert krnl to affine\n");
+#if UNROLL_IT
+  //printf("hi alex, starting Step 7 to run convert krnl to affine\n");
+  for (size_t i = 0; i < currUnrollAndJamList->size(); ++i) {
+    //printf("start unroll and jam super late\n");
+    UnrollAndJamRecord record = (*currUnrollAndJamList)[i];
+    LogicalResult res = loopUnrollJamUpToFactor(record.first, record.second);
+    assert(succeeded(res) && "failed to optimize");
+    //printf("stop unroll and jam super late\n");
+  }
+  free(currUnrollAndJamList);
+  unrollAndJamMap.erase(currFuncOp);
+#endif
+
+  //printf("hi alex, done to run convert krnl to affine\n");
 }
 
 } // namespace
