@@ -1069,11 +1069,7 @@ private:
       int nIn = 0;
       int nOut = 0;
       getNodeInputs(node, inputs);
-
-      // TODO: isn't nOut just node.output().size()?
-      for (const auto &item : node.output())
-        ++nOut;
-
+      nOut = node.output().size();
       buildOutputAndOperation<ONNXCustomOp>(
           node, inputs, nIn, nOut, attributes);
     }

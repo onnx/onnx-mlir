@@ -482,7 +482,6 @@ ONNXConstantOp ConstPropTranspose(
 
 ONNXConstantOp ConstPropUnsqueeze(
     PatternRewriter &rewriter, Value replacingValue, Value input) {
-  Type replacingType = replacingValue.getType();
   Operation *inputOp = input.getDefiningOp();
 
   char *resArray = getArrayFromAttributeOrBuffer(rewriter, inputOp);
