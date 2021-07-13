@@ -13,6 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
+#include "mlir/Conversion/LLVMCommon/Pattern.h"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
@@ -27,8 +30,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "onnx/onnx_pb.h"
 #include "llvm/ADT/Sequence.h"
+
+#include "onnx/onnx_pb.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVM.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -369,6 +373,7 @@ public:
     auto loc = op->getLoc();
 
     auto krnlGlobalOp = llvm::dyn_cast<KrnlGlobalOp>(op);
+    auto alignmentAttr = krnlGlobalOp.alignmentAttr();
 
     // Get module.
     ModuleOp module = op->getParentOfType<ModuleOp>();
@@ -453,62 +458,85 @@ public:
 
     // Prepare data to be inserted into MemRef.
     // If global needs alignment, we need to allocate a new buffer that is
-    // aligned. This is a region of local memory and needs to be emitted as an
-    // alloca.
+    // aligned.
     // - Otherwise, no preparation is needed, directly use the global.
-
-    int alignment = 0;
-    if (krnlGlobalOp.alignmentAttr())
-      alignment = krnlGlobalOp.alignmentAttr().getValue().getSExtValue();
-    Value typedGlobal;
 
     // Get the address of the global.
     Value globalValue = rewriter.create<LLVM::AddressOfOp>(loc, global);
-    auto llvmConstantElementType = constantElementType.cast<Type>();
+    auto globalPtrType =
+        LLVM::LLVMPointerType::get(constantElementType.cast<Type>());
 
-    if (alignment != 0) {
+    Value localValue, alignedLocalValue;
+    if (alignmentAttr && alignmentAttr.getValue().getSExtValue() != 0) {
       // Some frequently used types.
+      auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
       auto llvmI8PtrTy =
           LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
-      auto llvmI64Ty = IntegerType::get(context, 64);
-      auto one = rewriter.create<LLVM::ConstantOp>(
-          loc, llvmI64Ty, rewriter.getI64IntegerAttr(1));
-      Value alloc = rewriter.create<LLVM::AllocaOp>(loc,
-          LLVM::LLVMPointerType::get(llvmGlobalType), one,
-          /*alignment=*/alignment);
 
-      // Copy constant value into the local alloca:
-      //  - Bitcast alloc to i8*
-      Value int8PtrAlloc =
-          rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, alloc);
+      // Compute allocation size.
+      Value alignment = createIndexConstant(
+          rewriter, loc, alignmentAttr.getValue().getSExtValue());
+      Value sizeBytes = createIndexConstant(rewriter, loc, sizeInBytes);
+      // Adjust the allocation size to consider alignment.
+      Value sizeBytesWithAligment =
+          rewriter.create<LLVM::AddOp>(loc, sizeBytes, alignment);
+
+      // Allocate a local buffer for the constant.
+      FlatSymbolRefAttr mallocSym = getOrInsertMalloc(rewriter, module);
+      Value i8PtrLocal = rewriter
+                             .create<LLVM::CallOp>(loc, llvmI8PtrTy, mallocSym,
+                                 ArrayRef<Value>(sizeBytesWithAligment))
+                             .getResult(0);
+
+      // Bitcast the local buffer to the MemRefType's element type.
+      localValue =
+          rewriter.create<LLVM::BitcastOp>(loc, globalPtrType, i8PtrLocal);
+
+      // Compute the aligned pointer.
+      Type intPtrType = getIntPtrType(memRefTy.getMemorySpaceAsInt());
+      Value intPtrLocal =
+          rewriter.create<LLVM::PtrToIntOp>(loc, intPtrType, localValue);
+      Value intAlignment = createAligned(rewriter, loc, intPtrLocal, alignment);
+      alignedLocalValue =
+          rewriter.create<LLVM::IntToPtrOp>(loc, globalPtrType, intAlignment);
+
+      // Copy constant values into the local aligned buffer:
+      //  - Bitcast alignedPtr to i8*
+      Value i8AlignedPtrLocal =
+          rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, alignedLocalValue);
       //  - Bitcast global to i8*
       Value i8PtrGlobal =
           rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, globalValue);
-      //  - Set size.
-      Value totalElementsSize = rewriter.create<LLVM::ConstantOp>(
-          loc, llvmI64Ty, rewriter.getI64IntegerAttr(sizeInBytes));
-      Value int64Size =
-          rewriter.create<LLVM::SExtOp>(loc, llvmI64Ty, totalElementsSize);
       //  - Set volatile.
       Value isVolatile =
           rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 1),
               rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
-      //  - Copy constant data into the alloca.
-      auto memcpyRef = getOrInsertMemcpy(rewriter, module);
+      //  - Call memcpy.
+      FlatSymbolRefAttr memcpyRef = getOrInsertMemcpy(rewriter, module);
       rewriter.create<CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
-          ArrayRef<Value>({int8PtrAlloc, i8PtrGlobal, int64Size, isVolatile}));
-      //  - Use the allocated buffer.
-      typedGlobal = rewriter.create<LLVM::BitcastOp>(
-          loc, LLVM::LLVMPointerType::get(llvmConstantElementType), alloc);
+          ArrayRef<Value>(
+              {i8AlignedPtrLocal, i8PtrGlobal, sizeBytes, isVolatile}));
+
+      // Insert deallocation for the local buffer.
+      Block *parentBlock = i8PtrLocal.getDefiningOp()->getBlock();
+      FlatSymbolRefAttr deallocSym = getOrInsertDealloc(rewriter, module);
+      LLVM::CallOp dealloc = rewriter.create<LLVM::CallOp>(
+          loc, llvmVoidTy, deallocSym, ArrayRef<Value>(i8PtrLocal));
+      dealloc.getOperation()->moveBefore(&parentBlock->back());
     } else {
       // Bitcast the global to the MemRefType's element type.
-      typedGlobal = rewriter.create<LLVM::BitcastOp>(loc,
-          LLVM::LLVMPointerType::get(llvmConstantElementType), globalValue);
+      localValue =
+          rewriter.create<LLVM::BitcastOp>(loc, globalPtrType, globalValue);
     }
 
     // Create llvm MemRef from original MemRef and fill the data pointers.
     auto llvmMemRef = MemRefDescriptor::fromStaticShape(
-        rewriter, loc, *getTypeConverter(), memRefTy, typedGlobal);
+        rewriter, loc, *getTypeConverter(), memRefTy, localValue);
+
+    // If alignment, update alignedPtr.
+    if (alignedLocalValue) {
+      llvmMemRef.setAlignedPtr(rewriter, loc, alignedLocalValue);
+    }
 
     rewriter.replaceOp(op, {llvmMemRef});
     return success();
@@ -517,6 +545,20 @@ public:
 private:
   static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
     return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+  }
+
+  // Copied from lib/Conversion/StandardToLLVM/StandardToLLVM.cpp
+  // Returns 'input' aligned up to 'alignment'. Computes
+  // bumped = input + alignement - 1
+  // aligned = bumped - bumped % alignment
+  static Value createAligned(ConversionPatternRewriter &rewriter, Location loc,
+      Value input, Value alignment) {
+    Value one = rewriter.create<LLVM::ConstantOp>(loc, alignment.getType(),
+        rewriter.getIntegerAttr(rewriter.getIndexType(), 1));
+    Value bump = rewriter.create<LLVM::SubOp>(loc, alignment, one);
+    Value bumped = rewriter.create<LLVM::AddOp>(loc, input, bump);
+    Value mod = rewriter.create<LLVM::URemOp>(loc, bumped, alignment);
+    return rewriter.create<LLVM::SubOp>(loc, bumped, mod);
   }
 };
 
@@ -1382,9 +1424,16 @@ public:
 
 void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     MLIRContext *ctx, LLVMTypeConverter &typeConverter) {
+  // TODO: look at what is done in
+  // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
+  // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
+  // They run it in two steps, and add additional lowerings.
+
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
-  vector::populateVectorSlicesLoweringPatterns(patterns);
+  // Removed in upgrade of LLVM:
+  // vector::populateVectorSlicesLoweringPatterns(patterns);
   vector::populateVectorContractLoweringPatterns(patterns);
+  vector::populateVectorTransposeLoweringPatterns(patterns);
 
   populateAffineToStdConversionPatterns(patterns);
   populateLoopToStdConversionPatterns(patterns);
@@ -1395,6 +1444,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateStdExpandOpsPatterns(patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
+  populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlVectorTypeCastOpLowering>(
       ctx, typeConverter);

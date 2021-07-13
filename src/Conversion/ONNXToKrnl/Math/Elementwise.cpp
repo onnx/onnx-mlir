@@ -734,10 +734,9 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc, isUniBroadcasting);
     auto shapecomputed = shapeHelper.Compute(operands);
     assert(succeeded(shapecomputed));
-    // Scope for krnl EDSC ops
-    using namespace mlir::edsc;
-    ScopedContext scope(rewriter, loc);
+    // Scope for krnl ops
     IndexExprScope outerScope(rewriter, shapeHelper.scope);
+    KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
@@ -764,21 +763,21 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     LogicalResult res = shapeHelper.GetAccessExprs(
         operands[0], 0, outputAccessExprs, lhsAccessExprs);
     assert(succeeded(res));
-    Value lhs = krnl_load(operands[0], lhsAccessExprs);
+    Value lhs = createKrnl.loadIE(operands[0], lhsAccessExprs);
 
     // Load the second value.
     SmallVector<IndexExpr, 4> rhsAccessExprs;
     res = shapeHelper.GetAccessExprs(
         operands[1], 1, outputAccessExprs, rhsAccessExprs);
     assert(succeeded(res));
-    Value rhs = krnl_load(operands[1], rhsAccessExprs);
+    Value rhs = createKrnl.loadIE(operands[1], rhsAccessExprs);
 
     // Apply the element-wise function.
     Value result = emitScalarOpFor<ElementwiseBinaryOp>(
         rewriter, loc, op, outputElementType, {lhs, rhs});
 
     // Store result in the resulting array.
-    krnl_store(result, alloc, outputAccessExprs);
+    createKrnl.storeIE(result, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -812,9 +811,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc, true, true);
     LogicalResult shapecomputed = shapeHelper.Compute(operands);
     assert(succeeded(shapecomputed));
-    using namespace mlir::edsc;
-    ScopedContext scope(rewriter, loc);
     IndexExprScope outerScope(rewriter, shapeHelper.scope);
+    KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
@@ -843,7 +841,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     LogicalResult res = shapeHelper.GetAccessExprs(
         operands[0], 0, outputAccessExprs, oprdAccessExprs);
     assert(succeeded(res));
-    Value accumulated = krnl_load(operands[0], oprdAccessExprs);
+    Value accumulated = createKrnl.loadIE(operands[0], oprdAccessExprs);
 
     // Iterate over the remaining operands.
     for (unsigned i = 1; i < numArgs; i++) {
@@ -852,14 +850,14 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       LogicalResult res = shapeHelper.GetAccessExprs(
           operands[i], i, outputAccessExprs, oprdAccessExprs);
       assert(succeeded(res));
-      Value next = krnl_load(operands[i], oprdAccessExprs);
+      Value next = createKrnl.loadIE(operands[i], oprdAccessExprs);
       // Fold.
       accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
           rewriter, loc, op, outputElementType, {accumulated, next});
     }
 
     // Store result in the resulting array.
-    krnl_store(accumulated, alloc, outputAccessExprs);
+    createKrnl.storeIE(accumulated, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 

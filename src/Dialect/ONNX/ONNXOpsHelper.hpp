@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Traits.h"
-#include "mlir/EDSC/Builders.h"
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
@@ -23,14 +22,22 @@
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
-//====---------------- EDSC Support with Value ---------------------------===//
 namespace mlir {
-using onnx_add = mlir::edsc::ValueBuilder<ONNXAddOp>;
-using onnx_sub = mlir::edsc::ValueBuilder<ONNXSubOp>;
-using onnx_mul = mlir::edsc::ValueBuilder<ONNXMulOp>;
-using onnx_div = mlir::edsc::ValueBuilder<ONNXDivOp>;
-using onnx_matmul = mlir::edsc::ValueBuilder<ONNXMatMulOp>;
-using onnx_gemm = mlir::edsc::ValueBuilder<ONNXGemmOp>;
+
+//====-------------------------- ONNX Builder ---------------------------===//
+
+struct OnnxBuilder : DialectBuilder {
+  OnnxBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  OnnxBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
+  OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+
+  Value add(Value A, Value B);
+  Value sub(Value A, Value B);
+  Value mul(Value A, Value B);
+  Value div(Value A, Value B);
+  Value matmul(Type Y, Value A, Value B);
+};
+
 } // namespace mlir
 
 // Identity affine map:

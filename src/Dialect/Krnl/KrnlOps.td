@@ -915,11 +915,15 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     OptionalAttr<I64ArrayAttr>:$padToNext, // Rank of bufffer.
     DefaultValuedAttr<BoolAttr, "false">:$transpose); // Transposed or not.
 
-  let builders = [ OpBuilder<(ins "Value": $buffer, "Value": $source, 
+  let builders = [ 
+    OpBuilder<(ins "Value": $buffer, "Value": $source, 
       "ValueRange": $starts, "Value": $padValue, 
       "ArrayRef<int64_t>": $tileSize, "ArrayRef<int64_t>": $padToNext,
-      "bool": $transpose
-    )> ];
+      "bool": $transpose)>,
+    OpBuilder<(ins "Value": $buffer, "Value": $source, 
+      "ValueRange": $starts, "Value": $padValue,
+      "bool": $transpose)>
+  ];
 
   let verifier = [{ return ::verify(*this); }];
     let assemblyFormat = [{
@@ -948,9 +952,11 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
     Variadic<Index>:$starts, // Rank of destination.
     OptionalAttr<I64ArrayAttr>:$tileSize); // Rank of buffer.
 
-  let builders = [ OpBuilder<(ins "Value": $buffer, "Value": $dest, 
-      "ValueRange": $starts, "ArrayRef<int64_t>": $tileSize
-    )> ];
+  let builders = [ 
+    OpBuilder<(ins "Value": $buffer, "Value": $dest, 
+      "ValueRange": $starts, "ArrayRef<int64_t>": $tileSize)>,
+    OpBuilder<(ins "Value": $buffer, "Value": $dest, "ValueRange": $starts)>
+  ];
 
   let verifier = [{ return ::verify(*this); }];
     let assemblyFormat = [{

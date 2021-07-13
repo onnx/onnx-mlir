@@ -53,7 +53,7 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::ONNXOpsDialect>();
 }
 
-void check(ModelProto &model) {
+int check(ModelProto &model) {
   mlir::MLIRContext context;
   registerDialects(context);
   mlir::OwningModuleRef module;
@@ -68,17 +68,18 @@ void check(ModelProto &model) {
   if (mlir::failed(pm.run(*module))) {
     module->dump();
     std::cerr << "Error applying shape inference!\n";
-    return;
+    return 1;
   }
 
   if (mlir::failed(module->verify())) {
     module->dump();
     std::cerr << "Error verifying module!\n";
-    return;
+    return 1;
   }
+  return 0;
 }
 
-void testCustomFunTranslation() {
+int testCustomFunTranslation() {
   RegisterFunSchema();
 
   ModelProto model_proto;
@@ -111,10 +112,10 @@ void testCustomFunTranslation() {
   node->set_op_type("SquareFn");
   node->set_name("node1");
 
-  check(model_proto);
+  return check(model_proto);
 }
 
-void testUseOfOnnxModelTypes() {
+int testUseOfOnnxModelTypes() {
   RegisterFunSchema();
 
   ModelProto model_proto;
@@ -159,7 +160,7 @@ void testUseOfOnnxModelTypes() {
   node->add_output("y");
   node->set_op_type("CustomFn2");
 
-  check(model_proto);
+  return check(model_proto);
 }
 
 void RegisterOptParamFunSchema() {
@@ -185,7 +186,7 @@ void RegisterOptParamFunSchema() {
   registered = true;
 }
 
-void testOptionalParameter() {
+int testOptionalParameter() {
   RegisterOptParamFunSchema();
 
   ModelProto model_proto;
@@ -234,13 +235,15 @@ void testOptionalParameter() {
   node->add_output("z");
   node->set_op_type("TestFun1");
 
-  check(model_proto);
+  return check(model_proto);
 }
 
 int main(int argc, char *argv[]) {
-  testCustomFunTranslation();
-  testUseOfOnnxModelTypes();
-  testOptionalParameter();
+  int status = 0;
 
-  return 0;
+  status |= testCustomFunTranslation();
+  status |= testUseOfOnnxModelTypes();
+  status |= testOptionalParameter();
+
+  return status;
 }

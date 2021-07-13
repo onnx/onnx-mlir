@@ -3,12 +3,13 @@
 # ONNX MLIR
 The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mlir/).
 
-| System      | Build Status |
-|-------------|--------------|
-| x86-Linux   | [![CircleCI](https://circleci.com/gh/onnx/onnx-mlir/tree/master.svg?style=svg)](https://circleci.com/gh/onnx/onnx-mlir/tree/master)             |
-| s390-Linux  | [![Build Status](https://yktpandb.watson.ibm.com/jenkins/buildStatus/icon?job=ONNX-MLIR-Linux-s390x-Build)](https://yktpandb.watson.ibm.com/jenkins/job/ONNX-MLIR-Linux-s390x-Build/)             |
-| x86-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)             |
-| x86-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/workflows/Build%20x86%20onnx-mlir%20on%20macOS/badge.svg)](https://github.com/onnx/onnx-mlir/actions?query=workflow%3A%22Build+x86+onnx-mlir+on+macOS%22)             |
+| System        | Build Status |
+|---------------|--------------|
+| s390x-Linux   | [![Build Status](https://yktpandb.watson.ibm.com/jenkins/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build)](https://yktpandb.watson.ibm.com/jenkins/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| ppc64le-Linux | [![Build Status](https://yktpandb.watson.ibm.com/jenkinp/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build)](https://yktpandb.watson.ibm.com/jenkinp/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| amd64-Linux   | [![Build Status](https://yktpandb.watson.ibm.com/jenkinx/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build)](https://yktpandb.watson.ibm.com/jenkinx/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| amd64-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)             |
+| amd64-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/workflows/Build%20x86%20onnx-mlir%20on%20macOS/badge.svg)](https://github.com/onnx/onnx-mlir/actions?query=workflow%3A%22Build+x86+onnx-mlir+on+macOS%22)             |
 
 ## Prebuilt Container
 An easy way to get started with ONNX-MLIR is to use a prebuilt docker image.
@@ -108,7 +109,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout ebe408ad8003c946ef871b955ab18e64e82697cb && cd ..
+cd llvm-project && git checkout 23dd750279c9e32ea631cc9e92c4413c7a3df60a && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -122,7 +123,7 @@ cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_ASSERTIONS=ON \
    -DLLVM_ENABLE_RTTI=ON
 
-cmake --build . --target -- ${MAKEFLAGS}
+cmake --build . -- ${MAKEFLAGS}
 cmake --build . --target check-mlir
 ```
 
@@ -145,7 +146,7 @@ mkdir onnx-mlir/build && cd onnx-mlir/build
 cmake ..
 cmake --build .
 
-# Run FileCheck tests:
+# Run lit tests:
 export LIT_OPTS=-v
 cmake --build . --target check-onnx-lit
 ```
@@ -153,6 +154,18 @@ cmake --build . --target check-onnx-lit
 If you are running on OSX Big Sur, you need to add `-DCMAKE_CXX_COMPILER=/usr/bin/c++`
 to the `cmake ..` command due to changes in the compilers.
 After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory.
+
+##### LLVM and ONNX-MLIR CMake variables
+
+The following CMake variables from LLVM and ONNX MLIR can be used when compiling ONNX MLIR.
+
+**MLIR_DIR**:PATH
+  Path to to the mlir cmake module inside an llvm-project build or install directory (e.g., c:/repos/llvm-project/build/lib/cmake/mlir).
+  This is required if **MLIR_DIR** is not specified as an environment variable.
+
+**LLVM_EXTERNAL_LIT**:PATH
+  Path to the lit tool. Defaults to an empty string and LLVM will find the tool based on **MLIR_DIR** if possible.
+  This is required when **MLIR_DIR** points to an install directory.
 
 ## Installation on Windows
 Building onnx-mlir on Windows requires building some additional prerequisites that are not available by default.
@@ -199,7 +212,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout ebe408ad8003c946ef871b955ab18e64e82697cb && cd ..
+cd llvm-project && git checkout 23dd750279c9e32ea631cc9e92c4413c7a3df60a && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
@@ -254,6 +267,18 @@ call cmake --build . --config Release --target check-onnx-lit -- /m
 ```
 
 After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory.
+
+##### LLVM and ONNX-MLIR CMake variables
+
+The following CMake variables from LLVM and ONNX MLIR can be used when compiling ONNX MLIR.
+
+**MLIR_DIR**:PATH
+  Path to to the mlir cmake module inside an llvm-project build or install directory (e.g., c:/repos/llvm-project/build/lib/cmake/mlir).
+  This is required if **MLIR_DIR** is not specified as an environment variable.
+
+**LLVM_EXTERNAL_LIT**:PATH
+  Path to the lit tool. Defaults to an empty string and LLVM will find the tool based on **MLIR_DIR** if possible.
+  This is required when **MLIR_DIR** points to an install directory.
 
 ## Using ONNX-MLIR
 

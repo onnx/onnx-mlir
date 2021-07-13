@@ -13,12 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 
 #define TEST_FUSED_MATMUL false
 
 using namespace mlir;
-using namespace mlir::edsc;
-using namespace mlir::edsc::intrinsics;
 
 struct LstmState {
   // returned states.
@@ -39,6 +38,8 @@ struct LstmActivationPack {
 };
 
 struct LstmWeightPack {
+  Value W;
+  Value R;
   Value Wi;
   Value Wo;
   Value Wf;
@@ -220,20 +221,12 @@ getWeightPack<ONNXLSTMOp, LstmWeightPack>(
   // MemRef types for parameter weights.
   auto w3DTy = MemRefType::get({1, 4 * hiddenSize, inputSize}, elementType);
   auto w2DTy = MemRefType::get({4 * hiddenSize, inputSize}, elementType);
-  auto wSplit2DTy = MemRefType::get({hiddenSize, inputSize}, elementType);
-  auto wTranspose2DTy = MemRefType::get({inputSize, hiddenSize}, elementType);
   SmallVector<Type, 4> w3D2Ty(2, w3DTy);
-  SmallVector<Type, 4> wSplit2D4Ty(4, wSplit2DTy);
 
   // MemRef types for recurrence weights.
   auto r3DTy = MemRefType::get({1, 4 * hiddenSize, hiddenSize}, elementType);
   auto r2DTy = MemRefType::get({4 * hiddenSize, hiddenSize}, elementType);
-  auto rSplit2DTy = MemRefType::get({hiddenSize, hiddenSize}, elementType);
-  auto rTranspose2DTy = MemRefType::get({hiddenSize, hiddenSize}, elementType);
   SmallVector<Type, 4> r3D2Ty(2, r3DTy);
-  SmallVector<Type, 4> rSplit2D4Ty(4, rSplit2DTy);
-
-  ArrayAttr permAttr = rewriter.getI64ArrayAttr({1, 0});
 
   // Squeeze the direction axis from W and R.
   Value fW, bW, fR, bR;
@@ -259,51 +252,15 @@ getWeightPack<ONNXLSTMOp, LstmWeightPack>(
   // Split W and R into individual weight tensors, and transpose them.
   if (direction == FORWARD || direction == BIDIRECTIONAL) {
     // W
-    std::vector<Value> vals =
-        foldOrEmitONNXSplitOp(rewriter, loc, wSplit2D4Ty, fW, 0);
-    weightForward.Wi = foldOrEmitONNXTransposeOp(
-        rewriter, loc, wTranspose2DTy, vals[0], permAttr);
-    weightForward.Wo = foldOrEmitONNXTransposeOp(
-        rewriter, loc, wTranspose2DTy, vals[1], permAttr);
-    weightForward.Wf = foldOrEmitONNXTransposeOp(
-        rewriter, loc, wTranspose2DTy, vals[2], permAttr);
-    weightForward.Wc = foldOrEmitONNXTransposeOp(
-        rewriter, loc, wTranspose2DTy, vals[3], permAttr);
+    weightForward.W = fW;
     // R
-    vals.clear();
-    vals = foldOrEmitONNXSplitOp(rewriter, loc, rSplit2D4Ty, fR, 0);
-    weightForward.Ri = foldOrEmitONNXTransposeOp(
-        rewriter, loc, rTranspose2DTy, vals[0], permAttr);
-    weightForward.Ro = foldOrEmitONNXTransposeOp(
-        rewriter, loc, rTranspose2DTy, vals[1], permAttr);
-    weightForward.Rf = foldOrEmitONNXTransposeOp(
-        rewriter, loc, rTranspose2DTy, vals[2], permAttr);
-    weightForward.Rc = foldOrEmitONNXTransposeOp(
-        rewriter, loc, rTranspose2DTy, vals[3], permAttr);
+    weightForward.R = fR;
   }
   if (direction == REVERSE || direction == BIDIRECTIONAL) {
     // W
-    std::vector<Value> vals =
-        foldOrEmitONNXSplitOp(rewriter, loc, wSplit2D4Ty, bW, 0);
-    weightReverse.Wi = foldOrEmitONNXTransposeOp(
-        rewriter, loc, wTranspose2DTy, vals[0], permAttr);
-    weightReverse.Wo = foldOrEmitONNXTransposeOp(
-        rewriter, loc, wTranspose2DTy, vals[1], permAttr);
-    weightReverse.Wf = foldOrEmitONNXTransposeOp(
-        rewriter, loc, wTranspose2DTy, vals[2], permAttr);
-    weightReverse.Wc = foldOrEmitONNXTransposeOp(
-        rewriter, loc, wTranspose2DTy, vals[3], permAttr);
+    weightReverse.W = bW;
     // R
-    vals.clear();
-    vals = foldOrEmitONNXSplitOp(rewriter, loc, rSplit2D4Ty, bR, 0);
-    weightReverse.Ri = foldOrEmitONNXTransposeOp(
-        rewriter, loc, rTranspose2DTy, vals[0], permAttr);
-    weightReverse.Ro = foldOrEmitONNXTransposeOp(
-        rewriter, loc, rTranspose2DTy, vals[1], permAttr);
-    weightReverse.Rf = foldOrEmitONNXTransposeOp(
-        rewriter, loc, rTranspose2DTy, vals[2], permAttr);
-    weightReverse.Rc = foldOrEmitONNXTransposeOp(
-        rewriter, loc, rTranspose2DTy, vals[3], permAttr);
+    weightReverse.R = bR;
   }
   return std::make_tuple(weightForward, weightReverse);
 }
@@ -449,7 +406,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
       operandAdaptor.W(), operandAdaptor.R(), op->Y_c(),
       checkInsertDealloc(op->getOperation(), 2));
 
-  // Insert allocation and deallocation the intermedidate Ht and Ct for the
+  // Insert allocation and deallocation the intermediate Ht and Ct for the
   // forward and reverse directions.
   // Ht :: [batch_size, hidden_size]
   // Ct :: [batch_size, hidden_size]
@@ -489,132 +446,173 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
   // Ht = ot (.) h(Ct)
 
-  ScopedContext scope(rewriter, loc);
+  // TODO remove scope
+  ImplicitLocOpBuilder lb(loc, rewriter);
+  KrnlBuilder createKrnl(lb);
+
+  ArrayRef<int64_t> xtShape = Xt.getType().cast<ShapedType>().getShape();
+  int64_t batchSize = xtShape[0];
+  int64_t inputSize = xtShape[1];
 
   // Get Ht, Ct.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
   Value Ct = (isForward) ? state.forwardCt : state.reverseCt;
+
+  ArrayRef<int64_t> htShape = Ht.getType().cast<ShapedType>().getShape();
+  int64_t hiddenSize = htShape[1];
 
   // Frequently used types.
   MemRefType matrixType = Ht.getType().cast<MemRefType>();
 
   // Do matrix multiplications.
   Value XtWi, XtWf, XtWc, XtWo, HtRi, HtRf, HtRc, HtRo;
+  Value XtW, HtR;
   if (TEST_FUSED_MATMUL) {
     // For testing purpose, support only static dimensions.
     Type elementType = matrixType.getElementType();
-    Value zero = std_constant_index(0);
+    Value zero = lb.create<ConstantIndexOp>(0);
     Value zeroVal = emitConstantOp(rewriter, loc, elementType, 0);
-    XtWi = memref_alloc(matrixType);
-    XtWf = memref_alloc(matrixType);
-    XtWc = memref_alloc(matrixType);
-    XtWo = memref_alloc(matrixType);
+    XtWi = lb.create<memref::AllocOp>(matrixType);
+    XtWf = lb.create<memref::AllocOp>(matrixType);
+    XtWc = lb.create<memref::AllocOp>(matrixType);
+    XtWo = lb.create<memref::AllocOp>(matrixType);
     emitFusedMatMul(rewriter, loc, matrixType, Xt,
         {weightPack.Wi, weightPack.Wf, weightPack.Wc, weightPack.Wo}, zero,
         zeroVal, {XtWi, XtWf, XtWc, XtWo});
-    HtRi = memref_alloc(matrixType);
-    HtRf = memref_alloc(matrixType);
-    HtRc = memref_alloc(matrixType);
-    HtRo = memref_alloc(matrixType);
+    HtRi = lb.create<memref::AllocOp>(matrixType);
+    HtRf = lb.create<memref::AllocOp>(matrixType);
+    HtRc = lb.create<memref::AllocOp>(matrixType);
+    HtRo = lb.create<memref::AllocOp>(matrixType);
     emitFusedMatMul(rewriter, loc, matrixType, Ht,
         {weightPack.Ri, weightPack.Rf, weightPack.Rc, weightPack.Ro}, zero,
         zeroVal, {HtRi, HtRf, HtRc, HtRo});
   } else {
-    XtWi = onnx_matmul(matrixType, Xt, weightPack.Wi);
-    HtRi = onnx_matmul(matrixType, Ht, weightPack.Ri);
-    XtWf = onnx_matmul(matrixType, Xt, weightPack.Wf);
-    HtRf = onnx_matmul(matrixType, Ht, weightPack.Rf);
-    XtWc = onnx_matmul(matrixType, Xt, weightPack.Wc);
-    HtRc = onnx_matmul(matrixType, Ht, weightPack.Rc);
-    XtWo = onnx_matmul(matrixType, Xt, weightPack.Wo);
-    HtRo = onnx_matmul(matrixType, Ht, weightPack.Ro);
+    Type elementType = matrixType.getElementType();
+    OnnxBuilder createONNX(createKrnl);
+
+    ArrayAttr permAttr = rewriter.getI64ArrayAttr({1, 0});
+
+    auto xtTranspose2DTy = MemRefType::get({inputSize, batchSize}, elementType);
+    auto xtTranspose =
+        foldOrEmitONNXTransposeOp(rewriter, loc, xtTranspose2DTy, Xt, permAttr);
+    XtW = createONNX.matmul(
+        MemRefType::get({4 * hiddenSize, batchSize}, elementType), weightPack.W,
+        xtTranspose);
+
+    auto htTranspose2DTy =
+        MemRefType::get({hiddenSize, batchSize}, elementType);
+    auto htTranspose =
+        foldOrEmitONNXTransposeOp(rewriter, loc, htTranspose2DTy, Ht, permAttr);
+
+    HtR = createONNX.matmul(
+        MemRefType::get({4 * hiddenSize, batchSize}, elementType), weightPack.R,
+        htTranspose);
   }
 
   // Do element-wise computations. Fuse them into a single nested loop.
-  MemRefBoundsCapture bounds(Ht);
-  ValueRange loops = krnl_define_loop(bounds.rank());
-  krnl_iterate(
-      loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
-        ValueRange indices = krnl_get_induction_var_value(loops);
+  // Lower and upper bounds derived from Ht tensor.
+  unsigned HtRank = matrixType.getRank();
+  Value iZero = lb.create<ConstantIndexOp>(0);
+  SmallVector<Value, 4> HtLbs(HtRank, iZero);
+  SmallVector<Value, 4> HtUbs;
+  for (unsigned r = 0; r < HtRank; ++r) {
+    Value idx = lb.create<ConstantIndexOp>(r);
+    HtUbs.emplace_back(lb.createOrFold<memref::DimOp>(Ht, idx));
+  }
+
+  ValueRange loops = createKrnl.defineLoops(HtRank);
+  createKrnl.iterate(loops, loops, HtLbs, HtUbs, {},
+      [&](KrnlBuilder &createKrnl, ValueRange args) {
+        MathBuilder createMath(createKrnl);
+        IndexExprScope ieScope(createKrnl);
+        ValueRange indices = createKrnl.getInductionVarValue(loops);
         Value bs(indices[0]), hs(indices[1]);
-        Value CtVal = krnl_load(Ct, indices);
+        SymbolIndexExpr bsie(bs), hsie(hs);
+
+        Value CtVal = createKrnl.load(Ct, indices);
         // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
-        Value XtWiVal = krnl_load(XtWi, indices);
-        Value HtRiVal = krnl_load(HtRi, indices);
-        Value it = std_addf(XtWiVal, HtRiVal);
+        Value XtWiVal = createKrnl.loadIE(XtW, {hsie, bsie});
+        Value HtRiVal = createKrnl.loadIE(HtR, {hsie, bsie});
+        Value it = createMath.add(XtWiVal, HtRiVal);
         if (biasPack.hasBias) {
-          Value WbiVal = krnl_load(biasPack.Wbi, {hs});
-          Value RbiVal = krnl_load(biasPack.Rbi, {hs});
-          it = std_addf(it, WbiVal);
-          it = std_addf(it, RbiVal);
+          Value WbiVal = createKrnl.load(biasPack.Wbi, {hs});
+          Value RbiVal = createKrnl.load(biasPack.Rbi, {hs});
+          it = createMath.add(it, WbiVal);
+          it = createMath.add(it, RbiVal);
         }
         if (biasPack.hasPeephole) {
-          Value PiVal = krnl_load(biasPack.Pi, {hs});
-          Value PiCt = std_mulf(PiVal, CtVal);
-          it = std_addf(it, PiCt);
+          Value PiVal = createKrnl.load(biasPack.Pi, {hs});
+          Value PiCt = createMath.mul(PiVal, CtVal);
+          it = createMath.add(it, PiCt);
         }
-        it = applyActivation(rewriter, loc, activationPack.f, it);
+        it =
+            applyActivation(createKrnl.getBuilder(), loc, activationPack.f, it);
 
         // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
-        Value XtWfVal = krnl_load(XtWf, indices);
-        Value HtRfVal = krnl_load(HtRf, indices);
-        Value ft = std_addf(XtWfVal, HtRfVal);
+        Value XtWfVal = createKrnl.loadIE(XtW, {hsie + 2 * hiddenSize, bsie});
+        Value HtRfVal = createKrnl.loadIE(HtR, {hsie + 2 * hiddenSize, bsie});
+        Value ft = createMath.add(XtWfVal, HtRfVal);
         if (biasPack.hasBias) {
-          Value WbfVal = krnl_load(biasPack.Wbf, {hs});
-          Value RbfVal = krnl_load(biasPack.Rbf, {hs});
-          ft = std_addf(ft, WbfVal);
-          ft = std_addf(ft, RbfVal);
+          Value WbfVal = createKrnl.load(biasPack.Wbf, {hs});
+          Value RbfVal = createKrnl.load(biasPack.Rbf, {hs});
+          ft = createMath.add(ft, WbfVal);
+          ft = createMath.add(ft, RbfVal);
         }
         if (biasPack.hasPeephole) {
-          Value PfVal = krnl_load(biasPack.Pf, {hs});
-          Value PfCt = std_mulf(PfVal, CtVal);
-          ft = std_addf(ft, PfCt);
+          Value PfVal = createKrnl.load(biasPack.Pf, {hs});
+          Value PfCt = createMath.mul(PfVal, CtVal);
+          ft = createMath.add(ft, PfCt);
         }
-        ft = applyActivation(rewriter, loc, activationPack.f, ft);
+        ft =
+            applyActivation(createKrnl.getBuilder(), loc, activationPack.f, ft);
 
         // ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
-        Value XtWcVal = krnl_load(XtWc, indices);
-        Value HtRcVal = krnl_load(HtRc, indices);
-        Value ct = std_addf(XtWcVal, HtRcVal);
+        Value XtWcVal = createKrnl.loadIE(XtW, {hsie + 3 * hiddenSize, bsie});
+        Value HtRcVal = createKrnl.loadIE(HtR, {hsie + 3 * hiddenSize, bsie});
+        Value ct = createMath.add(XtWcVal, HtRcVal);
         if (biasPack.hasBias) {
-          Value WbcVal = krnl_load(biasPack.Wbc, {hs});
-          Value RbcVal = krnl_load(biasPack.Rbc, {hs});
-          ct = std_addf(ct, WbcVal);
-          ct = std_addf(ct, RbcVal);
+          Value WbcVal = createKrnl.load(biasPack.Wbc, {hs});
+          Value RbcVal = createKrnl.load(biasPack.Rbc, {hs});
+          ct = createMath.add(ct, WbcVal);
+          ct = createMath.add(ct, RbcVal);
         }
-        ct = applyActivation(rewriter, loc, activationPack.g, ct);
+        ct =
+            applyActivation(createKrnl.getBuilder(), loc, activationPack.g, ct);
 
         // Ct = ft (.) Ct-1 + it (.) ct
-        Value ftCt = std_mulf(ft, CtVal);
-        Value itct = std_mulf(it, ct);
-        Value nextCt = std_addf(ftCt, itct);
+        Value ftCt = createMath.mul(ft, CtVal);
+        Value itct = createMath.mul(it, ct);
+        Value nextCt = createMath.add(ftCt, itct);
 
         // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
-        Value XtWoVal = krnl_load(XtWo, indices);
-        Value HtRoVal = krnl_load(HtRo, indices);
-        Value ot = std_addf(XtWoVal, HtRoVal);
+        Value XtWoVal = createKrnl.loadIE(XtW, {hsie + hiddenSize, bsie});
+        Value HtRoVal = createKrnl.loadIE(HtR, {hsie + hiddenSize, bsie});
+        Value ot = createMath.add(XtWoVal, HtRoVal);
         if (biasPack.hasBias) {
-          Value WboVal = krnl_load(biasPack.Wbo, {hs});
-          Value RboVal = krnl_load(biasPack.Rbo, {hs});
-          ot = std_addf(ot, WboVal);
-          ot = std_addf(ot, RboVal);
+          Value WboVal = createKrnl.load(biasPack.Wbo, {hs});
+          Value RboVal = createKrnl.load(biasPack.Rbo, {hs});
+          ot = createMath.add(ot, WboVal);
+          ot = createMath.add(ot, RboVal);
         }
         if (biasPack.hasPeephole) {
-          Value PoVal = krnl_load(biasPack.Po, {hs});
-          Value PoCt = std_mulf(PoVal, nextCt);
-          ot = std_addf(ot, PoCt);
+          Value PoVal = createKrnl.load(biasPack.Po, {hs});
+          Value PoCt = createMath.mul(PoVal, nextCt);
+          ot = createMath.add(ot, PoCt);
         }
-        ot = applyActivation(rewriter, loc, activationPack.f, ot);
+        ot =
+            applyActivation(createKrnl.getBuilder(), loc, activationPack.f, ot);
 
         // Ht = ot (.) h(Ct)
-        Value nextHt = applyActivation(rewriter, loc, activationPack.h, nextCt);
-        nextHt = std_mulf(ot, nextHt);
+        Value nextHt = applyActivation(
+            createKrnl.getBuilder(), loc, activationPack.h, nextCt);
+        nextHt = createMath.mul(ot, nextHt);
 
         // Store the intermediate Ht, Ct.
-        krnl_store(nextCt, Ct, indices);
-        krnl_store(nextHt, Ht, indices);
+        createKrnl.store(nextCt, Ct, indices);
+        createKrnl.store(nextHt, Ht, indices);
         if (!isNoneType(state.allH))
-          krnl_store(nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
+          createKrnl.store(
+              nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
       });
 
   if (TEST_FUSED_MATMUL) {

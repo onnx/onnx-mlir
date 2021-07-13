@@ -22,7 +22,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout ebe408ad8003c946ef871b955ab18e64e82697cb && cd ..
+cd llvm-project && git checkout 23dd750279c9e32ea631cc9e92c4413c7a3df60a && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -36,7 +36,7 @@ cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_ASSERTIONS=ON \
    -DLLVM_ENABLE_RTTI=ON
 
-cmake --build . --target -- ${MAKEFLAGS}
+cmake --build . -- ${MAKEFLAGS}
 cmake --build . --target check-mlir
 ```
 
@@ -59,7 +59,7 @@ mkdir onnx-mlir/build && cd onnx-mlir/build
 cmake ..
 cmake --build .
 
-# Run FileCheck tests:
+# Run lit tests:
 export LIT_OPTS=-v
 cmake --build . --target check-onnx-lit
 ```
@@ -111,7 +111,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout ebe408ad8003c946ef871b955ab18e64e82697cb && cd ..
+cd llvm-project && git checkout 23dd750279c9e32ea631cc9e92c4413c7a3df60a && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)

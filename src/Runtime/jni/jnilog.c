@@ -14,23 +14,57 @@
 //===----------------------------------------------------------------------===*/
 
 #include <errno.h>
-#include <libgen.h>
-#include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
+#if defined(_MSC_VER)
+#include <windows.h>
+#else
+#include <libgen.h>
+#include <pthread.h>
+#endif
+
 #include "jnilog.h"
 
-static __thread int log_inited = 0;
-static __thread int log_level;
-static __thread FILE *log_fp;
+#if defined(_MSC_VER)
+#define THREAD_LOCAL_SPEC __declspec(thread)
+#else
+#define THREAD_LOCAL_SPEC __thread
+#endif
+
+static THREAD_LOCAL_SPEC int log_inited = 0;
+static THREAD_LOCAL_SPEC int log_level;
+static THREAD_LOCAL_SPEC FILE *log_fp;
 
 /* Must match enum in log.h */
-static char *log_level_name[] = {
+static const char *log_level_name[] = {
     "trace", "debug", "info", "warning", "error", "fatal"};
+
+unsigned long get_threadid() {
+#if defined(_MSC_VER)
+  return (unsigned long)GetCurrentThreadId();
+#else
+  return (unsigned long)pthread_self();
+#endif
+}
+
+/* This is based on basename from lldb: lldb\source\Host\windows\Windows.cpp */
+char *get_filename(char *path) {
+#if defined(_MSC_VER)
+  char *l1 = strrchr(path, '\\');
+  char *l2 = strrchr(path, '/');
+  if (l2 > l1)
+    l1 = l2;
+  if (!l1)
+    return path; // no base name
+  return &l1[1];
+#else
+  return basename(path);
+#endif
+}
 
 /* Generic log routine */
 void log_printf(
@@ -50,13 +84,13 @@ void log_printf(
 
   /* Output thread ID, log level, file name, function number, and line number */
   snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), "[%lx][%s]%s:%s:%d ",
-      pthread_self(), log_level_name[level], basename(file), func, line);
+      get_threadid(), log_level_name[level], get_filename(file), func, line);
 
   /* Output actual log data */
-  va_list va_list;
-  va_start(va_list, fmt);
-  vsnprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), fmt, va_list);
-  va_end(va_list);
+  va_list log_data;
+  va_start(log_data, fmt);
+  vsnprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), fmt, log_data);
+  va_end(log_data);
 
   /* Add new line */
   snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), "\n");
@@ -69,7 +103,7 @@ void log_printf(
 /* Return numerical log level of give level name */
 static int get_log_level_by_name(char *name) {
   int level = -1;
-  for (int i = 0; i < sizeof(log_level_name) / sizeof(char *); i++) {
+  for (int i = 0; i < (int)(sizeof(log_level_name) / sizeof(char *)); i++) {
     if (!strcmp(name, log_level_name[i])) {
       level = i;
       break;
@@ -86,9 +120,12 @@ static FILE *get_log_file_by_name(char *name) {
   else if (!strcmp(name, "stderr"))
     fp = stderr;
   else {
-    char tname[strlen(name) + 32];
-    snprintf(tname, strlen(name) + 32, "%s.%lx", name, pthread_self());
-    fp = fopen(tname, "w");
+    char *tname = malloc(strlen(name) + 32);
+    if (tname) {
+      snprintf(tname, strlen(name) + 32, "%s.%lx", name, get_threadid());
+      fp = fopen(tname, "w");
+      free(tname);
+    }
   }
   return fp;
 }

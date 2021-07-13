@@ -13,10 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 
 using namespace mlir;
-using namespace mlir::edsc;
-using namespace mlir::edsc::intrinsics;
 
 struct GruState {
   // returned states.
@@ -388,22 +387,34 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
   //   ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh)
   // Ht = (1 - zt) (.) ht + zt (.) Ht-1"
 
-  ScopedContext scope(rewriter, loc);
+  ImplicitLocOpBuilder lb(loc, rewriter);
+  KrnlBuilder createKrnl(lb);
+  OnnxBuilder createONNX(lb);
 
   // Get Ht.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
 
   // Frequently used types.
   MemRefType matrixType = Ht.getType().cast<MemRefType>();
+  unsigned htRank = matrixType.getRank();
   Type elementType = matrixType.getElementType();
 
   // Common matrix multiplications.
-  Value XtWz = onnx_matmul(matrixType, Xt, weightPack.Wz);
-  Value HtRz = onnx_matmul(matrixType, Ht, weightPack.Rz);
-  Value XtWr = onnx_matmul(matrixType, Xt, weightPack.Wr);
-  Value HtRr = onnx_matmul(matrixType, Ht, weightPack.Rr);
-  Value XtWh = onnx_matmul(matrixType, Xt, weightPack.Wh);
+  Value XtWz = createONNX.matmul(matrixType, Xt, weightPack.Wz);
+  Value HtRz = createONNX.matmul(matrixType, Ht, weightPack.Rz);
+  Value XtWr = createONNX.matmul(matrixType, Xt, weightPack.Wr);
+  Value HtRr = createONNX.matmul(matrixType, Ht, weightPack.Rr);
+  Value XtWh = createONNX.matmul(matrixType, Xt, weightPack.Wh);
   Value one = emitConstantOp(rewriter, loc, elementType, 1);
+
+  // Lower and upper bounds derived from Ht tensor.
+  Value iZero = lb.create<ConstantIndexOp>(0);
+  SmallVector<Value, 4> htLbs(htRank, iZero);
+  SmallVector<Value, 4> htUbs;
+  for (unsigned r = 0; r < htRank; ++r) {
+    Value idx = lb.create<ConstantIndexOp>(r);
+    htUbs.emplace_back(lb.createOrFold<memref::DimOp>(Ht, idx));
+  }
 
   if (state.linearBeforeReset) {
     // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)"
@@ -412,62 +423,66 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     // Ht = (1 - zt) (.) ht + zt (.) Ht-1"
     // In this case, we can do all matrix multiplications first, then fuse all
     // element-wise computations into a single nested loop.
-    Value HtRh = onnx_matmul(matrixType, Ht, weightPack.Rh);
+    Value HtRh = createONNX.matmul(matrixType, Ht, weightPack.Rh);
 
     // Do element-wise computations. Fuse them into a single nested loop.
-    MemRefBoundsCapture bounds(Ht);
-    ValueRange loops = krnl_define_loop(bounds.rank());
-    krnl_iterate(
-        loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
-          ValueRange indices = krnl_get_induction_var_value(loops);
+    ValueRange loops = createKrnl.defineLoops(htRank);
+    createKrnl.iterate(loops, loops, htLbs, htUbs, {},
+        [&](KrnlBuilder &createKrnl, ValueRange args) {
+          MathBuilder createMath(createKrnl);
+          ValueRange indices = createKrnl.getInductionVarValue(loops);
           Value bs(indices[0]), hs(indices[1]);
-          Value HtVal = krnl_load(Ht, indices);
+          Value HtVal = createKrnl.load(Ht, indices);
           // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)
-          Value XtWzVal = krnl_load(XtWz, indices);
-          Value HtRzVal = krnl_load(HtRz, indices);
-          Value zt = std_addf(XtWzVal, HtRzVal);
+          Value XtWzVal = createKrnl.load(XtWz, indices);
+          Value HtRzVal = createKrnl.load(HtRz, indices);
+          Value zt = createMath.add(XtWzVal, HtRzVal);
           if (biasPack.hasBias) {
-            Value WbzVal = krnl_load(biasPack.Wbz, {hs});
-            Value RbzVal = krnl_load(biasPack.Rbz, {hs});
-            zt = std_addf(zt, WbzVal);
-            zt = std_addf(zt, RbzVal);
+            Value WbzVal = createKrnl.load(biasPack.Wbz, {hs});
+            Value RbzVal = createKrnl.load(biasPack.Rbz, {hs});
+            zt = createMath.add(zt, WbzVal);
+            zt = createMath.add(zt, RbzVal);
           }
-          zt = applyActivation(rewriter, loc, activationPack.f, zt);
+          zt = applyActivation(
+              createKrnl.getBuilder(), loc, activationPack.f, zt);
           // rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)"
-          Value XtWrVal = krnl_load(XtWr, indices);
-          Value HtRrVal = krnl_load(HtRr, indices);
-          Value rt = std_addf(XtWrVal, HtRrVal);
+          Value XtWrVal = createKrnl.load(XtWr, indices);
+          Value HtRrVal = createKrnl.load(HtRr, indices);
+          Value rt = createMath.add(XtWrVal, HtRrVal);
           if (biasPack.hasBias) {
-            Value WbrVal = krnl_load(biasPack.Wbr, {hs});
-            Value RbrVal = krnl_load(biasPack.Rbr, {hs});
-            rt = std_addf(rt, WbrVal);
-            rt = std_addf(rt, RbrVal);
+            Value WbrVal = createKrnl.load(biasPack.Wbr, {hs});
+            Value RbrVal = createKrnl.load(biasPack.Rbr, {hs});
+            rt = createMath.add(rt, WbrVal);
+            rt = createMath.add(rt, RbrVal);
           }
-          rt = applyActivation(rewriter, loc, activationPack.f, rt);
+          rt = applyActivation(
+              createKrnl.getBuilder(), loc, activationPack.f, rt);
           // ht = g(Xt*(Wh^T) + (rt (.) (Ht-1*(Rh^T) + Rbh)) + Wbh)
-          Value XtWhVal = krnl_load(XtWh, indices);
-          Value HtRhVal = krnl_load(HtRh, indices);
+          Value XtWhVal = createKrnl.load(XtWh, indices);
+          Value HtRhVal = createKrnl.load(HtRh, indices);
           if (biasPack.hasBias) {
-            Value RbhVal = krnl_load(biasPack.Rbh, {hs});
-            HtRhVal = std_addf(HtRhVal, RbhVal);
+            Value RbhVal = createKrnl.load(biasPack.Rbh, {hs});
+            HtRhVal = createMath.add(HtRhVal, RbhVal);
           }
-          Value rtHtRhVal = std_mulf(rt, HtRhVal);
-          Value ht = std_addf(XtWhVal, rtHtRhVal);
+          Value rtHtRhVal = createMath.mul(rt, HtRhVal);
+          Value ht = createMath.add(XtWhVal, rtHtRhVal);
           if (biasPack.hasBias) {
-            Value WbhVal = krnl_load(biasPack.Wbh, {hs});
-            ht = std_addf(ht, WbhVal);
+            Value WbhVal = createKrnl.load(biasPack.Wbh, {hs});
+            ht = createMath.add(ht, WbhVal);
           }
-          ht = applyActivation(rewriter, loc, activationPack.g, ht);
+          ht = applyActivation(
+              createKrnl.getBuilder(), loc, activationPack.g, ht);
           // Ht = (1 - zt) (.) ht + zt (.) Ht-1
-          Value oneMinusZt = std_subf(one, zt);
-          Value ztht = std_mulf(oneMinusZt, ht);
-          Value ztHt = std_mulf(zt, HtVal);
-          Value nextHt = std_addf(ztht, ztHt);
+          Value oneMinusZt = createMath.sub(one, zt);
+          Value ztht = createMath.mul(oneMinusZt, ht);
+          Value ztHt = createMath.mul(zt, HtVal);
+          Value nextHt = createMath.add(ztht, ztHt);
 
           // Store the intermediate Ht.
-          krnl_store(nextHt, Ht, indices);
+          createKrnl.store(nextHt, Ht, indices);
           if (!isNoneType(state.allH))
-            krnl_store(nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
+            createKrnl.store(
+                nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
         });
   } else {
     // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)"
@@ -485,77 +500,84 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
       // matrixType's shape is of [BatchSize, HiddenSize].
       // HiddenSize is always static. Thus, only BatchSize is dynamic.
       Value batchSize = rewriter.create<memref::DimOp>(loc, Ht, 0).getResult();
-      rt = memref_alloc(matrixType, llvm::makeArrayRef({batchSize}));
-      rtHt = memref_alloc(matrixType, llvm::makeArrayRef({batchSize}));
+      rt = lb.create<memref::AllocOp>(
+          matrixType, llvm::makeArrayRef({batchSize}));
+      rtHt = lb.create<memref::AllocOp>(
+          matrixType, llvm::makeArrayRef({batchSize}));
     }
 
     // Emit rt and (rt (.) Ht-1).
-    MemRefBoundsCapture bounds(Ht);
-    ValueRange loops1 = krnl_define_loop(bounds.rank());
-    krnl_iterate(
-        loops1, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
-          ValueRange indices = krnl_get_induction_var_value(loops1);
+    ValueRange loops1 = createKrnl.defineLoops(htRank);
+    createKrnl.iterate(loops1, loops1, htLbs, htUbs, {},
+        [&](KrnlBuilder &createKrnl, ValueRange args) {
+          MathBuilder createMath(createKrnl);
+          ValueRange indices = createKrnl.getInductionVarValue(loops1);
           Value hs(indices[1]);
-          Value HtVal = krnl_load(Ht, indices);
+          Value HtVal = createKrnl.load(Ht, indices);
           // rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)"
-          Value XtWrVal = krnl_load(XtWr, indices);
-          Value HtRrVal = krnl_load(HtRr, indices);
-          Value rtVal = std_addf(XtWrVal, HtRrVal);
+          Value XtWrVal = createKrnl.load(XtWr, indices);
+          Value HtRrVal = createKrnl.load(HtRr, indices);
+          Value rtVal = createMath.add(XtWrVal, HtRrVal);
           if (biasPack.hasBias) {
-            Value WbrVal = krnl_load(biasPack.Wbr, {hs});
-            Value RbrVal = krnl_load(biasPack.Rbr, {hs});
-            rtVal = std_addf(rtVal, WbrVal);
-            rtVal = std_addf(rtVal, RbrVal);
+            Value WbrVal = createKrnl.load(biasPack.Wbr, {hs});
+            Value RbrVal = createKrnl.load(biasPack.Rbr, {hs});
+            rtVal = createMath.add(rtVal, WbrVal);
+            rtVal = createMath.add(rtVal, RbrVal);
           }
-          rtVal = applyActivation(rewriter, loc, activationPack.f, rtVal);
-          krnl_store(rtVal, rt, indices);
+          rtVal = applyActivation(
+              createKrnl.getBuilder(), loc, activationPack.f, rtVal);
+          createKrnl.store(rtVal, rt, indices);
           // rt (.) Ht-1
-          Value rtHtVal = std_mulf(rtVal, HtVal);
-          krnl_store(rtHtVal, rtHt, indices);
+          Value rtHtVal = createMath.mul(rtVal, HtVal);
+          createKrnl.store(rtHtVal, rtHt, indices);
         });
 
     // Emit (rt (.) Ht-1)*(Rh^T)
-    Value rtHtRh = onnx_matmul(matrixType, rtHt, weightPack.Rh);
+    Value rtHtRh = createONNX.matmul(matrixType, rtHt, weightPack.Rh);
 
     // Do element-wise computations. Fuse them into a single nested loop.
-    ValueRange loops2 = krnl_define_loop(bounds.rank());
-    krnl_iterate(
-        loops2, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
-          ValueRange indices = krnl_get_induction_var_value(loops2);
+    ValueRange loops2 = createKrnl.defineLoops(htRank);
+    createKrnl.iterate(loops2, loops2, htLbs, htUbs, {},
+        [&](KrnlBuilder &createKrnl, ValueRange args) {
+          MathBuilder createMath(createKrnl);
+          ValueRange indices = createKrnl.getInductionVarValue(loops2);
           Value bs(indices[0]), hs(indices[1]);
-          Value HtVal = krnl_load(Ht, indices);
+          Value HtVal = createKrnl.load(Ht, indices);
           // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)
-          Value XtWzVal = krnl_load(XtWz, indices);
-          Value HtRzVal = krnl_load(HtRz, indices);
-          Value zt = std_addf(XtWzVal, HtRzVal);
+          Value XtWzVal = createKrnl.load(XtWz, indices);
+          Value HtRzVal = createKrnl.load(HtRz, indices);
+          Value zt = createMath.add(XtWzVal, HtRzVal);
           if (biasPack.hasBias) {
-            Value WbzVal = krnl_load(biasPack.Wbz, {hs});
-            Value RbzVal = krnl_load(biasPack.Rbz, {hs});
-            zt = std_addf(zt, WbzVal);
-            zt = std_addf(zt, RbzVal);
+            Value WbzVal = createKrnl.load(biasPack.Wbz, {hs});
+            Value RbzVal = createKrnl.load(biasPack.Rbz, {hs});
+            zt = createMath.add(zt, WbzVal);
+            zt = createMath.add(zt, RbzVal);
           }
-          zt = applyActivation(rewriter, loc, activationPack.f, zt);
+          zt = applyActivation(
+              createKrnl.getBuilder(), loc, activationPack.f, zt);
           // ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh)
-          Value XtWhVal = krnl_load(XtWh, indices);
-          Value rtHtRhVal = krnl_load(rtHtRh, indices);
-          Value ht = std_addf(XtWhVal, rtHtRhVal);
+          Value XtWhVal = createKrnl.load(XtWh, indices);
+          Value rtHtRhVal = createKrnl.load(rtHtRh, indices);
+          Value ht = createMath.add(XtWhVal, rtHtRhVal);
           if (biasPack.hasBias) {
-            Value WbhVal = krnl_load(biasPack.Wbh, {hs});
-            Value RbhVal = krnl_load(biasPack.Rbh, {hs});
-            ht = std_addf(ht, WbhVal);
-            ht = std_addf(ht, RbhVal);
+            Value WbhVal = createKrnl.load(biasPack.Wbh, {hs});
+            Value RbhVal = createKrnl.load(biasPack.Rbh, {hs});
+            ht = createMath.add(ht, WbhVal);
+            ht = createMath.add(ht, RbhVal);
           }
-          ht = applyActivation(rewriter, loc, activationPack.g, ht);
+          ht = applyActivation(
+              createKrnl.getBuilder(), loc, activationPack.g, ht);
           // Ht = (1 - zt) (.) ht + zt (.) Ht-1
-          Value oneMinusZt = std_subf(one, zt);
-          Value ztht = std_mulf(oneMinusZt, ht);
-          Value ztHt = std_mulf(zt, HtVal);
-          Value nextHt = std_addf(ztht, ztHt);
+          Value oneMinusZt = createMath.sub(one, zt);
+          Value ztht = createMath.mul(oneMinusZt, ht);
+          Value ztHt = createMath.mul(zt, HtVal);
+          Value nextHt = createMath.add(ztht, ztHt);
 
           // Store the intermediate Ht.
-          krnl_store(nextHt, Ht, indices);
+          createKrnl.store(nextHt, Ht, indices);
           if (!isNoneType(state.allH))
-            krnl_store(nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
+            createKrnl.store(
+                nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
         });
 
     // Clean up

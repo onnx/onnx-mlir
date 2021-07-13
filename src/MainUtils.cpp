@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
@@ -82,6 +83,17 @@ llvm::cl::opt<bool> preserveMLIR("preserveMLIR",
 llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<string> shapeInformation("shapeInformation",
+    llvm::cl::desc(
+        "Custom shapes for the inputs of the ONNX model, e.g. setting static "
+        "shapes for dynamic inputs. \"value\" is in the format of "
+        "\"input_id:dim_size,dim_size,dim_size|input_id:dim_size,dim_size,dim_"
+        "size|...\", where \"input_id\" is 0, 1, ... to denote the first, "
+        "second, ... input, and \"dim_size\" is the dimension size for each "
+        "dimension of an input. \"dim_size\" must be a positive integer or -1 "
+        "(for an unknown dimension)."),
+    llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<string> mtriple("mtriple", llvm::cl::desc("Target architecture"),
     llvm::cl::value_desc("<llvm target triple>"),
@@ -300,7 +312,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
       unoptimizedBitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
 
   llvm::raw_fd_ostream moduleBitcodeStream(
-      unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
+      unoptimizedBitcodePath, error, llvm::sys::fs::OF_None);
 
   llvm::LLVMContext llvmContext;
   mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
@@ -491,6 +503,7 @@ void processInputFile(string inputFilename, mlir::MLIRContext &context,
     ImportOptions options;
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
+    options.shapeInformation = shapeInformation;
     ImportFrontendModelFile(inputFilename, context, module, options);
   } else {
     LoadMLIR(inputFilename, context, module);

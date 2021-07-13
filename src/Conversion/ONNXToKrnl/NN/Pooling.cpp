@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -75,6 +76,21 @@ std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
 }
 
 //===----------------------------------------------------------------------===//
+// Get dilation attribute.
+//
+template <typename PoolOp>
+llvm::Optional<ArrayAttr> getDilationAttr(PoolOp poolOp) {
+  return llvm::None;
+}
+
+// MaxPool has dilations attribute.
+template <>
+llvm::Optional<ArrayAttr> getDilationAttr<ONNXMaxPoolSingleOutOp>(
+    ONNXMaxPoolSingleOutOp poolOp) {
+  return poolOp.dilations();
+}
+
+//===----------------------------------------------------------------------===//
 // Get count_include_pad values
 //
 template <typename PoolOp>
@@ -128,74 +144,16 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
 }
 
 //===----------------------------------------------------------------------===//
-// Helper function to insert alloc and dealloc ops for memref of dynamic shape.
-//
-Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
-    Location loc, bool insertDealloc, MemRefType memRefType, Value inputOperand,
-    ArrayRef<int64_t> kernelShape, ArrayRef<int64_t> pads,
-    ArrayRef<int64_t> strides, ArrayRef<int64_t> dilations, bool ceilMode) {
-  memref::AllocOp alloc;
-
-  // Shape and rank information related to result and kernel.
-  auto resultShape = memRefType.getShape();
-  auto resultRank = resultShape.size();
-  auto kernelRank = kernelShape.size();
-  int kernelOffset = resultRank - kernelRank;
-
-  // Compute dimensions of the result of this operation.
-  SmallVector<Value, 2> allocOperands;
-  for (int i = 0; i < kernelOffset; ++i) {
-    if (resultShape[i] < 0) {
-      auto dim = rewriter.create<memref::DimOp>(loc, inputOperand, i);
-      allocOperands.emplace_back(dim);
-    }
-  }
-
-  // Obtain an affine map to compute the output dimension.
-  AffineMap dimMap = getConvDimMap(rewriter, ceilMode);
-  for (int i = kernelOffset; i < (int)resultShape.size(); ++i) {
-    if (resultShape[i] < 0) {
-      int spatialIndex = i - kernelOffset;
-      // Prepare arguments for the affine map.
-      SmallVector<Value, 4> dimArgs;
-      dimArgs.emplace_back(
-          rewriter.create<memref::DimOp>(loc, inputOperand, i));
-      dimArgs.emplace_back(emitConstantOp(
-          rewriter, loc, rewriter.getIndexType(), kernelShape[spatialIndex]));
-      dimArgs.emplace_back(
-          emitConstantOp(rewriter, loc, rewriter.getIndexType(),
-              (pads[spatialIndex] + pads[spatialIndex + kernelRank])));
-      dimArgs.emplace_back(emitConstantOp(
-          rewriter, loc, rewriter.getIndexType(), strides[spatialIndex]));
-      dimArgs.emplace_back(
-          emitConstantOp(rewriter, loc, rewriter.getIndexType(),
-              dilations.empty() ? 1 : dilations[spatialIndex]));
-
-      // Apply the affine map.
-      Value dimVal = rewriter.create<AffineApplyOp>(loc, dimMap, dimArgs);
-      allocOperands.emplace_back(dimVal);
-    }
-  }
-  alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
-  if (insertDealloc) {
-    auto *parentBlock = alloc.getOperation()->getBlock();
-    auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
-    dealloc.getOperation()->moveBefore(&parentBlock->back());
-  }
-  return alloc;
-}
-
-//===----------------------------------------------------------------------===//
 // Template function that does pooling.
 //
-template <typename PoolOp>
+template <typename PoolOp, typename PoolOpAdaptor>
 struct ONNXPoolOpLowering : public ConversionPattern {
   ONNXPoolOpLowering(MLIRContext *ctx)
       : ConversionPattern(PoolOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXMaxPoolSingleOutOpAdaptor operandAdaptor(operands);
+    PoolOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
 
     PoolOp poolOp = llvm::dyn_cast<PoolOp>(op);
@@ -225,8 +183,17 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     std::vector<int64_t> dilations = getDilations<PoolOp>(poolOp);
     bool isDilated = !dilations.empty();
 
+    // Get shape.
+    ONNXPoolOpShapeHelper<PoolOp, PoolOpAdaptor> shapeHelper(&poolOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    auto shapecomputed = shapeHelper.Compute(operandAdaptor,
+        poolOp.kernel_shape(), padsAttribute, stridesAttribute,
+        getDilationAttr<PoolOp>(poolOp), ceilMode);
+    assert(succeeded(shapecomputed));
+
     // Type information about the input and result of this operation.
-    auto inputOperand = operandAdaptor.X();
+    auto inputOperand = (Value)operandAdaptor.X();
     auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     auto outputShape = memRefType.getShape();
@@ -235,23 +202,13 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     // Kernel offset in the input shape.
     int kernelOffset = inputShape.size() - kernelShape.size();
 
-    // Scope for krnl EDSC ops
-    using namespace mlir::edsc;
-    ScopedContext scope(rewriter, loc);
-    // Scope for IndexExpr.
-    IndexExprScope ieScope(&rewriter, loc);
+    // Scope for krnl ops
+    IndexExprScope ieScope(rewriter, loc);
+    KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the output of this operation.
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
-
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else {
-      alloc = insertAllocAndDeallocForPooling(rewriter, loc, insertDealloc,
-          memRefType, inputOperand, kernelShape, pads, strides, dilations,
-          ceilMode);
-    }
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
 
     // input = Pool(output)
     //
@@ -356,8 +313,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // Create a local reduction value for output[n][c][ho][wo].
       Value reductionVal = rewriter.create<memref::AllocaOp>(
           loc, MemRefType::get({}, memRefType.getElementType()));
-      rewriter.create<KrnlStoreOp>(
-          loc, identity, reductionVal, ArrayRef<Value>{});
+      createKrnl.store(identity, reductionVal);
 
       // 2.2 Emit affine maps which express the lower and upper bounds for the
       // pooling window's dimensions.
@@ -479,18 +435,15 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         // Apply pooling operation.
         //      output[n][c][ho][wo] =
         //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
-        Value loadInput = krnl_load(inputOperand, inputIndices);
-        Value loadPartialOutput =
-            rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+        Value loadInput = createKrnl.loadIE(inputOperand, inputIndices);
+        Value loadPartialOutput = createKrnl.load(reductionVal);
         Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
             outputElementType, {loadPartialOutput, loadInput});
-        rewriter.create<KrnlStoreOp>(
-            loc, output, reductionVal, ArrayRef<Value>{});
+        createKrnl.store(output, reductionVal);
       }
       rewriter.restoreInsertionPoint(ipOuterLoopRegion);
-      Value output =
-          rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
-      krnl_store(output, alloc, outputIndices);
+      Value output = createKrnl.load(reductionVal);
+      createKrnl.storeIE(output, alloc, outputIndices);
 
       // 2.5 Post-processing for the pooling window, e.g. taking average.
       SmallVector<Value, 4> outputIndicesInValue;
@@ -511,6 +464,9 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
 void populateLoweringONNXPoolingOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXPoolOpLowering<ONNXMaxPoolSingleOutOp>>(ctx);
-  patterns.insert<ONNXPoolOpLowering<ONNXAveragePoolOp>>(ctx);
+  patterns.insert<ONNXPoolOpLowering<ONNXMaxPoolSingleOutOp,
+      ONNXMaxPoolSingleOutOpAdaptor>>(ctx);
+  patterns
+      .insert<ONNXPoolOpLowering<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>>(
+          ctx);
 }

@@ -79,6 +79,7 @@ public:
       const onnx::ModelProto &model, ImportOptions options) {
     options_ = options;
     SetOpSetImport(model); // Determines which opsets to use.
+    SetCustomShapeInfo();  // Set custom shapes for the inputs if available.
     importGraph(model.graph());
     return module_;
   }
@@ -140,6 +141,36 @@ private:
   // A map from an input index to a list of dim indices those are changed to
   // dynamic. Default value corresponds to IMPORTER_FORCE_DYNAMIC='-1:-1'
   std::map<int, std::vector<int>> forced_inputs_dims;
+
+  // Custom shape information for the graph inputs.
+  std::map<int64_t, std::vector<int64_t>> inputs_shape_information;
+  void SetCustomShapeInfo() {
+    // Use the custom shape for the inputs if avaiable.
+    if (options_.shapeInformation.empty()) {
+      return;
+    }
+
+    std::stringstream shapeInfoString(options_.shapeInformation);
+    std::string shapeString;
+    while (getline(shapeInfoString, shapeString, '|')) {
+      size_t pos = shapeString.find(':');
+      std::string inputString = shapeString.substr(0, pos);
+      std::string dimString = shapeString.substr(pos + 1);
+
+      int64_t inputID = std::stoi(inputString);
+      assert(inputID >= 0 && "input_id must be >= 0");
+
+      std::stringstream dimSizes(dimString);
+      std::string dimStr;
+      std::vector<int64_t> dims;
+      while (getline(dimSizes, dimStr, ',')) {
+        int64_t dimSize = std::stoi(dimStr);
+        assert((dimSize == -1 || dimSize > 0) && "dim must be -1 or > 0");
+        dims.emplace_back(dimSize);
+      }
+      inputs_shape_information.insert(std::make_pair(inputID, dims));
+    }
+  }
 
   typedef void (onnx_mlir::detail::FrontendGenImpl::*ImportHandlerType)(
       const onnx::NodeProto &);
@@ -380,7 +411,14 @@ private:
             }
           }
           argTy = RankedTensorType::get(newDims, shapedTy.getElementType());
+        } else if (shapedTy && !inputs_shape_information.empty() &&
+                   (inputs_shape_information.find(numInputs) !=
+                       inputs_shape_information.end())) {
+          // Change to the custom shape if users provide.
+          std::vector<int64_t> shape = inputs_shape_information.at(numInputs);
+          argTy = RankedTensorType::get(shape, shapedTy.getElementType());
         }
+
         argTypes.emplace_back(argTy);
 
         // numInputs is the number of graph inputs not contained within the
@@ -694,8 +732,8 @@ private:
   void ImportNodeBatchNormalization(const onnx::NodeProto &node) {
     int nOuts = node.output().size();
     if (nOuts == 1) {
-      // Test mode with one output.
-      buildOperation<ONNXBatchNormalizationTestModeOp>(node);
+      // Inference mode with one output.
+      buildOperation<ONNXBatchNormalizationInferenceModeOp>(node);
     } else {
       // Training mode with four trailing optional outputs. Not handled yet.
       buildOperation<ONNXBatchNormalizationOp>(node);
@@ -884,12 +922,17 @@ private:
       return std::string("");
     }
     auto current_opset = opset_map_.find(node.domain())->second;
-    auto opset_list = op_dialect_version_map_.find(node.op_type())->second;
-    // Traverse backward to find the closest version
-    // Some old versions may be compatible
-    for (int i = opset_list.size() - 1; i > 0; i--) {
-      if (current_opset <= opset_list[i]) {
-        return "V" + std::to_string(opset_list[i]);
+    // Custom ops may not be present in op_dialect_version_map_. If no version
+    // info is found, treat as unversioned (no renaming).
+    auto opset_list_it = op_dialect_version_map_.find(node.op_type());
+    if (opset_list_it != op_dialect_version_map_.end()) {
+      auto opset_list = opset_list_it->second;
+      // Traverse backward to find the closest version
+      // Some old versions may be compatible
+      for (int i = opset_list.size() - 1; i > 0; i--) {
+        if (current_opset <= opset_list[i]) {
+          return "V" + std::to_string(opset_list[i]);
+        }
       }
     }
     return std::string("");
@@ -1026,11 +1069,7 @@ private:
       int nIn = 0;
       int nOut = 0;
       getNodeInputs(node, inputs);
-
-      // TODO: isn't nOut just node.output().size()?
-      for (const auto &item : node.output())
-        ++nOut;
-
+      nOut = node.output().size();
       buildOutputAndOperation<ONNXCustomOp>(
           node, inputs, nIn, nOut, attributes);
     }
@@ -1080,13 +1119,14 @@ private:
   }
 
   // construct JSON type from the argument type
-  // for example - a 3D array of f32 might produce something like
-  //     {"type" : "float" , "dims" : [4, 256, 16]}
-  // actually, this function would produce
-  //     {"type" : "f32" , "dims" : [4, 256, 16]}
-  //  for this example. The "f32" is mapped to "float" in getSignature, below
-  //
-  void concatTypeString(Type argType, llvm::raw_ostream &dstream) {
+  // for example - a 3D array of f32 would produce something like
+  //     {"type" : "f32" , "dims" : [4, 256, 16] , "name": "t1"}
+  // data type list:
+  //     "i1" / "i8" / "i16" / "i32" / "i64"
+  //     "ui8" / "ui16" / "ui32" / "ui64"
+  //     "f32" / "f64"
+  void concatTypeString(
+      Type argType, Attribute attr, llvm::raw_ostream &dstream) {
     std::string comma = std::string("");
     TypeSwitch<Type>(argType)
         .Case<ShapedType>([&](ShapedType tensorTy) {
@@ -1103,31 +1143,46 @@ private:
           } else {
           }
           dstream << "] ";
+          auto name = attr.cast<mlir::StringAttr>().getValue().str();
+          dstream << ", \"name\" : \"" << name << "\"";
         })
         .Default([&](Type type) { llvm_unreachable("input is not a tensor"); });
     dstream << " }\n";
   }
 
-  std::string getSignature(FunctionType funcType) {
+  std::string getSignature(FunctionType funcType, Operation *op) {
     auto inputs = funcType.getInputs();
     auto outputs = funcType.getResults();
+
+    auto input_names = op->getAttrOfType<mlir::ArrayAttr>("input_names");
+    auto output_names = op->getAttrOfType<mlir::ArrayAttr>("output_names");
 
     std::string const sf32 = std::string("f32");
     std::string const sf64 = std::string("f64");
     std::string const si32 = std::string("i32");
     std::string const si64 = std::string("i64");
     std::string const si16 = std::string("i16");
+    std::string const si8 = std::string("i8");
+    std::string const si1 = std::string("i1");
+    std::string const sui32 = std::string("ui32");
+    std::string const sui64 = std::string("ui64");
+    std::string const sui16 = std::string("ui16");
+    std::string const sui8 = std::string("ui8");
+
     std::map<std::string, std::string> typeMap = {
-        {sf32, std::string("\"float\"")}, {sf64, std::string("\"double\"")},
-        {si32, std::string("\"integer\"")}, {si64, std::string("\"long\"")},
-        {si16, std::string("\"short\"")}};
+        {sf32, std::string("\"f32\"")}, {sf64, std::string("\"f64\"")},
+        {si32, std::string("\"i32\"")}, {si64, std::string("\"i64\"")},
+        {si16, std::string("\"i16\"")}, {si8, std::string("\"i8\"")},
+        {si1, std::string("\"i1\"")}, {sui32, std::string("\"ui32\"")},
+        {sui64, std::string("\"ui64\"")}, {sui16, std::string("\"ui16\"")},
+        {sui8, std::string("\"ui8\"")}};
     std::string dstring;
     llvm::raw_string_ostream dstream(dstring);
     dstream << "[ ";
     std::string comma = std::string("");
     for (unsigned int i = 0; i < funcType.getNumInputs(); i++) {
       dstream << comma;
-      concatTypeString(inputs[i], dstream);
+      concatTypeString(inputs[i], input_names[i], dstream);
       comma = std::string(" , ");
     }
     dstream << "\n]";
@@ -1137,32 +1192,21 @@ private:
     comma = std::string("");
     for (unsigned int i = 0; i < funcType.getNumResults(); i++) {
       dstream << comma;
-      concatTypeString(outputs[i], dstream);
+      concatTypeString(outputs[i], output_names[i], dstream);
       comma = std::string(" , ");
     }
     dstream << "\n]";
     dstream.flush();
     dstring.push_back('\0'); // null terminate the output signature string
-    size_t start_pos = 0;
-    while ((start_pos = dstring.find(sf32, start_pos)) != std::string::npos) {
-      dstring.replace(start_pos, sf32.length(), typeMap[sf32]);
-      start_pos += sf32.length();
+    for (auto const &x : typeMap) {
+      size_t start_pos = 0;
+      while (
+          (start_pos = dstring.find(x.first, start_pos)) != std::string::npos) {
+        dstring.replace(start_pos, x.first.length(), x.second);
+        start_pos += x.first.length();
+      }
     }
-    start_pos = 0;
-    while ((start_pos = dstring.find(sf64, start_pos)) != std::string::npos) {
-      dstring.replace(start_pos, sf64.length(), typeMap[sf64]);
-      start_pos += sf64.length();
-    }
-    start_pos = 0;
-    while ((start_pos = dstring.find(si32, start_pos)) != std::string::npos) {
-      dstring.replace(start_pos, si32.length(), typeMap[si32]);
-      start_pos += si32.length();
-    }
-    start_pos = 0;
-    while ((start_pos = dstring.find(si16, start_pos)) != std::string::npos) {
-      dstring.replace(start_pos, si16.length(), typeMap[si16]);
-      start_pos += si16.length();
-    }
+
     return dstring;
   }
 
@@ -1183,7 +1227,8 @@ private:
     auto funcType = importGraph(graph, /*region=*/mainFunc.body(),
         /*op=*/mainFunc.getOperation(), /*useStdReturn=*/true);
     mainFunc.setType(funcType);
-    std::string sig = getSignature(funcType);
+
+    std::string sig = getSignature(funcType, mainFunc.getOperation());
 
     // Emit entry point op describing inference function signature.
     auto entryPoint = ONNXEntryPointOp::create(UnknownLoc(), mainFunc,

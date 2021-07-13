@@ -929,3 +929,124 @@ LogicalResult ONNXLRNOpShapeHelper::Compute(ONNXLRNOpAdaptor operandAdaptor) {
   dimsForOutput(0) = outputDims;
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// ONNX Conv Op Shape Helper
+//===----------------------------------------------------------------------===//
+ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp)
+    : ONNXOpShapeHelper<ONNXConvOp>(newOp) {}
+
+ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXConvOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor,
+    Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> pads,
+    Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  // Basic information.
+  auto xRank = operandAdaptor.X().getType().cast<ShapedType>().getRank();
+  int64_t kernelRank = ArrayAttrSize(kernelShape);
+  int64_t spatialOffset = 2;
+
+  DimsExpr outputDims;
+  MemRefBoundsIndexCapture XBounds(operandAdaptor.X());
+  MemRefBoundsIndexCapture WBounds(operandAdaptor.W());
+
+  // Insert batch size.
+  outputDims.emplace_back(XBounds.getDim(0));
+  // Insert number of filters being applied (number of output channels).
+  outputDims.emplace_back(WBounds.getDim(0));
+  // Insert dimensions for the spatial axes.
+  for (decltype(xRank) i = spatialOffset; i < xRank; ++i) {
+    int spatialIndex = i - spatialOffset;
+    IndexExpr input = XBounds.getDim(i);
+    LiteralIndexExpr kernel(ArrayAttrIntVal(kernelShape, spatialIndex));
+    LiteralIndexExpr stride(ArrayAttrIntVal(strides, spatialIndex));
+    LiteralIndexExpr pad(ArrayAttrIntVal(pads, spatialIndex) +
+                         ArrayAttrIntVal(pads, spatialIndex + kernelRank));
+    LiteralIndexExpr dilation;
+    if (!dilations.hasValue())
+      dilation = LiteralIndexExpr(1);
+    else
+      dilation =
+          LiteralIndexExpr(ArrayAttrIntVal(dilations.getValue(), spatialIndex));
+
+    IndexExpr dimExp =
+        (input + pad - (kernel - 1) * dilation - 1).floorDiv(stride) + 1;
+    outputDims.emplace_back(dimExp);
+  }
+
+  // Set type for the first output.
+  dimsForOutput(0) = outputDims;
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Pooling Ops Shape Helper
+//===----------------------------------------------------------------------===//
+template <typename OP_TYPE, typename OP_ADAPTOR>
+ONNXPoolOpShapeHelper<OP_TYPE, OP_ADAPTOR>::ONNXPoolOpShapeHelper(
+    OP_TYPE *newOp)
+    : ONNXOpShapeHelper<OP_TYPE>(newOp) {}
+
+template <typename OP_TYPE, typename OP_ADAPTOR>
+ONNXPoolOpShapeHelper<OP_TYPE, OP_ADAPTOR>::ONNXPoolOpShapeHelper(
+    OP_TYPE *newOp, ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<OP_TYPE>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+template <typename OP_TYPE, typename OP_ADAPTOR>
+LogicalResult ONNXPoolOpShapeHelper<OP_TYPE, OP_ADAPTOR>::Compute(
+    OP_ADAPTOR operandAdaptor, Optional<ArrayAttr> kernelShape,
+    Optional<ArrayAttr> pads, Optional<ArrayAttr> strides,
+    Optional<ArrayAttr> dilations, bool ceilMode) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  // Basic information.
+  Value xValue = (Value)operandAdaptor.X();
+  auto xRank = xValue.getType().cast<ShapedType>().getRank();
+  int64_t kernelRank = ArrayAttrSize(kernelShape);
+  int64_t spatialOffset = 2;
+
+  DimsExpr outputDims;
+  MemRefBoundsIndexCapture XBounds(xValue);
+
+  // Insert batch size.
+  outputDims.emplace_back(XBounds.getDim(0));
+  // Insert channel size.
+  outputDims.emplace_back(XBounds.getDim(1));
+  // Insert dimensions for the spatial axes.
+  for (decltype(xRank) i = spatialOffset; i < xRank; ++i) {
+    int spatialIndex = i - spatialOffset;
+    IndexExpr input = XBounds.getDim(i);
+    LiteralIndexExpr kernel(ArrayAttrIntVal(kernelShape, spatialIndex));
+    LiteralIndexExpr stride(ArrayAttrIntVal(strides, spatialIndex));
+    LiteralIndexExpr pad(ArrayAttrIntVal(pads, spatialIndex) +
+                         ArrayAttrIntVal(pads, spatialIndex + kernelRank));
+    LiteralIndexExpr dilation;
+    if (!dilations.hasValue())
+      dilation = LiteralIndexExpr(1);
+    else
+      dilation =
+          LiteralIndexExpr(ArrayAttrIntVal(dilations.getValue(), spatialIndex));
+
+    IndexExpr dimExp;
+    if (ceilMode)
+      dimExp = (input + pad - (kernel - 1) * dilation - 1).ceilDiv(stride) + 1;
+    else
+      dimExp = (input + pad - (kernel - 1) * dilation - 1).floorDiv(stride) + 1;
+    outputDims.emplace_back(dimExp);
+  }
+
+  // Set type for the first output.
+  this->dimsForOutput(0) = outputDims;
+  return success();
+}
+
+template struct ONNXPoolOpShapeHelper<ONNXMaxPoolSingleOutOp,
+    ONNXMaxPoolSingleOutOpAdaptor>;
+template struct ONNXPoolOpShapeHelper<ONNXAveragePoolOp,
+    ONNXAveragePoolOpAdaptor>;
