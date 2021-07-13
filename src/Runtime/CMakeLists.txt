@@ -9,7 +9,7 @@ add_subdirectory(jni)
 add_onnx_mlir_library(cruntime STATIC
   OMTensor.c
   OMTensorList.c
-  OnnxDataType.cpp
+  OnnxDataType.c
 
   EXCLUDE_FROM_OM_LIBS
 
