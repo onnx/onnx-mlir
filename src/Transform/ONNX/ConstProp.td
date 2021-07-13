@@ -47,35 +47,53 @@ def AttributeIsNull :
     Constraint<CPred<"! ($_self)">,
   "Attribute is null">;
 
+def canConstPropCastIntToInt : Constraint<
+  CPred<"canConstPropCastIntToInt($_builder, $0, $1, $2)">>;
+
+def isConstOfZeros : Constraint<
+  CPred<"isConstOfZeros($_builder, $0)">>;
+
 // Usefult code generation invokation.
 def GetNullAttr : NativeCodeCall<"Attribute()">;
 
 def CreateAddOfTwoConst :
-   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXAddOp>($_builder, $0, $1, $2)">;
+  NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXAddOp>($_builder, $0, $1, $2)">;
 
 def CreateSubOfTwoConst :
-   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXSubOp>($_builder, $0, $1, $2)">;
+  NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXSubOp>($_builder, $0, $1, $2)">;
 
 def CreateNegOfConst :
-   NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXNegOp>($_builder, $0, $1)">;
+  NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXNegOp>($_builder, $0, $1)">;
 
 def CreateSqrtOfConst :
-   NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXSqrtOp>($_builder, $0, $1)">;
+  NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXSqrtOp>($_builder, $0, $1)">;
 
 def CreateMulOfTwoConst :
-   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXMulOp>($_builder, $0, $1, $2)">;
+  NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXMulOp>($_builder, $0, $1, $2)">;
 
 def CreateDivOfTwoConst :
-   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXDivOp>($_builder, $0, $1, $2)">;
+  NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXDivOp>($_builder, $0, $1, $2)">;
 
 def CreateTransposeOfConst :
-   NativeCodeCall<"ConstPropTranspose($_builder, $0, $1, $2)">;
+  NativeCodeCall<"ConstPropTranspose($_builder, $0, $1, $2)">;
 
 def CreateUnsqueezeOfConst:
-   NativeCodeCall<"ConstPropUnsqueeze($_builder, $0, $1)">;
+  NativeCodeCall<"ConstPropUnsqueeze($_builder, $0, $1)">;
 
 def CreateIntToIntCastOfConst :
-   NativeCodeCall<"ConstPropCastIntToInt($_builder, $0, $1, $2)">;
+  NativeCodeCall<"ConstPropCastIntToInt($_builder, $0, $1, $2)">;
+
+def CreateZerosFromTemplate :
+  NativeCodeCall<"CreateZerosFromTemplate($_builder, $0)">;
+
+def CreateMatMulIntegerOfConsts :
+  NativeCodeCall<"CreateMatMulIntegerOfConsts($_builder, $0, $1, $2)">;
+
+def ValuesHaveSameType : Constraint<
+    CPred<"$0.getType() == "
+          "$1.getType()">,
+    "ValuesHaveSameType">;
+
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
@@ -144,6 +162,18 @@ def AddConstProp : Pat<
     // Additional constraints (no sparse)
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
 
+def AddByZeroOnRhs : Pat<
+    (ONNXAddOp:$result
+      $a,
+      (ONNXConstantOp $bs, $bv)
+    ),
+    (replaceWithValue $a),
+    [
+      (IsNotAConstant:$a),
+      (AttributeIsNull:$bs), (isConstOfZeros $bv),
+      (ValuesHaveSameType $result, $a)
+    ]>;
+
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise SUB / NEG operations.
@@ -182,9 +212,6 @@ def SqrtofConst :  Pat<
     (ONNXConstantOp (GetNullAttr), (CreateSqrtOfConst $constOp, $v)),
     [(AttributeIsNull:$s)]>;
 
-def canConstPropCastIntToInt : Constraint<
-  CPred<"canConstPropCastIntToInt($_builder, $0, $1, $2)">>;
-
 // Constant Propagation for Cast
 def IntToIntCastofConst :  Pat<
     // From  onnx.Cast(c)
@@ -192,6 +219,58 @@ def IntToIntCastofConst :  Pat<
     // To cast(c)
     (ONNXConstantOp (GetNullAttr), (CreateIntToIntCastOfConst $constOp, $v, $toType)),
     [(AttributeIsNull:$s), (canConstPropCastIntToInt $constOp, $v, $toType)]>;
+
+def MatMulIntegerZeroOnRhs : Pat<
+    (ONNXMatMulIntegerOp:$resOp
+      $a,
+      (ONNXConstantOp $bs, $bv),
+      (ONNXConstantOp $ass, $asv),
+      (ONNXConstantOp $bss, $bsv)
+    ),
+    (ONNXConstantOp
+      (GetNullAttr), (CreateZerosFromTemplate $resOp)
+    ),
+    [
+      (AttributeIsNull:$bs), (isConstOfZeros $bv),
+      (AttributeIsNull:$ass), (isConstOfZeros $asv),
+      (AttributeIsNull:$bss), (isConstOfZeros $bsv)
+    ]
+>;
+
+def MatMulIntegerZeroOnLhs : Pat<
+    (ONNXMatMulIntegerOp:$resOp
+      (ONNXConstantOp $as, $av),
+      $b,
+      (ONNXConstantOp $ass, $asv),
+      (ONNXConstantOp $bss, $bsv)
+    ),
+    (ONNXConstantOp
+      (GetNullAttr), (CreateZerosFromTemplate $resOp)
+    ),
+    [
+      (AttributeIsNull:$as), (isConstOfZeros $av),
+      (AttributeIsNull:$ass), (isConstOfZeros $asv),
+      (AttributeIsNull:$bss), (isConstOfZeros $bsv)
+    ]
+>;
+
+def MatMulIntegerOfConsts : Pat<
+    (ONNXMatMulIntegerOp:$resOp
+      (ONNXConstantOp $as, $av),
+      (ONNXConstantOp $bs, $bv),
+      (ONNXConstantOp $ass, $asv),
+      (ONNXConstantOp $bss, $bsv)
+    ),
+    (ONNXConstantOp
+      (GetNullAttr), (CreateMatMulIntegerOfConsts $resOp, $av, $bv)
+    ),
+    [
+      (AttributeIsNull:$as),
+      (AttributeIsNull:$bs),
+      (AttributeIsNull:$ass), (isConstOfZeros $asv),
+      (AttributeIsNull:$bss), (isConstOfZeros $bsv)
+    ]
+>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise MUL operations.
@@ -269,6 +348,8 @@ def DivConstProp : Pat<
     (ONNXConstantOp (GetNullAttr), (CreateDivOfTwoConst $mulOp, $v1, $v2)),
     // Division constraints (no sparse)
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
+
+
 
 
 //===----------------------------------------------------------------------===//

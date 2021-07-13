@@ -215,4 +215,10 @@ DenseElementsAttr ConstPropSlice(Builder &builder, Value resOperand,
     Attribute steps);
 DenseElementsAttr ConstPropCastIntToInt(
     Builder &builder, Value constOp, Attribute input, IntegerAttr to);
-bool canConstPropCastIntToInt(Builder &builder, Value constOp, Attribute input, IntegerAttr to);
+bool canConstPropCastIntToInt(
+    Builder &builder, Value constOp, Attribute input, IntegerAttr to);
+bool isConstOfZeros(Builder &builder, Attribute attr);
+DenseElementsAttr CreateZerosFromTemplate(
+    Builder &builder, Value templateTensor);
+DenseElementsAttr CreateMatMulIntegerOfConsts(
+    Builder &builder, Value resultValue, Attribute _lhs, Attribute _rhs);
