@@ -66,14 +66,14 @@ Attribute ComputeConstPropElementwiseBinary<ONNXMulOp>(Builder &builder,
 }
 
 namespace {
-  APInt divideAPInts(const IntegerType type, const APInt a, const APInt b) {
-    if (type.isUnsigned()) {
-      return a.udiv(b);
-    } else { // Signed or Signless are both treated as Signed in Onnx-Mlir
-      return a.sdiv(b);
-    }
+APInt divideAPInts(const IntegerType type, const APInt a, const APInt b) {
+  if (type.isUnsigned()) {
+    return a.udiv(b);
+  } else { // Signed or Signless are both treated as Signed in Onnx-Mlir
+    return a.sdiv(b);
   }
 }
+} // namespace
 
 template <>
 Attribute ComputeConstPropElementwiseBinary<ONNXDivOp>(Builder &builder,
@@ -289,29 +289,30 @@ DenseElementsAttr ConstPropSlice(Builder &builder, Value resOperand,
   return DenseElementsAttr::get(resType, resRef);
 }
 
-
 namespace {
-  APInt castIntToInt(APInt inVal, IntegerType toType) {
-    unsigned toWidth = toType.getWidth();
-    bool isUnsigned = toType.isUnsigned();
-    if (isUnsigned) {
-      return inVal.zextOrTrunc(toWidth);
-    } else {
-      return inVal.sextOrTrunc(toWidth);
-    }
+APInt castIntToInt(APInt inVal, IntegerType toType) {
+  unsigned toWidth = toType.getWidth();
+  bool isUnsigned = toType.isUnsigned();
+  if (isUnsigned) {
+    return inVal.zextOrTrunc(toWidth);
+  } else {
+    return inVal.sextOrTrunc(toWidth);
   }
 }
+} // namespace
 
 DenseElementsAttr ConstPropCastIntToInt(
     Builder &builder, Value constOp, Attribute input, IntegerAttr to) {
 
-  mlir::RankedTensorType constType = constOp.getType().cast<mlir::RankedTensorType>();
+  mlir::RankedTensorType constType =
+      constOp.getType().cast<mlir::RankedTensorType>();
   Type fromElemType = constType.getElementType();
 
   auto toAttr = to.getValue().getSExtValue();
   auto toElemType = mlir::UnrankedTensorType::get(
-    convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr)))
-    .getElementType();
+      convertONNXTypeToMLIRType(
+          builder, static_cast<onnx::TensorProto_DataType>(toAttr)))
+                        .getElementType();
 
   assert(fromElemType.isa<IntegerType>() && toElemType.isa<IntegerType>());
 
@@ -327,22 +328,25 @@ DenseElementsAttr ConstPropCastIntToInt(
 
   auto constShape = constType.getShape();
   auto resultType = mlir::RankedTensorType::get(constShape, toElemType);
-  auto resultAttr = DenseElementsAttr::get(resultType, llvm::makeArrayRef(result));
+  auto resultAttr =
+      DenseElementsAttr::get(resultType, llvm::makeArrayRef(result));
   return resultAttr;
 }
 
-bool canConstPropCastIntToInt(Builder &builder, Value constOp, Attribute input, IntegerAttr to) {
-  mlir::RankedTensorType constType = constOp.getType().cast<mlir::RankedTensorType>();
+bool canConstPropCastIntToInt(
+    Builder &builder, Value constOp, Attribute input, IntegerAttr to) {
+  mlir::RankedTensorType constType =
+      constOp.getType().cast<mlir::RankedTensorType>();
   Type fromElemType = constType.getElementType();
 
   auto toAttr = to.getValue().getSExtValue();
   auto toElemType = mlir::UnrankedTensorType::get(
-    convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr)))
-    .getElementType();
+      convertONNXTypeToMLIRType(
+          builder, static_cast<onnx::TensorProto_DataType>(toAttr)))
+                        .getElementType();
 
   return fromElemType.isa<IntegerType>() && toElemType.isa<IntegerType>();
 }
-
 
 bool isConstOfZeros(Builder &builder, Attribute attr) {
 
@@ -369,7 +373,8 @@ bool isConstOfZeros(Builder &builder, Attribute attr) {
   return true;
 }
 
-DenseElementsAttr CreateZerosFromTemplate(Builder &builder, Value templateTensor) {
+DenseElementsAttr CreateZerosFromTemplate(
+    Builder &builder, Value templateTensor) {
   ShapedType shapedType = templateTensor.getType().cast<ShapedType>();
   DenseElementsAttr resultAttr = DenseElementsAttr::get(shapedType, 0);
   return resultAttr;
@@ -378,29 +383,15 @@ DenseElementsAttr CreateZerosFromTemplate(Builder &builder, Value templateTensor
 namespace {
 class BroadcastMatMulCalculator {
 public:
-
-  BroadcastMatMulCalculator(
-    Value resultValue
-  , ShapedType resultType
-  , ArrayRef<int64_t> resultShape
-  , DenseElementsAttr lhs
-  , DenseElementsAttr rhs
-  , std::vector<int64_t> normalizedLhsShape
-  , std::vector<int64_t> normalizedRhsShape
-  , int64_t m, int64_t k, int64_t n
-  )
-  : _resultValue(resultValue)
-  , _resultType(resultType)
-  , _resultShape(resultShape)
-  , _lhs(lhs)
-  , _rhs(rhs)
-  , _lhsShape(std::move(normalizedLhsShape))
-  , _rhsShape(std::move(normalizedRhsShape))
-  , _M(m), _K(k), _N(n)
-  , _dimOffsets(calculateDimOffsets(resultShape))
-  {
-
-  }
+  BroadcastMatMulCalculator(Value resultValue, ShapedType resultType,
+      ArrayRef<int64_t> resultShape, DenseElementsAttr lhs,
+      DenseElementsAttr rhs, std::vector<int64_t> normalizedLhsShape,
+      std::vector<int64_t> normalizedRhsShape, int64_t m, int64_t k, int64_t n)
+      : _resultValue(resultValue), _resultType(resultType),
+        _resultShape(resultShape), _lhs(lhs), _rhs(rhs),
+        _lhsShape(std::move(normalizedLhsShape)),
+        _rhsShape(std::move(normalizedRhsShape)), _M(m), _K(k), _N(n),
+        _dimOffsets(calculateDimOffsets(resultShape)) {}
 
   std::vector<APInt> calc() {
     _resultStorage = createInitialResultStorage(_resultType);
@@ -409,13 +400,13 @@ public:
   }
 
 private:
-
   void recurse(size_t rank, size_t flattenedIdxBase) {
     int64_t lhsRank = _lhs.getType().getRank();
     int64_t rhsRank = _rhs.getType().getRank();
     if (rank + 2 == _lhsShape.size()) {
       // Do 2D MatMul stuff
-      const IntegerType resultElementType = _resultType.getElementType().cast<IntegerType>();
+      const IntegerType resultElementType =
+          _resultType.getElementType().cast<IntegerType>();
       for (uint64_t i = 0; (int64_t)i < _M; ++i) {
         for (uint64_t j = 0; (int64_t)j < _N; ++j) {
           const uint64_t flattenedIdx = flattenedIdxBase + i * _N + j;
@@ -442,16 +433,14 @@ private:
   }
 
   static llvm::SmallVector<uint64_t, 6> getBroadcastIdx(
-    const std::vector<int64_t> & idxStack,
-    int64_t a, int64_t b,
-    ArrayRef<int64_t> normShape,
-    int64_t rank
-  ) {
+      const std::vector<int64_t> &idxStack, int64_t a, int64_t b,
+      ArrayRef<int64_t> normShape, int64_t rank) {
     assert(rank >= 2);
     const int64_t extraRanks = (int64_t)idxStack.size() - (rank - 2);
     assert(extraRanks >= 0);
 
-    llvm::SmallVector<uint64_t, 6> idx(idxStack.begin() + extraRanks, idxStack.end());
+    llvm::SmallVector<uint64_t, 6> idx(
+        idxStack.begin() + extraRanks, idxStack.end());
     idx.push_back(a);
     idx.push_back(b);
 
@@ -468,19 +457,22 @@ private:
   }
 
   static std::vector<APInt> createInitialResultStorage(ShapedType resultType) {
-    IntegerType resultElementType = resultType.getElementType().cast<IntegerType>();
-    const APInt emptyInt(resultElementType.getWidth(), 0, !resultElementType.isUnsigned());
+    IntegerType resultElementType =
+        resultType.getElementType().cast<IntegerType>();
+    const APInt emptyInt(
+        resultElementType.getWidth(), 0, !resultElementType.isUnsigned());
     std::vector<APInt> resultAttr(resultType.getNumElements(), emptyInt);
     return std::move(resultAttr);
   }
 
-  static std::vector<size_t> calculateDimOffsets(ArrayRef<int64_t> resultShapeRef) {
+  static std::vector<size_t> calculateDimOffsets(
+      ArrayRef<int64_t> resultShapeRef) {
     std::vector<int64_t> resultShape(resultShapeRef);
     std::reverse(resultShape.begin(), resultShape.end());
     std::vector<size_t> offsets;
 
     size_t accumulator = 1;
-    for (int64_t dimSize: resultShape) {
+    for (int64_t dimSize : resultShape) {
       accumulator *= dimSize;
       offsets.push_back(accumulator);
     }
@@ -500,9 +492,10 @@ private:
   std::vector<APInt> _resultStorage;
   std::vector<int64_t> _idxStack;
 };
-}
+} // namespace
 
-DenseElementsAttr CreateMatMulIntegerOfConsts(Builder &builder, Value resultValue, Attribute _lhs, Attribute _rhs) {
+DenseElementsAttr CreateMatMulIntegerOfConsts(
+    Builder &builder, Value resultValue, Attribute _lhs, Attribute _rhs) {
   // Get the shape vectors of both operands and reverse them
   DenseElementsAttr lhs = _lhs.cast<DenseElementsAttr>();
   DenseElementsAttr rhs = _rhs.cast<DenseElementsAttr>();
@@ -511,7 +504,8 @@ DenseElementsAttr CreateMatMulIntegerOfConsts(Builder &builder, Value resultValu
   std::vector<int64_t> rhsShape(rhs.getType().getShape());
   std::reverse(rhsShape.begin(), rhsShape.end());
   const size_t resultNumRanks = std::max(lhsShape.size(), rhsShape.size());
-  // Extend the shorter shape with 1 to make them the same length, and reverse back
+  // Extend the shorter shape with 1 to make them the same length, and reverse
+  // back
   lhsShape.resize(resultNumRanks, 1);
   std::reverse(lhsShape.begin(), lhsShape.end());
   rhsShape.resize(resultNumRanks, 1);
@@ -533,8 +527,9 @@ DenseElementsAttr CreateMatMulIntegerOfConsts(Builder &builder, Value resultValu
   int64_t k = lhsShape.back();
   int64_t n = rhsShape.back();
 
-  BroadcastMatMulCalculator calculator(resultValue, resultType, resultShape, lhs, rhs, std::move(lhsShape), std::move(rhsShape), m, k, n);
+  BroadcastMatMulCalculator calculator(resultValue, resultType, resultShape,
+      lhs, rhs, std::move(lhsShape), std::move(rhsShape), m, k, n);
   std::vector<APInt> result = calculator.calc();
-  return DenseElementsAttr::get(resultValue.getType().cast<ShapedType>(), result);
+  return DenseElementsAttr::get(
+      resultValue.getType().cast<ShapedType>(), result);
 }
-
