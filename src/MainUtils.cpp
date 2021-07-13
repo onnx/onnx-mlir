@@ -452,6 +452,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createShapeInferencePass());
+  pm.addPass(mlir::createOutlineOperatorsPass());
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
   pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());

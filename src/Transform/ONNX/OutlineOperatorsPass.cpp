@@ -17,6 +17,7 @@
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/Region.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -27,6 +28,7 @@
 #include "src/Pass/Passes.hpp"
 #include <iostream>
 
+using BlockListType = llvm::iplist<mlir::Block>;
 using namespace mlir;
 
 namespace {
@@ -66,6 +68,13 @@ public:
       for (Region &region : op.getRegions()) {
         for (auto indexed_block : llvm::enumerate(region))
           std::cout << "     block is " << indexed_block.index() << std::endl;
+        for (mlir::Block &block : region.getBlocks()) {
+            for (mlir::Operation &operation : block.getOperations()) {
+                auto name = getOpName(operation);
+                std::cout << "Block Operation is " << name << std::endl;
+            }
+          
+        }   
       }
     }
   }
