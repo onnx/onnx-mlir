@@ -23,6 +23,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -72,14 +73,15 @@ public:
   static LogicalResult runInstrumentONNXOnRegion(mlir::Region &r) {
     // Iterate on the operations 
     for (Operation &op : r.getOps()) {
-	      //op.dump();
-	    /*
-      if (LLVM::is_a<ONNXDialect>(op.getDialect())) {
-	      op.dump();
+      if (isa<mlir::ONNXOpsDialect>(op.getDialect())) {
+	      Location loc = op.getLoc();
+	      OpBuilder opBuilder(&op);
+	      opBuilder.create<mlir::KrnlInstrumentOp>(loc, &op, 0);
+	      opBuilder.setInsertionPointAfter(&op);
+	      opBuilder.create<mlir::KrnlInstrumentOp>(loc, &op, 1);
+
       }
-      */
     }
-          //return failure();
     return success();
   }
 
