@@ -10,7 +10,7 @@ add_onnx_mlir_library(cruntime STATIC
   OMInstrument.c
   OMTensor.c
   OMTensorList.c
-  OnnxDataType.cpp
+  OnnxDataType.c
 
   EXCLUDE_FROM_OM_LIBS
 
