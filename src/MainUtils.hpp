@@ -49,7 +49,7 @@ void setExecPath(const char *argv0, void *fmain);
 void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);
 
-void compileModuleToSharedLibrary(
+std::string compileModuleToSharedLibrary(
     const mlir::OwningModuleRef &module, std::string outputBaseName);
 
 void compileModuleToJniJar(
