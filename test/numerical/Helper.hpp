@@ -26,3 +26,11 @@ ONNXConstantOp buildONNXConstantOp(MLIRContext *ctx, OpBuilder builder,
       ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
   return constantTensor;
 }
+
+std::string getSharedLibName(std::string sharedLibBaseName) {
+#ifdef _WIN32
+  return sharedLibBaseName + ".dll";
+#else
+  return sharedLibBaseName + ".so";
+#endif
+}
