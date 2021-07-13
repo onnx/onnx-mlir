@@ -40,7 +40,7 @@ static pthread_key_t log_inited;
 static pthread_key_t log_level;
 static pthread_key_t log_fp;
 
-#define PTHREAD_ONCE(key, func) pthread_once(key, func)
+#define THREAD_LOCAL_INIT(key, func) pthread_once(key, func)
 
 INLINE void key_init() {
   pthread_key_create(&log_inited, NULL);
@@ -91,7 +91,7 @@ INLINE void set_log_fp(FILE *fp) { pthread_setspecific(log_fp, (void *)fp); }
 
 #else
 
-#define PTHREAD_ONCE(key, func)
+#define THREAD_LOCAL_INIT(key, func)
 
 #if defined(_MSC_VER)
 #define THREAD_LOCAL_SPEC __declspec(thread)
@@ -125,12 +125,12 @@ static const char *log_level_name[] = {
  */
 #if defined(_MSC_VER)
 typedef DWORD pthread_t;
-#define PTHREAD_SELF GetCurrentThreadId
+#define THREAD_ID GetCurrentThreadId()
 #else
-#define PTHREAD_SELF pthread_self
+#define THREAD_ID pthread_self()
 #endif
 
-pthread_t get_threadid() { return PTHREAD_SELF(); }
+pthread_t get_threadid() { return THREAD_ID; }
 
 /* This is based on basename from lldb: lldb\source\Host\windows\Windows.cpp */
 char *get_filename(char *path) {
@@ -222,7 +222,7 @@ static FILE *get_log_file_by_name(char *name) {
  */
 void log_init() {
 
-  PTHREAD_ONCE(&key_once, key_init);
+  THREAD_LOCAL_INIT(&key_once, key_init);
 
   if (get_log_inited())
     return;
