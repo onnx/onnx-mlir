@@ -912,7 +912,9 @@ private:
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
     int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
-    MemRefType CTmpType = MemRefType::get({}, elementType);
+    int64_t unrollFactor = (unrollJam && J.isLiteral()) ? J.getLiteral() : 1;
+    // Have to privatize CTmpType by unroll factor (1 if none).
+    MemRefType CTmpType = MemRefType::get({unrollFactor}, elementType);
     IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
     Value TmpC = lb.create<memref::AllocaOp>(CTmpType, constAlignAttr);
 
@@ -930,7 +932,9 @@ private:
         IndexExpr::getValues(cStart, cAccess);
         cAccess[cRank - 2] = createMath.add(i, cAccess[cRank - 2]);
         cAccess[cRank - 1] = createMath.add(j, cAccess[cRank - 1]);
-        createAffine.store(createAffine.load(C, cAccess), TmpC);
+        Value initVal = createAffine.load(C, cAccess);
+        Value tmpCAccess = (unrollFactor > 1) ? j : zero.getValue();
+        createAffine.store(initVal, TmpC, tmpCAccess);
         // TTmpC() = affine_load(C, cAccess);
         // Sum over k.
         createAffine.forIE(
@@ -948,12 +952,13 @@ private:
               bAccess[bRank - 1] = createMath.add(j, bAccess[bRank - 1]);
               Value b = createAffine.load(B, bAccess);
               Value res = createMath.mul(a, b);
-              res = createMath.add(res, createAffine.load(TmpC));
-              createAffine.store(res, TmpC);
+              res = createMath.add(res, createAffine.load(TmpC, tmpCAccess));
+              createAffine.store(res, TmpC, tmpCAccess);
               // TTmpC() = a * b + TTmpC();
             });
         // Store temp result into C(i, j)
-        createAffine.store(createAffine.load(TmpC), C, cAccess);
+        Value finalVal = createAffine.load(TmpC, tmpCAccess);
+        createAffine.store(finalVal, C, cAccess);
         // affine_store(TTmpC(), C, cAccess);
       });
     });
@@ -981,7 +986,9 @@ private:
     // Generate the vector type conversions.
     int64_t VL = vectorLen.getLiteral();
     VectorType vecType = VectorType::get({VL}, elementType);
-    MemRefType CTmpType = MemRefType::get({}, vecType);
+    int64_t unrollFactor = (unrollJam && I.isLiteral()) ? I.getLiteral() : 1;
+    // Have to privatize CTmpType by unroll factor (1 if none).
+    MemRefType CTmpType = MemRefType::get({unrollFactor}, vecType);
     KrnlBuilder createKrnl(rewriter, loc);
     Value vecB = createKrnl.vectorTypeCast(B, VL);
     Value vecC = createKrnl.vectorTypeCast(C, VL);
@@ -999,7 +1006,9 @@ private:
       // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
       IndexExpr::getValues(cStart, cAccess);
       cAccess[cRank - 2] = createMath.add(i, cAccess[cRank - 2]);
-      createAffine.store(createAffine.load(vecC, cAccess), TmpC);
+      Value initVal = createAffine.load(vecC, cAccess);
+      Value tmpCAccess = (unrollFactor > 1) ? i : zero.getValue();
+      createAffine.store(initVal, TmpC, tmpCAccess);
       // Sum over k.
       createAffine.forIE(zero, K, 1, [&](AffineBuilder &createAffine, Value k) {
         MathBuilder createMath(createAffine);
@@ -1017,12 +1026,13 @@ private:
         bAccess[bRank - 2] = createMath.add(k, bAccess[bRank - 2]);
         Value vb = createAffine.load(vecB, bAccess);
         // TTmpC() = vector_fma(va, vb, TTmpC());
+        Value tmpVal = createAffine.load(TmpC, tmpCAccess);
         Value res = createAffine.getBuilder().create<vector::FMAOp>(
-            createAffine.getLoc(), va, vb, createAffine.load(TmpC));
-        createAffine.store(res, TmpC);
+            createAffine.getLoc(), va, vb, tmpVal);
+        createAffine.store(res, TmpC, tmpCAccess);
       });
       // Store temp result into C(i)
-      Value tmpResults = createAffine.load(TmpC);
+      Value tmpResults = createAffine.load(TmpC, tmpCAccess);
       int64_t JLit = J.getLiteral();
       if (JLit != VL) {
         // create vector constant
