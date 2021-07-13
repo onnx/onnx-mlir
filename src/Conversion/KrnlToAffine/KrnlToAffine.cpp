@@ -31,6 +31,7 @@
 #include "src/Support/KrnlSupport.hpp"
 
 #include <functional>
+#include <mutex>
 
 #define BUFFER_ALIGN 64
 
