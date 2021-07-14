@@ -12,14 +12,14 @@
   Compile as follows in the onnx-mlir build subdirectory. The tool is built as
   follows. For dinamically loaded models:
 
-cd onnx-mlir/built
+cd onnx-mlir/build
 . ../utils/build-run-onnx-lib.sh
 run-onnx-lib test/backend/test_add.so
 
   For statically loaded models, best is to run the utility in the directory
   of the model.
 
-cd onnx-mlir/built
+cd onnx-mlir/build
 . ../utils/build-run-onnx-lib.sh test/backend/test_add.so
 cd test/backend
 run-onnx-lib
@@ -52,13 +52,16 @@ Usage: run-onnx-lib [options] model.so
 // Define while compiling.
 // #define LOAD_MODEL_STATICALLY 1
 
+#include <algorithm>
 #include <assert.h>
 #include <dlfcn.h>
 #include <getopt.h>
 #include <iostream>
 #include <string>
+#include <sys/time.h>
+#include <vector>
 
-// Json reader
+// Json reader & LLVM suport.
 #include "llvm/Support/JSON.h"
 
 #include "OnnxMlirRuntime.h"
@@ -87,7 +90,7 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define OM_TENSOR_CREATE omTensorCreate
 #define OM_TENSOR_LIST_CREATE omTensorListCreate
 #define OM_TENSOR_LIST_DESTROY omTensorListDestroy
-#define OPTIONS "hn:v"
+#define OPTIONS "hn:m:v"
 #else
 #define RUN_MAIN_GRAPH dll_run_main_graph
 #define OM_INPUT_SIGNATURE dll_omInputSignature
@@ -95,11 +98,12 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define OM_TENSOR_CREATE dll_omTensorCreate
 #define OM_TENSOR_LIST_CREATE dll_omTensorListCreate
 #define OM_TENSOR_LIST_DESTROY dll_omTensorListDestroy
-#define OPTIONS "e:hn:v"
+#define OPTIONS "e:hn:m:v"
 #endif
 
 static int sIterations = 1;
 static bool verbose = false;
+static bool measureExecTime = false;
 
 void usage(const char *name) {
 #if LOAD_MODEL_STATICALLY
@@ -122,11 +126,14 @@ void usage(const char *name) {
   cout << "         Default is \"run_main_graph\"." << endl;
 #endif
   cout << "    -n NUM | --iterations NUM" << endl;
-  cout << "         Number of times to run the tests, default 1" << endl;
+  cout << "         Number of times to run the tests, default 1." << endl;
+  cout << "    -m NUM | --meas NUM" << endl;
+  cout << "         Measure the kernel execution time NUM times." << endl;
+  cout << "         Min 5 iters, shortest/longest point dropped." << endl;
   cout << "    -v | --verbose" << endl;
-  cout << "         Print the shape of the inputs and outputs" << endl;
+  cout << "         Print the shape of the inputs and outputs." << endl;
   cout << "    -h | --help" << endl;
-  cout << "         help" << endl;
+  cout << "         Print help message." << endl;
   cout << endl;
 }
 
@@ -165,9 +172,12 @@ void parseArgs(int argc, char **argv) {
   int c;
   string entryPointName("run_main_graph");
   static struct option long_options[] = {
-      {"entry-point", required_argument, 0, 'e'}, {"help", no_argument, 0, 'h'},
-      {"iterations", required_argument, 0, 'n'},
-      {"verbose", no_argument, 0, 'v'}, {0, 0, 0, 0}};
+      {"entry-point", required_argument, 0, 'e'}, // Entry point.
+      {"help", no_argument, 0, 'h'},              // Help.
+      {"iterations", required_argument, 0, 'n'},  // Number of iterations.
+      {"meas", required_argument, 0, 'm'},        // Measurement of time.
+      {"verbose", no_argument, 0, 'v'},           // Verbose.
+      {0, 0, 0, 0}};
 
   while (true) {
     int index = 0;
@@ -183,6 +193,10 @@ void parseArgs(int argc, char **argv) {
     case 'n':
       sIterations = atoi(optarg);
       break;
+    case 'm':
+      sIterations = atoi(optarg);
+      measureExecTime = true;
+      break;
     case 'v':
       verbose = true;
       break;
@@ -191,6 +205,8 @@ void parseArgs(int argc, char **argv) {
       exit(1);
     }
   }
+  if (measureExecTime && sIterations < 5)
+    sIterations = 5;
 
 // Process the DLL.
 #if LOAD_MODEL_STATICALLY
@@ -281,7 +297,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
     }
     // Create a randomly initialized tensor of the right shape.
     OMTensor *tensor = nullptr;
-    if (type.equals("float")) {
+    if (type.equals("float") || type.equals("f32")) {
       float *data = nullptr;
       if (dataPtrList) {
         data = (float *)dataPtrList[i];
@@ -304,6 +320,49 @@ OMTensorList *omTensorListCreateFromInputSignature(
   return OM_TENSOR_LIST_CREATE(inputTensors, inputNum);
 }
 
+// Util for timing.
+std::vector<uint64_t> timeLogInUs;
+struct timeval startTime, stopTime, result;
+
+inline void processStartTime() {
+  if (!measureExecTime)
+    return;
+  gettimeofday(&startTime, NULL);
+}
+
+inline void processStopTime() {
+  if (!measureExecTime)
+    return;
+  gettimeofday(&stopTime, NULL);
+  timersub(&stopTime, &startTime, &result);
+  uint64_t timeInUs =
+      ((uint64_t)result.tv_sec) * 1000ull + ((uint64_t)result.tv_usec);
+  timeLogInUs.emplace_back(timeInUs);
+}
+
+void printTime() {
+  if (!measureExecTime)
+    return;
+  std::sort(timeLogInUs.begin(), timeLogInUs.end());
+  int s = timeLogInUs.size();
+  int m = s / 2;
+  double avg = 0;
+  for (int i = 1; i < s - 1; ++i)
+    avg += (double)timeLogInUs[i];
+  avg = avg / (s - 2);
+  double std = 0;
+  for (int i = 1; i < s - 1; ++i)
+    std += ((double)timeLogInUs[i] - avg) * ((double)timeLogInUs[i] - avg);
+  std = sqrt(std / (s - 2));
+  cout << endl;
+  cout << "Measurements (eliminating the two extreme points)" << endl;
+  printf("  timer med, %llu, avg, %llu, std, %llu, min, %llu, max, %llu, "
+         "sample, %d\n",
+      (unsigned long long)timeLogInUs[m], (unsigned long long)avg,
+      (unsigned long long)std, (unsigned long long)timeLogInUs[0],
+      (unsigned long long)timeLogInUs[s - 1], s - 2);
+}
+
 int main(int argc, char **argv) {
   // Init args.
   parseArgs(argc, argv);
@@ -315,13 +374,16 @@ int main(int argc, char **argv) {
   cout << "Start computing " << sIterations << " iterations" << endl;
   for (int i = 0; i < sIterations; ++i) {
     OMTensorList *tensorListOut = nullptr;
+    processStartTime();
     tensorListOut = RUN_MAIN_GRAPH(tensorListIn);
+    processStopTime();
     if (tensorListOut)
       OM_TENSOR_LIST_DESTROY(tensorListOut);
     if (i > 0 && i % 10 == 0)
       cout << "  computed " << i << " iterations" << endl;
   }
   cout << "Finish computing " << sIterations << " iterations" << endl;
+  printTime();
 
   // Cleanup.
   OM_TENSOR_LIST_DESTROY(tensorListIn);
