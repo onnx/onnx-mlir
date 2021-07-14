@@ -36,7 +36,12 @@ namespace {
 class InstrumentONNXPass
     : public mlir::PassWrapper<InstrumentONNXPass, FunctionPass> {
 
+private :
+  std::string opsString;
+
 public:
+  InstrumentONNXPass(std::string allowedOps) opsString(allowedOps) {};
+
   void runOnFunction() override {
     auto function = getFunction();
     auto &funcBody = function.getBody();
