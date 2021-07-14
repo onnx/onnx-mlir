@@ -40,8 +40,7 @@ std::unique_ptr<Pass> createKrnlBundleMemoryPoolsPass();
 std::unique_ptr<Pass> createKrnlOptimizeMemoryPoolsPass();
 
 /// Pass for instrument the Onnx ops
-std::unique_ptr<Pass> createInstrumentONNXPass(
-    bool enabled = true);
+std::unique_ptr<Pass> createInstrumentONNXPass();
 
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<Pass> createLowerToKrnlPass();
