@@ -1497,12 +1497,11 @@ void ConvertKrnlToAffinePass::runOnFunction() {
     signalPassFailure();
   }
 
-#if UNROLL_IT
   for (auto record : *currUnrollAndJamList) {
     LogicalResult res = loopUnrollJamUpToFactor(record.first, record.second);
     assert(succeeded(res) && "failed to optimize");
   }
-#endif
+
   {
     const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
     unrollAndJamMap.erase(currFuncOp);
