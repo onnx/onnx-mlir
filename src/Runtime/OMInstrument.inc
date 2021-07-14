@@ -33,18 +33,22 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "onnx-mlir/Runtime/OMInstrument.h"
 
+#ifdef _WIN32
+  // TO BE FIXED 
+#else
 #include <sys/time.h>
-#include <string.h>
-#include <unistd.h>
 #include <sys/types.h>
 
 static struct timeval globalTimeVal, initTimeVal;
+static pid_t mypid;
+#endif
+
 static bool timeEnabled = true;
 static bool virtualMemEnabled = true;
-static pid_t mypid;
 static char memCommand[200];
 
 void OMInstrumentInit() {
@@ -55,6 +59,9 @@ void OMInstrumentInit() {
 	  virtualMemEnabled = !virtualMemEnabled;
   }
 
+#ifdef _WIN32
+  // TO BE FIXED
+#else
   if (timeEnabled) {
     gettimeofday(&globalTimeVal, NULL);
     initTimeVal = globalTimeVal;
@@ -64,9 +71,13 @@ void OMInstrumentInit() {
      mypid = getpid();
      sprintf(memCommand, "ps -o vsz --noheader -p %d", mypid);
   }
+#endif
 }
 
 void OMInstrumentPoint(int64_t id, int64_t tag) {
+#ifdef _WIN32
+  // TO BE FIXED
+#else
   if (timeEnabled) {
     struct timeval newTimeValue, result;
     gettimeofday(&newTimeValue, NULL);
@@ -81,6 +92,6 @@ void OMInstrumentPoint(int64_t id, int64_t tag) {
   if (virtualMemEnabled) {
     system(memCommand);
   }
-
+#endif
 }
 
