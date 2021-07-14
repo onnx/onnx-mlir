@@ -672,14 +672,6 @@ static IndexExpr startInBuffer(
   return globalStart % tileSize;
 }
 
-// aee
-#define UNROLL_IT 1 /* enable unrolling and jam */
-#define AEE_DEBUG 0
-
-#if AEE_DEBUG
-mlir::FuncOp *processFunction;
-#endif
-
 // KrnlMatmul will be lowered to vector and affine expressions
 class KrnlMatmulLowering : public OpRewritePattern<KrnlMatMulOp> {
 
@@ -692,14 +684,6 @@ public:
 
     // Option.
     bool fullUnrollAndJam = op.unroll();
-
-#if AEE_DEBUG
-    fprintf(
-        stderr, "\n\n\n***********************\nhi alex: before matmul op\n");
-    processFunction->dump();
-    fprintf(stderr,
-        "\n***********************\nhi alex: before matmul op (done)\n\n\n");
-#endif
 
     // Operands and types.
     Type elementType =
@@ -833,19 +817,6 @@ public:
     IndexExpr jPartialTrip =
         partialTrip(jGlobalUB, jComputeTileSize, jComputeStart);
 
-#if 0
-    // aee : remove
-    // Currently, there is a bug in unroll and jam which crashes if there is an
-    // affine if/then/else. No crash if only if-then.
-    if (iIsFullTile.isLiteralAndGreaterThan(-1) &&
-        jIsFullTile.isLiteralAndGreaterThan(-1) &&
-        kIsFullTile.isLiteralAndGreaterThan(-1)) {
-      // this is ok, only a if-then below.
-    } else {
-      // printf("disable disabling of unroll and jam\n");
-      // fullUnrollAndJam = false;
-    }
-#endif
     if (simdize) {
       // SIMD code generator.
       // clang-format off
@@ -889,13 +860,6 @@ public:
       // clang-format on
     }
     rewriter.eraseOp(op);
-
-#if AEE_DEBUG
-    fprintf(stderr, "\n\n\n***********************\nhi alex: after erase op\n");
-    processFunction->dump();
-    fprintf(stderr,
-        "\n***********************\nhi alex: after erase op (done)\n\n\n");
-#endif
     return success();
   }
 
@@ -1435,11 +1399,6 @@ void markLoopBodyAsMovable(
 void ConvertKrnlToAffinePass::runOnFunction() {
   OpBuilder builder(&getContext());
   FuncOp funcOp = getFunction();
-
-#if AEE_DEBUG
-  processFunction = &funcOp;
-#endif
-
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
