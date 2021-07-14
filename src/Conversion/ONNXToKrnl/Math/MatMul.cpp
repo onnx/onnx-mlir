@@ -141,7 +141,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
           createKrnl.matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},
               {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
-              {iRegTile, jRegTile, kRegTile}, {}, {}, {}, true, true, false);
+              {iRegTile, jRegTile, kRegTile}, {}, {}, {},
+              /*simd*/ true, /*unroll*/ true, /*overcompute*/ false);
         });
   }
 
