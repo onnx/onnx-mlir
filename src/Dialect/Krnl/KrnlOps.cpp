@@ -384,6 +384,19 @@ void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
   state.addAttribute(KrnlEntryPointOp::getSignatureAttrName(), signature);
 }
 
+void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
+    Operation *op, int tag = 0) {
+  const char *opName = op->getName().getStringRef().data();
+  int64_t opID = 0;
+  // getName() result is "onnx.opName"
+  // Put only the opName part in the opID within its size
+  strncpy((char *)&opID, opName + 5, sizeof(decltype(opID)) - 1);
+  IntegerAttr attr = builder.getI64IntegerAttr(opID);
+  auto tagAttr = builder.getI64IntegerAttr(tag);
+  state.addAttribute("opID", attr);
+  state.addAttribute("tag", tagAttr);
+}
+
 //===----------------------------------------------------------------------===//
 // KrnlBlockOp
 //===----------------------------------------------------------------------===//

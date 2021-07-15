@@ -82,7 +82,7 @@ private:
 /// be ranked in advance.
 struct ONNXOpBroadcastedShapeHelper {
   ONNXOpBroadcastedShapeHelper(ConversionPatternRewriter *rewriter,
-      Location loc, bool uniBroadcasting = false);
+      Location loc, bool uniBroadcasting = false, bool noBroadcasting = false);
 
   // Compute a vector of IndexExprs to represent the output shape. Results are
   // stored in 'outputDims'.
@@ -114,6 +114,11 @@ private:
   // If unidirectional broadcasting, the other operands are always
   // unidirectional broadcastable to the first operand.
   bool isUniBroadcasting;
+
+  // If isNoBroadcasting is true, the shape of all input is assumed to be same
+  // This flag is used to test dynamic shape
+  // There is no impact on static shape
+  bool isNoBroadcasting;
 };
 
 // Shape for ArgMax
