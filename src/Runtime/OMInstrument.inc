@@ -33,13 +33,14 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
+#include <stdint.h>
 
 #include "onnx-mlir/Runtime/OMInstrument.h"
 
 #ifdef _WIN32
 // TO BE FIXED
 #else
+#include <unistd.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
