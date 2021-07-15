@@ -60,7 +60,7 @@ void TimeInit() {
 }
 #endif
 
-#ifdef __WIN32
+#ifdef _WIN32
 void ReportTime() {}
 #else
 void ReportTime() {
@@ -76,7 +76,7 @@ void ReportTime() {
 }
 #endif
 
-#ifdef __WIN32
+#ifdef _WIN32
 void ReportMemory() {}
 #else
 void ReportMemory() {
