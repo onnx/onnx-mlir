@@ -290,12 +290,15 @@ DenseElementsAttr ConstPropSlice(Builder &builder, Value resOperand,
 }
 
 namespace {
-APInt castIntToInt(APInt inVal, IntegerType toType) {
+APInt castIntToInt(APInt inVal, IntegerType fromType, IntegerType toType) {
   unsigned toWidth = toType.getWidth();
-  bool isUnsigned = toType.isUnsigned();
-  if (isUnsigned) {
+  if (fromType.isUnsigned() || toType.isUnsigned()) {
+    // If either fromType or toType is unsigned, then we're expecting a
+    // positive value, hence zero-extention will always be correct.
     return inVal.zextOrTrunc(toWidth);
   } else {
+    // If both fromType and toType are signed, then sign-extension should
+    // yield correct result.
     return inVal.sextOrTrunc(toWidth);
   }
 }
@@ -306,13 +309,13 @@ DenseElementsAttr ConstPropCastIntToInt(
 
   mlir::RankedTensorType constType =
       constOp.getType().cast<mlir::RankedTensorType>();
-  Type fromElemType = constType.getElementType();
+  IntegerType fromElemType = constType.getElementType().cast<IntegerType>();
 
   auto toAttr = to.getValue().getSExtValue();
-  auto toElemType = mlir::UnrankedTensorType::get(
+  IntegerType toElemType = mlir::UnrankedTensorType::get(
       convertONNXTypeToMLIRType(
           builder, static_cast<onnx::TensorProto_DataType>(toAttr)))
-                        .getElementType();
+                        .getElementType().cast<IntegerType>();
 
   assert(fromElemType.isa<IntegerType>() && toElemType.isa<IntegerType>());
 
@@ -321,7 +324,7 @@ DenseElementsAttr ConstPropCastIntToInt(
 
   for (IntegerAttr inputElement : inputElems.getValues<IntegerAttr>()) {
     APInt inVal = inputElement.getValue();
-    APInt outVal = castIntToInt(inVal, toElemType.cast<IntegerType>());
+    APInt outVal = castIntToInt(inVal, fromElemType, toElemType);
     IntegerAttr attr = builder.getIntegerAttr(toElemType, outVal);
     result.push_back(attr);
   }
@@ -403,6 +406,8 @@ private:
   void recurse(size_t rank, size_t flattenedIdxBase) {
     int64_t lhsRank = _lhs.getType().getRank();
     int64_t rhsRank = _rhs.getType().getRank();
+    IntegerType lhsEType = _lhs.getType().getElementType().cast<IntegerType>();
+    IntegerType rhsEType = _rhs.getType().getElementType().cast<IntegerType>();
     if (rank + 2 == _lhsShape.size()) {
       // Do 2D MatMul stuff
       const IntegerType resultElementType =
@@ -415,8 +420,8 @@ private:
             APInt aRaw = _lhs.getValue(lhsIdx).cast<IntegerAttr>().getValue();
             auto rhsIdx = getBroadcastIdx(_idxStack, k, j, _rhsShape, rhsRank);
             APInt bRaw = _rhs.getValue(rhsIdx).cast<IntegerAttr>().getValue();
-            APInt a = castIntToInt(aRaw, resultElementType);
-            APInt b = castIntToInt(bRaw, resultElementType);
+            APInt a = castIntToInt(aRaw, lhsEType, resultElementType);
+            APInt b = castIntToInt(bRaw, rhsEType, resultElementType);
             APInt ab = a * b;
             _resultStorage.at(flattenedIdx) += ab;
           }
