@@ -129,7 +129,7 @@ void usage(const char *name) {
   cout << "         Number of times to run the tests, default 1." << endl;
   cout << "    -m NUM | --meas NUM" << endl;
   cout << "         Measure the kernel execution time NUM times." << endl;
-  cout << "         Min 5 iters, shortest/longest point dropped." << endl;
+  cout << "         Min 5 iters, shortest/longest points dropped." << endl;
   cout << "    -v | --verbose" << endl;
   cout << "         Print the shape of the inputs and outputs." << endl;
   cout << "    -h | --help" << endl;
@@ -321,7 +321,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
 }
 
 // Util for timing.
-std::vector<uint64_t> timeLogInUs;
+std::vector<uint64_t> timeLogInMicroSec;
 struct timeval startTime, stopTime, result;
 
 inline void processStartTime() {
@@ -335,32 +335,43 @@ inline void processStopTime() {
     return;
   gettimeofday(&stopTime, NULL);
   timersub(&stopTime, &startTime, &result);
-  uint64_t timeInUs =
-      ((uint64_t)result.tv_sec) * 1000ull + ((uint64_t)result.tv_usec);
-  timeLogInUs.emplace_back(timeInUs);
+  uint64_t time =
+      (uint64_t)result.tv_sec * 1000000ull + (uint64_t)result.tv_usec;
+  timeLogInMicroSec.emplace_back(time);
 }
 
-void printTime() {
+void printTime(double avg, double std, double factor, string unit) {
+  int s = timeLogInMicroSec.size();
+  int m = s / 2;
+  printf("@time, %s, median, %.1f, avg, %.1f, std, %.1f, min, %.1f, max, %.1f, "
+         "sample, %d\n",
+      unit.c_str(), (double)timeLogInMicroSec[m] / factor,
+      (double)(avg / factor), (double)(std / factor),
+      (double)timeLogInMicroSec[1] / factor,
+      (double)timeLogInMicroSec[s - 2] / factor, s - 2);
+}
+
+void displayTime() {
   if (!measureExecTime)
     return;
-  std::sort(timeLogInUs.begin(), timeLogInUs.end());
-  int s = timeLogInUs.size();
-  int m = s / 2;
+  std::sort(timeLogInMicroSec.begin(), timeLogInMicroSec.end());
+  int s = timeLogInMicroSec.size();
   double avg = 0;
   for (int i = 1; i < s - 1; ++i)
-    avg += (double)timeLogInUs[i];
+    avg += (double)timeLogInMicroSec[i];
   avg = avg / (s - 2);
   double std = 0;
   for (int i = 1; i < s - 1; ++i)
-    std += ((double)timeLogInUs[i] - avg) * ((double)timeLogInUs[i] - avg);
+    std += ((double)timeLogInMicroSec[i] - avg) *
+           ((double)timeLogInMicroSec[i] - avg);
   std = sqrt(std / (s - 2));
-  cout << endl;
-  cout << "Measurements (eliminating the two extreme points)" << endl;
-  printf("  timer med, %llu, avg, %llu, std, %llu, min, %llu, max, %llu, "
-         "sample, %d\n",
-      (unsigned long long)timeLogInUs[m], (unsigned long long)avg,
-      (unsigned long long)std, (unsigned long long)timeLogInUs[0],
-      (unsigned long long)timeLogInUs[s - 1], s - 2);
+  printTime(avg, std, 1, "micro-second");
+  if (avg >= 1e3) {
+    printTime(avg, std, 1e3, "milli-second");
+  }
+  if (avg >= 1e6) {
+    printTime(avg, std, 1e6, "second");
+  }
 }
 
 int main(int argc, char **argv) {
@@ -383,7 +394,7 @@ int main(int argc, char **argv) {
       cout << "  computed " << i << " iterations" << endl;
   }
   cout << "Finish computing " << sIterations << " iterations" << endl;
-  printTime();
+  displayTime();
 
   // Cleanup.
   OM_TENSOR_LIST_DESTROY(tensorListIn);
