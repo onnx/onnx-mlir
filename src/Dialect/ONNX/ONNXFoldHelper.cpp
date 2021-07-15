@@ -315,7 +315,8 @@ DenseElementsAttr ConstPropCastIntToInt(
   IntegerType toElemType = mlir::UnrankedTensorType::get(
       convertONNXTypeToMLIRType(
           builder, static_cast<onnx::TensorProto_DataType>(toAttr)))
-                        .getElementType().cast<IntegerType>();
+                               .getElementType()
+                               .cast<IntegerType>();
 
   assert(fromElemType.isa<IntegerType>() && toElemType.isa<IntegerType>());
 
