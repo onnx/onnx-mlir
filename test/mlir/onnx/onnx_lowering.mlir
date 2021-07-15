@@ -901,17 +901,8 @@ func private @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_unsqueeze
-  // CHECK: [[RES:%.+]] = memref.alloc() : memref<1x10x10x1xf32>
-  // CHECK: [[INBYTES:%.+]] = constant 4 : i64
-  // CHECK: [[DIM1:%.+]] = constant 1 : i64
-  // CHECK: [[SIZE1:%.+]] = muli [[INBYTES]], [[DIM1]] : i64
-  // CHECK: [[DIM2:%.+]] = constant 10 : i64
-  // CHECK: [[SIZE2:%.+]] = muli [[SIZE1]], [[DIM2]] : i64
-  // CHECK: [[DIM3:%.+]] = constant 10 : i64
-  // CHECK: [[SIZE3:%.+]] = muli [[SIZE2]], [[DIM3]] : i64
-  // CHECK: [[DIM4:%.+]] = constant 1 : i64
-  // CHECK: [[SIZE4:%.+]] = muli [[SIZE3]], [[DIM4]] : i64
-  // CHECK: "krnl.memcpy"([[RES]], %arg0, [[SIZE4]]) : (memref<1x10x10x1xf32>, memref<10x10xf32>, i64) -> ()
+  // CHECK: [[NEW_SHAPE:%.+]] = "krnl.global"() {name = "constant_0", shape = [4], value = dense<4> : tensor<1xi64>} : () -> memref<4xi64>
+  // CHECK: [[RES:%.+]] = memref.reshape %arg0([[NEW_SHAPE]]) : (memref<10x10xf32>, memref<4xi64>) -> memref<1x10x10x1xf32>
   // CHECK: return [[RES]] : memref<1x10x10x1xf32>
 }
 
@@ -1475,9 +1466,8 @@ func private @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: @test_squeeze
-  // CHECK: [[RES:%.+]] = memref.alloc() : memref<16x32x64xf32>
-  // CHECK: [[TENSOR_SIZE:%.+]] = constant 131072 : i64
-  // CHECK: "krnl.memcpy"([[RES]], %arg0, [[TENSOR_SIZE]]) : (memref<16x32x64xf32>, memref<16x1x32x1x64xf32>, i64) -> ()
+  // CHECK: [[NEW_SHAPE:%.+]] = "krnl.global"() {name = "constant_0", shape = [3], value = dense<3> : tensor<1xi64>} : () -> memref<3xi64>
+  // CHECK: [[RES:%.+]] = memref.reshape %arg0([[NEW_SHAPE]]) : (memref<16x1x32x1x64xf32>, memref<3xi64>) -> memref<16x32x64xf32>
   // CHECK: return [[RES]] : memref<16x32x64xf32>
 }
 
