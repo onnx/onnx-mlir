@@ -30,25 +30,31 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     Value data = operandAdaptor.data();
     Value shape = operandAdaptor.shape();
     auto dataShape = data.getType().cast<MemRefType>().getShape();
-    // If shape input was promoted to attribute, get its values from the
-    // attribute.
+    auto memRefType = convertToMemRefType(*op->result_type_begin());
+
+    // If shape is a constant and does not contain -1 or 0, lower to
+    // memref.reshape so that the data is never copied or modified.
     SmallVector<int64_t, 4> shapeAttrValues;
-    DenseElementsAttr shapeAttr;
-    if (getONNXConstantOp(reshapeOp.shape())) {
-      shapeAttr = getONNXConstantOp(reshapeOp.shape())
-                      .valueAttr()
-                      .dyn_cast_or_null<DenseElementsAttr>();
-    }
-    if (shapeAttr) {
-      auto shapeAttrIt = shapeAttr.getValues<IntegerAttr>().begin();
-      auto itEnd = shapeAttr.getValues<IntegerAttr>().end();
-      for (; shapeAttrIt != itEnd;)
-        shapeAttrValues.emplace_back(
-            (*shapeAttrIt++).cast<IntegerAttr>().getInt());
+    if (ONNXConstantOp constOp = getONNXConstantOp(reshapeOp.shape())) {
+      DenseElementsAttr shapeAttr =
+          constOp.valueAttr().dyn_cast_or_null<DenseElementsAttr>();
+      if (shapeAttr) {
+        auto shapeAttrIt = shapeAttr.getValues<IntegerAttr>().begin();
+        auto itEnd = shapeAttr.getValues<IntegerAttr>().end();
+        for (; shapeAttrIt != itEnd;)
+          shapeAttrValues.emplace_back(
+              (*shapeAttrIt++).cast<IntegerAttr>().getInt());
+        if (llvm::all_of(shapeAttrValues,
+                [&](int64_t val) { return (val != -1 && val != 0); })) {
+          Value memrefReshape =
+              rewriter.create<memref::ReshapeOp>(loc, memRefType, data, shape);
+          rewriter.replaceOp(op, memrefReshape);
+          return success();
+        }
+      }
     }
 
     // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
     auto memRefShape = memRefType.getShape();
     Value alloc;
 

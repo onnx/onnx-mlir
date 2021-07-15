@@ -468,35 +468,14 @@ func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> t
 }
 
 // ----
-func private @test_reshape_constant(%arg0 : tensor<?x10xf32>) -> tensor<?x5xf32> {
-  %0 = "onnx.Constant"() {value = dense<[-1, 5]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<?x10xf32>, tensor<2xi64>) -> tensor<?x5xf32>
-  "std.return"(%1) : (tensor<?x5xf32>) -> ()
+func private @test_reshape_constant(%arg0 : tensor<1x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[2, 5]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<1x10xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:     test_reshape_constant
-// CHECK-SAME:     ([[VAR_arg0:%.+]]: memref<?x10xf32>) -> memref<?x5xf32> {
-// CHECK:           [[VAR_0:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[-1, 5]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK:           [[VAR_c4_i64:%.+]] = constant 4 : i64
-// CHECK:           [[VAR_c0:%.+]] = constant 0 : index
-// CHECK:           [[VAR_1:%.+]] = memref.dim [[VAR_arg0]], [[VAR_c0]] : memref<?x10xf32>
-// CHECK:           [[VAR_2:%.+]] = index_cast [[VAR_1]] : index to i64
-// CHECK:           [[VAR_3:%.+]] = muli [[VAR_c4_i64]], [[VAR_2]] : i64
-// CHECK:           [[VAR_c10_i64:%.+]] = constant 10 : i64
-// CHECK:           [[VAR_4:%.+]] = muli [[VAR_3]], [[VAR_c10_i64]] : i64
-// CHECK:           [[VAR_c4_i64_0:%.+]] = constant 4 : i64
-// CHECK:           [[VAR_c_min_1_i64:%.+]] = constant -1 : i64
-// CHECK:           [[VAR_5:%.+]] = muli [[VAR_c4_i64_0]], [[VAR_c_min_1_i64]] : i64
-// CHECK:           [[VAR_c5_i64:%.+]] = constant 5 : i64
-// CHECK:           [[VAR_6:%.+]] = muli [[VAR_5]], [[VAR_c5_i64]] : i64
-// CHECK:           [[VAR_c_min_1_i64_1:%.+]] = constant -1 : i64
-// CHECK:           [[VAR_7:%.+]] = muli [[VAR_6]], [[VAR_c_min_1_i64_1]] : i64
-// CHECK:           [[VAR_8:%.+]] = cmpi eq, [[VAR_c_min_1_i64]], [[VAR_c_min_1_i64_1]] : i64
-// CHECK:           [[VAR_9:%.+]] = divi_signed [[VAR_4]], [[VAR_7]] : i64
-// CHECK:           [[VAR_10:%.+]] = select [[VAR_8]], [[VAR_9]], [[VAR_c_min_1_i64]] : i64
-// CHECK:           [[VAR_11:%.+]] = index_cast [[VAR_10]] : i64 to index
-// CHECK:           [[VAR_12:%.+]] = memref.alloc([[VAR_11]]) : memref<?x5xf32>
-// CHECK:           "krnl.memcpy"([[VAR_12]], [[VAR_arg0]], [[VAR_4]]) : (memref<?x5xf32>, memref<?x10xf32>, i64) -> ()
-// CHECK:           return [[VAR_12]] : memref<?x5xf32>
-// CHECK:         }
+// CHECK: [[NEW_SHAPE:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[2, 5]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK: [[RES:%.+]] = memref.reshape %arg0([[NEW_SHAPE]]) : (memref<1x10xf32>, memref<2xi64>) -> memref<2x5xf32>
+// CHECK: return [[RES]] : memref<2x5xf32>
 }
 
 // -----
