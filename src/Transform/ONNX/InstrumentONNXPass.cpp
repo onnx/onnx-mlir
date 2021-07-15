@@ -13,6 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <set>
+
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
@@ -37,10 +39,20 @@ class InstrumentONNXPass
     : public mlir::PassWrapper<InstrumentONNXPass, FunctionPass> {
 
 private :
-  std::string opsString;
+  bool allOpsAllowed;
+  std::set<std::string> allowedOps;
 
 public:
-  InstrumentONNXPass(std::string allowedOps) : opsString(allowedOps) {};
+  InstrumentONNXPass(std::string allowedOps_) : allOpsAllowed(false) {
+    if (allowedOps_ == "ALL") {
+      allOpsAllowed = true;
+      return;
+    }
+    std::stringstream ss(allowedOps_);
+    std::istream_iterator<std::string> begin(ss);
+    std::istream_iterator<std::string> end;
+    allowedOps = std::set<std::string>(begin, end);
+  };
 
   void runOnFunction() override {
     auto function = getFunction();
@@ -49,6 +61,10 @@ public:
     // Iterate on the operations
     for (Operation &op : funcBody.getOps()) {
       if (isa<mlir::ONNXOpsDialect>(op.getDialect())) {
+	// Skip the prefix "onnx." of onnx op name
+	const char *opName = op.getName().getStringRef().data()+5;
+	if (!allOpsAllowed && allowedOps.find(opName) == allowedOps.end())
+          continue;
         Location loc = op.getLoc();
         OpBuilder opBuilder(&op);
         opBuilder.create<mlir::KrnlInstrumentOp>(loc, &op, 0);
