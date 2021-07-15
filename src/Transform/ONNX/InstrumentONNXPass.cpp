@@ -40,7 +40,7 @@ private :
   std::string opsString;
 
 public:
-  InstrumentONNXPass(std::string allowedOps) opsString(allowedOps) {};
+  InstrumentONNXPass(std::string allowedOps) : opsString(allowedOps) {};
 
   void runOnFunction() override {
     auto function = getFunction();
@@ -63,6 +63,6 @@ public:
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createInstrumentONNXPass() {
-  return std::make_unique<InstrumentONNXPass>();
+std::unique_ptr<mlir::Pass> mlir::createInstrumentONNXPass(std::string allowedOps) {
+  return std::make_unique<InstrumentONNXPass>(allowedOps);
 }

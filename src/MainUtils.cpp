@@ -84,15 +84,11 @@ llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<bool> instrumentONNXPass("instrument-onnx-pass",
-    llvm::cl::desc("toggle instrumentation for onnx ops"),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
-
 llvm::cl::opt<string> instrumentONNXOps("instrument-onnx-ops",
-    llvm::cl::desc("specify onnx ops to be instrumented."
-	           "\"NONE\" or empty string for not instrument"
-		   "\"ALL\" for all ops"
-		   "\"op1 op2 ...\""),
+    llvm::cl::desc("specify onnx ops to be instrumented\n"
+	           "\"NONE\" or \"\" for no instrument\n"
+		   "\"ALL\" for all ops. \n"
+		   "\"op1 op2 ...\" for the specified ops."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<string> shapeInformation("shapeInformation",
@@ -501,7 +497,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // Add instrumentation for Onnx Ops
-  if (instrumentONNXOps !== "" && instrumentONNXOps != "NONE")
+  if (instrumentONNXOps != "" && instrumentONNXOps != "NONE")
     pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass(instrumentONNXOps));
   pm.addPass(mlir::createLowerToKrnlPass());
   // An additional pass of canonicalization is helpful because lowering
