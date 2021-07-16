@@ -32,8 +32,23 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     auto dataShape = data.getType().cast<MemRefType>().getShape();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 
-    // If shape is a constant and does not contain -1 or 0, lower to
-    // memref.reshape so that the data is never copied or modified.
+    // If the output shape is a constant, lower to memref.reshape so that the
+    // data is never copied or modified.
+    if (hasAllConstantDimensions(memRefType)) {
+      int64_t rank = memRefType.getRank();
+      Value staticShape = rewriter.create<ONNXConstantOp>(loc, Attribute(),
+          DenseElementsAttr::get(
+              RankedTensorType::get({rank}, rewriter.getIndexType()),
+              memRefType.getShape()));
+      staticShape.setType(MemRefType::get({rank}, rewriter.getIndexType()));
+      Value memrefReshape = rewriter.create<memref::ReshapeOp>(
+          loc, memRefType, data, staticShape);
+      rewriter.replaceOp(op, memrefReshape);
+      return success();
+    }
+
+    // Shape can be a constant that contains -1 or 0, we cannot use
+    // memref.reshape, and have to do data copy.
     SmallVector<int64_t, 4> shapeAttrValues;
     if (ONNXConstantOp constOp = getONNXConstantOp(reshapeOp.shape())) {
       DenseElementsAttr shapeAttr =
@@ -44,13 +59,6 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
         for (; shapeAttrIt != itEnd;)
           shapeAttrValues.emplace_back(
               (*shapeAttrIt++).cast<IntegerAttr>().getInt());
-        if (llvm::all_of(shapeAttrValues,
-                [&](int64_t val) { return (val != -1 && val != 0); })) {
-          Value memrefReshape =
-              rewriter.create<memref::ReshapeOp>(loc, memRefType, data, shape);
-          rewriter.replaceOp(op, memrefReshape);
-          return success();
-        }
       }
     }
 

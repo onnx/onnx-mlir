@@ -29,14 +29,15 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
     auto elementSizeInBytes = getMemRefEltSizeInBytes(memRefType);
     Value data = operandAdaptor.data();
 
-    // If the output shape is a constant , lower to memref.reshape so that the
+    // If the output shape is a constant, lower to memref.reshape so that the
     // data is never copied or modified.
     if (hasAllConstantDimensions(memRefType)) {
       int64_t rank = memRefType.getRank();
       Value staticShape = rewriter.create<ONNXConstantOp>(loc, Attribute(),
           DenseElementsAttr::get(
-              RankedTensorType::get({1}, rewriter.getI64Type()), {rank}));
-      staticShape.setType(MemRefType::get({rank}, rewriter.getI64Type()));
+              RankedTensorType::get({rank}, rewriter.getIndexType()),
+              memRefType.getShape()));
+      staticShape.setType(MemRefType::get({rank}, rewriter.getIndexType()));
       Value memrefReshape = rewriter.create<memref::ReshapeOp>(
           loc, memRefType, data, staticShape);
       rewriter.replaceOp(op, memrefReshape);
