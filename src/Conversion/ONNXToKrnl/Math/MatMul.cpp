@@ -123,7 +123,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Compute.
     // Define blocking, with simdization along the j axis.
-    const int64_t iRegTile(4), jRegTile(8), kRegTile(4);
+    const int64_t iRegTile(4), jRegTile(8), kRegTile(8);
     // I, J, K loop.
     ValueRange origLoop = createKrnl.defineLoops(3);
     Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
@@ -141,7 +141,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
           createKrnl.matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},
               {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
-              {iRegTile, jRegTile, kRegTile}, {}, {}, {}, true, true, false);
+              {iRegTile, jRegTile, kRegTile}, {}, {}, {},
+              /*simd*/ true, /*unroll*/ true, /*overcompute*/ false);
         });
   }
 
