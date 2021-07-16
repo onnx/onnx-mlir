@@ -500,7 +500,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
   pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
   pm.addPass(mlir::createCanonicalizerPass());
-  pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
+  //pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
