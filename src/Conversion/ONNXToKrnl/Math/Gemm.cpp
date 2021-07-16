@@ -126,8 +126,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     // Prepare for the computations.
     // 1) Define blocking, with simdization along the j axis.
-    const int64_t iCacheTile(64), jCacheTile(128), kCacheTile(512);
-    const int64_t iRegTile(4), jRegTile(8);
+    const int64_t iCacheTile(32), jCacheTile(64), kCacheTile(256);
+    const int64_t iRegTile(4), jRegTile(16);
 
     bool unrollAndJam = DEBUG_UNROLL_OFF ? false : true;
     // Simdize with jRegTile as the vector length.
