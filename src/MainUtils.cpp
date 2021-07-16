@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
@@ -311,7 +312,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
       unoptimizedBitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
 
   llvm::raw_fd_ostream moduleBitcodeStream(
-      unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
+      unoptimizedBitcodePath, error, llvm::sys::fs::OF_None);
 
   llvm::LLVMContext llvmContext;
   mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
@@ -335,8 +336,14 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
 }
 
 // Compile LLVM bitcode to object file.
-void genModelObject(const mlir::OwningModuleRef &module, string bitcodePath,
-    string modelObjPath) {
+string genModelObject(string bitcodePath, string outputBaseName) {
+
+#ifdef _WIN32
+  string modelObjPath = outputBaseName + ".obj";
+#else
+  string modelObjPath = outputBaseName + ".o";
+#endif
+
   string llcPath = getToolPath("llc");
   Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
   llvmToObj.appendStr("-filetype=obj")
@@ -344,6 +351,7 @@ void genModelObject(const mlir::OwningModuleRef &module, string bitcodePath,
       .appendList({"-o", modelObjPath})
       .appendStr(bitcodePath)
       .exec();
+  return modelObjPath;
 }
 
 void genJniObject(const mlir::OwningModuleRef &module, string jniSharedLibPath,
@@ -353,19 +361,45 @@ void genJniObject(const mlir::OwningModuleRef &module, string jniSharedLibPath,
 }
 
 // Link everything into a shared object.
-void genSharedLib(const mlir::OwningModuleRef &module,
-    string modelSharedLibPath, std::vector<string> opts,
-    std::vector<string> objs, std::vector<string> libs) {
+string genSharedLib(string outputBaseName, std::vector<string> opts,
+    std::vector<string> objs, std::vector<string> libs,
+    std::vector<string> libDirs) {
 
-  string runtimeDirInclFlag = "-L" + getRuntimeDir();
+#ifdef _WIN32
+  // These files are automatically generated for DLLs on Windows
+  llvm::FileRemover libRemover(
+      outputBaseName + ".lib", !keepFiles(KeepFilesOfType::Object));
+  llvm::FileRemover expRemover(
+      outputBaseName + ".exp", !keepFiles(KeepFilesOfType::Object));
+
+  string sharedLibPath = outputBaseName + ".dll";
+  std::vector<string> outputOpt = {"/Fe:" + sharedLibPath};
+  // link has to be before def and libpath since they need to be passed through
+  // to the linker
+  std::vector<string> sharedLibOpts = {
+      "/LD", "/link", "/def:" + outputBaseName + ".def"};
+
+  llvm::for_each(libs, [](string &lib) { lib = lib + ".lib"; });
+  llvm::for_each(
+      libDirs, [](string &libDir) { libDir = "/libpath:\"" + libDir + "\""; });
+#else
+  string sharedLibPath = outputBaseName + ".so";
+  std::vector<string> outputOpt = {"-o", sharedLibPath};
+  std::vector<string> sharedLibOpts = {"-shared", "-fPIC"};
+  llvm::for_each(libs, [](string &lib) { lib = "-l" + lib; });
+  llvm::for_each(libDirs, [](string &libDir) { libDir = "-L" + libDir; });
+#endif
 
   Command link(kCxxPath);
   link.appendList(opts)
       .appendList(objs)
-      .appendList({"-o", modelSharedLibPath})
-      .appendStrOpt(runtimeDirInclFlag)
+      .appendList(outputOpt)
+      .appendList(sharedLibOpts)
+      .appendList(libDirs)
       .appendList(libs)
       .exec();
+
+  return sharedLibPath;
 }
 
 // Create jar containing java runtime and model shared library (which includes
@@ -384,7 +418,7 @@ void genJniJar(const mlir::OwningModuleRef &module, string modelSharedLibPath,
   jar.appendList({"uf", modelJniJarPath}).appendStr(modelSharedLibPath).exec();
 }
 
-void compileModuleToSharedLibrary(
+string compileModuleToSharedLibrary(
     const mlir::OwningModuleRef &module, std::string outputBaseName) {
 
   string bitcodePath = outputBaseName + ".bc";
@@ -392,14 +426,12 @@ void compileModuleToSharedLibrary(
   llvm::FileRemover bitcodeRemover(
       bitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
 
-  string modelObjPath = outputBaseName + ".o";
-  genModelObject(module, bitcodePath, modelObjPath);
+  string modelObjPath = genModelObject(bitcodePath, outputBaseName);
   llvm::FileRemover modelObjRemover(
       modelObjPath, !keepFiles(KeepFilesOfType::Object));
 
-  string modelSharedLibPath = outputBaseName + ".so";
-  genSharedLib(module, modelSharedLibPath, {"-shared", "-fPIC"}, {modelObjPath},
-      {"-lcruntime"});
+  return genSharedLib(
+      outputBaseName, {}, {modelObjPath}, {"cruntime"}, {getRuntimeDir()});
 }
 
 void compileModuleToJniJar(
@@ -410,8 +442,7 @@ void compileModuleToJniJar(
   llvm::FileRemover bitcodeRemover(
       bitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
 
-  string modelObjPath = outputBaseName + ".o";
-  genModelObject(module, bitcodePath, modelObjPath);
+  string modelObjPath = genModelObject(bitcodePath, outputBaseName);
   llvm::FileRemover modelObjRemover(
       modelObjPath, !keepFiles(KeepFilesOfType::Object));
 
@@ -421,10 +452,9 @@ void compileModuleToJniJar(
   llvm::FileRemover jniObjRemover(
       jniObjPath, !keepFiles(KeepFilesOfType::Object));
 
-  string modelSharedLibPath = "libmodel.so";
-  genSharedLib(module, modelSharedLibPath,
-      {"-shared", "-fPIC", "-z", "noexecstack"}, {modelObjPath, jniObjPath},
-      {"-ljniruntime", "-lcruntime"});
+  string modelSharedLibPath = genSharedLib("libmodel", {"-z", "noexecstack"},
+      {modelObjPath, jniObjPath}, {"jniruntime", "cruntime"},
+      {getRuntimeDir()});
   llvm::FileRemover modelSharedLibRemover(
       modelSharedLibPath, !keepFiles(KeepFilesOfType::Object));
 
@@ -584,10 +614,10 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   // necessary when emitting the .bc file.
   if (emissionTarget == EmitLib) {
     // Write LLVM bitcode to disk, compile & link.
-    compileModuleToSharedLibrary(module, outputBaseName);
+    string sharedLib = compileModuleToSharedLibrary(module, outputBaseName);
     if (keepFiles(KeepFilesOfType::MLIR))
       outputCode(module, outputBaseName, ".llvm.mlir");
-    printf("Shared library %s.so has been compiled.\n", outputBaseName.c_str());
+    printf("Shared library %s has been compiled.\n", sharedLib.c_str());
   } else if (emissionTarget == EmitJNI) {
     compileModuleToJniJar(module, outputBaseName);
     if (keepFiles(KeepFilesOfType::MLIR))

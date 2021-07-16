@@ -13,6 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
+#include "mlir/Conversion/LLVMCommon/Pattern.h"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
@@ -27,8 +30,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "onnx/onnx_pb.h"
 #include "llvm/ADT/Sequence.h"
+
+#include "onnx/onnx_pb.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVM.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -111,6 +115,25 @@ static size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
     return 0; // MemRef refers to a scalar.
   else
     return memRefTy.getBody()[3].cast<LLVM::LLVMArrayType>().getNumElements();
+}
+
+// Create a function declaration for OMInstrumentPoint, the signature is:
+//   `void (i64, i64)`
+static FlatSymbolRefAttr getOrInsertInstrument(
+    PatternRewriter &rewriter, ModuleOp module) {
+  auto *context = module.getContext();
+  const char funcName[] = "OMInstrumentPoint";
+  if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
+    return SymbolRefAttr::get(context, funcName);
+  auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
+  auto llvmI64Ty = IntegerType::get(context, 64);
+  auto llvmFnType = LLVM::LLVMFunctionType::get(
+      llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
+
+  PatternRewriter::InsertionGuard insertGuard(rewriter);
+  rewriter.setInsertionPointToStart(module.getBody());
+  rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, llvmFnType);
+  return SymbolRefAttr::get(context, funcName);
 }
 
 /// Return a symbol reference to the memcpy function, inserting it into the
@@ -536,6 +559,48 @@ private:
     Value bumped = rewriter.create<LLVM::AddOp>(loc, input, bump);
     Value mod = rewriter.create<LLVM::URemOp>(loc, bumped, alignment);
     return rewriter.create<LLVM::SubOp>(loc, bumped, mod);
+  }
+};
+
+class KrnlInstrumentOpLowering : public ConversionPattern {
+public:
+  explicit KrnlInstrumentOpLowering(MLIRContext *context)
+      : ConversionPattern(KrnlInstrumentOp::getOperationName(), 1, context) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    auto *context = op->getContext();
+    KrnlInstrumentOpAdaptor operandAdaptor(operands);
+    auto loc = op->getLoc();
+    KrnlInstrumentOp instrumentOp = llvm::dyn_cast<KrnlInstrumentOp>(op);
+
+    // Get a symbol reference to the memcpy function, inserting it if necessary.
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
+    auto llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
+    auto llvmI64Ty = IntegerType::get(context, 64);
+    auto llvmFnType = LLVM::LLVMFunctionType::get(
+        llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
+
+    auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
+
+    Value nodeName =
+        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
+            rewriter.getIntegerAttr(
+                rewriter.getIntegerType(64), instrumentOp.opID()));
+    Value tag =
+        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
+            rewriter.getIntegerAttr(
+                rewriter.getIntegerType(64), instrumentOp.tag()));
+    // StringRef txt = instrumentOp->op_name();
+    // Value nodeName = rewriter.create<LLVM::ConstantOp>(loc, llvmI8PtrTy,
+    // instrumentOp->op_name());
+
+    rewriter.create<CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
+        ArrayRef<Value>({nodeName, tag}));
+
+    rewriter.eraseOp(op);
+    return success();
   }
 };
 
@@ -1359,9 +1424,16 @@ public:
 
 void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     MLIRContext *ctx, LLVMTypeConverter &typeConverter) {
+  // TODO: look at what is done in
+  // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
+  // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
+  // They run it in two steps, and add additional lowerings.
+
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
-  vector::populateVectorSlicesLoweringPatterns(patterns);
+  // Removed in upgrade of LLVM:
+  // vector::populateVectorSlicesLoweringPatterns(patterns);
   vector::populateVectorContractLoweringPatterns(patterns);
+  vector::populateVectorTransposeLoweringPatterns(patterns);
 
   populateAffineToStdConversionPatterns(patterns);
   populateLoopToStdConversionPatterns(patterns);
@@ -1372,11 +1444,14 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateStdExpandOpsPatterns(patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
+  populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlVectorTypeCastOpLowering>(
       ctx, typeConverter);
   patterns.insert<KrnlGetRefOpLowering>(ctx, typeConverter);
   patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(ctx);
+
+  patterns.insert<KrnlInstrumentOpLowering>(ctx);
 
   // Math library functions.
   patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(ctx);

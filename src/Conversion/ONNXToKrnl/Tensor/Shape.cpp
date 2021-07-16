@@ -43,7 +43,7 @@ struct ONNXShapeOpLowering : public ConversionPattern {
 
     // Iterate along the data shape storing dim value to result.
     for (unsigned int i = 0; i < dataRank; i++) {
-      IndexExprScope scope(&rewriter, loc);
+      IndexExprScope scope(rewriter, loc);
       LiteralIndexExpr storeIndex(i);
       MemRefBoundsIndexCapture dataBounds(data);
       DimIndexExpr shapeVal(dataBounds.getDim(i));

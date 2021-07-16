@@ -23,25 +23,40 @@
 using namespace std;
 using namespace mlir;
 
+// Include some helper functions.
+#include "Helper.hpp"
+
 // Returns whether onnx-mlir compiled convolution is producing the same results
 // as a naive implementation of convolution for a specific set of convolution
 // parameters/configuration.
 bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
     const int W, const int kH, const int kW, const int pHBegin, const int pHEnd,
-    const int pWBegin, const int pWEnd) {
+    const int pWBegin, const int pWEnd, bool isDynamicH = false) {
+  static int testNum = 0;
+  printf("attempt %d with N %d, C %d, H %d, W %d, kH %d, kW %d, pHBegin %d, "
+         "pHEnd %d, pWBegin %d, pWEnd %d, isDynamicH %d \n",
+      ++testNum, N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
+      isDynamicH);
+
   MLIRContext ctx;
   registerDialects(ctx);
+
+  int H1 = H;
+  if (isDynamicH)
+    H1 = -1;
 
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);
   llvm::SmallVector<int64_t, 4> xShape = {N, C, H, W};
+  llvm::SmallVector<int64_t, 3> xShapeSymbol = {N, C, H1, W};
   llvm::SmallVector<int64_t, 1> bShape = {C};
   llvm::SmallVector<int64_t, 4> wShape = {C, C, kH, kW};
   auto xType = RankedTensorType::get(xShape, builder.getF32Type());
+  auto xTypeSymbol = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
   auto wType = RankedTensorType::get(wShape, builder.getF32Type());
   auto yType = UnrankedTensorType::get(builder.getF32Type());
 
-  llvm::SmallVector<Type, 2> inputsType{xType, wType};
+  llvm::SmallVector<Type, 2> inputsType{xTypeSymbol, wType};
   llvm::SmallVector<Type, 1> outputsType{yType};
 
   auto funcType = builder.getFunctionType(inputsType, outputsType);
@@ -77,6 +92,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 
   // Use the convOp shape inference method to compute output shape, and unset
   // the shape so that we don't leave IR in a inconsistent state.
+  convOp.X().setType(xType); // Use static dims to infer shape.
   LogicalResult res = convOp.inferShapes([](mlir::Region &) {});
   if (failed(res)) {
     return false;
@@ -87,6 +103,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   auto HOut = outputShape[2];
   auto WOut = outputShape[3];
   convOp.getResult().setType(yType);
+  convOp.X().setType(xTypeSymbol);
 
   llvm::SmallVector<Value, 1> results = {convOp.getResult()};
   builder.create<ReturnOp>(UnknownLoc::get(&ctx), results);
@@ -104,7 +121,8 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   OwningModuleRef moduleRef(module);
 
   compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
-  onnx_mlir::ExecutionSession sess(SHARED_LIB_BASE + ".so", "run_main_graph");
+  onnx_mlir::ExecutionSession sess(
+      getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto xOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
@@ -144,7 +162,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 
 int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
-  llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
+  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
   // RapidCheck test case generation.
   bool success = rc::check("convolution implementation correctness", []() {
@@ -162,11 +180,15 @@ int main(int argc, char *argv[]) {
     const auto pWBegin = *rc::gen::inRange(0, kW - 1);
     const auto pWEnd = *rc::gen::inRange(0, kW - 1);
 
+    // Whether test dynamic height.
+    const auto DynH = *rc::gen::element(0, 1);
+    const bool isDynH = (DynH == 0);
+
     // Make sure we have at least 1 output per dimension.
     RC_PRE((H >= kH) && (W > kW));
 
     RC_ASSERT(isOMConvTheSameAsNaiveImplFor(
-        N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd));
+        N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd, isDynH));
   });
   if (!success)
     return 1;

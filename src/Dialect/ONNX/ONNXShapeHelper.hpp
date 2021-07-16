@@ -82,7 +82,7 @@ private:
 /// be ranked in advance.
 struct ONNXOpBroadcastedShapeHelper {
   ONNXOpBroadcastedShapeHelper(ConversionPatternRewriter *rewriter,
-      Location loc, bool uniBroadcasting = false);
+      Location loc, bool uniBroadcasting = false, bool noBroadcasting = false);
 
   // Compute a vector of IndexExprs to represent the output shape. Results are
   // stored in 'outputDims'.
@@ -114,6 +114,11 @@ private:
   // If unidirectional broadcasting, the other operands are always
   // unidirectional broadcastable to the first operand.
   bool isUniBroadcasting;
+
+  // If isNoBroadcasting is true, the shape of all input is assumed to be same
+  // This flag is used to test dynamic shape
+  // There is no impact on static shape
+  bool isNoBroadcasting;
 };
 
 // Shape for ArgMax
@@ -245,4 +250,30 @@ struct ONNXLRNOpShapeHelper : public ONNXOpShapeHelper<ONNXLRNOp> {
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
   LogicalResult Compute(ONNXLRNOpAdaptor operandAdaptor);
+};
+
+// Shape for Conv.
+struct ONNXConvOpShapeHelper : public ONNXOpShapeHelper<ONNXConvOp> {
+  ONNXConvOpShapeHelper(ONNXConvOp *newOp);
+  ONNXConvOpShapeHelper(ONNXConvOp *newOp, ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXConvOpAdaptor operandAdaptor,
+      Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> pads,
+      Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations);
+};
+
+// Shape for Pooling.
+template <typename OP_TYPE, typename OP_ADAPTOR>
+struct ONNXPoolOpShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
+  ONNXPoolOpShapeHelper(OP_TYPE *newOp);
+  ONNXPoolOpShapeHelper(OP_TYPE *newOp, ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(OP_ADAPTOR operandAdaptor,
+      Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> pads,
+      Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations,
+      bool ceilMode);
 };

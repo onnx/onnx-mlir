@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -43,6 +44,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
     ONNXConvOpAdaptor operandAdaptor(operands);
     ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 
+    insertInstrumentBefore(op, rewriter, loc);
+
     // Read dilations attribute if the op has.
     std::vector<int64_t> dilations = getDilations(convOp);
     bool isDilated = !dilations.empty();
@@ -59,6 +62,15 @@ struct ONNXConvOpLowering : public ConversionPattern {
     for (Attribute stride : stridesAttribute.getValue())
       strides.emplace_back(stride.cast<IntegerAttr>().getInt());
 
+    // Get shape.
+    ONNXConvOpShapeHelper shapeHelper(&convOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    auto shapecomputed =
+        shapeHelper.Compute(operandAdaptor, convOp.kernel_shape(),
+            padsAttribute, stridesAttribute, convOp.dilations());
+    assert(succeeded(shapecomputed));
+
     // Scope for krnl ops
     IndexExprScope ieScope(rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
@@ -69,8 +81,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
 
     auto resultShape = memRefType.getShape();
     auto inputOperand = operandAdaptor.X();
@@ -78,12 +90,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
     auto kernelShape = kernelOperand.getType().cast<MemRefType>().getShape();
     auto biasOperand = operandAdaptor.B();
     bool hasBias = !biasOperand.getType().isa<NoneType>();
-
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {inputOperand});
 
     // R = Conv(D, K)
     //
@@ -178,6 +184,9 @@ struct ONNXConvOpLowering : public ConversionPattern {
     int mIndex = outerLoops.pushBounds(0, kernelsPerGroup);
     // Outer loop iterations.
     outerLoops.createIterateOp();
+
+    insertInstrumentAfter(op, rewriter, loc);
+
     rewriter.setInsertionPointToStart(outerLoops.getIterateBlock());
     {
       // 2. Emit the body of the outer loop nest.

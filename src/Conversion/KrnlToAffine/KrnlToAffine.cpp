@@ -26,12 +26,12 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
-// TODO update once not needed.
-#include "src/Dialect/ONNX/TmpMlirUtils.hpp"
 #include <functional>
+#include <mutex>
 
 #define BUFFER_ALIGN 64
 
@@ -291,6 +291,31 @@ struct AffineBuilder : DialectBuilder {
 
   void yield() { b.create<AffineYieldOp>(loc); }
 };
+
+// To assist unroll and jam
+typedef std::pair<AffineForOp, int64_t> UnrollAndJamRecord;
+typedef SmallVector<UnrollAndJamRecord, 4> UnrollAndJamList;
+typedef std::map<Operation *, UnrollAndJamList *> UnrollAndJamMap;
+UnrollAndJamMap unrollAndJamMap;
+std::mutex unrollAndJamMutex;
+
+/// Retrieve function which contains the current operation.
+Operation *getContainingFunction(Operation *op) {
+  Operation *parentFuncOp = op->getParentOp();
+  // While parent is not a FuncOp and its cast to a FuncOp is null.
+  while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
+    parentFuncOp = parentFuncOp->getParentOp();
+  return parentFuncOp;
+}
+
+UnrollAndJamList *getUnrollAndJamList(Operation *op) {
+  Operation *currFuncOp = getContainingFunction(op);
+  assert(currFuncOp && "function expected");
+  const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
+  UnrollAndJamList *currUnrollAndJamList = unrollAndJamMap[currFuncOp];
+  assert(currUnrollAndJamList && "expected list for function");
+  return currUnrollAndJamList;
+}
 
 void removeOps(llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
   // Remove lowered operations topologically; if ops are not removed
@@ -649,6 +674,7 @@ static IndexExpr startInBuffer(
 
 // KrnlMatmul will be lowered to vector and affine expressions
 class KrnlMatmulLowering : public OpRewritePattern<KrnlMatMulOp> {
+
 public:
   using OpRewritePattern<KrnlMatMulOp>::OpRewritePattern;
 
@@ -666,7 +692,7 @@ public:
     // Init scope and emit constants.
     Location loc = op.getLoc();
     AffineBuilder createAffine(rewriter, loc);
-    IndexExprScope indexScope(rewriter, loc);
+    IndexExprScope indexScope(createAffine);
 
     // Gather A, B, C tile sizes.
     SmallVector<IndexExpr, 2> aTileSize, bTileSize, cTileSize;
@@ -791,15 +817,6 @@ public:
     IndexExpr jPartialTrip =
         partialTrip(jGlobalUB, jComputeTileSize, jComputeStart);
 
-    // Currently, there is a bug in unroll and jam which crashes if there is an
-    // affine if/then/else. No crash if only if-then.
-    if (iIsFullTile.isLiteralAndGreaterThan(-1) &&
-        jIsFullTile.isLiteralAndGreaterThan(-1) &&
-        kIsFullTile.isLiteralAndGreaterThan(-1)) {
-      // this is ok, only a if-then below.
-    } else {
-      fullUnrollAndJam = false;
-    }
     if (simdize) {
       // SIMD code generator.
       // clang-format off
@@ -859,7 +876,9 @@ private:
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
     int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
-    MemRefType CTmpType = MemRefType::get({}, elementType);
+    int64_t unrollFactor = (unrollJam && J.isLiteral()) ? J.getLiteral() : 1;
+    // Have to privatize CTmpType by unroll factor (1 if none).
+    MemRefType CTmpType = MemRefType::get({unrollFactor}, elementType);
     IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
     Value TmpC = lb.create<memref::AllocaOp>(CTmpType, constAlignAttr);
 
@@ -877,7 +896,9 @@ private:
         IndexExpr::getValues(cStart, cAccess);
         cAccess[cRank - 2] = createMath.add(i, cAccess[cRank - 2]);
         cAccess[cRank - 1] = createMath.add(j, cAccess[cRank - 1]);
-        createAffine.store(createAffine.load(C, cAccess), TmpC);
+        Value initVal = createAffine.load(C, cAccess);
+        Value tmpCAccess = (unrollFactor > 1) ? j : zero.getValue();
+        createAffine.store(initVal, TmpC, tmpCAccess);
         // TTmpC() = affine_load(C, cAccess);
         // Sum over k.
         createAffine.forIE(
@@ -895,20 +916,20 @@ private:
               bAccess[bRank - 1] = createMath.add(j, bAccess[bRank - 1]);
               Value b = createAffine.load(B, bAccess);
               Value res = createMath.mul(a, b);
-              res = createMath.add(res, createAffine.load(TmpC));
-              createAffine.store(res, TmpC);
+              res = createMath.add(res, createAffine.load(TmpC, tmpCAccess));
+              createAffine.store(res, TmpC, tmpCAccess);
               // TTmpC() = a * b + TTmpC();
             });
         // Store temp result into C(i, j)
-        createAffine.store(createAffine.load(TmpC), C, cAccess);
+        Value finalVal = createAffine.load(TmpC, tmpCAccess);
+        createAffine.store(finalVal, C, cAccess);
         // affine_store(TTmpC(), C, cAccess);
       });
     });
     if (unrollJam && J.isLiteral()) {
-      // Unroll and jam. Seems to support only one operation at this time.
-      auto jLoop = getForInductionVarOwner(jSaved);
-      LogicalResult res = loopUnrollJamUpToFactor(jLoop, J.getLiteral());
-      assert(succeeded(res) && "failed to optimize");
+      UnrollAndJamRecord record(
+          getForInductionVarOwner(jSaved), J.getLiteral());
+      getUnrollAndJamList(op.getOperation())->emplace_back(record);
     }
   }
 
@@ -929,7 +950,9 @@ private:
     // Generate the vector type conversions.
     int64_t VL = vectorLen.getLiteral();
     VectorType vecType = VectorType::get({VL}, elementType);
-    MemRefType CTmpType = MemRefType::get({}, vecType);
+    int64_t unrollFactor = (unrollJam && I.isLiteral()) ? I.getLiteral() : 1;
+    // Have to privatize CTmpType by unroll factor (1 if none).
+    MemRefType CTmpType = MemRefType::get({unrollFactor}, vecType);
     KrnlBuilder createKrnl(rewriter, loc);
     Value vecB = createKrnl.vectorTypeCast(B, VL);
     Value vecC = createKrnl.vectorTypeCast(C, VL);
@@ -947,7 +970,9 @@ private:
       // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
       IndexExpr::getValues(cStart, cAccess);
       cAccess[cRank - 2] = createMath.add(i, cAccess[cRank - 2]);
-      createAffine.store(createAffine.load(vecC, cAccess), TmpC);
+      Value initVal = createAffine.load(vecC, cAccess);
+      Value tmpCAccess = (unrollFactor > 1) ? i : zero.getValue();
+      createAffine.store(initVal, TmpC, tmpCAccess);
       // Sum over k.
       createAffine.forIE(zero, K, 1, [&](AffineBuilder &createAffine, Value k) {
         MathBuilder createMath(createAffine);
@@ -965,12 +990,13 @@ private:
         bAccess[bRank - 2] = createMath.add(k, bAccess[bRank - 2]);
         Value vb = createAffine.load(vecB, bAccess);
         // TTmpC() = vector_fma(va, vb, TTmpC());
+        Value tmpVal = createAffine.load(TmpC, tmpCAccess);
         Value res = createAffine.getBuilder().create<vector::FMAOp>(
-            createAffine.getLoc(), va, vb, createAffine.load(TmpC));
-        createAffine.store(res, TmpC);
+            createAffine.getLoc(), va, vb, tmpVal);
+        createAffine.store(res, TmpC, tmpCAccess);
       });
       // Store temp result into C(i)
-      Value tmpResults = createAffine.load(TmpC);
+      Value tmpResults = createAffine.load(TmpC, tmpCAccess);
       int64_t JLit = J.getLiteral();
       if (JLit != VL) {
         // create vector constant
@@ -986,11 +1012,10 @@ private:
       createAffine.store(tmpResults, vecC, cAccess);
     });
 
-    if (false && unrollJam && I.isLiteral()) {
-      // Unroll and jam. Seems to support only one operation at this time.
-      auto iLoop = getForInductionVarOwner(iSaved);
-      LogicalResult res = loopUnrollJamUpToFactor(iLoop, I.getLiteral());
-      assert(succeeded(res) && "failed to optimize");
+    if (unrollJam && I.isLiteral()) {
+      UnrollAndJamRecord record(
+          getForInductionVarOwner(iSaved), I.getLiteral());
+      getUnrollAndJamList(op.getOperation())->emplace_back(record);
     }
   }
 
@@ -998,9 +1023,9 @@ private:
       function_ref<void(ValueRange)> builderFn) const {
     OpBuilder::InsertionGuard guard(createAffine.getBuilder());
     if (block->empty() ||
-        !block->back().mightHaveTrait<OpTrait::IsTerminator>())
+        !block->back().mightHaveTrait<OpTrait::IsTerminator>()) {
       createAffine.getBuilder().setInsertionPointToEnd(block);
-    else
+    } else
       createAffine.getBuilder().setInsertionPoint(&block->back());
     builderFn(block->getArguments());
   }
@@ -1374,7 +1399,6 @@ void markLoopBodyAsMovable(
 void ConvertKrnlToAffinePass::runOnFunction() {
   OpBuilder builder(&getContext());
   FuncOp funcOp = getFunction();
-
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
@@ -1453,10 +1477,36 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   patterns.insert<KrnlCopyToBufferLowering>(&getContext());
   patterns.insert<KrnlCopyFromBufferLowering>(&getContext());
 
+  // Create list for recording the <loop, unroll factor> pairs associated with
+  // this function.
+  UnrollAndJamList *currUnrollAndJamList = new UnrollAndJamList();
+  Operation *currFuncOp = funcOp.getOperation();
+  {
+    const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
+    unrollAndJamMap[currFuncOp] = currUnrollAndJamList;
+  }
+
   DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
-          getFunction(), target, std::move(patterns), &unconverted)))
+          getFunction(), target, std::move(patterns), &unconverted))) {
+    {
+      const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
+      unrollAndJamMap.erase(currFuncOp);
+    }
+    free(currUnrollAndJamList);
     signalPassFailure();
+  }
+
+  for (auto record : *currUnrollAndJamList) {
+    LogicalResult res = loopUnrollJamUpToFactor(record.first, record.second);
+    assert(succeeded(res) && "failed to optimize");
+  }
+
+  {
+    const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
+    unrollAndJamMap.erase(currFuncOp);
+  }
+  free(currUnrollAndJamList);
 }
 
 } // namespace
