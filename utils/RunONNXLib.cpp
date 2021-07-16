@@ -66,13 +66,10 @@ Usage: run-onnx-lib [options] model.so
 
 using namespace std;
 
-#ifdef WIN32
+#ifdef _WIN32
 // TO BE FIXED
-#warning disabled
 #else
 #include <sys/time.h>
-// Util for timing.
-struct timeval startTime, stopTime, result;
 #endif
 // Data structure to hold measurement times (in microseconds).
 vector<uint64_t> timeLogInMicroSec;
@@ -110,6 +107,7 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define OPTIONS "e:hn:m:v"
 #endif
 
+// Global variables to record what we should do in this run.
 static int sIterations = 1;
 static bool verbose = false;
 static bool measureExecTime = false;
@@ -177,6 +175,7 @@ void loadDLL(string name, string entryPointName) {
   assert(!dlerror() && "failed to load omTensorListDestroy");
 }
 
+// Parse input arguments.
 void parseArgs(int argc, char **argv) {
   int c;
   string entryPointName("run_main_graph");
@@ -203,12 +202,12 @@ void parseArgs(int argc, char **argv) {
       sIterations = atoi(optarg);
       break;
     case 'm':
-#ifdef WIN32
-      cout << "Measurement option currently not available, ignore." << endl;
-#else
+#ifdef _WIN32
+      cout << "> Measurement option currently not available, ignore." << endl;
+      break;
+#endif
       sIterations = atoi(optarg);
       measureExecTime = true;
-#endif
       break;
     case 'v':
       verbose = true;
@@ -333,6 +332,39 @@ OMTensorList *omTensorListCreateFromInputSignature(
   return OM_TENSOR_LIST_CREATE(inputTensors, inputNum);
 }
 
+// Data structures for timing info.
+#ifdef _WIN32
+#else
+struct timeval startTime, stopTime, result;
+#endif
+
+// Process start time.
+#ifdef _WIN32
+inline void processStartTime() {}
+#else
+inline void processStartTime() {
+  if (!measureExecTime)
+    return;
+  gettimeofday(&startTime, NULL);
+}
+#endif
+
+// Process stop time, store result in log.
+#ifdef _WIN32
+inline void processStopTime() {}
+#else
+inline void processStopTime() {
+  if (!measureExecTime)
+    return;
+  gettimeofday(&stopTime, NULL);
+  timersub(&stopTime, &startTime, &result);
+  uint64_t time =
+      (uint64_t)result.tv_sec * 1000000ull + (uint64_t)result.tv_usec;
+  timeLogInMicroSec.emplace_back(time);
+}
+#endif
+
+// Print timing info, removing shortest/longest measured time.
 void printTime(double avg, double std, double factor, string unit) {
   int s = timeLogInMicroSec.size();
   int m = s / 2;
@@ -342,30 +374,6 @@ void printTime(double avg, double std, double factor, string unit) {
       (double)(avg / factor), (double)(std / factor),
       (double)timeLogInMicroSec[1] / factor,
       (double)timeLogInMicroSec[s - 2] / factor, s - 2);
-}
-
-#ifdef WIN32
-
-inline void processStartTime() {}
-inline void processStopTime() {}
-void displayTime() {}
-
-#else
-
-inline void processStartTime() {
-  if (!measureExecTime)
-    return;
-  gettimeofday(&startTime, NULL);
-}
-
-inline void processStopTime() {
-  if (!measureExecTime)
-    return;
-  gettimeofday(&stopTime, NULL);
-  timersub(&stopTime, &startTime, &result);
-  uint64_t time =
-      (uint64_t)result.tv_sec * 1000000ull + (uint64_t)result.tv_usec;
-  timeLogInMicroSec.emplace_back(time);
 }
 
 void displayTime() {
@@ -390,8 +398,8 @@ void displayTime() {
     printTime(avg, std, 1e6, "second");
   }
 }
-#endif
 
+// Perform generation of input, run, measure time,...
 int main(int argc, char **argv) {
   // Init args.
   parseArgs(argc, argv);
