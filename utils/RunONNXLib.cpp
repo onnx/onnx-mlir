@@ -61,8 +61,10 @@ Usage: run-onnx-lib [options] model.so
 #include <vector>
 
 // Json reader & LLVM suport.
-#include "OnnxMlirRuntime.h"
 #include "llvm/Support/JSON.h"
+
+// Include ONNX MLIR Runtime support.
+#include "OnnxMlirRuntime.h"
 
 using namespace std;
 
