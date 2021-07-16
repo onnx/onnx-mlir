@@ -138,7 +138,6 @@ void usage(const char *name) {
   cout << "         Number of times to run the tests, default 1." << endl;
   cout << "    -m NUM | --meas NUM" << endl;
   cout << "         Measure the kernel execution time NUM times." << endl;
-  cout << "         Min 5 iters, shortest/longest points dropped." << endl;
   cout << "    -v | --verbose" << endl;
   cout << "         Print the shape of the inputs and outputs." << endl;
   cout << "    -h | --help" << endl;
@@ -219,8 +218,9 @@ void parseArgs(int argc, char **argv) {
       exit(1);
     }
   }
-  if (measureExecTime && sIterations < 5)
-    sIterations = 5;
+  // Make sure that iterations are positive.
+  if (sIterations < 1)
+    sIterations = 1;
 
 // Process the DLL.
 #if LOAD_MODEL_STATICALLY
@@ -374,24 +374,24 @@ void printTime(double avg, double std, double factor, string unit) {
          "sample, %d\n",
       unit.c_str(), (double)timeLogInMicroSec[m] / factor,
       (double)(avg / factor), (double)(std / factor),
-      (double)timeLogInMicroSec[1] / factor,
-      (double)timeLogInMicroSec[s - 2] / factor, s - 2);
+      (double)timeLogInMicroSec[0] / factor,
+      (double)timeLogInMicroSec[s - 1] / factor, s);
 }
 
 void displayTime() {
-  if (!measureExecTime)
+  int s = timeLogInMicroSec.size();
+  if (s == 0)
     return;
   sort(timeLogInMicroSec.begin(), timeLogInMicroSec.end());
-  int s = timeLogInMicroSec.size();
   double avg = 0;
-  for (int i = 1; i < s - 1; ++i)
+  for (int i = 0; i < s; ++i)
     avg += (double)timeLogInMicroSec[i];
-  avg = avg / (s - 2);
+  avg = avg / s;
   double std = 0;
-  for (int i = 1; i < s - 1; ++i)
+  for (int i = 0; i < s; ++i)
     std += ((double)timeLogInMicroSec[i] - avg) *
            ((double)timeLogInMicroSec[i] - avg);
-  std = sqrt(std / (s - 2));
+  std = sqrt(std / s);
   printTime(avg, std, 1, "micro-second");
   if (avg >= 1e3) {
     printTime(avg, std, 1e3, "milli-second");
