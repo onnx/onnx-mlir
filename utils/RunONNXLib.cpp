@@ -58,15 +58,24 @@ Usage: run-onnx-lib [options] model.so
 #include <getopt.h>
 #include <iostream>
 #include <string>
-#include <sys/time.h>
 #include <vector>
 
 // Json reader & LLVM suport.
+#include "OnnxMlirRuntime.h"
 #include "llvm/Support/JSON.h"
 
-#include "OnnxMlirRuntime.h"
-
 using namespace std;
+
+#ifdef WIN32
+// TO BE FIXED
+#warning disabled
+#else
+#include <sys/time.h>
+// Util for timing.
+struct timeval startTime, stopTime, result;
+#endif
+// Data structure to hold measurement times (in microseconds).
+vector<uint64_t> timeLogInMicroSec;
 
 // Interface definitions
 extern "C" OMTensorList *run_main_graph(OMTensorList *);
@@ -194,8 +203,12 @@ void parseArgs(int argc, char **argv) {
       sIterations = atoi(optarg);
       break;
     case 'm':
+#ifdef WIN32
+      cout << "Measurement option currently not available, ignore." << endl;
+#else
       sIterations = atoi(optarg);
       measureExecTime = true;
+#endif
       break;
     case 'v':
       verbose = true;
@@ -320,9 +333,24 @@ OMTensorList *omTensorListCreateFromInputSignature(
   return OM_TENSOR_LIST_CREATE(inputTensors, inputNum);
 }
 
-// Util for timing.
-std::vector<uint64_t> timeLogInMicroSec;
-struct timeval startTime, stopTime, result;
+void printTime(double avg, double std, double factor, string unit) {
+  int s = timeLogInMicroSec.size();
+  int m = s / 2;
+  printf("@time, %s, median, %.1f, avg, %.1f, std, %.1f, min, %.1f, max, %.1f, "
+         "sample, %d\n",
+      unit.c_str(), (double)timeLogInMicroSec[m] / factor,
+      (double)(avg / factor), (double)(std / factor),
+      (double)timeLogInMicroSec[1] / factor,
+      (double)timeLogInMicroSec[s - 2] / factor, s - 2);
+}
+
+#ifdef WIN32
+
+inline void processStartTime() {}
+inline void processStopTime() {}
+void displayTime() {}
+
+#else
 
 inline void processStartTime() {
   if (!measureExecTime)
@@ -340,21 +368,10 @@ inline void processStopTime() {
   timeLogInMicroSec.emplace_back(time);
 }
 
-void printTime(double avg, double std, double factor, string unit) {
-  int s = timeLogInMicroSec.size();
-  int m = s / 2;
-  printf("@time, %s, median, %.1f, avg, %.1f, std, %.1f, min, %.1f, max, %.1f, "
-         "sample, %d\n",
-      unit.c_str(), (double)timeLogInMicroSec[m] / factor,
-      (double)(avg / factor), (double)(std / factor),
-      (double)timeLogInMicroSec[1] / factor,
-      (double)timeLogInMicroSec[s - 2] / factor, s - 2);
-}
-
 void displayTime() {
   if (!measureExecTime)
     return;
-  std::sort(timeLogInMicroSec.begin(), timeLogInMicroSec.end());
+  sort(timeLogInMicroSec.begin(), timeLogInMicroSec.end());
   int s = timeLogInMicroSec.size();
   double avg = 0;
   for (int i = 1; i < s - 1; ++i)
@@ -373,6 +390,7 @@ void displayTime() {
     printTime(avg, std, 1e6, "second");
   }
 }
+#endif
 
 int main(int argc, char **argv) {
   // Init args.
