@@ -32,18 +32,34 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     auto dataShape = data.getType().cast<MemRefType>().getShape();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 
-    // If the output shape is a constant, lower to memref.reshape so that the
+    // If the output shape is a constant, lower to ReinterpretCastOp so that the
     // data is never copied or modified.
-    if (hasAllConstantDimensions(memRefType)) {
+    if (memRefType.hasStaticShape()) {
       int64_t rank = memRefType.getRank();
-      Value staticShape = rewriter.create<ONNXConstantOp>(loc, Attribute(),
-          DenseElementsAttr::get(
-              RankedTensorType::get({rank}, rewriter.getIndexType()),
-              memRefType.getShape()));
-      staticShape.setType(MemRefType::get({rank}, rewriter.getIndexType()));
-      Value memrefReshape = rewriter.create<memref::ReshapeOp>(
-          loc, memRefType, data, staticShape);
-      rewriter.replaceOp(op, memrefReshape);
+
+      // Compute new sizes and strides.
+      SmallVector<int64_t, 4> sizesI64, stridesI64;
+      sizesI64.resize(rank);
+      stridesI64.resize(rank);
+      int64_t strideI64 = 1;
+      for (int i = rank - 1; i >= 0; --i) {
+        sizesI64[i] = memRefType.getDimSize(i);
+        stridesI64[i] = strideI64;
+        if (i > 0)
+          strideI64 *= sizesI64[i];
+      }
+
+      SmallVector<OpFoldResult, 4> sizes, strides;
+      sizes.resize(rank);
+      strides.resize(rank);
+      for (int i = rank - 1; i >= 0; --i) {
+        sizes[i] = rewriter.getIndexAttr(sizesI64[i]);
+        strides[i] = rewriter.getIndexAttr(stridesI64[i]);
+      }
+
+      // Emit ReinterpretCastOp.
+      rewriter.replaceOpWithNewOp<memref::ReinterpretCastOp>(op, memRefType,
+          data, /*offset=*/rewriter.getIndexAttr(0), sizes, strides);
       return success();
     }
 

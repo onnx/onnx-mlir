@@ -473,8 +473,8 @@ func private @test_reshape_constant(%arg0 : tensor<1x10xf32>) -> tensor<*xf32> {
   %1 = "onnx.Reshape"(%arg0, %0) : (tensor<1x10xf32>, tensor<2xi64>) -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:     test_reshape_constant
-// CHECK: [[NEW_SHAPE:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[2, 5]> : tensor<2xindex>} : () -> memref<2xindex>
-// CHECK: [[RES:%.+]] = memref.reshape %arg0([[NEW_SHAPE]]) : (memref<1x10xf32>, memref<2xindex>) -> memref<2x5xf32>
+// CHECK: krnl.global
+// CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [2, 5], strides: [5, 1] : memref<1x10xf32> to memref<2x5xf32>
 // CHECK: return [[RES]] : memref<2x5xf32>
 }
 
@@ -901,8 +901,7 @@ func private @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_unsqueeze
-  // CHECK: [[NEW_SHAPE:%.+]] = "krnl.global"() {name = "constant_0", shape = [4], value = dense<[1, 10, 10, 1]> : tensor<4xindex>} : () -> memref<4xindex>
-  // CHECK: [[RES:%.+]] = memref.reshape %arg0([[NEW_SHAPE]]) : (memref<10x10xf32>, memref<4xindex>) -> memref<1x10x10x1xf32>
+  // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [1, 10, 10, 1], strides: [100, 10, 1, 1] : memref<10x10xf32> to memref<1x10x10x1xf32>
   // CHECK: return [[RES]] : memref<1x10x10x1xf32>
 }
 
@@ -1466,8 +1465,7 @@ func private @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: @test_squeeze
-  // CHECK: [[NEW_SHAPE:%.+]] = "krnl.global"() {name = "constant_0", shape = [3], value = dense<[16, 32, 64]> : tensor<3xindex>} : () -> memref<3xindex>
-  // CHECK: [[RES:%.+]] = memref.reshape %arg0([[NEW_SHAPE]]) : (memref<16x1x32x1x64xf32>, memref<3xindex>) -> memref<16x32x64xf32>
+  // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [16, 32, 64], strides: [2048, 64, 1] : memref<16x1x32x1x64xf32> to memref<16x32x64xf32>
   // CHECK: return [[RES]] : memref<16x32x64xf32>
 }
 
