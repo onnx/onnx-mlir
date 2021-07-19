@@ -399,72 +399,101 @@ func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
+// CHECK-DAG: #map0 = affine_map<(d0) -> (d0)>
+// CHECK-DAG: #map1 = affine_map<(d0) -> (d0 * 10)>
+// CHECK-DAG: #map2 = affine_map<(d0) -> (d0 * 40)>
+
 func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> tensor<*xf32> {
   %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<4xi64>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_reshape
-  // CHECK: [[TYPE_IN_BYTES_0:%.+]] = constant 4 : i64
-  // CHECK: [[C0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_0:%.+]] = memref.dim %arg0, [[C0]] : memref<?x10xf32>
-  // CHECK: [[DIM_0_CAST:%.+]] = index_cast [[DIM_0]] : index to i64
-  // CHECK: [[MUL_0:%.+]] = muli [[TYPE_IN_BYTES_0]], [[DIM_0_CAST]] : i64
-  // CHECK: [[CONSTANT_0:%.+]] = constant 10 : i64
-  // CHECK: [[TENSOR_SIZE:%.+]] = muli [[MUL_0]], [[CONSTANT_0]] : i64
-
-  // CHECK: [[TYPE_IN_BYTES_1:%.+]] = constant 4 : i64
-  // CHECK: %[[CONSTANT_1:.+]] = constant 0 : index
-  // CHECK: [[LOAD_0:%.+]] = krnl.load %arg1[%[[CONSTANT_1]]] : memref<4xi64>
-  // CHECK: [[C0_0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_1:%.+]] = memref.dim %arg0, [[C0_0]] : memref<?x10xf32>
-  // CHECK: [[DIM_1_CAST:%.+]] = index_cast [[DIM_1]] : index to i64
-  // CHECK: [[CONSTANT_2:%.+]] = constant 0 : i64
-  // CHECK: [[CMP_0:%.+]] = cmpi eq, [[LOAD_0]], [[CONSTANT_2]] : i64
-  // CHECK: [[SELECT_0:%.+]] = select [[CMP_0]], [[DIM_1_CAST]], [[LOAD_0]] : i64
-  // CHECK: [[MUL_1:%.+]] = muli [[TYPE_IN_BYTES_1]], [[SELECT_0]] : i64
-
-  // CHECK: %[[CONSTANT_3:.+]] = constant 1 : index
-  // CHECK: [[LOAD_1:%.+]] = krnl.load %arg1[%[[CONSTANT_3]]] : memref<4xi64>
-  // CHECK: [[CONSTANT_3:%.+]] = constant 10 : i64
-  // CHECK: [[CONSTANT_4:%.+]] = constant 0 : i64
-  // CHECK: [[CMP_1:%.+]] = cmpi eq, [[LOAD_1]], [[CONSTANT_4]] : i64
-  // CHECK: [[SELECT_1:%.+]] = select [[CMP_1]], [[CONSTANT_3]], [[LOAD_1]] : i64
-  // CHECK: [[MUL_2:%.+]] = muli [[MUL_1]], [[SELECT_1]] : i64
-
-  // CHECK: %[[CONSTANT_5:.+]] = constant 2 : index
-  // CHECK: [[LOAD_2:%.+]] = krnl.load %arg1[%[[CONSTANT_5]]] : memref<4xi64>
-  // CHECK: [[MUL_3:%.+]] = muli [[MUL_2]], [[LOAD_2]] : i64
-
-  // CHECK: %[[CONSTANT_6:.+]] = constant 3 : index
-  // CHECK: [[LOAD_3:%.+]] = krnl.load %arg1[%[[CONSTANT_6]]] : memref<4xi64>
-  // CHECK: [[MUL_4:%.+]] = muli [[MUL_3]], [[LOAD_3]] : i64
-
-  // CHECK: [[CONSTANT_8:%.+]] = constant -1 : i64
-  // CHECK: [[TENSOR_SIZE_FROM_SHAPE:%.+]] = muli [[MUL_4]], [[CONSTANT_8]] : i64
-
-  // CHECK: [[CMP_2:%.+]] = cmpi eq, [[SELECT_0]], [[CONSTANT_8]] : i64
-  // CHECK: [[DIVISIGNED_0:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
-  // CHECK: [[SELECT_2:%.+]] = select [[CMP_2]], [[DIVISIGNED_0]], [[SELECT_0]] : i64
-  // CHECK: [[CAST_0:%.+]] = index_cast [[SELECT_2]] : i64 to index
-
-  // CHECK: [[CMP_3:%.+]] = cmpi eq, [[SELECT_1]], [[CONSTANT_8]] : i64
-  // CHECK: [[DIVISIGNED_1:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
-  // CHECK: [[SELECT_3:%.+]] = select [[CMP_3]], [[DIVISIGNED_1]], [[SELECT_1]] : i64
-  // CHECK: [[CAST_1:%.+]] = index_cast [[SELECT_3]] : i64 to index
-
-  // CHECK: [[CMP_4:%.+]] = cmpi eq, [[LOAD_2]], [[CONSTANT_8]] : i64
-  // CHECK: [[DIVISIGNED_2:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
-  // CHECK: [[SELECT_4:%.+]] = select [[CMP_4]], [[DIVISIGNED_2]], [[LOAD_2]] : i64
-  // CHECK: [[CAST_2:%.+]] = index_cast [[SELECT_4]] : i64 to index
-
-  // CHECK: [[CMP_5:%.+]] = cmpi eq, [[LOAD_3]], [[CONSTANT_8]] : i64
-  // CHECK: [[DIVISIGNED_3:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
-  // CHECK: [[SELECT_5:%.+]] = select [[CMP_5]], [[DIVISIGNED_3]], [[LOAD_3]] : i64
-  // CHECK: [[CAST_3:%.+]] = index_cast [[SELECT_5]] : i64 to index
-
-  // CHECK: [[ALLOC:%.+]] = memref.alloc([[CAST_0]], [[CAST_1]], [[CAST_2]], [[CAST_3]]) : memref<?x?x?x?xf32>
-  // CHECK: "krnl.memcpy"([[ALLOC]], %arg0, [[TENSOR_SIZE]]) : (memref<?x?x?x?xf32>, memref<?x10xf32>, i64) -> ()
-  // CHECK: return [[ALLOC]] : memref<?x?x?x?xf32>
+// CHECK-LABEL:  func private @test_reshape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>, [[PARAM_1_:%.+]]: memref<4xi64>) -> memref<?x?x?x?xf32> {
+// CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
+// CHECK:           [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply #map0([[VAR_0_]])
+// CHECK-DAG:       [[CST_10_:%.+]] = constant 10 : index
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply #map1([[VAR_0_]])
+// CHECK-DAG:       [[CST_1_1_:%.+]] = constant 1 : index
+// CHECK-DAG:       [[CST_0_1_:%.+]] = constant 0 : index
+// CHECK:           [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_0_1_]]{{.}} : memref<4xi64>
+// CHECK-DAG:       [[VAR_4_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
+// CHECK-DAG:       [[CST_0_2_:%.+]] = constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_5_:%.+]] = cmpi eq, [[VAR_4_]], [[CST_0_2_]] : index
+// CHECK-DAG:       [[CST_0_3_:%.+]] = constant 0 : index
+// CHECK:           [[VAR_6_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_3_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]] = select [[VAR_5_]], [[VAR_6_]], [[VAR_4_]] : index
+// CHECK-DAG:       [[CST_minus_1_:%.+]] = constant -1 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_8_:%.+]] = cmpi eq, [[VAR_7_]], [[CST_minus_1_]] : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = constant 1 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_9_:%.+]] = select [[VAR_8_]], [[CST_1_2_]], [[VAR_7_]] : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = constant 1 : index
+// CHECK:           [[LOAD_PARAM_1_MEM_1_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_1_3_]]{{.}} : memref<4xi64>
+// CHECK-DAG:       [[VAR_11_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_1_]] : i64 to index
+// CHECK-DAG:       [[CST_0_4_:%.+]] = constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_12_:%.+]] = cmpi eq, [[VAR_11_]], [[CST_0_4_]] : index
+// CHECK-DAG:       [[CST_10_1_:%.+]] = constant 10 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_13_:%.+]] = select [[VAR_12_]], [[CST_10_1_]], [[VAR_11_]] : index
+// CHECK-DAG:       [[CST_minus_1_1_:%.+]] = constant -1 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_14_:%.+]] = cmpi eq, [[VAR_13_]], [[CST_minus_1_1_]] : index
+// CHECK-DAG:       [[CST_1_4_:%.+]] = constant 1 : index
+// CHECK:           [[VAR_15_:%.+]] = select [[VAR_14_]], [[CST_1_4_]], [[VAR_13_]] : index
+// CHECK-DAG:       [[VAR_16_:%.+]] = muli [[VAR_9_]], [[VAR_15_]] : index
+// CHECK-DAG:       [[CST_2_:%.+]] = constant 2 : index
+// CHECK:           [[LOAD_PARAM_1_MEM_2_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_2_]]{{.}} : memref<4xi64>
+// CHECK-DAG:       [[VAR_18_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_2_]] : i64 to index
+// CHECK-DAG:       [[CST_minus_1_2_:%.+]] = constant -1 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_19_:%.+]] = cmpi eq, [[VAR_18_]], [[CST_minus_1_2_]] : index
+// CHECK-DAG:       [[CST_1_5_:%.+]] = constant 1 : index
+// CHECK:           [[VAR_20_:%.+]] = select [[VAR_19_]], [[CST_1_5_]], [[VAR_18_]] : index
+// CHECK-DAG:       [[VAR_21_:%.+]] = muli [[VAR_16_]], [[VAR_20_]] : index
+// CHECK-DAG:       [[CST_3_:%.+]] = constant 3 : index
+// CHECK:           [[LOAD_PARAM_1_MEM_3_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_3_]]{{.}} : memref<4xi64>
+// CHECK-DAG:       [[VAR_23_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_3_]] : i64 to index
+// CHECK-DAG:       [[CST_minus_1_3_:%.+]] = constant -1 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_24_:%.+]] = cmpi eq, [[VAR_23_]], [[CST_minus_1_3_]] : index
+// CHECK-DAG:       [[CST_1_6_:%.+]] = constant 1 : index
+// CHECK:           [[VAR_25_:%.+]] = select [[VAR_24_]], [[CST_1_6_]], [[VAR_23_]] : index
+// CHECK-DAG:       [[VAR_26_:%.+]] = muli [[VAR_21_]], [[VAR_25_]] : index
+// CHECK-DAG:       [[CST_minus_1_4_:%.+]] = constant -1 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_27_:%.+]] = cmpi eq, [[VAR_7_]], [[CST_minus_1_4_]] : index
+// CHECK-DAG:       [[VAR_28_:%.+]] = floordivi_signed [[VAR_2_]], [[VAR_2_]]6 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_29_:%.+]] = select [[VAR_27_]], [[VAR_28_]], [[VAR_7_]] : index
+// CHECK-DAG:       [[CST_minus_1_5_:%.+]] = constant -1 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_30_:%.+]] = cmpi eq, [[VAR_13_]], [[CST_minus_1_5_]] : index
+// CHECK-DAG:       [[VAR_31_:%.+]] = floordivi_signed [[VAR_2_]], [[VAR_2_]]6 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_32_:%.+]] = select [[VAR_30_]], [[VAR_31_]], [[VAR_13_]] : index
+// CHECK-DAG:       [[CST_minus_1_6_:%.+]] = constant -1 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_33_:%.+]] = cmpi eq, [[VAR_18_]], [[CST_minus_1_6_]] : index
+// CHECK-DAG:       [[VAR_34_:%.+]] = floordivi_signed [[VAR_2_]], [[VAR_2_]]6 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_35_:%.+]] = select [[VAR_33_]], [[VAR_34_]], [[VAR_18_]] : index
+// CHECK-DAG:       [[CST_minus_1_7_:%.+]] = constant -1 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_36_:%.+]] = cmpi eq, [[VAR_23_]], [[CST_minus_1_7_]] : index
+// CHECK-DAG:       [[VAR_37_:%.+]] = floordivi_signed [[VAR_2_]], [[VAR_2_]]6 : index
+// CHECK:           [[VAR_38_:%.+]] = select [[VAR_36_]], [[VAR_37_]], [[VAR_23_]] : index
+// CHECK-DAG:       [[VAR_39_:%.+]] = memref.alloc([[VAR_29_]], [[VAR_32_]], [[VAR_35_]], [[VAR_38_]]) : memref<?x?x?x?xf32>
+// CHECK-DAG:       [[CST_4_:%.+]] = constant 4 : index
+// CHECK-DAG:       [[VAR_40_:%.+]] = affine.apply #map2([[VAR_0_]])
+// CHECK:           [[VAR_41_:%.+]] = index_cast [[VAR_40_]] : index to i64
+// CHECK:           "krnl.memcpy"([[VAR_39_]], [[PARAM_0_]], [[VAR_41_]]) : (memref<?x?x?x?xf32>, memref<?x10xf32>, i64) -> ()
+// CHECK:           return [[VAR_39_]] : memref<?x?x?x?xf32>
+// CHECK:         }
 }
 
 // ----

@@ -1423,6 +1423,7 @@ LogicalResult ONNXReshapeOp::inferShapes(
 
   auto inputTensorTy = data().getType().cast<RankedTensorType>();
   auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
+  auto elementType = data().getType().cast<ShapedType>().getElementType();
 
   // Only rank 1 shape tensors are supported.
   if (shapeTensorTy.getShape().size() != 1)
@@ -1432,54 +1433,15 @@ LogicalResult ONNXReshapeOp::inferShapes(
   // Shape tensor must have constant shape.
   if (outputRank < 0)
     return emitError("Shape tensor must have constant shape");
-  // Compute total number of elements.
-  int64_t totalInputSize = 1;
-  for (auto inputDim : inputTensorTy.getShape())
-    totalInputSize *= inputDim;
 
-  // Check if second argument of ReshapeOp is a constant.
-  auto constantOp = getONNXConstantOp(shape());
+  ONNXReshapeOpAdaptor operandAdaptor(*this);
+  ONNXReshapeOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan Reshape parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
 
-  SmallVector<int64_t, 2> dims(outputRank, -1);
-  if (constantOp) {
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    if (!valueAttribute)
-      return emitError("DenseElementsAttr expected");
-    // Get dims from valueAttribute.
-    auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
-    for (int i = 0; i < outputRank; ++i)
-      dims[i] = (*valueIt++).cast<IntegerAttr>().getInt();
-
-    if (valueIt != valueAttribute.getValues<IntegerAttr>().end())
-      return emitError("Constant value must have same rank as output");
-    int64_t numberOfDynamicInputs = 0;
-    int64_t totalKnownDimsSize = 1;
-    int64_t dynamicValueIndex = -1;
-    for (int i = 0; i < outputRank; ++i) {
-      // Set output dimension.
-      if (dims[i] == 0)
-        dims[i] = inputTensorTy.getShape()[i];
-
-      if (dims[i] < 0) {
-        numberOfDynamicInputs++;
-        dynamicValueIndex = i;
-      } else {
-        totalKnownDimsSize *= dims[i];
-      }
-    }
-
-    // If the number of dynamic inputs is 1 then deduce the missing value
-    // based on the total input size. The total input size must be greater
-    // than 0 i.e. all constant dimensions.
-    // TODO: Support dynamic input dimensions.
-    if (numberOfDynamicInputs == 1 && totalKnownDimsSize > 0 &&
-        totalInputSize > 0)
-      dims[dynamicValueIndex] = totalInputSize / totalKnownDimsSize;
-  }
-
-  getResult().setType(
-      RankedTensorType::get(dims, inputTensorTy.getElementType()));
   return success();
 }
 

@@ -32,174 +32,35 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     auto dataShape = data.getType().cast<MemRefType>().getShape();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 
+    ONNXReshapeOpShapeHelper shapeHelper(&reshapeOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    assert(succeeded(shapecomputed));
+
     // If the output shape is a constant, lower to ReinterpretCastOp so that the
     // data is never copied or modified.
     if (memRefType.hasStaticShape()) {
-      int64_t rank = memRefType.getRank();
-
-      // Compute new sizes and strides.
-      SmallVector<int64_t, 4> sizesI64, stridesI64;
-      sizesI64.resize(rank);
-      stridesI64.resize(rank);
-      int64_t strideI64 = 1;
-      for (int i = rank - 1; i >= 0; --i) {
-        sizesI64[i] = memRefType.getDimSize(i);
-        stridesI64[i] = strideI64;
-        if (i > 0)
-          strideI64 *= sizesI64[i];
-      }
-
-      SmallVector<OpFoldResult, 4> sizes, strides;
-      sizes.resize(rank);
-      strides.resize(rank);
-      for (int i = rank - 1; i >= 0; --i) {
-        sizes[i] = rewriter.getIndexAttr(sizesI64[i]);
-        strides[i] = rewriter.getIndexAttr(stridesI64[i]);
-      }
-
-      // Emit ReinterpretCastOp.
-      rewriter.replaceOpWithNewOp<memref::ReinterpretCastOp>(op, memRefType,
-          data, /*offset=*/rewriter.getIndexAttr(0), sizes, strides);
+      Value newView = emitMemRefReinterpretCastOp(
+          rewriter, loc, data, memRefType, shapeHelper.dimsForOutput(0));
+      rewriter.replaceOp(op, newView);
       return success();
     }
 
-    // Shape can be a constant that contains -1 or 0, we cannot use
-    // memref.reshape, and have to do data copy.
-    SmallVector<int64_t, 4> shapeAttrValues;
-    if (ONNXConstantOp constOp = getONNXConstantOp(reshapeOp.shape())) {
-      DenseElementsAttr shapeAttr =
-          constOp.valueAttr().dyn_cast_or_null<DenseElementsAttr>();
-      if (shapeAttr) {
-        auto shapeAttrIt = shapeAttr.getValues<IntegerAttr>().begin();
-        auto itEnd = shapeAttr.getValues<IntegerAttr>().end();
-        for (; shapeAttrIt != itEnd;)
-          shapeAttrValues.emplace_back(
-              (*shapeAttrIt++).cast<IntegerAttr>().getInt());
-      }
-    }
-
+    // Other cases, we have to do data copy.
     // Insert an allocation and deallocation for the result of this operation.
-    auto memRefShape = memRefType.getShape();
-    Value alloc;
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
 
     // Compute size in bytes using the input tensor.
-    Value tensorSizeFromInput = emitConstantOp(rewriter, loc,
-        rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
-    for (unsigned int i = 0; i < dataShape.size(); ++i) {
-      Value dimVal =
-          getDimOrConstant(rewriter, loc, data, i, rewriter.getIntegerType(64));
-      tensorSizeFromInput =
-          rewriter.create<MulIOp>(loc, tensorSizeFromInput, dimVal);
-    }
+    IndexExpr sizeInBytes =
+        LiteralIndexExpr(getMemRefEltSizeInBytes(memRefType));
+    sizeInBytes = sizeInBytes * shapeHelper.numOfElements;
+    Value sizeInBytesI64 = rewriter.create<IndexCastOp>(
+        loc, sizeInBytes.getValue(), rewriter.getI64Type());
 
-    bool insertDealloc = checkInsertDealloc(op);
-    if (hasAllConstantDimensions(memRefType)) {
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    } else {
-      // Calculate the unknown output dimensions using given shape information.
-      // Shape information is store in the shape input. However, the shape input
-      // will be promoted to attribute if it is a constant. Thus, we need to
-      // check both cases.
-      //
-      // Dimensions in the shape information can be: 0, -1, or N.
-      // - If a dimension is 0, the actual dimension value is taken from the
-      // input tensor.
-      //
-      // - If a dimension is -1, the actual dimension value is computed by
-      // 'tensorSizeFromInput/tensorSizeFromShape'
-      //
-      // - If a dimension is N, kept it unchanged.
-
-      Value tensorSizeFromShape = emitConstantOp(rewriter, loc,
-          rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
-
-      SmallVector<Value, 4> outputDimInfo;
-      for (unsigned int i = 0; i < memRefShape.size(); ++i) {
-        Value outputDimVal;
-        if (!shapeAttrValues.empty()) {
-          // Compute the output dimension using shape attribute.
-          if (shapeAttrValues[i] == 0)
-            // Dimension is 0, get its actual value from the input tensor.
-            outputDimVal = getDimOrConstant(
-                rewriter, loc, data, i, rewriter.getIntegerType(64));
-          else
-            // If dimension is -1, compute it later.
-            // If dimension is N (N != 0 && N != -1), use it.
-            // In both cases, just kept it unchanged.
-            outputDimVal = emitConstantOp(
-                rewriter, loc, rewriter.getIntegerType(64), shapeAttrValues[i]);
-        } else {
-          // Compute the output dimension using shape tensor.
-          Value index =
-              emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
-          Value loadedVal = rewriter.create<KrnlLoadOp>(loc, shape, index);
-
-          // If dimension is 0, get its actual value from the input tensor.
-          // Otherwise, kept it unchanged.
-          if (i >= dataShape.size())
-            // Dimension cannot be 0 if its position is out-of-bound, e.g. the
-            // output rank is greater than the input rank.
-            // No need to check 0.
-            outputDimVal = loadedVal;
-          else {
-            // Dimension is potentially 0, check it.
-            auto dimVal = getDimOrConstant(
-                rewriter, loc, data, i, rewriter.getIntegerType(64));
-            auto zero =
-                emitConstantOp(rewriter, loc, rewriter.getIntegerType(64), 0);
-            auto isZero = rewriter.create<CmpIOp>(
-                loc, CmpIPredicate::eq, loadedVal, zero);
-            outputDimVal =
-                rewriter.create<SelectOp>(loc, isZero, dimVal, loadedVal);
-          }
-        }
-
-        // Compute tensor size using shape information.
-        tensorSizeFromShape =
-            rewriter.create<MulIOp>(loc, tensorSizeFromShape, outputDimVal);
-        // Store intermediate results to use later.
-        outputDimInfo.emplace_back(outputDimVal);
-      }
-
-      // tensorSizeFromShape is negative if a dimension is -1. So make it
-      // positive by multipling by -1.
-      auto negOne =
-          emitConstantOp(rewriter, loc, rewriter.getIntegerType(64), -1);
-      tensorSizeFromShape =
-          rewriter.create<MulIOp>(loc, tensorSizeFromShape, negOne);
-
-      // Obtain operands for AllocOp.
-      SmallVector<Value, 4> allocOperands;
-      for (unsigned int i = 0; i < memRefShape.size(); ++i) {
-        if (memRefShape[i] != -1)
-          continue;
-        auto dimVal = outputDimInfo[i];
-        auto isNegOne =
-            rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, dimVal, negOne);
-        // If dimension is -1, compute its value by
-        // 'tensorSizeFromInput/tensorSizeFromShape'
-        auto unknownDimVal = rewriter.create<SignedDivIOp>(
-            loc, tensorSizeFromInput, tensorSizeFromShape);
-        auto actualDimVal =
-            rewriter.create<SelectOp>(loc, isNegOne, unknownDimVal, dimVal);
-        allocOperands.push_back(rewriter.create<IndexCastOp>(
-            loc, actualDimVal, rewriter.getIndexType()));
-      }
-      memref::AllocOp allocateMemref =
-          rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
-
-      // Make sure to allocate at the beginning of the block if
-      // all dimensions are known.
-      auto *parentBlock = allocateMemref.getOperation()->getBlock();
-      if (insertDealloc) {
-        auto dealloc = rewriter.create<memref::DeallocOp>(loc, allocateMemref);
-        dealloc.getOperation()->moveBefore(&parentBlock->back());
-      }
-
-      alloc = allocateMemref;
-    }
-
-    rewriter.create<KrnlMemcpyOp>(loc, alloc, data, tensorSizeFromInput);
+    // Emit memcpy op.
+    rewriter.create<KrnlMemcpyOp>(loc, alloc, data, sizeInBytesI64);
     rewriter.replaceOp(op, alloc);
 
     return success();
