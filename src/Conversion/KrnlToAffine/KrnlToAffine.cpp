@@ -960,7 +960,7 @@ private:
     Value TmpC = lb.create<memref::AllocaOp>(CTmpType, alignAttr);
 
     // Iterates over the I indices (j are simd dim).
-    Value iSaved;
+    Value iSaved, kSaved;
     LiteralIndexExpr zero(0);
     createAffine.forIE(zero, I, 1, [&](AffineBuilder &createAffine, Value i) {
       MathBuilder createMath(createAffine);
@@ -976,6 +976,7 @@ private:
       // Sum over k.
       createAffine.forIE(zero, K, 1, [&](AffineBuilder &createAffine, Value k) {
         MathBuilder createMath(createAffine);
+        kSaved = k;
         // Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
         SmallVector<Value, 4> aAccess, bAccess;
         IndexExpr::getValues(aStart, aAccess);
@@ -1012,10 +1013,30 @@ private:
       createAffine.store(tmpResults, vecC, cAccess);
     });
 
-    if (unrollJam && I.isLiteral()) {
-      UnrollAndJamRecord record(
-          getForInductionVarOwner(iSaved), I.getLiteral());
-      getUnrollAndJamList(op.getOperation())->emplace_back(record);
+    if (unrollJam && (I.isLiteral() || K.isLiteral())) {
+      auto list = getUnrollAndJamList(op.getOperation());
+      if (true && K.isLiteral()) {
+        int64_t kUnroll = K.getLiteral();
+        const int64_t cutoff = 4;
+        if (kUnroll >= cutoff) {
+          // When kUnroll is too big, reduce it by a divisor.
+          for (int m = cutoff; m >= 1; --m) {
+            if (kUnroll % m == 0) {
+              kUnroll = m;
+              break;
+            }
+          }
+        }
+        if (kUnroll > 1) {
+          UnrollAndJamRecord record(getForInductionVarOwner(kSaved), kUnroll);
+          list->emplace_back(record);
+        }
+      }
+      if (I.isLiteral()) {
+        UnrollAndJamRecord record(
+            getForInductionVarOwner(iSaved), I.getLiteral());
+        list->emplace_back(record);
+      }
     }
   }
 
