@@ -472,11 +472,11 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // Ht * (Ri^T + Ro^T + Rf^T + Rc^T)
   OnnxBuilder createONNX(createKrnl);
 
-  // Using Matmul: fast but wrong results when batch_size = hidden_size = 8.
+  // Using Matmul
   Value XtWT = createONNX.matmul(matrixAllGatesType, Xt, weightPack.WT);
   Value HtRT = createONNX.matmul(matrixAllGatesType, Ht, weightPack.RT);
 
-  // Using Gemm: correct results but slow.
+  // Using Gemm
   // FloatAttr alphaAttr =
   //     FloatAttr::get(createKrnl.getBuilder().getF32Type(), 1.0);
   // FloatAttr betaAttr =

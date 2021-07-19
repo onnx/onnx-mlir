@@ -316,18 +316,7 @@ int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
-  assert(isOMLSTMTheSameAsNaiveImplFor(-1, 1, 8, 5, 9, false, false));
-  assert(isOMLSTMTheSameAsNaiveImplFor(-1, 1, 9, 5, 8, false, false));
-  assert(isOMLSTMTheSameAsNaiveImplFor(-1, 1, 9, 5, 9, false, false));
-
-  // Wrong results if using matmul in LSTM or using -O3 in `opt`.
-  // Only happened when batch_size = hidden_size = 8, where we do:
-  //     A[batch_size, k] * B[k, 4*hidden_size]
-  //
-  // Note: there is no problem
-  //     - when using gemm in LSTM or using -O2 in `opt`, or
-  //     - when doing B^T * A^T: B[4*hidden_size, k] * A[k, batch_size]
-  assert(isOMLSTMTheSameAsNaiveImplFor(-1, 1, 8, 5, 8, false, false));
+  // Wrong results if using matmul instead of gemm for LSTM
 
   // RapidCheck test case generation.
   bool success = rc::check("LSTM implementation correctness", []() {
