@@ -24,7 +24,7 @@ using namespace std;
 using namespace mlir;
 
 // Include some helper functions.
-#include "test/numerical/Helper.hpp"
+#include "Helper.hpp"
 
 // Returns whether onnx-mlir compiled LSTM is producing the same results as a
 // naive implementation of LSTM for a specific set of LSTM
@@ -156,7 +156,8 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   OwningModuleRef moduleRef(module);
 
   compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
-  onnx_mlir::ExecutionSession sess(SHARED_LIB_BASE + ".so", "run_main_graph");
+  onnx_mlir::ExecutionSession sess(
+      getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto xOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
@@ -313,7 +314,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
 
 int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
-  llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
+  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
   assert(isOMLSTMTheSameAsNaiveImplFor(-1, 1, 8, 5, 9, false, false));
   assert(isOMLSTMTheSameAsNaiveImplFor(-1, 1, 9, 5, 8, false, false));

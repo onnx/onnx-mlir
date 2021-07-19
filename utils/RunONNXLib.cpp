@@ -12,14 +12,14 @@
   Compile as follows in the onnx-mlir build subdirectory. The tool is built as
   follows. For dinamically loaded models:
 
-cd onnx-mlir/built
+cd onnx-mlir/build
 . ../utils/build-run-onnx-lib.sh
 run-onnx-lib test/backend/test_add.so
 
   For statically loaded models, best is to run the utility in the directory
   of the model.
 
-cd onnx-mlir/built
+cd onnx-mlir/build
 . ../utils/build-run-onnx-lib.sh test/backend/test_add.so
 cd test/backend
 run-onnx-lib
@@ -52,18 +52,29 @@ Usage: run-onnx-lib [options] model.so
 // Define while compiling.
 // #define LOAD_MODEL_STATICALLY 1
 
+#include <algorithm>
 #include <assert.h>
 #include <dlfcn.h>
 #include <getopt.h>
 #include <iostream>
 #include <string>
+#include <vector>
 
-// Json reader
+// Json reader & LLVM suport.
 #include "llvm/Support/JSON.h"
 
+// Include ONNX MLIR Runtime support.
 #include "OnnxMlirRuntime.h"
 
 using namespace std;
+
+#ifdef _WIN32
+// TO BE FIXED
+#else
+#include <sys/time.h>
+#endif
+// Data structure to hold measurement times (in microseconds).
+vector<uint64_t> timeLogInMicroSec;
 
 // Interface definitions
 extern "C" OMTensorList *run_main_graph(OMTensorList *);
@@ -87,7 +98,7 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define OM_TENSOR_CREATE omTensorCreate
 #define OM_TENSOR_LIST_CREATE omTensorListCreate
 #define OM_TENSOR_LIST_DESTROY omTensorListDestroy
-#define OPTIONS "hn:v"
+#define OPTIONS "hn:m:v"
 #else
 #define RUN_MAIN_GRAPH dll_run_main_graph
 #define OM_INPUT_SIGNATURE dll_omInputSignature
@@ -95,11 +106,13 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define OM_TENSOR_CREATE dll_omTensorCreate
 #define OM_TENSOR_LIST_CREATE dll_omTensorListCreate
 #define OM_TENSOR_LIST_DESTROY dll_omTensorListDestroy
-#define OPTIONS "e:hn:v"
+#define OPTIONS "e:hn:m:v"
 #endif
 
+// Global variables to record what we should do in this run.
 static int sIterations = 1;
 static bool verbose = false;
+static bool measureExecTime = false;
 
 void usage(const char *name) {
 #if LOAD_MODEL_STATICALLY
@@ -122,11 +135,13 @@ void usage(const char *name) {
   cout << "         Default is \"run_main_graph\"." << endl;
 #endif
   cout << "    -n NUM | --iterations NUM" << endl;
-  cout << "         Number of times to run the tests, default 1" << endl;
+  cout << "         Number of times to run the tests, default 1." << endl;
+  cout << "    -m NUM | --meas NUM" << endl;
+  cout << "         Measure the kernel execution time NUM times." << endl;
   cout << "    -v | --verbose" << endl;
-  cout << "         Print the shape of the inputs and outputs" << endl;
+  cout << "         Print the shape of the inputs and outputs." << endl;
   cout << "    -h | --help" << endl;
-  cout << "         help" << endl;
+  cout << "         Print help message." << endl;
   cout << endl;
 }
 
@@ -161,13 +176,17 @@ void loadDLL(string name, string entryPointName) {
   assert(!dlerror() && "failed to load omTensorListDestroy");
 }
 
+// Parse input arguments.
 void parseArgs(int argc, char **argv) {
   int c;
   string entryPointName("run_main_graph");
   static struct option long_options[] = {
-      {"entry-point", required_argument, 0, 'e'}, {"help", no_argument, 0, 'h'},
-      {"iterations", required_argument, 0, 'n'},
-      {"verbose", no_argument, 0, 'v'}, {0, 0, 0, 0}};
+      {"entry-point", required_argument, 0, 'e'}, // Entry point.
+      {"help", no_argument, 0, 'h'},              // Help.
+      {"iterations", required_argument, 0, 'n'},  // Number of iterations.
+      {"meas", required_argument, 0, 'm'},        // Measurement of time.
+      {"verbose", no_argument, 0, 'v'},           // Verbose.
+      {0, 0, 0, 0}};
 
   while (true) {
     int index = 0;
@@ -183,6 +202,14 @@ void parseArgs(int argc, char **argv) {
     case 'n':
       sIterations = atoi(optarg);
       break;
+    case 'm':
+#ifdef _WIN32
+      cout << "> Measurement option currently not available, ignore." << endl;
+      break;
+#endif
+      sIterations = atoi(optarg);
+      measureExecTime = true;
+      break;
     case 'v':
       verbose = true;
       break;
@@ -191,6 +218,9 @@ void parseArgs(int argc, char **argv) {
       exit(1);
     }
   }
+  // Make sure that iterations are positive.
+  if (sIterations < 1)
+    sIterations = 1;
 
 // Process the DLL.
 #if LOAD_MODEL_STATICALLY
@@ -281,7 +311,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
     }
     // Create a randomly initialized tensor of the right shape.
     OMTensor *tensor = nullptr;
-    if (type.equals("float")) {
+    if (type.equals("float") || type.equals("f32")) {
       float *data = nullptr;
       if (dataPtrList) {
         data = (float *)dataPtrList[i];
@@ -304,6 +334,74 @@ OMTensorList *omTensorListCreateFromInputSignature(
   return OM_TENSOR_LIST_CREATE(inputTensors, inputNum);
 }
 
+// Data structures for timing info.
+#ifdef _WIN32
+#else
+struct timeval startTime, stopTime, result;
+#endif
+
+// Process start time.
+#ifdef _WIN32
+inline void processStartTime() {}
+#else
+inline void processStartTime() {
+  if (!measureExecTime)
+    return;
+  gettimeofday(&startTime, NULL);
+}
+#endif
+
+// Process stop time, store result in log.
+#ifdef _WIN32
+inline void processStopTime() {}
+#else
+inline void processStopTime() {
+  if (!measureExecTime)
+    return;
+  gettimeofday(&stopTime, NULL);
+  timersub(&stopTime, &startTime, &result);
+  uint64_t time =
+      (uint64_t)result.tv_sec * 1000000ull + (uint64_t)result.tv_usec;
+  timeLogInMicroSec.emplace_back(time);
+}
+#endif
+
+// Print timing info, removing shortest/longest measured time.
+void printTime(double avg, double std, double factor, string unit) {
+  int s = timeLogInMicroSec.size();
+  int m = s / 2;
+  printf("@time, %s, median, %.1f, avg, %.1f, std, %.1f, min, %.1f, max, %.1f, "
+         "sample, %d\n",
+      unit.c_str(), (double)timeLogInMicroSec[m] / factor,
+      (double)(avg / factor), (double)(std / factor),
+      (double)timeLogInMicroSec[0] / factor,
+      (double)timeLogInMicroSec[s - 1] / factor, s);
+}
+
+void displayTime() {
+  int s = timeLogInMicroSec.size();
+  if (s == 0)
+    return;
+  sort(timeLogInMicroSec.begin(), timeLogInMicroSec.end());
+  double avg = 0;
+  for (int i = 0; i < s; ++i)
+    avg += (double)timeLogInMicroSec[i];
+  avg = avg / s;
+  double std = 0;
+  for (int i = 0; i < s; ++i)
+    std += ((double)timeLogInMicroSec[i] - avg) *
+           ((double)timeLogInMicroSec[i] - avg);
+  std = sqrt(std / s);
+  printTime(avg, std, 1, "micro-second");
+  if (avg >= 1e3) {
+    printTime(avg, std, 1e3, "milli-second");
+  }
+  if (avg >= 1e6) {
+    printTime(avg, std, 1e6, "second");
+  }
+}
+
+// Perform generation of input, run, measure time,...
 int main(int argc, char **argv) {
   // Init args.
   parseArgs(argc, argv);
@@ -315,13 +413,16 @@ int main(int argc, char **argv) {
   cout << "Start computing " << sIterations << " iterations" << endl;
   for (int i = 0; i < sIterations; ++i) {
     OMTensorList *tensorListOut = nullptr;
+    processStartTime();
     tensorListOut = RUN_MAIN_GRAPH(tensorListIn);
+    processStopTime();
     if (tensorListOut)
       OM_TENSOR_LIST_DESTROY(tensorListOut);
     if (i > 0 && i % 10 == 0)
       cout << "  computed " << i << " iterations" << endl;
   }
   cout << "Finish computing " << sIterations << " iterations" << endl;
+  displayTime();
 
   // Cleanup.
   OM_TENSOR_LIST_DESTROY(tensorListIn);
