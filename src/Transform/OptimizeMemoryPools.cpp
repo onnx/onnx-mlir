@@ -82,6 +82,20 @@ std::vector<Operation *> getGetRefStores(KrnlGetRefOp *getRef) {
   return stores;
 }
 
+/// Returns a list of operations in the current block that *view* the getref.
+std::vector<Operation *> getGetRefViews(KrnlGetRefOp *getRef) {
+  auto parentBlock = getRef->getOperation()->getBlock();
+  std::vector<Operation *> views;
+
+  parentBlock->walk([&views, getRef](Operation *op) {
+    if (dyn_cast<ViewLikeOpInterface>(op))
+      views.emplace_back(op);
+  });
+
+  // The list contains at least one use.
+  return views;
+}
+
 /// Returns a list of distinct krnl.getref operations in the current
 /// block that use the memory pool.
 SmallVector<KrnlGetRefOp, 4> getAllDistinctGetRefsForAlloc(
@@ -147,6 +161,10 @@ bool getRefUsesAreDisjoint(
     SmallVectorImpl<KrnlGetRefOp> &firstGetRefList, KrnlGetRefOp secondGetRef) {
   // Return variable.
   bool refsUseIsDisjoint = true;
+
+  // TODO: support memref view ops.
+  if (!getGetRefViews(&secondGetRef).empty())
+    return false;
 
   // Compute all the stores into the second getref.
   std::vector<Operation *> allStores = getGetRefStores(&secondGetRef);
