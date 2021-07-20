@@ -277,3 +277,36 @@ struct ONNXPoolOpShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
       Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations,
       bool ceilMode);
 };
+
+// Shape for ReshapeOp.
+struct ONNXReshapeOpShapeHelper : public ONNXOpShapeHelper<ONNXReshapeOp> {
+  ONNXReshapeOpShapeHelper(ONNXReshapeOp *newOp);
+  ONNXReshapeOpShapeHelper(ONNXReshapeOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXReshapeOpAdaptor operandAdaptor);
+};
+
+// Shape for SqueezeOp.
+struct ONNXSqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXSqueezeOp> {
+  ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp);
+  ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXSqueezeOpAdaptor operandAdaptor);
+};
+
+// Shape for UnsqueezeOp.
+struct ONNXUnsqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXUnsqueezeOp> {
+  ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp);
+  ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXUnsqueezeOpAdaptor operandAdaptor);
+};
