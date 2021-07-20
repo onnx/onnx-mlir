@@ -142,6 +142,12 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
 Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, ArrayAttr permAttr);
 
+/// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
+/// The new view is created using the given 'memRefType' and 'outputDims'.
+Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
+    Location loc, Value data, MemRefType memRefType,
+    SmallVectorImpl<IndexExpr> &outputDims);
+
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//

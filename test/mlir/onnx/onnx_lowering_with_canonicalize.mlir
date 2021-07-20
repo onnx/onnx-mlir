@@ -1198,3 +1198,63 @@ func private @test_conv_unknown_dimensions(%arg0 : tensor<?x?x?x?xf32>, %arg1 : 
 // CHECK:           return [[VAR_5_]] : memref<?x5x?x?xf32>
 // CHECK:         }
 }
+
+// -----
+
+// CHECK-DAG: #map = affine_map<()[s0] -> (s0 * 10)>
+func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> tensor<*xf32> {
+  %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<4xi64>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func private @test_reshape
+// CHECK:          ([[PARAM_0_:%.+]]: memref<?x10xf32>, [[PARAM_1_:%.+]]: memref<4xi64>) -> memref<?x?x?x?xf32> {
+// CHECK-DAG:       [[CST_3_:%.+]] = constant 3 : index
+// CHECK-DAG:       [[CST_2_:%.+]] = constant 2 : index
+// CHECK-DAG:       [[CST_10_:%.+]] = constant 10 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
+// CHECK-DAG:       [[CST_minus_1_:%.+]] = constant -1 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
+// CHECK:           [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply #map(){{.}}[[VAR_0_]]{{.}}
+// CHECK-DAG:       [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_0_]]{{.}} : memref<4xi64>
+// CHECK:           [[VAR_3_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
+// CHECK-DAG:       [[VAR_5_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = cmpi eq, [[VAR_3_]], [[CST_0_]] : index
+// CHECK:           [[VAR_6_:%.+]] = select [[VAR_4_]], [[VAR_5_]], [[VAR_3_]] : index
+// CHECK:           [[VAR_7_:%.+]] = cmpi eq, [[VAR_6_]], [[CST_minus_1_]] : index
+// CHECK-DAG:       [[VAR_8_:%.+]] = select [[VAR_7_]], [[CST_1_]], [[VAR_6_]] : index
+// CHECK-DAG:       [[LOAD_PARAM_1_MEM_1_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_1_]]{{.}} : memref<4xi64>
+// CHECK:           [[VAR_10_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_1_]] : i64 to index
+// CHECK:           [[VAR_11_:%.+]] = cmpi eq, [[VAR_10_]], [[CST_0_]] : index
+// CHECK:           [[VAR_12_:%.+]] = select [[VAR_11_]], [[CST_10_]], [[VAR_10_]] : index
+// CHECK:           [[VAR_13_:%.+]] = cmpi eq, [[VAR_12_]], [[CST_minus_1_]] : index
+// CHECK:           [[VAR_14_:%.+]] = select [[VAR_13_]], [[CST_1_]], [[VAR_12_]] : index
+// CHECK-DAG:       [[VAR_15_:%.+]] = muli [[VAR_8_]], [[VAR_14_]] : index
+// CHECK-DAG:       [[LOAD_PARAM_1_MEM_2_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_2_]]{{.}} : memref<4xi64>
+// CHECK:           [[VAR_17_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_2_]] : i64 to index
+// CHECK:           [[VAR_18_:%.+]] = cmpi eq, [[VAR_17_]], [[CST_minus_1_]] : index
+// CHECK:           [[VAR_19_:%.+]] = select [[VAR_18_]], [[CST_1_]], [[VAR_17_]] : index
+// CHECK-DAG:       [[VAR_20_:%.+]] = muli [[VAR_15_]], [[VAR_19_]] : index
+// CHECK-DAG:       [[LOAD_PARAM_1_MEM_3_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_3_]]{{.}} : memref<4xi64>
+// CHECK:           [[VAR_22_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_3_]] : i64 to index
+// CHECK:           [[VAR_23_:%.+]] = cmpi eq, [[VAR_22_]], [[CST_minus_1_]] : index
+// CHECK:           [[VAR_24_:%.+]] = select [[VAR_23_]], [[CST_1_]], [[VAR_22_]] : index
+// CHECK-DAG:       [[VAR_25_:%.+]] = muli [[VAR_20_]], [[VAR_24_]] : index
+// CHECK-DAG:       [[VAR_26_:%.+]] = cmpi eq, [[VAR_6_]], [[CST_minus_1_]] : index
+// CHECK-DAG:       [[VAR_27_:%.+]] = floordivi_signed [[VAR_1_]], [[VAR_25_]] : index
+// CHECK-DAG:       [[VAR_29_:%.+]] = cmpi eq, [[VAR_12_]], [[CST_minus_1_]] : index
+// CHECK-DAG:       [[VAR_30_:%.+]] = floordivi_signed [[VAR_1_]], [[VAR_25_]] : index
+// CHECK-DAG:       [[VAR_28_:%.+]] = select [[VAR_26_]], [[VAR_27_]], [[VAR_6_]] : index
+// CHECK-DAG:       [[VAR_31_:%.+]] = select [[VAR_29_]], [[VAR_30_]], [[VAR_12_]] : index
+// CHECK-DAG:       [[VAR_32_:%.+]] = cmpi eq, [[VAR_17_]], [[CST_minus_1_]] : index
+// CHECK-DAG:       [[VAR_33_:%.+]] = floordivi_signed [[VAR_1_]], [[VAR_25_]] : index
+// CHECK-DAG:       [[VAR_34_:%.+]] = select [[VAR_32_]], [[VAR_33_]], [[VAR_17_]] : index
+// CHECK-DAG:       [[VAR_36_:%.+]] = floordivi_signed [[VAR_1_]], [[VAR_25_]] : index
+// CHECK-DAG:       [[VAR_35_:%.+]] = cmpi eq, [[VAR_22_]], [[CST_minus_1_]] : index
+// CHECK-DAG:       [[VAR_37_:%.+]] = select [[VAR_35_]], [[VAR_36_]], [[VAR_22_]] : index
+// CHECK:           [[VAR_38_:%.+]] = muli [[VAR_37_]], [[VAR_34_]] : index
+// CHECK:           [[VAR_39_:%.+]] = muli [[VAR_38_]], [[VAR_31_]] : index
+// CHECK:           [[VAR_40_:%.+]] = memref.reinterpret_cast [[PARAM_0_]] to offset: [0], sizes: {{.}}[[VAR_28_]], [[VAR_31_]], [[VAR_34_]], [[VAR_37_]]{{.}}, strides: {{.}}[[VAR_39_]], [[VAR_38_]], [[VAR_37_]], 1] : memref<?x10xf32> to memref<?x?x?x?xf32>
+// CHECK:           return [[VAR_40_]] : memref<?x?x?x?xf32>
+// CHECK:         }
+}
