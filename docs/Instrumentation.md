@@ -6,36 +6,59 @@ Instrumentation is prototyped in onnx-mlir and can be used to debug runtime issu
 
 ## Compile for instrumentation
 
-By default, instrumentation is turned off. To turn it on, modify the default value of `OMInstrumentEnabled' in 'src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.cpp' and build the compiler. Command line flag will be added.
-
-Currently, only some onnx ops are instrumented. They are Conv, element-wise binary and element-wise varadic operations.
-
-The instrumentation is added before and after the op.o
+By default, instrumentation is turned off. You need to use command line options to turn it on. 
+```
+ --instrument-onnx-ops=<string>                    - specify onnx ops to be instrumented
+                                                      "NONE" or "" for no instrument
+                                                      "ALL" for all ops. 
+                                                      "op1 op2 ..." for the specif
+Specify what instrumentation actions at runtime:
+      --InstrumentBeforeOp                             - insert instrument before op
+      --InstrumentAfterOp                              - insert instrument after op
+      --InstrumentReportTime                           - instrument runtime reports time usage
+      --InstrumentReportMemory                         - instrument runtime reports memory usage
+```
+For example, `Debug/bin/onnx-mlir --instrument-onnx-ops="Conv" --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime mymodel.onnx`
+ will instrument before and after each onnx.Conv op and report time usage  when the model is executed. 
 
 Currently, the call of initialization, OMInstrumentInit, need to be added before you load the dynamic library. It is being considered to add it to the beginning of main_graph by compiler. 
 
 ## Run with instrumentation
-The instrumenation library will print out the time and virtual memory usage along at each instrumentation point. A sample output is listed below:
+Run the model in the same way as usual.
+The instrumenation library will print out the time and memory usage along at each instrumentation point. 
+For example, a model, mymodel.onnx, is compiled with `Debug/bin/onnx-mlir  --instrument-onnx-ops="ALL" --InstrumentAfterOp --InstrumentReportMemory --InstrumentReportTime mymodel.onnx`.
+Its runtime output is listed below:
+
 ```
-ID=Conv TAG=0 Time elapsed: 0.000966 accumulated: 0.000966
-335128
-ID=Conv TAG=1 Time elapsed: 0.395338 accumulated: 0.396304
-335128
-ID=Mul TAG=0 Time elapsed: 0.302189 accumulated: 0.698493
-335128
-ID=Mul TAG=1 Time elapsed: 0.021133 accumulated: 0.719626
-335128
+#  0) after  op= Transpo Time elapsed: 0.000766 accumulated: 0.000766
+156608
+#  1) after  op= Constan Time elapsed: 0.005398 accumulated: 0.006164
+156608
+#  2) after  op= Constan Time elapsed: 0.004225 accumulated: 0.010389
+156608
+#  3) after  op=    Conv Time elapsed: 0.360213 accumulated: 0.370602
+156608
+#  4) after  op= Softplu Time elapsed: 0.190591 accumulated: 0.561193
+156608
+#  5) after  op=    Tanh Time elapsed: 0.115314 accumulated: 0.676507
+156608
+#  6) after  op=     Mul Time elapsed: 0.022779 accumulated: 0.699286
 ```
+
 The output is explained here:
-* ID: currently is the name (limited to up to 7 chars) of the op.
-* TAG: 0 for before the op, while 1 for after the op.
+* First column is the dynamic counter of instrument point at runtime
+* Second column indicate the position of this instrument, before or after its op
+* Third column is the name of op, limited to 7 characters
 * elpased: time, in second, elapsed from previous instrumentation point.
 * accumulated: time, in second, from instrumentationInit.
-* the following line, 33512 in this example, is the virtual memory size (in kb) used by this process.
+* the following line, like 156608 in this example, is the virtual memory size (in kb) used by this process.
 
-## Control of output
-* If env variable OMINSTRUMENTTIME is set, the report of time is disabled
-* If env variable OMINSTRUMENTMEMORY is set, the report of virtual memory is disabled
+## Control instrument at runtime
+By providing certain env variable at runtime, you can disable reports from  instrument libary.
+* If env variable NOOMINSTRUMENT is set, no report at all
+* If env variable NOOMINSTRUMENTTIME is set, the report of time usage is disabled
+* If env variable NOOMINSTRUMENTMEMORY is set, the report of memory usage is disabled
+Please note that you cannot turn on extra report that is not chosen at compile time. If none of the detailed report (such as time and memory so far) is turned on, progress of instrument point will still be print out. This feature is thought to be useful as progress indicator. No output from instrument lib is NOOMINSTRUMENT is set.
 
 ## Used in gdb
 The function for instrument point is called `OMInstrumentPoint`. Breakpoint can be set inside this function to kind of step through onnx ops.
