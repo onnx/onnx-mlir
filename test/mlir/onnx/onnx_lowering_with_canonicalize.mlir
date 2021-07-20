@@ -1207,13 +1207,13 @@ func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> t
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func private @test_reshape
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>, [[PARAM_1_:%.+]]: memref<4xi64>) -> memref<?x?x?x?xf32> {
-// CHECK-DAG:       [[CST_3_:%.+]] = constant 3 : index
-// CHECK-DAG:       [[CST_2_:%.+]] = constant 2 : index
-// CHECK-DAG:       [[CST_10_:%.+]] = constant 10 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
-// CHECK-DAG:       [[CST_minus_1_:%.+]] = constant -1 : index
+// CHECK:          ([[PARAM_0_:%.+]]: memref<?x10xf32>, [[PARAM_1_:%.+]]: memref<4xi64>) -> memref<?x?x?x?xf32> {
 // CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
+// CHECK-DAG:       [[CST_minus_1_:%.+]] = constant -1 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
+// CHECK-DAG:       [[CST_10_:%.+]] = constant 10 : index
+// CHECK-DAG:       [[CST_2_:%.+]] = constant 2 : index
+// CHECK-DAG:       [[CST_3_:%.+]] = constant 3 : index
 // CHECK:           [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK:           [[VAR_1_:%.+]] = affine.apply #map(){{.}}[[VAR_0_]]{{.}}
 // CHECK:           [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_0_]]{{.}} : memref<4xi64>
