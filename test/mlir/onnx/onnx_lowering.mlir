@@ -399,104 +399,14 @@ func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> tensor<*xf32> {
-  %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<4xi64>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_reshape
-  // CHECK: [[TYPE_IN_BYTES_0:%.+]] = constant 4 : i64
-  // CHECK: [[C0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_0:%.+]] = memref.dim %arg0, [[C0]] : memref<?x10xf32>
-  // CHECK: [[DIM_0_CAST:%.+]] = index_cast [[DIM_0]] : index to i64
-  // CHECK: [[MUL_0:%.+]] = muli [[TYPE_IN_BYTES_0]], [[DIM_0_CAST]] : i64
-  // CHECK: [[CONSTANT_0:%.+]] = constant 10 : i64
-  // CHECK: [[TENSOR_SIZE:%.+]] = muli [[MUL_0]], [[CONSTANT_0]] : i64
-
-  // CHECK: [[TYPE_IN_BYTES_1:%.+]] = constant 4 : i64
-  // CHECK: %[[CONSTANT_1:.+]] = constant 0 : index
-  // CHECK: [[LOAD_0:%.+]] = krnl.load %arg1[%[[CONSTANT_1]]] : memref<4xi64>
-  // CHECK: [[C0_0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_1:%.+]] = memref.dim %arg0, [[C0_0]] : memref<?x10xf32>
-  // CHECK: [[DIM_1_CAST:%.+]] = index_cast [[DIM_1]] : index to i64
-  // CHECK: [[CONSTANT_2:%.+]] = constant 0 : i64
-  // CHECK: [[CMP_0:%.+]] = cmpi eq, [[LOAD_0]], [[CONSTANT_2]] : i64
-  // CHECK: [[SELECT_0:%.+]] = select [[CMP_0]], [[DIM_1_CAST]], [[LOAD_0]] : i64
-  // CHECK: [[MUL_1:%.+]] = muli [[TYPE_IN_BYTES_1]], [[SELECT_0]] : i64
-
-  // CHECK: %[[CONSTANT_3:.+]] = constant 1 : index
-  // CHECK: [[LOAD_1:%.+]] = krnl.load %arg1[%[[CONSTANT_3]]] : memref<4xi64>
-  // CHECK: [[CONSTANT_3:%.+]] = constant 10 : i64
-  // CHECK: [[CONSTANT_4:%.+]] = constant 0 : i64
-  // CHECK: [[CMP_1:%.+]] = cmpi eq, [[LOAD_1]], [[CONSTANT_4]] : i64
-  // CHECK: [[SELECT_1:%.+]] = select [[CMP_1]], [[CONSTANT_3]], [[LOAD_1]] : i64
-  // CHECK: [[MUL_2:%.+]] = muli [[MUL_1]], [[SELECT_1]] : i64
-
-  // CHECK: %[[CONSTANT_5:.+]] = constant 2 : index
-  // CHECK: [[LOAD_2:%.+]] = krnl.load %arg1[%[[CONSTANT_5]]] : memref<4xi64>
-  // CHECK: [[MUL_3:%.+]] = muli [[MUL_2]], [[LOAD_2]] : i64
-
-  // CHECK: %[[CONSTANT_6:.+]] = constant 3 : index
-  // CHECK: [[LOAD_3:%.+]] = krnl.load %arg1[%[[CONSTANT_6]]] : memref<4xi64>
-  // CHECK: [[MUL_4:%.+]] = muli [[MUL_3]], [[LOAD_3]] : i64
-
-  // CHECK: [[CONSTANT_8:%.+]] = constant -1 : i64
-  // CHECK: [[TENSOR_SIZE_FROM_SHAPE:%.+]] = muli [[MUL_4]], [[CONSTANT_8]] : i64
-
-  // CHECK: [[CMP_2:%.+]] = cmpi eq, [[SELECT_0]], [[CONSTANT_8]] : i64
-  // CHECK: [[DIVISIGNED_0:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
-  // CHECK: [[SELECT_2:%.+]] = select [[CMP_2]], [[DIVISIGNED_0]], [[SELECT_0]] : i64
-  // CHECK: [[CAST_0:%.+]] = index_cast [[SELECT_2]] : i64 to index
-
-  // CHECK: [[CMP_3:%.+]] = cmpi eq, [[SELECT_1]], [[CONSTANT_8]] : i64
-  // CHECK: [[DIVISIGNED_1:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
-  // CHECK: [[SELECT_3:%.+]] = select [[CMP_3]], [[DIVISIGNED_1]], [[SELECT_1]] : i64
-  // CHECK: [[CAST_1:%.+]] = index_cast [[SELECT_3]] : i64 to index
-
-  // CHECK: [[CMP_4:%.+]] = cmpi eq, [[LOAD_2]], [[CONSTANT_8]] : i64
-  // CHECK: [[DIVISIGNED_2:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
-  // CHECK: [[SELECT_4:%.+]] = select [[CMP_4]], [[DIVISIGNED_2]], [[LOAD_2]] : i64
-  // CHECK: [[CAST_2:%.+]] = index_cast [[SELECT_4]] : i64 to index
-
-  // CHECK: [[CMP_5:%.+]] = cmpi eq, [[LOAD_3]], [[CONSTANT_8]] : i64
-  // CHECK: [[DIVISIGNED_3:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
-  // CHECK: [[SELECT_5:%.+]] = select [[CMP_5]], [[DIVISIGNED_3]], [[LOAD_3]] : i64
-  // CHECK: [[CAST_3:%.+]] = index_cast [[SELECT_5]] : i64 to index
-
-  // CHECK: [[ALLOC:%.+]] = memref.alloc([[CAST_0]], [[CAST_1]], [[CAST_2]], [[CAST_3]]) : memref<?x?x?x?xf32>
-  // CHECK: "krnl.memcpy"([[ALLOC]], %arg0, [[TENSOR_SIZE]]) : (memref<?x?x?x?xf32>, memref<?x10xf32>, i64) -> ()
-  // CHECK: return [[ALLOC]] : memref<?x?x?x?xf32>
-}
-
-// ----
-func private @test_reshape_constant(%arg0 : tensor<?x10xf32>) -> tensor<?x5xf32> {
-  %0 = "onnx.Constant"() {value = dense<[-1, 5]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<?x10xf32>, tensor<2xi64>) -> tensor<?x5xf32>
-  "std.return"(%1) : (tensor<?x5xf32>) -> ()
+func private @test_reshape_constant(%arg0 : tensor<1x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[2, 5]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<1x10xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:     test_reshape_constant
-// CHECK-SAME:     ([[VAR_arg0:%.+]]: memref<?x10xf32>) -> memref<?x5xf32> {
-// CHECK:           [[VAR_0:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[-1, 5]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK:           [[VAR_c4_i64:%.+]] = constant 4 : i64
-// CHECK:           [[VAR_c0:%.+]] = constant 0 : index
-// CHECK:           [[VAR_1:%.+]] = memref.dim [[VAR_arg0]], [[VAR_c0]] : memref<?x10xf32>
-// CHECK:           [[VAR_2:%.+]] = index_cast [[VAR_1]] : index to i64
-// CHECK:           [[VAR_3:%.+]] = muli [[VAR_c4_i64]], [[VAR_2]] : i64
-// CHECK:           [[VAR_c10_i64:%.+]] = constant 10 : i64
-// CHECK:           [[VAR_4:%.+]] = muli [[VAR_3]], [[VAR_c10_i64]] : i64
-// CHECK:           [[VAR_c4_i64_0:%.+]] = constant 4 : i64
-// CHECK:           [[VAR_c_min_1_i64:%.+]] = constant -1 : i64
-// CHECK:           [[VAR_5:%.+]] = muli [[VAR_c4_i64_0]], [[VAR_c_min_1_i64]] : i64
-// CHECK:           [[VAR_c5_i64:%.+]] = constant 5 : i64
-// CHECK:           [[VAR_6:%.+]] = muli [[VAR_5]], [[VAR_c5_i64]] : i64
-// CHECK:           [[VAR_c_min_1_i64_1:%.+]] = constant -1 : i64
-// CHECK:           [[VAR_7:%.+]] = muli [[VAR_6]], [[VAR_c_min_1_i64_1]] : i64
-// CHECK:           [[VAR_8:%.+]] = cmpi eq, [[VAR_c_min_1_i64]], [[VAR_c_min_1_i64_1]] : i64
-// CHECK:           [[VAR_9:%.+]] = divi_signed [[VAR_4]], [[VAR_7]] : i64
-// CHECK:           [[VAR_10:%.+]] = select [[VAR_8]], [[VAR_9]], [[VAR_c_min_1_i64]] : i64
-// CHECK:           [[VAR_11:%.+]] = index_cast [[VAR_10]] : i64 to index
-// CHECK:           [[VAR_12:%.+]] = memref.alloc([[VAR_11]]) : memref<?x5xf32>
-// CHECK:           "krnl.memcpy"([[VAR_12]], [[VAR_arg0]], [[VAR_4]]) : (memref<?x5xf32>, memref<?x10xf32>, i64) -> ()
-// CHECK:           return [[VAR_12]] : memref<?x5xf32>
-// CHECK:         }
+// CHECK: krnl.global
+// CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [2, 5], strides: [5, 1] : memref<1x10xf32> to memref<2x5xf32>
+// CHECK: return [[RES]] : memref<2x5xf32>
 }
 
 // -----
@@ -922,17 +832,7 @@ func private @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_unsqueeze
-  // CHECK: [[RES:%.+]] = memref.alloc() : memref<1x10x10x1xf32>
-  // CHECK: [[INBYTES:%.+]] = constant 4 : i64
-  // CHECK: [[DIM1:%.+]] = constant 1 : i64
-  // CHECK: [[SIZE1:%.+]] = muli [[INBYTES]], [[DIM1]] : i64
-  // CHECK: [[DIM2:%.+]] = constant 10 : i64
-  // CHECK: [[SIZE2:%.+]] = muli [[SIZE1]], [[DIM2]] : i64
-  // CHECK: [[DIM3:%.+]] = constant 10 : i64
-  // CHECK: [[SIZE3:%.+]] = muli [[SIZE2]], [[DIM3]] : i64
-  // CHECK: [[DIM4:%.+]] = constant 1 : i64
-  // CHECK: [[SIZE4:%.+]] = muli [[SIZE3]], [[DIM4]] : i64
-  // CHECK: "krnl.memcpy"([[RES]], %arg0, [[SIZE4]]) : (memref<1x10x10x1xf32>, memref<10x10xf32>, i64) -> ()
+  // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [1, 10, 10, 1], strides: [100, 10, 1, 1] : memref<10x10xf32> to memref<1x10x10x1xf32>
   // CHECK: return [[RES]] : memref<1x10x10x1xf32>
 }
 
@@ -1496,9 +1396,7 @@ func private @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: @test_squeeze
-  // CHECK: [[RES:%.+]] = memref.alloc() : memref<16x32x64xf32>
-  // CHECK: [[TENSOR_SIZE:%.+]] = constant 131072 : i64
-  // CHECK: "krnl.memcpy"([[RES]], %arg0, [[TENSOR_SIZE]]) : (memref<16x32x64xf32>, memref<16x1x32x1x64xf32>, i64) -> ()
+  // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [16, 32, 64], strides: [2048, 64, 1] : memref<16x1x32x1x64xf32> to memref<16x32x64xf32>
   // CHECK: return [[RES]] : memref<16x32x64xf32>
 }
 
@@ -1508,15 +1406,18 @@ func private @test_squeeze_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -
   %0 = "onnx.Squeeze"(%arg0) { axes = [1,-2]} : (tensor<?x1x32x?x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: @test_squeeze_unknown_dimensions
-  // CHECK: [[C0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_0:%.+]] = memref.dim %arg0, [[C0]] : memref<?x1x32x?x64xf32>
-  // CHECK: [[RES:%.+]] = memref.alloc([[DIM_0]]) : memref<?x32x64xf32>
-  // CHECK: [[TENSOR_SIZE_0:%.+]] = constant 8192 : i64
-  // CHECK: [[DIM_0_i64:%.+]] = index_cast [[DIM_0]] : index to i64
-  // CHECK: [[TENSOR_SIZE_1:%.+]] = muli [[TENSOR_SIZE_0]], [[DIM_0_i64]] : i64
-  // CHECK: "krnl.memcpy"([[RES]], %arg0, [[TENSOR_SIZE_1]]) : (memref<?x32x64xf32>, memref<?x1x32x?x64xf32>, i64) -> ()
-  // CHECK: return [[RES]] : memref<?x32x64xf32>
+  // CHECK-LABEL:  func private @test_squeeze_unknown_dimensions
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x1x32x?x64xf32>) -> memref<?x32x64xf32> {
+  // CHECK:           [[CST_0_:%.+]] = constant 0 : index
+  // CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x1x32x?x64xf32>
+  // CHECK-DAG:       [[CST_32_:%.+]] = constant 32 : index
+  // CHECK-DAG:       [[CST_64_:%.+]] = constant 64 : index
+  // CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
+  // CHECK-DAG:       [[CST_64_1_:%.+]] = constant 64 : index
+  // CHECK-DAG:       [[CST_2048_:%.+]] = constant 2048 : index
+  // CHECK:           [[VAR_1_:%.+]] = memref.reinterpret_cast [[PARAM_0_]] to offset: [0], sizes: {{.}}[[VAR_0_]], 32, 64], strides: [2048, 64, 1] : memref<?x1x32x?x64xf32> to memref<?x32x64xf32>
+  // CHECK:           return [[VAR_1_]] : memref<?x32x64xf32>
+  // CHECK:         }
 }
 
 // -----
