@@ -1,8 +1,12 @@
 trigger:
 - master
 
-jobs:
+parameters:
+- name: CTEST_PARALLEL_LEVEL
+  type: string
+  default: '4'
 
+jobs:
 - job: 'Build_onnx_mlir_Windows'
   timeoutInMinutes: 240
   pool:
@@ -39,3 +43,11 @@ jobs:
       call onnx-mlir\utils\check-onnx-mlir.cmd
     displayName: Test onnx-mlir
     workingDirectory: $(Agent.BuildDirectory)
+
+  - script: |
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      call onnx-mlir\utils\check-numerical.cmd
+    displayName: Run onnx-mlir numerical tests
+    workingDirectory: $(Agent.BuildDirectory)
+    env:
+      CTEST_PARALLEL_LEVEL: ${{ parameters.CTEST_PARALLEL_LEVEL }}
