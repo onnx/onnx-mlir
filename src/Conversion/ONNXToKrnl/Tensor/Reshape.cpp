@@ -38,31 +38,10 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     assert(succeeded(shapecomputed));
 
-    // If the output shape is a constant, lower to ReinterpretCastOp so that the
-    // data is never copied or modified.
-    if (memRefType.hasStaticShape()) {
-      Value newView = emitMemRefReinterpretCastOp(
-          rewriter, loc, data, memRefType, shapeHelper.dimsForOutput(0));
-      rewriter.replaceOp(op, newView);
-      return success();
-    }
-
-    // Other cases, we have to do data copy.
-    // Insert an allocation and deallocation for the result of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
-
-    // Compute size in bytes using the input tensor.
-    IndexExpr sizeInBytes =
-        LiteralIndexExpr(getMemRefEltSizeInBytes(memRefType));
-    sizeInBytes = sizeInBytes * shapeHelper.numOfElements;
-    Value sizeInBytesI64 = rewriter.create<IndexCastOp>(
-        loc, sizeInBytes.getValue(), rewriter.getI64Type());
-
-    // Emit memcpy op.
-    rewriter.create<KrnlMemcpyOp>(loc, alloc, data, sizeInBytesI64);
-    rewriter.replaceOp(op, alloc);
-
+    // Lower to ReinterpretCastOp so that the data is never copied or modified.
+    Value newView = emitMemRefReinterpretCastOp(
+        rewriter, loc, data, memRefType, shapeHelper.dimsForOutput(0));
+    rewriter.replaceOp(op, newView);
     return success();
   }
 };

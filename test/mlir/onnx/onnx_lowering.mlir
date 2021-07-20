@@ -399,104 +399,6 @@ func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-// CHECK-DAG: #map0 = affine_map<(d0) -> (d0)>
-// CHECK-DAG: #map1 = affine_map<(d0) -> (d0 * 10)>
-// CHECK-DAG: #map2 = affine_map<(d0) -> (d0 * 40)>
-
-func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> tensor<*xf32> {
-  %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<4xi64>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-// CHECK-LABEL:  func private @test_reshape
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>, [[PARAM_1_:%.+]]: memref<4xi64>) -> memref<?x?x?x?xf32> {
-// CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
-// CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
-// CHECK:           [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply #map0([[VAR_0_]])
-// CHECK-DAG:       [[CST_10_:%.+]] = constant 10 : index
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply #map1([[VAR_0_]])
-// CHECK-DAG:       [[CST_1_1_:%.+]] = constant 1 : index
-// CHECK-DAG:       [[CST_0_1_:%.+]] = constant 0 : index
-// CHECK:           [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_0_1_]]{{.}} : memref<4xi64>
-// CHECK-DAG:       [[VAR_4_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
-// CHECK-DAG:       [[CST_0_2_:%.+]] = constant 0 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_5_:%.+]] = cmpi eq, [[VAR_4_]], [[CST_0_2_]] : index
-// CHECK-DAG:       [[CST_0_3_:%.+]] = constant 0 : index
-// CHECK:           [[VAR_6_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_3_]] : memref<?x10xf32>
-// CHECK-DAG:       [[VAR_7_:%.+]] = select [[VAR_5_]], [[VAR_6_]], [[VAR_4_]] : index
-// CHECK-DAG:       [[CST_minus_1_:%.+]] = constant -1 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_8_:%.+]] = cmpi eq, [[VAR_7_]], [[CST_minus_1_]] : index
-// CHECK-DAG:       [[CST_1_2_:%.+]] = constant 1 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_9_:%.+]] = select [[VAR_8_]], [[CST_1_2_]], [[VAR_7_]] : index
-// CHECK-DAG:       [[CST_1_3_:%.+]] = constant 1 : index
-// CHECK:           [[LOAD_PARAM_1_MEM_1_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_1_3_]]{{.}} : memref<4xi64>
-// CHECK-DAG:       [[VAR_11_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_1_]] : i64 to index
-// CHECK-DAG:       [[CST_0_4_:%.+]] = constant 0 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_12_:%.+]] = cmpi eq, [[VAR_11_]], [[CST_0_4_]] : index
-// CHECK-DAG:       [[CST_10_1_:%.+]] = constant 10 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_13_:%.+]] = select [[VAR_12_]], [[CST_10_1_]], [[VAR_11_]] : index
-// CHECK-DAG:       [[CST_minus_1_1_:%.+]] = constant -1 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_14_:%.+]] = cmpi eq, [[VAR_13_]], [[CST_minus_1_1_]] : index
-// CHECK-DAG:       [[CST_1_4_:%.+]] = constant 1 : index
-// CHECK:           [[VAR_15_:%.+]] = select [[VAR_14_]], [[CST_1_4_]], [[VAR_13_]] : index
-// CHECK-DAG:       [[VAR_16_:%.+]] = muli [[VAR_9_]], [[VAR_15_]] : index
-// CHECK-DAG:       [[CST_2_:%.+]] = constant 2 : index
-// CHECK:           [[LOAD_PARAM_1_MEM_2_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_2_]]{{.}} : memref<4xi64>
-// CHECK-DAG:       [[VAR_18_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_2_]] : i64 to index
-// CHECK-DAG:       [[CST_minus_1_2_:%.+]] = constant -1 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_19_:%.+]] = cmpi eq, [[VAR_18_]], [[CST_minus_1_2_]] : index
-// CHECK-DAG:       [[CST_1_5_:%.+]] = constant 1 : index
-// CHECK:           [[VAR_20_:%.+]] = select [[VAR_19_]], [[CST_1_5_]], [[VAR_18_]] : index
-// CHECK-DAG:       [[VAR_21_:%.+]] = muli [[VAR_16_]], [[VAR_20_]] : index
-// CHECK-DAG:       [[CST_3_:%.+]] = constant 3 : index
-// CHECK:           [[LOAD_PARAM_1_MEM_3_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_3_]]{{.}} : memref<4xi64>
-// CHECK-DAG:       [[VAR_23_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_3_]] : i64 to index
-// CHECK-DAG:       [[CST_minus_1_3_:%.+]] = constant -1 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_24_:%.+]] = cmpi eq, [[VAR_23_]], [[CST_minus_1_3_]] : index
-// CHECK-DAG:       [[CST_1_6_:%.+]] = constant 1 : index
-// CHECK:           [[VAR_25_:%.+]] = select [[VAR_24_]], [[CST_1_6_]], [[VAR_23_]] : index
-// CHECK-DAG:       [[VAR_26_:%.+]] = muli [[VAR_21_]], [[VAR_25_]] : index
-// CHECK-DAG:       [[CST_minus_1_4_:%.+]] = constant -1 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_27_:%.+]] = cmpi eq, [[VAR_7_]], [[CST_minus_1_4_]] : index
-// CHECK-DAG:       [[VAR_28_:%.+]] = floordivi_signed [[VAR_2_]], [[VAR_2_]]6 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_29_:%.+]] = select [[VAR_27_]], [[VAR_28_]], [[VAR_7_]] : index
-// CHECK-DAG:       [[CST_minus_1_5_:%.+]] = constant -1 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_30_:%.+]] = cmpi eq, [[VAR_13_]], [[CST_minus_1_5_]] : index
-// CHECK-DAG:       [[VAR_31_:%.+]] = floordivi_signed [[VAR_2_]], [[VAR_2_]]6 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_32_:%.+]] = select [[VAR_30_]], [[VAR_31_]], [[VAR_13_]] : index
-// CHECK-DAG:       [[CST_minus_1_6_:%.+]] = constant -1 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_33_:%.+]] = cmpi eq, [[VAR_18_]], [[CST_minus_1_6_]] : index
-// CHECK-DAG:       [[VAR_34_:%.+]] = floordivi_signed [[VAR_2_]], [[VAR_2_]]6 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_35_:%.+]] = select [[VAR_33_]], [[VAR_34_]], [[VAR_18_]] : index
-// CHECK-DAG:       [[CST_minus_1_7_:%.+]] = constant -1 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_36_:%.+]] = cmpi eq, [[VAR_23_]], [[CST_minus_1_7_]] : index
-// CHECK-DAG:       [[VAR_37_:%.+]] = floordivi_signed [[VAR_2_]], [[VAR_2_]]6 : index
-// CHECK:           [[VAR_38_:%.+]] = select [[VAR_36_]], [[VAR_37_]], [[VAR_23_]] : index
-// CHECK-DAG:       [[VAR_39_:%.+]] = memref.alloc([[VAR_29_]], [[VAR_32_]], [[VAR_35_]], [[VAR_38_]]) : memref<?x?x?x?xf32>
-// CHECK-DAG:       [[CST_4_:%.+]] = constant 4 : index
-// CHECK-DAG:       [[VAR_40_:%.+]] = affine.apply #map2([[VAR_0_]])
-// CHECK:           [[VAR_41_:%.+]] = index_cast [[VAR_40_]] : index to i64
-// CHECK:           "krnl.memcpy"([[VAR_39_]], [[PARAM_0_]], [[VAR_41_]]) : (memref<?x?x?x?xf32>, memref<?x10xf32>, i64) -> ()
-// CHECK:           return [[VAR_39_]] : memref<?x?x?x?xf32>
-// CHECK:         }
-}
-
-// ----
 func private @test_reshape_constant(%arg0 : tensor<1x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[2, 5]> : tensor<2xi64> } : () -> tensor<2xi64>
   %1 = "onnx.Reshape"(%arg0, %0) : (tensor<1x10xf32>, tensor<2xi64>) -> tensor<*xf32>
@@ -1504,15 +1406,18 @@ func private @test_squeeze_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -
   %0 = "onnx.Squeeze"(%arg0) { axes = [1,-2]} : (tensor<?x1x32x?x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: @test_squeeze_unknown_dimensions
-  // CHECK: [[C0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_0:%.+]] = memref.dim %arg0, [[C0]] : memref<?x1x32x?x64xf32>
-  // CHECK: [[RES:%.+]] = memref.alloc([[DIM_0]]) : memref<?x32x64xf32>
-  // CHECK: [[TENSOR_SIZE_0:%.+]] = constant 8192 : i64
-  // CHECK: [[DIM_0_i64:%.+]] = index_cast [[DIM_0]] : index to i64
-  // CHECK: [[TENSOR_SIZE_1:%.+]] = muli [[TENSOR_SIZE_0]], [[DIM_0_i64]] : i64
-  // CHECK: "krnl.memcpy"([[RES]], %arg0, [[TENSOR_SIZE_1]]) : (memref<?x32x64xf32>, memref<?x1x32x?x64xf32>, i64) -> ()
-  // CHECK: return [[RES]] : memref<?x32x64xf32>
+  // CHECK-LABEL:  func private @test_squeeze_unknown_dimensions
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x1x32x?x64xf32>) -> memref<?x32x64xf32> {
+  // CHECK:           [[CST_0_:%.+]] = constant 0 : index
+  // CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x1x32x?x64xf32>
+  // CHECK-DAG:       [[CST_32_:%.+]] = constant 32 : index
+  // CHECK-DAG:       [[CST_64_:%.+]] = constant 64 : index
+  // CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
+  // CHECK-DAG:       [[CST_64_1_:%.+]] = constant 64 : index
+  // CHECK-DAG:       [[CST_2048_:%.+]] = constant 2048 : index
+  // CHECK:           [[VAR_1_:%.+]] = memref.reinterpret_cast [[PARAM_0_]] to offset: [0], sizes: {{.}}[[VAR_0_]], 32, 64], strides: [2048, 64, 1] : memref<?x1x32x?x64xf32> to memref<?x32x64xf32>
+  // CHECK:           return [[VAR_1_]] : memref<?x32x64xf32>
+  // CHECK:         }
 }
 
 // -----

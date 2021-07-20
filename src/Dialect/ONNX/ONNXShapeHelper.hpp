@@ -287,8 +287,26 @@ struct ONNXReshapeOpShapeHelper : public ONNXOpShapeHelper<ONNXReshapeOp> {
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
   LogicalResult Compute(ONNXReshapeOpAdaptor operandAdaptor);
+};
 
-  // Additional data for ReshapeOp.
-  // Used when a data copy is necessary.
-  IndexExpr numOfElements;
+// Shape for SqueezeOp.
+struct ONNXSqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXSqueezeOp> {
+  ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp);
+  ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXSqueezeOpAdaptor operandAdaptor);
+};
+
+// Shape for UnsqueezeOp.
+struct ONNXUnsqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXUnsqueezeOp> {
+  ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp);
+  ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXUnsqueezeOpAdaptor operandAdaptor);
 };

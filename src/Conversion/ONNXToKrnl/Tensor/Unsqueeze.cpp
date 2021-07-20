@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -23,96 +24,23 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXUnsqueezeOpAdaptor operandAdaptor(operands);
+    ONNXUnsqueezeOp unsqueezeOp = dyn_cast_or_null<ONNXUnsqueezeOp>(op);
+
     auto loc = op->getLoc();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     int outRank = memRefType.getRank();
     Value data = operandAdaptor.data();
 
-    // If the output shape is a constant, lower to ReinterpretCastOp so that the
-    // data is never copied or modified.
-    if (memRefType.hasStaticShape()) {
-      int64_t rank = memRefType.getRank();
+    ONNXUnsqueezeOpShapeHelper shapeHelper(&unsqueezeOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    assert(succeeded(shapecomputed));
 
-      // Compute new sizes and strides.
-      SmallVector<int64_t, 4> sizesI64, stridesI64;
-      sizesI64.resize(rank);
-      stridesI64.resize(rank);
-      int64_t strideI64 = 1;
-      for (int i = rank - 1; i >= 0; --i) {
-        sizesI64[i] = memRefType.getDimSize(i);
-        stridesI64[i] = strideI64;
-        if (i > 0)
-          strideI64 *= sizesI64[i];
-      }
-
-      SmallVector<OpFoldResult, 4> sizes, strides;
-      sizes.resize(rank);
-      strides.resize(rank);
-      for (int i = rank - 1; i >= 0; --i) {
-        sizes[i] = rewriter.getIndexAttr(sizesI64[i]);
-        strides[i] = rewriter.getIndexAttr(stridesI64[i]);
-      }
-
-      // Emit ReinterpretCastOp.
-      rewriter.replaceOpWithNewOp<memref::ReinterpretCastOp>(op, memRefType,
-          data, /*offset=*/rewriter.getIndexAttr(0), sizes, strides);
-      return success();
-    }
-
-    // Assume that `axes` has been validated by shape inference.
-    // So, here we just get it.
-    ArrayAttr axisAttrs = llvm::dyn_cast<ONNXUnsqueezeOp>(op).axesAttr();
-    SmallVector<int, 4> axes;
-    for (auto axisAttr : axisAttrs.getValue()) {
-      int axis = axisAttr.cast<IntegerAttr>().getInt();
-      axis = axis >= 0 ? axis : (outRank + axis);
-      axes.emplace_back(axis);
-    }
-
-    // Insert an allocation and deallocation for the result of this operation.
-    Value alloc;
-
-    // Compute size in bytes.
-    Value tensorSize = emitConstantOp(rewriter, loc,
-        rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
-
-    bool insertDealloc = checkInsertDealloc(op);
-    auto memRefShape = memRefType.getShape();
-    if (hasAllConstantDimensions(memRefType)) {
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-      for (unsigned int i = 0; i < memRefShape.size(); ++i) {
-        Value dimVal = emitConstantOp(
-            rewriter, loc, rewriter.getIntegerType(64), memRefShape[i]);
-        tensorSize = rewriter.create<MulIOp>(loc, tensorSize, dimVal);
-      }
-    } else {
-      // Unknown dimensions are always the operand's dimensions.
-      SmallVector<Value, 4> allocOperands;
-      for (unsigned int outIdx = 0, inIdx = 0; outIdx < memRefShape.size();
-           ++outIdx) {
-        Value dimVal = nullptr;
-        if (memRefShape[outIdx] < 0) {
-          Value index = rewriter.create<memref::DimOp>(loc, data, inIdx);
-          dimVal = rewriter.create<IndexCastOp>(
-              loc, index, rewriter.getIntegerType(64));
-          allocOperands.emplace_back(index);
-        } else {
-          dimVal = emitConstantOp(
-              rewriter, loc, rewriter.getIntegerType(64), memRefShape[outIdx]);
-        }
-        tensorSize = rewriter.create<MulIOp>(loc, tensorSize, dimVal);
-        if (std::find(axes.begin(), axes.end(), outIdx) == axes.end())
-          inIdx++;
-      }
-      alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
-      auto *parentBlock = alloc.getDefiningOp()->getBlock();
-      if (insertDealloc) {
-        auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
-        dealloc.getOperation()->moveBefore(&parentBlock->back());
-      }
-    }
-    rewriter.create<KrnlMemcpyOp>(loc, alloc, data, tensorSize);
-    rewriter.replaceOp(op, alloc);
+    // Lower to ReinterpretCastOp so that the data is never copied or modified.
+    Value newView = emitMemRefReinterpretCastOp(
+        rewriter, loc, data, memRefType, shapeHelper.dimsForOutput(0));
+    rewriter.replaceOp(op, newView);
     return success();
   }
 };

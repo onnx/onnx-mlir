@@ -2200,6 +2200,7 @@ LogicalResult ONNXSqueezeOp::inferShapes(
     return emitError("Input tensor not ranked");
 
   auto operandTy = data().getType().cast<RankedTensorType>();
+  auto elementType = data().getType().cast<ShapedType>().getElementType();
   int64_t inRank = operandTy.getRank();
 
   ArrayAttr axisAttrs = axesAttr();
@@ -2227,13 +2228,14 @@ LogicalResult ONNXSqueezeOp::inferShapes(
     axesAttr(builder.getI64ArrayAttr(defaultRefs));
   }
 
-  SmallVector<int64_t, 4> dims;
-  for (int i = 0; i < inRank; ++i) {
-    if (std::find(axes.begin(), axes.end(), i) == axes.end()) {
-      dims.emplace_back(operandTy.getShape()[i]);
-    }
-  }
-  getResult().setType(RankedTensorType::get(dims, operandTy.getElementType()));
+  ONNXSqueezeOpAdaptor operandAdaptor(*this);
+  ONNXSqueezeOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan Squeeze parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
+
   return success();
 }
 
