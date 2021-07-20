@@ -1245,11 +1245,9 @@ func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> t
 // CHECK-DAG:       [[VAR_28_:%.+]] = select [[VAR_26_]], [[VAR_27_]], [[VAR_6_]] : index
 // CHECK-DAG:       [[VAR_29_:%.+]] = cmpi eq, [[VAR_12_]], [[CST_minus_1_]] : index
 // CHECK-DAG:       [[VAR_30_:%.+]] = floordivi_signed [[VAR_1_]], [[VAR_25_]] : index
-// CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_31_:%.+]] = select [[VAR_29_]], [[VAR_30_]], [[VAR_12_]] : index
 // CHECK-DAG:       [[VAR_32_:%.+]] = cmpi eq, [[VAR_17_]], [[CST_minus_1_]] : index
 // CHECK-DAG:       [[VAR_33_:%.+]] = floordivi_signed [[VAR_1_]], [[VAR_25_]] : index
-// CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_34_:%.+]] = select [[VAR_32_]], [[VAR_33_]], [[VAR_17_]] : index
 // CHECK-DAG:       [[VAR_35_:%.+]] = cmpi eq, [[VAR_22_]], [[CST_minus_1_]] : index
 // CHECK-DAG:       [[VAR_36_:%.+]] = floordivi_signed [[VAR_1_]], [[VAR_25_]] : index
