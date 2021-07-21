@@ -15,9 +15,6 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
-// Temporarily used to control instrumentation
-static bool instrumentEnabled = false;
-
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values) {
   for (Value value : values) {
@@ -159,20 +156,6 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   });
 
   return insertDealloc;
-}
-
-// Insert an instrument function before an op
-void insertInstrumentBefore(
-    Operation *op, PatternRewriter &rewriter, Location loc) {
-  if (instrumentEnabled)
-    rewriter.create<mlir::KrnlInstrumentOp>(loc, op, 0);
-}
-
-// Insert an instrument function after an op
-void insertInstrumentAfter(
-    Operation *op, PatternRewriter &rewriter, Location loc) {
-  if (instrumentEnabled)
-    rewriter.create<mlir::KrnlInstrumentOp>(loc, op, 1);
 }
 
 // Create a mapping from result type's dimensions to input type's dimensions,
@@ -513,4 +496,44 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
   } else
     return rewriter.create<ONNXTransposeOp>(loc, resultType, input, permAttr)
         .getResult();
+}
+
+/// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
+/// The new view is created using the given 'memRefType' and 'outputDims'.
+Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
+    Location loc, Value data, MemRefType memRefType,
+    SmallVectorImpl<IndexExpr> &outputDims) {
+  int64_t rank = memRefType.getRank();
+
+  // Compute new sizes and strides.
+  SmallVector<IndexExpr, 4> sizesIE, stridesIE;
+  sizesIE.resize(rank);
+  stridesIE.resize(rank);
+  IndexExpr strideIE = LiteralIndexExpr(1);
+  for (int i = rank - 1; i >= 0; --i) {
+    sizesIE[i] = outputDims[i];
+    stridesIE[i] = strideIE;
+    if (i > 0)
+      strideIE = strideIE * sizesIE[i];
+  }
+
+  SmallVector<OpFoldResult, 4> sizes, strides;
+  sizes.resize(rank);
+  strides.resize(rank);
+  for (int i = rank - 1; i >= 0; --i) {
+    if (sizesIE[i].isLiteral())
+      sizes[i] = rewriter.getIndexAttr(sizesIE[i].getLiteral());
+    else
+      sizes[i] = sizesIE[i].getValue();
+    if (stridesIE[i].isLiteral())
+      strides[i] = rewriter.getIndexAttr(stridesIE[i].getLiteral());
+    else
+      strides[i] = stridesIE[i].getValue();
+  }
+
+  // Emit ReinterpretCastOp.
+  Value newView =
+      rewriter.create<memref::ReinterpretCastOp>(loc, memRefType, data,
+          /*offset=*/rewriter.getIndexAttr(0), sizes, strides);
+  return newView;
 }

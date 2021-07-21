@@ -77,14 +77,6 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
 // inserted.
 bool checkInsertDealloc(Operation *currentOp, int resultIndex = 0);
 
-// Insert an instrument function before an op
-void insertInstrumentBefore(
-    Operation *currentOp, PatternRewriter &rewwriter, Location loc);
-
-// Insert an instrument function after an op
-void insertInstrumentAfter(
-    Operation *currentOp, PatternRewriter &rewwriter, Location loc);
-
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
 // type.
@@ -141,6 +133,12 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
 /// return a constant.
 Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, ArrayAttr permAttr);
+
+/// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
+/// The new view is created using the given 'memRefType' and 'outputDims'.
+Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
+    Location loc, Value data, MemRefType memRefType,
+    SmallVectorImpl<IndexExpr> &outputDims);
 
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.

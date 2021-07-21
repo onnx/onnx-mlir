@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <assert.h>
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__MVS__)
 #include <stdlib.h>
 #else
 #include <malloc.h>
@@ -300,20 +300,21 @@ jobject omtl_native_to_java(
 
     LIB_TYPE_VAR_CALL(void *, jni_data, omTensorGetDataPtr(jni_omts[i]), NULL,
         env, japi->jecpt_cls, "omt[%d]:data=null", i);
-    LIB_TYPE_VAR_CALL(long *, jni_shape, omTensorGetShape(jni_omts[i]), NULL,
+    LIB_TYPE_VAR_CALL(int64_t *, jni_shape, omTensorGetShape(jni_omts[i]), NULL,
         env, japi->jecpt_cls, "omt[%d]:shape=null", i);
-    LIB_TYPE_VAR_CALL(long *, jni_strides, omTensorGetStrides(jni_omts[i]),
+    LIB_TYPE_VAR_CALL(int64_t *, jni_strides, omTensorGetStrides(jni_omts[i]),
         NULL, env, japi->jecpt_cls, "omt[%d]:strides=null", i);
     LIB_TYPE_VAR_CALL(int, jni_dataType, omTensorGetDataType(jni_omts[i]), 0,
         env, japi->jecpt_cls, "omt[%d]:dataType=0", i);
-    LIB_TYPE_VAR_CALL(long, jni_bufferSize, omTensorGetBufferSize(jni_omts[i]),
-        0, env, japi->jecpt_cls, "omt[%ld]:bufferSize=0", i);
+    LIB_TYPE_VAR_CALL(int64_t, jni_bufferSize,
+        omTensorGetBufferSize(jni_omts[i]), 0, env, japi->jecpt_cls,
+        "omt[%ld]:bufferSize=0", i);
     LIB_TYPE_VAR_CALL(int, jni_rank, omTensorGetRank(jni_omts[i]), 0, env,
         japi->jecpt_cls, "omt[%d]:rank=0", i);
     LIB_TYPE_VAR_CALL(int, jni_owning, omTensorGetOwning(jni_omts[i]), -1, env,
         japi->jecpt_cls, "omt[%d]:owning=-1", i);
-    LIB_TYPE_VAR_CALL(long, jni_numElems, omTensorGetNumElems(jni_omts[i]), 0,
-        env, japi->jecpt_cls, "omt[%d]:numElems=0", i);
+    LIB_TYPE_VAR_CALL(int64_t, jni_numElems, omTensorGetNumElems(jni_omts[i]),
+        0, env, japi->jecpt_cls, "omt[%d]:numElems=0", i);
 
     /* Print debug info on what we got from the native side */
     OMT_DEBUG(i, jni_numElems, jni_data, jni_shape, jni_strides, jni_dataType,

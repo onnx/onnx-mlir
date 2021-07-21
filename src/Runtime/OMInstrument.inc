@@ -31,25 +31,27 @@
 #include <malloc.h>
 #endif
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdint.h>
 
 #include "onnx-mlir/Runtime/OMInstrument.h"
 
 #ifdef _WIN32
 // TO BE FIXED
 #else
-#include <unistd.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 static struct timeval globalTimeVal, initTimeVal;
 static pid_t mypid;
 #endif
 
-static bool timeEnabled = true;
-static bool virtualMemEnabled = true;
+static bool instrumentReportDisabled = false;
+static bool instrumentReportTimeDisabled = false;
+static bool instrumentReportMemoryDisabled = false;
+static int instrumentCounter = 0;
 
 #ifdef _WIN32
 void TimeInit() {}
@@ -70,7 +72,7 @@ void ReportTime() {
   printf("Time elapsed: %ld.%06ld ", (long int)result.tv_sec,
       (long int)result.tv_usec);
   timersub(&newTimeValue, &initTimeVal, &result);
-  printf("accumulated: %ld.%06ld\n", (long int)result.tv_sec,
+  printf("accumulated: %ld.%06ld", (long int)result.tv_sec,
       (long int)result.tv_usec);
   globalTimeVal = newTimeValue;
 }
@@ -87,29 +89,49 @@ void ReportMemory() {
 }
 #endif
 
+enum InstrumentActions {
+  InstrumentBeforeOp,
+  InstrumentAfterOp,
+  InstrumentReportTime,
+  InstrumentReportMemory
+};
+
 void OMInstrumentInit() {
-  if (getenv("OMINSTRUMENTTIME")) {
-    timeEnabled = !timeEnabled;
+  if (getenv("NOOMINSTRUMENTTIME")) {
+    instrumentReportTimeDisabled = true;
   }
-  if (getenv("OMINSTRUMENTMEMORY")) {
-    virtualMemEnabled = !virtualMemEnabled;
+  if (getenv("NOOMINSTRUMENTMEMORY")) {
+    instrumentReportMemoryDisabled = true;
+  }
+  if (getenv("NOOMINSTRUMENT")) {
+    instrumentReportDisabled = true;
   }
 
-  if (timeEnabled) {
+  if (!instrumentReportDisabled) {
     TimeInit();
   }
 }
 
 void OMInstrumentPoint(int64_t id, int64_t tag) {
-  // Print header
-  if (timeEnabled || virtualMemEnabled)
-    printf("ID=%s TAG=%ld ", (char *)&id, tag);
+  if (instrumentReportDisabled)
+    return;
 
-  if (timeEnabled) {
+  // Print header
+  printf("#%3d) %s op=%8s ", instrumentCounter,
+      tag & (1 << (int)InstrumentBeforeOp) ? "before" : "after ", (char *)&id);
+  instrumentCounter++;
+
+  bool localReportTime =
+      tag & (1 << (int)InstrumentReportTime) && !instrumentReportTimeDisabled;
+
+  if (localReportTime) {
     ReportTime();
   }
 
-  if (virtualMemEnabled) {
+  bool localReportMemory = tag & (1 << (int)InstrumentReportMemory) &&
+                           !instrumentReportMemoryDisabled;
+  if (localReportMemory) {
     ReportMemory();
   }
+  printf("\n");
 }
