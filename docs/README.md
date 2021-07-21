@@ -1,6 +1,7 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 
-# ONNX MLIR
+# ONNX MLIR Documentation page
+
 The Open Neural Network Exchange implementation in MLIR.
 
 ## Main Readme
@@ -27,4 +28,4 @@ The Open Neural Network Exchange implementation in MLIR.
 
 ## Maintenance
 
-As you add new files in this directory, please add links to them in this file, for easier readability. Thanks.
+As you add new files in this directory, please add links to them in this file, for easier readability. Please use relative links that way it works across forks and branches. Thanks.
