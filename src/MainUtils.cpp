@@ -12,31 +12,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <cstdio>
-#include <cstdlib>
-#include <fcntl.h>
-#include <regex>
-#include <string>
-#include <vector>
-
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/IR/SymbolTable.h"
-#include "mlir/Pass/Pass.h"
+#include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/ToolOutputFile.h"
 
 #include "ExternalUtil.hpp"
 #include "MainUtils.hpp"
-
-#ifdef _WIN32
-#include <io.h>
-#else
-#include <unistd.h>
-#endif
 
 using namespace std;
 using namespace mlir;
@@ -83,6 +68,13 @@ llvm::cl::opt<bool> preserveMLIR("preserveMLIR",
 llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<string> instrumentONNXOps("instrument-onnx-ops",
+    llvm::cl::desc("specify onnx ops to be instrumented\n"
+                   "\"NONE\" or \"\" for no instrument\n"
+                   "\"ALL\" for all ops. \n"
+                   "\"op1 op2 ...\" for the specified ops."),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<string> shapeInformation("shapeInformation",
     llvm::cl::desc(
@@ -269,16 +261,16 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
   // Handle '.mlir' input to the ONNX MLIR frontend.
   // The mlir format indicates that one or more of the supported
   // representations are used in the file.
-  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> fileOrErr =
-      llvm::MemoryBuffer::getFileOrSTDIN(inputFilename);
-  if (std::error_code EC = fileOrErr.getError()) {
-    llvm::errs() << "Could not open input file: " << EC.message() << "\n";
+  string errorMessage;
+  auto input = openInputFile(inputFilename, &errorMessage);
+  if (!input) {
+    llvm::errs() << errorMessage << "\n";
     exit(1);
   }
 
   // Parse the input mlir.
   llvm::SourceMgr sourceMgr;
-  sourceMgr.AddNewSourceBuffer(std::move(*fileOrErr), llvm::SMLoc());
+  sourceMgr.AddNewSourceBuffer(std::move(input), llvm::SMLoc());
   module = mlir::parseSourceFile(sourceMgr, &context);
   if (!module) {
     llvm::errs() << "Error can't load file " << inputFilename << "\n";
@@ -489,6 +481,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
+  // Add instrumentation for Onnx Ops
+  if (instrumentONNXOps != "" && instrumentONNXOps != "NONE")
+    pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass(instrumentONNXOps));
   pm.addPass(mlir::createLowerToKrnlPass());
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
@@ -569,26 +564,20 @@ InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
 
 void outputCode(
     mlir::OwningModuleRef &module, string filename, string extension) {
-  string tempFilename = filename + extension;
   mlir::OpPrintingFlags flags;
   if (preserveLocations)
     flags.enableDebugInfo();
 
-#ifdef _WIN32
-  // copy original stderr file number
-  int stderrOrigin = _dup(_fileno(stderr));
-#else
-  int stderrOrigin = dup(fileno(stderr));
-#endif
-  freopen(tempFilename.c_str(), "w", stderr);
-  module->print(llvm::errs(), flags);
-  fflush(stderr);
-  // set modified stderr as original stderr
-#ifdef _WIN32
-  _dup2(stderrOrigin, _fileno(stderr));
-#else
-  dup2(stderrOrigin, fileno(stderr));
-#endif
+  string errorMessage;
+  auto output = openOutputFile(filename + extension, &errorMessage);
+  if (!output) {
+    llvm::errs() << errorMessage << "\n";
+    exit(1);
+  }
+
+  module->print(output->os(), flags);
+  output->keep();
+
   if (printIR)
     module->print(llvm::outs(), flags);
 }
