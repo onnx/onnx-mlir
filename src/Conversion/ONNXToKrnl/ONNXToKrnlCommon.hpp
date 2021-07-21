@@ -77,14 +77,6 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
 // inserted.
 bool checkInsertDealloc(Operation *currentOp, int resultIndex = 0);
 
-// Insert an instrument function before an op
-void insertInstrumentBefore(
-    Operation *currentOp, PatternRewriter &rewwriter, Location loc);
-
-// Insert an instrument function after an op
-void insertInstrumentAfter(
-    Operation *currentOp, PatternRewriter &rewwriter, Location loc);
-
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
 // type.

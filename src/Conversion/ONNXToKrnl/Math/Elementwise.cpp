@@ -725,7 +725,6 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
         NameLoc::get(Identifier::get(ElementwiseBinaryOp::getOperationName(),
                          op->getContext()),
             op->getLoc());
-    insertInstrumentBefore(op, rewriter, loc);
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputElementType = outputMemRefType.getElementType();
     auto outputRank = outputMemRefType.getRank();
@@ -750,7 +749,6 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
       BuildKrnlLoop loops(rewriter, loc, outputRank);
       loops.createDefineAndIterateOp(alloc);
       Block *iterationBlock = loops.getIterateBlock();
-      insertInstrumentAfter(op, rewriter, loc);
       // Insert instructions inside the KernelIterateOp body.
       rewriter.setInsertionPointToStart(iterationBlock);
       // Handle the operation:
@@ -797,7 +795,6 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
         NameLoc::get(Identifier::get(ElementwiseVariadicOp::getOperationName(),
                          op->getContext()),
             op->getLoc());
-    insertInstrumentBefore(op, rewriter, loc);
     auto numArgs = op->getNumOperands();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputElementType = outputMemRefType.getElementType();
@@ -825,7 +822,6 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       // Create iterateOp & get block within iterate op.
       BuildKrnlLoop loops(rewriter, loc, outputRank);
       loops.createDefineAndIterateOp(alloc);
-      insertInstrumentAfter(op, rewriter, loc);
 
       Block *iterationBlock = loops.getIterateBlock();
       // Insert instructions inside the KernelIterateOp body.
