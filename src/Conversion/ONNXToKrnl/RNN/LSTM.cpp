@@ -15,8 +15,6 @@
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 
-#define TEST_FUSED_MATMUL false
-
 using namespace mlir;
 
 struct LstmState {
@@ -468,29 +466,12 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
       MemRefType::get({batchSize, 4 * hiddenSize}, elementType);
 
   // Do matrix multiplications.
-  // Xt * (Wi^T + Wo^T + Wf^T + Wc^T)
-  // Ht * (Ri^T + Ro^T + Rf^T + Rc^T)
+  // Xt * (Wi^T ++ Wo^T ++ Wf^T ++ Wc^T)
+  // Ht * (Ri^T ++ Ro^T ++ Rf^T ++ Rc^T)
+  // where '++' is matrix concatenation.
   OnnxBuilder createONNX(createKrnl);
-
-  // Using Matmul
   Value XtWT = createONNX.matmul(matrixAllGatesType, Xt, weightPack.WT);
   Value HtRT = createONNX.matmul(matrixAllGatesType, Ht, weightPack.RT);
-
-  // Using Gemm
-  // FloatAttr alphaAttr =
-  //     FloatAttr::get(createKrnl.getBuilder().getF32Type(), 1.0);
-  // FloatAttr betaAttr =
-  //     FloatAttr::get(createKrnl.getBuilder().getF32Type(), 1.0);
-  // IntegerAttr aTransAttr =
-  //     IntegerAttr::get(createKrnl.getBuilder().getIntegerType(64, true), 0);
-  // IntegerAttr bTransAttr =
-  //     IntegerAttr::get(createKrnl.getBuilder().getIntegerType(64, true), 0);
-  // Value none = createKrnl.getBuilder().create<ConstantOp>(
-  //     loc, createKrnl.getBuilder().getUnitAttr());
-  // Value XtWT = createONNX.gemm(matrixAllGatesType, Xt, weightPack.WT, none,
-  //    alphaAttr, betaAttr, aTransAttr, bTransAttr);
-  // Value HtRT = createONNX.gemm(matrixAllGatesType, Ht, weightPack.RT, none,
-  //    alphaAttr, betaAttr, aTransAttr, bTransAttr);
 
   // Do element-wise computations. Fuse them into a single nested loop.
   // Lower and upper bounds derived from Ht tensor.

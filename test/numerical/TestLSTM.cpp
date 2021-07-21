@@ -32,10 +32,6 @@ using namespace mlir;
 bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
     const int B, const int I, const int H, bool isDynamicS = false,
     bool isDynamicB = false) {
-  static int testNum = 0;
-  printf("attempt %d with direction %d, S %d, B %d, I %d, H %d, isDynamicS %d, "
-         "isDynamicB %d\n",
-      ++testNum, direction, S, B, I, H, isDynamicS, isDynamicB);
   MLIRContext ctx;
   registerDialects(ctx);
 
@@ -315,8 +311,6 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
 int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
-
-  // Wrong results if using matmul instead of gemm for LSTM
 
   // RapidCheck test case generation.
   bool success = rc::check("LSTM implementation correctness", []() {

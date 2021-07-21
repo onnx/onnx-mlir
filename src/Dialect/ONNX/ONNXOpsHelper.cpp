@@ -42,11 +42,6 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B) {
   return b.create<ONNXMatMulOp>(loc, Y, A, B);
 }
 
-Value OnnxBuilder::gemm(Type Y, Value A, Value B, Value C, FloatAttr alpha,
-    FloatAttr beta, IntegerAttr transA, IntegerAttr transB) {
-  return b.create<ONNXGemmOp>(loc, Y, A, B, C, alpha, beta, transA, transB);
-}
-
 AffineMap getIdentityDimMap(Builder &builder) {
   return AffineMap::get(1, 0, {builder.getAffineDimExpr(0)});
 }

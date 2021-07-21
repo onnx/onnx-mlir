@@ -36,8 +36,6 @@ struct OnnxBuilder : DialectBuilder {
   Value mul(Value A, Value B);
   Value div(Value A, Value B);
   Value matmul(Type Y, Value A, Value B);
-  Value gemm(Type Y, Value A, Value B, Value C, FloatAttr alpha, FloatAttr beta,
-      IntegerAttr transA, IntegerAttr transB);
 };
 
 } // namespace mlir
