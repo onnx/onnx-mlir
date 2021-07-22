@@ -45,6 +45,10 @@ if (DEFINED LLVM_HOST_TRIPLE)
 else()
   include(GetHostTriple OPTIONAL)
   if (COMMAND get_host_triple)
+    # get_host_triple refers to LLVM_MAIN_SRC_DIR which is, of course, not set. Since we know
+    # that we are using a build-tree of llvm (or otherwise get_host_triple would not exist),
+    # we know that LLVM_BUILD_MAIN_SRC_DIR has the value that we want for LLVM_MAIN_SRC_DIR.
+    set(LLVM_MAIN_SRC_DIR ${LLVM_BUILD_MAIN_SRC_DIR})
     get_host_triple(ONNX_MLIR_HOST_TRIPLE)
   else()
     set(ONNX_MLIR_HOST_TRIPLE "")
