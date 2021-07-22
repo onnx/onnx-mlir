@@ -30,6 +30,13 @@ using namespace onnx_mlir;
 llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX MLIR Options", "These are frontend options.");
 
+llvm::cl::opt<string> instrumentONNXOps("instrument-onnx-ops",
+    llvm::cl::desc("specify onnx ops to be instrumented\n"
+                   "\"NONE\" or \"\" for no instrument\n"
+                   "\"ALL\" for all ops. \n"
+                   "\"op1 op2 ...\" for the specified ops."),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+
 namespace {
 
 llvm::Optional<std::string> getEnvVar(std::string name) {
@@ -68,13 +75,6 @@ llvm::cl::opt<bool> preserveMLIR("preserveMLIR",
 llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
-
-llvm::cl::opt<string> instrumentONNXOps("instrument-onnx-ops",
-    llvm::cl::desc("specify onnx ops to be instrumented\n"
-                   "\"NONE\" or \"\" for no instrument\n"
-                   "\"ALL\" for all ops. \n"
-                   "\"op1 op2 ...\" for the specified ops."),
-    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<string> shapeInformation("shapeInformation",
     llvm::cl::desc(
@@ -484,7 +484,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // Add instrumentation for Onnx Ops
   if (instrumentONNXOps != "" && instrumentONNXOps != "NONE")
-    pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass(instrumentONNXOps));
+    pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass());
   pm.addPass(mlir::createLowerToKrnlPass());
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization

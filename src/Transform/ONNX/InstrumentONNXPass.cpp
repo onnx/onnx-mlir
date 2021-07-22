@@ -70,6 +70,9 @@ private:
   unsigned runtimeActions;
 
 public:
+  /*
+  explicit InstrumentONNXPass();
+  InstrumentONNXPass(const InstrumentONNXPass &) {};
   InstrumentONNXPass(std::string allowedOps_) {
     if (allowedOps_ == "ALL") {
       allOpsAllowed = true;
@@ -82,6 +85,7 @@ public:
     }
     runtimeActions = InstrumentControlBits.getBits();
   };
+  */
 
   void runOnFunction() override {
     auto function = getFunction();
@@ -117,7 +121,6 @@ public:
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createInstrumentONNXPass(
-    std::string allowedOps) {
-  return std::make_unique<InstrumentONNXPass>(allowedOps);
+std::unique_ptr<mlir::Pass> mlir::createInstrumentONNXPass() {
+  return std::make_unique<InstrumentONNXPass>();
 }
