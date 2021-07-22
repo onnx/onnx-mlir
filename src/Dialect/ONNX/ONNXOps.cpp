@@ -5145,6 +5145,17 @@ FunctionType ONNXCallOp::getCalleeType() {
 }
 
 //===----------------------------------------------------------------------===//
+// SubgraphOp
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXSubgraphOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXSubgraphOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  //return llvm::cast<ConcreteOp>(tablegen_opaque_val)).inferShapes(shapeInferenceFunc);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 
