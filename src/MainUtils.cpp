@@ -244,7 +244,8 @@ struct Command {
       fprintf(stderr, "%s\n", llvm::join(argsRef, " ").c_str());
       fprintf(stderr, "Error message: %s\n", errMsg.c_str());
       fprintf(stderr, "Program path: %s\n", _path.c_str());
-      llvm_unreachable("Command execution failed.");
+      fprintf(stderr, "Command execution failed.");
+      exit(rc);
     }
   }
 };
