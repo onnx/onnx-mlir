@@ -54,6 +54,31 @@ public:
     return (op->getName().getStringRef().str());
   }
 
+  static void genOutlinedFunction(PatternRewriter &rewriter,
+      MLIRContext *context, std::string funcName,
+      Location loc) {
+    /*    
+    auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
+    llvm::SmallVector<Type, 1> outputsType{opaquePtrTy};
+
+    auto funcType = rewriter.getFunctionType(llvm::None, outputsType);
+    llvm::SmallVector<NamedAttribute, 1> attrs;
+    auto funcOp = rewriter.create<FuncOp>(
+        UnknownLoc::get(context), funcName, funcType, attrs);
+
+    auto entryBlock = funcOp.addEntryBlock();
+
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(entryBlock);
+
+    auto sigAddr = rewriter.create<LLVM::AddressOfOp>(loc, sigvar);
+    auto sigVoidPtr =
+        rewriter.create<LLVM::BitcastOp>(loc, opaquePtrTy, sigAddr);
+    llvm::SmallVector<Value, 1> results = {sigVoidPtr};
+    rewriter.create<ReturnOp>(UnknownLoc::get(context), results);
+    */
+  }
+
   void processOp(Operation *op) {
       //auto onnxtype = ONNXOpsDialect.getTypeID();
       auto opName = getOpName(op);
