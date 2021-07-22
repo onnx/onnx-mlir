@@ -2,14 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- ShapeInferencePass.cpp - Shape Inference ---------------------===//
+//===------- OutlineOperatorsPass.cpp - Operator Outlining ---------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2021 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file implements a Function level pass performing propagation of array
-// shapes through function specialization.
+// This file implements a pass to outline each operator for debugging purposes
 //
 //===----------------------------------------------------------------------===//
 
@@ -55,10 +54,16 @@ public:
     return (op->getName().getStringRef().str());
   }
 
-  // Print all the ops in a module.
   void processOp(Operation *op) {
+      //auto onnxtype = ONNXOpsDialect.getTypeID();
       auto opName = getOpName(op);
       std::cout << "Operation is " << opName << std::endl;
+      if (op->getDialect()->getNamespace() == "onnx") {
+          std::cout << "   is an onnx op" << std::endl;
+          if (opName == "onnx.Gemm") {
+          std::cout << "   --- outline Gemm" << std::endl;
+          }
+      }
       for (Region &region : op->getRegions())
          processRegion(region);
   }
@@ -75,64 +80,14 @@ public:
         processOp(&op);
   }
 
-/*
-  void processModule(ModuleOp module) {
-    for (Operation &op : module) {
-      // Modules may actually be nested, recurse on nesting.
-      if (auto nestedModule = dyn_cast<ModuleOp>(op)) {
-        processModule(nestedModule);
-        continue;
-      }
-      auto opName = getOpName(op);
-      std::cout << "Operation is " << opName << std::endl;
-      for (Region &region : op.getRegions()) {
-        for (auto indexed_block : llvm::enumerate(region))
-          std::cout << "     block is " << indexed_block.index() << std::endl;
-        for (mlir::Block &block : region.getBlocks()) {
-            for (mlir::Operation &operation : block.getOperations()) {
-                auto name = getOpName(operation);
-                std::cout << "Block Operation is " << name << std::endl;
-            }
-          
-        }   
-      }
-    }
-  }
-*/
+
   void runOnOperation() override { processOp(getOperation()); }
-  /*
-  void runOnOperation() override {
-    auto module = getOperation();
-    auto result = module.walk([&](Operation &op) -> WalkResult {
-      return runOutlineOpOn(op);
-    });
-    if (result.wasInterrupted())
-      signalPassFailure();
-  }
-
-  static LogicalResult runOutlineOpOnRegion(mlir::Region &r) {
-    // Iterate on the operations that need shape inference i.e the operations
-    // that return a dynamic shape or followed by a return op.
-    for (Operation &op : r.getOps()) {
-
-    }
-    return success();
-  }
-
-  static LogicalResult runOutlineOpOn(Operation &op) {
-    //auto &funcBody = op.getBody();
-    //if (failed(runOutlineOpOnRegion(funcBody)))
-    //  return failure();
-
-    return success();
-  }
-  */
 
 };
 } // end anonymous namespace
 
 /*!
- * Create a Shape Inference pass.
+ * Create an Outline Operators pass.
  */
 std::unique_ptr<mlir::Pass> mlir::createOutlineOperatorsPass() {
   return std::make_unique<OutlineOperatorsPass>();
