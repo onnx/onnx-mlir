@@ -287,9 +287,11 @@ string getTargetCpuOption() {
 
 string getTargetTripleOption() {
   string targetOptions = "";
+  // Comand cannot tolerate extra spaces. Add only when needed.
   if (mtriple != "")
     targetOptions = "--mtriple=" + mtriple;
-  // Comand cannot tolerate extra spaces. Add only when needed.
+  if (mtriple == "" && kHostTriple != "")
+    targetOptions = "--mtriple=" + kHostTriple;
   return targetOptions;
 }
 

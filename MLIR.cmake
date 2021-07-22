@@ -34,6 +34,24 @@ message(STATUS "BUILD_SHARED_LIBS       : " ${BUILD_SHARED_LIBS})
 set(LLVM_REQUIRES_EH ON)
 message(STATUS "LLVM_REQUIRES_EH        : " ${LLVM_REQUIRES_EH})
 
+# LLVM_HOST_TRIPLE is not properly exported as part of the llvm config. It is actually
+# needed by some of the exported cmake files, so there's work in progress to add it to the
+# LLVM config.
+# If LLVM_HOST_TRIPLE is not available, try to include GetHostTriple.cmake to get the triple.
+# This file is available when MLIR_DIR points to a build (as opposed to an install) directory.
+# When all else fails, default to an empty string which is the old default behavior of onnx-mlir.
+if (DEFINED LLVM_HOST_TRIPLE)
+  set(ONNX_MLIR_HOST_TRIPLE ${LLVM_HOST_TRIPLE})
+else()
+  include(GetHostTriple OPTIONAL)
+  if (COMMAND get_host_triple)
+    get_host_triple(ONNX_MLIR_HOST_TRIPLE)
+  else()
+    set(ONNX_MLIR_HOST_TRIPLE "")
+  endif()
+endif()
+message(STATUS "ONNX_MLIR_HOST_TRIPLE   : " ${ONNX_MLIR_HOST_TRIPLE})
+
 # If CMAKE_INSTALL_PREFIX was not provided explicitly and we are not using an install of
 # LLVM and a CMakeCache.txt exists,
 # force CMAKE_INSTALL_PREFIX to be the same as the LLVM build.
