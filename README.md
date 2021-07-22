@@ -5,19 +5,29 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 
 | System        | Build Status |
 |---------------|--------------|
-| s390x-Linux   | [![Build Status](https://yktpandb.watson.ibm.com/jenkins/buildStatus/icon?build=lastSuccessful:${params.GITHUB_PR_NUMBER_PUSH=master})](https://yktpandb.watson.ibm.com/jenkins/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
-| ppc64le-Linux | [![Build Status](https://yktpandb.watson.ibm.com/jenkinp/buildStatus/icon?build=lastSuccessful:${params.GITHUB_PR_NUMBER_PUSH=master})](https://yktpandb.watson.ibm.com/jenkinp/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
-| amd64-Linux   | [![Build Status](https://yktpandb.watson.ibm.com/jenkinx/buildStatus/icon?build=lastSuccessful:${params.GITHUB_PR_NUMBER_PUSH=master})](https://yktpandb.watson.ibm.com/jenkinx/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| s390x-Linux   | [![Build Status](https://yktpandb.watson.ibm.com/jenkins/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=master%7D&subject=Jenkins%20CI)](https://yktpandb.watson.ibm.com/jenkins/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| ppc64le-Linux | [![Build Status](https://yktpandb.watson.ibm.com/jenkinp/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=master%7D&subject=Jenkins%20CI)](https://yktpandb.watson.ibm.com/jenkinp/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| amd64-Linux   | [![Build Status](https://yktpandb.watson.ibm.com/jenkinx/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=master%7D&subject=Jenkins%20CI)](https://yktpandb.watson.ibm.com/jenkinx/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
 | amd64-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)             |
 | amd64-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/workflows/Build%20x86%20onnx-mlir%20on%20macOS/badge.svg)](https://github.com/onnx/onnx-mlir/actions?query=workflow%3A%22Build+x86+onnx-mlir+on+macOS%22)             |
 
-## Prebuilt Container
+## Prebuilt Containers
 An easy way to get started with ONNX-MLIR is to use a prebuilt docker image.
 These images are created as a result of a successful merge build on the trunk.
 This means that the latest image represents the tip of the trunk.
 Currently there are both Release and Debug mode images for `amd64`, `ppc64le` and `s390x` saved in Docker Hub as, respectively, [onnxmlirczar/onnx-mlir](https://hub.docker.com/r/onnxmlirczar/onnx-mlir) and [onnxmlirczar/onnx-mlir-dev](https://hub.docker.com/r/onnxmlirczar/onnx-mlir-dev).
 To use one of these images either pull it directly from Docker Hub, launch a container and run an interactive bash shell in it, or use it as the base image in a dockerfile.
-The onnx-mlir image just contains the built compiler and can be used to compile models.
+The onnx-mlir image just contains the built compiler and you can use it immediately to compile your model without any installation. A python convenience script is provided to allow you to run ONNX-MLIR inside a docker container as if running the ONNX-MLIR compiler directly on the host. For example,
+```
+# docker/onnx-mlir.py --EmitLib mnist/model.onnx
+505a5a6fb7d0: Pulling fs layer
+505a5a6fb7d0: Verifying Checksum
+505a5a6fb7d0: Download complete
+505a5a6fb7d0: Pull complete
+Shared library model.so has been compiled.
+```
+The script will pull the onnx-mlir image if it's not available locally, mount the directory containing the `model.onnx` into the container, and compile and generate the `model.so` in the same directory.
+
 The onnx-mlir-dev image contains the full build tree including the prerequisites and a clone of the source code.
 The source can be modified and onnx-mlir rebuilt from within the container, so it is possible to use it
 as a development environment.
