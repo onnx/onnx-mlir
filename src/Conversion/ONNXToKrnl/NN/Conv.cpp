@@ -38,49 +38,18 @@ struct ONNXConvOpLowering : public ConversionPattern {
   ONNXConvOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
-    ONNXConvOpAdaptor operandAdaptor(operands);
-    ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
-
-    // Read dilations attribute if the op has.
-    std::vector<int64_t> dilations = getDilations(convOp);
+  void convUnoptimized(ConversionPatternRewriter &rewriter, ONNXConvOp &convOp,
+      ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
+      MemRefType &memRefType, Value alloc, SmallVector<int64_t, 4> &pads,
+      SmallVector<int64_t, 4> &strides, std::vector<int64_t> &dilations) const {
+    auto loc = convOp.getLoc();
     bool isDilated = !dilations.empty();
 
-    // Read pads attribute
-    SmallVector<int64_t, 4> pads;
-    auto padsAttribute = convOp.padsAttr();
-    for (Attribute pad : padsAttribute.getValue())
-      pads.emplace_back(pad.cast<IntegerAttr>().getInt());
-
-    // Read strides attribute
-    SmallVector<int64_t, 4> strides;
-    auto stridesAttribute = convOp.stridesAttr();
-    for (Attribute stride : stridesAttribute.getValue())
-      strides.emplace_back(stride.cast<IntegerAttr>().getInt());
-
-    // Get shape.
-    ONNXConvOpShapeHelper shapeHelper(&convOp, rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
-    auto shapecomputed =
-        shapeHelper.Compute(operandAdaptor, convOp.kernel_shape(),
-            padsAttribute, stridesAttribute, convOp.dilations());
-    assert(succeeded(shapecomputed));
-
-    // Scope for krnl ops
-    IndexExprScope ieScope(rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
     MathBuilder createMath(rewriter, loc);
 
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;
-
-    // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
 
     auto resultShape = memRefType.getShape();
     auto inputOperand = operandAdaptor.X();
@@ -368,6 +337,48 @@ struct ONNXConvOpLowering : public ConversionPattern {
           createKrnl.storeIE(result, alloc, resultIndices);
       }
     }
+  }
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    auto loc = op->getLoc();
+    ONNXConvOpAdaptor operandAdaptor(operands);
+    ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
+
+    // Read dilations attribute if the op has.
+    std::vector<int64_t> dilations = getDilations(convOp);
+
+    // Read pads attribute
+    SmallVector<int64_t, 4> pads;
+    auto padsAttribute = convOp.padsAttr();
+    for (Attribute pad : padsAttribute.getValue())
+      pads.emplace_back(pad.cast<IntegerAttr>().getInt());
+
+    // Read strides attribute
+    SmallVector<int64_t, 4> strides;
+    auto stridesAttribute = convOp.stridesAttr();
+    for (Attribute stride : stridesAttribute.getValue())
+      strides.emplace_back(stride.cast<IntegerAttr>().getInt());
+
+    // Get shape.
+    ONNXConvOpShapeHelper shapeHelper(&convOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    auto shapecomputed =
+        shapeHelper.Compute(operandAdaptor, convOp.kernel_shape(),
+            padsAttribute, stridesAttribute, convOp.dilations());
+    assert(succeeded(shapecomputed));
+
+    // Scope for krnl ops
+    IndexExprScope ieScope(rewriter, loc);
+
+    // Insert an allocation and deallocation for the result of this operation.
+    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
+
+    convUnoptimized(rewriter, convOp, operandAdaptor, shapeHelper, memRefType,
+        alloc, pads, strides, dilations);
     rewriter.replaceOp(op, alloc);
     return success();
   }
