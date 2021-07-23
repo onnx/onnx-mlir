@@ -73,12 +73,6 @@ Value applyActivation(
 Value emitXSliceAt(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value timestep);
 
-/// Emit multiple matrix multiplications where A is shared and all Bs have the
-/// same dimensions.
-void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
-    MemRefType matrixType, Value A, ArrayRef<Value> Bs, Value zero,
-    Value zeroVal, ArrayRef<Value> Cs);
-
 // Override the following methods when lowering an RNN operation:
 // - hasAllNoneOutput
 // - getActivationPack

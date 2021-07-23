@@ -436,7 +436,7 @@ public:
       } else if (krnlGlobalOp.value().getValue().isa<DenseElementsAttr>()) {
         DenseElementsAttr denseAttr =
             krnlGlobalOp.value().getValue().cast<DenseElementsAttr>();
-        if ((!denseAttr.isSplat()) && (sizeInBytes > 512)) {
+        if ((!denseAttr.isSplat()) && (sizeInBytes > 1024)) {
           std::vector<char> rawData = denseAttr.getRawData();
           // Check data size.
           assert(((int64_t)rawData.size() == sizeInBytes) &&
