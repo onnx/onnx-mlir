@@ -23,7 +23,7 @@
 
 #include "ExternalUtil.hpp"
 */
-#include "MainOptions.hpp"
+#include "src/Support/OptimizeOptions.hpp"
 
 using namespace std;
 using namespace mlir;

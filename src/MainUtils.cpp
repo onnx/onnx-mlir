@@ -476,8 +476,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // Add instrumentation for Onnx Ops
-  if (instrumentONNXOps != "" && instrumentONNXOps != "NONE")
-    pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass());
+  pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass());
   pm.addPass(mlir::createLowerToKrnlPass());
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization

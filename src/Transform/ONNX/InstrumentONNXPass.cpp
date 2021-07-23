@@ -26,7 +26,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/MainOptions.hpp"
+#include "src/Support/OptimizeOptions.hpp"
 
 using namespace mlir;
 
@@ -35,13 +35,6 @@ namespace {
 /*!
  * This pass insert KrnlInstrumentOp before and after each ONNX ops
  */
-
-// TO FIX: this option should be put in the ONNXMlirOptions category
-// However, currently ONNXMlirOptions is defined in MainUtils.cpp
-// If this option is defined there, the enum type InsertPostion will be moved
-// out We may need to work a little more to structure files for command line
-// options Another related issue is that the enum type is used by onnx-mlir
-// Runtime too.
 
 // Strong-typed enum is NOT used because the value will be static_cast to int
 enum InstrumentActions {

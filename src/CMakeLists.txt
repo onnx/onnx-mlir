@@ -46,25 +46,6 @@ add_onnx_mlir_library(MainUtils
 
   LINK_LIBS PUBLIC
   ${OMLibs}
-  MainOptions
-  MLIRAffineTransforms
-  MLIRLinalgTransforms
-  MLIRLLVMToLLVMIRTranslation
-  )
-
-add_onnx_mlir_library(MainOptions
-  MainOptions.cpp
-
-  EXCLUDE_FROM_OM_LIBS
-
-  DEPENDS
-  ExternalUtil
-
-  INCLUDE_DIRS PRIVATE
-  ${FILE_GENERATE_DIR}
-
-  LINK_LIBS PUBLIC
-  ${OMLibs}
   MLIRAffineTransforms
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
@@ -82,5 +63,4 @@ add_onnx_mlir_executable(onnx-mlir
 
   LINK_LIBS PRIVATE
   MainUtils
-  MainOptions
   )
