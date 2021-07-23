@@ -2158,35 +2158,44 @@ LogicalResult ONNXUnsqueezeOp::inferShapes(
     return emitError("Input tensor not ranked");
 
   auto operandTy = data().getType().cast<RankedTensorType>();
-  int inRank = operandTy.getRank();
+  auto elementType = data().getType().cast<ShapedType>().getElementType();
+  int64_t inRank = operandTy.getRank();
 
   ArrayAttr axisAttrs = axesAttr();
-  SmallVector<int, 4> axes;
-  int outRank = 0;
-  if (axisAttrs) {
-    outRank = inRank + axisAttrs.getValue().size();
-    for (auto axisAttr : axisAttrs.getValue()) {
-      int axis = axisAttr.cast<IntegerAttr>().getInt();
-      axis = axis >= 0 ? axis : (outRank + axis);
-      // Valid range
-      assert(axis >= -outRank && axis <= outRank - 1);
-      if (std::find(axes.begin(), axes.end(), axis) == axes.end())
-        axes.emplace_back(axis);
-      else
-        return emitError("Duplicated axes");
-    }
-  } else
+  if (!axisAttrs)
     return emitError("Axes attribute is required");
 
-  SmallVector<int64_t, 4> dims;
-  for (int i = 0, j = 0; i < outRank || j < inRank; ++i) {
-    if (std::find(axes.begin(), axes.end(), i) != axes.end()) {
-      dims.emplace_back(1);
-    } else {
-      dims.emplace_back(operandTy.getShape()[j++]);
+  SmallVector<int64_t, 4> axes;
+  bool hasNegativeAxis = false;
+  int64_t outRank = inRank + axisAttrs.getValue().size();
+  for (auto axisAttr : axisAttrs.getValue()) {
+    int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
+    if (axis < -outRank || axis >= outRank)
+      return emitError("Invalid axis value");
+    if (axis < 0) {
+      axis = outRank + axis;
+      hasNegativeAxis = true;
     }
+    if (std::find(axes.begin(), axes.end(), axis) == axes.end())
+      axes.emplace_back(axis);
+    else
+      return emitError("Duplicated axes");
   }
-  getResult().setType(RankedTensorType::get(dims, operandTy.getElementType()));
+  if (hasNegativeAxis) {
+    // Update axes attribute so that it contains only positive values.
+    auto builder = mlir::Builder(getContext());
+    ArrayRef<int64_t> defaultRefs(axes);
+    axesAttr(builder.getI64ArrayAttr(defaultRefs));
+  }
+
+  ONNXUnsqueezeOpAdaptor operandAdaptor(*this);
+  ONNXUnsqueezeOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan Unsqueeze parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
+
   return success();
 }
 
