@@ -291,8 +291,8 @@ string getTargetTripleOption() {
   // Comand cannot tolerate extra spaces. Add only when needed.
   if (mtriple != "")
     targetOptions = "--mtriple=" + mtriple;
-  else if (kHostTriple != "")
-    targetOptions = "--mtriple=" + kHostTriple;
+  else if (kDefaultTriple != "")
+    targetOptions = "--mtriple=" + kDefaultTriple;
   return targetOptions;
 }
 

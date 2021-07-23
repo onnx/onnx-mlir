@@ -177,6 +177,9 @@ The following CMake variables from LLVM and ONNX MLIR can be used when compiling
   Path to the lit tool. Defaults to an empty string and LLVM will find the tool based on **MLIR_DIR** if possible.
   This is required when **MLIR_DIR** points to an install directory.
 
+**ONNX_MLIR_DEFAULT_TRIPLE**:STRING
+  The default triple for which onnx-mlir will generate code. It can be overwritten at runtime with `--mtriple`
+
 ## Installation on Windows
 Building onnx-mlir on Windows requires building some additional prerequisites that are not available by default.
 
@@ -290,6 +293,9 @@ The following CMake variables from LLVM and ONNX MLIR can be used when compiling
   Path to the lit tool. Defaults to an empty string and LLVM will find the tool based on **MLIR_DIR** if possible.
   This is required when **MLIR_DIR** points to an install directory.
 
+**ONNX_MLIR_DEFAULT_TRIPLE**:STRING
+  The default triple for which onnx-mlir will generate code. It can be overwritten at runtime with `--mtriple`
+
 ## Using ONNX-MLIR
 
 The usage of `onnx-mlir` is as such:
@@ -308,6 +314,9 @@ Generic Options:
 
 ONNX MLIR Options:
 These are frontend options.
+
+  Configuration options:
+      --mtriple       - Override the default target triple. The default target triple is controlled by `ONNX_MLIR_DEFAULT_TRIPLE`.
 
   Choose target to emit:
       --EmitONNXBasic - Ingest ONNX and emit the basic ONNX operations without inferred shapes.

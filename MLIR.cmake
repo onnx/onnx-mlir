@@ -54,7 +54,8 @@ else()
     set(ONNX_MLIR_HOST_TRIPLE "")
   endif()
 endif()
-message(STATUS "ONNX_MLIR_HOST_TRIPLE   : " ${ONNX_MLIR_HOST_TRIPLE})
+set(ONNX_MLIR_DEFAULT_TRIPLE ${ONNX_MLIR_HOST_TRIPLE} CACHE STRING "Default triple for onnx-mlir.")
+message(STATUS "ONNX_MLIR_DEFAULT_TRIPLE: " ${ONNX_MLIR_DEFAULT_TRIPLE})
 
 # If CMAKE_INSTALL_PREFIX was not provided explicitly and we are not using an install of
 # LLVM and a CMakeCache.txt exists,
