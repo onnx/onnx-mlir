@@ -30,13 +30,6 @@ using namespace onnx_mlir;
 llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX MLIR Options", "These are frontend options.");
 
-llvm::cl::opt<string> instrumentONNXOps("instrument-onnx-ops",
-    llvm::cl::desc("specify onnx ops to be instrumented\n"
-                   "\"NONE\" or \"\" for no instrument\n"
-                   "\"ALL\" for all ops. \n"
-                   "\"op1 op2 ...\" for the specified ops."),
-    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
-
 namespace {
 
 llvm::Optional<std::string> getEnvVar(std::string name) {

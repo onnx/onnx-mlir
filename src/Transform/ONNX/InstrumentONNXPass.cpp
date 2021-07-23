@@ -26,6 +26,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/MainOptions.hpp"
 
 using namespace mlir;
 
@@ -59,7 +60,8 @@ llvm::cl::bits<InstrumentActions> InstrumentControlBits(
         clEnumVal(
             InstrumentReportTime, "instrument runtime reports time usage"),
         clEnumVal(InstrumentReportMemory,
-            "instrument runtime reports memory usage")));
+            "instrument runtime reports memory usage")),
+    llvm::cl::cat(OnnxMlirOptOptions));
 
 class InstrumentONNXPass
     : public mlir::PassWrapper<InstrumentONNXPass, FunctionPass> {
@@ -70,10 +72,7 @@ private:
   unsigned runtimeActions;
 
 public:
-  /*
-  explicit InstrumentONNXPass();
-  InstrumentONNXPass(const InstrumentONNXPass &) {};
-  InstrumentONNXPass(std::string allowedOps_) {
+  void init(std::string allowedOps_) {
     if (allowedOps_ == "ALL") {
       allOpsAllowed = true;
     } else {
@@ -85,9 +84,11 @@ public:
     }
     runtimeActions = InstrumentControlBits.getBits();
   };
-  */
 
   void runOnFunction() override {
+    if (instrumentONNXOps == "" || instrumentONNXOps == "NONE")
+       return;
+    init(instrumentONNXOps);
     auto function = getFunction();
     auto &funcBody = function.getBody();
 
