@@ -41,6 +41,10 @@ parser.add_argument('-d', '--dim', type=int,
 parser.add_argument('-v', '--verbose', action='store_true',
     default=(strtobool(VERBOSE) if VERBOSE else False),
     help='verbose output (default: false if VERBOSE env var not set)')
+parser.add_argument('--mtriple', type=str, default=os.getenv("TEST_MTRIPLE", ""),
+    help='triple to pass to the compiler')
+parser.add_argument('--mcpu', type=str, default=os.getenv("TEST_MCPU", ""),
+    help='target a specific cpu, passed to the compiler')
 parser.add_argument('--converter', action='store_true',
     default=(strtobool(INVOKECONVERTER) if INVOKECONVERTER else False),
     help='invoke version converter (default: false if INVOKECONVERTER env var not set)')
@@ -56,6 +60,10 @@ else :
     result_dir = tempdir.name+"/"
 print("Test info:")
 print("  temporary results are in dir:"+result_dir)
+if args.mcpu:
+    print("  targeting cpu:", args.mcpu)
+if args.mtriple:
+    print("  targeting triple:", args.mtriple)
 
 CXX = test_config.CXX_PATH
 LLC = test_config.LLC_PATH
@@ -897,6 +905,10 @@ class DummyBackend(onnx.backend.base.Backend):
         print(name)
         # Command
         command_list = [TEST_DRIVER]
+        if args.mcpu:
+            command_list.append("--mcpu="+args.mcpu)
+        if args.mtriple:
+            command_list.append("--mtriple="+args.mtriple)
         if args.converter or name in test_need_converter :
             command_list.append("--invokeOnnxVersionConverter=true")
         command_list.append(model_name)
