@@ -97,13 +97,13 @@ public:
         OpBuilder opBuilder(&op);
         if (InstrumentControlBits.isSet(InstrumentBeforeOp)) {
           uint64_t tag =
-              runtimeActions & (~(1 << static_cast<int>(InstrumentBeforeOp)));
+              runtimeActions & (~(1 << static_cast<int>(InstrumentAfterOp)));
           opBuilder.create<mlir::KrnlInstrumentOp>(loc, &op, tag);
         }
         if (InstrumentControlBits.isSet(InstrumentAfterOp)) {
           opBuilder.setInsertionPointAfter(&op);
           uint64_t tag =
-              runtimeActions & (~(1 << static_cast<int>(InstrumentAfterOp)));
+              runtimeActions & (~(1 << static_cast<int>(InstrumentBeforeOp)));
           opBuilder.create<mlir::KrnlInstrumentOp>(loc, &op, tag);
         }
       }
