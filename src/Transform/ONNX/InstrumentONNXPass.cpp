@@ -26,7 +26,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OptimizeOptions.hpp"
+#include "src/Support/OMOptions.hpp"
 
 using namespace mlir;
 
@@ -54,7 +54,7 @@ llvm::cl::bits<InstrumentActions> InstrumentControlBits(
             InstrumentReportTime, "instrument runtime reports time usage"),
         clEnumVal(InstrumentReportMemory,
             "instrument runtime reports memory usage")),
-    llvm::cl::cat(OnnxMlirOptOptions));
+    llvm::cl::cat(OMPassOptions));
 
 class InstrumentONNXPass
     : public mlir::PassWrapper<InstrumentONNXPass, FunctionPass> {
