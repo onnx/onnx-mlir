@@ -52,8 +52,8 @@ llvm::cl::bits<InstrumentActions> InstrumentControlBits(
         clEnumVal(InstrumentAfterOp, "insert instrument after op"),
         clEnumVal(
             InstrumentReportTime, "instrument runtime reports time usage"),
-        clEnumVal(InstrumentReportMemory,
-            "instrument runtime reports memory usage")),
+        clEnumVal(
+            InstrumentReportMemory, "instrument runtime reports memory usage")),
     llvm::cl::cat(OMPassOptions));
 
 class InstrumentONNXPass
@@ -80,7 +80,7 @@ public:
 
   void runOnFunction() override {
     if (instrumentONNXOps == "" || instrumentONNXOps == "NONE")
-       return;
+      return;
     init(instrumentONNXOps);
     auto function = getFunction();
     auto &funcBody = function.getBody();
