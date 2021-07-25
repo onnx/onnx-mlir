@@ -18,8 +18,7 @@
 #include "mlir/Transforms/Passes.h"
 
 // Declare the option categories
-extern llvm::cl::OptionCategory OnnxMlirOptOptions;
+extern llvm::cl::OptionCategory OMPassOptions;
 
 // Declare options
 extern llvm::cl::opt<std::string> instrumentONNXOps;
-

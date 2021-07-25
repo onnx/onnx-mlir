@@ -23,19 +23,18 @@
 
 #include "ExternalUtil.hpp"
 */
-#include "src/Support/OptimizeOptions.hpp"
+#include "src/Support/OMOptions.hpp"
 
 using namespace std;
 using namespace mlir;
-//using namespace onnx_mlir;
+// using namespace onnx_mlir;
 
-llvm::cl::OptionCategory OnnxMlirOptOptions(
-    "ONNX MLIR Optimization Options", "These are options to provide fine control on optimizations");
+llvm::cl::OptionCategory OMPassOptions("ONNX MLIR Pass Options",
+    "These are options to provide fine control on passes");
 
 llvm::cl::opt<string> instrumentONNXOps("instrument-onnx-ops",
     llvm::cl::desc("specify onnx ops to be instrumented\n"
                    "\"NONE\" or \"\" for no instrument\n"
                    "\"ALL\" for all ops. \n"
                    "\"op1 op2 ...\" for the specified ops."),
-    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptOptions));
-
+    llvm::cl::init(""), llvm::cl::cat(OMPassOptions));
