@@ -10,20 +10,20 @@ One group of options are only used by onnx-mlir to configure its input or output
 The rest of options may be used by both onnx-mlir and onnx-mlir-opt to control the behavior of a pass or passes. So far, only one group is defined as an example. 
 
 ## Code structure
-The head file for options is `src/Support/OptimizeOptions.hpp`. This file should contain the declaration of groups used by both onnx-mlir and onnx-mlir-opt, and options that may be shared by different passes.
-The definition of group and shared options are in `src/Support/OptimizeOptions.cpp`.
+The head file for options is `src/Support/OMOptions.hpp`. This file should contain the declaration of groups used by both onnx-mlir and onnx-mlir-opt, and options that may be shared by different passes.
+The definition of group and shared options are in `src/Support/OMOptions.cpp`.
 
 ## Define an option
-* Add a declaration of the option in 'src/Support/OptimizeOptions.hpp`
-* Add a definition of the option in 'src/Support/OptimizeOptions.cpp`
-* For the file to use the option, make sure OptimizeOptions.hpp is included.
-* Also make sure CMakeList.txt updated
+* Add a declaration of the option in 'src/Support/OMOptions.hpp`
+* In `src/SupportOMOptions.cpp`, define the option with the desirable llvm::cl class and option group
+* For the file to use this option, make sure `src/Support/OMOptions.hpp` is included.
+* Add OMSupport to the list of libraries in CMakefile.txt
 
 ## Define an option local to a transformation
-If an option is only used to one transformation,  it can be defined in the file for the transformation. In the file for transformation:
-* Include `src/Support/OptimizeOptions.hpp`
-* Choose the desirable llvm::cl class for the option and put it in the right group
-* Update CMakeList.txt to link with OptimizeOptions
+If an option is only used in one transformation,  it can be defined locally in the file for the transformation. In the file for transformation:
+* Include `src/Support/OMOtions.hpp`
+* Define the option with the desirable llvm::cl class and option group
+* Add OMSupport to the list of libraries in CMakefile.txt
 
 ## Discussion
 ### MLIR Option support
