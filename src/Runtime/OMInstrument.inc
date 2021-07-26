@@ -38,7 +38,11 @@
 #include "onnx-mlir/Runtime/OMInstrument.h"
 
 #ifdef _WIN32
-// TO BE FIXED
+#include "windows.h"
+#include "psapi.h"
+
+static LARGE_INTEGER globalTime, initTime;
+static LARGE_INTEGER perfFrequency;
 #else
 #include <sys/time.h>
 #include <sys/types.h>
@@ -46,6 +50,7 @@
 
 static struct timeval globalTimeVal, initTimeVal;
 static pid_t mypid;
+static int psErrorCount = 0;
 #endif
 
 static bool instrumentReportDisabled = false;
@@ -54,7 +59,11 @@ static bool instrumentReportMemoryDisabled = false;
 static int instrumentCounter = 0;
 
 #ifdef _WIN32
-void TimeInit() {}
+void TimeInit() {
+  QueryPerformanceFrequency(&perfFrequency);
+  QueryPerformanceCounter(&globalTime);
+  initTime = globalTime;
+}
 #else
 void TimeInit() {
   gettimeofday(&globalTimeVal, NULL);
@@ -63,29 +72,70 @@ void TimeInit() {
 #endif
 
 #ifdef _WIN32
-void ReportTime() {}
+inline void WinTimerSub(LARGE_INTEGER newTime, LARGE_INTEGER prevTime,
+                        LONGLONG* resultSeconds, LONGLONG* resultMicroseconds) {
+  LONGLONG elapsed = newTime.QuadPart - prevTime.QuadPart;
+  *resultSeconds = elapsed / perfFrequency.QuadPart;
+  *resultMicroseconds = ((elapsed * 1000000) / perfFrequency.QuadPart) % 1000000;
+}
+void ReportTime() {
+  LARGE_INTEGER newTime;
+  LONGLONG resultSeconds, resultMicroseconds;
+  QueryPerformanceCounter(&newTime);
+  WinTimerSub(newTime, globalTime, &resultSeconds, &resultMicroseconds);
+  printf(" Time elapsed: %lld.%06lld", resultSeconds, resultMicroseconds);
+  WinTimerSub(newTime, initTime, &resultSeconds, &resultMicroseconds);
+  printf(" accumulated: %lld.%06lld", resultSeconds, resultMicroseconds);
+  globalTime = newTime;
+}
 #else
 void ReportTime() {
   struct timeval newTimeValue, result;
   gettimeofday(&newTimeValue, NULL);
   timersub(&newTimeValue, &globalTimeVal, &result);
-  printf("Time elapsed: %ld.%06ld ", (long int)result.tv_sec,
+  printf(" Time elapsed: %ld.%06ld", (long int)result.tv_sec,
       (long int)result.tv_usec);
   timersub(&newTimeValue, &initTimeVal, &result);
-  printf("accumulated: %ld.%06ld", (long int)result.tv_sec,
+  printf(" accumulated: %ld.%06ld", (long int)result.tv_sec,
       (long int)result.tv_usec);
   globalTimeVal = newTimeValue;
 }
 #endif
 
 #ifdef _WIN32
-void ReportMemory() {}
+void ReportMemory() {
+  PROCESS_MEMORY_COUNTERS_EX pmc;
+  GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
+  SIZE_T vMemSize = pmc.PrivateUsage;
+  printf(" VMem: %zu", vMemSize);
+}
 #else
 void ReportMemory() {
   char memCommand[200];
+  char memOutput[200];
+  FILE* memPipe;
   mypid = getpid();
   sprintf(memCommand, "ps -o vsz --noheader -p %d", mypid);
-  system(memCommand);
+  memPipe = popen(memCommand, "r");
+  if (!memPipe) {
+    if (psErrorCount > 20)
+      return;
+    fprintf(stderr, "ERROR: Failed to execute ps");
+    psErrorCount++;
+  }
+  fgets(memOutput, 200, memPipe);
+  fgetc(memPipe);
+  memOutput[strcspn(memOutput, "\n")] = 0;
+  printf(" VMem:%s", memOutput);
+  if (!feof(memPipe)) {
+    if (psErrorCount > 20) {
+      pclose(memPipe);
+      return;
+    }
+    fprintf(stderr, "ERROR: Unexpected output from ps");
+    psErrorCount++;
+  }
+  pclose(memPipe);
 }
 #endif
 
@@ -117,7 +167,7 @@ void OMInstrumentPoint(int64_t id, int64_t tag) {
     return;
 
   // Print header
-  printf("#%3d) %s op=%8s ", instrumentCounter,
+  printf("#%3d) %s op=%8s", instrumentCounter,
       tag & (1 << (int)InstrumentBeforeOp) ? "before" : "after ", (char *)&id);
   instrumentCounter++;
 
