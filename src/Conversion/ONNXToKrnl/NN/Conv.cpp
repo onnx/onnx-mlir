@@ -50,9 +50,9 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //
     // D (NxCxHxW) x K (Mx C/group x KH x KW) -> R (NxMxRHxRW)
     //
-    // where N & M are also known as is Channel In (N) & Out (M)
-    // also, M is a multiple of the number of groups:
-    //   M = group * kernelsPerGroup
+    // where C & M are also known as is Channel In (C) & Out (M)
+    // also, C is a multiple of the number of groups:
+    //   C = group * kernelsPerGroup
     //
     // The loop nest will look as follows:
     //
@@ -64,7 +64,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // for n = 0 .. N:
     //   for g = 0 .. group:
     //     for m = 0 .. kernelsPerGroup:
-    //       kernel = g * kernelsPerGroup + m;
+    //       kernel = g * kernelsPerGroup + m; // Channel out
     //       for r1 = 0 .. RH:
     //         for r2 = 0 .. RW:
     //           R[n][kernel][r1][r2] = 0;
