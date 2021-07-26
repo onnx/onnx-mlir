@@ -106,8 +106,8 @@ void ReportTime() {
 void ReportMemory() {
   PROCESS_MEMORY_COUNTERS_EX pmc;
   GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
-  SIZE_T vMemSize = pmc.PrivateUsage;
-  printf(" VMem: %zu", vMemSize);
+  SIZE_T vMemSizeKB = pmc.PrivateUsage / 1024;
+  printf(" VMem: %zu", vMemSizeKB);
 }
 #else
 void ReportMemory() {
