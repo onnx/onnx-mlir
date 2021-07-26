@@ -39,11 +39,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
     auto resultShape = memRefType.getShape();
     auto inputOperand = operandAdaptor.X();
     auto kernelOperand = operandAdaptor.W();
-    auto kernelShape = kernelOperand.getType().cast<MemRefType>().getShape();
     auto biasOperand = operandAdaptor.B();
     bool hasBias = !biasOperand.getType().isa<NoneType>();
-
+    // Bounds in IndexExpr.
     MemRefBoundsIndexCapture kernelBounds(kernelOperand);
+    MemRefBoundsIndexCapture inputBounds(inputOperand);
 
     // Before we start the iteration we need to compute the number of
     // unsplit kernels and fetch the number of groups from the attribute
@@ -51,7 +51,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     int64_t group = convOp.group();
     // Compute the number of unsplit kernels. The number of kernels
     // must be a multiple of the number of groups.
-
+    IndexExpr KernelPerGroup = 
     int64_t kernelsPerGroup = floor(kernelShape[0] / group);
     LiteralIndexExpr kernelsPerGroupValue(kernelsPerGroup);
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
