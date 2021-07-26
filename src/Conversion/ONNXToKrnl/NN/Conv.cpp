@@ -117,6 +117,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
     int64_t group = convOp.group();
     // Compute the number of unsplit kernels. The number of kernels
     // must be a multiple of the number of groups.
+    assert(kernelShape[0] > 0 &&
+           "kernel shape is expected to be constant in code below");
     int64_t kernelsPerGroup = floor(kernelShape[0] / group);
     LiteralIndexExpr kernelsPerGroupValue(kernelsPerGroup);
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
