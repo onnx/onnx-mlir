@@ -1028,6 +1028,41 @@ func @test_squeeze_mix(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : tensor<16x32x64xf32>
 }
 
+// -----
+
+func @test_unsqueeze(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Unsqueeze"(%arg0) { axes = [1]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>)
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_unsqueeze
+  // CHECK: [[RES:%.+]] = "onnx.Unsqueeze"(%arg0) {axes = [1]} : (tensor<16x32x64xf32>) -> tensor<16x1x32x64xf32>
+  // CHECK: return [[RES]] : tensor<16x1x32x64xf32>
+}
+
+// -----
+
+func @test_unsqueeze_negative_axis(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Unsqueeze"(%arg0) { axes = [-2]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>)
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_unsqueeze_negative_axis
+  // CHECK: [[RES:%.+]] = "onnx.Unsqueeze"(%arg0) {axes = [2]} : (tensor<16x32x64xf32>) -> tensor<16x32x1x64xf32>
+  // CHECK: return [[RES]] : tensor<16x32x1x64xf32>
+}
+
+// -----
+
+func @test_unsqueeze_mix(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Unsqueeze"(%arg0) { axes = [1, -2]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>)
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_unsqueeze_mix
+  // CHECK: [[RES:%.+]] = "onnx.Unsqueeze"(%arg0) {axes = [1, 3]} : (tensor<16x32x64xf32>) -> tensor<16x1x32x1x64xf32>
+  // CHECK: return [[RES]] : tensor<16x1x32x1x64xf32>
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test the cast op inference.
 //===----------------------------------------------------------------------===//

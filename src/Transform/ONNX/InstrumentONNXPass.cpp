@@ -26,6 +26,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/OMOptions.hpp"
 
 using namespace mlir;
 
@@ -34,13 +35,6 @@ namespace {
 /*!
  * This pass insert KrnlInstrumentOp before and after each ONNX ops
  */
-
-// TO FIX: this option should be put in the ONNXMlirOptions category
-// However, currently ONNXMlirOptions is defined in MainUtils.cpp
-// If this option is defined there, the enum type InsertPostion will be moved
-// out We may need to work a little more to structure files for command line
-// options Another related issue is that the enum type is used by onnx-mlir
-// Runtime too.
 
 // Strong-typed enum is NOT used because the value will be static_cast to int
 enum InstrumentActions {
@@ -58,8 +52,9 @@ llvm::cl::bits<InstrumentActions> InstrumentControlBits(
         clEnumVal(InstrumentAfterOp, "insert instrument after op"),
         clEnumVal(
             InstrumentReportTime, "instrument runtime reports time usage"),
-        clEnumVal(InstrumentReportMemory,
-            "instrument runtime reports memory usage")));
+        clEnumVal(
+            InstrumentReportMemory, "instrument runtime reports memory usage")),
+    llvm::cl::cat(OMPassOptions));
 
 class InstrumentONNXPass
     : public mlir::PassWrapper<InstrumentONNXPass, FunctionPass> {
@@ -70,7 +65,7 @@ private:
   unsigned runtimeActions;
 
 public:
-  InstrumentONNXPass(std::string allowedOps_) {
+  void init(std::string allowedOps_) {
     if (allowedOps_ == "ALL") {
       allOpsAllowed = true;
     } else {
@@ -84,6 +79,9 @@ public:
   };
 
   void runOnFunction() override {
+    if (instrumentONNXOps == "" || instrumentONNXOps == "NONE")
+      return;
+    init(instrumentONNXOps);
     auto function = getFunction();
     auto &funcBody = function.getBody();
 
@@ -99,13 +97,13 @@ public:
         OpBuilder opBuilder(&op);
         if (InstrumentControlBits.isSet(InstrumentBeforeOp)) {
           uint64_t tag =
-              runtimeActions & (~(1 << static_cast<int>(InstrumentBeforeOp)));
+              runtimeActions & (~(1 << static_cast<int>(InstrumentAfterOp)));
           opBuilder.create<mlir::KrnlInstrumentOp>(loc, &op, tag);
         }
         if (InstrumentControlBits.isSet(InstrumentAfterOp)) {
           opBuilder.setInsertionPointAfter(&op);
           uint64_t tag =
-              runtimeActions & (~(1 << static_cast<int>(InstrumentAfterOp)));
+              runtimeActions & (~(1 << static_cast<int>(InstrumentBeforeOp)));
           opBuilder.create<mlir::KrnlInstrumentOp>(loc, &op, tag);
         }
       }
@@ -117,7 +115,6 @@ public:
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createInstrumentONNXPass(
-    std::string allowedOps) {
-  return std::make_unique<InstrumentONNXPass>(allowedOps);
+std::unique_ptr<mlir::Pass> mlir::createInstrumentONNXPass() {
+  return std::make_unique<InstrumentONNXPass>();
 }
