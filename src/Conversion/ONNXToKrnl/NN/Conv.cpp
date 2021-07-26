@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------- Conv.cpp - Lowering Convolution Op
-//--------------------===//
+//===--------------- Conv.cpp - Lowering Convolution Op -------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -21,6 +20,43 @@ using namespace mlir;
 struct ONNXConvOpLowering : public ConversionPattern {
   ONNXConvOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
+
+  void convUnoptimized(ConversionPatternRewriter &rewriter,
+      IndexExprScope &ieScope, ONNXConvOp &convOp,
+      ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
+      MemRefType &memRefType, Value alloc, SmallVectorImpl<int64_t> &pads,
+      SmallVectorImpl<int64_t> &strides,
+      SmallVectorImpl<int64_t> &dilations) const {
+    auto loc = convOp.getLoc();
+    bool isDilated = !dilations.empty();
+
+    KrnlBuilder createKrnl(rewriter, loc);
+    MathBuilder createMath(rewriter, loc);
+
+    // Spatial data starts from the second dimension.
+    int spatialStartIndex = 2;
+
+    auto resultShape = memRefType.getShape();
+    auto inputOperand = operandAdaptor.X();
+    auto kernelOperand = operandAdaptor.W();
+    auto kernelShape = kernelOperand.getType().cast<MemRefType>().getShape();
+    auto biasOperand = operandAdaptor.B();
+    bool hasBias = !biasOperand.getType().isa<NoneType>();
+
+    MemRefBoundsIndexCapture kernelBounds(kernelOperand);
+
+    // Before we start the iteration we need to compute the number of
+    // unsplit kernels and fetch the number of groups from the attribute
+    // list. Group is always a compilation constant.
+    int64_t group = convOp.group();
+    // Compute the number of unsplit kernels. The number of kernels
+    // must be a multiple of the number of groups.
+
+    int64_t kernelsPerGroup = floor(kernelShape[0] / group);
+    LiteralIndexExpr kernelsPerGroupValue(kernelsPerGroup);
+    auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
+    DimIndexExpr subchannels(kernelBounds.getDim(1));
+  }
 
   void convOriginal(ConversionPatternRewriter &rewriter,
       IndexExprScope &ieScope, ONNXConvOp &convOp,
@@ -117,6 +153,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
     int64_t group = convOp.group();
     // Compute the number of unsplit kernels. The number of kernels
     // must be a multiple of the number of groups.
+    assert(kernelShape[0] > 0 &&
+           "kernel shape is expected to be constant in code below");
     int64_t kernelsPerGroup = floor(kernelShape[0] / group);
     LiteralIndexExpr kernelsPerGroupValue(kernelsPerGroup);
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
