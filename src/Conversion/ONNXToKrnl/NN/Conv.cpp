@@ -18,30 +18,16 @@
 
 using namespace mlir;
 
-std::vector<int64_t> getDilations(ONNXConvOp poolOp) {
-  std::vector<int64_t> dilations;
-  auto dilationsAttribute = poolOp.dilationsAttr();
-  bool isDefaultDilations = true;
-  for (auto dilation : dilationsAttribute.getValue()) {
-    int64_t dilationValue = dilation.cast<IntegerAttr>().getInt();
-    if (dilationValue > 1 && isDefaultDilations)
-      isDefaultDilations = false;
-    dilations.emplace_back(dilationValue);
-  }
-  if (isDefaultDilations)
-    return {};
-  else
-    return dilations;
-}
-
 struct ONNXConvOpLowering : public ConversionPattern {
   ONNXConvOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
 
-  void convUnoptimized(ConversionPatternRewriter &rewriter, ONNXConvOp &convOp,
+  void convOriginal(ConversionPatternRewriter &rewriter,
+      IndexExprScope &ieScope, ONNXConvOp &convOp,
       ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
-      MemRefType &memRefType, Value alloc, SmallVector<int64_t, 4> &pads,
-      SmallVector<int64_t, 4> &strides, std::vector<int64_t> &dilations) const {
+      MemRefType &memRefType, Value alloc, SmallVectorImpl<int64_t> &pads,
+      SmallVectorImpl<int64_t> &strides,
+      SmallVectorImpl<int64_t> &dilations) const {
     auto loc = convOp.getLoc();
     bool isDilated = !dilations.empty();
 
@@ -62,9 +48,10 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //
     // The input/output shapes will look like this:
     //
-    // D (NxCxHxW) x K (MxC/groupxKHxKW) -> R (NxMxRHxRW)
+    // D (NxCxHxW) x K (Mx C/group x KH x KW) -> R (NxMxRHxRW)
     //
-    // M is a multiple of the number of groups:
+    // where N & M are also known as is Channel In (N) & Out (M)
+    // also, M is a multiple of the number of groups:
     //   M = group * kernelsPerGroup
     //
     // The loop nest will look as follows:
@@ -346,7 +333,17 @@ struct ONNXConvOpLowering : public ConversionPattern {
     ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 
     // Read dilations attribute if the op has.
-    std::vector<int64_t> dilations = getDilations(convOp);
+    SmallVector<int64_t, 4> dilations;
+    auto dilationsAttribute = convOp.dilationsAttr();
+    bool isDefaultDilations = true;
+    for (auto dilation : dilationsAttribute.getValue()) {
+      int64_t dilationValue = dilation.cast<IntegerAttr>().getInt();
+      if (dilationValue > 1 && isDefaultDilations)
+        isDefaultDilations = false;
+      dilations.emplace_back(dilationValue);
+    }
+    if (isDefaultDilations)
+      dilations.clear();
 
     // Read pads attribute
     SmallVector<int64_t, 4> pads;
@@ -377,8 +374,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
 
-    convUnoptimized(rewriter, convOp, operandAdaptor, shapeHelper, memRefType,
-        alloc, pads, strides, dilations);
+    convOriginal(rewriter, ieScope, convOp, operandAdaptor, shapeHelper,
+        memRefType, alloc, pads, strides, dilations);
     rewriter.replaceOp(op, alloc);
     return success();
   }
