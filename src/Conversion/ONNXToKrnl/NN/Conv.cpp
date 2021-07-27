@@ -168,11 +168,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
             for (int i = 0; i < spacialRank; ++i) {
               int s = i + spatialStartIndex;
               int64_t d = (isDilated) ? dilations[i] : 1;
-              IndexExpr start1 =
-                  DimIndexExpr(spatialIndices[i]) * strides[i] - pad[i];
-              int64_t start2 = ceil(pads[i], d) * d + 1 - pads[i];
-              IndexExpr start = IndexExpr::max(start1, start2);
-              IndexExpr end1 = SymbolIndexExpr(shapeHelper.dimsForOutput(0)[s]);
+              IndexExpr outputSpacialIndex = DimIndexExpr(spatialIndices[i]);
+              int64_t start1 = ceil(pads[i], d) * d + 1 - pads[i];
+              IndexExpr start2 = outputSpacialIndex * strides[i] - pad[i];
+              //IndexExpr start = IndexExpr::max(start1, start2);
+              IndexExpr end1 = SymbolIndexExpr(shapeHel per.dimsForOutput(0)[s]);
+              IndexExpr end2 = outputSpacialIndex * strides[i] + 
             }
             // for c = 0 .. C/group:
             //   for cw1 in range(end1 - start1):
