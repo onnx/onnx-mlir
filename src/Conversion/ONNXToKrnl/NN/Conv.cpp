@@ -15,6 +15,8 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
+#define DEBUG_OPTIMIZED_OFF 0
+
 using namespace mlir;
 
 struct ONNXConvOpLowering : public ConversionPattern {
@@ -22,7 +24,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
       : ConversionPattern(mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
 
   void convUnoptimized(ConversionPatternRewriter &rewriter,
-      IndexExprScope &ieScope, ONNXConvOp &convOp,
+      IndexExprScope &topScope, ONNXConvOp &convOp,
       ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
       MemRefType &memRefType, Value alloc, SmallVectorImpl<int64_t> &pads,
       SmallVectorImpl<int64_t> &strides,
@@ -41,21 +43,117 @@ struct ONNXConvOpLowering : public ConversionPattern {
     auto kernelOperand = operandAdaptor.W();
     auto biasOperand = operandAdaptor.B();
     bool hasBias = !biasOperand.getType().isa<NoneType>();
-    // Bounds in IndexExpr.
-    MemRefBoundsIndexCapture kernelBounds(kernelOperand);
-    MemRefBoundsIndexCapture inputBounds(inputOperand);
+    int64_t groupNum = convOp.group();
+    IndexExpr groupNumIE = LiteralIndexExpr(groupNum);
+    Value fZero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
 
-    // Before we start the iteration we need to compute the number of
-    // unsplit kernels and fetch the number of groups from the attribute
-    // list. Group is always a compilation constant.
-    int64_t group = convOp.group();
-    // Compute the number of unsplit kernels. The number of kernels
-    // must be a multiple of the number of groups.
-    IndexExpr KernelPerGroup = 
-    int64_t kernelsPerGroup = floor(kernelShape[0] / group);
-    LiteralIndexExpr kernelsPerGroupValue(kernelsPerGroup);
-    auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
-    DimIndexExpr subchannels(kernelBounds.getDim(1));
+    // Bounds for output sizes: [N x M x HOut x WOut]:
+    // where N is Batch Size,
+    // where M is Channel Out (multiple of group num)
+    // and where HOut & WOut are spacial dimension of output.
+    int outputRank = shapeHelper.dimsForOutput(0).size();
+    IndexExpr channelOut = shapeHelper.dimsForOutput(0)[1];
+    IndexExpr channelOutPerGroup = channelOut.ceilDiv(groupNumIE);
+    if (channelOut.isLiteral()) {
+      assert(channelOutPerGroup.isLiteral() &&
+             "expected div by const to result in a literal");
+      assert(groupNum * channelOutPerGroup.getLiteral() ==
+                 channelOut.getLiteral() &&
+             "expected channel out (M) size to be a multiple of the number of "
+             "groups");
+    }
+    // Bounds for input image X: [N x C x Hin x Win]:
+    // where N is Batch Size,
+    // where C is Channel In (multiple of group num)
+    // and where Hin & Win are spacial dimension of input image.
+    MemRefBoundsIndexCapture inputBounds(inputOperand);
+    IndexExpr batchSize = inputBounds.getSymbol(0);
+    IndexExpr channelIn = inputBounds.getSymbol(1);
+
+    // Bounds for kernel/filter W: [M x C/group x kH x kW]:
+    // where M is Channel Out,
+    // where C/group is number of channel in per group,
+    // given C is Channel In, group is the group size,
+    // and where kH x kW are the kernel / filter size (e.g. 3x3, 1x1).
+    MemRefBoundsIndexCapture kernelBounds(kernelOperand);
+    IndexExpr channelInPerGroup = kernelBounds.getSymbol(1);
+    if (channelIn.isLiteral()) {
+      assert(channelInPerGroup.isLiteral() &&
+             "expected channel in per group to be "
+             "literal when channel in is literal");
+      assert(
+          groupNum * channelInPerGroup.getLiteral() == channelIn.getLiteral() &&
+          "expected Channel In (C) size to be a multiple of number of groups");
+    }
+    // Build outer loop, iterating over batch x groups x kernel per groups
+    bool hasGroup = groupNum > 1;
+    IndexExpr zeroIE = LiteralIndexExpr(0);
+    ValueRange outerLoops = createKrnl.defineLoops(hasGroup ? 3 : 2);
+    SmallVector<IndexExpr, 3> outerLbs, outerUbs;
+    if (hasGroup) {
+      outerLbs = {zeroIE, zeroIE, zeroIE};
+      outerUbs = {batchSize, groupNumIE, channelOutPerGroup};
+    } else {
+      // TODO: just see if having a loop from 0..1 is really that bad.
+      // Removing this special case would simplify the code.
+      outerLbs = {zeroIE, zeroIE};
+      outerUbs = {batchSize, channelOut};
+    }
+    // for n = 0 .. N:
+    //   for g = 0 .. group:
+    //     for cOPG = 0 .. channelOutPerGroup:
+    //       co = g * channeloutPerGroup + cIPG;
+    createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs, {},
+        [&](KrnlBuilder &createKrnl, ValueRange) {
+          // Compute the Channel In Indices.
+          ValueRange outerIndices = createKrnl.getInductionVarValue(outerLoops);
+          IndexExprScope outerScope(createKrnl);
+          IndexExpr channelOutIndex;         // To access the image channel.
+          IndexExpr channelOutPerGroupIndex; // To access the filter channel in.
+          if (hasGroup) {
+            DimIndexExpr groupIndex(outerIndices[1]);
+            channelOutPerGroupIndex = DimIndexExpr(outerIndices[2]);
+            channelOutIndex = groupIndex * SymbolIndexExpr(channelOutPerGroup) +
+                              channelOutPerGroupIndex;
+          } else {
+            channelOutPerGroupIndex = DimIndexExpr(outerIndices[1]);
+            channelOutIndex = channelOutPerGroupIndex;
+          }
+          // Iterates over the output spacial dimensions
+          int spacialRank = outputRank - spatialStartIndex;
+          ValueRange spacialLoops = createKrnl.defineLoops(spacialRank);
+          SmallVector<IndexExpr, 3> spacialLbs, spacialUbs;
+          for (int s = spatialStartIndex; s < outputRank; ++s) {
+            spacialLbs.emplace_back(zeroIE);
+            spacialUbs.emplace_back(
+                SymbolIndexExpr(shapeHelper.dimsForOutput(0)[s]));
+          }
+          //       for h = 0 .. HOut:
+          //         for w = 0 .. WOut:
+
+          createKrnl.iterateIE(spacialLoops, spacialLoops, spacialLbs,
+              spacialUbs, {}, [&](KrnlBuilder &createKrnl, ValueRange) {
+                ValueRange spatialIndices =
+                    createKrnl.getInductionVarValue(spacialLoops);
+                IndexExprScope spacialScope(createKrnl);
+
+                // R[n][kernel][r1][r2] = 0; 
+                // TODO: needed if use reduction val?
+                SmallVector<IndexExpr, 4> resAccessFunc;
+                resAccessFunc.emplace_back(SymbolIndexExpr(outerIndices[0]));
+                resAccessFunc.emplace_back(SymbolIndexExpr(channelOutIndex));
+                for (Value s : spatialIndices)
+                  resAccessFunc.emplace_back(DimIndexExpr(s));
+                createKrnl.storeIE(fZero, alloc, resAccessFunc);
+                // Create a local reduction value and set to zero.
+                MemRefType tmpType = MemRefType::get(
+                    {}, memRefType.getElementType();
+                    Value reductionVal =
+                        createKrnl.getBuilder().create<memref::AllocaOp>(
+                            createKrnl.getLoc(), tmpType));
+                createKrnl.store(fZero, reductionVal);
+              });
+        });
   }
 
   void convOriginal(ConversionPatternRewriter &rewriter,
@@ -412,8 +510,13 @@ struct ONNXConvOpLowering : public ConversionPattern {
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
 
-    convOriginal(rewriter, ieScope, convOp, operandAdaptor, shapeHelper,
-        memRefType, alloc, pads, strides, dilations);
+    if (DEBUG_OPTIMIZED_OFF) {
+      convOriginal(rewriter, ieScope, convOp, operandAdaptor, shapeHelper,
+          memRefType, alloc, pads, strides, dilations);
+    } else {
+      convUnoptimized(rewriter, ieScope, convOp, operandAdaptor, shapeHelper,
+          memRefType, alloc, pads, strides, dilations);
+    }
     rewriter.replaceOp(op, alloc);
     return success();
   }
