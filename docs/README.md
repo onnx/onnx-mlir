@@ -269,11 +269,18 @@ call cmake %root_dir%\onnx-mlir -G "Visual Studio 16 2019" -A x64 -T host=x64 ^
 call cmake --build . --config Release --target onnx-mlir -- /m
 ```
 
-To test ONNX MLIR, use the following command:
+To run the lit ONNX MLIR tests, use the following command:
 
 [same-as-file]: <> ({"ref": "utils/check-onnx-mlir.cmd", "skip-ref": 1})
 ```shell
 call cmake --build . --config Release --target check-onnx-lit -- /m
+```
+
+To run the numerical ONNX MLIR tests, use the following command:
+
+[same-as-file]: <> ({"ref": "utils/check-numerical.cmd", "skip-ref": 1})
+```shell
+call cmake --build . --config Release --target check-numerical -- /m
 ```
 
 After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory.
