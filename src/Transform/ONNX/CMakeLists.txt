@@ -47,4 +47,5 @@ add_onnx_mlir_library(OMInstrumentONNX
   OMONNXOps
   OMKrnlOps
   MLIRPass
+  OMSupport
   )
