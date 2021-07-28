@@ -19,7 +19,8 @@ using namespace mlir;
 
 struct ONNXUnsqueezeV11OpLowering : public ConversionPattern {
   ONNXUnsqueezeV11OpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXUnsqueezeV11Op::getOperationName(), 1, ctx) {}
+      : ConversionPattern(
+            mlir::ONNXUnsqueezeV11Op::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
