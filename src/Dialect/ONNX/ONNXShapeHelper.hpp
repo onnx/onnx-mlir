@@ -290,7 +290,8 @@ struct ONNXReshapeOpShapeHelper : public ONNXOpShapeHelper<ONNXReshapeOp> {
 };
 
 // Shape for SqueezeV11Op.
-struct ONNXSqueezeV11OpShapeHelper : public ONNXOpShapeHelper<ONNXSqueezeV11Op> {
+struct ONNXSqueezeV11OpShapeHelper
+    : public ONNXOpShapeHelper<ONNXSqueezeV11Op> {
   ONNXSqueezeV11OpShapeHelper(ONNXSqueezeV11Op *newOp);
   ONNXSqueezeV11OpShapeHelper(ONNXSqueezeV11Op *newOp,
       ConversionPatternRewriter &rewriter,
@@ -301,7 +302,8 @@ struct ONNXSqueezeV11OpShapeHelper : public ONNXOpShapeHelper<ONNXSqueezeV11Op> 
 };
 
 // Shape for UnsqueezeV11Op.
-struct ONNXUnsqueezeV11OpShapeHelper : public ONNXOpShapeHelper<ONNXUnsqueezeV11Op> {
+struct ONNXUnsqueezeV11OpShapeHelper
+    : public ONNXOpShapeHelper<ONNXUnsqueezeV11Op> {
   ONNXUnsqueezeV11OpShapeHelper(ONNXUnsqueezeV11Op *newOp);
   ONNXUnsqueezeV11OpShapeHelper(ONNXUnsqueezeV11Op *newOp,
       ConversionPatternRewriter &rewriter,

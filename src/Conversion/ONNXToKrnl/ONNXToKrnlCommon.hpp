@@ -115,8 +115,8 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
 
 /// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.
-Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter, Location loc,
-    Type resultType, Value input, int64_t axis);
+Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, int64_t axis);
 
 /// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.

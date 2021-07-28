@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 #include <algorithm>
 
@@ -1136,11 +1136,12 @@ LogicalResult ONNXReshapeOpShapeHelper::Compute(
 // ONNX Squeeze Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXSqueezeV11OpShapeHelper::ONNXSqueezeV11OpShapeHelper(ONNXSqueezeV11Op *newOp)
+ONNXSqueezeV11OpShapeHelper::ONNXSqueezeV11OpShapeHelper(
+    ONNXSqueezeV11Op *newOp)
     : ONNXOpShapeHelper<ONNXSqueezeV11Op>(newOp) {}
 
-ONNXSqueezeV11OpShapeHelper::ONNXSqueezeV11OpShapeHelper(ONNXSqueezeV11Op *newOp,
-    ConversionPatternRewriter &rewriter,
+ONNXSqueezeV11OpShapeHelper::ONNXSqueezeV11OpShapeHelper(
+    ONNXSqueezeV11Op *newOp, ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
     : ONNXOpShapeHelper<ONNXSqueezeV11Op>(
@@ -1183,11 +1184,12 @@ LogicalResult ONNXSqueezeV11OpShapeHelper::Compute(
 // ONNX Unsqueeze Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXUnsqueezeV11OpShapeHelper::ONNXUnsqueezeV11OpShapeHelper(ONNXUnsqueezeV11Op *newOp)
+ONNXUnsqueezeV11OpShapeHelper::ONNXUnsqueezeV11OpShapeHelper(
+    ONNXUnsqueezeV11Op *newOp)
     : ONNXOpShapeHelper<ONNXUnsqueezeV11Op>(newOp) {}
 
-ONNXUnsqueezeV11OpShapeHelper::ONNXUnsqueezeV11OpShapeHelper(ONNXUnsqueezeV11Op *newOp,
-    ConversionPatternRewriter &rewriter,
+ONNXUnsqueezeV11OpShapeHelper::ONNXUnsqueezeV11OpShapeHelper(
+    ONNXUnsqueezeV11Op *newOp, ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
     : ONNXOpShapeHelper<ONNXUnsqueezeV11Op>(

@@ -297,8 +297,10 @@ std::tuple<GruBiasPack, GruBiasPack> getBiasPack<ONNXGRUOp, GruBiasPack>(
     } else { // BIDIRECTIONAL
       std::vector<Value> vals;
       vals = foldOrEmitONNXSplitOp(rewriter, loc, split2D2Ty, B, 0);
-      fB = foldOrEmitONNXSqueezeV11Op(rewriter, loc, bType1D, vals[0], /*axis=*/0);
-      bB = foldOrEmitONNXSqueezeV11Op(rewriter, loc, bType1D, vals[1], /*axis=*/0);
+      fB = foldOrEmitONNXSqueezeV11Op(
+          rewriter, loc, bType1D, vals[0], /*axis=*/0);
+      bB = foldOrEmitONNXSqueezeV11Op(
+          rewriter, loc, bType1D, vals[1], /*axis=*/0);
     }
 
     // Split B into individual bias tensors.

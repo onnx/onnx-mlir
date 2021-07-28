@@ -370,10 +370,10 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
   return dimVal;
 }
 
-/// Emit an ONNXSqueezeV11Op. If the input is constant, do const propagation, and
-/// return a constant.
-Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter, Location loc,
-    Type resultType, Value input, int64_t axis) {
+/// Emit an ONNXSqueezeV11Op. If the input is constant, do const propagation,
+/// and return a constant.
+Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, int64_t axis) {
   if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
         input.getDefiningOp()
@@ -393,8 +393,8 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter, Location l
   }
 }
 
-/// Emit an ONNXUnsqueezeV11Op. If the input is constant, do const propagation, and
-/// return a constant.
+/// Emit an ONNXUnsqueezeV11Op. If the input is constant, do const propagation,
+/// and return a constant.
 Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
   if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
