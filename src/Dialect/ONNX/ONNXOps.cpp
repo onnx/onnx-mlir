@@ -309,6 +309,9 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
     int64_t dilationVal = 1;
     for (decltype(kernelRank) i = 0; i < kernelRank; ++i) {
       auto inputSize = inputShape[kernelOffset + i];
+      if (inputSize < 0)
+        return op->emitError("Conv Pads defined as SAME_UPPER or SAME_LOWER "
+                             "requires compile time X sizes");
       auto kernelSize = ArrayAttrIntVal(kernelShape, i);
       if (dilationsOpt.hasValue())
         dilationVal = ArrayAttrIntVal(dilationsOpt, i);
@@ -364,19 +367,22 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
 //===----------------------------------------------------------------------===//
 template <class T>
 static LogicalResult processConvTypeParams(T *op, Value inputOperand) {
-  // 1) Get shape of input.
+  // 1) Get shape of input. Shape is not guaranteed to be compile time constant.
   auto inputShape = inputOperand.getType().cast<RankedTensorType>().getShape();
 
-  // 2) Get kernel_shape attribute.
+  // 2) Get kernel_shape attribute. They were previously computed. At this time,
+  // they are guranteed to be compile time constant.
   auto kernelShape = op->kernel_shape();
 
-  // Dilation.
+  // Dilation. It is compile time constants (filled to default 1 value if not
+  // explicitely given as input).
   LogicalResult res = processConvDilationParam<T>(op, kernelShape);
   if (failed(res))
     return res;
   auto dilationsOpt = op->dilations();
 
-  // Strides.
+  // Strides. It is compile time constants (filled to default 1 value if not
+  // explicitely given as input).
   res = processConvStrideParam<T>(op, kernelShape);
   if (failed(res))
     return res;
@@ -1421,7 +1427,6 @@ LogicalResult ONNXReshapeOp::inferShapes(
   if (!shape().getType().isa<RankedTensorType>())
     return emitError("Shape tensor not ranked");
 
-  auto inputTensorTy = data().getType().cast<RankedTensorType>();
   auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
   auto elementType = data().getType().cast<ShapedType>().getElementType();
 
@@ -1647,7 +1652,8 @@ LogicalResult ONNXConvOp::inferShapes(
   int32_t spatialRank = xShape.size() - spatialOffset;
 
   // Use kernel_shape attribute if present otherwise use size from weight
-  // argument.
+  // argument. kernel_shape could be runtime, but we do not support this at this
+  // time.
   auto kernelShape = kernel_shape();
   if (kernelShape.hasValue()) {
     if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank)
@@ -1660,8 +1666,14 @@ LogicalResult ONNXConvOp::inferShapes(
   } else {
     // Deduce shape from weight input.
     SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
+    for (int i = 0; i < spatialRank; ++i) {
+      auto size = weightShape[spatialOffset + i];
+      if (size == 0)
+        return emitError("Bad derived kernel_shape value, cannot be zero");
+      if (size < 1)
+        return emitError("Do not support runtime kernel_shape size");
+      defaultVals.emplace_back(size);
+    }
     // Convert to ArrayRef, then build attribute, then store attribute.
     ArrayRef<int64_t> defaultRefs(defaultVals);
     auto builder = mlir::Builder(getContext());
@@ -1671,7 +1683,8 @@ LogicalResult ONNXConvOp::inferShapes(
 
   // Process strides, dilations, and pads.
   LogicalResult res = processConvTypeParams<>(this, X());
-  assert(succeeded(res));
+  if (failed(res))
+    return emitError("Failed to scan Conv parameters successfully");
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();

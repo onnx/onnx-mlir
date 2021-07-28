@@ -18,69 +18,24 @@
 
 using namespace mlir;
 
-std::vector<int64_t> getDilations(ONNXConvOp poolOp) {
-  std::vector<int64_t> dilations;
-  auto dilationsAttribute = poolOp.dilationsAttr();
-  bool isDefaultDilations = true;
-  for (auto dilation : dilationsAttribute.getValue()) {
-    int64_t dilationValue = dilation.cast<IntegerAttr>().getInt();
-    if (dilationValue > 1 && isDefaultDilations)
-      isDefaultDilations = false;
-    dilations.emplace_back(dilationValue);
-  }
-  if (isDefaultDilations)
-    return {};
-  else
-    return dilations;
-}
-
 struct ONNXConvOpLowering : public ConversionPattern {
   ONNXConvOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
-    ONNXConvOpAdaptor operandAdaptor(operands);
-    ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
-
-    // Read dilations attribute if the op has.
-    std::vector<int64_t> dilations = getDilations(convOp);
+  void convOriginal(ConversionPatternRewriter &rewriter,
+      IndexExprScope &ieScope, ONNXConvOp &convOp,
+      ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
+      MemRefType &memRefType, Value alloc, SmallVectorImpl<int64_t> &pads,
+      SmallVectorImpl<int64_t> &strides,
+      SmallVectorImpl<int64_t> &dilations) const {
+    auto loc = convOp.getLoc();
     bool isDilated = !dilations.empty();
 
-    // Read pads attribute
-    SmallVector<int64_t, 4> pads;
-    auto padsAttribute = convOp.padsAttr();
-    for (Attribute pad : padsAttribute.getValue())
-      pads.emplace_back(pad.cast<IntegerAttr>().getInt());
-
-    // Read strides attribute
-    SmallVector<int64_t, 4> strides;
-    auto stridesAttribute = convOp.stridesAttr();
-    for (Attribute stride : stridesAttribute.getValue())
-      strides.emplace_back(stride.cast<IntegerAttr>().getInt());
-
-    // Get shape.
-    ONNXConvOpShapeHelper shapeHelper(&convOp, rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
-    auto shapecomputed =
-        shapeHelper.Compute(operandAdaptor, convOp.kernel_shape(),
-            padsAttribute, stridesAttribute, convOp.dilations());
-    assert(succeeded(shapecomputed));
-
-    // Scope for krnl ops
-    IndexExprScope ieScope(rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
     MathBuilder createMath(rewriter, loc);
 
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;
-
-    // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
 
     auto resultShape = memRefType.getShape();
     auto inputOperand = operandAdaptor.X();
@@ -93,10 +48,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //
     // The input/output shapes will look like this:
     //
-    // D (NxCxHxW) x K (MxC/groupxKHxKW) -> R (NxMxRHxRW)
+    // D (NxCxHxW) x K (Mx C/group x KH x KW) -> R (NxMxRHxRW)
     //
-    // M is a multiple of the number of groups:
-    //   M = group * kernelsPerGroup
+    // where C & M are also known as is Channel In (C) & Out (M)
+    // also, C is a multiple of the number of groups:
+    //   C = group * kernelsPerGroup
     //
     // The loop nest will look as follows:
     //
@@ -108,7 +64,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // for n = 0 .. N:
     //   for g = 0 .. group:
     //     for m = 0 .. kernelsPerGroup:
-    //       kernel = g * kernelsPerGroup + m;
+    //       kernel = g * kernelsPerGroup + m; // Channel out
     //       for r1 = 0 .. RH:
     //         for r2 = 0 .. RW:
     //           R[n][kernel][r1][r2] = 0;
@@ -158,9 +114,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Before we start the iteration we need to compute the number of
     // unsplit kernels and fetch the number of groups from the attribute
     // list. Group is always a compilation constant.
+
     int64_t group = convOp.group();
     // Compute the number of unsplit kernels. The number of kernels
     // must be a multiple of the number of groups.
+    assert(kernelShape[0] > 0 &&
+           "kernel shape is expected to be constant in code below");
     int64_t kernelsPerGroup = floor(kernelShape[0] / group);
     LiteralIndexExpr kernelsPerGroupValue(kernelsPerGroup);
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
@@ -368,6 +327,58 @@ struct ONNXConvOpLowering : public ConversionPattern {
           createKrnl.storeIE(result, alloc, resultIndices);
       }
     }
+  }
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    auto loc = op->getLoc();
+    ONNXConvOpAdaptor operandAdaptor(operands);
+    ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
+
+    // Read dilations attribute if the op has.
+    SmallVector<int64_t, 4> dilations;
+    auto dilationsAttribute = convOp.dilationsAttr();
+    bool isDefaultDilations = true;
+    for (auto dilation : dilationsAttribute.getValue()) {
+      int64_t dilationValue = dilation.cast<IntegerAttr>().getInt();
+      if (dilationValue > 1 && isDefaultDilations)
+        isDefaultDilations = false;
+      dilations.emplace_back(dilationValue);
+    }
+    if (isDefaultDilations)
+      dilations.clear();
+
+    // Read pads attribute
+    SmallVector<int64_t, 4> pads;
+    auto padsAttribute = convOp.padsAttr();
+    for (Attribute pad : padsAttribute.getValue())
+      pads.emplace_back(pad.cast<IntegerAttr>().getInt());
+
+    // Read strides attribute
+    SmallVector<int64_t, 4> strides;
+    auto stridesAttribute = convOp.stridesAttr();
+    for (Attribute stride : stridesAttribute.getValue())
+      strides.emplace_back(stride.cast<IntegerAttr>().getInt());
+
+    // Get shape.
+    ONNXConvOpShapeHelper shapeHelper(&convOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    auto shapecomputed =
+        shapeHelper.Compute(operandAdaptor, convOp.kernel_shape(),
+            padsAttribute, stridesAttribute, convOp.dilations());
+    assert(succeeded(shapecomputed));
+
+    // Scope for krnl ops
+    IndexExprScope ieScope(rewriter, loc);
+
+    // Insert an allocation and deallocation for the result of this operation.
+    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
+
+    convOriginal(rewriter, ieScope, convOp, operandAdaptor, shapeHelper,
+        memRefType, alloc, pads, strides, dilations);
     rewriter.replaceOp(op, alloc);
     return success();
   }
