@@ -39,6 +39,9 @@ parser.add_argument("--check-operation-version",
 
 args = parser.parse_args()
 
+import onnx
+print(onnx.__version__)
+
 check_operation_version = args.check_operation_version
 
 
@@ -214,7 +217,7 @@ version_dict = {'Abs': [13],
  'SplitToSequence': [11],
  'Sqrt': [13],
  #'Squeeze': [13],
- 'Squeeze': [11],
+ 'Squeeze': [13, 11],
  'StringNormalizer': [10],
  'Sub': [13],
  'Sum': [13],
@@ -229,7 +232,7 @@ version_dict = {'Abs': [13],
  'TreeEnsembleRegressor': [1],
  'Unique': [11],
  #'Unsqueeze': [13],
- 'Unsqueeze': [11],
+ 'Unsqueeze': [13, 11],
  'Upsample': [10],
  'Where': [9],
  'Xor': [7],

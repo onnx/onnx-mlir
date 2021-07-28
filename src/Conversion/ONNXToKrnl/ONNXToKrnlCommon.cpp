@@ -370,9 +370,9 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
   return dimVal;
 }
 
-/// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
+/// Emit an ONNXSqueezeV11Op. If the input is constant, do const propagation, and
 /// return a constant.
-Value foldOrEmitONNXSqueezeOp(ConversionPatternRewriter &rewriter, Location loc,
+Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter, Location loc,
     Type resultType, Value input, int64_t axis) {
   if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
@@ -387,15 +387,15 @@ Value foldOrEmitONNXSqueezeOp(ConversionPatternRewriter &rewriter, Location loc,
     return constVal;
   } else {
     return rewriter
-        .create<ONNXSqueezeOp>(
+        .create<ONNXSqueezeV11Op>(
             loc, resultType, input, rewriter.getI64ArrayAttr(axis))
         .getResult();
   }
 }
 
-/// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
+/// Emit an ONNXUnsqueezeV11Op. If the input is constant, do const propagation, and
 /// return a constant.
-Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
+Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
   if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
@@ -410,7 +410,7 @@ Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
     return constVal;
   } else {
     return rewriter
-        .create<ONNXUnsqueezeOp>(
+        .create<ONNXUnsqueezeV11Op>(
             loc, resultType, input, rewriter.getI64ArrayAttr(axis))
         .getResult();
   }
