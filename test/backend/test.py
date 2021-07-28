@@ -159,7 +159,7 @@ test_to_enable_static_dynamic = {
     "test_atanh_cpu": (test_static_dynamic,),
     "test_atanh_example_cpu": (test_static_dynamic,),
 
-    # AveragePool
+    # AveragePool: same_upper/lower dyn padding-shapes not supported.
     "test_averagepool_1d_default_cpu": (test_static_dynamic,),
     "test_averagepool_2d_ceil_cpu": (test_static_dynamic,),
     "test_averagepool_2d_default_cpu": (test_static_dynamic,),
@@ -167,10 +167,10 @@ test_to_enable_static_dynamic = {
     "test_averagepool_2d_pads_cpu": (test_static_dynamic,),
     "test_averagepool_2d_precomputed_pads_count_include_pad_cpu": (test_static_dynamic,),
     "test_averagepool_2d_precomputed_pads_cpu": (test_static_dynamic,),
-    "test_averagepool_2d_precomputed_same_upper_cpu": (test_static_dynamic,),
+    "test_averagepool_2d_precomputed_same_upper_cpu": (test_static_dynamic,{-1:{0}}),
     "test_averagepool_2d_precomputed_strides_cpu": (test_static_dynamic,),
-    "test_averagepool_2d_same_lower_cpu": (test_static_dynamic,),
-    "test_averagepool_2d_same_upper_cpu": (test_static_dynamic,),
+    "test_averagepool_2d_same_lower_cpu": (test_static_dynamic,{-1:{0}}),
+    "test_averagepool_2d_same_upper_cpu": (test_static_dynamic,{-1:{0}}),
     "test_averagepool_2d_strides_cpu": (test_static_dynamic,),
     "test_averagepool_3d_default_cpu": (test_static_dynamic,),
 
@@ -418,17 +418,17 @@ test_to_enable_static_dynamic = {
     "test_max_one_input_cpu": (test_static_dynamic,),
     "test_max_two_inputs_cpu": (test_static_dynamic,),
 
-    # MaxPoolSingleOut
+    # MaxPoolSingleOut: same_upper/lower dyn padding-shapes not supported.
     "test_maxpool_1d_default_cpu": (test_static_dynamic,),
     "test_maxpool_2d_ceil_cpu": (test_static_dynamic,),
     "test_maxpool_2d_default_cpu": (test_static_dynamic,),
     "test_maxpool_2d_dilations_cpu": (test_static_dynamic,),
     "test_maxpool_2d_pads_cpu": (test_static_dynamic,),
     "test_maxpool_2d_precomputed_pads_cpu": (test_static_dynamic,),
-    "test_maxpool_2d_precomputed_same_upper_cpu": (test_static_dynamic,),
+    "test_maxpool_2d_precomputed_same_upper_cpu": (test_static_dynamic,{-1:{0}}),
     "test_maxpool_2d_precomputed_strides_cpu": (test_static_dynamic,),
-    "test_maxpool_2d_same_lower_cpu": (test_static_dynamic,),
-    "test_maxpool_2d_same_upper_cpu": (test_static_dynamic,),
+    "test_maxpool_2d_same_lower_cpu": (test_static_dynamic,{-1:{0}}),
+    "test_maxpool_2d_same_upper_cpu": (test_static_dynamic,{-1:{0}}),
     "test_maxpool_2d_strides_cpu": (test_static_dynamic,),
     "test_maxpool_3d_default_cpu": (test_static_dynamic,),
 
