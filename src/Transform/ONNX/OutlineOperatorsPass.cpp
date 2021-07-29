@@ -54,6 +54,52 @@ public:
     return (op->getName().getStringRef().str());
   }
 
+class OutlinePattern : public RewritePattern {
+public:
+  OutlinePattern(PatternBenefit benefit, MLIRContext *context)
+      : RewritePattern(OnnxGemmOp::getOperationName(), benefit, context) {}
+
+  OutlinePattern(PatternBenefit benefit, MLIRContext *context)
+      : RewritePattern(benefit, MatchAnyOpTypeTag()) {}
+
+};
+
+/// Populate the pattern list.
+void collectOutlinePatterns(RewritePatternSet &patterns, MLIRContext *ctx) {
+  patterns.add<OutlinePattern>(/*benefit=*/1, ctx);
+}
+
+/// Define a custom PatternRewriter for use by the driver.
+class OutlinePatternRewriter : public PatternRewriter {
+public:
+  OutlinePatternRewriter(MLIRContext *ctx) : PatternRewriter(ctx) {}
+
+  /// Override the necessary PatternRewriter hooks here.
+};
+
+/// Apply the custom driver to `op`.
+void applyOutlinePatternDriver(Operation *op,
+                          const RewritePatternSet &patterns) {
+  // Initialize the custom PatternRewriter.
+  OutlinePatternRewriter rewriter(op->getContext());
+
+  // Create the applicator and apply our cost model.
+  PatternApplicator applicator(patterns);
+  applicator.applyCostModel([](const Pattern &pattern) {
+    // Apply a default cost model.
+    // Note: This is just for demonstration, if the default cost model is truly
+    //       desired `applicator.applyDefaultCostModel()` should be used
+    //       instead.
+    return pattern.getBenefit();
+  });
+
+  // Try to match and apply a pattern.
+  LogicalResult result = applicator.matchAndRewrite(op, rewriter);
+  if (failed(result)) {
+    // ... No patterns were applied.
+  }
+  // ... A pattern was successfully applied.
+}
   static void genOutlinedFunction(PatternRewriter &rewriter,
       MLIRContext *context, std::string funcName,
       Location loc) {
@@ -77,6 +123,7 @@ public:
     llvm::SmallVector<Value, 1> results = {sigVoidPtr};
     rewriter.create<ReturnOp>(UnknownLoc::get(context), results);
     */
+
   }
 
   void processOp(Operation *op) {
