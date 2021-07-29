@@ -494,7 +494,7 @@ static LogicalResult RNNShapeInference(T *op) {
     numDirection = -1;
   if (numDirection == -1) {
     return op->emitError(
-        "direction attribute muse be one of the strings: forward, "
+        "direction attribute must be one of the strings: forward, "
         "reverse, and bidirectional");
   }
 
