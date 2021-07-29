@@ -25,7 +25,7 @@
 #include <assert.h>
 #endif
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__MVS__)
 #include <stdlib.h>
 #else
 #include <malloc.h>
