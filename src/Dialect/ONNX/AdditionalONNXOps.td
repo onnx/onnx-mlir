@@ -99,7 +99,7 @@ def ONNXCallOp : ONNX_Op<"ONNX_Call",
   }];
 }
 
-def ONNXSubgraph:ONNX_Op<"Subgraph",
+def ONNXSubgraphOp:ONNX_Op<"Subgraph",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface" >]> {
   let summary = "ONNX Subgraph operation";
   let description = [{
