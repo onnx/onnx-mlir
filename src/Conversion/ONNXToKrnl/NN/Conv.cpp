@@ -15,7 +15,7 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
-#define DEBUG_OPTIMIZED_OFF 1
+#define DEBUG_OPTIMIZED_OFF 0
 
 using namespace mlir;
 
@@ -42,7 +42,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;
 
-    auto resultShape = memRefType.getShape();
     auto inputOperand = operandAdaptor.X();
     auto filterOperand = operandAdaptor.W();
     auto biasOperand = operandAdaptor.B();
