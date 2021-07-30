@@ -19,6 +19,7 @@
 #include "mlir/IR/Region.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Rewrite/PatternApplicator.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -56,11 +57,14 @@ public:
 
 class OutlinePattern : public RewritePattern {
 public:
-  OutlinePattern(PatternBenefit benefit, MLIRContext *context)
-      : RewritePattern(OnnxGemmOp::getOperationName(), benefit, context) {}
+  //OutlinePattern(PatternBenefit benefit, MLIRContext *context)
+  //    : RewritePattern(OnnxGemmOp::getOperationName(), benefit, context) {}
 
   OutlinePattern(PatternBenefit benefit, MLIRContext *context)
-      : RewritePattern(benefit, MatchAnyOpTypeTag()) {}
+      : RewritePattern(MatchAnyOpTypeTag(), benefit, context) {}
+
+  OutlinePattern(MLIRContext *context)
+      : RewritePattern(MatchAnyOpTypeTag(), PatternBenefit(1), context) {}
 
 };
 
@@ -79,17 +83,16 @@ public:
 
 /// Apply the custom driver to `op`.
 void applyOutlinePatternDriver(Operation *op,
-                          const RewritePatternSet &patterns) {
+                          RewritePatternSet &patterns) {
   // Initialize the custom PatternRewriter.
   OutlinePatternRewriter rewriter(op->getContext());
 
   // Create the applicator and apply our cost model.
-  PatternApplicator applicator(patterns);
+  PatternApplicator applicator(FrozenRewritePatternSet(std::move(patterns)));
+  //PatternApplicator *applicator;
+  //RewritePatternSet pat = patterns;
+  //auto applicator = PatternApplicator(FrozenRewritePatternSet(std::move(patterns)));
   applicator.applyCostModel([](const Pattern &pattern) {
-    // Apply a default cost model.
-    // Note: This is just for demonstration, if the default cost model is truly
-    //       desired `applicator.applyDefaultCostModel()` should be used
-    //       instead.
     return pattern.getBenefit();
   });
 
@@ -153,7 +156,14 @@ void applyOutlinePatternDriver(Operation *op,
   }
 
 
-  void runOnOperation() override { processOp(getOperation()); }
+  void runOnOperation() override { processOp(getOperation());
+    RewritePatternSet patterns(&getContext());
+    patterns.insert<OutlinePattern>(&getContext());
+    LogicalResult res =
+        applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
+    assert((succeeded(res) || failed(res)) && "remove unused var warning");
+
+   }
 
 };
 } // end anonymous namespace
