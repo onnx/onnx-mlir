@@ -125,6 +125,74 @@ Attribute ComputeConstPropElementwiseUnary<ONNXSqrtOp>(
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for split.
+//===----------------------------------------------------------------------===//
+RankedTensorType constructRankedTensorType(ShapedType type) {
+  assert(type.hasRank() && "Not a ranked type");
+  return RankedTensorType::get(type.getShape(), type.getElementType());
+}
+
+void RecurseConstPropSplit(PatternRewriter &rewriter,
+    std::vector<Attribute> &resVector, DenseElementsAttr attr,
+    SmallVector<uint64_t, 4> &indices, uint64_t splitAxis, uint64_t axisOffset,
+    uint64_t axisSize, int freeRank) {
+  if (freeRank == 0) {
+    // Fully defined ranks.
+    Attribute res = attr.getValue(ArrayRef<uint64_t>(indices));
+    resVector.emplace_back(res);
+  } else {
+    // Recurse.
+    ArrayRef<int64_t> shape = attr.getType().getShape();
+    int rank = shape.size();
+    int index = rank - freeRank;
+    int start, size;
+    if (index == splitAxis) {
+      start = axisOffset;
+      size = axisSize;
+    } else {
+      start = 0;
+      size = attr.getType().getShape()[index];
+    }
+    for (int i = start; i < start + size; ++i) {
+      indices[index] = i;
+      RecurseConstPropSplit(rewriter, resVector, attr, indices, splitAxis,
+          axisOffset, axisSize, freeRank - 1);
+    }
+  }
+}
+
+DenseElementsAttr ConstPropSplit(PatternRewriter &rewriter, Value resOperand,
+    Attribute attr, IntegerAttr axisAttr, ArrayAttr splitAttr,
+    unsigned resIndex) {
+  // Read dense attribute, the constant tensor we are transforming.
+  DenseElementsAttr denseAttr =
+      attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
+  assert(denseAttr && "expected dense attribute");
+  RankedTensorType resType =
+      constructRankedTensorType(resOperand.getType().cast<ShapedType>());
+  unsigned rank = denseAttr.getType().getShape().size();
+  // Read split axis.
+  uint64_t splitAxis = axisAttr.getValue().getSExtValue();
+  // Read split vector.
+  SmallVector<uint64_t, 4> splits;
+  assert(splitAttr && "split attribute expected to be defined here");
+  for (Attribute splitVal : splitAttr.getValue())
+    splits.emplace_back(splitVal.cast<IntegerAttr>().getInt());
+  // Compute the range of elements of interest in the given axis.
+  uint64_t axisOffset = 0, axisSize = splits[resIndex];
+  for (int i = 0; i < resIndex; ++i)
+    axisOffset += splits[i];
+  // Init indice vector.
+  SmallVector<uint64_t, 4> indices(rank, -1);
+  std::vector<Attribute> resVector;
+  // Copy.
+  RecurseConstPropSplit(rewriter, resVector, denseAttr, indices, splitAxis,
+      axisOffset, axisSize, rank);
+  ArrayRef<Attribute> resRef(resVector);
+  return DenseElementsAttr::get(resType, resRef);
+}
+
+//===----------------------------------------------------------------------===//
 // Code to perform constant propagation for transpose.
 //===----------------------------------------------------------------------===//
 
@@ -302,6 +370,19 @@ APInt castIntToInt(APInt inVal, IntegerType fromType, IntegerType toType) {
     return inVal.sextOrTrunc(toWidth);
   }
 }
+
+APFloat castFloatToFloat(APFloat inVal, FloatType fromType, FloatType toType) {
+  if (fromType.isa<Float16Type>() && toType.isa<Float32Type>()) {
+    bool losesInfo = false;
+    inVal.convert(APFloat::IEEEsingle(), llvm::RoundingMode::NearestTiesToEven,
+        &losesInfo);
+  } else if (fromType.isa<Float32Type>() && toType.isa<Float16Type>()) {
+    bool losesInfo = true;
+    inVal.convert(
+        APFloat::IEEEhalf(), llvm::RoundingMode::NearestTiesToEven, &losesInfo);
+  }
+  return inVal;
+}
 } // namespace
 
 DenseElementsAttr ConstPropCastIntToInt(
@@ -350,6 +431,58 @@ bool canConstPropCastIntToInt(
                         .getElementType();
 
   return fromElemType.isa<IntegerType>() && toElemType.isa<IntegerType>();
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for cast float to float.
+//===----------------------------------------------------------------------===//
+DenseElementsAttr ConstPropCastFloatToFloat(
+    Builder &builder, Value constOp, Attribute input, IntegerAttr to) {
+
+  mlir::RankedTensorType constType =
+      constOp.getType().cast<mlir::RankedTensorType>();
+  FloatType fromElemType = constType.getElementType().cast<FloatType>();
+
+  auto toAttr = to.getValue().getSExtValue();
+  FloatType toElemType = mlir::UnrankedTensorType::get(
+      convertONNXTypeToMLIRType(
+          builder, static_cast<onnx::TensorProto_DataType>(toAttr)))
+                             .getElementType()
+                             .cast<FloatType>();
+
+  assert(fromElemType.isa<FloatType>() && toElemType.isa<FloatType>());
+
+  auto inputElems = input.cast<mlir::DenseElementsAttr>();
+  std::vector<Attribute> result;
+
+  for (FloatAttr inputElement : inputElems.getValues<FloatAttr>()) {
+    APFloat inVal = inputElement.getValue();
+    APFloat outVal = castFloatToFloat(inVal, fromElemType, toElemType);
+    FloatAttr attr = builder.getFloatAttr(toElemType, outVal);
+    result.push_back(attr);
+  }
+
+  auto constShape = constType.getShape();
+  auto resultType = mlir::RankedTensorType::get(constShape, toElemType);
+  auto resultAttr =
+      DenseElementsAttr::get(resultType, llvm::makeArrayRef(result));
+  return resultAttr;
+}
+
+bool canConstPropCastFloatToFloat(
+    Builder &builder, Value constOp, Attribute input, IntegerAttr to) {
+  mlir::RankedTensorType constType =
+      constOp.getType().cast<mlir::RankedTensorType>();
+  Type fromElemType = constType.getElementType();
+
+  auto toAttr = to.getValue().getSExtValue();
+  auto toElemType = mlir::UnrankedTensorType::get(
+      convertONNXTypeToMLIRType(
+          builder, static_cast<onnx::TensorProto_DataType>(toAttr)))
+                        .getElementType();
+
+  return (fromElemType.isa<Float16Type>() || fromElemType.isa<Float32Type>()) &&
+         (toElemType.isa<Float16Type>() || toElemType.isa<Float32Type>());
 }
 
 bool isConstOfZeros(Builder &builder, Attribute attr) {
