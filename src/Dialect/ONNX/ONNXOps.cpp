@@ -998,9 +998,9 @@ LogicalResult ONNXPowOp::inferShapes(
   Type rhsETy = rhsTy.getElementType();
   Type lhsETy = lhsTy.getElementType();
   if (rhsETy != lhsETy)
-    return emitError("do not support Pow with different input type yet");
+    return emitError("Pow with different input type not implemented yet");
   if (lhsETy.isa<IntegerType>() || lhsETy.isa<IntegerType>())
-    return emitError("do not support integer power yet");
+    return emitError("Integer power not implemented yet");
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
   return success();
 }
@@ -1662,7 +1662,7 @@ LogicalResult ONNXConvOp::inferShapes(
     // Have the right number of values, check them.
     for (int i = 0; i < spatialRank; ++i)
       if (ArrayAttrIntVal(kernelShape, i) < 1)
-        return emitError("bad kernel_shape value");
+        return emitError("Bad kernel_shape value");
   } else {
     // Deduce shape from weight input.
     SmallVector<int64_t, 2> defaultVals;
@@ -1671,7 +1671,7 @@ LogicalResult ONNXConvOp::inferShapes(
       if (size == 0)
         return emitError("Bad derived kernel_shape value, cannot be zero");
       if (size < 1)
-        return emitError("Do not support runtime kernel_shape size");
+        return emitError("Runtime kernel_shape size not implemented yet");
       defaultVals.emplace_back(size);
     }
     // Convert to ArrayRef, then build attribute, then store attribute.
@@ -2031,7 +2031,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
   // Storage order.
   auto storageOrder = storage_order();
   if (storageOrder != 0)
-    return emitError("column major storage order not supported at this time");
+    return emitError("column major storage order not implemented yet");
 
   // Process strides, dilations, and pads.
   LogicalResult res = processConvTypeParams<>(this, X());
@@ -2137,10 +2137,10 @@ LogicalResult ONNXPadOp::inferShapes(
         padsInt[i] = (*valueIt++).getInt();
     } else {
       // Cannot infer if the pads is not constant
-      return emitError("Pad: unknown pads ");
+      return emitError("Pad: unknown pads");
     }
   } else {
-    return emitError("Pad: unknown pads ");
+    return emitError("Pad: unknown pads");
   }
 
   // Pads consists of two values for each axis of data.
@@ -2483,22 +2483,22 @@ LogicalResult ONNXResizeOp::inferShapes(
     return emitError("scales() and sizes() can not both None/not None");
   }
 
-  if (isFromNone(scales())) {
+  if (!isFromNone(sizes())) {
     return emitError("using sizes() not implemented yet");
   }
 
   if (!(mode() == "nearest" &&
           (coordinate_transformation_mode() == "half_pixel" ||
               coordinate_transformation_mode() == "asymmetric"))) {
-    return emitError(
-        "these modes() or coordinate_transformation_mode() not supported yet");
+    return emitError("these modes() or coordinate_transformation_mode() not "
+                     "implemented yet");
   }
 
   // Current implementation handles constant scales only
   DenseElementsAttr scalesAttrs =
       getDenseElementAttributeFromONNXValue(scales());
   if (!scalesAttrs) {
-    return success();
+    return emitError("unknown scales not implemented yet");
   }
 
   SmallVector<float, 4> scalesConstant;
