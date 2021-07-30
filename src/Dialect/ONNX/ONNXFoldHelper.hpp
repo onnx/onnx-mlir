@@ -222,3 +222,15 @@ DenseElementsAttr CreateZerosFromTemplate(
     Builder &builder, Value templateTensor);
 DenseElementsAttr CreateMatMulIntegerOfConsts(
     Builder &builder, Value resultValue, Attribute _lhs, Attribute _rhs);
+
+// const prop for split changes
+mlir::RankedTensorType constructRankedTensorType(mlir::ShapedType type);
+
+void RecurseConstPropSplit(PatternRewriter &rewriter,
+    std::vector<Attribute> &resVector, DenseElementsAttr attr,
+    SmallVector<uint64_t, 4> &indices, uint64_t splitAxis, uint64_t axisOffset,
+    uint64_t axisSize, int freeRank);
+
+DenseElementsAttr ConstPropSplit(PatternRewriter &rewriter, Value resOperand,
+    Attribute attr, IntegerAttr axisAttr, ArrayAttr splitAttr,
+    unsigned resIndex);

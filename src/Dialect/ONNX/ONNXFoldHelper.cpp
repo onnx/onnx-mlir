@@ -125,6 +125,74 @@ Attribute ComputeConstPropElementwiseUnary<ONNXSqrtOp>(
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for split.
+//===----------------------------------------------------------------------===//
+RankedTensorType constructRankedTensorType(ShapedType type) {
+  assert(type.hasRank() && "Not a ranked type");
+  return RankedTensorType::get(type.getShape(), type.getElementType());
+}
+
+void RecurseConstPropSplit(PatternRewriter &rewriter,
+    std::vector<Attribute> &resVector, DenseElementsAttr attr,
+    SmallVector<uint64_t, 4> &indices, uint64_t splitAxis, uint64_t axisOffset,
+    uint64_t axisSize, int freeRank) {
+  if (freeRank == 0) {
+    // Fully defined ranks.
+    Attribute res = attr.getValue(ArrayRef<uint64_t>(indices));
+    resVector.emplace_back(res);
+  } else {
+    // Recurse.
+    ArrayRef<int64_t> shape = attr.getType().getShape();
+    int rank = shape.size();
+    int index = rank - freeRank;
+    int start, size;
+    if (index == splitAxis) {
+      start = axisOffset;
+      size = axisSize;
+    } else {
+      start = 0;
+      size = attr.getType().getShape()[index];
+    }
+    for (int i = start; i < start + size; ++i) {
+      indices[index] = i;
+      RecurseConstPropSplit(rewriter, resVector, attr, indices, splitAxis,
+          axisOffset, axisSize, freeRank - 1);
+    }
+  }
+}
+
+DenseElementsAttr ConstPropSplit(PatternRewriter &rewriter, Value resOperand,
+    Attribute attr, IntegerAttr axisAttr, ArrayAttr splitAttr,
+    unsigned resIndex) {
+  // Read dense attribute, the constant tensor we are transforming.
+  DenseElementsAttr denseAttr =
+      attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
+  assert(denseAttr && "expected dense attribute");
+  RankedTensorType resType =
+      constructRankedTensorType(resOperand.getType().cast<ShapedType>());
+  unsigned rank = denseAttr.getType().getShape().size();
+  // Read split axis.
+  uint64_t splitAxis = axisAttr.getValue().getSExtValue();
+  // Read split vector.
+  SmallVector<uint64_t, 4> splits;
+  assert(splitAttr && "split attribute expected to be defined here");
+  for (Attribute splitVal : splitAttr.getValue())
+    splits.emplace_back(splitVal.cast<IntegerAttr>().getInt());
+  // Compute the range of elements of interest in the given axis.
+  uint64_t axisOffset = 0, axisSize = splits[resIndex];
+  for (int i = 0; i < resIndex; ++i)
+    axisOffset += splits[i];
+  // Init indice vector.
+  SmallVector<uint64_t, 4> indices(rank, -1);
+  std::vector<Attribute> resVector;
+  // Copy.
+  RecurseConstPropSplit(rewriter, resVector, denseAttr, indices, splitAxis,
+      axisOffset, axisSize, rank);
+  ArrayRef<Attribute> resRef(resVector);
+  return DenseElementsAttr::get(resType, resRef);
+}
+
+//===----------------------------------------------------------------------===//
 // Code to perform constant propagation for transpose.
 //===----------------------------------------------------------------------===//
 
