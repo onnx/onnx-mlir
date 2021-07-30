@@ -32,7 +32,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
     auto loc = convOp.getLoc();
     bool isDilated = !dilations.empty();
     KrnlBuilder createKrnl(rewriter, loc);
-    MathBuilder createMath(rewriter, loc);
 
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;
@@ -161,10 +160,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
                   // lb = ceil((p - o * s) / d)
                   IndexExpr pos = p - (o * s);
                   IndexExpr lb = pos.ceilDiv(d);
+                  lb = IndexExpr::max(lb, 0);
                   redLbs.emplace_back(lb);
                   // ub = ceil((I + p - o * s) / d)
                   IndexExpr ipos = I + pos;
                   IndexExpr ub = ipos.ceilDiv(d);
+                  ub = IndexExpr::min(ub, K);
                   redUbs.emplace_back(ub);
                 }
                 // for ciPerGroup = 0 .. CIPerGroup:
@@ -219,14 +220,16 @@ struct ONNXConvOpLowering : public ConversionPattern {
                 // Finish the reduction and store in result array.
                 Value result = createKrnl.load(reductionVal);
                 // Store the result. Optionally add bias.
+                SymbolIndexExpr coInOutputSpacial(co);
                 if (hasBias) {
-                  Value loadBias =
-                      createKrnl.loadIE(biasOperand, {DimIndexExpr(co)});
-                  result = createMath.add(result, loadBias);
+                  MathBuilder createMath(createKrnl);
+                  Value bias =
+                      createKrnl.loadIE(biasOperand, {coInOutputSpacial});
+                  result = createMath.add(result, bias);
                 }
                 SmallVector<IndexExpr, 4> resAccessFunc;
                 resAccessFunc.emplace_back(SymbolIndexExpr(outerIndices[0]));
-                resAccessFunc.emplace_back(SymbolIndexExpr(co));
+                resAccessFunc.emplace_back(coInOutputSpacial);
                 for (Value o : outputSpatialIndices)
                   resAccessFunc.emplace_back(DimIndexExpr(o));
                 createKrnl.storeIE(result, alloc, resAccessFunc);

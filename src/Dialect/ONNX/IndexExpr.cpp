@@ -1254,14 +1254,12 @@ AffineIndexExpr::AffineIndexExpr(SymbolIndexExpr const &o)
 //===----------------------------------------------------------------------===//
 
 DimIndexExpr::DimIndexExpr(Value const value) {
-  //printf("hi alex 1\n");
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
   indexExprObj->initAsKind(value, IndexExprKind::Dim);
 }
 
 DimIndexExpr::DimIndexExpr(IndexExprImpl *otherObjPtr) {
-  //printf("hi alex 2\n");
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
@@ -1270,22 +1268,18 @@ DimIndexExpr::DimIndexExpr(IndexExprImpl *otherObjPtr) {
     return;
   // If the index expression is a literal,  just copy it.
   if (otherObjPtr->isLiteral()) {
-    //printf("hi alex, deal with a literal\n");
     indexExprObj->initAsLiteral(
         otherObjPtr->getLiteral(), IndexExprKind::Affine);
     return;
   }
-  //printf("hi alex, deal with a non literal\n");
   // Depending on what kind of index expr we got, take different actions.
   bool isSameScope = otherObjPtr->isInCurrentScope();
   switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
-    //printf("hi alex, deal with a ?\n");
     indexExprObj->initAsQuestionmark();
     return;
   }
   case IndexExprKind::NonAffine: {
-    //printf("hi alex, deal with a non affine\n");
     indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::Dim);
     return;
   }
@@ -1293,18 +1287,15 @@ DimIndexExpr::DimIndexExpr(IndexExprImpl *otherObjPtr) {
     llvm_unreachable("cannot make an dim from a predicate");
   }
   case IndexExprKind::Affine: {
-    //printf("hi alex, deal with a affine\n");
     indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::Dim);
     return;
   }
   case IndexExprKind::Dim: {
-    //printf("hi alex, deal with a dim\n");
     // If replicated in the same scope, its not great but will not gen errors.
     indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::Dim);
     return;
   }
   case IndexExprKind::Symbol: {
-    //printf("hi alex, deal with a sym\n");
     assert(!isSameScope && "cannot make a dim from a symbol at the same scope");
     indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::Dim);
     return;

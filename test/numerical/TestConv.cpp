@@ -181,8 +181,9 @@ int main(int argc, char *argv[]) {
     const auto pWEnd = *rc::gen::inRange(0, kW - 1);
 
     // Whether test dynamic height.
-    const auto DynH = *rc::gen::element(0, 1);
-    const bool isDynH = (DynH == 0);
+    //const auto DynH = *rc::gen::element(0, 1);
+    //const bool isDynH = (DynH == 0);
+    const bool isDynH = false;
 
     // Make sure we have at least 1 output per dimension.
     RC_PRE((H >= kH) && (W > kW));

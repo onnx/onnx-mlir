@@ -399,10 +399,8 @@ public:
   // Default and shallow copy constructors. Index expressions are usually built
   // using the subclasses listed as friend above.
   IndexExpr() : indexExprObj(nullptr) {} // Undefined index expression.
-  IndexExpr(IndexExprImpl *implObj) : indexExprObj(implObj) {} // Shallow.
-  IndexExpr(IndexExpr const &obj) : IndexExpr(obj.indexExprObj) {
-    //printf("hi alex OH NOOOOO\n");
-  } // Shallow.
+  IndexExpr(IndexExprImpl *implObj) : indexExprObj(implObj) {}     // Shallow.
+  IndexExpr(IndexExpr const &obj) : IndexExpr(obj.indexExprObj) {} // Shallow.
   // To construct meaningful IndexExpr, use subclasses constructors.
   IndexExpr deepCopy() const;
 
@@ -572,6 +570,7 @@ public:
   LiteralIndexExpr(AffineIndexExpr const &o);
   LiteralIndexExpr(DimIndexExpr const &o);
   LiteralIndexExpr(SymbolIndexExpr const &o);
+
 private:
   void init(int64_t const value);
 };
