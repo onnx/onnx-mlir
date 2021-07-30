@@ -15,7 +15,7 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
-#define DEBUG_ORIGINAL 1
+#define DEBUG_ORIGINAL 0
 
 using namespace mlir;
 
@@ -141,7 +141,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
                         createKrnl.getLoc(), tmpType);
                 createKrnl.store(fZero, reductionVal);
 
-#if 1
                 // Bounds for reduction loops.
                 ValueRange redLoops = createKrnl.defineLoops(spacialRank + 1);
                 SmallVector<IndexExpr, 4> redLbs, redUbs;
@@ -185,24 +184,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
                       inputAccessFct.emplace_back(n);
                       // ci = g * CIPerG + ciPerG
                       DimIndexExpr ciPerG(redIndices[0]);
-printf("\n\nhi alex: study\n");
-#if 1
-                      printf("v1\n");
-                      DimIndexExpr g1(g);
-#elif 1
-                      printf("v2\n");
-                      IndexExpr g2 = g;
-                      DimIndexExpr g1(g2);
-#else
-                      printf("v3\n");
-                      DimIndexExpr g1(outerIndices[1]);
-#endif
-printf("hi alex: end study\n\n\n");
-
-                      SymbolIndexExpr CIPerGroup1(CIPerGroup);
-                      IndexExpr ci = g1 * CIPerGroup1;
-          // ci = ci + ciPerG;
-#if 0
                       IndexExpr ci =
                           DimIndexExpr(g) * SymbolIndexExpr(CIPerGroup) +
                           ciPerG;
@@ -219,24 +200,22 @@ printf("hi alex: end study\n\n\n");
                       }
                       Value image =
                           createKrnl.loadIE(inputOperand, inputAccessFct);
-
                       // Create access fct for filter: [co, ciPerG, kh, kw].
                       SmallVector<IndexExpr, 4> filterAccessFct;
                       filterAccessFct.emplace_back(DimIndexExpr(co));
                       filterAccessFct.emplace_back(DimIndexExpr(ciPerG));
+
                       for (int i = 0; i < spacialRank; ++i) {
                         DimIndexExpr k(redIndices[1 + i]);
                         filterAccessFct.emplace_back(k);
                       }
-                      Value oldRed = createKrnl.load(fZero, reductionVal);
                       Value filter =
                           createKrnl.loadIE(filterOperand, filterAccessFct);
+                      Value oldRed = createKrnl.load(reductionVal);
                       Value mul = createMath.mul(image, filter);
                       Value newRed = createMath.add(oldRed, mul);
-                      createKrnl.store(fZero, newRed);
-#endif
+                      createKrnl.store(newRed, reductionVal);
                     }); // Reduction loops.
-#endif
                 // Finish the reduction and store in result array.
                 Value result = createKrnl.load(reductionVal);
                 // Store the result. Optionally add bias.
