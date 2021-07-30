@@ -2483,7 +2483,7 @@ LogicalResult ONNXResizeOp::inferShapes(
     return emitError("scales() and sizes() can not both None/not None");
   }
 
-  if (!isFromNone(sizes())) {
+  if (isFromNone(scales())) {
     return emitError("using sizes() not implemented yet");
   }
 
@@ -2498,7 +2498,7 @@ LogicalResult ONNXResizeOp::inferShapes(
   DenseElementsAttr scalesAttrs =
       getDenseElementAttributeFromONNXValue(scales());
   if (!scalesAttrs) {
-    return emitError("unknown scales not implemented yet");
+    return success();
   }
 
   SmallVector<float, 4> scalesConstant;

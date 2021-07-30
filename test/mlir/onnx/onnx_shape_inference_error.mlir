@@ -234,13 +234,3 @@ func @unsupport_resize_cubic_mode(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32> 
   "std.return"(%2) : (tensor<*xf32>) -> ()
 }
 
-// -----
-
-func @unsupport_resize_unknown_scales(%arg0 : tensor<3x4x5x6xf32>, %arg1 : tensor<4xf32>) -> tensor<*xf32> {
-  %cst = constant unit
-  %0 = "onnx.Constant"() {value = dense<[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<8xf32>} : () -> tensor<8xf32>
-  // expected-error @+2 {{unknown scales not implemented yet}}
-  // expected-error @+1 {{shape inference failed}}
-  %2 = "onnx.Resize"(%arg0, %0, %arg1, %cst) {coordinate_transformation_mode = "asymmetric", mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize1"} : (tensor<3x4x5x6xf32>, tensor<8xf32>, tensor<4xf32>, none) -> tensor<*xf32>
-  "std.return"(%2) : (tensor<*xf32>) -> ()
-}
