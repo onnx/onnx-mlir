@@ -79,6 +79,11 @@ public:
   OutlinePatternRewriter(MLIRContext *ctx) : PatternRewriter(ctx) {}
 
   /// Override the necessary PatternRewriter hooks here.
+  LogicalResult matchAndRewrite(Operation *op,
+                                PatternRewriter &rewriter) {
+    std::cout << "**** inside match and rewrite";
+    return success();                              
+  }
 };
 
 /// Apply the custom driver to `op`.
@@ -86,18 +91,24 @@ void applyOutlinePatternDriver(Operation *op,
                           RewritePatternSet &patterns) {
   // Initialize the custom PatternRewriter.
   OutlinePatternRewriter rewriter(op->getContext());
-
+  
+  std::cout << "   entered pattern driver" << std::endl;
   // Create the applicator and apply our cost model.
   PatternApplicator applicator(FrozenRewritePatternSet(std::move(patterns)));
-  //PatternApplicator *applicator;
-  //RewritePatternSet pat = patterns;
-  //auto applicator = PatternApplicator(FrozenRewritePatternSet(std::move(patterns)));
-  applicator.applyCostModel([](const Pattern &pattern) {
-    return pattern.getBenefit();
+  //applicator.applyCostModel([](const Pattern &pattern) {
+  //  return pattern.getBenefit();
+  //});
+  applicator.applyDefaultCostModel();
+
+  std::cout << "   built cost model " << std::endl;
+  // Try to match and apply a pattern.
+  LogicalResult result = applicator.matchAndRewrite(op, rewriter, [](const Pattern &pat) -> bool {
+      std::cout << "matching ..." <<std::endl;
+      return true;
   });
 
-  // Try to match and apply a pattern.
-  LogicalResult result = applicator.matchAndRewrite(op, rewriter);
+  std::cout << "   applied pattern " << std::endl;
+
   if (failed(result)) {
     // ... No patterns were applied.
   }
@@ -156,12 +167,17 @@ void applyOutlinePatternDriver(Operation *op,
   }
 
 
-  void runOnOperation() override { processOp(getOperation());
+  void runOnOperation() override {
+    processOp(getOperation());
     RewritePatternSet patterns(&getContext());
-    patterns.insert<OutlinePattern>(&getContext());
-    LogicalResult res =
-        applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
-    assert((succeeded(res) || failed(res)) && "remove unused var warning");
+    collectOutlinePatterns(patterns,&getContext());
+    std::cout << "---------------------------------------------" << std::endl;
+    std::cout << "       apply patterns " << std::endl;
+    applyOutlinePatternDriver(getOperation(),patterns);
+    //patterns.insert<OutlinePattern>(&getContext());
+    //LogicalResult res =
+    //    applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
+    //assert((succeeded(res) || failed(res)) && "remove unused var warning");
 
    }
 
