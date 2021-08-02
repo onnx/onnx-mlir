@@ -37,6 +37,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
        cmake -DCMAKE_BUILD_TYPE=Release \
              -DCMAKE_INSTALL_MESSAGE=NEVER .. \
     && make -j${NPROC} \
+    && ${ONNX_MLIR_ROOT}/utils/check_doc_readme.md ${ONNX_MLIR_ROOT} \
     && LIT_OPTS=-v make -j${NPROC} check-onnx-lit \
     && NPROC=${NPROC} make check-onnx-backend \
     && NPROC=${NPROC} make check-onnx-backend-dynamic \
