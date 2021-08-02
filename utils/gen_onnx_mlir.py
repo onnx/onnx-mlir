@@ -40,7 +40,6 @@ parser.add_argument("--check-operation-version",
 args = parser.parse_args()
 
 import onnx
-print(onnx.__version__)
 
 check_operation_version = args.check_operation_version
 
