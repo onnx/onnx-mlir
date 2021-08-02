@@ -5,7 +5,7 @@ DOC_DIR=$1/docs
 
 README="README.md"
 
-echo "Checking docs/README.md is up-to-date"
+echo "Checking whether docs/README.md is up-to-date or not ..."
 
 diff ${ROOT_DIR}/${README} ${DOC_DIR}/${REAMDE} > readme.patch
 
