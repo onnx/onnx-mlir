@@ -31,6 +31,32 @@
 using BlockListType = llvm::iplist<mlir::Block>;
 using namespace mlir;
 
+#include <execinfo.h>
+#include <stdio.h>
+#include <stdlib.h> 
+
+/* Obtain a backtrace and print it to stdout. */
+void
+print_trace (void)
+{
+  void *array[10];
+  char **strings;
+  int size, i;
+
+  size = backtrace (array, 10);
+  strings = backtrace_symbols (array, size);
+  if (strings != NULL)
+  {
+
+    printf ("Obtained %d stack frames.\n", size);
+    for (i = 0; i < size; i++)
+      printf ("%s\n", strings[i]);
+  }
+
+  free (strings);
+}
+
+
 namespace {
 
 
@@ -66,6 +92,12 @@ public:
   OutlinePattern(MLIRContext *context)
       : RewritePattern(MatchAnyOpTypeTag(), PatternBenefit(1), context) {}
 
+  LogicalResult matchAndRewrite(Operation *op, PatternRewriter &rewriter) const {
+    std::cout << "**** RewritePattern - inside match and rewrite";
+    //return rewriter.matchAndRewrite(op,rewriter);                              
+    return success();
+  }    
+
 };
 
 /// Populate the pattern list.
@@ -81,7 +113,7 @@ public:
   /// Override the necessary PatternRewriter hooks here.
   LogicalResult matchAndRewrite(Operation *op,
                                 PatternRewriter &rewriter) {
-    std::cout << "**** inside match and rewrite";
+    std::cout << "**** PatternRewriter - inside match and rewrite";
     return success();                              
   }
 };
@@ -93,18 +125,32 @@ void applyOutlinePatternDriver(Operation *op,
   OutlinePatternRewriter rewriter(op->getContext());
   
   std::cout << "   entered pattern driver" << std::endl;
-  // Create the applicator and apply our cost model.
-  PatternApplicator applicator(FrozenRewritePatternSet(std::move(patterns)));
+for (std::unique_ptr<RewritePattern> &pat : patterns.getNativePatterns()) {
+  std::cout << "found pattern " << std::endl;
+}
+    // Create the applicator and apply our cost model.
+  auto frozen = FrozenRewritePatternSet(std::move(patterns));
+  PatternApplicator applicator(frozen);
+//  PatternApplicator applicator(FrozenRewritePatternSet(std::move(patterns)));
   //applicator.applyCostModel([](const Pattern &pattern) {
   //  return pattern.getBenefit();
   //});
   applicator.applyDefaultCostModel();
 
   std::cout << "   built cost model " << std::endl;
+  applicator.walkAllPatterns([](const Pattern &pat){
+      std::cout << "walking ..." <<std::endl;
+  });
   // Try to match and apply a pattern.
   LogicalResult result = applicator.matchAndRewrite(op, rewriter, [](const Pattern &pat) -> bool {
       std::cout << "matching ..." <<std::endl;
+      print_trace();
       return true;
+  }, [](const Pattern &pat) {
+      std::cout << "failing ..." <<std::endl;
+  }, [](const Pattern &pat) -> LogicalResult {
+      std::cout << "succeeding ..." <<std::endl;
+      return success();
   });
 
   std::cout << "   applied pattern " << std::endl;
