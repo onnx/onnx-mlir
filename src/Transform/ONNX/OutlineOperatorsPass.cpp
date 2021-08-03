@@ -31,29 +31,87 @@
 using BlockListType = llvm::iplist<mlir::Block>;
 using namespace mlir;
 
-#include <execinfo.h>
-#include <stdio.h>
-#include <stdlib.h> 
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <execinfo.h>
+#include <cxxabi.h>
 /* Obtain a backtrace and print it to stdout. */
 void
 print_trace (void)
 {
-  void *array[10];
-  char **strings;
+  void *array[50];
+  char **symbollist;
   int size, i;
 
-  size = backtrace (array, 10);
-  strings = backtrace_symbols (array, size);
-  if (strings != NULL)
+  size = backtrace (array, 50);
+  symbollist = backtrace_symbols (array, size);
+  /*if (strings != NULL)
   {
 
     printf ("Obtained %d stack frames.\n", size);
     for (i = 0; i < size; i++)
       printf ("%s\n", strings[i]);
-  }
+  }*/
+ // allocate string which will be filled with the demangled function name
+    size_t funcnamesize = 256;
+    char* funcname = (char*)malloc(funcnamesize);
 
-  free (strings);
+    // iterate over the returned symbol lines. skip the first, it is the
+    // address of this function.
+    for (int i = 1; i < size; i++)
+    {
+	char *begin_name = 0, *begin_offset = 0, *end_offset = 0;
+
+	// find parentheses and +address offset surrounding the mangled name:
+	// ./module(function+0x15c) [0x8048a6d]
+	for (char *p = symbollist[i]; *p; ++p)
+	{
+	    if (*p == '(')
+		begin_name = p;
+	    else if (*p == '+')
+		begin_offset = p;
+	    else if (*p == ')' && begin_offset) {
+		end_offset = p;
+		break;
+	    }
+	}
+
+	if (begin_name && begin_offset && end_offset
+	    && begin_name < begin_offset)
+	{
+	    *begin_name++ = '\0';
+	    *begin_offset++ = '\0';
+	    *end_offset = '\0';
+
+	    // mangled name is now in [begin_name, begin_offset) and caller
+	    // offset in [begin_offset, end_offset). now apply
+	    // __cxa_demangle():
+
+	    int status;
+	    char* ret = abi::__cxa_demangle(begin_name,
+					    funcname, &funcnamesize, &status);
+	    if (status == 0) {
+		funcname = ret; // use possibly realloc()-ed string
+		printf("  %s : %s+%s\n",
+			symbollist[i], funcname, begin_offset);
+	    }
+	    else {
+		// demangling failed. Output function name as a C function with
+		// no arguments.
+		printf("  %s : %s()+%s\n",
+			symbollist[i], begin_name, begin_offset);
+	    }
+	}
+	else
+	{
+	    // couldn't parse the line? print the whole line.
+	    printf("  %s\n", symbollist[i]);
+	}
+    }
+
+    free(funcname);
+    free(symbollist);
 }
 
 
