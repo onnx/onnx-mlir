@@ -36,7 +36,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && MLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
        cmake -DCMAKE_BUILD_TYPE=Release \
              -DCMAKE_INSTALL_MESSAGE=NEVER .. \
-    && ${ONNX_MLIR_ROOT}/utils/check_doc_readme.sh ${ONNX_MLIR_ROOT} \
+    && ${ONNX_MLIR_ROOT}/utils/check-doc-readme.sh ${ONNX_MLIR_ROOT} \
     && make -j${NPROC} \
     && LIT_OPTS=-v make -j${NPROC} check-onnx-lit \
     && NPROC=${NPROC} make check-onnx-backend \
