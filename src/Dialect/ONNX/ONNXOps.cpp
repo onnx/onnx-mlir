@@ -2031,7 +2031,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
   // Storage order.
   auto storageOrder = storage_order();
   if (storageOrder != 0)
-    return emitError("column major storage order not implemented yet");
+    return emitError("Column major storage order not implemented yet");
 
   // Process strides, dilations, and pads.
   LogicalResult res = processConvTypeParams<>(this, X());

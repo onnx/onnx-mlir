@@ -63,7 +63,7 @@ func @unsupport_conv_same_lower_dynamic_X(%arg0 : tensor<1x2x?xf32>, %arg1 : ten
 //===----------------------------------------------------------------------===//
 
 func @unsupport_maxpool_column_storage(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
-  // expected-error @+2 {{column major storage order not implemented yet}}
+  // expected-error @+2 {{Column major storage order not implemented yet}}
   // expected-error @+1 {{shape inference failed}}
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "VALID", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], storage_order = 1 : si64} : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
