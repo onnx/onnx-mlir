@@ -117,6 +117,13 @@ print_trace (void)
 
 namespace {
 
+  std::string getOperationName(Operation *op) {
+    auto symbolAttr =
+        op->getAttrOfType<StringAttr>(SymbolTable::getSymbolAttrName());
+    if (symbolAttr)
+      return std::string(symbolAttr.getValue());
+    return (op->getName().getStringRef().str());
+  }
 
 
 /*!
@@ -144,6 +151,9 @@ public:
   //OutlinePattern(PatternBenefit benefit, MLIRContext *context)
   //    : RewritePattern(OnnxGemmOp::getOperationName(), benefit, context) {}
 
+  OutlinePattern(StringRef opName,PatternBenefit benefit, MLIRContext *context)
+      : RewritePattern(opName, benefit, context) {}
+
   OutlinePattern(PatternBenefit benefit, MLIRContext *context)
       : RewritePattern(MatchAnyOpTypeTag(), benefit, context) {}
 
@@ -151,8 +161,9 @@ public:
       : RewritePattern(MatchAnyOpTypeTag(), PatternBenefit(1), context) {}
 
   LogicalResult matchAndRewrite(Operation *op, PatternRewriter &rewriter) const {
-    std::cout << "**** RewritePattern - inside match and rewrite";
-    //return rewriter.matchAndRewrite(op,rewriter);                              
+      auto opName = getOperationName(op);
+    std::cout << "**** RewritePattern - inside match and rewrite: " << "Operation is " << opName << std::endl;
+    genOutlinedFunction(rewriter, op->getContext(), "newFunc",op->getLoc());
     return success();
   }    
 
@@ -160,7 +171,8 @@ public:
 
 /// Populate the pattern list.
 void collectOutlinePatterns(RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.add<OutlinePattern>(/*benefit=*/1, ctx);
+  patterns.add<OutlinePattern>("onnx.Gemm",/*benefit=*/1, ctx);
+  //patterns.add<OutlinePattern>(/*benefit=*/1, ctx);
 }
 
 /// Define a custom PatternRewriter for use by the driver.
@@ -169,11 +181,6 @@ public:
   OutlinePatternRewriter(MLIRContext *ctx) : PatternRewriter(ctx) {}
 
   /// Override the necessary PatternRewriter hooks here.
-  LogicalResult matchAndRewrite(Operation *op,
-                                PatternRewriter &rewriter) {
-    std::cout << "**** PatternRewriter - inside match and rewrite";
-    return success();                              
-  }
 };
 
 /// Apply the custom driver to `op`.
@@ -183,26 +190,24 @@ void applyOutlinePatternDriver(Operation *op,
   OutlinePatternRewriter rewriter(op->getContext());
   
   std::cout << "   entered pattern driver" << std::endl;
-for (std::unique_ptr<RewritePattern> &pat : patterns.getNativePatterns()) {
+/*for (std::unique_ptr<RewritePattern> &pat : patterns.getNativePatterns()) {
   std::cout << "found pattern " << std::endl;
-}
+}*/
     // Create the applicator and apply our cost model.
   auto frozen = FrozenRewritePatternSet(std::move(patterns));
   PatternApplicator applicator(frozen);
-//  PatternApplicator applicator(FrozenRewritePatternSet(std::move(patterns)));
-  //applicator.applyCostModel([](const Pattern &pattern) {
-  //  return pattern.getBenefit();
-  //});
   applicator.applyDefaultCostModel();
 
   std::cout << "   built cost model " << std::endl;
-  applicator.walkAllPatterns([](const Pattern &pat){
+  /*applicator.walkAllPatterns([](const Pattern &pat){
       std::cout << "walking ..." <<std::endl;
-  });
+  });*/
   // Try to match and apply a pattern.
+op->walk([&](Operation *op){
+
   LogicalResult result = applicator.matchAndRewrite(op, rewriter, [](const Pattern &pat) -> bool {
       std::cout << "matching ..." <<std::endl;
-      print_trace();
+      //print_trace();
       return true;
   }, [](const Pattern &pat) {
       std::cout << "failing ..." <<std::endl;
@@ -217,11 +222,13 @@ for (std::unique_ptr<RewritePattern> &pat : patterns.getNativePatterns()) {
     // ... No patterns were applied.
   }
   // ... A pattern was successfully applied.
+  });
 }
   static void genOutlinedFunction(PatternRewriter &rewriter,
       MLIRContext *context, std::string funcName,
       Location loc) {
-    /*    
+      std::cout << "   entered genOutlinedFunction" << std::endl;
+/*    
     auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
     llvm::SmallVector<Type, 1> outputsType{opaquePtrTy};
 
@@ -272,7 +279,7 @@ for (std::unique_ptr<RewritePattern> &pat : patterns.getNativePatterns()) {
 
 
   void runOnOperation() override {
-    processOp(getOperation());
+    //processOp(getOperation());
     RewritePatternSet patterns(&getContext());
     collectOutlinePatterns(patterns,&getContext());
     std::cout << "---------------------------------------------" << std::endl;
