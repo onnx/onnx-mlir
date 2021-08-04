@@ -7,16 +7,14 @@ README="README.md"
 
 echo "Checking whether docs/README.md is up-to-date or not ..."
 
-diff ${ROOT_DIR}/${README} ${DOC_DIR}/${REAMDE} > readme.patch
+diff ${ROOT_DIR}/${README} ${DOC_DIR}/${REAMDE}
 
-# not up-to-date.
-if [ -s readme.patch ]; then
-  cat readme.patch
+if [ $? == 0 ]
+then
+  # up-to-date.
+  echo "docs/README.md is up-to-date."
+else
+  # not up-to-date.
   echo "docs/README.md is not up-to-date, please copy README.md from the root folder."
-  rm readme.patch
   exit 1
 fi
-
-# up-to-date.
-echo "Done."
-rm readme.patch
