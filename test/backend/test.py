@@ -6,10 +6,12 @@ from __future__ import unicode_literals
 from distutils.util import strtobool
 import os
 import sys
+import onnx
 import unittest
 import warnings
 import onnx.backend.base
 import onnx.backend.test
+from onnx import numpy_helper
 
 from onnx.backend.base import Device, DeviceType
 import subprocess
@@ -780,6 +782,9 @@ test_to_enable_static_dynamic = {
     "test_densenet121_cpu": (test_static,),
     "test_inception_v1_cpu": (test_static,),
 }
+# test_to_enable_static_dynamic = {
+#     "test_add_cpu": (test_static_dynamic,),
+# }
 
 # test for static
 test_to_enable = [ key for (key, value) in test_to_enable_static_dynamic.items() if value[0] & test_static ]
@@ -852,9 +857,11 @@ def execute_commands(cmds, dynamic_inputs_dims):
 #    share the same endianness. So we try to figure out what is the desired
 #    reference output endianness, and convert our outputs to this desired
 #    endianness.
-class EndiannessAwareExecutionSession(ExecutionSession):
-    def __init__(self, path, entry_point):
-        super().__init__(path, entry_point)
+class EndiannessAwareExecutionSession:
+    def __init__(self, model, entry_point):
+        # super().__init__(path, entry_point)
+        self.model = model 
+        self.entry_point = entry_point
 
     def is_input_le(self, inputs):
         inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
@@ -869,31 +876,14 @@ class EndiannessAwareExecutionSession(ExecutionSession):
         implicitly_le = (inputs_endianness[0] == "=" and sys_is_le)
         return explicitly_le or implicitly_le
 
-    def run(self, inputs, **kwargs):
-        if len(inputs):
-            # Deduce desired endianness of output from inputs.
-            sys_is_le = sys.byteorder == 'little'
-            inp_is_le = self.is_input_le(inputs)
-            if (sys_is_le != inp_is_le):
-                inputs = list(
-                    map(lambda x: x.byteswap().newbyteorder(), inputs))
-            outputs = super().run(inputs)
-            if (sys_is_le != inp_is_le):
-                outputs = list(
-                    map(lambda x: x.byteswap().newbyteorder(), outputs))
-            return outputs
-        else:
-            # Can't deduce desired output endianess, fingers crossed.
-            warnings.warn(
-                "Cannot deduce desired output endianness, using native endianness by default."
-            )
-            return super().run(inputs)
-
-
-class DummyBackend(onnx.backend.base.Backend):
-    @classmethod
-    def prepare(cls, model, device='CPU', **kwargs):
-        super(DummyBackend, cls).prepare(model, device, **kwargs)
+    def compile(self, model, inputs=None):
+        if inputs:
+            # Change the model by turning input tensors to initializers with the
+            # same name. This is for testing the model when an input is constant.
+            tensor = inputs.pop(0)
+            tensor = numpy_helper.from_array(tensor, model.graph.input[0].name)
+            model.graph.initializer.extend([tensor])
+            onnx.save(model, "/home/tungld/dl/onnx-mlir/build/add.onnx")
         name = model.graph.name
         model_name = result_dir+name+".onnx"
         exec_name = result_dir+name + ".so"
@@ -917,8 +907,67 @@ class DummyBackend(onnx.backend.base.Backend):
         execute_commands(command_list, dynamic_inputs_dims)
         if not os.path.exists(exec_name) :
             print("Failed " + test_config.TEST_DRIVER_PATH + ": " + name)
-        return EndiannessAwareExecutionSession(exec_name,
-                                                   "run_main_graph")
+        # Test model information
+        # for inp in model.graph.input:
+        #     print(inp.name)
+        return exec_name
+
+    def run(self, inputs, **kwargs):
+        if len(inputs):
+            # Deduce desired endianness of output from inputs.
+            sys_is_le = sys.byteorder == 'little'
+            inp_is_le = self.is_input_le(inputs)
+            if (sys_is_le != inp_is_le):
+                inputs = list(
+                    map(lambda x: x.byteswap().newbyteorder(), inputs))
+            exec_name = self.compile(self.model, inputs)
+            session = ExecutionSession(exec_name, self.entry_point)
+            outputs = session.run(inputs)
+            if (sys_is_le != inp_is_le):
+                outputs = list(
+                    map(lambda x: x.byteswap().newbyteorder(), outputs))
+            return outputs
+        else:
+            # Can't deduce desired output endianess, fingers crossed.
+            warnings.warn(
+                "Cannot deduce desired output endianness, using native endianness by default."
+            )
+            exec_name = self.compile(self.model)
+            session = ExecutionSession(exec_name, self.entry_point)
+            return session.run(inputs)
+
+
+class DummyBackend(onnx.backend.base.Backend):
+    @classmethod
+    def prepare(cls, model, device='CPU', **kwargs):
+        super(DummyBackend, cls).prepare(model, device, **kwargs)
+        # name = model.graph.name
+        # model_name = result_dir+name+".onnx"
+        # exec_name = result_dir+name + ".so"
+        # # Clean the temporary files in case
+        # # Save model to disk as temp_model.onnx.
+        # onnx.save(model, model_name)
+        # if not os.path.exists(model_name) :
+        #     print("Failed save model: "+ name)
+        # print(name)
+        # Command
+        # command_list = [TEST_DRIVER]
+        # if args.mcpu:
+        #     command_list.append("--mcpu="+args.mcpu)
+        # if args.mtriple:
+        #     command_list.append("--mtriple="+args.mtriple)
+        # if args.converter or name in test_need_converter :
+        #     command_list.append("--invokeOnnxVersionConverter=true")
+        # command_list.append(model_name)
+        # # Call frontend to process temp_model.onnx, bit code will be generated.
+        # dynamic_inputs_dims = determine_dynamic_parameters(name)
+        # execute_commands(command_list, dynamic_inputs_dims)
+        # if not os.path.exists(exec_name) :
+        #     print("Failed " + test_config.TEST_DRIVER_PATH + ": " + name)
+        # # Test model information
+        # for inp in model.graph.input:
+        #     print(inp.name)
+        return EndiannessAwareExecutionSession(model, "run_main_graph")
 
     @classmethod
     def supports_device(cls, device):
