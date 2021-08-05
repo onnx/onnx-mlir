@@ -936,7 +936,7 @@ class EndiannessAwareExecutionSession:
             test_name_cpu = self.model.graph.name + "_cpu"
             if test_name_cpu in test_for_constant:
                 test_info = test_to_enable_static_dynamic[test_name_cpu]
-                input_indices = test_info.get(DYNAMIC_SHAPE)
+                input_indices = test_info.get(CONSTANT_INPUT)
 
         # Change the model by turning input tensors to initializers with the
         # same name, so that the inputs will be constants at compile time.
