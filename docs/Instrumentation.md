@@ -30,19 +30,13 @@ For example, a model, mymodel.onnx, is compiled with `Debug/bin/onnx-mlir  --ins
 Its runtime output is listed below:
 
 ```
-#  0) after  op= Transpo Time elapsed: 0.000766 accumulated: 0.000766
-156608
-#  1) after  op= Constan Time elapsed: 0.005398 accumulated: 0.006164
-156608
-#  2) after  op= Constan Time elapsed: 0.004225 accumulated: 0.010389
-156608
-#  3) after  op=    Conv Time elapsed: 0.360213 accumulated: 0.370602
-156608
-#  4) after  op= Softplu Time elapsed: 0.190591 accumulated: 0.561193
-156608
-#  5) after  op=    Tanh Time elapsed: 0.115314 accumulated: 0.676507
-156608
-#  6) after  op=     Mul Time elapsed: 0.022779 accumulated: 0.699286
+#  0) after  op= Transpo Time elapsed: 0.000766 accumulated: 0.000766 VMem: 156608
+#  1) after  op= Constan Time elapsed: 0.005398 accumulated: 0.006164 VMem: 156608
+#  2) after  op= Constan Time elapsed: 0.004225 accumulated: 0.010389 VMem: 156608
+#  3) after  op=    Conv Time elapsed: 0.360213 accumulated: 0.370602 VMem: 156608
+#  4) after  op= Softplu Time elapsed: 0.190591 accumulated: 0.561193 VMem: 156608
+#  5) after  op=    Tanh Time elapsed: 0.115314 accumulated: 0.676507 VMem: 156608
+#  6) after  op=     Mul Time elapsed: 0.022779 accumulated: 0.699286 VMem: 156608
 ```
 
 The output is explained here:
@@ -51,7 +45,7 @@ The output is explained here:
 * Third column is the name of op, limited to 7 characters
 * elpased: time, in second, elapsed from previous instrumentation point.
 * accumulated: time, in second, from instrumentationInit.
-* the following line, like 156608 in this example, is the virtual memory size (in kb) used by this process.
+* VMem: the virtual memory size (in kb) used by this process.
 
 ## Control instrument at runtime
 By providing certain env variable at runtime, you can disable reports from  instrument libary.
