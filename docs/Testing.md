@@ -71,8 +71,8 @@ This is a way to use existing node test for dynamic tensors. Since not all test 
 ### Tests with constant inputs
 
 Because the onnx node tests accepts input tensors at runtime, the inputs are not
-constants when compiling the onnx model. Howerver, in pratice, inputs can be
-constants and we want to test such situation.
+constants when compiling the onnx model. However, in pratice, inputs can be
+constants and we want to test such a situation.
 
 Testing with constant inputs is most easily performed by using the following
 command, also used by our checkers.
@@ -80,7 +80,7 @@ command, also used by our checkers.
 cmake --build . --config Release --target check-onnx-backend-constant
 ```
 
-To test a singe onnx node, e.g. `test_add_cpu`, use two environment variables
+To test a single onnx node, e.g. `test_add_cpu`, use two environment variables
 "TEST_CONSTANT" and "IMPORTER_FORCE_CONSTANT", e.g.:
 ```
 TEST_CONSTANT=true IMPORTER_FORCE_CONSTANT="0" TEST_CASE_BY_USER=test_add_cpu make check-onnx-backend
