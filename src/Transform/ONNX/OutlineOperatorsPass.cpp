@@ -20,6 +20,7 @@
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Rewrite/PatternApplicator.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -125,7 +126,7 @@ namespace {
     return (op->getName().getStringRef().str());
   }
 
-
+static int64_t outlineCount=0;
 /*!
  *  Pass that puts each operator in a separate function called from the
  *  main graph
@@ -163,7 +164,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, PatternRewriter &rewriter) const {
       auto opName = getOperationName(op);
     std::cout << "**** RewritePattern - inside match and rewrite: " << "Operation is " << opName << std::endl;
-    genOutlinedFunction(rewriter, op->getContext(), "newFunc",op->getLoc());
+    genOutlinedFunction(rewriter, op);
     return success();
   }    
 
@@ -172,6 +173,8 @@ public:
 /// Populate the pattern list.
 void collectOutlinePatterns(RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.add<OutlinePattern>("onnx.Gemm",/*benefit=*/1, ctx);
+  patterns.add<OutlinePattern>("onnx.Sigmoid",/*benefit=*/1, ctx);
+  patterns.add<OutlinePattern>("onnx.Flatten",/*benefit=*/1, ctx);
   //patterns.add<OutlinePattern>(/*benefit=*/1, ctx);
 }
 
@@ -205,10 +208,14 @@ void applyOutlinePatternDriver(Operation *op,
   // Try to match and apply a pattern.
 op->walk([&](Operation *op){
 
-  LogicalResult result = applicator.matchAndRewrite(op, rewriter, [](const Pattern &pat) -> bool {
+  LogicalResult result = applicator.matchAndRewrite(op, rewriter, [op](const Pattern &pat) -> bool {
       std::cout << "matching ..." <<std::endl;
       //print_trace();
-      return true;
+      if (op->getDialect()->getNamespace() == "onnx") {
+          std::cout << "   found an onnx op" << std::endl;
+          return true;
+      }
+      else return false;
   }, [](const Pattern &pat) {
       std::cout << "failing ..." <<std::endl;
   }, [](const Pattern &pat) -> LogicalResult {
@@ -224,10 +231,45 @@ op->walk([&](Operation *op){
   // ... A pattern was successfully applied.
   });
 }
-  static void genOutlinedFunction(PatternRewriter &rewriter,
-      MLIRContext *context, std::string funcName,
-      Location loc) {
-      std::cout << "   entered genOutlinedFunction" << std::endl;
+  static void genOutlinedFunction(PatternRewriter &rewriter, Operation *op) {
+      MLIRContext *context=op->getContext();
+      Location loc=op->getLoc();
+      auto opName = getOperationName(op);
+
+      const std::string funcName=opName+std::to_string(outlineCount);
+      const llvm::StringRef name=funcName;
+      ++outlineCount;
+      std::cout << "   entered genOutlinedFunction: funcName=" << funcName << std::endl;
+      //rewriter.setInsertionPoint(op->getParentOfType<ModuleOp>());
+
+      PatternRewriter::InsertionGuard insertGuard(rewriter);
+      rewriter.setInsertionPointToStart(op->getParentOfType<ModuleOp>().getBody());
+        //FuncOp importGraph(const onnx::GraphProto &graph) {
+  //  const std::string &name = "main_graph";
+      //auto outlinedFunc = FuncOp::create(loc, name,
+      auto outlinedFunc = rewriter.create<FuncOp>(loc, name,//llvmFnType);
+       /*type=*/rewriter.getFunctionType({}, {}));
+  //  module_.push_back(mainFunc);
+  // Create and set insertion point to entry block.
+      outlinedFunc.body().push_back(new Block);
+      rewriter.setInsertionPointToStart(&outlinedFunc.body().back());
+      rewriter.clone(*op);
+
+  //  auto funcType = importGraph(graph, /*region=*/mainFunc.body(),
+  //      /*op=*/mainFunc.getOperation(), /*useStdReturn=*/true);
+  //  mainFunc.setType(funcType);
+
+  //  std::string sig = getSignature(funcType, mainFunc.getOperation());
+
+  //  // Emit entry point op describing inference function signature.
+  //  auto entryPoint = ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
+  //      /*numInputs=*/funcType.getNumInputs(),
+  //      /*numOutputs=*/funcType.getNumResults(),
+  //      /*signature=*/sig);
+  //  module_.push_back(entryPoint);
+
+  //  return mainFunc;
+  //}
 /*    
     auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
     llvm::SmallVector<Type, 1> outputsType{opaquePtrTy};
