@@ -68,6 +68,15 @@ add_custom_target(check-onnx-backend-dynamic
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
+add_custom_target(check-onnx-backend-constant
+  COMMAND
+  TEST_CONSTANT=true ${BACKEND_TEST_COMMAND}
+    ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+  DEPENDS
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
+  )
+
 add_custom_target(clean-onnx-backend
   COMMAND
     ${CMAKE_COMMAND} -E remove
