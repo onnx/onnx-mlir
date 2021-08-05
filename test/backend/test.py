@@ -877,10 +877,9 @@ def execute_commands(cmds, dynamic_inputs_dims):
 #    reference output endianness, and convert our outputs to this desired
 #    endianness.
 class EndiannessAwareExecutionSession:
-    def __init__(self, model, entry_point):
-        # super().__init__(path, entry_point)
+    def __init__(self, model):
         self.model = model 
-        self.entry_point = entry_point
+        self.entry_point = "run_main_graph"
 
     def is_input_le(self, inputs):
         inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
@@ -919,9 +918,6 @@ class EndiannessAwareExecutionSession:
         execute_commands(command_list, dynamic_inputs_dims)
         if not os.path.exists(exec_name) :
             print("Failed " + test_config.TEST_DRIVER_PATH + ": " + name)
-        # Test model information
-        # for inp in model.graph.input:
-        #     print(inp.name)
         return exec_name
 
     def turn_model_input_to_constant(self, inputs):
@@ -989,33 +985,7 @@ class DummyBackend(onnx.backend.base.Backend):
     @classmethod
     def prepare(cls, model, device='CPU', **kwargs):
         super(DummyBackend, cls).prepare(model, device, **kwargs)
-        # name = model.graph.name
-        # model_name = result_dir+name+".onnx"
-        # exec_name = result_dir+name + ".so"
-        # # Clean the temporary files in case
-        # # Save model to disk as temp_model.onnx.
-        # onnx.save(model, model_name)
-        # if not os.path.exists(model_name) :
-        #     print("Failed save model: "+ name)
-        # print(name)
-        # Command
-        # command_list = [TEST_DRIVER]
-        # if args.mcpu:
-        #     command_list.append("--mcpu="+args.mcpu)
-        # if args.mtriple:
-        #     command_list.append("--mtriple="+args.mtriple)
-        # if args.converter or name in test_need_converter :
-        #     command_list.append("--invokeOnnxVersionConverter=true")
-        # command_list.append(model_name)
-        # # Call frontend to process temp_model.onnx, bit code will be generated.
-        # dynamic_inputs_dims = determine_dynamic_parameters(name)
-        # execute_commands(command_list, dynamic_inputs_dims)
-        # if not os.path.exists(exec_name) :
-        #     print("Failed " + test_config.TEST_DRIVER_PATH + ": " + name)
-        # # Test model information
-        # for inp in model.graph.input:
-        #     print(inp.name)
-        return EndiannessAwareExecutionSession(model, "run_main_graph")
+        return EndiannessAwareExecutionSession(model)
 
     @classmethod
     def supports_device(cls, device):
