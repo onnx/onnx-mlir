@@ -521,7 +521,7 @@ public:
       Block *parentBlock = i8PtrLocal.getDefiningOp()->getBlock();
       FlatSymbolRefAttr deallocSym = getOrInsertDealloc(rewriter, module);
       LLVM::CallOp dealloc = rewriter.create<LLVM::CallOp>(
-          loc, llvmVoidTy, deallocSym, ArrayRef<Value>(i8PtrLocal));
+          loc, TypeRange(), deallocSym, ArrayRef<Value>(i8PtrLocal));
       dealloc.getOperation()->moveBefore(&parentBlock->back());
     } else {
       // Bitcast the global to the MemRefType's element type.

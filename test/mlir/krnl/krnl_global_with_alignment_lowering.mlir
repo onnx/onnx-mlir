@@ -47,7 +47,7 @@ func @test_krnl_global_constant_alignment() -> memref<3xf32> {
 
 // COM: Update the MemRef with the new aligned pointer.
 // CHECK:           %[[RES:.*]] = llvm.insertvalue %[[ALIGNED_PTR_LOCAL]], %[[MEMREF_5]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
-// CHECK:           %[[DEALLOCATION:.*]] = llvm.call @free(%[[I8_PTR_LOCAL]]) : (!llvm.ptr<i8>) -> !llvm.void
+// CHECK:           llvm.call @free(%[[I8_PTR_LOCAL]]) : (!llvm.ptr<i8>) -> ()
 // CHECK:           llvm.return %[[RES]] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK:         }
 
