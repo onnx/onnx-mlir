@@ -111,7 +111,7 @@ from PyRuntime import ExecutionSession
 STATIC_SHAPE="static"
 DYNAMIC_SHAPE="dynamic"
 CONSTANT_INPUT="constant"
-test_to_enable_static_dynamic = {
+test_to_enable_dict = {
 
     ############################################################
     # Elementary ops, ordered alphabetically.
@@ -798,17 +798,17 @@ test_to_enable_static_dynamic = {
 }
 
 # Test for static inputs.
-test_to_enable = [ key for (key, value) in test_to_enable_static_dynamic.items() if STATIC_SHAPE in value ]
+test_to_enable = [ key for (key, value) in test_to_enable_dict.items() if STATIC_SHAPE in value ]
 
 # Test for dynamic inputs.
 # Specify the test cases which currently can not pass for dynamic shape
 # Presumably, this list should be empty
 # Except for some operation too difficult to handle for dynamic shape
 # or big models
-test_for_dynamic = [ key for (key, value) in test_to_enable_static_dynamic.items() if DYNAMIC_SHAPE in value]
+test_for_dynamic = [ key for (key, value) in test_to_enable_dict.items() if DYNAMIC_SHAPE in value]
 
 # Test for constant inputs.
-test_for_constant = [ key for (key, value) in test_to_enable_static_dynamic.items() if CONSTANT_INPUT in value]
+test_for_constant = [ key for (key, value) in test_to_enable_dict.items() if CONSTANT_INPUT in value]
 
 # Specify the test cases which need version converter
 test_need_converter = []
@@ -835,8 +835,8 @@ def determine_dynamic_parameters(test_name):
     selected_list = {args.input: {args.dim}}
     test_name_cpu = test_name + "_cpu"
     if test_name_cpu in test_for_dynamic:
-        if len(test_to_enable_static_dynamic[test_name_cpu]) > 1:
-            selected_list = test_to_enable_static_dynamic[test_name_cpu].get(DYNAMIC_SHAPE)
+        if len(test_to_enable_dict[test_name_cpu]) > 1:
+            selected_list = test_to_enable_dict[test_name_cpu].get(DYNAMIC_SHAPE)
     return selected_list
 
 def execute_commands(cmds, dynamic_inputs_dims):
@@ -927,7 +927,7 @@ class EndiannessAwareExecutionSession:
 
     def turn_model_input_to_constant(self, inputs):
         # If IMPORTER_FORCE_CONSTANT is set, get input indices from it. 
-        # Otherwise, get from test_to_enable_static_dynamic.
+        # Otherwise, get from test_to_enable_dict.
         input_indices = {} 
         if IMPORTER_FORCE_CONSTANT:
             input_indices = set(map(lambda x: int(x.strip()),
@@ -935,7 +935,7 @@ class EndiannessAwareExecutionSession:
         else:
             test_name_cpu = self.model.graph.name + "_cpu"
             if test_name_cpu in test_for_constant:
-                test_info = test_to_enable_static_dynamic[test_name_cpu]
+                test_info = test_to_enable_dict[test_name_cpu]
                 input_indices = test_info.get(CONSTANT_INPUT)
 
         # Change the model by turning input tensors to initializers with the
