@@ -880,6 +880,11 @@ class EndiannessAwareExecutionSession:
     def __init__(self, model):
         self.model = model 
         self.entry_point = "run_main_graph"
+        self.exec_name = None
+        # Compiling the model in advance if not testing constants, so that
+        # the model is compiled once and used multiple times.
+        if not args.constant:
+            self.exec_name = self.compile_model()
 
     def is_input_le(self, inputs):
         inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
@@ -921,9 +926,6 @@ class EndiannessAwareExecutionSession:
         return exec_name
 
     def turn_model_input_to_constant(self, inputs):
-        if not args.constant:
-            return inputs 
-
         # If IMPORTER_FORCE_CONSTANT is set, get input indices from it. 
         # Otherwise, get from test_to_enable_static_dynamic.
         input_indices = {} 
@@ -963,10 +965,12 @@ class EndiannessAwareExecutionSession:
             if (sys_is_le != inp_is_le):
                 inputs = list(
                     map(lambda x: x.byteswap().newbyteorder(), inputs))
-            new_inputs = self.turn_model_input_to_constant(inputs)
-            exec_name = self.compile_model()
-            session = ExecutionSession(exec_name, self.entry_point)
-            outputs = session.run(new_inputs)
+            # If constant test, change the model inputs to constants.
+            if args.constant:
+                inputs = self.turn_model_input_to_constant(inputs)
+                self.exec_name = self.compile_model()
+            session = ExecutionSession(self.exec_name, self.entry_point)
+            outputs = session.run(inputs)
             if (sys_is_le != inp_is_le):
                 outputs = list(
                     map(lambda x: x.byteswap().newbyteorder(), outputs))
@@ -976,8 +980,7 @@ class EndiannessAwareExecutionSession:
             warnings.warn(
                 "Cannot deduce desired output endianness, using native endianness by default."
             )
-            exec_name = self.compile_model()
-            session = ExecutionSession(exec_name, self.entry_point)
+            session = ExecutionSession(self.exec_name, self.entry_point)
             return session.run(inputs)
 
 
