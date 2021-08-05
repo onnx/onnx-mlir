@@ -469,7 +469,6 @@ public:
     Value localValue, alignedLocalValue;
     if (alignmentAttr && alignmentAttr.getValue().getSExtValue() != 0) {
       // Some frequently used types.
-      auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
       auto llvmI8PtrTy =
           LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
 
