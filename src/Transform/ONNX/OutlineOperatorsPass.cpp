@@ -240,57 +240,36 @@ op->walk([&](Operation *op){
       const llvm::StringRef name=funcName;
       ++outlineCount;
       std::cout << "   entered genOutlinedFunction: funcName=" << funcName << std::endl;
-      //rewriter.setInsertionPoint(op->getParentOfType<ModuleOp>());
 
       PatternRewriter::InsertionGuard insertGuard(rewriter);
+      llvm::SmallVector<Value, 4> retVals;      
+      llvm::SmallVector<Value, 4> inVals;
+      auto inputVals = op->getOperands();
+      auto results = op->getResults();
+      auto resType = results[0].getType();
+      OperandRange oprange(op);
+      TypeRange trange(oprange);
+      TypeRange sgTRange(results);
+      auto sgOp = rewriter.create<ONNXSubgraphOp>(loc,sgTRange,inVals);
+      //auto sgOp = rewriter.create<ONNXSubgraphOp>(loc,resType,inputVals);
       rewriter.setInsertionPointToStart(op->getParentOfType<ModuleOp>().getBody());
-        //FuncOp importGraph(const onnx::GraphProto &graph) {
-  //  const std::string &name = "main_graph";
-      //auto outlinedFunc = FuncOp::create(loc, name,
+      FunctionType ftype =
+         //FunctionType::get(ctx, values.getTypes(), ifOp.getResultTypes());
+        FunctionType::get(context, inputVals.getTypes(),sgTRange);
       auto outlinedFunc = rewriter.create<FuncOp>(loc, name,//llvmFnType);
-       /*type=*/rewriter.getFunctionType({}, {}));
-  //  module_.push_back(mainFunc);
-  // Create and set insertion point to entry block.
-      outlinedFunc.body().push_back(new Block);
+       /*type=*/ftype);
+      // /*type=*/rewriter.getFunctionType({}, {}));
+      // Create and set insertion point to entry block.
+      Block *sgBlock = new Block();
+      outlinedFunc.body().push_back(sgBlock);
+      sgBlock->addArguments(sgTRange);
       rewriter.setInsertionPointToStart(&outlinedFunc.body().back());
-      rewriter.clone(*op);
-
-  //  auto funcType = importGraph(graph, /*region=*/mainFunc.body(),
-  //      /*op=*/mainFunc.getOperation(), /*useStdReturn=*/true);
-  //  mainFunc.setType(funcType);
-
-  //  std::string sig = getSignature(funcType, mainFunc.getOperation());
-
-  //  // Emit entry point op describing inference function signature.
-  //  auto entryPoint = ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
-  //      /*numInputs=*/funcType.getNumInputs(),
-  //      /*numOutputs=*/funcType.getNumResults(),
-  //      /*signature=*/sig);
-  //  module_.push_back(entryPoint);
-
-  //  return mainFunc;
-  //}
-/*    
-    auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
-    llvm::SmallVector<Type, 1> outputsType{opaquePtrTy};
-
-    auto funcType = rewriter.getFunctionType(llvm::None, outputsType);
-    llvm::SmallVector<NamedAttribute, 1> attrs;
-    auto funcOp = rewriter.create<FuncOp>(
-        UnknownLoc::get(context), funcName, funcType, attrs);
-
-    auto entryBlock = funcOp.addEntryBlock();
-
-    OpBuilder::InsertionGuard guard(rewriter);
-    rewriter.setInsertionPointToStart(entryBlock);
-
-    auto sigAddr = rewriter.create<LLVM::AddressOfOp>(loc, sigvar);
-    auto sigVoidPtr =
-        rewriter.create<LLVM::BitcastOp>(loc, opaquePtrTy, sigAddr);
-    llvm::SmallVector<Value, 1> results = {sigVoidPtr};
-    rewriter.create<ReturnOp>(UnknownLoc::get(context), results);
-    */
-
+      auto bodyOp=rewriter.clone(*op);
+      //for(const auto res : op->getResults())
+      //   res.replaceAllUsesWith(sgOp);
+      std::cout << "number of results for sgOp is " << sgOp.getNumResults();
+      op->replaceAllUsesWith(sgOp);
+      rewriter.eraseOp(op);
   }
 
   void processOp(Operation *op) {
@@ -327,10 +306,6 @@ op->walk([&](Operation *op){
     std::cout << "---------------------------------------------" << std::endl;
     std::cout << "       apply patterns " << std::endl;
     applyOutlinePatternDriver(getOperation(),patterns);
-    //patterns.insert<OutlinePattern>(&getContext());
-    //LogicalResult res =
-    //    applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
-    //assert((succeeded(res) || failed(res)) && "remove unused var warning");
 
    }
 
