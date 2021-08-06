@@ -15,6 +15,7 @@
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
@@ -1442,6 +1443,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateStdExpandOpsPatterns(patterns);
+  populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
   populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
 
