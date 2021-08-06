@@ -272,7 +272,7 @@ op->walk([&](Operation *op){
 
     // for (auto op : term->getOperands())
     //   terminatorOperands.push_back(bvm.lookup(op));
-     rewriter.create<ReturnOp>(loc, bodyOp->getResultTypes(), bodyOp->getResults());
+     rewriter.create<ONNXReturnOp>(loc,bodyOp->getResults());
  
      //ifOrElseRegion.front().clear();
      //b.setInsertionPointToEnd(&ifOrElseRegion.front());
