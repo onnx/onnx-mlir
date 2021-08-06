@@ -17,6 +17,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Region.h"
+#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Rewrite/PatternApplicator.h"
@@ -264,10 +265,21 @@ op->walk([&](Operation *op){
       outlinedFunc.body().push_back(sgBlock);
       sgBlock->addArguments(sgTRange);
       rewriter.setInsertionPointToStart(&outlinedFunc.body().back());
-      auto bodyOp=rewriter.clone(*op);
-      //for(const auto res : op->getResults())
-      //   res.replaceAllUsesWith(sgOp);
-      std::cout << "number of results for sgOp is " << sgOp.getNumResults();
+     BlockAndValueMapping bvm;
+     for (auto it : llvm::zip(inputVals, outlinedFunc.getArguments()))
+       bvm.map(std::get<0>(it), std::get<1>(it));
+     auto bodyOp=rewriter.clone(*op,bvm);
+
+    // for (auto op : term->getOperands())
+    //   terminatorOperands.push_back(bvm.lookup(op));
+     rewriter.create<ReturnOp>(loc, bodyOp->getResultTypes(), bodyOp->getResults());
+ 
+     //ifOrElseRegion.front().clear();
+     //b.setInsertionPointToEnd(&ifOrElseRegion.front());
+     //Operation *call = b.create<CallOp>(loc, outlinedFunc, values);
+     //b.create<scf::YieldOp>(loc, call->getResults());
+       std::cout << "number of results for sgOp is " << sgOp.getNumResults();
+
       op->replaceAllUsesWith(sgOp);
       rewriter.eraseOp(op);
   }
