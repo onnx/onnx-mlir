@@ -58,6 +58,18 @@ static bool instrumentReportTimeDisabled = false;
 static bool instrumentReportMemoryDisabled = false;
 static int instrumentCounter = 0;
 
+#ifdef __MVS__
+#define timersub(a, b, result)                              \
+  do {                                                      \
+    (result)->tv_sec = (a)->tv_sec - (b)->tv_sec;           \
+    (result)->tv_usec = (a)->tv_usec - (b)->tv_usec;        \
+    if ((result)->tv_usec < 0) {                            \
+      --(result)->tv_sec;                                   \
+      (result)->tv_usec += 1000000;                         \
+    }                                                       \
+  } while (0);
+#endif
+
 #ifdef _WIN32
 void TimeInit() {
   QueryPerformanceFrequency(&perfFrequency);
@@ -115,7 +127,7 @@ void ReportMemory() {
   char memOutput[200];
   FILE* memPipe;
   mypid = getpid();
-  sprintf(memCommand, "ps -o vsz --noheader -p %d", mypid);
+  sprintf(memCommand, "ps -o vsz='' -p %d", mypid);
   memPipe = popen(memCommand, "r");
   if (!memPipe) {
     if (psErrorCount > 20)
