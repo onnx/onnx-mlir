@@ -105,7 +105,7 @@ func @test_conv_batchnormtestmode_fusion_nobias(%arg0 : tensor<1x3x224x224xf32>)
     // CHECK: [[VAR_EPSILON:%.+]] = "onnx.Add"([[VARIANCE]], [[EPSILON]]) : (tensor<64xf32>, tensor<1xf32>) -> tensor<64xf32>
     // CHECK: [[SQRT:%.+]] = "onnx.Sqrt"([[VAR_EPSILON]]) : (tensor<64xf32>) -> tensor<*xf32>
     // CHECK: [[COEFFICIENT_W:%.+]] = "onnx.Div"([[SCALE]], [[SQRT]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
-    // CHECK: [[UNSQUEEZE:%.+]] = "onnx.Unsqueeze"([[COEFFICIENT_W]]) {axes = [1, 2, 3]} : (tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[UNSQUEEZE:%.+]] = "onnx.UnsqueezeV11"([[COEFFICIENT_W]]) {axes = [1, 2, 3]} : (tensor<*xf32>) -> tensor<*xf32>
     // CHECK: [[NEW_WEIGHT:%.+]] = "onnx.Mul"([[WEIGHT]], [[UNSQUEEZE]]) : (tensor<64x3x7x7xf32>, tensor<*xf32>) -> tensor<*xf32>
 
     // CHECK: [[NEG_MEAN:%.+]] = "onnx.Neg"([[MEAN]]) : (tensor<64xf32>) -> tensor<*xf32>
@@ -143,7 +143,7 @@ func @test_conv_batchnormtestmode_fusion(%arg0 : tensor<1x3x224x224xf32>, %arg1 
     // CHECK: [[VAR_EPSILON:%.+]] = "onnx.Add"([[VARIANCE]], [[EPSILON]]) : (tensor<64xf32>, tensor<1xf32>) -> tensor<64xf32>
     // CHECK: [[SQRT:%.+]] = "onnx.Sqrt"([[VAR_EPSILON]]) : (tensor<64xf32>) -> tensor<*xf32>
     // CHECK: [[COEFFICIENT_W:%.+]] = "onnx.Div"([[SCALE]], [[SQRT]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
-    // CHECK: [[UNSQUEEZE:%.+]] = "onnx.Unsqueeze"([[COEFFICIENT_W]]) {axes = [1, 2, 3]} : (tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[UNSQUEEZE:%.+]] = "onnx.UnsqueezeV11"([[COEFFICIENT_W]]) {axes = [1, 2, 3]} : (tensor<*xf32>) -> tensor<*xf32>
     // CHECK: [[NEW_WEIGHT:%.+]] = "onnx.Mul"([[WEIGHT]], [[UNSQUEEZE]]) : (tensor<64x3x7x7xf32>, tensor<*xf32>) -> tensor<*xf32>
 
     // CHECK: [[SUB:%.+]] = "onnx.Sub"(%arg1, [[MEAN]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
@@ -283,62 +283,62 @@ func @test_global_average_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tensor<1x
 // COM: Test removing squeeze/unsqueeze pairs when they use the same axes.
 
 func @test_remove_unsqueeze_squeeze(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
-  %0 = "onnx.Unsqueeze"(%arg0) {axes=[0, 2]} : (tensor<10x10xf32>) -> tensor<1x10x1x10xf32>
-  %1 = "onnx.Squeeze"(%0) {axes=[0, -2]} : (tensor<1x10x1x10xf32>) -> tensor<10x10xf32>
+  %0 = "onnx.UnsqueezeV11"(%arg0) {axes=[0, 2]} : (tensor<10x10xf32>) -> tensor<1x10x1x10xf32>
+  %1 = "onnx.SqueezeV11"(%0) {axes=[0, -2]} : (tensor<1x10x1x10xf32>) -> tensor<10x10xf32>
   return %1: tensor<10x10xf32>
 
   // CHECK-LABEL: test_remove_unsqueeze_squeeze
   // CHECK: return {{.*}}
-  // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
-  // CHECK-NOT: {{.*}} = onnx.Squeeze"{{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.UnsqueezeV11"{{.*}}
+  // CHECK-NOT: {{.*}} = onnx.SqueezeV11"{{.*}}
 
 }
 
 // -----
 
 func @test_should_not_remove_unsqueeze_squeeze(%arg0 : tensor<10x10xf32>) -> tensor<10x1x10xf32> {
-  %0 = "onnx.Unsqueeze"(%arg0) {axes=[0, 2]} : (tensor<10x10xf32>) -> tensor<1x10x1x10xf32>
-  %1 = "onnx.Squeeze"(%0) {axes=[0]} : (tensor<1x10x1x10xf32>) -> tensor<10x1x10xf32>
+  %0 = "onnx.UnsqueezeV11"(%arg0) {axes=[0, 2]} : (tensor<10x10xf32>) -> tensor<1x10x1x10xf32>
+  %1 = "onnx.SqueezeV11"(%0) {axes=[0]} : (tensor<1x10x1x10xf32>) -> tensor<10x1x10xf32>
   return %1: tensor<10x1x10xf32>
   // CHECK-LABEL: test_should_not_remove_unsqueeze_squeeze
-  // CHECK: {{.*}} = "onnx.Unsqueeze"{{.*}}
-  // CHECK: {{.*}} = "onnx.Squeeze"{{.*}}
+  // CHECK: {{.*}} = "onnx.UnsqueezeV11"{{.*}}
+  // CHECK: {{.*}} = "onnx.SqueezeV11"{{.*}}
   // CHECK: return {{.*}}
 }
 
 // -----
 
 func @test_remove_squeeze_unsqueeze(%arg0 : tensor<10x1x10xf32>) -> tensor<10x1x10xf32> {
-  %0 = "onnx.Squeeze"(%arg0) {axes=[1]} : (tensor<10x1x10xf32>) -> tensor<10x10xf32>
-  %1 = "onnx.Unsqueeze"(%0) {axes=[1]} : (tensor<10x10xf32>) -> tensor<10x1x10xf32>
+  %0 = "onnx.SqueezeV11"(%arg0) {axes=[1]} : (tensor<10x1x10xf32>) -> tensor<10x10xf32>
+  %1 = "onnx.UnsqueezeV11"(%0) {axes=[1]} : (tensor<10x10xf32>) -> tensor<10x1x10xf32>
   return %1: tensor<10x1x10xf32>
   // CHECK-LABEL: test_remove_squeeze_unsqueeze
   // CHECK: return {{.*}}
-  // CHECK-NOT: {{.*}} = "onnx.Squeeze"{{.*}}
-  // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.SqueezeV11"{{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.UnsqueezeV11"{{.*}}
 }
 
 // -----
 
 func @test_should_not_remove_squeeze_unsqueeze(%arg0 : tensor<1x10x1x10xf32>) -> tensor<10x1x10x1xf32> {
-  %0 = "onnx.Squeeze"(%arg0) {axes=[0]} : (tensor<1x10x1x10xf32>) -> tensor<10x1x10xf32>
-  %1 = "onnx.Unsqueeze"(%0) {axes=[3]} : (tensor<10x1x10xf32>) -> tensor<10x1x10x1xf32>
+  %0 = "onnx.SqueezeV11"(%arg0) {axes=[0]} : (tensor<1x10x1x10xf32>) -> tensor<10x1x10xf32>
+  %1 = "onnx.UnsqueezeV11"(%0) {axes=[3]} : (tensor<10x1x10xf32>) -> tensor<10x1x10x1xf32>
   return %1: tensor<10x1x10x1xf32>
   // CHECK-LABEL: test_should_not_remove_squeeze_unsqueeze
-  // CHECK: {{.*}} = "onnx.Squeeze"{{.*}}
-  // CHECK: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK: {{.*}} = "onnx.SqueezeV11"{{.*}}
+  // CHECK: {{.*}} = "onnx.UnsqueezeV11"{{.*}}
   // CHECK: return {{.*}}
 }
 
 // -----
 
 func @test_should_not_remove_null_axes_squeeze_unsqueeze(%arg0 : tensor<1x10x1x10xf32>) -> tensor<10x1x10x1xf32> {
-  %0 = "onnx.Squeeze"(%arg0) : (tensor<1x10x1x10xf32>) -> tensor<10x10xf32>
-  %1 = "onnx.Unsqueeze"(%0) {axes=[1, 3]} : (tensor<10x10xf32>) -> tensor<10x1x10x1xf32>
+  %0 = "onnx.SqueezeV11"(%arg0) : (tensor<1x10x1x10xf32>) -> tensor<10x10xf32>
+  %1 = "onnx.UnsqueezeV11"(%0) {axes=[1, 3]} : (tensor<10x10xf32>) -> tensor<10x1x10x1xf32>
   return %1: tensor<10x1x10x1xf32>
   // CHECK-LABEL: test_should_not_remove_null_axes_squeeze_unsqueeze
-  // CHECK: {{.*}} = "onnx.Squeeze"{{.*}}
-  // CHECK: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK: {{.*}} = "onnx.SqueezeV11"{{.*}}
+  // CHECK: {{.*}} = "onnx.UnsqueezeV11"{{.*}}
   // CHECK: return {{.*}}
 }
 
@@ -394,13 +394,13 @@ func @test_rewrite_batchnormtestmode_Nd(%arg0 : tensor<1x64x112x112xf32>) -> ten
     // CHECK: [[ADD:%.*]] = "onnx.Add"([[VAR]], [[EPSILON]]) : (tensor<64xf32>, tensor<1xf32>) -> tensor<64xf32>
     // CHECK: [[SQRT:%.*]] = "onnx.Sqrt"([[ADD]]) : (tensor<64xf32>) -> tensor<*xf32>
     // CHECK: [[A:%.*]] = "onnx.Div"([[SCALE]], [[SQRT]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
-    // CHECK: [[A_UNSQUEEZE:%.*]] = "onnx.Unsqueeze"([[A]]) {axes = [1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[A_UNSQUEEZE:%.*]] = "onnx.UnsqueezeV11"([[A]]) {axes = [1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
 
     // CHECK: [[X_A:%.*]] = "onnx.Mul"(%arg0, [[A_UNSQUEEZE]]) : (tensor<1x64x112x112xf32>, tensor<*xf32>) -> tensor<*xf32>
 
     // CHECK: [[SUB:%.*]] = "onnx.Mul"([[MEAN]], [[A]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
     // CHECK: [[B:%.*]] = "onnx.Sub"([[BIAS]], [[SUB]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
-    // CHECK: [[B_UNSQUEEZE:%.*]] = "onnx.Unsqueeze"([[B]]) {axes = [1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[B_UNSQUEEZE:%.*]] = "onnx.UnsqueezeV11"([[B]]) {axes = [1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
 
     // CHECK: [[RES:%.*]] = "onnx.Add"([[X_A]], [[B_UNSQUEEZE]]) : (tensor<*xf32>, tensor<*xf32>) -> tensor<1x64x112x112xf32>
     // CHECK: return [[RES]] : tensor<1x64x112x112xf32>
