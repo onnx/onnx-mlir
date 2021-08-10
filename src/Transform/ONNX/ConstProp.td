@@ -292,7 +292,7 @@ def TransposeofConst :  Pat<
 
 def UnsqueezeofConst :  Pat<
     // From Unsqueeze (c, axis)
-    (ONNXUnsqueezeOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_), $_),
+    (ONNXUnsqueezeV11Op:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_), $_),
     // To c' where c' is the unsqueezed value.
     (CreateUnsqueezeOfConst $resOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;

@@ -18,8 +18,8 @@ func private @test_gru_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x12
 // CHECK:             [[LOAD_PARAM_4_MEM_:%.+]] = krnl.load [[PARAM_4_]]{{.}}[[CST_0_]], [[I_0_]], [[I_1_]]{{.}} : memref<1x2x4xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_4_MEM_]], [[VAR_0_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<2x4xf32>
 // CHECK:           }
-// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Squeeze"([[PARAM_1_]]) {axes = [0]} : (memref<1x12x3xf32>) -> memref<12x3xf32>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Squeeze"([[PARAM_2_]]) {axes = [0]} : (memref<1x12x4xf32>) -> memref<12x4xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.SqueezeV11"([[PARAM_1_]]) {axes = [0]} : (memref<1x12x3xf32>) -> memref<12x3xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.SqueezeV11"([[PARAM_2_]]) {axes = [0]} : (memref<1x12x4xf32>) -> memref<12x4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [1, 0]} : (memref<12x3xf32>) -> memref<3x12xf32>
 // CHECK-DAG:       [[VAR_6_:%.+]]:3 = "onnx.Split"([[VAR_4_]]) {axis = 0 : si64} : (memref<12x4xf32>) -> (memref<4x4xf32>, memref<4x4xf32>, memref<4x4xf32>)
@@ -27,7 +27,7 @@ func private @test_gru_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x12
 // CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_6_]]#0) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
 // CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Transpose"([[VAR_6_]]#1) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
 // CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Transpose"([[VAR_6_]]#2) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
-// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.Squeeze"([[PARAM_3_]]) {axes = [0]} : (memref<1x24xf32>) -> memref<24xf32>
+// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.SqueezeV11"([[PARAM_3_]]) {axes = [0]} : (memref<1x24xf32>) -> memref<24xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_11_:%.+]]:6 = "onnx.Split"([[VAR_10_]]) {axis = 0 : si64} : (memref<24xf32>) -> (memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>)
 // CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
@@ -152,12 +152,12 @@ func private @test_gru_forward_mode_linear_before_reset(%arg0: tensor<7x2x3xf32>
 // CHECK:             [[LOAD_PARAM_4_MEM_:%.+]] = krnl.load [[PARAM_4_]]{{.}}[[CST_0_]], [[I_0_]], [[I_1_]]{{.}} : memref<1x2x4xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_4_MEM_]], [[VAR_0_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<2x4xf32>
 // CHECK:           }
-// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Squeeze"([[PARAM_1_]]) {axes = [0]} : (memref<1x12x3xf32>) -> memref<12x3xf32>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Squeeze"([[PARAM_2_]]) {axes = [0]} : (memref<1x12x4xf32>) -> memref<12x4xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.SqueezeV11"([[PARAM_1_]]) {axes = [0]} : (memref<1x12x3xf32>) -> memref<12x3xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.SqueezeV11"([[PARAM_2_]]) {axes = [0]} : (memref<1x12x4xf32>) -> memref<12x4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [1, 0]} : (memref<12x3xf32>) -> memref<3x12xf32>
 // CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Transpose"([[VAR_4_]]) {perm = [1, 0]} : (memref<12x4xf32>) -> memref<4x12xf32>
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Squeeze"([[PARAM_3_]]) {axes = [0]} : (memref<1x24xf32>) -> memref<24xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.SqueezeV11"([[PARAM_3_]]) {axes = [0]} : (memref<1x24xf32>) -> memref<24xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_8_:%.+]]:6 = "onnx.Split"([[VAR_7_]]) {axis = 0 : si64} : (memref<24xf32>) -> (memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>)
 // CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
@@ -418,8 +418,8 @@ func private @test_gru_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x12
 // CHECK:             [[LOAD_PARAM_4_MEM_:%.+]] = krnl.load [[PARAM_4_]]{{.}}[[CST_0_]], [[I_0_]], [[I_1_]]{{.}} : memref<1x2x4xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_4_MEM_]], [[VAR_0_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<2x4xf32>
 // CHECK:           }
-// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Squeeze"([[PARAM_1_]]) {axes = [0]} : (memref<1x12x3xf32>) -> memref<12x3xf32>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Squeeze"([[PARAM_2_]]) {axes = [0]} : (memref<1x12x4xf32>) -> memref<12x4xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.SqueezeV11"([[PARAM_1_]]) {axes = [0]} : (memref<1x12x3xf32>) -> memref<12x3xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.SqueezeV11"([[PARAM_2_]]) {axes = [0]} : (memref<1x12x4xf32>) -> memref<12x4xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [1, 0]} : (memref<12x3xf32>) -> memref<3x12xf32>
 // CHECK-DAG:       [[VAR_6_:%.+]]:3 = "onnx.Split"([[VAR_4_]]) {axis = 0 : si64} : (memref<12x4xf32>) -> (memref<4x4xf32>, memref<4x4xf32>, memref<4x4xf32>)
@@ -427,7 +427,7 @@ func private @test_gru_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x12
 // CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_6_]]#0) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
 // CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Transpose"([[VAR_6_]]#1) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
 // CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Transpose"([[VAR_6_]]#2) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
-// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.Squeeze"([[PARAM_3_]]) {axes = [0]} : (memref<1x24xf32>) -> memref<24xf32>
+// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.SqueezeV11"([[PARAM_3_]]) {axes = [0]} : (memref<1x24xf32>) -> memref<24xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_11_:%.+]]:6 = "onnx.Split"([[VAR_10_]]) {axis = 0 : si64} : (memref<24xf32>) -> (memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>)
 // CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
@@ -560,12 +560,12 @@ func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK:             krnl.store [[LOAD_PARAM_4_MEM_1_]], [[VAR_0_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<2x4xf32>
 // CHECK:           }
 // CHECK:           [[VAR_4_:%.+]]:2 = "onnx.Split"([[PARAM_1_]]) {axis = 0 : si64} : (memref<2x12x3xf32>) -> (memref<1x12x3xf32>, memref<1x12x3xf32>)
-// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Squeeze"([[VAR_4_]]#0) {axes = [0]} : (memref<1x12x3xf32>) -> memref<12x3xf32>
-// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Squeeze"([[VAR_4_]]#1) {axes = [0]} : (memref<1x12x3xf32>) -> memref<12x3xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.SqueezeV11"([[VAR_4_]]#0) {axes = [0]} : (memref<1x12x3xf32>) -> memref<12x3xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.SqueezeV11"([[VAR_4_]]#1) {axes = [0]} : (memref<1x12x3xf32>) -> memref<12x3xf32>
 // CHECK-DAG:       [[VAR_7_:%.+]]:2 = "onnx.Split"([[PARAM_2_]]) {axis = 0 : si64} : (memref<2x12x4xf32>) -> (memref<1x12x4xf32>, memref<1x12x4xf32>)
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Squeeze"([[VAR_7_]]#0) {axes = [0]} : (memref<1x12x4xf32>) -> memref<12x4xf32>
-// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Squeeze"([[VAR_7_]]#1) {axes = [0]} : (memref<1x12x4xf32>) -> memref<12x4xf32>
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.SqueezeV11"([[VAR_7_]]#0) {axes = [0]} : (memref<1x12x4xf32>) -> memref<12x4xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.SqueezeV11"([[VAR_7_]]#1) {axes = [0]} : (memref<1x12x4xf32>) -> memref<12x4xf32>
 // CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.Transpose"([[VAR_5_]]) {perm = [1, 0]} : (memref<12x3xf32>) -> memref<3x12xf32>
 // CHECK:           [[VAR_11_:%.+]]:3 = "onnx.Split"([[VAR_8_]]) {axis = 0 : si64} : (memref<12x4xf32>) -> (memref<4x4xf32>, memref<4x4xf32>, memref<4x4xf32>)
 // CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Transpose"([[VAR_11_]]#0) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
@@ -579,8 +579,8 @@ func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK-DAG:       [[VAR_19_:%.+]] = "onnx.Transpose"([[VAR_16_]]#2) {perm = [1, 0]} : (memref<4x4xf32>) -> memref<4x4xf32>
 // CHECK-DAG:       [[VAR_20_:%.+]]:2 = "onnx.Split"([[PARAM_3_]]) {axis = 0 : si64} : (memref<2x24xf32>) -> (memref<1x24xf32>, memref<1x24xf32>)
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_21_:%.+]] = "onnx.Squeeze"([[VAR_20_]]#0) {axes = [0]} : (memref<1x24xf32>) -> memref<24xf32>
-// CHECK-DAG:       [[VAR_22_:%.+]] = "onnx.Squeeze"([[VAR_20_]]#1) {axes = [0]} : (memref<1x24xf32>) -> memref<24xf32>
+// CHECK-DAG:       [[VAR_21_:%.+]] = "onnx.SqueezeV11"([[VAR_20_]]#0) {axes = [0]} : (memref<1x24xf32>) -> memref<24xf32>
+// CHECK-DAG:       [[VAR_22_:%.+]] = "onnx.SqueezeV11"([[VAR_20_]]#1) {axes = [0]} : (memref<1x24xf32>) -> memref<24xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_23_:%.+]]:6 = "onnx.Split"([[VAR_21_]]) {axis = 0 : si64} : (memref<24xf32>) -> (memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>)
 // CHECK-DAG:       [[VAR_24_:%.+]]:6 = "onnx.Split"([[VAR_22_]]) {axis = 0 : si64} : (memref<24xf32>) -> (memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>)

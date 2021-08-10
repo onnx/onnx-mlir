@@ -1136,18 +1136,19 @@ LogicalResult ONNXReshapeOpShapeHelper::Compute(
 // ONNX Squeeze Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXSqueezeOpShapeHelper::ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp)
-    : ONNXOpShapeHelper<ONNXSqueezeOp>(newOp) {}
+ONNXSqueezeV11OpShapeHelper::ONNXSqueezeV11OpShapeHelper(
+    ONNXSqueezeV11Op *newOp)
+    : ONNXOpShapeHelper<ONNXSqueezeV11Op>(newOp) {}
 
-ONNXSqueezeOpShapeHelper::ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp,
-    ConversionPatternRewriter &rewriter,
+ONNXSqueezeV11OpShapeHelper::ONNXSqueezeV11OpShapeHelper(
+    ONNXSqueezeV11Op *newOp, ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSqueezeOp>(
+    : ONNXOpShapeHelper<ONNXSqueezeV11Op>(
           newOp, rewriter, fGetDenseVal, fLoadVal) {}
 
-LogicalResult ONNXSqueezeOpShapeHelper::Compute(
-    ONNXSqueezeOpAdaptor operandAdaptor) {
+LogicalResult ONNXSqueezeV11OpShapeHelper::Compute(
+    ONNXSqueezeV11OpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   Operation *genericOp = reinterpret_cast<Operation *>(op);
 
@@ -1183,18 +1184,19 @@ LogicalResult ONNXSqueezeOpShapeHelper::Compute(
 // ONNX Unsqueeze Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXUnsqueezeOpShapeHelper::ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp)
-    : ONNXOpShapeHelper<ONNXUnsqueezeOp>(newOp) {}
+ONNXUnsqueezeV11OpShapeHelper::ONNXUnsqueezeV11OpShapeHelper(
+    ONNXUnsqueezeV11Op *newOp)
+    : ONNXOpShapeHelper<ONNXUnsqueezeV11Op>(newOp) {}
 
-ONNXUnsqueezeOpShapeHelper::ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp,
-    ConversionPatternRewriter &rewriter,
+ONNXUnsqueezeV11OpShapeHelper::ONNXUnsqueezeV11OpShapeHelper(
+    ONNXUnsqueezeV11Op *newOp, ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXUnsqueezeOp>(
+    : ONNXOpShapeHelper<ONNXUnsqueezeV11Op>(
           newOp, rewriter, fGetDenseVal, fLoadVal) {}
 
-LogicalResult ONNXUnsqueezeOpShapeHelper::Compute(
-    ONNXUnsqueezeOpAdaptor operandAdaptor) {
+LogicalResult ONNXUnsqueezeV11OpShapeHelper::Compute(
+    ONNXUnsqueezeV11OpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   Operation *genericOp = reinterpret_cast<Operation *>(op);
 

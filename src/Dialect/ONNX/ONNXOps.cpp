@@ -2167,6 +2167,11 @@ LogicalResult ONNXPadOp::inferShapes(
 
 LogicalResult ONNXUnsqueezeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+  return emitError("Not implemented");
+}
+
+LogicalResult ONNXUnsqueezeV11Op::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
@@ -2201,8 +2206,8 @@ LogicalResult ONNXUnsqueezeOp::inferShapes(
     axesAttr(builder.getI64ArrayAttr(defaultRefs));
   }
 
-  ONNXUnsqueezeOpAdaptor operandAdaptor(*this);
-  ONNXUnsqueezeOpShapeHelper shapeHelper(this);
+  ONNXUnsqueezeV11OpAdaptor operandAdaptor(*this);
+  ONNXUnsqueezeV11OpShapeHelper shapeHelper(this);
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Unsqueeze parameters successfully");
   SmallVector<int64_t, 4> outputDims;
@@ -2217,6 +2222,11 @@ LogicalResult ONNXUnsqueezeOp::inferShapes(
 // Squeeze
 
 LogicalResult ONNXSqueezeOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return emitError("Not implemented");
+}
+
+LogicalResult ONNXSqueezeV11Op::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
@@ -2250,8 +2260,8 @@ LogicalResult ONNXSqueezeOp::inferShapes(
     axesAttr(builder.getI64ArrayAttr(defaultRefs));
   }
 
-  ONNXSqueezeOpAdaptor operandAdaptor(*this);
-  ONNXSqueezeOpShapeHelper shapeHelper(this);
+  ONNXSqueezeV11OpAdaptor operandAdaptor(*this);
+  ONNXSqueezeV11OpShapeHelper shapeHelper(this);
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Squeeze parameters successfully");
   SmallVector<int64_t, 4> outputDims;

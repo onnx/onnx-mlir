@@ -115,12 +115,12 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
 
 /// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.
-Value foldOrEmitONNXSqueezeOp(ConversionPatternRewriter &rewriter, Location loc,
-    Type resultType, Value input, int64_t axis);
+Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, int64_t axis);
 
 /// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.
-Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
+Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis);
 
 /// Emit an ONNXSplitOp. If the input is constant, do const propagation, and
@@ -278,7 +278,7 @@ void populateLoweringONNXRNNOpPattern(
 void populateLoweringONNXArgMaxOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
-void populateLoweringONNXUnsqueezeOpPattern(
+void populateLoweringONNXUnsqueezeV11OpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXTransposeOpPattern(
@@ -317,7 +317,7 @@ void populateLoweringONNXShapeOpPattern(
 void populateLoweringONNXSliceOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
-void populateLoweringONNXSqueezeOpPattern(
+void populateLoweringONNXSqueezeV11OpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXSplitOpPattern(
