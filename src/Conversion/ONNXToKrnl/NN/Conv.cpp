@@ -34,8 +34,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
     bool isDilated = !dilations.empty();
     KrnlBuilder createKrnl(rewriter, loc);
 
-    if (DEBUG_TRACE)
-      printf("hi alex: conv unoptimized\n");
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;
 
@@ -44,7 +42,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
     auto biasOperand = operandAdaptor.B();
     bool hasBias = !biasOperand.getType().isa<NoneType>();
     int64_t groupNum = convOp.group();
-    bool hasGroup = groupNum > 1;
     IndexExpr G = LiteralIndexExpr(groupNum);
     Value fZero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
 
@@ -56,6 +53,13 @@ struct ONNXConvOpLowering : public ConversionPattern {
     IndexExpr N = shapeHelper.dimsForOutput()[0];
     IndexExpr CO = shapeHelper.dimsForOutput()[1];
     IndexExpr COPerGroup = CO.ceilDiv(G);
+    // Note: Pytorch requires both channel in (CI) and channel out (CO) to be multiple of group number (G).
+    // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html
+    // ONNX clearly states that C (channel in or CI here) is a multiple of group number (G).
+    // https://github.com/onnx/onnx/blob/master/docs/Operators.md#Conv 
+    // Quote: X.shape[1] == (W.shape[1] * group) == C
+    // Keras also specifies it: Input channels and filters must both be divisible by groups.
+    // https://www.tensorflow.org/api_docs/python/tf/keras/layers/Conv2D
     if (CO.isLiteral()) {
       assert(COPerGroup.isLiteral() &&
              "expected div by const to result in a literal");
@@ -93,6 +97,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //   for g = 0 .. G:
     //     for coPerGroup = 0 .. COPerGroup:
     //       co = g * COPerGroup + coPerGroup;
+
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs, {},
         [&](KrnlBuilder &createKrnl, ValueRange) {
           // Compute the Channel In Indices.
@@ -207,7 +212,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
                       Value newRed = createMath.add(oldRed, mul);
                       createKrnl.store(newRed, reductionVal);
                     }); // Reduction loops.
-                // Finish the reduction and store in result array.
+                        // Finish the reduction and store in result array.
                 Value result = createKrnl.load(reductionVal);
                 // Store the result. Optionally add bias.
                 SymbolIndexExpr coInOutputSpacial(co);
@@ -235,9 +240,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
       SmallVectorImpl<int64_t> &dilations) const {
     auto loc = convOp.getLoc();
     bool isDilated = !dilations.empty();
-
-    if (DEBUG_TRACE)
-      printf("hi alex: conv original\n");
 
     KrnlBuilder createKrnl(rewriter, loc);
     MathBuilder createMath(rewriter, loc);
@@ -576,20 +578,17 @@ struct ONNXConvOpLowering : public ConversionPattern {
             padsAttribute, stridesAttribute, convOp.dilations());
     assert(succeeded(shapecomputed));
 
-    // Scope for krnl ops
-    IndexExprScope ieScope(rewriter, loc);
-
     // Insert an allocation and deallocation for the result of this operation.
     MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
 
     if (DEBUG_ORIGINAL) {
-      convOriginal(rewriter, ieScope, convOp, operandAdaptor, shapeHelper,
-          memRefType, alloc, pads, strides, dilations);
+      convOriginal(rewriter, shapeHelper.scope, convOp, operandAdaptor,
+          shapeHelper, memRefType, alloc, pads, strides, dilations);
     } else {
-      convUnoptimized(rewriter, ieScope, convOp, operandAdaptor, shapeHelper,
-          memRefType, alloc, pads, strides, dilations);
+      convUnoptimized(rewriter, shapeHelper.scope, convOp, operandAdaptor,
+          shapeHelper, memRefType, alloc, pads, strides, dilations);
     }
     rewriter.replaceOp(op, alloc);
     return success();
