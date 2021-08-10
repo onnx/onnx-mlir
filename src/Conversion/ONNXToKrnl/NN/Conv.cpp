@@ -16,6 +16,7 @@
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 #define DEBUG_ORIGINAL 0
+#define DEBUG_TRACE 0
 
 using namespace mlir;
 
@@ -33,6 +34,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
     bool isDilated = !dilations.empty();
     KrnlBuilder createKrnl(rewriter, loc);
 
+    if (DEBUG_TRACE)
+      printf("hi alex: conv unoptimized\n");
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;
 
@@ -82,20 +85,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
     // Determine the bounds for the loops over batch & channel out.
     IndexExpr iZero = LiteralIndexExpr(0);
-    ValueRange outerLoops = createKrnl.defineLoops(hasGroup ? 3 : 2);
-    SmallVector<IndexExpr, 3> outerLbs, outerUbs;
-    if (hasGroup) {
-      outerLbs = {iZero, iZero, iZero};
-      outerUbs = {N, G, COPerGroup};
-    } else {
-      // TODO: just see if having a loop from 0..1 is really that bad.
-      // Removing this special case would simplify the code.
-      outerLbs = {iZero, iZero};
-      outerUbs = {N, CO};
-    }
+    ValueRange outerLoops = createKrnl.defineLoops(3);
+    SmallVector<IndexExpr, 3> outerLbs = {iZero, iZero, iZero};
+    SmallVector<IndexExpr, 3> outerUbs = {N, G, COPerGroup};
     // Iterate over the outer loops
     // for n = 0 .. N:
-    //   for g = 0 .. group:
+    //   for g = 0 .. G:
     //     for coPerGroup = 0 .. COPerGroup:
     //       co = g * COPerGroup + coPerGroup;
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs, {},
@@ -104,14 +99,9 @@ struct ONNXConvOpLowering : public ConversionPattern {
           ValueRange outerIndices = createKrnl.getInductionVarValue(outerLoops);
           IndexExprScope outerScope(createKrnl);
           // Compute the channel out index "co".
-          IndexExpr co;
           DimIndexExpr g(outerIndices[1]);
-          if (hasGroup) {
-            DimIndexExpr coPerGroup(outerIndices[2]);
-            co = g * SymbolIndexExpr(COPerGroup) + coPerGroup;
-          } else {
-            co = DimIndexExpr(outerIndices[1]);
-          }
+          DimIndexExpr coPerGroup(outerIndices[2]);
+          IndexExpr co = g * SymbolIndexExpr(COPerGroup) + coPerGroup;
 
           // Determine the bounds for the output spacial dimensions.
           int spacialRank = outputRank - spatialStartIndex;
@@ -245,6 +235,9 @@ struct ONNXConvOpLowering : public ConversionPattern {
       SmallVectorImpl<int64_t> &dilations) const {
     auto loc = convOp.getLoc();
     bool isDilated = !dilations.empty();
+
+    if (DEBUG_TRACE)
+      printf("hi alex: conv original\n");
 
     KrnlBuilder createKrnl(rewriter, loc);
     MathBuilder createMath(rewriter, loc);

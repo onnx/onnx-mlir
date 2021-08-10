@@ -26,17 +26,23 @@ using namespace mlir;
 // Include some helper functions.
 #include "Helper.hpp"
 
+// Made global so that we can repeat the test with different strides and
+// dilations.
+int stride, dilation;
+
 // Returns whether onnx-mlir compiled convolution is producing the same results
 // as a naive implementation of convolution for a specific set of convolution
-// parameters/configuration.
+// parameters/configuration. Stride and dilation are square (same along H and
+// W).
 bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
     const int W, const int kH, const int kW, const int pHBegin, const int pHEnd,
-    const int pWBegin, const int pWEnd, bool isDynamicH = false) {
+    const int pWBegin, const int pWEnd, bool isDynamicH) {
   static int testNum = 0;
-  printf("attempt %d with N %d, C %d, H %d, W %d, kH %d, kW %d, pHBegin %d, "
-         "pHEnd %d, pWBegin %d, pWEnd %d, isDynamicH %d \n",
-      ++testNum, N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
-      isDynamicH);
+  printf(
+      "attempt %d with N %d, C %d, H %d, W %d, kH %d, kW %d, pHBegin %d, "
+      "pHEnd %d, pWBegin %d, pWEnd %d, isDynamicH %d, stride %d, dilation %d\n",
+      ++testNum, N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd, isDynamicH,
+      stride, dilation);
 
   MLIRContext ctx;
   registerDialects(ctx);
@@ -74,10 +80,10 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
       builder.create<ConstantOp>(UnknownLoc::get(&ctx), builder.getUnitAttr())
           .getResult();
 
-  auto dilations = builder.getI64ArrayAttr({1, 1});
+  auto dilations = builder.getI64ArrayAttr({dilation, dilation});
   auto kernel_shape = builder.getI64ArrayAttr({kH, kW});
   auto pads = builder.getI64ArrayAttr({pHBegin, pWBegin, pHEnd, pWEnd});
-  auto strides = builder.getI64ArrayAttr({1, 1});
+  auto strides = builder.getI64ArrayAttr({stride, stride});
 
   auto convOp = builder.create<ONNXConvOp>(UnknownLoc::get(&ctx),
       /*Y=*/yType,
@@ -143,11 +149,14 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
           for (int64_t ci = 0; ci < C; ci++)
             for (int64_t kh = 0; kh < kH; kh++)
               for (int64_t kw = 0; kw < kW; kw++)
-                if ((h + kh - pHBegin >= 0 && h + kh - pHBegin < H) &&
-                    (w + kw - pWBegin >= 0 && w + kw - pWBegin < W))
+                if ((h * stride + kh * dilation - pHBegin >= 0 &&
+                        h * stride + kh * dilation - pHBegin < H) &&
+                    (w * stride + kw * dilation - pWBegin >= 0 &&
+                        w * stride + kw * dilation - pWBegin < W))
                   omTensorGetElem<float>(ref, {n, c, h, w}) +=
                       omTensorGetElem<float>(img.get(),
-                          {n, ci, h + kh - pHBegin, w + kw - pWBegin}) *
+                          {n, ci, h * stride + kh * dilation - pHBegin,
+                              w * stride + kw * dilation - pWBegin}) *
                       omTensorGetElem<float>(filter.get(), {c, ci, kh, kw});
         }
 
@@ -164,42 +173,57 @@ int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
-  // RapidCheck test case generation.
-  bool success = rc::check("convolution implementation correctness", []() {
-    const auto N = *rc::gen::inRange(1, 10);
-    const auto C = *rc::gen::inRange(1, 20);
-    const auto H = *rc::gen::inRange(5, 20);
-    const auto W = *rc::gen::inRange(5, 20);
+  // Iterates manually over strides and dilation.
+  for (stride = 1; stride < 3; ++stride) {
+    for (dilation = 1; dilation < 3; ++dilation) {
+      printf("\nRun with stride %d, dilation %d\n", stride, dilation);
+      // For debugging, if helpful.
+      if (false && stride == 1 && dilation == 1) {
+        printf("  Skip no stride and no dilations\n");
+        continue;
+      }
+      if (false && (stride < 2 || dilation < 2)) {
+        printf("  Skip no stride or no dilations\n");
+        continue;
+      }
+      // RapidCheck test case generation for a given stride and dilation.
+      bool success = rc::check("convolution implementation correctness", []() {
+        const auto N = *rc::gen::inRange(1, 5);
+        const auto C = *rc::gen::inRange(1, 10);
+        const auto H = *rc::gen::inRange(5, 32 * stride);
+        const auto W = *rc::gen::inRange(5, 32 * stride);
 
-    const auto kH = *rc::gen::inRange(1, 15);
-    const auto kW = *rc::gen::inRange(1, 15);
+        const auto kH = *rc::gen::inRange(1, 6);
+        const auto kW = *rc::gen::inRange(1, 6);
 
-    // We don't want an entire window of padding.
-    const auto pHBegin = *rc::gen::inRange(0, kH - 1);
-    const auto pHEnd = *rc::gen::inRange(0, kH - 1);
-    const auto pWBegin = *rc::gen::inRange(0, kW - 1);
-    const auto pWEnd = *rc::gen::inRange(0, kW - 1);
+        // We don't want an entire window of padding.
+        const auto pHBegin = *rc::gen::inRange(0, kH);
+        const auto pHEnd = *rc::gen::inRange(0, kH);
+        const auto pWBegin = *rc::gen::inRange(0, kW);
+        const auto pWEnd = *rc::gen::inRange(0, kW);
 
-    // Whether test dynamic height.
-    //const auto DynH = *rc::gen::element(0, 1);
-    //const bool isDynH = (DynH == 0);
-    const bool isDynH = false;
+        // Whether test dynamic height.
+        const auto DynH = *rc::gen::element(0, 1);
+        const bool isDynH = (DynH == 0);
 
-    // Make sure we have at least 1 output per dimension.
-    RC_PRE((H >= kH) && (W > kW));
+        // Make sure we have at least 1 output per dimension.
+        RC_PRE((H / stride >= kH * dilation) && (W / stride > kW * dilation));
 
-    RC_ASSERT(isOMConvTheSameAsNaiveImplFor(
-        N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd, isDynH));
-  });
-  if (!success)
-    return 1;
+        RC_ASSERT(isOMConvTheSameAsNaiveImplFor(
+            N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd, isDynH));
+      });
+      if (!success)
+        return 1;
+    }
+  }
 
-  // Exhaustive test case generation.
+  printf("\nExhaustive test case generation with unit stride and dilation.\n");
+  stride = dilation = 1;
   for (int pHBegin = 0; pHBegin < 3; pHBegin++)
     for (int pHEnd = 0; pHEnd < 3; pHEnd++)
       for (int pWBegin = 0; pWBegin < 3; pWBegin++)
         for (int pWEnd = 0; pWEnd < 3; pWEnd++)
           assert(isOMConvTheSameAsNaiveImplFor(
-              2, 4, 5, 5, 3, 3, pHBegin, pHEnd, pWBegin, pWEnd));
+              2, 4, 5, 5, 3, 3, pHBegin, pHEnd, pWBegin, pWEnd, false));
   return 0;
 }
