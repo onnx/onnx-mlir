@@ -114,7 +114,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     // lowering the following ops. See the comment in the declaration of
     // 'checkRNNOps' for more details.
     target.addLegalOp<ONNXTransposeOp>();
-    target.addLegalOp<ONNXSqueezeOp>();
+    target.addLegalOp<ONNXSqueezeV11Op>();
     target.addLegalOp<ONNXSplitOp>();
     target.addLegalOp<ONNXMatMulOp>();
     target.addLegalOp<ONNXSigmoidOp>();
@@ -159,7 +159,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXArgMaxOpPattern(patterns, &getContext());
   populateLoweringONNXReshapeOpPattern(patterns, &getContext());
   populateLoweringONNXPadOpPattern(patterns, &getContext());
-  populateLoweringONNXUnsqueezeOpPattern(patterns, &getContext());
+  populateLoweringONNXUnsqueezeV11OpPattern(patterns, &getContext());
   populateLoweringONNXTransposeOpPattern(patterns, &getContext());
   populateLoweringONNXGatherOpPattern(patterns, &getContext());
   populateLoweringONNXIdentityOpPattern(patterns, &getContext());
@@ -168,7 +168,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXConcatOpPattern(patterns, &getContext());
   populateLoweringONNXShapeOpPattern(patterns, &getContext());
   populateLoweringONNXSliceOpPattern(patterns, &getContext());
-  populateLoweringONNXSqueezeOpPattern(patterns, &getContext());
+  populateLoweringONNXSqueezeV11OpPattern(patterns, &getContext());
   populateLoweringONNXSplitOpPattern(patterns, &getContext());
   populateLoweringONNXSizeOpPattern(patterns, &getContext());
   populateLoweringONNXTileOpPattern(patterns, &getContext());

@@ -169,7 +169,7 @@ op_dialect_version_map_["SpaceToDepth"] = {13};
 op_dialect_version_map_["Split"] = {11};
 op_dialect_version_map_["SplitToSequence"] = {11};
 op_dialect_version_map_["Sqrt"] = {13};
-op_dialect_version_map_["Squeeze"] = {11};
+op_dialect_version_map_["Squeeze"] = {13, 11};
 op_dialect_version_map_["StringNormalizer"] = {10};
 op_dialect_version_map_["Sub"] = {13};
 op_dialect_version_map_["Sum"] = {13};
@@ -183,7 +183,7 @@ op_dialect_version_map_["Transpose"] = {13};
 op_dialect_version_map_["TreeEnsembleClassifier"] = {1};
 op_dialect_version_map_["TreeEnsembleRegressor"] = {1};
 op_dialect_version_map_["Unique"] = {11};
-op_dialect_version_map_["Unsqueeze"] = {11};
+op_dialect_version_map_["Unsqueeze"] = {13, 11};
 op_dialect_version_map_["Upsample"] = {10};
 op_dialect_version_map_["Where"] = {9};
 op_dialect_version_map_["Xor"] = {7};
@@ -484,6 +484,8 @@ import_handler_map_["Sqrt"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSqrtOp>;
 import_handler_map_["Squeeze"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSqueezeOp>;
+import_handler_map_["SqueezeV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSqueezeV11Op>;
 import_handler_map_["StringNormalizer"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXStringNormalizerOp>;
 import_handler_map_["Sub"] = 
@@ -508,6 +510,8 @@ import_handler_map_["Unique"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUniqueOp>;
 import_handler_map_["Unsqueeze"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUnsqueezeOp>;
+import_handler_map_["UnsqueezeV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUnsqueezeV11Op>;
 import_handler_map_["Upsample"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleOp>;
 import_handler_map_["Where"] = 

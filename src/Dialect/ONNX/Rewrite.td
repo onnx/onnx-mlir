@@ -167,7 +167,7 @@ def FuseBatchNormInferenceModeConvPattern: Pat<
      // w_
      (ONNXMulOp
         $w,
-        (ONNXUnsqueezeOp
+        (ONNXUnsqueezeV11Op
            (ONNXDivOp:$coefficientW
               $scale,
               (ONNXSqrtOp
@@ -210,7 +210,7 @@ def RewriteBatchNormInferenceModeConvPattern1: Pat<
      // x * a
      (ONNXMulOp
         $x,
-        (ONNXUnsqueezeOp
+        (ONNXUnsqueezeV11Op
            (ONNXDivOp:$a
               $scale,
               (ONNXSqrtOp
@@ -220,7 +220,7 @@ def RewriteBatchNormInferenceModeConvPattern1: Pat<
                        (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
            (createArrayAttrOfOneToRankOfExclusive $x))),
      // b
-     (ONNXUnsqueezeOp
+     (ONNXUnsqueezeV11Op
        (ONNXSubOp $bias, (ONNXMulOp $mean, $a)),
        (createArrayAttrOfOneToRankOfExclusive $x))),
   [(HasRankGT<2> $x)], (addBenefit 0)

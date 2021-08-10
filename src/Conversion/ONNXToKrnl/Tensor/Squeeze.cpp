@@ -17,14 +17,14 @@
 
 using namespace mlir;
 
-struct ONNXSqueezeOpLowering : public ConversionPattern {
-  ONNXSqueezeOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXSqueezeOp::getOperationName(), 1, ctx) {}
+struct ONNXSqueezeV11OpLowering : public ConversionPattern {
+  ONNXSqueezeV11OpLowering(MLIRContext *ctx)
+      : ConversionPattern(mlir::ONNXSqueezeV11Op::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXSqueezeOpAdaptor operandAdaptor(operands);
-    ONNXSqueezeOp squeezeOp = dyn_cast_or_null<ONNXSqueezeOp>(op);
+    ONNXSqueezeV11OpAdaptor operandAdaptor(operands);
+    ONNXSqueezeV11Op squeezeOp = dyn_cast_or_null<ONNXSqueezeV11Op>(op);
 
     auto loc = op->getLoc();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
@@ -32,7 +32,7 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
     auto elementSizeInBytes = getMemRefEltSizeInBytes(memRefType);
     Value data = operandAdaptor.data();
 
-    ONNXSqueezeOpShapeHelper shapeHelper(&squeezeOp, rewriter,
+    ONNXSqueezeV11OpShapeHelper shapeHelper(&squeezeOp, rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
@@ -46,7 +46,7 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXSqueezeOpPattern(
+void populateLoweringONNXSqueezeV11OpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXSqueezeOpLowering>(ctx);
+  patterns.insert<ONNXSqueezeV11OpLowering>(ctx);
 }
