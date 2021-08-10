@@ -6,10 +6,12 @@ from __future__ import unicode_literals
 from distutils.util import strtobool
 import os
 import sys
+import onnx
 import unittest
 import warnings
 import onnx.backend.base
 import onnx.backend.test
+from onnx import numpy_helper
 
 from onnx.backend.base import Device, DeviceType
 import subprocess
@@ -26,12 +28,21 @@ import argparse
 VERBOSE = os.getenv("VERBOSE")
 INVOKECONVERTER = os.getenv("INVOKECONVERTER")
 IMPORTER_FORCE_DYNAMIC = os.getenv("IMPORTER_FORCE_DYNAMIC")
+# Force input tensors to constants. Set this to a list of input indices.
+# E.g.
+#   - "0, 2" for the first and third input tensors.
+#   - "-1" for all the input tensors.
+IMPORTER_FORCE_CONSTANT = os.getenv("IMPORTER_FORCE_CONSTANT")
 TEST_DYNAMIC = os.getenv("TEST_DYNAMIC")
+TEST_CONSTANT = os.getenv("TEST_CONSTANT")
 
 parser = argparse.ArgumentParser(description='with dynamic shape or not.')
 parser.add_argument('--dynamic', action='store_true',
     default=(strtobool(TEST_DYNAMIC) if TEST_DYNAMIC else False),
     help='enable dynamic shape tests (default: false if TEST_DYNAMIC env var not set)')
+parser.add_argument('--constant', action='store_true',
+    default=(strtobool(TEST_CONSTANT) if TEST_CONSTANT else False),
+    help='enable constant input tests (default: false if TEST_CONSTANT env var not set)')
 parser.add_argument('-i', '--input', type=int,
     default=os.getenv("TEST_INPUT", -1),
     help='inputs whose dimensions to be changed to unknown (default: all inputs if TEST_INPUT env var not set)')
@@ -80,174 +91,174 @@ from PyRuntime import ExecutionSession
 # In our directories, the python files that generate the tests are found here
 # onnx-mlir/third_party/onnx/onnx/backend/test/case/node
 
-# Set value for each benchmark to: test_disabled, test_static,
-#   test_dynamic, test_static_dynamic, test_static_dynamicNA.
-# The test_static_dynamicNA values indicates tests for which the dynamic test
-# makes no sense, e.g. where we build an array of constant but we don't even
-# know the rank of the constant array we are generating.
-test_disabled = 0  # no tests
-test_static = 1    # static test only (1st bit on).
-test_dynamic = 2   # dynamic test only (2nd bit on).
-test_static_dynamic = test_static + test_dynamic # both static & dynamic
-test_static_dynamicNA = test_static # static tests for which dyn not available.
+# Each benchmark is defined by a dictionary element: `key:value`, where
+# - key: the ONNX testname
+# - value: a dictionary accepting only three key "static", "dynamic", and
+#          "constant" to enable testings for static, dynamic, and constant
+#          inputs, respectively.
+# When a dynamic or constant testing is enabled, we must enter the indices of
+# the tensor expected to be dynamic or constant.
+# Indices start from 0. -1 means all inputs or all dimensions.
+#
+# Value for "static" key is not taken into account. So empty set {} is O.K.
+#
+# Value for "dynamic" key is a dict to define which inputs/dimensions are changed
+# to unknown, where its key is an input index and its value is a set of
+# dimension indices, e.g. {0:{0,1}, 1:{-1}, 2:{0}}
+#
+# Value for "constant" key is set of indices, e.g. {0, 2, 3}
 
-# For each benchmark, its value is a tuple of (test_type, dynamic_dict)
-# - 'test_type' is one of test_disabled, test_static, test_dynamic, and
-#     test_static_dynamic.
-# - 'dynamic_dict' is a dict to define which inputs/dimensions are changed to
-#     unknown, where its key is an input index and its value is a set of
-#     dimension indices, e.g. {0:{0,1}, 1:{-1}, 2:{0}}
-# If 'dynamic_dict' is not given, by default, all dimension of all inputs will
-#   be changed to unknown. Use this script's arguments '--input' and '--dim' to
-#   control the default values.
-# Input and dimension indices start from 0. -1 means all inputs or all dimensions.
-
-test_to_enable_static_dynamic = {
+STATIC_SHAPE="static"
+DYNAMIC_SHAPE="dynamic"
+CONSTANT_INPUT="constant"
+test_to_enable_dict = {
 
     ############################################################
     # Elementary ops, ordered alphabetically.
 
     # Abs
-    "test_abs_cpu": (test_static_dynamic,),
+    "test_abs_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Acos
-    "test_acos_cpu": (test_static_dynamic,),
-    "test_acos_example_cpu": (test_static_dynamic,),
+    "test_acos_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_acos_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Acosh
-    "test_acosh_cpu": (test_static_dynamic,),
-    "test_acosh_example_cpu": (test_static_dynamic,),
+    "test_acosh_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_acosh_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Adagrad
 
     # Adam
 
     # Add
-    "test_add_cpu": (test_static_dynamic,),
-    "test_add_bcast_cpu": (test_static_dynamic,),
+    "test_add_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_add_bcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # And
-    "test_and2d_cpu": (test_static_dynamic,),
-    "test_and3d_cpu": (test_static_dynamic,),
-    "test_and4d_cpu": (test_static_dynamic,),
-    "test_and_bcast3v1d_cpu": (test_static_dynamic,),
-    "test_and_bcast3v2d_cpu": (test_static_dynamic,),
-    "test_and_bcast4v2d_cpu": (test_static_dynamic,),
-    "test_and_bcast4v3d_cpu": (test_static_dynamic,),
-    "test_and_bcast4v4d_cpu": (test_static_dynamic,),
+    # Got "Failed to import ONNX TensorProto due to unsupported data types" if enabling "CONSTANT_INPUT:{-1}"
+    "test_and2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_and3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_and4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_and_bcast3v1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_and_bcast3v2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_and_bcast4v2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_and_bcast4v3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_and_bcast4v4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
 
     # Argmax
-    "test_argmax_no_keepdims_example_cpu": (test_static_dynamic,),
-    "test_argmax_keepdims_example_cpu": (test_static_dynamic,),
-    "test_argmax_default_axis_example_cpu": (test_static_dynamic,),
+    "test_argmax_no_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_argmax_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_argmax_default_axis_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Argmin
 
     # Asin
-    "test_asin_cpu": (test_static_dynamic,),
-    "test_asin_example_cpu": (test_static_dynamic,),
+    "test_asin_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_asin_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Asinh
-    "test_asinh_cpu": (test_static_dynamic,),
-    "test_asinh_example_cpu": (test_static_dynamic,),
+    "test_asinh_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_asinh_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Atan
-    "test_atan_example_cpu": (test_static_dynamic,),
-    "test_atan_cpu": (test_static_dynamic,),
+    "test_atan_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_atan_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Atanh
-    "test_atanh_cpu": (test_static_dynamic,),
-    "test_atanh_example_cpu": (test_static_dynamic,),
+    "test_atanh_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_atanh_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # AveragePool: same_upper/lower dyn padding-shapes not supported.
-    "test_averagepool_1d_default_cpu": (test_static_dynamic,),
-    "test_averagepool_2d_ceil_cpu": (test_static_dynamic,),
-    "test_averagepool_2d_default_cpu": (test_static_dynamic,),
-    "test_averagepool_2d_pads_count_include_pad_cpu": (test_static_dynamic,),
-    "test_averagepool_2d_pads_cpu": (test_static_dynamic,),
-    "test_averagepool_2d_precomputed_pads_count_include_pad_cpu": (test_static_dynamic,),
-    "test_averagepool_2d_precomputed_pads_cpu": (test_static_dynamic,),
-    "test_averagepool_2d_precomputed_same_upper_cpu": (test_static_dynamic,{-1:{0}}),
-    "test_averagepool_2d_precomputed_strides_cpu": (test_static_dynamic,),
-    "test_averagepool_2d_same_lower_cpu": (test_static_dynamic,{-1:{0}}),
-    "test_averagepool_2d_same_upper_cpu": (test_static_dynamic,{-1:{0}}),
-    "test_averagepool_2d_strides_cpu": (test_static_dynamic,),
-    "test_averagepool_3d_default_cpu": (test_static_dynamic,),
+    "test_averagepool_1d_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_averagepool_2d_ceil_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_averagepool_2d_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_averagepool_2d_pads_count_include_pad_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_averagepool_2d_pads_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_averagepool_2d_precomputed_pads_count_include_pad_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_averagepool_2d_precomputed_pads_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_averagepool_2d_precomputed_same_upper_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{0}}, CONSTANT_INPUT:{-1}},
+    "test_averagepool_2d_precomputed_strides_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_averagepool_2d_same_lower_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{0}}, CONSTANT_INPUT:{-1}},
+    "test_averagepool_2d_same_upper_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{0}}, CONSTANT_INPUT:{-1}},
+    "test_averagepool_2d_strides_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_averagepool_3d_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # BatchNormalization (test mode)
-    "test_batchnorm_epsilon_cpu": (test_static_dynamic,),
-    "test_batchnorm_example_cpu": (test_static_dynamic,),
+    "test_batchnorm_epsilon_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_batchnorm_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Bitshift left/right
 
     # Cast
-    "test_cast_FLOAT_to_DOUBLE_cpu": (test_static_dynamic,),
-    "test_cast_DOUBLE_to_FLOAT_cpu": (test_static_dynamic,),
-    "test_cast_FLOAT_to_FLOAT16_cpu": (test_disabled,), # appers unsupported at this time
-    "test_cast_FLOAT16_to_FLOAT_cpu": (test_disabled,), # appers unsupported at this time
-    "test_cast_FLOAT16_to_DOUBLE_cpu": (test_disabled,), # appers unsupported at this time
-    "test_cast_DOUBLE_to_FLOAT16_cpu": (test_disabled,), # appers unsupported at this time
-    "test_cast_FLOAT_to_STRING_cpu": (test_disabled,), # appers unsupported at this time
-    "test_cast_STRING_to_FLOAT_cpu": (test_disabled,), # appers unsupported at this time
+    "test_cast_FLOAT_to_DOUBLE_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_cast_DOUBLE_to_FLOAT_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_cast_FLOAT_to_FLOAT16_cpu": {}, # appers unsupported at this time
+    "test_cast_FLOAT16_to_FLOAT_cpu": {}, # appers unsupported at this time
+    "test_cast_FLOAT16_to_DOUBLE_cpu": {}, # appers unsupported at this time
+    "test_cast_DOUBLE_to_FLOAT16_cpu": {}, # appers unsupported at this time
+    "test_cast_FLOAT_to_STRING_cpu": {}, # appers unsupported at this time
+    "test_cast_STRING_to_FLOAT_cpu": {}, # appers unsupported at this time
 
     # Ceil
-    "test_ceil_example_cpu": (test_static_dynamic,),
-    "test_ceil_cpu": (test_static_dynamic,),
+    "test_ceil_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_ceil_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Celu
 
     # Clip
-    "test_clip_cpu": (test_static_dynamic,),
-    "test_clip_example_cpu": (test_static_dynamic,),
-    "test_clip_inbounds_cpu": (test_static_dynamic,),
-    "test_clip_outbounds_cpu": (test_static_dynamic,),
-    "test_clip_splitbounds_cpu": (test_static_dynamic,),
-    "test_clip_default_min_cpu": (test_static_dynamic,),
-    "test_clip_default_max_cpu": (test_static_dynamic,),
-    "test_clip_cpu": (test_static_dynamic,),
-    "test_clip_default_inbounds_cpu": (test_static_dynamic,),
-    #"test_clip_default_int8_min_cpu": (test_static_dynamic,),
+    "test_clip_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_clip_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_clip_inbounds_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_clip_outbounds_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_clip_splitbounds_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_clip_default_min_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_clip_default_max_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_clip_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_clip_default_inbounds_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    #"test_clip_default_int8_min_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
 
     # Compress
 
     # Concat
-    "test_concat_1d_axis_0_cpu": (test_static_dynamic,{0:{0}}),
-    "test_concat_2d_axis_0_cpu": (test_static_dynamic,{0:{0}}),
-    "test_concat_2d_axis_1_cpu": (test_static_dynamic,{0:{1}}),
-    "test_concat_3d_axis_0_cpu": (test_static_dynamic,{0:{0}}),
-    "test_concat_3d_axis_1_cpu": (test_static_dynamic,{0:{1}}),
-    "test_concat_3d_axis_2_cpu": (test_static_dynamic,{0:{2}}),
-    "test_concat_1d_axis_negative_1_cpu": (test_static_dynamic,{0:{0}}),
-    "test_concat_2d_axis_negative_1_cpu": (test_static_dynamic,{0:{1}}),
-    "test_concat_2d_axis_negative_2_cpu": (test_static_dynamic,{0:{0}}),
-    "test_concat_3d_axis_negative_1_cpu": (test_static_dynamic,{0:{2}}),
-    "test_concat_3d_axis_negative_2_cpu": (test_static_dynamic,{0:{1}}),
-    "test_concat_3d_axis_negative_3_cpu": (test_static_dynamic,{0:{0}}),
+    "test_concat_1d_axis_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0}}}, # CONSTANT_INPUT:{-1}}, failed
+    "test_concat_2d_axis_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0}}, CONSTANT_INPUT:{-1}},
+    "test_concat_2d_axis_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{1}}}, # CONSTANT_INPUT:{-1}}, failed
+    "test_concat_3d_axis_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0}}, CONSTANT_INPUT:{-1}},
+    "test_concat_3d_axis_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{1}}, CONSTANT_INPUT:{-1}},
+    "test_concat_3d_axis_2_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{2}}}, # CONSTANT_INPUT:{-1}}, failed
+    "test_concat_1d_axis_negative_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0}}}, # CONSTANT_INPUT:{-1}}, failed
+    "test_concat_2d_axis_negative_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{1}}}, # CONSTANT_INPUT:{-1}}, failed
+    "test_concat_2d_axis_negative_2_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0}}, CONSTANT_INPUT:{-1}},
+    "test_concat_3d_axis_negative_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{2}}}, # CONSTANT_INPUT:{-1}}, failed
+    "test_concat_3d_axis_negative_2_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{1}}, CONSTANT_INPUT:{-1}},
+    "test_concat_3d_axis_negative_3_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0}}, CONSTANT_INPUT:{-1}},
 
     # Constant (dynamic NA)
-    "test_constant_cpu": (test_static_dynamicNA,),
+    "test_constant_cpu": {STATIC_SHAPE:{}},
 
     # ConstantOfShape (dynamic NA)
-    "test_constantofshape_float_ones_cpu": (test_static_dynamicNA,),
-    "test_constantofshape_int_zeros_cpu": (test_static_dynamicNA,),
+    "test_constantofshape_float_ones_cpu": {STATIC_SHAPE:{}},
+    "test_constantofshape_int_zeros_cpu": {STATIC_SHAPE:{}},
 
-    # Conv
-    "test_basic_conv_without_padding_cpu": (test_static_dynamic,{0:{-1}}),
-    "test_conv_with_strides_no_padding_cpu": (test_static_dynamic,{0:{-1}}),
-    "test_conv_with_strides_padding_cpu": (test_static_dynamic,{0:{-1}}),
-    "test_conv_with_strides_and_asymmetric_padding_cpu": (test_static_dynamic,{0:{-1}}),
+    # Conv.
+    # CONSTANT_INPUT for weight.
+    "test_basic_conv_without_padding_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{1}},
+    "test_conv_with_strides_no_padding_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{1}},
+    "test_conv_with_strides_padding_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{1}},
+    "test_conv_with_strides_and_asymmetric_padding_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{1}},
 
     # ConvInteger
 
     # ConvTranspose
 
     # Cos
-    "test_cos_example_cpu": (test_static_dynamic,),
-    "test_cos_cpu": (test_static_dynamic,),
+    "test_cos_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_cos_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Cosh
-    "test_cosh_cpu": (test_static_dynamic,),
-    "test_cosh_example_cpu": (test_static_dynamic,),
+    "test_cosh_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_cosh_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # CumSum
 
@@ -258,32 +269,32 @@ test_to_enable_static_dynamic = {
     # Det
 
     # Div
-    "test_div_cpu": (test_static_dynamic,),
-    "test_div_bcast_cpu": (test_static_dynamic,),
-    "test_div_example_cpu": (test_static_dynamic,),
+    "test_div_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_div_bcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_div_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}}, # CONSTANT_INPUT:{-1}}, failed
 
     # Dropout
-    "test_dropout_default_cpu": (test_static_dynamic,),
-    "test_dropout_default_ratio_cpu": (test_static_dynamic,),
+    "test_dropout_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_dropout_default_ratio_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     # Other dopout test case failed: implementation is missing
     # mask is not supported for inference
-    #"test_dropout_default_mask_cpu": (test_static_dynamic,),
-    #"test_dropout_default_mask_ratio_cpu": (test_static_dynamic,),
+    #"test_dropout_default_mask_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    #"test_dropout_default_mask_ratio_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
 
     # Error: input arrays contain a mixture of endianness configuration
-    #"test_training_dropout_default_cpu": (test_static_dynamic,),
+    #"test_training_dropout_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
 
-    #"test_training_dropout_default_mask_cpu": (test_static_dynamic,),
-
-    # Error: input arrays contain a mixture of endianness configuration
-    #"test_training_dropout_default_cpu": (test_static_dynamic,),
-
-    #"test_training_dropout_mask_cpu": (test_static_dynamic,),
+    #"test_training_dropout_default_mask_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
 
     # Error: input arrays contain a mixture of endianness configuration
-    #"test_training_dropout_zero_ratio_cpu": (test_static_dynamic,),
+    #"test_training_dropout_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
 
-    #"test_training_dropout_zero_ratio_mask_cpu": (test_static_dynamic,),
+    #"test_training_dropout_mask_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+
+    # Error: input arrays contain a mixture of endianness configuration
+    #"test_training_dropout_zero_ratio_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+
+    #"test_training_dropout_zero_ratio_mask_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
 
     # DynamicQuantizeLinear
 
@@ -292,80 +303,81 @@ test_to_enable_static_dynamic = {
     # EinSum
 
     # Elu
-    "test_elu_cpu": (test_static_dynamic,),
-    "test_elu_default_cpu": (test_static_dynamic,),
-    "test_elu_example_cpu": (test_static_dynamic,),
+    "test_elu_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_elu_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_elu_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Equal
 
     # Erf
-    "test_erf_cpu": (test_static_dynamic,),
+    "test_erf_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Exp
-    "test_exp_cpu": (test_static_dynamic,),
-    "test_exp_example_cpu": (test_static_dynamic,),
+    "test_exp_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_exp_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Expand
 
     # Eyelike
 
     # Flatten
-    "test_flatten_axis0_cpu": (test_static_dynamic,),
-    "test_flatten_axis1_cpu": (test_static_dynamic,),
-    "test_flatten_axis2_cpu": (test_static_dynamic,),
-    "test_flatten_axis3_cpu": (test_static_dynamic,),
-    "test_flatten_default_axis_cpu": (test_static_dynamic,),
-    "test_flatten_negative_axis1_cpu": (test_static_dynamic,),
-    "test_flatten_negative_axis2_cpu": (test_static_dynamic,),
-    "test_flatten_negative_axis3_cpu": (test_static_dynamic,),
-    "test_flatten_negative_axis4_cpu": (test_static_dynamic,),
+    "test_flatten_axis0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_flatten_axis1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_flatten_axis2_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_flatten_axis3_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_flatten_default_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_flatten_negative_axis1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_flatten_negative_axis2_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_flatten_negative_axis3_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_flatten_negative_axis4_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Floor
-    "test_floor_example_cpu": (test_static_dynamic,),
-    "test_floor_cpu": (test_static_dynamic,),
+    "test_floor_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_floor_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Gather
-    "test_gather_0_cpu": (test_static_dynamic,),
-    "test_gather_1_cpu": (test_static_dynamic,),
-    "test_gather_negative_indices_cpu": (test_static_dynamic,),
+    "test_gather_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_gather_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_gather_negative_indices_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Gemm
-    "test_gemm_all_attributes_cpu": (test_static_dynamic,),
-    "test_gemm_alpha_cpu": (test_static_dynamic,),
-    "test_gemm_beta_cpu": (test_static_dynamic,),
-    "test_gemm_default_matrix_bias_cpu": (test_static_dynamic,),
-    "test_gemm_default_no_bias_cpu": (test_static_dynamic,),
-    "test_gemm_default_scalar_bias_cpu": (test_static_dynamic,),
-    "test_gemm_default_single_elem_vector_bias_cpu": (test_static_dynamic,),
-    "test_gemm_default_vector_bias_cpu": (test_static_dynamic,),
-    "test_gemm_default_zero_bias_cpu": (test_static_dynamic,),
-    "test_gemm_transposeA_cpu": (test_static_dynamic,),
-    "test_gemm_transposeB_cpu": (test_static_dynamic,),
+    "test_gemm_all_attributes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_gemm_alpha_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_gemm_beta_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_gemm_default_matrix_bias_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_gemm_default_no_bias_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_gemm_default_scalar_bias_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_gemm_default_single_elem_vector_bias_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_gemm_default_vector_bias_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_gemm_default_zero_bias_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_gemm_transposeA_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_gemm_transposeB_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Global Average Pool
-    "test_globalaveragepool_cpu": (test_static_dynamic,),
-    "test_globalaveragepool_precomputed_cpu": (test_static_dynamic,),
+    "test_globalaveragepool_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_globalaveragepool_precomputed_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Global Max Pool
-    "test_globalmaxpool_cpu": (test_static_dynamic,),
-    "test_globalmaxpool_precomputed_cpu": (test_static_dynamic,),
+    "test_globalmaxpool_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_globalmaxpool_precomputed_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Greater
 
     # GRU
-    "test_gru_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    "test_gru_seq_length_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    "test_gru_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    # CONSTANT_INPUT for W and R.
+    "test_gru_defaults_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
+    "test_gru_seq_length_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
+    "test_gru_with_initial_bias_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
 
     # Hard Max
 
     # Hard Sigmoid
-    "test_hardsigmoid_cpu": (test_static_dynamic,),
-    "test_hardsigmoid_default_cpu": (test_static_dynamic,),
-    "test_hardsigmoid_example_cpu": (test_static_dynamic,),
+    "test_hardsigmoid_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_hardsigmoid_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_hardsigmoid_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Identity
-    "test_identity_cpu": (test_static_dynamic,),
+    "test_identity_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Instance Norm
 
@@ -374,85 +386,86 @@ test_to_enable_static_dynamic = {
     # Is Nan
 
     # Leaky Relu
-    "test_leakyrelu_cpu": (test_static_dynamic,),
-    "test_leakyrelu_default_cpu": (test_static_dynamic,),
-    "test_leakyrelu_example_cpu": (test_static_dynamic,),
+    "test_leakyrelu_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_leakyrelu_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_leakyrelu_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Less
-    "test_less_cpu": (test_static_dynamic,),
-    "test_less_bcast_cpu": (test_static_dynamic,),
+    "test_less_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_less_bcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Log
-    "test_log_example_cpu": (test_static_dynamic,),
-    "test_log_cpu": (test_static_dynamic,),
+    "test_log_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_log_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # LogSoftmax
     # Temporally removed due to changes in onnx 1.8.1
-    # "test_logsoftmax_axis_0_cpu": (test_static_dynamic,),
-    # "test_logsoftmax_axis_1_cpu": (test_static_dynamic,),
-    "test_logsoftmax_axis_2_cpu": (test_static_dynamic,),
-    "test_logsoftmax_example_1_cpu": (test_static_dynamic,),
-    # "test_logsoftmax_default_axis_cpu": (test_static_dynamic,),
-    "test_logsoftmax_negative_axis_cpu": (test_static_dynamic,),
-    "test_logsoftmax_large_number_cpu": (test_static_dynamic,),
+    # "test_logsoftmax_axis_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_logsoftmax_axis_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_logsoftmax_axis_2_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_logsoftmax_example_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_logsoftmax_default_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_logsoftmax_negative_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_logsoftmax_large_number_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # LRN
-    "test_lrn_cpu": (test_static_dynamic,),
-    "test_lrn_default_cpu": (test_static_dynamic,),
+    "test_lrn_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_lrn_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
 
     # LSTM
-    "test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    "test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    "test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    # CONSTANT_INPUT for W and R.
+    "test_lstm_defaults_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
+    "test_lstm_with_initial_bias_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
+    "test_lstm_with_peepholes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
 
     # Matmul
-    "test_matmul_2d_cpu": (test_static_dynamic,),
-    "test_matmul_3d_cpu": (test_static_dynamic,),
-    "test_matmul_4d_cpu": (test_static_dynamic,),
+    "test_matmul_2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_matmul_3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_matmul_4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Matmul Integer
 
     # Max
-    "test_max_example_cpu": (test_static_dynamic,),
-    "test_max_one_input_cpu": (test_static_dynamic,),
-    "test_max_two_inputs_cpu": (test_static_dynamic,),
+    "test_max_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_max_one_input_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_max_two_inputs_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # MaxPoolSingleOut: same_upper/lower dyn padding-shapes not supported.
-    "test_maxpool_1d_default_cpu": (test_static_dynamic,),
-    "test_maxpool_2d_ceil_cpu": (test_static_dynamic,),
-    "test_maxpool_2d_default_cpu": (test_static_dynamic,),
-    "test_maxpool_2d_dilations_cpu": (test_static_dynamic,),
-    "test_maxpool_2d_pads_cpu": (test_static_dynamic,),
-    "test_maxpool_2d_precomputed_pads_cpu": (test_static_dynamic,),
-    "test_maxpool_2d_precomputed_same_upper_cpu": (test_static_dynamic,{-1:{0}}),
-    "test_maxpool_2d_precomputed_strides_cpu": (test_static_dynamic,),
-    "test_maxpool_2d_same_lower_cpu": (test_static_dynamic,{-1:{0}}),
-    "test_maxpool_2d_same_upper_cpu": (test_static_dynamic,{-1:{0}}),
-    "test_maxpool_2d_strides_cpu": (test_static_dynamic,),
-    "test_maxpool_3d_default_cpu": (test_static_dynamic,),
+    "test_maxpool_1d_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_maxpool_2d_ceil_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_maxpool_2d_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_maxpool_2d_dilations_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_maxpool_2d_pads_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_maxpool_2d_precomputed_pads_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_maxpool_2d_precomputed_same_upper_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{0}}, CONSTANT_INPUT:{-1}},
+    "test_maxpool_2d_precomputed_strides_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_maxpool_2d_same_lower_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{0}}, CONSTANT_INPUT:{-1}},
+    "test_maxpool_2d_same_upper_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{0}}, CONSTANT_INPUT:{-1}},
+    "test_maxpool_2d_strides_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_maxpool_3d_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Mean
 
     # Min
-    "test_min_example_cpu": (test_static_dynamic,),
-    "test_min_one_input_cpu": (test_static_dynamic,),
-    "test_min_two_inputs_cpu": (test_static_dynamic,),
+    "test_min_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_min_one_input_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_min_two_inputs_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Mod
 
     # Momentum
 
     # Mul
-    "test_mul_cpu": (test_static_dynamic,),
-    "test_mul_bcast_cpu": (test_static_dynamic,),
-    "test_mul_example_cpu": (test_static_dynamic,),
+    "test_mul_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_mul_bcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_mul_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Multinomial (NMV)
 
     # Neg
-    "test_neg_example_cpu": (test_static_dynamic,),
-    "test_neg_cpu": (test_static_dynamic,),
+    "test_neg_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}}, # CONSTANT_INPUT:{-1}}, failed
+    "test_neg_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Negative Log Likelihood Loss
 
@@ -465,30 +478,31 @@ test_to_enable_static_dynamic = {
     # One Hot
 
     # Or
-    "test_or2d_cpu": (test_static_dynamic,),
-    "test_or3d_cpu": (test_static_dynamic,),
-    "test_or4d_cpu": (test_static_dynamic,),
-    "test_or_bcast3v1d_cpu": (test_static_dynamic,),
-    "test_or_bcast3v2d_cpu": (test_static_dynamic,),
-    "test_or_bcast4v2d_cpu": (test_static_dynamic,),
-    "test_or_bcast4v3d_cpu": (test_static_dynamic,),
-    "test_or_bcast4v4d_cpu": (test_static_dynamic,),
+    # Got "Failed to import ONNX TensorProto due to unsupported data types" if enabling "CONSTANT_INPUT:{-1}"
+    "test_or2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_or3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_or4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_or_bcast3v1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_or_bcast3v2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_or_bcast4v2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_or_bcast4v3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_or_bcast4v4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
 
     # Pad (not working)
-    #"test_constant_pad_cpu": test_static_dynamic,
-    #"test_edge_pad_cpu": test_static_dynamic,
-    #"test_reflect_pad_cpu": test_static_dynamic,
+    #"test_constant_pad_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    #"test_edge_pad_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    #"test_reflect_pad_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
 
     # Pow
-    "test_pow_cpu": (test_static_dynamic,),
-    "test_pow_example_cpu": (test_static_dynamic,),
-    "test_pow_bcast_scalar_cpu": (test_static_dynamic,),
-    "test_pow_bcast_array_cpu": (test_static_dynamic,),
+    "test_pow_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_pow_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_pow_bcast_scalar_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_pow_bcast_array_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     # Does not support integer power yet
 
     # PRelu
-    "test_prelu_example_cpu": (test_static_dynamic,),
-    "test_prelu_broadcast_cpu": (test_static_dynamic,),
+    "test_prelu_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_prelu_broadcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # QLinear Conv
 
@@ -497,298 +511,304 @@ test_to_enable_static_dynamic = {
     # Quantize Linear
 
     # Range
-    "test_range_float_type_positive_delta_cpu": (test_static_dynamic,),
-    "test_range_int32_type_negative_delta_cpu": (test_static_dynamic,),
+    "test_range_float_type_positive_delta_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_range_int32_type_negative_delta_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Reciprocal Op:
-    "test_reciprocal_cpu": (test_static_dynamic,),
-    "test_reciprocal_example_cpu": (test_static_dynamic,),
+    "test_reciprocal_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reciprocal_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # ReduceL1
-    "test_reduce_l1_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_l1_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_l1_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_l1_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_l1_keep_dims_example_cpu": (test_static_dynamic,),
-    "test_reduce_l1_keep_dims_random_cpu": (test_static,),
-    "test_reduce_l1_negative_axes_keep_dims_example_cpu": (test_static_dynamic,),
-    "test_reduce_l1_negative_axes_keep_dims_random_cpu": (test_static_dynamic,),
+    "test_reduce_l1_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_l1_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_l1_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_l1_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_l1_keep_dims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_l1_keep_dims_random_cpu": {STATIC_SHAPE:{}},
+    "test_reduce_l1_negative_axes_keep_dims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_l1_negative_axes_keep_dims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # ReduceL2
-    "test_reduce_l2_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_l2_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_l2_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_l2_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_l2_keep_dims_example_cpu": (test_static_dynamic,),
-    "test_reduce_l2_keep_dims_random_cpu": (test_static_dynamic,),
-    "test_reduce_l2_negative_axes_keep_dims_example_cpu": (test_static_dynamic,),
-    "test_reduce_l2_negative_axes_keep_dims_random_cpu": (test_static_dynamic,),
+    "test_reduce_l2_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_l2_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_l2_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_l2_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_l2_keep_dims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_l2_keep_dims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_l2_negative_axes_keep_dims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_l2_negative_axes_keep_dims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # ReduceLogSum
-    "test_reduce_log_sum_asc_axes_cpu": (test_static_dynamic,),
-    "test_reduce_log_sum_cpu": (test_static_dynamic,),
-    "test_reduce_log_sum_default_cpu": (test_static_dynamic,),
-    "test_reduce_log_sum_desc_axes_cpu": (test_static_dynamic,),
+    "test_reduce_log_sum_asc_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_log_sum_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_log_sum_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_log_sum_desc_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # ReduceLogSumExp
-    "test_reduce_log_sum_exp_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_log_sum_exp_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_log_sum_exp_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_log_sum_exp_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_log_sum_exp_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_log_sum_exp_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_log_sum_exp_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_log_sum_exp_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_log_sum_negative_axes_cpu": (test_static_dynamic,),
+    "test_reduce_log_sum_exp_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_log_sum_exp_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_log_sum_exp_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_log_sum_exp_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_log_sum_exp_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_log_sum_exp_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_log_sum_exp_negative_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_log_sum_exp_negative_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_log_sum_negative_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # ReduceMax
-    "test_reduce_max_default_axes_keepdim_example_cpu": (test_static_dynamic,),
-    "test_reduce_max_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_max_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_max_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_max_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_max_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_max_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_max_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_max_default_axes_keepdim_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_max_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_max_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_max_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_max_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_max_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_max_negative_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_max_negative_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # ReduceMean
-    "test_reduce_mean_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_mean_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_mean_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_mean_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_mean_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_mean_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_mean_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_mean_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_mean_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_mean_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_mean_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_mean_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_mean_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_mean_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_mean_negative_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_mean_negative_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # ReduceMin
-    "test_reduce_min_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_min_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_min_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_min_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_min_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_min_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_min_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_min_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_min_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_min_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_min_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_min_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_min_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_min_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_min_negative_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_min_negative_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # ReduceProd
-    "test_reduce_prod_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_prod_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_prod_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_prod_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_prod_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_prod_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_prod_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_prod_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_prod_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_prod_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_prod_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_prod_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_prod_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_prod_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_prod_negative_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_prod_negative_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # ReduceSum
     # Temporally removed due to changes in onnx 1.8.1
-    #"test_reduce_sum_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    #"test_reduce_sum_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    #"test_reduce_sum_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    #"test_reduce_sum_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    #"test_reduce_sum_keepdims_example_cpu": (test_static_dynamic,),
-    #"test_reduce_sum_keepdims_random_cpu": (test_static_dynamic,),
-    #"test_reduce_sum_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    #"test_reduce_sum_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
+    #"test_reduce_sum_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    #"test_reduce_sum_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    #"test_reduce_sum_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    #"test_reduce_sum_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    #"test_reduce_sum_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    #"test_reduce_sum_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    #"test_reduce_sum_negative_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    #"test_reduce_sum_negative_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # ReduceSumSquare
-    "test_reduce_sum_square_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_sum_square_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_sum_square_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_sum_square_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_sum_square_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_sum_square_keepdims_random_cpu": (test_static_dynamic,),
-    "test_reduce_sum_square_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    "test_reduce_sum_square_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_sum_square_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_sum_square_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_sum_square_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_sum_square_do_not_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_sum_square_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_sum_square_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_sum_square_negative_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reduce_sum_square_negative_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Relu
-    "test_relu_cpu": (test_static_dynamic,),
+    "test_relu_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Reshape
-    "test_reshape_extended_dims_cpu": (test_static_dynamic,{0:{-1}}),
-    "test_reshape_negative_dim_cpu": (test_static_dynamic,{0:{-1}}),
-    "test_reshape_negative_extended_dims_cpu": (test_static_dynamic,{0:{-1}}),
-    "test_reshape_one_dim_cpu": (test_static_dynamic,{0:{-1}}),
-    "test_reshape_reduced_dims_cpu": (test_static_dynamic,{0:{-1}}),
-    "test_reshape_reordered_all_dims_cpu": (test_static_dynamic,{0:{-1}}),
-    "test_reshape_reordered_last_dims_cpu": (test_static_dynamic,{0:{-1}}),
-    "test_reshape_zero_and_negative_dim_cpu": (test_static_dynamic,{0:{-1}}),
-    "test_reshape_zero_dim_cpu": (test_static_dynamic,{0:{-1}}),
+    "test_reshape_extended_dims_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reshape_negative_dim_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reshape_negative_extended_dims_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reshape_one_dim_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reshape_reduced_dims_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reshape_reordered_all_dims_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reshape_reordered_last_dims_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reshape_zero_and_negative_dim_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reshape_zero_dim_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Resize
-    "test_resize_upsample_scales_nearest_cpu": (test_static_dynamic, {0:{-1}}),
-    "test_resize_downsample_scales_nearest_cpu": (test_static_dynamic, {0:{-1}}),
+    "test_resize_upsample_scales_nearest_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_resize_downsample_scales_nearest_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Reverse Sequence
 
     # RNN
-    "test_rnn_seq_length_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    "test_simple_rnn_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    "test_simple_rnn_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    # CONSTANT_INPUT for W and R.
+    "test_rnn_seq_length_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
+    "test_simple_rnn_defaults_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
+    "test_simple_rnn_with_initial_bias_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
 
     # Roi Align
 
     # Round
 
     # Scan
-    "test_scan9_sum_cpu": (test_static, ),
+    "test_scan9_sum_cpu": {STATIC_SHAPE:{}},
 
     # Scatter Element
 
     # Selu
-    "test_selu_cpu": (test_static_dynamic,),
-    "test_selu_default_cpu": (test_static_dynamic,),
-    "test_selu_example_cpu": (test_static_dynamic,),
+    "test_selu_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_selu_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_selu_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Shape
-    "test_shape_cpu": (test_static_dynamic,),
-    "test_shape_example_cpu": (test_static_dynamic,),
+    "test_shape_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_shape_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Shrink
 
     # Sigmoid
-    "test_sigmoid_cpu": (test_static_dynamic,),
-    "test_sigmoid_example_cpu": (test_static_dynamic,),
+    "test_sigmoid_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_sigmoid_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Sign
-    "test_sign_cpu": (test_static_dynamic,),
+    "test_sign_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Sin
-    "test_sin_example_cpu": (test_static_dynamic,),
-    "test_sin_cpu": (test_static_dynamic,),
+    "test_sin_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_sin_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Sinh
-    "test_sinh_cpu": (test_static_dynamic,),
-    "test_sinh_example_cpu": (test_static_dynamic,),
+    "test_sinh_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_sinh_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Size
-    "test_size_cpu": (test_static_dynamic,),
-    "test_size_example_cpu": (test_static_dynamic,),
+    "test_size_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_size_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Slice (makes Axis a runtime argument, which is not supported).
 
     # Softmax
     # Temporally removed due to changes in onnx 1.8.1
-    # "test_softmax_axis_0_cpu": (test_static_dynamic,),
-    # "test_softmax_axis_1_cpu": (test_static_dynamic,),
-    "test_softmax_axis_2_cpu": (test_static_dynamic,),
-    # "test_softmax_default_axis_cpu": (test_static_dynamic,),
-    "test_softmax_example_cpu": (test_static_dynamic,),
-    "test_softmax_large_number_cpu": (test_static_dynamic,),
+    # "test_softmax_axis_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_softmax_axis_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_softmax_axis_2_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_softmax_default_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_softmax_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_softmax_large_number_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Softplus
-    "test_softplus_cpu": (test_static_dynamic,),
-    "test_softplus_example_cpu": (test_static_dynamic,),
+    "test_softplus_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_softplus_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Softsign
-    "test_softsign_cpu": (test_static_dynamic,),
-    "test_softsign_example_cpu": (test_static_dynamic,),
+    "test_softsign_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_softsign_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Split
     # Temporally removed due to changes in onnx 1.8.1
-    # "test_split_equal_parts_1d_cpu": (test_static_dynamic,),
-    # "test_split_equal_parts_2d_cpu": (test_static_dynamic,),
-    # "test_split_equal_parts_default_axis_cpu": (test_static_dynamic,),
-    # "test_split_variable_parts_1d_cpu": (test_static_dynamic,),
-    # "test_split_variable_parts_2d_cpu": (test_static_dynamic,),
-    # "test_split_variable_parts_default_axis_cpu": (test_static_dynamic,),
+    # "test_split_equal_parts_1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_split_equal_parts_2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_split_equal_parts_default_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_split_variable_parts_1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_split_variable_parts_2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_split_variable_parts_default_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     
     # Sqrt
-    "test_sqrt_cpu": (test_static_dynamic,),
-    "test_sqrt_example_cpu": (test_static_dynamic,),
+    "test_sqrt_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_sqrt_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Squeeze
     # Temporally removed due to changes in onnx 1.8.1
-    #"test_squeeze_cpu": (test_static_dynamic,),
-    #"test_squeeze_negative_axes_cpu": (test_static_dynamic,),
+    #"test_squeeze_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    #"test_squeeze_negative_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Str Normalizer
 
     # Sub
-    "test_sub_cpu": (test_static_dynamic,),
-    "test_sub_bcast_cpu": (test_static_dynamic,),
-    "test_sub_example_cpu": (test_static_dynamic,),
+    "test_sub_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_sub_bcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_sub_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Sum
-    "test_sum_example_cpu": (test_static_dynamic,),
-    "test_sum_one_input_cpu": (test_static_dynamic,),
-    "test_sum_two_inputs_cpu": (test_static_dynamic,),
+    "test_sum_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_sum_one_input_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_sum_two_inputs_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Tan
-    "test_tan_cpu": (test_static_dynamic,),
-    "test_tan_example_cpu": (test_static_dynamic,),
+    "test_tan_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_tan_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Tanh
-    "test_tanh_cpu": (test_static_dynamic,),
-    "test_tanh_example_cpu": (test_static_dynamic,),
+    "test_tanh_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_tanh_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Tfdf Vectorizer
 
     # Threshold Relu
 
     # Tile
-    "test_tile_cpu": (test_static_dynamic,),
-    "test_tile_precomputed_cpu": (test_static_dynamic,),
+    "test_tile_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_tile_precomputed_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # TopK
 
     # Training Dropout
 
     # Transpose
-    "test_transpose_default_cpu": (test_static_dynamic,),
-    "test_transpose_all_permutations_0_cpu": (test_static_dynamic,),
-    "test_transpose_all_permutations_1_cpu": (test_static_dynamic,),
-    "test_transpose_all_permutations_2_cpu": (test_static_dynamic,),
-    "test_transpose_all_permutations_3_cpu": (test_static_dynamic,),
-    "test_transpose_all_permutations_4_cpu": (test_static_dynamic,),
-    "test_transpose_all_permutations_5_cpu": (test_static_dynamic,),
+    "test_transpose_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_transpose_all_permutations_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_transpose_all_permutations_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_transpose_all_permutations_2_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_transpose_all_permutations_3_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_transpose_all_permutations_4_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_transpose_all_permutations_5_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Unique
 
     # Unsqueeze
     # Temporally removed due to changes in onnx 1.8.1
-    # "test_unsqueeze_axis_0_cpu": (test_static_dynamic,),
-    # "test_unsqueeze_axis_1_cpu": (test_static_dynamic,),
-    # "test_unsqueeze_axis_2_cpu": (test_static_dynamic,),
-    # "test_unsqueeze_axis_3_cpu": (test_static_dynamic,),
-    # "test_unsqueeze_negative_axes_cpu": (test_static_dynamic,),
-    # "test_unsqueeze_three_axes_cpu": (test_static_dynamic,),
-    # "test_unsqueeze_two_axes_cpu": (test_static_dynamic,),
-    # "test_unsqueeze_unsorted_axes_cpu": (test_static_dynamic,),
+    # "test_unsqueeze_axis_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_unsqueeze_axis_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_unsqueeze_axis_2_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_unsqueeze_axis_3_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_unsqueeze_negative_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_unsqueeze_three_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_unsqueeze_two_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_unsqueeze_unsorted_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Upsample
 
     # Where
 
     # Xor
-    "test_xor2d_cpu": (test_static_dynamic,),
-    "test_xor3d_cpu": (test_static_dynamic,),
-    "test_xor4d_cpu": (test_static_dynamic,),
-    "test_xor_bcast3v1d_cpu": (test_static_dynamic,),
-    "test_xor_bcast3v2d_cpu": (test_static_dynamic,),
-    "test_xor_bcast4v2d_cpu": (test_static_dynamic,),
-    "test_xor_bcast4v3d_cpu": (test_static_dynamic,),
-    "test_xor_bcast4v4d_cpu": (test_static_dynamic,),
+    # Got "Failed to import ONNX TensorProto due to unsupported data types" if enabling "CONSTANT_INPUT:{-1}"
+    "test_xor2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_xor3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_xor4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_xor_bcast3v1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_xor_bcast3v2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_xor_bcast4v2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_xor_bcast4v3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_xor_bcast4v4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
 
     ############################################################
     # Model (alphabetical order)
 
-    "test_shufflenet_cpu": (test_static,),
-    "test_resnet50_cpu": (test_static_dynamic,{0:{-1}}),
-    "test_vgg19_cpu": (test_static,),
-    "test_densenet121_cpu": (test_static,),
-    "test_inception_v1_cpu": (test_static,),
+    "test_densenet121_cpu": {STATIC_SHAPE:{}},
+    "test_inception_v1_cpu": {STATIC_SHAPE:{}},
+    "test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}},
+    "test_shufflenet_cpu": {STATIC_SHAPE:{}},
+    "test_vgg19_cpu": {STATIC_SHAPE:{}},
 }
 
-# test for static
-test_to_enable = [ key for (key, value) in test_to_enable_static_dynamic.items() if value[0] & test_static ]
+# Test for static inputs.
+test_to_enable = [ key for (key, value) in test_to_enable_dict.items() if STATIC_SHAPE in value ]
 
+# Test for dynamic inputs.
 # Specify the test cases which currently can not pass for dynamic shape
 # Presumably, this list should be empty
 # Except for some operation too difficult to handle for dynamic shape
 # or big models
-test_for_dynamic = [ key for (key, value) in test_to_enable_static_dynamic.items() if value[0] & test_dynamic ]
+test_for_dynamic = [ key for (key, value) in test_to_enable_dict.items() if DYNAMIC_SHAPE in value]
+
+# Test for constant inputs.
+test_for_constant = [ key for (key, value) in test_to_enable_dict.items() if CONSTANT_INPUT in value]
 
 # Specify the test cases which need version converter
 test_need_converter = []
@@ -796,6 +816,10 @@ test_need_converter = []
 if args.dynamic :
     print("dynamic shape is enabled")
     test_to_enable = test_for_dynamic
+
+if args.constant:
+    print("constant input is enabled")
+    test_to_enable = test_for_constant
 
 # User case specify one test case with BCKEND_TEST env
 if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
@@ -811,8 +835,8 @@ def determine_dynamic_parameters(test_name):
     selected_list = {args.input: {args.dim}}
     test_name_cpu = test_name + "_cpu"
     if test_name_cpu in test_for_dynamic:
-        if len(test_to_enable_static_dynamic[test_name_cpu]) > 1:
-            selected_list = test_to_enable_static_dynamic[test_name_cpu][1]
+        if len(test_to_enable_dict[test_name_cpu]) > 1:
+            selected_list = test_to_enable_dict[test_name_cpu].get(DYNAMIC_SHAPE)
     return selected_list
 
 def execute_commands(cmds, dynamic_inputs_dims):
@@ -852,9 +876,15 @@ def execute_commands(cmds, dynamic_inputs_dims):
 #    share the same endianness. So we try to figure out what is the desired
 #    reference output endianness, and convert our outputs to this desired
 #    endianness.
-class EndiannessAwareExecutionSession(ExecutionSession):
-    def __init__(self, path, entry_point):
-        super().__init__(path, entry_point)
+class EndiannessAwareExecutionSession:
+    def __init__(self, model):
+        self.model = model 
+        self.entry_point = "run_main_graph"
+        self.exec_name = None
+        # Compiling the model in advance if not testing constants, so that
+        # the model is compiled once and used multiple times.
+        if not args.constant:
+            self.exec_name = self.compile_model()
 
     def is_input_le(self, inputs):
         inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
@@ -869,37 +899,13 @@ class EndiannessAwareExecutionSession(ExecutionSession):
         implicitly_le = (inputs_endianness[0] == "=" and sys_is_le)
         return explicitly_le or implicitly_le
 
-    def run(self, inputs, **kwargs):
-        if len(inputs):
-            # Deduce desired endianness of output from inputs.
-            sys_is_le = sys.byteorder == 'little'
-            inp_is_le = self.is_input_le(inputs)
-            if (sys_is_le != inp_is_le):
-                inputs = list(
-                    map(lambda x: x.byteswap().newbyteorder(), inputs))
-            outputs = super().run(inputs)
-            if (sys_is_le != inp_is_le):
-                outputs = list(
-                    map(lambda x: x.byteswap().newbyteorder(), outputs))
-            return outputs
-        else:
-            # Can't deduce desired output endianess, fingers crossed.
-            warnings.warn(
-                "Cannot deduce desired output endianness, using native endianness by default."
-            )
-            return super().run(inputs)
-
-
-class DummyBackend(onnx.backend.base.Backend):
-    @classmethod
-    def prepare(cls, model, device='CPU', **kwargs):
-        super(DummyBackend, cls).prepare(model, device, **kwargs)
-        name = model.graph.name
+    def compile_model(self):
+        name = self.model.graph.name
         model_name = result_dir+name+".onnx"
         exec_name = result_dir+name + ".so"
         # Clean the temporary files in case
         # Save model to disk as temp_model.onnx.
-        onnx.save(model, model_name)
+        onnx.save(self.model, model_name)
         if not os.path.exists(model_name) :
             print("Failed save model: "+ name)
         print(name)
@@ -917,8 +923,72 @@ class DummyBackend(onnx.backend.base.Backend):
         execute_commands(command_list, dynamic_inputs_dims)
         if not os.path.exists(exec_name) :
             print("Failed " + test_config.TEST_DRIVER_PATH + ": " + name)
-        return EndiannessAwareExecutionSession(exec_name,
-                                                   "run_main_graph")
+        return exec_name
+
+    def turn_model_input_to_constant(self, inputs):
+        # If IMPORTER_FORCE_CONSTANT is set, get input indices from it. 
+        # Otherwise, get from test_to_enable_dict.
+        input_indices = {} 
+        if IMPORTER_FORCE_CONSTANT:
+            input_indices = set(map(lambda x: int(x.strip()),
+                                    IMPORTER_FORCE_CONSTANT.split(",")))
+        else:
+            test_name_cpu = self.model.graph.name + "_cpu"
+            if test_name_cpu in test_for_constant:
+                test_info = test_to_enable_dict[test_name_cpu]
+                input_indices = test_info.get(CONSTANT_INPUT)
+
+        # Change the model by turning input tensors to initializers with the
+        # same name, so that the inputs will be constants at compile time.
+        # This is for testing a model when its inputs are constants.
+        num_of_inputs = len(inputs)
+        if -1 in input_indices:
+            input_indices = range(num_of_inputs)
+        # Create initializers that have the same name as inputs.
+        for idx in input_indices:
+            tensor = inputs[idx]
+            tensor = numpy_helper.from_array(tensor,
+                                             self.model.graph.input[idx].name)
+            self.model.graph.initializer.extend([tensor])
+        # Remove inputs that were turned to constants.
+        new_inputs = []
+        for idx in range(num_of_inputs):
+            if idx not in input_indices:
+                new_inputs.append(inputs[idx])
+        return new_inputs
+
+    def run(self, inputs, **kwargs):
+        if len(inputs):
+            # Deduce desired endianness of output from inputs.
+            sys_is_le = sys.byteorder == 'little'
+            inp_is_le = self.is_input_le(inputs)
+            if (sys_is_le != inp_is_le):
+                inputs = list(
+                    map(lambda x: x.byteswap().newbyteorder(), inputs))
+            # If constant test, change the model inputs to constants.
+            if args.constant:
+                inputs = self.turn_model_input_to_constant(inputs)
+                self.exec_name = self.compile_model()
+            session = ExecutionSession(self.exec_name, self.entry_point)
+            outputs = session.run(inputs)
+            if (sys_is_le != inp_is_le):
+                outputs = list(
+                    map(lambda x: x.byteswap().newbyteorder(), outputs))
+            return outputs
+        else:
+            # Can't deduce desired output endianess, fingers crossed.
+            warnings.warn(
+                "Cannot deduce desired output endianness, using native endianness by default."
+            )
+            session = ExecutionSession(self.exec_name, self.entry_point)
+            return session.run(inputs)
+
+
+class DummyBackend(onnx.backend.base.Backend):
+    @classmethod
+    def prepare(cls, model, device='CPU', **kwargs):
+        super(DummyBackend, cls).prepare(model, device, **kwargs)
+        return EndiannessAwareExecutionSession(model)
 
     @classmethod
     def supports_device(cls, device):
