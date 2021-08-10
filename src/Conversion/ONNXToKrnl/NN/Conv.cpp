@@ -195,7 +195,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
                         LiteralIndexExpr s(strides[i]);
                         LiteralIndexExpr d(isDilated ? dilations[i] : 1);
                         IndexExpr t = o * s;
-                        t = t + k * d - p;
+                        t = t + k * d;
                         t = t - p;
                         inputAccessFct.emplace_back(t);
                       }
