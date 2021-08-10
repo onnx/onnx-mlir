@@ -68,13 +68,13 @@ void ONNXDropoutOp::getCanonicalizationPatterns(
 }
 
 /// on the ONNXSqueezeOp.
-void ONNXSqueezeOp::getCanonicalizationPatterns(
+void ONNXSqueezeV11Op::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveSqueezeUnsqueezePattern>(context);
 }
 
 /// on the ONNXUnsqueezeOp.
-void ONNXUnsqueezeOp::getCanonicalizationPatterns(
+void ONNXUnsqueezeV11Op::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveUnsqueezeSqueezePattern>(context);
 }

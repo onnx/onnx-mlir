@@ -50,7 +50,7 @@ func @test_reducelogsumexp(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   // CHECK-NEXT: [[CST:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
   // CHECK-NEXT: [[REDUCE_SUM:%.+]] = "onnx.ReduceSum"([[EXP]], [[CST]]) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<*xf32>, tensor<1xi64>) -> tensor<*xf32> 
   // CHECK-NEXT: [[LOG:%.+]] = "onnx.Log"([[REDUCE_SUM]]) : (tensor<*xf32>) -> tensor<*xf32>
-  // CHECK-NEXT: [[SQUEEZE:%.+]] = "onnx.Squeeze"([[REDUCE_MAX]]) {axes = [1]} : (tensor<*xf32>) -> tensor<*xf32>
+  // CHECK-NEXT: [[SQUEEZE:%.+]] = "onnx.SqueezeV11"([[REDUCE_MAX]]) {axes = [1]} : (tensor<*xf32>) -> tensor<*xf32>
   // CHECK-NEXT: [[RES:%.+]] = "onnx.Add"([[LOG]], [[SQUEEZE]]) : (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
   // CHECK-NEXT: return [[RES]] : tensor<*xf32>
 }

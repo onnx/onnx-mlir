@@ -370,32 +370,9 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
   return dimVal;
 }
 
-/// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
-/// return a constant.
-Value foldOrEmitONNXSqueezeOp(ConversionPatternRewriter &rewriter, Location loc,
-    Type resultType, Value input, int64_t axis) {
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
-    char *inputBuffer = createArrayFromDenseElementsAttr(
-        input.getDefiningOp()
-            ->getAttrOfType<::mlir::Attribute>("value")
-            .dyn_cast_or_null<mlir::DenseElementsAttr>());
-
-    Value constVal = createDenseONNXConstantOp(
-        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
-                         .getResult();
-    free(inputBuffer);
-    return constVal;
-  } else {
-    return rewriter
-        .create<ONNXSqueezeOp>(
-            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
-        .getResult();
-  }
-}
-
-/// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
-/// return a constant.
-Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
+/// Emit an ONNXSqueezeV11Op. If the input is constant, do const propagation,
+/// and return a constant.
+Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
   if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
@@ -410,7 +387,30 @@ Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
     return constVal;
   } else {
     return rewriter
-        .create<ONNXUnsqueezeOp>(
+        .create<ONNXSqueezeV11Op>(
+            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
+        .getResult();
+  }
+}
+
+/// Emit an ONNXUnsqueezeV11Op. If the input is constant, do const propagation,
+/// and return a constant.
+Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, int64_t axis) {
+  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(
+        input.getDefiningOp()
+            ->getAttrOfType<::mlir::Attribute>("value")
+            .dyn_cast_or_null<mlir::DenseElementsAttr>());
+
+    Value constVal = createDenseONNXConstantOp(
+        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
+                         .getResult();
+    free(inputBuffer);
+    return constVal;
+  } else {
+    return rewriter
+        .create<ONNXUnsqueezeV11Op>(
             loc, resultType, input, rewriter.getI64ArrayAttr(axis))
         .getResult();
   }
