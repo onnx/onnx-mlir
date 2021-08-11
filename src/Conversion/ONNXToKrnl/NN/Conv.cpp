@@ -110,7 +110,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
           DimIndexExpr g(outerIndices[1]);
           DimIndexExpr coPerGroup(outerIndices[2]);
           IndexExpr co = g * SymbolIndexExpr(COPerGroup) + coPerGroup;
-
+          // Compute g * CIPerGroup for later use.
+          IndexExpr gTimesCIPerGroup = g * SymbolIndexExpr(CIPerGroup);
           // Determine the bounds for the output spacial dimensions.
           int spacialRank = outputRank - spatialStartIndex;
           ValueRange outputSpacialLoops = createKrnl.defineLoops(spacialRank);
@@ -140,7 +141,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
                 // Bounds for reduction loops.
                 ValueRange redLoops = createKrnl.defineLoops(spacialRank + 1);
-                SmallVector<IndexExpr, 4> redLbs, redUbs;
+                SmallVector<IndexExpr, 4> redLbs, redUbs, pMinOS;
                 // First: loop over channel in per group.
                 redLbs.emplace_back(iZero);
                 redUbs.emplace_back(SymbolIndexExpr(CIPerGroup));
@@ -165,6 +166,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
                   IndexExpr ub = ipos.ceilDiv(d);
                   ub = IndexExpr::min(ub, K);
                   redUbs.emplace_back(ub);
+                  // Save p - o * s for later use.
+                  pMinOS.emplace_back(pos);
                 }
                 // for ciPerGroup = 0 .. CIPerGroup:
                 //   for kh in lb .. ub:
@@ -183,20 +186,15 @@ struct ONNXConvOpLowering : public ConversionPattern {
                       inputAccessFct.emplace_back(n);
                       // ci = g * CIPerG + ciPerG
                       DimIndexExpr ciPerG(redIndices[0]);
-                      IndexExpr ci =
-                          DimIndexExpr(g) * SymbolIndexExpr(CIPerGroup) +
-                          ciPerG;
+                      IndexExpr ci = SymbolIndexExpr(gTimesCIPerGroup) + ciPerG;
                       inputAccessFct.emplace_back(ci);
                       for (int i = 0; i < spacialRank; ++i) {
                         // for each spacial dims: access is o * s + k * d - p.
-                        DimIndexExpr o(outputSpatialIndices[i]);
                         DimIndexExpr k(redIndices[1 + i]);
-                        LiteralIndexExpr p(pads[i]); // Begining/left/top pad.
-                        LiteralIndexExpr s(strides[i]);
+                        SymbolIndexExpr pos(pMinOS[i]);
                         LiteralIndexExpr d(isDilated ? dilations[i] : 1);
-                        IndexExpr t = o * s;
-                        t = t + k * d;
-                        t = t - p;
+                        // k*d - (p - o*s) = k*d + o*s - p
+                        IndexExpr t = (k * d) - pos;
                         inputAccessFct.emplace_back(t);
                       }
                       Value image =
@@ -237,6 +235,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
         });       // Outer loops;
   }
 
+  // Not needed anymore, kept for reference for the near future.
   void convOriginal(ConversionPatternRewriter &rewriter,
       IndexExprScope &ieScope, ONNXConvOp &convOp,
       ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
