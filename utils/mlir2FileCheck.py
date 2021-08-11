@@ -25,13 +25,14 @@ import subprocess
 
 def print_usage():
     print('Translate mlir format from stdin to a suitable FileCheck format.')
-    print('mlir2FileCheck [-cdh] [-a <arg arrays>] [-d <dict>]')
+    print('mlir2FileCheck [-cdh] [-a <arg arrays>] [-d <dict>] [-m <model file>')
     print('  -a,--args <array>: Rename function arguments using a json array,')
     print(
         '                     such as \'["A", "B", "C"] for 1st, 2nd, & 3rd args.\'.')
     print('  -c,--check       : Run FileCheck on output, to verify that the output is good.')
     print('  -d,--debug       : Rename for easier debugging of code, disable FileCheck format.')
     print('  -h,--help        : Print help.')
+    print('  -m,--model <model name>: insert file-check text inside the model of a single function.')
     print('  -n,--names <dict>: Rename variables using a json dictionary')
     print(
         '                     such as \'{"cst": "ZERO"}\' to rename cst to ZERO.')
