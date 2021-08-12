@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Support/OMOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 /// Check if all operands are scalar values at compile time.
@@ -78,6 +79,12 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 
   // Make sure to allocate at the beginning of the block if
   // all dimensions are known.
+  // Don't do these if memory bundling is not enabled
+  // Allow buffer management in MLIR to do the job
+
+  if (!memoryBundlingEnabled)
+    return alloc;
+
   auto *parentBlock = alloc.getOperation()->getBlock();
   if (hasAllConstantDimensions(type))
     alloc.getOperation()->moveBefore(&parentBlock->front());
