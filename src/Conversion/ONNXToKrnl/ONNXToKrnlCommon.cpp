@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Support/OMOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Support/OMOptions.hpp"
 
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values) {

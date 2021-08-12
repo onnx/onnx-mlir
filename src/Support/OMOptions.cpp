@@ -42,5 +42,5 @@ llvm::cl::opt<string> instrumentONNXOps("instrument-onnx-ops",
 llvm::cl::opt<bool> memoryBundlingEnabled("memory-bundling-enabled",
     llvm::cl::desc("enable memory bundling related optimization"
                    "several passes work together to bundle buffers"
-		   "if disabled, buffer management by mlir is used"),
+                   "if disabled, buffer management by mlir is used"),
     llvm::cl::init(true), llvm::cl::cat(OMPassOptions));

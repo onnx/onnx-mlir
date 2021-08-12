@@ -20,9 +20,9 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
 
-#include "src/Support/OMOptions.hpp"
 #include "ExternalUtil.hpp"
 #include "MainUtils.hpp"
+#include "src/Support/OMOptions.hpp"
 
 using namespace std;
 using namespace mlir;
