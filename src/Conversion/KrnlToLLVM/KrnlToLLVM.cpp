@@ -32,6 +32,7 @@
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/Support/Endian.h"
 
 #include "onnx/onnx_pb.h"
 
@@ -1417,6 +1418,14 @@ struct ConvertKrnlToLLVMPass
 } // end anonymous namespace
 
 void ConvertKrnlToLLVMPass::runOnOperation() {
+  // Annotate ModuleOp with endian information so that LLVM global constants are
+  // handled correctly by the other LLVM tools such as 'opt'.
+  bool isLittleEndian = llvm::support::endian::system_endianness() ==
+                        llvm::support::endianness::little;
+  StringRef endian = isLittleEndian ? "e" : "E";
+  ModuleOp module = getOperation();
+  module->setAttr("llvm.data_layout", StringAttr::get(&getContext(), endian));
+
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
