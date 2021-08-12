@@ -1580,6 +1580,161 @@ LogicalResult ONNXReduceSumV11Op::inferShapes(
 // Conv
 //===----------------------------------------------------------------------===//
 
+template <class T>
+static LogicalResult verifyKernelShape(
+    T *op, int64_t spatialRank, Value filterOperand) {
+  // 1) Get shape of filter. Shape is not guaranteed to be compile time
+  // constant.
+  auto filterShape =
+      filterOperand.getType().cast<RankedTensorType>().getShape();
+  // 2) Get kernel_shape attribute.
+  auto kernelShape = op->kernel_shape();
+  if (!kernelShape.hasValue()) {
+    // Don't have a kernel shape explicitly, still make sure that the filter
+    // shape are fine if known. If size is negative, ok since this is runtime.
+    // If positive, ok since it must be strictly positive. If zero, that is bad.
+    for (int i = 0; i < spatialRank; ++i)
+      if (filterShape[2 + i] == 0)
+        return op->emitError("Bad spatial filter size: cannot be zero");
+    return success();
+  }
+  // 3) verify that we have the right number.
+  if ((int64_t)ArrayAttrSize(kernelShape) != spatialRank)
+    return op->emitError(
+        "kernel_shape length incompatible with spatial dimensions");
+  // 4) Verify that they are all positive.
+  for (int i = 0; i < spatialRank; ++i) {
+    auto attrSize = ArrayAttrIntVal(kernelShape, i);
+    if (attrSize < 1)
+      return op->emitError("Bad kernel_shape value: must be strictly positive");
+    auto filterSize = filterShape[2 + i];
+    if (filterSize >= 0 && filterSize != attrSize)
+      return op->emitError(
+          "Bad kernel_shape value: does not match filter sizes");
+  }
+  return success();
+}
+
+template <class T>
+static LogicalResult verifyStrides(T *op, int64_t spatialRank) {
+  // 1) Get strides attribute.
+  auto strides = op->strides();
+  if (!strides.hasValue())
+    return success();
+  // 2) verify that we have the right number.
+  if ((int64_t)ArrayAttrSize(strides) != spatialRank)
+    return op->emitError("strides length incompatible with spatial dimensions");
+  // 3) Verify that they are all positive.
+  for (int i = 0; i < spatialRank; ++i) {
+    auto attrSize = ArrayAttrIntVal(strides, i);
+    if (attrSize < 1)
+      return op->emitError("Bad stride value: must be strictly positive");
+  }
+  return success();
+}
+
+template <class T>
+static LogicalResult verifyDilations(T *op, int64_t spatialRank) {
+  // 1) Get dilation attribute.
+  auto dilations = op->dilations();
+  if (!dilations.hasValue())
+    return success();
+  // 2) verify that we have the right number.
+  if ((int64_t)ArrayAttrSize(dilations) != spatialRank)
+    return op->emitError(
+        "dilations length incompatible with spatial dimensions");
+  // 3) Verify that they are all positive.
+  for (int i = 0; i < spatialRank; ++i) {
+    auto attrSize = ArrayAttrIntVal(dilations, i);
+    if (attrSize < 1)
+      return op->emitError("Bad dilation value: must be strictly positive");
+  }
+  return success();
+}
+
+template <class T>
+static LogicalResult verifyPadding(T *op, int64_t spatialRank) {
+  // 1) Get pad attribute.
+  auto autoPad = op->auto_pad();
+  if (autoPad == "NOTSET") {
+    auto pads = op->pads();
+    if (!pads.hasValue())
+      return success();
+    // 2) verify that we have the right number.
+    if ((int32_t)ArrayAttrSize(pads) != 2 * spatialRank)
+      return op->emitError("pads length incompatible with spatial dimensions");
+    // 3) Verify that they are all positive.
+    for (int i = 0; i < spatialRank; ++i) {
+      auto attrSize = ArrayAttrIntVal(pads, i);
+      if (attrSize < 0)
+        return op->emitError("Bad pad value: must be nonnegative");
+    }
+    return success();
+  }
+  if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER" ||
+      autoPad == "VALID") {
+    // Nothing to check at this time.
+    return success();
+  }
+  return op->emitError("Unknown auto pad option");
+}
+
+static LogicalResult verify(ONNXConvOp op) {
+  ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
+  // Get operands.
+  auto X = operandAdaptor.X();
+  auto W = operandAdaptor.W();
+  auto B = operandAdaptor.B();
+  bool hasBias = !B.getType().isa<NoneType>();
+  int64_t g = op.group();
+  // Get spatial rank.
+  if (!W.getType().isa<RankedTensorType>()) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
+  auto wShape = W.getType().cast<RankedTensorType>().getShape();
+  int64_t spatialRank = wShape.size() - 2;
+  // If ranked, verify ranks of inputs.
+  if (wShape[0] >= 0 && wShape[0] % g != 0) {
+    // This rule is not enforced in the spec but is present in Keras and Pytorch
+    // and simplifies the code.
+    return op->emitError(
+        "Channel Out (M) must be a multiple of the number of groups");
+  }
+  if (X.getType().isa<RankedTensorType>()) {
+    auto xShape = X.getType().cast<RankedTensorType>().getShape();
+    if ((int64_t)xShape.size() - 2 != spatialRank)
+      return op->emitError("Input spacial rank mismatch");
+    if (xShape[1] >= 0 && xShape[1] % g != 0)
+      return op->emitError(
+          "Channel In (C) must be a multiple of the number of groups");
+    if (xShape[1] >= 0 && wShape[1] >= 0 && xShape[1] / g != wShape[1]) {
+      printf("hi alex, x %d, w %d, g %d\n", (int)xShape[1], (int)wShape[1],
+          (int)g);
+      return op->emitError(
+          "Channel In (C) of input div g must be equal 2nd dim of filter");
+    }
+  }
+  if (hasBias && B.getType().isa<RankedTensorType>()) {
+    auto bShape = B.getType().cast<RankedTensorType>().getShape();
+    if (bShape.size() != 1)
+      return op->emitError("Bias should have a rank of one");
+    if (bShape[0] >= 0 && wShape[0] != bShape[0])
+      return op->emitError(
+          "Bias should have same dimension as first dimension of weights");
+  }
+  // Verify parameters.
+  if (failed(verifyKernelShape<ONNXConvOp>(&op, spatialRank, W)))
+    return failure();
+  if (failed(verifyStrides<ONNXConvOp>(&op, spatialRank)))
+    return failure();
+  if (failed(verifyDilations<ONNXConvOp>(&op, spatialRank)))
+    return failure();
+  if (failed(verifyPadding<ONNXConvOp>(&op, spatialRank)))
+    return failure();
+  return success();
+}
+
 // For this operation, we define the attributes once in the original Conv
 // operation class. There is no need to redefine the attribute names for the
 // other classes based on Conv.

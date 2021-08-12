@@ -772,6 +772,7 @@ def ONNXConvOp:ONNX_Op<"Conv",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",

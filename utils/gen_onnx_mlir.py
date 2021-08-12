@@ -353,6 +353,9 @@ OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Gemm', 'Cast', 'Transpos
                         'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
                         'GlobalMaxPool', 'SqueezeV11', 'UnsqueezeV11']
 
+# Operations with custom verifiers.
+OpsWithVerifier = ['Conv']
+
 OpsWithHelpers = {
   "Loop": """
     mlir::Operation::result_range v_final();
@@ -921,7 +924,7 @@ def gen_op_def(schema, with_version = False):
     indent = inc_indent(indent)
     if opName in OpsWithCanonicalizer:
         s += indent + 'let hasCanonicalizer = 1;\n'
-
+    
     # Generate decl for summary.
     s += indent + 'let summary = "ONNX {} operation";\n'.format(schema.name)
 
@@ -1040,7 +1043,7 @@ def gen_op_def(schema, with_version = False):
 
             s += '\n' + indent + '];\n'
 
-    # Generate extracClassDeclaration.
+    # Generate extraClassDeclaration.
     s += indent + "let extraClassDeclaration = [{\n"
     #indent = inc_indent(indent)
 
@@ -1067,6 +1070,10 @@ def gen_op_def(schema, with_version = False):
 
     if ( opName in custom_definition_misc) :
         s += custom_definition_misc[opName] + '\n'
+
+    # Generate decl for verifier.
+    if opName in OpsWithVerifier:
+        s += indent + 'let verifier = [{ return ::verify(*this); }];\n'
 
     s += '}\n\n'
     return s

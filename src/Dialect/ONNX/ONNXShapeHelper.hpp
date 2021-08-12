@@ -262,6 +262,7 @@ struct ONNXConvOpShapeHelper : public ONNXOpShapeHelper<ONNXConvOp> {
   LogicalResult Compute(ONNXConvOpAdaptor operandAdaptor,
       Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> pads,
       Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations);
+  SmallVector<IndexExpr, 4> computedPads;
 };
 
 // Shape for Pooling.
