@@ -127,7 +127,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   } else {
     allocOp = rewriter.create<memref::AllocOp>(loc, type, allocOperands);
   }
-  if (insertDealloc) {
+  if (memoryBundlingEnabled && insertDealloc) {
     auto *parentBlock = allocOp.getOperation()->getBlock();
     auto dealloc = rewriter.create<memref::DeallocOp>(loc, allocOp);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
