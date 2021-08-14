@@ -73,6 +73,9 @@ public:
   Option<bool> checkRNNOps{*this, "check-rnn-ops-lowering",
       llvm::cl::desc("Only used for writing LIT tests for RNN ops."),
       llvm::cl::init(false)};
+  Option<bool> noDealloc{*this, "no-dealloc",
+      llvm::cl::desc("Only used for writing LIT tests for RNN ops."),
+      llvm::cl::init(false)};
 };
 } // end anonymous namespace.
 
@@ -120,6 +123,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     target.addLegalOp<ONNXSigmoidOp>();
     target.addLegalOp<ONNXTanhOp>();
   }
+
+  kNoDealloc = noDealloc;
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.

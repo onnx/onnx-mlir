@@ -43,6 +43,8 @@
 
 using namespace mlir;
 
+extern bool kNoDealloc;
+
 //===----------------------------------------------------------------------===//
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
 //===----------------------------------------------------------------------===//

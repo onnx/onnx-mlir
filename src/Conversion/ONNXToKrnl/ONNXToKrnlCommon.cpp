@@ -16,6 +16,8 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Support/OMOptions.hpp"
 
+extern bool kNoDealloc = false;
+
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values) {
   for (Value value : values) {
@@ -82,7 +84,8 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
   // Don't do these if memory bundling is not enabled
   // Allow buffer management in MLIR to do the job
 
-  if (!memoryBundlingEnabled)
+  // if (!memoryBundlingEnabled)
+  if (kNoDealloc)
     return alloc;
 
   auto *parentBlock = alloc.getOperation()->getBlock();
@@ -127,7 +130,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   } else {
     allocOp = rewriter.create<memref::AllocOp>(loc, type, allocOperands);
   }
-  if (memoryBundlingEnabled && insertDealloc) {
+  if (!kNoDealloc && insertDealloc) {
     auto *parentBlock = allocOp.getOperation()->getBlock();
     auto dealloc = rewriter.create<memref::DeallocOp>(loc, allocOp);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
