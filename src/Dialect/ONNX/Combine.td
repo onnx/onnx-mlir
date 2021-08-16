@@ -40,6 +40,11 @@ def HasSameElementType : Constraint<
 def AreTheSameAxisArray: Constraint<
     CPred<"AreTheSameAxisArray($0.getType().cast<ShapedType>().getRank(), $1, $2)">,
     "Two axis arrays are the same">;
+def AreSame3DShape : Constraint<
+    CPred<"(($0.getType().cast<MemRefType>().getShape().size() == $1.size()) &&"
+            ($0.getType().cast<MemRefType>().getShape()[0] == $1[0]) && "
+            ($0.getType().cast<MemRefType>().getShape()[1] == $1[1]) && "
+            ($0.getType().cast<MemRefType>().getShape()[2] == $1[2]))">>;
 
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
@@ -49,6 +54,7 @@ def GemmAlpha : NativeCodeCall<"$_builder.getF32FloatAttr(1.0)">;
 def GemmBeta : NativeCodeCall<"$_builder.getF32FloatAttr(1.0)">;
 def GemmTransA : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
 def GemmTransB : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
+
 
 // onnx.add(onnx.matmul(%X, %Y), %Z) = onnx.Gemm(%X, %Y, %Z)
 def MulAddToGemmOptPattern : Pat<(ONNXAddOp (ONNXMatMulOp:$res $m1, $m2), $m3),
@@ -96,6 +102,20 @@ def RemoveIdentityTransposePattern:  Pat<
   (replaceWithValue $val),
   // Check that we have indeed a identity transpose pattern.
   [(IsIdentityPermuteAttribute:$p)]>;
+
+def FuseReshapePattern:  Pat<
+  // Reshape of a reshape.
+  (ONNXReshapeOp (ONNXReshapeOp $v, $s1), $s2),
+  // Remove the first reshape op.
+  (ONNXReshapeOp $v, $s2)>;
+
+def RemoveIdentityReshapePattern:  Pat<
+  // Remove an identity pattern. Input tensor already has the specified shape.
+  (ONNXReshapeOp $val, $s),
+  // Remove the transpose.
+  (replaceWithValue $val),
+  // Check that we have indeed the same shape tensors.
+  [(Has3DShape $val, $s)]>;
 
 
 /// Combine squeeze and unsqueeze.
