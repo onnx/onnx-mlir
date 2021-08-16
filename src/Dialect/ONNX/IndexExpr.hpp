@@ -456,8 +456,11 @@ public:
   IndexExpr operator*(IndexExpr const b) const;
   IndexExpr operator*(int64_t const b) const;
   IndexExpr floorDiv(IndexExpr const b) const;
+  IndexExpr floorDiv(int64_t const b) const;
   IndexExpr ceilDiv(IndexExpr const b) const;
+  IndexExpr ceilDiv(int64_t const b) const;
   IndexExpr operator%(IndexExpr const b) const;
+  IndexExpr operator%(int64_t const b) const;
   // Compare operations, return a new IndexExpr that is either a literal or a
   // value expression of type predType.
   IndexExpr operator==(IndexExpr const b) const;

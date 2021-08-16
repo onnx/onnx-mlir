@@ -942,41 +942,106 @@ ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp,
     ArrayValueIndexCapture::LoadVal fLoadVal)
     : ONNXOpShapeHelper<ONNXConvOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
 
-LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor,
-    Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> pads,
-    Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations) {
+LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Basic information.
-  auto xRank = operandAdaptor.X().getType().cast<ShapedType>().getRank();
-  int64_t kernelRank = ArrayAttrSize(kernelShape);
+  int64_t rank = operandAdaptor.X().getType().cast<ShapedType>().getRank();
   int64_t spatialOffset = 2;
+  int64_t spatialRank = rank - spatialOffset;
 
-  DimsExpr outputDims;
   MemRefBoundsIndexCapture XBounds(operandAdaptor.X());
   MemRefBoundsIndexCapture WBounds(operandAdaptor.W());
 
-  // Insert batch size.
-  outputDims.emplace_back(XBounds.getDim(0));
-  // Insert number of filters being applied (number of output channels).
-  outputDims.emplace_back(WBounds.getDim(0));
-  // Insert dimensions for the spatial axes.
-  for (decltype(xRank) i = spatialOffset; i < xRank; ++i) {
-    int spatialIndex = i - spatialOffset;
-    IndexExpr input = XBounds.getDim(i);
-    LiteralIndexExpr kernel(ArrayAttrIntVal(kernelShape, spatialIndex));
-    LiteralIndexExpr stride(ArrayAttrIntVal(strides, spatialIndex));
-    LiteralIndexExpr pad(ArrayAttrIntVal(pads, spatialIndex) +
-                         ArrayAttrIntVal(pads, spatialIndex + kernelRank));
-    LiteralIndexExpr dilation;
-    if (!dilations.hasValue())
-      dilation = LiteralIndexExpr(1);
-    else
-      dilation =
-          LiteralIndexExpr(ArrayAttrIntVal(dilations.getValue(), spatialIndex));
+  // Fill in the stride, dilation, and kernel arrays.
+  auto strideOpt = op->strides();
+  auto dilationOpt = op->dilations();
+  auto kernelShapeOpt = op->kernel_shape();
+  for (int i = 0; i < spatialRank; ++i) {
+    // Strides, default 1.
+    strides.emplace_back(
+        strideOpt.hasValue() ? ArrayAttrIntVal(strideOpt, i) : 1);
+    // Dilations, default 1.
+    dilations.emplace_back(
+        dilationOpt.hasValue() ? ArrayAttrIntVal(dilationOpt, i) : 1);
+    // Kernel shape from attribute, default from Weight's spatial dims.
+    if (kernelShapeOpt.hasValue()) {
+      kernelShapes.emplace_back(
+          LiteralIndexExpr(ArrayAttrIntVal(kernelShapeOpt, i)));
+    } else {
+      int ii = i + spatialOffset;
+      kernelShapes.emplace_back(WBounds.getSymbol(ii));
+    }
+  }
+  // Pads, at this stage a given compile-time literal or default 0.
+  auto padOpt = op->pads();
+  for (int i = 0; i < 2 * spatialRank; ++i) {
+    int64_t p = padOpt.hasValue() ? ArrayAttrIntVal(padOpt, i) : 0;
+    pads.emplace_back(LiteralIndexExpr(p));
+  }
 
-    IndexExpr dimExp =
-        (input + pad - (kernel - 1) * dilation - 1).floorDiv(stride) + 1;
-    outputDims.emplace_back(dimExp);
+  // Handle output size: start by inserting batch size and output channels.
+  DimsExpr outputDims;
+  outputDims.emplace_back(XBounds.getDim(0));
+  outputDims.emplace_back(WBounds.getDim(0));
+
+  // Insert dimensions for the spatial axes. From MaxPool:
+  // https://github.com/onnx/onnx/blob/master/docs/Operators.md#maxpool
+  //
+  // NOSET:
+  //  * O[i] = floor((I[i] + P[i] - ((K[i] - 1) * d[i] + 1)) / s[i] + 1)
+  // VALID:
+  // * O[i] = ceil((I[i] - ((K[i] - 1) * d[i] + 1) + 1) / s[i])
+  // * P = 0
+  // SAME_LOWER or SAME_UPPER:
+  // * O[i] = ceil(I[i] / s[i])
+  // * p' = (O[i] - 1) * s[i] + ((K[i] - 1) * d[i] + 1) - I[i]
+  // * P[i] = p' / 2, if odd, first or second are increased by one.
+  auto autoPad = op->auto_pad();
+  LiteralIndexExpr zero(0);
+  LiteralIndexExpr one(1);
+  for (int64_t i = 0; i < spatialRank; ++i) {
+    int64_t ii = i + spatialOffset;
+    IndexExpr I = XBounds.getDim(ii);
+    IndexExpr K = kernelShapes[i];
+    LiteralIndexExpr d(dilations[i]);
+    LiteralIndexExpr s(strides[i]);
+    IndexExpr t1 = K - one;
+    IndexExpr kdTerm = t1 * d + one; // (k - 1) * d + 1
+    if (autoPad == "NOTSET") {
+      IndexExpr p = pads[i] + pads[i + spatialRank]; // Sum both pads.
+      IndexExpr t1 = I + p; // Compute floor((I + p - kdTerm) / s) + 1.
+      IndexExpr t2 = t1 - kdTerm;
+      IndexExpr O = t2.floorDiv(s) + one;
+      // Set output dim, and pads already set, nothing more to do.
+      outputDims.emplace_back(O);
+    } else if (autoPad == "VALID") {
+      IndexExpr t1 = kdTerm + one; // Compute ceil((I - (kdTerm +1))/s).
+      IndexExpr t2 = I - t1;
+      IndexExpr O = t2.ceilDiv(s);
+      // Set output dim, and pads already set to zero, nothing more to do.
+      outputDims.emplace_back(O);
+    } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
+      // Compute output as O = ceil(I/s).
+      IndexExpr O = I.ceilDiv(s);
+      outputDims.emplace_back(O);
+      // Compute sum of pads padSum = (O -1)*s + kdTerm - I.
+      IndexExpr t1 = O - one;
+      IndexExpr t2 = t1 * s + kdTerm;
+      IndexExpr padSum = t2 - I;
+      // Single pad value is ppadSump / 2.
+      IndexExpr p = padSum.floorDiv(2);
+      // Increment is 1 when pp % 2 != 0
+      IndexExpr test = (padSum % 2) != zero;
+      IndexExpr inc = IndexExpr::select(test, one, zero);
+      // Increment 1st value for SAME_LOWER and 2nd for SAME_UPPER.
+      if (autoPad == "SAME_UPPER") {
+        pads[i] = p;
+        pads[i + spatialRank] = p + inc;
+      } else { // SAME_LOWER.
+        pads[i] = p + inc;
+        pads[i + spatialRank] = p;
+      }
+    }
   }
 
   // Set type for the first output.
@@ -1088,8 +1153,8 @@ LogicalResult ONNXReshapeOpShapeHelper::Compute(
   outputDims.resize(outputRank);
 
   // Shape values can be 0, -1, or N (N > 0).
-  //   - 0: the output dim is setting to the input dim at the same index. Thus,
-  //   it must happen at the index < dataRank.
+  //   - 0: the output dim is setting to the input dim at the same index.
+  //   Thus, it must happen at the index < dataRank.
   //   - -1: the output dim is calculated from the other output dims. No more
   //   than one dim in the output has value -1.
 
@@ -1114,14 +1179,14 @@ LogicalResult ONNXReshapeOpShapeHelper::Compute(
     // Just store the dim as it is. Real value for -1 will be computed later.
     outputDims[i] = dim;
 
-    // dimShape == -1: use 1 to compute the number of elements to avoid negative
-    // value.
+    // dimShape == -1: use 1 to compute the number of elements to avoid
+    // negative value.
     dim = dim.selectOrSelf(dim == -1, LiteralIndexExpr(1));
     numOfElementsFromShape = numOfElementsFromShape * dim;
   }
 
-  // All the output dims except the one with -1 are computed. Thus, only update
-  // the dim with -1 here.
+  // All the output dims except the one with -1 are computed. Thus, only
+  // update the dim with -1 here.
   for (unsigned i = 0; i < outputRank; ++i)
     outputDims[i] = outputDims[i].selectOrSelf(
         outputDims[i] == -1, numOfElements.floorDiv(numOfElementsFromShape));
@@ -1160,8 +1225,8 @@ LogicalResult ONNXSqueezeV11OpShapeHelper::Compute(
   MemRefBoundsIndexCapture dataBounds(data);
   int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
 
-  // Get axis values. They are expected to be normalized before so that there is
-  // no negative values.
+  // Get axis values. They are expected to be normalized before so that there
+  // is no negative values.
   ArrayAttr axisAttrs = op->axesAttr();
   SmallVector<int64_t, 4> axes;
   for (auto axisAttr : axisAttrs.getValue()) {
@@ -1208,8 +1273,8 @@ LogicalResult ONNXUnsqueezeV11OpShapeHelper::Compute(
   MemRefBoundsIndexCapture dataBounds(data);
   int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
 
-  // Get axis values. They are expected to be normalized before so that there is
-  // no negative values.
+  // Get axis values. They are expected to be normalized before so that there
+  // is no negative values.
   ArrayAttr axisAttrs = op->axesAttr();
   SmallVector<int64_t, 4> axes;
   for (auto axisAttr : axisAttrs.getValue()) {

@@ -259,10 +259,11 @@ struct ONNXConvOpShapeHelper : public ONNXOpShapeHelper<ONNXConvOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXConvOpAdaptor operandAdaptor,
-      Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> pads,
-      Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations);
-  SmallVector<IndexExpr, 4> computedPads;
+  LogicalResult Compute(ONNXConvOpAdaptor operandAdaptor);
+  SmallVector<IndexExpr, 2> kernelShapes; 
+  SmallVector<IndexExpr, 4> pads;
+  SmallVector<int64_t, 2> strides;
+  SmallVector<int64_t, 2> dilations;
 };
 
 // Shape for Pooling.
