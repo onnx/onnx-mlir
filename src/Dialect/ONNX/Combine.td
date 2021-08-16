@@ -40,11 +40,15 @@ def HasSameElementType : Constraint<
 def AreTheSameAxisArray: Constraint<
     CPred<"AreTheSameAxisArray($0.getType().cast<ShapedType>().getRank(), $1, $2)">,
     "Two axis arrays are the same">;
-def AreSame3DShape : Constraint<
-    CPred<"(($0.getType().cast<MemRefType>().getShape().size() == $1.size()) &&"
-            ($0.getType().cast<MemRefType>().getShape()[0] == $1[0]) && "
-            ($0.getType().cast<MemRefType>().getShape()[1] == $1[1]) && "
-            ($0.getType().cast<MemRefType>().getShape()[2] == $1[2]))">>;
+def Has3DShape : Constraint<
+    CPred<"((($0.getType().cast<MemRefType>()).getShape().size() == "
+              "($1.getType().cast<MemRefType>()).getShape().size()) &&"
+          " (($0.getType().cast<MemRefType>()).getShape()[0] == "
+              "($1.getType().cast<MemRefType>()).getShape()[0]) &&"
+          " (($0.getType().cast<MemRefType>()).getShape()[1] == "
+              "($1.getType().cast<MemRefType>()).getShape()[1]) &&"
+          " (($0.getType().cast<MemRefType>()).getShape()[2] == "
+              "($1.getType().cast<MemRefType>()).getShape()[2]))">>;
 
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite

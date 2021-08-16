@@ -4374,6 +4374,7 @@ def ONNXReluOp:ONNX_Op<"Relu",
 
 def ONNXReshapeOp:ONNX_Op<"Reshape",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Reshape operation";
   let description = [{
   "Reshape the input tensor similar to numpy.reshape."
