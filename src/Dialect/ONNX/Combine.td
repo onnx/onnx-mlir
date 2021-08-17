@@ -40,15 +40,10 @@ def HasSameElementType : Constraint<
 def AreTheSameAxisArray: Constraint<
     CPred<"AreTheSameAxisArray($0.getType().cast<ShapedType>().getRank(), $1, $2)">,
     "Two axis arrays are the same">;
-def Has3DShape : Constraint<
-    CPred<"((($0.getType().cast<MemRefType>()).getShape().size() == "
-              "($1.getType().cast<MemRefType>()).getShape().size()) &&"
-          " (($0.getType().cast<MemRefType>()).getShape()[0] == "
-              "($1.getType().cast<MemRefType>()).getShape()[0]) &&"
-          " (($0.getType().cast<MemRefType>()).getShape()[1] == "
-              "($1.getType().cast<MemRefType>()).getShape()[1]) &&"
-          " (($0.getType().cast<MemRefType>()).getShape()[2] == "
-              "($1.getType().cast<MemRefType>()).getShape()[2]))">>;
+
+def HasSpecifiedConstantShape: Constraint<
+    CPred<"HasSpecifiedConstantShape($0, $1)">,
+          "Has the specified constant shape">;
 
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
@@ -115,11 +110,11 @@ def FuseReshapePattern:  Pat<
 
 def RemoveIdentityReshapePattern:  Pat<
   // Remove an identity pattern. Input tensor already has the specified shape.
-  (ONNXReshapeOp $val, $s),
+  (ONNXReshapeOp $val, $shape),
   // Remove the transpose.
   (replaceWithValue $val),
-  // Check that we have indeed the same shape tensors.
-  [(Has3DShape $val, $s)]>;
+  // Check that val has the specified shape.
+  [(HasSpecifiedConstantShape $val, $shape)]>;
 
 
 /// Combine squeeze and unsqueeze.

@@ -15,6 +15,7 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 // Identity affine
 using namespace mlir;
@@ -271,6 +272,31 @@ bool IsIdentityPermuteVector(ArrayAttr permAttr) {
   for (auto permVal : permAttr.getValue())
     if (permVal.cast<IntegerAttr>().getInt() != currentIndex++)
       return false;
+  return true;
+}
+
+/// Test if the value has the specified constant shape
+bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape) {
+  if (!value.getType().isa<ShapedType>()) {
+    return false;
+  }
+  ArrayRef<int64_t> valueShape = value.getType().cast<ShapedType>().getShape();
+  DenseElementsAttr shapeAttr = getDenseElementAttributeFromONNXValue(shape);
+  if (shapeAttr == nullptr) {
+    return false;
+  }
+  int64_t dimensionsOfShape =
+      getNumberOfElements(shapeAttr.getType().getShape());
+  if (valueShape.size() != dimensionsOfShape) {
+    return false;
+  }
+  auto valueIt = shapeAttr.getIntValues().begin();
+  for (int64_t i = 0; i < dimensionsOfShape; i++) {
+    int64_t value = (*valueIt++).getSExtValue();
+    if (valueShape[i] != value) {
+      return false;
+    }
+  }
   return true;
 }
 
