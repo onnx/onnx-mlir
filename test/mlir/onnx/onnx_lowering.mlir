@@ -411,7 +411,9 @@ func private @test_reshape_constant(%arg0 : tensor<1x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-// `Reshape` ops are lowerd to `reinterpret_cast` op. `reinterpret_cast` ops just change the view of input memref. So, input memref should not be deallocated if it is retuned. This test confirms the deallocation is not generated.
+// `Reshape` ops are lowerd to `reinterpret_cast` op. `reinterpret_cast` ops just change
+// the view of input memref. So, input memref should not be deallocated if it is retuned.
+// This test confirms the deallocation is not generated.
 
 func private @test_reshape_constant_dealloc(%arg0 : tensor<10x1xf32>) -> tensor<*xf32> {
   %0 = "onnx.Transpose"(%arg0) : (tensor<10x1xf32>) -> tensor<*xf32>
@@ -855,7 +857,9 @@ func private @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-// `UnsqueezeV11` ops are lowerd to `reinterpret_cast` op. `reinterpret_cast` ops just change the view of input memref. So, input memref should not be deallocated if it is retuned. This test confirms the deallocation is not generated.
+// `UnsqueezeV11` ops are lowerd to `reinterpret_cast` op. `reinterpret_cast` ops just
+// change the view of input memref. So, input memref should not be deallocated if it
+// is retuned. This test confirms the deallocation is not generated.
 
 func private @test_unsqueeze_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32> {
   %0 = "onnx.Transpose"(%arg0) : (tensor<10x20xf32>) -> tensor<*xf32>
@@ -875,7 +879,7 @@ func private @test_unsqueeze_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32>
 func private @test_unsqueeze_squeeze_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32> {
   %0 = "onnx.Transpose"(%arg0) : (tensor<10x20xf32>) -> tensor<*xf32>
   %1 = "onnx.UnsqueezeV11"(%0) { axes = [1, -1]} : (tensor<*xf32>) -> (tensor<*xf32>)
-  %2 = "onnx.Transpose"(%1) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<*xf32>  
+  %2 = "onnx.Transpose"(%1) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
   %3 = "onnx.SqueezeV11"(%2) {axes=[1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
   "std.return"(%3) : (tensor<*xf32>) -> ()
 
@@ -884,7 +888,7 @@ func private @test_unsqueeze_squeeze_dealloc(%arg0 : tensor<10x20xf32>) -> tenso
   // CHECK:       [[VAR_1_:%.+]] = memref.alloc() : memref<20x10xf32>
   // CHECK:       [[VAR_3_:%.+]] = memref.reinterpret_cast [[VAR_1_]] to offset: [0], sizes: [20, 1, 10, 1], strides: [10, 10, 1, 1] : memref<20x10xf32> to memref<20x1x10x1xf32>
   // CHECK:       [[VAR_5_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [20, 10], strides: [10, 1] : memref<20x1x1x10xf32> to memref<20x10xf32>
-  // CHECK:       memref.dealloc [[VAR_1_]] : memref<20x10xf32>  
+  // CHECK:       memref.dealloc [[VAR_1_]] : memref<20x10xf32>
   // CHECK-NOT:   memref.dealloc [[VAR_0_]] : memref<20x10xf32>
   // CHECK:       return [[VAR_5_]] : memref<20x10xf32>
 }
