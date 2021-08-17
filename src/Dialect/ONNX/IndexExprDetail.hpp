@@ -55,6 +55,7 @@ public:
   bool isIndexType() const;
 
   bool hasScope() const;
+  bool isInCurrentScope() const;
   bool hasAffineExpr() const;
   bool hasValue() const;
 
