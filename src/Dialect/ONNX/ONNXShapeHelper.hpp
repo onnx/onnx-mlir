@@ -260,7 +260,7 @@ struct ONNXConvOpShapeHelper : public ONNXOpShapeHelper<ONNXConvOp> {
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
   LogicalResult Compute(ONNXConvOpAdaptor operandAdaptor);
-  SmallVector<IndexExpr, 2> kernelShapes; 
+  SmallVector<IndexExpr, 2> kernelShapes;
   SmallVector<IndexExpr, 4> pads;
   SmallVector<int64_t, 2> strides;
   SmallVector<int64_t, 2> dilations;
