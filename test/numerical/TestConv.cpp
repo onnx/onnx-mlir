@@ -47,6 +47,8 @@ int myFloor(int a, int b) { return floor((1.0 * a) / (1.0 * b)); }
 // Compute Shape for various auto pad value.
 //===----------------------------------------------------------------------===//
 
+// TODO: Ideally these values would be corroborated with Pytorch/TF. However,
+// Pytorch only supports same/valid with unit strides. Maybe check with TF?
 LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
     const int WIn, const int kH, const int kW, int &pHBegin, int &pHEnd,
     int &pWBegin, int &pWEnd, const int autoPad, const int NOut, const int COut,

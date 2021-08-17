@@ -26,38 +26,6 @@ func @unsupport_conv_bad_kernel_shape(%arg0 : tensor<1x2x32x32xf32>, %arg1 : ten
 
 // -----
 
-func @unsupport_conv_dynamic_kernel_shape(%arg0 : tensor<1x2x32x32xf32>, %arg1 : tensor<5x2x?x7xf32>) -> tensor<*xf32> {
-  %cst = constant unit
-  // expected-error @+2 {{Runtime kernel_shape size not implemented yet}}
-  // expected-error @+1 {{shape inference failed}}
-  %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32x32xf32>, tensor<5x2x?x7xf32>, none) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
-func @unsupport_conv_same_upper_dynamic_X(%arg0 : tensor<1x2x?xf32>, %arg1 : tensor<5x2x6xf32>) -> tensor<*xf32> {
-  %cst = constant unit
-  // expected-error @+3 {{Conv Pads defined as SAME_UPPER or SAME_LOWER requires compile time X sizes}}
-  // expected-error @+2 {{Failed to scan Conv parameters successfully}}
-  // expected-error @+1 {{shape inference failed}}
-  %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_UPPER", group = 1 : si64} : (tensor<1x2x?xf32>, tensor<5x2x6xf32>, none) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
-func @unsupport_conv_same_lower_dynamic_X(%arg0 : tensor<1x2x?xf32>, %arg1 : tensor<5x2x6xf32>) -> tensor<*xf32> {
-  %cst = constant unit
-  // expected-error @+3 {{Conv Pads defined as SAME_UPPER or SAME_LOWER requires compile time X sizes}}
-  // expected-error @+2 {{Failed to scan Conv parameters successfully}}
-  // expected-error @+1 {{shape inference failed}}
-  %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_LOWER", group = 1 : si64} : (tensor<1x2x?xf32>, tensor<5x2x6xf32>, none) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
 //===----------------------------------------------------------------------===//
 /// Unsupported configurations for ONNXMaxPoolOp.
 //===----------------------------------------------------------------------===//

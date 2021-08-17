@@ -49,29 +49,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
     IndexExpr N = shapeHelper.dimsForOutput()[0];
     IndexExpr CO = shapeHelper.dimsForOutput()[1];
     IndexExpr COPerGroup = CO.ceilDiv(G);
-    // Note: Pytorch requires both channel in (CI) and channel out (CO) to be
-    // multiple of group number (G).
-    // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html
-    // ONNX clearly states that C (channel in or CI here) is a multiple of group
-    // number (G).
-    // https://github.com/onnx/onnx/blob/master/docs/Operators.md#Conv
-    // Quote: X.shape[1] == (W.shape[1] * group) == C
-    // Keras also specifies it: Input channels and filters must both be
-    // divisible by groups.
-    // https://www.tensorflow.org/api_docs/python/tf/keras/layers/Conv2D
-    if (CO.isLiteral()) {
-      assert(COPerGroup.isLiteral() &&
-             "expected div by const to result in a literal");
-      assert(groupNum * COPerGroup.getLiteral() == CO.getLiteral() &&
-             "expected Channel Out (M) size to be a multiple of group num");
-    }
 
     // Bounds for input image X: [N x CI x HI x WI]:
     // where N is Batch Size,
     // where CI (or C) is Channel In (multiple of group num),
     // and where HI & WI are spacial dimensions of the input image.
     MemRefBoundsIndexCapture inputBounds(inputOperand);
-    IndexExpr CI = inputBounds.getSymbol(1);
 
     // Bounds for kernel/filter W: [CO x CIPerGroup x KH x KW]:
     // where CO (or M) is Channel Out,
@@ -79,13 +62,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // and where KH x KW are the kernel / filter size (e.g. 3x3, 1x1).
     MemRefBoundsIndexCapture filterBounds(filterOperand);
     IndexExpr CIPerGroup = filterBounds.getSymbol(1);
-    // TODO: check that this is done in verify.
-    if (CI.isLiteral()) {
-      assert(CIPerGroup.isLiteral() &&
-             "expected channel in per group to be literal when CI is literal");
-      assert(groupNum * CIPerGroup.getLiteral() == CI.getLiteral() &&
-             "expected Channel In (C) size to be a multiple of group num");
-    }
 
     // Determine the bounds for the loops over batch & channel out.
     IndexExpr iZero = LiteralIndexExpr(0);

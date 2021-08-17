@@ -1598,7 +1598,7 @@ static LogicalResult verifyKernelShape(
         return op->emitError("Bad spatial filter size: cannot be zero");
     return success();
   }
-  // 3) verify that we have the right number.
+  // 3) Verify that we have the right number.
   if ((int64_t)ArrayAttrSize(kernelShape) != spatialRank)
     return op->emitError(
         "kernel_shape length incompatible with spatial dimensions");
@@ -1621,7 +1621,7 @@ static LogicalResult verifyStrides(T *op, int64_t spatialRank) {
   auto strides = op->strides();
   if (!strides.hasValue())
     return success();
-  // 2) verify that we have the right number.
+  // 2) Verify that we have the right number.
   if ((int64_t)ArrayAttrSize(strides) != spatialRank)
     return op->emitError("strides length incompatible with spatial dimensions");
   // 3) Verify that they are all positive.
@@ -1707,6 +1707,16 @@ static LogicalResult verify(ONNXConvOp op) {
   if (wShape[0] >= 0 && wShape[0] % g != 0) {
     // This rule is not enforced in the spec but is present in Keras,
     // Pytorch, and simplifies the code.
+    // Note: Pytorch requires both channel in (CI) and channel out (CO) to be
+    // multiple of group number (G).
+    // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html
+    // ONNX clearly states that C (channel in or CI here) is a multiple of group
+    // number (G).
+    // https://github.com/onnx/onnx/blob/master/docs/Operators.md#Conv
+    // Quote: X.shape[1] == (W.shape[1] * group) == C
+    // Keras also specifies it: Input channels and filters must both be
+    // divisible by groups.
+    // https://www.tensorflow.org/api_docs/python/tf/keras/layers/Conv2D
     return op->emitError(
         "Channel Out (M) must be a multiple of the number of groups");
   }
