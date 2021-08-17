@@ -145,15 +145,67 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   auto parentBlock = currentOp->getBlock();
 
   bool insertDealloc = true;
-  parentBlock->walk([&insertDealloc, currentOp, resultIndex](ReturnOp op) {
+  // SmallVector<Operation *, 32> candCastOps;
+  SmallVector<Value, 32> nonDeallocResultCand;
+  parentBlock->walk([&insertDealloc, currentOp, resultIndex, &nonDeallocResultCand](Operation *op) {
+      if (isa<memref::ReinterpretCastOp>(op) || isa<ONNXReshapeOp>(op) || isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op)) {
+	if (currentOp->getNumResults() > 0) {
+	  auto result = currentOp->getResult(resultIndex);
+	  for (const auto &operand : op->getOperands())
+	    if (operand == result)
+	      nonDeallocResultCand.emplace_back(op->getResults()[0]);
+	}
+      }
+    });
+  /*
+  parentBlock->walk([&insertDealloc, currentOp, resultIndex, &candCastOps](memref::ReinterpretCastOp castOp) {
+    if (currentOp->getNumResults() > 0) {
+      auto result = currentOp->getResult(resultIndex);
+      for (const auto &castOperand : castOp->getOperands())
+        if (castOperand == result)
+          candCastOps.emplace_back(castOp);
+    }
+  });
+  
+  parentBlock->walk([&insertDealloc, currentOp, resultIndex, &candCastOps](ONNXReshapeOp castOp) {
+    if (currentOp->getNumResults() > 0) {
+      auto result = currentOp->getResult(resultIndex);
+      for (const auto &castOperand : castOp->getOperands())
+        if (castOperand == result)
+          candCastOps.emplace_back(castOp);
+    }
+  });
+  parentBlock->walk([&insertDealloc, currentOp, resultIndex, &candCastOps](ONNXSqueezeV11Op castOp) {
+    if (currentOp->getNumResults() > 0) {
+      auto result = currentOp->getResult(resultIndex);
+      for (const auto &castOperand : castOp->getOperands())
+	if (castOperand == result)
+	  candCastOps.emplace_back(castOp);
+    }
+  });
+  parentBlock->walk([&insertDealloc, currentOp, resultIndex, &candCastOps](ONNXUnsqueezeV11Op castOp) {
+    if (currentOp->getNumResults() > 0) {
+      auto result = currentOp->getResult(resultIndex);
+      for (const auto &castOperand : castOp->getOperands())
+	if (castOperand == result)
+	  candCastOps.emplace_back(castOp);
+    }
+  });
+  */
+  parentBlock->walk([&insertDealloc, currentOp, resultIndex, &nonDeallocResultCand](ReturnOp op) {
     // If there is at least one result to investigate.
     if (currentOp->getNumResults() > 0) {
       auto result = currentOp->getResult(resultIndex);
-      for (const auto &operand : op.getOperands())
+      for (const auto &operand : op.getOperands()) {
         if (operand == result)
           insertDealloc = false;
+	for (const auto &resultCand : nonDeallocResultCand)
+	  //if (operand == cop->getResult(0))
+	  if (operand == resultCand)
+	    insertDealloc = false;
+      }
     }
-  });
+    });
 
   return insertDealloc;
 }
