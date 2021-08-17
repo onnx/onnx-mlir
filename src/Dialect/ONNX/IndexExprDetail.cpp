@@ -205,6 +205,11 @@ bool IndexExprImpl::isShapeInferencePass() const {
 
 bool IndexExprImpl::hasScope() const { return scope != nullptr; }
 
+bool IndexExprImpl::isInCurrentScope() const {
+  assert(hasScope());
+  return scope->isCurrentScope();
+}
+
 bool IndexExprImpl::hasAffineExpr() const {
   assert(isDefined());
   return affineExpr != nullptr;
