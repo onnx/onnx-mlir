@@ -20,6 +20,13 @@
 
 using namespace mlir;
 
+#define DEBUG 0
+
+#if DEBUG
+#include <iostream>
+using namespace std;
+#endif
+
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
@@ -990,7 +997,7 @@ LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
   // NOSET:
   //  * O[i] = floor((I[i] + P[i] - ((K[i] - 1) * d[i] + 1)) / s[i] + 1)
   // VALID:
-  // * O[i] = ceil((I[i] - ((K[i] - 1) * d[i] + 1) + 1) / s[i])
+  // * O[i] = floor((I[i] - {(K[i] - 1) * d[i] + 1} + 1) / s[i])
   // * P = 0
   // SAME_LOWER or SAME_UPPER:
   // * O[i] = ceil(I[i] / s[i])
@@ -1015,9 +1022,9 @@ LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
       // Set output dim, and pads already set, nothing more to do.
       outputDims.emplace_back(O);
     } else if (autoPad == "VALID") {
-      IndexExpr t1 = kdTerm + one; // Compute ceil((I - (kdTerm +1))/s).
-      IndexExpr t2 = I - t1;
-      IndexExpr O = t2.ceilDiv(s);
+      IndexExpr t1 = I - kdTerm; // Compute ceil((I - kdTerm +1)/s).
+      IndexExpr t2 = t1 + one;
+      IndexExpr O = t2.floorDiv(s);
       // Set output dim, and pads already set to zero, nothing more to do.
       outputDims.emplace_back(O);
     } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
@@ -1027,8 +1034,9 @@ LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
       // Compute sum of pads padSum = (O -1)*s + kdTerm - I.
       IndexExpr t1 = O - one;
       IndexExpr t2 = t1 * s + kdTerm;
-      IndexExpr padSum = t2 - I;
-      // Single pad value is ppadSump / 2.
+      IndexExpr t3 = t2 - I;
+      IndexExpr padSum = IndexExpr::select(t3 > zero, t3, zero);
+      // Single pad value is padSump / 2.
       IndexExpr p = padSum.floorDiv(2);
       // Increment is 1 when pp % 2 != 0
       IndexExpr test = (padSum % 2) != zero;
@@ -1043,6 +1051,29 @@ LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
       }
     }
   }
+
+#if DEBUG
+  if (outputDims.size() == 4) {
+    cerr << "2d conv const params";
+    if (outputDims[0].isLiteral())
+      cerr << ", N " << outputDims[0].getLiteral();
+    if (outputDims[1].isLiteral())
+      cerr << ", CO " << outputDims[1].getLiteral();
+    if (outputDims[2].isLiteral())
+      cerr << ", WO " << outputDims[2].getLiteral();
+    if (outputDims[3].isLiteral())
+      cerr << ", HO " << outputDims[3].getLiteral();
+    if (pads[0].isLiteral())
+      cerr << ", ph begin " << pads[0].getLiteral();
+    if (pads[2].isLiteral())
+      cerr << ", ph end " << pads[2].getLiteral();
+    if (pads[1].isLiteral())
+      cerr << ", pw begin " << pads[1].getLiteral();
+    if (pads[3].isLiteral())
+      cerr << ", pw end " << pads[3].getLiteral();
+    cerr << endl;
+  }
+#endif
 
   // Set type for the first output.
   dimsForOutput(0) = outputDims;
