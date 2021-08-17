@@ -770,7 +770,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     int64_t rrr = res.getLiteral();
     int64_t aaa = aa.getLiteral();
     if (aaa < rrr)
-      res.getObj().intLit += aaa;
+      res.getObj().intLit = aaa;
     return res;
   };
   Flist affineExprFct = [&](IndexExpr res,
@@ -826,7 +826,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     int64_t rrr = res.getLiteral();
     int64_t aaa = aa.getLiteral();
     if (aaa > rrr)
-      res.getObj().intLit += aaa;
+      res.getObj().intLit = aaa;
     return res;
   };
   Flist affineExprFct = [&](IndexExpr res,

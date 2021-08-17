@@ -1035,7 +1035,7 @@ LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
       IndexExpr t1 = O - one;
       IndexExpr t2 = t1 * s + kdTerm;
       IndexExpr t3 = t2 - I;
-      IndexExpr padSum = IndexExpr::select(t3 > zero, t3, zero);
+      IndexExpr padSum = IndexExpr::max(t3, zero);
       // Single pad value is padSump / 2.
       IndexExpr p = padSum.floorDiv(2);
       // Increment is 1 when pp % 2 != 0
