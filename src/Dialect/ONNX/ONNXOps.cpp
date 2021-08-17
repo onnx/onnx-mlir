@@ -2670,8 +2670,7 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
 
   if (!yTy.hasStaticShape()) {
     // TODO: Unfortunately, we can't tell if this should be signed or
-    // unsigned
-    //       here...
+    // unsigned here...
     IntegerType i8Type = IntegerType::get(getContext(), 8);
     RankedTensorType outType = RankedTensorType::get(inTy.getShape(), i8Type);
     y().setType(outType);

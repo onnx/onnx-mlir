@@ -924,7 +924,7 @@ def gen_op_def(schema, with_version = False):
     indent = inc_indent(indent)
     if opName in OpsWithCanonicalizer:
         s += indent + 'let hasCanonicalizer = 1;\n'
-    
+
     # Generate decl for summary.
     s += indent + 'let summary = "ONNX {} operation";\n'.format(schema.name)
 
