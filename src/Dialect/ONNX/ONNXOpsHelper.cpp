@@ -15,7 +15,6 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 // Identity affine
 using namespace mlir;
@@ -45,6 +44,15 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B) {
 
 AffineMap getIdentityDimMap(Builder &builder) {
   return AffineMap::get(1, 0, {builder.getAffineDimExpr(0)});
+}
+
+/// Get the number of elements.
+int64_t getNumberOfElements(ArrayRef<int64_t> shape) {
+  int64_t count = 1;
+  for (unsigned int i = 0; i < shape.size(); ++i) {
+    count *= shape[i];
+  }
+  return count;
 }
 
 // Pool/conv affine
