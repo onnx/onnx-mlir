@@ -351,7 +351,8 @@ OpsWithShapeInference=[
 # Operations supporting canonicalization.
 OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Gemm', 'Cast', 'Transpose',
                         'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
-                        'GlobalMaxPool', 'SqueezeV11', 'UnsqueezeV11']
+                        'GlobalMaxPool', 'SqueezeV11', 'UnsqueezeV11',
+                        'Reshape']
 
 # Operations with custom verifiers.
 OpsWithVerifier = ['Conv']
