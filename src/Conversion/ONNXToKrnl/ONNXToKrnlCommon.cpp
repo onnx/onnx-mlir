@@ -14,9 +14,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Support/OMOptions.hpp"
 
-extern bool kNoDealloc = false;
+extern bool gEmitDealloc = true;
 
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values) {
@@ -79,15 +78,11 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     }
   }
 
-  // Make sure to allocate at the beginning of the block if
-  // all dimensions are known.
-  // Don't do these if memory bundling is not enabled
-  // Allow buffer management in MLIR to do the job
-
-  // if (!memoryBundlingEnabled)
-  if (kNoDealloc)
+  if (!gEmitDealloc)
     return alloc;
 
+  // Make sure to allocate at the beginning of the block if
+  // all dimensions are known.
   auto *parentBlock = alloc.getOperation()->getBlock();
   if (hasAllConstantDimensions(type))
     alloc.getOperation()->moveBefore(&parentBlock->front());
@@ -130,7 +125,11 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   } else {
     allocOp = rewriter.create<memref::AllocOp>(loc, type, allocOperands);
   }
-  if (!kNoDealloc && insertDealloc) {
+
+  if (!gEmitDealloc)
+    return allocOp;
+
+  if (insertDealloc) {
     auto *parentBlock = allocOp.getOperation()->getBlock();
     auto dealloc = rewriter.create<memref::DeallocOp>(loc, allocOp);
     dealloc.getOperation()->moveBefore(&parentBlock->back());

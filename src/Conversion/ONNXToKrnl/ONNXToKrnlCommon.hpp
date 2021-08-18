@@ -43,7 +43,9 @@
 
 using namespace mlir;
 
-extern bool kNoDealloc;
+// A global variable to indicate whether this pass will emit dealloc for
+// allocated memrefs or not.
+extern bool gEmitDealloc;
 
 //===----------------------------------------------------------------------===//
 // Common functions used when lowering the ONNX frontend dialect to KRNL.

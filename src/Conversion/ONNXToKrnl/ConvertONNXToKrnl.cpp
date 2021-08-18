@@ -56,6 +56,9 @@ struct FrontendToKrnlLoweringPass
   // constructor to make sure that the options are initialized properly.
   FrontendToKrnlLoweringPass() = default;
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass) {}
+  FrontendToKrnlLoweringPass(bool emitDealloc) {
+    this->emitDealloc = emitDealloc;
+  }
 
   void runOnOperation() final;
 
@@ -73,9 +76,9 @@ public:
   Option<bool> checkRNNOps{*this, "check-rnn-ops-lowering",
       llvm::cl::desc("Only used for writing LIT tests for RNN ops."),
       llvm::cl::init(false)};
-  Option<bool> noDealloc{*this, "no-dealloc",
-      llvm::cl::desc("Only used for writing LIT tests for RNN ops."),
-      llvm::cl::init(false)};
+  Option<bool> emitDealloc{*this, "emit-dealloc",
+      llvm::cl::desc("Emit dealloc for allocated memrefs or not."),
+      llvm::cl::init(true)};
 };
 } // end anonymous namespace.
 
@@ -124,7 +127,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     target.addLegalOp<ONNXTanhOp>();
   }
 
-  kNoDealloc = noDealloc;
+  // Set up whether emitting dealloc for allocated memrefs or not.
+  gEmitDealloc = emitDealloc;
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.
@@ -204,4 +208,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
 std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
+}
+
+std::unique_ptr<Pass> mlir::createLowerToKrnlPass(bool emitDealloc) {
+  return std::make_unique<FrontendToKrnlLoweringPass>(emitDealloc);
 }
