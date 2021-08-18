@@ -169,6 +169,17 @@ func @test_transpose_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x
 
 // -----
 
+// Check the removal of identity reshapes.
+// CHECK-LABEL: func @test_reshape_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+func @test_reshape_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+  %0 = "onnx.Constant"() {value = dense<[10, 11, 12, 13]> : tensor<4xi64> } : () -> tensor<4xi64>
+  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<10x11x12x13xf32>
+  // CHECK-NEXT: return %arg0 : tensor<10x11x12x13xf32>
+  "std.return"(%1) : (tensor<10x11x12x13xf32>) -> ()
+}
+
+// -----
+
 // Check the combining of transposes into a simple transpose.
 // CHECK-LABEL: func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
 func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
@@ -180,6 +191,20 @@ func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x1
 
 // -----
 
+// Check the combining of reshape into a simple reshape.
+// CHECK-LABEL: func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
+func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
+  %0 = "onnx.Constant"() {value = dense<[10, 12, 11, 13]> : tensor<4xi64> } : () -> tensor<4xi64>
+  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<10x12x11x13xf32>
+  %2 = "onnx.Constant"() {value = dense<[11, 10, 13, 12]> : tensor<4xi64> } : () -> tensor<4xi64>
+  %3 = "onnx.Reshape"(%1, %2) : (tensor<10x12x11x13xf32>, tensor<4xi64>) -> tensor<11x10x13x12xf32>
+  // CHECK-NEXT: [[RES:%.+]] = "onnx.Constant"() {value = dense<[11, 10, 13, 12]> : tensor<4xi64>} : () -> tensor<4xi64>
+  // CHECK-NEXT: %{{.*}} = "onnx.Reshape"(%arg0, [[RES]]) : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<11x10x13x12xf32>
+  "std.return"(%3) : (tensor<11x10x13x12xf32>) -> ()
+}
+
+// -----
+
 // Check the combining of transposes into an identity transpose, which in turns is removed.
 // CHECK-LABEL: func @test_transpose_fusion_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
 func @test_transpose_fusion_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
@@ -187,6 +212,19 @@ func @test_transpose_fusion_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10
   %1 = "onnx.Transpose"(%0)  {perm = [3, 2, 1, 0]} : (tensor<13x12x11x10xf32>) -> tensor<10x11x12x13xf32>
   // CHECK-NEXT: return %arg0 : tensor<10x11x12x13xf32>
   "std.return"(%1) : (tensor<10x11x12x13xf32>) -> ()
+}
+
+// -----
+
+// Check the combining of reshape into an identity reshape, which in turns is removed.
+// CHECK-LABEL: func @test_reshape_fusion_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+func @test_reshape_fusion_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+  %0 = "onnx.Constant"() {value = dense<[10, 12, 11, 13]> : tensor<4xi64> } : () -> tensor<4xi64>
+  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<10x12x11x13xf32>
+  %2 = "onnx.Constant"() {value = dense<[10, 11, 12, 13]> : tensor<4xi64> } : () -> tensor<4xi64>
+  %3 = "onnx.Reshape"(%1, %2) : (tensor<10x12x11x13xf32>, tensor<4xi64>) -> tensor<10x11x12x13xf32>
+  // CHECK-NEXT: return %arg0 : tensor<10x11x12x13xf32>
+  "std.return"(%3) : (tensor<10x11x12x13xf32>) -> ()
 }
 
 // -----

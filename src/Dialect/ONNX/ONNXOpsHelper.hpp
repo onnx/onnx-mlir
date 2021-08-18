@@ -130,6 +130,9 @@ bool IsIdentityPermuteVector(mlir::ArrayAttr permAttr);
 bool AreTheSameAxisArray(
     int64_t rank, mlir::ArrayAttr lhsAttr, mlir::ArrayAttr rhsAttr);
 
+/// Test if the value has the specified constant shape
+bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
+
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
 //===----------------------------------------------------------------------===//
