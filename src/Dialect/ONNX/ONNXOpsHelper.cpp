@@ -274,6 +274,30 @@ bool IsIdentityPermuteVector(ArrayAttr permAttr) {
   return true;
 }
 
+/// Test if the value has the specified constant shape
+bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape) {
+  if (!value.getType().isa<ShapedType>()) {
+    return false;
+  }
+  ArrayRef<int64_t> valueShape = value.getType().cast<ShapedType>().getShape();
+  DenseElementsAttr shapeAttr = getDenseElementAttributeFromONNXValue(shape);
+  if (shapeAttr == nullptr) {
+    return false;
+  }
+  int64_t dimensionsOfShape = shapeAttr.getType().getShape()[0];
+  if (valueShape.size() != dimensionsOfShape) {
+    return false;
+  }
+  auto valueIt = shapeAttr.getIntValues().begin();
+  for (int64_t i = 0; i < dimensionsOfShape; i++) {
+    int64_t value = (*valueIt++).getSExtValue();
+    if (valueShape[i] != value) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /// Test if two axis arrays contain the same values or not.
 bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
   // false if one of the array attributes is null.

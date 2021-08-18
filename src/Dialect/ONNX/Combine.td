@@ -41,6 +41,10 @@ def AreTheSameAxisArray: Constraint<
     CPred<"AreTheSameAxisArray($0.getType().cast<ShapedType>().getRank(), $1, $2)">,
     "Two axis arrays are the same">;
 
+def HasSpecifiedConstantShape: Constraint<
+    CPred<"HasSpecifiedConstantShape($0, $1)">,
+          "Has the specified constant shape">;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -96,6 +100,20 @@ def RemoveIdentityTransposePattern:  Pat<
   (replaceWithValue $val),
   // Check that we have indeed a identity transpose pattern.
   [(IsIdentityPermuteAttribute:$p)]>;
+
+def FuseReshapePattern:  Pat<
+  // Reshape of a reshape.
+  (ONNXReshapeOp (ONNXReshapeOp $v, $s1), $s2),
+  // Remove the first reshape op.
+  (ONNXReshapeOp $v, $s2)>;
+
+def RemoveIdentityReshapePattern:  Pat<
+  // Remove an identity pattern. Input tensor already has the specified shape.
+  (ONNXReshapeOp $val, $shape),
+  // Remove the transpose.
+  (replaceWithValue $val),
+  // Check that val has the specified shape.
+  [(HasSpecifiedConstantShape $val, $shape)]>;
 
 
 /// Combine squeeze and unsqueeze.
