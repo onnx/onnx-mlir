@@ -46,15 +46,6 @@ AffineMap getIdentityDimMap(Builder &builder) {
   return AffineMap::get(1, 0, {builder.getAffineDimExpr(0)});
 }
 
-/// Get the number of elements.
-int64_t getNumberOfElements(ArrayRef<int64_t> shape) {
-  int64_t count = 1;
-  for (unsigned int i = 0; i < shape.size(); ++i) {
-    count *= shape[i];
-  }
-  return count;
-}
-
 // Pool/conv affine
 // dim =
 //   let numerator = (input + pad - (kernel - 1) * dilation - 1)
@@ -293,8 +284,7 @@ bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape) {
   if (shapeAttr == nullptr) {
     return false;
   }
-  int64_t dimensionsOfShape =
-      getNumberOfElements(shapeAttr.getType().getShape());
+  int64_t dimensionsOfShape = shapeAttr.getType().getShape()[0];
   if (valueShape.size() != dimensionsOfShape) {
     return false;
   }
