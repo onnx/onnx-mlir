@@ -25,13 +25,14 @@ import subprocess
 
 def print_usage():
     print('Translate mlir format from stdin to a suitable FileCheck format.')
-    print('mlir2FileCheck [-cdh] [-a <arg arrays>] [-d <dict>]')
+    print('mlir2FileCheck [-cdh] [-a <arg arrays>] [-d <dict>] [-m <model file>')
     print('  -a,--args <array>: Rename function arguments using a json array,')
     print(
         '                     such as \'["A", "B", "C"] for 1st, 2nd, & 3rd args.\'.')
     print('  -c,--check       : Run FileCheck on output, to verify that the output is good.')
-    print('  -d,-debug        : Rename for easier debugging of code, disable FileCheck format.')
+    print('  -d,--debug       : Rename for easier debugging of code, disable FileCheck format.')
     print('  -h,--help        : Print help.')
+    print('  -m,--model <model name>: insert file-check text inside the model of a single function.')
     print('  -n,--names <dict>: Rename variables using a json dictionary')
     print(
         '                     such as \'{"cst": "ZERO"}\' to rename cst to ZERO.')
@@ -177,7 +178,7 @@ def process_name(new_line, pattern, default_name, append_str, num_for_zero):
 
 # Drive the processing of the current line.
 def process_line(i, line):
-    global debug, check, prepare_name_dict, name_dict, refcount_dict
+    global debug, check, squash_before_fct, prepare_name_dict, name_dict, refcount_dict
     global line_color, curr_parallel_color
     def_arg_pat = re.compile(r'%([a-zA-Z0-9][a-zA-Z0-9_\-]*)():')
     def_qual_pat = re.compile(r'%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?\s+=')
@@ -186,7 +187,8 @@ def process_line(i, line):
     use_qual_pat = re.compile(r'%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?')
     # If we have an affine map, print it now unmodified.
     if re.match(r'#\w+\s=\saffine_(map|set)<.*>', line) is not None:
-        print("// CHECK-DAG:", line)
+        if squash_before_fct != 1:
+            print("// CHECK-DAG:", line)
         return
     # Keep only function related text, which start by def with a space.
     if re.match(r'\s+', line) is None:
@@ -201,6 +203,7 @@ def process_line(i, line):
         refcount_dict.clear()
         #print("/// reset dict with dic", name_dict, "refcount", refcount_dict)
         new_line = process_name(new_line, def_arg_pat, "PARAM", ":", 1)
+        squash_before_fct = 0 # After function, disable squashing
     # Special handling of loop iterations.
     elif re.match(r'\s+(\w+\.)?for', line) is not None:
         new_line = process_name(new_line, def_pat, "I", " =", 1)
@@ -267,7 +270,7 @@ def process_line(i, line):
         new_line = re.sub(
             r'(\s+)(func\sprivate\s+@[\w]+)\s*(\(.*)', r'// CHECK-LABEL:\1\2\n// CHECK-SAME: \1\3', new_line)
         print(new_line)
-    else:
+    elif squash_before_fct != 1:
         if line_color[i] == curr_parallel_color:
             # This line is in an established parallel region
             print("// CHECK-DAG:  ", new_line)
@@ -289,15 +292,18 @@ def process_line(i, line):
 # main
 
 def main(argv):
-    global debug, check
+    global debug, check, squash_before_fct
     global def_set, line_color, curr_color, curr_parallel_color
     debug = 0
     check = 0
+    model = ""
+    has_model = 0
+    squash_before_fct = 0
     input_command = "mlir2FileCheck.py"
     
     try:
         opts, args = getopt.getopt(
-            argv, "hdca:n:", ["help", "debug", "check", "args=", "names="])
+            argv, "hdca:n:m:", ["help", "debug", "check", "args=", "names=", "model="])
     except getopt.GetoptError:
         print_usage()
     for opt, arg in opts:
@@ -327,6 +333,26 @@ def main(argv):
             print("//  use name dictionary:", user_dict)
             for orig_name, new_name in user_dict.items():
                 prepare_name_def(orig_name, new_name.upper())
+        elif opt in ("-m", "--model"):
+            squash_before_fct = 1
+            has_model = 1
+            model_file = open(arg, 'r')
+            func_num = 0
+            for line in model_file:
+                l = line.rstrip()
+                if re.match(r'\}', l) is not None: 
+                    continue # Skip last bracket.
+                if re.match(r'//', l) is not None:
+                    continue # Skip old comments.
+                if re.match(r'$', l) is not None:
+                    continue # Skip empty line.
+                if re.match(r'func', l) is not None:
+                    func_num = func_num + 1 # Count function to make sure only one.
+                model += l + "\n"
+            if func_num != 1:
+                print("Error: the model option can only be used with one function, got", func_num)
+                return
+
     if len(args) > 0:
         print("command does not use arguments without options: ", args)
         return
@@ -339,6 +365,9 @@ def main(argv):
         print('>> gen test file in "', tmpfile, '"')
         sys.stdout = open(tmpfile, 'w')
 
+    if has_model:
+        print(model)
+    
     # Compute def-use colors, and print in check mode.
     lines = []
     def_set = []  # Current set of defined variable in current parallel set.
@@ -356,7 +385,7 @@ def main(argv):
 
     # Process the input.
     curr_parallel_color = -1
-    print("\n// " + input_command)
+    print("// " + input_command)
     for i, line in enumerate(lines):
         process_line(i, line)
 
@@ -369,6 +398,8 @@ def main(argv):
         print(res)
         print('>> check completed (empty line is success)')
 
+    if has_model:
+        print("}") # Print end of model
 
 if __name__ == "__main__":
     main(sys.argv[1:])
