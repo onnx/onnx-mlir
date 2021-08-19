@@ -34,27 +34,9 @@ message(STATUS "BUILD_SHARED_LIBS       : " ${BUILD_SHARED_LIBS})
 set(LLVM_REQUIRES_EH ON)
 message(STATUS "LLVM_REQUIRES_EH        : " ${LLVM_REQUIRES_EH})
 
-# LLVM_HOST_TRIPLE is not properly exported as part of the llvm config. It is actually
-# needed by some of the exported cmake files, so there's work in progress to add it to the
-# LLVM config.
-# If LLVM_HOST_TRIPLE is not available, try to include GetHostTriple.cmake to get the triple.
-# This file is available when MLIR_DIR points to a build (as opposed to an install) directory.
-# When all else fails, default to an empty string which is the old default behavior of onnx-mlir.
-if (DEFINED LLVM_HOST_TRIPLE)
-  set(ONNX_MLIR_HOST_TRIPLE ${LLVM_HOST_TRIPLE})
-else()
-  include(GetHostTriple OPTIONAL)
-  if (COMMAND get_host_triple)
-    # get_host_triple refers to LLVM_MAIN_SRC_DIR which is, of course, not set. Since we know
-    # that we are using a build-tree of llvm (or otherwise get_host_triple would not exist),
-    # we know that LLVM_BUILD_MAIN_SRC_DIR has the value that we want for LLVM_MAIN_SRC_DIR.
-    set(LLVM_MAIN_SRC_DIR ${LLVM_BUILD_MAIN_SRC_DIR})
-    get_host_triple(ONNX_MLIR_HOST_TRIPLE)
-  else()
-    set(ONNX_MLIR_HOST_TRIPLE "")
-  endif()
-endif()
-set(ONNX_MLIR_DEFAULT_TRIPLE ${ONNX_MLIR_HOST_TRIPLE} CACHE STRING "Default triple for onnx-mlir.")
+# LLVM_HOST_TRIPLE is exported as part of the llvm config, so we should be able to leverage it.
+# If, for some reason, it is not set, default to an empty string which is the old default behavior of onnx-mlir.
+set(ONNX_MLIR_DEFAULT_TRIPLE "${LLVM_HOST_TRIPLE}" CACHE STRING "Default triple for onnx-mlir.")
 message(STATUS "ONNX_MLIR_DEFAULT_TRIPLE: " ${ONNX_MLIR_DEFAULT_TRIPLE})
 
 # If CMAKE_INSTALL_PREFIX was not provided explicitly and we are not using an install of
