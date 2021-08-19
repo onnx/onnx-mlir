@@ -151,23 +151,22 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   // Reshape, Squeeze, and Unsqueeze ops are checked because they are lowered to
   // `ReinterpretCastOp`.
   SmallVector<Value, 32> castOpResults;
-  parentBlock->walk(
-      [&insertDealloc, currentOp, resultIndex, &castOpResults](Operation *op) {
-        if (isa<memref::ReinterpretCastOp>(op) || isa<ONNXReshapeOp>(op) ||
-            isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op)) {
-          if (currentOp->getNumResults() > 0) {
-            auto result = currentOp->getResult(resultIndex);
-            for (const auto &operand : op->getOperands())
-              if (operand == result)
-                castOpResults.emplace_back(op->getResults()[0]);
-          }
-        }
-      });
-
-  parentBlock->walk(
-      [&insertDealloc, currentOp, resultIndex, &castOpResults](ReturnOp op) {
-        // If there is at least one result to investigate.
-        if (currentOp->getNumResults() > 0) {
+  if (currentOp->getNumResults() > 0) {
+    parentBlock->walk([&insertDealloc, currentOp, resultIndex, &castOpResults](
+                          Operation *op) {
+      if (isa<memref::ReinterpretCastOp>(op) || isa<ONNXReshapeOp>(op) ||
+          isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op)) {
+        auto result = currentOp->getResult(resultIndex);
+        for (const auto &operand : op->getOperands())
+          if (operand == result)
+            castOpResults.emplace_back(op->getResults()[0]);
+      }
+    });
+  }
+  // If there is at least one result to investigate.
+  if (currentOp->getNumResults() > 0) {
+    parentBlock->walk(
+        [&insertDealloc, currentOp, resultIndex, &castOpResults](ReturnOp op) {
           auto result = currentOp->getResult(resultIndex);
           for (const auto &operand : op.getOperands()) {
             // Determine if current function returns the result value of the
@@ -180,9 +179,8 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
               if (operand == castOpResult)
                 insertDealloc = false;
           }
-        }
-      });
-
+        });
+  }
   return insertDealloc;
 }
 
