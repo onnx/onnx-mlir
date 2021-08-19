@@ -15,6 +15,7 @@
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
@@ -1123,8 +1124,10 @@ private:
       auto dimSizePtr =
           rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
               sizesArrayPtr, ArrayRef<Value>({dimIdx}));
-      auto dimSize = rewriter.create<LLVM::LoadOp>(
+      auto dimSizeLoad = rewriter.create<LLVM::LoadOp>(
           loc, LLVM::LLVMPointerType::get(int64Ty), dimSizePtr);
+      Value dimSize =
+          rewriter.create<LLVM::PtrToIntOp>(loc, int64Ty, dimSizeLoad);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
           dimSize,
           rewriter.getArrayAttr(
@@ -1134,8 +1137,10 @@ private:
       auto dimStridePtr =
           rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
               stridesArrayPtr, ArrayRef<Value>({dimIdx}));
-      auto dimStride = rewriter.create<LLVM::LoadOp>(
+      auto dimStrideLoad = rewriter.create<LLVM::LoadOp>(
           loc, LLVM::LLVMPointerType::get(int64Ty), dimStridePtr);
+      Value dimStride =
+          rewriter.create<LLVM::PtrToIntOp>(loc, int64Ty, dimStrideLoad);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
           dimStride,
           rewriter.getArrayAttr(
@@ -1379,6 +1384,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateStdExpandOpsPatterns(patterns);
+  populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
   populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
 
@@ -1424,7 +1430,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp>();
-  target.addIllegalOp<LLVM::DialectCastOp>();
+  target.addIllegalOp<UnrealizedConversionCastOp>();
 
   // Lower the MemRef types to a representation in LLVM.
   LowerToLLVMOptions options(&getContext());
