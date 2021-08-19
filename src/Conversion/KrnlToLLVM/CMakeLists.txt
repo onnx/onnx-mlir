@@ -6,6 +6,7 @@ add_onnx_mlir_library(OMKrnlToLLVM
   LINK_LIBS PUBLIC
   OMSupport
   MLIRAffineToStandard
+  MLIRMathToLLVM
   MLIRMemRefToLLVM
   MLIRSCFToStandard
   MLIRShapeToStandard
