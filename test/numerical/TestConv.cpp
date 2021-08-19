@@ -18,7 +18,7 @@
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 using namespace std;
 using namespace mlir;
@@ -27,6 +27,9 @@ using namespace mlir;
 #include "Helper.hpp"
 
 #define SHARED_LIB_BASE string("./TestConv_main_graph")
+
+// Convention for RapidCheck values to auto pad policies. UB is the one after
+// the last official policy.
 #define AUTO_PAD_NOTSET 0
 #define AUTO_PAD_VALID 1
 #define AUTO_PAD_LOWER 2
@@ -366,6 +369,7 @@ int main(int argc, char *argv[]) {
           for (int pWEnd = 0; pWEnd < 3; pWEnd++)
             assert(isOMConvTheSameAsNaiveImplFor(2, 4, 5, 5, 3, 3, pHBegin,
                 pHEnd, pWBegin, pWEnd, AUTO_PAD_NOTSET));
+
   } // End loop over static / dynamic
   return 0;
 }

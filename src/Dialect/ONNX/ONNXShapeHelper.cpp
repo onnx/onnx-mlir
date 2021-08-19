@@ -251,9 +251,10 @@ LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(Value operand,
     }
     if (allOtherInputDimsAreOne) {
       operandAccessExprs.emplace_back(outputAccessExprs[dimIndex]);
-    } else
+    } else {
       operandAccessExprs.emplace_back(
           IndexExpr::select(dim > 1, outputAccessExprs[dimIndex], 0));
+    }
   }
 
   return success();
