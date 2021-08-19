@@ -50,6 +50,9 @@ def AttributeIsNull :
 def canConstPropCastIntToInt : Constraint<
   CPred<"canConstPropCastIntToInt($_builder, $0, $1, $2)">>;
 
+def canConstPropCastFloatToFloat : Constraint<
+  CPred<"canConstPropCastFloatToFloat($_builder, $0, $1, $2)">>;
+
 def isConstOfZeros : Constraint<
   CPred<"isConstOfZeros($_builder, $0)">>;
 
@@ -82,6 +85,9 @@ def CreateUnsqueezeOfConst:
 
 def CreateIntToIntCastOfConst :
   NativeCodeCall<"ConstPropCastIntToInt($_builder, $0, $1, $2)">;
+
+def CreateFloatToFloatCastOfConst :
+  NativeCodeCall<"ConstPropCastFloatToFloat($_builder, $0, $1, $2)">;
 
 def CreateZerosFromTemplate :
   NativeCodeCall<"CreateZerosFromTemplate($_builder, $0)">;
@@ -219,6 +225,14 @@ def IntToIntCastofConst :  Pat<
     // To cast(c)
     (ONNXConstantOp (GetNullAttr), (CreateIntToIntCastOfConst $constOp, $v, $toType)),
     [(AttributeIsNull:$s), (canConstPropCastIntToInt $constOp, $v, $toType)]>;
+
+// Constant Propagation for Cast (float to float)
+def FloatToFloatCastofConst :  Pat<
+    // From  onnx.Cast(c)
+    (ONNXCastOp (ONNXConstantOp:$constOp $s, $v), $toType),
+    // To cast(c)
+    (ONNXConstantOp (GetNullAttr), (CreateFloatToFloatCastOfConst $constOp, $v, $toType)),
+    [(AttributeIsNull:$s), (canConstPropCastFloatToFloat $constOp, $v, $toType)]>;
 
 def MatMulIntegerZeroOnRhs : Pat<
     (ONNXMatMulIntegerOp:$resOp
