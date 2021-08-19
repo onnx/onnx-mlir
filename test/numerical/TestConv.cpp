@@ -18,8 +18,7 @@
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
 
-#define DEBUG 1
-#define FORCE_DYNAMIC 1
+#define DEBUG 0
 
 using namespace std;
 using namespace mlir;
@@ -28,6 +27,9 @@ using namespace mlir;
 #include "Helper.hpp"
 
 #define SHARED_LIB_BASE string("./TestConv_main_graph")
+
+// Convention for RapidCheck values to auto pad policies. UB is the one after
+// the last official policy.
 #define AUTO_PAD_NOTSET 0
 #define AUTO_PAD_VALID 1
 #define AUTO_PAD_LOWER 2
@@ -36,8 +38,9 @@ using namespace mlir;
 const string autoPadName[] = {"NOTSET", "VALID", "SAME_LOWER", "SAME_UPPER"};
 
 // Made global so that we can repeat the test with different strides and
-// dilations.
-int stride, dilation;
+// dilations. Had to make them global to conform with the signatures of lambda
+// requested by RapidTest.
+int stride, dilation, isDynamic;
 
 // Support.
 int myCeil(int a, int b) { return ceil((1.0 * a) / (1.0 * b)); }
@@ -131,13 +134,15 @@ LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
 // W).
 bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
     const int W, const int kH, const int kW, int pHBegin, int pHEnd,
-    int pWBegin, int pWEnd, const bool isDynamic, const int autoPad) {
+    int pWBegin, int pWEnd, const int autoPad) {
   static int testNum = 0;
-  printf("attempt %d with N %d, C %d, H %d, W %d, kH %d, kW %d, pHBegin %d, "
-         "pHEnd %d, pWBegin %d, pWEnd %d, autopad %s, isDynamic %d, stride %d, "
-         "dilation %d\n",
-      ++testNum, N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
-      autoPadName[autoPad].c_str(), isDynamic, stride, dilation);
+  if (DEBUG)
+    printf(
+        "attempt %d with N %d, C %d, H %d, W %d, kH %d, kW %d, pHBegin %d, "
+        "pHEnd %d, pWBegin %d, pWEnd %d, autopad %s, isDynamic %d, stride %d, "
+        "dilation %d\n",
+        ++testNum, N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
+        autoPadName[autoPad].c_str(), isDynamic, stride, dilation);
   if (autoPad != AUTO_PAD_NOTSET) {
     // make sure all pads are initially zero, only value tolarated.
     assert(pHBegin == 0 && pHEnd == 0 && pWBegin == 0 && pWEnd == 0);
@@ -220,7 +225,6 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
            << ", H out " << HOut << ", W out " << WOut << ", ph begin "
            << pHBegin << ", ph end " << pHEnd << ", pw begin " << pWBegin
            << ", pw end " << pWEnd << endl;
-      assert(false);
     }
     return false;
   }
@@ -286,97 +290,86 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
-#if FORCE_DYNAMIC
-  printf("Force dynamic shape inference.\n");
-#endif
 
-  printf("test case generation with auto pad = VALID or SAME.\n");
-  bool success = rc::check("convolution implementation correctness", []() {
-    const auto S = *rc::gen::inRange(1, 3);
-    stride = S;
-    const auto D = *rc::gen::inRange(1, 3);
-    dilation = D;
-    const auto autoPad = *rc::gen::inRange(AUTO_PAD_VALID, AUTO_PAD_UB);
-    const auto N = *rc::gen::inRange(1, 5);
-    const auto C = *rc::gen::inRange(1, 10);
-    const auto H = *rc::gen::inRange(5, 32 * stride);
-    const auto W = *rc::gen::inRange(5, 32 * stride);
+  // Had to explicitly iterate over dynamic as otherwise the random algorithm
+  // never got to testing the dynamic cases.
+  for (isDynamic = 0; isDynamic < 2; ++isDynamic) {
 
-    const auto kH = *rc::gen::inRange(1, 6);
-    const auto kW = *rc::gen::inRange(1, 6);
+    // First test: check auto pads that set the pad values.
+    printf("test case generation with auto pad = VALID or SAME and %s.\n",
+        (isDynamic ? "dynamic" : "static"));
+    bool success = rc::check("convolution implementation correctness", []() {
+      const auto S = *rc::gen::inRange(1, 3);
+      stride = S;
+      const auto D = *rc::gen::inRange(1, 3);
+      dilation = D;
+      const auto autoPad = *rc::gen::inRange(AUTO_PAD_VALID, AUTO_PAD_UB);
+      const auto N = *rc::gen::inRange(1, 5);
+      const auto C = *rc::gen::inRange(1, 10);
+      const auto H = *rc::gen::inRange(5, 32 * stride);
+      const auto W = *rc::gen::inRange(5, 32 * stride);
+      const auto kH = *rc::gen::inRange(1, 6);
+      const auto kW = *rc::gen::inRange(1, 6);
+      // Make sure we have at least 1 output per dimension.
+      RC_PRE((H / stride >= kH * dilation) && (W / stride > kW * dilation));
+      RC_ASSERT(isOMConvTheSameAsNaiveImplFor(
+          N, C, H, W, kH, kW, 0, 0, 0, 0, autoPad));
+    });
+    if (!success)
+      return 1;
 
-    // Whether test dynamic image.
-#if FORCE_DYNAMIC
-    const bool isDyn = true;
-#else
-    const auto Dyn = *rc::gen::element(0, 2);
-    const bool isDyn = (Dyn == 1);
-#endif
-
-    // Make sure we have at least 1 output per dimension.
-    RC_PRE((H / stride >= kH * dilation) && (W / stride > kW * dilation));
-
-    RC_ASSERT(isOMConvTheSameAsNaiveImplFor(
-        N, C, H, W, kH, kW, 0, 0, 0, 0, isDyn, autoPad));
-  });
-  if (!success)
-    return 1;
-
-  // Iterates manually over strides and dilation for NOTSET
-  for (stride = 1; stride < 3; ++stride) {
-    for (dilation = 1; dilation < 3; ++dilation) {
-      printf("\nRun with stride %d, dilation %d\n", stride, dilation);
-      // For debugging, if helpful.
-      if (false && stride == 1 && dilation == 1) {
-        printf("  Skip no stride and no dilations\n");
-        continue;
+    // Second test: test NOTSET over a wide range of image and kernel sizes. Had
+    // to manually iterate over strides and dilation to ensure sufficient
+    // coverage.
+    for (stride = 1; stride < 3; ++stride) {
+      for (dilation = 1; dilation < 3; ++dilation) {
+        printf("\nRun with stride %d, dilation %d and %s.\n", stride, dilation,
+            (isDynamic ? "dynamic" : "static"));
+        // For debugging, if helpful.
+        if (false && stride == 1 && dilation == 1) {
+          printf("  Skip no stride and no dilations\n");
+          continue;
+        }
+        if (false && (stride < 2 || dilation < 2)) {
+          printf("  Skip no stride or no dilations\n");
+          continue;
+        }
+        // RapidCheck test case generation for a given stride and dilation.
+        bool success =
+            rc::check("convolution implementation correctness", []() {
+              const auto N = *rc::gen::inRange(1, 5);
+              const auto C = *rc::gen::inRange(1, 10);
+              const auto H = *rc::gen::inRange(5, 32 * stride);
+              const auto W = *rc::gen::inRange(5, 32 * stride);
+              const auto kH = *rc::gen::inRange(1, 6);
+              const auto kW = *rc::gen::inRange(1, 6);
+              // We don't want an entire window of padding.
+              const auto pHBegin = *rc::gen::inRange(0, kH);
+              const auto pHEnd = *rc::gen::inRange(0, kH);
+              const auto pWBegin = *rc::gen::inRange(0, kW);
+              const auto pWEnd = *rc::gen::inRange(0, kW);
+              // Make sure we have at least 1 output per dimension.
+              RC_PRE((H / stride >= kH * dilation) &&
+                     (W / stride > kW * dilation));
+              RC_ASSERT(isOMConvTheSameAsNaiveImplFor(N, C, H, W, kH, kW,
+                  pHBegin, pHEnd, pWBegin, pWEnd, AUTO_PAD_NOTSET));
+            });
+        if (!success)
+          return 1;
       }
-      if (false && (stride < 2 || dilation < 2)) {
-        printf("  Skip no stride or no dilations\n");
-        continue;
-      }
-      // RapidCheck test case generation for a given stride and dilation.
-      bool success = rc::check("convolution implementation correctness", []() {
-        const auto N = *rc::gen::inRange(1, 5);
-        const auto C = *rc::gen::inRange(1, 10);
-        const auto H = *rc::gen::inRange(5, 32 * stride);
-        const auto W = *rc::gen::inRange(5, 32 * stride);
-
-        const auto kH = *rc::gen::inRange(1, 6);
-        const auto kW = *rc::gen::inRange(1, 6);
-
-        // We don't want an entire window of padding.
-        const auto pHBegin = *rc::gen::inRange(0, kH);
-        const auto pHEnd = *rc::gen::inRange(0, kH);
-        const auto pWBegin = *rc::gen::inRange(0, kW);
-        const auto pWEnd = *rc::gen::inRange(0, kW);
-
-        // Whether test dynamic image.
-#if FORCE_DYNAMIC
-        const bool isDyn = true;
-#else
-        const auto Dyn = *rc::gen::element(0, 2);
-        const bool isDyn = (Dyn == 1);
-#endif
-
-        // Make sure we have at least 1 output per dimension.
-        RC_PRE((H / stride >= kH * dilation) && (W / stride > kW * dilation));
-
-        RC_ASSERT(isOMConvTheSameAsNaiveImplFor(N, C, H, W, kH, kW, pHBegin,
-            pHEnd, pWBegin, pWEnd, isDyn, AUTO_PAD_NOTSET));
-      });
-      if (!success)
-        return 1;
     }
-  }
 
-  printf("\nExhaustive test case generation with unit stride and dilation.\n");
-  stride = dilation = 1;
-  for (int pHBegin = 0; pHBegin < 3; pHBegin++)
-    for (int pHEnd = 0; pHEnd < 3; pHEnd++)
-      for (int pWBegin = 0; pWBegin < 3; pWBegin++)
-        for (int pWEnd = 0; pWEnd < 3; pWEnd++)
-          assert(isOMConvTheSameAsNaiveImplFor(2, 4, 5, 5, 3, 3, pHBegin, pHEnd,
-              pWBegin, pWEnd, false, AUTO_PAD_NOTSET));
+    // Third test, exhaustive test over a small range of values.
+    printf("\nExhaustive test cases with unit stride and dilation, and %s.\n",
+        (isDynamic ? "dynamic" : "static"));
+    stride = dilation = 1;
+    for (int pHBegin = 0; pHBegin < 3; pHBegin++)
+      for (int pHEnd = 0; pHEnd < 3; pHEnd++)
+        for (int pWBegin = 0; pWBegin < 3; pWBegin++)
+          for (int pWEnd = 0; pWEnd < 3; pWEnd++)
+            assert(isOMConvTheSameAsNaiveImplFor(2, 4, 5, 5, 3, 3, pHBegin,
+                pHEnd, pWBegin, pWEnd, AUTO_PAD_NOTSET));
+
+  } // End loop over static / dynamic
   return 0;
 }
