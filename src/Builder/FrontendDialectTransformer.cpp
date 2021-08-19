@@ -927,10 +927,14 @@ private:
     auto opset_list_it = op_dialect_version_map_.find(node.op_type());
     if (opset_list_it != op_dialect_version_map_.end()) {
       auto opset_list = opset_list_it->second;
-      // Traverse backward to find the closest version
-      // Some old versions may be compatible
+      // A new opset is added to onnx-mlir when it becomes imcompactible.
+      // But the lowest opset in op_dialect_version_map_ is an exception.
+      // It is the current opset when onnx-mlir project is started.
+      // All opset lower than the last opset should use the last opset(version)
+      if (opset_list.size() == 1)
+        return std::string("");
       for (int i = opset_list.size() - 1; i > 0; i--) {
-        if (current_opset <= opset_list[i]) {
+        if (current_opset < opset_list[i - 1]) {
           return "V" + std::to_string(opset_list[i]);
         }
       }

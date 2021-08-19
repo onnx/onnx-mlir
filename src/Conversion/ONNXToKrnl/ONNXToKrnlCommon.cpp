@@ -139,22 +139,48 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
 }
 
 // Determine if current function returns the result value of the
-// current op being lowered. If it does then dealloc should not be
-// inserted.
+// current op or the result value of reinterpret_cast op whose
+// operand is the result value of current op. If it does then
+// dealloc should not be inserted.
 bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   auto parentBlock = currentOp->getBlock();
-
   bool insertDealloc = true;
-  parentBlock->walk([&insertDealloc, currentOp, resultIndex](ReturnOp op) {
-    // If there is at least one result to investigate.
-    if (currentOp->getNumResults() > 0) {
-      auto result = currentOp->getResult(resultIndex);
-      for (const auto &operand : op.getOperands())
-        if (operand == result)
-          insertDealloc = false;
-    }
-  });
 
+  // Check if the result value of `currentOp` is an operand of
+  // `ReinterpretCastOp`, and store the result value of `ReinterpretCastOp`.
+  // Reshape, Squeeze, and Unsqueeze ops are checked because they are lowered to
+  // `ReinterpretCastOp`.
+  SmallVector<Value, 32> castOpResults;
+  if (currentOp->getNumResults() > 0) {
+    parentBlock->walk([&insertDealloc, currentOp, resultIndex, &castOpResults](
+                          Operation *op) {
+      if (isa<memref::ReinterpretCastOp>(op) || isa<ONNXReshapeOp>(op) ||
+          isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op)) {
+        auto result = currentOp->getResult(resultIndex);
+        for (const auto &operand : op->getOperands())
+          if (operand == result)
+            castOpResults.emplace_back(op->getResults()[0]);
+      }
+    });
+  }
+  // If there is at least one result to investigate.
+  if (currentOp->getNumResults() > 0) {
+    parentBlock->walk(
+        [&insertDealloc, currentOp, resultIndex, &castOpResults](ReturnOp op) {
+          auto result = currentOp->getResult(resultIndex);
+          for (const auto &operand : op.getOperands()) {
+            // Determine if current function returns the result value of the
+            // current op.
+            if (operand == result)
+              insertDealloc = false;
+            // Determin if the result value of reinterpret_cast op whose operand
+            // is the result value of current op
+            for (const auto &castOpResult : castOpResults)
+              if (operand == castOpResult)
+                insertDealloc = false;
+          }
+        });
+  }
   return insertDealloc;
 }
 
@@ -370,32 +396,9 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
   return dimVal;
 }
 
-/// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
-/// return a constant.
-Value foldOrEmitONNXSqueezeOp(ConversionPatternRewriter &rewriter, Location loc,
-    Type resultType, Value input, int64_t axis) {
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
-    char *inputBuffer = createArrayFromDenseElementsAttr(
-        input.getDefiningOp()
-            ->getAttrOfType<::mlir::Attribute>("value")
-            .dyn_cast_or_null<mlir::DenseElementsAttr>());
-
-    Value constVal = createDenseONNXConstantOp(
-        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
-                         .getResult();
-    free(inputBuffer);
-    return constVal;
-  } else {
-    return rewriter
-        .create<ONNXSqueezeOp>(
-            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
-        .getResult();
-  }
-}
-
-/// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
-/// return a constant.
-Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
+/// Emit an ONNXSqueezeV11Op. If the input is constant, do const propagation,
+/// and return a constant.
+Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
   if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
@@ -410,7 +413,30 @@ Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
     return constVal;
   } else {
     return rewriter
-        .create<ONNXUnsqueezeOp>(
+        .create<ONNXSqueezeV11Op>(
+            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
+        .getResult();
+  }
+}
+
+/// Emit an ONNXUnsqueezeV11Op. If the input is constant, do const propagation,
+/// and return a constant.
+Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, int64_t axis) {
+  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(
+        input.getDefiningOp()
+            ->getAttrOfType<::mlir::Attribute>("value")
+            .dyn_cast_or_null<mlir::DenseElementsAttr>());
+
+    Value constVal = createDenseONNXConstantOp(
+        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
+                         .getResult();
+    free(inputBuffer);
+    return constVal;
+  } else {
+    return rewriter
+        .create<ONNXUnsqueezeV11Op>(
             loc, resultType, input, rewriter.getI64ArrayAttr(axis))
         .getResult();
   }

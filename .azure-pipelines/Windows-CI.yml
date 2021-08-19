@@ -20,6 +20,18 @@ jobs:
     submodules: recursive
     path: onnx-mlir
 
+  - task: PowerShell@2
+    displayName: Setup ninja
+    inputs:
+      targetType: 'inline'
+      script: |
+        echo "Check and set up ninja"
+        if (-Not (Get-Command ninja -errorAction SilentlyContinue))
+        {
+          echo "choco install ninja"
+          choco install ninja
+        }
+
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
       call onnx-mlir\utils\install-protobuf.cmd

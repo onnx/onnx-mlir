@@ -209,7 +209,7 @@ func @test_conv_no_bias_0(%arg0 : tensor<1x2x32xf32>, %arg1 : tensor<5x2x6xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_0
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [1], group = 1 : si64, kernel_shape = [6], pads = [0, 0], strides = [1]} : (tensor<1x2x32xf32>, tensor<5x2x6xf32>, none) -> tensor<1x5x27xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32xf32>, tensor<5x2x6xf32>, none) -> tensor<1x5x27xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x27xf32>
 }
 
@@ -223,7 +223,7 @@ func @test_conv_no_bias_1(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7x
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_1
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 7], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<1x5x27x58xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<1x5x27x58xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x27x58xf32>
 }
 
@@ -231,13 +231,13 @@ func @test_conv_no_bias_1(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7x
 
 /// kernel_shape attribute.
 
-func @test_conv_no_bias_2(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7xf32>) -> tensor<*xf32> {
+func @test_conv_no_bias_2(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x8x9xf32>) -> tensor<*xf32> {
   %cst = constant unit
-  %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [8, 9]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<*xf32>
+  %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [8, 9]} : (tensor<1x2x32x64xf32>, tensor<5x2x8x9xf32>, none) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_2
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [8, 9], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<1x5x25x56xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [8, 9]} : (tensor<1x2x32x64xf32>, tensor<5x2x8x9xf32>, none) -> tensor<1x5x25x56xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x25x56xf32>
 }
 
@@ -252,7 +252,7 @@ func @test_conv_no_bias_3(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x10
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_3
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 10], pads = [2, 4, 3, 5], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>, none) -> tensor<1x5x32x64xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64, pads = [2, 4, 3, 5]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>, none) -> tensor<1x5x32x64xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xf32>
 }
 
@@ -266,7 +266,7 @@ func @test_conv_no_bias_4(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x10
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_4
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 10], pads = [2, 4, 3, 5], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>, none) -> tensor<1x5x32x64xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_UPPER", group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>, none) -> tensor<1x5x32x64xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xf32>
 }
 
@@ -278,7 +278,7 @@ func @test_conv_no_bias_5(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x10
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_5
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 10], pads = [3, 5, 2, 4], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>, none) -> tensor<1x5x32x64xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_LOWER", group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>, none) -> tensor<1x5x32x64xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xf32>
 }
 
@@ -292,7 +292,7 @@ func @test_conv_no_bias_6(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x10
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_6
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 10], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>, none) -> tensor<1x5x27x55xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "VALID", group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>, none) -> tensor<1x5x27x55xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x27x55xf32>
 }
 
@@ -306,7 +306,7 @@ func @test_conv_no_bias_7(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7x
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_7
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 7], pads = [0, 0, 0, 0], strides = [2, 3]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<1x5x14x20xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64, strides = [2, 3]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<1x5x14x20xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x14x20xf32>
 }
 
@@ -321,7 +321,7 @@ func @test_conv_no_bias_8(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7x
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_8
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 7], pads = [2, 3, 2, 3], strides = [2, 3]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<1x5x16x22xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_UPPER", group = 1 : si64, strides = [2, 3]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<1x5x16x22xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x16x22xf32>
 }
 
@@ -335,7 +335,7 @@ func @test_conv_no_bias_9(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7x
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_9
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : si64, kernel_shape = [6, 7], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<1x5x22x46xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<1x5x22x46xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x22x46xf32>
 }
 
@@ -349,7 +349,7 @@ func @test_conv_no_bias_10(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_10
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : si64, kernel_shape = [6, 7], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<1x5x11x23xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : si64, strides = [2, 2]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<1x5x11x23xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x11x23xf32>
 }
 
@@ -363,7 +363,7 @@ func @test_conv_no_bias_11(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_11
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : si64, kernel_shape = [6, 7], pads = [5, 9, 5, 9], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<1x5x32x64xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_UPPER", dilations = [2, 3], group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<1x5x32x64xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xf32>
 }
 
@@ -376,7 +376,7 @@ func @test_conv_12(%arg0 : tensor<1x2x32xf32>, %arg1 : tensor<5x2x6xf32>, %arg2 
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_12
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1], group = 1 : si64, kernel_shape = [6], pads = [0, 0], strides = [1]} : (tensor<1x2x32xf32>, tensor<5x2x6xf32>, tensor<5xf32>) -> tensor<1x5x27xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32xf32>, tensor<5x2x6xf32>, tensor<5xf32>) -> tensor<1x5x27xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x27xf32>
 }
 
@@ -998,66 +998,66 @@ func @test_split_5(%arg0 : tensor<16x?x64xf32>) -> tensor<*xf32> {
 // -----
 
 func @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Squeeze"(%arg0) { axes = [1]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
+  %0 = "onnx.SqueezeV11"(%arg0) { axes = [1]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_squeeze
-  // CHECK: [[RES:%.+]] = "onnx.Squeeze"(%arg0) {axes = [1]} : (tensor<16x1x32x1x64xf32>) -> tensor<16x32x1x64xf32>
+  // CHECK: [[RES:%.+]] = "onnx.SqueezeV11"(%arg0) {axes = [1]} : (tensor<16x1x32x1x64xf32>) -> tensor<16x32x1x64xf32>
   // CHECK: return [[RES]] : tensor<16x32x1x64xf32>
 }
 
 // -----
 
 func @test_squeeze_negative_axis(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Squeeze"(%arg0) { axes = [-2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
+  %0 = "onnx.SqueezeV11"(%arg0) { axes = [-2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_squeeze_negative_axis
-  // CHECK: [[RES:%.+]] = "onnx.Squeeze"(%arg0) {axes = [3]} : (tensor<16x1x32x1x64xf32>) -> tensor<16x1x32x64xf32>
+  // CHECK: [[RES:%.+]] = "onnx.SqueezeV11"(%arg0) {axes = [3]} : (tensor<16x1x32x1x64xf32>) -> tensor<16x1x32x64xf32>
   // CHECK: return [[RES]] : tensor<16x1x32x64xf32>
 }
 
 // -----
 
 func @test_squeeze_mix(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Squeeze"(%arg0) { axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
+  %0 = "onnx.SqueezeV11"(%arg0) { axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_squeeze_mix
-  // CHECK: [[RES:%.+]] = "onnx.Squeeze"(%arg0) {axes = [1, 3]} : (tensor<16x1x32x1x64xf32>) -> tensor<16x32x64xf32>
+  // CHECK: [[RES:%.+]] = "onnx.SqueezeV11"(%arg0) {axes = [1, 3]} : (tensor<16x1x32x1x64xf32>) -> tensor<16x32x64xf32>
   // CHECK: return [[RES]] : tensor<16x32x64xf32>
 }
 
 // -----
 
 func @test_unsqueeze(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Unsqueeze"(%arg0) { axes = [1]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>)
+  %0 = "onnx.UnsqueezeV11"(%arg0) { axes = [1]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_unsqueeze
-  // CHECK: [[RES:%.+]] = "onnx.Unsqueeze"(%arg0) {axes = [1]} : (tensor<16x32x64xf32>) -> tensor<16x1x32x64xf32>
+  // CHECK: [[RES:%.+]] = "onnx.UnsqueezeV11"(%arg0) {axes = [1]} : (tensor<16x32x64xf32>) -> tensor<16x1x32x64xf32>
   // CHECK: return [[RES]] : tensor<16x1x32x64xf32>
 }
 
 // -----
 
 func @test_unsqueeze_negative_axis(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Unsqueeze"(%arg0) { axes = [-2]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>)
+  %0 = "onnx.UnsqueezeV11"(%arg0) { axes = [-2]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_unsqueeze_negative_axis
-  // CHECK: [[RES:%.+]] = "onnx.Unsqueeze"(%arg0) {axes = [2]} : (tensor<16x32x64xf32>) -> tensor<16x32x1x64xf32>
+  // CHECK: [[RES:%.+]] = "onnx.UnsqueezeV11"(%arg0) {axes = [2]} : (tensor<16x32x64xf32>) -> tensor<16x32x1x64xf32>
   // CHECK: return [[RES]] : tensor<16x32x1x64xf32>
 }
 
 // -----
 
 func @test_unsqueeze_mix(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Unsqueeze"(%arg0) { axes = [1, -2]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>)
+  %0 = "onnx.UnsqueezeV11"(%arg0) { axes = [1, -2]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_unsqueeze_mix
-  // CHECK: [[RES:%.+]] = "onnx.Unsqueeze"(%arg0) {axes = [1, 3]} : (tensor<16x32x64xf32>) -> tensor<16x1x32x1x64xf32>
+  // CHECK: [[RES:%.+]] = "onnx.UnsqueezeV11"(%arg0) {axes = [1, 3]} : (tensor<16x32x64xf32>) -> tensor<16x1x32x1x64xf32>
   // CHECK: return [[RES]] : tensor<16x1x32x1x64xf32>
 }
 

@@ -411,6 +411,25 @@ func private @test_reshape_constant(%arg0 : tensor<1x10xf32>) -> tensor<*xf32> {
 
 // -----
 
+// `Reshape` ops are lowerd to `reinterpret_cast` op. `reinterpret_cast` ops just change
+// the view of input memref. So, input memref should not be deallocated if it is retuned.
+// This test confirms the deallocation is not generated.
+
+func private @test_reshape_constant_dealloc(%arg0 : tensor<10x1xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) : (tensor<10x1xf32>) -> tensor<*xf32>
+  %1 = "onnx.Constant"() {value = dense<[2, 5]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %2 = "onnx.Reshape"(%0, %1) : (tensor<*xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%2) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: func private @test_reshape_constant_dealloc
+  // CHECK:       [[VAR_0_:%.+]] = memref.alloc() : memref<1x10xf32>
+  // CHECK:       [[VAR_3_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [2, 5], strides: [5, 1] : memref<1x10xf32> to memref<2x5xf32>
+  // CHECK-NOT:   memref.dealloc [[VAR_0_]] : memref<1x10xf32>
+  // CHECK:       return [[VAR_3_]] : memref<2x5xf32>
+}
+
+// -----
+
 func private @test_sum(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -828,12 +847,50 @@ func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // -----
 
 func private @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Unsqueeze"(%arg0) {axes=[0,3]} : (tensor<10x10xf32>) -> tensor<*xf32>
+  %0 = "onnx.UnsqueezeV11"(%arg0) {axes=[0,3]} : (tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_unsqueeze
   // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [1, 10, 10, 1], strides: [100, 10, 1, 1] : memref<10x10xf32> to memref<1x10x10x1xf32>
   // CHECK: return [[RES]] : memref<1x10x10x1xf32>
+}
+
+// -----
+
+// `UnsqueezeV11` ops are lowerd to `reinterpret_cast` op. `reinterpret_cast` ops just
+// change the view of input memref. So, input memref should not be deallocated if it
+// is retuned. This test confirms the deallocation is not generated.
+
+func private @test_unsqueeze_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) : (tensor<10x20xf32>) -> tensor<*xf32>
+  %1 = "onnx.UnsqueezeV11"(%0) {axes=[0,3]} : (tensor<*xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: func private @test_unsqueeze_dealloc
+  // CHECK:       [[VAR_0_:%.+]] = memref.alloc() : memref<20x10xf32>
+  // CHECK:       [[VAR_2_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [1, 20, 10, 1], strides: [200, 10, 1, 1] : memref<20x10xf32> to memref<1x20x10x1xf32>
+  // CHECK-NOT:   memref.dealloc [[VAR_0_]] : memref<20x10xf32>
+  // CHECK:	  return [[VAR_2_]] : memref<1x20x10x1xf32>
+}
+
+// -----
+
+// Test for multiple `reinterpret_cast` in a function. Only returned memrefs should not be deallocated.
+func private @test_unsqueeze_squeeze_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) : (tensor<10x20xf32>) -> tensor<*xf32>
+  %1 = "onnx.UnsqueezeV11"(%0) { axes = [1, -1]} : (tensor<*xf32>) -> (tensor<*xf32>)
+  %2 = "onnx.Transpose"(%1) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
+  %3 = "onnx.SqueezeV11"(%2) {axes=[1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
+  "std.return"(%3) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: func private @test_unsqueeze_squeeze_dealloc
+  // CHECK:       [[VAR_0_:%.+]] = memref.alloc() : memref<20x1x1x10xf32>
+  // CHECK:       [[VAR_1_:%.+]] = memref.alloc() : memref<20x10xf32>
+  // CHECK:       [[VAR_3_:%.+]] = memref.reinterpret_cast [[VAR_1_]] to offset: [0], sizes: [20, 1, 10, 1], strides: [10, 10, 1, 1] : memref<20x10xf32> to memref<20x1x10x1xf32>
+  // CHECK:       [[VAR_5_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [20, 10], strides: [10, 1] : memref<20x1x1x10xf32> to memref<20x10xf32>
+  // CHECK:       memref.dealloc [[VAR_1_]] : memref<20x10xf32>
+  // CHECK-NOT:   memref.dealloc [[VAR_0_]] : memref<20x10xf32>
+  // CHECK:       return [[VAR_5_]] : memref<20x10xf32>
 }
 
 // -----
@@ -944,161 +1001,6 @@ func private @test_sign_i(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   // CHECK: krnl.store [[SIGN_RES]], [[RES]][%arg1, %arg2] : memref<?x10xi32>
   // CHECK: return [[RES]] : memref<?x10xi32>
 }
-
-// -----
-
-func private @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7xf32>) -> tensor<*xf32> {
-  %cst = constant unit
-  %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-DAG: #[[ZERO_MAP2:.+]] = affine_map<(d0) -> (0, d0)>
-  // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (32, d0 + 6)>
-  // CHECK-DAG: #[[ZERO_MAP4:.+]] = affine_map<(d0, d1) -> (0, d1)>
-  // CHECK-DAG: #{{.*}} = affine_map<(d0, d1) -> (64, d1 + 7)>
-  // CHECK-DAG: #[[BOUND:.+]] = affine_map<(d0)[s0, s1, s2, s3, s4] -> (s0 - ((s2 ceildiv s4) * s4 - s2), -(d0 * s3 - s2) + s0, d0 * s3 + (s1 - 1) * s4 - s2 - ((s2 ceildiv s4) * s4 - s2) + 1, d0 * s3 + (s1 - 1) * s4 - s2 - (d0 * s3 - s2) + 1)>
-
-  // CHECK-LABEL: test_conv_no_bias_no_pad
-  // CHECK: [[RES:%.+]] = memref.alloc() : memref<1x5x27x58xf32>
-  // CHECK: [[CONST1:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[OUTER_LOOPS:%.+]]:2 = krnl.define_loops 2
-
-  // CHECK: krnl.iterate([[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1) with ([[OUTER_LOOPS]]#0 -> %arg2 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg3 = 0 to 5) {
-  // CHECK: [[SPATIAL_LOOPS:%.+]]:2 = krnl.define_loops 2
-
-  // CHECK: krnl.iterate([[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg4 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg5 = 0 to 58) {
-  // CHECK: [[REDUCTION_VAL:%.+]] = memref.alloca() : memref<f32>
-  // CHECK: krnl.store [[CONST1]], [[REDUCTION_VAL]][] : memref<f32>
-  // CHECK: [[START1:%.+]] = affine.max #[[ZERO_MAP2]](%arg4)
-  // CHECK: {{.*}} = affine.min {{.*}}
-  // CHECK: [[KERNEL_OFFSET1:%.+]] = affine.min #[[ZERO_MAP2]](%arg4)
-  // CHECK: [[START2:%.+]] = affine.max #[[ZERO_MAP4]](%arg4, %arg5)
-  // CHECK: {{.*}} = affine.min {{.*}}
-  // CHECK: [[KERNEL_OFFSET2:%.+]] = affine.min #[[ZERO_MAP4]](%arg4, %arg5)
-
-  // CHECK: [[INNER_LOOPS:%.+]]:3 = krnl.define_loops 3
-
-  // CHECK: krnl.iterate([[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg6 = 0 to 2, [[INNER_LOOPS]]#1 -> %arg7 = 0 to min #[[BOUND]](%arg4)[{{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}], [[INNER_LOOPS]]#2 -> %arg8 = 0 to min #[[BOUND]](%arg5)[{{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}]) {
-  // CHECK: [[R1:%.+]] = addi %arg7, [[START1]] : index
-  // CHECK: [[R2:%.+]] = addi %arg8, [[START2]] : index
-  // CHECK: [[K1:%.+]] = subi %arg7, [[KERNEL_OFFSET1]] : index
-  // CHECK: [[K2:%.+]] = subi %arg8, [[KERNEL_OFFSET2]] : index
-  // CHECK: [[DATA:%.+]] = krnl.load %arg0[%arg2, %arg6, [[R1]], [[R2]]{{\]}} : memref<1x2x32x64xf32>
-  // CHECK: [[KERNEL:%.+]] = krnl.load %arg1[%arg3, %arg6, [[K1]], [[K2]]{{\]}} : memref<5x2x6x7xf32>
-  // CHECK: [[ACC_RES:%.+]] = krnl.load [[REDUCTION_VAL]][] : memref<f32>
-  // CHECK: [[MUL:%.+]] = mulf [[DATA]], [[KERNEL]] : f32
-  // CHECK: [[ADD:%.+]] = addf [[ACC_RES]], [[MUL]] : f32
-  // CHECK: krnl.store [[ADD]], [[REDUCTION_VAL]][] : memref<f32>
-  // CHECK: }
-  // CHECK: [[LOAD_REDUCTION:%.+]] = krnl.load [[REDUCTION_VAL]][] : memref<f32>
-  // CHECK: krnl.store [[LOAD_REDUCTION]], [[RES]][%arg2, %arg3, %arg4, %arg5] : memref<1x5x27x58xf32>
-  // CHECK: }
-  // CHECK: }
-
-  // CHECK: return [[RES]] : memref<1x5x27x58xf32>
-}
-
-// -----
-
-func private @test_conv_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7xf32>, %arg2 : tensor<5xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, tensor<5xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_conv_bias_no_pad
-  // CHECK: [[RES:%.+]] = memref.alloc() : memref<1x5x27x58xf32>
-  // CHECK: [[CONST1:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[OUTER_LOOPS:%.+]]:2 = krnl.define_loops 2
-
-  // CHECK: krnl.iterate([[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1) with ([[OUTER_LOOPS]]#0 -> %arg3 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg4 = 0 to 5) {
-  // CHECK: [[SPATIAL_LOOPS:%.+]]:2 = krnl.define_loops 2
-
-  // CHECK: krnl.iterate([[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg5 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg6 = 0 to 58) {
-  // CHECK: [[REDUCTION_VAL:%.+]] = memref.alloca() : memref<f32>
-  // CHECK: krnl.store [[CONST1]], [[REDUCTION_VAL]][] : memref<f32>
-  // CHECK: [[INNER_LOOPS:%.+]]:3 = krnl.define_loops 3
-
-  // CHECK: krnl.iterate([[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg7 = 0 to 2, [[INNER_LOOPS]]#1 -> %arg8 = 0 to min #{{.*}}(%arg5)[{{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}], [[INNER_LOOPS]]#2 -> %arg9 = 0 to min #{{.*}}(%arg6)[{{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}]) {
-  // CHECK: }
-  // CHECK: [[BIAS1:%.+]] = krnl.load [[REDUCTION_VAL]][] : memref<f32>
-  // CHECK: [[BIAS2:%.+]] = krnl.load %arg2[%arg4] : memref<5xf32>
-  // CHECK: [[BIAS3:%.+]] = addf [[BIAS1]], [[BIAS2]] : f32
-  // CHECK: krnl.store [[BIAS3]], [[RES]][%arg3, %arg4, %arg5, %arg6] : memref<1x5x27x58xf32>
-  // CHECK: }
-  // CHECK: }
-  // CHECK: return [[RES]] : memref<1x5x27x58xf32>
-}
-
-// -----
-
-func private @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32>, %arg1 : tensor<5x3x6x7xf32>) -> tensor<*xf32> {
-  %cst = constant unit
-  %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 3 : si64} : (tensor<1x9x32x64xf32>, tensor<5x3x6x7xf32>, none) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-
-  // CHECK-LABEL: test_conv_no_bias_no_pad_w_group
-  // CHECK: [[RES:%.+]] = memref.alloc() : memref<1x5x27x58xf32>
-  // CHECK: [[OUTER_LOOPS:%.+]]:3 = krnl.define_loops 3
-
-  // CHECK: krnl.iterate([[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1, [[OUTER_LOOPS]]#2) with ([[OUTER_LOOPS]]#0 -> %arg2 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg3 = 0 to 3, [[OUTER_LOOPS]]#2 -> %arg4 = 0 to 1) {
-  // CHECK: [[SPATIAL_LOOPS:%.+]]:2 = krnl.define_loops 2
-
-  // CHECK: krnl.iterate([[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg5 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg6 = 0 to 58) {
-  // CHECK: krnl.store {{.*}}
-  // CHECK: [[INNER_LOOPS:%.+]]:3 = krnl.define_loops 3
-
-  // CHECK: krnl.iterate([[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg7 = 0 to 3, [[INNER_LOOPS]]#1 -> %arg8 = 0 to min #{{.*}}(%arg5)[{{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}], [[INNER_LOOPS]]#2 -> %arg9 = 0 to min #{{.*}}(%arg6)[{{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}]) {
-  // CHECK: [[GROUP:%.+]] = affine.apply #{{.*}}(%arg3, %arg4, %arg5, %arg6, %arg3, %arg7)
-  // CHECK: [[DATA:%.+]] = krnl.load %arg0[%arg2, [[GROUP]], {{.*}}, {{.*}}] : memref<1x9x32x64xf32>
-  // CHECK: }
-  // CHECK: }
-  // CHECK: }
-
-  // CHECK: return [[RES]] : memref<1x5x27x58xf32>
-}
-
-// -----
-
-func private @test_conv_no_bias_no_pad_w_strides(%arg0 : tensor<1x9x32x64xf32>, %arg1 : tensor<5x9x6x7xf32>) -> tensor<*xf32> {
-  %cst = constant unit
-  %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64, strides = [2, 2]} : (tensor<1x9x32x64xf32>, tensor<5x9x6x7xf32>, none) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-DAG: #[[BOUND:.+]] = affine_map<(d0)[s0, s1, s2, s3, s4] -> (s0 - ((s2 ceildiv s4) * s4 - s2), -(d0 * s3 - s2) + s0, d0 * s3 + (s1 - 1) * s4 - s2 - ((s2 ceildiv s4) * s4 - s2) + 1, d0 * s3 + (s1 - 1) * s4 - s2 - (d0 * s3 - s2) + 1)>
-
-  // CHECK-LABEL: test_conv_no_bias_no_pad_w_strides
-  // CHECK: [[RES:%.+]] = memref.alloc() : memref<1x5x14x29xf32>
-  // CHECK: [[CONST1:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[OUTER_LOOPS:%.+]]:2 = krnl.define_loops 2
-
-  // CHECK: krnl.iterate([[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1) with ([[OUTER_LOOPS]]#0 -> %arg2 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg3 = 0 to 5) {
-  // CHECK: [[SPATIAL_LOOPS:%.+]]:2 = krnl.define_loops 2
-
-  // CHECK: krnl.iterate([[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg4 = 0 to 14, [[SPATIAL_LOOPS]]#1 -> %arg5 = 0 to 29) {
-  // CHECK: [[REDUCTION_VAL:%.+]] = memref.alloca() : memref<f32>
-  // CHECK: krnl.store [[CONST1]], [[REDUCTION_VAL]][] : memref<f32>
-  // CHECK: [[INNER_LOOPS:%.+]]:3 = krnl.define_loops 3
-
-  // CHECK: krnl.iterate([[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg6 = 0 to 9, [[INNER_LOOPS]]#1 -> %arg7 = 0 to min #[[BOUND]](%arg4)[{{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}], [[INNER_LOOPS]]#2 -> %arg8 = 0 to min #[[BOUND]](%arg5)[{{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}]) {
-  // CHECK: [[R1:%.+]] = addi %arg7, [[START1]] : index
-  // CHECK: [[R2:%.+]] = addi %arg8, [[START2]] : index
-  // CHECK: [[K1:%.+]] = subi %arg7, [[KERNEL_OFFSET1]] : index
-  // CHECK: [[K2:%.+]] = subi %arg8, [[KERNEL_OFFSET2]] : index
-  // CHECK: [[DATA:%.+]] = krnl.load %arg0[%arg2, %arg6, [[R1]], [[R2]]{{\]}} : memref<1x9x32x64xf32>
-  // CHECK: [[KERNEL:%.+]] = krnl.load %arg1[%arg3, %arg6, [[K1]], [[K2]]{{\]}} : memref<5x9x6x7xf32>
-  // CHECK: [[ACC_RES:%.+]] = krnl.load [[REDUCTION_VAL]][] : memref<f32>
-  // CHECK: [[MUL:%.+]] = mulf [[DATA]], [[KERNEL]] : f32
-  // CHECK: [[ADD:%.+]] = addf [[ACC_RES]], [[MUL]] : f32
-  // CHECK: krnl.store [[ADD]], [[REDUCTION_VAL]][] : memref<f32>
-  // CHECK: }
-  // CHECK: [[LOAD_REDUCTION:%.+]] = krnl.load [[REDUCTION_VAL]][] : memref<f32>
-  // CHECK: krnl.store [[LOAD_REDUCTION]], [[RES]][%arg2, %arg3, %arg4, %arg5] : memref<1x5x14x29xf32>
-  // CHECK: }
-  // CHECK: }
-
-  // CHECK: return [[RES]] : memref<1x5x14x29xf32>
-}
-
 
 // -----
 
@@ -1392,7 +1294,7 @@ func private @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) -> t
 // -----
 
 func private @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Squeeze"(%arg0) { axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
+  %0 = "onnx.SqueezeV11"(%arg0) { axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: @test_squeeze
@@ -1402,8 +1304,24 @@ func private @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
 
 // -----
 
+// `SqueezeV11` ops are lowerd to `reinterpret_cast` op. `reinterpret_cast` ops just change the view of input memref. So, input memref should not be deallocated if it is retuned. This test confirms the deallocation is not generated.
+
+func private @test_squeeze_dealloc(%arg0 : tensor<16x32x1x1x64xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2, 4]} : (tensor<16x32x1x1x64xf32>) -> tensor<*xf32>
+  %1 = "onnx.SqueezeV11"(%0) { axes = [1, -2]} : (tensor<*xf32>) -> (tensor<*xf32>)
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL:  func private @test_squeeze_dealloc
+  // CHECK:       [[VAR_0_:%.+]] = memref.alloc() : memref<16x1x32x1x64xf32>
+// CHECK-DAG:     [[VAR_2_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [16, 32, 64], strides: [2048, 64, 1] : memref<16x1x32x1x64xf32> to memref<16x32x64xf32>
+  // CHECK-NOT:   memref.dealloc [[VAR_0_]] : memref<20x10xf32>
+  // CHECK:       return [[VAR_2_]] : memref<16x32x64xf32>
+}
+
+// -----
+
 func private @test_squeeze_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Squeeze"(%arg0) { axes = [1,-2]} : (tensor<?x1x32x?x64xf32>) -> (tensor<*xf32>)
+  %0 = "onnx.SqueezeV11"(%arg0) { axes = [1,-2]} : (tensor<?x1x32x?x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL:  func private @test_squeeze_unknown_dimensions

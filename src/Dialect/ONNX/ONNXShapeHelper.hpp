@@ -259,9 +259,11 @@ struct ONNXConvOpShapeHelper : public ONNXOpShapeHelper<ONNXConvOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXConvOpAdaptor operandAdaptor,
-      Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> pads,
-      Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations);
+  LogicalResult Compute(ONNXConvOpAdaptor operandAdaptor);
+  SmallVector<IndexExpr, 2> kernelShapes;
+  SmallVector<IndexExpr, 4> pads;
+  SmallVector<int64_t, 2> strides;
+  SmallVector<int64_t, 2> dilations;
 };
 
 // Shape for Pooling.
@@ -289,24 +291,26 @@ struct ONNXReshapeOpShapeHelper : public ONNXOpShapeHelper<ONNXReshapeOp> {
   LogicalResult Compute(ONNXReshapeOpAdaptor operandAdaptor);
 };
 
-// Shape for SqueezeOp.
-struct ONNXSqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXSqueezeOp> {
-  ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp);
-  ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp,
+// Shape for SqueezeV11Op.
+struct ONNXSqueezeV11OpShapeHelper
+    : public ONNXOpShapeHelper<ONNXSqueezeV11Op> {
+  ONNXSqueezeV11OpShapeHelper(ONNXSqueezeV11Op *newOp);
+  ONNXSqueezeV11OpShapeHelper(ONNXSqueezeV11Op *newOp,
       ConversionPatternRewriter &rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXSqueezeOpAdaptor operandAdaptor);
+  LogicalResult Compute(ONNXSqueezeV11OpAdaptor operandAdaptor);
 };
 
-// Shape for UnsqueezeOp.
-struct ONNXUnsqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXUnsqueezeOp> {
-  ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp);
-  ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp,
+// Shape for UnsqueezeV11Op.
+struct ONNXUnsqueezeV11OpShapeHelper
+    : public ONNXOpShapeHelper<ONNXUnsqueezeV11Op> {
+  ONNXUnsqueezeV11OpShapeHelper(ONNXUnsqueezeV11Op *newOp);
+  ONNXUnsqueezeV11OpShapeHelper(ONNXUnsqueezeV11Op *newOp,
       ConversionPatternRewriter &rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXUnsqueezeOpAdaptor operandAdaptor);
+  LogicalResult Compute(ONNXUnsqueezeV11OpAdaptor operandAdaptor);
 };

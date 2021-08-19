@@ -41,6 +41,10 @@ def AreTheSameAxisArray: Constraint<
     CPred<"AreTheSameAxisArray($0.getType().cast<ShapedType>().getRank(), $1, $2)">,
     "Two axis arrays are the same">;
 
+def HasSpecifiedConstantShape: Constraint<
+    CPred<"HasSpecifiedConstantShape($0, $1)">,
+          "Has the specified constant shape">;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -97,12 +101,26 @@ def RemoveIdentityTransposePattern:  Pat<
   // Check that we have indeed a identity transpose pattern.
   [(IsIdentityPermuteAttribute:$p)]>;
 
+def FuseReshapePattern:  Pat<
+  // Reshape of a reshape.
+  (ONNXReshapeOp (ONNXReshapeOp $v, $s1), $s2),
+  // Remove the first reshape op.
+  (ONNXReshapeOp $v, $s2)>;
+
+def RemoveIdentityReshapePattern:  Pat<
+  // Remove an identity pattern. Input tensor already has the specified shape.
+  (ONNXReshapeOp $val, $shape),
+  // Remove the transpose.
+  (replaceWithValue $val),
+  // Check that val has the specified shape.
+  [(HasSpecifiedConstantShape $val, $shape)]>;
+
 
 /// Combine squeeze and unsqueeze.
 /// Squeeze {axes = [a, b, c]} (Unsqueeze {axes = [a, b, c]} (%X)) = %X
 def RemoveSqueezeUnsqueezePattern:  Pat<
   // Squeeze and the unsqueeze with the same axes.
-  (ONNXSqueezeOp (ONNXUnsqueezeOp $val, $u_axes), $s_axes),
+  (ONNXSqueezeV11Op (ONNXUnsqueezeV11Op $val, $u_axes), $s_axes),
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
@@ -112,7 +130,7 @@ def RemoveSqueezeUnsqueezePattern:  Pat<
 /// Unsqueeze {axes = [a, b, c]} (Squeeze {axes = [a, b, c]} (%X)) = %X
 def RemoveUnsqueezeSqueezePattern:  Pat<
   // Squeeze and the unsqueeze with the same axes.
-  (ONNXUnsqueezeOp (ONNXSqueezeOp:$res $val, $s_axes), $u_axes),
+  (ONNXUnsqueezeV11Op (ONNXSqueezeV11Op:$res $val, $s_axes), $u_axes),
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
