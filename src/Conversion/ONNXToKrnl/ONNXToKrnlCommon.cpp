@@ -148,22 +148,48 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
 }
 
 // Determine if current function returns the result value of the
-// current op being lowered. If it does then dealloc should not be
-// inserted.
+// current op or the result value of reinterpret_cast op whose
+// operand is the result value of current op. If it does then
+// dealloc should not be inserted.
 bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   auto parentBlock = currentOp->getBlock();
-
   bool insertDealloc = true;
-  parentBlock->walk([&insertDealloc, currentOp, resultIndex](ReturnOp op) {
-    // If there is at least one result to investigate.
-    if (currentOp->getNumResults() > 0) {
-      auto result = currentOp->getResult(resultIndex);
-      for (const auto &operand : op.getOperands())
-        if (operand == result)
-          insertDealloc = false;
-    }
-  });
 
+  // Check if the result value of `currentOp` is an operand of
+  // `ReinterpretCastOp`, and store the result value of `ReinterpretCastOp`.
+  // Reshape, Squeeze, and Unsqueeze ops are checked because they are lowered to
+  // `ReinterpretCastOp`.
+  SmallVector<Value, 32> castOpResults;
+  if (currentOp->getNumResults() > 0) {
+    parentBlock->walk([&insertDealloc, currentOp, resultIndex, &castOpResults](
+                          Operation *op) {
+      if (isa<memref::ReinterpretCastOp>(op) || isa<ONNXReshapeOp>(op) ||
+          isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op)) {
+        auto result = currentOp->getResult(resultIndex);
+        for (const auto &operand : op->getOperands())
+          if (operand == result)
+            castOpResults.emplace_back(op->getResults()[0]);
+      }
+    });
+  }
+  // If there is at least one result to investigate.
+  if (currentOp->getNumResults() > 0) {
+    parentBlock->walk(
+        [&insertDealloc, currentOp, resultIndex, &castOpResults](ReturnOp op) {
+          auto result = currentOp->getResult(resultIndex);
+          for (const auto &operand : op.getOperands()) {
+            // Determine if current function returns the result value of the
+            // current op.
+            if (operand == result)
+              insertDealloc = false;
+            // Determin if the result value of reinterpret_cast op whose operand
+            // is the result value of current op
+            for (const auto &castOpResult : castOpResults)
+              if (operand == castOpResult)
+                insertDealloc = false;
+          }
+        });
+  }
   return insertDealloc;
 }
 

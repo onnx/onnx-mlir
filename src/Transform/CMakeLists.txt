@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(ONNX)
-add_subdirectory(Krnl)
 
 add_onnx_mlir_library(OMElideKrnlGlobalConstants
   ElideKrnlGlobalConstants.cpp

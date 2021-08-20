@@ -772,6 +772,7 @@ def ONNXConvOp:ONNX_Op<"Conv",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
@@ -4374,6 +4375,7 @@ def ONNXReluOp:ONNX_Op<"Relu",
 
 def ONNXReshapeOp:ONNX_Op<"Reshape",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Reshape operation";
   let description = [{
   "Reshape the input tensor similar to numpy.reshape."
