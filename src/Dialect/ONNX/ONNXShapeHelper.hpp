@@ -303,6 +303,17 @@ struct ONNXSqueezeV11OpShapeHelper
   LogicalResult Compute(ONNXSqueezeV11OpAdaptor operandAdaptor);
 };
 
+// Shape for SqueezeOp.
+struct ONNXSqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXSqueezeOp> {
+  ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp);
+  ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXSqueezeOpAdaptor operandAdaptor);
+};
+
 // Shape for UnsqueezeV11Op.
 struct ONNXUnsqueezeV11OpShapeHelper
     : public ONNXOpShapeHelper<ONNXUnsqueezeV11Op> {
@@ -313,4 +324,15 @@ struct ONNXUnsqueezeV11OpShapeHelper
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
   LogicalResult Compute(ONNXUnsqueezeV11OpAdaptor operandAdaptor);
+};
+
+// Shape for UnsqueezeOp.
+struct ONNXUnsqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXUnsqueezeOp> {
+  ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp);
+  ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXUnsqueezeOpAdaptor operandAdaptor);
 };
