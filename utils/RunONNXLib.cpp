@@ -98,7 +98,7 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define OM_TENSOR_CREATE omTensorCreate
 #define OM_TENSOR_LIST_CREATE omTensorListCreate
 #define OM_TENSOR_LIST_DESTROY omTensorListDestroy
-#define OPTIONS "hn:m:v"
+#define OPTIONS "hn:m:vd:"
 #else
 #define RUN_MAIN_GRAPH dll_run_main_graph
 #define OM_INPUT_SIGNATURE dll_omInputSignature
@@ -106,13 +106,14 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define OM_TENSOR_CREATE dll_omTensorCreate
 #define OM_TENSOR_LIST_CREATE dll_omTensorListCreate
 #define OM_TENSOR_LIST_DESTROY dll_omTensorListDestroy
-#define OPTIONS "e:hn:m:v"
+#define OPTIONS "e:hn:m:vd:"
 #endif
 
 // Global variables to record what we should do in this run.
 static int sIterations = 1;
 static bool verbose = false;
 static bool measureExecTime = false;
+static vector<int64_t> dimKnownAtRuntime;
 
 void usage(const char *name) {
 #if LOAD_MODEL_STATICALLY
@@ -129,6 +130,10 @@ void usage(const char *name) {
   cout << "  path to the local directory is also prepended." << endl;
   cout << endl;
   cout << "  Options:" << endl;
+  cout << "    -d | -dim json-array" << endl;
+  cout << "         Provide a json array to provide the value of every" << endl;
+  cout << "         runtime dimensions in the input signature of the" << endl;
+  cout << "         entry function. E.g. -d \"[7 2048]\"." << endl;
 #if !LOAD_MODEL_STATICALLY
   cout << "    -e name | --entry-point name" << endl;
   cout << "         Name of the ONNX model entry point." << endl;
@@ -138,11 +143,12 @@ void usage(const char *name) {
   cout << "         Number of times to run the tests, default 1." << endl;
   cout << "    -m NUM | --meas NUM" << endl;
   cout << "         Measure the kernel execution time NUM times." << endl;
-  cout << "    -v | --verbose" << endl;
-  cout << "         Print the shape of the inputs and outputs." << endl;
   cout << "    -h | --help" << endl;
   cout << "         Print help message." << endl;
+  cout << "    -v | --verbose" << endl;
+  cout << "         Print the shape of the inputs and outputs." << endl;
   cout << endl;
+  exit(1);
 }
 
 void loadDLL(string name, string entryPointName) {
@@ -178,9 +184,11 @@ void loadDLL(string name, string entryPointName) {
 
 // Parse input arguments.
 void parseArgs(int argc, char **argv) {
+  dimKnownAtRuntime.clear();
   int c;
   string entryPointName("run_main_graph");
   static struct option long_options[] = {
+      {"dim", required_argument, 0, 'd'},         // dimensions.
       {"entry-point", required_argument, 0, 'e'}, // Entry point.
       {"help", no_argument, 0, 'h'},              // Help.
       {"iterations", required_argument, 0, 'n'},  // Number of iterations.
@@ -196,6 +204,23 @@ void parseArgs(int argc, char **argv) {
     switch (c) {
     case 0:
       break;
+    case 'd': {
+      // Read json array for undefined values.
+      dimKnownAtRuntime.clear();
+      auto JSONInput = llvm::json::parse(optarg);
+      assert(JSONInput && "failed to parse json");
+      auto JSONArray = JSONInput->getAsArray();
+      assert(JSONArray && "failed to parse json as array");
+      int inputNum = JSONArray->size();
+      for (int i = 0; i < inputNum; ++i) {
+        auto JSONDimValue = (*JSONArray)[i].getAsInteger();
+        assert(JSONDimValue && "failed to get value");
+        int64_t dim = JSONDimValue.getValue();
+        printf("  got dim %i\n", (int)dim);
+        dimKnownAtRuntime.push_back(dim);
+      }
+      break;
+    }
     case 'e':
       entryPointName = optarg;
       break;
@@ -215,7 +240,6 @@ void parseArgs(int argc, char **argv) {
       break;
     default:
       usage(argv[0]);
-      exit(1);
     }
   }
   // Make sure that iterations are positive.
@@ -225,22 +249,19 @@ void parseArgs(int argc, char **argv) {
 // Process the DLL.
 #if LOAD_MODEL_STATICALLY
   if (optind < argc) {
-    cout << "error: model.so was compiled in, cannot provide one now" << endl;
+    cout << "Error: model.so was compiled in, cannot provide one now" << endl;
     usage(argv[0]);
-    exit(1);
   }
 #else
   if (optind == argc) {
-    cout << "error: need one model.so dynamic library" << endl;
+    cout << "Error: need one model.so dynamic library" << endl;
     usage(argv[0]);
-    exit(1);
   } else if (optind + 1 == argc) {
     string name = argv[optind];
     loadDLL(name, entryPointName);
   } else {
-    cout << "error: handle only one model.so dynamic library at a time" << endl;
+    cout << "Error: handle only one model.so dynamic library at a time" << endl;
     usage(argv[0]);
-    exit(1);
   }
 #endif
 }
@@ -289,6 +310,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
   if (inputNum > 0)
     inputTensors = (OMTensor **)malloc(inputNum * sizeof(OMTensor *));
   // Scan each input tensor
+  int dimKnownAtRuntimeIndex = 0;
   for (int i = 0; i < inputNum; ++i) {
     auto JSONItem = (*JSONArray)[i].getAsObject();
     auto JSONItemType = JSONItem->getString("type");
@@ -301,11 +323,20 @@ OMTensorList *omTensorListCreateFromInputSignature(
     int64_t shape[100];
     size_t size = 1;
     for (int d = 0; d < rank; ++d) {
-      // auto JSONDimItem = (*JSONDimArray)[d].getAsInteger();
-      // size_t dim = JSONDimItem->getInteger();
       auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
       assert(JSONDimValue && "failed to get value");
-      size_t dim = JSONDimValue.getValue();
+      int64_t dim = JSONDimValue.getValue();
+      if (dim < 0) {
+        // we have a runtime value
+        if (dimKnownAtRuntimeIndex >= dimKnownAtRuntime.size()) {
+          printf("Error: there are runtime dim for which we have no value; "
+                 "provide values using the -d option\n");
+          usage("run-onnx-lib");
+        }
+        dim = dimKnownAtRuntime[dimKnownAtRuntimeIndex++];
+        printf("  Tensor %d, dim %d: use provided RT value %lld\n", i, d,
+            (long long)dim);
+      }
       shape[d] = dim;
       size *= dim;
     }
