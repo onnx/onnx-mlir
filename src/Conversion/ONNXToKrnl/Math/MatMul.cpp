@@ -123,7 +123,32 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Compute.
     // Define blocking, with simdization along the j axis.
-    const int64_t iRegTile(4), jRegTile(8), kRegTile(8);
+    int64_t iRegTile(4), jRegTile(8), kRegTile(8);
+    // Update tiling for very small sizes known at compile time.
+    DimIndexExpr dimI(I), dimJ(J), dimK(K);
+    if (dimI.isLiteral()) {
+      int64_t constI = dimI.getLiteral();
+      if (constI < iRegTile) {
+        iRegTile = constI;
+        printf("Tiling I is reduced to %d\n", (int)iRegTile);
+      }
+    }
+    if (dimJ.isLiteral()) {
+      int64_t constJ = dimJ.getLiteral();
+      // When jRegTile does not divide J, but 4 would, use 4.
+      if (constJ % jRegTile != 0 && constJ % 4 == 0) {
+        jRegTile = 4;
+        printf("Tiling J is reduced to %d\n", (int)jRegTile);
+      }
+    }
+    if (dimK.isLiteral()) {
+      int64_t constK = dimK.getLiteral();
+      if (constK < kRegTile) {
+        kRegTile = constK;
+        printf("Tiling K is reduced to %d\n", (int)kRegTile);
+      }
+    }
+
     // I, J, K loop.
     ValueRange origLoop = createKrnl.defineLoops(3);
     Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
