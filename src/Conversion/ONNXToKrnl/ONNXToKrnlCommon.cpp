@@ -15,6 +15,8 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
+extern bool gEmitDealloc = true;
+
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values) {
   for (Value value : values) {
@@ -76,6 +78,9 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     }
   }
 
+  if (!gEmitDealloc)
+    return alloc;
+
   // Make sure to allocate at the beginning of the block if
   // all dimensions are known.
   auto *parentBlock = alloc.getOperation()->getBlock();
@@ -120,6 +125,10 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   } else {
     allocOp = rewriter.create<memref::AllocOp>(loc, type, allocOperands);
   }
+
+  if (!gEmitDealloc)
+    return allocOp;
+
   if (insertDealloc) {
     auto *parentBlock = allocOp.getOperation()->getBlock();
     auto dealloc = rewriter.create<memref::DeallocOp>(loc, allocOp);

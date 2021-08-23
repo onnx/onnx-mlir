@@ -45,6 +45,9 @@ std::unique_ptr<Pass> createInstrumentONNXPass();
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<Pass> createLowerToKrnlPass();
 
+/// Add pass for lowering to Krnl IR.
+std::unique_ptr<Pass> createLowerToKrnlPass(bool emitDealloc);
+
 /// Pass for lowering frontend dialects to Krnl IR dialect.
 std::unique_ptr<Pass> createConvertKrnlToAffinePass();
 
