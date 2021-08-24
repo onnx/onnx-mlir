@@ -857,35 +857,6 @@ func private @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-func private @test_unsqueeze_unknown_dimensions(%arg0 : tensor<?x32x?x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.UnsqueezeV11"(%arg0) {axes=[1,-2]}: (tensor<?x32x?x64xf32>) -> (tensor<*xf32>)
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-DAG:    #[[MAP_0:.+]] = affine_map<(d0) -> (d0 * 64)>
-  // CHECK-DAG:    #[[MAP_1:.+]] = affine_map<(d0) -> (d0 * 2048)>
-  // CHECK-LABEL:  func private @test_unsqueeze_unknown_dimensions
-  // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x32x?x64xf32>) -> memref<?x1x32x?x1x64xf32> {
-  // CHECK:           [[CST_0_:%.+]] = constant 0 : index
-  // CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x32x?x64xf32>
-  // CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
-  // CHECK-DAG:       [[CST_32_:%.+]] = constant 32 : index
-  // CHECK-DAG:       [[CST_2_:%.+]] = constant 2 : index
-  // CHECK-DAG:       [[VAR_1_:%.+]] = memref.dim [[PARAM_0_]], [[CST_2_]] : memref<?x32x?x64xf32>
-  // CHECK-DAG:       [[CST_1_0_:%.+]] = constant 1 : index
-  // CHECK-DAG:       [[CST_64_:%.+]] = constant 64 : index
-  // CHECK-DAG:       [[CST_1_1_:%.+]] = constant 1 : index
-  // CHECK-DAG:       [[CST_64_2_:%.+]] = constant 64 : index
-  // CHECK-DAG:       [[CST_64_3_:%.+]] = constant 64 : index
-  // CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply #[[MAP_0]]([[VAR_1_]])
-  // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply #[[MAP_1]]([[VAR_1_]])
-  // CHECK-DAG:       [[VAR_4_:%.+]] = affine.apply #[[MAP_1]]([[VAR_1_]])
-  // CHECK:           [[VAR_5_:%.+]] = memref.reinterpret_cast [[PARAM_0_]] to offset: [0], sizes: {{.}}[[VAR_0_]], 1, 32, [[VAR_1_]], 1, 64], strides: {{.}}[[VAR_4_]], [[VAR_3_]], [[VAR_2_]], 64, 64, 1] : memref<?x32x?x64xf32> to memref<?x1x32x?x1x64xf32>
-  // CHECK:           return [[VAR_5_]] : memref<?x1x32x?x1x64xf32>
-  // CHECK:         }
-}
-
-// -----
-
 // `UnsqueezeV11` ops are lowerd to `reinterpret_cast` op. `reinterpret_cast` ops just
 // change the view of input memref. So, input memref should not be deallocated if it
 // is retuned. This test confirms the deallocation is not generated.
