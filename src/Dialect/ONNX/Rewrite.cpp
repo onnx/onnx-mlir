@@ -159,3 +159,13 @@ void ONNXConstantOp::getCanonicalizationPatterns(
   results.insert<ConstantOpNormalizationPattern5>(context);
   results.insert<ConstantOpNormalizationPattern6>(context);
 }
+
+void ONNXSqueezeOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<ONNXSqueezeOpLowering>(context);
+}
+
+void ONNXUnsqueezeOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<ONNXUnsqueezeOpLowering>(context);
+}

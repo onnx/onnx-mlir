@@ -846,20 +846,8 @@ func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-func private @test_unsqueezev11(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
-  %0 = "onnx.UnsqueezeV11"(%arg0) {axes=[0,3]} : (tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_unsqueezev11
-  // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [1, 10, 10, 1], strides: [100, 10, 1, 1] : memref<10x10xf32> to memref<1x10x10x1xf32>
-  // CHECK: return [[RES]] : memref<1x10x10x1xf32>
-}
-
-// -----
-
 func private @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
-  %axes = "onnx.Constant"() {value = dense<[0, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
-  %0 = "onnx.Unsqueeze"(%arg0, %axes) : (tensor<10x10xf32>, tensor<2xi64>) -> tensor<*xf32>
+  %0 = "onnx.UnsqueezeV11"(%arg0) {axes=[0,3]} : (tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_unsqueeze
@@ -869,38 +857,8 @@ func private @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-func private @test_unsqueezev11_unknown_dimensions(%arg0 : tensor<?x32x?x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.UnsqueezeV11"(%arg0) {axes=[1,-2]}: (tensor<?x32x?x64xf32>) -> (tensor<*xf32>)
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-DAG:    #[[MAP_0:.+]] = affine_map<(d0) -> (d0 * 64)>
-  // CHECK-DAG:    #[[MAP_1:.+]] = affine_map<(d0) -> (d0 * 2048)>
-  // CHECK-LABEL:  func private @test_unsqueezev11_unknown_dimensions
-  // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x32x?x64xf32>) -> memref<?x1x32x?x1x64xf32> {
-  // CHECK:           [[CST_0_:%.+]] = constant 0 : index
-  // CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x32x?x64xf32>
-  // CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
-  // CHECK-DAG:       [[CST_32_:%.+]] = constant 32 : index
-  // CHECK-DAG:       [[CST_2_:%.+]] = constant 2 : index
-  // CHECK-DAG:       [[VAR_1_:%.+]] = memref.dim [[PARAM_0_]], [[CST_2_]] : memref<?x32x?x64xf32>
-  // CHECK-DAG:       [[CST_1_0_:%.+]] = constant 1 : index
-  // CHECK-DAG:       [[CST_64_:%.+]] = constant 64 : index
-  // CHECK-DAG:       [[CST_1_1_:%.+]] = constant 1 : index
-  // CHECK-DAG:       [[CST_64_2_:%.+]] = constant 64 : index
-  // CHECK-DAG:       [[CST_64_3_:%.+]] = constant 64 : index
-  // CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply #[[MAP_0]]([[VAR_1_]])
-  // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply #[[MAP_1]]([[VAR_1_]])
-  // CHECK-DAG:       [[VAR_4_:%.+]] = affine.apply #[[MAP_1]]([[VAR_1_]])
-  // CHECK:           [[VAR_5_:%.+]] = memref.reinterpret_cast [[PARAM_0_]] to offset: [0], sizes: {{.}}[[VAR_0_]], 1, 32, [[VAR_1_]], 1, 64], strides: {{.}}[[VAR_4_]], [[VAR_3_]], [[VAR_2_]], 64, 64, 1] : memref<?x32x?x64xf32> to memref<?x1x32x?x1x64xf32>
-  // CHECK:           return [[VAR_5_]] : memref<?x1x32x?x1x64xf32>
-  // CHECK:         }
-}
-
-// -----
-
 func private @test_unsqueeze_unknown_dimensions(%arg0 : tensor<?x32x?x64xf32>) -> tensor<*xf32> {
-  %axes = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
-  %0 = "onnx.Unsqueeze"(%arg0, %axes) : (tensor<?x32x?x64xf32>, tensor<2xi64>) -> tensor<*xf32>
+  %0 = "onnx.UnsqueezeV11"(%arg0) {axes=[1,-2]}: (tensor<?x32x?x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-DAG:    #[[MAP_0:.+]] = affine_map<(d0) -> (d0 * 64)>
@@ -1364,20 +1322,8 @@ func private @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) -> t
 
 // -----
 
-func private @test_squeezev11(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.SqueezeV11"(%arg0) { axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: @test_squeezev11
-  // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [16, 32, 64], strides: [2048, 64, 1] : memref<16x1x32x1x64xf32> to memref<16x32x64xf32>
-  // CHECK: return [[RES]] : memref<16x32x64xf32>
-}
-
-// -----
-
 func private @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
-  %axes = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
-  %0 = "onnx.Squeeze"(%arg0, %axes) : (tensor<16x1x32x1x64xf32>, tensor<2xi64>) -> (tensor<*xf32>)
+  %0 = "onnx.SqueezeV11"(%arg0) { axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: @test_squeeze
@@ -1403,29 +1349,8 @@ func private @test_squeeze_dealloc(%arg0 : tensor<16x32x1x1x64xf32>) -> tensor<*
 
 // -----
 
-func private @test_squeezev11_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.SqueezeV11"(%arg0) { axes = [1,-2]} : (tensor<?x1x32x?x64xf32>) -> (tensor<*xf32>)
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL:  func private @test_squeezev11_unknown_dimensions
-  // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x1x32x?x64xf32>) -> memref<?x32x64xf32> {
-  // CHECK:           [[CST_0_:%.+]] = constant 0 : index
-  // CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x1x32x?x64xf32>
-  // CHECK-DAG:       [[CST_32_:%.+]] = constant 32 : index
-  // CHECK-DAG:       [[CST_64_:%.+]] = constant 64 : index
-  // CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
-  // CHECK-DAG:       [[CST_64_1_:%.+]] = constant 64 : index
-  // CHECK-DAG:       [[CST_2048_:%.+]] = constant 2048 : index
-  // CHECK:           [[VAR_1_:%.+]] = memref.reinterpret_cast [[PARAM_0_]] to offset: [0], sizes: {{.}}[[VAR_0_]], 32, 64], strides: [2048, 64, 1] : memref<?x1x32x?x64xf32> to memref<?x32x64xf32>
-  // CHECK:           return [[VAR_1_]] : memref<?x32x64xf32>
-  // CHECK:         }
-}
-
-// -----
-
 func private @test_squeeze_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -> tensor<*xf32> {
-  %axes = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
-  %0 = "onnx.Squeeze"(%arg0, %axes) : (tensor<?x1x32x?x64xf32>, tensor<2xi64>) -> (tensor<*xf32>)
+  %0 = "onnx.SqueezeV11"(%arg0) { axes = [1,-2]} : (tensor<?x1x32x?x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL:  func private @test_squeeze_unknown_dimensions

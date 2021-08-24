@@ -285,9 +285,6 @@ void populateLoweringONNXArgMaxOpPattern(
 void populateLoweringONNXUnsqueezeV11OpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
-void populateLoweringONNXUnsqueezeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
 void populateLoweringONNXTransposeOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
@@ -325,9 +322,6 @@ void populateLoweringONNXSliceOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXSqueezeV11OpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
-void populateLoweringONNXSqueezeOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXSplitOpPattern(

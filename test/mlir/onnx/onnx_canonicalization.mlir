@@ -473,3 +473,27 @@ func @test_rewrite_batchnormtestmode_1d(%arg0 : tensor<64xf32>) -> tensor<64xf32
     // CHECK: [[RES:%.*]] = "onnx.Add"([[X_A]], [[B]]) : (tensor<*xf32>, tensor<*xf32>) -> tensor<64xf32>
     // CHECK: return [[RES]] : tensor<64xf32>
 }
+
+// -----
+
+func @test_rewrite_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
+  %axes = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %0 = "onnx.Squeeze"(%arg0, %axes) : (tensor<16x1x32x1x64xf32>, tensor<2xi64>) -> (tensor<*xf32>)
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_rewrite_squeeze
+  // CHECK: [[SQUEEZE:%.*]] = "onnx.SqueezeV11"(%arg0) {axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> tensor<*xf32>
+  // CHECK: return [[SQUEEZE]] : tensor<*xf32>
+}
+
+// -----
+
+func @test_rewrite_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
+  %axes = "onnx.Constant"() {value = dense<[0, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %0 = "onnx.Unsqueeze"(%arg0, %axes) : (tensor<10x10xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_rewrite_unsqueeze
+  // CHECK: [[UNSQUEEZE:%.*]] = "onnx.UnsqueezeV11"(%arg0) {axes = [0, 3]} : (tensor<10x10xf32>) -> tensor<*xf32>
+  // CHECK: return [[UNSQUEEZE]] : tensor<*xf32>
+}
