@@ -139,8 +139,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     }
     if (dimJ.isLiteral()) {
       int64_t constJ = dimJ.getLiteral();
-      // When jRegTile does not divide J, but 4 would, use 4.
-      if (constJ % jRegTile != 0 && constJ % 4 == 0) {
+      // When jRegTile does not divide J, but 4 would, use 4, unless J is very
+      // large, in which case it is better to simdize well the steady state and
+      // ignore the last partial block.
+      if (constJ % jRegTile != 0 && constJ % 4 == 0 && constJ <= 32) {
         jRegTile = 4;
         if (DEBUG_TRACE)
           printf("MatMul: Tiling J is reduced to %d\n", (int)jRegTile);

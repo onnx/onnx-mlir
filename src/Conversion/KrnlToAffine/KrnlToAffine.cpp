@@ -739,12 +739,14 @@ public:
     if (!vectorLen.isLiteral()) {
       // Cannot simdize if the vector length is not a compile time constant.
       simdize = false;
-      printf("No simd due to vl not a literal\n");
+      if (DEBUG_TRACE)
+        printf("Matmul: No simd due to vl not a literal\n");
     }
     if (!bBounds.isLiteral(bRank - 1) || !cBounds.isLiteral(cRank - 1)) {
       // Cannot simdize if the last dim of B or C are not constant.
       simdize = false;
-      printf("No simd due to B & C last dim not a literal\n");
+      if (DEBUG_TRACE)
+        printf("Matmul: No simd due to B & C last dim not a literal\n");
     }
     if (simdize) {
       int64_t VL = vectorLen.getLiteral();
@@ -753,7 +755,9 @@ public:
         // If the memref of B and C are not multiple of the vector length in
         // their last dim, then we cannot simdize either.
         simdize = false;
-        printf("No simd due to B & C last dim not a multiple of VL\n");
+        if (DEBUG_TRACE)
+          printf(
+              "Matmul: No simd due to B & C last dim not a multiple of VL\n");
       }
     }
     if (!simdize)
