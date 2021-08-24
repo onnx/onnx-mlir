@@ -23,4 +23,4 @@ extern llvm::cl::OptionCategory OMPassOptions;
 // Declare options
 extern llvm::cl::opt<std::string> instrumentONNXOps;
 
-extern llvm::cl::opt<bool> memoryBundlingEnabled;
+extern llvm::cl::opt<bool> disableMemoryBundling;
