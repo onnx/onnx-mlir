@@ -282,9 +282,11 @@ string getTargetCpuOption() {
 
 string getTargetTripleOption() {
   string targetOptions = "";
+  // Comand cannot tolerate extra spaces. Add only when needed.
   if (mtriple != "")
     targetOptions = "--mtriple=" + mtriple;
-  // Comand cannot tolerate extra spaces. Add only when needed.
+  else if (kDefaultTriple != "")
+    targetOptions = "--mtriple=" + kDefaultTriple;
   return targetOptions;
 }
 
@@ -481,21 +483,19 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // Only emit memref.dealloc if memory bundling is enabled.
   // Otherwise, memref.dealloc will be emitted by buffer-deallocation pass.
   pm.addPass(
-      mlir::createLowerToKrnlPass(/*emitDealloc=*/memoryBundlingEnabled));
+      mlir::createLowerToKrnlPass(/*emitDealloc=*/!disableMemoryBundling));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
-  // oppertunities.
+  // opportunities.
   pm.addPass(mlir::createCanonicalizerPass());
-  if (memoryBundlingEnabled) {
-    pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
-
-    // TODO: make this pass optional:
+  pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
+  if (disableMemoryBundling) {
+    pm.addNestedPass<FuncOp>(mlir::createBufferDeallocationPass());
+  } else {
     pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
     pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
-  } else {
-    pm.addNestedPass<FuncOp>(mlir::createBufferDeallocationPass());
   }
   pm.addPass(mlir::createCanonicalizerPass());
 }
