@@ -1277,54 +1277,6 @@ LogicalResult ONNXSqueezeV11OpShapeHelper::Compute(
   return success();
 }
 
-ONNXSqueezeOpShapeHelper::ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp)
-    : ONNXOpShapeHelper<ONNXSqueezeOp>(newOp) {}
-
-ONNXSqueezeOpShapeHelper::ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp,
-    ConversionPatternRewriter &rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSqueezeOp>(
-          newOp, rewriter, fGetDenseVal, fLoadVal) {}
-
-LogicalResult ONNXSqueezeOpShapeHelper::Compute(
-    ONNXSqueezeOpAdaptor operandAdaptor) {
-  // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
-  // Output dims of results.
-  DimsExpr outputDims;
-
-  // Get info about input data operand.
-  Value data = operandAdaptor.data();
-  MemRefBoundsIndexCapture dataBounds(data);
-  int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
-
-  // Get axis values. They are expected to be normalized before so that there is
-  // no negative values.
-  auto axesOp = getONNXConstantOp(op->axes());
-  assert(axesOp && "Squeeze axes argument expected to be a constant");
-  auto axesAttr = axesOp.valueAttr().dyn_cast<DenseElementsAttr>();
-  assert(axesAttr && "Squeeze axes argument expected to be constant of "
-                     "DenseElementsAttr");
-
-  SmallVector<int64_t, 4> axes;
-  for (auto dim : axesAttr.getValues<IntegerAttr>()) {
-    auto axis = dim.getInt();
-    assert(axis >= 0 && "Invalid axis");
-    axes.emplace_back(axis);
-  }
-
-  for (int i = 0; i < dataRank; ++i)
-    if (std::find(axes.begin(), axes.end(), i) == axes.end())
-      outputDims.emplace_back(dataBounds.getDim(i));
-
-  // Save the final result.
-  dimsForOutput(0) = outputDims;
-
-  return success();
-}
-
 //===----------------------------------------------------------------------===//
 // ONNX Unsqueeze Op Shape Helper
 //===----------------------------------------------------------------------===//
@@ -1359,57 +1311,6 @@ LogicalResult ONNXUnsqueezeV11OpShapeHelper::Compute(
   SmallVector<int64_t, 4> axes;
   for (auto axisAttr : axisAttrs.getValue()) {
     int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
-    assert(axis >= 0 && "Invalid axis");
-    axes.emplace_back(axis);
-  }
-
-  int64_t outRank = dataRank + axes.size();
-  for (int i = 0, j = 0; i < outRank || j < dataRank; ++i)
-    if (std::find(axes.begin(), axes.end(), i) != axes.end())
-      outputDims.emplace_back(LiteralIndexExpr(1));
-    else
-      outputDims.emplace_back(dataBounds.getDim(j++));
-
-  // Save the final result.
-  dimsForOutput(0) = outputDims;
-
-  return success();
-}
-
-ONNXUnsqueezeOpShapeHelper::ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp)
-    : ONNXOpShapeHelper<ONNXUnsqueezeOp>(newOp) {}
-
-ONNXUnsqueezeOpShapeHelper::ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp,
-    ConversionPatternRewriter &rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXUnsqueezeOp>(
-          newOp, rewriter, fGetDenseVal, fLoadVal) {}
-
-LogicalResult ONNXUnsqueezeOpShapeHelper::Compute(
-    ONNXUnsqueezeOpAdaptor operandAdaptor) {
-  // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
-  // Output dims of results.
-  DimsExpr outputDims;
-
-  // Get info about input data operand.
-  Value data = operandAdaptor.data();
-  MemRefBoundsIndexCapture dataBounds(data);
-  int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
-
-  // Get axis values. They are expected to be normalized before so that there is
-  // no negative values.
-  auto axesOp = getONNXConstantOp(op->axes());
-  assert(axesOp && "Unsqueeze axes argument expected to be a constant");
-  auto axesAttr = axesOp.valueAttr().dyn_cast<DenseElementsAttr>();
-  assert(axesAttr && "Unsqueeze axes argument expected to be constant of "
-                     "DenseElementsAttr");
-
-  SmallVector<int64_t, 4> axes;
-  for (auto dim : axesAttr.getValues<IntegerAttr>()) {
-    auto axis = dim.getInt();
     assert(axis >= 0 && "Invalid axis");
     axes.emplace_back(axis);
   }
