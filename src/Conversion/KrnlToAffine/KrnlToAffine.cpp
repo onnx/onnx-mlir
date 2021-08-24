@@ -34,6 +34,7 @@
 #include <mutex>
 
 #define BUFFER_ALIGN 64
+#define DEBUG_TRACE 1
 
 using namespace mlir;
 
@@ -681,7 +682,6 @@ public:
   LogicalResult matchAndRewrite(
       KrnlMatMulOp op, PatternRewriter &rewriter) const override {
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
-
     // Option.
     bool fullUnrollAndJam = op.unroll();
 
@@ -739,10 +739,12 @@ public:
     if (!vectorLen.isLiteral()) {
       // Cannot simdize if the vector length is not a compile time constant.
       simdize = false;
+      printf("No simd due to vl not a literal\n");
     }
     if (!bBounds.isLiteral(bRank - 1) || !cBounds.isLiteral(cRank - 1)) {
       // Cannot simdize if the last dim of B or C are not constant.
       simdize = false;
+      printf("No simd due to B & C last dim not a literal\n");
     }
     if (simdize) {
       int64_t VL = vectorLen.getLiteral();
@@ -751,6 +753,7 @@ public:
         // If the memref of B and C are not multiple of the vector length in
         // their last dim, then we cannot simdize either.
         simdize = false;
+        printf("No simd due to B & C last dim not a multiple of VL\n");
       }
     }
     if (!simdize)
@@ -1015,9 +1018,13 @@ private:
 
     if (unrollJam && (I.isLiteral() || K.isLiteral())) {
       auto list = getUnrollAndJamList(op.getOperation());
-      if (true && K.isLiteral()) {
+      if (K.isLiteral()) {
         int64_t kUnroll = K.getLiteral();
-        const int64_t cutoff = 4;
+        int64_t cutoff = 4;
+        if (!I.isLiteral() || I.getLiteral() < 2) {
+          // We know there is no unrolling along I, make a bigger cutoff.
+          cutoff = 8;
+        }
         if (kUnroll >= cutoff) {
           // When kUnroll is too big, reduce it by a divisor.
           for (int m = cutoff; m >= 1; --m) {
@@ -1028,11 +1035,15 @@ private:
           }
         }
         if (kUnroll > 1) {
+          if (DEBUG_TRACE)
+            printf("Matmul: unroll k by %d\n", (int)kUnroll);
           UnrollAndJamRecord record(getForInductionVarOwner(kSaved), kUnroll);
           list->emplace_back(record);
         }
       }
-      if (I.isLiteral()) {
+      if (I.isLiteral() && I.getLiteral() > 1) {
+        if (DEBUG_TRACE)
+          printf("Matmul: unroll i by %d\n", (int)I.getLiteral());
         UnrollAndJamRecord record(
             getForInductionVarOwner(iSaved), I.getLiteral());
         list->emplace_back(record);

@@ -216,7 +216,6 @@ void parseArgs(int argc, char **argv) {
         auto JSONDimValue = (*JSONArray)[i].getAsInteger();
         assert(JSONDimValue && "failed to get value");
         int64_t dim = JSONDimValue.getValue();
-        printf("  got dim %i\n", (int)dim);
         dimKnownAtRuntime.push_back(dim);
       }
       break;

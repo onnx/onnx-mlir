@@ -20,6 +20,8 @@
 
 using namespace mlir;
 
+#define DEBUG_TRACE 1
+
 struct ONNXMatMulOpLowering : public ConversionPattern {
   ONNXMatMulOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXMatMulOp::getOperationName(), 1, ctx) {}
@@ -124,13 +126,15 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Compute.
     // Define blocking, with simdization along the j axis.
     int64_t iRegTile(4), jRegTile(8), kRegTile(8);
+#if 1
     // Update tiling for very small sizes known at compile time.
     DimIndexExpr dimI(I), dimJ(J), dimK(K);
     if (dimI.isLiteral()) {
       int64_t constI = dimI.getLiteral();
       if (constI < iRegTile) {
         iRegTile = constI;
-        printf("Tiling I is reduced to %d\n", (int)iRegTile);
+        if (DEBUG_TRACE)
+          printf("MatMul: Tiling I is reduced to %d\n", (int)iRegTile);
       }
     }
     if (dimJ.isLiteral()) {
@@ -138,16 +142,19 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       // When jRegTile does not divide J, but 4 would, use 4.
       if (constJ % jRegTile != 0 && constJ % 4 == 0) {
         jRegTile = 4;
-        printf("Tiling J is reduced to %d\n", (int)jRegTile);
+        if (DEBUG_TRACE)
+          printf("MatMul: Tiling J is reduced to %d\n", (int)jRegTile);
       }
     }
     if (dimK.isLiteral()) {
       int64_t constK = dimK.getLiteral();
       if (constK < kRegTile) {
         kRegTile = constK;
-        printf("Tiling K is reduced to %d\n", (int)kRegTile);
+        if (DEBUG_TRACE)
+          printf("MatMul: Tiling K is reduced to %d\n", (int)kRegTile);
       }
     }
+#endif
 
     // I, J, K loop.
     ValueRange origLoop = createKrnl.defineLoops(3);
