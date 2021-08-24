@@ -2253,70 +2253,7 @@ LogicalResult ONNXPadOp::inferShapes(
 
 LogicalResult ONNXUnsqueezeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!data().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
-
-  auto operandTy = data().getType().cast<RankedTensorType>();
-  int inRank = operandTy.getRank();
-
-  SmallVector<int64_t, 4> axes;
-  bool hasNegativeAxis = false;
-  int outRank = inRank;
-
-  if (auto axesOp = getONNXConstantOp(this->axes())) {
-    auto axesAttr = axesOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    if (!axesAttr) {
-      return emitError("Unsqueeze axes argument expected to be constant of "
-                       "DenseElementsAttr");
-    }
-
-    outRank += axesAttr.size();
-    for (auto dim : axesAttr.getValues<IntegerAttr>()) {
-      auto axis = dim.getInt();
-      if (axis < 0) {
-        hasNegativeAxis = true;
-      }
-
-      axis = axis >= 0 ? axis : (outRank + axis);
-
-      // Valid range
-      assert(axis >= -outRank && axis <= outRank - 1);
-      if (std::find(axes.begin(), axes.end(), axis) == axes.end())
-        axes.emplace_back(axis);
-      else
-        return emitError("Duplicated axes");
-    }
-    if (hasNegativeAxis) {
-      // Create a new ConstantOp that only contains positive values and change
-      // the axes input to this new Op
-      OpBuilder builder(this->getContext());
-      ArrayRef<int64_t> defaultRefs(axes);
-
-      auto tensorType = axesOp.getType().cast<RankedTensorType>();
-      auto constantDenseAttribute =
-          mlir::DenseElementsAttr::get(tensorType, defaultRefs);
-      builder.setInsertionPoint(*this);
-      auto constantOp = builder.create<mlir::ONNXConstantOp>(
-          this->getLoc(), mlir::Attribute(), constantDenseAttribute);
-      mlir::Value constantResult = constantOp.output();
-      this->setOperand(1, constantResult);
-    }
-
-    SmallVector<int64_t, 4> dims;
-    for (int i = 0, j = 0; i < outRank || j < inRank; ++i) {
-      if (std::find(axes.begin(), axes.end(), i) != axes.end()) {
-        dims.emplace_back(1);
-      } else {
-        dims.emplace_back(operandTy.getShape()[j++]);
-      }
-    }
-
-    getResult().setType(
-        RankedTensorType::get(dims, operandTy.getElementType()));
-    return success();
-  } else {
-    return emitError("Unsqueeze axes argument expected to be a constant");
-  }
+  return emitError("Not implemented");
 }
 
 LogicalResult ONNXUnsqueezeV11Op::inferShapes(
@@ -2372,63 +2309,7 @@ LogicalResult ONNXUnsqueezeV11Op::inferShapes(
 
 LogicalResult ONNXSqueezeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!data().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
-
-  auto operandTy = data().getType().cast<RankedTensorType>();
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
-  int64_t inRank = operandTy.getRank();
-
-  SmallVector<int64_t, 4> axes;
-  bool hasNegativeAxis = false;
-
-  if (auto axesOp = getONNXConstantOp(this->axes())) {
-    auto axesAttr = axesOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    if (!axesAttr) {
-      return emitError("Squeeze axes argument expected to be constant of "
-                       "DenseElementsAttr");
-    }
-
-    for (auto dim : axesAttr.getValues<IntegerAttr>()) {
-      int64_t axis = dim.getInt();
-      if (axis < -inRank || axis >= inRank)
-        return emitError("Invalid axis value");
-      if (axis < 0) {
-        axis = inRank + axis;
-        hasNegativeAxis = true;
-      }
-      if (std::find(axes.begin(), axes.end(), axis) != axes.end())
-        return emitError("Duplicated axes");
-      axes.emplace_back(axis);
-    }
-    if (hasNegativeAxis) {
-      // Create a new ConstantOp that only contains positive values and change
-      // the axes input to this new Op
-      OpBuilder builder(this->getContext());
-      ArrayRef<int64_t> defaultRefs(axes);
-
-      auto tensorType = axesOp.getType().cast<RankedTensorType>();
-      auto constantDenseAttribute =
-          mlir::DenseElementsAttr::get(tensorType, defaultRefs);
-      builder.setInsertionPoint(*this);
-      auto constantOp = builder.create<mlir::ONNXConstantOp>(
-          this->getLoc(), mlir::Attribute(), constantDenseAttribute);
-      mlir::Value constantResult = constantOp.output();
-      this->setOperand(1, constantResult);
-    }
-
-    ONNXSqueezeOpAdaptor operandAdaptor(*this);
-    ONNXSqueezeOpShapeHelper shapeHelper(this);
-    if (failed(shapeHelper.Compute(operandAdaptor)))
-      return emitError("Failed to scan Squeeze parameters successfully");
-    SmallVector<int64_t, 4> outputDims;
-    IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-    getResult().setType(RankedTensorType::get(outputDims, elementType));
-
-    return success();
-  } else {
-    return emitError("Squeeze axes argument expected to be a constant");
-  }
+  return emitError("Not implemented");
 }
 
 LogicalResult ONNXSqueezeV11Op::inferShapes(
