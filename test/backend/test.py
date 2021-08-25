@@ -793,6 +793,7 @@ test_to_enable_dict = {
     "test_inception_v1_cpu": {STATIC_SHAPE:{}},
     "test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}},
     "test_shufflenet_cpu": {STATIC_SHAPE:{}},
+    "test_squeezenet_cpu": {STATIC_SHAPE:{}},
     "test_vgg19_cpu": {STATIC_SHAPE:{}},
 }
 
