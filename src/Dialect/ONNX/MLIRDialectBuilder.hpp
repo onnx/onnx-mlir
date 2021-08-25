@@ -48,6 +48,8 @@ struct MathBuilder : DialectBuilder {
   Value add(Value lhs, Value rhs);
   Value sub(Value lhs, Value rhs);
   Value mul(Value lhs, Value rhs);
+  Value divf(Value lhs, Value rhs);
+  Value exp(Value val);
   Value select(Value cmp, Value lhs, Value rhs);
   Value sgt(Value lhs, Value rhs);
   Value slt(Value lhs, Value rhs);
