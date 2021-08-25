@@ -31,5 +31,6 @@ add_onnx_mlir_library(OMONNXOps
   OMShapeInferenceOpInterfaceIncGen
 
   LINK_LIBS PUBLIC
+  MLIRMath
   MLIRAffine
   )
