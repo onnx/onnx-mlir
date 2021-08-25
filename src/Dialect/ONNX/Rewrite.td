@@ -253,6 +253,10 @@ def RewriteBatchNormInferenceModeConvPattern2: Pat<
   [(HasRankOf<1> $x)], (addBenefit 0)
 >;
 
+// Check if value is a dense constant
+def IsDenseONNXConstant:
+   Constraint<CPred<"isDenseONNXConstant($_self)">, "not a dense constant">;
+
 def IsStaticShapeTensor:
    Constraint<
      CPred<
@@ -335,12 +339,14 @@ def ConstantOpNormalizationPattern6: Pat<
 
 def ONNXSqueezeOpLowering: Pat<
    (ONNXSqueezeOp $data, $axes),
-   (ONNXSqueezeV11Op $data, (createArrayAttrFromConstantOp $axes))
+   (ONNXSqueezeV11Op $data, (createArrayAttrFromConstantOp $axes)),
+   [(IsDenseONNXConstant:$axes)]
 >;
 
 def ONNXUnsqueezeOpLowering: Pat<
    (ONNXUnsqueezeOp $data, $axes),
-   (ONNXUnsqueezeV11Op $data, (createArrayAttrFromConstantOp $axes))
+   (ONNXUnsqueezeV11Op $data, (createArrayAttrFromConstantOp $axes)),
+   [(IsDenseONNXConstant:$axes)]
 >;
 
 #endif // ONNX_REWRITE

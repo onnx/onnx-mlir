@@ -717,6 +717,9 @@ test_to_enable_dict = {
     # Temporally removed due to changes in onnx 1.8.1
     #"test_squeeze_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     #"test_squeeze_negative_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # Enabled to test for constant axes
+    "test_squeeze_cpu": {CONSTANT_INPUT:{1}},
+    "test_squeeze_negative_axes_cpu": {CONSTANT_INPUT:{1}},
 
     # Str Normalizer
 
@@ -771,6 +774,15 @@ test_to_enable_dict = {
     # "test_unsqueeze_three_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     # "test_unsqueeze_two_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     # "test_unsqueeze_unsorted_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # Enabled to test for constant axes
+    "test_unsqueeze_axis_0_cpu": {CONSTANT_INPUT:{1}},
+    "test_unsqueeze_axis_1_cpu": {CONSTANT_INPUT:{1}},
+    "test_unsqueeze_axis_2_cpu": {CONSTANT_INPUT:{1}},
+    "test_unsqueeze_axis_3_cpu": {CONSTANT_INPUT:{1}},
+    "test_unsqueeze_negative_axes_cpu": {CONSTANT_INPUT:{1}},
+    "test_unsqueeze_three_axes_cpu": {CONSTANT_INPUT:{1}},
+    "test_unsqueeze_two_axes_cpu": {CONSTANT_INPUT:{1}},
+    "test_unsqueeze_unsorted_axes_cpu": {CONSTANT_INPUT:{1}},
 
     # Upsample
 
