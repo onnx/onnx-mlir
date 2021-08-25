@@ -928,6 +928,7 @@ private:
     // If no attribute is provided, axis would depend on the opset version.
     // - With opset version < 13, default axis value is 1.
     // - With opset version 13, default axis value is -1.
+    auto currentOpset = opset_map_.find(node.domain())->second;
     auto attributes = ImportNodeAttributes(node);
     bool hasAxisAttribute = false;
     for (auto &attr : attributes)
@@ -937,12 +938,16 @@ private:
       }
 
     if (!hasAxisAttribute) {
-      auto currentOpset = opset_map_.find(node.domain())->second;
       if (currentOpset < 13)
         attributes.push_back(builder_.getNamedAttr("axis",
             IntegerAttr::get(builder_.getIntegerType(64, /*isSigned=*/true),
                 APInt(64, /*value=*/1, /*isSigned=*/true))));
     }
+
+    // Store the opset version in an attribute, which is used for the lowering.
+    attributes.push_back(builder_.getNamedAttr("onnx_opset",
+        IntegerAttr::get(builder_.getIntegerType(64, /*isSigned=*/true),
+            APInt(64, /*value=*/currentOpset, /*isSigned=*/true))));
 
     buildOutputAndOperation<ONNXSoftmaxOp>(node, inputs, nIn, nOut, attributes);
   }

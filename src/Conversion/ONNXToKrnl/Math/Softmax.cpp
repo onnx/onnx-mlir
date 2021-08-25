@@ -21,6 +21,7 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
     SmallVectorImpl<IndexExpr> &Lbs, SmallVectorImpl<IndexExpr> &Ubs,
     ValueRange outerIndices, Value input, Value alloc, Value sumOp, Value maxOp,
     int64_t axis, bool coerced = true) {
+  int64_t rank = alloc.getType().cast<MemRefType>().getRank();
 
   // Compute the maximum value along axis.
   ValueRange maxLoops = createKrnl.defineLoops(numberOfLoops);
@@ -32,10 +33,18 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
 
         // Get induction variables.
         SmallVector<Value, 4> maxLoopIVs;
-        for (auto iv : outerIndices)
-          maxLoopIVs.push_back(iv);
-        for (auto iv : maxIndices)
-          maxLoopIVs.push_back(iv);
+        if (coerced) {
+          for (auto iv : outerIndices)
+            maxLoopIVs.push_back(iv);
+          for (auto iv : maxIndices)
+            maxLoopIVs.push_back(iv);
+        } else {
+          for (int64_t i = 0; i < axis; i++)
+            maxLoopIVs.push_back(outerIndices[i]);
+          maxLoopIVs.push_back(maxIndices[0]);
+          for (int64_t i = axis + 1; i < rank; i++)
+            maxLoopIVs.push_back(outerIndices[i - 1]);
+        }
 
         Value max = createKrnl.load(maxOp, {});
         Value nextMax = createKrnl.load(input, maxLoopIVs);
@@ -56,10 +65,18 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
 
         // Get induction variables.
         SmallVector<Value, 4> sumLoopIVs;
-        for (auto iv : outerIndices)
-          sumLoopIVs.push_back(iv);
-        for (auto iv : sumIndices)
-          sumLoopIVs.push_back(iv);
+        if (coerced) {
+          for (auto iv : outerIndices)
+            sumLoopIVs.push_back(iv);
+          for (auto iv : sumIndices)
+            sumLoopIVs.push_back(iv);
+        } else {
+          for (int64_t i = 0; i < axis; i++)
+            sumLoopIVs.push_back(outerIndices[i]);
+          sumLoopIVs.push_back(sumIndices[0]);
+          for (int64_t i = axis + 1; i < rank; i++)
+            sumLoopIVs.push_back(outerIndices[i - 1]);
+        }
 
         Value sum = createKrnl.load(sumOp, {});
         Value next = createKrnl.load(input, sumLoopIVs);
@@ -86,14 +103,125 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
 
         // Get induction variables.
         SmallVector<Value, 4> softmaxLoopIVs;
-        for (auto iv : outerIndices)
-          softmaxLoopIVs.push_back(iv);
-        for (auto iv : softmaxIndices)
-          softmaxLoopIVs.push_back(iv);
+        if (coerced) {
+          for (auto iv : outerIndices)
+            softmaxLoopIVs.push_back(iv);
+          for (auto iv : softmaxIndices)
+            softmaxLoopIVs.push_back(iv);
+        } else {
+          for (int64_t i = 0; i < axis; i++)
+            softmaxLoopIVs.push_back(outerIndices[i]);
+          softmaxLoopIVs.push_back(softmaxIndices[0]);
+          for (int64_t i = axis + 1; i < rank; i++)
+            softmaxLoopIVs.push_back(outerIndices[i - 1]);
+        }
 
         Value expLoadedVal = createKrnl.load(alloc, softmaxLoopIVs);
         Value result = createMath.divf(expLoadedVal, sum);
         createKrnl.store(result, alloc, softmaxLoopIVs);
+      });
+}
+
+static void emitInstForSoftmaxBeforeV13(ConversionPatternRewriter &rewriter,
+    Location loc, Value alloc, Value input, Value sumOp, Value maxOp,
+    Value zero, Value negInfinity, int64_t axis) {
+  int64_t rank = alloc.getType().cast<MemRefType>().getRank();
+
+  ImplicitLocOpBuilder ilob(loc, rewriter);
+  KrnlBuilder createKrnl(ilob);
+  IndexExprScope ieScope(createKrnl);
+  MemRefBoundsIndexCapture inputBounds(input);
+
+  // Coerce the input into a 2-D tensor. `axis` will be the coercing
+  // point. This coercing follows the softmax definition in ONNX:
+  // https://github.com/onnx/onnx/blob/master/docs/Operators.md#Softmax
+  // Here, we create an outer loop and inner loop for handling the two
+  // dimensions. The outer loop is only created once `axis` is not
+  // zero.
+  if (axis == 0) {
+    // There is no need having outer loops.
+    // Reset accumulators.
+    createKrnl.store(zero, sumOp, ArrayRef<Value>{});
+    createKrnl.store(negInfinity, maxOp, ArrayRef<Value>{});
+
+    // Common information to create nested loops.
+    int64_t numberOfLoops = rank;
+    SmallVector<IndexExpr, 4> Lbs(numberOfLoops, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> Ubs;
+    inputBounds.getDimList(Ubs);
+
+    emitInnerLoops(createKrnl, numberOfLoops, Lbs, Ubs, {}, input, alloc, sumOp,
+        maxOp, axis, /*coerced=*/true);
+  } else {
+    // Define outer loops.
+    ValueRange outerLoops = createKrnl.defineLoops(axis);
+    SmallVector<IndexExpr, 4> outerLbs(axis, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> outerUbs;
+    for (int i = 0; i < axis; ++i)
+      outerUbs.emplace_back(inputBounds.getDim(i));
+    createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs, {},
+        [&](KrnlBuilder &createKrnl, ValueRange args) {
+          IndexExprScope ieScope(createKrnl);
+          ValueRange outerIndices = createKrnl.getInductionVarValue(outerLoops);
+
+          // Reset accumulators.
+          createKrnl.store(zero, sumOp, ArrayRef<Value>{});
+          createKrnl.store(negInfinity, maxOp, ArrayRef<Value>{});
+
+          // Common information to create inner nested loops.
+          int64_t numberOfLoops = rank - axis;
+          SmallVector<IndexExpr, 4> Lbs(numberOfLoops, LiteralIndexExpr(0));
+          SmallVector<IndexExpr, 4> Ubs;
+          for (int i = axis; i < rank; ++i)
+            Ubs.emplace_back(inputBounds.getDim(i));
+
+          // Emit the inner loops.
+          emitInnerLoops(createKrnl, numberOfLoops, Lbs, Ubs, outerIndices,
+              input, alloc, sumOp, maxOp, axis, /*coerced=*/true);
+        });
+  }
+}
+
+static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
+    Location loc, Value alloc, Value input, Value sumOp, Value maxOp,
+    Value zero, Value negInfinity, int64_t axis) {
+  int64_t rank = alloc.getType().cast<MemRefType>().getRank();
+
+  ImplicitLocOpBuilder ilob(loc, rewriter);
+  KrnlBuilder createKrnl(ilob);
+  IndexExprScope ieScope(createKrnl);
+  MemRefBoundsIndexCapture inputBounds(input);
+
+  // In opset version 13, The "axis" attribute indicates the dimension along
+  // which Softmax will be performed. No need to coerce the dimensions after
+  // "axis".
+
+  // Outer loops iterate over all dimensions except axis.
+  ValueRange outerLoops = createKrnl.defineLoops(rank - 1);
+  SmallVector<IndexExpr, 4> outerLbs(rank - 1, LiteralIndexExpr(0));
+  SmallVector<IndexExpr, 4> outerUbs;
+  for (int i = 0; i < rank; ++i)
+    if (i != axis)
+      outerUbs.emplace_back(inputBounds.getDim(i));
+
+  // Emit outer loops.
+  createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs, {},
+      [&](KrnlBuilder &createKrnl, ValueRange args) {
+        IndexExprScope ieScope(createKrnl);
+        ValueRange outerIndices = createKrnl.getInductionVarValue(outerLoops);
+
+        // Reset accumulators.
+        createKrnl.store(zero, sumOp, ArrayRef<Value>{});
+        createKrnl.store(negInfinity, maxOp, ArrayRef<Value>{});
+
+        // Common information to create inner nested loops for axis only.
+        int64_t numberOfLoops = 1;
+        SmallVector<IndexExpr, 4> Lbs(numberOfLoops, LiteralIndexExpr(0));
+        SmallVector<IndexExpr, 4> Ubs(numberOfLoops, inputBounds.getDim(axis));
+
+        // Emit the inner loops.
+        emitInnerLoops(createKrnl, numberOfLoops, Lbs, Ubs, outerIndices, input,
+            alloc, sumOp, maxOp, axis, /*coerced=*/false);
       });
 }
 
@@ -111,6 +239,13 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     int64_t axis = llvm::dyn_cast<ONNXSoftmaxOp>(op).axis();
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1);
+
+    // Get opset number. Default is opset 11.
+    int64_t opset = 11;
+    IntegerAttr opsetAttr = op->getAttrOfType<::mlir::Attribute>("onnx_opset")
+                                .dyn_cast_or_null<IntegerAttr>();
+    if (opsetAttr)
+      opset = opsetAttr.getValue().getSExtValue();
 
     auto loc = op->getLoc();
     ONNXSoftmaxOpAdaptor operandAdaptor(operands);
@@ -134,60 +269,17 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     Value negInfinity = rewriter.create<ConstantOp>(loc,
         FloatAttr::get(elementType, -std::numeric_limits<float>::infinity()));
 
-    ImplicitLocOpBuilder ilob(loc, rewriter);
-    KrnlBuilder createKrnl(ilob);
-    IndexExprScope ieScope(createKrnl);
-    MemRefBoundsIndexCapture inputBounds(input);
-
-    // Coerce the input into a 2-D tensor. `axis` will be the coercing
-    // point. This coercing follows the softmax definition in ONNX:
-    // https://github.com/onnx/onnx/blob/master/docs/Operators.md#Softmax
-    // Here, we create an outer loop and inner loop for handling the two
-    // dimensions. The outer loop is only created once `axis` is not
-    // zero.
-    if (axis == 0) {
-      // There is no need having outer loops.
-      // Reset accumulators.
-      createKrnl.store(zero, sumOp, ArrayRef<Value>{});
-      createKrnl.store(negInfinity, maxOp, ArrayRef<Value>{});
-
-      // Common information to create nested loops.
-      int64_t numberOfLoops = rank;
-      SmallVector<IndexExpr, 4> Lbs(numberOfLoops, LiteralIndexExpr(0));
-      SmallVector<IndexExpr, 4> Ubs;
-      inputBounds.getDimList(Ubs);
-
-      emitInnerLoops(createKrnl, numberOfLoops, Lbs, Ubs, {}, input, alloc,
-          sumOp, maxOp, axis, /*coerced=*/true);
-    } else {
-      // Define outer loops.
-      ValueRange outerLoops = createKrnl.defineLoops(axis);
-      SmallVector<IndexExpr, 4> outerLbs(axis, LiteralIndexExpr(0));
-      SmallVector<IndexExpr, 4> outerUbs;
-      for (int i = 0; i < axis; ++i)
-        outerUbs.emplace_back(inputBounds.getDim(i));
-      createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs, {},
-          [&](KrnlBuilder &createKrnl, ValueRange args) {
-            IndexExprScope ieScope(createKrnl);
-            ValueRange outerIndices =
-                createKrnl.getInductionVarValue(outerLoops);
-
-            // Reset accumulators.
-            createKrnl.store(zero, sumOp, ArrayRef<Value>{});
-            createKrnl.store(negInfinity, maxOp, ArrayRef<Value>{});
-
-            // Common information to create inner nested loops.
-            int64_t numberOfLoops = rank - axis;
-            SmallVector<IndexExpr, 4> Lbs(numberOfLoops, LiteralIndexExpr(0));
-            SmallVector<IndexExpr, 4> Ubs;
-            for (int i = axis; i < rank; ++i)
-              Ubs.emplace_back(inputBounds.getDim(i));
-
-            // Emit the inner loops.
-            emitInnerLoops(createKrnl, numberOfLoops, Lbs, Ubs, outerIndices,
-                input, alloc, sumOp, maxOp, axis, /*coerced=*/true);
-          });
-    }
+    if (opset < 13)
+      // For Softmax opset < 13, `axis` is the coerced point. All dimensions
+      // after `axis` will be logically coerced into a single dimension.
+      emitInstForSoftmaxBeforeV13(
+          rewriter, loc, alloc, input, sumOp, maxOp, zero, negInfinity, axis);
+    else
+      // For Softmax opset 13, `axis` attribute indicates the dimension along
+      // which Softmax will be performed. No need to coerce the dimensions after
+      // `axis`.
+      emitInstForSoftmaxV13(
+          rewriter, loc, alloc, input, sumOp, maxOp, zero, negInfinity, axis);
 
     rewriter.replaceOp(op, alloc);
     return success();

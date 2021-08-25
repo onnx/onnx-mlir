@@ -777,55 +777,6 @@ func private @test_reducesumV11(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 
 // -----
 
-func private @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Softmax"(%arg0) {axis=1: si64} : (tensor<10x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_softmax
-  // CHECK: [[MAX:%.+]] = memref.alloc() : memref<f32>
-  // CHECK: [[SUM:%.+]] = memref.alloc() : memref<f32>
-  // CHECK: [[RES:%.+]] = memref.alloc() : memref<10x10xf32>
-  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[CST_0:%.+]] = constant 0xFF800000 : f32
-  // CHECK: [[OUTER_LOOP:%.+]] = krnl.define_loops 1
-  // CHECK: krnl.iterate([[OUTER_LOOP]]) with ([[OUTER_LOOP]] -> %arg1 = 0 to 10) {
-  // CHECK: krnl.store [[CST]], [[SUM]][] : memref<f32>
-  // CHECK: krnl.store [[CST_0]], [[MAX]][] : memref<f32>
-  // CHECK: [[INNER_MAX_LOOP:%.+]] = krnl.define_loops 1
-  // CHECK: [[INNER_SUM_LOOP:%.+]] = krnl.define_loops 1
-  // CHECK: [[INNER_SOFTMAX_LOOP:%.+]] = krnl.define_loops 1
-  // CHECK: krnl.iterate([[INNER_MAX_LOOP]]) with ([[INNER_MAX_LOOP]] -> %arg2 = 0 to 10) {
-  // CHECK:   [[LOAD1:%.+]] = krnl.load [[MAX]][] : memref<f32>
-  // CHECK:   [[LOAD2:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<10x10xf32>
-  // CHECK:   [[COND:%.+]] = cmpf ogt, [[LOAD1]], [[LOAD2]] : f32
-  // CHECK:   [[SELECT:%.+]] = select [[COND]], [[LOAD1]], [[LOAD2]] : f32
-  // CHECK:   krnl.store [[SELECT]], [[MAX]][] : memref<f32>
-  // CHECK: }
-  // CHECK: [[LOAD_MAX:%.+]] = krnl.load [[MAX]][] : memref<f32>
-  // CHECK: krnl.iterate([[INNER_SUM_LOOP]]) with ([[INNER_SUM_LOOP]] -> %arg2 = 0 to 10) {
-  // CHECK:   [[LOAD1]] = krnl.load [[SUM]][] : memref<f32>
-  // CHECK:   [[LOAD2]] = krnl.load %arg0[%arg1, %arg2] : memref<10x10xf32>
-  // CHECK:   [[SUB:%.+]] = subf [[LOAD2]], [[LOAD_MAX]] : f32
-  // CHECK:   [[EXP:%.+]] = math.exp [[SUB]] : f32
-  // CHECK:   [[ADD:%.+]] = addf [[LOAD1]], [[EXP]] : f32
-  // CHECK:   krnl.store [[ADD]], [[SUM]][] : memref<f32>
-  // CHECK:   krnl.store [[EXP]], [[RES]][%arg1, %arg2] : memref<10x10xf32>
-  // CHECK: }
-  // CHECK: [[LOAD_SUM:%.+]] = krnl.load [[SUM]][] : memref<f32>
-
-  // CHECK: krnl.iterate([[INNER_SOFTMAX_LOOP]]) with ([[INNER_SOFTMAX_LOOP]] -> %arg2 = 0 to 10) {
-  // CHECK:   [[LOAD1]] = krnl.load [[RES]][%arg1, %arg2] : memref<10x10xf32>
-  // CHECK:   [[DIV:%.+]] = divf [[LOAD1]], [[LOAD_SUM]] : f32
-  // CHECK:   krnl.store [[DIV]], [[RES]][%arg1, %arg2] : memref<10x10xf32>
-  // CHECK: }
-  // CHECK: }
-  // CHECK: memref.dealloc [[SUM]] : memref<f32>
-  // CHECK: memref.dealloc [[MAX]] : memref<f32>
-  // CHECK: return [[RES]] : memref<10x10xf32>
-}
-
-// -----
-
 func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sqrt"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
