@@ -44,4 +44,5 @@ llvm::cl::opt<bool> disableMemoryBundling("disable-memory-bundling",
                    "where several passes work together to bundle buffers.\n"
                    "Buffer management by MLIR is used instead.\n"
                    "Try this if you experience a significant compile time."),
-    llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
+                   // hi alex
+    llvm::cl::init(true), llvm::cl::cat(OMPassOptions));

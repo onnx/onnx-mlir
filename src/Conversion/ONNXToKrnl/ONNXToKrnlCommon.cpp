@@ -64,9 +64,10 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
           loc, type, allocOperands, constAlignAttr);
     } else {
       // AEE: force align at 64
+      //printf("hi alex 1\n");
       IntegerAttr alignAttr = rewriter.getI64IntegerAttr(64);
       alloc =
-          rewriter.create<memref::AllocOp>(loc, type, allocOperands, alignAttr);
+          rewriter.create<memref::AllocOp>(loc, type, allocOperands);
     }
   } else {
     // Set alignment attribute. Default value is `-1`, which does not set
@@ -78,8 +79,9 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
           loc, type, allocOperandsEmpty, constAlignAttr);
     } else {
       // AEE: force align at 64
+      //printf("hi alex 2\n");
       IntegerAttr alignAttr = rewriter.getI64IntegerAttr(64);
-      alloc = rewriter.create<memref::AllocOp>(loc, type, alignAttr);
+      alloc = rewriter.create<memref::AllocOp>(loc, type);
     }
   }
 
@@ -129,9 +131,10 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
         rewriter.create<memref::AllocOp>(loc, type, allocOperands, alignAttr);
   } else {
     // AEE: force align at 64
+      // printf("hi alex 3\n");
     IntegerAttr alignAttr = rewriter.getI64IntegerAttr(64);
     allocOp =
-        rewriter.create<memref::AllocOp>(loc, type, allocOperands, alignAttr);
+        rewriter.create<memref::AllocOp>(loc, type, allocOperands);
   }
 
   if (!gEmitDealloc)

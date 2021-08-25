@@ -57,6 +57,8 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
         auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
         allocOperands.emplace_back(dim);
       }
+      //printf("hi alex 5\n");
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(64);
       alloc = lb.create<memref::AllocOp>(memRefType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
@@ -99,6 +101,8 @@ Value allocIntermediateState(
       auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
       allocOperands.emplace_back(dim);
     }
+      // printf("hi alex 6\n");
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(64);
     alloc = lb.create<memref::AllocOp>(memRefType, allocOperands);
     if (insertDealloc) {
       auto *parentBlock = alloc.getDefiningOp()->getBlock();
@@ -210,6 +214,8 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
         auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
         allocOperands.emplace_back(dim);
       }
+      //printf("hi alex 7\n");
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(64);
       alloc = lb.create<memref::AllocOp>(memRefType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
@@ -384,6 +390,8 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
           getDimOrConstant(rewriter, loc, X, 2, rewriter.getIndexType());
       allocOperands.emplace_back(inputSizeVal);
     }
+      //printf("hi alex 8\n");
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(64);
     sliceX = lb.create<memref::AllocOp>(sliceXType, allocOperands);
   }
 
