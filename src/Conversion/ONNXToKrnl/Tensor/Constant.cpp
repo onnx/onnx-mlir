@@ -70,7 +70,9 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     if (checkOpResultIsReturned(&constantOp)) {
       // In this case, use an AllocOp for the constant since krnl.Global
       // operations are not mean to be returned.
-      memref::AllocOp alloc = rewriter.create<memref::AllocOp>(loc, memRefType);
+      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+      memref::AllocOp alloc =
+          rewriter.create<memref::AllocOp>(loc, memRefType, alignAttr);
 
       // Compute size in bytes using the input tensor.
       Value tensorSize = emitConstantOp(rewriter, loc,

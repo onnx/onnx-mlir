@@ -86,6 +86,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
 
     // Initialize sum
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
+    // Single scalar, no need for default alignment.
     Value sumAlloc = rewriter.create<memref::AllocOp>(loc, scalarMemRefType);
     rewriter.create<KrnlStoreOp>(loc,
         emitConstantOp(rewriter, loc, elementType, 0), sumAlloc,

@@ -106,6 +106,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
                 // Create a local reduction value and set to zero.
                 MemRefType tmpType =
                     MemRefType::get({}, memRefType.getElementType());
+                // Single scalar, no need for default alignment.
                 Value reductionVal =
                     createKrnl.getBuilder().create<memref::AllocaOp>(
                         createKrnl.getLoc(), tmpType);

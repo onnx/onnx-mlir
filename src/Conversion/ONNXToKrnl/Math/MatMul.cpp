@@ -42,6 +42,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         [&](KrnlBuilder &createKrnl, ValueRange args) {
           ValueRange outerIndices = createKrnl.getInductionVarValue(outerLoops);
           ImplicitLocOpBuilder lb(createKrnl.getLoc(), createKrnl.getBuilder());
+          // Single scalar, no need for default alignment.
           Value reductionVal =
               lb.create<memref::AllocaOp>(MemRefType::get({}, elementType));
           createKrnl.store(fzero, reductionVal);

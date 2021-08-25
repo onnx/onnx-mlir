@@ -49,7 +49,9 @@ Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
     allocOperands.emplace_back(dimVal);
   }
 
-  alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
+  IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+  alloc = rewriter.create<memref::AllocOp>(
+      loc, memRefType, allocOperands, alignAttr);
   if (insertDealloc) {
     auto *parentBlock = alloc.getOperation()->getBlock();
     auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);

@@ -112,8 +112,9 @@ struct ONNXRangeOpLowering : public ConversionPattern {
 
       SmallVector<Value, 4> allocOperands;
       allocOperands.push_back(numberOfElements);
-      memref::AllocOp allocateMemref =
-          rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
+      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+      memref::AllocOp allocateMemref = rewriter.create<memref::AllocOp>(
+          loc, memRefType, allocOperands, alignAttr);
       alloc = allocateMemref;
     }
 
@@ -149,7 +150,8 @@ struct ONNXRangeOpLowering : public ConversionPattern {
                 "Integer type over 64 bits not supported for Range op.");
           }
         });
-    auto acc = rewriter.create<memref::AllocOp>(loc, accType);
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+    auto acc = rewriter.create<memref::AllocOp>(loc, accType, alignAttr);
 
     // Acc index:
     SmallVector<IndexExpr, 4> accIndex;

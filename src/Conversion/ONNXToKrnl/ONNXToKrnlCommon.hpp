@@ -363,3 +363,7 @@ Location ONNXLoc(Operation *op) {
       Identifier::get(OP_TYPE::getOperationName(), op->getContext()),
       op->getLoc());
 }
+
+// Default alignment attribute for all allocation of memory. On most system, it
+// is 16 bytes.
+extern int64_t defaultAllocAlign;

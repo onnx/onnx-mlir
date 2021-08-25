@@ -57,9 +57,8 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
         auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
         allocOperands.emplace_back(dim);
       }
-      //printf("hi alex 5\n");
-    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(64);
-      alloc = lb.create<memref::AllocOp>(memRefType, allocOperands);
+      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+      alloc = lb.create<memref::AllocOp>(memRefType, allocOperands, alignAttr);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
         auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
@@ -101,9 +100,8 @@ Value allocIntermediateState(
       auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
       allocOperands.emplace_back(dim);
     }
-      // printf("hi alex 6\n");
-    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(64);
-    alloc = lb.create<memref::AllocOp>(memRefType, allocOperands);
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+    alloc = lb.create<memref::AllocOp>(memRefType, allocOperands, alignAttr);
     if (insertDealloc) {
       auto *parentBlock = alloc.getDefiningOp()->getBlock();
       auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
@@ -214,9 +212,8 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
         auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
         allocOperands.emplace_back(dim);
       }
-      //printf("hi alex 7\n");
-    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(64);
-      alloc = lb.create<memref::AllocOp>(memRefType, allocOperands);
+      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+      alloc = lb.create<memref::AllocOp>(memRefType, allocOperands, alignAttr);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
         auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
@@ -311,6 +308,7 @@ Value applyActivation(OpBuilder &rewriter, Location loc,
   assert(isScalar && "Not a scalar operand");
 
   MemRefType memRefType = MemRefType::get({}, operand.getType(), {}, 0);
+  // Single scalar, no need for default alignment.
   Value alloc = rewriter.create<memref::AllocaOp>(loc, memRefType);
   rewriter.create<KrnlStoreOp>(loc, operand, alloc, ArrayRef<Value>{});
 
@@ -390,9 +388,8 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
           getDimOrConstant(rewriter, loc, X, 2, rewriter.getIndexType());
       allocOperands.emplace_back(inputSizeVal);
     }
-      //printf("hi alex 8\n");
-    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(64);
-    sliceX = lb.create<memref::AllocOp>(sliceXType, allocOperands);
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+    sliceX = lb.create<memref::AllocOp>(sliceXType, allocOperands, alignAttr);
   }
 
   // Copy data from X.

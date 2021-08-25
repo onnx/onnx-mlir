@@ -255,8 +255,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             }
           }
         }
-        alloc =
-            rewriter.create<memref::AllocOp>(loc, rankedScanOutTy, allocParams);
+        IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+        alloc = rewriter.create<memref::AllocOp>(
+            loc, rankedScanOutTy, allocParams, alignAttr);
       }
       outputs.emplace_back(alloc);
     }

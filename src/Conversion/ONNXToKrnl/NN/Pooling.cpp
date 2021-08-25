@@ -311,6 +311,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
       // 2.1 Emit: output[n][c][ho][wo] = identity
       // Create a local reduction value for output[n][c][ho][wo].
+      // Single scalar, no need for default alignment.
       Value reductionVal = rewriter.create<memref::AllocaOp>(
           loc, MemRefType::get({}, memRefType.getElementType()));
       createKrnl.store(identity, reductionVal);

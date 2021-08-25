@@ -514,11 +514,12 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     } else {
       // matrixType's shape is of [BatchSize, HiddenSize].
       // HiddenSize is always static. Thus, only BatchSize is dynamic.
+      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
       Value batchSize = rewriter.create<memref::DimOp>(loc, Ht, 0).getResult();
       rt = lb.create<memref::AllocOp>(
-          matrixType, llvm::makeArrayRef({batchSize}));
+          matrixType, llvm::makeArrayRef({batchSize}), alignAttr);
       rtHt = lb.create<memref::AllocOp>(
-          matrixType, llvm::makeArrayRef({batchSize}));
+          matrixType, llvm::makeArrayRef({batchSize}), alignAttr);
     }
 
     // Emit rt and (rt (.) Ht-1).
