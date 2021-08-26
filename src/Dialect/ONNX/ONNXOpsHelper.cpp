@@ -334,6 +334,18 @@ bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
 // Support for rewrite patterns.
 //===----------------------------------------------------------------------===//
 
+// Create an ArrayAttr from a dense ConstantOp
+ArrayAttr createArrayAttrFromConstantOp(
+    PatternRewriter &rewriter, Value constOp) {
+  auto denseAttr = getDenseElementAttributeFromONNXValue(constOp);
+  assert(denseAttr && "ConstantOp is not a DenseElementsAttr");
+  SmallVector<int64_t, 4> intVals;
+  for (auto val : denseAttr.getValues<IntegerAttr>()) {
+    intVals.emplace_back(val.getInt());
+  }
+  return rewriter.getI64ArrayAttr(ArrayRef<int64_t>(intVals));
+}
+
 // Create a DenseElementsAttr from a float attribute.
 DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     PatternRewriter &rewriter, Type elementType, FloatAttr attr) {

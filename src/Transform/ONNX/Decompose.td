@@ -56,6 +56,14 @@ def noop_with_empty_axes
     : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, "
                      "/*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
 
+// Check if value is a dense constant
+def IsDenseONNXConstant:
+   Constraint<CPred<"isDenseONNXConstant($_self)">, "not a dense constant">;
+
+// Create an ArrayAttr from a dense ConstantOp
+def createArrayAttrFromConstantOp : NativeCodeCall<
+  "createArrayAttrFromConstantOp($_builder, $0)">;
+
 //===----------------------------------------------------------------------===//
 // ONNXReduceL1Op %X = ONNXReduceSumOp (ONNXAbsOp %X)
 //===----------------------------------------------------------------------===//
@@ -221,5 +229,15 @@ def ScalerPattern2
 // Express LogSoftmax using Log and Softmax.
 def LogSoftmaxPattern
     : Pat<(ONNXLogSoftmaxOp $x, $axis), (ONNXLogOp(ONNXSoftmaxOp $x, $axis))>;
+
+def SqueezePattern
+   : Pat<(ONNXSqueezeOp $data, $axes),
+         (ONNXSqueezeV11Op $data, (createArrayAttrFromConstantOp $axes)),
+         [(IsDenseONNXConstant:$axes)]>;
+
+def UnsqueezePattern
+   : Pat<(ONNXUnsqueezeOp $data, $axes),
+         (ONNXUnsqueezeV11Op $data, (createArrayAttrFromConstantOp $axes)),
+         [(IsDenseONNXConstant:$axes)]>;
 
 #endif // ONNX_DECOMPOSE
