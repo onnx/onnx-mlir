@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "MLIRDialectBuilder.hpp"
+#include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 using namespace mlir;
@@ -33,6 +34,19 @@ Value MathBuilder::mul(Value lhs, Value rhs) {
     return b.create<MulIOp>(loc, lhs, rhs);
   return b.create<MulFOp>(loc, lhs, rhs);
 }
+
+Value MathBuilder::div(Value lhs, Value rhs) {
+  if (lhs.getType().isa<FloatType>() && rhs.getType().isa<FloatType>())
+    return b.create<DivFOp>(loc, lhs, rhs);
+  else
+    llvm_unreachable("Only support float type at this moment.");
+}
+
+Value MathBuilder::exp(Value val) {
+  assert(val.getType().isa<FloatType>() && "Data type must be float.");
+  return b.create<math::ExpOp>(loc, val);
+}
+
 Value MathBuilder::sgt(Value lhs, Value rhs) {
   if (lhs.getType().isa<IndexType, IntegerType>() ||
       lhs.getType().isa<IndexType>())

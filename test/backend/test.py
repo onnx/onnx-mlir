@@ -684,11 +684,10 @@ test_to_enable_dict = {
     # Slice (makes Axis a runtime argument, which is not supported).
 
     # Softmax
-    # Temporally removed due to changes in onnx 1.8.1
-    # "test_softmax_axis_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-    # "test_softmax_axis_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_softmax_axis_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_softmax_axis_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     "test_softmax_axis_2_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-    # "test_softmax_default_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_softmax_default_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     "test_softmax_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     "test_softmax_large_number_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
@@ -717,6 +716,9 @@ test_to_enable_dict = {
     # Temporally removed due to changes in onnx 1.8.1
     #"test_squeeze_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     #"test_squeeze_negative_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # Enabled to test for constant axes
+    "test_squeeze_cpu": {CONSTANT_INPUT:{1}},
+    "test_squeeze_negative_axes_cpu": {CONSTANT_INPUT:{1}},
 
     # Str Normalizer
 
@@ -771,6 +773,16 @@ test_to_enable_dict = {
     # "test_unsqueeze_three_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     # "test_unsqueeze_two_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     # "test_unsqueeze_unsorted_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # Enabled to test for constant axes
+    "test_unsqueeze_axis_0_cpu": {CONSTANT_INPUT:{1}},
+    "test_unsqueeze_axis_1_cpu": {CONSTANT_INPUT:{1}},
+    "test_unsqueeze_axis_2_cpu": {CONSTANT_INPUT:{1}},
+    # Using Opset v11 still
+    "test_unsqueeze_axis_3_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+    "test_unsqueeze_negative_axes_cpu": {CONSTANT_INPUT:{1}},
+    "test_unsqueeze_three_axes_cpu": {CONSTANT_INPUT:{1}},
+    "test_unsqueeze_two_axes_cpu": {CONSTANT_INPUT:{1}},
+    "test_unsqueeze_unsorted_axes_cpu": {CONSTANT_INPUT:{1}},
 
     # Upsample
 
@@ -793,6 +805,7 @@ test_to_enable_dict = {
     "test_inception_v1_cpu": {STATIC_SHAPE:{}},
     "test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}},
     "test_shufflenet_cpu": {STATIC_SHAPE:{}},
+    "test_squeezenet_cpu": {STATIC_SHAPE:{}},
     "test_vgg19_cpu": {STATIC_SHAPE:{}},
 }
 

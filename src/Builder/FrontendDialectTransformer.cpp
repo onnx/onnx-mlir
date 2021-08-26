@@ -906,6 +906,52 @@ private:
     buildOutputAndOperation<ONNXSliceOp>(node, in, nIn, nOut, attributes);
   }
 
+  /*!
+   * Special handle for Softmax operation where the default axis value depends
+   * on the opset version.
+   */
+  void ImportNodeSoftmax(const onnx::NodeProto &node) {
+    // Copy the provided inputs first.
+    std::vector<Value> inputs;
+    for (const auto &item : node.input()) {
+      if (initializedTensors.ContainKey(item)) {
+        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
+            UnknownLoc(), builder_, item));
+      } else if (frontend_symbols_.ContainKey(item)) {
+        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+      }
+    }
+
+    int nIn = ONNXSoftmaxOp::getNumberOfOperands();
+    int nOut = ONNXSoftmaxOp::getNumberOfResults();
+
+    // If no attribute is provided, axis would depend on the opset version.
+    // - With opset version < 13, default axis value is 1.
+    // - With opset version 13, default axis value is -1.
+    auto currentOpset = opset_map_.find(node.domain())->second;
+    auto attributes = ImportNodeAttributes(node);
+    bool hasAxisAttribute = false;
+    for (auto &attr : attributes)
+      if (attr.first.strref().equals_insensitive("axis")) {
+        hasAxisAttribute = true;
+        break;
+      }
+
+    if (!hasAxisAttribute) {
+      if (currentOpset < 13)
+        attributes.push_back(builder_.getNamedAttr("axis",
+            IntegerAttr::get(builder_.getIntegerType(64, /*isSigned=*/true),
+                APInt(64, /*value=*/1, /*isSigned=*/true))));
+    }
+
+    // Store the opset version in an attribute, which is used for the lowering.
+    attributes.push_back(builder_.getNamedAttr("onnx_opset",
+        IntegerAttr::get(builder_.getIntegerType(64, /*isSigned=*/true),
+            APInt(64, /*value=*/currentOpset, /*isSigned=*/true))));
+
+    buildOutputAndOperation<ONNXSoftmaxOp>(node, inputs, nIn, nOut, attributes);
+  }
+
   const onnx::OpSchema *GetOpSchema(const onnx::NodeProto &node) {
     auto &domain = node.domain();
     auto version_it = opset_map_.find(domain);
