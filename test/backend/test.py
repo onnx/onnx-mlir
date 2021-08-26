@@ -778,7 +778,8 @@ test_to_enable_dict = {
     "test_unsqueeze_axis_0_cpu": {CONSTANT_INPUT:{1}},
     "test_unsqueeze_axis_1_cpu": {CONSTANT_INPUT:{1}},
     "test_unsqueeze_axis_2_cpu": {CONSTANT_INPUT:{1}},
-    "test_unsqueeze_axis_3_cpu": {CONSTANT_INPUT:{1}},
+    # Using Opset v11 still
+    "test_unsqueeze_axis_3_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
     "test_unsqueeze_negative_axes_cpu": {CONSTANT_INPUT:{1}},
     "test_unsqueeze_three_axes_cpu": {CONSTANT_INPUT:{1}},
     "test_unsqueeze_two_axes_cpu": {CONSTANT_INPUT:{1}},

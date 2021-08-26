@@ -53,10 +53,6 @@ def createArrayAttrOfOneToRankOfExclusive : NativeCodeCall<
 def createArrayAttrOfTwoToRankOf : NativeCodeCall<
   "createArrayAttrOfNToM($_builder, 2, $0.getType().cast<ShapedType>().getRank() - 1)">;
 
-// Create an ArrayAttr from a dense ConstantOp
-def createArrayAttrFromConstantOp : NativeCodeCall<
-  "createArrayAttrFromConstantOp($_builder, $0)">;
-
 def ONNXConstantOpNormalize: NativeCodeCall<
   "normalizeConstantOp($_builder, $0, $1)">;
 
@@ -253,10 +249,6 @@ def RewriteBatchNormInferenceModeConvPattern2: Pat<
   [(HasRankOf<1> $x)], (addBenefit 0)
 >;
 
-// Check if value is a dense constant
-def IsDenseONNXConstant:
-   Constraint<CPred<"isDenseONNXConstant($_self)">, "not a dense constant">;
-
 def IsStaticShapeTensor:
    Constraint<
      CPred<
@@ -335,18 +327,6 @@ def ConstantOpNormalizationPattern6: Pat<
        $intsAttr, $stringAttr, $stringsAttr),
    (ONNXConstantOpNormalize $res, $stringsAttr),
    [(AttributeIsNotNull:$stringsAttr)]
->;
-
-def ONNXSqueezeOpLowering: Pat<
-   (ONNXSqueezeOp $data, $axes),
-   (ONNXSqueezeV11Op $data, (createArrayAttrFromConstantOp $axes)),
-   [(IsDenseONNXConstant:$axes)]
->;
-
-def ONNXUnsqueezeOpLowering: Pat<
-   (ONNXUnsqueezeOp $data, $axes),
-   (ONNXUnsqueezeV11Op $data, (createArrayAttrFromConstantOp $axes)),
-   [(IsDenseONNXConstant:$axes)]
 >;
 
 #endif // ONNX_REWRITE
