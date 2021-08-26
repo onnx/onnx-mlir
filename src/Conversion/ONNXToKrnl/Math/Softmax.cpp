@@ -117,7 +117,7 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
         }
 
         Value expLoadedVal = createKrnl.load(alloc, softmaxLoopIVs);
-        Value result = createMath.divf(expLoadedVal, sum);
+        Value result = createMath.div(expLoadedVal, sum);
         createKrnl.store(result, alloc, softmaxLoopIVs);
       });
 }
