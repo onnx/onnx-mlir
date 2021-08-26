@@ -233,7 +233,7 @@ def LogSoftmaxPattern
 def SqueezePattern
    : Pat<(ONNXSqueezeOp $data, $axes),
          (ONNXSqueezeV11Op $data, (createArrayAttrFromConstantOp $axes)),
-         [(IsDenseONNXConstant:$axes)], (addBenefit 0)>;
+         [(IsDenseONNXConstant:$axes)]>;
 
 def UnsqueezePattern
    : Pat<(ONNXUnsqueezeOp $data, $axes),
