@@ -467,7 +467,7 @@ import_handler_map_["Size"] =
 import_handler_map_["Slice"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeSlice;
 import_handler_map_["Softmax"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxOp>;
+   &onnx_mlir::detail::FrontendGenImpl::ImportNodeSoftmax;
 import_handler_map_["SoftmaxCrossEntropyLoss"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxCrossEntropyLossOp>;
 import_handler_map_["Softplus"] = 

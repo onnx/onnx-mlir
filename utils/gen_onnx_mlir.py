@@ -257,6 +257,7 @@ special_op_handler = dict([
     ("MaxPool", "ImportNodeMaxPool"),
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
+    ("Softmax", "ImportNodeSoftmax"),
     #("Transpose", "ImportNodeTranspose")
 ])
 
