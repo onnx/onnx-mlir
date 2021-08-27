@@ -711,8 +711,9 @@ public:
     // Compute size of all krnl.getref operations that use this memory pool.
     int64_t usedMemory = getAllocGetRefTotalSize(&allocOp);
 
-    assert(usedMemory <= memPoolShape[0] &&
-           "Used memory exceeds allocated memory.");
+    // TODO: enable back once changes to bundle stage are also included.
+    // assert(usedMemory <= memPoolShape[0] &&
+    //       "Used memory exceeds allocated memory.");
 
     // Check if changes to the memory pool are required.
     if (memPoolShape[0] == usedMemory)
