@@ -59,7 +59,7 @@ int64_t getAllocGetRefTotalSize(memref::AllocOp *allocOp) {
 
         // Footprint has not been counted yet. Add it to totalSize.
         int64_t memrefSize = getMemRefSizeInBytes(op.getResult());
-        totalSize += memrefSize
+        totalSize += memrefSize;
         int64_t misalignment = memrefSize % alignment;
         if (misalignment > 0)
           totalSize += alignment - misalignment;
@@ -741,7 +741,7 @@ public:
     int64_t distinctGRSize = 0;
     for (auto getRefOp : distinctGetRefs) {
       int64_t memrefSize = getMemRefSizeInBytes(getRefOp.getResult());
-      distinctGRSize += memrefSize
+      distinctGRSize += memrefSize;
       int64_t misalignment = memrefSize % alignment;
       if (misalignment > 0)
         distinctGRSize += alignment - misalignment;
