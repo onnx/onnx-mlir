@@ -34,7 +34,7 @@
 #include <mutex>
 
 #define BUFFER_ALIGN 64
-#define DEBUG_TRACE 1
+#define DEBUG_TRACE 0
 
 using namespace mlir;
 

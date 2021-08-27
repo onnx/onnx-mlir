@@ -20,7 +20,7 @@
 
 using namespace mlir;
 
-#define DEBUG_TRACE 1
+#define DEBUG_TRACE 0
 
 struct ONNXMatMulOpLowering : public ConversionPattern {
   ONNXMatMulOpLowering(MLIRContext *ctx)

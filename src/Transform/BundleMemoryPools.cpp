@@ -206,8 +206,11 @@ public:
                                   .dyn_cast<MemRefType>()
                                   .getShape();
     int64_t currentMemPoolSize = staticMemPoolShape[0];
-    currentMemPoolSize =
-        currentMemPoolSize + alignment - currentMemPoolSize % alignment;
+    if (alignment > 0) {
+      int64_t misalignment = currentMemPoolSize % alignment;
+      if (misalignment > 0)
+        currentMemPoolSize += alignment - misalignment;
+    }
 
     // Get the getref of the current allocOp. There is exactly one such getref.
     KrnlGetRefOp currentAllocGetRef = getCurrentAllocGetRef(&allocOp);
