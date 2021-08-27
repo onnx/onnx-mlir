@@ -59,7 +59,10 @@ int64_t getAllocGetRefTotalSize(memref::AllocOp *allocOp) {
 
         // Footprint has not been counted yet. Add it to totalSize.
         int64_t memrefSize = getMemRefSizeInBytes(op.getResult());
-        totalSize += memrefSize + alignment - memrefSize % alignment;
+        totalSize += memrefSize
+        int64_t misalignment = memrefSize % alignment;
+        if (misalignment > 0)
+          totalSize += alignment - misalignment;
 
         // Act krnl.getref operation as seen.
         seenGetRefs.emplace_back(op);
@@ -738,7 +741,10 @@ public:
     int64_t distinctGRSize = 0;
     for (auto getRefOp : distinctGetRefs) {
       int64_t memrefSize = getMemRefSizeInBytes(getRefOp.getResult());
-      distinctGRSize += memrefSize + alignment - memrefSize % alignment;
+      distinctGRSize += memrefSize
+      int64_t misalignment = memrefSize % alignment;
+      if (misalignment > 0)
+        distinctGRSize += alignment - misalignment;
     }
     assert(distinctGRSize == usedMemory &&
            "Size of all distinct getrefs must match the total used memory");
@@ -754,7 +760,9 @@ public:
 
       // Size of current getref.
       int64_t currentGetRefSize = getMemRefSizeInBytes(getRefOp.getResult());
-      currentGetRefSize += alignment - currentGetRefSize % alignment;
+      int64_t misalignment = currentGetRefSize % alignment;
+      if (misalignment > 0)
+          currentGetRefSize += alignment - misalignment;
 
       // Get all getRefs which share the same memory slot.
       SmallVector<KrnlGetRefOp, 4> sameSlotGetRefs =
