@@ -762,7 +762,7 @@ public:
       int64_t currentGetRefSize = getMemRefSizeInBytes(getRefOp.getResult());
       int64_t misalignment = currentGetRefSize % alignment;
       if (misalignment > 0)
-          currentGetRefSize += alignment - misalignment;
+        currentGetRefSize += alignment - misalignment;
 
       // Get all getRefs which share the same memory slot.
       SmallVector<KrnlGetRefOp, 4> sameSlotGetRefs =
