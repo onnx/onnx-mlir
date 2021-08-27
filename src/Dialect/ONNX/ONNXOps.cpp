@@ -1755,11 +1755,11 @@ static LogicalResult verify(ONNXConvOp op) {
 // For this operation, we define the attributes once in the original Conv
 // operation class. There is no need to redefine the attribute names for the
 // other classes based on Conv.
-// Conv attributes output:
-//   -  auto_pad set to NOTSET;
+// Conv attributes output: no changes to the op but the output.
+// ShapeHelper get
 //   -  dilations, strides: set to 1 if not defined by user;
 //   -  kernelShape: inferred from weight matrix if not defined by user;
-//   -  pads: set to proper value, 0 if not defined by user.
+//   -  pads: set to proper value
 
 LogicalResult ONNXConvOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {

@@ -1025,7 +1025,7 @@ LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
     } else if (autoPad == "VALID") {
       IndexExpr t1 = I - kdTerm; // Compute ceil((I - kdTerm +1)/s).
       IndexExpr t2 = t1 + one;
-      IndexExpr O = t2.floorDiv(s);
+      IndexExpr O = t2.ceilDiv(s);
       // Set output dim, and pads already set to zero, nothing more to do.
       outputDims.emplace_back(O);
     } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
