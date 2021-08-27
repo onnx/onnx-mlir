@@ -42,8 +42,9 @@ int64_t getAllocGetRefTotalSize(memref::AllocOp *allocOp) {
   auto parentBlock = allocOp->getOperation()->getBlock();
 
   int64_t totalSize = 0;
+  int64_t alignment = getAllocAlignment(allocOp);
   SmallVector<KrnlGetRefOp, 4> seenGetRefs;
-  parentBlock->walk([&totalSize, &seenGetRefs, allocOp](KrnlGetRefOp op) {
+  parentBlock->walk([&totalSize, &seenGetRefs, &alignment, allocOp](KrnlGetRefOp op) {
     // If krnl.getref operation uses a different mempool then exit.
     if (op.mempool() != allocOp->getResult())
       return;
@@ -56,9 +57,8 @@ int64_t getAllocGetRefTotalSize(memref::AllocOp *allocOp) {
         return;
 
     // Footprint has not been counted yet. Add it to totalSize.
-    // auto result = allocOp->getResult();
-    // if (op.getOperands()[0] == result)
-    totalSize += getMemRefSizeInBytes(op.getResult());
+    int64_t memrefSize = getMemRefSizeInBytes(op.getResult());
+    totalSize += memrefSize + alignment - memrefSize % alignment;
 
     // Act krnl.getref operation as seen.
     seenGetRefs.emplace_back(op);
@@ -735,7 +735,8 @@ public:
     // Size of all distinct getrefs:
     int64_t distinctGRSize = 0;
     for (auto getRefOp : distinctGetRefs) {
-      distinctGRSize += getMemRefSizeInBytes(getRefOp.getResult());
+      int64_t memrefSize = getMemRefSizeInBytes(getRefOp.getResult());
+      distinctGRSize += memrefSize + alignment - memrefSize % alignment;
     }
     assert(distinctGRSize == usedMemory &&
            "Size of all distinct getrefs must match the total used memory");
@@ -751,6 +752,7 @@ public:
 
       // Size of current getref.
       int64_t currentGetRefSize = getMemRefSizeInBytes(getRefOp.getResult());
+      currentGetRefSize += alignment - currentGetRefSize % alignment;
 
       // Get all getRefs which share the same memory slot.
       SmallVector<KrnlGetRefOp, 4> sameSlotGetRefs =
