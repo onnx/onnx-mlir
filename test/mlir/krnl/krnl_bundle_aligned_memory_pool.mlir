@@ -32,16 +32,16 @@ func @test_pool_bundling(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> 
   // CHECK-DAG: [[CONST_0:%.+]] = constant 0 : i64
   // CHECK-DAG: [[CONST_0_INDEX:%.+]] = constant 0 : index
   // CHECK-DAG: [[CONST_CST:%.+]] = constant 0.000000e+00 : f32
-  // CHECK-DAG: [[CONST_1200:%.+]] = constant 1200 : i64
-  // CHECK-DAG: [[CONST_800:%.+]] = constant 800 : i64
+  // CHECK-DAG: [[CONST_1200:%.+]] = constant 8192 : i64
+  // CHECK-DAG: [[CONST_800:%.+]] = constant 4096 : i64
   // CHECK-DAG: [[CONST_400:%.+]] = constant 400 : i64
   // CHECK-DAG: [[RES:%.+]] = memref.alloc() : memref<10x20xf32>
-  // CHECK-DAG: [[MEMPOOL_ALIGNED:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<2000xi8>
-  // CHECK: [[MEMREF1:%.+]] = "krnl.getref"([[MEMPOOL_ALIGNED]], [[CONST_1200]]) : (memref<2000xi8>, i64) -> memref<10x20xf32>
-  // CHECK: [[MEMREF2:%.+]] = "krnl.getref"([[MEMPOOL_ALIGNED]], [[CONST_800]]) : (memref<2000xi8>, i64) -> memref<10x10xf32>
+  // CHECK-DAG: [[MEMPOOL_ALIGNED:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<12288xi8>
+  // CHECK: [[MEMREF1:%.+]] = "krnl.getref"([[MEMPOOL_ALIGNED]], [[CONST_1200]]) : (memref<12288xi8>, i64) -> memref<10x20xf32>
+  // CHECK: [[MEMREF2:%.+]] = "krnl.getref"([[MEMPOOL_ALIGNED]], [[CONST_800]]) : (memref<12288xi8>, i64) -> memref<10x10xf32>
   // CHECK: [[MEMPOOL:%.+]] = memref.alloc() : memref<1200xi8>
   // CHECK: [[MEMREF3:%.+]] = "krnl.getref"([[MEMPOOL]], [[CONST_400]]) : (memref<1200xi8>, i64) -> memref<10x20xf32>
-  // CHECK: [[MEMREF4:%.+]] = "krnl.getref"([[MEMPOOL_ALIGNED]], [[CONST_0]]) : (memref<2000xi8>, i64) -> memref<10x20xf32>
+  // CHECK: [[MEMREF4:%.+]] = "krnl.getref"([[MEMPOOL_ALIGNED]], [[CONST_0]]) : (memref<12288xi8>, i64) -> memref<10x20xf32>
   // CHECK: [[MEMREF5:%.+]] = "krnl.getref"([[MEMPOOL]], [[CONST_0]]) : (memref<1200xi8>, i64) -> memref<10x10xf32>
   // CHECK: krnl.store %cst, [[MEMREF5]]{{\[}}[[CONST_0_INDEX]], [[CONST_0_INDEX]]{{\]}} : memref<10x10xf32>
   // CHECK: krnl.store %cst, [[MEMREF4]]{{\[}}[[CONST_0_INDEX]], [[CONST_0_INDEX]]{{\]}} : memref<10x20xf32>
