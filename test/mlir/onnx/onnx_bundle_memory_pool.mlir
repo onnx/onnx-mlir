@@ -19,8 +19,8 @@ func @test_bundle_memory_pool(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf32>
 // CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_0_1_:%.+]] = constant 0 : i64
-// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() {{.*}} : memref<10x20xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() {{.*}} : memref<3200xi8>
+// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<10x20xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() {{.*}}: memref<3200xi8>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.getref"([[VAR_1_]], [[CST_2400_]]) : (memref<3200xi8>, i64) -> memref<10x20xf32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.getref"([[VAR_1_]], [[CST_2000_]]) : (memref<3200xi8>, i64) -> memref<10x10xf32>

@@ -127,7 +127,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Compute.
     // Define blocking, with simdization along the j axis.
     int64_t iRegTile(4), jRegTile(8), kRegTile(8);
-#if 1
     // Update tiling for very small sizes known at compile time.
     DimIndexExpr dimI(I), dimJ(J), dimK(K);
     if (dimI.isLiteral()) {
@@ -157,7 +156,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           printf("MatMul: Tiling K is reduced to %d\n", (int)kRegTile);
       }
     }
-#endif
 
     // I, J, K loop.
     ValueRange origLoop = createKrnl.defineLoops(3);
