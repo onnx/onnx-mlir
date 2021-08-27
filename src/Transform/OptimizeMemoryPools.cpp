@@ -42,7 +42,7 @@ int64_t getAllocGetRefTotalSize(memref::AllocOp *allocOp) {
   auto parentBlock = allocOp->getOperation()->getBlock();
 
   int64_t totalSize = 0;
-  int64_t alignment = getAllocAlignment(allocOp);
+  int64_t alignment = getAllocAlignment(&allocOp);
   SmallVector<KrnlGetRefOp, 4> seenGetRefs;
   parentBlock->walk(
       [&totalSize, &seenGetRefs, &alignment, allocOp](KrnlGetRefOp op) {
