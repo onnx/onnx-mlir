@@ -297,6 +297,13 @@ To run the numerical ONNX MLIR tests, use the following command:
 call cmake --build . --config Release --target check-numerical
 ```
 
+To run the doc ONNX MLIR tests, use the following command after installing third_party ONNX:
+
+[same-as-file]: <> ({"ref": "utils/check-docs.cmd", "skip-ref": 1})
+```shell
+call cmake --build . --config Release --target check-docs
+```
+
 After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory.
 
 ##### LLVM and ONNX-MLIR CMake variables

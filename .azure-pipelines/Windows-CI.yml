@@ -63,3 +63,11 @@ jobs:
     workingDirectory: $(Agent.BuildDirectory)
     env:
       CTEST_PARALLEL_LEVEL: ${{ parameters.CTEST_PARALLEL_LEVEL }}
+
+  - script: |
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      python3 -m pip install --upgrade onnx==1.9.0
+      call onnx-mlir\utils\check-docs.cmd
+    displayName: Run onnx-mlir doc tests
+    workingDirectory: $(Agent.BuildDirectory)
+
