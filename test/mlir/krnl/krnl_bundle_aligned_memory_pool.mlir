@@ -50,7 +50,7 @@ func @test_pool_bundling(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> 
   // CHECK: krnl.store %cst, [[MEMREF1]]{{\[}}[[CONST_0_INDEX]], [[CONST_0_INDEX]]{{\]}} : memref<10x20xf32>
   // CHECK: krnl.store %cst, [[RES]]{{\[}}[[CONST_0_INDEX]], [[CONST_0_INDEX]]{{\]}} : memref<10x20xf32>
   // CHECK: memref.dealloc [[MEMPOOL]] : memref<1200xi8>
-  // CHECK: memref.dealloc [[MEMPOOL_ALIGNED]] : memref<2000xi8>
+  // CHECK: memref.dealloc [[MEMPOOL_ALIGNED]] : memref<8992xi8>
   // CHECK: return [[RES]] : memref<10x20xf32>
 }
 
