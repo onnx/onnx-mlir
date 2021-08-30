@@ -266,6 +266,28 @@ struct ONNXConvOpShapeHelper : public ONNXOpShapeHelper<ONNXConvOp> {
   SmallVector<int64_t, 2> dilations;
 };
 
+// Shape for generic pooling/conv ops.
+template <typename OP_TYPE, typename OP_ADAPTOR>
+struct ONNXGenericPoolShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
+  ONNXGenericPoolShapeHelper(OP_TYPE *newOp);
+  ONNXGenericPoolShapeHelper(OP_TYPE *newOp, ConversionPatternRewriter &rewriter,
+      bool hasFilter, bool ceilMode,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(OP_ADAPTOR operandAdaptor, 
+    Optional<ArrayAttr> kernelShapeOpt, Optional<ArrayAttr> padOpt,
+    Optional<ArrayAttr> strideOpt, Optional<ArrayAttr> dilationOpt);
+
+  bool hasFilter;   // If has filter, it also has CO and optional kernel.
+  bool ceilMode;    // Use ceil or floor for auto_pad=NOTSET policy.
+  // Values set by Compute.
+  SmallVector<IndexExpr, 2> kernelShapes;
+  SmallVector<IndexExpr, 4> pads;
+  SmallVector<int64_t, 2> strides;
+  SmallVector<int64_t, 2> dilations;
+};
+
 // Shape for Pooling.
 template <typename OP_TYPE, typename OP_ADAPTOR>
 struct ONNXPoolOpShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
