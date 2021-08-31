@@ -252,41 +252,53 @@ struct ONNXLRNOpShapeHelper : public ONNXOpShapeHelper<ONNXLRNOp> {
   LogicalResult Compute(ONNXLRNOpAdaptor operandAdaptor);
 };
 
+// Shape for generic pooling/conv ops.
+template <typename OP_TYPE, typename OP_ADAPTOR>
+struct ONNXGenericPoolShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
+  ONNXGenericPoolShapeHelper(OP_TYPE *newOp, bool hasFilter, bool ceilMode);
+  ONNXGenericPoolShapeHelper(OP_TYPE *newOp, bool hasFilter, bool ceilMode,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(OP_ADAPTOR operandAdaptor, Value filterValue,
+      Optional<ArrayAttr> kernelShapeOpt, Optional<ArrayAttr> padOpt,
+      Optional<ArrayAttr> strideOpt, Optional<ArrayAttr> dilationOpt);
+
+  bool hasFilter; // If has filter, it also has CO and optional kernel.
+  bool ceilMode;  // Use ceil or floor for auto_pad=NOTSET policy.
+  // Values set by Compute.
+  SmallVector<IndexExpr, 2> kernelShape;
+  SmallVector<IndexExpr, 4> pads;
+  SmallVector<int64_t, 2> strides;
+  SmallVector<int64_t, 2> dilations;
+};
+
 // Shape for Conv.
-struct ONNXConvOpShapeHelper : public ONNXOpShapeHelper<ONNXConvOp> {
+struct ONNXConvOpShapeHelper
+    : public ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor> {
   ONNXConvOpShapeHelper(ONNXConvOp *newOp);
   ONNXConvOpShapeHelper(ONNXConvOp *newOp, ConversionPatternRewriter &rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult Compute(ONNXConvOpAdaptor operandAdaptor);
-  SmallVector<IndexExpr, 2> kernelShapes;
-  SmallVector<IndexExpr, 4> pads;
-  SmallVector<int64_t, 2> strides;
-  SmallVector<int64_t, 2> dilations;
 };
 
-// Shape for generic pooling/conv ops.
-template <typename OP_TYPE, typename OP_ADAPTOR>
-struct ONNXGenericPoolShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
-  ONNXGenericPoolShapeHelper(OP_TYPE *newOp);
-  ONNXGenericPoolShapeHelper(OP_TYPE *newOp, ConversionPatternRewriter &rewriter,
-      bool hasFilter, bool ceilMode,
+#define AEE_NEW_POOL 1
+
+#if AEE_NEW_POOL
+// Shape for MaxPoolSingleOut.
+struct ONNXMaxPoolSingleOutOpShapeHelper
+    : public ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
+          ONNXMaxPoolSingleOutOpAdaptor> {
+  ONNXMaxPoolSingleOutOpShapeHelper(ONNXMaxPoolSingleOutOp *newOp);
+  ONNXMaxPoolSingleOutOpShapeHelper(ONNXMaxPoolSingleOutOp *newOp,
+      ConversionPatternRewriter &rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
-  LogicalResult Compute(OP_ADAPTOR operandAdaptor, 
-    Optional<ArrayAttr> kernelShapeOpt, Optional<ArrayAttr> padOpt,
-    Optional<ArrayAttr> strideOpt, Optional<ArrayAttr> dilationOpt);
-
-  bool hasFilter;   // If has filter, it also has CO and optional kernel.
-  bool ceilMode;    // Use ceil or floor for auto_pad=NOTSET policy.
-  // Values set by Compute.
-  SmallVector<IndexExpr, 2> kernelShapes;
-  SmallVector<IndexExpr, 4> pads;
-  SmallVector<int64_t, 2> strides;
-  SmallVector<int64_t, 2> dilations;
+  LogicalResult Compute(ONNXMaxPoolSingleOutOpAdaptor operandAdaptor);
 };
+#endif
 
 // Shape for Pooling.
 template <typename OP_TYPE, typename OP_ADAPTOR>
