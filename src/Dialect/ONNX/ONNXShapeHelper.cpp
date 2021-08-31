@@ -1125,8 +1125,6 @@ LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
 // ONNX Max Pool Single Out Ops Shape Helper
 //===----------------------------------------------------------------------===//
 
-#if AEE_NEW_POOL
-
 ONNXMaxPoolSingleOutOpShapeHelper::ONNXMaxPoolSingleOutOpShapeHelper(
     ONNXMaxPoolSingleOutOp *newOp)
     : ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
@@ -1148,8 +1146,33 @@ LogicalResult ONNXMaxPoolSingleOutOpShapeHelper::Compute(
       op->kernel_shape(), op->pads(), op->strides(), op->dilations());
 }
 
-#endif
+//===----------------------------------------------------------------------===//
+// ONNX Max Pool Single Out Ops Shape Helper
+//===----------------------------------------------------------------------===//
 
+ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(
+    ONNXAveragePoolOp *newOp)
+    : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp,
+          ONNXAveragePoolOpAdaptor>(
+          newOp, false /*hasFilter*/, newOp->ceil_mode()) {}
+
+ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(
+    ONNXAveragePoolOp *newOp, ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp,
+          ONNXAveragePoolOpAdaptor>(newOp, false /*hasFilter*/,
+          newOp->ceil_mode(), rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXAveragePoolOpShapeHelper::Compute(
+    ONNXAveragePoolOpAdaptor operandAdaptor) {
+  return ONNXGenericPoolShapeHelper<ONNXAveragePoolOp,
+      ONNXAveragePoolOpAdaptor>::Compute(operandAdaptor, nullptr,
+      op->kernel_shape(), op->pads(), op->strides(), None);
+}
+
+
+// hi alex cleanup
 //===----------------------------------------------------------------------===//
 // ONNX Pooling Ops Shape Helper
 //===----------------------------------------------------------------------===//
@@ -1212,6 +1235,7 @@ LogicalResult ONNXPoolOpShapeHelper<OP_TYPE, OP_ADAPTOR>::Compute(
   return success();
 }
 
+// hi alex cleanup
 template struct ONNXPoolOpShapeHelper<ONNXMaxPoolSingleOutOp,
     ONNXMaxPoolSingleOutOpAdaptor>;
 template struct ONNXPoolOpShapeHelper<ONNXAveragePoolOp,

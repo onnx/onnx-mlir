@@ -468,8 +468,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 // Helper function to do post-processing after applying a filter window.
 //
 template <typename PoolOp>
-void postProcessNewPoolingWindow(ConversionPatternRewriter &rewriter, Location loc,
-    PoolOp poolOp, Value alloc, ArrayRef<Value> resultIndices,
+void postProcessNewPoolingWindow(ConversionPatternRewriter &rewriter,
+    Location loc, PoolOp poolOp, Value alloc, ArrayRef<Value> resultIndices,
     ArrayRef<IndexExpr> kernelShape, ArrayRef<Value> poolDimValues) {}
 
 // Calculate the average value for AveragePool.
@@ -487,12 +487,18 @@ void postProcessNewPoolingWindow<ONNXAveragePoolOp>(
     for (unsigned int i = 0; i < kernelShape.size(); ++i)
       kernelSize = kernelSize * kernelShape[i];
     denominator = kernelSize.getValue();
+    denominator =
+        rewriter.create<IndexCastOp>(loc, denominator, rewriter.getI64Type());
+    // TODO: we are implying here that the dest type is a float.
+    denominator =
+        rewriter.create<SIToFPOp>(loc, denominator, numerator.getType());
   } else {
     denominator = poolDimValues[0];
     for (unsigned int i = 1; i < poolDimValues.size(); ++i)
       denominator = rewriter.create<MulIOp>(loc, denominator, poolDimValues[i]);
     denominator = rewriter.create<IndexCastOp>(
         loc, denominator, rewriter.getIntegerType(64));
+    // TODO: we are implying here that the dest type is a float.
     denominator =
         rewriter.create<SIToFPOp>(loc, denominator, numerator.getType());
   }
@@ -502,11 +508,10 @@ void postProcessNewPoolingWindow<ONNXAveragePoolOp>(
   rewriter.create<KrnlStoreOp>(loc, average, alloc, resultIndices);
 }
 
-
 //===----------------------------------------------------------------------===//
 // Template function that does pooling.
 //
-template <typename PoolOp, typename PoolOpAdaptor>
+template <typename PoolOp, typename PoolOpAdaptor, typename PoolOpShapeHelper>
 struct ONNXNewPoolOpLowering : public ConversionPattern {
   ONNXNewPoolOpLowering(MLIRContext *ctx)
       : ConversionPattern(PoolOp::getOperationName(), 1, ctx) {}
@@ -519,7 +524,7 @@ struct ONNXNewPoolOpLowering : public ConversionPattern {
     PoolOp poolOp = llvm::dyn_cast<PoolOp>(op);
 
     // Get shape.
-    ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(&poolOp, rewriter,
+    PoolOpShapeHelper shapeHelper(&poolOp, rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
@@ -538,7 +543,10 @@ struct ONNXNewPoolOpLowering : public ConversionPattern {
     // Kernel offset in the input shape.
     int kernelShapeSize = shapeHelper.kernelShape.size();
     int kernelOffset = inputShape.size() - kernelShapeSize;
-    bool isDilated = poolOp.dilations().hasValue();
+    bool isDilated = false;
+    for (int i = 0; i < kernelShapeSize; ++i)
+      if (shapeHelper.dilations[i] > 1)
+        isDilated = true;
 
     // Scope for krnl ops
     IndexExprScope ieScope(rewriter, loc);
@@ -691,7 +699,7 @@ struct ONNXNewPoolOpLowering : public ConversionPattern {
       //   startH = max(firstValidH, ho * sH - ptH)
       //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
       SmallVector<IndexExpr, 4> windowStartExprs, windowEndExprs;
-      for (unsigned int i = 0; i < kernelShapeSize; ++i) {
+      for (int i = 0; i < kernelShapeSize; ++i) {
         std::vector<mlir::IndexExpr> exprs =
             getIndexExprsForConvWindow(IVExprs[i], ceilMode, isDilated);
         windowStartExprs.emplace_back(exprs[0]);
@@ -702,7 +710,7 @@ struct ONNXNewPoolOpLowering : public ConversionPattern {
       //   hDim = round(float(endH - startH) / float(dH))
       //   wDim = round(float(endW - startW) / float(dW))
       SmallVector<Value, 4> fullWindowSize;
-      for (unsigned int i = 0; i < kernelShapeSize; ++i) {
+      for (int i = 0; i < kernelShapeSize; ++i) {
         Value dim = rewriter.create<SubIOp>(
             loc, windowEndExprs[i].getValue(), windowStartExprs[i].getValue());
         if (isDilated) {
@@ -736,7 +744,7 @@ struct ONNXNewPoolOpLowering : public ConversionPattern {
       // Push bounds.
       AffineMap windowSizeMap =
           getWindowAffineMap(rewriter, ceilMode, isDilated);
-      for (unsigned int i = 0; i < kernelShapeSize; ++i) {
+      for (int i = 0; i < kernelShapeSize; ++i) {
         // Affine map's operands.
         SmallVector<Value, 4> operands;
         for (IndexExpr expr : IVExprs[i])
@@ -803,8 +811,7 @@ struct ONNXNewPoolOpLowering : public ConversionPattern {
 void populateLoweringONNXPoolingOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXNewPoolOpLowering<ONNXMaxPoolSingleOutOp,
-      ONNXMaxPoolSingleOutOpAdaptor>>(ctx);
-  patterns
-      .insert<ONNXPoolOpLowering<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>>(
-          ctx);
+      ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>>(ctx);
+  patterns.insert<ONNXNewPoolOpLowering<ONNXAveragePoolOp,
+      ONNXAveragePoolOpAdaptor, ONNXAveragePoolOpShapeHelper>>(ctx);
 }

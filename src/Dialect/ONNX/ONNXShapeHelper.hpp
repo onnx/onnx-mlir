@@ -284,9 +284,6 @@ struct ONNXConvOpShapeHelper
   LogicalResult Compute(ONNXConvOpAdaptor operandAdaptor);
 };
 
-#define AEE_NEW_POOL 1
-
-#if AEE_NEW_POOL
 // Shape for MaxPoolSingleOut.
 struct ONNXMaxPoolSingleOutOpShapeHelper
     : public ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
@@ -298,8 +295,21 @@ struct ONNXMaxPoolSingleOutOpShapeHelper
       ArrayValueIndexCapture::LoadVal fLoadVal);
   LogicalResult Compute(ONNXMaxPoolSingleOutOpAdaptor operandAdaptor);
 };
-#endif
 
+// Shape for ONNXAveragePoolOp
+struct ONNXAveragePoolOpShapeHelper
+    : public ONNXGenericPoolShapeHelper<ONNXAveragePoolOp,
+          ONNXAveragePoolOpAdaptor> {
+  ONNXAveragePoolOpShapeHelper(ONNXAveragePoolOp *newOp);
+  ONNXAveragePoolOpShapeHelper(ONNXAveragePoolOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult Compute(ONNXAveragePoolOpAdaptor operandAdaptor);
+};
+
+
+// hi alex, cleanup this
 // Shape for Pooling.
 template <typename OP_TYPE, typename OP_ADAPTOR>
 struct ONNXPoolOpShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {

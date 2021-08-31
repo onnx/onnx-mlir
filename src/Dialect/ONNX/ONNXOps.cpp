@@ -2049,10 +2049,36 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
 // AveragePool
 //===----------------------------------------------------------------------===//
 
-// Infer shape attributes output:
-//   -  auto_pad set to NOTSET;
-//   -  strides: set to 1 if not defined by user;
-//   -  pads: set to proper value, 0 if not defined by user.
+static LogicalResult verify(ONNXAveragePoolOp op) {
+  ONNXAveragePoolOpAdaptor operandAdaptor =
+      ONNXAveragePoolOpAdaptor(op);
+
+  // Mandatory and unsupported parameters.
+  if (!op.kernel_shape())
+    return op.emitError("kernel_shape is a mandatory attribute");
+  // Get spatial rank from mandatory kernel_shape parameter.
+  int64_t spatialRank = op.kernel_shape().size();
+  if (spatialRank < 1)
+    return op.emitError("Spatial rank must be strictly positive");
+
+  // Get operands.
+  auto X = operandAdaptor.X();
+  if (X.getType().isa<RankedTensorType>()) {
+    auto xShape = X.getType().cast<RankedTensorType>().getShape();
+    if ((int64_t)xShape.size() - 2 != spatialRank)
+      return op->emitError("Input and kernel shape rank mismatch");
+  }
+
+  // Verify parameters.
+  if (failed(verifyKernelShape<ONNXAveragePoolOp>(
+          &op, nullptr, op.kernel_shape(), spatialRank)))
+    return failure();
+  if (failed(verifyStrides<ONNXAveragePoolOp>(&op, spatialRank)))
+    return failure();
+  if (failed(verifyPadding<ONNXAveragePoolOp>(&op, spatialRank)))
+    return failure();
+  return success();
+}
 
 LogicalResult ONNXAveragePoolOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -2060,40 +2086,14 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
   if (!X().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
-  // Get shape of input.
-  auto xTy = X().getType().cast<RankedTensorType>();
-  auto xShape = xTy.getShape();
-
-  // Kernel shape.
-  auto kernelShape = kernel_shape();
-  if (!kernelShape)
-    return emitError("kernel_shape is a mandatory attribute for which there "
-                     "is no default");
-
-  // Ceil mode.
-  auto ceilMode = ceil_mode();
-
-  // Process strides and pads.
-  LogicalResult res =
-      processConvStrideParam<ONNXAveragePoolOp>(this, kernelShape);
-  if (failed(res))
-    return res;
-  auto stridesOpt = strides();
-  res = processConvPadParam<ONNXAveragePoolOp>(
-      this, xShape, kernelShape, stridesOpt, llvm::None);
-  if (failed(res))
-    return res;
-  auto padsOpt = pads();
-
   // Infer shape for the output.
   ONNXAveragePoolOpAdaptor operandAdaptor(*this);
-  ONNXPoolOpShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>
-      shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor, kernelShape, padsOpt,
-          stridesOpt, llvm::None, ceilMode)))
+  ONNXAveragePoolOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan AveragePool parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
+  auto xTy = X().getType().cast<RankedTensorType>();
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return success();
 }
@@ -2105,20 +2105,26 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
 static LogicalResult verify(ONNXMaxPoolSingleOutOp op) {
   ONNXMaxPoolSingleOutOpAdaptor operandAdaptor =
       ONNXMaxPoolSingleOutOpAdaptor(op);
+
+  // Mandatory and unsupported parameters.
+  if (!op.kernel_shape())
+    return op.emitError("kernel_shape is a mandatory attribute");
+  // Get spatial rank from mandatory kernel_shape parameter.
+  int64_t spatialRank = op.kernel_shape().size();
+  if (spatialRank < 1)
+    return op.emitError("Spatial rank must be strictly positive");
+  // Not supported for storage order in column major mode.
+  if (op.storage_order() != 0)
+    return op.emitError("Column major storage order not implemented yet");
+
   // Get operands.
   auto X = operandAdaptor.X();
-  // Get spatial rank from mandatory kernel_shape parameter/
-  int64_t spatialRank = op.kernel_shape().size();
-
-  // If ranked, verify ranks of inputs.
-  if (spatialRank < 1)
-    return op->emitError("Spatial rank must be strictly positive");
-
   if (X.getType().isa<RankedTensorType>()) {
     auto xShape = X.getType().cast<RankedTensorType>().getShape();
     if ((int64_t)xShape.size() - 2 != spatialRank)
       return op->emitError("Input and kernel shape rank mismatch");
   }
+
   // Verify parameters.
   if (failed(verifyKernelShape<ONNXMaxPoolSingleOutOp>(
           &op, nullptr, op.kernel_shape(), spatialRank)))
@@ -2132,35 +2138,21 @@ static LogicalResult verify(ONNXMaxPoolSingleOutOp op) {
   return success();
 }
 
-// Infer shape attributes output:
-//   -  auto_pad set to NOTSET;
-//   -  dilations, strides: set to 1 if not defined by user;
-//   -  pads: set to proper value, 0 if not defined by user.
-
 LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
-  // Verify parameters:
-  // * mandatory for kernel shape, 
+  // Verify parameters: mandatory for kernel shape.
   auto kernelShape = kernel_shape();
-  if (!kernelShape)
-    return emitError("kernel_shape is a mandatory attribute for which there "
-                     "is no default");
-  // not supported for storage order in column major mode
-  auto storageOrder = storage_order();
-  if (storageOrder != 0)
-    return emitError("Column major storage order not implemented yet");
-  // Ceil mode.
-  //auto ceilMode = ceil_mode();
+  assert(kernelShape && "verified that we had kernel shape");
 
   // Infer shape for the output.
   ONNXMaxPoolSingleOutOpAdaptor operandAdaptor(*this);
   ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(this);
   if (failed(shapeHelper.Compute(operandAdaptor)))
-    return emitError("Failed to scan Conv parameters successfully");
+    return emitError("Failed to scan MaxPool parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
   auto xTy = X().getType().cast<RankedTensorType>();
