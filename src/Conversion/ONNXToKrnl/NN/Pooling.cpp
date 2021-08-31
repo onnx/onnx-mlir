@@ -147,13 +147,13 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
 // Helper function to do post-processing after applying a filter window.
 //
 template <typename PoolOp>
-void postProcessNewPoolingWindow(ConversionPatternRewriter &rewriter,
+void postProcessPoolingWindow(ConversionPatternRewriter &rewriter,
     Location loc, PoolOp poolOp, Value alloc, ArrayRef<Value> resultIndices,
     ArrayRef<IndexExpr> kernelShape, ArrayRef<Value> poolDimValues) {}
 
 // Calculate the average value for AveragePool.
 template <>
-void postProcessNewPoolingWindow<ONNXAveragePoolOp>(
+void postProcessPoolingWindow<ONNXAveragePoolOp>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXAveragePoolOp poolOp,
     Value alloc, ArrayRef<Value> resultIndices, ArrayRef<IndexExpr> kernelShape,
     ArrayRef<Value> poolDimValues) {
@@ -191,8 +191,8 @@ void postProcessNewPoolingWindow<ONNXAveragePoolOp>(
 // Template function that does pooling.
 //
 template <typename PoolOp, typename PoolOpAdaptor, typename PoolOpShapeHelper>
-struct ONNXNewPoolOpLowering : public ConversionPattern {
-  ONNXNewPoolOpLowering(MLIRContext *ctx)
+struct ONNXPoolOpLowering : public ConversionPattern {
+  ONNXPoolOpLowering(MLIRContext *ctx)
       : ConversionPattern(PoolOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -474,7 +474,7 @@ struct ONNXNewPoolOpLowering : public ConversionPattern {
       SmallVector<Value, 4> outputIndicesInValue;
       for (IndexExpr expr : outputIndices)
         outputIndicesInValue.emplace_back(expr.getValue());
-      postProcessNewPoolingWindow<PoolOp>(rewriter, loc, poolOp, alloc,
+      postProcessPoolingWindow<PoolOp>(rewriter, loc, poolOp, alloc,
           outputIndicesInValue, shapeHelper.kernelShape, fullWindowSize);
     }
 
@@ -489,8 +489,8 @@ struct ONNXNewPoolOpLowering : public ConversionPattern {
 
 void populateLoweringONNXPoolingOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXNewPoolOpLowering<ONNXMaxPoolSingleOutOp,
+  patterns.insert<ONNXPoolOpLowering<ONNXMaxPoolSingleOutOp,
       ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>>(ctx);
-  patterns.insert<ONNXNewPoolOpLowering<ONNXAveragePoolOp,
+  patterns.insert<ONNXPoolOpLowering<ONNXAveragePoolOp,
       ONNXAveragePoolOpAdaptor, ONNXAveragePoolOpShapeHelper>>(ctx);
 }
