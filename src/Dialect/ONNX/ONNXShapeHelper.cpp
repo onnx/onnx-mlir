@@ -1004,7 +1004,7 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::Compute(
     outputDims.emplace_back(WBounds.getDim(0)); // CO may be different from CI.
   else
     outputDims.emplace_back(XBounds.getDim(1)); // CO is CI.
-    
+
   // Insert dimensions for the spatial axes. From MaxPool:
   // https://github.com/onnx/onnx/blob/master/docs/Operators.md#maxpool
   //
@@ -1152,17 +1152,16 @@ LogicalResult ONNXMaxPoolSingleOutOpShapeHelper::Compute(
 
 ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(
     ONNXAveragePoolOp *newOp)
-    : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp,
-          ONNXAveragePoolOpAdaptor>(
+    : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>(
           newOp, false /*hasFilter*/, newOp->ceil_mode()) {}
 
 ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(
     ONNXAveragePoolOp *newOp, ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp,
-          ONNXAveragePoolOpAdaptor>(newOp, false /*hasFilter*/,
-          newOp->ceil_mode(), rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>(
+          newOp, false /*hasFilter*/, newOp->ceil_mode(), rewriter,
+          fGetDenseVal, fLoadVal) {}
 
 LogicalResult ONNXAveragePoolOpShapeHelper::Compute(
     ONNXAveragePoolOpAdaptor operandAdaptor) {

@@ -2050,8 +2050,7 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 static LogicalResult verify(ONNXAveragePoolOp op) {
-  ONNXAveragePoolOpAdaptor operandAdaptor =
-      ONNXAveragePoolOpAdaptor(op);
+  ONNXAveragePoolOpAdaptor operandAdaptor = ONNXAveragePoolOpAdaptor(op);
 
   // Mandatory and unsupported parameters.
   if (!op.kernel_shape())
