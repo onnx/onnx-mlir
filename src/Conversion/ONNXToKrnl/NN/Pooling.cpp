@@ -147,8 +147,8 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
 // Helper function to do post-processing after applying a filter window.
 //
 template <typename PoolOp>
-void postProcessPoolingWindow(ConversionPatternRewriter &rewriter,
-    Location loc, PoolOp poolOp, Value alloc, ArrayRef<Value> resultIndices,
+void postProcessPoolingWindow(ConversionPatternRewriter &rewriter, Location loc,
+    PoolOp poolOp, Value alloc, ArrayRef<Value> resultIndices,
     ArrayRef<IndexExpr> kernelShape, ArrayRef<Value> poolDimValues) {}
 
 // Calculate the average value for AveragePool.
