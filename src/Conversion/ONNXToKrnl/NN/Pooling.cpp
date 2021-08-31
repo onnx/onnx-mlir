@@ -538,8 +538,8 @@ struct ONNXNewPoolOpLowering : public ConversionPattern {
     // Kernel offset in the input shape.
     int kernelShapeSize = shapeHelper.kernelShape.size();
     int kernelOffset = inputShape.size() - kernelShapeSize;
-    bool isDilated = true; // Simplify interface, as new shape helper has it
-                           // explicit no matter what.
+    bool isDilated = poolOp.dilations().hasValue();
+
     // Scope for krnl ops
     IndexExprScope ieScope(rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
@@ -677,7 +677,7 @@ struct ONNXNewPoolOpLowering : public ConversionPattern {
           // s1, kernel dim
           ic.emplace_back(SymbolIndexExpr(shapeHelper.kernelShape[i]));
           // s2, pad dim
-          ic.emplace_back(LiteralIndexExpr(shapeHelper.pads[i]));
+          ic.emplace_back(SymbolIndexExpr(shapeHelper.pads[i]));
           // s3, stride dim
           ic.emplace_back(LiteralIndexExpr(shapeHelper.strides[i]));
           // s4, dilation dim
