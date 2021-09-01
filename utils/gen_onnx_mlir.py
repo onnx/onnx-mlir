@@ -356,7 +356,7 @@ OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Gemm', 'Cast', 'Transpos
                         'Reshape']
 
 # Operations with custom verifiers.
-OpsWithVerifier = ['Conv']
+OpsWithVerifier = ['AveragePool', 'Conv']
 
 OpsWithHelpers = {
   "Loop": """

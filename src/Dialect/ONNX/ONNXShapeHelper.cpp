@@ -939,31 +939,40 @@ LogicalResult ONNXLRNOpShapeHelper::Compute(ONNXLRNOpAdaptor operandAdaptor) {
 }
 
 //===----------------------------------------------------------------------===//
-// ONNX Conv Op Shape Helper
+// ONNX Generic Pooling Op Shape Helper
 //===----------------------------------------------------------------------===//
-ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp)
-    : ONNXOpShapeHelper<ONNXConvOp>(newOp) {}
 
-ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp,
+template <typename OP_TYPE, typename OP_ADAPTOR>
+ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::ONNXGenericPoolShapeHelper(
+    OP_TYPE *newOp, bool hasFilter, bool ceilMode)
+    : ONNXOpShapeHelper<OP_TYPE>(newOp), hasFilter(hasFilter),
+      ceilMode(ceilMode) {}
+
+template <typename OP_TYPE, typename OP_ADAPTOR>
+ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::ONNXGenericPoolShapeHelper(
+    OP_TYPE *newOp, bool hasFilter, bool ceilMode,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXConvOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXOpShapeHelper<OP_TYPE>(newOp, rewriter, fGetDenseVal, fLoadVal),
+      hasFilter(hasFilter), ceilMode(ceilMode) {}
 
-LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
+template <typename OP_TYPE, typename OP_ADAPTOR>
+LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::Compute(
+    OP_ADAPTOR operandAdaptor, Value filterValue,
+    Optional<ArrayAttr> kernelShapeOpt, Optional<ArrayAttr> padOpt,
+    Optional<ArrayAttr> strideOpt, Optional<ArrayAttr> dilationOpt) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Basic information.
-  int64_t rank = operandAdaptor.X().getType().cast<ShapedType>().getRank();
+  Value xValue = (Value)operandAdaptor.X();
+  int64_t rank = xValue.getType().cast<ShapedType>().getRank();
   int64_t spatialOffset = 2;
   int64_t spatialRank = rank - spatialOffset;
 
   MemRefBoundsIndexCapture XBounds(operandAdaptor.X());
-  MemRefBoundsIndexCapture WBounds(operandAdaptor.W());
+  MemRefBoundsIndexCapture WBounds(filterValue);
 
-  // Fill in the stride, dilation, and kernel arrays.
-  auto strideOpt = op->strides();
-  auto dilationOpt = op->dilations();
-  auto kernelShapeOpt = op->kernel_shape();
+  // Fill the stride, dilation, kernel.
   for (int i = 0; i < spatialRank; ++i) {
     // Strides, default 1.
     strides.emplace_back(
@@ -973,15 +982,16 @@ LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
         dilationOpt.hasValue() ? ArrayAttrIntVal(dilationOpt, i) : 1);
     // Kernel shape from attribute, default from Weight's spatial dims.
     if (kernelShapeOpt.hasValue()) {
-      kernelShapes.emplace_back(
+      kernelShape.emplace_back(
           LiteralIndexExpr(ArrayAttrIntVal(kernelShapeOpt, i)));
-    } else {
+    } else if (hasFilter) {
       int ii = i + spatialOffset;
-      kernelShapes.emplace_back(WBounds.getSymbol(ii));
+      kernelShape.emplace_back(WBounds.getSymbol(ii));
+    } else {
+      llvm_unreachable("should have tested the availability of kernel shape");
     }
   }
   // Pads, at this stage a given compile-time literal or default 0.
-  auto padOpt = op->pads();
   for (int i = 0; i < 2 * spatialRank; ++i) {
     int64_t p = padOpt.hasValue() ? ArrayAttrIntVal(padOpt, i) : 0;
     pads.emplace_back(LiteralIndexExpr(p));
@@ -990,7 +1000,10 @@ LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
   // Handle output size: start by inserting batch size and output channels.
   DimsExpr outputDims;
   outputDims.emplace_back(XBounds.getDim(0));
-  outputDims.emplace_back(WBounds.getDim(0));
+  if (hasFilter)
+    outputDims.emplace_back(WBounds.getDim(0)); // CO may be different from CI.
+  else
+    outputDims.emplace_back(XBounds.getDim(1)); // CO is CI.
 
   // Insert dimensions for the spatial axes. From MaxPool:
   // https://github.com/onnx/onnx/blob/master/docs/Operators.md#maxpool
@@ -1004,28 +1017,33 @@ LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
   // * O[i] = ceil(I[i] / s[i])
   // * p' = (O[i] - 1) * s[i] + ((K[i] - 1) * d[i] + 1) - I[i]
   // * P[i] = p' / 2, if odd, first or second are increased by one.
-  auto autoPad = op->auto_pad();
+  auto autoPad = ONNXOpShapeHelper<OP_TYPE>::op->auto_pad();
   LiteralIndexExpr zero(0);
   LiteralIndexExpr one(1);
   for (int64_t i = 0; i < spatialRank; ++i) {
     int64_t ii = i + spatialOffset;
     IndexExpr I = XBounds.getDim(ii);
-    IndexExpr K = kernelShapes[i];
+    IndexExpr K = kernelShape[i];
     LiteralIndexExpr d(dilations[i]);
     LiteralIndexExpr s(strides[i]);
     IndexExpr t1 = K - one;
     IndexExpr kdTerm = t1 * d + one; // (k - 1) * d + 1
     if (autoPad == "NOTSET") {
       IndexExpr p = pads[i] + pads[i + spatialRank]; // Sum both pads.
-      IndexExpr t1 = I + p; // Compute floor((I + p - kdTerm) / s) + 1.
+      IndexExpr t1 = I + p; // Compute floor/ceil((I + p - kdTerm) / s) + 1.
       IndexExpr t2 = t1 - kdTerm;
-      IndexExpr O = t2.floorDiv(s) + one;
+      IndexExpr O;
+      if (ceilMode)
+        O = t2.ceilDiv(s);
+      else
+        O = t2.floorDiv(s);
+      O = O + one;
       // Set output dim, and pads already set, nothing more to do.
       outputDims.emplace_back(O);
     } else if (autoPad == "VALID") {
       IndexExpr t1 = I - kdTerm; // Compute ceil((I - kdTerm +1)/s).
       IndexExpr t2 = t1 + one;
-      IndexExpr O = t2.floorDiv(s);
+      IndexExpr O = t2.ceilDiv(s);
       // Set output dim, and pads already set to zero, nothing more to do.
       outputDims.emplace_back(O);
     } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
@@ -1077,76 +1095,80 @@ LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
 #endif
 
   // Set type for the first output.
-  dimsForOutput(0) = outputDims;
+  ONNXOpShapeHelper<OP_TYPE>::dimsForOutput(0) = outputDims;
   return success();
 }
 
 //===----------------------------------------------------------------------===//
-// ONNX Pooling Ops Shape Helper
+// ONNX Conv Op Shape Helper
 //===----------------------------------------------------------------------===//
-template <typename OP_TYPE, typename OP_ADAPTOR>
-ONNXPoolOpShapeHelper<OP_TYPE, OP_ADAPTOR>::ONNXPoolOpShapeHelper(
-    OP_TYPE *newOp)
-    : ONNXOpShapeHelper<OP_TYPE>(newOp) {}
 
-template <typename OP_TYPE, typename OP_ADAPTOR>
-ONNXPoolOpShapeHelper<OP_TYPE, OP_ADAPTOR>::ONNXPoolOpShapeHelper(
-    OP_TYPE *newOp, ConversionPatternRewriter &rewriter,
+ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp)
+    : ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>(
+          newOp, true /*hasFilter*/, false /*hasCeil*/) {}
+
+ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp,
+    ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<OP_TYPE>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>(newOp,
+          true /*hasFilter*/, false /*hasCeil*/, rewriter, fGetDenseVal,
+          fLoadVal) {}
 
-template <typename OP_TYPE, typename OP_ADAPTOR>
-LogicalResult ONNXPoolOpShapeHelper<OP_TYPE, OP_ADAPTOR>::Compute(
-    OP_ADAPTOR operandAdaptor, Optional<ArrayAttr> kernelShape,
-    Optional<ArrayAttr> pads, Optional<ArrayAttr> strides,
-    Optional<ArrayAttr> dilations, bool ceilMode) {
-  // Shape inference indicated by passing a null rewriter pointer.
-  // Basic information.
-  Value xValue = (Value)operandAdaptor.X();
-  auto xRank = xValue.getType().cast<ShapedType>().getRank();
-  int64_t kernelRank = ArrayAttrSize(kernelShape);
-  int64_t spatialOffset = 2;
-
-  DimsExpr outputDims;
-  MemRefBoundsIndexCapture XBounds(xValue);
-
-  // Insert batch size.
-  outputDims.emplace_back(XBounds.getDim(0));
-  // Insert channel size.
-  outputDims.emplace_back(XBounds.getDim(1));
-  // Insert dimensions for the spatial axes.
-  for (decltype(xRank) i = spatialOffset; i < xRank; ++i) {
-    int spatialIndex = i - spatialOffset;
-    IndexExpr input = XBounds.getDim(i);
-    LiteralIndexExpr kernel(ArrayAttrIntVal(kernelShape, spatialIndex));
-    LiteralIndexExpr stride(ArrayAttrIntVal(strides, spatialIndex));
-    LiteralIndexExpr pad(ArrayAttrIntVal(pads, spatialIndex) +
-                         ArrayAttrIntVal(pads, spatialIndex + kernelRank));
-    LiteralIndexExpr dilation;
-    if (!dilations.hasValue())
-      dilation = LiteralIndexExpr(1);
-    else
-      dilation =
-          LiteralIndexExpr(ArrayAttrIntVal(dilations.getValue(), spatialIndex));
-
-    IndexExpr dimExp;
-    if (ceilMode)
-      dimExp = (input + pad - (kernel - 1) * dilation - 1).ceilDiv(stride) + 1;
-    else
-      dimExp = (input + pad - (kernel - 1) * dilation - 1).floorDiv(stride) + 1;
-    outputDims.emplace_back(dimExp);
-  }
-
-  // Set type for the first output.
-  this->dimsForOutput(0) = outputDims;
-  return success();
+LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
+  return ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>::Compute(
+      operandAdaptor, operandAdaptor.W(), op->kernel_shape(), op->pads(),
+      op->strides(), op->dilations());
 }
 
-template struct ONNXPoolOpShapeHelper<ONNXMaxPoolSingleOutOp,
-    ONNXMaxPoolSingleOutOpAdaptor>;
-template struct ONNXPoolOpShapeHelper<ONNXAveragePoolOp,
-    ONNXAveragePoolOpAdaptor>;
+//===----------------------------------------------------------------------===//
+// ONNX Max Pool Single Out Ops Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXMaxPoolSingleOutOpShapeHelper::ONNXMaxPoolSingleOutOpShapeHelper(
+    ONNXMaxPoolSingleOutOp *newOp)
+    : ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
+          ONNXMaxPoolSingleOutOpAdaptor>(
+          newOp, false /*hasFilter*/, newOp->ceil_mode()) {}
+
+ONNXMaxPoolSingleOutOpShapeHelper::ONNXMaxPoolSingleOutOpShapeHelper(
+    ONNXMaxPoolSingleOutOp *newOp, ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
+          ONNXMaxPoolSingleOutOpAdaptor>(newOp, false /*hasFilter*/,
+          newOp->ceil_mode(), rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXMaxPoolSingleOutOpShapeHelper::Compute(
+    ONNXMaxPoolSingleOutOpAdaptor operandAdaptor) {
+  return ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
+      ONNXMaxPoolSingleOutOpAdaptor>::Compute(operandAdaptor, nullptr,
+      op->kernel_shape(), op->pads(), op->strides(), op->dilations());
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Max Pool Single Out Ops Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(
+    ONNXAveragePoolOp *newOp)
+    : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>(
+          newOp, false /*hasFilter*/, newOp->ceil_mode()) {}
+
+ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(
+    ONNXAveragePoolOp *newOp, ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>(
+          newOp, false /*hasFilter*/, newOp->ceil_mode(), rewriter,
+          fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXAveragePoolOpShapeHelper::Compute(
+    ONNXAveragePoolOpAdaptor operandAdaptor) {
+  return ONNXGenericPoolShapeHelper<ONNXAveragePoolOp,
+      ONNXAveragePoolOpAdaptor>::Compute(operandAdaptor, nullptr,
+      op->kernel_shape(), op->pads(), op->strides(), None);
+}
 
 //===----------------------------------------------------------------------===//
 // ONNX Reshape Op Shape Helper

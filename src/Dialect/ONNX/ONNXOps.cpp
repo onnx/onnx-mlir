@@ -1580,16 +1580,20 @@ LogicalResult ONNXReduceSumV11Op::inferShapes(
 // Conv
 //===----------------------------------------------------------------------===//
 
+// For ops without filter, pass nullptr in filterOperand.
 template <class T>
-static LogicalResult verifyKernelShape(
-    T *op, int64_t spatialRank, Value filterOperand) {
+static LogicalResult verifyKernelShape(T *op, Value filterOperand,
+    Optional<ArrayAttr> kernelShapeOpt, int64_t spatialRank) {
   // 1) Get shape of filter. Shape is not guaranteed to be compile time
   // constant.
-  auto filterShape =
-      filterOperand.getType().cast<RankedTensorType>().getShape();
-  // 2) Get kernel_shape attribute.
-  auto kernelShape = op->kernel_shape();
-  if (!kernelShape.hasValue()) {
+  ArrayRef<int64_t> filterShape =
+      filterOperand
+          ? filterOperand.getType().cast<RankedTensorType>().getShape()
+          : ArrayRef<int64_t>();
+  // 2) Get kernel_shape attribute
+  if (!kernelShapeOpt.hasValue()) {
+    assert(
+        filterOperand && "ops without filter have mandatory kernel_shape arg");
     // Don't have a kernel shape explicitly, still make sure that the filter
     // shape are fine if known. If size is negative, ok since this is runtime.
     // If positive, ok since it must be strictly positive. If zero, that is bad.
@@ -1599,18 +1603,21 @@ static LogicalResult verifyKernelShape(
     return success();
   }
   // 3) Verify that we have the right number.
-  if ((int64_t)ArrayAttrSize(kernelShape) != spatialRank)
+  if ((int64_t)ArrayAttrSize(kernelShapeOpt) != spatialRank)
     return op->emitError(
         "kernel_shape length incompatible with spatial dimensions");
   // 4) Verify that they are all positive.
   for (int i = 0; i < spatialRank; ++i) {
-    auto attrSize = ArrayAttrIntVal(kernelShape, i);
+    auto attrSize = ArrayAttrIntVal(kernelShapeOpt, i);
     if (attrSize < 1)
       return op->emitError("Bad kernel_shape value: must be strictly positive");
-    auto filterSize = filterShape[2 + i];
-    if (filterSize >= 0 && filterSize != attrSize)
-      return op->emitError(
-          "Bad kernel_shape value: does not match filter sizes");
+    if (filterOperand) {
+      // Has a shape from filter, make sure its consistent.
+      auto filterSize = filterShape[2 + i];
+      if (filterSize >= 0 && filterSize != attrSize)
+        return op->emitError(
+            "Bad kernel_shape value: does not match filter sizes");
+    }
   }
   return success();
 }
@@ -1741,7 +1748,8 @@ static LogicalResult verify(ONNXConvOp op) {
           "Bias should have same dimension as first dimension of weights");
   }
   // Verify parameters.
-  if (failed(verifyKernelShape<ONNXConvOp>(&op, spatialRank, W)))
+  if (failed(verifyKernelShape<ONNXConvOp>(
+          &op, W, op.kernel_shape(), spatialRank)))
     return failure();
   if (failed(verifyStrides<ONNXConvOp>(&op, spatialRank)))
     return failure();
@@ -1755,11 +1763,11 @@ static LogicalResult verify(ONNXConvOp op) {
 // For this operation, we define the attributes once in the original Conv
 // operation class. There is no need to redefine the attribute names for the
 // other classes based on Conv.
-// Conv attributes output:
-//   -  auto_pad set to NOTSET;
+// Conv attributes output: no changes to the op but the output.
+// ShapeHelper get
 //   -  dilations, strides: set to 1 if not defined by user;
 //   -  kernelShape: inferred from weight matrix if not defined by user;
-//   -  pads: set to proper value, 0 if not defined by user.
+//   -  pads: set to proper value
 
 LogicalResult ONNXConvOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -2041,10 +2049,35 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
 // AveragePool
 //===----------------------------------------------------------------------===//
 
-// Infer shape attributes output:
-//   -  auto_pad set to NOTSET;
-//   -  strides: set to 1 if not defined by user;
-//   -  pads: set to proper value, 0 if not defined by user.
+static LogicalResult verify(ONNXAveragePoolOp op) {
+  ONNXAveragePoolOpAdaptor operandAdaptor = ONNXAveragePoolOpAdaptor(op);
+
+  // Mandatory and unsupported parameters.
+  if (!op.kernel_shape())
+    return op.emitError("kernel_shape is a mandatory attribute");
+  // Get spatial rank from mandatory kernel_shape parameter.
+  int64_t spatialRank = op.kernel_shape().size();
+  if (spatialRank < 1)
+    return op.emitError("Spatial rank must be strictly positive");
+
+  // Get operands.
+  auto X = operandAdaptor.X();
+  if (X.getType().isa<RankedTensorType>()) {
+    auto xShape = X.getType().cast<RankedTensorType>().getShape();
+    if ((int64_t)xShape.size() - 2 != spatialRank)
+      return op->emitError("Input and kernel shape rank mismatch");
+  }
+
+  // Verify parameters.
+  if (failed(verifyKernelShape<ONNXAveragePoolOp>(
+          &op, nullptr, op.kernel_shape(), spatialRank)))
+    return failure();
+  if (failed(verifyStrides<ONNXAveragePoolOp>(&op, spatialRank)))
+    return failure();
+  if (failed(verifyPadding<ONNXAveragePoolOp>(&op, spatialRank)))
+    return failure();
+  return success();
+}
 
 LogicalResult ONNXAveragePoolOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -2052,40 +2085,14 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
   if (!X().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
-  // Get shape of input.
-  auto xTy = X().getType().cast<RankedTensorType>();
-  auto xShape = xTy.getShape();
-
-  // Kernel shape.
-  auto kernelShape = kernel_shape();
-  if (!kernelShape)
-    return emitError("kernel_shape is a mandatory attribute for which there "
-                     "is no default");
-
-  // Ceil mode.
-  auto ceilMode = ceil_mode();
-
-  // Process strides and pads.
-  LogicalResult res =
-      processConvStrideParam<ONNXAveragePoolOp>(this, kernelShape);
-  if (failed(res))
-    return res;
-  auto stridesOpt = strides();
-  res = processConvPadParam<ONNXAveragePoolOp>(
-      this, xShape, kernelShape, stridesOpt, llvm::None);
-  if (failed(res))
-    return res;
-  auto padsOpt = pads();
-
   // Infer shape for the output.
   ONNXAveragePoolOpAdaptor operandAdaptor(*this);
-  ONNXPoolOpShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>
-      shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor, kernelShape, padsOpt,
-          stridesOpt, llvm::None, ceilMode)))
+  ONNXAveragePoolOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan AveragePool parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
+  auto xTy = X().getType().cast<RankedTensorType>();
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return success();
 }
@@ -2094,10 +2101,41 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
 // MaxPoolSingleOut
 //===----------------------------------------------------------------------===//
 
-// Infer shape attributes output:
-//   -  auto_pad set to NOTSET;
-//   -  dilations, strides: set to 1 if not defined by user;
-//   -  pads: set to proper value, 0 if not defined by user.
+static LogicalResult verify(ONNXMaxPoolSingleOutOp op) {
+  ONNXMaxPoolSingleOutOpAdaptor operandAdaptor =
+      ONNXMaxPoolSingleOutOpAdaptor(op);
+
+  // Mandatory and unsupported parameters.
+  if (!op.kernel_shape())
+    return op.emitError("kernel_shape is a mandatory attribute");
+  // Get spatial rank from mandatory kernel_shape parameter.
+  int64_t spatialRank = op.kernel_shape().size();
+  if (spatialRank < 1)
+    return op.emitError("Spatial rank must be strictly positive");
+  // Not supported for storage order in column major mode.
+  if (op.storage_order() != 0)
+    return op.emitError("Column major storage order not implemented yet");
+
+  // Get operands.
+  auto X = operandAdaptor.X();
+  if (X.getType().isa<RankedTensorType>()) {
+    auto xShape = X.getType().cast<RankedTensorType>().getShape();
+    if ((int64_t)xShape.size() - 2 != spatialRank)
+      return op->emitError("Input and kernel shape rank mismatch");
+  }
+
+  // Verify parameters.
+  if (failed(verifyKernelShape<ONNXMaxPoolSingleOutOp>(
+          &op, nullptr, op.kernel_shape(), spatialRank)))
+    return failure();
+  if (failed(verifyStrides<ONNXMaxPoolSingleOutOp>(&op, spatialRank)))
+    return failure();
+  if (failed(verifyDilations<ONNXMaxPoolSingleOutOp>(&op, spatialRank)))
+    return failure();
+  if (failed(verifyPadding<ONNXMaxPoolSingleOutOp>(&op, spatialRank)))
+    return failure();
+  return success();
+}
 
 LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -2105,39 +2143,18 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
   if (!X().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
-  // Get shape of input.
-  auto xTy = X().getType().cast<RankedTensorType>();
-
-  // Kernel shape.
+  // Verify parameters: mandatory for kernel shape.
   auto kernelShape = kernel_shape();
-  if (!kernelShape)
-    return emitError("kernel_shape is a mandatory attribute for which there "
-                     "is no default");
-
-  // Storage order.
-  auto storageOrder = storage_order();
-  if (storageOrder != 0)
-    return emitError("Column major storage order not implemented yet");
-
-  // Process strides, dilations, and pads.
-  LogicalResult res = processConvTypeParams<>(this, X());
-  assert(succeeded(res));
-  auto dilationsOpt = dilations();
-  auto stridesOpt = strides();
-  auto padsOpt = pads();
-
-  // Ceil mode.
-  auto ceilMode = ceil_mode();
+  assert(kernelShape && "verified that we had kernel shape");
 
   // Infer shape for the output.
   ONNXMaxPoolSingleOutOpAdaptor operandAdaptor(*this);
-  ONNXPoolOpShapeHelper<ONNXMaxPoolSingleOutOp, ONNXMaxPoolSingleOutOpAdaptor>
-      shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor, kernelShape, padsOpt,
-          stridesOpt, dilationsOpt, ceilMode)))
+  ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan MaxPool parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
+  auto xTy = X().getType().cast<RankedTensorType>();
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return success();
 }
