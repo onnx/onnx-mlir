@@ -15,10 +15,10 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
-bool gEmitDealloc = true;
+extern bool gEmitDealloc = true;
 // Default value should be changed for target with SIMD width of more than 16
 // bytes.
-int64_t gDefaultAllocAlign = 16;
+extern int64_t gDefaultAllocAlign = 16;
 
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values) {
