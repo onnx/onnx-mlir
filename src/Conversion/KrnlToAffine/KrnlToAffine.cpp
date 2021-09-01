@@ -886,7 +886,7 @@ private:
     int64_t unrollFactor = (unrollJam && J.isLiteral()) ? J.getLiteral() : 1;
     // Have to privatize CTmpType by unroll factor (1 if none).
     MemRefType CTmpType = MemRefType::get({unrollFactor}, elementType);
-    assert(BUFFER_ALIGN >= defaultAllocAlign);
+    assert(BUFFER_ALIGN >= gDefaultAllocAlign);
     IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
     Value TmpC = lb.create<memref::AllocaOp>(CTmpType, constAlignAttr);
 
@@ -964,7 +964,7 @@ private:
     KrnlBuilder createKrnl(rewriter, loc);
     Value vecB = createKrnl.vectorTypeCast(B, VL);
     Value vecC = createKrnl.vectorTypeCast(C, VL);
-    assert(BUFFER_ALIGN >= defaultAllocAlign);
+    assert(BUFFER_ALIGN >= gDefaultAllocAlign);
     IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
     Value TmpC = lb.create<memref::AllocaOp>(CTmpType, alignAttr);
 

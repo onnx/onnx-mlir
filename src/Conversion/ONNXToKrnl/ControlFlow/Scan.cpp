@@ -249,7 +249,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
             }
           }
         }
-        IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+        IntegerAttr alignAttr = rewriter.getI64IntegerAttr(gDefaultAllocAlign);
         alloc = rewriter.create<memref::AllocOp>(
             loc, rankedScanOutTy, allocParams, alignAttr);
       }

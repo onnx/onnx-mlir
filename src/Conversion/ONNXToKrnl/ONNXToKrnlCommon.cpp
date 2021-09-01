@@ -18,7 +18,7 @@
 bool gEmitDealloc = true;
 // Default value should be changed for target with SIMD width of more than 16
 // bytes.
-int64_t defaultAllocAlign = 16;
+int64_t gDefaultAllocAlign = 16;
 
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values) {
@@ -47,7 +47,7 @@ MemRefType convertToMemRefType(Type type) {
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, Value operand,
     int64_t alignment) {
-  alignment = (alignment > defaultAllocAlign ? alignment : defaultAllocAlign);
+  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
   IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
   // Put together alloc operands for any dynamic dimensions of the memref.
   memref::AllocOp alloc;
@@ -98,7 +98,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
     return insertAllocAndDealloc(
         type, loc, rewriter, insertDealloc, nullptr, alignment);
   // Otherwise, take the unkown operands from the output dim IndexExpressions
-  alignment = (alignment > defaultAllocAlign ? alignment : defaultAllocAlign);
+  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
   IntegerAttr alignAttr = rewriter.getI64IntegerAttr(alignment);
   SmallVector<Value, 2> allocOperands;
   auto memRefShape = type.getShape();

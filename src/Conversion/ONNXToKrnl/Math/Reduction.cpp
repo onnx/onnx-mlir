@@ -212,7 +212,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
           allocOperands.push_back(dim);
         }
       }
-      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(gDefaultAllocAlign);
       alloc = rewriter.create<memref::AllocOp>(
           loc, memRefOutType, allocOperands, alignAttr);
       if (insertDealloc) {
@@ -445,7 +445,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           allocOperands.push_back(dim);
         }
       }
-      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(gDefaultAllocAlign);
       alloc = rewriter.create<memref::AllocOp>(
           loc, memRefOutType, allocOperands, alignAttr);
       if (insertDealloc) {

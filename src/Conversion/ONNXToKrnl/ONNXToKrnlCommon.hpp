@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
+//====------   - ONNX dialects to Krnl lowering --------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -46,6 +46,10 @@ using namespace mlir;
 // A global variable to indicate whether this pass will emit dealloc for
 // allocated memrefs or not.
 extern bool gEmitDealloc;
+
+// Default alignment attribute for all allocation of memory. On most system, it
+// is 16 bytes.
+extern int64_t gDefaultAllocAlign;
 
 //===----------------------------------------------------------------------===//
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
@@ -363,7 +367,3 @@ Location ONNXLoc(Operation *op) {
       Identifier::get(OP_TYPE::getOperationName(), op->getContext()),
       op->getLoc());
 }
-
-// Default alignment attribute for all allocation of memory. On most system, it
-// is 16 bytes.
-extern int64_t defaultAllocAlign;

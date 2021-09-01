@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
 
@@ -57,7 +58,7 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
         auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
         allocOperands.emplace_back(dim);
       }
-      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(gDefaultAllocAlign);
       alloc = lb.create<memref::AllocOp>(memRefType, allocOperands, alignAttr);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
@@ -100,7 +101,7 @@ Value allocIntermediateState(
       auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
       allocOperands.emplace_back(dim);
     }
-    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(gDefaultAllocAlign);
     alloc = lb.create<memref::AllocOp>(memRefType, allocOperands, alignAttr);
     if (insertDealloc) {
       auto *parentBlock = alloc.getDefiningOp()->getBlock();
@@ -212,7 +213,7 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
         auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
         allocOperands.emplace_back(dim);
       }
-      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(gDefaultAllocAlign);
       alloc = lb.create<memref::AllocOp>(memRefType, allocOperands, alignAttr);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
@@ -388,7 +389,7 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
           getDimOrConstant(rewriter, loc, X, 2, rewriter.getIndexType());
       allocOperands.emplace_back(inputSizeVal);
     }
-    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(gDefaultAllocAlign);
     sliceX = lb.create<memref::AllocOp>(sliceXType, allocOperands, alignAttr);
   }
 

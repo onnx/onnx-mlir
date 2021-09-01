@@ -70,7 +70,7 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     if (checkOpResultIsReturned(&constantOp)) {
       // In this case, use an AllocOp for the constant since krnl.Global
       // operations are not mean to be returned.
-      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(defaultAllocAlign);
+      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(gDefaultAllocAlign);
       memref::AllocOp alloc =
           rewriter.create<memref::AllocOp>(loc, memRefType, alignAttr);
 
