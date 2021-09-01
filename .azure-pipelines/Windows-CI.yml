@@ -15,10 +15,10 @@ jobs:
     maxParallel: 4
 
   steps:
-  - checkout: self
-    clean: true
-    submodules: recursive
-    path: onnx-mlir
+  - task: UsePythonVersion@0
+    displayName: Set Python Version to 3.9
+    inputs:
+      versionSpec: '3.9'
 
   - task: PowerShell@2
     displayName: Setup ninja
@@ -31,6 +31,11 @@ jobs:
           echo "choco install ninja"
           choco install ninja
         }
+
+  - checkout: self
+    clean: true
+    submodules: recursive
+    path: onnx-mlir
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
@@ -66,7 +71,7 @@ jobs:
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-      python3 -m pip install --upgrade onnx==1.9.0
+      python -m pip install --user --upgrade onnx==1.9.0
       call onnx-mlir\utils\check-docs.cmd
     displayName: Run onnx-mlir doc tests
     workingDirectory: $(Agent.BuildDirectory)
