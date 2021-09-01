@@ -1500,27 +1500,35 @@ IndexExpr ArrayAttributeIndexCapture::getLiteral(uint64_t i) {
 // Capturing Index Expressions: MemRef Bounds
 //===----------------------------------------------------------------------===//
 
+MemRefBoundsIndexCapture::MemRefBoundsIndexCapture()
+    : tensorOrMemref(nullptr), memRank(0) {}
+
 MemRefBoundsIndexCapture::MemRefBoundsIndexCapture(Value tensorOrMemref)
     : tensorOrMemref(tensorOrMemref), memRank(0) {
-  ShapedType shapedType =
-      tensorOrMemref.getType().dyn_cast_or_null<ShapedType>();
-  if (shapedType)
-    memRank = shapedType.getShape().size();
+  if (tensorOrMemref) {
+    ShapedType shapedType =
+        tensorOrMemref.getType().dyn_cast_or_null<ShapedType>();
+    if (shapedType)
+      memRank = shapedType.getShape().size();
+  }
 }
 
 bool MemRefBoundsIndexCapture::isLiteral(int64_t i) {
+  assert(tensorOrMemref && "Expected defined tensor or memref");
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
   return (shape[i] >= 0);
 }
 
 int64_t MemRefBoundsIndexCapture::getShape(int64_t i) {
+  assert(tensorOrMemref && "Expected defined tensor or memref");
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
   return shape[i];
 }
 
 bool MemRefBoundsIndexCapture::areAllLiteral() {
+  assert(tensorOrMemref && "Expected defined tensor or memref");
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
   for (unsigned int i = 0; i < memRank; ++i)
@@ -1539,6 +1547,7 @@ IndexExpr MemRefBoundsIndexCapture::getSymbol(uint64_t i) {
 
 // Assert if not a literal.
 IndexExpr MemRefBoundsIndexCapture::getLiteral(uint64_t i) {
+  assert(tensorOrMemref && "Expected defined tensor or memref");
   assert(i < memRank && "out of bound access");
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
@@ -1570,6 +1579,7 @@ void MemRefBoundsIndexCapture::getLiteralList(
 
 template <class INDEX>
 IndexExpr MemRefBoundsIndexCapture::get(uint64_t i) {
+  assert(tensorOrMemref && "Expected defined tensor or memref");
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
   assert(i < memRank && "index out of bound");
