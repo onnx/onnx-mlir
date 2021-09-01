@@ -763,6 +763,7 @@ private:
 // they are not constant at compile time.
 class MemRefBoundsIndexCapture {
 public:
+  MemRefBoundsIndexCapture();
   MemRefBoundsIndexCapture(Value tensorOrMemref);
 
   uint64_t getRank() { return memRank; }
@@ -777,8 +778,6 @@ public:
   void getSymbolList(SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
-  MemRefBoundsIndexCapture() { llvm_unreachable("forbidden constructor"); };
-
   template <class INDEX>
   IndexExpr get(uint64_t i);
   template <class INDEX>

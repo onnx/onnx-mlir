@@ -89,9 +89,9 @@ LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
       myPEnd[i] = pEnd[i];
     } else if (autoPad == AUTO_PAD_VALID) {
       // VALID:
-      // * O[i] = floor((I[i] - ((K[i] - 1) * d[i] + 1) + 1) / s[i])
+      // * O[i] = ceil((I[i] - ((K[i] - 1) * d[i] + 1) + 1) / s[i])
       // * P = 0
-      myO[i] = myFloor((I[i] - ((K[i] - 1) * d[i] + 1) + 1), s[i]);
+      myO[i] = myCeil((I[i] - ((K[i] - 1) * d[i] + 1) + 1), s[i]);
       myPBegin[i] = myPEnd[i] = 0;
     } else {
       // SAME_LOWER or SAME_UPPER:

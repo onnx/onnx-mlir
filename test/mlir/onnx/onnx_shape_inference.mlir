@@ -478,11 +478,11 @@ func @test_constant_sparse_2d_value() -> tensor<*xf32> {
 
 /// Test the default behavior of Average Pool with no padding (pad are set but shoud be ignored)
 func @test_default_averagepool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
-  %0 = "onnx.AveragePool"(%arg0) {auto_pad = "VALID", ceil_mode = 0 : si64, kernel_shape = [3,3], pads = [1, 1, 1, 1] } : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
+  %0 = "onnx.AveragePool"(%arg0) {auto_pad = "VALID", ceil_mode = 0 : si64, kernel_shape = [3,3] } : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_default_averagepool
-  // CHECK: [[RES:%.+]] = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<5x5x32x32xf32>) -> tensor<5x5x30x30xf32>
+  // CHECK: [[RES:%.+]] = "onnx.AveragePool"(%arg0) {auto_pad = "VALID", ceil_mode = 0 : si64, kernel_shape = [3, 3]} : (tensor<5x5x32x32xf32>) -> tensor<5x5x30x30xf32>
   // CHECK: return [[RES]] : tensor<5x5x30x30xf32>
 }
 
@@ -494,7 +494,7 @@ func @test_default_averagepool_defpad(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_default_averagepool_defpad
-  // CHECK: [[RES:%.+]] = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<5x5x32x32xf32>) -> tensor<5x5x30x30xf32>
+  // CHECK: [[RES:%.+]] = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3]} : (tensor<5x5x32x32xf32>) -> tensor<5x5x30x30xf32>
   // CHECK: return [[RES]] : tensor<5x5x30x30xf32>
 }
 
@@ -506,7 +506,7 @@ func @test_default_averagepool_pad(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf3
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_default_averagepool_pad
-  // CHECK: [[RES:%.+]] = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<5x5x32x32xf32>) -> tensor<5x5x32x32xf32>
+  // CHECK: [[RES:%.+]] = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1]} : (tensor<5x5x32x32xf32>) -> tensor<5x5x32x32xf32>
   // CHECK: return [[RES]] : tensor<5x5x32x32xf32>
 }
 
@@ -518,7 +518,7 @@ func @test_default_averagepool_pad_nonunif(%arg0 : tensor<5x5x32x32xf32>) -> ten
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_default_averagepool_pad_nonunif
-  // CHECK: [[RES:%.+]] = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [5, 3], pads = [2, 1, 1, 0], strides = [1, 1]} : (tensor<5x5x32x32xf32>) -> tensor<5x5x31x31xf32>
+  // CHECK: [[RES:%.+]] = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [5, 3], pads = [2, 1, 1, 0]} : (tensor<5x5x32x32xf32>) -> tensor<5x5x31x31xf32>
   // CHECK: return [[RES]] : tensor<5x5x31x31xf32>
 }
 

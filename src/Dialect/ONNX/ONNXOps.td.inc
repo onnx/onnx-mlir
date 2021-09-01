@@ -380,6 +380,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
