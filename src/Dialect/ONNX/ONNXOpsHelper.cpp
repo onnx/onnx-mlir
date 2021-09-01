@@ -12,9 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
 // Identity affine
 using namespace mlir;
