@@ -285,7 +285,7 @@ bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape) {
     return false;
   }
   int64_t dimensionsOfShape = shapeAttr.getType().getShape()[0];
-  if (valueShape.size() != dimensionsOfShape) {
+  if ((int64_t)valueShape.size() != dimensionsOfShape) {
     return false;
   }
   auto valueIt = shapeAttr.getIntValues().begin();

@@ -28,8 +28,6 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
 
     auto loc = op->getLoc();
     Value data = operandAdaptor.data();
-    Value shape = operandAdaptor.shape();
-    auto dataShape = data.getType().cast<MemRefType>().getShape();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 
     ONNXReshapeOpShapeHelper shapeHelper(&reshapeOp, rewriter,
