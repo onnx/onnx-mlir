@@ -216,6 +216,18 @@ bool isFromNone(Value v) {
     if (c.getValue().isa<UnitAttr>())
       return true;
   }
+  if (v.getDefiningOp() &&
+      llvm::dyn_cast_or_null<mlir::ONNXConstantOp>(v.getDefiningOp())) {
+    mlir::ONNXConstantOp c =
+        llvm::dyn_cast<mlir::ONNXConstantOp>(v.getDefiningOp());
+    if (c.value().hasValue() && c.valueAttr().isa<DenseElementsAttr>()) {
+      DenseElementsAttr d = c.valueAttr().cast<DenseElementsAttr>();
+      auto shape = d.getType().dyn_cast<RankedTensorType>().getShape();
+      if (shape.size() == 1 && shape[0] == 0)
+        return true;
+    }
+  }
+
   return false;
 }
 
