@@ -72,7 +72,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     alloc.getOperation()->moveBefore(&parentBlock->front());
 
   if (insertDealloc) {
-    auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
+    auto dealloc = createMemRef.dealloc(alloc);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
 
@@ -110,7 +110,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
 
   if (insertDealloc) {
     auto *parentBlock = allocOp.getOperation()->getBlock();
-    auto dealloc = rewriter.create<memref::DeallocOp>(loc, allocOp);
+    auto dealloc = createMemRef.dealloc(allocOp);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   return allocOp;

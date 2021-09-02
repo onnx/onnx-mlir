@@ -29,6 +29,7 @@
 #include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
+#include "src/Support/OMOptions.hpp"
 
 #include <functional>
 #include <mutex>
@@ -950,6 +951,7 @@ private:
            "can only simdize with compile time blocking factor on simd axis");
     ImplicitLocOpBuilder lb(loc, rewriter);
     AffineBuilder createAffine(rewriter, loc);
+    MemRefBuilder createMemRef(rewriter, loc);
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
@@ -965,8 +967,7 @@ private:
     Value vecB = createKrnl.vectorTypeCast(B, VL);
     Value vecC = createKrnl.vectorTypeCast(C, VL);
     assert(BUFFER_ALIGN >= gDefaultAllocAlign);
-    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
-    Value TmpC = lb.create<memref::AllocaOp>(CTmpType, alignAttr);
+    Value TmpC = createMemRef.allocaAligned(CTmpType, BUFFER_ALIGN);
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved, kSaved;

@@ -62,7 +62,7 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
       alloc = createMemRef.allocAligned(memRefType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
+        auto dealloc = createMemRef.dealloc(alloc);
         dealloc.getOperation()->moveBefore(&parentBlock->back());
       }
     }
@@ -105,7 +105,7 @@ Value allocIntermediateState(
     alloc = createMemRef.allocAligned(memRefType, allocOperands);
     if (insertDealloc) {
       auto *parentBlock = alloc.getDefiningOp()->getBlock();
-      auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
+      auto dealloc = createMemRef.dealloc(alloc);
       dealloc.getOperation()->moveBefore(&parentBlock->back());
     }
   }
@@ -217,7 +217,7 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
       alloc = createMemRef.allocAligned(memRefType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
+        auto dealloc = createMemRef.dealloc(alloc);
         dealloc.getOperation()->moveBefore(&parentBlock->back());
       }
     }
@@ -310,7 +310,8 @@ Value applyActivation(OpBuilder &rewriter, Location loc,
 
   MemRefType memRefType = MemRefType::get({}, operand.getType(), {}, 0);
   // Single scalar, no need for default alignment.
-  Value alloc = rewriter.create<memref::AllocaOp>(loc, memRefType);
+  MemRefBuilder createMemRef(rewriter, loc);
+  Value alloc = createMemRef.alloca(memRefType);
   rewriter.create<KrnlStoreOp>(loc, operand, alloc, ArrayRef<Value>{});
 
   std::vector<mlir::NamedAttribute> attributes;

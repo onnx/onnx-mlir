@@ -16,9 +16,6 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Value.h"
 
-// hi alex remove
-#include "src/Support/OMOptions.hpp"
-
 namespace mlir {
 
 struct DialectBuilder {
@@ -64,12 +61,20 @@ struct MemRefBuilder : DialectBuilder {
   MemRefBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
   MemRefBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
+  // Alloc.
   memref::AllocOp alloc(MemRefType type);
   memref::AllocOp alloc(MemRefType type, ValueRange dynSymbols);
   memref::AllocOp allocAligned(MemRefType type, int64_t align = -1);
   memref::AllocOp allocAligned(
       MemRefType type, ValueRange dynSymbols, int64_t align = -1);
-  void dealloc(Value val);
+  // Alloca.
+  memref::AllocaOp alloca(MemRefType type);
+  memref::AllocaOp allocaAligned(MemRefType type, int64_t align = -1);
+  // Dealloc.
+  memref::DeallocOp dealloc(Value val);
+  // DimOp
+  Value dim(Value val, int64_t index);
+  Value dimFolded(Value val, int64_t index);
 };
 
 } // namespace mlir

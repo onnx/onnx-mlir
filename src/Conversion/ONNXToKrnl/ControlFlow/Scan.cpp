@@ -167,8 +167,9 @@ struct ONNXScanOpLowering : public ConversionPattern {
             /*writePrefix=*/{iv});
 
       // Dealloc local variables.
+      MemRefBuilder createMemRef(rewriter, loc);
       for (auto localVar : localVars)
-        rewriter.create<memref::DeallocOp>(scanOp.getLoc(), localVar);
+        createMemRef.dealloc(localVar);
 
       // Remove scan body terminator op.
       rewriter.eraseOp(scanBodyTerminator);

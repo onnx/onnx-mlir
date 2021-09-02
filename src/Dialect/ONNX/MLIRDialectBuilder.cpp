@@ -92,6 +92,28 @@ memref::AllocOp MemRefBuilder::allocAligned(
   return b.create<memref::AllocOp>(loc, type, dynSymbols, alignmentAttr);
 }
 
-void MemRefBuilder::dealloc(Value val) {
-  b.create<memref::DeallocOp>(loc, val);
+memref::AllocaOp MemRefBuilder::alloca(MemRefType type) {
+  return b.create<memref::AllocaOp>(loc, type);
 }
+
+memref::AllocaOp MemRefBuilder::allocaAligned(
+    MemRefType type, int64_t alignment) {
+  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
+  IntegerAttr alignmentAttr = b.getI64IntegerAttr(alignment);
+  return b.create<memref::AllocaOp>(loc, type, alignmentAttr);
+}
+
+memref::DeallocOp MemRefBuilder::dealloc(Value val) {
+  return b.create<memref::DeallocOp>(loc, val);
+}
+
+// hi alex: make folded the default.
+Value MemRefBuilder::dim(Value val, int64_t index) {
+  return b.create<memref::DimOp>(loc, val, index);
+}
+
+Value MemRefBuilder::dimFolded(Value val, int64_t index) {
+  return b.createOrFold<memref::DimOp>(loc, val, index);
+}
+
+
