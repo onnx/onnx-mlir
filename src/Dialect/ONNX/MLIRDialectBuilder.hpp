@@ -8,12 +8,16 @@
 #ifndef ONNX_AND_MLIR_DIALECT_BUILDER_H
 #define ONNX_AND_MLIR_DIALECT_BUILDER_H
 
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Value.h"
+
+// hi alex remove
+#include "src/Support/OMOptions.hpp"
 
 namespace mlir {
 
@@ -53,6 +57,19 @@ struct MathBuilder : DialectBuilder {
   Value select(Value cmp, Value lhs, Value rhs);
   Value sgt(Value lhs, Value rhs);
   Value slt(Value lhs, Value rhs);
+};
+
+struct MemRefBuilder : DialectBuilder {
+  MemRefBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  MemRefBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
+  MemRefBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+
+  memref::AllocOp alloc(MemRefType type);
+  memref::AllocOp alloc(MemRefType type, ValueRange dynSymbols);
+  memref::AllocOp allocAligned(MemRefType type, int64_t align = -1);
+  memref::AllocOp allocAligned(
+      MemRefType type, ValueRange dynSymbols, int64_t align = -1);
+  void dealloc(Value val);
 };
 
 } // namespace mlir

@@ -52,9 +52,8 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
         allocOperands.emplace_back(dimIndex);
       }
       // Allocate memory.
-      IntegerAttr alignAttr = rewriter.getI64IntegerAttr(gDefaultAllocAlign);
-      alloc = rewriter.create<memref::AllocOp>(
-          loc, memRefType, allocOperands, alignAttr);
+      MemRefBuilder createMemRef(rewriter, loc);
+      alloc = createMemRef.allocAligned(memRefType, allocOperands);
       // Insert deallocation if needed.
       if (insertDealloc) {
         Block *parentBlock = alloc.getDefiningOp()->getBlock();

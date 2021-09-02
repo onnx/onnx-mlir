@@ -47,10 +47,6 @@ using namespace mlir;
 // allocated memrefs or not.
 extern bool gEmitDealloc;
 
-// Default alignment attribute for all allocation of memory. On most system, it
-// is 16 bytes.
-extern int64_t gDefaultAllocAlign;
-
 //===----------------------------------------------------------------------===//
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
 //===----------------------------------------------------------------------===//

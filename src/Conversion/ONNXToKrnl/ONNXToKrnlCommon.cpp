@@ -15,10 +15,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
-extern bool gEmitDealloc = true;
-// Default value should be changed for target with SIMD width of more than 16
-// bytes.
-extern int64_t gDefaultAllocAlign = 16;
+bool gEmitDealloc = true;
 
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values) {
@@ -47,8 +44,7 @@ MemRefType convertToMemRefType(Type type) {
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, Value operand,
     int64_t alignment) {
-  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
-  IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
+  MemRefBuilder createMemRef(rewriter, loc);
   // Put together alloc operands for any dynamic dimensions of the memref.
   memref::AllocOp alloc;
   if (operand) {
@@ -61,12 +57,9 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
         auto dim = rewriter.create<memref::DimOp>(loc, operand, i);
         allocOperands.push_back(dim);
       }
-    alloc = rewriter.create<memref::AllocOp>(
-        loc, type, allocOperands, constAlignAttr);
+    alloc = createMemRef.allocAligned(type, allocOperands, alignment);
   } else {
-    SmallVector<Value, 4> allocOperandsEmpty;
-    alloc = rewriter.create<memref::AllocOp>(
-        loc, type, allocOperandsEmpty, constAlignAttr);
+    alloc = createMemRef.allocAligned(type, alignment);
   }
 
   if (!gEmitDealloc)
@@ -98,8 +91,6 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
     return insertAllocAndDealloc(
         type, loc, rewriter, insertDealloc, nullptr, alignment);
   // Otherwise, take the unkown operands from the output dim IndexExpressions
-  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
-  IntegerAttr alignAttr = rewriter.getI64IntegerAttr(alignment);
   SmallVector<Value, 2> allocOperands;
   auto memRefShape = type.getShape();
   auto rank = memRefShape.size();
@@ -110,8 +101,9 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
       allocOperands.emplace_back(outputDims[i].getValue());
     }
   }
+  MemRefBuilder createMemRef(rewriter, loc);
   memref::AllocOp allocOp =
-      rewriter.create<memref::AllocOp>(loc, type, allocOperands, alignAttr);
+      createMemRef.allocAligned(type, allocOperands, alignment);
 
   if (!gEmitDealloc)
     return allocOp;

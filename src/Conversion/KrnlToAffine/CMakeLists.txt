@@ -4,7 +4,6 @@ add_onnx_mlir_library(OMKrnlToAffine
   KrnlToAffine.cpp
 
   LINK_LIBS PUBLIC
-  OMONNXToKrnl
   OMSpecializedKernelOpInterface
   OMSupport
   MLIRTransforms

@@ -45,3 +45,7 @@ llvm::cl::opt<bool> disableMemoryBundling("disable-memory-bundling",
                    "Buffer management by MLIR is used instead.\n"
                    "Try this if you experience a significant compile time."),
     llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
+
+// Default value should be changed for target with SIMD width of more than 16
+// bytes.
+int64_t gDefaultAllocAlign = 16;

@@ -44,9 +44,8 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
       allocOperands.emplace_back(allocDimVal);
     }
   }
-  IntegerAttr alignAttr = rewriter.getI64IntegerAttr(gDefaultAllocAlign);
-  alloc = rewriter.create<memref::AllocOp>(
-      loc, memRefType, allocOperands, alignAttr);
+  MemRefBuilder createMemRef(rewriter, loc);
+  alloc = createMemRef.allocAligned(memRefType, allocOperands);
   if (insertDealloc) {
     auto *parentBlock = alloc.getOperation()->getBlock();
     auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);

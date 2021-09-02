@@ -879,6 +879,7 @@ private:
     KrnlMatMulOpAdaptor operandAdaptor(op);
     Location loc = op.getLoc();
     AffineBuilder createAffine(rewriter, loc);
+    MemRefBuilder createMemRef(createAffine);
     ImplicitLocOpBuilder lb(loc, rewriter);
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
@@ -887,8 +888,7 @@ private:
     // Have to privatize CTmpType by unroll factor (1 if none).
     MemRefType CTmpType = MemRefType::get({unrollFactor}, elementType);
     assert(BUFFER_ALIGN >= gDefaultAllocAlign);
-    IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
-    Value TmpC = lb.create<memref::AllocaOp>(CTmpType, constAlignAttr);
+    Value TmpC = createMemRef.allocAligned(CTmpType, BUFFER_ALIGN);
 
     // For i, j loops.
     LiteralIndexExpr zero(0);

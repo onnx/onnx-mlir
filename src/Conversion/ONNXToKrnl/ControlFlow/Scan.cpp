@@ -249,9 +249,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
             }
           }
         }
-        IntegerAttr alignAttr = rewriter.getI64IntegerAttr(gDefaultAllocAlign);
-        alloc = rewriter.create<memref::AllocOp>(
-            loc, rankedScanOutTy, allocParams, alignAttr);
+        MemRefBuilder createMemRef(rewriter, loc);
+        alloc = createMemRef.allocAligned(rankedScanOutTy, allocParams);
       }
       outputs.emplace_back(alloc);
     }

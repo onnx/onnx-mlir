@@ -8,7 +8,10 @@
 
 #include "MLIRDialectBuilder.hpp"
 #include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+
+#include "src/Support/OMOptions.hpp"
 
 using namespace mlir;
 
@@ -61,4 +64,34 @@ Value MathBuilder::slt(Value lhs, Value rhs) {
 }
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) {
   return b.create<SelectOp>(loc, cmp, lhs, rhs);
+}
+
+//===----------------------------------------------------------------------===//
+// Memref support, including inserting default alignment.
+//===----------------------------------------------------------------------===//
+
+memref::AllocOp MemRefBuilder::alloc(MemRefType type, ValueRange dynSymbols) {
+  return b.create<memref::AllocOp>(loc, type, dynSymbols);
+}
+
+memref::AllocOp MemRefBuilder::alloc(MemRefType type) {
+  return b.create<memref::AllocOp>(loc, type);
+}
+
+memref::AllocOp MemRefBuilder::allocAligned(
+    MemRefType type, int64_t alignment) {
+  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
+  IntegerAttr alignmentAttr = b.getI64IntegerAttr(alignment);
+  return b.create<memref::AllocOp>(loc, type, alignmentAttr);
+}
+
+memref::AllocOp MemRefBuilder::allocAligned(
+    MemRefType type, ValueRange dynSymbols, int64_t alignment) {
+  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
+  IntegerAttr alignmentAttr = b.getI64IntegerAttr(alignment);
+  return b.create<memref::AllocOp>(loc, type, dynSymbols, alignmentAttr);
+}
+
+void MemRefBuilder::dealloc(Value val) {
+  b.create<memref::DeallocOp>(loc, val);
 }
