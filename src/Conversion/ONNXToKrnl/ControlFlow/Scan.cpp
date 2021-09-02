@@ -229,6 +229,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
       if (hasAllConstantDimensions(memRefType))
         alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
       else {
+        MemRefBuilder createMemRef(rewriter, loc);
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
         for (int i = 0; i < rankedScanOutTy.getRank(); i++) {
@@ -238,8 +239,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
               // scan operation scan output to have the leading dimension extent
               // equal to the max trip count, due to the possibility of early
               // termination.
-              auto dim = rewriter.create<memref::DimOp>(
-                  loc, scanOp.scan_inputs().front(), 0);
+              auto dim = createMemRef.dim(scanOp.scan_inputs().front(), 0);
               allocParams.emplace_back(dim);
             } else {
               // TODO(tjingrant): we can support dynamic dimensions for scan
@@ -250,7 +250,6 @@ struct ONNXScanOpLowering : public ConversionPattern {
             }
           }
         }
-        MemRefBuilder createMemRef(rewriter, loc);
         alloc = createMemRef.allocAligned(rankedScanOutTy, allocParams);
       }
       outputs.emplace_back(alloc);

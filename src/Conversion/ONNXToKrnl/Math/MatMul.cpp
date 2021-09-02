@@ -110,12 +110,12 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
     KrnlBuilder createKrnl(rewriter, loc);
+          MemRefBuilder createMemRef(createKrnl);
     ImplicitLocOpBuilder lb(loc, rewriter);
     Value zero = lb.create<ConstantIndexOp>(0);
-    Value one = lb.create<ConstantIndexOp>(1);
-    Value I = lb.createOrFold<memref::DimOp>(C, zero);
-    Value J = lb.createOrFold<memref::DimOp>(C, one);
-    Value K = lb.createOrFold<memref::DimOp>(A, one);
+    Value I = createMemRef.dimFolded(C, 0);
+    Value J = createMemRef.dimFolded(C, 1);
+    Value K = createMemRef.dimFolded(A, 1);
 
     // Initialize alloc/C to zero.
     ValueRange zLoop = createKrnl.defineLoops(2);

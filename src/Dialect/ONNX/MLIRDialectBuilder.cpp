@@ -113,7 +113,8 @@ Value MemRefBuilder::dim(Value val, int64_t index) {
 }
 
 Value MemRefBuilder::dimFolded(Value val, int64_t index) {
-  return b.createOrFold<memref::DimOp>(loc, val, index);
+  Value i = b.create<ConstantIndexOp>(loc, index);
+  return b.createOrFold<memref::DimOp>(loc, val, i);
 }
 
 

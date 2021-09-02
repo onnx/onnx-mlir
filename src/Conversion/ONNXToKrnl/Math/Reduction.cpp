@@ -205,14 +205,14 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       alloc =
           insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
     } else {
+      MemRefBuilder createMemRef(rewriter, loc);
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {
         if (memRefOutShape[i] < 0) {
-          auto dim = rewriter.create<memref::DimOp>(loc, input, outInDimMap[i]);
+          auto dim = createMemRef.dim(input, outInDimMap[i]);
           allocOperands.push_back(dim);
         }
       }
-      MemRefBuilder createMemRef(rewriter, loc);
       alloc = createMemRef.allocAligned(memRefOutType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
@@ -437,14 +437,14 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       alloc =
           insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
     } else {
+      MemRefBuilder createMemRef(rewriter, loc);
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {
         if (memRefOutShape[i] < 0) {
-          auto dim = rewriter.create<memref::DimOp>(loc, input, outInDimMap[i]);
+          auto dim = createMemRef.dim(input, outInDimMap[i]);
           allocOperands.push_back(dim);
         }
       }
-      MemRefBuilder createMemRef(rewriter, loc);
       alloc = createMemRef.allocAligned(memRefOutType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();

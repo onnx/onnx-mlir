@@ -54,7 +54,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     SmallVector<Value, 4> allocOperands;
     for (unsigned int i = 0; i < rank; ++i)
       if (memRefShape[i] < 0) {
-        auto dim = rewriter.create<memref::DimOp>(loc, operand, i);
+        auto dim = createMemRef.dim(operand, i);
         allocOperands.push_back(dim);
       }
     alloc = createMemRef.allocAligned(type, allocOperands, alignment);
@@ -373,7 +373,8 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
   ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
   Value dimVal;
   if (shape[axis] < 0) {
-    Value dim = rewriter.create<memref::DimOp>(loc, operand, axis);
+    MemRefBuilder createMemRef(rewriter, loc);
+    Value dim = createMemRef.dim(operand, axis);
     if (type.isa<IndexType>())
       dimVal = dim;
     else
