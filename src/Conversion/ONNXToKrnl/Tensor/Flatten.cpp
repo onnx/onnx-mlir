@@ -24,6 +24,7 @@ using namespace mlir;
 Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
     ConversionPatternRewriter &rewriter, bool insertDealloc, Value input,
     int64_t axisValue) {
+  MemRefBuilder createMemRef(rewriter, loc);
   memref::AllocOp alloc;
   auto inputShape = input.getType().cast<MemRefType>().getShape();
   int64_t inputRank = inputShape.size();
@@ -33,8 +34,7 @@ Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
   if (memRefType.getShape()[0] == -1) {
     auto dimVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
     for (auto i = 0; i < axisValue; i++) {
-      dimVal = rewriter.create<MulIOp>(
-          loc, dimVal, rewriter.create<memref::DimOp>(loc, input, i));
+      dimVal = rewriter.create<MulIOp>(loc, dimVal, createMemRef.dim(input, i));
     }
     allocOperands.emplace_back(dimVal);
   }
@@ -43,13 +43,11 @@ Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
   if (memRefType.getShape()[1] == -1) {
     auto dimVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
     for (auto i = axisValue; i < inputRank; i++) {
-      dimVal = rewriter.create<MulIOp>(
-          loc, dimVal, rewriter.create<memref::DimOp>(loc, input, i));
+      dimVal = rewriter.create<MulIOp>(loc, dimVal, createMemRef.dim(input, i));
     }
     allocOperands.emplace_back(dimVal);
   }
 
-  MemRefBuilder createMemRef(rewriter, loc);
   alloc = createMemRef.allocAligned(memRefType, allocOperands);
   if (insertDealloc) {
     auto *parentBlock = alloc.getOperation()->getBlock();
@@ -124,13 +122,13 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     AffineMap firstDimMap = AffineMap::get(axisValue, axisValue, firstIndexAE);
 
     // Create the parameter lists for the affine map
+    MemRefBuilder createMemRef(rewriter, loc);
     SmallVector<Value, 4> firstMapArgList;
     for (auto i = 0; i < axisValue; i++) {
       firstMapArgList.emplace_back(iterationBlock.getArguments()[i]);
     }
     for (auto i = 0; i < axisValue; i++) {
-      firstMapArgList.emplace_back(
-          rewriter.create<memref::DimOp>(loc, input, i));
+      firstMapArgList.emplace_back(createMemRef.dim(input, i));
     }
     auto firstDimVal =
         rewriter.create<AffineApplyOp>(loc, firstDimMap, firstMapArgList);
@@ -155,8 +153,7 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
       secondMapArgList.emplace_back(iterationBlock.getArguments()[i]);
     }
     for (auto i = axisValue; i < inputRank; i++) {
-      secondMapArgList.emplace_back(
-          rewriter.create<memref::DimOp>(loc, input, i));
+      secondMapArgList.emplace_back(createMemRef.dim(input, i));
     }
     auto secondDimVal =
         rewriter.create<AffineApplyOp>(loc, secondDimMap, secondMapArgList);

@@ -308,9 +308,9 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   // Wbi: [hidden_size]
   // Rbi: [hidden_size]
 
-  ImplicitLocOpBuilder lb(loc, rewriter);
-  KrnlBuilder createKrnl(lb);
-  OnnxBuilder createONNX(lb);
+  KrnlBuilder createKrnl(rewriter, loc);
+  OnnxBuilder createONNX(rewriter, loc);
+  MemRefBuilder createMemRef(rewriter, loc);
 
   // Get Ht.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
@@ -323,12 +323,11 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
 
   // Do element-wise computations. Fuse them into a single nested loop.
   // Lower and upper bounds derived from Ht tensor.
-  Value iZero = lb.create<ConstantIndexOp>(0);
+  Value iZero = rewriter.create<ConstantIndexOp>(loc, 0);
   SmallVector<Value, 4> htLbs(htRank, iZero);
   SmallVector<Value, 4> htUbs;
   for (unsigned r = 0; r < htRank; ++r) {
-    Value idx = lb.create<ConstantIndexOp>(r);
-    htUbs.emplace_back(lb.createOrFold<memref::DimOp>(Ht, idx));
+    htUbs.emplace_back(createMemRef.dimFolded(Ht, r));
   }
   ValueRange loops = createKrnl.defineLoops(htRank);
   createKrnl.iterate(loops, loops, htLbs, htUbs, {},

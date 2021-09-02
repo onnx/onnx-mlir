@@ -422,8 +422,6 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
   SmallVector<Value, 4> htLbs(htRank, iZero);
   SmallVector<Value, 4> htUbs;
   for (unsigned r = 0; r < htRank; ++r) {
-    // hi alex Value idx = lb.create<ConstantIndexOp>(r);
-    // htUbs.emplace_back(lb.createOrFold<memref::DimOp>(Ht, idx));
     htUbs.emplace_back(createMemRef.dimFolded(Ht, r));
   }
 
@@ -516,8 +514,6 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     } else {
       // matrixType's shape is of [BatchSize, HiddenSize].
       // HiddenSize is always static. Thus, only BatchSize is dynamic.
-      // hi alex Value batchSize = rewriter.create<memref::DimOp>(loc, Ht,
-      // 0).getResult();
       Value batchSize = createMemRef.dim(Ht, 0);
       rt = createMemRef.allocAligned(matrixType, {batchSize});
       rtHt = createMemRef.allocAligned(matrixType, {batchSize});
