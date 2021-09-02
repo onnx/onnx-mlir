@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
+if (NOT ONNX_MLIR_BUILD_TESTS)
+  set(EXCLUDE_FROM_ALL ON)
+endif()
+
 add_custom_target(doc-example)
 set_target_properties(doc-example PROPERTIES FOLDER "Docs")
 
@@ -58,7 +62,7 @@ if (WIN32)
     )
 endif()
 
-add_onnx_mlir_executable(OMRuntimeTest EXCLUDE_FROM_ALL
+add_onnx_mlir_executable(OMRuntimeTest
   main.c
 
   NO_INSTALL
