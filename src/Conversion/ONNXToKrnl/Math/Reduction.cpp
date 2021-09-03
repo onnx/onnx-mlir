@@ -205,18 +205,18 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       alloc =
           insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
     } else {
+      MemRefBuilder createMemRef(rewriter, loc);
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {
         if (memRefOutShape[i] < 0) {
-          auto dim = rewriter.create<memref::DimOp>(loc, input, outInDimMap[i]);
+          auto dim = createMemRef.dim(input, outInDimMap[i]);
           allocOperands.push_back(dim);
         }
       }
-      alloc =
-          rewriter.create<memref::AllocOp>(loc, memRefOutType, allocOperands);
+      alloc = createMemRef.alignedAlloc(memRefOutType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
+        auto dealloc = createMemRef.dealloc(alloc);
         dealloc.getOperation()->moveBefore(&parentBlock->back());
       }
     }
@@ -437,18 +437,18 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       alloc =
           insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
     } else {
+      MemRefBuilder createMemRef(rewriter, loc);
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {
         if (memRefOutShape[i] < 0) {
-          auto dim = rewriter.create<memref::DimOp>(loc, input, outInDimMap[i]);
+          auto dim = createMemRef.dim(input, outInDimMap[i]);
           allocOperands.push_back(dim);
         }
       }
-      alloc =
-          rewriter.create<memref::AllocOp>(loc, memRefOutType, allocOperands);
+      alloc = createMemRef.alignedAlloc(memRefOutType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
+        auto dealloc = createMemRef.dealloc(alloc);
         dealloc.getOperation()->moveBefore(&parentBlock->back());
       }
     }

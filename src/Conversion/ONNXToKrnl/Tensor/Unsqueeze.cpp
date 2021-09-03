@@ -29,7 +29,6 @@ struct ONNXUnsqueezeV11OpLowering : public ConversionPattern {
 
     auto loc = op->getLoc();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
-    int outRank = memRefType.getRank();
     Value data = operandAdaptor.data();
 
     ONNXUnsqueezeV11OpShapeHelper shapeHelper(&unsqueezeOp, rewriter,

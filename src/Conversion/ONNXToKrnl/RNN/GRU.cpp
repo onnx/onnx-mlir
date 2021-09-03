@@ -395,6 +395,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
   ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(lb);
   OnnxBuilder createONNX(lb);
+  MemRefBuilder createMemRef(lb);
 
   ArrayRef<int64_t> xtShape = Xt.getType().cast<ShapedType>().getShape();
   int64_t batchSize = xtShape[0];
@@ -421,8 +422,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
   SmallVector<Value, 4> htLbs(htRank, iZero);
   SmallVector<Value, 4> htUbs;
   for (unsigned r = 0; r < htRank; ++r) {
-    Value idx = lb.create<ConstantIndexOp>(r);
-    htUbs.emplace_back(lb.createOrFold<memref::DimOp>(Ht, idx));
+    htUbs.emplace_back(createMemRef.dim(Ht, r));
   }
 
   if (state.linearBeforeReset) {
@@ -514,11 +514,9 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     } else {
       // matrixType's shape is of [BatchSize, HiddenSize].
       // HiddenSize is always static. Thus, only BatchSize is dynamic.
-      Value batchSize = rewriter.create<memref::DimOp>(loc, Ht, 0).getResult();
-      rt = lb.create<memref::AllocOp>(
-          matrixType, llvm::makeArrayRef({batchSize}));
-      rtHt = lb.create<memref::AllocOp>(
-          matrixType, llvm::makeArrayRef({batchSize}));
+      Value batchSize = createMemRef.dim(Ht, 0);
+      rt = createMemRef.alignedAlloc(matrixType, {batchSize});
+      rtHt = createMemRef.alignedAlloc(matrixType, {batchSize});
     }
 
     // Emit rt and (rt (.) Ht-1).
@@ -604,8 +602,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
         });
 
     // Clean up
-    rewriter.create<memref::DeallocOp>(loc, rt);
-    rewriter.create<memref::DeallocOp>(loc, rtHt);
+    createMemRef.dealloc(rt);
+    createMemRef.dealloc(rtHt);
   }
 }
 
