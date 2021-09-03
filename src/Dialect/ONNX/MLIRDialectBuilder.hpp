@@ -77,7 +77,7 @@ struct MemRefBuilder : DialectBuilder {
 };
 
 // Default alignment attribute for all allocation of memory. On most system, it
-// is 16 bytes. 
+// is 16 bytes.
 // TODO: make it a global variable
 // extern int64_t gDefaultAllocAlign;
 #define gDefaultAllocAlign 16
