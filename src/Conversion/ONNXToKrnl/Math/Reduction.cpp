@@ -213,7 +213,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
           allocOperands.push_back(dim);
         }
       }
-      alloc = createMemRef.allocAligned(memRefOutType, allocOperands);
+      alloc = createMemRef.alignedAlloc(memRefOutType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
         auto dealloc = createMemRef.dealloc(alloc);
@@ -445,7 +445,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           allocOperands.push_back(dim);
         }
       }
-      alloc = createMemRef.allocAligned(memRefOutType, allocOperands);
+      alloc = createMemRef.alignedAlloc(memRefOutType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
         auto dealloc = createMemRef.dealloc(alloc);

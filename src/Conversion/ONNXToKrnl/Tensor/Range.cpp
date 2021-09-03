@@ -114,7 +114,7 @@ struct ONNXRangeOpLowering : public ConversionPattern {
       allocOperands.push_back(numberOfElements);
       MemRefBuilder createMemRef(rewriter, loc);
       memref::AllocOp allocateMemref =
-          createMemRef.allocAligned(memRefType, allocOperands);
+          createMemRef.alignedAlloc(memRefType, allocOperands);
       alloc = allocateMemref;
     }
 
@@ -151,7 +151,7 @@ struct ONNXRangeOpLowering : public ConversionPattern {
           }
         });
     MemRefBuilder createMemRef(rewriter, loc);
-    auto acc = createMemRef.allocAligned(accType);
+    auto acc = createMemRef.alignedAlloc(accType);
 
     // Acc index:
     SmallVector<IndexExpr, 4> accIndex;

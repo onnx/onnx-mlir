@@ -64,12 +64,12 @@ struct MemRefBuilder : DialectBuilder {
   // Alloc.
   memref::AllocOp alloc(MemRefType type);
   memref::AllocOp alloc(MemRefType type, ValueRange dynSymbols);
-  memref::AllocOp allocAligned(MemRefType type, int64_t align = -1);
-  memref::AllocOp allocAligned(
+  memref::AllocOp alignedAlloc(MemRefType type, int64_t align = -1);
+  memref::AllocOp alignedAlloc(
       MemRefType type, ValueRange dynSymbols, int64_t align = -1);
   // Alloca.
   memref::AllocaOp alloca(MemRefType type);
-  memref::AllocaOp allocaAligned(MemRefType type, int64_t align = -1);
+  memref::AllocaOp alignedAlloca(MemRefType type, int64_t align = -1);
   // Dealloc.
   memref::DeallocOp dealloc(Value val);
   // DimOp

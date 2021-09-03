@@ -250,7 +250,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
             }
           }
         }
-        alloc = createMemRef.allocAligned(rankedScanOutTy, allocParams);
+        alloc = createMemRef.alignedAlloc(rankedScanOutTy, allocParams);
       }
       outputs.emplace_back(alloc);
     }

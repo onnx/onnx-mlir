@@ -515,8 +515,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
       // matrixType's shape is of [BatchSize, HiddenSize].
       // HiddenSize is always static. Thus, only BatchSize is dynamic.
       Value batchSize = createMemRef.dim(Ht, 0);
-      rt = createMemRef.allocAligned(matrixType, {batchSize});
-      rtHt = createMemRef.allocAligned(matrixType, {batchSize});
+      rt = createMemRef.alignedAlloc(matrixType, {batchSize});
+      rtHt = createMemRef.alignedAlloc(matrixType, {batchSize});
     }
 
     // Emit rt and (rt (.) Ht-1).

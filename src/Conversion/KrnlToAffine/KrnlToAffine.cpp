@@ -889,7 +889,7 @@ private:
     // Have to privatize CTmpType by unroll factor (1 if none).
     MemRefType CTmpType = MemRefType::get({unrollFactor}, elementType);
     assert(BUFFER_ALIGN >= gDefaultAllocAlign);
-    Value TmpC = createMemRef.allocAligned(CTmpType, BUFFER_ALIGN);
+    Value TmpC = createMemRef.alignedAlloc(CTmpType, BUFFER_ALIGN);
 
     // For i, j loops.
     LiteralIndexExpr zero(0);
@@ -967,7 +967,7 @@ private:
     Value vecB = createKrnl.vectorTypeCast(B, VL);
     Value vecC = createKrnl.vectorTypeCast(C, VL);
     assert(BUFFER_ALIGN >= gDefaultAllocAlign);
-    Value TmpC = createMemRef.allocaAligned(CTmpType, BUFFER_ALIGN);
+    Value TmpC = createMemRef.alignedAlloca(CTmpType, BUFFER_ALIGN);
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved, kSaved;

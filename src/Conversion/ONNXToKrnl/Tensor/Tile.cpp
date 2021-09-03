@@ -45,7 +45,7 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
       allocOperands.emplace_back(allocDimVal);
     }
   }
-  alloc = createMemRef.allocAligned(memRefType, allocOperands);
+  alloc = createMemRef.alignedAlloc(memRefType, allocOperands);
   if (insertDealloc) {
     auto *parentBlock = alloc.getOperation()->getBlock();
     auto dealloc = createMemRef.dealloc(alloc);

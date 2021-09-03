@@ -45,7 +45,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           MemRefBuilder createMemRef(createKrnl);
           // Single scalar, no need for default alignment.
           Value reductionVal =
-              createMemRef.allocaAligned(MemRefType::get({}, elementType));
+              createMemRef.alignedAlloca(MemRefType::get({}, elementType));
           createKrnl.store(fzero, reductionVal);
           int aRank = shapeHelper.aDims.size();
           int bRank = aRank; // Add for better readability.

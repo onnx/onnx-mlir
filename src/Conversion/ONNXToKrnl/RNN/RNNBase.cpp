@@ -59,7 +59,7 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
         auto dim = createMemRef.dim(R, 2);
         allocOperands.emplace_back(dim);
       }
-      alloc = createMemRef.allocAligned(memRefType, allocOperands);
+      alloc = createMemRef.alignedAlloc(memRefType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
         auto dealloc = createMemRef.dealloc(alloc);
@@ -102,7 +102,7 @@ Value allocIntermediateState(
       auto dim = createMemRef.dim(R, 2);
       allocOperands.emplace_back(dim);
     }
-    alloc = createMemRef.allocAligned(memRefType, allocOperands);
+    alloc = createMemRef.alignedAlloc(memRefType, allocOperands);
     if (insertDealloc) {
       auto *parentBlock = alloc.getDefiningOp()->getBlock();
       auto dealloc = createMemRef.dealloc(alloc);
@@ -214,7 +214,7 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
         auto dim = createMemRef.dim(R, 2);
         allocOperands.emplace_back(dim);
       }
-      alloc = createMemRef.allocAligned(memRefType, allocOperands);
+      alloc = createMemRef.alignedAlloc(memRefType, allocOperands);
       if (insertDealloc) {
         auto *parentBlock = alloc.getDefiningOp()->getBlock();
         auto dealloc = createMemRef.dealloc(alloc);
@@ -391,7 +391,7 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
           getDimOrConstant(rewriter, loc, X, 2, rewriter.getIndexType());
       allocOperands.emplace_back(inputSizeVal);
     }
-    sliceX = createMemRef.allocAligned(sliceXType, allocOperands);
+    sliceX = createMemRef.alignedAlloc(sliceXType, allocOperands);
   }
 
   // Copy data from X.

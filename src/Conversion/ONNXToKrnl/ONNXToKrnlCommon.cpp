@@ -57,9 +57,9 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
         auto dim = createMemRef.dim(operand, i);
         allocOperands.push_back(dim);
       }
-    alloc = createMemRef.allocAligned(type, allocOperands, alignment);
+    alloc = createMemRef.alignedAlloc(type, allocOperands, alignment);
   } else {
-    alloc = createMemRef.allocAligned(type, alignment);
+    alloc = createMemRef.alignedAlloc(type, alignment);
   }
 
   if (!gEmitDealloc)
@@ -103,7 +103,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   }
   MemRefBuilder createMemRef(rewriter, loc);
   memref::AllocOp allocOp =
-      createMemRef.allocAligned(type, allocOperands, alignment);
+      createMemRef.alignedAlloc(type, allocOperands, alignment);
 
   if (!gEmitDealloc)
     return allocOp;

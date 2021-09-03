@@ -78,14 +78,14 @@ memref::AllocOp MemRefBuilder::alloc(MemRefType type) {
   return b.create<memref::AllocOp>(loc, type);
 }
 
-memref::AllocOp MemRefBuilder::allocAligned(
+memref::AllocOp MemRefBuilder::alignedAlloc(
     MemRefType type, int64_t alignment) {
   alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
   IntegerAttr alignmentAttr = b.getI64IntegerAttr(alignment);
   return b.create<memref::AllocOp>(loc, type, alignmentAttr);
 }
 
-memref::AllocOp MemRefBuilder::allocAligned(
+memref::AllocOp MemRefBuilder::alignedAlloc(
     MemRefType type, ValueRange dynSymbols, int64_t alignment) {
   alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
   IntegerAttr alignmentAttr = b.getI64IntegerAttr(alignment);
@@ -96,7 +96,7 @@ memref::AllocaOp MemRefBuilder::alloca(MemRefType type) {
   return b.create<memref::AllocaOp>(loc, type);
 }
 
-memref::AllocaOp MemRefBuilder::allocaAligned(
+memref::AllocaOp MemRefBuilder::alignedAlloca(
     MemRefType type, int64_t alignment) {
   alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
   IntegerAttr alignmentAttr = b.getI64IntegerAttr(alignment);

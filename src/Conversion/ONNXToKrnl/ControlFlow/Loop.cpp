@@ -255,7 +255,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           }
         }
         MemRefBuilder createMemRef(rewriter, loc);
-        alloc = createMemRef.allocAligned(rankedScanOutTy, allocParams);
+        alloc = createMemRef.alignedAlloc(rankedScanOutTy, allocParams);
       }
       outputs.emplace_back(alloc);
     }
