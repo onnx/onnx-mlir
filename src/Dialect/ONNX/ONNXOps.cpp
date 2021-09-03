@@ -2592,6 +2592,12 @@ LogicalResult ONNXResizeOp::inferShapes(
   }
   auto inputTy = X().getType().cast<RankedTensorType>();
 
+  // Output should at least has the same rank as X input
+  if (!getResult().getType().isa<RankedTensorType>()) {
+    SmallVector<int64_t, 4> dims(inputTy.getRank(), -1);
+    getResult().setType(RankedTensorType::get(dims, inputTy.getElementType()));
+  }
+
   if (isFromNone(scales()) == isFromNone(sizes())) {
     return emitError("scales() and sizes() can not both None/not None");
   }
