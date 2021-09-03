@@ -24,7 +24,3 @@ extern llvm::cl::OptionCategory OMPassOptions;
 extern llvm::cl::opt<std::string> instrumentONNXOps;
 
 extern llvm::cl::opt<bool> disableMemoryBundling;
-
-// Default alignment attribute for all allocation of memory. On most system, it
-// is 16 bytes.
-extern int64_t gDefaultAllocAlign;

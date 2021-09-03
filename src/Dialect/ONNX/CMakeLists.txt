@@ -33,5 +33,4 @@ add_onnx_mlir_library(OMONNXOps
   LINK_LIBS PUBLIC
   MLIRMath
   MLIRAffine
-  OMSupport
   )

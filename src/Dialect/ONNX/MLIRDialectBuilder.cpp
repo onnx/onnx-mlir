@@ -11,7 +11,10 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 
-#include "src/Support/OMOptions.hpp"
+// Default value should be changed for target with SIMD width of more than 16
+// bytes. 
+// TODO: make it a global variable
+// int64_t gDefaultAllocAlign = 16;
 
 using namespace mlir;
 

@@ -41,6 +41,7 @@ add_onnx_mlir_library(OMONNXToKrnl
 
   LINK_LIBS PUBLIC
   OMConstPropHelper
+  OMONNXOps
   OMSupport
   MLIRMathTransforms
   MLIRStandardOpsTransforms

@@ -29,7 +29,6 @@
 #include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
-#include "src/Support/OMOptions.hpp"
 
 #include <functional>
 #include <mutex>
