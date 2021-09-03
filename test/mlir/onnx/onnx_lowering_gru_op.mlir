@@ -7,8 +7,8 @@ func private @test_gru_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x12
 
 // CHECK-LABEL:  func private @test_gru_forward_mode
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<1x12x3xf32>, [[PARAM_2_:%.+]]: memref<1x12x4xf32>, [[PARAM_3_:%.+]]: memref<1x24xf32>, [[PARAM_4_:%.+]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() : memref<1x2x4xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() {{.*}}: memref<1x2x4xf32>
 // CHECK-DAG:       [[VAR_cst_:%.+]] = constant unit
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
@@ -32,9 +32,9 @@ func private @test_gru_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x12
 // CHECK-DAG:       [[VAR_11_:%.+]]:6 = "onnx.Split"([[VAR_10_]]) {axis = 0 : si64} : (memref<24xf32>) -> (memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>)
 // CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 7) {
-// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:         [[VAR_14_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:         [[VAR_15_:%.+]] = memref.alloc() : memref<2x3xf32>
+// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:         [[VAR_14_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:         [[VAR_15_:%.+]] = memref.alloc() {{.*}}: memref<2x3xf32>
 // CHECK-DAG:         [[CST_0_1_:%.+]] = constant 0 : index
 // CHECK-DAG:         [[CST_0_2_:%.+]] = constant 0 : index
 // CHECK-DAG:         [[CST_0_3_:%.+]] = constant 0 : index
@@ -141,8 +141,8 @@ func private @test_gru_forward_mode_linear_before_reset(%arg0: tensor<7x2x3xf32>
   
 // CHECK-LABEL:  func private @test_gru_forward_mode_linear_before_reset
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<1x12x3xf32>, [[PARAM_2_:%.+]]: memref<1x12x4xf32>, [[PARAM_3_:%.+]]: memref<1x24xf32>, [[PARAM_4_:%.+]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() : memref<1x2x4xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() {{.*}}: memref<1x2x4xf32>
 // CHECK-DAG:       [[VAR_cst_:%.+]] = constant unit
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
@@ -162,7 +162,7 @@ func private @test_gru_forward_mode_linear_before_reset(%arg0: tensor<7x2x3xf32>
 // CHECK-DAG:       [[VAR_8_:%.+]]:6 = "onnx.Split"([[VAR_7_]]) {axis = 0 : si64} : (memref<24xf32>) -> (memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>)
 // CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 7) {
-// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_:%.+]] = memref.alloc() : memref<2x3xf32>
+// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_:%.+]] = memref.alloc() {{.*}}: memref<2x3xf32>
 // CHECK-DAG:         [[CST_0_1_:%.+]] = constant 0 : index
 // CHECK-DAG:         [[CST_0_2_:%.+]] = constant 0 : index
 // CHECK-DAG:         [[CST_0_3_:%.+]] = constant 0 : index
@@ -265,8 +265,8 @@ func private @test_gru_forward_mode_constant_weight_and_bias(%arg0: tensor<7x2x3
 
 // CHECK-LABEL:  func private @test_gru_forward_mode_constant_weight_and_bias
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() : memref<1x2x4xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() {{.*}}: memref<1x2x4xf32>
 // CHECK-DAG:       [[VAR_cst_:%.+]] = constant unit
 // CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = "constant_0", shape = [1, 12, 3], value = dense<1.000000e+00> : tensor<1x12x3xf32>} : () -> memref<1x12x3xf32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() {name = "constant_1", shape = [1, 12, 4], value = dense<2.000000e+00> : tensor<1x12x4xf32>} : () -> memref<1x12x4xf32>
@@ -297,9 +297,9 @@ func private @test_gru_forward_mode_constant_weight_and_bias(%arg0: tensor<7x2x3
 // CHECK-DAG:       [[VAR_21_:%.+]] = "krnl.global"() {name = "constant_18", shape = [4], value = dense<[2.100000e+01, 2.200000e+01, 2.300000e+01, 2.400000e+01]> : tensor<4xf32>} : () -> memref<4xf32>
 // CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 7) {
-// CHECK-DAG:         [[LOAD_PARAM_1_MEM_1_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:         [[VAR_24_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:         [[VAR_25_:%.+]] = memref.alloc() : memref<2x3xf32>
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_1_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:         [[VAR_24_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:         [[VAR_25_:%.+]] = memref.alloc() {{.*}}: memref<2x3xf32>
 // CHECK-DAG:         [[CST_0_1_:%.+]] = constant 0 : index
 // CHECK-DAG:         [[CST_0_2_:%.+]] = constant 0 : index
 // CHECK-DAG:         [[CST_0_3_:%.+]] = constant 0 : index
@@ -407,8 +407,8 @@ func private @test_gru_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x12
   
 // CHECK-LABEL:  func private @test_gru_reverse_mode
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<1x12x3xf32>, [[PARAM_2_:%.+]]: memref<1x12x4xf32>, [[PARAM_3_:%.+]]: memref<1x24xf32>, [[PARAM_4_:%.+]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() : memref<1x2x4xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() {{.*}}: memref<1x2x4xf32>
 // CHECK-DAG:       [[VAR_cst_:%.+]] = constant unit
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
@@ -432,9 +432,9 @@ func private @test_gru_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x12
 // CHECK-DAG:       [[VAR_11_:%.+]]:6 = "onnx.Split"([[VAR_10_]]) {axis = 0 : si64} : (memref<24xf32>) -> (memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>)
 // CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 7) {
-// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:         [[VAR_14_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:         [[VAR_15_:%.+]] = memref.alloc() : memref<2x3xf32>
+// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:         [[VAR_14_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:         [[VAR_15_:%.+]] = memref.alloc() {{.*}}: memref<2x3xf32>
 // CHECK-DAG:         [[CST_0_1_:%.+]] = constant 0 : index
 // CHECK-DAG:         [[CST_7_:%.+]] = constant 7 : index
 // CHECK-NOT: separator of consecutive DAGs
@@ -545,9 +545,9 @@ func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
   
 // CHECK-LABEL:  func private @test_gru_bidirectional_mode
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<2x12x3xf32>, [[PARAM_2_:%.+]]: memref<2x12x4xf32>, [[PARAM_3_:%.+]]: memref<2x24xf32>, [[PARAM_4_:%.+]]: memref<2x2x4xf32>) -> memref<2x2x4xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = memref.alloc() : memref<2x2x4xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = memref.alloc() {{.*}}: memref<2x2x4xf32>
 // CHECK-DAG:       [[VAR_cst_:%.+]] = constant unit
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
@@ -586,9 +586,9 @@ func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK-DAG:       [[VAR_24_:%.+]]:6 = "onnx.Split"([[VAR_22_]]) {axis = 0 : si64} : (memref<24xf32>) -> (memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>, memref<4xf32>)
 // CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 7) {
-// CHECK-DAG:         [[LOAD_PARAM_4_MEM_2_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:         [[VAR_30_:%.+]] = memref.alloc() : memref<2x3xf32>
+// CHECK-DAG:         [[LOAD_PARAM_4_MEM_2_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:         [[VAR_30_:%.+]] = memref.alloc() {{.*}}: memref<2x3xf32>
 // CHECK-DAG:         [[CST_0_1_:%.+]] = constant 0 : index
 // CHECK-DAG:         [[CST_0_2_:%.+]] = constant 0 : index
 // CHECK-DAG:         [[CST_0_3_:%.+]] = constant 0 : index
@@ -682,9 +682,9 @@ func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK:           }
 // CHECK:           [[LOOP_5_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_5_]]) with ([[LOOP_5_]] -> [[I_9_:%.+]] = 0 to 7) {
-// CHECK-DAG:         [[LOAD_PARAM_4_MEM_2_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_1_:%.+]] = memref.alloc() : memref<2x4xf32>
-// CHECK-DAG:         [[VAR_30_1_:%.+]] = memref.alloc() : memref<2x3xf32>
+// CHECK-DAG:         [[LOAD_PARAM_4_MEM_2_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:         [[LOAD_PARAM_4_MEM_1_1_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
+// CHECK-DAG:         [[VAR_30_1_:%.+]] = memref.alloc() {{.*}}: memref<2x3xf32>
 // CHECK-DAG:         [[CST_1_3_:%.+]] = constant 1 : index
 // CHECK-DAG:         [[CST_7_:%.+]] = constant 7 : index
 // CHECK-NOT: separator of consecutive DAGs

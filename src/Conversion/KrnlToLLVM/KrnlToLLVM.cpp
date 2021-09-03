@@ -513,11 +513,12 @@ public:
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
-    auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    auto llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
-    auto llvmI64Ty = IntegerType::get(context, 64);
-    auto llvmFnType = LLVM::LLVMFunctionType::get(
-        llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
+    // auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
+    // auto llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context,
+    // 8));
+    // auto llvmI64Ty = IntegerType::get(context, 64); auto llvmFnType =
+    // LLVM::LLVMFunctionType::get(
+    //    llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
 
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 

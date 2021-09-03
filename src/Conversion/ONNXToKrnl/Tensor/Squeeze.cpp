@@ -28,8 +28,6 @@ struct ONNXSqueezeV11OpLowering : public ConversionPattern {
 
     auto loc = op->getLoc();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
-    auto memRefShape = memRefType.getShape();
-    auto elementSizeInBytes = getMemRefEltSizeInBytes(memRefType);
     Value data = operandAdaptor.data();
 
     ONNXSqueezeV11OpShapeHelper shapeHelper(&squeezeOp, rewriter,

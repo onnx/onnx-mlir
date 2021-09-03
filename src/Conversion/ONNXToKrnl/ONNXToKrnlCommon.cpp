@@ -15,7 +15,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
-extern bool gEmitDealloc = true;
+bool gEmitDealloc = true;
 
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values) {
@@ -44,6 +44,7 @@ MemRefType convertToMemRefType(Type type) {
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, Value operand,
     int64_t alignment) {
+  MemRefBuilder createMemRef(rewriter, loc);
   // Put together alloc operands for any dynamic dimensions of the memref.
   memref::AllocOp alloc;
   if (operand) {
@@ -53,29 +54,12 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     SmallVector<Value, 4> allocOperands;
     for (unsigned int i = 0; i < rank; ++i)
       if (memRefShape[i] < 0) {
-        auto dim = rewriter.create<memref::DimOp>(loc, operand, i);
+        auto dim = createMemRef.dim(operand, i);
         allocOperands.push_back(dim);
       }
-    // Set alignment attribute. Default value is `-1`, which does not set
-    // alignment.
-    if (alignment >= 0) {
-      IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
-      alloc = rewriter.create<memref::AllocOp>(
-          loc, type, allocOperands, constAlignAttr);
-    } else {
-      alloc = rewriter.create<memref::AllocOp>(loc, type, allocOperands);
-    }
+    alloc = createMemRef.alignedAlloc(type, allocOperands, alignment);
   } else {
-    // Set alignment attribute. Default value is `-1`, which does not set
-    // alignment.
-    if (alignment >= 0) {
-      SmallVector<Value, 4> allocOperandsEmpty;
-      IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
-      alloc = rewriter.create<memref::AllocOp>(
-          loc, type, allocOperandsEmpty, constAlignAttr);
-    } else {
-      alloc = rewriter.create<memref::AllocOp>(loc, type);
-    }
+    alloc = createMemRef.alignedAlloc(type, alignment);
   }
 
   if (!gEmitDealloc)
@@ -88,7 +72,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     alloc.getOperation()->moveBefore(&parentBlock->front());
 
   if (insertDealloc) {
-    auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
+    auto dealloc = createMemRef.dealloc(alloc);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
 
@@ -117,21 +101,16 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
       allocOperands.emplace_back(outputDims[i].getValue());
     }
   }
-  memref::AllocOp allocOp;
-  if (alignment > 0) {
-    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(alignment);
-    allocOp =
-        rewriter.create<memref::AllocOp>(loc, type, allocOperands, alignAttr);
-  } else {
-    allocOp = rewriter.create<memref::AllocOp>(loc, type, allocOperands);
-  }
+  MemRefBuilder createMemRef(rewriter, loc);
+  memref::AllocOp allocOp =
+      createMemRef.alignedAlloc(type, allocOperands, alignment);
 
   if (!gEmitDealloc)
     return allocOp;
 
   if (insertDealloc) {
     auto *parentBlock = allocOp.getOperation()->getBlock();
-    auto dealloc = rewriter.create<memref::DeallocOp>(loc, allocOp);
+    auto dealloc = createMemRef.dealloc(allocOp);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   return allocOp;
@@ -394,7 +373,8 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
   ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
   Value dimVal;
   if (shape[axis] < 0) {
-    Value dim = rewriter.create<memref::DimOp>(loc, operand, axis);
+    MemRefBuilder createMemRef(rewriter, loc);
+    Value dim = createMemRef.dim(operand, axis);
     if (type.isa<IndexType>())
       dimVal = dim;
     else

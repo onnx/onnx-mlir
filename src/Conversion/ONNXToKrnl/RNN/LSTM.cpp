@@ -452,7 +452,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // TODO remove scope
   ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(lb);
-
+  MemRefBuilder createMemRef(lb);
   ArrayRef<int64_t> xtShape = Xt.getType().cast<ShapedType>().getShape();
   int64_t batchSize = xtShape[0];
 
@@ -484,8 +484,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   SmallVector<Value, 4> HtLbs(HtRank, iZero);
   SmallVector<Value, 4> HtUbs;
   for (unsigned r = 0; r < HtRank; ++r) {
-    Value idx = lb.create<ConstantIndexOp>(r);
-    HtUbs.emplace_back(lb.createOrFold<memref::DimOp>(Ht, idx));
+    HtUbs.emplace_back(createMemRef.dim(Ht, r));
   }
 
   ValueRange loops = createKrnl.defineLoops(HtRank);

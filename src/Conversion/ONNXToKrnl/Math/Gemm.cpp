@@ -48,8 +48,9 @@ struct ONNXGemmOpLowering : public ConversionPattern {
           ValueRange outerIndices = createKrnl.getInductionVarValue(outerLoops);
           // Create temp and set to zero.
           ImplicitLocOpBuilder lb(createKrnl.getLoc(), createKrnl.getBuilder());
-          Value red =
-              lb.create<memref::AllocaOp>(MemRefType::get({}, elementType));
+          // Single scalar, no need for default alignment.
+          MemRefBuilder createMemRef(createKrnl);
+          Value red = createMemRef.alloca(MemRefType::get({}, elementType));
           createKrnl.store(zeroVal, red);
           // Inner loop
           ValueRange innerLoop = createKrnl.defineLoops(1);
