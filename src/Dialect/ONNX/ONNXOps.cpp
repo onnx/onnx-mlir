@@ -2596,10 +2596,6 @@ LogicalResult ONNXResizeOp::inferShapes(
     return emitError("scales() and sizes() can not both None/not None");
   }
 
-  if (isFromNone(scales())) {
-    return emitError("using sizes() not implemented yet");
-  }
-
   if (!(mode() == "nearest" &&
           (coordinate_transformation_mode() == "half_pixel" ||
               coordinate_transformation_mode() == "asymmetric"))) {
@@ -2608,28 +2604,44 @@ LogicalResult ONNXResizeOp::inferShapes(
   }
 
   // Current implementation handles constant scales only
-  DenseElementsAttr scalesAttrs =
-      getDenseElementAttributeFromONNXValue(scales());
-  if (!scalesAttrs) {
-    return success();
-  }
+  if (!isFromNone(scales())) {
+    DenseElementsAttr scalesAttrs =
+        getDenseElementAttributeFromONNXValue(scales());
+    if (!scalesAttrs) {
+      return success();
+    }
 
-  SmallVector<float, 4> scalesConstant;
-  for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
-    scalesConstant.emplace_back(scaleAttr.getValueAsDouble());
-  }
+    SmallVector<float, 4> scalesConstant;
+    for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
+      scalesConstant.emplace_back(scaleAttr.getValueAsDouble());
+    }
 
-  SmallVector<int64_t, 4> dims;
-  for (int i = 0; i < inputTy.getRank(); i++) {
-    int newDim;
-    if (inputTy.getShape()[i] == -1)
-      newDim = -1;
-    else
-      newDim = inputTy.getShape()[i] * scalesConstant[i];
-    dims.emplace_back(newDim);
-  }
+    SmallVector<int64_t, 4> dims;
+    for (int i = 0; i < inputTy.getRank(); i++) {
+      int newDim;
+      if (inputTy.getShape()[i] == -1)
+        newDim = -1;
+      else
+        newDim = inputTy.getShape()[i] * scalesConstant[i];
+      dims.emplace_back(newDim);
+    }
 
-  getResult().setType(RankedTensorType::get(dims, inputTy.getElementType()));
+    getResult().setType(RankedTensorType::get(dims, inputTy.getElementType()));
+  } else {
+    DenseElementsAttr sizesAttrs =
+        getDenseElementAttributeFromONNXValue(sizes());
+    if (!sizesAttrs) {
+      return success();
+    }
+
+    SmallVector<int64_t, 4> sizesConstant;
+    for (auto sizeAttr : sizesAttrs.getValues<IntegerAttr>()) {
+      sizesConstant.emplace_back(sizeAttr.getInt());
+    }
+
+    getResult().setType(
+        RankedTensorType::get(sizesConstant, inputTy.getElementType()));
+  }
   return success();
 }
 
