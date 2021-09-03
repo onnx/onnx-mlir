@@ -484,7 +484,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   SmallVector<Value, 4> HtLbs(HtRank, iZero);
   SmallVector<Value, 4> HtUbs;
   for (unsigned r = 0; r < HtRank; ++r) {
-    HtUbs.emplace_back(createMemRef.dimFolded(Ht, r));
+    HtUbs.emplace_back(createMemRef.dim(Ht, r));
   }
 
   ValueRange loops = createKrnl.defineLoops(HtRank);

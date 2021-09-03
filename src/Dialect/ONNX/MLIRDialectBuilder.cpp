@@ -107,14 +107,7 @@ memref::DeallocOp MemRefBuilder::dealloc(Value val) {
   return b.create<memref::DeallocOp>(loc, val);
 }
 
-// hi alex: make folded the default.
 Value MemRefBuilder::dim(Value val, int64_t index) {
-  return b.create<memref::DimOp>(loc, val, index);
-}
-
-Value MemRefBuilder::dimFolded(Value val, int64_t index) {
   Value i = b.create<ConstantIndexOp>(loc, index);
   return b.createOrFold<memref::DimOp>(loc, val, i);
 }
-
-

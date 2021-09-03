@@ -242,7 +242,7 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
   SmallVector<Value, 4> htLbs(htRank, iZero);
   SmallVector<Value, 4> htUbs;
   for (unsigned r = 0; r < htRank; ++r) {
-    htUbs.emplace_back(createMemRef.dimFolded(ht, r));
+    htUbs.emplace_back(createMemRef.dim(ht, r));
   }
   ValueRange loops = createKrnl.defineLoops(htRank);
   createKrnl.iterate(loops, loops, htLbs, htUbs, {},
@@ -283,7 +283,7 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     SmallVector<Value, 4> lbs(rank, zero);
     SmallVector<Value, 4> ubs;
     for (unsigned r = 0; r < rank; ++r) {
-      ubs.emplace_back(createMemRef.dimFolded(forwardVal, r));
+      ubs.emplace_back(createMemRef.dim(forwardVal, r));
     }
     ValueRange loops = createKrnl.defineLoops(2);
     createKrnl.iterate(loops, loops, lbs, ubs, {},
@@ -399,7 +399,7 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
   SmallVector<Value, 2> lbs(2, iZero);
   SmallVector<Value, 2> ubs;
   for (unsigned r = 0; r < 2; ++r) {
-    ubs.emplace_back(createMemRef.dimFolded(sliceX, r));
+    ubs.emplace_back(createMemRef.dim(sliceX, r));
   }
   ValueRange loops = createKrnl.defineLoops(2);
   createKrnl.iterate(loops, loops, lbs, ubs, {},

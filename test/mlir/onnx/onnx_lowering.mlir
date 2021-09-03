@@ -1581,11 +1581,11 @@ func private @test_flatten0(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
   // CHECK:    [[LOAD:%.+]] = krnl.load %arg0{{\[}}[[LOOPARG1]], [[LOOPARG2]], [[LOOPARG3]]{{\]}} : memref<2x3x4xf32>
   // CHECK:    [[FIRSTDIM:%.+]] = affine.apply [[MAP_FIRST]]()
   // CHECK:    [[C0:%.+]] = constant 0 : index
-  // CHECK:    [[R4:%.+]] = memref.dim %arg0, [[C0]] : memref<2x3x4xf32>
+  // CHECK:    [[R4:%.+]] = constant 2 : index
   // CHECK:    [[C1:%.+]] = constant 1 : index
-  // CHECK:    [[R5:%.+]] = memref.dim %arg0, [[C1]] : memref<2x3x4xf32>
+  // CHECK:    [[R5:%.+]] = constant 3 : index
   // CHECK:    [[C2:%.+]] = constant 2 : index
-  // CHECK:    [[R6:%.+]] = memref.dim %arg0, [[C2]] : memref<2x3x4xf32>
+  // CHECK:    [[R6:%.+]] = constant 4 : index
   // CHECK:    [[SECONDDIM:%.+]] = affine.apply [[MAP_SECOND]]([[LOOPARG1]], [[LOOPARG2]], [[LOOPARG3]]){{\[}}[[R4]], [[R5]], [[R6]]{{\]}}
   // CHECK:    krnl.store [[LOAD]], [[ALLOC]]{{\[}}[[FIRSTDIM]], [[SECONDDIM]]{{\]}} : memref<1x24xf32>
 }
@@ -1597,32 +1597,34 @@ func private @test_flatten1(%arg0 : tensor<2x?x4xf32>) -> tensor<*xf32> {
   %1 = "onnx.Flatten"(%arg0) {axis = 2 : si64} : (tensor<2x?x4xf32>) -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 
-  // CHECK:  [[MAP1:#.+]] = affine_map<(d0, d1)[s0, s1] -> (d1 + d0 * s1)>
-  // CHECK:  [[MAP2:#.+]] = affine_map<(d0)[s0] -> (d0)>
-  // CHECK-LABEL test_flatten1
-  // CHECK:  [[C1:%.+]] = constant 1 : index
-  // CHECK:  [[C0:%.+]] = constant 0 : index
-  // CHECK:  [[R0:%.+]] = memref.dim %arg0, [[C0]] : memref<2x?x4xf32>
-  // CHECK:  [[R1:%.+]] = muli [[C1]], [[R0]] : index
-  // CHECK:  [[C1_0:%.+]] = constant 1 : index
-  // CHECK:  [[R2:%.+]] = memref.dim %arg0, [[C1_0]] : memref<2x?x4xf32>
-  // CHECK:  [[R3:%.+]] = muli [[R1]], [[R2]] : index
-  // CHECK:  [[R4:%.+]] = memref.alloc([[R3]]) {{.*}}: memref<?x4xf32>
-  // CHECK:  [[R5:%.+]]:3 = krnl.define_loops 3
-  // CHECK:  [[C1_1:%.+]] = constant 1 : index
-  // CHECK:  [[R6:%.+]] = memref.dim %arg0, [[C1_1]] : memref<2x?x4xf32>
-  // CHECK:  krnl.iterate([[R5]]#0, [[R5]]#1, [[R5]]#2) with ([[R5]]#0 -> [[ARG1:%.+]] = 0 to 2, [[R5]]#1 -> [[ARG2:%.+]] = 0 to [[R6]], [[R5]]#2 -> [[ARG3:%.+]] = 0 to 4) {
-  // CHECK:    [[R7:%.+]] = krnl.load %arg0{{\[}}[[ARG1]], [[ARG2]], [[ARG3]]{{\]}} : memref<2x?x4xf32>
-  // CHECK:    [[C0_2:%.+]] = constant 0 : index
-  // CHECK:    [[R8:%.+]] = memref.dim %arg0, [[C0_2]] : memref<2x?x4xf32>
-  // CHECK:    [[C1_3:%.+]] = constant 1 : index
-  // CHECK:    [[R9:%.+]] = memref.dim %arg0, [[C1_3]] : memref<2x?x4xf32>
-  // CHECK:    [[R10:%.+]] = affine.apply [[MAP1]]([[ARG1]], [[ARG2]]){{\[}}[[R8]], [[R9]]{{\]}}
-  // CHECK:    [[C2:%.+]] = constant 2 : index
-  // CHECK:    [[R11:%.+]] = memref.dim %arg0, [[C2]] : memref<2x?x4xf32>
-  // CHECK:    [[R12:%.+]] = affine.apply [[MAP2]]([[ARG3]]){{\[}}[[R11]]{{\]}}
-  // CHECK:    krnl.store [[R7]], [[R4]]{{\[}}[[R10]], [[R12]]{{\]}} : memref<?x4xf32>
-
+// CHECK-LABEL:  builtin.func private @test_flatten1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x?x4xf32>) -> memref<?x4xf32> {
+// CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
+// CHECK-DAG:       [[CST_2_:%.+]] = constant 2 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_0_:%.+]] = muli [[CST_1_]], [[CST_2_]] : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = constant 1 : index
+// CHECK:           [[VAR_1_:%.+]] = memref.dim [[PARAM_0_]], [[CST_1_1_]] : memref<2x?x4xf32>
+// CHECK:           [[VAR_2_:%.+]] = muli [[VAR_0_]], [[VAR_1_]] : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_2_]]) {{.*}}: memref<?x4xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK-DAG:       [[CST_1_2_:%.+]] = constant 1 : index
+// CHECK:           [[VAR_5_:%.+]] = memref.dim [[PARAM_0_]], [[CST_1_2_]] : memref<2x?x4xf32>
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to [[VAR_5_]], [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 4) {
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]]{{.}} : memref<2x?x4xf32>
+// CHECK-DAG:         [[CST_0_1_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_2_1_:%.+]] = constant 2 : index
+// CHECK-DAG:         [[CST_1_3_:%.+]] = constant 1 : index
+// CHECK:             [[VAR_7_:%.+]] = memref.dim [[PARAM_0_]], [[CST_1_3_]] : memref<2x?x4xf32>
+// CHECK-DAG:         [[VAR_8_:%.+]] = affine.apply #map0([[I_0_]], [[I_1_]]){{.}}[[CST_2_1_]], [[VAR_7_]]{{.}}
+// CHECK-DAG:         [[CST_2_2_:%.+]] = constant 2 : index
+// CHECK-DAG:         [[CST_4_:%.+]] = constant 4 : index
+// CHECK:             [[VAR_9_:%.+]] = affine.apply #map1([[I_2_]]){{.}}[[CST_4_]]{{.}}
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_8_]], [[VAR_9_]]{{.}} : memref<?x4xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<?x4xf32>
+// CHECK:         }
 }
 
 // -----

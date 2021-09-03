@@ -422,7 +422,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
   SmallVector<Value, 4> htLbs(htRank, iZero);
   SmallVector<Value, 4> htUbs;
   for (unsigned r = 0; r < htRank; ++r) {
-    htUbs.emplace_back(createMemRef.dimFolded(Ht, r));
+    htUbs.emplace_back(createMemRef.dim(Ht, r));
   }
 
   if (state.linearBeforeReset) {

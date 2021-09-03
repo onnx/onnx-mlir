@@ -74,7 +74,6 @@ struct MemRefBuilder : DialectBuilder {
   memref::DeallocOp dealloc(Value val);
   // DimOp
   Value dim(Value val, int64_t index);
-  Value dimFolded(Value val, int64_t index);
 };
 
 } // namespace mlir
