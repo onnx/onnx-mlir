@@ -234,6 +234,7 @@ public:
     newMemPoolShape.emplace_back(bundleTotalSize);
     auto bundledMemPoolMemRefType =
         MemRefType::get(newMemPoolShape, rewriter.getIntegerType(8));
+
     auto newStaticMemPoolAlloc = rewriter.create<memref::AllocOp>(
         loc, bundledMemPoolMemRefType, staticMemPoolAlloc.alignmentAttr());
 

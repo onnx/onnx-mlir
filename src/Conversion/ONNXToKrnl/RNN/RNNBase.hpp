@@ -184,7 +184,8 @@ struct ONNXRNNOpLowering : public ConversionPattern {
             weightForward, biasForward, sequenceIV, directionIV,
             /*isForward=*/true);
         // Clean up
-        rewriter.create<memref::DeallocOp>(loc, Xt);
+        MemRefBuilder createMemRef(rewriter, loc);
+        createMemRef.dealloc(Xt);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
@@ -224,7 +225,8 @@ struct ONNXRNNOpLowering : public ConversionPattern {
             weightReverse, biasReverse, reverseSequenceIV, directionIV,
             /*isForward=*/false);
         // Clean up
-        rewriter.create<memref::DeallocOp>(loc, Xt);
+        MemRefBuilder createMemRef(rewriter, loc);
+        createMemRef.dealloc(Xt);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }

@@ -103,12 +103,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
                 ValueRange outputSpatialIndices =
                     createKrnl.getInductionVarValue(outputSpacialLoops);
                 IndexExprScope outputSpacialScope(createKrnl);
+                MemRefBuilder createMemRef(createKrnl);
                 // Create a local reduction value and set to zero.
                 MemRefType tmpType =
                     MemRefType::get({}, memRefType.getElementType());
-                Value reductionVal =
-                    createKrnl.getBuilder().create<memref::AllocaOp>(
-                        createKrnl.getLoc(), tmpType);
+                // Single scalar, no need for default alignment.
+                Value reductionVal = createMemRef.alloca(tmpType);
                 createKrnl.store(fZero, reductionVal);
 
                 // Bounds for reduction loops.

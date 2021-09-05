@@ -197,7 +197,7 @@ def process_line(i, line):
 
     # Process definition of variables.
     # Special handling of function header.
-    if re.match(r'\s+func', line) is not None:
+    if re.match(r'\s+(builtin\.)?func', line) is not None:
         # Have a function: reset dictionary and ref counts
         name_dict = prepare_name_dict.copy()
         refcount_dict.clear()
@@ -212,8 +212,9 @@ def process_line(i, line):
     elif re.match(r'\s+(\w+\.)?iterate', line) is not None:
         new_line = process_name(new_line, def_pat, "I", " =", 1)
     # Special handling for alloc.
-    elif re.search(r'=\s+alloc', line) is not None:
+    elif re.search(r'=\s+memref\.alloc', line) is not None:
         new_line = process_name(new_line, def_pat, "RES", " =", 0)
+        new_line = re.sub(r'([^\{]*)\{[^\}]*\}\s(.*)', r'\1{{.*}}\2', new_line)
     # Special handling for dim.
     elif re.search(r'=\s+dim', line) is not None:
         new_line = process_name(new_line, def_pat, "DIM", " =", 1)
@@ -263,12 +264,11 @@ def process_line(i, line):
     new_line = re.sub(r'\[\[\s*-\s*(\d)', r'{{.}}[-\g<1>', new_line)
     # change a]] -> 1]*
     new_line = re.sub(r'(\d)\s*\]\]', '\g<1>]{{.}}', new_line)
-    if re.match(r'\s+func', line) is not None:
+    if re.match(r'\s+(builtin\.)?func', line) is not None:
         # Split function line into 2 lines. Should make private optional
         new_line = re.sub(
-            r'(\s+)(func\s+@[\w]+)\s*(\(.*)', r'// CHECK-LABEL:\1\2\n// CHECK-SAME: \1\3', new_line)
-        new_line = re.sub(
-            r'(\s+)(func\sprivate\s+@[\w]+)\s*(\(.*)', r'// CHECK-LABEL:\1\2\n// CHECK-SAME: \1\3', new_line)
+            r'(\s+)((builtin\.)?func(\s+private)?\s+@[\w]+)\s*(\(.*)', 
+            r'// CHECK-LABEL:\1\2\n// CHECK-SAME: \1\5', new_line)
         print(new_line)
     elif squash_before_fct != 1:
         if line_color[i] == curr_parallel_color:

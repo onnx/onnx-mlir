@@ -98,7 +98,7 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define OM_TENSOR_CREATE omTensorCreate
 #define OM_TENSOR_LIST_CREATE omTensorListCreate
 #define OM_TENSOR_LIST_DESTROY omTensorListDestroy
-#define OPTIONS "hn:m:vd:"
+#define OPTIONS "hn:m:vd:r:"
 #else
 #define RUN_MAIN_GRAPH dll_run_main_graph
 #define OM_INPUT_SIGNATURE dll_omInputSignature
@@ -106,12 +106,13 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define OM_TENSOR_CREATE dll_omTensorCreate
 #define OM_TENSOR_LIST_CREATE dll_omTensorListCreate
 #define OM_TENSOR_LIST_DESTROY dll_omTensorListDestroy
-#define OPTIONS "e:hn:m:vd:"
+#define OPTIONS "e:hn:m:vd:r:"
 #endif
 
 // Global variables to record what we should do in this run.
 static int sIterations = 1;
 static bool verbose = false;
+static bool reuseInput = true;
 static bool measureExecTime = false;
 static vector<int64_t> dimKnownAtRuntime;
 
@@ -139,12 +140,14 @@ void usage(const char *name) {
   cout << "         Name of the ONNX model entry point." << endl;
   cout << "         Default is \"run_main_graph\"." << endl;
 #endif
+  cout << "    -h | --help" << endl;
+  cout << "         Print help message." << endl;
   cout << "    -n NUM | --iterations NUM" << endl;
   cout << "         Number of times to run the tests, default 1." << endl;
   cout << "    -m NUM | --meas NUM" << endl;
   cout << "         Measure the kernel execution time NUM times." << endl;
-  cout << "    -h | --help" << endl;
-  cout << "         Print help message." << endl;
+  cout << "    -r | -reuse true|false" << endl;
+  cout << "         Reuse input data, default on" << endl;
   cout << "    -v | --verbose" << endl;
   cout << "         Print the shape of the inputs and outputs." << endl;
   cout << endl;
@@ -193,6 +196,7 @@ void parseArgs(int argc, char **argv) {
       {"help", no_argument, 0, 'h'},              // Help.
       {"iterations", required_argument, 0, 'n'},  // Number of iterations.
       {"meas", required_argument, 0, 'm'},        // Measurement of time.
+      {"reuse", required_argument, 0, 'r'},       // cached input.
       {"verbose", no_argument, 0, 'v'},           // Verbose.
       {0, 0, 0, 0}};
 
@@ -216,7 +220,6 @@ void parseArgs(int argc, char **argv) {
         auto JSONDimValue = (*JSONArray)[i].getAsInteger();
         assert(JSONDimValue && "failed to get value");
         int64_t dim = JSONDimValue.getValue();
-        printf("  got dim %i\n", (int)dim);
         dimKnownAtRuntime.push_back(dim);
       }
       break;
@@ -234,6 +237,18 @@ void parseArgs(int argc, char **argv) {
 #endif
       sIterations = atoi(optarg);
       measureExecTime = true;
+      break;
+    case 'r':
+      if (strcmp(optarg, "true") == 0) {
+        reuseInput = true;
+        printf("> Reuse input data\n");
+      } else if (strcmp(optarg, "false") == 0) {
+        reuseInput = false;
+        printf("> Do not reuse input data\n");
+      } else {
+        printf("  reuse parameter expect true/false argument\n");
+        usage(argv[0]);
+      }
       break;
     case 'v':
       verbose = true;
@@ -287,7 +302,7 @@ void parseArgs(int argc, char **argv) {
  * @return pointer to the TensorList just created, or null on error.
  */
 OMTensorList *omTensorListCreateFromInputSignature(
-    void **dataPtrList, bool dataAlloc, bool trace) {
+    void **dataPtrList, bool dataAlloc, bool trace, bool silent) {
   const char *sigIn = OM_INPUT_SIGNATURE();
   if (trace) {
     cout << "Model Input Signature " << (sigIn ? sigIn : "(empty)") << endl;
@@ -334,15 +349,18 @@ OMTensorList *omTensorListCreateFromInputSignature(
           usage("run-onnx-lib");
         }
         dim = dimKnownAtRuntime[dimKnownAtRuntimeIndex++];
-        printf("  Tensor %d, dim %d: use provided RT value %lld\n", i, d,
-            (long long)dim);
+        if (!silent || verbose) {
+          printf("  Tensor %d, dim %d: use provided RT value %lld\n", i, d,
+              (long long)dim);
+        }
       }
       shape[d] = dim;
       size *= dim;
     }
     // Create a randomly initialized tensor of the right shape.
     OMTensor *tensor = nullptr;
-    if (type.equals("float") || type.equals("f32")) {
+    if (type.equals("float") || type.equals("f32") || type.equals("i32")) {
+      // Treat floats/f32 and i32 alike as they take the same memory footprint.
       float *data = nullptr;
       if (dataPtrList) {
         data = (float *)dataPtrList[i];
@@ -352,7 +370,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
       }
       tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_FLOAT);
     }
-    assert(tensor && "addd support for the desired type");
+    assert(tensor && "add support for the desired type");
     // Add tensor to list.
     inputTensors[i] = tensor;
     if (trace) {
@@ -438,7 +456,7 @@ int main(int argc, char **argv) {
   parseArgs(argc, argv);
   // Init inputs.
   OMTensorList *tensorListIn =
-      omTensorListCreateFromInputSignature(nullptr, true, verbose);
+      omTensorListCreateFromInputSignature(nullptr, true, verbose, false);
   assert(tensorListIn && "failed to scan signature");
   // Call the compiled onnx model function.
   cout << "Start computing " << sIterations << " iterations" << endl;
@@ -451,6 +469,11 @@ int main(int argc, char **argv) {
       OM_TENSOR_LIST_DESTROY(tensorListOut);
     if (i > 0 && i % 10 == 0)
       cout << "  computed " << i << " iterations" << endl;
+    if (!reuseInput) {
+      OM_TENSOR_LIST_DESTROY(tensorListIn);
+      tensorListIn =
+          omTensorListCreateFromInputSignature(nullptr, true, false, true);
+    }
   }
   cout << "Finish computing " << sIterations << " iterations" << endl;
   displayTime();

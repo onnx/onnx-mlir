@@ -84,9 +84,10 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     ubMinList.emplace_back(CIE);
     ubMinList.emplace_back(cIE + 1 + (sizeIE - 1).ceilDiv(LiteralIndexExpr(2)));
 
-    // Initialize sum
+    // Initialize sum, single scalar, no need for default alignment.
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
-    Value sumAlloc = rewriter.create<memref::AllocOp>(loc, scalarMemRefType);
+    MemRefBuilder createMemRef(rewriter, loc);
+    Value sumAlloc = createMemRef.alloc(scalarMemRefType);
     rewriter.create<KrnlStoreOp>(loc,
         emitConstantOp(rewriter, loc, elementType, 0), sumAlloc,
         ArrayRef<Value>{});
