@@ -162,8 +162,8 @@ struct ONNXResizeOpLowering : public ConversionPattern {
         // FPToSIOp is round-to-zero, same as floor for positive
         // round_prefer_floor will round 2.5 to 2, not 3
         if (resizeOp.nearest_mode() == "round_prefer_floor") {
-          Value deltaConstant = emitConstantOp(
-              rewriter, loc, rewriter.getF32Type(), 0.4999999999);
+          Value deltaConstant =
+              emitConstantOp(rewriter, loc, rewriter.getF32Type(), 0.499999);
           inIndexFloat =
               rewriter.create<AddFOp>(loc, inIndexFloat, deltaConstant);
         } else if (resizeOp.nearest_mode() == "floor") {
@@ -191,8 +191,8 @@ struct ONNXResizeOpLowering : public ConversionPattern {
                 scaleValues[i]),
             halfPixelConstant);
         if (resizeOp.nearest_mode() == "round_prefer_floor") {
-          Value deltaConstant = emitConstantOp(
-              rewriter, loc, rewriter.getF32Type(), 0.4999999999);
+          Value deltaConstant =
+              emitConstantOp(rewriter, loc, rewriter.getF32Type(), 0.499999);
           inIndexFloat =
               rewriter.create<AddFOp>(loc, inIndexFloat, deltaConstant);
         } else if (resizeOp.nearest_mode() == "floor") {
