@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// This file implements a Function level pass that verifies whether 
+// This file implements a Function level pass that verifies whether
 // ONNX ops in the function are ready for lowering to Krnl.
 //
 //===----------------------------------------------------------------------===//
@@ -48,7 +48,7 @@ public:
     // Iterate on the operations
     for (Operation &op : funcBody.getOps()) {
       if (isa<mlir::ONNXOpsDialect>(op.getDialect())) {
-	if (failed(verifyRanked(op)))
+        if (failed(verifyRanked(op)))
           signalPassFailure();
       }
     }
@@ -58,7 +58,7 @@ private:
   static LogicalResult verifyRanked(Operation &op) {
     for (auto ty : op.getOperandTypes()) {
       if (!ty.isa<RankedTensorType>()) {
-	op.emitError("not ranked");
+        op.emitError("not ranked");
         return failure();
       }
     }
