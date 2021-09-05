@@ -478,6 +478,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
+  pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass());
   // Only emit memref.dealloc if memory bundling is enabled.
