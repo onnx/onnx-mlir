@@ -89,31 +89,6 @@ def GetNullArrayAttr :
 class StringAttrOfValue<string val>:
   NativeCodeCall<"$_builder.getStringAttr(\"" # val # "\")">;
 
-// Create a DenseElementsAttr from an interger value.
-// It seems Table-gen does not support `float` type, so we can not pass a float value.
-class FloatAttrOfValue<int val>:
-  NativeCodeCall<"createDenseFloatAttrOfValue($_builder, $0, " # val # ")">;
-
-// Create an ArrayAttr of IntergerAttr(s) of zero values.
-// This function is used for padding attribute in Conv.
-def createArrayAttrOfZerosFrom:
-  NativeCodeCall<"createArrayAttrOfZeros($_builder, $0)">;
-
-// Pad a ArrayAttr with zeros.
-//
-// pads = [B1, B2, ... Bk, E1, E2, ..., Ek]
-//
-// becomes:
-//
-// pads = [0,... 0, B1, B2, ... Bk, 0,... 0, E1, E2, ..., Ek]
-//         |_____|                  |_____|
-//                 nZeros                    nZeros
-//
-// This function is used for padding attribute in Conv.
-class insertZerosForNonPaddedDims<int extensionLength>:
-  NativeCodeCall<"insertZerosForNonPaddedDims($_builder, $0,"
-                                              # extensionLength # ")">;
-
 // Check whether an ArrayAttr contains non-zero values or not.
 def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
                                        "has non-zero elements">;
