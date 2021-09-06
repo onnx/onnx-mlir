@@ -190,7 +190,7 @@ def FuseGemmFollowedByAddition : Pat<(ONNXAddOp (ONNXGemmOp:$res $m1, $m2, $none
 def NormalizeAddPattern: Pat<
   (ONNXAddOp $x, $y),
   (ONNXAddOp $y, $x),
-  [(IsFromONNXConstantOp $x), (IsNotFromONNXConstantOp $x)]
+  [(IsFromONNXConstantOp $x), (IsNotFromONNXConstantOp $y)]
 >;
 
 def FuseAddConvNullBiasPattern: Pat<
