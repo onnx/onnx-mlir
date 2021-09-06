@@ -161,6 +161,18 @@ def IsNotFromONNXConstantOp: Constraint<
     CPred<"!(llvm::dyn_cast_or_null<ONNXConstantOp>($0.getDefiningOp()))">,
     "Is a value not from ONNXConstantOp">;
 
+class AllDimsFromAxisToEndAre<int axis, int val>: Constraint<
+    CPred<"llvm::all_of("
+            "ArrayRef<int64_t>($_self.getType().cast<ShapedType>().getShape().begin() + " # axis # ","
+            "                  $_self.getType().cast<ShapedType>().getShape().end()),"
+            "[](int64_t val) { return (val == " # val # ");})">,
+    "All dimensions from axis to the end are val">;
+
+class RankXMinusRankYIs<int diff>: Constraint<
+    CPred<"($0.getType().cast<ShapedType>().getRank() "
+          " - $1.getType().cast<ShapedType>().getRank() == " # diff # ")">,
+    "X' rank is greater than Y's rank dif units">;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -219,7 +231,10 @@ def FuseAddConvNullBiasPattern: Pat<
         (createArrayAttrOfOneToRankOf $y)),
      // unchanged operands and attributes.
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
-     [(AttributeIsNotNull:$denseAttr), (HasNoneType $b)]
+  [(HasNoneType $b),
+   (AttributeIsNotNull:$denseAttr),
+   (AllDimsFromAxisToEndAre<1, 1>:$y),
+   (RankXMinusRankYIs<1> $res, $y)]
 >;
 
 def FuseAddConvPattern: Pat<
@@ -237,7 +252,10 @@ def FuseAddConvPattern: Pat<
            (createArrayAttrOfOneToRankOf $y))),
      // unchanged operands and attributes.
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
-     [(AttributeIsNotNull:$denseAttr), (NotNoneType $b)]
+  [(NotNoneType $b),
+   (AttributeIsNotNull:$denseAttr),
+   (AllDimsFromAxisToEndAre<1, 1>:$y),
+   (RankXMinusRankYIs<1> $res, $y)]
 >;
 
 //===----------------------------------------------------------------------===//
