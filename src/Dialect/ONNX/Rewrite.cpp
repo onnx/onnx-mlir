@@ -117,6 +117,63 @@ DenseElementsAttr insertZerosForNonPaddedDims(
 
 } // end anonymous namespace
 
+/// Register optimization patterns as "canonicalization" patterns
+/// on the ONNXMatMultOp.
+void ONNXAddOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<NormalizeAddPattern>(context);
+  results.insert<MulAddToGemmOptPattern>(context);
+  results.insert<FuseAddConvPattern>(context);
+  results.insert<FuseAddConvNullBiasPattern>(context);
+}
+
+void ONNXGemmOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<FuseGemmFollowedByAddition>(context);
+}
+/// on the ONNXIdentityOp.
+void ONNXIdentityOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<IdentityEliminationPattern>(context);
+}
+
+/// on the ONNXCastOp.
+void ONNXCastOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<CastEliminationPattern>(context);
+}
+
+/// on the ONNXTransposeOp.
+void ONNXTransposeOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<FuseTransposePattern>(context);
+  result.insert<RemoveIdentityTransposePattern>(context);
+}
+
+/// on the ONNXReshapeOp.
+void ONNXReshapeOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<FuseReshapePattern>(context);
+  result.insert<RemoveIdentityReshapePattern>(context);
+}
+
+/// on the ONNXDropoutOp.
+void ONNXDropoutOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<DropoutEliminationPattern>(context);
+}
+
+/// on the ONNXSqueezeOp.
+void ONNXSqueezeV11Op::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<RemoveSqueezeUnsqueezePattern>(context);
+}
+
+/// on the ONNXUnsqueezeOp.
+void ONNXUnsqueezeV11Op::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<RemoveUnsqueezeSqueezePattern>(context);
+}
 /// on the ONNXBatchNormalizationInferenceModeOp.
 void ONNXBatchNormalizationInferenceModeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
