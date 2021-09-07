@@ -40,8 +40,8 @@ except ImportError:
 
 def execute_commands(cmds):
     if (VERBOSE):
-        print(" ".join(cmds))
-    subprocess.run(cmds, stdout=subprocess.PIPE, check=True)
+        print(cmds)
+    subprocess.call(cmds, shell=True)
 
 
 def extend_model_output(model, intermediate_outputs):
@@ -122,8 +122,7 @@ def generate_random_input(model, input_shapes):
 
 
 def main(model_path,
-         mcpu,
-         mtriple,
+         compile_args,
          shape_info,
          verify,
          ref_folder,
@@ -151,14 +150,12 @@ def main(model_path,
         # Save modified model & invoke onnx-mlir to compile it.
         temp_model_path = os.path.join(temp_dir, "model.onnx")
         onnx.save(model, temp_model_path)
-        command_list = [ONNX_MLIR]
-        if mcpu:
-            command_list.append("--mcpu=" + args.mcpu)
-        if mtriple:
-            command_list.append("--mtriple=" + args.mtriple)
-        command_list.append(temp_model_path)
+        command_str = ONNX_MLIR
+        if compile_args:
+            command_str += " " + compile_args 
+        command_str += " " + temp_model_path 
         start = time.perf_counter()
-        execute_commands(command_list)
+        execute_commands(command_str)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.")
 
@@ -214,17 +211,14 @@ def main(model_path,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('model_path',
-                        type=str,
-                        help="Path to the ONNX model.")
-    parser.add_argument('--mtriple',
-                        type=str,
-                        default="",
-                        help='Triple to pass to the compiler')
-    parser.add_argument('--mcpu',
-                        type=str,
-                        default="",
-                        help='Target a specific cpu, passed to the compiler')
+    parser.add_argument('model_path', type=str, help="Path to the ONNX model.")
+    parser.add_argument(
+        '--compile_args',
+        type=str,
+        default="",
+        help=
+        'Arguments passed directly to onnx-mlir command. See bin/onnx-mlir --help'
+    )
     parser.add_argument(
         '--shape_info',
         type=str,
@@ -244,5 +238,5 @@ if __name__ == '__main__':
                         default="0.01",
                         help="Absolute tolerance for verification")
     args = parser.parse_args()
-    main(args.model_path, args.mtriple, args.mcpu, args.shape_info,
+    main(args.model_path, args.compile_args, args.shape_info,
          args.verify, args.ref_folder, float(args.rtol), float(args.atol))

@@ -30,7 +30,7 @@ reference inputs and outputs in protobuf.
 
 ```bash
 $ python ../utils/RunONNXModel.py  --help
-usage: RunONNXModel.py [-h] [--mtriple MTRIPLE] [--mcpu MCPU] [--shape_info SHAPE_INFO] [--verify {onnxruntime,ref}] [--ref_folder REF_FOLDER]
+usage: RunONNXModel.py [-h] [--compile_args COMPILE_ARGS] [--shape_info SHAPE_INFO] [--verify {onnxruntime,ref}] [--ref_folder REF_FOLDER]
                        [--rtol RTOL] [--atol ATOL]
                        model_path
 
@@ -39,8 +39,8 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
-  --mtriple MTRIPLE     Triple to pass to the compiler
-  --mcpu MCPU           Target a specific cpu, passed to the compiler
+  --compile_args COMPILE_ARGS
+                        Arguments passed directly to onnx-mlir command. See bin/onnx-mlir --help
   --shape_info SHAPE_INFO
                         Shape for each dynamic input, e.g. 0:1x10x20,1:7x5x3
   --verify {onnxruntime,ref}
