@@ -73,6 +73,10 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
   let description = [{
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
   }];
+  let arguments = (ins SymbolRefAttr:$func,
+           I32Attr:$numInputs,
+           I32Attr:$numOutputs,
+           StrAttr:$signature);
 
   let builders = [OpBuilder<(ins "FuncOp":$function, "int":$numInputs,
                                  "int":$numOutputs, "std::string":$signature)>];

@@ -154,18 +154,6 @@ func @unsupport_pad_unknown_pad_values(%arg0 : tensor<16x13xf32>, %arg1 : tensor
 /// Unsupported configurations for ONNXResizeOp.
 //===----------------------------------------------------------------------===//
 
-func @unsupport_resize_using_sizes(%arg0 : tensor<3x4x5x6xf32>, %arg1 : tensor<1xi64>) -> tensor<*xf32> {
-  %cst = constant unit
-  %0 = "onnx.Constant"() {value = dense<[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<8xf32>} : () -> tensor<8xf32>
-
-  // expected-error @+2 {{using sizes() not implemented yet}}
-  // expected-error @+1 {{shape inference failed}}
-  %1 = "onnx.Resize"(%arg0, %0, %cst, %arg1) {coordinate_transformation_mode = "asymmetric", mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize1"} : (tensor<3x4x5x6xf32>, tensor<8xf32>, none, tensor<1xi64>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
 func @unsupport_resize_linear_mode(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32> {
   %cst = constant unit
   %0 = "onnx.Constant"() {value = dense<[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<8xf32>} : () -> tensor<8xf32>

@@ -32,6 +32,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     ONNXResizeOpAdaptor operandAdaptor(operands);
     Value data = operandAdaptor.X();
     Value scales = operandAdaptor.scales();
+    Value sizes = operandAdaptor.sizes();
     MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
     int64_t rank = memRefType.getShape().size();
 
@@ -43,33 +44,52 @@ struct ONNXResizeOpLowering : public ConversionPattern {
             resizeOp.nearest_mode() != "round_prefer_floor"))
       return emitError(loc, "not implemented yet");
 
-    // Get the scales
-    // SymbolIndexExpr was tried but got runtime error
-    // Attribute::cast() const [with U = mlir::IntegerAttr]
-    // The reason seems to be that IntegerAttr is assumed
-    //
     SmallVector<Value, 4> scaleValues;
-    DenseElementsAttr scalesAttrs =
-        getDenseElementAttributeFromONNXValue(resizeOp.scales());
-    SmallVector<float, 4> scalesConstant;
-    if (scalesAttrs) {
-      for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
-        Value scaleConstant = emitConstantOp(
-            rewriter, loc, rewriter.getF32Type(), scaleAttr.getValueAsDouble());
-        scaleValues.emplace_back(scaleConstant);
+    bool fromScale = !isFromNone(resizeOp.scales());
+    IndexExprScope outerloopContex(rewriter, loc);
+    DimsExpr outputDims(rank);
+    MemRefBoundsIndexCapture dataBounds(data);
+    if (fromScale) {
+      // Get the scales
+      // SymbolIndexExpr was tried but got runtime error
+      // Attribute::cast() const [with U = mlir::IntegerAttr]
+      // The reason seems to be that IntegerAttr is assumed
+      //
+      DenseElementsAttr scalesAttrs =
+          getDenseElementAttributeFromONNXValue(resizeOp.scales());
+      SmallVector<float, 4> scalesConstant;
+      if (scalesAttrs) {
+        for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
+          Value scaleConstant = emitConstantOp(rewriter, loc,
+              rewriter.getF32Type(), scaleAttr.getValueAsDouble());
+          scaleValues.emplace_back(scaleConstant);
+        }
+      } else {
+        for (decltype(rank) i = 0; i < rank; i++) {
+          Value indexValue =
+              emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
+          Value scaleVal = rewriter.create<KrnlLoadOp>(loc, scales, indexValue);
+          scaleValues.emplace_back(scaleVal);
+        }
       }
     } else {
       for (decltype(rank) i = 0; i < rank; i++) {
         Value indexValue =
             emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
-        Value scaleVal = rewriter.create<KrnlLoadOp>(loc, scales, indexValue);
+        Value resizedVal = rewriter.create<KrnlLoadOp>(loc, sizes, indexValue);
+        Value resizedFVal =
+            rewriter.create<SIToFPOp>(loc, rewriter.getF32Type(), resizedVal);
+        Value inputDim = dataBounds.getDim(i).getValue();
+        Value inputDimInteger = rewriter.create<IndexCastOp>(
+            loc, inputDim, rewriter.getIntegerType(64));
+        Value inputDimFloat = rewriter.create<SIToFPOp>(
+            loc, rewriter.getF32Type(), inputDimInteger);
+        Value scaleVal =
+            rewriter.create<DivFOp>(loc, resizedFVal, inputDimFloat);
         scaleValues.emplace_back(scaleVal);
       }
     }
 
-    IndexExprScope outerloopContex(rewriter, loc);
-    DimsExpr outputDims(rank);
-    MemRefBoundsIndexCapture dataBounds(data);
     // Keep the code using IndexExpr for bug fixing
     // ArrayValueIndexCapture scaleIEs(op, scales,
     // getDenseElementAttributeFromKrnlValue,
@@ -80,7 +100,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
 
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else {
+    else if (fromScale) {
       for (decltype(rank) i = 0; i < rank; i++) {
         if (memRefType.getShape()[i] != -1) {
           outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
@@ -96,6 +116,24 @@ struct ONNXResizeOpLowering : public ConversionPattern {
               loc, rewriter.getIntegerType(64), outputDimFloat);
           Value outDim = rewriter.create<IndexCastOp>(
               loc, rewriter.getIndexType(), outputDimInteger);
+          SymbolIndexExpr outDimIE(outDim);
+          outputDims[i] = SymbolIndexExpr(outDimIE);
+        }
+      }
+      alloc = insertAllocAndDeallocSimple(
+          rewriter, op, memRefType, loc, outputDims, insertDealloc);
+    } else {
+      // Output is determined by sizes()
+      for (decltype(rank) i = 0; i < rank; i++) {
+        if (memRefType.getShape()[i] != -1) {
+          outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
+        } else {
+          Value indexValue =
+              emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
+          Value resizedVal =
+              rewriter.create<KrnlLoadOp>(loc, sizes, indexValue);
+          Value outDim = rewriter.create<IndexCastOp>(
+              loc, rewriter.getIndexType(), resizedVal);
           SymbolIndexExpr outDimIE(outDim);
           outputDims[i] = SymbolIndexExpr(outDimIE);
         }
@@ -124,8 +162,8 @@ struct ONNXResizeOpLowering : public ConversionPattern {
         // FPToSIOp is round-to-zero, same as floor for positive
         // round_prefer_floor will round 2.5 to 2, not 3
         if (resizeOp.nearest_mode() == "round_prefer_floor") {
-          Value deltaConstant = emitConstantOp(
-              rewriter, loc, rewriter.getF32Type(), 0.4999999999);
+          Value deltaConstant =
+              emitConstantOp(rewriter, loc, rewriter.getF32Type(), 0.499999);
           inIndexFloat =
               rewriter.create<AddFOp>(loc, inIndexFloat, deltaConstant);
         } else if (resizeOp.nearest_mode() == "floor") {
@@ -153,8 +191,8 @@ struct ONNXResizeOpLowering : public ConversionPattern {
                 scaleValues[i]),
             halfPixelConstant);
         if (resizeOp.nearest_mode() == "round_prefer_floor") {
-          Value deltaConstant = emitConstantOp(
-              rewriter, loc, rewriter.getF32Type(), 0.4999999999);
+          Value deltaConstant =
+              emitConstantOp(rewriter, loc, rewriter.getF32Type(), 0.499999);
           inIndexFloat =
               rewriter.create<AddFOp>(loc, inIndexFloat, deltaConstant);
         } else if (resizeOp.nearest_mode() == "floor") {
