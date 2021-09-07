@@ -435,7 +435,7 @@ static LogicalResult RNNShapeInference(T *op) {
   if (!X.getType().isa<RankedTensorType>() ||
       !W.getType().isa<RankedTensorType>() ||
       !R.getType().isa<RankedTensorType>()) {
-    return op->emitError("Input tensor not ranked");
+    return success();
   }
 
   auto xTy = X.getType().cast<RankedTensorType>();
@@ -873,7 +873,7 @@ LogicalResult ONNXPReluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!X().getType().isa<RankedTensorType>() ||
       !slope().getType().isa<RankedTensorType>())
-    return emitError("Input tensor(s) not ranked");
+    return success();
   auto xShape = X().getType().cast<ShapedType>().getShape();
   auto slopeShape = slope().getType().cast<ShapedType>().getShape();
 
@@ -992,7 +992,7 @@ LogicalResult ONNXPowOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
-    return emitError("Input tensor(s) not ranked");
+    return success();
   RankedTensorType lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   RankedTensorType rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   Type rhsETy = rhsTy.getElementType();
@@ -1014,7 +1014,7 @@ LogicalResult ONNXAddOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
-    return emitError("Input tensor(s) not ranked");
+    return success();
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
@@ -1030,7 +1030,7 @@ LogicalResult ONNXMulOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
-    return emitError("Input tensor(s) not ranked");
+    return success();
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
@@ -1046,7 +1046,7 @@ LogicalResult ONNXDivOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
-    return emitError("Input tensor(s) not ranked");
+    return success();
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
@@ -1062,7 +1062,7 @@ LogicalResult ONNXSubOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
-    return emitError("Input tensor(s) not ranked");
+    return success();
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
@@ -1078,7 +1078,7 @@ LogicalResult ONNXAndOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
-    return emitError("Input tensor(s) not ranked");
+    return success();
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
@@ -1094,7 +1094,7 @@ LogicalResult ONNXOrOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
-    return emitError("Input tensor(s) not ranked");
+    return success();
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
@@ -1110,7 +1110,7 @@ LogicalResult ONNXXorOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
-    return emitError("Input tensor(s) not ranked");
+    return success();
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
@@ -1126,7 +1126,7 @@ LogicalResult ONNXSumOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   for (unsigned int i = 0; i < getNumOperands(); ++i) {
     if (!getOperand(i).getType().cast<RankedTensorType>())
-      return emitError("Input tensor(s) not ranked");
+      return success();
   }
   Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
   for (unsigned int i = 1; i < getNumOperands(); ++i) {
@@ -1146,7 +1146,7 @@ LogicalResult ONNXMaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   for (unsigned int i = 0; i < getNumOperands(); ++i) {
     if (!getOperand(i).getType().cast<RankedTensorType>())
-      return emitError("Input tensor(s) not ranked");
+      return sucess();
   }
   Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
   for (unsigned int i = 1; i < getNumOperands(); ++i) {
@@ -1166,7 +1166,7 @@ LogicalResult ONNXMinOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   for (unsigned int i = 0; i < getNumOperands(); ++i) {
     if (!getOperand(i).getType().cast<RankedTensorType>())
-      return emitError("Input tensor(s) not ranked");
+      return success();
   }
   Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
   for (unsigned int i = 1; i < getNumOperands(); ++i) {
@@ -1208,7 +1208,7 @@ LogicalResult ONNXMatMulOp::inferShapes(
   // Cannot infer shape if no shape exists.
   if (!A().getType().isa<RankedTensorType>() ||
       !B().getType().isa<RankedTensorType>())
-    return emitError("Input tensor(s) not ranked");
+    return success();
 
   return shapeHelperInferShapes<ONNXMatMulOpShapeHelper, ONNXMatMulOp,
       ONNXMatMulOpAdaptor>(this, A());
@@ -1223,7 +1223,7 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
   // Cannot infer shape if no shape exists.
   if (!a().getType().isa<RankedTensorType>() ||
       !b().getType().isa<RankedTensorType>())
-    return emitError("Input tensor(s) not ranked");
+    return success();
 
   auto lhsTy = a().getType().cast<RankedTensorType>();
   auto rhsTy = b().getType().cast<RankedTensorType>();
@@ -1354,7 +1354,7 @@ LogicalResult ONNXGemmOp::inferShapes(
   if (!A().getType().isa<RankedTensorType>() ||
       !B().getType().isa<RankedTensorType>() ||
       (hasBias && !C().getType().isa<RankedTensorType>()))
-    return emitError("Input tensor(s) not ranked");
+    return success();
 
   return shapeHelperInferShapes<ONNXGemmOpShapeHelper, ONNXGemmOp,
       ONNXGemmOpAdaptor>(this, A());
@@ -1369,7 +1369,7 @@ LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
       !B().getType().isa<RankedTensorType>() ||
       !mean().getType().isa<RankedTensorType>() ||
       !var().getType().isa<RankedTensorType>())
-    return emitError("Input tensor(s) not ranked");
+    return success();
 
   auto inputTensorTy = X().getType().cast<RankedTensorType>();
   auto scaleTensorTy = scale().getType().cast<RankedTensorType>();
@@ -1422,10 +1422,10 @@ LogicalResult ONNXReshapeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape tensor is specified.
   if (!data().getType().isa<RankedTensorType>())
-    return emitError("Input data tensor not ranked");
+    return success();
 
   if (!shape().getType().isa<RankedTensorType>())
-    return emitError("Shape tensor not ranked");
+    return success();
 
   auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
   auto elementType = data().getType().cast<ShapedType>().getElementType();
@@ -1456,7 +1456,7 @@ LogicalResult ONNXTransposeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   ONNXTransposeOpAdaptor operandAdaptor(*this);
@@ -1477,7 +1477,7 @@ LogicalResult ONNXTransposeOp::inferShapes(
 LogicalResult ONNXReduceMaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   auto operandTy = getOperand().getType().cast<RankedTensorType>();
   getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
@@ -1491,7 +1491,7 @@ LogicalResult ONNXReduceMaxOp::inferShapes(
 LogicalResult ONNXReduceMeanOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   auto operandTy = getOperand().getType().cast<RankedTensorType>();
   getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
@@ -1505,7 +1505,7 @@ LogicalResult ONNXReduceMeanOp::inferShapes(
 LogicalResult ONNXReduceMinOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   auto operandTy = getOperand().getType().cast<RankedTensorType>();
   getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
@@ -1519,7 +1519,7 @@ LogicalResult ONNXReduceMinOp::inferShapes(
 LogicalResult ONNXReduceProdOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   auto operandTy = getOperand().getType().cast<RankedTensorType>();
   getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
@@ -1533,7 +1533,7 @@ LogicalResult ONNXReduceProdOp::inferShapes(
 LogicalResult ONNXReduceSumOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!data().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   auto operandTy = data().getType().cast<RankedTensorType>();
   /**
@@ -1569,7 +1569,7 @@ LogicalResult ONNXReduceSumOp::inferShapes(
 LogicalResult ONNXReduceSumV11Op::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   auto operandTy = getOperand().getType().cast<RankedTensorType>();
   getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
@@ -1781,7 +1781,7 @@ LogicalResult ONNXConvOp::inferShapes(
   if (!X().getType().isa<RankedTensorType>() ||
       !W().getType().isa<RankedTensorType>() ||
       (hasBias && !B().getType().isa<RankedTensorType>()))
-    return emitError("Input tensor not ranked");
+    return success();
 
   // Infer shape for the output.
   ONNXConvOpAdaptor operandAdaptor(*this);
@@ -1821,7 +1821,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   if (!X().getType().isa<RankedTensorType>() ||
       !W().getType().isa<RankedTensorType>() ||
       (hasBias && !B().getType().isa<RankedTensorType>())) {
-    return emitError("Input tensor not ranked");
+    return success();
   }
 
   auto xTy = X().getType().cast<RankedTensorType>();
@@ -1954,7 +1954,7 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
   if (!x().getType().isa<RankedTensorType>() ||
       !w().getType().isa<RankedTensorType>() ||
       (hasBias && !B().getType().isa<RankedTensorType>()))
-    return emitError("Input tensor not ranked");
+    return success();
 
   auto xTy = x().getType().cast<RankedTensorType>();
   auto xShape = xTy.getShape();
@@ -2083,7 +2083,7 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   // Infer shape for the output.
   ONNXAveragePoolOpAdaptor operandAdaptor(*this);
@@ -2141,7 +2141,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   // Verify parameters: mandatory for kernel shape.
   auto kernelShape = kernel_shape();
@@ -2164,7 +2164,7 @@ template <typename PoolingOp>
 static LogicalResult inferShapesGlobalPool(PoolingOp *op) {
   // Cannot infer shape if no shape exists.
   if (!op->X().getType().template isa<RankedTensorType>())
-    return op->emitError("Input tensor not ranked");
+    return success();
 
   auto xTy = op->X().getType().template cast<RankedTensorType>();
   auto xShape = xTy.getShape();
@@ -2220,7 +2220,7 @@ LogicalResult ONNXPadOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
-    return emitError("Pad: unknown input shape");
+    return success();
 
   auto dataTy = data().getType().cast<RankedTensorType>();
   auto dataShape = dataTy.getShape();
@@ -2276,7 +2276,7 @@ LogicalResult ONNXUnsqueezeOp::inferShapes(
 LogicalResult ONNXUnsqueezeV11Op::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!data().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   auto operandTy = data().getType().cast<RankedTensorType>();
   auto elementType = data().getType().cast<ShapedType>().getElementType();
@@ -2332,7 +2332,7 @@ LogicalResult ONNXSqueezeOp::inferShapes(
 LogicalResult ONNXSqueezeV11Op::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!data().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   auto operandTy = data().getType().cast<RankedTensorType>();
   auto elementType = data().getType().cast<ShapedType>().getElementType();
@@ -2381,7 +2381,7 @@ LogicalResult ONNXCastOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   ShapedType inputType = input().getType().dyn_cast<ShapedType>();
   if (!inputType) {
-    return emitError("Non-shaped input type");
+    return success();
   }
 
   auto getOutputType = [&inputType](Type elementType) -> Type {
@@ -2440,7 +2440,7 @@ LogicalResult ONNXConcatOp::inferShapes(
   int inputNum = getNumOperands();
   for (int i = 0; i < inputNum; ++i) {
     if (!getOperand(i).getType().isa<RankedTensorType>())
-      return emitError("Input tensor(s) not ranked");
+      return success();
   }
   // Checking value of axis parameter.
   auto commonType = getOperand(0).getType().cast<RankedTensorType>();
@@ -2467,7 +2467,8 @@ LogicalResult ONNXConcatOp::inferShapes(
       return emitError("Concat input must all have the same rank");
     for (int j = 0; j < commonRank; ++j) {
       if (j == axisIndex) {
-      } else if (currShape[j] != commonShape[j]) {
+      } else if (currShape[j] != -1 && commonShape[j] != -1 &&
+                 currShape[j] != commonShape[j]) {
         return emitError("Concat input dimensions must be all identical, "
                          "except for dimension on the axis of the "
                          "concatenation. Expected something compatible with: ")
@@ -2523,7 +2524,7 @@ LogicalResult ONNXGRUOp::inferShapes(
 LogicalResult ONNXSplitOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand().getType().cast<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   return shapeHelperInferMultipleShapes<ONNXSplitOpShapeHelper, ONNXSplitOp,
       ONNXSplitOpAdaptor>(this, input());
@@ -2537,7 +2538,7 @@ LogicalResult ONNXFlattenOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   auto inTy = input().getType().dyn_cast<ShapedType>();
   if (!inTy) {
-    return emitOpError("Input is a non-shaped type");
+    return success();
   }
 
   int64_t axisValue = axis();
@@ -2588,7 +2589,7 @@ LogicalResult ONNXFlattenOp::inferShapes(
 LogicalResult ONNXResizeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!X().getType().isa<RankedTensorType>()) {
-    return emitError("X tensor has to be ranked in current implementation");
+    return success();
   }
   auto inputTy = X().getType().cast<RankedTensorType>();
 
@@ -2641,7 +2642,7 @@ LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   auto inTy = x().getType().dyn_cast<RankedTensorType>();
   if (!inTy || !inTy.hasStaticShape()) {
-    return emitOpError("Input is not a statically-shaped type");
+    return success();
   }
 
   auto yTy = y().getType().cast<ShapedType>();
@@ -2680,7 +2681,7 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   auto inTy = x().getType().dyn_cast<RankedTensorType>();
   if (!inTy || !inTy.hasStaticShape()) {
-    return emitOpError("Input is not a statically-shaped type");
+    return success();
   }
 
   auto yTy = y().getType().cast<ShapedType>();
@@ -2704,7 +2705,7 @@ LogicalResult ONNXDequantizeLinearOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   auto inTy = x().getType().dyn_cast<RankedTensorType>();
   if (!inTy || !inTy.hasStaticShape()) {
-    return emitOpError("Input is not a statically-shaped type");
+    return success();
   }
 
   auto yTy = y().getType().cast<ShapedType>();
@@ -2731,7 +2732,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
   // Cannot infer shape if no shape exists.
   if (!x().getType().isa<RankedTensorType>() ||
       !w().getType().isa<RankedTensorType>()) {
-    return emitOpError("Input tensor not ranked");
+    return success();
   }
 
   auto xTy = x().getType().cast<RankedTensorType>();
@@ -2834,7 +2835,7 @@ LogicalResult ONNXShapeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   // Output is an 1D int64 tensor containing the shape of the input tensor.
   int64_t rank = data().getType().cast<RankedTensorType>().getRank();
@@ -2865,16 +2866,16 @@ LogicalResult ONNXTileOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!input().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   // Read 'repeats' value.
   if (!repeats().getType().isa<RankedTensorType>())
-    return emitError("Repeats tensor not ranked");
+    return success();
 
   // 'repeats' tensor is an 1D tensor.
   auto repeatsTensorTy = repeats().getType().cast<RankedTensorType>();
   if (repeatsTensorTy.getShape().size() != 1)
-    return emitError("Repeats tensor must have rank one");
+    return success();
 
   return shapeHelperInferShapes<ONNXTileOpShapeHelper, ONNXTileOp,
       ONNXTileOpAdaptor>(this, input());
@@ -2888,9 +2889,9 @@ LogicalResult ONNXGatherOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
   if (!indices().getType().isa<RankedTensorType>())
-    return emitError("Indices tensor not ranked");
+    return success();
 
   return shapeHelperInferShapes<ONNXGatherOpShapeHelper, ONNXGatherOp,
       ONNXGatherOpAdaptor>(this, data());
@@ -2966,7 +2967,7 @@ LogicalResult ONNXSliceOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   const auto startsType =
       this->getOperand(1).getType().dyn_cast<RankedTensorType>();
@@ -3024,7 +3025,7 @@ LogicalResult ONNXSliceOp::inferShapes(
 LogicalResult ONNXExpandOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!input().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   auto lhsTy = input().getType().cast<RankedTensorType>();
 
@@ -3039,7 +3040,7 @@ LogicalResult ONNXExpandOp::inferShapes(
     // If the shape operand is produced by a onnx.Shape operation, infer its
     // shape and use it as the requested shape.
     if (!shapeOp.data().getType().isa<RankedTensorType>())
-      return emitError("Input tensor not ranked");
+      return success();
 
     ArrayRef<int64_t> rhsShapeRef =
         shapeOp.data().getType().cast<RankedTensorType>().getShape();
@@ -3094,7 +3095,7 @@ LogicalResult ONNXExpandOp::inferShapes(
 LogicalResult ONNXDropoutOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!data().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   getResult(0).setType(data().getType());
 
@@ -3113,7 +3114,7 @@ LogicalResult ONNXOneHotEncoderOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   ShapedType inputType = X().getType().dyn_cast<ShapedType>();
   if (!inputType)
-    return emitError("Non-shaped input type");
+    return success();
   auto shape = inputType.getShape();
   int64_t outDim = 0;
 
@@ -3154,7 +3155,7 @@ LogicalResult ONNXLessOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   for (unsigned int i = 0; i < getNumOperands(); ++i) {
     if (!getOperand(i).getType().cast<RankedTensorType>())
-      return emitError("Input tensor(s) not ranked");
+      return success();
   }
   Type lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   Type rhsTy = getOperand(1).getType().cast<RankedTensorType>();
@@ -3175,7 +3176,7 @@ LogicalResult ONNXLessOp::inferShapes(
 LogicalResult ONNXArgMaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!data().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
 
   ONNXArgMaxOpShapeHelper shapeHelper(this);
   ONNXArgMaxOpAdaptor operandAdaptor(*this);
@@ -3217,7 +3218,7 @@ LogicalResult ONNXClipOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Look at input.
   if (!input().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
+    return success();
   RankedTensorType inputTy = input().getType().cast<RankedTensorType>();
   Type elementType = inputTy.getElementType();
   ArrayRef<int64_t> inputShape = inputTy.getShape();
@@ -3225,7 +3226,7 @@ LogicalResult ONNXClipOp::inferShapes(
   if (!min().getType().isa<NoneType>()) {
     // Has a min, make sure its of the right type.
     if (!min().getType().isa<RankedTensorType>())
-      return emitError("Min tensor not ranked");
+      return success();
     // And size.
     RankedTensorType minTy = min().getType().cast<RankedTensorType>();
     if (minTy.getElementType() != elementType)
@@ -3237,7 +3238,7 @@ LogicalResult ONNXClipOp::inferShapes(
   if (!max().getType().isa<NoneType>()) {
     // Has a max, make sure its of the right type.
     if (!max().getType().isa<RankedTensorType>())
-      return emitError("Min tensor not ranked");
+      return success();
     // And size.
     RankedTensorType maxTy = max().getType().cast<RankedTensorType>();
     if (maxTy.getElementType() != elementType)
@@ -3444,13 +3445,13 @@ LogicalResult ONNXRangeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // All inputs must be valid ranked tensors.
   if (!start().getType().isa<RankedTensorType>())
-    return emitError("start tensor not ranked");
+    return success();
 
   if (!limit().getType().isa<RankedTensorType>())
-    return emitError("limit tensor not ranked");
+    return success();
 
   if (!delta().getType().isa<RankedTensorType>())
-    return emitError("delta tensor not ranked");
+    return success();
 
   auto startTensorTy = start().getType().cast<RankedTensorType>();
   auto limitTensorTy = limit().getType().cast<RankedTensorType>();
