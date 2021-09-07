@@ -38,6 +38,13 @@ except ImportError:
     )
 
 
+def ordinal(n):
+    suffix = ['th', 'st', 'nd', 'rd', 'th'][min(n % 10, 4)]
+    if 11 <= (n % 100) <= 13:
+        suffix = 'th'
+    return str(n) + suffix
+
+
 def execute_commands(cmds):
     if (VERBOSE):
         print(cmds)
@@ -98,25 +105,31 @@ def generate_random_input(model, input_shapes):
     initializers = list(map(lambda x: x.name, model.graph.initializer))
     np.random.seed(42)
     for i, input_proto in enumerate(model.graph.input):
-        if input_proto.name not in initializers:
-            input_names.append(input_proto.name)
-            shape_proto = input_proto.type.tensor_type.shape
-            explicit_shape = []
-            for d, dim in enumerate(shape_proto.dim):
-                if dim.dim_value:
-                    explicit_shape.append(dim.dim_value)
+        if input_proto.name in initializers:
+            continue
+        input_names.append(input_proto.name)
+        shape_proto = input_proto.type.tensor_type.shape
+        explicit_shape = []
+        for d, dim in enumerate(shape_proto.dim):
+            if dim.dim_value:
+                explicit_shape.append(dim.dim_value)
+                continue
+            if i in input_shapes:
+                if d < len(input_shapes[i]):
+                    explicit_shape.append(input_shapes[i][d])
                 else:
-                    if i in input_shapes:
-                        explicit_shape.append(input_shapes[i][d])
-                    else:
-                        print(
-                            "No shape information for the {}-th input. Use --shape-info."
-                            .format(i))
-                        print(shape_proto)
-                        exit()
-            inputs.append(
-                np.random.uniform(-1.0, 1.0,
-                                  explicit_shape).astype(np.float32))
+                    print("The {} dim".format(ordinal(d + 1)),
+                          "of the {} input is unknown.".format(ordinal(i + 1)),
+                          "Use --shape_info to set.")
+                    print(shape_proto)
+                    exit()
+            else:
+                print("The shape of the {} input".format(ordinal(i + 1)),
+                      "is unknown. Use --shape_info to set.")
+                print(shape_proto)
+                exit()
+        inputs.append(
+            np.random.uniform(-1.0, 1.0, explicit_shape).astype(np.float32))
     print("  done.")
     return (inputs, input_names)
 
@@ -152,8 +165,8 @@ def main(model_path,
         onnx.save(model, temp_model_path)
         command_str = ONNX_MLIR
         if compile_args:
-            command_str += " " + compile_args 
-        command_str += " " + temp_model_path 
+            command_str += " " + compile_args
+        command_str += " " + temp_model_path
         start = time.perf_counter()
         execute_commands(command_str)
         end = time.perf_counter()
@@ -238,5 +251,5 @@ if __name__ == '__main__':
                         default="0.01",
                         help="Absolute tolerance for verification")
     args = parser.parse_args()
-    main(args.model_path, args.compile_args, args.shape_info,
-         args.verify, args.ref_folder, float(args.rtol), float(args.atol))
+    main(args.model_path, args.compile_args, args.shape_info, args.verify,
+         args.ref_folder, float(args.rtol), float(args.atol))
