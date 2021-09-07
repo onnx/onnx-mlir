@@ -216,7 +216,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('model_path',
                         type=str,
-                        help="Path to the model to debug.")
+                        help="Path to the ONNX model.")
     parser.add_argument('--mtriple',
                         type=str,
                         default="",
