@@ -57,7 +57,7 @@ public:
 private:
   static LogicalResult verifyRanked(Operation &op) {
     for (auto ty : op.getOperandTypes()) {
-      if (!ty.isa<RankedTensorType>()) {
+      if (!ty.isa<RankedTensorType>() && !ty.isa<NoneType>()) {
         op.emitError("not ranked");
         return failure();
       }
