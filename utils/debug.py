@@ -7,6 +7,7 @@ import subprocess
 import numpy as np
 import tempfile
 
+from onnx import numpy_helper
 from collections import OrderedDict
 
 if (not os.environ.get('ONNX_MLIR_HOME', None)):
@@ -57,7 +58,77 @@ def extend_model_output(model, intermediate_outputs):
     return model
 
 
-def main(model_path, verify, shape_info, mcpu, mtriple):
+def read_input_from_refs(model, ref_folder):
+    print("Reading inputs from {} ...".format(ref_folder))
+    i = 0
+    inputs = []
+    input_names = []
+    initializers = list(map(lambda x: x.name, model.graph.initializer))
+    for input_proto in model.graph.input:
+        if input_proto.name not in initializers:
+            input_names.append(input_proto.name)
+            input_file = ref_folder + '/input_{}.pb'.format(i)
+            input_ts = onnx.TensorProto()
+            with open(input_file, 'rb') as f:
+                input_ts.ParseFromString(f.read())
+            inputs += [numpy_helper.to_array(input_ts)]
+            i += 1
+    print("  done.")
+    return (inputs, input_names)
+
+
+def read_output_from_refs(model, ref_folder):
+    print("Reading reference outputs from {} ...".format(ref_folder))
+    reference_output = []
+    for i, _ in enumerate(model.graph.output):
+        output_file = ref_folder + '/output_{}.pb'.format(i)
+        output_ts = onnx.TensorProto()
+        with open(output_file, 'rb') as f:
+            output_ts.ParseFromString(f.read())
+        reference_output += [numpy_helper.to_array(output_ts)]
+    print("  done.")
+    return reference_output
+
+
+def generate_random_input(model, input_shapes):
+    print("Generating random inputs ...")
+    # Generate random data as input.
+    inputs = []
+    input_names = []
+    initializers = list(map(lambda x: x.name, model.graph.initializer))
+    np.random.seed(42)
+    for i, input_proto in enumerate(model.graph.input):
+        if input_proto.name not in initializers:
+            input_names.append(input_proto.name)
+            shape_proto = input_proto.type.tensor_type.shape
+            explicit_shape = []
+            for d, dim in enumerate(shape_proto.dim):
+                if dim.dim_value:
+                    explicit_shape.append(dim.dim_value)
+                else:
+                    if i in input_shapes:
+                        explicit_shape.append(input_shapes[i][d])
+                    else:
+                        print(
+                            "No shape information for the {}-th input. Use --shape-info."
+                            .format(i))
+                        print(shape_proto)
+                        exit()
+            inputs.append(
+                np.random.uniform(-1.0, 1.0,
+                                  explicit_shape).astype(np.float32))
+    print("  done.")
+    return (inputs, input_names)
+
+
+def main(model_path,
+         mcpu,
+         mtriple,
+         shape_info,
+         verify,
+         ref_folder,
+         atol=0.01,
+         rtol=0.05):
     # Get shape information if given.
     # shape_info in the form of 'input_index:d1xd2, input_index:d1xd2'
     input_shapes = {}
@@ -69,12 +140,10 @@ def main(model_path, verify, shape_info, mcpu, mtriple):
             dims = [int(d) for d in input_index_shape[1].split("x")]
             input_shapes[int(input_index)] = dims
 
+    # Load the onnx model.
     model = onnx.load(model_path)
-    intermediate_outputs = sum(
-        [list(node.output) for node in model.graph.node], [])
-    intermediate_outputs = list(OrderedDict.fromkeys(intermediate_outputs))
-    model = extend_model_output(model, intermediate_outputs)
 
+    # Compile, run, and verify.
     with tempfile.TemporaryDirectory() as temp_dir:
         print("Temporary directory has been created at {}".format(temp_dir))
 
@@ -84,71 +153,63 @@ def main(model_path, verify, shape_info, mcpu, mtriple):
         onnx.save(model, temp_model_path)
         command_list = [ONNX_MLIR]
         if mcpu:
-            command_list.append("--mcpu="+args.mcpu)
+            command_list.append("--mcpu=" + args.mcpu)
         if mtriple:
-            command_list.append("--mtriple="+args.mtriple)
+            command_list.append("--mtriple=" + args.mtriple)
         command_list.append(temp_model_path)
         start = time.perf_counter()
         execute_commands(command_list)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.")
 
-        # Use the generated shared library to create an execution session.
-        temp_shared_lib_path = os.path.join(temp_dir, "model.so")
-        sess = ExecutionSession(temp_shared_lib_path, "run_main_graph")
-
-        print("Generating random inputs ...")
-        # Generate random data as input.
+        # Prepare input data.
         inputs = []
         input_names = []
-        initializers = list(map(lambda x: x.name, model.graph.initializer))
-        np.random.seed(42)
-        for i, input_proto in enumerate(model.graph.input):
-            if input_proto.name not in initializers:
-                input_names.append(input_proto.name)
-                shape_proto = input_proto.type.tensor_type.shape
-                explicit_shape = []
-                for d, dim in enumerate(shape_proto.dim):
-                    if dim.dim_value:
-                        explicit_shape.append(dim.dim_value)
-                    else:
-                        if i in input_shapes:
-                            explicit_shape.append(input_shapes[i][d])
-                        else:
-                            print(
-                                "No shape information for the {}-th input. Use --shape-info."
-                                .format(i))
-                            print(shape_proto)
-                            exit()
-                inputs.append(
-                    np.random.uniform(-1.0, 1.0,
-                                      explicit_shape).astype(np.float32))
-        print("  done.")
+        if (verify and verify.lower() == "ref"):
+            assert ref_folder, "No reference folder given"
+            inputs, input_names = read_input_from_refs(model, ref_folder)
+        else:
+            inputs, input_names = generate_random_input(model, input_shapes)
 
         print("Running inference ...")
-        # Run the compiled inference function on the randomly generated data.
+        temp_shared_lib_path = os.path.join(temp_dir, "model.so")
         start = time.perf_counter()
+        # Use the generated shared library to create an execution session.
+        sess = ExecutionSession(temp_shared_lib_path, "run_main_graph")
         outs = sess.run(inputs)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.")
 
         # Run the model with reference backend and get results.
-        if (verify and verify.lower() == "onnxruntime"):
-            # Reference backend, use onnxruntime by default
-            import onnxruntime
-            prepare = onnxruntime.InferenceSession
+        if (verify):
+            ref_outs = []
+            if (verify.lower() == "onnxruntime"):
+                # Reference backend by using onnxruntime.
+                import onnxruntime
+                output_names = list(map(lambda x: x.name, model.graph.output))
+                input_feed = dict(zip(input_names, inputs))
+                print("Running inference using onnxruntime ...")
+                start = time.perf_counter()
+                ref_session = onnxruntime.InferenceSession(temp_model_path)
+                ref_outs = ref_session.run(output_names, input_feed)
+                end = time.perf_counter()
+                print("  took ", end - start, " seconds.")
 
-            ref_session = prepare(temp_model_path)
-            output_names = list(map(lambda x: x.name, model.graph.output))
-            input_feed = dict(zip(input_names, inputs))
-            ref_outs = ref_session.run(output_names, input_feed)
+            elif (verify.lower() == "ref"):
+                ref_outs = read_output_from_refs(model, ref_folder)
+            else:
+                print("Invalid verify option")
+                exit()
 
             # For each intermediate output tensor, compare results.
-            for i, name in enumerate(intermediate_outputs):
-                print("Verifying value of {}".format(name))
-                np.testing.assert_array_almost_equal(ref_outs[i],
-                                                     outs[i],
-                                                     decimal=5)
+            for i, output_proto in enumerate(model.graph.output):
+                print("Verifying value of {}".format(output_proto.name))
+                np.testing.assert_allclose(ref_outs[i],
+                                           outs[i],
+                                           rtol=rtol,
+                                           atol=atol,
+                                           verbose=True)
+                print("  correct with atol={}, rtol={}.".format(atol, rtol))
 
 
 if __name__ == '__main__':
@@ -156,13 +217,32 @@ if __name__ == '__main__':
     parser.add_argument('model_path',
                         type=str,
                         help="Path to the model to debug.")
-    parser.add_argument('--verify', choices=['onnxruntime'])
-    parser.add_argument('--shape-info',
+    parser.add_argument('--mtriple',
                         type=str,
-                        help="Shape for each input, e.g. 0:1x10x20,1:7x5x3")
-    parser.add_argument('--mtriple', type=str, default="", 
-                        help='triple to pass to the compiler')
-    parser.add_argument('--mcpu', type=str, default="",
-                        help='target a specific cpu, passed to the compiler')
+                        default="",
+                        help='Triple to pass to the compiler')
+    parser.add_argument('--mcpu',
+                        type=str,
+                        default="",
+                        help='Target a specific cpu, passed to the compiler')
+    parser.add_argument(
+        '--shape_info',
+        type=str,
+        help="Shape for each dynamic input, e.g. 0:1x10x20,1:7x5x3")
+    parser.add_argument('--verify', choices=['onnxruntime', 'ref'])
+    parser.add_argument(
+        '--ref_folder',
+        type=str,
+        help="Path to the folder containing reference inputs and outputs stored"
+        " in protobuf. Used when --verify=ref")
+    parser.add_argument('--rtol',
+                        type=str,
+                        default="0.05",
+                        help="Relative tolerance for verification")
+    parser.add_argument('--atol',
+                        type=str,
+                        default="0.01",
+                        help="Absolute tolerance for verification")
     args = parser.parse_args()
-    main(**vars(args))
+    main(args.model_path, args.mtriple, args.mcpu, args.shape_info,
+         args.verify, args.ref_folder, float(args.rtol), float(args.atol))
