@@ -261,9 +261,9 @@ def main():
                                                verbose=True)
                 except AssertionError as error:
                     print(error)
-                    print("Mismatch elements ...")
+                    print("Print out all mismatched elements ...")
                     for i in range(len(outs)):
-                        print("Mismatch elements for the {} output ...".format(
+                        print("Mismatched elements for the {} output ...".format(
                             ordinal(i+1)))
                         for index, actual_val in np.ndenumerate(outs[i]):
                             ref_val = ref_outs[i][index]
