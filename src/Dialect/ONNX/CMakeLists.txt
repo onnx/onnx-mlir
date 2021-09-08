@@ -10,21 +10,18 @@ add_onnx_mlir_dialect(ONNXOps)
 add_onnx_mlir_dialect_doc(onnx ONNXOps.td)
 
 add_onnx_mlir_rewriter(Rewrite)
-add_onnx_mlir_rewriter(Combine)
 
 add_onnx_mlir_library(OMONNXOps
   ONNXOps.cpp
   ONNXOpsHelper.cpp
   ONNXShapeHelper.cpp
   Rewrite.cpp
-  Combine.cpp
   IndexExpr.cpp
   IndexExprDetail.cpp
   MLIRDialectBuilder.cpp
 
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen
-  OMONNXCombineIncGen
   OMONNXOpsIncGen
   OMONNXRewriteIncGen
   OMResultTypeInferenceOpInterfaceIncGen

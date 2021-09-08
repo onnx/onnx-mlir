@@ -110,7 +110,7 @@ func @test_conv_batchnormtestmode_fusion_nobias(%arg0 : tensor<1x3x224x224xf32>)
 
     // CHECK: [[NEG_MEAN:%.+]] = "onnx.Neg"([[MEAN]]) : (tensor<64xf32>) -> tensor<*xf32>
     // CHECK: [[MUL:%.+]] = "onnx.Mul"([[COEFFICIENT_W]], [[NEG_MEAN]]) : (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
-    // CHECK: [[NEW_BIAS:%.+]] = "onnx.Add"([[B]], [[MUL]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[NEW_BIAS:%.+]] = "onnx.Add"([[MUL]], [[B]]) : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
 
     // CHECK: [[RES:%.+]] = "onnx.Conv"(%arg0, [[NEW_WEIGHT]], [[NEW_BIAS]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x224x224xf32>, tensor<*xf32>, tensor<*xf32>) -> tensor<1x64x112x112xf32>
 
@@ -148,7 +148,7 @@ func @test_conv_batchnormtestmode_fusion(%arg0 : tensor<1x3x224x224xf32>, %arg1 
 
     // CHECK: [[SUB:%.+]] = "onnx.Sub"(%arg1, [[MEAN]]) : (tensor<64xf32>, tensor<64xf32>) -> tensor<64xf32>
     // CHECK: [[MUL:%.+]] = "onnx.Mul"([[COEFFICIENT_W]], [[SUB]]) : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
-    // CHECK: [[NEW_BIAS:%.+]] = "onnx.Add"([[B]], [[MUL]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
+    // CHECK: [[NEW_BIAS:%.+]] = "onnx.Add"([[MUL]], [[B]]) : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
 
     // CHECK: [[RES:%.+]] = "onnx.Conv"(%arg0, [[NEW_WEIGHT]], [[NEW_BIAS]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x224x224xf32>, tensor<*xf32>, tensor<*xf32>) -> tensor<1x64x112x112xf32>
 
@@ -472,4 +472,35 @@ func @test_rewrite_batchnormtestmode_1d(%arg0 : tensor<64xf32>) -> tensor<64xf32
 
     // CHECK: [[RES:%.*]] = "onnx.Add"([[X_A]], [[B]]) : (tensor<*xf32>, tensor<*xf32>) -> tensor<64xf32>
     // CHECK: return [[RES]] : tensor<64xf32>
+}
+
+// -----
+
+func @test_normalize_add(%arg0 : tensor<2xf32>) -> tensor<2xf32> {
+    %cst = constant unit
+    %0 = "onnx.Constant"() {value = dense<[0.0, 1.0]> : tensor<2xf32>} : () -> tensor<2xf32>
+    %1 = "onnx.Add"(%0, %arg0) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32> 
+    return %1 : tensor<2xf32> 
+    // CHECK-LABEL: test_normalize_add
+    // CHECK: [[CONSTANT:%.+]] = "onnx.Constant"() {value = dense<[0.000000e+00, 1.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
+    // CHECK: [[RES:%.+]] = "onnx.Add"(%arg0, [[CONSTANT]]) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+    // CHECK: return [[RES]] : tensor<2xf32>
+}
+
+// -----
+
+func @test_fuse_add_conv(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
+    %cst = constant unit
+    %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], onnx_node_name = "Convolution28", strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, none) -> tensor<1x8x28x28xf32> 
+    %1 = "onnx.Constant"() {value = dense<[[[-0.161539719]], [[-0.433835655]], [[0.091641359]], [[-0.0168522168]], [[-0.0650264397]], [[-0.131737873]], [[0.0204175506]], [[-0.121110231]]]> : tensor<8x1x1xf32>} : () -> tensor<8x1x1xf32>
+    %2 = "onnx.Add"(%0, %1) : (tensor<1x8x28x28xf32>, tensor<8x1x1xf32>) -> tensor<1x8x28x28xf32> 
+    return %2 : tensor<1x8x28x28xf32> 
+
+    // CHECK-LABEL: test_fuse_add_conv
+    // CHECK-SAME:  ([[X:%.+]]: tensor<1x1x28x28xf32>, [[W:%.+]]: tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
+    // CHECK: [[CONSTANT:%.+]] = "onnx.Constant"() {value = dense<{{.}}{{.}}[-0.161539719]{{.}}, {{.}}[-0.433835655]{{.}}, {{.}}[0.091641359]{{.}}, {{.}}[-0.0168522168]{{.}}, {{.}}[-0.0650264397]{{.}}, {{.}}[-0.131737873]{{.}}, {{.}}[0.0204175506]{{.}}, {{.}}[-0.121110231]{{.}}{{.}}> : tensor<8x1x1xf32>} : () -> tensor<8x1x1xf32>
+    // CHECK: [[BIAS:%.+]] = "onnx.SqueezeV11"([[CONSTANT]]) {axes = [1, 2]} : (tensor<8x1x1xf32>) -> tensor<*xf32>
+    // CHECK: [[RES:%.+]] = "onnx.Conv"([[X]], [[W]], [[BIAS]]) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, tensor<*xf32>) -> tensor<1x8x28x28xf32>
+    // CHECK: return [[RES]] : tensor<1x8x28x28xf32>
+    // CHECK: }
 }
