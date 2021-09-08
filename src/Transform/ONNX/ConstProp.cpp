@@ -494,6 +494,23 @@ ONNXConstantOp ConstPropUnsqueeze(
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for Squeeze.
+//===----------------------------------------------------------------------===//
+
+ONNXConstantOp ConstPropSqueeze(
+    PatternRewriter &rewriter, Value replacingValue, Value input) {
+  Operation *inputOp = input.getDefiningOp();
+
+  char *resArray = getArrayFromAttributeOrBuffer(rewriter, inputOp);
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
 // Code to perform constant propagation for split.
 //===----------------------------------------------------------------------===//
 
