@@ -350,7 +350,7 @@ OpsWithShapeInference=[
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Gemm', 'Cast', 'Transpose',
+OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Cast', 'Transpose',
                         'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
                         'GlobalMaxPool', 'SqueezeV11', 'UnsqueezeV11',
                         'Reshape']
