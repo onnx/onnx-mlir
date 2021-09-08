@@ -22,7 +22,9 @@ reference inputs and outputs in protobuf.
   importing onnxruntime to some other ONNX-compliant backend.
 - To verify using reference outputs, use `--verify=ref --ref_folder=ref_folder`
   where `ref_folder` is the path to a folder containing protobuf files for
-  inputs and outputs.
+  inputs and outputs. [This
+  guideline](https://github.com/onnx/onnx/blob/master/docs/PythonAPIOverview.md#manipulating-tensorproto-and-numpy-array)
+  is a how-to for creating protobuf files from numpy arrays. 
 
 ## Usage
 
@@ -30,8 +32,8 @@ reference inputs and outputs in protobuf.
 
 ```bash
 $ python ../utils/RunONNXModel.py  --help
-usage: RunONNXModel.py [-h] [--compile_args COMPILE_ARGS] [--shape_info SHAPE_INFO] [--verify {onnxruntime,ref}] [--ref_folder REF_FOLDER]
-                       [--rtol RTOL] [--atol ATOL]
+usage: RunONNXModel.py [-h] [--print_input] [--print_output] [--compile_args COMPILE_ARGS] [--shape_info SHAPE_INFO] [--verify {onnxruntime,ref}]
+                       [--ref_folder REF_FOLDER] [--rtol RTOL] [--atol ATOL]
                        model_path
 
 positional arguments:
@@ -39,11 +41,14 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
+  --print_input         Print out input tensors.
+  --print_output        Print out output tensors.
   --compile_args COMPILE_ARGS
                         Arguments passed directly to onnx-mlir command. See bin/onnx-mlir --help
   --shape_info SHAPE_INFO
                         Shape for each dynamic input, e.g. 0:1x10x20,1:7x5x3
   --verify {onnxruntime,ref}
+                        Verify the output by using onnxruntime or reference inputs/outputs. By default, no verification
   --ref_folder REF_FOLDER
                         Path to the folder containing reference inputs and outputs stored in protobuf. Used when --verify=ref
   --rtol RTOL           Relative tolerance for verification

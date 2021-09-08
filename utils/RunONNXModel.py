@@ -10,6 +10,42 @@ import tempfile
 from onnx import numpy_helper
 from collections import OrderedDict
 
+# Command arguments.
+parser = argparse.ArgumentParser()
+parser.add_argument('model_path', type=str, help="Path to the ONNX model.")
+parser.add_argument('--print_input', action='store_true',
+                    help="Print out inputs.")
+parser.add_argument('--print_output', action='store_true',
+                    help="Print out outputs.")
+parser.add_argument(
+    '--compile_args',
+    type=str,
+    default="",
+    help="Arguments passed directly to onnx-mlir command."
+         " See bin/onnx-mlir --help"
+)
+parser.add_argument(
+    '--shape_info',
+    type=str,
+    help="Shape for each dynamic input, e.g. 0:1x10x20,1:7x5x3")
+parser.add_argument('--verify', choices=['onnxruntime', 'ref'],
+                    help="Verify the output by using onnxruntime or reference"
+                         " inputs/outputs. By default, no verification")
+parser.add_argument(
+    '--ref_folder',
+    type=str,
+    help="Path to the folder containing reference inputs and outputs stored"
+         " in protobuf. Used when --verify=ref")
+parser.add_argument('--rtol',
+                    type=str,
+                    default="0.05",
+                    help="Relative tolerance for verification")
+parser.add_argument('--atol',
+                    type=str,
+                    default="0.01",
+                    help="Absolute tolerance for verification")
+args = parser.parse_args()
+
 if (not os.environ.get('ONNX_MLIR_HOME', None)):
     raise RuntimeError(
         "Environment variable ONNX_MLIR_HOME is not set, please set it to the path to "
@@ -134,18 +170,12 @@ def generate_random_input(model, input_shapes):
     return (inputs, input_names)
 
 
-def main(model_path,
-         compile_args,
-         shape_info,
-         verify,
-         ref_folder,
-         atol=0.01,
-         rtol=0.05):
+def main():
     # Get shape information if given.
-    # shape_info in the form of 'input_index:d1xd2, input_index:d1xd2'
+    # args.shape_info in the form of 'input_index:d1xd2, input_index:d1xd2'
     input_shapes = {}
-    if shape_info:
-        for input_shape in shape_info.strip().split(","):
+    if args.shape_info:
+        for input_shape in args.shape_info.strip().split(","):
             input_index_shape = input_shape.split(":")
             input_index = input_index_shape[0]
             assert not (input_index in input_shapes), "Duplicate input indices"
@@ -153,7 +183,7 @@ def main(model_path,
             input_shapes[int(input_index)] = dims
 
     # Load the onnx model.
-    model = onnx.load(model_path)
+    model = onnx.load(args.model_path)
 
     # Compile, run, and verify.
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -164,8 +194,8 @@ def main(model_path,
         temp_model_path = os.path.join(temp_dir, "model.onnx")
         onnx.save(model, temp_model_path)
         command_str = ONNX_MLIR
-        if compile_args:
-            command_str += " " + compile_args
+        if args.compile_args:
+            command_str += " " + args.compile_args
         command_str += " " + temp_model_path
         start = time.perf_counter()
         execute_commands(command_str)
@@ -175,11 +205,15 @@ def main(model_path,
         # Prepare input data.
         inputs = []
         input_names = []
-        if (verify and verify.lower() == "ref"):
-            assert ref_folder, "No reference folder given"
-            inputs, input_names = read_input_from_refs(model, ref_folder)
+        if (args.verify and args.verify.lower() == "ref"):
+            assert args.ref_folder, "No reference folder given"
+            inputs, input_names = read_input_from_refs(model, args.ref_folder)
         else:
             inputs, input_names = generate_random_input(model, input_shapes)
+        # Print the input if required.
+        if (args.print_input):
+            for i, inp in enumerate(inputs):
+                print("The {} input is: \n {}".format(ordinal(i+1), inp))
 
         print("Running inference ...")
         temp_shared_lib_path = os.path.join(temp_dir, "model.so")
@@ -190,10 +224,15 @@ def main(model_path,
         end = time.perf_counter()
         print("  took ", end - start, " seconds.")
 
+        # Print the output if required.
+        if (args.print_output):
+            for i, out in enumerate(outs):
+                print("The {} output is: \n {}".format(ordinal(i+1), out))
+
         # Run the model with reference backend and get results.
-        if (verify):
+        if (args.verify):
             ref_outs = []
-            if (verify.lower() == "onnxruntime"):
+            if (args.verify.lower() == "onnxruntime"):
                 # Reference backend by using onnxruntime.
                 import onnxruntime
                 output_names = list(map(lambda x: x.name, model.graph.output))
@@ -205,51 +244,39 @@ def main(model_path,
                 end = time.perf_counter()
                 print("  took ", end - start, " seconds.")
 
-            elif (verify.lower() == "ref"):
-                ref_outs = read_output_from_refs(model, ref_folder)
+            elif (args.verify.lower() == "ref"):
+                ref_outs = read_output_from_refs(model, args.ref_folder)
             else:
                 print("Invalid verify option")
                 exit()
 
             # For each intermediate output tensor, compare results.
             for i, output_proto in enumerate(model.graph.output):
-                print("Verifying value of {}".format(output_proto.name))
-                np.testing.assert_allclose(ref_outs[i],
-                                           outs[i],
-                                           rtol=rtol,
-                                           atol=atol,
-                                           verbose=True)
-                print("  correct with atol={}, rtol={}.".format(atol, rtol))
+                print("Verifying value of {} ...".format(output_proto.name))
+                try:
+                    np.testing.assert_allclose(ref_outs[i],
+                                               outs[i],
+                                               rtol=float(args.rtol),
+                                               atol=float(args.atol),
+                                               verbose=True)
+                except AssertionError as error:
+                    print(error)
+                    print("Mismatch elements ...")
+                    for i in range(len(outs)):
+                        print("Mismatch elements for the {} output ...".format(
+                            ordinal(i+1)))
+                        for index, actual_val in np.ndenumerate(outs[i]):
+                            ref_val = ref_outs[i][index]
+                            # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
+                            if (actual_val == float(args.atol) + float(args.rtol) * abs(ref_val)):
+                                continue
+                            print("At {}".format(index),
+                                  "mismatch {} (actual)".format(actual_val),
+                                  "vs {} (reference)".format(ref_val))
+                else:
+                    print("  correct with atol={}, rtol={}.".format(
+                        args.atol, args.rtol))
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('model_path', type=str, help="Path to the ONNX model.")
-    parser.add_argument(
-        '--compile_args',
-        type=str,
-        default="",
-        help=
-        'Arguments passed directly to onnx-mlir command. See bin/onnx-mlir --help'
-    )
-    parser.add_argument(
-        '--shape_info',
-        type=str,
-        help="Shape for each dynamic input, e.g. 0:1x10x20,1:7x5x3")
-    parser.add_argument('--verify', choices=['onnxruntime', 'ref'])
-    parser.add_argument(
-        '--ref_folder',
-        type=str,
-        help="Path to the folder containing reference inputs and outputs stored"
-        " in protobuf. Used when --verify=ref")
-    parser.add_argument('--rtol',
-                        type=str,
-                        default="0.05",
-                        help="Relative tolerance for verification")
-    parser.add_argument('--atol',
-                        type=str,
-                        default="0.01",
-                        help="Absolute tolerance for verification")
-    args = parser.parse_args()
-    main(args.model_path, args.compile_args, args.shape_info, args.verify,
-         args.ref_folder, float(args.rtol), float(args.atol))
+    main()
