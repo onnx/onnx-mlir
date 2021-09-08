@@ -185,6 +185,14 @@ def main():
     # Load the onnx model.
     model = onnx.load(args.model_path)
 
+    # If using onnxruntime for verification, we can verify every operation output.
+    intermediate_outputs = []
+    if (args.verify and args.verify == "onnxruntime"):
+        intermediate_outputs = sum([list(node.output)
+                                   for node in model.graph.node], [])
+        intermediate_outputs = list(OrderedDict.fromkeys(intermediate_outputs))
+        model = extend_model_output(model, intermediate_outputs)
+
     # Compile, run, and verify.
     with tempfile.TemporaryDirectory() as temp_dir:
         print("Temporary directory has been created at {}".format(temp_dir))
@@ -231,6 +239,7 @@ def main():
 
         # Run the model with reference backend and get results.
         if (args.verify):
+            outputs_for_verify = []
             ref_outs = []
             if (args.verify.lower() == "onnxruntime"):
                 # Reference backend by using onnxruntime.
@@ -243,16 +252,19 @@ def main():
                 ref_outs = ref_session.run(output_names, input_feed)
                 end = time.perf_counter()
                 print("  took ", end - start, " seconds.")
+                outputs_for_verify = intermediate_outputs
 
             elif (args.verify.lower() == "ref"):
                 ref_outs = read_output_from_refs(model, args.ref_folder)
+                outputs_for_verify = [(i, o.name)
+                                      for i, o in emumerate(model.graph.output)]
             else:
                 print("Invalid verify option")
                 exit()
 
             # For each intermediate output tensor, compare results.
-            for i, output_proto in enumerate(model.graph.output):
-                print("Verifying value of {} ...".format(output_proto.name))
+            for i, output_name in enumerate(outputs_for_verify):
+                print("Verifying value of {} ...".format(output_name))
                 try:
                     np.testing.assert_allclose(ref_outs[i],
                                                outs[i],
@@ -262,19 +274,17 @@ def main():
                 except AssertionError as error:
                     print(error)
                     print("Print out all mismatched elements ...")
-                    for i in range(len(outs)):
-                        print("Mismatched elements for the {} output ...".format(
-                            ordinal(i+1)))
-                        for index, actual_val in np.ndenumerate(outs[i]):
-                            ref_val = ref_outs[i][index]
-                            # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
-                            if (actual_val == float(args.atol) + float(args.rtol) * abs(ref_val)):
-                                continue
-                            print("At {}".format(index),
-                                  "mismatch {} (actual)".format(actual_val),
-                                  "vs {} (reference)".format(ref_val))
+                    for index, actual_val in np.ndenumerate(outs[i]):
+                        ref_val = ref_outs[i][index]
+                        # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
+                        if (actual_val == float(args.atol) + float(args.rtol) * abs(ref_val)):
+                            continue
+                        print("At {}".format(index),
+                              "mismatch {} (actual)".format(actual_val),
+                              "vs {} (reference)".format(ref_val))
+                    print("End of mismatched elements for {}\n".format(output_name))
                 else:
-                    print("  correct with atol={}, rtol={}.".format(
+                    print("  correct with atol={}, rtol={}.\n".format(
                         args.atol, args.rtol))
 
 
