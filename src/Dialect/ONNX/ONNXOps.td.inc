@@ -1823,7 +1823,6 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
 
 def ONNXGemmOp:ONNX_Op<"Gemm",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let hasCanonicalizer = 1;
   let summary = "ONNX Gemm operation";
   let description = [{
   "General Matrix multiplication:"

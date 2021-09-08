@@ -87,6 +87,9 @@ def CreateTransposeOfConst :
 def CreateUnsqueezeOfConst:
    NativeCodeCall<"ConstPropUnsqueeze($_builder, $0, $1)">;
 
+def CreateSqueezeOfConst:
+   NativeCodeCall<"ConstPropSqueeze($_builder, $0, $1)">;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
 //===----------------------------------------------------------------------===//
@@ -297,5 +300,15 @@ def UnsqueezeofConst :  Pat<
     (CreateUnsqueezeOfConst $resOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
 
+//===----------------------------------------------------------------------===//
+// Patterns to enable opportunities with Squeeze operations.
+//===----------------------------------------------------------------------===//
+
+def SqueezeofConst :  Pat<
+    // From Squeeze (c, axis)
+    (ONNXSqueezeV11Op:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_), $_),
+    // To c' where c' is the unsqueezed value.
+    (CreateSqueezeOfConst $resOp, $input),
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 #endif // ONNX_CONSTPROP
