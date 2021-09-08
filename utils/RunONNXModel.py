@@ -266,30 +266,27 @@ def main():
 
             # For each intermediate output tensor, compare results.
             for i, output_name in enumerate(outputs_for_verify):
-                print("Verifying value of {} ...".format(output_name))
-                try:
-                    np.testing.assert_allclose(ref_outs[i],
-                                               outs[i],
-                                               rtol=float(args.rtol),
-                                               atol=float(args.atol),
-                                               verbose=True)
-                except AssertionError as error:
-                    print(error)
-                    print("Print out all mismatched elements ...")
-                    for index, actual_val in np.ndenumerate(outs[i]):
-                        ref_val = ref_outs[i][index]
-                        # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
-                        if (actual_val == float(args.atol) +
-                                float(args.rtol) * abs(ref_val)):
-                            continue
-                        print("At {}".format(index),
-                              "mismatch {} (actual)".format(actual_val),
-                              "vs {} (reference)".format(ref_val))
-                    print("End of mismatched elements for {}\n".format(
-                        output_name))
-                else:
-                    print("  correct with atol={}, rtol={}.\n".format(
+                print("Verifying value of {} with atol={}, rtol={}...".format(
+                    output_name, args.atol, args.rtol))
+                total_elements = 0
+                mismatched_elements = 0
+                for index, actual_val in np.ndenumerate(outs[i]):
+                    total_elements += 1
+                    ref_val = ref_outs[i][index]
+                    # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
+                    diff = float(args.atol) + float(args.rtol) * abs(ref_val)
+                    if (abs(actual_val - ref_val) <= diff):
+                        continue
+                    mismatched_elements += 1
+                    print("  at {}".format(index),
+                          "mismatch {} (actual)".format(actual_val),
+                          "vs {} (reference)".format(ref_val))
+                if mismatched_elements == 0:
+                    print("  correct.\n".format(
                         args.atol, args.rtol))
+                else:
+                    print("  mismatched elements {}/{}.\n".format(
+                        mismatched_elements, total_elements))
 
 
 if __name__ == '__main__':
