@@ -117,7 +117,7 @@ def read_input_from_refs(model, ref_folder):
                 input_ts.ParseFromString(f.read())
             inputs += [numpy_helper.to_array(input_ts)]
             i += 1
-    print("  done.")
+    print("  done.\n")
     return (inputs, input_names)
 
 
@@ -130,7 +130,7 @@ def read_output_from_refs(model, ref_folder):
         with open(output_file, 'rb') as f:
             output_ts.ParseFromString(f.read())
         reference_output += [numpy_helper.to_array(output_ts)]
-    print("  done.")
+    print("  done.\n")
     return reference_output
 
 
@@ -167,7 +167,7 @@ def generate_random_input(model, input_shapes):
                 exit()
         inputs.append(
             np.random.uniform(-1.0, 1.0, explicit_shape).astype(np.float32))
-    print("  done.")
+    print("  done.\n")
     return (inputs, input_names)
 
 
@@ -186,13 +186,15 @@ def main():
     # Load the onnx model.
     model = onnx.load(args.model_path)
 
+    # Get the output names that we want to verify.
     # If using onnxruntime for verification, we can verify every operation output.
-    intermediate_outputs = []
+    output_names = [o.name for o in model.graph.output]
+    output_names = list(OrderedDict.fromkeys(output_names))
     if (args.verify and args.verify == "onnxruntime"):
-        intermediate_outputs = sum(
-            [list(node.output) for node in model.graph.node], [])
-        intermediate_outputs = list(OrderedDict.fromkeys(intermediate_outputs))
-        model = extend_model_output(model, intermediate_outputs)
+        output_names = sum([[n for n in node.output if n != '']
+                            for node in model.graph.node], [])
+        output_names = list(OrderedDict.fromkeys(output_names))
+        model = extend_model_output(model, output_names)
 
     # Compile, run, and verify.
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -209,7 +211,7 @@ def main():
         start = time.perf_counter()
         execute_commands(command_str)
         end = time.perf_counter()
-        print("  took ", end - start, " seconds.")
+        print("  took ", end - start, " seconds.\n")
 
         # Prepare input data.
         inputs = []
@@ -222,7 +224,8 @@ def main():
         # Print the input if required.
         if (args.print_input):
             for i, inp in enumerate(inputs):
-                print("The {} input is: \n {}".format(ordinal(i + 1), inp))
+                print("The {} input {}:{} is: \n {} \n".format(
+                    ordinal(i + 1), input_names[i], list(inp.shape), inp))
 
         print("Running inference ...")
         temp_shared_lib_path = os.path.join(temp_dir, "model.so")
@@ -231,16 +234,16 @@ def main():
         sess = ExecutionSession(temp_shared_lib_path, "run_main_graph")
         outs = sess.run(inputs)
         end = time.perf_counter()
-        print("  took ", end - start, " seconds.")
+        print("  took ", end - start, " seconds.\n")
 
         # Print the output if required.
         if (args.print_output):
             for i, out in enumerate(outs):
-                print("The {} output is: \n {}".format(ordinal(i + 1), out))
+                print("The {} output {}:{} is: \n {} \n".format(
+                    ordinal(i + 1), output_names[i], list(out.shape), out))
 
         # Run the model with reference backend and get results.
         if (args.verify):
-            outputs_for_verify = []
             ref_outs = []
             if (args.verify.lower() == "onnxruntime"):
                 # Reference backend by using onnxruntime.
@@ -252,22 +255,17 @@ def main():
                 ref_session = onnxruntime.InferenceSession(temp_model_path)
                 ref_outs = ref_session.run(output_names, input_feed)
                 end = time.perf_counter()
-                print("  took ", end - start, " seconds.")
-                outputs_for_verify = intermediate_outputs
-
+                print("  took ", end - start, " seconds.\n")
             elif (args.verify.lower() == "ref"):
                 ref_outs = read_output_from_refs(model, args.ref_folder)
-                outputs_for_verify = [o.name for o in model.graph.output]
-                outputs_for_verify = list(
-                    OrderedDict.fromkeys(outputs_for_verify))
             else:
                 print("Invalid verify option")
                 exit()
 
-            # For each intermediate output tensor, compare results.
-            for i, output_name in enumerate(outputs_for_verify):
-                print("Verifying value of {} with atol={}, rtol={}...".format(
-                    output_name, args.atol, args.rtol))
+            # For each output tensor, compare results.
+            for i, name in enumerate(output_names):
+                print("Verifying value of {}:{}".format(name, list(outs[i].shape)),
+                      "using atol={}, rtol={} ...".format(args.atol, args.rtol))
                 total_elements = 0
                 mismatched_elements = 0
                 for index, actual_val in np.ndenumerate(outs[i]):
