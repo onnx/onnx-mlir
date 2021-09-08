@@ -13,29 +13,30 @@ from collections import OrderedDict
 # Command arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument('model_path', type=str, help="Path to the ONNX model.")
-parser.add_argument('--print_input', action='store_true',
+parser.add_argument('--print_input',
+                    action='store_true',
                     help="Print out inputs")
-parser.add_argument('--print_output', action='store_true',
+parser.add_argument('--print_output',
+                    action='store_true',
                     help="Print out outputs")
-parser.add_argument(
-    '--compile_args',
-    type=str,
-    default="",
-    help="Arguments passed directly to onnx-mlir command."
-         " See bin/onnx-mlir --help"
-)
+parser.add_argument('--compile_args',
+                    type=str,
+                    default="",
+                    help="Arguments passed directly to onnx-mlir command."
+                    " See bin/onnx-mlir --help")
 parser.add_argument(
     '--shape_info',
     type=str,
     help="Shape for each dynamic input, e.g. 0:1x10x20,1:7x5x3")
-parser.add_argument('--verify', choices=['onnxruntime', 'ref'],
+parser.add_argument('--verify',
+                    choices=['onnxruntime', 'ref'],
                     help="Verify the output by using onnxruntime or reference"
-                         " inputs/outputs. By default, no verification")
+                    " inputs/outputs. By default, no verification")
 parser.add_argument(
     '--ref_folder',
     type=str,
     help="Path to the folder containing reference inputs and outputs stored"
-         " in protobuf. Used when --verify=ref")
+    " in protobuf. Used when --verify=ref")
 parser.add_argument('--rtol',
                     type=str,
                     default="0.05",
@@ -188,8 +189,8 @@ def main():
     # If using onnxruntime for verification, we can verify every operation output.
     intermediate_outputs = []
     if (args.verify and args.verify == "onnxruntime"):
-        intermediate_outputs = sum([list(node.output)
-                                   for node in model.graph.node], [])
+        intermediate_outputs = sum(
+            [list(node.output) for node in model.graph.node], [])
         intermediate_outputs = list(OrderedDict.fromkeys(intermediate_outputs))
         model = extend_model_output(model, intermediate_outputs)
 
@@ -221,7 +222,7 @@ def main():
         # Print the input if required.
         if (args.print_input):
             for i, inp in enumerate(inputs):
-                print("The {} input is: \n {}".format(ordinal(i+1), inp))
+                print("The {} input is: \n {}".format(ordinal(i + 1), inp))
 
         print("Running inference ...")
         temp_shared_lib_path = os.path.join(temp_dir, "model.so")
@@ -235,7 +236,7 @@ def main():
         # Print the output if required.
         if (args.print_output):
             for i, out in enumerate(outs):
-                print("The {} output is: \n {}".format(ordinal(i+1), out))
+                print("The {} output is: \n {}".format(ordinal(i + 1), out))
 
         # Run the model with reference backend and get results.
         if (args.verify):
@@ -256,8 +257,9 @@ def main():
 
             elif (args.verify.lower() == "ref"):
                 ref_outs = read_output_from_refs(model, args.ref_folder)
-                outputs_for_verify = [(i, o.name)
-                                      for i, o in enumerate(model.graph.output)]
+                outputs_for_verify = [o.name for o in model.graph.output]
+                outputs_for_verify = list(
+                    OrderedDict.fromkeys(outputs_for_verify))
             else:
                 print("Invalid verify option")
                 exit()
@@ -277,12 +279,14 @@ def main():
                     for index, actual_val in np.ndenumerate(outs[i]):
                         ref_val = ref_outs[i][index]
                         # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
-                        if (actual_val == float(args.atol) + float(args.rtol) * abs(ref_val)):
+                        if (actual_val == float(args.atol) +
+                                float(args.rtol) * abs(ref_val)):
                             continue
                         print("At {}".format(index),
                               "mismatch {} (actual)".format(actual_val),
                               "vs {} (reference)".format(ref_val))
-                    print("End of mismatched elements for {}\n".format(output_name))
+                    print("End of mismatched elements for {}\n".format(
+                        output_name))
                 else:
                     print("  correct with atol={}, rtol={}.\n".format(
                         args.atol, args.rtol))
