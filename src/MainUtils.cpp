@@ -479,7 +479,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   // inferred shapes.
   pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
 
-  // Add extra passes 
+  // Add extra passes
   for (int i = 0; i < repeatOnnxTransform; i++) {
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addPass(mlir::createShapeInferencePass());
