@@ -41,8 +41,8 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
-  --print_input         Print out input tensors.
-  --print_output        Print out output tensors.
+  --print_input         Print out inputs
+  --print_output        Print out outputs
   --compile_args COMPILE_ARGS
                         Arguments passed directly to onnx-mlir command. See bin/onnx-mlir --help
   --shape_info SHAPE_INFO

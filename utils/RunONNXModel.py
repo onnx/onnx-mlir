@@ -14,9 +14,9 @@ from collections import OrderedDict
 parser = argparse.ArgumentParser()
 parser.add_argument('model_path', type=str, help="Path to the ONNX model.")
 parser.add_argument('--print_input', action='store_true',
-                    help="Print out inputs.")
+                    help="Print out inputs")
 parser.add_argument('--print_output', action='store_true',
-                    help="Print out outputs.")
+                    help="Print out outputs")
 parser.add_argument(
     '--compile_args',
     type=str,
