@@ -257,7 +257,7 @@ def main():
             elif (args.verify.lower() == "ref"):
                 ref_outs = read_output_from_refs(model, args.ref_folder)
                 outputs_for_verify = [(i, o.name)
-                                      for i, o in emumerate(model.graph.output)]
+                                      for i, o in enumerate(model.graph.output)]
             else:
                 print("Invalid verify option")
                 exit()
