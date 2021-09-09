@@ -1,19 +1,5 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 
-<!--- 
-###########################################################
-###########################################################
-###########################################################
-
-KEEP THE TOP DIR README.md and docs/README.md IN SYNC.
-Top readme: used for github users.
-Docs readme: used as template for onnx.ai/onnx-mlir website.
-
-###########################################################
-###########################################################
-###########################################################
---->
-
 # ONNX MLIR
 The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mlir/).
 
