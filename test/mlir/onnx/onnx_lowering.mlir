@@ -1292,7 +1292,7 @@ func private @test_squeeze_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -
 // -----
 
 func private @test_split_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
-  %0, %1 = "onnx.Split"(%arg0) { axis = 0 : si64} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  %0, %1 = "onnx.SplitV11"(%arg0) { axis = 0 : si64} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
   "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
   // CHECK: [[INDEX_MAP:#.+]] = affine_map<(d0) -> (d0 + 8)>
@@ -1317,7 +1317,7 @@ func private @test_split_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, 
 // -----
 
 func private @test_split_variable(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
-  %0, %1 = "onnx.Split"(%arg0) { axis = 1 : si64, split = [2, 30]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  %0, %1 = "onnx.SplitV11"(%arg0) { axis = 1 : si64, split = [2, 30]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
   "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
   // CHECK: [[INDEX_MAP:#.+]] = affine_map<(d0) -> (d0 + 2)>

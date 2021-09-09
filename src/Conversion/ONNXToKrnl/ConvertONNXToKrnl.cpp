@@ -121,7 +121,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     // 'checkRNNOps' for more details.
     target.addLegalOp<ONNXTransposeOp>();
     target.addLegalOp<ONNXSqueezeV11Op>();
-    target.addLegalOp<ONNXSplitOp>();
+    target.addLegalOp<ONNXSplitV11Op>();
     target.addLegalOp<ONNXMatMulOp>();
     target.addLegalOp<ONNXSigmoidOp>();
     target.addLegalOp<ONNXTanhOp>();
@@ -178,7 +178,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXShapeOpPattern(patterns, &getContext());
   populateLoweringONNXSliceOpPattern(patterns, &getContext());
   populateLoweringONNXSqueezeV11OpPattern(patterns, &getContext());
-  populateLoweringONNXSplitOpPattern(patterns, &getContext());
+  populateLoweringONNXSplitV11OpPattern(patterns, &getContext());
   populateLoweringONNXSizeOpPattern(patterns, &getContext());
   populateLoweringONNXTileOpPattern(patterns, &getContext());
   populateLoweringONNXFlattenOpPattern(patterns, &getContext());

@@ -267,3 +267,38 @@ func @test_rewrite_unsqueeze_dynamic_axes(%arg0 : tensor<10x10xf32>, %arg1 : ten
   // CHECK: [[UNSQUEEZE:%.*]] = "onnx.Unsqueeze"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<2xi64>) -> tensor<*xf32>
   // CHECK: return [[UNSQUEEZE]] : tensor<*xf32>
 }
+
+// -----
+
+func private @test_rewrite_split_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
+  %cst = constant unit
+  %0, %1 = "onnx.Split"(%arg0, %cst) { axis = 1 : si64 } : (tensor<16x32x64xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
+  "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_rewrite_split_equal
+  // CHECK: [[SPLIT:%.*]]:2 = "onnx.SplitV11"(%arg0) {axis = 1 : si64} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  // CHECK: return [[SPLIT]]#0, [[SPLIT]]#1 : tensor<*xf32>, tensor<*xf32>
+}
+
+// -----
+
+func private @test_rewrite_split_variable(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
+  %split = "onnx.Constant"() {value = dense<[2, 30]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %0, %1 = "onnx.Split"(%arg0, %split) { axis = 1 : si64 } : (tensor<16x32x64xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>)
+  "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_rewrite_split_variable
+  // CHECK: [[SPLIT:%.*]]:2 = "onnx.SplitV11"(%arg0) {axis = 1 : si64, split = [2, 30]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  // CHECK: return [[SPLIT]]#0, [[SPLIT]]#1 : tensor<*xf32>, tensor<*xf32>
+}
+
+// -----
+
+func private @test_rewrite_split_dynamic_split(%arg0 : tensor<16x32x64xf32>, %arg1 : tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>) {
+  %0, %1 = "onnx.Split"(%arg0, %arg1) { axis = 1 : si64 } : (tensor<16x32x64xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>)
+  "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_rewrite_split_dynamic_split
+  // CHECK: [[SPLIT:%.*]]:2 = "onnx.Split"(%arg0, %arg1) {axis = 1 : si64} : (tensor<16x32x64xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>)
+  // CHECK: return [[SPLIT]]#0, [[SPLIT]]#1 : tensor<*xf32>, tensor<*xf32>
+}

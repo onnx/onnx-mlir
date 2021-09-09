@@ -514,12 +514,12 @@ ONNXConstantOp ConstPropSqueeze(
 // Code to perform constant propagation for split.
 //===----------------------------------------------------------------------===//
 
-class ConstPropSplitPattern : public OpRewritePattern<ONNXSplitOp> {
+class ConstPropSplitPattern : public OpRewritePattern<ONNXSplitV11Op> {
 public:
-  using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
+  using OpRewritePattern<ONNXSplitV11Op>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
-      ONNXSplitOp splitOp, PatternRewriter &rewriter) const override {
+      ONNXSplitV11Op splitOp, PatternRewriter &rewriter) const override {
     // Basic info.
     unsigned numOfResults = splitOp.getNumResults();
     Value input = splitOp.input();

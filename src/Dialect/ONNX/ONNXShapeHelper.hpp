@@ -220,15 +220,15 @@ struct ONNXGatherOpShapeHelper : public ONNXOpShapeHelper<ONNXGatherOp> {
   bool positiveConstantIndices; // True when all indices are positive consants.
 };
 
-// Shape for SplitOp.
-struct ONNXSplitOpShapeHelper : public ONNXOpShapeHelper<ONNXSplitOp> {
-  ONNXSplitOpShapeHelper(ONNXSplitOp *newOp);
-  ONNXSplitOpShapeHelper(ONNXSplitOp *newOp,
+// Shape for SplitV11Op.
+struct ONNXSplitV11OpShapeHelper : public ONNXOpShapeHelper<ONNXSplitV11Op> {
+  ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp);
+  ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp,
       ConversionPatternRewriter &rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXSplitOpAdaptor operandAdaptor);
+  LogicalResult Compute(ONNXSplitV11OpAdaptor operandAdaptor);
 };
 
 // Shape for TransposeOp.

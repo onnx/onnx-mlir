@@ -17,22 +17,22 @@
 
 using namespace mlir;
 
-struct ONNXSplitOpLowering : public ConversionPattern {
-  ONNXSplitOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXSplitOp::getOperationName(), 1, ctx) {}
+struct ONNXSplitV11OpLowering : public ConversionPattern {
+  ONNXSplitV11OpLowering(MLIRContext *ctx)
+      : ConversionPattern(mlir::ONNXSplitV11Op::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
     auto loc = op->getLoc();
-    ONNXSplitOpAdaptor operandAdaptor(operands);
-    ONNXSplitOp splitOp = llvm::dyn_cast<ONNXSplitOp>(op);
+    ONNXSplitV11OpAdaptor operandAdaptor(operands);
+    ONNXSplitV11Op splitOp = llvm::dyn_cast<ONNXSplitV11Op>(op);
     auto rank = splitOp.input().getType().cast<ShapedType>().getRank();
     auto outputNum = splitOp.getNumResults();
     auto axis = splitOp.axis();
 
     // Get a shape helper.
-    ONNXSplitOpShapeHelper shapeHelper(&splitOp, rewriter,
+    ONNXSplitV11OpShapeHelper shapeHelper(&splitOp, rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
@@ -89,7 +89,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXSplitOpPattern(
+void populateLoweringONNXSplitV11OpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXSplitOpLowering>(ctx);
+  patterns.insert<ONNXSplitV11OpLowering>(ctx);
 }

@@ -473,7 +473,7 @@ func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<3x1x2xf32> {
 
 // COM: test split with unknown dimensions and explicit split.
 func @test_split_unknown_dimension(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
-  %0, %1 = "onnx.Split"(%arg0) { axis = 1 : si64, split = [2, 30]} : (tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  %0, %1 = "onnx.SplitV11"(%arg0) { axis = 1 : si64, split = [2, 30]} : (tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
   "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_split_unknown_dimension
@@ -503,7 +503,7 @@ func @test_split_unknown_dimension(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>
 
 // COM: test split with unknown dimensions and default split.
 func @test_split_unknown_dimension_equal_split(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
-  %0, %1 = "onnx.Split"(%arg0) { axis = 1 : si64 } : (tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  %0, %1 = "onnx.SplitV11"(%arg0) { axis = 1 : si64 } : (tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
   "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func @test_split_unknown_dimension_equal_split

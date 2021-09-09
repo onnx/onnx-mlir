@@ -668,17 +668,18 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
 // ONNX Split Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp)
-    : ONNXOpShapeHelper<ONNXSplitOp>(newOp) {}
+ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp)
+    : ONNXOpShapeHelper<ONNXSplitV11Op>(newOp) {}
 
-ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp,
+ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSplitOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXOpShapeHelper<ONNXSplitV11Op>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
 
-LogicalResult ONNXSplitOpShapeHelper::Compute(
-    ONNXSplitOpAdaptor operandAdaptor) {
+LogicalResult ONNXSplitV11OpShapeHelper::Compute(
+    ONNXSplitV11OpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Get info about input and output data.
   unsigned int numOfResults = op->getNumResults();

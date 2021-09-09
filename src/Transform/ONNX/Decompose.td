@@ -37,6 +37,8 @@ def AttributeIsNull : Constraint<CPred<"! ($_self)">, "Attribute is null">;
 def HasFloatType : Constraint<CPred<"(($_self).getType().dyn_cast<ShapedType>()"
                                     ".getElementType().isF32())">>;
 
+def IsNoneType : Constraint<CPred<"(($_self).getType().isa<NoneType>())">>;
+
 def GetNullAttr : NativeCodeCall<"Attribute()">;
 
 // Create a unit constant that will be used as none input.
@@ -239,5 +241,17 @@ def UnsqueezePattern
    : Pat<(ONNXUnsqueezeOp $data, $axes),
          (ONNXUnsqueezeV11Op $data, (createArrayAttrFromConstantOp $axes)),
          [(IsDenseONNXConstant:$axes)]>;
+
+def SplitPattern
+   : Pat<(ONNXSplitOp $input, $split, $axis),
+         (ONNXSplitV11Op $input, $axis, (createArrayAttrFromConstantOp $split)),
+         [(IsDenseONNXConstant:$split)],
+         (addBenefit 1)>;
+
+def SplitPattern2
+   : Pat<(ONNXSplitOp $input, $split, $axis),
+         (ONNXSplitV11Op $input, $axis, (GetNullAttr)),
+         [(IsNoneType:$split)],
+         (addBenefit 0)>;
 
 #endif // ONNX_DECOMPOSE

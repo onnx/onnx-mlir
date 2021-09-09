@@ -2522,11 +2522,16 @@ LogicalResult ONNXGRUOp::inferShapes(
 
 LogicalResult ONNXSplitOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+  return emitError("Not implemented");
+}
+
+LogicalResult ONNXSplitV11Op::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand().getType().cast<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
-  return shapeHelperInferMultipleShapes<ONNXSplitOpShapeHelper, ONNXSplitOp,
-      ONNXSplitOpAdaptor>(this, input());
+  return shapeHelperInferMultipleShapes<ONNXSplitV11OpShapeHelper,
+      ONNXSplitV11Op, ONNXSplitV11OpAdaptor>(this, input());
 }
 
 //===----------------------------------------------------------------------===//

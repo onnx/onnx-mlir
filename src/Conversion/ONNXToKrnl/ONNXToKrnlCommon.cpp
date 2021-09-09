@@ -471,8 +471,9 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
     }
     free(inputBuffer);
   } else {
-    ONNXSplitOp split = rewriter.create<ONNXSplitOp>(loc, resultTypes, input,
-        /*axis=*/axis, nullptr);
+    ONNXSplitV11Op split =
+        rewriter.create<ONNXSplitV11Op>(loc, resultTypes, input,
+            /*axis=*/axis, nullptr);
     for (int i = 0; i < outputNum; ++i)
       resVals.emplace_back(split.outputs()[i]);
   }
