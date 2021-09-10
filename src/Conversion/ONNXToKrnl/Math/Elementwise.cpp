@@ -672,12 +672,13 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
 
-    if (hasAllConstantDimensions(memRefType))
+    if (hasAllConstantDimensions(memRefType)) {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
+    } else {
       alloc =
           insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, X);
-
+    }
+    
     SmallVector<Value, 4> loopIVs;
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
