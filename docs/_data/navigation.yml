@@ -29,13 +29,13 @@ toc:
         url: /ImportONNXDefs.html
       - page: About Documentation
         url: /Documentation.html
-  - title: Discussions
+  - title: Development
     subfolderitems:
       - page: Testing Guidelines
         url: /Testing.html
   - title: Tools
     subfolderitems:
-      - page: debug.py - Debug Numerical Errors
+      - page: RunONNXModel.py - Debugging Numerical Errors
         url: /DebuggingNumericalError.html
       - page: DocCheck - Handling Necessary Code Duplication
         url: /doc_check/

@@ -78,12 +78,13 @@ llvm::cl::opt<int> repeatOnnxTransform("repeatOnnxTransform",
 llvm::cl::opt<string> shapeInformation("shapeInformation",
     llvm::cl::desc(
         "Custom shapes for the inputs of the ONNX model, e.g. setting static "
-        "shapes for dynamic inputs. \"value\" is in the format of "
-        "\"input_id:dim_size,dim_size,dim_size|input_id:dim_size,dim_size,dim_"
-        "size|...\", where \"input_id\" is 0, 1, ... to denote the first, "
-        "second, ... input, and \"dim_size\" is the dimension size for each "
-        "dimension of an input. \"dim_size\" must be a positive integer or -1 "
-        "(for an unknown dimension)."),
+        "shapes for dynamic inputs.\n"
+        "\"value\" is in the format of "
+        "\"INPUT_ID1:D1xD2x...xDn,INPUT_ID2:D1xD2x...xDn, ...\",\n"
+        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices starting from "
+        "0, and\n"
+        "\"D1, D2, ...\" are dimension sizes (positive integers of -1 for "
+        "unknown dimensions)"),
     llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<string> mtriple("mtriple", llvm::cl::desc("Target architecture"),
