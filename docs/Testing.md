@@ -3,6 +3,9 @@
 # Testing
 
 In onnx-mlir, there are three types of tests to ensure correctness of implementation:
+1. [ONNX Backend Tests](#onnx-backend-tests)
+2. [LLVM FileCheck Tests](#llvm-filecheck-tests)
+3. [Numerical Tests](#numerical-tests)
 
 ## ONNX Backend Tests
 
