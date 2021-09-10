@@ -153,7 +153,7 @@ private:
 
     std::stringstream shapeInfoString(options_.shapeInformation);
     std::string shapeString;
-    while (getline(shapeInfoString, shapeString, '|')) {
+    while (getline(shapeInfoString, shapeString, ',')) {
       size_t pos = shapeString.find(':');
       std::string inputString = shapeString.substr(0, pos);
       std::string dimString = shapeString.substr(pos + 1);
@@ -164,7 +164,7 @@ private:
       std::stringstream dimSizes(dimString);
       std::string dimStr;
       std::vector<int64_t> dims;
-      while (getline(dimSizes, dimStr, ',')) {
+      while (getline(dimSizes, dimStr, 'x')) {
         int64_t dimSize = std::stoi(dimStr);
         assert((dimSize == -1 || dimSize > 0) && "dim must be -1 or > 0");
         dims.emplace_back(dimSize);
