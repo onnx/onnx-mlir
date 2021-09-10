@@ -38,9 +38,6 @@ using namespace onnx_mlir;
 // TODO(tjingrant): disable the following namespace import.
 using namespace mlir;
 
-llvm::cl::OptionCategory OnnxMlirOptions(
-    "ONNX MLIR Opt Options", "These are frontend options.");
-
 static llvm::cl::opt<std::string> input_filename(
     llvm::cl::Positional, llvm::cl::desc("<input file>"), llvm::cl::init("-"));
 
@@ -66,14 +63,6 @@ static llvm::cl::opt<bool> allowUnregisteredDialects(
     "allow-unregistered-dialect",
     llvm::cl::desc("Allow operation with no registered dialects"),
     llvm::cl::init(false));
-
-static llvm::cl::opt<std::string> mtriple("mtriple", llvm::cl::desc("Target architecture"),
-    llvm::cl::value_desc("<llvm target triple>"),
-    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
-
-static llvm::cl::opt<std::string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
-    llvm::cl::value_desc("<llvm cpu value>"), llvm::cl::cat(OnnxMlirOptions),
-    llvm::cl::ValueRequired);
 
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
