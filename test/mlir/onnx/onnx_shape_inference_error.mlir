@@ -92,20 +92,6 @@ func @test_reshape_1D_constant_shape(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tenso
 // -----
 
 //===----------------------------------------------------------------------===//
-/// Unsupported configurations for ONNXReduceSumOp.
-//===----------------------------------------------------------------------===//
-
-// COM: ReduceSum in OpSet 13.
-func @unsupport_reduce_sum_dynamic_axes(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<2xi64>) -> tensor<*xf32> {
-  // expected-error @+2 {{ReduceSum: unknown axes}}
-  // expected-error @+1 {{shape inference failed}}
-  %0 = "onnx.ReduceSum"(%arg0, %arg1) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x2x3x4xf32>, tensor<2xi64>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
-//===----------------------------------------------------------------------===//
 /// Errors with RNNOps. Take ONNXLSTMOp as an example.
 //===----------------------------------------------------------------------===//
 
