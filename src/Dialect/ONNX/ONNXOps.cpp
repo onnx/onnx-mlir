@@ -1556,8 +1556,39 @@ LogicalResult ONNXReduceSumOp::inferShapes(
     // constAxes should just be NULL
     // Default value will be given in getReductionOutputType
   } else {
-    return emitError("ReduceSum: unknown axes ");
+    // When the axis is dynamic, try to inferthe rank of output tensor
+
+    if (getResult().getType().isa<RankedTensorType>())
+      // Can not improve further
+      return success();
+
+    // Size of axes is needed
+    // FIX ME: implementation assumed that there is no duplicate values in axes
+    if (!axes().getType().isa<RankedTensorType>())
+      return success();
+    auto axesTy = axes().getType().cast<RankedTensorType>();
+    auto axesTyShape = axesTy.getShape();
+
+    if (axesTyShape.size() != 1) {
+      emitError("axes() is not a 1D tensor");
+      return failure();
+    }
+
+    auto numberAxes = axesTyShape[0];
+    if (numberAxes == -1)
+      return success();
+
+    auto outputNumDim = operandTy.getShape().size();
+    if (!keepdims())
+      outputNumDim -= numberAxes;
+
+    SmallVector<int64_t, 4> dims(outputNumDim, -1);
+
+    getResult().setType(
+        RankedTensorType::get(dims, operandTy.getElementType()));
+    return success();
   }
+
   RankedTensorType type = getReductionOutputType(
       operandTy, constAxes, keepdims(), noop_with_empty_axes());
   if (!type)
