@@ -485,13 +485,6 @@ public:
     if (!hasAllConstantDimensions(memRefType))
       return failure();
 
-    // auto r = memRefType.getShape();
-    // if (!(r.size() == 4 && r[0] == 1 && r[1] == 512 && r[2] == 26 &&
-    //         r[3] == 26))
-    //   return failure();
-
-    // printf("================== OPTIMIZE POOL! ==================\n");
-
     // Retrieve the AllocOp that this GetRef uses.
     auto staticMemPool = getAllocOfGetRef(&firstGetRef);
 
@@ -554,13 +547,6 @@ public:
       if (!candidate)
         continue;
 
-      // auto candidateType =
-      //     candidate.getResult().getType().dyn_cast<MemRefType>();
-      // auto r = candidateType.getShape();
-      // if (!(r.size() == 4 && r[0] == 1 && r[1] == 512 && r[2] == 26 &&
-      //         r[3] == 26))
-      //   continue;
-
       // If candidate is already sharing a slot with firstGetRef, skip it.
       bool sharesSlot = false;
       for (auto getRef : firstGetRefList)
@@ -612,13 +598,13 @@ public:
           break;
         }
       }
-      if (isSlotReuser)
+      if (isSlotReuser) {
         continue;
+      }
 
       // If the second getref has the same offset as the first then the rewrite
       // rule has already been applied to this getref so there is no work to do.
       if (firstGetRef.offset() == secondGetRef.offset()) {
-        // printf("Already sharing same slot!\n");
         continue;
       }
 
@@ -633,7 +619,6 @@ public:
       // means that the analysis has already been performed on secondGetRef
       // and all the possible reuses have already been found for secondGetRef.
       if (secondGetRefList.size() > 1) {
-        // printf("Second get ref list has users!\n");
         continue;
       }
 
@@ -643,7 +628,6 @@ public:
       // one of the getRefs based on the other. This implies that the two
       // getRefs cannot share the same memory pool slot.
       if (getRefUsesAreNotUsedBySameOp(firstGetRefList, secondGetRef)) {
-        // printf("Used by same operation!\n");
         continue;
       }
 
@@ -652,7 +636,6 @@ public:
       // getref in secondGetRefList, the value stored does not involve a load
       // from a getref in firstGetRefList (and vice-versa).
       if (!getRefUsesAreMutuallyDisjoint(firstGetRefList, secondGetRefList)) {
-        // printf("Uses are not mutually disjoint!\n");
         continue;
       }
 
@@ -660,7 +643,6 @@ public:
       // Live range, chain of instructions between the first and last
       // load/store from/to any krnl.getref in a given list.
       if (checkLiveRangesIntersect(firstGetRefList, secondGetRef)) {
-        // printf("Live ranges intersect!\n");
         continue;
       }
 
@@ -793,8 +775,6 @@ public:
     if (memPoolShape[0] == usedMemory)
       return failure();
 
-    printf("================== COMPACT POOL! ==================\n");
-
     // Compute the shape of the new static memory pool.
     SmallVector<int64_t, 1> newStaticMemPoolShape;
     newStaticMemPoolShape.emplace_back(usedMemory);
@@ -890,10 +870,7 @@ class KrnlOptimizeMemoryPoolsPass
 
 public:
   void runOnFunction() override {
-    printf("Optimize Stage\n");
     auto function = getFunction();
-
-    // function.dump();
 
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
@@ -902,12 +879,12 @@ public:
     patterns.insert<KrnlCompactStaticMemoryPools>(
         &getContext(), &blockToStaticPoolAlignments);
 
-    printf("Applying patterns ... \n");
+    printf("Optimizing memory footprint ... \n");
     // No need to test, its ok to fail the apply.
     LogicalResult res =
         applyPatternsAndFoldGreedily(function, std::move(patterns));
     assert((succeeded(res) || failed(res)) && "remove unused var warning");
-    printf("Done Applying patterns\n");
+    printf("Done optimizing memory footprint\n");
   }
 };
 } // namespace
