@@ -583,10 +583,12 @@ public:
     if (getRefCandidates.size() < 1)
       return failure();
 
-    printf(" Candidates: %d --- Visited getrefs = %d\n",
-        getRefCandidates.size(), listOfDiscardedGetRefs.size());
+    // TODO: conditional printing of progress:
+    // printf(" Candidates: %d --- Visited getrefs = %d\n",
+    //     getRefCandidates.size(), listOfDiscardedGetRefs.size());
 
-    printf(" Start processing candidates ...\n");
+    // TODO: conditional printing of progress:
+    // printf(" Start processing candidates ...\n");
     SmallVector<KrnlGetRefOp, 4> validSlotReusers;
     for (auto secondGetRef : getRefCandidates) {
       // Check that the current candidate has not already been added as a valid
@@ -663,8 +665,10 @@ public:
       // valid.
       firstGetRefList.emplace_back(secondGetRef);
     }
-    printf(" Done processing candidates, slot reusers = %d\n",
-        validSlotReusers.size());
+
+    // TODO: conditional printing of progress:
+    // printf(" Done processing candidates, slot reusers = %d\n",
+    //     validSlotReusers.size());
 
     // Never consider the matched getref as a candidate ever again.
     if (blockToDiscardedGetRefs->count(parentBlock) == 0)
@@ -879,12 +883,16 @@ public:
     patterns.insert<KrnlCompactStaticMemoryPools>(
         &getContext(), &blockToStaticPoolAlignments);
 
-    printf("Optimizing memory footprint ... \n");
+    // TODO: conditional printing of progress:
+    // printf("Optimizing memory footprint ... \n");
+
     // No need to test, its ok to fail the apply.
     LogicalResult res =
         applyPatternsAndFoldGreedily(function, std::move(patterns));
     assert((succeeded(res) || failed(res)) && "remove unused var warning");
-    printf("Done optimizing memory footprint\n");
+
+    // TODO: conditional printing of progress:
+    // printf("Done optimizing memory footprint\n");
   }
 };
 } // namespace
