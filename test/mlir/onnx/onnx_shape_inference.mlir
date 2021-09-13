@@ -1534,7 +1534,7 @@ func @test_reduce_sum_4(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<2xi64>) -> ten
 
   // CHECK-LABEL: test_reduce_sum_4
   // CHECK-NEXT [[RES:%.+]] = "onnx.ReduceSum"(%arg0, %arg1) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x2x3x4xf32>, tensor<2xi64>) -> tensor<?x?xf32>
-  // CHECK-NEXT return [[RES]] : tensor<?x?xf32>
+  // CHECK-NEXT return [[RES]] : tensor<*xf32>
 }
 
 // -----

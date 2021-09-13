@@ -407,20 +407,20 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     // Dynamic axes
     if (!isFromNone(axesValue) && !getONNXConstantOp(axesValue)) {
       dynamicAxes = true;
+      // Handle only when keepdims == true
       if (!isKeepdims) {
         emitError(loc, "not keepdims() not implemented");
         return failure();
       }
-      // Handle keepdims == true
       // Define a mask memref with same size of input and bool type
-      // Element == true if this dimension will be reduced
+      // maskVal[i] == true if ith dim will be reduced
       bool insertDealloc = checkInsertDealloc(op);
       auto maskType =
-          RankedTensorType::get({inRank}, rewriter.getIntegerType(32));
+          RankedTensorType::get({inRank}, rewriter.getIntegerType(1));
       maskVal = insertAllocAndDealloc(
           convertToMemRefType(maskType), loc, rewriter, insertDealloc);
-      falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(32), 0);
-      trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(32), 1);
+      falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 0);
+      trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 1);
       valueOne = rewriter.create<ConstantIndexOp>(loc, 1);
 
       // Initialize mask to 0
@@ -429,6 +429,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         rewriter.create<KrnlStoreOp>(loc, falseVal, maskVal, indexVal);
       }
 
+      // Consider the case when axes[i] is negative
+      // maskVal[axes[i] < 0 ? axes[i]+inRank: axes[i]] = 1
       auto axesElementType =
           axesVal.getType().cast<MemRefType>().getElementType();
       auto dataDimConst =
@@ -496,6 +498,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       for (decltype(outRank) i = 0; i < outRank; ++i) {
         if (memRefOutShape[i] < 0) {
           if (dynamicAxes) {
+            // Dim size: maskVal[i] ? 1 : inputDim[i]
             Value inputDim = createMemRef.dim(input, i);
             Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
             auto mask = rewriter.create<KrnlLoadOp>(loc, maskVal, indexVal);
@@ -576,6 +579,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     Value zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
     for (decltype(inRank) i = 0; i < outRank; ++i) {
       if (dynamicAxes) {
+        // For the reduced dim, the output index is always 0
         Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
         auto mask = rewriter.create<KrnlLoadOp>(loc, maskVal, indexVal);
         auto cond =
