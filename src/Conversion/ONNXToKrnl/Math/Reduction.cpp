@@ -381,10 +381,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
      *
      */
     auto loc = op->getLoc();
-    //auto input = operands[0];
-    ONNXReduceSumOp reduceSumOp = llvm::cast<ONNXReduceSumOp>(op);
-    auto input = reduceSumOp.data();
-    auto axesVal = reduceSumOp.axes();
+    auto input = operands[0];
+    auto axesVal = operands[1];
     auto memRefInType = input.getType().cast<MemRefType>();
     auto memRefOutType = convertToMemRefType(*op->result_type_begin());
     int64_t inRank = memRefInType.getRank();
@@ -399,21 +397,29 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     auto elementOutType = memRefOutType.getElementType();
 
     bool dynamicAxes = false;
-    Value maskVal;
-    Value falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(32), 0);
-    Value trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(32), 1);
-    Value valueOne = rewriter.create<ConstantIndexOp>(loc, 1);
+    Value maskVal = nullptr;
+    Value falseVal = nullptr;
+    Value trueVal = nullptr;
+    Value valueOne = nullptr;
     std::map<int64_t, int64_t> outInDimMap;
 
+    Value axesValue = llvm::dyn_cast<ONNXReduceSumOp>(op).axes();
     // Dynamic axes
-    if (!isFromNone(axesVal) && !getONNXConstantOp(axesVal)) {
+    if (!isFromNone(axesValue) && !getONNXConstantOp(axesValue)) {
       dynamicAxes = true;
+      if (!isKeepdims) {
+	emitError(loc, "not keepdims() not implemented");
+	return failure();
+      }
       // Handle keepdims == true
       // Define a mask memref with same size of input and bool type
       // Element == true if this dimension will be reduced
       bool insertDealloc = checkInsertDealloc(op);
       auto maskType = RankedTensorType::get({inRank}, rewriter.getIntegerType(32));
       maskVal = insertAllocAndDealloc(convertToMemRefType(maskType), loc, rewriter, insertDealloc);
+     falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(32), 0);
+     trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(32), 1);
+     valueOne = rewriter.create<ConstantIndexOp>(loc, 1);
 
       // Initialize mask to 0
       for (auto i = 0; i < inRank; i++) {
@@ -421,43 +427,19 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
 	rewriter.create<KrnlStoreOp>(loc, falseVal, maskVal, indexVal);
       }
 
+      auto axesElementType = axesVal.getType().cast<MemRefType>().getElementType();
+      auto dataDimConst = emitConstantOp(rewriter, loc, axesElementType, inRank);
+      Value zeroValue = emitConstantOp(rewriter, loc, axesElementType, 0);
       for (auto i = 0; i < axesVal.getType().cast<MemRefType>().getShape()[0]; i++) {
         Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
 	Value axe = rewriter.create<KrnlLoadOp>(loc, axesVal, indexVal);
+	// Check negative
+        auto cond = rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, axe, zeroValue);
+	auto dim = rewriter.create<SelectOp>(loc, cond, rewriter.create<AddIOp>(loc, axe, dataDimConst), axe);
 	Value jVal = rewriter.create<IndexCastOp>(
-		loc, rewriter.getIndexType(), axe);
+		loc, rewriter.getIndexType(), dim);
 	rewriter.create<KrnlStoreOp>(loc, trueVal, maskVal, jVal);
       }
-
-
-    // Output tensor allocation
-#if 0
-    Value alloc;
-    if (hasAllConstantDimensions(memRefOutType)) {
-      alloc =
-          insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
-    } else {
-      MemRefBuilder createMemRef(rewriter, loc);
-      SmallVector<Value, 2> allocOperands;
-      Value valueOne = rewriter.create<ConstantIndexOp>(loc, 1);
-      for (decltype(outRank) i = 0; i < outRank; ++i) {
-        Value inputDim = createMemRef.dim(input, i);
-        Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
-	auto mask = rewriter.create<KrnlLoadOp>(loc, maskVal, indexVal);
-        auto cond = rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, mask, trueVal );
-	auto dim = rewriter.create<SelectOp>(loc, cond, valueOne, inputDim);
-        allocOperands.push_back(dim);
-      }
-      alloc = createMemRef.alignedAlloc(memRefOutType, allocOperands);
-      if (insertDealloc) {
-        auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = createMemRef.dealloc(alloc);
-        dealloc.getOperation()->moveBefore(&parentBlock->back());
-      }
-    }
-    rewriter.replaceOp(op, alloc);
-    return success();
-#endif
     } else {
 
     // Get axes value defined by op
@@ -466,7 +448,6 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
 
     // Assume it is verified that axes are known
     // Convert DenseElementsAttr to ArrayAttr
-    Value axesValue = llvm::dyn_cast<ONNXReduceSumOp>(op).axes();
     if (getONNXConstantOp(axesValue)) {
       DenseElementsAttr constAxes =
           getONNXConstantOp(axesValue)
