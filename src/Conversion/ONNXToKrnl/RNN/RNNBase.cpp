@@ -29,43 +29,24 @@ int64_t dimAt(Value val, int index) {
 /// Shape :: [seq_length, num_directions, batch_size, hidden_size]
 Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value W, Value R, Value output, bool insertDealloc) {
-  ImplicitLocOpBuilder lb(loc, rewriter);
-  MemRefBuilder createMemRef(rewriter, loc);
+  IndexExprScope scope(rewriter, loc);
   Value alloc;
   if (!isNoneType(output)) {
+    MemRefBoundsIndexCapture XBounds(X);
+    MemRefBoundsIndexCapture WBounds(W);
+    MemRefBoundsIndexCapture RBounds(R);
+    SmallVector<IndexExpr, 4> dims;
+    // Get seq_length from X.
+    dims.emplace_back(XBounds.getDim(0));
+    // Get num_directions from W.
+    dims.emplace_back(WBounds.getDim(0));
+    // Get batch_size from X.
+    dims.emplace_back(XBounds.getDim(1));
+    // Get hidden_size from R.
+    dims.emplace_back(RBounds.getDim(2));
     auto memRefType = convertToMemRefType(output.getType());
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else {
-      auto memRefShape = memRefType.getShape();
-      SmallVector<Value, 2> allocOperands;
-      if (memRefShape[0] < 0) {
-        // Get seq_length from X.
-        auto dim = createMemRef.dim(X, 0);
-        allocOperands.emplace_back(dim);
-      }
-      if (memRefShape[1] < 0) {
-        // Get num_directions from W.
-        auto dim = createMemRef.dim(W, 0);
-        allocOperands.emplace_back(dim);
-      }
-      if (memRefShape[2] < 0) {
-        // Get batch_size from X.
-        auto dim = createMemRef.dim(X, 1);
-        allocOperands.emplace_back(dim);
-      }
-      if (memRefShape[3] < 0) {
-        // Get hidden_size from R.
-        auto dim = createMemRef.dim(R, 2);
-        allocOperands.emplace_back(dim);
-      }
-      alloc = createMemRef.alignedAlloc(memRefType, allocOperands);
-      if (insertDealloc) {
-        auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = createMemRef.dealloc(alloc);
-        dealloc.getOperation()->moveBefore(&parentBlock->back());
-      }
-    }
+    alloc = insertAllocAndDeallocSimple(
+        rewriter, nullptr, memRefType, loc, dims, insertDealloc);
   } else {
     alloc = output;
   }
@@ -76,40 +57,21 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
 /// Shape :: [batch_size, hidden_size]
 Value allocIntermediateState(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value R) {
-  ImplicitLocOpBuilder lb(loc, rewriter);
-  MemRefBuilder createMemRef(rewriter, loc);
-  // The hidden or cell is not a return value but a temporary value, so always
-  // dealloc it.
-  bool insertDealloc = true;
-
+  IndexExprScope scope(rewriter, loc);
   auto memRefType = MemRefType::get({/*batch_size=*/dimAt(X, 1),
                                         /*hidden_size=*/dimAt(R, 2)},
       X.getType().cast<ShapedType>().getElementType());
-
-  Value alloc;
-  if (hasAllConstantDimensions(memRefType))
-    alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-  else {
-    auto memRefShape = memRefType.getShape();
-    SmallVector<Value, 2> allocOperands;
-    if (memRefShape[0] < 0) {
-      // Get batch_size from X.
-      auto dim = createMemRef.dim(X, 1);
-      allocOperands.emplace_back(dim);
-    }
-    if (memRefShape[1] < 0) {
-      // Get hidden_size from R.
-      auto dim = createMemRef.dim(R, 2);
-      allocOperands.emplace_back(dim);
-    }
-    alloc = createMemRef.alignedAlloc(memRefType, allocOperands);
-    if (insertDealloc) {
-      auto *parentBlock = alloc.getDefiningOp()->getBlock();
-      auto dealloc = createMemRef.dealloc(alloc);
-      dealloc.getOperation()->moveBefore(&parentBlock->back());
-    }
-  }
-
+  MemRefBoundsIndexCapture XBounds(X);
+  MemRefBoundsIndexCapture RBounds(R);
+  SmallVector<IndexExpr, 2> dims;
+  // Get batch_size from X.
+  dims.emplace_back(XBounds.getDim(1));
+  // Get hidden_size from R.
+  dims.emplace_back(RBounds.getDim(2));
+  // The hidden or cell is not a return value but a temporary value, so always
+  // dealloc it.
+  Value alloc = insertAllocAndDeallocSimple(
+      rewriter, nullptr, memRefType, loc, dims, /*insertDealloc=*/true);
   return alloc;
 }
 
@@ -188,39 +150,22 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
 /// Shape :: [num_directions, batch_size, hidden_size]
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
     Value X, Value W, Value R, Value output, bool insertDealloc) {
-  ImplicitLocOpBuilder lb(loc, rewriter);
-  MemRefBuilder createMemRef(rewriter, loc);
-
+  IndexExprScope scope(rewriter, loc);
   Value alloc;
   if (!isNoneType(output)) {
+    MemRefBoundsIndexCapture XBounds(X);
+    MemRefBoundsIndexCapture WBounds(W);
+    MemRefBoundsIndexCapture RBounds(R);
+    SmallVector<IndexExpr, 3> dims;
+    // Get num_directions from W.
+    dims.emplace_back(WBounds.getDim(0));
+    // Get batch_size from X.
+    dims.emplace_back(XBounds.getDim(1));
+    // Get hidden_size from R.
+    dims.emplace_back(RBounds.getDim(2));
     MemRefType memRefType = convertToMemRefType(output.getType());
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else {
-      auto memRefShape = memRefType.getShape();
-      SmallVector<Value, 2> allocOperands;
-      if (memRefShape[0] < 0) {
-        // Get num_directions from W.
-        auto dim = createMemRef.dim(W, 0);
-        allocOperands.emplace_back(dim);
-      }
-      if (memRefShape[1] < 0) {
-        // Get batch_size from X.
-        auto dim = createMemRef.dim(X, 1);
-        allocOperands.emplace_back(dim);
-      }
-      if (memRefShape[2] < 0) {
-        // Get hidden_size from R.
-        auto dim = createMemRef.dim(R, 2);
-        allocOperands.emplace_back(dim);
-      }
-      alloc = createMemRef.alignedAlloc(memRefType, allocOperands);
-      if (insertDealloc) {
-        auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = createMemRef.dealloc(alloc);
-        dealloc.getOperation()->moveBefore(&parentBlock->back());
-      }
-    }
+    alloc = insertAllocAndDeallocSimple(
+        rewriter, nullptr, memRefType, loc, dims, insertDealloc);
   } else {
     alloc = output;
   }
@@ -364,10 +309,10 @@ Value applyActivation(OpBuilder &rewriter, Location loc,
 Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value timestepIV) {
   // TODO remove
+  IndexExprScope scope(rewriter, loc);
   ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(rewriter, loc);
   MemRefBuilder createMemRef(rewriter, loc);
-  Value sliceX;
 
   int64_t batchSize = dimAt(X, 1);
   int64_t inputSize = dimAt(X, 2);
@@ -375,24 +320,12 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
   MemRefType sliceXType = MemRefType::get({batchSize, inputSize}, elementType);
 
   // Allocate a buffer
-  if (hasAllConstantDimensions(sliceXType))
-    sliceX =
-        insertAllocAndDealloc(sliceXType, loc, rewriter, /*deallocate=*/false);
-  else {
-    auto memRefShape = sliceXType.getShape();
-    SmallVector<Value, 2> allocOperands;
-    if (memRefShape[0] < 0) {
-      Value batchSizeVal =
-          getDimOrConstant(rewriter, loc, X, 1, rewriter.getIndexType());
-      allocOperands.emplace_back(batchSizeVal);
-    }
-    if (memRefShape[1] < 0) {
-      Value inputSizeVal =
-          getDimOrConstant(rewriter, loc, X, 2, rewriter.getIndexType());
-      allocOperands.emplace_back(inputSizeVal);
-    }
-    sliceX = createMemRef.alignedAlloc(sliceXType, allocOperands);
-  }
+  MemRefBoundsIndexCapture XBounds(X);
+  SmallVector<IndexExpr, 2> dims;
+  dims.emplace_back(XBounds.getDim(1));
+  dims.emplace_back(XBounds.getDim(2));
+  Value sliceX = insertAllocAndDeallocSimple(
+      rewriter, nullptr, sliceXType, loc, dims, /*insertDealloc=*/false);
 
   // Copy data from X.
   Value iZero = lb.create<ConstantIndexOp>(0);
