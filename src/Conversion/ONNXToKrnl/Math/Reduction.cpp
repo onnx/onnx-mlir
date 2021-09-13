@@ -416,11 +416,11 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       // maskVal[i] == true if ith dim will be reduced
       bool insertDealloc = checkInsertDealloc(op);
       auto maskType =
-          RankedTensorType::get({inRank}, rewriter.getIntegerType(1));
+          RankedTensorType::get({inRank}, rewriter.getIntegerType(32));
       maskVal = insertAllocAndDealloc(
           convertToMemRefType(maskType), loc, rewriter, insertDealloc);
-      falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 0);
-      trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 1);
+      falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(32), 0);
+      trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(32), 1);
       valueOne = rewriter.create<ConstantIndexOp>(loc, 1);
 
       // Initialize mask to 0
