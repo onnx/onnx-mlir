@@ -883,16 +883,10 @@ public:
     patterns.insert<KrnlCompactStaticMemoryPools>(
         &getContext(), &blockToStaticPoolAlignments);
 
-    // TODO: conditional printing of progress:
-    // printf("Optimizing memory footprint ... \n");
-
     // No need to test, its ok to fail the apply.
     LogicalResult res =
         applyPatternsAndFoldGreedily(function, std::move(patterns));
     assert((succeeded(res) || failed(res)) && "remove unused var warning");
-
-    // TODO: conditional printing of progress:
-    // printf("Done optimizing memory footprint\n");
   }
 };
 } // namespace
