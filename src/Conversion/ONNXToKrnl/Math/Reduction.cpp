@@ -381,11 +381,84 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
      *
      */
     auto loc = op->getLoc();
-    auto input = operands[0];
+    //auto input = operands[0];
+    ONNXReduceSumOp reduceSumOp = llvm::cast<ONNXReduceSumOp>(op);
+    auto input = reduceSumOp.data();
+    auto axesVal = reduceSumOp.axes();
     auto memRefInType = input.getType().cast<MemRefType>();
     auto memRefOutType = convertToMemRefType(*op->result_type_begin());
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
+
+    // KeepDims
+    auto keepdims = llvm::dyn_cast<ONNXReduceSumOp>(op).keepdims();
+    bool isKeepdims = (keepdims == 1) ? true : false;
+
+    // Get type information
+    auto memRefOutShape = memRefOutType.getShape();
+    auto elementOutType = memRefOutType.getElementType();
+
+    bool dynamicAxes = false;
+    Value maskVal;
+    Value falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(32), 0);
+    Value trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(32), 1);
+    Value valueOne = rewriter.create<ConstantIndexOp>(loc, 1);
+    std::map<int64_t, int64_t> outInDimMap;
+
+    // Dynamic axes
+    if (!isFromNone(axesVal) && !getONNXConstantOp(axesVal)) {
+      dynamicAxes = true;
+      // Handle keepdims == true
+      // Define a mask memref with same size of input and bool type
+      // Element == true if this dimension will be reduced
+      bool insertDealloc = checkInsertDealloc(op);
+      auto maskType = RankedTensorType::get({inRank}, rewriter.getIntegerType(32));
+      maskVal = insertAllocAndDealloc(convertToMemRefType(maskType), loc, rewriter, insertDealloc);
+
+      // Initialize mask to 0
+      for (auto i = 0; i < inRank; i++) {
+        Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
+	rewriter.create<KrnlStoreOp>(loc, falseVal, maskVal, indexVal);
+      }
+
+      for (auto i = 0; i < axesVal.getType().cast<MemRefType>().getShape()[0]; i++) {
+        Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
+	Value axe = rewriter.create<KrnlLoadOp>(loc, axesVal, indexVal);
+	Value jVal = rewriter.create<IndexCastOp>(
+		loc, rewriter.getIndexType(), axe);
+	rewriter.create<KrnlStoreOp>(loc, trueVal, maskVal, jVal);
+      }
+
+
+    // Output tensor allocation
+#if 0
+    Value alloc;
+    if (hasAllConstantDimensions(memRefOutType)) {
+      alloc =
+          insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
+    } else {
+      MemRefBuilder createMemRef(rewriter, loc);
+      SmallVector<Value, 2> allocOperands;
+      Value valueOne = rewriter.create<ConstantIndexOp>(loc, 1);
+      for (decltype(outRank) i = 0; i < outRank; ++i) {
+        Value inputDim = createMemRef.dim(input, i);
+        Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
+	auto mask = rewriter.create<KrnlLoadOp>(loc, maskVal, indexVal);
+        auto cond = rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, mask, trueVal );
+	auto dim = rewriter.create<SelectOp>(loc, cond, valueOne, inputDim);
+        allocOperands.push_back(dim);
+      }
+      alloc = createMemRef.alignedAlloc(memRefOutType, allocOperands);
+      if (insertDealloc) {
+        auto *parentBlock = alloc.getDefiningOp()->getBlock();
+        auto dealloc = createMemRef.dealloc(alloc);
+        dealloc.getOperation()->moveBefore(&parentBlock->back());
+      }
+    }
+    rewriter.replaceOp(op, alloc);
+    return success();
+#endif
+    } else {
 
     // Get axes value defined by op
     // Leave empty is not defined
@@ -420,15 +493,9 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         axes.push_back(i);
       }
     }
-    // KeepDims
-    auto keepdims = llvm::dyn_cast<ONNXReduceSumOp>(op).keepdims();
-    bool isKeepdims = (keepdims == 1) ? true : false;
-
-    // Get type information
-    auto memRefOutShape = memRefOutType.getShape();
-    auto elementOutType = memRefOutType.getElementType();
-    std::map<int64_t, int64_t> outInDimMap =
+    outInDimMap =
         getReductionMapping(memRefInType, axes, isKeepdims);
+    }
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
@@ -441,9 +508,18 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {
         if (memRefOutShape[i] < 0) {
+	  if (dynamicAxes) {
+        Value inputDim = createMemRef.dim(input, i);
+        Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
+	auto mask = rewriter.create<KrnlLoadOp>(loc, maskVal, indexVal);
+        auto cond = rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, mask, trueVal );
+	auto dim = rewriter.create<SelectOp>(loc, cond, valueOne, inputDim);
+        allocOperands.push_back(dim);
+	  } else {
           auto dim = createMemRef.dim(input, outInDimMap[i]);
           allocOperands.push_back(dim);
-        }
+	  }
+        } 
       }
       alloc = createMemRef.alignedAlloc(memRefOutType, allocOperands);
       if (insertDealloc) {
@@ -508,17 +584,19 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     for (unsigned int i = 0; i < args.size(); ++i) {
       inLoopIVs.push_back(args[i]);
     }
-    Value zeroIndex = nullptr;
+    //Value zeroIndex = nullptr;
+    Value zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
     for (decltype(inRank) i = 0; i < outRank; ++i) {
-      if (outInDimMap.find(i) != outInDimMap.end()) {
+      if (dynamicAxes) {
+        Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
+	auto mask = rewriter.create<KrnlLoadOp>(loc, maskVal, indexVal);
+        auto cond = rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, mask, trueVal );
+	auto dim = rewriter.create<SelectOp>(loc, cond, zeroIndex, inLoopIVs[i]);
+        outLoopIVs.push_back(dim);
+      } else if (outInDimMap.find(i) != outInDimMap.end()) {
         outLoopIVs.push_back(inLoopIVs[outInDimMap[i]]);
       } else {
-        if (zeroIndex) {
-          outLoopIVs.push_back(zeroIndex);
-        } else {
-          zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
-          outLoopIVs.push_back(zeroIndex);
-        }
+        outLoopIVs.push_back(zeroIndex);
       }
     }
 
