@@ -36,6 +36,9 @@ namespace {
 typedef std::map<Block *, llvm::SmallSet<int64_t, 16>>
     BlockToCompactedAlignments;
 
+typedef std::map<Block *, llvm::SmallSet<KrnlGetRefOp, 16>>
+    BlockToDiscardedGetRefs;
+
 /// Get the total size in bytes used by the getref operations associated
 /// with a given memory pool.
 int64_t getAllocGetRefTotalSize(memref::AllocOp *allocOp) {
@@ -94,8 +97,10 @@ std::vector<Operation *> getGetRefViews(KrnlGetRefOp *getRef) {
   std::vector<Operation *> views;
 
   parentBlock->walk([&views, getRef](Operation *op) {
-    if (dyn_cast<ViewLikeOpInterface>(op))
-      views.emplace_back(op);
+    if (dyn_cast<ViewLikeOpInterface>(op)) {
+      if (op->getOperands()[0] == getRef->getResult())
+        views.emplace_back(op);
+    }
   });
 
   // The list contains at least one use.
@@ -462,10 +467,13 @@ public:
   using OpRewritePattern<KrnlGetRefOp>::OpRewritePattern;
 
   BlockToCompactedAlignments *blockToStaticPoolAlignments;
+  BlockToDiscardedGetRefs *blockToDiscardedGetRefs;
   KrnlOptimizeStaticMemoryPools(MLIRContext *context,
-      BlockToCompactedAlignments *_blockToStaticPoolAlignments)
+      BlockToCompactedAlignments *_blockToStaticPoolAlignments,
+      BlockToDiscardedGetRefs *_blockToDiscardedGetRefs)
       : OpRewritePattern<KrnlGetRefOp>(context) {
     blockToStaticPoolAlignments = _blockToStaticPoolAlignments;
+    blockToDiscardedGetRefs = _blockToDiscardedGetRefs;
   }
 
   LogicalResult matchAndRewrite(
@@ -527,6 +535,10 @@ public:
     // Get a GetRef, other than the current one, that uses the same static
     // memory pool.
     SmallVector<KrnlGetRefOp, 4> getRefCandidates;
+    llvm::SmallSet<KrnlGetRefOp, 16> listOfDiscardedGetRefs;
+    if (blockToDiscardedGetRefs->count(parentBlock) > 0)
+      listOfDiscardedGetRefs = blockToDiscardedGetRefs->at(parentBlock);
+
     for (auto &op :
         llvm::make_range(parentBlock->begin(), std::prev(parentBlock->end()))) {
       KrnlGetRefOp candidate = llvm::dyn_cast_or_null<KrnlGetRefOp>(&op);
@@ -545,8 +557,19 @@ public:
       if (sharesSlot)
         continue;
 
+      // Check candidate is not in the discarded list:
+      bool isDiscardedGetRef = false;
+      for (auto discardedGetRef : listOfDiscardedGetRefs)
+        if (discardedGetRef == candidate) {
+          isDiscardedGetRef = true;
+          break;
+        }
+      if (isDiscardedGetRef)
+        continue;
+
       // The second krnl.getref properties:
-      // - must use the same static memory pool as the first krnl.getref;
+      // - must use the same static memory pool as the first
+      // krnl.getref;
       // - the result must have the same memory footprint as the first.
       memref::AllocOp allocOfCandidate = getAllocOfGetRef(&candidate);
       if (allocOfCandidate == staticMemPool &&
@@ -560,6 +583,12 @@ public:
     if (getRefCandidates.size() < 1)
       return failure();
 
+    // TODO: conditional printing of progress:
+    // printf(" Candidates: %d --- Visited getrefs = %d\n",
+    //     getRefCandidates.size(), listOfDiscardedGetRefs.size());
+
+    // TODO: conditional printing of progress:
+    // printf(" Start processing candidates ...\n");
     SmallVector<KrnlGetRefOp, 4> validSlotReusers;
     for (auto secondGetRef : getRefCandidates) {
       // Check that the current candidate has not already been added as a valid
@@ -571,13 +600,15 @@ public:
           break;
         }
       }
-      if (isSlotReuser)
+      if (isSlotReuser) {
         continue;
+      }
 
       // If the second getref has the same offset as the first then the rewrite
       // rule has already been applied to this getref so there is no work to do.
-      if (firstGetRef.offset() == secondGetRef.offset())
+      if (firstGetRef.offset() == secondGetRef.offset()) {
         continue;
+      }
 
       // Both first and second getRef ops may have already been processed by
       // this rewrite rule. There could be several krnl.getref with the same
@@ -589,29 +620,41 @@ public:
       // Do not merge the secondGetRef if secondGetRef has any reusers. It
       // means that the analysis has already been performed on secondGetRef
       // and all the possible reuses have already been found for secondGetRef.
-      if (secondGetRefList.size() > 1)
+      if (secondGetRefList.size() > 1) {
         continue;
+      }
 
       // If the two getRefs are used by the same operation which we know
       // nothing about, then we assume the worst case semantics i.e. that
       // the operation acts as a function which can modify the content of
       // one of the getRefs based on the other. This implies that the two
       // getRefs cannot share the same memory pool slot.
-      if (getRefUsesAreNotUsedBySameOp(firstGetRefList, secondGetRef))
+      if (getRefUsesAreNotUsedBySameOp(firstGetRefList, secondGetRef)) {
         continue;
+      }
 
       // Check that the usage of the candidate getrefs is disjoint from the
       // usage of any of the first getrefs. This means that for any store to a
       // getref in secondGetRefList, the value stored does not involve a load
       // from a getref in firstGetRefList (and vice-versa).
-      if (!getRefUsesAreMutuallyDisjoint(firstGetRefList, secondGetRefList))
+      if (!getRefUsesAreMutuallyDisjoint(firstGetRefList, secondGetRefList)) {
         continue;
+      }
 
       // Check live ranges do not intersect.
       // Live range, chain of instructions between the first and last
       // load/store from/to any krnl.getref in a given list.
-      if (checkLiveRangesIntersect(firstGetRefList, secondGetRef))
+      if (checkLiveRangesIntersect(firstGetRefList, secondGetRef)) {
         continue;
+      }
+
+      // If this is a valid slot reuser then this is the only slot in which
+      // it can fit so it cannot participate in any other slot.
+      if (blockToDiscardedGetRefs->count(parentBlock) == 0)
+        blockToDiscardedGetRefs->insert(
+            std::pair<Block *, llvm::SmallSet<KrnlGetRefOp, 16>>(
+                parentBlock, llvm::SmallSet<KrnlGetRefOp, 16>()));
+      blockToDiscardedGetRefs->at(parentBlock).insert(secondGetRef);
 
       // Add candidate to list of valid reusers.
       validSlotReusers.emplace_back(secondGetRef);
@@ -623,12 +666,24 @@ public:
       firstGetRefList.emplace_back(secondGetRef);
     }
 
+    // TODO: conditional printing of progress:
+    // printf(" Done processing candidates, slot reusers = %d\n",
+    //     validSlotReusers.size());
+
+    // Never consider the matched getref as a candidate ever again.
+    if (blockToDiscardedGetRefs->count(parentBlock) == 0)
+      blockToDiscardedGetRefs->insert(
+          std::pair<Block *, llvm::SmallSet<KrnlGetRefOp, 16>>(
+              parentBlock, llvm::SmallSet<KrnlGetRefOp, 16>()));
+    blockToDiscardedGetRefs->at(parentBlock).insert(firstGetRef);
+
     // No valid slot reuse getRefs have been identified.
     if (validSlotReusers.size() == 0)
       return failure();
 
-    // A suitable slot can be reused. Convert all secondGetRefList entries to
-    // use the same slot in the memory pool as all the firstGetRefList entries.
+    // A suitable slot can be reused. Convert all secondGetRefList entries
+    // to use the same slot in the memory pool as all the firstGetRefList
+    // entries.
     for (auto secondGetRef : validSlotReusers) {
       auto newGetRefOp =
           rewriter.create<KrnlGetRefOp>(loc, secondGetRef.getResult().getType(),
@@ -815,6 +870,7 @@ public:
 class KrnlOptimizeMemoryPoolsPass
     : public PassWrapper<KrnlOptimizeMemoryPoolsPass, FunctionPass> {
   BlockToCompactedAlignments blockToStaticPoolAlignments;
+  BlockToDiscardedGetRefs blockToDiscardedGetRefs;
 
 public:
   void runOnFunction() override {
@@ -823,7 +879,7 @@ public:
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
     patterns.insert<KrnlOptimizeStaticMemoryPools>(
-        &getContext(), &blockToStaticPoolAlignments);
+        &getContext(), &blockToStaticPoolAlignments, &blockToDiscardedGetRefs);
     patterns.insert<KrnlCompactStaticMemoryPools>(
         &getContext(), &blockToStaticPoolAlignments);
 
