@@ -416,11 +416,11 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       // maskVal[i] == true if ith dim will be reduced
       bool insertDealloc = checkInsertDealloc(op);
       auto maskType =
-          RankedTensorType::get({inRank}, rewriter.getIntegerType(32));
+          RankedTensorType::get({inRank}, rewriter.getIntegerType(1));
       maskVal = insertAllocAndDealloc(
           convertToMemRefType(maskType), loc, rewriter, insertDealloc);
-      falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(32), 0);
-      trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(32), 1);
+      falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 0);
+      trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 1);
       valueOne = rewriter.create<ConstantIndexOp>(loc, 1);
 
       // Initialize mask to 0
@@ -436,21 +436,26 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       auto dataDimConst =
           emitConstantOp(rewriter, loc, axesElementType, inRank);
       Value zeroValue = emitConstantOp(rewriter, loc, axesElementType, 0);
-      for (auto i = 0; i < axesVal.getType().cast<MemRefType>().getShape()[0];
-           i++) {
-        Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
-        Value axe = rewriter.create<KrnlLoadOp>(loc, axesVal, indexVal);
-        // Check negative
-        auto cond =
-            rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, axe, zeroValue);
-        auto dim = rewriter.create<SelectOp>(
-            loc, cond, rewriter.create<AddIOp>(loc, axe, dataDimConst), axe);
-        Value jVal =
-            rewriter.create<IndexCastOp>(loc, rewriter.getIndexType(), dim);
-        rewriter.create<KrnlStoreOp>(loc, trueVal, maskVal, jVal);
+      auto axesDim = axesVal.getType().cast<MemRefType>().getShape()[0];
+      if (axesDim == -1) {
+        // FIXME: generate a Krnl loop when axesDim is not static
+        return emitError(loc, "dim of axes is unknown");
+      } else {
+        for (auto i = 0; i < axesVal.getType().cast<MemRefType>().getShape()[0];
+             i++) {
+          Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
+          Value axe = rewriter.create<KrnlLoadOp>(loc, axesVal, indexVal);
+          // Check negative
+          auto cond =
+              rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, axe, zeroValue);
+          auto dim = rewriter.create<SelectOp>(
+              loc, cond, rewriter.create<AddIOp>(loc, axe, dataDimConst), axe);
+          Value jVal =
+              rewriter.create<IndexCastOp>(loc, rewriter.getIndexType(), dim);
+          rewriter.create<KrnlStoreOp>(loc, trueVal, maskVal, jVal);
+        }
       }
     } else {
-
       // Get axes value defined by op
       // Leave empty is not defined
       std::vector<int64_t> definedAxes;
