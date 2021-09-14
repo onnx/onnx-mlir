@@ -324,6 +324,9 @@ void populateLoweringONNXSliceOpPattern(
 void populateLoweringONNXSqueezeV11OpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXSplitOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXSplitV11OpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 

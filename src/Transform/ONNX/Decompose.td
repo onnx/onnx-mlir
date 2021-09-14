@@ -242,16 +242,4 @@ def UnsqueezePattern
          (ONNXUnsqueezeV11Op $data, (createArrayAttrFromConstantOp $axes)),
          [(IsDenseONNXConstant:$axes)]>;
 
-def SplitPattern
-   : Pat<(ONNXSplitOp $input, $split, $axis),
-         (ONNXSplitV11Op $input, $axis, (createArrayAttrFromConstantOp $split)),
-         [(IsDenseONNXConstant:$split)],
-         (addBenefit 1)>;
-
-def SplitPattern2
-   : Pat<(ONNXSplitOp $input, $split, $axis),
-         (ONNXSplitV11Op $input, $axis, (GetNullAttr)),
-         [(IsNoneType:$split)],
-         (addBenefit 0)>;
-
 #endif // ONNX_DECOMPOSE

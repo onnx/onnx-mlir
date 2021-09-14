@@ -668,22 +668,15 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
 // ONNX Split Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp)
-    : ONNXOpShapeHelper<ONNXSplitV11Op>(newOp) {}
-
-ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp,
-    ConversionPatternRewriter &rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSplitV11Op>(
-          newOp, rewriter, fGetDenseVal, fLoadVal) {}
-
-LogicalResult ONNXSplitV11OpShapeHelper::Compute(
-    ONNXSplitV11OpAdaptor operandAdaptor) {
+template <typename ShapeHelper, typename OperandAdaptor>
+LogicalResult ONNXSplitOpShapeHelperCommon(ShapeHelper *shapeHelper,
+    OperandAdaptor operandAdaptor, llvm::Optional<ArrayAttr> splitAttribute) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Get info about input and output data.
+  auto op = shapeHelper->op;
   unsigned int numOfResults = op->getNumResults();
-  auto rank = operandAdaptor.input().getType().cast<ShapedType>().getRank();
+  auto rank =
+      operandAdaptor.input().getType().template cast<ShapedType>().getRank();
 
   // Checking value of axis parameter.
   int64_t axisIndex = op->axis();
@@ -697,8 +690,6 @@ LogicalResult ONNXSplitV11OpShapeHelper::Compute(
         APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
 
-  // Checking value of split parameter.
-  auto splitAttribute = op->split();
   SmallVector<IndexExpr, 4> splitDims;
   MemRefBoundsIndexCapture inputBounds(operandAdaptor.input());
   if (splitAttribute.hasValue()) {
@@ -734,9 +725,51 @@ LogicalResult ONNXSplitV11OpShapeHelper::Compute(
         outputDims[j] = inputBounds.getDim(j);
       }
     }
-    dimsForOutput(i) = outputDims;
+    shapeHelper->dimsForOutput(i) = outputDims;
   }
   return success();
+}
+
+ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp)
+    : ONNXOpShapeHelper<ONNXSplitOp>(newOp) {}
+
+ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXSplitOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXSplitOpShapeHelper::Compute(
+    ONNXSplitOpAdaptor operandAdaptor) {
+
+  auto split = op->split();
+  auto builder = mlir::Builder(op->getContext());
+
+  llvm::Optional<ArrayAttr> optionalAttr;
+  if (auto splitConstOp = getONNXConstantOp(split)) {
+    // Checking value of split parameter.
+    auto splitAttribute = createArrayAttrFromConstantOp(builder, splitConstOp);
+    optionalAttr.emplace(splitAttribute);
+  } else if (!split.getType().template isa<NoneType>()) {
+    llvm_unreachable("dynamic split not yet supported");
+  }
+
+  return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, optionalAttr);
+}
+
+ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp)
+    : ONNXOpShapeHelper<ONNXSplitV11Op>(newOp) {}
+
+ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXSplitV11Op>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXSplitV11OpShapeHelper::Compute(
+    ONNXSplitV11OpAdaptor operandAdaptor) {
+  return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, op->split());
 }
 
 //===----------------------------------------------------------------------===//

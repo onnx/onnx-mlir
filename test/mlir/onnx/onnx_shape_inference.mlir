@@ -943,54 +943,114 @@ func @test_lstm_all_results_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor
 // -----
 
 func @test_split_1(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
-  %0, %1 = "onnx.SplitV11"(%arg0) { axis = 1 : si64} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  %cst = constant unit
+  %0, %1 = "onnx.Split"(%arg0, %cst) { axis = 1 : si64} : (tensor<16x32x64xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_split_1
-  // CHECK: [[RES:%.+]]:2 = "onnx.SplitV11"(%arg0) {axis = 1 : si64} : (tensor<16x32x64xf32>) -> (tensor<16x16x64xf32>, tensor<16x16x64xf32>)
+  // CHECK: [[RES:%.+]]:2 = "onnx.Split"(%arg0, %cst) {axis = 1 : si64} : (tensor<16x32x64xf32>, none) -> (tensor<16x16x64xf32>, tensor<16x16x64xf32>)
   // CHECK: return [[RES]]#0 : tensor<16x16x64xf32>
 }
 
 // -----
 
 func @test_split_2(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
-  %0, %1 = "onnx.SplitV11"(%arg0) { axis = -2 : si64} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  %cst = constant unit
+  %0, %1 = "onnx.Split"(%arg0, %cst) { axis = -2 : si64} : (tensor<16x32x64xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_split_2
-  // CHECK: [[RES:%.+]]:2 = "onnx.SplitV11"(%arg0) {axis = 1 : si64} : (tensor<16x32x64xf32>) -> (tensor<16x16x64xf32>, tensor<16x16x64xf32>)
+  // CHECK: [[RES:%.+]]:2 = "onnx.Split"(%arg0, %cst) {axis = 1 : si64} : (tensor<16x32x64xf32>, none) -> (tensor<16x16x64xf32>, tensor<16x16x64xf32>)
   // CHECK: return [[RES]]#0 : tensor<16x16x64xf32>
 }
 
 // -----
 
 func @test_split_3(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
-  %0, %1 = "onnx.SplitV11"(%arg0) {axis = 1 : si64, split = [2, 30]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  %split = "onnx.Constant"() {value = dense<[2, 30]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %0, %1 = "onnx.Split"(%arg0, %split) {axis = 1 : si64} : (tensor<16x32x64xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_split_3
-  // CHECK: [[RES:%.+]]:2 = "onnx.SplitV11"(%arg0) {axis = 1 : si64, split = [2, 30]} : (tensor<16x32x64xf32>) -> (tensor<16x2x64xf32>, tensor<16x30x64xf32>)
+  // CHECK: [[RES:%.+]]:2 = "onnx.Split"(%arg0, %0) {axis = 1 : si64} : (tensor<16x32x64xf32>, tensor<2xi64>) -> (tensor<16x2x64xf32>, tensor<16x30x64xf32>)
   // CHECK: return [[RES]]#0 : tensor<16x2x64xf32>
 }
 
 // -----
 
 func @test_split_4(%arg0 : tensor<16x?x64xf32>) -> tensor<*xf32> {
-  %0, %1 = "onnx.SplitV11"(%arg0) {axis = 1 : si64, split = [2, 30]} : (tensor<16x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  %split = "onnx.Constant"() {value = dense<[2, 30]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %0, %1 = "onnx.Split"(%arg0, %split) {axis = 1 : si64} : (tensor<16x?x64xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_split_4
-  // CHECK: [[RES:%.+]]:2 = "onnx.SplitV11"(%arg0) {axis = 1 : si64, split = [2, 30]} : (tensor<16x?x64xf32>) -> (tensor<16x2x64xf32>, tensor<16x30x64xf32>)
+  // CHECK: [[RES:%.+]]:2 = "onnx.Split"(%arg0, %0) {axis = 1 : si64} : (tensor<16x?x64xf32>, tensor<2xi64>) -> (tensor<16x2x64xf32>, tensor<16x30x64xf32>)
   // CHECK: return [[RES]]#0 : tensor<16x2x64xf32>
 }
 
 // -----
 
 func @test_split_5(%arg0 : tensor<16x?x64xf32>) -> tensor<*xf32> {
-  %0, %1 = "onnx.SplitV11"(%arg0) {axis = 1 : si64} : (tensor<16x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  %cst = constant unit
+  %0, %1 = "onnx.Split"(%arg0, %cst) {axis = 1 : si64} : (tensor<16x?x64xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_split_5
+  // CHECK: [[RES:%.+]]:2 = "onnx.Split"(%arg0, %cst) {axis = 1 : si64} : (tensor<16x?x64xf32>, none) -> (tensor<16x?x64xf32>, tensor<16x?x64xf32>)
+  // CHECK: return [[RES]]#0 : tensor<16x?x64xf32>
+}
+
+// -----
+
+func @test_splitv11_1(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
+  %0, %1 = "onnx.SplitV11"(%arg0) { axis = 1 : si64} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_splitv11_1
+  // CHECK: [[RES:%.+]]:2 = "onnx.SplitV11"(%arg0) {axis = 1 : si64} : (tensor<16x32x64xf32>) -> (tensor<16x16x64xf32>, tensor<16x16x64xf32>)
+  // CHECK: return [[RES]]#0 : tensor<16x16x64xf32>
+}
+
+// -----
+
+func @test_splitv11_2(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
+  %0, %1 = "onnx.SplitV11"(%arg0) { axis = -2 : si64} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_splitv11_2
+  // CHECK: [[RES:%.+]]:2 = "onnx.SplitV11"(%arg0) {axis = 1 : si64} : (tensor<16x32x64xf32>) -> (tensor<16x16x64xf32>, tensor<16x16x64xf32>)
+  // CHECK: return [[RES]]#0 : tensor<16x16x64xf32>
+}
+
+// -----
+
+func @test_splitv11_3(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
+  %0, %1 = "onnx.SplitV11"(%arg0) {axis = 1 : si64, split = [2, 30]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_splitv11_3
+  // CHECK: [[RES:%.+]]:2 = "onnx.SplitV11"(%arg0) {axis = 1 : si64, split = [2, 30]} : (tensor<16x32x64xf32>) -> (tensor<16x2x64xf32>, tensor<16x30x64xf32>)
+  // CHECK: return [[RES]]#0 : tensor<16x2x64xf32>
+}
+
+// -----
+
+func @test_splitv11_4(%arg0 : tensor<16x?x64xf32>) -> tensor<*xf32> {
+  %0, %1 = "onnx.SplitV11"(%arg0) {axis = 1 : si64, split = [2, 30]} : (tensor<16x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_splitv11_4
+  // CHECK: [[RES:%.+]]:2 = "onnx.SplitV11"(%arg0) {axis = 1 : si64, split = [2, 30]} : (tensor<16x?x64xf32>) -> (tensor<16x2x64xf32>, tensor<16x30x64xf32>)
+  // CHECK: return [[RES]]#0 : tensor<16x2x64xf32>
+}
+
+// -----
+
+func @test_splitv11_5(%arg0 : tensor<16x?x64xf32>) -> tensor<*xf32> {
+  %0, %1 = "onnx.SplitV11"(%arg0) {axis = 1 : si64} : (tensor<16x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_splitv11_5
   // CHECK: [[RES:%.+]]:2 = "onnx.SplitV11"(%arg0) {axis = 1 : si64} : (tensor<16x?x64xf32>) -> (tensor<16x?x64xf32>, tensor<16x?x64xf32>)
   // CHECK: return [[RES]]#0 : tensor<16x?x64xf32>
 }
