@@ -421,11 +421,26 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 0);
       trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 1);
       valueOne = rewriter.create<ConstantIndexOp>(loc, 1);
+      auto axesDim = axesVal.getType().cast<MemRefType>().getShape()[0];
 
       // Initialize mask to 0
+      // Unless noop_with_empty_axesDim is false and axesDim is -1
+      Value initVal;
+      if (axesDim == -1 &&
+          !llvm::dyn_cast<ONNXReduceSumOp>(op).noop_with_empty_axes()) {
+        IndexExprScope axesloopContex(rewriter, loc);
+        MemRefBoundsIndexCapture axesBounds(axesVal);
+        auto cond = rewriter.create<CmpIOp>(loc, CmpIPredicate::eq,
+            axesBounds.getDim(0).getValue(),
+            rewriter.create<ConstantIndexOp>(loc, 0));
+        initVal = rewriter.create<SelectOp>(loc, cond, trueVal, falseVal);
+      } else {
+        // When axesDim is known, it can not be 0 due to !isFromNone
+        initVal = falseVal;
+      }
       for (auto i = 0; i < inRank; i++) {
         Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
-        rewriter.create<KrnlStoreOp>(loc, falseVal, maskVal, indexVal);
+        rewriter.create<KrnlStoreOp>(loc, initVal, maskVal, indexVal);
       }
 
       // Consider the case when axes[i] is negative
@@ -435,7 +450,6 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       auto dataDimConst =
           emitConstantOp(rewriter, loc, axesElementType, inRank);
       Value zeroValue = emitConstantOp(rewriter, loc, axesElementType, 0);
-      auto axesDim = axesVal.getType().cast<MemRefType>().getShape()[0];
       if (axesDim == -1) {
         // When axes is dynamic, generate a Krnl loop
         BuildKrnlLoop axesLoops(rewriter, loc, 1);
@@ -474,7 +488,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
 
       // Assume it is verified that axes are known
       // Convert DenseElementsAttr to ArrayAttr
-      if (getONNXConstantOp(axesValue)) {
+      if (isFromNone(axesValue)) {
+      } else if (getONNXConstantOp(axesValue)) {
         DenseElementsAttr constAxes =
             getONNXConstantOp(axesValue)
                 .valueAttr()
@@ -495,7 +510,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           if (std::find(axes.begin(), axes.end(), newaxis) == axes.end())
             axes.push_back(newaxis);
         }
-      } else {
+      } else if (!llvm::dyn_cast<ONNXReduceSumOp>(op).noop_with_empty_axes()) {
         for (decltype(inRank) i = 0; i < inRank; ++i) {
           axes.push_back(i);
         }
