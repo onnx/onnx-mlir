@@ -520,8 +520,8 @@ public:
     RewritePatternSet patterns(&getContext());
     patterns.insert<KrnlBundleStaticMemoryPools>(
         &getContext(), &blockToStaticPool);
-    patterns.insert<KrnlBundleDynamicMemoryPools>(
-        &getContext(), &blockToDynamicPool);
+    // patterns.insert<KrnlBundleDynamicMemoryPools>(
+    //     &getContext(), &blockToDynamicPool);
     patterns.insert<KrnlMoveConstantsUp>(&getContext());
 
     // No need to test, its ok to fail the apply.
