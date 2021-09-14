@@ -409,8 +409,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       dynamicAxes = true;
       // Handle only when keepdims == true
       if (!isKeepdims) {
-        emitError(loc, "not keepdims() not implemented");
-        return failure();
+        return emitError(loc, "not keepdims() not implemented");
       }
       // Define a mask memref with same size of input and bool type
       // maskVal[i] == true if ith dim will be reduced
@@ -438,11 +437,24 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       Value zeroValue = emitConstantOp(rewriter, loc, axesElementType, 0);
       auto axesDim = axesVal.getType().cast<MemRefType>().getShape()[0];
       if (axesDim == -1) {
-        // FIXME: generate a Krnl loop when axesDim is not static
-        return emitError(loc, "dim of axes is unknown");
+        // When axes is dynamic, generate a Krnl loop
+        BuildKrnlLoop axesLoops(rewriter, loc, 1);
+        axesLoops.createDefineAndIterateOp(axesVal);
+        auto axesLoopBody = rewriter.saveInsertionPoint();
+        rewriter.setInsertionPointToStart(axesLoops.getIterateBlock());
+        // Loop body
+        Value axe = rewriter.create<KrnlLoadOp>(
+            loc, axesVal, axesLoops.getInductionVar(0));
+        auto cond =
+            rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, axe, zeroValue);
+        auto dim = rewriter.create<SelectOp>(
+            loc, cond, rewriter.create<AddIOp>(loc, axe, dataDimConst), axe);
+        Value jVal =
+            rewriter.create<IndexCastOp>(loc, rewriter.getIndexType(), dim);
+        rewriter.create<KrnlStoreOp>(loc, trueVal, maskVal, jVal);
+        rewriter.restoreInsertionPoint(axesLoopBody);
       } else {
-        for (auto i = 0; i < axesVal.getType().cast<MemRefType>().getShape()[0];
-             i++) {
+        for (auto i = 0; i < axesDim; i++) {
           Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
           Value axe = rewriter.create<KrnlLoadOp>(loc, axesVal, indexVal);
           // Check negative
