@@ -111,6 +111,10 @@ public:
     if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
       return failure();
 
+    // For now only handle constant MemRefs.
+    if (!hasAllConstantDimensions(memRefType))
+      return failure();
+
     memref::AllocOp newAlloc;
     SmallVector<int64_t, 1> memPoolShape;
     if (hasAllConstantDimensions(memRefType)) {
