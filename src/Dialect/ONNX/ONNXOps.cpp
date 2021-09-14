@@ -2659,7 +2659,7 @@ LogicalResult ONNXResizeOp::inferShapes(
 LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   auto inTy = x().getType().dyn_cast<RankedTensorType>();
-  if (!inTy || !inTy.hasStaticShape()) {
+  if (!inTy) {
     return success();
   }
 
@@ -2698,7 +2698,7 @@ LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes(
 LogicalResult ONNXQuantizeLinearOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   auto inTy = x().getType().dyn_cast<RankedTensorType>();
-  if (!inTy || !inTy.hasStaticShape()) {
+  if (!inTy) {
     return success();
   }
 
@@ -2722,7 +2722,7 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
 LogicalResult ONNXDequantizeLinearOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   auto inTy = x().getType().dyn_cast<RankedTensorType>();
-  if (!inTy || !inTy.hasStaticShape()) {
+  if (!inTy) {
     return success();
   }
 
@@ -2893,7 +2893,7 @@ LogicalResult ONNXTileOp::inferShapes(
   // 'repeats' tensor is an 1D tensor.
   auto repeatsTensorTy = repeats().getType().cast<RankedTensorType>();
   if (repeatsTensorTy.getShape().size() != 1)
-    return success();
+    return emitError("Repeats tensor must have rank one");
 
   return shapeHelperInferShapes<ONNXTileOpShapeHelper, ONNXTileOp,
       ONNXTileOpAdaptor>(this, input());
