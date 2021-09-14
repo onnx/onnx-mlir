@@ -847,9 +847,9 @@ func private @test_reducesumV11(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 // CHECK:           [[VAR_true:%.+]] = constant true
 // CHECK:           [[VAR_c1:%.+]] = constant 1 : index
 // CHECK:           [[VAR_c0:%.+]] = constant 0 : index
-// CHECK:           [[VAR_2:%.+]] = memref.dim [[VAR_arg1]], [[VAR_c0]] : memref<?xi64>
 // CHECK:           [[VAR_c0_0:%.+]] = constant 0 : index
-// CHECK:           [[VAR_3:%.+]] = cmpi eq, [[VAR_2]], [[VAR_c0_0]] : index
+// CHECK:           [[VAR_2:%.+]] = memref.dim [[VAR_arg1]], [[VAR_c0_0]] : memref<?xi64>
+// CHECK:           [[VAR_3:%.+]] = cmpi eq, [[VAR_2]], [[VAR_c0]] : index
 // CHECK:           [[VAR_4:%.+]] = select [[VAR_3]], [[VAR_true]], [[VAR_false]] : i1
 // CHECK:           [[VAR_c0_1:%.+]] = constant 0 : index
 // CHECK:           krnl.store [[VAR_4]], [[VAR_1]]{{.}}[[VAR_c0_1]]{{.}} : memref<3xi1>
