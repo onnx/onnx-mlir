@@ -2379,7 +2379,7 @@ LogicalResult ONNXSqueezeV11Op::inferShapes(
 
 LogicalResult ONNXCastOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  ShapedType inputType = input().getType().dyn_cast<ShapedType>();
+  ShapedType inputType = input().getType().dyn_cast<RankedTensorType>();
   if (!inputType) {
     return success();
   }
@@ -2404,7 +2404,7 @@ LogicalResult ONNXCastOp::inferShapes(
 
 LogicalResult ONNXScalerOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  ShapedType inputType = X().getType().dyn_cast<ShapedType>();
+  ShapedType inputType = X().getType().dyn_cast<RankedTensorType>();
   getResult().setType(RankedTensorType::get(
       inputType.getShape(), FloatType::getF32(getContext())));
   return success();
@@ -2536,7 +2536,7 @@ LogicalResult ONNXSplitOp::inferShapes(
 
 LogicalResult ONNXFlattenOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  auto inTy = input().getType().dyn_cast<ShapedType>();
+  auto inTy = input().getType().dyn_cast<RankedTensorType>();
   if (!inTy) {
     return success();
   }
@@ -3130,7 +3130,7 @@ LogicalResult ONNXDropoutOp::inferShapes(
 
 LogicalResult ONNXOneHotEncoderOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  ShapedType inputType = X().getType().dyn_cast<ShapedType>();
+  ShapedType inputType = X().getType().dyn_cast<RankedTensorType>();
   if (!inputType)
     return success();
   auto shape = inputType.getShape();
