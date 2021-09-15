@@ -670,7 +670,7 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
 
 template <typename ShapeHelper, typename OperandAdaptor>
 LogicalResult ONNXSplitOpShapeHelperCommon(ShapeHelper *shapeHelper,
-    OperandAdaptor operandAdaptor, llvm::Optional<ArrayAttr> splitAttribute) {
+    OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Get info about input and output data.
   auto op = shapeHelper->op;
@@ -692,11 +692,11 @@ LogicalResult ONNXSplitOpShapeHelperCommon(ShapeHelper *shapeHelper,
 
   SmallVector<IndexExpr, 4> splitDims;
   MemRefBoundsIndexCapture inputBounds(operandAdaptor.input());
-  if (splitAttribute.hasValue()) {
-    if (ArrayAttrSize(splitAttribute) != numOfResults)
+  if (!indexExprArray.empty()) {
+    if (indexExprArray.size() != numOfResults)
       return op->emitError("Split size not equal to the number of results");
     for (unsigned int i = 0; i < numOfResults; ++i) {
-      LiteralIndexExpr dim(ArrayAttrIntVal(splitAttribute, i));
+      LiteralIndexExpr dim(indexExprArray[i]);
       splitDims.emplace_back(dim);
     }
   } else {
@@ -743,18 +743,20 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
     ONNXSplitOpAdaptor operandAdaptor) {
 
   auto split = op->split();
-  auto builder = mlir::Builder(op->getContext());
 
-  llvm::Optional<ArrayAttr> optionalAttr;
+  SmallVector<IndexExpr, 4> indexExprArray;
   if (auto splitConstOp = getONNXConstantOp(split)) {
-    // Checking value of split parameter.
-    auto splitAttribute = createArrayAttrFromConstantOp(builder, splitConstOp);
-    optionalAttr.emplace(splitAttribute);
+    Operation *genericOp = reinterpret_cast<Operation *>(op);
+    ArrayValueIndexCapture splitCapture(
+        genericOp, split, fGetDenseVal, fLoadVal);
+    auto splitRank =
+        splitConstOp.valueAttr().dyn_cast_or_null<DenseElementsAttr>().size();
+    splitCapture.getSymbolList(splitRank, indexExprArray);
   } else if (!split.getType().template isa<NoneType>()) {
     llvm_unreachable("dynamic split not yet supported");
   }
 
-  return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, optionalAttr);
+  return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
 }
 
 ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp)
@@ -769,7 +771,16 @@ ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp,
 
 LogicalResult ONNXSplitV11OpShapeHelper::Compute(
     ONNXSplitV11OpAdaptor operandAdaptor) {
-  return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, op->split());
+  auto splitAttr = op->split();
+  SmallVector<IndexExpr, 4> indexExprArray;
+  if (splitAttr.hasValue()) {
+    ArrayAttributeIndexCapture splitCapture(splitAttr.getValue());
+    auto splitRank = splitCapture.size();
+    for (unsigned i = 0; i < splitRank; ++i) {
+      indexExprArray.emplace_back(splitCapture.getLiteral(i));
+    }
+  }
+  return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
 }
 
 //===----------------------------------------------------------------------===//
