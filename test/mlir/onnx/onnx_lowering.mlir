@@ -775,6 +775,130 @@ func private @test_reducesumV11(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<3x2xf32>
 }
 
+// --
+  func private @test_reducesum1(%arg0: tensor<3x2x2xf32>, %arg1: tensor<?xi64>) -> tensor<3x1x2xf32> {
+    %0 = "onnx.ReduceSum"(%arg0, %arg1) {keepdims = 1 : si64, noop_with_empty_axes = 1 : si64} : (tensor<3x2x2xf32>, tensor<?xi64>) -> tensor<3x1x2xf32>
+    return %0 : tensor<3x1x2xf32>
+// CHECK-LABEL:       @test_reducesum1
+// CHECK-SAME:     ([[VAR_arg0:%.+]]: memref<3x2x2xf32>, [[VAR_arg1:%.+]]: memref<?xi64>) -> memref<3x1x2xf32> {
+// CHECK:           [[VAR_0:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x1x2xf32>
+// CHECK:           [[VAR_1:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3xi1>
+// CHECK:           [[VAR_false:%.+]] = constant false
+// CHECK:           [[VAR_true:%.+]] = constant true
+// CHECK:           [[VAR_c1:%.+]] = constant 1 : index
+// CHECK:           [[VAR_c0:%.+]] = constant 0 : index
+// CHECK:           krnl.store [[VAR_false]], [[VAR_1]]{{.}}[[VAR_c0]]{{.}} : memref<3xi1>
+// CHECK:           [[VAR_c1_0:%.+]] = constant 1 : index
+// CHECK:           krnl.store [[VAR_false]], [[VAR_1]]{{.}}[[VAR_c1_0]]{{.}} : memref<3xi1>
+// CHECK:           [[VAR_c2:%.+]] = constant 2 : index
+// CHECK:           krnl.store [[VAR_false]], [[VAR_1]]{{.}}[[VAR_c2]]{{.}} : memref<3xi1>
+// CHECK:           [[VAR_c3_i64:%.+]] = constant 3 : i64
+// CHECK:           [[VAR_c0_i64:%.+]] = constant 0 : i64
+// CHECK:           [[VAR_2:%.+]] = krnl.define_loops 1
+// CHECK:           [[VAR_c0_1:%.+]] = constant 0 : index
+// CHECK:           [[VAR_3:%.+]] = memref.dim [[VAR_arg1]], [[VAR_c0_1]] : memref<?xi64>
+// CHECK:           krnl.iterate([[VAR_2]]) with ([[VAR_2]] -> [[VAR_arg2:%.+]] = 0 to [[VAR_3]]) {
+// CHECK:             [[VAR_6:%.+]] = krnl.load [[VAR_arg1]]{{.}}[[VAR_arg2]]{{.}} : memref<?xi64>
+// CHECK:             [[VAR_7:%.+]] = cmpi slt, [[VAR_6]], [[VAR_c0_i64]] : i64
+// CHECK:             [[VAR_8:%.+]] = addi [[VAR_6]], [[VAR_c3_i64]] : i64
+// CHECK:             [[VAR_9:%.+]] = select [[VAR_7]], [[VAR_8]], [[VAR_6]] : i64
+// CHECK:             [[VAR_10:%.+]] = index_cast [[VAR_9]] : i64 to index
+// CHECK:             krnl.store [[VAR_true]], [[VAR_1]]{{.}}[[VAR_10]]{{.}} : memref<3xi1>
+// CHECK:           }
+// CHECK:           [[VAR_4:%.+]]:3 = krnl.define_loops 3
+// CHECK:           krnl.iterate([[VAR_4]]#0, [[VAR_4]]#1, [[VAR_4]]#2) with ([[VAR_4]]#0 -> [[VAR_arg2:%.+]] = 0 to 3, [[VAR_4]]#1 -> [[VAR_arg3:%.+]] = 0 to 1, [[VAR_4]]#2 -> [[VAR_arg4:%.+]] = 0 to 2) {
+// CHECK:             [[VAR_cst:%.+]] = constant 0.000000e+00 : f32
+// CHECK:             krnl.store [[VAR_cst]], [[VAR_0]]{{.}}[[VAR_arg2]], [[VAR_arg3]], [[VAR_arg4]]{{.}} : memref<3x1x2xf32>
+// CHECK:           }
+// CHECK:           [[VAR_5:%.+]]:3 = krnl.define_loops 3
+// CHECK:           krnl.iterate([[VAR_5]]#0, [[VAR_5]]#1, [[VAR_5]]#2) with ([[VAR_5]]#0 -> [[VAR_arg2:%.+]] = 0 to 3, [[VAR_5]]#1 -> [[VAR_arg3:%.+]] = 0 to 2, [[VAR_5]]#2 -> [[VAR_arg4:%.+]] = 0 to 2) {
+// CHECK:             [[VAR_c0_2:%.+]] = constant 0 : index
+// CHECK:             [[VAR_c0_3:%.+]] = constant 0 : index
+// CHECK:             [[VAR_6:%.+]] = krnl.load [[VAR_1]]{{.}}[[VAR_c0_3]]{{.}} : memref<3xi1>
+// CHECK:             [[VAR_7:%.+]] = cmpi eq, [[VAR_6]], [[VAR_true]] : i1
+// CHECK:             [[VAR_8:%.+]] = select [[VAR_7]], [[VAR_c0_2]], [[VAR_arg2]] : index
+// CHECK:             [[VAR_c1_4:%.+]] = constant 1 : index
+// CHECK:             [[VAR_9:%.+]] = krnl.load [[VAR_1]]{{.}}[[VAR_c1_4]]{{.}} : memref<3xi1>
+// CHECK:             [[VAR_10:%.+]] = cmpi eq, [[VAR_9]], [[VAR_true]] : i1
+// CHECK:             [[VAR_11:%.+]] = select [[VAR_10]], [[VAR_c0_2]], [[VAR_arg3]] : index
+// CHECK:             [[VAR_c2_5:%.+]] = constant 2 : index
+// CHECK:             [[VAR_12:%.+]] = krnl.load [[VAR_1]]{{.}}[[VAR_c2_5]]{{.}} : memref<3xi1>
+// CHECK:             [[VAR_13:%.+]] = cmpi eq, [[VAR_12]], [[VAR_true]] : i1
+// CHECK:             [[VAR_14:%.+]] = select [[VAR_13]], [[VAR_c0_2]], [[VAR_arg4]] : index
+// CHECK:             [[VAR_15:%.+]] = krnl.load [[VAR_arg0]]{{.}}[[VAR_arg2]], [[VAR_arg3]], [[VAR_arg4]]{{.}} : memref<3x2x2xf32>
+// CHECK:             [[VAR_16:%.+]] = krnl.load [[VAR_0]]{{.}}[[VAR_8]], [[VAR_11]], [[VAR_14]]{{.}} : memref<3x1x2xf32>
+// CHECK:             [[VAR_17:%.+]] = addf [[VAR_16]], [[VAR_15]] : f32
+// CHECK:             krnl.store [[VAR_17]], [[VAR_0]]{{.}}[[VAR_8]], [[VAR_11]], [[VAR_14]]{{.}} : memref<3x1x2xf32>
+// CHECK:           }
+// CHECK:           return [[VAR_0]] : memref<3x1x2xf32>
+// CHECK:         }
+}
+
+// -----
+
+  func @test_reducesum2(%arg0: tensor<3x2x2xf32>, %arg1: tensor<?xi64>) -> tensor<3x1x2xf32> {
+    %0 = "onnx.ReduceSum"(%arg0, %arg1) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<3x2x2xf32>, tensor<?xi64>) -> tensor<3x1x2xf32>
+    return %0 : tensor<3x1x2xf32>
+// CHECK-LABEL:     @test_reducesum2
+// CHECK-SAME:     ([[VAR_arg0:%.+]]: memref<3x2x2xf32>, [[VAR_arg1:%.+]]: memref<?xi64>) -> memref<3x1x2xf32> {
+// CHECK:           [[VAR_0:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x1x2xf32>
+// CHECK:           [[VAR_1:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3xi1>
+// CHECK:           [[VAR_false:%.+]] = constant false
+// CHECK:           [[VAR_true:%.+]] = constant true
+// CHECK:           [[VAR_c1:%.+]] = constant 1 : index
+// CHECK:           [[VAR_c0:%.+]] = constant 0 : index
+// CHECK:           [[VAR_c0_0:%.+]] = constant 0 : index
+// CHECK:           [[VAR_2:%.+]] = memref.dim [[VAR_arg1]], [[VAR_c0_0]] : memref<?xi64>
+// CHECK:           [[VAR_3:%.+]] = cmpi eq, [[VAR_2]], [[VAR_c0]] : index
+// CHECK:           [[VAR_4:%.+]] = select [[VAR_3]], [[VAR_true]], [[VAR_false]] : i1
+// CHECK:           [[VAR_c0_1:%.+]] = constant 0 : index
+// CHECK:           krnl.store [[VAR_4]], [[VAR_1]]{{.}}[[VAR_c0_1]]{{.}} : memref<3xi1>
+// CHECK:           [[VAR_c1_2:%.+]] = constant 1 : index
+// CHECK:           krnl.store [[VAR_4]], [[VAR_1]]{{.}}[[VAR_c1_2]]{{.}} : memref<3xi1>
+// CHECK:           [[VAR_c2:%.+]] = constant 2 : index
+// CHECK:           krnl.store [[VAR_4]], [[VAR_1]]{{.}}[[VAR_c2]]{{.}} : memref<3xi1>
+// CHECK:           [[VAR_c3_i64:%.+]] = constant 3 : i64
+// CHECK:           [[VAR_c0_i64:%.+]] = constant 0 : i64
+// CHECK:           [[VAR_5:%.+]] = krnl.define_loops 1
+// CHECK:           [[VAR_c0_3:%.+]] = constant 0 : index
+// CHECK:           [[VAR_6:%.+]] = memref.dim [[VAR_arg1]], [[VAR_c0_3]] : memref<?xi64>
+// CHECK:           krnl.iterate([[VAR_5]]) with ([[VAR_5]] -> [[VAR_arg2:%.+]] = 0 to [[VAR_6]]) {
+// CHECK:             [[VAR_9:%.+]] = krnl.load [[VAR_arg1]]{{.}}[[VAR_arg2]]{{.}} : memref<?xi64>
+// CHECK:             [[VAR_10:%.+]] = cmpi slt, [[VAR_9]], [[VAR_c0_i64]] : i64
+// CHECK:             [[VAR_11:%.+]] = addi [[VAR_9]], [[VAR_c3_i64]] : i64
+// CHECK:             [[VAR_12:%.+]] = select [[VAR_10]], [[VAR_11]], [[VAR_9]] : i64
+// CHECK:             [[VAR_13:%.+]] = index_cast [[VAR_12]] : i64 to index
+// CHECK:             krnl.store [[VAR_true]], [[VAR_1]]{{.}}[[VAR_13]]{{.}} : memref<3xi1>
+// CHECK:           }
+// CHECK:           [[VAR_7:%.+]]:3 = krnl.define_loops 3
+// CHECK:           krnl.iterate([[VAR_7]]#0, [[VAR_7]]#1, [[VAR_7]]#2) with ([[VAR_7]]#0 -> [[VAR_arg2:%.+]] = 0 to 3, [[VAR_7]]#1 -> [[VAR_arg3:%.+]] = 0 to 1, [[VAR_7]]#2 -> [[VAR_arg4:%.+]] = 0 to 2) {
+// CHECK:             [[VAR_cst:%.+]] = constant 0.000000e+00 : f32
+// CHECK:             krnl.store [[VAR_cst]], [[VAR_0]]{{.}}[[VAR_arg2]], [[VAR_arg3]], [[VAR_arg4]]{{.}} : memref<3x1x2xf32>
+// CHECK:           }
+// CHECK:           [[VAR_8:%.+]]:3 = krnl.define_loops 3
+// CHECK:           krnl.iterate([[VAR_8]]#0, [[VAR_8]]#1, [[VAR_8]]#2) with ([[VAR_8]]#0 -> [[VAR_arg2:%.+]] = 0 to 3, [[VAR_8]]#1 -> [[VAR_arg3:%.+]] = 0 to 2, [[VAR_8]]#2 -> [[VAR_arg4:%.+]] = 0 to 2) {
+// CHECK:             [[VAR_c0_4:%.+]] = constant 0 : index
+// CHECK:             [[VAR_c0_5:%.+]] = constant 0 : index
+// CHECK:             [[VAR_9:%.+]] = krnl.load [[VAR_1]]{{.}}[[VAR_c0_5]]{{.}} : memref<3xi1>
+// CHECK:             [[VAR_10:%.+]] = cmpi eq, [[VAR_9]], [[VAR_true]] : i1
+// CHECK:             [[VAR_11:%.+]] = select [[VAR_10]], [[VAR_c0_4]], [[VAR_arg2]] : index
+// CHECK:             [[VAR_c1_6:%.+]] = constant 1 : index
+// CHECK:             [[VAR_12:%.+]] = krnl.load [[VAR_1]]{{.}}[[VAR_c1_6]]{{.}} : memref<3xi1>
+// CHECK:             [[VAR_13:%.+]] = cmpi eq, [[VAR_12]], [[VAR_true]] : i1
+// CHECK:             [[VAR_14:%.+]] = select [[VAR_13]], [[VAR_c0_4]], [[VAR_arg3]] : index
+// CHECK:             [[VAR_c2_7:%.+]] = constant 2 : index
+// CHECK:             [[VAR_15:%.+]] = krnl.load [[VAR_1]]{{.}}[[VAR_c2_7]]{{.}} : memref<3xi1>
+// CHECK:             [[VAR_16:%.+]] = cmpi eq, [[VAR_15]], [[VAR_true]] : i1
+// CHECK:             [[VAR_17:%.+]] = select [[VAR_16]], [[VAR_c0_4]], [[VAR_arg4]] : index
+// CHECK:             [[VAR_18:%.+]] = krnl.load [[VAR_arg0]]{{.}}[[VAR_arg2]], [[VAR_arg3]], [[VAR_arg4]]{{.}} : memref<3x2x2xf32>
+// CHECK:             [[VAR_19:%.+]] = krnl.load [[VAR_0]]{{.}}[[VAR_11]], [[VAR_14]], [[VAR_17]]{{.}} : memref<3x1x2xf32>
+// CHECK:             [[VAR_20:%.+]] = addf [[VAR_19]], [[VAR_18]] : f32
+// CHECK:             krnl.store [[VAR_20]], [[VAR_0]]{{.}}[[VAR_11]], [[VAR_14]], [[VAR_17]]{{.}} : memref<3x1x2xf32>
+// CHECK:           }
+// CHECK:           return [[VAR_0]] : memref<3x1x2xf32>
+
+}
+
 // -----
 
 func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {

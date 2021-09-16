@@ -1545,19 +1545,36 @@ LogicalResult ONNXReduceSumOp::inferShapes(
    *    An array attribute is generated from the constant input
    **/
   DenseElementsAttr constAxes;
-  if (getONNXConstantOp(axes())) {
+  if (isFromNone(axes())) {
+    // constAxes should just be NULL
+    // Default value will be given in getReductionOutputType
+  } else if (getONNXConstantOp(axes())) {
     constAxes = getONNXConstantOp(axes())
                     .valueAttr()
                     .dyn_cast_or_null<mlir::DenseElementsAttr>();
     if (!constAxes) {
-      return emitError("ReduceSum: unknown axes ");
+      return emitError("ReduceSum: expect dense value for axes ");
     }
-  } else if (isFromNone(axes())) {
-    // constAxes should just be NULL
-    // Default value will be given in getReductionOutputType
   } else {
-    return emitError("ReduceSum: unknown axes ");
+    // When the axis is dynamic, try to infer the rank of output tensor
+
+    // Can not infer when keepdims is false
+    if (!keepdims())
+      return success();
+
+    if (getResult().getType().isa<RankedTensorType>())
+      // Can not improve further
+      return success();
+
+    // Output tensor should have the same rank as the input
+    // But size of dims is unknown
+    auto outputNumDim = operandTy.getShape().size();
+    SmallVector<int64_t, 4> dims(outputNumDim, -1);
+    getResult().setType(
+        RankedTensorType::get(dims, operandTy.getElementType()));
+    return success();
   }
+
   RankedTensorType type = getReductionOutputType(
       operandTy, constAxes, keepdims(), noop_with_empty_axes());
   if (!type)
