@@ -60,19 +60,6 @@ func @unsupport_pow_int_power(%arg0: tensor<1x2x3x4xi32>, %arg1: tensor<i32>) ->
 
 // -----
 
-//===----------------------------------------------------------------------===//
-/// Errors with ONNXReshapeOp.
-//===----------------------------------------------------------------------===//
-
-func @test_reshape_unranked_shape(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<*xi64>) -> tensor<*xf32> {
-  // expected-error @+2 {{Shape tensor not ranked}}
-  // expected-error @+1 {{shape inference failed}}
-  %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<5x5x1x32xf32>, tensor<*xi64>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
 func @test_reshape_2D_shape(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<1x2xi64>) -> tensor<*xf32> {
   // expected-error @+2 {{Shape tensor must have rank one}}
   // expected-error @+1 {{shape inference failed}}
