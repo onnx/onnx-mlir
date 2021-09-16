@@ -37,6 +37,8 @@ def AttributeIsNull : Constraint<CPred<"! ($_self)">, "Attribute is null">;
 def HasFloatType : Constraint<CPred<"(($_self).getType().dyn_cast<ShapedType>()"
                                     ".getElementType().isF32())">>;
 
+def IsNoneType : Constraint<CPred<"(($_self).getType().isa<NoneType>())">>;
+
 def GetNullAttr : NativeCodeCall<"Attribute()">;
 
 // Create a unit constant that will be used as none input.

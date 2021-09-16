@@ -5497,17 +5497,17 @@ def ONNXSplitOp:ONNX_Op<"Split",
   let summary = "ONNX Split operation";
   let description = [{
   "Split a tensor into a list of tensors, along the specified"
-  "'axis'. Lengths of the parts can be specified using argument 'split'."
+  "'axis'. Lengths of the parts can be specified using input 'split'."
   "Otherwise, the tensor is split to equal sized parts."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$input,
-    DefaultValuedAttr<SI64Attr, "0">:$axis,
-    OptionalAttr<I64ArrayAttr>:$split);
-  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$outputs);
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$input,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$split,
+    DefaultValuedAttr<SI64Attr, "0">:$axis);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$outputs);
   let builders = [
-    OpBuilder<(ins "Value":$input, "IntegerAttr":$axis, "ArrayAttr":$split), [{
+    OpBuilder<(ins "Value":$input, "Value":$split, "IntegerAttr":$axis), [{
       auto elementType = input.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), input, axis, split);
+      build($_builder, $_state, UnrankedTensorType::get(elementType), input, split, axis);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
@@ -5518,7 +5518,7 @@ def ONNXSplitOp:ONNX_Op<"Split",
     ];
     let extraClassDeclaration = [{
       static int getNumberOfOperands() {
-        return 1;
+        return 2;
       }
       static int getNumberOfResults() {
         return -1;
@@ -5527,6 +5527,31 @@ def ONNXSplitOp:ONNX_Op<"Split",
         return {20};
       }
     }];
+}
+
+def ONNXSplitV11Op:ONNX_Op<"SplitV11",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Split operation";
+  let description = [{
+  "Split a tensor into a list of tensors, along the specified"
+  "'axis'. Lengths of the parts can be specified using argument 'split'."
+  "Otherwise, the tensor is split to equal sized parts."
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$input,
+    DefaultValuedAttr<SI64Attr, "0">:$axis,
+    OptionalAttr<I64ArrayAttr>:$split);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$outputs);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return -1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",

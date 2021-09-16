@@ -668,21 +668,15 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
 // ONNX Split Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp)
-    : ONNXOpShapeHelper<ONNXSplitOp>(newOp) {}
-
-ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp,
-    ConversionPatternRewriter &rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSplitOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
-
-LogicalResult ONNXSplitOpShapeHelper::Compute(
-    ONNXSplitOpAdaptor operandAdaptor) {
+template <typename ShapeHelper, typename OperandAdaptor>
+LogicalResult ONNXSplitOpShapeHelperCommon(ShapeHelper *shapeHelper,
+    OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Get info about input and output data.
+  auto op = shapeHelper->op;
   unsigned int numOfResults = op->getNumResults();
-  auto rank = operandAdaptor.input().getType().cast<ShapedType>().getRank();
+  auto rank =
+      operandAdaptor.input().getType().template cast<ShapedType>().getRank();
 
   // Checking value of axis parameter.
   int64_t axisIndex = op->axis();
@@ -696,15 +690,13 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
         APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
 
-  // Checking value of split parameter.
-  auto splitAttribute = op->split();
   SmallVector<IndexExpr, 4> splitDims;
   MemRefBoundsIndexCapture inputBounds(operandAdaptor.input());
-  if (splitAttribute.hasValue()) {
-    if (ArrayAttrSize(splitAttribute) != numOfResults)
+  if (!indexExprArray.empty()) {
+    if (indexExprArray.size() != numOfResults)
       return op->emitError("Split size not equal to the number of results");
     for (unsigned int i = 0; i < numOfResults; ++i) {
-      LiteralIndexExpr dim(ArrayAttrIntVal(splitAttribute, i));
+      LiteralIndexExpr dim(indexExprArray[i]);
       splitDims.emplace_back(dim);
     }
   } else {
@@ -733,9 +725,62 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
         outputDims[j] = inputBounds.getDim(j);
       }
     }
-    dimsForOutput(i) = outputDims;
+    shapeHelper->dimsForOutput(i) = outputDims;
   }
   return success();
+}
+
+ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp)
+    : ONNXOpShapeHelper<ONNXSplitOp>(newOp) {}
+
+ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXSplitOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXSplitOpShapeHelper::Compute(
+    ONNXSplitOpAdaptor operandAdaptor) {
+
+  auto split = op->split();
+
+  SmallVector<IndexExpr, 4> indexExprArray;
+  if (auto splitConstOp = getONNXConstantOp(split)) {
+    Operation *genericOp = reinterpret_cast<Operation *>(op);
+    ArrayValueIndexCapture splitCapture(
+        genericOp, split, fGetDenseVal, fLoadVal);
+    auto splitRank =
+        splitConstOp.valueAttr().dyn_cast_or_null<DenseElementsAttr>().size();
+    splitCapture.getSymbolList(splitRank, indexExprArray);
+  } else if (!split.getType().template isa<NoneType>()) {
+    llvm_unreachable("dynamic split not yet supported");
+  }
+
+  return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
+}
+
+ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp)
+    : ONNXOpShapeHelper<ONNXSplitV11Op>(newOp) {}
+
+ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXSplitV11Op>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXSplitV11OpShapeHelper::Compute(
+    ONNXSplitV11OpAdaptor operandAdaptor) {
+  auto splitAttr = op->split();
+  SmallVector<IndexExpr, 4> indexExprArray;
+  if (splitAttr.hasValue()) {
+    ArrayAttributeIndexCapture splitCapture(splitAttr.getValue());
+    auto splitRank = splitCapture.size();
+    for (unsigned i = 0; i < splitRank; ++i) {
+      indexExprArray.emplace_back(splitCapture.getLiteral(i));
+    }
+  }
+  return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
 }
 
 //===----------------------------------------------------------------------===//
