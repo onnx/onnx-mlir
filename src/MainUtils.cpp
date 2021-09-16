@@ -361,12 +361,6 @@ string genSharedLib(string outputBaseName, std::vector<string> opts,
     std::vector<string> libDirs) {
 
 #ifdef _WIN32
-  // These files are automatically generated for DLLs on Windows
-  llvm::FileRemover libRemover(
-      outputBaseName + ".lib", !keepFiles(KeepFilesOfType::Object));
-  llvm::FileRemover expRemover(
-      outputBaseName + ".exp", !keepFiles(KeepFilesOfType::Object));
-
   string sharedLibPath = outputBaseName + ".dll";
   std::vector<string> outputOpt = {"/Fe:" + sharedLibPath};
   // link has to be before def and libpath since they need to be passed through
