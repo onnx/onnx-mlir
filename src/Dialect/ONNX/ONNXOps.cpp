@@ -2540,11 +2540,20 @@ LogicalResult ONNXGRUOp::inferShapes(
 
 LogicalResult ONNXSplitOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!getOperand().getType().cast<RankedTensorType>())
-    return success();
+  if (!getOperand(0).getType().cast<RankedTensorType>())
+    return emitError("Input tensor not ranked");
 
   return shapeHelperInferMultipleShapes<ONNXSplitOpShapeHelper, ONNXSplitOp,
       ONNXSplitOpAdaptor>(this, input());
+}
+
+LogicalResult ONNXSplitV11Op::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand().getType().cast<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  return shapeHelperInferMultipleShapes<ONNXSplitV11OpShapeHelper,
+      ONNXSplitV11Op, ONNXSplitV11OpAdaptor>(this, input());
 }
 
 //===----------------------------------------------------------------------===//
