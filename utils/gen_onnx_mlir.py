@@ -212,7 +212,7 @@ version_dict = {'Abs': [13],
  'Softsign': [1],
  'SpaceToDepth': [13],
  #'Split': [13],
- 'Split': [11],
+ 'Split': [13, 11],
  'SplitToSequence': [11],
  'Sqrt': [13],
  'Squeeze': [13, 11],
@@ -1246,19 +1246,34 @@ if __name__ == '__main__':
     curr_dir = os.path.dirname(os.path.realpath(__file__))
 
     class Args(object):
-        if args.dry_run_onnx_ops:
+        dry_run = args.dry_run_onnx_ops or args.dry_run_op_build_table
+
+        # If either dry_run_onnx_ops or dry_run_op_build_table is true, then treat both of them
+        # as true. Otherwise, one of them runs as a dry-run and one of them runs as a real run
+        # creating unnecessary artifacts in the wrong locations in the build tree.
+        if dry_run:
             op_def = StringIO()
+            op_importer = StringIO()
         else:
             op_def_file_path = os.path.join(curr_dir, 'ONNXOps.td.inc')
             op_def = io.open(op_def_file_path, 'w', newline='')
-
-        if args.dry_run_op_build_table:
-            op_importer = StringIO()
-        else:
             op_importer_file_path = os.path.join(curr_dir, 'OpBuildTable.inc')
             op_importer = io.open(op_importer_file_path, 'w', newline='')
     main(Args)
 
+    # This is based on diff.py from llvm-project (llvm\utils\lit\lit\builtin_commands\diff.py).
+    # On Windows, by default, stdout uses \r\n for newlines, however, all the files we compare against
+    # use \n. This piece of code forces the windows stdout to use \n for newlines.
+    if sys.platform == "win32":
+        if hasattr(sys.stdout, 'buffer'):
+            # python 3
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, newline='\n')
+        else:
+            # python 2.7
+            import msvcrt
+            msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
+
+    # Only output the generated values for the specifically requested dry run.
     if args.dry_run_onnx_ops:
         sys.stdout.write(Args.op_def.getvalue())
     if args.dry_run_op_build_table:

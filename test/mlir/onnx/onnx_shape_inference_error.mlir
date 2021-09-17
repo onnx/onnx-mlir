@@ -60,19 +60,6 @@ func @unsupport_pow_int_power(%arg0: tensor<1x2x3x4xi32>, %arg1: tensor<i32>) ->
 
 // -----
 
-//===----------------------------------------------------------------------===//
-/// Errors with ONNXReshapeOp.
-//===----------------------------------------------------------------------===//
-
-func @test_reshape_unranked_shape(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<*xi64>) -> tensor<*xf32> {
-  // expected-error @+2 {{Shape tensor not ranked}}
-  // expected-error @+1 {{shape inference failed}}
-  %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<5x5x1x32xf32>, tensor<*xi64>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
 func @test_reshape_2D_shape(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<1x2xi64>) -> tensor<*xf32> {
   // expected-error @+2 {{Shape tensor must have rank one}}
   // expected-error @+1 {{shape inference failed}}
@@ -86,20 +73,6 @@ func @test_reshape_1D_constant_shape(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tenso
   // expected-error @+2 {{Shape tensor must have constant shape}}
   // expected-error @+1 {{shape inference failed}}
   %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<5x5x1x32xf32>, tensor<?xi64>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
-//===----------------------------------------------------------------------===//
-/// Unsupported configurations for ONNXReduceSumOp.
-//===----------------------------------------------------------------------===//
-
-// COM: ReduceSum in OpSet 13.
-func @unsupport_reduce_sum_dynamic_axes(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<2xi64>) -> tensor<*xf32> {
-  // expected-error @+2 {{ReduceSum: unknown axes}}
-  // expected-error @+1 {{shape inference failed}}
-  %0 = "onnx.ReduceSum"(%arg0, %arg1) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x2x3x4xf32>, tensor<2xi64>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 }
 

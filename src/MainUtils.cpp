@@ -70,6 +70,11 @@ llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<int> repeatOnnxTransform("repeatOnnxTransform",
+    llvm::cl::desc(
+        "invoke extra onnx transform pass(shape infernce, constant and etc.)"),
+    llvm::cl::init(0), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<string> shapeInformation("shapeInformation",
     llvm::cl::desc(
         "Custom shapes for the inputs of the ONNX model, e.g. setting static "
@@ -356,12 +361,6 @@ string genSharedLib(string outputBaseName, std::vector<string> opts,
     std::vector<string> libDirs) {
 
 #ifdef _WIN32
-  // These files are automatically generated for DLLs on Windows
-  llvm::FileRemover libRemover(
-      outputBaseName + ".lib", !keepFiles(KeepFilesOfType::Object));
-  llvm::FileRemover expRemover(
-      outputBaseName + ".exp", !keepFiles(KeepFilesOfType::Object));
-
   string sharedLibPath = outputBaseName + ".dll";
   std::vector<string> outputOpt = {"/Fe:" + sharedLibPath};
   // link has to be before def and libpath since they need to be passed through
@@ -474,11 +473,20 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
   pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+
+  // Add extra passes
+  for (int i = 0; i < repeatOnnxTransform; i++) {
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addPass(mlir::createShapeInferencePass());
+    pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+  }
+
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
+  pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass());
   // Only emit memref.dealloc if memory bundling is enabled.

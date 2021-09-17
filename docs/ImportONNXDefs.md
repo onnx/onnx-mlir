@@ -3,7 +3,7 @@
 # Import ONNX specifications into ONNX-MLIR
 
 ONNX specifications are defined under `onnx/defs` directory in the ONNX project repository. 
-There is a python script onnx/defs/gen_onnx_mlir.py that automatically generate documents about operations in ONNX (docs/Operations.md). 
+There is a python script onnx/defs/gen_onnx_mlir.py that automatically generates documents about operations in ONNX (docs/Operations.md). 
 ONNX-MLIR modified this script to import ONNX specifications into ONNX-MLIR. 
 There are two files generated for ONNX MLIR with the modified gen_onnx_mlir.py:
 

@@ -48,15 +48,18 @@ jobs:
             cd onnx-mlir/build
             RUNTIME_DIR=$(pwd)/lib cmake --build . --target check-onnx-backend-dynamic
       - run:
+          name: Run Document Checks
+          command: |
+            sudo pip install -q -e ./onnx-mlir/third_party/onnx
+            cd onnx-mlir/build
+            RUNTIME_DIR=$(pwd)/lib cmake --build . --target check-docs
+      - run:
           name: Run Unit Tests
           command: |
             cd onnx-mlir/build
             # Need to include the bin directory in $PATH,
             # otherwise CTest fails to find the test executables.
             RUNTIME_DIR=$(pwd)/lib make test -j$(nproc)
-      - run:
-          name: Run DocCheck
-          command: cd onnx-mlir/build && cmake --build . --target check-doc
       - run:
           name: Ensure tablegen documentation is up-to-date
           command: |

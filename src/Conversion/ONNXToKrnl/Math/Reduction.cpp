@@ -382,44 +382,12 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
      */
     auto loc = op->getLoc();
     auto input = operands[0];
+    auto axesVal = operands[1];
     auto memRefInType = input.getType().cast<MemRefType>();
     auto memRefOutType = convertToMemRefType(*op->result_type_begin());
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
 
-    // Get axes value defined by op
-    // Leave empty is not defined
-    std::vector<int64_t> definedAxes;
-
-    // Assume it is verified that axes are known
-    // Convert DenseElementsAttr to ArrayAttr
-    Value axesValue = llvm::dyn_cast<ONNXReduceSumOp>(op).axes();
-    if (getONNXConstantOp(axesValue)) {
-      DenseElementsAttr constAxes =
-          getONNXConstantOp(axesValue)
-              .valueAttr()
-              .dyn_cast_or_null<mlir::DenseElementsAttr>();
-      SmallVector<int64_t, 4> values;
-      for (auto element : constAxes.getValues<IntegerAttr>()) {
-        definedAxes.push_back(element.getInt());
-      }
-    }
-
-    std::vector<int64_t> axes;
-    if (definedAxes.size()) {
-      for (auto axis : definedAxes) {
-        if (axis < -inRank || axis > inRank - 1) {
-          return emitError(loc, "axes value out of range");
-        }
-        int64_t newaxis = axis >= 0 ? axis : (inRank + axis);
-        if (std::find(axes.begin(), axes.end(), newaxis) == axes.end())
-          axes.push_back(newaxis);
-      }
-    } else {
-      for (decltype(inRank) i = 0; i < inRank; ++i) {
-        axes.push_back(i);
-      }
-    }
     // KeepDims
     auto keepdims = llvm::dyn_cast<ONNXReduceSumOp>(op).keepdims();
     bool isKeepdims = (keepdims == 1) ? true : false;
@@ -427,8 +395,128 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     // Get type information
     auto memRefOutShape = memRefOutType.getShape();
     auto elementOutType = memRefOutType.getElementType();
-    std::map<int64_t, int64_t> outInDimMap =
-        getReductionMapping(memRefInType, axes, isKeepdims);
+
+    bool dynamicAxes = false;
+    Value maskVal = nullptr;
+    Value falseVal = nullptr;
+    Value trueVal = nullptr;
+    Value valueOne = nullptr;
+    std::map<int64_t, int64_t> outInDimMap;
+
+    Value axesValue = llvm::dyn_cast<ONNXReduceSumOp>(op).axes();
+    // Dynamic axes
+    if (!isFromNone(axesValue) && !getONNXConstantOp(axesValue)) {
+      dynamicAxes = true;
+      // Handle only when keepdims == true
+      if (!isKeepdims) {
+        return emitError(loc, "not keepdims() not implemented");
+      }
+      // Define a mask memref with same size of input and bool type
+      // maskVal[i] == true if ith dim will be reduced
+      bool insertDealloc = checkInsertDealloc(op);
+      auto maskType =
+          RankedTensorType::get({inRank}, rewriter.getIntegerType(1));
+      maskVal = insertAllocAndDealloc(
+          convertToMemRefType(maskType), loc, rewriter, insertDealloc);
+      falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 0);
+      trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 1);
+      valueOne = rewriter.create<ConstantIndexOp>(loc, 1);
+      auto axesDim = axesVal.getType().cast<MemRefType>().getShape()[0];
+
+      // Initialize mask to 0
+      // Unless noop_with_empty_axesDim is false and axesDim is -1
+      Value initVal;
+      if (axesDim == -1 &&
+          !llvm::dyn_cast<ONNXReduceSumOp>(op).noop_with_empty_axes()) {
+        IndexExprScope axesloopContex(rewriter, loc);
+        MemRefBoundsIndexCapture axesBounds(axesVal);
+        auto zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
+        auto cond = rewriter.create<CmpIOp>(
+            loc, CmpIPredicate::eq, axesBounds.getDim(0).getValue(), zeroIndex);
+        initVal = rewriter.create<SelectOp>(loc, cond, trueVal, falseVal);
+      } else {
+        // When axesDim is known, it can not be 0 due to !isFromNone
+        initVal = falseVal;
+      }
+      for (auto i = 0; i < inRank; i++) {
+        Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
+        rewriter.create<KrnlStoreOp>(loc, initVal, maskVal, indexVal);
+      }
+
+      // Consider the case when axes[i] is negative
+      // maskVal[axes[i] < 0 ? axes[i]+inRank: axes[i]] = 1
+      auto axesElementType =
+          axesVal.getType().cast<MemRefType>().getElementType();
+      auto dataDimConst =
+          emitConstantOp(rewriter, loc, axesElementType, inRank);
+      Value zeroValue = emitConstantOp(rewriter, loc, axesElementType, 0);
+      if (axesDim == -1) {
+        // When axes is dynamic, generate a Krnl loop
+        BuildKrnlLoop axesLoops(rewriter, loc, 1);
+        axesLoops.createDefineAndIterateOp(axesVal);
+        auto axesLoopBody = rewriter.saveInsertionPoint();
+        rewriter.setInsertionPointToStart(axesLoops.getIterateBlock());
+        // Loop body
+        Value axe = rewriter.create<KrnlLoadOp>(
+            loc, axesVal, axesLoops.getInductionVar(0));
+        auto cond =
+            rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, axe, zeroValue);
+        auto dim = rewriter.create<SelectOp>(
+            loc, cond, rewriter.create<AddIOp>(loc, axe, dataDimConst), axe);
+        Value jVal =
+            rewriter.create<IndexCastOp>(loc, rewriter.getIndexType(), dim);
+        rewriter.create<KrnlStoreOp>(loc, trueVal, maskVal, jVal);
+        rewriter.restoreInsertionPoint(axesLoopBody);
+      } else {
+        for (auto i = 0; i < axesDim; i++) {
+          Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
+          Value axe = rewriter.create<KrnlLoadOp>(loc, axesVal, indexVal);
+          // Check negative
+          auto cond =
+              rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, axe, zeroValue);
+          auto dim = rewriter.create<SelectOp>(
+              loc, cond, rewriter.create<AddIOp>(loc, axe, dataDimConst), axe);
+          Value jVal =
+              rewriter.create<IndexCastOp>(loc, rewriter.getIndexType(), dim);
+          rewriter.create<KrnlStoreOp>(loc, trueVal, maskVal, jVal);
+        }
+      }
+    } else {
+      // Get axes value defined by op
+      // Leave empty is not defined
+      std::vector<int64_t> definedAxes;
+
+      // Assume it is verified that axes are known
+      // Convert DenseElementsAttr to ArrayAttr
+      if (isFromNone(axesValue)) {
+      } else if (getONNXConstantOp(axesValue)) {
+        DenseElementsAttr constAxes =
+            getONNXConstantOp(axesValue)
+                .valueAttr()
+                .dyn_cast_or_null<mlir::DenseElementsAttr>();
+        SmallVector<int64_t, 4> values;
+        for (auto element : constAxes.getValues<IntegerAttr>()) {
+          definedAxes.push_back(element.getInt());
+        }
+      }
+
+      std::vector<int64_t> axes;
+      if (definedAxes.size()) {
+        for (auto axis : definedAxes) {
+          if (axis < -inRank || axis > inRank - 1) {
+            return emitError(loc, "axes value out of range");
+          }
+          int64_t newaxis = axis >= 0 ? axis : (inRank + axis);
+          if (std::find(axes.begin(), axes.end(), newaxis) == axes.end())
+            axes.push_back(newaxis);
+        }
+      } else if (!llvm::dyn_cast<ONNXReduceSumOp>(op).noop_with_empty_axes()) {
+        for (decltype(inRank) i = 0; i < inRank; ++i) {
+          axes.push_back(i);
+        }
+      }
+      outInDimMap = getReductionMapping(memRefInType, axes, isKeepdims);
+    }
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
@@ -441,8 +529,19 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {
         if (memRefOutShape[i] < 0) {
-          auto dim = createMemRef.dim(input, outInDimMap[i]);
-          allocOperands.push_back(dim);
+          if (dynamicAxes) {
+            // Dim size: maskVal[i] ? 1 : inputDim[i]
+            Value inputDim = createMemRef.dim(input, i);
+            Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
+            auto mask = rewriter.create<KrnlLoadOp>(loc, maskVal, indexVal);
+            auto cond =
+                rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, mask, trueVal);
+            auto dim = rewriter.create<SelectOp>(loc, cond, valueOne, inputDim);
+            allocOperands.push_back(dim);
+          } else {
+            auto dim = createMemRef.dim(input, outInDimMap[i]);
+            allocOperands.push_back(dim);
+          }
         }
       }
       alloc = createMemRef.alignedAlloc(memRefOutType, allocOperands);
@@ -508,17 +607,22 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     for (unsigned int i = 0; i < args.size(); ++i) {
       inLoopIVs.push_back(args[i]);
     }
-    Value zeroIndex = nullptr;
+    // Value zeroIndex = nullptr;
+    Value zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
     for (decltype(inRank) i = 0; i < outRank; ++i) {
-      if (outInDimMap.find(i) != outInDimMap.end()) {
+      if (dynamicAxes) {
+        // For the reduced dim, the output index is always 0
+        Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
+        auto mask = rewriter.create<KrnlLoadOp>(loc, maskVal, indexVal);
+        auto cond =
+            rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, mask, trueVal);
+        auto dim =
+            rewriter.create<SelectOp>(loc, cond, zeroIndex, inLoopIVs[i]);
+        outLoopIVs.push_back(dim);
+      } else if (outInDimMap.find(i) != outInDimMap.end()) {
         outLoopIVs.push_back(inLoopIVs[outInDimMap[i]]);
       } else {
-        if (zeroIndex) {
-          outLoopIVs.push_back(zeroIndex);
-        } else {
-          zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
-          outLoopIVs.push_back(zeroIndex);
-        }
+        outLoopIVs.push_back(zeroIndex);
       }
     }
 

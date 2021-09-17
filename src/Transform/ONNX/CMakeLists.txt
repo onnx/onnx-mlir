@@ -49,3 +49,12 @@ add_onnx_mlir_library(OMInstrumentONNX
   MLIRPass
   OMSupport
   )
+
+add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
+  ONNXPreKrnlVerifyPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  OMSupport
+  )

@@ -179,7 +179,7 @@ mlir::DenseElementsAttr createDenseElementsAttrFromSize(
 
 // Create an ArrayAttr from a dense ConstantOp
 mlir::ArrayAttr createArrayAttrFromConstantOp(
-    mlir::PatternRewriter &rewriter, mlir::Value constOp);
+    mlir::Builder &builder, mlir::Value constOp);
 
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);
