@@ -232,14 +232,4 @@ def ScalerPattern2
 def LogSoftmaxPattern
     : Pat<(ONNXLogSoftmaxOp $x, $axis), (ONNXLogOp(ONNXSoftmaxOp $x, $axis))>;
 
-def SqueezePattern
-   : Pat<(ONNXSqueezeOp $data, $axes),
-         (ONNXSqueezeV11Op $data, (createArrayAttrFromConstantOp $axes)),
-         [(IsDenseONNXConstant:$axes)]>;
-
-def UnsqueezePattern
-   : Pat<(ONNXUnsqueezeOp $data, $axes),
-         (ONNXUnsqueezeV11Op $data, (createArrayAttrFromConstantOp $axes)),
-         [(IsDenseONNXConstant:$axes)]>;
-
 #endif // ONNX_DECOMPOSE

@@ -168,6 +168,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXArgMaxOpPattern(patterns, &getContext());
   populateLoweringONNXReshapeOpPattern(patterns, &getContext());
   populateLoweringONNXPadOpPattern(patterns, &getContext());
+  populateLoweringONNXUnsqueezeOpPattern(patterns, &getContext());
   populateLoweringONNXUnsqueezeV11OpPattern(patterns, &getContext());
   populateLoweringONNXTransposeOpPattern(patterns, &getContext());
   populateLoweringONNXGatherOpPattern(patterns, &getContext());
@@ -177,6 +178,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXConcatOpPattern(patterns, &getContext());
   populateLoweringONNXShapeOpPattern(patterns, &getContext());
   populateLoweringONNXSliceOpPattern(patterns, &getContext());
+  populateLoweringONNXSqueezeOpPattern(patterns, &getContext());
   populateLoweringONNXSqueezeV11OpPattern(patterns, &getContext());
   populateLoweringONNXSplitOpPattern(patterns, &getContext());
   populateLoweringONNXSplitV11OpPattern(patterns, &getContext());

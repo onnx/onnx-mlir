@@ -922,10 +922,22 @@ func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // -----
 
 func private @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[0, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Unsqueeze"(%arg0, %0) : (tensor<10x10xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_unsqueeze
+  // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [1, 10, 10, 1], strides: [100, 10, 1, 1] : memref<10x10xf32> to memref<1x10x10x1xf32>
+  // CHECK: return [[RES]] : memref<1x10x10x1xf32>
+}
+
+// -----
+
+func private @test_unsqueezev11(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.UnsqueezeV11"(%arg0) {axes=[0,3]} : (tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_unsqueeze
+  // CHECK-LABEL: test_unsqueezev11
   // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [1, 10, 10, 1], strides: [100, 10, 1, 1] : memref<10x10xf32> to memref<1x10x10x1xf32>
   // CHECK: return [[RES]] : memref<1x10x10x1xf32>
 }
@@ -937,9 +949,10 @@ func private @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 // is retuned. This test confirms the deallocation is not generated.
 
 func private @test_unsqueeze_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Transpose"(%arg0) : (tensor<10x20xf32>) -> tensor<*xf32>
-  %1 = "onnx.UnsqueezeV11"(%0) {axes=[0,3]} : (tensor<*xf32>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  %0 = "onnx.Constant"() {value = dense<[0, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Transpose"(%arg0) : (tensor<10x20xf32>) -> tensor<*xf32>
+  %2 = "onnx.Unsqueeze"(%1, %0) : (tensor<*xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%2) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: func private @test_unsqueeze_dealloc
   // CHECK:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<20x10xf32>
@@ -950,15 +963,50 @@ func private @test_unsqueeze_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32>
 
 // -----
 
+func private @test_unsqueezev11_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) : (tensor<10x20xf32>) -> tensor<*xf32>
+  %1 = "onnx.UnsqueezeV11"(%0) {axes=[0,3]} : (tensor<*xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: func private @test_unsqueezev11_dealloc
+  // CHECK:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<20x10xf32>
+  // CHECK:       [[VAR_2_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [1, 20, 10, 1], strides: [200, 10, 1, 1] : memref<20x10xf32> to memref<1x20x10x1xf32>
+  // CHECK-NOT:   memref.dealloc [[VAR_0_]] : memref<20x10xf32>
+  // CHECK:	  return [[VAR_2_]] : memref<1x20x10x1xf32>
+}
+
+// -----
+
 // Test for multiple `reinterpret_cast` in a function. Only returned memrefs should not be deallocated.
 func private @test_unsqueeze_squeeze_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[1, -1]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %2 = "onnx.Transpose"(%arg0) : (tensor<10x20xf32>) -> tensor<*xf32>
+  %3 = "onnx.Unsqueeze"(%2, %0) : (tensor<*xf32>, tensor<2xi64>) -> tensor<*xf32>
+  %4 = "onnx.Transpose"(%3) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
+  %5 = "onnx.Squeeze"(%4, %1) : (tensor<*xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%5) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: func private @test_unsqueeze_squeeze_dealloc
+  // CHECK:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<20x1x1x10xf32>
+  // CHECK:       [[VAR_1_:%.+]] = memref.alloc() {{.*}}: memref<20x10xf32>
+  // CHECK:       [[VAR_3_:%.+]] = memref.reinterpret_cast [[VAR_1_]] to offset: [0], sizes: [20, 1, 10, 1], strides: [10, 10, 1, 1] : memref<20x10xf32> to memref<20x1x10x1xf32>
+  // CHECK:       [[VAR_5_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [20, 10], strides: [10, 1] : memref<20x1x1x10xf32> to memref<20x10xf32>
+  // CHECK:       memref.dealloc [[VAR_1_]] : memref<20x10xf32>
+  // CHECK-NOT:   memref.dealloc [[VAR_0_]] : memref<20x10xf32>
+  // CHECK:       return [[VAR_5_]] : memref<20x10xf32>
+}
+
+// -----
+
+func private @test_unsqueezev11_squeezev11_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32> {
   %0 = "onnx.Transpose"(%arg0) : (tensor<10x20xf32>) -> tensor<*xf32>
   %1 = "onnx.UnsqueezeV11"(%0) { axes = [1, -1]} : (tensor<*xf32>) -> (tensor<*xf32>)
   %2 = "onnx.Transpose"(%1) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
   %3 = "onnx.SqueezeV11"(%2) {axes=[1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
   "std.return"(%3) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: func private @test_unsqueeze_squeeze_dealloc
+  // CHECK-LABEL: func private @test_unsqueezev11_squeezev11_dealloc
   // CHECK:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<20x1x1x10xf32>
   // CHECK:       [[VAR_1_:%.+]] = memref.alloc() {{.*}}: memref<20x10xf32>
   // CHECK:       [[VAR_3_:%.+]] = memref.reinterpret_cast [[VAR_1_]] to offset: [0], sizes: [20, 1, 10, 1], strides: [10, 10, 1, 1] : memref<20x10xf32> to memref<20x1x10x1xf32>
@@ -1369,10 +1417,22 @@ func private @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) -> t
 // -----
 
 func private @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Squeeze"(%arg0, %0) : (tensor<16x1x32x1x64xf32>, tensor<2xi64>) -> (tensor<*xf32>)
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_squeeze
+  // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [16, 32, 64], strides: [2048, 64, 1] : memref<16x1x32x1x64xf32> to memref<16x32x64xf32>
+  // CHECK: return [[RES]] : memref<16x32x64xf32>
+}
+
+// -----
+
+func private @test_squeezev11(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
   %0 = "onnx.SqueezeV11"(%arg0) { axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: @test_squeeze
+  // CHECK-LABEL: @test_squeezev11
   // CHECK: [[RES:%.+]] = memref.reinterpret_cast %arg0 to offset: [0], sizes: [16, 32, 64], strides: [2048, 64, 1] : memref<16x1x32x1x64xf32> to memref<16x32x64xf32>
   // CHECK: return [[RES]] : memref<16x32x64xf32>
 }
@@ -1382,9 +1442,10 @@ func private @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
 // `SqueezeV11` ops are lowerd to `reinterpret_cast` op. `reinterpret_cast` ops just change the view of input memref. So, input memref should not be deallocated if it is retuned. This test confirms the deallocation is not generated.
 
 func private @test_squeeze_dealloc(%arg0 : tensor<16x32x1x1x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2, 4]} : (tensor<16x32x1x1x64xf32>) -> tensor<*xf32>
-  %1 = "onnx.SqueezeV11"(%0) { axes = [1, -2]} : (tensor<*xf32>) -> (tensor<*xf32>)
-  "std.return"(%1) : (tensor<*xf32>) -> ()
+  %0 = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2, 4]} : (tensor<16x32x1x1x64xf32>) -> tensor<*xf32>
+  %2 = "onnx.Squeeze"(%1, %0) : (tensor<*xf32>, tensor<2xi64>) -> (tensor<*xf32>)
+  "std.return"(%2) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL:  func private @test_squeeze_dealloc
   // CHECK:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<16x1x32x1x64xf32>
@@ -1395,11 +1456,46 @@ func private @test_squeeze_dealloc(%arg0 : tensor<16x32x1x1x64xf32>) -> tensor<*
 
 // -----
 
+func private @test_squeezev11_dealloc(%arg0 : tensor<16x32x1x1x64xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2, 4]} : (tensor<16x32x1x1x64xf32>) -> tensor<*xf32>
+  %1 = "onnx.SqueezeV11"(%0) { axes = [1, -2]} : (tensor<*xf32>) -> (tensor<*xf32>)
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL:  func private @test_squeezev11_dealloc
+  // CHECK:       [[VAR_0_:%.+]] = memref.alloc() {{.*}}: memref<16x1x32x1x64xf32>
+// CHECK-DAG:     [[VAR_2_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [16, 32, 64], strides: [2048, 64, 1] : memref<16x1x32x1x64xf32> to memref<16x32x64xf32>
+  // CHECK-NOT:   memref.dealloc [[VAR_0_]] : memref<20x10xf32>
+  // CHECK:       return [[VAR_2_]] : memref<16x32x64xf32>
+}
+
+// -----
+
 func private @test_squeeze_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Squeeze"(%arg0, %0) : (tensor<?x1x32x?x64xf32>, tensor<2xi64>) -> (tensor<*xf32>)
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL:  func private @test_squeeze_unknown_dimensions
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x1x32x?x64xf32>) -> memref<?x32x64xf32> {
+  // CHECK:           [[CST_0_:%.+]] = constant 0 : index
+  // CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x1x32x?x64xf32>
+  // CHECK-DAG:       [[CST_32_:%.+]] = constant 32 : index
+  // CHECK-DAG:       [[CST_64_:%.+]] = constant 64 : index
+  // CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
+  // CHECK-DAG:       [[CST_64_1_:%.+]] = constant 64 : index
+  // CHECK-DAG:       [[CST_2048_:%.+]] = constant 2048 : index
+  // CHECK:           [[VAR_1_:%.+]] = memref.reinterpret_cast [[PARAM_0_]] to offset: [0], sizes: {{.}}[[VAR_0_]], 32, 64], strides: [2048, 64, 1] : memref<?x1x32x?x64xf32> to memref<?x32x64xf32>
+  // CHECK:           return [[VAR_1_]] : memref<?x32x64xf32>
+  // CHECK:         }
+}
+
+// -----
+
+func private @test_squeezev11_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -> tensor<*xf32> {
   %0 = "onnx.SqueezeV11"(%arg0) { axes = [1,-2]} : (tensor<?x1x32x?x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL:  func private @test_squeeze_unknown_dimensions
+  // CHECK-LABEL:  func private @test_squeezev11_unknown_dimensions
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x1x32x?x64xf32>) -> memref<?x32x64xf32> {
   // CHECK:           [[CST_0_:%.+]] = constant 0 : index
   // CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x1x32x?x64xf32>

@@ -101,16 +101,27 @@ void ONNXDropoutOp::getCanonicalizationPatterns(
 }
 
 /// on the ONNXSqueezeOp.
-void ONNXSqueezeV11Op::getCanonicalizationPatterns(
+void ONNXSqueezeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveSqueezeUnsqueezePattern>(context);
 }
 
+void ONNXSqueezeV11Op::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<RemoveSqueezeV11UnsqueezeV11Pattern>(context);
+}
+
 /// on the ONNXUnsqueezeOp.
-void ONNXUnsqueezeV11Op::getCanonicalizationPatterns(
+void ONNXUnsqueezeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveUnsqueezeSqueezePattern>(context);
 }
+
+void ONNXUnsqueezeV11Op::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<RemoveUnsqueezeV11SqueezeV11Pattern>(context);
+}
+
 /// on the ONNXBatchNormalizationInferenceModeOp.
 void ONNXBatchNormalizationInferenceModeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
