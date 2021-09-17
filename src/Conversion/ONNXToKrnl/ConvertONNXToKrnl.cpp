@@ -78,7 +78,7 @@ public:
       llvm::cl::init(false)};
   Option<bool> emitDealloc{*this, "emit-dealloc",
       llvm::cl::desc("Emit dealloc for allocated memrefs or not."),
-      llvm::cl::init(true)};
+      llvm::cl::init(false)};
 };
 } // end anonymous namespace.
 
