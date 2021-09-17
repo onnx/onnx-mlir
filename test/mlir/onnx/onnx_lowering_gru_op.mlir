@@ -109,9 +109,6 @@ func private @test_gru_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x12
 // CHECK:               [[VAR_49_:%.+]] = addf [[VAR_47_]], [[VAR_48_]] : f32
 // CHECK:               krnl.store [[VAR_49_]], [[RES_]]{{.}}[[VAR_23_2_]]#0, [[VAR_23_2_]]#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc [[RES_3_]] : memref<2x4xf32>
-// CHECK:             memref.dealloc [[RES_2_]] : memref<2x4xf32>
-// CHECK:             memref.dealloc [[RES_4_]] : memref<2x3xf32>
 // CHECK:           }
 // CHECK:           "krnl.memcpy"([[RES_1_]], [[RES_]], [[CST_32_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
 // CHECK:           return [[RES_1_]] : memref<1x2x4xf32>
@@ -216,7 +213,6 @@ func private @test_gru_forward_mode_linear_before_reset(%arg0: tensor<7x2x3xf32>
 // CHECK:               [[VAR_55_:%.+]] = addf [[VAR_53_]], [[VAR_54_]] : f32
 // CHECK:               krnl.store [[VAR_55_]], [[RES_]]{{.}}[[VAR_15_1_]]#0, [[VAR_15_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc [[RES_2_]] : memref<2x3xf32>
 // CHECK:           }
 // CHECK:           "krnl.memcpy"([[RES_1_]], [[RES_]], [[CST_32_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
 // CHECK:           return [[RES_1_]] : memref<1x2x4xf32>
@@ -336,9 +332,6 @@ func private @test_gru_forward_mode_constant_weight_and_bias(%arg0: tensor<7x2x3
 // CHECK:               [[VAR_50_:%.+]] = addf [[VAR_48_]], [[VAR_49_]] : f32
 // CHECK:               krnl.store [[VAR_50_]], [[RES_]]{{.}}[[VAR_24_2_]]#0, [[VAR_24_2_]]#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc [[RES_3_]] : memref<2x4xf32>
-// CHECK:             memref.dealloc [[RES_2_]] : memref<2x4xf32>
-// CHECK:             memref.dealloc [[RES_4_]] : memref<2x3xf32>
 // CHECK:           }
 // CHECK:           "krnl.memcpy"([[RES_1_]], [[RES_]], [[CST_32_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
 // CHECK:           return [[RES_1_]] : memref<1x2x4xf32>
@@ -458,9 +451,6 @@ func private @test_gru_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x12
 // CHECK:               [[VAR_50_:%.+]] = addf [[VAR_48_]], [[VAR_49_]] : f32
 // CHECK:               krnl.store [[VAR_50_]], [[RES_]]{{.}}[[VAR_24_2_]]#0, [[VAR_24_2_]]#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc [[RES_3_]] : memref<2x4xf32>
-// CHECK:             memref.dealloc [[RES_2_]] : memref<2x4xf32>
-// CHECK:             memref.dealloc [[RES_4_]] : memref<2x3xf32>
 // CHECK:           }
 // CHECK:           "krnl.memcpy"([[RES_1_]], [[RES_]], [[CST_32_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
 // CHECK:           return [[RES_1_]] : memref<1x2x4xf32>
@@ -595,9 +585,6 @@ func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK:               [[VAR_64_:%.+]] = addf [[VAR_62_]], [[VAR_63_]] : f32
 // CHECK:               krnl.store [[VAR_64_]], [[RES_1_]]{{.}}[[VAR_38_2_]]#0, [[VAR_38_2_]]#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc [[RES_4_]] : memref<2x4xf32>
-// CHECK:             memref.dealloc [[RES_3_]] : memref<2x4xf32>
-// CHECK:             memref.dealloc [[RES_5_]] : memref<2x3xf32>
 // CHECK:           }
 // CHECK:           [[LOOP_5_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_5_]]) with ([[LOOP_5_]] -> [[I_9_:%.+]] = 0 to 7) {
@@ -674,9 +661,6 @@ func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK:               [[VAR_65_:%.+]] = addf [[VAR_63_1_]], [[VAR_64_1_]] : f32
 // CHECK:               krnl.store [[VAR_65_]], [[RES_]]{{.}}[[LOAD_PARAM_0_MEM_1_1_1_]]#0, [[LOAD_PARAM_0_MEM_1_1_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc [[RES_10_]] : memref<2x4xf32>
-// CHECK:             memref.dealloc [[RES_9_]] : memref<2x4xf32>
-// CHECK:             memref.dealloc [[RES_11_]] : memref<2x3xf32>
 // CHECK:           }
 // CHECK:           [[LOOP_9_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_9_]]#0, [[LOOP_9_]]#1) with ([[LOOP_9_]]#0 -> [[I_16_:%.+]] = [[CST_0_]] to [[CST_2_]], [[LOOP_9_]]#1 -> [[I_17_:%.+]] = [[CST_0_]] to [[CST_4_]]) {
@@ -808,9 +792,6 @@ func private @test_gru_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x12
 // CHECK:               [[VAR_56_:%.+]] = addf [[VAR_54_]], [[VAR_55_]] : f32
 // CHECK:               krnl.store [[VAR_56_]], [[RES_1_]]{{.}}[[RES_1_]]0#0, [[RES_1_]]0#1] : memref<?x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc [[RES_3_]] : memref<?x4xf32>
-// CHECK:             memref.dealloc [[RES_4_]] : memref<?x4xf32>
-// CHECK:             memref.dealloc [[RES_2_]] : memref<?x?xf32>
 // CHECK:           }
 // CHECK:           [[VAR_16_:%.+]] = index_cast [[VAR_2_]] : index to i64
 // CHECK:           [[VAR_17_:%.+]] = muli [[VAR_16_]], [[CST_16_]] : i64

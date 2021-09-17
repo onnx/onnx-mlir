@@ -126,7 +126,6 @@ func private @test_lstm_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x1
 // CHECK:               krnl.store [[VAR_62_]], [[RES_]]{{.}}[[VAR_18_1_]]#0, [[VAR_18_1_]]#1] : memref<2x4xf32>
 // CHECK:               krnl.store [[VAR_81_]], [[RES_1_]]{{.}}[[RES_1_]]8#0, [[RES_1_]]8#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc [[RES_3_]] : memref<2x3xf32>
 // CHECK:           }
 // CHECK:           "krnl.memcpy"([[RES_2_]], [[RES_1_]], [[CST_32_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
 // CHECK:           return [[RES_2_]] : memref<1x2x4xf32>
@@ -267,7 +266,6 @@ func private @test_lstm_forward_mode_constant_weight_and_bias(%arg0: tensor<7x2x
 // CHECK:               krnl.store [[VAR_67_]], [[RES_]]{{.}}[[VAR_23_1_]]#0, [[VAR_23_1_]]#1] : memref<2x4xf32>
 // CHECK:               krnl.store [[VAR_86_]], [[RES_1_]]{{.}}[[VAR_23_1_]]#0, [[VAR_23_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc [[RES_3_]] : memref<2x3xf32>
 // CHECK:           }
 // CHECK:           "krnl.memcpy"([[RES_2_]], [[RES_1_]], [[CST_32_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
 // CHECK:           return [[RES_2_]] : memref<1x2x4xf32>
@@ -404,7 +402,6 @@ func private @test_lstm_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x1
 // CHECK:               krnl.store [[VAR_63_]], [[RES_]]{{.}}[[VAR_19_1_]]#0, [[VAR_19_1_]]#1] : memref<2x4xf32>
 // CHECK:               krnl.store [[VAR_82_]], [[RES_1_]]{{.}}[[RES_1_]]9#0, [[RES_1_]]9#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc [[RES_3_]] : memref<2x3xf32>
 // CHECK:           }
 // CHECK:           "krnl.memcpy"([[RES_2_]], [[RES_1_]], [[CST_32_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
 // CHECK:           return [[RES_2_]] : memref<1x2x4xf32>
@@ -562,7 +559,6 @@ func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tens
 // CHECK:               krnl.store [[VAR_78_]], [[RES_2_]]{{.}}[[VAR_34_1_]]#0, [[VAR_34_1_]]#1] : memref<2x4xf32>
 // CHECK:               krnl.store [[VAR_97_]], [[RES_3_]]{{.}}[[VAR_34_1_]]#0, [[VAR_34_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc [[RES_5_]] : memref<2x3xf32>
 // CHECK:           }
 // CHECK:           [[LOOP_4_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_4_]]) with ([[LOOP_4_]] -> [[I_7_:%.+]] = 0 to 7) {
@@ -654,7 +650,6 @@ func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tens
 // CHECK:               krnl.store [[VAR_79_1_]], [[RES_]]{{.}}[[LOAD_PARAM_0_MEM_1_1_]]#0, [[LOAD_PARAM_0_MEM_1_1_]]#1] : memref<2x4xf32>
 // CHECK:               krnl.store [[VAR_98_]], [[RES_1_]]{{.}}[[LOAD_PARAM_0_MEM_1_1_]]#0, [[LOAD_PARAM_0_MEM_1_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc [[RES_11_]] : memref<2x3xf32>
 // CHECK:           }
 // CHECK:           [[LOOP_7_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_7_]]#0, [[LOOP_7_]]#1) with ([[LOOP_7_]]#0 -> [[I_12_:%.+]] = [[CST_0_]] to [[CST_2_]], [[LOOP_7_]]#1 -> [[I_13_:%.+]] = [[CST_0_]] to [[CST_4_]]) {
@@ -805,7 +800,6 @@ func private @test_lstm_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x1
 // CHECK:               krnl.store [[VAR_70_]], [[RES_2_]]{{.}}[[VAR_26_1_]]#0, [[VAR_26_1_]]#1] : memref<?x4xf32>
 // CHECK:               krnl.store [[VAR_89_]], [[RES_1_]]{{.}}[[VAR_26_1_]]#0, [[VAR_26_1_]]#1] : memref<?x4xf32>
 // CHECK:             }
-// CHECK:             memref.dealloc [[RES_3_]] : memref<?x?xf32>
 // CHECK:           }
 // CHECK:           [[VAR_17_:%.+]] = index_cast [[VAR_2_]] : index to i64
 // CHECK:           [[VAR_18_:%.+]] = muli [[VAR_17_]], [[CST_16_]] : i64
