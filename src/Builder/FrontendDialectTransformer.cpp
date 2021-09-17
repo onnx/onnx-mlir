@@ -1063,7 +1063,8 @@ private:
       if (v.empty()) {
         // Missing (optional) parameter.
         operandOnnxTypes.push_back(unspecifiedType);
-        auto no_value = builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
+        auto no_value =
+            builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
         operands.push_back(no_value);
         operandTypes.push_back(builder_.getNoneType());
         continue;
@@ -1377,8 +1378,12 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
       originVersion < CURRENT_ONNX_OPSET) {
     onnx::ModelProto convertModel =
         onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
+    if (options.useOnnxModelTypes)
+      onnx::shape_inference::InferShapes(convertModel);
     ImportFrontendModel(convertModel, context, module, options);
   } else {
+    if (options.useOnnxModelTypes)
+      onnx::shape_inference::InferShapes(model);
     ImportFrontendModel(model, context, module, options);
   }
 }
