@@ -103,6 +103,11 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target.addIllegalOp<mlir::memref::StoreOp>();
   target.addIllegalOp<mlir::AffineStoreOp>();
 
+  // If `emitDealloc` is turned off, make sure we don't have buffer deallocation
+  // at this level. Will use MLIR buffer-deallocation for this purpose.
+  if (!gEmitDealloc)
+    target.addIllegalOp<mlir::memref::DeallocOp>();
+
   // std.tanh will be expanded.
   target.addIllegalOp<mlir::math::TanhOp>();
 
