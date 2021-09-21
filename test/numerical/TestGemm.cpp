@@ -218,6 +218,8 @@ int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
+  llvm::cl::ParseCommandLineOptions(argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
+
   if (true) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Gemm implementation correctness", []() {

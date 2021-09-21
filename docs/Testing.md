@@ -95,6 +95,13 @@ The environment variable `IMPORTER_FORCE_CONSTANT` is a list of indices
 separated by `,` (starting from 0, or -1 for all input indices), e.g. `0, 2, 3`
 or `-1`.
 
+### Enable SIMD instructions
+
+On supported platforms, currently s390x only, backend tests can generate SIMD instructions for the compiled models. To enable SIMD, set the TEST_MCPU environment variable, e.g.,
+```
+TEST_MCPU=z14 cmake --build . --config Release --target check-onnx-backend
+```
+
 ### Execution of backend tests
 
 A tool defined in `utils/RunONNXLib.cpp` can be used to easily execute files from their `.so`
@@ -201,3 +208,10 @@ variable in `src/MainUtils.cpp` to the types of files that you want to
 preserve (e.g. `KeepFilesOfType::All`). Then, no matter how you compile
 your model, input and output mlir files will be preserved, as well as
 unoptimized and optimized bytecode files as well as a few additional binaries.
+
+### Enable SIMD instructions
+
+On supported platforms, currently s390x only, numerical tests can generate SIMD instructions for the compiled models. To enable SIMD, set the TEST_ARGS environment variable, e.g.,
+```
+TEST_ARGS="-mcpu=z14" ARGS=-j$(nproc) cmake --build . --config Release --target test
+```
