@@ -85,6 +85,9 @@ public:
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
 
+  // Set up whether emitting dealloc for allocated memrefs or not.
+  gEmitDealloc = emitDealloc;
+
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
   ConversionTarget target(getContext());
@@ -104,7 +107,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target.addIllegalOp<mlir::AffineStoreOp>();
 
   // If `emitDealloc` is turned off, make sure we don't have buffer deallocation
-  // at this level. Will use MLIR buffer-deallocation for this purpose.
+  // at this level. Will use MLIR buffer-deallocation for this purpose instead.
   if (!gEmitDealloc)
     target.addIllegalOp<mlir::memref::DeallocOp>();
 
@@ -131,9 +134,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     target.addLegalOp<ONNXSigmoidOp>();
     target.addLegalOp<ONNXTanhOp>();
   }
-
-  // Set up whether emitting dealloc for allocated memrefs or not.
-  gEmitDealloc = emitDealloc;
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.
