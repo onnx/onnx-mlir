@@ -6,7 +6,12 @@
 #
 ################################################################################
 # Translate stdin affine dialect to a suitable Cpp file
-# Usage: cat file.mlir | python mlirAffine2Cpp.py | clang-format > file.cpp
+#
+# Generate the mlir file (better to use cannonicalize):
+#   onnx-mlir-opt ... -convert-krnl-to-affine -canonicalize input.mlir >file.mlir
+#
+# Generate the cpp file:
+#  cat file.mlir | python mlirAffine2Cpp.py | clang-format > file.cpp
 #
 # You can add custom cpp code using the prefix: "// COP". Note that the mlir
 # variables "%name" are changed to "v_name" since MLIR allows names such as "%1".
