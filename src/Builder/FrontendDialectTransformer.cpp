@@ -24,6 +24,8 @@
 #include "onnx/defs/schema.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "onnx/checker.h"
+#include "onnx/shape_inference/implementation.h"
 #include "onnx/version_converter/convert.h"
 
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
@@ -1006,6 +1008,44 @@ private:
     return funcOp;
   }
 
+  void InferTypes(const onnx::FunctionProto *func,
+      std::vector<onnx::TypeProto> &inputTypes) {
+
+    // types: Used for temporary copies of Types, freed at end of function.
+    std::vector<std::unique_ptr<onnx::TypeProto>> types;
+    std::unordered_map<std::string, onnx::TypeProto *> typeMap;
+    // Initialize types and values (if available) of function inputs:
+    const auto num_inputs =
+        std::min(func->input_size(), static_cast<int>(inputTypes.size()));
+    for (int i = 0; i < num_inputs; ++i) {
+      const std::string &input_name = func->input(i);
+      typeMap[input_name] = &inputTypes[i];
+    }
+
+    for (const onnx::NodeProto &n : func->node()) {
+      const auto *schema = GetOpSchema(n);
+      if (!schema) {
+        continue; // TODO:
+      }
+
+      onnx::NodeProto tn(n);
+      onnx::shape_inference::InferenceContextImpl node_ctx(tn, typeMap, {}, {});
+      schema->GetTypeAndShapeInferenceFunction()(node_ctx);
+
+      // Update types:
+      for (int i = 0; i < n.output_size(); ++i) {
+        std::unique_ptr<onnx::TypeProto> p =
+            std::make_unique<onnx::TypeProto>(*node_ctx.getOutputType(i));
+        typeMap[n.output(i)] = p.get();
+        types.push_back(std::move(p));
+      }
+    }
+
+    for (auto pair : typeMap) {
+      onnx_type_map.AddMapping(pair.first, *pair.second);
+    }
+  }
+
   bool TryImportFunctionCallNode(const onnx::NodeProto &node) {
     const onnx::OpSchema *schema = GetOpSchema(node);
     if (schema == nullptr)
@@ -1021,10 +1061,17 @@ private:
 
     for (auto &v : node.input()) {
       if (v.empty()) {
-        // Use default TypeProto() to indicate missing input/type
+        // Missing (optional) parameter.
         operandOnnxTypes.push_back(unspecifiedType);
+        auto no_value =
+            builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
+        operands.push_back(no_value);
+        operandTypes.push_back(builder_.getNoneType());
         continue;
       }
+      // Function translation requires input (onnx) types
+      if (!onnx_type_map.ContainKey(v))
+        return false;
       operandOnnxTypes.push_back(onnx_type_map.GetTensorByOnnxName(v));
       auto val = LookupOnnxName(v);
       operands.push_back(val);
@@ -1033,6 +1080,8 @@ private:
     for (auto &v : node.output()) {
       if (v.empty())
         continue;
+      if (!onnx_type_map.ContainKey(v))
+        return false;
       auto resultType = ImportTensorType(onnx_type_map.GetTensorByOnnxName(v));
       resultTypes.push_back(resultType);
     }
@@ -1041,10 +1090,11 @@ private:
     onnx::FunctionProto functionProto;
     // Try generating a context-independent function body:
     const onnx::FunctionProto *pFunctionProto = schema->GetFunction();
-    if ((!pFunctionProto) && schema->HasContextDependentFunction()) {
+    if (!pFunctionProto) {
       // Try generating a context-dependent function body:
       onnx::FunctionBodyBuildContextImpl onnxFunContext(node, operandOnnxTypes);
-      if (schema->BuildContextDependentFunction(onnxFunContext, functionProto))
+      if (schema->HasContextDependentFunction() &&
+          schema->BuildContextDependentFunction(onnxFunContext, functionProto))
         pFunctionProto = &functionProto;
       else
         return false;
@@ -1066,11 +1116,21 @@ private:
     builder_.setInsertionPointToStart(fnEntryBlock);
 
     // Generate MLIR function body
-    int formal_num = 0;
+
     auto formalParamValues = fnEntryBlock->getArguments();
-    for (auto &v : pFunctionProto->input()) {
-      BindOnnxName(v, formalParamValues[formal_num++]);
+    // Due to missing trailing optional parameters,
+    // fnEntryBlock->getNumArguments() and pFunctionProto->input_size() may be
+    // unequal.
+    int num_formals =
+        std::min(static_cast<int>(fnEntryBlock->getNumArguments()),
+            pFunctionProto->input_size());
+    for (int formal_num = 0; formal_num < num_formals; formal_num++) {
+      const std::string &v = pFunctionProto->input(formal_num);
+      BindOnnxName(v, formalParamValues[formal_num]);
     }
+
+    // Apply ONNX type inference to FunctionProto:
+    InferTypes(pFunctionProto, operandOnnxTypes);
 
     for (auto &fb_node : pFunctionProto->node()) {
       ImportNode(fb_node);
@@ -1318,8 +1378,12 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
       originVersion < CURRENT_ONNX_OPSET) {
     onnx::ModelProto convertModel =
         onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
+    if (options.useOnnxModelTypes)
+      onnx::shape_inference::InferShapes(convertModel);
     ImportFrontendModel(convertModel, context, module, options);
   } else {
+    if (options.useOnnxModelTypes)
+      onnx::shape_inference::InferShapes(model);
     ImportFrontendModel(model, context, module, options);
   }
 }
