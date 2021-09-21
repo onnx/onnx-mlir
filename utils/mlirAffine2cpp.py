@@ -7,7 +7,7 @@
 ################################################################################
 # Translate stdin affine dialect to a suitable Cpp file
 #
-# Generate the mlir file (better to use cannonicalize):
+# Generate the mlir file (better to use canonicalize):
 #   onnx-mlir-opt ... -convert-krnl-to-affine -canonicalize input.mlir >file.mlir
 #
 # Generate the cpp file:
