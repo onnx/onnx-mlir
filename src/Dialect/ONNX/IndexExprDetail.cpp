@@ -253,7 +253,7 @@ AffineExpr IndexExprImpl::getAffineExpr() {
     return affineExpr;
   }
 
-  assert(getScope().isCurrentScope() &&
+  assert(isInCurrentScope() &&
          "create an affine expression only for index exprs in current scope");
 
   if (isLiteral()) {
@@ -328,7 +328,7 @@ Value IndexExprImpl::getValue() {
   if (hasValue())
     return value;
 
-  assert(getScope().isCurrentScope() &&
+  assert(isInCurrentScope() &&
          "create a value only for index exprs in current scope");
 
   if (isLiteral()) {
