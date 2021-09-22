@@ -347,8 +347,7 @@ bool AreTheSameConstantOpDenseAttr(
     Builder &builder, int64_t rank, Value lhsOp, Value rhsOp) {
   ONNXConstantOp lhsConstOp = dyn_cast<ONNXConstantOp>(lhsOp.getDefiningOp());
   ONNXConstantOp rhsConstOp = dyn_cast<ONNXConstantOp>(rhsOp.getDefiningOp());
-  if ((lhsConstOp && rhsConstOp) &&
-      (!isFromNone(lhsConstOp) && !isFromNone(rhsConstOp))) {
+  if (lhsConstOp && rhsConstOp) {
     auto lhsArrAttr = createArrayAttrFromConstantOp(builder, lhsConstOp);
     auto rhsArrAttr = createArrayAttrFromConstantOp(builder, rhsConstOp);
     return AreTheSameAxisArray(rank, lhsArrAttr, rhsArrAttr);
