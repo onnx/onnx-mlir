@@ -102,12 +102,34 @@ void IndexExprScope::addIndexExprImpl(IndexExprImpl *obj) {
 // IndexExprScope support for dim and symbol lists in affine exprs.
 //===----------------------------------------------------------------------===//
 
+int IndexExprScope::indexInList(
+    SmallVectorImpl<Value> const &list, Value const &value) const {
+  int num = list.size();
+  for (int i = 0; i < num; ++i) {
+    if (list[i] == value)
+      return i;
+  }
+  return -1; // Minus one indicates not found.
+}
+
 int IndexExprScope::addDim(Value const value) {
+  assert(indexInList(symbols, value) == -1 &&
+         "Cannot have a dim that is already a symbol");
+  int i = indexInList(dims, value);
+  if (i != -1)
+    return i; // We already have this dim, reuse it.
+  // Else, new dim, add at the end.
   dims.emplace_back(value);
   return dims.size() - 1;
-  ;
 }
+
 int IndexExprScope::addSymbol(Value const value) {
+  assert(indexInList(dims, value) == -1 &&
+         "Cannot have a symbol that is already a dim");
+  int i = indexInList(symbols, value);
+  if (i != -1)
+    return i; // We already have this symbol, reuse it.
+  // Else, new symbol, add at the end.
   symbols.emplace_back(value);
   return symbols.size() - 1;
 }
