@@ -489,18 +489,15 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass());
-  // Only emit memref.dealloc if memory bundling is enabled.
-  // Otherwise, memref.dealloc will be emitted by buffer-deallocation pass.
-  pm.addPass(
-      mlir::createLowerToKrnlPass(/*emitDealloc=*/!disableMemoryBundling));
+  pm.addPass(mlir::createLowerToKrnlPass(/*emitDealloc=*/false));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
-  if (disableMemoryBundling) {
-    pm.addNestedPass<FuncOp>(mlir::createBufferDeallocationPass());
-  } else {
+  // Emit buffer dealloc.
+  pm.addNestedPass<FuncOp>(mlir::createBufferDeallocationPass());
+  if (!disableMemoryBundling) {
     pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
     pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
     pm.addPass(mlir::createCanonicalizerPass());
