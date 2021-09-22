@@ -131,6 +131,9 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
 // operand is the result value of current op. If it does then
 // dealloc should not be inserted.
 bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
+  if (gEmitDealloc == false)
+    return false;
+
   auto parentBlock = currentOp->getBlock();
   bool insertDealloc = true;
 
