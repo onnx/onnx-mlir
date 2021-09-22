@@ -600,10 +600,6 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
             createKrnl.store(
                 nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
         });
-
-    // Clean up
-    createMemRef.dealloc(rt);
-    createMemRef.dealloc(rtHt);
   }
 }
 
