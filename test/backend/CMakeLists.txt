@@ -33,11 +33,11 @@ execute_process(
   ERROR_QUIET
 )
 if (${PYTEST_XDIST_FOUND} EQUAL 0)
-  message(STATUS "Parallel backend tests  : ON")
+  message(STATUS "Parallel backend tests      : ON")
   set(BACKEND_TEST_COMMAND "${Python3_EXECUTABLE}" "-m" "pytest")
   set(BACKEND_TEST_ARGS "--forked" "-n" "$$\{NPROC:-auto\}")
 else()
-  message(STATUS "Parallel backend tests  : OFF (install pytest-xdist to enable)")
+  message(STATUS "Parallel backend tests      : OFF (install pytest-xdist to enable)")
   set(BACKEND_TEST_COMMAND ${Python3_EXECUTABLE})
   set(BACKEND_TEST_ARGS "")
 endif()

@@ -129,6 +129,8 @@ int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
+  llvm::cl::ParseCommandLineOptions(argc, argv, "TestLoop\n", nullptr, "TEST_ARGS");
+
   // Loop tests, simple.
   assert(isOMLoopTheSameAsNaiveImplFor(testLoopSimpleIR, 0, 42));
   assert(isOMLoopTheSameAsNaiveImplFor(testLoopSimpleIR, 1, 42));

@@ -219,6 +219,8 @@ int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
+  llvm::cl::ParseCommandLineOptions(argc, argv, "TestRNN\n", nullptr, "TEST_ARGS");
+
   // RapidCheck test case generation.
   bool success = rc::check("RNN implementation correctness", []() {
     // The number of directions.
