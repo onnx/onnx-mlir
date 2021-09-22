@@ -65,8 +65,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
       // loop-carried dependencies.
       SmallVector<Value, 4> params(
           outputs.begin(), outputs.begin() + scanOp.v_final().size());
-      // Variables local to the subgraph will be deallocated at the end of
-      // subgraph execution.
+      // Variables local to the subgraph.
       SmallVector<Value, 4> localVars;
 
       auto opScanInputRange = llvm::make_range(
@@ -165,11 +164,6 @@ struct ONNXScanOpLowering : public ConversionPattern {
         emitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
             std::get<1>(scanIntermediateToFinal),
             /*writePrefix=*/{iv});
-
-      // Dealloc local variables.
-      MemRefBuilder createMemRef(rewriter, loc);
-      for (auto localVar : localVars)
-        createMemRef.dealloc(localVar);
 
       // Remove scan body terminator op.
       rewriter.eraseOp(scanBodyTerminator);

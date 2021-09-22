@@ -360,6 +360,7 @@ private:
   void addIndexExprImpl(IndexExprImpl *obj);
 
   // Support functions for AffineExpr.
+  int indexInList(SmallVectorImpl<Value> const &list, Value const &value) const;
   int addDim(Value const value);
   int addSymbol(Value const value);
 

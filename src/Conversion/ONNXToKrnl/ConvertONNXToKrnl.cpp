@@ -78,12 +78,15 @@ public:
       llvm::cl::init(false)};
   Option<bool> emitDealloc{*this, "emit-dealloc",
       llvm::cl::desc("Emit dealloc for allocated memrefs or not."),
-      llvm::cl::init(true)};
+      llvm::cl::init(false)};
 };
 } // end anonymous namespace.
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
+
+  // Set up whether emitting dealloc for allocated memrefs or not.
+  gEmitDealloc = emitDealloc;
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -102,6 +105,11 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target.addIllegalOp<mlir::AffineLoadOp>();
   target.addIllegalOp<mlir::memref::StoreOp>();
   target.addIllegalOp<mlir::AffineStoreOp>();
+
+  // If `emitDealloc` is turned off, make sure we don't have buffer deallocation
+  // at this level. Will use MLIR buffer-deallocation for this purpose instead.
+  if (!gEmitDealloc)
+    target.addIllegalOp<mlir::memref::DeallocOp>();
 
   // std.tanh will be expanded.
   target.addIllegalOp<mlir::math::TanhOp>();
@@ -126,9 +134,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     target.addLegalOp<ONNXSigmoidOp>();
     target.addLegalOp<ONNXTanhOp>();
   }
-
-  // Set up whether emitting dealloc for allocated memrefs or not.
-  gEmitDealloc = emitDealloc;
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.

@@ -183,9 +183,6 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         calculateState<S, A, W, B>(rewriter, loc, Xt, state, activationForward,
             weightForward, biasForward, sequenceIV, directionIV,
             /*isForward=*/true);
-        // Clean up
-        MemRefBuilder createMemRef(rewriter, loc);
-        createMemRef.dealloc(Xt);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
@@ -224,9 +221,6 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         calculateState<S, A, W, B>(rewriter, loc, Xt, state, activationReverse,
             weightReverse, biasReverse, reverseSequenceIV, directionIV,
             /*isForward=*/false);
-        // Clean up
-        MemRefBuilder createMemRef(rewriter, loc);
-        createMemRef.dealloc(Xt);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
