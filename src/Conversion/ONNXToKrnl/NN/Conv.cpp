@@ -74,10 +74,9 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //     for coPerGroup = 0 .. COPerGroup:
     //       co = g * COPerGroup + coPerGroup;
 
-    createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs, {},
-        [&](KrnlBuilder &createKrnl, ValueRange) {
+    createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
+        [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Compute the Channel In Indices.
-          ValueRange outerIndices = createKrnl.getInductionVarValue(outerLoops);
           IndexExprScope outerScope(createKrnl);
           // Compute the channel out index "co".
           DimIndexExpr g(outerIndices[1]);
@@ -98,10 +97,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
           // for ho = 0 .. HO:
           //    for wo = 0 .. WO:
           createKrnl.iterateIE(outputSpacialLoops, outputSpacialLoops,
-              outputSpacialLbs, outputSpacialUbs, {},
-              [&](KrnlBuilder &createKrnl, ValueRange) {
-                ValueRange outputSpatialIndices =
-                    createKrnl.getInductionVarValue(outputSpacialLoops);
+              outputSpacialLbs, outputSpacialUbs,
+              [&](KrnlBuilder &createKrnl, ValueRange outputSpatialIndices) {
                 IndexExprScope outputSpacialScope(createKrnl);
                 MemRefBuilder createMemRef(createKrnl);
                 // Create a local reduction value and set to zero.
@@ -145,10 +142,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
                 // for ciPerGroup = 0 .. CIPerGroup:
                 //   for kh in lb .. ub:
                 //     for kw in lb .. ub:
-                createKrnl.iterateIE(redLoops, redLoops, redLbs, redUbs, {},
-                    [&](KrnlBuilder &createKrnl, ValueRange) {
-                      ValueRange redIndices =
-                          createKrnl.getInductionVarValue(redLoops);
+                createKrnl.iterateIE(redLoops, redLoops, redLbs, redUbs,
+                    [&](KrnlBuilder &createKrnl, ValueRange redIndices) {
                       IndexExprScope redScope(createKrnl);
                       MathBuilder createMath(createKrnl);
                       // Create access function for input image:

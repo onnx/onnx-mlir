@@ -488,11 +488,10 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   }
 
   ValueRange loops = createKrnl.defineLoops(HtRank);
-  createKrnl.iterate(loops, loops, HtLbs, HtUbs, {},
-      [&](KrnlBuilder &createKrnl, ValueRange args) {
+  createKrnl.iterate(loops, loops, HtLbs, HtUbs,
+      [&](KrnlBuilder &createKrnl, ValueRange indices) {
         MathBuilder createMath(createKrnl);
         IndexExprScope ieScope(createKrnl);
-        ValueRange indices = createKrnl.getInductionVarValue(loops);
         Value bs(indices[0]), hs(indices[1]);
         SymbolIndexExpr bsie(bs), hsie(hs);
         LiteralIndexExpr hsieLit(hiddenSize);

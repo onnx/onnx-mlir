@@ -436,11 +436,10 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
 
     // Do element-wise computations. Fuse them into a single nested loop.
     ValueRange loops = createKrnl.defineLoops(htRank);
-    createKrnl.iterate(loops, loops, htLbs, htUbs, {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
+    createKrnl.iterate(loops, loops, htLbs, htUbs,
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
           MathBuilder createMath(createKrnl);
           IndexExprScope ieScope(createKrnl);
-          ValueRange indices = createKrnl.getInductionVarValue(loops);
           Value bs(indices[0]), hs(indices[1]);
           SymbolIndexExpr bsie(bs), hsie(hs);
           LiteralIndexExpr hsieLit(hiddenSize);
@@ -521,11 +520,10 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
 
     // Emit rt and (rt (.) Ht-1).
     ValueRange loops1 = createKrnl.defineLoops(htRank);
-    createKrnl.iterate(loops1, loops1, htLbs, htUbs, {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
+    createKrnl.iterate(loops1, loops1, htLbs, htUbs,
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
           MathBuilder createMath(createKrnl);
           IndexExprScope ieScope(createKrnl);
-          ValueRange indices = createKrnl.getInductionVarValue(loops1);
           Value bs(indices[0]), hs(indices[1]);
           SymbolIndexExpr bsie(bs), hsie(hs);
           LiteralIndexExpr hsieLit(hiddenSize);
@@ -554,11 +552,10 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
 
     // Do element-wise computations. Fuse them into a single nested loop.
     ValueRange loops2 = createKrnl.defineLoops(htRank);
-    createKrnl.iterate(loops2, loops2, htLbs, htUbs, {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
+    createKrnl.iterate(loops2, loops2, htLbs, htUbs,
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
           MathBuilder createMath(createKrnl);
           IndexExprScope ieScope(createKrnl);
-          ValueRange indices = createKrnl.getInductionVarValue(loops2);
           Value bs(indices[0]), hs(indices[1]);
           SymbolIndexExpr bsie(bs), hsie(hs);
           LiteralIndexExpr hsieLit(hiddenSize);
