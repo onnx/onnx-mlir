@@ -2406,16 +2406,10 @@ template <typename Op, typename Adaptor, typename ShapeHelper>
 LogicalResult ONNXSqueezeOpInferShapesCommon(Op *op,
     llvm::Optional<ArrayAttr> axisAttrs,
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!op->data().getType().template isa<RankedTensorType>())
-    return success();
-
   auto operandTy = op->data().getType().template cast<RankedTensorType>();
   auto elementType =
       op->data().getType().template cast<ShapedType>().getElementType();
   int64_t inRank = operandTy.getRank();
-
-  if (!axisAttrs)
-    return op->emitError("Axes attribute is required");
 
   SmallVector<int64_t, 4> axes;
   bool hasNegativeAxis = false;
@@ -2447,22 +2441,75 @@ LogicalResult ONNXSqueezeOpInferShapesCommon(Op *op,
   return success();
 }
 
+// Helper function to return an ArrayAttr from an input shape
+// All single dimensions will be returned
+ArrayAttr getSqueezeOpAxesFromShape(
+    OpBuilder builder, ArrayRef<int64_t> shape) {
+  SmallVector<int64_t, 4> axes;
+  for (unsigned int i = 0; i < shape.size(); ++i) {
+    if (shape[i] == 1) {
+      axes.emplace_back(i);
+    } else if (shape[i] == -1) {
+      llvm_unreachable(
+          "only static input shape currently supported with empty axes");
+    }
+  }
+  return builder.getI64ArrayAttr(axes);
+}
+
 LogicalResult ONNXSqueezeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  auto builder = mlir::Builder(getContext());
+  auto dataType = data().getType().dyn_cast<RankedTensorType>();
+  if (!dataType)
+    return success();
+
+  OpBuilder builder(getContext());
   llvm::Optional<ArrayAttr> optionalAttr;
-  if (auto axesConstOp = getONNXConstantOp(axes())) {
+
+  if (isFromNone(axes())) {
+    auto axesAttr = getSqueezeOpAxesFromShape(builder, dataType.getShape());
+    optionalAttr.emplace(axesAttr);
+
+    // Create a ConstantOp associated with this Squeeze Op
+    auto tensorType =
+        RankedTensorType::get(ArrayAttrSize(axesAttr), builder.getI64Type());
+    SmallVector<int64_t, 4> values;
+    for (auto attr : axesAttr.getValue()) {
+      values.emplace_back(attr.cast<IntegerAttr>().getInt());
+    }
+    auto constDenseAttr =
+        DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+    builder.setInsertionPoint(*this);
+    auto constOp = builder.create<mlir::ONNXConstantOp>(
+        getLoc(), mlir::Attribute(), constDenseAttr);
+    mlir::Value constRes = constOp.output();
+    setOperand(1, constRes);
+  } else if (auto axesConstOp = getONNXConstantOp(axes())) {
     auto axesAttr = createArrayAttrFromConstantOp(builder, axesConstOp);
     optionalAttr.emplace(axesAttr);
-  } else if (!axes().getType().isa<NoneType>()) {
+  } else {
     llvm_unreachable("dynamic axes not yet supported");
   }
+
   return ONNXSqueezeOpInferShapesCommon<ONNXSqueezeOp, ONNXSqueezeOpAdaptor,
       ONNXSqueezeOpShapeHelper>(this, optionalAttr, doShapeInference);
 }
 
 LogicalResult ONNXSqueezeV11Op::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+  auto dataType = data().getType().dyn_cast<RankedTensorType>();
+  if (!dataType)
+    return success();
+
+  if (!axes()) {
+    OpBuilder builder(getContext());
+
+    auto newAxesAttr = getSqueezeOpAxesFromShape(builder, dataType.getShape());
+
+    // Update the axes attribute
+    axesAttr(newAxesAttr);
+  }
+
   return ONNXSqueezeOpInferShapesCommon<ONNXSqueezeV11Op,
       ONNXSqueezeV11OpAdaptor, ONNXSqueezeV11OpShapeHelper>(
       this, axes(), doShapeInference);

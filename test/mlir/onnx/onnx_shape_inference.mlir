@@ -1128,6 +1128,30 @@ func @test_squeezev11_mix(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
 
 // -----
 
+func private @test_squeeze_empty_axes(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %1 = "onnx.Squeeze"(%arg0, %cst) : (tensor<16x1x32x1x64xf32>, none) -> (tensor<*xf32>)
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_squeeze_empty_axes
+  // CHECK: [[CONST:%.+]] = "onnx.Constant"() {value = dense<[1, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  // CHECK: [[RES:%.+]] = "onnx.Squeeze"(%arg0, [[CONST]]) : (tensor<16x1x32x1x64xf32>, tensor<2xi64>) -> tensor<16x32x64xf32>
+  // CHECK: return [[RES]] : tensor<16x32x64xf32>
+}
+
+// -----
+
+func private @test_squeezev11_empty_axes(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
+  %0 = "onnx.SqueezeV11"(%arg0) : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_squeezev11_empty_axes
+  // CHECK: [[RES:%.+]] = "onnx.SqueezeV11"(%arg0) {axes = [1, 3]} : (tensor<16x1x32x1x64xf32>) -> tensor<16x32x64xf32>
+  // CHECK: return [[RES]] : tensor<16x32x64xf32>
+}
+
+// -----
+
 func @test_unsqueeze(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[1]> : tensor<1xi64>} : () -> tensor<1xi64>
   %1 = "onnx.Unsqueeze"(%arg0, %0) : (tensor<16x32x64xf32>, tensor<1xi64>) -> (tensor<*xf32>)
