@@ -290,8 +290,62 @@ struct AffineBuilder : DialectBuilder {
         });
   }
 
+  // This if then else construct has no arguments to the blocks.
+  void ifThenElse(IndexExprScope &scope, SmallVectorImpl<IndexExpr> &conditions,
+      function_ref<void(AffineBuilder &createAffine)> thenFn,
+      function_ref<void(AffineBuilder &createAffine)> elseFn) {
+    int64_t rank = conditions.size();
+    SmallVector<AffineExpr, 4> affineCond;
+    bool allTrue = true;
+    bool allFalse = true;
+    for (IndexExpr c : conditions) {
+      assert(c.isAffine() && "conditions expected to be affine");
+      affineCond.emplace_back(c.getAffineExpr());
+      if (c.isLiteral()) {
+        if (c.getLiteral() < 0) // Inequality is expr >= 0, test if false.
+          allTrue = false;
+        if (c.getLiteral() >= 0) // Inequality is expr >= 0, test if true.
+          allFalse = false;
+      } else {
+        allTrue = allFalse = false;
+      }
+    }
+    SmallVector<bool, 4> isEq(rank, false);
+    auto inset = IntegerSet::get(
+        scope.getNumDims(), scope.getNumSymbols(), affineCond, isEq);
+    SmallVector<Value, 8> dimAndSymbolList;
+    scope.getDimAndSymbolList(dimAndSymbolList);
+    auto ifOp = b.create<AffineIfOp>(loc, inset, dimAndSymbolList, true);
+    Block *thenBlock = ifOp.getThenBlock();
+    Block *elseBlock = ifOp.getElseBlock();
+    if (!allFalse) {
+      appendToBlock(thenBlock, [&](ValueRange args) {
+        AffineBuilder createAffine(b, loc);
+        thenFn(createAffine);
+      });
+    }
+    if (!allTrue) {
+      appendToBlock(elseBlock, [&](ValueRange args) {
+        AffineBuilder createAffine(b, loc);
+        elseFn(createAffine);
+      });
+    }
+  }
+
   void yield() { b.create<AffineYieldOp>(loc); }
-};
+
+private:
+  void appendToBlock(Block *block, function_ref<void(ValueRange)> builderFn) {
+    OpBuilder::InsertionGuard guard(b);
+    if (block->empty() ||
+        !block->back().mightHaveTrait<OpTrait::IsTerminator>()) {
+      b.setInsertionPointToEnd(block);
+    } else
+      b.setInsertionPoint(&block->back());
+    builderFn(block->getArguments());
+  }
+
+}; // namespace
 
 // To assist unroll and jam
 typedef std::pair<AffineForOp, int64_t> UnrollAndJamRecord;
@@ -827,19 +881,19 @@ public:
     if (simdize) {
       // SIMD code generator.
       // clang-format off
-      genIfThenElseWithoutParams(createAffine, indexScope, allFullTiles,
-        /* then full */ [&](ValueRange) {
+      createAffine.ifThenElse(indexScope, allFullTiles,
+        /* then full */ [&](AffineBuilder &createAffine) {
         genSimd(rewriter, loc, op, elementType, aStart, bVecStart, cVecStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
           vectorLen, fullUnrollAndJam); 
-      }, /* has some partial tiles */ [&](ValueRange) {
+      }, /* has some partial tiles */ [&](AffineBuilder &createAffine) {
         // Trip regardless of full/partial for N & K
         // Test if SIMD dim (M) is full.
-        genIfThenElseWithoutParams(createAffine, indexScope, jFullTiles,
-          /* full SIMD */ [&](ValueRange) {
+        createAffine.ifThenElse(indexScope, jFullTiles,
+          /* full SIMD */ [&](AffineBuilder &createAffine) {
           genSimd(rewriter, loc, op, elementType, aStart, bVecStart, cVecStart,
             iTrip, jComputeTileSize, kTrip, vectorLen, false);
-        }, /* else partial SIMD */ [&](ValueRange) {
+        }, /* else partial SIMD */ [&](AffineBuilder &createAffine) {
           if (false && jPartialTrip.isLiteral() && jPartialTrip.getLiteral() >=2) {
             // has a known trip count along the simd dimension of at least 2
             // elements, use simd again.
@@ -855,12 +909,12 @@ public:
     } else {
       // Scalar code generator.
       // clang-format off
-      genIfThenElseWithoutParams(createAffine, indexScope, allFullTiles,
-        /* then full */ [&](ValueRange) {
+      createAffine.ifThenElse(indexScope, allFullTiles,
+        /* then full */ [&](AffineBuilder &createAffine) {
         genScalar(rewriter, op, elementType, aStart, bStart, cStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
           fullUnrollAndJam); 
-      }, /* else partial */ [&](ValueRange) {
+      }, /* else partial */ [&](AffineBuilder &createAffine) {
         genScalar(rewriter, op, elementType, aStart, bStart, cStart,
           iTrip, jTrip, kTrip, false);
       });
@@ -1054,58 +1108,6 @@ private:
             getForInductionVarOwner(iSaved), I.getLiteral());
         list->emplace_back(record);
       }
-    }
-  }
-
-  void appendToBlock(AffineBuilder &createAffine, Block *block,
-      function_ref<void(ValueRange)> builderFn) const {
-    OpBuilder::InsertionGuard guard(createAffine.getBuilder());
-    if (block->empty() ||
-        !block->back().mightHaveTrait<OpTrait::IsTerminator>()) {
-      createAffine.getBuilder().setInsertionPointToEnd(block);
-    } else
-      createAffine.getBuilder().setInsertionPoint(&block->back());
-    builderFn(block->getArguments());
-  }
-
-  void genIfThenElseWithoutParams(AffineBuilder &createAffine,
-      IndexExprScope &enclosingScope, SmallVectorImpl<IndexExpr> &conditions,
-      function_ref<void(ValueRange)> thenFn,
-      function_ref<void(ValueRange)> elseFn) const {
-    IndexExprScope &scope = IndexExprScope::getCurrentScope();
-    int64_t rank = conditions.size();
-    SmallVector<bool, 4> isEq(rank, false);
-    SmallVector<AffineExpr, 4> affineCond;
-    bool allTrue = true;
-    bool allFalse = true;
-    for (IndexExpr i : conditions) {
-      assert(i.isAffine() && "conditions expected to be affine");
-      affineCond.emplace_back(i.getAffineExpr());
-      if (i.isLiteral()) {
-        if (i.getLiteral() < 0) // Inequality is expr >= 0, test if false.
-          allTrue = false;
-        if (i.getLiteral() >= 0) // Inequality is expr >= 0, test if true.
-          allFalse = false;
-      } else {
-        allTrue = false;
-        allFalse = false;
-      }
-    }
-    auto inset = IntegerSet::get(
-        scope.getNumDims(), scope.getNumSymbols(), affineCond, isEq);
-    SmallVector<Value, 8> dimAndSymbolList;
-    scope.getDimAndSymbolList(dimAndSymbolList);
-    auto ifOp = createAffine.getBuilder().create<AffineIfOp>(
-        createAffine.getLoc(), inset, dimAndSymbolList, true);
-    Block *thenBlock = ifOp.getThenBlock();
-    Block *elseBlock = ifOp.getElseBlock();
-    if (!allFalse) {
-      appendToBlock(
-          createAffine, thenBlock, [&](ValueRange args) { thenFn(args); });
-    }
-    if (!allTrue) {
-      appendToBlock(
-          createAffine, elseBlock, [&](ValueRange args) { elseFn(args); });
     }
   }
 };
