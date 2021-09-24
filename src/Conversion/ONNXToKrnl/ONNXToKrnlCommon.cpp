@@ -146,7 +146,8 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
     parentBlock->walk([&insertDealloc, currentOp, resultIndex, &castOpResults](
                           Operation *op) {
       if (isa<memref::ReinterpretCastOp>(op) || isa<ONNXReshapeOp>(op) ||
-          isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op)) {
+          isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op) ||
+          isa<ONNXSqueezeOp>(op) || isa<ONNXUnsqueezeOp>(op)) {
         auto result = currentOp->getResult(resultIndex);
         for (const auto &operand : op->getOperands())
           if (operand == result)

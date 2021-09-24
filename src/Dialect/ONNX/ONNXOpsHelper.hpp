@@ -133,6 +133,10 @@ bool AreTheSameAxisArray(
 /// Test if the value has the specified constant shape
 bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
 
+/// Test if two constant ops contain the same values or not.
+bool AreTheSameConstantOpDenseAttr(
+    mlir::Builder &builder, int64_t rank, mlir::Value lhsOp, mlir::Value rhsOp);
+
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
 //===----------------------------------------------------------------------===//

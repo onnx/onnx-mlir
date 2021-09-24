@@ -136,6 +136,10 @@ def IsNotFromONNXConstantOp: Constraint<
     CPred<"!(llvm::dyn_cast_or_null<ONNXConstantOp>($0.getDefiningOp()))">,
     "Is a value not from ONNXConstantOp">;
 
+def AreTheSameConstantOpDenseAttr: Constraint<
+    CPred<"AreTheSameConstantOpDenseAttr($_builder, $0.getType().cast<ShapedType>().getRank(), $1, $2)">,
+    "Two ConstantOps have the same dense attribute values">;
+
 class AllDimsFromAxisToEndAre<int axis, int val>: Constraint<
     CPred<"llvm::all_of("
             "ArrayRef<int64_t>($_self.getType().cast<ShapedType>().getShape().begin() + " # axis # ","
@@ -309,6 +313,17 @@ def RemoveIdentityReshapePattern:  Pat<
 /// Squeeze {axes = [a, b, c]} (Unsqueeze {axes = [a, b, c]} (%X)) = %X
 def RemoveSqueezeUnsqueezePattern:  Pat<
   // Squeeze and the unsqueeze with the same axes.
+  (ONNXSqueezeOp (ONNXUnsqueezeOp $val, $u_axes), $s_axes),
+  // Remove the transpose.
+  (replaceWithValue $val),
+  // Check that both ops use the same `axes`.
+  [(AreTheSameConstantOpDenseAttr $val, $u_axes, $s_axes),
+   (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
+
+/// Combine squeeze and unsqueeze.
+/// Squeeze {axes = [a, b, c]} (Unsqueeze {axes = [a, b, c]} (%X)) = %X
+def RemoveSqueezeV11UnsqueezeV11Pattern:  Pat<
+  // Squeeze and the unsqueeze with the same axes.
   (ONNXSqueezeV11Op (ONNXUnsqueezeV11Op $val, $u_axes), $s_axes),
   // Remove the transpose.
   (replaceWithValue $val),
@@ -322,6 +337,17 @@ def RemoveSqueezeUnsqueezePattern:  Pat<
 /// Combine unsqueeze and squeeze.
 /// Unsqueeze {axes = [a, b, c]} (Squeeze {axes = [a, b, c]} (%X)) = %X
 def RemoveUnsqueezeSqueezePattern:  Pat<
+  // Squeeze and the unsqueeze with the same axes.
+  (ONNXUnsqueezeOp (ONNXSqueezeOp:$res $val, $s_axes), $u_axes),
+  // Remove the transpose.
+  (replaceWithValue $val),
+  // Check that both ops use the same `axes`.
+  [(AreTheSameConstantOpDenseAttr $res, $u_axes, $s_axes),
+   (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
+
+/// Combine unsqueeze and squeeze.
+/// Unsqueeze {axes = [a, b, c]} (Squeeze {axes = [a, b, c]} (%X)) = %X
+def RemoveUnsqueezeV11SqueezeV11Pattern:  Pat<
   // Squeeze and the unsqueeze with the same axes.
   (ONNXUnsqueezeV11Op (ONNXSqueezeV11Op:$res $val, $s_axes), $u_axes),
   // Remove the transpose.

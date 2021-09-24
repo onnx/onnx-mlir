@@ -321,24 +321,54 @@ func @test_global_average_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tensor<1x
 // COM: Test removing squeeze/unsqueeze pairs when they use the same axes.
 
 func @test_remove_unsqueeze_squeeze(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Constant"() {value = dense<[0, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Constant"() {value = dense<[0, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %2 = "onnx.Unsqueeze"(%arg0, %0) : (tensor<10x10xf32>, tensor<2xi64>) -> tensor<1x10x1x10xf32>
+  %3 = "onnx.Squeeze"(%2, %1) : (tensor<1x10x1x10xf32>, tensor<2xi64>) -> tensor<10x10xf32>
+  return %3: tensor<10x10xf32>
+
+  // CHECK-LABEL: test_remove_unsqueeze_squeeze
+  // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK-NOT: {{.*}} = onnx.Squeeze"{{.*}}
+  // CHECK: return {{.*}}
+
+}
+
+// -----
+
+func @test_remove_unsqueezev11_squeezev11(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.UnsqueezeV11"(%arg0) {axes=[0, 2]} : (tensor<10x10xf32>) -> tensor<1x10x1x10xf32>
   %1 = "onnx.SqueezeV11"(%0) {axes=[0, -2]} : (tensor<1x10x1x10xf32>) -> tensor<10x10xf32>
   return %1: tensor<10x10xf32>
 
-  // CHECK-LABEL: test_remove_unsqueeze_squeeze
-  // CHECK: return {{.*}}
+  // CHECK-LABEL: test_remove_unsqueezev11_squeezev11
   // CHECK-NOT: {{.*}} = "onnx.UnsqueezeV11"{{.*}}
   // CHECK-NOT: {{.*}} = onnx.SqueezeV11"{{.*}}
+  // CHECK: return {{.*}}
 
 }
 
 // -----
 
 func @test_should_not_remove_unsqueeze_squeeze(%arg0 : tensor<10x10xf32>) -> tensor<10x1x10xf32> {
+  %0 = "onnx.Constant"() {value = dense<[0, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Constant"() {value = dense<[0]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %2 = "onnx.Unsqueeze"(%arg0, %0) : (tensor<10x10xf32>, tensor<2xi64>) -> tensor<1x10x1x10xf32>
+  %3 = "onnx.Squeeze"(%2, %1) : (tensor<1x10x1x10xf32>, tensor<1xi64>) -> tensor<10x1x10xf32>
+  return %3: tensor<10x1x10xf32>
+  // CHECK-LABEL: test_should_not_remove_unsqueeze_squeeze
+  // CHECK: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK: {{.*}} = "onnx.Squeeze"{{.*}}
+  // CHECK: return {{.*}}
+}
+
+// -----
+
+func @test_should_not_remove_unsqueezev11_squeezev11(%arg0 : tensor<10x10xf32>) -> tensor<10x1x10xf32> {
   %0 = "onnx.UnsqueezeV11"(%arg0) {axes=[0, 2]} : (tensor<10x10xf32>) -> tensor<1x10x1x10xf32>
   %1 = "onnx.SqueezeV11"(%0) {axes=[0]} : (tensor<1x10x1x10xf32>) -> tensor<10x1x10xf32>
   return %1: tensor<10x1x10xf32>
-  // CHECK-LABEL: test_should_not_remove_unsqueeze_squeeze
+  // CHECK-LABEL: test_should_not_remove_unsqueezev11_squeezev11
   // CHECK: {{.*}} = "onnx.UnsqueezeV11"{{.*}}
   // CHECK: {{.*}} = "onnx.SqueezeV11"{{.*}}
   // CHECK: return {{.*}}
@@ -347,22 +377,50 @@ func @test_should_not_remove_unsqueeze_squeeze(%arg0 : tensor<10x10xf32>) -> ten
 // -----
 
 func @test_remove_squeeze_unsqueeze(%arg0 : tensor<10x1x10xf32>) -> tensor<10x1x10xf32> {
+  %0 = "onnx.Constant"() {value = dense<[1]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %1 = "onnx.Constant"() {value = dense<[1]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %2 = "onnx.Squeeze"(%arg0, %0) : (tensor<10x1x10xf32>, tensor<1xi64>) -> tensor<10x10xf32>
+  %3 = "onnx.Unsqueeze"(%2, %1) : (tensor<10x10xf32>, tensor<1xi64>) -> tensor<10x1x10xf32>
+  return %3: tensor<10x1x10xf32>
+  // CHECK-LABEL: test_remove_squeeze_unsqueeze
+  // CHECK-NOT: {{.*}} = "onnx.Squeeze"{{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK: return {{.*}}
+}
+
+// -----
+
+func @test_remove_squeezev11_unsqueezev11(%arg0 : tensor<10x1x10xf32>) -> tensor<10x1x10xf32> {
   %0 = "onnx.SqueezeV11"(%arg0) {axes=[1]} : (tensor<10x1x10xf32>) -> tensor<10x10xf32>
   %1 = "onnx.UnsqueezeV11"(%0) {axes=[1]} : (tensor<10x10xf32>) -> tensor<10x1x10xf32>
   return %1: tensor<10x1x10xf32>
-  // CHECK-LABEL: test_remove_squeeze_unsqueeze
-  // CHECK: return {{.*}}
+  // CHECK-LABEL: test_remove_squeezev11_unsqueezev11
   // CHECK-NOT: {{.*}} = "onnx.SqueezeV11"{{.*}}
   // CHECK-NOT: {{.*}} = "onnx.UnsqueezeV11"{{.*}}
+  // CHECK: return {{.*}}
 }
 
 // -----
 
 func @test_should_not_remove_squeeze_unsqueeze(%arg0 : tensor<1x10x1x10xf32>) -> tensor<10x1x10x1xf32> {
+  %0 = "onnx.Constant"() {value = dense<[0]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %1 = "onnx.Constant"() {value = dense<[3]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %2 = "onnx.Squeeze"(%arg0, %0) : (tensor<1x10x1x10xf32>, tensor<1xi64>) -> tensor<10x1x10xf32>
+  %3 = "onnx.Unsqueeze"(%2, %1) : (tensor<10x1x10xf32>, tensor<1xi64>) -> tensor<10x1x10x1xf32>
+  return %3: tensor<10x1x10x1xf32>
+  // CHECK-LABEL: test_should_not_remove_squeeze_unsqueeze
+  // CHECK: {{.*}} = "onnx.Squeeze"{{.*}}
+  // CHECK: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK: return {{.*}}
+}
+
+// -----
+
+func @test_should_not_remove_squeezev11_unsqueezev11(%arg0 : tensor<1x10x1x10xf32>) -> tensor<10x1x10x1xf32> {
   %0 = "onnx.SqueezeV11"(%arg0) {axes=[0]} : (tensor<1x10x1x10xf32>) -> tensor<10x1x10xf32>
   %1 = "onnx.UnsqueezeV11"(%0) {axes=[3]} : (tensor<10x1x10xf32>) -> tensor<10x1x10x1xf32>
   return %1: tensor<10x1x10x1xf32>
-  // CHECK-LABEL: test_should_not_remove_squeeze_unsqueeze
+  // CHECK-LABEL: test_should_not_remove_squeezev11_unsqueezev11
   // CHECK: {{.*}} = "onnx.SqueezeV11"{{.*}}
   // CHECK: {{.*}} = "onnx.UnsqueezeV11"{{.*}}
   // CHECK: return {{.*}}
@@ -371,10 +429,24 @@ func @test_should_not_remove_squeeze_unsqueeze(%arg0 : tensor<1x10x1x10xf32>) ->
 // -----
 
 func @test_should_not_remove_null_axes_squeeze_unsqueeze(%arg0 : tensor<1x10x1x10xf32>) -> tensor<10x1x10x1xf32> {
+  %cst = constant unit
+  %0 = "onnx.Constant"() {value = dense<[1, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Squeeze"(%arg0, %cst) : (tensor<1x10x1x10xf32>, none) -> tensor<10x10xf32>
+  %2 = "onnx.Unsqueeze"(%1, %0) : (tensor<10x10xf32>, tensor<2xi64>) -> tensor<10x1x10x1xf32>
+  return %2: tensor<10x1x10x1xf32>
+  // CHECK-LABEL: test_should_not_remove_null_axes_squeeze_unsqueeze
+  // CHECK: {{.*}} = "onnx.Squeeze"{{.*}}
+  // CHECK: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK: return {{.*}}
+}
+
+// -----
+
+func @test_should_not_remove_null_axes_squeezev11_unsqueezev11(%arg0 : tensor<1x10x1x10xf32>) -> tensor<10x1x10x1xf32> {
   %0 = "onnx.SqueezeV11"(%arg0) : (tensor<1x10x1x10xf32>) -> tensor<10x10xf32>
   %1 = "onnx.UnsqueezeV11"(%0) {axes=[1, 3]} : (tensor<10x10xf32>) -> tensor<10x1x10x1xf32>
   return %1: tensor<10x1x10x1xf32>
-  // CHECK-LABEL: test_should_not_remove_null_axes_squeeze_unsqueeze
+  // CHECK-LABEL: test_should_not_remove_null_axes_squeezev11_unsqueezev11
   // CHECK: {{.*}} = "onnx.SqueezeV11"{{.*}}
   // CHECK: {{.*}} = "onnx.UnsqueezeV11"{{.*}}
   // CHECK: return {{.*}}
