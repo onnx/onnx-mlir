@@ -1,4 +1,7 @@
 #include "src/Dialect/ONNX/ONNXFoldHelper.hpp"
+namespace {
+constexpr bool DEBUG = false;
+}
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for binary in presence of broadcast.
@@ -518,31 +521,180 @@ DenseElementsAttr CreateZerosFromTemplate(
 }
 
 namespace {
+
+/**
+ * @brief Compute the normalized shapes of result, and original LHS and RHS
+ * operands. This is to make the shapes appear cleaner to assist broadcasted
+ * MatMul computation. A few things are done:
+ * - Perform vector-to-matrix promotion to either 1D operand (if any)
+ * - Prepend 1s to the lower-ranked operand so both operands appear to have the
+ * same rank
+ * - Deduce the "normalized MatMul result shape" based on normalized operand
+ * shapes, described in steps above :) Read MatMul Shape Broadcast Rules:
+ * https://numpy.org/doc/stable/reference/generated/numpy.matmul.html
+ *
+ * @param lhsShape Shape of the original LHS operand
+ * @param rhsShape Shape of the original RHS operand
+ * @return A tuple of normalized result shape, LHS shape, and RHS shape
+ */
+static auto normalizeMatMulShapes(
+    ArrayRef<int64_t> lhsShape, ArrayRef<int64_t> rhsShape) {
+
+  assert(lhsShape.size() > 0 && rhsShape.size() > 0);
+  assert(lhsShape.size() > 1 ||
+         rhsShape.size() > 1); // Must have one shape that's 2D or higher.
+
+  std::vector<int64_t> normLhsShape;
+  if (lhsShape.size() == 1) {
+    normLhsShape = {1, lhsShape[0]};
+  } else {
+    normLhsShape = lhsShape;
+  }
+  std::reverse(normLhsShape.begin(), normLhsShape.end());
+
+  std::vector<int64_t> normRhsShape;
+  if (rhsShape.size() == 1) {
+    normRhsShape = {rhsShape[0], 1};
+  } else {
+    normRhsShape = rhsShape;
+  }
+  std::reverse(normRhsShape.begin(), normRhsShape.end());
+
+  const size_t normResultNumRanks =
+      std::max(normLhsShape.size(), normRhsShape.size());
+
+  // Extend the shorter shape with 1 to make them the same length, and reverse
+  // back
+  normLhsShape.resize(normResultNumRanks, 1);
+  std::reverse(normLhsShape.begin(), normLhsShape.end());
+  normRhsShape.resize(normResultNumRanks, 1);
+  std::reverse(normRhsShape.begin(), normRhsShape.end());
+
+  // Verify some assumptions:
+  assert(normLhsShape.size() == normRhsShape.size());
+
+  std::vector<int64_t> normResultShape(normResultNumRanks);
+  // Populate Batch Dimensions
+  for (size_t i = 0; i < normResultNumRanks - 2; ++i) {
+    int64_t lhsDim = normLhsShape.at(i);
+    int64_t rhsDim = normRhsShape.at(i);
+    int64_t normResultDim = std::max(lhsDim, rhsDim);
+    normResultShape[i] = normResultDim;
+  }
+  // Populate MatMul Dimensions
+  normResultShape[normResultNumRanks - 2] =
+      normLhsShape[normLhsShape.size() - 2];
+  normResultShape[normResultNumRanks - 1] = normRhsShape.back();
+
+  return std::make_tuple(std::move(normLhsShape), std::move(normRhsShape),
+      std::move(normResultShape));
+}
+
+template <class T>
+void printVec(const char *title, T vec) {
+  llvm::outs() << title << ": {";
+  for (const auto &v : vec) {
+    llvm::outs() << v << ",";
+  }
+  llvm::outs() << "}\n";
+}
+
+static void verifyShapes(ArrayRef<int64_t> normResultShape,
+    ArrayRef<int64_t> normLhsShape, ArrayRef<int64_t> normRhsShape,
+    ArrayRef<int64_t> resultShape, ArrayRef<int64_t> lhsShape,
+    ArrayRef<int64_t> rhsShape) {
+
+  using ShapeVec = llvm::SmallVector<int64_t, 6>;
+
+  if (DEBUG) {
+    printVec("normResultShape", normResultShape);
+    printVec("normLhsShape", normLhsShape);
+    printVec("normRhsShape", normRhsShape);
+    printVec("resultShape", resultShape);
+    printVec("lhsShape", lhsShape);
+    printVec("rhsShape", rhsShape);
+  }
+
+  assert(normResultShape.size() == normLhsShape.size());
+  assert(normResultShape.size() == normRhsShape.size());
+
+  if (lhsShape.size() > 1 && rhsShape.size() > 1) {
+    assert(normResultShape == resultShape);
+  } else if (lhsShape.size() == 1) {
+    assert(rhsShape.size() > 1);
+    ShapeVec expected(normResultShape.begin(), normResultShape.end());
+    expected.erase(expected.end() - 2);
+    assert(expected == resultShape);
+  } else if (rhsShape.size() == 1) {
+    assert(lhsShape.size() > 1);
+    ShapeVec expected(normResultShape.begin(), normResultShape.end() - 1);
+    assert(expected == resultShape);
+  } else {
+    assert(false);
+  }
+}
+
 class BroadcastMatMulCalculator {
 public:
-  BroadcastMatMulCalculator(Value resultValue, ShapedType resultType,
-      ArrayRef<int64_t> resultShape, DenseElementsAttr lhs,
-      DenseElementsAttr rhs, std::vector<int64_t> normalizedLhsShape,
-      std::vector<int64_t> normalizedRhsShape, int64_t m, int64_t k, int64_t n)
-      : _resultValue(resultValue), _resultType(resultType),
-        _resultShape(resultShape), _lhs(lhs), _rhs(rhs),
-        _lhsShape(std::move(normalizedLhsShape)),
-        _rhsShape(std::move(normalizedRhsShape)), _M(m), _K(k), _N(n),
-        _dimOffsets(calculateDimOffsets(resultShape)) {}
+  /**
+   * @brief Calculate MatMul result.
+   *
+   * @param resultType Type of the result
+   * @param _lhs Raw LHS operand of the MatMul
+   * @param _rhs Raw RHS operand of the MatMul
+   * @return Raw buffer of the result that you may assign to a dense attribute
+   * of correct result type (that was set during construction of the
+   * calculator).
+   */
+  static std::vector<APInt> calc(
+      ShapedType resultType, Attribute _lhs, Attribute _rhs) {
+    DenseElementsAttr lhs = _lhs.cast<DenseElementsAttr>();
+    DenseElementsAttr rhs = _rhs.cast<DenseElementsAttr>();
+    ArrayRef<int64_t> resultShape = resultType.getShape();
+    ArrayRef<int64_t> lhsShape = lhs.getType().getShape();
+    ArrayRef<int64_t> rhsShape = rhs.getType().getShape();
 
-  std::vector<APInt> calc() {
-    _resultStorage = createInitialResultStorage(_resultType);
-    recurse(0, 0);
-    return std::move(_resultStorage);
+    const auto normShapes = normalizeMatMulShapes(lhsShape, rhsShape);
+    const auto &normLhsShape = std::get<0>(normShapes);
+    const auto &normRhsShape = std::get<1>(normShapes);
+    const auto &normResultShape = std::get<2>(normShapes);
+
+    verifyShapes(normResultShape, normLhsShape, normRhsShape, resultShape,
+        lhsShape, rhsShape);
+
+    const auto dimOffset = calculateDimOffsets(normResultShape);
+
+    int64_t m = normLhsShape.at(normLhsShape.size() - 2);
+    int64_t k = normLhsShape.back();
+    int64_t n = normRhsShape.back();
+
+    BroadcastMatMulCalculator calculator(resultType, lhs, rhs, normResultShape,
+        normLhsShape, normRhsShape, dimOffset, m, k, n);
+
+    calculator._resultStorage = createInitialResultStorage(resultType);
+    calculator.recurse(0, 0);
+    return std::move(calculator._resultStorage);
   }
 
 private:
+  BroadcastMatMulCalculator(ShapedType resultType, DenseElementsAttr lhs,
+      DenseElementsAttr rhs, ArrayRef<int64_t> normResultShape,
+      ArrayRef<int64_t> normLhsShape, ArrayRef<int64_t> normRhsShape,
+      ArrayRef<size_t> dimOffset, int64_t m, int64_t k, int64_t n)
+      : _resultType(resultType), _lhs(lhs), _rhs(rhs),
+        _normResultShape(normResultShape), _normLhsShape(normLhsShape),
+        _normRhsShape(normRhsShape), _dimOffsets(dimOffset), _M(m), _K(k),
+        _N(n) {}
+
   void recurse(size_t rank, size_t flattenedIdxBase) {
+    if (DEBUG) {
+      printVec("_idxStack", _idxStack);
+    }
     int64_t lhsRank = _lhs.getType().getRank();
     int64_t rhsRank = _rhs.getType().getRank();
     IntegerType lhsEType = _lhs.getType().getElementType().cast<IntegerType>();
     IntegerType rhsEType = _rhs.getType().getElementType().cast<IntegerType>();
-    if (rank + 2 == _lhsShape.size()) {
+    if (rank + 2 == _normLhsShape.size()) {
       // Do 2D MatMul stuff
       const IntegerType resultElementType =
           _resultType.getElementType().cast<IntegerType>();
@@ -550,20 +702,34 @@ private:
         for (uint64_t j = 0; (int64_t)j < _N; ++j) {
           const uint64_t flattenedIdx = flattenedIdxBase + i * _N + j;
           for (uint64_t k = 0; (int64_t)k < _K; ++k) {
-            auto lhsIdx = getBroadcastIdx(_idxStack, i, k, _lhsShape, lhsRank);
+            auto lhsIdx =
+                getBroadcastIdx<true>(_idxStack, i, k, _normLhsShape, _lhs);
+            auto rhsIdx =
+                getBroadcastIdx<false>(_idxStack, k, j, _normRhsShape, _rhs);
+            if (DEBUG) {
+              printVec("lhsIdx", lhsIdx);
+              printVec("rhsIdx", rhsIdx);
+            }
             APInt aRaw = _lhs.getValue(lhsIdx).cast<IntegerAttr>().getValue();
-            auto rhsIdx = getBroadcastIdx(_idxStack, k, j, _rhsShape, rhsRank);
             APInt bRaw = _rhs.getValue(rhsIdx).cast<IntegerAttr>().getValue();
             APInt a = castIntToInt(aRaw, lhsEType, resultElementType);
             APInt b = castIntToInt(bRaw, rhsEType, resultElementType);
             APInt ab = a * b;
+            if (DEBUG) {
+              llvm::outs() << "  [" << flattenedIdx << "] += " << a << " * "
+                           << b << "\n";
+            }
             _resultStorage.at(flattenedIdx) += ab;
           }
         }
       }
     } else {
-      for (int64_t i = 0; i < _resultShape[rank]; ++i) {
-        size_t nextRankIdx = flattenedIdxBase + i * _dimOffsets.at(rank + 1);
+      const int64_t rankDim = _normResultShape[rank];
+      if (DEBUG) {
+        llvm::outs() << "rank: " << rank << ", rankDim: " << rankDim << "\n";
+      }
+      for (int64_t i = 0; i < rankDim; ++i) {
+        size_t nextRankIdx = flattenedIdxBase + i * _dimOffsets[rank + 1];
         _idxStack.push_back(i);
         recurse(rank + 1, nextRankIdx);
         _idxStack.pop_back();
@@ -571,30 +737,71 @@ private:
     }
   }
 
+  /**
+   * @brief Given Normalized Batch Dimensions and the MatMul Dimensions,
+   * get indices you can use to query the original operand by applying broadcast
+   * rules https://numpy.org/doc/stable/reference/generated/numpy.matmul.html
+   *
+   *
+   * @tparam operandIsLhs
+   * @param normResultBatchDimensions Batch Dimensions that maps to the
+   * normalized result
+   * @param a First MatMul Dimension (normalized) on the operand
+   * @param b Second MatMul Dimension (normalized) on the operand
+   * @param operandNormShape The normalized shape of the operand
+   * @param operand The operand itself
+   * @return The Indices you can use to query the operand
+   */
+  template <bool operandIsLhs>
   static llvm::SmallVector<uint64_t, 6> getBroadcastIdx(
-      const std::vector<int64_t> &idxStack, int64_t a, int64_t b,
-      ArrayRef<int64_t> normShape, int64_t rank) {
-    assert(rank >= 2);
-    const int64_t extraRanks = (int64_t)idxStack.size() - (rank - 2);
-    assert(extraRanks >= 0);
+      ArrayRef<int64_t> normResultBatchDimensions, uint64_t a, uint64_t b,
+      ArrayRef<int64_t> operandNormShape, DenseElementsAttr operand) {
 
-    llvm::SmallVector<uint64_t, 6> idx(
-        idxStack.begin() + extraRanks, idxStack.end());
-    idx.push_back(a);
-    idx.push_back(b);
+    using IdxVec = llvm::SmallVector<uint64_t, 6>;
+    IdxVec idx;
 
-    for (size_t i = 0; i < idx.size() - 2; ++i) {
-      uint64_t maxIdx = normShape[i + extraRanks];
-      assert(maxIdx > 0);
-      --maxIdx;
-      idx[i] = std::min(idx[i], maxIdx);
+    assert(normResultBatchDimensions.size() + 2 == operandNormShape.size());
+    const int64_t operandRank = operand.getType().getRank();
+    if (operandRank > 1) {
+      const int64_t extraRanks =
+          (int64_t)normResultBatchDimensions.size() - (operandRank - 2);
+      assert(extraRanks >= 0);
+
+      idx.assign(normResultBatchDimensions.begin() + extraRanks,
+          normResultBatchDimensions.end());
+      idx.push_back(a);
+      idx.push_back(b);
+
+      for (size_t i = 0; i < idx.size() - 2; ++i) {
+        uint64_t maxIdx = operandNormShape[i + extraRanks];
+        assert(maxIdx > 0);
+        --maxIdx;
+        idx[i] = std::min(idx[i], maxIdx);
+      }
+    } else {
+      // If operand is 1D, the index is just the inner dimension
+      assert(operandRank == 1);
+      if (operandIsLhs) {
+        idx.push_back(b);
+      } else {
+        idx.push_back(a);
+      }
     }
+
     // Trust that move will be ellided. Don't temper with this statement.
     // Even surrounding `idx` with parenthesis will break it.
     // Go figure. https://godbolt.org/z/dxbeM9jdK
     return idx;
   }
 
+  /**
+   * @brief Creates a buffer of APInt objects corresponding to the element
+   * type of resultType, and size just enough to accommodate a tensor
+   * of shape represented by resultType
+   *
+   * @param resultType Shape and element type information used to create buffer
+   * @return std::vector<APInt> APInt Buffer created, initialized to 0.
+   */
   static std::vector<APInt> createInitialResultStorage(ShapedType resultType) {
     IntegerType resultElementType =
         resultType.getElementType().cast<IntegerType>();
@@ -604,71 +811,53 @@ private:
     return std::move(resultAttr);
   }
 
+  /**
+   * @brief
+   * Given a shape, calculate the offset of each dimension.
+   * E.g. with given input shape (1, 2, 3, 4, 5),
+   * the output would be (120, 120, 60, 20, 5)
+   *
+   * @param normResultShape input shape
+   * @return std::vector<size_t> output shape
+   */
   static std::vector<size_t> calculateDimOffsets(
-      ArrayRef<int64_t> resultShapeRef) {
-    std::vector<int64_t> resultShape(resultShapeRef);
-    std::reverse(resultShape.begin(), resultShape.end());
-    std::vector<size_t> offsets;
+      ArrayRef<int64_t> normResultShape) {
 
+    std::vector<int64_t> normResultShapeReversed(normResultShape);
+    std::reverse(
+        normResultShapeReversed.begin(), normResultShapeReversed.end());
+
+    std::vector<size_t> offsets;
     size_t accumulator = 1;
-    for (int64_t dimSize : resultShape) {
+    for (int64_t dimSize : normResultShapeReversed) {
       accumulator *= dimSize;
       offsets.push_back(accumulator);
     }
     std::reverse(offsets.begin(), offsets.end());
-    return std::move(offsets);
+    return offsets;
   }
 
-  const Value _resultValue;
   const ShapedType _resultType;
-  const ArrayRef<int64_t> _resultShape;
   const DenseElementsAttr _lhs;
   const DenseElementsAttr _rhs;
-  const std::vector<int64_t> _lhsShape;
-  const std::vector<int64_t> _rhsShape;
-  const std::vector<size_t> _dimOffsets;
+  const ArrayRef<int64_t> _normResultShape;
+  const ArrayRef<int64_t> _normLhsShape;
+  const ArrayRef<int64_t> _normRhsShape;
+  const ArrayRef<size_t> _dimOffsets;
   const int64_t _M, _K, _N;
   std::vector<APInt> _resultStorage;
   std::vector<int64_t> _idxStack;
 };
+
 } // namespace
 
 DenseElementsAttr CreateMatMulIntegerOfConsts(
-    Builder &builder, Value resultValue, Attribute _lhs, Attribute _rhs) {
-  // Get the shape vectors of both operands and reverse them
-  DenseElementsAttr lhs = _lhs.cast<DenseElementsAttr>();
-  DenseElementsAttr rhs = _rhs.cast<DenseElementsAttr>();
-  std::vector<int64_t> lhsShape(lhs.getType().getShape());
-  std::reverse(lhsShape.begin(), lhsShape.end());
-  std::vector<int64_t> rhsShape(rhs.getType().getShape());
-  std::reverse(rhsShape.begin(), rhsShape.end());
-  const size_t resultNumRanks = std::max(lhsShape.size(), rhsShape.size());
-  // Extend the shorter shape with 1 to make them the same length, and reverse
-  // back
-  lhsShape.resize(resultNumRanks, 1);
-  std::reverse(lhsShape.begin(), lhsShape.end());
-  rhsShape.resize(resultNumRanks, 1);
-  std::reverse(rhsShape.begin(), rhsShape.end());
-
+    Builder &builder, Value resultValue, Attribute lhs, Attribute rhs) {
   ShapedType resultType = resultValue.getType().cast<ShapedType>();
-  ArrayRef<int64_t> resultShape = resultType.getShape();
-  assert(resultShape.size() == resultNumRanks);
-
-  for (size_t i = 0; i < resultNumRanks - 2; ++i) {
-    size_t lhsDim = lhsShape.at(i);
-    size_t rhsDim = rhsShape.at(i);
-    size_t expectedDim = std::max(lhsDim, rhsDim);
-    assert(lhsDim == rhsDim || lhsDim == 1 || rhsDim == 1);
-    assert(resultShape[i] == expectedDim && "Unexpected broadcast shape");
+  std::vector<APInt> result =
+      BroadcastMatMulCalculator::calc(resultType, lhs, rhs);
+  if (DEBUG) {
+    printVec("result", result);
   }
-
-  int64_t m = lhsShape.at(lhsShape.size() - 2);
-  int64_t k = lhsShape.back();
-  int64_t n = rhsShape.back();
-
-  BroadcastMatMulCalculator calculator(resultValue, resultType, resultShape,
-      lhs, rhs, std::move(lhsShape), std::move(rhsShape), m, k, n);
-  std::vector<APInt> result = calculator.calc();
-  return DenseElementsAttr::get(
-      resultValue.getType().cast<ShapedType>(), result);
+  return DenseElementsAttr::get(resultType, result);
 }
