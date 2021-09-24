@@ -111,10 +111,6 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   target.addIllegalOp<ONNXReduceSumSquareOp>();
   target.addIllegalOp<ONNXScalerOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
-  target.addDynamicallyLegalOp<ONNXSqueezeOp>(
-      [](ONNXSqueezeOp op) { return !isDenseONNXConstant(op.axes()); });
-  target.addDynamicallyLegalOp<ONNXUnsqueezeOp>(
-      [](ONNXUnsqueezeOp op) { return !isDenseONNXConstant(op.axes()); });
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);

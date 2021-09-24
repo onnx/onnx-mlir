@@ -313,6 +313,18 @@ func @test_sqrt() -> tensor<1x2xf32> {
 // CHECK-LABEL: @test_unsqueeze() -> tensor<2x1x1xf32>
 func @test_unsqueeze() -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[4.0, 16.0]> : tensor<2xf32>} : () -> tensor<2xf32>
+  %1 = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %2 = "onnx.Unsqueeze"(%0, %1) : (tensor<2xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%2) : (tensor<*xf32>) -> ()
+  // CHECK: {{.*}} = "onnx.Constant"() {value = dense<{{\[}}{{\[}}[4.000000e+00]{{\]}}, {{\[}}[1.600000e+01]{{\]}}{{\]}}> : tensor<2x1x1xf32>} : () -> tensor<2x1x1xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_unsqueezev11() -> tensor<2x1x1xf32>
+func @test_unsqueezev11() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[4.0, 16.0]> : tensor<2xf32>} : () -> tensor<2xf32>
   %1 = "onnx.UnsqueezeV11"(%0) {axes = [1, 2]} : (tensor<2xf32>) -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
   // CHECK: {{.*}} = "onnx.Constant"() {value = dense<{{\[}}{{\[}}[4.000000e+00]{{\]}}, {{\[}}[1.600000e+01]{{\]}}{{\]}}> : tensor<2x1x1xf32>} : () -> tensor<2x1x1xf32>
@@ -326,6 +338,19 @@ func @test_unsqueeze() -> tensor<*xf32> {
 
 // CHECK-LABEL: @test_squeeze() -> tensor<2xf32>
 func @test_squeeze() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[[[4.0]], [[16.0]]]> : tensor<2x1x1xf32>} : () -> tensor<2x1x1xf32>
+  %1 = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %2 = "onnx.Squeeze"(%0, %1) : (tensor<2x1x1xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%2) : (tensor<*xf32>) -> ()
+  // CHECK: [[RES:%.+]] = "onnx.Constant"() {value = dense<[4.000000e+00, 1.600000e+01]> : tensor<2xf32>} : () -> tensor<2xf32>
+  // CHECK: return [[RES]] : tensor<2xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Squeeze"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_squeezev11() -> tensor<2xf32>
+func @test_squeezev11() -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[[[4.0]], [[16.0]]]> : tensor<2x1x1xf32>} : () -> tensor<2x1x1xf32>
   %1 = "onnx.SqueezeV11"(%0) {axes = [1, 2]} : (tensor<2x1x1xf32>) -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()

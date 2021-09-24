@@ -1300,6 +1300,66 @@ LogicalResult ONNXReshapeOpShapeHelper::Compute(
 // ONNX Squeeze Op Shape Helper
 //===----------------------------------------------------------------------===//
 
+template <typename ShapeHelper, typename OperandAdaptor>
+LogicalResult ONNXSqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
+    OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  auto op = shapeHelper->op;
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Output dims of results.
+  DimsExpr outputDims;
+
+  // Get info about input data operand.
+  Value data = operandAdaptor.data();
+  MemRefBoundsIndexCapture dataBounds(data);
+  int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
+
+  // Get axis values. They are expected to be normalized before so that there
+  // is no negative values.
+  SmallVector<int64_t, 4> axes;
+  for (auto axisAttr : indexExprArray) {
+    int64_t axis = axisAttr.getLiteral();
+    assert(axis >= 0 && "Invalid axis");
+    axes.emplace_back(axis);
+  }
+
+  for (int i = 0; i < dataRank; ++i)
+    if (std::find(axes.begin(), axes.end(), i) == axes.end())
+      outputDims.emplace_back(dataBounds.getDim(i));
+
+  // Save the final result.
+  shapeHelper->dimsForOutput(0) = outputDims;
+
+  return success();
+}
+
+ONNXSqueezeOpShapeHelper::ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp)
+    : ONNXOpShapeHelper<ONNXSqueezeOp>(newOp) {}
+
+ONNXSqueezeOpShapeHelper::ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXSqueezeOp>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXSqueezeOpShapeHelper::Compute(
+    ONNXSqueezeOpAdaptor operandAdaptor) {
+  auto axes = op->axes();
+  SmallVector<IndexExpr, 4> indexExprArray;
+  if (auto axesConstOp = getONNXConstantOp(axes)) {
+    Operation *genericOp = reinterpret_cast<Operation *>(op);
+    ArrayValueIndexCapture axesCapture(genericOp, axes, fGetDenseVal, fLoadVal);
+    auto axesRank = axesConstOp.getType().cast<ShapedType>().getShape()[0];
+    axesCapture.getSymbolList(axesRank, indexExprArray);
+  } else if (!axes.getType().template isa<NoneType>()) {
+    llvm_unreachable("dynamic axes not yet supported");
+  }
+
+  return ONNXSqueezeOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
+}
+
 ONNXSqueezeV11OpShapeHelper::ONNXSqueezeV11OpShapeHelper(
     ONNXSqueezeV11Op *newOp)
     : ONNXOpShapeHelper<ONNXSqueezeV11Op>(newOp) {}
@@ -1313,7 +1373,27 @@ ONNXSqueezeV11OpShapeHelper::ONNXSqueezeV11OpShapeHelper(
 
 LogicalResult ONNXSqueezeV11OpShapeHelper::Compute(
     ONNXSqueezeV11OpAdaptor operandAdaptor) {
+  auto axesAttr = op->axes();
+  SmallVector<IndexExpr, 4> indexExprArray;
+  if (axesAttr.hasValue()) {
+    ArrayAttributeIndexCapture axesCapture(axesAttr.getValue());
+    auto axesRank = axesCapture.size();
+    for (unsigned i = 0; i < axesRank; ++i) {
+      indexExprArray.emplace_back(axesCapture.getLiteral(i));
+    }
+  }
+  return ONNXSqueezeOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Unsqueeze Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+template <typename ShapeHelper, typename OperandAdaptor>
+LogicalResult ONNXUnsqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
+    OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
   // Shape inference indicated by passing a null rewriter pointer.
+  auto op = shapeHelper->op;
   Operation *genericOp = reinterpret_cast<Operation *>(op);
 
   // Output dims of results.
@@ -1326,27 +1406,51 @@ LogicalResult ONNXSqueezeV11OpShapeHelper::Compute(
 
   // Get axis values. They are expected to be normalized before so that there
   // is no negative values.
-  ArrayAttr axisAttrs = op->axesAttr();
   SmallVector<int64_t, 4> axes;
-  for (auto axisAttr : axisAttrs.getValue()) {
-    int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
+  for (auto axisAttr : indexExprArray) {
+    int64_t axis = axisAttr.getLiteral();
     assert(axis >= 0 && "Invalid axis");
     axes.emplace_back(axis);
   }
 
-  for (int i = 0; i < dataRank; ++i)
-    if (std::find(axes.begin(), axes.end(), i) == axes.end())
-      outputDims.emplace_back(dataBounds.getDim(i));
+  int64_t outRank = dataRank + axes.size();
+  for (int i = 0, j = 0; i < outRank || j < dataRank; ++i)
+    if (std::find(axes.begin(), axes.end(), i) != axes.end())
+      outputDims.emplace_back(LiteralIndexExpr(1));
+    else
+      outputDims.emplace_back(dataBounds.getDim(j++));
 
   // Save the final result.
-  dimsForOutput(0) = outputDims;
+  shapeHelper->dimsForOutput(0) = outputDims;
 
   return success();
 }
 
-//===----------------------------------------------------------------------===//
-// ONNX Unsqueeze Op Shape Helper
-//===----------------------------------------------------------------------===//
+ONNXUnsqueezeOpShapeHelper::ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp)
+    : ONNXOpShapeHelper<ONNXUnsqueezeOp>(newOp) {}
+
+ONNXUnsqueezeOpShapeHelper::ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXUnsqueezeOp>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXUnsqueezeOpShapeHelper::Compute(
+    ONNXUnsqueezeOpAdaptor operandAdaptor) {
+  auto axes = op->axes();
+  SmallVector<IndexExpr, 4> indexExprArray;
+  if (auto axesConstOp = getONNXConstantOp(axes)) {
+    Operation *genericOp = reinterpret_cast<Operation *>(op);
+    ArrayValueIndexCapture axesCapture(genericOp, axes, fGetDenseVal, fLoadVal);
+    auto axesRank = axesConstOp.getType().cast<ShapedType>().getShape()[0];
+    axesCapture.getSymbolList(axesRank, indexExprArray);
+  } else if (!axes.getType().template isa<NoneType>()) {
+    llvm_unreachable("dynamic axes not yet supported");
+  }
+
+  return ONNXUnsqueezeOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
+}
 
 ONNXUnsqueezeV11OpShapeHelper::ONNXUnsqueezeV11OpShapeHelper(
     ONNXUnsqueezeV11Op *newOp)
@@ -1361,36 +1465,12 @@ ONNXUnsqueezeV11OpShapeHelper::ONNXUnsqueezeV11OpShapeHelper(
 
 LogicalResult ONNXUnsqueezeV11OpShapeHelper::Compute(
     ONNXUnsqueezeV11OpAdaptor operandAdaptor) {
-  // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
-  // Output dims of results.
-  DimsExpr outputDims;
-
-  // Get info about input data operand.
-  Value data = operandAdaptor.data();
-  MemRefBoundsIndexCapture dataBounds(data);
-  int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
-
-  // Get axis values. They are expected to be normalized before so that there
-  // is no negative values.
-  ArrayAttr axisAttrs = op->axesAttr();
-  SmallVector<int64_t, 4> axes;
-  for (auto axisAttr : axisAttrs.getValue()) {
-    int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
-    assert(axis >= 0 && "Invalid axis");
-    axes.emplace_back(axis);
+  auto axesAttr = op->axes();
+  SmallVector<IndexExpr, 4> indexExprArray;
+  ArrayAttributeIndexCapture axesCapture(axesAttr);
+  auto axesRank = axesCapture.size();
+  for (unsigned i = 0; i < axesRank; ++i) {
+    indexExprArray.emplace_back(axesCapture.getLiteral(i));
   }
-
-  int64_t outRank = dataRank + axes.size();
-  for (int i = 0, j = 0; i < outRank || j < dataRank; ++i)
-    if (std::find(axes.begin(), axes.end(), i) != axes.end())
-      outputDims.emplace_back(LiteralIndexExpr(1));
-    else
-      outputDims.emplace_back(dataBounds.getDim(j++));
-
-  // Save the final result.
-  dimsForOutput(0) = outputDims;
-
-  return success();
+  return ONNXUnsqueezeOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
 }
