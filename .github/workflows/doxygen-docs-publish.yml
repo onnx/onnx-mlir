@@ -1,0 +1,69 @@
+name: GitHub Action Doxygen docs
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout onnx-mlir source
+      uses: actions/checkout@v2
+      with:
+        path: onnx-mlir
+
+    - name: checkout gh-pages branch
+      uses: actions/checkout@v2
+      with:
+        ref:  gh-pages
+        path: gh-pages
+
+    - name: install doxygen and rsync
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y doxygen rsync
+
+    - name: copy docs into gh-pages
+      run: |
+        # Delete everything in gh-pages that are not in docs but keep .git*
+        rsync -ahvP --delete --filter 'protect .git*' \
+              $GITHUB_WORKSPACE/onnx-mlir/docs/ $GITHUB_WORKSPACE/gh-pages/
+
+    - name: doxygen API html
+      run: |
+        mkdir -p $GITHUB_WORKSPACE/gh-pages/doxygen_html
+
+        (cat  $GITHUB_WORKSPACE/onnx-mlir/Doxyfile; \
+         echo INPUT=$GITHUB_WORKSPACE/onnx-mlir/include/OnnxMlirRuntime.h; \
+         echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OnnxMlirRuntime) | \
+        doxygen -
+        # Add Jekyll front matter to pass the html through Jekyll processing
+        sed -i -e '1s/^/---\ntitle: $title\nlayout: default\n---\n/' \
+            $GITHUB_WORKSPACE/gh-pages/doxygen_html/OnnxMlirRuntime/index.html
+
+        (cat  $GITHUB_WORKSPACE/onnx-mlir/Doxyfile; \
+         echo INPUT=$GITHUB_WORKSPACE/onnx-mlir/include/onnx-mlir/Runtime/OMTensor.h; \
+         echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensor) | \
+        doxygen -
+        # Add Jekyll front matter to pass the html through Jekyll processing
+        sed -i -e '1s/^/---\ntitle: $title\nlayout: default\n---\n/' \
+            $GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensor/_o_m_tensor_8h.html
+
+        (cat  $GITHUB_WORKSPACE/onnx-mlir/Doxyfile; \
+         echo INPUT=$GITHUB_WORKSPACE/onnx-mlir/include/onnx-mlir/Runtime/OMTensorList.h; \
+         echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensorList) | \
+        doxygen -
+        # Add Jekyll front matter to pass the html through Jekyll processing
+        sed -i -e '1s/^/---\ntitle: $title\nlayout: default\n---\n/' \
+            $GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensorList/_o_m_tensor_list_8h.html
+
+    - name: commit updated gh-pages
+      run: |
+        cd $GITHUB_WORKSPACE/gh-pages
+        git config user.email "onnxmlir@onnx.ai"
+        git config user.name "Doxygen Bot (GitHub Action)"
+        git add .
+        # Don't fail if the branch is already up-to-date
+        git commit -m "Push docs and doxygen updates into gh-pages branch" || true
+        git push
