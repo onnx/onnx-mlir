@@ -22,6 +22,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Rewrite/PatternApplicator.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/SCF/SCF.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -174,8 +175,8 @@ public:
 /// Populate the pattern list.
 void collectOutlinePatterns(RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.add<OutlinePattern>("onnx.Gemm",/*benefit=*/1, ctx);
-  patterns.add<OutlinePattern>("onnx.Sigmoid",/*benefit=*/1, ctx);
-  patterns.add<OutlinePattern>("onnx.Flatten",/*benefit=*/1, ctx);
+  //patterns.add<OutlinePattern>("onnx.Sigmoid",/*benefit=*/1, ctx);
+  //patterns.add<OutlinePattern>("onnx.Flatten",/*benefit=*/1, ctx);
   //patterns.add<OutlinePattern>(/*benefit=*/1, ctx);
 }
 
@@ -238,32 +239,31 @@ op->walk([&](Operation *op){
       auto opName = getOperationName(op);
 
       const std::string funcName=opName+std::to_string(outlineCount);
-      const llvm::StringRef name=funcName;
+      //const llvm::StringRef name=funcName;
       ++outlineCount;
       std::cout << "   entered genOutlinedFunction: funcName=" << funcName << std::endl;
 
       PatternRewriter::InsertionGuard insertGuard(rewriter);
-      llvm::SmallVector<Value, 4> retVals;      
-      llvm::SmallVector<Value, 4> inVals;
       auto inputVals = op->getOperands();
       auto results = op->getResults();
-      auto resType = results[0].getType();
-      OperandRange oprange(op);
-      TypeRange trange(oprange);
+      std::cout << "      number of results " << results.size() << "  number of inputs " << inputVals.size() << std::endl;
       TypeRange sgTRange(results);
-      auto sgOp = rewriter.create<ONNXSubgraphOp>(loc,sgTRange,inVals);
-      //auto sgOp = rewriter.create<ONNXSubgraphOp>(loc,resType,inputVals);
-      rewriter.setInsertionPointToStart(op->getParentOfType<ModuleOp>().getBody());
-      FunctionType ftype =
-         //FunctionType::get(ctx, values.getTypes(), ifOp.getResultTypes());
-        FunctionType::get(context, inputVals.getTypes(),sgTRange);
-      auto outlinedFunc = rewriter.create<FuncOp>(loc, name,//llvmFnType);
-       /*type=*/ftype);
-      // /*type=*/rewriter.getFunctionType({}, {}));
-      // Create and set insertion point to entry block.
+      auto sgOp = rewriter.create<ONNXSubgraphOp>(loc,sgTRange,inputVals);
+      Region sgRegion(sgOp.getOperation());
       Block *sgBlock = new Block();
-      outlinedFunc.body().push_back(sgBlock);
-      sgBlock->addArguments(sgTRange);
+      sgRegion.push_back(sgBlock);
+      //      auto sgBlock = sgRegion.emplaceBlock();
+      //sgOp.body().push_back(sgBlock);
+
+      rewriter.setInsertionPointToStart(op->getParentOfType<ModuleOp>().getBody());
+      FunctionType ftype = FunctionType::get(context, inputVals.getTypes(),sgTRange);
+      auto outlinedFunc = rewriter.create<FuncOp>(loc, funcName, /*type=*/ftype);
+
+      // Create and set insertion point to entry block.
+      Block *funcBlock = new Block();
+      outlinedFunc.body().push_back(funcBlock);
+      for (auto arg : inputVals.getTypes())
+         funcBlock->addArgument(arg);
       rewriter.setInsertionPointToStart(&outlinedFunc.body().back());
      BlockAndValueMapping bvm;
      for (auto it : llvm::zip(inputVals, outlinedFunc.getArguments()))
@@ -278,7 +278,12 @@ op->walk([&](Operation *op){
      //b.setInsertionPointToEnd(&ifOrElseRegion.front());
      //Operation *call = b.create<CallOp>(loc, outlinedFunc, values);
      //b.create<scf::YieldOp>(loc, call->getResults());
-       std::cout << "number of results for sgOp is " << sgOp.getNumResults();
+     
+      rewriter.setInsertionPointToStart(sgBlock);
+      Operation *call = rewriter.create<CallOp>(loc, outlinedFunc, inputVals);
+      rewriter.create<scf::YieldOp>(loc, call->getResults());
+
+       std::cout << "number of results for sgOp is " << sgOp.getNumResults() << std::endl;
 
       op->replaceAllUsesWith(sgOp);
       rewriter.eraseOp(op);
