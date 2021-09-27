@@ -108,14 +108,14 @@ def ONNXSubgraphOp:ONNX_Op<"Subgraph",
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$input);
   let results = (outs Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$outputs);
-  let regions = (region SizedRegion<1>:$body);
+  //let regions = (region SizedRegion<1>:$body);
   let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return -1;
-    }
-    static int getNumberOfResults() {
-      return -1;
-    }
+//    static int getNumberOfOperands() {
+//      return -1;
+//    }
+//    static int getNumberOfResults() {
+//      return -1;
+//    }
     static std::vector<int> getTypeMap() {
       return {20};
     }
