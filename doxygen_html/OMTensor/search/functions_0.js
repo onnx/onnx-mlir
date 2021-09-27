@@ -1,0 +1,19 @@
+var searchData=
+[
+  ['omtensorcreate_19',['omTensorCreate',['../_o_m_tensor_8h.html#ae7465303dcf4e6b090f6ef7bf16bbe6a',1,'OMTensor.h']]],
+  ['omtensorcreateempty_20',['omTensorCreateEmpty',['../_o_m_tensor_8h.html#a5e7b452b053fcdcbbb0d85deed59a314',1,'OMTensor.h']]],
+  ['omtensorcreatewithownership_21',['omTensorCreateWithOwnership',['../_o_m_tensor_8h.html#a91ae8bbc685f94d70b9ed2f64ea76e15',1,'OMTensor.h']]],
+  ['omtensordestroy_22',['omTensorDestroy',['../_o_m_tensor_8h.html#a425a838c94082f3c6287c80a658e5d31',1,'OMTensor.h']]],
+  ['omtensorgetbuffersize_23',['omTensorGetBufferSize',['../_o_m_tensor_8h.html#ad4265dec5bb16b5a525494f2741c8c90',1,'OMTensor.h']]],
+  ['omtensorgetdataptr_24',['omTensorGetDataPtr',['../_o_m_tensor_8h.html#aa0231de50b95c22735f7f792765302ad',1,'OMTensor.h']]],
+  ['omtensorgetdatatype_25',['omTensorGetDataType',['../_o_m_tensor_8h.html#afbd6de424e6935d527708feaf9969047',1,'OMTensor.h']]],
+  ['omtensorgetnumelems_26',['omTensorGetNumElems',['../_o_m_tensor_8h.html#a5778985007a93f2d37283e317f647908',1,'OMTensor.h']]],
+  ['omtensorgetowning_27',['omTensorGetOwning',['../_o_m_tensor_8h.html#a51c25c890f1c851fae0646dc1fb6c89f',1,'OMTensor.h']]],
+  ['omtensorgetrank_28',['omTensorGetRank',['../_o_m_tensor_8h.html#aa88197a5adfc5735e3f327d46b925650',1,'OMTensor.h']]],
+  ['omtensorgetshape_29',['omTensorGetShape',['../_o_m_tensor_8h.html#a1059ff3511d2f5af258c6feec141b5e2',1,'OMTensor.h']]],
+  ['omtensorgetstrides_30',['omTensorGetStrides',['../_o_m_tensor_8h.html#a4b5e2d8b4deaa026bbcf436cb459bde0',1,'OMTensor.h']]],
+  ['omtensorsetdatatype_31',['omTensorSetDataType',['../_o_m_tensor_8h.html#a7345ee1bac3a3d8f6040fc272ad72e1e',1,'OMTensor.h']]],
+  ['omtensorsetshape_32',['omTensorSetShape',['../_o_m_tensor_8h.html#a4f8988bba03753b74375441fd942619b',1,'OMTensor.h']]],
+  ['omtensorsetstrides_33',['omTensorSetStrides',['../_o_m_tensor_8h.html#a5814f2aebd685f424a5cc40aa9daef96',1,'OMTensor.h']]],
+  ['omtensorsetstrideswithpyarraystrides_34',['omTensorSetStridesWithPyArrayStrides',['../_o_m_tensor_8h.html#aec08d2fb818b6b958229535db323653a',1,'OMTensor.h']]]
+];

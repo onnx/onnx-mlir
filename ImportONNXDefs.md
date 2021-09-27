@@ -3,7 +3,7 @@
 # Import ONNX specifications into ONNX-MLIR
 
 ONNX specifications are defined under `onnx/defs` directory in the ONNX project repository. 
-There is a python script onnx/defs/gen_onnx_mlir.py that automatically generate documents about operations in ONNX (docs/Operations.md). 
+There is a python script onnx/defs/gen_onnx_mlir.py that automatically generates documents about operations in ONNX (docs/Operations.md). 
 ONNX-MLIR modified this script to import ONNX specifications into ONNX-MLIR. 
 There are two files generated for ONNX MLIR with the modified gen_onnx_mlir.py:
 
@@ -11,8 +11,8 @@ There are two files generated for ONNX MLIR with the modified gen_onnx_mlir.py:
 2. `src/Builder/OpBuildTable.inc`: C++ code for ONNX-MLIR frontend to import operation nodes from ONNX model. `src/Builder/FrontendDialectTransformer.cpp` includes this file.
 
 ## How to use the script
-1. Install [ONNX](https://github.com/onnx/onnx). We highly recommend that you use the one located at `third_party/onnx.`
-2. Make target `OMONNXOpsIncTranslation`. For example,
+1. Install [ONNX](https://github.com/onnx/onnx). We highly recommend that you use the one located at `third_party/onnx.` On many systems, it can be installed by executing the `pip install -e third_party/onnx` command in the top onnx-mlir directory.
+2. Make target `OMONNXOpsIncTranslation`. For example, run the command below in your onnx-mlir build directory.
 ```
 make OMONNXOpsIncTranslation
 ````
@@ -35,5 +35,11 @@ Several tables are defined at the beginning of the script:
 
 ## Version of Operations
 As stated previous, we try to support the latest version of ONNX operations. The version of each operation currently supported is recorded in gen_onnx_mlir.py. This mechanism provides some stability in version. To check the changes in version, run gen_onnx_mlir.py with flag "--check-version" and the changes will be reported. To move to a newer version, manually update the version dictionary in the script.
-Supporting mulitple versions of one operation is not available yet.
+
+### Support Mulitple versions
+To support multiple versions of an op, the selected version should be added in the version dictionary in gen_onnx_mlir.py. For example, there are two versions (opset), 11 and 13, forReduceSum is supported. The corresponding entry in version_dic is `'ReduceSum': [13, 11]`.
+
+In onnx dialect, the op for the top version has no version in the op name, while other version with name followed by 'V' and version number. For example, ReduceSum of opset 13 will be `ONNXReduceSumOp`, while ReduceSum of opset 11 is 'ONNXReduceSumV11Op`. Since most of onnx op are compatible when upgraded to higher version, we can keep the name of the operation in the dialect and just update version_dict in gen_onnx_mlir.py without touching the code in onnx-mlir.
+
+When a model is imported, the highest version which is not higher than the next available version is used. For the example of ReduceSum, if the opset is 12, ONNXReduceSumV11Op is chosen.  
 
