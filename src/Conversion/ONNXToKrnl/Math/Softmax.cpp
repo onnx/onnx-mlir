@@ -25,11 +25,10 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
 
   // Compute the maximum value along axis.
   ValueRange maxLoops = createKrnl.defineLoops(numberOfLoops);
-  createKrnl.iterateIE(maxLoops, maxLoops, Lbs, Ubs, {},
-      [&](KrnlBuilder &createKrnl, ValueRange args) {
+  createKrnl.iterateIE(maxLoops, maxLoops, Lbs, Ubs,
+      [&](KrnlBuilder &createKrnl, ValueRange maxIndices) {
         MathBuilder createMath(createKrnl);
         IndexExprScope ieScope(createKrnl);
-        ValueRange maxIndices = createKrnl.getInductionVarValue(maxLoops);
 
         // Get induction variables.
         SmallVector<Value, 4> maxLoopIVs;
@@ -57,11 +56,10 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
 
   // Compute the sum of all values along axis.
   ValueRange sumLoops = createKrnl.defineLoops(numberOfLoops);
-  createKrnl.iterateIE(sumLoops, sumLoops, Lbs, Ubs, {},
-      [&](KrnlBuilder &createKrnl, ValueRange args) {
+  createKrnl.iterateIE(sumLoops, sumLoops, Lbs, Ubs,
+      [&](KrnlBuilder &createKrnl, ValueRange sumIndices) {
         MathBuilder createMath(createKrnl);
         IndexExprScope ieScope(createKrnl);
-        ValueRange sumIndices = createKrnl.getInductionVarValue(sumLoops);
 
         // Get induction variables.
         SmallVector<Value, 4> sumLoopIVs;
@@ -94,12 +92,10 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
 
   // Compute the softmax.
   ValueRange softmaxLoops = createKrnl.defineLoops(numberOfLoops);
-  createKrnl.iterateIE(softmaxLoops, softmaxLoops, Lbs, Ubs, {},
-      [&](KrnlBuilder &createKrnl, ValueRange args) {
+  createKrnl.iterateIE(softmaxLoops, softmaxLoops, Lbs, Ubs,
+      [&](KrnlBuilder &createKrnl, ValueRange softmaxIndices) {
         MathBuilder createMath(createKrnl);
         IndexExprScope ieScope(createKrnl);
-        ValueRange softmaxIndices =
-            createKrnl.getInductionVarValue(softmaxLoops);
 
         // Get induction variables.
         SmallVector<Value, 4> softmaxLoopIVs;
@@ -159,10 +155,9 @@ static void emitInstForSoftmaxBeforeV13(ConversionPatternRewriter &rewriter,
     SmallVector<IndexExpr, 4> outerUbs;
     for (int i = 0; i < axis; ++i)
       outerUbs.emplace_back(inputBounds.getDim(i));
-    createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs, {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
+    createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
+        [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           IndexExprScope ieScope(createKrnl);
-          ValueRange outerIndices = createKrnl.getInductionVarValue(outerLoops);
 
           // Reset accumulators.
           createKrnl.store(zero, sumOp, ArrayRef<Value>{});
@@ -205,10 +200,9 @@ static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
       outerUbs.emplace_back(inputBounds.getDim(i));
 
   // Emit outer loops.
-  createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs, {},
-      [&](KrnlBuilder &createKrnl, ValueRange args) {
+  createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
+      [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
         IndexExprScope ieScope(createKrnl);
-        ValueRange outerIndices = createKrnl.getInductionVarValue(outerLoops);
 
         // Reset accumulators.
         createKrnl.store(zero, sumOp, ArrayRef<Value>{});

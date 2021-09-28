@@ -330,10 +330,9 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
     htUbs.emplace_back(createMemRef.dim(Ht, r));
   }
   ValueRange loops = createKrnl.defineLoops(htRank);
-  createKrnl.iterate(loops, loops, htLbs, htUbs, {},
-      [&](KrnlBuilder &createKrnl, ValueRange args) {
+  createKrnl.iterate(loops, loops, htLbs, htUbs,
+      [&](KrnlBuilder &createKrnl, ValueRange indices) {
         MathBuilder createMath(createKrnl);
-        ValueRange indices = createKrnl.getInductionVarValue(loops);
         Value bs(indices[0]), hs(indices[1]);
         // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
         Value XtWiVal = createKrnl.load(XtWi, indices);

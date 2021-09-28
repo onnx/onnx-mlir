@@ -190,9 +190,8 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
     htUbs.emplace_back(createMemRef.dim(ht, r));
   }
   ValueRange loops = createKrnl.defineLoops(htRank);
-  createKrnl.iterate(loops, loops, htLbs, htUbs, {},
-      [&](KrnlBuilder &createKrnl, ValueRange args) {
-        ValueRange indices = createKrnl.getInductionVarValue(loops);
+  createKrnl.iterate(loops, loops, htLbs, htUbs,
+      [&](KrnlBuilder &createKrnl, ValueRange indices) {
         Value hiddenVal = zero;
         if (!isNoneType(initialH))
           hiddenVal = createKrnl.load(initialH, indices);
@@ -231,9 +230,8 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
       ubs.emplace_back(createMemRef.dim(forwardVal, r));
     }
     ValueRange loops = createKrnl.defineLoops(2);
-    createKrnl.iterate(loops, loops, lbs, ubs, {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
-          ValueRange indices = createKrnl.getInductionVarValue(loops);
+    createKrnl.iterate(loops, loops, lbs, ubs,
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
           Value b(indices[0]), h(indices[1]);
           // Forward.
           Value val = createKrnl.load(forwardVal, {b, h});
@@ -335,9 +333,8 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
     ubs.emplace_back(createMemRef.dim(sliceX, r));
   }
   ValueRange loops = createKrnl.defineLoops(2);
-  createKrnl.iterate(loops, loops, lbs, ubs, {},
-      [&](KrnlBuilder &createKrnl, ValueRange args) {
-        ValueRange indices = createKrnl.getInductionVarValue(loops);
+  createKrnl.iterate(
+      loops, loops, lbs, ubs, [&](KrnlBuilder &createKrnl, ValueRange indices) {
         Value b(indices[0]), i(indices[1]);
         Value val = createKrnl.load(X, {timestepIV, b, i});
         createKrnl.store(val, sliceX, {b, i});
