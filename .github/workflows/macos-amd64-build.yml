@@ -1,9 +1,9 @@
-name: Build x86 onnx-mlir on macOS
+name: GitHub Action MacOS amd64
 
 on: [push, pull_request]
 
 jobs:
-  build-x86-onnx-mlir-macOS:
+  build:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2

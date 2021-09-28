@@ -437,24 +437,34 @@ ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) {
 }
 
 void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
-    ValueRange lbs, ValueRange ubs, ValueRange iterArgs,
-    function_ref<void(KrnlBuilder &createKrnl, ValueRange args)>
+    ValueRange lbs, ValueRange ubs,
+    function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
         bodyBuilderFn) {
-  b.create<KrnlIterateOp>(loc, originalLoops, optimizedLoops, lbs, ubs,
-      iterArgs, [&](ImplicitLocOpBuilder &lb, ValueRange args) {
-        KrnlBuilder kb(lb);
-        bodyBuilderFn(kb, args);
+  // Check that originalLoops, lbs, and ubs have the same rank.
+  assert(originalLoops.size() == lbs.size() && "expected same rank");
+  assert(originalLoops.size() == ubs.size() && "expected same rank");
+  ValueRange empty;
+  b.create<KrnlIterateOp>(loc, originalLoops, optimizedLoops, lbs, ubs, empty,
+      [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+        KrnlBuilder createKrnl(lb);
+        ValueRange indices = createKrnl.getInductionVarValue(optimizedLoops);
+        bodyBuilderFn(createKrnl, indices);
       });
 }
 
 void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
-    ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
-    function_ref<void(KrnlBuilder &createKrnl, ValueRange args)>
+    ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
+    function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
         bodyBuilderFn) {
-  b.create<KrnlIterateOp>(loc, originalLoops, optimizedLoops, lbs, ubs,
-      iterArgs, [&](ImplicitLocOpBuilder &lb, ValueRange args) {
-        KrnlBuilder kb(lb);
-        bodyBuilderFn(kb, args);
+  // Check that originalLoops, lbs, and ubs have the same rank.
+  assert(originalLoops.size() == lbs.size() && "expected same rank");
+  assert(originalLoops.size() == ubs.size() && "expected same rank");
+  ValueRange empty;
+  b.create<KrnlIterateOp>(loc, originalLoops, optimizedLoops, lbs, ubs, empty,
+      [&](ImplicitLocOpBuilder &lb, ValueRange args) {
+        KrnlBuilder createKrnl(lb);
+        ValueRange indices = createKrnl.getInductionVarValue(optimizedLoops);
+        bodyBuilderFn(createKrnl, indices);
       });
 }
 

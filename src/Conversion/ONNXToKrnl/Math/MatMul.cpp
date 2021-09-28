@@ -38,9 +38,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ValueRange outerLoops = createKrnl.defineLoops(outerloopNum);
     SmallVector<IndexExpr, 4> outerLbs(outerloopNum, LiteralIndexExpr(0));
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs,
-        shapeHelper.dimsForOutput(0), {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
-          ValueRange outerIndices = createKrnl.getInductionVarValue(outerLoops);
+        shapeHelper.dimsForOutput(0),
+        [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           ImplicitLocOpBuilder lb(createKrnl.getLoc(), createKrnl.getBuilder());
           MemRefBuilder createMemRef(createKrnl);
           // Single scalar, no need for default alignment.
@@ -52,10 +51,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           ValueRange innerLoop = lb.create<KrnlDefineLoopsOp>(1).getResults();
           Value innerUb = shapeHelper.aDims[aRank - 1].getValue();
           Value izero = lb.create<ConstantIndexOp>(0);
-          createKrnl.iterate(innerLoop, innerLoop, {izero}, {innerUb}, {},
-              [&](KrnlBuilder &createKrnl, ValueRange args) {
-                ValueRange innerIndex =
-                    createKrnl.getInductionVarValue(innerLoop);
+          createKrnl.iterate(innerLoop, innerLoop, {izero}, {innerUb},
+              [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
                 Value k = innerIndex[0];
                 SmallVector<Value, 4> aAccessFct, bAccessFct;
                 for (int i = 0; i < aRank; ++i) {
@@ -119,9 +116,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Initialize alloc/C to zero.
     ValueRange zLoop = createKrnl.defineLoops(2);
-    createKrnl.iterate(zLoop, zLoop, {zero, zero}, {I, J}, {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
-          ValueRange indices = createKrnl.getInductionVarValue(zLoop);
+    createKrnl.iterate(zLoop, zLoop, {zero, zero}, {I, J},
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
           createKrnl.store(zeroVal, alloc, indices);
         });
 
@@ -170,8 +166,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value kk1(kRegBlock[0]), kk2(kRegBlock[1]);
     createKrnl.permute({ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
     createKrnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
-        {I, J, K}, {}, [&](KrnlBuilder &createKrnl, ValueRange args) {
-          ValueRange indices = createKrnl.getInductionVarValue({ii1, jj1, kk1});
+        {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange indices) {
           Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
           createKrnl.matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},
               {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},

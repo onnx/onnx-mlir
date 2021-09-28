@@ -282,14 +282,16 @@ struct KrnlBuilder : public DialectBuilder {
   void permute(ValueRange loops, ArrayRef<int64_t> map);
   ValueRange getInductionVarValue(ValueRange loops);
 
+  // Lambda passes loop indices as 2nd parameter.
   void iterate(ValueRange originalLoops, ValueRange optimizedLoops,
-      ValueRange lbs, ValueRange ubs, ValueRange iterArgs,
-      function_ref<void(KrnlBuilder &createKrnl, ValueRange args)>
+      ValueRange lbs, ValueRange ubs,
+      function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
           bodyBuilderFn);
 
+  // Lambda passes loop indices as 2nd parameter.
   void iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
-      ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
-      function_ref<void(KrnlBuilder &createKrnl, ValueRange args)>
+      ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
+      function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
           bodyBuilderFn);
 
   void memcpy(Value dest, Value src, Value size);
