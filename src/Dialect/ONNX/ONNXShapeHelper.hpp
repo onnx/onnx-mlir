@@ -458,3 +458,13 @@ struct ONNXExpandOpShapeHelper
   LogicalResult computeShape(ONNXExpandOpAdaptor operandAdaptor);
   ONNXExpandOp *expandOp;
 };
+
+// Shape for OneHotOp.
+struct ONNXOneHotOpShapeHelper : public ONNXOpShapeHelper<ONNXOneHotOp> {
+  ONNXOneHotOpShapeHelper(ONNXOneHotOp *newOp);
+  ONNXOneHotOpShapeHelper(ONNXOneHotOp *newOp, OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult ComputeShape(ONNXOneHotOpAdaptor operandAdaptor);
+};

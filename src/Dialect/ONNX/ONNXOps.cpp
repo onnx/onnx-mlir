@@ -3729,7 +3729,23 @@ LogicalResult ONNXNotOp::inferShapes(
 
 LogicalResult ONNXOneHotOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Cannot infer shape if no shape exists.
+  if (!indices().getType().isa<RankedTensorType>())
+    return success();
+
+  ONNXOneHotOpShapeHelper shapeHelper(this);
+  ONNXOneHotOpAdaptor operandAdaptor(*this);
+  if (failed(shapeHelper.ComputeShape(operandAdaptor)))
+    return emitError("Failed to scan OneHot parameters successfully");
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+
+  auto valuesTensorTy = values().getType().cast<RankedTensorType>();
+  getResult().setType(
+      RankedTensorType::get(outputDims, valuesTensorTy.getElementType()));
+
+  return success();
 }
 
 LogicalResult ONNXRandomNormalOp::inferShapes(
