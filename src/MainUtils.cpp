@@ -535,6 +535,7 @@ void processInputFile(string inputFilename, mlir::MLIRContext &context,
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
+    options.preserveLocations = preserveLocations;
     ImportFrontendModelFile(inputFilename, context, module, options);
   } else {
     LoadMLIR(inputFilename, context, module);
@@ -652,7 +653,7 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
 
-  if (keepFiles(KeepFilesOfType::MLIR)) {
+  if (keepFiles(KeepFilesOfType::MLIR) || preserveLocations) {
     outputCode(module, outputBaseName, ".input.mlir");
   }
 

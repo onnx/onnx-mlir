@@ -53,6 +53,8 @@ struct ImportOptions {
   //   - (arg0: tensor<3x4x5xf32>, arg1: tensor<10x5xf32>)
   //
   std::string shapeInformation = "";
+  bool preserveLocations = false;
+  std::string locationFileName = "";
 };
 
 /*!
