@@ -79,7 +79,10 @@ public:
 
     // Initial the line count for debug
     // There is a line for Map and module before the starting function
-    lineCounter_ = 3;
+    if (options_.preserveLocations)
+      lineCounter_ = 3;
+    else
+      lineCounter_ = 2;
   }
 
   ModuleOp ImportONNXModel(
@@ -186,7 +189,7 @@ private:
   int lineCounter_;
 
   Location ONNXLoc() {
-    if (options_.preserveLocations) {
+    if (options_.addLocationInfo) {
       return FileLineColLoc::get(
           &context_, options_.locationFileName, lineCounter_++, 0);
     } else {

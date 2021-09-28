@@ -95,6 +95,14 @@ llvm::cl::opt<string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
     llvm::cl::value_desc("<llvm cpu value>"), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
 
+enum LocationInfoSource { BuilderLoc };
+
+llvm::cl::opt<LocationInfoSource> addLocationInfo(
+    llvm::cl::desc("Choose Location Info for Op:"),
+    llvm::cl::values(
+        clEnumVal(BuilderLoc, "Add Location info when onnx model is imported")),
+    llvm::cl::cat(OnnxMlirOptions));
+
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
 enum class KeepFilesOfType { All, MLIR, Bitcode, Object, None };
@@ -535,6 +543,8 @@ void processInputFile(string inputFilename, mlir::MLIRContext &context,
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
+    options.addLocationInfo = (addLocationInfo == BuilderLoc);
+    ;
     options.preserveLocations = preserveLocations;
     ImportFrontendModelFile(inputFilename, context, module, options);
   } else {
@@ -653,7 +663,7 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
 
-  if (keepFiles(KeepFilesOfType::MLIR) || preserveLocations) {
+  if (keepFiles(KeepFilesOfType::MLIR) || addLocationInfo == BuilderLoc) {
     outputCode(module, outputBaseName, ".input.mlir");
   }
 
