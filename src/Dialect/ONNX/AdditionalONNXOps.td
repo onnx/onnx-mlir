@@ -22,6 +22,21 @@ def ONNXCustomOp:ONNX_Op<"Custom",
   }];
 }
 
+def YieldOp : ONNX_Op<"yield", [NoSideEffect, ReturnLike, Terminator,
+                               ParentOneOf<["ONNXSubgraphOp"]>]> {
+  let summary = "subgraph yield and termination operation";
+  let description = [{
+    "onnx.yield" yields an SSA value from the ONNX dialect subgraph region and
+    terminates the region.
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$results);
+  let builders = [OpBuilder<(ins), [{ /* nothing to do */ }]>];
+
+  let assemblyFormat =
+      [{  attr-dict ($results^ `:` type($results))? }];
+}
+
 def ONNXSubgraphOp:ONNX_Op<"Subgraph",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface" >]> {
   let summary = "ONNX Subgraph operation";
