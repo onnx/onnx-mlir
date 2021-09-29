@@ -12,7 +12,17 @@ from collections import OrderedDict
 
 # Command arguments.
 parser = argparse.ArgumentParser()
-parser.add_argument('model_path', type=str, help="Path to the ONNX model.")
+parser.add_argument('model_path', type=str, help="Path to the ONNX model")
+group = parser.add_mutually_exclusive_group()
+group.add_argument('-o',
+                   metavar='PATH',
+                   type=str,
+                   help="Save the generated shared library of the model")
+group.add_argument('-s',
+                   metavar='PATH',
+                   type=str,
+                   help="Use the generated shared library for inference,"
+                   " and the ONNX model will not be re-compiled")
 parser.add_argument('--print_input',
                     action='store_true',
                     help="Print out inputs")
@@ -200,18 +210,32 @@ def main():
     with tempfile.TemporaryDirectory() as temp_dir:
         print("Temporary directory has been created at {}".format(temp_dir))
 
-        print("Compiling the model ...")
-        # Save modified model & invoke onnx-mlir to compile it.
-        temp_model_path = os.path.join(temp_dir, "model.onnx")
-        onnx.save(model, temp_model_path)
-        command_str = ONNX_MLIR
-        if args.compile_args:
-            command_str += " " + args.compile_args
-        command_str += " " + temp_model_path
-        start = time.perf_counter()
-        execute_commands(command_str)
-        end = time.perf_counter()
-        print("  took ", end - start, " seconds.\n")
+        shared_lib_path = ""
+        # If a shared library is given, use it without compiling the ONNX model.
+        # Otherwise, compile the ONNX model.
+        if (args.s):
+            shared_lib_path = args.s
+        else:
+            print("Compiling the model ...")
+            # Save modified model & invoke onnx-mlir to compile it.
+            temp_model_path = os.path.join(temp_dir, "model.onnx")
+            shared_lib_path = os.path.join(temp_dir, "model.so")
+            onnx.save(model, temp_model_path)
+            command_str = ONNX_MLIR
+            if args.compile_args:
+                command_str += " " + args.compile_args
+            command_str += " " + temp_model_path
+            # command_str += " -o " + shared_lib_path
+            start = time.perf_counter()
+            execute_commands(command_str)
+            end = time.perf_counter()
+            print("  took ", end - start, " seconds.\n")
+
+            # Save the generated .so file of the model if required.
+            if (args.o):
+                print("Saving the shared library to", args.o, "\n")
+                execute_commands('rsync -ar {} {}'.format(
+                    shared_lib_path, args.o))
 
         # Prepare input data.
         inputs = []
@@ -228,10 +252,9 @@ def main():
                     ordinal(i + 1), input_names[i], list(inp.shape), inp))
 
         print("Running inference ...")
-        temp_shared_lib_path = os.path.join(temp_dir, "model.so")
         start = time.perf_counter()
         # Use the generated shared library to create an execution session.
-        sess = ExecutionSession(temp_shared_lib_path, "run_main_graph")
+        sess = ExecutionSession(shared_lib_path, "run_main_graph")
         outs = sess.run(inputs)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
@@ -264,8 +287,10 @@ def main():
 
             # For each output tensor, compare results.
             for i, name in enumerate(output_names):
-                print("Verifying value of {}:{}".format(name, list(outs[i].shape)),
-                      "using atol={}, rtol={} ...".format(args.atol, args.rtol))
+                print(
+                    "Verifying value of {}:{}".format(name,
+                                                      list(outs[i].shape)),
+                    "using atol={}, rtol={} ...".format(args.atol, args.rtol))
                 total_elements = 0
                 mismatched_elements = 0
                 for index, actual_val in np.ndenumerate(outs[i]):
@@ -280,8 +305,7 @@ def main():
                           "mismatch {} (actual)".format(actual_val),
                           "vs {} (reference)".format(ref_val))
                 if mismatched_elements == 0:
-                    print("  correct.\n".format(
-                        args.atol, args.rtol))
+                    print("  correct.\n".format(args.atol, args.rtol))
                 else:
                     print("  mismatched elements {}/{}.\n".format(
                         mismatched_elements, total_elements))

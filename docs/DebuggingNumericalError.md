@@ -32,15 +32,17 @@ reference inputs and outputs in protobuf.
 
 ```bash
 $ python ../utils/RunONNXModel.py  --help
-usage: RunONNXModel.py [-h] [--print_input] [--print_output] [--compile_args COMPILE_ARGS] [--shape_info SHAPE_INFO] [--verify {onnxruntime,ref}]
-                       [--ref_folder REF_FOLDER] [--rtol RTOL] [--atol ATOL]
+usage: RunONNXModel.py [-h] [-o PATH | -s PATH] [--print_input] [--print_output] [--compile_args COMPILE_ARGS] [--shape_info SHAPE_INFO]
+                       [--verify {onnxruntime,ref}] [--ref_folder REF_FOLDER] [--rtol RTOL] [--atol ATOL]
                        model_path
 
 positional arguments:
-  model_path            Path to the ONNX model.
+  model_path            Path to the ONNX model
 
 optional arguments:
   -h, --help            show this help message and exit
+  -o PATH               Save the generated shared library of the model
+  -s PATH               Use the generated shared library for inference, and the ONNX model will not be re-compiled
   --print_input         Print out inputs
   --print_output        Print out outputs
   --compile_args COMPILE_ARGS
