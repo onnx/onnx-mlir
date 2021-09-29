@@ -3620,7 +3620,8 @@ LogicalResult ONNXNonZeroOp::inferShapes(
 
 LogicalResult ONNXNotOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(getOperand().getType());
+  return success();
 }
 
 LogicalResult ONNXOneHotOp::inferShapes(
