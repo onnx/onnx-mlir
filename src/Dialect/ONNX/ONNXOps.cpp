@@ -3336,6 +3336,22 @@ LogicalResult ONNXLessOp::inferShapes(
   return success();
 }
 
+LogicalResult ONNXLessOrEqualOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  for (unsigned int i = 0; i < getNumOperands(); ++i) {
+    if (!getOperand(i).getType().cast<RankedTensorType>())
+      return success();
+  }
+  Type lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  Type rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> dims =
+      getBroadcastedType(lhsTy, rhsTy).cast<RankedTensorType>().getShape();
+
+  getResult().setType(
+      RankedTensorType::get(dims, IntegerType::get(getContext(), /*width=*/1)));
+  return success();
+}
+
 // Operations for which shape inference has not been implemented yet
 // If you add the implementation for one op, move it out of this section
 // Also please add test case in test/mlir/onnx/onnx_shape_inference.mlir
@@ -3447,7 +3463,14 @@ LogicalResult ONNXDetOp::inferShapes(
 
 LogicalResult ONNXEqualOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  auto builder = mlir::Builder(getContext());
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return success();
+  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  getResult().setType(getBroadcastedType(lhsTy, rhsTy, builder.getI1Type()));
+  return success();
 }
 
 LogicalResult ONNXEyeLikeOp::inferShapes(
@@ -3473,7 +3496,26 @@ LogicalResult ONNXGatherNDOp::inferShapes(
 
 LogicalResult ONNXGreaterOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  auto builder = mlir::Builder(getContext());
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return success();
+  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  getResult().setType(getBroadcastedType(lhsTy, rhsTy, builder.getI1Type()));
+  return success();
+}
+
+LogicalResult ONNXGreaterOrEqualOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  auto builder = mlir::Builder(getContext());
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return success();
+  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  getResult().setType(getBroadcastedType(lhsTy, rhsTy, builder.getI1Type()));
+  return success();
 }
 
 LogicalResult ONNXHardmaxOp::inferShapes(
@@ -4018,8 +4060,6 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXAdamOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXCeluOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXEinsumOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXGradientOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXGreaterOrEqualOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXLessOrEqualOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXMomentumOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXNegativeLogLikelihoodLossOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXSoftmaxCrossEntropyLossOp);

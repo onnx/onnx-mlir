@@ -655,6 +655,86 @@ Value emitScalarOpFor<ONNXLessOp>(ConversionPatternRewriter &rewriter,
   }
 }
 
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXLessOrEqualOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXLessOrEqualOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
+
+  Type inputType = lhs.getType();
+  if (inputType.isa<FloatType>()) {
+    return rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
+  } else if (inputType.isa<IntegerType>()) {
+    return rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, lhs, rhs);
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXGreaterOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXGreaterOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
+
+  Type inputType = lhs.getType();
+  if (inputType.isa<FloatType>()) {
+    return rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
+  } else if (inputType.isa<IntegerType>()) {
+    return rewriter.create<CmpIOp>(loc, CmpIPredicate::sgt, lhs, rhs);
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXGreaterOrEqualOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXGreaterOrEqualOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
+
+  Type inputType = lhs.getType();
+  if (inputType.isa<FloatType>()) {
+    return rewriter.create<CmpFOp>(loc, CmpFPredicate::OGE, lhs, rhs);
+  } else if (inputType.isa<IntegerType>()) {
+    return rewriter.create<CmpIOp>(loc, CmpIPredicate::sge, lhs, rhs);
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXEqualOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
+
+  Type inputType = lhs.getType();
+  if (inputType.isa<FloatType>()) {
+    return rewriter.create<CmpFOp>(loc, CmpFPredicate::OEQ, lhs, rhs);
+  } else if (inputType.isa<IntegerType>()) {
+    return rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, lhs, rhs);
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+}
+
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOp>
@@ -879,11 +959,15 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinhOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanhOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXEqualOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXFloorOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOrEqualOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXLeakyReluOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOrEqualOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXLogOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMaxOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMinOp>,
