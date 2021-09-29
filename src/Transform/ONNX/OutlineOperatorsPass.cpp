@@ -118,8 +118,9 @@ print_trace (void)
 }
 
 
-namespace {
 
+
+namespace {
   std::string getOperationName(Operation *op) {
     auto symbolAttr =
         op->getAttrOfType<StringAttr>(SymbolTable::getSymbolAttrName());
@@ -127,6 +128,30 @@ namespace {
       return std::string(symbolAttr.getValue());
     return (op->getName().getStringRef().str());
   }
+  void printRegion(Region &region);
+
+  void printOp(Operation *op) {
+      //auto onnxtype = ONNXOpsDialect.getTypeID();
+      auto opName = getOperationName(op);
+      std::cout << "Operation is " << opName << std::endl;
+      for (Region &region : op->getRegions())
+         printRegion(region);
+  }
+
+  void printBlock(mlir::Block &block) {
+    std::cout << "   -- entering block" << std::endl;
+    for (mlir::Operation &op : block.getOperations())
+        printOp(&op);
+    std::cout << "   -- exiting block" << std::endl;
+  }
+
+ void printRegion(Region &region) {
+     std::cout << "   -- entering region" << std::endl;
+     for (mlir::Block &block : region.getBlocks())
+        printBlock(block);
+     std::cout << "   -- exiting region" << std::endl;
+  } 
+
 
 static int64_t outlineCount=0;
 /*!
@@ -248,18 +273,24 @@ op->walk([&](Operation *op){
       auto results = op->getResults();
       std::cout << "      number of results " << results.size() << "  number of inputs " << inputVals.size() << std::endl;
       TypeRange sgTRange(results);
+
+      // create new subgraph op to replace current op
       auto sgOp = rewriter.create<ONNXSubgraphOp>(loc,sgTRange,inputVals);
-      Region sgRegion(sgOp.getOperation());
+      //Region sgRegion(sgOp.getOperation());
+      //sgOp.getOperation()->getRegions().push_back(sgRegion);
+      auto rIdx = sgOp.getSubgraphRegionIdx("body");
+      auto nreg = sgOp.getOperation()->getNumRegions();
+      std::cout << "numRegions " << nreg << " body index " << rIdx << std::endl;
+      //Region sgRegion = sgOp.body();
+      Region &sgRegion = sgOp.body();
       Block *sgBlock = new Block();
       sgRegion.push_back(sgBlock);
-      //      auto sgBlock = sgRegion.emplaceBlock();
-      //sgOp.body().push_back(sgBlock);
 
+      // insert new function at beginning of module to contain the current op
       rewriter.setInsertionPointToStart(op->getParentOfType<ModuleOp>().getBody());
       FunctionType ftype = FunctionType::get(context, inputVals.getTypes(),sgTRange);
       auto outlinedFunc = rewriter.create<FuncOp>(loc, funcName, /*type=*/ftype);
-
-      // Create and set insertion point to entry block.
+      // Create and set insertion point to new function entry block.
       Block *funcBlock = new Block();
       outlinedFunc.body().push_back(funcBlock);
       for (auto arg : inputVals.getTypes())
@@ -269,24 +300,19 @@ op->walk([&](Operation *op){
      for (auto it : llvm::zip(inputVals, outlinedFunc.getArguments()))
        bvm.map(std::get<0>(it), std::get<1>(it));
      auto bodyOp=rewriter.clone(*op,bvm);
-
-    // for (auto op : term->getOperands())
-    //   terminatorOperands.push_back(bvm.lookup(op));
      rewriter.create<ONNXReturnOp>(loc,bodyOp->getResults());
- 
-     //ifOrElseRegion.front().clear();
-     //b.setInsertionPointToEnd(&ifOrElseRegion.front());
-     //Operation *call = b.create<CallOp>(loc, outlinedFunc, values);
-     //b.create<scf::YieldOp>(loc, call->getResults());
-     
-      rewriter.setInsertionPointToStart(sgBlock);
-      Operation *call = rewriter.create<CallOp>(loc, outlinedFunc, inputVals);
-      rewriter.create<scf::YieldOp>(loc, call->getResults());
 
-       std::cout << "number of results for sgOp is " << sgOp.getNumResults() << std::endl;
+    // insert call to new function in subgraph    
+    rewriter.setInsertionPointToStart(sgBlock);
+    Operation *call = rewriter.create<CallOp>(loc, outlinedFunc, inputVals);
+    rewriter.create<scf::YieldOp>(loc, call->getResults());
+    std::cout << "contents of new region " << std::endl;
+    printRegion(sgRegion);
 
-      op->replaceAllUsesWith(sgOp);
-      rewriter.eraseOp(op);
+    std::cout << "number of results for sgOp is " << sgOp.getNumResults() << std::endl;
+    // stitch subgraph results in place of original op results, and remove original op
+    op->replaceAllUsesWith(sgOp);
+    rewriter.eraseOp(op);
   }
 
   void processOp(Operation *op) {
@@ -315,7 +341,6 @@ op->walk([&](Operation *op){
         processOp(&op);
   }
 
-
   void runOnOperation() override {
     //processOp(getOperation());
     RewritePatternSet patterns(&getContext());
@@ -323,7 +348,7 @@ op->walk([&](Operation *op){
     std::cout << "---------------------------------------------" << std::endl;
     std::cout << "       apply patterns " << std::endl;
     applyOutlinePatternDriver(getOperation(),patterns);
-
+    printOp(getOperation());
    }
 
 };

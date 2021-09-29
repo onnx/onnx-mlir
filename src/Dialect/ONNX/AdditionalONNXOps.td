@@ -108,20 +108,21 @@ def ONNXSubgraphOp:ONNX_Op<"Subgraph",
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$input);
   let results = (outs Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$outputs);
-  //let regions = (region SizedRegion<1>:$body);
-  let extraClassDeclaration = [{
+  let regions = (region SizedRegion<1>:$body);
+  
+let extraClassDeclaration = [{
 //    static int getNumberOfOperands() {
 //      return -1;
 //    }
 //    static int getNumberOfResults() {
 //      return -1;
 //    }
-    static std::vector<int> getTypeMap() {
+  static std::vector<int> getTypeMap() {
       return {20};
     }
-    int64_t getSubgraphRegionIdx(const std::string& name) {
+  int64_t getSubgraphRegionIdx(const std::string& name) {
     if (name == "body") return 0;
     llvm_unreachable("region with the specified name does not exist");
-  }
+    }
   }];
 }
