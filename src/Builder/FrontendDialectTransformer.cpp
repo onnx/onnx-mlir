@@ -48,7 +48,7 @@ class FrontendGenImpl {
 public:
   explicit FrontendGenImpl(MLIRContext &context)
       : context_(context), builder_(&context) {
-    module_ = ModuleOp::create(ONNXLoc());
+    module_ = ModuleOp::create(UnknownLoc::get(&context));
     InitHandlerMap();
     force_dim_dynamic_enabled_ = false;
     if (const char *envInputString = std::getenv("IMPORTER_FORCE_DYNAMIC")) {
@@ -76,13 +76,6 @@ public:
       if (forced_inputs_dims.empty())
         forced_inputs_dims.insert(std::make_pair(-1, std::vector<int>(1, -1)));
     }
-
-    // Initial the line count for debug
-    // There is a line for Map and module before the starting function
-    if (options_.preserveLocations)
-      lineCounter_ = 3;
-    else
-      lineCounter_ = 2;
   }
 
   ModuleOp ImportONNXModel(
@@ -186,16 +179,8 @@ private:
       const onnx::NodeProto &);
 
   std::map<std::string, ImportHandlerType> import_handler_map_;
-  int lineCounter_;
 
-  Location ONNXLoc() {
-    if (options_.addLocationInfo) {
-      return FileLineColLoc::get(
-          &context_, options_.locationFileName, lineCounter_++, 0);
-    } else {
-      return UnknownLoc::get(&context_);
-    }
-  }
+  Location UnknownLoc() { return UnknownLoc::get(&context_); }
 
   Value none() {
     // Get the enclosing Func Op.
@@ -212,8 +197,9 @@ private:
     if (func2None_.count(func)) {
       return func2None_.at(func);
     } else {
-      auto none = builder_.create<ConstantOp>(ONNXLoc(), builder_.getUnitAttr())
-                      .getResult();
+      auto none =
+          builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr())
+              .getResult();
       func2None_.emplace(func, none);
       return none;
     }
@@ -478,10 +464,10 @@ private:
     }
 
     if (useStdReturn)
-      builder_.create<ReturnOp>(ONNXLoc(), retVals);
+      builder_.create<ReturnOp>(UnknownLoc(), retVals);
     else
       // Create a return operation to return all ONNX output tensors.
-      builder_.create<ONNXReturnOp>(ONNXLoc(), retVals);
+      builder_.create<ONNXReturnOp>(UnknownLoc(), retVals);
 
     op->setAttr("input_names", builder_.getStrArrayAttr(inputNames));
     op->setAttr("output_names", builder_.getStrArrayAttr(outputNames));
@@ -499,7 +485,7 @@ private:
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
     }
-    OperationState result(ONNXLoc(), "frontend." + node.op_type());
+    OperationState result(UnknownLoc(), "frontend." + node.op_type());
     for (auto item : node.output()) {
       result.addTypes(UnrankedTensorType::get(builder_.getF32Type()));
     }
@@ -621,7 +607,7 @@ private:
         outputTypes.emplace_back(builder_.getNoneType());
 
     // TODO: Handle optional inputs.
-    auto op = builder_.create<T>(ONNXLoc(), outputTypes, inputs, attributes);
+    auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
     Operation *genericOp = op.getOperation();
     // Type inference for results.
     for (const auto &attr : node.attribute()) {
@@ -668,7 +654,7 @@ private:
       } else {
         if (initializedTensors.ContainKey(item)) {
           inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-              ONNXLoc(), builder_, item));
+              UnknownLoc(), builder_, item));
         } else if (frontend_symbols_.ContainKey(item)) {
           inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
         }
@@ -717,12 +703,12 @@ private:
         // Optional inputs using empty string will be imported as NoneType.
         if (!none_)
           none_ =
-              builder_.create<ConstantOp>(ONNXLoc(), builder_.getUnitAttr());
+              builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
         inputs.emplace_back(none_);
       } else {
         if (initializedTensors.ContainKey(item)) {
           inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-              ONNXLoc(), builder_, item));
+              UnknownLoc(), builder_, item));
         } else if (frontend_symbols_.ContainKey(item)) {
           inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
         }
@@ -776,7 +762,7 @@ private:
     for (const auto &item : node.input()) {
       if (initializedTensors.ContainKey(item)) {
         inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-            ONNXLoc(), builder_, item));
+            UnknownLoc(), builder_, item));
       } else {
         if (frontend_symbols_.ContainKey(item)) {
           inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
@@ -796,7 +782,7 @@ private:
       auto constantDenseAttribute =
           DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
       auto constantOp = builder_.create<ONNXConstantOp>(
-          ONNXLoc(), Attribute(), constantDenseAttribute);
+          UnknownLoc(), Attribute(), constantDenseAttribute);
       Value constantResult = *(constantOp.getODSResults(0).begin());
       inputs.push_back(constantResult);
     }
@@ -813,7 +799,7 @@ private:
       auto constantDenseAttribute =
           DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
       auto constantOp = builder_.create<ONNXConstantOp>(
-          ONNXLoc(), Attribute(), constantDenseAttribute);
+          UnknownLoc(), Attribute(), constantDenseAttribute);
       Value constantResult = *(constantOp.getODSResults(0).begin());
       inputs.push_back(constantResult);
     }
@@ -841,13 +827,13 @@ private:
 
       // Use the special builder defined in ONNXOp.td.inc.
       auto constantOp = builder_.create<ONNXConstantOp>(
-          ONNXLoc(), Attribute(), constantDenseAttribute);
+          UnknownLoc(), Attribute(), constantDenseAttribute);
       Value constantResult = *(constantOp.getODSResults(0).begin());
       std::vector<Value> inputs;
       for (const auto &item : node.input()) {
         if (initializedTensors.ContainKey(item)) {
           inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-              ONNXLoc(), builder_, item));
+              UnknownLoc(), builder_, item));
         } else if (frontend_symbols_.ContainKey(item)) {
           inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
         }
@@ -871,7 +857,7 @@ private:
     for (const auto &item : llvm::enumerate(node.input())) {
       if (initializedTensors.ContainKey(item.value())) {
         inVals[item.index()] = initializedTensors.EmitInitializerForInputTensor(
-            ONNXLoc(), builder_, item.value());
+            UnknownLoc(), builder_, item.value());
       } else {
         if (frontend_symbols_.ContainKey(item.value())) {
           inVals[item.index()] =
@@ -893,7 +879,7 @@ private:
         auto constantDenseAttribute =
             DenseElementsAttr::get(tensorType, arrayAttr.getValue());
         auto constantOp = builder_.create<ONNXConstantOp>(
-            ONNXLoc(), Attribute(), constantDenseAttribute);
+            UnknownLoc(), Attribute(), constantDenseAttribute);
         Value constantValue = constantOp.output();
 
         // Map from ONNX attributes to indices, which are
@@ -934,7 +920,7 @@ private:
     for (const auto &item : node.input()) {
       if (initializedTensors.ContainKey(item)) {
         inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-            ONNXLoc(), builder_, item));
+            UnknownLoc(), builder_, item));
       } else if (frontend_symbols_.ContainKey(item)) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
@@ -1017,7 +1003,7 @@ private:
       funcName = namePrefix + "_" + std::to_string(suffix);
     }
 
-    auto funcOp = FuncOp::create(ONNXLoc(), funcName, funcType);
+    auto funcOp = FuncOp::create(UnknownLoc(), funcName, funcType);
     module_.insert(module_.begin(), funcOp);
     return funcOp;
   }
@@ -1078,7 +1064,7 @@ private:
         // Missing (optional) parameter.
         operandOnnxTypes.push_back(unspecifiedType);
         auto no_value =
-            builder_.create<ConstantOp>(ONNXLoc(), builder_.getUnitAttr());
+            builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
         operands.push_back(no_value);
         operandTypes.push_back(builder_.getNoneType());
         continue;
@@ -1155,7 +1141,7 @@ private:
     for (auto &v : pFunctionProto->output()) {
       ret_vals.push_back(LookupOnnxName(v));
     }
-    builder_.create<ReturnOp>(ONNXLoc(), ret_vals);
+    builder_.create<ReturnOp>(UnknownLoc(), ret_vals);
 
     // Restore caller context
     frontend_symbols_.popScope(func_name_prefix);
@@ -1166,7 +1152,7 @@ private:
     builder_.restoreInsertionPoint(prev_ip);
 
     // Generate call statement
-    auto op = builder_.create<CallOp>(ONNXLoc(), funcOp, operands);
+    auto op = builder_.create<CallOp>(UnknownLoc(), funcOp, operands);
     int result_num = 0;
     for (auto &v : node.output()) {
       BindOnnxName(v, op.getResult(result_num++));
@@ -1177,8 +1163,8 @@ private:
 
   void ImportCustomNode(const onnx::NodeProto &node) {
     if (!TryImportFunctionCallNode(node)) {
-      emitWarning(ONNXLoc(), "Could not find op importer: assuming this "
-                             "represents a custom operator.");
+      emitWarning(UnknownLoc(), "Could not find op importer: assuming this "
+                                "represents a custom operator.");
 
       llvm::StringRef opName = node.op_type();
       auto funcName = opName.str();
@@ -1342,7 +1328,7 @@ private:
    */
   FuncOp importGraph(const onnx::GraphProto &graph) {
     const std::string &name = "main_graph";
-    auto mainFunc = FuncOp::create(ONNXLoc(), name,
+    auto mainFunc = FuncOp::create(UnknownLoc(), name,
         /*type=*/builder_.getFunctionType({}, {}), /*attrs=*/{});
     module_.push_back(mainFunc);
     // Create and set insertion point to entry block.
@@ -1356,7 +1342,7 @@ private:
     std::string sig = getSignature(funcType, mainFunc.getOperation());
 
     // Emit entry point op describing inference function signature.
-    auto entryPoint = ONNXEntryPointOp::create(ONNXLoc(), mainFunc,
+    auto entryPoint = ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
         /*numInputs=*/funcType.getNumInputs(),
         /*numOutputs=*/funcType.getNumResults(),
         /*signature=*/sig);
@@ -1387,8 +1373,6 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
     }
   }
 
-  options.locationFileName =
-      model_fname.substr(0, model_fname.find_last_of(".")) + ".input.mlir";
   // Didnot do downward convert because support for BatchNorm is missing
   if (options.invokeOnnxVersionConverter &&
       originVersion < CURRENT_ONNX_OPSET) {
