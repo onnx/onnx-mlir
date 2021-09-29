@@ -3338,17 +3338,13 @@ LogicalResult ONNXLessOp::inferShapes(
 
 LogicalResult ONNXLessOrEqualOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  for (unsigned int i = 0; i < getNumOperands(); ++i) {
-    if (!getOperand(i).getType().cast<RankedTensorType>())
-      return success();
-  }
-  Type lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  Type rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  ArrayRef<int64_t> dims =
-      getBroadcastedType(lhsTy, rhsTy).cast<RankedTensorType>().getShape();
-
-  getResult().setType(
-      RankedTensorType::get(dims, IntegerType::get(getContext(), /*width=*/1)));
+  auto builder = mlir::Builder(getContext());
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return success();
+  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  getResult().setType(getBroadcastedType(lhsTy, rhsTy, builder.getI1Type()));
   return success();
 }
 
