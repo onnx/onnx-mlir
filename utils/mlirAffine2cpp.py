@@ -34,8 +34,9 @@ import subprocess
 ################################################################################
 # Global def.
 
-type_dict = {"i32": "int", "index": "int", "f32": "float"}
-op_dict = {"mulf": "*", "addf": "+"}
+type_dict = {"i64": "long long", "i32": "int", "index": "long long", "f32": "float"}
+binary_op_dict = {"mulf": "*", "addf": "+", "subf": "-", "divf": "/"}
+unary_op_dict = {"math.sqrt": "sqrt"}
 
 debug = 0 # 0: none; 1: original statements; 2: details about translation. 
 
@@ -71,9 +72,13 @@ def process_names(names):
 def process_stripped_name(name):
     return process_names("%" + name)
 
-def mlir_to_c_op(m_op):
-    assert m_op in op_dict, "unsupported op "+ m_op
-    return op_dict[m_op]
+def mlir_to_c_binary_op(m_op):
+    assert m_op in binary_op_dict, "unsupported op "+ m_op
+    return binary_op_dict[m_op]
+
+def mlir_to_c_unary_op(m_op):
+    assert m_op in unary_op_dict, "unsupported op "+ m_op
+    return unary_op_dict[m_op]
 
 def mlir_to_c_type(m_type):
     assert m_type in type_dict, "unsupported type " + m_type
@@ -109,14 +114,28 @@ def process_for(name, from_val, to_val, step_val):
     from_val = process_names(from_val)
     to_val = process_names(to_val)
     step_val = process_names(step_val)
-    print("for(int " + name + "=" + from_val + "; "  + name + "<" + to_val + "; " + name + "+=" + step_val + ") {")
+    print("for(long long " + name + "=" + from_val + "; "  + name + "<" + to_val + "; " + name + "+=" + step_val + ") {")
 
 def process_binary_op(name, m_op, p1, p2, m_type):
     if debug > 1:
         print("//got binary op ", m_op, "of type: ", m_type, "res:", name, "p1:", p1, "p2:", p2)
     c_type = mlir_to_c_type(m_type)
-    c_op = mlir_to_c_op(m_op)
+    c_op = mlir_to_c_binary_op(m_op)
     print(c_type + " " + name + " = " + p1 + " " + c_op + " " + p2 + ";")
+
+def process_unary_op(name, m_op, p1, m_type):
+    if debug > 1:
+        print("//got binary op ", m_op, "of type: ", m_type, "res:", name, "p1:", p1)
+    c_type = mlir_to_c_type(m_type)
+    c_op = mlir_to_c_unary_op(m_op)
+    print(c_type + " " + name + " = " + c_op + "(" + p1 + ");")
+
+def process_conversion(name, m_op, p1, m_type_from, m_type_to):
+    if debug > 1:
+        print("//got conversion op ", m_op, "from type: ", m_type_from, "to type: ", m_type_to, "res:", name, "p1:", p1)
+    c_type_to = mlir_to_c_type(m_type_to)
+    print(c_type_to + " " + name + " = " + p1 + ";")
+
 
 
 ################################################################################
@@ -128,16 +147,17 @@ def main(argv):
     had_builtin = False
 
     print("""
+#include <math.h>
 #include <stdio.h>
 // Support functions.
-int min(int a) { return a; }
-int min(int a, int b) { return a<b ? a : b; }
-int min(int a, int b, int c) { return min(a, min(b, c)); }
-int min(int a, int b, int c, int d) { return min(min(a, b), min(c, d)); }
-int max(int a) { return a; }
-int max(int a, int b) { return a>b ? a : b; }
-int max(int a, int b, int c) { return max(a, max(b, c)); }
-int max(int a, int b, int c, int d) { return max(max(a, b), max(c, d)); }
+long long min(long long a) { return a; }
+long long min(long long a, long long b) { return a<b ? a : b; }
+long long min(long long a, long long b, long long c) { return min(a, min(b, c)); }
+long long min(long long a, long long b, long long c, long long d) { return min(min(a, b), min(c, d)); }
+long long max(long long a) { return a; }
+long long max(long long a, long long b) { return a>b ? a : b; }
+long long max(long long a, long long b, long long c) { return max(a, max(b, c)); }
+long long max(long long a, long long b, long long c, long long d) { return max(max(a, b), max(c, d)); }
 // map support, if any""")
 
     for line in sys.stdin:
@@ -229,7 +249,7 @@ int max(int a, int b, int c, int d) { return max(max(a, b), max(c, d)); }
             val = process_names(res.group(2))
             if debug > 1:
                 print("// got apply; name:", name, "value:", val)
-            print("int " + name + " = " + val + ";")
+            print("long long " + name + " = " + val + ";")
             continue
 
         # Process affine min/max.
@@ -241,7 +261,7 @@ int max(int a, int b, int c, int d) { return max(max(a, b), max(c, d)); }
             val = process_names(res.group(3))
             if debug > 1:
                 print("// got min/max; name:", name, "op:", op, "value:", val)
-            print("int " + name + " = " + op + " " + val + ";")
+            print("long long " + name + " = " + op + " " + val + ";")
             continue
 
         # Process affine load.
@@ -274,8 +294,20 @@ int max(int a, int b, int c, int d) { return max(max(a, b), max(c, d)); }
             print(array + addr + "=" + name + ";")
             continue
 
+        # Process conversion op (unary ":" type "to" type)
+        convert_pat = re.compile(r'\s+%(\w+)\s+=\s+([\w\.]+)\s+%(\w+)\s*:\s+(\w+)\s+to\s+(\w+)')
+        res = convert_pat.match(line)
+        if res is not None:
+            name = process_stripped_name(res.group(1))
+            mop = res.group(2)
+            p1 = process_stripped_name(res.group(3))
+            m_type_from = res.group(4)
+            m_type_to = res.group(5)
+            process_conversion(name, mop, p1, m_type_from, m_type_to)
+            continue
+
         # Process binary op.
-        binary_pat = re.compile(r'\s+%(\w+)\s+=\s+(\w+)\s+%(\w+)\s*,\s*%(\w+)\s+:\s+(\w+)')
+        binary_pat = re.compile(r'\s+%(\w+)\s+=\s+([\w\.]+)\s+%(\w+)\s*,\s*%(\w+)\s+:\s+(\w+)')
         res = binary_pat.match(line)
         if res is not None:
             name = process_stripped_name(res.group(1))
@@ -284,6 +316,17 @@ int max(int a, int b, int c, int d) { return max(max(a, b), max(c, d)); }
             p2 = process_stripped_name(res.group(4))
             m_type = res.group(5)
             process_binary_op(name, mop, p1, p2, m_type)
+            continue
+
+        # Process unary op.
+        binary_pat = re.compile(r'\s+%(\w+)\s+=\s+([\w\.]+)\s+%(\w+)\s*:\s+(\w+)')
+        res = binary_pat.match(line)
+        if res is not None:
+            name = process_stripped_name(res.group(1))
+            mop = res.group(2)
+            p1 = process_stripped_name(res.group(3))
+            m_type = res.group(4)
+            process_unary_op(name, mop, p1, m_type)
             continue
 
         # Process C code placed in the mlir code as comment.
