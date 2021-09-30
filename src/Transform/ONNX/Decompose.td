@@ -37,6 +37,8 @@ def AttributeIsNull : Constraint<CPred<"! ($_self)">, "Attribute is null">;
 def HasFloatType : Constraint<CPred<"(($_self).getType().dyn_cast<ShapedType>()"
                                     ".getElementType().isF32())">>;
 
+def IsNoneType : Constraint<CPred<"(($_self).getType().isa<NoneType>())">>;
+
 def GetNullAttr : NativeCodeCall<"Attribute()">;
 
 // Create a unit constant that will be used as none input.
@@ -55,6 +57,14 @@ def ScalerT : NativeCodeCall<"TypeAttr::get($_builder.getF32Type())">;
 def noop_with_empty_axes
     : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, "
                      "/*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
+
+// Check if value is a dense constant
+def IsDenseONNXConstant:
+   Constraint<CPred<"isDenseONNXConstant($_self)">, "not a dense constant">;
+
+// Create an ArrayAttr from a dense ConstantOp
+def createArrayAttrFromConstantOp : NativeCodeCall<
+  "createArrayAttrFromConstantOp($_builder, $0)">;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceL1Op %X = ONNXReduceSumOp (ONNXAbsOp %X)
@@ -117,7 +127,7 @@ def ReduceLogSumExpOpPattern2
                          (ONNXReduceMaxOp
                              : $max $oprd, $axes, (KeepdimsTrue)))),
                $axes, $keepdims),
-              (ONNXSqueezeOp $max, $axes)),
+              (ONNXSqueezeV11Op $max, $axes)),
           [], (addBenefit 0)>;
 
 //===----------------------------------------------------------------------===//

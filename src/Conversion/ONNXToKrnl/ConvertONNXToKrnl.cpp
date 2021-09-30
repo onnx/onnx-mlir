@@ -56,6 +56,9 @@ struct FrontendToKrnlLoweringPass
   // constructor to make sure that the options are initialized properly.
   FrontendToKrnlLoweringPass() = default;
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass) {}
+  FrontendToKrnlLoweringPass(bool emitDealloc) {
+    this->emitDealloc = emitDealloc;
+  }
 
   void runOnOperation() final;
 
@@ -73,11 +76,17 @@ public:
   Option<bool> checkRNNOps{*this, "check-rnn-ops-lowering",
       llvm::cl::desc("Only used for writing LIT tests for RNN ops."),
       llvm::cl::init(false)};
+  Option<bool> emitDealloc{*this, "emit-dealloc",
+      llvm::cl::desc("Emit dealloc for allocated memrefs or not."),
+      llvm::cl::init(false)};
 };
 } // end anonymous namespace.
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
+
+  // Set up whether emitting dealloc for allocated memrefs or not.
+  gEmitDealloc = emitDealloc;
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -97,6 +106,11 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target.addIllegalOp<mlir::memref::StoreOp>();
   target.addIllegalOp<mlir::AffineStoreOp>();
 
+  // If `emitDealloc` is turned off, make sure we don't have buffer deallocation
+  // at this level. Will use MLIR buffer-deallocation for this purpose instead.
+  if (!gEmitDealloc)
+    target.addIllegalOp<mlir::memref::DeallocOp>();
+
   // std.tanh will be expanded.
   target.addIllegalOp<mlir::math::TanhOp>();
 
@@ -114,8 +128,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     // lowering the following ops. See the comment in the declaration of
     // 'checkRNNOps' for more details.
     target.addLegalOp<ONNXTransposeOp>();
-    target.addLegalOp<ONNXSqueezeOp>();
-    target.addLegalOp<ONNXSplitOp>();
+    target.addLegalOp<ONNXSqueezeV11Op>();
+    target.addLegalOp<ONNXSplitV11Op>();
     target.addLegalOp<ONNXMatMulOp>();
     target.addLegalOp<ONNXSigmoidOp>();
     target.addLegalOp<ONNXTanhOp>();
@@ -160,6 +174,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXReshapeOpPattern(patterns, &getContext());
   populateLoweringONNXPadOpPattern(patterns, &getContext());
   populateLoweringONNXUnsqueezeOpPattern(patterns, &getContext());
+  populateLoweringONNXUnsqueezeV11OpPattern(patterns, &getContext());
   populateLoweringONNXTransposeOpPattern(patterns, &getContext());
   populateLoweringONNXGatherOpPattern(patterns, &getContext());
   populateLoweringONNXIdentityOpPattern(patterns, &getContext());
@@ -169,7 +184,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXShapeOpPattern(patterns, &getContext());
   populateLoweringONNXSliceOpPattern(patterns, &getContext());
   populateLoweringONNXSqueezeOpPattern(patterns, &getContext());
+  populateLoweringONNXSqueezeV11OpPattern(patterns, &getContext());
   populateLoweringONNXSplitOpPattern(patterns, &getContext());
+  populateLoweringONNXSplitV11OpPattern(patterns, &getContext());
   populateLoweringONNXSizeOpPattern(patterns, &getContext());
   populateLoweringONNXTileOpPattern(patterns, &getContext());
   populateLoweringONNXFlattenOpPattern(patterns, &getContext());
@@ -199,4 +216,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
 std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
+}
+
+std::unique_ptr<Pass> mlir::createLowerToKrnlPass(bool emitDealloc) {
+  return std::make_unique<FrontendToKrnlLoweringPass>(emitDealloc);
 }

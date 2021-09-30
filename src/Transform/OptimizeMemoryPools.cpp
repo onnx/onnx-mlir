@@ -36,33 +36,42 @@ namespace {
 typedef std::map<Block *, llvm::SmallSet<int64_t, 16>>
     BlockToCompactedAlignments;
 
+typedef std::map<Block *, llvm::SmallSet<KrnlGetRefOp, 16>>
+    BlockToDiscardedGetRefs;
+
 /// Get the total size in bytes used by the getref operations associated
 /// with a given memory pool.
 int64_t getAllocGetRefTotalSize(memref::AllocOp *allocOp) {
   auto parentBlock = allocOp->getOperation()->getBlock();
 
   int64_t totalSize = 0;
+  int64_t alignment = getAllocAlignment(*allocOp);
   SmallVector<KrnlGetRefOp, 4> seenGetRefs;
-  parentBlock->walk([&totalSize, &seenGetRefs, allocOp](KrnlGetRefOp op) {
-    // If krnl.getref operation uses a different mempool then exit.
-    if (op.mempool() != allocOp->getResult())
-      return;
+  parentBlock->walk(
+      [&totalSize, &seenGetRefs, &alignment, allocOp](KrnlGetRefOp op) {
+        // If krnl.getref operation uses a different mempool then exit.
+        if (op.mempool() != allocOp->getResult())
+          return;
 
-    // Check that the krnl.getref operation has not already been counted.
-    // We must make sure we count the memory footprint of getref operations
-    // sharing a slot only once.
-    for (auto getRef : seenGetRefs)
-      if (op.offset() == getRef.offset())
-        return;
+        // Check that the krnl.getref operation has not already been counted.
+        // We must make sure we count the memory footprint of getref operations
+        // sharing a slot only once.
+        for (auto getRef : seenGetRefs)
+          if (op.offset() == getRef.offset())
+            return;
 
-    // Footprint has not been counted yet. Add it to totalSize.
-    // auto result = allocOp->getResult();
-    // if (op.getOperands()[0] == result)
-    totalSize += getMemRefSizeInBytes(op.getResult());
+        // Footprint has not been counted yet. Add it to totalSize.
+        int64_t memrefSize = getMemRefSizeInBytes(op.getResult());
+        totalSize += memrefSize;
+        if (alignment > 0) {
+          int64_t misalignment = memrefSize % alignment;
+          if (misalignment > 0)
+            totalSize += alignment - misalignment;
+        }
 
-    // Act krnl.getref operation as seen.
-    seenGetRefs.emplace_back(op);
-  });
+        // Act krnl.getref operation as seen.
+        seenGetRefs.emplace_back(op);
+      });
 
   return totalSize;
 }
@@ -80,6 +89,22 @@ std::vector<Operation *> getGetRefStores(KrnlGetRefOp *getRef) {
 
   // The list contains at least one use.
   return stores;
+}
+
+/// Returns a list of operations in the current block that *view* the getref.
+std::vector<Operation *> getGetRefViews(KrnlGetRefOp *getRef) {
+  auto parentBlock = getRef->getOperation()->getBlock();
+  std::vector<Operation *> views;
+
+  parentBlock->walk([&views, getRef](Operation *op) {
+    if (dyn_cast<ViewLikeOpInterface>(op)) {
+      if (op->getOperands()[0] == getRef->getResult())
+        views.emplace_back(op);
+    }
+  });
+
+  // The list contains at least one use.
+  return views;
 }
 
 /// Returns a list of distinct krnl.getref operations in the current
@@ -147,6 +172,10 @@ bool getRefUsesAreDisjoint(
     SmallVectorImpl<KrnlGetRefOp> &firstGetRefList, KrnlGetRefOp secondGetRef) {
   // Return variable.
   bool refsUseIsDisjoint = true;
+
+  // TODO: support memref view ops.
+  if (!getGetRefViews(&secondGetRef).empty())
+    return false;
 
   // Compute all the stores into the second getref.
   std::vector<Operation *> allStores = getGetRefStores(&secondGetRef);
@@ -438,10 +467,13 @@ public:
   using OpRewritePattern<KrnlGetRefOp>::OpRewritePattern;
 
   BlockToCompactedAlignments *blockToStaticPoolAlignments;
+  BlockToDiscardedGetRefs *blockToDiscardedGetRefs;
   KrnlOptimizeStaticMemoryPools(MLIRContext *context,
-      BlockToCompactedAlignments *_blockToStaticPoolAlignments)
+      BlockToCompactedAlignments *_blockToStaticPoolAlignments,
+      BlockToDiscardedGetRefs *_blockToDiscardedGetRefs)
       : OpRewritePattern<KrnlGetRefOp>(context) {
     blockToStaticPoolAlignments = _blockToStaticPoolAlignments;
+    blockToDiscardedGetRefs = _blockToDiscardedGetRefs;
   }
 
   LogicalResult matchAndRewrite(
@@ -503,6 +535,10 @@ public:
     // Get a GetRef, other than the current one, that uses the same static
     // memory pool.
     SmallVector<KrnlGetRefOp, 4> getRefCandidates;
+    llvm::SmallSet<KrnlGetRefOp, 16> listOfDiscardedGetRefs;
+    if (blockToDiscardedGetRefs->count(parentBlock) > 0)
+      listOfDiscardedGetRefs = blockToDiscardedGetRefs->at(parentBlock);
+
     for (auto &op :
         llvm::make_range(parentBlock->begin(), std::prev(parentBlock->end()))) {
       KrnlGetRefOp candidate = llvm::dyn_cast_or_null<KrnlGetRefOp>(&op);
@@ -521,8 +557,19 @@ public:
       if (sharesSlot)
         continue;
 
+      // Check candidate is not in the discarded list:
+      bool isDiscardedGetRef = false;
+      for (auto discardedGetRef : listOfDiscardedGetRefs)
+        if (discardedGetRef == candidate) {
+          isDiscardedGetRef = true;
+          break;
+        }
+      if (isDiscardedGetRef)
+        continue;
+
       // The second krnl.getref properties:
-      // - must use the same static memory pool as the first krnl.getref;
+      // - must use the same static memory pool as the first
+      // krnl.getref;
       // - the result must have the same memory footprint as the first.
       memref::AllocOp allocOfCandidate = getAllocOfGetRef(&candidate);
       if (allocOfCandidate == staticMemPool &&
@@ -536,6 +583,12 @@ public:
     if (getRefCandidates.size() < 1)
       return failure();
 
+    // TODO: conditional printing of progress:
+    // printf(" Candidates: %d --- Visited getrefs = %d\n",
+    //     getRefCandidates.size(), listOfDiscardedGetRefs.size());
+
+    // TODO: conditional printing of progress:
+    // printf(" Start processing candidates ...\n");
     SmallVector<KrnlGetRefOp, 4> validSlotReusers;
     for (auto secondGetRef : getRefCandidates) {
       // Check that the current candidate has not already been added as a valid
@@ -547,13 +600,15 @@ public:
           break;
         }
       }
-      if (isSlotReuser)
+      if (isSlotReuser) {
         continue;
+      }
 
       // If the second getref has the same offset as the first then the rewrite
       // rule has already been applied to this getref so there is no work to do.
-      if (firstGetRef.offset() == secondGetRef.offset())
+      if (firstGetRef.offset() == secondGetRef.offset()) {
         continue;
+      }
 
       // Both first and second getRef ops may have already been processed by
       // this rewrite rule. There could be several krnl.getref with the same
@@ -565,29 +620,41 @@ public:
       // Do not merge the secondGetRef if secondGetRef has any reusers. It
       // means that the analysis has already been performed on secondGetRef
       // and all the possible reuses have already been found for secondGetRef.
-      if (secondGetRefList.size() > 1)
+      if (secondGetRefList.size() > 1) {
         continue;
+      }
 
       // If the two getRefs are used by the same operation which we know
       // nothing about, then we assume the worst case semantics i.e. that
       // the operation acts as a function which can modify the content of
       // one of the getRefs based on the other. This implies that the two
       // getRefs cannot share the same memory pool slot.
-      if (getRefUsesAreNotUsedBySameOp(firstGetRefList, secondGetRef))
+      if (getRefUsesAreNotUsedBySameOp(firstGetRefList, secondGetRef)) {
         continue;
+      }
 
       // Check that the usage of the candidate getrefs is disjoint from the
       // usage of any of the first getrefs. This means that for any store to a
       // getref in secondGetRefList, the value stored does not involve a load
       // from a getref in firstGetRefList (and vice-versa).
-      if (!getRefUsesAreMutuallyDisjoint(firstGetRefList, secondGetRefList))
+      if (!getRefUsesAreMutuallyDisjoint(firstGetRefList, secondGetRefList)) {
         continue;
+      }
 
       // Check live ranges do not intersect.
       // Live range, chain of instructions between the first and last
       // load/store from/to any krnl.getref in a given list.
-      if (checkLiveRangesIntersect(firstGetRefList, secondGetRef))
+      if (checkLiveRangesIntersect(firstGetRefList, secondGetRef)) {
         continue;
+      }
+
+      // If this is a valid slot reuser then this is the only slot in which
+      // it can fit so it cannot participate in any other slot.
+      if (blockToDiscardedGetRefs->count(parentBlock) == 0)
+        blockToDiscardedGetRefs->insert(
+            std::pair<Block *, llvm::SmallSet<KrnlGetRefOp, 16>>(
+                parentBlock, llvm::SmallSet<KrnlGetRefOp, 16>()));
+      blockToDiscardedGetRefs->at(parentBlock).insert(secondGetRef);
 
       // Add candidate to list of valid reusers.
       validSlotReusers.emplace_back(secondGetRef);
@@ -599,12 +666,24 @@ public:
       firstGetRefList.emplace_back(secondGetRef);
     }
 
+    // TODO: conditional printing of progress:
+    // printf(" Done processing candidates, slot reusers = %d\n",
+    //     validSlotReusers.size());
+
+    // Never consider the matched getref as a candidate ever again.
+    if (blockToDiscardedGetRefs->count(parentBlock) == 0)
+      blockToDiscardedGetRefs->insert(
+          std::pair<Block *, llvm::SmallSet<KrnlGetRefOp, 16>>(
+              parentBlock, llvm::SmallSet<KrnlGetRefOp, 16>()));
+    blockToDiscardedGetRefs->at(parentBlock).insert(firstGetRef);
+
     // No valid slot reuse getRefs have been identified.
     if (validSlotReusers.size() == 0)
       return failure();
 
-    // A suitable slot can be reused. Convert all secondGetRefList entries to
-    // use the same slot in the memory pool as all the firstGetRefList entries.
+    // A suitable slot can be reused. Convert all secondGetRefList entries
+    // to use the same slot in the memory pool as all the firstGetRefList
+    // entries.
     for (auto secondGetRef : validSlotReusers) {
       auto newGetRefOp =
           rewriter.create<KrnlGetRefOp>(loc, secondGetRef.getResult().getType(),
@@ -692,8 +771,9 @@ public:
     // Compute size of all krnl.getref operations that use this memory pool.
     int64_t usedMemory = getAllocGetRefTotalSize(&allocOp);
 
-    assert(usedMemory <= memPoolShape[0] &&
-           "Used memory exceeds allocated memory.");
+    // TODO: enable back once changes to bundle stage are also included.
+    // assert(usedMemory <= memPoolShape[0] &&
+    //       "Used memory exceeds allocated memory.");
 
     // Check if changes to the memory pool are required.
     if (memPoolShape[0] == usedMemory)
@@ -717,7 +797,13 @@ public:
     // Size of all distinct getrefs:
     int64_t distinctGRSize = 0;
     for (auto getRefOp : distinctGetRefs) {
-      distinctGRSize += getMemRefSizeInBytes(getRefOp.getResult());
+      int64_t memrefSize = getMemRefSizeInBytes(getRefOp.getResult());
+      distinctGRSize += memrefSize;
+      if (alignment > 0) {
+        int64_t misalignment = memrefSize % alignment;
+        if (misalignment > 0)
+          distinctGRSize += alignment - misalignment;
+      }
     }
     assert(distinctGRSize == usedMemory &&
            "Size of all distinct getrefs must match the total used memory");
@@ -733,6 +819,11 @@ public:
 
       // Size of current getref.
       int64_t currentGetRefSize = getMemRefSizeInBytes(getRefOp.getResult());
+      if (alignment > 0) {
+        int64_t misalignment = currentGetRefSize % alignment;
+        if (misalignment > 0)
+          currentGetRefSize += alignment - misalignment;
+      }
 
       // Get all getRefs which share the same memory slot.
       SmallVector<KrnlGetRefOp, 4> sameSlotGetRefs =
@@ -779,6 +870,7 @@ public:
 class KrnlOptimizeMemoryPoolsPass
     : public PassWrapper<KrnlOptimizeMemoryPoolsPass, FunctionPass> {
   BlockToCompactedAlignments blockToStaticPoolAlignments;
+  BlockToDiscardedGetRefs blockToDiscardedGetRefs;
 
 public:
   void runOnFunction() override {
@@ -787,7 +879,7 @@ public:
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
     patterns.insert<KrnlOptimizeStaticMemoryPools>(
-        &getContext(), &blockToStaticPoolAlignments);
+        &getContext(), &blockToStaticPoolAlignments, &blockToDiscardedGetRefs);
     patterns.insert<KrnlCompactStaticMemoryPools>(
         &getContext(), &blockToStaticPoolAlignments);
 

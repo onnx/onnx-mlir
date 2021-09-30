@@ -3,6 +3,9 @@
 # Testing
 
 In onnx-mlir, there are three types of tests to ensure correctness of implementation:
+1. [ONNX Backend Tests](#onnx-backend-tests)
+2. [LLVM FileCheck Tests](#llvm-filecheck-tests)
+3. [Numerical Tests](#numerical-tests)
 
 ## ONNX Backend Tests
 
@@ -36,7 +39,7 @@ IMPORTER_FORCE_DYNAMIC='0:-1' all dimensions of the first input will be changed
 IMPORTER_FORCE_DYNAMIC='0:-1|1:0,1' all dimensions of the first input and the 1st and 2nd dimensions of the second input will be changed
 ```
 
-The Backus–Naur Form (BNF) for IMPORTER_FORCE_DYNAMIC is as follows.
+The Backus-Naur Form (BNF) for IMPORTER_FORCE_DYNAMIC is as follows.
 ```
 <ImportForceDynamicExpr> :== `'` <expr> `'`
                   <expr> ::= <inputString> | <inputString> `|` <expr>
@@ -67,6 +70,37 @@ with IMPORTER_FORCE_DYNAMIC='0:0,2|1:1', the result is:
 `func @main_graph(%arg0: tensor<?x4x?xf32>, %arg1: tensor<3x?x5xf32>) -> tensor<3x4x5xf32>`.
 
 This is a way to use existing node test for dynamic tensors. Since not all test case can pass with dynamic tensor, there is a list in test/backend/test.py, test_not_for_dynamic, to specify which test can not pass with IMPORTER_FORCE_DYNAMIC is defined.
+
+### Tests with constant inputs
+
+Because the onnx node tests accepts input tensors at runtime, the inputs are not
+constants when compiling the onnx model. However, in pratice, inputs can be
+constants and we want to test such a situation.
+
+Testing with constant inputs is most easily performed by using the following
+command, also used by our checkers.
+```
+cmake --build . --config Release --target check-onnx-backend-constant
+```
+
+To test a single onnx node, e.g. `test_add_cpu`, use two environment variables
+"TEST_CONSTANT" and "IMPORTER_FORCE_CONSTANT", e.g.:
+```
+TEST_CONSTANT=true IMPORTER_FORCE_CONSTANT="0" TEST_CASE_BY_USER=test_add_cpu make check-onnx-backend
+```
+which turns the first input (index 0) to a constant, and thus the model now has
+only one input instead of two.
+
+The environment variable `IMPORTER_FORCE_CONSTANT` is a list of indices
+separated by `,` (starting from 0, or -1 for all input indices), e.g. `0, 2, 3`
+or `-1`.
+
+### Enable SIMD instructions
+
+On supported platforms, currently s390x only, backend tests can generate SIMD instructions for the compiled models. To enable SIMD, set the TEST_MCPU environment variable, e.g.,
+```
+TEST_MCPU=z14 cmake --build . --config Release --target check-onnx-backend
+```
 
 ### Execution of backend tests
 
@@ -174,3 +208,10 @@ variable in `src/MainUtils.cpp` to the types of files that you want to
 preserve (e.g. `KeepFilesOfType::All`). Then, no matter how you compile
 your model, input and output mlir files will be preserved, as well as
 unoptimized and optimized bytecode files as well as a few additional binaries.
+
+### Enable SIMD instructions
+
+On supported platforms, currently s390x only, numerical tests can generate SIMD instructions for the compiled models. To enable SIMD, set the TEST_ARGS environment variable, e.g.,
+```
+TEST_ARGS="-mcpu=z14" ARGS=-j$(nproc) cmake --build . --config Release --target test
+```

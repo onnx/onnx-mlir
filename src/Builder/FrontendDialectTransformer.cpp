@@ -24,6 +24,8 @@
 #include "onnx/defs/schema.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "onnx/checker.h"
+#include "onnx/shape_inference/implementation.h"
 #include "onnx/version_converter/convert.h"
 
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
@@ -40,6 +42,7 @@ namespace onnx_mlir {
 namespace detail {
 
 typedef SymbolMapping<Value> ValueSymbolMapping;
+typedef SymbolMapping<onnx::TypeProto> SymbolToOnnxTypeMapping;
 
 class FrontendGenImpl {
 public:
@@ -152,7 +155,7 @@ private:
 
     std::stringstream shapeInfoString(options_.shapeInformation);
     std::string shapeString;
-    while (getline(shapeInfoString, shapeString, '|')) {
+    while (getline(shapeInfoString, shapeString, ',')) {
       size_t pos = shapeString.find(':');
       std::string inputString = shapeString.substr(0, pos);
       std::string dimString = shapeString.substr(pos + 1);
@@ -163,7 +166,7 @@ private:
       std::stringstream dimSizes(dimString);
       std::string dimStr;
       std::vector<int64_t> dims;
-      while (getline(dimSizes, dimStr, ',')) {
+      while (getline(dimSizes, dimStr, 'x')) {
         int64_t dimSize = std::stoi(dimStr);
         assert((dimSize == -1 || dimSize > 0) && "dim must be -1 or > 0");
         dims.emplace_back(dimSize);
@@ -202,12 +205,11 @@ private:
     }
   }
 
-  // value_info_map is a map from ONNX symbolic names to the corresponding
-  // ValueInfoProto (used primarily to get the corresponding ONNX TypeProto).
-  std::map<std::string, onnx::ValueInfoProto> value_info_map;
+  // onnx_type_map: a map from ONNX tensor name to ONNX TypeProto.
+  SymbolToOnnxTypeMapping onnx_type_map;
 
   void AddValueInfo(const onnx::ValueInfoProto &vi) {
-    value_info_map[vi.name()] = vi;
+    onnx_type_map.AddMapping(vi.name(), vi.type());
   }
 
   // opset_map_ is the internal (map) representation of ModelProto::opset_import
@@ -231,11 +233,11 @@ private:
 
   /*!
    * Import an onnx tensor type by determining and returning its type
-   * @param value_info onnx tensor ValueInfoProto.
+   * @param type_proto onnx tensor TypeProto.
    */
-  Type ImportTensorType(const onnx::ValueInfoProto &value_info) {
+  Type ImportTensorType(const onnx::TypeProto &type_proto) {
     std::vector<int64_t> dims;
-    auto tensor_type = value_info.type().tensor_type();
+    auto tensor_type = type_proto.tensor_type();
     auto elementOnnxType = (onnx::TensorProto_DataType)tensor_type.elem_type();
     Type elementType = convertONNXTypeToMLIRType(builder_, elementOnnxType);
     if (!tensor_type.has_shape()) {
@@ -265,9 +267,9 @@ private:
 
   llvm::Optional<Type> ConvertOnnxType(const std::string &onnx_name) {
     if (options_.useOnnxModelTypes) {
-      auto it = value_info_map.find(onnx_name);
-      if (it != value_info_map.end()) {
-        return llvm::Optional<Type>(ImportTensorType(it->second));
+      if (onnx_type_map.ContainKey(onnx_name)) {
+        return llvm::Optional<Type>(
+            ImportTensorType(onnx_type_map.GetTensorByOnnxName(onnx_name)));
       }
     }
     return llvm::Optional<Type>();
@@ -365,6 +367,7 @@ private:
       Operation *op, bool useStdReturn) {
     frontend_symbols_.pushScope(graph.name());
     initializedTensors.pushScope(graph.name());
+    onnx_type_map.pushScope(graph.name());
     Block *entryBlock = &region.back();
 
     // Maintain a mapping between the parameter and its initializer.
@@ -388,7 +391,7 @@ private:
       AddValueInfo(input);
       if (!initializedTensors.ContainKey(input.name())) {
         inputNames.push_back(input.name());
-        auto argTy = ImportTensorType(input);
+        auto argTy = ImportTensorType(input.type());
         auto shapedTy = argTy.dyn_cast<RankedTensorType>();
         // Change the first dimension to unknown (-1) for test purpose only
         if (shapedTy && force_dim_dynamic_enabled_ &&
@@ -471,6 +474,7 @@ private:
 
     frontend_symbols_.popScope(graph.name());
     initializedTensors.popScope(graph.name());
+    onnx_type_map.popScope(graph.name());
     return builder_.getFunctionType(argTypes, retTys);
   }
 
@@ -906,6 +910,52 @@ private:
     buildOutputAndOperation<ONNXSliceOp>(node, in, nIn, nOut, attributes);
   }
 
+  /*!
+   * Special handle for Softmax operation where the default axis value depends
+   * on the opset version.
+   */
+  void ImportNodeSoftmax(const onnx::NodeProto &node) {
+    // Copy the provided inputs first.
+    std::vector<Value> inputs;
+    for (const auto &item : node.input()) {
+      if (initializedTensors.ContainKey(item)) {
+        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
+            UnknownLoc(), builder_, item));
+      } else if (frontend_symbols_.ContainKey(item)) {
+        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+      }
+    }
+
+    int nIn = ONNXSoftmaxOp::getNumberOfOperands();
+    int nOut = ONNXSoftmaxOp::getNumberOfResults();
+
+    // If no attribute is provided, axis would depend on the opset version.
+    // - With opset version < 13, default axis value is 1.
+    // - With opset version 13, default axis value is -1.
+    auto currentOpset = opset_map_.find(node.domain())->second;
+    auto attributes = ImportNodeAttributes(node);
+    bool hasAxisAttribute = false;
+    for (auto &attr : attributes)
+      if (attr.first.strref().equals_insensitive("axis")) {
+        hasAxisAttribute = true;
+        break;
+      }
+
+    if (!hasAxisAttribute) {
+      if (currentOpset < 13)
+        attributes.push_back(builder_.getNamedAttr("axis",
+            IntegerAttr::get(builder_.getIntegerType(64, /*isSigned=*/true),
+                APInt(64, /*value=*/1, /*isSigned=*/true))));
+    }
+
+    // Store the opset version in an attribute, which is used for the lowering.
+    attributes.push_back(builder_.getNamedAttr("onnx_opset",
+        IntegerAttr::get(builder_.getIntegerType(64, /*isSigned=*/true),
+            APInt(64, /*value=*/currentOpset, /*isSigned=*/true))));
+
+    buildOutputAndOperation<ONNXSoftmaxOp>(node, inputs, nIn, nOut, attributes);
+  }
+
   const onnx::OpSchema *GetOpSchema(const onnx::NodeProto &node) {
     auto &domain = node.domain();
     auto version_it = opset_map_.find(domain);
@@ -927,10 +977,14 @@ private:
     auto opset_list_it = op_dialect_version_map_.find(node.op_type());
     if (opset_list_it != op_dialect_version_map_.end()) {
       auto opset_list = opset_list_it->second;
-      // Traverse backward to find the closest version
-      // Some old versions may be compatible
+      // A new opset is added to onnx-mlir when it becomes imcompactible.
+      // But the lowest opset in op_dialect_version_map_ is an exception.
+      // It is the current opset when onnx-mlir project is started.
+      // All opset lower than the last opset should use the last opset(version)
+      if (opset_list.size() == 1)
+        return std::string("");
       for (int i = opset_list.size() - 1; i > 0; i--) {
-        if (current_opset <= opset_list[i]) {
+        if (current_opset < opset_list[i - 1]) {
           return "V" + std::to_string(opset_list[i]);
         }
       }
@@ -954,6 +1008,44 @@ private:
     return funcOp;
   }
 
+  void InferTypes(const onnx::FunctionProto *func,
+      std::vector<onnx::TypeProto> &inputTypes) {
+
+    // types: Used for temporary copies of Types, freed at end of function.
+    std::vector<std::unique_ptr<onnx::TypeProto>> types;
+    std::unordered_map<std::string, onnx::TypeProto *> typeMap;
+    // Initialize types and values (if available) of function inputs:
+    const auto num_inputs =
+        std::min(func->input_size(), static_cast<int>(inputTypes.size()));
+    for (int i = 0; i < num_inputs; ++i) {
+      const std::string &input_name = func->input(i);
+      typeMap[input_name] = &inputTypes[i];
+    }
+
+    for (const onnx::NodeProto &n : func->node()) {
+      const auto *schema = GetOpSchema(n);
+      if (!schema) {
+        continue; // TODO:
+      }
+
+      onnx::NodeProto tn(n);
+      onnx::shape_inference::InferenceContextImpl node_ctx(tn, typeMap, {}, {});
+      schema->GetTypeAndShapeInferenceFunction()(node_ctx);
+
+      // Update types:
+      for (int i = 0; i < n.output_size(); ++i) {
+        std::unique_ptr<onnx::TypeProto> p =
+            std::make_unique<onnx::TypeProto>(*node_ctx.getOutputType(i));
+        typeMap[n.output(i)] = p.get();
+        types.push_back(std::move(p));
+      }
+    }
+
+    for (auto pair : typeMap) {
+      onnx_type_map.AddMapping(pair.first, *pair.second);
+    }
+  }
+
   bool TryImportFunctionCallNode(const onnx::NodeProto &node) {
     const onnx::OpSchema *schema = GetOpSchema(node);
     if (schema == nullptr)
@@ -969,11 +1061,18 @@ private:
 
     for (auto &v : node.input()) {
       if (v.empty()) {
-        // Use default TypeProto() to indicate missing input/type
+        // Missing (optional) parameter.
         operandOnnxTypes.push_back(unspecifiedType);
+        auto no_value =
+            builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
+        operands.push_back(no_value);
+        operandTypes.push_back(builder_.getNoneType());
         continue;
       }
-      operandOnnxTypes.push_back(value_info_map[v].type());
+      // Function translation requires input (onnx) types
+      if (!onnx_type_map.ContainKey(v))
+        return false;
+      operandOnnxTypes.push_back(onnx_type_map.GetTensorByOnnxName(v));
       auto val = LookupOnnxName(v);
       operands.push_back(val);
       operandTypes.push_back(val.getType());
@@ -981,25 +1080,21 @@ private:
     for (auto &v : node.output()) {
       if (v.empty())
         continue;
-      auto resultType = ImportTensorType(value_info_map[v]);
+      if (!onnx_type_map.ContainKey(v))
+        return false;
+      auto resultType = ImportTensorType(onnx_type_map.GetTensorByOnnxName(v));
       resultTypes.push_back(resultType);
     }
 
     // Get ONNX function body:
     onnx::FunctionProto functionProto;
-    // Check if op is a context-independent function
+    // Try generating a context-independent function body:
     const onnx::FunctionProto *pFunctionProto = schema->GetFunction();
     if (!pFunctionProto) {
-// Check if op is a context-dependent function and build function-body
-#ifdef ONNX_FUNCTION_TYPE_CONTEXT
+      // Try generating a context-dependent function body:
       onnx::FunctionBodyBuildContextImpl onnxFunContext(node, operandOnnxTypes);
-#else
-      onnx::NodeProto node_copy(node);
-      onnx::FunctionBodyBuildContextImpl onnxFunContext(node_copy);
-#endif
       if (schema->HasContextDependentFunction() &&
-          (schema->BuildContextDependentFunction(
-              onnxFunContext, functionProto)))
+          schema->BuildContextDependentFunction(onnxFunContext, functionProto))
         pFunctionProto = &functionProto;
       else
         return false;
@@ -1014,15 +1109,28 @@ private:
     // Save caller context, while generating callee function body.
     ValueSymbolMapping callerScope(std::move(frontend_symbols_));
     frontend_symbols_.pushScope(func_name_prefix);
+    SymbolToOnnxTypeMapping callerTypeMap(std::move(onnx_type_map));
+    onnx_type_map.pushScope(func_name_prefix);
+
     auto prev_ip = builder_.saveInsertionPoint();
     builder_.setInsertionPointToStart(fnEntryBlock);
 
     // Generate MLIR function body
-    int formal_num = 0;
+
     auto formalParamValues = fnEntryBlock->getArguments();
-    for (auto &v : pFunctionProto->input()) {
-      BindOnnxName(v, formalParamValues[formal_num++]);
+    // Due to missing trailing optional parameters,
+    // fnEntryBlock->getNumArguments() and pFunctionProto->input_size() may be
+    // unequal.
+    int num_formals =
+        std::min(static_cast<int>(fnEntryBlock->getNumArguments()),
+            pFunctionProto->input_size());
+    for (int formal_num = 0; formal_num < num_formals; formal_num++) {
+      const std::string &v = pFunctionProto->input(formal_num);
+      BindOnnxName(v, formalParamValues[formal_num]);
     }
+
+    // Apply ONNX type inference to FunctionProto:
+    InferTypes(pFunctionProto, operandOnnxTypes);
 
     for (auto &fb_node : pFunctionProto->node()) {
       ImportNode(fb_node);
@@ -1038,6 +1146,9 @@ private:
     // Restore caller context
     frontend_symbols_.popScope(func_name_prefix);
     frontend_symbols_ = std::move(callerScope);
+    onnx_type_map.popScope(func_name_prefix);
+    onnx_type_map = std::move(callerTypeMap);
+
     builder_.restoreInsertionPoint(prev_ip);
 
     // Generate call statement
@@ -1069,11 +1180,7 @@ private:
       int nIn = 0;
       int nOut = 0;
       getNodeInputs(node, inputs);
-
-      // TODO: isn't nOut just node.output().size()?
-      for (const auto &item : node.output())
-        ++nOut;
-
+      nOut = node.output().size();
       buildOutputAndOperation<ONNXCustomOp>(
           node, inputs, nIn, nOut, attributes);
     }
@@ -1115,7 +1222,7 @@ private:
     Value tensor_val = frontend_symbols_.GetTensorByOnnxName(output.name());
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       if (output.type().tensor_type().has_shape()) {
-        tensor_val.setType(ImportTensorType(output));
+        tensor_val.setType(ImportTensorType(output.type()));
       }
     }
     ret_types.emplace_back(tensor_val.getType());
@@ -1271,8 +1378,12 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
       originVersion < CURRENT_ONNX_OPSET) {
     onnx::ModelProto convertModel =
         onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
+    if (options.useOnnxModelTypes)
+      onnx::shape_inference::InferShapes(convertModel);
     ImportFrontendModel(convertModel, context, module, options);
   } else {
+    if (options.useOnnxModelTypes)
+      onnx::shape_inference::InferShapes(model);
     ImportFrontendModel(model, context, module, options);
   }
 }

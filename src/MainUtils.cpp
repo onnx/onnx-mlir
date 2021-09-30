@@ -12,31 +12,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <cstdio>
-#include <cstdlib>
-#include <fcntl.h>
-#include <regex>
-#include <string>
-#include <vector>
-
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/IR/SymbolTable.h"
-#include "mlir/Pass/Pass.h"
+#include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/ToolOutputFile.h"
 
 #include "ExternalUtil.hpp"
 #include "MainUtils.hpp"
-
-#ifdef _WIN32
-#include <io.h>
-#else
-#include <unistd.h>
-#endif
+#include "src/Support/OMOptions.hpp"
 
 using namespace std;
 using namespace mlir;
@@ -84,15 +70,21 @@ llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<int> repeatOnnxTransform("repeatOnnxTransform",
+    llvm::cl::desc(
+        "invoke extra onnx transform pass(shape infernce, constant and etc.)"),
+    llvm::cl::init(0), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<string> shapeInformation("shapeInformation",
     llvm::cl::desc(
         "Custom shapes for the inputs of the ONNX model, e.g. setting static "
-        "shapes for dynamic inputs. \"value\" is in the format of "
-        "\"input_id:dim_size,dim_size,dim_size|input_id:dim_size,dim_size,dim_"
-        "size|...\", where \"input_id\" is 0, 1, ... to denote the first, "
-        "second, ... input, and \"dim_size\" is the dimension size for each "
-        "dimension of an input. \"dim_size\" must be a positive integer or -1 "
-        "(for an unknown dimension)."),
+        "shapes for dynamic inputs.\n"
+        "\"value\" is in the format of "
+        "\"INPUT_ID1:D1xD2x...xDn,INPUT_ID2:D1xD2x...xDn, ...\",\n"
+        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices starting from "
+        "0, and\n"
+        "\"D1, D2, ...\" are dimension sizes (positive integers of -1 for "
+        "unknown dimensions)"),
     llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<string> mtriple("mtriple", llvm::cl::desc("Target architecture"),
@@ -252,7 +244,8 @@ struct Command {
       fprintf(stderr, "%s\n", llvm::join(argsRef, " ").c_str());
       fprintf(stderr, "Error message: %s\n", errMsg.c_str());
       fprintf(stderr, "Program path: %s\n", _path.c_str());
-      llvm_unreachable("Command execution failed.");
+      fprintf(stderr, "Command execution failed.");
+      exit(rc);
     }
   }
 };
@@ -269,16 +262,16 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
   // Handle '.mlir' input to the ONNX MLIR frontend.
   // The mlir format indicates that one or more of the supported
   // representations are used in the file.
-  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> fileOrErr =
-      llvm::MemoryBuffer::getFileOrSTDIN(inputFilename);
-  if (std::error_code EC = fileOrErr.getError()) {
-    llvm::errs() << "Could not open input file: " << EC.message() << "\n";
+  string errorMessage;
+  auto input = openInputFile(inputFilename, &errorMessage);
+  if (!input) {
+    llvm::errs() << errorMessage << "\n";
     exit(1);
   }
 
   // Parse the input mlir.
   llvm::SourceMgr sourceMgr;
-  sourceMgr.AddNewSourceBuffer(std::move(*fileOrErr), llvm::SMLoc());
+  sourceMgr.AddNewSourceBuffer(std::move(input), llvm::SMLoc());
   module = mlir::parseSourceFile(sourceMgr, &context);
   if (!module) {
     llvm::errs() << "Error can't load file " << inputFilename << "\n";
@@ -295,9 +288,11 @@ string getTargetCpuOption() {
 
 string getTargetTripleOption() {
   string targetOptions = "";
+  // Comand cannot tolerate extra spaces. Add only when needed.
   if (mtriple != "")
     targetOptions = "--mtriple=" + mtriple;
-  // Comand cannot tolerate extra spaces. Add only when needed.
+  else if (kDefaultTriple != "")
+    targetOptions = "--mtriple=" + kDefaultTriple;
   return targetOptions;
 }
 
@@ -336,8 +331,14 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
 }
 
 // Compile LLVM bitcode to object file.
-void genModelObject(const mlir::OwningModuleRef &module, string bitcodePath,
-    string modelObjPath) {
+string genModelObject(string bitcodePath, string outputBaseName) {
+
+#ifdef _WIN32
+  string modelObjPath = outputBaseName + ".obj";
+#else
+  string modelObjPath = outputBaseName + ".o";
+#endif
+
   string llcPath = getToolPath("llc");
   Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
   llvmToObj.appendStr("-filetype=obj")
@@ -345,6 +346,7 @@ void genModelObject(const mlir::OwningModuleRef &module, string bitcodePath,
       .appendList({"-o", modelObjPath})
       .appendStr(bitcodePath)
       .exec();
+  return modelObjPath;
 }
 
 void genJniObject(const mlir::OwningModuleRef &module, string jniSharedLibPath,
@@ -354,19 +356,39 @@ void genJniObject(const mlir::OwningModuleRef &module, string jniSharedLibPath,
 }
 
 // Link everything into a shared object.
-void genSharedLib(const mlir::OwningModuleRef &module,
-    string modelSharedLibPath, std::vector<string> opts,
-    std::vector<string> objs, std::vector<string> libs) {
+string genSharedLib(string outputBaseName, std::vector<string> opts,
+    std::vector<string> objs, std::vector<string> libs,
+    std::vector<string> libDirs) {
 
-  string runtimeDirInclFlag = "-L" + getRuntimeDir();
+#ifdef _WIN32
+  string sharedLibPath = outputBaseName + ".dll";
+  std::vector<string> outputOpt = {"/Fe:" + sharedLibPath};
+  // link has to be before def and libpath since they need to be passed through
+  // to the linker
+  std::vector<string> sharedLibOpts = {
+      "/LD", "/link", "/def:" + outputBaseName + ".def"};
+
+  llvm::for_each(libs, [](string &lib) { lib = lib + ".lib"; });
+  llvm::for_each(
+      libDirs, [](string &libDir) { libDir = "/libpath:\"" + libDir + "\""; });
+#else
+  string sharedLibPath = outputBaseName + ".so";
+  std::vector<string> outputOpt = {"-o", sharedLibPath};
+  std::vector<string> sharedLibOpts = {"-shared", "-fPIC"};
+  llvm::for_each(libs, [](string &lib) { lib = "-l" + lib; });
+  llvm::for_each(libDirs, [](string &libDir) { libDir = "-L" + libDir; });
+#endif
 
   Command link(kCxxPath);
   link.appendList(opts)
       .appendList(objs)
-      .appendList({"-o", modelSharedLibPath})
-      .appendStrOpt(runtimeDirInclFlag)
+      .appendList(outputOpt)
+      .appendList(sharedLibOpts)
+      .appendList(libDirs)
       .appendList(libs)
       .exec();
+
+  return sharedLibPath;
 }
 
 // Create jar containing java runtime and model shared library (which includes
@@ -385,7 +407,7 @@ void genJniJar(const mlir::OwningModuleRef &module, string modelSharedLibPath,
   jar.appendList({"uf", modelJniJarPath}).appendStr(modelSharedLibPath).exec();
 }
 
-void compileModuleToSharedLibrary(
+string compileModuleToSharedLibrary(
     const mlir::OwningModuleRef &module, std::string outputBaseName) {
 
   string bitcodePath = outputBaseName + ".bc";
@@ -393,14 +415,12 @@ void compileModuleToSharedLibrary(
   llvm::FileRemover bitcodeRemover(
       bitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
 
-  string modelObjPath = outputBaseName + ".o";
-  genModelObject(module, bitcodePath, modelObjPath);
+  string modelObjPath = genModelObject(bitcodePath, outputBaseName);
   llvm::FileRemover modelObjRemover(
       modelObjPath, !keepFiles(KeepFilesOfType::Object));
 
-  string modelSharedLibPath = outputBaseName + ".so";
-  genSharedLib(module, modelSharedLibPath, {"-shared", "-fPIC"}, {modelObjPath},
-      {"-lcruntime"});
+  return genSharedLib(
+      outputBaseName, {}, {modelObjPath}, {"cruntime"}, {getRuntimeDir()});
 }
 
 void compileModuleToJniJar(
@@ -411,8 +431,7 @@ void compileModuleToJniJar(
   llvm::FileRemover bitcodeRemover(
       bitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
 
-  string modelObjPath = outputBaseName + ".o";
-  genModelObject(module, bitcodePath, modelObjPath);
+  string modelObjPath = genModelObject(bitcodePath, outputBaseName);
   llvm::FileRemover modelObjRemover(
       modelObjPath, !keepFiles(KeepFilesOfType::Object));
 
@@ -422,10 +441,9 @@ void compileModuleToJniJar(
   llvm::FileRemover jniObjRemover(
       jniObjPath, !keepFiles(KeepFilesOfType::Object));
 
-  string modelSharedLibPath = "libmodel.so";
-  genSharedLib(module, modelSharedLibPath,
-      {"-shared", "-fPIC", "-z", "noexecstack"}, {modelObjPath, jniObjPath},
-      {"-ljniruntime", "-lcruntime"});
+  string modelSharedLibPath = genSharedLib("libmodel", {"-z", "noexecstack"},
+      {modelObjPath, jniObjPath}, {"jniruntime", "cruntime"},
+      {getRuntimeDir()});
   llvm::FileRemover modelSharedLibRemover(
       modelSharedLibPath, !keepFiles(KeepFilesOfType::Object));
 
@@ -456,23 +474,36 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
   pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+
+  // Add extra passes
+  for (int i = 0; i < repeatOnnxTransform; i++) {
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addPass(mlir::createShapeInferencePass());
+    pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+  }
+
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
-  pm.addPass(mlir::createLowerToKrnlPass());
+  pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
+  // Add instrumentation for Onnx Ops
+  pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass());
+  pm.addPass(mlir::createLowerToKrnlPass(/*emitDealloc=*/false));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
-  // oppertunities.
+  // opportunities.
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
-
-  // TODO: make this pass optional:
-  pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
-  pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
-  pm.addPass(mlir::createCanonicalizerPass());
-  pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
+  // Emit buffer dealloc.
+  pm.addNestedPass<FuncOp>(mlir::createBufferDeallocationPass());
+  if (!disableMemoryBundling) {
+    pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
+    pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
+  }
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
@@ -541,26 +572,20 @@ InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
 
 void outputCode(
     mlir::OwningModuleRef &module, string filename, string extension) {
-  string tempFilename = filename + extension;
   mlir::OpPrintingFlags flags;
   if (preserveLocations)
     flags.enableDebugInfo();
 
-#ifdef _WIN32
-  // copy original stderr file number
-  int stderrOrigin = _dup(_fileno(stderr));
-#else
-  int stderrOrigin = dup(fileno(stderr));
-#endif
-  freopen(tempFilename.c_str(), "w", stderr);
-  module->print(llvm::errs(), flags);
-  fflush(stderr);
-  // set modified stderr as original stderr
-#ifdef _WIN32
-  _dup2(stderrOrigin, _fileno(stderr));
-#else
-  dup2(stderrOrigin, fileno(stderr));
-#endif
+  string errorMessage;
+  auto output = openOutputFile(filename + extension, &errorMessage);
+  if (!output) {
+    llvm::errs() << errorMessage << "\n";
+    exit(1);
+  }
+
+  module->print(output->os(), flags);
+  output->keep();
+
   if (printIR)
     module->print(llvm::outs(), flags);
 }
@@ -586,10 +611,10 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   // necessary when emitting the .bc file.
   if (emissionTarget == EmitLib) {
     // Write LLVM bitcode to disk, compile & link.
-    compileModuleToSharedLibrary(module, outputBaseName);
+    string sharedLib = compileModuleToSharedLibrary(module, outputBaseName);
     if (keepFiles(KeepFilesOfType::MLIR))
       outputCode(module, outputBaseName, ".llvm.mlir");
-    printf("Shared library %s.so has been compiled.\n", outputBaseName.c_str());
+    printf("Shared library %s has been compiled.\n", sharedLib.c_str());
   } else if (emissionTarget == EmitJNI) {
     compileModuleToJniJar(module, outputBaseName);
     if (keepFiles(KeepFilesOfType::MLIR))

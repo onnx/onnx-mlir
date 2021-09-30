@@ -72,7 +72,7 @@ Value emitConstantOp(
       .Case<IntegerType>([&](Type) {
         auto width = type.cast<IntegerType>().getWidth();
         if (width == 1) {
-          constantAttr = rewriter.getBoolAttr(false);
+          constantAttr = rewriter.getBoolAttr(value != 0);
         } else {
           constantAttr =
               rewriter.getIntegerAttr(type, APInt(width, (int64_t)value));

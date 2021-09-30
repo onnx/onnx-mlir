@@ -15,6 +15,7 @@
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
@@ -31,6 +32,7 @@
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/Support/Endian.h"
 
 #include "onnx/onnx_pb.h"
 
@@ -115,6 +117,25 @@ static size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
     return 0; // MemRef refers to a scalar.
   else
     return memRefTy.getBody()[3].cast<LLVM::LLVMArrayType>().getNumElements();
+}
+
+// Create a function declaration for OMInstrumentPoint, the signature is:
+//   `void (i64, i64)`
+static FlatSymbolRefAttr getOrInsertInstrument(
+    PatternRewriter &rewriter, ModuleOp module) {
+  auto *context = module.getContext();
+  const char funcName[] = "OMInstrumentPoint";
+  if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
+    return SymbolRefAttr::get(context, funcName);
+  auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
+  auto llvmI64Ty = IntegerType::get(context, 64);
+  auto llvmFnType = LLVM::LLVMFunctionType::get(
+      llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
+
+  PatternRewriter::InsertionGuard insertGuard(rewriter);
+  rewriter.setInsertionPointToStart(module.getBody());
+  rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, llvmFnType);
+  return SymbolRefAttr::get(context, funcName);
 }
 
 /// Return a symbol reference to the memcpy function, inserting it into the
@@ -417,7 +438,7 @@ public:
       } else if (krnlGlobalOp.value().getValue().isa<DenseElementsAttr>()) {
         DenseElementsAttr denseAttr =
             krnlGlobalOp.value().getValue().cast<DenseElementsAttr>();
-        if ((!denseAttr.isSplat()) && (sizeInBytes > 512)) {
+        if ((!denseAttr.isSplat()) && (sizeInBytes > 1024)) {
           std::vector<char> rawData = denseAttr.getRawData();
           // Check data size.
           assert(((int64_t)rawData.size() == sizeInBytes) &&
@@ -437,87 +458,22 @@ public:
         llvm_unreachable("Unsupported attribute type");
     }
 
-    // Prepare data to be inserted into MemRef.
-    // If global needs alignment, we need to allocate a new buffer that is
-    // aligned.
-    // - Otherwise, no preparation is needed, directly use the global.
+    // Set alignment if alignment != 0.
+    if (alignmentAttr && alignmentAttr.getValue().getSExtValue() != 0) {
+      global.alignmentAttr(alignmentAttr);
+    }
 
-    // Get the address of the global.
+    // Prepare data to be inserted into MemRef.
     Value globalValue = rewriter.create<LLVM::AddressOfOp>(loc, global);
     auto globalPtrType =
         LLVM::LLVMPointerType::get(constantElementType.cast<Type>());
-
-    Value localValue, alignedLocalValue;
-    if (alignmentAttr && alignmentAttr.getValue().getSExtValue() != 0) {
-      // Some frequently used types.
-      auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-      auto llvmI8PtrTy =
-          LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
-
-      // Compute allocation size.
-      Value alignment = createIndexConstant(
-          rewriter, loc, alignmentAttr.getValue().getSExtValue());
-      Value sizeBytes = createIndexConstant(rewriter, loc, sizeInBytes);
-      // Adjust the allocation size to consider alignment.
-      Value sizeBytesWithAligment =
-          rewriter.create<LLVM::AddOp>(loc, sizeBytes, alignment);
-
-      // Allocate a local buffer for the constant.
-      FlatSymbolRefAttr mallocSym = getOrInsertMalloc(rewriter, module);
-      Value i8PtrLocal = rewriter
-                             .create<LLVM::CallOp>(loc, llvmI8PtrTy, mallocSym,
-                                 ArrayRef<Value>(sizeBytesWithAligment))
-                             .getResult(0);
-
-      // Bitcast the local buffer to the MemRefType's element type.
-      localValue =
-          rewriter.create<LLVM::BitcastOp>(loc, globalPtrType, i8PtrLocal);
-
-      // Compute the aligned pointer.
-      Type intPtrType = getIntPtrType(memRefTy.getMemorySpaceAsInt());
-      Value intPtrLocal =
-          rewriter.create<LLVM::PtrToIntOp>(loc, intPtrType, localValue);
-      Value intAlignment = createAligned(rewriter, loc, intPtrLocal, alignment);
-      alignedLocalValue =
-          rewriter.create<LLVM::IntToPtrOp>(loc, globalPtrType, intAlignment);
-
-      // Copy constant values into the local aligned buffer:
-      //  - Bitcast alignedPtr to i8*
-      Value i8AlignedPtrLocal =
-          rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, alignedLocalValue);
-      //  - Bitcast global to i8*
-      Value i8PtrGlobal =
-          rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, globalValue);
-      //  - Set volatile.
-      Value isVolatile =
-          rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 1),
-              rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
-      //  - Call memcpy.
-      FlatSymbolRefAttr memcpyRef = getOrInsertMemcpy(rewriter, module);
-      rewriter.create<CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
-          ArrayRef<Value>(
-              {i8AlignedPtrLocal, i8PtrGlobal, sizeBytes, isVolatile}));
-
-      // Insert deallocation for the local buffer.
-      Block *parentBlock = i8PtrLocal.getDefiningOp()->getBlock();
-      FlatSymbolRefAttr deallocSym = getOrInsertDealloc(rewriter, module);
-      LLVM::CallOp dealloc = rewriter.create<LLVM::CallOp>(
-          loc, llvmVoidTy, deallocSym, ArrayRef<Value>(i8PtrLocal));
-      dealloc.getOperation()->moveBefore(&parentBlock->back());
-    } else {
-      // Bitcast the global to the MemRefType's element type.
-      localValue =
-          rewriter.create<LLVM::BitcastOp>(loc, globalPtrType, globalValue);
-    }
+    // Bitcast the global to the MemRefType's element type.
+    Value localValue =
+        rewriter.create<LLVM::BitcastOp>(loc, globalPtrType, globalValue);
 
     // Create llvm MemRef from original MemRef and fill the data pointers.
     auto llvmMemRef = MemRefDescriptor::fromStaticShape(
         rewriter, loc, *getTypeConverter(), memRefTy, localValue);
-
-    // If alignment, update alignedPtr.
-    if (alignedLocalValue) {
-      llvmMemRef.setAlignedPtr(rewriter, loc, alignedLocalValue);
-    }
 
     rewriter.replaceOp(op, {llvmMemRef});
     return success();
@@ -540,6 +496,49 @@ private:
     Value bumped = rewriter.create<LLVM::AddOp>(loc, input, bump);
     Value mod = rewriter.create<LLVM::URemOp>(loc, bumped, alignment);
     return rewriter.create<LLVM::SubOp>(loc, bumped, mod);
+  }
+};
+
+class KrnlInstrumentOpLowering : public ConversionPattern {
+public:
+  explicit KrnlInstrumentOpLowering(MLIRContext *context)
+      : ConversionPattern(KrnlInstrumentOp::getOperationName(), 1, context) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    auto *context = op->getContext();
+    KrnlInstrumentOpAdaptor operandAdaptor(operands);
+    auto loc = op->getLoc();
+    KrnlInstrumentOp instrumentOp = llvm::dyn_cast<KrnlInstrumentOp>(op);
+
+    // Get a symbol reference to the memcpy function, inserting it if necessary.
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    // auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
+    // auto llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context,
+    // 8));
+    // auto llvmI64Ty = IntegerType::get(context, 64); auto llvmFnType =
+    // LLVM::LLVMFunctionType::get(
+    //    llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
+
+    auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
+
+    Value nodeName =
+        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
+            rewriter.getIntegerAttr(
+                rewriter.getIntegerType(64), instrumentOp.opID()));
+    Value tag =
+        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
+            rewriter.getIntegerAttr(
+                rewriter.getIntegerType(64), instrumentOp.tag()));
+    // StringRef txt = instrumentOp->op_name();
+    // Value nodeName = rewriter.create<LLVM::ConstantOp>(loc, llvmI8PtrTy,
+    // instrumentOp->op_name());
+
+    rewriter.create<CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
+        ArrayRef<Value>({nodeName, tag}));
+
+    rewriter.eraseOp(op);
+    return success();
   }
 };
 
@@ -1126,8 +1125,10 @@ private:
       auto dimSizePtr =
           rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
               sizesArrayPtr, ArrayRef<Value>({dimIdx}));
-      auto dimSize = rewriter.create<LLVM::LoadOp>(
+      auto dimSizeLoad = rewriter.create<LLVM::LoadOp>(
           loc, LLVM::LLVMPointerType::get(int64Ty), dimSizePtr);
+      Value dimSize =
+          rewriter.create<LLVM::PtrToIntOp>(loc, int64Ty, dimSizeLoad);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
           dimSize,
           rewriter.getArrayAttr(
@@ -1137,8 +1138,10 @@ private:
       auto dimStridePtr =
           rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
               stridesArrayPtr, ArrayRef<Value>({dimIdx}));
-      auto dimStride = rewriter.create<LLVM::LoadOp>(
+      auto dimStrideLoad = rewriter.create<LLVM::LoadOp>(
           loc, LLVM::LLVMPointerType::get(int64Ty), dimStridePtr);
+      Value dimStride =
+          rewriter.create<LLVM::PtrToIntOp>(loc, int64Ty, dimStrideLoad);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
           dimStride,
           rewriter.getArrayAttr(
@@ -1382,6 +1385,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateStdExpandOpsPatterns(patterns);
+  populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
   populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
 
@@ -1389,6 +1393,8 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
       ctx, typeConverter);
   patterns.insert<KrnlGetRefOpLowering>(ctx, typeConverter);
   patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(ctx);
+
+  patterns.insert<KrnlInstrumentOpLowering>(ctx);
 
   // Math library functions.
   patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(ctx);
@@ -1413,11 +1419,19 @@ struct ConvertKrnlToLLVMPass
 } // end anonymous namespace
 
 void ConvertKrnlToLLVMPass::runOnOperation() {
+  // Annotate ModuleOp with endian information so that LLVM global constants are
+  // handled correctly by the other LLVM tools such as 'opt'.
+  bool isLittleEndian = llvm::support::endian::system_endianness() ==
+                        llvm::support::endianness::little;
+  StringRef endian = isLittleEndian ? "e" : "E";
+  ModuleOp module = getOperation();
+  module->setAttr("llvm.data_layout", StringAttr::get(&getContext(), endian));
+
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp>();
-  target.addIllegalOp<LLVM::DialectCastOp>();
+  target.addIllegalOp<UnrealizedConversionCastOp>();
 
   // Lower the MemRef types to a representation in LLVM.
   LowerToLLVMOptions options(&getContext());

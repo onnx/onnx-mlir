@@ -23,6 +23,9 @@
 using namespace std;
 using namespace mlir;
 
+// Include some helper functions.
+#include "Helper.hpp"
+
 void *omTensorGetAllocatedPtr(OMTensor *tensor);
 template <typename TYPE>
 void omPrintAsPython(OMTensor *tensor, string name) {
@@ -131,7 +134,8 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
   OwningModuleRef moduleRef(module);
 
   compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
-  onnx_mlir::ExecutionSession sess(SHARED_LIB_BASE + ".so", "run_main_graph");
+  onnx_mlir::ExecutionSession sess(
+      getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto aOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
@@ -212,8 +216,9 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
 
 int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
-  llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
+  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
+  llvm::cl::ParseCommandLineOptions(argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
 
   if (true) {
     printf("RapidCheck test case generation.\n");

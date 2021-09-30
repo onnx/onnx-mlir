@@ -216,6 +216,18 @@ bool isFromNone(Value v) {
     if (c.getValue().isa<UnitAttr>())
       return true;
   }
+  if (v.getDefiningOp() &&
+      llvm::dyn_cast_or_null<mlir::ONNXConstantOp>(v.getDefiningOp())) {
+    mlir::ONNXConstantOp c =
+        llvm::dyn_cast<mlir::ONNXConstantOp>(v.getDefiningOp());
+    if (c.value().hasValue() && c.valueAttr().isa<DenseElementsAttr>()) {
+      DenseElementsAttr d = c.valueAttr().cast<DenseElementsAttr>();
+      auto shape = d.getType().dyn_cast<RankedTensorType>().getShape();
+      if (shape.size() == 1 && shape[0] == 0)
+        return true;
+    }
+  }
+
   return false;
 }
 
@@ -274,6 +286,30 @@ bool IsIdentityPermuteVector(ArrayAttr permAttr) {
   return true;
 }
 
+/// Test if the value has the specified constant shape
+bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape) {
+  if (!value.getType().isa<ShapedType>()) {
+    return false;
+  }
+  ArrayRef<int64_t> valueShape = value.getType().cast<ShapedType>().getShape();
+  DenseElementsAttr shapeAttr = getDenseElementAttributeFromONNXValue(shape);
+  if (shapeAttr == nullptr) {
+    return false;
+  }
+  int64_t dimensionsOfShape = shapeAttr.getType().getShape()[0];
+  if ((int64_t)valueShape.size() != dimensionsOfShape) {
+    return false;
+  }
+  auto valueIt = shapeAttr.getIntValues().begin();
+  for (int64_t i = 0; i < dimensionsOfShape; i++) {
+    int64_t value = (*valueIt++).getSExtValue();
+    if (valueShape[i] != value) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /// Test if two axis arrays contain the same values or not.
 bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
   // false if one of the array attributes is null.
@@ -306,9 +342,34 @@ bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
   return true;
 }
 
+/// Convert ConstantOp to ArrayAttr and test if they have the same values
+bool AreTheSameConstantOpDenseAttr(
+    Builder &builder, int64_t rank, Value lhsOp, Value rhsOp) {
+  ONNXConstantOp lhsConstOp = dyn_cast<ONNXConstantOp>(lhsOp.getDefiningOp());
+  ONNXConstantOp rhsConstOp = dyn_cast<ONNXConstantOp>(rhsOp.getDefiningOp());
+  if (lhsConstOp && rhsConstOp) {
+    auto lhsArrAttr = createArrayAttrFromConstantOp(builder, lhsConstOp);
+    auto rhsArrAttr = createArrayAttrFromConstantOp(builder, rhsConstOp);
+    return AreTheSameAxisArray(rank, lhsArrAttr, rhsArrAttr);
+  } else {
+    return false;
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // Support for rewrite patterns.
 //===----------------------------------------------------------------------===//
+
+// Create an ArrayAttr from a dense ConstantOp
+ArrayAttr createArrayAttrFromConstantOp(Builder &builder, Value constOp) {
+  auto denseAttr = getDenseElementAttributeFromONNXValue(constOp);
+  assert(denseAttr && "ConstantOp is not a DenseElementsAttr");
+  SmallVector<int64_t, 4> intVals;
+  for (auto val : denseAttr.getValues<IntegerAttr>()) {
+    intVals.emplace_back(val.getInt());
+  }
+  return builder.getI64ArrayAttr(ArrayRef<int64_t>(intVals));
+}
 
 // Create a DenseElementsAttr from a float attribute.
 DenseElementsAttr createDenseElementsAttrFromFloatAttr(

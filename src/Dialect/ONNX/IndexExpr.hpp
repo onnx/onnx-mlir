@@ -360,6 +360,7 @@ private:
   void addIndexExprImpl(IndexExprImpl *obj);
 
   // Support functions for AffineExpr.
+  int indexInList(SmallVectorImpl<Value> const &list, Value const &value) const;
   int addDim(Value const value);
   int addSymbol(Value const value);
 
@@ -456,8 +457,11 @@ public:
   IndexExpr operator*(IndexExpr const b) const;
   IndexExpr operator*(int64_t const b) const;
   IndexExpr floorDiv(IndexExpr const b) const;
+  IndexExpr floorDiv(int64_t const b) const;
   IndexExpr ceilDiv(IndexExpr const b) const;
+  IndexExpr ceilDiv(int64_t const b) const;
   IndexExpr operator%(IndexExpr const b) const;
+  IndexExpr operator%(int64_t const b) const;
   // Compare operations, return a new IndexExpr that is either a literal or a
   // value expression of type predType.
   IndexExpr operator==(IndexExpr const b) const;
@@ -561,7 +565,15 @@ class LiteralIndexExpr : public IndexExpr {
 public:
   LiteralIndexExpr() : IndexExpr() {}    // Make undefined.
   LiteralIndexExpr(int64_t const value); // Make an index constant value.
-  LiteralIndexExpr(IndexExpr const otherIndexExpr);
+  LiteralIndexExpr(IndexExpr const &o);
+  LiteralIndexExpr(UndefinedIndexExpr const &o);
+  LiteralIndexExpr(LiteralIndexExpr const &o);
+  LiteralIndexExpr(NonAffineIndexExpr const &o);
+  LiteralIndexExpr(QuestionmarkIndexExpr const &o);
+  LiteralIndexExpr(PredicateIndexExpr const &o);
+  LiteralIndexExpr(AffineIndexExpr const &o);
+  LiteralIndexExpr(DimIndexExpr const &o);
+  LiteralIndexExpr(SymbolIndexExpr const &o);
 
 private:
   void init(int64_t const value);
@@ -572,14 +584,33 @@ class NonAffineIndexExpr : public IndexExpr {
 public:
   NonAffineIndexExpr() : IndexExpr() {} // Make undefined expression.
   NonAffineIndexExpr(Value const value);
-  NonAffineIndexExpr(IndexExpr const otherIndexExpr);
+  NonAffineIndexExpr(IndexExpr const &o);
+  NonAffineIndexExpr(UndefinedIndexExpr const &o);
+  NonAffineIndexExpr(LiteralIndexExpr const &o);
+  NonAffineIndexExpr(NonAffineIndexExpr const &o);
+  NonAffineIndexExpr(QuestionmarkIndexExpr const &o);
+  NonAffineIndexExpr(PredicateIndexExpr const &o);
+  NonAffineIndexExpr(AffineIndexExpr const &o);
+  NonAffineIndexExpr(DimIndexExpr const &o);
+  NonAffineIndexExpr(SymbolIndexExpr const &o);
+
+private:
+  NonAffineIndexExpr(IndexExprImpl *otherObjPtr);
 };
 
 // Subclass to explicitly create Questionmark IndexExpr.
 class QuestionmarkIndexExpr : public IndexExpr {
 public:
   QuestionmarkIndexExpr();
-  QuestionmarkIndexExpr(IndexExpr const otherIndexExpr);
+  QuestionmarkIndexExpr(IndexExpr const &o);
+  QuestionmarkIndexExpr(UndefinedIndexExpr const &o);
+  QuestionmarkIndexExpr(LiteralIndexExpr const &o);
+  QuestionmarkIndexExpr(NonAffineIndexExpr const &o);
+  QuestionmarkIndexExpr(QuestionmarkIndexExpr const &o);
+  QuestionmarkIndexExpr(PredicateIndexExpr const &o);
+  QuestionmarkIndexExpr(AffineIndexExpr const &o);
+  QuestionmarkIndexExpr(DimIndexExpr const &o);
+  QuestionmarkIndexExpr(SymbolIndexExpr const &o);
 };
 
 // Subclass to explicitly create Predicate IndexExpr.
@@ -588,7 +619,18 @@ public:
   PredicateIndexExpr() : IndexExpr() {} // Make undefined predicate expression.
   PredicateIndexExpr(bool const value); // Make a predicate constant value.
   PredicateIndexExpr(Value const value);
-  PredicateIndexExpr(IndexExpr const otherIndexExpr);
+  PredicateIndexExpr(IndexExpr const &o);
+  PredicateIndexExpr(UndefinedIndexExpr const &o);
+  PredicateIndexExpr(LiteralIndexExpr const &o);
+  PredicateIndexExpr(NonAffineIndexExpr const &o);
+  PredicateIndexExpr(QuestionmarkIndexExpr const &o);
+  PredicateIndexExpr(PredicateIndexExpr const &o);
+  PredicateIndexExpr(AffineIndexExpr const &o);
+  PredicateIndexExpr(DimIndexExpr const &o);
+  PredicateIndexExpr(SymbolIndexExpr const &o);
+
+private:
+  PredicateIndexExpr(IndexExprImpl *otherObjPtr);
 };
 
 // Subclass to explicitly create Affine IndexExpr.
@@ -596,7 +638,18 @@ class AffineIndexExpr : public IndexExpr {
 public:
   AffineIndexExpr() : IndexExpr() {} // Make undefined expression.
   AffineIndexExpr(AffineExpr const value);
-  AffineIndexExpr(IndexExpr const otherIndexExpr);
+  AffineIndexExpr(IndexExpr const &o);
+  AffineIndexExpr(UndefinedIndexExpr const &o);
+  AffineIndexExpr(LiteralIndexExpr const &o);
+  AffineIndexExpr(NonAffineIndexExpr const &o);
+  AffineIndexExpr(QuestionmarkIndexExpr const &o);
+  AffineIndexExpr(PredicateIndexExpr const &o);
+  AffineIndexExpr(AffineIndexExpr const &o);
+  AffineIndexExpr(DimIndexExpr const &o);
+  AffineIndexExpr(SymbolIndexExpr const &o);
+
+private:
+  AffineIndexExpr(IndexExprImpl *otherObjPtr);
 };
 
 // Subclass to explicitly create Dim IndexExpr.
@@ -604,7 +657,18 @@ class DimIndexExpr : public IndexExpr {
 public:
   DimIndexExpr() : IndexExpr() {} // Make undefined expression.
   DimIndexExpr(Value const value);
-  DimIndexExpr(IndexExpr const otherIndexExpr);
+  DimIndexExpr(IndexExpr const &o);
+  DimIndexExpr(UndefinedIndexExpr const &o);
+  DimIndexExpr(LiteralIndexExpr const &o);
+  DimIndexExpr(NonAffineIndexExpr const &o);
+  DimIndexExpr(QuestionmarkIndexExpr const &o);
+  DimIndexExpr(PredicateIndexExpr const &o);
+  DimIndexExpr(AffineIndexExpr const &o);
+  DimIndexExpr(DimIndexExpr const &o);
+  DimIndexExpr(SymbolIndexExpr const &o);
+
+private:
+  DimIndexExpr(IndexExprImpl *otherObjPtr);
 };
 
 // Subclass to explicitly create IndexExpr.
@@ -612,7 +676,18 @@ class SymbolIndexExpr : public IndexExpr {
 public:
   SymbolIndexExpr() : IndexExpr() {} // Make undefined expression.
   SymbolIndexExpr(Value const value);
-  SymbolIndexExpr(IndexExpr const otherIndexExpr);
+  SymbolIndexExpr(IndexExpr const &o);
+  SymbolIndexExpr(UndefinedIndexExpr const &o);
+  SymbolIndexExpr(LiteralIndexExpr const &o);
+  SymbolIndexExpr(NonAffineIndexExpr const &o);
+  SymbolIndexExpr(QuestionmarkIndexExpr const &o);
+  SymbolIndexExpr(PredicateIndexExpr const &o);
+  SymbolIndexExpr(AffineIndexExpr const &o);
+  SymbolIndexExpr(DimIndexExpr const &o);
+  SymbolIndexExpr(SymbolIndexExpr const &o);
+
+private:
+  SymbolIndexExpr(IndexExprImpl *otherObjPtr);
 };
 
 //===----------------------------------------------------------------------===//
@@ -689,6 +764,7 @@ private:
 // they are not constant at compile time.
 class MemRefBoundsIndexCapture {
 public:
+  MemRefBoundsIndexCapture();
   MemRefBoundsIndexCapture(Value tensorOrMemref);
 
   uint64_t getRank() { return memRank; }
@@ -703,8 +779,6 @@ public:
   void getSymbolList(SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
-  MemRefBoundsIndexCapture() { llvm_unreachable("forbidden constructor"); };
-
   template <class INDEX>
   IndexExpr get(uint64_t i);
   template <class INDEX>

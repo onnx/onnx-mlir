@@ -20,6 +20,8 @@
 
 using namespace mlir;
 
+#define DEBUG_TRACE 0
+
 struct ONNXMatMulOpLowering : public ConversionPattern {
   ONNXMatMulOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXMatMulOp::getOperationName(), 1, ctx) {}
@@ -36,22 +38,21 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ValueRange outerLoops = createKrnl.defineLoops(outerloopNum);
     SmallVector<IndexExpr, 4> outerLbs(outerloopNum, LiteralIndexExpr(0));
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs,
-        shapeHelper.dimsForOutput(0), {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
-          ValueRange outerIndices = createKrnl.getInductionVarValue(outerLoops);
+        shapeHelper.dimsForOutput(0),
+        [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           ImplicitLocOpBuilder lb(createKrnl.getLoc(), createKrnl.getBuilder());
+          MemRefBuilder createMemRef(createKrnl);
+          // Single scalar, no need for default alignment.
           Value reductionVal =
-              lb.create<memref::AllocaOp>(MemRefType::get({}, elementType));
+              createMemRef.alignedAlloca(MemRefType::get({}, elementType));
           createKrnl.store(fzero, reductionVal);
           int aRank = shapeHelper.aDims.size();
           int bRank = aRank; // Add for better readability.
           ValueRange innerLoop = lb.create<KrnlDefineLoopsOp>(1).getResults();
           Value innerUb = shapeHelper.aDims[aRank - 1].getValue();
           Value izero = lb.create<ConstantIndexOp>(0);
-          createKrnl.iterate(innerLoop, innerLoop, {izero}, {innerUb}, {},
-              [&](KrnlBuilder &createKrnl, ValueRange args) {
-                ValueRange innerIndex =
-                    createKrnl.getInductionVarValue(innerLoop);
+          createKrnl.iterate(innerLoop, innerLoop, {izero}, {innerUb},
+              [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
                 Value k = innerIndex[0];
                 SmallVector<Value, 4> aAccessFct, bAccessFct;
                 for (int i = 0; i < aRank; ++i) {
@@ -106,24 +107,53 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
     KrnlBuilder createKrnl(rewriter, loc);
+    MemRefBuilder createMemRef(createKrnl);
     ImplicitLocOpBuilder lb(loc, rewriter);
     Value zero = lb.create<ConstantIndexOp>(0);
-    Value one = lb.create<ConstantIndexOp>(1);
-    Value I = lb.createOrFold<memref::DimOp>(C, zero);
-    Value J = lb.createOrFold<memref::DimOp>(C, one);
-    Value K = lb.createOrFold<memref::DimOp>(A, one);
+    Value I = createMemRef.dim(C, 0);
+    Value J = createMemRef.dim(C, 1);
+    Value K = createMemRef.dim(A, 1);
 
     // Initialize alloc/C to zero.
     ValueRange zLoop = createKrnl.defineLoops(2);
-    createKrnl.iterate(zLoop, zLoop, {zero, zero}, {I, J}, {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
-          ValueRange indices = createKrnl.getInductionVarValue(zLoop);
+    createKrnl.iterate(zLoop, zLoop, {zero, zero}, {I, J},
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
           createKrnl.store(zeroVal, alloc, indices);
         });
 
     // Compute.
     // Define blocking, with simdization along the j axis.
-    const int64_t iRegTile(4), jRegTile(8), kRegTile(4);
+    int64_t iRegTile(4), jRegTile(8), kRegTile(8);
+    // Update tiling for very small sizes known at compile time.
+    DimIndexExpr dimI(I), dimJ(J), dimK(K);
+    if (dimI.isLiteral()) {
+      int64_t constI = dimI.getLiteral();
+      if (constI < iRegTile) {
+        iRegTile = constI;
+        if (DEBUG_TRACE)
+          printf("MatMul: Tiling I is reduced to %d\n", (int)iRegTile);
+      }
+    }
+    if (dimJ.isLiteral()) {
+      int64_t constJ = dimJ.getLiteral();
+      // When jRegTile does not divide J, but 4 would, use 4, unless J is very
+      // large, in which case it is better to simdize well the steady state and
+      // ignore the last partial block.
+      if (constJ % jRegTile != 0 && constJ % 4 == 0 && constJ <= 32) {
+        jRegTile = 4;
+        if (DEBUG_TRACE)
+          printf("MatMul: Tiling J is reduced to %d\n", (int)jRegTile);
+      }
+    }
+    if (dimK.isLiteral()) {
+      int64_t constK = dimK.getLiteral();
+      if (constK < kRegTile) {
+        kRegTile = constK;
+        if (DEBUG_TRACE)
+          printf("MatMul: Tiling K is reduced to %d\n", (int)kRegTile);
+      }
+    }
+
     // I, J, K loop.
     ValueRange origLoop = createKrnl.defineLoops(3);
     Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
@@ -136,12 +166,12 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value kk1(kRegBlock[0]), kk2(kRegBlock[1]);
     createKrnl.permute({ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
     createKrnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
-        {I, J, K}, {}, [&](KrnlBuilder &createKrnl, ValueRange args) {
-          ValueRange indices = createKrnl.getInductionVarValue({ii1, jj1, kk1});
+        {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange indices) {
           Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
           createKrnl.matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},
               {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
-              {iRegTile, jRegTile, kRegTile}, {}, {}, {}, true, true, false);
+              {iRegTile, jRegTile, kRegTile}, {}, {}, {},
+              /*simd*/ true, /*unroll*/ true, /*overcompute*/ false);
         });
   }
 

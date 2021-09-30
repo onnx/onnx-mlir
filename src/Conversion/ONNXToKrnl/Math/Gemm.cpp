@@ -42,23 +42,20 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ValueRange outerLoops = createKrnl.defineLoops(2);
     SmallVector<IndexExpr, 0> outerLbs(2, LiteralIndexExpr(0));
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs,
-        shapeHelper.dimsForOutput(0), {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
-          // Outer loop indices.
-          ValueRange outerIndices = createKrnl.getInductionVarValue(outerLoops);
+        shapeHelper.dimsForOutput(0),
+        [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Create temp and set to zero.
           ImplicitLocOpBuilder lb(createKrnl.getLoc(), createKrnl.getBuilder());
-          Value red =
-              lb.create<memref::AllocaOp>(MemRefType::get({}, elementType));
+          // Single scalar, no need for default alignment.
+          MemRefBuilder createMemRef(createKrnl);
+          Value red = createMemRef.alloca(MemRefType::get({}, elementType));
           createKrnl.store(zeroVal, red);
           // Inner loop
           ValueRange innerLoop = createKrnl.defineLoops(1);
           Value innerLb = lb.create<ConstantIndexOp>(0);
           Value innerUb = shapeHelper.aDims[1].getValue();
-          createKrnl.iterate(innerLoop, innerLoop, {innerLb}, {innerUb}, {},
-              [&](KrnlBuilder &createKrnl, ValueRange args) {
-                ValueRange innerIndex =
-                    createKrnl.getInductionVarValue(innerLoop);
+          createKrnl.iterate(innerLoop, innerLoop, {innerLb}, {innerUb},
+              [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
                 Value i(outerIndices[0]), j(outerIndices[1]), k(innerIndex[0]);
                 // Handle transposed accesses.
                 SmallVector<Value, 2> aAccess, bAccess;
@@ -118,16 +115,15 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Initialize alloc/R to zero.
     KrnlBuilder createKrnl(rewriter, loc);
     ValueRange zeroLoop = createKrnl.defineLoops(2);
-    createKrnl.iterateIE(zeroLoop, zeroLoop, {zero, zero}, {I, J}, {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
-          ValueRange indices = createKrnl.getInductionVarValue(zeroLoop);
+    createKrnl.iterateIE(zeroLoop, zeroLoop, {zero, zero}, {I, J},
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
           createKrnl.store(zeroVal, R, indices);
         });
 
     // Prepare for the computations.
     // 1) Define blocking, with simdization along the j axis.
-    const int64_t iCacheTile(64), jCacheTile(128), kCacheTile(512);
-    const int64_t iRegTile(4), jRegTile(8);
+    const int64_t iCacheTile(32), jCacheTile(64), kCacheTile(256);
+    const int64_t iRegTile(4), jRegTile(16);
 
     bool unrollAndJam = DEBUG_UNROLL_OFF ? false : true;
     // Simdize with jRegTile as the vector length.
@@ -193,16 +189,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       createKrnl.permute({ii1, ii2, ii3, jj1, jj2, jj3, kk1, kk2},
           {/*i*/ 0, 4, 5, /*j*/ 1, 3, 6, /*k*/ 2, 7});
       // Compute: A[i, k] * b[k, j] -> R[i, j])
-      createKrnl.iterateIE({ii, jj}, {ii1, jj1}, {zero, zero}, {I, J}, {},
-          [&](KrnlBuilder &createKrnl, ValueRange args) {
-            // KrnlBuilder createKrnl(lb);
-            ValueRange i1_j1_indices =
-                createKrnl.getInductionVarValue({ii1, jj1});
+      createKrnl.iterateIE({ii, jj}, {ii1, jj1}, {zero, zero}, {I, J},
+          [&](KrnlBuilder &createKrnl, ValueRange i1_j1_indices) {
             Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
             createKrnl.copyToBuffer(rBuff, R, {i1, j1}, zeroVal, false);
-            createKrnl.iterateIE({kk}, {kk1}, {zero}, {K}, {},
-                [&](KrnlBuilder &createKrnl, ValueRange args) {
-                  ValueRange k1_index = createKrnl.getInductionVarValue({kk1});
+            createKrnl.iterateIE({kk}, {kk1}, {zero}, {K},
+                [&](KrnlBuilder &createKrnl, ValueRange k1_index) {
                   Value k1(k1_index[0]);
                   if (aTrans)
                     createKrnl.copyToBuffer(aBuff, A, {k1, i1}, zeroVal, true);
@@ -212,10 +204,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                     createKrnl.copyToBuffer(bBuff, B, {j1, k1}, zeroVal, true);
                   else
                     createKrnl.copyToBuffer(bBuff, B, {k1, j1}, zeroVal, false);
-                  createKrnl.iterate({}, {jj2, ii2}, {}, {}, {},
-                      [&](KrnlBuilder &createKrnl, ValueRange args) {
-                        ValueRange j2_i2_indices =
-                            createKrnl.getInductionVarValue({jj2, ii2});
+                  createKrnl.iterate({}, {jj2, ii2}, {}, {},
+                      [&](KrnlBuilder &createKrnl, ValueRange j2_i2_indices) {
                         Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
                         ArrayRef<int64_t> empty;
                         createKrnl.matmul(aBuff, {i1, k1}, bBuff, {k1, j1},
@@ -237,27 +227,22 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       createKrnl.permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
           {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
       // Compute: A[i, k] * b[k, j] -> R[i, j])
-      createKrnl.iterateIE({jj, kk}, {jj1, kk1}, {zero, zero}, {J, K}, {},
-          [&](KrnlBuilder &createKrnl, ValueRange args) {
-            ValueRange j1_k1_indices =
-                createKrnl.getInductionVarValue({jj1, kk1});
+      createKrnl.iterateIE({jj, kk}, {jj1, kk1}, {zero, zero}, {J, K},
+          [&](KrnlBuilder &createKrnl, ValueRange j1_k1_indices) {
             Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
             if (bTrans)
               createKrnl.copyToBuffer(bBuff, B, {j1, k1}, zeroVal, true);
             else
               createKrnl.copyToBuffer(bBuff, B, {k1, j1}, zeroVal, false);
-            createKrnl.iterateIE({ii}, {ii1}, {zero}, {I}, {},
-                [&](KrnlBuilder &createKrnl, ValueRange args) {
-                  ValueRange i1_index = createKrnl.getInductionVarValue({ii1});
+            createKrnl.iterateIE({ii}, {ii1}, {zero}, {I},
+                [&](KrnlBuilder &createKrnl, ValueRange i1_index) {
                   Value i1(i1_index[0]);
                   if (aTrans)
                     createKrnl.copyToBuffer(aBuff, A, {k1, i1}, zeroVal, true);
                   else
                     createKrnl.copyToBuffer(aBuff, A, {i1, k1}, zeroVal, false);
-                  createKrnl.iterate({}, {jj2, ii2}, {}, {}, {},
-                      [&](KrnlBuilder &createKrnl, ValueRange args) {
-                        ValueRange j2_i2_indices =
-                            createKrnl.getInductionVarValue({jj2, ii2});
+                  createKrnl.iterate({}, {jj2, ii2}, {}, {},
+                      [&](KrnlBuilder &createKrnl, ValueRange j2_i2_indices) {
                         Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
                         createKrnl.matmul(aBuff, {i1, k1}, bBuff, {k1, j1}, R,
                             {z, z},
@@ -280,11 +265,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       return;
     }
     ValueRange outerLoops = createKrnl.defineLoops(2);
-    createKrnl.iterateIE(outerLoops, outerLoops, {zero, zero}, {I, J}, {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
-          // Outer loop indices.
-          ValueRange outerIndices = createKrnl.getInductionVarValue(outerLoops);
-
+    createKrnl.iterateIE(outerLoops, outerLoops, {zero, zero}, {I, J},
+        [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Handle alpha/beta coefficients.
           Value res = createKrnl.load(R, outerIndices);
           MathBuilder createMath(createKrnl);

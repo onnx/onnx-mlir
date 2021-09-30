@@ -39,8 +39,17 @@ std::unique_ptr<Pass> createKrnlBundleMemoryPoolsPass();
 /// Pass for optimizing memory pools.
 std::unique_ptr<Pass> createKrnlOptimizeMemoryPoolsPass();
 
+/// Pass for instrument the Onnx ops
+std::unique_ptr<Pass> createInstrumentONNXPass();
+
+/// Pass for verifying Onnx ops before lowering to Krnl
+std::unique_ptr<Pass> createONNXPreKrnlVerifyPass();
+
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<Pass> createLowerToKrnlPass();
+
+/// Add pass for lowering to Krnl IR.
+std::unique_ptr<Pass> createLowerToKrnlPass(bool emitDealloc);
 
 /// Pass for lowering frontend dialects to Krnl IR dialect.
 std::unique_ptr<Pass> createConvertKrnlToAffinePass();

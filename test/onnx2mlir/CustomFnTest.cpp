@@ -25,12 +25,17 @@ using namespace ONNX_NAMESPACE;
 
 #define ONNX_OPSET_VERSION 11
 
+void Register(ONNX_NAMESPACE::OpSchema &schema) {
+  ONNX_NAMESPACE::OpSchemaRegistry::OpSchemaRegisterOnce unused(schema);
+  (void)unused;
+}
+
 void RegisterFunSchema() {
   static bool registered = false;
   if (registered)
     return;
-  ONNX_NAMESPACE::OpSchema schema;
-  schema.SetName("SquareFn")
+  ONNX_NAMESPACE::OpSchema twiceSchema;
+  twiceSchema.SetName("TwiceFn")
       .SetDomain(ONNX_DOMAIN)
       .SinceVersion(ONNX_OPSET_VERSION)
       .SetDoc("This operator returns an output tensor that is twice the input "
@@ -39,12 +44,28 @@ void RegisterFunSchema() {
       .Output(0, "Y", "Output tensor", "T", OpSchema::Single)
       .TypeConstraint(
           "T", {"tensor(float)"}, "Type of the input and output values")
+      .TypeAndShapeInferenceFunction(propagateShapeAndTypeFromFirstInput)
       .FunctionBody(FunctionBodyHelper::BuildNodes(
           {// nodes: {outputs, op, inputs, attributes}
               {{"Two"}, "Constant", {}, {{"value", ToTensor(2.0f)}}},
               {{"Y"}, "Mul", {"Two", "X"}}}));
-  ONNX_NAMESPACE::OpSchemaRegistry::OpSchemaRegisterOnce unused(schema);
-  (void)unused;
+  Register(twiceSchema);
+
+  ONNX_NAMESPACE::OpSchema ttSchema;
+  ttSchema.SetName("TwiceTwiceFn")
+      .SetDomain(ONNX_DOMAIN)
+      .SinceVersion(ONNX_OPSET_VERSION)
+      .SetDoc(
+          "This operator returns an output tensor that is four times the input "
+          "tensor.")
+      .Input(0, "X", "Input tensor", "T", OpSchema::Single)
+      .Output(0, "Y", "Output tensor", "T", OpSchema::Single)
+      .TypeConstraint(
+          "T", {"tensor(float)"}, "Type of the input and output values")
+      .FunctionBody(FunctionBodyHelper::BuildNodes(
+          {// nodes: {outputs, op, inputs, attributes}
+              {{"T"}, "TwiceFn", {"X"}}, {{"Y"}, "TwiceFn", {"T"}}}));
+  Register(ttSchema);
   registered = true;
 }
 
@@ -76,10 +97,12 @@ int check(ModelProto &model) {
     std::cerr << "Error verifying module!\n";
     return 1;
   }
+  module->dump();
+  std::cerr << "\n\n";
   return 0;
 }
 
-int testCustomFunTranslation() {
+int testTranslation(const char *fnname) {
   RegisterFunSchema();
 
   ModelProto model_proto;
@@ -109,11 +132,15 @@ int testCustomFunTranslation() {
   auto *node = graph->add_node();
   node->add_input("x");
   node->add_output("y");
-  node->set_op_type("SquareFn");
+  node->set_op_type(fnname);
   node->set_name("node1");
 
   return check(model_proto);
 }
+
+int testCustomFunTranslation() { return testTranslation("TwiceFn"); }
+
+int testNestedFunTranslation() { return testTranslation("TwiceTwiceFn"); }
 
 int testUseOfOnnxModelTypes() {
   RegisterFunSchema();
@@ -174,15 +201,15 @@ void RegisterOptParamFunSchema() {
       .SinceVersion(ONNX_OPSET_VERSION)
       .SetDoc("This operator returns the second input.")
       .Input(0, "X", "Input tensor", "T", OpSchema::Optional)
-      .Input(0, "Y", "Input tensor", "T", OpSchema::Single)
+      .Input(1, "Y", "Input tensor", "T", OpSchema::Single)
+      .Input(2, "W", "Input tensor", "T", OpSchema::Optional)
       .Output(0, "Z", "Output tensor", "T", OpSchema::Single)
       .TypeConstraint(
           "T", {"tensor(float)"}, "Type of the input and output values")
       .FunctionBody(FunctionBodyHelper::BuildNodes(
           {// nodes: {outputs, op, inputs, attributes}
               {{"Z"}, "Identity", {"Y"}}}));
-  ONNX_NAMESPACE::OpSchemaRegistry::OpSchemaRegisterOnce unused(schema);
-  (void)unused;
+  Register(schema);
   registered = true;
 }
 
@@ -198,7 +225,6 @@ int testOptionalParameter() {
   auto *graph = model_proto.mutable_graph();
 
   auto float_type = TensorProto_DataType::TensorProto_DataType_FLOAT;
-  auto int_type = TensorProto_DataType::TensorProto_DataType_INT32;
 
   auto *x = graph->add_input();
   x->set_name("x");
@@ -242,6 +268,7 @@ int main(int argc, char *argv[]) {
   int status = 0;
 
   status |= testCustomFunTranslation();
+  status |= testNestedFunTranslation();
   status |= testUseOfOnnxModelTypes();
   status |= testOptionalParameter();
 
