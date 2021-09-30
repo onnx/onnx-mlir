@@ -16,8 +16,26 @@
 # You can add custom cpp code using the prefix: "// COP". Note that the mlir
 # variables "%name" are changed to "v_name" since MLIR allows names such as "%1".
 #
+# Support it given to initialize and print arrays, so as to have meaningful
+# computations. For example, below are some "// COP" comments that could be
+# added to an .mlir file prior to be translated to C++
+#
+#     builtin.func @main_graph(%arg0: memref<2x3x4x5xf32>, %arg1: memref<3xf32>, %arg2: memref<3xf32>) -> memref<2x3x4x5xf32> attributes {input_names = ["x", "s", "bias"], output_names = ["y"]} {
+#       // COP init4((float *)v_arg0, 2, 3, 4, 5, 0);
+#       // COP init1((float *)v_arg1, 3, 10);
+#       // COP init1((float *)v_arg2, 3, 100);
+#       ...
+#       affine.for %arg3 = 0 to 2 {
+#          affine.for %arg4 = 0 to 3 {
+#            ...
+#            %5 = affine.load %4[] : memref<f32>
+#            %6 = divf %5, %2 : f32
+#            // COP printf("%lld %lld: sum %f mean %f\n", v_arg3, v_arg4, v_5, v_6);
+#
 # Current limitations: 
-#   Ops and types can be added in the dictionaries type_dict and op_dict.
+#   Ops and types can be added in the dictionaries type_dict, binary_op_dict,
+#   and unary_op_dict.
+#
 #   Alloc/alloca currently only support static types, sorry.
 #
 # Debug info can be added by setting "debug" to 1 or 2, see below.
@@ -45,6 +63,47 @@ debug = 0 # 0: none; 1: original statements; 2: details about translation.
 
 def print_usage():
     sys.exit()
+
+################################################################################
+# Python code to init arrays. To use in a jupyter notebook to match the init
+# that can be added the the compiled code.
+
+import numpy as np
+
+def init_array1(shape, val):
+    a = np.zeros(shape)
+    for i0 in range(shape[0]):
+        val = val + 1.0
+        a[i0] = val
+    return a
+
+def init_array2(shape, val):
+    a = np.zeros(shape)
+    for i0 in range(shape[0]):
+        for i1 in range(shape[1]):
+            val = val + 1.0
+            a[i0, i1] = val
+    return a
+
+def init_array3(shape, val):
+    a = np.zeros(shape)
+    for i0 in range(shape[0]):
+        for i1 in range(shape[1]):
+            for i2 in range(shape[2]):
+                val = val + 1.0
+                a[i0, i1, i2] = val
+    return a
+
+def init_array4(shape, val):
+    a = np.zeros(shape)
+    for i0 in range(shape[0]):
+        for i1 in range(shape[1]):
+            for i2 in range(shape[2]):
+                for i3 in range(shape[3]):
+                    val = val + 1.0
+                    a[i0, i1, i2, i3] = val
+    return a
+
 
 ################################################################################
 # Support.
@@ -149,7 +208,9 @@ def main(argv):
     print("""
 #include <math.h>
 #include <stdio.h>
-// Support functions.
+#include <string>
+
+// Support functions for min/max.
 long long min(long long a) { return a; }
 long long min(long long a, long long b) { return a<b ? a : b; }
 long long min(long long a, long long b, long long c) { return min(a, min(b, c)); }
@@ -158,7 +219,61 @@ long long max(long long a) { return a; }
 long long max(long long a, long long b) { return a>b ? a : b; }
 long long max(long long a, long long b, long long c) { return max(a, max(b, c)); }
 long long max(long long a, long long b, long long c, long long d) { return max(max(a, b), max(c, d)); }
-// map support, if any""")
+
+// Support functions for init.
+void init1(float *a, long long d0, float v) {
+    for(long long i0=0; i0<d0; ++i0)
+      a[i0] = ++v;
+}
+void init2(float *a, long long d0, long long d1, float v) {
+    for(long long i0=0; i0<d0; ++i0)
+      for(long long i1=0; i1<d1; ++i1)
+        a[i1 + d1 * i0] = ++v;
+}
+void init3(float *a, long long d0, long long d1, long long d2, float v) {
+    for(long long i0=0; i0<d0; ++i0)
+      for(long long i1=0; i1<d1; ++i1)
+        for(long long i2=0; i2<d2; ++i2)
+          a[i2 + d2 * (i1 + d1 * i0)] = ++v;
+}
+void init4(float *a, long long d0, long long d1, long long d2, long long d3, float v) {
+    for(long long i0=0; i0<d0; ++i0)
+      for(long long i1=0; i1<d1; ++i1)
+        for(long long i2=0; i2<d2; ++i2)
+          for(long long i3=0; i3<d3; ++i3)
+            a[i3 + d3 * (i2 + d2 * (i1 + d1 * i0))] = ++v;
+}
+
+// Support functions for print.
+void print1(std::string msg, float *a, long long d0) {
+    printf("%s with dims %lldxf32\\n", msg.c_str(), d0);
+    for(long long i0=0; i0<d0; ++i0)
+      printf("%s, %3lld, %f\\n", msg.c_str(), i0, a[i0]);
+}
+void print2(std::string msg, float *a, long long d0, long long d1) {
+    printf("%s with dims %lldx%lldxf32\\n", msg.c_str(), d0, d1);
+    for(long long i0=0; i0<d0; ++i0)
+      for(long long i1=0; i1<d1; ++i1)
+        printf("%s, %3lld, %3lld, %f\\n", msg.c_str(), i0, i1, a[i1 + d1 * i0]);
+}
+void print3(std::string msg, float *a, long long d0, long long d1, long long d2) {
+    printf("%s with dims %lldx%lldx%lldxf32\\n", msg.c_str(), d0, d1, d2);
+    for(long long i0=0; i0<d0; ++i0)
+      for(long long i1=0; i1<d1; ++i1)
+        for(long long i2=0; i2<d2; ++i2)
+          printf("%s, %3lld, %3lld, %3lld, %f\\n", msg.c_str(), i0, i1, i2, a[i2 + d2 * (i1 + d1 * i0)]);
+}
+void print4(std::string msg, float *a, long long d0, long long d1, long long d2, long long d3) {
+    printf("%s with dims %lldx%lldx%lldx%lldxf32\\n", msg.c_str(), d0, d1, d2, d3);
+    for(long long i0=0; i0<d0; ++i0)
+      for(long long i1=0; i1<d1; ++i1)
+        for(long long i2=0; i2<d2; ++i2)
+          for(long long i3=0; i3<d3; ++i3)
+            printf("%s, %3lld, %3lld, %3lld, %3lld, %f\\n", msg.c_str(), i0, i1, i2, i3, a[i3 + d3 * (i2 + d2 * (i1 + d1 * i0))]);
+}
+
+// Map support, if any.
+""")
 
     for line in sys.stdin:
         line = line.rstrip()

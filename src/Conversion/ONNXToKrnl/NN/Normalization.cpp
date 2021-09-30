@@ -183,7 +183,6 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     MemRefBoundsIndexCapture inputBounds(inputMemRef);
     MemRefType tmpType = MemRefType::get({}, elementType);
     Value fZero = emitConstantOp(rewriter, loc, elementType, 0);
-    Value fOne = emitConstantOp(rewriter, loc, elementType, 1);
 
     // Compute the number of values in a single channel: product of spatial
     // dimensions, converted to float.
@@ -194,7 +193,6 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     Value meanDenom = rewriter.create<IndexCastOp>(
         loc, num.getValue(), rewriter.getIntegerType(64));
     meanDenom = rewriter.create<SIToFPOp>(loc, meanDenom, elementType);
-    Value varianceDenom = createMath.sub(meanDenom, fOne);
 
     // Iterate over the batch and channels.
     LiteralIndexExpr iZero(0);
@@ -255,7 +253,9 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
                 createKrnl.store(newSum, tmpMemRef, {});
               });
           sum = createKrnl.load(tmpMemRef, {});
-          Value variance = createMath.div(sum, varianceDenom);
+          // Variance is numerically off when divided by (num -1), but
+          // passes the tests when divided by num, so keep that.
+          Value variance = createMath.div(sum, meanDenom);
 
           // Calculate ahead the scale[c] / sqrt(var + epsilon)
           Value denom = createMath.add(variance, epsilon);
@@ -270,87 +270,19 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
           createKrnl.iterateIE(spatial3_loopDef, spatial3_loopDef, lbs, ubs,
               [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
                 MathBuilder createMath(createKrnl);
-                SmallVector<Value, 6> accessFct = {
-                    n.getValue(), c.getValue()};
+                SmallVector<Value, 6> accessFct = {n.getValue(), c.getValue()};
                 for (int d = 0; d < rank - 2; ++d)
                   accessFct.emplace_back(spatial_loopInd[d]);
                 // tmp += input[n,c, spatial dims]
                 Value x = createKrnl.load(inputMemRef, accessFct);
                 Value val = createMath.sub(x, mean);
-                val = createMath.mul(nom, val);
-                val = createMath.div(val, denom);
+                val = createMath.mul(factor, val);
                 val = createMath.add(val, term);
                 createKrnl.store(val, resMemRef, accessFct);
               });
-        });
-
-#if 0
-    SmallVector<Value, 1> loopCIVs;
-    if (rank > 1) {
-      KrnlIterateOperandPack cPack(rewriter, originalLoops[1]);
-      addDimensionToPack(rewriter, loc, cPack, operand, 1);
-      auto cIterateOp = rewriter.create<KrnlIterateOp>(loc, cPack);
-      Block &cIterationBlock = cIterateOp.bodyRegion().front();
-      rewriter.setInsertionPointToStart(&cIterationBlock);
-      for (auto arg : cIterationBlock.getArguments())
-        loopCIVs.emplace_back(arg);
-    } else {
-      loopCIVs.emplace_back(rewriter.create<ConstantIndexOp>(loc, 0));
-    }
-
-    auto scaleVal = rewriter.create<KrnlLoadOp>(loc, scale, loopCIVs);
-    auto biasVal = rewriter.create<KrnlLoadOp>(loc, bias, loopCIVs);
-    auto meanVal = rewriter.create<KrnlLoadOp>(loc, mean, loopCIVs);
-    auto varianceVal = rewriter.create<KrnlLoadOp>(loc, variance, loopCIVs);
-
-    // Create a KrnlIterateOp along the other dimensions.
-    SmallVector<int64_t, 4> axes;
-    axes.emplace_back(0);
-    for (int64_t i = 2; i < rank; ++i)
-      axes.emplace_back(i);
-    std::vector<Value> packLoops;
-    for (unsigned int i = 0; i < axes.size(); ++i) {
-      packLoops.emplace_back(originalLoops[axes[i]]);
-    }
-    KrnlIterateOperandPack pack(rewriter, packLoops);
-    for (unsigned int i = 0; i < axes.size(); ++i) {
-      addDimensionToPack(rewriter, loc, pack, operand, axes[i]);
-    }
-    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
-
-    Block &iterationBlock = iterateOp.bodyRegion().front();
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    SmallVector<Value, 4> loopIVs;
-    auto args = iterationBlock.getArguments();
-    if (args.size() > 1) {
-      loopIVs.emplace_back(args[0]);
-      loopIVs.emplace_back(loopCIVs[0]); // Insert C back.
-      for (unsigned int i = 1; i < args.size(); ++i)
-        loopIVs.emplace_back(args[i]);
-    } else if (rank == 2) {
-      loopIVs.emplace_back(args[0]);
-      loopIVs.emplace_back(loopCIVs[0]); // Insert C back.
-    } else {
-      loopIVs.emplace_back(args[0]);
-    }
-
-    auto xVal = rewriter.create<KrnlLoadOp>(loc, operand, loopIVs);
-    // normalize
-    auto dividend = rewriter.create<SubFOp>(loc, xVal, meanVal);
-    auto adjustedVarianceVal =
-        rewriter.create<AddFOp>(loc, varianceVal, epsilon);
-    auto divisor = rewriter.create<math::SqrtOp>(loc, adjustedVarianceVal);
-    auto normVal = rewriter.create<DivFOp>(loc, dividend, divisor);
-    // scale and shift
-    auto scaleNormVal = rewriter.create<MulFOp>(loc, scaleVal, normVal);
-    auto shiftScaleNormVal =
-        rewriter.create<AddFOp>(loc, scaleNormVal, biasVal);
-    rewriter.create<KrnlStoreOp>(loc, shiftScaleNormVal, resMemRef, loopIVs);
-#endif
+        }); // For all batches, channels.
 
     rewriter.replaceOp(op, resMemRef);
-
     return success();
   }
 };
