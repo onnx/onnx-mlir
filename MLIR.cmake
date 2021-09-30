@@ -15,6 +15,7 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 
+add_link_options(-rdynamic)
 include(TableGen)
 include(AddLLVM)
 include(AddMLIR)
