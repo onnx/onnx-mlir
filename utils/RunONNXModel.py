@@ -13,40 +13,52 @@ from collections import OrderedDict
 # Command arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument('model_path', type=str, help="Path to the ONNX model")
-group = parser.add_mutually_exclusive_group()
-group.add_argument('-o',
-                   metavar='PATH',
-                   type=str,
-                   help="Save the generated shared library of the model")
-group.add_argument('-s',
-                   metavar='PATH',
-                   type=str,
-                   help="Use the generated shared library for inference,"
-                   " and the ONNX model will not be re-compiled")
+lib_group = parser.add_mutually_exclusive_group()
+lib_group.add_argument('-o',
+                       metavar='PATH',
+                       type=str,
+                       help="Save the generated shared library of the model")
+lib_group.add_argument('-s',
+                       metavar='PATH',
+                       type=str,
+                       help="Use the generated shared library for inference,"
+                       " and the ONNX model will not be re-compiled")
 parser.add_argument('--print_input',
                     action='store_true',
                     help="Print out inputs")
 parser.add_argument('--print_output',
                     action='store_true',
-                    help="Print out outputs")
+                    help="Print out inference outputs produced by onnx-mlir")
+parser.add_argument('--save_data',
+                    metavar='PATH',
+                    type=str,
+                    help="Path to a folder to save the inputs and outputs"
+                    " in protobuf")
 parser.add_argument('--compile_args',
                     type=str,
                     default="",
                     help="Arguments passed directly to onnx-mlir command."
                     " See bin/onnx-mlir --help")
-parser.add_argument(
+data_group = parser.add_mutually_exclusive_group()
+data_group.add_argument(
     '--shape_info',
     type=str,
-    help="Shape for each dynamic input, e.g. 0:1x10x20,1:7x5x3")
+    help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
+    "Used to generate random inputs for the model if --data_folder is not set")
+data_group.add_argument(
+    '--data_folder',
+    type=str,
+    help="Path to a folder containing inputs and outputs stored in protobuf."
+    " If --verify=ref, inputs and outputs are reference data for verification")
 parser.add_argument('--verify',
                     choices=['onnxruntime', 'ref'],
                     help="Verify the output by using onnxruntime or reference"
                     " inputs/outputs. By default, no verification")
 parser.add_argument(
-    '--ref_folder',
-    type=str,
-    help="Path to the folder containing reference inputs and outputs stored"
-    " in protobuf. Used when --verify=ref")
+    '--compile_using_input_shape',
+    action='store_true',
+    help="Compile the model by using the shape info getting from"
+    " the inputs in data folder. Must set --data_folder")
 parser.add_argument('--rtol',
                     type=str,
                     default="0.05",
@@ -112,8 +124,8 @@ def extend_model_output(model, intermediate_outputs):
     return model
 
 
-def read_input_from_refs(model, ref_folder):
-    print("Reading inputs from {} ...".format(ref_folder))
+def read_input_from_refs(model, data_folder):
+    print("Reading inputs from {} ...".format(data_folder))
     i = 0
     inputs = []
     input_names = []
@@ -121,21 +133,23 @@ def read_input_from_refs(model, ref_folder):
     for input_proto in model.graph.input:
         if input_proto.name not in initializers:
             input_names.append(input_proto.name)
-            input_file = ref_folder + '/input_{}.pb'.format(i)
+            input_file = data_folder + '/input_{}.pb'.format(i)
             input_ts = onnx.TensorProto()
             with open(input_file, 'rb') as f:
                 input_ts.ParseFromString(f.read())
+            print("  - {} input's shape {}".format(ordinal(i + 1),
+                                                   input_ts.dims))
             inputs += [numpy_helper.to_array(input_ts)]
             i += 1
     print("  done.\n")
     return (inputs, input_names)
 
 
-def read_output_from_refs(model, ref_folder):
-    print("Reading reference outputs from {} ...".format(ref_folder))
+def read_output_from_refs(model, data_folder):
+    print("Reading reference outputs from {} ...".format(data_folder))
     reference_output = []
     for i, _ in enumerate(model.graph.output):
-        output_file = ref_folder + '/output_{}.pb'.format(i)
+        output_file = data_folder + '/output_{}.pb'.format(i)
         output_ts = onnx.TensorProto()
         with open(output_file, 'rb') as f:
             output_ts.ParseFromString(f.read())
@@ -175,10 +189,16 @@ def generate_random_input(model, input_shapes):
                       "is unknown. Use --shape_info to set.")
                 print(shape_proto)
                 exit()
-        inputs.append(
-            np.random.uniform(-1.0, 1.0, explicit_shape).astype(np.float32))
+        rinput = np.random.uniform(-1.0, 1.0,
+                                   explicit_shape).astype(np.float32)
+        print("  - {} input's shape {}".format(ordinal(i + 1), rinput.shape))
+        inputs.append(rinput)
     print("  done.\n")
     return (inputs, input_names)
+
+
+def warning(msg):
+    print("Warning:", msg)
 
 
 def main():
@@ -210,6 +230,20 @@ def main():
     with tempfile.TemporaryDirectory() as temp_dir:
         print("Temporary directory has been created at {}".format(temp_dir))
 
+        # Prepare input data.
+        inputs = []
+        input_names = []
+        if args.data_folder:
+            assert args.data_folder, "No data folder given"
+            inputs, input_names = read_input_from_refs(model, args.data_folder)
+        else:
+            inputs, input_names = generate_random_input(model, input_shapes)
+        # Print the input if required.
+        if (args.print_input):
+            for i, inp in enumerate(inputs):
+                print("The {} input {}:{} is: \n {} \n".format(
+                    ordinal(i + 1), input_names[i], list(inp.shape), inp))
+
         shared_lib_path = ""
         # If a shared library is given, use it without compiling the ONNX model.
         # Otherwise, compile the ONNX model.
@@ -221,11 +255,25 @@ def main():
             temp_model_path = os.path.join(temp_dir, "model.onnx")
             shared_lib_path = os.path.join(temp_dir, "model.so")
             onnx.save(model, temp_model_path)
+
+            # Prepare compiler arguments.
             command_str = ONNX_MLIR
             if args.compile_args:
                 command_str += " " + args.compile_args
+            if args.compile_using_input_shape:
+                # Use shapes of the reference inputs to compile the model.
+                assert args.data_folder, "No data folder given"
+                assert "shapeInformation" not in command_str, "shape info was set"
+                shape_info = "--shapeInformation="
+                for i in range(len(inputs)):
+                    shape_info += str(i) + ":" + 'x'.join(
+                        [str(d) for d in inputs[i].shape]) + ","
+                shape_info = shape_info[:-1]
+                command_str += " " + shape_info
+                warning("the shapes of the model's input will be " \
+                    "changed to the shapes of the inputs in the data folder")
             command_str += " " + temp_model_path
-            # command_str += " -o " + shared_lib_path
+
             start = time.perf_counter()
             execute_commands(command_str)
             end = time.perf_counter()
@@ -236,20 +284,6 @@ def main():
                 print("Saving the shared library to", args.o, "\n")
                 execute_commands('rsync -ar {} {}'.format(
                     shared_lib_path, args.o))
-
-        # Prepare input data.
-        inputs = []
-        input_names = []
-        if (args.verify and args.verify.lower() == "ref"):
-            assert args.ref_folder, "No reference folder given"
-            inputs, input_names = read_input_from_refs(model, args.ref_folder)
-        else:
-            inputs, input_names = generate_random_input(model, input_shapes)
-        # Print the input if required.
-        if (args.print_input):
-            for i, inp in enumerate(inputs):
-                print("The {} input {}:{} is: \n {} \n".format(
-                    ordinal(i + 1), input_names[i], list(inp.shape), inp))
 
         print("Running inference ...")
         start = time.perf_counter()
@@ -264,6 +298,24 @@ def main():
             for i, out in enumerate(outs):
                 print("The {} output {}:{} is: \n {} \n".format(
                     ordinal(i + 1), output_names[i], list(out.shape), out))
+
+        # Store the input and output if required.
+        if args.save_data:
+            data_folder = args.save_data
+            if not os.path.exists(data_folder):
+                os.mkdir(data_folder)
+            for i in range(len(inputs)):
+                tensor = numpy_helper.from_array(inputs[i])
+                tensor_path = os.path.join(data_folder,
+                                           'input_{}.pb'.format(i))
+                with open(tensor_path, 'wb') as f:
+                    f.write(tensor.SerializeToString())
+            for i in range(len(outs)):
+                tensor = numpy_helper.from_array(outs[i])
+                tensor_path = os.path.join(data_folder,
+                                           'output_{}.pb'.format(i))
+                with open(tensor_path, 'wb') as f:
+                    f.write(tensor.SerializeToString())
 
         # Run the model with reference backend and get results.
         if (args.verify):
@@ -280,7 +332,7 @@ def main():
                 end = time.perf_counter()
                 print("  took ", end - start, " seconds.\n")
             elif (args.verify.lower() == "ref"):
-                ref_outs = read_output_from_refs(model, args.ref_folder)
+                ref_outs = read_output_from_refs(model, args.data_folder)
             else:
                 print("Invalid verify option")
                 exit()

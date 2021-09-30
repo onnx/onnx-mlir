@@ -32,8 +32,9 @@ reference inputs and outputs in protobuf.
 
 ```bash
 $ python ../utils/RunONNXModel.py  --help
-usage: RunONNXModel.py [-h] [-o PATH | -s PATH] [--print_input] [--print_output] [--compile_args COMPILE_ARGS] [--shape_info SHAPE_INFO]
-                       [--verify {onnxruntime,ref}] [--ref_folder REF_FOLDER] [--rtol RTOL] [--atol ATOL]
+usage: RunONNXModel.py [-h] [-o PATH | -s PATH] [--print_input] [--print_output] [--save_data PATH] [--compile_args COMPILE_ARGS]
+                       [--shape_info SHAPE_INFO | --data_folder DATA_FOLDER] [--verify {onnxruntime,ref}] [--compile_using_input_shape] [--rtol RTOL]
+                       [--atol ATOL]
                        model_path
 
 positional arguments:
@@ -44,15 +45,20 @@ optional arguments:
   -o PATH               Save the generated shared library of the model
   -s PATH               Use the generated shared library for inference, and the ONNX model will not be re-compiled
   --print_input         Print out inputs
-  --print_output        Print out outputs
+  --print_output        Print out inference outputs produced by onnx-mlir
+  --save_data PATH      Path to a folder to save the inputs and outputs in protobuf
   --compile_args COMPILE_ARGS
                         Arguments passed directly to onnx-mlir command. See bin/onnx-mlir --help
   --shape_info SHAPE_INFO
-                        Shape for each dynamic input, e.g. 0:1x10x20,1:7x5x3
+                        Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. Used to generate random inputs for the model if
+                        --data_folder is not set
+  --data_folder DATA_FOLDER
+                        Path to a folder containing inputs and outputs stored in protobuf. If --verify=ref, inputs and outputs are reference data for
+                        verification
   --verify {onnxruntime,ref}
                         Verify the output by using onnxruntime or reference inputs/outputs. By default, no verification
-  --ref_folder REF_FOLDER
-                        Path to the folder containing reference inputs and outputs stored in protobuf. Used when --verify=ref
+  --compile_using_input_shape
+                        Compile the model by using the shape info getting from the inputs in data folder. Must set --data_folder
   --rtol RTOL           Relative tolerance for verification
   --atol ATOL           Absolute tolerance for verification
 ```
