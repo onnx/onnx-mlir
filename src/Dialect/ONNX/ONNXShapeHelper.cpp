@@ -167,8 +167,16 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
   // Initialize the output with the first operand.
   dimsExpr = inputsDims[0];
 
-  // Now compute each broadcasted dimension for the output.
-  // folding over the other operands along the current dimension index.
+  // Note on IndexExpr. When we are not allowed to generate code, QuestionMark
+  // stands for anything but a literal. When we are allowed to generate code,
+  // there should be no more QuestionMarks as we are allowed to generate
+  // affine/symbols/dims/non-affine expressions. Since this code predominantly
+  // runs when we can gen code (as it actually does gen max ops), we should use
+  // !isLiteral() for anything that is runtime. The comments were left
+  // unchanged.
+
+  //  Now compute each broadcasted dimension for the output. folding over the
+  //  other operands along the current dimension index.
   for (int64_t i = 1; i < numOfInputs; ++i) {
     for (int64_t j = 0; j < outputRank; ++j) {
       // Set the output dimension based on the two dimension values.
@@ -196,12 +204,11 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
       }
 
       // QuestionMark - 1 => keep unchanged.
-      if (currentDimExpr.isQuestionmark() &&
-          nextDimExpr.isLiteralAndIdenticalTo(1))
+      if (!currentDimExpr.isLiteral() && nextDimExpr.isLiteralAndIdenticalTo(1))
         continue;
 
       // QuestionMark - LiteralNot1 => set to LiteralNot1 without verifying.
-      if (currentDimExpr.isQuestionmark() &&
+      if (!currentDimExpr.isLiteral() &&
           nextDimExpr.isLiteralAndDifferentThan(1)) {
         dimsExpr[j] = nextDimExpr;
         continue;
