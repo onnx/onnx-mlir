@@ -48,7 +48,7 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
     // Bounds for iterating the input X.
     MemRefBoundsIndexCapture xBounds(X);
     SmallVector<IndexExpr, 4> lbs, ubs;
-    for (decltype(xRank) i = 0; i < xRank; ++i) {
+    for (int64_t i = 0; i < xRank; ++i) {
       lbs.emplace_back(litZero);
       ubs.emplace_back(xBounds.getDim(i));
     }
@@ -104,7 +104,7 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
           Value val = createKrnl.load(X, loopInd);
           Value eqCond = createMath.eq(val, zero);
           Value zeroOrOne = createMath.select(eqCond, iZero, iOne);
-          for (decltype(xRank) i = 0; i < xRank; ++i) {
+          for (int64_t i = 0; i < xRank; ++i) {
             SmallVector<IndexExpr, 1> posInd;
             posInd.emplace_back(LiteralIndexExpr(i));
             // Load the current position along dimension i.
