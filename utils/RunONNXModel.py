@@ -138,9 +138,11 @@ def read_input_from_refs(model, data_folder):
             input_ts = onnx.TensorProto()
             with open(input_file, 'rb') as f:
                 input_ts.ParseFromString(f.read())
-            print("  - {} input's shape {}".format(ordinal(i + 1),
-                                                   input_ts.dims))
-            inputs += [numpy_helper.to_array(input_ts)]
+            input_np = numpy_helper.to_array(input_ts)
+            print("  - {} input: [{}x{}]".format(
+                ordinal(i + 1), 'x'.join([str(i) for i in input_np.shape]),
+                input_np.dtype))
+            inputs += [input_np]
             i += 1
     print("  done.\n")
     return (inputs, input_names)
@@ -154,7 +156,11 @@ def read_output_from_refs(model, data_folder):
         output_ts = onnx.TensorProto()
         with open(output_file, 'rb') as f:
             output_ts.ParseFromString(f.read())
-        reference_output += [numpy_helper.to_array(output_ts)]
+        output_np = numpy_helper.to_array(output_ts)
+        print("  - {} output: [{}x{}]".format(
+            ordinal(i + 1), 'x'.join([str(i) for i in output_np.shape]),
+            output_np.dtype))
+        reference_output += [output_np]
     print("  done.\n")
     return reference_output
 
@@ -242,8 +248,9 @@ def main():
         # Print the input if required.
         if (args.print_input):
             for i, inp in enumerate(inputs):
-                print("The {} input {}:{} is: \n {} \n".format(
-                    ordinal(i + 1), input_names[i], list(inp.shape), inp))
+                print("The {} input {}:[{}x{}] is: \n {} \n".format(
+                    ordinal(i + 1), input_names[i],
+                    'x'.join([str(i) for i in inp.shape]), inp.dtype, inp))
 
         shared_lib_path = ""
         # If a shared library is given, use it without compiling the ONNX model.
@@ -297,8 +304,9 @@ def main():
         # Print the output if required.
         if (args.print_output):
             for i, out in enumerate(outs):
-                print("The {} output {}:{} is: \n {} \n".format(
-                    ordinal(i + 1), output_names[i], list(out.shape), out))
+                print("The {} output {}:[{}x{}] is: \n {} \n".format(
+                    ordinal(i + 1), output_names[i],
+                    'x'.join([str(i) for i in out.shape]), out.dtype, out))
 
         # Store the input and output if required.
         if args.save_data:
