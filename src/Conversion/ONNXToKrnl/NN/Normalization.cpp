@@ -137,7 +137,158 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
   }
 };
 
+struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
+
+  ONNXInstanceNormalizationOpLowering(MLIRContext *ctx)
+      : ConversionPattern(
+            mlir::ONNXInstanceNormalizationOp::getOperationName(), 1, ctx) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    // instance_normalization{epsilon}(x, scale, bias) =
+    //      scale * (x - mean) / sqrt(variance + epsilon) + bias
+    ONNXInstanceNormalizationOpAdaptor operandAdaptor(operands);
+    auto loc = op->getLoc();
+
+    auto memRefType = convertToMemRefType(*op->result_type_begin());
+    auto elementType = memRefType.getElementType();
+    auto epsilonAttr = FloatAttr::get(
+        elementType, llvm::dyn_cast<ONNXInstanceNormalizationOp>(op)
+                         .epsilon()
+                         .convertToFloat());
+    auto epsilon = rewriter.create<ConstantOp>(loc, epsilonAttr);
+
+    auto inputMemRef = operandAdaptor.input();
+    auto scaleMemRef = operandAdaptor.scale();
+    auto biasMemRef = operandAdaptor.B();
+
+    // Insert an allocation and deallocation for the result of this operation.
+    Value resMemRef;
+    bool insertDealloc = checkInsertDealloc(op);
+    if (hasAllConstantDimensions(memRefType))
+      resMemRef =
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+    else
+      resMemRef = insertAllocAndDealloc(
+          memRefType, loc, rewriter, insertDealloc, {inputMemRef});
+
+    // Operand's dimensions can be in the form of NxCxD1xD2x...xDn
+    // Shapes of scale, bias must be C.
+
+    // Get rank, bounds, and constructors.
+    int64_t rank = memRefType.getRank();
+    IndexExprScope outerScope(rewriter, loc);
+    KrnlBuilder createKrnl(rewriter, loc);
+    MathBuilder createMath(createKrnl);
+    MemRefBoundsIndexCapture inputBounds(inputMemRef);
+    MemRefType tmpType = MemRefType::get({}, elementType);
+    Value fZero = emitConstantOp(rewriter, loc, elementType, 0);
+
+    // Compute the number of values in a single channel: product of spatial
+    // dimensions, converted to float.
+    IndexExpr num = inputBounds.getSymbol(2);
+    for (int d = 3; d < rank; ++d)
+      num = num * inputBounds.getSymbol(d);
+    // Convert num to float from Pooling postProcessPoolingWindow.
+    Value meanDenom = rewriter.create<IndexCastOp>(
+        loc, num.getValue(), rewriter.getIntegerType(64));
+    meanDenom = rewriter.create<SIToFPOp>(loc, meanDenom, elementType);
+
+    // Iterate over the batch and channels.
+    LiteralIndexExpr iZero(0);
+    ValueRange n_c_loopDef = createKrnl.defineLoops(2);
+    createKrnl.iterateIE(n_c_loopDef, n_c_loopDef, {iZero, iZero},
+        {inputBounds.getSymbol(0), inputBounds.getSymbol(1)},
+        [&](KrnlBuilder &createKrnl, ValueRange n_c_loopInd) {
+          MemRefBuilder createMemRef(createKrnl);
+          MathBuilder createMath(createKrnl);
+          IndexExprScope channelScope(createKrnl);
+          DimIndexExpr n(n_c_loopInd[0]), c(n_c_loopInd[1]);
+
+          // Set bounds for iterating over values in channel.
+          ValueRange spatial_loopDef = createKrnl.defineLoops(rank - 2);
+          SmallVector<IndexExpr, 4> lbs(rank - 2, iZero);
+          SmallVector<IndexExpr, 4> ubs;
+          for (int d = 2; d < rank; ++d)
+            ubs.emplace_back(inputBounds.getSymbol(d));
+
+          // First compute the mean: store zero in reduction value, then sum up
+          // all of the values in the channel, and divide by the number of
+          // values.
+          Value tmpMemRef = createMemRef.alloca(tmpType);
+          createKrnl.store(fZero, tmpMemRef, {});
+          // Iterate over kernel and add values.
+          ValueRange spatial2_loopDef = createKrnl.defineLoops(rank - 2);
+          createKrnl.iterateIE(spatial2_loopDef, spatial2_loopDef, lbs, ubs,
+              [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
+                MathBuilder createMath(createKrnl);
+                SmallVector<Value, 6> inputAccessFct = {
+                    n.getValue(), c.getValue()};
+                for (int d = 0; d < rank - 2; ++d)
+                  inputAccessFct.emplace_back(spatial_loopInd[d]);
+                // tmp += input[n,c, spatial dims]
+                Value oldSum = createKrnl.load(tmpMemRef, {});
+                Value val = createKrnl.load(inputMemRef, inputAccessFct);
+                Value newSum = createMath.add(oldSum, val);
+                createKrnl.store(newSum, tmpMemRef, {});
+              });
+          Value sum = createKrnl.load(tmpMemRef, {});
+          Value mean = createMath.div(sum, meanDenom);
+          // Second, compute the standard dev: sum of (val - mean)2 / (num-1).
+          createKrnl.store(fZero, tmpMemRef, {});
+          // Iterate over kernel and add values.
+          createKrnl.iterateIE(spatial_loopDef, spatial_loopDef, lbs, ubs,
+              [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
+                MathBuilder createMath(createKrnl);
+                SmallVector<Value, 6> inputAccessFct = {
+                    n.getValue(), c.getValue()};
+                for (int d = 0; d < rank - 2; ++d)
+                  inputAccessFct.emplace_back(spatial_loopInd[d]);
+                // tmp += input[n,c, spatial dims]
+                Value oldSum = createKrnl.load(tmpMemRef, {});
+                Value val = createKrnl.load(inputMemRef, inputAccessFct);
+                val = createMath.sub(val, mean);
+                val = createMath.mul(val, val);
+                Value newSum = createMath.add(oldSum, val);
+                createKrnl.store(newSum, tmpMemRef, {});
+              });
+          sum = createKrnl.load(tmpMemRef, {});
+          // Variance is numerically off when divided by (num -1), but
+          // passes the tests when divided by num, so keep that.
+          Value variance = createMath.div(sum, meanDenom);
+
+          // Calculate ahead the scale[c] / sqrt(var + epsilon)
+          Value denom = createMath.add(variance, epsilon);
+          denom = rewriter.create<math::SqrtOp>(loc, denom);
+          Value nom = createKrnl.load(scaleMemRef, {c.getValue()});
+          Value factor = createMath.div(nom, denom);
+          Value term = createKrnl.load(biasMemRef, {c.getValue()});
+
+          // Iterate over all channel values and compute y = factor * (x - mean)
+          // + term.
+          ValueRange spatial3_loopDef = createKrnl.defineLoops(rank - 2);
+          createKrnl.iterateIE(spatial3_loopDef, spatial3_loopDef, lbs, ubs,
+              [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
+                MathBuilder createMath(createKrnl);
+                SmallVector<Value, 6> accessFct = {n.getValue(), c.getValue()};
+                for (int d = 0; d < rank - 2; ++d)
+                  accessFct.emplace_back(spatial_loopInd[d]);
+                // tmp += input[n,c, spatial dims]
+                Value x = createKrnl.load(inputMemRef, accessFct);
+                Value val = createMath.sub(x, mean);
+                val = createMath.mul(factor, val);
+                val = createMath.add(val, term);
+                createKrnl.store(val, resMemRef, accessFct);
+              });
+        }); // For all batches, channels.
+
+    rewriter.replaceOp(op, resMemRef);
+    return success();
+  }
+};
+
 void populateLoweringONNXNormalizationOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXBatchNormalizationInferenceModeOpLowering>(ctx);
+  patterns.insert<ONNXInstanceNormalizationOpLowering>(ctx);
 }

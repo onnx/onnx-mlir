@@ -2151,6 +2151,7 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXIsInfOp:ONNX_Op<"IsInf",
