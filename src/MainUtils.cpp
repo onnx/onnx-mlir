@@ -84,6 +84,15 @@ llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<int> repeatOnnxTransform("repeatOnnxTransform",
+    llvm::cl::desc(
+        "invoke extra onnx transform pass(shape infernce, constant and etc.)"),
+    llvm::cl::init(0), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> outlineONNXOps("outlineONNXOps",
+    llvm::cl::desc("outline a set of ONNX operators"), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<string> shapeInformation("shapeInformation",
     llvm::cl::desc(
         "Custom shapes for the inputs of the ONNX model, e.g. setting static "
@@ -452,7 +461,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createShapeInferencePass());
-  pm.addPass(mlir::createOutlineOperatorsPass());
+  if (outlineONNXOps)
+    pm.addPass(mlir::createOutlineOperatorsPass());
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
   pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
