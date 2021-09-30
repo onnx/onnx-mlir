@@ -14,42 +14,43 @@ from collections import OrderedDict
 parser = argparse.ArgumentParser()
 parser.add_argument('model_path', type=str, help="Path to the ONNX model")
 lib_group = parser.add_mutually_exclusive_group()
-lib_group.add_argument('-o',
-                       metavar='PATH',
-                       type=str,
-                       help="Save the generated shared library of the model")
-lib_group.add_argument('-s',
-                       metavar='PATH',
-                       type=str,
-                       help="Use the generated shared library for inference,"
-                       " and the ONNX model will not be re-compiled")
 parser.add_argument('--print_input',
                     action='store_true',
                     help="Print out inputs")
 parser.add_argument('--print_output',
                     action='store_true',
                     help="Print out inference outputs produced by onnx-mlir")
+lib_group.add_argument('--save_so',
+                       metavar='PATH',
+                       type=str,
+                       help="File path to save the generated shared library of"
+                       " the model")
+lib_group.add_argument('--load_so',
+                       metavar='PATH',
+                       type=str,
+                       help="File path to load a generated shared library for "
+                       "inference, and the ONNX model will not be re-compiled")
 parser.add_argument('--save_data',
                     metavar='PATH',
                     type=str,
                     help="Path to a folder to save the inputs and outputs"
                     " in protobuf")
-parser.add_argument('--compile_args',
-                    type=str,
-                    default="",
-                    help="Arguments passed directly to onnx-mlir command."
-                    " See bin/onnx-mlir --help")
 data_group = parser.add_mutually_exclusive_group()
-data_group.add_argument(
-    '--shape_info',
-    type=str,
-    help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
-    "Used to generate random inputs for the model if --data_folder is not set")
 data_group.add_argument(
     '--data_folder',
     type=str,
     help="Path to a folder containing inputs and outputs stored in protobuf."
     " If --verify=ref, inputs and outputs are reference data for verification")
+data_group.add_argument(
+    '--shape_info',
+    type=str,
+    help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
+    "Used to generate random inputs for the model if --data_folder is not set")
+parser.add_argument('--compile_args',
+                    type=str,
+                    default="",
+                    help="Arguments passed directly to onnx-mlir command."
+                    " See bin/onnx-mlir --help")
 parser.add_argument('--verify',
                     choices=['onnxruntime', 'ref'],
                     help="Verify the output by using onnxruntime or reference"
@@ -247,8 +248,8 @@ def main():
         shared_lib_path = ""
         # If a shared library is given, use it without compiling the ONNX model.
         # Otherwise, compile the ONNX model.
-        if (args.s):
-            shared_lib_path = args.s
+        if (args.load_so):
+            shared_lib_path = args.load_so
         else:
             print("Compiling the model ...")
             # Save modified model & invoke onnx-mlir to compile it.
@@ -280,10 +281,10 @@ def main():
             print("  took ", end - start, " seconds.\n")
 
             # Save the generated .so file of the model if required.
-            if (args.o):
-                print("Saving the shared library to", args.o, "\n")
+            if (args.save_so):
+                print("Saving the shared library to", args.save_so, "\n")
                 execute_commands('rsync -ar {} {}'.format(
-                    shared_lib_path, args.o))
+                    shared_lib_path, args.save_so))
 
         print("Running inference ...")
         start = time.perf_counter()
