@@ -263,7 +263,6 @@ public:
       }
       // ... A pattern was successfully applied.
     });
-
   }
 
   static void flattenSubgraph(PatternRewriter &rewriter, Operation *op) {
@@ -293,7 +292,7 @@ public:
     Operation &callOp = *sgBlock.getOperations().begin();
     Operation &yieldOp = *(++sgBlock.getOperations().begin());
 
-    //rewriter.insert(&callOp);
+    // rewriter.insert(&callOp);
     Operation *clonedCall = rewriter.clone(callOp);
 
     op->replaceAllUsesWith(clonedCall);
