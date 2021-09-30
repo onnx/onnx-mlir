@@ -3336,6 +3336,18 @@ LogicalResult ONNXLessOp::inferShapes(
   return success();
 }
 
+LogicalResult ONNXLessOrEqualOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  auto builder = mlir::Builder(getContext());
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return success();
+  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  getResult().setType(getBroadcastedType(lhsTy, rhsTy, builder.getI1Type()));
+  return success();
+}
+
 // Operations for which shape inference has not been implemented yet
 // If you add the implementation for one op, move it out of this section
 // Also please add test case in test/mlir/onnx/onnx_shape_inference.mlir
@@ -3420,6 +3432,74 @@ LogicalResult ONNXClipOp::inferShapes(
   return success();
 }
 
+// hi alex
+
+static LogicalResult verify(ONNXInstanceNormalizationOp op) {
+  ONNXInstanceNormalizationOpAdaptor operandAdaptor =
+      ONNXInstanceNormalizationOpAdaptor(op);
+  // Get operands.
+  auto input = operandAdaptor.input();
+  auto scale = operandAdaptor.scale();
+  auto B = operandAdaptor.B();
+
+  // Check input.
+  if (!input.getType().isa<RankedTensorType>()) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
+  auto inputType = input.getType().cast<RankedTensorType>();
+  auto inputShape = inputType.getShape();
+  auto inputElementType = inputType.getElementType();
+  int64_t spatialRank = inputShape.size() - 2;
+  // If ranked, verify ranks of inputs.
+  if (spatialRank < 1)
+    return op->emitError("Spatial rank must be strictly positive");
+
+  // Check bias B.
+  if (B.getType().isa<RankedTensorType>()) {
+    // Can check at this stage.
+    auto bType = B.getType().cast<RankedTensorType>();
+    auto bShape = bType.getShape();
+    if (bShape.size() != 1)
+      return op->emitError("Bias should have a rank of one");
+    if (bShape[0] >= 0 && inputShape[1] >= 0 && bShape[0] != inputShape[1])
+      return op->emitError(
+          "Bias should have same dimension as the second dimension of input");
+    if (bType.getElementType() != inputElementType)
+      return op->emitError("Bias should have same element type as input");
+  }
+
+  // Check scale.
+  if (scale.getType().isa<RankedTensorType>()) {
+    // Can check at this stage.
+    auto scaleType = scale.getType().cast<RankedTensorType>();
+    auto scaleShape = scaleType.getShape();
+    if (scaleShape.size() != 1)
+      return op->emitError("Scale should have a rank of one");
+    if (scaleShape[0] >= 0 && inputShape[1] >= 0 &&
+        scaleShape[0] != inputShape[1])
+      return op->emitError(
+          "Scale should have same dimension as the second dimension of input");
+    if (scaleType.getElementType() != inputElementType)
+      return op->emitError("Scale should have same element type as input");
+  }
+
+  return success();
+}
+
+LogicalResult ONNXInstanceNormalizationOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  // Check input type.
+  if (!input().getType().isa<RankedTensorType>()) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
+  // Output type is same as input type.
+  auto inputType = input().getType().cast<RankedTensorType>();
+  getResult().setType(inputType);
+  return success();
+}
+
 LogicalResult ONNXCompressOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
@@ -3447,7 +3527,14 @@ LogicalResult ONNXDetOp::inferShapes(
 
 LogicalResult ONNXEqualOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  auto builder = mlir::Builder(getContext());
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return success();
+  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  getResult().setType(getBroadcastedType(lhsTy, rhsTy, builder.getI1Type()));
+  return success();
 }
 
 LogicalResult ONNXEyeLikeOp::inferShapes(
@@ -3473,7 +3560,26 @@ LogicalResult ONNXGatherNDOp::inferShapes(
 
 LogicalResult ONNXGreaterOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  auto builder = mlir::Builder(getContext());
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return success();
+  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  getResult().setType(getBroadcastedType(lhsTy, rhsTy, builder.getI1Type()));
+  return success();
+}
+
+LogicalResult ONNXGreaterOrEqualOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  auto builder = mlir::Builder(getContext());
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return success();
+  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  getResult().setType(getBroadcastedType(lhsTy, rhsTy, builder.getI1Type()));
+  return success();
 }
 
 LogicalResult ONNXHardmaxOp::inferShapes(
@@ -3482,11 +3588,6 @@ LogicalResult ONNXHardmaxOp::inferShapes(
 }
 
 LogicalResult ONNXIfOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXInstanceNormalizationOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
@@ -3582,7 +3683,8 @@ LogicalResult ONNXNonZeroOp::inferShapes(
 
 LogicalResult ONNXNotOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(getOperand().getType());
+  return success();
 }
 
 LogicalResult ONNXOneHotOp::inferShapes(
@@ -4018,8 +4120,6 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXAdamOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXCeluOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXEinsumOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXGradientOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXGreaterOrEqualOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXLessOrEqualOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXMomentumOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXNegativeLogLikelihoodLossOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXSoftmaxCrossEntropyLossOp);
