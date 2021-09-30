@@ -271,7 +271,7 @@ def main():
                         [str(d) for d in inputs[i].shape]) + ","
                 shape_info = shape_info[:-1]
                 command_str += " " + shape_info
-                warning("the shapes of the model's input will be " \
+                warning("the shapes of the model's inputs will be " \
                     "changed to the shapes of the inputs in the data folder")
             command_str += " " + temp_model_path
 
