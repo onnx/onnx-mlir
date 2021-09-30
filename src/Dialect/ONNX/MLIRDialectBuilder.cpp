@@ -65,6 +65,16 @@ Value MathBuilder::slt(Value lhs, Value rhs) {
     return b.create<CmpIOp>(loc, CmpIPredicate::slt, lhs, rhs);
   return b.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
 }
+Value MathBuilder::eq(Value lhs, Value rhs) {
+  Type lhsType = lhs.getType();
+  if (lhsType.isa<FloatType>()) {
+    return b.create<CmpFOp>(loc, CmpFPredicate::OEQ, lhs, rhs);
+  } else if (lhsType.isa<IntegerType>()) {
+    return b.create<CmpIOp>(loc, CmpIPredicate::eq, lhs, rhs);
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+}
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) {
   return b.create<SelectOp>(loc, cmp, lhs, rhs);
 }
