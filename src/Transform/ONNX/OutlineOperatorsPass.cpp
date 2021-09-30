@@ -205,6 +205,9 @@ public:
     // patterns.add<OutlinePattern>("onnx.Sigmoid",/*benefit=*/1, ctx);
     // patterns.add<OutlinePattern>("onnx.Flatten",/*benefit=*/1, ctx);
     // patterns.add<OutlinePattern>(/*benefit=*/1, ctx);
+  }
+
+  void collectSGPatterns(RewritePatternSet &patterns, MLIRContext *ctx) {
     patterns.add<FlattenPattern>("onnx.Subgraph", /*benefit=*/1, ctx);
   }
 
@@ -260,7 +263,9 @@ public:
       }
       // ... A pattern was successfully applied.
     });
+
   }
+
   static void flattenSubgraph(PatternRewriter &rewriter, Operation *op) {
     MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
@@ -288,7 +293,12 @@ public:
     Operation &callOp = *sgBlock.getOperations().begin();
     Operation &yieldOp = *(++sgBlock.getOperations().begin());
 
-    op->replaceAllUsesWith(&callOp);
+    //rewriter.insert(&callOp);
+    Operation *clonedCall = rewriter.clone(callOp);
+
+    op->replaceAllUsesWith(clonedCall);
+    std::cout << "  about to erase subgraphxs " << std::endl;
+
     rewriter.eraseOp(op);
   }
 
@@ -384,10 +394,13 @@ public:
   void runOnOperation() override {
     // processOp(getOperation());
     RewritePatternSet patterns(&getContext());
+    RewritePatternSet sgPatterns(&getContext());
     collectOutlinePatterns(patterns, &getContext());
     std::cout << "---------------------------------------------" << std::endl;
     std::cout << "       apply patterns " << std::endl;
     applyOutlinePatternDriver(getOperation(), patterns);
+    collectSGPatterns(sgPatterns, &getContext());
+    applyOutlinePatternDriver(getOperation(), sgPatterns);
     printOp(getOperation());
   }
 };
