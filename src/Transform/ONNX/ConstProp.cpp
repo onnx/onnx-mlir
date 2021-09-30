@@ -24,6 +24,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
 
@@ -482,7 +483,23 @@ ONNXConstantOp ConstPropTranspose(
 
 ONNXConstantOp ConstPropUnsqueeze(
     PatternRewriter &rewriter, Value replacingValue, Value input) {
-  Type replacingType = replacingValue.getType();
+  Operation *inputOp = input.getDefiningOp();
+
+  char *resArray = getArrayFromAttributeOrBuffer(rewriter, inputOp);
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for Squeeze.
+//===----------------------------------------------------------------------===//
+
+ONNXConstantOp ConstPropSqueeze(
+    PatternRewriter &rewriter, Value replacingValue, Value input) {
   Operation *inputOp = input.getDefiningOp();
 
   char *resArray = getArrayFromAttributeOrBuffer(rewriter, inputOp);
@@ -498,68 +515,97 @@ ONNXConstantOp ConstPropUnsqueeze(
 // Code to perform constant propagation for split.
 //===----------------------------------------------------------------------===//
 
+template <typename Op>
+LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
+    llvm::Optional<ArrayAttr> splitAttr) {
+  // Basic info.
+  unsigned numOfResults = splitOp.getNumResults();
+  Value input = splitOp.input();
+  if (!isFromDenseONNXConstantOp(input))
+    return failure();
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  Type elementType = inputType.getElementType();
+
+  // Split axis.
+  uint64_t splitAxis = splitOp.axis();
+  // Compute split offsets.
+  SmallVector<int64_t, 4> splitOffsets;
+  {
+    if (!splitAttr.hasValue())
+      // If split attribute is not specified, split size is equally divided.
+      assert(inputShape[splitAxis] % numOfResults == 0 &&
+             "The dimension at the split axis is expected to be divisible by "
+             "the number of results");
+    int64_t offset = 0;
+    for (unsigned int i = 0; i < numOfResults; ++i) {
+      splitOffsets.emplace_back(offset);
+      if (splitAttr.hasValue())
+        offset += splitAttr.getValue()[i].cast<IntegerAttr>().getInt();
+      else
+        offset += inputShape[splitAxis] / numOfResults;
+    }
+  }
+
+  // Get the constant input value.
+  char *inputArray =
+      getArrayFromAttributeOrBuffer(rewriter, input.getDefiningOp());
+
+  SmallVector<Value, 4> replacingValues;
+  SmallVector<Type, 4> replacingTypes;
+  for (unsigned int i = 0; i < numOfResults; ++i) {
+    replacingValues.emplace_back(splitOp.getResults()[i]);
+    replacingTypes.emplace_back(splitOp.getResults()[i].getType());
+  }
+
+  // Do splitting.
+  std::vector<char *> resBuffers;
+  ConstPropSplitImpl(elementType, inputArray, inputShape, splitAxis,
+      splitOffsets, replacingTypes, resBuffers);
+
+  // Construct result values.
+  std::vector<Value> resValues;
+  for (unsigned int i = 0; i < numOfResults; ++i) {
+    ONNXConstantOp res = createConstantOpAndStoreBufferPtr(
+        rewriter, replacingValues[i], resBuffers[i]);
+    resValues.emplace_back(res.getResult());
+  }
+
+  rewriter.replaceOp(splitOp, resValues);
+  return success();
+}
+
 class ConstPropSplitPattern : public OpRewritePattern<ONNXSplitOp> {
 public:
   using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
       ONNXSplitOp splitOp, PatternRewriter &rewriter) const override {
-    // Basic info.
-    unsigned numOfResults = splitOp.getNumResults();
-    Value input = splitOp.input();
-    if (!isFromDenseONNXConstantOp(input))
-      return failure();
-    ShapedType inputType = input.getType().cast<ShapedType>();
-    ArrayRef<int64_t> inputShape = inputType.getShape();
-    Type elementType = inputType.getElementType();
 
-    // Split axis.
-    uint64_t splitAxis = splitOp.axisAttr().getValue().getSExtValue();
-    // Compute split offsets.
-    SmallVector<int64_t, 4> splitOffsets;
-    {
-      ArrayAttr splitAttr = splitOp.splitAttr();
-      if (!splitAttr)
-        // If split attribute is not specified, split size is equally divided.
-        assert(inputShape[splitAxis] % numOfResults == 0 &&
-               "The dimension at the split axis is expected to be divisible by "
-               "the number of results");
-      int64_t offset = 0;
-      for (unsigned int i = 0; i < numOfResults; ++i) {
-        splitOffsets.emplace_back(offset);
-        if (splitAttr)
-          offset += splitAttr.getValue()[i].cast<IntegerAttr>().getInt();
-        else
-          offset += inputShape[splitAxis] / numOfResults;
-      }
+    auto split = splitOp.split();
+    auto builder = mlir::Builder(splitOp.getContext());
+
+    llvm::Optional<ArrayAttr> optionalAttr;
+    if (auto splitConstOp = getONNXConstantOp(split)) {
+      // Checking value of split parameter.
+      auto splitAttribute =
+          createArrayAttrFromConstantOp(builder, splitConstOp);
+      optionalAttr.emplace(splitAttribute);
+    } else if (!split.getType().isa<NoneType>()) {
+      llvm_unreachable("dynamic split not yet supported");
     }
 
-    // Get the constant input value.
-    char *inputArray =
-        getArrayFromAttributeOrBuffer(rewriter, input.getDefiningOp());
+    return ConstPropSplitPatternCommon(splitOp, rewriter, optionalAttr);
+  }
+};
 
-    SmallVector<Value, 4> replacingValues;
-    SmallVector<Type, 4> replacingTypes;
-    for (unsigned int i = 0; i < numOfResults; ++i) {
-      replacingValues.emplace_back(splitOp.getResults()[i]);
-      replacingTypes.emplace_back(splitOp.getResults()[i].getType());
-    }
+class ConstPropSplitV11Pattern : public OpRewritePattern<ONNXSplitV11Op> {
+public:
+  using OpRewritePattern<ONNXSplitV11Op>::OpRewritePattern;
 
-    // Do splitting.
-    std::vector<char *> resBuffers;
-    ConstPropSplitImpl(elementType, inputArray, inputShape, splitAxis,
-        splitOffsets, replacingTypes, resBuffers);
-
-    // Construct result values.
-    std::vector<Value> resValues;
-    for (unsigned int i = 0; i < numOfResults; ++i) {
-      ONNXConstantOp res = createConstantOpAndStoreBufferPtr(
-          rewriter, replacingValues[i], resBuffers[i]);
-      resValues.emplace_back(res.getResult());
-    }
-
-    rewriter.replaceOp(splitOp, resValues);
-    return success();
+  LogicalResult matchAndRewrite(
+      ONNXSplitV11Op splitOp, PatternRewriter &rewriter) const override {
+    return ConstPropSplitPatternCommon(splitOp, rewriter, splitOp.split());
   }
 };
 
@@ -589,6 +635,7 @@ void ConstPropONNXToONNXPass::runOnFunction() {
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
   patterns.insert<ConstPropSplitPattern>(&getContext());
+  patterns.insert<ConstPropSplitV11Pattern>(&getContext());
 
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();

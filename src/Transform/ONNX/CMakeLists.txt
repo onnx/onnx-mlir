@@ -40,10 +40,29 @@ add_onnx_mlir_library(OMShapeInference
   MLIRPass
   )
 
+
 add_onnx_mlir_library(OMOutlineOperations
   OutlineOperatorsPass.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps
   MLIRPass
+  
+add_onnx_mlir_library(OMInstrumentONNX
+  InstrumentONNXPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMKrnlOps
+  MLIRPass
+  OMSupport
+  )
+
+add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
+  ONNXPreKrnlVerifyPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  OMSupport
   )

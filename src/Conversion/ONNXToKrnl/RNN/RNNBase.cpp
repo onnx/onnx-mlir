@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
 
@@ -28,42 +29,24 @@ int64_t dimAt(Value val, int index) {
 /// Shape :: [seq_length, num_directions, batch_size, hidden_size]
 Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value W, Value R, Value output, bool insertDealloc) {
-  ImplicitLocOpBuilder lb(loc, rewriter);
+  IndexExprScope scope(rewriter, loc);
   Value alloc;
   if (!isNoneType(output)) {
+    MemRefBoundsIndexCapture XBounds(X);
+    MemRefBoundsIndexCapture WBounds(W);
+    MemRefBoundsIndexCapture RBounds(R);
+    SmallVector<IndexExpr, 4> dims;
+    // Get seq_length from X.
+    dims.emplace_back(XBounds.getDim(0));
+    // Get num_directions from W.
+    dims.emplace_back(WBounds.getDim(0));
+    // Get batch_size from X.
+    dims.emplace_back(XBounds.getDim(1));
+    // Get hidden_size from R.
+    dims.emplace_back(RBounds.getDim(2));
     auto memRefType = convertToMemRefType(output.getType());
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else {
-      auto memRefShape = memRefType.getShape();
-      SmallVector<Value, 2> allocOperands;
-      if (memRefShape[0] < 0) {
-        // Get seq_length from X.
-        auto dim = rewriter.create<memref::DimOp>(loc, X, 0);
-        allocOperands.emplace_back(dim);
-      }
-      if (memRefShape[1] < 0) {
-        // Get num_directions from W.
-        auto dim = rewriter.create<memref::DimOp>(loc, W, 0);
-        allocOperands.emplace_back(dim);
-      }
-      if (memRefShape[2] < 0) {
-        // Get batch_size from X.
-        auto dim = rewriter.create<memref::DimOp>(loc, X, 1);
-        allocOperands.emplace_back(dim);
-      }
-      if (memRefShape[3] < 0) {
-        // Get hidden_size from R.
-        auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
-        allocOperands.emplace_back(dim);
-      }
-      alloc = lb.create<memref::AllocOp>(memRefType, allocOperands);
-      if (insertDealloc) {
-        auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
-        dealloc.getOperation()->moveBefore(&parentBlock->back());
-      }
-    }
+    alloc = insertAllocAndDeallocSimple(
+        rewriter, nullptr, memRefType, loc, dims, insertDealloc);
   } else {
     alloc = output;
   }
@@ -74,39 +57,21 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
 /// Shape :: [batch_size, hidden_size]
 Value allocIntermediateState(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value R) {
-  ImplicitLocOpBuilder lb(loc, rewriter);
-  // The hidden or cell is not a return value but a temporary value, so always
-  // dealloc it.
-  bool insertDealloc = true;
-
+  IndexExprScope scope(rewriter, loc);
   auto memRefType = MemRefType::get({/*batch_size=*/dimAt(X, 1),
                                         /*hidden_size=*/dimAt(R, 2)},
       X.getType().cast<ShapedType>().getElementType());
-
-  Value alloc;
-  if (hasAllConstantDimensions(memRefType))
-    alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-  else {
-    auto memRefShape = memRefType.getShape();
-    SmallVector<Value, 2> allocOperands;
-    if (memRefShape[0] < 0) {
-      // Get batch_size from X.
-      auto dim = rewriter.create<memref::DimOp>(loc, X, 1);
-      allocOperands.emplace_back(dim);
-    }
-    if (memRefShape[1] < 0) {
-      // Get hidden_size from R.
-      auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
-      allocOperands.emplace_back(dim);
-    }
-    alloc = lb.create<memref::AllocOp>(memRefType, allocOperands);
-    if (insertDealloc) {
-      auto *parentBlock = alloc.getDefiningOp()->getBlock();
-      auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
-      dealloc.getOperation()->moveBefore(&parentBlock->back());
-    }
-  }
-
+  MemRefBoundsIndexCapture XBounds(X);
+  MemRefBoundsIndexCapture RBounds(R);
+  SmallVector<IndexExpr, 2> dims;
+  // Get batch_size from X.
+  dims.emplace_back(XBounds.getDim(1));
+  // Get hidden_size from R.
+  dims.emplace_back(RBounds.getDim(2));
+  // The hidden or cell is not a return value but a temporary value, so always
+  // dealloc it.
+  Value alloc = insertAllocAndDeallocSimple(
+      rewriter, nullptr, memRefType, loc, dims, /*insertDealloc=*/true);
   return alloc;
 }
 
@@ -185,38 +150,22 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
 /// Shape :: [num_directions, batch_size, hidden_size]
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
     Value X, Value W, Value R, Value output, bool insertDealloc) {
-  ImplicitLocOpBuilder lb(loc, rewriter);
-
+  IndexExprScope scope(rewriter, loc);
   Value alloc;
   if (!isNoneType(output)) {
+    MemRefBoundsIndexCapture XBounds(X);
+    MemRefBoundsIndexCapture WBounds(W);
+    MemRefBoundsIndexCapture RBounds(R);
+    SmallVector<IndexExpr, 3> dims;
+    // Get num_directions from W.
+    dims.emplace_back(WBounds.getDim(0));
+    // Get batch_size from X.
+    dims.emplace_back(XBounds.getDim(1));
+    // Get hidden_size from R.
+    dims.emplace_back(RBounds.getDim(2));
     MemRefType memRefType = convertToMemRefType(output.getType());
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else {
-      auto memRefShape = memRefType.getShape();
-      SmallVector<Value, 2> allocOperands;
-      if (memRefShape[0] < 0) {
-        // Get num_directions from W.
-        auto dim = rewriter.create<memref::DimOp>(loc, W, 0);
-        allocOperands.emplace_back(dim);
-      }
-      if (memRefShape[1] < 0) {
-        // Get batch_size from X.
-        auto dim = rewriter.create<memref::DimOp>(loc, X, 1);
-        allocOperands.emplace_back(dim);
-      }
-      if (memRefShape[2] < 0) {
-        // Get hidden_size from R.
-        auto dim = rewriter.create<memref::DimOp>(loc, R, 2);
-        allocOperands.emplace_back(dim);
-      }
-      alloc = lb.create<memref::AllocOp>(memRefType, allocOperands);
-      if (insertDealloc) {
-        auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
-        dealloc.getOperation()->moveBefore(&parentBlock->back());
-      }
-    }
+    alloc = insertAllocAndDeallocSimple(
+        rewriter, nullptr, memRefType, loc, dims, insertDealloc);
   } else {
     alloc = output;
   }
@@ -231,19 +180,18 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
   // scope(rewriter, loc);
   ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(lb);
+  MemRefBuilder createMemRef(lb);
   Value zero = emitConstantOp(rewriter, loc, elementType, 0);
   unsigned htRank = ht.getType().cast<MemRefType>().getRank();
   Value iZero = lb.create<ConstantIndexOp>(0);
   SmallVector<Value, 4> htLbs(htRank, iZero);
   SmallVector<Value, 4> htUbs;
   for (unsigned r = 0; r < htRank; ++r) {
-    Value idx = lb.create<ConstantIndexOp>(r);
-    htUbs.emplace_back(lb.createOrFold<memref::DimOp>(ht, idx));
+    htUbs.emplace_back(createMemRef.dim(ht, r));
   }
   ValueRange loops = createKrnl.defineLoops(htRank);
-  createKrnl.iterate(loops, loops, htLbs, htUbs, {},
-      [&](KrnlBuilder &createKrnl, ValueRange args) {
-        ValueRange indices = createKrnl.getInductionVarValue(loops);
+  createKrnl.iterate(loops, loops, htLbs, htUbs,
+      [&](KrnlBuilder &createKrnl, ValueRange indices) {
         Value hiddenVal = zero;
         if (!isNoneType(initialH))
           hiddenVal = createKrnl.load(initialH, indices);
@@ -267,6 +215,7 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
   // TODO remove
   ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(lb);
+  MemRefBuilder createMemRef(lb);
   if (direction == FORWARD || direction == REVERSE) {
     Value val = (direction == FORWARD) ? forwardVal : reverseVal;
     Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, val);
@@ -278,13 +227,11 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     SmallVector<Value, 4> lbs(rank, zero);
     SmallVector<Value, 4> ubs;
     for (unsigned r = 0; r < rank; ++r) {
-      Value idx = lb.create<ConstantIndexOp>(r);
-      ubs.emplace_back(lb.createOrFold<memref::DimOp>(forwardVal, idx));
+      ubs.emplace_back(createMemRef.dim(forwardVal, r));
     }
     ValueRange loops = createKrnl.defineLoops(2);
-    createKrnl.iterate(loops, loops, lbs, ubs, {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
-          ValueRange indices = createKrnl.getInductionVarValue(loops);
+    createKrnl.iterate(loops, loops, lbs, ubs,
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
           Value b(indices[0]), h(indices[1]);
           // Forward.
           Value val = createKrnl.load(forwardVal, {b, h});
@@ -305,7 +252,9 @@ Value applyActivation(OpBuilder &rewriter, Location loc,
   assert(isScalar && "Not a scalar operand");
 
   MemRefType memRefType = MemRefType::get({}, operand.getType(), {}, 0);
-  Value alloc = rewriter.create<memref::AllocaOp>(loc, memRefType);
+  // Single scalar, no need for default alignment.
+  MemRefBuilder createMemRef(rewriter, loc);
+  Value alloc = createMemRef.alloca(memRefType);
   rewriter.create<KrnlStoreOp>(loc, operand, alloc, ArrayRef<Value>{});
 
   std::vector<mlir::NamedAttribute> attributes;
@@ -358,9 +307,10 @@ Value applyActivation(OpBuilder &rewriter, Location loc,
 Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value timestepIV) {
   // TODO remove
+  IndexExprScope scope(rewriter, loc);
   ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(rewriter, loc);
-  Value sliceX;
+  MemRefBuilder createMemRef(rewriter, loc);
 
   int64_t batchSize = dimAt(X, 1);
   int64_t inputSize = dimAt(X, 2);
@@ -368,205 +318,27 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
   MemRefType sliceXType = MemRefType::get({batchSize, inputSize}, elementType);
 
   // Allocate a buffer
-  if (hasAllConstantDimensions(sliceXType))
-    sliceX =
-        insertAllocAndDealloc(sliceXType, loc, rewriter, /*deallocate=*/false);
-  else {
-    auto memRefShape = sliceXType.getShape();
-    SmallVector<Value, 2> allocOperands;
-    if (memRefShape[0] < 0) {
-      Value batchSizeVal =
-          getDimOrConstant(rewriter, loc, X, 1, rewriter.getIndexType());
-      allocOperands.emplace_back(batchSizeVal);
-    }
-    if (memRefShape[1] < 0) {
-      Value inputSizeVal =
-          getDimOrConstant(rewriter, loc, X, 2, rewriter.getIndexType());
-      allocOperands.emplace_back(inputSizeVal);
-    }
-    sliceX = lb.create<memref::AllocOp>(sliceXType, allocOperands);
-  }
+  MemRefBoundsIndexCapture XBounds(X);
+  SmallVector<IndexExpr, 2> dims;
+  dims.emplace_back(XBounds.getDim(1));
+  dims.emplace_back(XBounds.getDim(2));
+  Value sliceX = insertAllocAndDeallocSimple(
+      rewriter, nullptr, sliceXType, loc, dims, /*insertDealloc=*/false);
 
   // Copy data from X.
   Value iZero = lb.create<ConstantIndexOp>(0);
   SmallVector<Value, 2> lbs(2, iZero);
   SmallVector<Value, 2> ubs;
   for (unsigned r = 0; r < 2; ++r) {
-    Value idx = lb.create<ConstantIndexOp>(r);
-    ubs.emplace_back(lb.createOrFold<memref::DimOp>(sliceX, idx));
+    ubs.emplace_back(createMemRef.dim(sliceX, r));
   }
   ValueRange loops = createKrnl.defineLoops(2);
-  createKrnl.iterate(loops, loops, lbs, ubs, {},
-      [&](KrnlBuilder &createKrnl, ValueRange args) {
-        ValueRange indices = createKrnl.getInductionVarValue(loops);
+  createKrnl.iterate(
+      loops, loops, lbs, ubs, [&](KrnlBuilder &createKrnl, ValueRange indices) {
         Value b(indices[0]), i(indices[1]);
         Value val = createKrnl.load(X, {timestepIV, b, i});
         createKrnl.store(val, sliceX, {b, i});
       });
 
   return sliceX;
-}
-
-void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
-    MemRefType matrixType, Value A, ArrayRef<Value> Bs, Value zero,
-    Value zeroVal, ArrayRef<Value> Cs) {
-  ImplicitLocOpBuilder lb(loc, rewriter);
-  KrnlBuilder createKrnl(lb);
-
-  Type elementType = matrixType.getElementType();
-  // Get bounds I, J, K.
-  Value iZero = lb.create<ConstantIndexOp>(0);
-  Value iOne = lb.create<ConstantIndexOp>(0);
-  Value I = lb.createOrFold<memref::DimOp>(A, iZero);    // (aBounds.ub(0))
-  Value J = lb.createOrFold<memref::DimOp>(Bs[0], iOne); // (bBounds.ub(1))
-  Value K = lb.createOrFold<memref::DimOp>(A, iOne);     // (aBounds.ub(1))
-
-  // Initialize alloc/C to zero.
-  ValueRange zeroLoop = createKrnl.defineLoops(2);
-  createKrnl.iterate(zeroLoop, zeroLoop, {zero, zero}, {I, J}, {},
-      [&](KrnlBuilder &createKrnl, ValueRange args) {
-        ValueRange indices = createKrnl.getInductionVarValue(zeroLoop);
-        for (Value C : Cs)
-          createKrnl.store(zeroVal, C, indices);
-      });
-
-  // Prepare for the computations.
-  // 1) Define blocking, with simdization along the j axis.
-  const int64_t iCacheTile(64), jCacheTile(128), kCacheTile(512);
-  const int64_t iRegTile(4), jRegTile(8);
-
-  bool unrollAndJam = true;
-  // Simdize with jRegTile as the vector length.
-  bool simdize = true;
-
-  bool mustTileR = false;
-  // J is hidden size which is always literal.
-  int64_t jVal = matrixType.getShape()[1];
-  if (jVal < jRegTile) {
-    // Very small computation, give up on SIMD.
-    simdize = false;
-  } else if (jVal % jRegTile != 0) {
-    // Unfortunately, J is not divisible by the vector length. Could try
-    // to change the vector length, but right now, just go to buffering.
-    mustTileR = true;
-  } else {
-    // Best of all world, large computation, of sizes compatible with vector
-    // length.
-  }
-
-  // 2) Alloc data for tiles.
-  MemRefType aTileType = MemRefType::get({iCacheTile, kCacheTile}, elementType);
-  MemRefType bTileType = MemRefType::get({kCacheTile, jCacheTile}, elementType);
-  MemRefType cTileType = MemRefType::get({iCacheTile, jCacheTile}, elementType);
-  IntegerAttr alignAttr = rewriter.getI64IntegerAttr(BUFFER_ALIGN);
-  ValueRange empty;
-  Value aBuff = lb.create<memref::AllocOp>(aTileType, empty, alignAttr);
-  SmallVector<Value, 4> bBuffs;
-  for (unsigned int i = 0; i < Bs.size(); ++i) {
-    Value bBuff = lb.create<memref::AllocOp>(bTileType, empty, alignAttr);
-    bBuffs.emplace_back(bBuff);
-  }
-  SmallVector<Value, 4> cBuffs;
-  if (mustTileR) {
-    for (unsigned int i = 0; i < Cs.size(); ++i) {
-      Value cBuff = lb.create<memref::AllocOp>(cTileType, empty, alignAttr);
-      cBuffs.emplace_back(cBuff);
-    }
-  }
-
-  // 3) introduce the loops and permute them
-  // I, J, K loop.
-  ValueRange origLoop = createKrnl.defineLoops(3);
-  Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
-  // Tile I.
-  ValueRange iCacheBlock = createKrnl.block(ii, iCacheTile);
-  ValueRange iRegBlock = createKrnl.block(iCacheBlock[1], iRegTile);
-  Value ii1(iCacheBlock[0]), ii2(iRegBlock[0]), ii3(iRegBlock[1]);
-  // Tile J.
-  ValueRange jCacheBlock = createKrnl.block(jj, jCacheTile);
-  ValueRange jRegBlock = createKrnl.block(jCacheBlock[1], jRegTile);
-  Value jj1(jCacheBlock[0]), jj2(jRegBlock[0]), jj3(jRegBlock[1]);
-  // Tile K.
-  ValueRange kCacheBlock = createKrnl.block(kk, kCacheTile);
-  Value kk1(kCacheBlock[0]), kk2(kCacheBlock[1]);
-
-  // If we must tile the result R, then we put I & J in the outermost.
-  // Otherwise, we follow the more traditional scheme of having J & K in the
-  // outermost.
-  if (mustTileR) {
-    // (cache) ii1 jj1 kk1,    (reg) jj2, ii2,    (matmul) ii3, jj3, kk3
-    createKrnl.permute({ii1, ii2, ii3, jj1, jj2, jj3, kk1, kk2},
-        {/*i*/ 0, 4, 5, /*j*/ 1, 3, 6, /*k*/ 2, 7});
-    // Compute: A[i, k] * b[k, j] -> R[i, j])
-    createKrnl.iterate({ii, jj}, {ii1, jj1}, {zero, zero}, {I, J}, {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
-          ValueRange i1_j1_indices =
-              createKrnl.getInductionVarValue({ii1, jj1});
-          Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
-          for (unsigned int n = 0; n < cBuffs.size(); ++n)
-            createKrnl.copyToBuffer(cBuffs[n], Cs[n], {i1, j1}, zeroVal, false);
-          createKrnl.iterate({kk}, {kk1}, {zero}, {K}, {},
-              [&](KrnlBuilder &createKrnl, ValueRange args) {
-                ValueRange k1_index = createKrnl.getInductionVarValue({kk1});
-                Value k1(k1_index[0]);
-                createKrnl.copyToBuffer(aBuff, A, {i1, k1}, zeroVal, false);
-                for (unsigned int n = 0; n < bBuffs.size(); ++n)
-                  createKrnl.copyToBuffer(
-                      bBuffs[n], Bs[n], {k1, j1}, zeroVal, false);
-                createKrnl.iterate({}, {jj2, ii2}, {}, {}, {},
-                    [&](KrnlBuilder &createKrnl, ValueRange args) {
-                      ValueRange j2_i2_indices =
-                          createKrnl.getInductionVarValue({jj2, ii2});
-                      Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
-                      for (unsigned int n = 0; n < bBuffs.size(); ++n) {
-                        createKrnl.matmul(aBuff, {i1, k1}, bBuffs[n], {k1, j1},
-                            cBuffs[n], {i1, j1},
-                            /*loops*/ {ii3, jj3, kk2},
-                            /*compute start*/ {i2, j2, k1},
-                            /*ubs*/ {I, J, K},
-                            /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
-                            /* a/b/c tiles*/ {}, {}, {}, simdize, unrollAndJam,
-                            false);
-                      }
-                    });
-              });
-          for (unsigned int n = 0; n < cBuffs.size(); ++n)
-            createKrnl.copyFromBuffer(cBuffs[n], Cs[n], {i1, j1});
-        });
-  } else {
-    // Does not have to tile the result.
-    // (cache) jj1 kk1, ii1, (reg) jj2, ii2, (matmul) ii3, jj3, kk3
-    createKrnl.permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
-        {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
-    // Compute: A[i, k] * b[k, j] -> C[i, j])
-    createKrnl.iterate({jj, kk}, {jj1, kk1}, {zero, zero}, {J, K}, {},
-        [&](KrnlBuilder &createKrnl, ValueRange args) {
-          ValueRange j1_k1_indices =
-              createKrnl.getInductionVarValue({jj1, kk1});
-          Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
-          for (unsigned int n = 0; n < bBuffs.size(); ++n)
-            createKrnl.copyToBuffer(bBuffs[n], Bs[n], {k1, j1}, zeroVal, false);
-          createKrnl.iterate({ii}, {ii1}, {zero}, {I}, {},
-              [&](KrnlBuilder &createKrnl, ValueRange args) {
-                ValueRange i1_index = createKrnl.getInductionVarValue({ii1});
-                Value i1(i1_index[0]);
-                createKrnl.copyToBuffer(aBuff, A, {i1, k1}, zeroVal, false);
-                createKrnl.iterate({}, {jj2, ii2}, {}, {}, {},
-                    [&](KrnlBuilder &createKrnl, ValueRange args) {
-                      ValueRange j2_i2_indices =
-                          createKrnl.getInductionVarValue({jj2, ii2});
-                      Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
-                      for (unsigned int n = 0; n < bBuffs.size(); ++n)
-                        createKrnl.matmul(aBuff, {i1, k1}, bBuffs[n], {k1, j1},
-                            Cs[n], {zero, zero},
-                            /*loops*/ {ii3, jj3, kk2},
-                            /*compute start*/ {i2, j2, k1},
-                            /*ubs*/ {I, J, K},
-                            /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
-                            /* a/b/c tiles*/ {}, {}, {}, simdize, unrollAndJam,
-                            false);
-                    });
-              });
-        });
-  }
 }

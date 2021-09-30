@@ -206,6 +206,11 @@ public:
                                   .dyn_cast<MemRefType>()
                                   .getShape();
     int64_t currentMemPoolSize = staticMemPoolShape[0];
+    if (alignment > 0) {
+      int64_t misalignment = currentMemPoolSize % alignment;
+      if (misalignment > 0)
+        currentMemPoolSize += alignment - misalignment;
+    }
 
     // Get the getref of the current allocOp. There is exactly one such getref.
     KrnlGetRefOp currentAllocGetRef = getCurrentAllocGetRef(&allocOp);
@@ -229,6 +234,7 @@ public:
     newMemPoolShape.emplace_back(bundleTotalSize);
     auto bundledMemPoolMemRefType =
         MemRefType::get(newMemPoolShape, rewriter.getIntegerType(8));
+
     auto newStaticMemPoolAlloc = rewriter.create<memref::AllocOp>(
         loc, bundledMemPoolMemRefType, staticMemPoolAlloc.alignmentAttr());
 
@@ -514,8 +520,8 @@ public:
     RewritePatternSet patterns(&getContext());
     patterns.insert<KrnlBundleStaticMemoryPools>(
         &getContext(), &blockToStaticPool);
-    patterns.insert<KrnlBundleDynamicMemoryPools>(
-        &getContext(), &blockToDynamicPool);
+    // patterns.insert<KrnlBundleDynamicMemoryPools>(
+    //     &getContext(), &blockToDynamicPool);
     patterns.insert<KrnlMoveConstantsUp>(&getContext());
 
     // No need to test, its ok to fail the apply.

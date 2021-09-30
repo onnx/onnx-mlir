@@ -8,3 +8,7 @@ add_custom_target(check-doc
       docs/doc_check/test
       docs/_site
       )
+
+set_target_properties(check-doc PROPERTIES FOLDER "Docs")
+# Exclude the target from the default VS build
+set_target_properties(check-doc PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)

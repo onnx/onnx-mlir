@@ -39,6 +39,8 @@ parser.add_argument("--check-operation-version",
 
 args = parser.parse_args()
 
+import onnx
+
 check_operation_version = args.check_operation_version
 
 
@@ -210,11 +212,10 @@ version_dict = {'Abs': [13],
  'Softsign': [1],
  'SpaceToDepth': [13],
  #'Split': [13],
- 'Split': [11],
+ 'Split': [13, 11],
  'SplitToSequence': [11],
  'Sqrt': [13],
- #'Squeeze': [13],
- 'Squeeze': [11],
+ 'Squeeze': [13, 11],
  'StringNormalizer': [10],
  'Sub': [13],
  'Sum': [13],
@@ -229,7 +230,7 @@ version_dict = {'Abs': [13],
  'TreeEnsembleRegressor': [1],
  'Unique': [11],
  #'Unsqueeze': [13],
- 'Unsqueeze': [11],
+ 'Unsqueeze': [13, 11],
  'Upsample': [10],
  'Where': [9],
  'Xor': [7],
@@ -256,6 +257,7 @@ special_op_handler = dict([
     ("MaxPool", "ImportNodeMaxPool"),
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
+    ("Softmax", "ImportNodeSoftmax"),
     #("Transpose", "ImportNodeTranspose")
 ])
 
@@ -315,6 +317,7 @@ OpsWithShapeInference=[
     'ReduceMean',
     'ReduceMin',
     'ReduceProd',
+    'ReduceSumV11',
     'ReduceSum',
     'Relu',
     'Reshape',
@@ -332,6 +335,7 @@ OpsWithShapeInference=[
     'Softsign',
     'Split',
     'Sqrt',
+    'SqueezeV11',
     'Squeeze',
     'Sub',
     'Sum',
@@ -339,15 +343,20 @@ OpsWithShapeInference=[
     'Tanh',
     'Tile',
     'Transpose',
+    'Unsqueeze11',
     'Unsqueeze',
     'Xor',
     'Loop',
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Gemm', 'Cast', 'Transpose',
+OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Cast', 'Transpose',
                         'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
-                        'GlobalMaxPool', 'Squeeze', 'Unsqueeze']
+                        'GlobalMaxPool', 'SqueezeV11', 'UnsqueezeV11',
+                        'Squeeze', 'Unsqueeze', 'Reshape']
+
+# Operations with custom verifiers.
+OpsWithVerifier = ['AveragePool', 'Conv', 'InstanceNormalization']
 
 OpsWithHelpers = {
   "Loop": """
@@ -391,10 +400,11 @@ OpsWithResultTypeInference = {
 # Currenlty, there are only two build methods generated:
 #  - one with operands and attributes having a separate parameter, and
 #  - one with operands and attributes having aggregated parameters.
-custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSum', 'ReduceSumSquare',
-                                    'Pad', 'Sqrt', 'Neg', 'Unsqueeze', 'Softmax',
-                                    'ReduceMax', 'ReduceLogSum', 'Squeeze',
-                                    'Identity', 'Split']
+custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSumV11', 'ReduceSum',
+                                    'ReduceSumSquare',
+                                    'Pad', 'Sqrt', 'Neg', 'UnsqueezeV11',
+                                    'Softmax', 'ReduceMax', 'ReduceLogSum',
+                                    'SqueezeV11', 'Identity', 'Split']
 # Custom builder op list for operations with broadcast; we can deduce the right
 # output type, no need to leave it undef as in the above list.
 # Ops must have two operands, not one, not three... And there shall be two.
@@ -906,7 +916,7 @@ def gen_op_def(schema, with_version = False):
     # Dummy implementations are added to ONNXOps.cpp
     # Error will be report if these operations are encountered at runtime
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
-    if schema.name in OpsWithResultTypeInference.keys():
+    if opName in OpsWithResultTypeInference.keys():
         traits.append("OpInterface<\"ResultTypeInferenceOpInterface\">")
     if len(regions):
         traits.append("OpInterface<\"HasOnnxSubgraphOpInterface\">")
@@ -914,7 +924,7 @@ def gen_op_def(schema, with_version = False):
 
     # Generate decl for canonicalizer.
     indent = inc_indent(indent)
-    if schema.name in OpsWithCanonicalizer:
+    if opName in OpsWithCanonicalizer:
         s += indent + 'let hasCanonicalizer = 1;\n'
 
     # Generate decl for summary.
@@ -958,7 +968,7 @@ def gen_op_def(schema, with_version = False):
 
     # add custom builders
     # use element type of the first operand to construct an UnrankedTensorType for the output.
-    if schema.name in custom_builder_ops_list:
+    if opName in custom_builder_ops_list:
         if len(ins) == 0:
             raise RuntimeWarning(
                 "warning: not generate custom build methods for " +
@@ -983,7 +993,7 @@ def gen_op_def(schema, with_version = False):
             # Get output type from first operand's type.
             first_operand_name = list(ins.items())[0][0]
             build_type_name = ''
-            if schema.name in custom_builder_broadcast_ops_list:
+            if opName in custom_builder_broadcast_ops_list:
                 second_operand_name = list(ins.items())[1][0]
                 s += indent + 'auto lhsTy = {}.getType();\n'. \
                     format(first_operand_name)
@@ -1014,7 +1024,7 @@ def gen_op_def(schema, with_version = False):
             s += indent + 'OpBuilder<(ins ' + \
                 '"ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{\n'
             indent = inc_indent(indent)
-            if schema.name in custom_builder_broadcast_ops_list:
+            if opName in custom_builder_broadcast_ops_list:
                 s += indent + 'auto lhsTy = operands[0].getType();\n'
                 s += indent + 'auto rhsTy = operands[1].getType();\n'
                 s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);\n'
@@ -1035,19 +1045,19 @@ def gen_op_def(schema, with_version = False):
 
             s += '\n' + indent + '];\n'
 
-    # Generate extracClassDeclaration.
+    # Generate extraClassDeclaration.
     s += indent + "let extraClassDeclaration = [{\n"
     #indent = inc_indent(indent)
 
     # Generate input/output number.
     s = get_numberof_inout(s, indent, schema)
 
-    if schema.name in OpsWithResultTypeInference:
+    if opName in OpsWithResultTypeInference:
         s = get_type_inference_func(
-            s, indent, OpsWithResultTypeInference[schema.name])
+            s, indent, OpsWithResultTypeInference[opName])
 
-    if schema.name in OpsWithHelpers:
-        s += OpsWithHelpers[schema.name]
+    if opName in OpsWithHelpers:
+        s += OpsWithHelpers[opName]
 
     if len(regions):
         s += indent + "int64_t getSubgraphRegionIdx(const std::string& name) {\n"
@@ -1060,8 +1070,12 @@ def gen_op_def(schema, with_version = False):
 
     s += indent + '}];\n'
 
-    if ( schema.name in custom_definition_misc) :
-        s += custom_definition_misc[schema.name] + '\n'
+    if ( opName in custom_definition_misc) :
+        s += custom_definition_misc[opName] + '\n'
+
+    # Generate decl for verifier.
+    if opName in OpsWithVerifier:
+        s += indent + 'let verifier = [{ return ::verify(*this); }];\n'
 
     s += '}\n\n'
     return s
@@ -1232,19 +1246,34 @@ if __name__ == '__main__':
     curr_dir = os.path.dirname(os.path.realpath(__file__))
 
     class Args(object):
-        if args.dry_run_onnx_ops:
+        dry_run = args.dry_run_onnx_ops or args.dry_run_op_build_table
+
+        # If either dry_run_onnx_ops or dry_run_op_build_table is true, then treat both of them
+        # as true. Otherwise, one of them runs as a dry-run and one of them runs as a real run
+        # creating unnecessary artifacts in the wrong locations in the build tree.
+        if dry_run:
             op_def = StringIO()
+            op_importer = StringIO()
         else:
             op_def_file_path = os.path.join(curr_dir, 'ONNXOps.td.inc')
             op_def = io.open(op_def_file_path, 'w', newline='')
-
-        if args.dry_run_op_build_table:
-            op_importer = StringIO()
-        else:
             op_importer_file_path = os.path.join(curr_dir, 'OpBuildTable.inc')
             op_importer = io.open(op_importer_file_path, 'w', newline='')
     main(Args)
 
+    # This is based on diff.py from llvm-project (llvm\utils\lit\lit\builtin_commands\diff.py).
+    # On Windows, by default, stdout uses \r\n for newlines, however, all the files we compare against
+    # use \n. This piece of code forces the windows stdout to use \n for newlines.
+    if sys.platform == "win32":
+        if hasattr(sys.stdout, 'buffer'):
+            # python 3
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, newline='\n')
+        else:
+            # python 2.7
+            import msvcrt
+            msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
+
+    # Only output the generated values for the specifically requested dry run.
     if args.dry_run_onnx_ops:
         sys.stdout.write(Args.op_def.getvalue())
     if args.dry_run_op_build_table:

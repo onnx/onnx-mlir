@@ -65,8 +65,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
       // loop-carried dependencies.
       SmallVector<Value, 4> params(
           outputs.begin(), outputs.begin() + scanOp.v_final().size());
-      // Variables local to the subgraph will be deallocated at the end of
-      // subgraph execution.
+      // Variables local to the subgraph.
       SmallVector<Value, 4> localVars;
 
       auto opScanInputRange = llvm::make_range(
@@ -166,10 +165,6 @@ struct ONNXScanOpLowering : public ConversionPattern {
             std::get<1>(scanIntermediateToFinal),
             /*writePrefix=*/{iv});
 
-      // Dealloc local variables.
-      for (auto localVar : localVars)
-        rewriter.create<memref::DeallocOp>(scanOp.getLoc(), localVar);
-
       // Remove scan body terminator op.
       rewriter.eraseOp(scanBodyTerminator);
 
@@ -228,6 +223,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
       if (hasAllConstantDimensions(memRefType))
         alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
       else {
+        MemRefBuilder createMemRef(rewriter, loc);
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
         for (int i = 0; i < rankedScanOutTy.getRank(); i++) {
@@ -237,8 +233,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
               // scan operation scan output to have the leading dimension extent
               // equal to the max trip count, due to the possibility of early
               // termination.
-              auto dim = rewriter.create<memref::DimOp>(
-                  loc, scanOp.scan_inputs().front(), 0);
+              auto dim = createMemRef.dim(scanOp.scan_inputs().front(), 0);
               allocParams.emplace_back(dim);
             } else {
               // TODO(tjingrant): we can support dynamic dimensions for scan
@@ -249,8 +244,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
             }
           }
         }
-        alloc =
-            rewriter.create<memref::AllocOp>(loc, rankedScanOutTy, allocParams);
+        alloc = createMemRef.alignedAlloc(rankedScanOutTy, allocParams);
       }
       outputs.emplace_back(alloc);
     }

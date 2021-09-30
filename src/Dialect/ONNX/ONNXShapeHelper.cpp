@@ -20,6 +20,13 @@
 
 using namespace mlir;
 
+#define DEBUG 0
+
+#if DEBUG
+#include <iostream>
+using namespace std;
+#endif
+
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
@@ -124,8 +131,10 @@ LogicalResult ONNXArgMaxOpShapeHelper::Compute(
 //===----------------------------------------------------------------------===//
 
 ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
-    ConversionPatternRewriter *rewriter, Location loc, bool uniBroadcasting)
-    : scope(rewriter, loc), isUniBroadcasting(uniBroadcasting) {}
+    ConversionPatternRewriter *rewriter, Location loc, bool uniBroadcasting,
+    bool noBroadcasting)
+    : scope(rewriter, loc), isUniBroadcasting(uniBroadcasting),
+      isNoBroadcasting(noBroadcasting) {}
 
 LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
   // A temporary IndexExpr vector for the output.
@@ -171,7 +180,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
       // 1 - LiteralNot1
       // 1 - 1
       if (currentDimExpr.isLiteralAndIdenticalTo(1)) {
-        if (!isUniBroadcasting)
+        if (!isUniBroadcasting && !isNoBroadcasting)
           dimsExpr[j] = nextDimExpr;
         continue;
       }
@@ -215,7 +224,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
 LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(Value operand,
     unsigned operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {
-  if (isUniBroadcasting && operandIndex == 0) {
+  if (isNoBroadcasting || (isUniBroadcasting && operandIndex == 0)) {
     for (IndexExpr ie : outputAccessExprs)
       operandAccessExprs.emplace_back(ie);
     return success();
@@ -242,9 +251,10 @@ LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(Value operand,
     }
     if (allOtherInputDimsAreOne) {
       operandAccessExprs.emplace_back(outputAccessExprs[dimIndex]);
-    } else
+    } else {
       operandAccessExprs.emplace_back(
           IndexExpr::select(dim > 1, outputAccessExprs[dimIndex], 0));
+    }
   }
 
   return success();
@@ -658,21 +668,15 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
 // ONNX Split Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp)
-    : ONNXOpShapeHelper<ONNXSplitOp>(newOp) {}
-
-ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp,
-    ConversionPatternRewriter &rewriter,
-    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSplitOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
-
-LogicalResult ONNXSplitOpShapeHelper::Compute(
-    ONNXSplitOpAdaptor operandAdaptor) {
+template <typename ShapeHelper, typename OperandAdaptor>
+LogicalResult ONNXSplitOpShapeHelperCommon(ShapeHelper *shapeHelper,
+    OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Get info about input and output data.
+  auto op = shapeHelper->op;
   unsigned int numOfResults = op->getNumResults();
-  auto rank = operandAdaptor.input().getType().cast<ShapedType>().getRank();
+  auto rank =
+      operandAdaptor.input().getType().template cast<ShapedType>().getRank();
 
   // Checking value of axis parameter.
   int64_t axisIndex = op->axis();
@@ -686,15 +690,13 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
         APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
 
-  // Checking value of split parameter.
-  auto splitAttribute = op->split();
   SmallVector<IndexExpr, 4> splitDims;
   MemRefBoundsIndexCapture inputBounds(operandAdaptor.input());
-  if (splitAttribute.hasValue()) {
-    if (ArrayAttrSize(splitAttribute) != numOfResults)
+  if (!indexExprArray.empty()) {
+    if (indexExprArray.size() != numOfResults)
       return op->emitError("Split size not equal to the number of results");
     for (unsigned int i = 0; i < numOfResults; ++i) {
-      LiteralIndexExpr dim(ArrayAttrIntVal(splitAttribute, i));
+      LiteralIndexExpr dim(indexExprArray[i]);
       splitDims.emplace_back(dim);
     }
   } else {
@@ -723,9 +725,62 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
         outputDims[j] = inputBounds.getDim(j);
       }
     }
-    dimsForOutput(i) = outputDims;
+    shapeHelper->dimsForOutput(i) = outputDims;
   }
   return success();
+}
+
+ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp)
+    : ONNXOpShapeHelper<ONNXSplitOp>(newOp) {}
+
+ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXSplitOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXSplitOpShapeHelper::Compute(
+    ONNXSplitOpAdaptor operandAdaptor) {
+
+  auto split = op->split();
+
+  SmallVector<IndexExpr, 4> indexExprArray;
+  if (auto splitConstOp = getONNXConstantOp(split)) {
+    Operation *genericOp = reinterpret_cast<Operation *>(op);
+    ArrayValueIndexCapture splitCapture(
+        genericOp, split, fGetDenseVal, fLoadVal);
+    auto splitRank =
+        splitConstOp.valueAttr().dyn_cast_or_null<DenseElementsAttr>().size();
+    splitCapture.getSymbolList(splitRank, indexExprArray);
+  } else if (!split.getType().template isa<NoneType>()) {
+    llvm_unreachable("dynamic split not yet supported");
+  }
+
+  return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
+}
+
+ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp)
+    : ONNXOpShapeHelper<ONNXSplitV11Op>(newOp) {}
+
+ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXSplitV11Op>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXSplitV11OpShapeHelper::Compute(
+    ONNXSplitV11OpAdaptor operandAdaptor) {
+  auto splitAttr = op->split();
+  SmallVector<IndexExpr, 4> indexExprArray;
+  if (splitAttr.hasValue()) {
+    ArrayAttributeIndexCapture splitCapture(splitAttr.getValue());
+    auto splitRank = splitCapture.size();
+    for (unsigned i = 0; i < splitRank; ++i) {
+      indexExprArray.emplace_back(splitCapture.getLiteral(i));
+    }
+  }
+  return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
 }
 
 //===----------------------------------------------------------------------===//
@@ -929,122 +984,493 @@ LogicalResult ONNXLRNOpShapeHelper::Compute(ONNXLRNOpAdaptor operandAdaptor) {
 }
 
 //===----------------------------------------------------------------------===//
+// ONNX Generic Pooling Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+template <typename OP_TYPE, typename OP_ADAPTOR>
+ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::ONNXGenericPoolShapeHelper(
+    OP_TYPE *newOp, bool hasFilter, bool ceilMode)
+    : ONNXOpShapeHelper<OP_TYPE>(newOp), hasFilter(hasFilter),
+      ceilMode(ceilMode) {}
+
+template <typename OP_TYPE, typename OP_ADAPTOR>
+ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::ONNXGenericPoolShapeHelper(
+    OP_TYPE *newOp, bool hasFilter, bool ceilMode,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<OP_TYPE>(newOp, rewriter, fGetDenseVal, fLoadVal),
+      hasFilter(hasFilter), ceilMode(ceilMode) {}
+
+template <typename OP_TYPE, typename OP_ADAPTOR>
+LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::Compute(
+    OP_ADAPTOR operandAdaptor, Value filterValue,
+    Optional<ArrayAttr> kernelShapeOpt, Optional<ArrayAttr> padOpt,
+    Optional<ArrayAttr> strideOpt, Optional<ArrayAttr> dilationOpt) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  // Basic information.
+  Value xValue = (Value)operandAdaptor.X();
+  int64_t rank = xValue.getType().cast<ShapedType>().getRank();
+  int64_t spatialOffset = 2;
+  int64_t spatialRank = rank - spatialOffset;
+
+  MemRefBoundsIndexCapture XBounds(operandAdaptor.X());
+  MemRefBoundsIndexCapture WBounds(filterValue);
+
+  // Fill the stride, dilation, kernel.
+  for (int i = 0; i < spatialRank; ++i) {
+    // Strides, default 1.
+    strides.emplace_back(
+        strideOpt.hasValue() ? ArrayAttrIntVal(strideOpt, i) : 1);
+    // Dilations, default 1.
+    dilations.emplace_back(
+        dilationOpt.hasValue() ? ArrayAttrIntVal(dilationOpt, i) : 1);
+    // Kernel shape from attribute, default from Weight's spatial dims.
+    if (kernelShapeOpt.hasValue()) {
+      kernelShape.emplace_back(
+          LiteralIndexExpr(ArrayAttrIntVal(kernelShapeOpt, i)));
+    } else if (hasFilter) {
+      int ii = i + spatialOffset;
+      kernelShape.emplace_back(WBounds.getSymbol(ii));
+    } else {
+      llvm_unreachable("should have tested the availability of kernel shape");
+    }
+  }
+  // Pads, at this stage a given compile-time literal or default 0.
+  for (int i = 0; i < 2 * spatialRank; ++i) {
+    int64_t p = padOpt.hasValue() ? ArrayAttrIntVal(padOpt, i) : 0;
+    pads.emplace_back(LiteralIndexExpr(p));
+  }
+
+  // Handle output size: start by inserting batch size and output channels.
+  DimsExpr outputDims;
+  outputDims.emplace_back(XBounds.getDim(0));
+  if (hasFilter)
+    outputDims.emplace_back(WBounds.getDim(0)); // CO may be different from CI.
+  else
+    outputDims.emplace_back(XBounds.getDim(1)); // CO is CI.
+
+  // Insert dimensions for the spatial axes. From MaxPool:
+  // https://github.com/onnx/onnx/blob/master/docs/Operators.md#maxpool
+  //
+  // NOSET:
+  //  * O[i] = floor((I[i] + P[i] - ((K[i] - 1) * d[i] + 1)) / s[i] + 1)
+  // VALID:
+  // * O[i] = floor((I[i] - {(K[i] - 1) * d[i] + 1} + 1) / s[i])
+  // * P = 0
+  // SAME_LOWER or SAME_UPPER:
+  // * O[i] = ceil(I[i] / s[i])
+  // * p' = (O[i] - 1) * s[i] + ((K[i] - 1) * d[i] + 1) - I[i]
+  // * P[i] = p' / 2, if odd, first or second are increased by one.
+  auto autoPad = ONNXOpShapeHelper<OP_TYPE>::op->auto_pad();
+  LiteralIndexExpr zero(0);
+  LiteralIndexExpr one(1);
+  for (int64_t i = 0; i < spatialRank; ++i) {
+    int64_t ii = i + spatialOffset;
+    IndexExpr I = XBounds.getDim(ii);
+    IndexExpr K = kernelShape[i];
+    LiteralIndexExpr d(dilations[i]);
+    LiteralIndexExpr s(strides[i]);
+    IndexExpr t1 = K - one;
+    IndexExpr kdTerm = t1 * d + one; // (k - 1) * d + 1
+    if (autoPad == "NOTSET") {
+      IndexExpr p = pads[i] + pads[i + spatialRank]; // Sum both pads.
+      IndexExpr t1 = I + p; // Compute floor/ceil((I + p - kdTerm) / s) + 1.
+      IndexExpr t2 = t1 - kdTerm;
+      IndexExpr O;
+      if (ceilMode)
+        O = t2.ceilDiv(s);
+      else
+        O = t2.floorDiv(s);
+      O = O + one;
+      // Set output dim, and pads already set, nothing more to do.
+      outputDims.emplace_back(O);
+    } else if (autoPad == "VALID") {
+      IndexExpr t1 = I - kdTerm; // Compute ceil((I - kdTerm +1)/s).
+      IndexExpr t2 = t1 + one;
+      IndexExpr O = t2.ceilDiv(s);
+      // Set output dim, and pads already set to zero, nothing more to do.
+      outputDims.emplace_back(O);
+    } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
+      // Compute output as O = ceil(I/s).
+      IndexExpr O = I.ceilDiv(s);
+      outputDims.emplace_back(O);
+      // Compute sum of pads padSum = (O -1)*s + kdTerm - I.
+      IndexExpr t1 = O - one;
+      IndexExpr t2 = t1 * s + kdTerm;
+      IndexExpr t3 = t2 - I;
+      IndexExpr padSum = IndexExpr::max(t3, zero);
+      // Single pad value is padSump / 2.
+      IndexExpr p = padSum.floorDiv(2);
+      // Increment is 1 when pp % 2 != 0
+      IndexExpr test = (padSum % 2) != zero;
+      IndexExpr inc = IndexExpr::select(test, one, zero);
+      // Increment 1st value for SAME_LOWER and 2nd for SAME_UPPER.
+      if (autoPad == "SAME_UPPER") {
+        pads[i] = p;
+        pads[i + spatialRank] = p + inc;
+      } else { // SAME_LOWER.
+        pads[i] = p + inc;
+        pads[i + spatialRank] = p;
+      }
+    }
+  }
+
+#if DEBUG
+  if (outputDims.size() == 4) {
+    cerr << "2d conv const params";
+    if (outputDims[0].isLiteral())
+      cerr << ", N " << outputDims[0].getLiteral();
+    if (outputDims[1].isLiteral())
+      cerr << ", CO " << outputDims[1].getLiteral();
+    if (outputDims[2].isLiteral())
+      cerr << ", WO " << outputDims[2].getLiteral();
+    if (outputDims[3].isLiteral())
+      cerr << ", HO " << outputDims[3].getLiteral();
+    if (pads[0].isLiteral())
+      cerr << ", ph begin " << pads[0].getLiteral();
+    if (pads[2].isLiteral())
+      cerr << ", ph end " << pads[2].getLiteral();
+    if (pads[1].isLiteral())
+      cerr << ", pw begin " << pads[1].getLiteral();
+    if (pads[3].isLiteral())
+      cerr << ", pw end " << pads[3].getLiteral();
+    cerr << endl;
+  }
+#endif
+
+  // Set type for the first output.
+  ONNXOpShapeHelper<OP_TYPE>::dimsForOutput(0) = outputDims;
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ONNX Conv Op Shape Helper
 //===----------------------------------------------------------------------===//
+
 ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp)
-    : ONNXOpShapeHelper<ONNXConvOp>(newOp) {}
+    : ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>(
+          newOp, true /*hasFilter*/, false /*hasCeil*/) {}
 
 ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXConvOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>(newOp,
+          true /*hasFilter*/, false /*hasCeil*/, rewriter, fGetDenseVal,
+          fLoadVal) {}
 
-LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor,
-    Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> pads,
-    Optional<ArrayAttr> strides, Optional<ArrayAttr> dilations) {
-  // Shape inference indicated by passing a null rewriter pointer.
-  // Basic information.
-  auto xRank = operandAdaptor.X().getType().cast<ShapedType>().getRank();
-  int64_t kernelRank = ArrayAttrSize(kernelShape);
-  int64_t spatialOffset = 2;
-
-  DimsExpr outputDims;
-  MemRefBoundsIndexCapture XBounds(operandAdaptor.X());
-  MemRefBoundsIndexCapture WBounds(operandAdaptor.W());
-
-  // Insert batch size.
-  outputDims.emplace_back(XBounds.getDim(0));
-  // Insert number of filters being applied (number of output channels).
-  outputDims.emplace_back(WBounds.getDim(0));
-  // Insert dimensions for the spatial axes.
-  for (decltype(xRank) i = spatialOffset; i < xRank; ++i) {
-    int spatialIndex = i - spatialOffset;
-    IndexExpr input = XBounds.getDim(i);
-    LiteralIndexExpr kernel(ArrayAttrIntVal(kernelShape, spatialIndex));
-    LiteralIndexExpr stride(ArrayAttrIntVal(strides, spatialIndex));
-    LiteralIndexExpr pad(ArrayAttrIntVal(pads, spatialIndex) +
-                         ArrayAttrIntVal(pads, spatialIndex + kernelRank));
-    LiteralIndexExpr dilation;
-    if (!dilations.hasValue())
-      dilation = LiteralIndexExpr(1);
-    else
-      dilation =
-          LiteralIndexExpr(ArrayAttrIntVal(dilations.getValue(), spatialIndex));
-
-    IndexExpr dimExp =
-        (input + pad - (kernel - 1) * dilation - 1).floorDiv(stride) + 1;
-    outputDims.emplace_back(dimExp);
-  }
-
-  // Set type for the first output.
-  dimsForOutput(0) = outputDims;
-  return success();
+LogicalResult ONNXConvOpShapeHelper::Compute(ONNXConvOpAdaptor operandAdaptor) {
+  return ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>::Compute(
+      operandAdaptor, operandAdaptor.W(), op->kernel_shape(), op->pads(),
+      op->strides(), op->dilations());
 }
 
 //===----------------------------------------------------------------------===//
-// ONNX Pooling Ops Shape Helper
+// ONNX Max Pool Single Out Ops Shape Helper
 //===----------------------------------------------------------------------===//
-template <typename OP_TYPE, typename OP_ADAPTOR>
-ONNXPoolOpShapeHelper<OP_TYPE, OP_ADAPTOR>::ONNXPoolOpShapeHelper(
-    OP_TYPE *newOp)
-    : ONNXOpShapeHelper<OP_TYPE>(newOp) {}
 
-template <typename OP_TYPE, typename OP_ADAPTOR>
-ONNXPoolOpShapeHelper<OP_TYPE, OP_ADAPTOR>::ONNXPoolOpShapeHelper(
-    OP_TYPE *newOp, ConversionPatternRewriter &rewriter,
+ONNXMaxPoolSingleOutOpShapeHelper::ONNXMaxPoolSingleOutOpShapeHelper(
+    ONNXMaxPoolSingleOutOp *newOp)
+    : ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
+          ONNXMaxPoolSingleOutOpAdaptor>(
+          newOp, false /*hasFilter*/, newOp->ceil_mode()) {}
+
+ONNXMaxPoolSingleOutOpShapeHelper::ONNXMaxPoolSingleOutOpShapeHelper(
+    ONNXMaxPoolSingleOutOp *newOp, ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<OP_TYPE>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
+          ONNXMaxPoolSingleOutOpAdaptor>(newOp, false /*hasFilter*/,
+          newOp->ceil_mode(), rewriter, fGetDenseVal, fLoadVal) {}
 
-template <typename OP_TYPE, typename OP_ADAPTOR>
-LogicalResult ONNXPoolOpShapeHelper<OP_TYPE, OP_ADAPTOR>::Compute(
-    OP_ADAPTOR operandAdaptor, Optional<ArrayAttr> kernelShape,
-    Optional<ArrayAttr> pads, Optional<ArrayAttr> strides,
-    Optional<ArrayAttr> dilations, bool ceilMode) {
+LogicalResult ONNXMaxPoolSingleOutOpShapeHelper::Compute(
+    ONNXMaxPoolSingleOutOpAdaptor operandAdaptor) {
+  return ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
+      ONNXMaxPoolSingleOutOpAdaptor>::Compute(operandAdaptor, nullptr,
+      op->kernel_shape(), op->pads(), op->strides(), op->dilations());
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Max Pool Single Out Ops Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(
+    ONNXAveragePoolOp *newOp)
+    : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>(
+          newOp, false /*hasFilter*/, newOp->ceil_mode()) {}
+
+ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(
+    ONNXAveragePoolOp *newOp, ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>(
+          newOp, false /*hasFilter*/, newOp->ceil_mode(), rewriter,
+          fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXAveragePoolOpShapeHelper::Compute(
+    ONNXAveragePoolOpAdaptor operandAdaptor) {
+  return ONNXGenericPoolShapeHelper<ONNXAveragePoolOp,
+      ONNXAveragePoolOpAdaptor>::Compute(operandAdaptor, nullptr,
+      op->kernel_shape(), op->pads(), op->strides(), None);
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Reshape Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXReshapeOpShapeHelper::ONNXReshapeOpShapeHelper(ONNXReshapeOp *newOp)
+    : ONNXOpShapeHelper<ONNXReshapeOp>(newOp) {}
+
+ONNXReshapeOpShapeHelper::ONNXReshapeOpShapeHelper(ONNXReshapeOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXReshapeOp>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXReshapeOpShapeHelper::Compute(
+    ONNXReshapeOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  // Basic information.
-  Value xValue = (Value)operandAdaptor.X();
-  auto xRank = xValue.getType().cast<ShapedType>().getRank();
-  int64_t kernelRank = ArrayAttrSize(kernelShape);
-  int64_t spatialOffset = 2;
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
 
+  // Output dims of results.
   DimsExpr outputDims;
-  MemRefBoundsIndexCapture XBounds(xValue);
 
-  // Insert batch size.
-  outputDims.emplace_back(XBounds.getDim(0));
-  // Insert channel size.
-  outputDims.emplace_back(XBounds.getDim(1));
-  // Insert dimensions for the spatial axes.
-  for (decltype(xRank) i = spatialOffset; i < xRank; ++i) {
-    int spatialIndex = i - spatialOffset;
-    IndexExpr input = XBounds.getDim(i);
-    LiteralIndexExpr kernel(ArrayAttrIntVal(kernelShape, spatialIndex));
-    LiteralIndexExpr stride(ArrayAttrIntVal(strides, spatialIndex));
-    LiteralIndexExpr pad(ArrayAttrIntVal(pads, spatialIndex) +
-                         ArrayAttrIntVal(pads, spatialIndex + kernelRank));
-    LiteralIndexExpr dilation;
-    if (!dilations.hasValue())
-      dilation = LiteralIndexExpr(1);
-    else
-      dilation =
-          LiteralIndexExpr(ArrayAttrIntVal(dilations.getValue(), spatialIndex));
+  // Get info about input data operand.
+  Value data = operandAdaptor.data();
+  MemRefBoundsIndexCapture dataBounds(data);
+  int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
 
-    IndexExpr dimExp;
-    if (ceilMode)
-      dimExp = (input + pad - (kernel - 1) * dilation - 1).ceilDiv(stride) + 1;
+  // Get info about shape operand.
+  Value shape = operandAdaptor.shape();
+  ArrayValueIndexCapture shapeCapture(genericOp, shape, fGetDenseVal, fLoadVal);
+  int64_t outputRank = shape.getType().cast<ShapedType>().getShape()[0];
+  assert(outputRank != -1 && "Shape tensor must have constant shape");
+
+  // Initialize context and results.
+  outputDims.resize(outputRank);
+
+  // Shape values can be 0, -1, or N (N > 0).
+  //   - 0: the output dim is setting to the input dim at the same index.
+  //   Thus, it must happen at the index < dataRank.
+  //   - -1: the output dim is calculated from the other output dims. No more
+  //   than one dim in the output has value -1.
+
+  // Compute the total number of elements using the input data operand.
+  IndexExpr numOfElements = LiteralIndexExpr(1);
+  for (unsigned i = 0; i < dataRank; ++i)
+    numOfElements = numOfElements * dataBounds.getDim(i);
+
+  // Compute the total number of elements from the shape values.
+  IndexExpr numOfElementsFromShape = LiteralIndexExpr(1);
+  for (unsigned i = 0; i < outputRank; ++i) {
+    SymbolIndexExpr dimShape(shapeCapture.getSymbol(i));
+    if (dimShape.isUndefined())
+      return op->emitError("shape input parameter could not be processed");
+    IndexExpr dim;
+    if (i < dataRank)
+      // dimShape == 0: use dim from the input.
+      dim = dimShape.selectOrSelf(dimShape == 0, dataBounds.getDim(i));
     else
-      dimExp = (input + pad - (kernel - 1) * dilation - 1).floorDiv(stride) + 1;
-    outputDims.emplace_back(dimExp);
+      dim = dimShape;
+
+    // Just store the dim as it is. Real value for -1 will be computed later.
+    outputDims[i] = dim;
+
+    // dimShape == -1: use 1 to compute the number of elements to avoid
+    // negative value.
+    dim = dim.selectOrSelf(dim == -1, LiteralIndexExpr(1));
+    numOfElementsFromShape = numOfElementsFromShape * dim;
   }
 
-  // Set type for the first output.
-  this->dimsForOutput(0) = outputDims;
+  // All the output dims except the one with -1 are computed. Thus, only
+  // update the dim with -1 here.
+  for (unsigned i = 0; i < outputRank; ++i)
+    outputDims[i] = outputDims[i].selectOrSelf(
+        outputDims[i] == -1, numOfElements.floorDiv(numOfElementsFromShape));
+
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
+
   return success();
 }
 
-template struct ONNXPoolOpShapeHelper<ONNXMaxPoolSingleOutOp,
-    ONNXMaxPoolSingleOutOpAdaptor>;
-template struct ONNXPoolOpShapeHelper<ONNXAveragePoolOp,
-    ONNXAveragePoolOpAdaptor>;
+//===----------------------------------------------------------------------===//
+// ONNX Squeeze Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+template <typename ShapeHelper, typename OperandAdaptor>
+LogicalResult ONNXSqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
+    OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  auto op = shapeHelper->op;
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Output dims of results.
+  DimsExpr outputDims;
+
+  // Get info about input data operand.
+  Value data = operandAdaptor.data();
+  MemRefBoundsIndexCapture dataBounds(data);
+  int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
+
+  // Get axis values. They are expected to be normalized before so that there
+  // is no negative values.
+  SmallVector<int64_t, 4> axes;
+  for (auto axisAttr : indexExprArray) {
+    int64_t axis = axisAttr.getLiteral();
+    assert(axis >= 0 && "Invalid axis");
+    axes.emplace_back(axis);
+  }
+
+  for (int i = 0; i < dataRank; ++i)
+    if (std::find(axes.begin(), axes.end(), i) == axes.end())
+      outputDims.emplace_back(dataBounds.getDim(i));
+
+  // Save the final result.
+  shapeHelper->dimsForOutput(0) = outputDims;
+
+  return success();
+}
+
+ONNXSqueezeOpShapeHelper::ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp)
+    : ONNXOpShapeHelper<ONNXSqueezeOp>(newOp) {}
+
+ONNXSqueezeOpShapeHelper::ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXSqueezeOp>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXSqueezeOpShapeHelper::Compute(
+    ONNXSqueezeOpAdaptor operandAdaptor) {
+  auto axes = op->axes();
+  SmallVector<IndexExpr, 4> indexExprArray;
+  if (auto axesConstOp = getONNXConstantOp(axes)) {
+    Operation *genericOp = reinterpret_cast<Operation *>(op);
+    ArrayValueIndexCapture axesCapture(genericOp, axes, fGetDenseVal, fLoadVal);
+    auto axesRank = axesConstOp.getType().cast<ShapedType>().getShape()[0];
+    axesCapture.getSymbolList(axesRank, indexExprArray);
+  } else if (!axes.getType().template isa<NoneType>()) {
+    llvm_unreachable("dynamic axes not yet supported");
+  }
+
+  return ONNXSqueezeOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
+}
+
+ONNXSqueezeV11OpShapeHelper::ONNXSqueezeV11OpShapeHelper(
+    ONNXSqueezeV11Op *newOp)
+    : ONNXOpShapeHelper<ONNXSqueezeV11Op>(newOp) {}
+
+ONNXSqueezeV11OpShapeHelper::ONNXSqueezeV11OpShapeHelper(
+    ONNXSqueezeV11Op *newOp, ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXSqueezeV11Op>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXSqueezeV11OpShapeHelper::Compute(
+    ONNXSqueezeV11OpAdaptor operandAdaptor) {
+  auto axesAttr = op->axes();
+  SmallVector<IndexExpr, 4> indexExprArray;
+  if (axesAttr.hasValue()) {
+    ArrayAttributeIndexCapture axesCapture(axesAttr.getValue());
+    auto axesRank = axesCapture.size();
+    for (unsigned i = 0; i < axesRank; ++i) {
+      indexExprArray.emplace_back(axesCapture.getLiteral(i));
+    }
+  }
+  return ONNXSqueezeOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Unsqueeze Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+template <typename ShapeHelper, typename OperandAdaptor>
+LogicalResult ONNXUnsqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
+    OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  auto op = shapeHelper->op;
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Output dims of results.
+  DimsExpr outputDims;
+
+  // Get info about input data operand.
+  Value data = operandAdaptor.data();
+  MemRefBoundsIndexCapture dataBounds(data);
+  int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
+
+  // Get axis values. They are expected to be normalized before so that there
+  // is no negative values.
+  SmallVector<int64_t, 4> axes;
+  for (auto axisAttr : indexExprArray) {
+    int64_t axis = axisAttr.getLiteral();
+    assert(axis >= 0 && "Invalid axis");
+    axes.emplace_back(axis);
+  }
+
+  int64_t outRank = dataRank + axes.size();
+  for (int i = 0, j = 0; i < outRank || j < dataRank; ++i)
+    if (std::find(axes.begin(), axes.end(), i) != axes.end())
+      outputDims.emplace_back(LiteralIndexExpr(1));
+    else
+      outputDims.emplace_back(dataBounds.getDim(j++));
+
+  // Save the final result.
+  shapeHelper->dimsForOutput(0) = outputDims;
+
+  return success();
+}
+
+ONNXUnsqueezeOpShapeHelper::ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp)
+    : ONNXOpShapeHelper<ONNXUnsqueezeOp>(newOp) {}
+
+ONNXUnsqueezeOpShapeHelper::ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXUnsqueezeOp>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXUnsqueezeOpShapeHelper::Compute(
+    ONNXUnsqueezeOpAdaptor operandAdaptor) {
+  auto axes = op->axes();
+  SmallVector<IndexExpr, 4> indexExprArray;
+  if (auto axesConstOp = getONNXConstantOp(axes)) {
+    Operation *genericOp = reinterpret_cast<Operation *>(op);
+    ArrayValueIndexCapture axesCapture(genericOp, axes, fGetDenseVal, fLoadVal);
+    auto axesRank = axesConstOp.getType().cast<ShapedType>().getShape()[0];
+    axesCapture.getSymbolList(axesRank, indexExprArray);
+  } else if (!axes.getType().template isa<NoneType>()) {
+    llvm_unreachable("dynamic axes not yet supported");
+  }
+
+  return ONNXUnsqueezeOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
+}
+
+ONNXUnsqueezeV11OpShapeHelper::ONNXUnsqueezeV11OpShapeHelper(
+    ONNXUnsqueezeV11Op *newOp)
+    : ONNXOpShapeHelper<ONNXUnsqueezeV11Op>(newOp) {}
+
+ONNXUnsqueezeV11OpShapeHelper::ONNXUnsqueezeV11OpShapeHelper(
+    ONNXUnsqueezeV11Op *newOp, ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXUnsqueezeV11Op>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXUnsqueezeV11OpShapeHelper::Compute(
+    ONNXUnsqueezeV11OpAdaptor operandAdaptor) {
+  auto axesAttr = op->axes();
+  SmallVector<IndexExpr, 4> indexExprArray;
+  ArrayAttributeIndexCapture axesCapture(axesAttr);
+  auto axesRank = axesCapture.size();
+  for (unsigned i = 0; i < axesRank; ++i) {
+    indexExprArray.emplace_back(axesCapture.getLiteral(i));
+  }
+  return ONNXUnsqueezeOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
+}

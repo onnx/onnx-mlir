@@ -73,6 +73,10 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
   let description = [{
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
   }];
+  let arguments = (ins SymbolRefAttr:$func,
+           I32Attr:$numInputs,
+           I32Attr:$numOutputs,
+           StrAttr:$signature);
 
   let builders = [OpBuilder<(ins "FuncOp":$function, "int":$numInputs,
                                  "int":$numOutputs, "std::string":$signature)>];
@@ -147,6 +151,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceMode",

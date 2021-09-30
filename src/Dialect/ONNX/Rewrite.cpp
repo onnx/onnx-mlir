@@ -52,70 +52,75 @@ ArrayAttr createArrayAttrOfNToM(PatternRewriter &rewriter, int N, int M) {
   return rewriter.getI64ArrayAttr(vals);
 }
 
-// Check whether an ArrayAttr contains non-zero values or not.
-bool hasNonZeroInArrayAttr(ArrayAttr attrs) {
-  bool allZeros = true;
-  if (attrs) {
-    for (auto attr : attrs.getValue()) {
-      if (attr.cast<IntegerAttr>().getInt() > 0) {
-        allZeros = false;
-        break;
-      }
-    }
-  }
-  return !allZeros;
-}
-
-// Create an ArrayAttr of IntergerAttr(s) of zero values.
-// This function is used for padding attribute in Conv.
-ArrayAttr createArrayAttrOfZeros(
-    PatternRewriter &rewriter, ArrayAttr origAttrs) {
-  int nElements = origAttrs.getValue().size();
-  SmallVector<int64_t, 4> vals(nElements, 0);
-  return rewriter.getI64ArrayAttr(vals);
-}
-
-DenseElementsAttr createDenseFloatAttrOfValue(
-    PatternRewriter &rewriter, Value origValue, float constantValue) {
-  Type elementType = origValue.getType().cast<TensorType>().getElementType();
-  SmallVector<float, 1> wrapper(1, 0);
-  wrapper[0] = constantValue;
-  return DenseElementsAttr::get(
-      RankedTensorType::get(wrapper.size(), elementType),
-      llvm::makeArrayRef(wrapper));
-}
-
-// Pad a ArrayAttr with zeros.
-//
-// pads = [B1, B2, ... Bk, E1, E2, ..., Ek]
-//
-// becomes:
-//
-// pads = [0,... 0, B1, B2, ... Bk, 0,... 0, E1, E2, ..., Ek]
-//         |_____|                  |_____|
-//                 nZeros                    nZeros
-//
-// This function is used for padding attribute in Conv.
-DenseElementsAttr insertZerosForNonPaddedDims(
-    PatternRewriter &rewriter, ArrayAttr origAttrs, int extensionLength) {
-  int nDims = (int)origAttrs.getValue().size() / 2;
-  int nElements = (nDims + extensionLength) * 2;
-  SmallVector<int64_t, 4> pads(nElements, 0);
-  for (int i = 0; i < nDims; ++i) {
-    int64_t beginPad = origAttrs.getValue()[i].cast<IntegerAttr>().getInt();
-    int64_t endPad =
-        origAttrs.getValue()[nDims + i].cast<IntegerAttr>().getInt();
-    pads[i + extensionLength] = beginPad;
-    pads[nDims + extensionLength + i + extensionLength] = endPad;
-  }
-
-  return rewriter.getI64TensorAttr(llvm::makeArrayRef(pads));
-}
-
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Dialect/ONNX/ONNXRewrite.inc"
 
 } // end anonymous namespace
+
+/// Register optimization patterns as "canonicalization" patterns
+/// on the ONNXMatMultOp.
+void ONNXAddOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<NormalizeAddPattern>(context);
+  results.insert<MulAddToGemmOptPattern>(context);
+  results.insert<FuseGemmFollowedByAddition>(context);
+  results.insert<FuseAddConvPattern>(context);
+  results.insert<FuseAddConvNullBiasPattern>(context);
+}
+
+/// on the ONNXIdentityOp.
+void ONNXIdentityOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<IdentityEliminationPattern>(context);
+}
+
+/// on the ONNXCastOp.
+void ONNXCastOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<CastEliminationPattern>(context);
+}
+
+/// on the ONNXTransposeOp.
+void ONNXTransposeOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<FuseTransposePattern>(context);
+  result.insert<RemoveIdentityTransposePattern>(context);
+}
+
+/// on the ONNXReshapeOp.
+void ONNXReshapeOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<FuseReshapePattern>(context);
+  result.insert<RemoveIdentityReshapePattern>(context);
+}
+
+/// on the ONNXDropoutOp.
+void ONNXDropoutOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<DropoutEliminationPattern>(context);
+}
+
+/// on the ONNXSqueezeOp.
+void ONNXSqueezeOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<RemoveSqueezeUnsqueezePattern>(context);
+}
+
+void ONNXSqueezeV11Op::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<RemoveSqueezeV11UnsqueezeV11Pattern>(context);
+}
+
+/// on the ONNXUnsqueezeOp.
+void ONNXUnsqueezeOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<RemoveUnsqueezeSqueezePattern>(context);
+}
+
+void ONNXUnsqueezeV11Op::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<RemoveUnsqueezeV11SqueezeV11Pattern>(context);
+}
 
 /// on the ONNXBatchNormalizationInferenceModeOp.
 void ONNXBatchNormalizationInferenceModeOp::getCanonicalizationPatterns(

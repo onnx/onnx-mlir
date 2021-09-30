@@ -5,19 +5,29 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 
 | System        | Build Status |
 |---------------|--------------|
-| s390x-Linux   | [![Build Status](https://yktpandb.watson.ibm.com/jenkins/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build)](https://yktpandb.watson.ibm.com/jenkins/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
-| ppc64le-Linux | [![Build Status](https://yktpandb.watson.ibm.com/jenkinp/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build)](https://yktpandb.watson.ibm.com/jenkinp/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
-| amd64-Linux   | [![Build Status](https://yktpandb.watson.ibm.com/jenkinx/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build)](https://yktpandb.watson.ibm.com/jenkinx/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| s390x-Linux   | [![Build Status](https://www.onnxmlir.xyz/jenkins/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=master%7D&subject=Jenkins%20CI)](https://www.onnxmlir.xyz/jenkins/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| ppc64le-Linux | [![Build Status](https://www.onnxmlir.xyz/jenkinp/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=master%7D&subject=Jenkins%20CI)](https://www.onnxmlir.xyz/jenkinp/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| amd64-Linux   | [![Build Status](https://www.onnxmlir.xyz/jenkinx/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=master%7D&subject=Jenkins%20CI)](https://www.onnxmlir.xyz/jenkinx/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
 | amd64-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)             |
 | amd64-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/workflows/Build%20x86%20onnx-mlir%20on%20macOS/badge.svg)](https://github.com/onnx/onnx-mlir/actions?query=workflow%3A%22Build+x86+onnx-mlir+on+macOS%22)             |
 
-## Prebuilt Container
+## Prebuilt Containers
 An easy way to get started with ONNX-MLIR is to use a prebuilt docker image.
 These images are created as a result of a successful merge build on the trunk.
 This means that the latest image represents the tip of the trunk.
 Currently there are both Release and Debug mode images for `amd64`, `ppc64le` and `s390x` saved in Docker Hub as, respectively, [onnxmlirczar/onnx-mlir](https://hub.docker.com/r/onnxmlirczar/onnx-mlir) and [onnxmlirczar/onnx-mlir-dev](https://hub.docker.com/r/onnxmlirczar/onnx-mlir-dev).
 To use one of these images either pull it directly from Docker Hub, launch a container and run an interactive bash shell in it, or use it as the base image in a dockerfile.
-The onnx-mlir image just contains the built compiler and can be used to compile models.
+The onnx-mlir image just contains the built compiler and you can use it immediately to compile your model without any installation. A python convenience script is provided to allow you to run ONNX-MLIR inside a docker container as if running the ONNX-MLIR compiler directly on the host. For example,
+```
+# docker/onnx-mlir.py --EmitLib mnist/model.onnx
+505a5a6fb7d0: Pulling fs layer
+505a5a6fb7d0: Verifying Checksum
+505a5a6fb7d0: Download complete
+505a5a6fb7d0: Pull complete
+Shared library model.so has been compiled.
+```
+The script will pull the onnx-mlir image if it's not available locally, mount the directory containing the `model.onnx` into the container, and compile and generate the `model.so` in the same directory.
+
 The onnx-mlir-dev image contains the full build tree including the prerequisites and a clone of the source code.
 The source can be modified and onnx-mlir rebuilt from within the container, so it is possible to use it
 as a development environment.
@@ -109,7 +119,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 23dd750279c9e32ea631cc9e92c4413c7a3df60a && cd ..
+cd llvm-project && git checkout 829616c24119f000132913616a7cd4ad930ca84a && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -170,7 +180,7 @@ The following CMake variables from LLVM and ONNX MLIR can be used when compiling
 ## Installation on Windows
 Building onnx-mlir on Windows requires building some additional prerequisites that are not available by default.
 
-Note that the instructions in this file assume you are using [Visual Studio  2019 Community Edition](https://visualstudio.microsoft.com/downloads/). It is recommended that you have the **Desktop development with C++** and **Linux development with C++** workloads installed. This ensures you have all toolchains and libraries needed to compile this project and its dependencies on Windows.
+Note that the instructions in this file assume you are using [Visual Studio  2019 Community Edition](https://visualstudio.microsoft.com/downloads/) with ninja. It is recommended that you have the **Desktop development with C++** and **Linux development with C++** workloads installed. This ensures you have all toolchains and libraries needed to compile this project and its dependencies on Windows.
 
 Run all the commands from a shell started from **"Developer Command Prompt for VS 2019"**.
 
@@ -187,7 +197,7 @@ cd protobuf && git checkout d0bfd5221182da1a7cc280f3337b5e41a89539cf && cd ..
 set root_dir=%cd%
 md protobuf_build
 cd protobuf_build
-call cmake %root_dir%\protobuf\cmake -G "Visual Studio 16 2019" -A x64 -T host=x64 ^
+call cmake %root_dir%\protobuf\cmake -G "Ninja" ^
    -DCMAKE_INSTALL_PREFIX="%root_dir%\protobuf_install" ^
    -DCMAKE_BUILD_TYPE=Release ^
    -Dprotobuf_BUILD_EXAMPLES=OFF ^
@@ -196,8 +206,8 @@ call cmake %root_dir%\protobuf\cmake -G "Visual Studio 16 2019" -A x64 -T host=x
    -Dprotobuf_MSVC_STATIC_RUNTIME=OFF ^
    -Dprotobuf_WITH_ZLIB=OFF
 
-call cmake --build . --config Release -- /m
-call cmake --build . --config Release --target install -- /m
+call cmake --build . --config Release
+call cmake --build . --config Release --target install
 ```
 
 Before running CMake for onnx-mlir, ensure that the bin directory to this protobuf is before any others in your PATH:
@@ -212,7 +222,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 23dd750279c9e32ea631cc9e92c4413c7a3df60a && cd ..
+cd llvm-project && git checkout 829616c24119f000132913616a7cd4ad930ca84a && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
@@ -220,7 +230,7 @@ cd llvm-project && git checkout 23dd750279c9e32ea631cc9e92c4413c7a3df60a && cd .
 set root_dir=%cd%
 md llvm-project\build
 cd llvm-project\build
-call cmake %root_dir%\llvm-project\llvm -G "Visual Studio 16 2019" -A x64 -T host=x64 ^
+call cmake %root_dir%\llvm-project\llvm -G "Ninja" ^
    -DCMAKE_INSTALL_PREFIX="%root_dir%\llvm-project\build\install" ^
    -DLLVM_ENABLE_PROJECTS=mlir ^
    -DLLVM_TARGETS_TO_BUILD="host" ^
@@ -229,9 +239,9 @@ call cmake %root_dir%\llvm-project\llvm -G "Visual Studio 16 2019" -A x64 -T hos
    -DLLVM_ENABLE_RTTI=ON ^
    -DLLVM_ENABLE_ZLIB=OFF
 
-call cmake --build . --config Release -- /m
-call cmake --build . --config Release --target install -- /m
-call cmake --build . --config Release --target check-mlir -- /m
+call cmake --build . --config Release
+call cmake --build . --config Release --target install
+call cmake --build . --config Release --target check-mlir
 ```
 
 #### ONNX-MLIR (this project)
@@ -250,20 +260,34 @@ set root_dir=%cd%
 
 md onnx-mlir\build
 cd onnx-mlir\build
-call cmake %root_dir%\onnx-mlir -G "Visual Studio 16 2019" -A x64 -T host=x64 ^
+call cmake %root_dir%\onnx-mlir -G "Ninja" ^
    -DCMAKE_BUILD_TYPE=Release ^
    -DCMAKE_PREFIX_PATH=%root_dir%\protobuf_install ^
    -DLLVM_LIT_ARGS=-v ^
    -DMLIR_DIR=%root_dir%\llvm-project\build\lib\cmake\mlir
 
-call cmake --build . --config Release --target onnx-mlir -- /m
+call cmake --build . --config Release --target onnx-mlir
 ```
 
-To test ONNX MLIR, use the following command:
+To run the lit ONNX MLIR tests, use the following command:
 
 [same-as-file]: <> ({"ref": "utils/check-onnx-mlir.cmd", "skip-ref": 1})
 ```shell
-call cmake --build . --config Release --target check-onnx-lit -- /m
+call cmake --build . --config Release --target check-onnx-lit
+```
+
+To run the numerical ONNX MLIR tests, use the following command:
+
+[same-as-file]: <> ({"ref": "utils/check-numerical.cmd", "skip-ref": 1})
+```shell
+call cmake --build . --config Release --target check-numerical
+```
+
+To run the doc ONNX MLIR tests, use the following command after installing third_party ONNX:
+
+[same-as-file]: <> ({"ref": "utils/check-docs.cmd", "skip-ref": 1})
+```shell
+call cmake --build . --config Release --target check-docs
 ```
 
 After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory.

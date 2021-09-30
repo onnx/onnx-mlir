@@ -33,11 +33,11 @@ execute_process(
   ERROR_QUIET
 )
 if (${PYTEST_XDIST_FOUND} EQUAL 0)
-  message(STATUS "Parallel backend tests  : ON")
+  message(STATUS "Parallel backend tests      : ON")
   set(BACKEND_TEST_COMMAND "${Python3_EXECUTABLE}" "-m" "pytest")
   set(BACKEND_TEST_ARGS "--forked" "-n" "$$\{NPROC:-auto\}")
 else()
-  message(STATUS "Parallel backend tests  : OFF (install pytest-xdist to enable)")
+  message(STATUS "Parallel backend tests      : OFF (install pytest-xdist to enable)")
   set(BACKEND_TEST_COMMAND ${Python3_EXECUTABLE})
   set(BACKEND_TEST_ARGS "")
 endif()
@@ -68,6 +68,15 @@ add_custom_target(check-onnx-backend-dynamic
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
+add_custom_target(check-onnx-backend-constant
+  COMMAND
+  TEST_CONSTANT=true ${BACKEND_TEST_COMMAND}
+    ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+  DEPENDS
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
+  )
+
 add_custom_target(clean-onnx-backend
   COMMAND
     ${CMAKE_COMMAND} -E remove
@@ -79,3 +88,5 @@ add_dependencies(check-onnx-backend onnx-mlir)
 add_dependencies(check-onnx-backend PyRuntime)
 add_dependencies(check-onnx-backend-dynamic onnx-mlir)
 add_dependencies(check-onnx-backend-dynamic PyRuntime)
+add_dependencies(check-onnx-backend-constant onnx-mlir)
+add_dependencies(check-onnx-backend-constant PyRuntime)

@@ -84,10 +84,10 @@ func @single_chain_dataflow(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) 
   // CHECK-DAG: [[C400:%.+]] = constant 400 : i64
   // CHECK-DAG: [[C0:%.+]] = constant 0 : i64
   // CHECK-DAG: [[MEMPOOL:%.+]] = memref.alloc() : memref<800xi8>
-  // CHECK-DAG: [[MEMPOOL_ALIGNED:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<400xi8>
-  // CHECK: "krnl.getref"([[MEMPOOL_ALIGNED]], [[C0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>
+  // CHECK-DAG: [[MEMPOOL_ALIGNED:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<4096xi8>
+  // CHECK: "krnl.getref"([[MEMPOOL_ALIGNED]], [[C0]]) : (memref<4096xi8>, i64) -> memref<10x10xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<800xi8>, i64) -> memref<10x10xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL_ALIGNED]], [[C0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL_ALIGNED]], [[C0]]) : (memref<4096xi8>, i64) -> memref<10x10xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C400]]) : (memref<800xi8>, i64) -> memref<10x10xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<800xi8>, i64) -> memref<10x10xf32>
 }

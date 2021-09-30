@@ -102,12 +102,34 @@ void IndexExprScope::addIndexExprImpl(IndexExprImpl *obj) {
 // IndexExprScope support for dim and symbol lists in affine exprs.
 //===----------------------------------------------------------------------===//
 
+int IndexExprScope::indexInList(
+    SmallVectorImpl<Value> const &list, Value const &value) const {
+  int num = list.size();
+  for (int i = 0; i < num; ++i) {
+    if (list[i] == value)
+      return i;
+  }
+  return -1; // Minus one indicates not found.
+}
+
 int IndexExprScope::addDim(Value const value) {
+  assert(indexInList(symbols, value) == -1 &&
+         "Cannot have a dim that is already a symbol");
+  int i = indexInList(dims, value);
+  if (i != -1)
+    return i; // We already have this dim, reuse it.
+  // Else, new dim, add at the end.
   dims.emplace_back(value);
   return dims.size() - 1;
-  ;
 }
+
 int IndexExprScope::addSymbol(Value const value) {
+  assert(indexInList(dims, value) == -1 &&
+         "Cannot have a symbol that is already a dim");
+  int i = indexInList(symbols, value);
+  if (i != -1)
+    return i; // We already have this symbol, reuse it.
+  // Else, new symbol, add at the end.
   symbols.emplace_back(value);
   return symbols.size() - 1;
 }
@@ -770,7 +792,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     int64_t rrr = res.getLiteral();
     int64_t aaa = aa.getLiteral();
     if (aaa < rrr)
-      res.getObj().intLit += aaa;
+      res.getObj().intLit = aaa;
     return res;
   };
   Flist affineExprFct = [&](IndexExpr res,
@@ -826,7 +848,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     int64_t rrr = res.getLiteral();
     int64_t aaa = aa.getLiteral();
     if (aaa > rrr)
-      res.getObj().intLit += aaa;
+      res.getObj().intLit = aaa;
     return res;
   };
   Flist affineExprFct = [&](IndexExpr res,
@@ -940,6 +962,18 @@ IndexExpr IndexExpr::operator>(int64_t const b) const {
   return *this > LiteralIndexExpr(b);
 }
 
+IndexExpr IndexExpr::operator%(int64_t const b) const {
+  return *this % LiteralIndexExpr(b);
+}
+
+IndexExpr IndexExpr::floorDiv(int64_t const b) const {
+  return this->floorDiv(LiteralIndexExpr(b));
+}
+
+IndexExpr IndexExpr::ceilDiv(int64_t const b) const {
+  return this->ceilDiv(LiteralIndexExpr(b));
+}
+
 IndexExpr IndexExpr::clamp(int64_t min, IndexExpr max) {
   return clamp(LiteralIndexExpr(min), max);
 }
@@ -968,18 +1002,16 @@ IndexExpr IndexExpr::selectOrSelf(
 }
 
 //===----------------------------------------------------------------------===//
-// IndexExpr Subclasses for constructing specific IndexExpr kinds.
+// IndexExpr Subclasses for constructing UndefinedIndexExpr.
 //===----------------------------------------------------------------------===//
 
 UndefinedIndexExpr::UndefinedIndexExpr() : IndexExpr() {}
 
-LiteralIndexExpr::LiteralIndexExpr(int64_t const value) { init(value); }
+//===----------------------------------------------------------------------===//
+// IndexExpr Subclasses for constructing LiteralIndexExpr.
+//===----------------------------------------------------------------------===//
 
-LiteralIndexExpr::LiteralIndexExpr(IndexExpr const otherIndexExpr) {
-  assert(
-      otherIndexExpr.isLiteral() && "cannot make a literal from non literal");
-  init(otherIndexExpr.getLiteral());
-}
+LiteralIndexExpr::LiteralIndexExpr(int64_t const value) { init(value); }
 
 void LiteralIndexExpr::init(int64_t const value) {
   indexExprObj = new IndexExprImpl();
@@ -987,53 +1019,116 @@ void LiteralIndexExpr::init(int64_t const value) {
   indexExprObj->initAsLiteral(value, IndexExprKind::Affine);
 }
 
+LiteralIndexExpr::LiteralIndexExpr(IndexExpr const &o) {
+  assert(o.isLiteral() && "cannot make a literal from non literal");
+  init(o.getLiteral());
+}
+LiteralIndexExpr::LiteralIndexExpr(UndefinedIndexExpr const &o) {
+  assert(o.isLiteral() && "cannot make a literal from non literal");
+  init(o.getLiteral());
+}
+LiteralIndexExpr::LiteralIndexExpr(LiteralIndexExpr const &o) {
+  assert(o.isLiteral() && "cannot make a literal from non literal");
+  init(o.getLiteral());
+}
+LiteralIndexExpr::LiteralIndexExpr(NonAffineIndexExpr const &o) {
+  assert(o.isLiteral() && "cannot make a literal from non literal");
+  init(o.getLiteral());
+}
+LiteralIndexExpr::LiteralIndexExpr(QuestionmarkIndexExpr const &o) {
+  assert(o.isLiteral() && "cannot make a literal from non literal");
+  init(o.getLiteral());
+}
+LiteralIndexExpr::LiteralIndexExpr(PredicateIndexExpr const &o) {
+  assert(o.isLiteral() && "cannot make a literal from non literal");
+  init(o.getLiteral());
+}
+LiteralIndexExpr::LiteralIndexExpr(AffineIndexExpr const &o) {
+  assert(o.isLiteral() && "cannot make a literal from non literal");
+  init(o.getLiteral());
+}
+LiteralIndexExpr::LiteralIndexExpr(DimIndexExpr const &o) {
+  assert(o.isLiteral() && "cannot make a literal from non literal");
+  init(o.getLiteral());
+}
+LiteralIndexExpr::LiteralIndexExpr(SymbolIndexExpr const &o) {
+  assert(o.isLiteral() && "cannot make a literal from non literal");
+  init(o.getLiteral());
+}
+//===----------------------------------------------------------------------===//
+// IndexExpr Subclasses for constructing NonAffineIndexExpr.
+//===----------------------------------------------------------------------===//
+
 NonAffineIndexExpr::NonAffineIndexExpr(Value const value) {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
   indexExprObj->initAsKind(value, IndexExprKind::NonAffine);
 }
 
-NonAffineIndexExpr::NonAffineIndexExpr(IndexExpr const otherIndexExpr) {
+NonAffineIndexExpr::NonAffineIndexExpr(IndexExprImpl *otherObjPtr) {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
+  // If undefined, nothing to do.
+  if (!otherObjPtr)
+    return;
   // If the index expression is a literal,  just copy it.
-  if (otherIndexExpr.isLiteral()) {
+  if (otherObjPtr->isLiteral()) {
     indexExprObj->initAsLiteral(
-        otherIndexExpr.getLiteral(), IndexExprKind::Affine);
+        otherObjPtr->getLiteral(), IndexExprKind::Affine);
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
-  switch (otherIndexExpr.getKind()) {
+  switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
     indexExprObj->initAsQuestionmark();
     return;
   }
   case IndexExprKind::NonAffine: {
-    indexExprObj->copy(otherIndexExpr.getObjPtr());
+    indexExprObj->copy(otherObjPtr);
     return;
   }
   case IndexExprKind::Predicate: {
     llvm_unreachable("cannot make a non-affine from a predicate");
   }
   case IndexExprKind::Affine: {
-    indexExprObj->initAsKind(
-        otherIndexExpr.getValue(), IndexExprKind::NonAffine);
+    indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::NonAffine);
     return;
   }
   case IndexExprKind::Dim: {
-    indexExprObj->initAsKind(
-        otherIndexExpr.getValue(), IndexExprKind::NonAffine);
+    indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::NonAffine);
     return;
   }
   case IndexExprKind::Symbol: {
-    indexExprObj->initAsKind(
-        otherIndexExpr.getValue(), IndexExprKind::NonAffine);
+    indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::NonAffine);
     return;
   }
   }
   llvm_unreachable("bad path");
 }
+
+NonAffineIndexExpr::NonAffineIndexExpr(IndexExpr const &o)
+    : NonAffineIndexExpr(o.getObjPtr()) {}
+NonAffineIndexExpr::NonAffineIndexExpr(UndefinedIndexExpr const &o)
+    : NonAffineIndexExpr(o.getObjPtr()) {}
+NonAffineIndexExpr::NonAffineIndexExpr(LiteralIndexExpr const &o)
+    : NonAffineIndexExpr(o.getObjPtr()) {}
+NonAffineIndexExpr::NonAffineIndexExpr(NonAffineIndexExpr const &o)
+    : NonAffineIndexExpr(o.getObjPtr()) {}
+NonAffineIndexExpr::NonAffineIndexExpr(QuestionmarkIndexExpr const &o)
+    : NonAffineIndexExpr(o.getObjPtr()) {}
+NonAffineIndexExpr::NonAffineIndexExpr(PredicateIndexExpr const &o)
+    : NonAffineIndexExpr(o.getObjPtr()) {}
+NonAffineIndexExpr::NonAffineIndexExpr(AffineIndexExpr const &o)
+    : NonAffineIndexExpr(o.getObjPtr()) {}
+NonAffineIndexExpr::NonAffineIndexExpr(DimIndexExpr const &o)
+    : NonAffineIndexExpr(o.getObjPtr()) {}
+NonAffineIndexExpr::NonAffineIndexExpr(SymbolIndexExpr const &o)
+    : NonAffineIndexExpr(o.getObjPtr()) {}
+
+//===----------------------------------------------------------------------===//
+// IndexExpr Subclasses for constructing QuestionmarkIndexExpr.
+//===----------------------------------------------------------------------===//
 
 QuestionmarkIndexExpr::QuestionmarkIndexExpr() {
   indexExprObj = new IndexExprImpl();
@@ -1041,10 +1136,30 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr() {
   indexExprObj->initAsQuestionmark();
 }
 
-QuestionmarkIndexExpr::QuestionmarkIndexExpr(IndexExpr const otherIndexExpr)
-    : QuestionmarkIndexExpr() {
-  // Don't care about otherIndexExpr as questionmarks have no real data.
-}
+// Don't care about otherIndexExpr as questionmarks have no real data.
+
+QuestionmarkIndexExpr::QuestionmarkIndexExpr(IndexExpr const &o)
+    : QuestionmarkIndexExpr() {}
+QuestionmarkIndexExpr::QuestionmarkIndexExpr(UndefinedIndexExpr const &o)
+    : QuestionmarkIndexExpr() {}
+QuestionmarkIndexExpr::QuestionmarkIndexExpr(LiteralIndexExpr const &o)
+    : QuestionmarkIndexExpr() {}
+QuestionmarkIndexExpr::QuestionmarkIndexExpr(NonAffineIndexExpr const &o)
+    : QuestionmarkIndexExpr() {}
+QuestionmarkIndexExpr::QuestionmarkIndexExpr(QuestionmarkIndexExpr const &o)
+    : QuestionmarkIndexExpr() {}
+QuestionmarkIndexExpr::QuestionmarkIndexExpr(PredicateIndexExpr const &o)
+    : QuestionmarkIndexExpr() {}
+QuestionmarkIndexExpr::QuestionmarkIndexExpr(AffineIndexExpr const &o)
+    : QuestionmarkIndexExpr() {}
+QuestionmarkIndexExpr::QuestionmarkIndexExpr(DimIndexExpr const &o)
+    : QuestionmarkIndexExpr() {}
+QuestionmarkIndexExpr::QuestionmarkIndexExpr(SymbolIndexExpr const &o)
+    : QuestionmarkIndexExpr() {}
+
+//===----------------------------------------------------------------------===//
+// IndexExpr Subclasses for constructing PredicateIndexExpr.
+//===----------------------------------------------------------------------===//
 
 PredicateIndexExpr::PredicateIndexExpr(bool const value) {
   indexExprObj = new IndexExprImpl();
@@ -1058,20 +1173,46 @@ PredicateIndexExpr::PredicateIndexExpr(Value const value) {
   indexExprObj->initAsKind(value, IndexExprKind::Predicate);
 }
 
-PredicateIndexExpr::PredicateIndexExpr(IndexExpr const otherIndexExpr) {
+PredicateIndexExpr::PredicateIndexExpr(IndexExprImpl *otherObjPtr) {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
+  // If undefined, nothing to do.
+  if (!otherObjPtr)
+    return;
   // If the index expression is a literal,  just copy it.
-  if (otherIndexExpr.isLiteral()) {
+  if (otherObjPtr->isLiteral()) {
     indexExprObj->initAsLiteral(
-        otherIndexExpr.getLiteral(), IndexExprKind::Predicate);
+        otherObjPtr->getLiteral(), IndexExprKind::Predicate);
     return;
   }
-  assert(otherIndexExpr.getKind() == IndexExprKind::Predicate &&
+  assert(otherObjPtr->getKind() == IndexExprKind::Predicate &&
          "can only make a predicate from another predicate");
-  indexExprObj->copy(otherIndexExpr.getObjPtr());
+  indexExprObj->copy(otherObjPtr);
 }
+
+PredicateIndexExpr::PredicateIndexExpr(IndexExpr const &o)
+    : PredicateIndexExpr(o.getObjPtr()) {}
+PredicateIndexExpr::PredicateIndexExpr(UndefinedIndexExpr const &o)
+    : PredicateIndexExpr(o.getObjPtr()) {}
+PredicateIndexExpr::PredicateIndexExpr(LiteralIndexExpr const &o)
+    : PredicateIndexExpr(o.getObjPtr()) {}
+PredicateIndexExpr::PredicateIndexExpr(NonAffineIndexExpr const &o)
+    : PredicateIndexExpr(o.getObjPtr()) {}
+PredicateIndexExpr::PredicateIndexExpr(QuestionmarkIndexExpr const &o)
+    : PredicateIndexExpr(o.getObjPtr()) {}
+PredicateIndexExpr::PredicateIndexExpr(PredicateIndexExpr const &o)
+    : PredicateIndexExpr(o.getObjPtr()) {}
+PredicateIndexExpr::PredicateIndexExpr(AffineIndexExpr const &o)
+    : PredicateIndexExpr(o.getObjPtr()) {}
+PredicateIndexExpr::PredicateIndexExpr(DimIndexExpr const &o)
+    : PredicateIndexExpr(o.getObjPtr()) {}
+PredicateIndexExpr::PredicateIndexExpr(SymbolIndexExpr const &o)
+    : PredicateIndexExpr(o.getObjPtr()) {}
+
+//===----------------------------------------------------------------------===//
+// IndexExpr Subclasses for constructing AffineIndexExpr.
+//===----------------------------------------------------------------------===//
 
 AffineIndexExpr::AffineIndexExpr(AffineExpr const value) {
   indexExprObj = new IndexExprImpl();
@@ -1079,19 +1220,22 @@ AffineIndexExpr::AffineIndexExpr(AffineExpr const value) {
   indexExprObj->initAsAffineExpr(value);
 }
 
-AffineIndexExpr::AffineIndexExpr(IndexExpr const otherIndexExpr) {
+AffineIndexExpr::AffineIndexExpr(IndexExprImpl *otherObjPtr) {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
+  // If undefined, nothing to do.
+  if (!otherObjPtr)
+    return;
   // If the index expression is a literal,  just copy it.
-  if (otherIndexExpr.isLiteral()) {
+  if (otherObjPtr->isLiteral()) {
     indexExprObj->initAsLiteral(
-        otherIndexExpr.getLiteral(), IndexExprKind::Affine);
+        otherObjPtr->getLiteral(), IndexExprKind::Affine);
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
-  bool isSameScope = otherIndexExpr.isInCurrentScope();
-  switch (otherIndexExpr.getKind()) {
+  bool isSameScope = otherObjPtr->isInCurrentScope();
+  switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
     indexExprObj->initAsQuestionmark();
     return;
@@ -1106,19 +1250,42 @@ AffineIndexExpr::AffineIndexExpr(IndexExpr const otherIndexExpr) {
   case IndexExprKind::Affine: {
     assert(isSameScope && "cannot can only import literals, dims and symbols "
                           "from different scopes");
-    indexExprObj->copy(otherIndexExpr.getObjPtr());
+    indexExprObj->copy(otherObjPtr);
     return;
   }
   case IndexExprKind::Dim:
   case IndexExprKind::Symbol: {
     assert(isSameScope && "cannot can only import literals, dims and symbols "
                           "from different scopes");
-    indexExprObj->initAsAffineExpr(otherIndexExpr.getAffineExpr());
+    indexExprObj->initAsAffineExpr(otherObjPtr->getAffineExpr());
     return;
   }
   }
   llvm_unreachable("bad path");
 }
+
+AffineIndexExpr::AffineIndexExpr(IndexExpr const &o)
+    : AffineIndexExpr(o.getObjPtr()) {}
+AffineIndexExpr::AffineIndexExpr(UndefinedIndexExpr const &o)
+    : AffineIndexExpr(o.getObjPtr()) {}
+AffineIndexExpr::AffineIndexExpr(LiteralIndexExpr const &o)
+    : AffineIndexExpr(o.getObjPtr()) {}
+AffineIndexExpr::AffineIndexExpr(NonAffineIndexExpr const &o)
+    : AffineIndexExpr(o.getObjPtr()) {}
+AffineIndexExpr::AffineIndexExpr(QuestionmarkIndexExpr const &o)
+    : AffineIndexExpr(o.getObjPtr()) {}
+AffineIndexExpr::AffineIndexExpr(PredicateIndexExpr const &o)
+    : AffineIndexExpr(o.getObjPtr()) {}
+AffineIndexExpr::AffineIndexExpr(AffineIndexExpr const &o)
+    : AffineIndexExpr(o.getObjPtr()) {}
+AffineIndexExpr::AffineIndexExpr(DimIndexExpr const &o)
+    : AffineIndexExpr(o.getObjPtr()) {}
+AffineIndexExpr::AffineIndexExpr(SymbolIndexExpr const &o)
+    : AffineIndexExpr(o.getObjPtr()) {}
+
+//===----------------------------------------------------------------------===//
+// IndexExpr Subclasses for constructing DimIndexExpr.
+//===----------------------------------------------------------------------===//
 
 DimIndexExpr::DimIndexExpr(Value const value) {
   indexExprObj = new IndexExprImpl();
@@ -1126,47 +1293,72 @@ DimIndexExpr::DimIndexExpr(Value const value) {
   indexExprObj->initAsKind(value, IndexExprKind::Dim);
 }
 
-DimIndexExpr::DimIndexExpr(IndexExpr const otherIndexExpr) {
+DimIndexExpr::DimIndexExpr(IndexExprImpl *otherObjPtr) {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
+  // If undefined, nothing to do.
+  if (!otherObjPtr)
+    return;
   // If the index expression is a literal,  just copy it.
-  if (otherIndexExpr.isLiteral()) {
+  if (otherObjPtr->isLiteral()) {
     indexExprObj->initAsLiteral(
-        otherIndexExpr.getLiteral(), IndexExprKind::Affine);
+        otherObjPtr->getLiteral(), IndexExprKind::Affine);
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
-  bool isSameScope = otherIndexExpr.isInCurrentScope();
-  switch (otherIndexExpr.getKind()) {
+  bool isSameScope = otherObjPtr->isInCurrentScope();
+  switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
     indexExprObj->initAsQuestionmark();
     return;
   }
   case IndexExprKind::NonAffine: {
-    indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Dim);
+    indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::Dim);
     return;
   }
   case IndexExprKind::Predicate: {
     llvm_unreachable("cannot make an dim from a predicate");
   }
   case IndexExprKind::Affine: {
-    indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Dim);
+    indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::Dim);
     return;
   }
   case IndexExprKind::Dim: {
     // If replicated in the same scope, its not great but will not gen errors.
-    indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Dim);
+    indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::Dim);
     return;
   }
   case IndexExprKind::Symbol: {
     assert(!isSameScope && "cannot make a dim from a symbol at the same scope");
-    indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Dim);
+    indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::Dim);
     return;
   }
   }
   llvm_unreachable("bad path");
 }
+
+DimIndexExpr::DimIndexExpr(IndexExpr const &o) : DimIndexExpr(o.getObjPtr()) {}
+DimIndexExpr::DimIndexExpr(UndefinedIndexExpr const &o)
+    : DimIndexExpr(o.getObjPtr()) {}
+DimIndexExpr::DimIndexExpr(LiteralIndexExpr const &o)
+    : DimIndexExpr(o.getObjPtr()) {}
+DimIndexExpr::DimIndexExpr(NonAffineIndexExpr const &o)
+    : DimIndexExpr(o.getObjPtr()) {}
+DimIndexExpr::DimIndexExpr(QuestionmarkIndexExpr const &o)
+    : DimIndexExpr(o.getObjPtr()) {}
+DimIndexExpr::DimIndexExpr(PredicateIndexExpr const &o)
+    : DimIndexExpr(o.getObjPtr()) {}
+DimIndexExpr::DimIndexExpr(AffineIndexExpr const &o)
+    : DimIndexExpr(o.getObjPtr()) {}
+DimIndexExpr::DimIndexExpr(DimIndexExpr const &o)
+    : DimIndexExpr(o.getObjPtr()) {}
+DimIndexExpr::DimIndexExpr(SymbolIndexExpr const &o)
+    : DimIndexExpr(o.getObjPtr()) {}
+
+//===----------------------------------------------------------------------===//
+// IndexExpr Subclasses for constructing SymbolIndexExpr.
+//===----------------------------------------------------------------------===//
 
 SymbolIndexExpr::SymbolIndexExpr(Value const value) {
   indexExprObj = new IndexExprImpl();
@@ -1174,47 +1366,69 @@ SymbolIndexExpr::SymbolIndexExpr(Value const value) {
   indexExprObj->initAsKind(value, IndexExprKind::Symbol);
 }
 
-SymbolIndexExpr::SymbolIndexExpr(IndexExpr const otherIndexExpr) {
+SymbolIndexExpr::SymbolIndexExpr(IndexExprImpl *otherObjPtr) {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
+  // If undefined, nothing to do.
+  if (!otherObjPtr)
+    return;
   // If the index expression is a literal,  just copy it.
-  if (otherIndexExpr.isLiteral()) {
+  if (otherObjPtr->isLiteral()) {
     indexExprObj->initAsLiteral(
-        otherIndexExpr.getLiteral(), IndexExprKind::Affine);
+        otherObjPtr->getLiteral(), IndexExprKind::Affine);
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
-  bool isSameScope = otherIndexExpr.isInCurrentScope();
-  switch (otherIndexExpr.getKind()) {
+  bool isSameScope = otherObjPtr->isInCurrentScope();
+  switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
     indexExprObj->initAsQuestionmark();
     return;
   }
   case IndexExprKind::NonAffine: {
-    indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Symbol);
+    indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::Symbol);
     return;
   }
   case IndexExprKind::Predicate: {
     llvm_unreachable("cannot make an symbol from a predicate");
   }
   case IndexExprKind::Affine: {
-    indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Symbol);
+    indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::Symbol);
     return;
   }
   case IndexExprKind::Dim: {
     assert(!isSameScope && "cannot make a symbol from a dim in the same scope");
-    indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Symbol);
+    indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::Symbol);
     return;
   }
   case IndexExprKind::Symbol: {
     // If replicated in the same scope, its not great but will not gen errors.
-    indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Symbol);
+    indexExprObj->initAsKind(otherObjPtr->getValue(), IndexExprKind::Symbol);
     return;
   }
   }
   llvm_unreachable("bad path");
 }
+
+SymbolIndexExpr::SymbolIndexExpr(IndexExpr const &o)
+    : SymbolIndexExpr(o.getObjPtr()) {}
+SymbolIndexExpr::SymbolIndexExpr(UndefinedIndexExpr const &o)
+    : SymbolIndexExpr(o.getObjPtr()) {}
+SymbolIndexExpr::SymbolIndexExpr(LiteralIndexExpr const &o)
+    : SymbolIndexExpr(o.getObjPtr()) {}
+SymbolIndexExpr::SymbolIndexExpr(NonAffineIndexExpr const &o)
+    : SymbolIndexExpr(o.getObjPtr()) {}
+SymbolIndexExpr::SymbolIndexExpr(QuestionmarkIndexExpr const &o)
+    : SymbolIndexExpr(o.getObjPtr()) {}
+SymbolIndexExpr::SymbolIndexExpr(PredicateIndexExpr const &o)
+    : SymbolIndexExpr(o.getObjPtr()) {}
+SymbolIndexExpr::SymbolIndexExpr(AffineIndexExpr const &o)
+    : SymbolIndexExpr(o.getObjPtr()) {}
+SymbolIndexExpr::SymbolIndexExpr(DimIndexExpr const &o)
+    : SymbolIndexExpr(o.getObjPtr()) {}
+SymbolIndexExpr::SymbolIndexExpr(SymbolIndexExpr const &o)
+    : SymbolIndexExpr(o.getObjPtr()) {}
 
 //===----------------------------------------------------------------------===//
 // Capturing Index Expressions: Array of values
@@ -1308,27 +1522,35 @@ IndexExpr ArrayAttributeIndexCapture::getLiteral(uint64_t i) {
 // Capturing Index Expressions: MemRef Bounds
 //===----------------------------------------------------------------------===//
 
+MemRefBoundsIndexCapture::MemRefBoundsIndexCapture()
+    : tensorOrMemref(nullptr), memRank(0) {}
+
 MemRefBoundsIndexCapture::MemRefBoundsIndexCapture(Value tensorOrMemref)
     : tensorOrMemref(tensorOrMemref), memRank(0) {
-  ShapedType shapedType =
-      tensorOrMemref.getType().dyn_cast_or_null<ShapedType>();
-  if (shapedType)
-    memRank = shapedType.getShape().size();
+  if (tensorOrMemref) {
+    ShapedType shapedType =
+        tensorOrMemref.getType().dyn_cast_or_null<ShapedType>();
+    if (shapedType)
+      memRank = shapedType.getShape().size();
+  }
 }
 
 bool MemRefBoundsIndexCapture::isLiteral(int64_t i) {
+  assert(tensorOrMemref && "Expected defined tensor or memref");
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
   return (shape[i] >= 0);
 }
 
 int64_t MemRefBoundsIndexCapture::getShape(int64_t i) {
+  assert(tensorOrMemref && "Expected defined tensor or memref");
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
   return shape[i];
 }
 
 bool MemRefBoundsIndexCapture::areAllLiteral() {
+  assert(tensorOrMemref && "Expected defined tensor or memref");
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
   for (unsigned int i = 0; i < memRank; ++i)
@@ -1347,6 +1569,7 @@ IndexExpr MemRefBoundsIndexCapture::getSymbol(uint64_t i) {
 
 // Assert if not a literal.
 IndexExpr MemRefBoundsIndexCapture::getLiteral(uint64_t i) {
+  assert(tensorOrMemref && "Expected defined tensor or memref");
   assert(i < memRank && "out of bound access");
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
@@ -1378,6 +1601,7 @@ void MemRefBoundsIndexCapture::getLiteralList(
 
 template <class INDEX>
 IndexExpr MemRefBoundsIndexCapture::get(uint64_t i) {
+  assert(tensorOrMemref && "Expected defined tensor or memref");
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
   assert(i < memRank && "index out of bound");

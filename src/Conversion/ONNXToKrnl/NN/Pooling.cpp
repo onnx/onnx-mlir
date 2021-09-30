@@ -144,9 +144,53 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
 }
 
 //===----------------------------------------------------------------------===//
+// Helper function to do post-processing after applying a filter window.
+//
+template <typename PoolOp>
+void postProcessPoolingWindow(ConversionPatternRewriter &rewriter, Location loc,
+    PoolOp poolOp, Value alloc, ArrayRef<Value> resultIndices,
+    ArrayRef<IndexExpr> kernelShape, ArrayRef<Value> poolDimValues) {}
+
+// Calculate the average value for AveragePool.
+template <>
+void postProcessPoolingWindow<ONNXAveragePoolOp>(
+    ConversionPatternRewriter &rewriter, Location loc, ONNXAveragePoolOp poolOp,
+    Value alloc, ArrayRef<Value> resultIndices, ArrayRef<IndexExpr> kernelShape,
+    ArrayRef<Value> poolDimValues) {
+  // AveragePool's result type is FloatType, so it's safe to use DivFOp, SubFOp.
+  bool countIncludePad = getCountIncludePad<ONNXAveragePoolOp>(poolOp);
+  Value numerator = rewriter.create<KrnlLoadOp>(loc, alloc, resultIndices);
+  Value denominator;
+  if (countIncludePad) {
+    IndexExpr kernelSize = LiteralIndexExpr(1);
+    for (unsigned int i = 0; i < kernelShape.size(); ++i)
+      kernelSize = kernelSize * kernelShape[i];
+    denominator = kernelSize.getValue();
+    denominator =
+        rewriter.create<IndexCastOp>(loc, denominator, rewriter.getI64Type());
+    // TODO: we are implying here that the dest type is a float.
+    denominator =
+        rewriter.create<SIToFPOp>(loc, denominator, numerator.getType());
+  } else {
+    denominator = poolDimValues[0];
+    for (unsigned int i = 1; i < poolDimValues.size(); ++i)
+      denominator = rewriter.create<MulIOp>(loc, denominator, poolDimValues[i]);
+    denominator = rewriter.create<IndexCastOp>(
+        loc, denominator, rewriter.getIntegerType(64));
+    // TODO: we are implying here that the dest type is a float.
+    denominator =
+        rewriter.create<SIToFPOp>(loc, denominator, numerator.getType());
+  }
+
+  Value average = rewriter.create<DivFOp>(loc, numerator, denominator);
+
+  rewriter.create<KrnlStoreOp>(loc, average, alloc, resultIndices);
+}
+
+//===----------------------------------------------------------------------===//
 // Template function that does pooling.
 //
-template <typename PoolOp, typename PoolOpAdaptor>
+template <typename PoolOp, typename PoolOpAdaptor, typename PoolOpShapeHelper>
 struct ONNXPoolOpLowering : public ConversionPattern {
   ONNXPoolOpLowering(MLIRContext *ctx)
       : ConversionPattern(PoolOp::getOperationName(), 1, ctx) {}
@@ -158,39 +202,15 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
     PoolOp poolOp = llvm::dyn_cast<PoolOp>(op);
 
-    // Read kernel_shape attribute
-    SmallVector<int64_t, 4> kernelShape;
-    auto kernelShapeAttribute = poolOp.kernel_shapeAttr();
-    for (Attribute dim : kernelShapeAttribute.getValue())
-      kernelShape.emplace_back(dim.cast<IntegerAttr>().getInt());
-
-    // Read strides attribute
-    SmallVector<int64_t, 4> strides;
-    auto stridesAttribute = poolOp.stridesAttr();
-    for (Attribute stride : stridesAttribute.getValue())
-      strides.emplace_back(stride.cast<IntegerAttr>().getInt());
+    // Get shape.
+    PoolOpShapeHelper shapeHelper(&poolOp, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    assert(succeeded(shapecomputed));
 
     // Read ceil_mode attribute
     auto ceilMode = poolOp.ceil_mode();
-
-    // Read pads attribute
-    SmallVector<int64_t, 4> pads;
-    auto padsAttribute = poolOp.padsAttr();
-    for (Attribute pad : padsAttribute.getValue())
-      pads.emplace_back(pad.cast<IntegerAttr>().getInt());
-
-    // Read dilations attribute if the op has.
-    std::vector<int64_t> dilations = getDilations<PoolOp>(poolOp);
-    bool isDilated = !dilations.empty();
-
-    // Get shape.
-    ONNXPoolOpShapeHelper<PoolOp, PoolOpAdaptor> shapeHelper(&poolOp, rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor,
-        poolOp.kernel_shape(), padsAttribute, stridesAttribute,
-        getDilationAttr<PoolOp>(poolOp), ceilMode);
-    assert(succeeded(shapecomputed));
 
     // Type information about the input and result of this operation.
     auto inputOperand = (Value)operandAdaptor.X();
@@ -200,7 +220,12 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     auto outputElementType = memRefType.getElementType();
 
     // Kernel offset in the input shape.
-    int kernelOffset = inputShape.size() - kernelShape.size();
+    int kernelShapeSize = shapeHelper.kernelShape.size();
+    int kernelOffset = inputShape.size() - kernelShapeSize;
+    bool isDilated = false;
+    for (int i = 0; i < kernelShapeSize; ++i)
+      if (shapeHelper.dilations[i] > 1)
+        isDilated = true;
 
     // Scope for krnl ops
     IndexExprScope ieScope(rewriter, loc);
@@ -311,8 +336,10 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
       // 2.1 Emit: output[n][c][ho][wo] = identity
       // Create a local reduction value for output[n][c][ho][wo].
-      Value reductionVal = rewriter.create<memref::AllocaOp>(
-          loc, MemRefType::get({}, memRefType.getElementType()));
+      // Single scalar, no need for default alignment.
+      MemRefBuilder createMemRef(rewriter, loc);
+      Value reductionVal =
+          createMemRef.alloca(MemRefType::get({}, memRefType.getElementType()));
       createKrnl.store(identity, reductionVal);
 
       // 2.2 Emit affine maps which express the lower and upper bounds for the
@@ -329,7 +356,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
       {
         MemRefBoundsIndexCapture inputBounds(inputOperand);
-        for (unsigned int i = 0; i < kernelShape.size(); ++i) {
+        for (int i = 0; i < kernelShapeSize; ++i) {
           int j = i + kernelOffset;
           SmallVector<IndexExpr, 4> ic;
           // d0, output
@@ -337,13 +364,13 @@ struct ONNXPoolOpLowering : public ConversionPattern {
           // s0, input dim
           ic.emplace_back(inputBounds.getDim(j));
           // s1, kernel dim
-          ic.emplace_back(LiteralIndexExpr(kernelShape[i]));
+          ic.emplace_back(SymbolIndexExpr(shapeHelper.kernelShape[i]));
           // s2, pad dim
-          ic.emplace_back(LiteralIndexExpr(pads[i]));
+          ic.emplace_back(SymbolIndexExpr(shapeHelper.pads[i]));
           // s3, stride dim
-          ic.emplace_back(LiteralIndexExpr(strides[i]));
+          ic.emplace_back(LiteralIndexExpr(shapeHelper.strides[i]));
           // s4, dilation dim
-          ic.emplace_back(LiteralIndexExpr((isDilated) ? dilations[i] : 1));
+          ic.emplace_back(LiteralIndexExpr(shapeHelper.dilations[i]));
           IVExprs.emplace_back(ic);
         }
       }
@@ -353,7 +380,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //   startH = max(firstValidH, ho * sH - ptH)
       //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
       SmallVector<IndexExpr, 4> windowStartExprs, windowEndExprs;
-      for (unsigned int i = 0; i < kernelShape.size(); ++i) {
+      for (int i = 0; i < kernelShapeSize; ++i) {
         std::vector<mlir::IndexExpr> exprs =
             getIndexExprsForConvWindow(IVExprs[i], ceilMode, isDilated);
         windowStartExprs.emplace_back(exprs[0]);
@@ -364,7 +391,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //   hDim = round(float(endH - startH) / float(dH))
       //   wDim = round(float(endW - startW) / float(dW))
       SmallVector<Value, 4> fullWindowSize;
-      for (unsigned int i = 0; i < kernelShape.size(); ++i) {
+      for (int i = 0; i < kernelShapeSize; ++i) {
         Value dim = rewriter.create<SubIOp>(
             loc, windowEndExprs[i].getValue(), windowStartExprs[i].getValue());
         if (isDilated) {
@@ -393,12 +420,12 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //      wi = wp * dW + startW
       //      output[n][c][ho][wo] =
       //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
-      BuildKrnlLoop poolingLoops(rewriter, loc, kernelShape.size());
+      BuildKrnlLoop poolingLoops(rewriter, loc, kernelShapeSize);
       poolingLoops.createDefineOp();
       // Push bounds.
       AffineMap windowSizeMap =
           getWindowAffineMap(rewriter, ceilMode, isDilated);
-      for (unsigned int i = 0; i < kernelShape.size(); ++i) {
+      for (int i = 0; i < kernelShapeSize; ++i) {
         // Affine map's operands.
         SmallVector<Value, 4> operands;
         for (IndexExpr expr : IVExprs[i])
@@ -450,7 +477,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       for (IndexExpr expr : outputIndices)
         outputIndicesInValue.emplace_back(expr.getValue());
       postProcessPoolingWindow<PoolOp>(rewriter, loc, poolOp, alloc,
-          outputIndicesInValue, kernelShape, fullWindowSize);
+          outputIndicesInValue, shapeHelper.kernelShape, fullWindowSize);
     }
 
     // Go back to the main region.
@@ -465,8 +492,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 void populateLoweringONNXPoolingOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXPoolOpLowering<ONNXMaxPoolSingleOutOp,
-      ONNXMaxPoolSingleOutOpAdaptor>>(ctx);
-  patterns
-      .insert<ONNXPoolOpLowering<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>>(
-          ctx);
+      ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>>(ctx);
+  patterns.insert<ONNXPoolOpLowering<ONNXAveragePoolOp,
+      ONNXAveragePoolOpAdaptor, ONNXAveragePoolOpShapeHelper>>(ctx);
 }

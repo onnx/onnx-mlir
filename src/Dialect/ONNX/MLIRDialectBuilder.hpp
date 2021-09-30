@@ -8,6 +8,7 @@
 #ifndef ONNX_AND_MLIR_DIALECT_BUILDER_H
 #define ONNX_AND_MLIR_DIALECT_BUILDER_H
 
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
@@ -48,10 +49,38 @@ struct MathBuilder : DialectBuilder {
   Value add(Value lhs, Value rhs);
   Value sub(Value lhs, Value rhs);
   Value mul(Value lhs, Value rhs);
+  Value div(Value lhs, Value rhs);
+  Value exp(Value val);
   Value select(Value cmp, Value lhs, Value rhs);
   Value sgt(Value lhs, Value rhs);
   Value slt(Value lhs, Value rhs);
 };
+
+struct MemRefBuilder : DialectBuilder {
+  MemRefBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  MemRefBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
+  MemRefBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+
+  // Alloc.
+  memref::AllocOp alloc(MemRefType type);
+  memref::AllocOp alloc(MemRefType type, ValueRange dynSymbols);
+  memref::AllocOp alignedAlloc(MemRefType type, int64_t align = -1);
+  memref::AllocOp alignedAlloc(
+      MemRefType type, ValueRange dynSymbols, int64_t align = -1);
+  // Alloca.
+  memref::AllocaOp alloca(MemRefType type);
+  memref::AllocaOp alignedAlloca(MemRefType type, int64_t align = -1);
+  // Dealloc.
+  memref::DeallocOp dealloc(Value val);
+  // DimOp
+  Value dim(Value val, int64_t index);
+};
+
+// Default alignment attribute for all allocation of memory. On most system, it
+// is 16 bytes.
+// TODO: make it a global variable
+// extern int64_t gDefaultAllocAlign;
+#define gDefaultAllocAlign 16
 
 } // namespace mlir
 #endif
