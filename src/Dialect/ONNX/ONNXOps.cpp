@@ -4230,7 +4230,8 @@ LogicalResult ONNXCustomOp::inferShapes(
 /// shape inference interface.
 LogicalResult ONNXSubgraphOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  //return llvm::cast<ConcreteOp>(tablegen_opaque_val)).inferShapes(shapeInferenceFunc);
+  // return
+  // llvm::cast<ConcreteOp>(tablegen_opaque_val)).inferShapes(shapeInferenceFunc);
   return success();
 }
 
