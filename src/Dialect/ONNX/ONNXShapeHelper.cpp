@@ -136,13 +136,17 @@ ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
     : scope(rewriter, loc), isUniBroadcasting(uniBroadcasting),
       isNoBroadcasting(noBroadcasting) {}
 
-LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
+LogicalResult ONNXOpBroadcastedShapeHelper::Compute(
+    ArrayRef<Value> operands, DimsExpr &additionalOperand) {
+  // if additionalOperand is not used, we expect a zero-sized vector.
   // A temporary IndexExpr vector for the output.
   DimsExpr dimsExpr;
-  int numOfInputs = operands.size();
+  int64_t numOfInputs = operands.size();
 
   // Compute rank of the output. Rank of the output is the maximum rank of all
   // operands.
+  int additionalOperRank = additionalOperand.size();
+  outputRank = additionalOperRank > 0 ? additionalOperRank : -1;
   for (int64_t i = 0; i < numOfInputs; ++i) {
     int64_t r = operands[i].getType().cast<ShapedType>().getRank();
     outputRank = std::max(outputRank, r);
@@ -151,17 +155,24 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
 
   // Prepare dims for every input. Prepend 1s if the input's shape has smaller
   // rank, so that all the shapes have the same rank.
+  LiteralIndexExpr one(1);
   for (int64_t i = 0; i < numOfInputs; ++i) {
-    DimsExpr dims;
-    int64_t r = operands[i].getType().cast<ShapedType>().getRank();
     MemRefBoundsIndexCapture bounds(operands[i]);
+    int64_t r = bounds.getRank();
     // Prepend 1s.
+    DimsExpr dims;
     for (int64_t k = 0; k < outputRank - r; ++k)
-      dims.emplace_back(LiteralIndexExpr(1));
+      dims.emplace_back(one);
     // Get from the input.
-    for (int64_t k = outputRank - r; k < outputRank; ++k)
-      dims.emplace_back(bounds.getDim(k - outputRank + r));
+    for (int64_t k = 0; k < r; ++k)
+      dims.emplace_back(bounds.getDim(k));
     inputsDims.emplace_back(dims);
+  }
+  // Handle the additional operand here.
+  if (additionalOperRank > 0) {
+    DimsExpr additionalDims(outputRank - additionalOperRank, one);
+    for (int64_t k = 0; k < additionalOperRank; ++k)
+      additionalDims.emplace_back(additionalOperand[k]);
   }
 
   // Initialize the output with the first operand.

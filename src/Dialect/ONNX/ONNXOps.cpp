@@ -3000,6 +3000,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
 // Shape
 //===----------------------------------------------------------------------===//
 
+// Hi alex: add optional start/end
 LogicalResult ONNXShapeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
@@ -3213,6 +3214,8 @@ LogicalResult ONNXExpandOp::inferShapes(
 
     ArrayRef<int64_t> rhsShapeRef =
         shapeOp.data().getType().cast<RankedTensorType>().getShape();
+    
+    // hi alex: Handle cases where start and end are not default.
     rhsShape.assign(rhsShapeRef.begin(), rhsShapeRef.end());
 
   } else if (mlir::ONNXConstantOp constantOp =
@@ -3250,7 +3253,10 @@ LogicalResult ONNXExpandOp::inferShapes(
 
   SmallVector<int64_t, 2> resultShape;
   if (!getBroadcastedShape(lhsShape, rhsShape, resultShape)) {
-    // return emitError("Tensor not expandable");
+    // We want this error because it denotes incompatible broadcast sizes that
+    // can be detected at compile time, such as broadcasting (...3...) with
+    // (...4...) which is illegal.
+    return emitError("Bad broadcast values between tensors");
   }
 
   getResult().setType(RankedTensorType::get(resultShape, elementType));
@@ -3431,8 +3437,6 @@ LogicalResult ONNXClipOp::inferShapes(
   getResult().setType(RankedTensorType::get(inputShape, elementType));
   return success();
 }
-
-// hi alex
 
 static LogicalResult verify(ONNXInstanceNormalizationOp op) {
   ONNXInstanceNormalizationOpAdaptor operandAdaptor =
