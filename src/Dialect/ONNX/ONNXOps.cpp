@@ -3432,8 +3432,6 @@ LogicalResult ONNXClipOp::inferShapes(
   return success();
 }
 
-// hi alex
-
 static LogicalResult verify(ONNXInstanceNormalizationOp op) {
   ONNXInstanceNormalizationOpAdaptor operandAdaptor =
       ONNXInstanceNormalizationOpAdaptor(op);

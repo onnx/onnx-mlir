@@ -290,6 +290,15 @@ struct AffineBuilder : DialectBuilder {
         });
   }
 
+  void forIE(SmallVectorImpl<IndexExpr> &lbs, SmallVectorImpl<IndexExpr> &ubs,
+      SmallVectorImpl<int64_t> &steps,
+      function_ref<void(AffineBuilder &, ValueRange)> builderFn) {
+    assert(lbs.size() == ubs.size() && "expected identical sizes");
+    assert(lbs.size() == steps.size() && "expected identical sizes");
+    SmallVector<Value> loopIndices;
+    recursionForIE(lbs, ubs, steps, loopIndices, builderFn);
+  }
+
   // This if then else construct has no arguments to the blocks.
   void ifThenElse(IndexExprScope &scope, SmallVectorImpl<IndexExpr> &conditions,
       function_ref<void(AffineBuilder &createAffine)> thenFn,
@@ -335,6 +344,27 @@ struct AffineBuilder : DialectBuilder {
   void yield() { b.create<AffineYieldOp>(loc); }
 
 private:
+  // Support for multiple forIE loops.
+  void recursionForIE(SmallVectorImpl<IndexExpr> &lbs,
+      SmallVectorImpl<IndexExpr> &ubs, SmallVectorImpl<int64_t> &steps,
+      SmallVectorImpl<Value> &loopIndices,
+      function_ref<void(AffineBuilder &, ValueRange)> builderFn) {
+    int d = loopIndices.size();
+    if (d < (int)lbs.size()) {
+      // Issue a loop and recurse again.
+      forIE(
+          lbs[d], ubs[d], steps[d], [&](AffineBuilder &createAffine, Value i) {
+            loopIndices.emplace_back(i);
+            recursionForIE(lbs, ubs, steps, loopIndices, builderFn);
+          });
+    } else {
+      // Call lambda function
+      AffineBuilder createAffine(b, loc);
+      builderFn(createAffine, loopIndices);
+    }
+  }
+
+  // Support for adding blocks.
   void appendToBlock(Block *block, function_ref<void(ValueRange)> builderFn) {
     OpBuilder::InsertionGuard guard(b);
     if (block->empty() ||
