@@ -1382,6 +1382,40 @@ public:
   }
 };
 
+//===----------------------------------------------------------------------===//
+// Krnl to Affine Rewrite Patterns: Memset op.
+//===----------------------------------------------------------------------===//
+
+class KrnlMemsetLowering : public OpRewritePattern<KrnlMemsetOp> {
+public:
+  using OpRewritePattern<KrnlMemsetOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      KrnlMemsetOp op, PatternRewriter &rewriter) const override {
+    // Get info from operands.
+    KrnlMemsetOpAdaptor operandAdaptor = KrnlMemsetOpAdaptor(op);
+    Value destMemRef(operandAdaptor.dest());
+    Value destVal(operandAdaptor.value());
+    Location loc = op.getLoc();
+    AffineBuilder createAffine(rewriter, loc);
+    IndexExprScope indexScope(createAffine);
+    MemRefBoundsIndexCapture destBounds(destMemRef);
+
+    int rank = destBounds.getRank();
+    SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> ubs;
+    destBounds.getDimList(ubs);
+    SmallVector<int64_t, 4> steps(rank, 1);
+    // Copy data,
+    createAffine.forIE(
+        lbs, ubs, steps, [&](AffineBuilder &createAffine, ValueRange indices) {
+          createAffine.store(destVal, destMemRef, indices);
+        });
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
 /*!
  * Helper function to separate the operations nested directly within a
  * Krnl.iterate op into two kinds:
@@ -1502,6 +1536,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   target.addIllegalOp<KrnlMatMulOp>();
   target.addIllegalOp<KrnlCopyToBufferOp>();
   target.addIllegalOp<KrnlCopyFromBufferOp>();
+  target.addIllegalOp<KrnlMemsetOp>();
   target.addLegalOp<AffineYieldOp>();
   target.addLegalOp<AffineLoadOp>();
   target.addLegalOp<AffineStoreOp>();
@@ -1516,6 +1551,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   patterns.insert<KrnlMatmulLowering>(&getContext());
   patterns.insert<KrnlCopyToBufferLowering>(&getContext());
   patterns.insert<KrnlCopyFromBufferLowering>(&getContext());
+  patterns.insert<KrnlMemsetLowering>(&getContext());
 
   // Create list for recording the <loop, unroll factor> pairs associated with
   // this function.
