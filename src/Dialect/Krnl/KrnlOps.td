@@ -976,3 +976,16 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
 
   let builders = [ OpBuilder<(ins "Operation *": $op, "int ": $tag)> ];
 }
+
+def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
+    TypesMatchWith<"type of 'value' matches element type of 'dest'",
+                   "dest", "value",
+                   "$_self.cast<MemRefType>().getElementType()">]> {
+  let summary = "Set buffer to a given value.";
+  let description = [{
+    Krnl operation that set buffer to a given value.
+  }];
+
+  let arguments = (ins AnyMemRef:$dest, AnyType: $value); 
+  let assemblyFormat = [{ $dest `,` $value attr-dict `:` type($dest) }];
+}
