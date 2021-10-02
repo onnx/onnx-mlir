@@ -47,6 +47,7 @@ add_onnx_mlir_library(OMOutlineOperations
   LINK_LIBS PUBLIC
   OMONNXOps
   MLIRPass
+  MLIRRewrite
   )
   
 add_onnx_mlir_library(OMInstrumentONNX
