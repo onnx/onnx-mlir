@@ -617,8 +617,9 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   if (emissionTarget == EmitLib) {
     // Write LLVM bitcode to disk, compile & link.
     string sharedLib = compileModuleToSharedLibrary(module, outputBaseName);
-    if (keepFiles(KeepFilesOfType::MLIR))
+    if (keepFiles(KeepFilesOfType::MLIR)) {
       outputCode(module, outputBaseName, ".llvm.mlir");
+    }
     printf("Shared library %s has been compiled.\n", sharedLib.c_str());
   } else if (emissionTarget == EmitJNI) {
     compileModuleToJniJar(module, outputBaseName);
@@ -660,6 +661,8 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
 
   if (keepFiles(KeepFilesOfType::MLIR)) {
     outputCode(module, outputBaseName, ".input.mlir");
+    module.release();
+    LoadMLIR(outputBaseName + ".input.mlir", context, module);
   }
 
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
