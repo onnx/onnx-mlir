@@ -3653,7 +3653,17 @@ LogicalResult ONNXMaxUnpoolOp::inferShapes(
 
 LogicalResult ONNXMeanOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  for (unsigned int i = 0; i < getNumOperands(); ++i) {
+    if (!getOperand(i).getType().cast<RankedTensorType>())
+      return success();
+  }
+  Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
+  for (unsigned int i = 1; i < getNumOperands(); ++i) {
+    Type nextTy = getOperand(i).getType().cast<RankedTensorType>();
+    resultTy = getBroadcastedType(resultTy, nextTy);
+  }
+  getResult().setType(resultTy);
+  return success();
 }
 
 LogicalResult ONNXMeanVarianceNormalizationOp::inferShapes(

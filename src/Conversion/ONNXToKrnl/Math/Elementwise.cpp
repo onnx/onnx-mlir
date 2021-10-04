@@ -17,6 +17,13 @@
 
 using namespace mlir;
 
+/// Emit post-processing for variadic element-wise ops.
+template <typename Op>
+Value emitPostProcessingFor(ConversionPatternRewriter &rewriter, Location loc,
+    Operation *op, Type elementType, Value scalarResult) {
+  return scalarResult;
+}
+
 template <>
 struct ScalarOp<ONNXTanhOp> {
   using FOp = math::TanhOp;
@@ -773,6 +780,23 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
   }
 }
 
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXMeanOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXMeanOp> {
+  using FOp = AddFOp;
+  using IOp = AddIOp;
+};
+
+template <>
+Value emitPostProcessingFor<ONNXMeanOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType, Value scalarResult) {
+  Value n = emitConstantOp(rewriter, loc, elementType, op->getNumOperands());
+  // Input and output type are floating point, so it is safe to use DivFOp.
+  return rewriter.create<DivFOp>(loc, scalarResult, n);
+}
+
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOp>
@@ -970,8 +994,11 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
           rewriter, loc, op, outputElementType, {accumulated, next});
     }
 
+    Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
+        rewriter, loc, op, outputElementType, accumulated);
+
     // Store result in the resulting array.
-    createKrnl.storeIE(accumulated, alloc, outputAccessExprs);
+    createKrnl.storeIE(finalResult, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -1008,6 +1035,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOrEqualOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXLogOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMaxOp>,
+      ONNXElementwiseVariadicOpLowering<mlir::ONNXMeanOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMinOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXModOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
