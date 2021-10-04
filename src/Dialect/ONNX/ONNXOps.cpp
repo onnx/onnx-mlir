@@ -3676,7 +3676,18 @@ LogicalResult ONNXNonMaxSuppressionOp::inferShapes(
 
 LogicalResult ONNXNonZeroOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  auto builder = mlir::Builder(getContext());
+  Type inputType = getOperand().getType();
+  if (!inputType.isa<RankedTensorType>())
+    return success();
+  SmallVector<int64_t, 2> dims;
+  // The first dimension size is the rank of the input.
+  dims.emplace_back(inputType.cast<RankedTensorType>().getRank());
+  // The second dimension size is the number of nonzero values in the input.
+  // So this dimension size is always unknown at compile time.
+  dims.emplace_back(-1);
+  getResult().setType(RankedTensorType::get(dims, builder.getI64Type()));
+  return success();
 }
 
 LogicalResult ONNXNotOp::inferShapes(

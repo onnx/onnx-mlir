@@ -54,6 +54,7 @@ struct MathBuilder : DialectBuilder {
   Value select(Value cmp, Value lhs, Value rhs);
   Value sgt(Value lhs, Value rhs);
   Value slt(Value lhs, Value rhs);
+  Value eq(Value lhs, Value rhs);
 };
 
 struct MemRefBuilder : DialectBuilder {
