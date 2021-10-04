@@ -218,10 +218,16 @@ public:
   };
   /// Populate the pattern list.
   void collectOutlinePatterns(RewritePatternSet &patterns, MLIRContext *ctx) {
-    patterns.add<OutlinePattern>("onnx.Gemm", /*benefit=*/1, ctx);
-    // patterns.add<OutlinePattern>("onnx.Sigmoid",/*benefit=*/1, ctx);
-    // patterns.add<OutlinePattern>("onnx.Flatten",/*benefit=*/1, ctx);
-    // patterns.add<OutlinePattern>(/*benefit=*/1, ctx);
+    if (all_) {
+      patterns.add<OutlinePattern>("onnx.Gemm", /*benefit=*/1, ctx);
+      // patterns.add<OutlinePattern>("onnx.Sigmoid",/*benefit=*/1, ctx);
+      // patterns.add<OutlinePattern>("onnx.Flatten",/*benefit=*/1, ctx);
+      // patterns.add<OutlinePattern>(/*benefit=*/1, ctx);
+      } else {
+        for (std::string name : operationList) {
+          patterns.add<OutlinePattern>(name.c_str(),/*benefir*/1,ctx);
+        }
+      }
   }
 
   void collectSGPatterns(RewritePatternSet &patterns, MLIRContext *ctx) {
