@@ -3000,7 +3000,6 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
 // Shape
 //===----------------------------------------------------------------------===//
 
-// Hi alex: add optional start/end
 LogicalResult ONNXShapeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
@@ -3008,10 +3007,13 @@ LogicalResult ONNXShapeOp::inferShapes(
     return success();
 
   // Output is an 1D int64 tensor containing the shape of the input tensor.
-  int64_t rank = data().getType().cast<RankedTensorType>().getRank();
-  SmallVector<int64_t, 1> outDims(1, rank);
+  ONNXShapeOpShapeHelper shapeHelper(this);
+  ONNXShapeOpAdaptor operandAdaptor(*this);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan Shape parameters successfully");
   getResult().setType(
-      RankedTensorType::get(outDims, IntegerType::get(getContext(), 64)));
+      RankedTensorType::get({(int64_t)shapeHelper.dimsForOutput(0).size()},
+          IntegerType::get(getContext(), 64)));
   return success();
 }
 
@@ -3214,7 +3216,7 @@ LogicalResult ONNXExpandOp::inferShapes(
 
     ArrayRef<int64_t> rhsShapeRef =
         shapeOp.data().getType().cast<RankedTensorType>().getShape();
-    
+
     // hi alex: Handle cases where start and end are not default.
     rhsShape.assign(rhsShapeRef.begin(), rhsShapeRef.end());
 

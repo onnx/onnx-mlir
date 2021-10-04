@@ -377,3 +377,16 @@ struct ONNXUnsqueezeV11OpShapeHelper
 
   LogicalResult Compute(ONNXUnsqueezeV11OpAdaptor operandAdaptor);
 };
+
+// Shape for ONNXShapeOp.
+struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<ONNXShapeOp> {
+  ONNXShapeOpShapeHelper(ONNXShapeOp *newOp);
+  ONNXShapeOpShapeHelper(ONNXShapeOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXShapeOpAdaptor operandAdaptor);
+
+  DimsExpr selectedData;
+};
