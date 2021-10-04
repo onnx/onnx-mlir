@@ -3661,9 +3661,30 @@ LogicalResult ONNXMeanVarianceNormalizationOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXModOp op) {
+  Type elementType;
+  if (op.A().getType().isa<ShapedType>())
+    elementType = op.A().getType().cast<ShapedType>().getElementType();
+  else
+    return op.emitError("Input type must be TensorType or MemRefType");
+
+  // Verify that when the input type is floating point, then `fmod` attribute
+  // must be set to 1.
+  if (elementType.isa<FloatType>() && (op.fmod() != 1))
+    return op.emitError("fmod must be 1 when the input type is floating point");
+
+  return success();
+}
+
 LogicalResult ONNXModOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return success();
+  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  getResult().setType(getBroadcastedType(lhsTy, rhsTy));
+  return success();
 }
 
 LogicalResult ONNXMultinomialOp::inferShapes(
