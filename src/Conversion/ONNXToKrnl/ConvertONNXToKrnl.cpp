@@ -192,6 +192,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXFlattenOpPattern(patterns, &getContext());
   populateLoweringONNXRangeOpPattern(patterns, &getContext());
   populateLoweringONNXResizeOpPattern(patterns, &getContext());
+  populateLoweringONNXNonZeroOpPattern(patterns, &getContext());
   // Neural network
   populateLoweringONNXConvOpPattern(patterns, &getContext());
   populateLoweringONNXNormalizationOpPattern(patterns, &getContext());
