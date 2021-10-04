@@ -6,6 +6,7 @@ In onnx-mlir, there are three types of tests to ensure correctness of implementa
 1. [ONNX Backend Tests](#onnx-backend-tests)
 2. [LLVM FileCheck Tests](#llvm-filecheck-tests)
 3. [Numerical Tests](#numerical-tests)
+4. [Use gdb](#use-gdb)
 
 ## ONNX Backend Tests
 
@@ -215,3 +216,38 @@ On supported platforms, currently s390x only, numerical tests can generate SIMD 
 ```
 TEST_ARGS="-mcpu=z14" ARGS=-j$(nproc) cmake --build . --config Release --target test
 ```
+
+## Use gdb
+### Get source code for ONNX model
+When you compile an ONNX model, add option `--preserveMLIR`. A source code for the  model in MLIR format, named your_model_name.input.mlir,  will be created. The line information for operation will be attached and propagated all the way to binary.
+When you run the compiled library in gdb, you can stop in the model and step through with respect to the ONNX operations. Here is an example for model test_add.onnx:
+
+```
+$Debug/bin/onnx-mlir --preserveMLIR test_add.onnx
+$. ../utils/build-run-onnx-lib.sh
+$gdb Debug/bin/run-onnx-lib
+(gdb) b run_main_graph
+(gdb) run ./test_add.so
+(gdb) list
+1	builtin.module  {
+2	  builtin.func @main_graph(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> attributes {input_names = ["x", "y"], output_names = ["sum"]} {
+3	    %0 = "onnx.Add"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+4	    return %0 : tensor<3x4x5xf32>
+5	  }
+(gdb) b 3
+Breakpoint 2 at 0x3fffdf01778: file /home/chentong/onnx-mlir/build/test_add.input.mlir, line 3.
+(gdb) c
+Continuing.
+
+Breakpoint 2, main_graph () at /home/chentong/onnx-mlir/build/test_add.input.mlir:3
+3	    %0 = "onnx.Add"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+(gdb) n
+[Detaching after vfork from child process 2333437]
+#  0) before op=     Add VMem:  6804
+[Detaching after vfork from child process 2333470]
+#  1) after  op=     Add VMem:  6804
+4	    return %0 : tensor<3x4x5xf32>
+(gdb)
+```
+Note that the output of instrumentation showed that the gdb step at the onnx op level correctly. You need extra flags for onnx-mlir to run on instrumentation, which is not necessary for gdb. The source file is test_add.input.mlir.
+One of furtuer works is to support symbols at onnx level in gdb. It would be really useful if tensors can be printed out in gdb.
