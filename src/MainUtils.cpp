@@ -76,8 +76,20 @@ llvm::cl::opt<int> repeatOnnxTransform("repeatOnnxTransform",
     llvm::cl::init(0), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> outlineONNXOps("outlineONNXOps",
-    llvm::cl::desc("outline a set of ONNX operators"), llvm::cl::init(false),
+    llvm::cl::desc("outline all ONNX operators"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<string> outlineListedOps("outlineListedOps",
+    llvm::cl::desc(
+        "List of ONNX ops to outline,\n"
+        "The format of \"value\" is a comma seperated list of operation names. "),
+    llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
+
+llvm::cl::opt<string> outlineFN("outlineFN",
+    llvm::cl::desc(
+        "File name where list of ONNX ops to outline can be found,\n"
+        "The format of the file is one operation name per line.xs"),
+    llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
 llvm::cl::opt<string> shapeInformation("shapeInformation",
     llvm::cl::desc(
@@ -474,8 +486,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createShapeInferencePass());
-  if (outlineONNXOps)
-    pm.addPass(mlir::createOutlineOperatorsPass());
+  if (outlineONNXOps || (outlineFN !="") || (outlineListedOps !=""))
+    pm.addPass(mlir::createOutlineOperatorsPass(outlineONNXOps, outlineFN, outlineListedOps));
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
   pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());

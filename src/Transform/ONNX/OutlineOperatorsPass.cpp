@@ -30,6 +30,7 @@
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 #include <iostream>
+#include <fstream>
 
 using BlockListType = llvm::iplist<mlir::Block>;
 using namespace mlir;
@@ -146,8 +147,24 @@ static int64_t outlineCount = 0;
 class OutlineOperatorsPass : public mlir::PassWrapper<OutlineOperatorsPass,
                                  OperationPass<mlir::ModuleOp>> {
 private:
+  bool all_;
+  std::vector<std::string> operationList;
 public:
-  OutlineOperatorsPass() {}
+  OutlineOperatorsPass(bool all, std::string list, std::string fn) {
+    all_=all;
+    if (all) {
+      assert(list=="" && fn=="" && "All ops specified for outlining, but filename and/or string also specified ");
+      }
+    else {  
+      std::string opName;
+      std::stringstream opList(list);
+      while (getline(opList, opName, ','))
+        operationList.push_back(opName);
+      std::ifstream opFile(fn, std::ifstream::in);
+      while (getline(opFile, opName))
+        operationList.push_back(opName);
+    }
+  }
 
   std::string getOpName(Operation *op) {
     auto symbolAttr =
@@ -408,6 +425,6 @@ public:
 /*!
  * Create an Outline Operators pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createOutlineOperatorsPass() {
-  return std::make_unique<OutlineOperatorsPass>();
+std::unique_ptr<mlir::Pass> mlir::createOutlineOperatorsPass(bool all, std::string list, std:: string fn) {
+  return std::make_unique<OutlineOperatorsPass>(all, list, fn);
 }
