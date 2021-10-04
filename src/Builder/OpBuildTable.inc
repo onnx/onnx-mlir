@@ -184,7 +184,7 @@ op_dialect_version_map_["TreeEnsembleClassifier"] = {1};
 op_dialect_version_map_["TreeEnsembleRegressor"] = {1};
 op_dialect_version_map_["Unique"] = {11};
 op_dialect_version_map_["Unsqueeze"] = {13, 11};
-op_dialect_version_map_["Upsample"] = {10};
+op_dialect_version_map_["Upsample"] = {10, 9, 7};
 op_dialect_version_map_["Where"] = {9};
 op_dialect_version_map_["Xor"] = {7};
 op_dialect_version_map_["ZipMap"] = {1};
@@ -516,6 +516,10 @@ import_handler_map_["UnsqueezeV11"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUnsqueezeV11Op>;
 import_handler_map_["Upsample"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleOp>;
+import_handler_map_["UpsampleV9"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleV9Op>;
+import_handler_map_["UpsampleV7"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleV7Op>;
 import_handler_map_["Where"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXWhereOp>;
 import_handler_map_["Xor"] = 
