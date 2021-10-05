@@ -115,7 +115,11 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value K = createMemRef.dim(A, 1);
 
     // Initialize alloc/C to zero.
-    createKrnl.memset(alloc, zeroVal);
+    ValueRange zLoop = createKrnl.defineLoops(2);
+    createKrnl.iterate(zLoop, zLoop, {zero, zero}, {I, J},
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+          createKrnl.store(zeroVal, alloc, indices);
+        });
 
     // Compute.
     // Define blocking, with simdization along the j axis.

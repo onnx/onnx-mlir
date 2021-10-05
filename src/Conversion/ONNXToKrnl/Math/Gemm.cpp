@@ -114,7 +114,11 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     // Initialize alloc/R to zero.
     KrnlBuilder createKrnl(rewriter, loc);
-    createKrnl.memset(R, zeroVal);
+    ValueRange zeroLoop = createKrnl.defineLoops(2);
+    createKrnl.iterateIE(zeroLoop, zeroLoop, {zero, zero}, {I, J},
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+          createKrnl.store(zeroVal, R, indices);
+        });
 
     // Prepare for the computations.
     // 1) Define blocking, with simdization along the j axis.

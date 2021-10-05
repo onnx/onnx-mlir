@@ -472,10 +472,6 @@ void KrnlBuilder::memcpy(Value dest, Value src, Value size) {
   b.create<KrnlMemcpyOp>(loc, dest, src, size);
 }
 
-void KrnlBuilder::memset(Value dest, Value val) {
-  b.create<KrnlMemsetOp>(loc, dest, val);
-}
-
 void KrnlBuilder::copyToBuffer(Value bufferMemref, Value sourceMemref,
     ValueRange starts, Value padValue, ArrayRef<int64_t> tileSize,
     ArrayRef<int64_t> padToNext, bool transpose) {
