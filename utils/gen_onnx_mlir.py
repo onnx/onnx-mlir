@@ -231,7 +231,7 @@ version_dict = {'Abs': [13],
  'Unique': [11],
  #'Unsqueeze': [13],
  'Unsqueeze': [13, 11],
- 'Upsample': [10],
+ 'Upsample': [10, 9, 7],
  'Where': [9],
  'Xor': [7],
  'ZipMap': [1]}
@@ -356,7 +356,7 @@ OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Cast', 'Transpose',
                         'Squeeze', 'Unsqueeze', 'Reshape']
 
 # Operations with custom verifiers.
-OpsWithVerifier = ['AveragePool', 'Conv', 'InstanceNormalization']
+OpsWithVerifier = ['AveragePool', 'Conv', 'InstanceNormalization', 'Mod']
 
 OpsWithHelpers = {
   "Loop": """

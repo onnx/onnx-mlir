@@ -17,6 +17,13 @@
 
 using namespace mlir;
 
+/// Emit post-processing for variadic element-wise ops.
+template <typename Op>
+Value emitPostProcessingFor(ConversionPatternRewriter &rewriter, Location loc,
+    Operation *op, Type elementType, Value scalarResult) {
+  return scalarResult;
+}
+
 template <>
 struct ScalarOp<ONNXTanhOp> {
   using FOp = math::TanhOp;
@@ -749,6 +756,47 @@ Value emitScalarOpFor<ONNXNotOp>(ConversionPatternRewriter &rewriter,
   return rewriter.create<SelectOp>(loc, isZero, one, zero);
 }
 
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXModOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  ONNXModOp modOp = llvm::dyn_cast<ONNXModOp>(op);
+  Value dividend = scalarOperands[0];
+  Value divisor = scalarOperands[1];
+
+  if (elementType.isa<FloatType>()) {
+    // fmod is always 1. Behavior is like numpy.fmod.
+    // The sign of the remainder is the same as the dividend.
+    Value rem = rewriter.create<RemFOp>(loc, dividend, divisor);
+    return rewriter.create<CopySignOp>(loc, rem, dividend);
+  } else if (elementType.isa<IntegerType>()) {
+    llvm_unreachable("not support integers at this moment since MLIR integers "
+                     "are signless.");
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXMeanOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXMeanOp> {
+  using FOp = AddFOp;
+  using IOp = AddIOp;
+};
+
+template <>
+Value emitPostProcessingFor<ONNXMeanOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType, Value scalarResult) {
+  Value n = emitConstantOp(rewriter, loc, elementType, op->getNumOperands());
+  // Input and output type are floating point, so it is safe to use DivFOp.
+  return rewriter.create<DivFOp>(loc, scalarResult, n);
+}
+
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOp>
@@ -948,8 +996,11 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
           rewriter, loc, op, outputElementType, {accumulated, next});
     }
 
+    Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
+        rewriter, loc, op, outputElementType, accumulated);
+
     // Store result in the resulting array.
-    createKrnl.storeIE(accumulated, alloc, outputAccessExprs);
+    createKrnl.storeIE(finalResult, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -986,7 +1037,9 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOrEqualOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXLogOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMaxOp>,
+      ONNXElementwiseVariadicOpLowering<mlir::ONNXMeanOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMinOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXModOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXNegOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXNotOp>,

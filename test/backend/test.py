@@ -461,6 +461,9 @@ test_to_enable_dict = {
     "test_maxpool_3d_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Mean
+    "test_mean_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_mean_one_input_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_mean_two_inputs_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Min
     "test_min_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -468,6 +471,21 @@ test_to_enable_dict = {
     "test_min_two_inputs_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Mod
+    "test_mod_mixed_sign_float32_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_mod_mixed_sign_float64_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # float16 failed on Z. It seems LLVM on Z does not have fp16 simulation.
+    # "test_mod_mixed_sign_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # Not yet support integers since MLIR integers are signless.
+    # "test_mod_broadcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_mod_int64_fmod_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_mod_mixed_sign_int16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_mod_mixed_sign_int32_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_mod_mixed_sign_int64_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_mod_mixed_sign_int8_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_mod_uint16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_mod_uint32_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_mod_uint64_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    # "test_mod_uint8_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Momentum
 
@@ -487,6 +505,7 @@ test_to_enable_dict = {
     # Non Max Supression
 
     # Non Zero
+    "test_nonzero_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Not
     "test_not_2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -811,6 +830,7 @@ test_to_enable_dict = {
     "test_unsqueeze_unsorted_axes_cpu": {CONSTANT_INPUT:{1}},
 
     # Upsample
+    "test_upsample_nearest_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Where
 
@@ -937,6 +957,18 @@ class EndiannessAwareExecutionSession:
         implicitly_le = (inputs_endianness[0] == "=" and sys_is_le)
         return explicitly_le or implicitly_le
 
+    def is_not_relevant_endian(self, inputs):
+        inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
+        endianness_is_consistent = len(set(inputs_endianness)) <= 1
+        assert endianness_is_consistent, \
+            "Input arrays contain a mixture of endianness configuration."
+
+        sys_is_le = sys.byteorder == 'little'
+        # To interpret character symbols indicating endianness:
+        # https://numpy.org/doc/stable/reference/generated/numpy.dtype.byteorder.html
+        i1_not_relevant_endian = inputs_endianness[0] == "|"
+        return i1_not_relevant_endian
+
     def compile_model(self):
         name = self.model.graph.name
         model_name = result_dir+name+".onnx"
@@ -1000,7 +1032,8 @@ class EndiannessAwareExecutionSession:
             # Deduce desired endianness of output from inputs.
             sys_is_le = sys.byteorder == 'little'
             inp_is_le = self.is_input_le(inputs)
-            if (sys_is_le != inp_is_le):
+            inp_is_not_relevant_endian = self.is_not_relevant_endian(inputs)
+            if (not inp_is_not_relevant_endian and sys_is_le != inp_is_le):
                 inputs = list(
                     map(lambda x: x.byteswap().newbyteorder(), inputs))
             # If constant test, change the model inputs to constants.
@@ -1009,7 +1042,7 @@ class EndiannessAwareExecutionSession:
                 self.exec_name = self.compile_model()
             session = ExecutionSession(self.exec_name, self.entry_point)
             outputs = session.run(inputs)
-            if (sys_is_le != inp_is_le):
+            if (not inp_is_not_relevant_endian and sys_is_le != inp_is_le):
                 outputs = list(
                     map(lambda x: x.byteswap().newbyteorder(), outputs))
             return outputs
