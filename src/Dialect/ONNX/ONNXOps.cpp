@@ -4071,19 +4071,21 @@ LogicalResult ONNXUpsampleOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXUpsampleV9Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXUpsampleV7Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
 LogicalResult ONNXWhereOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  for (unsigned int i = 0; i < getNumOperands(); ++i) {
+    if (!getOperand(i).getType().cast<RankedTensorType>())
+      return success();
+  }
+  Type resultElementType =
+      getOperand(1).getType().cast<RankedTensorType>().getElementType();
+  Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
+  for (unsigned int i = 1; i < getNumOperands(); ++i) {
+    Type nextTy = getOperand(i).getType().cast<RankedTensorType>();
+    resultTy = getBroadcastedType(resultTy, nextTy, resultElementType);
+  }
+  getResult().setType(resultTy);
+  return success();
 }
 
 LogicalResult ONNXArrayFeatureExtractorOp::inferShapes(
@@ -4181,6 +4183,9 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXGradientOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXMomentumOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXNegativeLogLikelihoodLossOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXSoftmaxCrossEntropyLossOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV9Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op);
 
 //===----------------------------------------------------------------------===//
 // Loop
