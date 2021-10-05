@@ -872,7 +872,9 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     auto outputRank = outputMemRefType.getRank();
 
     // Shape helper.
-    ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc, isUniBroadcasting);
+    ONNXOpBroadcastedShapeHelper shapeHelper(op, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex, isUniBroadcasting);
     DimsExpr empty;
     auto shapecomputed = shapeHelper.Compute(operands, empty);
     assert(succeeded(shapecomputed));
@@ -882,7 +884,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
     // Emit main computation.
     SmallVector<IndexExpr, 4> outputAccessExprs;
@@ -944,7 +946,9 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     auto outputRank = outputMemRefType.getRank();
 
     // Shape helper.
-    ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
+    ONNXOpBroadcastedShapeHelper shapeHelper(op, rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
 
     // The following call is used to force no broadcasting check at runtime
     // Even when the dim is unknown at compile time
@@ -957,7 +961,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
     // Emit main computation.
     SmallVector<IndexExpr, 4> outputAccessExprs;

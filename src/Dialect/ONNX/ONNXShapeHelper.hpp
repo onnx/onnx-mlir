@@ -44,11 +44,12 @@ typedef SmallVector<IndexExpr, 4> DimsExpr;
 template <class OP>
 struct ONNXOpShapeHelper {
   // Constructor for shape inference.
-  ONNXOpShapeHelper(OP *newOp);
+  ONNXOpShapeHelper(OP *newOp, int numResults); // Generic op.
   // Constructor when code can be generated.
-  ONNXOpShapeHelper(OP *newOp, ConversionPatternRewriter &rewriter,
+  ONNXOpShapeHelper(OP *newOp, int numResults,
+      ConversionPatternRewriter &rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-      ArrayValueIndexCapture::LoadVal fLoadVal);
+      ArrayValueIndexCapture::LoadVal fLoadVal); // Generic op.
 
   // Define in every children. Use op to get attributes, and operandAdaptor
   // to get the input/output parameters.
@@ -80,12 +81,15 @@ private:
 
 /// Compute a broadcasted shape from the shapes of given operands. Operands must
 /// be ranked in advance.
-struct ONNXOpBroadcastedShapeHelper {
-  ONNXOpBroadcastedShapeHelper(
-      Location loc, bool uniBroadcasting = false, bool noBroadcasting = false);
+struct ONNXOpBroadcastedShapeHelper : public ONNXOpShapeHelper<Operation> {
+  ONNXOpBroadcastedShapeHelper(Operation *newOp, bool uniBroadcasting = false,
+      bool noBroadcasting = false);
 
-  ONNXOpBroadcastedShapeHelper(ConversionPatternRewriter *rewriter,
-      Location loc, bool uniBroadcasting = false, bool noBroadcasting = false);
+  ONNXOpBroadcastedShapeHelper(Operation *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal, bool uniBroadcasting = false,
+      bool noBroadcasting = false);
 
   // Compute a vector of IndexExprs to represent the output shape. Results are
   // stored in 'outputDims'.
@@ -107,12 +111,12 @@ struct ONNXOpBroadcastedShapeHelper {
       const SmallVectorImpl<IndexExpr> &outputAccessExprs,
       SmallVectorImpl<IndexExpr> &operandAccessExprs);
 
-  IndexExprScope scope;
+  // in spuer IndexExprScope scope;
   // A vector of input shapes where dimensions are padded with 1 if necessary,
   // so that all inputs have the same rank.
   SmallVector<DimsExpr, 4> inputsDims;
   // A vector of IndexExprs representing the output shape.
-  DimsExpr outputDims;
+  // in upper DimsExpr outputDims;
   int64_t outputRank;
 
 private:

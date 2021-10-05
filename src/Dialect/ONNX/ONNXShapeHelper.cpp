@@ -32,21 +32,21 @@ using namespace std;
 //===----------------------------------------------------------------------===//
 
 template <class OP>
-ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp)
+ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp, int numResults)
     : op(newOp), scope(nullptr, newOp->getLoc()),
       fGetDenseVal(getDenseElementAttributeFromONNXValue), fLoadVal(nullptr),
       outputsDims() {
-  setNumberOfOutputs(op->getOperation()->getNumResults());
+  setNumberOfOutputs(numResults);
 }
 
 template <class OP>
-ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp,
+ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp, int numResults,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseValInput,
     ArrayValueIndexCapture::LoadVal fLoadVal)
     : op(newOp), scope(&rewriter, newOp->getLoc()), fLoadVal(fLoadVal),
       outputsDims() {
-  setNumberOfOutputs(op->getOperation()->getNumResults());
+  setNumberOfOutputs(numResults);
   // Get the dense value by combining provided function (if any) with the
   // default one.
   fGetDenseVal = [=](Value array) {
@@ -65,14 +65,16 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp,
 // ONNX Op Shape Helper for ArgMax
 //===----------------------------------------------------------------------===//
 ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp)
-    : ONNXOpShapeHelper<ONNXArgMaxOp>(newOp) {}
+    : ONNXOpShapeHelper<ONNXArgMaxOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
 
 ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXArgMaxOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {
-}
+    : ONNXOpShapeHelper<ONNXArgMaxOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
 
 LogicalResult ONNXArgMaxOpShapeHelper::Compute(
     ONNXArgMaxOpAdaptor operandAdaptor) {
@@ -131,15 +133,18 @@ LogicalResult ONNXArgMaxOpShapeHelper::Compute(
 //===----------------------------------------------------------------------===//
 
 ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
-    Location loc, bool uniBroadcasting, bool noBroadcasting)
-    : scope(nullptr, loc), inputsDims(), outputDims(), outputRank(-1),
+    Operation *newOp, bool uniBroadcasting, bool noBroadcasting)
+    : ONNXOpShapeHelper<Operation>(newOp, 1), inputsDims(), outputRank(-1),
       isUniBroadcasting(uniBroadcasting), isNoBroadcasting(noBroadcasting) {}
 
-ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
-    ConversionPatternRewriter *rewriter, Location loc, bool uniBroadcasting,
+ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(Operation *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal, bool uniBroadcasting,
     bool noBroadcasting)
-    : scope(rewriter, loc), inputsDims(), outputDims(), outputRank(-1),
-      isUniBroadcasting(uniBroadcasting), isNoBroadcasting(noBroadcasting) {}
+    : ONNXOpShapeHelper<Operation>(newOp, 1, rewriter, fGetDenseVal, fLoadVal),
+      inputsDims(), outputRank(-1), isUniBroadcasting(uniBroadcasting),
+      isNoBroadcasting(noBroadcasting) {}
 
 LogicalResult ONNXOpBroadcastedShapeHelper::Compute(
     ArrayRef<Value> operands, DimsExpr &additionalOperand) {
@@ -239,7 +244,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(
   }
 
   // Set the final output.
-  outputDims = dimsExpr;
+  dimsForOutput(0) = dimsExpr;
 
   return success();
 }
@@ -288,13 +293,17 @@ LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(Value operand,
 //===----------------------------------------------------------------------===//
 
 ONNXSliceOpShapeHelper::ONNXSliceOpShapeHelper(ONNXSliceOp *newOp)
-    : ONNXOpShapeHelper<ONNXSliceOp>(newOp), starts(), ends(), steps() {}
+    : ONNXOpShapeHelper<ONNXSliceOp>(
+          newOp, newOp->getOperation()->getNumResults()),
+      starts(), ends(), steps() {}
 
 ONNXSliceOpShapeHelper::ONNXSliceOpShapeHelper(ONNXSliceOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSliceOp>(newOp, rewriter, fGetDenseVal, fLoadVal),
+    : ONNXOpShapeHelper<ONNXSliceOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal),
       starts(), ends(), steps() {}
 
 LogicalResult ONNXSliceOpShapeHelper::Compute(
@@ -426,13 +435,16 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
 //===----------------------------------------------------------------------===//
 
 ONNXTileOpShapeHelper::ONNXTileOpShapeHelper(ONNXTileOp *newOp)
-    : ONNXOpShapeHelper<ONNXTileOp>(newOp) {}
+    : ONNXOpShapeHelper<ONNXTileOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
 
 ONNXTileOpShapeHelper::ONNXTileOpShapeHelper(ONNXTileOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXTileOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXOpShapeHelper<ONNXTileOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
 
 LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
@@ -465,14 +477,17 @@ LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
 //===----------------------------------------------------------------------===//
 
 ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(ONNXGemmOp *newOp)
-    : ONNXOpShapeHelper<ONNXGemmOp>(newOp), aDims(), bDims(), cDims(),
-      hasBias(false), cRank(-1) {}
+    : ONNXOpShapeHelper<ONNXGemmOp>(
+          newOp, newOp->getOperation()->getNumResults()),
+      aDims(), bDims(), cDims(), hasBias(false), cRank(-1) {}
 
 ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(ONNXGemmOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXGemmOp>(newOp, rewriter, fGetDenseVal, fLoadVal),
+    : ONNXOpShapeHelper<ONNXGemmOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal),
       aDims(), bDims(), cDims(), hasBias(false), cRank(-1) {}
 
 LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
@@ -564,14 +579,17 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
 //===----------------------------------------------------------------------===//
 
 ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(ONNXMatMulOp *newOp)
-    : ONNXOpShapeHelper<ONNXMatMulOp>(newOp), aDims(), bDims(), aPadDims(),
-      bPadDims() {}
+    : ONNXOpShapeHelper<ONNXMatMulOp>(
+          newOp, newOp->getOperation()->getNumResults()),
+      aDims(), bDims(), aPadDims(), bPadDims() {}
 
 ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(ONNXMatMulOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXMatMulOp>(newOp, rewriter, fGetDenseVal, fLoadVal),
+    : ONNXOpShapeHelper<ONNXMatMulOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal),
       aDims(), bDims(), aPadDims(), bPadDims() {}
 
 LogicalResult ONNXMatMulOpShapeHelper::Compute(
@@ -754,13 +772,16 @@ LogicalResult ONNXSplitOpShapeHelperCommon(ShapeHelper *shapeHelper,
 }
 
 ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp)
-    : ONNXOpShapeHelper<ONNXSplitOp>(newOp) {}
+    : ONNXOpShapeHelper<ONNXSplitOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
 
 ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(ONNXSplitOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSplitOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXOpShapeHelper<ONNXSplitOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
 
 LogicalResult ONNXSplitOpShapeHelper::Compute(
     ONNXSplitOpAdaptor operandAdaptor) {
@@ -783,14 +804,16 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
 }
 
 ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp)
-    : ONNXOpShapeHelper<ONNXSplitV11Op>(newOp) {}
+    : ONNXOpShapeHelper<ONNXSplitV11Op>(
+          newOp, newOp->getOperation()->getNumResults()) {}
 
 ONNXSplitV11OpShapeHelper::ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSplitV11Op>(
-          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXOpShapeHelper<ONNXSplitV11Op>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
 
 LogicalResult ONNXSplitV11OpShapeHelper::Compute(
     ONNXSplitV11OpAdaptor operandAdaptor) {
@@ -811,14 +834,17 @@ LogicalResult ONNXSplitV11OpShapeHelper::Compute(
 //===----------------------------------------------------------------------===//
 
 ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(ONNXGatherOp *newOp)
-    : ONNXOpShapeHelper<ONNXGatherOp>(newOp), dataDims(), indicesDims(),
-      positiveConstantIndices(false) {}
+    : ONNXOpShapeHelper<ONNXGatherOp>(
+          newOp, newOp->getOperation()->getNumResults()),
+      dataDims(), indicesDims(), positiveConstantIndices(false) {}
 
 ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(ONNXGatherOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXGatherOp>(newOp, rewriter, fGetDenseVal, fLoadVal),
+    : ONNXOpShapeHelper<ONNXGatherOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal),
       dataDims(), indicesDims(), positiveConstantIndices(false) {}
 
 LogicalResult ONNXGatherOpShapeHelper::Compute(
@@ -881,14 +907,16 @@ LogicalResult ONNXGatherOpShapeHelper::Compute(
 //===----------------------------------------------------------------------===//
 
 ONNXConcatOpShapeHelper::ONNXConcatOpShapeHelper(ONNXConcatOp *newOp)
-    : ONNXOpShapeHelper<ONNXConcatOp>(newOp) {}
+    : ONNXOpShapeHelper<ONNXConcatOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
 
 ONNXConcatOpShapeHelper::ONNXConcatOpShapeHelper(ONNXConcatOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXConcatOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {
-}
+    : ONNXOpShapeHelper<ONNXConcatOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
 
 LogicalResult ONNXConcatOpShapeHelper::Compute(
     ONNXConcatOpAdaptor operandAdaptor) {
@@ -934,14 +962,16 @@ LogicalResult ONNXConcatOpShapeHelper::Compute(
 //===----------------------------------------------------------------------===//
 
 ONNXTransposeOpShapeHelper::ONNXTransposeOpShapeHelper(ONNXTransposeOp *newOp)
-    : ONNXOpShapeHelper<ONNXTransposeOp>(newOp) {}
+    : ONNXOpShapeHelper<ONNXTransposeOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
 
 ONNXTransposeOpShapeHelper::ONNXTransposeOpShapeHelper(ONNXTransposeOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXTransposeOp>(
-          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXOpShapeHelper<ONNXTransposeOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
 
 LogicalResult ONNXTransposeOpShapeHelper::Compute(
     ONNXTransposeOpAdaptor operandAdaptor) {
@@ -981,13 +1011,16 @@ LogicalResult ONNXTransposeOpShapeHelper::Compute(
 // ONNX LRN Op Shape Helper
 //===----------------------------------------------------------------------===//
 ONNXLRNOpShapeHelper::ONNXLRNOpShapeHelper(ONNXLRNOp *newOp)
-    : ONNXOpShapeHelper<ONNXLRNOp>(newOp) {}
+    : ONNXOpShapeHelper<ONNXLRNOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
 
 ONNXLRNOpShapeHelper::ONNXLRNOpShapeHelper(ONNXLRNOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXLRNOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXOpShapeHelper<ONNXLRNOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
 
 LogicalResult ONNXLRNOpShapeHelper::Compute(ONNXLRNOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
@@ -1013,8 +1046,8 @@ LogicalResult ONNXLRNOpShapeHelper::Compute(ONNXLRNOpAdaptor operandAdaptor) {
 template <typename OP_TYPE, typename OP_ADAPTOR>
 ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::ONNXGenericPoolShapeHelper(
     OP_TYPE *newOp, bool hasFilter, bool ceilMode)
-    : ONNXOpShapeHelper<OP_TYPE>(newOp), hasFilter(hasFilter),
-      ceilMode(ceilMode) {}
+    : ONNXOpShapeHelper<OP_TYPE>(newOp, newOp->getOperation()->getNumResults()),
+      hasFilter(hasFilter), ceilMode(ceilMode) {}
 
 template <typename OP_TYPE, typename OP_ADAPTOR>
 ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::ONNXGenericPoolShapeHelper(
@@ -1022,7 +1055,8 @@ ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::ONNXGenericPoolShapeHelper(
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<OP_TYPE>(newOp, rewriter, fGetDenseVal, fLoadVal),
+    : ONNXOpShapeHelper<OP_TYPE>(newOp, newOp->getOperation()->getNumResults(),
+          rewriter, fGetDenseVal, fLoadVal),
       hasFilter(hasFilter), ceilMode(ceilMode) {}
 
 template <typename OP_TYPE, typename OP_ADAPTOR>
@@ -1243,14 +1277,16 @@ LogicalResult ONNXAveragePoolOpShapeHelper::Compute(
 //===----------------------------------------------------------------------===//
 
 ONNXReshapeOpShapeHelper::ONNXReshapeOpShapeHelper(ONNXReshapeOp *newOp)
-    : ONNXOpShapeHelper<ONNXReshapeOp>(newOp) {}
+    : ONNXOpShapeHelper<ONNXReshapeOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
 
 ONNXReshapeOpShapeHelper::ONNXReshapeOpShapeHelper(ONNXReshapeOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXReshapeOp>(
-          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXOpShapeHelper<ONNXReshapeOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
 
 LogicalResult ONNXReshapeOpShapeHelper::Compute(
     ONNXReshapeOpAdaptor operandAdaptor) {
@@ -1358,14 +1394,16 @@ LogicalResult ONNXSqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
 }
 
 ONNXSqueezeOpShapeHelper::ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp)
-    : ONNXOpShapeHelper<ONNXSqueezeOp>(newOp) {}
+    : ONNXOpShapeHelper<ONNXSqueezeOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
 
 ONNXSqueezeOpShapeHelper::ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSqueezeOp>(
-          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXOpShapeHelper<ONNXSqueezeOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
 
 LogicalResult ONNXSqueezeOpShapeHelper::Compute(
     ONNXSqueezeOpAdaptor operandAdaptor) {
@@ -1385,14 +1423,16 @@ LogicalResult ONNXSqueezeOpShapeHelper::Compute(
 
 ONNXSqueezeV11OpShapeHelper::ONNXSqueezeV11OpShapeHelper(
     ONNXSqueezeV11Op *newOp)
-    : ONNXOpShapeHelper<ONNXSqueezeV11Op>(newOp) {}
+    : ONNXOpShapeHelper<ONNXSqueezeV11Op>(
+          newOp, newOp->getOperation()->getNumResults()) {}
 
 ONNXSqueezeV11OpShapeHelper::ONNXSqueezeV11OpShapeHelper(
     ONNXSqueezeV11Op *newOp, ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXSqueezeV11Op>(
-          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXOpShapeHelper<ONNXSqueezeV11Op>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
 
 LogicalResult ONNXSqueezeV11OpShapeHelper::Compute(
     ONNXSqueezeV11OpAdaptor operandAdaptor) {
@@ -1450,14 +1490,16 @@ LogicalResult ONNXUnsqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
 }
 
 ONNXUnsqueezeOpShapeHelper::ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp)
-    : ONNXOpShapeHelper<ONNXUnsqueezeOp>(newOp) {}
+    : ONNXOpShapeHelper<ONNXUnsqueezeOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
 
 ONNXUnsqueezeOpShapeHelper::ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXUnsqueezeOp>(
-          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXOpShapeHelper<ONNXUnsqueezeOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
 
 LogicalResult ONNXUnsqueezeOpShapeHelper::Compute(
     ONNXUnsqueezeOpAdaptor operandAdaptor) {
@@ -1477,14 +1519,16 @@ LogicalResult ONNXUnsqueezeOpShapeHelper::Compute(
 
 ONNXUnsqueezeV11OpShapeHelper::ONNXUnsqueezeV11OpShapeHelper(
     ONNXUnsqueezeV11Op *newOp)
-    : ONNXOpShapeHelper<ONNXUnsqueezeV11Op>(newOp) {}
+    : ONNXOpShapeHelper<ONNXUnsqueezeV11Op>(
+          newOp, newOp->getOperation()->getNumResults()) {}
 
 ONNXUnsqueezeV11OpShapeHelper::ONNXUnsqueezeV11OpShapeHelper(
     ONNXUnsqueezeV11Op *newOp, ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXUnsqueezeV11Op>(
-          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXOpShapeHelper<ONNXUnsqueezeV11Op>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
 
 LogicalResult ONNXUnsqueezeV11OpShapeHelper::Compute(
     ONNXUnsqueezeV11OpAdaptor operandAdaptor) {
@@ -1503,13 +1547,16 @@ LogicalResult ONNXUnsqueezeV11OpShapeHelper::Compute(
 //===----------------------------------------------------------------------===//
 
 ONNXShapeOpShapeHelper::ONNXShapeOpShapeHelper(ONNXShapeOp *newOp)
-    : ONNXOpShapeHelper<ONNXShapeOp>(newOp) {}
+    : ONNXOpShapeHelper<ONNXShapeOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
 
 ONNXShapeOpShapeHelper::ONNXShapeOpShapeHelper(ONNXShapeOp *newOp,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXShapeOp>(newOp, rewriter, fGetDenseVal, fLoadVal) {}
+    : ONNXOpShapeHelper<ONNXShapeOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
 
 LogicalResult ONNXShapeOpShapeHelper::Compute(
     ONNXShapeOpAdaptor operandAdaptor) {
