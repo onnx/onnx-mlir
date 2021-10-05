@@ -89,7 +89,9 @@ struct ONNXOpBroadcastedShapeHelper {
   // Used in shape inference and memory allocation for the output.
   // Parameters:
   //   - operands: a list of input tensors.
-  LogicalResult Compute(ArrayRef<Value> operands);
+  //   - additional operand: one additional input that comes from as a vector
+  //     of IndexExpr (used for example for ONNXExtendOp)
+  LogicalResult Compute(ArrayRef<Value> operands, DimsExpr &additionalOperand);
 
   // Compute access indices to load/store value from/to a given 'operand'.
   // Used in a loop to access the operand.
@@ -374,4 +376,17 @@ struct ONNXUnsqueezeV11OpShapeHelper
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
   LogicalResult Compute(ONNXUnsqueezeV11OpAdaptor operandAdaptor);
+};
+
+// Shape for ONNXShapeOp.
+struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<ONNXShapeOp> {
+  ONNXShapeOpShapeHelper(ONNXShapeOp *newOp);
+  ONNXShapeOpShapeHelper(ONNXShapeOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXShapeOpAdaptor operandAdaptor);
+
+  DimsExpr selectedData;
 };

@@ -70,40 +70,8 @@ def print_usage():
 
 import numpy as np
 
-def init_array1(shape, val):
-    a = np.zeros(shape)
-    for i0 in range(shape[0]):
-        val = val + 1.0
-        a[i0] = val
-    return a
-
-def init_array2(shape, val):
-    a = np.zeros(shape)
-    for i0 in range(shape[0]):
-        for i1 in range(shape[1]):
-            val = val + 1.0
-            a[i0, i1] = val
-    return a
-
-def init_array3(shape, val):
-    a = np.zeros(shape)
-    for i0 in range(shape[0]):
-        for i1 in range(shape[1]):
-            for i2 in range(shape[2]):
-                val = val + 1.0
-                a[i0, i1, i2] = val
-    return a
-
-def init_array4(shape, val):
-    a = np.zeros(shape)
-    for i0 in range(shape[0]):
-        for i1 in range(shape[1]):
-            for i2 in range(shape[2]):
-                for i3 in range(shape[3]):
-                    val = val + 1.0
-                    a[i0, i1, i2, i3] = val
-    return a
-
+def init_array(shape, start):
+    return np.reshape(np.arange(start, start + np.prod(shape), dtype=np.float32), shape)
 
 ################################################################################
 # Support.
