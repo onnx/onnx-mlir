@@ -12,31 +12,54 @@ from collections import OrderedDict
 
 # Command arguments.
 parser = argparse.ArgumentParser()
-parser.add_argument('model_path', type=str, help="Path to the ONNX model.")
+parser.add_argument('model_path', type=str, help="Path to the ONNX model")
+lib_group = parser.add_mutually_exclusive_group()
 parser.add_argument('--print_input',
                     action='store_true',
                     help="Print out inputs")
 parser.add_argument('--print_output',
                     action='store_true',
-                    help="Print out outputs")
+                    help="Print out inference outputs produced by onnx-mlir")
+lib_group.add_argument('--save_so',
+                       metavar='PATH',
+                       type=str,
+                       help="File path to save the generated shared library of"
+                       " the model")
+lib_group.add_argument('--load_so',
+                       metavar='PATH',
+                       type=str,
+                       help="File path to load a generated shared library for "
+                       "inference, and the ONNX model will not be re-compiled")
+parser.add_argument('--save_data',
+                    metavar='PATH',
+                    type=str,
+                    help="Path to a folder to save the inputs and outputs"
+                    " in protobuf")
+data_group = parser.add_mutually_exclusive_group()
+data_group.add_argument(
+    '--data_folder',
+    type=str,
+    help="Path to a folder containing inputs and outputs stored in protobuf."
+    " If --verify=ref, inputs and outputs are reference data for verification")
+data_group.add_argument(
+    '--shape_info',
+    type=str,
+    help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
+    "Used to generate random inputs for the model if --data_folder is not set")
 parser.add_argument('--compile_args',
                     type=str,
                     default="",
                     help="Arguments passed directly to onnx-mlir command."
                     " See bin/onnx-mlir --help")
-parser.add_argument(
-    '--shape_info',
-    type=str,
-    help="Shape for each dynamic input, e.g. 0:1x10x20,1:7x5x3")
 parser.add_argument('--verify',
                     choices=['onnxruntime', 'ref'],
                     help="Verify the output by using onnxruntime or reference"
                     " inputs/outputs. By default, no verification")
 parser.add_argument(
-    '--ref_folder',
-    type=str,
-    help="Path to the folder containing reference inputs and outputs stored"
-    " in protobuf. Used when --verify=ref")
+    '--compile_using_input_shape',
+    action='store_true',
+    help="Compile the model by using the shape info getting from"
+    " the inputs in data folder. Must set --data_folder")
 parser.add_argument('--rtol',
                     type=str,
                     default="0.05",
@@ -102,8 +125,8 @@ def extend_model_output(model, intermediate_outputs):
     return model
 
 
-def read_input_from_refs(model, ref_folder):
-    print("Reading inputs from {} ...".format(ref_folder))
+def read_input_from_refs(model, data_folder):
+    print("Reading inputs from {} ...".format(data_folder))
     i = 0
     inputs = []
     input_names = []
@@ -111,25 +134,33 @@ def read_input_from_refs(model, ref_folder):
     for input_proto in model.graph.input:
         if input_proto.name not in initializers:
             input_names.append(input_proto.name)
-            input_file = ref_folder + '/input_{}.pb'.format(i)
+            input_file = data_folder + '/input_{}.pb'.format(i)
             input_ts = onnx.TensorProto()
             with open(input_file, 'rb') as f:
                 input_ts.ParseFromString(f.read())
-            inputs += [numpy_helper.to_array(input_ts)]
+            input_np = numpy_helper.to_array(input_ts)
+            print("  - {} input: [{}x{}]".format(
+                ordinal(i + 1), 'x'.join([str(i) for i in input_np.shape]),
+                input_np.dtype))
+            inputs += [input_np]
             i += 1
     print("  done.\n")
     return (inputs, input_names)
 
 
-def read_output_from_refs(model, ref_folder):
-    print("Reading reference outputs from {} ...".format(ref_folder))
+def read_output_from_refs(model, data_folder):
+    print("Reading reference outputs from {} ...".format(data_folder))
     reference_output = []
     for i, _ in enumerate(model.graph.output):
-        output_file = ref_folder + '/output_{}.pb'.format(i)
+        output_file = data_folder + '/output_{}.pb'.format(i)
         output_ts = onnx.TensorProto()
         with open(output_file, 'rb') as f:
             output_ts.ParseFromString(f.read())
-        reference_output += [numpy_helper.to_array(output_ts)]
+        output_np = numpy_helper.to_array(output_ts)
+        print("  - {} output: [{}x{}]".format(
+            ordinal(i + 1), 'x'.join([str(i) for i in output_np.shape]),
+            output_np.dtype))
+        reference_output += [output_np]
     print("  done.\n")
     return reference_output
 
@@ -165,10 +196,16 @@ def generate_random_input(model, input_shapes):
                       "is unknown. Use --shape_info to set.")
                 print(shape_proto)
                 exit()
-        inputs.append(
-            np.random.uniform(-1.0, 1.0, explicit_shape).astype(np.float32))
+        rinput = np.random.uniform(-1.0, 1.0,
+                                   explicit_shape).astype(np.float32)
+        print("  - {} input's shape {}".format(ordinal(i + 1), rinput.shape))
+        inputs.append(rinput)
     print("  done.\n")
     return (inputs, input_names)
+
+
+def warning(msg):
+    print("Warning:", msg)
 
 
 def main():
@@ -200,38 +237,66 @@ def main():
     with tempfile.TemporaryDirectory() as temp_dir:
         print("Temporary directory has been created at {}".format(temp_dir))
 
-        print("Compiling the model ...")
-        # Save modified model & invoke onnx-mlir to compile it.
-        temp_model_path = os.path.join(temp_dir, "model.onnx")
-        onnx.save(model, temp_model_path)
-        command_str = ONNX_MLIR
-        if args.compile_args:
-            command_str += " " + args.compile_args
-        command_str += " " + temp_model_path
-        start = time.perf_counter()
-        execute_commands(command_str)
-        end = time.perf_counter()
-        print("  took ", end - start, " seconds.\n")
-
         # Prepare input data.
         inputs = []
         input_names = []
-        if (args.verify and args.verify.lower() == "ref"):
-            assert args.ref_folder, "No reference folder given"
-            inputs, input_names = read_input_from_refs(model, args.ref_folder)
+        if args.data_folder:
+            assert args.data_folder, "No data folder given"
+            inputs, input_names = read_input_from_refs(model, args.data_folder)
         else:
             inputs, input_names = generate_random_input(model, input_shapes)
         # Print the input if required.
         if (args.print_input):
             for i, inp in enumerate(inputs):
-                print("The {} input {}:{} is: \n {} \n".format(
-                    ordinal(i + 1), input_names[i], list(inp.shape), inp))
+                print("The {} input {}:[{}x{}] is: \n {} \n".format(
+                    ordinal(i + 1), input_names[i],
+                    'x'.join([str(i) for i in inp.shape]), inp.dtype, inp))
+
+        shared_lib_path = ""
+        # If a shared library is given, use it without compiling the ONNX model.
+        # Otherwise, compile the ONNX model.
+        if (args.load_so):
+            shared_lib_path = args.load_so
+        else:
+            print("Compiling the model ...")
+            # Save modified model & invoke onnx-mlir to compile it.
+            temp_model_path = os.path.join(temp_dir, "model.onnx")
+            shared_lib_path = os.path.join(temp_dir, "model.so")
+            onnx.save(model, temp_model_path)
+
+            # Prepare compiler arguments.
+            command_str = ONNX_MLIR
+            if args.compile_args:
+                command_str += " " + args.compile_args
+            if args.compile_using_input_shape:
+                # Use shapes of the reference inputs to compile the model.
+                assert args.data_folder, "No data folder given"
+                assert "shapeInformation" not in command_str, "shape info was set"
+                shape_info = "--shapeInformation="
+                for i in range(len(inputs)):
+                    shape_info += str(i) + ":" + 'x'.join(
+                        [str(d) for d in inputs[i].shape]) + ","
+                shape_info = shape_info[:-1]
+                command_str += " " + shape_info
+                warning("the shapes of the model's inputs will be " \
+                    "changed to the shapes of the inputs in the data folder")
+            command_str += " " + temp_model_path
+
+            start = time.perf_counter()
+            execute_commands(command_str)
+            end = time.perf_counter()
+            print("  took ", end - start, " seconds.\n")
+
+            # Save the generated .so file of the model if required.
+            if (args.save_so):
+                print("Saving the shared library to", args.save_so, "\n")
+                execute_commands('rsync -ar {} {}'.format(
+                    shared_lib_path, args.save_so))
 
         print("Running inference ...")
-        temp_shared_lib_path = os.path.join(temp_dir, "model.so")
         start = time.perf_counter()
         # Use the generated shared library to create an execution session.
-        sess = ExecutionSession(temp_shared_lib_path, "run_main_graph")
+        sess = ExecutionSession(shared_lib_path, "run_main_graph")
         outs = sess.run(inputs)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
@@ -239,8 +304,27 @@ def main():
         # Print the output if required.
         if (args.print_output):
             for i, out in enumerate(outs):
-                print("The {} output {}:{} is: \n {} \n".format(
-                    ordinal(i + 1), output_names[i], list(out.shape), out))
+                print("The {} output {}:[{}x{}] is: \n {} \n".format(
+                    ordinal(i + 1), output_names[i],
+                    'x'.join([str(i) for i in out.shape]), out.dtype, out))
+
+        # Store the input and output if required.
+        if args.save_data:
+            data_folder = args.save_data
+            if not os.path.exists(data_folder):
+                os.mkdir(data_folder)
+            for i in range(len(inputs)):
+                tensor = numpy_helper.from_array(inputs[i])
+                tensor_path = os.path.join(data_folder,
+                                           'input_{}.pb'.format(i))
+                with open(tensor_path, 'wb') as f:
+                    f.write(tensor.SerializeToString())
+            for i in range(len(outs)):
+                tensor = numpy_helper.from_array(outs[i])
+                tensor_path = os.path.join(data_folder,
+                                           'output_{}.pb'.format(i))
+                with open(tensor_path, 'wb') as f:
+                    f.write(tensor.SerializeToString())
 
         # Run the model with reference backend and get results.
         if (args.verify):
@@ -257,15 +341,17 @@ def main():
                 end = time.perf_counter()
                 print("  took ", end - start, " seconds.\n")
             elif (args.verify.lower() == "ref"):
-                ref_outs = read_output_from_refs(model, args.ref_folder)
+                ref_outs = read_output_from_refs(model, args.data_folder)
             else:
                 print("Invalid verify option")
                 exit()
 
             # For each output tensor, compare results.
             for i, name in enumerate(output_names):
-                print("Verifying value of {}:{}".format(name, list(outs[i].shape)),
-                      "using atol={}, rtol={} ...".format(args.atol, args.rtol))
+                print(
+                    "Verifying value of {}:{}".format(name,
+                                                      list(outs[i].shape)),
+                    "using atol={}, rtol={} ...".format(args.atol, args.rtol))
                 total_elements = 0
                 mismatched_elements = 0
                 for index, actual_val in np.ndenumerate(outs[i]):
@@ -280,8 +366,7 @@ def main():
                           "mismatch {} (actual)".format(actual_val),
                           "vs {} (reference)".format(ref_val))
                 if mismatched_elements == 0:
-                    print("  correct.\n".format(
-                        args.atol, args.rtol))
+                    print("  correct.\n".format(args.atol, args.rtol))
                 else:
                     print("  mismatched elements {}/{}.\n".format(
                         mismatched_elements, total_elements))

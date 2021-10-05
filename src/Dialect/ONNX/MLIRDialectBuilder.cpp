@@ -65,6 +65,12 @@ Value MathBuilder::slt(Value lhs, Value rhs) {
     return b.create<CmpIOp>(loc, CmpIPredicate::slt, lhs, rhs);
   return b.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
 }
+Value MathBuilder::eq(Value lhs, Value rhs) {
+  if (lhs.getType().isa<IndexType, IntegerType>() ||
+      lhs.getType().isa<IndexType>())
+    return b.create<CmpIOp>(loc, CmpIPredicate::eq, lhs, rhs);
+  return b.create<CmpFOp>(loc, CmpFPredicate::OEQ, lhs, rhs);
+}
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) {
   return b.create<SelectOp>(loc, cmp, lhs, rhs);
 }

@@ -221,3 +221,40 @@ func @test_logsoftmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   // CHECK: [[RES:%.+]] = "onnx.Log"([[SOFTMAX]]) : (tensor<*xf32>) -> tensor<*xf32>
   // CHECK: return [[RES]] : tensor<*xf32>
 }
+
+// -----
+
+func @test_upsample(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> tensor<1x1x4x6xf32> {
+  %0 = "onnx.Upsample"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<1x1x4x6xf32>
+  return %0 : tensor<1x1x4x6xf32>
+  // CHECK-LABEL: test_upsample
+  // CHECK: [[NONE_0:%.+]] = constant unit
+  // CHECK: [[NONE_1:%.+]] = constant unit
+  // CHECK: [[RES:%.+]] = "onnx.Resize"(%arg0, [[NONE_0]], %arg1, [[NONE_1]]) {mode = "nearest"} : (tensor<1x1x2x2xf32>, none, tensor<4xf32>, none) -> tensor<1x1x4x6xf32>
+  // CHECK: return [[RES]] : tensor<1x1x4x6xf32>
+}
+
+// -----
+
+func @test_upsamplev9(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> tensor<1x1x4x6xf32> {
+  %0 = "onnx.UpsampleV9"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<1x1x4x6xf32>
+  return %0 : tensor<1x1x4x6xf32>
+  // CHECK-LABEL: test_upsamplev9
+  // CHECK: [[NONE_0:%.+]] = constant unit
+  // CHECK: [[NONE_1:%.+]] = constant unit
+  // CHECK: [[RES:%.+]] = "onnx.Resize"(%arg0, [[NONE_0]], %arg1, [[NONE_1]]) {mode = "nearest"} : (tensor<1x1x2x2xf32>, none, tensor<4xf32>, none) -> tensor<1x1x4x6xf32>
+  // CHECK: return [[RES]] : tensor<1x1x4x6xf32>
+}
+
+// -----
+
+func @test_upsamplev7(%arg0: tensor<1x1x2x2xf32>) -> tensor<1x1x4x6xf32> {
+  %0 = "onnx.UpsampleV7"(%arg0) {mode = "nearest", scales = [0.1 : f32, 0.2 : f32, 0.3 : f32, 0.4 : f32]} : (tensor<1x1x2x2xf32>) -> tensor<1x1x4x6xf32>
+  return %0 : tensor<1x1x4x6xf32>
+  // CHECK-LABEL: test_upsamplev7
+  // CHECK: [[NONE_0:%.+]] = constant unit
+  // CHECK: [[SCALES:%.+]] = "onnx.Constant"() {value = dense<[1.000000e-01, 2.000000e-01, 3.000000e-01, 4.000000e-01]> : tensor<4xf32>} : () -> tensor<4xf32>
+  // CHECK: [[NONE_1:%.+]] = constant unit
+  // CHECK: [[RES:%.+]] = "onnx.Resize"(%arg0, [[NONE_0]], [[SCALES]], [[NONE_1]]) {mode = "nearest"} : (tensor<1x1x2x2xf32>, none, tensor<4xf32>, none) -> tensor<1x1x4x6xf32>
+  // CHECK: return [[RES]] : tensor<1x1x4x6xf32>
+}
