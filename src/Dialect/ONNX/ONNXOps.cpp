@@ -2281,6 +2281,11 @@ LogicalResult ONNXPadOp::inferShapes(
   return success();
 }
 
+LogicalResult ONNXPadV2Op::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
 //===----------------------------------------------------------------------===//
 // Unsqueeze
 //===----------------------------------------------------------------------===//
