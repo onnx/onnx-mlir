@@ -371,7 +371,7 @@ import_handler_map_["Or"] =
 import_handler_map_["PRelu"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPReluOp>;
 import_handler_map_["Pad"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPadOp>;
+   &onnx_mlir::detail::FrontendGenImpl::ImportNodePad;
 import_handler_map_["PadV2"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPadV2Op>;
 import_handler_map_["Pow"] = 

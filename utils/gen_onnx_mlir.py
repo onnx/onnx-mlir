@@ -255,7 +255,7 @@ special_op_handler = dict([
     ("Dropout", "ImportNodeDropout"),
     ("Cast", "ImportNodeCast"),
     ("MaxPool", "ImportNodeMaxPool"),
-    # ("Pad", "ImportNodePad"),
+    ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
     ("Softmax", "ImportNodeSoftmax"),
     #("Transpose", "ImportNodeTranspose")
@@ -1115,8 +1115,12 @@ def gen_op_importer(schema, file, with_version=False):
         if OpSchema.FormalParameterOption.Variadic == output.option:
             expected_num_results = -1
 
-    handler_func = special_op_handler.get(
-        schema.name, "buildOperation<mlir::ONNX{}Op>".format(opName))
+    # Only support special op handler for the op without version.
+    if with_version:
+        handler_func = "buildOperation<mlir::ONNX{}Op>".format(opName)
+    else:
+        handler_func = special_op_handler.get(
+            schema.name, "buildOperation<mlir::ONNX{}Op>".format(opName))
 
     # Special handlers currently require expected num operands/results to be specified.
     # TODO: remove special handlers.
