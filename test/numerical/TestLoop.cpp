@@ -85,7 +85,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
 
   auto module = mlir::parseSourceString(moduleIR, &ctx);
   OwningModuleRef moduleRef(std::move(module));
-  compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
+  compileModule(moduleRef, ctx, SHARED_LIB_BASE, onnx_mlir::EmitLib);
   onnx_mlir::ExecutionSession sess(
       getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
 

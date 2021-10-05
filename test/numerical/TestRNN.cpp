@@ -134,7 +134,7 @@ bool isOMRNNTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 
   OwningModuleRef moduleRef(module);
 
-  compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
+  compileModule(moduleRef, ctx, SHARED_LIB_BASE, onnx_mlir::EmitLib);
   onnx_mlir::ExecutionSession sess(
       getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
 

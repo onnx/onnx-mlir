@@ -1355,13 +1355,8 @@ private:
 } // namespace onnx_mlir
 namespace onnx_mlir {
 
-void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
+void ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     OwningModuleRef &module, ImportOptions options) {
-  onnx::ModelProto model;
-  std::fstream input(model_fname, std::ios::in | std::ios::binary);
-
-  auto parse_success = model.ParseFromIstream(&input);
-  assert(parse_success && "Onnx Model Parsing Failed.");
   int originVersion = CURRENT_ONNX_OPSET;
   // Get the version of the model
   // Code copied from onnx/onnx/version_coverter/convert.cc
@@ -1386,6 +1381,25 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
       onnx::shape_inference::InferShapes(model);
     ImportFrontendModel(model, context, module, options);
   }
+}
+
+void ImportFrontendModelArray(const void *onnxBuffer, int size,
+    MLIRContext &context, OwningModuleRef &module, ImportOptions options) {
+  onnx::ModelProto model;
+
+  auto parse_success = model.ParseFromArray(onnxBuffer, size);
+  assert(parse_success && "Onnx Model Parsing Failed.");
+  ImportFrontendModelInternal(model, context, module, options);
+}
+
+void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
+    OwningModuleRef &module, ImportOptions options) {
+  onnx::ModelProto model;
+  std::fstream input(model_fname, std::ios::in | std::ios::binary);
+
+  auto parse_success = model.ParseFromIstream(&input);
+  assert(parse_success && "Onnx Model Parsing Failed.");
+  ImportFrontendModelInternal(model, context, module, options);
 }
 
 void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,

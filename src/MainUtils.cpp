@@ -257,6 +257,8 @@ void setExecPath(const char *argv0, void *fmain) {
     kExecPath = p;
 }
 
+void setTargetTriple(const std::string &triple) { mtriple = triple; }
+
 void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {
   // Handle '.mlir' input to the ONNX MLIR frontend.
@@ -539,6 +541,15 @@ void processInputFile(string inputFilename, mlir::MLIRContext &context,
   } else {
     LoadMLIR(inputFilename, context, module);
   }
+}
+
+void processInputArray(const void *onnxBuffer, int bufferSize,
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
+  ImportOptions options;
+  options.useOnnxModelTypes = useOnnxModelTypes;
+  options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
+  options.shapeInformation = shapeInformation;
+  ImportFrontendModelArray(onnxBuffer, bufferSize, context, module, options);
 }
 
 InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
