@@ -41,9 +41,22 @@ def IsNoneType : Constraint<CPred<"(($_self).getType().isa<NoneType>())">>;
 
 def GetNullAttr : NativeCodeCall<"Attribute()">;
 
+def GetNullFloatAttr :
+        NativeCodeCall<"FloatAttr()">;
+
+def GetNullIntegerAttr :
+        NativeCodeCall<"IntegerAttr()">;
+
+def GetNullStringAttr :
+        NativeCodeCall<"StringAttr()">;
+
 // Create a unit constant that will be used as none input.
 def CreateUnitConstant
     : NativeCodeCall<"createUnitConstant($_builder, $_loc)">;
+
+// Create a DenseElementsAttr from a single attribute.
+def createDenseArrayAttrFromSingleAttr
+    : NativeCodeCall<"createDenseArrayAttr($_builder, $_builder.getArrayAttr($0))">;
 
 // Create a DenseElementsAttr from an ArrayAttr.
 def createDenseArrayAttr
@@ -231,5 +244,36 @@ def ScalerPattern2
 // Express LogSoftmax using Log and Softmax.
 def LogSoftmaxPattern
     : Pat<(ONNXLogSoftmaxOp $x, $axis), (ONNXLogOp(ONNXSoftmaxOp $x, $axis))>;
+
+// Express Upsample using Resize.
+def UpsamplePattern : Pat<
+  (ONNXUpsampleOp $x, $scales, $mode),
+  (ONNXResizeOp $x, (CreateUnitConstant), $scales, (CreateUnitConstant),
+     (GetNullStringAttr), (GetNullFloatAttr), (GetNullIntegerAttr),
+     (GetNullFloatAttr), $mode, (GetNullFloatAttr))
+>;
+
+def UpsampleV9Pattern : Pat<
+  (ONNXUpsampleV9Op $x, $scales, $mode),
+  (ONNXResizeOp $x, (CreateUnitConstant), $scales, (CreateUnitConstant),
+     (GetNullStringAttr), (GetNullFloatAttr), (GetNullIntegerAttr),
+     (GetNullFloatAttr), $mode, (GetNullFloatAttr))
+>;
+
+def UpsampleV7Pattern : Pat<
+  (ONNXUpsampleV7Op $x, $mode, $scales),
+  (ONNXResizeOp $x, (CreateUnitConstant),
+     (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scales)),
+     (CreateUnitConstant), (GetNullStringAttr), (GetNullFloatAttr),
+     (GetNullIntegerAttr), (GetNullFloatAttr), $mode, (GetNullFloatAttr))
+>;
+
+// Express PadV2 using the latest Pad version.
+def PadV2Pattern : Pat<
+  (ONNXPadV2Op $x, $modeAttr, $padsAttr, $valueAttr),
+  (ONNXPadOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $padsAttr)),
+     (ONNXConstantOpFromDenseAttr(createDenseArrayAttrFromSingleAttr $valueAttr)),
+     $modeAttr)
+>;
 
 #endif // ONNX_DECOMPOSE

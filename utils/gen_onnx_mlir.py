@@ -156,7 +156,7 @@ version_dict = {'Abs': [13],
  'OneHotEncoder': [1],
  'Or': [7],
  'PRelu': [9],
- 'Pad': [13],
+ 'Pad': [13, 2],
  'Pow': [13],
  'QLinearConv': [10],
  'QLinearMatMul': [10],
@@ -231,7 +231,7 @@ version_dict = {'Abs': [13],
  'Unique': [11],
  #'Unsqueeze': [13],
  'Unsqueeze': [13, 11],
- 'Upsample': [10],
+ 'Upsample': [10, 9, 7],
  'Where': [9],
  'Xor': [7],
  'ZipMap': [1]}
@@ -1115,8 +1115,12 @@ def gen_op_importer(schema, file, with_version=False):
         if OpSchema.FormalParameterOption.Variadic == output.option:
             expected_num_results = -1
 
-    handler_func = special_op_handler.get(
-        schema.name, "buildOperation<mlir::ONNX{}Op>".format(opName))
+    # Only support special op handler for the op without version.
+    if with_version:
+        handler_func = "buildOperation<mlir::ONNX{}Op>".format(opName)
+    else:
+        handler_func = special_op_handler.get(
+            schema.name, "buildOperation<mlir::ONNX{}Op>".format(opName))
 
     # Special handlers currently require expected num operands/results to be specified.
     # TODO: remove special handlers.
