@@ -1027,7 +1027,8 @@ struct ONNXWhereOpLowering : public ConversionPattern {
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(
         &rewriter, loc, /*isUniBroadcasting=*/false);
-    auto shapecomputed = shapeHelper.Compute(operands);
+    DimsExpr empty;
+    auto shapecomputed = shapeHelper.Compute(operands, empty);
     assert(succeeded(shapecomputed));
     // Scope for krnl ops
     IndexExprScope outerScope(rewriter, shapeHelper.scope);
