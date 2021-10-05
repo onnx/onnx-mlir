@@ -4075,7 +4075,19 @@ LogicalResult ONNXUpsampleV7Op::inferShapes(
 
 LogicalResult ONNXWhereOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  for (unsigned int i = 0; i < getNumOperands(); ++i) {
+    if (!getOperand(i).getType().cast<RankedTensorType>())
+      return success();
+  }
+  Type resultElementType =
+      getOperand(1).getType().cast<RankedTensorType>().getElementType();
+  Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
+  for (unsigned int i = 1; i < getNumOperands(); ++i) {
+    Type nextTy = getOperand(i).getType().cast<RankedTensorType>();
+    resultTy = getBroadcastedType(resultTy, nextTy, resultElementType);
+  }
+  getResult().setType(resultTy);
+  return success();
 }
 
 LogicalResult ONNXArrayFeatureExtractorOp::inferShapes(

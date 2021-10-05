@@ -1849,3 +1849,26 @@ func @test_mean(%arg0: tensor<3xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>
 // CHECK:           return [[RES_]] : memref<3xf32>
 // CHECK:         }
 }
+
+// -----
+
+func @where(%arg0: tensor<2x2xi1>, %arg1: tensor<2x2xf32>, %arg2: tensor<2x2xf32>) -> tensor<2x2xf32> {
+  %0 = "onnx.Where"(%arg0, %arg1, %arg2) : (tensor<2x2xi1>, tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<2x2xf32>
+  return %0 : tensor<2x2xf32>
+
+// mlir2FileCheck.py -a'["condition", "x", "y"]'
+// CHECK-LABEL:  builtin.func @where
+// CHECK-SAME:   ([[CONDITION_:%.+]]: memref<2x2xi1>, [[X_:%.+]]: memref<2x2xf32>, [[Y_:%.+]]: memref<2x2xf32>) -> memref<2x2xf32> {
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x2xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2) {
+// CHECK-DAG:         [[LOAD_CONDITION_MEM_:%.+]] = krnl.load [[CONDITION_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<2x2xi1>
+// CHECK-DAG:         [[LOAD_X_MEM_:%.+]] = krnl.load [[X_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<2x2xf32>
+// CHECK-DAG:         [[LOAD_Y_MEM_:%.+]] = krnl.load [[Y_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<2x2xf32>
+// CHECK:             [[VAR_5_:%.+]] = select [[LOAD_CONDITION_MEM_]], [[LOAD_X_MEM_]], [[LOAD_Y_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_5_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<2x2xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<2x2xf32>
+// CHECK:         }
+}
+
