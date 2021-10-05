@@ -2216,3 +2216,21 @@ func @test_resize1(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 // CHECK:           }
 // CHECK:           return [[VAR_0]] : memref<3x12xf32>
 }
+
+
+// -----
+
+func @test_gather_scalar(%arg0: tensor<4xi64>, %arg1: tensor<i64>) -> tensor<i64> {
+    %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<4xi64>, tensor<i64>) -> tensor<i64>
+    return %0 : tensor<i64>
+
+// CHECK-LABEL:  func @test_gather_scalar
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<4xi64>, [[PARAM_1_:%.+]]: memref<i64>) -> memref<i64> {
+// CHECK-DAG:       [[CST_4_:%.+]] = constant 4 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<i64>
+// CHECK-DAG:       [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]][] : memref<i64>
+// CHECK:           [[VAR_2_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
+// CHECK:           [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_2_]]{{.}} : memref<4xi64>
+// CHECK:           krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]][] : memref<i64>
+// CHECK:           return [[RES_]] : memref<i64>
+  }
