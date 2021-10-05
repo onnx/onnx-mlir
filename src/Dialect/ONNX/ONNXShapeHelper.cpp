@@ -132,13 +132,13 @@ LogicalResult ONNXArgMaxOpShapeHelper::Compute(
 
 ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
     Location loc, bool uniBroadcasting, bool noBroadcasting)
-    : scope(nullptr, loc), inputsDim(), outputDims(), outputRank(-1),
+    : scope(nullptr, loc), inputsDims(), outputDims(), outputRank(-1),
       isUniBroadcasting(uniBroadcasting), isNoBroadcasting(noBroadcasting) {}
 
 ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
     ConversionPatternRewriter *rewriter, Location loc, bool uniBroadcasting,
     bool noBroadcasting)
-    : scope(rewriter, loc), inputsDim(), outputDims(), outputRank(-1),
+    : scope(rewriter, loc), inputsDims(), outputDims(), outputRank(-1),
       isUniBroadcasting(uniBroadcasting), isNoBroadcasting(noBroadcasting) {}
 
 LogicalResult ONNXOpBroadcastedShapeHelper::Compute(
