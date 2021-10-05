@@ -3543,6 +3543,45 @@ def ONNXPadOp:ONNX_Op<"Pad",
     }];
 }
 
+def ONNXPadV2Op:ONNX_Op<"PadV2",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Pad operation";
+  let description = [{
+  "Given `data` tensor, pads, mode, and value."
+  "Example:"
+  "  Insert 0 pads to the beginning of the second dimension."
+  "  data = ["
+  "      [1.0, 1.2],"
+  "      [2.3, 3.4],"
+  "      [4.5, 5.7],"
+  "  ]"
+  "  pads = [0, 2, 0, 0]"
+  "  output = ["
+  "      ["
+  "          [0.0, 0.0, 1.0, 1.2],"
+  "          [0.0, 0.0, 2.3, 3.4],"
+  "          [0.0, 0.0, 4.5, 5.7],"
+  "      ],"
+  "  ]"
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$data,
+    DefaultValuedAttr<StrAttr, "constant">:$mode,
+    I64ArrayAttr:$pads,
+    DefaultValuedAttr<F32Attr, "0.0">:$value);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
 def ONNXPowOp:ONNX_Op<"Pow",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Pow operation";

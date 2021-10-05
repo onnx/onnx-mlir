@@ -258,3 +258,15 @@ func @test_upsamplev7(%arg0: tensor<1x1x2x2xf32>) -> tensor<1x1x4x6xf32> {
   // CHECK: [[RES:%.+]] = "onnx.Resize"(%arg0, [[NONE_0]], [[SCALES]], [[NONE_1]]) {mode = "nearest"} : (tensor<1x1x2x2xf32>, none, tensor<4xf32>, none) -> tensor<1x1x4x6xf32>
   // CHECK: return [[RES]] : tensor<1x1x4x6xf32>
 }
+
+// -----
+
+func @test_padv2(%arg0: tensor<1x3x224x224xf32>) -> tensor<*xf32> {
+    %0 = "onnx.PadV2"(%arg0) {mode = "reflect", pads = [0, 0, 4, 4, 0, 0, 4, 4]} : (tensor<1x3x224x224xf32>) -> tensor<*xf32>
+    return %0 : tensor<*xf32>
+    // CHECK-LABEL: test_padv2
+    // CHECK: [[PAD:%.+]] = "onnx.Constant"() {value = dense<[0, 0, 4, 4, 0, 0, 4, 4]> : tensor<8xi64>} : () -> tensor<8xi64>
+    // CHECK: [[CONSTANT_VALUE:%.+]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<1xf32>} : () -> tensor<1xf32>
+    // CHECK: [[RES:%.+]] = "onnx.Pad"(%arg0, [[PAD]], [[CONSTANT_VALUE]]) {mode = "reflect"} : (tensor<1x3x224x224xf32>, tensor<8xi64>, tensor<1xf32>) -> tensor<*xf32>
+    // CHECK: return [[RES]] : tensor<*xf32>
+}
