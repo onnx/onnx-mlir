@@ -873,7 +873,8 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc, isUniBroadcasting);
-    auto shapecomputed = shapeHelper.Compute(operands);
+    DimsExpr empty;
+    auto shapecomputed = shapeHelper.Compute(operands, empty);
     assert(succeeded(shapecomputed));
     // Scope for krnl ops
     IndexExprScope outerScope(rewriter, shapeHelper.scope);
@@ -948,7 +949,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // The following call is used to force no broadcasting check at runtime
     // Even when the dim is unknown at compile time
     // ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc, true, true);
-    LogicalResult shapecomputed = shapeHelper.Compute(operands);
+    DimsExpr empty;
+    LogicalResult shapecomputed = shapeHelper.Compute(operands, empty);
     assert(succeeded(shapecomputed));
     IndexExprScope outerScope(rewriter, shapeHelper.scope);
     KrnlBuilder createKrnl(rewriter, loc);
