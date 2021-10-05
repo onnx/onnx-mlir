@@ -2281,11 +2281,6 @@ LogicalResult ONNXPadOp::inferShapes(
   return success();
 }
 
-LogicalResult ONNXPadV2Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
 //===----------------------------------------------------------------------===//
 // Unsqueeze
 //===----------------------------------------------------------------------===//
@@ -4068,16 +4063,6 @@ LogicalResult ONNXUpsampleOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXUpsampleV9Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXUpsampleV7Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
 LogicalResult ONNXWhereOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
@@ -4178,6 +4163,9 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXGradientOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXMomentumOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXNegativeLogLikelihoodLossOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXSoftmaxCrossEntropyLossOp);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV9Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op);
 
 //===----------------------------------------------------------------------===//
 // Loop
