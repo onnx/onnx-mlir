@@ -111,6 +111,9 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   target.addIllegalOp<ONNXReduceSumSquareOp>();
   target.addIllegalOp<ONNXScalerOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
+  target.addIllegalOp<ONNXUpsampleOp>();
+  target.addIllegalOp<ONNXUpsampleV9Op>();
+  target.addIllegalOp<ONNXUpsampleV7Op>();
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);

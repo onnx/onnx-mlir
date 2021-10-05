@@ -830,6 +830,7 @@ test_to_enable_dict = {
     "test_unsqueeze_unsorted_axes_cpu": {CONSTANT_INPUT:{1}},
 
     # Upsample
+    "test_upsample_nearest_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Where
 
