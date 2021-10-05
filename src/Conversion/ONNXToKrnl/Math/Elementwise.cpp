@@ -797,6 +797,29 @@ Value emitPostProcessingFor<ONNXMeanOp>(ConversionPatternRewriter &rewriter,
   return rewriter.create<DivFOp>(loc, scalarResult, n);
 }
 
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXRoundOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value val = scalarOperands[0];
+  if (elementType.isa<FloatType>()) {
+    Value f049 = emitConstantOp(rewriter, loc, elementType, 0.49);
+    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+    auto isPositive =
+        rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, val, zero);
+    Value valAdd = rewriter.create<AddFOp>(loc, val, f049);
+    Value valSub = rewriter.create<SubFOp>(loc, val, f049);
+    val = rewriter.create<SelectOp>(loc, isPositive, valAdd, valSub);
+    Value valI64 = rewriter.create<FPToSIOp>(loc, rewriter.getI64Type(), val);
+    return rewriter.create<SIToFPOp>(loc, elementType, valI64);
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+}
+
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOp>
@@ -1045,6 +1068,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseBinaryOpLowering<mlir::ONNXPowOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXRoundOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
