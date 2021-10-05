@@ -32,14 +32,27 @@ struct ONNXGatherOpLowering : public ConversionPattern {
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     assert(succeeded(shapecomputed));
-    // Scope for krnl ops
-    IndexExprScope outerScope(rewriter, shapeHelper.scope);
-    KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+
+    // If the output is a scalar, the input will be 1D and indice scalar
+    // There is no loop for this special case
+    if (outputMemRefType.getRank() == 0) {
+      Value indx = rewriter.create<IndexCastOp>(loc, rewriter.getIndexType(),
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.indices()));
+      Value data =
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.data(), indx);
+      rewriter.create<KrnlStoreOp>(loc, data, alloc);
+      rewriter.replaceOp(op, alloc);
+      return success();
+    }
+
+    // Scope for krnl ops
+    IndexExprScope outerScope(rewriter, shapeHelper.scope);
+    KrnlBuilder createKrnl(rewriter, loc);
 
     // Save axis and rank info.
     int64_t axisLit = gatherOp.axis();
