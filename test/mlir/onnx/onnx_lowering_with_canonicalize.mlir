@@ -1803,3 +1803,49 @@ builtin.func @test_nonzero(%arg0: tensor<2x2xi1>) -> tensor<*xi64> attributes {i
 // CHECK:           return [[RES_3_]] : memref<2x?xi64>
 // CHECK:         }
 }
+
+// -----
+
+func @test_mod_fp32(%arg0: tensor<6xf32>, %arg1: tensor<6xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Mod"(%arg0, %arg1) {fmod = 1 : si64} : (tensor<6xf32>, tensor<6xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+// mlir2FileCheck.py -a'["a", "b"]'
+// CHECK-LABEL:  builtin.func @test_mod_fp32
+// CHECK-SAME:   ([[A_:%.+]]: memref<6xf32>, [[B_:%.+]]: memref<6xf32>) -> memref<6xf32> {
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<6xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 6) {
+// CHECK-DAG:         [[LOAD_A_MEM_:%.+]] = krnl.load [[A_]]{{.}}[[I_0_]]{{.}} : memref<6xf32>
+// CHECK-DAG:         [[LOAD_B_MEM_:%.+]] = krnl.load [[B_]]{{.}}[[I_0_]]{{.}} : memref<6xf32>
+// CHECK:             [[VAR_4_:%.+]] = remf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
+// CHECK:             [[VAR_5_:%.+]] = copysign [[VAR_4_]], [[LOAD_A_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_5_]], [[RES_]]{{.}}[[I_0_]]{{.}} : memref<6xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<6xf32>
+// CHECK:         }
+}
+
+// -----
+
+func @test_mean(%arg0: tensor<3xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>) -> tensor<*xf32>  {
+    %0 = "onnx.Mean"(%arg0, %arg1, %arg2) : (tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<*xf32>
+    return %0 : tensor<*xf32>
+// mlir2FileCheck.py -a'["a", "b", "c"]'
+// CHECK-LABEL:  builtin.func @test_mean
+// CHECK-SAME:   ([[A_:%.+]]: memref<3xf32>, [[B_:%.+]]: memref<3xf32>, [[C_:%.+]]: memref<3xf32>) -> memref<3xf32> {
+// CHECK-DAG:       [[CST_3_dot_000000_:%.+]] = constant 3.000000e+00 : f32
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 3) {
+// CHECK-DAG:         [[LOAD_A_MEM_:%.+]] = krnl.load [[A_]]{{.}}[[I_0_]]{{.}} : memref<3xf32>
+// CHECK-DAG:         [[LOAD_B_MEM_:%.+]] = krnl.load [[B_]]{{.}}[[I_0_]]{{.}} : memref<3xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_4_:%.+]] = addf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
+// CHECK-DAG:         [[LOAD_C_MEM_:%.+]] = krnl.load [[C_]]{{.}}[[I_0_]]{{.}} : memref<3xf32>
+// CHECK:             [[VAR_6_:%.+]] = addf [[VAR_4_]], [[LOAD_C_MEM_]] : f32
+// CHECK:             [[VAR_7_:%.+]] = divf [[VAR_6_]], [[CST_3_dot_000000_]] : f32
+// CHECK:             krnl.store [[VAR_7_]], [[RES_]]{{.}}[[I_0_]]{{.}} : memref<3xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<3xf32>
+// CHECK:         }
+}

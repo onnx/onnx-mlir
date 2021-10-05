@@ -3015,6 +3015,7 @@ def ONNXModOp:ONNX_Op<"Mod",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXMulOp:ONNX_Op<"Mul",
