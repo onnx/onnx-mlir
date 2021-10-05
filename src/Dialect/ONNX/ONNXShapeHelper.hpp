@@ -81,6 +81,9 @@ private:
 /// Compute a broadcasted shape from the shapes of given operands. Operands must
 /// be ranked in advance.
 struct ONNXOpBroadcastedShapeHelper {
+  ONNXOpBroadcastedShapeHelper(
+      Location loc, bool uniBroadcasting = false, bool noBroadcasting = false);
+
   ONNXOpBroadcastedShapeHelper(ConversionPatternRewriter *rewriter,
       Location loc, bool uniBroadcasting = false, bool noBroadcasting = false);
 
@@ -110,7 +113,7 @@ struct ONNXOpBroadcastedShapeHelper {
   SmallVector<DimsExpr, 4> inputsDims;
   // A vector of IndexExprs representing the output shape.
   DimsExpr outputDims;
-  int64_t outputRank = -1;
+  int64_t outputRank;
 
 private:
   // If unidirectional broadcasting, the other operands are always

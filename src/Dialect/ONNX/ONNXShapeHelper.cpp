@@ -131,10 +131,15 @@ LogicalResult ONNXArgMaxOpShapeHelper::Compute(
 //===----------------------------------------------------------------------===//
 
 ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
+    Location loc, bool uniBroadcasting, bool noBroadcasting)
+    : scope(nullptr, loc), inputsDim(), outputDims(), outputRank(-1),
+      isUniBroadcasting(uniBroadcasting), isNoBroadcasting(noBroadcasting) {}
+
+ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
     ConversionPatternRewriter *rewriter, Location loc, bool uniBroadcasting,
     bool noBroadcasting)
-    : scope(rewriter, loc), isUniBroadcasting(uniBroadcasting),
-      isNoBroadcasting(noBroadcasting) {}
+    : scope(rewriter, loc), inputsDim(), outputDims(), outputRank(-1),
+      isUniBroadcasting(uniBroadcasting), isNoBroadcasting(noBroadcasting) {}
 
 LogicalResult ONNXOpBroadcastedShapeHelper::Compute(
     ArrayRef<Value> operands, DimsExpr &additionalOperand) {
