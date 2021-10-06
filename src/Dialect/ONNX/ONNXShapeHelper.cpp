@@ -33,9 +33,9 @@ using namespace std;
 
 template <class OP>
 ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp, int numResults)
-    : op(newOp), scope(nullptr, newOp->getLoc()),
-      fGetDenseVal(getDenseElementAttributeFromONNXValue), fLoadVal(nullptr),
-      outputsDims() {
+    : op(newOp), fGetDenseVal(getDenseElementAttributeFromONNXValue),
+      fLoadVal(nullptr), outputsDims() {
+  scope = new IndexExprScope(nullptr, newOp->getLoc());
   setNumberOfOutputs(numResults);
 }
 
@@ -44,8 +44,8 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp, int numResults,
     ConversionPatternRewriter &rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseValInput,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : op(newOp), scope(&rewriter, newOp->getLoc()), fLoadVal(fLoadVal),
-      outputsDims() {
+    : op(newOp), fLoadVal(fLoadVal), outputsDims() {
+  scope = new IndexExprScope(&rewriter, newOp->getLoc());
   setNumberOfOutputs(numResults);
   // Get the dense value by combining provided function (if any) with the
   // default one.
@@ -211,18 +211,13 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(
       // Dimension value can be one of 1, QuestionMark, LiteralNot1.
       IndexExpr currentDimExpr = dimsExpr[j];
       IndexExpr nextDimExpr = inputsDims[i][j];
-      printf("\nhi alex %lld, %lld\n", i, j);
-      currentDimExpr.debugPrint("  curr", true);
-      nextDimExpr.debugPrint("  next", true);
 
       // 1 - QuestionMark
       // 1 - LiteralNot1
       // 1 - 1
       if (currentDimExpr.isLiteralAndIdenticalTo(1)) {
-        if (!isUniBroadcasting && !isNoBroadcasting) {
-          printf("  hi alex: take new\n");
+        if (!isUniBroadcasting && !isNoBroadcasting)
           dimsExpr[j] = nextDimExpr;
-        }
         continue;
       }
 
@@ -243,7 +238,6 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(
       // QuestionMark - LiteralNot1 => set to LiteralNot1 without verifying.
       if (!currentDimExpr.isLiteral() &&
           nextDimExpr.isLiteralAndDifferentThan(1)) {
-        printf("  hi alex: take new\n");
         dimsExpr[j] = nextDimExpr;
         continue;
       }
@@ -252,7 +246,6 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(
       if (!isUniBroadcasting) {
         SmallVector<IndexExpr, 2> exprs({currentDimExpr, nextDimExpr});
         dimsExpr[j] = IndexExpr::max(exprs);
-        printf("  hi alex: use new\n");
       }
     }
   }
@@ -260,10 +253,12 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(
   // Set the final output.
   dimsForOutput(0) = dimsExpr;
 
+/*
   int s = dimsExpr.size();
   printf("hi alex: output of broadcast size is %d\n", s);
   for (int i = 0; i < s; ++i)
     dimsExpr[i].debugPrint("  ", true);
+*/
 
   return success();
 }
@@ -589,7 +584,7 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
   // Save the final result.
   dimsForOutput(0) = outputDims;
 
-  scope.debugPrint("scope from inside gemm compute");
+  scope->debugPrint("scope from inside gemm compute");
   return success();
 }
 
@@ -1640,15 +1635,11 @@ LogicalResult ONNXExpandOpShapeHelper::Compute(
     if (failed(shapeOpShapeHelper.Compute(shapeOpOperandAdaptor)))
       return op->emitError("failed to get shape op shape");
     int s = shapeOpShapeHelper.selectedData.size();
-    printf("hi alex: shape's value has size %d\n", s);
-    for (int i = 0; i < s; ++i)
-      shapeOpShapeHelper.selectedData[i].debugPrint("shape values", true);
 
     // Now that we have the shape's actual computation in
     if (failed(ONNXOpBroadcastedShapeHelper::Compute(
             {input}, shapeOpShapeHelper.selectedData)))
       return op->emitError("failed to broadcast");
-    printf("hi alex 3\n");
 
   } else if (mlir::ONNXConstantOp constantOp =
                  dyn_cast_or_null<mlir::ONNXConstantOp>(shapeDefOp)) {
@@ -1671,9 +1662,11 @@ LogicalResult ONNXExpandOpShapeHelper::Compute(
         ". Supported operations are: onnx.Constant and onnx.Shape");
   }
 
+/*
   int s = dimsForOutput(0).size();
   printf("hi alex: output shape has size %d\n", s);
   for (int i = 0; i < s; ++i)
     dimsForOutput(0)[i].debugPrint("dims for output", true);
+*/
   return success();
 }

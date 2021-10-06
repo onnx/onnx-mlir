@@ -57,23 +57,35 @@ IndexExprScope::IndexExprScope(DialectBuilder &db)
 
 // Nested scopes.
 IndexExprScope::IndexExprScope(
-    OpBuilder *innerRewriter, IndexExprScope &enclosingScope)
-    : dims(), symbols(), rewriter(innerRewriter), loc(enclosingScope.loc),
-      parentScope(&enclosingScope), container() {
+    OpBuilder *innerRewriter, IndexExprScope *enclosingScope)
+    : dims(), symbols(), rewriter(innerRewriter), loc(enclosingScope->loc),
+      parentScope(enclosingScope), container() {
   // Check the enclosing scope is the current one.
-  assert(&enclosingScope == getCurrentScopePtr() &&
+  assert(enclosingScope == getCurrentScopePtr() &&
          "provided parent scope was not the previously active scope");
   // Install new inner scope as current one.
   getCurrentScopePtr() = this;
 }
 
 IndexExprScope::IndexExprScope(
-    OpBuilder &innerRewriter, IndexExprScope &enclosingScope)
+    OpBuilder *innerRewriter, IndexExprScope &enclosingScope)
+    : IndexExprScope(innerRewriter, &enclosingScope) {}
+
+IndexExprScope::IndexExprScope(
+    OpBuilder &innerRewriter, IndexExprScope *enclosingScope)
     : IndexExprScope(&innerRewriter, enclosingScope) {}
 
 IndexExprScope::IndexExprScope(
+    OpBuilder &innerRewriter, IndexExprScope &enclosingScope)
+    : IndexExprScope(&innerRewriter, &enclosingScope) {}
+
+IndexExprScope::IndexExprScope(
     DialectBuilder &innerDb, IndexExprScope &enclosingScope)
-    : IndexExprScope(&innerDb.getBuilder(), enclosingScope) {}
+    : IndexExprScope(&innerDb.getBuilder(), &enclosingScope) {}
+
+IndexExprScope::IndexExprScope(
+    DialectBuilder &innerDb, IndexExprScope *enclosingScope)
+    : IndexExprScope(innerDb, *enclosingScope) {}
 
 IndexExprScope::~IndexExprScope() {
   // Free the memory of each IndexExprImpl in scope's container.

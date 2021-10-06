@@ -50,6 +50,7 @@ struct ONNXOpShapeHelper {
       ConversionPatternRewriter &rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal); // Generic op.
+  ~ONNXOpShapeHelper() { delete scope; }
 
   // Define in every children. Use op to get attributes, and operandAdaptor
   // to get the input/output parameters.
@@ -67,7 +68,7 @@ struct ONNXOpShapeHelper {
   // are initialized in the constructor, and outputsDims is computed by the
   // child's struct `Compute` function.
   OP *op;
-  IndexExprScope scope;
+  IndexExprScope *scope;
 
 protected:
   // Function to get a dense value from an attribute.

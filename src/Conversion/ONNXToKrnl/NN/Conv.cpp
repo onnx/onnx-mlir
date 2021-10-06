@@ -24,7 +24,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
       : ConversionPattern(mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
 
   void convUnoptimized(ConversionPatternRewriter &rewriter,
-      IndexExprScope &topScope, ONNXConvOp &convOp,
+      IndexExprScope *topScope, ONNXConvOp &convOp,
       ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
       MemRefType &memRefType, Value alloc) const {
     auto loc = convOp.getLoc();
