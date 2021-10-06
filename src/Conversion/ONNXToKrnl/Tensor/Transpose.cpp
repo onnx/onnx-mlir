@@ -39,7 +39,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     ONNXTransposeOpShapeHelper shapeHelper(&transposeOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));
 
@@ -53,7 +53,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(inputLoops.getIterateBlock());
     {
       // Get a child IndexExpr context.
-      IndexExprScope childScope(rewriter, shapeHelper.scope);
+      IndexExprScope childScope(&rewriter, shapeHelper.scope);
       KrnlBuilder createKrnl(rewriter, loc);
 
       // Get read/write indices.

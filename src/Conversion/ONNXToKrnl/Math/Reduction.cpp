@@ -428,7 +428,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       Value initVal;
       if (axesDim == -1 &&
           !llvm::dyn_cast<ONNXReduceSumOp>(op).noop_with_empty_axes()) {
-        IndexExprScope axesloopContex(rewriter, loc);
+        IndexExprScope axesloopContex(&rewriter, loc);
         MemRefBoundsIndexCapture axesBounds(axesVal);
         auto zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
         auto cond = rewriter.create<CmpIOp>(

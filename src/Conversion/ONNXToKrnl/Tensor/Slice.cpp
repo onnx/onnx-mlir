@@ -30,7 +30,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     ONNXSliceOpShapeHelper shapeHelper(&sliceOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed));
 
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -45,7 +45,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
-    IndexExprScope childScope(rewriter, shapeHelper.scope);
+    IndexExprScope childScope(&rewriter, shapeHelper.scope);
     // Scope for krnl ops
     KrnlBuilder createKrnl(rewriter, loc);
 

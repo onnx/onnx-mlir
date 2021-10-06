@@ -31,7 +31,7 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
   // Get a shape helper.
   ShapeHelper shapeHelper(&splitOp, &rewriter,
       getDenseElementAttributeFromKrnlValue, loadDenseElementArrayValueAtIndex);
-  auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+  auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
   assert(succeeded(shapecomputed));
 
   // Alloc and dealloc.
@@ -54,7 +54,7 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     // Scope for krnl ops
-    IndexExprScope childScope(rewriter, shapeHelper.scope);
+    IndexExprScope childScope(&rewriter, shapeHelper.scope);
     KrnlBuilder createKrnl(rewriter, loc);
 
     // Indices for the read and write.

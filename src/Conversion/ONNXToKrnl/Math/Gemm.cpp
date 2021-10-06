@@ -297,7 +297,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed));
 
     // Insert an allocation and deallocation for the output of this operation.

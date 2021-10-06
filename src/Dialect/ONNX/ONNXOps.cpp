@@ -46,7 +46,7 @@ LogicalResult shapeHelperInferShapes(OP *op, Value typeOper) {
   SHAPE_HELPER shapeHelper(op);
 
   ADAPTOR operandAdaptor(*op);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return op->emitError("Failed to scan " + OP::getOperationName() +
                          " parameters successfully");
   SmallVector<int64_t, 4> outputDims;
@@ -64,7 +64,7 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
   SHAPE_HELPER shapeHelper(op);
 
   ADAPTOR operandAdaptor(*op);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return op->emitError("Failed to scan " + OP::getOperationName() +
                          " parameters successfully");
   SmallVector<int64_t, 4> outputDims;
@@ -1441,7 +1441,7 @@ LogicalResult ONNXReshapeOp::inferShapes(
 
   ONNXReshapeOpAdaptor operandAdaptor(*this);
   ONNXReshapeOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan Reshape parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
@@ -1461,7 +1461,7 @@ LogicalResult ONNXTransposeOp::inferShapes(
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   ONNXTransposeOpAdaptor operandAdaptor(*this);
   ONNXTransposeOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan Transpose parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
@@ -1803,7 +1803,7 @@ LogicalResult ONNXConvOp::inferShapes(
   // Infer shape for the output.
   ONNXConvOpAdaptor operandAdaptor(*this);
   ONNXConvOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan Conv parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
@@ -2105,7 +2105,7 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
   // Infer shape for the output.
   ONNXAveragePoolOpAdaptor operandAdaptor(*this);
   ONNXAveragePoolOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan AveragePool parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
@@ -2167,7 +2167,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
   // Infer shape for the output.
   ONNXMaxPoolSingleOutOpAdaptor operandAdaptor(*this);
   ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan MaxPool parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
@@ -2358,7 +2358,7 @@ LogicalResult ONNXUnsqueezeOpInferShapesCommon(Op *op,
 
   Adaptor operandAdaptor(*op);
   ShapeHelper shapeHelper(op);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return op->emitError("Failed to scan Unsqueeze parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
@@ -2432,7 +2432,7 @@ LogicalResult ONNXSqueezeOpInferShapesCommon(Op *op,
 
   Adaptor operandAdaptor(*op);
   ShapeHelper shapeHelper(op);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return op->emitError("Failed to scan Squeeze parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
@@ -2622,7 +2622,7 @@ LogicalResult ONNXConcatOp::inferShapes(
 
   ONNXConcatOpAdaptor operandAdaptor(*this);
   ONNXConcatOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan Tile parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
@@ -3009,7 +3009,7 @@ LogicalResult ONNXShapeOp::inferShapes(
   // Output is an 1D int64 tensor containing the shape of the input tensor.
   ONNXShapeOpShapeHelper shapeHelper(this);
   ONNXShapeOpAdaptor operandAdaptor(*this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan Shape parameters successfully");
   getResult().setType(
       RankedTensorType::get({shapeHelper.dimsForOutput(0)[0].getLiteral()},
@@ -3181,7 +3181,7 @@ LogicalResult ONNXSliceOp::inferShapes(
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   ONNXSliceOpAdaptor operandAdaptor(*this);
   ONNXSliceOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan Slice parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
@@ -3205,7 +3205,7 @@ LogicalResult ONNXExpandOp::inferShapes(
   // Shape helper.
   ONNXExpandOpShapeHelper shapeHelper(this);
   ONNXExpandOpAdaptor operandAdaptor(*this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Bad broadcast values between tensors");
 
   SmallVector<int64_t, 4> outputDims;
@@ -3384,7 +3384,7 @@ LogicalResult ONNXArgMaxOp::inferShapes(
 
   ONNXArgMaxOpShapeHelper shapeHelper(this);
   ONNXArgMaxOpAdaptor operandAdaptor(*this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan ArgMax parameters successfully");
 
   SmallVector<int64_t, 4> outputDims;
@@ -3628,7 +3628,7 @@ LogicalResult ONNXLRNOp::inferShapes(
   auto elementType = X().getType().cast<ShapedType>().getElementType();
   ONNXLRNOpAdaptor operandAdaptor(*this);
   ONNXLRNOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan LRN parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);

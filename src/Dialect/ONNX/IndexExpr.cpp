@@ -46,9 +46,6 @@ IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
   getCurrentScopePtr() = this;
 }
 
-IndexExprScope::IndexExprScope(OpBuilder &rewriter, Location loc)
-    : IndexExprScope(&rewriter, loc){};
-
 IndexExprScope::IndexExprScope(ImplicitLocOpBuilder &lb)
     : IndexExprScope(&lb, lb.getLoc()){};
 
@@ -68,24 +65,8 @@ IndexExprScope::IndexExprScope(
 }
 
 IndexExprScope::IndexExprScope(
-    OpBuilder *innerRewriter, IndexExprScope &enclosingScope)
-    : IndexExprScope(innerRewriter, &enclosingScope) {}
-
-IndexExprScope::IndexExprScope(
-    OpBuilder &innerRewriter, IndexExprScope *enclosingScope)
-    : IndexExprScope(&innerRewriter, enclosingScope) {}
-
-IndexExprScope::IndexExprScope(
-    OpBuilder &innerRewriter, IndexExprScope &enclosingScope)
-    : IndexExprScope(&innerRewriter, &enclosingScope) {}
-
-IndexExprScope::IndexExprScope(
-    DialectBuilder &innerDb, IndexExprScope &enclosingScope)
-    : IndexExprScope(&innerDb.getBuilder(), &enclosingScope) {}
-
-IndexExprScope::IndexExprScope(
     DialectBuilder &innerDb, IndexExprScope *enclosingScope)
-    : IndexExprScope(innerDb, *enclosingScope) {}
+    : IndexExprScope(&innerDb.getBuilder(), enclosingScope) {}
 
 IndexExprScope::~IndexExprScope() {
   // Free the memory of each IndexExprImpl in scope's container.

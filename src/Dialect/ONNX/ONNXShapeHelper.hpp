@@ -37,10 +37,10 @@ typedef SmallVector<IndexExpr, 4> DimsExpr;
 
 /// When defining support for a new op, add one such stuct which must
 /// minimally compute the outputDims present in the parent class. Computation
-/// should be performed using a `Compute` function. Return success on successful
-/// computation of all the IndexExpr. During shape inference, object is built
-/// using a null-ptr rewriter; during lowering, the rewriter is nonnull and will
-/// be used to generate code.
+/// should be performed using a `computeShape` function. Return success on
+/// successful computation of all the IndexExpr. During shape inference, object
+/// is built using a null-ptr rewriter; during lowering, the rewriter is nonnull
+/// and will be used to generate code.
 template <class OP>
 struct ONNXOpShapeHelper {
   // Constructor for shape inference.
@@ -54,7 +54,7 @@ struct ONNXOpShapeHelper {
 
   // Define in every children. Use op to get attributes, and operandAdaptor
   // to get the input/output parameters.
-  LogicalResult Compute(ONNXSliceOpAdaptor operandAdaptor) {
+  LogicalResult computeShape(ONNXSliceOpAdaptor operandAdaptor) {
     llvm_unreachable("implement in child structs");
   }
 
@@ -66,7 +66,7 @@ struct ONNXOpShapeHelper {
 
   // Data that must be present for every ShapeHelper operation. Op and scope
   // are initialized in the constructor, and outputsDims is computed by the
-  // child's struct `Compute` function.
+  // child's struct `computeShape` function.
   OP *op;
   IndexExprScope *scope;
 
@@ -92,14 +92,14 @@ struct ONNXOpBroadcastedShapeHelper : public ONNXOpShapeHelper<Operation> {
       ArrayValueIndexCapture::LoadVal fLoadVal, bool uniBroadcasting = false,
       bool noBroadcasting = false);
 
-  // Compute a vector of IndexExprs to represent the output shape. Results are
-  // stored in 'outputDims'.
-  // Used in shape inference and memory allocation for the output.
-  // Parameters:
+  // computeShape a vector of IndexExprs to represent the output shape. Results
+  // are stored in 'outputDims'. Used in shape inference and memory allocation
+  // for the output. Parameters:
   //   - operands: a list of input tensors.
   //   - additional operand: one additional input that comes from as a vector
   //     of IndexExpr (used for example for ONNXExtendOp)
-  LogicalResult Compute(ArrayRef<Value> operands, DimsExpr &additionalOperand);
+  LogicalResult computeShape(
+      ArrayRef<Value> operands, DimsExpr &additionalOperand);
 
   // Compute access indices to load/store value from/to a given 'operand'.
   // Used in a loop to access the operand.
@@ -138,7 +138,7 @@ struct ONNXArgMaxOpShapeHelper : public ONNXOpShapeHelper<ONNXArgMaxOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXArgMaxOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXArgMaxOpAdaptor operandAdaptor);
 };
 
 // Shape for concat
@@ -149,7 +149,7 @@ struct ONNXConcatOpShapeHelper : public ONNXOpShapeHelper<ONNXConcatOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXConcatOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXConcatOpAdaptor operandAdaptor);
 };
 
 // Shape for SliceOp.
@@ -160,7 +160,7 @@ struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXSliceOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXSliceOpAdaptor operandAdaptor);
 
   // Additional data for SliceOp.
   SmallVector<IndexExpr, 4> starts;
@@ -175,7 +175,7 @@ struct ONNXTileOpShapeHelper : public ONNXOpShapeHelper<ONNXTileOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXTileOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXTileOpAdaptor operandAdaptor);
 };
 
 // Shape for GemmOp. Rank of C is known, and its rank can be 0, 1, or 2. Each
@@ -187,7 +187,7 @@ struct ONNXGemmOpShapeHelper : public ONNXOpShapeHelper<ONNXGemmOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXGemmOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXGemmOpAdaptor operandAdaptor);
 
   // Additional data for GemmOp: output = a * b.
   SmallVector<IndexExpr, 4> aDims; // Dim of A, after applying transpose.
@@ -205,7 +205,7 @@ struct ONNXMatMulOpShapeHelper : public ONNXOpShapeHelper<ONNXMatMulOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXMatMulOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXMatMulOpAdaptor operandAdaptor);
 
   // Additional data for MatMulOp: output = a & b.
   SmallVector<IndexExpr, 4> aDims; // Dim of A, after applying padding.
@@ -222,7 +222,7 @@ struct ONNXGatherOpShapeHelper : public ONNXOpShapeHelper<ONNXGatherOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXGatherOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXGatherOpAdaptor operandAdaptor);
 
   SmallVector<IndexExpr, 4> dataDims;    // Dim of data.
   SmallVector<IndexExpr, 4> indicesDims; // Dim of indices.
@@ -237,7 +237,7 @@ struct ONNXSplitOpShapeHelper : public ONNXOpShapeHelper<ONNXSplitOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXSplitOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXSplitOpAdaptor operandAdaptor);
 };
 
 // Shape for SplitV11Op.
@@ -248,7 +248,7 @@ struct ONNXSplitV11OpShapeHelper : public ONNXOpShapeHelper<ONNXSplitV11Op> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXSplitV11OpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXSplitV11OpAdaptor operandAdaptor);
 };
 
 // Shape for TransposeOp.
@@ -259,7 +259,7 @@ struct ONNXTransposeOpShapeHelper : public ONNXOpShapeHelper<ONNXTransposeOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXTransposeOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXTransposeOpAdaptor operandAdaptor);
 };
 
 // Shape for LRN.
@@ -269,7 +269,7 @@ struct ONNXLRNOpShapeHelper : public ONNXOpShapeHelper<ONNXLRNOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXLRNOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXLRNOpAdaptor operandAdaptor);
 };
 
 // Shape for generic pooling/conv ops.
@@ -281,7 +281,7 @@ struct ONNXGenericPoolShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(OP_ADAPTOR operandAdaptor, Value filterValue,
+  LogicalResult computeShape(OP_ADAPTOR operandAdaptor, Value filterValue,
       Optional<ArrayAttr> kernelShapeOpt, Optional<ArrayAttr> padOpt,
       Optional<ArrayAttr> strideOpt, Optional<ArrayAttr> dilationOpt);
 
@@ -301,7 +301,7 @@ struct ONNXConvOpShapeHelper
   ONNXConvOpShapeHelper(ONNXConvOp *newOp, ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-  LogicalResult Compute(ONNXConvOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXConvOpAdaptor operandAdaptor);
 };
 
 // Shape for MaxPoolSingleOut.
@@ -313,7 +313,7 @@ struct ONNXMaxPoolSingleOutOpShapeHelper
       ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-  LogicalResult Compute(ONNXMaxPoolSingleOutOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXMaxPoolSingleOutOpAdaptor operandAdaptor);
 };
 
 // Shape for ONNXAveragePoolOp
@@ -325,7 +325,7 @@ struct ONNXAveragePoolOpShapeHelper
       ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-  LogicalResult Compute(ONNXAveragePoolOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXAveragePoolOpAdaptor operandAdaptor);
 };
 
 // Shape for ReshapeOp.
@@ -336,7 +336,7 @@ struct ONNXReshapeOpShapeHelper : public ONNXOpShapeHelper<ONNXReshapeOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXReshapeOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXReshapeOpAdaptor operandAdaptor);
 };
 
 // Shape for SqueezeOp.
@@ -347,7 +347,7 @@ struct ONNXSqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXSqueezeOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXSqueezeOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXSqueezeOpAdaptor operandAdaptor);
 };
 
 // Shape for SqueezeV11Op.
@@ -359,7 +359,7 @@ struct ONNXSqueezeV11OpShapeHelper
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXSqueezeV11OpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXSqueezeV11OpAdaptor operandAdaptor);
 };
 
 // Shape for UnsqueezeOp.
@@ -370,7 +370,7 @@ struct ONNXUnsqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXUnsqueezeOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXUnsqueezeOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXUnsqueezeOpAdaptor operandAdaptor);
 };
 
 // Shape for UnsqueezeV11Op.
@@ -382,7 +382,7 @@ struct ONNXUnsqueezeV11OpShapeHelper
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXUnsqueezeV11OpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXUnsqueezeV11OpAdaptor operandAdaptor);
 };
 
 // Shape for ONNXShapeOp.
@@ -393,7 +393,7 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<ONNXShapeOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXShapeOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXShapeOpAdaptor operandAdaptor);
 
   DimsExpr selectedData;
 };
@@ -406,5 +406,5 @@ struct ONNXExpandOpShapeHelper : public ONNXOpBroadcastedShapeHelper {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult Compute(ONNXExpandOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXExpandOpAdaptor operandAdaptor);
 };

@@ -31,7 +31,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     ONNXConcatOpShapeHelper shapeHelper(&concatOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));
 

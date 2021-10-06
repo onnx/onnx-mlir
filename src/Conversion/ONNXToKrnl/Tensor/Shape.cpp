@@ -31,7 +31,7 @@ struct ONNXShapeOpLowering : public ConversionPattern {
     ONNXShapeOpShapeHelper shapeHelper(&shapeOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    LogicalResult shapecomputed = shapeHelper.Compute(operandAdaptor);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed));
 
     // TODO: if the dimensions are known at compile time

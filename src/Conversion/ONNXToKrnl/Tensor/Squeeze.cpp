@@ -29,7 +29,7 @@ LogicalResult ONNXSqueezeOpLoweringCommon(Operation *op,
 
   ShapeHelper shapeHelper(&squeezeOp, &rewriter,
       getDenseElementAttributeFromKrnlValue, loadDenseElementArrayValueAtIndex);
-  auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+  auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
   assert(succeeded(shapecomputed));
 
   // Lower to ReinterpretCastOp so that the data is never copied or modified.

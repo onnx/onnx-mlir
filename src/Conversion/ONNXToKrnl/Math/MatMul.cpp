@@ -184,7 +184,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    LogicalResult shapecomputed = shapeHelper.Compute(operandAdaptor);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed));
 
     // Insert an allocation and deallocation for the output of this operation.

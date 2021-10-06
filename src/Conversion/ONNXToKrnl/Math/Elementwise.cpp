@@ -876,10 +876,10 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex, isUniBroadcasting);
     DimsExpr empty;
-    auto shapecomputed = shapeHelper.Compute(operands, empty);
+    auto shapecomputed = shapeHelper.computeShape(operands, empty);
     assert(succeeded(shapecomputed));
     // Scope for krnl ops
-    IndexExprScope outerScope(rewriter, shapeHelper.scope);
+    IndexExprScope outerScope(&rewriter, shapeHelper.scope);
     KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the result of this operation.
@@ -954,9 +954,9 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // Even when the dim is unknown at compile time
     // ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc, true, true);
     DimsExpr empty;
-    LogicalResult shapecomputed = shapeHelper.Compute(operands, empty);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operands, empty);
     assert(succeeded(shapecomputed));
-    IndexExprScope outerScope(rewriter, shapeHelper.scope);
+    IndexExprScope outerScope(&rewriter, shapeHelper.scope);
     KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the result of this operation.
