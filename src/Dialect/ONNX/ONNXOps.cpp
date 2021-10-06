@@ -3837,6 +3837,16 @@ LogicalResult ONNXRangeOp::inferShapes(
   return success();
 }
 
+LogicalResult ONNXReverseSequenceOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!input().getType().isa<RankedTensorType>())
+    return success();
+
+  // Propagate the type of input to output
+  getResult().setType(input().getType());
+  return success();
+}
+
 LogicalResult ONNXReduceL1Op::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
@@ -3858,11 +3868,6 @@ LogicalResult ONNXReduceLogSumExpOp::inferShapes(
 }
 
 LogicalResult ONNXReduceSumSquareOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXReverseSequenceOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
