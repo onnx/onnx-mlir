@@ -1249,25 +1249,25 @@ func private @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   // CHECK: return [[RES]] : memref<?x10xi32>
 }
 
-func private @test_pad1(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {
-  %0 = "onnx.Constant"() {value = dense<[0, 3, 2, 1]> : tensor<4xi64> } : () -> tensor<4xi64>
-  %1 = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<1xf32> } : () -> tensor<1xf32>
-  %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<16x16xf32>, tensor<4xi64>, tensor<1xf32>) -> tensor<18x20xf32>
-  return %2 : tensor<18x20xf32>
-  // CHECK-LABEL: test_pad1
-  // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<18x20xf32>
-  // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
-  // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 18, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 20) {
-  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: krnl.store [[CST]], [[RES]][%arg1, %arg2] : memref<18x20xf32>
-  // CHECK: }
-  // CHECK: [[DEF_LOOPS2:%.+]]:2 = krnl.define_loops 2
-  // CHECK: krnl.iterate([[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 16, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 16) {
-  // CHECK: [[ADD:%.+]] = affine.apply #{{.*}}(%arg2)
-  // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<16x16xf32>
-  // CHECK: krnl.store [[LOAD]], [[RES]][%arg1, [[ADD]]] : memref<18x20xf32>
-  // CHECK: }
-}
+// COM: func private @test_pad1(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {
+// COM:   %0 = "onnx.Constant"() {value = dense<[0, 3, 2, 1]> : tensor<4xi64> } : () -> tensor<4xi64>
+// COM:   %1 = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<1xf32> } : () -> tensor<1xf32>
+// COM:   %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<16x16xf32>, tensor<4xi64>, tensor<1xf32>) -> tensor<18x20xf32>
+// COM:   return %2 : tensor<18x20xf32>
+// COM:   // CHECK-LABEL: test_pad1
+// COM:   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<18x20xf32>
+// COM:   // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
+// COM:   // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 18, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 20) {
+// COM:   // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
+// COM:   // CHECK: krnl.store [[CST]], [[RES]][%arg1, %arg2] : memref<18x20xf32>
+// COM:   // CHECK: }
+// COM:   // CHECK: [[DEF_LOOPS2:%.+]]:2 = krnl.define_loops 2
+// COM:   // CHECK: krnl.iterate([[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 16, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 16) {
+// COM:   // CHECK: [[ADD:%.+]] = affine.apply #{{.*}}(%arg2)
+// COM:   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<16x16xf32>
+// COM:   // CHECK: krnl.store [[LOAD]], [[RES]][%arg1, [[ADD]]] : memref<18x20xf32>
+// COM:   // CHECK: }
+// COM: }
 
 // -----
 
