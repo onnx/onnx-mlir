@@ -75,7 +75,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
 
       // Copy values from the input to the result.
       // Iterate over the input tensor dimensions.
-      SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(rank, zero);
       SmallVector<IndexExpr, 4> ubs;
       dataBounds.getDimList(ubs);
       ValueRange mainLoopDef = createKrnl.defineLoops(rank);
@@ -92,7 +92,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
           });
     } else {
       // 'edge' and 'reflect' modes.
-      SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> lbs(rank, zero);
       SmallVector<IndexExpr, 4> ubs;
       resBounds.getDimList(ubs);
       // Copy values from the input to the result.
