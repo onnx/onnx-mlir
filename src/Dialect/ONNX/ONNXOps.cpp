@@ -3231,7 +3231,6 @@ LogicalResult ONNXExpandOp::inferShapes(
     ArrayRef<int64_t> rhsShapeRef =
         shapeOp.data().getType().cast<RankedTensorType>().getShape();
 
-    // hi alex: Handle cases where start and end are not default.
     rhsShape.assign(rhsShapeRef.begin(), rhsShapeRef.end());
 
   } else if (mlir::ONNXConstantOp constantOp =
