@@ -317,8 +317,6 @@ ONNXSliceOpShapeHelper::ONNXSliceOpShapeHelper(ONNXSliceOp *newOp,
 LogicalResult ONNXSliceOpShapeHelper::computeShape(
     ONNXSliceOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Output dims of results.
   DimsExpr outputDims;
 
@@ -356,11 +354,11 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape(
 
   // SmallVector<uint64_t, 1> index1D(1, 0);
   ArrayValueIndexCapture startsCapture(
-      genericOp, operandAdaptor.starts(), fGetDenseVal, fLoadVal);
+      operandAdaptor.starts(), fGetDenseVal, fLoadVal);
   ArrayValueIndexCapture endsCapture(
-      genericOp, operandAdaptor.ends(), fGetDenseVal, fLoadVal);
+      operandAdaptor.ends(), fGetDenseVal, fLoadVal);
   ArrayValueIndexCapture stepsCapture(
-      genericOp, operandAdaptor.steps(), fGetDenseVal, fLoadVal);
+      operandAdaptor.steps(), fGetDenseVal, fLoadVal);
   MemRefBoundsIndexCapture dataBounds(data);
   for (uint64_t i = 0; i < sliceRank; i++) {
     // i is index in start/step/end/output
@@ -456,8 +454,6 @@ ONNXTileOpShapeHelper::ONNXTileOpShapeHelper(ONNXTileOp *newOp,
 LogicalResult ONNXTileOpShapeHelper::computeShape(
     ONNXTileOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Get info about input data operand.
   Value input = operandAdaptor.input();
   // TOFIX: need to check is_a<ShapedType>?
@@ -468,8 +464,7 @@ LogicalResult ONNXTileOpShapeHelper::computeShape(
   DimsExpr outputDims;
   outputDims.resize(inputRank);
   MemRefBoundsIndexCapture inputBounds(input);
-  ArrayValueIndexCapture repeatsCapture(
-      genericOp, repeats, fGetDenseVal, fLoadVal);
+  ArrayValueIndexCapture repeatsCapture(repeats, fGetDenseVal, fLoadVal);
   for (auto i = 0; i < inputRank; i++) {
     DimIndexExpr dimInput(inputBounds.getDim(i));
     SymbolIndexExpr repeatsValue(repeatsCapture.getSymbol(i));
@@ -795,10 +790,10 @@ LogicalResult ONNXSplitOpShapeHelper::computeShape(
   auto split = op->split();
 
   SmallVector<IndexExpr, 4> indexExprArray;
+  // TODO: getONNXConstantOp might be a problem during code gen as ONNX constant
+  // get lowered to global constants.
   if (auto splitConstOp = getONNXConstantOp(split)) {
-    Operation *genericOp = reinterpret_cast<Operation *>(op);
-    ArrayValueIndexCapture splitCapture(
-        genericOp, split, fGetDenseVal, fLoadVal);
+    ArrayValueIndexCapture splitCapture(split, fGetDenseVal, fLoadVal);
     auto splitRank =
         splitConstOp.valueAttr().dyn_cast_or_null<DenseElementsAttr>().size();
     splitCapture.getSymbolList(splitRank, indexExprArray);
@@ -1291,8 +1286,6 @@ ONNXReshapeOpShapeHelper::ONNXReshapeOpShapeHelper(ONNXReshapeOp *newOp,
 LogicalResult ONNXReshapeOpShapeHelper::computeShape(
     ONNXReshapeOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Output dims of results.
   DimsExpr outputDims;
 
@@ -1303,7 +1296,7 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape(
 
   // Get info about shape operand.
   Value shape = operandAdaptor.shape();
-  ArrayValueIndexCapture shapeCapture(genericOp, shape, fGetDenseVal, fLoadVal);
+  ArrayValueIndexCapture shapeCapture(shape, fGetDenseVal, fLoadVal);
   int64_t outputRank = shape.getType().cast<ShapedType>().getShape()[0];
   assert(outputRank != -1 && "Shape tensor must have constant shape");
 
@@ -1406,10 +1399,8 @@ LogicalResult ONNXSqueezeOpShapeHelper::computeShape(
   auto axes = op->axes();
   SmallVector<IndexExpr, 4> indexExprArray;
   if (auto axesConstOp = getONNXConstantOp(axes)) {
-    Operation *genericOp = reinterpret_cast<Operation *>(op);
-    ArrayValueIndexCapture axesCapture(genericOp, axes, fGetDenseVal, fLoadVal);
-    auto axesRank = axesConstOp.getType().cast<ShapedType>().getShape()[0];
-    axesCapture.getSymbolList(axesRank, indexExprArray);
+    ArrayValueIndexCapture axesCapture(axes, fGetDenseVal, fLoadVal);
+    axesCapture.getSymbolList(indexExprArray);
   } else if (!axes.getType().template isa<NoneType>()) {
     llvm_unreachable("dynamic axes not yet supported");
   }
@@ -1498,10 +1489,8 @@ LogicalResult ONNXUnsqueezeOpShapeHelper::computeShape(
   auto axes = op->axes();
   SmallVector<IndexExpr, 4> indexExprArray;
   if (auto axesConstOp = getONNXConstantOp(axes)) {
-    Operation *genericOp = reinterpret_cast<Operation *>(op);
-    ArrayValueIndexCapture axesCapture(genericOp, axes, fGetDenseVal, fLoadVal);
-    auto axesRank = axesConstOp.getType().cast<ShapedType>().getShape()[0];
-    axesCapture.getSymbolList(axesRank, indexExprArray);
+    ArrayValueIndexCapture axesCapture(axes, fGetDenseVal, fLoadVal);
+    axesCapture.getSymbolList(indexExprArray);
   } else if (!axes.getType().template isa<NoneType>()) {
     llvm_unreachable("dynamic axes not yet supported");
   }
@@ -1577,7 +1566,6 @@ LogicalResult ONNXShapeOpShapeHelper::computeShape(
     selectedData.emplace_back(dataBounds.getDim(i));
   // Output is the actual number of values (1D)
   dimsForOutput(0).emplace_back(LiteralIndexExpr(selectedData.size()));
-
   return success();
 }
 
@@ -1586,20 +1574,24 @@ LogicalResult ONNXShapeOpShapeHelper::computeShape(
 //===----------------------------------------------------------------------===//
 
 ONNXExpandOpShapeHelper::ONNXExpandOpShapeHelper(ONNXExpandOp *newOp)
-    : ONNXOpBroadcastedShapeHelper(reinterpret_cast<Operation *>(newOp)) {}
+    : ONNXOpBroadcastedShapeHelper(reinterpret_cast<Operation *>(newOp)),
+      expandOp(newOp) {}
 
 ONNXExpandOpShapeHelper::ONNXExpandOpShapeHelper(ONNXExpandOp *newOp,
     OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
     : ONNXOpBroadcastedShapeHelper(reinterpret_cast<Operation *>(newOp),
-          rewriter, fGetDenseVal, fLoadVal) {}
+          rewriter, fGetDenseVal, fLoadVal),
+      expandOp(newOp) {}
 
 LogicalResult ONNXExpandOpShapeHelper::computeShape(
     ONNXExpandOpAdaptor operandAdaptor) {
   // Get info about input operands.
+  printf("hi alex: compute 1\n");
   Value input = operandAdaptor.input();
   Value shape = operandAdaptor.shape();
   Operation *shapeDefOp = shape.getDefiningOp();
+  printf("hi alex: compute 2\n");
 
   if (mlir::ONNXShapeOp shapeOp =
           dyn_cast_or_null<mlir::ONNXShapeOp>(shapeDefOp)) {
@@ -1615,37 +1607,44 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
     // used in either shape inference or lowering to ONNX context. We also pass
     // here the scope of the ExpandOp shape helper so that the computations
     // performed in the ShapeOp shape helper can be used in the context of the
-    // ExtendOp.
+    // ExpandOp.
     ONNXShapeOpShapeHelper shapeOpShapeHelper(
         &shapeOp, scope->getRewriterPtr(), fGetDenseVal, fLoadVal, scope);
     ONNXShapeOpAdaptor shapeOpOperandAdaptor(shapeOp);
+    printf("hi alex: compute 3.1\n");
     if (failed(shapeOpShapeHelper.computeShape(shapeOpOperandAdaptor)))
       return op->emitError("failed to get shape op shape");
     // Now that we have the shape's actual computation in
+    printf("hi alex: compute 3.2\n");
     if (failed(ONNXOpBroadcastedShapeHelper::computeShape(
             {input}, shapeOpShapeHelper.selectedData)))
       return op->emitError("failed to broadcast");
+    printf("hi alex: compute 3.3\n");
 
   } else if (mlir::ONNXConstantOp constantOp =
                  dyn_cast_or_null<mlir::ONNXConstantOp>(shapeDefOp)) {
+    printf("hi alex: compute 4.0\n");
     // Consider a first case where the expand.shape is produced by a shape op.
     RankedTensorType constType = shape.getType().cast<RankedTensorType>();
+    printf("hi alex: compute 4.05\n");
     if (constType.getRank() != 1)
       return op->emitError("Shape tensor must have rank one");
-    int constSize = constType.getShape()[0];
-    ArrayValueIndexCapture arrayCapture(op, shape, fGetDenseVal, fLoadVal);
+    printf("hi alex: compute 4.1\n");
+    ArrayValueIndexCapture arrayCapture(shape, fGetDenseVal, fLoadVal);
     SmallVector<IndexExpr, 4> constVals;
-    arrayCapture.getSymbolList(constSize, constVals);
+    arrayCapture.getSymbolList(constVals);
+    printf("hi alex: compute 4.2\n");
     if (failed(ONNXOpBroadcastedShapeHelper::computeShape({input}, constVals)))
       return op->emitError("failed to broadcast");
+    printf("hi alex: compute 4.3\n");
+
   } else {
     // Expand.shape is neither produced by a shape or constant; error.
+    printf("hi alex: compute 5\n");
     return op->emitError(
         "Shape argument of Expand is the output of an unexpected "
-        "operation: " +
-        shapeDefOp->getName().getStringRef() +
-        ". Supported operations are: onnx.Constant and onnx.Shape");
+        "operation. Supported operations are: onnx.Constant and onnx.Shape");
   }
-
+  printf("hi alex: compute 6\n");
   return success();
 }

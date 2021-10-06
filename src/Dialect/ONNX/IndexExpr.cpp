@@ -155,9 +155,7 @@ OpBuilder &IndexExprScope::getRewriter() const {
   return *rewriter;
 }
 
-OpBuilder *IndexExprScope::getRewriterPtr() const {
-  return rewriter;
-}
+OpBuilder *IndexExprScope::getRewriterPtr() const { return rewriter; }
 
 //===----------------------------------------------------------------------===//
 // IndexExprScope Debug.
@@ -1437,18 +1435,14 @@ SymbolIndexExpr::SymbolIndexExpr(SymbolIndexExpr const &o)
 //===----------------------------------------------------------------------===//
 
 ArrayValueIndexCapture::ArrayValueIndexCapture(
-    Operation *op, Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal)
-    : op(op), array(array), hasDefault(false), fGetDenseArrayAttr(fGetDenseVal),
-      fLoadVallFromArrayAtIndex(fLoadVal) {
-  assert(op && "expected an op");
-}
+    Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal)
+    : array(array), hasDefault(false), fGetDenseArrayAttr(fGetDenseVal),
+      fLoadVallFromArrayAtIndex(fLoadVal) {}
 
-ArrayValueIndexCapture::ArrayValueIndexCapture(Operation *op, Value array,
+ArrayValueIndexCapture::ArrayValueIndexCapture(Value array,
     int64_t defaultLiteral, GetDenseVal fGetDenseVal, LoadVal fLoadVal)
-    : op(op), array(array), defaultLiteral(defaultLiteral), hasDefault(true),
-      fGetDenseArrayAttr(fGetDenseVal), fLoadVallFromArrayAtIndex(fLoadVal) {
-  assert(op && "expected an op");
-}
+    : array(array), defaultLiteral(defaultLiteral), hasDefault(true),
+      fGetDenseArrayAttr(fGetDenseVal), fLoadVallFromArrayAtIndex(fLoadVal) {}
 
 IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
   // Check if we have an operand.
@@ -1457,7 +1451,6 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
     if (hasDefault)
       return LiteralIndexExpr(defaultLiteral);
     // Has no default: error
-    op->emitError("array value has no values");
     return UndefinedIndexExpr();
   }
   // Check if we have an array of literals.
@@ -1469,7 +1462,6 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
       if (hasDefault)
         return LiteralIndexExpr(defaultLiteral);
       // Has no default: error
-      op->emitError("request past array size");
       return UndefinedIndexExpr();
     }
     auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
@@ -1490,12 +1482,31 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
   return SymbolIndexExpr(loadVal);
 }
 
-void ArrayValueIndexCapture::getSymbolList(
+bool ArrayValueIndexCapture::getSymbolList(
     int num, SmallVectorImpl<IndexExpr> &symbolList) {
   // Clear output.
   symbolList.clear();
-  for (int i = 0; i < num; ++i)
-    symbolList.emplace_back(getSymbol(i));
+  for (int i = 0; i < num; ++i) {
+    IndexExpr sym = getSymbol(i);
+    if (sym.isUndefined()) {
+      symbolList.clear();
+      return false;
+    }
+    symbolList.emplace_back(sym);
+  }
+  return true;
+}
+
+bool ArrayValueIndexCapture::getSymbolList(
+    SmallVectorImpl<IndexExpr> &symbolList) {
+  symbolList.clear();
+  auto shapeType = array.getType().dyn_cast_or_null<ShapedType>();
+  if (!shapeType)
+    return false; // Assume error if its not a shape type.
+  assert(shapeType.getRank() == 1 &&
+         "Array value index capture supports 1D arrays");
+  int num = shapeType.getShape()[0];
+  return getSymbolList(num, symbolList);
 }
 
 //===----------------------------------------------------------------------===//

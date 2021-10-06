@@ -723,18 +723,22 @@ public:
 
   // Constructor when there is no default value.
   ArrayValueIndexCapture(
-      Operation *op, Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal);
+      Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal);
   // Constructor in the presence of a default value when none is found.
-  ArrayValueIndexCapture(Operation *op, Value array, int64_t defaultLiteral,
+  ArrayValueIndexCapture(Value array, int64_t defaultLiteral,
       GetDenseVal fGetDenseVal, LoadVal fLoadVal);
 
+  // Return Undefined op when we cannot read the value.
   IndexExpr getSymbol(uint64_t i);
-  void getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
+  // Return true when it could successfully read num symbols; otherwise return
+  // false and an empty list.
+  bool getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
+  // Same as above. Assume array is a 1D shape typed; we use its size as num.
+  bool getSymbolList(SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
   ArrayValueIndexCapture() { llvm_unreachable("forbidden constructor"); };
 
-  Operation *op;
   Value array;
   int64_t defaultLiteral;
   bool hasDefault;

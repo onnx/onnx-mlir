@@ -44,9 +44,9 @@ typedef SmallVector<IndexExpr, 4> DimsExpr;
 ///
 /// By adding here the ability of a ShapeHelper to be created in the
 /// IndexExprScope of another ShapeHelper, this enables us to nest ShapeHelper.
-/// For example, there is a case where ExtendOp needs to find out specific
-/// details of an ShapeOp that provides info to the ExtendOp. We can now invoke
-/// the ShapeOp shape helper in the context of the ExtendOp shape helper while
+/// For example, there is a case where ExpandOp needs to find out specific
+/// details of an ShapeOp that provides info to the ExpandOp. We can now invoke
+/// the ShapeOp shape helper in the context of the ExpandOp shape helper while
 /// having all of the IndexExpr info in the same context and thus be generally
 /// usable. Support is here to provide an IndexExprScope, which can be added to
 /// any subclasses of ONNXOpShapeHelper when this nesting becomes useful to
@@ -116,7 +116,7 @@ struct ONNXOpBroadcastedShapeHelper : public ONNXOpShapeHelper<Operation> {
   // for the output. Parameters:
   //   - operands: a list of input tensors.
   //   - additional operand: one additional input that comes from as a vector
-  //     of IndexExpr (used for example for ONNXExtendOp)
+  //     of IndexExpr (used for example for ONNXExpandOp)
   LogicalResult computeShape(
       ArrayRef<Value> operands, DimsExpr &additionalOperand);
 
@@ -409,4 +409,5 @@ struct ONNXExpandOpShapeHelper : public ONNXOpBroadcastedShapeHelper {
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
   LogicalResult computeShape(ONNXExpandOpAdaptor operandAdaptor);
+  ONNXExpandOp *expandOp;
 };
