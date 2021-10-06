@@ -117,7 +117,7 @@ INLINE void set_log_fp(FILE *fp) { log_fp = fp; }
 #endif
 
 /* Must match enum in log.h */
-static const char *log_level_name[] = {
+static constexpr char *log_level_name[] = {
     "trace", "debug", "info", "warning", "error", "fatal"};
 
 /* On z/OS, pthread_t is a struct that cannot be casted into unsigned long
@@ -202,7 +202,7 @@ static FILE *get_log_file_by_name(char *name) {
   else if (!strcmp(name, "stderr"))
     fp = stderr;
   else {
-    char *tname = malloc(strlen(name) + 32);
+    char *tname = (char *)malloc(strlen(name) + 32);
     if (tname) {
       snprintf(tname, strlen(name) + 32, "%s.%lx", name, get_threadid());
       fp = fopen(tname, "w");

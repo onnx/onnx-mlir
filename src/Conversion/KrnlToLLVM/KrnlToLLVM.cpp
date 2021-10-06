@@ -184,6 +184,7 @@ static FlatSymbolRefAttr getOrInsertMalloc(
   return SymbolRefAttr::get(ctx, "malloc");
 }
 
+__attribute__((unused))
 static FlatSymbolRefAttr getOrInsertDealloc(
     PatternRewriter &rewriter, ModuleOp module) {
   // Insert the dealloc declaration if it is not already present.

@@ -47,6 +47,7 @@ typedef std::map<Block *, AlignmentToMemPool *> BlockToMemPool;
 //===----------------------------------------------------------------------===//
 
 /// Retrieve function which contains the current operation.
+__attribute__((unused))
 FuncOp getContainingFunction(memref::AllocOp op) {
   Operation *parentFuncOp = op->getParentOp();
 
@@ -78,6 +79,7 @@ bool isBlockArgument(memref::AllocOp allocOp, Value operand) {
   return false;
 }
 
+__attribute__((unused))
 KrnlGetRefOp getUnbundledGetRef(memref::AllocOp *memPool) {
   auto parentBlock = memPool->getOperation()->getBlock();
 
@@ -391,9 +393,7 @@ public:
     // If this is the first valid alloc we can bundle in this block, then we
     // need to move it to the top of the block as it will consitute an
     // insertion point for all other bundle-able AllocOps in the block.
-    bool isFirstEverBundledAllocOp =
-        blockToDynamicPool->count(parentBlock) == 0;
-    AlignmentToMemPool *alignmentToMemPool;
+    AlignmentToMemPool *alignmentToMemPool = nullptr;
     if (blockToDynamicPool->count(parentBlock) == 0) {
       allocOp.getOperation()->moveBefore(&parentBlock->front());
 

@@ -84,21 +84,25 @@ T getAttrValue(Attribute attr) {
 }
 
 template <>
+__attribute__((unused)) 
 double getAttrValue(Attribute attr) {
   return attr.cast<FloatAttr>().getValueAsDouble();
 }
 
 template <>
+__attribute__((unused)) 
 float getAttrValue(Attribute attr) {
   return (float)attr.cast<FloatAttr>().getValueAsDouble();
 }
 
 template <>
+__attribute__((unused)) 
 int64_t getAttrValue(Attribute attr) {
   return attr.cast<IntegerAttr>().getInt();
 }
 
 template <>
+__attribute__((unused)) 
 int32_t getAttrValue(Attribute attr) {
   return attr.cast<IntegerAttr>().getInt();
 }
@@ -146,6 +150,7 @@ void getArrayForFinalOutput(Operation *op, char *res) {
 }
 
 /// A helper function to construct a RankedTensorType from a ShapedType.
+__attribute__((unused)) 
 RankedTensorType constructRankedTensorType(ShapedType type) {
   assert(type.hasRank() && "Not a ranked type");
   return RankedTensorType::get(type.getShape(), type.getElementType());

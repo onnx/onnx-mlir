@@ -717,6 +717,7 @@ static IndexExpr partialTrip(IndexExpr UB, IndexExpr block, IndexExpr GI) {
   return UB - GI;
 }
 
+__attribute__((unused))
 static IndexExpr startInBuffer(
     IndexExpr globalStart, IndexExpr tileSize, IndexExpr globalUB) {
   if (tileSize.isLiteral() && globalUB.isLiteral() &&
