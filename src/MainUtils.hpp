@@ -35,6 +35,7 @@ extern llvm::cl::opt<std::string> instrumentONNXOps;
 
 void setExecPath(const char *argv0, void *fmain);
 
+void setTargetCPU(const std::string &cpu);
 void setTargetTriple(const std::string &triple);
 
 void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,

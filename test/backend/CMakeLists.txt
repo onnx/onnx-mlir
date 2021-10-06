@@ -15,6 +15,17 @@ file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test_config.py
   INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
   )
+  
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/test_config_omtest.py.in
+  ${CMAKE_CURRENT_BINARY_DIR}/test_config_omtest.py.cfg
+  @ONLY
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test_config_omtest.py
+  INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config_omtest.py.cfg
+  )
 
 # CMAKE_CFG_INTDIR is . for single-config generators such as make, and
 # it has a value (e.g. $(Configuration)) otherwise, so we can use it to
@@ -83,6 +94,15 @@ add_custom_target(clean-onnx-backend
     ${CMAKE_CURRENT_BINARY_DIR}/*.onnx
     ${CMAKE_CURRENT_BINARY_DIR}/*.so
   )
+  
+add_custom_target(check-omtest-backend
+  COMMAND
+    ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR} ${BACKEND_TEST_COMMAND}
+    ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+  DEPENDS
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config_omtest.py
+   )
 
 add_dependencies(check-onnx-backend onnx-mlir)
 add_dependencies(check-onnx-backend PyRuntime)
@@ -90,3 +110,6 @@ add_dependencies(check-onnx-backend-dynamic onnx-mlir)
 add_dependencies(check-onnx-backend-dynamic PyRuntime)
 add_dependencies(check-onnx-backend-constant onnx-mlir)
 add_dependencies(check-onnx-backend-constant PyRuntime)
+
+add_dependencies(check-omtest-backend omtest)
+add_dependencies(check-omtest-backend PyRuntime)

@@ -257,6 +257,7 @@ void setExecPath(const char *argv0, void *fmain) {
     kExecPath = p;
 }
 
+void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }
 
 void LoadMLIR(string inputFilename, mlir::MLIRContext &context,

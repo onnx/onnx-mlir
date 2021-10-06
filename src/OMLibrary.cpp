@@ -9,12 +9,19 @@ extern "C" {
 namespace onnx_mlir {
 ONNX_MLIR_EXPORT int CompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char *mtriple) {
+    const char *mcpu, const char *mtriple) {
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
+  std::string mcpuString;
+  std::string mtripleString;
+
+  if (mcpu) {
+    mcpuString = std::string(mcpu);
+    setTargetCPU(mcpuString);
+  }
 
   if (mtriple) {
-    std::string mtripleString(mtriple);
+    mtripleString = std::string(mtriple);
     setTargetTriple(mtripleString);
   }
 
@@ -25,12 +32,20 @@ ONNX_MLIR_EXPORT int CompileFromFile(const char *inputFilename,
 
 ONNX_MLIR_EXPORT int CompileFromArray(const void *inputBuffer, int bufferSize,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char *mtriple) {
+    const char *mcpu, const char *mtriple) {
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
 
-  if (mtriple) {
-    std::string mtripleString(mtriple);
+  std::string mcpuString;
+  std::string mtripleString;
+
+  if (mcpu != nullptr) {
+    mcpuString = std::string(mcpu);
+    setTargetCPU(mcpuString);
+  }
+
+  if (mtriple != nullptr) {
+    mtripleString = std::string(mtriple);
     setTargetTriple(mtripleString);
   }
 
