@@ -394,8 +394,7 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<ONNXShapeOp> {
 // Shape for PadOp.
 struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<ONNXPadOp> {
   ONNXPadOpShapeHelper(ONNXPadOp *newOp);
-  ONNXPadOpShapeHelper(ONNXPadOp *newOp,
-      ConversionPatternRewriter &rewriter,
+  ONNXPadOpShapeHelper(ONNXPadOp *newOp, ConversionPatternRewriter &rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
