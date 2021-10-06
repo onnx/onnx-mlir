@@ -346,7 +346,7 @@ public:
   int getNumSymbols() const { return symbols.size(); }
 
   // Debug (enable using DEBUG=1 at top of file).
-  void debugPrint(const std::string &msg) const;
+  void debugPrint(const std::string &msg, const bool forcePrint = false) const;
 
 private:
   IndexExprScope();
@@ -514,7 +514,7 @@ public:
   static IndexExpr max(IndexExpr const first, int64_t const second);
 
   // Debug (enable using DEBUG=1 at top of file).
-  void debugPrint(const std::string &msg) const;
+  void debugPrint(const std::string &msg, const bool forcePrint = false) const;
 
   bool retrieveAffineMinMax(
       bool &isMin, SmallVectorImpl<Value> &vals, AffineMap &map) const;
@@ -722,8 +722,10 @@ public:
       OpBuilder &rewriter, Location loc, Value array, int64_t index)>
       LoadVal;
 
+  // Constructor when there is no default value.
   ArrayValueIndexCapture(
       Operation *op, Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal);
+  // Constructor in the presence of a default value when none is found.
   ArrayValueIndexCapture(Operation *op, Value array, int64_t defaultLiteral,
       GetDenseVal fGetDenseVal, LoadVal fLoadVal);
 

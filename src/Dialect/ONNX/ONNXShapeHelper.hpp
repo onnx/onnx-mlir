@@ -111,7 +111,6 @@ struct ONNXOpBroadcastedShapeHelper : public ONNXOpShapeHelper<Operation> {
       const SmallVectorImpl<IndexExpr> &outputAccessExprs,
       SmallVectorImpl<IndexExpr> &operandAccessExprs);
 
-  // in spuer IndexExprScope scope;
   // A vector of input shapes where dimensions are padded with 1 if necessary,
   // so that all inputs have the same rank.
   SmallVector<DimsExpr, 4> inputsDims;
@@ -396,4 +395,15 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<ONNXShapeOp> {
   LogicalResult Compute(ONNXShapeOpAdaptor operandAdaptor);
 
   DimsExpr selectedData;
+};
+
+// Shape for ONNXExpandOp.
+struct ONNXExpandOpShapeHelper : public ONNXOpBroadcastedShapeHelper {
+  ONNXExpandOpShapeHelper(ONNXExpandOp *newOp);
+  ONNXExpandOpShapeHelper(ONNXExpandOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXExpandOpAdaptor operandAdaptor);
 };

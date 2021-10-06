@@ -167,13 +167,14 @@ OpBuilder &IndexExprScope::getRewriter() const {
 //===----------------------------------------------------------------------===//
 
 // Debug (enable using DEBUG=1 at top of file).
-void IndexExprScope::debugPrint(const std::string &msg) const {
-#if DEBUG
-  printf(
-      "Scope %s 0x%llx: with parent scope 0x%lld and %d dims and %d symbols\n",
-      msg.c_str(), (long long)this, (long long)parentScope, (int)dims.size(),
-      (int)symbols.size());
-#endif
+void IndexExprScope::debugPrint(
+    const std::string &msg, const bool forcePrint) const {
+  if (DEBUG || forcePrint) {
+    printf("Scope %s 0x%llx: with parent scope 0x%lld and %d dims and %d "
+           "symbols\n",
+        msg.c_str(), (long long)this, (long long)parentScope, (int)dims.size(),
+        (int)symbols.size());
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -345,52 +346,56 @@ IndexExprKind IndexExpr::getKind() const { return getObj().getKind(); }
 // IndexExpr Debug.
 //===----------------------------------------------------------------------===//
 
-void IndexExpr::debugPrint(const std::string &msg) const {
-#if DEBUG
-  printf("%s:", msg.c_str());
-  if (isLiteral())
-    printf(" literal(%lli)", getLiteral());
-  if (hasAffineExpr())
-    printf(" hasAffine");
-  if (hasValue()) {
-    printf(" hasValue");
-    auto op = getValue().getDefiningOp();
-    if (op) {
-      std::string str;
-      llvm::raw_string_ostream os(str);
-      op->print(os);
-      printf("( \"%s\" )", str.c_str());
-    } else
-      printf("(op not found)");
+void IndexExpr::debugPrint(
+    const std::string &msg, const bool forcePrint) const {
+  if (DEBUG || forcePrint) {
+    printf("%s:", msg.c_str());
+    if (!isDefined()) {
+      printf(" undefined\n");
+      return;
+    }
+    if (isLiteral())
+      printf(" literal(%lli)", getLiteral());
+    if (hasAffineExpr())
+      printf(" hasAffine");
+    if (hasValue()) {
+      printf(" hasValue");
+      auto op = getValue().getDefiningOp();
+      if (op) {
+        std::string str;
+        llvm::raw_string_ostream os(str);
+        op->print(os);
+        printf("( \"%s\" )", str.c_str());
+      } else
+        printf("(op not found)");
+    }
+    if (isAffine())
+      printf(" is affine");
+    switch (getKind()) {
+    case IndexExprKind::NonAffine:
+      printf(" kind(non-affine)");
+      break;
+    case IndexExprKind::Questionmark:
+      printf(" kind(questionmark)");
+      break;
+    case IndexExprKind::Predicate:
+      printf(" kind(predicate)");
+      break;
+    case IndexExprKind::Affine:
+      printf(" kind(affine)");
+      break;
+    case IndexExprKind::Dim:
+      printf(" kind(dim)");
+      break;
+    case IndexExprKind::Symbol:
+      printf(" kind(symbol)");
+      break;
+    default:
+      printf(" kind(unknown)");
+      break;
+    }
+    printf(" scope(0x%llx)\n", (long long unsigned)getScopePtr());
   }
-  if (isAffine())
-    printf(" is affine");
-  switch (getKind()) {
-  case IndexExprKind::NonAffine:
-    printf(" kind(non-affine)");
-    break;
-  case IndexExprKind::Questionmark:
-    printf(" kind(questionmark)");
-    break;
-  case IndexExprKind::Predicate:
-    printf(" kind(predicate)");
-    break;
-  case IndexExprKind::Affine:
-    printf(" kind(affine)");
-    break;
-  case IndexExprKind::Dim:
-    printf(" kind(dim)");
-    break;
-  case IndexExprKind::Symbol:
-    printf(" kind(symbol)");
-    break;
-  default:
-    printf(" kind(unknown)");
-    break;
-  }
-  printf(" scope(0x%llx)\n", (long long unsigned)getScopePtr());
-
-#endif
 }
 
 //===----------------------------------------------------------------------===//

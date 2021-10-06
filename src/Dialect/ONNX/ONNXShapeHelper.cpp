@@ -132,6 +132,11 @@ LogicalResult ONNXArgMaxOpShapeHelper::Compute(
 // ONNX Op Shape Helper for Broadcasting
 //===----------------------------------------------------------------------===//
 
+// Since Broadcasted ops are generic (due to implementation in Elementwise.cpp
+// templates), we assume below that each of the broadcast ops have exactly one
+// output. If that were not the case, then we would need to pass the number of
+// results as a parameter to both constructors below.
+
 ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
     Operation *newOp, bool uniBroadcasting, bool noBroadcasting)
     : ONNXOpShapeHelper<Operation>(newOp, 1), inputsDims(), outputRank(-1),
@@ -180,9 +185,11 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(
   }
   // Handle the additional operand here.
   if (additionalOperRank > 0) {
-    DimsExpr additionalDims(outputRank - additionalOperRank, one);
+    DimsExpr dims(outputRank - additionalOperRank, one);
     for (int64_t k = 0; k < additionalOperRank; ++k)
-      additionalDims.emplace_back(additionalOperand[k]);
+      dims.emplace_back(additionalOperand[k]);
+    inputsDims.emplace_back(dims);
+    numOfInputs++;
   }
 
   // Initialize the output with the first operand.
@@ -204,13 +211,18 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(
       // Dimension value can be one of 1, QuestionMark, LiteralNot1.
       IndexExpr currentDimExpr = dimsExpr[j];
       IndexExpr nextDimExpr = inputsDims[i][j];
+      printf("\nhi alex %lld, %lld\n", i, j);
+      currentDimExpr.debugPrint("  curr", true);
+      nextDimExpr.debugPrint("  next", true);
 
       // 1 - QuestionMark
       // 1 - LiteralNot1
       // 1 - 1
       if (currentDimExpr.isLiteralAndIdenticalTo(1)) {
-        if (!isUniBroadcasting && !isNoBroadcasting)
+        if (!isUniBroadcasting && !isNoBroadcasting) {
+          printf("  hi alex: take new\n");
           dimsExpr[j] = nextDimExpr;
+        }
         continue;
       }
 
@@ -231,6 +243,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(
       // QuestionMark - LiteralNot1 => set to LiteralNot1 without verifying.
       if (!currentDimExpr.isLiteral() &&
           nextDimExpr.isLiteralAndDifferentThan(1)) {
+        printf("  hi alex: take new\n");
         dimsExpr[j] = nextDimExpr;
         continue;
       }
@@ -239,12 +252,18 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(
       if (!isUniBroadcasting) {
         SmallVector<IndexExpr, 2> exprs({currentDimExpr, nextDimExpr});
         dimsExpr[j] = IndexExpr::max(exprs);
+        printf("  hi alex: use new\n");
       }
     }
   }
 
   // Set the final output.
   dimsForOutput(0) = dimsExpr;
+
+  int s = dimsExpr.size();
+  printf("hi alex: output of broadcast size is %d\n", s);
+  for (int i = 0; i < s; ++i)
+    dimsExpr[i].debugPrint("  ", true);
 
   return success();
 }
@@ -1363,9 +1382,6 @@ template <typename ShapeHelper, typename OperandAdaptor>
 LogicalResult ONNXSqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
     OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
   // Shape inference indicated by passing a null rewriter pointer.
-  auto op = shapeHelper->op;
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Output dims of results.
   DimsExpr outputDims;
 
@@ -1456,9 +1472,6 @@ template <typename ShapeHelper, typename OperandAdaptor>
 LogicalResult ONNXUnsqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
     OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
   // Shape inference indicated by passing a null rewriter pointer.
-  auto op = shapeHelper->op;
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Output dims of results.
   DimsExpr outputDims;
 
@@ -1580,7 +1593,87 @@ LogicalResult ONNXShapeOpShapeHelper::Compute(
   if (end < 0 || end > dataRank)
     return op->emitError("end value is out of bound");
 
+  // Save actual values in selected data
   for (int64_t i = start; i < end; ++i)
-    dimsForOutput(0).emplace_back(dataBounds.getDim(i));
+    selectedData.emplace_back(dataBounds.getDim(i));
+  // Output is the actual number of values (1D)
+  dimsForOutput(0).emplace_back(LiteralIndexExpr(selectedData.size()));
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Shape Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXExpandOpShapeHelper::ONNXExpandOpShapeHelper(ONNXExpandOp *newOp)
+    : ONNXOpBroadcastedShapeHelper(reinterpret_cast<Operation *>(newOp)) {}
+
+ONNXExpandOpShapeHelper::ONNXExpandOpShapeHelper(ONNXExpandOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpBroadcastedShapeHelper(reinterpret_cast<Operation *>(newOp),
+          rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXExpandOpShapeHelper::Compute(
+    ONNXExpandOpAdaptor operandAdaptor) {
+  // Get info about input operands.
+  Value input = operandAdaptor.input();
+  Value shape = operandAdaptor.shape();
+  Operation *shapeDefOp = shape.getDefiningOp();
+
+  if (mlir::ONNXShapeOp shapeOp =
+          dyn_cast_or_null<mlir::ONNXShapeOp>(shapeDefOp)) {
+    // Consider a first case where the expand.shape is produced by a shape op.
+    // Infer its shape and use it as the requested shape.
+    if (!shapeOp.data().getType().isa<RankedTensorType>())
+      return success();
+    // Compute the output of the shape operation. We have to use its shape
+    // helper as we need to connect to the actual expressions used to compute
+    // it, not just a shape, in presence of runtime dimensions.
+
+    // hi alex: use the full constructor as this is called in either cases...
+    // must make rewriter a pointer then.
+    ONNXShapeOpShapeHelper shapeOpShapeHelper(&shapeOp);
+    ONNXShapeOpAdaptor shapeOpOperandAdaptor(shapeOp);
+    if (failed(shapeOpShapeHelper.Compute(shapeOpOperandAdaptor)))
+      return op->emitError("failed to get shape op shape");
+    int s = shapeOpShapeHelper.selectedData.size();
+    printf("hi alex: shape's value has size %d\n", s);
+    for (int i = 0; i < s; ++i)
+      shapeOpShapeHelper.selectedData[i].debugPrint("shape values", true);
+
+    // Now that we have the shape's actual computation in
+    if (failed(ONNXOpBroadcastedShapeHelper::Compute(
+            {input}, shapeOpShapeHelper.selectedData)))
+      return op->emitError("failed to broadcast");
+    printf("hi alex 3\n");
+
+  } else if (mlir::ONNXConstantOp constantOp =
+                 dyn_cast_or_null<mlir::ONNXConstantOp>(shapeDefOp)) {
+    // Consider a first case where the expand.shape is produced by a shape op.
+    RankedTensorType constType = shape.getType().cast<RankedTensorType>();
+    if (constType.getRank() != 1)
+      return op->emitError("Shape tensor must have rank one");
+    int constSize = constType.getShape()[0];
+    ArrayValueIndexCapture arrayCapture(op, shape, fGetDenseVal, fLoadVal);
+    SmallVector<IndexExpr, 4> constVals;
+    arrayCapture.getSymbolList(constSize, constVals);
+    if (failed(ONNXOpBroadcastedShapeHelper::Compute({input}, constVals)))
+      return op->emitError("failed to broadcast");
+  } else {
+    // Expand.shape is neither produced by a shape or constant; error.
+    return op->emitError(
+        "Shape argument of Expand is the output of an unexpected "
+        "operation: " +
+        shapeDefOp->getName().getStringRef() +
+        ". Supported operations are: onnx.Constant and onnx.Shape");
+  }
+
+  int s = dimsForOutput(0).size();
+  printf("hi alex: output shape has size %d\n", s);
+  for (int i = 0; i < s; ++i)
+    dimsForOutput(0)[i].debugPrint("dims for output", true);
   return success();
 }

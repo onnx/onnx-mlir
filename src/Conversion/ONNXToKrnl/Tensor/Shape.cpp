@@ -39,14 +39,15 @@ struct ONNXShapeOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
+    // hi alex SmallVector<IndexExpr, 1> empty;
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
     // Iterate along the data shape storing dim value to result.
     KrnlBuilder createKrnl(rewriter, loc);
-    uint64_t dataRank = shapeHelper.dimsForOutput(0).size();
+    uint64_t dataRank = shapeHelper.selectedData.size();
     for (uint64_t i = 0; i < dataRank; ++i) {
-      Value val = shapeHelper.dimsForOutput(0)[i].getValue();
+      Value val = shapeHelper.selectedData[i].getValue();
       Value intVal = rewriter.create<IndexCastOp>(loc, val, elementType);
       createKrnl.storeIE(intVal, alloc, {LiteralIndexExpr(i)});
     }

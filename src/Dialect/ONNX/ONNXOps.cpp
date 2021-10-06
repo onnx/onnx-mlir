@@ -3012,7 +3012,7 @@ LogicalResult ONNXShapeOp::inferShapes(
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Shape parameters successfully");
   getResult().setType(
-      RankedTensorType::get({(int64_t)shapeHelper.dimsForOutput(0).size()},
+      RankedTensorType::get({shapeHelper.dimsForOutput(0)[0].getLiteral()},
           IntegerType::get(getContext(), 64)));
   return success();
 }
@@ -3198,32 +3198,20 @@ LogicalResult ONNXExpandOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!input().getType().isa<RankedTensorType>())
     return success();
+#if 1
+  RankedTensorType lhsTy = input().getType().cast<RankedTensorType>();
+  Type elementType = lhsTy.getElementType();
 
-#if 0
   // Shape helper.
-  ONNXOpBroadcastedShapeHelper shapeHelper(getLoc());
-  Value input = input();
-  Operation *shapeDef = shape().getDefiningOp();
+  ONNXExpandOpShapeHelper shapeHelper(this);
+  ONNXExpandOpAdaptor operandAdaptor(*this);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Bad broadcast values between tensors");
 
-  if (mlir::ONNXShapeOp shapeOp =
-          dyn_cast_or_null<mlir::ONNXShapeOp>(shapeDef)) {
-    // If the shape operand is produced by a onnx.Shape operation, infer its
-    // shape and use it as the requested shape.
-    if (!shapeOp.data().getType().isa<RankedTensorType>())
-      return success();
-    // Compute the output of the shape operation.
-    ONNXShapeOpShapeHelper shapeOpShapeHelper(shapeDef);
-    ONNXShapeOpAdaptor shapeOpOperandAdaptor(shapeDef);
-    if (failed(shapeOpShapeHelper.compute(shapeOpOperandAdaptor)))
-      return error("failed to get shape op shape");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
 
-    if (failed(
-            shapeHelper.compute({input}, shapeOpShapeHelper.dimsForOutput(0))))
-      return error("failed to broadcast");
-  } else if (mlir::ONNXConstantOp constantOp =
-                 dyn_cast_or_null<mlir::ONNXConstantOp>(shapeDef)) {
-  } else {
-  }
 #else
   auto lhsTy = input().getType().cast<RankedTensorType>();
 
