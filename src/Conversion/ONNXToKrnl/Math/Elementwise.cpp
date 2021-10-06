@@ -874,7 +874,8 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
         getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex, isUniBroadcasting);
+        loadDenseElementArrayValueAtIndex, /*in scope*/ nullptr,
+        isUniBroadcasting);
     DimsExpr empty;
     auto shapecomputed = shapeHelper.computeShape(operands, empty);
     assert(succeeded(shapecomputed));

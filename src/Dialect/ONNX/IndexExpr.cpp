@@ -155,6 +155,10 @@ OpBuilder &IndexExprScope::getRewriter() const {
   return *rewriter;
 }
 
+OpBuilder *IndexExprScope::getRewriterPtr() const {
+  return rewriter;
+}
+
 //===----------------------------------------------------------------------===//
 // IndexExprScope Debug.
 //===----------------------------------------------------------------------===//

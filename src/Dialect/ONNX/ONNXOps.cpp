@@ -3198,7 +3198,7 @@ LogicalResult ONNXExpandOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!input().getType().isa<RankedTensorType>())
     return success();
-#if 0
+#if 1
   RankedTensorType lhsTy = input().getType().cast<RankedTensorType>();
   Type elementType = lhsTy.getElementType();
 

@@ -31,11 +31,14 @@ using namespace std;
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
+// Reuse scope if given, otherwise create one now and free in destructor.
 template <class OP>
-ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp, int numResults)
+ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
+    OP *newOp, int numResults, IndexExprScope *inScope)
     : op(newOp), fGetDenseVal(getDenseElementAttributeFromONNXValue),
-      fLoadVal(nullptr), outputsDims() {
-  scope = new IndexExprScope(nullptr, newOp->getLoc());
+      fLoadVal(nullptr), outputsDims(), ownScope(inScope == nullptr) {
+  if (ownScope)
+    scope = new IndexExprScope(nullptr, newOp->getLoc());
   setNumberOfOutputs(numResults);
 }
 
@@ -43,9 +46,11 @@ template <class OP>
 ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp, int numResults,
     ConversionPatternRewriter *rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseValInput,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : op(newOp), fLoadVal(fLoadVal), outputsDims() {
-  scope = new IndexExprScope(rewriter, newOp->getLoc());
+    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
+    : op(newOp), fLoadVal(fLoadVal), outputsDims(),
+      ownScope(inScope == nullptr) {
+  if (ownScope)
+    scope = new IndexExprScope(rewriter, newOp->getLoc());
   setNumberOfOutputs(numResults);
   // Get the dense value by combining provided function (if any) with the
   // default one.
@@ -137,17 +142,19 @@ LogicalResult ONNXArgMaxOpShapeHelper::computeShape(
 // output. If that were not the case, then we would need to pass the number of
 // results as a parameter to both constructors below.
 
-ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
-    Operation *newOp, bool uniBroadcasting, bool noBroadcasting)
-    : ONNXOpShapeHelper<Operation>(newOp, 1), inputsDims(), outputRank(-1),
-      isUniBroadcasting(uniBroadcasting), isNoBroadcasting(noBroadcasting) {}
+ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(Operation *newOp,
+    IndexExprScope *inScope, bool uniBroadcasting, bool noBroadcasting)
+    : ONNXOpShapeHelper<Operation>(newOp, 1, inScope), inputsDims(),
+      outputRank(-1), isUniBroadcasting(uniBroadcasting),
+      isNoBroadcasting(noBroadcasting) {}
 
 ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(Operation *newOp,
     ConversionPatternRewriter *rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal, bool uniBroadcasting,
-    bool noBroadcasting)
-    : ONNXOpShapeHelper<Operation>(newOp, 1, rewriter, fGetDenseVal, fLoadVal),
+    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope,
+    bool uniBroadcasting, bool noBroadcasting)
+    : ONNXOpShapeHelper<Operation>(
+          newOp, 1, rewriter, fGetDenseVal, fLoadVal, inScope),
       inputsDims(), outputRank(-1), isUniBroadcasting(uniBroadcasting),
       isNoBroadcasting(noBroadcasting) {}
 
@@ -253,12 +260,12 @@ LogicalResult ONNXOpBroadcastedShapeHelper::computeShape(
   // Set the final output.
   dimsForOutput(0) = dimsExpr;
 
-/*
-  int s = dimsExpr.size();
-  printf("hi alex: output of broadcast size is %d\n", s);
-  for (int i = 0; i < s; ++i)
-    dimsExpr[i].debugPrint("  ", true);
-*/
+  /*
+    int s = dimsExpr.size();
+    printf("hi alex: output of broadcast size is %d\n", s);
+    for (int i = 0; i < s; ++i)
+      dimsExpr[i].debugPrint("  ", true);
+  */
 
   return success();
 }
@@ -460,7 +467,8 @@ ONNXTileOpShapeHelper::ONNXTileOpShapeHelper(ONNXTileOp *newOp,
           newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
           fLoadVal) {}
 
-LogicalResult ONNXTileOpShapeHelper::computeShape(ONNXTileOpAdaptor operandAdaptor) {
+LogicalResult ONNXTileOpShapeHelper::computeShape(
+    ONNXTileOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   Operation *genericOp = reinterpret_cast<Operation *>(op);
 
@@ -504,7 +512,8 @@ ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(ONNXGemmOp *newOp,
           fLoadVal),
       aDims(), bDims(), cDims(), hasBias(false), cRank(-1) {}
 
-LogicalResult ONNXGemmOpShapeHelper::computeShape(ONNXGemmOpAdaptor operandAdaptor) {
+LogicalResult ONNXGemmOpShapeHelper::computeShape(
+    ONNXGemmOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Output dims of result.
   DimsExpr outputDims;
@@ -1036,7 +1045,8 @@ ONNXLRNOpShapeHelper::ONNXLRNOpShapeHelper(ONNXLRNOp *newOp,
           newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
           fLoadVal) {}
 
-LogicalResult ONNXLRNOpShapeHelper::computeShape(ONNXLRNOpAdaptor operandAdaptor) {
+LogicalResult ONNXLRNOpShapeHelper::computeShape(
+    ONNXLRNOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Basic information.
   auto rank = operandAdaptor.X().getType().cast<ShapedType>().getRank();
@@ -1231,10 +1241,11 @@ ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp,
           true /*hasFilter*/, false /*hasCeil*/, rewriter, fGetDenseVal,
           fLoadVal) {}
 
-LogicalResult ONNXConvOpShapeHelper::computeShape(ONNXConvOpAdaptor operandAdaptor) {
-  return ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>::computeShape(
-      operandAdaptor, operandAdaptor.W(), op->kernel_shape(), op->pads(),
-      op->strides(), op->dilations());
+LogicalResult ONNXConvOpShapeHelper::computeShape(
+    ONNXConvOpAdaptor operandAdaptor) {
+  return ONNXGenericPoolShapeHelper<ONNXConvOp,
+      ONNXConvOpAdaptor>::computeShape(operandAdaptor, operandAdaptor.W(),
+      op->kernel_shape(), op->pads(), op->strides(), op->dilations());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1554,17 +1565,18 @@ LogicalResult ONNXUnsqueezeV11OpShapeHelper::computeShape(
 // ONNX Shape Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-ONNXShapeOpShapeHelper::ONNXShapeOpShapeHelper(ONNXShapeOp *newOp)
+ONNXShapeOpShapeHelper::ONNXShapeOpShapeHelper(
+    ONNXShapeOp *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXShapeOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
+          newOp, newOp->getOperation()->getNumResults(), inScope) {}
 
 ONNXShapeOpShapeHelper::ONNXShapeOpShapeHelper(ONNXShapeOp *newOp,
     ConversionPatternRewriter *rewriter,
     ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
+    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXShapeOp>(newOp,
           newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
+          fLoadVal, inScope) {}
 
 LogicalResult ONNXShapeOpShapeHelper::computeShape(
     ONNXShapeOpAdaptor operandAdaptor) {
@@ -1628,9 +1640,13 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
     // helper as we need to connect to the actual expressions used to compute
     // it, not just a shape, in presence of runtime dimensions.
 
-    // hi alex: use the full constructor as this is called in either cases...
-    // must make rewriter a pointer then.
-    ONNXShapeOpShapeHelper shapeOpShapeHelper(&shapeOp);
+    // Use the full constructor as this is called from shape helper which may be
+    // used in either shape inference or lowering to ONNX context. We also pass
+    // here the scope of the ExpandOp shape helper so that the computations
+    // performed in the ShapeOp shape helper can be used in the context of the
+    // ExtendOp.
+    ONNXShapeOpShapeHelper shapeOpShapeHelper(
+        &shapeOp, scope->getRewriterPtr(), fGetDenseVal, fLoadVal, scope);
     ONNXShapeOpAdaptor shapeOpOperandAdaptor(shapeOp);
     if (failed(shapeOpShapeHelper.computeShape(shapeOpOperandAdaptor)))
       return op->emitError("failed to get shape op shape");
@@ -1662,11 +1678,11 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
         ". Supported operations are: onnx.Constant and onnx.Shape");
   }
 
-/*
-  int s = dimsForOutput(0).size();
-  printf("hi alex: output shape has size %d\n", s);
-  for (int i = 0; i < s; ++i)
-    dimsForOutput(0)[i].debugPrint("dims for output", true);
-*/
+  /*
+    int s = dimsForOutput(0).size();
+    printf("hi alex: output shape has size %d\n", s);
+    for (int i = 0; i < s; ++i)
+      dimsForOutput(0)[i].debugPrint("dims for output", true);
+  */
   return success();
 }

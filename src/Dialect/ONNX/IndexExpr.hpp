@@ -333,6 +333,7 @@ public:
   // Public getters.
   static IndexExprScope &getCurrentScope();
   OpBuilder &getRewriter() const;
+  OpBuilder *getRewriterPtr() const;
   Location getLoc() const { return loc; }
   bool isShapeInferencePass() const { return !rewriter; }
 

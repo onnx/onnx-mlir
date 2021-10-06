@@ -41,16 +41,34 @@ typedef SmallVector<IndexExpr, 4> DimsExpr;
 /// successful computation of all the IndexExpr. During shape inference, object
 /// is built using a null-ptr rewriter; during lowering, the rewriter is nonnull
 /// and will be used to generate code.
+///
+/// By adding here the ability of a ShapeHelper to be created in the
+/// IndexExprScope of another ShapeHelper, this enables us to nest ShapeHelper.
+/// For example, there is a case where ExtendOp needs to find out specific
+/// details of an ShapeOp that provides info to the ExtendOp. We can now invoke
+/// the ShapeOp shape helper in the context of the ExtendOp shape helper while
+/// having all of the IndexExpr info in the same context and thus be generally
+/// usable. Support is here to provide an IndexExprScope, which can be added to
+/// any subclasses of ONNXOpShapeHelper when this nesting becomes useful to
+/// other ops as well.
+
 template <class OP>
 struct ONNXOpShapeHelper {
-  // Constructor for shape inference.
-  ONNXOpShapeHelper(OP *newOp, int numResults); // Generic op.
-  // Constructor when code can be generated.
+  // Constructor for shape inference. Reuse scope if given, otherwise create one
+  // now and free in destructor.
+  ONNXOpShapeHelper(
+      OP *newOp, int numResults, IndexExprScope *inScope = nullptr);
+  // Constructor when code can be generated. Reuse scope if given, otherwise
+  // create one now and free in destructor.
   ONNXOpShapeHelper(OP *newOp, int numResults,
       ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-      ArrayValueIndexCapture::LoadVal fLoadVal); // Generic op.
-  ~ONNXOpShapeHelper() { delete scope; }
+      ArrayValueIndexCapture::LoadVal fLoadVal,
+      IndexExprScope *inScope = nullptr);
+  ~ONNXOpShapeHelper() {
+    if (ownScope)
+      delete scope;
+  }
 
   // Define in every children. Use op to get attributes, and operandAdaptor
   // to get the input/output parameters.
@@ -78,18 +96,21 @@ protected:
 
 private:
   SmallVector<DimsExpr, 1> outputsDims;
+  bool ownScope;
 };
 
 /// Compute a broadcasted shape from the shapes of given operands. Operands must
 /// be ranked in advance.
 struct ONNXOpBroadcastedShapeHelper : public ONNXOpShapeHelper<Operation> {
-  ONNXOpBroadcastedShapeHelper(Operation *newOp, bool uniBroadcasting = false,
+  ONNXOpBroadcastedShapeHelper(Operation *newOp,
+      IndexExprScope *inScope = nullptr, bool uniBroadcasting = false,
       bool noBroadcasting = false);
 
   ONNXOpBroadcastedShapeHelper(Operation *newOp,
       ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-      ArrayValueIndexCapture::LoadVal fLoadVal, bool uniBroadcasting = false,
+      ArrayValueIndexCapture::LoadVal fLoadVal,
+      IndexExprScope *inScope = nullptr, bool uniBroadcasting = false,
       bool noBroadcasting = false);
 
   // computeShape a vector of IndexExprs to represent the output shape. Results
@@ -387,11 +408,12 @@ struct ONNXUnsqueezeV11OpShapeHelper
 
 // Shape for ONNXShapeOp.
 struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<ONNXShapeOp> {
-  ONNXShapeOpShapeHelper(ONNXShapeOp *newOp);
+  ONNXShapeOpShapeHelper(ONNXShapeOp *newOp, IndexExprScope *inScope = nullptr);
   ONNXShapeOpShapeHelper(ONNXShapeOp *newOp,
       ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-      ArrayValueIndexCapture::LoadVal fLoadVal);
+      ArrayValueIndexCapture::LoadVal fLoadVal,
+      IndexExprScope *inScope = nullptr);
 
   LogicalResult computeShape(ONNXShapeOpAdaptor operandAdaptor);
 
