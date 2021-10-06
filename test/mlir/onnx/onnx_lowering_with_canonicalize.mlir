@@ -2032,8 +2032,6 @@ func @pad_reflect_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %arg2: 
 // CHECK-DAG: #map5 = affine_map<(d0, d1)[s0, s1, s2, s3, s4, s5, s6, s7] -> (d1)>
 // CHECK-DAG: #map6 = affine_map<(d0, d1, d2)[s0, s1, s2, s3, s4, s5, s6, s7] -> (d2)>
 // CHECK-DAG: #map7 = affine_map<(d0, d1, d2, d3)[s0, s1, s2, s3, s4, s5, s6, s7] -> (d3)>
-// CHECK-DAG: #map8 = affine_map<(d0)[s0] -> (-d0 + s0)>
-// CHECK-DAG: #map9 = affine_map<(d0)[s0] -> (d0 - s0)>
 // CHECK-LABEL:  builtin.func @pad_reflect_mode
 // CHECK-SAME:   ([[DATA_:%.+]]: memref<1x3x4x5xf32>, [[PAD_:%.+]]: memref<8xi64>, [[CONSTANT_VALUE_:%.+]]: memref<f32>) -> memref<?x?x?x?xf32> {
 // CHECK-DAG:       [[CST_8_:%.+]] = constant 8 : index
@@ -2073,33 +2071,25 @@ func @pad_reflect_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %arg2: 
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to #map4([[VAR_4_]]){{.}}[[VAR_1_]], [[VAR_3_]], [[VAR_6_]], [[VAR_8_]], [[VAR_1_]]1, [[VAR_1_]]3, [[VAR_1_]]6, [[VAR_1_]]8], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to #map5([[VAR_4_]], [[VAR_9_]]){{.}}[[VAR_1_]], [[VAR_3_]], [[VAR_6_]], [[VAR_8_]], [[VAR_1_]]1, [[VAR_1_]]3, [[VAR_1_]]6, [[VAR_1_]]8], [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to #map6([[VAR_4_]], [[VAR_9_]], [[VAR_1_]]4){{.}}[[VAR_1_]], [[VAR_3_]], [[VAR_6_]], [[VAR_8_]], [[VAR_1_]]1, [[VAR_1_]]3, [[VAR_1_]]6, [[VAR_1_]]8], [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to #map7([[VAR_4_]], [[VAR_9_]], [[VAR_1_]]4, [[VAR_1_]]9){{.}}[[VAR_1_]], [[VAR_3_]], [[VAR_6_]], [[VAR_8_]], [[VAR_1_]]1, [[VAR_1_]]3, [[VAR_1_]]6, [[VAR_1_]]8]) {
 // CHECK:             [[VAR_22_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
 // CHECK-DAG:         [[VAR_23_:%.+]] = cmpi slt, [[VAR_22_]]#0, [[VAR_1_]] : index
-// CHECK-DAG:         [[VAR_24_:%.+]] = affine.apply #map8([[VAR_22_]]#0){{.}}[[VAR_1_]]{{.}}
-// CHECK-DAG:         [[VAR_25_:%.+]] = affine.apply #map9([[VAR_22_]]#0){{.}}[[VAR_1_]]{{.}}
-// CHECK:             [[VAR_26_:%.+]] = select [[VAR_23_]], [[VAR_24_]], [[VAR_25_]] : index
+// CHECK:             [[VAR_26_:%.+]] = select [[VAR_23_]], {{.*}}, {{.*}} : index
 // CHECK-DAG:         [[VAR_27_:%.+]] = cmpi sge, [[VAR_26_]], [[CST_1_]] : index
 // CHECK-DAG:         [[VAR_28_:%.+]] = subi [[CST_0_]], [[VAR_26_]] : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_29_:%.+]] = select [[VAR_27_]], [[VAR_28_]], [[VAR_26_]] : index
 // CHECK-DAG:         [[VAR_30_:%.+]] = cmpi slt, [[VAR_22_]]#1, [[VAR_6_]] : index
-// CHECK-DAG:         [[VAR_31_:%.+]] = affine.apply #map8([[VAR_22_]]#1){{.}}[[VAR_6_]]{{.}}
-// CHECK-DAG:         [[VAR_32_:%.+]] = affine.apply #map9([[VAR_22_]]#1){{.}}[[VAR_6_]]{{.}}
-// CHECK:             [[VAR_33_:%.+]] = select [[VAR_30_]], [[VAR_31_]], [[VAR_32_]] : index
+// CHECK:             [[VAR_33_:%.+]] = select [[VAR_30_]], {{.*}}, {{.*}} : index
 // CHECK-DAG:         [[VAR_34_:%.+]] = cmpi sge, [[VAR_33_]], [[CST_3_]] : index
 // CHECK-DAG:         [[VAR_35_:%.+]] = subi [[CST_4_]], [[VAR_33_]] : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_36_:%.+]] = select [[VAR_34_]], [[VAR_35_]], [[VAR_33_]] : index
 // CHECK-DAG:         [[VAR_37_:%.+]] = cmpi slt, [[VAR_22_]]#2, [[VAR_11_]] : index
-// CHECK-DAG:         [[VAR_38_:%.+]] = affine.apply #map8([[VAR_22_]]#2){{.}}[[VAR_11_]]{{.}}
-// CHECK-DAG:         [[VAR_39_:%.+]] = affine.apply #map9([[VAR_22_]]#2){{.}}[[VAR_11_]]{{.}}
-// CHECK:             [[VAR_40_:%.+]] = select [[VAR_37_]], [[VAR_38_]], [[VAR_39_]] : index
+// CHECK:             [[VAR_40_:%.+]] = select [[VAR_37_]], {{.*}}, {{.*}} : index
 // CHECK-DAG:         [[VAR_41_:%.+]] = cmpi sge, [[VAR_40_]], [[CST_4_]] : index
 // CHECK-DAG:         [[VAR_42_:%.+]] = subi [[CST_6_]], [[VAR_40_]] : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_43_:%.+]] = select [[VAR_41_]], [[VAR_42_]], [[VAR_40_]] : index
 // CHECK-DAG:         [[VAR_44_:%.+]] = cmpi slt, [[VAR_22_]]#3, [[VAR_16_]] : index
-// CHECK-DAG:         [[VAR_45_:%.+]] = affine.apply #map8([[VAR_22_]]#3){{.}}[[VAR_16_]]{{.}}
-// CHECK-DAG:         [[VAR_46_:%.+]] = affine.apply #map9([[VAR_22_]]#3){{.}}[[VAR_16_]]{{.}}
-// CHECK:             [[VAR_47_:%.+]] = select [[VAR_44_]], [[VAR_45_]], [[VAR_46_]] : index
+// CHECK:             [[VAR_47_:%.+]] = select [[VAR_44_]], {{.*}}, {{.*}} : index
 // CHECK-DAG:         [[VAR_48_:%.+]] = cmpi sge, [[VAR_47_]], [[CST_5_]] : index
 // CHECK-DAG:         [[VAR_49_:%.+]] = subi [[CST_8_]], [[VAR_47_]] : index
 // CHECK:             [[VAR_50_:%.+]] = select [[VAR_48_]], [[VAR_49_]], [[VAR_47_]] : index

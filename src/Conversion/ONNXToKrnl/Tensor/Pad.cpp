@@ -108,7 +108,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
               if (padMode.equals_insensitive("edge")) {
                 // Before the left side of input. Use values on the left edge.
                 dataInd = dataInd.select(dataInd <= pad, zero, dataInd - pad);
-                // After the right side of input. Use values the right edge.
+                // After the right side of input. Use values on the right edge.
                 dataInd = dataInd.selectOrSelf(dataInd >= dim, dim - one);
               }
               if (padMode.equals_insensitive("reflect")) {
