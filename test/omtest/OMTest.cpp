@@ -5,7 +5,6 @@
 #include "src/OMLibrary.hpp"
 #include <fstream>
 #include <iostream>
-#include <regex>
 #include <string>
 
 using namespace onnx_mlir;
@@ -31,14 +30,13 @@ bool compileFromFile = false;
 void ReadArg(const std::string &arg) {
   PARSE_ARG(mcpu, "--mcpu=");
   PARSE_ARG(mtriple, "--mtriple=");
-  PARSE_ARG(mtriple, "--mtriple=");
   PARSE_ARG(outputBaseName, "-o");
   PARSE_FLAG(compileFromFile, "--fromfile");
   testFileName = arg;
 }
 
 void ReadCommandLine(int argc, char *argv[]) {
-  for (int i = 0; i < argc; ++i) {
+  for (int i = 1; i < argc; ++i) {
     ReadArg(std::string(argv[i]));
   }
 }
@@ -55,10 +53,11 @@ int main(int argc, char *argv[]) {
         onnx_mlir::EmitLib, mcpu.empty() ? nullptr : mcpu.c_str(),
         mtriple.empty() ? nullptr : mtriple.c_str());
   } else {
-    std::ifstream inFile(testFileName);
-    std::string line((std::istreambuf_iterator<char>(inFile)),
+    std::ifstream inFile(
+        testFileName, std::ios_base::in | std::ios_base::binary);
+    std::string test((std::istreambuf_iterator<char>(inFile)),
         std::istreambuf_iterator<char>());
-    retVal = CompileFromArray(line.data(), line.size(), outputBaseName.c_str(),
+    retVal = CompileFromArray(test.data(), test.size(), outputBaseName.c_str(),
         onnx_mlir::EmitLib, mcpu.empty() ? nullptr : mcpu.c_str(),
         mtriple.empty() ? nullptr : mtriple.c_str());
   }
