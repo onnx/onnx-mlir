@@ -47,7 +47,12 @@ struct ONNXPadOpLowering : public ConversionPattern {
     Value resMemRef = insertAllocAndDeallocSimple(
         rewriter, op, resMemRefType, loc, shapeHelper.dimsForOutput(0));
 
-    // 'constant' mode: initialize the result to the constant value.
+    // Bounds.
+    MemRefBoundsIndexCapture dataBounds(data);
+    MemRefBoundsIndexCapture resBounds(resMemRef);
+    uint64_t rank = dataBounds.getRank();
+
+    // 'constant' mode
     if (padMode.equals_insensitive("constant")) {
       Value cValue;
       if (constantValue.getType().isa<NoneType>())
@@ -55,30 +60,59 @@ struct ONNXPadOpLowering : public ConversionPattern {
         cValue = emitConstantOp(rewriter, loc, resElementType, 0);
       else
         cValue = createKrnl.load(constantValue, {});
+
+      // Initialize the result to the constant value.
       createKrnl.memset(resMemRef, cValue);
+
+      // Copy values from the input to the result.
+      SmallVector<IndexExpr, 4> lbs, ubs;
+      for (uint64_t i = 0; i < rank; ++i) {
+        lbs.emplace_back(LiteralIndexExpr(0));
+        ubs.emplace_back(dataBounds.getDim(i));
+      }
+
+      ValueRange mainLoopDef = createKrnl.defineLoops(rank);
+      createKrnl.iterateIE(mainLoopDef, mainLoopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange dataLoopInd) {
+            SmallVector<IndexExpr, 4> resLoopInd;
+            for (uint64_t i = 0; i < rank; ++i) {
+              IndexExpr resInd =
+                  DimIndexExpr(dataLoopInd[i]) + shapeHelper.pads[i];
+              resLoopInd.emplace_back(resInd);
+            }
+            Value dataValue = createKrnl.load(data, dataLoopInd);
+            createKrnl.storeIE(dataValue, resMemRef, resLoopInd);
+          });
     }
 
-    // Copy values from the input to the result.
-    MemRefBoundsIndexCapture dataBounds(data);
-    uint64_t dataRank = dataBounds.getRank();
-    SmallVector<IndexExpr, 4> lbs, ubs;
-    for (uint64_t i = 0; i < dataRank; ++i) {
-      lbs.emplace_back(LiteralIndexExpr(0));
-      ubs.emplace_back(dataBounds.getDim(i));
+    // 'edge' mode.
+    if (padMode.equals_insensitive("edge")) {
+      SmallVector<IndexExpr, 4> lbs, ubs;
+      for (uint64_t i = 0; i < rank; ++i) {
+        lbs.emplace_back(LiteralIndexExpr(0));
+        ubs.emplace_back(resBounds.getDim(i));
+      }
+      // Copy values from the input to the result.
+      ValueRange mainLoopDef = createKrnl.defineLoops(rank);
+      createKrnl.iterateIE(mainLoopDef, mainLoopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange resLoopInd) {
+            SmallVector<IndexExpr, 4> dataLoopInd;
+            for (uint64_t i = 0; i < rank; ++i) {
+              IndexExpr dataInd = DimIndexExpr(resLoopInd[i]);
+              IndexExpr pad = shapeHelper.pads[i];
+              IndexExpr dim = dataBounds.getDim(i);
+              LiteralIndexExpr zero(0);
+              LiteralIndexExpr one(1);
+              // Before the left side of input. Use the left edge.
+              dataInd = dataInd.select(dataInd <= pad, zero, dataInd - pad);
+              // After the right side of input. Use the right edge.
+              dataInd = dataInd.selectOrSelf(dataInd >= dim, dim - one);
+              dataLoopInd.emplace_back(dataInd);
+            }
+            Value dataValue = createKrnl.loadIE(data, dataLoopInd);
+            createKrnl.store(dataValue, resMemRef, resLoopInd);
+          });
     }
-
-    ValueRange mainLoopDef = createKrnl.defineLoops(dataRank);
-    createKrnl.iterateIE(mainLoopDef, mainLoopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange dataLoopInd) {
-          SmallVector<IndexExpr, 4> resLoopInd;
-          for (uint64_t i = 0; i < dataRank; ++i) {
-            IndexExpr resInd =
-                DimIndexExpr(dataLoopInd[i]) + shapeHelper.pads[i];
-            resLoopInd.emplace_back(resInd);
-          }
-          Value dataValue = createKrnl.load(data, dataLoopInd);
-          createKrnl.storeIE(dataValue, resMemRef, resLoopInd);
-        });
 
     // Replace the original op with the generated code.
     rewriter.replaceOp(op, resMemRef);
