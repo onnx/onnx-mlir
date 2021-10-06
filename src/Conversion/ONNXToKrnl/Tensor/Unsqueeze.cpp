@@ -27,7 +27,7 @@ LogicalResult ONNXUnsqueezeOpLoweringCommon(Operation *op,
   auto memRefType = convertToMemRefType(*op->result_type_begin());
   Value data = operandAdaptor.data();
 
-  ShapeHelper shapeHelper(&unsqueezeOp, rewriter,
+  ShapeHelper shapeHelper(&unsqueezeOp, &rewriter,
       getDenseElementAttributeFromKrnlValue, loadDenseElementArrayValueAtIndex);
   auto shapecomputed = shapeHelper.Compute(operandAdaptor);
   assert(succeeded(shapecomputed));

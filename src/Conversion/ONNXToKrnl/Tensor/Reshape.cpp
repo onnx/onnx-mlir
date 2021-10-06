@@ -30,7 +30,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     Value data = operandAdaptor.data();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 
-    ONNXReshapeOpShapeHelper shapeHelper(&reshapeOp, rewriter,
+    ONNXReshapeOpShapeHelper shapeHelper(&reshapeOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);

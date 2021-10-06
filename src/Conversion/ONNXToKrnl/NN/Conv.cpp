@@ -210,7 +210,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 
     // Get shape.
-    ONNXConvOpShapeHelper shapeHelper(&convOp, rewriter,
+    ONNXConvOpShapeHelper shapeHelper(&convOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);

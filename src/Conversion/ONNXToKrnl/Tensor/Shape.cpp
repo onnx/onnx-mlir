@@ -28,7 +28,7 @@ struct ONNXShapeOpLowering : public ConversionPattern {
     ONNXShapeOpAdaptor operandAdaptor(operands);
     ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
     Location loc = op->getLoc();
-    ONNXShapeOpShapeHelper shapeHelper(&shapeOp, rewriter,
+    ONNXShapeOpShapeHelper shapeHelper(&shapeOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     LogicalResult shapecomputed = shapeHelper.Compute(operandAdaptor);
@@ -39,7 +39,6 @@ struct ONNXShapeOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
-    // hi alex SmallVector<IndexExpr, 1> empty;
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 

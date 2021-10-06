@@ -872,7 +872,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     auto outputRank = outputMemRefType.getRank();
 
     // Shape helper.
-    ONNXOpBroadcastedShapeHelper shapeHelper(op, rewriter,
+    ONNXOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex, isUniBroadcasting);
     DimsExpr empty;
@@ -946,7 +946,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     auto outputRank = outputMemRefType.getRank();
 
     // Shape helper.
-    ONNXOpBroadcastedShapeHelper shapeHelper(op, rewriter,
+    ONNXOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
 

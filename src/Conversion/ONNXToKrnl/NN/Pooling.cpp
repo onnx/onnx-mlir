@@ -203,7 +203,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     PoolOp poolOp = llvm::dyn_cast<PoolOp>(op);
 
     // Get shape.
-    PoolOpShapeHelper shapeHelper(&poolOp, rewriter,
+    PoolOpShapeHelper shapeHelper(&poolOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);

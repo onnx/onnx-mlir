@@ -47,7 +47,7 @@ struct ONNXOpShapeHelper {
   ONNXOpShapeHelper(OP *newOp, int numResults); // Generic op.
   // Constructor when code can be generated.
   ONNXOpShapeHelper(OP *newOp, int numResults,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal); // Generic op.
   ~ONNXOpShapeHelper() { delete scope; }
@@ -87,7 +87,7 @@ struct ONNXOpBroadcastedShapeHelper : public ONNXOpShapeHelper<Operation> {
       bool noBroadcasting = false);
 
   ONNXOpBroadcastedShapeHelper(Operation *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal, bool uniBroadcasting = false,
       bool noBroadcasting = false);
@@ -134,7 +134,7 @@ private:
 struct ONNXArgMaxOpShapeHelper : public ONNXOpShapeHelper<ONNXArgMaxOp> {
   ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp);
   ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -145,7 +145,7 @@ struct ONNXArgMaxOpShapeHelper : public ONNXOpShapeHelper<ONNXArgMaxOp> {
 struct ONNXConcatOpShapeHelper : public ONNXOpShapeHelper<ONNXConcatOp> {
   ONNXConcatOpShapeHelper(ONNXConcatOp *newOp);
   ONNXConcatOpShapeHelper(ONNXConcatOp *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -156,7 +156,7 @@ struct ONNXConcatOpShapeHelper : public ONNXOpShapeHelper<ONNXConcatOp> {
 struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
   ONNXSliceOpShapeHelper(ONNXSliceOp *newOp);
   ONNXSliceOpShapeHelper(ONNXSliceOp *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -171,7 +171,7 @@ struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
 // Shape for Tile.
 struct ONNXTileOpShapeHelper : public ONNXOpShapeHelper<ONNXTileOp> {
   ONNXTileOpShapeHelper(ONNXTileOp *newOp);
-  ONNXTileOpShapeHelper(ONNXTileOp *newOp, ConversionPatternRewriter &rewriter,
+  ONNXTileOpShapeHelper(ONNXTileOp *newOp, ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -183,7 +183,7 @@ struct ONNXTileOpShapeHelper : public ONNXOpShapeHelper<ONNXTileOp> {
 // requires).
 struct ONNXGemmOpShapeHelper : public ONNXOpShapeHelper<ONNXGemmOp> {
   ONNXGemmOpShapeHelper(ONNXGemmOp *newOp);
-  ONNXGemmOpShapeHelper(ONNXGemmOp *newOp, ConversionPatternRewriter &rewriter,
+  ONNXGemmOpShapeHelper(ONNXGemmOp *newOp, ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -201,7 +201,7 @@ struct ONNXGemmOpShapeHelper : public ONNXOpShapeHelper<ONNXGemmOp> {
 struct ONNXMatMulOpShapeHelper : public ONNXOpShapeHelper<ONNXMatMulOp> {
   ONNXMatMulOpShapeHelper(ONNXMatMulOp *newOp);
   ONNXMatMulOpShapeHelper(ONNXMatMulOp *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -218,7 +218,7 @@ struct ONNXMatMulOpShapeHelper : public ONNXOpShapeHelper<ONNXMatMulOp> {
 struct ONNXGatherOpShapeHelper : public ONNXOpShapeHelper<ONNXGatherOp> {
   ONNXGatherOpShapeHelper(ONNXGatherOp *newOp);
   ONNXGatherOpShapeHelper(ONNXGatherOp *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -233,7 +233,7 @@ struct ONNXGatherOpShapeHelper : public ONNXOpShapeHelper<ONNXGatherOp> {
 struct ONNXSplitOpShapeHelper : public ONNXOpShapeHelper<ONNXSplitOp> {
   ONNXSplitOpShapeHelper(ONNXSplitOp *newOp);
   ONNXSplitOpShapeHelper(ONNXSplitOp *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -244,7 +244,7 @@ struct ONNXSplitOpShapeHelper : public ONNXOpShapeHelper<ONNXSplitOp> {
 struct ONNXSplitV11OpShapeHelper : public ONNXOpShapeHelper<ONNXSplitV11Op> {
   ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp);
   ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -255,7 +255,7 @@ struct ONNXSplitV11OpShapeHelper : public ONNXOpShapeHelper<ONNXSplitV11Op> {
 struct ONNXTransposeOpShapeHelper : public ONNXOpShapeHelper<ONNXTransposeOp> {
   ONNXTransposeOpShapeHelper(ONNXTransposeOp *newOp);
   ONNXTransposeOpShapeHelper(ONNXTransposeOp *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -265,7 +265,7 @@ struct ONNXTransposeOpShapeHelper : public ONNXOpShapeHelper<ONNXTransposeOp> {
 // Shape for LRN.
 struct ONNXLRNOpShapeHelper : public ONNXOpShapeHelper<ONNXLRNOp> {
   ONNXLRNOpShapeHelper(ONNXLRNOp *newOp);
-  ONNXLRNOpShapeHelper(ONNXLRNOp *newOp, ConversionPatternRewriter &rewriter,
+  ONNXLRNOpShapeHelper(ONNXLRNOp *newOp, ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -277,7 +277,7 @@ template <typename OP_TYPE, typename OP_ADAPTOR>
 struct ONNXGenericPoolShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
   ONNXGenericPoolShapeHelper(OP_TYPE *newOp, bool hasFilter, bool ceilMode);
   ONNXGenericPoolShapeHelper(OP_TYPE *newOp, bool hasFilter, bool ceilMode,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -298,7 +298,7 @@ struct ONNXGenericPoolShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
 struct ONNXConvOpShapeHelper
     : public ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor> {
   ONNXConvOpShapeHelper(ONNXConvOp *newOp);
-  ONNXConvOpShapeHelper(ONNXConvOp *newOp, ConversionPatternRewriter &rewriter,
+  ONNXConvOpShapeHelper(ONNXConvOp *newOp, ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
   LogicalResult Compute(ONNXConvOpAdaptor operandAdaptor);
@@ -310,7 +310,7 @@ struct ONNXMaxPoolSingleOutOpShapeHelper
           ONNXMaxPoolSingleOutOpAdaptor> {
   ONNXMaxPoolSingleOutOpShapeHelper(ONNXMaxPoolSingleOutOp *newOp);
   ONNXMaxPoolSingleOutOpShapeHelper(ONNXMaxPoolSingleOutOp *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
   LogicalResult Compute(ONNXMaxPoolSingleOutOpAdaptor operandAdaptor);
@@ -322,7 +322,7 @@ struct ONNXAveragePoolOpShapeHelper
           ONNXAveragePoolOpAdaptor> {
   ONNXAveragePoolOpShapeHelper(ONNXAveragePoolOp *newOp);
   ONNXAveragePoolOpShapeHelper(ONNXAveragePoolOp *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
   LogicalResult Compute(ONNXAveragePoolOpAdaptor operandAdaptor);
@@ -332,7 +332,7 @@ struct ONNXAveragePoolOpShapeHelper
 struct ONNXReshapeOpShapeHelper : public ONNXOpShapeHelper<ONNXReshapeOp> {
   ONNXReshapeOpShapeHelper(ONNXReshapeOp *newOp);
   ONNXReshapeOpShapeHelper(ONNXReshapeOp *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -343,7 +343,7 @@ struct ONNXReshapeOpShapeHelper : public ONNXOpShapeHelper<ONNXReshapeOp> {
 struct ONNXSqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXSqueezeOp> {
   ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp);
   ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -355,7 +355,7 @@ struct ONNXSqueezeV11OpShapeHelper
     : public ONNXOpShapeHelper<ONNXSqueezeV11Op> {
   ONNXSqueezeV11OpShapeHelper(ONNXSqueezeV11Op *newOp);
   ONNXSqueezeV11OpShapeHelper(ONNXSqueezeV11Op *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -366,7 +366,7 @@ struct ONNXSqueezeV11OpShapeHelper
 struct ONNXUnsqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXUnsqueezeOp> {
   ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp);
   ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -378,7 +378,7 @@ struct ONNXUnsqueezeV11OpShapeHelper
     : public ONNXOpShapeHelper<ONNXUnsqueezeV11Op> {
   ONNXUnsqueezeV11OpShapeHelper(ONNXUnsqueezeV11Op *newOp);
   ONNXUnsqueezeV11OpShapeHelper(ONNXUnsqueezeV11Op *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -389,7 +389,7 @@ struct ONNXUnsqueezeV11OpShapeHelper
 struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<ONNXShapeOp> {
   ONNXShapeOpShapeHelper(ONNXShapeOp *newOp);
   ONNXShapeOpShapeHelper(ONNXShapeOp *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
@@ -402,7 +402,7 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<ONNXShapeOp> {
 struct ONNXExpandOpShapeHelper : public ONNXOpBroadcastedShapeHelper {
   ONNXExpandOpShapeHelper(ONNXExpandOp *newOp);
   ONNXExpandOpShapeHelper(ONNXExpandOp *newOp,
-      ConversionPatternRewriter &rewriter,
+      ConversionPatternRewriter *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 

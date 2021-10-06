@@ -29,7 +29,7 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
   auto axis = splitOp.axis();
 
   // Get a shape helper.
-  ShapeHelper shapeHelper(&splitOp, rewriter,
+  ShapeHelper shapeHelper(&splitOp, &rewriter,
       getDenseElementAttributeFromKrnlValue, loadDenseElementArrayValueAtIndex);
   auto shapecomputed = shapeHelper.Compute(operandAdaptor);
   assert(succeeded(shapecomputed));

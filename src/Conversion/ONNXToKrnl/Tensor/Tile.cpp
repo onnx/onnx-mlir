@@ -64,7 +64,7 @@ struct ONNXTileOpLowering : public ConversionPattern {
     ONNXTileOp tileOp = llvm::cast<ONNXTileOp>(op);
     auto loc = op->getLoc();
 
-    ONNXTileOpShapeHelper shapeHelper(&tileOp, rewriter,
+    ONNXTileOpShapeHelper shapeHelper(&tileOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
 
