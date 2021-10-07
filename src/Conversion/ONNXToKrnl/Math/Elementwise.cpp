@@ -896,7 +896,8 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc, isUniBroadcasting);
-    auto shapecomputed = shapeHelper.Compute(operands);
+    DimsExpr empty;
+    auto shapecomputed = shapeHelper.Compute(operands, empty);
     assert(succeeded(shapecomputed));
     // Scope for krnl ops
     IndexExprScope outerScope(rewriter, shapeHelper.scope);
@@ -971,7 +972,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // The following call is used to force no broadcasting check at runtime
     // Even when the dim is unknown at compile time
     // ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc, true, true);
-    LogicalResult shapecomputed = shapeHelper.Compute(operands);
+    DimsExpr empty;
+    LogicalResult shapecomputed = shapeHelper.Compute(operands, empty);
     assert(succeeded(shapecomputed));
     IndexExprScope outerScope(rewriter, shapeHelper.scope);
     KrnlBuilder createKrnl(rewriter, loc);
@@ -1022,6 +1024,84 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
     // Store result in the resulting array.
     createKrnl.storeIE(finalResult, alloc, outputAccessExprs);
+
+    rewriter.replaceOp(op, alloc);
+
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// where op lowering to Krnl dialect.
+//===----------------------------------------------------------------------===//
+struct ONNXWhereOpLowering : public ConversionPattern {
+  ONNXWhereOpLowering(MLIRContext *ctx)
+      : ConversionPattern(ONNXWhereOp::getOperationName(), 1, ctx) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    auto loc = NameLoc::get(
+        Identifier::get(ONNXWhereOp::getOperationName(), op->getContext()),
+        op->getLoc());
+    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    auto outputElementType = outputMemRefType.getElementType();
+    auto outputRank = outputMemRefType.getRank();
+
+    // Shape helper.
+    ONNXOpBroadcastedShapeHelper shapeHelper(
+        &rewriter, loc, /*isUniBroadcasting=*/false);
+    DimsExpr empty;
+    auto shapecomputed = shapeHelper.Compute(operands, empty);
+    assert(succeeded(shapecomputed));
+    // Scope for krnl ops
+    IndexExprScope outerScope(rewriter, shapeHelper.scope);
+    KrnlBuilder createKrnl(rewriter, loc);
+
+    // Insert an allocation and deallocation for the result of this operation.
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
+
+    // Emit main computation.
+    SmallVector<IndexExpr, 4> outputAccessExprs;
+    // Only create krnl.iterate if one of the operands is not scalar tensor.
+    if (!hasAllScalarValues(operands)) {
+      // Create iterateOp & get block within iterate op.
+      BuildKrnlLoop loops(rewriter, loc, outputRank);
+      loops.createDefineAndIterateOp(alloc);
+      Block *iterationBlock = loops.getIterateBlock();
+      // Insert instructions inside the KernelIterateOp body.
+      rewriter.setInsertionPointToStart(iterationBlock);
+      // Handle the operation:
+      for (auto arg : iterationBlock->getArguments())
+        outputAccessExprs.emplace_back(DimIndexExpr(arg));
+    }
+
+    // Load the condition value.
+    SmallVector<IndexExpr, 4> condAccessExprs;
+    LogicalResult res = shapeHelper.GetAccessExprs(
+        operands[0], 0, outputAccessExprs, condAccessExprs);
+    assert(succeeded(res));
+    Value cond = createKrnl.loadIE(operands[0], condAccessExprs);
+
+    // Load the first value.
+    SmallVector<IndexExpr, 4> lhsAccessExprs;
+    res = shapeHelper.GetAccessExprs(
+        operands[1], 1, outputAccessExprs, lhsAccessExprs);
+    assert(succeeded(res));
+    Value lhs = createKrnl.loadIE(operands[1], lhsAccessExprs);
+
+    // Load the second value.
+    SmallVector<IndexExpr, 4> rhsAccessExprs;
+    res = shapeHelper.GetAccessExprs(
+        operands[2], 2, outputAccessExprs, rhsAccessExprs);
+    assert(succeeded(res));
+    Value rhs = createKrnl.loadIE(operands[2], rhsAccessExprs);
+
+    // Return lhs if cond is true else rhs.
+    Value result = rewriter.create<SelectOp>(loc, cond, lhs, rhs);
+
+    // Store result in the resulting array.
+    createKrnl.storeIE(result, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -1080,7 +1160,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSubOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>, ONNXWhereOpLowering,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
       ctx, /*isUniBroadcasting=*/true);

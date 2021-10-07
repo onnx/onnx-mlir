@@ -833,6 +833,8 @@ test_to_enable_dict = {
     "test_upsample_nearest_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Where
+    "test_where_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_where_long_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Xor
     "test_xor2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -1029,20 +1031,25 @@ class EndiannessAwareExecutionSession:
 
     def run(self, inputs, **kwargs):
         if len(inputs):
+            inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
+            endianness_is_consistent = len(set(inputs_endianness)) <= 1
             # Deduce desired endianness of output from inputs.
-            sys_is_le = sys.byteorder == 'little'
-            inp_is_le = self.is_input_le(inputs)
-            inp_is_not_relevant_endian = self.is_not_relevant_endian(inputs)
-            if (not inp_is_not_relevant_endian and sys_is_le != inp_is_le):
-                inputs = list(
-                    map(lambda x: x.byteswap().newbyteorder(), inputs))
+            # Only possible if all inputs are consistent in endiannness.
+            if endianness_is_consistent:
+                sys_is_le = sys.byteorder == 'little'
+                inp_is_le = self.is_input_le(inputs)
+                inp_is_not_relevant_endian = self.is_not_relevant_endian(inputs)
+                if (not inp_is_not_relevant_endian and sys_is_le != inp_is_le):
+                    inputs = list(
+                        map(lambda x: x.byteswap().newbyteorder(), inputs))
             # If constant test, change the model inputs to constants.
             if args.constant:
                 inputs = self.turn_model_input_to_constant(inputs)
                 self.exec_name = self.compile_model()
             session = ExecutionSession(self.exec_name, self.entry_point)
             outputs = session.run(inputs)
-            if (not inp_is_not_relevant_endian and sys_is_le != inp_is_le):
+            if (endianness_is_consistent and not inp_is_not_relevant_endian and
+                sys_is_le != inp_is_le):
                 outputs = list(
                     map(lambda x: x.byteswap().newbyteorder(), outputs))
             return outputs
