@@ -32,7 +32,6 @@ struct ONNXPadOpLowering : public ConversionPattern {
 
     // Builder helper.
     KrnlBuilder createKrnl(rewriter, loc);
-    MemRefBuilder createMemRef(createKrnl);
 
     // Shape helper.
     ONNXPadOpShapeHelper shapeHelper(&padOp, rewriter,
