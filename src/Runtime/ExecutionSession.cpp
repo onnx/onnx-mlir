@@ -60,7 +60,7 @@ ExecutionSession::run(
     outs.emplace_back(std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
         omTensorListGetOmtByIndex(wrappedOutput, i), omTensorDestroy));
   }
-  return std::move(outs);
+  return outs;
 }
 
 ExecutionSession::~ExecutionSession() {

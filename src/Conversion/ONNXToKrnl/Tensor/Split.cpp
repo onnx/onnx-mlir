@@ -37,8 +37,7 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
   // Alloc and dealloc.
   SmallVector<Value, 4> allocs;
   for (unsigned int i = 0; i < outputNum; ++i) {
-    // Warning: insertDealloc is not used.
-    bool insertDealloc = checkInsertDealloc(op, i);
+    checkInsertDealloc(op, i);
     auto memRefType = convertToMemRefType(splitOp.outputs()[i].getType());
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(i));
