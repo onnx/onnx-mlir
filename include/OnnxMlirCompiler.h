@@ -2,12 +2,35 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#pragma once
+//===------- OnnxMlirCompiler.h - ONNX-MLIR Compiler API Declarations -----===//
+//
+// This file contains declaration of onnx-mlir compiler functionality
+// exported from the OnnxMlirCompiler library
+//
+//===----------------------------------------------------------------------===//
 
-#include "OMExport.hpp"
-#include "OMTypes.hpp"
+#ifndef ONNX_MLIR_ONNXMLIRCOMPILER_H
+#define ONNX_MLIR_ONNXMLIRCOMPILER_H
 
+#include <onnx-mlir/Compiler/OMCompilerTypes.h>
+
+#ifdef ONNX_MLIR_BUILT_AS_STATIC
+#define ONNX_MLIR_EXPORT
+#define ONNX_MLIR_NO_EXPORT
+#else
+#ifdef OnnxMlirCompiler_EXPORTS
+/* We are building this library */
+#define ONNX_MLIR_EXPORT __declspec(dllexport)
+#else
+/* We are using this library */
+#define ONNX_MLIR_EXPORT __declspec(dllimport)
+#endif
+#endif
+
+#ifdef __cplusplus
 extern "C" {
+#endif
+
 namespace onnx_mlir {
 
 /*!
@@ -38,4 +61,9 @@ ONNX_MLIR_EXPORT int CompileFromArray(const void *inputBuffer, int bufferSize,
     const char *mcpu, const char *mtriple);
 
 } // namespace onnx_mlir
+
+#ifdef __cplusplus
 }
+#endif
+
+#endif

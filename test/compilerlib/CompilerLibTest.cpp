@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "src/OMLibrary.hpp"
+#include "OnnxMlirCompiler.h"
 #include <fstream>
 #include <iostream>
 #include <string>

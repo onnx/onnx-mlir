@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#pragma once
+#ifndef ONNX_MLIR_OMCOMPILERTYPES_H
+#define ONNX_MLIR_OMCOMPILERTYPES_H
 
 namespace onnx_mlir {
 
@@ -22,3 +23,5 @@ enum InputIRLevelType {
 };
 
 } // namespace onnx_mlir
+
+#endif

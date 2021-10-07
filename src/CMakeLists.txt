@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
-include(GenerateExportHeader)
-
 add_subdirectory(Interface)
 add_subdirectory(Dialect)
 add_subdirectory(Support)
@@ -10,6 +8,7 @@ add_subdirectory(Transform)
 add_subdirectory(Builder)
 add_subdirectory(Runtime)
 add_subdirectory(Tool)
+add_subdirectory(CompilerLibrary)
 
 get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
@@ -45,6 +44,9 @@ add_onnx_mlir_library(MainUtils
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
+  
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
   ${OMLibs}
@@ -59,23 +61,6 @@ add_dependencies(MainUtils cruntime)
 if (ONNX_MLIR_ENABLE_JNI)
   add_dependencies(MainUtils jniruntime)
 endif()
-
-include_directories(${PROJECT_BINARY_DIR}/src)
-add_onnx_mlir_library(om SHARED
-  OMLibrary.cpp
-
-  EXCLUDE_FROM_OM_LIBS
-  
-  LINK_LIBS PRIVATE
-  MainUtils
-  )
-
-GENERATE_EXPORT_HEADER (om
-    BASE_NAME onnx_mlir
-    EXPORT_MACRO_NAME ONNX_MLIR_EXPORT
-    EXPORT_FILE_NAME OMExport.hpp
-    STATIC_DEFINE ONNX_MLIR_BUILT_AS_STATIC
-)
 
 add_onnx_mlir_executable(onnx-mlir
   main.cpp

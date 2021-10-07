@@ -48,11 +48,11 @@ jobs:
             cd onnx-mlir/build
             RUNTIME_DIR=$(pwd)/lib cmake --build . --target check-onnx-backend-dynamic
       - run:
-          name: Run End-To-End Tests With omtest
+          name: Run End-To-End Tests With Compiler Lib
           command: |
             sudo pip install -q -e ./onnx-mlir/third_party/onnx
             cd onnx-mlir/build
-            RUNTIME_DIR=$(pwd)/lib cmake --build . --target check-omtest-backend
+            RUNTIME_DIR=$(pwd)/lib cmake --build . --target check-compilerlib-backend
       - run:
           name: Run Document Checks
           command: |

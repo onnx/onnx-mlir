@@ -25,9 +25,10 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 
+#include "onnx-mlir/Compiler/OMCompilerTypes.h"
+
 #include "src/Builder/FrontendDialectTransformer.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/OMTypes.hpp"
 #include "src/Pass/Passes.hpp"
 
 extern llvm::cl::OptionCategory OnnxMlirOptions;
