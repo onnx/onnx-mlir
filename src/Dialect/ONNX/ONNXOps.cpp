@@ -3843,7 +3843,15 @@ LogicalResult ONNXReverseSequenceOp::inferShapes(
     return success();
 
   // Propagate the type of input to output
-  getResult().setType(input().getType());
+  ONNXReverseSequenceOpShapeHelper shapeHelper(this);
+  ONNXReverseSequenceOpAdaptor operandAdaptor(*this);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to shape inference for ReserveSequence");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  auto elementType =
+      input().getType().cast<RankedTensorType>().getElementType();
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
 }
 

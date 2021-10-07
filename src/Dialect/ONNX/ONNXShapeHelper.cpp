@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 #include <algorithm>
 
@@ -1530,5 +1530,33 @@ LogicalResult ONNXShapeOpShapeHelper::Compute(
 
   for (int64_t i = start; i < end; ++i)
     dimsForOutput(0).emplace_back(dataBounds.getDim(i));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX ReverseSequence Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXReverseSequenceOpShapeHelper::ONNXReverseSequenceOpShapeHelper(
+    ONNXReverseSequenceOp *newOp)
+    : ONNXOpShapeHelper<ONNXReverseSequenceOp>(newOp) {}
+
+ONNXReverseSequenceOpShapeHelper::ONNXReverseSequenceOpShapeHelper(
+    ONNXReverseSequenceOp *newOp, ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXReverseSequenceOp>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXReverseSequenceOpShapeHelper::Compute(
+    ONNXReverseSequenceOpAdaptor operandAdaptor) {
+
+  // Get info about input data operand.
+  Value input = operandAdaptor.input();
+  MemRefBoundsIndexCapture inputBounds(input);
+  int64_t inputRank = inputBounds.getRank();
+
+  for (int64_t i = 0; i < inputRank; ++i)
+    dimsForOutput(0).emplace_back(inputBounds.getDim(i));
   return success();
 }

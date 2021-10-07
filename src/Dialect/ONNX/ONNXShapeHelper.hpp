@@ -390,3 +390,17 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<ONNXShapeOp> {
 
   DimsExpr selectedData;
 };
+
+// Shape for ONNXReverseSequence.
+struct ONNXReverseSequenceOpShapeHelper
+    : public ONNXOpShapeHelper<ONNXReverseSequenceOp> {
+  ONNXReverseSequenceOpShapeHelper(ONNXReverseSequenceOp *newOp);
+  ONNXReverseSequenceOpShapeHelper(ONNXReverseSequenceOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXReverseSequenceOpAdaptor operandAdaptor);
+
+  DimsExpr selectedData;
+};
