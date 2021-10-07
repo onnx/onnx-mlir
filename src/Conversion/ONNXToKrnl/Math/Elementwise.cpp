@@ -804,17 +804,52 @@ template <>
 Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-  Value val = scalarOperands[0];
+  Value x = scalarOperands[0];
   if (elementType.isa<FloatType>()) {
-    Value f049 = emitConstantOp(rewriter, loc, elementType, 0.49);
-    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
-    auto isPositive =
-        rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, val, zero);
-    Value valAdd = rewriter.create<AddFOp>(loc, val, f049);
-    Value valSub = rewriter.create<SubFOp>(loc, val, f049);
-    val = rewriter.create<SelectOp>(loc, isPositive, valAdd, valSub);
-    Value valI64 = rewriter.create<FPToSIOp>(loc, rewriter.getI64Type(), val);
-    return rewriter.create<SIToFPOp>(loc, elementType, valI64);
+    // Use numpy algorithm for rint as follows.
+    // ```
+    // double y, r;
+    // y = npy_floor(x);
+    // r = x - y;
+    //
+    // if (r > 0.5) {
+    //     y += 1.0;
+    // }
+    //
+    // /* Round to nearest even */
+    // if (r == 0.5) {
+    //     r = y - 2.0*npy_floor(0.5*y);
+    //     if (r == 1.0) {
+    //         y += 1.0;
+    //     }
+    // }
+    // return y;
+    // ```
+    Value one = emitConstantOp(rewriter, loc, elementType, 1.0);
+    Value two = emitConstantOp(rewriter, loc, elementType, 2.0);
+    Value half = emitConstantOp(rewriter, loc, elementType, 0.5);
+    Value y = rewriter.create<FloorFOp>(loc, x);
+    Value r = rewriter.create<SubFOp>(loc, x, y);
+
+    // r > 0.5
+    Value rGreaterThanHalf =
+        rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, r, half);
+    Value y1 = rewriter.create<SelectOp>(
+        loc, rGreaterThanHalf, rewriter.create<AddFOp>(loc, y, one), y);
+
+    // r == 0.5: round to nearest even.
+    Value y2 = rewriter.create<MulFOp>(loc, half, y);
+    y2 = rewriter.create<FloorFOp>(loc, y2);
+    y2 = rewriter.create<MulFOp>(loc, y2, two);
+    Value rr = rewriter.create<SubFOp>(loc, y, y2);
+    Value rrEqualOne =
+        rewriter.create<CmpFOp>(loc, CmpFPredicate::OEQ, rr, one);
+    y2 = rewriter.create<SelectOp>(
+        loc, rrEqualOne, rewriter.create<AddFOp>(loc, y, one), y);
+
+    Value rEqualHalf =
+        rewriter.create<CmpFOp>(loc, CmpFPredicate::OEQ, r, half);
+    return rewriter.create<SelectOp>(loc, rEqualHalf, y2, y1);
   } else {
     llvm_unreachable("unsupported element type");
   }
