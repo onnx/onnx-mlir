@@ -202,7 +202,7 @@ static FILE *get_log_file_by_name(char *name) {
   else if (!strcmp(name, "stderr"))
     fp = stderr;
   else {
-    char *tname = malloc(strlen(name) + 32);
+    char *tname = (char *)malloc(strlen(name) + 32);
     if (tname) {
       snprintf(tname, strlen(name) + 32, "%s.%lx", name, get_threadid());
       fp = fopen(tname, "w");

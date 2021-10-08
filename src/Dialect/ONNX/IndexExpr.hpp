@@ -402,6 +402,8 @@ public:
   IndexExpr() : indexExprObj(nullptr) {} // Undefined index expression.
   IndexExpr(IndexExprImpl *implObj) : indexExprObj(implObj) {}     // Shallow.
   IndexExpr(IndexExpr const &obj) : IndexExpr(obj.indexExprObj) {} // Shallow.
+  IndexExpr &operator=(const IndexExpr &) = default;
+
   // To construct meaningful IndexExpr, use subclasses constructors.
   IndexExpr deepCopy() const;
 
@@ -666,6 +668,7 @@ public:
   DimIndexExpr(AffineIndexExpr const &o);
   DimIndexExpr(DimIndexExpr const &o);
   DimIndexExpr(SymbolIndexExpr const &o);
+  DimIndexExpr &operator=(const DimIndexExpr &) = default;
 
 private:
   DimIndexExpr(IndexExprImpl *otherObjPtr);

@@ -31,7 +31,7 @@
 
 using namespace mlir;
 
-const uint64_t KrnlConstGlobalValueElision::kDefaultElisionThreshold = 32;
+constexpr uint64_t KrnlConstGlobalValueElision::kDefaultElisionThreshold;
 
 mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
     mlir::KrnlGlobalOp op, mlir::PatternRewriter &rewriter) const {

@@ -783,7 +783,6 @@ template <>
 Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-  ONNXModOp modOp = llvm::dyn_cast<ONNXModOp>(op);
   Value dividend = scalarOperands[0];
   Value divisor = scalarOperands[1];
 
