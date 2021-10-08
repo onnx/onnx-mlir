@@ -20,8 +20,8 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
 
+#include "CompilerUtils.hpp"
 #include "ExternalUtil.hpp"
-#include "MainUtils.hpp"
 #include "src/Support/OMOptions.hpp"
 
 using namespace std;

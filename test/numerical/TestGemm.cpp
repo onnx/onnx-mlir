@@ -14,7 +14,7 @@
 #include "llvm/Support/FileSystem.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/MainUtils.hpp"
+#include "src/Compiler/CompilerUtils.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
 

@@ -51,7 +51,7 @@ endfunction()
 # of the flags for exceptions (among others) are not set correctly.
 llvm_update_compile_flags(rapidcheck)
 
-set(TEST_LINK_LIBS rapidcheck MainUtils ExecutionSession)
+set(TEST_LINK_LIBS rapidcheck CompilerUtils ExecutionSession)
 
 add_numerical_unittest(TestConv
   TestConv.cpp

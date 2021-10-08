@@ -3,7 +3,7 @@
  */
 
 #include "OnnxMlirCompiler.h"
-#include "src/MainUtils.hpp"
+#include "CompilerUtils.hpp"
 
 extern "C" {
 namespace onnx_mlir {
