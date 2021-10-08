@@ -1524,3 +1524,64 @@ LogicalResult ONNXShapeOpShapeHelper::Compute(
     dimsForOutput(0).emplace_back(dataBounds.getDim(i));
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// ONNX Pad Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXPadOpShapeHelper::ONNXPadOpShapeHelper(ONNXPadOp *newOp)
+    : ONNXOpShapeHelper<ONNXPadOp>(newOp), pads() {}
+
+ONNXPadOpShapeHelper::ONNXPadOpShapeHelper(ONNXPadOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXPadOp>(newOp, rewriter, fGetDenseVal, fLoadVal),
+      pads() {}
+
+LogicalResult ONNXPadOpShapeHelper::Compute(ONNXPadOpAdaptor operandAdaptor) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Output dims of results.
+  DimsExpr outputDims;
+
+  // Get info about input data operand.
+  MemRefBoundsIndexCapture dataBounds(operandAdaptor.data());
+  uint64_t dataRank = dataBounds.getRank();
+
+  // Initialize context and results (pads & output)
+  pads.resize(2 * dataRank); // pads two sides of each axis.
+  outputDims.resize(dataRank);
+
+  // `pads` format is : [x1_begin, x2_begin,...,x1_end, x2_end,...],
+  // where
+  // - xi_begin: the number of pad values added at the beginning of axis `i`
+  // - xi_end: the number of pad values added at the end of axis `i`.
+  ArrayValueIndexCapture padsCapture(
+      genericOp, operandAdaptor.pads(), fGetDenseVal, fLoadVal);
+
+  // Calculate output dimension sizes.
+  for (uint64_t i = 0; i < dataRank; i++) {
+    // Get begin/end pads.
+    SymbolIndexExpr padBegin(padsCapture.getSymbol(i));
+    SymbolIndexExpr padEnd(padsCapture.getSymbol(i + dataRank));
+    if (padBegin.isUndefined() || padEnd.isUndefined())
+      return op->emitError("pad parameter could not be processed");
+    // Get input dim.
+    DimIndexExpr dimInput(dataBounds.getDim(i));
+
+    // Calculation for output size.
+    IndexExpr dimOutputFinal = padBegin + dimInput + padEnd;
+
+    // Save results.
+    pads[i] = padBegin;
+    pads[i + dataRank] = padEnd;
+    outputDims[i] = dimOutputFinal;
+  }
+
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
+
+  return success();
+}
