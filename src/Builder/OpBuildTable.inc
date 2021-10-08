@@ -111,7 +111,7 @@ op_dialect_version_map_["OneHot"] = {11};
 op_dialect_version_map_["OneHotEncoder"] = {1};
 op_dialect_version_map_["Or"] = {7};
 op_dialect_version_map_["PRelu"] = {9};
-op_dialect_version_map_["Pad"] = {13, 2};
+op_dialect_version_map_["Pad"] = {13, 11, 2};
 op_dialect_version_map_["Pow"] = {13};
 op_dialect_version_map_["QLinearConv"] = {10};
 op_dialect_version_map_["QLinearMatMul"] = {10};
@@ -372,6 +372,8 @@ import_handler_map_["PRelu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPReluOp>;
 import_handler_map_["Pad"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodePad;
+import_handler_map_["PadV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPadV11Op>;
 import_handler_map_["PadV2"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPadV2Op>;
 import_handler_map_["Pow"] = 

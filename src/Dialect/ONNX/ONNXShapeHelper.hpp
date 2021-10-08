@@ -402,3 +402,16 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<ONNXShapeOp> {
 
   DimsExpr selectedData;
 };
+
+// Shape for PadOp.
+struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<ONNXPadOp> {
+  ONNXPadOpShapeHelper(ONNXPadOp *newOp);
+  ONNXPadOpShapeHelper(ONNXPadOp *newOp, ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXPadOpAdaptor operandAdaptor);
+
+  // Additional data for PadOp.
+  SmallVector<IndexExpr, 4> pads;
+};

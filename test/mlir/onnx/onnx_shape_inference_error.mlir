@@ -123,20 +123,6 @@ func @test_lstm_wrong_direction(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf
 // -----
 
 //===----------------------------------------------------------------------===//
-/// Unsupported configurations for ONNXPadOp.
-//===----------------------------------------------------------------------===//
-
-func @unsupport_pad_unknown_pad_values(%arg0 : tensor<16x13xf32>, %arg1 : tensor<4xi64>) -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<1xf32> } : () -> tensor<1xf32>
-  // expected-error @+2 {{Pad: unknown pads}}
-  // expected-error @+1 {{shape inference failed}}
-  %1 = "onnx.Pad"(%arg0, %arg1, %0) {mode = "constant"} : (tensor<16x13xf32>, tensor<4xi64>, tensor<1xf32>) -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
-//===----------------------------------------------------------------------===//
 /// Unsupported configurations for ONNXResizeOp.
 //===----------------------------------------------------------------------===//
 
