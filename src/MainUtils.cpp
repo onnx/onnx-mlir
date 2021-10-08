@@ -101,7 +101,7 @@ enum class KeepFilesOfType { All, MLIR, Bitcode, Object, None };
 
 // Value below override at compile time by effectively setting the requested
 // flags.
-static const KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
+static constexpr KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
 
 static bool keepFiles(KeepFilesOfType preserve) {
   // When wanting to preserve all files, do it regardles of isBitcode.

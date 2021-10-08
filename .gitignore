@@ -1,5 +1,6 @@
 .idea/
 cmake-*/
+CMakePresets.json
 
 # Prerequisites
 *.d

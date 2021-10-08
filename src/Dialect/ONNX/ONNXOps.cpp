@@ -4313,11 +4313,11 @@ SeqType SeqType::get(llvm::ArrayRef<mlir::Type> elementTypes) {
   return Base::get(ctx, elementTypes);
 }
 
-llvm::ArrayRef<mlir::Type> SeqType::getElementTypes() {
+llvm::ArrayRef<mlir::Type> SeqType::getElementTypes() const {
   return getImpl()->elementTypes;
 }
 
-mlir::Type SeqType::getElementType() { return getElementTypes()[0]; }
+mlir::Type SeqType::getElementType() const { return getElementTypes()[0]; }
 
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
