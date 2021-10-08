@@ -150,16 +150,20 @@ private:
   bool all_;
   std::vector<std::string> operationList;
 public:
-  OutlineOperatorsPass(bool all, std::string list, std::string fn) {
+  OutlineOperatorsPass(bool all, std::string fn, std::string list) {
+    std::cout << "constructing OutlineOperatorsPass" << std::endl;
     all_=all;
     if (all) {
       assert(list=="" && fn=="" && "All ops specified for outlining, but filename and/or string also specified ");
       }
     else {  
+      std::cout << "getting operations from string option: " << list << std::endl;
       std::string opName;
       std::stringstream opList(list);
-      while (getline(opList, opName, ','))
+      while (getline(opList, opName, ',')) {
+        std::cout << "adding operation to list " << opName << std::endl;
         operationList.push_back(opName);
+      }
       std::ifstream opFile(fn, std::ifstream::in);
       while (getline(opFile, opName))
         operationList.push_back(opName);
@@ -225,7 +229,8 @@ public:
       // patterns.add<OutlinePattern>(/*benefit=*/1, ctx);
       } else {
         for (std::string name : operationList) {
-          patterns.add<OutlinePattern>(name.c_str(),/*benefir*/1,ctx);
+          std::cout << "making pattern from operationList element " << name << std::endl;
+          patterns.add<OutlinePattern>(name.c_str(),/*benefit*/1,ctx);
         }
       }
   }
@@ -366,6 +371,7 @@ public:
     for (auto arg : inputVals.getTypes())
       funcBlock->addArgument(arg);
     rewriter.setInsertionPointToStart(&outlinedFunc.body().back());
+    rewriter.create<ONNXPrintTensorsOp>(loc,outlinedFunc.getArguments());
     BlockAndValueMapping bvm;
     for (auto it : llvm::zip(inputVals, outlinedFunc.getArguments()))
       bvm.map(std::get<0>(it), std::get<1>(it));

@@ -1127,3 +1127,15 @@ def KrnlPrintOp : Op<Krnl_Dialect, "print", [MemRefsNormalizable]> {
 
   let arguments = (ins StrAttr:$format, Optional<AnyType>:$input);
 } 
+def KrnlPrintTensorElementOp : Op<Krnl_Dialect, "printTensorElement"> {
+  let summary = "Krnl print tensor element scalar operation";
+  let description = [{
+    Krnl print tensor element scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+
+  let parser = ?;
+  let printer = ?;
+}
+

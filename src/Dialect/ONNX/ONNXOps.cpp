@@ -5145,6 +5145,16 @@ FunctionType ONNXCallOp::getCalleeType() {
 }
 
 //===----------------------------------------------------------------------===//
+// PrintTensorsOp
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXCustomOp. This method is required by
+/// the shape inference interface.
+LogicalResult ONNXPrintTensorsOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // SubgraphOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSubgraphOp. This method is required by the

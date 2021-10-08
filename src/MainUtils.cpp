@@ -473,8 +473,10 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createShapeInferencePass());
-  if (outlineONNXOps || (outlineFN !="") || (outlineListedOps !=""))
+  if (outlineONNXOps || (outlineFN !="") || (outlineListedOps !="")) {
+    std::cout << "adding outline pass: outlineListedOps="<< outlineListedOps << std::endl;
     pm.addPass(mlir::createOutlineOperatorsPass(outlineONNXOps, outlineFN, outlineListedOps));
+  }
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
   pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());

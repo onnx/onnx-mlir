@@ -177,6 +177,13 @@ struct ScalarOp<ONNXTanOp> {
   using IOp = KrnlTanOp; // Not used.
 };
 
+template <>
+struct ScalarOp<ONNXPrintTensorsOp> {
+  using FOp = KrnlPrintTensorElementOp;
+  using IOp = KrnlPrintTensorElementOp; // Not used.
+};
+
+
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCastOp
 //===----------------------------------------------------------------------===//
@@ -918,6 +925,39 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
   }
 };
 
+struct ONNXElementwiseOpLoweringPrint : public ConversionPattern {
+  ONNXElementwiseOpLoweringPrint(MLIRContext *ctx)
+      : ConversionPattern(mlir::ONNXPrintTensorsOp::getOperationName(), 1, ctx) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    auto loc = ONNXLoc<ONNXPrintTensorsOp>(op);
+    auto X = operands[0];
+    auto memRefType = convertToMemRefType(operands[0].getType());
+
+    SmallVector<Value, 4> loopIVs;
+    // Only create krnl.iterate if one of the operands is not scalar tensor.
+    if (!hasAllScalarValues(operands)) {
+      // Create iterateOp & get block within iterate op.
+      BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
+      loops.createDefineAndIterateOp(X);
+      Block *iterationBlock = loops.getIterateBlock();
+
+      // Insert instructions inside the KernelIterateOp body.
+      rewriter.setInsertionPointToStart(iterationBlock);
+
+      // Handle the operation:
+      for (auto arg : iterationBlock->getArguments())
+        loopIVs.push_back(arg);
+    }
+
+    rewriter.create<KrnlPrintTensorElementOp>(loc,operands[0]);    
+
+    rewriter.eraseOp(op);
+
+    return success();
+  }
+};
+
 // Element-wise binary ops lowering to Krnl dialect.
 // This template can be used for binary ops that return a result whose type is
 // different from the input type.
@@ -1215,6 +1255,8 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>, ONNXWhereOpLowering,
+      ONNXElementwiseOpLoweringPrint,
+      //ONNXElementwiseUnaryOpLowering<mlir::ONNXPrintTensorsOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(typeConverter, ctx);
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
       typeConverter, ctx, /*isUniBroadcasting=*/true);
