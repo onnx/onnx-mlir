@@ -114,8 +114,9 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
         operandAdaptor.sequence_lens(), inputAccessFct[batchAxis]);
     IndexExpr lens = NonAffineIndexExpr(lensVal);
     DimIndexExpr timeDim = inputAccessFct[timeAxis];
+    IndexExpr cond = timeDim < lens;
     IndexExpr inputIndex =
-        IndexExpr::select(timeDim < lens, lens - timeDim - one, timeDim);
+        IndexExpr::select(cond, lens - timeDim - one, timeDim);
     inputAccessFct[timeAxis] = inputIndex;
     Value inputVal = createKrnl.loadIE(operandAdaptor.input(), inputAccessFct);
 
