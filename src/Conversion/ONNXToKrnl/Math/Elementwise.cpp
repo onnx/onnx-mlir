@@ -830,8 +830,8 @@ struct ONNXElementwiseOpLoweringPrint : public ConversionPattern {
       for (auto arg : iterationBlock->getArguments())
         loopIVs.push_back(arg);
     }
-
-    rewriter.create<KrnlPrintTensorElementOp>(loc,operands[0]);    
+    auto loadedVal = rewriter.create<KrnlLoadOp>(loc, X, loopIVs);
+    rewriter.create<KrnlPrintTensorElementOp>(loc,loadedVal);    
 
     rewriter.eraseOp(op);
 
