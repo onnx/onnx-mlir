@@ -115,6 +115,7 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   target.addIllegalOp<ONNXUpsampleV9Op>();
   target.addIllegalOp<ONNXUpsampleV7Op>();
   target.addIllegalOp<ONNXPadV2Op>();
+  target.addIllegalOp<ONNXPadV11Op>();
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);

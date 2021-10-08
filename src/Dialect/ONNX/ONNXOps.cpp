@@ -2236,48 +2236,19 @@ LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
 LogicalResult ONNXPadOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!data().getType().isa<RankedTensorType>())
+  if (!data().getType().isa<RankedTensorType>() ||
+      !pads().getType().isa<RankedTensorType>())
     return success();
 
-  auto dataTy = data().getType().cast<RankedTensorType>();
-  auto dataShape = dataTy.getShape();
-  auto dataRank = dataTy.getRank();
-  SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
+  auto elementType = data().getType().cast<ShapedType>().getElementType();
+  ONNXPadOpAdaptor operandAdaptor(*this);
+  ONNXPadOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan Pad parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
 
-  // Get pads from valueAttribute.
-  SmallVector<int64_t, 2> padsInt(dataRank * 2, -1);
-  if (getONNXConstantOp(pads())) {
-    DenseElementsAttr padsAttributes =
-        getONNXConstantOp(pads())
-            .valueAttr()
-            .dyn_cast_or_null<mlir::DenseElementsAttr>();
-    if (padsAttributes) {
-      auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
-      for (int64_t i = 0; i < dataRank * 2; ++i)
-        padsInt[i] = (*valueIt++).getInt();
-    } else {
-      // Cannot infer if the pads is not constant
-      return emitError("Pad: unknown pads");
-    }
-  } else {
-    return emitError("Pad: unknown pads");
-  }
-
-  // Pads consists of two values for each axis of data.
-  // The two values specify the number of elements padded before and after
-  // respectively.
-  for (int64_t i = 0; i < dataRank; ++i) {
-    int64_t p1 = padsInt[i];
-    int64_t p2 = padsInt[i + dataRank];
-    // Have to non-negative constant
-    if (p1 < 0 || p2 < 0)
-      return emitError("padding value can not be negative");
-    if (outputShape[i] != -1)
-      outputShape[i] += p1 + p2;
-  }
-
-  auto outputType = RankedTensorType::get(outputShape, dataTy.getElementType());
-  getResult().setType(outputType);
   return success();
 }
 
@@ -4187,6 +4158,7 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXSoftmaxCrossEntropyLossOp);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV9Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV11Op);
 
 //===----------------------------------------------------------------------===//
 // Loop

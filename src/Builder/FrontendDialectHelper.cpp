@@ -44,6 +44,14 @@ struct TransformValueToONNXData<float> {
 };
 
 template <>
+struct TransformValueToONNXData<int16_t> {
+  static const google::protobuf::RepeatedField<int32_t> data(
+      onnx::TensorProto initializer) {
+    return initializer.int32_data();
+  }
+};
+
+template <>
 struct TransformValueToONNXData<int32_t> {
   static const google::protobuf::RepeatedField<int32_t> data(
       onnx::TensorProto initializer) {
@@ -177,6 +185,15 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
     const auto &arrayAttrInitializer =
         CreateArrayAttribute<uint8_t>(initializer);
     auto elmType = builder.getIntegerType(8, false);
+    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+    denseElmAttr = mlir::DenseElementsAttr::get(
+        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
+    break;
+  }
+  case (onnx::TensorProto::INT16): {
+    const auto &arrayAttrInitializer =
+        CreateArrayAttribute<int16_t>(initializer);
+    auto elmType = builder.getIntegerType(16);
     auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
     denseElmAttr = mlir::DenseElementsAttr::get(
         tensorType, llvm::makeArrayRef(arrayAttrInitializer));

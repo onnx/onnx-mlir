@@ -578,9 +578,20 @@ Value emitScalarOpFor<ONNXMaxOp>(ConversionPatternRewriter &rewriter,
   //                              %Y)
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  auto max = rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
-  auto result = rewriter.create<SelectOp>(loc, max, lhs, rhs);
-  return result;
+  Value max;
+  if (elementType.isa<FloatType>()) {
+    max = rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
+    return rewriter.create<SelectOp>(loc, max, lhs, rhs);
+  } else if (elementType.isa<IntegerType>()) {
+    if (elementType.isUnsignedInteger()) {
+      max = rewriter.create<CmpIOp>(loc, CmpIPredicate::ugt, lhs, rhs);
+    } else {
+      max = rewriter.create<CmpIOp>(loc, CmpIPredicate::sgt, lhs, rhs);
+    }
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+  return rewriter.create<SelectOp>(loc, max, lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
@@ -595,9 +606,18 @@ Value emitScalarOpFor<ONNXMinOp>(ConversionPatternRewriter &rewriter,
   //                              %Y)
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  auto min = rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
-  auto result = rewriter.create<SelectOp>(loc, min, lhs, rhs);
-  return result;
+  Value min;
+  if (elementType.isa<FloatType>()) {
+    min = rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
+  } else if (elementType.isa<IntegerType>()) {
+    if (elementType.isUnsignedInteger())
+      min = rewriter.create<CmpIOp>(loc, CmpIPredicate::ult, lhs, rhs);
+    else
+      min = rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, lhs, rhs);
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+  return rewriter.create<SelectOp>(loc, min, lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
