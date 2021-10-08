@@ -1321,10 +1321,6 @@ LogicalResult ONNXReshapeOpShapeHelper::Compute(
 template <typename ShapeHelper, typename OperandAdaptor>
 LogicalResult ONNXSqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
     OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
-  // Shape inference indicated by passing a null rewriter pointer.
-  auto op = shapeHelper->op;
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Output dims of results.
   DimsExpr outputDims;
 
@@ -1410,10 +1406,6 @@ LogicalResult ONNXSqueezeV11OpShapeHelper::Compute(
 template <typename ShapeHelper, typename OperandAdaptor>
 LogicalResult ONNXUnsqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
     OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
-  // Shape inference indicated by passing a null rewriter pointer.
-  auto op = shapeHelper->op;
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Output dims of results.
   DimsExpr outputDims;
 
