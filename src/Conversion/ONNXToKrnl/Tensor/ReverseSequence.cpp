@@ -52,30 +52,40 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
 
     /*
       The semantic of Reversequence can be expressed in loop as:
-      for (vector of induction I on output dimension) {
-        // Assume it is index of time_axis dimension
-        Iinput = I;
-        Iinput[time_axis()]  = I[time_axis] < seqence_lens[I[batch_axis]]?
-              sequence_lens[I[batch_axis]]-I[time_axis]-1:I[time_axis()];
+
+      for (vector of dim I on the shape of output tensor) {
+        vector of dim Iinput = I;
+        Iinput[time_axis()]  = I[time_axis()] < seqence_lens[I[batch_axis()]]?
+              sequence_lens[I[batch_axis()]]-I[time_axis()]-1:I[time_axis()];
         output[I] = input[Iinput]
       }
 
-      The loop can be transformed as:
-      for (I[batch_axis()) {
-        for (I[time_axis() from 0 to sequence_lens[I[batch_axis]) {
-          for (other elment of I ) {
-            Iinput = I;
-            Iinput[time_axis()] = sequence_lens[I[batch_axis]]-I[time_axis]-1
-            output[I] = input[Iinput];
-          }
-        for (I[time_axis() from sequence_lens[I[batch_axis] to end) {
-          for (other elment of I ) {
-              output[I] = input[I];
-          }
+      Obviously, since the conditional check is on time_axis() loop variable,
+      the check can be eliminated with loop splitting as long as the batch_axis
+      loop is outside.
+
+      I is vector of dim on the shape of output tensor;
+      for ( I except I[batch_axis()]) {
+        // Reverse
+        for (I[time_axis() :  0 to sequence_lens[I[batch_axis]]) {
+          Iinput = I;
+          Iinput[time_axis()] = sequence_lens[I[batch_axis()]]-I[time_axis()]-1
+          output[I] = input[Iinput];
+        }
+        // Copy
+        for (I[time_axis() from sequence_lens[I[batch_axis]] to end) {
+          output[I] = input[I];
         }
       }
-    }
+
+      This transformation should improve performance on this loop nest itself,
+      but may hinder loop fusion with other loop nestes.
+      Also further loop fission or loop interchanging can be applied here.
+      I chose the simple loop structure
+      and believe optimization should be left to compiler, at least for
+      non-critical ops.
     */
+
     // Define loops and iteration trip counts (equivalent to size of output)
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
