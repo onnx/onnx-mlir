@@ -276,4 +276,10 @@ def PadV2Pattern : Pat<
      $modeAttr)
 >;
 
+// Express PadV11 using the latest Pad version.
+def PadV11Pattern : Pat<
+  (ONNXPadV11Op $x, $pads, $mode, $value),
+  (ONNXPadOp $x, $pads, $mode, $value)
+>;
+
 #endif // ONNX_DECOMPOSE
