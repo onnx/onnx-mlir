@@ -1538,6 +1538,22 @@ func @test_constant_of_shape_constant() -> tensor<*xf32> {
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test the behavior of the DepthToSpace operator.
+//===----------------------------------------------------------------------===//
+
+func @test_depth_to_space(%arg0 : tensor<1x256x8x16xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %0 = "onnx.DepthToSpace"(%arg0) {blocksize = 4 : si64} : (tensor<1x256x8x16xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_depth_to_space
+  // CHECK: [[RES:%.+]] = "onnx.DepthToSpace"(%arg0) {blocksize = 4 : si64} : (tensor<1x256x8x16xf32>) -> tensor<1x16x32x64xf32>
+  // CHECK: return [[RES]] : tensor<1x16x32x64xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test the shape inferencing for the scaler operation.
 //===----------------------------------------------------------------------===//
 func @test_scaler_no_scale_int(%arg0: tensor<3xi32>) -> tensor<*xf32> {
