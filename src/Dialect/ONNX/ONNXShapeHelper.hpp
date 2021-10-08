@@ -33,7 +33,7 @@ using namespace mlir;
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-typedef SmallVector<IndexExpr, 4> DimsExpr;
+using DimsExpr = SmallVector<IndexExpr, 4>;
 
 /// When defining support for a new op, add one such stuct which must
 /// minimally compute the outputDims present in the parent class. Computation
@@ -220,6 +220,17 @@ struct ONNXGatherOpShapeHelper : public ONNXOpShapeHelper<ONNXGatherOp> {
   SmallVector<IndexExpr, 4> dataDims;    // Dim of data.
   SmallVector<IndexExpr, 4> indicesDims; // Dim of indices.
   bool positiveConstantIndices; // True when all indices are positive consants.
+};
+
+// Shape for SpaceToDepth.
+struct ONNXSpaceToDepthOpShapeHelper
+    : public ONNXOpShapeHelper<ONNXSpaceToDepthOp> {
+  ONNXSpaceToDepthOpShapeHelper(ONNXSpaceToDepthOp *newOp);
+  ONNXSpaceToDepthOpShapeHelper(ONNXSpaceToDepthOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult Compute(ONNXSpaceToDepthOpAdaptor operandAdaptor);
 };
 
 // Shape for SplitOp.

@@ -36,6 +36,7 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp)
     : op(newOp), scope(nullptr, newOp->getLoc()),
       fGetDenseVal(getDenseElementAttributeFromONNXValue), fLoadVal(nullptr),
       outputsDims() {
+  assert(op && "Expecting a valid pointer");
   setNumberOfOutputs(op->getOperation()->getNumResults());
 }
 
@@ -46,6 +47,7 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp,
     ArrayValueIndexCapture::LoadVal fLoadVal)
     : op(newOp), scope(&rewriter, newOp->getLoc()), fLoadVal(fLoadVal),
       outputsDims() {
+  assert(op && "Expecting a valid pointer");
   setNumberOfOutputs(op->getOperation()->getNumResults());
   // Get the dense value by combining provided function (if any) with the
   // default one.
@@ -677,6 +679,54 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   if (ABounds.getRank() == 1 && BBounds.getRank() == 1) {
     outputDims.emplace_back(one);
   }
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX SpaceToDepth Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXSpaceToDepthOpShapeHelper::ONNXSpaceToDepthOpShapeHelper(
+    ONNXSpaceToDepthOp *newOp)
+    : ONNXOpShapeHelper<ONNXSpaceToDepthOp>(newOp) {}
+
+ONNXSpaceToDepthOpShapeHelper::ONNXSpaceToDepthOpShapeHelper(
+    ONNXSpaceToDepthOp *newOp, ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXSpaceToDepthOp>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXSpaceToDepthOpShapeHelper::Compute(
+    ONNXSpaceToDepthOpAdaptor operandAdaptor) {
+  // Get info about input data operand and blocksize.
+  Value input = operandAdaptor.input();
+  int64_t blocksize = op->blocksize();
+  assert(input.getType().isa<ShapedType>() && "Input should have a shape");
+  assert(blocksize > 0 && "blocksize should be strictly positive");
+
+  int64_t inputRank = input.getType().cast<ShapedType>().getShape().size();
+  assert(inputRank == 4 && "Unexpected input tensor rank");
+
+  // Compute outputDims.
+  // The input tensor has format [N,C,H,W], where N is the batch axis, C is the
+  // channel or depth, H is the height and W is the width. The output tensor has
+  // shape [N, C * blocksize * blocksize, H/blocksize, W/blocksize].
+  DimsExpr outputDims;
+  outputDims.resize(inputRank);
+  MemRefBoundsIndexCapture inputBounds(input);
+  DimIndexExpr N(inputBounds.getDim(0));
+  DimIndexExpr C(inputBounds.getDim(1));
+  DimIndexExpr H(inputBounds.getDim(2));
+  DimIndexExpr W(inputBounds.getDim(3));
+
+  outputDims[0] = N;
+  outputDims[1] = C * blocksize * blocksize;
+  outputDims[2] = H.floorDiv(blocksize);
+  outputDims[3] = W.floorDiv(blocksize);
+
   // Save the final result.
   dimsForOutput(0) = outputDims;
   return success();
