@@ -332,6 +332,18 @@ struct ONNXReshapeOpShapeHelper : public ONNXOpShapeHelper<ONNXReshapeOp> {
   LogicalResult Compute(ONNXReshapeOpAdaptor operandAdaptor);
 };
 
+// Shape for ONNXReverseSequence.
+struct ONNXReverseSequenceOpShapeHelper
+    : public ONNXOpShapeHelper<ONNXReverseSequenceOp> {
+  ONNXReverseSequenceOpShapeHelper(ONNXReverseSequenceOp *newOp);
+  ONNXReverseSequenceOpShapeHelper(ONNXReverseSequenceOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXReverseSequenceOpAdaptor operandAdaptor);
+};
+
 // Shape for SqueezeOp.
 struct ONNXSqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXSqueezeOp> {
   ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp);
@@ -387,20 +399,6 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<ONNXShapeOp> {
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
   LogicalResult Compute(ONNXShapeOpAdaptor operandAdaptor);
-
-  DimsExpr selectedData;
-};
-
-// Shape for ONNXReverseSequence.
-struct ONNXReverseSequenceOpShapeHelper
-    : public ONNXOpShapeHelper<ONNXReverseSequenceOp> {
-  ONNXReverseSequenceOpShapeHelper(ONNXReverseSequenceOp *newOp);
-  ONNXReverseSequenceOpShapeHelper(ONNXReverseSequenceOp *newOp,
-      ConversionPatternRewriter &rewriter,
-      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-      ArrayValueIndexCapture::LoadVal fLoadVal);
-
-  LogicalResult Compute(ONNXReverseSequenceOpAdaptor operandAdaptor);
 
   DimsExpr selectedData;
 };
