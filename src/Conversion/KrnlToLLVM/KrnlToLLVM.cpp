@@ -699,6 +699,18 @@ struct MathFunctionName<KrnlAtanhOp> {
   }
 };
 
+template <>
+struct MathFunctionName<KrnlPrintTensorElementOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "PrintTensorElementF";
+    if (type.isF64())
+      return "PrintTensorElementD";
+    llvm_unreachable("Unsupported type for atanh");
+  }
+};
+
+
 template <typename KrnlScalarMathOp>
 class KrnlUnaryMathOpLowering : public ConversionPattern {
 public:
@@ -1405,6 +1417,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAtanOp>>(ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAtanhOp>>(ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlTanOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlPrintTensorElementOp>>(ctx);
 }
 
 //===----------------------------------------------------------------------===//

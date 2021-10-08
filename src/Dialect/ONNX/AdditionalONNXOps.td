@@ -22,6 +22,15 @@ def ONNXCustomOp:ONNX_Op<"Custom",
   }];
 }
 
+def ONNXPrintTensorsOp:ONNX_Op<"PrintTensors",
+  [DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Print Tensor operation";
+  let description = [{
+  "Print all the input Tensors in a format that can be imported into numpy."  
+  }];
+  let arguments = (ins Variadic<AnyTypeOf<[AnyTensor]>>:$input);
+}
+
 def YieldOp : ONNX_Op<"yield", [NoSideEffect, ReturnLike, Terminator,
                                ParentOneOf<["ONNXSubgraphOp"]>]> {
   let summary = "subgraph yield and termination operation";

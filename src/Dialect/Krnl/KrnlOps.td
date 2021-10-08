@@ -976,3 +976,16 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
 
   let builders = [ OpBuilder<(ins "Operation *": $op, "int ": $tag)> ];
 }
+
+def KrnlPrintTensorElementOp : Op<Krnl_Dialect, "printTensorElement"> {
+  let summary = "Krnl print tensor element scalar operation";
+  let description = [{
+    Krnl print tensor element scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+
+  let parser = ?;
+  let printer = ?;
+}
+
