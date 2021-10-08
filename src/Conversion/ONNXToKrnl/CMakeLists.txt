@@ -38,6 +38,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/Range.cpp
   Tensor/Resize.cpp
   Tensor/NonZero.cpp
+  Tensor/ReverseSequence.cpp
   ConvertONNXToKrnl.cpp
 
   LINK_LIBS PUBLIC
