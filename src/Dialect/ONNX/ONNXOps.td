@@ -31,6 +31,7 @@ def ONNXConstantOpFromDenseAttr: NativeCodeCall<
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";
+  let summary = "A high-level dialect for the ONNX specification";
   let cppNamespace = "::mlir";
 }
 
