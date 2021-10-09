@@ -4004,7 +4004,22 @@ LogicalResult ONNXShrinkOp::inferShapes(
 
 LogicalResult ONNXSpaceToDepthOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Cannot infer shape if no input shape exists.
+  if (!input().getType().isa<RankedTensorType>())
+    return success();
+
+  // Infer shape for the output.
+  ONNXSpaceToDepthOpAdaptor operandAdaptor(*this);
+  ONNXSpaceToDepthOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan SpaceToDepth parameters successfully");
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  auto elementType =
+      input().getType().template cast<ShapedType>().getElementType();
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
+  return success();
 }
 
 LogicalResult ONNXSplitToSequenceOp::inferShapes(
