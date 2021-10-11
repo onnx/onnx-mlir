@@ -18,12 +18,16 @@
 #define ONNX_MLIR_EXPORT
 #define ONNX_MLIR_NO_EXPORT
 #else
+#ifdef _MSC_VER
 #ifdef OnnxMlirCompiler_EXPORTS
 /* We are building this library */
 #define ONNX_MLIR_EXPORT __declspec(dllexport)
 #else
 /* We are using this library */
 #define ONNX_MLIR_EXPORT __declspec(dllimport)
+#endif
+#else
+#define ONNX_MLIR_EXPORT __attribute__((__visibility__("default")))
 #endif
 #endif
 
