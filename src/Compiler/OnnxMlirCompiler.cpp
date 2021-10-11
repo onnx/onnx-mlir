@@ -5,7 +5,7 @@
 #include "OnnxMlirCompiler.h"
 #include "CompilerUtils.hpp"
 
-void SetCompileContext(
+void setCompileContext(
     mlir::MLIRContext &context, const char *mcpu, const char *mtriple) {
   if (mcpu) {
     setTargetCPU(std::string(mcpu));
@@ -25,7 +25,7 @@ ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
 
-  SetCompileContext(context, mcpu, mtriple);
+  setCompileContext(context, mcpu, mtriple);
   processInputFile(std::string(inputFilename), context, module);
   return compileModule(module, context, outputBaseName, emissionTarget);
 }
@@ -36,7 +36,7 @@ ONNX_MLIR_EXPORT int omCompileFromArray(const void *inputBuffer, int bufferSize,
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
 
-  SetCompileContext(context, mcpu, mtriple);
+  setCompileContext(context, mcpu, mtriple);
   processInputArray(inputBuffer, bufferSize, context, module);
   return compileModule(module, context, outputBaseName, emissionTarget);
 }

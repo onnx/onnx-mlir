@@ -27,7 +27,7 @@ bool compileFromFile = false;
     return;                                                                    \
   }
 
-void ReadArg(const std::string &arg) {
+void readArg(const std::string &arg) {
   PARSE_ARG(mcpu, "--mcpu=");
   PARSE_ARG(mtriple, "--mtriple=");
   PARSE_ARG(outputBaseName, "-o");
@@ -35,14 +35,14 @@ void ReadArg(const std::string &arg) {
   testFileName = arg;
 }
 
-void ReadCommandLine(int argc, char *argv[]) {
+void readCommandLine(int argc, char *argv[]) {
   for (int i = 1; i < argc; ++i) {
-    ReadArg(std::string(argv[i]));
+    readArg(std::string(argv[i]));
   }
 }
 
 int main(int argc, char *argv[]) {
-  ReadCommandLine(argc, argv);
+  readCommandLine(argc, argv);
 
   if (outputBaseName == "") {
     outputBaseName = testFileName.substr(0, testFileName.find_last_of("."));
