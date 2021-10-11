@@ -19,7 +19,7 @@ void SetCompileContext(
 
 extern "C" {
 namespace onnx_mlir {
-ONNX_MLIR_EXPORT int OMCompileFromFile(const char *inputFilename,
+ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char *mcpu, const char *mtriple) {
   mlir::OwningModuleRef module;
@@ -30,7 +30,7 @@ ONNX_MLIR_EXPORT int OMCompileFromFile(const char *inputFilename,
   return compileModule(module, context, outputBaseName, emissionTarget);
 }
 
-ONNX_MLIR_EXPORT int OMCompileFromArray(const void *inputBuffer, int bufferSize,
+ONNX_MLIR_EXPORT int omCompileFromArray(const void *inputBuffer, int bufferSize,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char *mcpu, const char *mtriple) {
   mlir::OwningModuleRef module;

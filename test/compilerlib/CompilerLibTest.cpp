@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
   }
   int retVal = 0;
   if (compileFromFile) {
-    retVal = OMCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
+    retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
         onnx_mlir::EmitLib, mcpu.empty() ? nullptr : mcpu.c_str(),
         mtriple.empty() ? nullptr : mtriple.c_str());
   } else {
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
     std::string test((std::istreambuf_iterator<char>(inFile)),
         std::istreambuf_iterator<char>());
     retVal =
-        OMCompileFromArray(test.data(), test.size(), outputBaseName.c_str(),
+        omCompileFromArray(test.data(), test.size(), outputBaseName.c_str(),
             onnx_mlir::EmitLib, mcpu.empty() ? nullptr : mcpu.c_str(),
             mtriple.empty() ? nullptr : mtriple.c_str());
   }
