@@ -240,6 +240,9 @@ void populateLoweringONNXScanOpPattern(
 void populateLoweringONNXClipOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXCumSumOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXElementwiseOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 

@@ -163,6 +163,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXScanOpPattern(patterns, &getContext());
   // Math
   populateLoweringONNXClipOpPattern(patterns, &getContext());
+  populateLoweringONNXCumSumOpPattern(patterns, &getContext());
   populateLoweringONNXElementwiseOpPattern(patterns, &getContext());
   populateLoweringONNXGemmOpPattern(patterns, &getContext());
   populateLoweringONNXReductionOpPattern(patterns, &getContext());
