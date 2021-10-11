@@ -42,7 +42,7 @@ namespace onnx_mlir {
  *  @param mtriple Optional target architecture
  *  @return 0 on success or non-zero error code on failure
  */
-ONNX_MLIR_EXPORT int CompileFromFile(const char *inputFilename,
+ONNX_MLIR_EXPORT int OMCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char *mcpu, const char *mtriple);
 
@@ -56,7 +56,7 @@ ONNX_MLIR_EXPORT int CompileFromFile(const char *inputFilename,
  *  @param mtriple Optional compile target triple
  *  @return 0 on success or non-zero error code on failure
  */
-ONNX_MLIR_EXPORT int CompileFromArray(const void *inputBuffer, int bufferSize,
+ONNX_MLIR_EXPORT int OMCompileFromArray(const void *inputBuffer, int bufferSize,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char *mcpu, const char *mtriple);
 

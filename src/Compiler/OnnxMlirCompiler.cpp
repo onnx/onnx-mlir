@@ -5,51 +5,38 @@
 #include "OnnxMlirCompiler.h"
 #include "CompilerUtils.hpp"
 
+void SetCompileContext(
+    mlir::MLIRContext &context, const char *mcpu, const char *mtriple) {
+  if (mcpu) {
+    setTargetCPU(std::string(mcpu));
+  }
+  if (mtriple) {
+    setTargetTriple(std::string(mtriple));
+  }
+
+  registerDialects(context);
+}
+
 extern "C" {
 namespace onnx_mlir {
-ONNX_MLIR_EXPORT int CompileFromFile(const char *inputFilename,
+ONNX_MLIR_EXPORT int OMCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char *mcpu, const char *mtriple) {
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
-  std::string mcpuString;
-  std::string mtripleString;
 
-  if (mcpu) {
-    mcpuString = std::string(mcpu);
-    setTargetCPU(mcpuString);
-  }
-
-  if (mtriple) {
-    mtripleString = std::string(mtriple);
-    setTargetTriple(mtripleString);
-  }
-
-  registerDialects(context);
+  SetCompileContext(context, mcpu, mtriple);
   processInputFile(std::string(inputFilename), context, module);
   return compileModule(module, context, outputBaseName, emissionTarget);
 }
 
-ONNX_MLIR_EXPORT int CompileFromArray(const void *inputBuffer, int bufferSize,
+ONNX_MLIR_EXPORT int OMCompileFromArray(const void *inputBuffer, int bufferSize,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char *mcpu, const char *mtriple) {
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
 
-  std::string mcpuString;
-  std::string mtripleString;
-
-  if (mcpu != nullptr) {
-    mcpuString = std::string(mcpu);
-    setTargetCPU(mcpuString);
-  }
-
-  if (mtriple != nullptr) {
-    mtripleString = std::string(mtriple);
-    setTargetTriple(mtripleString);
-  }
-
-  registerDialects(context);
+  SetCompileContext(context, mcpu, mtriple);
   processInputArray(inputBuffer, bufferSize, context, module);
   return compileModule(module, context, outputBaseName, emissionTarget);
 }

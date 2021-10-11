@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
   }
   int retVal = 0;
   if (compileFromFile) {
-    retVal = CompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
+    retVal = OMCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
         onnx_mlir::EmitLib, mcpu.empty() ? nullptr : mcpu.c_str(),
         mtriple.empty() ? nullptr : mtriple.c_str());
   } else {
@@ -57,9 +57,10 @@ int main(int argc, char *argv[]) {
         testFileName, std::ios_base::in | std::ios_base::binary);
     std::string test((std::istreambuf_iterator<char>(inFile)),
         std::istreambuf_iterator<char>());
-    retVal = CompileFromArray(test.data(), test.size(), outputBaseName.c_str(),
-        onnx_mlir::EmitLib, mcpu.empty() ? nullptr : mcpu.c_str(),
-        mtriple.empty() ? nullptr : mtriple.c_str());
+    retVal =
+        OMCompileFromArray(test.data(), test.size(), outputBaseName.c_str(),
+            onnx_mlir::EmitLib, mcpu.empty() ? nullptr : mcpu.c_str(),
+            mtriple.empty() ? nullptr : mtriple.c_str());
   }
   if (retVal != 0) {
     std::cerr << "Compiling " << testFileName << "failed with code" << retVal;
