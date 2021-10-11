@@ -711,6 +711,7 @@ test_to_enable_dict = {
     # Roi Align
 
     # Round
+    "test_round_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Scan
     "test_scan9_sum_cpu": {STATIC_SHAPE:{}},
