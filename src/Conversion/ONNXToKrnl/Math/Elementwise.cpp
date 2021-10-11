@@ -816,6 +816,64 @@ Value emitPostProcessingFor<ONNXMeanOp>(ConversionPatternRewriter &rewriter,
   return rewriter.create<DivFOp>(loc, scalarResult, n);
 }
 
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXRoundOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value x = scalarOperands[0];
+  if (elementType.isa<FloatType>()) {
+    // Use numpy algorithm for rint as follows.
+    // ```
+    // double y, r;
+    // y = npy_floor(x);
+    // r = x - y;
+    //
+    // if (r > 0.5) {
+    //     y += 1.0;
+    // }
+    //
+    // /* Round to nearest even */
+    // if (r == 0.5) {
+    //     r = y - 2.0*npy_floor(0.5*y);
+    //     if (r == 1.0) {
+    //         y += 1.0;
+    //     }
+    // }
+    // return y;
+    // ```
+    Value one = emitConstantOp(rewriter, loc, elementType, 1.0);
+    Value two = emitConstantOp(rewriter, loc, elementType, 2.0);
+    Value half = emitConstantOp(rewriter, loc, elementType, 0.5);
+    Value y = rewriter.create<FloorFOp>(loc, x);
+    Value r = rewriter.create<SubFOp>(loc, x, y);
+
+    // r > 0.5
+    Value rGreaterThanHalf =
+        rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, r, half);
+    Value y1 = rewriter.create<SelectOp>(
+        loc, rGreaterThanHalf, rewriter.create<AddFOp>(loc, y, one), y);
+
+    // r == 0.5: round to nearest even.
+    Value y2 = rewriter.create<MulFOp>(loc, half, y);
+    y2 = rewriter.create<FloorFOp>(loc, y2);
+    y2 = rewriter.create<MulFOp>(loc, y2, two);
+    Value rr = rewriter.create<SubFOp>(loc, y, y2);
+    Value rrEqualOne =
+        rewriter.create<CmpFOp>(loc, CmpFPredicate::OEQ, rr, one);
+    y2 = rewriter.create<SelectOp>(
+        loc, rrEqualOne, rewriter.create<AddFOp>(loc, y, one), y);
+
+    Value rEqualHalf =
+        rewriter.create<CmpFOp>(loc, CmpFPredicate::OEQ, r, half);
+    return rewriter.create<SelectOp>(loc, rEqualHalf, y2, y1);
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+}
+
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOp>
@@ -1144,6 +1202,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseBinaryOpLowering<mlir::ONNXPowOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXRoundOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
