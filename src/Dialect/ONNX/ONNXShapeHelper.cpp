@@ -309,7 +309,7 @@ LogicalResult ONNXDepthToSpaceOpShapeHelper::Compute(
   // Compute outputDims.
   // The input tensor has format [N,C,H,W], where N is the batch axis, C is the
   // channel or depth, H is the height and W is the width. The output tensor has
-  // shape [N, C * blocksize * blocksize, H/blocksize, W/blocksize].
+  // shape [N, C / (blocksize * blocksize), H * blocksize, W * blocksize].
   DimsExpr outputDims;
   outputDims.resize(inputRank);
   MemRefBoundsIndexCapture inputBounds(input);
