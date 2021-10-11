@@ -66,72 +66,6 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp, int numResults,
 }
 
 //===----------------------------------------------------------------------===//
-// ONNX Op Shape Helper for ArgMax
-//===----------------------------------------------------------------------===//
-ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp)
-    : ONNXOpShapeHelper<ONNXArgMaxOp>(
-          newOp, newOp->getOperation()->getNumResults()) {}
-
-ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpShapeHelper<ONNXArgMaxOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal) {}
-
-LogicalResult ONNXArgMaxOpShapeHelper::computeShape(
-    ONNXArgMaxOpAdaptor operandAdaptor) {
-  // Get info about input data operand.
-  Value data = operandAdaptor.data();
-  int64_t dataRank = data.getType().cast<ShapedType>().getRank();
-
-  // axis is a required attribute and should have default value of 0.
-  int64_t axisValue = op->axis();
-
-  // Accepted axis range is [-r, r-1] where r = rank(data).
-  if (axisValue < -1 * (int64_t)dataRank || axisValue >= (int64_t)dataRank) {
-    return op->emitError("ArgMax axis value out of bound");
-  }
-
-  if (axisValue < 0) {
-    axisValue = dataRank + axisValue;
-    auto builder = mlir::Builder(op->getContext());
-    op->axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, /*value=*/axisValue, /*isSigned=*/true)));
-  }
-
-  // keepdims is a required attribute and should have default value of 1.
-  int64_t keepdims = op->keepdims();
-  bool isKeepdims = (keepdims == 1) ? true : false;
-
-  // Compute outputDims
-  DimsExpr outputDims;
-  MemRefBoundsIndexCapture dataBounds(data);
-  int reducedRank = isKeepdims ? dataRank : dataRank - 1;
-  outputDims.resize(reducedRank);
-  for (auto i = 0; i < reducedRank; i++) {
-    DimIndexExpr dimOutput;
-    if (isKeepdims) {
-      if (i != axisValue)
-        dimOutput = dataBounds.getDim(i);
-      else
-        dimOutput = LiteralIndexExpr(1);
-    } else {
-      if (i < axisValue)
-        dimOutput = dataBounds.getDim(i);
-      else
-        dimOutput = dataBounds.getDim(i + 1);
-    }
-    outputDims[i] = dimOutput;
-  }
-
-  // Save the final result.
-  dimsForOutput(0) = outputDims;
-
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper for Broadcasting
 //===----------------------------------------------------------------------===//
 
@@ -140,22 +74,24 @@ LogicalResult ONNXArgMaxOpShapeHelper::computeShape(
 // output. If that were not the case, then we would need to pass the number of
 // results as a parameter to both constructors below.
 
-ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(Operation *newOp,
+template <class OP>
+ONNXOpBroadcastedShapeHelper<OP>::ONNXOpBroadcastedShapeHelper(OP *newOp,
     IndexExprScope *inScope, bool uniBroadcasting, bool noBroadcasting)
-    : ONNXOpShapeHelper<Operation>(newOp, 1, inScope), inputsDims(),
-      outputRank(-1), isUniBroadcasting(uniBroadcasting),
-      isNoBroadcasting(noBroadcasting) {}
+    : ONNXOpShapeHelper<OP>(newOp, 1, inScope), inputsDims(), outputRank(-1),
+      isUniBroadcasting(uniBroadcasting), isNoBroadcasting(noBroadcasting) {}
 
-ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(Operation *newOp,
+template <class OP>
+ONNXOpBroadcastedShapeHelper<OP>::ONNXOpBroadcastedShapeHelper(OP *newOp,
     OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope,
     bool uniBroadcasting, bool noBroadcasting)
-    : ONNXOpShapeHelper<Operation>(
+    : ONNXOpShapeHelper<OP>(
           newOp, 1, rewriter, fGetDenseVal, fLoadVal, inScope),
       inputsDims(), outputRank(-1), isUniBroadcasting(uniBroadcasting),
       isNoBroadcasting(noBroadcasting) {}
 
-LogicalResult ONNXOpBroadcastedShapeHelper::computeShape(
+template <class OP>
+LogicalResult ONNXOpBroadcastedShapeHelper<OP>::computeShape(
     ArrayRef<Value> operands, DimsExpr &additionalOperand) {
   // if additionalOperand is not used, we expect a zero-sized vector.
   // A temporary IndexExpr vector for the output.
@@ -254,11 +190,12 @@ LogicalResult ONNXOpBroadcastedShapeHelper::computeShape(
     }
   }
   // Set the final output.
-  dimsForOutput(0) = dimsExpr;
+  ONNXOpShapeHelper<OP>::dimsForOutput(0) = dimsExpr;
   return success();
 }
 
-LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(Value operand,
+template <class OP>
+LogicalResult ONNXOpBroadcastedShapeHelper<OP>::GetAccessExprs(Value operand,
     unsigned operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {
   if (isNoBroadcasting || (isUniBroadcasting && operandIndex == 0)) {
@@ -293,6 +230,91 @@ LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(Value operand,
           IndexExpr::select(dim > 1, outputAccessExprs[dimIndex], 0));
     }
   }
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Generic Broadcast Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXGenericOpBroadcastedShapeHelper::ONNXGenericOpBroadcastedShapeHelper(
+    Operation *newOp, IndexExprScope *inScope, bool uniBroadcasting,
+    bool noBroadcasting)
+    : ONNXOpBroadcastedShapeHelper<Operation>(
+          newOp, inScope, uniBroadcasting, noBroadcasting) {}
+
+ONNXGenericOpBroadcastedShapeHelper::ONNXGenericOpBroadcastedShapeHelper(
+    Operation *newOp, OpBuilder *rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope,
+    bool uniBroadcasting, bool noBroadcasting)
+    : ONNXOpBroadcastedShapeHelper<Operation>(newOp, rewriter, fGetDenseVal,
+          fLoadVal, inScope, uniBroadcasting, noBroadcasting) {}
+
+//===----------------------------------------------------------------------===//
+// ONNX Op Shape Helper for ArgMax
+//===----------------------------------------------------------------------===//
+
+ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp)
+    : ONNXOpShapeHelper<ONNXArgMaxOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
+
+ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp,
+    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXArgMaxOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
+
+LogicalResult ONNXArgMaxOpShapeHelper::computeShape(
+    ONNXArgMaxOpAdaptor operandAdaptor) {
+  // Get info about input data operand.
+  Value data = operandAdaptor.data();
+  int64_t dataRank = data.getType().cast<ShapedType>().getRank();
+
+  // axis is a required attribute and should have default value of 0.
+  int64_t axisValue = op->axis();
+
+  // Accepted axis range is [-r, r-1] where r = rank(data).
+  if (axisValue < -1 * (int64_t)dataRank || axisValue >= (int64_t)dataRank) {
+    return op->emitError("ArgMax axis value out of bound");
+  }
+
+  if (axisValue < 0) {
+    axisValue = dataRank + axisValue;
+    auto builder = mlir::Builder(op->getContext());
+    op->axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, /*value=*/axisValue, /*isSigned=*/true)));
+  }
+
+  // keepdims is a required attribute and should have default value of 1.
+  int64_t keepdims = op->keepdims();
+  bool isKeepdims = (keepdims == 1) ? true : false;
+
+  // Compute outputDims
+  DimsExpr outputDims;
+  MemRefBoundsIndexCapture dataBounds(data);
+  int reducedRank = isKeepdims ? dataRank : dataRank - 1;
+  outputDims.resize(reducedRank);
+  for (auto i = 0; i < reducedRank; i++) {
+    DimIndexExpr dimOutput;
+    if (isKeepdims) {
+      if (i != axisValue)
+        dimOutput = dataBounds.getDim(i);
+      else
+        dimOutput = LiteralIndexExpr(1);
+    } else {
+      if (i < axisValue)
+        dimOutput = dataBounds.getDim(i);
+      else
+        dimOutput = dataBounds.getDim(i + 1);
+    }
+    outputDims[i] = dimOutput;
+  }
+
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
 
   return success();
 }
@@ -1574,31 +1596,27 @@ LogicalResult ONNXShapeOpShapeHelper::computeShape(
 //===----------------------------------------------------------------------===//
 
 ONNXExpandOpShapeHelper::ONNXExpandOpShapeHelper(ONNXExpandOp *newOp)
-    : ONNXOpBroadcastedShapeHelper(reinterpret_cast<Operation *>(newOp)),
-      expandOp(newOp) {}
+    : ONNXOpBroadcastedShapeHelper<ONNXExpandOp>(newOp), expandOp(newOp) {}
 
 ONNXExpandOpShapeHelper::ONNXExpandOpShapeHelper(ONNXExpandOp *newOp,
     OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
     ArrayValueIndexCapture::LoadVal fLoadVal)
-    : ONNXOpBroadcastedShapeHelper(reinterpret_cast<Operation *>(newOp),
-          rewriter, fGetDenseVal, fLoadVal),
+    : ONNXOpBroadcastedShapeHelper<ONNXExpandOp>(
+          newOp, rewriter, fGetDenseVal, fLoadVal),
       expandOp(newOp) {}
 
 LogicalResult ONNXExpandOpShapeHelper::computeShape(
     ONNXExpandOpAdaptor operandAdaptor) {
   // Get info about input operands.
-  printf("hi alex: compute 1\n");
   Value input = operandAdaptor.input();
   Value shape = operandAdaptor.shape();
   Operation *shapeDefOp = shape.getDefiningOp();
-  printf("hi alex: compute 2\n");
 
   if (mlir::ONNXShapeOp shapeOp =
           dyn_cast_or_null<mlir::ONNXShapeOp>(shapeDefOp)) {
+    assert(shapeOp.data().getType().isa<ShapedType>() && "expected");
     // Consider a first case where the expand.shape is produced by a shape op.
     // Infer its shape and use it as the requested shape.
-    if (!shapeOp.data().getType().isa<RankedTensorType>())
-      return success();
     // Compute the output of the shape operation. We have to use its shape
     // helper as we need to connect to the actual expressions used to compute
     // it, not just a shape, in presence of runtime dimensions.
@@ -1611,40 +1629,33 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
     ONNXShapeOpShapeHelper shapeOpShapeHelper(
         &shapeOp, scope->getRewriterPtr(), fGetDenseVal, fLoadVal, scope);
     ONNXShapeOpAdaptor shapeOpOperandAdaptor(shapeOp);
-    printf("hi alex: compute 3.1\n");
     if (failed(shapeOpShapeHelper.computeShape(shapeOpOperandAdaptor)))
       return op->emitError("failed to get shape op shape");
     // Now that we have the shape's actual computation in
-    printf("hi alex: compute 3.2\n");
     if (failed(ONNXOpBroadcastedShapeHelper::computeShape(
             {input}, shapeOpShapeHelper.selectedData)))
       return op->emitError("failed to broadcast");
-    printf("hi alex: compute 3.3\n");
-
-  } else if (mlir::ONNXConstantOp constantOp =
-                 dyn_cast_or_null<mlir::ONNXConstantOp>(shapeDefOp)) {
-    printf("hi alex: compute 4.0\n");
-    // Consider a first case where the expand.shape is produced by a shape op.
-    RankedTensorType constType = shape.getType().cast<RankedTensorType>();
-    printf("hi alex: compute 4.05\n");
-    if (constType.getRank() != 1)
-      return op->emitError("Shape tensor must have rank one");
-    printf("hi alex: compute 4.1\n");
-    ArrayValueIndexCapture arrayCapture(shape, fGetDenseVal, fLoadVal);
-    SmallVector<IndexExpr, 4> constVals;
-    arrayCapture.getSymbolList(constVals);
-    printf("hi alex: compute 4.2\n");
-    if (failed(ONNXOpBroadcastedShapeHelper::computeShape({input}, constVals)))
-      return op->emitError("failed to broadcast");
-    printf("hi alex: compute 4.3\n");
 
   } else {
-    // Expand.shape is neither produced by a shape or constant; error.
-    printf("hi alex: compute 5\n");
-    return op->emitError(
-        "Shape argument of Expand is the output of an unexpected "
-        "operation. Supported operations are: onnx.Constant and onnx.Shape");
+    assert(shape.getType().isa<ShapedType>());
+    SmallVector<IndexExpr, 4> constVals;
+    ArrayValueIndexCapture arrayCapture(shape, fGetDenseVal, fLoadVal);
+    if (!arrayCapture.getSymbolList(constVals)) {
+      return op->emitError(
+          "Shape argument of Expand is the output of an unexpected "
+          "operation. Supported operations are: onnx.Constant and "
+          "onnx.Shape");
+    }
+    if (failed(ONNXOpBroadcastedShapeHelper::computeShape({input}, constVals)))
+      return op->emitError("failed to broadcast");
   }
-  printf("hi alex: compute 6\n");
+
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// ONNX Shape Helper Class instantiation
+//===----------------------------------------------------------------------===//
+
+template struct ONNXOpBroadcastedShapeHelper<Operation>;
+template struct ONNXOpBroadcastedShapeHelper<ONNXExpandOp>;

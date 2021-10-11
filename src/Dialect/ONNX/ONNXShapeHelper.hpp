@@ -100,12 +100,12 @@ private:
 
 /// Compute a broadcasted shape from the shapes of given operands. Operands must
 /// be ranked in advance.
-struct ONNXOpBroadcastedShapeHelper : public ONNXOpShapeHelper<Operation> {
-  ONNXOpBroadcastedShapeHelper(Operation *newOp,
-      IndexExprScope *inScope = nullptr, bool uniBroadcasting = false,
-      bool noBroadcasting = false);
+template <class OP>
+struct ONNXOpBroadcastedShapeHelper : public ONNXOpShapeHelper<OP> {
+  ONNXOpBroadcastedShapeHelper(OP *newOp, IndexExprScope *inScope = nullptr,
+      bool uniBroadcasting = false, bool noBroadcasting = false);
 
-  ONNXOpBroadcastedShapeHelper(Operation *newOp, OpBuilder *rewriter,
+  ONNXOpBroadcastedShapeHelper(OP *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal,
       IndexExprScope *inScope = nullptr, bool uniBroadcasting = false,
@@ -116,17 +116,18 @@ struct ONNXOpBroadcastedShapeHelper : public ONNXOpShapeHelper<Operation> {
   // for the output. Parameters:
   //   - operands: a list of input tensors.
   //   - additional operand: one additional input that comes from as a vector
-  //     of IndexExpr (used for example for ONNXExpandOp)
+  //     of IndexExpr (used for example for ONNXExpandOp). Ignored when empty.
   LogicalResult computeShape(
       ArrayRef<Value> operands, DimsExpr &additionalOperand);
 
   // Compute access indices to load/store value from/to a given 'operand'.
   // Used in a loop to access the operand.
   // Parameters:
-  //   - operand: operand to access
-  //   - operandIndex: index of the operand in 'inputsDims'
-  //   - loopAccessExprs: IndexExprs for the loop's IVs
+  //   - operand: operand to access.
+  //   - operandIndex: index of the operand in 'this->inputsDims'.
+  //   - loopAccessExprs: IndexExprs for the loop's IVs.
   //   - operandAccessExprs: access indices to access the operand.
+  //     This is the output of this function. Use it in subsequent load/stores.
   LogicalResult GetAccessExprs(Value operand, unsigned operandIndex,
       const SmallVectorImpl<IndexExpr> &outputAccessExprs,
       SmallVectorImpl<IndexExpr> &operandAccessExprs);
@@ -138,7 +139,7 @@ struct ONNXOpBroadcastedShapeHelper : public ONNXOpShapeHelper<Operation> {
   // in upper DimsExpr outputDims;
   int64_t outputRank;
 
-private:
+protected:
   // If unidirectional broadcasting, the other operands are always
   // unidirectional broadcastable to the first operand.
   bool isUniBroadcasting;
@@ -147,6 +148,18 @@ private:
   // This flag is used to test dynamic shape
   // There is no impact on static shape
   bool isNoBroadcasting;
+};
+
+struct ONNXGenericOpBroadcastedShapeHelper
+    : public ONNXOpBroadcastedShapeHelper<Operation> {
+  ONNXGenericOpBroadcastedShapeHelper(Operation *newOp,
+      IndexExprScope *inScope = nullptr, bool uniBroadcasting = false,
+      bool noBroadcasting = false);
+  ONNXGenericOpBroadcastedShapeHelper(Operation *newOp, OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal,
+      IndexExprScope *inScope = nullptr, bool uniBroadcasting = false,
+      bool noBroadcasting = false);
 };
 
 // Shape for ArgMax
@@ -402,7 +415,8 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<ONNXShapeOp> {
 };
 
 // Shape for ONNXExpandOp.
-struct ONNXExpandOpShapeHelper : public ONNXOpBroadcastedShapeHelper {
+struct ONNXExpandOpShapeHelper
+    : public ONNXOpBroadcastedShapeHelper<ONNXExpandOp> {
   ONNXExpandOpShapeHelper(ONNXExpandOp *newOp);
   ONNXExpandOpShapeHelper(ONNXExpandOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,

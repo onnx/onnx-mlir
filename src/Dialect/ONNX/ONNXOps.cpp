@@ -3194,13 +3194,25 @@ LogicalResult ONNXSliceOp::inferShapes(
 // Expand
 //===----------------------------------------------------------------------===//
 
+static LogicalResult verify(ONNXExpandOp op) {
+  ONNXExpandOpAdaptor operandAdaptor = ONNXExpandOpAdaptor(op);
+  // Get operands.
+  auto shape = operandAdaptor.shape();
+  // Check input.
+  auto shapeType = shape.getType().dyn_cast_or_null<RankedTensorType>();
+  if (shapeType) {
+    if (shapeType.getRank() != 1)
+      return op.emitError("Shape has a rank of 1");
+  }
+  return success();
+}
+
 LogicalResult ONNXExpandOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!input().getType().isa<RankedTensorType>())
     return success();
-#if 1
-  RankedTensorType lhsTy = input().getType().cast<RankedTensorType>();
-  Type elementType = lhsTy.getElementType();
+  if (!shape().getType().isa<RankedTensorType>())
+    return success();
 
   // Shape helper.
   ONNXExpandOpShapeHelper shapeHelper(this);
@@ -3210,72 +3222,10 @@ LogicalResult ONNXExpandOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  Type elementType =
+      input().getType().cast<RankedTensorType>().getElementType();
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
-#else
-  auto lhsTy = input().getType().cast<RankedTensorType>();
-
-  auto elementType = lhsTy.getElementType();
-  auto lhsShape = lhsTy.getShape();
-  SmallVector<int64_t, 2> rhsShape;
-
-  Operation *shapeDef = shape().getDefiningOp();
-
-  if (mlir::ONNXShapeOp shapeOp =
-          dyn_cast_or_null<mlir::ONNXShapeOp>(shapeDef)) {
-    // If the shape operand is produced by a onnx.Shape operation, infer its
-    // shape and use it as the requested shape.
-    if (!shapeOp.data().getType().isa<RankedTensorType>())
-      return success();
-
-    ArrayRef<int64_t> rhsShapeRef =
-        shapeOp.data().getType().cast<RankedTensorType>().getShape();
-
-    rhsShape.assign(rhsShapeRef.begin(), rhsShapeRef.end());
-
-  } else if (mlir::ONNXConstantOp constantOp =
-                 dyn_cast_or_null<mlir::ONNXConstantOp>(shapeDef)) {
-    // If the shape operand is produced by a onnx.Constant operation,
-    // extract the actual value of the constant and use it as the requested
-    // shape.
-
-    auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
-
-    if (shapeTensorTy.getRank() != 1)
-      return emitError("Shape tensor must have rank one");
-
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    if (!valueAttribute)
-      return emitError("DenseElementsAttr expected");
-
-    int64_t shapeRank = shapeTensorTy.getShape()[0];
-    rhsShape.resize(shapeRank);
-
-    auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
-    for (int i = 0; i != shapeRank; ++i)
-      rhsShape[i] = (*valueIt++).cast<IntegerAttr>().getInt();
-
-    assert(valueIt == valueAttribute.getValues<IntegerAttr>().end() &&
-           "Shape of constant does not match its actual value");
-  } else {
-    return emitError(
-        "Shape argument of Expand is the output of an unexpected "
-        "operation: " +
-        shapeDef->getName().getStringRef() +
-        ". Supported operations are: onnx.Constant and onnx.Shape");
-  }
-
-  SmallVector<int64_t, 2> resultShape;
-  if (!getBroadcastedShape(lhsShape, rhsShape, resultShape)) {
-    // We want this error because it denotes incompatible broadcast sizes that
-    // can be detected at compile time, such as broadcasting (...3...) with
-    // (...4...) which is illegal.
-    return emitError("Bad broadcast values between tensors");
-  }
-
-  getResult().setType(RankedTensorType::get(resultShape, elementType));
-#endif
   return success();
 }
 

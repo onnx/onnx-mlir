@@ -1011,7 +1011,9 @@ UndefinedIndexExpr::UndefinedIndexExpr() : IndexExpr() {}
 // IndexExpr Subclasses for constructing LiteralIndexExpr.
 //===----------------------------------------------------------------------===//
 
-LiteralIndexExpr::LiteralIndexExpr(int64_t const value) { init(value); }
+LiteralIndexExpr::LiteralIndexExpr(int64_t const value) {
+  init(value);
+}
 
 void LiteralIndexExpr::init(int64_t const value) {
   indexExprObj = new IndexExprImpl();

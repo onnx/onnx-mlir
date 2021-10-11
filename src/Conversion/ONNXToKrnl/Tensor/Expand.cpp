@@ -25,18 +25,15 @@ struct ONNXExpandOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // Get shape.
-    printf("hi alex -1\n");
-
     ONNXExpandOpAdaptor operandAdaptor(operands);
-    ONNXExpandOp expandOp = llvm::cast<ONNXExpandOp>(op);
+    ONNXExpandOp expandOp = llvm::dyn_cast<ONNXExpandOp>(op);
+    Value input = operandAdaptor.input();
     Location loc = op->getLoc();
     ONNXExpandOpShapeHelper shapeHelper(&expandOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Failed to compute shape");
-
-    printf("hi alex 0\n");
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -52,8 +49,14 @@ struct ONNXExpandOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> lbs(outputRank, zero);
     createKrnl.iterateIE(outputLoopDef, outputLoopDef, lbs,
         shapeHelper.dimsForOutput(0),
-        [&](KrnlBuilder &createKrnl, ValueRange outputDefInd) {
-
+        [&](KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
+          SmallVector<IndexExpr, 4> outputLoopIndices, lhsAccessExprs;
+          getIndexExprList<DimIndexExpr>(outputLoopInd, outputLoopIndices);
+          LogicalResult res = shapeHelper.GetAccessExprs(
+              input, 0, outputLoopIndices, lhsAccessExprs);
+          assert(succeeded(res));
+          Value val = createKrnl.loadIE(input, lhsAccessExprs);
+          createKrnl.store(val, alloc, outputLoopInd);
         });
 
     rewriter.replaceOp(op, alloc);

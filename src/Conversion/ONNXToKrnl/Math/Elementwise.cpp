@@ -871,7 +871,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     auto outputRank = outputMemRefType.getRank();
 
     // Shape helper.
-    ONNXOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
+    ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex, /*in scope*/ nullptr,
         isUniBroadcasting);
@@ -946,13 +946,12 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     auto outputRank = outputMemRefType.getRank();
 
     // Shape helper.
-    ONNXOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
+    ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
 
     // The following call is used to force no broadcasting check at runtime
     // Even when the dim is unknown at compile time
-    // ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc, true, true);
     DimsExpr empty;
     LogicalResult shapecomputed = shapeHelper.computeShape(operands, empty);
     assert(succeeded(shapecomputed));

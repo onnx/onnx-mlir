@@ -26,7 +26,7 @@ struct ONNXShapeOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     // Get shape.
     ONNXShapeOpAdaptor operandAdaptor(operands);
-    ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
+    ONNXShapeOp shapeOp = llvm::dyn_cast<ONNXShapeOp>(op);
     Location loc = op->getLoc();
     ONNXShapeOpShapeHelper shapeHelper(&shapeOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
