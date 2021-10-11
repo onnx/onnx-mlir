@@ -19,9 +19,9 @@
 #define BUFFER_ALIGN 128
 using namespace mlir;
 
-static const StringRef FORWARD = "forward";
-static const StringRef REVERSE = "reverse";
-static const StringRef BIDIRECTIONAL = "bidirectional";
+static constexpr StringRef FORWARD = "forward";
+static constexpr StringRef REVERSE = "reverse";
+static constexpr StringRef BIDIRECTIONAL = "bidirectional";
 
 struct RNNActivation {
   StringRef name;

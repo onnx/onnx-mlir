@@ -23,6 +23,7 @@
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/Common.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
@@ -47,7 +48,7 @@ typedef std::map<Block *, AlignmentToMemPool *> BlockToMemPool;
 //===----------------------------------------------------------------------===//
 
 /// Retrieve function which contains the current operation.
-FuncOp getContainingFunction(memref::AllocOp op) {
+ATTRIBUTE(unused) FuncOp getContainingFunction(memref::AllocOp op) {
   Operation *parentFuncOp = op->getParentOp();
 
   // While parent is not a FuncOp and its cast to a FuncOp is null.
@@ -78,7 +79,7 @@ bool isBlockArgument(memref::AllocOp allocOp, Value operand) {
   return false;
 }
 
-KrnlGetRefOp getUnbundledGetRef(memref::AllocOp *memPool) {
+ATTRIBUTE(unused) KrnlGetRefOp getUnbundledGetRef(memref::AllocOp *memPool) {
   auto parentBlock = memPool->getOperation()->getBlock();
 
   KrnlGetRefOp unbundledGetRef = nullptr;
@@ -391,9 +392,7 @@ public:
     // If this is the first valid alloc we can bundle in this block, then we
     // need to move it to the top of the block as it will consitute an
     // insertion point for all other bundle-able AllocOps in the block.
-    bool isFirstEverBundledAllocOp =
-        blockToDynamicPool->count(parentBlock) == 0;
-    AlignmentToMemPool *alignmentToMemPool;
+    AlignmentToMemPool *alignmentToMemPool = nullptr;
     if (blockToDynamicPool->count(parentBlock) == 0) {
       allocOp.getOperation()->moveBefore(&parentBlock->front());
 
