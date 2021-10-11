@@ -1876,6 +1876,44 @@ func @where(%arg0: tensor<2x2xi1>, %arg1: tensor<2x2xf32>, %arg2: tensor<2x2xf32
 
 // -----
 
+func @round(%arg0: tensor<15xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Round"(%arg0) : (tensor<15xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  builtin.func @round
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<15xf32>) -> memref<15xf32> {
+// CHECK-DAG:       [[CST_5_dot_000000_:%.+]] = constant 5.000000e-01 : f32
+// CHECK-DAG:       [[CST_2_dot_000000_:%.+]] = constant 2.000000e+00 : f32
+// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = constant 1.000000e+00 : f32
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<15xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 15) {
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[I_0_]]{{.}} : memref<15xf32>
+// CHECK:             [[VAR_3_:%.+]] = floorf [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             [[VAR_4_:%.+]] = subf [[LOAD_PARAM_0_MEM_]], [[VAR_3_]] : f32
+// CHECK-DAG:         [[VAR_5_:%.+]] = cmpf ogt, [[VAR_4_]], [[CST_5_dot_000000_]] : f32
+// CHECK-DAG:         [[VAR_6_:%.+]] = addf [[VAR_3_]], [[CST_1_dot_000000_]] : f32
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_7_:%.+]] = select [[VAR_5_]], [[VAR_6_]], [[VAR_3_]] : f32
+// CHECK-DAG:         [[VAR_8_:%.+]] = mulf [[CST_5_dot_000000_]], [[VAR_3_]] : f32
+// CHECK:             [[VAR_9_:%.+]] = floorf [[VAR_8_]] : f32
+// CHECK:             [[VAR_10_:%.+]] = mulf [[VAR_9_]], [[CST_2_dot_000000_]] : f32
+// CHECK:             [[VAR_11_:%.+]] = subf [[VAR_3_]], [[VAR_10_]] : f32
+// CHECK-DAG:         [[VAR_12_:%.+]] = cmpf oeq, [[VAR_11_]], [[CST_1_dot_000000_]] : f32
+// CHECK-DAG:         [[VAR_13_:%.+]] = addf [[VAR_3_]], [[CST_1_dot_000000_]] : f32
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_14_:%.+]] = select [[VAR_12_]], [[VAR_13_]], [[VAR_3_]] : f32
+// CHECK-DAG:         [[VAR_15_:%.+]] = cmpf oeq, [[VAR_4_]], [[CST_5_dot_000000_]] : f32
+// CHECK:             [[VAR_16_:%.+]] = select [[VAR_15_]], [[VAR_14_]], [[VAR_7_]] : f32
+// CHECK:             krnl.store [[VAR_16_]], [[RES_]]{{.}}[[I_0_]]{{.}} : memref<15xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<15xf32>
+// CHECK:         }
+}
+
+// -----
+
 func @pad_constant_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %arg2: tensor<f32>) -> tensor<*xf32> {
   %0 = "onnx.Pad"(%arg0, %arg1, %arg2) {mode = "constant"} : (tensor<1x3x4x5xf32>, tensor<8xi64>, tensor<f32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
@@ -2126,4 +2164,3 @@ func @pad_constant_mode_constant_pads(%arg0: tensor<16x16xf32>) -> tensor<18x20x
 // CHECK:           return [[RES_]] : memref<18x20xf32>
 // CHECK:         }
 }
-

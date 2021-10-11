@@ -38,7 +38,7 @@ bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
   // Reshape, Squeeze, and Unsqueeze ops are checked because they are lowered to
   // `ReinterpretCastOp`.
   SmallVector<Value, 32> castOpResults;
-  function.walk([&opIsReturned, allocOp, &castOpResults](Operation *op) {
+  function.walk([allocOp, &castOpResults](Operation *op) {
     if (isa<memref::ReinterpretCastOp>(op) || isa<ONNXReshapeOp>(op) ||
         isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op)) {
       auto result = allocOp->getResult();

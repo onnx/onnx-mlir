@@ -40,9 +40,9 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/Common.hpp"
 
 using namespace mlir;
-
 namespace {
 
 static onnx::TensorProto::DataType llvmTypeToOnnxType(mlir::Type elemType) {
@@ -184,6 +184,7 @@ static FlatSymbolRefAttr getOrInsertMalloc(
   return SymbolRefAttr::get(ctx, "malloc");
 }
 
+ATTRIBUTE(unused)
 static FlatSymbolRefAttr getOrInsertDealloc(
     PatternRewriter &rewriter, ModuleOp module) {
   // Insert the dealloc declaration if it is not already present.
