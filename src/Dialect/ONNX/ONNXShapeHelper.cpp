@@ -1659,7 +1659,8 @@ ONNXPadOpShapeHelper::ONNXPadOpShapeHelper(ONNXPadOp *newOp,
           fLoadVal),
       pads() {}
 
-LogicalResult ONNXPadOpShapeHelper::computeShape(ONNXPadOpAdaptor operandAdaptor) {
+LogicalResult ONNXPadOpShapeHelper::computeShape(
+    ONNXPadOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Output dims of results.
   DimsExpr outputDims;
