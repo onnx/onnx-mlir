@@ -1234,9 +1234,9 @@ public:
       }
     }
     SmallVector<Value, 4> loopIndices;
-    genCopyLoops(createAffine, &indexScope, buffMemref, sourceMemref, srcLoopMap,
-        padVal, zero, starts, bufferReadUBs, bufferPadUBs, loopIndices, 0,
-        buffRank, false);
+    genCopyLoops(createAffine, &indexScope, buffMemref, sourceMemref,
+        srcLoopMap, padVal, zero, starts, bufferReadUBs, bufferPadUBs,
+        loopIndices, 0, buffRank, false);
     rewriter.eraseOp(op);
     return success();
   }
@@ -1363,8 +1363,8 @@ public:
       bufferWrite.debugPrint("buffer wrote");
       bufferWriteUBs.emplace_back(bufferWrite);
     }
-    genCopyLoops(createAffine, &indexScope, buffMemref, destMemref, zero, starts,
-        bufferWriteUBs, loopIndices, 0, buffRank);
+    genCopyLoops(createAffine, &indexScope, buffMemref, destMemref, zero,
+        starts, bufferWriteUBs, loopIndices, 0, buffRank);
     rewriter.eraseOp(op);
     return success();
   }
