@@ -31,7 +31,7 @@
 namespace mlir {
 
 // OpSet level supported by onnx-mlir
-static const int CURRENT_ONNX_OPSET = 13;
+static constexpr int CURRENT_ONNX_OPSET = 13;
 
 class ONNXOpsDialect : public Dialect {
 public:
@@ -81,11 +81,11 @@ public:
 
   static SeqType get(llvm::ArrayRef<mlir::Type> elementTypes);
 
-  llvm::ArrayRef<mlir::Type> getElementTypes();
+  llvm::ArrayRef<mlir::Type> getElementTypes() const;
 
-  mlir::Type getElementType();
+  mlir::Type getElementType() const;
 
-  size_t getNumElementTypes() { return getElementTypes().size(); }
+  size_t getNumElementTypes() const { return getElementTypes().size(); }
 };
 
 } // end namespace onnxmlir

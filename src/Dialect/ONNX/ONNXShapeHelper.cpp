@@ -37,6 +37,7 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
     OP *newOp, int numResults, IndexExprScope *inScope)
     : op(newOp), fGetDenseVal(getDenseElementAttributeFromONNXValue),
       fLoadVal(nullptr), outputsDims(), ownScope(inScope == nullptr) {
+  assert(op && "Expecting a valid pointer");
   if (ownScope)
     scope = new IndexExprScope(nullptr, newOp->getLoc());
   setNumberOfOutputs(numResults);
@@ -48,6 +49,7 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp, int numResults,
     ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
     : op(newOp), fLoadVal(fLoadVal), outputsDims(),
       ownScope(inScope == nullptr) {
+  assert(op && "Expecting a valid pointer");
   if (ownScope)
     scope = new IndexExprScope(rewriter, newOp->getLoc());
   setNumberOfOutputs(numResults);
@@ -731,6 +733,56 @@ LogicalResult ONNXMatMulOpShapeHelper::computeShape(
 }
 
 //===----------------------------------------------------------------------===//
+// ONNX SpaceToDepth Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXSpaceToDepthOpShapeHelper::ONNXSpaceToDepthOpShapeHelper(
+    ONNXSpaceToDepthOp *newOp)
+    : ONNXOpShapeHelper<ONNXSpaceToDepthOp>(
+          newOp, newOp->getOperation()->getNumResults()) {}
+
+ONNXSpaceToDepthOpShapeHelper::ONNXSpaceToDepthOpShapeHelper(
+    ONNXSpaceToDepthOp *newOp, OpBuilder *rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXSpaceToDepthOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal) {}
+
+LogicalResult ONNXSpaceToDepthOpShapeHelper::computeShape(
+    ONNXSpaceToDepthOpAdaptor operandAdaptor) {
+  // Get info about input data operand and blocksize.
+  Value input = operandAdaptor.input();
+  int64_t blocksize = op->blocksize();
+  assert(input.getType().isa<ShapedType>() && "Input should have a shape");
+  assert(blocksize > 0 && "blocksize should be strictly positive");
+
+  int64_t inputRank = input.getType().cast<ShapedType>().getShape().size();
+  assert(inputRank == 4 && "Unexpected input tensor rank");
+
+  // Compute outputDims.
+  // The input tensor has format [N,C,H,W], where N is the batch axis, C is the
+  // channel or depth, H is the height and W is the width. The output tensor has
+  // shape [N, C * blocksize * blocksize, H/blocksize, W/blocksize].
+  DimsExpr outputDims;
+  outputDims.resize(inputRank);
+  MemRefBoundsIndexCapture inputBounds(input);
+  DimIndexExpr N(inputBounds.getDim(0));
+  DimIndexExpr C(inputBounds.getDim(1));
+  DimIndexExpr H(inputBounds.getDim(2));
+  DimIndexExpr W(inputBounds.getDim(3));
+
+  outputDims[0] = N;
+  outputDims[1] = C * blocksize * blocksize;
+  outputDims[2] = H.floorDiv(blocksize);
+  outputDims[3] = W.floorDiv(blocksize);
+
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ONNX Split Op Shape Helper
 //===----------------------------------------------------------------------===//
 
@@ -1378,7 +1430,6 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape(
 template <typename ShapeHelper, typename OperandAdaptor>
 LogicalResult ONNXSqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
     OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
-  // Shape inference indicated by passing a null rewriter pointer.
   // Output dims of results.
   DimsExpr outputDims;
 
@@ -1465,7 +1516,6 @@ LogicalResult ONNXSqueezeV11OpShapeHelper::computeShape(
 template <typename ShapeHelper, typename OperandAdaptor>
 LogicalResult ONNXUnsqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
     OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
-  // Shape inference indicated by passing a null rewriter pointer.
   // Output dims of results.
   DimsExpr outputDims;
 
@@ -1593,7 +1643,69 @@ LogicalResult ONNXShapeOpShapeHelper::computeShape(
 }
 
 //===----------------------------------------------------------------------===//
-// ONNX Shape Op Shape Helper
+// ONNX Pad Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXPadOpShapeHelper::ONNXPadOpShapeHelper(ONNXPadOp *newOp)
+    : ONNXOpShapeHelper<ONNXPadOp>(
+          newOp, newOp->getOperation()->getNumResults()),
+      pads() {}
+
+ONNXPadOpShapeHelper::ONNXPadOpShapeHelper(ONNXPadOp *newOp,
+    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXPadOp>(newOp,
+          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+          fLoadVal),
+      pads() {}
+
+LogicalResult ONNXPadOpShapeHelper::computeShape(ONNXPadOpAdaptor operandAdaptor) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  // Output dims of results.
+  DimsExpr outputDims;
+
+  // Get info about input data operand.
+  MemRefBoundsIndexCapture dataBounds(operandAdaptor.data());
+  uint64_t dataRank = dataBounds.getRank();
+
+  // Initialize context and results (pads & output)
+  pads.resize(2 * dataRank); // pads two sides of each axis.
+  outputDims.resize(dataRank);
+
+  // `pads` format is : [x1_begin, x2_begin,...,x1_end, x2_end,...],
+  // where
+  // - xi_begin: the number of pad values added at the beginning of axis `i`
+  // - xi_end: the number of pad values added at the end of axis `i`.
+  ArrayValueIndexCapture padsCapture(
+      operandAdaptor.pads(), fGetDenseVal, fLoadVal);
+
+  // Calculate output dimension sizes.
+  for (uint64_t i = 0; i < dataRank; i++) {
+    // Get begin/end pads.
+    SymbolIndexExpr padBegin(padsCapture.getSymbol(i));
+    SymbolIndexExpr padEnd(padsCapture.getSymbol(i + dataRank));
+    if (padBegin.isUndefined() || padEnd.isUndefined())
+      return op->emitError("pad parameter could not be processed");
+    // Get input dim.
+    DimIndexExpr dimInput(dataBounds.getDim(i));
+
+    // Calculation for output size.
+    IndexExpr dimOutputFinal = padBegin + dimInput + padEnd;
+
+    // Save results.
+    pads[i] = padBegin;
+    pads[i + dataRank] = padEnd;
+    outputDims[i] = dimOutputFinal;
+  }
+
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Expand Op Shape Helper
 //===----------------------------------------------------------------------===//
 
 ONNXExpandOpShapeHelper::ONNXExpandOpShapeHelper(ONNXExpandOp *newOp)
@@ -1660,8 +1772,10 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
 }
 
 //===----------------------------------------------------------------------===//
-// ONNX Shape Helper Class instantiation
+// ONNX Shape Helper template instantiation
 //===----------------------------------------------------------------------===//
 
 template struct ONNXOpBroadcastedShapeHelper<Operation>;
 template struct ONNXOpBroadcastedShapeHelper<ONNXExpandOp>;
+
+// Keep template instantiation at the end of the file.

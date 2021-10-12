@@ -1249,26 +1249,6 @@ func private @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   // CHECK: return [[RES]] : memref<?x10xi32>
 }
 
-func private @test_pad1(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {
-  %0 = "onnx.Constant"() {value = dense<[0, 3, 2, 1]> : tensor<4xi64> } : () -> tensor<4xi64>
-  %1 = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<1xf32> } : () -> tensor<1xf32>
-  %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<16x16xf32>, tensor<4xi64>, tensor<1xf32>) -> tensor<18x20xf32>
-  return %2 : tensor<18x20xf32>
-  // CHECK-LABEL: test_pad1
-  // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<18x20xf32>
-  // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
-  // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 18, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 20) {
-  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: krnl.store [[CST]], [[RES]][%arg1, %arg2] : memref<18x20xf32>
-  // CHECK: }
-  // CHECK: [[DEF_LOOPS2:%.+]]:2 = krnl.define_loops 2
-  // CHECK: krnl.iterate([[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 16, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 16) {
-  // CHECK: [[ADD:%.+]] = affine.apply #{{.*}}(%arg2)
-  // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<16x16xf32>
-  // CHECK: krnl.store [[LOAD]], [[RES]][%arg1, [[ADD]]] : memref<18x20xf32>
-  // CHECK: }
-}
-
 // -----
 
 func private @test_constant_dense_2d_value(%arg0: tensor<1xf32>) -> tensor<*xf32> {
@@ -2215,4 +2195,28 @@ func @test_resize1(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 // CHECK:             krnl.store [[VAR_16]], [[VAR_0]]{{.}}[[VAR_arg1]], [[VAR_arg2]]{{.}} : memref<3x12xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_0]] : memref<3x12xf32>
+}
+
+//-----
+  func @test_gather_scalar(%arg0: tensor<4xi64>, %arg1: tensor<i64>) -> tensor<i64> {
+    %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<4xi64>, tensor<i64>) -> tensor<i64>
+    return %0 : tensor<i64>
+// CHECK-LABEL:  @test_gather_scalar
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<4xi64>, [[PARAM_1_:%.+]]: memref<i64>) -> memref<i64> {
+// CHECK-DAG:       [[CST_4_:%.+]] = constant 4 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<i64>
+// CHECK:           krnl.define_loops 0
+// CHECK:           krnl.iterate() with () {
+// CHECK-DAG:         [[CST_0_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_0_1_:%.+]] = constant 0 : index
+// CHECK-DAG:         [[CST_4_1_:%.+]] = constant 4 : index
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]][] : memref<i64>
+// CHECK:             [[VAR_2_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
+// CHECK-DAG:         [[VAR_3_:%.+]] = cmpi slt, [[VAR_2_]], [[CST_0_]] : index
+// CHECK-DAG:         [[VAR_4_:%.+]] = addi [[VAR_2_]], [[CST_4_1_]] : index
+// CHECK:             [[VAR_5_:%.+]] = select [[VAR_3_]], [[VAR_4_]], [[VAR_2_]] : index
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_5_]]{{.}} : memref<4xi64>
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]][] : memref<i64>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<i64>
 }

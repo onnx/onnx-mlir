@@ -33,7 +33,7 @@ using namespace mlir;
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-typedef SmallVector<IndexExpr, 4> DimsExpr;
+using DimsExpr = SmallVector<IndexExpr, 4>;
 
 /// When defining support for a new op, add one such stuct which must
 /// minimally compute the outputDims present in the parent class. Computation
@@ -256,6 +256,16 @@ struct ONNXGatherOpShapeHelper : public ONNXOpShapeHelper<ONNXGatherOp> {
   bool positiveConstantIndices; // True when all indices are positive consants.
 };
 
+// Shape for SpaceToDepth.
+struct ONNXSpaceToDepthOpShapeHelper
+    : public ONNXOpShapeHelper<ONNXSpaceToDepthOp> {
+  ONNXSpaceToDepthOpShapeHelper(ONNXSpaceToDepthOp *newOp);
+  ONNXSpaceToDepthOpShapeHelper(ONNXSpaceToDepthOp *newOp, OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult computeShape(ONNXSpaceToDepthOpAdaptor operandAdaptor);
+};
+
 // Shape for SplitOp.
 struct ONNXSplitOpShapeHelper : public ONNXOpShapeHelper<ONNXSplitOp> {
   ONNXSplitOpShapeHelper(ONNXSplitOp *newOp);
@@ -412,6 +422,19 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<ONNXShapeOp> {
   LogicalResult computeShape(ONNXShapeOpAdaptor operandAdaptor);
 
   DimsExpr selectedData;
+};
+
+// Shape for PadOp.
+struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<ONNXPadOp> {
+  ONNXPadOpShapeHelper(ONNXPadOp *newOp);
+  ONNXPadOpShapeHelper(ONNXPadOp *newOp, OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult computeShape(ONNXPadOpAdaptor operandAdaptor);
+
+  // Additional data for PadOp.
+  SmallVector<IndexExpr, 4> pads;
 };
 
 // Shape for ONNXExpandOp.

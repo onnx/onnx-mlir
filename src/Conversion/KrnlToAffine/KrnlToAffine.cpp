@@ -28,6 +28,7 @@
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/Common.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 #include <functional>
@@ -747,6 +748,7 @@ static IndexExpr partialTrip(IndexExpr UB, IndexExpr block, IndexExpr GI) {
   return UB - GI;
 }
 
+ATTRIBUTE(unused)
 static IndexExpr startInBuffer(
     IndexExpr globalStart, IndexExpr tileSize, IndexExpr globalUB) {
   if (tileSize.isLiteral() && globalUB.isLiteral() &&

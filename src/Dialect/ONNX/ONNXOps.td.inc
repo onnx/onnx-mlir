@@ -3544,6 +3544,104 @@ def ONNXPadOp:ONNX_Op<"Pad",
     }];
 }
 
+def ONNXPadV11Op:ONNX_Op<"PadV11",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Pad operation";
+  let description = [{
+  "Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,"
+  "a padded tensor (`output`) is generated."
+  ""
+  "The three supported `modes` are (similar to corresponding modes supported by `numpy.pad`):"
+  ""
+  "1) `constant`(default) - pads with a given constant value as specified by `constant_value` (which defaults to 0)"
+  ""
+  "2) `reflect` - pads with the reflection of the vector mirrored on the first and last values of the vector along each axis"
+  ""
+  "3) `edge` - pads with the edge values of array"
+  ""
+  ""
+  "Example 1 (`constant` mode):"
+  "  Insert 0 pads to the beginning of the second dimension."
+  ""
+  "  data ="
+  "  ["
+  "      [1.0, 1.2],"
+  "      [2.3, 3.4],"
+  "      [4.5, 5.7],"
+  "  ]"
+  ""
+  "  pads = [0, 2, 0, 0]"
+  ""
+  "  mode = 'constant'"
+  ""
+  "  constant_value = 0.0"
+  ""
+  "  output ="
+  "  ["
+  "      [0.0, 0.0, 1.0, 1.2],"
+  "      [0.0, 0.0, 2.3, 3.4],"
+  "      [0.0, 0.0, 4.5, 5.7],"
+  "  ]"
+  ""
+  ""
+  "Example 2 (`reflect` mode):"
+  "  data ="
+  "  ["
+  "      [1.0, 1.2],"
+  "      [2.3, 3.4],"
+  "      [4.5, 5.7],"
+  "  ]"
+  ""
+  "  pads = [0, 2, 0, 0]"
+  ""
+  "  mode = 'reflect'"
+  ""
+  "  output ="
+  "  ["
+  "      [1.0, 1.2, 1.0, 1.2],"
+  "      [2.3, 3.4, 2.3, 3.4],"
+  "      [4.5, 5.7, 4.5, 5.7],"
+  "  ]"
+  ""
+  ""
+  "Example 3 (`edge` mode):"
+  "  data ="
+  "  ["
+  "      [1.0, 1.2],"
+  "      [2.3, 3.4],"
+  "      [4.5, 5.7],"
+  "  ]"
+  ""
+  "  pads = [0, 2, 0, 0]"
+  ""
+  "  mode = 'edge'"
+  ""
+  "  output ="
+  "  ["
+  "      [1.0, 1.0, 1.0, 1.2],"
+  "      [2.3, 2.3, 2.3, 3.4],"
+  "      [4.5, 4.5, 4.5, 5.7],"
+  "  ]"
+  ""
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$pads,
+    AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType]>:$constant_value,
+    DefaultValuedAttr<StrAttr, "constant">:$mode);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
 def ONNXPadV2Op:ONNX_Op<"PadV2",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Pad operation";

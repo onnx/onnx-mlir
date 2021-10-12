@@ -143,7 +143,8 @@ DenseElementsAttr createDenseElementsAttrFromArray(char *arr, Type outputType) {
   bool isSplat;
   if (resType.getShape().size() == 0)
     isSplat = true;
-  else if (resType.getShape().size() == 1 && resType.getShape()[0] == 1)
+  else if (llvm::all_of(
+               resType.getShape(), [](int64_t dim) { return dim == 1; }))
     isSplat = true;
   else
     isSplat = false;

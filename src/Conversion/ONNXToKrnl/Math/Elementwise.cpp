@@ -578,9 +578,20 @@ Value emitScalarOpFor<ONNXMaxOp>(ConversionPatternRewriter &rewriter,
   //                              %Y)
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  auto max = rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
-  auto result = rewriter.create<SelectOp>(loc, max, lhs, rhs);
-  return result;
+  Value max;
+  if (elementType.isa<FloatType>()) {
+    max = rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
+    return rewriter.create<SelectOp>(loc, max, lhs, rhs);
+  } else if (elementType.isa<IntegerType>()) {
+    if (elementType.isUnsignedInteger()) {
+      max = rewriter.create<CmpIOp>(loc, CmpIPredicate::ugt, lhs, rhs);
+    } else {
+      max = rewriter.create<CmpIOp>(loc, CmpIPredicate::sgt, lhs, rhs);
+    }
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+  return rewriter.create<SelectOp>(loc, max, lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
@@ -595,9 +606,18 @@ Value emitScalarOpFor<ONNXMinOp>(ConversionPatternRewriter &rewriter,
   //                              %Y)
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  auto min = rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
-  auto result = rewriter.create<SelectOp>(loc, min, lhs, rhs);
-  return result;
+  Value min;
+  if (elementType.isa<FloatType>()) {
+    min = rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
+  } else if (elementType.isa<IntegerType>()) {
+    if (elementType.isUnsignedInteger())
+      min = rewriter.create<CmpIOp>(loc, CmpIPredicate::ult, lhs, rhs);
+    else
+      min = rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, lhs, rhs);
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+  return rewriter.create<SelectOp>(loc, min, lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
@@ -794,6 +814,64 @@ Value emitPostProcessingFor<ONNXMeanOp>(ConversionPatternRewriter &rewriter,
   Value n = emitConstantOp(rewriter, loc, elementType, op->getNumOperands());
   // Input and output type are floating point, so it is safe to use DivFOp.
   return rewriter.create<DivFOp>(loc, scalarResult, n);
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXRoundOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value x = scalarOperands[0];
+  if (elementType.isa<FloatType>()) {
+    // Use numpy algorithm for rint as follows.
+    // ```
+    // double y, r;
+    // y = npy_floor(x);
+    // r = x - y;
+    //
+    // if (r > 0.5) {
+    //     y += 1.0;
+    // }
+    //
+    // /* Round to nearest even */
+    // if (r == 0.5) {
+    //     r = y - 2.0*npy_floor(0.5*y);
+    //     if (r == 1.0) {
+    //         y += 1.0;
+    //     }
+    // }
+    // return y;
+    // ```
+    Value one = emitConstantOp(rewriter, loc, elementType, 1.0);
+    Value two = emitConstantOp(rewriter, loc, elementType, 2.0);
+    Value half = emitConstantOp(rewriter, loc, elementType, 0.5);
+    Value y = rewriter.create<FloorFOp>(loc, x);
+    Value r = rewriter.create<SubFOp>(loc, x, y);
+
+    // r > 0.5
+    Value rGreaterThanHalf =
+        rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, r, half);
+    Value y1 = rewriter.create<SelectOp>(
+        loc, rGreaterThanHalf, rewriter.create<AddFOp>(loc, y, one), y);
+
+    // r == 0.5: round to nearest even.
+    Value y2 = rewriter.create<MulFOp>(loc, half, y);
+    y2 = rewriter.create<FloorFOp>(loc, y2);
+    y2 = rewriter.create<MulFOp>(loc, y2, two);
+    Value rr = rewriter.create<SubFOp>(loc, y, y2);
+    Value rrEqualOne =
+        rewriter.create<CmpFOp>(loc, CmpFPredicate::OEQ, rr, one);
+    y2 = rewriter.create<SelectOp>(
+        loc, rrEqualOne, rewriter.create<AddFOp>(loc, y, one), y);
+
+    Value rEqualHalf =
+        rewriter.create<CmpFOp>(loc, CmpFPredicate::OEQ, r, half);
+    return rewriter.create<SelectOp>(loc, rEqualHalf, y2, y1);
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
 }
 
 // Element-wise unary ops lowering to Krnl dialect.
@@ -1011,6 +1089,84 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
   }
 };
 
+//===----------------------------------------------------------------------===//
+// where op lowering to Krnl dialect.
+//===----------------------------------------------------------------------===//
+struct ONNXWhereOpLowering : public ConversionPattern {
+  ONNXWhereOpLowering(MLIRContext *ctx)
+      : ConversionPattern(ONNXWhereOp::getOperationName(), 1, ctx) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    auto loc = NameLoc::get(
+        Identifier::get(ONNXWhereOp::getOperationName(), op->getContext()),
+        op->getLoc());
+    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    auto outputRank = outputMemRefType.getRank();
+
+    // Shape helper.
+    ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    DimsExpr empty;
+    auto shapecomputed = shapeHelper.computeShape(operands, empty);
+    assert(succeeded(shapecomputed));
+    // Scope for krnl ops
+    IndexExprScope outerScope(&rewriter, shapeHelper.scope);
+    KrnlBuilder createKrnl(rewriter, loc);
+
+    // Insert an allocation and deallocation for the result of this operation.
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+
+    // Emit main computation.
+    SmallVector<IndexExpr, 4> outputAccessExprs;
+    // Only create krnl.iterate if one of the operands is not scalar tensor.
+    if (!hasAllScalarValues(operands)) {
+      // Create iterateOp & get block within iterate op.
+      BuildKrnlLoop loops(rewriter, loc, outputRank);
+      loops.createDefineAndIterateOp(alloc);
+      Block *iterationBlock = loops.getIterateBlock();
+      // Insert instructions inside the KernelIterateOp body.
+      rewriter.setInsertionPointToStart(iterationBlock);
+      // Handle the operation:
+      for (auto arg : iterationBlock->getArguments())
+        outputAccessExprs.emplace_back(DimIndexExpr(arg));
+    }
+
+    // Load the condition value.
+    SmallVector<IndexExpr, 4> condAccessExprs;
+    LogicalResult res = shapeHelper.GetAccessExprs(
+        operands[0], 0, outputAccessExprs, condAccessExprs);
+    assert(succeeded(res));
+    Value cond = createKrnl.loadIE(operands[0], condAccessExprs);
+
+    // Load the first value.
+    SmallVector<IndexExpr, 4> lhsAccessExprs;
+    res = shapeHelper.GetAccessExprs(
+        operands[1], 1, outputAccessExprs, lhsAccessExprs);
+    assert(succeeded(res));
+    Value lhs = createKrnl.loadIE(operands[1], lhsAccessExprs);
+
+    // Load the second value.
+    SmallVector<IndexExpr, 4> rhsAccessExprs;
+    res = shapeHelper.GetAccessExprs(
+        operands[2], 2, outputAccessExprs, rhsAccessExprs);
+    assert(succeeded(res));
+    Value rhs = createKrnl.loadIE(operands[2], rhsAccessExprs);
+
+    // Return lhs if cond is true else rhs.
+    Value result = rewriter.create<SelectOp>(loc, cond, lhs, rhs);
+
+    // Store result in the resulting array.
+    createKrnl.storeIE(result, alloc, outputAccessExprs);
+
+    rewriter.replaceOp(op, alloc);
+
+    return success();
+  }
+};
+
 void populateLoweringONNXElementwiseOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
@@ -1050,6 +1206,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseBinaryOpLowering<mlir::ONNXPowOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXRoundOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
@@ -1061,7 +1218,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSubOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>, ONNXWhereOpLowering,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
       ctx, /*isUniBroadcasting=*/true);

@@ -217,8 +217,8 @@ BuildKrnlLoop::BuildKrnlLoop(
     ConversionPatternRewriter &rewriter, Location loc, int loopNum)
     : rewriter(rewriter), loc(loc), originalLoopNum(loopNum), pack(NULL),
       pushCount(0), createdDefineOp(false), createdIterateOp(false) {
-  if (originalLoopNum <= 0)
-    emitError(loc, "Expected positive number of original loops.");
+  if (originalLoopNum < 0)
+    emitError(loc, "Expected non-negative number of original loops.");
 }
 
 BuildKrnlLoop::BuildKrnlLoop(
