@@ -38,7 +38,6 @@ struct ONNXExpandOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     int64_t outputRank = outputMemRefType.getRank();
-    Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
@@ -50,6 +49,7 @@ struct ONNXExpandOpLowering : public ConversionPattern {
     createKrnl.iterateIE(outputLoopDef, outputLoopDef, lbs,
         shapeHelper.dimsForOutput(0),
         [&](KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
+          IndexExprScope outputScope(createKrnl, shapeHelper.scope);
           SmallVector<IndexExpr, 4> outputLoopIndices, lhsAccessExprs;
           getIndexExprList<DimIndexExpr>(outputLoopInd, outputLoopIndices);
           LogicalResult res = shapeHelper.GetAccessExprs(

@@ -393,6 +393,18 @@ void IndexExpr::debugPrint(
   }
 }
 
+void IndexExpr::debugPrint(const std::string &msg,
+    const SmallVectorImpl<IndexExpr> &list, const bool forcePrint) {
+  if (DEBUG || forcePrint) {
+    int s = list.size();
+    printf("%s (%d elements)\n", msg.c_str(), s);
+    for (int i = 0; i < s; ++i) {
+      std::string element = "  " + std::to_string(i) + ": ";
+      list[i].debugPrint(element, true);
+    }
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // Helpers for IndexExpressions
 //===----------------------------------------------------------------------===//
@@ -1011,9 +1023,7 @@ UndefinedIndexExpr::UndefinedIndexExpr() : IndexExpr() {}
 // IndexExpr Subclasses for constructing LiteralIndexExpr.
 //===----------------------------------------------------------------------===//
 
-LiteralIndexExpr::LiteralIndexExpr(int64_t const value) {
-  init(value);
-}
+LiteralIndexExpr::LiteralIndexExpr(int64_t const value) { init(value); }
 
 void LiteralIndexExpr::init(int64_t const value) {
   indexExprObj = new IndexExprImpl();
@@ -1508,6 +1518,8 @@ bool ArrayValueIndexCapture::getSymbolList(
   assert(shapeType.getRank() == 1 &&
          "Array value index capture supports 1D arrays");
   int num = shapeType.getShape()[0];
+  if (num == -1)
+    return false; // Cannot read an unranked array.
   return getSymbolList(num, symbolList);
 }
 

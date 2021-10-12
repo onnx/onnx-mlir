@@ -512,11 +512,13 @@ public:
   static IndexExpr max(IndexExpr const first, IndexExpr const second);
   static IndexExpr max(IndexExpr const first, int64_t const second);
 
-  // Debug (enable using DEBUG=1 at top of file).
-  void debugPrint(const std::string &msg, const bool forcePrint = false) const;
-
   bool retrieveAffineMinMax(
       bool &isMin, SmallVectorImpl<Value> &vals, AffineMap &map) const;
+
+  // Debug (enable using DEBUG=1 at top of file).
+  void debugPrint(const std::string &msg, const bool forcePrint = false) const;
+  static void debugPrint(const std::string &msg,
+      const SmallVectorImpl<IndexExpr> &list, const bool forcePrint = false);
 
 protected:
   // Private queries.

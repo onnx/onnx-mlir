@@ -101,7 +101,8 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::computeShape(
   // Compute rank of the output. Rank of the output is the maximum rank of all
   // operands.
   int additionalOperRank = additionalOperand.size();
-  outputRank = additionalOperRank > 0 ? additionalOperRank : -1;
+  bool hasAdditionalOper = additionalOperRank > 0;
+  outputRank = hasAdditionalOper ? additionalOperRank : -1;
   for (int64_t i = 0; i < numOfInputs; ++i) {
     int64_t r = operands[i].getType().cast<ShapedType>().getRank();
     outputRank = std::max(outputRank, r);
@@ -124,7 +125,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::computeShape(
     inputsDims.emplace_back(dims);
   }
   // Handle the additional operand here.
-  if (additionalOperRank > 0) {
+  if (hasAdditionalOper) {
     DimsExpr dims(outputRank - additionalOperRank, one);
     for (int64_t k = 0; k < additionalOperRank; ++k)
       dims.emplace_back(additionalOperand[k]);
@@ -172,8 +173,10 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::computeShape(
       }
 
       // QuestionMark - 1 => keep unchanged.
-      if (!currentDimExpr.isLiteral() && nextDimExpr.isLiteralAndIdenticalTo(1))
+      if (!currentDimExpr.isLiteral() &&
+          nextDimExpr.isLiteralAndIdenticalTo(1)) {
         continue;
+      }
 
       // QuestionMark - LiteralNot1 => set to LiteralNot1 without verifying.
       if (!currentDimExpr.isLiteral() &&
@@ -184,8 +187,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper<OP>::computeShape(
 
       // QuestionMark - QuestionMark
       if (!isUniBroadcasting) {
-        SmallVector<IndexExpr, 2> exprs({currentDimExpr, nextDimExpr});
-        dimsExpr[j] = IndexExpr::max(exprs);
+        dimsExpr[j] = IndexExpr::max(currentDimExpr, nextDimExpr);
       }
     }
   }
@@ -595,7 +597,6 @@ LogicalResult ONNXGemmOpShapeHelper::computeShape(
   // Save the final result.
   dimsForOutput(0) = outputDims;
 
-  scope->debugPrint("scope from inside gemm compute");
   return success();
 }
 
@@ -812,8 +813,8 @@ LogicalResult ONNXSplitOpShapeHelper::computeShape(
   auto split = op->split();
 
   SmallVector<IndexExpr, 4> indexExprArray;
-  // TODO: getONNXConstantOp might be a problem during code gen as ONNX constant
-  // get lowered to global constants.
+  // TODO: getONNXConstantOp might be a problem during code gen as ONNX
+  // constant get lowered to global constants.
   if (auto splitConstOp = getONNXConstantOp(split)) {
     ArrayValueIndexCapture splitCapture(split, fGetDenseVal, fLoadVal);
     auto splitRank =
@@ -1612,6 +1613,11 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
   Value shape = operandAdaptor.shape();
   Operation *shapeDefOp = shape.getDefiningOp();
 
+  ShapedType shapeType = shape.getType().dyn_cast_or_null<ShapedType>();
+  if (!shapeType)
+    return op->emitError("expected shape parameter to be defined");
+  if (shapeType.getShape()[0] == -1)
+    return op->emitError("expected size of shape parameter to be defined");
   if (mlir::ONNXShapeOp shapeOp =
           dyn_cast_or_null<mlir::ONNXShapeOp>(shapeDefOp)) {
     assert(shapeOp.data().getType().isa<ShapedType>() && "expected");
@@ -1621,11 +1627,11 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
     // helper as we need to connect to the actual expressions used to compute
     // it, not just a shape, in presence of runtime dimensions.
 
-    // Use the full constructor as this is called from shape helper which may be
-    // used in either shape inference or lowering to ONNX context. We also pass
-    // here the scope of the ExpandOp shape helper so that the computations
-    // performed in the ShapeOp shape helper can be used in the context of the
-    // ExpandOp.
+    // Use the full constructor as this is called from shape helper which may
+    // be used in either shape inference or lowering to ONNX context. We also
+    // pass here the scope of the ExpandOp shape helper so that the
+    // computations performed in the ShapeOp shape helper can be used in the
+    // context of the ExpandOp.
     ONNXShapeOpShapeHelper shapeOpShapeHelper(
         &shapeOp, scope->getRewriterPtr(), fGetDenseVal, fLoadVal, scope);
     ONNXShapeOpAdaptor shapeOpOperandAdaptor(shapeOp);
