@@ -3171,7 +3171,7 @@ static LogicalResult verify(ONNXExpandOp op) {
   auto shape = operandAdaptor.shape();
   // Check input.
   auto shapeType = shape.getType().dyn_cast_or_null<ShapedType>();
-  if (shapeType) {
+  if (shapeType && shapeType.hasRank()) {
     if (shapeType.getRank() != 1)
       return op.emitError("Shape has a rank of 1");
   }
