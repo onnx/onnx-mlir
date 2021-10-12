@@ -145,6 +145,17 @@ struct ONNXConcatOpShapeHelper : public ONNXOpShapeHelper<ONNXConcatOp> {
   LogicalResult Compute(ONNXConcatOpAdaptor operandAdaptor);
 };
 
+// Shape for DepthToSpace.
+struct ONNXDepthToSpaceOpShapeHelper
+    : public ONNXOpShapeHelper<ONNXDepthToSpaceOp> {
+  ONNXDepthToSpaceOpShapeHelper(ONNXDepthToSpaceOp *newOp);
+  ONNXDepthToSpaceOpShapeHelper(ONNXDepthToSpaceOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult Compute(ONNXDepthToSpaceOpAdaptor operandAdaptor);
+};
+
 // Shape for SliceOp.
 struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
   ONNXSliceOpShapeHelper(ONNXSliceOp *newOp);
