@@ -87,6 +87,71 @@ DenseElementsAttr createDenseArrayAttrOrEmpty(
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXDecompose.inc"
 
+class ConvertONNXDepthToSpacePattern
+    : public OpRewritePattern<ONNXDepthToSpaceOp> {
+public:
+  using OpRewritePattern<ONNXDepthToSpaceOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(ONNXDepthToSpaceOp depthToSpaceOp,
+      PatternRewriter &rewriter) const override {
+    auto loc = depthToSpaceOp.getLoc();
+    Value input = depthToSpaceOp.input();
+    ShapedType inputType = input.getType().cast<ShapedType>();
+    ArrayRef<int64_t> inputShape = inputType.getShape();
+    Type elementType = inputType.getElementType();
+    auto blocksize = depthToSpaceOp.blocksize();
+    auto N = inputShape[0];
+    auto C = inputShape[1];
+    auto H = inputShape[2];
+    auto W = inputShape[3];
+
+    SmallVector<int64_t, 6> shape1;
+    ArrayAttr perm;
+    if (depthToSpaceOp.mode() == "DCR") {
+      shape1 = {N, blocksize, blocksize, C / (blocksize * blocksize), H, W};
+      perm = rewriter.getI64ArrayAttr({0, 3, 4, 1, 5, 2});
+    } else {
+      assert(depthToSpaceOp.mode() == "CRD" && "Unexpected DepthToShape mode");
+      shape1 = {N, C / (blocksize * blocksize), blocksize, blocksize, H, W};
+      perm = rewriter.getI64ArrayAttr({0, 1, 4, 2, 5, 3});
+    }
+
+    // DCR: reshape = onnx.Reshape(input, [N, blocksize, blocksize,
+    //   C / (blocksize * blocksize), H, W])
+    // CRD: reshape = onnx.Reshape(input, [N, C / (blocksize * blocksize),
+    //   blocksize, blocksize, H, W])
+    auto shapeConstantOp1 = getONNXConstantOpFromDenseAttr(
+        rewriter, loc, rewriter.getI64TensorAttr({shape1}));
+    auto reshape = rewriter
+                       .create<ONNXReshapeOp>(loc,
+                           RankedTensorType::get(shape1, elementType), input,
+                           shapeConstantOp1)
+                       .getResult();
+
+    // DCR: transpose = onnx.Transpose(reshape, [0, 3, 4, 1, 5, 2])
+    // CRD: transpose = onnx.Transpose(reshape, [0, 1, 4, 2, 5, 3])
+    SmallVector<int64_t, 6> transposeShape = {
+        N, C / (blocksize * blocksize), H, blocksize, W, blocksize};
+    auto transpose = rewriter
+                         .create<ONNXTransposeOp>(loc,
+                             RankedTensorType::get(transposeShape, elementType),
+                             reshape, perm)
+                         .getResult();
+
+    // result = onnx.Reshape(transpose, [N, C / (blocksize * blocksize), H *
+    // blocksize, W * blocksize])
+    SmallVector<int64_t, 4> shape2 = {
+        N, C / (blocksize * blocksize), H * blocksize, W * blocksize};
+    auto shapeConstantOp2 = getONNXConstantOpFromDenseAttr(
+        rewriter, loc, rewriter.getI64TensorAttr({shape2}));
+    rewriter.replaceOpWithNewOp<ONNXReshapeOp>(depthToSpaceOp,
+        RankedTensorType::get(shape2, elementType), transpose,
+        shapeConstantOp2);
+
+    return success();
+  }
+};
+
 namespace {
 
 struct DecomposeONNXToONNXPass
@@ -104,6 +169,7 @@ void DecomposeONNXToONNXPass::runOnFunction() {
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
+  target.addIllegalOp<ONNXDepthToSpaceOp>();
   target.addIllegalOp<ONNXReduceL1Op>();
   target.addIllegalOp<ONNXReduceL2Op>();
   target.addIllegalOp<ONNXReduceLogSumOp>();
@@ -119,6 +185,7 @@ void DecomposeONNXToONNXPass::runOnFunction() {
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
+  patterns.insert<ConvertONNXDepthToSpacePattern>(&getContext());
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
