@@ -1822,6 +1822,7 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape(
 
 //===----------------------------------------------------------------------===//
 // ONNX Shape Helper template instantiation
+// Keep template instantiation at the end of the file.
 //===----------------------------------------------------------------------===//
 
 template struct ONNXOpBroadcastedShapeHelper<Operation>;
