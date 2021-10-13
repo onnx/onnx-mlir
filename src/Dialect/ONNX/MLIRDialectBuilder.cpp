@@ -53,6 +53,16 @@ Value MathBuilder::exp(Value val) {
   return b.create<math::ExpOp>(loc, val);
 }
 
+Value MathBuilder::exp2(Value val) {
+  assert(val.getType().isa<FloatType>() && "Data type must be float.");
+  return b.create<math::Exp2Op>(loc, val);
+}
+
+Value MathBuilder::log2(Value val) {
+  assert(val.getType().isa<FloatType>() && "Data type must be float.");
+  return b.create<math::Log2Op>(loc, val);
+}
+
 Value MathBuilder::sgt(Value lhs, Value rhs) {
   if (lhs.getType().isa<IndexType, IntegerType>() ||
       lhs.getType().isa<IndexType>())

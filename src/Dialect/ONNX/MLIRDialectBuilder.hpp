@@ -51,10 +51,12 @@ struct MathBuilder : DialectBuilder {
   Value mul(Value lhs, Value rhs);
   Value div(Value lhs, Value rhs);
   Value exp(Value val);
+  Value exp2(Value val);
   Value select(Value cmp, Value lhs, Value rhs);
   Value sgt(Value lhs, Value rhs);
   Value slt(Value lhs, Value rhs);
   Value eq(Value lhs, Value rhs);
+  Value log2(Value val);
 };
 
 struct MemRefBuilder : DialectBuilder {

@@ -144,6 +144,11 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
     Location loc, Value data, MemRefType memRefType,
     SmallVectorImpl<IndexExpr> &outputDims);
 
+/// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
+/// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
+/// lambda type, using ONNX and Krnl operations.
+DenseElementsAttr getDenseElementAttributeFromConstantValue(Value value);
+
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
