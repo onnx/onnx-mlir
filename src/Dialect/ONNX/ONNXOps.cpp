@@ -3850,6 +3850,41 @@ LogicalResult ONNXReverseSequenceOp::inferShapes(
   return success();
 }
 
+static LogicalResult verify(ONNXReverseSequenceOp op) {
+  ONNXReverseSequenceOpAdaptor operandAdaptor =
+      ONNXReverseSequenceOpAdaptor(op);
+
+  auto sequence_lensTy =
+      operandAdaptor.sequence_lens().getType().dyn_cast<RankedTensorType>();
+  auto inputTy = operandAdaptor.input().getType().dyn_cast<RankedTensorType>();
+
+  // sequence_lens should be 1D tensor
+  if (sequence_lensTy) {
+    if (sequence_lensTy.getRank() != 1)
+      return op.emitError(
+          "sequence_lens of ReverseSequnce should be 1D tensor");
+  }
+
+  if (inputTy) {
+    if (inputTy.getRank() < 2)
+      return op.emitError(
+          "input of Reversesequence should be 2D or higher rank tensor");
+  }
+
+  if (sequence_lensTy && inputTy) {
+    int64_t batchAxis = op.batch_axis();
+    if (sequence_lensTy.getShape()[0] != -1 &&
+        inputTy.getShape()[batchAxis] != -1) {
+      if (sequence_lensTy.getShape()[0] != inputTy.getShape()[batchAxis]) {
+        return op.emitError("Length of sequence_lens should match the sizeof  "
+                            "batch axis of the input");
+      }
+    }
+  }
+
+  return success();
+}
+
 LogicalResult ONNXReduceL1Op::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
