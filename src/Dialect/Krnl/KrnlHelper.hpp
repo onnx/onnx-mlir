@@ -150,7 +150,7 @@ private:
 //   insertion point to it. Value of the induction variables can be retrieved
 //   using the proper index (determined when pushin the bounds).
 
-class BuildKrnlLoop {
+class BuildKrnlLoop final {
 public:
   // Create kernel loop builder for a loop nest of depth loopNum.
   BuildKrnlLoop(ConversionPatternRewriter &rewriter, Location loc, int loopNum);
@@ -163,7 +163,7 @@ public:
   // dimensionality of the operand. An operand of MemRef type is requied.
   BuildKrnlLoop(
       ConversionPatternRewriter &rewriter, Location loc, Value memRefOperand);
-  virtual ~BuildKrnlLoop() {
+  ~BuildKrnlLoop() {
     if (pack)
       delete pack;
   }
