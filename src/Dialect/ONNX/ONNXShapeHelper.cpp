@@ -1710,6 +1710,9 @@ LogicalResult ONNXCompressOpShapeHelper::Compute(
   ShapedType conditionType = input.getType().dyn_cast_or_null<ShapedType>();
   assert(conditionType && conditionType.hasRank() &&
          "Condition should have a shape and rank");
+  if (DenseElementsAttr attrArray = fGetDenseVal(condition)) {
+    // the condition is known at compile time
+  }
   // Get axis. Value -1 signify axis was not specified. Verifier already checked
   // that the axis, if given, is in range.
   int64_t axis = -1;
