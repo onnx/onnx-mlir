@@ -13,9 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// both debug variables will be removed once debugging is complete.
-#define DEBUG 0
-
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/IndexExprDetail.hpp"
 
@@ -28,16 +25,15 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "index_expr"
 
 using namespace mlir;
 
 //===----------------------------------------------------------------------===//
 // IndexExprScope constructors.
 //===----------------------------------------------------------------------===//
-
-IndexExprScope::IndexExprScope() : loc(Location(nullptr)) {
-  llvm_unreachable("illegal");
-}
 
 // Initial scope.
 IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
@@ -138,9 +134,11 @@ int IndexExprScope::addSymbol(Value const value) {
 // IndexExprScope getters.
 //===----------------------------------------------------------------------===//
 
-bool IndexExprScope::isCurrentScope() { return getCurrentScopePtr() == this; }
+bool IndexExprScope::isCurrentScope() const {
+  return getCurrentScopePtr() == this;
+}
 
-bool IndexExprScope::isEnclosingScope() {
+bool IndexExprScope::isEnclosingScope() const {
   for (IndexExprScope *s = getCurrentScopePtr()->parentScope; s;
        s = s->parentScope) {
     if (s == this)
@@ -158,7 +156,7 @@ void IndexExprScope::getDimAndSymbolList(SmallVectorImpl<Value> &list) const {
 }
 
 OpBuilder &IndexExprScope::getRewriter() const {
-  assert(rewriter);
+  assert(rewriter && "Should have a valid pointer");
   return *rewriter;
 }
 
@@ -166,14 +164,11 @@ OpBuilder &IndexExprScope::getRewriter() const {
 // IndexExprScope Debug.
 //===----------------------------------------------------------------------===//
 
-// Debug (enable using DEBUG=1 at top of file).
 void IndexExprScope::debugPrint(const std::string &msg) const {
-#if DEBUG
-  printf(
-      "Scope %s 0x%llx: with parent scope 0x%lld and %d dims and %d symbols\n",
-      msg.c_str(), (long long)this, (long long)parentScope, (int)dims.size(),
-      (int)symbols.size());
-#endif
+  LLVM_DEBUG(llvm::dbgs() << "Scope " << msg.c_str() << " 0x" << (long long)this
+                          << ": with parent scope 0x" << (long long)parentScope
+                          << " and " << dims.size() << " dims and "
+                          << symbols.size() << " symbols\n";);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1501,7 +1496,8 @@ void ArrayValueIndexCapture::getSymbolList(
 //===----------------------------------------------------------------------===//
 
 ArrayAttributeIndexCapture::ArrayAttributeIndexCapture(ArrayAttr array)
-    : array(array), arraySize((array) ? array.size() : 0), hasDefault(false) {}
+    : array(array), arraySize((array) ? array.size() : 0), defaultLiteral(0),
+      hasDefault(false) {}
 
 ArrayAttributeIndexCapture::ArrayAttributeIndexCapture(
     ArrayAttr array, int64_t defaultLiteral)
