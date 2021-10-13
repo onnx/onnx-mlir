@@ -3477,9 +3477,39 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
   return success();
 }
 
+// hi alex
+static bool hasShapeAndRank(Value val) {
+  return val.getType().isa<ShapedType>() &&
+         val.getType().cast<ShapedType>().hasRank();
+}
+
+static LogicalResult verify(ONNXCompressOp op) {
+  // Look up input.
+  if (!hasShapeAndRank(op.input()))
+    // Too early to verify.
+    return success();
+  int64_t inputRank = op.input().getType().cast<ShapedType>().getRank();
+  // Check axis.
+  auto optionalAxis = op.axis();
+  if (optionalAxis.hasValue()) {
+    // We have an axis, make sure its in the range
+    int64_t axis = optionalAxis.getValue();
+    if (!(axis >= -inputRank && axis < inputRank))
+      return op.emitError("axis is out of bound");
+  }
+  // Check condition.
+  if (!hasShapeAndRank(op.condition()))
+    // Too early to verify.
+    return success();
+  int64_t condRank = op.condition().getType().cast<ShapedType>().getRank();
+  if (condRank != 1)
+    return op.emitError("condition's rank must be one");
+  return success();
+} 
+
 LogicalResult ONNXCompressOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  return success();
 }
 
 LogicalResult ONNXConcatFromSequenceOp::inferShapes(

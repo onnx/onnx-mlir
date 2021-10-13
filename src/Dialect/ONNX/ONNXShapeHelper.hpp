@@ -425,3 +425,16 @@ struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<ONNXPadOp> {
   // Additional data for PadOp.
   SmallVector<IndexExpr, 4> pads;
 };
+
+// Shape for ONNXCompressOp.
+struct ONNXCompressOpShapeHelper : public ONNXOpShapeHelper<ONNXCompressOp> {
+  ONNXCompressOpShapeHelper(ONNXCompressOp *newOp);
+  ONNXCompressOpShapeHelper(ONNXCompressOp *newOp,
+      ConversionPatternRewriter &rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+
+  LogicalResult Compute(ONNXCompressOpAdaptor operandAdaptor);
+
+  int onesInConditions = -1;
+};

@@ -269,6 +269,7 @@ OpsWithShapeInference=[
     'Atan',
     'AveragePool',
     'Cast',
+    'Compress',
     'Concat',
     'Constant',
     'ConstantOfShape',
@@ -356,7 +357,7 @@ OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Cast', 'Transpose',
                         'Squeeze', 'Unsqueeze', 'Reshape']
 
 # Operations with custom verifiers.
-OpsWithVerifier = ['AveragePool', 'Conv', 'InstanceNormalization', 'Mod']
+OpsWithVerifier = ['AveragePool', 'Compress', 'Conv', 'InstanceNormalization', 'Mod']
 
 OpsWithHelpers = {
   "Loop": """

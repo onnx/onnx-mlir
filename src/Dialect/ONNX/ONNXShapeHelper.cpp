@@ -1683,3 +1683,41 @@ LogicalResult ONNXPadOpShapeHelper::Compute(ONNXPadOpAdaptor operandAdaptor) {
 
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// ONNX Compress Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXCompressOpShapeHelper::ONNXCompressOpShapeHelper(ONNXCompressOp *newOp)
+    : ONNXOpShapeHelper<ONNXCompressOp>(newOp) {}
+
+ONNXCompressOpShapeHelper::ONNXCompressOpShapeHelper(ONNXCompressOp *newOp,
+    ConversionPatternRewriter &rewriter,
+    ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+    ArrayValueIndexCapture::LoadVal fLoadVal)
+    : ONNXOpShapeHelper<ONNXCompressOp>(
+          newOp, rewriter, fGetDenseVal, fLoadVal) {}
+
+LogicalResult ONNXCompressOpShapeHelper::Compute(
+    ONNXCompressOpAdaptor operandAdaptor) {
+  // Check that input and condition are ranked.
+  Value input = operandAdaptor.input();
+  ShapedType inputType = input.getType().dyn_cast_or_null<ShapedType>();
+  assert(
+      inputType && inputType.hasRank() && "Input should have a shape and rank");
+  int64_t inputRank = inputType.getRank();
+  Value condition = operandAdaptor.condition();
+  ShapedType conditionType = input.getType().dyn_cast_or_null<ShapedType>();
+  assert(conditionType && conditionType.hasRank() &&
+         "Condition should have a shape and rank");
+  // Get axis. Value -1 signify axis was not specified. Verifier already checked
+  // that the axis, if given, is in range.
+  int64_t axis = -1;
+  if (op->axis().hasValue()) {
+    axis = op->axis().getValue();
+    if (axis < 0)
+      axis += inputRank;
+  }
+
+  return success();
+}
