@@ -1146,7 +1146,6 @@ def KrnlPrintTensorEndOp : Op<Krnl_Dialect, "printTensorEnd"> {
     Indicate the end of printout for a Tensor.
   }];
 
-  let arguments = (ins AnyFloat:$in);
 
   let parser = ?;
   let printer = ?;
