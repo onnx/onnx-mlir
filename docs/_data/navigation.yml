@@ -31,8 +31,16 @@ toc:
         url:  Documentation.html
   - title: Development
     subfolderitems:
+      - page: Add an Operation
+        url:  HowToAddAnOperation.html
       - page: Testing Guidelines
         url:  Testing.html
+      - page: Error Handling
+        url:  ErrorHandling.html
+      - page: Command-line Options
+        url:  Options.html
+      - page: Instrumentation
+        url:  Instrumentation.html
   - title: Tools
     subfolderitems:
       - page: RunONNXModel.py - Debugging Numerical Errors
