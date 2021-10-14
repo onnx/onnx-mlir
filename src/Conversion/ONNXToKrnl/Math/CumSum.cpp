@@ -135,13 +135,13 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
           step = rewriter.create<IndexCastOp>(loc, i64Ty, step);
           step = rewriter.create<SIToFPOp>(loc, f32Ty, step);
           // - offset = 2^(step-1)
-          Value offset = createMath.exp2(step);
+          Value fOne = emitConstantOp(rewriter, loc, f32Ty, 1);
+          Value stepMinusOne = createMath.sub(step, fOne);
+          Value offset = createMath.exp2(stepMinusOne);
           offset = rewriter.create<FPToSIOp>(loc, i64Ty, offset);
           offset = rewriter.create<IndexCastOp>(loc, indexTy, offset);
           // - pivot = 2^step
-          Value fOne = emitConstantOp(rewriter, loc, f32Ty, 1);
-          Value stepMinusOne = createMath.sub(step, fOne);
-          Value pivot = createMath.exp2(stepMinusOne);
+          Value pivot = createMath.exp2(step);
           pivot = rewriter.create<FPToSIOp>(loc, i64Ty, pivot);
           pivot = rewriter.create<IndexCastOp>(loc, indexTy, pivot);
 
@@ -157,24 +157,25 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
               [&](KrnlBuilder &createKrnl, ValueRange sumLoopInd) {
                 IndexExprScope ieScope(createKrnl);
                 MathBuilder createMath(createKrnl);
+                SymbolIndexExpr axis(axisIE);
                 // Load y[i,k].
-                Value y1 = createKrnl.load(resMemRef, sumLoopInd);
+                Value y1 = createKrnl.load(bufMemRef, sumLoopInd);
                 // Load y[i - 2^(step-1),k].
                 SmallVector<Value, 4> loopInd;
-                Value shouldUpdate = emitConstantOp(rewriter, loc, i1Ty, 1);
+                Value shouldUpdate = emitConstantOp(rewriter, loc, i1Ty, 0);
                 for (uint64_t r = 0; r < rank; ++r) {
                   Value iVal = sumLoopInd[r];
                   Value rVal = emitConstantOp(rewriter, loc, indexTy, r);
-                  Value isAxis = createMath.eq(rVal, rVal);
-                  Value inScope = createMath.sge(iVal, pivot);
-                  Value ok = createMath._and(isAxis, inScope);
+                  Value isAxis = createMath.eq(rVal, axis.getValue());
+                  Value isInScope = createMath.sge(iVal, pivot);
+                  Value ok = createMath._and(isAxis, isInScope);
                   shouldUpdate = createMath._or(ok, shouldUpdate);
 
                   Value iOffset = createMath.sub(iVal, offset);
                   Value accessIndex = createMath.select(ok, iOffset, iVal);
                   loopInd.emplace_back(accessIndex);
                 }
-                Value y2 = createKrnl.load(resMemRef, loopInd);
+                Value y2 = createKrnl.load(bufMemRef, loopInd);
                 Value zeroVal = emitConstantOp(rewriter, loc, elementType, 0);
                 Value addOrZero = createMath.select(shouldUpdate, y2, zeroVal);
                 Value res = createMath.add(y1, addOrZero);
