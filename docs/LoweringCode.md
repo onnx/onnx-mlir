@@ -43,12 +43,12 @@ In general, this and all other builders can be created as follows.
     MathBuilder createMath(createKrnl);    // Use info stored in another builder.
   ```
 
-The Math builder we have been looking at currently contains the following operations. Most operations are self explanatory. They handle both integer and float operations, and will generate an assert when a specific operation is not supported for a specific type.  Up to date info should be looked from the `MLIRDialectBuilder.cpp` file.
+The Math builder we have been looking at currently contains the following operations. Most operations are self explanatory. They handle both integer and float operations, and will generate an assert when a specific operation is not supported for a specific type.  Up to date info should be looked from the (MLIRDialectBuilder.hpp)[../src/Dialect/ONNX/MLIRDialectBuilder.hpp] file.
 
 ```C++
 struct MathBuilder : DialectBuilder {
-  MathBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
-  MathBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+  MathBuilder(OpBuilder &b, Location loc);
+  MathBuilder(DialectBuilder &db);
 
   Value _and(Value lhs, Value rhs);
   Value add(Value lhs, Value rhs);
