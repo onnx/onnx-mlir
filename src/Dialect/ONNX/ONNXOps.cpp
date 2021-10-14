@@ -2587,6 +2587,7 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes() {
   if (!inTy || !inTy.hasStaticShape()) {
     return emitOpError("Input is not a statically-shaped type");
   }
+  auto zpTy = y_zero_point().getType().cast<ShapedType>().getElementType();
 
   auto yTy = y().getType().cast<ShapedType>();
 
@@ -2594,7 +2595,7 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes() {
     // TODO: Unfortunately, we can't tell if this should be signed or unsigned
     //       here...
     IntegerType i8Type = IntegerType::get(8, getContext());
-    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), i8Type);
+    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), zpTy);
     y().setType(outType);
   }
 
