@@ -156,10 +156,6 @@ mlir::DenseElementsAttr createDenseElementsAttrFromIntegerAttr(
     mlir::PatternRewriter &rewriter, mlir::Type elementType,
     mlir::IntegerAttr attr);
 
-mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttrs(
-    mlir::PatternRewriter &rewriter, mlir::Type elementType,
-    llvm::SmallVector<mlir::Attribute> attrs);
-
 // Integer attribute is assumed to be Signedless
 mlir::DenseElementsAttr createDenseElementsAttrFromIntegerAttrs(
     mlir::PatternRewriter &rewriter, mlir::Type elementType,
@@ -194,3 +190,12 @@ bool isCommonInteger(mlir::RankedTensorType tensorType);
 // Get scalar value when it is a constant.
 double getScalarValue(
     mlir::ONNXConstantOp constantOp, mlir::RankedTensorType tensorType);
+
+//===----------------------------------------------------------------------===//
+// Canonicalization
+//===----------------------------------------------------------------------===//
+
+// Canonicalization for ONNXDepthToSpaceOp.
+mlir::Value canonicalizeDepthToSpace(mlir::PatternRewriter &rewriter,
+    mlir::Operation *op, mlir::Value input, mlir::IntegerAttr blocksizeAttr,
+    mlir::StringAttr modeAttr);

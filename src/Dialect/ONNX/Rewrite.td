@@ -576,4 +576,24 @@ def ConstantOpNormalizationPattern6: Pat<
    [(AttributeIsNotNull:$stringsAttr)]
 >;
 
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXDepthToSpaceOp
+// Rewrite:
+//   output = onnx.depthToSpace(x, bs, mode=[DCR|CRD])
+//   [B, C, H, W] = x.shape
+// into:
+//   (mode==DCR) reshape = onnx.reshape(x, [B, bs, bs, C/(bs ** 2), H, W])
+//   (mode==CRD) reshape = onnx.reshape(x, [B, C/(bs ** 2), bs, bs, H, W])
+//   transpose = onnx.Transpose(reshape, [0, 3, 4, 1, 5, 2])
+//   output = onnx.Reshape(transpose, [B, C / (bs ** 2), H * bs, W * bs])
+//===----------------------------------------------------------------------===//
+
+def canonicalizeDepthToSpace : NativeCodeCall<
+  "canonicalizeDepthToSpace($_builder, $0.getDefiningOp(), $1, $2, $3)">;
+
+def DepthToSpaceCanonicalizationPattern : Pat<
+    (ONNXDepthToSpaceOp:$res $x, $bsAttr, $modeAttr),
+    (canonicalizeDepthToSpace $res, $x, $bsAttr, $modeAttr)
+>;
+
 #endif // ONNX_REWRITE

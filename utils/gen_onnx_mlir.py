@@ -353,7 +353,7 @@ OpsWithShapeInference=[
 OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Cast', 'Transpose',
                         'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
                         'GlobalMaxPool', 'SqueezeV11', 'UnsqueezeV11',
-                        'Squeeze', 'Unsqueeze', 'Reshape']
+                        'Squeeze', 'Unsqueeze', 'Reshape', 'DepthToSpace']
 
 # Operations with custom verifiers.
 OpsWithVerifier = ['AveragePool', 'Conv', 'InstanceNormalization', 'Mod']

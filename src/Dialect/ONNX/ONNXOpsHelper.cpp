@@ -552,3 +552,60 @@ double getScalarValue(
   }
   return value;
 }
+
+//===----------------------------------------------------------------------===//
+// Canonicalization
+//===----------------------------------------------------------------------===//
+
+// Canonicalize ONNXDepthToSpaceOp.
+Value canonicalizeDepthToSpace(PatternRewriter &rewriter, Operation *op,
+    Value input, IntegerAttr blocksizeAttr, StringAttr modeAttr) {
+  assert(op && isa<ONNXDepthToSpaceOp>(op) && "Expecting a ONNXDepthToSpaceOp");
+
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  Type elementType = inputType.getElementType();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  int64_t B = inputShape[0];
+  int64_t C = inputShape[1];
+  int64_t H = inputShape[2];
+  int64_t W = inputShape[3];
+  int64_t bs = blocksizeAttr.getSInt();
+  StringRef mode = modeAttr.getValue();
+
+  SmallVector<int64_t, 6> shape1;
+  ArrayAttr perm;
+  if (mode == "DCR") {
+    shape1 = {B, bs, bs, C / (bs * bs), H, W};
+    perm = rewriter.getI64ArrayAttr({0, 3, 4, 1, 5, 2});
+  } else {
+    assert(mode == "CRD" && "Unexpected mode");
+    shape1 = {B, C / (bs * bs), bs, bs, H, W};
+    perm = rewriter.getI64ArrayAttr({0, 1, 4, 2, 5, 3});
+  }
+
+  // DCR: reshape = onnx.Reshape(input, [B, bs, bs, C / (bs * bs), H, W])
+  // CRD: reshape = onnx.Reshape(input, [B, C / (bs * bs), bs, bs, H, W])
+  auto shapeConstantOp1 = getONNXConstantOpFromDenseAttr(
+      rewriter, op->getLoc(), rewriter.getI64TensorAttr(shape1));
+  auto reshape = rewriter
+                     .create<ONNXReshapeOp>(op->getLoc(),
+                         RankedTensorType::get(shape1, elementType), input,
+                         shapeConstantOp1)
+                     .getResult();
+
+  // DCR: transpose = onnx.Transpose(reshape, [0, 3, 4, 1, 5, 2])
+  // CRD: transpose = onnx.Transpose(reshape, [0, 1, 4, 2, 5, 3])
+  SmallVector<int64_t, 6> transposeShape = {B, C / (bs * bs), H, bs, W, bs};
+  auto transpose =
+      rewriter
+          .create<ONNXTransposeOp>(op->getLoc(),
+              RankedTensorType::get(transposeShape, elementType), reshape, perm)
+          .getResult();
+
+  // res = onnx.Reshape(transpose, [B, C / (bs * bs), H * bs, W * bs])
+  SmallVector<int64_t, 4> shape2 = {B, C / (bs * bs), H * bs, W * bs};
+  auto shapeConstantOp2 = getONNXConstantOpFromDenseAttr(
+      rewriter, op->getLoc(), rewriter.getI64TensorAttr(shape2));
+  return rewriter.create<ONNXReshapeOp>(op->getLoc(),
+      RankedTensorType::get(shape2, elementType), transpose, shapeConstantOp2);
+}

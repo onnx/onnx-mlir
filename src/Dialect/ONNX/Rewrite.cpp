@@ -58,7 +58,7 @@ ArrayAttr createArrayAttrOfNToM(PatternRewriter &rewriter, int N, int M) {
 } // end anonymous namespace
 
 /// Register optimization patterns as "canonicalization" patterns
-/// on the ONNXMatMultOp.
+/// on the ONNXAddOp.
 void ONNXAddOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<NormalizeAddPattern>(context);
@@ -163,4 +163,10 @@ void ONNXConstantOp::getCanonicalizationPatterns(
   results.insert<ConstantOpNormalizationPattern4>(context);
   results.insert<ConstantOpNormalizationPattern5>(context);
   results.insert<ConstantOpNormalizationPattern6>(context);
+}
+
+/// on the ONNXDepthToSpaceOp.
+void ONNXDepthToSpaceOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<DepthToSpaceCanonicalizationPattern>(context);
 }

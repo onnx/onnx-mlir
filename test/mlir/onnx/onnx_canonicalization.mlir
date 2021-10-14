@@ -2,6 +2,51 @@
 
 // -----
 
+// CHECK-LABEL: @test_depth_to_space_default(%{{.*}}: tensor<1x256x8x16xf32>) -> tensor<1x16x32x64xf32>
+func @test_depth_to_space_default(%arg0 : tensor<1x256x8x16xf32>) -> tensor<1x16x32x64xf32> {
+  %cst = constant unit
+  %0 = "onnx.DepthToSpace"(%arg0) {blocksize = 4 : si64} : (tensor<1x256x8x16xf32>) -> tensor<1x16x32x64xf32>
+  "std.return"(%0) : (tensor<1x16x32x64xf32>) -> ()
+
+  // CHECK: [[CONSTANT1:%.+]] = "onnx.Constant"() {value = dense<[1, 4, 4, 16, 8, 16]> : tensor<6xi64>} : () -> tensor<6xi64>
+  // CHECK-NEXT: [[RESHAPE1:%.+]] = "onnx.Reshape"(%arg0, [[CONSTANT1]]) : (tensor<1x256x8x16xf32>, tensor<6xi64>) -> tensor<1x4x4x16x8x16xf32>
+  // CHECK-NEXT: [[TRANSPOSE:%.+]] = "onnx.Transpose"([[RESHAPE1]]) {perm = [0, 3, 4, 1, 5, 2]} : (tensor<1x4x4x16x8x16xf32>) -> tensor<1x16x8x4x16x4xf32>
+  // CHECK-NEXT: [[CONSTANT2:%.+]] = "onnx.Constant"() {value = dense<[1, 16, 32, 64]> : tensor<4xi64>} : () -> tensor<4xi64>
+  // CHECK-NEXT: [[RESHAPE2:%.+]] = "onnx.Reshape"([[TRANSPOSE]], [[CONSTANT2]]) : (tensor<1x16x8x4x16x4xf32>, tensor<4xi64>) -> tensor<1x16x32x64xf32>
+}
+
+// -----
+
+// CHECK-LABEL: @test_depth_to_space_dcr(%{{.*}}: tensor<1x256x8x16xf32>) -> tensor<1x16x32x64xf32>
+func @test_depth_to_space_dcr(%arg0 : tensor<1x256x8x16xf32>) -> tensor<1x16x32x64xf32> {
+  %cst = constant unit
+  %0 = "onnx.DepthToSpace"(%arg0) {blocksize = 4 : si64, mode = "DCR"} : (tensor<1x256x8x16xf32>) -> tensor<1x16x32x64xf32>
+  "std.return"(%0) : (tensor<1x16x32x64xf32>) -> ()
+
+  // CHECK: [[CONSTANT1:%.+]] = "onnx.Constant"() {value = dense<[1, 4, 4, 16, 8, 16]> : tensor<6xi64>} : () -> tensor<6xi64>
+  // CHECK-NEXT: [[RESHAPE1:%.+]] = "onnx.Reshape"(%arg0, [[CONSTANT1]]) : (tensor<1x256x8x16xf32>, tensor<6xi64>) -> tensor<1x4x4x16x8x16xf32>
+  // CHECK-NEXT: [[TRANSPOSE:%.+]] = "onnx.Transpose"([[RESHAPE1]]) {perm = [0, 3, 4, 1, 5, 2]} : (tensor<1x4x4x16x8x16xf32>) -> tensor<1x16x8x4x16x4xf32>
+  // CHECK-NEXT: [[CONSTANT2:%.+]] = "onnx.Constant"() {value = dense<[1, 16, 32, 64]> : tensor<4xi64>} : () -> tensor<4xi64>
+  // CHECK-NEXT: [[RESHAPE2:%.+]] = "onnx.Reshape"([[TRANSPOSE]], [[CONSTANT2]]) : (tensor<1x16x8x4x16x4xf32>, tensor<4xi64>) -> tensor<1x16x32x64xf32>
+}
+
+// -----
+
+// CHECK-LABEL: @test_depth_to_space_crd(%{{.*}}: tensor<1x256x8x16xf32>) -> tensor<1x16x32x64xf32>
+func @test_depth_to_space_crd(%arg0 : tensor<1x256x8x16xf32>) -> tensor<1x16x32x64xf32> {
+  %cst = constant unit
+  %0 = "onnx.DepthToSpace"(%arg0) {blocksize = 4 : si64, mode = "CRD"} : (tensor<1x256x8x16xf32>) -> tensor<1x16x32x64xf32>
+  "std.return"(%0) : (tensor<1x16x32x64xf32>) -> ()
+
+  // CHECK: [[CONSTANT1:%.+]] = "onnx.Constant"() {value = dense<[1, 16, 4, 4, 8, 16]> : tensor<6xi64>} : () -> tensor<6xi64>
+  // CHECK-NEXT: [[RESHAPE1:%.+]] = "onnx.Reshape"(%arg0, [[CONSTANT1]]) : (tensor<1x256x8x16xf32>, tensor<6xi64>) -> tensor<1x16x4x4x8x16xf32>
+  // CHECK-NEXT: [[TRANSPOSE:%.+]] = "onnx.Transpose"([[RESHAPE1]]) {perm = [0, 1, 4, 2, 5, 3]} : (tensor<1x16x4x4x8x16xf32>) -> tensor<1x16x8x4x16x4xf32>
+  // CHECK-NEXT: [[CONSTANT2:%.+]] = "onnx.Constant"() {value = dense<[1, 16, 32, 64]> : tensor<4xi64>} : () -> tensor<4xi64>
+  // CHECK-NEXT: [[RESHAPE2:%.+]] = "onnx.Reshape"([[TRANSPOSE]], [[CONSTANT2]]) : (tensor<1x16x8x4x16x4xf32>, tensor<4xi64>) -> tensor<1x16x32x64xf32>
+}
+
+// -----
+
 // CHECK-LABEL: func @test_matmul_add_fused(%{{.*}}: tensor<10x10xf32>, %{{.*}}: tensor<10x10xf32>, %{{.*}}: tensor<10x10xf32>) -> tensor<10x10xf32> {
 func @test_matmul_add_fused(%a0: tensor<10x10xf32>, %a1: tensor<10x10xf32>, %a2: tensor<10x10xf32>) -> tensor<10x10xf32> {
   // CHECK-NEXT: %{{[0-9]+}} = "onnx.Gemm"(%{{.*}}, %{{.*}}, %{{.*}}) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<10x10xf32>, tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
