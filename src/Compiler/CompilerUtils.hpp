@@ -25,29 +25,19 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 
+#include "onnx-mlir/Compiler/OMCompilerTypes.h"
+
 #include "src/Builder/FrontendDialectTransformer.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
-
-enum EmissionTargetType {
-  EmitONNXBasic,
-  EmitONNXIR,
-  EmitMLIR,
-  EmitLLVMIR,
-  EmitLib,
-  EmitJNI,
-};
-
-enum InputIRLevelType {
-  ONNXLevel,
-  MLIRLevel,
-  LLVMLevel,
-};
 
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::opt<std::string> instrumentONNXOps;
 
 void setExecPath(const char *argv0, void *fmain);
+
+void setTargetCPU(const std::string &cpu);
+void setTargetTriple(const std::string &triple);
 
 void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);
@@ -71,14 +61,18 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm);
 void processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);
 
-InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module);
+void processInputArray(const void *onnxBuffer, int bufferSize,
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module);
+
+onnx_mlir::InputIRLevelType determineInputIRLevel(
+    mlir::OwningModuleRef &module);
 
 void outputCode(
     mlir::OwningModuleRef &module, std::string filename, std::string extension);
 
 void emitOutputFiles(std::string outputBaseName,
-    EmissionTargetType emissionTarget, mlir::MLIRContext &context,
+    onnx_mlir::EmissionTargetType emissionTarget, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);
 
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
-    std::string outputBaseName, EmissionTargetType targetType);
+    std::string outputBaseName, onnx_mlir::EmissionTargetType targetType);
