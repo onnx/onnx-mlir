@@ -46,7 +46,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
 
     SmallVector<Value, 4> scaleValues;
     bool fromScale = !isFromNone(resizeOp.scales());
-    IndexExprScope outerloopContex(rewriter, loc);
+    IndexExprScope outerloopContex(&rewriter, loc);
     DimsExpr outputDims(rank);
     MemRefBoundsIndexCapture dataBounds(data);
     if (fromScale) {

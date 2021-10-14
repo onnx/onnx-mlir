@@ -6,7 +6,7 @@ Command-line options can be used to alter the default behavior of onnx-mlir, or 
  
 ## Organize Options
 Refer [llvm document](https://llvm.org/docs/CommandLine.html) for basic idea of how to define an option. In ONNX MLIR, options are put into groups (`llvm::cl::OptionCategory`).
-One group of options are only used by onnx-mlir to configure its input or output. These options are defined in src/main.cpp and src/MainUtils.cpp within OnnxMlirOptions category.
+One group of options are only used by onnx-mlir to configure its input or output. These options are defined in src/main.cpp and src/Compiler/CompilerUtils.cpp within OnnxMlirOptions category.
 The rest of options may be used by both onnx-mlir and onnx-mlir-opt to control the behavior of a pass or passes. So far, only one group is defined as an example. 
 
 ## Code structure

@@ -29,13 +29,13 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
         llvm::cast<ONNXReverseSequenceOp>(op);
     auto loc = op->getLoc();
 
-    ONNXReverseSequenceOpShapeHelper shapeHelper(&reverseSequenceOp, rewriter,
+    ONNXReverseSequenceOpShapeHelper shapeHelper(&reverseSequenceOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     assert(succeeded(shapecomputed));
     // Scope for krnl ops
-    IndexExprScope outerScope(rewriter, shapeHelper.scope);
+    IndexExprScope outerScope(&rewriter, shapeHelper.scope);
     KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the output of this operation.
@@ -94,7 +94,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
 
     // Insert code inside the loop.
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
-    IndexExprScope innerLoopScope(rewriter, outerScope);
+    IndexExprScope innerLoopScope(&rewriter, &outerScope);
 
     LiteralIndexExpr one(1);
 
@@ -113,7 +113,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
     Value lensVal = createKrnl.loadIE(
         operandAdaptor.sequence_lens(), inputAccessFct[batchAxis]);
     IndexExpr lens = NonAffineIndexExpr(lensVal);
-    DimIndexExpr timeDim = inputAccessFct[timeAxis];
+    IndexExpr timeDim = inputAccessFct[timeAxis];
     IndexExpr cond = timeDim < lens;
     IndexExpr inputIndex =
         IndexExpr::select(cond, lens - timeDim - one, timeDim);

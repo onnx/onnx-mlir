@@ -31,11 +31,14 @@
 #include "src/Support/Common.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
+#include "llvm/Support/Debug.h"
+
 #include <functional>
 #include <mutex>
 
-#define BUFFER_ALIGN 64
-#define DEBUG_TRACE 0
+static constexpr int BUFFER_ALIGN = 64;
+
+#define DEBUG_TYPE "krnl_to_affine"
 
 using namespace mlir;
 
@@ -379,9 +382,9 @@ private:
 }; // namespace
 
 // To assist unroll and jam
-typedef std::pair<AffineForOp, int64_t> UnrollAndJamRecord;
-typedef SmallVector<UnrollAndJamRecord, 4> UnrollAndJamList;
-typedef std::map<Operation *, UnrollAndJamList *> UnrollAndJamMap;
+using UnrollAndJamRecord = std::pair<AffineForOp, int64_t>;
+using UnrollAndJamList = SmallVector<UnrollAndJamRecord, 4>;
+using UnrollAndJamMap = std::map<Operation *, UnrollAndJamList *>;
 UnrollAndJamMap unrollAndJamMap;
 std::mutex unrollAndJamMutex;
 
@@ -825,14 +828,13 @@ public:
     if (!vectorLen.isLiteral()) {
       // Cannot simdize if the vector length is not a compile time constant.
       simdize = false;
-      if (DEBUG_TRACE)
-        printf("Matmul: No simd due to vl not a literal\n");
+      LLVM_DEBUG(llvm::dbgs() << "Matmul: No simd due to vl not a literal\n");
     }
     if (!bBounds.isLiteral(bRank - 1) || !cBounds.isLiteral(cRank - 1)) {
       // Cannot simdize if the last dim of B or C are not constant.
       simdize = false;
-      if (DEBUG_TRACE)
-        printf("Matmul: No simd due to B & C last dim not a literal\n");
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Matmul: No simd due to B & C last dim not a literal\n");
     }
     if (simdize) {
       int64_t VL = vectorLen.getLiteral();
@@ -841,9 +843,9 @@ public:
         // If the memref of B and C are not multiple of the vector length in
         // their last dim, then we cannot simdize either.
         simdize = false;
-        if (DEBUG_TRACE)
-          printf(
-              "Matmul: No simd due to B & C last dim not a multiple of VL\n");
+        LLVM_DEBUG(
+            llvm::dbgs()
+            << "Matmul: No simd due to B & C last dim not a multiple of VL\n");
       }
     }
     if (!simdize)
@@ -1112,14 +1114,11 @@ private:
       auto list = getUnrollAndJamList(op.getOperation());
       if (K.isLiteral()) {
         int64_t kUnroll = K.getLiteral();
-        int64_t cutoff = 4;
-        if (!I.isLiteral() || I.getLiteral() < 2) {
-          // We know there is no unrolling along I, make a bigger cutoff.
-          cutoff = 8;
-        }
+        // We know there is no unrolling along I, make a bigger cutoff.
+        int64_t cutoff = (!I.isLiteral() || I.getLiteral() < 2) ? 8 : 4;
         if (kUnroll >= cutoff) {
           // When kUnroll is too big, reduce it by a divisor.
-          for (int m = cutoff; m >= 1; --m) {
+          for (int64_t m = cutoff; m >= 1; --m) {
             if (kUnroll % m == 0) {
               kUnroll = m;
               break;
@@ -1127,15 +1126,15 @@ private:
           }
         }
         if (kUnroll > 1) {
-          if (DEBUG_TRACE)
-            printf("Matmul: unroll k by %d\n", (int)kUnroll);
+          LLVM_DEBUG(
+              llvm::dbgs() << "Matmul: unroll k by " << kUnroll << "\n";);
           UnrollAndJamRecord record(getForInductionVarOwner(kSaved), kUnroll);
           list->emplace_back(record);
         }
       }
       if (I.isLiteral() && I.getLiteral() > 1) {
-        if (DEBUG_TRACE)
-          printf("Matmul: unroll i by %d\n", (int)I.getLiteral());
+        LLVM_DEBUG(llvm::dbgs()
+                   << "Matmul: unroll i by " << (int)I.getLiteral() << "\n");
         UnrollAndJamRecord record(
             getForInductionVarOwner(iSaved), I.getLiteral());
         list->emplace_back(record);
@@ -1234,14 +1233,14 @@ public:
       }
     }
     SmallVector<Value, 4> loopIndices;
-    genCopyLoops(createAffine, indexScope, buffMemref, sourceMemref, srcLoopMap,
-        padVal, zero, starts, bufferReadUBs, bufferPadUBs, loopIndices, 0,
-        buffRank, false);
+    genCopyLoops(createAffine, &indexScope, buffMemref, sourceMemref,
+        srcLoopMap, padVal, zero, starts, bufferReadUBs, bufferPadUBs,
+        loopIndices, 0, buffRank, false);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(AffineBuilder &createAffine, IndexExprScope &enclosingScope,
+  void genCopyLoops(AffineBuilder &createAffine, IndexExprScope *enclosingScope,
       Value buffMemref, Value sourceMemref,
       SmallVectorImpl<int64_t> &srcLoopMap, Value padVal, IndexExpr zero,
       SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &readUBs,
@@ -1363,13 +1362,13 @@ public:
       bufferWrite.debugPrint("buffer wrote");
       bufferWriteUBs.emplace_back(bufferWrite);
     }
-    genCopyLoops(createAffine, indexScope, buffMemref, destMemref, zero, starts,
-        bufferWriteUBs, loopIndices, 0, buffRank);
+    genCopyLoops(createAffine, &indexScope, buffMemref, destMemref, zero,
+        starts, bufferWriteUBs, loopIndices, 0, buffRank);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(AffineBuilder &createAffine, IndexExprScope &enclosingScope,
+  void genCopyLoops(AffineBuilder &createAffine, IndexExprScope *enclosingScope,
       Value buffMemref, Value destMemref, IndexExpr zero,
       SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &writeUBs,
       SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t buffRank) const {

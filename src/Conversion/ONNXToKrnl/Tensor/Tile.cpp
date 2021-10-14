@@ -64,11 +64,11 @@ struct ONNXTileOpLowering : public ConversionPattern {
     ONNXTileOp tileOp = llvm::cast<ONNXTileOp>(op);
     auto loc = op->getLoc();
 
-    ONNXTileOpShapeHelper shapeHelper(&tileOp, rewriter,
+    ONNXTileOpShapeHelper shapeHelper(&tileOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
 
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
@@ -100,7 +100,7 @@ struct ONNXTileOpLowering : public ConversionPattern {
 
     for (int i = 0; i < outputRank; i++) {
       // Scope is created for each dimension because they are independent
-      IndexExprScope IEScope(rewriter, loc);
+      IndexExprScope IEScope(&rewriter, loc);
       DimIndexExpr index(outputLoops.getInductionVar(i));
       MemRefBoundsIndexCapture inputBounds(input);
       DimIndexExpr dimSize(inputBounds.getDim(i));
