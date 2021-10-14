@@ -194,8 +194,8 @@ Let us now look how we can optimize loops using the Krnl builder. Consider our s
   ValueRange loopDef = createKrnl.defineLoops(2);
   Value outerLoopDef(loopDef[0]), innerLoopDef(loopDef[1]);
   // NEW: block each of the 2 dimensions: outer by 4, inner by 8.
-  ValueRange outerLoopBlockDef = createKrnl.bock(outerLoopDef, 4);
-  ValueRange innerLoopBlockDef = createKrnl.bock(innerLoopDef, 8);
+  ValueRange outerLoopBlockDef = createKrnl.block(outerLoopDef, 4);
+  ValueRange innerLoopBlockDef = createKrnl.block(innerLoopDef, 8);
   // NEW: Permute the loops (first loop over blocks, the loop inside blocks).
   createKrnl.permute({outerLoopBlockDef[0], outerLoopBlockDef[1],
     innerLoopBlockDef[0], innerLoopBlockDef[1]}, {0,2,1,4});
