@@ -125,8 +125,8 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
             Value x = createKrnl.load(X, initLoopInd);
             createKrnl.store(x, bufMemRef, initLoopInd);
           } else {
-            // Exclusive mode is equivalent to shift all elements right (left if
-            // reversed) and set the first element (the last element if
+            // Exclusive mode is equivalent to shifting all elements right (left
+            // if reversed) and set the first element (the last element if
             // reversed) to 0.
             //
             // For example, doing exclusive mode on the input:
