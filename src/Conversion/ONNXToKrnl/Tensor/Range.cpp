@@ -28,7 +28,7 @@ struct ONNXRangeOpLowering : public ConversionPattern {
 
     // Create an index expression scope.
     // Scope for krnl ops
-    IndexExprScope ieScope(rewriter, loc);
+    IndexExprScope ieScope(&rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
 
     Value start = operandAdaptor.start();

@@ -26,12 +26,12 @@ struct ONNXShapeOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     // Get shape.
     ONNXShapeOpAdaptor operandAdaptor(operands);
-    ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
+    ONNXShapeOp shapeOp = llvm::dyn_cast<ONNXShapeOp>(op);
     Location loc = op->getLoc();
-    ONNXShapeOpShapeHelper shapeHelper(&shapeOp, rewriter,
+    ONNXShapeOpShapeHelper shapeHelper(&shapeOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    LogicalResult shapecomputed = shapeHelper.Compute(operandAdaptor);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed));
 
     // TODO: if the dimensions are known at compile time
@@ -44,9 +44,9 @@ struct ONNXShapeOpLowering : public ConversionPattern {
 
     // Iterate along the data shape storing dim value to result.
     KrnlBuilder createKrnl(rewriter, loc);
-    uint64_t dataRank = shapeHelper.dimsForOutput(0).size();
+    uint64_t dataRank = shapeHelper.selectedData.size();
     for (uint64_t i = 0; i < dataRank; ++i) {
-      Value val = shapeHelper.dimsForOutput(0)[i].getValue();
+      Value val = shapeHelper.selectedData[i].getValue();
       Value intVal = rewriter.create<IndexCastOp>(loc, val, elementType);
       createKrnl.storeIE(intVal, alloc, {LiteralIndexExpr(i)});
     }

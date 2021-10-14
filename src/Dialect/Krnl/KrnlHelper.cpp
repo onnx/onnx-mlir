@@ -166,7 +166,7 @@ void KrnlIterateOperandPack::pushAffineMapBound(
 }
 
 // Bound could be a constant, Value or AffineMap
-void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
+void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr, bool isLb) {
   if (expr.isLiteral()) {
     pushConstantBound(expr.getLiteral());
   } else if (expr.isAffine() && !expr.isPredType()) {
@@ -176,9 +176,11 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
     pushAffineMapBound(map, list);
   } else {
     Value val = expr.getValue();
-    if (val.getDefiningOp<AffineMinOp>() || val.getDefiningOp<AffineMaxOp>()) {
-      // Have a Affine Min/Max, will extract the list of affine min/max for the
-      // loop bounds.
+    if ((val.getDefiningOp<AffineMinOp>() && !isLb) ||
+        (val.getDefiningOp<AffineMaxOp>() && isLb)) {
+      // Have a Affine Min in an upper bound computation, or have an Affine Max
+      // in a lower bound computation,  will extract the list of affine min/max
+      // for the loop bounds.
       AffineMap map;
       SmallVector<Value, 4> list;
       expr.getAffineMapAndOperands(map, list);

@@ -1233,14 +1233,14 @@ public:
       }
     }
     SmallVector<Value, 4> loopIndices;
-    genCopyLoops(createAffine, indexScope, buffMemref, sourceMemref, srcLoopMap,
-        padVal, zero, starts, bufferReadUBs, bufferPadUBs, loopIndices, 0,
-        buffRank, false);
+    genCopyLoops(createAffine, &indexScope, buffMemref, sourceMemref,
+        srcLoopMap, padVal, zero, starts, bufferReadUBs, bufferPadUBs,
+        loopIndices, 0, buffRank, false);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(AffineBuilder &createAffine, IndexExprScope &enclosingScope,
+  void genCopyLoops(AffineBuilder &createAffine, IndexExprScope *enclosingScope,
       Value buffMemref, Value sourceMemref,
       SmallVectorImpl<int64_t> &srcLoopMap, Value padVal, IndexExpr zero,
       SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &readUBs,
@@ -1362,13 +1362,13 @@ public:
       bufferWrite.debugPrint("buffer wrote");
       bufferWriteUBs.emplace_back(bufferWrite);
     }
-    genCopyLoops(createAffine, indexScope, buffMemref, destMemref, zero, starts,
-        bufferWriteUBs, loopIndices, 0, buffRank);
+    genCopyLoops(createAffine, &indexScope, buffMemref, destMemref, zero,
+        starts, bufferWriteUBs, loopIndices, 0, buffRank);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(AffineBuilder &createAffine, IndexExprScope &enclosingScope,
+  void genCopyLoops(AffineBuilder &createAffine, IndexExprScope *enclosingScope,
       Value buffMemref, Value destMemref, IndexExpr zero,
       SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &writeUBs,
       SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t buffRank) const {

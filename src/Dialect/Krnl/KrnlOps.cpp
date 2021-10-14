@@ -175,8 +175,8 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     optLoops.emplace_back(opt);
   KrnlIterateOperandPack pack(builder, origLoops, optLoops);
   for (unsigned int i = 0; i < lbs.size(); ++i) {
-    pack.pushIndexExprBound(lbs[i]);
-    pack.pushIndexExprBound(ubs[i]);
+    pack.pushIndexExprBound(lbs[i], /*isLb*/ true);
+    pack.pushIndexExprBound(ubs[i], /*isLb*/ false);
   }
   // Fill in this iterate op using the main build function.
   build(builder, result, pack, iterArgs, bodyBuilderFn);

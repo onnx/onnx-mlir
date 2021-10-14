@@ -27,13 +27,13 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     ONNXGatherOp gatherOp = llvm::cast<ONNXGatherOp>(op);
     auto loc = op->getLoc();
 
-    ONNXGatherOpShapeHelper shapeHelper(&gatherOp, rewriter,
+    ONNXGatherOpShapeHelper shapeHelper(&gatherOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed));
     // Scope for krnl ops
-    IndexExprScope outerScope(rewriter, shapeHelper.scope);
+    IndexExprScope outerScope(&rewriter, shapeHelper.scope);
     KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the output of this operation.
@@ -68,7 +68,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
 
     // Insert code inside the loop.
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
-    IndexExprScope innerLoopScope(rewriter, outerScope);
+    IndexExprScope innerLoopScope(&rewriter, &outerScope);
     LiteralIndexExpr zero(0);
     LiteralIndexExpr axis(axisLit);
     SymbolIndexExpr axisDim(shapeHelper.dataDims[axisLit]);

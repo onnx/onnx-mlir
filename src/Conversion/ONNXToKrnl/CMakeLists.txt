@@ -28,6 +28,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/Constant.cpp
   Tensor/ConstantOfShape.cpp
   Tensor/Concat.cpp
+  Tensor/Expand.cpp
   Tensor/Split.cpp
   Tensor/Gather.cpp
   Tensor/Shape.cpp

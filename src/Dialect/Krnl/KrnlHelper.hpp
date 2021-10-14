@@ -102,7 +102,9 @@ struct KrnlIterateOperandPack {
 
   void pushAffineMapBound(mlir::AffineMap map, ArrayRef<Value> operands);
 
-  void pushIndexExprBound(IndexExpr expr);
+  // When used in a lower bound, set isLb to true, when used in an upper bound,
+  // set isLb to false.
+  void pushIndexExprBound(IndexExpr expr, bool isLb);
 
   void pushIndexExprsBound(SmallVectorImpl<IndexExpr> &exprVector);
 
