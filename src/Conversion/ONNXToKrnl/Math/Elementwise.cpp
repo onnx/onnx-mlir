@@ -1098,7 +1098,6 @@ struct ONNXWhereOpLowering : public ConversionPattern {
         Identifier::get(ONNXWhereOp::getOperationName(), op->getContext()),
         op->getLoc());
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
-    auto outputElementType = outputMemRefType.getElementType();
     auto outputRank = outputMemRefType.getRank();
 
     // Shape helper.

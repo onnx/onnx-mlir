@@ -36,6 +36,15 @@ using namespace mlir::OpTrait::util;
 using namespace mlir::onnxmlir;
 
 //===----------------------------------------------------------------------===//
+// ONNX Helper functions for verify
+//===----------------------------------------------------------------------===//
+
+static bool hasShapeAndRank(Value val) {
+  return val.getType().isa<ShapedType>() &&
+         val.getType().cast<ShapedType>().hasRank();
+}
+
+//===----------------------------------------------------------------------===//
 // ONNX Helper functions for shape helpers
 //===----------------------------------------------------------------------===//
 
@@ -1663,7 +1672,7 @@ static LogicalResult verifyDilations(T *op, int64_t spatialRank) {
   auto dilations = op->dilations();
   if (!dilations.hasValue())
     return success();
-  // 2) verify that we have the right number.
+  // 2) Verify that we have the right number.
   if ((int64_t)ArrayAttrSize(dilations) != spatialRank)
     return op->emitError(
         "dilations length incompatible with spatial dimensions");
@@ -1718,11 +1727,11 @@ static LogicalResult verify(ONNXConvOp op) {
   if (g < 1)
     return op.emitError("group must be strictly positive");
   // Get spatial rank.
-  if (!W.getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(W)) {
     // Won't be able to do any checking at this stage.
     return success();
   }
-  auto wShape = W.getType().cast<RankedTensorType>().getShape();
+  auto wShape = W.getType().cast<ShapedType>().getShape();
   int64_t spatialRank = wShape.size() - 2;
   // If ranked, verify ranks of inputs.
   if (spatialRank < 1)
@@ -1744,8 +1753,8 @@ static LogicalResult verify(ONNXConvOp op) {
     return op->emitError(
         "Channel Out (M) must be a multiple of the number of groups");
   }
-  if (X.getType().isa<RankedTensorType>()) {
-    auto xShape = X.getType().cast<RankedTensorType>().getShape();
+  if (hasShapeAndRank(X)) {
+    auto xShape = X.getType().cast<ShapedType>().getShape();
     if ((int64_t)xShape.size() - 2 != spatialRank)
       return op->emitError("Input and filter rank mismatch");
     if (xShape[1] >= 0 && xShape[1] % g != 0)
@@ -1756,8 +1765,8 @@ static LogicalResult verify(ONNXConvOp op) {
                            "of weights times g");
     }
   }
-  if (hasBias && B.getType().isa<RankedTensorType>()) {
-    auto bShape = B.getType().cast<RankedTensorType>().getShape();
+  if (hasBias && hasShapeAndRank(B)) {
+    auto bShape = B.getType().cast<ShapedType>().getShape();
     if (bShape.size() != 1)
       return op->emitError("Bias should have a rank of one");
     if (bShape[0] >= 0 && wShape[0] >= 0 && wShape[0] != bShape[0])
@@ -2079,8 +2088,8 @@ static LogicalResult verify(ONNXAveragePoolOp op) {
 
   // Get operands.
   auto X = operandAdaptor.X();
-  if (X.getType().isa<RankedTensorType>()) {
-    auto xShape = X.getType().cast<RankedTensorType>().getShape();
+  if (hasShapeAndRank(X)) {
+    auto xShape = X.getType().cast<ShapedType>().getShape();
     if ((int64_t)xShape.size() - 2 != spatialRank)
       return op->emitError("Input and kernel shape rank mismatch");
   }
@@ -2135,8 +2144,8 @@ static LogicalResult verify(ONNXMaxPoolSingleOutOp op) {
 
   // Get operands.
   auto X = operandAdaptor.X();
-  if (X.getType().isa<RankedTensorType>()) {
-    auto xShape = X.getType().cast<RankedTensorType>().getShape();
+  if (hasShapeAndRank(X)) {
+    auto xShape = X.getType().cast<ShapedType>().getShape();
     if ((int64_t)xShape.size() - 2 != spatialRank)
       return op->emitError("Input and kernel shape rank mismatch");
   }
@@ -3420,11 +3429,11 @@ static LogicalResult verify(ONNXInstanceNormalizationOp op) {
   auto B = operandAdaptor.B();
 
   // Check input.
-  if (!input.getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(input)) {
     // Won't be able to do any checking at this stage.
     return success();
   }
-  auto inputType = input.getType().cast<RankedTensorType>();
+  auto inputType = input.getType().cast<ShapedType>();
   auto inputShape = inputType.getShape();
   auto inputElementType = inputType.getElementType();
   int64_t spatialRank = inputShape.size() - 2;
@@ -3433,9 +3442,9 @@ static LogicalResult verify(ONNXInstanceNormalizationOp op) {
     return op->emitError("Spatial rank must be strictly positive");
 
   // Check bias B.
-  if (B.getType().isa<RankedTensorType>()) {
+  if (hasShapeAndRank(B)) {
     // Can check at this stage.
-    auto bType = B.getType().cast<RankedTensorType>();
+    auto bType = B.getType().cast<ShapedType>();
     auto bShape = bType.getShape();
     if (bShape.size() != 1)
       return op->emitError("Bias should have a rank of one");
@@ -3447,9 +3456,9 @@ static LogicalResult verify(ONNXInstanceNormalizationOp op) {
   }
 
   // Check scale.
-  if (scale.getType().isa<RankedTensorType>()) {
+  if (hasShapeAndRank(scale)) {
     // Can check at this stage.
-    auto scaleType = scale.getType().cast<RankedTensorType>();
+    auto scaleType = scale.getType().cast<ShapedType>();
     auto scaleShape = scaleType.getShape();
     if (scaleShape.size() != 1)
       return op->emitError("Scale should have a rank of one");
