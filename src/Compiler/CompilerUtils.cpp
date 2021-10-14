@@ -20,8 +20,8 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
 
+#include "CompilerUtils.hpp"
 #include "ExternalUtil.hpp"
-#include "MainUtils.hpp"
 #include "src/Support/OMOptions.hpp"
 
 using namespace std;
@@ -256,6 +256,9 @@ void setExecPath(const char *argv0, void *fmain) {
   if (!(p = llvm::sys::fs::getMainExecutable(argv0, fmain)).empty())
     kExecPath = p;
 }
+
+void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
+void setTargetTriple(const std::string &triple) { mtriple = triple; }
 
 void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {
@@ -539,6 +542,15 @@ void processInputFile(string inputFilename, mlir::MLIRContext &context,
   } else {
     LoadMLIR(inputFilename, context, module);
   }
+}
+
+void processInputArray(const void *onnxBuffer, int bufferSize,
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
+  ImportOptions options;
+  options.useOnnxModelTypes = useOnnxModelTypes;
+  options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
+  options.shapeInformation = shapeInformation;
+  ImportFrontendModelArray(onnxBuffer, bufferSize, context, module, options);
 }
 
 InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
