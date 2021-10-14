@@ -215,7 +215,7 @@ void KrnlIterateOperandPack::pushIndexExprsBound(
 
 BuildKrnlLoop::BuildKrnlLoop(
     ConversionPatternRewriter &rewriter, Location loc, int loopNum)
-    : rewriter(rewriter), loc(loc), originalLoopNum(loopNum), pack(NULL),
+    : rewriter(rewriter), loc(loc), originalLoopNum(loopNum), pack(nullptr),
       pushCount(0), createdDefineOp(false), createdIterateOp(false) {
   if (originalLoopNum < 0)
     emitError(loc, "Expected non-negative number of original loops.");
@@ -225,11 +225,6 @@ BuildKrnlLoop::BuildKrnlLoop(
     ConversionPatternRewriter &rewriter, Location loc, Value memRefOperand)
     : BuildKrnlLoop(rewriter, loc,
           memRefOperand.getType().cast<MemRefType>().getShape().size()) {}
-
-BuildKrnlLoop::~BuildKrnlLoop() {
-  if (pack)
-    delete pack;
-}
 
 void BuildKrnlLoop::createDefineOp() {
   // Insert define loop operation.

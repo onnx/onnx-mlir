@@ -17,12 +17,13 @@
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 // Used to trace which op are used, good for profiling apps.
-#define TRACE 0
+#define DEBUG_TYPE "gemm"
 #define DEBUG_SIMD_OFF 0
 #define DEBUG_UNROLL_OFF 0
 #define DEBUG_OPTIMIZED_OFF 0
 
-#define BUFFER_ALIGN 128
+static constexpr int BUFFER_ALIGN = 128;
+
 using namespace mlir;
 
 template <typename GemmOp>
@@ -313,35 +314,39 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-#if TRACE
-    if (DEBUG_SIMD_OFF)
-      printf("Gemm simd off\n");
-    if (DEBUG_UNROLL_OFF)
-      printf("Gemm unroll off\n");
-    if (DEBUG_OPTIMIZED_OFF)
-      printf("Gemm optimized path off\n");
-    bool aTrans = gemmOp.transA();
-    bool bTrans = gemmOp.transB();
-    if (IndexExpr::isLiteral(shapeHelper.aDims) &&
-        IndexExpr::isLiteral(shapeHelper.bDims) &&
-        IndexExpr::isLiteral(shapeHelper.cDims)) {
-      int cDim0 = shapeHelper.hasBias ? shapeHelper.cDims[0].getLiteral() : -1;
-      int cDim1 = shapeHelper.hasBias ? shapeHelper.cDims[1].getLiteral() : -1;
-      printf(
-          "OP-STATS: gemm of size I/J/K, %d,%d,%d%s%s, alpha %f%s, beta %f%s, "
-          "c, %d, %d\n",
-          (int)shapeHelper.aDims[0].getLiteral(),
-          (int)shapeHelper.bDims[1].getLiteral(),
-          (int)shapeHelper.aDims[1].getLiteral(), (aTrans ? ", a trans" : ""),
-          (bTrans ? ", b trans" : ""), (double)alphaLit,
-          (alphaLit == 1.0 ? " (skip)" : ""), (double)betaLit,
-          (betaLit == 1.0 ? " (skip)" : ""), cDim0, cDim1);
-    } else {
-      printf("OP-STATS: gemm of unkown sizes %s%s, alpha %f, beta %f\n",
-          (aTrans ? ", a trans" : ""), (bTrans ? ", b trans" : ""),
-          (double)alphaLit, (double)betaLit);
-    }
-#endif
+    LLVM_DEBUG({
+      if (DEBUG_SIMD_OFF)
+        llvm::dbgs() << "Gemm simd off\n";
+      if (DEBUG_UNROLL_OFF)
+        llvm::dbgs() << "Gemm unroll off\n";
+      if (DEBUG_OPTIMIZED_OFF)
+        llvm::dbgs() << "Gemm optimized path off\n";
+
+      bool aTrans = gemmOp.transA();
+      bool bTrans = gemmOp.transB();
+      if (IndexExpr::isLiteral(shapeHelper.aDims) &&
+          IndexExpr::isLiteral(shapeHelper.bDims) &&
+          IndexExpr::isLiteral(shapeHelper.cDims)) {
+        int cDim0 =
+            shapeHelper.hasBias ? shapeHelper.cDims[0].getLiteral() : -1;
+        int cDim1 =
+            shapeHelper.hasBias ? shapeHelper.cDims[1].getLiteral() : -1;
+        llvm::dbgs() << "OP-STATS: gemm of size I/J/K, "
+                     << shapeHelper.aDims[0].getLiteral() << ","
+                     << shapeHelper.bDims[1].getLiteral() << ","
+                     << shapeHelper.aDims[1].getLiteral()
+                     << (aTrans ? ", a trans" : "")
+                     << (bTrans ? ", b trans" : "") << ", alpha " << alphaLit
+                     << (alphaLit == 1.0 ? " (skip)" : "") << ", beta "
+                     << betaLit << (betaLit == 1.0 ? " (skip)" : "") << ", c, "
+                     << cDim0 << ", " << cDim1 << "\n";
+      } else {
+        llvm::dbgs() << "OP-STATS: gemm of unkown sizes "
+                     << (aTrans ? ", a trans" : "")
+                     << (bTrans ? ", b trans" : "") << ", alpha " << alphaLit
+                     << ", beta " << betaLit << "\n";
+      }
+    });
 
     if (DEBUG_OPTIMIZED_OFF) {
       genericGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,

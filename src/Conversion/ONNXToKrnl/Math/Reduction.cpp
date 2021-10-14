@@ -354,9 +354,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
   bool computeMean = false;
 
   ONNXReduceSumOpLowering(MLIRContext *ctx, bool computeMean = false)
-      : ConversionPattern(ONNXReduceSumOp::getOperationName(), 1, ctx) {
-    this->computeMean = computeMean;
-  }
+      : ConversionPattern(ONNXReduceSumOp::getOperationName(), 1, ctx),
+        computeMean(computeMean) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
