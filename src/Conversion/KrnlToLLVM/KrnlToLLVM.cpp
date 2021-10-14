@@ -124,7 +124,7 @@ static size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
 static FlatSymbolRefAttr getOrInsertInstrument(
     PatternRewriter &rewriter, ModuleOp module) {
   auto *context = module.getContext();
-  const char funcName[] = "OMInstrumentPoint";
+  std::string funcName("OMInstrumentPoint");
   if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
     return SymbolRefAttr::get(context, funcName);
   auto llvmVoidTy = LLVM::LLVMVoidType::get(context);

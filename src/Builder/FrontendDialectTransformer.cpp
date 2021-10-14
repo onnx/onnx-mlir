@@ -41,16 +41,16 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace detail {
 
-typedef SymbolMapping<Value> ValueSymbolMapping;
-typedef SymbolMapping<onnx::TypeProto> SymbolToOnnxTypeMapping;
+using ValueSymbolMapping = SymbolMapping<Value>;
+using SymbolToOnnxTypeMapping = SymbolMapping<onnx::TypeProto>;
 
 class FrontendGenImpl {
 public:
   explicit FrontendGenImpl(MLIRContext &context)
-      : context_(context), builder_(&context) {
+      : context_(context), builder_(&context),
+        force_dim_dynamic_enabled_(false) {
     module_ = ModuleOp::create(UnknownLoc::get(&context));
     InitHandlerMap();
-    force_dim_dynamic_enabled_ = false;
     if (const char *envInputString = std::getenv("IMPORTER_FORCE_DYNAMIC")) {
       force_dim_dynamic_enabled_ = true;
       std::stringstream envString;
@@ -175,12 +175,12 @@ private:
     }
   }
 
-  typedef void (onnx_mlir::detail::FrontendGenImpl::*ImportHandlerType)(
+  using ImportHandlerType = void (onnx_mlir::detail::FrontendGenImpl::*)(
       const onnx::NodeProto &);
 
   std::map<std::string, ImportHandlerType> import_handler_map_;
 
-  Location UnknownLoc() { return UnknownLoc::get(&context_); }
+  Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
   Value none() {
     // Get the enclosing Func Op.
@@ -504,7 +504,8 @@ private:
     }
   }
 
-#define MAX_TYPE 20
+  static constexpr int MAX_TYPE = 20;
+
   // itblgen_types = ('I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32',
   // 'F64', 'Complex<F32>', 'Complex<F64>' )
   Type buildTypeFromIndex(int index) {
@@ -812,7 +813,6 @@ private:
    * Special handle for Pad operations.
    */
   void ImportNodePad(const onnx::NodeProto &node) {
-
     int nOps = node.input().size();
     if (nOps == 2) {
       llvm::SmallVector<int64_t, 2> dims;
@@ -1010,7 +1010,6 @@ private:
 
   void InferTypes(const onnx::FunctionProto *func,
       std::vector<onnx::TypeProto> &inputTypes) {
-
     // types: Used for temporary copies of Types, freed at end of function.
     std::vector<std::unique_ptr<onnx::TypeProto>> types;
     std::unordered_map<std::string, onnx::TypeProto *> typeMap;

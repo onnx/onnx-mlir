@@ -29,7 +29,7 @@ int64_t dimAt(Value val, int index) {
 /// Shape :: [seq_length, num_directions, batch_size, hidden_size]
 Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value W, Value R, Value output, bool insertDealloc) {
-  IndexExprScope scope(rewriter, loc);
+  IndexExprScope scope(&rewriter, loc);
   Value alloc;
   if (!isNoneType(output)) {
     MemRefBoundsIndexCapture XBounds(X);
@@ -57,7 +57,7 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
 /// Shape :: [batch_size, hidden_size]
 Value allocIntermediateState(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value R) {
-  IndexExprScope scope(rewriter, loc);
+  IndexExprScope scope(&rewriter, loc);
   auto memRefType = MemRefType::get({/*batch_size=*/dimAt(X, 1),
                                         /*hidden_size=*/dimAt(R, 2)},
       X.getType().cast<ShapedType>().getElementType());
@@ -150,7 +150,7 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
 /// Shape :: [num_directions, batch_size, hidden_size]
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
     Value X, Value W, Value R, Value output, bool insertDealloc) {
-  IndexExprScope scope(rewriter, loc);
+  IndexExprScope scope(&rewriter, loc);
   Value alloc;
   if (!isNoneType(output)) {
     MemRefBoundsIndexCapture XBounds(X);
@@ -307,7 +307,7 @@ Value applyActivation(OpBuilder &rewriter, Location loc,
 Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value timestepIV) {
   // TODO remove
-  IndexExprScope scope(rewriter, loc);
+  IndexExprScope scope(&rewriter, loc);
   ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(rewriter, loc);
   MemRefBuilder createMemRef(rewriter, loc);
