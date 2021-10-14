@@ -121,8 +121,55 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     ValueRange initLoopDef = createKrnl.defineLoops(rank);
     createKrnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange initLoopInd) {
-          Value x = createKrnl.load(X, initLoopInd);
-          createKrnl.store(x, bufMemRef, initLoopInd);
+          if (!exclusive) {
+            Value x = createKrnl.load(X, initLoopInd);
+            createKrnl.store(x, bufMemRef, initLoopInd);
+          } else {
+            // Exclusive mode is equivalent to shift all elements right (left if
+            // reversed) and set the first element (the last element if
+            // reversed) to 0.
+            //
+            // For example, doing exclusive mode on the input:
+            //   input = [2, 3, 4]
+            // is equivalent to doing non-exclusive mode on:
+            //   new_input = [0, 2, 3]
+            // or
+            //   new_input = [3, 4, 0] if reversed.
+            MathBuilder createMath(createKrnl);
+            SymbolIndexExpr axis(axisIE);
+
+            SmallVector<Value, 4> loopInd;
+            Value offsetOne = emitConstantOp(rewriter, loc, indexTy, 1);
+            Value shiftOrSet0 = emitConstantOp(rewriter, loc, i1Ty, 0);
+            for (uint64_t r = 0; r < rank; ++r) {
+              Value iVal = initLoopInd[r];
+              Value rVal = emitConstantOp(rewriter, loc, indexTy, r);
+              // Whether we are in the reduction axis.
+              Value isAxis = createMath.eq(rVal, axis.getValue());
+              // Whether the current element's index is in scope.
+              Value isInScope;
+              if (reverse) {
+                Value x = createMath.add(iVal, offsetOne);
+                isInScope = createMath.slt(x, xBounds.getDim(r).getValue());
+              } else {
+                isInScope = createMath.sge(iVal, offsetOne);
+              }
+              Value ok = createMath._and(isAxis, isInScope);
+              shiftOrSet0 = createMath._or(ok, shiftOrSet0);
+
+              Value iOffset;
+              if (reverse)
+                iOffset = createMath.add(iVal, offsetOne);
+              else
+                iOffset = createMath.sub(iVal, offsetOne);
+              Value accessIndex = createMath.select(ok, iOffset, iVal);
+              loopInd.emplace_back(accessIndex);
+            }
+            Value res = createKrnl.load(X, loopInd);
+            Value zeroVal = emitConstantOp(rewriter, loc, elementType, 0);
+            res = createMath.select(shiftOrSet0, res, zeroVal);
+            createKrnl.store(res, bufMemRef, initLoopInd);
+          }
         });
 
     // Outer loop iterates over the number of steps.
@@ -160,7 +207,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
                 for (uint64_t r = 0; r < rank; ++r) {
                   Value iVal = sumLoopInd[r];
                   Value rVal = emitConstantOp(rewriter, loc, indexTy, r);
-                  // Whether we are in the right axis.
+                  // Whether we are in the reduction axis.
                   Value isAxis = createMath.eq(rVal, axis.getValue());
                   // Whether the current element's index is in scope.
                   Value isInScope;
