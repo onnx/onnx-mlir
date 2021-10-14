@@ -27,11 +27,11 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
   /// by multiple threads.
   /// ```
   /// buf = x
-  /// for step from 1 to log2(n):
+  /// for step from 0 to log2(n) + 1:
   ///   for i range(n):
   ///     for k range(m):
   ///       if i >= 2^step:
-  ///         y[i,k] = buf[i - 2^(step-1),k] + buf[i,k]
+  ///         y[i,k] = buf[i - 2^step,k] + buf[i,k]
   ///       else:
   ///         y[i,k] = buf[i,k]
   ///   buf = y
@@ -67,7 +67,6 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     MemRefBoundsIndexCapture xBounds(X);
     uint64_t rank = xBounds.getRank();
     LiteralIndexExpr zero(0);
-    LiteralIndexExpr one(1);
 
     // Read axis.
     ArrayValueIndexCapture axisCapture(op, axis,
@@ -124,32 +123,24 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
 
     // Outer loop iterates over the number of steps.
     ValueRange stepLoopDef = createKrnl.defineLoops(1);
-    createKrnl.iterateIE(stepLoopDef, stepLoopDef, {one}, {numberOfStep + 1},
+    createKrnl.iterateIE(stepLoopDef, stepLoopDef, {zero}, {numberOfStep + 1},
         [&](KrnlBuilder &createKrnl, ValueRange stepLoopInd) {
           IndexExprScope scope(createKrnl);
           MathBuilder createMath(createKrnl);
 
-          // Compute index offset and pivot:
-          // - offset = 2^(step-1), pivot = 2^step.
+          // Compute index offset: offset = 2^step.
           Value step = stepLoopInd[0];
           step = rewriter.create<IndexCastOp>(loc, i64Ty, step);
           step = rewriter.create<SIToFPOp>(loc, f32Ty, step);
-          // - offset = 2^(step-1)
-          Value fOne = emitConstantOp(rewriter, loc, f32Ty, 1);
-          Value stepMinusOne = createMath.sub(step, fOne);
-          Value offset = createMath.exp2(stepMinusOne);
+          Value offset = createMath.exp2(step);
           offset = rewriter.create<FPToSIOp>(loc, i64Ty, offset);
           offset = rewriter.create<IndexCastOp>(loc, indexTy, offset);
-          // - pivot = 2^step
-          Value pivot = createMath.exp2(step);
-          pivot = rewriter.create<FPToSIOp>(loc, i64Ty, pivot);
-          pivot = rewriter.create<IndexCastOp>(loc, indexTy, pivot);
 
           // Inner loop iterates over the output to compute sums.
           //   for i range(n):
           //     for k range(m):
-          //       if i >= pivot:
-          //         y[i,k] = buf[i - offset,k] + buf[i,k]
+          //       if i >= 2^step:
+          //         y[i,k] = buf[i - 2^step,k] + buf[i,k]
           //       else:
           //         y[i,k] = buf[i,k]
           ValueRange sumLoopDef = createKrnl.defineLoops(rank);
@@ -160,14 +151,14 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
                 SymbolIndexExpr axis(axisIE);
                 // Load y[i,k].
                 Value y1 = createKrnl.load(bufMemRef, sumLoopInd);
-                // Load y[i - 2^(step-1),k].
+                // Load y[i - 2^step,k].
                 SmallVector<Value, 4> loopInd;
                 Value shouldUpdate = emitConstantOp(rewriter, loc, i1Ty, 0);
                 for (uint64_t r = 0; r < rank; ++r) {
                   Value iVal = sumLoopInd[r];
                   Value rVal = emitConstantOp(rewriter, loc, indexTy, r);
                   Value isAxis = createMath.eq(rVal, axis.getValue());
-                  Value isInScope = createMath.sge(iVal, pivot);
+                  Value isInScope = createMath.sge(iVal, offset);
                   Value ok = createMath._and(isAxis, isInScope);
                   shouldUpdate = createMath._or(ok, shouldUpdate);
 
