@@ -30,7 +30,7 @@ A newer approach suggested by the MLIR community is to create a math builder, de
   Value floatRes = createMath.add(firstFloatVal, secondFloatVal);
 ```
 
-MLIR recommends this approach as it reads better, namely "we are creating a math add of two values", and the rewriter and location is now "hidden" inside the lightweight `createMath` object. In addition, the method deals with the different MLIR operations for adding integer and float internally.
+MLIR recommends this approach as it reads better, namely "we are creating a math add of two values", and the rewriter and location fields are now "hidden" inside the lightweight `createMath` object. In addition, the method deals with the different MLIR operations for adding integer and float internally.
 
 In general, this and all other builders can be created as follows.
   ``` C++
@@ -43,7 +43,7 @@ In general, this and all other builders can be created as follows.
     MathBuilder createMath(createKrnl);    // Use info stored in another builder.
   ```
 
-The Math builder we have been looking at currently contains the following operations. Most operations are self explanatory. They handle both integer and float operations, and will generate an assert when a specific operation is not supported for a specific type.  Up to date info should be looked from the [MLIRDialectBuilder.hpp](../src/Dialect/ONNX/MLIRDialectBuilder.hpp) file.
+The Math builder contains the operations listed below. Most are self explanatory. They handle both integer and float operations, and will generate an assert when a specific operation is not supported for a specific type.  Up to date info should be looked from the [MLIRDialectBuilder.hpp](../src/Dialect/ONNX/MLIRDialectBuilder.hpp) file.
 
 ```C++
 struct MathBuilder : DialectBuilder {
@@ -65,7 +65,7 @@ struct MathBuilder : DialectBuilder {
 
 ### MemRef builder
 
-An equivalent builder exists for most MemRef operation. At a high level, the following operations are supported.
+An equivalent builder exists for some MemRef operation. At a high level, the following operations are supported.
 
 ``` C++
 struct MemRefBuilder : DialectBuilder {
@@ -79,7 +79,7 @@ struct MemRefBuilder : DialectBuilder {
 };
 ```
 
-It defines 4 distinct methods: how to allocate memory on the heap (`alloc`), on the stack (`alloca`), how to free memory from the heap (`dealloc`), and how to get the dimension of a multi-dimensional memory reference at a given index. The `alloca` methods above allows for the multi-dimensional memory to have dynamic dimensions, passed as the value range `dynSymbols`.  There are variant of these calls for static dimensions only, and for providing a mandatory alignment. See the `MLIRDialectBuilder.cpp` file for up to date information.
+It defines 4 distinct methods: how to allocate memory on the heap (`alloc`), on the stack (`alloca`), how to free memory from the heap (`dealloc`), and how to get the dimension of a multi-dimensional memory reference for a given dimension. The `alloca` methods above allows for the multi-dimensional memory to have dynamic dimensions, passed as the value range `dynSymbols`.  There are variant of these calls for static dimensions only and for providing alignment constraints. See the [MLIRDialectBuilder.hpp](../src/Dialect/ONNX/MLIRDialectBuilder.hpp) file for up to date information.
 
 ## Generating Krnl Operations
 
@@ -87,7 +87,7 @@ The krnl dialect is our main dialect to lower ONNX operations into loops. This d
 
 ### Older interface to generate loops
 
-In the older approach, we generate loops manually by first defining the loop variables, then the loop bounds, then the loop itself. To generate  code inside of the loop, we first need to manually move a code insertion pointer to the block inside of the loop body and then generate the code. When generating code after the loop, we need to move back a code insertion pointer back to a point after the loop. For example, consider the code below to initialize a 2 dimensional array to zero.
+In the older approach, we generate loops manually by first defining the loop variables, then the loop bounds, then the loop itself. To generate  code inside of the loop, we first need to manually move a code insertion pointer to the block inside of the loop body and then generate the code. When generating code after the loop, we need to move the code insertion pointer back to a point after the loop. For example, consider the code below to initialize a 2 dimensional array to zero.
 
 ``` C++
   // Defined values 0 and a 2 dimensional array with dim ub0 and ub1
@@ -107,10 +107,11 @@ In the older approach, we generate loops manually by first defining the loop var
   Value loopInd1 = loop.getInductionVar(0);
   rewriter.create<KrnlStoreOp>(loc, zero, array, {loopInd0, loopInd1});
 ```
+**Code example 1: Zeroing an array using the old interface**
 
-Notably, it is difficult to visually see in the code where the loop body starts and end, which operations are in it. In addition, the loop bounds are pushed by pairs (lower and upper bounds) in a strict order. That same order is used to retrieve the loop indices inside of the loop. The `rewriter`'s insertion point is manually changed from outside of the loop to inside the loop, and would have to be moved back if we wanted to insert operations after the loop.
+Notably, it is difficult to visualize in the code where the loop body starts and ends. In addition, the loop bounds are pushed by pairs (lower and upper bounds) in a strict order somewhere else in the code. That same order is used to retrieve the loop indices inside of the loop. The `rewriter`'s insertion point is manually changed from outside of the loop to inside the loop, and would have to be moved back when we need to insert operations after the loop.
 
-Readability becomes a particular issue when the nesting structure becomes more complicated.
+Readability becomes particularly difficult when the nesting structure becomes more complicated.
 
 ## Builder based interface to generate Krnl loops
 
