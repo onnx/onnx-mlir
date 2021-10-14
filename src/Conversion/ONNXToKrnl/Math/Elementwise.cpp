@@ -14,6 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include <iostream>
 
 using namespace mlir;
 
@@ -808,13 +809,37 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
 
 struct ONNXElementwiseOpLoweringPrint : public ConversionPattern {
   ONNXElementwiseOpLoweringPrint(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXPrintTensorsOp::getOperationName(), 1, ctx) {}
+      //: ConversionPattern(mlir::ONNXPrintTensorsOp::getOperationName(), 1, ctx) {
+      : ConversionPattern("onnx.PrintTensors", 1, ctx) {
+        std::cout << "adding pattern to lower tensor print: " << "PrintTensors" << std::endl;
+      }
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
+    std::cout << "Rewriting PrintTensors" << std::endl;
     auto loc = ONNXLoc<ONNXPrintTensorsOp>(op);
     auto X = operands[0];
     auto memRefType = convertToMemRefType(operands[0].getType());
+    //auto floatTypeCode = emitConstantOp(rewriter, loc, IntegerType::get(op->getContext(), 64), 0);
+    //auto rank = emitConstantOp(rewriter, loc, IntegerType::get(op->getContext(), 64), memRefType.getRank());
+    auto floatTypeCode = rewriter.getI64IntegerAttr(0);
+    auto rank = rewriter.getI64IntegerAttr(memRefType.getRank());
+    SmallVector<Value, 4> bounds;
+    auto shape = operands[0].getType().cast<MemRefType>().getShape();
+    std::cout << "rank="<<memRefType.getRank()<<std::endl;
+    for(int64_t dim=0;dim<memRefType.getRank();++dim) {
+      std::cout << "dim="<<dim<<std::endl;
+      if (shape[dim] < 0) {
+        //bounds[dim]=rewriter.create<memref::DimOp>(loc, operands[0], dim).getResult();
+        bounds.push_back(rewriter.create<memref::DimOp>(loc, operands[0], dim).getResult());
+      } else {
+        //bounds[dim]=emitConstantOp(rewriter, loc, IntegerType::get(op->getContext(), 64), shape[dim]);
+        //bounds.push_back(emitConstantOp(rewriter, loc, IntegerType::get(op->getContext(), 64), shape[dim]));
+        bounds.push_back(emitConstantOp(rewriter, loc, rewriter.getIndexType(), shape[dim]));
+      }
+    }
 
+    //rewriter.create<KrnlPrintTensorStartOp>(loc, floatTypeCode, rank, bounds);    
+    rewriter.create<KrnlPrintTensorStartOp>(loc, 0, memRefType.getRank(), bounds);    
     SmallVector<Value, 4> loopIVs;
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
