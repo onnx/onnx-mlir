@@ -23,16 +23,18 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
 
   /// We use a naive alogrithm for cumsum as follows:
   /// Assum that input is x whose shape in [n,m], and axis for cumsum is 0.
+  /// We double-buffer the output to avoid intermediate result being overwritten
+  /// by multiple threads.
   /// ```
-  /// y = x
+  /// buf = x
   /// for step from 1 to log2(n):
   ///   for i range(n):
   ///     for k range(m):
   ///       if i >= 2^step:
-  ///         y[i,k] = y[i - 2^(step-1),k] + y[i,k]
+  ///         y[i,k] = buf[i - 2^(step-1),k] + buf[i,k]
   ///       else:
-  ///         y[i,k] = y[i,k]
-  ///
+  ///         y[i,k] = buf[i,k]
+  ///   buf = y
   /// ```
   ///
   /// Blelloch algorithm [1] is more work-efficent. However, it is not
@@ -55,8 +57,10 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     // Common information.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = memRefType.getElementType();
+    Type i1Ty = rewriter.getI1Type();
     Type i64Ty = rewriter.getI64Type();
     Type f32Ty = rewriter.getF32Type();
+    Type indexTy = rewriter.getIndexType();
 
     Value X = operandAdaptor.x();
     Value axis = operandAdaptor.axis();
@@ -74,14 +78,17 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
       return op->emitError("axis parameter could not be processed");
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value resMemRef;
+    Value resMemRef, bufMemRef;
     bool insertDealloc = checkInsertDealloc(op);
-    if (hasAllConstantDimensions(memRefType))
+    if (hasAllConstantDimensions(memRefType)) {
       resMemRef =
           insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
+      bufMemRef = insertAllocAndDealloc(memRefType, loc, rewriter, true);
+    } else {
       resMemRef =
           insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, X);
+      bufMemRef = insertAllocAndDealloc(memRefType, loc, rewriter, true, X);
+    }
 
     // Get the size of dimension 'axis'.
     IndexExpr axisSize = LiteralIndexExpr(-1);
@@ -107,56 +114,80 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> ubs;
     xBounds.getDimList(ubs);
 
-    // Initialize the output: copy values from the input.
+    // Initialize the temporary buffer: copy values from the input.
     ValueRange initLoopDef = createKrnl.defineLoops(rank);
     createKrnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange initLoopInd) {
           Value x = createKrnl.load(X, initLoopInd);
-          createKrnl.store(x, resMemRef, initLoopInd);
+          createKrnl.store(x, bufMemRef, initLoopInd);
         });
 
     // Outer loop iterates over the number of steps.
     ValueRange stepLoopDef = createKrnl.defineLoops(1);
     createKrnl.iterateIE(stepLoopDef, stepLoopDef, {one}, {numberOfStep + 1},
         [&](KrnlBuilder &createKrnl, ValueRange stepLoopInd) {
+          IndexExprScope scope(createKrnl);
           MathBuilder createMath(createKrnl);
 
-          // Compute index offset: offset = 2^step.
+          // Compute index offset and pivot:
+          // - offset = 2^(step-1), pivot = 2^step.
           Value step = stepLoopInd[0];
           step = rewriter.create<IndexCastOp>(loc, i64Ty, step);
           step = rewriter.create<SIToFPOp>(loc, f32Ty, step);
-          Value indOffset = createMath.exp2(step);
-          indOffset = rewriter.create<FPToSIOp>(loc, i64Ty, indOffset);
-          DimIndexExpr offset(indOffset);
+          // - offset = 2^(step-1)
+          Value offset = createMath.exp2(step);
+          offset = rewriter.create<FPToSIOp>(loc, i64Ty, offset);
+          offset = rewriter.create<IndexCastOp>(loc, indexTy, offset);
+          // - pivot = 2^step
+          Value fOne = emitConstantOp(rewriter, loc, f32Ty, 1);
+          Value stepMinusOne = createMath.sub(step, fOne);
+          Value pivot = createMath.exp2(stepMinusOne);
+          pivot = rewriter.create<FPToSIOp>(loc, i64Ty, pivot);
+          pivot = rewriter.create<IndexCastOp>(loc, indexTy, pivot);
 
           // Inner loop iterates over the output to compute sums.
           //   for i range(n):
           //     for k range(m):
-          //       if i >= 2^step:
-          //         y[i,k] = y[i - 2^(step-1),k] + y[i,k]
+          //       if i >= pivot:
+          //         y[i,k] = buf[i - offset,k] + buf[i,k]
           //       else:
-          //         y[i,k] = y[i,k]
+          //         y[i,k] = buf[i,k]
           ValueRange sumLoopDef = createKrnl.defineLoops(rank);
           createKrnl.iterateIE(sumLoopDef, sumLoopDef, lbs, ubs,
               [&](KrnlBuilder &createKrnl, ValueRange sumLoopInd) {
                 IndexExprScope ieScope(createKrnl);
                 MathBuilder createMath(createKrnl);
-                SymbolIndexExpr offsetIE(offset);
                 // Load y[i,k].
                 Value y1 = createKrnl.load(resMemRef, sumLoopInd);
                 // Load y[i - 2^(step-1),k].
-                SmallVector<IndexExpr, 4> loopInd;
-                for (uint64_t i = 0; i < rank; ++i) {
-                  DimIndexExpr iIE(sumLoopInd[i]);
-                  IndexExpr newiIE =
-                      iIE.select(iIE == axisIE, iIE - offsetIE, iIE);
-                  IndexExpr finaliIE = newiIE.selectOrSelf(newiIE < 0, iIE);
-                  loopInd.emplace_back(iIE);
+                SmallVector<Value, 4> loopInd;
+                Value shouldUpdate = emitConstantOp(rewriter, loc, i1Ty, 1);
+                for (uint64_t r = 0; r < rank; ++r) {
+                  Value iVal = sumLoopInd[r];
+                  Value rVal = emitConstantOp(rewriter, loc, indexTy, r);
+                  Value isAxis = createMath.eq(rVal, rVal);
+                  Value inScope = createMath.sge(iVal, pivot);
+                  Value ok = createMath._and(isAxis, inScope);
+                  shouldUpdate = createMath._or(ok, shouldUpdate);
+
+                  Value iOffset = createMath.sub(iVal, offset);
+                  Value accessIndex = createMath.select(ok, iOffset, iVal);
+                  loopInd.emplace_back(accessIndex);
                 }
-                Value y2 = createKrnl.loadIE(resMemRef, loopInd);
+                Value y2 = createKrnl.load(resMemRef, loopInd);
                 Value zeroVal = emitConstantOp(rewriter, loc, elementType, 0);
-                createKrnl.store(y1, resMemRef, sumLoopInd);
-                createKrnl.store(y2, resMemRef, sumLoopInd);
+                Value addOrZero = createMath.select(shouldUpdate, y2, zeroVal);
+                Value res = createMath.add(y1, addOrZero);
+                createKrnl.store(res, resMemRef, sumLoopInd);
+              });
+
+          // Reset the temporary buffer to the latest output.
+          // buf = y
+          ValueRange bufLoopDef = createKrnl.defineLoops(rank);
+          createKrnl.iterateIE(bufLoopDef, bufLoopDef, lbs, ubs,
+              [&](KrnlBuilder &createKrnl, ValueRange bufLoopInd) {
+                Value x = createKrnl.load(resMemRef, bufLoopInd);
+                createKrnl.store(x, bufMemRef, bufLoopInd);
               });
         });
 
