@@ -56,6 +56,16 @@ struct ImportOptions {
 };
 
 /*!
+ *  Import an ONNX model array into the ONNX Dialect.
+ *  @param onnxBuffer buffer containing onnx model protobuf.
+ *  @param bufferSize size of buffer containing onnx model protobuf.
+ *  @return MLIR::module generated for the ONNX model.
+ */
+void ImportFrontendModelArray(const void *onnxBuffer, int bufferSize,
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module,
+    ImportOptions options = ImportOptions());
+
+/*!
  *  Import an ONNX model file into the ONNX Dialect.
  *  @param model_fname file name pointing to the onnx model protobuf.
  *  @return MLIR::module generated for the ONNX model.

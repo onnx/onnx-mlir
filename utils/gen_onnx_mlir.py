@@ -198,7 +198,7 @@ version_dict = {'Abs': [13],
  'SequenceErase': [11],
  'SequenceInsert': [11],
  'SequenceLength': [11],
- 'Shape': [13],
+ 'Shape': [13], # When going to 15, rewrite rules must also be changed for start/end
  'Shrink': [9],
  'Sigmoid': [13],
  'Sign': [13],
@@ -211,7 +211,6 @@ version_dict = {'Abs': [13],
  'Softplus': [1],
  'Softsign': [1],
  'SpaceToDepth': [13],
- #'Split': [13],
  'Split': [13, 11],
  'SplitToSequence': [11],
  'Sqrt': [13],
@@ -229,7 +228,6 @@ version_dict = {'Abs': [13],
  'TreeEnsembleClassifier': [1],
  'TreeEnsembleRegressor': [1],
  'Unique': [11],
- #'Unsqueeze': [13],
  'Unsqueeze': [13, 11],
  'Upsample': [10, 9, 7],
  'Where': [9],
@@ -356,7 +354,8 @@ OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Cast', 'Transpose',
                         'Squeeze', 'Unsqueeze', 'Reshape']
 
 # Operations with custom verifiers.
-OpsWithVerifier = ['AveragePool', 'Conv', 'InstanceNormalization', 'Mod']
+OpsWithVerifier = ['AveragePool', 'Conv', 'Expand', 'InstanceNormalization',
+                   'Mod']
 
 OpsWithHelpers = {
   "Loop": """

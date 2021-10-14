@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/MainUtils.hpp"
+#include "src/Compiler/CompilerUtils.hpp"
 
 using namespace std;
 using namespace onnx_mlir;

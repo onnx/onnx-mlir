@@ -34,9 +34,12 @@ if (WIN32)
     )
 endif()
 
-set(OMRuntimeTestModelLibraryFiles ${CMAKE_CURRENT_BINARY_DIR}/add${CMAKE_SHARED_LIBRARY_SUFFIX})
+
 if (WIN32)
+  set(OMRuntimeTestModelLibraryFiles ${CMAKE_CURRENT_BINARY_DIR}/add${CMAKE_SHARED_LIBRARY_SUFFIX})
   list(APPEND OMRuntimeTestModelLibraryFiles ${CMAKE_CURRENT_BINARY_DIR}/add${CMAKE_LINK_LIBRARY_SUFFIX})
+else() 
+  set(OMRuntimeTestModelLibraryFiles ${CMAKE_CURRENT_BINARY_DIR}/add${CMAKE_SHARED_MODULE_SUFFIX})
 endif()
 
 add_custom_command(
@@ -53,12 +56,16 @@ add_custom_target(OMRuntimeTestModel
 
 add_library(OMRuntimeTestModelLibrary SHARED IMPORTED)
 add_dependencies(OMRuntimeTestModelLibrary OMRuntimeTestModel)
-set_target_properties(OMRuntimeTestModelLibrary PROPERTIES
-  IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/add${CMAKE_SHARED_LIBRARY_SUFFIX}
-  )
 if (WIN32)
   set_target_properties(OMRuntimeTestModelLibrary PROPERTIES
+    IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/add${CMAKE_SHARED_LIBRARY_SUFFIX}
+    )
+  set_target_properties(OMRuntimeTestModelLibrary PROPERTIES
     IMPORTED_IMPLIB ${CMAKE_CURRENT_BINARY_DIR}/add${CMAKE_LINK_LIBRARY_SUFFIX}
+    )
+else()
+  set_target_properties(OMRuntimeTestModelLibrary PROPERTIES
+    IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/add${CMAKE_SHARED_MODULE_SUFFIX}
     )
 endif()
 
