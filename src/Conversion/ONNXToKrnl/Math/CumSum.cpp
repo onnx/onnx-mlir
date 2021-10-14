@@ -45,11 +45,12 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
   /// Mellon University.
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
+    ONNXCumSumOp csOp = llvm::cast<ONNXCumSumOp>(op);
     ONNXCumSumOpAdaptor operandAdaptor(operands);
     Location loc = op->getLoc();
 
     // Builder helper.
-    IndexExprScope outerScope(rewriter, loc);
+    IndexExprScope outerScope(&rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
     MathBuilder createMath(createKrnl);
     MemRefBuilder createMemRef(createKrnl);
@@ -64,17 +65,20 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
 
     Value X = operandAdaptor.x();
     Value axis = operandAdaptor.axis();
+    bool exclusive = csOp.exclusive() == 1;
+    bool reverse = csOp.reverse() == 1;
     MemRefBoundsIndexCapture xBounds(X);
     uint64_t rank = xBounds.getRank();
     LiteralIndexExpr zero(0);
 
     // Read axis.
-    ArrayValueIndexCapture axisCapture(op, axis,
+    ArrayValueIndexCapture axisCapture(axis,
         getDenseElementAttributeFromConstantValue,
         loadDenseElementArrayValueAtIndex);
-    SymbolIndexExpr axisIE(axisCapture.getSymbol(0));
+    IndexExpr axisIE(axisCapture.getSymbol(0));
     if (axisIE.isUndefined())
       return op->emitError("axis parameter could not be processed");
+    axisIE = axisIE.selectOrSelf(axisIE < 0, axisIE + LiteralIndexExpr(rank));
 
     // Insert an allocation and deallocation for the result of this operation.
     Value resMemRef, bufMemRef;
@@ -95,11 +99,11 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
       axisSize = IndexExpr::select(axisIE == i, xBounds.getDim(i), axisSize);
 
     // Compute log2(n), the number of steps.
-    SymbolIndexExpr numberOfStep;
+    IndexExpr numberOfStep;
     if (axisSize.isLiteral()) {
       int64_t n = axisSize.getLiteral();
-      float logn = std::floor(std::log2(n));
-      numberOfStep = LiteralIndexExpr((int64_t)logn);
+      int64_t logn = (int64_t)std::log2(n);
+      numberOfStep = LiteralIndexExpr(logn);
     } else {
       Value nos = rewriter.create<IndexCastOp>(loc, i64Ty, axisSize.getValue());
       nos = rewriter.create<SIToFPOp>(loc, f32Ty, nos);
@@ -125,7 +129,6 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     ValueRange stepLoopDef = createKrnl.defineLoops(1);
     createKrnl.iterateIE(stepLoopDef, stepLoopDef, {zero}, {numberOfStep + 1},
         [&](KrnlBuilder &createKrnl, ValueRange stepLoopInd) {
-          IndexExprScope scope(createKrnl);
           MathBuilder createMath(createKrnl);
 
           // Compute index offset: offset = 2^step.
@@ -157,12 +160,24 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
                 for (uint64_t r = 0; r < rank; ++r) {
                   Value iVal = sumLoopInd[r];
                   Value rVal = emitConstantOp(rewriter, loc, indexTy, r);
+                  // Whether we are in the right axis.
                   Value isAxis = createMath.eq(rVal, axis.getValue());
-                  Value isInScope = createMath.sge(iVal, offset);
+                  // Whether the current element's index is in scope.
+                  Value isInScope;
+                  if (reverse) {
+                    Value x = createMath.add(iVal, offset);
+                    isInScope = createMath.slt(x, xBounds.getDim(r).getValue());
+                  } else {
+                    isInScope = createMath.sge(iVal, offset);
+                  }
                   Value ok = createMath._and(isAxis, isInScope);
                   shouldUpdate = createMath._or(ok, shouldUpdate);
 
-                  Value iOffset = createMath.sub(iVal, offset);
+                  Value iOffset;
+                  if (reverse)
+                    iOffset = createMath.add(iVal, offset);
+                  else
+                    iOffset = createMath.sub(iVal, offset);
                   Value accessIndex = createMath.select(ok, iOffset, iVal);
                   loopInd.emplace_back(accessIndex);
                 }
