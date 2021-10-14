@@ -177,7 +177,7 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
 
     // Get rank, bounds, and constructors.
     int64_t rank = memRefType.getRank();
-    IndexExprScope outerScope(rewriter, loc);
+    IndexExprScope outerScope(&rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
     MathBuilder createMath(createKrnl);
     MemRefBoundsIndexCapture inputBounds(inputMemRef);

@@ -77,7 +77,7 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
 
     // Builder helper.
-    IndexExprScope outerScope(rewriter, loc);
+    IndexExprScope outerScope(&rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
     MemRefBuilder createMemRef(createKrnl);
 

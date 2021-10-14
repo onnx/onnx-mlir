@@ -323,6 +323,8 @@ test_to_enable_dict = {
     "test_exp_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Expand
+    "test_expand_dim_changed_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_expand_dim_unchanged_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Eyelike
 

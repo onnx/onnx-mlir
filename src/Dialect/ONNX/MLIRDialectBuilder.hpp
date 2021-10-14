@@ -22,9 +22,13 @@ struct DialectBuilder {
   DialectBuilder(OpBuilder &b, Location loc) : b(b), loc(loc) {}
   DialectBuilder(ImplicitLocOpBuilder &lb) : b(lb), loc(lb.getLoc()) {}
   DialectBuilder(DialectBuilder &db) : b(db.b), loc(db.loc) {}
+  virtual ~DialectBuilder() {}
+  DialectBuilder(DialectBuilder &&) = delete;
+  DialectBuilder &operator=(const DialectBuilder &) = delete;
+  DialectBuilder &&operator=(const DialectBuilder &&) = delete;
 
-  OpBuilder &getBuilder() { return b; }
-  Location getLoc() { return loc; }
+  OpBuilder &getBuilder() const { return b; }
+  Location getLoc() const { return loc; }
 
 protected:
   OpBuilder &b;
@@ -83,9 +87,7 @@ struct MemRefBuilder : DialectBuilder {
 
 // Default alignment attribute for all allocation of memory. On most system, it
 // is 16 bytes.
-// TODO: make it a global variable
-// extern int64_t gDefaultAllocAlign;
-#define gDefaultAllocAlign 16
+static constexpr int64_t gDefaultAllocAlign = 16;
 
 } // namespace mlir
 #endif

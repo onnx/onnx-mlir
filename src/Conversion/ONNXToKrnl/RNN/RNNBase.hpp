@@ -16,7 +16,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
-#define BUFFER_ALIGN 128
+static constexpr int BUFFER_ALIGN = 128;
 using namespace mlir;
 
 static constexpr StringRef FORWARD = "forward";
