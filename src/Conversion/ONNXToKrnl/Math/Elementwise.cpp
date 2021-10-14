@@ -14,6 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include <iostream>
 
 using namespace mlir;
@@ -839,24 +840,21 @@ struct ONNXElementwiseOpLoweringPrint : public ConversionPattern {
     }
 
     //rewriter.create<KrnlPrintTensorStartOp>(loc, floatTypeCode, rank, bounds);    
-    rewriter.create<KrnlPrintTensorStartOp>(loc, 0, memRefType.getRank(), bounds);    
-    SmallVector<Value, 4> loopIVs;
-    // Only create krnl.iterate if one of the operands is not scalar tensor.
-    if (!hasAllScalarValues(operands)) {
-      // Create iterateOp & get block within iterate op.
-      BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
-      loops.createDefineAndIterateOp(X);
-      Block *iterationBlock = loops.getIterateBlock();
+    rewriter.create<KrnlPrintTensorStartOp>(loc, 0, memRefType.getRank(), bounds); 
 
-      // Insert instructions inside the KernelIterateOp body.
-      rewriter.setInsertionPointToStart(iterationBlock);
-
-      // Handle the operation:
-      for (auto arg : iterationBlock->getArguments())
-        loopIVs.push_back(arg);
-    }
-    auto loadedVal = rewriter.create<KrnlLoadOp>(loc, X, loopIVs);
-    rewriter.create<KrnlPrintTensorElementOp>(loc,loadedVal);    
+    // new loop style
+    MemRefBoundsIndexCapture inputBounds(operands[0]);
+    KrnlBuilder createKrnl(rewriter, loc);
+    IndexExprScope ieScope(createKrnl);
+    SmallVector<IndexExpr, 4> lbs(memRefType.getRank(), LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> ubs;
+    inputBounds.getDimList(ubs);
+    ValueRange loops = createKrnl.defineLoops(memRefType.getRank());
+    createKrnl.iterateIE(loops, loops, lbs, ubs,
+        [&](KrnlBuilder &createKrnl, ValueRange loopIVs) {
+          Value loadedVal=createKrnl.load(operands[0],loopIVs);
+          createKrnl.getBuilder().create<KrnlPrintTensorElementOp>(loc,loadedVal);    
+        });
 
     rewriter.eraseOp(op);
 
