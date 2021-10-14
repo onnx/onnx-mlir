@@ -320,15 +320,13 @@ public:
   // Constructor for a scope. Top level scope must provide rewriter (possibly
   // null if we cannot geneate code at this time) and location.
   IndexExprScope(OpBuilder *rewriter, Location loc);
-  IndexExprScope(OpBuilder &rewriter, Location loc);
   IndexExprScope(ImplicitLocOpBuilder &lb);
   IndexExprScope(DialectBuilder &db);
   // Constructor for subsequent nested scopes. Providing enclosing scope is not
   // necessary; it is provided for convenience if a user prefer to name the
   // enclosing scope explicitly.
-  IndexExprScope(OpBuilder *rewriter, IndexExprScope &enclosingScope);
-  IndexExprScope(OpBuilder &rewriter, IndexExprScope &enclosingScope);
-  IndexExprScope(DialectBuilder &db, IndexExprScope &enclosingScope);
+  IndexExprScope(OpBuilder *rewriter, IndexExprScope *enclosingScope);
+  IndexExprScope(DialectBuilder &db, IndexExprScope *enclosingScope);
   // Destructor which release all IndexExpr associated with this scope.
   virtual ~IndexExprScope();
 
@@ -341,6 +339,7 @@ public:
   // Public getters.
   static IndexExprScope &getCurrentScope();
   OpBuilder &getRewriter() const;
+  OpBuilder *getRewriterPtr() const;
   Location getLoc() const { return loc; }
   bool isShapeInferencePass() const { return !rewriter; }
 
@@ -523,11 +522,13 @@ public:
   static IndexExpr max(IndexExpr const first, IndexExpr const second);
   static IndexExpr max(IndexExpr const first, int64_t const second);
 
-  // Debug (enable using DEBUG=1 at top of file).
-  void debugPrint(const std::string &msg) const;
-
   bool retrieveAffineMinMax(
       bool &isMin, SmallVectorImpl<Value> &vals, AffineMap &map) const;
+
+  // Debug (enable using DEBUG=1 at top of file).
+  void debugPrint(const std::string &msg, const bool forcePrint = false) const;
+  static void debugPrint(const std::string &msg,
+      const SmallVectorImpl<IndexExpr> &list, const bool forcePrint = false);
 
 protected:
   // Private queries.
@@ -769,17 +770,23 @@ public:
   using LoadVal = std::function<Value(
       OpBuilder &rewriter, Location loc, Value array, int64_t index)>;
 
+  // Constructor when there is no default value.
   ArrayValueIndexCapture(
-      Operation *op, Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal);
-  ArrayValueIndexCapture(Operation *op, Value array, int64_t defaultLiteral,
+      Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal);
+  // Constructor in the presence of a default value when none is found.
+  ArrayValueIndexCapture(Value array, int64_t defaultLiteral,
       GetDenseVal fGetDenseVal, LoadVal fLoadVal);
   ArrayValueIndexCapture() = delete;
 
+  // Return Undefined op when we cannot read the value.
   IndexExpr getSymbol(uint64_t i);
-  void getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
+  // Return true when it could successfully read num symbols; otherwise return
+  // false and an empty list.
+  bool getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
+  // Same as above. Assume array is a 1D shape typed; we use its size as num.
+  bool getSymbolList(SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
-  Operation *op;
   Value array;
   int64_t defaultLiteral;
   bool hasDefault;

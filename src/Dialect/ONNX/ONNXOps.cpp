@@ -55,7 +55,7 @@ LogicalResult shapeHelperInferShapes(OP *op, Value typeOper) {
   SHAPE_HELPER shapeHelper(op);
 
   ADAPTOR operandAdaptor(*op);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return op->emitError("Failed to scan " + OP::getOperationName() +
                          " parameters successfully");
   SmallVector<int64_t, 4> outputDims;
@@ -73,7 +73,7 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
   SHAPE_HELPER shapeHelper(op);
 
   ADAPTOR operandAdaptor(*op);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return op->emitError("Failed to scan " + OP::getOperationName() +
                          " parameters successfully");
   SmallVector<int64_t, 4> outputDims;
@@ -1450,7 +1450,7 @@ LogicalResult ONNXReshapeOp::inferShapes(
 
   ONNXReshapeOpAdaptor operandAdaptor(*this);
   ONNXReshapeOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan Reshape parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
@@ -1470,7 +1470,7 @@ LogicalResult ONNXTransposeOp::inferShapes(
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   ONNXTransposeOpAdaptor operandAdaptor(*this);
   ONNXTransposeOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan Transpose parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
@@ -1812,7 +1812,7 @@ LogicalResult ONNXConvOp::inferShapes(
   // Infer shape for the output.
   ONNXConvOpAdaptor operandAdaptor(*this);
   ONNXConvOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan Conv parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
@@ -2114,7 +2114,7 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
   // Infer shape for the output.
   ONNXAveragePoolOpAdaptor operandAdaptor(*this);
   ONNXAveragePoolOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan AveragePool parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
@@ -2176,7 +2176,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
   // Infer shape for the output.
   ONNXMaxPoolSingleOutOpAdaptor operandAdaptor(*this);
   ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan MaxPool parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(), outputDims);
@@ -2252,7 +2252,7 @@ LogicalResult ONNXPadOp::inferShapes(
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   ONNXPadOpAdaptor operandAdaptor(*this);
   ONNXPadOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan Pad parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
@@ -2338,7 +2338,7 @@ LogicalResult ONNXUnsqueezeOpInferShapesCommon(Op *op,
 
   Adaptor operandAdaptor(*op);
   ShapeHelper shapeHelper(op);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return op->emitError("Failed to scan Unsqueeze parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
@@ -2412,7 +2412,7 @@ LogicalResult ONNXSqueezeOpInferShapesCommon(Op *op,
 
   Adaptor operandAdaptor(*op);
   ShapeHelper shapeHelper(op);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return op->emitError("Failed to scan Squeeze parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
@@ -2602,7 +2602,7 @@ LogicalResult ONNXConcatOp::inferShapes(
 
   ONNXConcatOpAdaptor operandAdaptor(*this);
   ONNXConcatOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan Tile parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
@@ -2989,10 +2989,10 @@ LogicalResult ONNXShapeOp::inferShapes(
   // Output is an 1D int64 tensor containing the shape of the input tensor.
   ONNXShapeOpShapeHelper shapeHelper(this);
   ONNXShapeOpAdaptor operandAdaptor(*this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan Shape parameters successfully");
   getResult().setType(
-      RankedTensorType::get({(int64_t)shapeHelper.dimsForOutput(0).size()},
+      RankedTensorType::get({shapeHelper.dimsForOutput(0)[0].getLiteral()},
           IntegerType::get(getContext(), 64)));
   return success();
 }
@@ -3161,7 +3161,7 @@ LogicalResult ONNXSliceOp::inferShapes(
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   ONNXSliceOpAdaptor operandAdaptor(*this);
   ONNXSliceOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan Slice parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
@@ -3174,74 +3174,38 @@ LogicalResult ONNXSliceOp::inferShapes(
 // Expand
 //===----------------------------------------------------------------------===//
 
+static LogicalResult verify(ONNXExpandOp op) {
+  ONNXExpandOpAdaptor operandAdaptor = ONNXExpandOpAdaptor(op);
+  // Get operands.
+  auto shape = operandAdaptor.shape();
+  // Check input.
+  auto shapeType = shape.getType().dyn_cast_or_null<ShapedType>();
+  if (shapeType && shapeType.hasRank()) {
+    if (shapeType.getRank() != 1)
+      return op.emitError("Shape has a rank of 1");
+  }
+  return success();
+}
+
 LogicalResult ONNXExpandOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!input().getType().isa<RankedTensorType>())
     return success();
+  if (!shape().getType().isa<RankedTensorType>())
+    return success();
 
-  auto lhsTy = input().getType().cast<RankedTensorType>();
-
-  auto elementType = lhsTy.getElementType();
-  auto lhsShape = lhsTy.getShape();
-  SmallVector<int64_t, 2> rhsShape;
-
-  Operation *shapeDef = shape().getDefiningOp();
-
-  if (mlir::ONNXShapeOp shapeOp =
-          dyn_cast_or_null<mlir::ONNXShapeOp>(shapeDef)) {
-    // If the shape operand is produced by a onnx.Shape operation, infer its
-    // shape and use it as the requested shape.
-    if (!shapeOp.data().getType().isa<RankedTensorType>())
-      return success();
-
-    ArrayRef<int64_t> rhsShapeRef =
-        shapeOp.data().getType().cast<RankedTensorType>().getShape();
-
-    // hi alex: Handle cases where start and end are not default.
-    rhsShape.assign(rhsShapeRef.begin(), rhsShapeRef.end());
-
-  } else if (mlir::ONNXConstantOp constantOp =
-                 dyn_cast_or_null<mlir::ONNXConstantOp>(shapeDef)) {
-    // If the shape operand is produced by a onnx.Constant operation,
-    // extract the actual value of the constant and use it as the requested
-    // shape.
-
-    auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
-
-    if (shapeTensorTy.getRank() != 1)
-      return emitError("Shape tensor must have rank one");
-
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    if (!valueAttribute)
-      return emitError("DenseElementsAttr expected");
-
-    int64_t shapeRank = shapeTensorTy.getShape()[0];
-    rhsShape.resize(shapeRank);
-
-    auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
-    for (int i = 0; i != shapeRank; ++i)
-      rhsShape[i] = (*valueIt++).cast<IntegerAttr>().getInt();
-
-    assert(valueIt == valueAttribute.getValues<IntegerAttr>().end() &&
-           "Shape of constant does not match its actual value");
-  } else {
-    return emitError(
-        "Shape argument of Expand is the output of an unexpected "
-        "operation: " +
-        shapeDef->getName().getStringRef() +
-        ". Supported operations are: onnx.Constant and onnx.Shape");
-  }
-
-  SmallVector<int64_t, 2> resultShape;
-  if (!getBroadcastedShape(lhsShape, rhsShape, resultShape)) {
-    // We want this error because it denotes incompatible broadcast sizes that
-    // can be detected at compile time, such as broadcasting (...3...) with
-    // (...4...) which is illegal.
+  // Shape helper.
+  ONNXExpandOpShapeHelper shapeHelper(this);
+  ONNXExpandOpAdaptor operandAdaptor(*this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Bad broadcast values between tensors");
-  }
 
-  getResult().setType(RankedTensorType::get(resultShape, elementType));
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  Type elementType =
+      input().getType().cast<RankedTensorType>().getElementType();
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
+
   return success();
 }
 
@@ -3349,7 +3313,7 @@ LogicalResult ONNXArgMaxOp::inferShapes(
 
   ONNXArgMaxOpShapeHelper shapeHelper(this);
   ONNXArgMaxOpAdaptor operandAdaptor(*this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan ArgMax parameters successfully");
 
   SmallVector<int64_t, 4> outputDims;
@@ -3510,7 +3474,7 @@ LogicalResult ONNXDepthToSpaceOp::inferShapes(
   // Infer shape for the output.
   ONNXDepthToSpaceOpAdaptor operandAdaptor(*this);
   ONNXDepthToSpaceOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan DepthToSpace parameters successfully");
 
   SmallVector<int64_t, 4> outputDims;
@@ -3608,7 +3572,7 @@ LogicalResult ONNXLRNOp::inferShapes(
   auto elementType = X().getType().cast<ShapedType>().getElementType();
   ONNXLRNOpAdaptor operandAdaptor(*this);
   ONNXLRNOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan LRN parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
@@ -4036,7 +4000,7 @@ LogicalResult ONNXSpaceToDepthOp::inferShapes(
   // Infer shape for the output.
   ONNXSpaceToDepthOpAdaptor operandAdaptor(*this);
   ONNXSpaceToDepthOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan SpaceToDepth parameters successfully");
 
   SmallVector<int64_t, 4> outputDims;

@@ -181,10 +181,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ONNXMatMulOpAdaptor operandAdaptor(operands);
     ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
     Location loc = ONNXLoc<ONNXMatMulOp>(op);
-    ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, rewriter,
+    ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    LogicalResult shapecomputed = shapeHelper.Compute(operandAdaptor);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed));
 
     // Insert an allocation and deallocation for the output of this operation.

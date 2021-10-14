@@ -490,6 +490,7 @@ def IsStaticShapeTensor:
        "$_self.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
      "hasStaticShape">;
 
+// TODO: this rules may need to be updated once ShapeOp has start/end.
 def ShapeToConstantPattern: Pat<
      (ONNXShapeOp $A),
      (ONNXConstantOp

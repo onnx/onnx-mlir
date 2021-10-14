@@ -28,6 +28,7 @@
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "index_expr"
+#define DEBUG 0
 
 using namespace mlir;
 
@@ -42,9 +43,6 @@ IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
   getCurrentScopePtr() = this;
 }
 
-IndexExprScope::IndexExprScope(OpBuilder &rewriter, Location loc)
-    : IndexExprScope(&rewriter, loc){};
-
 IndexExprScope::IndexExprScope(ImplicitLocOpBuilder &lb)
     : IndexExprScope(&lb, lb.getLoc()){};
 
@@ -53,22 +51,18 @@ IndexExprScope::IndexExprScope(DialectBuilder &db)
 
 // Nested scopes.
 IndexExprScope::IndexExprScope(
-    OpBuilder *innerRewriter, IndexExprScope &enclosingScope)
-    : dims(), symbols(), rewriter(innerRewriter), loc(enclosingScope.loc),
-      parentScope(&enclosingScope), container() {
+    OpBuilder *innerRewriter, IndexExprScope *enclosingScope)
+    : dims(), symbols(), rewriter(innerRewriter), loc(enclosingScope->loc),
+      parentScope(enclosingScope), container() {
   // Check the enclosing scope is the current one.
-  assert(&enclosingScope == getCurrentScopePtr() &&
+  assert(enclosingScope == getCurrentScopePtr() &&
          "provided parent scope was not the previously active scope");
   // Install new inner scope as current one.
   getCurrentScopePtr() = this;
 }
 
 IndexExprScope::IndexExprScope(
-    OpBuilder &innerRewriter, IndexExprScope &enclosingScope)
-    : IndexExprScope(&innerRewriter, enclosingScope) {}
-
-IndexExprScope::IndexExprScope(
-    DialectBuilder &innerDb, IndexExprScope &enclosingScope)
+    DialectBuilder &innerDb, IndexExprScope *enclosingScope)
     : IndexExprScope(&innerDb.getBuilder(), enclosingScope) {}
 
 IndexExprScope::~IndexExprScope() {
@@ -159,6 +153,8 @@ OpBuilder &IndexExprScope::getRewriter() const {
   assert(rewriter && "Should have a valid pointer");
   return *rewriter;
 }
+
+OpBuilder *IndexExprScope::getRewriterPtr() const { return rewriter; }
 
 //===----------------------------------------------------------------------===//
 // IndexExprScope Debug.
@@ -340,52 +336,68 @@ IndexExprKind IndexExpr::getKind() const { return getObj().getKind(); }
 // IndexExpr Debug.
 //===----------------------------------------------------------------------===//
 
-void IndexExpr::debugPrint(const std::string &msg) const {
-#if DEBUG
-  printf("%s:", msg.c_str());
-  if (isLiteral())
-    printf(" literal(%lli)", getLiteral());
-  if (hasAffineExpr())
-    printf(" hasAffine");
-  if (hasValue()) {
-    printf(" hasValue");
-    auto op = getValue().getDefiningOp();
-    if (op) {
-      std::string str;
-      llvm::raw_string_ostream os(str);
-      op->print(os);
-      printf("( \"%s\" )", str.c_str());
-    } else
-      printf("(op not found)");
+void IndexExpr::debugPrint(
+    const std::string &msg, const bool forcePrint) const {
+  if (DEBUG || forcePrint) {
+    printf("%s:", msg.c_str());
+    if (!isDefined()) {
+      printf(" undefined\n");
+      return;
+    }
+    if (isLiteral())
+      printf(" literal(%lli)", getLiteral());
+    if (hasAffineExpr())
+      printf(" hasAffine");
+    if (hasValue()) {
+      printf(" hasValue");
+      auto op = getValue().getDefiningOp();
+      if (op) {
+        std::string str;
+        llvm::raw_string_ostream os(str);
+        op->print(os);
+        printf("( \"%s\" )", str.c_str());
+      } else
+        printf("(op not found)");
+    }
+    if (isAffine())
+      printf(" is affine");
+    switch (getKind()) {
+    case IndexExprKind::NonAffine:
+      printf(" kind(non-affine)");
+      break;
+    case IndexExprKind::Questionmark:
+      printf(" kind(questionmark)");
+      break;
+    case IndexExprKind::Predicate:
+      printf(" kind(predicate)");
+      break;
+    case IndexExprKind::Affine:
+      printf(" kind(affine)");
+      break;
+    case IndexExprKind::Dim:
+      printf(" kind(dim)");
+      break;
+    case IndexExprKind::Symbol:
+      printf(" kind(symbol)");
+      break;
+    default:
+      printf(" kind(unknown)");
+      break;
+    }
+    printf(" scope(0x%llx)\n", (long long unsigned)getScopePtr());
   }
-  if (isAffine())
-    printf(" is affine");
-  switch (getKind()) {
-  case IndexExprKind::NonAffine:
-    printf(" kind(non-affine)");
-    break;
-  case IndexExprKind::Questionmark:
-    printf(" kind(questionmark)");
-    break;
-  case IndexExprKind::Predicate:
-    printf(" kind(predicate)");
-    break;
-  case IndexExprKind::Affine:
-    printf(" kind(affine)");
-    break;
-  case IndexExprKind::Dim:
-    printf(" kind(dim)");
-    break;
-  case IndexExprKind::Symbol:
-    printf(" kind(symbol)");
-    break;
-  default:
-    printf(" kind(unknown)");
-    break;
-  }
-  printf(" scope(0x%llx)\n", (long long unsigned)getScopePtr());
+}
 
-#endif
+void IndexExpr::debugPrint(const std::string &msg,
+    const SmallVectorImpl<IndexExpr> &list, const bool forcePrint) {
+  if (DEBUG || forcePrint) {
+    int s = list.size();
+    printf("%s (%d elements)\n", msg.c_str(), s);
+    for (int i = 0; i < s; ++i) {
+      std::string element = "  " + std::to_string(i) + ": ";
+      list[i].debugPrint(element, true);
+    }
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -1430,18 +1442,14 @@ SymbolIndexExpr::SymbolIndexExpr(SymbolIndexExpr const &o)
 //===----------------------------------------------------------------------===//
 
 ArrayValueIndexCapture::ArrayValueIndexCapture(
-    Operation *op, Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal)
-    : op(op), array(array), hasDefault(false), fGetDenseArrayAttr(fGetDenseVal),
-      fLoadVallFromArrayAtIndex(fLoadVal) {
-  assert(op && "expected an op");
-}
+    Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal)
+    : array(array), hasDefault(false), fGetDenseArrayAttr(fGetDenseVal),
+      fLoadVallFromArrayAtIndex(fLoadVal) {}
 
-ArrayValueIndexCapture::ArrayValueIndexCapture(Operation *op, Value array,
+ArrayValueIndexCapture::ArrayValueIndexCapture(Value array,
     int64_t defaultLiteral, GetDenseVal fGetDenseVal, LoadVal fLoadVal)
-    : op(op), array(array), defaultLiteral(defaultLiteral), hasDefault(true),
-      fGetDenseArrayAttr(fGetDenseVal), fLoadVallFromArrayAtIndex(fLoadVal) {
-  assert(op && "expected an op");
-}
+    : array(array), defaultLiteral(defaultLiteral), hasDefault(true),
+      fGetDenseArrayAttr(fGetDenseVal), fLoadVallFromArrayAtIndex(fLoadVal) {}
 
 IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
   // Check if we have an operand.
@@ -1450,7 +1458,6 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
     if (hasDefault)
       return LiteralIndexExpr(defaultLiteral);
     // Has no default: error
-    op->emitError("array value has no values");
     return UndefinedIndexExpr();
   }
   // Check if we have an array of literals.
@@ -1462,7 +1469,6 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
       if (hasDefault)
         return LiteralIndexExpr(defaultLiteral);
       // Has no default: error
-      op->emitError("request past array size");
       return UndefinedIndexExpr();
     }
     auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
@@ -1483,12 +1489,33 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
   return SymbolIndexExpr(loadVal);
 }
 
-void ArrayValueIndexCapture::getSymbolList(
+bool ArrayValueIndexCapture::getSymbolList(
     int num, SmallVectorImpl<IndexExpr> &symbolList) {
   // Clear output.
   symbolList.clear();
-  for (int i = 0; i < num; ++i)
-    symbolList.emplace_back(getSymbol(i));
+  for (int i = 0; i < num; ++i) {
+    IndexExpr sym = getSymbol(i);
+    if (sym.isUndefined()) {
+      symbolList.clear();
+      return false;
+    }
+    symbolList.emplace_back(sym);
+  }
+  return true;
+}
+
+bool ArrayValueIndexCapture::getSymbolList(
+    SmallVectorImpl<IndexExpr> &symbolList) {
+  symbolList.clear();
+  auto shapeType = array.getType().dyn_cast_or_null<ShapedType>();
+  if (!shapeType)
+    return false; // Assume error if its not a shape type.
+  assert(shapeType.getRank() == 1 &&
+         "Array value index capture supports 1D arrays");
+  int num = shapeType.getShape()[0];
+  if (num == -1)
+    return false; // Cannot read an unranked array.
+  return getSymbolList(num, symbolList);
 }
 
 //===----------------------------------------------------------------------===//

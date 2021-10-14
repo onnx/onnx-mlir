@@ -2064,4 +2064,3 @@ func @test_resize1(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32> {
   // CHECK: [[R1:%.+]] = "onnx.Constant"() {value = dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
   // CHECK: [[R2:%.+]] = "onnx.Resize"([[ARG]], [[R0]], [[R1]], [[CST]]) {coordinate_transformation_mode = "asymmetric", mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize1"} : (tensor<3x4x5x6xf32>, tensor<8xf32>, tensor<4xf32>, none) -> tensor<3x4x10x12xf32>
 }
-
