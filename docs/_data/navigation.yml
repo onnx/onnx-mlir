@@ -13,9 +13,9 @@ toc:
 #        url: /piece1.html
   - title: How-Tos
     subfolderitems:
-      - page: Using PyRuntime
+      - page: Inference Using Python
         url:  UsingPyRuntime.html
-      - page: Inference Using ONNX-MLIR Runtime API
+      - page: Inference Using C/C++
         url:  doxygen_html/OnnxMlirRuntime/index.html
   - title: References
     subfolderitems:
@@ -43,7 +43,7 @@ toc:
         url:  Instrumentation.html
   - title: Tools
     subfolderitems:
-      - page: RunONNXModel.py - Debugging Numerical Errors
+      - page: RunONNXModel.py
         url:  DebuggingNumericalError.html
-      - page: DocCheck - Handling Necessary Code Duplication
+      - page: DocCheck
         url:  doc_check
