@@ -13,8 +13,8 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/Support/FileSystem.h"
 
+#include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/MainUtils.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
 
@@ -244,7 +244,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 
   OwningModuleRef moduleRef(module);
 
-  compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
+  compileModule(moduleRef, ctx, SHARED_LIB_BASE, onnx_mlir::EmitLib);
   onnx_mlir::ExecutionSession sess(
       getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
 
