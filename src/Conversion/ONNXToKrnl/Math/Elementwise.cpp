@@ -855,6 +855,7 @@ struct ONNXElementwiseOpLoweringPrint : public ConversionPattern {
           Value loadedVal=createKrnl.load(operands[0],loopIVs);
           createKrnl.getBuilder().create<KrnlPrintTensorElementOp>(loc,loadedVal);    
         });
+    rewriter.create<KrnlPrintTensorEndOp>(loc); 
 
     rewriter.eraseOp(op);
 
