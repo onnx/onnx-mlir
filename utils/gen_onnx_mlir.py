@@ -198,7 +198,7 @@ version_dict = {'Abs': [13],
  'SequenceErase': [11],
  'SequenceInsert': [11],
  'SequenceLength': [11],
- 'Shape': [13],
+ 'Shape': [13], # When going to 15, rewrite rules must also be changed for start/end
  'Shrink': [9],
  'Sigmoid': [13],
  'Sign': [13],
@@ -211,7 +211,6 @@ version_dict = {'Abs': [13],
  'Softplus': [1],
  'Softsign': [1],
  'SpaceToDepth': [13],
- #'Split': [13],
  'Split': [13, 11],
  'SplitToSequence': [11],
  'Sqrt': [13],
@@ -229,7 +228,6 @@ version_dict = {'Abs': [13],
  'TreeEnsembleClassifier': [1],
  'TreeEnsembleRegressor': [1],
  'Unique': [11],
- #'Unsqueeze': [13],
  'Unsqueeze': [13, 11],
  'Upsample': [10, 9, 7],
  'Where': [9],
@@ -299,6 +297,7 @@ OpsWithShapeInference=[
     'LeakyRelu',
     'Less',
     'Log',
+    'Loop',
     'MatMul',
     'Max',
     'Min',
@@ -306,20 +305,20 @@ OpsWithShapeInference=[
     'Neg',
     'OneHotEncoder',
     'Or',
+    'PRelu',
     'Pad',
     'Pow',
-    'PRelu',
     'QLinearConv',
-    'QuantizeLinear',
     'QLinearMatMul',
+    'QuantizeLinear',
     'RNN',
     'Reciprocal',
     'ReduceMax',
     'ReduceMean',
     'ReduceMin',
     'ReduceProd',
-    'ReduceSumV11',
     'ReduceSum',
+    'ReduceSumV11',
     'Relu',
     'Reshape',
     'Scaler',
@@ -336,28 +335,47 @@ OpsWithShapeInference=[
     'Softsign',
     'Split',
     'Sqrt',
-    'SqueezeV11',
     'Squeeze',
+    'SqueezeV11',
     'Sub',
     'Sum',
     'Tan',
     'Tanh',
     'Tile',
     'Transpose',
-    'Unsqueeze11',
     'Unsqueeze',
+    'Unsqueeze11',
     'Xor',
-    'Loop',
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Cast', 'Transpose',
-                        'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
-                        'GlobalMaxPool', 'SqueezeV11', 'UnsqueezeV11',
-                        'Squeeze', 'Unsqueeze', 'Reshape']
+OpsWithCanonicalizer = [
+    'Add',
+    'Cast',
+    'Constant',
+    'Dropout',
+    'GlobalAveragePool',
+    'GlobalMaxPool',
+    'Identity',
+    'Reshape',
+    'Shape',
+    'Size',
+    'Squeeze',
+    'SqueezeV11',
+    'Transpose',
+    'Unsqueeze',
+    'UnsqueezeV11',
+]
 
 # Operations with custom verifiers.
-OpsWithVerifier = ['AveragePool', 'Compress', 'Conv', 'InstanceNormalization', 'Mod']
+OpsWithVerifier = [
+    'AveragePool', 
+    'Compress', 
+    'Conv', 
+    'Expand', 
+    'InstanceNormalization', 
+    'Mod',
+]
 
 OpsWithHelpers = {
   "Loop": """
@@ -398,7 +416,7 @@ OpsWithResultTypeInference = {
 # an UnrankedTensorType whose element type is the same as the first operand's
 # element type.
 #
-# Currenlty, there are only two build methods generated:
+# Currently, there are only two build methods generated:
 #  - one with operands and attributes having a separate parameter, and
 #  - one with operands and attributes having aggregated parameters.
 custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSumV11', 'ReduceSum',

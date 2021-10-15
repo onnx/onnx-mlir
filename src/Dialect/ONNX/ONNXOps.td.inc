@@ -1371,6 +1371,7 @@ def ONNXExpandOp:ONNX_Op<"Expand",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXEyeLikeOp:ONNX_Op<"EyeLike",

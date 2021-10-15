@@ -203,10 +203,10 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     PoolOp poolOp = llvm::dyn_cast<PoolOp>(op);
 
     // Get shape.
-    PoolOpShapeHelper shapeHelper(&poolOp, rewriter,
+    PoolOpShapeHelper shapeHelper(&poolOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed));
 
     // Read ceil_mode attribute
@@ -228,7 +228,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         isDilated = true;
 
     // Scope for krnl ops
-    IndexExprScope ieScope(rewriter, loc);
+    IndexExprScope ieScope(&rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the output of this operation.

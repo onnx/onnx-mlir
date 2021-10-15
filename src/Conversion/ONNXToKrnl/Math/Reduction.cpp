@@ -354,9 +354,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
   bool computeMean = false;
 
   ONNXReduceSumOpLowering(MLIRContext *ctx, bool computeMean = false)
-      : ConversionPattern(ONNXReduceSumOp::getOperationName(), 1, ctx) {
-    this->computeMean = computeMean;
-  }
+      : ConversionPattern(ONNXReduceSumOp::getOperationName(), 1, ctx),
+        computeMean(computeMean) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -428,7 +427,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       Value initVal;
       if (axesDim == -1 &&
           !llvm::dyn_cast<ONNXReduceSumOp>(op).noop_with_empty_axes()) {
-        IndexExprScope axesloopContex(rewriter, loc);
+        IndexExprScope axesloopContex(&rewriter, loc);
         MemRefBoundsIndexCapture axesBounds(axesVal);
         auto zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
         auto cond = rewriter.create<CmpIOp>(
