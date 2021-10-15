@@ -41,6 +41,12 @@ include(CTest)
 include(MLIR.cmake)
 
 # MLIR.cmake calls find_package(MLIR) which sets LLVM_MINIMUM_PYTHON_VERSION
+if (WIN32)
+  # On Windows, only search the environment for Python (instead of also checking the registry).
+  # This allows us to pick up the correct version of Python instead of always picking the latest
+  # installed on the machine.
+  set(Python3_FIND_REGISTRY NEVER)
+endif()
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
 # Don't require AWT to allow headless JDK to reduce docker image size
