@@ -21,8 +21,8 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
   ONNXCumSumOpLowering(MLIRContext *ctx)
       : ConversionPattern(ONNXCumSumOp::getOperationName(), 1, ctx) {}
 
-  /// We use a paralel logrithm for prefix-sum [1] as follows:
-  /// Assum that input is x whose shape in [n,m], and axis for cumsum is 0.
+  /// We use a paralel algorithm for cumsum [1] as follows:
+  /// Assume that input is x whose shape in [n,m], and axis for cumsum is 0.
   /// We double-buffer the output to avoid intermediate result being overwritten
   /// by multiple threads.
   /// ```
