@@ -16,7 +16,7 @@ Location loc; // Typically derived from an operation.
 Value intRes = rewriter.create<AddIOp>(loc, firstIntVal, secondIntVal);
 Value floatRes = rewriter.create<AddFOp>(loc, firstFloatVal, secondFloatVal);
 ```
-** Traditional way to add numbers. **
+**Traditional way to add numbers.**
 
 In the above code, we need to distinguish between int and float type operations. We also need to repetitively pass the location.
 
@@ -29,7 +29,7 @@ MathBuilder createMath(rewriter, loc);
 Value intRes = createMath.add(firstIntVal, secondIntVal);
 Value floatRes = createMath.add(firstFloatVal, secondFloatVal);
 ```
-** New approach to add numbers. **
+**New approach to add numbers.**
 
 MLIR recommends this approach as it reads better, namely "we are creating a math add of two values", and the rewriter and location fields are now "hidden" inside the lightweight `createMath` object. In addition, the method deals with the different MLIR operations for adding integer and float internally.
 
@@ -65,7 +65,7 @@ struct MathBuilder : DialectBuilder {
   Value eq(Value lhs, Value rhs);
 };
 ```
-** Math builder class. **
+**Math builder class.**
 
 Note using the builders does not preclude making calls to the old interface. For any builders, we can extract, respectively, the rewriter and the location needed for the old interfaces using the `DialectBuilder` inherited methods `getRewriter()` and `getLoc()`.
 
@@ -84,7 +84,7 @@ struct MemRefBuilder : DialectBuilder {
   Value dim(Value val, int64_t index);
 };
 ```
-** MemRef builder class. **
+**MemRef builder class.**
 
 It defines 4 distinct methods: how to allocate memory (`alloc`) and free (`dealloc`) memory from the heap, how to allocate memory on the stack (`alloca`), and how to extract the dimension of a multi-dimensional memory reference for a given dimension. The `alloca` method above allows for the multi-dimensional memory to have dynamic dimensions; these dynamic dimensions are specified by the parameter `dynSymbols`.  There are variant of these methods for static dimensions only and for providing alignment constraints. See the [MLIRDialectBuilder.hpp](../src/Dialect/ONNX/MLIRDialectBuilder.hpp) file for the full set of supported operations.
 
@@ -139,7 +139,7 @@ struct KrnlBuilder : public DialectBuilder {
           bodyBuilderFn);
 };
 ```
-** Krnl builder class to minimally create a loop. **
+**Krnl builder class to minimally create a loop.**
 
 The first method, `defineLoops` creates a set of loop descriptors that characterizes a loop iteration space. Initially, a set of loop descriptors characterizes the original loop iteration space, shortly, one such modified set can also be used to characterize an optimized iteration spaces, for example to represent a loop tiled iteration space after applying loop blocking and loop permutation.
 
@@ -187,7 +187,7 @@ struct KrnlBuilder : public DialectBuilder {
   void memset(Value dest, Value val);
 };
 ```
-** Additional Krnl ops supported by the Krnl builder interface. **
+**Additional Krnl ops supported by the Krnl builder interface.**
 
 Above, both the load and store operations are used to create Krnl memory load and store operations. They should be used instead of the MLIR Affine or Standard dialect operations.
 
@@ -218,7 +218,7 @@ createKrnl.iterate(loopDef, {loopBlockDef[0], loopBlockDef[0]}, {zero}, {ub0},
     createKrnl.store(zero, array, loopInd);
   });
 ```
-** Blocked loop zeroing 1D array. **
+**Blocked loop zeroing 1D array.**
 
 In the code above, we block the original 1D loop iteration space defined by `defineLoop(1)` into two loops, one looping over the blocks of size 4, and the other looping inside a block. We then need to instruct the order of the optimized loop iteration space using a `permute` method. We can then perform an `iterate` method call, where the first parameter describes the original loop iteration space along with the lower and upper bound sets. In that same call, the second parameter indicates the actual loop iterations that we want to perform in the optimized iteration space, namely the loops over the blocks (`loopBlockDef[0]`) and loops inside a block (`loopBlockDef[1]`).
 
@@ -248,7 +248,7 @@ We now consider tiling our original 2-dimensional example below.
         });
     });
 ```
-** Tiled loops zeroing 2D array. **
+**Tiled loops zeroing 2D array.**
 
 In the code above, we first renamed the 2-dimensional loop iteration space defined by the `defineLoops` method as outer and inner loop defs, corresponding respectively to the first and second value in the value range named `loopDef`. Then we block each of the outer and inner loops, resulting in 4 loops, 2 going over the blocks of the outer/inner loop and two going inside the blocks. The `permute` method defines the desired order, namely the blocked loop first, and the loops for the elements inside the block second.
 
