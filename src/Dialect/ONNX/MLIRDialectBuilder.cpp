@@ -10,6 +10,7 @@
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
 
@@ -93,6 +94,29 @@ Value MathBuilder::eq(Value lhs, Value rhs) {
 
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) {
   return b.create<SelectOp>(loc, cmp, lhs, rhs);
+}
+
+Value MathBuilder::constant(Type type, double val) {
+  Attribute constantAttr;
+  TypeSwitch<Type>(type)
+      .Case<Float16Type>(
+          [&](Type) { constantAttr = b.getF16FloatAttr((float)val); })
+      .Case<Float32Type>(
+          [&](Type) { constantAttr = b.getF32FloatAttr((float)val); })
+      .Case<Float64Type>(
+          [&](Type) { constantAttr = b.getF64FloatAttr((float)val); })
+      .Case<IntegerType>([&](Type) {
+        auto width = type.cast<IntegerType>().getWidth();
+        if (width == 1) {
+          constantAttr = b.getBoolAttr(val != 0);
+        } else {
+          constantAttr = b.getIntegerAttr(type, APInt(width, (int64_t)val));
+        }
+      })
+      .Case<IndexType>(
+          [&](Type) { constantAttr = b.getIntegerAttr(type, (int64_t)val); })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
+  return b.create<ConstantOp>(loc, constantAttr);
 }
 
 //===----------------------------------------------------------------------===//

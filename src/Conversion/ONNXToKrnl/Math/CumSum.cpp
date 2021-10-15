@@ -21,15 +21,15 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
   ONNXCumSumOpLowering(MLIRContext *ctx)
       : ConversionPattern(ONNXCumSumOp::getOperationName(), 1, ctx) {}
 
-  /// We use a naive alogrithm for cumsum as follows:
+  /// We use a paralel logrithm for prefix-sum [1] as follows:
   /// Assum that input is x whose shape in [n,m], and axis for cumsum is 0.
   /// We double-buffer the output to avoid intermediate result being overwritten
   /// by multiple threads.
   /// ```
   /// buf = x
-  /// for step from 0 to log2(n) + 1:
-  ///   for i range(n):
-  ///     for k range(m):
+  /// for step in range(log2(n)):
+  ///   for i in range(n):
+  ///     for k in range(m):
   ///       if i >= 2^step:
   ///         y[i,k] = buf[i - 2^step,k] + buf[i,k]
   ///       else:
@@ -37,12 +37,15 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
   ///   buf = y
   /// ```
   ///
-  /// Blelloch algorithm [1] is more work-efficent. However, it is not
+  /// Blelloch algorithm [2] is more work-efficent. However, it is not
   /// affine-friendly, because the inner bounds depend on the outer bounds.
   ///
-  /// [1] Blelloch, Guy E. 1990. "Prefix Sums and Their Applications."
-  /// Technical Report CMU-CS-90-190, School of Computer Science, Carnegie
-  /// Mellon University.
+  /// [1] Hillis, W. Daniel, and Guy L. Steele, Jr. 1986. "Data Parallel
+  /// Algorithms." Communications of the ACM 29(12), pp. 1170–1183.
+  ///
+  /// [2] Blelloch, Guy E. 1990. "Prefix Sums and Their Applications." Technical
+  /// Report CMU-CS-90-190, School of Computer Science, Carnegie Mellon
+  /// University.
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXCumSumOp csOp = llvm::cast<ONNXCumSumOp>(op);
@@ -50,15 +53,14 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
 
     // Builder helper.
-    IndexExprScope outerScope(&rewriter, loc);
+    IndexExprScope mainScope(&rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
     MathBuilder createMath(createKrnl);
-    MemRefBuilder createMemRef(createKrnl);
 
     // Common information.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = memRefType.getElementType();
-    Type i1Ty = rewriter.getI1Type();
+    Type boolTy = rewriter.getI1Type();
     Type i64Ty = rewriter.getI64Type();
     Type f32Ty = rewriter.getF32Type();
     Type indexTy = rewriter.getIndexType();
@@ -67,6 +69,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     Value axis = operandAdaptor.axis();
     bool exclusive = csOp.exclusive() == 1;
     bool reverse = csOp.reverse() == 1;
+
     MemRefBoundsIndexCapture xBounds(X);
     uint64_t rank = xBounds.getRank();
     LiteralIndexExpr zero(0);
@@ -102,14 +105,18 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     IndexExpr numberOfStep;
     if (axisSize.isLiteral()) {
       int64_t n = axisSize.getLiteral();
-      int64_t logn = (int64_t)std::log2(n);
+      int64_t logn = (int64_t)std::ceil(std::log2(n));
       numberOfStep = LiteralIndexExpr(logn);
     } else {
       Value nos = rewriter.create<IndexCastOp>(loc, i64Ty, axisSize.getValue());
       nos = rewriter.create<SIToFPOp>(loc, f32Ty, nos);
+      // Use this when math::CeilOp is available in MLIR.
+      // nos = createMath.ceil(createMath.log2(nos));
       nos = createMath.log2(nos);
       nos = rewriter.create<FPToSIOp>(loc, i64Ty, nos);
-      numberOfStep = SymbolIndexExpr(nos);
+      // Use this when math::CeilOp is available in MLIR.
+      // numberOfStep = SymbolIndexExpr(nos);
+      numberOfStep = SymbolIndexExpr(nos) + LiteralIndexExpr(1);
     }
 
     // Input and output have the same shape, so they shared the bounds.
@@ -139,22 +146,24 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
             SymbolIndexExpr axis(axisIE);
 
             SmallVector<Value, 4> loopInd;
-            Value offsetOne = emitConstantOp(rewriter, loc, indexTy, 1);
-            Value shiftOrSet0 = emitConstantOp(rewriter, loc, i1Ty, 0);
+            Value offsetOne = createMath.constant(indexTy, 1);
+            Value shiftOrSet0 = createMath.constant(boolTy, 0);
             for (uint64_t r = 0; r < rank; ++r) {
               Value iVal = initLoopInd[r];
-              Value rVal = emitConstantOp(rewriter, loc, indexTy, r);
+              Value rVal = createMath.constant(indexTy, r);
+              Value dimSize = xBounds.getDim(r).getValue();
               // Whether we are in the reduction axis.
               Value isAxis = createMath.eq(rVal, axis.getValue());
-              // Whether the current element's index is in scope.
-              Value isInScope;
+              // Whether the current element's index is in the scope of
+              // reduction or not.
+              Value isRedInd;
               if (reverse) {
                 Value x = createMath.add(iVal, offsetOne);
-                isInScope = createMath.slt(x, xBounds.getDim(r).getValue());
+                isRedInd = createMath.slt(x, dimSize);
               } else {
-                isInScope = createMath.sge(iVal, offsetOne);
+                isRedInd = createMath.sge(iVal, offsetOne);
               }
-              Value ok = createMath._and(isAxis, isInScope);
+              Value ok = createMath._and(isAxis, isRedInd);
               shiftOrSet0 = createMath._or(ok, shiftOrSet0);
 
               Value iOffset;
@@ -166,7 +175,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
               loopInd.emplace_back(accessIndex);
             }
             Value res = createKrnl.load(X, loopInd);
-            Value zeroVal = emitConstantOp(rewriter, loc, elementType, 0);
+            Value zeroVal = createMath.constant(elementType, 0);
             res = createMath.select(shiftOrSet0, res, zeroVal);
             createKrnl.store(res, bufMemRef, initLoopInd);
           }
@@ -174,7 +183,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
 
     // Outer loop iterates over the number of steps.
     ValueRange stepLoopDef = createKrnl.defineLoops(1);
-    createKrnl.iterateIE(stepLoopDef, stepLoopDef, {zero}, {numberOfStep + 1},
+    createKrnl.iterateIE(stepLoopDef, stepLoopDef, {zero}, {numberOfStep},
         [&](KrnlBuilder &createKrnl, ValueRange stepLoopInd) {
           MathBuilder createMath(createKrnl);
 
@@ -203,21 +212,23 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
                 Value y1 = createKrnl.load(bufMemRef, sumLoopInd);
                 // Load y[i - 2^step,k].
                 SmallVector<Value, 4> loopInd;
-                Value shouldUpdate = emitConstantOp(rewriter, loc, i1Ty, 0);
+                Value shouldUpdate = createMath.constant(boolTy, 0);
                 for (uint64_t r = 0; r < rank; ++r) {
                   Value iVal = sumLoopInd[r];
-                  Value rVal = emitConstantOp(rewriter, loc, indexTy, r);
+                  Value rVal = createMath.constant(indexTy, r);
+                  Value dimSize = xBounds.getDim(r).getValue();
                   // Whether we are in the reduction axis.
                   Value isAxis = createMath.eq(rVal, axis.getValue());
-                  // Whether the current element's index is in scope.
-                  Value isInScope;
+                  // Whether the current element's index is in the scope of
+                  // reduction or not.
+                  Value isRedInd;
                   if (reverse) {
                     Value x = createMath.add(iVal, offset);
-                    isInScope = createMath.slt(x, xBounds.getDim(r).getValue());
+                    isRedInd = createMath.slt(x, dimSize);
                   } else {
-                    isInScope = createMath.sge(iVal, offset);
+                    isRedInd = createMath.sge(iVal, offset);
                   }
-                  Value ok = createMath._and(isAxis, isInScope);
+                  Value ok = createMath._and(isAxis, isRedInd);
                   shouldUpdate = createMath._or(ok, shouldUpdate);
 
                   Value iOffset;
@@ -229,7 +240,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
                   loopInd.emplace_back(accessIndex);
                 }
                 Value y2 = createKrnl.load(bufMemRef, loopInd);
-                Value zeroVal = emitConstantOp(rewriter, loc, elementType, 0);
+                Value zeroVal = createMath.constant(elementType, 0);
                 Value addOrZero = createMath.select(shouldUpdate, y2, zeroVal);
                 Value res = createMath.add(y1, addOrZero);
                 createKrnl.store(res, resMemRef, sumLoopInd);
