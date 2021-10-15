@@ -376,7 +376,7 @@ public:
     for (auto it : llvm::zip(inputVals, outlinedFunc.getArguments()))
       bvm.map(std::get<0>(it), std::get<1>(it));
     auto bodyOp = rewriter.clone(*op, bvm);
-    rewriter.create<ONNXReturnOp>(loc, bodyOp->getResults());
+    rewriter.create<ReturnOp>(loc, bodyOp->getResults());
 
     // insert call to new function in subgraph
     rewriter.setInsertionPointToStart(sgBlock);

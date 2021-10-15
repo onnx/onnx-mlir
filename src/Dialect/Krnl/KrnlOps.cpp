@@ -408,9 +408,6 @@ void KrnlBlockOp::build(::mlir::OpBuilder &odsBuilder,
       odsBuilder.getI64IntegerAttr(odsTileSize));
 }
 
-//===----------------------------------------------------------------------===//
-// KrnlPermuteOp
-//===----------------------------------------------------------------------===//
 
 void KrnlPermuteOp::build(::mlir::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, ValueRange odsLoops,
@@ -737,6 +734,14 @@ static LogicalResult verify(KrnlCopyFromBufferOp op) {
   }
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// KrnlPrintTensorStartOp
+//===----------------------------------------------------------------------===//
+/*void KrnlPrintTensorStartOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, int elType, int rank, ArrayRef<Value> bounds) {
+  ArrayAttr boundsAttr = odsBuilder.getI64ArrayAttr(bounds);
+  build(odsBuilder, odsState, elType, rank, boundsAttr);
+}*/
 
 } // namespace mlir
 
