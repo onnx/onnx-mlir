@@ -94,7 +94,7 @@ The krnl dialect is our main dialect to lower ONNX operations into loops. This d
 
 ### Older interface to generate loops
 
-In the older approach, we generate loops manually by first defining the loop variables, then the loop bounds, then the loop itself. To generate  code inside of the loop, we first need to manually move a code insertion pointer to the block inside of the loop body and then generate the code. When generating code after the loop, we need to move the code insertion pointer back to a point after the loop. For example, consider the code below to initialize a 2 dimensional array to zero.
+In the older approach, we generate loops manually by first defining the loop variables, then the loop bounds, then the loop itself. To generate code inside of the loop, we first need to manually move a code insertion pointer to the block inside of the loop body and then generate the code. When generating code after the loop, we need to move the code insertion pointer back to a point after the loop. For example, consider the code below to initialize a 2 dimensional array to zero.
 
 ``` C++
 // Defined values 0 and a 2 dimensional array with dim ub0 and ub1
@@ -145,7 +145,7 @@ The first method, `defineLoops` creates a set of loop descriptors that character
 
 The second method above, `iterate` is used to create a set of loops and its corresponding loop body. Until we optimize loops, both the `originalLoops` and the `optimizedLoops` are set to the output of a `defineLoops` method call. These sets describe the iteration space and its dimensionality. The next two parameters are used to describe the lower and the upper bounds of the loop. The last parameter defines a lambda function that implements the body of the loop. This labmda function is invoked with two parameters: an object to create further Krnl operations within the loop body and a list of the current loop index values.
 
-The usage of this builder will become clearer with our same example, setting an array to value zero. This is the same example as in the prior section.
+The usage of this builder will become clearer with our example, setting an array to value zero. This is the same example as in the prior section.
 ``` C++
 // Defined values 0 and a 2 dimensional array with dim ub0 and ub1
 Value zero, array, ub0, ub1;
@@ -165,9 +165,9 @@ createKrnl.iterate(loopDef, loopDef, {zero, zero}, {ub0, ub1},
 ```
 **Code example 2: Zeroing an array using the new builder interface**
 
-Using this new scheme, we first define the 2D loop iteration space and then create the loop iteration structure using the `iterate` method. Since the loop is unoptimized, the same `loopDef` value range is passed as the first 2 parameters. The bounds are passed as 2 set of ordered values.
+Using this new scheme, we first define the 2D loop iteration space and then create the loop iteration structure using the `iterate` method. Since the loop is unoptimized, the same `loopDef` value range is passed as the first 2 parameters. The bounds are passed as 2 sets of ordered values.
 
-Note that the lambda function create an `createKrnl` builder that is similar to that of the external environment (outside the loop), but customized for inside the loop. Se we can continue to use this overloaded builder to continue constructing krnl operations. In our case, we simply use the `loopInd` (2nd parameter of the lambda function), which are the current loop induction values, to define the element of the array that is set to zero.
+Note that the lambda function creates an `createKrnl` builder that is similar to that of the external environment (outside the loop), but customized for inside the loop. So we can continue to use this overloaded builder to continue constructing krnl operations. In our case, we simply use the `loopInd` (2nd parameter of the lambda function), which are the current loop induction values, to define the element of the array that is set to zero.
 
 Some of the other operations that are often used are listed below.
 ``` C++
@@ -193,9 +193,9 @@ Above, both the load and store operations are used to create Krnl memory load an
 
 The `block` method takes one loop definition (one value extracted from the output of a `defineLoop` operation) and will split that loop definition into 2, where the first one iterates over blocks of the given side, and the second one iterates inside of a given block. The two loop definitions are returned by the `block` method as a value range containing the two split loops described above.
 
-The `permute` method takes a list of loop definitions are ensure that the iterate will generate code reflecting the permuted order.
+The `permute` method takes a list of loop definitions and ensures that the loops will iterate according to the permuted order.
 
-The `memcopy` method results in the array given by `dest` to be overwritten by `size` values from the array given by `src`. The `memset` method set the entire array given by `dest` to the value passed in `val`, typically zero.
+The `memcopy` method results in the array given by `dest` to be overwritten by `size` values from the array given by `src`. The `memset` method sets the entire array given by `dest` to the value passed in `val`, typically zero.
 
 ## Builder based interface to generate optimized Krnl loops
 
