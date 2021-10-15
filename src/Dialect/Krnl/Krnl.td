@@ -1135,6 +1135,9 @@ def KrnlPrintTensorStartOp : Op<Krnl_Dialect, "printTensorStart"> {
   }];
 
   let arguments = (ins I64Attr:$elType, I64Attr:$rank, Variadic<Index>:$bounds);
+  //let arguments = (ins I64Attr:$elType, I64Attr:$rank, I64ArrayAttr:$bounds);
+  
+  //let builders = [ OpBuilder<(ins "int ": $elType, "int ": $rank, "ArrayRef<Value>": $bounds)> ];
 
   let parser = ?;
   let printer = ?;

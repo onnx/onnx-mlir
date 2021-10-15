@@ -505,9 +505,6 @@ void KrnlBlockOp::build(::mlir::OpBuilder &odsBuilder,
       odsBuilder.getI64IntegerAttr(odsTileSize));
 }
 
-//===----------------------------------------------------------------------===//
-// KrnlPermuteOp
-//===----------------------------------------------------------------------===//
 
 void KrnlPermuteOp::build(::mlir::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, ValueRange odsLoops,

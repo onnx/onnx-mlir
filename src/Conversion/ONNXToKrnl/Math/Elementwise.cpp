@@ -927,7 +927,6 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
 
 struct ONNXElementwiseOpLoweringPrint : public ConversionPattern {
   ONNXElementwiseOpLoweringPrint(MLIRContext *ctx)
-      //: ConversionPattern(mlir::ONNXPrintTensorsOp::getOperationName(), 1, ctx) {
       : ConversionPattern("onnx.PrintTensors", 1, ctx) {
         std::cout << "adding pattern to lower tensor print: " << "PrintTensors" << std::endl;
       }
@@ -937,8 +936,6 @@ struct ONNXElementwiseOpLoweringPrint : public ConversionPattern {
     auto loc = ONNXLoc<ONNXPrintTensorsOp>(op);
     auto X = operands[0];
     auto memRefType = convertToMemRefType(operands[0].getType());
-    //auto floatTypeCode = emitConstantOp(rewriter, loc, IntegerType::get(op->getContext(), 64), 0);
-    //auto rank = emitConstantOp(rewriter, loc, IntegerType::get(op->getContext(), 64), memRefType.getRank());
     auto floatTypeCode = rewriter.getI64IntegerAttr(0);
     auto rank = rewriter.getI64IntegerAttr(memRefType.getRank());
     SmallVector<Value, 4> bounds;
@@ -947,11 +944,8 @@ struct ONNXElementwiseOpLoweringPrint : public ConversionPattern {
     for(int64_t dim=0;dim<memRefType.getRank();++dim) {
       std::cout << "dim="<<dim<<std::endl;
       if (shape[dim] < 0) {
-        //bounds[dim]=rewriter.create<memref::DimOp>(loc, operands[0], dim).getResult();
         bounds.push_back(rewriter.create<memref::DimOp>(loc, operands[0], dim).getResult());
       } else {
-        //bounds[dim]=emitConstantOp(rewriter, loc, IntegerType::get(op->getContext(), 64), shape[dim]);
-        //bounds.push_back(emitConstantOp(rewriter, loc, IntegerType::get(op->getContext(), 64), shape[dim]));
         bounds.push_back(emitConstantOp(rewriter, loc, rewriter.getIndexType(), shape[dim]));
       }
     }

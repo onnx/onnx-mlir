@@ -227,6 +227,78 @@ static FlatSymbolRefAttr getOrInsertUnaryMathFunction(PatternRewriter &rewriter,
   return SymbolRefAttr::get(context, mathFuncName);
 }
 
+// This function emits a set of declarations of the form:
+//
+// declare void <mathFuncName>(...)
+//
+// For the debug suppport functions
+//
+static void insertDebugSupportFunctions(PatternRewriter &rewriter, ModuleOp module) {
+  auto *context = module.getContext();
+
+  // return if done already
+  if (module.lookupSymbol<LLVM::LLVMFuncOp>("printTensorStart"))
+    return;
+
+  PatternRewriter::InsertionGuard insertGuard(rewriter);
+std::cout << "inserting debug support functions" << std::endl;
+  // Create function declarations.
+  // auto llvmF32Ty = FloatType::get(context);
+  auto llvmFloatType = FloatType::getF64(context);
+  auto llvmSignedIntType = IntegerType::get(context, 64, IntegerType::SignednessSemantics::Signed);
+  auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
+  //auto llvmVoidType = llvmVoidType();
+
+  auto boundsType = LLVM::LLVMPointerType::get(IntegerType::get(context, 64));
+  auto floatElementFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, ArrayRef<mlir::Type>({llvmFloatType}));
+  auto intElementFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, ArrayRef<mlir::Type>({llvmSignedIntType}));
+  auto startFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, ArrayRef<mlir::Type>({llvmSignedIntType, llvmSignedIntType, boundsType}));
+  auto endFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, ArrayRef<mlir::Type>({}));
+
+  // Insert the debug function into the body of the parent module.
+  rewriter.setInsertionPointToStart(module.getBody());
+  rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), "printTensorElementFloat", floatElementFnType);
+  rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), "printTensorElementInt", intElementFnType);
+  rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), "printTensorStart", startFnType);
+  rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), "printTensorEnd", endFnType);
+
+}
+
+// This function emits a set of declarations of the form:
+//
+// declare void <mathFuncName>(...)
+//
+// For the debug suppport functions
+//
+static FlatSymbolRefAttr getDebugSupportFunction(PatternRewriter &rewriter,
+    ModuleOp module, std::string baseName, uint64_t eltype) {
+  auto *context = module.getContext();
+  std::string funcName;
+
+std::cout << "looking up function: " << baseName << std::endl;
+  switch(eltype) {
+    case 0:
+      funcName = baseName+"Float";
+      break;
+    case 1:  
+      funcName = baseName+"Int";
+      break;
+    case 255:
+      funcName = baseName;
+      break;  
+    default:
+      llvm_unreachable("invalid Type for Debug Tensor Output");
+      break;
+  }
+  if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
+    return SymbolRefAttr::get(context, funcName);
+
+  // Create function declaration if not found above
+  insertDebugSupportFunctions(rewriter, module);
+  
+  return SymbolRefAttr::get(context, funcName);
+}
+
 //===----------------------------------------------------------------------===//
 // KRNL to LLVM: KrnlGetRefOpLowering
 //===----------------------------------------------------------------------===//
@@ -496,6 +568,99 @@ private:
     Value bumped = rewriter.create<LLVM::AddOp>(loc, input, bump);
     Value mod = rewriter.create<LLVM::URemOp>(loc, bumped, alignment);
     return rewriter.create<LLVM::SubOp>(loc, bumped, mod);
+  }
+};
+
+class KrnlPrintTensorStartOpLowering : public ConversionPattern {
+public:
+  explicit KrnlPrintTensorStartOpLowering(MLIRContext *context)
+//      : ConversionPattern(KrnlPrintTensorStartOp::getOperationName(), 1, context) {}
+      : ConversionPattern("krnl.printTensorStart", 1, context) {
+        std::cout << "adding pattern for printTensorStart " << std::endl;
+      }
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+
+    std::cout << "matching printTensorStart" << std::endl;
+    auto *context = op->getContext();
+    auto loc = op->getLoc();
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    KrnlPrintTensorStartOp startOp = llvm::dyn_cast<KrnlPrintTensorStartOp>(op); 
+
+    auto func = getDebugSupportFunction(rewriter, parentModule,"printTensorStart",255);
+    int64_t elType = startOp.elType();
+    int64_t rank = startOp.rank();
+    ValueRange bounds = startOp.bounds();
+    Value elTypeVal =
+        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
+            rewriter.getIntegerAttr(
+                rewriter.getIntegerType(64), elType));
+    Value rankVal =
+        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
+            rewriter.getIntegerAttr(
+                rewriter.getIntegerType(64), rank));
+
+    std::vector<mlir::Value> arguments;
+    //arguments.push_back(elTypeVal);
+    arguments.push_back(rankVal);
+    for (size_t i = 0; i < bounds.size(); i++) {
+      arguments.push_back(bounds[i]);
+      }
+    llvm::ArrayRef<mlir::Value> ref(arguments.data(), arguments.size());
+    rewriter.create<CallOp>(loc, func, ArrayRef<Type>({}), arguments);    
+
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
+class KrnlPrintTensorElementOpLowering : public ConversionPattern {
+public:
+  explicit KrnlPrintTensorElementOpLowering(MLIRContext *context)
+//      : ConversionPattern(KrnlTensorElementOp::getOperationName(), 1, context) {}
+      : ConversionPattern("krnl.printTensorElement", 1, context) {
+                std::cout << "adding pattern for printTensorElement " << std::endl;
+
+      }
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    std::cout << "matching printTensorElement" << std::endl;
+    auto *context = op->getContext();
+    auto loc = op->getLoc();
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    KrnlPrintTensorElementOp elementOp = llvm::dyn_cast<KrnlPrintTensorElementOp>(op); 
+
+    auto func = getDebugSupportFunction(rewriter, parentModule,"printTensorElement",0);
+    Value in = elementOp.in();
+    rewriter.create<CallOp>(loc, func, ArrayRef<Type>({}), ArrayRef<Value>({in}));    
+    std::cout << "call generated" << std::endl;
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
+class KrnlPrintTensorEndOpLowering : public ConversionPattern {
+public:
+  explicit KrnlPrintTensorEndOpLowering(MLIRContext *context)
+//      : ConversionPattern(KrnlPrintTensorEndOp::getOperationName(), 1, context) {}
+      : ConversionPattern("krnl.printTensorEnd", 1, context) {
+                std::cout << "adding pattern for printTensorEnd " << std::endl;
+
+      }
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    std::cout << "matching printTensorEnd" << std::endl;
+    auto *context = op->getContext();
+    auto loc = op->getLoc();
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+  
+    auto func = getDebugSupportFunction(rewriter, parentModule,"printTensorEnd",255);
+  
+    rewriter.create<CallOp>(loc, func, ArrayRef<Type>({}), ArrayRef<Value>({}));    
+
+    rewriter.eraseOp(op);
+    return success();
   }
 };
 
@@ -1382,7 +1547,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
   // They run it in two steps, and add additional lowerings.
-
+std::cout << "****** Populate AffineAnKrnltoLLVM patterns " << std::endl;
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
   // Removed in upgrade of LLVM:
   // vector::populateVectorSlicesLoweringPatterns(patterns);
@@ -1418,6 +1583,11 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAtanhOp>>(ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlTanOp>>(ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlPrintTensorElementOp>>(ctx);
+
+  //Debug Support operations
+  patterns.insert<KrnlPrintTensorElementOpLowering>(ctx);
+  patterns.insert<KrnlPrintTensorStartOpLowering>(ctx);
+  patterns.insert<KrnlPrintTensorEndOpLowering>(ctx);
 }
 
 //===----------------------------------------------------------------------===//
