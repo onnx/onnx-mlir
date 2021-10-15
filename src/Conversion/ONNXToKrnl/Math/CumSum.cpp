@@ -119,7 +119,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
       numberOfStep = SymbolIndexExpr(nos) + LiteralIndexExpr(1);
     }
 
-    // Input and output have the same shape, so they shared the bounds.
+    // Input and output have the same shape, so they share the bounds.
     SmallVector<IndexExpr, 4> lbs(rank, zero);
     SmallVector<IndexExpr, 4> ubs;
     xBounds.getDimList(ubs);
