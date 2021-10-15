@@ -208,9 +208,9 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
                 IndexExprScope ieScope(createKrnl);
                 MathBuilder createMath(createKrnl);
                 SymbolIndexExpr axis(axisIE);
-                // Load y[i,k].
-                Value y1 = createKrnl.load(bufMemRef, sumLoopInd);
-                // Load y[i - 2^step,k].
+                // Load buf[i,k].
+                Value b1 = createKrnl.load(bufMemRef, sumLoopInd);
+                // Load buf[i - 2^step,k].
                 SmallVector<Value, 4> loopInd;
                 Value shouldUpdate = createMath.constant(boolTy, 0);
                 for (uint64_t r = 0; r < rank; ++r) {
@@ -239,10 +239,10 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
                   Value accessIndex = createMath.select(ok, iOffset, iVal);
                   loopInd.emplace_back(accessIndex);
                 }
-                Value y2 = createKrnl.load(bufMemRef, loopInd);
+                Value b2 = createKrnl.load(bufMemRef, loopInd);
                 Value zeroVal = createMath.constant(elementType, 0);
-                Value addOrZero = createMath.select(shouldUpdate, y2, zeroVal);
-                Value res = createMath.add(y1, addOrZero);
+                Value addOrZero = createMath.select(shouldUpdate, b2, zeroVal);
+                Value res = createMath.add(b1, addOrZero);
                 createKrnl.store(res, resMemRef, sumLoopInd);
               });
 
