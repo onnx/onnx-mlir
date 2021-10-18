@@ -56,11 +56,11 @@ ExecutionSession::run(
 
   std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> outs;
 
-  for (size_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
+  for (size_t i = 0; i < (size_t)omTensorListGetSize(wrappedOutput); i++) {
     outs.emplace_back(std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
         omTensorListGetOmtByIndex(wrappedOutput, i), omTensorDestroy));
   }
-  return std::move(outs);
+  return outs;
 }
 
 ExecutionSession::~ExecutionSession() {

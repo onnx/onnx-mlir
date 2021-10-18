@@ -122,7 +122,7 @@ computations derived before the loop to compute the output bounds/shape of the
 loop iterations.
 
 When all the computations in a) are constant or affine, then the same
-IndexExprContext can be reused between a) and b). It is recommended as it
+IndexExprScope can be reused between a) and b). It is recommended as it
 enables bigger AffineExpr. But when the computations in a) are not affine, then
 a new scope can be started for the b) part. The non-affine parts of a)
 becomes symbols.
@@ -143,11 +143,11 @@ also means that one can only geneate code in one index scope at a time.
 
     // During shape inference: no rewriter.
 
-    IndexExprContext scope(nullptr, getLoc());
+    IndexExprScope scope(nullptr, getLoc());
 
     // During lowering.
 
-    IndexExprContext outerloopContex(&rewriter, sliceOp.getLoc());
+    IndexExprScope outerloopContex(&rewriter, sliceOp.getLoc());
 
 3b) Computations on IndexExpr (examples from processing of ONNXSliceOp)
 
@@ -212,7 +212,7 @@ compile time sizes, -1 for runtime sizes).
 
     // Create a sub-scope for computations inside the loop iteration.
 
-    IndexExprContext childContext(outerloopContex);
+    IndexExprScope childContext(outerloopContex);
 
     // Create indices with computations for a load.
 
@@ -265,8 +265,10 @@ inference part as no code may be generated during such phases.
 #include "mlir/IR/Value.h"
 #include "mlir/Transforms/DialectConversion.h"
 
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+
+#include <cstdint>
 #include <functional>
-#include <stdint.h>
 #include <string>
 
 namespace mlir {
@@ -318,24 +320,32 @@ public:
   // Constructor for a scope. Top level scope must provide rewriter (possibly
   // null if we cannot geneate code at this time) and location.
   IndexExprScope(OpBuilder *rewriter, Location loc);
-  IndexExprScope(OpBuilder &rewriter, Location loc);
+  IndexExprScope(ImplicitLocOpBuilder &lb);
+  IndexExprScope(DialectBuilder &db);
   // Constructor for subsequent nested scopes. Providing enclosing scope is not
   // necessary; it is provided for convenience if a user prefer to name the
   // enclosing scope explicitly.
-  IndexExprScope();
-  IndexExprScope(IndexExprScope &explicitEnclosingScope);
+  IndexExprScope(OpBuilder *rewriter, IndexExprScope *enclosingScope);
+  IndexExprScope(DialectBuilder &db, IndexExprScope *enclosingScope);
   // Destructor which release all IndexExpr associated with this scope.
-  ~IndexExprScope();
+  virtual ~IndexExprScope();
+
+  IndexExprScope() = delete;
+  IndexExprScope(const IndexExprScope &) = delete;
+  IndexExprScope(IndexExprScope &&) = delete;
+  IndexExprScope &operator=(const IndexExprScope &) = delete;
+  IndexExprScope &operator=(IndexExprScope &&) = delete;
 
   // Public getters.
   static IndexExprScope &getCurrentScope();
   OpBuilder &getRewriter() const;
+  OpBuilder *getRewriterPtr() const;
   Location getLoc() const { return loc; }
   bool isShapeInferencePass() const { return !rewriter; }
 
   // Queries and getters.
-  bool isCurrentScope();
-  bool isEnclosingScope();
+  bool isCurrentScope() const;
+  bool isEnclosingScope() const;
   void getDimAndSymbolList(SmallVectorImpl<Value> &list) const;
   int getNumDims() const { return dims.size(); }
   int getNumSymbols() const { return symbols.size(); }
@@ -353,6 +363,7 @@ private:
   void addIndexExprImpl(IndexExprImpl *obj);
 
   // Support functions for AffineExpr.
+  int indexInList(SmallVectorImpl<Value> const &list, Value const &value) const;
   int addDim(Value const value);
   int addSymbol(Value const value);
 
@@ -377,7 +388,6 @@ private:
 // Data structure that is the public interface for IndexExpr. It is a shallow
 // data structure that is simply a pointer to the actual data (IndexExprImpl).
 class IndexExpr {
-
   friend class IndexExprScope;
   friend class NonAffineIndexExpr;
   friend class LiteralIndexExpr;
@@ -391,9 +401,16 @@ class IndexExpr {
 public:
   // Default and shallow copy constructors. Index expressions are usually built
   // using the subclasses listed as friend above.
-  IndexExpr() : indexExprObj(nullptr) {} // Undefined index expression.
+  IndexExpr() = default;
   IndexExpr(IndexExprImpl *implObj) : indexExprObj(implObj) {}     // Shallow.
   IndexExpr(IndexExpr const &obj) : IndexExpr(obj.indexExprObj) {} // Shallow.
+  IndexExpr(IndexExpr &&obj) noexcept : indexExprObj(obj.indexExprObj) {
+    obj.indexExprObj = nullptr;
+  }
+  virtual ~IndexExpr() {}
+  IndexExpr &operator=(const IndexExpr &) = default;
+  IndexExpr &operator=(IndexExpr &&) = default;
+
   // To construct meaningful IndexExpr, use subclasses constructors.
   IndexExpr deepCopy() const;
 
@@ -449,8 +466,11 @@ public:
   IndexExpr operator*(IndexExpr const b) const;
   IndexExpr operator*(int64_t const b) const;
   IndexExpr floorDiv(IndexExpr const b) const;
+  IndexExpr floorDiv(int64_t const b) const;
   IndexExpr ceilDiv(IndexExpr const b) const;
+  IndexExpr ceilDiv(int64_t const b) const;
   IndexExpr operator%(IndexExpr const b) const;
+  IndexExpr operator%(int64_t const b) const;
   // Compare operations, return a new IndexExpr that is either a literal or a
   // value expression of type predType.
   IndexExpr operator==(IndexExpr const b) const;
@@ -502,11 +522,13 @@ public:
   static IndexExpr max(IndexExpr const first, IndexExpr const second);
   static IndexExpr max(IndexExpr const first, int64_t const second);
 
-  // Debug (enable using DEBUG=1 at top of file).
-  void debugPrint(const std::string &msg) const;
-
   bool retrieveAffineMinMax(
       bool &isMin, SmallVectorImpl<Value> &vals, AffineMap &map) const;
+
+  // Debug (enable using DEBUG=1 at top of file).
+  void debugPrint(const std::string &msg, const bool forcePrint = false) const;
+  static void debugPrint(const std::string &msg,
+      const SmallVectorImpl<IndexExpr> &list, const bool forcePrint = false);
 
 protected:
   // Private queries.
@@ -520,13 +542,12 @@ protected:
   IndexExprKind getKind() const;
 
   // Support for operations: lambda function types.
-  typedef std::function<IndexExpr(IndexExpr const, IndexExpr const)> F2;
-  typedef std::function<IndexExpr(IndexExpr, IndexExpr const)> F2Self;
-  typedef std::function<IndexExpr(IndexExpr, SmallVectorImpl<IndexExpr> &)>
-      Flist;
-  typedef std::function<IndexExpr(
-      IndexExpr const, IndexExpr const, IndexExpr const)>
-      F3;
+  using F2 = std::function<IndexExpr(IndexExpr const, IndexExpr const)>;
+  using F2Self = std::function<IndexExpr(IndexExpr, IndexExpr const)>;
+  using Flist =
+      std::function<IndexExpr(IndexExpr, SmallVectorImpl<IndexExpr> &)>;
+  using F3 = std::function<IndexExpr(
+      IndexExpr const, IndexExpr const, IndexExpr const)>;
   // Support for operations: common handling for multiple operations.
   IndexExpr binaryOp(IndexExpr const b, bool affineWithLitB,
       bool affineExprCompatible, F2 fInteger, F2 fAffine, F2 fValue) const;
@@ -534,7 +555,7 @@ protected:
   static IndexExpr reductionOp(SmallVectorImpl<IndexExpr> &vals, F2Self litRed,
       Flist affineRed, F2Self valueRed);
   // Data: pointer to implemented object.
-  IndexExprImpl *indexExprObj;
+  IndexExprImpl *indexExprObj = nullptr;
 };
 
 //===----------------------------------------------------------------------===//
@@ -552,9 +573,22 @@ public:
 // values, use PredicateIndexExpr(true) or PredicateIndexExpr(false).
 class LiteralIndexExpr : public IndexExpr {
 public:
-  LiteralIndexExpr() : IndexExpr() {}    // Make undefined.
+  LiteralIndexExpr() = default;
   LiteralIndexExpr(int64_t const value); // Make an index constant value.
-  LiteralIndexExpr(IndexExpr const otherIndexExpr);
+  LiteralIndexExpr(IndexExpr const &o);
+  LiteralIndexExpr(UndefinedIndexExpr const &o);
+  LiteralIndexExpr(LiteralIndexExpr const &o);
+  LiteralIndexExpr(NonAffineIndexExpr const &o);
+  LiteralIndexExpr(QuestionmarkIndexExpr const &o);
+  LiteralIndexExpr(PredicateIndexExpr const &o);
+  LiteralIndexExpr(AffineIndexExpr const &o);
+  LiteralIndexExpr(DimIndexExpr const &o);
+  LiteralIndexExpr(SymbolIndexExpr const &o);
+
+  LiteralIndexExpr(LiteralIndexExpr &&) = delete;
+  ~LiteralIndexExpr() = default;
+  LiteralIndexExpr &operator=(const LiteralIndexExpr &) = delete;
+  LiteralIndexExpr &operator=(LiteralIndexExpr &&) = delete;
 
 private:
   void init(int64_t const value);
@@ -563,58 +597,155 @@ private:
 // Subclass to explicitly create non affine IndexExpr.
 class NonAffineIndexExpr : public IndexExpr {
 public:
-  NonAffineIndexExpr() : IndexExpr() {} // Make undefined expression.
+  NonAffineIndexExpr() = default;
   NonAffineIndexExpr(Value const value);
-  NonAffineIndexExpr(IndexExpr const otherIndexExpr);
+  NonAffineIndexExpr(IndexExpr const &o);
+  NonAffineIndexExpr(UndefinedIndexExpr const &o);
+  NonAffineIndexExpr(LiteralIndexExpr const &o);
+  NonAffineIndexExpr(NonAffineIndexExpr const &o);
+  NonAffineIndexExpr(QuestionmarkIndexExpr const &o);
+  NonAffineIndexExpr(PredicateIndexExpr const &o);
+  NonAffineIndexExpr(AffineIndexExpr const &o);
+  NonAffineIndexExpr(DimIndexExpr const &o);
+  NonAffineIndexExpr(SymbolIndexExpr const &o);
+
+  NonAffineIndexExpr(NonAffineIndexExpr &&) = delete;
+  ~NonAffineIndexExpr() = default;
+  NonAffineIndexExpr &operator=(const NonAffineIndexExpr &) = delete;
+  NonAffineIndexExpr &operator=(NonAffineIndexExpr &&) = delete;
+
+private:
+  NonAffineIndexExpr(IndexExprImpl *otherObjPtr);
 };
 
 // Subclass to explicitly create Questionmark IndexExpr.
 class QuestionmarkIndexExpr : public IndexExpr {
 public:
   QuestionmarkIndexExpr();
-  QuestionmarkIndexExpr(IndexExpr const otherIndexExpr);
+  QuestionmarkIndexExpr(IndexExpr const &o);
+  QuestionmarkIndexExpr(UndefinedIndexExpr const &o);
+  QuestionmarkIndexExpr(LiteralIndexExpr const &o);
+  QuestionmarkIndexExpr(NonAffineIndexExpr const &o);
+  QuestionmarkIndexExpr(QuestionmarkIndexExpr const &o);
+  QuestionmarkIndexExpr(PredicateIndexExpr const &o);
+  QuestionmarkIndexExpr(AffineIndexExpr const &o);
+  QuestionmarkIndexExpr(DimIndexExpr const &o);
+  QuestionmarkIndexExpr(SymbolIndexExpr const &o);
+
+  QuestionmarkIndexExpr(QuestionmarkIndexExpr &&) = delete;
+  ~QuestionmarkIndexExpr() = default;
+  QuestionmarkIndexExpr &operator=(const QuestionmarkIndexExpr &) = delete;
+  QuestionmarkIndexExpr &operator=(QuestionmarkIndexExpr &&) = delete;
 };
 
 // Subclass to explicitly create Predicate IndexExpr.
 class PredicateIndexExpr : public IndexExpr {
 public:
-  PredicateIndexExpr() : IndexExpr() {} // Make undefined predicate expression.
+  PredicateIndexExpr() = default;
   PredicateIndexExpr(bool const value); // Make a predicate constant value.
   PredicateIndexExpr(Value const value);
-  PredicateIndexExpr(IndexExpr const otherIndexExpr);
+  PredicateIndexExpr(IndexExpr const &o);
+  PredicateIndexExpr(UndefinedIndexExpr const &o);
+  PredicateIndexExpr(LiteralIndexExpr const &o);
+  PredicateIndexExpr(NonAffineIndexExpr const &o);
+  PredicateIndexExpr(QuestionmarkIndexExpr const &o);
+  PredicateIndexExpr(PredicateIndexExpr const &o);
+  PredicateIndexExpr(AffineIndexExpr const &o);
+  PredicateIndexExpr(DimIndexExpr const &o);
+  PredicateIndexExpr(SymbolIndexExpr const &o);
+
+  PredicateIndexExpr(PredicateIndexExpr &&) = delete;
+  ~PredicateIndexExpr() = default;
+  PredicateIndexExpr &operator=(const PredicateIndexExpr &) = delete;
+  PredicateIndexExpr &operator=(PredicateIndexExpr &&) = delete;
+
+private:
+  PredicateIndexExpr(IndexExprImpl *otherObjPtr);
 };
 
 // Subclass to explicitly create Affine IndexExpr.
 class AffineIndexExpr : public IndexExpr {
 public:
-  AffineIndexExpr() : IndexExpr() {} // Make undefined expression.
+  AffineIndexExpr() = default;
   AffineIndexExpr(AffineExpr const value);
-  AffineIndexExpr(IndexExpr const otherIndexExpr);
+  AffineIndexExpr(IndexExpr const &o);
+  AffineIndexExpr(UndefinedIndexExpr const &o);
+  AffineIndexExpr(LiteralIndexExpr const &o);
+  AffineIndexExpr(NonAffineIndexExpr const &o);
+  AffineIndexExpr(QuestionmarkIndexExpr const &o);
+  AffineIndexExpr(PredicateIndexExpr const &o);
+  AffineIndexExpr(AffineIndexExpr const &o);
+  AffineIndexExpr(DimIndexExpr const &o);
+  AffineIndexExpr(SymbolIndexExpr const &o);
+
+  AffineIndexExpr(AffineIndexExpr &&) = delete;
+  ~AffineIndexExpr() = default;
+  AffineIndexExpr &operator=(const AffineIndexExpr &) = delete;
+  AffineIndexExpr &operator=(AffineIndexExpr &&) = delete;
+
+private:
+  AffineIndexExpr(IndexExprImpl *otherObjPtr);
 };
 
 // Subclass to explicitly create Dim IndexExpr.
 class DimIndexExpr : public IndexExpr {
 public:
-  DimIndexExpr() : IndexExpr() {} // Make undefined expression.
+  DimIndexExpr() = default;
   DimIndexExpr(Value const value);
-  DimIndexExpr(IndexExpr const otherIndexExpr);
+  DimIndexExpr(IndexExpr const &o);
+  DimIndexExpr(UndefinedIndexExpr const &o);
+  DimIndexExpr(LiteralIndexExpr const &o);
+  DimIndexExpr(NonAffineIndexExpr const &o);
+  DimIndexExpr(QuestionmarkIndexExpr const &o);
+  DimIndexExpr(PredicateIndexExpr const &o);
+  DimIndexExpr(AffineIndexExpr const &o);
+  DimIndexExpr(DimIndexExpr const &o);
+  DimIndexExpr(SymbolIndexExpr const &o);
+
+  DimIndexExpr(DimIndexExpr &&) = delete;
+  ~DimIndexExpr() = default;
+  DimIndexExpr &operator=(const DimIndexExpr &) = default;
+  DimIndexExpr &operator=(DimIndexExpr &&) = default;
+
+private:
+  DimIndexExpr(IndexExprImpl *otherObjPtr);
 };
 
 // Subclass to explicitly create IndexExpr.
 class SymbolIndexExpr : public IndexExpr {
 public:
-  SymbolIndexExpr() : IndexExpr() {} // Make undefined expression.
+  SymbolIndexExpr() = default;
   SymbolIndexExpr(Value const value);
-  SymbolIndexExpr(IndexExpr const otherIndexExpr);
+  SymbolIndexExpr(IndexExpr const &o);
+  SymbolIndexExpr(UndefinedIndexExpr const &o);
+  SymbolIndexExpr(LiteralIndexExpr const &o);
+  SymbolIndexExpr(NonAffineIndexExpr const &o);
+  SymbolIndexExpr(QuestionmarkIndexExpr const &o);
+  SymbolIndexExpr(PredicateIndexExpr const &o);
+  SymbolIndexExpr(AffineIndexExpr const &o);
+  SymbolIndexExpr(DimIndexExpr const &o);
+  SymbolIndexExpr(SymbolIndexExpr const &o);
+
+  SymbolIndexExpr(SymbolIndexExpr &&) = default;
+  ~SymbolIndexExpr() = default;
+  SymbolIndexExpr &operator=(const SymbolIndexExpr &) = delete;
+  SymbolIndexExpr &operator=(SymbolIndexExpr &&) = delete;
+
+private:
+  SymbolIndexExpr(IndexExprImpl *otherObjPtr);
 };
 
 //===----------------------------------------------------------------------===//
 // Additional operators with integer values in first position
 //===----------------------------------------------------------------------===//
 
-inline IndexExpr operator+(int64_t const a, const IndexExpr b) { return b + a; }
-inline IndexExpr operator*(int64_t const a, const IndexExpr b) { return b * a; }
-inline IndexExpr operator-(int64_t const a, const IndexExpr b) {
+inline IndexExpr operator+(int64_t const a, const IndexExpr &b) {
+  return b + a;
+}
+inline IndexExpr operator*(int64_t const a, const IndexExpr &b) {
+  return b * a;
+}
+inline IndexExpr operator-(int64_t const a, const IndexExpr &b) {
   return LiteralIndexExpr(a) - b;
 }
 
@@ -633,25 +764,29 @@ public:
   // GetDenseVal locate a DenseElementAttr by looking at the definition of the
   // array value. Return null if this definition is not generating a dense
   // array.
-  typedef std::function<DenseElementsAttr(Value array)> GetDenseVal;
+  using GetDenseVal = std::function<DenseElementsAttr(Value array)>;
   // LoadVal will load the value at array[i] where array is a single dimensional
   // array.
-  typedef std::function<Value(
-      OpBuilder &rewriter, Location loc, Value array, int64_t index)>
-      LoadVal;
+  using LoadVal = std::function<Value(
+      OpBuilder &rewriter, Location loc, Value array, int64_t index)>;
 
+  // Constructor when there is no default value.
   ArrayValueIndexCapture(
-      Operation *op, Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal);
-  ArrayValueIndexCapture(Operation *op, Value array, int64_t defaultLiteral,
+      Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal);
+  // Constructor in the presence of a default value when none is found.
+  ArrayValueIndexCapture(Value array, int64_t defaultLiteral,
       GetDenseVal fGetDenseVal, LoadVal fLoadVal);
+  ArrayValueIndexCapture() = delete;
 
+  // Return Undefined op when we cannot read the value.
   IndexExpr getSymbol(uint64_t i);
-  void getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
+  // Return true when it could successfully read num symbols; otherwise return
+  // false and an empty list.
+  bool getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
+  // Same as above. Assume array is a 1D shape typed; we use its size as num.
+  bool getSymbolList(SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
-  ArrayValueIndexCapture() { llvm_unreachable("forbidden constructor"); };
-
-  Operation *op;
   Value array;
   int64_t defaultLiteral;
   bool hasDefault;
@@ -664,15 +799,14 @@ class ArrayAttributeIndexCapture {
 public:
   ArrayAttributeIndexCapture(ArrayAttr array);
   ArrayAttributeIndexCapture(ArrayAttr array, int64_t defaultLiteral);
+  ArrayAttributeIndexCapture() = delete;
 
   IndexExpr getLiteral(uint64_t i);
-  int64_t size() { return arraySize; }
+  uint64_t size() { return arraySize; }
 
 private:
-  ArrayAttributeIndexCapture() { llvm_unreachable("forbidden constructor"); };
-
   ArrayAttr array;
-  int64_t arraySize;
+  uint64_t arraySize;
   int64_t defaultLiteral;
   bool hasDefault;
 };
@@ -682,9 +816,10 @@ private:
 // they are not constant at compile time.
 class MemRefBoundsIndexCapture {
 public:
+  MemRefBoundsIndexCapture();
   MemRefBoundsIndexCapture(Value tensorOrMemref);
 
-  int64_t getRank() { return memRank; }
+  uint64_t getRank() { return memRank; }
   bool isLiteral(int64_t i);
   bool areAllLiteral();
   int64_t getShape(int64_t i);
@@ -696,15 +831,13 @@ public:
   void getSymbolList(SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
-  MemRefBoundsIndexCapture() { llvm_unreachable("forbidden constructor"); };
-
   template <class INDEX>
   IndexExpr get(uint64_t i);
   template <class INDEX>
   void getList(SmallVectorImpl<IndexExpr> &dimList);
 
   Value tensorOrMemref;
-  int64_t memRank;
+  uint64_t memRank;
 };
 
 //===----------------------------------------------------------------------===//

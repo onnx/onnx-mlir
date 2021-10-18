@@ -43,6 +43,10 @@
 
 using namespace mlir;
 
+// A global variable to indicate whether this pass will emit dealloc for
+// allocated memrefs or not.
+extern bool gEmitDealloc;
+
 //===----------------------------------------------------------------------===//
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
 //===----------------------------------------------------------------------===//
@@ -115,12 +119,12 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
 
 /// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.
-Value foldOrEmitONNXSqueezeOp(ConversionPatternRewriter &rewriter, Location loc,
-    Type resultType, Value input, int64_t axis);
+Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, int64_t axis);
 
 /// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.
-Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
+Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis);
 
 /// Emit an ONNXSplitOp. If the input is constant, do const propagation, and
@@ -133,6 +137,12 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
 /// return a constant.
 Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, ArrayAttr permAttr);
+
+/// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
+/// The new view is created using the given 'memRefType' and 'outputDims'.
+Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
+    Location loc, Value data, MemRefType memRefType,
+    SmallVectorImpl<IndexExpr> &outputDims);
 
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
@@ -275,6 +285,9 @@ void populateLoweringONNXArgMaxOpPattern(
 void populateLoweringONNXUnsqueezeOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXUnsqueezeV11OpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXTransposeOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
@@ -285,6 +298,9 @@ void populateLoweringONNXPadConstantValuePadOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXPadOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXRangeOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXReshapeOpPattern(
@@ -311,7 +327,13 @@ void populateLoweringONNXSliceOpPattern(
 void populateLoweringONNXSqueezeOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXSqueezeV11OpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXSplitOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXSplitV11OpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXSizeOpPattern(
@@ -321,6 +343,18 @@ void populateLoweringONNXTileOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXFlattenOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXResizeOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXNonZeroOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXExpandOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXOneHotOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp);

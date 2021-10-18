@@ -43,7 +43,27 @@ struct ImportOptions {
   // variables)
   bool useOnnxModelTypes = false;
   bool invokeOnnxVersionConverter = false;
+  // Custom shape information for the graph inputs.
+  // Its format is 'input_id:dim,dim,dim|input_id:dim,dim,dim'
+  // E.g. An ONNX model has two dynamic inputs
+  //   - (arg0: tensor<?x?x?xf32>, arg1: tensor<?x5xf32>)
+  // If we want to compile the model for static dimensions, we can use:
+  //   - shapeInformation = '0:3,4,5|1:10,5'
+  // to obtain a model with two staic inputs:
+  //   - (arg0: tensor<3x4x5xf32>, arg1: tensor<10x5xf32>)
+  //
+  std::string shapeInformation = "";
 };
+
+/*!
+ *  Import an ONNX model array into the ONNX Dialect.
+ *  @param onnxBuffer buffer containing onnx model protobuf.
+ *  @param bufferSize size of buffer containing onnx model protobuf.
+ *  @return MLIR::module generated for the ONNX model.
+ */
+void ImportFrontendModelArray(const void *onnxBuffer, int bufferSize,
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module,
+    ImportOptions options = ImportOptions());
 
 /*!
  *  Import an ONNX model file into the ONNX Dialect.

@@ -20,6 +20,28 @@
 using namespace mlir;
 using namespace mlir::onnxmlir;
 
+//====-------------------------- ONNX Builder ---------------------------===//
+
+Value OnnxBuilder::add(Value A, Value B) {
+  return b.create<ONNXAddOp>(loc, A, B);
+}
+
+Value OnnxBuilder::sub(Value A, Value B) {
+  return b.create<ONNXSubOp>(loc, A, B);
+}
+
+Value OnnxBuilder::mul(Value A, Value B) {
+  return b.create<ONNXMulOp>(loc, A, B);
+}
+
+Value OnnxBuilder::div(Value A, Value B) {
+  return b.create<ONNXDivOp>(loc, A, B);
+}
+
+Value OnnxBuilder::matmul(Type Y, Value A, Value B) {
+  return b.create<ONNXMatMulOp>(loc, Y, A, B);
+}
+
 AffineMap getIdentityDimMap(Builder &builder) {
   return AffineMap::get(1, 0, {builder.getAffineDimExpr(0)});
 }
@@ -194,6 +216,18 @@ bool isFromNone(Value v) {
     if (c.getValue().isa<UnitAttr>())
       return true;
   }
+  if (v.getDefiningOp() &&
+      llvm::dyn_cast_or_null<mlir::ONNXConstantOp>(v.getDefiningOp())) {
+    mlir::ONNXConstantOp c =
+        llvm::dyn_cast<mlir::ONNXConstantOp>(v.getDefiningOp());
+    if (c.value().hasValue() && c.valueAttr().isa<DenseElementsAttr>()) {
+      DenseElementsAttr d = c.valueAttr().cast<DenseElementsAttr>();
+      auto shape = d.getType().dyn_cast<RankedTensorType>().getShape();
+      if (shape.size() == 1 && shape[0] == 0)
+        return true;
+    }
+  }
+
   return false;
 }
 
@@ -252,6 +286,30 @@ bool IsIdentityPermuteVector(ArrayAttr permAttr) {
   return true;
 }
 
+/// Test if the value has the specified constant shape
+bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape) {
+  if (!value.getType().isa<ShapedType>()) {
+    return false;
+  }
+  ArrayRef<int64_t> valueShape = value.getType().cast<ShapedType>().getShape();
+  DenseElementsAttr shapeAttr = getDenseElementAttributeFromONNXValue(shape);
+  if (shapeAttr == nullptr) {
+    return false;
+  }
+  int64_t dimensionsOfShape = shapeAttr.getType().getShape()[0];
+  if ((int64_t)valueShape.size() != dimensionsOfShape) {
+    return false;
+  }
+  auto valueIt = shapeAttr.getIntValues().begin();
+  for (int64_t i = 0; i < dimensionsOfShape; i++) {
+    int64_t value = (*valueIt++).getSExtValue();
+    if (valueShape[i] != value) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /// Test if two axis arrays contain the same values or not.
 bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
   // false if one of the array attributes is null.
@@ -266,7 +324,7 @@ bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
     lhs.emplace_back(axis);
   }
 
-  int64_t rhsSize = 0;
+  size_t rhsSize = 0;
   for (auto attr : rhsAttr.getValue()) {
     int64_t axis = attr.cast<IntegerAttr>().getInt();
     if (axis < 0)
@@ -284,9 +342,34 @@ bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
   return true;
 }
 
+/// Convert ConstantOp to ArrayAttr and test if they have the same values
+bool AreTheSameConstantOpDenseAttr(
+    Builder &builder, int64_t rank, Value lhsOp, Value rhsOp) {
+  ONNXConstantOp lhsConstOp = dyn_cast<ONNXConstantOp>(lhsOp.getDefiningOp());
+  ONNXConstantOp rhsConstOp = dyn_cast<ONNXConstantOp>(rhsOp.getDefiningOp());
+  if (lhsConstOp && rhsConstOp) {
+    auto lhsArrAttr = createArrayAttrFromConstantOp(builder, lhsConstOp);
+    auto rhsArrAttr = createArrayAttrFromConstantOp(builder, rhsConstOp);
+    return AreTheSameAxisArray(rank, lhsArrAttr, rhsArrAttr);
+  } else {
+    return false;
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // Support for rewrite patterns.
 //===----------------------------------------------------------------------===//
+
+// Create an ArrayAttr from a dense ConstantOp
+ArrayAttr createArrayAttrFromConstantOp(Builder &builder, Value constOp) {
+  auto denseAttr = getDenseElementAttributeFromONNXValue(constOp);
+  assert(denseAttr && "ConstantOp is not a DenseElementsAttr");
+  SmallVector<int64_t, 4> intVals;
+  for (auto val : denseAttr.getValues<IntegerAttr>()) {
+    intVals.emplace_back(val.getInt());
+  }
+  return builder.getI64ArrayAttr(ArrayRef<int64_t>(intVals));
+}
 
 // Create a DenseElementsAttr from a float attribute.
 DenseElementsAttr createDenseElementsAttrFromFloatAttr(
@@ -439,4 +522,33 @@ bool isDenseONNXConstant(Value result) {
     return false;
 
   return true;
+}
+
+/// Check if a value is a 16, 32 or 64 bit integer.
+bool isCommonInteger(mlir::RankedTensorType tensorType) {
+  return tensorType.getElementType().isInteger(16) ||
+         tensorType.getElementType().isInteger(32) ||
+         tensorType.getElementType().isInteger(64);
+}
+
+/// Get scalar value when it is a constant.
+double getScalarValue(
+    mlir::ONNXConstantOp constantOp, mlir::RankedTensorType tensorType) {
+  double value;
+  DenseElementsAttr attr = constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  if (!attr)
+    constantOp.emitError("DenseElementsAttr expected");
+  if (isCommonInteger(tensorType)) {
+    auto valueIt = attr.getValues<IntegerAttr>().begin();
+    value = (double)(*valueIt).cast<IntegerAttr>().getInt();
+  } else if (tensorType.getElementType().isF32()) {
+    auto valueIt = attr.getFloatValues().begin();
+    value = (double)(*valueIt).convertToFloat();
+  } else if (tensorType.getElementType().isF64()) {
+    auto valueIt = attr.getFloatValues().begin();
+    value = (double)(*valueIt).convertToDouble();
+  } else {
+    llvm_unreachable("Unexpected type.");
+  }
+  return value;
 }

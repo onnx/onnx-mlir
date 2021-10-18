@@ -84,7 +84,7 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
     case ONNX_TYPE_DOUBLE:                                                     \
       LOG_BUF_C_TYPE(double, hex ? " %016x" : " %lf", buf, data, n);           \
       break;                                                                   \
-    defaut:                                                                    \
+    default:                                                                   \
       sprintf(buf, " unsupported data type %d ", type);                        \
     }                                                                          \
   } while (0)
@@ -101,7 +101,7 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
 #define LOG_INT_XBUF(buf, data, n) LOG_BUF_C_TYPE(int, " %08x", buf, data, n)
 #define LOG_LONG_BUF(buf, data, n) LOG_BUF_C_TYPE(long, " %ld", buf, data, n)
 #define LOG_LONG_XBUF(buf, data, n) LOG_BUF_C_TYPE(long, " %016x", buf, data, n)
-#define LOG_FLAT_BUF(buf, data, n) LOG_BUF_C_TYPE(float, " %f", buf, data, n)
+#define LOG_FLOAT_BUF(buf, data, n) LOG_BUF_C_TYPE(float, " %f", buf, data, n)
 #define LOG_FLOAT_XBUF(buf, data, n)                                           \
   LOG_BUF_C_TYPE(float, " %08x", buf, data, n)
 #define LOG_DOUBLE_BUF(buf, data, n)                                           \

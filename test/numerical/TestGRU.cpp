@@ -13,8 +13,8 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/Support/FileSystem.h"
 
+#include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/MainUtils.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
 
@@ -24,7 +24,7 @@ using namespace std;
 using namespace mlir;
 
 // Include some helper functions.
-#include "test/numerical/Helper.hpp"
+#include "Helper.hpp"
 
 // Returns whether onnx-mlir compiled GRU is producing the same results as a
 // naive implementation of GRU for a specific set of GRU
@@ -138,8 +138,9 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 
   OwningModuleRef moduleRef(module);
 
-  compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
-  onnx_mlir::ExecutionSession sess(SHARED_LIB_BASE + ".so", "run_main_graph");
+  compileModule(moduleRef, ctx, SHARED_LIB_BASE, onnx_mlir::EmitLib);
+  onnx_mlir::ExecutionSession sess(
+      getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto xOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
@@ -300,7 +301,9 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 
 int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
-  llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
+  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
+
+  llvm::cl::ParseCommandLineOptions(argc, argv, "TestGRU\n", nullptr, "TEST_ARGS");
 
   // RapidCheck test case generation.
   bool success = rc::check("GRU implementation correctness", []() {

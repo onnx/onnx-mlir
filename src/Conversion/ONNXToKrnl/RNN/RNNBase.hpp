@@ -12,18 +12,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
-#include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 #include "mlir/IR/AffineExpr.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
-#define BUFFER_ALIGN 128
+static constexpr int BUFFER_ALIGN = 128;
 using namespace mlir;
 
-static const StringRef FORWARD = "forward";
-static const StringRef REVERSE = "reverse";
-static const StringRef BIDIRECTIONAL = "bidirectional";
+static constexpr StringRef FORWARD = "forward";
+static constexpr StringRef REVERSE = "reverse";
+static constexpr StringRef BIDIRECTIONAL = "bidirectional";
 
 struct RNNActivation {
   StringRef name;
@@ -68,18 +66,12 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     Value output);
 
 /// Apply an activation function on a given operand.
-Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
-    RNNActivation activation, Value operand);
+Value applyActivation(
+    OpBuilder &rewriter, Location loc, RNNActivation activation, Value operand);
 
 /// Get a slice of X at a specific timestep.
 Value emitXSliceAt(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value timestep);
-
-/// Emit multiple matrix multiplications where A is shared and all Bs have the
-/// same dimensions.
-void emitFusedMatMul(ConversionPatternRewriter &rewriter, Location loc,
-    MemRefType matrixType, Value A, ArrayRef<Value> Bs, Value zero,
-    Value zeroVal, ArrayRef<Value> Cs);
 
 // Override the following methods when lowering an RNN operation:
 // - hasAllNoneOutput
@@ -191,8 +183,6 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         calculateState<S, A, W, B>(rewriter, loc, Xt, state, activationForward,
             weightForward, biasForward, sequenceIV, directionIV,
             /*isForward=*/true);
-        // Clean up
-        rewriter.create<memref::DeallocOp>(loc, Xt);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
@@ -231,8 +221,6 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         calculateState<S, A, W, B>(rewriter, loc, Xt, state, activationReverse,
             weightReverse, biasReverse, reverseSequenceIV, directionIV,
             /*isForward=*/false);
-        // Clean up
-        rewriter.create<memref::DeallocOp>(loc, Xt);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }

@@ -15,6 +15,8 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
+bool gEmitDealloc = true;
+
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values) {
   for (Value value : values) {
@@ -42,6 +44,7 @@ MemRefType convertToMemRefType(Type type) {
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, Value operand,
     int64_t alignment) {
+  MemRefBuilder createMemRef(rewriter, loc);
   // Put together alloc operands for any dynamic dimensions of the memref.
   memref::AllocOp alloc;
   if (operand) {
@@ -49,32 +52,18 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     auto rank = memRefShape.size();
 
     SmallVector<Value, 4> allocOperands;
-    for (int i = 0; i < rank; ++i)
+    for (unsigned int i = 0; i < rank; ++i)
       if (memRefShape[i] < 0) {
-        auto dim = rewriter.create<memref::DimOp>(loc, operand, i);
+        auto dim = createMemRef.dim(operand, i);
         allocOperands.push_back(dim);
       }
-    // Set alignment attribute. Default value is `-1`, which does not set
-    // alignment.
-    if (alignment >= 0) {
-      IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
-      alloc = rewriter.create<memref::AllocOp>(
-          loc, type, allocOperands, constAlignAttr);
-    } else {
-      alloc = rewriter.create<memref::AllocOp>(loc, type, allocOperands);
-    }
+    alloc = createMemRef.alignedAlloc(type, allocOperands, alignment);
   } else {
-    // Set alignment attribute. Default value is `-1`, which does not set
-    // alignment.
-    if (alignment >= 0) {
-      SmallVector<Value, 4> allocOperandsEmpty;
-      IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
-      alloc = rewriter.create<memref::AllocOp>(
-          loc, type, allocOperandsEmpty, constAlignAttr);
-    } else {
-      alloc = rewriter.create<memref::AllocOp>(loc, type);
-    }
+    alloc = createMemRef.alignedAlloc(type, alignment);
   }
+
+  if (!gEmitDealloc)
+    return alloc;
 
   // Make sure to allocate at the beginning of the block if
   // all dimensions are known.
@@ -83,7 +72,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     alloc.getOperation()->moveBefore(&parentBlock->front());
 
   if (insertDealloc) {
-    auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
+    auto dealloc = createMemRef.dealloc(alloc);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
 
@@ -106,23 +95,22 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   auto memRefShape = type.getShape();
   auto rank = memRefShape.size();
 
-  for (int i = 0; i < rank; ++i) {
+  for (unsigned int i = 0; i < rank; ++i) {
     if (memRefShape[i] < 0) {
       // have dyn shape
       allocOperands.emplace_back(outputDims[i].getValue());
     }
   }
-  memref::AllocOp allocOp;
-  if (alignment > 0) {
-    IntegerAttr alignAttr = rewriter.getI64IntegerAttr(alignment);
-    allocOp =
-        rewriter.create<memref::AllocOp>(loc, type, allocOperands, alignAttr);
-  } else {
-    allocOp = rewriter.create<memref::AllocOp>(loc, type, allocOperands);
-  }
+  MemRefBuilder createMemRef(rewriter, loc);
+  memref::AllocOp allocOp =
+      createMemRef.alignedAlloc(type, allocOperands, alignment);
+
+  if (!gEmitDealloc)
+    return allocOp;
+
   if (insertDealloc) {
     auto *parentBlock = allocOp.getOperation()->getBlock();
-    auto dealloc = rewriter.create<memref::DeallocOp>(loc, allocOp);
+    auto dealloc = createMemRef.dealloc(allocOp);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   return allocOp;
@@ -139,22 +127,51 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
 }
 
 // Determine if current function returns the result value of the
-// current op being lowered. If it does then dealloc should not be
-// inserted.
+// current op or the result value of reinterpret_cast op whose
+// operand is the result value of current op. If it does then
+// dealloc should not be inserted.
 bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
+  if (gEmitDealloc == false)
+    return false;
+
   auto parentBlock = currentOp->getBlock();
-
   bool insertDealloc = true;
-  parentBlock->walk([&insertDealloc, currentOp, resultIndex](ReturnOp op) {
-    // If there is at least one result to investigate.
-    if (currentOp->getNumResults() > 0) {
-      auto result = currentOp->getResult(resultIndex);
-      for (const auto &operand : op.getOperands())
-        if (operand == result)
-          insertDealloc = false;
-    }
-  });
 
+  // Check if the result value of `currentOp` is an operand of
+  // `ReinterpretCastOp`, and store the result value of `ReinterpretCastOp`.
+  // Reshape, Squeeze, and Unsqueeze ops are checked because they are lowered to
+  // `ReinterpretCastOp`.
+  SmallVector<Value, 32> castOpResults;
+  if (currentOp->getNumResults() > 0) {
+    parentBlock->walk([currentOp, resultIndex, &castOpResults](Operation *op) {
+      if (isa<memref::ReinterpretCastOp>(op) || isa<ONNXReshapeOp>(op) ||
+          isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op) ||
+          isa<ONNXSqueezeOp>(op) || isa<ONNXUnsqueezeOp>(op)) {
+        auto result = currentOp->getResult(resultIndex);
+        for (const auto &operand : op->getOperands())
+          if (operand == result)
+            castOpResults.emplace_back(op->getResults()[0]);
+      }
+    });
+  }
+  // If there is at least one result to investigate.
+  if (currentOp->getNumResults() > 0) {
+    parentBlock->walk(
+        [&insertDealloc, currentOp, resultIndex, &castOpResults](ReturnOp op) {
+          auto result = currentOp->getResult(resultIndex);
+          for (const auto &operand : op.getOperands()) {
+            // Determine if current function returns the result value of the
+            // current op.
+            if (operand == result)
+              insertDealloc = false;
+            // Determin if the result value of reinterpret_cast op whose operand
+            // is the result value of current op
+            for (const auto &castOpResult : castOpResults)
+              if (operand == castOpResult)
+                insertDealloc = false;
+          }
+        });
+  }
   return insertDealloc;
 }
 
@@ -359,7 +376,8 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
   ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
   Value dimVal;
   if (shape[axis] < 0) {
-    Value dim = rewriter.create<memref::DimOp>(loc, operand, axis);
+    MemRefBuilder createMemRef(rewriter, loc);
+    Value dim = createMemRef.dim(operand, axis);
     if (type.isa<IndexType>())
       dimVal = dim;
     else
@@ -370,32 +388,9 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
   return dimVal;
 }
 
-/// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
-/// return a constant.
-Value foldOrEmitONNXSqueezeOp(ConversionPatternRewriter &rewriter, Location loc,
-    Type resultType, Value input, int64_t axis) {
-  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
-    char *inputBuffer = createArrayFromDenseElementsAttr(
-        input.getDefiningOp()
-            ->getAttrOfType<::mlir::Attribute>("value")
-            .dyn_cast_or_null<mlir::DenseElementsAttr>());
-
-    Value constVal = createDenseONNXConstantOp(
-        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
-                         .getResult();
-    free(inputBuffer);
-    return constVal;
-  } else {
-    return rewriter
-        .create<ONNXSqueezeOp>(
-            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
-        .getResult();
-  }
-}
-
-/// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
-/// return a constant.
-Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
+/// Emit an ONNXSqueezeV11Op. If the input is constant, do const propagation,
+/// and return a constant.
+Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
   if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
     char *inputBuffer = createArrayFromDenseElementsAttr(
@@ -410,7 +405,30 @@ Value foldOrEmitONNXUnsqueezeOp(ConversionPatternRewriter &rewriter,
     return constVal;
   } else {
     return rewriter
-        .create<ONNXUnsqueezeOp>(
+        .create<ONNXSqueezeV11Op>(
+            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
+        .getResult();
+  }
+}
+
+/// Emit an ONNXUnsqueezeV11Op. If the input is constant, do const propagation,
+/// and return a constant.
+Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, int64_t axis) {
+  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(
+        input.getDefiningOp()
+            ->getAttrOfType<::mlir::Attribute>("value")
+            .dyn_cast_or_null<mlir::DenseElementsAttr>());
+
+    Value constVal = createDenseONNXConstantOp(
+        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
+                         .getResult();
+    free(inputBuffer);
+    return constVal;
+  } else {
+    return rewriter
+        .create<ONNXUnsqueezeV11Op>(
             loc, resultType, input, rewriter.getI64ArrayAttr(axis))
         .getResult();
   }
@@ -456,8 +474,9 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
     }
     free(inputBuffer);
   } else {
-    ONNXSplitOp split = rewriter.create<ONNXSplitOp>(loc, resultTypes, input,
-        /*axis=*/axis, nullptr);
+    ONNXSplitV11Op split =
+        rewriter.create<ONNXSplitV11Op>(loc, resultTypes, input,
+            /*axis=*/axis, nullptr);
     for (int i = 0; i < outputNum; ++i)
       resVals.emplace_back(split.outputs()[i]);
   }
@@ -496,4 +515,44 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
   } else
     return rewriter.create<ONNXTransposeOp>(loc, resultType, input, permAttr)
         .getResult();
+}
+
+/// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
+/// The new view is created using the given 'memRefType' and 'outputDims'.
+Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
+    Location loc, Value data, MemRefType memRefType,
+    SmallVectorImpl<IndexExpr> &outputDims) {
+  int64_t rank = memRefType.getRank();
+
+  // Compute new sizes and strides.
+  SmallVector<IndexExpr, 4> sizesIE, stridesIE;
+  sizesIE.resize(rank);
+  stridesIE.resize(rank);
+  IndexExpr strideIE = LiteralIndexExpr(1);
+  for (int i = rank - 1; i >= 0; --i) {
+    sizesIE[i] = outputDims[i];
+    stridesIE[i] = strideIE;
+    if (i > 0)
+      strideIE = strideIE * sizesIE[i];
+  }
+
+  SmallVector<OpFoldResult, 4> sizes, strides;
+  sizes.resize(rank);
+  strides.resize(rank);
+  for (int i = rank - 1; i >= 0; --i) {
+    if (sizesIE[i].isLiteral())
+      sizes[i] = rewriter.getIndexAttr(sizesIE[i].getLiteral());
+    else
+      sizes[i] = sizesIE[i].getValue();
+    if (stridesIE[i].isLiteral())
+      strides[i] = rewriter.getIndexAttr(stridesIE[i].getLiteral());
+    else
+      strides[i] = stridesIE[i].getValue();
+  }
+
+  // Emit ReinterpretCastOp.
+  Value newView =
+      rewriter.create<memref::ReinterpretCastOp>(loc, memRefType, data,
+          /*offset=*/rewriter.getIndexAttr(0), sizes, strides);
+  return newView;
 }

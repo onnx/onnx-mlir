@@ -23,6 +23,7 @@
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/Common.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
@@ -47,7 +48,7 @@ typedef std::map<Block *, AlignmentToMemPool *> BlockToMemPool;
 //===----------------------------------------------------------------------===//
 
 /// Retrieve function which contains the current operation.
-FuncOp getContainingFunction(memref::AllocOp op) {
+ATTRIBUTE(unused) FuncOp getContainingFunction(memref::AllocOp op) {
   Operation *parentFuncOp = op->getParentOp();
 
   // While parent is not a FuncOp and its cast to a FuncOp is null.
@@ -78,7 +79,7 @@ bool isBlockArgument(memref::AllocOp allocOp, Value operand) {
   return false;
 }
 
-KrnlGetRefOp getUnbundledGetRef(memref::AllocOp *memPool) {
+ATTRIBUTE(unused) KrnlGetRefOp getUnbundledGetRef(memref::AllocOp *memPool) {
   auto parentBlock = memPool->getOperation()->getBlock();
 
   KrnlGetRefOp unbundledGetRef = nullptr;
@@ -206,6 +207,11 @@ public:
                                   .dyn_cast<MemRefType>()
                                   .getShape();
     int64_t currentMemPoolSize = staticMemPoolShape[0];
+    if (alignment > 0) {
+      int64_t misalignment = currentMemPoolSize % alignment;
+      if (misalignment > 0)
+        currentMemPoolSize += alignment - misalignment;
+    }
 
     // Get the getref of the current allocOp. There is exactly one such getref.
     KrnlGetRefOp currentAllocGetRef = getCurrentAllocGetRef(&allocOp);
@@ -229,6 +235,7 @@ public:
     newMemPoolShape.emplace_back(bundleTotalSize);
     auto bundledMemPoolMemRefType =
         MemRefType::get(newMemPoolShape, rewriter.getIntegerType(8));
+
     auto newStaticMemPoolAlloc = rewriter.create<memref::AllocOp>(
         loc, bundledMemPoolMemRefType, staticMemPoolAlloc.alignmentAttr());
 
@@ -316,7 +323,6 @@ public:
     }
 
     // Initialize work queue data structure.
-    Operation *op = allocOp.getOperation();
     std::vector<Value> operandList;
     for (const auto &operand : allocOp.getOperands()) {
       operandList.emplace_back(operand);
@@ -386,9 +392,7 @@ public:
     // If this is the first valid alloc we can bundle in this block, then we
     // need to move it to the top of the block as it will consitute an
     // insertion point for all other bundle-able AllocOps in the block.
-    bool isFirstEverBundledAllocOp =
-        blockToDynamicPool->count(parentBlock) == 0;
-    AlignmentToMemPool *alignmentToMemPool;
+    AlignmentToMemPool *alignmentToMemPool = nullptr;
     if (blockToDynamicPool->count(parentBlock) == 0) {
       allocOp.getOperation()->moveBefore(&parentBlock->front());
 
@@ -515,13 +519,15 @@ public:
     RewritePatternSet patterns(&getContext());
     patterns.insert<KrnlBundleStaticMemoryPools>(
         &getContext(), &blockToStaticPool);
-    patterns.insert<KrnlBundleDynamicMemoryPools>(
-        &getContext(), &blockToDynamicPool);
+    // patterns.insert<KrnlBundleDynamicMemoryPools>(
+    //     &getContext(), &blockToDynamicPool);
     patterns.insert<KrnlMoveConstantsUp>(&getContext());
 
     // No need to test, its ok to fail the apply.
     LogicalResult res =
         applyPatternsAndFoldGreedily(function, std::move(patterns));
+    assert((succeeded(res) || failed(res)) && "remove unused var warning");
+
     BlockToMemPool::iterator it;
     for (it = blockToStaticPool.begin(); it != blockToStaticPool.end(); it++)
       free(it->second);

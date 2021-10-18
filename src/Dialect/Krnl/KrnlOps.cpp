@@ -31,9 +31,9 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
 
-#include "KrnlHelper.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
 
-#include "KrnlOps.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
 
@@ -110,12 +110,12 @@ ParseResult parseKrnlDefineLoopsOp(
  *   %i0 = 10 to N : %i1 = M to 20
  */
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
-    KrnlIterateOperandPack operandPack) {
+    KrnlIterateOperandPack operandPack, ValueRange iterArgs,
+    function_ref<void(ImplicitLocOpBuilder &, ValueRange)> bodyBuilderFn) {
   // Record optimized loops and the number of such loops.
   result.addOperands(operandPack.getOperands());
   result.addAttribute(
       KrnlIterateOp::getBoundsAttrName(), operandPack.getAttributes());
-
   result.addAttribute(getNumOptimizedLoopsAttrName(),
       builder.getI64IntegerAttr(operandPack.getNumOptimizedLoops()));
 
@@ -129,7 +129,57 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   body->addArguments(body_args);
   bodyRegion->push_back(body);
 
-  ensureTerminator(*bodyRegion, builder, result.location);
+  // If nonnull, invoke the lambda function that creates the loop body. This
+  // feature is used to build structured operations using lambda. Parameters to
+  // the functions are the builder, location, and arguments passed as iterArgs.
+  if (bodyBuilderFn) {
+    PatternRewriter::InsertionGuard insertGuard(builder);
+    builder.setInsertionPointToStart(body);
+    ImplicitLocOpBuilder lb(result.location, builder);
+    bodyBuilderFn(lb, iterArgs);
+    ensureTerminator(*bodyRegion, builder, result.location);
+  } else {
+    ensureTerminator(*bodyRegion, builder, result.location);
+  }
+}
+
+void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
+    ValueRange originalLoops, ValueRange optimizedLoops, ValueRange lbs,
+    ValueRange ubs, ValueRange iterArgs,
+    function_ref<void(ImplicitLocOpBuilder &, ValueRange)> bodyBuilderFn) {
+  assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
+  // TODO: May want to change KrnlIterateOperandPack to use ValueRanges...
+  SmallVector<Value, 4> origLoops, optLoops;
+  for (auto org : originalLoops)
+    origLoops.emplace_back(org);
+  for (auto opt : optimizedLoops)
+    optLoops.emplace_back(opt);
+  KrnlIterateOperandPack pack(builder, origLoops, optLoops);
+  for (unsigned int i = 0; i < lbs.size(); ++i) {
+    pack.pushOperandBound(lbs[i]);
+    pack.pushOperandBound(ubs[i]);
+  }
+  // Fill in this iterate op using the main build function.
+  build(builder, result, pack, iterArgs, bodyBuilderFn);
+}
+
+void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
+    ValueRange originalLoops, ValueRange optimizedLoops,
+    ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
+    function_ref<void(ImplicitLocOpBuilder &, ValueRange)> bodyBuilderFn) {
+  assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
+  SmallVector<Value, 4> origLoops, optLoops;
+  for (auto org : originalLoops)
+    origLoops.emplace_back(org);
+  for (auto opt : optimizedLoops)
+    optLoops.emplace_back(opt);
+  KrnlIterateOperandPack pack(builder, origLoops, optLoops);
+  for (unsigned int i = 0; i < lbs.size(); ++i) {
+    pack.pushIndexExprBound(lbs[i], /*isLb*/ true);
+    pack.pushIndexExprBound(ubs[i], /*isLb*/ false);
+  }
+  // Fill in this iterate op using the main build function.
+  build(builder, result, pack, iterArgs, bodyBuilderFn);
 }
 
 void print(OpAsmPrinter &p, KrnlIterateOp &op) {
@@ -334,6 +384,19 @@ void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
   state.addAttribute(KrnlEntryPointOp::getSignatureAttrName(), signature);
 }
 
+void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
+    Operation *op, int tag = 0) {
+  const char *opName = op->getName().getStringRef().data();
+  int64_t opID = 0;
+  // getName() result is "onnx.opName"
+  // Put only the opName part in the opID within its size
+  strncpy((char *)&opID, opName + 5, sizeof(decltype(opID)) - 1);
+  IntegerAttr attr = builder.getI64IntegerAttr(opID);
+  auto tagAttr = builder.getI64IntegerAttr(tag);
+  state.addAttribute("opID", attr);
+  state.addAttribute("tag", tagAttr);
+}
+
 //===----------------------------------------------------------------------===//
 // KrnlBlockOp
 //===----------------------------------------------------------------------===//
@@ -352,12 +415,12 @@ void KrnlBlockOp::build(::mlir::OpBuilder &odsBuilder,
 void KrnlPermuteOp::build(::mlir::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, ValueRange odsLoops,
     ArrayRef<int64_t> odsMap) {
-  int64_t rank = odsLoops.size();
+  uint64_t rank = odsLoops.size();
   assert(rank >= 2 && "permute needs 2 or more loops");
   assert(odsMap.size() == rank && "loop and size size must be identical");
-  for (int i = 0; i < rank; ++i) {
-    assert(odsMap[i] >= 0 && odsMap[i] < rank && "bad permute");
-    for (int j = i + 1; j < rank; ++j)
+  for (unsigned int i = 0; i < rank; ++i) {
+    assert(odsMap[i] >= 0 && odsMap[i] < (int64_t)rank && "bad permute");
+    for (unsigned int j = i + 1; j < rank; ++j)
       assert(
           odsMap[i] != odsMap[j] && "map should be a strict permute pattern");
   }
@@ -522,13 +585,29 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
       odsOvercompute);
 }
 
+void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, Value odsA, ValueRange aOdsStart,
+    Value odsB, ValueRange bOdsStart, Value odsC, ValueRange cOdsStart,
+    ValueRange odsLoops, Value iOdsComputeStart, Value jOdsComputeStart,
+    Value kOdsComputeStart, Value iOdsGlobalUB, Value jOdsGlobalUB,
+    Value kOdsGlobalUB, bool odsSimdize, bool odsUnroll, bool odsOvercompute) {
+  // Massage types.
+  ValueRange loopRange(odsLoops);
+  ArrayRef<int64_t> empty;
+
+  build(odsBuilder, odsState, odsA, aOdsStart, odsB, bOdsStart, odsC, cOdsStart,
+      loopRange, iOdsComputeStart, jOdsComputeStart, kOdsComputeStart,
+      iOdsGlobalUB, jOdsGlobalUB, kOdsGlobalUB, empty, empty, empty, empty,
+      odsSimdize, odsUnroll, odsOvercompute);
+}
+
 static LogicalResult verify(KrnlMatMulOp op) {
   KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
-  int64_t aRank =
+  uint64_t aRank =
       operandAdaptor.A().getType().cast<MemRefType>().getShape().size();
-  int64_t bRank =
+  uint64_t bRank =
       operandAdaptor.B().getType().cast<MemRefType>().getShape().size();
-  int64_t cRank =
+  uint64_t cRank =
       operandAdaptor.C().getType().cast<MemRefType>().getShape().size();
   if (!(aRank >= 2 && bRank >= 2 && cRank >= 2))
     return op.emitOpError("currently only support ranks >=2");
@@ -571,6 +650,16 @@ void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
   ArrayAttr padToNextAttr = odsBuilder.getI64ArrayAttr(odsPadToNext);
   build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange,
       odsPadValue, tileSizeAttr, padToNextAttr, odsTranspose);
+}
+
+void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
+    ValueRange odsStarts, Value odsPadValue, bool odsTranspose) {
+  // Massage types.
+  ValueRange startsRange(odsStarts);
+  ArrayRef<int64_t> empty;
+  build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange,
+      odsPadValue, empty, empty, odsTranspose);
 }
 
 static LogicalResult verify(KrnlCopyToBufferOp op) {
@@ -617,6 +706,15 @@ void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
   ArrayAttr tileSizeAttr = odsBuilder.getI64ArrayAttr(odsTileSize);
   build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange,
       tileSizeAttr);
+}
+
+void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
+    ValueRange odsStarts) {
+  // Massage types.
+  ValueRange startsRange(odsStarts);
+  ArrayRef<int64_t> empty;
+  build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange, empty);
 }
 
 static LogicalResult verify(KrnlCopyFromBufferOp op) {

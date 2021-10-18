@@ -22,9 +22,10 @@
 #include <stdint.h>
 #endif
 
+#include <onnx-mlir/Runtime/OMInstrument.h>
+#include <onnx-mlir/Runtime/OMSignature.h>
 #include <onnx-mlir/Runtime/OMTensor.h>
 #include <onnx-mlir/Runtime/OMTensorList.h>
-#include <onnx-mlir/Runtime/OMSignature.h>
 
 /*! \mainpage ONNX-MLIR Runtime API documentation
  *

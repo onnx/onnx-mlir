@@ -5,6 +5,8 @@ cmake_minimum_required(VERSION 3.13.4)
 
 project(onnx-mlir)
 
+option(ONNX_MLIR_BUILD_TESTS "Build ONNX MLIR test executables. If OFF, just generate build targets." ON)
+
 set(CMAKE_CXX_STANDARD 14)
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -39,7 +41,27 @@ include(CTest)
 include(MLIR.cmake)
 
 # MLIR.cmake calls find_package(MLIR) which sets LLVM_MINIMUM_PYTHON_VERSION
+if (WIN32)
+  # On Windows, only search the environment for Python (instead of also checking the registry).
+  # This allows us to pick up the correct version of Python instead of always picking the latest
+  # installed on the machine.
+  set(Python3_FIND_REGISTRY NEVER)
+endif()
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
+
+# Don't require AWT to allow headless JDK to reduce docker image size
+set(JAVA_AWT_INCLUDE_PATH headless)
+set(JAVA_AWT_LIBRARY headless)
+find_package(Java COMPONENTS Development)
+find_package(JNI)
+
+if (Java_Development_FOUND AND JNI_FOUND)
+  set(ONNX_MLIR_ENABLE_JNI TRUE)
+  include(UseJava)
+else()
+  set(ONNX_MLIR_ENABLE_JNI FALSE)
+  message(WARNING "Java Development component or JNI not found, JNI targets will not work")
+endif()
 
 # The onnx build on windows requires the provision of either static or shared libs for protobuf
 # and to achieve that there are several different flags that need to be set in protobuf, onnx

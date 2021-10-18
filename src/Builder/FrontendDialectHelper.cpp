@@ -11,6 +11,7 @@
 // Helper methods for handling input ONNX models.
 //
 //===----------------------------------------------------------------------===//
+#include "llvm/ADT/SmallVector.h"
 #include <llvm/Support/Endian.h>
 #include <llvm/Support/SwapByteOrder.h>
 
@@ -39,6 +40,14 @@ struct TransformValueToONNXData<float> {
   static const google::protobuf::RepeatedField<float> data(
       onnx::TensorProto initializer) {
     return initializer.float_data();
+  }
+};
+
+template <>
+struct TransformValueToONNXData<int16_t> {
+  static const google::protobuf::RepeatedField<int32_t> data(
+      onnx::TensorProto initializer) {
+    return initializer.int32_data();
   }
 };
 
@@ -74,12 +83,20 @@ struct TransformValueToONNXData<int8_t> {
   }
 };
 
+template <>
+struct TransformValueToONNXData<bool> {
+  static const google::protobuf::RepeatedField<int32_t> data(
+      onnx::TensorProto initializer) {
+    return initializer.int32_data();
+  }
+};
+
 // Helper method for constructing an array attribute from a model input.
 template <typename T>
-static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
+std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
   size_t size;
   if (initializer.raw_data().size()) {
-    // copy & take care of endianness
+    // Copy & take care of endianness.
     std::vector<char> byteInitializer;
     std::copy(initializer.raw_data().begin(), initializer.raw_data().end(),
         back_inserter(byteInitializer));
@@ -90,16 +107,30 @@ static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
     // ONNX tensor content raw data is always in LE.
     if (llvm::support::endian::system_endianness() !=
         llvm::support::endianness::little)
-      for (int i = 0; i < array.size(); i++)
+      for (size_t i = 0; i < array.size(); i++)
         llvm::sys::swapByteOrder<T>(array[i]);
 
     return array;
   }
 
-  // copy, no need to take care of endianness
+  // Copy, no need to take care of endianness.
   auto data = TransformValueToONNXData<T>::data(initializer);
   size = data.size();
   return std::vector<T>(&data[0], &data[0] + size);
+}
+
+template <>
+std::vector<bool> CreateArrayAttribute<bool>(onnx::TensorProto initializer) {
+  // Copy, no need to take care of endianness.
+  if (initializer.raw_data().size()) {
+    std::vector<bool> bitInitializer;
+    std::copy(initializer.raw_data().begin(), initializer.raw_data().end(),
+        back_inserter(bitInitializer));
+    return bitInitializer;
+  }
+
+  auto data = TransformValueToONNXData<bool>::data(initializer);
+  return std::vector<bool>(&data[0], &data[0] + data.size());
 }
 
 mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
@@ -159,6 +190,15 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
         tensorType, llvm::makeArrayRef(arrayAttrInitializer));
     break;
   }
+  case (onnx::TensorProto::INT16): {
+    const auto &arrayAttrInitializer =
+        CreateArrayAttribute<int16_t>(initializer);
+    auto elmType = builder.getIntegerType(16);
+    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+    denseElmAttr = mlir::DenseElementsAttr::get(
+        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
+    break;
+  }
   case (onnx::TensorProto::INT32): {
     const auto &arrayAttrInitializer =
         CreateArrayAttribute<int32_t>(initializer);
@@ -175,6 +215,14 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
     auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
     denseElmAttr = mlir::DenseElementsAttr::get(
         tensorType, llvm::makeArrayRef(arrayAttrInitializer));
+    break;
+  }
+  case (onnx::TensorProto::BOOL): {
+    const auto &data = CreateArrayAttribute<bool>(initializer);
+    auto elmType = builder.getI1Type();
+    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+    denseElmAttr = mlir::DenseElementsAttr::get(
+        tensorType, llvm::SmallVector<bool, 64>(data.begin(), data.end()));
     break;
   }
   default:

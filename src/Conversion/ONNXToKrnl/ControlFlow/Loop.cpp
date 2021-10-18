@@ -76,10 +76,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       Value origIV = loop.getInductionVar(0);
       auto iv = rewriter.create<IndexCastOp>(loc, origIV, rewriter.getI64Type())
                     .getResult();
-      Value ivMemRef = rewriter
-                           .create<memref::AllocOp>(
-                               loc, MemRefType::get({}, rewriter.getI64Type()))
-                           .getResult();
+      MemRefBuilder createMemRef(rewriter, loc);
+      Value ivMemRef =
+          createMemRef.alloc(MemRefType::get({}, rewriter.getI64Type()));
       rewriter.create<KrnlStoreOp>(loc, iv, ivMemRef);
 
       // Make the call to loop body function.
@@ -135,7 +134,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // thus becomes redundant.
       SmallVector<Value, 4> bodyOutputs(
           resultsRange.begin(), resultsRange.end());
-      for (int i = 0; i < bodyOutputs.size(); i++) {
+      for (unsigned int i = 0; i < bodyOutputs.size(); i++) {
         auto output = bodyOutputs[i];
         assert((output.getType().isa<TensorType>() ||
                    output.getType().isa<MemRefType>()) &&
@@ -255,8 +254,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             }
           }
         }
-        alloc =
-            rewriter.create<memref::AllocOp>(loc, rankedScanOutTy, allocParams);
+        MemRefBuilder createMemRef(rewriter, loc);
+        alloc = createMemRef.alignedAlloc(rankedScanOutTy, allocParams);
       }
       outputs.emplace_back(alloc);
     }

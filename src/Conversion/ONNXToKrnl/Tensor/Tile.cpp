@@ -24,13 +24,14 @@ using namespace mlir;
 Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
     ConversionPatternRewriter &rewriter, bool insertDealloc, Value inputOperand,
     Value repeatsOperand) {
+  MemRefBuilder createMemRef(rewriter, loc);
   memref::AllocOp alloc;
   auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
   auto inputRank = inputShape.size();
   auto outputShape = memRefType.getShape();
 
   SmallVector<Value, 4> allocOperands;
-  for (int i = 0; i < inputRank; ++i) {
+  for (unsigned int i = 0; i < inputRank; ++i) {
     if (outputShape[i] == -1) {
       auto indexVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
@@ -38,16 +39,16 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
           rewriter.create<KrnlLoadOp>(loc, repeatsOperand, repeatsMemRefVal);
       auto repeatsElementVal = rewriter.create<IndexCastOp>(
           loc, repeatsLoadVal, rewriter.getIndexType());
-      auto dimVal = rewriter.create<memref::DimOp>(loc, inputOperand, i);
+      auto dimVal = createMemRef.dim(inputOperand, i);
       Value allocDimVal =
           rewriter.create<MulIOp>(loc, dimVal, repeatsElementVal);
       allocOperands.emplace_back(allocDimVal);
     }
   }
-  alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
+  alloc = createMemRef.alignedAlloc(memRefType, allocOperands);
   if (insertDealloc) {
     auto *parentBlock = alloc.getOperation()->getBlock();
-    auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
+    auto dealloc = createMemRef.dealloc(alloc);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   return alloc;
@@ -63,15 +64,14 @@ struct ONNXTileOpLowering : public ConversionPattern {
     ONNXTileOp tileOp = llvm::cast<ONNXTileOp>(op);
     auto loc = op->getLoc();
 
-    ONNXTileOpShapeHelper shapeHelper(&tileOp, rewriter,
+    ONNXTileOpShapeHelper shapeHelper(&tileOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
 
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
-    auto resultOperand = tileOp.output();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
@@ -134,7 +134,6 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXTileOpAdaptor operandAdaptor(operands);
-    ONNXTileOp tileOp = llvm::cast<ONNXTileOp>(op);
     auto loc = op->getLoc();
     // get input operands, shapes, and rank
     Value input = operandAdaptor.input();
@@ -143,7 +142,6 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     Value repeats = operandAdaptor.repeats();
 
     // get output info
-    auto resultOperand = tileOp.output();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
@@ -189,9 +187,10 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
       inputMemRefVal.emplace_back(iterationBlock.getArguments()[j * 2]);
     }
 
+    MemRefBuilder createMemRef(rewriter, loc);
     SmallVector<Value, 4> outputMemRefVal;
     for (int i = 0; i < inputRank; ++i) {
-      auto inputDimSizeVal = rewriter.create<memref::DimOp>(loc, input, i);
+      auto inputDimSizeVal = createMemRef.dim(input, i);
       if (inputShape[i] != -1) {
         auto inputIndexAE = rewriter.getAffineDimExpr(0);
         auto repeatsIndexAE = rewriter.getAffineDimExpr(1);

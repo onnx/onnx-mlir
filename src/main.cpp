@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/MainUtils.hpp"
+#include "src/Compiler/CompilerUtils.hpp"
 
 using namespace std;
 using namespace onnx_mlir;
@@ -56,8 +56,15 @@ int main(int argc, char *argv[]) {
   processInputFile(inputFilename, context, module);
 
   // Input file base name, replace path if required.
-  if (outputBaseName == "")
+  // outputBaseName must specify a file, so ignore invalid values
+  // such as ".", "..", "./", "/.", etc.
+  bool b = false;
+  if (outputBaseName == "" ||
+      (b = std::regex_match(outputBaseName, std::regex("(.*/)*\\.*$")))) {
+    if (b)
+      printf("Invalid -o option value %s ignored.\n", outputBaseName.c_str());
     outputBaseName = inputFilename.substr(0, inputFilename.find_last_of("."));
+  }
 
   return compileModule(module, context, outputBaseName, emissionTarget);
 }

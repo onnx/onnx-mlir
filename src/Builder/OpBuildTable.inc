@@ -111,7 +111,7 @@ op_dialect_version_map_["OneHot"] = {11};
 op_dialect_version_map_["OneHotEncoder"] = {1};
 op_dialect_version_map_["Or"] = {7};
 op_dialect_version_map_["PRelu"] = {9};
-op_dialect_version_map_["Pad"] = {13};
+op_dialect_version_map_["Pad"] = {13, 11, 2};
 op_dialect_version_map_["Pow"] = {13};
 op_dialect_version_map_["QLinearConv"] = {10};
 op_dialect_version_map_["QLinearMatMul"] = {10};
@@ -166,10 +166,10 @@ op_dialect_version_map_["SoftmaxCrossEntropyLoss"] = {13};
 op_dialect_version_map_["Softplus"] = {1};
 op_dialect_version_map_["Softsign"] = {1};
 op_dialect_version_map_["SpaceToDepth"] = {13};
-op_dialect_version_map_["Split"] = {11};
+op_dialect_version_map_["Split"] = {13, 11};
 op_dialect_version_map_["SplitToSequence"] = {11};
 op_dialect_version_map_["Sqrt"] = {13};
-op_dialect_version_map_["Squeeze"] = {11};
+op_dialect_version_map_["Squeeze"] = {13, 11};
 op_dialect_version_map_["StringNormalizer"] = {10};
 op_dialect_version_map_["Sub"] = {13};
 op_dialect_version_map_["Sum"] = {13};
@@ -183,8 +183,8 @@ op_dialect_version_map_["Transpose"] = {13};
 op_dialect_version_map_["TreeEnsembleClassifier"] = {1};
 op_dialect_version_map_["TreeEnsembleRegressor"] = {1};
 op_dialect_version_map_["Unique"] = {11};
-op_dialect_version_map_["Unsqueeze"] = {11};
-op_dialect_version_map_["Upsample"] = {10};
+op_dialect_version_map_["Unsqueeze"] = {13, 11};
+op_dialect_version_map_["Upsample"] = {10, 9, 7};
 op_dialect_version_map_["Where"] = {9};
 op_dialect_version_map_["Xor"] = {7};
 op_dialect_version_map_["ZipMap"] = {1};
@@ -372,6 +372,10 @@ import_handler_map_["PRelu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPReluOp>;
 import_handler_map_["Pad"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodePad;
+import_handler_map_["PadV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPadV11Op>;
+import_handler_map_["PadV2"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPadV2Op>;
 import_handler_map_["Pow"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPowOp>;
 import_handler_map_["QLinearConv"] = 
@@ -467,7 +471,7 @@ import_handler_map_["Size"] =
 import_handler_map_["Slice"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeSlice;
 import_handler_map_["Softmax"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxOp>;
+   &onnx_mlir::detail::FrontendGenImpl::ImportNodeSoftmax;
 import_handler_map_["SoftmaxCrossEntropyLoss"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxCrossEntropyLossOp>;
 import_handler_map_["Softplus"] = 
@@ -478,12 +482,16 @@ import_handler_map_["SpaceToDepth"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSpaceToDepthOp>;
 import_handler_map_["Split"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSplitOp>;
+import_handler_map_["SplitV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSplitV11Op>;
 import_handler_map_["SplitToSequence"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSplitToSequenceOp>;
 import_handler_map_["Sqrt"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSqrtOp>;
 import_handler_map_["Squeeze"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSqueezeOp>;
+import_handler_map_["SqueezeV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSqueezeV11Op>;
 import_handler_map_["StringNormalizer"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXStringNormalizerOp>;
 import_handler_map_["Sub"] = 
@@ -508,8 +516,14 @@ import_handler_map_["Unique"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUniqueOp>;
 import_handler_map_["Unsqueeze"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUnsqueezeOp>;
+import_handler_map_["UnsqueezeV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUnsqueezeV11Op>;
 import_handler_map_["Upsample"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleOp>;
+import_handler_map_["UpsampleV9"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleV9Op>;
+import_handler_map_["UpsampleV7"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleV7Op>;
 import_handler_map_["Where"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXWhereOp>;
 import_handler_map_["Xor"] = 

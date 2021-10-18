@@ -20,6 +20,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
@@ -31,11 +32,35 @@ bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
   FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsReturned = false;
-  function.walk([&opIsReturned, allocOp](ReturnOp op) {
+
+  // Check if the result value of `allocOp` is an operand of
+  // `ReinterpretCastOp`, and store the result value of `ReinterpretCastOp`.
+  // Reshape, Squeeze, and Unsqueeze ops are checked because they are lowered to
+  // `ReinterpretCastOp`.
+  SmallVector<Value, 32> castOpResults;
+  function.walk([allocOp, &castOpResults](Operation *op) {
+    if (isa<memref::ReinterpretCastOp>(op) || isa<ONNXReshapeOp>(op) ||
+        isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op)) {
+      auto result = allocOp->getResult();
+      for (const auto &operand : op->getOperands())
+        if (operand == result)
+          castOpResults.emplace_back(op->getResults()[0]);
+    }
+  });
+
+  function.walk([&opIsReturned, allocOp, castOpResults](ReturnOp op) {
     auto result = allocOp->getResult();
-    for (const auto &operand : op.getOperands())
+    for (const auto &operand : op.getOperands()) {
+      // Determine if current function returns the result value of the
+      // alloc op.
       if (operand == result)
         opIsReturned = true;
+      // Determin if the result value of reinterpret_cast op whose operand
+      // is the result value of alloc op
+      for (const auto &castOpResult : castOpResults)
+        if (operand == castOpResult)
+          opIsReturned = true;
+    }
   });
 
   return opIsReturned;
@@ -84,6 +109,10 @@ public:
 
     // Only enable pooling for top level memrefs.
     if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
+      return failure();
+
+    // For now only handle constant MemRefs.
+    if (!hasAllConstantDimensions(memRefType))
       return failure();
 
     memref::AllocOp newAlloc;
@@ -166,6 +195,7 @@ public:
     // No need to test, its ok to fail the apply.
     LogicalResult res =
         applyPatternsAndFoldGreedily(function, std::move(patterns));
+    assert((succeeded(res) || failed(res)) && "remove unused var warning");
   }
 };
 } // namespace

@@ -14,8 +14,8 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/Support/FileSystem.h"
 
+#include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/MainUtils.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
 
@@ -23,6 +23,9 @@
 
 using namespace std;
 using namespace mlir;
+
+// Include some helper functions.
+#include "Helper.hpp"
 
 std::string testLoopSimpleIR = R"(
 module {
@@ -82,8 +85,9 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
 
   auto module = mlir::parseSourceString(moduleIR, &ctx);
   OwningModuleRef moduleRef(std::move(module));
-  compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
-  onnx_mlir::ExecutionSession sess(SHARED_LIB_BASE + ".so", "run_main_graph");
+  compileModule(moduleRef, ctx, SHARED_LIB_BASE, onnx_mlir::EmitLib);
+  onnx_mlir::ExecutionSession sess(
+      getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto tripCountTensor = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
@@ -123,7 +127,9 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
 
 int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
-  llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
+  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
+
+  llvm::cl::ParseCommandLineOptions(argc, argv, "TestLoop\n", nullptr, "TEST_ARGS");
 
   // Loop tests, simple.
   assert(isOMLoopTheSameAsNaiveImplFor(testLoopSimpleIR, 0, 42));

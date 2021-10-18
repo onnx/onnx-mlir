@@ -72,7 +72,7 @@ Value emitConstantOp(
       .Case<IntegerType>([&](Type) {
         auto width = type.cast<IntegerType>().getWidth();
         if (width == 1) {
-          constantAttr = rewriter.getBoolAttr(false);
+          constantAttr = rewriter.getBoolAttr(value != 0);
         } else {
           constantAttr =
               rewriter.getIntegerAttr(type, APInt(width, (int64_t)value));
@@ -236,7 +236,7 @@ bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp) {
 /// Check if all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType memRefType) {
   auto memRefShape = memRefType.getShape();
-  for (int i = 0; i < memRefShape.size(); ++i)
+  for (unsigned int i = 0; i < memRefShape.size(); ++i)
     if (memRefShape[i] < 0)
       return false;
   return true;
@@ -262,7 +262,7 @@ int64_t getMemRefSizeInBytes(Value value) {
   MemRefType memRefType = value.getType().dyn_cast<MemRefType>();
   auto memRefShape = memRefType.getShape();
   int64_t size = 1;
-  for (int i = 0; i < memRefShape.size(); i++)
+  for (unsigned int i = 0; i < memRefShape.size(); i++)
     size *= memRefShape[i];
   size *= getMemRefEltSizeInBytes(memRefType);
   return size;
@@ -312,7 +312,7 @@ Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
   auto memRefShape = type.getShape();
   auto rank = memRefShape.size();
   int dynDimIdx = 0;
-  for (int idx = 0; idx < rank; ++idx) {
+  for (unsigned int idx = 0; idx < rank; ++idx) {
     if (memRefShape[idx] < 0) {
       // Dyanmic size.
       auto dynamicDim = allocOp.getOperands()[dynDimIdx];
@@ -342,7 +342,7 @@ int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index) {
   auto rank = memRefShape.size();
 
   int dynDimIdx = 0;
-  for (int idx = 0; idx < rank; ++idx) {
+  for (unsigned int idx = 0; idx < rank; ++idx) {
     if (memRefShape[idx] < 0) {
       if (idx == index)
         return dynDimIdx;

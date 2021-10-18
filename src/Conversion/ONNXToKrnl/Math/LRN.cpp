@@ -27,15 +27,14 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     ONNXLRNOp lrnOp = llvm::cast<ONNXLRNOp>(op);
     auto loc = op->getLoc();
 
-    ONNXLRNOpShapeHelper shapeHelper(&lrnOp, rewriter,
+    ONNXLRNOpShapeHelper shapeHelper(&lrnOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
 
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
-    auto resultOperand = lrnOp.Y();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputMemRefShape = outputMemRefType.getShape();
     auto elementType = outputMemRefType.getElementType();
@@ -67,7 +66,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     // and i<= min(C - 1, c + ceil((size - 1) / 2)).
 
     // Get a child IndexExpr context.
-    IndexExprScope childScope(shapeHelper.scope);
+    IndexExprScope childScope(&rewriter, shapeHelper.scope);
 
     // Compute the lower bound and upper bound for square_sum.
     const int loopIndexForC = 1;
@@ -85,9 +84,10 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     ubMinList.emplace_back(CIE);
     ubMinList.emplace_back(cIE + 1 + (sizeIE - 1).ceilDiv(LiteralIndexExpr(2)));
 
-    // Initialize sum
+    // Initialize sum, single scalar, no need for default alignment.
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
-    Value sumAlloc = rewriter.create<memref::AllocOp>(loc, scalarMemRefType);
+    MemRefBuilder createMemRef(rewriter, loc);
+    Value sumAlloc = createMemRef.alloc(scalarMemRefType);
     rewriter.create<KrnlStoreOp>(loc,
         emitConstantOp(rewriter, loc, elementType, 0), sumAlloc,
         ArrayRef<Value>{});

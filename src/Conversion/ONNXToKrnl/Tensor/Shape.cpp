@@ -13,6 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -22,36 +24,31 @@ struct ONNXShapeOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
+    // Get shape.
     ONNXShapeOpAdaptor operandAdaptor(operands);
-    ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
-    bool insertDealloc = checkInsertDealloc(op);
+    ONNXShapeOp shapeOp = llvm::dyn_cast<ONNXShapeOp>(op);
     Location loc = op->getLoc();
-    // Get input data.
-    Value data = operandAdaptor.data();
-    ArrayRef<int64_t> dataShape = data.getType().cast<MemRefType>().getShape();
-    unsigned dataRank = dataShape.size();
+    ONNXShapeOpShapeHelper shapeHelper(&shapeOp, &rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapecomputed));
 
-    Value resultOperand = shapeOp.shape();
+    // TODO: if the dimensions are known at compile time
+    // (shapeHelper.dimsForOutput literal), then we could use a constant array.
+    // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
-
-    Value alloc;
-    if (hasAllConstantDimensions(outputMemRefType))
-      alloc =
-          insertAllocAndDealloc(outputMemRefType, loc, rewriter, insertDealloc);
-    else
-      // Unknown dimension for ShapeOp can only come from unshaped tensor
-      // 'tensor<*xT>' type, which is not handled in the system yet.
-      llvm_unreachable("unknown dimension for ShapeOp is not supported yet");
+    Type elementType = outputMemRefType.getElementType();
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
     // Iterate along the data shape storing dim value to result.
-    for (int i = 0; i < dataRank; i++) {
-      IndexExprScope scope(&rewriter, loc);
-      LiteralIndexExpr storeIndex(i);
-      MemRefBoundsIndexCapture dataBounds(data);
-      DimIndexExpr shapeVal(dataBounds.getDim(i));
-      Value storeVal = rewriter.create<IndexCastOp>(
-          loc, shapeVal.getValue(), outputMemRefType.getElementType());
-      rewriter.create<KrnlStoreOp>(loc, storeVal, alloc, storeIndex.getValue());
+    KrnlBuilder createKrnl(rewriter, loc);
+    uint64_t dataRank = shapeHelper.selectedData.size();
+    for (uint64_t i = 0; i < dataRank; ++i) {
+      Value val = shapeHelper.selectedData[i].getValue();
+      Value intVal = rewriter.create<IndexCastOp>(loc, val, elementType);
+      createKrnl.storeIE(intVal, alloc, {LiteralIndexExpr(i)});
     }
     rewriter.replaceOp(op, alloc);
     return success();

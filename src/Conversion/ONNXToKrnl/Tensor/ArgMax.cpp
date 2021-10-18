@@ -22,18 +22,17 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
     ONNXArgMaxOp argMaxOp = llvm::cast<ONNXArgMaxOp>(op);
 
     // shape helper
-    ONNXArgMaxOpShapeHelper shapeHelper(&argMaxOp, rewriter,
+    ONNXArgMaxOpShapeHelper shapeHelper(&argMaxOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
 
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
     // reduced output
     auto reducedMemRefType = convertToMemRefType(*op->result_type_begin());
     auto reducedElementType = reducedMemRefType.getElementType();
-    auto reducedMemrefShape = reducedMemRefType.getShape();
     int64_t reducedRank = reducedMemRefType.getRank();
 
     // data input

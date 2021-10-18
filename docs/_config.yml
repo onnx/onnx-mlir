@@ -2,9 +2,9 @@ theme: jekyll-theme-minimal
 defaults:
   -
     scope:
-      path: "README.md"
+      path: "ONNXAI.md"
     values:
-      permalink: "README.html"
+      permalink: "index.html"
 
 # Doxygen generated per-file doc references.
 include: ["_*.html"]

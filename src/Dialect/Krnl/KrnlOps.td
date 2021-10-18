@@ -78,7 +78,23 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   let arguments = (ins Variadic<AnyType>);
   let regions = (region SizedRegion<1>:$bodyRegion);
   let skipDefaultBuilders = 1;
-  let builders = [ OpBuilder<(ins "KrnlIterateOperandPack":$operandPack)> ];
+  let builders = [
+    // Main builder.
+    OpBuilder<(ins "KrnlIterateOperandPack":$operandPack,
+      CArg<"ValueRange", "llvm::None">:$iterArgs,
+      CArg<"function_ref<void(ImplicitLocOpBuilder &, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
+    // Builder for the optimized iterate op.
+    OpBuilder<(ins
+      CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
+      CArg<"ValueRange">:$lbs, CArg<"ValueRange">:$ubs, CArg<"ValueRange">:$iterArgs,
+      CArg<"function_ref<void(ImplicitLocOpBuilder &, ValueRange)>">:$bodyBuilderFn)>,
+    // Builder for the optimized iterate op with IndexExpr
+    OpBuilder<(ins
+      CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
+      CArg<"ArrayRef<IndexExpr>">:$lbs, CArg<"ArrayRef<IndexExpr>">:$ubs, 
+      CArg<"ValueRange">:$iterArgs,
+      CArg<"function_ref<void(ImplicitLocOpBuilder &, ValueRange)>">:$bodyBuilderFn)>
+ ];
 
   let extraClassDeclaration = [{
     // In krnl.iterate operation, operands are stored as such
@@ -800,21 +816,34 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     DefaultValuedAttr<BoolAttr, "true">:$unroll,
     DefaultValuedAttr<BoolAttr, "false">:$overcompute);
 
-  let builders = [ OpBuilder<(ins 
-      "Value": $A, "ValueRange": $aStart, // Both same rank.
+  let builders = [
+    // include all parameters
+    OpBuilder<(ins
+      "Value": $A, "ValueRange": $aStart, // Both same rank
       "Value": $B, "ValueRange": $bStart, // Both same rank.
       "Value": $C, "ValueRange": $cStart, // Both same rank.
       "ValueRange": $loops, // Rank 3: (i,j,k).
-      "Value": $iComputeStart, "Value": $jComputeStart, "Value": $kComputeStart, 
+      "Value": $iComputeStart, "Value": $jComputeStart, "Value": $kComputeStart,
       "Value": $iGlobalUB, "Value": $jGlobalUB, "Value": $kGlobalUB,
       "ArrayRef<int64_t>": $computeTileSize, // Rank 3: (i,j,k).
       "ArrayRef<int64_t>": $aTileSize, // Rank 2: (rightmost 2 dims).
       "ArrayRef<int64_t>": $bTileSize, // Rank 2: (rightmost 2 dims).
       "ArrayRef<int64_t>": $cTileSize, // Rank 2: (rightmost 2 dims).
       "bool": $simdize,
-      "bool": $unroll, 
-      "bool": $overcompute 
-    )> ];
+      "bool": $unroll,
+      "bool": $overcompute)>,
+    // use default for all tile sizes
+    OpBuilder<(ins
+      "Value": $A, "ValueRange": $aStart, // Both same rank.
+      "Value": $B, "ValueRange": $bStart, // Both same rank.
+      "Value": $C, "ValueRange": $cStart, // Both same rank.
+      "ValueRange": $loops, // Rank 3: (i,j,k).
+      "Value": $iComputeStart, "Value": $jComputeStart, "Value": $kComputeStart,
+      "Value": $iGlobalUB, "Value": $jGlobalUB, "Value": $kGlobalUB,
+      "bool": $simdize,
+      "bool": $unroll,
+      "bool": $overcompute)>
+    ];
 
   let verifier = [{ return ::verify(*this); }];
 
@@ -886,11 +915,15 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     OptionalAttr<I64ArrayAttr>:$padToNext, // Rank of bufffer.
     DefaultValuedAttr<BoolAttr, "false">:$transpose); // Transposed or not.
 
-  let builders = [ OpBuilder<(ins "Value": $buffer, "Value": $source, 
+  let builders = [ 
+    OpBuilder<(ins "Value": $buffer, "Value": $source, 
       "ValueRange": $starts, "Value": $padValue, 
       "ArrayRef<int64_t>": $tileSize, "ArrayRef<int64_t>": $padToNext,
-      "bool": $transpose
-    )> ];
+      "bool": $transpose)>,
+    OpBuilder<(ins "Value": $buffer, "Value": $source, 
+      "ValueRange": $starts, "Value": $padValue,
+      "bool": $transpose)>
+  ];
 
   let verifier = [{ return ::verify(*this); }];
     let assemblyFormat = [{
@@ -919,12 +952,40 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
     Variadic<Index>:$starts, // Rank of destination.
     OptionalAttr<I64ArrayAttr>:$tileSize); // Rank of buffer.
 
-  let builders = [ OpBuilder<(ins "Value": $buffer, "Value": $dest, 
-      "ValueRange": $starts, "ArrayRef<int64_t>": $tileSize
-    )> ];
+  let builders = [ 
+    OpBuilder<(ins "Value": $buffer, "Value": $dest, 
+      "ValueRange": $starts, "ArrayRef<int64_t>": $tileSize)>,
+    OpBuilder<(ins "Value": $buffer, "Value": $dest, "ValueRange": $starts)>
+  ];
 
   let verifier = [{ return ::verify(*this); }];
     let assemblyFormat = [{
     $buffer `,` $dest `[` $starts `]`  attr-dict `:` type($buffer) `,` type($dest)
   }];
+}
+
+def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
+    []> {
+  let summary = "instrumentation point.";
+  let description = [{
+    Operation that invokes the runtime instrument utility.
+    May be used for gdb.
+  }];
+
+  let arguments = (ins I64Attr:$opID, I64Attr:$tag);
+
+  let builders = [ OpBuilder<(ins "Operation *": $op, "int ": $tag)> ];
+}
+
+def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
+    TypesMatchWith<"type of 'value' matches element type of 'dest'",
+                   "dest", "value",
+                   "$_self.cast<MemRefType>().getElementType()">]> {
+  let summary = "Set buffer to a given value.";
+  let description = [{
+    Krnl operation that set buffer to a given value.
+  }];
+
+  let arguments = (ins AnyMemRef:$dest, AnyType: $value); 
+  let assemblyFormat = [{ $dest `,` $value attr-dict `:` type($dest) }];
 }

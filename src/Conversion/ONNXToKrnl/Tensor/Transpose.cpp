@@ -36,10 +36,10 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     int64_t rank = memRefType.getShape().size();
 
     // Get a shape helper.
-    ONNXTransposeOpShapeHelper shapeHelper(&transposeOp, rewriter,
+    ONNXTransposeOpShapeHelper shapeHelper(&transposeOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));
 
@@ -53,10 +53,8 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(inputLoops.getIterateBlock());
     {
       // Get a child IndexExpr context.
-      IndexExprScope childScope(shapeHelper.scope);
-      // Scope for krnl EDSC ops
-      using namespace mlir::edsc;
-      ScopedContext scope(rewriter, loc);
+      IndexExprScope childScope(&rewriter, shapeHelper.scope);
+      KrnlBuilder createKrnl(rewriter, loc);
 
       // Get read/write indices.
       SmallVector<IndexExpr, 4> readIndices;
@@ -70,8 +68,8 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
       }
 
       // Copy data.
-      Value loadData = krnl_load(data, readIndices);
-      krnl_store(loadData, alloc, writeIndices);
+      Value loadData = createKrnl.loadIE(data, readIndices);
+      createKrnl.storeIE(loadData, alloc, writeIndices);
     }
 
     rewriter.replaceOp(op, alloc);

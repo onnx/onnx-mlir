@@ -28,6 +28,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/Constant.cpp
   Tensor/ConstantOfShape.cpp
   Tensor/Concat.cpp
+  Tensor/Expand.cpp
   Tensor/Split.cpp
   Tensor/Gather.cpp
   Tensor/Shape.cpp
@@ -35,10 +36,15 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/Size.cpp
   Tensor/Flatten.cpp
   Tensor/Tile.cpp
+  Tensor/Range.cpp
+  Tensor/Resize.cpp
+  Tensor/NonZero.cpp
+  Tensor/OneHot.cpp
   ConvertONNXToKrnl.cpp
 
   LINK_LIBS PUBLIC
   OMConstPropHelper
+  OMONNXOps
   OMSupport
   MLIRMathTransforms
   MLIRStandardOpsTransforms

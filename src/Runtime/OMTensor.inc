@@ -25,7 +25,7 @@
 #include <assert.h>
 #endif
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__MVS__)
 #include <stdlib.h>
 #else
 #include <malloc.h>
@@ -479,7 +479,7 @@ inline bool omTensorAreTwoOmtsClose(
   // rtol * abs(b) + atol
   std::transform(eqAllclose.begin(), eqAllclose.end(), (T *)atolT->_alignedPtr,
       eqAllclose.begin(), std::plus<>());
-  // (rtol * b + atol) - abs(a - b)
+  // (rtol * abs(b) + atol) - abs(a - b)
   std::transform(eqAllclose.begin(), eqAllclose.end(), absoluteDiff.begin(),
       eqAllclose.begin(), std::minus<>());
   bool satisfied = std::all_of(
@@ -491,10 +491,8 @@ inline bool omTensorAreTwoOmtsClose(
     for (const auto &idx : omTensorComputeIndexSet(a)) {
       T aElem = omTensorGetElem<T>(a, idx);
       T bElem = omTensorGetElem<T>(b, idx);
-      auto elmAbsDiff = abs(aElem - bElem);
-      auto withinRtol = (elmAbsDiff / aElem < rtol);
-      auto withinAtol = (elmAbsDiff < atol);
-      if (!withinRtol || !withinAtol) {
+      auto eq = rtol * std::abs(bElem) + atol - std::abs(aElem - bElem);
+      if (eq < 0) {
         std::cerr << "a[";
         printVector(idx, ",", std::cerr);
         std::cerr << "] = " << aElem << " != ";

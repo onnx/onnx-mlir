@@ -51,7 +51,7 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     // Shape based computations.
     auto shape = memRefType.getShape();
     int64_t numElements = 1;
-    for (int i = 0; i < shape.size(); ++i)
+    for (unsigned int i = 0; i < shape.size(); ++i)
       numElements *= shape[i];
 
     // Emit the constant global in Krnl dialect.
@@ -70,7 +70,8 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     if (checkOpResultIsReturned(&constantOp)) {
       // In this case, use an AllocOp for the constant since krnl.Global
       // operations are not mean to be returned.
-      memref::AllocOp alloc = rewriter.create<memref::AllocOp>(loc, memRefType);
+      MemRefBuilder createMemRef(rewriter, loc);
+      memref::AllocOp alloc = createMemRef.alignedAlloc(memRefType);
 
       // Compute size in bytes using the input tensor.
       Value tensorSize = emitConstantOp(rewriter, loc,

@@ -15,8 +15,6 @@
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 
 using namespace mlir;
-using namespace mlir::edsc;
-using namespace mlir::edsc::intrinsics;
 
 struct RnnState {
   // returned states.
@@ -74,7 +72,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
 
     // Reverse activations.
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      int startIndex = (direction == REVERSE) ? 0 : 1;
+      unsigned int startIndex = (direction == REVERSE) ? 0 : 1;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.name =
             activationArrAttr[startIndex].cast<StringAttr>().getValue();
@@ -94,7 +92,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
 
     // Reverse activations.
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      int startIndex = (direction == REVERSE) ? 0 : 1;
+      unsigned int startIndex = (direction == REVERSE) ? 0 : 1;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.alpha =
             activationArrAttr[startIndex].cast<FloatAttr>();
@@ -114,7 +112,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
 
     // Reverse activations.
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      int startIndex = (direction == REVERSE) ? 0 : 1;
+      unsigned int startIndex = (direction == REVERSE) ? 0 : 1;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.beta =
             activationArrAttr[startIndex].cast<FloatAttr>();
@@ -162,22 +160,22 @@ getWeightPack<ONNXRNNOp, RnnWeightPack>(
   // Unsqueeze the direction axis from W and R.
   Value fW, bW, fR, bR;
   if (direction == FORWARD) {
-    fW = foldOrEmitONNXSqueezeOp(rewriter, loc, w2DTy, W, /*axis=*/0);
-    fR = foldOrEmitONNXSqueezeOp(rewriter, loc, r2DTy, R, /*axis=*/0);
+    fW = foldOrEmitONNXSqueezeV11Op(rewriter, loc, w2DTy, W, /*axis=*/0);
+    fR = foldOrEmitONNXSqueezeV11Op(rewriter, loc, r2DTy, R, /*axis=*/0);
   } else if (direction == REVERSE) {
-    bW = foldOrEmitONNXSqueezeOp(rewriter, loc, w2DTy, W, /*axis=*/0);
-    bR = foldOrEmitONNXSqueezeOp(rewriter, loc, r2DTy, R, /*axis=*/0);
+    bW = foldOrEmitONNXSqueezeV11Op(rewriter, loc, w2DTy, W, /*axis=*/0);
+    bR = foldOrEmitONNXSqueezeV11Op(rewriter, loc, r2DTy, R, /*axis=*/0);
   } else { // BIDIRECTIONAL
     // W
     std::vector<Value> vals =
         foldOrEmitONNXSplitOp(rewriter, loc, w3D2Ty, W, 0);
-    fW = foldOrEmitONNXSqueezeOp(rewriter, loc, w2DTy, vals[0], /*axis=*/0);
-    bW = foldOrEmitONNXSqueezeOp(rewriter, loc, w2DTy, vals[1], /*axis=*/0);
+    fW = foldOrEmitONNXSqueezeV11Op(rewriter, loc, w2DTy, vals[0], /*axis=*/0);
+    bW = foldOrEmitONNXSqueezeV11Op(rewriter, loc, w2DTy, vals[1], /*axis=*/0);
     // R
     vals.clear();
     vals = foldOrEmitONNXSplitOp(rewriter, loc, r3D2Ty, R, 0);
-    fR = foldOrEmitONNXSqueezeOp(rewriter, loc, r2DTy, vals[0], /*axis=*/0);
-    bR = foldOrEmitONNXSqueezeOp(rewriter, loc, r2DTy, vals[1], /*axis=*/0);
+    fR = foldOrEmitONNXSqueezeV11Op(rewriter, loc, r2DTy, vals[0], /*axis=*/0);
+    bR = foldOrEmitONNXSqueezeV11Op(rewriter, loc, r2DTy, vals[1], /*axis=*/0);
   }
 
   // Split W and R into individual weight tensors, and transpose them.
@@ -224,14 +222,16 @@ std::tuple<RnnBiasPack, RnnBiasPack> getBiasPack<ONNXRNNOp, RnnBiasPack>(
     // Unsqueeze the direction axis from B.
     Value fB, bB;
     if (direction == FORWARD) {
-      fB = foldOrEmitONNXSqueezeOp(rewriter, loc, bType1D, B, /*axis=*/0);
+      fB = foldOrEmitONNXSqueezeV11Op(rewriter, loc, bType1D, B, /*axis=*/0);
     } else if (direction == REVERSE) {
-      bB = foldOrEmitONNXSqueezeOp(rewriter, loc, bType1D, B, /*axis=*/0);
+      bB = foldOrEmitONNXSqueezeV11Op(rewriter, loc, bType1D, B, /*axis=*/0);
     } else { // BIDIRECTIONAL
       std::vector<Value> vals;
       vals = foldOrEmitONNXSplitOp(rewriter, loc, split2D2Ty, B, 0);
-      fB = foldOrEmitONNXSqueezeOp(rewriter, loc, bType1D, vals[0], /*axis=*/0);
-      bB = foldOrEmitONNXSqueezeOp(rewriter, loc, bType1D, vals[1], /*axis=*/0);
+      fB = foldOrEmitONNXSqueezeV11Op(
+          rewriter, loc, bType1D, vals[0], /*axis=*/0);
+      bB = foldOrEmitONNXSqueezeV11Op(
+          rewriter, loc, bType1D, vals[1], /*axis=*/0);
     }
 
     // Split B into individual bias tensors.
@@ -308,39 +308,50 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   // Wbi: [hidden_size]
   // Rbi: [hidden_size]
 
-  ScopedContext scope(rewriter, loc);
+  KrnlBuilder createKrnl(rewriter, loc);
+  OnnxBuilder createONNX(rewriter, loc);
+  MemRefBuilder createMemRef(rewriter, loc);
 
   // Get Ht.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
   MemRefType matrixType = Ht.getType().cast<MemRefType>();
+  unsigned htRank = matrixType.getRank();
 
   // Do matrix multiplications.
-  Value XtWi = onnx_matmul(matrixType, Xt, weightPack.Wi);
-  Value HtRi = onnx_matmul(matrixType, Ht, weightPack.Ri);
+  Value XtWi = createONNX.matmul(matrixType, Xt, weightPack.Wi);
+  Value HtRi = createONNX.matmul(matrixType, Ht, weightPack.Ri);
 
   // Do element-wise computations. Fuse them into a single nested loop.
-  MemRefBoundsCapture bounds(Ht);
-  ValueRange loops = krnl_define_loop(bounds.rank());
-  krnl_iterate(
-      loops, bounds.getLbs(), bounds.getUbs(), {}, [&](ValueRange args) {
-        ValueRange indices = krnl_get_induction_var_value(loops);
+  // Lower and upper bounds derived from Ht tensor.
+  Value iZero = rewriter.create<ConstantIndexOp>(loc, 0);
+  SmallVector<Value, 4> htLbs(htRank, iZero);
+  SmallVector<Value, 4> htUbs;
+  for (unsigned r = 0; r < htRank; ++r) {
+    htUbs.emplace_back(createMemRef.dim(Ht, r));
+  }
+  ValueRange loops = createKrnl.defineLoops(htRank);
+  createKrnl.iterate(loops, loops, htLbs, htUbs,
+      [&](KrnlBuilder &createKrnl, ValueRange indices) {
+        MathBuilder createMath(createKrnl);
         Value bs(indices[0]), hs(indices[1]);
         // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
-        Value XtWiVal = krnl_load(XtWi, indices);
-        Value HtRiVal = krnl_load(HtRi, indices);
-        Value nextHt = std_addf(XtWiVal, HtRiVal);
+        Value XtWiVal = createKrnl.load(XtWi, indices);
+        Value HtRiVal = createKrnl.load(HtRi, indices);
+        Value nextHt = createMath.add(XtWiVal, HtRiVal);
         if (biasPack.hasBias) {
-          Value WbiVal = krnl_load(biasPack.Wbi, {hs});
-          Value RbiVal = krnl_load(biasPack.Rbi, {hs});
-          nextHt = std_addf(nextHt, WbiVal);
-          nextHt = std_addf(nextHt, RbiVal);
+          Value WbiVal = createKrnl.load(biasPack.Wbi, {hs});
+          Value RbiVal = createKrnl.load(biasPack.Rbi, {hs});
+          nextHt = createMath.add(nextHt, WbiVal);
+          nextHt = createMath.add(nextHt, RbiVal);
         }
-        nextHt = applyActivation(rewriter, loc, activationPack.f, nextHt);
+        nextHt = applyActivation(
+            createKrnl.getBuilder(), loc, activationPack.f, nextHt);
 
         // Store the intermediate Ht.
-        krnl_store(nextHt, Ht, indices);
+        createKrnl.store(nextHt, Ht, indices);
         if (!isNoneType(state.allH))
-          krnl_store(nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
+          createKrnl.store(
+              nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
       });
 }
 

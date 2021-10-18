@@ -61,3 +61,55 @@ func @test_allocs_not_lowered(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>
 // CHECK: [[ALLOC3:%.+]] = memref.alloc() : memref<400xi8>
 // CHECK: "krnl.getref"([[ALLOC3]], {{.*}})
 
+// -----
+
+// Apply memorypool in `test_unsqueeze_squeeze_dealloc` in `test/mlir/onnx/onnx_lowering.mlir`.
+// Memorypool is not enabled in %0 because it is a return value via reinterpret_cast.
+
+func @test_unsqueeze_squeeze_dealloc_mempool(%arg0: memref<10x20xf32>) -> memref<20x10xf32> {
+    %0 = memref.alloc() : memref<20x1x1x10xf32>
+    %1 = memref.alloc() : memref<20x10xf32>
+    %c20 = constant 20 : index
+    %c10 = constant 10 : index
+    %2:2 = krnl.define_loops 2
+    krnl.iterate(%2#0, %2#1) with (%2#0 -> %arg1 = 0 to 10, %2#1 -> %arg2 = 0 to 20) {
+      %6 = krnl.load %arg0[%arg1, %arg2] : memref<10x20xf32>
+      krnl.store %6, %1[%arg2, %arg1] : memref<20x10xf32>
+    }
+    %c20_0 = constant 20 : index
+    %c1 = constant 1 : index
+    %c10_1 = constant 10 : index
+    %c1_2 = constant 1 : index
+    %c1_3 = constant 1 : index
+    %c1_4 = constant 1 : index
+    %c10_5 = constant 10 : index
+    %c10_6 = constant 10 : index
+    %3 = memref.reinterpret_cast %1 to offset: [0], sizes: [20, 1, 10, 1], strides: [10, 10, 1, 1] : memref<20x10xf32> to memref<20x1x10x1xf32>
+    %c20_7 = constant 20 : index
+    %c1_8 = constant 1 : index
+    %c1_9 = constant 1 : index
+    %c10_10 = constant 10 : index
+    %4:4 = krnl.define_loops 4
+    krnl.iterate(%4#0, %4#1, %4#2, %4#3) with (%4#0 -> %arg1 = 0 to 20, %4#1 -> %arg2 = 0 to 1, %4#2 -> %arg3 = 0 to 10, %4#3 -> %arg4 = 0 to 1) {
+      %6 = krnl.load %3[%arg1, %arg2, %arg3, %arg4] : memref<20x1x10x1xf32>
+      krnl.store %6, %0[%arg1, %arg4, %arg2, %arg3] : memref<20x1x1x10xf32>
+    }
+    %c20_11 = constant 20 : index
+    %c10_12 = constant 10 : index
+    %c1_13 = constant 1 : index
+    %c10_14 = constant 10 : index
+    %5 = memref.reinterpret_cast %0 to offset: [0], sizes: [20, 10], strides: [10, 1] : memref<20x1x1x10xf32> to memref<20x10xf32>
+    memref.dealloc %1 : memref<20x10xf32>
+    return %5 : memref<20x10xf32>
+
+    // CHECK-LABEL: func @test_unsqueeze_squeeze_dealloc_mempool
+    // CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : i64
+    // CHECK-DAG:       [[VAR_0_:%.+]] = memref.alloc() : memref<20x1x1x10xf32>
+    // CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() : memref<800xi8>
+    // CHECK:           [[VAR_3_:%.+]] = "krnl.getref"([[VAR_1_]], [[CST_0_]]) : (memref<800xi8>, i64) -> memref<20x10xf32>
+    // CHECK-DAG:       [[VAR_4_:%.+]] = memref.reinterpret_cast [[VAR_3_]] to offset: [0], sizes: [20, 1, 10, 1], strides: [10, 10, 1, 1] : memref<20x10xf32> to memref<20x1x10x1xf32>
+    // CHECK-DAG:       [[VAR_6_:%.+]] = memref.reinterpret_cast [[VAR_0_]] to offset: [0], sizes: [20, 10], strides: [10, 1] : memref<20x1x1x10xf32> to memref<20x10xf32>
+    // CHECK:           memref.dealloc [[VAR_1_]] : memref<800xi8>
+    // CHECK:           return [[VAR_6_]] : memref<20x10xf32>
+}
+

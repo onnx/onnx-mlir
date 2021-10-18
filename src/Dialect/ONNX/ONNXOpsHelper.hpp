@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Traits.h"
-#include "mlir/EDSC/Builders.h"
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
@@ -23,14 +22,22 @@
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
-//====---------------- EDSC Support with Value ---------------------------===//
 namespace mlir {
-using onnx_add = mlir::edsc::ValueBuilder<ONNXAddOp>;
-using onnx_sub = mlir::edsc::ValueBuilder<ONNXSubOp>;
-using onnx_mul = mlir::edsc::ValueBuilder<ONNXMulOp>;
-using onnx_div = mlir::edsc::ValueBuilder<ONNXDivOp>;
-using onnx_matmul = mlir::edsc::ValueBuilder<ONNXMatMulOp>;
-using onnx_gemm = mlir::edsc::ValueBuilder<ONNXGemmOp>;
+
+//====-------------------------- ONNX Builder ---------------------------===//
+
+struct OnnxBuilder : DialectBuilder {
+  OnnxBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  OnnxBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
+  OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+
+  Value add(Value A, Value B);
+  Value sub(Value A, Value B);
+  Value mul(Value A, Value B);
+  Value div(Value A, Value B);
+  Value matmul(Type Y, Value A, Value B);
+};
+
 } // namespace mlir
 
 // Identity affine map:
@@ -123,6 +130,13 @@ bool IsIdentityPermuteVector(mlir::ArrayAttr permAttr);
 bool AreTheSameAxisArray(
     int64_t rank, mlir::ArrayAttr lhsAttr, mlir::ArrayAttr rhsAttr);
 
+/// Test if the value has the specified constant shape
+bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
+
+/// Test if two constant ops contain the same values or not.
+bool AreTheSameConstantOpDenseAttr(
+    mlir::Builder &builder, int64_t rank, mlir::Value lhsOp, mlir::Value rhsOp);
+
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
 //===----------------------------------------------------------------------===//
@@ -167,5 +181,16 @@ mlir::DenseElementsAttr createDenseElementsAttrFromShape(
 mlir::DenseElementsAttr createDenseElementsAttrFromSize(
     mlir::PatternRewriter &rewriter, mlir::Value value);
 
+// Create an ArrayAttr from a dense ConstantOp
+mlir::ArrayAttr createArrayAttrFromConstantOp(
+    mlir::Builder &builder, mlir::Value constOp);
+
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);
+
+// Check if a value is a 16, 32 or 64 bit integer.
+bool isCommonInteger(mlir::RankedTensorType tensorType);
+
+// Get scalar value when it is a constant.
+double getScalarValue(
+    mlir::ONNXConstantOp constantOp, mlir::RankedTensorType tensorType);

@@ -39,3 +39,22 @@ add_onnx_mlir_library(OMShapeInference
   OMShapeInferenceOpInterface
   MLIRPass
   )
+
+add_onnx_mlir_library(OMInstrumentONNX
+  InstrumentONNXPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMKrnlOps
+  MLIRPass
+  OMSupport
+  )
+
+add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
+  ONNXPreKrnlVerifyPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  OMSupport
+  )

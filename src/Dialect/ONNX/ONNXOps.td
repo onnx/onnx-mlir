@@ -31,6 +31,7 @@ def ONNXConstantOpFromDenseAttr: NativeCodeCall<
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";
+  let summary = "A high-level dialect for the ONNX specification";
   let cppNamespace = "::mlir";
 }
 
@@ -73,6 +74,10 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
   let description = [{
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
   }];
+  let arguments = (ins SymbolRefAttr:$func,
+           I32Attr:$numInputs,
+           I32Attr:$numOutputs,
+           StrAttr:$signature);
 
   let builders = [OpBuilder<(ins "FuncOp":$function, "int":$numInputs,
                                  "int":$numOutputs, "std::string":$signature)>];
@@ -147,9 +152,10 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
-def ONNXBatchNormalizationTestModeOp: ONNX_Op<"BatchNormalizationTestMode",
+def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceMode",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX BatchNormalization operation in test mode";
   let hasCanonicalizer = 1;

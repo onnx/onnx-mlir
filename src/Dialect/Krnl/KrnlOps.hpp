@@ -25,8 +25,10 @@
 #include "src/Interface/SpecializedKernelOpInterface.hpp"
 #include "llvm/ADT/TypeSwitch.h"
 
-#include "KrnlHelper.hpp"
-#include "KrnlTypes.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
+#include "src/Dialect/Krnl/KrnlTypes.hpp"
+#include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 
 namespace mlir {
 class KrnlOpsDialect : public Dialect {

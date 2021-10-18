@@ -478,6 +478,44 @@ ONNX AveragePool operation
 | :----: | ----------- |
 `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values
 
+### `onnx.BatchNormalizationInferenceMode` (::mlir::ONNXBatchNormalizationInferenceModeOp)
+
+ONNX BatchNormalization operation in test mode
+
+"Carries out batch normalization as described in the paper"
+"https://arxiv.org/abs/1502.03167. Depending on the mode it is being run,"
+"there are multiple cases for the number of outputs, which we list below:"
+""
+"Output case #1: Y, mean, var, saved_mean, saved_var (training mode)"
+"Output case #2: Y (test mode)"
+""
+"For previous (depreciated) non-spatial cases, implementors are suggested"
+"to flatten the input shape to (N x C*D1*D2 ..*Dn) before a BatchNormalization Op."
+"This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`epsilon` | ::mlir::FloatAttr | 32-bit float attribute
+`momentum` | ::mlir::FloatAttr | 32-bit float attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | memref of any type values or tensor of any type values
+`scale` | memref of any type values or tensor of any type values
+`B` | memref of any type values or tensor of any type values
+`mean` | memref of any type values or tensor of any type values
+`var` | memref of any type values or tensor of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`o_Y` | memref of any type values or tensor of any type values
+
 ### `onnx.BatchNormalization` (::mlir::ONNXBatchNormalizationOp)
 
 ONNX BatchNormalization operation
@@ -519,44 +557,6 @@ ONNX BatchNormalization operation
 `out_var` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values or none type or none type
 `saved_mean` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values or none type or none type or none type
 `saved_var` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values or none type or none type or none type or none type
-
-### `onnx.BatchNormalizationTestMode` (::mlir::ONNXBatchNormalizationTestModeOp)
-
-ONNX BatchNormalization operation in test mode
-
-"Carries out batch normalization as described in the paper"
-"https://arxiv.org/abs/1502.03167. Depending on the mode it is being run,"
-"there are multiple cases for the number of outputs, which we list below:"
-""
-"Output case #1: Y, mean, var, saved_mean, saved_var (training mode)"
-"Output case #2: Y (test mode)"
-""
-"For previous (depreciated) non-spatial cases, implementors are suggested"
-"to flatten the input shape to (N x C*D1*D2 ..*Dn) before a BatchNormalization Op."
-"This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
-
-#### Attributes:
-
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-`epsilon` | ::mlir::FloatAttr | 32-bit float attribute
-`momentum` | ::mlir::FloatAttr | 32-bit float attribute
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
-`scale` | memref of any type values or tensor of any type values
-`B` | memref of any type values or tensor of any type values
-`mean` | memref of any type values or tensor of any type values
-`var` | memref of any type values or tensor of any type values
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-`o_Y` | memref of any type values or tensor of any type values
 
 ### `onnx.Binarizer` (::mlir::ONNXBinarizerOp)
 
@@ -4754,6 +4754,36 @@ ONNX ReduceSumSquare operation
 | :----: | ----------- |
 `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or memref of any type values
 
+### `onnx.ReduceSumV11` (::mlir::ONNXReduceSumV11Op)
+
+ONNX ReduceSum operation
+
+"Computes the sum of the input tensor's element along the provided axes. The resulted"
+"tensor has the same rank as the input if keepdims equal 1. If keepdims equal 0, then"
+"the resulted tensor have the reduced dimension pruned."
+""
+"The above behavior is similar to numpy, with the exception that numpy default keepdims to"
+"False instead of True."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values
+
 ### `onnx.Relu` (::mlir::ONNXReluOp)
 
 ONNX Relu operation
@@ -6035,6 +6065,28 @@ ONNX Sqrt operation
 ONNX Squeeze operation
 
 "Remove single-dimensional entries from the shape of a tensor."
+"Takes an input `axes` with a list of axes to squeeze."
+"If `axes` is not provided, all the single dimensions will be removed from"
+"the shape. If an axis is selected with shape entry not equal to one, an error is raised."
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+`axes` | tensor of 64-bit signless integer values or memref of any type values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`squeezed` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+
+### `onnx.SqueezeV11` (::mlir::ONNXSqueezeV11Op)
+
+ONNX Squeeze operation
+
+"Remove single-dimensional entries from the shape of a tensor."
 "Takes a  parameter `axes` with a list of axes to squeeze."
 "If `axes` is not provided, all the single dimensions will be removed from"
 "the shape. If an axis is selected with shape entry not equal to one, an error is raised."
@@ -6542,6 +6594,36 @@ ONNX Unique operation
 `counts` | tensor of 64-bit signless integer values or memref of any type values or none type
 
 ### `onnx.Unsqueeze` (::mlir::ONNXUnsqueezeOp)
+
+ONNX Unsqueeze operation
+
+"Insert single-dimensional entries to the shape of an input tensor (`data`)."
+"Takes one required input `axes` - which contains a list of dimension indices and this operator will insert a dimension of value `1` into the corresponding index of the output tensor (`expanded`)."
+""
+"For example:"
+"  Given an input tensor (`data`) of shape [3, 4, 5], then"
+"  Unsqueeze(data, axes=[0, 4]) outputs a tensor (`expanded`) containing same data as `data` but with shape [1, 3, 4, 5, 1]."
+""
+"The input `axes` should not contain any duplicate entries. It is an error if it contains duplicates."
+"The rank of the output tensor (`output_rank`) is the rank of the input tensor (`data`) plus the number of values in `axes`."
+"Each value in `axes` should be within the (inclusive) range [-output_rank , output_rank - 1]."
+"The order of values in `axes` does not matter and can come in any order."
+""
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+`axes` | tensor of 64-bit signless integer values or memref of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`expanded` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+
+### `onnx.UnsqueezeV11` (::mlir::ONNXUnsqueezeV11Op)
 
 ONNX Unsqueeze operation
 

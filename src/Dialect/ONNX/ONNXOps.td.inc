@@ -380,6 +380,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
@@ -496,7 +497,7 @@ def ONNXCastOp:ONNX_Op<"Cast",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      auto builder = mlir::OpBuilder(getContext());
+      // ae auto builder = mlir::OpBuilder(getContext());
       resultTypes.push_back(mlir::UnrankedTensorType::get(to()));
       return resultTypes;
     }
@@ -772,6 +773,7 @@ def ONNXConvOp:ONNX_Op<"Conv",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
@@ -981,6 +983,7 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
@@ -1368,6 +1371,7 @@ def ONNXExpandOp:ONNX_Op<"Expand",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
@@ -1821,7 +1825,6 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
 
 def ONNXGemmOp:ONNX_Op<"Gemm",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let hasCanonicalizer = 1;
   let summary = "ONNX Gemm operation";
   let description = [{
   "General Matrix multiplication:"
@@ -2150,6 +2153,7 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXIsInfOp:ONNX_Op<"IsInf",
@@ -3013,6 +3017,7 @@ def ONNXModOp:ONNX_Op<"Mod",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXMulOp:ONNX_Op<"Mul",
@@ -3538,6 +3543,143 @@ def ONNXPadOp:ONNX_Op<"Pad",
         return {20};
       }
     }];
+}
+
+def ONNXPadV11Op:ONNX_Op<"PadV11",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Pad operation";
+  let description = [{
+  "Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,"
+  "a padded tensor (`output`) is generated."
+  ""
+  "The three supported `modes` are (similar to corresponding modes supported by `numpy.pad`):"
+  ""
+  "1) `constant`(default) - pads with a given constant value as specified by `constant_value` (which defaults to 0)"
+  ""
+  "2) `reflect` - pads with the reflection of the vector mirrored on the first and last values of the vector along each axis"
+  ""
+  "3) `edge` - pads with the edge values of array"
+  ""
+  ""
+  "Example 1 (`constant` mode):"
+  "  Insert 0 pads to the beginning of the second dimension."
+  ""
+  "  data ="
+  "  ["
+  "      [1.0, 1.2],"
+  "      [2.3, 3.4],"
+  "      [4.5, 5.7],"
+  "  ]"
+  ""
+  "  pads = [0, 2, 0, 0]"
+  ""
+  "  mode = 'constant'"
+  ""
+  "  constant_value = 0.0"
+  ""
+  "  output ="
+  "  ["
+  "      [0.0, 0.0, 1.0, 1.2],"
+  "      [0.0, 0.0, 2.3, 3.4],"
+  "      [0.0, 0.0, 4.5, 5.7],"
+  "  ]"
+  ""
+  ""
+  "Example 2 (`reflect` mode):"
+  "  data ="
+  "  ["
+  "      [1.0, 1.2],"
+  "      [2.3, 3.4],"
+  "      [4.5, 5.7],"
+  "  ]"
+  ""
+  "  pads = [0, 2, 0, 0]"
+  ""
+  "  mode = 'reflect'"
+  ""
+  "  output ="
+  "  ["
+  "      [1.0, 1.2, 1.0, 1.2],"
+  "      [2.3, 3.4, 2.3, 3.4],"
+  "      [4.5, 5.7, 4.5, 5.7],"
+  "  ]"
+  ""
+  ""
+  "Example 3 (`edge` mode):"
+  "  data ="
+  "  ["
+  "      [1.0, 1.2],"
+  "      [2.3, 3.4],"
+  "      [4.5, 5.7],"
+  "  ]"
+  ""
+  "  pads = [0, 2, 0, 0]"
+  ""
+  "  mode = 'edge'"
+  ""
+  "  output ="
+  "  ["
+  "      [1.0, 1.0, 1.0, 1.2],"
+  "      [2.3, 2.3, 2.3, 3.4],"
+  "      [4.5, 4.5, 4.5, 5.7],"
+  "  ]"
+  ""
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$pads,
+    AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType]>:$constant_value,
+    DefaultValuedAttr<StrAttr, "constant">:$mode);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
+def ONNXPadV2Op:ONNX_Op<"PadV2",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Pad operation";
+  let description = [{
+  "Given `data` tensor, pads, mode, and value."
+  "Example:"
+  "  Insert 0 pads to the beginning of the second dimension."
+  "  data = ["
+  "      [1.0, 1.2],"
+  "      [2.3, 3.4],"
+  "      [4.5, 5.7],"
+  "  ]"
+  "  pads = [0, 2, 0, 0]"
+  "  output = ["
+  "      ["
+  "          [0.0, 0.0, 1.0, 1.2],"
+  "          [0.0, 0.0, 2.3, 3.4],"
+  "          [0.0, 0.0, 4.5, 5.7],"
+  "      ],"
+  "  ]"
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$data,
+    DefaultValuedAttr<StrAttr, "constant">:$mode,
+    I64ArrayAttr:$pads,
+    DefaultValuedAttr<F32Attr, "0.0">:$value);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXPowOp:ONNX_Op<"Pow",
@@ -4374,6 +4516,7 @@ def ONNXReluOp:ONNX_Op<"Relu",
 
 def ONNXReshapeOp:ONNX_Op<"Reshape",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Reshape operation";
   let description = [{
   "Reshape the input tensor similar to numpy.reshape."
@@ -5488,9 +5631,47 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXSplitOp:ONNX_Op<"Split",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Split operation";
+  let description = [{
+  "Split a tensor into a list of tensors, along the specified"
+  "'axis'. Lengths of the parts can be specified using input 'split'."
+  "Otherwise, the tensor is split to equal sized parts."
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$input,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$split,
+    DefaultValuedAttr<SI64Attr, "0">:$axis);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$outputs);
+  let builders = [
+    OpBuilder<(ins "Value":$input, "Value":$split, "IntegerAttr":$axis), [{
+      auto elementType = input.getType().cast<ShapedType>().getElementType();
+      build($_builder, $_state, UnrankedTensorType::get(elementType), input, split, axis);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build($_builder, $_state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return -1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
+}
+
+def ONNXSplitV11Op:ONNX_Op<"SplitV11",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Split operation";
   let description = [{
@@ -5502,29 +5683,17 @@ def ONNXSplitOp:ONNX_Op<"Split",
     DefaultValuedAttr<SI64Attr, "0">:$axis,
     OptionalAttr<I64ArrayAttr>:$split);
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$outputs);
-  let builders = [
-    OpBuilder<(ins "Value":$input, "IntegerAttr":$axis, "ArrayAttr":$split), [{
-      auto elementType = input.getType().cast<ShapedType>().getElementType();
-      build($_builder, $_state, UnrankedTensorType::get(elementType), input, axis, split);
-    }]>,
-    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto elementType = operands[0].getType().cast<ShapedType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build($_builder, $_state, outputTypes, operands, attributes);
-    }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return -1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return -1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
@@ -5596,6 +5765,32 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
 }
 
 def ONNXSqueezeOp:ONNX_Op<"Squeeze",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
+  let summary = "ONNX Squeeze operation";
+  let description = [{
+  "Remove single-dimensional entries from the shape of a tensor."
+  "Takes an input `axes` with a list of axes to squeeze."
+  "If `axes` is not provided, all the single dimensions will be removed from"
+  "the shape. If an axis is selected with shape entry not equal to one, an error is raised."
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$squeezed);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
+def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Squeeze operation";
@@ -6055,6 +6250,40 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
   let summary = "ONNX Unsqueeze operation";
   let description = [{
   "Insert single-dimensional entries to the shape of an input tensor (`data`)."
+  "Takes one required input `axes` - which contains a list of dimension indices and this operator will insert a dimension of value `1` into the corresponding index of the output tensor (`expanded`)."
+  ""
+  "For example:"
+  "  Given an input tensor (`data`) of shape [3, 4, 5], then"
+  "  Unsqueeze(data, axes=[0, 4]) outputs a tensor (`expanded`) containing same data as `data` but with shape [1, 3, 4, 5, 1]."
+  ""
+  "The input `axes` should not contain any duplicate entries. It is an error if it contains duplicates."
+  "The rank of the output tensor (`output_rank`) is the rank of the input tensor (`data`) plus the number of values in `axes`."
+  "Each value in `axes` should be within the (inclusive) range [-output_rank , output_rank - 1]."
+  "The order of values in `axes` does not matter and can come in any order."
+  ""
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$expanded);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
+def ONNXUnsqueezeV11Op:ONNX_Op<"UnsqueezeV11",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
+  let summary = "ONNX Unsqueeze operation";
+  let description = [{
+  "Insert single-dimensional entries to the shape of an input tensor (`data`)."
   "Takes one required argument `axes` - which contains a list of dimension indices and this operator will insert a dimension of value `1` into the corresponding index of the output tensor (`expanded`)."
   ""
   "For example:"
@@ -6110,6 +6339,56 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
+def ONNXUpsampleV9Op:ONNX_Op<"UpsampleV9",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Upsample operation";
+  let description = [{
+  "Upsample the input tensor."
+  "Each dimension value of the output tensor is:"
+  "  output_dimension = floor(input_dimension * scale)."
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$X,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$scales,
+    DefaultValuedAttr<StrAttr, "nearest">:$mode);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
+def ONNXUpsampleV7Op:ONNX_Op<"UpsampleV7",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Upsample operation";
+  let description = [{
+  "Upsample the input tensor."
+  "Each dimension value of the output tensor is:"
+  "  output_dimension = floor(input_dimension * scale)."
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$X,
+    DefaultValuedAttr<StrAttr, "nearest">:$mode,
+    F32ArrayAttr:$scales);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
     }
     static int getNumberOfResults() {
       return 1;

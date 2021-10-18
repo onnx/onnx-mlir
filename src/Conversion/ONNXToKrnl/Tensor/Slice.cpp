@@ -27,10 +27,10 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     ONNXSliceOp sliceOp = llvm::cast<ONNXSliceOp>(op);
     Location loc = op->getLoc();
 
-    ONNXSliceOpShapeHelper shapeHelper(&sliceOp, rewriter,
+    ONNXSliceOpShapeHelper shapeHelper(&sliceOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed));
 
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -45,10 +45,9 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
-    IndexExprScope childScope(shapeHelper.scope);
-    // Scope for krnl EDSC ops
-    using namespace mlir::edsc;
-    ScopedContext scope(rewriter, loc);
+    IndexExprScope childScope(&rewriter, shapeHelper.scope);
+    // Scope for krnl ops
+    KrnlBuilder createKrnl(rewriter, loc);
 
     // Compute indices for the load and store op.
     // Load: "i * step + start" for all dim.
@@ -64,8 +63,8 @@ struct ONNXSliceOpLowering : public ConversionPattern {
       storeIndices.emplace_back(inductionIndex);
     }
     // Load data and store in alloc data.
-    Value loadVal = krnl_load(operandAdaptor.data(), loadIndices);
-    krnl_store(loadVal, alloc, storeIndices);
+    Value loadVal = createKrnl.loadIE(operandAdaptor.data(), loadIndices);
+    createKrnl.storeIE(loadVal, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
     return success();
