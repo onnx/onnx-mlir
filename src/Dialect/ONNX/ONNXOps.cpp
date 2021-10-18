@@ -3465,6 +3465,39 @@ LogicalResult ONNXCumSumOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXDepthToSpaceOp op) {
+  ONNXDepthToSpaceOpAdaptor operandAdaptor(op);
+
+  // Check input.
+  auto input = operandAdaptor.input();
+  if (!hasShapeAndRank(input)) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
+  auto inputType = input.getType().cast<ShapedType>();
+  auto inputShape = inputType.getShape();
+  if (inputShape.size() != 4)
+    return op.emitError("Input should have a rank of four");
+
+  // Check blocksize.
+  auto blocksize = operandAdaptor.blocksize().getValue();
+  if (blocksize.isNegative())
+    return op.emitError("Blocksize should be non negative");
+
+  auto C = inputShape[1];
+  uint64_t bs = blocksize.getZExtValue();
+  if (C % (bs * bs) != 0)
+    return op.emitError("The input tensor depth must be divisible by the "
+                        "(blocksize * blocksize)");
+
+  // Check mode.
+  StringRef mode = operandAdaptor.mode().getValue();
+  if (mode != "DCR" && mode != "CRD")
+    return op.emitError("Mode must be DCR or CRD");
+
+  return success();
+}
+
 LogicalResult ONNXDepthToSpaceOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no input shape exists.
@@ -3989,6 +4022,39 @@ LogicalResult ONNXSequenceLengthOp::inferShapes(
 LogicalResult ONNXShrinkOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+static LogicalResult verify(ONNXSpaceToDepthOp op) {
+  ONNXSpaceToDepthOpAdaptor operandAdaptor(op);
+
+  // Check input.
+  auto input = operandAdaptor.input();
+  if (!hasShapeAndRank(input)) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
+  auto inputType = input.getType().cast<ShapedType>();
+  auto inputShape = inputType.getShape();
+  if (inputShape.size() != 4)
+    return op.emitError("Input should have a rank of four");
+
+  // Check blocksize.
+  auto blocksize = operandAdaptor.blocksize().getValue();
+  if (blocksize.isNegative())
+    return op.emitError("Blocksize should be non negative");
+
+  auto H = inputShape[2];
+  auto W = inputShape[3];
+  uint64_t bs = blocksize.getZExtValue();
+
+  if (H % bs != 0)
+    return op.emitError(
+        "The input tensor height must be divisible by the block size");
+  if (W % bs != 0)
+    return op.emitError(
+        "The input tensor width must be divisible by the block size");
+
+  return success();
 }
 
 LogicalResult ONNXSpaceToDepthOp::inferShapes(
