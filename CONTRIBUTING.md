@@ -37,5 +37,5 @@ Up to date info on how to build the project is located in the top directory [her
 ## Coordinating support for new operations
 
 * Check this issue for status on operations required for ONNX Model Zoo [Issue 128](https://github.com/onnx/onnx-mlir/issues/128).
-* Claim an op that you are working on by adding a comment on this [Issue #922](https://github.com/onnx/onnx-mlir/issues/916).
+* Claim an op that you are working on by adding a comment on this [Issue #922](https://github.com/onnx/onnx-mlir/issues/922).
 
