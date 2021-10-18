@@ -55,11 +55,11 @@ using DimsExpr = SmallVector<IndexExpr, 4>;
 template <class OP>
 struct ONNXOpShapeHelper {
   // Constructor for shape inference. Reuse scope if given, otherwise create one
-  // now and free in destructor.
+  // now and free it in destructor.
   ONNXOpShapeHelper(
       OP *newOp, int numResults, IndexExprScope *inScope = nullptr);
   // Constructor when code can be generated. Reuse scope if given, otherwise
-  // create one now and free in destructor.
+  // create one now and free it in destructor.
   ONNXOpShapeHelper(OP *newOp, int numResults, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal,
@@ -69,11 +69,14 @@ struct ONNXOpShapeHelper {
       delete scope;
   }
 
-  // Define in every children. Use op to get attributes, and operandAdaptor
-  // to get the input/output parameters.
-  LogicalResult computeShape(ONNXSliceOpAdaptor operandAdaptor) {
-    llvm_unreachable("implement in child structs");
-  }
+  // Every child class is expected to create a computeShape with the following
+  // signature. This method is responsible to compute at a minimum the output
+  // dims.
+  //
+  // LogicalResult computeShape(<<OpAdaptor>> operandAdaptor);
+  //
+  // Use the op to get attributes, and operandAdaptor to get the input/output
+  // tensors.
 
   // Return output dims for the N-th output.
   DimsExpr &dimsForOutput(int n = 0) { return outputsDims[n]; }
@@ -444,5 +447,5 @@ struct ONNXCompressOpShapeHelper : public ONNXOpShapeHelper<ONNXCompressOp> {
       ArrayValueIndexCapture::LoadVal fLoadVal);
   LogicalResult computeShape(ONNXCompressOpAdaptor operandAdaptor);
   // Additional data for CompressOp.
-  int onesInConditions = -1;
+  int axis = -1; // Value -1 signify axis was not specified. 
 };

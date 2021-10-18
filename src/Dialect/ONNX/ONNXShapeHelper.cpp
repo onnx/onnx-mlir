@@ -35,6 +35,7 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
   assert(op && "Expecting a valid pointer");
   if (ownScope)
     scope = new IndexExprScope(nullptr, newOp->getLoc());
+  assert(scope && "expected a fully formed scope");
   setNumberOfOutputs(numResults);
 }
 
@@ -47,6 +48,7 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(OP *newOp, int numResults,
   assert(op && "Expecting a valid pointer");
   if (ownScope)
     scope = new IndexExprScope(rewriter, newOp->getLoc());
+  assert(scope && "expected a fully formed scope");
   setNumberOfOutputs(numResults);
   // Get the dense value by combining provided function (if any) with the
   // default one.
@@ -1835,25 +1837,47 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape(
   // Check that input and condition are ranked.
   Value input = operandAdaptor.input();
   ShapedType inputType = input.getType().dyn_cast_or_null<ShapedType>();
-  assert(
-      inputType && inputType.hasRank() && "Input should have a shape and rank");
+  assert(inputType && inputType.hasRank() &&
+         "Input should have a known shape and rank");
   int64_t inputRank = inputType.getRank();
-  Value condition = operandAdaptor.condition();
-  ShapedType conditionType = input.getType().dyn_cast_or_null<ShapedType>();
-  assert(conditionType && conditionType.hasRank() &&
-         "Condition should have a shape and rank");
-  if (DenseElementsAttr attrArray = fGetDenseVal(condition)) {
-    // the condition is known at compile time
-  }
+  Value cond = operandAdaptor.condition();
+  ShapedType condType = cond.getType().dyn_cast_or_null<ShapedType>();
+  assert(condType && condType.hasRank() &&
+         "Condition should have a known and rank");
+  // Get the dimension derived from the condition. Assume in shape helper
+  // that it is only going to be a question mark. ONNX to Krnl lowering will
+  // compute the actual value.
+  // TODO: if cond is constant, the compute the actual value.
+  printf("hi alex shape 1\n");
+  IndexExpr dynDim;
+  if (scope->isShapeInferencePass())
+    dynDim = QuestionmarkIndexExpr(); // Value for runtime dim.
+  else
+    dynDim = LiteralIndexExpr(-1); // Dummy value to be replaced in lowering.
+  printf("hi alex shape 1.1\n");
   // Get axis. Value -1 signify axis was not specified. Verifier already checked
   // that the axis, if given, is in range.
-  int64_t axis = -1;
+  axis = -1;
   if (op->axis().hasValue()) {
     axis = op->axis().getValue();
     if (axis < 0)
       axis += inputRank;
   }
-
+  // Compute dims for output.
+  DimsExpr outputDims;
+  printf("hi alex shape 2\n");
+  if (axis == -1) {
+    // Reduced to a single dimensional array, of dynamic size.
+    outputDims.emplace_back(dynDim);
+  } else {
+    // Has same dimensionality as input, with axis dimension being the dynamic
+    // size.
+    MemRefBoundsIndexCapture inputBounds(input);
+    inputBounds.getDimList(outputDims);
+    outputDims[axis] = dynDim;
+  }
+  printf("hi alex shape 3\n");
+  dimsForOutput(0) = outputDims;
   return success();
 }
 
