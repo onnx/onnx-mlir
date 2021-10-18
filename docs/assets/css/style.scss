@@ -1,0 +1,20 @@
+---
+---
+
+@import "{{ site.theme }}";
+
+div.wrapper {
+  width:auto;
+  margin:0 auto;
+}
+
+header {
+  width:210px;
+}
+
+section {
+  width:870px;
+  float:right;
+  padding-bottom:50px;
+  margin: 0 0 0 20px;
+}
