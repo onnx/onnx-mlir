@@ -4,7 +4,7 @@
 
 ## Building
 
-Up to date info on how to build the project is located in the top directory [here](../README.md).
+Up to date info on how to build the project is located in the top directory [here](README.md).
 
 ## Guides for code generation
 * A guide on how to add support for a new operation is found [here](docs/HowToAddAnOperation.md).
@@ -25,7 +25,7 @@ Up to date info on how to build the project is located in the top directory [her
 * We have support on how to trace performance issue using instrumentation. Details are found [here](docs/Instrumentation.md).
 * We have support to debug numerical errors. See [here](docs/DebuggingNumericalError.md).
 
-## Running models in Python adn C
+## Running models in Python and C
 
 * Here is how to run a compiled model in python [link](docs/UsingPyRuntime.md).
 * Here is the C runtime API to run models in C/C++ [link](http://onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html).
@@ -36,6 +36,6 @@ Up to date info on how to build the project is located in the top directory [her
 
 ## Coordinating support for new operations
 
-* Check this issue for status on operations required for ONNX Model Zoo [Issue 128](#128).
-* Claim an op that you are working on by adding a comment on this [Issue #922](#922).
+* Check this issue for status on operations required for ONNX Model Zoo [Issue 128](https://github.com/onnx/onnx-mlir/issues/128).
+* Claim an op that you are working on by adding a comment on this [Issue #922](https://github.com/onnx/onnx-mlir/issues/916).
 
