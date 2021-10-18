@@ -2064,3 +2064,45 @@ func @test_resize1(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32> {
   // CHECK: [[R1:%.+]] = "onnx.Constant"() {value = dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
   // CHECK: [[R2:%.+]] = "onnx.Resize"([[ARG]], [[R0]], [[R1]], [[CST]]) {coordinate_transformation_mode = "asymmetric", mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize1"} : (tensor<3x4x5x6xf32>, tensor<8xf32>, tensor<4xf32>, none) -> tensor<3x4x10x12xf32>
 }
+
+//===----------------------------------------------------------------------===//
+
+// -----
+
+// Test OneHot
+
+func @test_onehot(%arg0: tensor<2x2xi64>, %arg1: tensor<2xf32>) -> tensor<*xf32> {
+  %depth = "onnx.Constant"() {value = dense<10> : tensor<i64>} : () -> tensor<i64>
+  %0 = "onnx.OneHot"(%arg0, %depth, %arg1) : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_onehot
+  // CHECK: [[R0:%.+]] = "onnx.Constant"() {value = dense<10> : tensor<i64>} : () -> tensor<i64>
+  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, [[R0]], %arg1) {axis = 2 : si64} : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<2x2x10xf32>
+}
+
+func @test_onehot_axis(%arg0: tensor<2x2xi64>, %arg1: tensor<2xf32>) -> tensor<*xf32> {
+  %depth = "onnx.Constant"() {value = dense<10.0> : tensor<f32>} : () -> tensor<f32>
+  %0 = "onnx.OneHot"(%arg0, %depth, %arg1) {axis = 1 : si64} : (tensor<2x2xi64>, tensor<f32>, tensor<2xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_onehot_axis
+  // CHECK: [[R0:%.+]] = "onnx.Constant"() {value = dense<1.000000e+01> : tensor<f32>} : () -> tensor<f32>
+  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, [[R0]], %arg1)  {axis = 1 : si64} : (tensor<2x2xi64>, tensor<f32>, tensor<2xf32>) -> tensor<2x10x2xf32>
+}
+
+func @test_onehot_depth(%arg0: tensor<2x2xi64>, %arg1: tensor<i64>, %arg2: tensor<2xf32>) -> tensor<*xf32> {
+  %0 = "onnx.OneHot"(%arg0, %arg1, %arg2) : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_onehot_depth
+  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, %arg1, %arg2)  {axis = 2 : si64} : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<2x2x?xf32>
+}
+
+func @test_onehot_dynamic(%arg0: tensor<?x2xi64>, %arg1: tensor<i64>, %arg2: tensor<2xf32>) -> tensor<*xf32> {
+  %0 = "onnx.OneHot"(%arg0, %arg1, %arg2) {axis = 0 : si64} : (tensor<?x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_onehot_dynamic
+  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, %arg1, %arg2)  {axis = 0 : si64} : (tensor<?x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<?x?x2xf32>
+}

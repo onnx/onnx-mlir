@@ -7,6 +7,7 @@ if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "s390x")
 endif()
 
 add_onnx_mlir_dialect(KrnlOps)
+add_onnx_mlir_dialect_doc(krnl KrnlOps.td)
 
 add_onnx_mlir_library(OMKrnlOps
   KrnlOps.cpp

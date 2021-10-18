@@ -983,6 +983,7 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
@@ -5630,6 +5631,7 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXSplitOp:ONNX_Op<"Split",
