@@ -244,20 +244,23 @@ static void insertDebugSupportFunctions(PatternRewriter &rewriter, ModuleOp modu
 std::cout << "inserting debug support functions" << std::endl;
   // Create function declarations.
   // auto llvmF32Ty = FloatType::get(context);
-  auto llvmFloatType = FloatType::getF64(context);
-  auto llvmSignedIntType = IntegerType::get(context, 64, IntegerType::SignednessSemantics::Signed);
+  auto llvmFloatType = FloatType::getF32(context);
+  auto llvmDoubleType = FloatType::getF64(context);
+  auto llvmIntType = IntegerType::get(context, 64, IntegerType::SignednessSemantics::Signless);
   auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
   //auto llvmVoidType = llvmVoidType();
 
   auto boundsType = LLVM::LLVMPointerType::get(IntegerType::get(context, 64));
   auto floatElementFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, ArrayRef<mlir::Type>({llvmFloatType}));
-  auto intElementFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, ArrayRef<mlir::Type>({llvmSignedIntType}));
-  auto startFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, ArrayRef<mlir::Type>({llvmSignedIntType, llvmSignedIntType, boundsType}));
+  auto doubleElementFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, ArrayRef<mlir::Type>({llvmDoubleType}));
+  auto intElementFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, ArrayRef<mlir::Type>({llvmIntType}));
+  auto startFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, ArrayRef<mlir::Type>({llvmIntType, boundsType}));
   auto endFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, ArrayRef<mlir::Type>({}));
 
   // Insert the debug function into the body of the parent module.
   rewriter.setInsertionPointToStart(module.getBody());
   rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), "printTensorElementFloat", floatElementFnType);
+  rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), "printTensorElementDouble", doubleElementFnType);
   rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), "printTensorElementInt", intElementFnType);
   rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), "printTensorStart", startFnType);
   rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), "printTensorEnd", endFnType);
@@ -271,11 +274,12 @@ std::cout << "inserting debug support functions" << std::endl;
 // For the debug suppport functions
 //
 static FlatSymbolRefAttr getDebugSupportFunction(PatternRewriter &rewriter,
-    ModuleOp module, std::string baseName, uint64_t eltype) {
+    //ModuleOp module, std::string baseName, uint64_t eltype) {
+    ModuleOp module, std::string baseName) {
   auto *context = module.getContext();
-  std::string funcName;
+  //std::string funcName;
 
-std::cout << "looking up function: " << baseName << std::endl;
+/*std::cout << "looking up function: " << baseName << std::endl;
   switch(eltype) {
     case 0:
       funcName = baseName+"Float";
@@ -289,14 +293,17 @@ std::cout << "looking up function: " << baseName << std::endl;
     default:
       llvm_unreachable("invalid Type for Debug Tensor Output");
       break;
-  }
-  if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
-    return SymbolRefAttr::get(context, funcName);
+  }*/
+  //if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
+  if (module.lookupSymbol<LLVM::LLVMFuncOp>(baseName))
+    //return SymbolRefAttr::get(context, funcName);
+    return SymbolRefAttr::get(context, baseName);
 
   // Create function declaration if not found above
   insertDebugSupportFunctions(rewriter, module);
   
-  return SymbolRefAttr::get(context, funcName);
+  //return SymbolRefAttr::get(context, funcName);
+  return SymbolRefAttr::get(context, baseName);
 }
 
 //===----------------------------------------------------------------------===//
@@ -588,27 +595,53 @@ public:
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     KrnlPrintTensorStartOp startOp = llvm::dyn_cast<KrnlPrintTensorStartOp>(op); 
 
-    auto func = getDebugSupportFunction(rewriter, parentModule,"printTensorStart",255);
-    int64_t elType = startOp.elType();
+    auto func = getDebugSupportFunction(rewriter, parentModule,"printTensorStart");
+    //int64_t elType = startOp.elType();
     int64_t rank = startOp.rank();
     ValueRange bounds = startOp.bounds();
-    Value elTypeVal =
+    /*Value elTypeVal =
         rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
             rewriter.getIntegerAttr(
-                rewriter.getIntegerType(64), elType));
+                rewriter.getIntegerType(64), elType));*/
     Value rankVal =
         rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
             rewriter.getIntegerAttr(
                 rewriter.getIntegerType(64), rank));
 
-    std::vector<mlir::Value> arguments;
-    //arguments.push_back(elTypeVal);
-    arguments.push_back(rankVal);
+    //memref::AllocaOp boundsBuffer;
+    //SmallVector<int64_t, 1> bufferShape;
+
+    //bufferShape.emplace_back(bounds.size());
+    //auto bufferMemRefType = MemRefType::get(bufferShape, rewriter.getIntegerType(8));
+    std::cout << "gen'ing Alloca" << std::endl;
+    //auto bufferMemRef = rewriter.create<memref::AllocaOp>(loc, bufferMemRefType);
+    auto llvmI64PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 64));
+    auto bufferStorage = rewriter.create<LLVM::AllocaOp>(loc,llvmI64PtrTy,rewriter.create<ConstantOp>(
+        loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64), bounds.size()*8)),16);
+    std::cout << "about to gen stores of bounds" << std::endl;
     for (size_t i = 0; i < bounds.size(); i++) {
-      arguments.push_back(bounds[i]);
+      std::cout << "gen'ing store for bound[" <<i <<"]" << std::endl;
+      // store bounds into buffer
+    Value index =
+        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
+            rewriter.getIntegerAttr(rewriter.getIntegerType(64), i));
+      //rewriter.create<memref::StoreOp>(loc,bounds[i],bufferMemRef,index);
+      rewriter.create<LLVM::StoreOp>(loc,bounds[i],rewriter.create<LLVM::GEPOp>(loc,llvmI64PtrTy,bufferStorage,index));
       }
-    llvm::ArrayRef<mlir::Value> ref(arguments.data(), arguments.size());
-    rewriter.create<CallOp>(loc, func, ArrayRef<Type>({}), arguments);    
+    
+    std::cout << "setting up for call generation" << std::endl;
+
+    
+    //auto zero = rewriter.create<ConstantOp>(
+    //    loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64), 0));
+    /*std::vector<mlir::Value> arguments;
+    arguments.push_back(elTypeVal);
+    arguments.push_back(rankVal);
+    arguments.push_back(rewriter.create<KrnlGetRefOp>(loc,bufferMemRefType,bufferMemRef,zero));*/
+    //rewriter.create<CallOp>(loc, func, ArrayRef<Type>({}), arguments);    
+    //rewriter.create<CallOp>(loc, func, ArrayRef<Type>({}), ArrayRef<Value>({elTypeVal,rankVal,rewriter.create<KrnlGetRefOp>(loc,bufferMemRefType,bufferMemRef,zero)}));    
+    rewriter.create<CallOp>(loc, func, ArrayRef<Type>({}), ArrayRef<Value>({rankVal,bufferStorage}));    
+    //rewriter.create<CallOp>(loc, func, ArrayRef<Type>({}), ArrayRef<Value>({elTypeVal,rankVal,bufferMemRef}));    
 
     rewriter.eraseOp(op);
     return success();
@@ -629,10 +662,27 @@ public:
     auto *context = op->getContext();
     auto loc = op->getLoc();
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
-    KrnlPrintTensorElementOp elementOp = llvm::dyn_cast<KrnlPrintTensorElementOp>(op); 
-
-    auto func = getDebugSupportFunction(rewriter, parentModule,"printTensorElement",0);
+    KrnlPrintTensorElementOp elementOp = llvm::dyn_cast<KrnlPrintTensorElementOp>(op);
     Value in = elementOp.in();
+    auto elType = elementOp.elType();
+        
+    //auto memRefType = convertToMemRefType(in.getType());
+    //auto memRefType = in.getType().cast<mlir::MemRefType>();
+    //auto elType=memRefType.getElementType();
+    std::string baseName="printTensorElement";
+    std::string suffix;
+    switch(elType) {
+          case 0:
+            suffix="Float";
+            break;
+          case 1:
+            suffix="Double";
+            break;
+          case 2:
+            suffix="Int";
+            break;
+      }
+    auto func = getDebugSupportFunction(rewriter, parentModule,baseName+suffix);
     rewriter.create<CallOp>(loc, func, ArrayRef<Type>({}), ArrayRef<Value>({in}));    
     std::cout << "call generated" << std::endl;
     rewriter.eraseOp(op);
@@ -655,7 +705,7 @@ public:
     auto loc = op->getLoc();
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
   
-    auto func = getDebugSupportFunction(rewriter, parentModule,"printTensorEnd",255);
+    auto func = getDebugSupportFunction(rewriter, parentModule,"printTensorEnd");
   
     rewriter.create<CallOp>(loc, func, ArrayRef<Type>({}), ArrayRef<Value>({}));    
 
@@ -868,13 +918,12 @@ template <>
 struct MathFunctionName<KrnlPrintTensorElementOp> {
   static std::string functionName(mlir::Type type) {
     if (type.isF32())
-      return "PrintTensorElementF";
+      return "atanhf";
     if (type.isF64())
-      return "PrintTensorElementD";
+      return "atanh";
     llvm_unreachable("Unsupported type for atanh");
   }
 };
-
 
 template <typename KrnlScalarMathOp>
 class KrnlUnaryMathOpLowering : public ConversionPattern {
