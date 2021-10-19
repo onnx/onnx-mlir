@@ -17,6 +17,42 @@
 
 using namespace mlir;
 
+static Value getLoopIndexByAxisAndOffset(MathBuilder &createMath,
+    SmallVectorImpl<Value> &resLoopIndex, ValueRange &baseLoopIndex,
+    SmallVectorImpl<IndexExpr> &upperBounds, Value axis, Value offset,
+    bool reverse) {
+  Type boolTy = createMath.getBuilder().getI1Type();
+  Type indexTy = createMath.getBuilder().getIndexType();
+  Value notSameAsBaseIndex = createMath.constant(boolTy, 0);
+  for (uint64_t r = 0; r < upperBounds.size(); ++r) {
+    Value iVal = baseLoopIndex[r];
+    Value rVal = createMath.constant(indexTy, r);
+    Value dimSize = upperBounds[r].getValue();
+
+    // Whether we are in the right axis.
+    Value isAxis = createMath.eq(rVal, axis);
+
+    // Whether (index - offset) (or index + offset in case of reverse) is still
+    // in the valid range or not.
+    Value iOffset, isValidOffset;
+    if (reverse) {
+      iOffset = createMath.add(iVal, offset);
+      isValidOffset = createMath.slt(iOffset, dimSize);
+    } else {
+      Value zero = createMath.constant(indexTy, 0);
+      iOffset = createMath.sub(iVal, offset);
+      isValidOffset = createMath.sge(iOffset, zero);
+    }
+
+    Value ok = createMath._and(isAxis, isValidOffset);
+    notSameAsBaseIndex = createMath._or(ok, notSameAsBaseIndex);
+
+    Value accessIndex = createMath.select(ok, iOffset, iVal);
+    resLoopIndex.emplace_back(accessIndex);
+  }
+  return notSameAsBaseIndex;
+}
+
 struct ONNXCumSumOpLowering : public ConversionPattern {
   ONNXCumSumOpLowering(MLIRContext *ctx)
       : ConversionPattern(ONNXCumSumOp::getOperationName(), 1, ctx) {}
@@ -60,7 +96,6 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     // Common information.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = memRefType.getElementType();
-    Type boolTy = rewriter.getI1Type();
     Type i64Ty = rewriter.getI64Type();
     Type f32Ty = rewriter.getF32Type();
     Type indexTy = rewriter.getIndexType();
@@ -143,37 +178,13 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
             // or
             //   new_input = [3, 4, 0] if reversed.
             MathBuilder createMath(createKrnl);
-            SymbolIndexExpr axis(axisIE);
+            Value axis = axisIE.getValue();
 
+            // Load input[i - 1,k] or get zero.
             SmallVector<Value, 4> loopInd;
             Value offsetOne = createMath.constant(indexTy, 1);
-            Value shiftOrSet0 = createMath.constant(boolTy, 0);
-            for (uint64_t r = 0; r < rank; ++r) {
-              Value iVal = initLoopInd[r];
-              Value rVal = createMath.constant(indexTy, r);
-              Value dimSize = xBounds.getDim(r).getValue();
-              // Whether we are in the reduction axis.
-              Value isAxis = createMath.eq(rVal, axis.getValue());
-              // Whether the current element's index is in the scope of
-              // reduction or not.
-              Value isRedInd;
-              if (reverse) {
-                Value x = createMath.add(iVal, offsetOne);
-                isRedInd = createMath.slt(x, dimSize);
-              } else {
-                isRedInd = createMath.sge(iVal, offsetOne);
-              }
-              Value ok = createMath._and(isAxis, isRedInd);
-              shiftOrSet0 = createMath._or(ok, shiftOrSet0);
-
-              Value iOffset;
-              if (reverse)
-                iOffset = createMath.add(iVal, offsetOne);
-              else
-                iOffset = createMath.sub(iVal, offsetOne);
-              Value accessIndex = createMath.select(ok, iOffset, iVal);
-              loopInd.emplace_back(accessIndex);
-            }
+            Value shiftOrSet0 = getLoopIndexByAxisAndOffset(createMath, loopInd,
+                initLoopInd, ubs, axis, offsetOne, reverse);
             Value res = createKrnl.load(X, loopInd);
             Value zeroVal = createMath.constant(elementType, 0);
             res = createMath.select(shiftOrSet0, res, zeroVal);
@@ -207,38 +218,13 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
               [&](KrnlBuilder &createKrnl, ValueRange sumLoopInd) {
                 IndexExprScope ieScope(createKrnl);
                 MathBuilder createMath(createKrnl);
-                SymbolIndexExpr axis(axisIE);
+                Value axis = axisIE.getValue();
                 // Load buf[i,k].
                 Value b1 = createKrnl.load(bufMemRef, sumLoopInd);
                 // Load buf[i - 2^step,k].
                 SmallVector<Value, 4> loopInd;
-                Value shouldUpdate = createMath.constant(boolTy, 0);
-                for (uint64_t r = 0; r < rank; ++r) {
-                  Value iVal = sumLoopInd[r];
-                  Value rVal = createMath.constant(indexTy, r);
-                  Value dimSize = xBounds.getDim(r).getValue();
-                  // Whether we are in the reduction axis.
-                  Value isAxis = createMath.eq(rVal, axis.getValue());
-                  // Whether the current element's index is in the scope of
-                  // reduction or not.
-                  Value isRedInd;
-                  if (reverse) {
-                    Value x = createMath.add(iVal, offset);
-                    isRedInd = createMath.slt(x, dimSize);
-                  } else {
-                    isRedInd = createMath.sge(iVal, offset);
-                  }
-                  Value ok = createMath._and(isAxis, isRedInd);
-                  shouldUpdate = createMath._or(ok, shouldUpdate);
-
-                  Value iOffset;
-                  if (reverse)
-                    iOffset = createMath.add(iVal, offset);
-                  else
-                    iOffset = createMath.sub(iVal, offset);
-                  Value accessIndex = createMath.select(ok, iOffset, iVal);
-                  loopInd.emplace_back(accessIndex);
-                }
+                Value shouldUpdate = getLoopIndexByAxisAndOffset(createMath,
+                    loopInd, sumLoopInd, ubs, axis, offset, reverse);
                 Value b2 = createKrnl.load(bufMemRef, loopInd);
                 Value zeroVal = createMath.constant(elementType, 0);
                 Value addOrZero = createMath.select(shouldUpdate, b2, zeroVal);
