@@ -163,6 +163,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXScanOpPattern(patterns, &getContext());
   // Math
   populateLoweringONNXClipOpPattern(patterns, &getContext());
+  populateLoweringONNXCumSumOpPattern(patterns, &getContext());
   populateLoweringONNXElementwiseOpPattern(patterns, &getContext());
   populateLoweringONNXGemmOpPattern(patterns, &getContext());
   populateLoweringONNXReductionOpPattern(patterns, &getContext());
@@ -194,6 +195,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXResizeOpPattern(patterns, &getContext());
   populateLoweringONNXNonZeroOpPattern(patterns, &getContext());
   populateLoweringONNXExpandOpPattern(patterns, &getContext());
+  populateLoweringONNXOneHotOpPattern(patterns, &getContext());
   populateLoweringONNXCompressOpPattern(patterns, &getContext());
   // Neural network
   populateLoweringONNXConvOpPattern(patterns, &getContext());

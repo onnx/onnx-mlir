@@ -50,15 +50,23 @@ struct MathBuilder : DialectBuilder {
   MathBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
   Value _and(Value lhs, Value rhs);
+  Value _or(Value lhs, Value rhs);
+
   Value add(Value lhs, Value rhs);
   Value sub(Value lhs, Value rhs);
   Value mul(Value lhs, Value rhs);
   Value div(Value lhs, Value rhs);
   Value exp(Value val);
+  Value exp2(Value val);
+  Value log2(Value val);
+
   Value select(Value cmp, Value lhs, Value rhs);
   Value sgt(Value lhs, Value rhs);
+  Value sge(Value lhs, Value rhs);
   Value slt(Value lhs, Value rhs);
   Value eq(Value lhs, Value rhs);
+
+  Value constant(Type type, double val);
 };
 
 struct MemRefBuilder : DialectBuilder {
@@ -92,6 +100,7 @@ struct SCFBuilder : DialectBuilder {
 
   void ifThenElse(Value cond, function_ref<void(SCFBuilder &createSCF)> thenFn,
       function_ref<void(SCFBuilder &createSCF)> elseFn);
-      
+};
+
 } // namespace mlir
 #endif

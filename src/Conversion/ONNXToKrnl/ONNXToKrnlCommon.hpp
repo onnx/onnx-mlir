@@ -144,6 +144,11 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
     Location loc, Value data, MemRefType memRefType,
     SmallVectorImpl<IndexExpr> &outputDims);
 
+/// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
+/// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
+/// lambda type, using ONNX and Krnl operations.
+DenseElementsAttr getDenseElementAttributeFromConstantValue(Value value);
+
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
@@ -238,6 +243,9 @@ void populateLoweringONNXScanOpPattern(
 // `Math` directory methods:
 
 void populateLoweringONNXClipOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXCumSumOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXElementwiseOpPattern(
@@ -352,6 +360,9 @@ void populateLoweringONNXNonZeroOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXExpandOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXOneHotOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXCompressOpPattern(

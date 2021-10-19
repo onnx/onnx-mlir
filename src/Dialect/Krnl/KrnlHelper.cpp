@@ -369,6 +369,9 @@ DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value) {
 // type, using Krnl operations.
 Value loadDenseElementArrayValueAtIndex(
     OpBuilder &rewriter, Location loc, Value array, int64_t index) {
+  // Scalar tensor.
+  if (array.getType().cast<ShapedType>().getShape().size() == 0)
+    return rewriter.create<KrnlLoadOp>(loc, array);
   Attribute constAttr = rewriter.getIntegerAttr(rewriter.getIndexType(), index);
   Value indexVal = rewriter.create<ConstantOp>(loc, constAttr);
   SmallVector<Value, 1> memrefVal = {indexVal};

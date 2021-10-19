@@ -372,9 +372,11 @@ OpsWithVerifier = [
     'AveragePool', 
     'Compress', 
     'Conv', 
+    'DepthToSpace',
     'Expand', 
     'InstanceNormalization', 
     'Mod',
+    'SpaceToDepth',
 ]
 
 OpsWithHelpers = {
