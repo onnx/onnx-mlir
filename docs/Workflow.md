@@ -31,22 +31,22 @@ Create your clone:
 ```sh
 mkdir -p $working_dir
 cd $working_dir
-git clone --recursive https://github.ibm.com/$user/onnx-mlir.git
+git clone --recursive https://github.com/$user/onnx-mlir.git
 # the following is recommended
-# or: git clone --recursive git@github.ibm.com:$user/onnx-mlir.git
+# or: git clone --recursive git@github.com:$user/onnx-mlir.git
 
 cd $working_dir/onnx-mlir
-git remote add upstream https://github.ibm.com/onnx-mlir/onnx-mlir.git
-# or: git remote add upstream git@github.ibm.com:onnx-mlir/onnx-mlir.git
+git remote add upstream https://github.com/onnx-mlir/onnx-mlir.git
+# or: git remote add upstream git@github.com:onnx-mlir/onnx-mlir.git
 
 # Never push to upstream master since you do not have write access.
 git remote set-url --push upstream no_push
 
 # Confirm that your remotes make sense:
 # It should look like:
-# origin    https://github.ibm.com/$user/onnx-mlir.git (fetch)
-# origin    https://github.ibm.com/$user/onnx-mlir.git (push)
-# upstream  https://github.ibm.com/onnx-mlir/onnx-mlir.git (fetch)
+# origin    https://github.com/$user/onnx-mlir.git (fetch)
+# origin    https://github.com/$user/onnx-mlir.git (push)
+# upstream  https://github.com/onnx-mlir/onnx-mlir.git (fetch)
 # upstream  no_push (push)
 git remote -v
 ```
@@ -99,7 +99,7 @@ Commit your changes, always using the `-s` flag in order to sign your commits.
 git commit -s
 ```
 
-Likely you'll go back and edit/build/test some more than `commit --amend`
+Likely you'll go back and edit/build/test some more than `commit --amend -s`
 in a few cycles.
 
 ### Step 6: Keep your branch in sync
@@ -113,16 +113,16 @@ git rebase upstream/master
 If the administrator merges other's PR on master branch while you're working on the `myfeature` branch,
 conflict may occurs. You're responsible for solving the conflict. Then continue:
 
-```
+```sh
 git add --all
 git rebase --continue
-git commit --amend --no-edit
+git commit --amend --no-edit -s
 ```
 
 ### Step 7: Push
 
 When ready to review (or just to establish an offsite backup or your work),
-push your branch to your fork on `github.ibm.com`:
+push your branch to your fork on `github.com`:
 
 ```sh
 git push -f origin myfeature
@@ -130,7 +130,7 @@ git push -f origin myfeature
 
 ### Step 8: Create a pull request
 
-1. Visit your fork at https://github.ibm.com/$user/onnx-mlir (replace `$user` obviously).
+1. Visit your fork at https://github.com/$user/onnx-mlir (replace `$user` obviously).
 2. Click the `Compare & pull request` button next to your `myfeature` branch.
 
 ### Step 9: Get a code review
