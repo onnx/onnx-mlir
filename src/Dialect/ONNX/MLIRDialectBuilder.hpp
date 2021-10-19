@@ -99,8 +99,7 @@ struct SCFBuilder : DialectBuilder {
   SCFBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
   void ifThenElse(Value cond, function_ref<void(SCFBuilder &createSCF)> thenFn,
-      function_ref<void(SCFBuilder &createSCF)> elseFn);
+      function_ref<void(SCFBuilder &createSCF)> elseFn=nullptr);
 };
-
 } // namespace mlir
 #endif

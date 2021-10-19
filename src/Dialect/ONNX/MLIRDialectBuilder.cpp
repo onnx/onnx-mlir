@@ -9,6 +9,7 @@
 #include "MLIRDialectBuilder.hpp"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "llvm/ADT/TypeSwitch.h"
 
@@ -176,21 +177,17 @@ Value MemRefBuilder::dim(Value val, int64_t index) {
 // Structured Control Flow (SCF).
 //===----------------------------------------------------------------------===//
 
-#if 0 // hi alex
 void SCFBuilder::ifThenElse(Value cond,
     function_ref<void(SCFBuilder &createSCF)> thenFn,
     function_ref<void(SCFBuilder &createSCF)> elseFn) {
-  if (!elseFn)
-    b.create<scf::IfOp>(
-        loc, /*resultTypes=*/llvm::None, cond,
+  if (!elseFn) {
+    b.create<scf::IfOp>(loc, /*resultTypes=*/llvm::None, cond,
         /* then */
         [&](OpBuilder &childBuilder, Location childLoc) {
           SCFBuilder scfBuilder(childBuilder, childLoc);
           thenFn(scfBuilder);
-        },
-        /*else*/
-        llvm::None);
-  else
+        });
+  } else {
     b.create<scf::IfOp>(
         loc, /*resultTypes=*/llvm::None, cond,
         /* then */
@@ -203,5 +200,5 @@ void SCFBuilder::ifThenElse(Value cond,
           SCFBuilder scfBuilder(childBuilder, childLoc);
           elseFn(scfBuilder);
         });
+  }
 }
-#endif
