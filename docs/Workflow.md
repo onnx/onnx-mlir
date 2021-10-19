@@ -148,4 +148,5 @@ review.
 
 ## Code style
 
-The coding style suggested by Google is used in onnx-mlir. See the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) for details.
+Please  follow the coding style used by LLVM (https://llvm.org/docs/CodingStandards.html).
+
