@@ -85,5 +85,13 @@ struct MemRefBuilder : DialectBuilder {
 // is 16 bytes.
 static constexpr int64_t gDefaultAllocAlign = 16;
 
+struct SCFBuilder : DialectBuilder {
+  SCFBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  SCFBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
+  SCFBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+
+  void ifThenElse(Value cond, function_ref<void(SCFBuilder &createSCF)> thenFn,
+      function_ref<void(SCFBuilder &createSCF)> elseFn);
+      
 } // namespace mlir
 #endif

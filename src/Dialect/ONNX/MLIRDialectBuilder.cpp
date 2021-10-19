@@ -121,3 +121,35 @@ Value MemRefBuilder::dim(Value val, int64_t index) {
   Value i = b.create<ConstantIndexOp>(loc, index);
   return b.createOrFold<memref::DimOp>(loc, val, i);
 }
+
+//===----------------------------------------------------------------------===//
+// Structured Control Flow (SCF).
+//===----------------------------------------------------------------------===//
+
+void SCFBuilder::ifThenElse(Value cond,
+    function_ref<void(SCFBuilder &createSCF)> thenFn,
+    function_ref<void(SCFBuilder &createSCF)> elseFn) {
+  if (!elseFn)
+    b.create<scf::IfOp>(
+        loc, /*resultTypes=*/llvm::None, cond,
+        /* then */
+        [&](OpBuilder &childBuilder, Location childLoc) {
+          SCFBuilder scfBuilder(childBuilder, childLoc);
+          thenFn(scfBuilder);
+        },
+        /*else*/
+        llvm::None);
+  else
+    b.create<scf::IfOp>(
+        loc, /*resultTypes=*/llvm::None, cond,
+        /* then */
+        [&](OpBuilder &childBuilder, Location childLoc) {
+          SCFBuilder scfBuilder(childBuilder, childLoc);
+          thenFn(scfBuilder);
+        },
+        /*else*/
+        [&](OpBuilder &childBuilder, Location childLoc) {
+          SCFBuilder scfBuilder(childBuilder, childLoc);
+          elseFn(scfBuilder);
+        });
+}

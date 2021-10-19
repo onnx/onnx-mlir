@@ -1848,13 +1848,11 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape(
   // that it is only going to be a question mark. ONNX to Krnl lowering will
   // compute the actual value.
   // TODO: if cond is constant, the compute the actual value.
-  printf("hi alex shape 1\n");
   IndexExpr dynDim;
   if (scope->isShapeInferencePass())
     dynDim = QuestionmarkIndexExpr(); // Value for runtime dim.
   else
     dynDim = LiteralIndexExpr(-1); // Dummy value to be replaced in lowering.
-  printf("hi alex shape 1.1\n");
   // Get axis. Value -1 signify axis was not specified. Verifier already checked
   // that the axis, if given, is in range.
   axis = -1;
@@ -1865,7 +1863,6 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape(
   }
   // Compute dims for output.
   DimsExpr outputDims;
-  printf("hi alex shape 2\n");
   if (axis == -1) {
     // Reduced to a single dimensional array, of dynamic size.
     outputDims.emplace_back(dynDim);
@@ -1876,7 +1873,6 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape(
     inputBounds.getDimList(outputDims);
     outputDims[axis] = dynDim;
   }
-  printf("hi alex shape 3\n");
   dimsForOutput(0) = outputDims;
   return success();
 }
