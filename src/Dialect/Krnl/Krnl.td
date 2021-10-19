@@ -1134,7 +1134,7 @@ def KrnlPrintTensorStartOp : Op<Krnl_Dialect, "printTensorStart"> {
     given, and can be used when formatting subsequent elements. A code indicating the element type is also given.
   }];
 
-  let arguments = (ins I64Attr:$elType, I64Attr:$rank, Variadic<Index>:$bounds);
+  let arguments = (ins  I64Attr:$rank, Variadic<Index>:$bounds);
   //let arguments = (ins I64Attr:$elType, I64Attr:$rank, I64ArrayAttr:$bounds);
   
   //let builders = [ OpBuilder<(ins "int ": $elType, "int ": $rank, "ArrayRef<Value>": $bounds)> ];
@@ -1162,7 +1162,7 @@ def KrnlPrintTensorElementOp : Op<Krnl_Dialect, "printTensorElement"> {
     to satisfy the rank and dimensionalities specified in the starting operation.
   }];
 
-  let arguments = (ins AnyFloat:$in);
+  let arguments = (ins I64Attr:$elType, AnyFloat:$in);
 
   let parser = ?;
   let printer = ?;

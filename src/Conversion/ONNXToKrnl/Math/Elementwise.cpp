@@ -936,10 +936,24 @@ struct ONNXElementwiseOpLoweringPrint : public ConversionPattern {
     auto loc = ONNXLoc<ONNXPrintTensorsOp>(op);
     auto X = operands[0];
     auto memRefType = convertToMemRefType(operands[0].getType());
-    auto floatTypeCode = rewriter.getI64IntegerAttr(0);
+    //auto floatTypeCode = rewriter.getI64IntegerAttr(0);
+    int typeCode = 0;
     auto rank = rewriter.getI64IntegerAttr(memRefType.getRank());
     SmallVector<Value, 4> bounds;
     auto shape = operands[0].getType().cast<MemRefType>().getShape();
+    TypeSwitch<Type>(memRefType.getElementType())
+          .Case<Float16Type>([&](Type) {
+            llvm_unreachable("Float 16 type not supported for printing.");
+          })
+          .Case<Float32Type>([&](Type) {
+            typeCode=0;
+          })
+          .Case<Float64Type>([&](Type) {
+            typeCode=1;
+          })
+          .Case<IntegerType>([&](Type) {
+            typeCode=2;;
+          });
     std::cout << "rank="<<memRefType.getRank()<<std::endl;
     for(int64_t dim=0;dim<memRefType.getRank();++dim) {
       std::cout << "dim="<<dim<<std::endl;
@@ -951,7 +965,7 @@ struct ONNXElementwiseOpLoweringPrint : public ConversionPattern {
     }
 
     //rewriter.create<KrnlPrintTensorStartOp>(loc, floatTypeCode, rank, bounds);    
-    rewriter.create<KrnlPrintTensorStartOp>(loc, 0, memRefType.getRank(), bounds); 
+    rewriter.create<KrnlPrintTensorStartOp>(loc, memRefType.getRank(), bounds); 
 
     // new loop style
     MemRefBoundsIndexCapture inputBounds(operands[0]);
@@ -964,7 +978,7 @@ struct ONNXElementwiseOpLoweringPrint : public ConversionPattern {
     createKrnl.iterateIE(loops, loops, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange loopIVs) {
           Value loadedVal=createKrnl.load(operands[0],loopIVs);
-          createKrnl.getBuilder().create<KrnlPrintTensorElementOp>(loc,loadedVal);    
+          createKrnl.getBuilder().create<KrnlPrintTensorElementOp>(loc, typeCode, loadedVal);    
         });
     rewriter.create<KrnlPrintTensorEndOp>(loc); 
 
