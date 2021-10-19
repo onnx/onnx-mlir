@@ -1614,7 +1614,7 @@ static LogicalResult verifyKernelShape(T *op, Value filterOperand,
   // constant.
   ArrayRef<int64_t> filterShape =
       filterOperand
-          ? filterOperand.getType().cast<RankedTensorType>().getShape()
+          ? filterOperand.getType().cast<ShapedType>().getShape()
           : ArrayRef<int64_t>();
   // 2) Get kernel_shape attribute
   if (!kernelShapeOpt.hasValue()) {
