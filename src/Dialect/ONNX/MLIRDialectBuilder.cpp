@@ -10,6 +10,7 @@
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
 
@@ -20,6 +21,11 @@ using namespace mlir;
 Value MathBuilder::_and(Value lhs, Value rhs) {
   return b.create<AndOp>(loc, lhs, rhs);
 }
+
+Value MathBuilder::_or(Value lhs, Value rhs) {
+  return b.create<OrOp>(loc, lhs, rhs);
+}
+
 Value MathBuilder::add(Value lhs, Value rhs) {
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<AddIOp>(loc, lhs, rhs);
@@ -48,26 +54,70 @@ Value MathBuilder::exp(Value val) {
   return b.create<math::ExpOp>(loc, val);
 }
 
+Value MathBuilder::exp2(Value val) {
+  assert(val.getType().isa<FloatType>() && "Data type must be float.");
+  return b.create<math::Exp2Op>(loc, val);
+}
+
+Value MathBuilder::log2(Value val) {
+  assert(val.getType().isa<FloatType>() && "Data type must be float.");
+  return b.create<math::Log2Op>(loc, val);
+}
+
 Value MathBuilder::sgt(Value lhs, Value rhs) {
   if (lhs.getType().isa<IndexType, IntegerType>() ||
       lhs.getType().isa<IndexType>())
     return b.create<CmpIOp>(loc, CmpIPredicate::sgt, lhs, rhs);
   return b.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
 }
+
+Value MathBuilder::sge(Value lhs, Value rhs) {
+  if (lhs.getType().isa<IndexType, IntegerType>() ||
+      lhs.getType().isa<IndexType>())
+    return b.create<CmpIOp>(loc, CmpIPredicate::sge, lhs, rhs);
+  return b.create<CmpFOp>(loc, CmpFPredicate::OGE, lhs, rhs);
+}
+
 Value MathBuilder::slt(Value lhs, Value rhs) {
   if (lhs.getType().isa<IndexType, IntegerType>() ||
       lhs.getType().isa<IndexType>())
     return b.create<CmpIOp>(loc, CmpIPredicate::slt, lhs, rhs);
   return b.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
 }
+
 Value MathBuilder::eq(Value lhs, Value rhs) {
   if (lhs.getType().isa<IndexType, IntegerType>() ||
       lhs.getType().isa<IndexType>())
     return b.create<CmpIOp>(loc, CmpIPredicate::eq, lhs, rhs);
   return b.create<CmpFOp>(loc, CmpFPredicate::OEQ, lhs, rhs);
 }
+
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) {
   return b.create<SelectOp>(loc, cmp, lhs, rhs);
+}
+
+Value MathBuilder::constant(Type type, double val) {
+  Attribute constantAttr;
+  TypeSwitch<Type>(type)
+      .Case<Float16Type>(
+          [&](Type) { constantAttr = b.getF16FloatAttr((float)val); })
+      .Case<Float32Type>(
+          [&](Type) { constantAttr = b.getF32FloatAttr((float)val); })
+      .Case<Float64Type>(
+          [&](Type) { constantAttr = b.getF64FloatAttr((float)val); })
+      .Case<IntegerType>([&](Type) {
+        assert(val == (int64_t)val && "value is ambiguous");
+        auto width = type.cast<IntegerType>().getWidth();
+        if (width == 1) {
+          constantAttr = b.getBoolAttr(val != 0);
+        } else {
+          constantAttr = b.getIntegerAttr(type, APInt(width, (int64_t)val));
+        }
+      })
+      .Case<IndexType>(
+          [&](Type) { constantAttr = b.getIntegerAttr(type, (int64_t)val); })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
+  return b.create<ConstantOp>(loc, constantAttr);
 }
 
 //===----------------------------------------------------------------------===//
