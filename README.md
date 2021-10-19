@@ -2,7 +2,6 @@
 
 <p align="center"><img width="50%" src="docs/logo/onnx-mlir-small.png" /></p>
 
-# ONNX MLIR
 The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mlir/).
 
 | System        | Build Status |
