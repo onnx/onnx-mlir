@@ -106,6 +106,7 @@ Value MathBuilder::constant(Type type, double val) {
       .Case<Float64Type>(
           [&](Type) { constantAttr = b.getF64FloatAttr((float)val); })
       .Case<IntegerType>([&](Type) {
+        assert(val == (int64_t)val && "value is ambiguous");
         auto width = type.cast<IntegerType>().getWidth();
         if (width == 1) {
           constantAttr = b.getBoolAttr(val != 0);
