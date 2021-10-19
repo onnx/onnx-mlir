@@ -1,6 +1,6 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 
-![onnx-mlir-logo](docs/logo/onnx-mlir.png)
+![onnx-mlir-logo](docs/logo/onnx-mlir-small.png)
 
 # ONNX MLIR
 The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mlir/).
