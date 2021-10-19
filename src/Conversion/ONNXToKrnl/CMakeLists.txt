@@ -4,6 +4,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   ONNXToKrnlCommon.cpp
   ControlFlow/Loop.cpp
   ControlFlow/Scan.cpp
+  Math/CumSum.cpp
   Math/Clip.cpp
   Math/Elementwise.cpp
   Math/Gemm.cpp
