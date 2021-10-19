@@ -3748,13 +3748,34 @@ LogicalResult ONNXOneHotOp::inferShapes(
   auto valuesTensorTy = values().getType().cast<RankedTensorType>();
   getResult().setType(
       RankedTensorType::get(outputDims, valuesTensorTy.getElementType()));
-
   return success();
 }
 
 LogicalResult ONNXRandomNormalOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  auto outputShape = shape();
+  auto elementTypeID = dtype();
+
+  SmallVector<int64_t, 4> outputDims;
+  auto spatialRank = ArrayAttrSize(outputShape);
+  for (unsigned long i = 0; i < spatialRank; ++i) {
+    int64_t dimension = ArrayAttrIntVal(outputShape, i);
+    if (dimension < 0)
+      return emitError("Random normal tensor has dynamic dimension.");
+    outputDims.emplace_back(dimension);
+  }
+
+  RankedTensorType outputTensorType =
+      RankedTensorType::get(outputDims, FloatType::getF32(getContext()));
+  if (elementTypeID == 0)
+    outputTensorType =
+        RankedTensorType::get(outputDims, FloatType::getF16(getContext()));
+  else if (elementTypeID == 2)
+    outputTensorType =
+        RankedTensorType::get(outputDims, FloatType::getF64(getContext()));
+
+  getResult().setType(outputTensorType);
+  return success();
 }
 
 LogicalResult ONNXRandomNormalLikeOp::inferShapes(
