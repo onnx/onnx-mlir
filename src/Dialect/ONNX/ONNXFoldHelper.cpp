@@ -516,7 +516,27 @@ bool isConstOfZeros(Builder &builder, Attribute attr) {
 DenseElementsAttr CreateZerosFromTemplate(
     Builder &builder, Value templateTensor) {
   ShapedType shapedType = templateTensor.getType().cast<ShapedType>();
-  DenseElementsAttr resultAttr = DenseElementsAttr::get(shapedType, 0);
+  Type elementType = shapedType.getElementType();
+  DenseElementsAttr resultAttr;
+  elementType.dump();
+  if (elementType == builder.getF32Type()) {
+    float value = 0.0;
+    resultAttr = DenseElementsAttr::get(shapedType, value);
+  }
+  else if (elementType == builder.getF16Type()) {  
+    APFloat value = APFloat(0.0);
+    bool loses_info = true;
+    value.convert(APFloat::IEEEhalf(),llvm::RoundingMode::NearestTiesToEven, &loses_info);
+    resultAttr = DenseElementsAttr::get(shapedType, value);
+  }
+  else if (elementType == builder.getIntegerType(8)) {  
+    int8_t value = 0;
+    resultAttr = DenseElementsAttr::get(shapedType, value);
+  }
+  else if (elementType == builder.getIntegerType(32)) {  
+    int32_t value = 0;
+    resultAttr = DenseElementsAttr::get(shapedType, value);
+  }
   return resultAttr;
 }
 
