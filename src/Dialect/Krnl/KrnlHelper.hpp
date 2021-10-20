@@ -276,7 +276,6 @@ void generateIndexMap(
 
 struct KrnlBuilder : public DialectBuilder {
   KrnlBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
-  KrnlBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
   KrnlBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
   Value load(Value memref, ValueRange indices = {});

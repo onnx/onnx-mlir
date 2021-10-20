@@ -20,6 +20,7 @@
 #include "mlir/IR/Value.h"
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 namespace mlir {
@@ -28,7 +29,6 @@ namespace mlir {
 
 struct OnnxBuilder : DialectBuilder {
   OnnxBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
-  OnnxBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
   OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
   Value add(Value A, Value B);

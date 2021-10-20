@@ -91,18 +91,18 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
     // Main builder.
     OpBuilder<(ins "KrnlIterateOperandPack":$operandPack,
       CArg<"ValueRange", "llvm::None">:$iterArgs,
-      CArg<"function_ref<void(ImplicitLocOpBuilder &, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op.
     OpBuilder<(ins
       CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
       CArg<"ValueRange">:$lbs, CArg<"ValueRange">:$ubs, CArg<"ValueRange">:$iterArgs,
-      CArg<"function_ref<void(ImplicitLocOpBuilder &, ValueRange)>">:$bodyBuilderFn)>,
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op with IndexExpr
     OpBuilder<(ins
       CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
       CArg<"ArrayRef<IndexExpr>">:$lbs, CArg<"ArrayRef<IndexExpr>">:$ubs, 
       CArg<"ValueRange">:$iterArgs,
-      CArg<"function_ref<void(ImplicitLocOpBuilder &, ValueRange)>">:$bodyBuilderFn)>
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>">:$bodyBuilderFn)>
  ];
 
   let extraClassDeclaration = [{
