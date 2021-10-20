@@ -19,14 +19,21 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Support/FileUtilities.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/FileUtilities.h"
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/MD5.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
+
+#include <iostream>
+#include <fstream>
 
 using namespace mlir;
 
@@ -40,10 +47,69 @@ class ONNXGraphOptimizePass
     : public mlir::PassWrapper<ONNXGraphOptimizePass, OperationPass<mlir::ModuleOp>> {
 
 private:
-  
+
+  void GetHash(mlir::ModuleOp module) {
+    //std::ostringstream buffer;
+    //mlir::OpPrintingFlags flags;
+    //module->print(buffer, flags);
+  }
+
+void outputCode(
+    mlir::ModuleOp module, std::string filename) {
+  mlir::OpPrintingFlags flags;
+ 
+  std::string errorMessage;
+  auto output = mlir::openOutputFile(filename, &errorMessage);
+  if (!output) {
+    llvm::errs() << errorMessage << "\n";
+    exit(1);
+  } 
+
+  module->print(output->os(), flags);
+  output->keep();
+
+  // Code may be needed with flag control for debugging in future
+  //if (printIR)
+    //module->print(llvm::outs(), flags);
+}
+
+uint64_t hashFile(std::string filename) {
+  std::ifstream t(filename);
+  std::stringstream buffer;
+  buffer << t.rdbuf();
+
+  // Copied from current version of llvm Support/MD5.h
+  //return md5.MD5Hash(buffer.str());
+  llvm::MD5 Hash;
+  Hash.update(buffer.str());
+  llvm::MD5::MD5Result Result;
+  Hash.final(Result);
+  return Result.low();
+
+}
+
+uint64_t createTagForIR(mlir::ModuleOp module) {
+    // Obsolete method
+    //char *currentFile = tmpnam(NULL);
+    char tempFile[] = "/tmp/onnxpassdumpXXXXXX";
+    mkstemp(tempFile);
+    outputCode(module, tempFile);
+    uint64_t r =  hashFile(tempFile);
+    remove(tempFile);
+    return r;
+}
+
 public:
   void runOnOperation() override {
     auto module = getOperation();
+
+    uint64_t currentTag = createTagForIR(module);
+    uint64_t previousTag;
+
+    int n = 5;
+    do {
+	    previousTag = currentTag;
+	    printf("tag#%d %ul\n", n, currentTag);
     OpPassManager dynamicPM("builtin.module");
     dynamicPM.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
     dynamicPM.addPass(mlir::createShapeInferencePass());
@@ -53,6 +119,8 @@ public:
     dynamicPM.addPass(mlir::createSymbolDCEPass());
     if (failed(runPipeline(dynamicPM, module)))
       return signalPassFailure();
+    currentTag = createTagForIR(module);
+    } while (currentTag != previousTag && --n > 0);
   }
 };
 
