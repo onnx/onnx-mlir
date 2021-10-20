@@ -1610,12 +1610,15 @@ LogicalResult ONNXReduceSumV11Op::inferShapes(
 template <class T>
 static LogicalResult verifyKernelShape(T *op, Value filterOperand,
     Optional<ArrayAttr> kernelShapeOpt, int64_t spatialRank) {
+  if (filterOperand && !hasShapeAndRank(filterOperand)) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
   // 1) Get shape of filter. Shape is not guaranteed to be compile time
   // constant.
   ArrayRef<int64_t> filterShape =
-      filterOperand
-          ? filterOperand.getType().cast<RankedTensorType>().getShape()
-          : ArrayRef<int64_t>();
+      filterOperand ? filterOperand.getType().cast<ShapedType>().getShape()
+                    : ArrayRef<int64_t>();
   // 2) Get kernel_shape attribute
   if (!kernelShapeOpt.hasValue()) {
     assert(
