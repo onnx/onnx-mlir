@@ -95,11 +95,8 @@ elseif ((ONNX_USE_PROTOBUF_SHARED_LIBS AND Protobuf_USE_STATIC_LIBS)
   message(FATAL_ERROR
     "ONNX_USE_PROTOBUF_SHARED_LIBS and Protobuf_USE_STATIC_LIBS must be opposites of each other.")
 endif()
-add_subdirectory(third_party/onnx)
 
-add_subdirectory(third_party/pybind11)
-add_subdirectory(third_party/rapidcheck)
-
+add_subdirectory(third_party)
 add_subdirectory(utils)
 add_subdirectory(include)
 add_subdirectory(src)
