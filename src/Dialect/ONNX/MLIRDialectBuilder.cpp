@@ -120,6 +120,11 @@ Value MathBuilder::constant(Type type, double val) {
   return b.create<ConstantOp>(loc, constantAttr);
 }
 
+Value MathBuilder::constantIndex(int64_t val) {
+  Attribute constantAttr = b.getIntegerAttr(b.getIndexType(), val);
+  return b.create<ConstantOp>(loc, constantAttr);
+}
+
 //===----------------------------------------------------------------------===//
 // Memref support, including inserting default alignment.
 //===----------------------------------------------------------------------===//

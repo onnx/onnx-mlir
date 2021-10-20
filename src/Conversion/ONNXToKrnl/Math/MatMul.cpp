@@ -40,17 +40,17 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs,
         shapeHelper.dimsForOutput(0),
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
-          ImplicitLocOpBuilder lb(createKrnl.getLoc(), createKrnl.getBuilder());
           MemRefBuilder createMemRef(createKrnl);
+          MathBuilder createMath(createKrnl);
           // Single scalar, no need for default alignment.
           Value reductionVal =
               createMemRef.alignedAlloca(MemRefType::get({}, elementType));
           createKrnl.store(fzero, reductionVal);
           int aRank = shapeHelper.aDims.size();
           int bRank = aRank; // Add for better readability.
-          ValueRange innerLoop = lb.create<KrnlDefineLoopsOp>(1).getResults();
+          ValueRange innerLoop = createKrnl.defineLoops(1);
           Value innerUb = shapeHelper.aDims[aRank - 1].getValue();
-          Value izero = lb.create<ConstantIndexOp>(0);
+          Value izero = createMath.constantIndex(0);
           createKrnl.iterate(innerLoop, innerLoop, {izero}, {innerUb},
               [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
                 Value k = innerIndex[0];
@@ -108,8 +108,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
     KrnlBuilder createKrnl(rewriter, loc);
     MemRefBuilder createMemRef(createKrnl);
-    ImplicitLocOpBuilder lb(loc, rewriter);
-    Value zero = lb.create<ConstantIndexOp>(0);
+    MathBuilder createMath(createKrnl);
+    Value zero = createMath.constantIndex(0);
     Value I = createMemRef.dim(C, 0);
     Value J = createMemRef.dim(C, 1);
     Value K = createMemRef.dim(A, 1);
