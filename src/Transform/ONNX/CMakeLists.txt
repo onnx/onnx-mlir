@@ -50,6 +50,17 @@ add_onnx_mlir_library(OMInstrumentONNX
   OMSupport
   )
 
+add_onnx_mlir_library(OMONNXGraphOptimize
+  ONNXGraphOptimizePass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  OMSupport
+  OMONNXRewrite
+  OMShapeInference
+  )
+
 add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
   ONNXPreKrnlVerifyPass.cpp
 

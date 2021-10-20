@@ -19,6 +19,9 @@
 namespace mlir {
 class Pass;
 
+/// Pass for ONNX graph level optimization
+std::unique_ptr<Pass> createONNXGraphOptimizePass();
+
 /// Pass for rewriting inside frontend dialect.
 std::unique_ptr<Pass> createDecomposeONNXToONNXPass();
 
