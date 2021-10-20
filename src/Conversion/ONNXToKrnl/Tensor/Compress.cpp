@@ -154,6 +154,76 @@ struct ONNXCompressOpLowering : public ConversionPattern {
       //          out[i0...im-1, writeIndex, im+1...in-1]
       //       writeIndex++
 
+#if 1
+      Value condUb = condBounds.getSymbol(0).getValue();
+      ValueRange inputLoopDefs = createKrnl.defineLoops(inputRank);
+      // Divide the loop defs into the outer and inner loop as above
+      SmallVector<Value, 4> outerLoopDef, innerLoopDef;
+      SmallVector<IndexExpr, 4> outerLbs, outerUbs;
+      SmallVector<Value, 4> innerLbs, innerUbs;
+      int axis = shapeHelper.axis;
+      for (int i = 0; i <= axis; ++i) {
+        outerLoopDefs.emplace_back(inputLoopDefs[i]);
+        outerLbs.emplaceBack(inputLbs[i]);
+        outerUbs.emplaceBack(inputUbs[i]);
+      }
+      for (int i = axis + 1; i < inputRank; ++i) {
+        innerLoopDef.emplace_back(inputLoopDefs[i]);
+        innerLbs.emplaceBack(inputLbs[i].getValue());
+        innerUbs.emplaceBack(inputUbs[i].getValue());
+      }
+
+      // This should work, give all of the bounds but request iteration only
+      // over the outer loops.
+      createKrnl.iterateIE(outerLoopDefs, outerLoopDefs, outerLbs, outerUbs,
+          [&](KrnlBuilder createKrnl, ValueRange outerLoopInds) {
+            MathBuilder createMath(createKrnl);
+            SCFBuilder createSCF(createKrnl);
+
+            Value readIndex = outerLoopInds[axis]; // Last iter is axis index.
+            Value inBound = createMath.slt(readIndex, condUb);
+
+            createSCF.ifThenElse(inBound, [&](SCFBuilder &createSCF) {
+              KrnlBuilder createKrnl(createSCF);
+              MathBuilder createMath(createSCF);
+              Value currCond = createKrnl.load(condMemRef, {readIndex});
+              Value copy = createMath.eq(currCond, trueVal);
+              createSCF.ifThenElse(copy, [&](SCFBuilder &createSCF) {
+                KrnlBuilder createKrnl(createSCF);
+                // Now iterate over the inner loops
+                createKrnl.iterateIE({}, innerLoopDef, {}, {},
+                    [&](KrnlBuilder createKrnl, ValueRange innerLoopInd) {
+                      MathBuilder createMath(createKrnl);
+                      // Compute access functions for input and output.
+                      SmallVector<Value, 4> inputAccessFct, outputAccessFct;
+                      for (int i = 0; i <= axis; ++i) {
+                        inputAccessFct.emplace_back(outerLoopInd[i]);
+                        outputAccessFct.emplace_back(outerLoopInd[i]);
+                      }
+                      int innerSize = innerLoopInd.size();
+                      for (int i = 0; i < innerSize; ++i) {
+                        inputAccessFct.emplace_back(innerLoopInd[i]);
+                        outputAccessFct.emplace_back(innerLoopInd[i]);
+                      }
+                      // Only difference for output: write index on axis dim.
+                      Value writeIndex = createKrnl.load(writeIndexMemRef);
+                      outputAccessFct[axis] = writeIndex;
+                      // Now load and copy the result to the output.
+                      Value val = createKrnl.load(inputMemRef, inputAccessFct);
+                      createKrnl.store(val, alloc, outputAccessFct);
+                    });
+                // Done with copying, now increment writeIndex
+                // Update write index
+                Value writeIndex = createKrnl.load(writeIndexMemRef);
+                Value one = createMath.constant(indexType, 1);
+                Value newWriteIndex = createMath.add(writeIndex, one);
+                createKrnl.store(newWriteIndex, writeIndexMemRef);
+              }); // If we must copy.
+            });   // If we are inbound for tests.
+          });
+
+#else
+      // Version that expose a krnl lowering bug
       Value condUb = condBounds.getSymbol(0).getValue();
       ValueRange inputLoopDef = createKrnl.defineLoops(inputRank);
       // Divide the loop defs into the outer and inner loop as above
@@ -212,6 +282,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
               }); // If we must copy.
             });   // If we are inbound for tests.
           });
+  #endif
     }
     rewriter.replaceOp(op, alloc);
     return success();
