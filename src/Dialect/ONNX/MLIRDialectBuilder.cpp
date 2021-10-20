@@ -186,6 +186,7 @@ void SCFBuilder::ifThenElse(Value cond,
         [&](OpBuilder &childBuilder, Location childLoc) {
           SCFBuilder scfBuilder(childBuilder, childLoc);
           thenFn(scfBuilder);
+          yield();
         });
   } else {
     b.create<scf::IfOp>(
@@ -194,11 +195,15 @@ void SCFBuilder::ifThenElse(Value cond,
         [&](OpBuilder &childBuilder, Location childLoc) {
           SCFBuilder scfBuilder(childBuilder, childLoc);
           thenFn(scfBuilder);
+          b.create<scf::YieldOp>(loc);
         },
         /*else*/
         [&](OpBuilder &childBuilder, Location childLoc) {
           SCFBuilder scfBuilder(childBuilder, childLoc);
           elseFn(scfBuilder);
+          yield();
         });
   }
 }
+
+void SCFBuilder::yield() { b.create<scf::YieldOp>(loc); }

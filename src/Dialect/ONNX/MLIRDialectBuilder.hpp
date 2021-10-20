@@ -98,8 +98,12 @@ struct SCFBuilder : DialectBuilder {
   SCFBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
   SCFBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
+  /// Create an if then with optional else. Construct does not generate a result
+  /// (unlike some scf::if) and introduces the yields automatically.
   void ifThenElse(Value cond, function_ref<void(SCFBuilder &createSCF)> thenFn,
-      function_ref<void(SCFBuilder &createSCF)> elseFn=nullptr);
+      function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr);
+
+  void yield();
 };
 } // namespace mlir
 #endif
