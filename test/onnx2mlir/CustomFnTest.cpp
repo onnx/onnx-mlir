@@ -12,11 +12,14 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 
+#pragma clang diagnostic ignored "-Weverything"
+#pragma gcc diagnostic ignored "-Weverything"
 #include "onnx/defs/function.h"
 #include "onnx/defs/schema.h"
+#pragma clang diagnostic pop
+#pragma gcc diagnostic pop
 
 #include "src/Builder/FrontendDialectTransformer.hpp"
-
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
