@@ -364,3 +364,7 @@ On Macs/POWER and possibly other platforms, there is currently an issue that ari
 ## Slack channel
 
 We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`. This channel can be used for asking quick questions related to this project. A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
+
+## Contributing
+
+Want to contribute, consult this page for specific help on our project [here](CONTRIBUTING.md) or the docs sub-directory.

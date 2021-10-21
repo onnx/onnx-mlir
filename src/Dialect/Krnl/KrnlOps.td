@@ -6,6 +6,15 @@
 //
 // This file contains TableGen definition of krnl operations.
 //
+// REQUEST:
+// When you perform a change to the KRNL dialect, please follow the steps below
+// to update the Krnl dialect documentation.
+//
+// 1) cd onnx-mlir/build 
+// 2) make onnx-mlir-doc
+// 3) if successful, move the build's docs/Dialects/krnl.md to the git's doc 
+//    directory, namely
+//    cp docs/Dialects/krnl.md ../docs/Dialects
 //===----------------------------------------------------------------------===//
 
 include "mlir/IR/OpBase.td"
