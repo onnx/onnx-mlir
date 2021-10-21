@@ -251,18 +251,6 @@ def MatMulIntegerZeroOnRhs : Pat<
     ]
 >;
 
-def ExpandOfConstants : Pat<
-    (ONNXExpandOp: $expandOp
-      (ONNXConstantOp:$input $_, $_),
-      (ONNXConstantOp:$_ $_, $_)
-    ),
-    (ONNXAddOp 
-      $input, 
-      (ONNXConstantOp (GetNullAttr), (CreateZerosFromTemplate $expandOp))
-    ),
-    []
-  >;
-
 def MatMulIntegerZeroOnLhs : Pat<
     (ONNXMatMulIntegerOp:$resOp
       (ONNXConstantOp $as, $av),
