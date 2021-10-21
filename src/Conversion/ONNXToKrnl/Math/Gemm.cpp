@@ -45,15 +45,15 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs,
         shapeHelper.dimsForOutput(0),
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
-          // Create temp and set to zero.
-          ImplicitLocOpBuilder lb(createKrnl.getLoc(), createKrnl.getBuilder());
-          // Single scalar, no need for default alignment.
+          // Create temp and set to zero, single scalar, no need for default
+          // alignment.
           MemRefBuilder createMemRef(createKrnl);
+          MathBuilder createMath(createKrnl);
           Value red = createMemRef.alloca(MemRefType::get({}, elementType));
           createKrnl.store(zeroVal, red);
           // Inner loop
           ValueRange innerLoop = createKrnl.defineLoops(1);
-          Value innerLb = lb.create<ConstantIndexOp>(0);
+          Value innerLb = createMath.constantIndex(0);
           Value innerUb = shapeHelper.aDims[1].getValue();
           createKrnl.iterate(innerLoop, innerLoop, {innerLb}, {innerUb},
               [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
@@ -77,7 +77,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                 createKrnl.store(createMath.add(tmp, rVal), red);
               });
           // Handle alpha/beta coefficients.
-          MathBuilder createMath(createKrnl);
           // new scope
           IndexExprScope innerScope(createKrnl, shapeHelper.scope);
           Value res = createMath.mul(alphaVal, createKrnl.load(red));
