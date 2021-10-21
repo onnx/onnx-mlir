@@ -2355,8 +2355,9 @@ LogicalResult ONNXUnsqueezeOp::inferShapes(
     auto axesAttr = createArrayAttrFromConstantOp(builder, axesConstOp);
     optionalAttr.emplace(axesAttr);
   } else if (!axes().getType().isa<NoneType>()) {
-	  return success();
-    llvm_unreachable("dynamic axes not yet supported");
+    // Cannot handle Non-constant axes 
+    // Hope further transformation may creat constant axes
+    return success();
   }
   return ONNXUnsqueezeOpInferShapesCommon<ONNXUnsqueezeOp,
       ONNXUnsqueezeOpAdaptor, ONNXUnsqueezeOpShapeHelper>(
