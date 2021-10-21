@@ -49,7 +49,8 @@ check_operation_version = args.check_operation_version
 # run this script with --check-operation-version flag.
 # Update this dictionary when a newer version is implemented
 # TODO: how to keep the old version
-version_dict = {'Abs': [13],
+version_dict = {
+ 'Abs': [13],
  'Acos': [7],
  'Acosh': [9],
  'Adagrad': [1],
@@ -259,7 +260,7 @@ special_op_handler = dict([
     #("Transpose", "ImportNodeTranspose")
 ])
 
-# Operations supporting shape inference.
+# Operations supporting shape inference (alphabetical order).
 OpsWithShapeInference=[
     'Abs',
     'Add',
@@ -348,7 +349,7 @@ OpsWithShapeInference=[
     'Xor',
 ]
 
-# Operations supporting canonicalization.
+# Operations supporting canonicalization (alphabetical order).
 OpsWithCanonicalizer = [
     'Add',
     'Cast',
@@ -367,14 +368,13 @@ OpsWithCanonicalizer = [
     'UnsqueezeV11',
 ]
 
-# Operations with custom verifiers.
+# Operations with custom verifiers (alphabetical order).
 OpsWithVerifier = [
-    'AveragePool', 
-    'Compress', 
-    'Conv', 
+    'AveragePool',
+    'Conv',
     'DepthToSpace',
-    'Expand', 
-    'InstanceNormalization', 
+    'Expand',
+    'InstanceNormalization',
     'Mod',
     'SpaceToDepth',
 ]
@@ -421,17 +421,40 @@ OpsWithResultTypeInference = {
 # Currently, there are only two build methods generated:
 #  - one with operands and attributes having a separate parameter, and
 #  - one with operands and attributes having aggregated parameters.
-custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSumV11', 'ReduceSum',
-                                    'ReduceSumSquare',
-                                    'Pad', 'Sqrt', 'Neg', 'UnsqueezeV11',
-                                    'Softmax', 'ReduceMax', 'ReduceLogSum',
-                                    'SqueezeV11', 'Identity', 'Split']
+custom_builder_unranked_ops_list = [
+    'Abs',
+    'Exp',
+    'Identity',
+    'Neg',
+    'Pad',
+    'ReduceLogSum',
+    'ReduceMax',
+    'ReduceSum',
+    'ReduceSumSquare',
+    'ReduceSumV11',
+    'Softmax',
+    'Split',
+    'Sqrt',
+    'SqueezeV11',
+    'UnsqueezeV11',
+]
 # Custom builder op list for operations with broadcast; we can deduce the right
 # output type, no need to leave it undef as in the above list.
 # Ops must have two operands, not one, not three... And there shall be two.
 # TODO: handle variadic ops omitted here: Max, Min, Min, Sum.
-custom_builder_broadcast_ops_list = ['Add', 'And', 'Div', 'Equal', 'Greater',
-                                     'Less', 'Mul', 'Or', 'Pow', 'Sub', 'Xor']
+custom_builder_broadcast_ops_list = [
+    'Add',
+    'And',
+    'Div',
+    'Equal',
+    'Greater',
+    'Less',
+    'Mul',
+    'Or',
+    'Pow',
+    'Sub',
+    'Xor',
+]
 # union of both
 custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broadcast_ops_list
 
@@ -463,8 +486,9 @@ onnx_types = (
     'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
     'float', 'double', 'complex64', 'complex128', 'string'
 )
-tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64', 'BF16', 'F16', 'F32', 'F64',
-    'Complex<F32>', 'Complex<F64>', 'StringType'
+tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64',
+    'BF16', 'F16', 'F32', 'F64', 'Complex<F32>', 'Complex<F64>',
+    'StringType'
 )
 
 MAX_NUM_TYPES=20
