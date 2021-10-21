@@ -95,18 +95,19 @@ struct MemRefBuilder final : DialectBuilder {
   MemRefBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   MemRefBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  // Alloc.
   memref::AllocOp alloc(MemRefType type) const;
   memref::AllocOp alloc(MemRefType type, ValueRange dynSymbols) const;
   memref::AllocOp alignedAlloc(MemRefType type, int64_t align = -1) const;
   memref::AllocOp alignedAlloc(
       MemRefType type, ValueRange dynSymbols, int64_t align = -1) const;
-  // Alloca.
+
   memref::AllocaOp alloca(MemRefType type) const;
   memref::AllocaOp alignedAlloca(MemRefType type, int64_t align = -1) const;
-  // Dealloc.
+
   memref::DeallocOp dealloc(Value val) const;
-  // DimOp
+
+  memref::CastOp cast(Value input, MemRefType outputType) const;
+
   Value dim(Value val, int64_t index) const;
 };
 

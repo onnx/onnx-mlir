@@ -70,18 +70,20 @@ struct FrontendToKrnlLoweringPass
   void runOnOperation() final;
 
 public:
-  // RNN ops are lowered to other ONNX ops such as ONNXMatMulOp, ONNXSplitOp,
-  // ONNXTransposeOp, etc. These ONNX ops are then lowered into krnl ops in this
-  // pass.
+  // Some ops (RNN ops for example) are lowered to other ONNX ops such as
+  // ONNXMatMulOp, ONNXSplitOp, ONNXTransposeOp, etc. These ONNX ops are then
+  // lowered into krnl ops in this pass.
   //
-  // To write LIT tests for RNN ops, we need not to check the final generated
-  // krnl code that is lengthy but the intermediate generated code including
-  // ONNX ops. We trust the lowering of the other ONNX ops.
+  // To write LIT tests for operations that are lowered to other ONNX
+  // operations, we do not need to check the final generated krnl code (which is
+  // lengthy). It is more convenient to check the intermediate generated code
+  // including ONNX ops. We trust the lowering of the other ONNX ops.
   //
   // This flag is used in LIT tests to stop the lowering of the other ONNX ops.
-  // Usage: onnx-mlir-opt --convert-onnx-to-krnl='check-rnn-ops-lowering'
-  Option<bool> checkRNNOps{*this, "check-rnn-ops-lowering",
-      llvm::cl::desc("Only used for writing LIT tests for RNN ops."),
+  // Usage: onnx-mlir-opt --convert-onnx-to-krnl='emit-intermediate-ir'
+  Option<bool> emitIntermediateIR{*this, "emit-intermediate-ir",
+      llvm::cl::desc(
+          "Emit intermediate IR rather than lowering to the krnl dialect."),
       llvm::cl::init(false)};
   Option<bool> emitDealloc{*this, "emit-dealloc",
       llvm::cl::desc("Emit dealloc for allocated memrefs or not."),
@@ -131,16 +133,18 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Some operations can be marked as being still legal.
   // Example: target.addLegalOp<mlir::OpName>();
 
-  if (checkRNNOps) {
-    // Only used for writing LIT tests for RNN ops. We do not go further
-    // lowering the following ops. See the comment in the declaration of
-    // 'checkRNNOps' for more details.
-    target.addLegalOp<ONNXTransposeOp>();
-    target.addLegalOp<ONNXSqueezeV11Op>();
-    target.addLegalOp<ONNXSplitV11Op>();
+  if (emitIntermediateIR) {
+    // Only used for writing LIT tests for ONNX operations that are lowered to
+    // other ONNX operations. The following operations are prevented from being
+    // lowered further. See the comment in the declaration of
+    // 'emitIntermediateIR' for more details.
     target.addLegalOp<ONNXMatMulOp>();
+    target.addLegalOp<ONNXReshapeOp>();
     target.addLegalOp<ONNXSigmoidOp>();
+    target.addLegalOp<ONNXSplitV11Op>();
+    target.addLegalOp<ONNXSqueezeV11Op>();
     target.addLegalOp<ONNXTanhOp>();
+    target.addLegalOp<ONNXTransposeOp>();
   }
 
   // Now that the conversion target has been defined, we just need to provide
@@ -195,6 +199,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXConstantOfShapeOpPattern(patterns, &getContext());
   populateLoweringONNXConstantOpPattern(patterns, &getContext());
   populateLoweringONNXConcatOpPattern(patterns, &getContext());
+  populateLoweringONNXDepthToSpaceOpPattern(patterns, &getContext());
   populateLoweringONNXShapeOpPattern(patterns, &getContext());
   populateLoweringONNXSliceOpPattern(patterns, &getContext());
   populateLoweringONNXSqueezeOpPattern(patterns, &getContext());

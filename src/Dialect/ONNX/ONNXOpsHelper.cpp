@@ -42,6 +42,15 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B) const {
   return b.create<ONNXMatMulOp>(loc, Y, A, B);
 }
 
+Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
+  return b.create<ONNXReshapeOp>(loc, outputType, input, shape);
+}
+
+Value OnnxBuilder::transpose(
+    Type outputType, Value input, ArrayAttr perm) const {
+  return b.create<ONNXTransposeOp>(loc, outputType, input, perm);
+}
+
 AffineMap getIdentityDimMap(Builder &builder) {
   return AffineMap::get(1, 0, {builder.getAffineDimExpr(0)});
 }

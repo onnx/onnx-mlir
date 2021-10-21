@@ -220,6 +220,10 @@ memref::DeallocOp MemRefBuilder::dealloc(Value val) const {
   return b.create<memref::DeallocOp>(loc, val);
 }
 
+memref::CastOp MemRefBuilder::cast(Value input, MemRefType outputType) const {
+  return b.create<memref::CastOp>(loc, input, outputType);
+}
+
 Value MemRefBuilder::dim(Value val, int64_t index) const {
   Value i = b.create<arith::ConstantIndexOp>(loc, index);
   return b.createOrFold<memref::DimOp>(loc, val, i);
