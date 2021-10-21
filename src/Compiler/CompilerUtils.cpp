@@ -469,7 +469,7 @@ void registerDialects(mlir::MLIRContext &context) {
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
-  pm.addPass(mlir::createONNXGraphOptimizePass());
+  pm.addPass(mlir::createONNXGraphOptimizePass(onnxGraphOptimizeThreshold));
 #if 0
   pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
   pm.addPass(mlir::createShapeInferencePass());
