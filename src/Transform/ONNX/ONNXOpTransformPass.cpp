@@ -2,20 +2,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- InstrumentONNXPass.cpp - Instrumentation ---------------------===//
+//===------- ONNXOpTransformPass.cpp - ONNX Op Transform ------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file implements a Function level pass that inserts instrumentation
-// for ONNX ops.
+// This file implements a combined pass that dynamically invoke several
+// transformation on ONNX ops.
 //
 //===----------------------------------------------------------------------===//
 
-#include <set>
 #include <fstream>
 #include <iostream>
+#include <set>
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -40,8 +40,8 @@ namespace {
  * This pass insert KrnlInstrumentOp before and after each ONNX ops
  */
 
-class ONNXGraphOptimizePass : public mlir::PassWrapper<ONNXGraphOptimizePass,
-                                  OperationPass<mlir::ModuleOp>> {
+class ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
+                                OperationPass<mlir::ModuleOp>> {
 
 private:
   void outputCode(mlir::ModuleOp module, std::string filename) {
@@ -86,14 +86,14 @@ private:
   }
 
 public:
-  ONNXGraphOptimizePass() = default;
-  ONNXGraphOptimizePass(const ONNXGraphOptimizePass &pass) {}
-  ONNXGraphOptimizePass(int threshold) {
-    this->optimizeThreshold = threshold;
+  ONNXOpTransformPass() = default;
+  ONNXOpTransformPass(const ONNXOpTransformPass &pass) {}
+  ONNXOpTransformPass(int threshold) {
+    this->onnxOpTransformThreshold = threshold;
   }
 
-  Option<int> optimizeThreshold{*this, "onnx-graph-optimize-threshold",
-      llvm::cl::desc("max iteration for graph optimization passes."),
+  Option<int> onnxOpTransformThreshold{*this, "onnx-op-transform-threshold",
+      llvm::cl::desc("max iteration for op transform passes."),
       llvm::cl::init(3)};
   void runOnOperation() override {
     auto module = getOperation();
@@ -104,14 +104,11 @@ public:
     int n = 5;
     do {
       previousTag = currentTag;
-      printf("tag#%d %lu\n", n, currentTag);
       OpPassManager dynamicPM("builtin.module");
       dynamicPM.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
       dynamicPM.addPass(mlir::createShapeInferencePass());
       dynamicPM.addPass(mlir::createCanonicalizerPass());
-      dynamicPM.addPass(mlir::createShapeInferencePass());
       dynamicPM.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
-      dynamicPM.addPass(mlir::createSymbolDCEPass());
       if (failed(runPipeline(dynamicPM, module)))
         return signalPassFailure();
       currentTag = createTagForIR(module);
@@ -124,10 +121,10 @@ public:
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createONNXGraphOptimizePass() {
-  return std::make_unique<ONNXGraphOptimizePass>();
+std::unique_ptr<mlir::Pass> mlir::createONNXOpTransformPass() {
+  return std::make_unique<ONNXOpTransformPass>();
 }
 
-std::unique_ptr<mlir::Pass> mlir::createONNXGraphOptimizePass(int threshold) {
-  return std::make_unique<ONNXGraphOptimizePass>(threshold);
+std::unique_ptr<mlir::Pass> mlir::createONNXOpTransformPass(int threshold) {
+  return std::make_unique<ONNXOpTransformPass>(threshold);
 }

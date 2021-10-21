@@ -46,6 +46,6 @@ llvm::cl::opt<bool> disableMemoryBundling("disable-memory-bundling",
                    "Try this if you experience a significant compile time."),
     llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
 
-llvm::cl::opt<int> onnxGraphOptimizeThreshold("onnx-graph-optimize-threshold",
-    llvm::cl::desc(" max iteration for graph optimization passes."),
+llvm::cl::opt<int> onnxOpTransformThreshold("onnx-op-transform-threshold",
+    llvm::cl::desc(" max iteration for op transform passes."),
     llvm::cl::init(3), llvm::cl::cat(OMPassOptions));

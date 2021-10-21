@@ -11,10 +11,10 @@ namespace onnx_mlir {
 void initOMPasses() {
   // All passes implemented within onnx-mlir should register within this
   // function to make themselves available as a command-line option.
-  mlir::registerPass("onnx-graph-optimize",
-      "Invoke other passes iteratively to optimize ONNX graph.",
+  mlir::registerPass("onnx-op-transform",
+      "Invoke passes iteratively that tranform ONNX op.",
       []() -> std::unique_ptr<mlir::Pass> {
-        return mlir::createONNXGraphOptimizePass();
+        return mlir::createONNXOpTransformPass();
       });
 
   mlir::registerPass("decompose-onnx",

@@ -50,8 +50,8 @@ add_onnx_mlir_library(OMInstrumentONNX
   OMSupport
   )
 
-add_onnx_mlir_library(OMONNXGraphOptimize
-  ONNXGraphOptimizePass.cpp
+add_onnx_mlir_library(OMONNXOpTransfrom
+  ONNXOpTransformPass.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps

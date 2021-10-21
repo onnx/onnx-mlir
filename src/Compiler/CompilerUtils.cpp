@@ -469,8 +469,9 @@ void registerDialects(mlir::MLIRContext &context) {
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
-  pm.addPass(mlir::createONNXGraphOptimizePass(onnxGraphOptimizeThreshold));
-#if 0
+  // This is a transition from previous static passes to full dynamic passes
+  // 1. allow --print-ir flag to work
+  // 2. passes have some implicit assumption and can not change the order
   pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
@@ -479,16 +480,20 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   // inferred shapes.
   pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
 
-  // Add extra passes
-  for (int i = 0; i < repeatOnnxTransform; i++) {
-    pm.addPass(mlir::createCanonicalizerPass());
-    pm.addPass(mlir::createShapeInferencePass());
-    pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+  if (onnxOpTransformThreshold > 0) {
+    // Dynamic iterate in ONNXOpTransformPass
+    pm.addPass(mlir::createONNXOpTransformPass(onnxOpTransformThreshold));
+  } else {
+    // Statically add extra passes
+    for (int i = 0; i < repeatOnnxTransform; i++) {
+      pm.addPass(mlir::createCanonicalizerPass());
+      pm.addPass(mlir::createShapeInferencePass());
+      pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+    }
   }
 
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
-#endif
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
