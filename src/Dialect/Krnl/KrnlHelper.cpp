@@ -373,7 +373,7 @@ Value loadDenseElementArrayValueAtIndex(
   if (array.getType().cast<ShapedType>().getShape().size() == 0)
     return rewriter.create<KrnlLoadOp>(loc, array);
   Attribute constAttr = rewriter.getIntegerAttr(rewriter.getIndexType(), index);
-  Value indexVal = rewriter.create<ConstantOp>(loc, constAttr);
+  Value indexVal = rewriter.create<arith::ConstantOp>(loc, constAttr);
   SmallVector<Value, 1> memrefVal = {indexVal};
   return rewriter.create<KrnlLoadOp>(loc, array, memrefVal);
 }

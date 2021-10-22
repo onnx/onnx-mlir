@@ -133,7 +133,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
     "See ONNXMaxPoolOp for a full description of the MaxPool semantics."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-           DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
+           DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
            DefaultValuedAttr<SI64Attr, "0">:$ceil_mode,
            OptionalAttr<I64ArrayAttr>:$dilations,
            DefaultValuedAttr<I64ArrayAttr, "{}">:$kernel_shape,

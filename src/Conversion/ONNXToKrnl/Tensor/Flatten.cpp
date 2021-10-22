@@ -34,7 +34,8 @@ Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
   if (memRefType.getShape()[0] == -1) {
     auto dimVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
     for (auto i = 0; i < axisValue; i++) {
-      dimVal = rewriter.create<MulIOp>(loc, dimVal, createMemRef.dim(input, i));
+      dimVal = rewriter.create<arith::MulIOp>(
+          loc, dimVal, createMemRef.dim(input, i));
     }
     allocOperands.emplace_back(dimVal);
   }
@@ -43,7 +44,8 @@ Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
   if (memRefType.getShape()[1] == -1) {
     auto dimVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
     for (auto i = axisValue; i < inputRank; i++) {
-      dimVal = rewriter.create<MulIOp>(loc, dimVal, createMemRef.dim(input, i));
+      dimVal = rewriter.create<arith::MulIOp>(
+          loc, dimVal, createMemRef.dim(input, i));
     }
     allocOperands.emplace_back(dimVal);
   }
