@@ -41,7 +41,9 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     // Create a few constants.
     auto bitType = rewriter.getIntegerType(1);
     Value falseVal = createMath.constant(bitType, 0);
+    Value trueVal = createMath.constant(bitType, 1);
     LiteralIndexExpr zero(0), one(1);
+    int axis = shapeHelper.axis;
 
     // First compute how many "true" values there are along the condition, as
     // this defines the dynamic dimension pointed to by axis.
@@ -68,11 +70,12 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     // Now replace questionmark by actual computed size.
     Value sum = createKrnl.load(sumMemRef);
     DimIndexExpr dynDim(sum);
-    if (shapeHelper.axis == -1) {
+    if (axis == -1) {
       shapeHelper.dimsForOutput(0)[0] = dynDim;
     } else {
-      shapeHelper.dimsForOutput(0)[shapeHelper.axis] = dynDim;
+      shapeHelper.dimsForOutput(0)[axis] = dynDim;
     }
+
     // Insert an allocation and deallocation for the result of this operation.
     MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc = insertAllocAndDeallocSimple(
@@ -91,9 +94,9 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> inputLbs(inputRank, zero);
     SmallVector<IndexExpr, 4> inputUbs;
     inputBounds.getSymbolList(inputUbs);
-    printf("hi alex, axis is %d\n", (int)shapeHelper.axis);
+
     // Consider the cases.
-    if (shapeHelper.axis == -1) {
+    if (axis == -1) {
       // We iterate over the original loops, and in the innerblock we test for
       // the condition. The output is 1D.
       //
@@ -107,17 +110,40 @@ struct ONNXCompressOpLowering : public ConversionPattern {
       //    else break; /* not possible with affine loops... ignore */
       //
       // WriteIndex is already init to zero, create and zero readIndex
+
+      // Try to see if we can guarantee that there are enough bits in the
+      // condition tensor.
+      IndexExpr condSize = condBounds.getSymbol(0);
+      Value condUb = condSize.getValue();
+      bool skipCond = false;
+      if (condSize.isLiteral()) {
+        // Make sure that the total size of the input is known at compile time
+        // and is smaller that the size of the condition array.
+        skipCond = true;
+        int64_t inputTotSize = 1;
+        for (int i = 0; i < inputRank && skipCond; ++i) {
+          if (!inputUbs[i].isLiteral()) {
+            skipCond = false; // Runtime input size, cannot skip test.
+          } else {
+            inputTotSize *= inputUbs[i].getLiteral();
+            if (inputTotSize > condSize.getLiteral())
+              skipCond = false; // Cond tensor too small, cannot skip test.
+          }
+        }
+      }
+
       Value readIndexMemRef = createMemRef.alloca(indexMemRefType);
       createKrnl.store(zero.getValue(), readIndexMemRef);
 
-      Value condUb = condBounds.getSymbol(0).getValue();
       ValueRange inputLoopDef = createKrnl.defineLoops(inputRank);
       createKrnl.iterateIE(inputLoopDef, inputLoopDef, inputLbs, inputUbs,
           [&](KrnlBuilder createKrnl, ValueRange inputLoopInd) {
             MathBuilder createMath(createKrnl);
             SCFBuilder createSCF(createKrnl);
             Value readIndex = createKrnl.load(readIndexMemRef);
-            Value inBound = createMath.slt(readIndex, condUb);
+            Value inBound = trueVal;
+            if (!skipCond)
+              inBound = createMath.slt(readIndex, condUb);
             createSCF.ifThenElse(inBound, [&](SCFBuilder &createSCF) {
               KrnlBuilder createKrnl(createSCF);
               MathBuilder createMath(createSCF);
@@ -147,41 +173,46 @@ struct ONNXCompressOpLowering : public ConversionPattern {
       // input has rank n, axis is m in 0..n-1
       //
       // writeIndex = 0
-      // for i0, i1,... im
+      // for im
       //   if im < condUB) /* if larger, there are no more true vals */
       //     if cond[im] == true
-      //       for im+1..in-1:
-      //          val = input[i0...in-1]
+      //       for i1... im-1, im+1... in
+      //          val = input[i0...im-1, im, im+1...in-1]
       //          out[i0...im-1, writeIndex, im+1...in-1]
       //       writeIndex++
 
-#if 1
-      int axis = shapeHelper.axis;
-      int outerRank = axis + 1;
-      int innerRank = inputRank - outerRank;
-      printf("hi alex, axis is %d, outer rank is %d, inner rank is %d\n", axis, outerRank, innerRank);
-      Value condUb = condBounds.getSymbol(0).getValue();
-      // Divide the loop defs into the outer and inner loop as above
-      SmallVector<IndexExpr, 4> outerLbs, outerUbs, innerLbs, innerUbs;
-      // Separate here the bounds between outer and inner.
-      for (int i = 0; i < outerRank; ++i) {
-        outerLbs.emplace_back(inputLbs[i]);
-        outerUbs.emplace_back(inputUbs[i]);
+      // Try to see if we can guarantee that there are enough bits in the
+      // condition tensor.
+      IndexExpr condSize = condBounds.getSymbol(0);
+      Value condUb = condSize.getValue();
+      bool skipCond = false;
+      IndexExpr condTest = (condSize >= inputUbs[axis]);
+      if (condTest.isLiteral() && condTest.getLiteral() != 0) {
+        // Were able to prove that the ub test is always true
+        skipCond = true;
       }
-      for (int i = outerRank; i < inputRank; ++i) {
+      int innerRank = inputRank - 1;
+      // Divide the loop defs into the outer and inner loop as above
+      SmallVector<IndexExpr, 4> innerLbs, innerUbs;
+      // Separate here the bounds between outer and inner.
+      for (int i = 0; i < inputRank; ++i) {
+        if (i == axis)
+          continue;
         innerLbs.emplace_back(inputLbs[i]);
         innerUbs.emplace_back(inputUbs[i]);
       }
-      assert((int)innerLbs.size() == innerRank && "faulty rank calculation");
-      ValueRange outerLoopDefs = createKrnl.defineLoops(outerRank);
-      createKrnl.iterateIE(outerLoopDefs, outerLoopDefs, outerLbs, outerUbs,
-          [&](KrnlBuilder createKrnl, ValueRange outerLoopInd) {
+      ValueRange axisLoopDef = createKrnl.defineLoops(1);
+      createKrnl.iterateIE(axisLoopDef, axisLoopDef, {inputLbs[axis]},
+          {inputUbs[axis]},
+          [&](KrnlBuilder createKrnl, ValueRange axisLoopInd) {
             MathBuilder createMath(createKrnl);
             SCFBuilder createSCF(createKrnl);
-
-            Value readIndex = outerLoopInd[axis]; // Last iter is axis index.
-            Value inBound = createMath.slt(readIndex, condUb);
-
+            // Compute the test if we have enough condition value for current
+            // index.
+            Value readIndex = axisLoopInd[0];
+            Value inBound = trueVal;
+            if (!skipCond)
+              inBound = createMath.slt(readIndex, condUb);
             createSCF.ifThenElse(inBound, [&](SCFBuilder &createSCF) {
               KrnlBuilder createKrnl(createSCF);
               MathBuilder createMath(createSCF);
@@ -189,8 +220,9 @@ struct ONNXCompressOpLowering : public ConversionPattern {
               Value copy = createMath.neq(currCond, falseVal);
               createSCF.ifThenElse(copy, [&](SCFBuilder &createSCF) {
                 KrnlBuilder createKrnl(createSCF);
+                // Load the write index.
+                Value writeIndex = createKrnl.load(writeIndexMemRef);
                 // Now iterate over the inner loops
-
                 ValueRange innerLoopDefs = createKrnl.defineLoops(innerRank);
                 createKrnl.iterateIE(innerLoopDefs, innerLoopDefs, innerLbs,
                     innerUbs,
@@ -198,92 +230,29 @@ struct ONNXCompressOpLowering : public ConversionPattern {
                       MathBuilder createMath(createKrnl);
                       // Compute access functions for input and output.
                       SmallVector<Value, 4> inputAccessFct, outputAccessFct;
-                      for (int i = 0; i < outerRank; ++i) {
-                        inputAccessFct.emplace_back(outerLoopInd[i]);
-                        outputAccessFct.emplace_back(outerLoopInd[i]);
+                      int skip = 0;
+                      for (int i = 0; i < inputRank; ++i) {
+                        if (i == axis) {
+                          inputAccessFct.emplace_back(readIndex);
+                          outputAccessFct.emplace_back(writeIndex);
+                          skip = 1;
+                        } else {
+                          inputAccessFct.emplace_back(innerLoopInd[i - skip]);
+                          outputAccessFct.emplace_back(innerLoopInd[i - skip]);
+                        }
                       }
-                      for (int i = 0; i < innerRank; ++i) {
-                        inputAccessFct.emplace_back(innerLoopInd[i]);
-                        outputAccessFct.emplace_back(innerLoopInd[i]);
-                      }
-                      // Only difference for output: write index on axis dim.
-                      Value writeIndex = createKrnl.load(writeIndexMemRef);
-                      outputAccessFct[axis] = writeIndex;
                       // Now load and copy the result to the output.
                       Value val = createKrnl.load(inputMemRef, inputAccessFct);
                       createKrnl.store(val, alloc, outputAccessFct);
                     });
                 // Done with copying, now increment writeIndex
-                // Update write index
-                Value writeIndex = createKrnl.load(writeIndexMemRef);
+                // Value writeIndex = createKrnl.load(writeIndexMemRef);
                 Value one = createMath.constant(indexType, 1);
                 Value newWriteIndex = createMath.add(writeIndex, one);
                 createKrnl.store(newWriteIndex, writeIndexMemRef);
               }); // If we must copy.
             });   // If we are inbound for tests.
           });
-
-#else
-      // Version that expose a krnl lowering bug
-      Value condUb = condBounds.getSymbol(0).getValue();
-      ValueRange inputLoopDef = createKrnl.defineLoops(inputRank);
-      // Divide the loop defs into the outer and inner loop as above
-      SmallVector<Value, 4> outerLoopDef, innerLoopDef;
-      int axis = shapeHelper.axis;
-      for (int i = 0; i <= axis; ++i)
-        outerLoopDef.emplace_back(inputLoopDef[i]);
-      for (int i = axis + 1; i < inputRank; ++i)
-        innerLoopDef.emplace_back(inputLoopDef[i]);
-
-      // This should work, give all of the bounds but request iteration only
-      // over the outer loops.
-      createKrnl.iterateIE(inputLoopDef, outerLoopDef, inputLbs, inputUbs,
-          [&](KrnlBuilder createKrnl, ValueRange outerLoopInd) {
-            MathBuilder createMath(createKrnl);
-            SCFBuilder createSCF(createKrnl);
-
-            Value readIndex = outerLoopInd[axis]; // Last iter is axis index.
-            Value inBound = createMath.slt(readIndex, condUb);
-
-            createSCF.ifThenElse(inBound, [&](SCFBuilder &createSCF) {
-              KrnlBuilder createKrnl(createSCF);
-              MathBuilder createMath(createSCF);
-              Value currCond = createKrnl.load(condMemRef, {readIndex});
-              Value copy = createMath.neq(currCond, falseVal);
-              createSCF.ifThenElse(copy, [&](SCFBuilder &createSCF) {
-                KrnlBuilder createKrnl(createSCF);
-                // Now iterate over the inner loops
-                createKrnl.iterateIE({}, innerLoopDef, {}, {},
-                    [&](KrnlBuilder createKrnl, ValueRange innerLoopInd) {
-                      MathBuilder createMath(createKrnl);
-                      // Compute access functions for input and output.
-                      SmallVector<Value, 4> inputAccessFct, outputAccessFct;
-                      for (int i = 0; i <= axis; ++i) {
-                        inputAccessFct.emplace_back(outerLoopInd[i]);
-                        outputAccessFct.emplace_back(outerLoopInd[i]);
-                      }
-                      int innerSize = innerLoopInd.size();
-                      for (int i = 0; i < innerSize; ++i) {
-                        inputAccessFct.emplace_back(innerLoopInd[i]);
-                        outputAccessFct.emplace_back(innerLoopInd[i]);
-                      }
-                      // Only difference for output: write index on axis dim.
-                      Value writeIndex = createKrnl.load(writeIndexMemRef);
-                      outputAccessFct[axis] = writeIndex;
-                      // Now load and copy the result to the output.
-                      Value val = createKrnl.load(inputMemRef, inputAccessFct);
-                      createKrnl.store(val, alloc, outputAccessFct);
-                    });
-                // Done with copying, now increment writeIndex
-                // Update write index
-                Value writeIndex = createKrnl.load(writeIndexMemRef);
-                Value one = createMath.constant(indexType, 1);
-                Value newWriteIndex = createMath.add(writeIndex, one);
-                createKrnl.store(newWriteIndex, writeIndexMemRef);
-              }); // If we must copy.
-            });   // If we are inbound for tests.
-          });
-#endif
     }
     rewriter.replaceOp(op, alloc);
     return success();
