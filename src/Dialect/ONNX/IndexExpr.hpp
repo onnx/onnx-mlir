@@ -265,13 +265,13 @@ inference part as no code may be generated during such phases.
 #include "mlir/IR/Value.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
-
 #include <cstdint>
 #include <functional>
 #include <string>
 
 namespace mlir {
+
+struct DialectBuilder;
 
 class IndexExpr;
 class UndefinedIndexExpr;
@@ -320,7 +320,6 @@ public:
   // Constructor for a scope. Top level scope must provide rewriter (possibly
   // null if we cannot geneate code at this time) and location.
   IndexExprScope(OpBuilder *rewriter, Location loc);
-  IndexExprScope(ImplicitLocOpBuilder &lb);
   IndexExprScope(DialectBuilder &db);
   // Constructor for subsequent nested scopes. Providing enclosing scope is not
   // necessary; it is provided for convenience if a user prefer to name the

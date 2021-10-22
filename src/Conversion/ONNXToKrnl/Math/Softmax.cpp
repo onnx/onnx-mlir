@@ -123,8 +123,7 @@ static void emitInstForSoftmaxBeforeV13(ConversionPatternRewriter &rewriter,
     Value zero, Value negInfinity, int64_t axis) {
   int64_t rank = alloc.getType().cast<MemRefType>().getRank();
 
-  ImplicitLocOpBuilder ilob(loc, rewriter);
-  KrnlBuilder createKrnl(ilob);
+  KrnlBuilder createKrnl(rewriter, loc);
   IndexExprScope ieScope(createKrnl);
   MemRefBoundsIndexCapture inputBounds(input);
 
@@ -182,8 +181,7 @@ static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
     Value zero, Value negInfinity, int64_t axis) {
   int64_t rank = alloc.getType().cast<MemRefType>().getRank();
 
-  ImplicitLocOpBuilder ilob(loc, rewriter);
-  KrnlBuilder createKrnl(ilob);
+  KrnlBuilder createKrnl(rewriter, loc);
   IndexExprScope ieScope(createKrnl);
   MemRefBoundsIndexCapture inputBounds(input);
 

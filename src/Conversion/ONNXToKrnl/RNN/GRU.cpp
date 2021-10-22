@@ -392,10 +392,10 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
   //   ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh)
   // Ht = (1 - zt) (.) ht + zt (.) Ht-1"
 
-  ImplicitLocOpBuilder lb(loc, rewriter);
-  KrnlBuilder createKrnl(lb);
-  OnnxBuilder createONNX(lb);
-  MemRefBuilder createMemRef(lb);
+  KrnlBuilder createKrnl(rewriter, loc);
+  OnnxBuilder createONNX(createKrnl);
+  MemRefBuilder createMemRef(createKrnl);
+  MathBuilder createMath(createKrnl);
 
   ArrayRef<int64_t> xtShape = Xt.getType().cast<ShapedType>().getShape();
   int64_t batchSize = xtShape[0];
@@ -418,7 +418,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
   Value one = emitConstantOp(rewriter, loc, elementType, 1);
 
   // Lower and upper bounds derived from Ht tensor.
-  Value iZero = lb.create<ConstantIndexOp>(0);
+  Value iZero = createMath.constantIndex(0);
   SmallVector<Value, 4> htLbs(htRank, iZero);
   SmallVector<Value, 4> htUbs;
   for (unsigned r = 0; r < htRank; ++r) {
