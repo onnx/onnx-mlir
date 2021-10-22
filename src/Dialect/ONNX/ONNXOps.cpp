@@ -3475,16 +3475,16 @@ static LogicalResult verify(ONNXCompressOp op) {
   if (condRank != 1)
     return op.emitError("condition's rank must be one");
   return success();
-} 
+}
 
 LogicalResult ONNXCompressOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-    // Check input type.
+  // Check input type.
   if (!input().getType().isa<RankedTensorType>()) {
     // Won't be able to do any checking at this stage.
     return success();
   }
-    // Infer shape for the output.
+  // Infer shape for the output.
   ONNXCompressOpAdaptor operandAdaptor(*this);
   ONNXCompressOpShapeHelper shapeHelper(this);
   if (failed(shapeHelper.computeShape(operandAdaptor)))
