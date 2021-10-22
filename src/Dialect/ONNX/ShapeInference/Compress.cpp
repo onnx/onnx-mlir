@@ -65,4 +65,3 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape(
   dimsForOutput(0) = outputDims;
   return success();
 }
-
