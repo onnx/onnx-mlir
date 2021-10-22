@@ -56,6 +56,7 @@ add_onnx_mlir_library(OMONNXOpTransfrom
   LINK_LIBS PUBLIC
   OMONNXOps
   MLIRPass
+  MLIRTransforms
   OMSupport
   OMONNXRewrite
   OMShapeInference
