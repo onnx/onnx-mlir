@@ -50,16 +50,17 @@ add_onnx_mlir_library(OMInstrumentONNX
   OMSupport
   )
 
-add_onnx_mlir_library(OMONNXOpTransfrom
+add_onnx_mlir_library(OMOpTransform
   ONNXOpTransformPass.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps
   MLIRPass
-  MLIRTransforms
   OMSupport
   OMONNXRewrite
   OMShapeInference
+  MLIRTransforms
+  MLIRAffineTransforms
   )
 
 add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
