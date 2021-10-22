@@ -32,6 +32,10 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
 
+#ifdef _WIN32
+#include <io.h>
+#endif
+
 using namespace mlir;
 
 namespace {
@@ -77,8 +81,14 @@ private:
   }
 
   uint64_t createTagForIR(mlir::ModuleOp module) {
-    char tempFile[] = "/tmp/onnxpassdumpXXXXXX";
+    char tempFile[64];
+#ifdef _WIN32
+    strcpy(tempFile, "onnxtempdumpXXXXXX");
+    _mktemp(tempFile);
+#else
+    strcpy(tempFile, "/tmp/onnxtempdumpXXXXXX");
     mkstemp(tempFile);
+#endif
     outputCode(module, tempFile);
     uint64_t r = hashFile(tempFile);
     remove(tempFile);
@@ -101,7 +111,7 @@ public:
     uint64_t currentTag = createTagForIR(module);
     uint64_t previousTag;
 
-    int n = 5;
+    int n = onnxOpTransformThreshold;
     do {
       previousTag = currentTag;
       OpPassManager dynamicPM("builtin.module");
@@ -113,6 +123,11 @@ public:
         return signalPassFailure();
       currentTag = createTagForIR(module);
     } while (currentTag != previousTag && --n > 0);
+    if (currentTag != previousTag)
+      module->emitWarning()
+          << "ONNXOpTransform did not converge after "
+          << onnxOpTransformThreshold << "iterations. "
+          << "You may set a higher threshold with command option";
   }
 };
 
