@@ -15,6 +15,7 @@
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/IndexExprDetail.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -42,9 +43,6 @@ IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
       parentScope(getCurrentScopePtr()), container() {
   getCurrentScopePtr() = this;
 }
-
-IndexExprScope::IndexExprScope(ImplicitLocOpBuilder &lb)
-    : IndexExprScope(&lb, lb.getLoc()){};
 
 IndexExprScope::IndexExprScope(DialectBuilder &db)
     : IndexExprScope(&db.getBuilder(), db.getLoc()){};
@@ -379,9 +377,6 @@ void IndexExpr::debugPrint(
       break;
     case IndexExprKind::Symbol:
       printf(" kind(symbol)");
-      break;
-    default:
-      printf(" kind(unknown)");
       break;
     }
     printf(" scope(0x%llx)\n", (long long unsigned)getScopePtr());
