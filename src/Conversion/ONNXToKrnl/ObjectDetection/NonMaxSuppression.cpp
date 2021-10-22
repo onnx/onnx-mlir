@@ -12,10 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/SCF/SCF.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
+
+using AffineBuilderKrnlMem = GenericAffineBuilder<KrnlLoadOp, KrnlStoreOp>;
 
 /// Compute the intersection-over-union (IOU) score between two boxes.
 /// IOU tells us how much two boxes are overlapped.
@@ -170,6 +173,8 @@ static Value emitArgSort(
 
   MemRefType scoreMemRefType = scores.getType().cast<MemRefType>();
   Type elementType = scoreMemRefType.getElementType();
+  Type indexType = rewriter.getIndexType();
+
   MemRefBoundsIndexCapture scoreBounds(scores);
   SmallVector<IndexExpr, 4> dimsSize;
   scoreBounds.getDimList(dimsSize);
@@ -178,10 +183,10 @@ static Value emitArgSort(
   IndexExpr ssIE = dimsSize[2]; // spatial size.
 
   // Create and initialize the result.
-  Value zero = createMath.constant(elementType, 0);
-  Value order = insertAllocAndDeallocSimple(rewriter, nullptr, scoreMemRefType,
-      loc, dimsSize, /*insertDealloc=*/true);
-  createKrnl.memset(order, zero);
+  Value order = insertAllocAndDeallocSimple(rewriter, nullptr,
+      MemRefType::get(scoreMemRefType.getShape(), indexType), loc, dimsSize,
+      /*insertDealloc=*/true);
+  createKrnl.memset(order, createMath.constantIndex(0));
 
   // Do sorting in the descending order of scores and return their indices.
   // Using bubble sort.
@@ -340,6 +345,11 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
     // Suppress by using IOU.
     // Iterate over all bounding boxes in the descending order of scores.
+    Value one = createMath.constantIndex(1);
+    Value scoreTH = createKrnl.load(scoreThreshold, {one});
+    Value iouTH = createKrnl.load(iouThreshold, {one});
+    Value mopc = createKrnl.load(maxOutputPerClass, {one});
+
     ValueRange bcLoopDef = createKrnl.defineLoops(2);
     createKrnl.iterateIE(bcLoopDef, bcLoopDef, {zeroIE, zeroIE}, {bsIE, csIE},
         [&](KrnlBuilder &createKrnl, ValueRange bcLoopInd) {
@@ -347,7 +357,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
           // Keep trace of the number of output boxes per class.
           Value numOutputPerClass =
-              createMemref.alloca(MemRefType::get({}, indexType));
+              createMemref.alloca(MemRefType::get({}, mopc.getType()));
           // Keep trace of removed indices per class.
           SmallVector<IndexExpr, 1> dims = {ssIE};
           Value removedIndices = insertAllocAndDeallocSimple(rewriter, nullptr,
@@ -359,8 +369,44 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
           ValueRange sLoopDef = createKrnl.defineLoops(1);
           createKrnl.iterateIE(sLoopDef, sLoopDef, {zeroIE}, {ssIE},
               [&](KrnlBuilder &createKrnl, ValueRange sLoopInd) {
-                // Remove boxes overlapped too much with the selected box, using
-                // IOU.
+                Value b(bcLoopInd[0]), c(bcLoopInd[1]), s(sLoopInd[0]);
+                AffineBuilderKrnlMem createAffine(createKrnl);
+                MathBuilder createMath(createKrnl);
+                IndexExprScope indexScope(createAffine);
+
+                Value score = createKrnl.load(scores, {b, c, s});
+
+                // Only bounding boxes whose score > score_threshold.
+                Value thresholdOK = createMath.sgt(score, scoreTH);
+                // Have not yet got enough outputs.
+                Value numOutputs = createKrnl.load(numOutputPerClass, {});
+                Value numOutputsOK = createMath.slt(numOutputs, mopc);
+                // Bounding box has not yet been removed.
+                Value notRemoved = createKrnl.load(removedIndices, {s});
+
+                Value cond = createMath._and(thresholdOK, numOutputsOK);
+                cond = createMath._and(cond, notRemoved);
+                auto ifOp = rewriter.create<scf::IfOp>(
+                    loc, thresholdOK, /*withElseRegion=*/false);
+                rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
+
+                // Pick the bounding box with the largest score.
+                Value selectedBoxIndex = createKrnl.load(order, {b, c, s});
+                SmallVector<Value, 4> selectedBox;
+                for (int i = 0; i < 4; ++i) {
+                  Value iVal = createMath.constantIndex(i);
+                  Value x = createKrnl.load(boxes, {b, selectedBoxIndex, iVal});
+                  selectedBox.emplace_back(x);
+                }
+
+                // Store the index of the picked box to the output.
+                // out_index = b * batch_size + c * max_output_per_class +
+                //    num_output_per_class;
+                // selected_indices[out_index] =
+                //        [ b, c, selected_box_index ] num_output_per_class += 1
+
+                // Remove boxes overlapped too much with the selected box,
+                // using IOU.
                 ValueRange oLoopDef = createKrnl.defineLoops(1);
                 createKrnl.iterateIE(oLoopDef, oLoopDef, {zeroIE}, {ssIE},
                     [&](KrnlBuilder &createKrnl, ValueRange oLoopInd) {});
