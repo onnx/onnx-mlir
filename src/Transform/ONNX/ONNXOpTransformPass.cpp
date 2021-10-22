@@ -95,6 +95,8 @@ private:
     return r;
   }
 
+  const int defaultThreshold = 3;
+
 public:
   ONNXOpTransformPass() = default;
   ONNXOpTransformPass(const ONNXOpTransformPass &pass) {}
@@ -104,7 +106,7 @@ public:
 
   Option<int> onnxOpTransformThreshold{*this, "onnx-op-transform-threshold",
       llvm::cl::desc("max iteration for op transform passes."),
-      llvm::cl::init(3)};
+      llvm::cl::init(defaultThreshold)};
   void runOnOperation() override {
     auto module = getOperation();
 
