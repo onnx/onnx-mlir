@@ -60,6 +60,8 @@ struct MathBuilder : DialectBuilder {
   Value exp2(Value val);
   Value log2(Value val);
 
+  Value min(Value lhs, Value rhs);
+  Value max(Value lhs, Value rhs);
   Value select(Value cmp, Value lhs, Value rhs);
   Value sgt(Value lhs, Value rhs);
   Value sge(Value lhs, Value rhs);

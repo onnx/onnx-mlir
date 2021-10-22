@@ -15,6 +15,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   NN/Conv.cpp
   NN/Normalization.cpp
   NN/Pooling.cpp
+  ObjectDetection/NonMaxSuppression.cpp
   RNN/RNNBase.cpp
   RNN/GRU.cpp
   RNN/LSTM.cpp

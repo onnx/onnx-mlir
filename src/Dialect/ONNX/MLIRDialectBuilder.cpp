@@ -64,6 +64,30 @@ Value MathBuilder::log2(Value val) {
   return b.create<math::Log2Op>(loc, val);
 }
 
+Value MathBuilder::min(Value lhs, Value rhs) {
+  // TODO: use MinSIOp, MinUIOp, MinFOp when MLIR is updated.
+  assert(
+      lhs.getType() == rhs.getType() && "Two operands must have the same type");
+  Value gt;
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+    gt = b.create<CmpIOp>(loc, CmpIPredicate::sgt, lhs, rhs);
+  else
+    gt = b.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
+  return b.create<SelectOp>(loc, gt, rhs, lhs);
+}
+
+Value MathBuilder::max(Value lhs, Value rhs) {
+  // TODO: use MaxSIOp, MaxUIOp, MaxFOp when MLIR is updated.
+  assert(
+      lhs.getType() == rhs.getType() && "Two operands must have the same type");
+  Value gt;
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+    gt = b.create<CmpIOp>(loc, CmpIPredicate::sgt, lhs, rhs);
+  else
+    gt = b.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
+  return b.create<SelectOp>(loc, gt, lhs, rhs);
+}
+
 Value MathBuilder::sgt(Value lhs, Value rhs) {
   if (lhs.getType().isa<IndexType, IntegerType>() ||
       lhs.getType().isa<IndexType>())

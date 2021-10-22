@@ -3706,7 +3706,9 @@ LogicalResult ONNXMultinomialOp::inferShapes(
 
 LogicalResult ONNXNonMaxSuppressionOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  auto b = mlir::Builder(getContext());
+  getResult().setType(RankedTensorType::get({-1, 3}, b.getI64Type()));
+  return success();
 }
 
 LogicalResult ONNXNonZeroOp::inferShapes(
