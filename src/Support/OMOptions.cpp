@@ -49,3 +49,7 @@ llvm::cl::opt<bool> disableMemoryBundling("disable-memory-bundling",
 llvm::cl::opt<int> onnxOpTransformThreshold("onnx-op-transform-threshold",
     llvm::cl::desc(" max iteration for op transform passes."),
     llvm::cl::init(3), llvm::cl::cat(OMPassOptions));
+
+llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
+    llvm::cl::desc(" report diagnostic info for op transform passes."),
+    llvm::cl::init(false), llvm::cl::cat(OMPassOptions));

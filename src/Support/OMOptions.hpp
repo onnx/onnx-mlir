@@ -26,3 +26,4 @@ extern llvm::cl::opt<std::string> instrumentONNXOps;
 extern llvm::cl::opt<bool> disableMemoryBundling;
 
 extern llvm::cl::opt<int> onnxOpTransformThreshold;
+extern llvm::cl::opt<bool> onnxOpTransformReport;

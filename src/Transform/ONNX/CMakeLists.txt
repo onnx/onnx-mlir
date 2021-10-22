@@ -60,7 +60,6 @@ add_onnx_mlir_library(OMOpTransform
   OMONNXRewrite
   OMShapeInference
   MLIRTransforms
-  MLIRAffineTransforms
   )
 
 add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX

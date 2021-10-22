@@ -125,11 +125,17 @@ public:
         return signalPassFailure();
       currentTag = createTagForIR(module);
     } while (currentTag != previousTag && --n > 0);
-    if (currentTag != previousTag)
+    if (currentTag != previousTag) {
       module->emitWarning()
           << "ONNXOpTransform did not converge after "
           << onnxOpTransformThreshold << "iterations. "
           << "You may set a higher threshold with command option";
+    }
+    if (onnxOpTransformReport) {
+      llvm::outs() << "ONNXOpTransform iterated "
+                   << onnxOpTransformThreshold - n << " times, converged "
+                   << ((currentTag == previousTag) ? "true" : "false") << "\n";
+    }
   }
 };
 
