@@ -173,9 +173,9 @@ static Value emitArgSort(
   MemRefBoundsIndexCapture scoreBounds(scores);
   SmallVector<IndexExpr, 4> dimsSize;
   scoreBounds.getDimList(dimsSize);
-  IndexExpr BS = dimsSize[0]; // batch size.
-  IndexExpr CS = dimsSize[1]; // class size.
-  IndexExpr SS = dimsSize[2]; // spatial size.
+  IndexExpr bsIE = dimsSize[0]; // batch size.
+  IndexExpr csIE = dimsSize[1]; // class size.
+  IndexExpr ssIE = dimsSize[2]; // spatial size.
 
   // Create and initialize the result.
   Value zeroVal = createMath.constant(elementType, 0);
@@ -185,18 +185,20 @@ static Value emitArgSort(
 
   // Do sorting in the descending order of scores and return their indices.
   // Using bubble sort.
-  LiteralIndexExpr zero(0), one(1);
+  LiteralIndexExpr zeroIE(0), oneIE(1);
   ValueRange loopDef = createKrnl.defineLoops(3);
-  createKrnl.iterateIE(loopDef, loopDef, {zero, zero, zero}, {BS, CS, SS - one},
+  createKrnl.iterateIE(loopDef, loopDef, {zeroIE, zeroIE, zeroIE},
+      {bsIE, csIE, ssIE - oneIE},
       [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
         IndexExprScope outerScope(createKrnl);
-        DimIndexExpr b(loopInd[0]), c(loopInd[1]), i(loopInd[2]);
+        DimIndexExpr i(loopInd[2]);
+
         ValueRange swapLoopDef = createKrnl.defineLoops(1);
-        createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i + one}, {SS},
+        createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i + oneIE}, {ssIE},
             [&](KrnlBuilder &createKrnl, ValueRange swapLoopInd) {
               MathBuilder createMath(createKrnl);
               IndexExprScope innerScope(createKrnl);
-              DimIndexExpr k(swapLoopInd[0]);
+              DimIndexExpr b(loopInd[0]), c(loopInd[1]), k(swapLoopInd[0]);
               SmallVector<IndexExpr, 3> xInd = {b, c, i};
               SmallVector<IndexExpr, 3> yInd = {b, c, k};
               Value x = createKrnl.loadIE(order, xInd);
@@ -221,9 +223,9 @@ static void tryToUnflip(
   MathBuilder createMath(createKrnl);
 
   MemRefBoundsIndexCapture bbBounds(boundingBoxes);
-  IndexExpr BS = bbBounds.getDim(0); // batch size.
-  IndexExpr SS = bbBounds.getDim(1); // spatial size.
-  LiteralIndexExpr zero(0);
+  IndexExpr bsIE = bbBounds.getDim(0); // batch size.
+  IndexExpr ssIE = bbBounds.getDim(1); // spatial size.
+  LiteralIndexExpr zeroIE(0);
   SmallVector<Value, 4> indices;
   for (int i = 0; i < 4; ++i) {
     Value iVal = createMath.constant(rewriter.getIndexType(), i);
@@ -231,7 +233,7 @@ static void tryToUnflip(
   }
 
   ValueRange loopDef = createKrnl.defineLoops(3);
-  createKrnl.iterateIE(loopDef, loopDef, {zero, zero}, {BS, SS},
+  createKrnl.iterateIE(loopDef, loopDef, {zeroIE, zeroIE}, {bsIE, ssIE},
       [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
         MathBuilder createMath(createKrnl);
         Value b(loopInd[0]), c(loopInd[1]);
