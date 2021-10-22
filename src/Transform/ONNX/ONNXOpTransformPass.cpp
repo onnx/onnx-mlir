@@ -86,7 +86,7 @@ private:
     strcpy(tempFile, "onnxtempdumpXXXXXX");
     _mktemp(tempFile);
 #else
-    strcpy(tempFile, "/tmp/onnxtempdumpXXXXXX");
+    strcpy(tempFile, "onnxtempdumpXXXXXX");
     mkstemp(tempFile);
 #endif
     outputCode(module, tempFile);
