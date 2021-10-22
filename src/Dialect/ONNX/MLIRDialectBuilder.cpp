@@ -1,8 +1,10 @@
-//===- MLIRDialectBuilder.cpp - Support migration to MLIR without EDSC --===//
+//===---- MLIRDialectBuilder.cpp - Helper functions for MLIR dialects -----===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// Copyright 2019-2021 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains helper functions for building MLIR operations.
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,7 +17,12 @@
 using namespace mlir;
 
 //===----------------------------------------------------------------------===//
-// from MLIR Utils.cpp, modified to handle index values too.
+// Original code for MathBuilder is copied from LLVM MLIR Utils.cpp
+// Modified here to add operations, add super class.
+// Liscense added here for this class for completness.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //===----------------------------------------------------------------------===//
 
 Value MathBuilder::_and(Value lhs, Value rhs) {
@@ -141,6 +148,11 @@ Value MathBuilder::constant(Type type, double val) {
       .Case<IndexType>(
           [&](Type) { constantAttr = b.getIntegerAttr(type, (int64_t)val); })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
+  return b.create<ConstantOp>(loc, constantAttr);
+}
+
+Value MathBuilder::constantIndex(int64_t val) {
+  Attribute constantAttr = b.getIntegerAttr(b.getIndexType(), val);
   return b.create<ConstantOp>(loc, constantAttr);
 }
 

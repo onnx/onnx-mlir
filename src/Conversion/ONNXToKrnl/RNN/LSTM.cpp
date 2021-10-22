@@ -450,9 +450,10 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // Ht = ot (.) h(Ct)
 
   // TODO remove scope
-  ImplicitLocOpBuilder lb(loc, rewriter);
-  KrnlBuilder createKrnl(lb);
-  MemRefBuilder createMemRef(lb);
+  KrnlBuilder createKrnl(rewriter, loc);
+  MemRefBuilder createMemRef(createKrnl);
+  MathBuilder createMath(createKrnl);
+
   ArrayRef<int64_t> xtShape = Xt.getType().cast<ShapedType>().getShape();
   int64_t batchSize = xtShape[0];
 
@@ -480,7 +481,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // Do element-wise computations. Fuse them into a single nested loop.
   // Lower and upper bounds derived from Ht tensor.
   unsigned HtRank = matrixType.getRank();
-  Value iZero = lb.create<ConstantIndexOp>(0);
+  Value iZero = createMath.constantIndex(0);
   SmallVector<Value, 4> HtLbs(HtRank, iZero);
   SmallVector<Value, 4> HtUbs;
   for (unsigned r = 0; r < HtRank; ++r) {
