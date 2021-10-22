@@ -371,6 +371,7 @@ OpsWithCanonicalizer = [
 # Operations with custom verifiers (alphabetical order).
 OpsWithVerifier = [
     'AveragePool',
+    'Compress',
     'Conv',
     'DepthToSpace',
     'Expand',

@@ -77,7 +77,9 @@ struct MathBuilder : DialectBuilder {
   Value sgt(Value lhs, Value rhs);
   Value sge(Value lhs, Value rhs);
   Value slt(Value lhs, Value rhs);
+  Value sle(Value lhs, Value rhs);
   Value eq(Value lhs, Value rhs);
+  Value neq(Value lhs, Value rhs);
 
   Value constant(Type type, double val);
   Value constantIndex(int64_t val);
@@ -116,7 +118,6 @@ static constexpr int64_t gDefaultAllocAlign = 16;
 
 struct SCFBuilder : DialectBuilder {
   SCFBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
-  SCFBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
   SCFBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
   /// Create an if then with optional else. Construct does not generate a result

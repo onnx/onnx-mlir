@@ -40,7 +40,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
 
     // Create a few constants.
     auto bitType = rewriter.getIntegerType(1);
-    Value trueVal = createMath.constant(bitType, 1);
+    Value falseVal = createMath.constant(bitType, 0);
     LiteralIndexExpr zero(0), one(1);
 
     // First compute how many "true" values there are along the condition, as
@@ -59,7 +59,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
           MathBuilder createMath(createKrnl);
           // Load the condition
           Value currCond = createKrnl.load(condMemRef, loopInd); // Type i1.
-          Value isOn = createMath.eq(currCond, trueVal);         // Compare i1s.
+          Value isOn = createMath.neq(currCond, falseVal);       // Compare i1s.
           Value inc = createMath.select(isOn, one.getValue(), zero.getValue());
           Value oldSum = createKrnl.load(sumMemRef);
           Value newSum = createMath.add(oldSum, inc); // Increment by 0 or 1.
@@ -91,6 +91,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> inputLbs(inputRank, zero);
     SmallVector<IndexExpr, 4> inputUbs;
     inputBounds.getSymbolList(inputUbs);
+    printf("hi alex, axis is %d\n", (int)shapeHelper.axis);
     // Consider the cases.
     if (shapeHelper.axis == -1) {
       // We iterate over the original loops, and in the innerblock we test for
@@ -121,7 +122,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
               KrnlBuilder createKrnl(createSCF);
               MathBuilder createMath(createSCF);
               Value currCond = createKrnl.load(condMemRef, {readIndex});
-              Value copy = createMath.eq(currCond, trueVal);
+              Value copy = createMath.neq(currCond, falseVal);
               createSCF.ifThenElse(copy, [&](SCFBuilder &createSCF) {
                 KrnlBuilder createKrnl(createSCF);
                 MathBuilder createMath(createSCF);
@@ -155,53 +156,53 @@ struct ONNXCompressOpLowering : public ConversionPattern {
       //       writeIndex++
 
 #if 1
-      Value condUb = condBounds.getSymbol(0).getValue();
-      ValueRange inputLoopDefs = createKrnl.defineLoops(inputRank);
-      // Divide the loop defs into the outer and inner loop as above
-      SmallVector<Value, 4> outerLoopDef, innerLoopDef;
-      SmallVector<IndexExpr, 4> outerLbs, outerUbs;
-      SmallVector<Value, 4> innerLbs, innerUbs;
       int axis = shapeHelper.axis;
-      for (int i = 0; i <= axis; ++i) {
-        outerLoopDefs.emplace_back(inputLoopDefs[i]);
-        outerLbs.emplaceBack(inputLbs[i]);
-        outerUbs.emplaceBack(inputUbs[i]);
+      int outerRank = axis + 1;
+      int innerRank = inputRank - outerRank;
+      printf("hi alex, axis is %d, outer rank is %d, inner rank is %d\n", axis, outerRank, innerRank);
+      Value condUb = condBounds.getSymbol(0).getValue();
+      // Divide the loop defs into the outer and inner loop as above
+      SmallVector<IndexExpr, 4> outerLbs, outerUbs, innerLbs, innerUbs;
+      // Separate here the bounds between outer and inner.
+      for (int i = 0; i < outerRank; ++i) {
+        outerLbs.emplace_back(inputLbs[i]);
+        outerUbs.emplace_back(inputUbs[i]);
       }
-      for (int i = axis + 1; i < inputRank; ++i) {
-        innerLoopDef.emplace_back(inputLoopDefs[i]);
-        innerLbs.emplaceBack(inputLbs[i].getValue());
-        innerUbs.emplaceBack(inputUbs[i].getValue());
+      for (int i = outerRank; i < inputRank; ++i) {
+        innerLbs.emplace_back(inputLbs[i]);
+        innerUbs.emplace_back(inputUbs[i]);
       }
-
-      // This should work, give all of the bounds but request iteration only
-      // over the outer loops.
+      assert((int)innerLbs.size() == innerRank && "faulty rank calculation");
+      ValueRange outerLoopDefs = createKrnl.defineLoops(outerRank);
       createKrnl.iterateIE(outerLoopDefs, outerLoopDefs, outerLbs, outerUbs,
-          [&](KrnlBuilder createKrnl, ValueRange outerLoopInds) {
+          [&](KrnlBuilder createKrnl, ValueRange outerLoopInd) {
             MathBuilder createMath(createKrnl);
             SCFBuilder createSCF(createKrnl);
 
-            Value readIndex = outerLoopInds[axis]; // Last iter is axis index.
+            Value readIndex = outerLoopInd[axis]; // Last iter is axis index.
             Value inBound = createMath.slt(readIndex, condUb);
 
             createSCF.ifThenElse(inBound, [&](SCFBuilder &createSCF) {
               KrnlBuilder createKrnl(createSCF);
               MathBuilder createMath(createSCF);
               Value currCond = createKrnl.load(condMemRef, {readIndex});
-              Value copy = createMath.eq(currCond, trueVal);
+              Value copy = createMath.neq(currCond, falseVal);
               createSCF.ifThenElse(copy, [&](SCFBuilder &createSCF) {
                 KrnlBuilder createKrnl(createSCF);
                 // Now iterate over the inner loops
-                createKrnl.iterateIE({}, innerLoopDef, {}, {},
+
+                ValueRange innerLoopDefs = createKrnl.defineLoops(innerRank);
+                createKrnl.iterateIE(innerLoopDefs, innerLoopDefs, innerLbs,
+                    innerUbs,
                     [&](KrnlBuilder createKrnl, ValueRange innerLoopInd) {
                       MathBuilder createMath(createKrnl);
                       // Compute access functions for input and output.
                       SmallVector<Value, 4> inputAccessFct, outputAccessFct;
-                      for (int i = 0; i <= axis; ++i) {
+                      for (int i = 0; i < outerRank; ++i) {
                         inputAccessFct.emplace_back(outerLoopInd[i]);
                         outputAccessFct.emplace_back(outerLoopInd[i]);
                       }
-                      int innerSize = innerLoopInd.size();
-                      for (int i = 0; i < innerSize; ++i) {
+                      for (int i = 0; i < innerRank; ++i) {
                         inputAccessFct.emplace_back(innerLoopInd[i]);
                         outputAccessFct.emplace_back(innerLoopInd[i]);
                       }
@@ -248,7 +249,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
               KrnlBuilder createKrnl(createSCF);
               MathBuilder createMath(createSCF);
               Value currCond = createKrnl.load(condMemRef, {readIndex});
-              Value copy = createMath.eq(currCond, trueVal);
+              Value copy = createMath.neq(currCond, falseVal);
               createSCF.ifThenElse(copy, [&](SCFBuilder &createSCF) {
                 KrnlBuilder createKrnl(createSCF);
                 // Now iterate over the inner loops
@@ -282,7 +283,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
               }); // If we must copy.
             });   // If we are inbound for tests.
           });
-  #endif
+#endif
     }
     rewriter.replaceOp(op, alloc);
     return success();
