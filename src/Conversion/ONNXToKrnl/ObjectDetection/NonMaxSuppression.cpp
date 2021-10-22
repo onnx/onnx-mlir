@@ -281,6 +281,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = memRefType.getElementType();
     Type indexType = rewriter.getIndexType();
+    Type boolType = rewriter.getI1Type();
 
     Value scores = operandAdaptor.scores();
     Value boxes = operandAdaptor.boxes();
@@ -338,9 +339,33 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     createKrnl.store(zeroIE.getValue(), effectiveNumSelectedIndices);
 
     // Suppress by using IOU.
+    // Iterate over all bounding boxes in the descending order of scores.
     ValueRange bcLoopDef = createKrnl.defineLoops(2);
     createKrnl.iterateIE(bcLoopDef, bcLoopDef, {zeroIE, zeroIE}, {bsIE, csIE},
-        [&](KrnlBuilder &createKrnl, ValueRange bcLoopInd) {});
+        [&](KrnlBuilder &createKrnl, ValueRange bcLoopInd) {
+          MemRefBuilder createMemref(createKrnl);
+
+          // Keep trace of the number of output boxes per class.
+          Value numOutputPerClass =
+              createMemref.alloca(MemRefType::get({}, indexType));
+          // Keep trace of removed indices per class.
+          SmallVector<IndexExpr, 1> dims = {ssIE};
+          Value removedIndices = insertAllocAndDeallocSimple(rewriter, nullptr,
+              MemRefType::get({ssIE.getLiteral()}, boolType), loc, dims,
+              /*insertDealloc=*/true);
+          createKrnl.memset(removedIndices, createMath.constant(boolType, 0));
+
+          // Iterate in the descending order of scores.
+          ValueRange sLoopDef = createKrnl.defineLoops(1);
+          createKrnl.iterateIE(sLoopDef, sLoopDef, {zeroIE}, {ssIE},
+              [&](KrnlBuilder &createKrnl, ValueRange sLoopInd) {
+                // Remove boxes overlapped too much with the selected box, using
+                // IOU.
+                ValueRange oLoopDef = createKrnl.defineLoops(1);
+                createKrnl.iterateIE(oLoopDef, oLoopDef, {zeroIE}, {ssIE},
+                    [&](KrnlBuilder &createKrnl, ValueRange oLoopInd) {});
+              });
+        });
 
     rewriter.replaceOp(op, bufMemRef);
     return success();
