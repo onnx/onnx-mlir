@@ -27,7 +27,7 @@
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 #include <string>
 
@@ -4440,3 +4440,6 @@ mlir::Type SeqType::getElementType() const { return getElementTypes()[0]; }
 #define GET_OP_CLASSES
 
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
+
+template struct ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
+    ONNXMaxPoolSingleOutOpAdaptor>;
