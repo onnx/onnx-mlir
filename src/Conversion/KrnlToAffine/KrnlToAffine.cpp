@@ -195,8 +195,9 @@ public:
   void moveOne(Value loopRef,
       llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp,
       bool erase = true) {
-    assert(loopRefToOp.count(loopRef) >= 0 &&
-           "Can't find affine for operation associated with .");
+    // Commented out because count is an unsigned int, and its by def >= 0.
+    // assert(loopRefToOp.count(loopRef) >= 0 &&
+    //       "Can't find affine for operation associated with .");
     AffineForOp forOp = loopRefToOp[loopRef];
     Block &loopBody = forOp.getLoopBody().front();
     auto insertPt = loopBody.begin();

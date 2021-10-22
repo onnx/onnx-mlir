@@ -13,6 +13,7 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/IR/BlockAndValueMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
@@ -207,7 +208,7 @@ void SCFBuilder::ifThenElse(Value cond,
     function_ref<void(SCFBuilder &createSCF)> thenFn,
     function_ref<void(SCFBuilder &createSCF)> elseFn) {
   if (!elseFn) {
-    b.create<scf::IfOp>(loc, /*resultTypes=*/llvm::None, cond,
+    b.create<scf::IfOp>(loc, cond,
         /* then */
         [&](OpBuilder &childBuilder, Location childLoc) {
           SCFBuilder scfBuilder(childBuilder, childLoc);
@@ -216,7 +217,7 @@ void SCFBuilder::ifThenElse(Value cond,
         });
   } else {
     b.create<scf::IfOp>(
-        loc, /*resultTypes=*/llvm::None, cond,
+        loc, cond,
         /* then */
         [&](OpBuilder &childBuilder, Location childLoc) {
           SCFBuilder scfBuilder(childBuilder, childLoc);
