@@ -14,7 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 // Used to trace which op are used, good for profiling apps.
 #define DEBUG_TYPE "gemm"
