@@ -22,8 +22,8 @@ using AffineBuilderKrnlMem = GenericAffineBuilder<KrnlLoadOp, KrnlStoreOp>;
 
 /// Compute the intersection-over-union (IOU) score between two boxes.
 /// IOU tells us how much two boxes are overlapped.
-static Value emitIOU(MathBuilder &createMath, SmallVectorImpl<Value> box1,
-    SmallVectorImpl<Value> box2, uint32_t centerPointBox = 0) {
+static Value emitIOU(MathBuilder &createMath, SmallVectorImpl<Value> &box1,
+    SmallVectorImpl<Value> &box2, int64_t centerPointBox = 0) {
   Value area1, area2;
   Value y1_min, x1_min, y1_max, x1_max;
   Value y2_min, x2_min, y2_max, x2_max;
@@ -303,6 +303,8 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     IndexExpr csIE = scoreBounds.getDim(1); // class size.
     IndexExpr ssIE = scoreBounds.getDim(2); // spatial size.
     LiteralIndexExpr zeroIE(0), oneIE(1), threeIE(3);
+    Value falseVal = createMath.constant(boolType, 0);
+    Value trueVal = createMath.constant(boolType, 1);
 
     // Refine the number of output boxes per class by suppressing it using
     // spatial dimension size and score threshold.
@@ -327,7 +329,8 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     IndexExpr numSelectedIndicesIE = bsIE * csIE * maxPerClassIE;
 
     // Allocate a MemRef for the output. This MemRef is NOT the final output
-    // since the number of selected indices has yet not suppressed by IOU.
+    // since the number of selected indices has yet not suppressed by IOU. So
+    // the first dimension size is larger than necessary.
     // Output shape : [num_selected_indices, 3]
     SmallVector<IndexExpr, 2> outputDims = {numSelectedIndicesIE, threeIE};
     SmallVector<int64_t, 2> outputShape;
@@ -352,10 +355,12 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
     // Suppress by using IOU.
     // Iterate over all bounding boxes in the descending order of scores.
+    Value zero = createMath.constantIndex(0);
     Value one = createMath.constantIndex(1);
     Value scoreTH = createKrnl.load(scoreThreshold, {one});
     Value iouTH = createKrnl.load(iouThreshold, {one});
     Value MOPC = createKrnl.load(maxOutputPerClass, {one});
+    MOPC = rewriter.create<IndexCastOp>(loc, indexType, MOPC);
     Value bs = bsIE.getValue(); // batch size.
 
     ValueRange bcLoopDef = createKrnl.defineLoops(2);
@@ -364,14 +369,15 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
           MemRefBuilder createMemref(createKrnl);
 
           // Keep trace of the number of output boxes per class.
-          Value numOutputPerClass =
-              createMemref.alloca(MemRefType::get({}, MOPC.getType()));
+          Value effectiveMaxOutputPerClass =
+              createMemref.alloca(MemRefType::get({}, indexType));
+          createKrnl.store(zero, effectiveMaxOutputPerClass, {});
           // Keep trace of removed indices per class.
           SmallVector<IndexExpr, 1> dims = {ssIE};
           Value removedIndices = insertAllocAndDeallocSimple(rewriter, nullptr,
               MemRefType::get({ssIE.getLiteral()}, boolType), loc, dims,
               /*insertDealloc=*/true);
-          createKrnl.memset(removedIndices, createMath.constant(boolType, 0));
+          createKrnl.memset(removedIndices, falseVal);
 
           // Iterate in the descending order of scores.
           ValueRange sLoopDef = createKrnl.defineLoops(1);
@@ -387,7 +393,8 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                 // 1. Only bounding boxes whose score > score_threshold.
                 Value checkScore = createMath.sgt(score, scoreTH);
                 // 2. Have not yet got enough outputs.
-                Value currentMOPC = createKrnl.load(numOutputPerClass, {});
+                Value currentMOPC =
+                    createKrnl.load(effectiveMaxOutputPerClass, {});
                 Value checkMOPC = createMath.slt(currentMOPC, MOPC);
                 // 3. Bounding box has not yet been removed.
                 Value checkStatus = createKrnl.load(removedIndices, {s});
@@ -409,10 +416,10 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
                 // Compute the position to store the selected box.
                 // out_index = b * batch_size + c * max_output_per_class +
-                //             num_output_per_class;
+                //             effective_max_output_per_class;
                 DimIndexExpr bIE(b), cIE(c), bsIE(bs);
-                DimIndexExpr mopcIE(MOPC), currentMopcIE(currentMOPC);
-                IndexExpr soIE = bIE * bsIE + cIE * mopcIE + currentMopcIE;
+                DimIndexExpr MOPCIE(MOPC), effectiveMOPCIE(currentMOPC);
+                IndexExpr soIE = bIE * bsIE + cIE * MOPCIE + effectiveMOPCIE;
 
                 // Store the index of the picked box to the output.
                 // selected_indices[out_index] = [ b, c, selected_box_index ]
@@ -426,19 +433,59 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                 createKrnl.storeIE(biVal, selectedMemRef, {soIE, twoIE});
 
                 // Update the number of output boxes per class.
-                // num_output_per_class += 1
-                currentMopcIE = currentMopcIE + oneIE;
-                Value x = rewriter.create<IndexCastOp>(
-                    loc, MOPC.getType(), currentMopcIE.getValue());
-                createKrnl.store(x, numOutputPerClass, {});
+                // effective_max_output_per_class += 1
+                IndexExpr newEffectiveMOPCIE = effectiveMOPCIE + oneIE;
+                createKrnl.store(newEffectiveMOPCIE.getValue(),
+                    effectiveMaxOutputPerClass, {});
 
                 // Remove boxes overlapped too much with the selected box,
                 // using IOU.
                 ValueRange oLoopDef = createKrnl.defineLoops(1);
                 createKrnl.iterateIE(oLoopDef, oLoopDef, {zeroIE}, {ssIE},
-                    [&](KrnlBuilder &createKrnl, ValueRange oLoopInd) {});
+                    [&](KrnlBuilder &createKrnl, ValueRange oLoopInd) {
+                      Value o(oLoopInd[0]);
+                      MathBuilder createMath(createKrnl);
+
+                      // Only proceed if the box has not yet been removed.
+                      Value isRemoved = createKrnl.load(removedIndices, {o});
+                      Value isNotRemoved = createMath.eq(isRemoved, falseVal);
+                      auto if1Op = rewriter.create<scf::IfOp>(
+                          loc, isNotRemoved, /*withElseRegion=*/false);
+                      rewriter.setInsertionPointToStart(
+                          &if1Op.thenRegion().front());
+
+                      // Pick the current box.
+                      SmallVector<Value, 4> otherBox;
+                      for (int i = 0; i < 4; ++i) {
+                        Value iVal = createMath.constantIndex(i);
+                        Value x = createKrnl.load(boxes, {b, o, iVal});
+                        otherBox.emplace_back(x);
+                      }
+
+                      // Compute IOU between the selected and current boxes.
+                      Value iou = emitIOU(
+                          createMath, selectedBox, otherBox, centerPointBox);
+
+                      // Only proceed if IOU > iou_threshold.
+                      Value checkIOU = createMath.sgt(iou, iouTH);
+                      auto if2Op = rewriter.create<scf::IfOp>(
+                          loc, checkIOU, /*withElseRegion=*/false);
+                      rewriter.setInsertionPointToStart(
+                          &if2Op.thenRegion().front());
+
+                      // If IOU is satified, mark the current box as removed.
+                      createKrnl.store(trueVal, removedIndices, {o});
+                    });
               });
+          // Update the effective numbers of selected indices.
+          Value effectiveMOPC = createKrnl.load(effectiveMaxOutputPerClass, {});
+          Value effectiveNSI = createKrnl.load(effectiveNumSelectedIndices, {});
+          Value newEffectiveNSI = createMath.add(effectiveNSI, effectiveMOPC);
+          createKrnl.store(newEffectiveNSI, effectiveNumSelectedIndices, {});
         });
+
+    // Since we cannot suppress by IOU in advance, so remove redundant score
+    // now to produce the final output.
 
     rewriter.replaceOp(op, selectedMemRef);
     return success();
@@ -450,57 +497,61 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
   patterns.insert<ONNXNonMaxSuppressionOpLowering>(ctx);
 }
 
+// clang-format off
 // Below is a python implementation of NonMaxSuppression.
+// import numpy as np
+//
 // def IOU(box1, box2, center_point_box=0):
 //     if center_point_box == 0:
 //         # The box data is supplied as [y1, x1, y2, x2]. (y1, x1) and (y2, x2)
-//         # are the coordinates of the diagonal pair of bottom-left and
-//         top-right # corners. y1_min, x1_min, y1_max, x1_max = box1 y2_min,
-//         x2_min, y2_max, x2_max = box2
-//
+//         # are the coordinates of the diagonal pair of bottom-left and top-right
+//         # corners.
+//         y1_min, x1_min, y1_max, x1_max = box1
+//         y2_min, x2_min, y2_max, x2_max = box2
+// 
 //         area1 = (y1_max - y1_min) * (x1_max - x1_min)
 //         area2 = (y2_max - y2_min) * (x2_max - x2_min)
 //     else:
 //         # The box data is supplied as [x_center, y_center, width, height].
 //         x1_center, y1_center, w1, h1 = box1
 //         x2_center, y2_center, w2, h2 = box2
-//
+// 
 //         x1_min = x1_center - w1 / 2
 //         x1_max = x1_center + w1 / 2
 //         x2_min = x2_center - w2 / 2
 //         x2_max = x2_center + w2 / 2
-//
+// 
 //         y1_min = y1_center - h1 / 2
 //         y1_max = y1_center + h1 / 2
 //         y2_min = y2_center - h2 / 2
 //         y2_max = y2_center + h2 / 2
-//
+// 
 //         area1 = h1 * w1
 //         area2 = h2 * w2
-//
+// 
 //     intersection_x_min = max(x1_min, x2_min)
 //     intersection_y_min = max(y1_min, y2_min)
 //     intersection_x_max = min(x1_max, x2_max)
 //     intersection_y_max = min(y1_max, y2_max)
 //     intersection_area = max(intersection_x_max - intersection_x_min, 0) * \
 //         max(intersection_y_max - intersection_y_min, 0)
-//
+// 
 //     union_area = area1 + area2 - intersection_area + 1e-8
 //     return intersection_area / union_area
-//
-//
+// 
+// 
 // '''
 // boxes :: [num_batch, spatial_dimension, 4]
 // scores :: [num_batch, num_class, spatial_dimension]
 // '''
-//
-//
+// 
+// 
 // def nms(boxes, scores, max_output_boxes_per_class, iou_threshold,
 //         score_threshold, center_point_box=0):
 //     batch_size = scores.shape[0]
 //     class_size = scores.shape[1]
 //     spatial_size = boxes.shape[1]
-//
+// 
 //     score_threshold = score_threshold[0]
 //     iou_threshold = iou_threshold[0]
 //     # Suppress by spatial dimension.
@@ -516,7 +567,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 //             max_per_class_by_score = max(max_per_class_by_score, topk)
 //     max_output_per_class = min(
 //         max_output_per_class, max_per_class_by_score)
-//
+// 
 //     # Sort scores in the descending order and get the sorted indices.
 //     # order = np.argsort(-scores, axis=2)
 //     order = np.full(scores.shape, -1)
@@ -530,10 +581,10 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 //                 for k in range(i+1, spatial_size):
 //                     if (scores[b, c, i] < scores[b, c, k]):
 //                         tmp = order[b, c, i]
-//                         order[b, c, i] = order[b, c, k]
-//                         order[b, c, k] = tmp
-//
-//
+//                         order[b, c, i] = order[b, c, k] 
+//                         order[b, c, k] = tmp 
+// 
+// 
 //     # Check if the coordinates are flipped. If so, flip them back.
 //     if (center_point_box == 0):
 //         new_boxes = np.empty(boxes.shape)
@@ -552,7 +603,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 //                     x1_max = tmp
 //                 new_boxes[b, s] = [y1_min, x1_min, y1_max, x1_max]
 //         boxes = new_boxes
-//
+// 
 //     # Output: [num_selected_indices, 3]
 //     # The selected index format is [batch_index, class_index, box_index].
 //     num_selected_indices = batch_size * max_output_per_class * class_size
@@ -561,46 +612,47 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 //     effective_num_selected_indices = 0
 //     for b in range(batch_size):
 //         for c in range(class_size):
-//             num_output_per_class = 0
+//             effective_max_output_per_class = 0
 //             removed_indices = np.full((spatial_size), False)
 //             for s in range(spatial_size):
 //                 # Discard bounding boxes using score threshold.
 //                 if (scores[b, c, s] <= score_threshold):
 //                     continue
 //                 # Have enough the number of outputs.
-//                 if (num_output_per_class >= max_output_per_class):
+//                 if (effective_max_output_per_class >= max_output_per_class):
 //                     continue
 //                 # Removed, ignore.
 //                 if removed_indices[s]:
 //                     continue
-//
+// 
 //                 # Pick the bounding box with the largest score.
 //                 selected_box_index = order[b, c, s]
 //                 selected_box = boxes[b, selected_box_index, :]
-//
+// 
 //                 # Store the index of the picked box to the output.
-//                 out_index = b * batch_size + c * max_output_per_class +
-//                 num_output_per_class selected_indices[out_index] = [b, c,
-//                 selected_box_index] num_output_per_class += 1
-//
-//                 # Remove boxes overlapped too much with the selected box,
-//                 using # IOU. for o in range(spatial_size):
+//                 out_index = b * batch_size + c * max_output_per_class + effective_max_output_per_class
+//                 selected_indices[out_index] = [b, c, selected_box_index]
+//                 effective_max_output_per_class += 1
+// 
+//                 # Remove boxes overlapped too much with the selected box, using
+//                 # IOU.
+//                 for o in range(spatial_size):
 //                     other_box = boxes[b, o, :]
 //                     iou = IOU(selected_box, other_box, center_point_box)
 //                     if (not removed_indices[o]) and (iou > iou_threshold):
 //                         removed_indices[o] = True
 //                     else:
 //                         removed_indices[o] = removed_indices[o]
-//             effective_num_selected_indices += num_output_per_class
-//
+//             effective_num_selected_indices += effective_max_output_per_class
+// 
 //     # Since we cannot suppress by IOU in advance, so remove redundant score
 //     # now.
 //     res = np.empty((effective_num_selected_indices, 3))
 //     for i in range(effective_num_selected_indices):
 //         res[i] = selected_indices[i]
-//     return res
-//
-//
+//     return res 
+// 
+// 
 // print("testing nonmaxsuppression_center_point_box_format")
 // center_point_box = 1
 // boxes = np.array([[
@@ -615,11 +667,11 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 // max_output_boxes_per_class = np.array([3]).astype(np.int64)
 // iou_threshold = np.array([0.5]).astype(np.float32)
 // score_threshold = np.array([0.0]).astype(np.float32)
-// selected_indices = np.array([[0, 0, 3], [0, 0, 0], [0, 0,
-// 5]]).astype(np.int64) out = nms(boxes, scores, max_output_boxes_per_class,
+// selected_indices = np.array([[0, 0, 3], [0, 0, 0], [0, 0, 5]]).astype(np.int64)
+// out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold, center_point_box)
 // np.testing.assert_allclose(selected_indices, out)
-//
+// 
 // print("testing nonmaxsuppression_flipped_coordinates")
 // boxes = np.array([[
 //     [1.0, 1.0, 0.0, 0.0],
@@ -633,11 +685,11 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 // max_output_boxes_per_class = np.array([3]).astype(np.int64)
 // iou_threshold = np.array([0.5]).astype(np.float32)
 // score_threshold = np.array([0.0]).astype(np.float32)
-// selected_indices = np.array([[0, 0, 3], [0, 0, 0], [0, 0,
-// 5]]).astype(np.int64) out = nms(boxes, scores, max_output_boxes_per_class,
+// selected_indices = np.array([[0, 0, 3], [0, 0, 0], [0, 0, 5]]).astype(np.int64)
+// out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-//
+// 
 // print("testing nonmaxsuppression_identical_boxes")
 // boxes = np.array([[
 //     [0.0, 0.0, 1.0, 1.0],
@@ -645,7 +697,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 //     [0.0, 0.0, 1.0, 1.0],
 //     [0.0, 0.0, 1.0, 1.0],
 //     [0.0, 0.0, 1.0, 1.0],
-//
+// 
 //     [0.0, 0.0, 1.0, 1.0],
 //     [0.0, 0.0, 1.0, 1.0],
 //     [0.0, 0.0, 1.0, 1.0],
@@ -653,8 +705,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 //     [0.0, 0.0, 1.0, 1.0]
 // ]]).astype(np.float32)
 // scores = np.array(
-//     [[[0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9,
-//     0.9]]]).astype(np.float32)
+//     [[[0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9]]]).astype(np.float32)
 // max_output_boxes_per_class = np.array([3]).astype(np.int64)
 // iou_threshold = np.array([0.5]).astype(np.float32)
 // score_threshold = np.array([0.0]).astype(np.float32)
@@ -662,7 +713,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-//
+// 
 // print("testing nonmaxsuppression_limit_output_size")
 // boxes = np.array([[
 //     [0.0, 0.0, 1.0, 1.0],
@@ -680,7 +731,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-//
+// 
 // print("testing nonmaxsuppression_single_box")
 // boxes = np.array([[
 //     [0.0, 0.0, 1.0, 1.0]
@@ -693,7 +744,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-//
+// 
 // print("testing nonmaxsuppression_suppress_by_IOU")
 // boxes = np.array([[
 //     [0.0, 0.0, 1.0, 1.0],
@@ -707,11 +758,11 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 // max_output_boxes_per_class = np.array([3]).astype(np.int64)
 // iou_threshold = np.array([0.5]).astype(np.float32)
 // score_threshold = np.array([0.0]).astype(np.float32)
-// selected_indices = np.array([[0, 0, 3], [0, 0, 0], [0, 0,
-// 5]]).astype(np.int64) out = nms(boxes, scores, max_output_boxes_per_class,
+// selected_indices = np.array([[0, 0, 3], [0, 0, 0], [0, 0, 5]]).astype(np.int64)
+// out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-//
+// 
 // print("testing nonmaxsuppression_suppress_by_IOU_and_scores")
 // boxes = np.array([[
 //     [0.0, 0.0, 1.0, 1.0],
@@ -729,7 +780,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-//
+// 
 // print("testing nonmaxsuppression_two_batches")
 // boxes = np.array([[[0.0, 0.0, 1.0, 1.0],
 //                    [0.0, 0.1, 1.0, 1.1],
@@ -753,7 +804,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
-//
+// 
 // print("testing nonmaxsuppression_two_classes")
 // boxes = np.array([[
 //     [0.0, 0.0, 1.0, 1.0],
@@ -773,3 +824,8 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 // out = nms(boxes, scores, max_output_boxes_per_class,
 //           iou_threshold, score_threshold)
 // np.testing.assert_allclose(selected_indices, out)
+// 
+// 
+// # if __name__ == "__main__":
+// #     main()
+// clang-format on
