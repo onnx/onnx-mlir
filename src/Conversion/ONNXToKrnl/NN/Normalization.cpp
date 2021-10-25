@@ -34,7 +34,7 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
         llvm::dyn_cast<ONNXBatchNormalizationInferenceModeOp>(op)
             .epsilon()
             .convertToFloat());
-    auto epsilon = rewriter.create<ConstantOp>(loc, epsilonAttr);
+    auto epsilon = rewriter.create<arith::ConstantOp>(loc, epsilonAttr);
 
     auto operand = operandAdaptor.X();
     auto scale = operandAdaptor.scale();
@@ -78,7 +78,7 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
       for (auto arg : cIterationBlock.getArguments())
         loopCIVs.emplace_back(arg);
     } else {
-      loopCIVs.emplace_back(rewriter.create<ConstantIndexOp>(loc, 0));
+      loopCIVs.emplace_back(rewriter.create<arith::ConstantIndexOp>(loc, 0));
     }
 
     auto scaleVal = rewriter.create<KrnlLoadOp>(loc, scale, loopCIVs);
@@ -120,15 +120,15 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
 
     auto xVal = rewriter.create<KrnlLoadOp>(loc, operand, loopIVs);
     // normalize
-    auto dividend = rewriter.create<SubFOp>(loc, xVal, meanVal);
+    auto dividend = rewriter.create<arith::SubFOp>(loc, xVal, meanVal);
     auto adjustedVarianceVal =
-        rewriter.create<AddFOp>(loc, varianceVal, epsilon);
+        rewriter.create<arith::AddFOp>(loc, varianceVal, epsilon);
     auto divisor = rewriter.create<math::SqrtOp>(loc, adjustedVarianceVal);
-    auto normVal = rewriter.create<DivFOp>(loc, dividend, divisor);
+    auto normVal = rewriter.create<arith::DivFOp>(loc, dividend, divisor);
     // scale and shift
-    auto scaleNormVal = rewriter.create<MulFOp>(loc, scaleVal, normVal);
+    auto scaleNormVal = rewriter.create<arith::MulFOp>(loc, scaleVal, normVal);
     auto shiftScaleNormVal =
-        rewriter.create<AddFOp>(loc, scaleNormVal, biasVal);
+        rewriter.create<arith::AddFOp>(loc, scaleNormVal, biasVal);
     rewriter.create<KrnlStoreOp>(loc, shiftScaleNormVal, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
@@ -156,7 +156,7 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
         elementType, llvm::dyn_cast<ONNXInstanceNormalizationOp>(op)
                          .epsilon()
                          .convertToFloat());
-    auto epsilon = rewriter.create<ConstantOp>(loc, epsilonAttr);
+    auto epsilon = rewriter.create<arith::ConstantOp>(loc, epsilonAttr);
 
     auto inputMemRef = operandAdaptor.input();
     auto scaleMemRef = operandAdaptor.scale();
@@ -190,9 +190,9 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     for (int d = 3; d < rank; ++d)
       num = num * inputBounds.getSymbol(d);
     // Convert num to float from Pooling postProcessPoolingWindow.
-    Value meanDenom = rewriter.create<IndexCastOp>(
+    Value meanDenom = rewriter.create<arith::IndexCastOp>(
         loc, num.getValue(), rewriter.getIntegerType(64));
-    meanDenom = rewriter.create<SIToFPOp>(loc, meanDenom, elementType);
+    meanDenom = rewriter.create<arith::SIToFPOp>(loc, meanDenom, elementType);
 
     // Iterate over the batch and channels.
     LiteralIndexExpr iZero(0);

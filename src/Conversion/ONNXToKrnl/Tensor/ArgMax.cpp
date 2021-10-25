@@ -61,7 +61,7 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
     // Constant Value
     auto minusOne = emitConstantOp(rewriter, loc, reducedElementType, -1);
     auto zero = emitConstantOp(rewriter, loc, reducedElementType, 0);
-    auto zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
+    auto zeroIndex = rewriter.create<arith::ConstantIndexOp>(loc, 0);
 
     // 1. Krnl loops to initialize the result.
     BuildKrnlLoop initLoops(rewriter, loc, reducedRank);
@@ -108,8 +108,8 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
     Value idx = rewriter.create<KrnlLoadOp>(loc, alloc, outLoopIVs);
 
     // if index is less than 0, we should set 0 as initial position
-    Value lessThanZero =
-        rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, idx, zero);
+    Value lessThanZero = rewriter.create<arith::CmpIOp>(
+        loc, arith::CmpIPredicate::slt, idx, zero);
     idx = rewriter.create<SelectOp>(loc, lessThanZero, zero, idx);
 
     // induction variables of current max value
@@ -117,15 +117,15 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
       if (i != axis)
         maxLoopIVs.push_back(calcLoops.getInductionVar(i));
       else
-        maxLoopIVs.push_back(
-            rewriter.create<IndexCastOp>(loc, idx, rewriter.getIndexType()));
+        maxLoopIVs.push_back(rewriter.create<arith::IndexCastOp>(
+            loc, idx, rewriter.getIndexType()));
     }
     Value maxVal = rewriter.create<KrnlLoadOp>(loc, data, maxLoopIVs);
 
     // if next value is larger than current max value, update index
-    Value greaterThanMax =
-        rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, next, maxVal);
-    Value pos = rewriter.create<IndexCastOp>(
+    Value greaterThanMax = rewriter.create<arith::CmpFOp>(
+        loc, arith::CmpFPredicate::OGT, next, maxVal);
+    Value pos = rewriter.create<arith::IndexCastOp>(
         loc, inLoopIVs[axis], rewriter.getIntegerType(64));
     idx = rewriter.create<SelectOp>(loc, greaterThanMax, pos, idx);
     rewriter.create<KrnlStoreOp>(loc, idx, alloc, outLoopIVs);

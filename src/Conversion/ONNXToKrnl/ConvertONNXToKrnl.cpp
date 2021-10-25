@@ -52,6 +52,13 @@ public:
 namespace {
 struct FrontendToKrnlLoweringPass
     : public PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>> {
+
+  StringRef getArgument() const override { return "convert-onnx-to-krnl"; }
+
+  StringRef getDescription() const override {
+    return "Lower frontend ops to Krnl dialect.";
+  }
+
   // Make sure that we have a valid default constructor and copy
   // constructor to make sure that the options are initialized properly.
   FrontendToKrnlLoweringPass() = default;
@@ -94,9 +101,10 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect,
-      linalg::LinalgDialect, math::MathDialect, memref::MemRefDialect,
-      shape::ShapeDialect, scf::SCFDialect>();
+  target
+      .addLegalDialect<KrnlOpsDialect, AffineDialect, arith::ArithmeticDialect,
+          StandardOpsDialect, linalg::LinalgDialect, math::MathDialect,
+          memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect>();
 
   // Use krnl.load/store instead of std.load/store and affine.load/store.
   // krnl.load/store will be lowered to std.load/store and affine.load/store by
@@ -156,6 +164,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // a ranked tensor.
   populateFuncOpTypeConversionPattern(patterns, tensorToMemRefConverter);
   populateCallOpTypeConversionPattern(patterns, tensorToMemRefConverter);
+  populateReturnOpTypeConversionPattern(patterns, tensorToMemRefConverter);
 
   // Frontend operation lowering.
   // ControlFlow

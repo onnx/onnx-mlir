@@ -113,11 +113,11 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     }
 
     Value loadVal = rewriter.create<KrnlLoadOp>(loc, input, loadIndices);
-    Value squareVal = rewriter.create<MulFOp>(loc, loadVal, loadVal);
+    Value squareVal = rewriter.create<arith::MulFOp>(loc, loadVal, loadVal);
 
     Value sumValue =
         rewriter.create<KrnlLoadOp>(loc, sumAlloc, ArrayRef<Value>{});
-    sumValue = rewriter.create<AddFOp>(loc, sumValue, squareVal);
+    sumValue = rewriter.create<arith::AddFOp>(loc, sumValue, squareVal);
     rewriter.create<KrnlStoreOp>(loc, sumValue, sumAlloc, ArrayRef<Value>{});
 
     // Compute and store the output
@@ -130,10 +130,10 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     Value xValue = rewriter.create<KrnlLoadOp>(loc, input, storeIndices);
     sumValue = rewriter.create<KrnlLoadOp>(loc, sumAlloc, ArrayRef<Value>{});
     Value tempValue = rewriter.create<math::PowFOp>(loc,
-        rewriter.create<AddFOp>(loc, biasValue,
-            rewriter.create<MulFOp>(loc, alphaDivSizeValue, sumValue)),
+        rewriter.create<arith::AddFOp>(loc, biasValue,
+            rewriter.create<arith::MulFOp>(loc, alphaDivSizeValue, sumValue)),
         betaValue);
-    Value resultValue = rewriter.create<DivFOp>(loc, xValue, tempValue);
+    Value resultValue = rewriter.create<arith::DivFOp>(loc, xValue, tempValue);
 
     rewriter.create<KrnlStoreOp>(loc, resultValue, alloc, storeIndices);
 

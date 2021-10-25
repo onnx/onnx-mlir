@@ -414,6 +414,11 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
 /// add and multiply, this pass will leave these operations intact.
 struct ConvertKrnlToAffinePass
     : public PassWrapper<ConvertKrnlToAffinePass, FunctionPass> {
+
+  StringRef getArgument() const override { return "convert-krnl-to-affine"; }
+
+  StringRef getDescription() const override { return "Lower Krnl dialect."; }
+
   void runOnFunction() final;
 };
 
@@ -1461,8 +1466,9 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   target.addLegalOp<AffineLoadOp>();
   target.addLegalOp<AffineStoreOp>();
   target.addLegalOp<KrnlVectorTypeCastOp>();
-  target.addLegalDialect<mlir::AffineDialect, mlir::memref::MemRefDialect,
-      mlir::StandardOpsDialect, mlir::vector::VectorDialect>();
+  target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithmeticDialect,
+      mlir::memref::MemRefDialect, mlir::StandardOpsDialect,
+      mlir::vector::VectorDialect>();
   // Patterns.
   RewritePatternSet patterns(&getContext());
   patterns.insert<KrnlTerminatorLowering>(&getContext());
@@ -1491,6 +1497,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
     }
     free(currUnrollAndJamList);
     signalPassFailure();
+    return;
   }
 
   for (auto record : *currUnrollAndJamList) {

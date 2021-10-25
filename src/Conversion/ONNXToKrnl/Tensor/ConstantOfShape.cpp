@@ -47,8 +47,8 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
         auto index = emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
         auto dim =
             rewriter.create<KrnlLoadOp>(loc, operandAdaptor.input(), index);
-        auto dimIndex =
-            rewriter.create<IndexCastOp>(loc, rewriter.getIndexType(), dim);
+        auto dimIndex = rewriter.create<arith::IndexCastOp>(
+            loc, rewriter.getIndexType(), dim);
         allocOperands.emplace_back(dimIndex);
       }
       // Allocate memory.
