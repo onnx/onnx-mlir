@@ -1013,7 +1013,9 @@ UndefinedIndexExpr::UndefinedIndexExpr() : IndexExpr() {}
 // IndexExpr Subclasses for constructing LiteralIndexExpr.
 //===----------------------------------------------------------------------===//
 
-LiteralIndexExpr::LiteralIndexExpr(int64_t const value) { init(value); }
+LiteralIndexExpr::LiteralIndexExpr(int64_t const value) : IndexExpr() {
+  init(value);
+}
 
 void LiteralIndexExpr::init(int64_t const value) {
   indexExprObj = new IndexExprImpl();
@@ -1021,39 +1023,40 @@ void LiteralIndexExpr::init(int64_t const value) {
   indexExprObj->initAsLiteral(value, IndexExprKind::Affine);
 }
 
-LiteralIndexExpr::LiteralIndexExpr(IndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(IndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(UndefinedIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(UndefinedIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(LiteralIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(LiteralIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(NonAffineIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(NonAffineIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(QuestionmarkIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(QuestionmarkIndexExpr const &o)
+    : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(PredicateIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(PredicateIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(AffineIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(AffineIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(DimIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(DimIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(SymbolIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(SymbolIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
@@ -1061,13 +1064,14 @@ LiteralIndexExpr::LiteralIndexExpr(SymbolIndexExpr const &o) {
 // IndexExpr Subclasses for constructing NonAffineIndexExpr.
 //===----------------------------------------------------------------------===//
 
-NonAffineIndexExpr::NonAffineIndexExpr(Value const value) {
+NonAffineIndexExpr::NonAffineIndexExpr(Value const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
   indexExprObj->initAsKind(value, IndexExprKind::NonAffine);
 }
 
-NonAffineIndexExpr::NonAffineIndexExpr(IndexExprImpl *otherObjPtr) {
+NonAffineIndexExpr::NonAffineIndexExpr(IndexExprImpl *otherObjPtr)
+    : IndexExpr() {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
@@ -1132,7 +1136,7 @@ NonAffineIndexExpr::NonAffineIndexExpr(SymbolIndexExpr const &o)
 // IndexExpr Subclasses for constructing QuestionmarkIndexExpr.
 //===----------------------------------------------------------------------===//
 
-QuestionmarkIndexExpr::QuestionmarkIndexExpr() {
+QuestionmarkIndexExpr::QuestionmarkIndexExpr() : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
   indexExprObj->initAsQuestionmark();
@@ -1163,19 +1167,20 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr(SymbolIndexExpr const &o)
 // IndexExpr Subclasses for constructing PredicateIndexExpr.
 //===----------------------------------------------------------------------===//
 
-PredicateIndexExpr::PredicateIndexExpr(bool const value) {
+PredicateIndexExpr::PredicateIndexExpr(bool const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
   indexExprObj->initAsLiteral(value, IndexExprKind::Predicate);
 }
 
-PredicateIndexExpr::PredicateIndexExpr(Value const value) {
+PredicateIndexExpr::PredicateIndexExpr(Value const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
   indexExprObj->initAsKind(value, IndexExprKind::Predicate);
 }
 
-PredicateIndexExpr::PredicateIndexExpr(IndexExprImpl *otherObjPtr) {
+PredicateIndexExpr::PredicateIndexExpr(IndexExprImpl *otherObjPtr)
+    : IndexExpr() {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
@@ -1216,13 +1221,13 @@ PredicateIndexExpr::PredicateIndexExpr(SymbolIndexExpr const &o)
 // IndexExpr Subclasses for constructing AffineIndexExpr.
 //===----------------------------------------------------------------------===//
 
-AffineIndexExpr::AffineIndexExpr(AffineExpr const value) {
+AffineIndexExpr::AffineIndexExpr(AffineExpr const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
   indexExprObj->initAsAffineExpr(value);
 }
 
-AffineIndexExpr::AffineIndexExpr(IndexExprImpl *otherObjPtr) {
+AffineIndexExpr::AffineIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
@@ -1289,13 +1294,13 @@ AffineIndexExpr::AffineIndexExpr(SymbolIndexExpr const &o)
 // IndexExpr Subclasses for constructing DimIndexExpr.
 //===----------------------------------------------------------------------===//
 
-DimIndexExpr::DimIndexExpr(Value const value) {
+DimIndexExpr::DimIndexExpr(Value const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
   indexExprObj->initAsKind(value, IndexExprKind::Dim);
 }
 
-DimIndexExpr::DimIndexExpr(IndexExprImpl *otherObjPtr) {
+DimIndexExpr::DimIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
@@ -1362,13 +1367,13 @@ DimIndexExpr::DimIndexExpr(SymbolIndexExpr const &o)
 // IndexExpr Subclasses for constructing SymbolIndexExpr.
 //===----------------------------------------------------------------------===//
 
-SymbolIndexExpr::SymbolIndexExpr(Value const value) {
+SymbolIndexExpr::SymbolIndexExpr(Value const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
   indexExprObj->initAsKind(value, IndexExprKind::Symbol);
 }
 
-SymbolIndexExpr::SymbolIndexExpr(IndexExprImpl *otherObjPtr) {
+SymbolIndexExpr::SymbolIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
