@@ -67,6 +67,12 @@ public:
   ShapeInferencePass(bool analyzeAllFunctions_)
       : analyzeAllFunctions(analyzeAllFunctions_) {}
 
+  StringRef getArgument() const override { return "shape-inference"; }
+
+  StringRef getDescription() const override {
+    return "Shape inference for frontend dialects.";
+  }
+
   void runOnOperation() override {
     auto module = getOperation();
     if (!analyzeAllFunctions) {

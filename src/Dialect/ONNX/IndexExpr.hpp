@@ -265,13 +265,13 @@ inference part as no code may be generated during such phases.
 #include "mlir/IR/Value.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
-
 #include <cstdint>
 #include <functional>
 #include <string>
 
 namespace mlir {
+
+struct DialectBuilder;
 
 class IndexExpr;
 class UndefinedIndexExpr;
@@ -320,7 +320,6 @@ public:
   // Constructor for a scope. Top level scope must provide rewriter (possibly
   // null if we cannot geneate code at this time) and location.
   IndexExprScope(OpBuilder *rewriter, Location loc);
-  IndexExprScope(ImplicitLocOpBuilder &lb);
   IndexExprScope(DialectBuilder &db);
   // Constructor for subsequent nested scopes. Providing enclosing scope is not
   // necessary; it is provided for convenience if a user prefer to name the
@@ -551,7 +550,8 @@ protected:
   // Support for operations: common handling for multiple operations.
   IndexExpr binaryOp(IndexExpr const b, bool affineWithLitB,
       bool affineExprCompatible, F2 fInteger, F2 fAffine, F2 fValue) const;
-  IndexExpr compareOp(CmpIPredicate comparePred, IndexExpr const b) const;
+  IndexExpr compareOp(
+      arith::CmpIPredicate comparePred, IndexExpr const b) const;
   static IndexExpr reductionOp(SmallVectorImpl<IndexExpr> &vals, F2Self litRed,
       Flist affineRed, F2Self valueRed);
   // Data: pointer to implemented object.

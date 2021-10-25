@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -143,12 +143,13 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
       int64_t logn = (int64_t)std::ceil(std::log2(n));
       numberOfStep = LiteralIndexExpr(logn);
     } else {
-      Value nos = rewriter.create<IndexCastOp>(loc, i64Ty, axisSize.getValue());
-      nos = rewriter.create<SIToFPOp>(loc, f32Ty, nos);
+      Value nos =
+          rewriter.create<arith::IndexCastOp>(loc, i64Ty, axisSize.getValue());
+      nos = rewriter.create<arith::SIToFPOp>(loc, f32Ty, nos);
       // Use this when math::CeilOp is available in MLIR.
       // nos = createMath.ceil(createMath.log2(nos));
       nos = createMath.log2(nos);
-      nos = rewriter.create<FPToSIOp>(loc, i64Ty, nos);
+      nos = rewriter.create<arith::FPToSIOp>(loc, i64Ty, nos);
       // Use this when math::CeilOp is available in MLIR.
       // numberOfStep = SymbolIndexExpr(nos);
       numberOfStep = SymbolIndexExpr(nos) + LiteralIndexExpr(1);
@@ -200,11 +201,11 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
 
           // Compute index offset: offset = 2^step.
           Value step = stepLoopInd[0];
-          step = rewriter.create<IndexCastOp>(loc, i64Ty, step);
-          step = rewriter.create<SIToFPOp>(loc, f32Ty, step);
+          step = rewriter.create<arith::IndexCastOp>(loc, i64Ty, step);
+          step = rewriter.create<arith::SIToFPOp>(loc, f32Ty, step);
           Value offset = createMath.exp2(step);
-          offset = rewriter.create<FPToSIOp>(loc, i64Ty, offset);
-          offset = rewriter.create<IndexCastOp>(loc, indexTy, offset);
+          offset = rewriter.create<arith::FPToSIOp>(loc, i64Ty, offset);
+          offset = rewriter.create<arith::IndexCastOp>(loc, indexTy, offset);
 
           // Inner loop iterates over the output to compute sums.
           //   for i range(n):

@@ -297,7 +297,7 @@ Value emitPositiveInfinityConstantOp(
         }
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
-  return rewriter.create<ConstantOp>(loc, constantAttr);
+  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
 }
 
 Value emitNegativeInfinityConstantOp(
@@ -368,7 +368,7 @@ Value emitNegativeInfinityConstantOp(
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
-  return rewriter.create<ConstantOp>(loc, constantAttr);
+  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
 }
 
 Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
@@ -381,7 +381,7 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     if (type.isa<IndexType>())
       dimVal = dim;
     else
-      dimVal = rewriter.create<IndexCastOp>(loc, dim, type);
+      dimVal = rewriter.create<arith::IndexCastOp>(loc, dim, type);
   } else {
     dimVal = emitConstantOp(rewriter, loc, type, shape[axis]);
   }

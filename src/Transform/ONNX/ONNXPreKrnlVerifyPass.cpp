@@ -41,6 +41,10 @@ class ONNXPreKrnlVerifyPass
     : public mlir::PassWrapper<ONNXPreKrnlVerifyPass, FunctionPass> {
 
 public:
+  StringRef getArgument() const override { return "onnx-pre-krnl-verify"; }
+
+  StringRef getDescription() const override { return "Verify onnx ops."; }
+
   void runOnFunction() override {
     auto function = getFunction();
     auto &funcBody = function.getBody();

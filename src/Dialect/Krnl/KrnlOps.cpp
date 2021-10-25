@@ -64,7 +64,7 @@ void KrnlDefineLoopsOp::build(
 void print(OpAsmPrinter &p, KrnlDefineLoopsOp &op) {
   auto numLoopAttr =
       op->getAttrOfType<IntegerAttr>(KrnlDefineLoopsOp::getNumLoopsAttrName());
-  p << "krnl.define_loops " << numLoopAttr.getValue().getSExtValue();
+  p << ' ' << numLoopAttr.getValue().getSExtValue();
 }
 
 ParseResult parseKrnlDefineLoopsOp(
@@ -111,7 +111,7 @@ ParseResult parseKrnlDefineLoopsOp(
  */
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     KrnlIterateOperandPack operandPack, ValueRange iterArgs,
-    function_ref<void(ImplicitLocOpBuilder &, ValueRange)> bodyBuilderFn) {
+    function_ref<void(OpBuilder &, Location, ValueRange)> bodyBuilderFn) {
   // Record optimized loops and the number of such loops.
   result.addOperands(operandPack.getOperands());
   result.addAttribute(
@@ -135,8 +135,7 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   if (bodyBuilderFn) {
     PatternRewriter::InsertionGuard insertGuard(builder);
     builder.setInsertionPointToStart(body);
-    ImplicitLocOpBuilder lb(result.location, builder);
-    bodyBuilderFn(lb, iterArgs);
+    bodyBuilderFn(builder, result.location, iterArgs);
     ensureTerminator(*bodyRegion, builder, result.location);
   } else {
     ensureTerminator(*bodyRegion, builder, result.location);
@@ -146,7 +145,7 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     ValueRange originalLoops, ValueRange optimizedLoops, ValueRange lbs,
     ValueRange ubs, ValueRange iterArgs,
-    function_ref<void(ImplicitLocOpBuilder &, ValueRange)> bodyBuilderFn) {
+    function_ref<void(OpBuilder &, Location, ValueRange)> bodyBuilderFn) {
   assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
   // TODO: May want to change KrnlIterateOperandPack to use ValueRanges...
   SmallVector<Value, 4> origLoops, optLoops;
@@ -166,7 +165,7 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     ValueRange originalLoops, ValueRange optimizedLoops,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
-    function_ref<void(ImplicitLocOpBuilder &, ValueRange)> bodyBuilderFn) {
+    function_ref<void(OpBuilder &, Location, ValueRange)> bodyBuilderFn) {
   assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
   SmallVector<Value, 4> origLoops, optLoops;
   for (auto org : originalLoops)
@@ -183,7 +182,7 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
 }
 
 void print(OpAsmPrinter &p, KrnlIterateOp &op) {
-  p << "krnl.iterate(";
+  p << "(";
   // Print optimized loops:
   auto numOptimizedLoops = op.getNumOptimizedLoops();
   p.printOperands(op.operand_begin(), op.operand_begin() + numOptimizedLoops);
@@ -485,7 +484,7 @@ bool KrnlVectorTypeCastOp::areCastCompatible(Type a, Type b) {
   if (!aT || !bT)
     return false;
 
-  if (aT.getAffineMaps() != bT.getAffineMaps())
+  if (aT.getLayout() != bT.getLayout())
     return false;
 
   if (aT.getMemorySpace() != bT.getMemorySpace())

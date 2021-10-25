@@ -82,7 +82,7 @@ Value emitConstantOp(
         constantAttr = rewriter.getIntegerAttr(type, (int64_t)value);
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
-  return rewriter.create<ConstantOp>(loc, constantAttr);
+  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
 }
 
 //===----------------------------------------------------------------------===//
@@ -291,9 +291,9 @@ Value getDynamicMemRefSizeInBytes(
     for (unsigned i = 0; i < shape.size(); i++) {
       if (shape[i] == -1) {
         Value index = rewriter.create<memref::DimOp>(loc, val, i);
-        Value dim =
-            rewriter.create<IndexCastOp>(loc, index, rewriter.getI64Type());
-        sizeInBytes = rewriter.create<MulIOp>(loc, sizeInBytes, dim);
+        Value dim = rewriter.create<arith::IndexCastOp>(
+            loc, index, rewriter.getI64Type());
+        sizeInBytes = rewriter.create<arith::MulIOp>(loc, sizeInBytes, dim);
       }
     }
   }
@@ -317,12 +317,12 @@ Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
       // Dyanmic size.
       auto dynamicDim = allocOp.getOperands()[dynDimIdx];
       dynDimIdx++;
-      result = rewriter.create<MulIOp>(loc, result, dynamicDim);
+      result = rewriter.create<arith::MulIOp>(loc, result, dynamicDim);
     } else {
       // Static size.
       auto staticDim = emitConstantOp(
           rewriter, loc, rewriter.getIndexType(), memRefShape[idx]);
-      result = rewriter.create<MulIOp>(loc, result, staticDim);
+      result = rewriter.create<arith::MulIOp>(loc, result, staticDim);
     }
   }
 

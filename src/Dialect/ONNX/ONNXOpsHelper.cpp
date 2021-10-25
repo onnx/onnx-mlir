@@ -300,7 +300,7 @@ bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape) {
   if ((int64_t)valueShape.size() != dimensionsOfShape) {
     return false;
   }
-  auto valueIt = shapeAttr.getIntValues().begin();
+  auto valueIt = shapeAttr.getValues<APInt>().begin();
   for (int64_t i = 0; i < dimensionsOfShape; i++) {
     int64_t value = (*valueIt++).getSExtValue();
     if (valueShape[i] != value) {
@@ -542,10 +542,10 @@ double getScalarValue(
     auto valueIt = attr.getValues<IntegerAttr>().begin();
     value = (double)(*valueIt).cast<IntegerAttr>().getInt();
   } else if (tensorType.getElementType().isF32()) {
-    auto valueIt = attr.getFloatValues().begin();
+    auto valueIt = attr.getValues<APFloat>().begin();
     value = (double)(*valueIt).convertToFloat();
   } else if (tensorType.getElementType().isF64()) {
-    auto valueIt = attr.getFloatValues().begin();
+    auto valueIt = attr.getValues<APFloat>().begin();
     value = (double)(*valueIt).convertToDouble();
   } else {
     llvm_unreachable("Unexpected type.");

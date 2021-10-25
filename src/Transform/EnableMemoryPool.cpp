@@ -87,7 +87,7 @@ public:
     auto memRefType = allocOp.getResult().getType().dyn_cast<MemRefType>();
 
     // The MemRef type returned by the AllocOp must be normalized.
-    if (!memRefType.getAffineMaps().empty())
+    if (!memRefType.getLayout().isIdentity())
       return failure();
 
     // Filter out MemRefs with Index type.
@@ -143,7 +143,7 @@ public:
     dealloc.getOperation()->moveBefore(&parentBlock->back());
 
     // Get reference to local MemRef.
-    auto zero = rewriter.create<ConstantOp>(
+    auto zero = rewriter.create<arith::ConstantOp>(
         loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64), 0));
     KrnlGetRefOp poolMemRef;
     if (hasAllConstantDimensions(memRefType)) {
@@ -184,6 +184,12 @@ public:
 class KrnlEnableMemoryPoolPass
     : public PassWrapper<KrnlEnableMemoryPoolPass, FunctionPass> {
 public:
+  StringRef getArgument() const override { return "enable-memory-pool"; }
+
+  StringRef getDescription() const override {
+    return "Enable a memory pool for allocating internal MemRefs.";
+  }
+
   void runOnFunction() override {
     auto function = getFunction();
 

@@ -5,7 +5,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -63,8 +63,8 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
 
     TypeSwitch<Type>(depthElmentType)
         .Case<Float32Type>([&](Type) {
-          loadedDepth = rewriter.create<mlir::FPToUIOp>(loc,
-              rewriter.create<mlir::CeilFOp>(loc, loadedDepth),
+          loadedDepth = rewriter.create<arith::FPToUIOp>(loc,
+              rewriter.create<math::CeilOp>(loc, loadedDepth),
               rewriter.getIntegerType(64));
         })
         .Case<IntegerType>([&](Type) {
@@ -85,7 +85,7 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
     } else {
       for (decltype(outRank) i = 0; i < outRank; i++) {
         if (i == axisValue) {
-          Value outDim = rewriter.create<IndexCastOp>(
+          Value outDim = rewriter.create<arith::IndexCastOp>(
               loc, loadedDepth, rewriter.getIndexType());
           SymbolIndexExpr outDimIE(outDim);
           outputDims[i] = SymbolIndexExpr(outDimIE);
@@ -146,8 +146,8 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
           indices.getType().dyn_cast<MemRefType>().getElementType();
       TypeSwitch<Type>(indicesElmentType)
           .Case<Float32Type>([&](Type) {
-            indiceValue = rewriter.create<mlir::FPToUIOp>(loc,
-                rewriter.create<mlir::CeilFOp>(loc, indiceValue),
+            indiceValue = rewriter.create<arith::FPToUIOp>(loc,
+                rewriter.create<math::CeilOp>(loc, indiceValue),
                 rewriter.getIntegerType(64));
           })
           .Case<IntegerType>([&](Type) {
@@ -161,15 +161,17 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
             llvm_unreachable("Unsupported element type for OneHot op.");
           });
 
-      Value lessThanZero = rewriter.create<CmpIOp>(loc, CmpIPredicate::slt,
-          indiceValue, emitConstantOp(rewriter, loc, rewriter.getI64Type(), 0));
+      Value lessThanZero = rewriter.create<arith::CmpIOp>(loc,
+          arith::CmpIPredicate::slt, indiceValue,
+          emitConstantOp(rewriter, loc, rewriter.getI64Type(), 0));
       indiceValue = rewriter.create<SelectOp>(loc, lessThanZero,
-          rewriter.create<AddIOp>(loc, indiceValue, loadedDepth), indiceValue);
+          rewriter.create<arith::AddIOp>(loc, indiceValue, loadedDepth),
+          indiceValue);
 
       SmallVector<Value, 4> writeIV;
       for (int i = 0; i < outRank; ++i) {
         if (i == axisValue) {
-          writeIV.push_back(rewriter.create<IndexCastOp>(
+          writeIV.push_back(rewriter.create<arith::IndexCastOp>(
               loc, indiceValue, rewriter.getIndexType()));
         } else if (i < axisValue) {
           writeIV.push_back(readIV[i]);

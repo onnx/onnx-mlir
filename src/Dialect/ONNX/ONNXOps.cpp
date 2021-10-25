@@ -27,7 +27,7 @@
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 #include <string>
 
@@ -633,7 +633,7 @@ void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
     mlir::OperationState &state, mlir::FuncOp function, int numInputs,
     int numOutputs, std::string signature) {
   state.addAttribute(ONNXEntryPointOp::getEntryPointFuncAttrName(),
-      builder.getSymbolRefAttr(function));
+      SymbolRefAttr::get(function));
   state.addAttribute(ONNXEntryPointOp::getNumInputsAttrName(),
       builder.getI32IntegerAttr(numInputs));
   state.addAttribute(ONNXEntryPointOp::getNumOutputsAttrName(),
@@ -4401,3 +4401,6 @@ mlir::Type SeqType::getElementType() const { return getElementTypes()[0]; }
 #define GET_OP_CLASSES
 
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
+
+template struct ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
+    ONNXMaxPoolSingleOutOpAdaptor>;

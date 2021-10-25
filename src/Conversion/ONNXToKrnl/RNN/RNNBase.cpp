@@ -178,12 +178,12 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
     bool onlyHidden) {
   // TODO remove
   // scope(rewriter, loc);
-  ImplicitLocOpBuilder lb(loc, rewriter);
-  KrnlBuilder createKrnl(lb);
-  MemRefBuilder createMemRef(lb);
+  KrnlBuilder createKrnl(rewriter, loc);
+  MemRefBuilder createMemRef(createKrnl);
+  MathBuilder createMath(createKrnl);
   Value zero = emitConstantOp(rewriter, loc, elementType, 0);
   unsigned htRank = ht.getType().cast<MemRefType>().getRank();
-  Value iZero = lb.create<ConstantIndexOp>(0);
+  Value iZero = createMath.constantIndex(0);
   SmallVector<Value, 4> htLbs(htRank, iZero);
   SmallVector<Value, 4> htUbs;
   for (unsigned r = 0; r < htRank; ++r) {
@@ -213,17 +213,17 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     Location loc, Value forwardVal, Value reverseVal, StringRef direction,
     Value output) {
   // TODO remove
-  ImplicitLocOpBuilder lb(loc, rewriter);
-  KrnlBuilder createKrnl(lb);
-  MemRefBuilder createMemRef(lb);
+  KrnlBuilder createKrnl(rewriter, loc);
+  MemRefBuilder createMemRef(createKrnl);
+  MathBuilder createMath(createKrnl);
   if (direction == FORWARD || direction == REVERSE) {
     Value val = (direction == FORWARD) ? forwardVal : reverseVal;
     Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, val);
     createKrnl.memcpy(output, val, sizeInBytes);
   } else { // BIDIRECTIONAL
     unsigned rank = forwardVal.getType().cast<MemRefType>().getRank();
-    Value zero = lb.create<ConstantIndexOp>(0);
-    Value one = lb.create<ConstantIndexOp>(1);
+    Value zero = createMath.constantIndex(0);
+    Value one = createMath.constantIndex(1);
     SmallVector<Value, 4> lbs(rank, zero);
     SmallVector<Value, 4> ubs;
     for (unsigned r = 0; r < rank; ++r) {
@@ -308,9 +308,9 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value timestepIV) {
   // TODO remove
   IndexExprScope scope(&rewriter, loc);
-  ImplicitLocOpBuilder lb(loc, rewriter);
   KrnlBuilder createKrnl(rewriter, loc);
-  MemRefBuilder createMemRef(rewriter, loc);
+  MemRefBuilder createMemRef(createKrnl);
+  MathBuilder createMath(createKrnl);
 
   int64_t batchSize = dimAt(X, 1);
   int64_t inputSize = dimAt(X, 2);
@@ -326,7 +326,7 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
       rewriter, nullptr, sliceXType, loc, dims, /*insertDealloc=*/false);
 
   // Copy data from X.
-  Value iZero = lb.create<ConstantIndexOp>(0);
+  Value iZero = createMath.constantIndex(0);
   SmallVector<Value, 2> lbs(2, iZero);
   SmallVector<Value, 2> ubs;
   for (unsigned r = 0; r < 2; ++r) {

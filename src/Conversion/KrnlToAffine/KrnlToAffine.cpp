@@ -42,6 +42,12 @@ static constexpr int BUFFER_ALIGN = 64;
 
 using namespace mlir;
 
+// We use here a Affine builder that generates Krnl Load and Store ops instead
+// of the affine memory ops directly. This is because we can still generrate
+// Krnl Ops while lowring the dialect, and the big advantage of the Krnl memory
+// operations is that they distinguish themselves if they are affine or not.
+using AffineBuilderKrnlMem = GenericAffineBuilder<KrnlLoadOp, KrnlStoreOp>;
+
 namespace {
 // Since Krnl Dialect allows optimizations to be specified in the form of
 // recipes without being applied, some IR block may exist under Krnl loops
@@ -254,133 +260,6 @@ private:
   llvm::DenseMap<mlir::Value, llvm::SmallVector<Movable, 4>> movingPlan;
 };
 
-//===----------------- Support to gen Affine ops --------------------------===//
-// Could eventually migrate to MLIR, but use IndexExpr, so probably not.
-
-struct AffineBuilder : DialectBuilder {
-  AffineBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
-  AffineBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
-  AffineBuilder(DialectBuilder &db) : DialectBuilder(db) {}
-
-  // We need to lower the memref once the loops are done.
-  // This is why we still need to create Krnl load/store here, and the rule that
-  // moves krnl load/store ops directly will fire later to convert them to the
-  // proper operation.
-
-  Value load(Value memref, ValueRange indices = {}) {
-    // Use Krnl load, see above.
-    return b.create<KrnlLoadOp>(loc, memref, indices);
-  }
-
-  void store(Value val, Value memref, ValueRange indices = {}) {
-    // Use Krnl store, see above.
-    b.create<KrnlStoreOp>(loc, val, memref, indices);
-  }
-
-  void forIE(IndexExpr lb, IndexExpr ub, int64_t step,
-      function_ref<void(AffineBuilder &, Value)> builderFn) {
-    // Transform IndexExpressions into value maps and list of operands.
-    AffineMap lbMap, ubMap;
-    SmallVector<Value, 8> lbOperands, ubOperands;
-    lb.getAffineMapAndOperands(lbMap, lbOperands);
-    ub.getAffineMapAndOperands(ubMap, ubOperands);
-    // Create affine for.
-    b.create<AffineForOp>(loc, lbOperands, lbMap, ubOperands, ubMap, step,
-        ValueRange{},
-        [&](OpBuilder &b, Location loc, Value index, ValueRange args) {
-          AffineBuilder createAffine(b, loc);
-          builderFn(createAffine, index);
-          createAffine.yield();
-        });
-  }
-
-  void forIE(SmallVectorImpl<IndexExpr> &lbs, SmallVectorImpl<IndexExpr> &ubs,
-      SmallVectorImpl<int64_t> &steps,
-      function_ref<void(AffineBuilder &, ValueRange)> builderFn) {
-    assert(lbs.size() == ubs.size() && "expected identical sizes");
-    assert(lbs.size() == steps.size() && "expected identical sizes");
-    SmallVector<Value> loopIndices;
-    recursionForIE(lbs, ubs, steps, loopIndices, builderFn);
-  }
-
-  // This if then else construct has no arguments to the blocks.
-  void ifThenElse(IndexExprScope &scope, SmallVectorImpl<IndexExpr> &conditions,
-      function_ref<void(AffineBuilder &createAffine)> thenFn,
-      function_ref<void(AffineBuilder &createAffine)> elseFn) {
-    int64_t rank = conditions.size();
-    SmallVector<AffineExpr, 4> affineCond;
-    bool allTrue = true;
-    bool allFalse = true;
-    for (IndexExpr c : conditions) {
-      assert(c.isAffine() && "conditions expected to be affine");
-      affineCond.emplace_back(c.getAffineExpr());
-      if (c.isLiteral()) {
-        if (c.getLiteral() < 0) // Inequality is expr >= 0, test if false.
-          allTrue = false;
-        if (c.getLiteral() >= 0) // Inequality is expr >= 0, test if true.
-          allFalse = false;
-      } else {
-        allTrue = allFalse = false;
-      }
-    }
-    SmallVector<bool, 4> isEq(rank, false);
-    auto inset = IntegerSet::get(
-        scope.getNumDims(), scope.getNumSymbols(), affineCond, isEq);
-    SmallVector<Value, 8> dimAndSymbolList;
-    scope.getDimAndSymbolList(dimAndSymbolList);
-    auto ifOp = b.create<AffineIfOp>(loc, inset, dimAndSymbolList, true);
-    Block *thenBlock = ifOp.getThenBlock();
-    Block *elseBlock = ifOp.getElseBlock();
-    if (!allFalse) {
-      appendToBlock(thenBlock, [&](ValueRange args) {
-        AffineBuilder createAffine(b, loc);
-        thenFn(createAffine);
-      });
-    }
-    if (!allTrue) {
-      appendToBlock(elseBlock, [&](ValueRange args) {
-        AffineBuilder createAffine(b, loc);
-        elseFn(createAffine);
-      });
-    }
-  }
-
-  void yield() { b.create<AffineYieldOp>(loc); }
-
-private:
-  // Support for multiple forIE loops.
-  void recursionForIE(SmallVectorImpl<IndexExpr> &lbs,
-      SmallVectorImpl<IndexExpr> &ubs, SmallVectorImpl<int64_t> &steps,
-      SmallVectorImpl<Value> &loopIndices,
-      function_ref<void(AffineBuilder &, ValueRange)> builderFn) {
-    int d = loopIndices.size();
-    if (d < (int)lbs.size()) {
-      // Issue a loop and recurse again.
-      forIE(
-          lbs[d], ubs[d], steps[d], [&](AffineBuilder &createAffine, Value i) {
-            loopIndices.emplace_back(i);
-            recursionForIE(lbs, ubs, steps, loopIndices, builderFn);
-          });
-    } else {
-      // Call lambda function
-      AffineBuilder createAffine(b, loc);
-      builderFn(createAffine, loopIndices);
-    }
-  }
-
-  // Support for adding blocks.
-  void appendToBlock(Block *block, function_ref<void(ValueRange)> builderFn) {
-    OpBuilder::InsertionGuard guard(b);
-    if (block->empty() ||
-        !block->back().mightHaveTrait<OpTrait::IsTerminator>()) {
-      b.setInsertionPointToEnd(block);
-    } else
-      b.setInsertionPoint(&block->back());
-    builderFn(block->getArguments());
-  }
-
-}; // namespace
-
 // To assist unroll and jam
 using UnrollAndJamRecord = std::pair<AffineForOp, int64_t>;
 using UnrollAndJamList = SmallVector<UnrollAndJamRecord, 4>;
@@ -534,6 +413,11 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
 /// add and multiply, this pass will leave these operations intact.
 struct ConvertKrnlToAffinePass
     : public PassWrapper<ConvertKrnlToAffinePass, FunctionPass> {
+
+  StringRef getArgument() const override { return "convert-krnl-to-affine"; }
+
+  StringRef getDescription() const override { return "Lower Krnl dialect."; }
+
   void runOnFunction() final;
 };
 
@@ -780,7 +664,7 @@ public:
     bool simdize = op.simdize();
     // Init scope and emit constants.
     Location loc = op.getLoc();
-    AffineBuilder createAffine(rewriter, loc);
+    AffineBuilderKrnlMem createAffine(rewriter, loc);
     IndexExprScope indexScope(createAffine);
 
     // Gather A, B, C tile sizes.
@@ -916,18 +800,18 @@ public:
       // SIMD code generator.
       // clang-format off
       createAffine.ifThenElse(indexScope, allFullTiles,
-        /* then full */ [&](AffineBuilder &createAffine) {
+        /* then full */ [&](AffineBuilderKrnlMem &createAffine) {
         genSimd(rewriter, loc, op, elementType, aStart, bVecStart, cVecStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
           vectorLen, fullUnrollAndJam); 
-      }, /* has some partial tiles */ [&](AffineBuilder &createAffine) {
+      }, /* has some partial tiles */ [&](AffineBuilderKrnlMem &createAffine) {
         // Trip regardless of full/partial for N & K
         // Test if SIMD dim (M) is full.
         createAffine.ifThenElse(indexScope, jFullTiles,
-          /* full SIMD */ [&](AffineBuilder &createAffine) {
+          /* full SIMD */ [&](AffineBuilderKrnlMem &createAffine) {
           genSimd(rewriter, loc, op, elementType, aStart, bVecStart, cVecStart,
             iTrip, jComputeTileSize, kTrip, vectorLen, false);
-        }, /* else partial SIMD */ [&](AffineBuilder &createAffine) {
+        }, /* else partial SIMD */ [&](AffineBuilderKrnlMem &createAffine) {
           if (false && jPartialTrip.isLiteral() && jPartialTrip.getLiteral() >=2) {
             // has a known trip count along the simd dimension of at least 2
             // elements, use simd again.
@@ -944,11 +828,11 @@ public:
       // Scalar code generator.
       // clang-format off
       createAffine.ifThenElse(indexScope, allFullTiles,
-        /* then full */ [&](AffineBuilder &createAffine) {
+        /* then full */ [&](AffineBuilderKrnlMem &createAffine) {
         genScalar(rewriter, op, elementType, aStart, bStart, cStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
           fullUnrollAndJam); 
-      }, /* else partial */ [&](AffineBuilder &createAffine) {
+      }, /* else partial */ [&](AffineBuilderKrnlMem &createAffine) {
         genScalar(rewriter, op, elementType, aStart, bStart, cStart,
           iTrip, jTrip, kTrip, false);
       });
@@ -966,9 +850,8 @@ private:
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor(op);
     Location loc = op.getLoc();
-    AffineBuilder createAffine(rewriter, loc);
+    AffineBuilderKrnlMem createAffine(rewriter, loc);
     MemRefBuilder createMemRef(createAffine);
-    ImplicitLocOpBuilder lb(loc, rewriter);
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
     int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
@@ -981,47 +864,54 @@ private:
     // For i, j loops.
     LiteralIndexExpr zero(0);
     Value jSaved;
-    createAffine.forIE(zero, I, 1, [&](AffineBuilder &createAffine, Value i) {
-      createAffine.forIE(zero, J, 1, [&](AffineBuilder &createAffine, Value j) {
-        MathBuilder createMath(createAffine);
-        // Defines induction variables, and possibly initialize C.
-        jSaved = j;
-        // Alloc and init temp c storage.
-        SmallVector<Value, 4> cAccess;
-        // CC(i + cStart0.getValue(), j + cStart1.getValue());
-        IndexExpr::getValues(cStart, cAccess);
-        cAccess[cRank - 2] = createMath.add(i, cAccess[cRank - 2]);
-        cAccess[cRank - 1] = createMath.add(j, cAccess[cRank - 1]);
-        Value initVal = createAffine.load(C, cAccess);
-        Value tmpCAccess = (unrollFactor > 1) ? j : zero.getValue();
-        createAffine.store(initVal, TmpC, tmpCAccess);
-        // TTmpC() = affine_load(C, cAccess);
-        // Sum over k.
-        createAffine.forIE(
-            zero, K, 1, [&](AffineBuilder &createAffine, Value k) {
-              MathBuilder createMath(createAffine);
-              SmallVector<Value, 4> aAccess, bAccess;
-              // AA(i + aStart0.getValue(), k + aStart1.getValue())
-              IndexExpr::getValues(aStart, aAccess);
-              aAccess[aRank - 2] = createMath.add(i, aAccess[aRank - 2]);
-              aAccess[aRank - 1] = createMath.add(k, aAccess[aRank - 1]);
-              Value a = createAffine.load(A, aAccess);
-              // BB(k + bStart0.getValue(), j + bStart1.getValue())
-              IndexExpr::getValues(bStart, bAccess);
-              bAccess[bRank - 2] = createMath.add(k, bAccess[bRank - 2]);
-              bAccess[bRank - 1] = createMath.add(j, bAccess[bRank - 1]);
-              Value b = createAffine.load(B, bAccess);
-              Value res = createMath.mul(a, b);
-              res = createMath.add(res, createAffine.load(TmpC, tmpCAccess));
-              createAffine.store(res, TmpC, tmpCAccess);
-              // TTmpC() = a * b + TTmpC();
-            });
-        // Store temp result into C(i, j)
-        Value finalVal = createAffine.load(TmpC, tmpCAccess);
-        createAffine.store(finalVal, C, cAccess);
-        // affine_store(TTmpC(), C, cAccess);
-      });
-    });
+    createAffine.forIE(
+        zero, I, 1, [&](AffineBuilderKrnlMem &createAffine, Value i) {
+          createAffine.forIE(
+              zero, J, 1, [&](AffineBuilderKrnlMem &createAffine, Value j) {
+                MathBuilder createMath(createAffine);
+                // Defines induction variables, and possibly initialize C.
+                jSaved = j;
+                // Alloc and init temp c storage.
+                SmallVector<Value, 4> cAccess;
+                // CC(i + cStart0.getValue(), j + cStart1.getValue());
+                IndexExpr::getValues(cStart, cAccess);
+                cAccess[cRank - 2] = createMath.add(i, cAccess[cRank - 2]);
+                cAccess[cRank - 1] = createMath.add(j, cAccess[cRank - 1]);
+                Value initVal = createAffine.load(C, cAccess);
+                Value tmpCAccess = (unrollFactor > 1) ? j : zero.getValue();
+                createAffine.store(initVal, TmpC, tmpCAccess);
+                // TTmpC() = affine_load(C, cAccess);
+                // Sum over k.
+                createAffine.forIE(zero, K, 1,
+                    [&](AffineBuilderKrnlMem &createAffine, Value k) {
+                      MathBuilder createMath(createAffine);
+                      SmallVector<Value, 4> aAccess, bAccess;
+                      // AA(i + aStart0.getValue(), k + aStart1.getValue())
+                      IndexExpr::getValues(aStart, aAccess);
+                      aAccess[aRank - 2] =
+                          createMath.add(i, aAccess[aRank - 2]);
+                      aAccess[aRank - 1] =
+                          createMath.add(k, aAccess[aRank - 1]);
+                      Value a = createAffine.load(A, aAccess);
+                      // BB(k + bStart0.getValue(), j + bStart1.getValue())
+                      IndexExpr::getValues(bStart, bAccess);
+                      bAccess[bRank - 2] =
+                          createMath.add(k, bAccess[bRank - 2]);
+                      bAccess[bRank - 1] =
+                          createMath.add(j, bAccess[bRank - 1]);
+                      Value b = createAffine.load(B, bAccess);
+                      Value res = createMath.mul(a, b);
+                      res = createMath.add(
+                          res, createAffine.load(TmpC, tmpCAccess));
+                      createAffine.store(res, TmpC, tmpCAccess);
+                      // TTmpC() = a * b + TTmpC();
+                    });
+                // Store temp result into C(i, j)
+                Value finalVal = createAffine.load(TmpC, tmpCAccess);
+                createAffine.store(finalVal, C, cAccess);
+                // affine_store(TTmpC(), C, cAccess);
+              });
+        });
     if (unrollJam && J.isLiteral()) {
       UnrollAndJamRecord record(
           getForInductionVarOwner(jSaved), J.getLiteral());
@@ -1036,8 +926,7 @@ private:
     // can simdize only if K is compile time
     assert(J.isLiteral() &&
            "can only simdize with compile time blocking factor on simd axis");
-    ImplicitLocOpBuilder lb(loc, rewriter);
-    AffineBuilder createAffine(rewriter, loc);
+    AffineBuilderKrnlMem createAffine(rewriter, loc);
     MemRefBuilder createMemRef(rewriter, loc);
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
@@ -1059,56 +948,59 @@ private:
     // Iterates over the I indices (j are simd dim).
     Value iSaved, kSaved;
     LiteralIndexExpr zero(0);
-    createAffine.forIE(zero, I, 1, [&](AffineBuilder &createAffine, Value i) {
-      MathBuilder createMath(createAffine);
-      iSaved = i; // Saved for unroll and jam.
-      // Alloca temp vector TmpC and save C(i)/0.0 into it.
-      SmallVector<Value, 4> cAccess;
-      // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
-      IndexExpr::getValues(cStart, cAccess);
-      cAccess[cRank - 2] = createMath.add(i, cAccess[cRank - 2]);
-      Value initVal = createAffine.load(vecC, cAccess);
-      Value tmpCAccess = (unrollFactor > 1) ? i : zero.getValue();
-      createAffine.store(initVal, TmpC, tmpCAccess);
-      // Sum over k.
-      createAffine.forIE(zero, K, 1, [&](AffineBuilder &createAffine, Value k) {
-        MathBuilder createMath(createAffine);
-        kSaved = k;
-        // Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
-        SmallVector<Value, 4> aAccess, bAccess;
-        IndexExpr::getValues(aStart, aAccess);
-        aAccess[aRank - 2] = createMath.add(i, aAccess[aRank - 2]);
-        aAccess[aRank - 1] = createMath.add(k, aAccess[aRank - 1]);
-        Value a = createAffine.load(A, aAccess);
-        // Value va = vector_broadcast(vecType, a);
-        Value va = createAffine.getBuilder().create<vector::BroadcastOp>(
-            createAffine.getLoc(), vecType, a);
-        // bAccess = {k + bStart0.getValue(), bStart1.getValue()};
-        IndexExpr::getValues(bStart, bAccess);
-        bAccess[bRank - 2] = createMath.add(k, bAccess[bRank - 2]);
-        Value vb = createAffine.load(vecB, bAccess);
-        // TTmpC() = vector_fma(va, vb, TTmpC());
-        Value tmpVal = createAffine.load(TmpC, tmpCAccess);
-        Value res = createAffine.getBuilder().create<vector::FMAOp>(
-            createAffine.getLoc(), va, vb, tmpVal);
-        createAffine.store(res, TmpC, tmpCAccess);
-      });
-      // Store temp result into C(i)
-      Value tmpResults = createAffine.load(TmpC, tmpCAccess);
-      int64_t JLit = J.getLiteral();
-      if (JLit != VL) {
-        // create vector constant
-        SmallVector<int64_t, 8> mask;
-        for (int64_t i = 0; i < VL; i++)
-          mask.emplace_back((i < JLit) ? i : VL + i);
-        // permute
-        Value originalCvec = createAffine.load(vecC, cAccess);
-        tmpResults = createAffine.getBuilder().create<vector::ShuffleOp>(
-            createAffine.getLoc(), tmpResults, originalCvec, mask);
-      }
-      // CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
-      createAffine.store(tmpResults, vecC, cAccess);
-    });
+    createAffine.forIE(
+        zero, I, 1, [&](AffineBuilderKrnlMem &createAffine, Value i) {
+          MathBuilder createMath(createAffine);
+          iSaved = i; // Saved for unroll and jam.
+          // Alloca temp vector TmpC and save C(i)/0.0 into it.
+          SmallVector<Value, 4> cAccess;
+          // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
+          IndexExpr::getValues(cStart, cAccess);
+          cAccess[cRank - 2] = createMath.add(i, cAccess[cRank - 2]);
+          Value initVal = createAffine.load(vecC, cAccess);
+          Value tmpCAccess = (unrollFactor > 1) ? i : zero.getValue();
+          createAffine.store(initVal, TmpC, tmpCAccess);
+          // Sum over k.
+          createAffine.forIE(
+              zero, K, 1, [&](AffineBuilderKrnlMem &createAffine, Value k) {
+                MathBuilder createMath(createAffine);
+                kSaved = k;
+                // Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
+                SmallVector<Value, 4> aAccess, bAccess;
+                IndexExpr::getValues(aStart, aAccess);
+                aAccess[aRank - 2] = createMath.add(i, aAccess[aRank - 2]);
+                aAccess[aRank - 1] = createMath.add(k, aAccess[aRank - 1]);
+                Value a = createAffine.load(A, aAccess);
+                // Value va = vector_broadcast(vecType, a);
+                Value va =
+                    createAffine.getBuilder().create<vector::BroadcastOp>(
+                        createAffine.getLoc(), vecType, a);
+                // bAccess = {k + bStart0.getValue(), bStart1.getValue()};
+                IndexExpr::getValues(bStart, bAccess);
+                bAccess[bRank - 2] = createMath.add(k, bAccess[bRank - 2]);
+                Value vb = createAffine.load(vecB, bAccess);
+                // TTmpC() = vector_fma(va, vb, TTmpC());
+                Value tmpVal = createAffine.load(TmpC, tmpCAccess);
+                Value res = createAffine.getBuilder().create<vector::FMAOp>(
+                    createAffine.getLoc(), va, vb, tmpVal);
+                createAffine.store(res, TmpC, tmpCAccess);
+              });
+          // Store temp result into C(i)
+          Value tmpResults = createAffine.load(TmpC, tmpCAccess);
+          int64_t JLit = J.getLiteral();
+          if (JLit != VL) {
+            // create vector constant
+            SmallVector<int64_t, 8> mask;
+            for (int64_t i = 0; i < VL; i++)
+              mask.emplace_back((i < JLit) ? i : VL + i);
+            // permute
+            Value originalCvec = createAffine.load(vecC, cAccess);
+            tmpResults = createAffine.getBuilder().create<vector::ShuffleOp>(
+                createAffine.getLoc(), tmpResults, originalCvec, mask);
+          }
+          // CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
+          createAffine.store(tmpResults, vecC, cAccess);
+        });
 
     if (unrollJam && (I.isLiteral() || K.isLiteral())) {
       auto list = getUnrollAndJamList(op.getOperation());
@@ -1166,7 +1058,7 @@ public:
     int64_t srcOffset = srcRank - buffRank;
     assert(srcOffset >= 0 && "offset expected non negative");
     Location loc = op.getLoc();
-    AffineBuilder createAffine(rewriter, loc);
+    AffineBuilderKrnlMem createAffine(rewriter, loc);
     IndexExprScope indexScope(createAffine);
     SmallVector<IndexExpr, 4> starts, bufferReadUBs, bufferPadUBs;
     MemRefBoundsIndexCapture buffBounds(buffMemref);
@@ -1240,8 +1132,8 @@ public:
     return success();
   }
 
-  void genCopyLoops(AffineBuilder &createAffine, IndexExprScope *enclosingScope,
-      Value buffMemref, Value sourceMemref,
+  void genCopyLoops(AffineBuilderKrnlMem &createAffine,
+      IndexExprScope *enclosingScope, Value buffMemref, Value sourceMemref,
       SmallVectorImpl<int64_t> &srcLoopMap, Value padVal, IndexExpr zero,
       SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &readUBs,
       SmallVectorImpl<IndexExpr> &padUBs, SmallVectorImpl<Value> &loopIndices,
@@ -1279,8 +1171,8 @@ public:
       if (readUBs[i].isLiteralAndIdenticalTo(0)) {
         // Nothing to read, skip.
       } else {
-        createAffine.forIE(
-            zero, readUBs[i], 1, [&](AffineBuilder &createAffine, Value index) {
+        createAffine.forIE(zero, readUBs[i], 1,
+            [&](AffineBuilderKrnlMem &createAffine, Value index) {
               loopIndices.emplace_back(index);
               genCopyLoops(createAffine, enclosingScope, buffMemref,
                   sourceMemref, srcLoopMap, padVal, zero, starts, readUBs,
@@ -1293,7 +1185,7 @@ public:
         // No padding needed.
       } else {
         createAffine.forIE(readUBs[i], padUBs[i], 1,
-            [&](AffineBuilder &createAffine, Value index) {
+            [&](AffineBuilderKrnlMem &createAffine, Value index) {
               loopIndices.emplace_back(index);
               genCopyLoops(createAffine, enclosingScope, buffMemref,
                   sourceMemref, srcLoopMap, padVal, zero, starts, readUBs,
@@ -1333,7 +1225,7 @@ public:
     ArrayAttributeIndexCapture writeSizeCapture(op.tileSizeAttr());
 
     Location loc = op.getLoc();
-    AffineBuilder createAffine(rewriter, loc);
+    AffineBuilderKrnlMem createAffine(rewriter, loc);
     IndexExprScope indexScope(createAffine);
 
     SmallVector<IndexExpr, 4> starts, bufferWriteUBs;
@@ -1368,10 +1260,11 @@ public:
     return success();
   }
 
-  void genCopyLoops(AffineBuilder &createAffine, IndexExprScope *enclosingScope,
-      Value buffMemref, Value destMemref, IndexExpr zero,
-      SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &writeUBs,
-      SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t buffRank) const {
+  void genCopyLoops(AffineBuilderKrnlMem &createAffine,
+      IndexExprScope *enclosingScope, Value buffMemref, Value destMemref,
+      IndexExpr zero, SmallVectorImpl<IndexExpr> &starts,
+      SmallVectorImpl<IndexExpr> &writeUBs, SmallVectorImpl<Value> &loopIndices,
+      int64_t i, int64_t buffRank) const {
     if (i == buffRank) {
       // create new scope and import index expressions
       IndexExprScope currScope(createAffine, enclosingScope);
@@ -1402,7 +1295,7 @@ public:
       } else {
         // Loop to copy the data.
         createAffine.forIE(zero, writeUBs[i], 1,
-            [&](AffineBuilder &createAffine, Value index) {
+            [&](AffineBuilderKrnlMem &createAffine, Value index) {
               loopIndices.emplace_back(index);
               genCopyLoops(createAffine, enclosingScope, buffMemref, destMemref,
                   zero, starts, writeUBs, loopIndices, i + 1, buffRank);
@@ -1428,7 +1321,7 @@ public:
     Value destMemRef(operandAdaptor.dest());
     Value destVal(operandAdaptor.value());
     Location loc = op.getLoc();
-    AffineBuilder createAffine(rewriter, loc);
+    AffineBuilderKrnlMem createAffine(rewriter, loc);
     IndexExprScope indexScope(createAffine);
     MemRefBoundsIndexCapture destBounds(destMemRef);
 
@@ -1438,8 +1331,8 @@ public:
     destBounds.getDimList(ubs);
     SmallVector<int64_t, 4> steps(rank, 1);
     // Copy data,
-    createAffine.forIE(
-        lbs, ubs, steps, [&](AffineBuilder &createAffine, ValueRange indices) {
+    createAffine.forIE(lbs, ubs, steps,
+        [&](AffineBuilderKrnlMem &createAffine, ValueRange indices) {
           createAffine.store(destVal, destMemRef, indices);
         });
     rewriter.eraseOp(op);
@@ -1572,8 +1465,9 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   target.addLegalOp<AffineLoadOp>();
   target.addLegalOp<AffineStoreOp>();
   target.addLegalOp<KrnlVectorTypeCastOp>();
-  target.addLegalDialect<mlir::AffineDialect, mlir::memref::MemRefDialect,
-      mlir::StandardOpsDialect, mlir::vector::VectorDialect>();
+  target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithmeticDialect,
+      mlir::memref::MemRefDialect, mlir::StandardOpsDialect,
+      mlir::vector::VectorDialect>();
   // Patterns.
   RewritePatternSet patterns(&getContext());
   patterns.insert<KrnlTerminatorLowering>(&getContext());
@@ -1602,6 +1496,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
     }
     free(currUnrollAndJamList);
     signalPassFailure();
+    return;
   }
 
   for (auto record : *currUnrollAndJamList) {

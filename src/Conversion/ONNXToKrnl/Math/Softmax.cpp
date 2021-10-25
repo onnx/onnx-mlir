@@ -123,8 +123,7 @@ static void emitInstForSoftmaxBeforeV13(ConversionPatternRewriter &rewriter,
     Value zero, Value negInfinity, int64_t axis) {
   int64_t rank = alloc.getType().cast<MemRefType>().getRank();
 
-  ImplicitLocOpBuilder ilob(loc, rewriter);
-  KrnlBuilder createKrnl(ilob);
+  KrnlBuilder createKrnl(rewriter, loc);
   IndexExprScope ieScope(createKrnl);
   MemRefBoundsIndexCapture inputBounds(input);
 
@@ -182,8 +181,7 @@ static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
     Value zero, Value negInfinity, int64_t axis) {
   int64_t rank = alloc.getType().cast<MemRefType>().getRank();
 
-  ImplicitLocOpBuilder ilob(loc, rewriter);
-  KrnlBuilder createKrnl(ilob);
+  KrnlBuilder createKrnl(rewriter, loc);
   IndexExprScope ieScope(createKrnl);
   MemRefBoundsIndexCapture inputBounds(input);
 
@@ -260,7 +258,7 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     Value sumOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
     Value maxOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
-    Value negInfinity = rewriter.create<ConstantOp>(loc,
+    Value negInfinity = rewriter.create<arith::ConstantOp>(loc,
         FloatAttr::get(elementType, -std::numeric_limits<float>::infinity()));
 
     if (opset < 13)
