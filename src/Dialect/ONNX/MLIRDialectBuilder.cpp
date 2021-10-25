@@ -26,32 +26,32 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 
 Value MathBuilder::_and(Value lhs, Value rhs) {
-  return b.create<AndOp>(loc, lhs, rhs);
+  return b.create<arith::AndIOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::_or(Value lhs, Value rhs) {
-  return b.create<OrOp>(loc, lhs, rhs);
+  return b.create<arith::OrIOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::add(Value lhs, Value rhs) {
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    return b.create<AddIOp>(loc, lhs, rhs);
-  return b.create<AddFOp>(loc, lhs, rhs);
+    return b.create<arith::AddIOp>(loc, lhs, rhs);
+  return b.create<arith::AddFOp>(loc, lhs, rhs);
 }
 Value MathBuilder::sub(Value lhs, Value rhs) {
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    return b.create<SubIOp>(loc, lhs, rhs);
-  return b.create<SubFOp>(loc, lhs, rhs);
+    return b.create<arith::SubIOp>(loc, lhs, rhs);
+  return b.create<arith::SubFOp>(loc, lhs, rhs);
 }
 Value MathBuilder::mul(Value lhs, Value rhs) {
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    return b.create<MulIOp>(loc, lhs, rhs);
-  return b.create<MulFOp>(loc, lhs, rhs);
+    return b.create<arith::MulIOp>(loc, lhs, rhs);
+  return b.create<arith::MulFOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::div(Value lhs, Value rhs) {
   if (lhs.getType().isa<FloatType>() && rhs.getType().isa<FloatType>())
-    return b.create<DivFOp>(loc, lhs, rhs);
+    return b.create<arith::DivFOp>(loc, lhs, rhs);
   else
     llvm_unreachable("Only support float type at this moment.");
 }
@@ -98,29 +98,29 @@ Value MathBuilder::max(Value lhs, Value rhs) {
 Value MathBuilder::sgt(Value lhs, Value rhs) {
   if (lhs.getType().isa<IndexType, IntegerType>() ||
       lhs.getType().isa<IndexType>())
-    return b.create<CmpIOp>(loc, CmpIPredicate::sgt, lhs, rhs);
-  return b.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
+    return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt, lhs, rhs);
+  return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGT, lhs, rhs);
 }
 
 Value MathBuilder::sge(Value lhs, Value rhs) {
   if (lhs.getType().isa<IndexType, IntegerType>() ||
       lhs.getType().isa<IndexType>())
-    return b.create<CmpIOp>(loc, CmpIPredicate::sge, lhs, rhs);
-  return b.create<CmpFOp>(loc, CmpFPredicate::OGE, lhs, rhs);
+    return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, lhs, rhs);
+  return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGE, lhs, rhs);
 }
 
 Value MathBuilder::slt(Value lhs, Value rhs) {
   if (lhs.getType().isa<IndexType, IntegerType>() ||
       lhs.getType().isa<IndexType>())
-    return b.create<CmpIOp>(loc, CmpIPredicate::slt, lhs, rhs);
-  return b.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
+    return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt, lhs, rhs);
+  return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OLT, lhs, rhs);
 }
 
 Value MathBuilder::eq(Value lhs, Value rhs) {
   if (lhs.getType().isa<IndexType, IntegerType>() ||
       lhs.getType().isa<IndexType>())
-    return b.create<CmpIOp>(loc, CmpIPredicate::eq, lhs, rhs);
-  return b.create<CmpFOp>(loc, CmpFPredicate::OEQ, lhs, rhs);
+    return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq, lhs, rhs);
+  return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, lhs, rhs);
 }
 
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) {
@@ -148,12 +148,12 @@ Value MathBuilder::constant(Type type, double val) {
       .Case<IndexType>(
           [&](Type) { constantAttr = b.getIntegerAttr(type, (int64_t)val); })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
-  return b.create<ConstantOp>(loc, constantAttr);
+  return b.create<arith::ConstantOp>(loc, constantAttr);
 }
 
 Value MathBuilder::constantIndex(int64_t val) {
   Attribute constantAttr = b.getIntegerAttr(b.getIndexType(), val);
-  return b.create<ConstantOp>(loc, constantAttr);
+  return b.create<arith::ConstantOp>(loc, constantAttr);
 }
 
 //===----------------------------------------------------------------------===//
@@ -204,6 +204,6 @@ memref::DeallocOp MemRefBuilder::dealloc(Value val) {
 }
 
 Value MemRefBuilder::dim(Value val, int64_t index) {
-  Value i = b.create<ConstantIndexOp>(loc, index);
+  Value i = b.create<arith::ConstantIndexOp>(loc, index);
   return b.createOrFold<memref::DimOp>(loc, val, i);
 }

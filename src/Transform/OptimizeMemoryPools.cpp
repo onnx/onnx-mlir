@@ -814,7 +814,7 @@ public:
     std::vector<std::pair<KrnlGetRefOp, KrnlGetRefOp>> oldToNewGetRef;
     for (auto getRefOp : distinctGetRefs) {
       // Emit the current offset inside the static memory pool.
-      auto newOffset = rewriter.create<ConstantOp>(loc,
+      auto newOffset = rewriter.create<arith::ConstantOp>(loc,
           rewriter.getIntegerAttr(rewriter.getIntegerType(64), currentOffset));
 
       // Size of current getref.
@@ -873,6 +873,12 @@ class KrnlOptimizeMemoryPoolsPass
   BlockToDiscardedGetRefs blockToDiscardedGetRefs;
 
 public:
+  StringRef getArgument() const override { return "optimize-memory-pools"; }
+
+  StringRef getDescription() const override {
+    return "Optimize the static and dynamic memory pools.";
+  }
+
   void runOnFunction() override {
     auto function = getFunction();
 

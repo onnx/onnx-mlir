@@ -220,7 +220,7 @@ public:
 
     // Current memory pool size is the offset for the newly bundled
     // internal MemRef. Emit the offset as a constant.
-    auto offset = rewriter.create<ConstantOp>(
+    auto offset = rewriter.create<arith::ConstantOp>(
         loc, rewriter.getIntegerAttr(
                  rewriter.getIntegerType(64), currentMemPoolSize));
 
@@ -439,14 +439,14 @@ public:
       dynamicMemoryPoolSize = zero;
     }
 
-    AddIOp bundledAllocOperand = rewriter.create<AddIOp>(
+    arith::AddIOp bundledAllocOperand = rewriter.create<arith::AddIOp>(
         loc, dynamicMemoryPoolSize, allocOp.getOperand(0));
     bundledAllocOperand.getOperation()->moveBefore(oldDynamicMemoryPool);
 
     // The newly bundled MemRef expressed as a KrnlGetRefOp.
     // Current memory pool size is the offset for the newly bundled
     // internal MemRef.
-    Value integerDynamicMemoryPoolSize = rewriter.create<IndexCastOp>(
+    Value integerDynamicMemoryPoolSize = rewriter.create<arith::IndexCastOp>(
         loc, dynamicMemoryPoolSize, rewriter.getIntegerType(64));
     integerDynamicMemoryPoolSize.getDefiningOp()->moveBefore(
         oldDynamicMemoryPool);
@@ -483,11 +483,11 @@ public:
  * Move all constants to the top of their respective block to avoid
  * unwanted merges.
  */
-class KrnlMoveConstantsUp : public OpRewritePattern<ConstantOp> {
+class KrnlMoveConstantsUp : public OpRewritePattern<arith::ConstantOp> {
 public:
-  using OpRewritePattern<ConstantOp>::OpRewritePattern;
+  using OpRewritePattern<arith::ConstantOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
-      ConstantOp constOp, PatternRewriter &rewriter) const override {
+      arith::ConstantOp constOp, PatternRewriter &rewriter) const override {
     // Get parent block.
     auto parentBlock = constOp.getOperation()->getBlock();
 
@@ -512,6 +512,12 @@ class KrnlBundleMemoryPoolsPass
   BlockToMemPool blockToDynamicPool;
 
 public:
+  StringRef getArgument() const override { return "bundle-memory-pools"; }
+
+  StringRef getDescription() const override {
+    return "Bundle memory pools of internal MemRefs into a single memory pool.";
+  }
+
   void runOnFunction() override {
     auto function = getFunction();
 

@@ -73,8 +73,8 @@ public:
     auto loc = krnlDimOp.getLoc();
 
     // If index is not constant, return failure.
-    ConstantOp indexOp =
-        dyn_cast<ConstantOp>(krnlDimOp.index().getDefiningOp());
+    arith::ConstantOp indexOp =
+        dyn_cast<arith::ConstantOp>(krnlDimOp.index().getDefiningOp());
     if (!indexOp)
       return failure();
 
@@ -96,7 +96,7 @@ public:
     Value result;
     if (memRefShape[index] > -1) {
       // If dimension is static, then we can just emit the constant value.
-      result = rewriter.create<ConstantOp>(loc,
+      result = rewriter.create<arith::ConstantOp>(loc,
           rewriter.getIntegerAttr(rewriter.getIndexType(), memRefShape[index]));
     } else if (firstArgDefOp && isa<memref::AllocOp>(firstArgDefOp)) {
       // Get defining operation for the MemRef argument.
@@ -110,7 +110,7 @@ public:
              dynDimIdx < (int64_t)allocOp.getOperands().size() &&
              "Dynamic index outside range of alloc argument list.");
       result = allocOp.getOperands()[dynDimIdx];
-    } else if (memRefType.getAffineMaps().empty()) {
+    } else if (memRefType.getLayout().isIdentity()) {
       // Use a standard DimOp since no map is present.
       result = rewriter.create<memref::DimOp>(
           loc, krnlDimOp.alloc(), krnlDimOp.index());
@@ -131,6 +131,12 @@ public:
 class DisconnectKrnlDimFromAllocPass
     : public PassWrapper<DisconnectKrnlDimFromAllocPass, FunctionPass> {
 public:
+  StringRef getArgument() const override { return "lower-krnl-shape-to-std"; }
+
+  StringRef getDescription() const override {
+    return "Lowers krnl shape-related operations.";
+  }
+
   void runOnFunction() override {
     auto function = getFunction();
 

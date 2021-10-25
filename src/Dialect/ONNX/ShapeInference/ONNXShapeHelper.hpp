@@ -319,10 +319,18 @@ struct ONNXLRNOpShapeHelper : public ONNXOpShapeHelper<ONNXLRNOp> {
 // Shape for generic pooling/conv ops.
 template <typename OP_TYPE, typename OP_ADAPTOR>
 struct ONNXGenericPoolShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
-  ONNXGenericPoolShapeHelper(OP_TYPE *newOp, bool hasFilter, bool ceilMode);
+  ONNXGenericPoolShapeHelper(OP_TYPE *newOp, bool hasFilter, bool ceilMode)
+      : ONNXOpShapeHelper<OP_TYPE>(
+            newOp, newOp->getOperation()->getNumResults()),
+        hasFilter(hasFilter), ceilMode(ceilMode) {}
+
   ONNXGenericPoolShapeHelper(OP_TYPE *newOp, bool hasFilter, bool ceilMode,
       OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-      ArrayValueIndexCapture::LoadVal fLoadVal);
+      ArrayValueIndexCapture::LoadVal fLoadVal)
+      : ONNXOpShapeHelper<OP_TYPE>(newOp,
+            newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
+            fLoadVal),
+        hasFilter(hasFilter), ceilMode(ceilMode) {}
 
   LogicalResult computeShape(OP_ADAPTOR operandAdaptor, Value filterValue,
       Optional<ArrayAttr> kernelShapeOpt, Optional<ArrayAttr> padOpt,
@@ -351,10 +359,18 @@ struct ONNXConvOpShapeHelper
 struct ONNXMaxPoolSingleOutOpShapeHelper
     : public ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
           ONNXMaxPoolSingleOutOpAdaptor> {
-  ONNXMaxPoolSingleOutOpShapeHelper(ONNXMaxPoolSingleOutOp *newOp);
+  ONNXMaxPoolSingleOutOpShapeHelper(ONNXMaxPoolSingleOutOp *newOp)
+      : ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
+            ONNXMaxPoolSingleOutOpAdaptor>(
+            newOp, false /*hasFilter*/, newOp->ceil_mode()) {}
+
   ONNXMaxPoolSingleOutOpShapeHelper(ONNXMaxPoolSingleOutOp *newOp,
       OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-      ArrayValueIndexCapture::LoadVal fLoadVal);
+      ArrayValueIndexCapture::LoadVal fLoadVal)
+      : ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
+            ONNXMaxPoolSingleOutOpAdaptor>(newOp, false /*hasFilter*/,
+            newOp->ceil_mode(), rewriter, fGetDenseVal, fLoadVal) {}
+
   LogicalResult computeShape(ONNXMaxPoolSingleOutOpAdaptor operandAdaptor);
 };
 
@@ -362,10 +378,17 @@ struct ONNXMaxPoolSingleOutOpShapeHelper
 struct ONNXAveragePoolOpShapeHelper
     : public ONNXGenericPoolShapeHelper<ONNXAveragePoolOp,
           ONNXAveragePoolOpAdaptor> {
-  ONNXAveragePoolOpShapeHelper(ONNXAveragePoolOp *newOp);
+  ONNXAveragePoolOpShapeHelper(ONNXAveragePoolOp *newOp)
+      : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>(
+            newOp, false /*hasFilter*/, newOp->ceil_mode()) {}
+
   ONNXAveragePoolOpShapeHelper(ONNXAveragePoolOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-      ArrayValueIndexCapture::LoadVal fLoadVal);
+      ArrayValueIndexCapture::LoadVal fLoadVal)
+      : ONNXGenericPoolShapeHelper<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor>(
+            newOp, false /*hasFilter*/, newOp->ceil_mode(), rewriter,
+            fGetDenseVal, fLoadVal) {}
+
   LogicalResult computeShape(ONNXAveragePoolOpAdaptor operandAdaptor);
 };
 

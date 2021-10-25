@@ -1,8 +1,8 @@
 // RUN: onnx-mlir-opt --lower-krnl-shape %s -split-input-file | FileCheck %s
 
 func @test_krnl_shape_lowering(%arg0: memref<?x?xf32>) -> index {
-  %c1 = constant 1 : index
-  %c0 = constant 0 : index
+  %c1 = arith.constant 1 : index
+  %c0 = arith.constant 0 : index
   %0 = memref.dim %arg0, %c0 : memref<?x?xf32>
   %1 = memref.alloc(%0) : memref<?x10xf32>
   %shape = "krnl.shape"(%1) : (memref<?x10xf32>) -> memref<2xindex>
@@ -10,8 +10,8 @@ func @test_krnl_shape_lowering(%arg0: memref<?x?xf32>) -> index {
   return %e : index
 
   // CHECK-LABEL: test_krnl_shape_lowering
-  // CHECK: %[[CONST0:.+]] = constant 0 : index
-  // CHECK: %[[CONST1:.+]] = constant 1 : index
+  // CHECK: %[[CONST0:.+]] = arith.constant 0 : index
+  // CHECK: %[[CONST1:.+]] = arith.constant 1 : index
   // CHECK: [[DIM:%.+]] = memref.dim %arg0, %[[CONST0]] : memref<?x?xf32>
   // CHECK: [[ALLOC:%.+]] = memref.alloc([[DIM]]) : memref<?x10xf32>
   // CHECK: [[SHAPE:%.+]] = memref.alloc() : memref<2xindex>
@@ -30,8 +30,8 @@ func @test_krnl_shape_lowering(%arg0: memref<?x?xf32>) -> index {
 #map0 = affine_map<(d0, d1) -> (d0 floordiv 2, d1 floordiv 4, d0 mod 2, d1 mod 4)>
 
 func @test_krnl_shape_lowering_with_affine_map(%arg0: memref<?x?xf32>) -> index {
-  %c1 = constant 1 : index
-  %c0 = constant 0 : index
+  %c1 = arith.constant 1 : index
+  %c0 = arith.constant 0 : index
   %0 = memref.dim %arg0, %c0 : memref<?x?xf32>
   %1 = memref.alloc(%0) : memref<?x10xf32, #map0>
   %shape = "krnl.shape"(%1) : (memref<?x10xf32, #map0>) -> memref<2xindex>
@@ -40,8 +40,8 @@ func @test_krnl_shape_lowering_with_affine_map(%arg0: memref<?x?xf32>) -> index 
 
   // CHECK: #[[MAP0:.*]] = affine_map<(d0, d1) -> (d0 floordiv 2, d1 floordiv 4, d0 mod 2, d1 mod 4)>
   // CHECK-LABEL: test_krnl_shape_lowering_with_affine_map
-  // CHECK: %[[CONST0:.+]] = constant 0 : index
-  // CHECK: %[[CONST1:.+]] = constant 1 : index
+  // CHECK: %[[CONST0:.+]] = arith.constant 0 : index
+  // CHECK: %[[CONST1:.+]] = arith.constant 1 : index
   // CHECK: [[DIM:%.+]] = memref.dim %arg0, %[[CONST0]] : memref<?x?xf32>
   // CHECK: [[ALLOC:%.+]] = memref.alloc([[DIM]]) : memref<?x10xf32, #[[MAP0]]>
   // CHECK: [[SHAPE:%.+]] = memref.alloc() : memref<2xindex>

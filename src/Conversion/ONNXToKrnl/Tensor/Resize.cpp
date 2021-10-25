@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -77,15 +77,15 @@ struct ONNXResizeOpLowering : public ConversionPattern {
         Value indexValue =
             emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
         Value resizedVal = rewriter.create<KrnlLoadOp>(loc, sizes, indexValue);
-        Value resizedFVal =
-            rewriter.create<SIToFPOp>(loc, rewriter.getF32Type(), resizedVal);
+        Value resizedFVal = rewriter.create<arith::SIToFPOp>(
+            loc, rewriter.getF32Type(), resizedVal);
         Value inputDim = dataBounds.getDim(i).getValue();
-        Value inputDimInteger = rewriter.create<IndexCastOp>(
+        Value inputDimInteger = rewriter.create<arith::IndexCastOp>(
             loc, inputDim, rewriter.getIntegerType(64));
-        Value inputDimFloat = rewriter.create<SIToFPOp>(
+        Value inputDimFloat = rewriter.create<arith::SIToFPOp>(
             loc, rewriter.getF32Type(), inputDimInteger);
         Value scaleVal =
-            rewriter.create<DivFOp>(loc, resizedFVal, inputDimFloat);
+            rewriter.create<arith::DivFOp>(loc, resizedFVal, inputDimFloat);
         scaleValues.emplace_back(scaleVal);
       }
     }
@@ -106,15 +106,15 @@ struct ONNXResizeOpLowering : public ConversionPattern {
           outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
         } else {
           Value inputDim = dataBounds.getDim(i).getValue();
-          Value inputDimInteger = rewriter.create<IndexCastOp>(
+          Value inputDimInteger = rewriter.create<arith::IndexCastOp>(
               loc, inputDim, rewriter.getIntegerType(64));
-          Value inputDimFloat = rewriter.create<SIToFPOp>(
+          Value inputDimFloat = rewriter.create<arith::SIToFPOp>(
               loc, rewriter.getF32Type(), inputDimInteger);
-          Value outputDimFloat =
-              rewriter.create<MulFOp>(loc, inputDimFloat, scaleValues[i]);
-          Value outputDimInteger = rewriter.create<FPToSIOp>(
+          Value outputDimFloat = rewriter.create<arith::MulFOp>(
+              loc, inputDimFloat, scaleValues[i]);
+          Value outputDimInteger = rewriter.create<arith::FPToSIOp>(
               loc, rewriter.getIntegerType(64), outputDimFloat);
-          Value outDim = rewriter.create<IndexCastOp>(
+          Value outDim = rewriter.create<arith::IndexCastOp>(
               loc, rewriter.getIndexType(), outputDimInteger);
           SymbolIndexExpr outDimIE(outDim);
           outputDims[i] = SymbolIndexExpr(outDimIE);
@@ -132,7 +132,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
               emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
           Value resizedVal =
               rewriter.create<KrnlLoadOp>(loc, sizes, indexValue);
-          Value outDim = rewriter.create<IndexCastOp>(
+          Value outDim = rewriter.create<arith::IndexCastOp>(
               loc, rewriter.getIndexType(), resizedVal);
           SymbolIndexExpr outDimIE(outDim);
           outputDims[i] = SymbolIndexExpr(outDimIE);
@@ -153,25 +153,25 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     for (decltype(rank) i = 0; i < rank; ++i) {
       if (resizeOp.coordinate_transformation_mode() == "asymmetric") {
         Value outIndex = outputLoops.getInductionVar(i);
-        Value outIndexInteger = rewriter.create<IndexCastOp>(
+        Value outIndexInteger = rewriter.create<arith::IndexCastOp>(
             loc, outIndex, rewriter.getIntegerType(64));
-        Value outIndexFloat = rewriter.create<SIToFPOp>(
+        Value outIndexFloat = rewriter.create<arith::SIToFPOp>(
             loc, rewriter.getF32Type(), outIndexInteger);
         Value inIndexFloat =
-            rewriter.create<DivFOp>(loc, outIndexFloat, scaleValues[i]);
+            rewriter.create<arith::DivFOp>(loc, outIndexFloat, scaleValues[i]);
         // FPToSIOp is round-to-zero, same as floor for positive
         // round_prefer_floor will round 2.5 to 2, not 3
         if (resizeOp.nearest_mode() == "round_prefer_floor") {
           Value deltaConstant =
               emitConstantOp(rewriter, loc, rewriter.getF32Type(), 0.499999);
           inIndexFloat =
-              rewriter.create<AddFOp>(loc, inIndexFloat, deltaConstant);
+              rewriter.create<arith::AddFOp>(loc, inIndexFloat, deltaConstant);
         } else if (resizeOp.nearest_mode() == "floor") {
-          inIndexFloat = rewriter.create<FloorFOp>(loc, inIndexFloat);
+          inIndexFloat = rewriter.create<math::FloorOp>(loc, inIndexFloat);
         }
-        Value inIndexInteger = rewriter.create<FPToSIOp>(
+        Value inIndexInteger = rewriter.create<arith::FPToSIOp>(
             loc, rewriter.getIntegerType(64), inIndexFloat);
-        Value inIndex = rewriter.create<IndexCastOp>(
+        Value inIndex = rewriter.create<arith::IndexCastOp>(
             loc, rewriter.getIndexType(), inIndexInteger);
         readIndices.emplace_back(inIndex);
         writeIndices.emplace_back(outIndex);
@@ -179,28 +179,29 @@ struct ONNXResizeOpLowering : public ConversionPattern {
         // If coordinate_transformation_mode is "half_pixel",
         // x_original = (x_resized + 0.5) / scale - 0.5,
         Value outIndex = outputLoops.getInductionVar(i);
-        Value outIndexInteger = rewriter.create<IndexCastOp>(
+        Value outIndexInteger = rewriter.create<arith::IndexCastOp>(
             loc, outIndex, rewriter.getIntegerType(64));
-        Value outIndexFloat = rewriter.create<SIToFPOp>(
+        Value outIndexFloat = rewriter.create<arith::SIToFPOp>(
             loc, rewriter.getF32Type(), outIndexInteger);
         Value halfPixelConstant =
             emitConstantOp(rewriter, loc, rewriter.getF32Type(), 0.5);
-        Value inIndexFloat = rewriter.create<SubFOp>(loc,
-            rewriter.create<DivFOp>(loc,
-                rewriter.create<AddFOp>(loc, outIndexFloat, halfPixelConstant),
+        Value inIndexFloat = rewriter.create<arith::SubFOp>(loc,
+            rewriter.create<arith::DivFOp>(loc,
+                rewriter.create<arith::AddFOp>(
+                    loc, outIndexFloat, halfPixelConstant),
                 scaleValues[i]),
             halfPixelConstant);
         if (resizeOp.nearest_mode() == "round_prefer_floor") {
           Value deltaConstant =
               emitConstantOp(rewriter, loc, rewriter.getF32Type(), 0.499999);
           inIndexFloat =
-              rewriter.create<AddFOp>(loc, inIndexFloat, deltaConstant);
+              rewriter.create<arith::AddFOp>(loc, inIndexFloat, deltaConstant);
         } else if (resizeOp.nearest_mode() == "floor") {
-          inIndexFloat = rewriter.create<FloorFOp>(loc, inIndexFloat);
+          inIndexFloat = rewriter.create<math::FloorOp>(loc, inIndexFloat);
         }
-        Value inIndexInteger = rewriter.create<FPToSIOp>(
+        Value inIndexInteger = rewriter.create<arith::FPToSIOp>(
             loc, rewriter.getIntegerType(64), inIndexFloat);
-        Value inIndex = rewriter.create<IndexCastOp>(
+        Value inIndex = rewriter.create<arith::IndexCastOp>(
             loc, rewriter.getIndexType(), inIndexInteger);
         readIndices.emplace_back(inIndex);
         writeIndices.emplace_back(outIndex);

@@ -716,8 +716,12 @@ def get_attrs(schema):
             onnx_attr_type_to_mlir_attr_type(attr_type))
 
     def get_attr_type_with_default(attr_type, attr_default):
-        return 'DefaultValuedAttr<{}, "{}">'.format(
-            onnx_attr_type_to_mlir_attr_type(attr_type), attr_default)
+        if attr_type == OpSchema.AttrType.STRING:
+            return 'DefaultValuedStrAttr<{}, "{}">'.format(
+                onnx_attr_type_to_mlir_attr_type(attr_type), attr_default)
+        else:
+            return 'DefaultValuedAttr<{}, "{}">'.format(
+                onnx_attr_type_to_mlir_attr_type(attr_type), attr_default)
 
     if not schema.attributes:
         return OrderedDict()

@@ -66,6 +66,12 @@ public:
 class ElideConstantValuePass
     : public PassWrapper<ElideConstantValuePass, FunctionPass> {
 public:
+  StringRef getArgument() const override { return "elide-constants"; }
+
+  StringRef getDescription() const override {
+    return "Elide values of constant operations.";
+  }
+
   void runOnFunction() override {
     auto function = getFunction();
 
