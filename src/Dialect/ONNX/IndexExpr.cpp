@@ -29,7 +29,6 @@
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "index_expr"
-#define DEBUG 0
 
 using namespace mlir;
 
@@ -334,65 +333,64 @@ IndexExprKind IndexExpr::getKind() const { return getObj().getKind(); }
 // IndexExpr Debug.
 //===----------------------------------------------------------------------===//
 
-void IndexExpr::debugPrint(
-    const std::string &msg, const bool forcePrint) const {
-  if (DEBUG || forcePrint) {
-    printf("%s:", msg.c_str());
+void IndexExpr::debugPrint(const std::string &msg) const {
+  LLVM_DEBUG({
+    llvm::dbgs() << msg.c_str();
     if (!isDefined()) {
-      printf(" undefined\n");
+      llvm::dbgs() << " undefined\n";
       return;
     }
     if (isLiteral())
-      printf(" literal(%lli)", getLiteral());
+      llvm::dbgs() << " literal(" << (long long)getLiteral() << ")";
     if (hasAffineExpr())
-      printf(" hasAffine");
+      llvm::dbgs() << " hasAffine";
     if (hasValue()) {
-      printf(" hasValue");
+      llvm::dbgs() << " hasValue";
       auto op = getValue().getDefiningOp();
       if (op) {
         std::string str;
         llvm::raw_string_ostream os(str);
         op->print(os);
-        printf("( \"%s\" )", str.c_str());
+        llvm::dbgs() << "( \"" << str.c_str() << "\")";
       } else
-        printf("(op not found)");
+        llvm::dbgs() << "(op not found)";
     }
     if (isAffine())
-      printf(" is affine");
+      llvm::dbgs() << " is affine";
     switch (getKind()) {
     case IndexExprKind::NonAffine:
-      printf(" kind(non-affine)");
+      llvm::dbgs() << " kind(non-affine)";
       break;
     case IndexExprKind::Questionmark:
-      printf(" kind(questionmark)");
+      llvm::dbgs() << " kind(questionmark)";
       break;
     case IndexExprKind::Predicate:
-      printf(" kind(predicate)");
+      llvm::dbgs() << " kind(predicate)";
       break;
     case IndexExprKind::Affine:
-      printf(" kind(affine)");
+      llvm::dbgs() << " kind(affine)";
       break;
     case IndexExprKind::Dim:
-      printf(" kind(dim)");
+      llvm::dbgs() << " kind(dim)";
       break;
     case IndexExprKind::Symbol:
-      printf(" kind(symbol)");
+      llvm::dbgs() << " kind(symbol)";
       break;
     }
-    printf(" scope(0x%llx)\n", (long long unsigned)getScopePtr());
-  }
+    llvm::dbgs() << " scope(0x " << (long long unsigned)getScopePtr() << ")\n";
+  });
 }
 
-void IndexExpr::debugPrint(const std::string &msg,
-    const SmallVectorImpl<IndexExpr> &list, const bool forcePrint) {
-  if (DEBUG || forcePrint) {
+void IndexExpr::debugPrint(
+    const std::string &msg, const SmallVectorImpl<IndexExpr> &list) {
+  LLVM_DEBUG({
     int s = list.size();
-    printf("%s (%d elements)\n", msg.c_str(), s);
+    llvm::dbgs() <<  msg.c_str() << " (" << s << "elements)\n";
     for (int i = 0; i < s; ++i) {
       std::string element = "  " + std::to_string(i) + ": ";
-      list[i].debugPrint(element, true);
+      list[i].debugPrint(element);
     }
-  }
+  });
 }
 
 //===----------------------------------------------------------------------===//
