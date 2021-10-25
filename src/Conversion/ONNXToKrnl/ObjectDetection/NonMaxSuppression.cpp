@@ -290,12 +290,36 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     Type elementType = memRefType.getElementType();
     Type indexType = rewriter.getIndexType();
     Type boolType = rewriter.getI1Type();
+    Type i64Type = rewriter.getI64Type();
 
-    Value scores = operandAdaptor.scores();
+    // Operation's operands.
+    // Bounding boxes.
     Value boxes = operandAdaptor.boxes();
+    // Scores.
+    Value scores = operandAdaptor.scores();
+    // Maximun number of output boxes per class.
     Value maxOutputBoxPerClass = operandAdaptor.max_output_boxes_per_class();
-    Value iouThreshold = operandAdaptor.iou_threshold();
+    if (maxOutputBoxPerClass.getType().isa<NoneType>()) {
+      maxOutputBoxPerClass = createMemref.alloca(MemRefType::get({1}, i64Type));
+      Value zero = createMath.constant(i64Type, 0);
+      createKrnl.store(zero, maxOutputBoxPerClass, {});
+    }
+    // Score threshold.
+    Type scoreType = scores.getType().cast<MemRefType>().getElementType();
     Value scoreThreshold = operandAdaptor.score_threshold();
+    if (scoreThreshold.getType().isa<NoneType>()) {
+      scoreThreshold = createMemref.alloca(MemRefType::get({1}, scoreType));
+      Value zero = createMath.constant(scoreType, 0);
+      createKrnl.store(zero, scoreThreshold, {});
+    }
+    // IOU threshold.
+    Value iouThreshold = operandAdaptor.iou_threshold();
+    if (iouThreshold.getType().isa<NoneType>()) {
+      iouThreshold = createMemref.alloca(MemRefType::get({1}, scoreType));
+      Value zero = createMath.constant(scoreType, 0);
+      createKrnl.store(zero, iouThreshold, {});
+    }
+    // Mode: diagonal corners or center point.
     int64_t centerPointBox = nmsOp.center_point_box();
 
     // boxes: [num_of_batch, spatial_dimension, 4]
@@ -308,6 +332,8 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     Value bs = bsIE.getValue();
     Value cs = csIE.getValue();
     Value ss = ssIE.getValue();
+
+    // Frequently used constants.
     Value zero = createMath.constantIndex(0);
     Value one = createMath.constantIndex(1);
     Value two = createMath.constantIndex(2);
@@ -335,7 +361,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     if (centerPointBox == 0)
       boxes = tryToUnflip(rewriter, loc, boxes);
 
-    // Global parameters.
+    // Global parameters of NonMaxSuppression.
     Value scoreTH = createKrnl.load(scoreThreshold, {zero});
     Value iouTH = createKrnl.load(iouThreshold, {zero});
     Value MOPC = createKrnl.load(maxOutputPerClass, {});
@@ -357,7 +383,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     outputShape.emplace_back(3);
     Value selectedMemRef = insertAllocAndDeallocSimple(rewriter, op,
         MemRefType::get(outputShape, indexType), loc, outputDims,
-        /*insertDealloc=*/false);
+        /*insertDealloc=*/true);
     // Initialize with value -1.
     createKrnl.memset(selectedMemRef, createMath.constantIndex(-1));
 
