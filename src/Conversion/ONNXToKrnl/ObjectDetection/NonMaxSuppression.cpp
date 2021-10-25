@@ -14,7 +14,6 @@
 
 #include "mlir/Dialect/SCF/SCF.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -322,7 +321,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
         createMemref.alloca(MemRefType::get({}, indexType));
     // 1. Suppress by using spatial dimension size.
     Value x = createKrnl.load(maxOutputBoxPerClass, {zero});
-    x = rewriter.create<IndexCastOp>(loc, indexType, x);
+    x = rewriter.create<arith::IndexCastOp>(loc, indexType, x);
     createKrnl.store(createMath.min(x, ss), maxOutputPerClass, {});
     // 2. Suppress by score threshold.
     // suppressByScores(rewriter, loc, scores, scoreThreshold,
@@ -511,7 +510,8 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
         {effectiveNSI, three},
         [&](KrnlBuilder &createKrnl, ValueRange resLoopInd) {
           Value load = createKrnl.load(selectedMemRef, resLoopInd);
-          Value res = rewriter.create<IndexCastOp>(loc, elementType, load);
+          Value res =
+              rewriter.create<arith::IndexCastOp>(loc, elementType, load);
           createKrnl.store(res, resMemRef, resLoopInd);
         });
 

@@ -72,27 +72,27 @@ Value MathBuilder::log2(Value val) {
 }
 
 Value MathBuilder::min(Value lhs, Value rhs) {
-  // TODO: use MinSIOp, MinUIOp, MinFOp when MLIR is updated.
   assert(
       lhs.getType() == rhs.getType() && "Two operands must have the same type");
-  Value gt;
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    gt = b.create<CmpIOp>(loc, CmpIPredicate::sgt, lhs, rhs);
+    if (lhs.getType().isSignedInteger())
+      return b.create<MinSIOp>(loc, lhs, rhs);
+    else
+      return b.create<MinUIOp>(loc, lhs, rhs);
   else
-    gt = b.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
-  return b.create<SelectOp>(loc, gt, rhs, lhs);
+    return b.create<MinFOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::max(Value lhs, Value rhs) {
-  // TODO: use MaxSIOp, MaxUIOp, MaxFOp when MLIR is updated.
   assert(
       lhs.getType() == rhs.getType() && "Two operands must have the same type");
-  Value gt;
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    gt = b.create<CmpIOp>(loc, CmpIPredicate::sgt, lhs, rhs);
+    if (lhs.getType().isSignedInteger())
+      return b.create<MaxSIOp>(loc, lhs, rhs);
+    else
+      return b.create<MaxUIOp>(loc, lhs, rhs);
   else
-    gt = b.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
-  return b.create<SelectOp>(loc, gt, lhs, rhs);
+    return b.create<MaxFOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::sgt(Value lhs, Value rhs) {
