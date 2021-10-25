@@ -89,8 +89,6 @@ struct ONNXTileOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     SmallVector<Value, 4> loadIndices;
-    bool isAffineLoad = true;
-
     // This implementation is to iterate the output tensor.
     // The store has simple affine subscript expression.
     // Alternative implementation is to iterate the input tensor and repeats.
@@ -105,9 +103,6 @@ struct ONNXTileOpLowering : public ConversionPattern {
       MemRefBoundsIndexCapture inputBounds(input);
       DimIndexExpr dimSize(inputBounds.getDim(i));
       IndexExpr exprVal = index % dimSize;
-      if (!exprVal.isAffine()) {
-        isAffineLoad = false;
-      }
       loadIndices.emplace_back(exprVal.getValue());
     }
 

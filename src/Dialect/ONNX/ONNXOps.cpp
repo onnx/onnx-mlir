@@ -3455,9 +3455,48 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
   return success();
 }
 
+static LogicalResult verify(ONNXCompressOp op) {
+  // Look up input.
+  if (!hasShapeAndRank(op.input()))
+    // Too early to verify.
+    return success();
+  int64_t inputRank = op.input().getType().cast<ShapedType>().getRank();
+  // Check axis.
+  auto optionalAxis = op.axis();
+  if (optionalAxis.hasValue()) {
+    // We have an axis, make sure its in the range
+    int64_t axis = optionalAxis.getValue();
+    if (!(axis >= -inputRank && axis < inputRank))
+      return op.emitError("axis is out of bound");
+  }
+  // Check condition.
+  if (!hasShapeAndRank(op.condition()))
+    // Too early to verify.
+    return success();
+  int64_t condRank = op.condition().getType().cast<ShapedType>().getRank();
+  if (condRank != 1)
+    return op.emitError("condition's rank must be one");
+  return success();
+}
+
 LogicalResult ONNXCompressOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Check input type.
+  if (!input().getType().isa<RankedTensorType>()) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
+  // Infer shape for the output.
+  ONNXCompressOpAdaptor operandAdaptor(*this);
+  ONNXCompressOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan Compress parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  auto elementType =
+      input().getType().template cast<ShapedType>().getElementType();
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
+  return success();
 }
 
 LogicalResult ONNXConcatFromSequenceOp::inferShapes(

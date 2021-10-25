@@ -27,15 +27,15 @@ namespace mlir {
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
-struct OnnxBuilder : DialectBuilder {
+struct OnnxBuilder final : DialectBuilder {
   OnnxBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  Value add(Value A, Value B);
-  Value sub(Value A, Value B);
-  Value mul(Value A, Value B);
-  Value div(Value A, Value B);
-  Value matmul(Type Y, Value A, Value B);
+  Value add(Value A, Value B) const;
+  Value sub(Value A, Value B) const;
+  Value mul(Value A, Value B) const;
+  Value div(Value A, Value B) const;
+  Value matmul(Type Y, Value A, Value B) const;
 };
 
 } // namespace mlir
