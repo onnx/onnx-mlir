@@ -2133,7 +2133,7 @@ func @compress_axis0(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x?x
   return %0 : tensor<?x?xf32>
 
 // mlir2FileCheck.py -a'["input", "condition"]'
-// CHECK-LABEL:  builtin.func @compress_axis0
+// CHECK-LABEL:  func @compress_axis0
 // CHECK-SAME:   ([[INPUT_:%.+]]: tensor<3x2xf32>, [[CONDITION_:%.+]]: tensor<3xi1>) -> tensor<?x2xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Compress"([[INPUT_]], [[CONDITION_]]) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?x2xf32>
 // CHECK:           return [[VAR_0_]] : tensor<?x2xf32>
@@ -2146,7 +2146,7 @@ func @compress_axis1(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x?x
     %0 = "onnx.Compress"(%arg0, %arg1) {axis = 1 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?x?xf32>
     return %0 : tensor<?x?xf32>
 // mlir2FileCheck.py -a'["input", "condition"]'
-// CHECK-LABEL:  builtin.func @compress_axis1
+// CHECK-LABEL:  func @compress_axis1
 // CHECK-SAME:   ([[INPUT_:%.+]]: tensor<3x2xf32>, [[CONDITION_:%.+]]: tensor<3xi1>) -> tensor<3x?xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Compress"([[INPUT_]], [[CONDITION_]]) {axis = 1 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<3x?xf32>
 // CHECK:           return [[VAR_0_]] : tensor<3x?xf32>
@@ -2160,7 +2160,7 @@ func @compress_no_axis(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x
     return %0 : tensor<?x?xf32>
 
 // mlir2FileCheck.py -a'["input", "condition"]'
-// CHECK-LABEL:  builtin.func @compress_no_axis
+// CHECK-LABEL:  func @compress_no_axis
 // CHECK-SAME:   ([[INPUT_:%.+]]: tensor<3x2xf32>, [[CONDITION_:%.+]]: tensor<3xi1>) -> tensor<?xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Compress"([[INPUT_]], [[CONDITION_]]) : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?xf32>
 // CHECK:           return [[VAR_0_]] : tensor<?xf32>

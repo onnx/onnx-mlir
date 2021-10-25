@@ -97,8 +97,8 @@ Value MathBuilder::slt(Value lhs, Value rhs) {
 Value MathBuilder::sle(Value lhs, Value rhs) {
   if (lhs.getType().isa<IndexType, IntegerType>() ||
       lhs.getType().isa<IndexType>())
-    return b.create<CmpIOp>(loc, CmpIPredicate::sle, lhs, rhs);
-  return b.create<CmpFOp>(loc, CmpFPredicate::OLE, lhs, rhs);
+    return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sle, lhs, rhs);
+  return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OLE, lhs, rhs);
 }
 
 Value MathBuilder::eq(Value lhs, Value rhs) {
@@ -111,8 +111,8 @@ Value MathBuilder::eq(Value lhs, Value rhs) {
 Value MathBuilder::neq(Value lhs, Value rhs) {
   if (lhs.getType().isa<IndexType, IntegerType>() ||
       lhs.getType().isa<IndexType>())
-    return b.create<CmpIOp>(loc, CmpIPredicate::ne, lhs, rhs);
-  return b.create<CmpFOp>(loc, CmpFPredicate::ONE, lhs, rhs);
+    return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ne, lhs, rhs);
+  return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::ONE, lhs, rhs);
 }
 
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) {
