@@ -58,7 +58,7 @@ protected:
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //===----------------------------------------------------------------------===//
 
-struct MathBuilder : DialectBuilder {
+struct MathBuilder final : DialectBuilder {
   MathBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   MathBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
@@ -89,7 +89,7 @@ struct MathBuilder : DialectBuilder {
 // MemRef Builder with added support for aligned memory
 //===----------------------------------------------------------------------===//
 
-struct MemRefBuilder : DialectBuilder {
+struct MemRefBuilder final : DialectBuilder {
   MemRefBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   MemRefBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
@@ -116,7 +116,7 @@ static constexpr int64_t gDefaultAllocAlign = 16;
 // Structured Control Flow (SCF) Builder
 //===----------------------------------------------------------------------===//
 
-struct SCFBuilder : DialectBuilder {
+struct SCFBuilder final : DialectBuilder {
   SCFBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   SCFBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
@@ -133,7 +133,7 @@ struct SCFBuilder : DialectBuilder {
 //===----------------------------------------------------------------------===//
 
 template <class LOAD_OP, class STORE_OP>
-struct GenericAffineBuilder : DialectBuilder {
+struct GenericAffineBuilder final : DialectBuilder {
   GenericAffineBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   GenericAffineBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
