@@ -64,7 +64,7 @@ void KrnlDefineLoopsOp::build(
 void print(OpAsmPrinter &p, KrnlDefineLoopsOp &op) {
   auto numLoopAttr =
       op->getAttrOfType<IntegerAttr>(KrnlDefineLoopsOp::getNumLoopsAttrName());
-  p << "krnl.define_loops " << numLoopAttr.getValue().getSExtValue();
+  p << ' ' << numLoopAttr.getValue().getSExtValue();
 }
 
 ParseResult parseKrnlDefineLoopsOp(
@@ -182,7 +182,7 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
 }
 
 void print(OpAsmPrinter &p, KrnlIterateOp &op) {
-  p << "krnl.iterate(";
+  p << "(";
   // Print optimized loops:
   auto numOptimizedLoops = op.getNumOptimizedLoops();
   p.printOperands(op.operand_begin(), op.operand_begin() + numOptimizedLoops);
@@ -484,7 +484,7 @@ bool KrnlVectorTypeCastOp::areCastCompatible(Type a, Type b) {
   if (!aT || !bT)
     return false;
 
-  if (aT.getAffineMaps() != bT.getAffineMaps())
+  if (aT.getLayout() != bT.getLayout())
     return false;
 
   if (aT.getMemorySpace() != bT.getMemorySpace())

@@ -550,7 +550,8 @@ protected:
   // Support for operations: common handling for multiple operations.
   IndexExpr binaryOp(IndexExpr const b, bool affineWithLitB,
       bool affineExprCompatible, F2 fInteger, F2 fAffine, F2 fValue) const;
-  IndexExpr compareOp(CmpIPredicate comparePred, IndexExpr const b) const;
+  IndexExpr compareOp(
+      arith::CmpIPredicate comparePred, IndexExpr const b) const;
   static IndexExpr reductionOp(SmallVectorImpl<IndexExpr> &vals, F2Self litRed,
       Flist affineRed, F2Self valueRed);
   // Data: pointer to implemented object.

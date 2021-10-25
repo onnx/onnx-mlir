@@ -200,7 +200,7 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
                   createKrnl.store(s, sum, {});
                 });
             Value p = createKrnl.load(pos, {});
-            p = rewriter.create<IndexCastOp>(loc, p, resElementType);
+            p = rewriter.create<arith::IndexCastOp>(loc, p, resElementType);
             createKrnl.store(p, resMemRef, {axisVal, i});
           }
         });

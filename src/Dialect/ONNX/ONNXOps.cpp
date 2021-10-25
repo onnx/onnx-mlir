@@ -633,7 +633,7 @@ void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
     mlir::OperationState &state, mlir::FuncOp function, int numInputs,
     int numOutputs, std::string signature) {
   state.addAttribute(ONNXEntryPointOp::getEntryPointFuncAttrName(),
-      builder.getSymbolRefAttr(function));
+      SymbolRefAttr::get(function));
   state.addAttribute(ONNXEntryPointOp::getNumInputsAttrName(),
       builder.getI32IntegerAttr(numInputs));
   state.addAttribute(ONNXEntryPointOp::getNumOutputsAttrName(),

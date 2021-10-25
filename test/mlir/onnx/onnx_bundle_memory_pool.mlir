@@ -9,16 +9,16 @@ func @test_bundle_memory_pool(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf32>
   %5 = "onnx.Add"(%4, %arg1) : (tensor<10x20xf32>, tensor<10x20xf32>) -> tensor<10x20xf32>
   return %5 : tensor<10x20xf32>
 
-  // CHECK-LABEL: test_bundle_memory_pool
-// CHECK-DAG:       [[CST_800_:%.+]] = constant 800 : i64
-// CHECK-DAG:       [[CST_1200_:%.+]] = constant 1200 : i64
-// CHECK-DAG:       [[CST_2000_:%.+]] = constant 2000 : i64
-// CHECK-DAG:       [[CST_2800_:%.+]] = constant 2800 : i64
-// CHECK-DAG:       [[CST_10_:%.+]] = constant 10 : index
-// CHECK-DAG:       [[CST_20_:%.+]] = constant 20 : index
-// CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
-// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = constant 0.000000e+00 : f32
-// CHECK-DAG:       [[CST_0_1_:%.+]] = constant 0 : i64
+// CHECK-LABEL: test_bundle_memory_pool
+// CHECK-DAG:       [[CST_800_:%.+]] = arith.constant 800 : i64
+// CHECK-DAG:       [[CST_1200_:%.+]] = arith.constant 1200 : i64
+// CHECK-DAG:       [[CST_2000_:%.+]] = arith.constant 2000 : i64
+// CHECK-DAG:       [[CST_2800_:%.+]] = arith.constant 2800 : i64
+// CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_20_:%.+]] = arith.constant 20 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : i64
 // CHECK-DAG:       [[VAR_1_:%.+]] = memref.alloc() {{.*}}: memref<3200xi8>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.getref"([[VAR_1_]], [[CST_2800_]]) : (memref<3200xi8>, i64) -> memref<10x10xf32>

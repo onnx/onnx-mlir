@@ -65,6 +65,12 @@ private:
   unsigned runtimeActions;
 
 public:
+  StringRef getArgument() const override { return "instrument-onnx"; }
+
+  StringRef getDescription() const override {
+    return "instrument on onnx ops.";
+  }
+
   void init(std::string allowedOps_) {
     if (allowedOps_ == "ALL") {
       allOpsAllowed = true;

@@ -59,9 +59,9 @@ struct ONNXSizeOpLowering : public ConversionPattern {
       for (unsigned i = 0; i < dataShape.size(); i++) {
         if (dataShape[i] == -1) {
           Value index = createMemRef.dim(data, i);
-          Value dim = rewriter.create<IndexCastOp>(
+          Value dim = rewriter.create<arith::IndexCastOp>(
               loc, index, memRefType.getElementType());
-          noElements = rewriter.create<MulIOp>(loc, noElements, dim);
+          noElements = rewriter.create<arith::MulIOp>(loc, noElements, dim);
         }
       }
     }

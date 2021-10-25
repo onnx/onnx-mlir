@@ -13,15 +13,17 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
+#include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
+#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
-#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -314,13 +316,12 @@ public:
 
     if (memRefTy.getRank() != 0) {
       // Prepare sizes.
-      SmallVector<Value, 4> dynamicSizes = getRefOp.getDynamicSizes();
       SmallVector<Value, 4> sizes;
       sizes.reserve(memRefTy.getRank());
       unsigned i = 0;
       for (int64_t s : memRefTy.getShape())
         sizes.push_back(s == ShapedType::kDynamicSize
-                            ? dynamicSizes[i++]
+                            ? operands[2 + i++]
                             : createIndexConstant(rewriter, loc, s));
 
       // Store all sizes in the descriptor. Only dynamic sizes are passed in as
@@ -844,7 +845,8 @@ public:
     auto staticEntryPointFuncName =
         op->getAttrOfType<SymbolRefAttr>(
               KrnlEntryPointOp::getEntryPointFuncAttrName())
-            .getLeafReference();
+            .getLeafReference()
+            .getValue();
     auto dynEntryPointName = "run_" + staticEntryPointFuncName;
     assert(module.lookupSymbol(dynEntryPointName.str()) == nullptr &&
            "dynamic entry point name is not unique");
@@ -919,9 +921,8 @@ public:
     }
 
     // Call static entry point with the memref ptrs created, and get output.
-    rewriter.create<LLVM::CallOp>(loc, ArrayRef<Type>({}),
-        rewriter.getSymbolRefAttr(wrappedStaticEntryPointFuncName),
-        staticInputs);
+    rewriter.create<LLVM::CallOp>(
+        loc, ArrayRef<Type>({}), wrappedStaticEntryPointFuncName, staticInputs);
     auto outMemRefs = rewriter.create<LLVM::LoadOp>(loc, ptrToOutMemRef);
     auto outMemRefsType = outMemRefs.getType().dyn_cast<LLVM::LLVMStructType>();
 
@@ -1357,9 +1358,7 @@ public:
   bool isSupportedMemRefType(MemRefType type) const {
     if (!typeConverter->convertType(type.getElementType()))
       return false;
-    return type.getAffineMaps().empty() ||
-           llvm::all_of(type.getAffineMaps(),
-               [](AffineMap map) { return map.isIdentity(); });
+    return type.getLayout().isIdentity();
   }
 };
 
@@ -1375,6 +1374,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
   // Removed in upgrade of LLVM:
   // vector::populateVectorSlicesLoweringPatterns(patterns);
+  vector::populateVectorBroadcastLoweringPatterns(patterns);
   vector::populateVectorContractLoweringPatterns(patterns);
   vector::populateVectorTransposeLoweringPatterns(patterns);
 
@@ -1386,9 +1386,12 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateStdExpandOpsPatterns(patterns);
+  arith::populateArithmeticExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
   populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
+  arith::populateArithmeticToLLVMConversionPatterns(typeConverter, patterns);
+  populateReconcileUnrealizedCastsPatterns(patterns);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlVectorTypeCastOpLowering>(
       ctx, typeConverter);
@@ -1415,6 +1418,13 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
 namespace {
 struct ConvertKrnlToLLVMPass
     : public PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>> {
+
+  StringRef getArgument() const override { return "convert-krnl-to-llvm"; }
+
+  StringRef getDescription() const override {
+    return "Lower the Krnl Affine and Std dialects to LLVM.";
+  }
+
   void runOnOperation() final;
 };
 } // end anonymous namespace
