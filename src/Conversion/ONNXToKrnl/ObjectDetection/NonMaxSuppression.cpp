@@ -104,43 +104,45 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
   IndexExpr bsIE = scoreBounds.getDim(0); // batch size.
   IndexExpr csIE = scoreBounds.getDim(1); // class size.
   IndexExpr ssIE = scoreBounds.getDim(2); // spatial size.
-  LiteralIndexExpr zeroIE(0), oneIE(1);
+  Value bs = bsIE.getValue();
+  Value cs = csIE.getValue();
+  Value ss = ssIE.getValue();
+  Value zero = createMath.constantIndex(0);
+  Value one = createMath.constantIndex(1);
 
   // Compute the effective max output per class.
   Value effectiveMaxPerClass =
       createMemref.alloca(MemRefType::get({}, indexType));
-  createKrnl.store(zeroIE.getValue(), effectiveMaxPerClass, {});
+  createKrnl.store(zero, effectiveMaxPerClass, {});
 
   ValueRange bcLoopDef = createKrnl.defineLoops(2);
-  createKrnl.iterateIE(bcLoopDef, bcLoopDef, {zeroIE, zeroIE}, {bsIE, csIE},
+  createKrnl.iterate(bcLoopDef, bcLoopDef, {zero, zero}, {bs, cs},
       [&](KrnlBuilder &createKrnl, ValueRange bcLoopInd) {
         MathBuilder createMath(createKrnl);
         MemRefBuilder createMemref(createKrnl);
-        IndexExprScope bcScope(createKrnl);
         Value b(bcLoopInd[0]), c(bcLoopInd[1]);
 
         // Store the number of scores whose value is greater than the
         // threshold. Counting is done per class.
         Value topk = createMemref.alloca(MemRefType::get({}, indexType));
-        createKrnl.store(zeroIE.getValue(), topk, {});
+        createKrnl.store(zero, topk, {});
 
         // Load the score threshold.
-        Value threshold = createKrnl.loadIE(scoreThreshold, {zeroIE});
+        Value threshold = createKrnl.load(scoreThreshold, {zero});
 
         // Count the number of scores whose value is greater than the
         // threshold. Counting is done per class.
         ValueRange sLoopDef = createKrnl.defineLoops(1);
-        createKrnl.iterateIE(sLoopDef, sLoopDef, {zeroIE}, {ssIE},
+        createKrnl.iterate(sLoopDef, sLoopDef, {zero}, {ss},
             [&](KrnlBuilder &createKrnl, ValueRange sLoopInd) {
               Value s(sLoopInd[0]);
               MathBuilder createMath(createKrnl);
-              IndexExprScope sScope(createKrnl);
 
               Value score = createKrnl.load(scores, {b, c, s});
               // Increase the counter if score > threshold.
               Value gt = createMath.sgt(score, threshold);
               Value topkVal = createKrnl.load(topk, {});
-              Value topkPlusOneVal = createMath.add(topkVal, oneIE.getValue());
+              Value topkPlusOneVal = createMath.add(topkVal, one);
               topkVal = createMath.select(gt, topkPlusOneVal, topkVal);
               createKrnl.store(topkVal, topk, {});
             });
@@ -350,8 +352,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     x = rewriter.create<arith::IndexCastOp>(loc, indexType, x);
     createKrnl.store(createMath.min(x, ss), maxOutputPerClass, {});
     // 2. Suppress by score threshold.
-    // suppressByScores(rewriter, loc, scores, scoreThreshold,
-    // maxOutputPerClass);
+    suppressByScores(rewriter, loc, scores, scoreThreshold, maxOutputPerClass);
 
     // Sort scores in the descending order.
     Value order = emitArgSort(rewriter, loc, scores);
