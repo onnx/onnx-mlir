@@ -47,6 +47,24 @@ namespace {
 struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
                                  OperationPass<mlir::ModuleOp>> {
 
+  StringRef getArgument() const override { return "onnx-op-transform"; }
+
+  StringRef getDescription() const override {
+    return "Invoke passes iteratively that transform ONNX operation.";
+  }
+
+  Option<int> onnxOpTransformThreshold{*this, "onnx-op-transform-threshold",
+      llvm::cl::desc("max iteration for op transform passes."),
+      llvm::cl::init(3)};
+
+  ONNXOpTransformPass() = default;
+  ONNXOpTransformPass(const ONNXOpTransformPass &pass) {}
+  ONNXOpTransformPass(int threshold_) {
+    this->onnxOpTransformThreshold = threshold_;
+  }
+
+  void runOnOperation() final;
+
 private:
   void outputCode(mlir::ModuleOp module, std::string filename) {
     mlir::OpPrintingFlags flags;
@@ -94,56 +112,38 @@ private:
     remove(tempFile);
     return r;
   }
-
-  const int defaultThreshold = 3;
-
-public:
-  ONNXOpTransformPass() = default;
-  ONNXOpTransformPass(const ONNXOpTransformPass &pass) {}
-  ONNXOpTransformPass(int threshold_) {
-    this->onnxOpTransformThreshold = threshold_;
-  }
-
-  StringRef getArguement() const override { return "onnx-op-transform"; }
-
-  StringRef getDescription() const override {
-    return "Invoke passes iteratively that transform ONNX operation.";
-  }
-
-  Option<int> onnxOpTransformThreshold{*this, "onnx-op-transform-threshold",
-      llvm::cl::desc("max iteration for op transform passes."),
-      llvm::cl::init(defaultThreshold)};
-  void runOnOperation() override {
-    auto module = getOperation();
-
-    uint64_t currentTag = createTagForIR(module);
-    uint64_t previousTag;
-
-    int n = onnxOpTransformThreshold;
-    do {
-      previousTag = currentTag;
-      OpPassManager dynamicPM("builtin.module");
-      dynamicPM.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
-      dynamicPM.addPass(mlir::createShapeInferencePass());
-      dynamicPM.addPass(mlir::createCanonicalizerPass());
-      dynamicPM.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
-      if (failed(runPipeline(dynamicPM, module)))
-        return signalPassFailure();
-      currentTag = createTagForIR(module);
-    } while (currentTag != previousTag && --n > 0);
-    if (currentTag != previousTag) {
-      module->emitWarning()
-          << "ONNXOpTransform did not converge after "
-          << onnxOpTransformThreshold << "iterations. "
-          << "You may set a higher threshold with command option";
-    }
-    if (onnxOpTransformReport) {
-      llvm::outs() << "ONNXOpTransform iterated "
-                   << onnxOpTransformThreshold - n << " times, converged "
-                   << ((currentTag == previousTag) ? "true" : "false") << "\n";
-    }
-  }
 };
+
+void ONNXOpTransformPass::runOnOperation() {
+  auto module = getOperation();
+
+  uint64_t currentTag = createTagForIR(module);
+  uint64_t previousTag;
+
+  int n = onnxOpTransformThreshold;
+  do {
+    previousTag = currentTag;
+    OpPassManager dynamicPM("builtin.module");
+    dynamicPM.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
+    dynamicPM.addPass(mlir::createShapeInferencePass());
+    dynamicPM.addPass(mlir::createCanonicalizerPass());
+    dynamicPM.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+    if (failed(runPipeline(dynamicPM, module)))
+      return signalPassFailure();
+    currentTag = createTagForIR(module);
+  } while (currentTag != previousTag && --n > 0);
+  if (currentTag != previousTag) {
+    module->emitWarning()
+        << "ONNXOpTransform did not converge after " << onnxOpTransformThreshold
+        << "iterations. "
+        << "You may set a higher threshold with command option";
+  }
+  if (onnxOpTransformReport) {
+    llvm::outs() << "ONNXOpTransform iterated " << onnxOpTransformThreshold - n
+                 << " times, converged "
+                 << ((currentTag == previousTag) ? "true" : "false") << "\n";
+  }
+}
 
 } // end anonymous namespace
 
