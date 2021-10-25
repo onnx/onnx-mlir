@@ -104,7 +104,7 @@ public:
     this->onnxOpTransformThreshold = threshold_;
   }
 
-  StringRef getArguement() const { return "onnx-op-transform"; }
+  StringRef getArguement() const override { return "onnx-op-transform"; }
 
   StringRef getDescription() const override {
     return "Invoke passes iteratively that transform ONNX operation.";
