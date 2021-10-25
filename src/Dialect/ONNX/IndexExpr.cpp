@@ -385,7 +385,7 @@ void IndexExpr::debugPrint(
     const std::string &msg, const SmallVectorImpl<IndexExpr> &list) {
   LLVM_DEBUG({
     int s = list.size();
-    llvm::dbgs() <<  msg.c_str() << " (" << s << "elements)\n";
+    llvm::dbgs() << msg.c_str() << " (" << s << "elements)\n";
     for (int i = 0; i < s; ++i) {
       std::string element = "  " + std::to_string(i) + ": ";
       list[i].debugPrint(element);
