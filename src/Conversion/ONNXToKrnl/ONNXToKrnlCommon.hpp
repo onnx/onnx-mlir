@@ -368,6 +368,9 @@ void populateLoweringONNXExpandOpPattern(
 void populateLoweringONNXOneHotOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXCompressOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp);
 
 /// This function returns the index in the list of alloc arguments of the
