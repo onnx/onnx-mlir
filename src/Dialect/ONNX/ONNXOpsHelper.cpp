@@ -22,23 +22,23 @@ using namespace mlir::onnxmlir;
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
-Value OnnxBuilder::add(Value A, Value B) {
+Value OnnxBuilder::add(Value A, Value B) const {
   return b.create<ONNXAddOp>(loc, A, B);
 }
 
-Value OnnxBuilder::sub(Value A, Value B) {
+Value OnnxBuilder::sub(Value A, Value B) const {
   return b.create<ONNXSubOp>(loc, A, B);
 }
 
-Value OnnxBuilder::mul(Value A, Value B) {
+Value OnnxBuilder::mul(Value A, Value B) const {
   return b.create<ONNXMulOp>(loc, A, B);
 }
 
-Value OnnxBuilder::div(Value A, Value B) {
+Value OnnxBuilder::div(Value A, Value B) const {
   return b.create<ONNXDivOp>(loc, A, B);
 }
 
-Value OnnxBuilder::matmul(Type Y, Value A, Value B) {
+Value OnnxBuilder::matmul(Type Y, Value A, Value B) const {
   return b.create<ONNXMatMulOp>(loc, Y, A, B);
 }
 
