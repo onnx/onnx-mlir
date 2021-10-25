@@ -540,7 +540,7 @@ test_to_enable_dict = {
     # Negative Log Likelihood Loss
 
     # Non Max Supression
-    "test_nonmaxsuppression_center_point_box_format_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}, 1:{-1}, 2:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_nonmaxsuppression_center_point_box_format_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     "test_nonmaxsuppression_flipped_coordinates_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     "test_nonmaxsuppression_identical_boxes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     "test_nonmaxsuppression_limit_output_size_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -900,12 +900,12 @@ test_to_enable_dict = {
     ############################################################
     # Model (alphabetical order)
 
-    #"test_densenet121_cpu": {STATIC_SHAPE:{}},
-    #"test_inception_v1_cpu": {STATIC_SHAPE:{}},
-    #"test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}},
-    #"test_shufflenet_cpu": {STATIC_SHAPE:{}},
-    #"test_squeezenet_cpu": {STATIC_SHAPE:{}},
-    #"test_vgg19_cpu": {STATIC_SHAPE:{}},
+    "test_densenet121_cpu": {STATIC_SHAPE:{}},
+    "test_inception_v1_cpu": {STATIC_SHAPE:{}},
+    "test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}},
+    "test_shufflenet_cpu": {STATIC_SHAPE:{}},
+    "test_squeezenet_cpu": {STATIC_SHAPE:{}},
+    "test_vgg19_cpu": {STATIC_SHAPE:{}},
 }
 
 # Test for static inputs.
