@@ -45,7 +45,7 @@ namespace {
  */
 
 struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
-                                OperationPass<mlir::ModuleOp>> {
+                                 OperationPass<mlir::ModuleOp>> {
 
 private:
   void outputCode(mlir::ModuleOp module, std::string filename) {
@@ -104,7 +104,7 @@ public:
     this->onnxOpTransformThreshold = threshold_;
   }
 
-  StringRef getArguement() const {return "onnx-op-transform";}
+  StringRef getArguement() const { return "onnx-op-transform"; }
 
   StringRef getDescription() const override {
     return "Invoke passes iteratively that transform ONNX operation.";
