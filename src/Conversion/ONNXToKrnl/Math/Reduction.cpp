@@ -57,26 +57,26 @@ Value getIdentityValue<ONNXReduceMeanOp>(
 // Scalar ops
 template <>
 struct ScalarOp<ONNXReduceProdOp> {
-  using FOp = MulFOp;
-  using IOp = MulIOp;
+  using FOp = arith::MulFOp;
+  using IOp = arith::MulIOp;
 };
 
 template <>
 struct ScalarOp<ONNXReduceSumV11Op> {
-  using FOp = AddFOp;
-  using IOp = AddIOp;
+  using FOp = arith::AddFOp;
+  using IOp = arith::AddIOp;
 };
 
 template <>
 struct ScalarOp<ONNXReduceSumOp> {
-  using FOp = AddFOp;
-  using IOp = AddIOp;
+  using FOp = arith::AddFOp;
+  using IOp = arith::AddIOp;
 };
 
 template <>
 struct ScalarOp<ONNXReduceMeanOp> {
-  using FOp = AddFOp;
-  using IOp = AddIOp;
+  using FOp = arith::AddFOp;
+  using IOp = arith::AddIOp;
 };
 
 //===----------------------------------------------------------------------===//
@@ -90,11 +90,13 @@ Value emitScalarOpFor<ONNXReduceMaxOp>(ConversionPatternRewriter &rewriter,
   Value rhs = scalarOperands[1];
   Type element_type = lhs.getType();
   if (element_type.isa<IntegerType>()) {
-    auto max = rewriter.create<CmpIOp>(loc, CmpIPredicate::sgt, lhs, rhs);
+    auto max = rewriter.create<arith::CmpIOp>(
+        loc, arith::CmpIPredicate::sgt, lhs, rhs);
     auto result = rewriter.create<SelectOp>(loc, max, lhs, rhs);
     return result;
   } else if (element_type.isa<FloatType>()) {
-    auto max = rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
+    auto max = rewriter.create<arith::CmpFOp>(
+        loc, arith::CmpFPredicate::OGT, lhs, rhs);
     auto result = rewriter.create<SelectOp>(loc, max, lhs, rhs);
     return result;
   } else {
@@ -112,11 +114,13 @@ Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
   if (elementType.isa<IntegerType>()) {
-    auto min = rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, lhs, rhs);
+    auto min = rewriter.create<arith::CmpIOp>(
+        loc, arith::CmpIPredicate::slt, lhs, rhs);
     auto result = rewriter.create<SelectOp>(loc, min, lhs, rhs);
     return result;
   } else if (elementType.isa<FloatType>()) {
-    auto min = rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
+    auto min = rewriter.create<arith::CmpFOp>(
+        loc, arith::CmpFPredicate::OLT, lhs, rhs);
     auto result = rewriter.create<SelectOp>(loc, min, lhs, rhs);
     return result;
   } else {
@@ -284,7 +288,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
         if (zeroIndex) {
           outLoopIVs.push_back(zeroIndex);
         } else {
-          zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
+          zeroIndex = rewriter.create<arith::ConstantIndexOp>(loc, 0);
           outLoopIVs.push_back(zeroIndex);
         }
       }
@@ -319,11 +323,12 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       IndexExpr divisorExpr = inputSizeExpr.floorDiv(outputSizeExpr);
       Value divisor = divisorExpr.getValue();
       if (elementType.isa<FloatType>()) {
-        divisor = rewriter.create<IndexCastOp>(
+        divisor = rewriter.create<arith::IndexCastOp>(
             loc, divisor, rewriter.getIntegerType(64));
-        divisor = rewriter.create<UIToFPOp>(loc, elementType, divisor);
+        divisor = rewriter.create<arith::UIToFPOp>(loc, elementType, divisor);
       } else if (elementType.isa<IntegerType>()) {
-        divisor = rewriter.create<IndexCastOp>(loc, divisor, elementType);
+        divisor =
+            rewriter.create<arith::IndexCastOp>(loc, divisor, elementType);
       } else
         llvm_unreachable("unsupported element type");
 
@@ -335,9 +340,9 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       auto loadData = rewriter.create<KrnlLoadOp>(loc, alloc, meanIVs);
       Value meanVal;
       if (elementType.isa<FloatType>())
-        meanVal = rewriter.create<DivFOp>(loc, loadData, divisor);
+        meanVal = rewriter.create<arith::DivFOp>(loc, loadData, divisor);
       else if (elementType.isa<IntegerType>())
-        meanVal = rewriter.create<SignedDivIOp>(loc, loadData, divisor);
+        meanVal = rewriter.create<arith::DivSIOp>(loc, loadData, divisor);
       else
         llvm_unreachable("unsupported element type");
       rewriter.create<KrnlStoreOp>(loc, meanVal, alloc, meanIVs);
@@ -419,7 +424,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           convertToMemRefType(maskType), loc, rewriter, insertDealloc);
       falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 0);
       trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 1);
-      valueOne = rewriter.create<ConstantIndexOp>(loc, 1);
+      valueOne = rewriter.create<arith::ConstantIndexOp>(loc, 1);
       auto axesDim = axesVal.getType().cast<MemRefType>().getShape()[0];
 
       // Initialize mask to 0
@@ -429,16 +434,17 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           !llvm::dyn_cast<ONNXReduceSumOp>(op).noop_with_empty_axes()) {
         IndexExprScope axesloopContex(&rewriter, loc);
         MemRefBoundsIndexCapture axesBounds(axesVal);
-        auto zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
-        auto cond = rewriter.create<CmpIOp>(
-            loc, CmpIPredicate::eq, axesBounds.getDim(0).getValue(), zeroIndex);
+        auto zeroIndex = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+        auto cond =
+            rewriter.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq,
+                axesBounds.getDim(0).getValue(), zeroIndex);
         initVal = rewriter.create<SelectOp>(loc, cond, trueVal, falseVal);
       } else {
         // When axesDim is known, it can not be 0 due to !isFromNone
         initVal = falseVal;
       }
       for (auto i = 0; i < inRank; i++) {
-        Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
+        Value indexVal = rewriter.create<arith::ConstantIndexOp>(loc, i);
         rewriter.create<KrnlStoreOp>(loc, initVal, maskVal, indexVal);
       }
 
@@ -458,25 +464,25 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         // Loop body
         Value axe = rewriter.create<KrnlLoadOp>(
             loc, axesVal, axesLoops.getInductionVar(0));
-        auto cond =
-            rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, axe, zeroValue);
-        auto dim = rewriter.create<SelectOp>(
-            loc, cond, rewriter.create<AddIOp>(loc, axe, dataDimConst), axe);
-        Value jVal =
-            rewriter.create<IndexCastOp>(loc, rewriter.getIndexType(), dim);
+        auto cond = rewriter.create<arith::CmpIOp>(
+            loc, arith::CmpIPredicate::slt, axe, zeroValue);
+        auto dim = rewriter.create<SelectOp>(loc, cond,
+            rewriter.create<arith::AddIOp>(loc, axe, dataDimConst), axe);
+        Value jVal = rewriter.create<arith::IndexCastOp>(
+            loc, rewriter.getIndexType(), dim);
         rewriter.create<KrnlStoreOp>(loc, trueVal, maskVal, jVal);
         rewriter.restoreInsertionPoint(axesLoopBody);
       } else {
         for (auto i = 0; i < axesDim; i++) {
-          Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
+          Value indexVal = rewriter.create<arith::ConstantIndexOp>(loc, i);
           Value axe = rewriter.create<KrnlLoadOp>(loc, axesVal, indexVal);
           // Check negative
-          auto cond =
-              rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, axe, zeroValue);
-          auto dim = rewriter.create<SelectOp>(
-              loc, cond, rewriter.create<AddIOp>(loc, axe, dataDimConst), axe);
-          Value jVal =
-              rewriter.create<IndexCastOp>(loc, rewriter.getIndexType(), dim);
+          auto cond = rewriter.create<arith::CmpIOp>(
+              loc, arith::CmpIPredicate::slt, axe, zeroValue);
+          auto dim = rewriter.create<SelectOp>(loc, cond,
+              rewriter.create<arith::AddIOp>(loc, axe, dataDimConst), axe);
+          Value jVal = rewriter.create<arith::IndexCastOp>(
+              loc, rewriter.getIndexType(), dim);
           rewriter.create<KrnlStoreOp>(loc, trueVal, maskVal, jVal);
         }
       }
@@ -531,10 +537,10 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           if (dynamicAxes) {
             // Dim size: maskVal[i] ? 1 : inputDim[i]
             Value inputDim = createMemRef.dim(input, i);
-            Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
+            Value indexVal = rewriter.create<arith::ConstantIndexOp>(loc, i);
             auto mask = rewriter.create<KrnlLoadOp>(loc, maskVal, indexVal);
-            auto cond =
-                rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, mask, trueVal);
+            auto cond = rewriter.create<arith::CmpIOp>(
+                loc, arith::CmpIPredicate::eq, mask, trueVal);
             auto dim = rewriter.create<SelectOp>(loc, cond, valueOne, inputDim);
             allocOperands.push_back(dim);
           } else {
@@ -607,14 +613,14 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       inLoopIVs.push_back(args[i]);
     }
     // Value zeroIndex = nullptr;
-    Value zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
+    Value zeroIndex = rewriter.create<arith::ConstantIndexOp>(loc, 0);
     for (decltype(inRank) i = 0; i < outRank; ++i) {
       if (dynamicAxes) {
         // For the reduced dim, the output index is always 0
-        Value indexVal = rewriter.create<ConstantIndexOp>(loc, i);
+        Value indexVal = rewriter.create<arith::ConstantIndexOp>(loc, i);
         auto mask = rewriter.create<KrnlLoadOp>(loc, maskVal, indexVal);
-        auto cond =
-            rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, mask, trueVal);
+        auto cond = rewriter.create<arith::CmpIOp>(
+            loc, arith::CmpIPredicate::eq, mask, trueVal);
         auto dim =
             rewriter.create<SelectOp>(loc, cond, zeroIndex, inLoopIVs[i]);
         outLoopIVs.push_back(dim);
@@ -654,11 +660,12 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       IndexExpr divisorExpr = inputSizeExpr.floorDiv(outputSizeExpr);
       Value divisor = divisorExpr.getValue();
       if (elementType.isa<FloatType>()) {
-        divisor = rewriter.create<IndexCastOp>(
+        divisor = rewriter.create<arith::IndexCastOp>(
             loc, divisor, rewriter.getIntegerType(64));
-        divisor = rewriter.create<UIToFPOp>(loc, elementType, divisor);
+        divisor = rewriter.create<arith::UIToFPOp>(loc, elementType, divisor);
       } else if (elementType.isa<IntegerType>()) {
-        divisor = rewriter.create<IndexCastOp>(loc, divisor, elementType);
+        divisor =
+            rewriter.create<arith::IndexCastOp>(loc, divisor, elementType);
       } else
         llvm_unreachable("unsupported element type");
 
@@ -670,9 +677,9 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       auto loadData = rewriter.create<KrnlLoadOp>(loc, alloc, meanIVs);
       Value meanVal;
       if (elementType.isa<FloatType>())
-        meanVal = rewriter.create<DivFOp>(loc, loadData, divisor);
+        meanVal = rewriter.create<arith::DivFOp>(loc, loadData, divisor);
       else if (elementType.isa<IntegerType>())
-        meanVal = rewriter.create<SignedDivIOp>(loc, loadData, divisor);
+        meanVal = rewriter.create<arith::DivSIOp>(loc, loadData, divisor);
       else
         llvm_unreachable("unsupported element type");
       rewriter.create<KrnlStoreOp>(loc, meanVal, alloc, meanIVs);

@@ -44,7 +44,7 @@ namespace {
  * This pass insert KrnlInstrumentOp before and after each ONNX ops
  */
 
-class ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
+struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
                                 OperationPass<mlir::ModuleOp>> {
 
 private:
@@ -100,8 +100,14 @@ private:
 public:
   ONNXOpTransformPass() = default;
   ONNXOpTransformPass(const ONNXOpTransformPass &pass) {}
-  ONNXOpTransformPass(int threshold) {
-    this->onnxOpTransformThreshold = threshold;
+  ONNXOpTransformPass(int threshold_) {
+    this->onnxOpTransformThreshold = threshold_;
+  }
+
+  StringRef getArguement() const {return "onnx-op-transform";}
+
+  StringRef getDescription() const override {
+    return "Invoke passes iteratively that transform ONNX operation.";
   }
 
   Option<int> onnxOpTransformThreshold{*this, "onnx-op-transform-threshold",

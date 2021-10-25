@@ -78,7 +78,8 @@ struct ONNXConstantOpLowering : public ConversionPattern {
           rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
       auto numElementsValue = emitConstantOp(
           rewriter, loc, rewriter.getIntegerType(64), numElements);
-      tensorSize = rewriter.create<MulIOp>(loc, tensorSize, numElementsValue);
+      tensorSize =
+          rewriter.create<arith::MulIOp>(loc, tensorSize, numElementsValue);
 
       // Copy the value in the AllocOp.
       rewriter.create<KrnlMemcpyOp>(

@@ -47,7 +47,7 @@ struct ONNXShapeOpLowering : public ConversionPattern {
     uint64_t dataRank = shapeHelper.selectedData.size();
     for (uint64_t i = 0; i < dataRank; ++i) {
       Value val = shapeHelper.selectedData[i].getValue();
-      Value intVal = rewriter.create<IndexCastOp>(loc, val, elementType);
+      Value intVal = rewriter.create<arith::IndexCastOp>(loc, val, elementType);
       createKrnl.storeIE(intVal, alloc, {LiteralIndexExpr(i)});
     }
     rewriter.replaceOp(op, alloc);

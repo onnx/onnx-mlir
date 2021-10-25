@@ -1,9 +1,9 @@
 // RUN: onnx-mlir-opt --bundle-memory-pools --canonicalize %s -split-input-file | FileCheck %s
 
 func @test_pool_bundling(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> memref<10x20xf32> {
-  %c0_i64 = constant 0 : i64
-  %ind = constant 0 : index
-  %cst = constant 0.000000e+00 : f32
+  %c0_i64 = arith.constant 0 : i64
+  %ind = arith.constant 0 : index
+  %cst = arith.constant 0.000000e+00 : f32
   %0 = memref.alloc() : memref<10x20xf32>
   %1 = memref.alloc() {alignment = 4096 : i64} : memref<800xi8>
   %2 = "krnl.getref"(%1, %c0_i64) : (memref<800xi8>, i64) -> memref<10x20xf32>
@@ -29,12 +29,12 @@ func @test_pool_bundling(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> 
   return %0 : memref<10x20xf32>
 
   // CHECK-LABEL: test_pool_bundling
-  // CHECK-DAG: [[CONST_0:%.+]] = constant 0 : i64
-  // CHECK-DAG: [[CONST_0_INDEX:%.+]] = constant 0 : index
-  // CHECK-DAG: [[CONST_CST:%.+]] = constant 0.000000e+00 : f32
-  // CHECK-DAG: [[CONST_1200:%.+]] = constant 8192 : i64
-  // CHECK-DAG: [[CONST_800:%.+]] = constant 4096 : i64
-  // CHECK-DAG: [[CONST_400:%.+]] = constant 400 : i64
+  // CHECK-DAG: [[CONST_0:%.+]] = arith.constant 0 : i64
+  // CHECK-DAG: [[CONST_0_INDEX:%.+]] = arith.constant 0 : index
+  // CHECK-DAG: [[CONST_CST:%.+]] = arith.constant 0.000000e+00 : f32
+  // CHECK-DAG: [[CONST_1200:%.+]] = arith.constant 8192 : i64
+  // CHECK-DAG: [[CONST_800:%.+]] = arith.constant 4096 : i64
+  // CHECK-DAG: [[CONST_400:%.+]] = arith.constant 400 : i64
   // CHECK-DAG: [[RES:%.+]] = memref.alloc() : memref<10x20xf32>
   // CHECK-DAG: [[MEMPOOL_ALIGNED:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<8992xi8>
   // CHECK: [[MEMREF1:%.+]] = "krnl.getref"([[MEMPOOL_ALIGNED]], [[CONST_1200]]) : (memref<8992xi8>, i64) -> memref<10x20xf32>

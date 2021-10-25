@@ -117,7 +117,7 @@ char *createArrayFromDenseElementsAttr(DenseElementsAttr dataAttr) {
   if (elementType.isa<FloatType>()) {
     // Use double to avoid the precision loss during computation.
     double *resArr = (double *)res;
-    auto valueIt = dataAttr.getFloatValues().begin();
+    auto valueIt = dataAttr.getValues<APFloat>().begin();
     for (int64_t i = 0; i < numElements; ++i) {
       double val = (double)(*valueIt++).convertToFloat();
       *(resArr + i) = val;
@@ -125,7 +125,7 @@ char *createArrayFromDenseElementsAttr(DenseElementsAttr dataAttr) {
   } else if (elementType.isa<IntegerType>()) {
     // Use int64_t to avoid the precision loss during computation.
     int64_t *resArr = (int64_t *)res;
-    auto valueIt = dataAttr.getIntValues().begin();
+    auto valueIt = dataAttr.getValues<APInt>().begin();
     for (int64_t i = 0; i < numElements; ++i) {
       int64_t val = (*valueIt++).getSExtValue();
       *(resArr + i) = val;
