@@ -99,21 +99,18 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
   MathBuilder createMath(createKrnl);
   MemRefBuilder createMemref(createKrnl);
   IndexExprScope scope(createKrnl);
+  Type indexType = rewriter.getIndexType();
 
-  Type elementType =
-      maxOutputPerClass.getType().cast<MemRefType>().getElementType();
   MemRefBoundsIndexCapture scoreBounds(scores);
   IndexExpr bsIE = scoreBounds.getDim(0); // batch size.
   IndexExpr csIE = scoreBounds.getDim(1); // class size.
   IndexExpr ssIE = scoreBounds.getDim(2); // spatial size.
-  LiteralIndexExpr zeroIE(0);
-  Value zero = createMath.constant(elementType, 0);
-  Value one = createMath.constant(elementType, 1);
+  LiteralIndexExpr zeroIE(0), oneIE(1);
 
   // Compute the effective max output per class.
   Value effectiveMaxPerClass =
-      createMemref.alloca(MemRefType::get({}, elementType));
-  createKrnl.store(zero, effectiveMaxPerClass, {});
+      createMemref.alloca(MemRefType::get({}, indexType));
+  createKrnl.store(zeroIE.getValue(), effectiveMaxPerClass, {});
 
   ValueRange bcLoopDef = createKrnl.defineLoops(2);
   createKrnl.iterateIE(bcLoopDef, bcLoopDef, {zeroIE, zeroIE}, {bsIE, csIE},
@@ -125,8 +122,8 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
 
         // Store the number of scores whose value is greater than the
         // threshold. Counting is done per class.
-        Value topk = createMemref.alloca(MemRefType::get({}, elementType));
-        createKrnl.store(zero, topk, {});
+        Value topk = createMemref.alloca(MemRefType::get({}, indexType));
+        createKrnl.store(zeroIE.getValue(), topk, {});
 
         // Load the score threshold.
         Value threshold = createKrnl.loadIE(scoreThreshold, {zeroIE});
@@ -144,7 +141,7 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
               // Increase the counter if score > threshold.
               Value gt = createMath.sgt(score, threshold);
               Value topkVal = createKrnl.load(topk, {});
-              Value topkPlusOneVal = createMath.add(topkVal, one);
+              Value topkPlusOneVal = createMath.add(topkVal, oneIE.getValue());
               topkVal = createMath.select(gt, topkPlusOneVal, topkVal);
               createKrnl.store(topkVal, topk, {});
             });
@@ -156,9 +153,9 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
       });
 
   // Suppress the number of output bounding boxes per class.
-  Value x = createKrnl.loadIE(maxOutputPerClass, {zeroIE});
+  Value x = createKrnl.load(maxOutputPerClass, {});
   Value y = createKrnl.load(effectiveMaxPerClass, {});
-  createKrnl.storeIE(createMath.min(x, y), maxOutputPerClass, {zeroIE});
+  createKrnl.store(createMath.min(x, y), maxOutputPerClass, {});
 }
 
 /// Returns the indices that would sort the score tensor.
@@ -167,12 +164,9 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
 static Value emitArgSort(
     ConversionPatternRewriter &rewriter, Location loc, Value scores) {
   KrnlBuilder createKrnl(rewriter, loc);
-  MemRefBuilder createMemref(createKrnl);
-  MathBuilder createMath(createKrnl);
   IndexExprScope scope(createKrnl);
 
   MemRefType scoreMemRefType = scores.getType().cast<MemRefType>();
-  Type elementType = scoreMemRefType.getElementType();
   Type indexType = rewriter.getIndexType();
 
   MemRefBoundsIndexCapture scoreBounds(scores);
@@ -227,31 +221,32 @@ static Value emitArgSort(
 /// Bounding boxes may contain a mix of flipped and non-flipped boxes. Try to
 /// flip the flipped boxes back.
 /// BoundingBoxes: [num_of_batch, spatial_dimension, 4]
-static void tryToUnflip(
+static Value tryToUnflip(
     ConversionPatternRewriter &rewriter, Location loc, Value boundingBoxes) {
   KrnlBuilder createKrnl(rewriter, loc);
   MathBuilder createMath(createKrnl);
 
   MemRefBoundsIndexCapture bbBounds(boundingBoxes);
-  IndexExpr bsIE = bbBounds.getDim(0); // batch size.
-  IndexExpr ssIE = bbBounds.getDim(1); // spatial size.
-  LiteralIndexExpr zeroIE(0);
-  SmallVector<Value, 4> indices;
-  for (int i = 0; i < 4; ++i) {
-    Value iVal = createMath.constant(rewriter.getIndexType(), i);
-    indices.emplace_back(iVal);
-  }
+  IndexExpr bs = bbBounds.getDim(0); // batch size.
+  IndexExpr ss = bbBounds.getDim(1); // spatial size.
+  SmallVector<IndexExpr, 4> ubs;
+  bbBounds.getDimList(ubs);
+  LiteralIndexExpr zero(0), one(1), two(2), three(3);
+
+  Value resMemRef = insertAllocAndDeallocSimple(rewriter, nullptr,
+      boundingBoxes.getType().cast<MemRefType>(), loc, ubs,
+      /*insertDealloc=*/false);
 
   ValueRange loopDef = createKrnl.defineLoops(2);
-  createKrnl.iterateIE(loopDef, loopDef, {zeroIE, zeroIE}, {bsIE, ssIE},
+  createKrnl.iterateIE(loopDef, loopDef, {zero, zero}, {bs, ss},
       [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
         MathBuilder createMath(createKrnl);
-        Value b(loopInd[0]), c(loopInd[1]);
+        DimIndexExpr b(loopInd[0]), s(loopInd[1]);
         // Load a bounding box.
-        Value y_min = createKrnl.load(boundingBoxes, {b, c, indices[0]});
-        Value x_min = createKrnl.load(boundingBoxes, {b, c, indices[1]});
-        Value y_max = createKrnl.load(boundingBoxes, {b, c, indices[2]});
-        Value x_max = createKrnl.load(boundingBoxes, {b, c, indices[3]});
+        Value y_min = createKrnl.loadIE(boundingBoxes, {b, s, zero});
+        Value x_min = createKrnl.loadIE(boundingBoxes, {b, s, one});
+        Value y_max = createKrnl.loadIE(boundingBoxes, {b, s, two});
+        Value x_max = createKrnl.loadIE(boundingBoxes, {b, s, three});
 
         // Flip x.
         Value gtX = createMath.sgt(x_min, x_max);
@@ -264,11 +259,12 @@ static void tryToUnflip(
         Value newYMax = createMath.select(gtY, y_min, y_max);
 
         // Update the bounding box.
-        createKrnl.store(newYMin, boundingBoxes, {b, c, indices[0]});
-        createKrnl.store(newXMin, boundingBoxes, {b, c, indices[1]});
-        createKrnl.store(newYMax, boundingBoxes, {b, c, indices[2]});
-        createKrnl.store(newXMax, boundingBoxes, {b, c, indices[3]});
+        createKrnl.storeIE(newYMin, resMemRef, {b, s, zero});
+        createKrnl.storeIE(newXMin, resMemRef, {b, s, one});
+        createKrnl.storeIE(newYMax, resMemRef, {b, s, two});
+        createKrnl.storeIE(newXMax, resMemRef, {b, s, three});
       });
+  return resMemRef;
 }
 
 struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
@@ -298,7 +294,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
     Value scores = operandAdaptor.scores();
     Value boxes = operandAdaptor.boxes();
-    Value maxOutputPerClass = operandAdaptor.max_output_boxes_per_class();
+    Value maxOutputBoxPerClass = operandAdaptor.max_output_boxes_per_class();
     Value iouThreshold = operandAdaptor.iou_threshold();
     Value scoreThreshold = operandAdaptor.score_threshold();
     int64_t centerPointBox = nmsOp.center_point_box();
@@ -310,16 +306,18 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     IndexExpr bsIE = scoreBounds.getDim(0); // batch size.
     IndexExpr csIE = scoreBounds.getDim(1); // class size.
     IndexExpr ssIE = scoreBounds.getDim(2); // spatial size.
-    LiteralIndexExpr zeroIE(0), oneIE(1), threeIE(3);
+    LiteralIndexExpr zeroIE(0), oneIE(1), twoIE(2), threeIE(3);
     Value falseVal = createMath.constant(boolType, 0);
     Value trueVal = createMath.constant(boolType, 1);
 
     // Refine the number of output boxes per class by suppressing it using
     // spatial dimension size and score threshold.
+    Value maxOutputPerClass =
+        createMemref.alloca(MemRefType::get({}, indexType));
     // 1. Suppress by using spatial dimension size.
-    Value x = createKrnl.loadIE(maxOutputPerClass, {zeroIE});
-    Value y = rewriter.create<IndexCastOp>(loc, elementType, ssIE.getValue());
-    createKrnl.storeIE(createMath.min(x, y), maxOutputPerClass, {zeroIE});
+    Value x = createKrnl.loadIE(maxOutputBoxPerClass, {zeroIE});
+    x = rewriter.create<IndexCastOp>(loc, indexType, x);
+    createKrnl.store(createMath.min(x, ssIE.getValue()), maxOutputPerClass, {});
     // 2. Suppress by score threshold.
     suppressByScores(rewriter, loc, scores, scoreThreshold, maxOutputPerClass);
 
@@ -329,12 +327,15 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     // Bounding boxes may contain a mix of flipped and non-flipped boxes. Try to
     // unflip the flipped boxes.
     if (centerPointBox == 0)
-      tryToUnflip(rewriter, loc, boxes);
+      boxes = tryToUnflip(rewriter, loc, boxes);
+
+    // Global parameters.
+    Value scoreTH = createKrnl.loadIE(scoreThreshold, {zeroIE});
+    Value iouTH = createKrnl.loadIE(iouThreshold, {zeroIE});
+    Value MOPC = createKrnl.load(maxOutputPerClass, {});
 
     // The total number of output selected indices.
-    IndexExpr maxPerClassIE =
-        DimIndexExpr(createKrnl.loadIE(maxOutputPerClass, {zeroIE}));
-    IndexExpr numSelectedIndicesIE = bsIE * csIE * maxPerClassIE;
+    IndexExpr numSelectedIndicesIE = bsIE * csIE * DimIndexExpr(MOPC);
 
     // Allocate a MemRef for the output. This MemRef is NOT the final output
     // since the number of selected indices has yet not suppressed by IOU. So
@@ -348,10 +349,10 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
       outputShape.emplace_back(-1);
     outputShape.emplace_back(threeIE.getLiteral());
     Value selectedMemRef = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(outputShape, elementType), loc, outputDims,
+        MemRefType::get(outputShape, indexType), loc, outputDims,
         /*insertDealloc=*/false);
     // Initialize with value -1.
-    createKrnl.memset(selectedMemRef, createMath.constant(elementType, -1));
+    createKrnl.memset(selectedMemRef, createMath.constantIndex(-1));
 
     // Effective number of selected indices. This is the final value for the 1st
     // dim of the output, which is suppressed by IOU during computation and
@@ -363,14 +364,6 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
     // Suppress by using IOU.
     // Iterate over all bounding boxes in the descending order of scores.
-    Value zero = createMath.constantIndex(0);
-    Value one = createMath.constantIndex(1);
-    Value scoreTH = createKrnl.load(scoreThreshold, {zero});
-    Value iouTH = createKrnl.load(iouThreshold, {zero});
-    Value MOPC = createKrnl.load(maxOutputPerClass, {zero});
-    MOPC = rewriter.create<IndexCastOp>(loc, indexType, MOPC);
-    Value bs = bsIE.getValue(); // batch size.
-
     ValueRange bcLoopDef = createKrnl.defineLoops(2);
     createKrnl.iterateIE(bcLoopDef, bcLoopDef, {zeroIE, zeroIE}, {bsIE, csIE},
         [&](KrnlBuilder &createKrnl, ValueRange bcLoopInd) {
@@ -379,7 +372,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
           // Keep trace of the number of output boxes per class.
           Value effectiveMaxOutputPerClass =
               createMemref.alloca(MemRefType::get({}, indexType));
-          createKrnl.store(zero, effectiveMaxOutputPerClass, {});
+          createKrnl.store(zeroIE.getValue(), effectiveMaxOutputPerClass, {});
           // Keep trace of removed indices per class.
           SmallVector<IndexExpr, 1> dims = {ssIE};
           Value removedIndices = insertAllocAndDeallocSimple(rewriter, nullptr,
@@ -407,9 +400,10 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                 // 3. Bounding box has not yet been removed.
                 Value isRemoved = createKrnl.load(removedIndices, {s});
                 Value isNotRemoved = createMath.eq(isRemoved, falseVal);
+
+                // Only proceed if the box satisfies the above conditions.
                 Value canSelectBox = createMath._and(
                     createMath._and(checkScore, checkMOPC), isNotRemoved);
-
                 auto ifOp = rewriter.create<scf::IfOp>(
                     loc, canSelectBox, /*withElseRegion=*/false);
                 rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
@@ -426,20 +420,15 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                 // Compute the position to store the selected box.
                 // out_index = b * batch_size + c * max_output_per_class +
                 //             effective_max_output_per_class;
-                DimIndexExpr bIE(b), cIE(c), bsIE(bs);
+                DimIndexExpr bIE(b), cIE(c);
                 DimIndexExpr MOPCIE(MOPC), effectiveMOPCIE(currentMOPC);
                 IndexExpr soIE = bIE * bsIE + cIE * MOPCIE + effectiveMOPCIE;
 
-                // Store the index of the picked box to the output.
-                // selected_indices[out_index] = [ b, c, selected_box_index ]
-                LiteralIndexExpr zeroIE(0), oneIE(1), twoIE(2);
-                Value bVal = rewriter.create<IndexCastOp>(loc, elementType, b);
-                createKrnl.storeIE(bVal, selectedMemRef, {soIE, zeroIE});
-                Value cVal = rewriter.create<IndexCastOp>(loc, elementType, c);
-                createKrnl.storeIE(cVal, selectedMemRef, {soIE, oneIE});
-                Value biVal =
-                    rewriter.create<IndexCastOp>(loc, elementType, selectedBI);
-                createKrnl.storeIE(biVal, selectedMemRef, {soIE, twoIE});
+                // Store the index of the selected box to the output.
+                // selected_indices[out_index] = [b, c, selected_box_index]
+                createKrnl.storeIE(b, selectedMemRef, {soIE, zeroIE});
+                createKrnl.storeIE(c, selectedMemRef, {soIE, oneIE});
+                createKrnl.storeIE(selectedBI, selectedMemRef, {soIE, twoIE});
 
                 // Update the number of output boxes per class.
                 // effective_max_output_per_class += 1
@@ -503,11 +492,13 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
     // Copy data to the final ouput.
     ValueRange resLoopDef = createKrnl.defineLoops(2);
-    createKrnl.iterate(resLoopDef, resLoopDef, {zero, zero},
+    createKrnl.iterate(resLoopDef, resLoopDef,
+        {zeroIE.getValue(), zeroIE.getValue()},
         {effectiveNSI, threeIE.getValue()},
         [&](KrnlBuilder &createKrnl, ValueRange resLoopInd) {
           Value load = createKrnl.load(selectedMemRef, resLoopInd);
-          createKrnl.store(load, resMemRef, resLoopInd);
+          Value res = rewriter.create<IndexCastOp>(loc, elementType, load);
+          createKrnl.store(res, resMemRef, resLoopInd);
         });
 
     rewriter.replaceOp(op, resMemRef);
@@ -602,10 +593,12 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 //         for c in range(class_size):
 //             for i in range(spatial_size - 1):
 //                 for k in range(i+1, spatial_size):
-//                     if (scores[b, c, i] < scores[b, c, k]):
-//                         tmp = order[b, c, i]
-//                         order[b, c, i] = order[b, c, k] 
-//                         order[b, c, k] = tmp 
+//                      xOrd = order[b, c, i]
+//                      yOrd = order[b, c, k]
+//                      if (scores[b, c, xOrd] < scores[b, c, yOrd]):
+//                          tmp = order[b, c, i]
+//                          order[b, c, i] = order[b, c, k] 
+//                          order[b, c, k] = tmp 
 // 
 // 
 //     # Check if the coordinates are flipped. If so, flip them back.
