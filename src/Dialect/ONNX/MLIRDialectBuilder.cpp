@@ -73,6 +73,30 @@ Value MathBuilder::log2(Value val) const {
   return b.create<math::Log2Op>(loc, val);
 }
 
+Value MathBuilder::min(Value lhs, Value rhs) const {
+  assert(
+      lhs.getType() == rhs.getType() && "Two operands must have the same type");
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+    if (lhs.getType().isSignedInteger())
+      return b.create<MinSIOp>(loc, lhs, rhs);
+    else
+      return b.create<MinUIOp>(loc, lhs, rhs);
+  else
+    return b.create<MinFOp>(loc, lhs, rhs);
+}
+
+Value MathBuilder::max(Value lhs, Value rhs) const {
+  assert(
+      lhs.getType() == rhs.getType() && "Two operands must have the same type");
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+    if (lhs.getType().isSignedInteger())
+      return b.create<MaxSIOp>(loc, lhs, rhs);
+    else
+      return b.create<MaxUIOp>(loc, lhs, rhs);
+  else
+    return b.create<MaxFOp>(loc, lhs, rhs);
+}
+
 Value MathBuilder::sgt(Value lhs, Value rhs) const {
   if (lhs.getType().isa<IndexType, IntegerType>() ||
       lhs.getType().isa<IndexType>())
