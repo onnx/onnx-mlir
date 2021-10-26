@@ -3529,7 +3529,7 @@ static LogicalResult verify(ONNXDepthToSpaceOp op) {
 
   auto C = inputShape[1];
   uint64_t bs = blocksize.getZExtValue();
-  if (C % (bs * bs) != 0)
+  if (C != -1 && (bs * bs) != 0)
     return op.emitError("The input tensor depth must be divisible by the "
                         "(blocksize * blocksize)");
 

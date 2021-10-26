@@ -84,7 +84,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // dimensions, it uses the index expressions to retrieve the corresponding
 // values.
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
+    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
     bool insertDealloc, int64_t alignment) {
   // Constant, use the normal insert with no additional operands or alignment.
   if (hasAllConstantDimensions(type))
@@ -117,7 +117,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
 }
 
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
+    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
     int64_t alignment) {
 
   bool insertDealloc = checkInsertDealloc(op);
@@ -520,8 +520,8 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
 /// The new view is created using the given 'memRefType' and 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, MemRefType memRefType,
-    SmallVectorImpl<IndexExpr> &outputDims) {
+    Location loc, Value data, const MemRefType &memRefType,
+    const SmallVectorImpl<IndexExpr> &outputDims) {
   int64_t rank = memRefType.getRank();
 
   // Compute new sizes and strides.

@@ -69,11 +69,11 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // compile time relying on the above function, and extracting the runtime
 // definitions from the index expressions otherwise.
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
+    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
     int64_t alignment = -1);
 // Same where boolean to assert if dealloc is to be gen or not is specified
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
+    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
     bool insertDealloc, int64_t alignment = -1);
 
 // Determine if current function returns the result value of the
@@ -141,8 +141,8 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
 /// The new view is created using the given 'memRefType' and 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, MemRefType memRefType,
-    SmallVectorImpl<IndexExpr> &outputDims);
+    Location loc, Value data, const MemRefType &memRefType,
+    const SmallVectorImpl<IndexExpr> &outputDims);
 
 /// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
 /// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
@@ -331,6 +331,9 @@ void populateLoweringONNXConstantOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXConcatOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXDepthToSpaceOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXShapeOpPattern(
