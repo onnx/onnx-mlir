@@ -268,6 +268,7 @@ OpsWithShapeInference=[
     'Atan',
     'AveragePool',
     'Cast',
+    'Compress',
     'Concat',
     'Constant',
     'ConstantOfShape',
@@ -370,11 +371,13 @@ OpsWithCanonicalizer = [
 # Operations with custom verifiers (alphabetical order).
 OpsWithVerifier = [
     'AveragePool',
+    'Compress',
     'Conv',
     'DepthToSpace',
     'Expand',
     'InstanceNormalization',
     'Mod',
+    'NonMaxSuppression',
     'SpaceToDepth',
 ]
 
@@ -417,7 +420,7 @@ OpsWithResultTypeInference = {
 # an UnrankedTensorType whose element type is the same as the first operand's
 # element type.
 #
-# Currenlty, there are only two build methods generated:
+# Currently, there are only two build methods generated:
 #  - one with operands and attributes having a separate parameter, and
 #  - one with operands and attributes having aggregated parameters.
 custom_builder_unranked_ops_list = [

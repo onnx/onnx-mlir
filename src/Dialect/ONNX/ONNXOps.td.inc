@@ -610,6 +610,7 @@ def ONNXCompressOp:ONNX_Op<"Compress",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXConcatOp:ONNX_Op<"Concat",
@@ -3270,6 +3271,7 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
       return {4};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXNonZeroOp:ONNX_Op<"NonZero",
