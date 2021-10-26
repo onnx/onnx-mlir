@@ -2063,6 +2063,7 @@ def ONNXHardmaxOp:ONNX_Op<"Hardmax",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXIdentityOp:ONNX_Op<"Identity",

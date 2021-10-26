@@ -2206,3 +2206,13 @@ func @compress_no_axis(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x
 // CHECK:           return [[VAR_0_]] : tensor<?xf32>
 // CHECK:         }
 }
+
+// -----
+
+func @hardmax(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32>{
+  %0 = "onnx.Hardmax"(%arg0) {axis = 1 : si64} : (tensor<3x4x5xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+  // CHECK-LABEL: hardmax
+  // CHECK: [[RES:%.+]] = "onnx.Hardmax"(%arg0) {axis = 1 : si64} : (tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+  // CHECK: return [[RES]] : tensor<3x4x5xf32>
+}
