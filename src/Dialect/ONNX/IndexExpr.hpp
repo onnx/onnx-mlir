@@ -349,7 +349,7 @@ public:
   int getNumDims() const { return dims.size(); }
   int getNumSymbols() const { return symbols.size(); }
 
-  // Debug (enable using DEBUG=1 at top of file).
+  // Debug (enable using --debug-only=index_expr, for example).
   void debugPrint(const std::string &msg) const;
 
 private:
@@ -524,10 +524,10 @@ public:
   bool retrieveAffineMinMax(
       bool &isMin, SmallVectorImpl<Value> &vals, AffineMap &map) const;
 
-  // Debug (enable using DEBUG=1 at top of file).
-  void debugPrint(const std::string &msg, const bool forcePrint = false) const;
-  static void debugPrint(const std::string &msg,
-      const SmallVectorImpl<IndexExpr> &list, const bool forcePrint = false);
+  // Debug (enable running with --debug-only=index_expr, for example).
+  void debugPrint(const std::string &msg) const;
+  static void debugPrint(
+      const std::string &msg, const SmallVectorImpl<IndexExpr> &list);
 
 protected:
   // Private queries.

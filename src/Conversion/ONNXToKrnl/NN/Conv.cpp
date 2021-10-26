@@ -15,8 +15,6 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
-#define DEBUG_TRACE 0
-
 using namespace mlir;
 
 struct ONNXConvOpLowering : public ConversionPattern {
