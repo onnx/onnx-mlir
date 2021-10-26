@@ -29,6 +29,7 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+#include "llvm/Support/Debug.h"
 #include <string>
 
 using namespace mlir;
@@ -3527,9 +3528,10 @@ static LogicalResult verify(ONNXDepthToSpaceOp op) {
   if (blocksize.isNegative())
     return op.emitError("Blocksize should be non negative");
 
-  auto C = inputShape[1];
+  int64_t C = inputShape[1];
   uint64_t bs = blocksize.getZExtValue();
-  if (C != -1 && (bs * bs) != 0)
+
+  if (C != -1 && C % (bs * bs) != 0)
     return op.emitError("The input tensor depth must be divisible by the "
                         "(blocksize * blocksize)");
 
