@@ -127,9 +127,6 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
         Value topk = createMemref.alloca(MemRefType::get({}, indexType));
         createKrnl.store(zero, topk, {});
 
-        // Load the score threshold.
-        Value threshold = createKrnl.load(scoreThreshold, {zero});
-
         // Count the number of scores whose value is greater than the
         // threshold. Counting is done per class.
         ValueRange sLoopDef = createKrnl.defineLoops(1);
@@ -140,7 +137,7 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
 
               Value score = createKrnl.load(scores, {b, c, s});
               // Increase the counter if score > threshold.
-              Value gt = createMath.sgt(score, threshold);
+              Value gt = createMath.sgt(score, scoreThreshold);
               Value topkVal = createKrnl.load(topk, {});
               Value topkPlusOneVal = createMath.add(topkVal, one);
               topkVal = createMath.select(gt, topkPlusOneVal, topkVal);
@@ -299,28 +296,16 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     Value boxes = operandAdaptor.boxes();
     // Scores.
     Value scores = operandAdaptor.scores();
-    // Maximun number of output boxes per class.
-    Value maxOutputBoxPerClass = operandAdaptor.max_output_boxes_per_class();
-    if (maxOutputBoxPerClass.getType().isa<NoneType>()) {
-      maxOutputBoxPerClass = createMemref.alloca(MemRefType::get({1}, i64Type));
-      Value zero = createMath.constant(i64Type, 0);
-      createKrnl.store(zero, maxOutputBoxPerClass, {});
-    }
+    // Maximum number of output boxes per class.
+    Value maxOutputBoxPerClass = getOptionalScalarValue(
+        rewriter, loc, operandAdaptor.max_output_boxes_per_class(), i64Type, 0);
     // Score threshold.
     Type scoreType = scores.getType().cast<MemRefType>().getElementType();
-    Value scoreThreshold = operandAdaptor.score_threshold();
-    if (scoreThreshold.getType().isa<NoneType>()) {
-      scoreThreshold = createMemref.alloca(MemRefType::get({1}, scoreType));
-      Value zero = createMath.constant(scoreType, 0);
-      createKrnl.store(zero, scoreThreshold, {});
-    }
+    Value scoreTH = getOptionalScalarValue(
+        rewriter, loc, operandAdaptor.score_threshold(), scoreType, 0);
     // IOU threshold.
-    Value iouThreshold = operandAdaptor.iou_threshold();
-    if (iouThreshold.getType().isa<NoneType>()) {
-      iouThreshold = createMemref.alloca(MemRefType::get({1}, scoreType));
-      Value zero = createMath.constant(scoreType, 0);
-      createKrnl.store(zero, iouThreshold, {});
-    }
+    Value iouTH = getOptionalScalarValue(
+        rewriter, loc, operandAdaptor.iou_threshold(), scoreType, 0);
     // Mode: diagonal corners or center point.
     int64_t centerPointBox = nmsOp.center_point_box();
 
@@ -348,11 +333,11 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     Value maxOutputPerClass =
         createMemref.alloca(MemRefType::get({}, indexType));
     // 1. Suppress by using spatial dimension size.
-    Value x = createKrnl.load(maxOutputBoxPerClass, {zero});
-    x = rewriter.create<arith::IndexCastOp>(loc, indexType, x);
+    Value x = rewriter.create<arith::IndexCastOp>(
+        loc, indexType, maxOutputBoxPerClass);
     createKrnl.store(createMath.min(x, ss), maxOutputPerClass, {});
     // 2. Suppress by score threshold.
-    suppressByScores(rewriter, loc, scores, scoreThreshold, maxOutputPerClass);
+    suppressByScores(rewriter, loc, scores, scoreTH, maxOutputPerClass);
 
     // Sort scores in the descending order.
     Value order = emitArgSort(rewriter, loc, scores);
@@ -363,8 +348,6 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
       boxes = tryToUnflip(rewriter, loc, boxes);
 
     // Global parameters of NonMaxSuppression.
-    Value scoreTH = createKrnl.load(scoreThreshold, {zero});
-    Value iouTH = createKrnl.load(iouThreshold, {zero});
     Value MOPC = createKrnl.load(maxOutputPerClass, {});
 
     // The total number of output selected indices.
