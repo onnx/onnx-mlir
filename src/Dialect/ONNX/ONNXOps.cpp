@@ -3769,17 +3769,18 @@ static LogicalResult verify(ONNXNonMaxSuppressionOp op) {
       return op.emitError("scores should have a rank of three");
 
   if (hasShapeAndRank(MOPC))
-    if (MOPC.getType().cast<ShapedType>().getRank() != 1)
+    if (MOPC.getType().cast<ShapedType>().getRank() > 1)
       return op.emitError(
-          "max_output_boxex_per_class should have a rank of one");
+          "max_output_boxex_per_class should have a rank of zero or one");
 
   if (hasShapeAndRank(scoreThreshold))
-    if (scoreThreshold.getType().cast<ShapedType>().getRank() != 1)
-      return op.emitError("score_threshold should have a rank of one");
+    if (scoreThreshold.getType().cast<ShapedType>().getRank() > 1)
+      return op.emitError("score_threshold should have a rank of zero or one");
 
   if (hasShapeAndRank(iouThreshold))
-    if (iouThreshold.getType().cast<ShapedType>().getRank() != 1)
-      return op.emitError("iou_threshold should have a rank of one");
+    if (iouThreshold.getType().cast<ShapedType>().getRank() > 1)
+      return op.emitError("iou_threshold should have a rank of zero or one");
+
   return success();
 }
 

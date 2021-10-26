@@ -399,3 +399,9 @@ Location ONNXLoc(Operation *op) {
       Identifier::get(OP_TYPE::getOperationName(), op->getContext()),
       op->getLoc());
 }
+
+/// This function returns a scalar of type 'dtype' from an optional value.
+/// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>. Default
+/// value is used in case of NoneType.
+Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
+    Value optionalScalar, Type elementType, double defaultValue);
