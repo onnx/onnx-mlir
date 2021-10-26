@@ -3773,13 +3773,11 @@ static LogicalResult verify(ONNXNonMaxSuppressionOp op) {
 
   if (hasShapeAndRank(scoreThreshold))
     if (scoreThreshold.getType().cast<ShapedType>().getRank() != 1)
-      return op.emitError(
-          "score_threshold should have a rank of one");
+      return op.emitError("score_threshold should have a rank of one");
 
   if (hasShapeAndRank(iouThreshold))
     if (iouThreshold.getType().cast<ShapedType>().getRank() != 1)
-      return op.emitError(
-          "iou_threshold should have a rank of one");
+      return op.emitError("iou_threshold should have a rank of one");
   return success();
 }
 
