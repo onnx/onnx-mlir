@@ -3745,9 +3745,49 @@ LogicalResult ONNXMultinomialOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXNonMaxSuppressionOp op) {
+  ONNXNonMaxSuppressionOpAdaptor operandAdaptor =
+      ONNXNonMaxSuppressionOpAdaptor(op);
+  // Get operands.
+  auto boxes = operandAdaptor.boxes();
+  auto scores = operandAdaptor.scores();
+  auto MOPC = operandAdaptor.max_output_boxes_per_class();
+  auto scoreThreshold = operandAdaptor.score_threshold();
+  auto iouThreshold = operandAdaptor.iou_threshold();
+
+  // Check operands.
+  if (hasShapeAndRank(boxes)) {
+    auto shape = boxes.getType().cast<ShapedType>().getShape();
+    if (shape.size() != 3)
+      return op.emitError("boxes should have a rank of three");
+    if (shape[2] != -1 && shape[2] != 4)
+      return op.emitError("The last dim of Boxes should be four");
+  }
+
+  if (hasShapeAndRank(scores))
+    if (scores.getType().cast<ShapedType>().getRank() != 3)
+      return op.emitError("scores should have a rank of three");
+
+  if (hasShapeAndRank(MOPC))
+    if (MOPC.getType().cast<ShapedType>().getRank() != 1)
+      return op.emitError(
+          "max_output_boxex_per_class should have a rank of one");
+
+  if (hasShapeAndRank(scoreThreshold))
+    if (scoreThreshold.getType().cast<ShapedType>().getRank() != 1)
+      return op.emitError("score_threshold should have a rank of one");
+
+  if (hasShapeAndRank(iouThreshold))
+    if (iouThreshold.getType().cast<ShapedType>().getRank() != 1)
+      return op.emitError("iou_threshold should have a rank of one");
+  return success();
+}
+
 LogicalResult ONNXNonMaxSuppressionOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  auto b = mlir::Builder(getContext());
+  getResult().setType(RankedTensorType::get({-1, 3}, b.getI64Type()));
+  return success();
 }
 
 LogicalResult ONNXNonZeroOp::inferShapes(
