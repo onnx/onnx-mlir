@@ -172,6 +172,47 @@ Value MathBuilder::constantIndex(int64_t val) const {
   return b.create<arith::ConstantOp>(loc, constantAttr);
 }
 
+Value MathBuilder::convert(Value val, Type destType) const {
+  Type valType = val.getType();
+  ShapedType valShapedType = valType.dyn_cast_or_null<ShapedType>();
+  Type valElementType =
+      valShapedType ? valShapedType.getElementType() : valType;
+  ShapedType destShapedType = destType.dyn_cast_or_null<ShapedType>();
+  Type destElementType =
+      destShapedType ? destShapedType.getElementType() : destType;
+  // If we have a shaped size, make sure they are compatible.
+  if (valShapedType) {
+    assert(destShapedType && "expected dest to be a shaped type too");
+    assert(valShapedType.getRank() == destShapedType.getRank() &&
+           "expected same rank");
+    for (int i = 0; i < valShapedType.getRank(); ++i)
+      assert(valShapedType.getDimSize(i) == destShapedType.getDimSize(i) &&
+             "expected same dim sizes");
+  }
+  // Do we need a conversion? If not, we are done.
+  if (valElementType == destElementType)
+    return val;
+
+  TypeSwitch<Type>(destElementType)
+      .Case<Float16Type>([&](Type) {
+        
+      })
+      .Case<Float32Type>([&](Type) {
+      })
+      .Case<Float64Type>([&](Type) {
+      })
+      .Case<IntegerType>([&](IntegerType destIntegerTy) {
+        bool destIsSigned = ! destIntegerTy.isUnsigned();
+        int64_t destWidth = destIntegerTy.getWidth();
+      })
+      .Case<IndexType>([&](Type) { 
+       })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
+
+  // to do fix
+  return val;
+}
+
 //===----------------------------------------------------------------------===//
 // Memref support, including inserting default alignment.
 //===----------------------------------------------------------------------===//
