@@ -53,6 +53,7 @@ func @test_nonmaxsuppression_center_point_box_format(%arg0: tensor<1x6x4xf32>, %
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
 // CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
+// CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x6xindex>
 // CHECK-DAG:       [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = 0 to 1, [[LOOP_2_]]#1 -> [[I_4_:%.+]] = 0 to 1, [[LOOP_2_]]#2 -> [[I_5_:%.+]] = 0 to 6) {
@@ -77,7 +78,6 @@ func @test_nonmaxsuppression_center_point_box_format(%arg0: tensor<1x6x4xf32>, %
 // CHECK:               }
 // CHECK:             }
 // CHECK:           }
-// CHECK:           [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK:           [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_1_]]) {{.*}}: memref<?x3xindex>
 // CHECK:           krnl.memset [[RES_4_]], [[VAR_c_minus_1_]] : memref<?x3xindex>
 // CHECK:           [[RES_5_:%.+]] = memref.alloca() : memref<index>
@@ -248,6 +248,7 @@ func @test_nonmaxsuppression_flipped_coordinates(%arg0: tensor<1x6x4xf32>, %arg1
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
 // CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
+// CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x6xindex>
 // CHECK-DAG:       [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = 0 to 1, [[LOOP_2_]]#1 -> [[I_4_:%.+]] = 0 to 1, [[LOOP_2_]]#2 -> [[I_5_:%.+]] = 0 to 6) {
@@ -292,7 +293,6 @@ func @test_nonmaxsuppression_flipped_coordinates(%arg0: tensor<1x6x4xf32>, %arg1
 // CHECK:             krnl.store [[VAR_33_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[LOAD_SCORES_MEM_3_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK:           }
-// CHECK:           [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK:           [[RES_5_:%.+]] = memref.alloc([[LOAD_RES_MEM_1_]]) {{.*}}: memref<?x3xindex>
 // CHECK:           krnl.memset [[RES_5_]], [[VAR_c_minus_1_]] : memref<?x3xindex>
 // CHECK:           [[RES_6_:%.+]] = memref.alloca() : memref<index>
@@ -444,6 +444,7 @@ func @test_nonmaxsuppression_identical_boxes(%arg0: tensor<1x10x4xf32>, %arg1: t
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
 // CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
+// CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x10xindex>
 // CHECK-DAG:       [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = 0 to 1, [[LOOP_2_]]#1 -> [[I_4_:%.+]] = 0 to 1, [[LOOP_2_]]#2 -> [[I_5_:%.+]] = 0 to 10) {
@@ -488,7 +489,6 @@ func @test_nonmaxsuppression_identical_boxes(%arg0: tensor<1x10x4xf32>, %arg1: t
 // CHECK:             krnl.store [[VAR_33_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x10x4xf32>
 // CHECK:             krnl.store [[LOAD_SCORES_MEM_3_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c3_]]{{.}} : memref<1x10x4xf32>
 // CHECK:           }
-// CHECK:           [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK:           [[RES_5_:%.+]] = memref.alloc([[LOAD_RES_MEM_1_]]) {{.*}}: memref<?x3xindex>
 // CHECK:           krnl.memset [[RES_5_]], [[VAR_c_minus_1_]] : memref<?x3xindex>
 // CHECK:           [[RES_6_:%.+]] = memref.alloca() : memref<index>
@@ -640,6 +640,7 @@ func @test_nonmaxsuppression_limit_output_size(%arg0: tensor<1x6x4xf32>, %arg1: 
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
 // CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
+// CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x6xindex>
 // CHECK-DAG:       [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = 0 to 1, [[LOOP_2_]]#1 -> [[I_4_:%.+]] = 0 to 1, [[LOOP_2_]]#2 -> [[I_5_:%.+]] = 0 to 6) {
@@ -684,7 +685,6 @@ func @test_nonmaxsuppression_limit_output_size(%arg0: tensor<1x6x4xf32>, %arg1: 
 // CHECK:             krnl.store [[VAR_33_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[LOAD_SCORES_MEM_3_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK:           }
-// CHECK:           [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK:           [[RES_5_:%.+]] = memref.alloc([[LOAD_RES_MEM_1_]]) {{.*}}: memref<?x3xindex>
 // CHECK:           krnl.memset [[RES_5_]], [[VAR_c_minus_1_]] : memref<?x3xindex>
 // CHECK:           [[RES_6_:%.+]] = memref.alloca() : memref<index>
@@ -835,6 +835,7 @@ func @test_nonmaxsuppression_single_box(%arg0: tensor<1x1x4xf32>, %arg1: tensor<
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
 // CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
+// CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x1xindex>
 // CHECK-DAG:       [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = 0 to 1, [[LOOP_2_]]#1 -> [[I_4_:%.+]] = 0 to 1, [[LOOP_2_]]#2 -> [[I_5_:%.+]] = 0 to 1) {
@@ -879,7 +880,6 @@ func @test_nonmaxsuppression_single_box(%arg0: tensor<1x1x4xf32>, %arg1: tensor<
 // CHECK:             krnl.store [[VAR_33_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x1x4xf32>
 // CHECK:             krnl.store [[LOAD_SCORES_MEM_3_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c3_]]{{.}} : memref<1x1x4xf32>
 // CHECK:           }
-// CHECK:           [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK:           [[RES_5_:%.+]] = memref.alloc([[LOAD_RES_MEM_1_]]) {{.*}}: memref<?x3xindex>
 // CHECK:           krnl.memset [[RES_5_]], [[VAR_c_minus_1_]] : memref<?x3xindex>
 // CHECK:           [[RES_6_:%.+]] = memref.alloca() : memref<index>
@@ -1031,6 +1031,7 @@ func @test_nonmaxsuppression_suppress_by_IOU(%arg0: tensor<1x6x4xf32>, %arg1: te
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
 // CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
+// CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x6xindex>
 // CHECK-DAG:       [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = 0 to 1, [[LOOP_2_]]#1 -> [[I_4_:%.+]] = 0 to 1, [[LOOP_2_]]#2 -> [[I_5_:%.+]] = 0 to 6) {
@@ -1075,7 +1076,6 @@ func @test_nonmaxsuppression_suppress_by_IOU(%arg0: tensor<1x6x4xf32>, %arg1: te
 // CHECK:             krnl.store [[VAR_33_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[LOAD_SCORES_MEM_3_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK:           }
-// CHECK:           [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK:           [[RES_5_:%.+]] = memref.alloc([[LOAD_RES_MEM_1_]]) {{.*}}: memref<?x3xindex>
 // CHECK:           krnl.memset [[RES_5_]], [[VAR_c_minus_1_]] : memref<?x3xindex>
 // CHECK:           [[RES_6_:%.+]] = memref.alloca() : memref<index>
@@ -1227,6 +1227,7 @@ func @test_nonmaxsuppression_suppress_by_IOU_and_scores(%arg0: tensor<1x6x4xf32>
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
 // CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
+// CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x6xindex>
 // CHECK-DAG:       [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = 0 to 1, [[LOOP_2_]]#1 -> [[I_4_:%.+]] = 0 to 1, [[LOOP_2_]]#2 -> [[I_5_:%.+]] = 0 to 6) {
@@ -1271,7 +1272,6 @@ func @test_nonmaxsuppression_suppress_by_IOU_and_scores(%arg0: tensor<1x6x4xf32>
 // CHECK:             krnl.store [[VAR_33_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[LOAD_SCORES_MEM_3_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK:           }
-// CHECK:           [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK:           [[RES_5_:%.+]] = memref.alloc([[LOAD_RES_MEM_1_]]) {{.*}}: memref<?x3xindex>
 // CHECK:           krnl.memset [[RES_5_]], [[VAR_c_minus_1_]] : memref<?x3xindex>
 // CHECK:           [[RES_6_:%.+]] = memref.alloca() : memref<index>
@@ -1425,6 +1425,7 @@ func @test_nonmaxsuppression_two_batches(%arg0: tensor<2x6x4xf32>, %arg1: tensor
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
 // CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
+// CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2x1x6xindex>
 // CHECK-DAG:       [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = 0 to 2, [[LOOP_2_]]#1 -> [[I_4_:%.+]] = 0 to 1, [[LOOP_2_]]#2 -> [[I_5_:%.+]] = 0 to 6) {
@@ -1469,7 +1470,6 @@ func @test_nonmaxsuppression_two_batches(%arg0: tensor<2x6x4xf32>, %arg1: tensor
 // CHECK:             krnl.store [[VAR_34_1_]], [[RES_4_]]{{.}}[[VAR_24_3_]]#0, [[VAR_24_3_]]#1, [[VAR_c2_]]{{.}} : memref<2x6x4xf32>
 // CHECK:             krnl.store [[LOAD_SCORES_MEM_3_]], [[RES_4_]]{{.}}[[VAR_24_3_]]#0, [[VAR_24_3_]]#1, [[VAR_c3_]]{{.}} : memref<2x6x4xf32>
 // CHECK:           }
-// CHECK:           [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK:           [[VAR_17_:%.+]] = affine.apply #map1(){{.}}[[LOAD_RES_MEM_1_]]{{.}}
 // CHECK:           [[RES_5_:%.+]] = memref.alloc([[VAR_17_]]) {{.*}}: memref<?x3xindex>
 // CHECK:           krnl.memset [[RES_5_]], [[VAR_c_minus_1_]] : memref<?x3xindex>
@@ -1624,6 +1624,7 @@ func @test_nonmaxsuppression_two_classes(%arg0: tensor<1x6x4xf32>, %arg1: tensor
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
 // CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
+// CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x2x6xindex>
 // CHECK-DAG:       [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = 0 to 1, [[LOOP_2_]]#1 -> [[I_4_:%.+]] = 0 to 2, [[LOOP_2_]]#2 -> [[I_5_:%.+]] = 0 to 6) {
@@ -1668,7 +1669,6 @@ func @test_nonmaxsuppression_two_classes(%arg0: tensor<1x6x4xf32>, %arg1: tensor
 // CHECK:             krnl.store [[VAR_34_1_]], [[RES_4_]]{{.}}[[VAR_24_3_]]#0, [[VAR_24_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[LOAD_SCORES_MEM_3_]], [[RES_4_]]{{.}}[[VAR_24_3_]]#0, [[VAR_24_3_]]#1, [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK:           }
-// CHECK:           [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK:           [[VAR_17_:%.+]] = affine.apply #map1(){{.}}[[LOAD_RES_MEM_1_]]{{.}}
 // CHECK:           [[RES_5_:%.+]] = memref.alloc([[VAR_17_]]) {{.*}}: memref<?x3xindex>
 // CHECK:           krnl.memset [[RES_5_]], [[VAR_c_minus_1_]] : memref<?x3xindex>
@@ -1835,21 +1835,22 @@ func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tenso
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
 // CHECK:           [[VAR_16_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_16_]], [[RES_]][] : memref<index>
-// CHECK-DAG:       [[VAR_17_:%.+]] = memref.dim [[SCORES_]], [[VAR_c0_]] : memref<?x?x?xf32>
-// CHECK-DAG:       [[VAR_18_:%.+]] = memref.dim [[SCORES_]], [[VAR_c1_]] : memref<?x?x?xf32>
-// CHECK-DAG:       [[VAR_19_:%.+]] = memref.dim [[SCORES_]], [[VAR_c2_]] : memref<?x?x?xf32>
+// CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[VAR_18_:%.+]] = memref.dim [[SCORES_]], [[VAR_c0_]] : memref<?x?x?xf32>
+// CHECK-DAG:       [[VAR_19_:%.+]] = memref.dim [[SCORES_]], [[VAR_c1_]] : memref<?x?x?xf32>
+// CHECK-DAG:       [[VAR_20_:%.+]] = memref.dim [[SCORES_]], [[VAR_c2_]] : memref<?x?x?xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc([[VAR_17_]], [[VAR_18_]], [[VAR_19_]]) {{.*}}: memref<?x?x?xindex>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc([[VAR_18_]], [[VAR_19_]], [[VAR_20_]]) {{.*}}: memref<?x?x?xindex>
 // CHECK-DAG:       [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
-// CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = 0 to #map0([[VAR_17_]]), [[LOOP_2_]]#1 -> [[I_4_:%.+]] = 0 to #map1([[VAR_17_]], [[VAR_18_]]), [[LOOP_2_]]#2 -> [[I_5_:%.+]] = 0 to #map2([[VAR_17_]], [[VAR_18_]], [[VAR_19_]])) {
+// CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = 0 to #map0([[VAR_18_]]), [[LOOP_2_]]#1 -> [[I_4_:%.+]] = 0 to #map1([[VAR_18_]], [[VAR_19_]]), [[LOOP_2_]]#2 -> [[I_5_:%.+]] = 0 to #map2([[VAR_18_]], [[VAR_19_]], [[VAR_20_]])) {
 // CHECK:             [[VAR_32_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             krnl.store [[VAR_32_1_]]#2, [[RES_3_]]{{.}}[[VAR_32_1_]]#0, [[VAR_32_1_]]#1, [[VAR_32_1_]]#2] : memref<?x?x?xindex>
 // CHECK:           }
 // CHECK:           [[LOOP_3_:%.+]]:3 = krnl.define_loops 3
-// CHECK:           krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1, [[LOOP_3_]]#2) with ([[LOOP_3_]]#0 -> [[I_6_:%.+]] = 0 to #map3([[VAR_17_]], [[VAR_18_]], [[VAR_19_]]), [[LOOP_3_]]#1 -> [[I_7_:%.+]] = 0 to #map4([[VAR_17_]], [[VAR_18_]], [[VAR_19_]]), [[LOOP_3_]]#2 -> [[I_8_:%.+]] = 0 to #map5([[VAR_17_]], [[VAR_18_]], [[VAR_19_]])) {
+// CHECK:           krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1, [[LOOP_3_]]#2) with ([[LOOP_3_]]#0 -> [[I_6_:%.+]] = 0 to #map3([[VAR_18_]], [[VAR_19_]], [[VAR_20_]]), [[LOOP_3_]]#1 -> [[I_7_:%.+]] = 0 to #map4([[VAR_18_]], [[VAR_19_]], [[VAR_20_]]), [[LOOP_3_]]#2 -> [[I_8_:%.+]] = 0 to #map5([[VAR_18_]], [[VAR_19_]], [[VAR_20_]])) {
 // CHECK-DAG:         [[VAR_32_2_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1, [[LOOP_3_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:         [[LOOP_4_:%.+]] = krnl.define_loops 1
-// CHECK:             krnl.iterate([[LOOP_4_]]) with ([[LOOP_4_]] -> [[I_9_:%.+]] = #map6([[VAR_17_]], [[VAR_18_]], [[VAR_19_]], [[VAR_32_2_]]#2) to #map7([[VAR_17_]], [[VAR_18_]], [[VAR_19_]], [[VAR_32_2_]]#2)) {
+// CHECK:             krnl.iterate([[LOOP_4_]]) with ([[LOOP_4_]] -> [[I_9_:%.+]] = #map6([[VAR_18_]], [[VAR_19_]], [[VAR_20_]], [[VAR_32_2_]]#2) to #map7([[VAR_18_]], [[VAR_19_]], [[VAR_20_]], [[VAR_32_2_]]#2)) {
 // CHECK-DAG:           [[LOOP_1_:%.+]] = krnl.get_induction_var_value([[LOOP_4_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_32_2_]]#0, [[VAR_32_2_]]#1, [[VAR_32_2_]]#2] : memref<?x?x?xindex>
 // CHECK-NOT: separator of consecutive DAGs
@@ -1863,8 +1864,7 @@ func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tenso
 // CHECK:               }
 // CHECK:             }
 // CHECK:           }
-// CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
-// CHECK-DAG:       [[VAR_24_:%.+]] = arith.muli [[VAR_3_]], [[VAR_4_]] : index
+// CHECK:           [[VAR_24_:%.+]] = arith.muli [[VAR_3_]], [[VAR_4_]] : index
 // CHECK:           [[VAR_25_:%.+]] = arith.muli [[VAR_24_]], [[LOAD_RES_MEM_1_]] : index
 // CHECK:           [[RES_4_:%.+]] = memref.alloc([[VAR_25_]]) {{.*}}: memref<?x3xindex>
 // CHECK:           krnl.memset [[RES_4_]], [[VAR_c_minus_1_]] : memref<?x3xindex>

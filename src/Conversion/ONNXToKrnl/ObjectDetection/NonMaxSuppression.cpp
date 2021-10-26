@@ -338,6 +338,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     createKrnl.store(createMath.min(x, ss), maxOutputPerClass, {});
     // 2. Suppress by score threshold.
     suppressByScores(rewriter, loc, scores, scoreTH, maxOutputPerClass);
+    Value MOPC = createKrnl.load(maxOutputPerClass, {});
 
     // Sort scores in the descending order.
     Value order = emitArgSort(rewriter, loc, scores);
@@ -346,9 +347,6 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     // unflip the flipped boxes.
     if (centerPointBox == 0)
       boxes = tryToUnflip(rewriter, loc, boxes);
-
-    // Global parameters of NonMaxSuppression.
-    Value MOPC = createKrnl.load(maxOutputPerClass, {});
 
     // The total number of output selected indices.
     IndexExpr numSelectedIndicesIE = bsIE * csIE * DimIndexExpr(MOPC);
