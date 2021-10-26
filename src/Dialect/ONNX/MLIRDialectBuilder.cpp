@@ -28,31 +28,37 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 
 Value MathBuilder::_and(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   return b.create<arith::AndIOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::_or(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   return b.create<arith::OrIOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::add(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::AddIOp>(loc, lhs, rhs);
   return b.create<arith::AddFOp>(loc, lhs, rhs);
 }
 Value MathBuilder::sub(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::SubIOp>(loc, lhs, rhs);
   return b.create<arith::SubFOp>(loc, lhs, rhs);
 }
 Value MathBuilder::mul(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::MulIOp>(loc, lhs, rhs);
   return b.create<arith::MulFOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::div(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<FloatType>() && rhs.getType().isa<FloatType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<FloatType>())
     return b.create<arith::DivFOp>(loc, lhs, rhs);
   else
     llvm_unreachable("Only support float type at this moment.");
@@ -74,8 +80,7 @@ Value MathBuilder::log2(Value val) const {
 }
 
 Value MathBuilder::min(Value lhs, Value rhs) const {
-  assert(
-      lhs.getType() == rhs.getType() && "Two operands must have the same type");
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     if (lhs.getType().isSignedInteger())
       return b.create<MinSIOp>(loc, lhs, rhs);
@@ -86,8 +91,7 @@ Value MathBuilder::min(Value lhs, Value rhs) const {
 }
 
 Value MathBuilder::max(Value lhs, Value rhs) const {
-  assert(
-      lhs.getType() == rhs.getType() && "Two operands must have the same type");
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     if (lhs.getType().isSignedInteger())
       return b.create<MaxSIOp>(loc, lhs, rhs);
@@ -98,48 +102,49 @@ Value MathBuilder::max(Value lhs, Value rhs) const {
 }
 
 Value MathBuilder::sgt(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IndexType, IntegerType>() ||
-      lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt, lhs, rhs);
   return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGT, lhs, rhs);
 }
 
 Value MathBuilder::sge(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IndexType, IntegerType>() ||
-      lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, lhs, rhs);
   return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGE, lhs, rhs);
 }
 
 Value MathBuilder::slt(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IndexType, IntegerType>() ||
-      lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt, lhs, rhs);
   return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OLT, lhs, rhs);
 }
 
 Value MathBuilder::sle(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IndexType, IntegerType>() ||
-      lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sle, lhs, rhs);
   return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OLE, lhs, rhs);
 }
 
 Value MathBuilder::eq(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IndexType, IntegerType>() ||
-      lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq, lhs, rhs);
   return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, lhs, rhs);
 }
 
 Value MathBuilder::neq(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IndexType, IntegerType>() ||
-      lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ne, lhs, rhs);
   return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::ONE, lhs, rhs);
 }
 
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   return b.create<SelectOp>(loc, cmp, lhs, rhs);
 }
 
@@ -172,45 +177,128 @@ Value MathBuilder::constantIndex(int64_t val) const {
   return b.create<arith::ConstantOp>(loc, constantAttr);
 }
 
-Value MathBuilder::convert(Value val, Type destType) const {
-  Type valType = val.getType();
-  ShapedType valShapedType = valType.dyn_cast_or_null<ShapedType>();
-  Type valElementType =
-      valShapedType ? valShapedType.getElementType() : valType;
+// Methods inspired from MLIR TosaToLinalg CastOp.
+// Handle here either elementary types (such as int/float) or shaped type of
+// elementary types. Does not handle Index Type here.
+Value MathBuilder::cast(Value src, Type destType) const {
+  // Get elementary types.
+  Type srcType = src.getType();
+  ShapedType srcShapedType = srcType.dyn_cast_or_null<ShapedType>();
+  Type srcElementType =
+      srcShapedType ? srcShapedType.getElementType() : srcType;
   ShapedType destShapedType = destType.dyn_cast_or_null<ShapedType>();
   Type destElementType =
       destShapedType ? destShapedType.getElementType() : destType;
-  // If we have a shaped size, make sure they are compatible.
-  if (valShapedType) {
-    assert(destShapedType && "expected dest to be a shaped type too");
-    assert(valShapedType.getRank() == destShapedType.getRank() &&
-           "expected same rank");
-    for (int i = 0; i < valShapedType.getRank(); ++i)
-      assert(valShapedType.getDimSize(i) == destShapedType.getDimSize(i) &&
-             "expected same dim sizes");
-  }
   // Do we need a conversion? If not, we are done.
-  if (valElementType == destElementType)
-    return val;
+  if (srcElementType == destElementType)
+    return src;
+  // No index expressions allowed.
+  assert(!srcElementType.isIndex() && !destElementType.isIndex() &&
+         "does not handle IndexType");
+  // Get sizes.
+  int64_t srcWidth = srcElementType.getIntOrFloatBitWidth();
+  int64_t destWidth = destElementType.getIntOrFloatBitWidth();
+  bool bitExtend = srcWidth < destWidth;
 
-  TypeSwitch<Type>(destElementType)
-      .Case<Float16Type>([&](Type) {
-        
-      })
-      .Case<Float32Type>([&](Type) {
-      })
-      .Case<Float64Type>([&](Type) {
-      })
-      .Case<IntegerType>([&](IntegerType destIntegerTy) {
-        bool destIsSigned = ! destIntegerTy.isUnsigned();
-        int64_t destWidth = destIntegerTy.getWidth();
-      })
-      .Case<IndexType>([&](Type) { 
-       })
-      .Default([](Type) { llvm_unreachable("unsupported element type"); });
+  // Handle boolean first because they need special handling.
+  // Boolean to float/int conversions. Boolean are unsigned.
+  if (srcElementType.isInteger(1)) {
+    if (arith::UIToFPOp::areCastCompatible(srcType, destType)) {
+      // To float.
+      return b.create<arith::UIToFPOp>(loc, destType, src, mlir::None);
+    }
+    // To larger int.
+    assert(destElementType.isa<IntegerType>() && bitExtend &&
+           "unknown cast from bit");
+    assert(arith::ExtUIOp::areCastCompatible(srcType, destType) &&
+           "expected compatible");
+    return b.create<arith::ExtUIOp>(loc, destType, src, mlir::None);
+  }
+  // Int/Float to booleans, just compare value to be unequal zero.
+  if (destElementType.isInteger(1)) {
+    Value zero = constant(srcElementType, 0);
+    return neq(src, zero);
+  }
 
-  // to do fix
-  return val;
+  // Float to float conversions.
+  if (srcElementType.isa<FloatType>() && destElementType.isa<FloatType>()) {
+    if (bitExtend) {
+      // Extend.
+      assert(arith::ExtFOp::areCastCompatible(srcType, destType) &&
+             "expected compatible");
+      return b.create<arith::ExtFOp>(loc, destType, src, mlir::None);
+    }
+    // Truncate.
+    assert(arith::TruncFOp::areCastCompatible(srcType, destType) &&
+           "expected compatible");
+    return b.create<arith::TruncFOp>(loc, destType, src, mlir::None);
+  }
+
+  // Float to int conversions.
+  if (srcElementType.isa<FloatType>() && destElementType.isa<IntegerType>()) {
+    // TosaToLinalg in MLIR uses a fancier algorithm that clamps values to
+    // min/max signed/unsigned integer values.
+    if (destElementType.isUnsignedInteger()) {
+#if 1
+      Value unrealizedCast = src;
+#else
+      // Handle unsigned int, TosaToLinalg use unrealized conversion
+      Value unrealizedCast = b.create<UnrealizedConversionCastOp>(
+                                  loc, b.getIntegerType(srcWidth), src)
+                                 .getResult(0);
+#endif
+      return b.create<arith::FPToUIOp>(loc, destType, unrealizedCast);
+    }
+    // Handle signed int.
+    assert(arith::FPToSIOp::areCastCompatible(srcType, destType) &&
+           "expected compatible");
+    return b.create<arith::FPToSIOp>(loc, destType, src, mlir::None);
+  }
+
+  // Int to float conversion.
+  if (srcElementType.isa<IntegerType>() && destElementType.isa<FloatType>()) {
+    if (srcElementType.isUnsignedInteger()) {
+#if 1
+      Value unrealizedCast = src;
+#else
+      // Handle unsigned int, TosaToLinalg use unrealized conversion
+      Value unrealizedCast = b.create<UnrealizedConversionCastOp>(
+                                  loc, b.getIntegerType(srcWidth), src)
+                                 .getResult(0);
+#endif
+      return b.create<arith::UIToFPOp>(loc, destType, unrealizedCast);
+    }
+    // Handle signed int.
+    assert(arith::SIToFPOp::areCastCompatible(srcType, destType) &&
+           "expected compatible");
+    return b.create<arith::SIToFPOp>(loc, destType, src, mlir::None);
+  }
+
+  // Int to int conversion.
+  if (srcElementType.isa<IntegerType>() && destElementType.isa<IntegerType>()) {
+    if (srcElementType.isUnsignedInteger()) {
+      assert(destElementType.isUnsignedInteger() &&
+             "no unsigned to signed conversion");
+      if (bitExtend) {
+        return b.create<arith::ExtUIOp>(loc, destType, src, mlir::None);
+      }
+      // TosaToLinalg use a cliping algo
+      return b.create<arith::TruncIOp>(loc, destType, src, mlir::None);
+    }
+    // handle signed ingeger
+    assert(!srcElementType.isUnsignedInteger() &&
+           !destElementType.isUnsignedInteger() &&
+           "no signed to unsigned conversion");
+    if (bitExtend) {
+      return b.create<arith::ExtSIOp>(loc, destType, src, mlir::None);
+    }
+    // TosaToLinalg use a cliping algo
+    return b.create<arith::TruncIOp>(loc, destType, src, mlir::None);
+  }
+
+  // Handled all the cases supported so far.
+  llvm_unreachable("unsupported element type");
+  return nullptr;
 }
 
 //===----------------------------------------------------------------------===//

@@ -181,6 +181,11 @@ template <>
 Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
+
+#if 1
+  MathBuilder createMath(rewriter, loc);
+  return createMath.cast(scalarOperands[0], elementType);
+#else
   ONNXCastOp castOp = llvm::dyn_cast<ONNXCastOp>(op);
   auto mlirtype = castOp.toAttr().getValue();
   Value operand = scalarOperands[0];
@@ -224,6 +229,7 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
       llvm_unreachable("unsupported element type");
   }
   llvm_unreachable("unsupported element type");
+  #endif
 }
 
 //===----------------------------------------------------------------------===//
