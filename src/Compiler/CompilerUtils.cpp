@@ -470,8 +470,16 @@ void registerDialects(mlir::MLIRContext &context) {
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
   // This is a transition from previous static passes to full dynamic passes
-  // 1. allow --print-ir flag to work
-  // 2. passes have some implicit assumption and can not change the order
+  // Static passes are kept and the dynamic pass is added as IF-THEN
+  // with the static iteration.
+  // The reasons are
+  // 1. The debug flag, --print-ir-after/befor-all, can display IR for each
+  //    static pass, but the dynamic pipeline will be viewed as one. MLIR
+  //    may have solution that I am not aware of yet.
+  // 2. Easy to compare two approaches.
+  // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
+  // this function.
+
   pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
