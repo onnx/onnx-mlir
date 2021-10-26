@@ -180,6 +180,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXSoftmaxOpPattern(patterns, &getContext());
   populateLoweringONNXMatMulOpPattern(patterns, &getContext());
   populateLoweringONNXLRNOpPattern(patterns, &getContext());
+  // ObjectDetection
+  populateLoweringONNXNonMaxSuppressionOpPattern(patterns, &getContext());
   // Tensor
   populateLoweringONNXArgMaxOpPattern(patterns, &getContext());
   populateLoweringONNXReshapeOpPattern(patterns, &getContext());

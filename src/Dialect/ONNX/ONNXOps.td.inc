@@ -3272,6 +3272,7 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
       return {4};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXNonZeroOp:ONNX_Op<"NonZero",

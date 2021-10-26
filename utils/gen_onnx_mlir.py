@@ -378,6 +378,7 @@ OpsWithVerifier = [
     'Hardmax',
     'InstanceNormalization',
     'Mod',
+    'NonMaxSuppression',
     'SpaceToDepth',
 ]
 
