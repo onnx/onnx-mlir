@@ -280,6 +280,10 @@ void populateLoweringONNXNormalizationOpPattern(
 void populateLoweringONNXPoolingOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+// `ObjectDetection` directory methods:
+void populateLoweringONNXNonMaxSuppressionOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 // `RNN` directory methods:
 void populateLoweringONNXGRUOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);

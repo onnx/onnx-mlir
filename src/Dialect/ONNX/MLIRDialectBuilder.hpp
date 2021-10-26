@@ -80,6 +80,8 @@ struct MathBuilder final : DialectBuilder {
   Value sle(Value lhs, Value rhs) const;
   Value eq(Value lhs, Value rhs) const;
   Value neq(Value lhs, Value rhs) const;
+  Value min(Value lhs, Value rhs) const;
+  Value max(Value lhs, Value rhs) const;
 
   Value constant(Type type, double val) const;
   Value constantIndex(int64_t val) const;
