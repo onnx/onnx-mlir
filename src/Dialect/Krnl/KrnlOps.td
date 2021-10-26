@@ -998,3 +998,19 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
   let arguments = (ins AnyMemRef:$dest, AnyType: $value); 
   let assemblyFormat = [{ $dest `,` $value attr-dict `:` type($dest) }];
 }
+
+def KrnlRandomNormalOp : Op<Krnl_Dialect, "random_normal",
+    []> {
+  let summary = "Generate a random normal tensor.";
+  let description = [{
+    Operation that generates a random normally distributed tensor.
+  }];
+
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$output,
+    Index:$numberOfValues,
+    AnyFloat:$mean,
+    AnyFloat:$scale,
+    AnyFloat:$seed);
+
+  let results = (outs );
+}

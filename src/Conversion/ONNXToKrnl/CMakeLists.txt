@@ -10,6 +10,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Math/Gemm.cpp
   Math/LRN.cpp
   Math/MatMul.cpp
+  Math/RandomNormal.cpp
   Math/Reduction.cpp
   Math/Softmax.cpp
   NN/Conv.cpp
