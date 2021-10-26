@@ -278,7 +278,6 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    KrnlGetRefOp getRefOp = llvm::dyn_cast<KrnlGetRefOp>(op);
     auto loc = op->getLoc();
 
     KrnlGetRefOpAdaptor operandAdaptor(operands);

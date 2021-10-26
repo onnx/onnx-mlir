@@ -18,23 +18,25 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <type_traits>
-
-#include "mlir/IR/BuiltinOps.h"
-#include "onnx/defs/schema.h"
-#include "llvm/ADT/TypeSwitch.h"
-
-#include "onnx/checker.h"
-#include "onnx/shape_inference/implementation.h"
-#include "onnx/version_converter/convert.h"
-
+#include "FrontendDialectTransformer.hpp"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
+#include "src/Support/SuppressWarnings.h"
 
-#include "FrontendDialectTransformer.hpp"
+#include "mlir/IR/BuiltinOps.h"
+#include "llvm/ADT/TypeSwitch.h"
+
+SUPPRESS_WARNINGS_PUSH
+#include "onnx/checker.h"
+#include "onnx/defs/schema.h"
+#include "onnx/shape_inference/implementation.h"
+#include "onnx/version_converter/convert.h"
+SUPPRESS_WARNINGS_POP
+
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <type_traits>
 
 using namespace mlir;
 
