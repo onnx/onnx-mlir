@@ -574,13 +574,12 @@ DenseElementsAttr getDenseElementAttributeFromConstantValue(Value value) {
 }
 
 /// This function returns a scalar of type 'dtype' from an optional value.
-/// Optional value can be: NoneType, memref<1xdtype> or memref<dtype>. Default
+/// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>. Default
 /// value is used in case of NoneType.
 Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
     Value optionalScalar, Type elementType, double defaultValue) {
   KrnlBuilder createKrnl(rewriter, loc);
   MathBuilder createMath(createKrnl);
-
   if (optionalScalar.getType().isa<NoneType>()) {
     return createMath.constant(elementType, defaultValue);
   } else if (optionalScalar.getType().cast<ShapedType>().getRank() == 0) {
