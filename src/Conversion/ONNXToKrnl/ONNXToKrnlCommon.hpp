@@ -254,6 +254,9 @@ void populateLoweringONNXElementwiseOpPattern(
 void populateLoweringONNXGemmOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXHardmaxOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXLRNOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 

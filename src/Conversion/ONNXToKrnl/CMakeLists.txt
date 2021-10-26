@@ -8,6 +8,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Math/Clip.cpp
   Math/Elementwise.cpp
   Math/Gemm.cpp
+  Math/Hardmax.cpp
   Math/LRN.cpp
   Math/MatMul.cpp
   Math/Reduction.cpp

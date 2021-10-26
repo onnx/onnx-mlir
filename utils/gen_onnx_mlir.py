@@ -375,6 +375,7 @@ OpsWithVerifier = [
     'Conv',
     'DepthToSpace',
     'Expand',
+    'Hardmax',
     'InstanceNormalization',
     'Mod',
     'SpaceToDepth',

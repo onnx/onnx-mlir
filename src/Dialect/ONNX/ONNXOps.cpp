@@ -3623,9 +3623,26 @@ LogicalResult ONNXGreaterOrEqualOp::inferShapes(
   return success();
 }
 
+static LogicalResult verify(ONNXHardmaxOp op) {
+  ONNXHardmaxOpAdaptor hmOp = ONNXHardmaxOpAdaptor(op);
+  auto input = hmOp.input();
+  int64_t axis = op.axis();
+
+  // Verify that axis must be in range [-r, r - 1], where r is the rank of
+  // input.
+  if (hasShapeAndRank(input)) {
+    int64_t rank = input.getType().cast<ShapedType>().getRank();
+    if (axis < -rank || axis > rank - 1)
+      return op.emitError("axis value is out of range");
+  }
+
+  return success();
+}
+
 LogicalResult ONNXHardmaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(getOperand().getType());
+  return success();
 }
 
 LogicalResult ONNXIfOp::inferShapes(
