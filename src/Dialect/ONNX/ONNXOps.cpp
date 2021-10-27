@@ -3514,7 +3514,7 @@ static LogicalResult verify(ONNXDepthToSpaceOp op) {
   ONNXDepthToSpaceOpAdaptor operandAdaptor(op);
 
   // Check input.
-  auto input = operandAdaptor.input();
+  Value input = operandAdaptor.input();
   if (!hasShapeAndRank(input)) {
     // Won't be able to do any checking at this stage.
     return success();
@@ -3525,13 +3525,13 @@ static LogicalResult verify(ONNXDepthToSpaceOp op) {
     return op.emitError("Input should have a rank of four");
 
   // Check blocksize.
-  auto blocksize = operandAdaptor.blocksize().getValue();
+  APInt blocksize = operandAdaptor.blocksize().getValue();
   if (blocksize.isNegative())
     return op.emitError("Blocksize should be non negative");
 
-  auto C = inputShape[1];
+  int64_t C = inputShape[1];
   uint64_t bs = blocksize.getZExtValue();
-  if (C % (bs * bs) != 0)
+  if (C != -1 && C % (bs * bs) != 0)
     return op.emitError("The input tensor depth must be divisible by the "
                         "(blocksize * blocksize)");
 
@@ -3557,7 +3557,7 @@ LogicalResult ONNXDepthToSpaceOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-  auto elementType =
+  Type elementType =
       input().getType().template cast<ShapedType>().getElementType();
   getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
@@ -4216,7 +4216,7 @@ static LogicalResult verify(ONNXSpaceToDepthOp op) {
   ONNXSpaceToDepthOpAdaptor operandAdaptor(op);
 
   // Check input.
-  auto input = operandAdaptor.input();
+  Value input = operandAdaptor.input();
   if (!hasShapeAndRank(input)) {
     // Won't be able to do any checking at this stage.
     return success();
@@ -4227,18 +4227,18 @@ static LogicalResult verify(ONNXSpaceToDepthOp op) {
     return op.emitError("Input should have a rank of four");
 
   // Check blocksize.
-  auto blocksize = operandAdaptor.blocksize().getValue();
+  APInt blocksize = operandAdaptor.blocksize().getValue();
   if (blocksize.isNegative())
     return op.emitError("Blocksize should be non negative");
 
-  auto H = inputShape[2];
-  auto W = inputShape[3];
+  int64_t H = inputShape[2];
+  int64_t W = inputShape[3];
   uint64_t bs = blocksize.getZExtValue();
 
-  if (H % bs != 0)
+  if (H != -1 && H % bs != 0)
     return op.emitError(
         "The input tensor height must be divisible by the block size");
-  if (W % bs != 0)
+  if (W != -1 && W % bs != 0)
     return op.emitError(
         "The input tensor width must be divisible by the block size");
 
@@ -4259,7 +4259,7 @@ LogicalResult ONNXSpaceToDepthOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-  auto elementType =
+  Type elementType =
       input().getType().template cast<ShapedType>().getElementType();
   getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();

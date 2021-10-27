@@ -702,7 +702,7 @@ public:
   DimIndexExpr(DimIndexExpr const &o);
   DimIndexExpr(SymbolIndexExpr const &o);
 
-  DimIndexExpr(DimIndexExpr &&) = delete;
+  DimIndexExpr(DimIndexExpr &&) = default;
   ~DimIndexExpr() = default;
   DimIndexExpr &operator=(const DimIndexExpr &) = default;
   DimIndexExpr &operator=(DimIndexExpr &&) = default;
