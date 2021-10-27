@@ -144,6 +144,11 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
     Location loc, Value data, MemRefType memRefType,
     SmallVectorImpl<IndexExpr> &outputDims);
 
+/// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
+/// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
+/// lambda type, using ONNX and Krnl operations.
+DenseElementsAttr getDenseElementAttributeFromConstantValue(Value value);
+
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
@@ -240,16 +245,25 @@ void populateLoweringONNXScanOpPattern(
 void populateLoweringONNXClipOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXCumSumOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXElementwiseOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXGemmOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXHardmaxOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXLRNOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXMatMulOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXRandomNormalOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXReductionOpPattern(
@@ -267,6 +281,10 @@ void populateLoweringONNXNormalizationOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXPoolingOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+// `ObjectDetection` directory methods:
+void populateLoweringONNXNonMaxSuppressionOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 // `RNN` directory methods:
@@ -357,6 +375,12 @@ void populateLoweringONNXReverseSequenceOpPattern(
 void populateLoweringONNXExpandOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXOneHotOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXCompressOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp);
 
 /// This function returns the index in the list of alloc arguments of the
@@ -381,3 +405,9 @@ Location ONNXLoc(Operation *op) {
       Identifier::get(OP_TYPE::getOperationName(), op->getContext()),
       op->getLoc());
 }
+
+/// This function returns a scalar of type 'dtype' from an optional value.
+/// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>. Default
+/// value is used in case of NoneType.
+Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
+    Value optionalScalar, Type elementType, double defaultValue);

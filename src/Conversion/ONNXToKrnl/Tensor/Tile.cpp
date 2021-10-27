@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -37,11 +37,11 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
       auto repeatsLoadVal =
           rewriter.create<KrnlLoadOp>(loc, repeatsOperand, repeatsMemRefVal);
-      auto repeatsElementVal = rewriter.create<IndexCastOp>(
+      auto repeatsElementVal = rewriter.create<arith::IndexCastOp>(
           loc, repeatsLoadVal, rewriter.getIndexType());
       auto dimVal = createMemRef.dim(inputOperand, i);
       Value allocDimVal =
-          rewriter.create<MulIOp>(loc, dimVal, repeatsElementVal);
+          rewriter.create<arith::MulIOp>(loc, dimVal, repeatsElementVal);
       allocOperands.emplace_back(allocDimVal);
     }
   }
@@ -89,8 +89,6 @@ struct ONNXTileOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     SmallVector<Value, 4> loadIndices;
-    bool isAffineLoad = true;
-
     // This implementation is to iterate the output tensor.
     // The store has simple affine subscript expression.
     // Alternative implementation is to iterate the input tensor and repeats.
@@ -105,9 +103,6 @@ struct ONNXTileOpLowering : public ConversionPattern {
       MemRefBoundsIndexCapture inputBounds(input);
       DimIndexExpr dimSize(inputBounds.getDim(i));
       IndexExpr exprVal = index % dimSize;
-      if (!exprVal.isAffine()) {
-        isAffineLoad = false;
-      }
       loadIndices.emplace_back(exprVal.getValue());
     }
 
@@ -167,7 +162,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
       auto repeatsLoadVal =
           rewriter.create<KrnlLoadOp>(loc, repeats, repeatsMemRefVal);
-      auto repeatsElementVal = rewriter.create<IndexCastOp>(
+      auto repeatsElementVal = rewriter.create<arith::IndexCastOp>(
           loc, repeatsLoadVal, rewriter.getIndexType());
       pack.pushOperandBound(repeatsElementVal);
     }
@@ -205,8 +200,8 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
       } else {
         auto inputIndex = iterationBlock.getArguments()[2 * i];
         auto repeatsIndex = iterationBlock.getArguments()[2 * i + 1];
-        auto dimExprVal = rewriter.create<AddIOp>(loc, inputIndex,
-            rewriter.create<MulIOp>(loc, repeatsIndex, inputDimSizeVal));
+        auto dimExprVal = rewriter.create<arith::AddIOp>(loc, inputIndex,
+            rewriter.create<arith::MulIOp>(loc, repeatsIndex, inputDimSizeVal));
         outputMemRefVal.emplace_back(dimExprVal);
       }
     }

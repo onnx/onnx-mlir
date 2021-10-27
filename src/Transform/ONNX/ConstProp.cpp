@@ -626,6 +626,14 @@ public:
 
 struct ConstPropONNXToONNXPass
     : public PassWrapper<ConstPropONNXToONNXPass, FunctionPass> {
+
+  StringRef getArgument() const override { return "constprop-onnx"; }
+
+  StringRef getDescription() const override {
+    return "ConstProp ONNX operations into composition of "
+           "other ONNX operations.";
+  }
+
   void runOnFunction() final;
 };
 } // end anonymous namespace.

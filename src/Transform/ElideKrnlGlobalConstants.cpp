@@ -82,6 +82,12 @@ namespace {
 class ElideConstGlobalValuePass
     : public PassWrapper<ElideConstGlobalValuePass, FunctionPass> {
 public:
+  StringRef getArgument() const override { return "elide-krnl-constants"; }
+
+  StringRef getDescription() const override {
+    return "Elide the constant values of the Global Krnl operations.";
+  }
+
   void runOnFunction() override {
     auto function = getFunction();
 

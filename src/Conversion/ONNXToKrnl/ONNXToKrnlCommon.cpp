@@ -297,7 +297,7 @@ Value emitPositiveInfinityConstantOp(
         }
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
-  return rewriter.create<ConstantOp>(loc, constantAttr);
+  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
 }
 
 Value emitNegativeInfinityConstantOp(
@@ -368,7 +368,7 @@ Value emitNegativeInfinityConstantOp(
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
-  return rewriter.create<ConstantOp>(loc, constantAttr);
+  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
 }
 
 Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
@@ -381,7 +381,7 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     if (type.isa<IndexType>())
       dimVal = dim;
     else
-      dimVal = rewriter.create<IndexCastOp>(loc, dim, type);
+      dimVal = rewriter.create<arith::IndexCastOp>(loc, dim, type);
   } else {
     dimVal = emitConstantOp(rewriter, loc, type, shape[axis]);
   }
@@ -555,4 +555,37 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
       rewriter.create<memref::ReinterpretCastOp>(loc, memRefType, data,
           /*offset=*/rewriter.getIndexAttr(0), sizes, strides);
   return newView;
+}
+
+/// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
+/// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
+/// lambda type, using ONNX and Krnl operations.
+DenseElementsAttr getDenseElementAttributeFromConstantValue(Value value) {
+  auto definingOp = value.getDefiningOp();
+  if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
+    if (globalOp.value().hasValue())
+      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  } else if (auto globalOp =
+                 dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
+    if (globalOp.value().hasValue())
+      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  }
+  return nullptr;
+}
+
+/// This function returns a scalar of type 'dtype' from an optional value.
+/// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>. Default
+/// value is used in case of NoneType.
+Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
+    Value optionalScalar, Type elementType, double defaultValue) {
+  KrnlBuilder createKrnl(rewriter, loc);
+  MathBuilder createMath(createKrnl);
+  if (optionalScalar.getType().isa<NoneType>()) {
+    return createMath.constant(elementType, defaultValue);
+  } else if (optionalScalar.getType().cast<ShapedType>().getRank() == 0) {
+    return createKrnl.load(optionalScalar, {});
+  } else {
+    Value zero = createMath.constantIndex(0);
+    return createKrnl.load(optionalScalar, {zero});
+  }
 }

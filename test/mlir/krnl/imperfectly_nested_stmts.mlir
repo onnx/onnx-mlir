@@ -8,7 +8,7 @@ func @simple_imperfectly_nested() {
     krnl.iterate(%il) with () {
       %il_idx = krnl.get_induction_var_value(%il) : (!krnl.loop) -> (index)
       %v0 = krnl.load %alloc[%il_idx] : memref<10xf32>
-      %foo = addf %v0, %v0 : f32
+      %foo = arith.addf %v0, %v0 : f32
     }
     memref.dealloc %alloc : memref<10 x f32>
   }
@@ -20,7 +20,7 @@ func @simple_imperfectly_nested() {
 // CHECK:             [[ALLOC:%.+]] = memref.alloc() : memref<10xf32>
 // CHECK:             affine.for [[I_LOCAL:%.+]] = #map0([[I_BLOCK]]) to #map1([[I_BLOCK]]) {
 // CHECK:               [[LOAD_VAL:%.+]] = affine.load [[ALLOC]]{{.}}[[I_LOCAL]]{{.}} : memref<10xf32>
-// CHECK:               [[SUM:%.+]] = addf [[LOAD_VAL]], [[LOAD_VAL]] : f32
+// CHECK:               [[SUM:%.+]] = arith.addf [[LOAD_VAL]], [[LOAD_VAL]] : f32
 // CHECK:             }
 // CHECK:             memref.dealloc [[ALLOC]] : memref<10xf32>
 // CHECK:           }
@@ -40,7 +40,7 @@ func @test_2d_tiling_imperfectly_nested() {
     %alloc = memref.alloc() : memref<10 x f32>
     krnl.iterate(%il, %jl) with () {
       %il_idx, %jl_idx = krnl.get_induction_var_value(%il, %jl) : (!krnl.loop, !krnl.loop) -> (index, index)
-      %foo = addi %il_idx, %jl_idx : index
+      %foo = arith.addi %il_idx, %jl_idx : index
     }
     memref.dealloc %alloc : memref<10 x f32>
   }
@@ -56,7 +56,7 @@ func @test_2d_tiling_imperfectly_nested() {
   // CHECK:               [[ALLOC:%.+]] = memref.alloc() : memref<10xf32>
   // CHECK:               affine.for [[IL:%.+]] = #map0([[IB]]) to #map1([[IB]]) {
   // CHECK:                 affine.for [[JL:%.+]] = #map0([[JB]]) to #map2([[JB]]) {
-  // CHECK:                   [[FOO:%.+]] = addi [[IL]], [[JL]] : index
+  // CHECK:                   [[FOO:%.+]] = arith.addi [[IL]], [[JL]] : index
   // CHECK:                 }
   // CHECK:               }
   // CHECK:               memref.dealloc [[ALLOC]] : memref<10xf32>

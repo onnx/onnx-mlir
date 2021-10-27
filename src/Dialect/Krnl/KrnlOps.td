@@ -6,6 +6,15 @@
 //
 // This file contains TableGen definition of krnl operations.
 //
+// REQUEST:
+// When you perform a change to the KRNL dialect, please follow the steps below
+// to update the Krnl dialect documentation.
+//
+// 1) cd onnx-mlir/build 
+// 2) make onnx-mlir-doc
+// 3) if successful, move the build's docs/Dialects/krnl.md to the git's doc 
+//    directory, namely
+//    cp docs/Dialects/krnl.md ../docs/Dialects
 //===----------------------------------------------------------------------===//
 
 include "mlir/IR/OpBase.td"
@@ -82,18 +91,18 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
     // Main builder.
     OpBuilder<(ins "KrnlIterateOperandPack":$operandPack,
       CArg<"ValueRange", "llvm::None">:$iterArgs,
-      CArg<"function_ref<void(ImplicitLocOpBuilder &, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op.
     OpBuilder<(ins
       CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
       CArg<"ValueRange">:$lbs, CArg<"ValueRange">:$ubs, CArg<"ValueRange">:$iterArgs,
-      CArg<"function_ref<void(ImplicitLocOpBuilder &, ValueRange)>">:$bodyBuilderFn)>,
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op with IndexExpr
     OpBuilder<(ins
       CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
       CArg<"ArrayRef<IndexExpr>">:$lbs, CArg<"ArrayRef<IndexExpr>">:$ubs, 
       CArg<"ValueRange">:$iterArgs,
-      CArg<"function_ref<void(ImplicitLocOpBuilder &, ValueRange)>">:$bodyBuilderFn)>
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>">:$bodyBuilderFn)>
  ];
 
   let extraClassDeclaration = [{
@@ -988,4 +997,20 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
 
   let arguments = (ins AnyMemRef:$dest, AnyType: $value); 
   let assemblyFormat = [{ $dest `,` $value attr-dict `:` type($dest) }];
+}
+
+def KrnlRandomNormalOp : Op<Krnl_Dialect, "random_normal",
+    []> {
+  let summary = "Generate a random normal tensor.";
+  let description = [{
+    Operation that generates a random normally distributed tensor.
+  }];
+
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$output,
+    Index:$numberOfValues,
+    AnyFloat:$mean,
+    AnyFloat:$scale,
+    AnyFloat:$seed);
+
+  let results = (outs );
 }

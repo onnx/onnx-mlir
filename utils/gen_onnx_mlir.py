@@ -49,7 +49,8 @@ check_operation_version = args.check_operation_version
 # run this script with --check-operation-version flag.
 # Update this dictionary when a newer version is implemented
 # TODO: how to keep the old version
-version_dict = {'Abs': [13],
+version_dict = {
+ 'Abs': [13],
  'Acos': [7],
  'Acosh': [9],
  'Adagrad': [1],
@@ -259,7 +260,7 @@ special_op_handler = dict([
     #("Transpose", "ImportNodeTranspose")
 ])
 
-# Operations supporting shape inference.
+# Operations supporting shape inference (alphabetical order).
 OpsWithShapeInference=[
     'Abs',
     'Add',
@@ -267,6 +268,7 @@ OpsWithShapeInference=[
     'Atan',
     'AveragePool',
     'Cast',
+    'Compress',
     'Concat',
     'Constant',
     'ConstantOfShape',
@@ -296,6 +298,7 @@ OpsWithShapeInference=[
     'LeakyRelu',
     'Less',
     'Log',
+    'Loop',
     'MatMul',
     'Max',
     'Min',
@@ -303,20 +306,20 @@ OpsWithShapeInference=[
     'Neg',
     'OneHotEncoder',
     'Or',
+    'PRelu',
     'Pad',
     'Pow',
-    'PRelu',
     'QLinearConv',
-    'QuantizeLinear',
     'QLinearMatMul',
+    'QuantizeLinear',
     'RNN',
     'Reciprocal',
     'ReduceMax',
     'ReduceMean',
     'ReduceMin',
     'ReduceProd',
-    'ReduceSumV11',
     'ReduceSum',
+    'ReduceSumV11',
     'Relu',
     'Reshape',
     'Scaler',
@@ -333,29 +336,52 @@ OpsWithShapeInference=[
     'Softsign',
     'Split',
     'Sqrt',
-    'SqueezeV11',
     'Squeeze',
+    'SqueezeV11',
     'Sub',
     'Sum',
     'Tan',
     'Tanh',
     'Tile',
     'Transpose',
-    'Unsqueeze11',
     'Unsqueeze',
+    'Unsqueeze11',
     'Xor',
-    'Loop',
 ]
 
-# Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Cast', 'Transpose',
-                        'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
-                        'GlobalMaxPool', 'SqueezeV11', 'UnsqueezeV11',
-                        'Squeeze', 'Unsqueeze', 'Reshape']
+# Operations supporting canonicalization (alphabetical order).
+OpsWithCanonicalizer = [
+    'Add',
+    'Cast',
+    'Constant',
+    'Dropout',
+    'GlobalAveragePool',
+    'GlobalMaxPool',
+    'Identity',
+    'Reshape',
+    'Shape',
+    'Size',
+    'Squeeze',
+    'SqueezeV11',
+    'Transpose',
+    'Unsqueeze',
+    'UnsqueezeV11',
+]
 
-# Operations with custom verifiers.
-OpsWithVerifier = ['AveragePool', 'Conv', 'Expand', 'InstanceNormalization',
-                   'Mod', 'ReverseSequence']
+# Operations with custom verifiers (alphabetical order).
+OpsWithVerifier = [
+    'AveragePool',
+    'Compress',
+    'Conv',
+    'DepthToSpace',
+    'Expand',
+    'Hardmax',
+    'InstanceNormalization',
+    'Mod',
+    'NonMaxSuppression',
+    'ReverseSequence',
+    'SpaceToDepth',
+]
 
 OpsWithHelpers = {
   "Loop": """
@@ -396,20 +422,43 @@ OpsWithResultTypeInference = {
 # an UnrankedTensorType whose element type is the same as the first operand's
 # element type.
 #
-# Currenlty, there are only two build methods generated:
+# Currently, there are only two build methods generated:
 #  - one with operands and attributes having a separate parameter, and
 #  - one with operands and attributes having aggregated parameters.
-custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSumV11', 'ReduceSum',
-                                    'ReduceSumSquare',
-                                    'Pad', 'Sqrt', 'Neg', 'UnsqueezeV11',
-                                    'Softmax', 'ReduceMax', 'ReduceLogSum',
-                                    'SqueezeV11', 'Identity', 'Split']
+custom_builder_unranked_ops_list = [
+    'Abs',
+    'Exp',
+    'Identity',
+    'Neg',
+    'Pad',
+    'ReduceLogSum',
+    'ReduceMax',
+    'ReduceSum',
+    'ReduceSumSquare',
+    'ReduceSumV11',
+    'Softmax',
+    'Split',
+    'Sqrt',
+    'SqueezeV11',
+    'UnsqueezeV11',
+]
 # Custom builder op list for operations with broadcast; we can deduce the right
 # output type, no need to leave it undef as in the above list.
 # Ops must have two operands, not one, not three... And there shall be two.
 # TODO: handle variadic ops omitted here: Max, Min, Min, Sum.
-custom_builder_broadcast_ops_list = ['Add', 'And', 'Div', 'Equal', 'Greater',
-                                     'Less', 'Mul', 'Or', 'Pow', 'Sub', 'Xor']
+custom_builder_broadcast_ops_list = [
+    'Add',
+    'And',
+    'Div',
+    'Equal',
+    'Greater',
+    'Less',
+    'Mul',
+    'Or',
+    'Pow',
+    'Sub',
+    'Xor',
+]
 # union of both
 custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broadcast_ops_list
 
@@ -441,8 +490,9 @@ onnx_types = (
     'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
     'float', 'double', 'complex64', 'complex128', 'string'
 )
-tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64', 'BF16', 'F16', 'F32', 'F64',
-    'Complex<F32>', 'Complex<F64>', 'StringType'
+tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64',
+    'BF16', 'F16', 'F32', 'F64', 'Complex<F32>', 'Complex<F64>',
+    'StringType'
 )
 
 MAX_NUM_TYPES=20
@@ -671,8 +721,12 @@ def get_attrs(schema):
             onnx_attr_type_to_mlir_attr_type(attr_type))
 
     def get_attr_type_with_default(attr_type, attr_default):
-        return 'DefaultValuedAttr<{}, "{}">'.format(
-            onnx_attr_type_to_mlir_attr_type(attr_type), attr_default)
+        if attr_type == OpSchema.AttrType.STRING:
+            return 'DefaultValuedStrAttr<{}, "{}">'.format(
+                onnx_attr_type_to_mlir_attr_type(attr_type), attr_default)
+        else:
+            return 'DefaultValuedAttr<{}, "{}">'.format(
+                onnx_attr_type_to_mlir_attr_type(attr_type), attr_default)
 
     if not schema.attributes:
         return OrderedDict()
