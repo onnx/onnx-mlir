@@ -490,3 +490,12 @@ struct ONNXCompressOpShapeHelper : public ONNXOpShapeHelper<ONNXCompressOp> {
   // Additional data for CompressOp.
   int axis = -1; // Value -1 signify axis was not specified.
 };
+
+// Shape for ONNXTopKOp.
+struct ONNXTopKOpShapeHelper : public ONNXOpShapeHelper<ONNXTopKOp> {
+  ONNXTopKOpShapeHelper(ONNXTopKOp *newOp);
+  ONNXTopKOpShapeHelper(ONNXTopKOp *newOp, OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult computeShape(ONNXTopKOpAdaptor operandAdaptor);
+};

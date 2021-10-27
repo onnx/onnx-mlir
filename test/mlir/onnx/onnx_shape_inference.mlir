@@ -2216,3 +2216,25 @@ func @hardmax(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32>{
   // CHECK: [[RES:%.+]] = "onnx.Hardmax"(%arg0) {axis = 1 : si64} : (tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
   // CHECK: return [[RES]] : tensor<3x4x5xf32>
 }
+
+// -----
+
+func @topk_default_axis_minus_one(%X: tensor<3x4x5xf32>, %K: tensor<i64>) -> tensor<*xf32> {
+  %value, %indices = "onnx.TopK"(%X, %K) : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<*xf32>, tensor<*xi64>)
+  return %value : tensor<*xf32>
+}
+
+// -----
+
+func @topk_default_axis_one(%X: tensor<3x4x5xf32>, %K: tensor<i64>) -> tensor<*xf32> {
+  %value, %indices = "onnx.TopK"(%X, %K) {axis = 1 : si64} : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<*xf32>, tensor<*xi64>)
+  return %value : tensor<*xf32>
+}
+
+// -----
+
+func @topk_constant_k(%X: tensor<3x4x5xf32>) -> tensor<*xf32> {
+  %K = "onnx.Constant"() {value = dense<2> : tensor<i64>} : () -> tensor<i64>
+  %value, %indices = "onnx.TopK"(%X, %K) {axis = 1 : si64} : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<*xf32>, tensor<*xi64>)
+  return %value : tensor<*xf32>
+}

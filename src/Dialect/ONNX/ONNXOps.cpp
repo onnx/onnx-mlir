@@ -4239,7 +4239,23 @@ LogicalResult ONNXThresholdedReluOp::inferShapes(
 
 LogicalResult ONNXTopKOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Cannot infer shape if no shape exists.
+  if (!X().getType().isa<RankedTensorType>() ||
+      !K().getType().isa<RankedTensorType>())
+    return success();
+
+  auto b = mlir::Builder(getContext());
+  auto elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXTopKOpAdaptor operandAdaptor(*this);
+  ONNXTopKOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan TopK parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  getResult(0).setType(RankedTensorType::get(outputDims, elementType));
+  getResult(1).setType(RankedTensorType::get(outputDims, b.getI64Type()));
+
+  return success();
 }
 
 LogicalResult ONNXUniqueOp::inferShapes(
