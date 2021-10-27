@@ -4631,6 +4631,7 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",

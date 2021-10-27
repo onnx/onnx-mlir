@@ -369,6 +369,9 @@ void populateLoweringONNXResizeOpPattern(
 void populateLoweringONNXNonZeroOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXReverseSequenceOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXExpandOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 

@@ -207,6 +207,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXRangeOpPattern(patterns, &getContext());
   populateLoweringONNXResizeOpPattern(patterns, &getContext());
   populateLoweringONNXNonZeroOpPattern(patterns, &getContext());
+  populateLoweringONNXReverseSequenceOpPattern(patterns, &getContext());
   populateLoweringONNXExpandOpPattern(patterns, &getContext());
   populateLoweringONNXOneHotOpPattern(patterns, &getContext());
   populateLoweringONNXCompressOpPattern(patterns, &getContext());
