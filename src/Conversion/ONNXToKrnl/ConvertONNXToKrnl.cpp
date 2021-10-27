@@ -108,6 +108,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
           StandardOpsDialect, linalg::LinalgDialect, math::MathDialect,
           memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect>();
 
+  target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
+  
   // Use krnl.load/store instead of std.load/store and affine.load/store.
   // krnl.load/store will be lowered to std.load/store and affine.load/store by
   // `convert-krnl-to-affine` pass.

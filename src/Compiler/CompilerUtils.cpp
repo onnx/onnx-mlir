@@ -19,6 +19,9 @@
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
+// hi alex
+#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
+
 
 #include "CompilerUtils.hpp"
 #include "ExternalUtil.hpp"
@@ -536,6 +539,8 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
   pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(mlir::createLowerToCFGPass());
   pm.addPass(mlir::createConvertKrnlToLLVMPass());
+  // hi alex
+  pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
