@@ -177,6 +177,27 @@ Value MathBuilder::constantIndex(int64_t val) const {
   return b.create<arith::ConstantOp>(loc, constantAttr);
 }
 
+// For some reason, operations on unsigned int are often unhappy because
+// operations are mainly used on signless integers. So this cast remove the sign
+// of unsigned int for successful processing, to the best of my understanding.
+Value MathBuilder::castToSignless(Value val, int64_t width) const {
+  printf("hi alex: creating unrealized cast\n");
+  Value res =
+      b.create<UnrealizedConversionCastOp>(loc, b.getIntegerType(width), val)
+          .getResult(0);
+  res.dump();
+  return res;
+}
+
+Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
+  printf("hi alex: creating unrealized cast\n");
+  Value res = b.create<UnrealizedConversionCastOp>(
+                   loc, b.getIntegerType(width, /*is signed*/ false), val)
+                  .getResult(0);
+  res.dump();
+  return res;
+}
+
 // Methods inspired from MLIR TosaToLinalg CastOp.
 // Handle here either elementary types (such as int/float) or shaped type of
 // elementary types. Does not handle Index Type here.
@@ -239,15 +260,8 @@ Value MathBuilder::cast(Value src, Type destType) const {
     // TosaToLinalg in MLIR uses a fancier algorithm that clamps values to
     // min/max signed/unsigned integer values.
     if (destElementType.isUnsignedInteger()) {
-#if 1
-      Value unrealizedCast = src;
-#else
-      // Handle unsigned int, TosaToLinalg use unrealized conversion
-      Value unrealizedCast = b.create<UnrealizedConversionCastOp>(
-                                  loc, b.getIntegerType(srcWidth), src)
-                                 .getResult(0);
-#endif
-      return b.create<arith::FPToUIOp>(loc, destType, unrealizedCast);
+      Value cast = castToSignless(src, srcWidth);
+      return b.create<arith::FPToUIOp>(loc, destType, cast);
     }
     // Handle signed int.
     assert(arith::FPToSIOp::areCastCompatible(srcType, destType) &&
@@ -258,15 +272,8 @@ Value MathBuilder::cast(Value src, Type destType) const {
   // Int to float conversion.
   if (srcElementType.isa<IntegerType>() && destElementType.isa<FloatType>()) {
     if (srcElementType.isUnsignedInteger()) {
-#if 1
-      Value unrealizedCast = src;
-#else
-      // Handle unsigned int, TosaToLinalg use unrealized conversion
-      Value unrealizedCast = b.create<UnrealizedConversionCastOp>(
-                                  loc, b.getIntegerType(srcWidth), src)
-                                 .getResult(0);
-#endif
-      return b.create<arith::UIToFPOp>(loc, destType, unrealizedCast);
+      Value cast = castToSignless(src, srcWidth);
+      return b.create<arith::UIToFPOp>(loc, destType, cast);
     }
     // Handle signed int.
     assert(arith::SIToFPOp::areCastCompatible(srcType, destType) &&
@@ -279,11 +286,16 @@ Value MathBuilder::cast(Value src, Type destType) const {
     if (srcElementType.isUnsignedInteger()) {
       assert(destElementType.isUnsignedInteger() &&
              "no unsigned to signed conversion");
+      Value cast = castToSignless(src, srcWidth);
       if (bitExtend) {
-        return b.create<arith::ExtUIOp>(loc, destType, src, mlir::None);
+        printf("hi alex, extend\n");
+        Type castType = b.getIntegerType(destWidth);
+        cast = b.create<arith::ExtUIOp>(loc, castType, cast, mlir::None);
+        return castToUnsigned(cast, destWidth);
       }
       // TosaToLinalg use a cliping algo
-      return b.create<arith::TruncIOp>(loc, destType, src, mlir::None);
+      printf("hi alex, trunc\n");
+      return b.create<arith::TruncIOp>(loc, destType, cast, mlir::None);
     }
     // handle signed ingeger
     assert(!srcElementType.isUnsignedInteger() &&

@@ -184,7 +184,10 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
 
 #if 1
   MathBuilder createMath(rewriter, loc);
-  return createMath.cast(scalarOperands[0], elementType);
+  Value res = createMath.cast(scalarOperands[0], elementType);
+  printf("hi alex, dump result\n");
+  res.dump();
+  return res;
 #else
   ONNXCastOp castOp = llvm::dyn_cast<ONNXCastOp>(op);
   auto mlirtype = castOp.toAttr().getValue();
