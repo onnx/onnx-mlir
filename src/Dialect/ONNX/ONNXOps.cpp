@@ -4237,6 +4237,29 @@ LogicalResult ONNXThresholdedReluOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXTopKOp op) {
+  ONNXTopKOpAdaptor operandAdaptor = ONNXTopKOpAdaptor(op);
+  // Get operands.
+  auto X = operandAdaptor.X();
+  auto K = operandAdaptor.K();
+
+  // Verify that axis value is in the valid range.
+  if (hasShapeAndRank(X)) {
+    ArrayRef<int64_t> shape = X.getType().cast<ShapedType>().getShape();
+    int64_t rank = shape.size();
+    int64_t axis = op.axis();
+    axis = axis < 0 ? axis + rank : axis;
+    if (axis < 0 || axis >= rank)
+      return op.emitError("axis must be in range [-rank, rank -1]");
+  }
+
+  // Verify that K's rank must b zero or one.
+  if (hasShapeAndRank(K))
+    return op.emitError("K should have a rank of zero or one");
+
+  return success();
+}
+
 LogicalResult ONNXTopKOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.

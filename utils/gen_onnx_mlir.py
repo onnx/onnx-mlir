@@ -380,6 +380,7 @@ OpsWithVerifier = [
     'Mod',
     'NonMaxSuppression',
     'SpaceToDepth',
+    'TopK',
 ]
 
 OpsWithHelpers = {

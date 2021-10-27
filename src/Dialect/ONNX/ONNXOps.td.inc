@@ -6120,6 +6120,7 @@ def ONNXTopKOp:ONNX_Op<"TopK",
       return {20,4};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXTransposeOp:ONNX_Op<"Transpose",
