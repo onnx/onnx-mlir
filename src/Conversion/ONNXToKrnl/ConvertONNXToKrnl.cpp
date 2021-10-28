@@ -107,9 +107,10 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
       .addLegalDialect<KrnlOpsDialect, AffineDialect, arith::ArithmeticDialect,
           StandardOpsDialect, linalg::LinalgDialect, math::MathDialect,
           memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect>();
-
+  // Needed to support unsigned int computations. To be removed if we use a
+  // scheme that does not rely on the UnrealizedConversionCastOp.
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
-  
+
   // Use krnl.load/store instead of std.load/store and affine.load/store.
   // krnl.load/store will be lowered to std.load/store and affine.load/store by
   // `convert-krnl-to-affine` pass.
