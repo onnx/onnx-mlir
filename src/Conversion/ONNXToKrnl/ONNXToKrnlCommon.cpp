@@ -557,6 +557,78 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
   return newView;
 }
 
+/// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
+/// Output MemRef has the same shape as the input MemRef but is of IndexType.
+/// By default, sort values in the descending order.
+Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
+    Value input, int64_t axis, bool ascending = false) {
+  KrnlBuilder createKrnl(rewriter, loc);
+  MathBuilder createMath(createKrnl);
+  SCFBuilder createSCF(createKrnl);
+  IndexExprScope scope(createKrnl);
+
+  MemRefType inputMemRefType = input.getType().cast<MemRefType>();
+  Type indexType = rewriter.getIndexType();
+  int64_t rank = inputMemRefType.getRank();
+  assert(axis >= 0 && axis < rank && "axis is out of bound");
+  LiteralIndexExpr zeroIE(0), oneIE(1);
+
+  MemRefBoundsIndexCapture inputBounds(input);
+  SmallVector<IndexExpr, 4> lbs(rank, zeroIE);
+  SmallVector<IndexExpr, 4> ubs;
+  inputBounds.getDimList(ubs);
+
+  // Create and initialize the result.
+  Value order = insertAllocAndDeallocSimple(rewriter, nullptr,
+      MemRefType::get(inputMemRefType.getShape(), indexType), loc, ubs,
+      /*insertDealloc=*/true);
+  ValueRange initLoopDef = createKrnl.defineLoops(rank);
+  createKrnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
+      [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        // order[axis_0, axis_1, ..., axis_k-1, k, axis_k+1, ....] = k
+        createKrnl.store(loopInd[axis], order, loopInd);
+      });
+
+  // Do sorting in the descending order of input and return their indices.
+  // Using bubble sort.
+  SmallVector<IndexExpr, 4> outerUbs(ubs);
+  outerUbs[axis] = ubs[axis] - oneIE;
+  ValueRange loopDef = createKrnl.defineLoops(rank);
+  createKrnl.iterateIE(loopDef, loopDef, lbs, outerUbs,
+      [&](KrnlBuilder &createKrnl, ValueRange iLoopInd) {
+        IndexExpr i1 = DimIndexExpr(iLoopInd[axis]) + LiteralIndexExpr(1);
+        ValueRange swapLoopDef = createKrnl.defineLoops(1);
+        createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i1}, {ubs[axis]},
+            [&](KrnlBuilder &createKrnl, ValueRange swapLoopInd) {
+              SmallVector<Value> kLoopInd(iLoopInd);
+              kLoopInd[axis] = swapLoopInd[0];
+              // Load current indices.
+              Value iOrd = createKrnl.load(order, iLoopInd);
+              Value kOrd = createKrnl.load(order, kLoopInd);
+              // Load x.
+              SmallVector<Value> xLoopInd(iLoopInd);
+              xLoopInd[axis] = iOrd;
+              Value x = createKrnl.load(input, xLoopInd);
+              // Load y.
+              SmallVector<Value> yLoopInd(iLoopInd);
+              yLoopInd[axis] = kOrd;
+              Value y = createKrnl.load(input, yLoopInd);
+              // Compare values and swap indices.
+              Value cond;
+              if (ascending)
+                cond = createMath.sgt(x, y);
+              else
+                cond = createMath.slt(x, y);
+              createSCF.ifThenElse(cond, [&](SCFBuilder &createSCF) {
+                createKrnl.store(kOrd, order, iLoopInd);
+                createKrnl.store(iOrd, order, kLoopInd);
+              });
+            });
+      });
+
+  return order;
+}
+
 /// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
 /// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
 /// lambda type, using ONNX and Krnl operations.
