@@ -20,22 +20,25 @@
 #include "mlir/IR/Value.h"
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 namespace mlir {
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
-struct OnnxBuilder : DialectBuilder {
+struct OnnxBuilder final : DialectBuilder {
   OnnxBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
-  OnnxBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
   OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  Value add(Value A, Value B);
-  Value sub(Value A, Value B);
-  Value mul(Value A, Value B);
-  Value div(Value A, Value B);
-  Value matmul(Type Y, Value A, Value B);
+  Value add(Value A, Value B) const;
+  Value sub(Value A, Value B) const;
+  Value mul(Value A, Value B) const;
+  Value div(Value A, Value B) const;
+  Value matmul(Type Y, Value A, Value B) const;
+
+  Value reshape(Type outputType, Value input, Value shape) const;
+  Value transpose(Type outputType, Value input, ArrayAttr perm) const;
 };
 
 } // namespace mlir

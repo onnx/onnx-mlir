@@ -12,13 +12,15 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 
-#include "onnx/defs/function.h"
-#include "onnx/defs/schema.h"
-
 #include "src/Builder/FrontendDialectTransformer.hpp"
-
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/SuppressWarnings.h"
+
+SUPPRESS_WARNINGS_PUSH
+#include "onnx/defs/function.h"
+#include "onnx/defs/schema.h"
+SUPPRESS_WARNINGS_POP
 
 using namespace std;
 using namespace ONNX_NAMESPACE;

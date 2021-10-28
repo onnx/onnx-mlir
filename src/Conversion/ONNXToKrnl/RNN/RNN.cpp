@@ -323,7 +323,7 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
 
   // Do element-wise computations. Fuse them into a single nested loop.
   // Lower and upper bounds derived from Ht tensor.
-  Value iZero = rewriter.create<ConstantIndexOp>(loc, 0);
+  Value iZero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
   SmallVector<Value, 4> htLbs(htRank, iZero);
   SmallVector<Value, 4> htUbs;
   for (unsigned r = 0; r < htRank; ++r) {

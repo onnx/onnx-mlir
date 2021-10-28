@@ -6,10 +6,10 @@
 // -----
 
 func private @matmulKrnl_full_tiles(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x8xf32>) {
-    %c0 = constant 0: index
-    %c4 = constant 4: index // N
-    %c6 = constant 6: index // K
-    %c8 = constant 8: index // M
+    %c0 = arith.constant 0: index
+    %c4 = arith.constant 4: index // N
+    %c6 = arith.constant 6: index // K
+    %c8 = arith.constant 8: index // M
     %ii, %jj, %kk = krnl.define_loops 3
     %ib, %il = krnl.block %ii 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
     %jb, %jl = krnl.block %jj 8 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
@@ -60,7 +60,7 @@ func private @matmulKrnl_full_tiles(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C
 func @matmulKrnl_runtime(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x8xf32>, 
         %sn: index, %sm: index, %sk: index, 
         %dn: index, %dm: index, %dk: index) {
-    %c0 = constant 0: index 
+    %c0 = arith.constant 0: index 
     %ii, %jj, %kk = krnl.define_loops 3
     %ib, %il = krnl.block %ii 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
     %jb, %jl = krnl.block %jj 8 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
@@ -128,9 +128,9 @@ func @matmulKrnl_runtime(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x
 // CHECK:                         affine.for [[I_9_:%.+]] = 0 to min #map1(){{.}}[[PARAM_5_]], [[PARAM_2_]]{{.}} {
 // CHECK-DAG:                       [[LOAD_A_MEM_2_:%.+]] = affine.load [[A_]]{{.}}[[I_7_]] + symbol([[PARAM_0_]]), [[I_9_]] + symbol([[PARAM_2_]])] : memref<4x6xf32>
 // CHECK-DAG:                       [[LOAD_RES_MEM_1_1_:%.+]] = affine.load [[B_]]{{.}}[[B_]]4 + symbol([[PARAM_2_]]), [[B_]]3 + symbol([[PARAM_1_]])] : memref<6x8xf32>
-// CHECK-DAG:                       [[LOAD_A_MEM_1_:%.+]] = mulf [[LOAD_A_MEM_2_]], [[LOAD_RES_MEM_1_1_]] : f32
+// CHECK-DAG:                       [[LOAD_A_MEM_1_:%.+]] = arith.mulf [[LOAD_A_MEM_2_]], [[LOAD_RES_MEM_1_1_]] : f32
 // CHECK-DAG:                       [[VAR_6_1_:%.+]] = affine.load [[RES_2_]][] : memref<f32>
-// CHECK-DAG:                       [[LOAD_VAR_0_MEM_1_:%.+]] = addf [[LOAD_A_MEM_1_]], [[VAR_6_1_]] : f32
+// CHECK-DAG:                       [[LOAD_VAR_0_MEM_1_:%.+]] = arith.addf [[LOAD_A_MEM_1_]], [[VAR_6_1_]] : f32
 // CHECK:                           affine.store [[LOAD_VAR_0_MEM_1_]], [[RES_2_]][] : memref<f32>
 // CHECK:                         }
 // CHECK:                         [[RES_1_:%.+]] = affine.load [[RES_2_]][] : memref<f32>

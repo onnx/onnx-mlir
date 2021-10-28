@@ -469,6 +469,17 @@ void registerDialects(mlir::MLIRContext &context) {
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
+  // This is a transition from previous static passes to full dynamic passes
+  // Static passes are kept and the dynamic pass is added as IF-THEN
+  // with the static iteration.
+  // The reasons are
+  // 1. The debug flag, --print-ir-after/befor-all, can display IR for each
+  //    static pass, but the dynamic pipeline will be viewed as one. MLIR
+  //    may have solution that I am not aware of yet.
+  // 2. Easy to compare two approaches.
+  // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
+  // this function.
+
   pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
@@ -477,11 +488,16 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   // inferred shapes.
   pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
 
-  // Add extra passes
-  for (int i = 0; i < repeatOnnxTransform; i++) {
-    pm.addPass(mlir::createCanonicalizerPass());
-    pm.addPass(mlir::createShapeInferencePass());
-    pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+  if (onnxOpTransformThreshold > 0) {
+    // Dynamic iterate in ONNXOpTransformPass
+    pm.addPass(mlir::createONNXOpTransformPass(onnxOpTransformThreshold));
+  } else {
+    // Statically add extra passes
+    for (int i = 0; i < repeatOnnxTransform; i++) {
+      pm.addPass(mlir::createCanonicalizerPass());
+      pm.addPass(mlir::createShapeInferencePass());
+      pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+    }
   }
 
   // Clean dead code.

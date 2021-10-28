@@ -59,16 +59,16 @@ void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
 
 static bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
   // From lib/Dialect/LinAlg/Transform/Promotion.cpp
-  if (auto constantOp = value.getDefiningOp<ConstantOp>()) {
+  if (auto constantOp = value.getDefiningOp<arith::ConstantOp>()) {
     if (constantOp.getType().isa<IndexType>())
       intLit = constantOp.value().cast<IntegerAttr>().getInt();
     return true;
   }
   // Since ConsantIndexOp is a subclass of ConstantOp, not sure if this one is
   // useful.
-  if (auto constantOp = value.getDefiningOp<ConstantIndexOp>()) {
+  if (auto constantOp = value.getDefiningOp<arith::ConstantIndexOp>()) {
     if (constantOp.getType().isa<IndexType>())
-      intLit = constantOp.value().cast<IntegerAttr>().getInt();
+      intLit = constantOp.value();
     return true;
   }
   return false;
@@ -102,14 +102,14 @@ void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
     if (newKind != IndexExprKind::Predicate) {
       // We need to convert the int into an index, since we are dealing with
       // index expressions.
-      newVal = scope->getRewriter().create<IndexCastOp>(
+      newVal = scope->getRewriter().create<arith::IndexCastOp>(
           scope->getLoc(), scope->getRewriter().getIndexType(), newVal);
     }
   } else if (type.isa<IndexType>()) {
     if (newKind == IndexExprKind::Predicate) {
       // We need to convert the int into an index, since we are dealing with
       // index expressions.
-      newVal = scope->getRewriter().create<IndexCastOp>(
+      newVal = scope->getRewriter().create<arith::IndexCastOp>(
           scope->getLoc(), scope->getRewriter().getI1Type(), newVal);
     }
   } else {
@@ -336,10 +336,10 @@ Value IndexExprImpl::getValue() {
     // eliminate the comparison, so we don't intend to support them here.
     if (isPredType()) {
       bool boolValue = (intLit != 0);
-      value = getRewriter().create<ConstantOp>(getLoc(),
+      value = getRewriter().create<arith::ConstantOp>(getLoc(),
           getRewriter().getI1Type(), getRewriter().getBoolAttr(boolValue));
     } else {
-      value = getRewriter().create<ConstantIndexOp>(getLoc(), intLit);
+      value = getRewriter().create<arith::ConstantIndexOp>(getLoc(), intLit);
     }
   } else if (hasAffineExpr()) {
     // Has an affine expression: need to build a map, and then perform an
