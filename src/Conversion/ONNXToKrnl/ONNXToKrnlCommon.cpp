@@ -561,7 +561,7 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
 /// By default, sort values in the descending order.
 Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
-    Value input, int64_t axis, bool ascending = false) {
+    Value input, int64_t axis, bool ascending) {
   KrnlBuilder createKrnl(rewriter, loc);
   MathBuilder createMath(createKrnl);
   SCFBuilder createSCF(createKrnl);

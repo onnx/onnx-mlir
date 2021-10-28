@@ -147,7 +147,7 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
 Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
-    Value input, int64_t axis, bool ascending);
+    Value input, int64_t axis, bool ascending = false);
 
 /// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
 /// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
