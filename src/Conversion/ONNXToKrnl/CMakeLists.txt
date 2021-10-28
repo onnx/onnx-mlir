@@ -33,6 +33,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/Constant.cpp
   Tensor/ConstantOfShape.cpp
   Tensor/Concat.cpp
+  Tensor/DepthToSpace.cpp
   Tensor/Expand.cpp
   Tensor/Split.cpp
   Tensor/Gather.cpp
@@ -44,6 +45,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/Range.cpp
   Tensor/Resize.cpp
   Tensor/NonZero.cpp
+  Tensor/ReverseSequence.cpp
   Tensor/OneHot.cpp
   Tensor/Compress.cpp
   ConvertONNXToKrnl.cpp

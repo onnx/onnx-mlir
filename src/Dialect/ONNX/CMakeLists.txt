@@ -35,6 +35,7 @@ add_onnx_mlir_library(OMONNXOps
   ShapeInference/Pad.cpp
   ShapeInference/RNN.cpp
   ShapeInference/Reshape.cpp
+  ShapeInference/ReverseSequence.cpp
   ShapeInference/Shape.cpp
   ShapeInference/Slice.cpp
   ShapeInference/SpaceToDepth.cpp

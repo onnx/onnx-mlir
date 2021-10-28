@@ -36,6 +36,9 @@ struct OnnxBuilder final : DialectBuilder {
   Value mul(Value A, Value B) const;
   Value div(Value A, Value B) const;
   Value matmul(Type Y, Value A, Value B) const;
+
+  Value reshape(Type outputType, Value input, Value shape) const;
+  Value transpose(Type outputType, Value input, ArrayAttr perm) const;
 };
 
 } // namespace mlir

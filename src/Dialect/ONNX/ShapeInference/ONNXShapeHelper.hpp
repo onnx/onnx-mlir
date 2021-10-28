@@ -397,6 +397,19 @@ struct ONNXReshapeOpShapeHelper : public ONNXOpShapeHelper<ONNXReshapeOp> {
   LogicalResult computeShape(ONNXReshapeOpAdaptor operandAdaptor);
 };
 
+// Shape for ONNXReverseSequence.
+struct ONNXReverseSequenceOpShapeHelper
+    : public ONNXOpShapeHelper<ONNXReverseSequenceOp> {
+  ONNXReverseSequenceOpShapeHelper(
+      ONNXReverseSequenceOp *newOp, IndexExprScope *inScope = nullptr);
+  ONNXReverseSequenceOpShapeHelper(ONNXReverseSequenceOp *newOp,
+      OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal,
+      IndexExprScope *inScope = nullptr);
+
+  LogicalResult Compute(ONNXReverseSequenceOpAdaptor operandAdaptor);
+};
+
 // Shape for SqueezeOp.
 struct ONNXSqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXSqueezeOp> {
   ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp);
