@@ -199,8 +199,7 @@ Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
 }
 
 // Methods inspired from MLIR TosaToLinalg CastOp.
-// Handle here either elementary types (such as int/float) or shaped type of
-// elementary types. Does not handle Index Type here.
+// Handle here either elementary types Integer or Float, not Shaped or Index.
 Value MathBuilder::cast(Value src, Type destType) const {
   // Get elementary types.
   Type srcType = src.getType();
