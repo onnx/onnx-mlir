@@ -37,8 +37,8 @@ struct ONNXTopKOpLowering : public ConversionPattern {
     // Op's Attributes.
     int64_t rank = resMemRefType.getRank();
     int64_t axis = topkOp.axis();
-    axis = axis >= 0 ? axis : rank + axis;
-    assert(axis >= -rank && axis <= rank - 1);
+    axis = axis < 0 ? axis + rank : axis;
+    assert(axis >= 0 && axis < rank && "axis is out of bound");
     bool ascendingMode = topkOp.largest() != 1;
     // Accoring to ONNX TopK: 'If "sorted" is 0, order of returned 'Values' and
     // 'Indices' are undefined'.
