@@ -4303,7 +4303,8 @@ static LogicalResult verify(ONNXTopKOp op) {
 
   // Verify that K's rank must b zero or one.
   if (hasShapeAndRank(K))
-    return op.emitError("K should have a rank of zero or one");
+    if (K.getType().cast<ShapedType>().getRank() > 1)
+      return op.emitError("K should have a rank of zero or one");
 
   return success();
 }
