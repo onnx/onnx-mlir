@@ -88,7 +88,8 @@ struct MathBuilder final : DialectBuilder {
 
   // Cast handle bool/int/float elementary types.
   Value cast(Value val, Type destType) const;
-  private:
+
+private:
   Value castToSignless(Value source, int64_t width) const;
   Value castToUnsigned(Value source, int64_t width) const;
 };
