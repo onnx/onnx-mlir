@@ -86,7 +86,8 @@ struct MathBuilder final : DialectBuilder {
   Value constant(Type type, double val) const;
   Value constantIndex(int64_t val) const;
 
-  // Cast handle bool/int/float elementary types.
+  // Cast handle bool/int/float/index elementary types. Do not convert
+  // signed/index to unsigned.
   Value cast(Value val, Type destType) const;
 
 private:

@@ -184,7 +184,6 @@ Value MathBuilder::castToSignless(Value val, int64_t width) const {
   Value res =
       b.create<UnrealizedConversionCastOp>(loc, b.getIntegerType(width), val)
           .getResult(0);
-  res.dump();
   return res;
 }
 
@@ -192,38 +191,54 @@ Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
   Value res = b.create<UnrealizedConversionCastOp>(
                    loc, b.getIntegerType(width, /*is signed*/ false), val)
                   .getResult(0);
-  res.dump();
   return res;
 }
 
 // Methods inspired from MLIR TosaToLinalg CastOp.
 Value MathBuilder::cast(Value src, Type destType) const {
-  // Get elementary types.
+  // Get source type and check if we need a cast at all.
   Type srcType = src.getType();
-  // Do we need a conversion? If not, we are done.
   if (srcType == destType)
     return src;
+  // Get source and dest type width.
+  int64_t srcWidth = srcType.getIntOrFloatBitWidth();
+  int64_t destWidth = destType.getIntOrFloatBitWidth();
+  bool bitExtend = srcWidth < destWidth;
+  bool bitTrunc = srcWidth > destWidth;
 
-  // Only support Integer or Float type at this stage.
+  // Process index types first.
+  if (srcType.isa<IndexType>()) {
+    // If our source is an index type, first convert it into a signless int of
+    // size 64.
+    srcType = b.getIntegerType(64);
+    src = b.create<arith::IndexCastOp>(loc, srcType, src);
+  }
+  bool destIsIndex = false;
+  if (destType.isa<IndexType>()) {
+    // If our dest is an index type, pretend for now that we want it to be
+    // converted to.
+    destType = b.getIntegerType(64);
+    destIsIndex = true;
+  }
+  // Only support Integer or Float type at this stage. Index were transformed to
+  // signless int.
   // TODO: add support for shaped tensor (MemRef, Vector, Tensor?) if needed.
   assert(srcType.isa<IntegerType>() ||
          srcType.isa<FloatType>() && "support only float or int");
   assert(destType.isa<IntegerType>() ||
          destType.isa<FloatType>() && "support only float or int");
-  // Get sizes.
-  int64_t srcWidth = srcType.getIntOrFloatBitWidth();
-  int64_t destWidth = destType.getIntOrFloatBitWidth();
-  bool bitExtend = srcWidth < destWidth;
 
   // Handle boolean first because they need special handling.
   // Boolean to int/float conversions. Boolean are unsigned.
   if (srcType.isInteger(1)) {
     if (destType.isa<FloatType>()) {
-      return b.create<arith::UIToFPOp>(loc, destType, src, mlir::None);
+      return b.create<arith::UIToFPOp>(loc, destType, src);
+    } else {
+      Value dest = b.create<arith::ExtUIOp>(loc, destType, src);
+      if (destIsIndex)
+        dest = b.create<arith::IndexCastOp>(loc, b.getIndexType(), dest);
+      return dest;
     }
-    // To larger int.
-    assert(destType.isa<IntegerType>() && bitExtend && "unknown cast from bit");
-    return b.create<arith::ExtUIOp>(loc, destType, src, mlir::None);
   }
 
   // Int/Float to booleans, just compare value to be unequal zero.
@@ -234,10 +249,11 @@ Value MathBuilder::cast(Value src, Type destType) const {
 
   // Float to float conversions.
   if (srcType.isa<FloatType>() && destType.isa<FloatType>()) {
-    if (bitExtend) {
-      return b.create<arith::ExtFOp>(loc, destType, src, mlir::None);
-    }
-    return b.create<arith::TruncFOp>(loc, destType, src, mlir::None);
+    assert((bitExtend || bitTrunc) && "expected extend or trunc");
+    if (bitExtend)
+      return b.create<arith::ExtFOp>(loc, destType, src);
+    else
+      return b.create<arith::TruncFOp>(loc, destType, src);
   }
 
   // Float to int conversions.
@@ -247,9 +263,13 @@ Value MathBuilder::cast(Value src, Type destType) const {
     if (destType.isUnsignedInteger()) {
       Value cast = castToSignless(src, srcWidth);
       return b.create<arith::FPToUIOp>(loc, destType, cast);
+    } else {
+      // Handle signed int.
+      Value dest = b.create<arith::FPToSIOp>(loc, destType, src);
+      if (destIsIndex)
+        dest = b.create<arith::IndexCastOp>(loc, b.getIndexType(), dest);
+      return dest;
     }
-    // Handle signed int.
-    return b.create<arith::FPToSIOp>(loc, destType, src, mlir::None);
   }
 
   // Int to float conversion.
@@ -257,9 +277,10 @@ Value MathBuilder::cast(Value src, Type destType) const {
     if (srcType.isUnsignedInteger()) {
       Value cast = castToSignless(src, srcWidth);
       return b.create<arith::UIToFPOp>(loc, destType, cast);
+    } else {
+      // Handle signed int.
+      return b.create<arith::SIToFPOp>(loc, destType, src);
     }
-    // Handle signed int.
-    return b.create<arith::SIToFPOp>(loc, destType, src, mlir::None);
   }
 
   // Int to int conversion.
@@ -268,23 +289,29 @@ Value MathBuilder::cast(Value src, Type destType) const {
       // Unsigned to unsigned conversion. Has to convert to signless first, and
       // recovert output to unsigned.
       assert(destType.isUnsignedInteger() && "no unsigned/signed conversion");
+      assert((bitExtend || bitTrunc) && "expected extend or trunc");
       Value cast = castToSignless(src, srcWidth);
       Type castType = b.getIntegerType(destWidth);
       if (bitExtend) {
-        cast = b.create<arith::ExtUIOp>(loc, castType, cast, mlir::None);
+        cast = b.create<arith::ExtUIOp>(loc, castType, cast);
       } else {
         // TosaToLinalg use a cliping algo, not sure if needed.
-        cast = b.create<arith::TruncIOp>(loc, castType, cast, mlir::None);
+        cast = b.create<arith::TruncIOp>(loc, castType, cast);
       }
       return castToUnsigned(cast, destWidth);
+    } else {
+      // Handle signed ingeger
+      assert(!destType.isUnsignedInteger() && "no signed/unsigned conversion");
+      Value dest = src;
+      if (bitExtend)
+        dest = b.create<arith::ExtSIOp>(loc, destType, src);
+      if (bitTrunc)
+        // TosaToLinalg use a cliping algo
+        dest = b.create<arith::TruncIOp>(loc, destType, src);
+      if (destIsIndex)
+        dest = b.create<arith::IndexCastOp>(loc, b.getIndexType(), dest);
+      return dest;
     }
-    // Handle signed ingeger
-    assert(!destType.isUnsignedInteger() && "no signed/unsigned conversion");
-    if (bitExtend) {
-      return b.create<arith::ExtSIOp>(loc, destType, src, mlir::None);
-    }
-    // TosaToLinalg use a cliping algo
-    return b.create<arith::TruncIOp>(loc, destType, src, mlir::None);
   }
 
   // Handled all the cases supported so far.
