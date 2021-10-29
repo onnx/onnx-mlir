@@ -182,11 +182,9 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
 
-#if 1
+#if 1 // hi alex, get rid of old code
   MathBuilder createMath(rewriter, loc);
   Value res = createMath.cast(scalarOperands[0], elementType);
-  printf("hi alex, dump result\n");
-  res.dump();
   return res;
 #else
   ONNXCastOp castOp = llvm::dyn_cast<ONNXCastOp>(op);

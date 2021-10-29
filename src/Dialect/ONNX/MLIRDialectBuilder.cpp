@@ -181,7 +181,6 @@ Value MathBuilder::constantIndex(int64_t val) const {
 // operations are mainly used on signless integers. So this cast remove the sign
 // of unsigned int for successful processing, to the best of my understanding.
 Value MathBuilder::castToSignless(Value val, int64_t width) const {
-  printf("hi alex: creating unrealized cast\n");
   Value res =
       b.create<UnrealizedConversionCastOp>(loc, b.getIntegerType(width), val)
           .getResult(0);
@@ -190,7 +189,6 @@ Value MathBuilder::castToSignless(Value val, int64_t width) const {
 }
 
 Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
-  printf("hi alex: creating unrealized cast\n");
   Value res = b.create<UnrealizedConversionCastOp>(
                    loc, b.getIntegerType(width, /*is signed*/ false), val)
                   .getResult(0);
@@ -199,107 +197,89 @@ Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
 }
 
 // Methods inspired from MLIR TosaToLinalg CastOp.
-// Handle here either elementary types Integer or Float, not Shaped or Index.
 Value MathBuilder::cast(Value src, Type destType) const {
   // Get elementary types.
   Type srcType = src.getType();
-  ShapedType srcShapedType = srcType.dyn_cast_or_null<ShapedType>();
-  Type srcElementType =
-      srcShapedType ? srcShapedType.getElementType() : srcType;
-  ShapedType destShapedType = destType.dyn_cast_or_null<ShapedType>();
-  Type destElementType =
-      destShapedType ? destShapedType.getElementType() : destType;
   // Do we need a conversion? If not, we are done.
-  if (srcElementType == destElementType)
+  if (srcType == destType)
     return src;
-  // No index expressions allowed.
-  assert(!srcElementType.isIndex() && !destElementType.isIndex() &&
-         "does not handle IndexType");
+
+  // Only support Integer or Float type at this stage.
+  // TODO: add support for shaped tensor (MemRef, Vector, Tensor?) if needed.
+  assert(srcType.isa<IntegerType>() ||
+         srcType.isa<FloatType>() && "support only float or int");
+  assert(destType.isa<IntegerType>() ||
+         destType.isa<FloatType>() && "support only float or int");
   // Get sizes.
-  int64_t srcWidth = srcElementType.getIntOrFloatBitWidth();
-  int64_t destWidth = destElementType.getIntOrFloatBitWidth();
+  int64_t srcWidth = srcType.getIntOrFloatBitWidth();
+  int64_t destWidth = destType.getIntOrFloatBitWidth();
   bool bitExtend = srcWidth < destWidth;
 
   // Handle boolean first because they need special handling.
-  // Boolean to float/int conversions. Boolean are unsigned.
-  if (srcElementType.isInteger(1)) {
-    if (arith::UIToFPOp::areCastCompatible(srcType, destType)) {
-      // To float.
+  // Boolean to int/float conversions. Boolean are unsigned.
+  if (srcType.isInteger(1)) {
+    if (destType.isa<FloatType>()) {
       return b.create<arith::UIToFPOp>(loc, destType, src, mlir::None);
     }
     // To larger int.
-    assert(destElementType.isa<IntegerType>() && bitExtend &&
-           "unknown cast from bit");
-    assert(arith::ExtUIOp::areCastCompatible(srcType, destType) &&
-           "expected compatible");
+    assert(destType.isa<IntegerType>() && bitExtend && "unknown cast from bit");
     return b.create<arith::ExtUIOp>(loc, destType, src, mlir::None);
   }
+
   // Int/Float to booleans, just compare value to be unequal zero.
-  if (destElementType.isInteger(1)) {
-    Value zero = constant(srcElementType, 0);
+  if (destType.isInteger(1)) {
+    Value zero = constant(srcType, 0);
     return neq(src, zero);
   }
 
   // Float to float conversions.
-  if (srcElementType.isa<FloatType>() && destElementType.isa<FloatType>()) {
+  if (srcType.isa<FloatType>() && destType.isa<FloatType>()) {
     if (bitExtend) {
-      // Extend.
-      assert(arith::ExtFOp::areCastCompatible(srcType, destType) &&
-             "expected compatible");
       return b.create<arith::ExtFOp>(loc, destType, src, mlir::None);
     }
-    // Truncate.
-    assert(arith::TruncFOp::areCastCompatible(srcType, destType) &&
-           "expected compatible");
     return b.create<arith::TruncFOp>(loc, destType, src, mlir::None);
   }
 
   // Float to int conversions.
-  if (srcElementType.isa<FloatType>() && destElementType.isa<IntegerType>()) {
+  if (srcType.isa<FloatType>() && destType.isa<IntegerType>()) {
     // TosaToLinalg in MLIR uses a fancier algorithm that clamps values to
     // min/max signed/unsigned integer values.
-    if (destElementType.isUnsignedInteger()) {
+    if (destType.isUnsignedInteger()) {
       Value cast = castToSignless(src, srcWidth);
       return b.create<arith::FPToUIOp>(loc, destType, cast);
     }
     // Handle signed int.
-    assert(arith::FPToSIOp::areCastCompatible(srcType, destType) &&
-           "expected compatible");
     return b.create<arith::FPToSIOp>(loc, destType, src, mlir::None);
   }
 
   // Int to float conversion.
-  if (srcElementType.isa<IntegerType>() && destElementType.isa<FloatType>()) {
-    if (srcElementType.isUnsignedInteger()) {
+  if (srcType.isa<IntegerType>() && destType.isa<FloatType>()) {
+    if (srcType.isUnsignedInteger()) {
       Value cast = castToSignless(src, srcWidth);
       return b.create<arith::UIToFPOp>(loc, destType, cast);
     }
     // Handle signed int.
-    assert(arith::SIToFPOp::areCastCompatible(srcType, destType) &&
-           "expected compatible");
     return b.create<arith::SIToFPOp>(loc, destType, src, mlir::None);
   }
 
   // Int to int conversion.
-  if (srcElementType.isa<IntegerType>() && destElementType.isa<IntegerType>()) {
-    if (srcElementType.isUnsignedInteger()) {
-      assert(destElementType.isUnsignedInteger() &&
-             "no unsigned to signed conversion");
+  if (srcType.isa<IntegerType>() && destType.isa<IntegerType>()) {
+    if (srcType.isUnsignedInteger()) {
+      // Unsigned to unsigned conversion. Has to convert to signless first, and
+      // recovert output to unsigned.
+      assert(destType.isUnsignedInteger() && "no unsigned/signed conversion");
       Value cast = castToSignless(src, srcWidth);
+      Type castType = b.getIntegerType(destWidth);
       if (bitExtend) {
-        printf("hi alex, extend\n");
-        Type castType = b.getIntegerType(destWidth);
         cast = b.create<arith::ExtUIOp>(loc, castType, cast, mlir::None);
-        return castToUnsigned(cast, destWidth);
+      } else {
+        // TosaToLinalg use a cliping algo, not sure if needed.
+        cast = b.create<arith::TruncIOp>(loc, castType, cast, mlir::None);
       }
-      // TosaToLinalg use a cliping algo
-      printf("hi alex, trunc\n");
-      return b.create<arith::TruncIOp>(loc, destType, cast, mlir::None);
+      return castToUnsigned(cast, destWidth);
     }
-    // handle signed ingeger
-    assert(!srcElementType.isUnsignedInteger() &&
-           !destElementType.isUnsignedInteger() &&
-           "no signed to unsigned conversion");
+    // Handle signed ingeger
+    assert(!destType.isUnsignedInteger() && "no signed/unsigned conversion");
     if (bitExtend) {
       return b.create<arith::ExtSIOp>(loc, destType, src, mlir::None);
     }
