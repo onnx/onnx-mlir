@@ -4301,7 +4301,7 @@ static LogicalResult verify(ONNXTopKOp op) {
       return op.emitError("axis must be in range [-rank, rank -1]");
   }
 
-  // Verify that K's rank must b zero or one.
+  // Verify that K's rank must be zero or one.
   if (hasShapeAndRank(K))
     if (K.getType().cast<ShapedType>().getRank() > 1)
       return op.emitError("K should have a rank of zero or one");
@@ -4316,8 +4316,8 @@ LogicalResult ONNXTopKOp::inferShapes(
       !K().getType().isa<RankedTensorType>())
     return success();
 
-  auto b = mlir::Builder(getContext());
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
+  Builder b = mlir::Builder(getContext());
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
   ONNXTopKOpAdaptor operandAdaptor(*this);
   ONNXTopKOpShapeHelper shapeHelper(this);
   if (failed(shapeHelper.computeShape(operandAdaptor)))

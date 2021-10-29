@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// This file lowers ONNX softmax operator to Krnl dialect.
+// This file lowers ONNX TopK operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
 
@@ -43,7 +43,7 @@ struct ONNXTopKOpLowering : public ConversionPattern {
     // Accoring to ONNX TopK: 'If "sorted" is 0, order of returned 'Values' and
     // 'Indices' are undefined'.
     // In this case, we still return sorted values and indices to make them
-    // deterministic. So not used this attribute.
+    // deterministic. So this attribute is not used.
     // bool sortedMode = topkOp.sorted() == 1;
 
     // Compute the output's dimension sizes.
