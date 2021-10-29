@@ -182,6 +182,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXHardmaxOpPattern(patterns, &getContext());
   populateLoweringONNXReductionOpPattern(patterns, &getContext());
   populateLoweringONNXSoftmaxOpPattern(patterns, &getContext());
+  populateLoweringONNXTopKOpPattern(patterns, &getContext());
   populateLoweringONNXMatMulOpPattern(patterns, &getContext());
   populateLoweringONNXRandomNormalOpPattern(patterns, &getContext());
   populateLoweringONNXLRNOpPattern(patterns, &getContext());

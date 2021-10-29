@@ -42,6 +42,7 @@ add_onnx_mlir_library(OMONNXOps
   ShapeInference/Split.cpp
   ShapeInference/Squeeze.cpp
   ShapeInference/Tile.cpp
+  ShapeInference/TopK.cpp
   ShapeInference/Transpose.cpp
   ShapeInference/Unsqueeze.cpp
 
