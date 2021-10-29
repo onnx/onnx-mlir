@@ -93,6 +93,8 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     KrnlBuilder createKrnl(rewriter, loc);
     MathBuilder createMath(createKrnl);
 
+    printf("hi alex: cumsum beginign\n");
+
     // Common information.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = memRefType.getElementType();
@@ -143,9 +145,15 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
       int64_t logn = (int64_t)std::ceil(std::log2(n));
       numberOfStep = LiteralIndexExpr(logn);
     } else {
+#if 1 // hi alex
+      printf("hi alex, about to cast\n");
+      Value nos = createMath.cast(axisSize.getValue(), f32Ty);
+      printf("hi alex, done with cast\n");
+#else
       Value nos =
           rewriter.create<arith::IndexCastOp>(loc, i64Ty, axisSize.getValue());
       nos = rewriter.create<arith::SIToFPOp>(loc, f32Ty, nos);
+#endif
       // Use this when math::CeilOp is available in MLIR.
       // nos = createMath.ceil(createMath.log2(nos));
       nos = createMath.log2(nos);

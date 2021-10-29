@@ -196,15 +196,11 @@ Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
 
 // Methods inspired from MLIR TosaToLinalg CastOp.
 Value MathBuilder::cast(Value src, Type destType) const {
+  printf("hi alex, 0\n");
   // Get source type and check if we need a cast at all.
   Type srcType = src.getType();
   if (srcType == destType)
     return src;
-  // Get source and dest type width.
-  int64_t srcWidth = srcType.getIntOrFloatBitWidth();
-  int64_t destWidth = destType.getIntOrFloatBitWidth();
-  bool bitExtend = srcWidth < destWidth;
-  bool bitTrunc = srcWidth > destWidth;
 
   // Process index types first.
   if (srcType.isa<IndexType>()) {
@@ -212,6 +208,8 @@ Value MathBuilder::cast(Value src, Type destType) const {
     // size 64.
     srcType = b.getIntegerType(64);
     src = b.create<arith::IndexCastOp>(loc, srcType, src);
+    printf("hi alex, transform index into int\n");
+    src.dump();
   }
   bool destIsIndex = false;
   if (destType.isa<IndexType>()) {
@@ -219,7 +217,11 @@ Value MathBuilder::cast(Value src, Type destType) const {
     // converted to.
     destType = b.getIntegerType(64);
     destIsIndex = true;
+    printf("hi alex, will transform index into int\n");
+    destType.dump();
   }
+  printf("hi alex, 1\n");
+
   // Only support Integer or Float type at this stage. Index were transformed to
   // signless int.
   // TODO: add support for shaped tensor (MemRef, Vector, Tensor?) if needed.
@@ -227,6 +229,13 @@ Value MathBuilder::cast(Value src, Type destType) const {
          srcType.isa<FloatType>() && "support only float or int");
   assert(destType.isa<IntegerType>() ||
          destType.isa<FloatType>() && "support only float or int");
+  printf("hi alex, 2\n");
+  // Get source and dest type width.
+  int64_t srcWidth = srcType.getIntOrFloatBitWidth();
+  int64_t destWidth = destType.getIntOrFloatBitWidth();
+  bool bitExtend = srcWidth < destWidth;
+  bool bitTrunc = srcWidth > destWidth;
+  printf("hi alex, 3\n");
 
   // Handle boolean first because they need special handling.
   // Boolean to int/float conversions. Boolean are unsigned.
