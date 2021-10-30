@@ -4285,9 +4285,49 @@ LogicalResult ONNXThresholdedReluOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXTopKOp op) {
+  ONNXTopKOpAdaptor operandAdaptor = ONNXTopKOpAdaptor(op);
+  // Get operands.
+  auto X = operandAdaptor.X();
+  auto K = operandAdaptor.K();
+
+  // Verify that axis value is in the valid range.
+  if (hasShapeAndRank(X)) {
+    ArrayRef<int64_t> shape = X.getType().cast<ShapedType>().getShape();
+    int64_t rank = shape.size();
+    int64_t axis = op.axis();
+    axis = axis < 0 ? axis + rank : axis;
+    if (axis < 0 || axis >= rank)
+      return op.emitError("axis must be in range [-rank, rank -1]");
+  }
+
+  // Verify that K's rank must be zero or one.
+  if (hasShapeAndRank(K))
+    if (K.getType().cast<ShapedType>().getRank() > 1)
+      return op.emitError("K should have a rank of zero or one");
+
+  return success();
+}
+
 LogicalResult ONNXTopKOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Cannot infer shape if no shape exists.
+  if (!X().getType().isa<RankedTensorType>() ||
+      !K().getType().isa<RankedTensorType>())
+    return success();
+
+  Builder b = mlir::Builder(getContext());
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXTopKOpAdaptor operandAdaptor(*this);
+  ONNXTopKOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan TopK parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  getResult(0).setType(RankedTensorType::get(outputDims, elementType));
+  getResult(1).setType(RankedTensorType::get(outputDims, b.getI64Type()));
+
+  return success();
 }
 
 LogicalResult ONNXUniqueOp::inferShapes(

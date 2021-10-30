@@ -14,6 +14,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Math/RandomNormal.cpp
   Math/Reduction.cpp
   Math/Softmax.cpp
+  Math/TopK.cpp
   NN/Conv.cpp
   NN/Normalization.cpp
   NN/Pooling.cpp

@@ -381,6 +381,7 @@ OpsWithVerifier = [
     'NonMaxSuppression',
     'ReverseSequence',
     'SpaceToDepth',
+    'TopK',
 ]
 
 OpsWithHelpers = {
