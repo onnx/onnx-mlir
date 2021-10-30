@@ -156,66 +156,6 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
   createKrnl.store(createMath.min(x, y), maxOutputPerClass, {});
 }
 
-/// Returns the indices that would sort the score tensor.
-/// Scores :: [num_of_batch, num_of_class, spatial_dimension]
-/// Sort along `spatial_dimension` axis.
-static Value emitArgSort(
-    ConversionPatternRewriter &rewriter, Location loc, Value scores) {
-  KrnlBuilder createKrnl(rewriter, loc);
-  IndexExprScope scope(createKrnl);
-
-  MemRefType scoreMemRefType = scores.getType().cast<MemRefType>();
-  Type indexType = rewriter.getIndexType();
-
-  MemRefBoundsIndexCapture scoreBounds(scores);
-  SmallVector<IndexExpr, 4> dimsSize;
-  scoreBounds.getDimList(dimsSize);
-  IndexExpr bsIE = dimsSize[0]; // batch size.
-  IndexExpr csIE = dimsSize[1]; // class size.
-  IndexExpr ssIE = dimsSize[2]; // spatial size.
-  LiteralIndexExpr zeroIE(0), oneIE(1);
-
-  // Create and initialize the result.
-  Value order = insertAllocAndDeallocSimple(rewriter, nullptr,
-      MemRefType::get(scoreMemRefType.getShape(), indexType), loc, dimsSize,
-      /*insertDealloc=*/true);
-  ValueRange initLoopDef = createKrnl.defineLoops(3);
-  createKrnl.iterateIE(initLoopDef, initLoopDef, {zeroIE, zeroIE, zeroIE},
-      {bsIE, csIE, ssIE}, [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-        // order[b, c, s] = s
-        createKrnl.store(loopInd[2], order, loopInd);
-      });
-
-  // Do sorting in the descending order of scores and return their indices.
-  // Using bubble sort.
-  ValueRange loopDef = createKrnl.defineLoops(3);
-  createKrnl.iterateIE(loopDef, loopDef, {zeroIE, zeroIE, zeroIE},
-      {bsIE, csIE, ssIE - oneIE},
-      [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-        Value b(loopInd[0]), c(loopInd[1]), i(loopInd[2]);
-        IndexExpr i1 = DimIndexExpr(i) + LiteralIndexExpr(1);
-
-        ValueRange swapLoopDef = createKrnl.defineLoops(1);
-        createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i1}, {ssIE},
-            [&](KrnlBuilder &createKrnl, ValueRange swapLoopInd) {
-              MathBuilder createMath(createKrnl);
-              Value k(swapLoopInd[0]);
-              Value xOrd = createKrnl.load(order, {b, c, i});
-              Value yOrd = createKrnl.load(order, {b, c, k});
-              Value x = createKrnl.load(scores, {b, c, xOrd});
-              Value y = createKrnl.load(scores, {b, c, yOrd});
-              Value lt = createMath.slt(x, y);
-              auto ifOp =
-                  rewriter.create<scf::IfOp>(loc, lt, /*withElseRegion=*/false);
-              rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
-              createKrnl.store(yOrd, order, {b, c, i});
-              createKrnl.store(xOrd, order, {b, c, k});
-            });
-      });
-
-  return order;
-}
-
 /// Bounding boxes may contain a mix of flipped and non-flipped boxes. Try to
 /// flip the flipped boxes back.
 /// BoundingBoxes: [num_of_batch, spatial_dimension, 4]
@@ -340,7 +280,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     Value MOPC = createKrnl.load(maxOutputPerClass, {});
 
     // Sort scores in the descending order.
-    Value order = emitArgSort(rewriter, loc, scores);
+    Value order = emitArgSort(rewriter, loc, scores, /*axis=*/2);
 
     // Bounding boxes may contain a mix of flipped and non-flipped boxes. Try to
     // unflip the flipped boxes.

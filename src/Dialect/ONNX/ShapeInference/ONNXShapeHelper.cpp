@@ -426,6 +426,7 @@ template struct ONNXOpShapeHelper<ONNXSplitV11Op>;
 template struct ONNXOpShapeHelper<ONNXSqueezeOp>;
 template struct ONNXOpShapeHelper<ONNXSqueezeV11Op>;
 template struct ONNXOpShapeHelper<ONNXTileOp>;
+template struct ONNXOpShapeHelper<ONNXTopKOp>;
 template struct ONNXOpShapeHelper<ONNXTransposeOp>;
 template struct ONNXOpShapeHelper<ONNXUnsqueezeOp>;
 template struct ONNXOpShapeHelper<ONNXUnsqueezeV11Op>;

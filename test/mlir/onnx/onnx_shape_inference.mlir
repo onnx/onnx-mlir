@@ -2235,3 +2235,31 @@ func @hardmax(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32>{
   // CHECK: [[RES:%.+]] = "onnx.Hardmax"(%arg0) {axis = 1 : si64} : (tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
   // CHECK: return [[RES]] : tensor<3x4x5xf32>
 }
+
+// -----
+
+func @topk_default_axis_minus_one(%X: tensor<3x4x5xf32>, %K: tensor<i64>) -> tensor<*xf32> {
+  %value, %indices = "onnx.TopK"(%X, %K) : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<*xf32>, tensor<*xi64>)
+  return %value : tensor<*xf32>
+  // CHECK-LABEL: topk_default_axis_minus_one
+  // CHECK: {{.*}} = "onnx.TopK"({{.*}}, {{.*}}) : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<3x4x?xf32>, tensor<3x4x?xi64>)
+}
+
+// -----
+
+func @topk_default_axis_one(%X: tensor<3x4x5xf32>, %K: tensor<i64>) -> tensor<*xf32> {
+  %value, %indices = "onnx.TopK"(%X, %K) {axis = 1 : si64} : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<*xf32>, tensor<*xi64>)
+  return %value : tensor<*xf32>
+  // CHECK-LABEL: topk_default_axis_one
+  // CHECK: {{.*}} = "onnx.TopK"({{.*}}, {{.*}}) {axis = 1 : si64} : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<3x?x5xf32>, tensor<3x?x5xi64>)
+}
+
+// -----
+
+func @topk_constant_k(%X: tensor<3x4x5xf32>) -> tensor<*xf32> {
+  %K = "onnx.Constant"() {value = dense<2> : tensor<i64>} : () -> tensor<i64>
+  %value, %indices = "onnx.TopK"(%X, %K) {axis = 1 : si64} : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<*xf32>, tensor<*xi64>)
+  return %value : tensor<*xf32>
+  // CHECK-LABEL: topk_constant_k
+  // CHECK: {{.*}} = "onnx.TopK"({{.*}}, {{.*}}) {axis = 1 : si64} : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<3x2x5xf32>, tensor<3x2x5xi64>)
+}
