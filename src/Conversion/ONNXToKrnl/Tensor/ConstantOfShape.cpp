@@ -41,18 +41,18 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else {
+      MemRefBuilder createMemRef(rewriter, loc);
+      MathBuilder createMath(createMemRef);
+      KrnlBuilder createKrnl(createMemRef);
       SmallVector<Value, 2> allocOperands;
       // Load dimensions from the input.
       for (decltype(rank) i = 0; i < rank; ++i) {
-        auto index = emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
-        auto dim =
-            rewriter.create<KrnlLoadOp>(loc, operandAdaptor.input(), index);
-        auto dimIndex = rewriter.create<arith::IndexCastOp>(
-            loc, rewriter.getIndexType(), dim);
+        Value index = createMath.constantIndex(i);
+        Value dim = createKrnl.load(operandAdaptor.input(), index);
+        Value dimIndex = createMath.castToIndex(dim);
         allocOperands.emplace_back(dimIndex);
       }
       // Allocate memory.
-      MemRefBuilder createMemRef(rewriter, loc);
       alloc = createMemRef.alignedAlloc(memRefType, allocOperands);
       // Insert deallocation if needed.
       if (insertDealloc) {

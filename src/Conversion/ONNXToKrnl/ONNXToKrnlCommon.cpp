@@ -379,14 +379,7 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     MemRefBuilder createMemRef(rewriter, loc);
     MathBuilder createMath(createMemRef);
     Value dim = createMemRef.dim(operand, axis);
-    #if 1 // hi alex
-    dimVal = createMath.cast(dim, type);
-    #else
-    if (type.isa<IndexType>())
-      dimVal = dim;
-    else
-      dimVal = rewriter.create<arith::IndexCastOp>(loc, dim, type);
-    #endif
+    dimVal = createMath.cast(type, dim);
   } else {
     dimVal = emitConstantOp(rewriter, loc, type, shape[axis]);
   }

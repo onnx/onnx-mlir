@@ -61,7 +61,7 @@ Value MathBuilder::div(Value lhs, Value rhs) const {
   if (lhs.getType().isa<FloatType>())
     return b.create<arith::DivFOp>(loc, lhs, rhs);
   else
-    llvm_unreachable("Only support float type at this moment.");
+    return b.create<arith::DivSIOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::exp(Value val) const {
@@ -195,8 +195,7 @@ Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
 }
 
 // Methods inspired from MLIR TosaToLinalg CastOp.
-Value MathBuilder::cast(Value src, Type destType) const {
-  printf("hi alex, 0\n");
+Value MathBuilder::cast(Type destType, Value src) const {
   // Get source type and check if we need a cast at all.
   Type srcType = src.getType();
   if (srcType == destType)
@@ -208,7 +207,6 @@ Value MathBuilder::cast(Value src, Type destType) const {
     // size 64.
     srcType = b.getIntegerType(64);
     src = b.create<arith::IndexCastOp>(loc, srcType, src);
-    printf("hi alex, transform index into int\n");
     src.dump();
   }
   bool destIsIndex = false;
@@ -217,10 +215,7 @@ Value MathBuilder::cast(Value src, Type destType) const {
     // converted to.
     destType = b.getIntegerType(64);
     destIsIndex = true;
-    printf("hi alex, will transform index into int\n");
-    destType.dump();
   }
-  printf("hi alex, 1\n");
 
   // Only support Integer or Float type at this stage. Index were transformed to
   // signless int.
@@ -229,13 +224,11 @@ Value MathBuilder::cast(Value src, Type destType) const {
          srcType.isa<FloatType>() && "support only float or int");
   assert(destType.isa<IntegerType>() ||
          destType.isa<FloatType>() && "support only float or int");
-  printf("hi alex, 2\n");
   // Get source and dest type width.
   int64_t srcWidth = srcType.getIntOrFloatBitWidth();
   int64_t destWidth = destType.getIntOrFloatBitWidth();
   bool bitExtend = srcWidth < destWidth;
   bool bitTrunc = srcWidth > destWidth;
-  printf("hi alex, 3\n");
 
   // Handle boolean first because they need special handling.
   // Boolean to int/float conversions. Boolean are unsigned.
@@ -326,6 +319,10 @@ Value MathBuilder::cast(Value src, Type destType) const {
   // Handled all the cases supported so far.
   llvm_unreachable("unsupported element type");
   return nullptr;
+}
+
+Value MathBuilder::castToIndex(Value src) const {
+  return cast(b.getIndexType(), src);
 }
 
 //===----------------------------------------------------------------------===//

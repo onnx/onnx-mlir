@@ -93,8 +93,6 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     KrnlBuilder createKrnl(rewriter, loc);
     MathBuilder createMath(createKrnl);
 
-    printf("hi alex: cumsum beginign\n");
-
     // Common information.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = memRefType.getElementType();
@@ -145,15 +143,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
       int64_t logn = (int64_t)std::ceil(std::log2(n));
       numberOfStep = LiteralIndexExpr(logn);
     } else {
-#if 1 // hi alex
-      printf("hi alex, about to cast\n");
-      Value nos = createMath.cast(axisSize.getValue(), f32Ty);
-      printf("hi alex, done with cast\n");
-#else
-      Value nos =
-          rewriter.create<arith::IndexCastOp>(loc, i64Ty, axisSize.getValue());
-      nos = rewriter.create<arith::SIToFPOp>(loc, f32Ty, nos);
-#endif
+      Value nos = createMath.cast(f32Ty, axisSize.getValue());
       // Use this when math::CeilOp is available in MLIR.
       // nos = createMath.ceil(createMath.log2(nos));
       nos = createMath.log2(nos);
@@ -209,11 +199,9 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
 
           // Compute index offset: offset = 2^step.
           Value step = stepLoopInd[0];
-          step = rewriter.create<arith::IndexCastOp>(loc, i64Ty, step);
-          step = rewriter.create<arith::SIToFPOp>(loc, f32Ty, step);
+          step = createMath.cast(f32Ty, step);
           Value offset = createMath.exp2(step);
-          offset = rewriter.create<arith::FPToSIOp>(loc, i64Ty, offset);
-          offset = rewriter.create<arith::IndexCastOp>(loc, indexTy, offset);
+          offset = createMath.castToIndex(offset);
 
           // Inner loop iterates over the output to compute sums.
           //   for i range(n):

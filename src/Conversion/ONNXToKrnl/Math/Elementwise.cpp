@@ -184,7 +184,7 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
 
   // TODO: currently don't support String to * or * to String
   MathBuilder createMath(rewriter, loc);
-  return createMath.cast(scalarOperands[0], elementType);
+  return createMath.cast(elementType, scalarOperands[0]);
 }
 
 //===----------------------------------------------------------------------===//
