@@ -27,6 +27,12 @@ using namespace mlir;
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //===----------------------------------------------------------------------===//
 
+// Test for unsigned as signless are treated as signed. For reference, check in
+// MLIR AffineToStandard where comparison of indices are done with slt and sgt,
+// for example. Indices are signless. Also, in ONNX, we currently treat all
+// ONNX Integers as MLIR signless, and only flag the ONNX Unsigned Integer as
+// MLIR unsigned integer.
+
 Value MathBuilder::_and(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   return b.create<arith::AndIOp>(loc, lhs, rhs);
@@ -60,6 +66,8 @@ Value MathBuilder::div(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<FloatType>())
     return b.create<arith::DivFOp>(loc, lhs, rhs);
+  else if (lhs.getType().isUnsignedInteger())
+    return b.create<arith::DivUIOp>(loc, lhs, rhs);
   else
     return b.create<arith::DivSIOp>(loc, lhs, rhs);
 }
@@ -82,10 +90,11 @@ Value MathBuilder::log2(Value val) const {
 Value MathBuilder::min(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    if (lhs.getType().isSignedInteger())
-      return b.create<MinSIOp>(loc, lhs, rhs);
-    else
+    // Test for unsigned as signless are treated as signed.
+    if (lhs.getType().isUnsignedInteger())
       return b.create<MinUIOp>(loc, lhs, rhs);
+    else
+      return b.create<MinSIOp>(loc, lhs, rhs);
   else
     return b.create<MinFOp>(loc, lhs, rhs);
 }
@@ -93,10 +102,11 @@ Value MathBuilder::min(Value lhs, Value rhs) const {
 Value MathBuilder::max(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    if (lhs.getType().isSignedInteger())
-      return b.create<MaxSIOp>(loc, lhs, rhs);
-    else
+    // Test for unsigned as signless are treated as signed.
+    if (lhs.getType().isUnsignedInteger())
       return b.create<MaxUIOp>(loc, lhs, rhs);
+    else
+      return b.create<MaxSIOp>(loc, lhs, rhs);
   else
     return b.create<MaxFOp>(loc, lhs, rhs);
 }
