@@ -154,7 +154,7 @@ git clone --recursive https://github.com/onnx/onnx-mlir.git
 export MLIR_DIR=$(pwd)/llvm-project/build/lib/cmake/mlir
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
-cmake ..
+cmake -G Ninja ..
 cmake --build .
 
 # Run lit tests:
