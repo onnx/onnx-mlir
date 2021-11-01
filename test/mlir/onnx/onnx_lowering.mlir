@@ -1700,6 +1700,74 @@ func private @cast_lowering_int_narrow_int(%arg0: tensor<i64>) -> tensor<i32> {
 
 // -----
 
+func private @cast_lowering_int_to_bool(%arg0: tensor<i64>) -> tensor<i1> {
+  %0 = "onnx.Cast"(%arg0) {to = i1 } : (tensor<i64>) -> tensor<i1>
+  "std.return"(%0) : (tensor<i1>) -> ()
+
+// CHECK-LABEL:  func private @cast_lowering_int_to_bool
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<i64>) -> memref<i1> {
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<i1>
+// CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][] : memref<i64>
+// CHECK-DAG:       [[VAR_c0_i64_:%.+]] = arith.constant 0 : i64
+// CHECK:           [[VAR_2_:%.+]] = arith.cmpi ne, [[LOAD_PARAM_0_MEM_]], [[VAR_c0_i64_]] : i64
+// CHECK:           krnl.store [[VAR_2_]], [[RES_]][] : memref<i1>
+// CHECK:           return [[RES_]] : memref<i1>
+// CHECK:         }
+}
+
+// -----
+
+func private @cast_lowering_float_to_bool(%arg0: tensor<f32>) -> tensor<i1> {
+  %0 = "onnx.Cast"(%arg0) {to = i1 } : (tensor<f32>) -> tensor<i1>
+  "std.return"(%0) : (tensor<i1>) -> ()
+
+// CHECK-LABEL:  func private @cast_lowering_float_to_bool
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<f32>) -> memref<i1> {
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<i1>
+// CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][] : memref<f32>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK:           [[VAR_2_:%.+]] = arith.cmpf one, [[LOAD_PARAM_0_MEM_]], [[VAR_cst_]] : f32
+// CHECK:           krnl.store [[VAR_2_]], [[RES_]][] : memref<i1>
+// CHECK:           return [[RES_]] : memref<i1>
+// CHECK:         }
+}
+
+// -----
+
+func private @cast_lowering_uint_narrow_uint(%arg0: tensor<ui64>) -> tensor<ui32> {
+  %0 = "onnx.Cast"(%arg0) {to = ui32 } : (tensor<ui64>) -> tensor<ui32>
+  "std.return"(%0) : (tensor<ui32>) -> ()
+// CHECK-LABEL:  func private @cast_lowering_uint_narrow_uint
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<ui64>) -> memref<ui32> {
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<ui32>
+// CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][] : memref<ui64>
+// CHECK:           [[VAR_2_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_0_MEM_]] : ui64 to i64
+// CHECK:           [[VAR_3_:%.+]] = arith.trunci [[VAR_2_]] : i64 to i32
+// CHECK:           [[VAR_4_:%.+]] = builtin.unrealized_conversion_cast [[VAR_3_]] : i32 to ui32
+// CHECK:           krnl.store [[VAR_4_]], [[RES_]][] : memref<ui32>
+// CHECK:           return [[RES_]] : memref<ui32>
+// CHECK:         }
+}
+
+// -----
+
+func private @cast_lowering_uint_wider_uint(%arg0: tensor<ui32>) -> tensor<ui64> {
+  %0 = "onnx.Cast"(%arg0) {to = ui64 } : (tensor<ui32>) -> tensor<ui64>
+  "std.return"(%0) : (tensor<ui64>) -> ()
+// CHECK-LABEL:  func private @cast_lowering_uint_wider_uint
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<ui32>) -> memref<ui64> {
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<ui64>
+// CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][] : memref<ui32>
+// CHECK:           [[VAR_2_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_0_MEM_]] : ui32 to i32
+// CHECK:           [[VAR_3_:%.+]] = arith.extui [[VAR_2_]] : i32 to i64
+// CHECK:           [[VAR_4_:%.+]] = builtin.unrealized_conversion_cast [[VAR_3_]] : i64 to ui64
+// CHECK:           krnl.store [[VAR_4_]], [[RES_]][] : memref<ui64>
+// CHECK:           return [[RES_]] : memref<ui64>
+// CHECK:         }
+}
+
+// -----
+
 func private @test_size_known(%arg0: tensor<2x2xf32>) -> tensor<i64> {
   %1 = "onnx.Size"(%arg0) : (tensor<2x2xf32>) -> tensor<i64>
   "std.return"(%1) : (tensor<i64>) -> ()

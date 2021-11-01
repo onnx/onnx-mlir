@@ -181,49 +181,10 @@ template <>
 Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-  ONNXCastOp castOp = llvm::dyn_cast<ONNXCastOp>(op);
-  auto mlirtype = castOp.toAttr().getValue();
-  Value operand = scalarOperands[0];
-  auto origtype = operand.getType();
 
-  // check output type is the same as expected output type
-  if (elementType != mlirtype)
-    llvm_unreachable("output type different from expected output type");
-
-  // if same input and output type, return input
-  if (origtype == elementType)
-    return operand;
-
-  if (origtype.isa<FloatType>()) {
-    // cast from floating-point type to integer type
-    if (elementType.isa<IntegerType>())
-      return rewriter.create<arith::FPToSIOp>(loc, elementType, operand);
-    // cast from floating-point type to other floating-point type
-    else if (elementType.isa<FloatType>()) {
-      // cast from floating-point to wider floating-point
-      if (origtype.getIntOrFloatBitWidth() <
-          elementType.getIntOrFloatBitWidth())
-        return rewriter.create<arith::ExtFOp>(loc, elementType, operand);
-      // cast from floating-point to narrower floating-point
-      else
-        return rewriter.create<arith::TruncFOp>(loc, elementType, operand);
-    }
-  } else if (origtype.isa<IntegerType>()) {
-    // cast from integer type to floating-point type
-    if (elementType.isa<FloatType>())
-      return rewriter.create<arith::SIToFPOp>(loc, elementType, operand);
-    else if (elementType.isa<IntegerType>())
-      // cast from integer to wider integer
-      if (origtype.getIntOrFloatBitWidth() <
-          elementType.getIntOrFloatBitWidth())
-        return rewriter.create<arith::ExtSIOp>(loc, operand, elementType);
-      // cast from integer to narrower integer
-      else
-        return rewriter.create<arith::TruncIOp>(loc, operand, elementType);
-    else
-      llvm_unreachable("unsupported element type");
-  }
-  llvm_unreachable("unsupported element type");
+  // TODO: currently don't support String to * or * to String
+  MathBuilder createMath(rewriter, loc);
+  return createMath.cast(elementType, scalarOperands[0]);
 }
 
 //===----------------------------------------------------------------------===//
