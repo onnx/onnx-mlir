@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
-include_directories(${PROJECT_BINARY_DIR}/src)
-
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
   ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
