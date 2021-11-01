@@ -190,9 +190,7 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     for (int d = 3; d < rank; ++d)
       num = num * inputBounds.getSymbol(d);
     // Convert num to float from Pooling postProcessPoolingWindow.
-    Value meanDenom = rewriter.create<arith::IndexCastOp>(
-        loc, num.getValue(), rewriter.getIntegerType(64));
-    meanDenom = rewriter.create<arith::SIToFPOp>(loc, meanDenom, elementType);
+    Value meanDenom = createMath.cast(elementType, num.getValue());
 
     // Iterate over the batch and channels.
     LiteralIndexExpr iZero(0);

@@ -341,6 +341,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // Create a local reduction value for output[n][c][ho][wo].
       // Single scalar, no need for default alignment.
       MemRefBuilder createMemRef(rewriter, loc);
+      MathBuilder createMath(createMemRef);
       Value reductionVal =
           createMemRef.alloca(MemRefType::get({}, memRefType.getElementType()));
       createKrnl.store(identity, reductionVal);
@@ -395,22 +396,20 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //   wDim = round(float(endW - startW) / float(dW))
       SmallVector<Value, 4> fullWindowSize;
       for (int i = 0; i < kernelShapeSize; ++i) {
-        Value dim = rewriter.create<arith::SubIOp>(
-            loc, windowEndExprs[i].getValue(), windowStartExprs[i].getValue());
+        Value dim = createMath.sub(
+            windowEndExprs[i].getValue(), windowStartExprs[i].getValue());
         if (isDilated) {
-          Value one = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
-          Value numerator = rewriter.create<arith::AddIOp>(loc, dim, one);
+          Value one = createMath.constantIndex(1);
+          Value numerator = createMath.add(dim, one);
           Value denominator = IVExprs[i][5].getValue(); // dilations[i]
-          dim = rewriter.create<arith::DivSIOp>(loc, numerator, denominator);
+          dim = createMath.div(numerator, denominator);
           if (ceilMode) {
             auto remainder =
                 rewriter.create<arith::RemSIOp>(loc, numerator, denominator);
-            Value zero =
-                emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
-            auto isZero = rewriter.create<arith::CmpIOp>(
-                loc, arith::CmpIPredicate::eq, remainder, zero);
-            auto dimPlusOne = rewriter.create<arith::AddIOp>(loc, dim, one);
-            dim = rewriter.create<SelectOp>(loc, isZero, dim, dimPlusOne);
+            Value zero = createMath.constantIndex(0);
+            Value isZero = createMath.eq(remainder, zero);
+            Value dimPlusOne = createMath.add(dim, one);
+            dim = createMath.select(isZero, dim, dimPlusOne);
           }
         }
         fullWindowSize.emplace_back(dim);

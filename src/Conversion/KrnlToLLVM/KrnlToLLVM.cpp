@@ -1517,7 +1517,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp>();
-  target.addIllegalOp<UnrealizedConversionCastOp>();
+  target.addLegalOp<UnrealizedConversionCastOp>();
 
   // Lower the MemRef types to a representation in LLVM.
   LowerToLLVMOptions options(&getContext());
