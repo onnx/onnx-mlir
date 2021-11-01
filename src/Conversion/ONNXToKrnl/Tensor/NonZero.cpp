@@ -80,6 +80,7 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
     IndexExprScope outerScope(&rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
     MemRefBuilder createMemRef(createKrnl);
+    MathBuilder createMath(createKrnl);
 
     // Frequently used MemRefType.
     Value X = operandAdaptor.X();
@@ -93,10 +94,10 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
     Type resElementType = resMemRefType.getElementType();
 
     // Constant values.
-    Value iZero = emitConstantOp(rewriter, loc, indexTy, 0);
-    Value iOne = emitConstantOp(rewriter, loc, indexTy, 1);
-    Value iMinusOne = emitConstantOp(rewriter, loc, indexTy, -1);
-    Value zero = emitConstantOp(rewriter, loc, xElementType, 0);
+    Value iZero = createMath.constantIndex(0);
+    Value iOne = createMath.constantIndex(1);
+    Value iMinusOne = createMath.constantIndex(-1);
+    Value zero = createMath.constant(xElementType, 0);
 
     // Bounds for the input tensor.
     MemRefBoundsIndexCapture xBounds(X);
@@ -173,9 +174,10 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
     ValueRange iLoopDef = createKrnl.defineLoops(1);
     createKrnl.iterate(iLoopDef, iLoopDef, {iZero}, {numberOfZeros},
         [&](KrnlBuilder &createKrnl, ValueRange iLoopInd) {
+          MathBuilder createMath(createKrnl);
           Value i(iLoopInd[0]);
           for (int64_t axis = 0; axis < xRank; ++axis) {
-            Value axisVal = emitConstantOp(rewriter, loc, indexTy, axis);
+            Value axisVal = createMath.constantIndex(axis);
             MemRefBoundsIndexCapture rsumBounds(rsumMemRefs[axis]);
 
             Value pos = createMemRef.alloca(MemRefType::get({}, indexTy));
@@ -200,7 +202,7 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
                   createKrnl.store(s, sum, {});
                 });
             Value p = createKrnl.load(pos, {});
-            p = rewriter.create<arith::IndexCastOp>(loc, p, resElementType);
+            p = createMath.cast(resElementType, p);
             createKrnl.store(p, resMemRef, {axisVal, i});
           }
         });
