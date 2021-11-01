@@ -25,7 +25,7 @@ func @test_nonmaxsuppression_center_point_box_format(%arg0: tensor<1x6x4xf32>, %
 // CHECK-DAG:       [[LOAD_IOU_THRESHOLD_MEM_:%.+]] = krnl.load [[IOU_THRESHOLD_]]{{.}}[[VAR_c0_]]{{.}} : memref<1xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           [[VAR_4_:%.+]] = arith.index_cast [[LOAD_MAX_OUTPUT_BOXES_PER_CLASS_MEM_]] : i64 to index
-// CHECK:           [[VAR_5_:%.+]] = minui [[VAR_4_]], [[VAR_c6_]] : index
+// CHECK:           [[VAR_5_:%.+]] = minsi [[VAR_4_]], [[VAR_c6_]] : index
 // CHECK:           krnl.store [[VAR_5_]], [[RES_]][] : memref<index>
 // CHECK:           [[RES_1_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           krnl.store [[VAR_c0_]], [[RES_1_]][] : memref<index>
@@ -46,12 +46,12 @@ func @test_nonmaxsuppression_center_point_box_format(%arg0: tensor<1x6x4xf32>, %
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:             [[VAR_26_:%.+]] = maxui [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
+// CHECK:             [[VAR_26_:%.+]] = maxsi [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
 // CHECK:             krnl.store [[VAR_26_]], [[RES_1_]][] : memref<index>
 // CHECK:           }
 // CHECK-DAG:       [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
+// CHECK:           [[VAR_10_:%.+]] = minsi [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x6xindex>
@@ -220,7 +220,7 @@ func @test_nonmaxsuppression_flipped_coordinates(%arg0: tensor<1x6x4xf32>, %arg1
 // CHECK-DAG:       [[LOAD_IOU_THRESHOLD_MEM_:%.+]] = krnl.load [[IOU_THRESHOLD_]]{{.}}[[VAR_c0_]]{{.}} : memref<1xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           [[VAR_4_:%.+]] = arith.index_cast [[LOAD_MAX_OUTPUT_BOXES_PER_CLASS_MEM_]] : i64 to index
-// CHECK:           [[VAR_5_:%.+]] = minui [[VAR_4_]], [[VAR_c6_]] : index
+// CHECK:           [[VAR_5_:%.+]] = minsi [[VAR_4_]], [[VAR_c6_]] : index
 // CHECK:           krnl.store [[VAR_5_]], [[RES_]][] : memref<index>
 // CHECK:           [[RES_1_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           krnl.store [[VAR_c0_]], [[RES_1_]][] : memref<index>
@@ -241,12 +241,12 @@ func @test_nonmaxsuppression_flipped_coordinates(%arg0: tensor<1x6x4xf32>, %arg1
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:             [[VAR_28_:%.+]] = maxui [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
+// CHECK:             [[VAR_28_:%.+]] = maxsi [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
 // CHECK:             krnl.store [[VAR_28_]], [[RES_1_]][] : memref<index>
 // CHECK:           }
 // CHECK-DAG:       [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
+// CHECK:           [[VAR_10_:%.+]] = minsi [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x6xindex>
@@ -416,7 +416,7 @@ func @test_nonmaxsuppression_identical_boxes(%arg0: tensor<1x10x4xf32>, %arg1: t
 // CHECK-DAG:       [[LOAD_IOU_THRESHOLD_MEM_:%.+]] = krnl.load [[IOU_THRESHOLD_]]{{.}}[[VAR_c0_]]{{.}} : memref<1xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           [[VAR_4_:%.+]] = arith.index_cast [[LOAD_MAX_OUTPUT_BOXES_PER_CLASS_MEM_]] : i64 to index
-// CHECK:           [[VAR_5_:%.+]] = minui [[VAR_4_]], [[VAR_c10_]] : index
+// CHECK:           [[VAR_5_:%.+]] = minsi [[VAR_4_]], [[VAR_c10_]] : index
 // CHECK:           krnl.store [[VAR_5_]], [[RES_]][] : memref<index>
 // CHECK:           [[RES_1_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           krnl.store [[VAR_c0_]], [[RES_1_]][] : memref<index>
@@ -437,12 +437,12 @@ func @test_nonmaxsuppression_identical_boxes(%arg0: tensor<1x10x4xf32>, %arg1: t
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:             [[VAR_28_:%.+]] = maxui [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
+// CHECK:             [[VAR_28_:%.+]] = maxsi [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
 // CHECK:             krnl.store [[VAR_28_]], [[RES_1_]][] : memref<index>
 // CHECK:           }
 // CHECK-DAG:       [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
+// CHECK:           [[VAR_10_:%.+]] = minsi [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x10xindex>
@@ -612,7 +612,7 @@ func @test_nonmaxsuppression_limit_output_size(%arg0: tensor<1x6x4xf32>, %arg1: 
 // CHECK-DAG:       [[LOAD_IOU_THRESHOLD_MEM_:%.+]] = krnl.load [[IOU_THRESHOLD_]]{{.}}[[VAR_c0_]]{{.}} : memref<1xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           [[VAR_4_:%.+]] = arith.index_cast [[LOAD_MAX_OUTPUT_BOXES_PER_CLASS_MEM_]] : i64 to index
-// CHECK:           [[VAR_5_:%.+]] = minui [[VAR_4_]], [[VAR_c6_]] : index
+// CHECK:           [[VAR_5_:%.+]] = minsi [[VAR_4_]], [[VAR_c6_]] : index
 // CHECK:           krnl.store [[VAR_5_]], [[RES_]][] : memref<index>
 // CHECK:           [[RES_1_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           krnl.store [[VAR_c0_]], [[RES_1_]][] : memref<index>
@@ -633,12 +633,12 @@ func @test_nonmaxsuppression_limit_output_size(%arg0: tensor<1x6x4xf32>, %arg1: 
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:             [[VAR_28_:%.+]] = maxui [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
+// CHECK:             [[VAR_28_:%.+]] = maxsi [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
 // CHECK:             krnl.store [[VAR_28_]], [[RES_1_]][] : memref<index>
 // CHECK:           }
 // CHECK-DAG:       [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
+// CHECK:           [[VAR_10_:%.+]] = minsi [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x6xindex>
@@ -807,7 +807,7 @@ func @test_nonmaxsuppression_single_box(%arg0: tensor<1x1x4xf32>, %arg1: tensor<
 // CHECK-DAG:       [[LOAD_IOU_THRESHOLD_MEM_:%.+]] = krnl.load [[IOU_THRESHOLD_]]{{.}}[[VAR_c0_]]{{.}} : memref<1xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           [[VAR_4_:%.+]] = arith.index_cast [[LOAD_MAX_OUTPUT_BOXES_PER_CLASS_MEM_]] : i64 to index
-// CHECK:           [[VAR_5_:%.+]] = minui [[VAR_4_]], [[VAR_c1_]] : index
+// CHECK:           [[VAR_5_:%.+]] = minsi [[VAR_4_]], [[VAR_c1_]] : index
 // CHECK:           krnl.store [[VAR_5_]], [[RES_]][] : memref<index>
 // CHECK:           [[RES_1_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           krnl.store [[VAR_c0_]], [[RES_1_]][] : memref<index>
@@ -828,12 +828,12 @@ func @test_nonmaxsuppression_single_box(%arg0: tensor<1x1x4xf32>, %arg1: tensor<
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:             [[VAR_28_:%.+]] = maxui [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
+// CHECK:             [[VAR_28_:%.+]] = maxsi [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
 // CHECK:             krnl.store [[VAR_28_]], [[RES_1_]][] : memref<index>
 // CHECK:           }
 // CHECK-DAG:       [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
+// CHECK:           [[VAR_10_:%.+]] = minsi [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x1xindex>
@@ -1003,7 +1003,7 @@ func @test_nonmaxsuppression_suppress_by_IOU(%arg0: tensor<1x6x4xf32>, %arg1: te
 // CHECK-DAG:       [[LOAD_IOU_THRESHOLD_MEM_:%.+]] = krnl.load [[IOU_THRESHOLD_]]{{.}}[[VAR_c0_]]{{.}} : memref<1xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           [[VAR_4_:%.+]] = arith.index_cast [[LOAD_MAX_OUTPUT_BOXES_PER_CLASS_MEM_]] : i64 to index
-// CHECK:           [[VAR_5_:%.+]] = minui [[VAR_4_]], [[VAR_c6_]] : index
+// CHECK:           [[VAR_5_:%.+]] = minsi [[VAR_4_]], [[VAR_c6_]] : index
 // CHECK:           krnl.store [[VAR_5_]], [[RES_]][] : memref<index>
 // CHECK:           [[RES_1_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           krnl.store [[VAR_c0_]], [[RES_1_]][] : memref<index>
@@ -1024,12 +1024,12 @@ func @test_nonmaxsuppression_suppress_by_IOU(%arg0: tensor<1x6x4xf32>, %arg1: te
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:             [[VAR_28_:%.+]] = maxui [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
+// CHECK:             [[VAR_28_:%.+]] = maxsi [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
 // CHECK:             krnl.store [[VAR_28_]], [[RES_1_]][] : memref<index>
 // CHECK:           }
 // CHECK-DAG:       [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
+// CHECK:           [[VAR_10_:%.+]] = minsi [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x6xindex>
@@ -1199,7 +1199,7 @@ func @test_nonmaxsuppression_suppress_by_IOU_and_scores(%arg0: tensor<1x6x4xf32>
 // CHECK-DAG:       [[LOAD_IOU_THRESHOLD_MEM_:%.+]] = krnl.load [[IOU_THRESHOLD_]]{{.}}[[VAR_c0_]]{{.}} : memref<1xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           [[VAR_4_:%.+]] = arith.index_cast [[LOAD_MAX_OUTPUT_BOXES_PER_CLASS_MEM_]] : i64 to index
-// CHECK:           [[VAR_5_:%.+]] = minui [[VAR_4_]], [[VAR_c6_]] : index
+// CHECK:           [[VAR_5_:%.+]] = minsi [[VAR_4_]], [[VAR_c6_]] : index
 // CHECK:           krnl.store [[VAR_5_]], [[RES_]][] : memref<index>
 // CHECK:           [[RES_1_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           krnl.store [[VAR_c0_]], [[RES_1_]][] : memref<index>
@@ -1220,12 +1220,12 @@ func @test_nonmaxsuppression_suppress_by_IOU_and_scores(%arg0: tensor<1x6x4xf32>
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:             [[VAR_28_:%.+]] = maxui [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
+// CHECK:             [[VAR_28_:%.+]] = maxsi [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
 // CHECK:             krnl.store [[VAR_28_]], [[RES_1_]][] : memref<index>
 // CHECK:           }
 // CHECK-DAG:       [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
+// CHECK:           [[VAR_10_:%.+]] = minsi [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x6xindex>
@@ -1397,7 +1397,7 @@ func @test_nonmaxsuppression_two_batches(%arg0: tensor<2x6x4xf32>, %arg1: tensor
 // CHECK-DAG:       [[LOAD_IOU_THRESHOLD_MEM_:%.+]] = krnl.load [[IOU_THRESHOLD_]]{{.}}[[VAR_c0_]]{{.}} : memref<1xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           [[VAR_4_:%.+]] = arith.index_cast [[LOAD_MAX_OUTPUT_BOXES_PER_CLASS_MEM_]] : i64 to index
-// CHECK:           [[VAR_5_:%.+]] = minui [[VAR_4_]], [[VAR_c6_]] : index
+// CHECK:           [[VAR_5_:%.+]] = minsi [[VAR_4_]], [[VAR_c6_]] : index
 // CHECK:           krnl.store [[VAR_5_]], [[RES_]][] : memref<index>
 // CHECK:           [[RES_1_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           krnl.store [[VAR_c0_]], [[RES_1_]][] : memref<index>
@@ -1418,12 +1418,12 @@ func @test_nonmaxsuppression_two_batches(%arg0: tensor<2x6x4xf32>, %arg1: tensor
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:             [[VAR_29_:%.+]] = maxui [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
+// CHECK:             [[VAR_29_:%.+]] = maxsi [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
 // CHECK:             krnl.store [[VAR_29_]], [[RES_1_]][] : memref<index>
 // CHECK:           }
 // CHECK-DAG:       [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
+// CHECK:           [[VAR_10_:%.+]] = minsi [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2x1x6xindex>
@@ -1596,7 +1596,7 @@ func @test_nonmaxsuppression_two_classes(%arg0: tensor<1x6x4xf32>, %arg1: tensor
 // CHECK-DAG:       [[LOAD_IOU_THRESHOLD_MEM_:%.+]] = krnl.load [[IOU_THRESHOLD_]]{{.}}[[VAR_c0_]]{{.}} : memref<1xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           [[VAR_4_:%.+]] = arith.index_cast [[LOAD_MAX_OUTPUT_BOXES_PER_CLASS_MEM_]] : i64 to index
-// CHECK:           [[VAR_5_:%.+]] = minui [[VAR_4_]], [[VAR_c6_]] : index
+// CHECK:           [[VAR_5_:%.+]] = minsi [[VAR_4_]], [[VAR_c6_]] : index
 // CHECK:           krnl.store [[VAR_5_]], [[RES_]][] : memref<index>
 // CHECK:           [[RES_1_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           krnl.store [[VAR_c0_]], [[RES_1_]][] : memref<index>
@@ -1617,12 +1617,12 @@ func @test_nonmaxsuppression_two_classes(%arg0: tensor<1x6x4xf32>, %arg1: tensor
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:             [[VAR_29_:%.+]] = maxui [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
+// CHECK:             [[VAR_29_:%.+]] = maxsi [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
 // CHECK:             krnl.store [[VAR_29_]], [[RES_1_]][] : memref<index>
 // CHECK:           }
 // CHECK-DAG:       [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:           [[VAR_10_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
+// CHECK:           [[VAR_10_:%.+]] = minsi [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_10_]], [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x2x6xindex>
@@ -1804,7 +1804,7 @@ func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tenso
 // CHECK-DAG:       [[VAR_5_:%.+]] = memref.dim [[SCORES_]], [[VAR_c2_]] : memref<?x?x?xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           [[VAR_7_:%.+]] = arith.index_cast [[LOAD_MAX_OUTPUT_BOXES_PER_CLASS_MEM_]] : i64 to index
-// CHECK:           [[VAR_8_:%.+]] = minui [[VAR_7_]], [[VAR_5_]] : index
+// CHECK:           [[VAR_8_:%.+]] = minsi [[VAR_7_]], [[VAR_5_]] : index
 // CHECK:           krnl.store [[VAR_8_]], [[RES_]][] : memref<index>
 // CHECK-DAG:       [[VAR_9_:%.+]] = memref.dim [[SCORES_]], [[VAR_c0_]] : memref<?x?x?xf32>
 // CHECK-DAG:       [[VAR_10_:%.+]] = memref.dim [[SCORES_]], [[VAR_c1_]] : memref<?x?x?xf32>
@@ -1828,12 +1828,12 @@ func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tenso
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:             [[VAR_37_:%.+]] = maxui [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
+// CHECK:             [[VAR_37_:%.+]] = maxsi [[LOAD_RES_2_MEM_1_]], [[LOAD_RES_1_MEM_]] : index
 // CHECK:             krnl.store [[VAR_37_]], [[RES_1_]][] : memref<index>
 // CHECK:           }
 // CHECK-DAG:       [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:           [[VAR_16_:%.+]] = minui [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
+// CHECK:           [[VAR_16_:%.+]] = minsi [[LOAD_RES_MEM_]], [[LOAD_RES_1_MEM_1_]] : index
 // CHECK:           krnl.store [[VAR_16_]], [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[VAR_18_:%.+]] = memref.dim [[SCORES_]], [[VAR_c0_]] : memref<?x?x?xf32>

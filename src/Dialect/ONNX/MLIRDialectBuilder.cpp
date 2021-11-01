@@ -27,35 +27,49 @@ using namespace mlir;
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //===----------------------------------------------------------------------===//
 
+// Test for unsigned as signless are treated as signed. For reference, check in
+// MLIR AffineToStandard where comparison of indices are done with slt and sgt,
+// for example. Indices are signless. Also, in ONNX, we currently treat all
+// ONNX Integers as MLIR signless, and only flag the ONNX Unsigned Integer as
+// MLIR unsigned integer.
+
 Value MathBuilder::_and(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   return b.create<arith::AndIOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::_or(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   return b.create<arith::OrIOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::add(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::AddIOp>(loc, lhs, rhs);
   return b.create<arith::AddFOp>(loc, lhs, rhs);
 }
 Value MathBuilder::sub(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::SubIOp>(loc, lhs, rhs);
   return b.create<arith::SubFOp>(loc, lhs, rhs);
 }
 Value MathBuilder::mul(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::MulIOp>(loc, lhs, rhs);
   return b.create<arith::MulFOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::div(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<FloatType>() && rhs.getType().isa<FloatType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<FloatType>())
     return b.create<arith::DivFOp>(loc, lhs, rhs);
+  else if (lhs.getType().isUnsignedInteger())
+    return b.create<arith::DivUIOp>(loc, lhs, rhs);
   else
-    llvm_unreachable("Only support float type at this moment.");
+    return b.create<arith::DivSIOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::exp(Value val) const {
@@ -74,72 +88,73 @@ Value MathBuilder::log2(Value val) const {
 }
 
 Value MathBuilder::min(Value lhs, Value rhs) const {
-  assert(
-      lhs.getType() == rhs.getType() && "Two operands must have the same type");
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    if (lhs.getType().isSignedInteger())
-      return b.create<MinSIOp>(loc, lhs, rhs);
-    else
+    // Test for unsigned as signless are treated as signed.
+    if (lhs.getType().isUnsignedInteger())
       return b.create<MinUIOp>(loc, lhs, rhs);
+    else
+      return b.create<MinSIOp>(loc, lhs, rhs);
   else
     return b.create<MinFOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::max(Value lhs, Value rhs) const {
-  assert(
-      lhs.getType() == rhs.getType() && "Two operands must have the same type");
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    if (lhs.getType().isSignedInteger())
-      return b.create<MaxSIOp>(loc, lhs, rhs);
-    else
+    // Test for unsigned as signless are treated as signed.
+    if (lhs.getType().isUnsignedInteger())
       return b.create<MaxUIOp>(loc, lhs, rhs);
+    else
+      return b.create<MaxSIOp>(loc, lhs, rhs);
   else
     return b.create<MaxFOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::sgt(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IndexType, IntegerType>() ||
-      lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt, lhs, rhs);
   return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGT, lhs, rhs);
 }
 
 Value MathBuilder::sge(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IndexType, IntegerType>() ||
-      lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, lhs, rhs);
   return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGE, lhs, rhs);
 }
 
 Value MathBuilder::slt(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IndexType, IntegerType>() ||
-      lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt, lhs, rhs);
   return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OLT, lhs, rhs);
 }
 
 Value MathBuilder::sle(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IndexType, IntegerType>() ||
-      lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sle, lhs, rhs);
   return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OLE, lhs, rhs);
 }
 
 Value MathBuilder::eq(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IndexType, IntegerType>() ||
-      lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq, lhs, rhs);
   return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, lhs, rhs);
 }
 
 Value MathBuilder::neq(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IndexType, IntegerType>() ||
-      lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ne, lhs, rhs);
   return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::ONE, lhs, rhs);
 }
 
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
   return b.create<SelectOp>(loc, cmp, lhs, rhs);
 }
 
@@ -170,6 +185,154 @@ Value MathBuilder::constant(Type type, double val) const {
 Value MathBuilder::constantIndex(int64_t val) const {
   Attribute constantAttr = b.getIntegerAttr(b.getIndexType(), val);
   return b.create<arith::ConstantOp>(loc, constantAttr);
+}
+
+// For some reason, operations on unsigned int are often unhappy because
+// operations are mainly used on signless integers. So this cast remove the sign
+// of unsigned int for successful processing, to the best of my understanding.
+Value MathBuilder::castToSignless(Value val, int64_t width) const {
+  Value res =
+      b.create<UnrealizedConversionCastOp>(loc, b.getIntegerType(width), val)
+          .getResult(0);
+  return res;
+}
+
+Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
+  Value res = b.create<UnrealizedConversionCastOp>(
+                   loc, b.getIntegerType(width, /*is signed*/ false), val)
+                  .getResult(0);
+  return res;
+}
+
+// Methods inspired from MLIR TosaToLinalg CastOp.
+Value MathBuilder::cast(Type destType, Value src) const {
+  // Get source type and check if we need a cast at all.
+  Type srcType = src.getType();
+  if (srcType == destType)
+    return src;
+
+  // Process index types first.
+  if (srcType.isa<IndexType>()) {
+    // If our source is an index type, first convert it into a signless int of
+    // size 64.
+    srcType = b.getIntegerType(64);
+    src = b.create<arith::IndexCastOp>(loc, srcType, src);
+    src.dump();
+  }
+  bool destIsIndex = false;
+  if (destType.isa<IndexType>()) {
+    // If our dest is an index type, pretend for now that we want it to be
+    // converted to.
+    destType = b.getIntegerType(64);
+    destIsIndex = true;
+  }
+
+  // Only support Integer or Float type at this stage. Index were transformed to
+  // signless int.
+  // TODO: add support for shaped tensor (MemRef, Vector, Tensor?) if needed.
+  assert(srcType.isa<IntegerType>() ||
+         srcType.isa<FloatType>() && "support only float or int");
+  assert(destType.isa<IntegerType>() ||
+         destType.isa<FloatType>() && "support only float or int");
+  // Get source and dest type width.
+  int64_t srcWidth = srcType.getIntOrFloatBitWidth();
+  int64_t destWidth = destType.getIntOrFloatBitWidth();
+  bool bitExtend = srcWidth < destWidth;
+  bool bitTrunc = srcWidth > destWidth;
+
+  // Handle boolean first because they need special handling.
+  // Boolean to int/float conversions. Boolean are unsigned.
+  if (srcType.isInteger(1)) {
+    if (destType.isa<FloatType>()) {
+      return b.create<arith::UIToFPOp>(loc, destType, src);
+    } else {
+      Value dest = b.create<arith::ExtUIOp>(loc, destType, src);
+      if (destIsIndex)
+        dest = b.create<arith::IndexCastOp>(loc, b.getIndexType(), dest);
+      return dest;
+    }
+  }
+
+  // Int/Float to booleans, just compare value to be unequal zero.
+  if (destType.isInteger(1)) {
+    Value zero = constant(srcType, 0);
+    return neq(src, zero);
+  }
+
+  // Float to float conversions.
+  if (srcType.isa<FloatType>() && destType.isa<FloatType>()) {
+    assert((bitExtend || bitTrunc) && "expected extend or trunc");
+    if (bitExtend)
+      return b.create<arith::ExtFOp>(loc, destType, src);
+    else
+      return b.create<arith::TruncFOp>(loc, destType, src);
+  }
+
+  // Float to int conversions.
+  if (srcType.isa<FloatType>() && destType.isa<IntegerType>()) {
+    // TosaToLinalg in MLIR uses a fancier algorithm that clamps values to
+    // min/max signed/unsigned integer values.
+    if (destType.isUnsignedInteger()) {
+      Value cast = castToSignless(src, srcWidth);
+      return b.create<arith::FPToUIOp>(loc, destType, cast);
+    } else {
+      // Handle signed int.
+      Value dest = b.create<arith::FPToSIOp>(loc, destType, src);
+      if (destIsIndex)
+        dest = b.create<arith::IndexCastOp>(loc, b.getIndexType(), dest);
+      return dest;
+    }
+  }
+
+  // Int to float conversion.
+  if (srcType.isa<IntegerType>() && destType.isa<FloatType>()) {
+    if (srcType.isUnsignedInteger()) {
+      Value cast = castToSignless(src, srcWidth);
+      return b.create<arith::UIToFPOp>(loc, destType, cast);
+    } else {
+      // Handle signed int.
+      return b.create<arith::SIToFPOp>(loc, destType, src);
+    }
+  }
+
+  // Int to int conversion.
+  if (srcType.isa<IntegerType>() && destType.isa<IntegerType>()) {
+    if (srcType.isUnsignedInteger()) {
+      // Unsigned to unsigned conversion. Has to convert to signless first, and
+      // recovert output to unsigned.
+      assert(destType.isUnsignedInteger() && "no unsigned/signed conversion");
+      assert((bitExtend || bitTrunc) && "expected extend or trunc");
+      Value cast = castToSignless(src, srcWidth);
+      Type castType = b.getIntegerType(destWidth);
+      if (bitExtend) {
+        cast = b.create<arith::ExtUIOp>(loc, castType, cast);
+      } else {
+        // TosaToLinalg use a cliping algo, not sure if needed.
+        cast = b.create<arith::TruncIOp>(loc, castType, cast);
+      }
+      return castToUnsigned(cast, destWidth);
+    } else {
+      // Handle signed ingeger
+      assert(!destType.isUnsignedInteger() && "no signed/unsigned conversion");
+      Value dest = src;
+      if (bitExtend)
+        dest = b.create<arith::ExtSIOp>(loc, destType, src);
+      if (bitTrunc)
+        // TosaToLinalg use a cliping algo
+        dest = b.create<arith::TruncIOp>(loc, destType, src);
+      if (destIsIndex)
+        dest = b.create<arith::IndexCastOp>(loc, b.getIndexType(), dest);
+      return dest;
+    }
+  }
+
+  // Handled all the cases supported so far.
+  llvm_unreachable("unsupported element type");
+  return nullptr;
+}
+
+Value MathBuilder::castToIndex(Value src) const {
+  return cast(b.getIndexType(), src);
 }
 
 //===----------------------------------------------------------------------===//

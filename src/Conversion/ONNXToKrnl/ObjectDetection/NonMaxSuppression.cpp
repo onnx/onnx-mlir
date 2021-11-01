@@ -273,8 +273,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     Value maxOutputPerClass =
         createMemref.alloca(MemRefType::get({}, indexType));
     // 1. Suppress by using spatial dimension size.
-    Value x = rewriter.create<arith::IndexCastOp>(
-        loc, indexType, maxOutputBoxPerClass);
+    Value x = createMath.castToIndex(maxOutputBoxPerClass);
     createKrnl.store(createMath.min(x, ss), maxOutputPerClass, {});
     // 2. Suppress by score threshold.
     suppressByScores(rewriter, loc, scores, scoreTH, maxOutputPerClass);
@@ -457,9 +456,9 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     createKrnl.iterate(resLoopDef, resLoopDef, {zero, zero},
         {effectiveNSI, three},
         [&](KrnlBuilder &createKrnl, ValueRange resLoopInd) {
+          MathBuilder createMath(createKrnl);
           Value load = createKrnl.load(selectedMemRef, resLoopInd);
-          Value res =
-              rewriter.create<arith::IndexCastOp>(loc, elementType, load);
+          Value res = createMath.cast(elementType, load);
           createKrnl.store(res, resMemRef, resLoopInd);
         });
 
