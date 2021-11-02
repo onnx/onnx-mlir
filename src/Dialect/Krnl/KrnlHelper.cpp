@@ -357,8 +357,9 @@ ArrayRef<BlockArgument> BuildKrnlLoop::getAllInductionVar() {
 // This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
 // lambda type, using ONNX and Krnl operations.
 DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value) {
-  auto definingOp = value.getDefiningOp();
-  if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
+  KrnlGlobalOp globalOp =
+      dyn_cast_or_null<mlir::KrnlGlobalOp>(value.getDefiningOp());
+  if (globalOp) {
     if (globalOp.value().hasValue())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
   }

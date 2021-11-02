@@ -25,39 +25,31 @@ ONNXOneHotOpShapeHelper::ONNXOneHotOpShapeHelper(ONNXOneHotOp *newOp,
 LogicalResult ONNXOneHotOpShapeHelper::ComputeShape(
     ONNXOneHotOpAdaptor operandAdaptor) {
   Value indices = operandAdaptor.indices();
-  int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
+  MemRefBoundsIndexCapture indicesBounds(indices);
+  int64_t indicesRank = indicesBounds.getRank();
 
   // Axis is a required attribute and should have default value of -1.
-  int64_t axisValue = op->axis();
-  if (axisValue < -1 * indicesRank - 1 || axisValue > indicesRank) {
-    return op->emitError("OneHot axis value is out of range");
-  }
-
-  // Negative axis is counting dimension from back
-  if (axisValue < 0) {
-    axisValue = indicesRank + axisValue + 1;
-    auto builder = mlir::Builder(op->getContext());
-    op->axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, /*value=*/axisValue, /*isSigned=*/true)));
-  }
+  axis = op->axis();
+  if (axis < 0)
+      axis += indicesRank + 1;
+  assert(axis >=0 && axis<=indicesRank && "tested in verify");
 
   IndexExpr axisDim = QuestionmarkIndexExpr();
   auto constantDepth = getONNXConstantOp(op->depth());
   if (constantDepth) {
     auto depthTensorTy = op->depth().getType().cast<RankedTensorType>();
-    int64_t depthValue = (int64_t)getScalarValue(constantDepth, depthTensorTy);
+    int64_t depthValue = getScalarValue<int64_t>(constantDepth, depthTensorTy);
     axisDim = LiteralIndexExpr(depthValue);
   }
 
   // Compute outputDims
   int outputRank = indicesRank + 1;
   DimsExpr outputDims(outputRank);
-  MemRefBoundsIndexCapture indicesBounds(indices);
   for (auto i = 0; i < outputRank; i++) {
     DimIndexExpr dimOutput;
-    if (i == axisValue) {
+    if (i == axis) {
       dimOutput = axisDim;
-    } else if (i < axisValue) {
+    } else if (i < axis) {
       dimOutput = indicesBounds.getDim(i);
     } else {
       dimOutput = indicesBounds.getDim(i - 1);
