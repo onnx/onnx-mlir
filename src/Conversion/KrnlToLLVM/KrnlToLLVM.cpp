@@ -1444,27 +1444,8 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
   // They run it in two steps, and add additional lowerings.
 
-  vector::populateVectorToVectorCanonicalizationPatterns(patterns);
-  // Removed in upgrade of LLVM:
-  // vector::populateVectorSlicesLoweringPatterns(patterns);
-  vector::populateVectorBroadcastLoweringPatterns(patterns);
-  vector::populateVectorContractLoweringPatterns(patterns);
-  vector::populateVectorTransposeLoweringPatterns(patterns);
-
-  populateAffineToStdConversionPatterns(patterns);
-  populateLoopToStdConversionPatterns(patterns);
-
-  populateShapeToStandardConversionPatterns(patterns);
-  populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
-  populateVectorToLLVMConversionPatterns(typeConverter, patterns);
-  populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
-  populateStdExpandOpsPatterns(patterns);
-  arith::populateArithmeticExpandOpsPatterns(patterns);
-  populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
   populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
-  arith::populateArithmeticToLLVMConversionPatterns(typeConverter, patterns);
-  populateReconcileUnrealizedCastsPatterns(patterns);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlVectorTypeCastOpLowering>(
       ctx, typeConverter);
@@ -1531,8 +1512,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
-  if (failed(
-          applyFullConversion(getOperation(), target, std::move(patterns)))) {
+  if (failed(applyPartialConversion(getOperation(), target, std::move(patterns)))) {
     signalPassFailure();
   }
 }
