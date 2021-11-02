@@ -3830,6 +3830,36 @@ LogicalResult ONNXNotOp::inferShapes(
   return success();
 }
 
+static LogicalResult verify(ONNXOneHotOp op) {
+  ONNXOneHotOpAdaptor operandAdaptor = ONNXOneHotOpAdaptor(op);
+  // Check indices.
+  Value indices = operandAdaptor.indices();
+  if (hasShapeAndRank(indices)) {
+    // Get rank.
+    int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
+    // Verify axis.
+    int64_t axisValue = op.axis();
+    // Unusually, with a rank of 3, acceptable values are 0 (before first) to 3
+    // (after last).
+    if (axisValue < 0)
+      axisValue += indicesRank + 1;
+    if (!(axisValue >= 0 && axisValue <= indicesRank))
+      return op->emitError("OneHot axis value is out of range");
+  }
+  // Check that values is a rank 2 with 2 elements
+  Value values = operandAdaptor.values();
+  if (hasShapeAndRank(values)) {
+    ShapedType valuesShape = values.getType().cast<ShapedType>();
+    if (valuesShape.getRank() != 1)
+      return op->emitError("OneHot values must be 1D tensor");
+    if (valuesShape.getDimSize(0) != 2)
+      return op->emitError("OneHot values must be 1D tensor with 2 elements");
+  }
+  // Depth is a scalar.
+  // TODO: handle scalar check?
+  return success();
+}
+
 LogicalResult ONNXOneHotOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
@@ -3950,9 +3980,9 @@ LogicalResult ONNXRangeOp::inferShapes(
   auto constantDelta = getONNXConstantOp(delta());
   if (constantStart && constantLimit && constantDelta) {
     // Get all inputs:
-    double start = getScalarValue(constantStart, startTensorTy);
-    double limit = getScalarValue(constantLimit, limitTensorTy);
-    double delta = getScalarValue(constantDelta, deltaTensorTy);
+    double start = getScalarValue<double>(constantStart, startTensorTy);
+    double limit = getScalarValue<double>(constantLimit, limitTensorTy);
+    double delta = getScalarValue<double>(constantDelta, deltaTensorTy);
 
     // Compute size:
     number_of_elements = (int64_t)ceil((limit - start) / delta);

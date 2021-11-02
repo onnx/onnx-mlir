@@ -491,6 +491,8 @@ struct ONNXOneHotOpShapeHelper : public ONNXOpShapeHelper<ONNXOneHotOp> {
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
   LogicalResult ComputeShape(ONNXOneHotOpAdaptor operandAdaptor);
+  // Additional data for ExpandOp.
+  int64_t axis;
 };
 
 // Shape for ONNXCompressOp.

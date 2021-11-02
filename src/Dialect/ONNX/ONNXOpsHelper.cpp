@@ -51,6 +51,12 @@ Value OnnxBuilder::transpose(
   return b.create<ONNXTransposeOp>(loc, outputType, input, perm);
 }
 
+Value OnnxBuilder::constant(Attribute denseAttr) {
+  return b.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+}
+
+//====-------------------------- ONNX Support -------------------------===//
+
 AffineMap getIdentityDimMap(Builder &builder) {
   return AffineMap::get(1, 0, {builder.getAffineDimExpr(0)});
 }
@@ -200,10 +206,9 @@ int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
 }
 
 DenseElementsAttr getDenseElementAttributeFromONNXValue(Value value) {
-  auto definingOp = value.getDefiningOp();
-  if (auto constantOp = dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
+  ONNXConstantOp constantOp = getONNXConstantOp(value);
+  if (constantOp)
     return constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-  }
   return nullptr;
 }
 
@@ -212,7 +217,7 @@ ONNXConstantOp getONNXConstantOp(Value value) {
   return dyn_cast_or_null<mlir::ONNXConstantOp>(value.getDefiningOp());
 }
 
-Value getONNXConstantOpFromDenseAttr(
+Value createONNXConstantOpWithDenseAttr(
     PatternRewriter &rewriter, Location loc, Attribute dense) {
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), dense);
 }
@@ -541,23 +546,35 @@ bool isCommonInteger(mlir::RankedTensorType tensorType) {
 }
 
 /// Get scalar value when it is a constant.
-double getScalarValue(
-    mlir::ONNXConstantOp constantOp, mlir::RankedTensorType tensorType) {
-  double value;
+template <typename RESULT_TYPE>
+RESULT_TYPE getScalarValue(
+    DenseElementsAttr &denseAttr, RankedTensorType tensorType) {
+  if (isCommonInteger(tensorType)) {
+    auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
+    return (RESULT_TYPE)(*valueIt).cast<IntegerAttr>().getInt();
+  } else if (tensorType.getElementType().isF32()) {
+    auto valueIt = denseAttr.getValues<APFloat>().begin();
+    return (RESULT_TYPE)(*valueIt).convertToFloat();
+  } else if (tensorType.getElementType().isF64()) {
+    auto valueIt = denseAttr.getValues<APFloat>().begin();
+    return (RESULT_TYPE)(*valueIt).convertToDouble();
+  }
+  llvm_unreachable("Unexpected type.");
+  return 0;
+}
+
+template <typename RESULT_TYPE>
+RESULT_TYPE getScalarValue(
+    ONNXConstantOp constantOp, RankedTensorType tensorType) {
   DenseElementsAttr attr = constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
   if (!attr)
     constantOp.emitError("DenseElementsAttr expected");
-  if (isCommonInteger(tensorType)) {
-    auto valueIt = attr.getValues<IntegerAttr>().begin();
-    value = (double)(*valueIt).cast<IntegerAttr>().getInt();
-  } else if (tensorType.getElementType().isF32()) {
-    auto valueIt = attr.getValues<APFloat>().begin();
-    value = (double)(*valueIt).convertToFloat();
-  } else if (tensorType.getElementType().isF64()) {
-    auto valueIt = attr.getValues<APFloat>().begin();
-    value = (double)(*valueIt).convertToDouble();
-  } else {
-    llvm_unreachable("Unexpected type.");
-  }
-  return value;
+  return getScalarValue<RESULT_TYPE>(attr, tensorType);
 }
+
+// Template instantiation for getScalarValue
+
+template double getScalarValue<double>(
+    ONNXConstantOp constantOp, RankedTensorType tensorType);
+template int64_t getScalarValue<int64_t>(
+    ONNXConstantOp constantOp, RankedTensorType tensorType);

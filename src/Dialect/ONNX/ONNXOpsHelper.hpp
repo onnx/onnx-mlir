@@ -39,6 +39,8 @@ struct OnnxBuilder final : DialectBuilder {
 
   Value reshape(Type outputType, Value input, Value shape) const;
   Value transpose(Type outputType, Value input, ArrayAttr perm) const;
+
+  Value constant(Attribute denseAttr);
 };
 
 } // namespace mlir
@@ -112,7 +114,7 @@ mlir::DenseElementsAttr getDenseElementAttributeFromONNXValue(
     mlir::Value value);
 
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
-mlir::Value getONNXConstantOpFromDenseAttr(
+mlir::Value createONNXConstantOpWithDenseAttr(
     mlir::PatternRewriter &rewriter, mlir::Location loc, mlir::Attribute dense);
 bool isFromNone(mlir::Value value);
 mlir::Type getBroadcastedRankedType(mlir::Type type1, mlir::Type type2);
@@ -195,5 +197,10 @@ bool isDenseONNXConstant(mlir::Value result);
 bool isCommonInteger(mlir::RankedTensorType tensorType);
 
 // Get scalar value when it is a constant.
-double getScalarValue(
+template <typename RESULT_TYPE>
+RESULT_TYPE getScalarValue(
+    mlir::DenseElementsAttr &denseAttr, mlir::RankedTensorType tensorType);
+
+template <typename RESULT_TYPE>
+RESULT_TYPE getScalarValue(
     mlir::ONNXConstantOp constantOp, mlir::RankedTensorType tensorType);
