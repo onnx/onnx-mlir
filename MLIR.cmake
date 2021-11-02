@@ -68,7 +68,7 @@ function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
   add_custom_target(${dialect}DocGen DEPENDS ${GEN_DOC_FILE})
   add_dependencies(onnx-mlir-doc ${dialect}DocGen)
 endfunction()
-add_custom_target(onnx-mlir-doc)
+add_custom_target(onnx-mlir-doc ALL)
 
 function(add_onnx_mlir_dialect dialect)
   set(LLVM_TARGET_DEFINITIONS ${dialect}.td)

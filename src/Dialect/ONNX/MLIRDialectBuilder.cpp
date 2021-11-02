@@ -217,7 +217,6 @@ Value MathBuilder::cast(Type destType, Value src) const {
     // size 64.
     srcType = b.getIntegerType(64);
     src = b.create<arith::IndexCastOp>(loc, srcType, src);
-    src.dump();
   }
   bool destIsIndex = false;
   if (destType.isa<IndexType>()) {
