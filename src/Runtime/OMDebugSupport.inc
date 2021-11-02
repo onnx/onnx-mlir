@@ -37,23 +37,51 @@
 
 
 char * separator;
+int64_t tensorRank, currentDim, currentElement, *tensorBounds;
 
-void printTensorElementFloat(double e) {
-    printf("%s%d",separator,e);
-    separator=", ";
+static void trackDim() {
+    if(++currentElement==tensorBounds[currentDim]) {
+      if(++currentDim<tensorRank) {
+        printf("] [");
+        separator = " ";
+      } else {
+        printf("]");
+      }  
+    }
 }
 
-void printTensorElementInt(uint64_t e) {
-    printf("%s%i",separator,e);
+void printTensorElementFloat(float e) {
+    printf("%s%f",separator,e);
     separator=", ";
+    trackDim();
 }
 
-void printTensorStart(uint64_t rank,void *bounds) {
-    printf("%s","[");
+void printTensorElementDouble(double e) {
+    printf("%s%f",separator,e);
+    separator=", ";
+    trackDim();
+}
+
+void printTensorElementInt(int64_t e) {
+    printf("%s%li",separator,e);
+    separator=", ";
+    trackDim();
+}
+
+void printTensorStart(int64_t rank,void *bounds) {
+    tensorRank=rank;
+    tensorBounds=(int64_t *)malloc(8*rank);
+    currentDim=0;
+    currentElement=0;
+    for(int i=0;i<rank;++i) {
+      tensorBounds[i]=((int64_t *)bounds)[i];
+       printf("%s","[");
+    }
     separator=" ";
 }
 
 void printTensorEnd() {
-    printf("%s"," ]");
+    for(int i=0;i<tensorRank;++i)
+      printf("%s"," ]");
 }
 
