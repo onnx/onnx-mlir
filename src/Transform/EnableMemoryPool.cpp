@@ -39,11 +39,14 @@ bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
   // `ReinterpretCastOp`.
   SmallVector<Value, 32> castOpResults;
   function.walk([allocOp, &castOpResults](Operation *op) {
-    if (isa<memref::ReinterpretCastOp>(op) || isa<ONNXReshapeOp>(op) ||
-        isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op)) {
+    if (isa<memref::ReinterpretCastOp>(op) || isa<memref::CastOp>(op) ||
+        isa<ONNXReshapeOp>(op) || isa<ONNXSqueezeV11Op>(op) ||
+        isa<ONNXUnsqueezeV11Op>(op)) {
       auto result = allocOp->getResult();
       for (const auto &operand : op->getOperands())
-        if (operand == result)
+        if (operand == result ||
+            std::find(castOpResults.begin(), castOpResults.end(), operand) !=
+                castOpResults.end())
           castOpResults.emplace_back(op->getResults()[0]);
     }
   });
