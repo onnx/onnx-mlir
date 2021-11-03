@@ -88,7 +88,10 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
 }
 
 #define NOT_IMPLEMENTED_MESSAGE                                                \
-  (getOperationName() + ": inferShapes() not implemented")
+  (getOperationName() +                                                        \
+      ": is not supported at this time. Please open an issue on "              \
+      "https://github.com/onnx/onnx-mlir and/or consider contribute code. "    \
+      "Error encountered in shape inference.")
 
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
