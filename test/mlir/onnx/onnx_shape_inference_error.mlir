@@ -148,3 +148,12 @@ func @unsupport_resize_cubic_mode(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32> 
   "std.return"(%2) : (tensor<*xf32>) -> ()
 }
 
+// -----
+
+// Please update to an unsupported op if/when ArgMin becomes supported
+func @test_unsupported_op(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  // expected-error @+2 {{is not supported at this time. Please open an issue}}
+  // expected-error @+1 {{shape inference failed}}
+  %0 = "onnx.ArgMin"(%arg0) : (tensor<2x2xi64>) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+}
