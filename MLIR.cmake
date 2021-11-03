@@ -143,7 +143,11 @@ function(add_onnx_mlir_library name)
   endif()
 
   if (NOT ARG_NO_INSTALL)
-    install(TARGETS ${name} DESTINATION lib)
+    install(TARGETS ${name}
+      ARCHIVE DESTINATION lib
+      LIBRARY DESTINATION lib
+      RUNTIME DESTINATION bin
+      )
   endif()
 endfunction(add_onnx_mlir_library)
 
