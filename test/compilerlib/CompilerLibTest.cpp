@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
   }
   int retVal = 0;
   if (compileFromFile) {
-    char *errorMessage = NULL;
+    const char *errorMessage = NULL;
     retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
         onnx_mlir::EmitLib, mcpu.empty() ? nullptr : mcpu.c_str(),
         mtriple.empty() ? nullptr : mtriple.c_str(), &errorMessage);
