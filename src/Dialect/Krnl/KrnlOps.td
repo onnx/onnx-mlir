@@ -26,6 +26,8 @@ def Krnl_Dialect : Dialect {
   let cppNamespace = "::mlir";
 }
 
+def StringType : Type<CPred<"$_self.isa<::mlir::StringType>()">, "string type">;
+
 // Require regions to have krnl.terminate terminator operation.
 def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
 
@@ -997,6 +999,26 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
   let assemblyFormat = [{ $dest `,` $value attr-dict `:` type($dest) }];
 }
 
+def KrnlStrlenOp : Op<Krnl_Dialect, "strlen", [NoSideEffect, MemRefsNormalizable]> {
+  let summary = "Compute the length of a string.";
+  let description = [{
+    Krnl operation that computes the length of a string.
+  }];
+
+  let arguments = (ins StringType:$str);
+  let results = (outs I64:$res);
+}
+
+def KrnlStrncmpOp : Op<Krnl_Dialect, "strncmp", [NoSideEffect, MemRefsNormalizable]> {
+  let summary = "Perform string comparison up to N bytes.";
+  let description = [{
+    Krnl operation that performs a string comparison up to N bytes.
+  }];
+
+  let arguments = (ins StringType:$str1, StringType:$str2, I64:$len);
+  let results = (outs I32:$res);
+}
+
 def KrnlRandomNormalOp : Op<Krnl_Dialect, "random_normal",
     []> {
   let summary = "Generate a random normal tensor.";
@@ -1011,4 +1033,18 @@ def KrnlRandomNormalOp : Op<Krnl_Dialect, "random_normal",
     AnyFloat:$seed);
 
   let results = (outs );
+}
+
+def KrnlFindIndexOp : Op<Krnl_Dialect, "find_index",
+    [NoSideEffect, MemRefsNormalizable]> {
+  let summary = "Retrieve an index into a perfect hash table described by G and V.";
+  let description = [{
+    This operation can be used to generate a call to a runtime function which, 
+    given two arrays of int32_t values (G and V), whih are used to represent a perfect 
+    hash table for a dictionary, returns the index corresponding to the input value.
+    The index returned is valid only if 'input' is in the dictionary described by G and V.
+  }];
+
+  let arguments = (ins AnyTypeOf<[StringType, I64]>:$input, I32MemRef:$G, I32MemRef:$V, I32:$len);
+  let results = (outs Index:$index);
 }

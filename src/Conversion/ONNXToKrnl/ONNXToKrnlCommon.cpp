@@ -112,11 +112,13 @@ MemRefType convertToMemRefType(Type type) {
   auto tensorType = type.dyn_cast<TensorType>();
   if (tensorType) {
     assert(tensorType.hasRank() && "expected only ranked shapes");
-    memRefType =
-        MemRefType::get(tensorType.getShape(), tensorType.getElementType());
-  } else {
+    Type elementType = tensorType.getElementType();
+    if (elementType.isa<onnxmlir::StringType>())
+      elementType = StringType::get(type.getContext());
+    memRefType = MemRefType::get(tensorType.getShape(), elementType);
+  } else
     memRefType = type.dyn_cast<MemRefType>();
-  }
+
   return memRefType;
 }
 
@@ -737,4 +739,46 @@ Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
     Value zero = create.math.constantIndex(0);
     return create.krnl.load(optionalScalar, {zero});
   }
+}
+
+//===----------------------------------------------------------------------===//
+// Type conversion from Onnx types to Krnl types.
+//===----------------------------------------------------------------------===//
+
+KrnlTypeConverter::KrnlTypeConverter() {
+  // The order of type conversion is important: later ones are tried earlier.
+  addConversion([](Type type) { return type; });
+
+  addConversion([](onnxmlir::StringType stringType) {
+    return StringType::get(stringType.getContext());
+  });
+
+  addConversion([](TensorType tensorType) {
+    assert(tensorType.hasRank() && "expected only ranked shapes");
+    if (tensorType.getElementType().isa<onnxmlir::StringType>()) {
+      Type elementType = StringType::get(tensorType.getContext());
+      return MemRefType::get(tensorType.getShape(), elementType);
+    }
+    return MemRefType::get(tensorType.getShape(), tensorType.getElementType());
+  });
+
+  addSourceMaterialization([&](OpBuilder &builder, Type resultType,
+                               ValueRange inputs,
+                               Location loc) -> Optional<Value> {
+    if (inputs.size() != 1)
+      return llvm::None;
+
+    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+        .getResult(0);
+  });
+
+  addTargetMaterialization([&](OpBuilder &builder, Type resultType,
+                               ValueRange inputs,
+                               Location loc) -> Optional<Value> {
+    if (inputs.size() != 1)
+      return llvm::None;
+
+    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+        .getResult(0);
+  });
 }
