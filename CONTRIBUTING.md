@@ -20,13 +20,13 @@ Since you are interested in contributing code, you may look [here](docs/Workflow
 
 * The onnx-mlir project is based on the opset version defined [here](docs/Dialects/onnx.md). This is a reference to a possibly older version of the current version of the ONNX operators defined in the onnx/onnx repo [here](https://github.com/onnx/onnx/blob/master/docs/Operators.md).
 * The Krnl Dialect is used to lower ONNX operators to MLIR affine. The Krnl Dialect is defined [here](docs/Dialects/krnl.md).
-* To update the internal documentation on our dialects when there are changes, please look for guidance [here](docs/HowToAddAnOperation.md).
+* To update the internal documentation on our dialects when there are changes, please look for guidance [here](docs/HowToAddAnOperation.md#update-your-operations-status).
 
 ## Testing and debugging ONNX-MLIR
 
 * To test new code, see [here](docs/Testing.md) for instructions.
 * We have support on how to trace performance issue using instrumentation. Details are found [here](docs/Instrumentation.md).
-* We have support to debug numerical errors. See [here](docs/HowToAddAnOperation.md#update-your-operations-status).
+* We have support to debug numerical errors. See [here](docs/DebuggingNumericalError.md).
 
 ## Running ONNX models in Python and C
 
