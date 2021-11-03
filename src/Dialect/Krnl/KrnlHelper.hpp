@@ -102,7 +102,9 @@ struct KrnlIterateOperandPack {
 
   void pushAffineMapBound(mlir::AffineMap map, ArrayRef<Value> operands);
 
-  void pushIndexExprBound(IndexExpr expr);
+  // When used in a lower bound, set isLb to true, when used in an upper bound,
+  // set isLb to false.
+  void pushIndexExprBound(IndexExpr expr, bool isLb);
 
   void pushIndexExprsBound(SmallVectorImpl<IndexExpr> &exprVector);
 
@@ -150,16 +152,23 @@ private:
 //   insertion point to it. Value of the induction variables can be retrieved
 //   using the proper index (determined when pushin the bounds).
 
-class BuildKrnlLoop {
+class BuildKrnlLoop final {
 public:
   // Create kernel loop builder for a loop nest of depth loopNum.
   BuildKrnlLoop(ConversionPatternRewriter &rewriter, Location loc, int loopNum);
+  BuildKrnlLoop(const BuildKrnlLoop &) = delete;
+  BuildKrnlLoop(BuildKrnlLoop &&) = delete;
+  BuildKrnlLoop &operator=(const BuildKrnlLoop &) = delete;
+  BuildKrnlLoop &operator=(BuildKrnlLoop &&) = delete;
 
   // Create kernel loop builder for a loop nest of depth equal to the
   // dimensionality of the operand. An operand of MemRef type is requied.
   BuildKrnlLoop(
       ConversionPatternRewriter &rewriter, Location loc, Value memRefOperand);
-  ~BuildKrnlLoop();
+  ~BuildKrnlLoop() {
+    if (pack)
+      delete pack;
+  }
 
   // Create define and optimize loop with loopNum original loops. If
   // withEmptyOptimization is true, the optimization is simply the identity
@@ -267,7 +276,6 @@ void generateIndexMap(
 
 struct KrnlBuilder : public DialectBuilder {
   KrnlBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
-  KrnlBuilder(ImplicitLocOpBuilder &lb) : DialectBuilder(lb) {}
   KrnlBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
   Value load(Value memref, ValueRange indices = {});
@@ -295,6 +303,8 @@ struct KrnlBuilder : public DialectBuilder {
           bodyBuilderFn);
 
   void memcpy(Value dest, Value src, Value size);
+  void memset(Value dest, Value val);
+
   void copyToBuffer(
       // Buffer and source memory. Source memref may have a higher rank than
       // buffer.

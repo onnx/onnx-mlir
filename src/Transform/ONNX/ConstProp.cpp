@@ -26,6 +26,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/Common.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 #include <math.h>
@@ -84,21 +85,25 @@ T getAttrValue(Attribute attr) {
 }
 
 template <>
+ATTRIBUTE(unused)
 double getAttrValue(Attribute attr) {
   return attr.cast<FloatAttr>().getValueAsDouble();
 }
 
 template <>
+ATTRIBUTE(unused)
 float getAttrValue(Attribute attr) {
   return (float)attr.cast<FloatAttr>().getValueAsDouble();
 }
 
 template <>
+ATTRIBUTE(unused)
 int64_t getAttrValue(Attribute attr) {
   return attr.cast<IntegerAttr>().getInt();
 }
 
 template <>
+ATTRIBUTE(unused)
 int32_t getAttrValue(Attribute attr) {
   return attr.cast<IntegerAttr>().getInt();
 }
@@ -146,7 +151,7 @@ void getArrayForFinalOutput(Operation *op, char *res) {
 }
 
 /// A helper function to construct a RankedTensorType from a ShapedType.
-RankedTensorType constructRankedTensorType(ShapedType type) {
+ATTRIBUTE(unused) RankedTensorType constructRankedTensorType(ShapedType type) {
   assert(type.hasRank() && "Not a ranked type");
   return RankedTensorType::get(type.getShape(), type.getElementType());
 }
@@ -621,6 +626,14 @@ public:
 
 struct ConstPropONNXToONNXPass
     : public PassWrapper<ConstPropONNXToONNXPass, FunctionPass> {
+
+  StringRef getArgument() const override { return "constprop-onnx"; }
+
+  StringRef getDescription() const override {
+    return "ConstProp ONNX operations into composition of "
+           "other ONNX operations.";
+  }
+
   void runOnFunction() final;
 };
 } // end anonymous namespace.

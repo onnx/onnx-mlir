@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -29,16 +29,15 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
   auto axis = splitOp.axis();
 
   // Get a shape helper.
-  ShapeHelper shapeHelper(&splitOp, rewriter,
+  ShapeHelper shapeHelper(&splitOp, &rewriter,
       getDenseElementAttributeFromKrnlValue, loadDenseElementArrayValueAtIndex);
-  auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+  auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
   assert(succeeded(shapecomputed));
 
   // Alloc and dealloc.
   SmallVector<Value, 4> allocs;
   for (unsigned int i = 0; i < outputNum; ++i) {
-    // Warning: insertDealloc is not used.
-    bool insertDealloc = checkInsertDealloc(op, i);
+    checkInsertDealloc(op, i);
     auto memRefType = convertToMemRefType(splitOp.outputs()[i].getType());
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(i));
@@ -54,7 +53,7 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     // Scope for krnl ops
-    IndexExprScope childScope(rewriter, shapeHelper.scope);
+    IndexExprScope childScope(&rewriter, shapeHelper.scope);
     KrnlBuilder createKrnl(rewriter, loc);
 
     // Indices for the read and write.

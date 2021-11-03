@@ -1,4 +1,5 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
+<p align="center"><img width="50%" src="docs/logo/onnx-mlir-1280x640.png" /></p>
 
 # ONNX MLIR
 The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mlir/).
@@ -119,7 +120,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 829616c24119f000132913616a7cd4ad930ca84a && cd ..
+cd llvm-project && git checkout 0bf230d4220660af8b2667506f8905df2f716bdf && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -222,7 +223,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 829616c24119f000132913616a7cd4ad930ca84a && cd ..
+cd llvm-project && git checkout 0bf230d4220660af8b2667506f8905df2f716bdf && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
@@ -278,9 +279,9 @@ call cmake --build . --config Release --target check-onnx-lit
 
 To run the numerical ONNX MLIR tests, use the following command:
 
-[same-as-file]: <> ({"ref": "utils/check-numerical.cmd", "skip-ref": 1})
+[same-as-file]: <> ({"ref": "utils/check-onnx-numerical.cmd", "skip-ref": 1})
 ```shell
-call cmake --build . --config Release --target check-numerical
+call cmake --build . --config Release --target check-onnx-numerical
 ```
 
 To run the doc ONNX MLIR tests, use the following command after installing third_party ONNX:
@@ -364,3 +365,7 @@ On Macs/POWER and possibly other platforms, there is currently an issue that ari
 ## Slack channel
 
 We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`. This channel can be used for asking quick questions related to this project. A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
+
+## Contributing
+
+Want to contribute, consult this page for specific help on our project [here](CONTRIBUTING.md) or the docs sub-directory.

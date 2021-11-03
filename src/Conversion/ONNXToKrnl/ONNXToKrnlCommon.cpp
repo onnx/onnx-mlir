@@ -84,7 +84,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // dimensions, it uses the index expressions to retrieve the corresponding
 // values.
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
+    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
     bool insertDealloc, int64_t alignment) {
   // Constant, use the normal insert with no additional operands or alignment.
   if (hasAllConstantDimensions(type))
@@ -117,7 +117,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
 }
 
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
+    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
     int64_t alignment) {
 
   bool insertDealloc = checkInsertDealloc(op);
@@ -143,8 +143,7 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   // `ReinterpretCastOp`.
   SmallVector<Value, 32> castOpResults;
   if (currentOp->getNumResults() > 0) {
-    parentBlock->walk([&insertDealloc, currentOp, resultIndex, &castOpResults](
-                          Operation *op) {
+    parentBlock->walk([currentOp, resultIndex, &castOpResults](Operation *op) {
       if (isa<memref::ReinterpretCastOp>(op) || isa<ONNXReshapeOp>(op) ||
           isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op) ||
           isa<ONNXSqueezeOp>(op) || isa<ONNXUnsqueezeOp>(op)) {
@@ -298,7 +297,7 @@ Value emitPositiveInfinityConstantOp(
         }
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
-  return rewriter.create<ConstantOp>(loc, constantAttr);
+  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
 }
 
 Value emitNegativeInfinityConstantOp(
@@ -369,7 +368,7 @@ Value emitNegativeInfinityConstantOp(
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
-  return rewriter.create<ConstantOp>(loc, constantAttr);
+  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
 }
 
 Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
@@ -378,11 +377,9 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
   Value dimVal;
   if (shape[axis] < 0) {
     MemRefBuilder createMemRef(rewriter, loc);
+    MathBuilder createMath(createMemRef);
     Value dim = createMemRef.dim(operand, axis);
-    if (type.isa<IndexType>())
-      dimVal = dim;
-    else
-      dimVal = rewriter.create<IndexCastOp>(loc, dim, type);
+    dimVal = createMath.cast(type, dim);
   } else {
     dimVal = emitConstantOp(rewriter, loc, type, shape[axis]);
   }
@@ -521,8 +518,8 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
 /// The new view is created using the given 'memRefType' and 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, MemRefType memRefType,
-    SmallVectorImpl<IndexExpr> &outputDims) {
+    Location loc, Value data, const MemRefType &memRefType,
+    const SmallVectorImpl<IndexExpr> &outputDims) {
   int64_t rank = memRefType.getRank();
 
   // Compute new sizes and strides.
@@ -556,4 +553,109 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
       rewriter.create<memref::ReinterpretCastOp>(loc, memRefType, data,
           /*offset=*/rewriter.getIndexAttr(0), sizes, strides);
   return newView;
+}
+
+/// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
+/// Output MemRef has the same shape as the input MemRef but is of IndexType.
+/// By default, sort values in the descending order.
+Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
+    Value input, int64_t axis, bool ascending) {
+  KrnlBuilder createKrnl(rewriter, loc);
+  MathBuilder createMath(createKrnl);
+  SCFBuilder createSCF(createKrnl);
+  IndexExprScope scope(createKrnl);
+
+  MemRefType inputMemRefType = input.getType().cast<MemRefType>();
+  Type indexType = rewriter.getIndexType();
+  int64_t rank = inputMemRefType.getRank();
+  assert(axis >= 0 && axis < rank && "axis is out of bound");
+  LiteralIndexExpr zeroIE(0), oneIE(1);
+
+  MemRefBoundsIndexCapture inputBounds(input);
+  SmallVector<IndexExpr, 4> lbs(rank, zeroIE);
+  SmallVector<IndexExpr, 4> ubs;
+  inputBounds.getDimList(ubs);
+
+  // Create and initialize the result.
+  Value order = insertAllocAndDeallocSimple(rewriter, nullptr,
+      MemRefType::get(inputMemRefType.getShape(), indexType), loc, ubs,
+      /*insertDealloc=*/true);
+  ValueRange initLoopDef = createKrnl.defineLoops(rank);
+  createKrnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
+      [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        // order[axis_0, axis_1, ..., axis_k-1, k, axis_k+1, ....] = k
+        createKrnl.store(loopInd[axis], order, loopInd);
+      });
+
+  // Do sorting in the descending order of input and return their indices.
+  // Using bubble sort.
+  SmallVector<IndexExpr, 4> outerUbs(ubs);
+  outerUbs[axis] = ubs[axis] - oneIE;
+  ValueRange loopDef = createKrnl.defineLoops(rank);
+  createKrnl.iterateIE(loopDef, loopDef, lbs, outerUbs,
+      [&](KrnlBuilder &createKrnl, ValueRange iLoopInd) {
+        IndexExpr i1 = DimIndexExpr(iLoopInd[axis]) + LiteralIndexExpr(1);
+        ValueRange swapLoopDef = createKrnl.defineLoops(1);
+        createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i1}, {ubs[axis]},
+            [&](KrnlBuilder &createKrnl, ValueRange swapLoopInd) {
+              SmallVector<Value> kLoopInd(iLoopInd);
+              kLoopInd[axis] = swapLoopInd[0];
+              // Load current indices.
+              Value iOrd = createKrnl.load(order, iLoopInd);
+              Value kOrd = createKrnl.load(order, kLoopInd);
+              // Load x.
+              SmallVector<Value> xLoopInd(iLoopInd);
+              xLoopInd[axis] = iOrd;
+              Value x = createKrnl.load(input, xLoopInd);
+              // Load y.
+              SmallVector<Value> yLoopInd(iLoopInd);
+              yLoopInd[axis] = kOrd;
+              Value y = createKrnl.load(input, yLoopInd);
+              // Compare values and swap indices.
+              Value cond;
+              if (ascending)
+                cond = createMath.sgt(x, y);
+              else
+                cond = createMath.slt(x, y);
+              createSCF.ifThenElse(cond, [&](SCFBuilder &createSCF) {
+                createKrnl.store(kOrd, order, iLoopInd);
+                createKrnl.store(iOrd, order, kLoopInd);
+              });
+            });
+      });
+
+  return order;
+}
+
+/// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
+/// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
+/// lambda type, using ONNX and Krnl operations.
+DenseElementsAttr getDenseElementAttributeFromConstantValue(Value value) {
+  auto definingOp = value.getDefiningOp();
+  if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
+    if (globalOp.value().hasValue())
+      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  } else if (auto globalOp =
+                 dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
+    if (globalOp.value().hasValue())
+      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  }
+  return nullptr;
+}
+
+/// This function returns a scalar of type 'dtype' from an optional value.
+/// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>. Default
+/// value is used in case of NoneType.
+Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
+    Value optionalScalar, Type elementType, double defaultValue) {
+  KrnlBuilder createKrnl(rewriter, loc);
+  MathBuilder createMath(createKrnl);
+  if (optionalScalar.getType().isa<NoneType>()) {
+    return createMath.constant(elementType, defaultValue);
+  } else if (optionalScalar.getType().cast<ShapedType>().getRank() == 0) {
+    return createKrnl.load(optionalScalar, {});
+  } else {
+    Value zero = createMath.constantIndex(0);
+    return createKrnl.load(optionalScalar, {zero});
+  }
 }

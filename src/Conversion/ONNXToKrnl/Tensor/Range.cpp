@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -28,7 +28,7 @@ struct ONNXRangeOpLowering : public ConversionPattern {
 
     // Create an index expression scope.
     // Scope for krnl ops
-    IndexExprScope ieScope(rewriter, loc);
+    IndexExprScope ieScope(&rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
 
     Value start = operandAdaptor.start();
@@ -83,30 +83,30 @@ struct ONNXRangeOpLowering : public ConversionPattern {
             llvm_unreachable("Float 16 type not supported for Range op.");
           })
           .Case<Float32Type>([&](Type) {
-            Value elements = rewriter.create<DivFOp>(loc,
-                rewriter.create<SubFOp>(loc, loadedLimit, loadedStart),
+            Value elements = rewriter.create<arith::DivFOp>(loc,
+                rewriter.create<arith::SubFOp>(loc, loadedLimit, loadedStart),
                 loadedDelta);
-            numberOfElements = rewriter.create<IndexCastOp>(loc,
-                rewriter.create<mlir::FPToUIOp>(loc,
-                    rewriter.create<mlir::CeilFOp>(loc, elements),
+            numberOfElements = rewriter.create<arith::IndexCastOp>(loc,
+                rewriter.create<arith::FPToUIOp>(loc,
+                    rewriter.create<math::CeilOp>(loc, elements),
                     rewriter.getIntegerType(64)),
                 rewriter.getIndexType());
           })
           .Case<Float64Type>([&](Type) {
-            Value elements = rewriter.create<DivFOp>(loc,
-                rewriter.create<SubFOp>(loc, loadedLimit, loadedStart),
+            Value elements = rewriter.create<arith::DivFOp>(loc,
+                rewriter.create<arith::SubFOp>(loc, loadedLimit, loadedStart),
                 loadedDelta);
-            numberOfElements = rewriter.create<IndexCastOp>(loc,
-                rewriter.create<mlir::FPToUIOp>(loc,
-                    rewriter.create<mlir::CeilFOp>(loc, elements),
+            numberOfElements = rewriter.create<arith::IndexCastOp>(loc,
+                rewriter.create<arith::FPToUIOp>(loc,
+                    rewriter.create<math::CeilOp>(loc, elements),
                     rewriter.getIntegerType(64)),
                 rewriter.getIndexType());
           })
           .Case<IntegerType>([&](Type) {
-            Value elements = rewriter.create<SignedCeilDivIOp>(loc,
-                rewriter.create<SubIOp>(loc, loadedLimit, loadedStart),
+            Value elements = rewriter.create<arith::CeilDivSIOp>(loc,
+                rewriter.create<arith::SubIOp>(loc, loadedLimit, loadedStart),
                 loadedDelta);
-            numberOfElements = rewriter.create<IndexCastOp>(
+            numberOfElements = rewriter.create<arith::IndexCastOp>(
                 loc, elements, rewriter.getIndexType());
           });
 
@@ -179,13 +179,16 @@ struct ONNXRangeOpLowering : public ConversionPattern {
       Value accResult;
       TypeSwitch<Type>(elementType)
           .Case<Float32Type>([&](Type) {
-            accResult = rewriter.create<AddFOp>(loc, result, loadedDelta);
+            accResult =
+                rewriter.create<arith::AddFOp>(loc, result, loadedDelta);
           })
           .Case<Float64Type>([&](Type) {
-            accResult = rewriter.create<AddFOp>(loc, result, loadedDelta);
+            accResult =
+                rewriter.create<arith::AddFOp>(loc, result, loadedDelta);
           })
           .Case<IntegerType>([&](Type) {
-            accResult = rewriter.create<AddIOp>(loc, result, loadedDelta);
+            accResult =
+                rewriter.create<arith::AddIOp>(loc, result, loadedDelta);
           });
       createKrnl.storeIE(accResult, acc, accIndex);
     }

@@ -27,10 +27,11 @@ class SeqOf<list<Type> allowedTypes> :
                 "$_self.cast<SeqType>().getElementType()",  "SeqType">;
 
 def ONNXConstantOpFromDenseAttr: NativeCodeCall<
-  "getONNXConstantOpFromDenseAttr($_builder, $_loc, $0)">;
+  "createONNXConstantOpWithDenseAttr($_builder, $_loc, $0)">;
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";
+  let summary = "A high-level dialect for the ONNX specification";
   let cppNamespace = "::mlir";
 }
 
@@ -132,7 +133,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
     "See ONNXMaxPoolOp for a full description of the MaxPool semantics."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-           DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
+           DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
            DefaultValuedAttr<SI64Attr, "0">:$ceil_mode,
            OptionalAttr<I64ArrayAttr>:$dilations,
            DefaultValuedAttr<I64ArrayAttr, "{}">:$kernel_shape,

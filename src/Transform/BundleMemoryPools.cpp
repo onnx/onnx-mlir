@@ -23,6 +23,7 @@
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/Common.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
@@ -47,7 +48,7 @@ typedef std::map<Block *, AlignmentToMemPool *> BlockToMemPool;
 //===----------------------------------------------------------------------===//
 
 /// Retrieve function which contains the current operation.
-FuncOp getContainingFunction(memref::AllocOp op) {
+ATTRIBUTE(unused) FuncOp getContainingFunction(memref::AllocOp op) {
   Operation *parentFuncOp = op->getParentOp();
 
   // While parent is not a FuncOp and its cast to a FuncOp is null.
@@ -78,7 +79,7 @@ bool isBlockArgument(memref::AllocOp allocOp, Value operand) {
   return false;
 }
 
-KrnlGetRefOp getUnbundledGetRef(memref::AllocOp *memPool) {
+ATTRIBUTE(unused) KrnlGetRefOp getUnbundledGetRef(memref::AllocOp *memPool) {
   auto parentBlock = memPool->getOperation()->getBlock();
 
   KrnlGetRefOp unbundledGetRef = nullptr;
@@ -219,7 +220,7 @@ public:
 
     // Current memory pool size is the offset for the newly bundled
     // internal MemRef. Emit the offset as a constant.
-    auto offset = rewriter.create<ConstantOp>(
+    auto offset = rewriter.create<arith::ConstantOp>(
         loc, rewriter.getIntegerAttr(
                  rewriter.getIntegerType(64), currentMemPoolSize));
 
@@ -391,9 +392,7 @@ public:
     // If this is the first valid alloc we can bundle in this block, then we
     // need to move it to the top of the block as it will consitute an
     // insertion point for all other bundle-able AllocOps in the block.
-    bool isFirstEverBundledAllocOp =
-        blockToDynamicPool->count(parentBlock) == 0;
-    AlignmentToMemPool *alignmentToMemPool;
+    AlignmentToMemPool *alignmentToMemPool = nullptr;
     if (blockToDynamicPool->count(parentBlock) == 0) {
       allocOp.getOperation()->moveBefore(&parentBlock->front());
 
@@ -440,14 +439,14 @@ public:
       dynamicMemoryPoolSize = zero;
     }
 
-    AddIOp bundledAllocOperand = rewriter.create<AddIOp>(
+    arith::AddIOp bundledAllocOperand = rewriter.create<arith::AddIOp>(
         loc, dynamicMemoryPoolSize, allocOp.getOperand(0));
     bundledAllocOperand.getOperation()->moveBefore(oldDynamicMemoryPool);
 
     // The newly bundled MemRef expressed as a KrnlGetRefOp.
     // Current memory pool size is the offset for the newly bundled
     // internal MemRef.
-    Value integerDynamicMemoryPoolSize = rewriter.create<IndexCastOp>(
+    Value integerDynamicMemoryPoolSize = rewriter.create<arith::IndexCastOp>(
         loc, dynamicMemoryPoolSize, rewriter.getIntegerType(64));
     integerDynamicMemoryPoolSize.getDefiningOp()->moveBefore(
         oldDynamicMemoryPool);
@@ -484,11 +483,11 @@ public:
  * Move all constants to the top of their respective block to avoid
  * unwanted merges.
  */
-class KrnlMoveConstantsUp : public OpRewritePattern<ConstantOp> {
+class KrnlMoveConstantsUp : public OpRewritePattern<arith::ConstantOp> {
 public:
-  using OpRewritePattern<ConstantOp>::OpRewritePattern;
+  using OpRewritePattern<arith::ConstantOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
-      ConstantOp constOp, PatternRewriter &rewriter) const override {
+      arith::ConstantOp constOp, PatternRewriter &rewriter) const override {
     // Get parent block.
     auto parentBlock = constOp.getOperation()->getBlock();
 
@@ -513,6 +512,12 @@ class KrnlBundleMemoryPoolsPass
   BlockToMemPool blockToDynamicPool;
 
 public:
+  StringRef getArgument() const override { return "bundle-memory-pools"; }
+
+  StringRef getDescription() const override {
+    return "Bundle memory pools of internal MemRefs into a single memory pool.";
+  }
+
   void runOnFunction() override {
     auto function = getFunction();
 

@@ -260,8 +260,8 @@ OMTensorList *omtl_java_to_native(
      * in the OMTensor.
      */
     LIB_VAR_CALL(jni_omts[i],
-        omTensorCreate(jni_data, jni_shape, jni_rank, jni_dataType), NULL, env,
-        japi->jecpt_cls, "jni_omts[%d]=null", i);
+        omTensorCreate(jni_data, (int64_t *)jni_shape, jni_rank, jni_dataType),
+        NULL, env, japi->jecpt_cls, "jni_omts[%d]=null", i);
 
     /* Release reference to the java objects */
     JNI_CALL(
@@ -339,14 +339,14 @@ jobject omtl_native_to_java(
     /* Create data shape array Java object, fill in from native array */
     JNI_TYPE_VAR_CALL(
         env, jlongArray, jomt_shape, (*env)->NewLongArray(env, jni_rank));
-    JNI_CALL(env,
-        (*env)->SetLongArrayRegion(env, jomt_shape, 0, jni_rank, jni_shape));
+    JNI_CALL(env, (*env)->SetLongArrayRegion(
+                      env, jomt_shape, 0, jni_rank, (jlong *)jni_shape));
 
     /* Create data strides array Java object, fill in from native array */
     JNI_TYPE_VAR_CALL(
         env, jlongArray, jomt_strides, (*env)->NewLongArray(env, jni_rank));
     JNI_CALL(env, (*env)->SetLongArrayRegion(
-                      env, jomt_strides, 0, jni_rank, jni_strides));
+                      env, jomt_strides, 0, jni_rank, (jlong *)jni_strides));
 
     /* Primitive type int can be directly used. Call setDataType method */
     int jomt_dataType = jni_dataType;

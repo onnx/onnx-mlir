@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -33,8 +33,8 @@ Value getIdentityValue<ONNXAveragePoolOp>(
 // Scalar operations
 template <>
 struct ScalarOp<ONNXAveragePoolOp> {
-  using FOp = AddFOp;
-  using IOp = AddIOp;
+  using FOp = arith::AddFOp;
+  using IOp = arith::AddIOp;
 };
 
 template <>
@@ -43,7 +43,8 @@ Value emitScalarOpFor<ONNXMaxPoolSingleOutOp>(
     Type elementType, ArrayRef<Value> scalarOperands) {
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  auto max = rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
+  auto max =
+      rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGT, lhs, rhs);
   auto result = rewriter.create<SelectOp>(loc, max, lhs, rhs);
   return result;
 }
@@ -131,14 +132,15 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
   } else {
     denominator = poolDimValues[0];
     for (unsigned int i = 1; i < poolDimValues.size(); ++i)
-      denominator = rewriter.create<MulIOp>(loc, denominator, poolDimValues[i]);
-    denominator = rewriter.create<IndexCastOp>(
+      denominator =
+          rewriter.create<arith::MulIOp>(loc, denominator, poolDimValues[i]);
+    denominator = rewriter.create<arith::IndexCastOp>(
         loc, denominator, rewriter.getIntegerType(64));
     denominator =
-        rewriter.create<SIToFPOp>(loc, denominator, numerator.getType());
+        rewriter.create<arith::SIToFPOp>(loc, denominator, numerator.getType());
   }
 
-  Value average = rewriter.create<DivFOp>(loc, numerator, denominator);
+  Value average = rewriter.create<arith::DivFOp>(loc, numerator, denominator);
 
   rewriter.create<KrnlStoreOp>(loc, average, alloc, resultIndices);
 }
@@ -166,23 +168,24 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
     for (unsigned int i = 0; i < kernelShape.size(); ++i)
       kernelSize = kernelSize * kernelShape[i];
     denominator = kernelSize.getValue();
-    denominator =
-        rewriter.create<IndexCastOp>(loc, denominator, rewriter.getI64Type());
+    denominator = rewriter.create<arith::IndexCastOp>(
+        loc, denominator, rewriter.getI64Type());
     // TODO: we are implying here that the dest type is a float.
     denominator =
-        rewriter.create<SIToFPOp>(loc, denominator, numerator.getType());
+        rewriter.create<arith::SIToFPOp>(loc, denominator, numerator.getType());
   } else {
     denominator = poolDimValues[0];
     for (unsigned int i = 1; i < poolDimValues.size(); ++i)
-      denominator = rewriter.create<MulIOp>(loc, denominator, poolDimValues[i]);
-    denominator = rewriter.create<IndexCastOp>(
+      denominator =
+          rewriter.create<arith::MulIOp>(loc, denominator, poolDimValues[i]);
+    denominator = rewriter.create<arith::IndexCastOp>(
         loc, denominator, rewriter.getIntegerType(64));
     // TODO: we are implying here that the dest type is a float.
     denominator =
-        rewriter.create<SIToFPOp>(loc, denominator, numerator.getType());
+        rewriter.create<arith::SIToFPOp>(loc, denominator, numerator.getType());
   }
 
-  Value average = rewriter.create<DivFOp>(loc, numerator, denominator);
+  Value average = rewriter.create<arith::DivFOp>(loc, numerator, denominator);
 
   rewriter.create<KrnlStoreOp>(loc, average, alloc, resultIndices);
 }
@@ -203,10 +206,10 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     PoolOp poolOp = llvm::dyn_cast<PoolOp>(op);
 
     // Get shape.
-    PoolOpShapeHelper shapeHelper(&poolOp, rewriter,
+    PoolOpShapeHelper shapeHelper(&poolOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed));
 
     // Read ceil_mode attribute
@@ -228,7 +231,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         isDilated = true;
 
     // Scope for krnl ops
-    IndexExprScope ieScope(rewriter, loc);
+    IndexExprScope ieScope(&rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the output of this operation.
@@ -338,6 +341,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // Create a local reduction value for output[n][c][ho][wo].
       // Single scalar, no need for default alignment.
       MemRefBuilder createMemRef(rewriter, loc);
+      MathBuilder createMath(createMemRef);
       Value reductionVal =
           createMemRef.alloca(MemRefType::get({}, memRefType.getElementType()));
       createKrnl.store(identity, reductionVal);
@@ -392,22 +396,20 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //   wDim = round(float(endW - startW) / float(dW))
       SmallVector<Value, 4> fullWindowSize;
       for (int i = 0; i < kernelShapeSize; ++i) {
-        Value dim = rewriter.create<SubIOp>(
-            loc, windowEndExprs[i].getValue(), windowStartExprs[i].getValue());
+        Value dim = createMath.sub(
+            windowEndExprs[i].getValue(), windowStartExprs[i].getValue());
         if (isDilated) {
-          Value one = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
-          Value numerator = rewriter.create<AddIOp>(loc, dim, one);
+          Value one = createMath.constantIndex(1);
+          Value numerator = createMath.add(dim, one);
           Value denominator = IVExprs[i][5].getValue(); // dilations[i]
-          dim = rewriter.create<SignedDivIOp>(loc, numerator, denominator);
+          dim = createMath.div(numerator, denominator);
           if (ceilMode) {
             auto remainder =
-                rewriter.create<SignedRemIOp>(loc, numerator, denominator);
-            Value zero =
-                emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
-            auto isZero = rewriter.create<CmpIOp>(
-                loc, CmpIPredicate::eq, remainder, zero);
-            auto dimPlusOne = rewriter.create<AddIOp>(loc, dim, one);
-            dim = rewriter.create<SelectOp>(loc, isZero, dim, dimPlusOne);
+                rewriter.create<arith::RemSIOp>(loc, numerator, denominator);
+            Value zero = createMath.constantIndex(0);
+            Value isZero = createMath.eq(remainder, zero);
+            Value dimPlusOne = createMath.add(dim, one);
+            dim = createMath.select(isZero, dim, dimPlusOne);
           }
         }
         fullWindowSize.emplace_back(dim);

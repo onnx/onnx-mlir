@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -28,10 +28,10 @@ struct ONNXConcatOpLowering : public ConversionPattern {
 
     ONNXConcatOpAdaptor operandAdaptor(operands);
     ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
-    ONNXConcatOpShapeHelper shapeHelper(&concatOp, rewriter,
+    ONNXConcatOpShapeHelper shapeHelper(&concatOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));
 

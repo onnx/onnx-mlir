@@ -14,11 +14,37 @@ add_onnx_mlir_rewriter(Rewrite)
 add_onnx_mlir_library(OMONNXOps
   ONNXOps.cpp
   ONNXOpsHelper.cpp
-  ONNXShapeHelper.cpp
-  Rewrite.cpp
   IndexExpr.cpp
   IndexExprDetail.cpp
   MLIRDialectBuilder.cpp
+  Rewrite.cpp
+
+  ShapeInference/ArgMax.cpp
+  ShapeInference/AveragePool.cpp
+  ShapeInference/Compress.cpp
+  ShapeInference/Concat.cpp
+  ShapeInference/Conv.cpp
+  ShapeInference/DepthToSpace.cpp
+  ShapeInference/Expand.cpp
+  ShapeInference/Gather.cpp
+  ShapeInference/Gemm.cpp
+  ShapeInference/MatMul.cpp
+  ShapeInference/MaxPool.cpp
+  ShapeInference/ONNXShapeHelper.cpp  
+  ShapeInference/OneHot.cpp
+  ShapeInference/Pad.cpp
+  ShapeInference/RNN.cpp
+  ShapeInference/Reshape.cpp
+  ShapeInference/ReverseSequence.cpp
+  ShapeInference/Shape.cpp
+  ShapeInference/Slice.cpp
+  ShapeInference/SpaceToDepth.cpp
+  ShapeInference/Split.cpp
+  ShapeInference/Squeeze.cpp
+  ShapeInference/Tile.cpp
+  ShapeInference/TopK.cpp
+  ShapeInference/Transpose.cpp
+  ShapeInference/Unsqueeze.cpp
 
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen
@@ -30,4 +56,5 @@ add_onnx_mlir_library(OMONNXOps
   LINK_LIBS PUBLIC
   MLIRMath
   MLIRAffine
+  MLIRSCF
   )

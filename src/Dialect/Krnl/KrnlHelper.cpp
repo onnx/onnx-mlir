@@ -166,7 +166,7 @@ void KrnlIterateOperandPack::pushAffineMapBound(
 }
 
 // Bound could be a constant, Value or AffineMap
-void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
+void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr, bool isLb) {
   if (expr.isLiteral()) {
     pushConstantBound(expr.getLiteral());
   } else if (expr.isAffine() && !expr.isPredType()) {
@@ -176,9 +176,11 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
     pushAffineMapBound(map, list);
   } else {
     Value val = expr.getValue();
-    if (val.getDefiningOp<AffineMinOp>() || val.getDefiningOp<AffineMaxOp>()) {
-      // Have a Affine Min/Max, will extract the list of affine min/max for the
-      // loop bounds.
+    if ((val.getDefiningOp<AffineMinOp>() && !isLb) ||
+        (val.getDefiningOp<AffineMaxOp>() && isLb)) {
+      // Have a Affine Min in an upper bound computation, or have an Affine Max
+      // in a lower bound computation,  will extract the list of affine min/max
+      // for the loop bounds.
       AffineMap map;
       SmallVector<Value, 4> list;
       expr.getAffineMapAndOperands(map, list);
@@ -213,21 +215,16 @@ void KrnlIterateOperandPack::pushIndexExprsBound(
 
 BuildKrnlLoop::BuildKrnlLoop(
     ConversionPatternRewriter &rewriter, Location loc, int loopNum)
-    : rewriter(rewriter), loc(loc), originalLoopNum(loopNum), pack(NULL),
+    : rewriter(rewriter), loc(loc), originalLoopNum(loopNum), pack(nullptr),
       pushCount(0), createdDefineOp(false), createdIterateOp(false) {
-  if (originalLoopNum <= 0)
-    emitError(loc, "Expected positive number of original loops.");
+  if (originalLoopNum < 0)
+    emitError(loc, "Expected non-negative number of original loops.");
 }
 
 BuildKrnlLoop::BuildKrnlLoop(
     ConversionPatternRewriter &rewriter, Location loc, Value memRefOperand)
     : BuildKrnlLoop(rewriter, loc,
           memRefOperand.getType().cast<MemRefType>().getShape().size()) {}
-
-BuildKrnlLoop::~BuildKrnlLoop() {
-  if (pack)
-    delete pack;
-}
 
 void BuildKrnlLoop::createDefineOp() {
   // Insert define loop operation.
@@ -360,8 +357,9 @@ ArrayRef<BlockArgument> BuildKrnlLoop::getAllInductionVar() {
 // This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
 // lambda type, using ONNX and Krnl operations.
 DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value) {
-  auto definingOp = value.getDefiningOp();
-  if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
+  KrnlGlobalOp globalOp =
+      dyn_cast_or_null<mlir::KrnlGlobalOp>(value.getDefiningOp());
+  if (globalOp) {
     if (globalOp.value().hasValue())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
   }
@@ -372,8 +370,11 @@ DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value) {
 // type, using Krnl operations.
 Value loadDenseElementArrayValueAtIndex(
     OpBuilder &rewriter, Location loc, Value array, int64_t index) {
+  // Scalar tensor.
+  if (array.getType().cast<ShapedType>().getShape().size() == 0)
+    return rewriter.create<KrnlLoadOp>(loc, array);
   Attribute constAttr = rewriter.getIntegerAttr(rewriter.getIndexType(), index);
-  Value indexVal = rewriter.create<ConstantOp>(loc, constAttr);
+  Value indexVal = rewriter.create<arith::ConstantOp>(loc, constAttr);
   SmallVector<Value, 1> memrefVal = {indexVal};
   return rewriter.create<KrnlLoadOp>(loc, array, memrefVal);
 }
@@ -445,8 +446,8 @@ void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
   assert(originalLoops.size() == ubs.size() && "expected same rank");
   ValueRange empty;
   b.create<KrnlIterateOp>(loc, originalLoops, optimizedLoops, lbs, ubs, empty,
-      [&](ImplicitLocOpBuilder &lb, ValueRange args) {
-        KrnlBuilder createKrnl(lb);
+      [&](OpBuilder &builder, Location loc, ValueRange args) {
+        KrnlBuilder createKrnl(builder, loc);
         ValueRange indices = createKrnl.getInductionVarValue(optimizedLoops);
         bodyBuilderFn(createKrnl, indices);
       });
@@ -461,8 +462,8 @@ void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
   assert(originalLoops.size() == ubs.size() && "expected same rank");
   ValueRange empty;
   b.create<KrnlIterateOp>(loc, originalLoops, optimizedLoops, lbs, ubs, empty,
-      [&](ImplicitLocOpBuilder &lb, ValueRange args) {
-        KrnlBuilder createKrnl(lb);
+      [&](OpBuilder &builder, Location loc, ValueRange args) {
+        KrnlBuilder createKrnl(builder, loc);
         ValueRange indices = createKrnl.getInductionVarValue(optimizedLoops);
         bodyBuilderFn(createKrnl, indices);
       });
@@ -470,6 +471,10 @@ void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
 
 void KrnlBuilder::memcpy(Value dest, Value src, Value size) {
   b.create<KrnlMemcpyOp>(loc, dest, src, size);
+}
+
+void KrnlBuilder::memset(Value dest, Value val) {
+  b.create<KrnlMemsetOp>(loc, dest, val);
 }
 
 void KrnlBuilder::copyToBuffer(Value bufferMemref, Value sourceMemref,

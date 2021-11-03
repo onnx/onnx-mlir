@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -27,9 +27,9 @@ LogicalResult ONNXSqueezeOpLoweringCommon(Operation *op,
   auto memRefType = convertToMemRefType(*op->result_type_begin());
   Value data = operandAdaptor.data();
 
-  ShapeHelper shapeHelper(&squeezeOp, rewriter,
+  ShapeHelper shapeHelper(&squeezeOp, &rewriter,
       getDenseElementAttributeFromKrnlValue, loadDenseElementArrayValueAtIndex);
-  auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+  auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
   assert(succeeded(shapecomputed));
 
   // Lower to ReinterpretCastOp so that the data is never copied or modified.

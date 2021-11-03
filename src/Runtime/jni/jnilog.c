@@ -164,7 +164,7 @@ void log_printf(
     sprintf(buf, "[-]");
 
   /* Output thread ID, log level, file name, function number, and line number */
-  snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), "[%lx][%s]%s:%s:%d ",
+  snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), "[%p][%s]%s:%s:%d ",
       get_threadid(), log_level_name[level], get_filename(file), func, line);
 
   /* Output actual log data */
@@ -202,9 +202,9 @@ static FILE *get_log_file_by_name(char *name) {
   else if (!strcmp(name, "stderr"))
     fp = stderr;
   else {
-    char *tname = malloc(strlen(name) + 32);
+    char *tname = (char *)malloc(strlen(name) + 32);
     if (tname) {
-      snprintf(tname, strlen(name) + 32, "%s.%lx", name, get_threadid());
+      snprintf(tname, strlen(name) + 32, "%s.%p", name, get_threadid());
       fp = fopen(tname, "w");
       free(tname);
     }

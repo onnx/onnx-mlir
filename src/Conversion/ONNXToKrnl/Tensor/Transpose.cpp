@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -36,10 +36,10 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     int64_t rank = memRefType.getShape().size();
 
     // Get a shape helper.
-    ONNXTransposeOpShapeHelper shapeHelper(&transposeOp, rewriter,
+    ONNXTransposeOpShapeHelper shapeHelper(&transposeOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));
 
@@ -53,7 +53,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(inputLoops.getIterateBlock());
     {
       // Get a child IndexExpr context.
-      IndexExprScope childScope(rewriter, shapeHelper.scope);
+      IndexExprScope childScope(&rewriter, shapeHelper.scope);
       KrnlBuilder createKrnl(rewriter, loc);
 
       // Get read/write indices.

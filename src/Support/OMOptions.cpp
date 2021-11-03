@@ -45,3 +45,14 @@ llvm::cl::opt<bool> disableMemoryBundling("disable-memory-bundling",
                    "Buffer management by MLIR is used instead.\n"
                    "Try this if you experience a significant compile time."),
     llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
+
+llvm::cl::opt<int> onnxOpTransformThreshold("onnx-op-transform-threshold",
+    llvm::cl::desc("max iteration for dynamic op transform passes.\n"
+                   "default value 3.\n"
+                   "If set to 0, onnxOpTransformPass will be disabled, and\n"
+                   "static iteration will be used"),
+    llvm::cl::init(3), llvm::cl::cat(OMPassOptions));
+
+llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
+    llvm::cl::desc(" report diagnostic info for op transform passes."),
+    llvm::cl::init(false), llvm::cl::cat(OMPassOptions));

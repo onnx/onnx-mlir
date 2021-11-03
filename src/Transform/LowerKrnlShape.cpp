@@ -55,7 +55,7 @@ public:
 
     SmallVector<mlir::Value, 4> fromExtentsOpOperands;
     for (int idx = 0; idx < rank; idx++) {
-      auto index = rewriter.create<ConstantOp>(
+      auto index = rewriter.create<arith::ConstantOp>(
           loc, rewriter.getIntegerAttr(rewriter.getIndexType(), idx));
       auto operand = rewriter.create<KrnlDimOp>(
           loc, rewriter.getIndexType(), krnlShapeOp.alloc(), index);
@@ -80,6 +80,12 @@ public:
 class LowerKrnlShapePass
     : public PassWrapper<LowerKrnlShapePass, FunctionPass> {
 public:
+  StringRef getArgument() const override { return "lower-krnl-shape"; }
+
+  StringRef getDescription() const override {
+    return "Lower krnl.shape operation to use Shape dialect operations.";
+  }
+
   void runOnFunction() override {
     auto function = getFunction();
 

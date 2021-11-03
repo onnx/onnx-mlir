@@ -14,15 +14,16 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 // Used to trace which op are used, good for profiling apps.
-#define TRACE 0
+#define DEBUG_TYPE "gemm"
 #define DEBUG_SIMD_OFF 0
 #define DEBUG_UNROLL_OFF 0
 #define DEBUG_OPTIMIZED_OFF 0
 
-#define BUFFER_ALIGN 128
+static constexpr int BUFFER_ALIGN = 128;
+
 using namespace mlir;
 
 template <typename GemmOp>
@@ -44,15 +45,15 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs,
         shapeHelper.dimsForOutput(0),
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
-          // Create temp and set to zero.
-          ImplicitLocOpBuilder lb(createKrnl.getLoc(), createKrnl.getBuilder());
-          // Single scalar, no need for default alignment.
+          // Create temp and set to zero, single scalar, no need for default
+          // alignment.
           MemRefBuilder createMemRef(createKrnl);
+          MathBuilder createMath(createKrnl);
           Value red = createMemRef.alloca(MemRefType::get({}, elementType));
           createKrnl.store(zeroVal, red);
           // Inner loop
           ValueRange innerLoop = createKrnl.defineLoops(1);
-          Value innerLb = lb.create<ConstantIndexOp>(0);
+          Value innerLb = createMath.constantIndex(0);
           Value innerUb = shapeHelper.aDims[1].getValue();
           createKrnl.iterate(innerLoop, innerLoop, {innerLb}, {innerUb},
               [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
@@ -76,7 +77,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                 createKrnl.store(createMath.add(tmp, rVal), red);
               });
           // Handle alpha/beta coefficients.
-          MathBuilder createMath(createKrnl);
           // new scope
           IndexExprScope innerScope(createKrnl, shapeHelper.scope);
           Value res = createMath.mul(alphaVal, createKrnl.load(red));
@@ -114,11 +114,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     // Initialize alloc/R to zero.
     KrnlBuilder createKrnl(rewriter, loc);
-    ValueRange zeroLoop = createKrnl.defineLoops(2);
-    createKrnl.iterateIE(zeroLoop, zeroLoop, {zero, zero}, {I, J},
-        [&](KrnlBuilder &createKrnl, ValueRange indices) {
-          createKrnl.store(zeroVal, R, indices);
-        });
+    createKrnl.memset(R, zeroVal);
 
     // Prepare for the computations.
     // 1) Define blocking, with simdization along the j axis.
@@ -298,10 +294,10 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ONNXGemmOpAdaptor operandAdaptor(operands);
     ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
     Location loc = op->getLoc();
-    ONNXGemmOpShapeHelper shapeHelper(&gemmOp, rewriter,
+    ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed));
 
     // Insert an allocation and deallocation for the output of this operation.
@@ -317,35 +313,39 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-#if TRACE
-    if (DEBUG_SIMD_OFF)
-      printf("Gemm simd off\n");
-    if (DEBUG_UNROLL_OFF)
-      printf("Gemm unroll off\n");
-    if (DEBUG_OPTIMIZED_OFF)
-      printf("Gemm optimized path off\n");
-    bool aTrans = gemmOp.transA();
-    bool bTrans = gemmOp.transB();
-    if (IndexExpr::isLiteral(shapeHelper.aDims) &&
-        IndexExpr::isLiteral(shapeHelper.bDims) &&
-        IndexExpr::isLiteral(shapeHelper.cDims)) {
-      int cDim0 = shapeHelper.hasBias ? shapeHelper.cDims[0].getLiteral() : -1;
-      int cDim1 = shapeHelper.hasBias ? shapeHelper.cDims[1].getLiteral() : -1;
-      printf(
-          "OP-STATS: gemm of size I/J/K, %d,%d,%d%s%s, alpha %f%s, beta %f%s, "
-          "c, %d, %d\n",
-          (int)shapeHelper.aDims[0].getLiteral(),
-          (int)shapeHelper.bDims[1].getLiteral(),
-          (int)shapeHelper.aDims[1].getLiteral(), (aTrans ? ", a trans" : ""),
-          (bTrans ? ", b trans" : ""), (double)alphaLit,
-          (alphaLit == 1.0 ? " (skip)" : ""), (double)betaLit,
-          (betaLit == 1.0 ? " (skip)" : ""), cDim0, cDim1);
-    } else {
-      printf("OP-STATS: gemm of unkown sizes %s%s, alpha %f, beta %f\n",
-          (aTrans ? ", a trans" : ""), (bTrans ? ", b trans" : ""),
-          (double)alphaLit, (double)betaLit);
-    }
-#endif
+    LLVM_DEBUG({
+      if (DEBUG_SIMD_OFF)
+        llvm::dbgs() << "Gemm simd off\n";
+      if (DEBUG_UNROLL_OFF)
+        llvm::dbgs() << "Gemm unroll off\n";
+      if (DEBUG_OPTIMIZED_OFF)
+        llvm::dbgs() << "Gemm optimized path off\n";
+
+      bool aTrans = gemmOp.transA();
+      bool bTrans = gemmOp.transB();
+      if (IndexExpr::isLiteral(shapeHelper.aDims) &&
+          IndexExpr::isLiteral(shapeHelper.bDims) &&
+          IndexExpr::isLiteral(shapeHelper.cDims)) {
+        int cDim0 =
+            shapeHelper.hasBias ? shapeHelper.cDims[0].getLiteral() : -1;
+        int cDim1 =
+            shapeHelper.hasBias ? shapeHelper.cDims[1].getLiteral() : -1;
+        llvm::dbgs() << "OP-STATS: gemm of size I/J/K, "
+                     << shapeHelper.aDims[0].getLiteral() << ","
+                     << shapeHelper.bDims[1].getLiteral() << ","
+                     << shapeHelper.aDims[1].getLiteral()
+                     << (aTrans ? ", a trans" : "")
+                     << (bTrans ? ", b trans" : "") << ", alpha " << alphaLit
+                     << (alphaLit == 1.0 ? " (skip)" : "") << ", beta "
+                     << betaLit << (betaLit == 1.0 ? " (skip)" : "") << ", c, "
+                     << cDim0 << ", " << cDim1 << "\n";
+      } else {
+        llvm::dbgs() << "OP-STATS: gemm of unkown sizes "
+                     << (aTrans ? ", a trans" : "")
+                     << (bTrans ? ", b trans" : "") << ", alpha " << alphaLit
+                     << ", beta " << betaLit << "\n";
+      }
+    });
 
     if (DEBUG_OPTIMIZED_OFF) {
       genericGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,

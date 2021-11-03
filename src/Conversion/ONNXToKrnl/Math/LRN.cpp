@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -27,11 +27,11 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     ONNXLRNOp lrnOp = llvm::cast<ONNXLRNOp>(op);
     auto loc = op->getLoc();
 
-    ONNXLRNOpShapeHelper shapeHelper(&lrnOp, rewriter,
+    ONNXLRNOpShapeHelper shapeHelper(&lrnOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
 
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
@@ -66,7 +66,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     // and i<= min(C - 1, c + ceil((size - 1) / 2)).
 
     // Get a child IndexExpr context.
-    IndexExprScope childScope(rewriter, shapeHelper.scope);
+    IndexExprScope childScope(&rewriter, shapeHelper.scope);
 
     // Compute the lower bound and upper bound for square_sum.
     const int loopIndexForC = 1;
@@ -113,11 +113,11 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     }
 
     Value loadVal = rewriter.create<KrnlLoadOp>(loc, input, loadIndices);
-    Value squareVal = rewriter.create<MulFOp>(loc, loadVal, loadVal);
+    Value squareVal = rewriter.create<arith::MulFOp>(loc, loadVal, loadVal);
 
     Value sumValue =
         rewriter.create<KrnlLoadOp>(loc, sumAlloc, ArrayRef<Value>{});
-    sumValue = rewriter.create<AddFOp>(loc, sumValue, squareVal);
+    sumValue = rewriter.create<arith::AddFOp>(loc, sumValue, squareVal);
     rewriter.create<KrnlStoreOp>(loc, sumValue, sumAlloc, ArrayRef<Value>{});
 
     // Compute and store the output
@@ -130,10 +130,10 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     Value xValue = rewriter.create<KrnlLoadOp>(loc, input, storeIndices);
     sumValue = rewriter.create<KrnlLoadOp>(loc, sumAlloc, ArrayRef<Value>{});
     Value tempValue = rewriter.create<math::PowFOp>(loc,
-        rewriter.create<AddFOp>(loc, biasValue,
-            rewriter.create<MulFOp>(loc, alphaDivSizeValue, sumValue)),
+        rewriter.create<arith::AddFOp>(loc, biasValue,
+            rewriter.create<arith::MulFOp>(loc, alphaDivSizeValue, sumValue)),
         betaValue);
-    Value resultValue = rewriter.create<DivFOp>(loc, xValue, tempValue);
+    Value resultValue = rewriter.create<arith::DivFOp>(loc, xValue, tempValue);
 
     rewriter.create<KrnlStoreOp>(loc, resultValue, alloc, storeIndices);
 

@@ -58,7 +58,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     loop.createDefineOp();
     Value maxTripCount =
         rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M()).getResult();
-    maxTripCount = rewriter.create<IndexCastOp>(
+    maxTripCount = rewriter.create<arith::IndexCastOp>(
         loc, maxTripCount, rewriter.getIndexType());
     loop.pushBounds(0, maxTripCount);
     loop.createIterateOp();
@@ -74,8 +74,10 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // Create a scalar tensor out of loop iteration variable, as the first
       // argument passed to the body graph function.
       Value origIV = loop.getInductionVar(0);
-      auto iv = rewriter.create<IndexCastOp>(loc, origIV, rewriter.getI64Type())
-                    .getResult();
+      auto iv =
+          rewriter
+              .create<arith::IndexCastOp>(loc, origIV, rewriter.getI64Type())
+              .getResult();
       MemRefBuilder createMemRef(rewriter, loc);
       Value ivMemRef =
           createMemRef.alloc(MemRefType::get({}, rewriter.getI64Type()));
@@ -243,7 +245,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
               Value maxTripCount =
                   rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M())
                       .getResult();
-              allocParams.emplace_back(rewriter.create<IndexCastOp>(
+              allocParams.emplace_back(rewriter.create<arith::IndexCastOp>(
                   loc, maxTripCount, rewriter.getIndexType()));
             } else {
               // TODO(tjingrant): we can support dynamic dimensions for scan

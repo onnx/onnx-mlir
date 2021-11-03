@@ -52,8 +52,11 @@ import subprocess
 ################################################################################
 # Global def.
 
-type_dict = {"i64": "long long", "i32": "int", "index": "long long", "f32": "float"}
-binary_op_dict = {"mulf": "*", "addf": "+", "subf": "-", "divf": "/"}
+type_dict = {"i64": "long long", "i32": "int", "i1" : "int", 
+  "index": "long long", "f32": "float"}
+binary_op_dict = {"mulf": "*", "addf": "+", "subf": "-", "divf": "/",
+  "muli": "*", "addi": "+", "subi": "-",
+  "cmp_eq": "==", "cmp_slt": "<"}
 unary_op_dict = {"math.sqrt": "sqrt"}
 
 debug = 0 # 0: none; 1: original statements; 2: details about translation. 
@@ -70,40 +73,8 @@ def print_usage():
 
 import numpy as np
 
-def init_array1(shape, val):
-    a = np.zeros(shape)
-    for i0 in range(shape[0]):
-        val = val + 1.0
-        a[i0] = val
-    return a
-
-def init_array2(shape, val):
-    a = np.zeros(shape)
-    for i0 in range(shape[0]):
-        for i1 in range(shape[1]):
-            val = val + 1.0
-            a[i0, i1] = val
-    return a
-
-def init_array3(shape, val):
-    a = np.zeros(shape)
-    for i0 in range(shape[0]):
-        for i1 in range(shape[1]):
-            for i2 in range(shape[2]):
-                val = val + 1.0
-                a[i0, i1, i2] = val
-    return a
-
-def init_array4(shape, val):
-    a = np.zeros(shape)
-    for i0 in range(shape[0]):
-        for i1 in range(shape[1]):
-            for i2 in range(shape[2]):
-                for i3 in range(shape[3]):
-                    val = val + 1.0
-                    a[i0, i1, i2, i3] = val
-    return a
-
+def init_array(shape, start):
+    return np.reshape(np.arange(start, start + np.prod(shape), dtype=np.float32), shape)
 
 ################################################################################
 # Support.
@@ -123,6 +94,12 @@ def process_map_dim_sym(line):
         line = line.replace(x, y) 
     return line
 
+def process_compare(line):
+    # First, space between "cmpi" and "eq" is a problem, replace by "_".
+    # Second, format of binary op don't have a "," after operator, remove.
+    line = re.sub(r'cmpi\s+(eq|slt)\s*,', r'cmp_\1', line)
+    return line
+   
 def process_names(names):
     names = names.replace("#", "")
     names = names.replace("%", "v_")
@@ -145,8 +122,11 @@ def mlir_to_c_type(m_type):
 
 # return elementary type and simensions
 def compute_memref_type(type_str):
+    type_str = type_str.replace("index", "inde") # Remove x because of next step.
     vals = type_str.split("x")
-    type = mlir_to_c_type(vals.pop())
+    type = vals.pop()
+    type = type.replace("inde", "index") # add x again in index.
+    type = mlir_to_c_type(type)
     if len(vals) == 0: # No empty sizes, at least one.
         vals = ["1"]
     dims =  "[" + "][".join(vals) + "]"
@@ -165,6 +145,7 @@ def process_main(args):
         (type, dims) = compute_memref_type(type_str)
         print(type + " " + name + dims + ";")
     print("// Function code.")
+
 def process_for(name, from_val, to_val, step_val):
     if debug > 1:
         print("// got for step; name:", name, "from:", from_val, "to:", to_val, "step val:", step_val)
@@ -288,6 +269,7 @@ void print4(std::string msg, float *a, long long d0, long long d1, long long d2,
 
         # Strip "(d1, d2)[s1, s2]"" into more friendly "(d1, d2, s1, s2)"."
         line = process_map_dim_sym(line)
+        line = process_compare(line)
 
         # Process affine map.
         map_pat = re.compile(r'\#(\w*) = affine_map<\(([^\)]*)\) -> ([^>]*)>')
@@ -319,7 +301,21 @@ void print4(std::string msg, float *a, long long d0, long long d1, long long d2,
             process_main(args)
             continue
 
-        # Process constant.
+        # Process constant bool true/false.
+        const_bool_pat = re.compile(r'\s+%(\w+)\s+=\s+constant\s+(true|false)')
+        res = const_bool_pat.match(line) 
+        if res is not None:
+            name = process_stripped_name(res.group(1))
+            val = res.group(2)
+            if val == "true":
+                print("int", name, " = 1;")
+            else:
+                print("int", name, " = 0;")
+            if debug > 1:
+                print("// got const; name:", name, "val:", val, "type: bool")
+
+            continue
+        # Process other constant.
         const_pat = re.compile(r'\s+%(\w+)\s+=\s+constant\s+([^:]+):\s+(.*)')
         res = const_pat.match(line) 
         if res is not None:
@@ -379,14 +375,14 @@ void print4(std::string msg, float *a, long long d0, long long d1, long long d2,
             print("long long " + name + " = " + op + " " + val + ";")
             continue
 
-        # Process affine load.
-        load_pat = re.compile(r'\s+%(\w+)\s+=\s+affine\.load\s+%(\w+)(\[[^\]]*\])\s+:\s+memref<(.*)>')
+        # Process affine/memref load.
+        load_pat = re.compile(r'\s+%(\w+)\s+=\s+(memref|affine)\.load\s+%(\w+)(\[[^\]]*\])\s+:\s+memref<(.*)>')
         res = load_pat.match(line) 
         if res is not None:
             name = process_stripped_name(res.group(1))
-            array = process_stripped_name(res.group(2))
-            addr = process_names(res.group(3))
-            memref = res.group(4)
+            array = process_stripped_name(res.group(3))
+            addr = process_names(res.group(4))
+            memref = res.group(5)
             if debug > 1:
                 print("// got load; val:", name, "array:", array, "addr", addr, "memref:", memref)
             (type, dims) = compute_memref_type(memref)
@@ -396,17 +392,27 @@ void print4(std::string msg, float *a, long long d0, long long d1, long long d2,
             continue
 
         # Process affine store.
-        load_pat = re.compile(r'\s+affine\.store\s+%(\w+)\s*,\s*%(\w+)(\[[^\]]*\])')
+        load_pat = re.compile(r'\s+(memref|affine)\.store\s+%(\w+)\s*,\s*%(\w+)(\[[^\]]*\])')
         res = load_pat.match(line) 
         if res is not None:
-            name = process_stripped_name(res.group(1))
-            array = process_stripped_name(res.group(2))
-            addr = process_names(res.group(3))
+            name = process_stripped_name(res.group(2))
+            array = process_stripped_name(res.group(3))
+            addr = process_names(res.group(4))
             if debug > 1:
                 print("// got store; val:", name, "array:", array, "addr", addr)
             addr = addr.replace(",", "][") # Transform separators in multi-dim array ref.
             addr = addr.replace("[]", "[0]") # No empty "array[]", want "array[0]"
             print(array + addr + "=" + name + ";")
+            continue
+
+        # process scf.if
+        scf_if_pat = re.compile(r'\s+scf\.if\s+%(\w+)')
+        res = scf_if_pat.match(line) 
+        if res is not None:
+            name = process_stripped_name(res.group(1))
+            if debug > 1:
+                print("// got scf.if, cond=", name)
+            print("if (", name, ") {")
             continue
 
         # Process conversion op (unary ":" type "to" type)
@@ -431,6 +437,21 @@ void print4(std::string msg, float *a, long long d0, long long d1, long long d2,
             p2 = process_stripped_name(res.group(4))
             m_type = res.group(5)
             process_binary_op(name, mop, p1, p2, m_type)
+            continue
+
+        # Process select op.
+        #select_pat = re.compile(r'\s+%(\w+)\s+=\s+select\s+%(\w+)\s*,\s*%(\w+)\s*,\s*%(\w+)\s+:\s+(\w+)')
+        select_pat = re.compile(r'\s+%(\w+)\s+=\s+select\s+%(\w+)\s*,\s*%(\w+)\s*,\s*%(\w+)\s+:\s+(\w+)')
+        res = select_pat.match(line)
+        if res is not None:
+            name = process_stripped_name(res.group(1))
+            p1 = process_stripped_name(res.group(2))
+            p2 = process_stripped_name(res.group(3))
+            p3 = process_stripped_name(res.group(4))
+            ctype = mlir_to_c_type(res.group(5))
+            if debug > 1:
+                print("// got select dest", name, ", comp", p1, ", args", p2, p3, ", and type", ctype)
+            print(ctype, name, "= (", p1, ") ? ", p2, ":", p3, ";")
             continue
 
         # Process unary op.

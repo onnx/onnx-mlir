@@ -13,9 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
-
-#define DEBUG_TRACE 0
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -24,7 +22,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
       : ConversionPattern(mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
 
   void convUnoptimized(ConversionPatternRewriter &rewriter,
-      IndexExprScope &topScope, ONNXConvOp &convOp,
+      IndexExprScope *topScope, ONNXConvOp &convOp,
       ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
       MemRefType &memRefType, Value alloc) const {
     auto loc = convOp.getLoc();
@@ -210,10 +208,10 @@ struct ONNXConvOpLowering : public ConversionPattern {
     ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 
     // Get shape.
-    ONNXConvOpShapeHelper shapeHelper(&convOp, rewriter,
+    ONNXConvOpShapeHelper shapeHelper(&convOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed));
 
     // Insert an allocation and deallocation for the result of this operation.

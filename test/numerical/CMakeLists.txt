@@ -3,15 +3,15 @@
 add_custom_target(numerical)
 set_target_properties(numerical PROPERTIES FOLDER "Tests")
 
-add_custom_target(check-numerical
+add_custom_target(check-onnx-numerical
   COMMENT "Running the ONNX MLIR numerical regression tests"
   COMMAND "${CMAKE_CTEST_COMMAND}" -L numerical --output-on-failure -C $<CONFIG> --force-new-ctest-process
   USES_TERMINAL
   DEPENDS numerical
   )
-set_target_properties(check-numerical PROPERTIES FOLDER "Tests")
+set_target_properties(check-onnx-numerical PROPERTIES FOLDER "Tests")
 # Exclude the target from the default VS build
-set_target_properties(check-numerical PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)
+set_target_properties(check-onnx-numerical PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)
 
 # add_numerical_unittest(test_name sources... options...
 #   This function (generally) has the same semantic as add_onnx_mlir_executable.
@@ -51,7 +51,7 @@ endfunction()
 # of the flags for exceptions (among others) are not set correctly.
 llvm_update_compile_flags(rapidcheck)
 
-set(TEST_LINK_LIBS rapidcheck MainUtils ExecutionSession)
+set(TEST_LINK_LIBS rapidcheck CompilerUtils ExecutionSession)
 
 add_numerical_unittest(TestConv
   TestConv.cpp

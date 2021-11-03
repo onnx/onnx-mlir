@@ -9,6 +9,7 @@ add_subdirectory(jni)
 add_onnx_mlir_library(cruntime STATIC
   OMDebugSupport.c
   OMInstrument.c
+  OMRandomNormal.c
   OMTensor.c
   OMTensorList.c
   OnnxDataType.c
@@ -27,6 +28,7 @@ set_target_properties(cruntime
 add_onnx_mlir_library(OMTensorUtils
   OMDebugSupport.cpp
   OMInstrument.cpp
+  OMRandomNormal.cpp
   OMTensor.cpp
   OMTensorList.cpp
   OnnxDataType.cpp

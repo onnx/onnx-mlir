@@ -13,15 +13,17 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
+#include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
+#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
-#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -40,9 +42,9 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/Common.hpp"
 
 using namespace mlir;
-
 namespace {
 
 static onnx::TensorProto::DataType llvmTypeToOnnxType(mlir::Type elemType) {
@@ -124,7 +126,7 @@ static size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
 static FlatSymbolRefAttr getOrInsertInstrument(
     PatternRewriter &rewriter, ModuleOp module) {
   auto *context = module.getContext();
-  const char funcName[] = "OMInstrumentPoint";
+  std::string funcName("OMInstrumentPoint");
   if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
     return SymbolRefAttr::get(context, funcName);
   auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
@@ -163,6 +165,41 @@ static FlatSymbolRefAttr getOrInsertMemcpy(
   return SymbolRefAttr::get(context, "llvm.memcpy.p0i8.p0i8.i64");
 }
 
+static FlatSymbolRefAttr getOrInsertRandomNormal(
+    PatternRewriter &rewriter, ModuleOp module, Type inType) {
+  MLIRContext *context = module.getContext();
+  StringRef functionName = inType.isF64() ? "get_random_normal_value_f64"
+                                          : "get_random_normal_value_f32";
+  if (module.lookupSymbol<LLVM::LLVMFuncOp>(functionName.str()))
+    return SymbolRefAttr::get(context, functionName.str());
+
+  // Signature of the input is:
+  //  "krnl.random_normal"(%0, %c60, %cst, %cst_0, %cst_1)
+  // with types:
+  //  (memref<3x4x5xf32>, index, f32, f32, f32)
+  // or
+  //  (memref<3x4x5xf64>, index, f64, f64, f64)
+  auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
+  auto llvmOptionsTy = FloatType::getF32(context);
+  auto llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
+  if (inType.isF64()) {
+    llvmOptionsTy = FloatType::getF64(context);
+    llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
+  }
+  auto llvmI64Ty = IntegerType::get(context, 64);
+  auto llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy,
+      ArrayRef<mlir::Type>({llvmOutputTy, llvmI64Ty, llvmOptionsTy,
+          llvmOptionsTy, llvmOptionsTy}),
+      false);
+
+  // Insert the random normal function into the body of the parent module.
+  PatternRewriter::InsertionGuard insertGuard(rewriter);
+  rewriter.setInsertionPointToStart(module.getBody());
+  rewriter.create<LLVM::LLVMFuncOp>(
+      module.getLoc(), functionName.str(), llvmFnType);
+  return SymbolRefAttr::get(context, functionName.str());
+}
+
 static FlatSymbolRefAttr getOrInsertMalloc(
     PatternRewriter &rewriter, ModuleOp module) {
   // Insert the malloc/aligned_alloc declaration if it is not already present.
@@ -184,6 +221,7 @@ static FlatSymbolRefAttr getOrInsertMalloc(
   return SymbolRefAttr::get(ctx, "malloc");
 }
 
+ATTRIBUTE(unused)
 static FlatSymbolRefAttr getOrInsertDealloc(
     PatternRewriter &rewriter, ModuleOp module) {
   // Insert the dealloc declaration if it is not already present.
@@ -319,7 +357,6 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    KrnlGetRefOp getRefOp = llvm::dyn_cast<KrnlGetRefOp>(op);
     auto loc = op->getLoc();
 
     KrnlGetRefOpAdaptor operandAdaptor(operands);
@@ -392,13 +429,12 @@ public:
 
     if (memRefTy.getRank() != 0) {
       // Prepare sizes.
-      SmallVector<Value, 4> dynamicSizes = getRefOp.getDynamicSizes();
       SmallVector<Value, 4> sizes;
       sizes.reserve(memRefTy.getRank());
       unsigned i = 0;
       for (int64_t s : memRefTy.getShape())
         sizes.push_back(s == ShapedType::kDynamicSize
-                            ? dynamicSizes[i++]
+                            ? operands[2 + i++]
                             : createIndexConstant(rewriter, loc, s));
 
       // Store all sizes in the descriptor. Only dynamic sizes are passed in as
@@ -1069,7 +1105,8 @@ public:
     auto staticEntryPointFuncName =
         op->getAttrOfType<SymbolRefAttr>(
               KrnlEntryPointOp::getEntryPointFuncAttrName())
-            .getLeafReference();
+            .getLeafReference()
+            .getValue();
     auto dynEntryPointName = "run_" + staticEntryPointFuncName;
     assert(module.lookupSymbol(dynEntryPointName.str()) == nullptr &&
            "dynamic entry point name is not unique");
@@ -1144,9 +1181,8 @@ public:
     }
 
     // Call static entry point with the memref ptrs created, and get output.
-    rewriter.create<LLVM::CallOp>(loc, ArrayRef<Type>({}),
-        rewriter.getSymbolRefAttr(wrappedStaticEntryPointFuncName),
-        staticInputs);
+    rewriter.create<LLVM::CallOp>(
+        loc, ArrayRef<Type>({}), wrappedStaticEntryPointFuncName, staticInputs);
     auto outMemRefs = rewriter.create<LLVM::LoadOp>(loc, ptrToOutMemRef);
     auto outMemRefsType = outMemRefs.getType().dyn_cast<LLVM::LLVMStructType>();
 
@@ -1582,9 +1618,46 @@ public:
   bool isSupportedMemRefType(MemRefType type) const {
     if (!typeConverter->convertType(type.getElementType()))
       return false;
-    return type.getAffineMaps().empty() ||
-           llvm::all_of(type.getAffineMaps(),
-               [](AffineMap map) { return map.isIdentity(); });
+    return type.getLayout().isIdentity();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// KRNL to LLVM: KrnlRandomNormalOpLowering
+//===----------------------------------------------------------------------===//
+
+class KrnlRandomNormalOpLowering : public ConversionPattern {
+public:
+  explicit KrnlRandomNormalOpLowering(MLIRContext *context)
+      : ConversionPattern(KrnlRandomNormalOp::getOperationName(), 1, context) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    KrnlRandomNormalOpAdaptor operandAdaptor(operands);
+    auto loc = op->getLoc();
+    mlir::Type inType = op->getOperand(2).getType();
+
+    // Get a symbol reference to the memcpy function, inserting it if necessary.
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    auto randomNormalFuncRef =
+        getOrInsertRandomNormal(rewriter, parentModule, inType);
+
+    // First operand.
+    Type outputType = operandAdaptor.output()
+                          .getType()
+                          .cast<LLVM::LLVMStructType>()
+                          .getBody()[1];
+    Value alignedOutput = rewriter.create<LLVM::ExtractValueOp>(
+        loc, outputType, operandAdaptor.output(), rewriter.getI64ArrayAttr(1));
+
+    // Memcpy call
+    rewriter.create<CallOp>(loc, randomNormalFuncRef, ArrayRef<Type>({}),
+        ArrayRef<Value>({alignedOutput, operandAdaptor.numberOfValues(),
+            operandAdaptor.mean(), operandAdaptor.scale(),
+            operandAdaptor.seed()}));
+
+    rewriter.eraseOp(op);
+    return success();
   }
 };
 
@@ -1600,6 +1673,7 @@ std::cout << "****** Populate AffineAnKrnltoLLVM patterns " << std::endl;
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
   // Removed in upgrade of LLVM:
   // vector::populateVectorSlicesLoweringPatterns(patterns);
+  vector::populateVectorBroadcastLoweringPatterns(patterns);
   vector::populateVectorContractLoweringPatterns(patterns);
   vector::populateVectorTransposeLoweringPatterns(patterns);
 
@@ -1611,9 +1685,12 @@ std::cout << "****** Populate AffineAnKrnltoLLVM patterns " << std::endl;
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateStdExpandOpsPatterns(patterns);
+  arith::populateArithmeticExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
   populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
+  arith::populateArithmeticToLLVMConversionPatterns(typeConverter, patterns);
+  populateReconcileUnrealizedCastsPatterns(patterns);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlVectorTypeCastOpLowering>(
       ctx, typeConverter);
@@ -1621,6 +1698,8 @@ std::cout << "****** Populate AffineAnKrnltoLLVM patterns " << std::endl;
   patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(ctx);
 
   patterns.insert<KrnlInstrumentOpLowering>(ctx);
+
+  patterns.insert<KrnlRandomNormalOpLowering>(ctx);
 
   // Math library functions.
   patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(ctx);
@@ -1646,6 +1725,13 @@ std::cout << "****** Populate AffineAnKrnltoLLVM patterns " << std::endl;
 namespace {
 struct ConvertKrnlToLLVMPass
     : public PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>> {
+
+  StringRef getArgument() const override { return "convert-krnl-to-llvm"; }
+
+  StringRef getDescription() const override {
+    return "Lower the Krnl Affine and Std dialects to LLVM.";
+  }
+
   void runOnOperation() final;
 };
 } // end anonymous namespace
@@ -1663,7 +1749,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp>();
-  target.addIllegalOp<UnrealizedConversionCastOp>();
+  target.addLegalOp<UnrealizedConversionCastOp>();
 
   // Lower the MemRef types to a representation in LLVM.
   LowerToLLVMOptions options(&getContext());

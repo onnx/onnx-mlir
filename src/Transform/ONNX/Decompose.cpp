@@ -91,6 +91,14 @@ namespace {
 
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, FunctionPass> {
+
+  StringRef getArgument() const override { return "decompose-onnx"; }
+
+  StringRef getDescription() const override {
+    return "Decompose ONNX operations into composition of other ONNX "
+           "operations.";
+  }
+
   void runOnFunction() final;
 };
 } // end anonymous namespace.
@@ -111,6 +119,11 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   target.addIllegalOp<ONNXReduceSumSquareOp>();
   target.addIllegalOp<ONNXScalerOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
+  target.addIllegalOp<ONNXUpsampleOp>();
+  target.addIllegalOp<ONNXUpsampleV9Op>();
+  target.addIllegalOp<ONNXUpsampleV7Op>();
+  target.addIllegalOp<ONNXPadV2Op>();
+  target.addIllegalOp<ONNXPadV11Op>();
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);

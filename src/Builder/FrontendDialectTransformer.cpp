@@ -18,39 +18,41 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <type_traits>
-
-#include "mlir/IR/BuiltinOps.h"
-#include "onnx/defs/schema.h"
-#include "llvm/ADT/TypeSwitch.h"
-
-#include "onnx/checker.h"
-#include "onnx/shape_inference/implementation.h"
-#include "onnx/version_converter/convert.h"
-
+#include "FrontendDialectTransformer.hpp"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
+#include "src/Support/SuppressWarnings.h"
 
-#include "FrontendDialectTransformer.hpp"
+#include "mlir/IR/BuiltinOps.h"
+#include "llvm/ADT/TypeSwitch.h"
+
+SUPPRESS_WARNINGS_PUSH
+#include "onnx/checker.h"
+#include "onnx/defs/schema.h"
+#include "onnx/shape_inference/implementation.h"
+#include "onnx/version_converter/convert.h"
+SUPPRESS_WARNINGS_POP
+
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <type_traits>
 
 using namespace mlir;
 
 namespace onnx_mlir {
 namespace detail {
 
-typedef SymbolMapping<Value> ValueSymbolMapping;
-typedef SymbolMapping<onnx::TypeProto> SymbolToOnnxTypeMapping;
+using ValueSymbolMapping = SymbolMapping<Value>;
+using SymbolToOnnxTypeMapping = SymbolMapping<onnx::TypeProto>;
 
 class FrontendGenImpl {
 public:
   explicit FrontendGenImpl(MLIRContext &context)
-      : context_(context), builder_(&context) {
+      : context_(context), builder_(&context),
+        force_dim_dynamic_enabled_(false) {
     module_ = ModuleOp::create(UnknownLoc::get(&context));
     InitHandlerMap();
-    force_dim_dynamic_enabled_ = false;
     if (const char *envInputString = std::getenv("IMPORTER_FORCE_DYNAMIC")) {
       force_dim_dynamic_enabled_ = true;
       std::stringstream envString;
@@ -175,12 +177,12 @@ private:
     }
   }
 
-  typedef void (onnx_mlir::detail::FrontendGenImpl::*ImportHandlerType)(
+  using ImportHandlerType = void (onnx_mlir::detail::FrontendGenImpl::*)(
       const onnx::NodeProto &);
 
   std::map<std::string, ImportHandlerType> import_handler_map_;
 
-  Location UnknownLoc() { return UnknownLoc::get(&context_); }
+  Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
   Value none() {
     // Get the enclosing Func Op.
@@ -504,7 +506,8 @@ private:
     }
   }
 
-#define MAX_TYPE 20
+  static constexpr int MAX_TYPE = 20;
+
   // itblgen_types = ('I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32',
   // 'F64', 'Complex<F32>', 'Complex<F64>' )
   Type buildTypeFromIndex(int index) {
@@ -812,7 +815,6 @@ private:
    * Special handle for Pad operations.
    */
   void ImportNodePad(const onnx::NodeProto &node) {
-
     int nOps = node.input().size();
     if (nOps == 2) {
       llvm::SmallVector<int64_t, 2> dims;
@@ -1010,7 +1012,6 @@ private:
 
   void InferTypes(const onnx::FunctionProto *func,
       std::vector<onnx::TypeProto> &inputTypes) {
-
     // types: Used for temporary copies of Types, freed at end of function.
     std::vector<std::unique_ptr<onnx::TypeProto>> types;
     std::unordered_map<std::string, onnx::TypeProto *> typeMap;
@@ -1355,13 +1356,8 @@ private:
 } // namespace onnx_mlir
 namespace onnx_mlir {
 
-void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
+void ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     OwningModuleRef &module, ImportOptions options) {
-  onnx::ModelProto model;
-  std::fstream input(model_fname, std::ios::in | std::ios::binary);
-
-  auto parse_success = model.ParseFromIstream(&input);
-  assert(parse_success && "Onnx Model Parsing Failed.");
   int originVersion = CURRENT_ONNX_OPSET;
   // Get the version of the model
   // Code copied from onnx/onnx/version_coverter/convert.cc
@@ -1386,6 +1382,25 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
       onnx::shape_inference::InferShapes(model);
     ImportFrontendModel(model, context, module, options);
   }
+}
+
+void ImportFrontendModelArray(const void *onnxBuffer, int size,
+    MLIRContext &context, OwningModuleRef &module, ImportOptions options) {
+  onnx::ModelProto model;
+
+  auto parse_success = model.ParseFromArray(onnxBuffer, size);
+  assert(parse_success && "Onnx Model Parsing Failed.");
+  ImportFrontendModelInternal(model, context, module, options);
+}
+
+void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
+    OwningModuleRef &module, ImportOptions options) {
+  onnx::ModelProto model;
+  std::fstream input(model_fname, std::ios::in | std::ios::binary);
+
+  auto parse_success = model.ParseFromIstream(&input);
+  assert(parse_success && "Onnx Model Parsing Failed.");
+  ImportFrontendModelInternal(model, context, module, options);
 }
 
 void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,
