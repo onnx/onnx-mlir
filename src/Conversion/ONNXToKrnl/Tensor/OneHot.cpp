@@ -17,171 +17,86 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXOneHotOpAdaptor operandAdaptor(operands);
     ONNXOneHotOp oneHotOp = llvm::cast<ONNXOneHotOp>(op);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
 
     Value indices = operandAdaptor.indices();
-    Value depth = operandAdaptor.depth();
     Value values = operandAdaptor.values();
 
-    auto depthShape = depth.getType().cast<MemRefType>().getShape();
-    auto indicesShape = indices.getType().cast<MemRefType>().getShape();
-    int64_t indicesRank = indicesShape.size();
+    ONNXOneHotOpShapeHelper shapeHelper(&oneHotOp, &rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapecomputed));
+    int64_t axis = shapeHelper.axis;
 
-    // Axis is an attribute with default value.
-    int64_t axisValue = oneHotOp.axis();
-    assert(axisValue >= 0 && axisValue <= indicesRank);
+    // Insert an allocation and deallocation for the output of this operation.
+    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
-    // Insert an allocation and deallocation for the result of this operation.
-    auto memRefOutType = convertToMemRefType(*op->result_type_begin());
-    auto memRefOutShape = memRefOutType.getShape();
-    int64_t outRank = memRefOutType.getRank();
+    // Load off/on vals found in values memref.
+    KrnlBuilder createKrnl(rewriter, loc);
+    LiteralIndexExpr zero(0), one(1);
+    Value offVal = createKrnl.loadIE(values, zero);
+    Value onVal = createKrnl.loadIE(values, one);
 
-    IndexExprScope ieScope(&rewriter, loc);
-    DimsExpr outputDims(outRank);
+    // Iterate over all of the inputs.
     MemRefBoundsIndexCapture indicesBounds(indices);
-
-    // Allocate result.
-    Value alloc;
-    Value zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
-    Value one = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
-
-    // Load values depending on shape.
-    Value loadedDepth;
-    // Inputs of `depth` should be a scalar in the description
-    // (https://github.com/onnx/onnx/blob/master/docs/Operators.md#OneHot).
-    // However, some test cases for onehot node accept tensor input.
-    if (depthShape.size() == 0)
-      loadedDepth = rewriter.create<KrnlLoadOp>(loc, depth, ArrayRef<Value>{});
-    else if (depthShape.size() == 1 && depthShape[0] == 1)
-      loadedDepth = rewriter.create<KrnlLoadOp>(loc, depth, zero);
-    else
-      llvm_unreachable("depth shape must be 0 or if 1, size must be 1");
-
-    // convert float type to int64 for depth value
-    Type depthElmentType =
-        depth.getType().dyn_cast<MemRefType>().getElementType();
-
-    TypeSwitch<Type>(depthElmentType)
-        .Case<Float32Type>([&](Type) {
-          loadedDepth = rewriter.create<arith::FPToUIOp>(loc,
-              rewriter.create<math::CeilOp>(loc, loadedDepth),
-              rewriter.getIntegerType(64));
-        })
-        .Case<IntegerType>([&](Type) {
-          auto width = depthElmentType.cast<IntegerType>().getWidth();
-          if (width > 64) {
-            llvm_unreachable(
-                "Integer type over 64 bits not supported for OneHot op.");
-          }
-        })
-        .Default([](Type) {
-          llvm_unreachable("Unsupported element type for OneHot op.");
+    int64_t indicesRank = indicesBounds.getRank();
+    SmallVector<IndexExpr, 4> indicesLbs(indicesRank, zero);
+    SmallVector<IndexExpr, 4> indicesUbs;
+    indicesBounds.getDimList(indicesUbs);
+    ValueRange indicesLoopDef = createKrnl.defineLoops(indicesRank);
+    createKrnl.iterateIE(indicesLoopDef, indicesLoopDef, indicesLbs, indicesUbs,
+        [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
+          // Loop for all input values.
+          MathBuilder createMath(createKrnl);
+          // Input val is allowed to be any integer/float. Read and convert to
+          // index type.
+          Value inputVal = createKrnl.load(indices, indicesLoopInd);
+          Value inputIndexVal = createMath.castToIndex(inputVal);
+          IndexExprScope innerScope(createKrnl, shapeHelper.scope);
+          NonAffineIndexExpr input(inputIndexVal);
+          SymbolIndexExpr depth(shapeHelper.depth);
+          // Because valid input is from [-depth...depth-1], we must add depth
+          // to input values that are negative. This will define inputIndex.
+          IndexExpr inputNegVal = input + depth;
+          IndexExpr isNeg = input < zero;
+          IndexExpr inputIndex = IndexExpr::select(isNeg, inputNegVal, input);
+          // Now compute in inputIndex is still out of bound, in which case all
+          // values are off.
+          IndexExpr isTooSmall = inputIndex < zero;
+          IndexExpr isTooBig = inputIndex >= depth;
+          IndexExpr outOfBound = isTooSmall | isTooBig;
+          // Define here the index that has the on Value. If out of bound, put
+          // -1 here as this value will never occur.
+          IndexExpr onValueIndex =
+              IndexExpr::select(outOfBound, LiteralIndexExpr(-1), inputIndex);
+          Value onValueIndexVal = onValueIndex.getValue();
+          // Now we have the index that is on, iterate over the depth values
+          // along axis, and set the right one to the value on.
+          ValueRange depthLoopDef = createKrnl.defineLoops(1);
+          createKrnl.iterateIE(depthLoopDef, depthLoopDef,
+              {LiteralIndexExpr(0)}, {depth},
+              [&](KrnlBuilder createBuilder, ValueRange depthLoopInd) {
+                MathBuilder createMath(createKrnl);
+                Value onCond = createMath.eq(depthLoopInd[0], onValueIndexVal);
+                Value res = createMath.select(onCond, onVal, offVal);
+                // Output access function is input indices with depth index
+                // spliced in the axis location.
+                SmallVector<Value, 4> outputAccessFct;
+                int64_t dec = 0;
+                for (int64_t i = 0; i < indicesRank + 1; ++i) {
+                  if (i == axis) {
+                    outputAccessFct.emplace_back(depthLoopInd[0]);
+                    dec = 1;
+                  } else {
+                    outputAccessFct.emplace_back(indicesLoopInd[i - dec]);
+                  }
+                }
+                createKrnl.store(res, alloc, outputAccessFct);
+              });
         });
-
-    bool insertDealloc = checkInsertDealloc(op);
-    if (hasAllConstantDimensions(memRefOutType)) {
-      alloc =
-          insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
-    } else {
-      for (decltype(outRank) i = 0; i < outRank; i++) {
-        if (i == axisValue) {
-          Value outDim = rewriter.create<arith::IndexCastOp>(
-              loc, loadedDepth, rewriter.getIndexType());
-          SymbolIndexExpr outDimIE(outDim);
-          outputDims[i] = SymbolIndexExpr(outDimIE);
-        } else if (memRefOutShape[i] != -1) {
-          outputDims[i] = LiteralIndexExpr(memRefOutShape[i]);
-        } else {
-          if (i < axisValue) {
-            Value outDim = indicesBounds.getDim(i).getValue();
-            SymbolIndexExpr outDimIE(outDim);
-            outputDims[i] = SymbolIndexExpr(outDimIE);
-          } else {
-            Value outDim = indicesBounds.getDim(i - 1).getValue();
-            SymbolIndexExpr outDimIE(outDim);
-            outputDims[i] = SymbolIndexExpr(outDimIE);
-          }
-        }
-      }
-      alloc = insertAllocAndDeallocSimple(
-          rewriter, op, memRefOutType, loc, outputDims, insertDealloc);
-    }
-
-    Value off_value = rewriter.create<KrnlLoadOp>(loc, values, zero);
-    Value on_value = rewriter.create<KrnlLoadOp>(loc, values, one);
-
-    // 1. Krnl loops to initialize the result.
-    BuildKrnlLoop initLoops(rewriter, loc, outRank);
-    initLoops.createDefineOp();
-    for (int i = 0; i < outRank; ++i)
-      initLoops.pushBounds(0, alloc, i);
-    initLoops.createIterateOp();
-    auto initLoopBody = rewriter.saveInsertionPoint();
-    rewriter.setInsertionPointToStart(initLoops.getIterateBlock());
-    {
-      auto loopIVs = initLoops.getAllInductionVar();
-      auto readIV = SmallVector<Value, 4>(loopIVs.begin(), loopIVs.end());
-      rewriter.create<KrnlStoreOp>(loc, off_value, alloc, loopIVs);
-    }
-    rewriter.restoreInsertionPoint(initLoopBody);
-
-    // Create loop.
-    BuildKrnlLoop krnlLoop(rewriter, loc, indicesRank);
-
-    // Emit the definition.
-    krnlLoop.createDefineOp();
-
-    for (int i = 0; i < indicesRank; ++i)
-      krnlLoop.pushBounds(0, indices, i);
-
-    krnlLoop.createIterateOp();
-    rewriter.setInsertionPointToStart(krnlLoop.getIterateBlock());
-    {
-      auto loopIVs = krnlLoop.getAllInductionVar();
-      auto readIV = SmallVector<Value, 4>(loopIVs.begin(), loopIVs.end());
-      Value indiceValue = rewriter.create<KrnlLoadOp>(loc, indices, readIV);
-
-      // convert float type to int64 for indiceValue value
-      Type indicesElmentType =
-          indices.getType().dyn_cast<MemRefType>().getElementType();
-      TypeSwitch<Type>(indicesElmentType)
-          .Case<Float32Type>([&](Type) {
-            indiceValue = rewriter.create<arith::FPToUIOp>(loc,
-                rewriter.create<math::CeilOp>(loc, indiceValue),
-                rewriter.getIntegerType(64));
-          })
-          .Case<IntegerType>([&](Type) {
-            auto width = indicesElmentType.cast<IntegerType>().getWidth();
-            if (width > 64) {
-              llvm_unreachable(
-                  "Integer type over 64 bits not supported for OneHot op.");
-            }
-          })
-          .Default([](Type) {
-            llvm_unreachable("Unsupported element type for OneHot op.");
-          });
-
-      Value lessThanZero = rewriter.create<arith::CmpIOp>(loc,
-          arith::CmpIPredicate::slt, indiceValue,
-          emitConstantOp(rewriter, loc, rewriter.getI64Type(), 0));
-      indiceValue = rewriter.create<SelectOp>(loc, lessThanZero,
-          rewriter.create<arith::AddIOp>(loc, indiceValue, loadedDepth),
-          indiceValue);
-
-      SmallVector<Value, 4> writeIV;
-      for (int i = 0; i < outRank; ++i) {
-        if (i == axisValue) {
-          writeIV.push_back(rewriter.create<arith::IndexCastOp>(
-              loc, indiceValue, rewriter.getIndexType()));
-        } else if (i < axisValue) {
-          writeIV.push_back(readIV[i]);
-        } else {
-          writeIV.push_back(readIV[i - 1]);
-        }
-      }
-
-      rewriter.create<KrnlStoreOp>(loc, on_value, alloc, writeIV);
-    }
 
     rewriter.replaceOp(op, alloc);
     return success();
