@@ -1,4 +1,5 @@
 theme: jekyll-theme-minimal
+logo: /assets/img/onnx-mlir-logo.png
 defaults:
   -
     scope:

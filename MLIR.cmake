@@ -68,7 +68,7 @@ function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
   add_custom_target(${dialect}DocGen DEPENDS ${GEN_DOC_FILE})
   add_dependencies(onnx-mlir-doc ${dialect}DocGen)
 endfunction()
-add_custom_target(onnx-mlir-doc)
+add_custom_target(onnx-mlir-doc ALL)
 
 function(add_onnx_mlir_dialect dialect)
   set(LLVM_TARGET_DEFINITIONS ${dialect}.td)
@@ -143,7 +143,11 @@ function(add_onnx_mlir_library name)
   endif()
 
   if (NOT ARG_NO_INSTALL)
-    install(TARGETS ${name} DESTINATION lib)
+    install(TARGETS ${name}
+      ARCHIVE DESTINATION lib
+      LIBRARY DESTINATION lib
+      RUNTIME DESTINATION bin
+      )
   endif()
 endfunction(add_onnx_mlir_library)
 
