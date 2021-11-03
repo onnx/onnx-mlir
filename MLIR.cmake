@@ -63,12 +63,12 @@ function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
           OUTPUT ${GEN_DOC_FILE}
           COMMAND ${CMAKE_COMMAND} -E copy
                   ${CMAKE_CURRENT_BINARY_DIR}/${dialect}.md
-                  ${GEN_DOC_FILE}
+                  ${ONNX_MLIR_SRC_ROOT}/docs/Dialects
           DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${dialect}.md)
   add_custom_target(${dialect}DocGen DEPENDS ${GEN_DOC_FILE})
-  add_dependencies(onnx-mlir-doc ${dialect}DocGen)
+  add_dependencies(onnx-mlir-docs ${dialect}DocGen)
 endfunction()
-add_custom_target(onnx-mlir-doc ALL)
+add_custom_target(onnx-mlir-docs ALL)
 
 function(add_onnx_mlir_dialect dialect)
   set(LLVM_TARGET_DEFINITIONS ${dialect}.td)
