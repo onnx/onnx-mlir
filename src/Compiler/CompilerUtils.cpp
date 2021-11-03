@@ -125,13 +125,14 @@ static bool keepFiles(KeepFilesOfType preserve) {
 }
 
 string getExecPath() {
-  // Per comments in LLVM, mainExecAddr just needs to be address of some symbol
-  // in the binary, and argv0 is only used as a fallback for rare environments
-  // where /proc isn't mounted
-  auto execPath =
-      llvm::sys::fs::getMainExecutable(nullptr, (void *)getExecPath);
-  assert(!execPath.empty() && "Could not find path to current executable");
-  return execPath;
+  // argv0 is only used as a fallback for rare environments
+  // where /proc isn't mounted and mainExecAddr is only needed for
+  // unknown unix-like platforms
+  auto execPath = llvm::sys::fs::getMainExecutable(nullptr, nullptr);
+  std::cerr << "Warning: Could not find path to current executable, falling "
+               "back to default install path."
+            << std::endl;
+  return execPath.empty() ? kExecPath : execPath;
 }
 
 // Runtime directory contains all the libraries, jars, etc. that are
