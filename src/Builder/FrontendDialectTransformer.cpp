@@ -1400,7 +1400,7 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
 
   auto parse_success = model.ParseFromIstream(&input);
   if (!parse_success) {
-    *errorMessage = "Onnx Model Parsing Failed on "  + model_fname;
+    *errorMessage = "Onnx Model Parsing Failed on " + model_fname;
     return;
   }
   ImportFrontendModelInternal(model, context, module, options);

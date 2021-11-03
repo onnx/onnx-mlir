@@ -550,7 +550,7 @@ void processInputFile(string inputFilename, mlir::MLIRContext &context,
   bool inputIsMLIR = (extension == "mlir");
   if (inputIsONNX == inputIsMLIR) {
     *errorMessage = "Invaid input file'" + inputFilename +
-        "': Either ONNX model or MLIR file needs to be provided.";
+                    "': Either ONNX model or MLIR file needs to be provided.";
     return;
   }
 
@@ -559,8 +559,8 @@ void processInputFile(string inputFilename, mlir::MLIRContext &context,
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
-    ImportFrontendModelFile(inputFilename, context, module, errorMessage,
-        options);
+    ImportFrontendModelFile(
+        inputFilename, context, module, errorMessage, options);
   } else {
     LoadMLIR(inputFilename, context, module);
   }
