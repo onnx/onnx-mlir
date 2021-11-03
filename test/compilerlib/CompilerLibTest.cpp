@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
         mtriple.empty() ? nullptr : mtriple.c_str(), &errorMessage);
     if (errorMessage != NULL) {
       std::cerr << errorMessage;
-      retval = 0xff;
+      retVal = 0xf;
     }
   } else {
     std::ifstream inFile(
