@@ -2736,14 +2736,19 @@ LogicalResult ONNXResizeOp::inferShapes(
   }
 
   if (isFromNone(scales()) == isFromNone(sizes())) {
-    return emitError("scales() and sizes() can not both None/not None");
+    if (isFromNone(scales()))
+      return emitError("scales() and sizes() can not be both None");
+    else
+      return emitError("scales() and sizes() can not be both defined");
   }
 
   if (!(mode() == "nearest" &&
           (coordinate_transformation_mode() == "half_pixel" ||
               coordinate_transformation_mode() == "asymmetric"))) {
     return emitError("these modes() or coordinate_transformation_mode() not "
-                     "implemented yet");
+                     "implemented yet. mode: " +
+                     mode() + " coordinate_transformation_mode: " +
+                     coordinate_transformation_mode());
   }
 
   // Current implementation handles constant scales only
@@ -2786,6 +2791,12 @@ LogicalResult ONNXResizeOp::inferShapes(
         RankedTensorType::get(sizesConstant, inputTy.getElementType()));
   }
   return success();
+}
+
+// ONNXResizeV10 is expected to be rewritten to ONNXResizeOp
+LogicalResult ONNXResizeV10Op::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
 //===----------------------------------------------------------------------===//
