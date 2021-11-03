@@ -22,7 +22,7 @@ ONNXOneHotOpShapeHelper::ONNXOneHotOpShapeHelper(ONNXOneHotOp *newOp,
           newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
           fLoadVal) {}
 
-LogicalResult ONNXOneHotOpShapeHelper::ComputeShape(
+LogicalResult ONNXOneHotOpShapeHelper::computeShape(
     ONNXOneHotOpAdaptor operandAdaptor) {
   Value indices = operandAdaptor.indices();
   MemRefBoundsIndexCapture indicesBounds(indices);
@@ -31,15 +31,27 @@ LogicalResult ONNXOneHotOpShapeHelper::ComputeShape(
   // Axis is a required attribute and should have default value of -1.
   axis = op->axis();
   if (axis < 0)
-      axis += indicesRank + 1;
-  assert(axis >=0 && axis<=indicesRank && "tested in verify");
+    axis += indicesRank + 1;
+  assert(axis >= 0 && axis <= indicesRank && "tested in verify");
 
-  IndexExpr axisDim = QuestionmarkIndexExpr();
-  auto constantDepth = getONNXConstantOp(op->depth());
-  if (constantDepth) {
-    auto depthTensorTy = op->depth().getType().cast<RankedTensorType>();
-    int64_t depthValue = getScalarValue<int64_t>(constantDepth, depthTensorTy);
-    axisDim = LiteralIndexExpr(depthValue);
+  Value depthVal = operandAdaptor.depth();
+  DenseElementsAttr depthAttr = fGetDenseVal(depthVal);
+  if (depthAttr) {
+    Type depthType = depthVal.getType();
+    int64_t val = getScalarValue<int64_t>(depthAttr, depthType);
+    if (val < 1)
+      op->emitError("OneHot depth must be greater than 1");
+    depth = LiteralIndexExpr(val);
+  } else if (scope->isShapeInferencePass()) {
+    depth = QuestionmarkIndexExpr();
+  } else {
+    // Code gen phase, compute the value
+    MathBuilder createMath(scope->getRewriter(), op->getLoc());
+    Value val = fLoadVal(scope->getRewriter(), op->getLoc(), depthVal, 0);
+    // Specs allows depth to be any kind of ints or float. Must transform this
+    // to index type as it is used to define data types.
+    Value indexVal = createMath.castToIndex(val);
+    depth = DimIndexExpr(indexVal);
   }
 
   // Compute outputDims
@@ -48,7 +60,7 @@ LogicalResult ONNXOneHotOpShapeHelper::ComputeShape(
   for (auto i = 0; i < outputRank; i++) {
     DimIndexExpr dimOutput;
     if (i == axis) {
-      dimOutput = axisDim;
+      dimOutput = depth;
     } else if (i < axis) {
       dimOutput = indicesBounds.getDim(i);
     } else {

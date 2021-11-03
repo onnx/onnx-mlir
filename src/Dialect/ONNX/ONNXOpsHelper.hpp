@@ -193,14 +193,9 @@ mlir::ArrayAttr createArrayAttrFromConstantOp(
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);
 
-// Check if a value is a 16, 32 or 64 bit integer.
-bool isCommonInteger(mlir::RankedTensorType tensorType);
-
 // Get scalar value when it is a constant.
 template <typename RESULT_TYPE>
-RESULT_TYPE getScalarValue(
-    mlir::DenseElementsAttr &denseAttr, mlir::RankedTensorType tensorType);
+RESULT_TYPE getScalarValue(mlir::DenseElementsAttr &denseAttr, mlir::Type type);
 
 template <typename RESULT_TYPE>
-RESULT_TYPE getScalarValue(
-    mlir::ONNXConstantOp constantOp, mlir::RankedTensorType tensorType);
+RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp, mlir::Type type);
