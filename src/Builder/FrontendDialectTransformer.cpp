@@ -1394,12 +1394,15 @@ void ImportFrontendModelArray(const void *onnxBuffer, int size,
 }
 
 void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
-    OwningModuleRef &module, ImportOptions options) {
+    OwningModuleRef &module, std::string *errorMessage, ImportOptions options) {
   onnx::ModelProto model;
   std::fstream input(model_fname, std::ios::in | std::ios::binary);
 
   auto parse_success = model.ParseFromIstream(&input);
-  assert(parse_success && "Onnx Model Parsing Failed.");
+  if (!parse_success) {
+    *errorMessage = "Onnx Model Parsing Failed on "  + model_fname;
+    return;
+  }
   ImportFrontendModelInternal(model, context, module, options);
 }
 

@@ -21,12 +21,17 @@ extern "C" {
 namespace onnx_mlir {
 ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char *mcpu, const char *mtriple) {
+    const char *mcpu, const char *mtriple, const char **errorMessage) {
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
 
   setCompileContext(context, mcpu, mtriple);
-  processInputFile(std::string(inputFilename), context, module);
+  std::string error_message;
+  processInputFile(std::string(inputFilename), context, module, &error_message);
+  if (errorMessage != NULL) {
+    *errorMessage = error_message.c_str();
+    return 1;
+  }
   return compileModule(module, context, outputBaseName, emissionTarget);
 }
 
