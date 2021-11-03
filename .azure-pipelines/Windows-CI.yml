@@ -63,7 +63,7 @@ jobs:
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-      call onnx-mlir\utils\check-numerical.cmd
+      call onnx-mlir\utils\check-onnx-numerical.cmd
     displayName: Run onnx-mlir numerical tests
     workingDirectory: $(Agent.BuildDirectory)
     env:
