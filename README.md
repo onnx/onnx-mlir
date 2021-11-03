@@ -279,9 +279,9 @@ call cmake --build . --config Release --target check-onnx-lit
 
 To run the numerical ONNX MLIR tests, use the following command:
 
-[same-as-file]: <> ({"ref": "utils/check-numerical.cmd", "skip-ref": 1})
+[same-as-file]: <> ({"ref": "utils/check-onnx-numerical.cmd", "skip-ref": 1})
 ```shell
-call cmake --build . --config Release --target check-numerical
+call cmake --build . --config Release --target check-onnx-numerical
 ```
 
 To run the doc ONNX MLIR tests, use the following command after installing third_party ONNX:

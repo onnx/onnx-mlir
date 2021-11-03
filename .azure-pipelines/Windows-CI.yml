@@ -63,7 +63,7 @@ jobs:
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-      call onnx-mlir\utils\check-numerical.cmd
+      call onnx-mlir\utils\check-onnx-numerical.cmd
     displayName: Run onnx-mlir numerical tests
     workingDirectory: $(Agent.BuildDirectory)
     env:
@@ -71,7 +71,15 @@ jobs:
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-      python -m pip install --user --upgrade onnx==1.9.0
+      cd onnx-mlir\third_party\onnx
+      python setup.py -q install
+    env:
+      CMAKE_ARGS: -DCMAKE_PREFIX_PATH="$(Agent.BuildDirectory)\protobuf_install" -DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON -DONNX_USE_MSVC_STATIC_RUNTIME=OFF
+    displayName: Install onnx
+    workingDirectory: $(Agent.BuildDirectory)
+
+  - script: |
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
       call onnx-mlir\utils\check-docs.cmd
     displayName: Run onnx-mlir doc tests
     workingDirectory: $(Agent.BuildDirectory)

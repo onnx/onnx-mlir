@@ -108,8 +108,7 @@ private:
       for (const IndexExpr &dim : outputDims)
         shape.push_back(dim.getLiteral());
 
-      auto constantOp = getONNXConstantOpFromDenseAttr(
-          rewriter, loc, rewriter.getI64TensorAttr(shape));
+      Value constantOp = onnxBuilder.constant(rewriter.getI64TensorAttr(shape));
       LLVM_DEBUG(dbgs() << "constantOp: " << constantOp << "\n");
 
       ShapedType inputType = input.getType().cast<ShapedType>();

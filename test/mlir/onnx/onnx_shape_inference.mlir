@@ -2107,7 +2107,7 @@ func @test_onehot(%arg0: tensor<2x2xi64>, %arg1: tensor<2xf32>) -> tensor<*xf32>
 
   // CHECK-LABEL: test_onehot
   // CHECK: [[R0:%.+]] = "onnx.Constant"() {value = dense<10> : tensor<i64>} : () -> tensor<i64>
-  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, [[R0]], %arg1) {axis = 2 : si64} : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<2x2x10xf32>
+  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, [[R0]], %arg1) : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<2x2x10xf32>
 }
 
 // -----
@@ -2119,7 +2119,7 @@ func @test_onehot_axis(%arg0: tensor<2x2xi64>, %arg1: tensor<2xf32>) -> tensor<*
 
   // CHECK-LABEL: test_onehot_axis
   // CHECK: [[R0:%.+]] = "onnx.Constant"() {value = dense<1.000000e+01> : tensor<f32>} : () -> tensor<f32>
-  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, [[R0]], %arg1)  {axis = 1 : si64} : (tensor<2x2xi64>, tensor<f32>, tensor<2xf32>) -> tensor<2x10x2xf32>
+  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, [[R0]], %arg1) {axis = 1 : si64} : (tensor<2x2xi64>, tensor<f32>, tensor<2xf32>) -> tensor<2x10x2xf32>
 }
 
 // -----
@@ -2129,7 +2129,7 @@ func @test_onehot_depth(%arg0: tensor<2x2xi64>, %arg1: tensor<i64>, %arg2: tenso
   return %0 : tensor<*xf32>
 
   // CHECK-LABEL: test_onehot_depth
-  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, %arg1, %arg2)  {axis = 2 : si64} : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<2x2x?xf32>
+  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, %arg1, %arg2)  : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<2x2x?xf32>
 }
 
 // -----

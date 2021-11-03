@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
-include_directories(${PROJECT_BINARY_DIR}/src)
-
 # CMAKE_CFG_INTDIR is . for single-config generators such as make, and
 # it has a value (e.g. $(Configuration)) otherwise, so we can use it to
 # determine whether we are dealing with a multi-config generator.
