@@ -18,28 +18,10 @@
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/KrnlSupport.hpp"
-#include "llvm/Support/Debug.h"
-
-#define DEBUG_TYPE "eliminate_constant_view_op_pass"
 
 using namespace mlir;
 
 namespace {
-
-bool checkOpResultIsReturned(Operation *op, int64_t resultIndex) {
-  FuncOp function = getContainingFunction(op);
-
-  bool opIsReturned = false;
-  function.walk([&opIsReturned, op, resultIndex](ReturnOp returnOp) {
-    auto result = op->getResult(resultIndex);
-    for (const auto &operand : returnOp.getOperands())
-      if (operand == result)
-        opIsReturned = true;
-  });
-
-  return opIsReturned;
-}
 
 /// RewritePattern that replaces:
 ///  %0 = krnl.global() {value = dense<[]> : tensor<5xf32>}: () -> memref<5xf32>
@@ -71,7 +53,6 @@ struct EliminateConstantViewOp : public RewritePattern {
     Value source = cast<ViewLikeOpInterface>(op).getViewSource();
     Value target = op->getResult(0);
     MemRefType targetType = target.getType().cast<MemRefType>();
-    LLVM_DEBUG(llvm::dbgs() << "targetType " << targetType << "\n");
 
     // Source MemRef must be a constant.
     if (!llvm::dyn_cast<KrnlGlobalOp>(source.getDefiningOp()))
@@ -112,29 +93,7 @@ struct EliminateConstantViewOp : public RewritePattern {
     // Increment constant ID.
     constantID++;
 
-    // Check if the variable is returned.
-    if (checkOpResultIsReturned(op, 0)) {
-      // In this case, use an AllocOp for the constant since krnl.Global
-      // operations are not mean to be returned.
-      MemRefBuilder createMemRef(rewriter, loc);
-      MathBuilder createMath(rewriter, loc);
-      memref::AllocOp alloc = createMemRef.alignedAlloc(targetType);
-
-      // Compute size in bytes using the input tensor.
-      Value tensorSize = createMath.constant(
-          rewriter.getIntegerType(64), targetType.getSizeInBits() / 8);
-
-      // Copy the value in the AllocOp.
-      rewriter.create<KrnlMemcpyOp>(
-          loc, alloc, constantGlobal.getResult(), tensorSize);
-
-      // Since the value is returned we need to only work with the AllocOp
-      // not the KrnlGlobalOp. Globals cannot be returned.
-      rewriter.replaceOp(op, alloc.getResult());
-    } else {
-      // Replace this operation with the generated krnl.global.
-      rewriter.replaceOp(op, constantGlobal.getResult());
-    }
+    rewriter.replaceOp(op, constantGlobal.getResult());
     return success();
   }
 };

@@ -34,6 +34,7 @@
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"
 
 #include "onnx/onnx_pb.h"
@@ -43,6 +44,8 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
+
+#define DEBUG_TYPE "krnl_to_llvm"
 
 using namespace mlir;
 namespace {
@@ -1023,6 +1026,8 @@ public:
           rewriter, loc, apiRegistry, API::CREATE_OMTENSOR, {outMemRefRankVal});
       // If output is a constant tensor, OMTensor does not own it.
       auto outOwning = constantOutputs[i] ? 0 : 1;
+      LLVM_DEBUG(llvm::dbgs() << "Output OMTensor " << i
+                              << " with owning = " << outOwning << "\n");
       fillOMTensorWithMemRef(
           memRef, outOMTensor, outOwning, rewriter, loc, apiRegistry, module);
 
@@ -1203,7 +1208,7 @@ private:
     auto int64Ty = IntegerType::get(context, 64);
     auto int32Ty = IntegerType::get(context, 32);
 
-    // Set ownership to true, i.e., free after OMTensor is destroyed.
+    // Set ownership, i.e., free after OMTensor is destroyed.
     Value owning = rewriter.create<LLVM::ConstantOp>(
         loc, int32Ty, rewriter.getI32IntegerAttr(outOwning));
 
@@ -1496,6 +1501,57 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   patterns.insert<KrnlUnaryMathOpLowering<KrnlTanOp>>(ctx);
 }
 
+void checkConstantOutputs(
+    ModuleOp module, SmallVectorImpl<bool> &constantOutputs) {
+  Operation *entryPointOp;
+  module->walk([&](mlir::Operation *op) -> WalkResult {
+    if (llvm::dyn_cast<KrnlEntryPointOp>(op)) {
+      entryPointOp = op;
+      return WalkResult::interrupt();
+    } else
+      return WalkResult::advance();
+  });
+  assert(entryPointOp && "EntryPoint not found");
+
+  // Get entry function name.
+  StringRef entryPointFuncName =
+      entryPointOp
+          ->getAttrOfType<SymbolRefAttr>(
+              KrnlEntryPointOp::getEntryPointFuncAttrName())
+          .getLeafReference()
+          .getValue();
+
+  // Get entry function op.
+  Operation *entryFunc;
+  module->walk([&](FuncOp op) -> WalkResult {
+    if (SymbolRefAttr::get(op).getValue() == entryPointFuncName) {
+      entryFunc = op;
+      return WalkResult::interrupt();
+    } else
+      return WalkResult::advance();
+  });
+  assert(entryFunc && "Entry function not found");
+
+  // Get ReturnOp of the entry function op.
+  Operation *returnOp;
+  entryFunc->walk([&](Operation *op) -> WalkResult {
+    if (llvm::dyn_cast<ReturnOp>(op)) {
+      returnOp = op;
+      return WalkResult::interrupt();
+    } else
+      return WalkResult::advance();
+  });
+
+  for (Value v : returnOp->getOperands()) {
+    bool isConstant = false;
+    if (llvm::dyn_cast<KrnlGlobalOp>(v.getDefiningOp()))
+      isConstant = true;
+    constantOutputs.emplace_back(isConstant);
+    LLVM_DEBUG(llvm::dbgs()
+               << "Is entry function output constant? " << isConstant << "\n");
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // KRNL + Standard + Vector + Affine dialects lowering to LLVM.
 //===----------------------------------------------------------------------===//
@@ -1524,7 +1580,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   module->setAttr("llvm.data_layout", StringAttr::get(&getContext(), endian));
 
   // Determine, for each output, whether it is a constant or not.
-  SmallVector<bool> constantOutputs(10, false);
+  SmallVector<bool, 4> constantOutputs;
+  checkConstantOutputs(module, constantOutputs);
 
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
