@@ -777,6 +777,22 @@ affine.for %arg0 = 0 to 1024 step 4 {
 | :-----: | ----------- |
 `loops` | any type
 
+### `krnl.random_normal` (::mlir::KrnlRandomNormalOp)
+
+Generate a random normal tensor.
+
+Operation that generates a random normally distributed tensor.
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`output` | memref of any type values
+`numberOfValues` | index
+`mean` | floating-point
+`scale` | floating-point
+`seed` | floating-point
+
 ### `krnl.shape` (::mlir::KrnlShapeOp)
 
 Krnl operation to retreieve the shape of a MemRef.
