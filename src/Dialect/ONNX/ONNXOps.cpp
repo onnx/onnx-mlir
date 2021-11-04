@@ -2796,7 +2796,8 @@ LogicalResult ONNXResizeOp::inferShapes(
 // ONNXResizeV10 is expected to be rewritten to ONNXResizeOp
 LogicalResult ONNXResizeV10Op::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // This op will be rewritten into ONNXResize
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
