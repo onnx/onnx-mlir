@@ -284,7 +284,6 @@ bool IndexExpr::canBeUsedInScope() const {
     break;
   case IndexExprKind::Questionmark:
     return true;
-    printf(" kind(predicate)");
     break;
   case IndexExprKind::Affine:
   case IndexExprKind::Dim:

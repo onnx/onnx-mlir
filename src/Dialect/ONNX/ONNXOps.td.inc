@@ -6583,6 +6583,7 @@ def ONNXCategoryMapperOp:ONNX_Op<"CategoryMapper",
       return {-1};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXDictVectorizerOp:ONNX_Op<"DictVectorizer",

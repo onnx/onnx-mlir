@@ -113,3 +113,29 @@ func @test_unsqueeze_squeeze_dealloc_mempool(%arg0: memref<10x20xf32>) -> memref
     // CHECK:           return [[VAR_6_]] : memref<20x10xf32>
 }
 
+// -----
+
+func @test_return_cast(%arg0: memref<2x1xf32>) -> memref<1x2xf32> {
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %c2 = arith.constant 2 : index
+  %0 = memref.alloc() {alignment = 16 : i64} : memref<2x1xf32>
+  %1:2 = krnl.define_loops 2
+  krnl.iterate(%1#0, %1#1) with (%1#0 -> %arg1 = 0 to 2, %1#1 -> %arg2 = 0 to 1) {
+    %7 = krnl.load %arg0[%arg1, %arg2] : memref<2x1xf32>
+    krnl.store %7, %0[%arg1, %arg2] : memref<2x1xf32>
+  }
+  %2 = memref.alloc() {alignment = 16 : i64} : memref<2xindex>
+  krnl.store %c1, %2[%c0] : memref<2xindex>
+  krnl.store %c2, %2[%c1] : memref<2xindex>
+  %3 = krnl.load %2[%c0] : memref<2xindex>
+  %4 = krnl.load %2[%c1] : memref<2xindex>
+  memref.dealloc %2 : memref<2xindex>
+  %5 = memref.reinterpret_cast %0 to offset: [0], sizes: [%3, %4], strides: [%4, 1] : memref<2x1xf32> to memref<?x?xf32>
+  %6 = memref.cast %5 : memref<?x?xf32> to memref<1x2xf32>
+  return %6 : memref<1x2xf32>
+
+  // CHECK-LABEL: func @test_return_cast
+  // CHECK: [[VAR_0_:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<2x1xf32>
+  // CHECK-NOT: memref.dealloc [[VAR_0_]]
+}
