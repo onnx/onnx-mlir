@@ -25,7 +25,7 @@ class LLVMTypeConverter;
 class RewritePatternSet;
 
 void checkConstantOutputs(
-    ModuleOp module, SmallVectorImpl<bool> &constantOutputs);
+    ModuleOp &module, SmallVectorImpl<bool> &constantOutputs);
 
 void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     MLIRContext *ctx, LLVMTypeConverter &typeConverter,

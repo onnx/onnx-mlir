@@ -16,20 +16,6 @@
 
 using namespace mlir;
 
-bool checkOpResultIsReturned(ONNXConstantOp *constantOp) {
-  FuncOp function = getContainingFunction(constantOp->getOperation());
-
-  bool opIsReturned = false;
-  function.walk([&opIsReturned, constantOp](ReturnOp op) {
-    auto result = constantOp->getResult();
-    for (const auto &operand : op.getOperands())
-      if (operand == result)
-        opIsReturned = true;
-  });
-
-  return opIsReturned;
-}
-
 struct ONNXConstantOpLowering : public ConversionPattern {
   static int constantID;
 
@@ -66,32 +52,8 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     // Increment constant ID:
     constantID++;
 
-    // Check if the variable is returned.
-    if (checkOpResultIsReturned(&constantOp)) {
-      // In this case, use an AllocOp for the constant since krnl.Global
-      // operations are not mean to be returned.
-      MemRefBuilder createMemRef(rewriter, loc);
-      memref::AllocOp alloc = createMemRef.alignedAlloc(memRefType);
-
-      // Compute size in bytes using the input tensor.
-      Value tensorSize = emitConstantOp(rewriter, loc,
-          rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
-      auto numElementsValue = emitConstantOp(
-          rewriter, loc, rewriter.getIntegerType(64), numElements);
-      tensorSize =
-          rewriter.create<arith::MulIOp>(loc, tensorSize, numElementsValue);
-
-      // Copy the value in the AllocOp.
-      rewriter.create<KrnlMemcpyOp>(
-          loc, alloc, constantGlobal.getResult(), tensorSize);
-
-      // Since the value is returned we need to only work with the AllocOp
-      // not the KrnlGlobalOp. Globals cannot be returned.
-      rewriter.replaceOp(op, alloc.getResult());
-    } else {
-      // Replace this operation with the generated krnl.global.
-      rewriter.replaceOp(op, constantGlobal.getResult());
-    }
+    // Replace this operation with the generated krnl.global.
+    rewriter.replaceOp(op, constantGlobal.getResult());
 
     return success();
   }

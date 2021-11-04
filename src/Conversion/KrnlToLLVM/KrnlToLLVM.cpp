@@ -1501,17 +1501,20 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   patterns.insert<KrnlUnaryMathOpLowering<KrnlTanOp>>(ctx);
 }
 
-void checkConstantOutputs(
-    ModuleOp module, SmallVectorImpl<bool> &constantOutputs) {
+void mlir::checkConstantOutputs(
+    ModuleOp &module, SmallVectorImpl<bool> &constantOutputs) {
   Operation *entryPointOp;
-  module->walk([&](mlir::Operation *op) -> WalkResult {
+  auto walkResult = module->walk([&](mlir::Operation *op) -> WalkResult {
     if (llvm::dyn_cast<KrnlEntryPointOp>(op)) {
       entryPointOp = op;
       return WalkResult::interrupt();
     } else
       return WalkResult::advance();
   });
-  assert(entryPointOp && "EntryPoint not found");
+
+  // Do nothing if there is no EntryPoint.
+  if (!walkResult.wasInterrupted())
+    return;
 
   // Get entry function name.
   StringRef entryPointFuncName =
