@@ -27,7 +27,7 @@ class SeqOf<list<Type> allowedTypes> :
                 "$_self.cast<SeqType>().getElementType()",  "SeqType">;
 
 def ONNXConstantOpFromDenseAttr: NativeCodeCall<
-  "getONNXConstantOpFromDenseAttr($_builder, $_loc, $0)">;
+  "createONNXConstantOpWithDenseAttr($_builder, $_loc, $0)">;
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";

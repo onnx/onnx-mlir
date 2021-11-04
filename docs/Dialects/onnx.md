@@ -1461,6 +1461,15 @@ Indicate ONNX entry point
 
 The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
 
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`func` | ::mlir::SymbolRefAttr | symbol reference attribute
+`numInputs` | ::mlir::IntegerAttr | 32-bit signless integer attribute
+`numOutputs` | ::mlir::IntegerAttr | 32-bit signless integer attribute
+`signature` | ::mlir::StringAttr | string attribute
+
 ### `onnx.Equal` (::mlir::ONNXEqualOp)
 
 ONNX Equal operation
@@ -4047,6 +4056,147 @@ ONNX Pad operation
 | :----: | ----------- |
 `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values or none type
 
+### `onnx.PadV11` (::mlir::ONNXPadV11Op)
+
+ONNX Pad operation
+
+"Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,"
+"a padded tensor (`output`) is generated."
+""
+"The three supported `modes` are (similar to corresponding modes supported by `numpy.pad`):"
+""
+"1) `constant`(default) - pads with a given constant value as specified by `constant_value` (which defaults to 0)"
+""
+"2) `reflect` - pads with the reflection of the vector mirrored on the first and last values of the vector along each axis"
+""
+"3) `edge` - pads with the edge values of array"
+""
+""
+"Example 1 (`constant` mode):"
+"  Insert 0 pads to the beginning of the second dimension."
+""
+"  data ="
+"  ["
+"      [1.0, 1.2],"
+"      [2.3, 3.4],"
+"      [4.5, 5.7],"
+"  ]"
+""
+"  pads = [0, 2, 0, 0]"
+""
+"  mode = 'constant'"
+""
+"  constant_value = 0.0"
+""
+"  output ="
+"  ["
+"      [0.0, 0.0, 1.0, 1.2],"
+"      [0.0, 0.0, 2.3, 3.4],"
+"      [0.0, 0.0, 4.5, 5.7],"
+"  ]"
+""
+""
+"Example 2 (`reflect` mode):"
+"  data ="
+"  ["
+"      [1.0, 1.2],"
+"      [2.3, 3.4],"
+"      [4.5, 5.7],"
+"  ]"
+""
+"  pads = [0, 2, 0, 0]"
+""
+"  mode = 'reflect'"
+""
+"  output ="
+"  ["
+"      [1.0, 1.2, 1.0, 1.2],"
+"      [2.3, 3.4, 2.3, 3.4],"
+"      [4.5, 5.7, 4.5, 5.7],"
+"  ]"
+""
+""
+"Example 3 (`edge` mode):"
+"  data ="
+"  ["
+"      [1.0, 1.2],"
+"      [2.3, 3.4],"
+"      [4.5, 5.7],"
+"  ]"
+""
+"  pads = [0, 2, 0, 0]"
+""
+"  mode = 'edge'"
+""
+"  output ="
+"  ["
+"      [1.0, 1.0, 1.0, 1.2],"
+"      [2.3, 2.3, 2.3, 3.4],"
+"      [4.5, 4.5, 4.5, 5.7],"
+"  ]"
+""
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`mode` | ::mlir::StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values
+`pads` | tensor of 64-bit signless integer values or memref of any type values
+`constant_value` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values or none type
+
+### `onnx.PadV2` (::mlir::ONNXPadV2Op)
+
+ONNX Pad operation
+
+"Given `data` tensor, pads, mode, and value."
+"Example:"
+"  Insert 0 pads to the beginning of the second dimension."
+"  data = ["
+"      [1.0, 1.2],"
+"      [2.3, 3.4],"
+"      [4.5, 5.7],"
+"  ]"
+"  pads = [0, 2, 0, 0]"
+"  output = ["
+"      ["
+"          [0.0, 0.0, 1.0, 1.2],"
+"          [0.0, 0.0, 2.3, 3.4],"
+"          [0.0, 0.0, 4.5, 5.7],"
+"      ],"
+"  ]"
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`mode` | ::mlir::StringAttr | string attribute
+`pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`value` | ::mlir::FloatAttr | 32-bit float attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`data` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values
+
 ### `onnx.Pow` (::mlir::ONNXPowOp)
 
 ONNX Pow operation
@@ -5983,7 +6133,7 @@ ONNX SpaceToDepth operation
 ONNX Split operation
 
 "Split a tensor into a list of tensors, along the specified"
-"'axis'. Lengths of the parts can be specified using argument 'split'."
+"'axis'. Lengths of the parts can be specified using input 'split'."
 "Otherwise, the tensor is split to equal sized parts."
 
 #### Attributes:
@@ -5991,19 +6141,19 @@ ONNX Split operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
-`split` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+`split` | tensor of 64-bit signless integer values or memref of any type values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`outputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+`outputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
 
 ### `onnx.SplitToSequence` (::mlir::ONNXSplitToSequenceOp)
 
@@ -6039,6 +6189,33 @@ ONNX SplitToSequence operation
 | Result | Description |
 | :----: | ----------- |
 `output_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or memref of any type values
+
+### `onnx.SplitV11` (::mlir::ONNXSplitV11Op)
+
+ONNX Split operation
+
+"Split a tensor into a list of tensors, along the specified"
+"'axis'. Lengths of the parts can be specified using argument 'split'."
+"Otherwise, the tensor is split to equal sized parts."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`split` | ::mlir::ArrayAttr | 64-bit integer array attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`outputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
 
 ### `onnx.Sqrt` (::mlir::ONNXSqrtOp)
 
@@ -6659,6 +6836,60 @@ ONNX Unsqueeze operation
 `expanded` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
 
 ### `onnx.Upsample` (::mlir::ONNXUpsampleOp)
+
+ONNX Upsample operation
+
+"Upsample the input tensor."
+"Each dimension value of the output tensor is:"
+"  output_dimension = floor(input_dimension * scale)."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`mode` | ::mlir::StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+`scales` | tensor of 32-bit float values or memref of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+
+### `onnx.UpsampleV7` (::mlir::ONNXUpsampleV7Op)
+
+ONNX Upsample operation
+
+"Upsample the input tensor."
+"Each dimension value of the output tensor is:"
+"  output_dimension = floor(input_dimension * scale)."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`mode` | ::mlir::StringAttr | string attribute
+`scales` | ::mlir::ArrayAttr | 32-bit float array attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+
+### `onnx.UpsampleV9` (::mlir::ONNXUpsampleV9Op)
 
 ONNX Upsample operation
 

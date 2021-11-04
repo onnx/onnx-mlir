@@ -88,7 +88,10 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
 }
 
 #define NOT_IMPLEMENTED_MESSAGE                                                \
-  (getOperationName() + ": inferShapes() not implemented")
+  (getOperationName() +                                                        \
+      ": is not supported at this time. Please open an issue on "              \
+      "https://github.com/onnx/onnx-mlir and/or consider contribute code. "    \
+      "Error encountered in shape inference.")
 
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
@@ -3830,6 +3833,48 @@ LogicalResult ONNXNotOp::inferShapes(
   return success();
 }
 
+static LogicalResult verify(ONNXOneHotOp op) {
+  ONNXOneHotOpAdaptor operandAdaptor = ONNXOneHotOpAdaptor(op);
+  // Check indices.
+  Value indices = operandAdaptor.indices();
+  if (hasShapeAndRank(indices)) {
+    // Get rank.
+    int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
+    // Verify axis.
+    int64_t axisValue = op.axis();
+    // Unusually, with a rank of 3, acceptable values are 0 (before first) to 3
+    // (after last).
+    if (axisValue < 0)
+      axisValue += indicesRank + 1;
+    if (!(axisValue >= 0 && axisValue <= indicesRank))
+      return op->emitError("OneHot axis value is out of range");
+  }
+  // Check that values is a rank 2 with 2 elements
+  Value values = operandAdaptor.values();
+  if (hasShapeAndRank(values)) {
+    ShapedType valuesShape = values.getType().cast<ShapedType>();
+    if (valuesShape.getRank() != 1)
+      return op->emitError("OneHot values must be 1D tensor");
+    int64_t dim = valuesShape.getDimSize(0);
+    if (dim >= 0 && dim != 2)
+      return op->emitError("OneHot values must be 1D tensor with 2 elements");
+  }
+  // Depth is a scalar, check when its a tensor of rank 0 or 1.
+  Value depth = operandAdaptor.depth();
+  if (hasShapeAndRank(depth)) {
+    ShapedType depthShape = depth.getType().cast<ShapedType>();
+    if (depthShape.getRank() == 1) {
+      int64_t dim = depthShape.getDimSize(0);
+      if (dim >= 0 && dim != 1)
+        return op->emitError("OneHot depth can be 1D tensor with 1 elements");
+    } else {
+      if (depthShape.getRank() > 1)
+        return op->emitError("OneHot depth must be 0 or 1D tensor");
+    }
+  }
+  return success();
+}
+
 LogicalResult ONNXOneHotOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
@@ -3838,7 +3883,7 @@ LogicalResult ONNXOneHotOp::inferShapes(
 
   ONNXOneHotOpShapeHelper shapeHelper(this);
   ONNXOneHotOpAdaptor operandAdaptor(*this);
-  if (failed(shapeHelper.ComputeShape(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan OneHot parameters successfully");
 
   SmallVector<int64_t, 4> outputDims;
@@ -3950,9 +3995,9 @@ LogicalResult ONNXRangeOp::inferShapes(
   auto constantDelta = getONNXConstantOp(delta());
   if (constantStart && constantLimit && constantDelta) {
     // Get all inputs:
-    double start = getScalarValue(constantStart, startTensorTy);
-    double limit = getScalarValue(constantLimit, limitTensorTy);
-    double delta = getScalarValue(constantDelta, deltaTensorTy);
+    double start = getScalarValue<double>(constantStart, startTensorTy);
+    double limit = getScalarValue<double>(constantLimit, limitTensorTy);
+    double delta = getScalarValue<double>(constantDelta, deltaTensorTy);
 
     // Compute size:
     number_of_elements = (int64_t)ceil((limit - start) / delta);
@@ -4372,9 +4417,68 @@ LogicalResult ONNXCastMapOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXCategoryMapperOp op) {
+  ONNXCategoryMapperOpAdaptor operandAdaptor(op);
+
+  // Check input.
+  const Value X = operandAdaptor.X();
+  if (!hasShapeAndRank(X)) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
+
+  ShapedType inputType = X.getType().dyn_cast<RankedTensorType>();
+  Type elementType = inputType.getElementType();
+  if (!elementType.isInteger(64) && !elementType.isa<StringType>())
+    return op.emitError("input must be a tensor of int64 or string");
+
+  // Check attributes.
+  if (!op.cats_int64s())
+    return op.emitError("cats_int64 attribute must be present");
+  if (!op.cats_strings())
+    return op.emitError("cats_strings attribute must be present");
+  if (ArrayAttrSize(op.cats_int64s()) != ArrayAttrSize(op.cats_strings()))
+    return op.emitError(
+        "cats_int64 and cats_strings should have the same size");
+
+  if (elementType.isInteger(64) && !op.default_stringAttr())
+    return op.emitError("'default_string' attribute is missing.");
+  if (elementType.isa<StringType>() && !op.default_int64Attr())
+    return op.emitError("'default_int64' attribute is missing.");
+  if (op.default_stringAttr() && op.default_int64Attr())
+    return op.emitError("Only one of 'default_int64' or 'default_string' "
+                        "attributes must be specified");
+
+  return success();
+}
+
 LogicalResult ONNXCategoryMapperOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Cannot infer shape if no shape exists.
+  if (!X().getType().isa<RankedTensorType>())
+    return success();
+
+  Type inputElementType = X().getType().cast<ShapedType>().getElementType();
+  assert(
+      (inputElementType.isInteger(64) || inputElementType.isa<StringType>()) &&
+      "Input tensor must have int64 or string element type.");
+
+  ONNXCategoryMapperOpAdaptor operandAdaptor(*this);
+  ONNXCategoryMapperOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan CategoryMapper parameters successfully");
+
+  Type outputElementType;
+  if (inputElementType.isInteger(64))
+    outputElementType = StringType::get(getContext());
+  else
+    outputElementType = IntegerType::get(getContext(), /*width=*/64);
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, outputElementType));
+
+  return success();
 }
 
 LogicalResult ONNXDictVectorizerOp::inferShapes(
