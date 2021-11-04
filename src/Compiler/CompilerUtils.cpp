@@ -129,10 +129,13 @@ string getExecPath() {
   // where /proc isn't mounted and mainExecAddr is only needed for
   // unknown unix-like platforms
   auto execPath = llvm::sys::fs::getMainExecutable(nullptr, nullptr);
-  std::cerr << "Warning: Could not find path to current executable, falling "
-               "back to default install path."
-            << std::endl;
-  return execPath.empty() ? kExecPath : execPath;
+  if (execPath.empty()) {
+    std::cerr << "Warning: Could not find path to current executable, falling "
+                 "back to default install path: "
+              << kExecPath << std::endl;
+    return kExecPath;
+  }
+  return execPath;
 }
 
 // Runtime directory contains all the libraries, jars, etc. that are
