@@ -776,6 +776,12 @@ public:
 class KrnlEntryPointOpLowering : public OpRewritePattern<KrnlEntryPointOp> {
 public:
   using OpRewritePattern<KrnlEntryPointOp>::OpRewritePattern;
+  ArrayRef<bool> constantOutputs;
+
+  KrnlEntryPointOpLowering(MLIRContext *ctx, ArrayRef<bool> constantOutputs)
+      : OpRewritePattern<KrnlEntryPointOp>(ctx) {
+    this->constantOutputs = constantOutputs;
+  }
 
   enum class API {
     CREATE_OMTENSOR_LIST,
@@ -1015,8 +1021,10 @@ public:
           loc, int64Ty, rewriter.getI64IntegerAttr(outMemRefRank));
       auto outOMTensor = callApi(
           rewriter, loc, apiRegistry, API::CREATE_OMTENSOR, {outMemRefRankVal});
+      // If output is a constant tensor, OMTensor does not own it.
+      auto outOwning = constantOutputs[i] ? 0 : 1;
       fillOMTensorWithMemRef(
-          memRef, outOMTensor, rewriter, loc, apiRegistry, module);
+          memRef, outOMTensor, outOwning, rewriter, loc, apiRegistry, module);
 
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
           loc, int32Ty, rewriter.getI32IntegerAttr(i));
@@ -1188,7 +1196,7 @@ private:
   }
 
   void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
-      PatternRewriter &rewriter, const Location &loc,
+      int32_t outOwning, PatternRewriter &rewriter, const Location &loc,
       const std::map<API, ApiSpec> &apiRegistry, ModuleOp &module) const {
     auto *context = module.getContext();
     auto outMemRefTy = outMemRef.getType().dyn_cast<LLVM::LLVMStructType>();
@@ -1197,7 +1205,7 @@ private:
 
     // Set ownership to true, i.e., free after OMTensor is destroyed.
     Value owning = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI32IntegerAttr(1));
+        loc, int32Ty, rewriter.getI32IntegerAttr(outOwning));
 
     // Extract the allocated pointer.
     Value outMemRefAllocatedPtr =
@@ -1438,7 +1446,8 @@ public:
 } // end namespace
 
 void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
-    MLIRContext *ctx, LLVMTypeConverter &typeConverter) {
+    MLIRContext *ctx, LLVMTypeConverter &typeConverter,
+    ArrayRef<bool> constantOutputs) {
   // TODO: look at what is done in
   // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
@@ -1469,7 +1478,8 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   patterns.insert<KrnlGlobalOpLowering, KrnlVectorTypeCastOpLowering>(
       ctx, typeConverter);
   patterns.insert<KrnlGetRefOpLowering>(ctx, typeConverter);
-  patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(ctx);
+  patterns.insert<KrnlMemcpyOpLowering>(ctx);
+  patterns.insert<KrnlEntryPointOpLowering>(ctx, constantOutputs);
 
   patterns.insert<KrnlInstrumentOpLowering>(ctx);
 
@@ -1513,6 +1523,9 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   ModuleOp module = getOperation();
   module->setAttr("llvm.data_layout", StringAttr::get(&getContext(), endian));
 
+  // Determine, for each output, whether it is a constant or not.
+  SmallVector<bool> constantOutputs(10, false);
+
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
@@ -1527,7 +1540,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
   // We lower in stages until all the code is in the LLVM dialect.
   RewritePatternSet patterns(&getContext());
-  populateAffineAndKrnlToLLVMConversion(patterns, &getContext(), typeConverter);
+  populateAffineAndKrnlToLLVMConversion(
+      patterns, &getContext(), typeConverter, constantOutputs);
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
