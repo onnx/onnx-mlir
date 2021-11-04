@@ -490,7 +490,10 @@ struct ONNXOneHotOpShapeHelper : public ONNXOpShapeHelper<ONNXOneHotOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult ComputeShape(ONNXOneHotOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXOneHotOpAdaptor operandAdaptor);
+  // Additional data for ExpandOp.
+  int64_t axis = -1; // Default value.
+  IndexExpr depth;   // Depth which may/maynot be known at compile time.
 };
 
 // Shape for ONNXCompressOp.
@@ -511,4 +514,14 @@ struct ONNXTopKOpShapeHelper : public ONNXOpShapeHelper<ONNXTopKOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
   LogicalResult computeShape(ONNXTopKOpAdaptor operandAdaptor);
+};
+
+// Shape for ONNXCategoryMapperOp.
+struct ONNXCategoryMapperOpShapeHelper
+    : public ONNXOpShapeHelper<ONNXCategoryMapperOp> {
+  ONNXCategoryMapperOpShapeHelper(ONNXCategoryMapperOp *newOp);
+  ONNXCategoryMapperOpShapeHelper(ONNXCategoryMapperOp *newOp,
+      OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult computeShape(ONNXCategoryMapperOpAdaptor operandAdaptor);
 };

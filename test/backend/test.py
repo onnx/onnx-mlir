@@ -15,7 +15,6 @@ from onnx import numpy_helper
 
 from onnx.backend.base import Device, DeviceType
 import subprocess
-import test_config
 import tempfile
 import argparse
 
@@ -35,6 +34,7 @@ IMPORTER_FORCE_DYNAMIC = os.getenv("IMPORTER_FORCE_DYNAMIC")
 IMPORTER_FORCE_CONSTANT = os.getenv("IMPORTER_FORCE_CONSTANT")
 TEST_DYNAMIC = os.getenv("TEST_DYNAMIC")
 TEST_CONSTANT = os.getenv("TEST_CONSTANT")
+TEST_COMPILERLIB = os.getenv("TEST_COMPILERLIB")
 
 parser = argparse.ArgumentParser(description='with dynamic shape or not.')
 parser.add_argument('--dynamic', action='store_true',
@@ -43,6 +43,9 @@ parser.add_argument('--dynamic', action='store_true',
 parser.add_argument('--constant', action='store_true',
     default=(strtobool(TEST_CONSTANT) if TEST_CONSTANT else False),
     help='enable constant input tests (default: false if TEST_CONSTANT env var not set)')
+parser.add_argument('--compilerlib', action='store_true',
+    default=(strtobool(TEST_COMPILERLIB) if TEST_COMPILERLIB else False),
+    help='enable compiler lib tests (default: false if TEST_COMPILERLIB env var not set)')
 parser.add_argument('-i', '--input', type=int,
     default=os.getenv("TEST_INPUT", -1),
     help='inputs whose dimensions to be changed to unknown (default: all inputs if TEST_INPUT env var not set)')
@@ -76,10 +79,19 @@ if args.mcpu:
 if args.mtriple:
     print("  targeting triple:", args.mtriple)
 
-CXX = test_config.CXX_PATH
-LLC = test_config.LLC_PATH
-RUNTIME_DIR = test_config.TEST_DRIVER_RUNTIME_PATH
-TEST_DRIVER = test_config.TEST_DRIVER_PATH
+if args.compilerlib:
+    import test_config_compilerlib
+    CXX = test_config_compilerlib.CXX_PATH
+    LLC = test_config_compilerlib.LLC_PATH
+    RUNTIME_DIR = test_config_compilerlib.TEST_DRIVER_RUNTIME_PATH
+    TEST_DRIVER = test_config_compilerlib.TEST_DRIVER_PATH
+else:
+    import test_config
+    CXX = test_config.CXX_PATH
+    LLC = test_config.LLC_PATH
+    RUNTIME_DIR = test_config.TEST_DRIVER_RUNTIME_PATH
+    TEST_DRIVER = test_config.TEST_DRIVER_PATH
+
 
 # Make lib folder under build directory visible in PYTHONPATH
 doc_check_base_dir = os.path.dirname(os.path.realpath(__file__))
@@ -572,10 +584,10 @@ test_to_enable_dict = {
     "test_not_4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # One Hot
-    "test_onehot_without_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
-    "test_onehot_with_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
-    "test_onehot_negative_indices_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
-    "test_onehot_with_negative_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_onehot_without_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_onehot_with_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_onehot_negative_indices_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_onehot_with_negative_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Or
     "test_or2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -1063,7 +1075,7 @@ class EndiannessAwareExecutionSession:
         dynamic_inputs_dims = determine_dynamic_parameters(name)
         execute_commands(command_list, dynamic_inputs_dims)
         if not os.path.exists(exec_name) :
-            print("Failed " + test_config.TEST_DRIVER_PATH + ": " + name)
+            print("Failed " + TEST_DRIVER + ": " + name)
         return exec_name
 
     def turn_model_input_to_constant(self, inputs):

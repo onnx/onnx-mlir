@@ -12,7 +12,7 @@ Since you are interested in contributing code, you may look [here](docs/Workflow
 * A guide on how to add support for a new operation is found [here](docs/HowToAddAnOperation.md).
 * A guide to use Dialect builder details how to generate Krnl, Affine, MemRef, and Standard Dialect operations [here](docs/LoweringCode.md).
 * A guide on how to best report errors is detailed [here](docs/ErrorHandling.md).
-* Our ONNX dialect is derived from the machine readable ONNX specs. When upgrading the supported opset, or simply adding features to the ONNX dialects such as new verifiers, constant folding, canonicalization, or other such features, we need to regenerate the ONNX tablegen files. See [here](docs/ImportONNXDefs.md) on how to proceed in such cases.
+* Our ONNX dialect is derived from the machine readable ONNX specs. When upgrading the supported opset, or simply adding features to the ONNX dialects such as new verifiers, constant folding, canonicalization, or other such features, we need to regenerate the ONNX tablegen files. See [here](docs/ImportONNXDefs.md#how-to-use-the-script)) on how to proceed in such cases.
 * To add an option to the onnx-mlir command, see instructions [here](docs/Options.md).
 * To test new code, see [here](docs/Testing.md) for instructions.
 
@@ -20,6 +20,7 @@ Since you are interested in contributing code, you may look [here](docs/Workflow
 
 * The onnx-mlir project is based on the opset version defined [here](docs/Dialects/onnx.md). This is a reference to a possibly older version of the current version of the ONNX operators defined in the onnx/onnx repo [here](https://github.com/onnx/onnx/blob/master/docs/Operators.md).
 * The Krnl Dialect is used to lower ONNX operators to MLIR affine. The Krnl Dialect is defined [here](docs/Dialects/krnl.md).
+* To update the internal documentation on our dialects when there are changes, please look for guidance [here](docs/HowToAddAnOperation.md#update-your-operations-status).
 
 ## Testing and debugging ONNX-MLIR
 

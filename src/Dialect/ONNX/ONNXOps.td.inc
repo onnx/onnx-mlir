@@ -3360,6 +3360,7 @@ def ONNXOneHotOp:ONNX_Op<"OneHot",
       return {22};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXOrOp:ONNX_Op<"Or",
@@ -6608,6 +6609,7 @@ def ONNXCategoryMapperOp:ONNX_Op<"CategoryMapper",
       return {-1};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXDictVectorizerOp:ONNX_Op<"DictVectorizer",
