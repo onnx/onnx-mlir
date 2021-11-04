@@ -49,9 +49,14 @@ int main(int argc, char *argv[]) {
   }
   int retVal = 0;
   if (compileFromFile) {
+    const char *errorMessage = NULL;
     retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
         onnx_mlir::EmitLib, mcpu.empty() ? nullptr : mcpu.c_str(),
-        mtriple.empty() ? nullptr : mtriple.c_str());
+        mtriple.empty() ? nullptr : mtriple.c_str(), &errorMessage);
+    if (errorMessage != NULL) {
+      std::cerr << errorMessage;
+      retVal = 0xf;
+    }
   } else {
     std::ifstream inFile(
         testFileName, std::ios_base::in | std::ios_base::binary);

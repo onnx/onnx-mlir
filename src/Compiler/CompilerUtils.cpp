@@ -542,21 +542,25 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
 }
 
 void processInputFile(string inputFilename, mlir::MLIRContext &context,
-    mlir::OwningModuleRef &module) {
+    mlir::OwningModuleRef &module, std::string *errorMessage) {
   // Decide if the input file is an ONNX model or a model specified
   // in MLIR. The extension of the file is the decider.
   string extension = inputFilename.substr(inputFilename.find_last_of(".") + 1);
   bool inputIsONNX = (extension == "onnx");
   bool inputIsMLIR = (extension == "mlir");
-  assert(inputIsONNX != inputIsMLIR &&
-         "Either ONNX model or MLIR file needs to be provided.");
+  if (inputIsONNX == inputIsMLIR) {
+    *errorMessage = "Invaid input file '" + inputFilename +
+                    "': Either ONNX model or MLIR file needs to be provided.";
+    return;
+  }
 
   if (inputIsONNX) {
     ImportOptions options;
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
-    ImportFrontendModelFile(inputFilename, context, module, options);
+    ImportFrontendModelFile(
+        inputFilename, context, module, errorMessage, options);
   } else {
     LoadMLIR(inputFilename, context, module);
   }
