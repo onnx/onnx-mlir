@@ -515,3 +515,13 @@ struct ONNXTopKOpShapeHelper : public ONNXOpShapeHelper<ONNXTopKOp> {
       ArrayValueIndexCapture::LoadVal fLoadVal);
   LogicalResult computeShape(ONNXTopKOpAdaptor operandAdaptor);
 };
+
+// Shape for ONNXCategoryMapperOp.
+struct ONNXCategoryMapperOpShapeHelper
+    : public ONNXOpShapeHelper<ONNXCategoryMapperOp> {
+  ONNXCategoryMapperOpShapeHelper(ONNXCategoryMapperOp *newOp);
+  ONNXCategoryMapperOpShapeHelper(ONNXCategoryMapperOp *newOp,
+      OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult computeShape(ONNXCategoryMapperOpAdaptor operandAdaptor);
+};

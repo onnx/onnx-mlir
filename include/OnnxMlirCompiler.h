@@ -48,7 +48,7 @@ namespace onnx_mlir {
  */
 ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char *mcpu, const char *mtriple);
+    const char *mcpu, const char *mtriple, const char **errorMessage);
 
 /*!
  *  Compile an onnx model from an ONNX protobuf array

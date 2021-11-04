@@ -88,7 +88,10 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
 }
 
 #define NOT_IMPLEMENTED_MESSAGE                                                \
-  (getOperationName() + ": inferShapes() not implemented")
+  (getOperationName() +                                                        \
+      ": is not supported at this time. Please open an issue on "              \
+      "https://github.com/onnx/onnx-mlir and/or consider contribute code. "    \
+      "Error encountered in shape inference.")
 
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
@@ -4414,9 +4417,68 @@ LogicalResult ONNXCastMapOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXCategoryMapperOp op) {
+  ONNXCategoryMapperOpAdaptor operandAdaptor(op);
+
+  // Check input.
+  const Value X = operandAdaptor.X();
+  if (!hasShapeAndRank(X)) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
+
+  ShapedType inputType = X.getType().dyn_cast<RankedTensorType>();
+  Type elementType = inputType.getElementType();
+  if (!elementType.isInteger(64) && !elementType.isa<StringType>())
+    return op.emitError("input must be a tensor of int64 or string");
+
+  // Check attributes.
+  if (!op.cats_int64s())
+    return op.emitError("cats_int64 attribute must be present");
+  if (!op.cats_strings())
+    return op.emitError("cats_strings attribute must be present");
+  if (ArrayAttrSize(op.cats_int64s()) != ArrayAttrSize(op.cats_strings()))
+    return op.emitError(
+        "cats_int64 and cats_strings should have the same size");
+
+  if (elementType.isInteger(64) && !op.default_stringAttr())
+    return op.emitError("'default_string' attribute is missing.");
+  if (elementType.isa<StringType>() && !op.default_int64Attr())
+    return op.emitError("'default_int64' attribute is missing.");
+  if (op.default_stringAttr() && op.default_int64Attr())
+    return op.emitError("Only one of 'default_int64' or 'default_string' "
+                        "attributes must be specified");
+
+  return success();
+}
+
 LogicalResult ONNXCategoryMapperOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Cannot infer shape if no shape exists.
+  if (!X().getType().isa<RankedTensorType>())
+    return success();
+
+  Type inputElementType = X().getType().cast<ShapedType>().getElementType();
+  assert(
+      (inputElementType.isInteger(64) || inputElementType.isa<StringType>()) &&
+      "Input tensor must have int64 or string element type.");
+
+  ONNXCategoryMapperOpAdaptor operandAdaptor(*this);
+  ONNXCategoryMapperOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan CategoryMapper parameters successfully");
+
+  Type outputElementType;
+  if (inputElementType.isInteger(64))
+    outputElementType = StringType::get(getContext());
+  else
+    outputElementType = IntegerType::get(getContext(), /*width=*/64);
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, outputElementType));
+
+  return success();
 }
 
 LogicalResult ONNXDictVectorizerOp::inferShapes(

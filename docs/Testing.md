@@ -251,3 +251,38 @@ Breakpoint 2, main_graph () at /home/chentong/onnx-mlir/build/test_add.input.mli
 ```
 Note that the output of instrumentation showed that the gdb step at the onnx op level correctly. You need extra flags for onnx-mlir to run on instrumentation, which is not necessary for gdb. The source file is test_add.input.mlir.
 One of furtuer works is to support symbols at onnx level in gdb. It would be really useful if tensors can be printed out in gdb.
+
+## Use LLVM debug support
+
+The standard way to add tracing code in the LLVM and MLIR projects is to use the LLVM_DEBUG macro. Official documentation from LLVM is [here](https://llvm.org/docs/ProgrammersManual.html#the-llvm-debug-macro-and-debug-option).
+
+To insert a single "printout" under debug control, the following template can be used.
+```C++
+#define DEBUG_TYPE "my_opt_name_here"
+...
+LLVM_DEBUG(llvm::dbgs() << "debug msg here" <<  obj_to_print << "\n");
+```
+To trigger the debug trace one would simply invoke the compiler with --debug-only=my_opt_name_here.
+
+Another macro called `DEBUG_WITH_TYPE` can be used situations where a source file has maybe just one tracing message. In that case you can forgo defining `DEBUG_TYPE` and use the following instead.
+
+```C++
+DEBUG_WITH_TYPE("my_debug_msg", llvm::dbgs() << "my trace msg here\n");
+```
+To protect larger portion of code, this template can be used.
+```C++
+LLVM_DEBUG({
+  for(i...) {
+    llvm::dbgs() << "emit trace for a: " << a << "\n";
+    compute b;  // should be side effects free
+    llvm::dbgs() << "emit trace for 'b':" << b << "\n";
+    ...
+});
+```
+
+Some examples that uses this support in the project are in these files.
+
+* src/Conversion/KrnlToAffine/KrnlToAffine.cpp
+* src/Conversion/ONNXToKrnl/Math/Gemm/Gemm.cpp
+
+Again, these debug statements can then be activated by adding the `--debug-only=my_opt_name_here` option to `onnx-mlir` or `onnx-mlir-opt`.
