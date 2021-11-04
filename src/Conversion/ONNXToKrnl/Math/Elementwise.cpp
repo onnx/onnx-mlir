@@ -1268,16 +1268,12 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSubOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanOp>,
-<<<<<<< HEAD
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>,
-      ONNXElementwiseOpLoweringPrint
+      ONNXElementwiseOpLoweringPrint,
+      ONNXWhereOpLowering
       //ONNXElementwiseUnaryOpLowering<mlir::ONNXPrintTensorsOp>
       >(ctx);
-=======
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>, ONNXWhereOpLowering,
-      ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
->>>>>>> master
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
       ctx, /*isUniBroadcasting=*/true);
 }
