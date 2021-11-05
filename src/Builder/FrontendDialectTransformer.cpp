@@ -25,6 +25,7 @@
 
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Debug.h"
 
 SUPPRESS_WARNINGS_PUSH
 #include "onnx/checker.h"
@@ -37,6 +38,8 @@ SUPPRESS_WARNINGS_POP
 #include <iostream>
 #include <map>
 #include <type_traits>
+
+#define DEBUG_TYPE "frontend_dialect_transformer"
 
 using namespace mlir;
 
@@ -974,6 +977,9 @@ private:
       return std::string("");
     }
     auto current_opset = opset_map_.find(node.domain())->second;
+    LLVM_DEBUG(llvm::dbgs()
+               << DEBUG_TYPE << ": Importing ONNX " << node.op_type()
+               << ", opset: " << current_opset << "\n");
     // Custom ops may not be present in op_dialect_version_map_. If no version
     // info is found, treat as unversioned (no renaming).
     auto opset_list_it = op_dialect_version_map_.find(node.op_type());
@@ -987,6 +993,8 @@ private:
         return std::string("");
       for (int i = opset_list.size() - 1; i > 0; i--) {
         if (current_opset < opset_list[i - 1]) {
+          LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ":   - use opset "
+                                  << opset_list[i] << "\n");
           return "V" + std::to_string(opset_list[i]);
         }
       }
