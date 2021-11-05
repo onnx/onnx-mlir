@@ -27,7 +27,7 @@ namespace mlir {
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
-struct OnnxBuilder final : DialectBuilder {
+struct OnnxBuilder : DialectBuilder {
   OnnxBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
@@ -115,7 +115,7 @@ mlir::DenseElementsAttr getDenseElementAttributeFromONNXValue(
 
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
 mlir::Value createONNXConstantOpWithDenseAttr(
-    mlir::PatternRewriter &rewriter, mlir::Location loc, mlir::Attribute dense);
+    mlir::OpBuilder &builder, mlir::Location loc, mlir::Attribute dense);
 bool isFromNone(mlir::Value value);
 mlir::Type getBroadcastedRankedType(mlir::Type type1, mlir::Type type2);
 
