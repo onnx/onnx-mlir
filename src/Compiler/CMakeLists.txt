@@ -1,5 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
+  ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
+  @ONLY
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/ExternalUtil.hpp
+  INPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
+  )
+
 # CMAKE_CFG_INTDIR is . for single-config generators such as make, and
 # it has a value (e.g. $(Configuration)) otherwise, so we can use it to
 # determine whether we are dealing with a multi-config generator.
@@ -8,17 +19,6 @@ if (NOT "${CMAKE_CFG_INTDIR}" STREQUAL ".")
 else()
   set(FILE_GENERATE_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 endif()
-
-configure_file(
-  ${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
-  ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
-  @ONLY
-  )
-
-file(GENERATE
-  OUTPUT ${FILE_GENERATE_DIR}/ExternalUtil.hpp
-  INPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
-  )
 
 add_custom_target(ExternalUtil DEPENDS ${FILE_GENERATE_DIR}/ExternalUtil.hpp)
 
