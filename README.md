@@ -154,7 +154,7 @@ git clone --recursive https://github.com/onnx/onnx-mlir.git
 export MLIR_DIR=$(pwd)/llvm-project/build/lib/cmake/mlir
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
-cmake ..
+cmake -G Ninja ..
 cmake --build .
 
 # Run lit tests:
@@ -279,9 +279,9 @@ call cmake --build . --config Release --target check-onnx-lit
 
 To run the numerical ONNX MLIR tests, use the following command:
 
-[same-as-file]: <> ({"ref": "utils/check-numerical.cmd", "skip-ref": 1})
+[same-as-file]: <> ({"ref": "utils/check-onnx-numerical.cmd", "skip-ref": 1})
 ```shell
-call cmake --build . --config Release --target check-numerical
+call cmake --build . --config Release --target check-onnx-numerical
 ```
 
 To run the doc ONNX MLIR tests, use the following command after installing third_party ONNX:

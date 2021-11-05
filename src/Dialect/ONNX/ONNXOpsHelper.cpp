@@ -220,8 +220,8 @@ ONNXConstantOp getONNXConstantOp(Value value) {
 }
 
 Value createONNXConstantOpWithDenseAttr(
-    PatternRewriter &rewriter, Location loc, Attribute dense) {
-  return rewriter.create<ONNXConstantOp>(loc, Attribute(), dense);
+    OpBuilder &builder, Location loc, Attribute dense) {
+  return builder.create<ONNXConstantOp>(loc, Attribute(), dense);
 }
 
 // Returns true if the Value is defined by none constant

@@ -57,7 +57,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm);
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm);
 
 void processInputFile(std::string inputFilename, mlir::MLIRContext &context,
-    mlir::OwningModuleRef &module);
+    mlir::OwningModuleRef &module, std::string *errorMessage);
 
 void processInputArray(const void *onnxBuffer, int bufferSize,
     mlir::MLIRContext &context, mlir::OwningModuleRef &module);

@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/conftest.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/conftest.py
+  )
+
+file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test.py
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test.py
   )
@@ -46,7 +51,7 @@ execute_process(
 if (${PYTEST_XDIST_FOUND} EQUAL 0)
   message(STATUS "Parallel backend tests      : ON")
   set(BACKEND_TEST_COMMAND "${Python3_EXECUTABLE}" "-m" "pytest")
-  set(BACKEND_TEST_ARGS "--forked" "-n" "$$\{NPROC:-auto\}")
+  set(BACKEND_TEST_ARGS "--forked" "-n" "$$\{NPROC:-auto\}" "-q" "--silent")
 else()
   message(STATUS "Parallel backend tests      : OFF (install pytest-xdist to enable)")
   set(BACKEND_TEST_COMMAND ${Python3_EXECUTABLE})
@@ -95,9 +100,9 @@ add_custom_target(clean-onnx-backend
     ${CMAKE_CURRENT_BINARY_DIR}/*.so
   )
   
-add_custom_target(check-compilerlib-backend
+add_custom_target(check-onnx-backend-compilerlib
   COMMAND
-    ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR} ${BACKEND_TEST_COMMAND}
+    TEST_COMPILERLIB=true ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR} ${BACKEND_TEST_COMMAND}
     ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
@@ -111,5 +116,5 @@ add_dependencies(check-onnx-backend-dynamic PyRuntime)
 add_dependencies(check-onnx-backend-constant onnx-mlir)
 add_dependencies(check-onnx-backend-constant PyRuntime)
 
-add_dependencies(check-compilerlib-backend CompilerLibTest)
-add_dependencies(check-compilerlib-backend PyRuntime)
+add_dependencies(check-onnx-backend-compilerlib CompilerLibTest)
+add_dependencies(check-onnx-backend-compilerlib PyRuntime)
