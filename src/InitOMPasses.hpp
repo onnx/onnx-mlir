@@ -75,9 +75,5 @@ void initOMPasses() {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createLowerKrnlShapePass();
   });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createEliminateConstantViewOpPass();
-  });
 }
 } // namespace onnx_mlir
