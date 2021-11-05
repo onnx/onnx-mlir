@@ -41,6 +41,10 @@ SUPPRESS_WARNINGS_POP
 
 #define DEBUG_TYPE "frontend_dialect_transformer"
 
+/// We consider opset < 6 is old. Users will see a warning if their model
+/// contains ops of old opset.
+#define OPSET_THRESHOLD 6
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -980,6 +984,10 @@ private:
     LLVM_DEBUG(llvm::dbgs()
                << DEBUG_TYPE << ": Importing ONNX " << node.op_type()
                << ", opset: " << current_opset << "\n");
+    if (current_opset < OPSET_THRESHOLD)
+      llvm::outs() << "Warning: ONNX " << node.op_type() << " opset "
+                   << current_opset << " is quite old\n";
+
     // Custom ops may not be present in op_dialect_version_map_. If no version
     // info is found, treat as unversioned (no renaming).
     auto opset_list_it = op_dialect_version_map_.find(node.op_type());
