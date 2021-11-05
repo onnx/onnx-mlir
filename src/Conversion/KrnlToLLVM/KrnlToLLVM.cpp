@@ -1566,7 +1566,7 @@ void mlir::checkConstantOutputs(
       if (!definingOp)
         // Block argument, not a constant.
         isConstant = false;
-      else if (llvm::dyn_cast<KrnlGlobalOp>(v.getDefiningOp()))
+      else if (llvm::dyn_cast<KrnlGlobalOp>(definingOp))
         // A constant defined by KrnlGlobalOp.
         isConstant = true;
     }
