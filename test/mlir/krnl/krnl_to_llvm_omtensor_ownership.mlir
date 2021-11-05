@@ -41,6 +41,20 @@ module {
   "krnl.entry_point"() {func = @return_view_of_argument, numInputs = 0 : i32, numOutputs = 1 : i32, signature = ""} : () -> ()
   // CHECK-LABEL: return_view_of_argument
   // CHECK: llvm.call @_mlir_ciface_return_view_of_argument
+  // CHECK: [[OWNING:%.+]] = llvm.mlir.constant(1 : i64) : i64
+  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, [[OWNING]], {{.*}}, {{.*}}) : (!llvm.ptr<i8>, i64, !llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
+}
+
+// -----
+
+module {
+  // Check that output OMTensor owns the data pointer because data is a block argument.
+  func @return_argument(%arg0: memref<2x4xf32>) -> memref<2x4xf32> {
+    return %arg0 : memref<2x4xf32>
+  }
+  "krnl.entry_point"() {func = @return_argument, numInputs = 1 : i32, numOutputs = 1 : i32, signature = ""} : () -> ()
+  // CHECK-LABEL: return_argument
+  // CHECK: llvm.call @_mlir_ciface_return_argument
   // CHECK: [[OWNING:%.+]] = llvm.mlir.constant(1 : i64) : i64 
   // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, [[OWNING]], {{.*}}, {{.*}}) : (!llvm.ptr<i8>, i64, !llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
 }
