@@ -981,12 +981,13 @@ private:
       return std::string("");
     }
     auto current_opset = opset_map_.find(node.domain())->second;
-    LLVM_DEBUG(llvm::dbgs()
-               << DEBUG_TYPE << ": Importing ONNX " << node.op_type()
-               << ", opset: " << current_opset << "\n");
+
     if (current_opset < OPSET_THRESHOLD)
       llvm::outs() << "Warning: ONNX " << node.op_type() << " opset "
                    << current_opset << " is quite old\n";
+    LLVM_DEBUG(llvm::dbgs()
+               << DEBUG_TYPE << ": Importing ONNX " << node.op_type()
+               << ", opset: " << current_opset << "\n");
 
     // Custom ops may not be present in op_dialect_version_map_. If no version
     // info is found, treat as unversioned (no renaming).
