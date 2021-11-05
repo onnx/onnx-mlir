@@ -70,7 +70,4 @@ std::unique_ptr<Pass> createElideConstGlobalValuePass();
 /// Pass for lowering Krnl dialect to LLVM dialect.
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass();
 
-/// Pass for lowering Krnl dialect to LLVM dialect.
-std::unique_ptr<Pass> createEliminateConstantViewOpPass();
-
 } // end namespace mlir

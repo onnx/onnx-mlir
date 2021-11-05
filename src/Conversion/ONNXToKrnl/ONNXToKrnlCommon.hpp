@@ -48,6 +48,26 @@ using namespace mlir;
 extern bool gEmitDealloc;
 
 //===----------------------------------------------------------------------===//
+// Extends OnnxBuilder with member functions that might generate Krnl dialect
+// operations.
+//===----------------------------------------------------------------------===//
+
+struct OnnxToKrnlBuilder : public OnnxBuilder {
+  OnnxToKrnlBuilder(OpBuilder &b, Location loc) : OnnxBuilder(b, loc) {}
+  OnnxToKrnlBuilder(DialectBuilder &db) : OnnxBuilder(db) {}
+
+  // Generate an 'onnx.reshape' operation on the 'input' tensor, the new shape
+  // is provided by 'shapeDims'.
+  Value reshape(
+      const Value input, const ArrayRef<DimIndexExpr> shapeDims) const;
+
+  // Generate a 'onnx.Transpose' operation on the 'input' tensor given the
+  // permutation array 'perm' and the operator output dimensions 'outputDims'.
+  Value transpose(const Value input, const ArrayRef<int64_t> perm,
+      const ArrayRef<DimIndexExpr> outputDims) const;
+};
+
+//===----------------------------------------------------------------------===//
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
 //===----------------------------------------------------------------------===//
 
@@ -345,6 +365,9 @@ void populateLoweringONNXConcatOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXDepthToSpaceOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXSpaceToDepthOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXShapeOpPattern(
