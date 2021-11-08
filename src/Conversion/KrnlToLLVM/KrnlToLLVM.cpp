@@ -34,6 +34,7 @@
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"
 
 #include "onnx/onnx_pb.h"
@@ -43,6 +44,8 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
+
+#define DEBUG_TYPE "krnl_to_llvm"
 
 using namespace mlir;
 namespace {
@@ -104,7 +107,7 @@ static FlatSymbolRefAttr getOrInsertExternFunc(StringRef funcName,
   return SymbolRefAttr::get(context, funcName);
 }
 
-static size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
+static int64_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
   // Usually a MemRef is a 5-element struct, where the 4th and 5th elements in
   // this struct are arrays whose size is the rank of the tensor. In the event
   // that the corresponding tensor of this MemRef is a scalar, the 4th and 5th
@@ -776,6 +779,11 @@ public:
 class KrnlEntryPointOpLowering : public OpRewritePattern<KrnlEntryPointOp> {
 public:
   using OpRewritePattern<KrnlEntryPointOp>::OpRewritePattern;
+  ArrayRef<bool> constantOutputs;
+
+  KrnlEntryPointOpLowering(MLIRContext *ctx, ArrayRef<bool> constantOutputs)
+      : OpRewritePattern<KrnlEntryPointOp>(ctx),
+        constantOutputs(constantOutputs) {}
 
   enum class API {
     CREATE_OMTENSOR_LIST,
@@ -845,7 +853,6 @@ public:
     auto signature = sigAttr.getValue();
 
     auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
-    auto int32Ty = IntegerType::get(context, 32);
     auto int64Ty = IntegerType::get(context, 64);
 
     // create global to hold signature
@@ -914,7 +921,7 @@ public:
     auto omTensorPtrArr =
         callApi(rewriter, loc, apiRegistry, API::GET_OMT_ARRAY, {wrappedInput});
     auto one = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI32IntegerAttr(1));
+        loc, int64Ty, rewriter.getI64IntegerAttr(1));
 
     // Create a memref type for the return argument of the iface call
     auto memRefOutPtrTy = staticEntryPointTy.getParamType(0);
@@ -927,7 +934,7 @@ public:
     for (size_t i = 1; i < staticEntryPointTy.getNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
-          loc, int32Ty, rewriter.getI32IntegerAttr(i - 1));
+          loc, int64Ty, rewriter.getI64IntegerAttr(i - 1));
 
       auto omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
       auto omTensorPtrAddr = rewriter
@@ -981,7 +988,7 @@ public:
     }
 
     auto numOutput = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI64IntegerAttr(outMemRefList.size()));
+        loc, int64Ty, rewriter.getI64IntegerAttr(outMemRefList.size()));
 
     auto mallocSym = getOrInsertMalloc(rewriter, module);
     // TODO(tjingrant): get pointer size from data layout.
@@ -1015,11 +1022,15 @@ public:
           loc, int64Ty, rewriter.getI64IntegerAttr(outMemRefRank));
       auto outOMTensor = callApi(
           rewriter, loc, apiRegistry, API::CREATE_OMTENSOR, {outMemRefRankVal});
+      // If output is a constant tensor, OMTensor does not own it.
+      auto outOwning = constantOutputs[i] ? 0 : 1;
+      LLVM_DEBUG(llvm::dbgs() << "Output OMTensor " << i
+                              << " with owning = " << outOwning << "\n");
       fillOMTensorWithMemRef(
-          memRef, outOMTensor, rewriter, loc, apiRegistry, module);
+          memRef, outOMTensor, outOwning, rewriter, loc, apiRegistry, module);
 
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
-          loc, int32Ty, rewriter.getI32IntegerAttr(i));
+          loc, int64Ty, rewriter.getI64IntegerAttr(i));
 
       auto omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
       auto omTensorPtrAddr = rewriter
@@ -1050,7 +1061,6 @@ private:
     auto voidTy = LLVM::LLVMVoidType::get(context);
     auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
     auto opaquePtrPtrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
-    auto int32Ty = IntegerType::get(context, 32);
     auto int64Ty = IntegerType::get(context, 64);
     auto int64PtrTy = LLVM::LLVMPointerType::get(int64Ty);
 
@@ -1058,14 +1068,14 @@ private:
     // specifying its signature.
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
-        ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreateWithOwnership", opaquePtrTy, {opaquePtrPtrTy, int32Ty, int32Ty}),
-        ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmptyDeprecated", opaquePtrTy, {int64Ty}),
+        ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreateWithOwnership", opaquePtrTy, {opaquePtrPtrTy, int64Ty, int64Ty}),
+        ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateUntyped", opaquePtrTy, {int64Ty}),
         ApiSpec(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
-        ApiSpec(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy, opaquePtrTy}),
+        ApiSpec(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int64Ty, opaquePtrTy, opaquePtrTy}),
         ApiSpec(API::GET_DATA_SHAPE, "omTensorGetShape", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_DATA_STRIDES, "omTensorGetStrides", int64PtrTy, {opaquePtrTy}),
-        ApiSpec(API::GET_DATA_TYPE, "omTensorGetDataType", int32Ty, {opaquePtrTy}),
-        ApiSpec(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {opaquePtrTy, int32Ty}),
+        ApiSpec(API::GET_DATA_TYPE, "omTensorGetDataType", int64Ty, {opaquePtrTy}),
+        ApiSpec(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {opaquePtrTy, int64Ty}),
         ApiSpec(API::GET_OMT_ARRAY, "omTensorListGetOmtArray", opaquePtrPtrTy, {opaquePtrTy}),
     };
     // clang-format on
@@ -1136,15 +1146,15 @@ private:
     dataPtr = rewriter.create<LLVM::BitcastOp>(
         loc, memRefTy.cast<LLVM::LLVMStructType>().getBody()[0], dataPtr);
     memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
-        dataPtr, rewriter.getArrayAttr({rewriter.getI32IntegerAttr(0)}));
+        dataPtr, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(0)}));
     memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
-        dataPtr, rewriter.getArrayAttr({rewriter.getI32IntegerAttr(1)}));
+        dataPtr, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(1)}));
 
     // Use zero offset now.
     auto zero = rewriter.create<LLVM::ConstantOp>(
         loc, int64Ty, rewriter.getI64IntegerAttr(0));
     memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef, zero,
-        rewriter.getArrayAttr({rewriter.getI32IntegerAttr(2)}));
+        rewriter.getArrayAttr({rewriter.getI64IntegerAttr(2)}));
 
     // Get rank, sizes array ptr and strides array ptr.
     auto rank = getRankFromMemRefType(memRefTy.cast<LLVM::LLVMStructType>());
@@ -1188,16 +1198,15 @@ private:
   }
 
   void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
-      PatternRewriter &rewriter, const Location &loc,
+      int64_t outOwning, PatternRewriter &rewriter, const Location &loc,
       const std::map<API, ApiSpec> &apiRegistry, ModuleOp &module) const {
     auto *context = module.getContext();
     auto outMemRefTy = outMemRef.getType().dyn_cast<LLVM::LLVMStructType>();
     auto int64Ty = IntegerType::get(context, 64);
-    auto int32Ty = IntegerType::get(context, 32);
 
-    // Set ownership to true, i.e., free after OMTensor is destroyed.
+    // Set ownership, i.e., free after OMTensor is destroyed.
     Value owning = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI32IntegerAttr(1));
+        loc, int64Ty, rewriter.getI64IntegerAttr(outOwning));
 
     // Extract the allocated pointer.
     Value outMemRefAllocatedPtr =
@@ -1223,7 +1232,7 @@ private:
         outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
     auto onnxTy = llvmTypeToOnnxType(elemTy);
     auto onnxTyVal = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI32IntegerAttr(onnxTy));
+        loc, int64Ty, rewriter.getI64IntegerAttr(onnxTy));
     callApi(rewriter, loc, apiRegistry, API::SET_DATA_TYPE,
         {outOMTensor, onnxTyVal});
 
@@ -1438,7 +1447,8 @@ public:
 } // end namespace
 
 void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
-    MLIRContext *ctx, LLVMTypeConverter &typeConverter) {
+    MLIRContext *ctx, LLVMTypeConverter &typeConverter,
+    ArrayRef<bool> constantOutputs) {
   // TODO: look at what is done in
   // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
@@ -1469,7 +1479,8 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   patterns.insert<KrnlGlobalOpLowering, KrnlVectorTypeCastOpLowering>(
       ctx, typeConverter);
   patterns.insert<KrnlGetRefOpLowering>(ctx, typeConverter);
-  patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(ctx);
+  patterns.insert<KrnlMemcpyOpLowering>(ctx);
+  patterns.insert<KrnlEntryPointOpLowering>(ctx, constantOutputs);
 
   patterns.insert<KrnlInstrumentOpLowering>(ctx);
 
@@ -1484,6 +1495,81 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAtanOp>>(ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAtanhOp>>(ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlTanOp>>(ctx);
+}
+
+void mlir::checkConstantOutputs(
+    ModuleOp &module, SmallVectorImpl<bool> &constantOutputs) {
+  Operation *entryPointOp;
+  auto walkResult = module->walk([&](mlir::Operation *op) -> WalkResult {
+    if (llvm::dyn_cast<KrnlEntryPointOp>(op)) {
+      entryPointOp = op;
+      return WalkResult::interrupt();
+    }
+    return WalkResult::advance();
+  });
+
+  // Do nothing if there is no EntryPoint.
+  if (!walkResult.wasInterrupted())
+    return;
+
+  // Get entry function name.
+  StringRef entryPointFuncName =
+      entryPointOp
+          ->getAttrOfType<SymbolRefAttr>(
+              KrnlEntryPointOp::getEntryPointFuncAttrName())
+          .getLeafReference()
+          .getValue();
+
+  // Get entry function op.
+  Operation *entryFunc;
+  module->walk([&](FuncOp op) -> WalkResult {
+    if (SymbolRefAttr::get(op).getValue() == entryPointFuncName) {
+      entryFunc = op;
+      return WalkResult::interrupt();
+    }
+    return WalkResult::advance();
+  });
+  assert(entryFunc && "Entry function not found");
+
+  // Get ReturnOp of the entry function op.
+  Operation *returnOp;
+  entryFunc->walk([&](Operation *op) -> WalkResult {
+    if (llvm::dyn_cast<ReturnOp>(op)) {
+      returnOp = op;
+      return WalkResult::interrupt();
+    }
+    return WalkResult::advance();
+  });
+
+  // Check, for each output, if it was transitively produced by a constant or
+  // not.
+  for (Value v : returnOp->getOperands()) {
+    bool isConstant = false;
+    Operation *definingOp = v.getDefiningOp();
+    if (!definingOp)
+      // Block argument, not a constant.
+      isConstant = false;
+    else {
+      // If output is just a view, trace back to find which op was producing the
+      // source memref.
+      while (auto viewOp = llvm::dyn_cast<ViewLikeOpInterface>(definingOp)) {
+        Value source = viewOp.getViewSource();
+        definingOp = source.getDefiningOp();
+        // Block argument, stop.
+        if (!definingOp)
+          break;
+      }
+      if (!definingOp)
+        // Block argument, not a constant.
+        isConstant = false;
+      else if (llvm::dyn_cast<KrnlGlobalOp>(definingOp))
+        // A constant defined by KrnlGlobalOp.
+        isConstant = true;
+    }
+    constantOutputs.emplace_back(isConstant);
+    LLVM_DEBUG(llvm::dbgs()
+               << "Is entry function output constant? " << isConstant << "\n");
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -1513,6 +1599,10 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   ModuleOp module = getOperation();
   module->setAttr("llvm.data_layout", StringAttr::get(&getContext(), endian));
 
+  // Determine, for each output, whether it is a constant or not.
+  SmallVector<bool, 4> constantOutputs;
+  checkConstantOutputs(module, constantOutputs);
+
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
@@ -1527,7 +1617,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
   // We lower in stages until all the code is in the LLVM dialect.
   RewritePatternSet patterns(&getContext());
-  populateAffineAndKrnlToLLVMConversion(patterns, &getContext(), typeConverter);
+  populateAffineAndKrnlToLLVMConversion(
+      patterns, &getContext(), typeConverter, constantOutputs);
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.

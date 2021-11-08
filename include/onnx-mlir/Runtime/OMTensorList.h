@@ -40,7 +40,7 @@ extern "C" {
  * @return pointer to the OMTensorList created, NULL if creation failed.
  *
  */
-OMTensorList *omTensorListCreate(OMTensor **tensors, int n);
+OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n);
 
 /**
  * \brief OMTensorList destroyer
@@ -71,7 +71,7 @@ OMTensor **omTensorListGetOmtArray(OMTensorList *list);
  * @param list pointer to the OMTensorList
  * @return number of elements in the OMTensor array.
  */
-int omTensorListGetSize(OMTensorList *list);
+int64_t omTensorListGetSize(OMTensorList *list);
 
 /**
  * \brief OMTensorList OMTensor getter by index
@@ -80,7 +80,7 @@ int omTensorListGetSize(OMTensorList *list);
  * @param index index of the OMTensor
  * @reutrn pointer to the OMTensor, NULL if not found.
  */
-OMTensor *omTensorListGetOmtByIndex(OMTensorList *list, size_t index);
+OMTensor *omTensorListGetOmtByIndex(OMTensorList *list, int64_t index);
 
 #ifdef __cplusplus
 }
