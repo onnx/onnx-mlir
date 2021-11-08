@@ -11,7 +11,7 @@ In the example below, we assume that we add support for the Concat ONNX operatio
 
 The first step is to add support so that MLIR can determine the output type and shape from its input variables and parameters. This step is called “Shape Inference.” The first step is to indicate in the automatically generated `ONNXOps.td.inc` that the new operation needs to implement the shape inference interface method.
 
-In the `utils/gen_doc.py` file, locate the `OpsWithShapeInference` python list and add your operation to it. For concat, we added the following:
+In the [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py) file, locate the `OpsWithShapeInference` python list and add your operation to it. For concat, we added the following:
 
 ```
 OpsWithShapeInference = [
@@ -31,11 +31,17 @@ Most operations have constraints on their input and parameters. The best way to 
 OpsWithVerifier = ['AveragePool', 'Conv', 'InstanceNormalization', 'Mod']
 ```
 
-The next step will be to invoke the modified `gen_doc.py` file. For this operation, consult the help [here](https://github.com/onnx/onnx-mlir/blob/master/docs/ImportONNXDefs.md)
+The next step will be to invoke the modified `gen_onnx_mlir.py` file. For this operation, consult the help [here](https://github.com/onnx/onnx-mlir/blob/master/docs/ImportONNXDefs.md)
 
 ## Add verifier
 
-You will need to add code in the `src/Dialect/ONNX/ONNXOps.cpp` when the new op was declared as using a verifier.  Best is to look at other operations to get the general pattern, by searching for `static LogicalResult verify(ONNXInstanceNormalizationOp op)`, for example. Note that a verifier will execute each time that one such op is created. So you will need to ensure that it can work with tensors and MemRefs, and possibly unranked tensors. So guard each of your tests to the proper circumstances. For examples, once a tensor is ranked, you may then verify that the rank is within the approved range (if there is such a constraint); before it is ranked, do not perform this test yet.
+You will need to add code in the `src/Dialect/ONNX/ONNXOps.cpp` when the new op was declared as using a verifier.  Best is to look at other operations to get the general pattern, by searching for [static LogicalResult verify(ONNXInstanceNormalizationOp op)](../src/Dialect/ONNX/ONNXOps.cpp#L3395), for example. Note that a verifier will execute each time that one such op is created. So you will need to ensure that it can work with tensors and MemRefs, and possibly unranked tensors. So guard each of your tests to the proper circumstances. For examples, once a tensor is ranked, you may then verify that the rank is within the approved range (if there is such a constraint); before it is ranked, do not perform this test yet.
+
+Tips:
+* Use `operandAdaptor` object to get the inputs and the `op` object to get the attributes.
+* Use `hasShapeAndRank(X)` to test if `X` input is currently shaped and ranked. If not, return success as we will get a chance later to test the operation with this info. Note that some inputs may be scalar too, in which case they may or may not be encoded as a shape type.
+* You can then use MLIR call `X.getType().cast<ShapedType>()` to get a shape types, for which you can get the rank and the dimensions. At this time, we only check dimension validity for values known at runtime. Unknown dimensions are encoded as a negative number.
+* When you find an error, report it with a friendly error message using `op->emitError(msg)`.
 
 ## Add shape inference
 
