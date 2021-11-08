@@ -107,7 +107,7 @@ static FlatSymbolRefAttr getOrInsertExternFunc(StringRef funcName,
   return SymbolRefAttr::get(context, funcName);
 }
 
-static size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
+static int64_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
   // Usually a MemRef is a 5-element struct, where the 4th and 5th elements in
   // this struct are arrays whose size is the rank of the tensor. In the event
   // that the corresponding tensor of this MemRef is a scalar, the 4th and 5th
@@ -853,7 +853,6 @@ public:
     auto signature = sigAttr.getValue();
 
     auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
-    auto int32Ty = IntegerType::get(context, 32);
     auto int64Ty = IntegerType::get(context, 64);
 
     // create global to hold signature
@@ -922,7 +921,7 @@ public:
     auto omTensorPtrArr =
         callApi(rewriter, loc, apiRegistry, API::GET_OMT_ARRAY, {wrappedInput});
     auto one = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI32IntegerAttr(1));
+        loc, int64Ty, rewriter.getI64IntegerAttr(1));
 
     // Create a memref type for the return argument of the iface call
     auto memRefOutPtrTy = staticEntryPointTy.getParamType(0);
@@ -935,7 +934,7 @@ public:
     for (size_t i = 1; i < staticEntryPointTy.getNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
-          loc, int32Ty, rewriter.getI32IntegerAttr(i - 1));
+          loc, int64Ty, rewriter.getI64IntegerAttr(i - 1));
 
       auto omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
       auto omTensorPtrAddr = rewriter
@@ -989,7 +988,7 @@ public:
     }
 
     auto numOutput = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI64IntegerAttr(outMemRefList.size()));
+        loc, int64Ty, rewriter.getI64IntegerAttr(outMemRefList.size()));
 
     auto mallocSym = getOrInsertMalloc(rewriter, module);
     // TODO(tjingrant): get pointer size from data layout.
@@ -1031,7 +1030,7 @@ public:
           memRef, outOMTensor, outOwning, rewriter, loc, apiRegistry, module);
 
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
-          loc, int32Ty, rewriter.getI32IntegerAttr(i));
+          loc, int64Ty, rewriter.getI64IntegerAttr(i));
 
       auto omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
       auto omTensorPtrAddr = rewriter
@@ -1062,7 +1061,6 @@ private:
     auto voidTy = LLVM::LLVMVoidType::get(context);
     auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
     auto opaquePtrPtrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
-    auto int32Ty = IntegerType::get(context, 32);
     auto int64Ty = IntegerType::get(context, 64);
     auto int64PtrTy = LLVM::LLVMPointerType::get(int64Ty);
 
@@ -1070,14 +1068,14 @@ private:
     // specifying its signature.
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
-        ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreateWithOwnership", opaquePtrTy, {opaquePtrPtrTy, int32Ty, int32Ty}),
+        ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreateWithOwnership", opaquePtrTy, {opaquePtrPtrTy, int64Ty, int64Ty}),
         ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmptyDeprecated", opaquePtrTy, {int64Ty}),
         ApiSpec(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
         ApiSpec(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int64Ty, opaquePtrTy, opaquePtrTy}),
         ApiSpec(API::GET_DATA_SHAPE, "omTensorGetShape", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_DATA_STRIDES, "omTensorGetStrides", int64PtrTy, {opaquePtrTy}),
-        ApiSpec(API::GET_DATA_TYPE, "omTensorGetDataType", int32Ty, {opaquePtrTy}),
-        ApiSpec(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {opaquePtrTy, int32Ty}),
+        ApiSpec(API::GET_DATA_TYPE, "omTensorGetDataType", int64Ty, {opaquePtrTy}),
+        ApiSpec(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {opaquePtrTy, int64Ty}),
         ApiSpec(API::GET_OMT_ARRAY, "omTensorListGetOmtArray", opaquePtrPtrTy, {opaquePtrTy}),
     };
     // clang-format on
@@ -1148,15 +1146,15 @@ private:
     dataPtr = rewriter.create<LLVM::BitcastOp>(
         loc, memRefTy.cast<LLVM::LLVMStructType>().getBody()[0], dataPtr);
     memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
-        dataPtr, rewriter.getArrayAttr({rewriter.getI32IntegerAttr(0)}));
+        dataPtr, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(0)}));
     memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
-        dataPtr, rewriter.getArrayAttr({rewriter.getI32IntegerAttr(1)}));
+        dataPtr, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(1)}));
 
     // Use zero offset now.
     auto zero = rewriter.create<LLVM::ConstantOp>(
         loc, int64Ty, rewriter.getI64IntegerAttr(0));
     memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef, zero,
-        rewriter.getArrayAttr({rewriter.getI32IntegerAttr(2)}));
+        rewriter.getArrayAttr({rewriter.getI64IntegerAttr(2)}));
 
     // Get rank, sizes array ptr and strides array ptr.
     auto rank = getRankFromMemRefType(memRefTy.cast<LLVM::LLVMStructType>());
@@ -1205,7 +1203,6 @@ private:
     auto *context = module.getContext();
     auto outMemRefTy = outMemRef.getType().dyn_cast<LLVM::LLVMStructType>();
     auto int64Ty = IntegerType::get(context, 64);
-    auto int32Ty = IntegerType::get(context, 32);
 
     // Set ownership, i.e., free after OMTensor is destroyed.
     Value owning = rewriter.create<LLVM::ConstantOp>(
@@ -1235,7 +1232,7 @@ private:
         outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
     auto onnxTy = llvmTypeToOnnxType(elemTy);
     auto onnxTyVal = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI32IntegerAttr(onnxTy));
+        loc, int64Ty, rewriter.getI64IntegerAttr(onnxTy));
     callApi(rewriter, loc, apiRegistry, API::SET_DATA_TYPE,
         {outOMTensor, onnxTyVal});
 
