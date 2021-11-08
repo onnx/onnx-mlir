@@ -92,9 +92,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ae7465303dcf4e6b090f6ef7bf16bbe6a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#ae7465303dcf4e6b090f6ef7bf16bbe6a">omTensorCreate</a> (void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype)</td></tr>
 <tr class="memdesc:ae7465303dcf4e6b090f6ef7bf16bbe6a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a OMTensor with specified data pointer, shape, rank and element type.  <a href="_o_m_tensor_8h.html#ae7465303dcf4e6b090f6ef7bf16bbe6a">More...</a><br /></td></tr>
 <tr class="separator:ae7465303dcf4e6b090f6ef7bf16bbe6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a91ae8bbc685f94d70b9ed2f64ea76e15"><td class="memItemLeft" align="right" valign="top"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a91ae8bbc685f94d70b9ed2f64ea76e15">omTensorCreateWithOwnership</a> (void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype, int owning)</td></tr>
-<tr class="memdesc:a91ae8bbc685f94d70b9ed2f64ea76e15"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create an OMTensor with specified data pointer, shape, rank and element type, manually setting data ptr ownership.  <a href="_o_m_tensor_8h.html#a91ae8bbc685f94d70b9ed2f64ea76e15">More...</a><br /></td></tr>
-<tr class="separator:a91ae8bbc685f94d70b9ed2f64ea76e15"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aced13d48f1e6f1e856b4fa92780fdef4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#aced13d48f1e6f1e856b4fa92780fdef4">omTensorCreateWithOwnership</a> (void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype, int64_t owning)</td></tr>
+<tr class="memdesc:aced13d48f1e6f1e856b4fa92780fdef4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create an OMTensor with specified data pointer, shape, rank and element type, manually setting data ptr ownership.  <a href="_o_m_tensor_8h.html#aced13d48f1e6f1e856b4fa92780fdef4">More...</a><br /></td></tr>
+<tr class="separator:aced13d48f1e6f1e856b4fa92780fdef4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5e7b452b053fcdcbbb0d85deed59a314"><td class="memItemLeft" align="right" valign="top"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a5e7b452b053fcdcbbb0d85deed59a314">omTensorCreateEmpty</a> (int64_t *shape, int64_t rank, OM_DATA_TYPE dtype)</td></tr>
 <tr class="separator:a5e7b452b053fcdcbbb0d85deed59a314"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a425a838c94082f3c6287c80a658e5d31"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a425a838c94082f3c6287c80a658e5d31">omTensorDestroy</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
@@ -127,15 +127,15 @@ Functions</h2></td></tr>
 <tr class="memitem:ad4265dec5bb16b5a525494f2741c8c90"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#ad4265dec5bb16b5a525494f2741c8c90">omTensorGetBufferSize</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
 <tr class="memdesc:ad4265dec5bb16b5a525494f2741c8c90"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data buffer size getter.  <a href="_o_m_tensor_8h.html#ad4265dec5bb16b5a525494f2741c8c90">More...</a><br /></td></tr>
 <tr class="separator:ad4265dec5bb16b5a525494f2741c8c90"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa88197a5adfc5735e3f327d46b925650"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#aa88197a5adfc5735e3f327d46b925650">omTensorGetRank</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
-<tr class="memdesc:aa88197a5adfc5735e3f327d46b925650"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor rank getter.  <a href="_o_m_tensor_8h.html#aa88197a5adfc5735e3f327d46b925650">More...</a><br /></td></tr>
-<tr class="separator:aa88197a5adfc5735e3f327d46b925650"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9ff1beed3be8b7d30591bd035658ab7c"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a9ff1beed3be8b7d30591bd035658ab7c">omTensorGetRank</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
+<tr class="memdesc:a9ff1beed3be8b7d30591bd035658ab7c"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor rank getter.  <a href="_o_m_tensor_8h.html#a9ff1beed3be8b7d30591bd035658ab7c">More...</a><br /></td></tr>
+<tr class="separator:a9ff1beed3be8b7d30591bd035658ab7c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5778985007a93f2d37283e317f647908"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a5778985007a93f2d37283e317f647908">omTensorGetNumElems</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
 <tr class="memdesc:a5778985007a93f2d37283e317f647908"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor number of elements getter.  <a href="_o_m_tensor_8h.html#a5778985007a93f2d37283e317f647908">More...</a><br /></td></tr>
 <tr class="separator:a5778985007a93f2d37283e317f647908"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a51c25c890f1c851fae0646dc1fb6c89f"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a51c25c890f1c851fae0646dc1fb6c89f">omTensorGetOwning</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
-<tr class="memdesc:a51c25c890f1c851fae0646dc1fb6c89f"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor owning flag getter.  <a href="_o_m_tensor_8h.html#a51c25c890f1c851fae0646dc1fb6c89f">More...</a><br /></td></tr>
-<tr class="separator:a51c25c890f1c851fae0646dc1fb6c89f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4f5482d3f01135db0586e0fccfcb5ddf"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a4f5482d3f01135db0586e0fccfcb5ddf">omTensorGetOwning</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
+<tr class="memdesc:a4f5482d3f01135db0586e0fccfcb5ddf"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor owning flag getter.  <a href="_o_m_tensor_8h.html#a4f5482d3f01135db0586e0fccfcb5ddf">More...</a><br /></td></tr>
+<tr class="separator:a4f5482d3f01135db0586e0fccfcb5ddf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Typedef Documentation</h2>
 <a id="a7099d0375d9023e04c7fe5b651ee079e"></a>
@@ -251,8 +251,8 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a91ae8bbc685f94d70b9ed2f64ea76e15"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a91ae8bbc685f94d70b9ed2f64ea76e15">&#9670;&nbsp;</a></span>omTensorCreateWithOwnership()</h2>
+<a id="aced13d48f1e6f1e856b4fa92780fdef4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aced13d48f1e6f1e856b4fa92780fdef4">&#9670;&nbsp;</a></span>omTensorCreateWithOwnership()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -284,7 +284,7 @@ Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int&#160;</td>
+          <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>owning</em>&#160;</td>
         </tr>
         <tr>
@@ -446,14 +446,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a51c25c890f1c851fae0646dc1fb6c89f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a51c25c890f1c851fae0646dc1fb6c89f">&#9670;&nbsp;</a></span>omTensorGetOwning()</h2>
+<a id="a4f5482d3f01135db0586e0fccfcb5ddf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4f5482d3f01135db0586e0fccfcb5ddf">&#9670;&nbsp;</a></span>omTensorGetOwning()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int omTensorGetOwning </td>
+          <td class="memname">int64_t omTensorGetOwning </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em></td><td>)</td>
@@ -467,14 +467,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="aa88197a5adfc5735e3f327d46b925650"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa88197a5adfc5735e3f327d46b925650">&#9670;&nbsp;</a></span>omTensorGetRank()</h2>
+<a id="a9ff1beed3be8b7d30591bd035658ab7c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9ff1beed3be8b7d30591bd035658ab7c">&#9670;&nbsp;</a></span>omTensorGetRank()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int omTensorGetRank </td>
+          <td class="memname">int64_t omTensorGetRank </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em></td><td>)</td>
