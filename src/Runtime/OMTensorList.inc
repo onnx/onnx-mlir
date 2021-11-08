@@ -35,7 +35,7 @@ struct OMTensorList {
    * Create an OMTensorList with specified OMTensor pointer array
    * and the size of the array
    */
-  OMTensorList(OMTensor *omts[], int n) : _omts(omts), _size(n) {
+  OMTensorList(OMTensor *omts[], int64_t n) : _omts(omts), _size(n) {
     _owning = false;
   };
 
@@ -53,7 +53,7 @@ struct OMTensorList {
    */
   ~OMTensorList() {
     /* Destroy all the OMTensors */
-    for (size_t i = 0; i < _size; i++)
+    for (int64_t i = 0; i < _size; i++)
       if (_omts[i])
         omTensorDestroy(_omts[i]);
   };
@@ -65,16 +65,16 @@ struct OMTensorList {
    */
   OMTensor **_omts; // OMTensor array
 
-  size_t _size; // Number of elements in _omts.
+  int64_t _size; // Number of elements in _omts.
 
-  int _owning; // indicates whether the OMTensorList owns the pointer to
+  int64_t _owning; // indicates whether the OMTensorList owns the pointer to
                // OMTensor array or not. OMTensorList struct will release the
                // memory space referred to by '_omts' upon destruction if and
                // only if it owns it.
 };
 
 /* OMTensorList creator */
-OMTensorList *omTensorListCreate(OMTensor **tensors, int n) {
+OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
   OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
   if (!list)
     return NULL;
@@ -86,7 +86,7 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int n) {
 
 /* OMTensorList creator with ownership */
 OMTensorList *omTensorListCreateWithOwnership(
-    OMTensor **tensors, int n, int owning) {
+    OMTensor **tensors, int64_t n, int64_t owning) {
   OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
   if (!list)
     return NULL;
@@ -98,7 +98,7 @@ OMTensorList *omTensorListCreateWithOwnership(
 
 /* OMTensorList destroyer */
 void omTensorListDestroy(OMTensorList *list) {
-  for (size_t i = 0; i < list->_size; i++)
+  for (int64_t i = 0; i < list->_size; i++)
     if (list->_omts[i])
       omTensorDestroy(list->_omts[i]);
   if (list->_owning)
@@ -110,10 +110,10 @@ void omTensorListDestroy(OMTensorList *list) {
 OMTensor **omTensorListGetOmtArray(OMTensorList *list) { return list->_omts; }
 
 /* OMTensorList number of OMTensor getter */
-int omTensorListGetSize(OMTensorList *list) { return list->_size; }
+int64_t omTensorListGetSize(OMTensorList *list) { return list->_size; }
 
 /* Return OMTensor at specified index in the OMTensorList */
-OMTensor *omTensorListGetOmtByIndex(OMTensorList *rlist, size_t index) {
+OMTensor *omTensorListGetOmtByIndex(OMTensorList *rlist, int64_t index) {
   assert(index >= 0);
   assert(index < rlist->_size);
   return rlist->_omts[index];
