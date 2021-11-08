@@ -782,9 +782,8 @@ public:
   ArrayRef<bool> constantOutputs;
 
   KrnlEntryPointOpLowering(MLIRContext *ctx, ArrayRef<bool> constantOutputs)
-      : OpRewritePattern<KrnlEntryPointOp>(ctx) {
-    this->constantOutputs = constantOutputs;
-  }
+      : OpRewritePattern<KrnlEntryPointOp>(ctx),
+        constantOutputs(constantOutputs) {}
 
   enum class API {
     CREATE_OMTENSOR_LIST,
@@ -1508,8 +1507,8 @@ void mlir::checkConstantOutputs(
     if (llvm::dyn_cast<KrnlEntryPointOp>(op)) {
       entryPointOp = op;
       return WalkResult::interrupt();
-    } else
-      return WalkResult::advance();
+    }
+    return WalkResult::advance();
   });
 
   // Do nothing if there is no EntryPoint.
@@ -1530,8 +1529,8 @@ void mlir::checkConstantOutputs(
     if (SymbolRefAttr::get(op).getValue() == entryPointFuncName) {
       entryFunc = op;
       return WalkResult::interrupt();
-    } else
-      return WalkResult::advance();
+    }
+    return WalkResult::advance();
   });
   assert(entryFunc && "Entry function not found");
 
@@ -1541,8 +1540,8 @@ void mlir::checkConstantOutputs(
     if (llvm::dyn_cast<ReturnOp>(op)) {
       returnOp = op;
       return WalkResult::interrupt();
-    } else
-      return WalkResult::advance();
+    }
+    return WalkResult::advance();
   });
 
   // Check, for each output, if it was transitively produced by a constant or
