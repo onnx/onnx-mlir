@@ -163,7 +163,7 @@ OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
 }
 
 /**
- * Create an empty OMTensor with specified rank.
+ * Create an empty OMTensor with specified rank but no shape and type info.
  * This function is intentionally left out from the header because it is only
  * used by the wrapper code we emit around inference function that converts
  * MemRefs to OMTensors for user convenience.
@@ -176,7 +176,7 @@ OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
  * @return pointer to OMTensor created, NULL if creation failed.
  *
  */
-OMTensor *omTensorCreateEmptyDeprecated(int64_t rank) {
+OMTensor *omTensorCreateUntyped(int64_t rank) {
   OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
   if (!omt)
     return NULL;
@@ -339,7 +339,7 @@ void *omTensorGetAllocatedPtr(OMTensor *tensor) {
 template <typename T>
 OMTensor *omTensorCreateWithShape(std::vector<int64_t> shape) {
   /* Create a OMTensor with data shape and strides allocated */
-  auto omt = omTensorCreateEmptyDeprecated(shape.size());
+  auto omt = omTensorCreateUntyped(shape.size());
   if (omt == NULL)
     return NULL;
 
@@ -358,7 +358,7 @@ OMTensor *omTensorCreateWithShape(std::vector<int64_t> shape) {
   copy(shape.begin(), shape.end(), omt->_shape);
 
   /* Compute and copy dataStrides, _strides already allocated by
-   * omTensorCreateEmptyDeprecated
+   * omTensorCreateUntyped
    */
   auto computedStrides = computeStridesFromShape(omt->_shape, omt->_rank);
   copy(computedStrides.begin(), computedStrides.end(), omt->_strides);
