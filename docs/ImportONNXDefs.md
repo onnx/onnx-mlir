@@ -28,10 +28,9 @@ In addition to following the ONNX specification, the script [utils/gen_onnx_mlir
 Several tables are defined at the beginning of the script:
 1. `special_attr_defaults`: gives attribute special default value.
 2. `special_op_handler`: creates special import function in frontend_dialect_transformer.cpp. Currently, a special handler is used for operations with operational arguments
-3. `OpsWithShapeInference`: list of operations which have shape inference defined
-4. `OpsWithCanonicalizer`: list of operations which have a canonical form
-5. `OpsWithPromotableConstOperands`: list of operations which have operands that, if produced by constant operations, should be promoted to become an attribute (via attribute promotion)
-6. `custom_builder_ops_list`: list of operations which need custom build methods to deduce result types
+3. `OpsWithCanonicalizer`: list of operations which have a canonical form
+4. `OpsWithPromotableConstOperands`: list of operations which have operands that, if produced by constant operations, should be promoted to become an attribute (via attribute promotion)
+5. `custom_builder_ops_list`: list of operations which need custom build methods to deduce result types
 
 ## Version of Operations
 As stated previous, we try to support the latest version of ONNX operations. The version of each operation currently supported is recorded in [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py). This mechanism provides some stability in version. To check the changes in version, run gen_onnx_mlir.py with flag "--check-version" and the changes will be reported. To move to a newer version, manually update the version dictionary in the script.
