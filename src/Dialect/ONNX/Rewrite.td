@@ -121,7 +121,7 @@ def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
 
 def NotNoneType : Constraint<CPred<"!($0.getType().isa<NoneType>())">>;
 
-def IsShapedType : Constraint<CPred<"!($0.getType().isa<ShapedType>())">>;
+def HasShapeAndRank : Constraint<CPred<"hasShapeAndRank($0)">>;
 
 def HasSameElementType : Constraint<
     CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
@@ -325,7 +325,7 @@ def RemoveSqueezeUnsqueezePattern:  Pat<
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(IsShapedType $val), (AreTheSameConstantOpDenseAttr $val, $u_axes, $s_axes),
+  [(HasShapeAndRank $val), (AreTheSameConstantOpDenseAttr $val, $u_axes, $s_axes),
    (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
 
 /// Combine squeeze and unsqueeze.
@@ -336,7 +336,7 @@ def RemoveSqueezeV11UnsqueezeV11Pattern:  Pat<
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(IsShapedType $val), (AreTheSameAxisArray $val, $u_axes, $s_axes)]>;
+  [(HasShapeAndRank $val), (AreTheSameAxisArray $val, $u_axes, $s_axes)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXUnsqueezeOp 
@@ -350,7 +350,7 @@ def RemoveUnsqueezeSqueezePattern:  Pat<
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(IsShapedType $val), (AreTheSameConstantOpDenseAttr $res, $u_axes, $s_axes),
+  [(HasShapeAndRank $val), (AreTheSameConstantOpDenseAttr $res, $u_axes, $s_axes),
    (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
 
 /// Combine unsqueeze and squeeze.
@@ -361,7 +361,7 @@ def RemoveUnsqueezeV11SqueezeV11Pattern:  Pat<
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(IsShapedType $val), (AreTheSameAxisArray $res, $u_axes, $s_axes)]>;
+  [(HasShapeAndRank $val), (AreTheSameAxisArray $res, $u_axes, $s_axes)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXBatchNormOp 
