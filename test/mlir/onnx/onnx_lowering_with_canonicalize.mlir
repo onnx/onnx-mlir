@@ -913,9 +913,9 @@ func private @test_matmul1(%arg0 : tensor<16x16xf32>, %arg1 : tensor<16x16xf32>)
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<16x16xf32>
 // CHECK:           krnl.memset [[RES_]], [[CST_0_dot_000000_]] : memref<16x16xf32>
 // CHECK:           [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
-// CHECK:           [[loop_block_:%.+]], [[VAR_loop_local_:%.+]] = krnl.block [[LOOP_0_]]#0 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[loop_block_0_:%.+]], [[VAR_loop_local_1_:%.+]] = krnl.block [[LOOP_0_]]#1 8 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[loop_block_2_:%.+]], [[VAR_loop_local_3_:%.+]] = krnl.block [[LOOP_0_]]#2 8 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK-DAG:       [[loop_block_:%.+]], [[VAR_loop_local_:%.+]] = krnl.block [[LOOP_0_]]#0 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK-DAG:       [[loop_block_0_:%.+]], [[VAR_loop_local_1_:%.+]] = krnl.block [[LOOP_0_]]#1 8 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK-DAG:       [[loop_block_2_:%.+]], [[VAR_loop_local_3_:%.+]] = krnl.block [[LOOP_0_]]#2 8 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           krnl.permute([[loop_block_]], [[VAR_loop_local_]], [[loop_block_]]_0, [[VAR_loop_local_]]_1, [[loop_block_]]_2, [[VAR_loop_local_]]_3) [0, 3, 1, 4, 2, 5] : !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
 // CHECK:           krnl.iterate([[loop_block_]], [[loop_block_]]_0, [[loop_block_]]_2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = [[CST_0_]] to [[CST_16_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = [[CST_0_]] to [[CST_16_]], [[LOOP_0_]]#2 -> [[I_2_:%.+]] = [[CST_0_]] to [[CST_16_]]) {
 // CHECK:             [[VAR_2_:%.+]]:3 = krnl.get_induction_var_value([[loop_block_]], [[loop_block_]]_0, [[loop_block_]]_2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
