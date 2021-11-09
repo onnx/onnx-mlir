@@ -16,7 +16,7 @@ Most operations have constraints on their input and parameters. The best way to 
 OpsWithVerifier = ['AveragePool', 'Conv', 'InstanceNormalization', 'Mod']
 ```
 
-The next step will be to invoke the modified `gen_onnx_mlir.py` file. For this operation, consult the help [here](ImportONNXDefs.md)
+The next step will be to invoke the modified `gen_onnx_mlir.py` file. For this operation, consult the help [here](ImportONNXDefs.md).
 
 ## Add verifier
 
