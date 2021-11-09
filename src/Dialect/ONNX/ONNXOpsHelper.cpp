@@ -302,24 +302,23 @@ bool IsIdentityPermuteVector(ArrayAttr permAttr) {
 
 /// Test if the value has the specified constant shape
 bool HasSpecifiedConstantShape(Value value, Value shape) {
-  if (!value.getType().isa<ShapedType>()) {
+  if (!hasShapeAndRank(value) || !hasShapeAndRank(shape))
     return false;
-  }
+
   ArrayRef<int64_t> valueShape = value.getType().cast<ShapedType>().getShape();
   DenseElementsAttr shapeAttr = getDenseElementAttributeFromONNXValue(shape);
-  if (shapeAttr == nullptr) {
+  if (shapeAttr == nullptr)
     return false;
-  }
+
   int64_t dimensionsOfShape = shapeAttr.getType().getShape()[0];
-  if ((int64_t)valueShape.size() != dimensionsOfShape) {
+  if ((int64_t)valueShape.size() != dimensionsOfShape)
     return false;
-  }
+
   auto valueIt = shapeAttr.getValues<APInt>().begin();
   for (int64_t i = 0; i < dimensionsOfShape; i++) {
     int64_t value = (*valueIt++).getSExtValue();
-    if (valueShape[i] != value) {
+    if (valueShape[i] != value)
       return false;
-    }
   }
   return true;
 }
@@ -368,6 +367,12 @@ bool AreTheSameConstantOpDenseAttr(
   } else {
     return false;
   }
+}
+
+/// Test if 'val' is shaped or not.
+bool hasShapeAndRank(Value val) {
+  return val.getType().isa<ShapedType>() &&
+         val.getType().cast<ShapedType>().hasRank();
 }
 
 //===----------------------------------------------------------------------===//

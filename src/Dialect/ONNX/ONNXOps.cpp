@@ -36,15 +36,6 @@ using namespace mlir::OpTrait::util;
 using namespace mlir::onnxmlir;
 
 //===----------------------------------------------------------------------===//
-// ONNX Helper functions for verify
-//===----------------------------------------------------------------------===//
-
-static bool hasShapeAndRank(Value val) {
-  return val.getType().isa<ShapedType>() &&
-         val.getType().cast<ShapedType>().hasRank();
-}
-
-//===----------------------------------------------------------------------===//
 // ONNX Helper functions for shape helpers
 //===----------------------------------------------------------------------===//
 

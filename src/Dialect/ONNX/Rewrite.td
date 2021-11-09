@@ -121,6 +121,8 @@ def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
 
 def NotNoneType : Constraint<CPred<"!($0.getType().isa<NoneType>())">>;
 
+def IsShapedType : Constraint<CPred<"!($0.getType().isa<ShapedType>())">>;
+
 def HasSameElementType : Constraint<
     CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
           "$1.cast<::mlir::TypeAttr>().getValue())">,
@@ -323,7 +325,7 @@ def RemoveSqueezeUnsqueezePattern:  Pat<
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(AreTheSameConstantOpDenseAttr $val, $u_axes, $s_axes),
+  [(IsShapedType $val), (AreTheSameConstantOpDenseAttr $val, $u_axes, $s_axes),
    (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
 
 /// Combine squeeze and unsqueeze.
@@ -334,7 +336,7 @@ def RemoveSqueezeV11UnsqueezeV11Pattern:  Pat<
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(AreTheSameAxisArray $val, $u_axes, $s_axes)]>;
+  [(IsShapedType $val), (AreTheSameAxisArray $val, $u_axes, $s_axes)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXUnsqueezeOp 
@@ -348,7 +350,7 @@ def RemoveUnsqueezeSqueezePattern:  Pat<
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(AreTheSameConstantOpDenseAttr $res, $u_axes, $s_axes),
+  [(IsShapedType $val), (AreTheSameConstantOpDenseAttr $res, $u_axes, $s_axes),
    (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
 
 /// Combine unsqueeze and squeeze.
@@ -359,7 +361,7 @@ def RemoveUnsqueezeV11SqueezeV11Pattern:  Pat<
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(AreTheSameAxisArray $res, $u_axes, $s_axes)]>;
+  [(IsShapedType $val), (AreTheSameAxisArray $res, $u_axes, $s_axes)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXBatchNormOp 
