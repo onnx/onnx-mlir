@@ -35,7 +35,7 @@ The next step will be to invoke the modified `gen_onnx_mlir.py` file. For this o
 
 ## Add verifier
 
-You will need to add code in the `src/Dialect/ONNX/ONNXOps.cpp` when the new op was declared as using a verifier.  Best is to look at other operations to get the general pattern, by searching for [static LogicalResult verify(ONNXInstanceNormalizationOp op)](../src/Dialect/ONNX/ONNXOps.cpp#L3395), for example. Note that a verifier will execute each time that one such op is created. So you will need to ensure that it can work with tensors and MemRefs, and possibly unranked tensors. So guard each of your tests to the proper circumstances. For examples, once a tensor is ranked, you may then verify that the rank is within the approved range (if there is such a constraint); before it is ranked, do not perform this test yet.
+You will need to add code in the `src/Dialect/ONNX/ONNXOps.cpp` when the new op was declared as using a verifier.  Best is to look at other operations to get the general pattern, by searching for [static LogicalResult verify(ONNXInstanceNormalizationOp op)](../src/Dialect/ONNX/ONNXOps.cpp), for example. Note that a verifier will execute each time that one such op is created. So you will need to ensure that it can work with tensors and MemRefs, and possibly unranked tensors. So guard each of your tests to the proper circumstances. For examples, once a tensor is ranked, you may then verify that the rank is within the approved range (if there is such a constraint); before it is ranked, do not perform this test yet.
 
 Tips:
 * Use `operandAdaptor` object to get the inputs and the `op` object to get the attributes.

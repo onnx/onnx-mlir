@@ -24,7 +24,7 @@ Even though we strive to support the latest version of ONNX specification as qui
 Due to the possibility of such a delay, operator definition within the ONNX project repository may describe features and schemas that we do not yet support.
 
 ## Customization
-In addition to following the ONNX specification, the script [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py),  modified gen_onnx_mlir.py, provides some mechanism for you to customize the output. 
+In addition to following the ONNX specification, the script [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py), modified gen_onnx_mlir.py, provides some mechanism for you to customize the output.
 Several tables are defined at the beginning of the script:
 1. `special_attr_defaults`: gives attribute special default value.
 2. `special_op_handler`: creates special import function in frontend_dialect_transformer.cpp. Currently, a special handler is used for operations with operational arguments
