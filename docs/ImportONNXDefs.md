@@ -37,7 +37,7 @@ Several tables are defined at the beginning of the script:
 As stated previous, we try to support the latest version of ONNX operations. The version of each operation currently supported is recorded in [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py). This mechanism provides some stability in version. To check the changes in version, run gen_onnx_mlir.py with flag "--check-version" and the changes will be reported. To move to a newer version, manually update the version dictionary in the script.
 
 ### Support Multiple versions
-To support multiple versions of an op, the selected version should be added in the version dictionary in [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py). For example, there are two versions (opset), 11 and 13, forReduceSum is supported. The corresponding entry in version_dic is `'ReduceSum': [13, 11]`.
+To support multiple versions of an op, the selected version should be added in the version dictionary in [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py). For example, there are two versions (opset), 11 and 13, forReduceSum that are supported. The corresponding entry in version_dic is `'ReduceSum': [13, 11]`.
 
 In onnx dialect, the op for the top version has no version in the op name, while other version with name followed by 'V' and version number. For example, ReduceSum of opset 13 will be `ONNXReduceSumOp`, while ReduceSum of opset 11 is 'ONNXReduceSumV11Op`. Since most of onnx op are compatible when upgraded to higher version, we can keep the name of the operation in the dialect and just update version_dict in gen_onnx_mlir.py without touching the code in onnx-mlir.
 
