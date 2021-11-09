@@ -28,6 +28,12 @@ include "src/Dialect/ONNX/ONNXOps.td"
 // Common utility functions.
 //===----------------------------------------------------------------------===//
 
+def createNoneIntegerConstant : NativeCodeCall<
+  "createNoneIntegerConstant($_builder, $0.getDefiningOp()->getLoc())">;
+
+def createNoneFloatConstant : NativeCodeCall<
+  "createNoneFloatConstant($_builder, $0.getDefiningOp()->getLoc())">;
+
 // Create a DenseElementsAttr from a float attribute and an element type.
 def createDenseElementsAttrFromFloatAttr : NativeCodeCall<
   "createDenseElementsAttrFromFloatAttr($_builder, $0.getType().cast<ShapedType>().getElementType(), $1)">;
@@ -575,6 +581,20 @@ def ConstantOpNormalizationPattern6: Pat<
        $intsAttr, $stringAttr, $stringsAttr),
    (ONNXConstantOpNormalize $res, $stringsAttr),
    [(AttributeIsNotNull:$stringsAttr)]
+>;
+
+//def GetNullAttr : NativeCodeCall<"Attribute()">;
+
+def ResizeV10Pattern: Pat<
+   (ONNXResizeV10Op:$res $x, $scales, $mode),
+   (ONNXResizeOp $x, (createNoneFloatConstant $res),
+        $scales, (createNoneIntegerConstant $res),
+       /*coordinate_transformation_mode*/(GetNullStringAttr),
+       /*cubic_coeff_a*/(GetNullFloatAttr),
+       /*exclude_outside*/(GetNullIntegerAttr),
+       /*exttrapolation_value*/(GetNullFloatAttr),
+       /*mode*/$mode,
+       /*nearest_mode*/(GetNullStringAttr))
 >;
 
 #endif // ONNX_REWRITE
