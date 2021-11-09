@@ -294,6 +294,7 @@ OpsWithVerifier = [
     'NonMaxSuppression',
     'OneHot',
     'ReverseSequence',
+    'ScatterND',
     'SpaceToDepth',
     'TopK',
 ]
