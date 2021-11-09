@@ -369,7 +369,7 @@ bool AreTheSameConstantOpDenseAttr(
   }
 }
 
-/// Test if 'val' is shaped or not.
+/// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(Value val) {
   return val.getType().isa<ShapedType>() &&
          val.getType().cast<ShapedType>().hasRank();
