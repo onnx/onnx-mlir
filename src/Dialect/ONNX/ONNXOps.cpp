@@ -4599,6 +4599,60 @@ LogicalResult ONNXCustomOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// CallOpOld
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXCallOp. This method is required by
+/// the shape inference interface.
+LogicalResult ONNXCallOpOld::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  // getResult().setType(getOperand().getType());
+  return success();
+}
+void ONNXCallOpOld::build(mlir::OpBuilder &builder,
+    mlir::OperationState &state, mlir::FuncOp function, mlir::ValueRange inputs) {
+  state.addAttribute(ONNXCallOpOld::getCalleeAttrName(),
+      SymbolRefAttr::get(function));
+}
+
+LogicalResult ONNXCallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
+   // Check that the callee attribute was specified.
+   auto fnAttr = (*this)->getAttrOfType<FlatSymbolRefAttr>("callee");
+   if (!fnAttr)
+     return emitOpError("requires a 'callee' symbol reference attribute");
+   FuncOp fn = symbolTable.lookupNearestSymbolFrom<FuncOp>(*this, fnAttr);
+   if (!fn)
+     return emitOpError() << "'" << fnAttr.getValue()
+                          << "' does not reference a valid function";
+ 
+   // Verify that the operand and result types match the callee.
+   auto fnType = fn.getType();
+   if (fnType.getNumInputs() != getNumOperands())
+     return emitOpError("incorrect number of operands for callee");
+ 
+   for (unsigned i = 0, e = fnType.getNumInputs(); i != e; ++i)
+     if (getOperand(i).getType() != fnType.getInput(i))
+       return emitOpError("operand type mismatch: expected operand type ")
+              << fnType.getInput(i) << ", but provided "
+              << getOperand(i).getType() << " for operand number " << i;
+ 
+   if (fnType.getNumResults() != getNumResults())
+     return emitOpError("incorrect number of results for callee");
+ 
+   for (unsigned i = 0, e = fnType.getNumResults(); i != e; ++i)
+     if (getResult(i).getType() != fnType.getResult(i)) {
+       auto diag = emitOpError("result type mismatch at index ") << i;
+       diag.attachNote() << "      op result types: " << getResultTypes();
+       diag.attachNote() << "function result types: " << fnType.getResults();
+       return diag;
+     }
+ 
+   return success();
+ }
+ 
+ FunctionType ONNXCallOp::getCalleeType() {
+   return FunctionType::get(getContext(), getOperandTypes(), getResultTypes());
+ }
+//===----------------------------------------------------------------------===//
 // ONNX type related code
 //===----------------------------------------------------------------------===//
 
