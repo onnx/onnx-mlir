@@ -1154,7 +1154,7 @@ private:
 
     // Generate call statement
     auto op = builder_.create<ONNXCallOp>(UnknownLoc(), funcOp, operands);
-    //auto op = builder_.create<CallOp>(UnknownLoc(), funcOp, operands);
+    // auto op = builder_.create<CallOp>(UnknownLoc(), funcOp, operands);
     int result_num = 0;
     for (auto &v : node.output()) {
       BindOnnxName(v, op.getResult(result_num++));
