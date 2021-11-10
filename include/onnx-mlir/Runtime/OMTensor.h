@@ -101,7 +101,7 @@ OMTensor *omTensorCreate(
  *
  */
 OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
-    int64_t rank, OM_DATA_TYPE dtype, int owning);
+    int64_t rank, OM_DATA_TYPE dtype, int64_t owning);
 
 /**
  * Create an OMTensor with the specified shape, rank and element type,
@@ -243,7 +243,7 @@ OM_DATA_TYPE omTensorGetDataType(OMTensor *tensor);
 void omTensorSetDataType(OMTensor *tensor, OM_DATA_TYPE dataType);
 
 /* Helper function to get the ONNX data type size in bytes */
-static inline int getDataTypeSize(OM_DATA_TYPE dataType) {
+static inline int64_t getDataTypeSize(OM_DATA_TYPE dataType) {
   return OM_DATA_TYPE_SIZE[dataType];
 }
 
@@ -261,7 +261,7 @@ int64_t omTensorGetBufferSize(OMTensor *tensor);
  * @param tensor, pointer to the OMTensor
  * @return rank of data shape and strides of the OMTensor.
  */
-int omTensorGetRank(OMTensor *tensor);
+int64_t omTensorGetRank(OMTensor *tensor);
 
 /**
  * \brief OMTensor number of elements getter
@@ -276,7 +276,7 @@ int64_t omTensorGetNumElems(OMTensor *tensor);
  *
  * @return owning flag of the OMTensor.
  */
-int omTensorGetOwning(OMTensor *tensor);
+int64_t omTensorGetOwning(OMTensor *tensor);
 
 #ifdef __cplusplus
 }

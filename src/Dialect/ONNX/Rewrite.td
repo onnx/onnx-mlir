@@ -28,6 +28,12 @@ include "src/Dialect/ONNX/ONNXOps.td"
 // Common utility functions.
 //===----------------------------------------------------------------------===//
 
+def createNoneIntegerConstant : NativeCodeCall<
+  "createNoneIntegerConstant($_builder, $0.getDefiningOp()->getLoc())">;
+
+def createNoneFloatConstant : NativeCodeCall<
+  "createNoneFloatConstant($_builder, $0.getDefiningOp()->getLoc())">;
+
 // Create a DenseElementsAttr from a float attribute and an element type.
 def createDenseElementsAttrFromFloatAttr : NativeCodeCall<
   "createDenseElementsAttrFromFloatAttr($_builder, $0.getType().cast<ShapedType>().getElementType(), $1)">;
@@ -115,13 +121,17 @@ def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
 
 def NotNoneType : Constraint<CPred<"!($0.getType().isa<NoneType>())">>;
 
+def HasShapeAndRank : Constraint<CPred<"hasShapeAndRank($0)">>;
+
 def HasSameElementType : Constraint<
     CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
           "$1.cast<::mlir::TypeAttr>().getValue())">,
     "has same element type">;
 
 def AreTheSameAxisArray: Constraint<
-    CPred<"AreTheSameAxisArray($0.getType().cast<ShapedType>().getRank(), $1, $2)">,
+    CPred<"AreTheSameAxisArray("
+          "(hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
+          "$1, $2)">,
     "Two axis arrays are the same">;
 
 def HasSpecifiedConstantShape: Constraint<
@@ -137,7 +147,9 @@ def IsNotFromONNXConstantOp: Constraint<
     "Is a value not from ONNXConstantOp">;
 
 def AreTheSameConstantOpDenseAttr: Constraint<
-    CPred<"AreTheSameConstantOpDenseAttr($_builder, $0.getType().cast<ShapedType>().getRank(), $1, $2)">,
+    CPred<"AreTheSameConstantOpDenseAttr($_builder,"
+          "(hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
+          "$1, $2)">,
     "Two ConstantOps have the same dense attribute values">;
 
 class AllDimsFromAxisToEndAre<int axis, int val>: Constraint<
@@ -575,6 +587,20 @@ def ConstantOpNormalizationPattern6: Pat<
        $intsAttr, $stringAttr, $stringsAttr),
    (ONNXConstantOpNormalize $res, $stringsAttr),
    [(AttributeIsNotNull:$stringsAttr)]
+>;
+
+//def GetNullAttr : NativeCodeCall<"Attribute()">;
+
+def ResizeV10Pattern: Pat<
+   (ONNXResizeV10Op:$res $x, $scales, $mode),
+   (ONNXResizeOp $x, (createNoneFloatConstant $res),
+        $scales, (createNoneIntegerConstant $res),
+       /*coordinate_transformation_mode*/(GetNullStringAttr),
+       /*cubic_coeff_a*/(GetNullFloatAttr),
+       /*exclude_outside*/(GetNullIntegerAttr),
+       /*exttrapolation_value*/(GetNullFloatAttr),
+       /*mode*/$mode,
+       /*nearest_mode*/(GetNullStringAttr))
 >;
 
 #endif // ONNX_REWRITE
