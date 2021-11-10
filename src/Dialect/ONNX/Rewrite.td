@@ -129,7 +129,9 @@ def HasSameElementType : Constraint<
     "has same element type">;
 
 def AreTheSameAxisArray: Constraint<
-    CPred<"AreTheSameAxisArray($0.getType().cast<ShapedType>().getRank(), $1, $2)">,
+    CPred<"AreTheSameAxisArray("
+          "(hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
+          "$1, $2)">,
     "Two axis arrays are the same">;
 
 def HasSpecifiedConstantShape: Constraint<
@@ -145,7 +147,9 @@ def IsNotFromONNXConstantOp: Constraint<
     "Is a value not from ONNXConstantOp">;
 
 def AreTheSameConstantOpDenseAttr: Constraint<
-    CPred<"AreTheSameConstantOpDenseAttr($_builder, $0.getType().cast<ShapedType>().getRank(), $1, $2)">,
+    CPred<"AreTheSameConstantOpDenseAttr($_builder,"
+          "(hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
+          "$1, $2)">,
     "Two ConstantOps have the same dense attribute values">;
 
 class AllDimsFromAxisToEndAre<int axis, int val>: Constraint<
@@ -325,7 +329,7 @@ def RemoveSqueezeUnsqueezePattern:  Pat<
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(HasShapeAndRank $val), (AreTheSameConstantOpDenseAttr $val, $u_axes, $s_axes),
+  [(AreTheSameConstantOpDenseAttr $val, $u_axes, $s_axes),
    (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
 
 /// Combine squeeze and unsqueeze.
@@ -336,7 +340,7 @@ def RemoveSqueezeV11UnsqueezeV11Pattern:  Pat<
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(HasShapeAndRank $val), (AreTheSameAxisArray $val, $u_axes, $s_axes)]>;
+  [(AreTheSameAxisArray $val, $u_axes, $s_axes)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXUnsqueezeOp 
@@ -350,7 +354,7 @@ def RemoveUnsqueezeSqueezePattern:  Pat<
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(HasShapeAndRank $val), (AreTheSameConstantOpDenseAttr $res, $u_axes, $s_axes),
+  [(AreTheSameConstantOpDenseAttr $res, $u_axes, $s_axes),
    (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
 
 /// Combine unsqueeze and squeeze.
@@ -361,7 +365,7 @@ def RemoveUnsqueezeV11SqueezeV11Pattern:  Pat<
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(HasShapeAndRank $val), (AreTheSameAxisArray $res, $u_axes, $s_axes)]>;
+  [(AreTheSameAxisArray $res, $u_axes, $s_axes)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXBatchNormOp 
