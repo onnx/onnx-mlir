@@ -2289,3 +2289,40 @@ func @test_category_mapper_int64 (%arg0: tensor<20x1xi64>) -> tensor<*x!onnx.Str
   // CHECK: [[RES:%.+]] = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2, 3], cats_strings = ["cat", "dog", "human"], default_string = "unclassified" : !onnx.String} : (tensor<20x1xi64>) -> tensor<20x1x!onnx.String>
   // CHECK: return [[RES]] : tensor<20x1x!onnx.String>
 }
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for ScatterND.
+//===----------------------------------------------------------------------===//
+func @test_scatternd_int32(%arg0: tensor<8xi32>) -> tensor<*xi32> {
+  %1 = "onnx.Constant"() {value = dense<[[4], [3], [1], [7]]> : tensor<4x1xi64> } : () -> tensor<4x1xi64>
+  %2 = "onnx.Constant"() {value = dense<[9, 10, 11, 12]> : tensor<4xi32> } : () -> tensor<4xi32>
+  %3 = "onnx.ScatterND"(%arg0, %1, %2) : (tensor<8xi32>, tensor<4x1xi64>, tensor<4xi32>) ->  tensor<*xi32>
+  "std.return"(%3) : (tensor<*xi32>) -> ()
+
+  // CHECK-LABEL: test_scatternd_int32
+  // CHECK: [[R1:%.+]] = "onnx.Constant"() {{.*}}
+  // CHECK-NEXT: [[R2:%.+]] = "onnx.Constant"() {{.*}}
+  // CHECK-NEXT: [[RES:%.+]] = "onnx.ScatterND"(%arg0, [[R1]], [[R2]]) : (tensor<8xi32>, tensor<4x1xi64>, tensor<4xi32>) -> tensor<8xi32>
+  // CHECK-NEXT: return [[RES]] : tensor<8xi32>
+}
+
+// -----
+
+func @test_scatternd_float32(%arg0: tensor<4x4x4xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Constant"() {value = dense<[[0], [2]]> : tensor<2x1xi64> } : () -> tensor<2x1xi64>
+  %2 = "onnx.Constant"() {value = dense<[[[5., 5., 5., 5.], [6., 6., 6., 6.], [7., 7., 7., 7.], [8., 8., 8., 8.]],
+                                         [[1., 1., 1., 1.], [2., 2., 2., 2.], [3., 3., 3., 3.], [4., 4., 4., 4.]]]> : tensor<2x4x4xf32> } : () -> tensor<2x4x4xf32>
+  %3 = "onnx.ScatterND"(%arg0, %1, %2) : (tensor<4x4x4xf32>, tensor<2x1xi64>, tensor<2x4x4xf32>) ->  tensor<*xf32>
+  "std.return"(%3) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_scatternd_float32
+  // CHECK: [[R1:%.+]] = "onnx.Constant"() {{.*}}
+  // CHECK-NEXT: [[R2:%.+]] = "onnx.Constant"() {{.*}}
+  // CHECK-NEXT: [[RES:%.+]] = "onnx.ScatterND"(%arg0, [[R1]], [[R2]]) : (tensor<4x4x4xf32>, tensor<2x1xi64>, tensor<2x4x4xf32>) -> tensor<4x4x4xf32>
+  // CHECK-NEXT: return [[RES]] : tensor<4x4x4xf32>
+}
+
+// -----
+

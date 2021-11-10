@@ -5114,6 +5114,7 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXSeluOp:ONNX_Op<"Selu",
