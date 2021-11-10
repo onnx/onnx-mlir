@@ -2796,13 +2796,6 @@ LogicalResult ONNXResizeOp::inferShapes(
   return success();
 }
 
-// ONNXResizeV10 is expected to be rewritten to ONNXResizeOp
-LogicalResult ONNXResizeV10Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // This op will be rewritten into ONNXResize
-  return success();
-}
-
 //===----------------------------------------------------------------------===//
 // DynamicQuantizeLinear
 //===----------------------------------------------------------------------===//
@@ -4604,6 +4597,8 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV9Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV11Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV11Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV10Op);
 
 //===----------------------------------------------------------------------===//
 // Loop

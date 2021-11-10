@@ -18,6 +18,10 @@ include "src/Interface/ShapeInferenceOpInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"
 include "src/Interface/HasOnnxSubgraphOpInterface.td"
 
+
+// Definition for rewrite rules for onnx dialect
+// Can be used in other table gen files (.td) for onnx dialect
+
 def StringType : Type<CPred<"$_self.isa<StringType>()">, "string type">;
 
 def IsSeqTypePred : CPred<"$_self.isa<SeqType>()">;
@@ -28,6 +32,12 @@ class SeqOf<list<Type> allowedTypes> :
 
 def ONNXConstantOpFromDenseAttr: NativeCodeCall<
   "createONNXConstantOpWithDenseAttr($_builder, $_loc, $0)">;
+
+def createNoneIntegerConstant : NativeCodeCall<
+  "createNoneIntegerConstant($_builder, $0.getDefiningOp()->getLoc())">;
+
+def createNoneFloatConstant : NativeCodeCall<
+  "createNoneFloatConstant($_builder, $0.getDefiningOp()->getLoc())">;
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";
