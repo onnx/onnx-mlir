@@ -309,7 +309,6 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
 }
 
 int main(int argc, char *argv[]) {
-  setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
   llvm::cl::ParseCommandLineOptions(argc, argv, "TestLSTM\n", nullptr, "TEST_ARGS");

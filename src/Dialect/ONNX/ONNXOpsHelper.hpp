@@ -147,6 +147,9 @@ bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
 bool AreTheSameConstantOpDenseAttr(
     mlir::Builder &builder, int64_t rank, mlir::Value lhsOp, mlir::Value rhsOp);
 
+/// Test if 'val' has shape and rank or not.
+bool hasShapeAndRank(mlir::Value val);
+
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
 //===----------------------------------------------------------------------===//
