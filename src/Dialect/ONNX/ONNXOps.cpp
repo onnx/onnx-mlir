@@ -4690,22 +4690,6 @@ LogicalResult ONNXCustomOp::inferShapes(
   return success();
 }
 
-//===----------------------------------------------------------------------===//
-// CallOpOld
-//===----------------------------------------------------------------------===//
-/// Infer the output shape of the ONNXCallOp. This method is required by
-/// the shape inference interface.
-LogicalResult ONNXCallOpOld::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // getResult().setType(getOperand().getType());
-  return success();
-}
-void ONNXCallOpOld::build(mlir::OpBuilder &builder, mlir::OperationState &state,
-    mlir::FuncOp function, mlir::ValueRange inputs) {
-  state.addAttribute(
-      ONNXCallOpOld::getCalleeAttrName(), SymbolRefAttr::get(function));
-}
-
 LogicalResult ONNXCallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   // Check that the callee attribute was specified.
   auto fnAttr = (*this)->getAttrOfType<FlatSymbolRefAttr>("callee");
