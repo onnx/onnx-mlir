@@ -224,6 +224,27 @@ Value createONNXConstantOpWithDenseAttr(
   return builder.create<ONNXConstantOp>(loc, Attribute(), dense);
 }
 
+// Use 0xi64 to represent a None for an optional integer input
+Value createNoneIntegerConstant(PatternRewriter &rewriter, Location loc) {
+  SmallVector<int64_t, 1> dims(1, 0);
+  SmallVector<int64_t> values;
+  auto tensorType =
+      mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  auto denseAttr =
+      mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+}
+
+// Use 0xf32 to represent a None for an optional float input
+Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
+  SmallVector<int64_t, 1> dims(1, 0);
+  SmallVector<float> values;
+  auto tensorType = mlir::RankedTensorType::get(dims, rewriter.getF32Type());
+  auto denseAttr =
+      mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+}
+
 // Returns true if the Value is defined by none constant
 bool isFromNone(Value v) {
   if (v.getDefiningOp() && dyn_cast_or_null<ConstantOp>(v.getDefiningOp())) {

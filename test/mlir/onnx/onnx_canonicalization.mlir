@@ -576,17 +576,3 @@ func @test_fuse_add_conv(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf
     // CHECK: return [[RES]] : tensor<1x8x28x28xf32>
     // CHECK: }
 }
-
-// -----
-
-  func @test_resizev10(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<4xf32>) -> tensor<*xf32> {
-    %0 = "onnx.ResizeV10"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x2x3x4xf32>, tensor<4xf32>) -> tensor<*xf32>
-    return %0 : tensor<*xf32>
-// CHECK-LABEL:  func @test_resizev10
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x3x4xf32>, [[PARAM_1_:%.+]]: tensor<4xf32>) -> tensor<*xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<> : tensor<0xi64>} : () -> tensor<0xi64>
-// CHECK:           [[VAR_2_:%.+]] = "onnx.Resize"([[PARAM_0_]], [[VAR_0_]], [[PARAM_1_]], [[VAR_1_]]) {mode = "nearest"} : (tensor<1x2x3x4xf32>, tensor<0xf32>, tensor<4xf32>, tensor<0xi64>) -> tensor<*xf32>
-// CHECK:           return [[VAR_2_]] : tensor<*xf32>
-  }
-
