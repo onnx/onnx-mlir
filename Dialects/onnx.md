@@ -5012,6 +5012,67 @@ ONNX Resize operation
 | :----: | ----------- |
 `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
 
+### `onnx.ResizeV10` (::mlir::ONNXResizeV10Op)
+
+ONNX Resize operation
+
+"Resize the input tensor."
+"Each dimension value of the output tensor is:"
+"  output_dimension = floor(input_dimension * scale)."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`mode` | ::mlir::StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+`scales` | tensor of 32-bit float values or memref of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+
+### `onnx.ResizeV11` (::mlir::ONNXResizeV11Op)
+
+ONNX Resize operation
+
+"Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor."
+"Each dimension value of the output tensor is:"
+"  output_dimension = floor(input_dimension * (roi_end - roi_start) * scale) if input \\"sizes\\" is not specified."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`coordinate_transformation_mode` | ::mlir::StringAttr | string attribute
+`cubic_coeff_a` | ::mlir::FloatAttr | 32-bit float attribute
+`exclude_outside` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`extrapolation_value` | ::mlir::FloatAttr | 32-bit float attribute
+`mode` | ::mlir::StringAttr | string attribute
+`nearest_mode` | ::mlir::StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+`roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values
+`scales` | tensor of 32-bit float values or memref of any type values
+`sizes` | tensor of 64-bit signless integer values or memref of any type values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+
 ### `onnx.Return` (::mlir::ONNXReturnOp)
 
 ONNX return operation
