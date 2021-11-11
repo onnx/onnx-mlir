@@ -899,6 +899,7 @@ func @test_prelu_broadcast4(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf32>) 
 }
 
 // -----
+
 // COM: 2D matmul.
 func private @test_matmul1(%arg0 : tensor<16x16xf32>, %arg1 : tensor<16x16xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<16x16xf32>, tensor<16x16xf32>) -> tensor<*xf32>
@@ -926,6 +927,7 @@ func private @test_matmul1(%arg0 : tensor<16x16xf32>, %arg1 : tensor<16x16xf32>)
 }
 
 // -----
+
 // 2-D x N-D
 func private @test_matmul2(%arg0 : tensor<10x5xf32>, %arg1 : tensor<2x3x5x10xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<10x5xf32>, tensor<2x3x5x10xf32>) -> tensor<*xf32>
@@ -1188,8 +1190,6 @@ func private @test_pool_unknown_dimensions(%arg0 : tensor<1x3x?x32xf32>) -> tens
 func private @test_conv_unknown_dimensions(%arg0 : tensor<?x?x?x?xf32>, %arg1 : tensor<5x2x6x7xf32>, %arg2 : tensor<5xf32>) -> tensor<*xf32> {
   %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<?x?x?x?xf32>, tensor<5x2x6x7xf32>, tensor<5xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
-
-
 
 // mlir2FileCheck.py -a'["image", "filter", "bias"]'
 // CHECK-LABEL:  func private @test_conv_unknown_dimensions
