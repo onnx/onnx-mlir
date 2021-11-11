@@ -614,6 +614,145 @@ public:
   }
 };
 
+// https://github.com/onnx/onnx/blob/master/docs/Changelog.md#ScatterND-13
+/*
+ * output = np.copy(data)
+ * update_indices = indices.shape[:-1]
+ * for idx in np.ndindex(update_indices):
+ *     output[indices[idx]] = updates[idx]
+ */
+std::vector<mlir::Attribute> ScatterNDImpl(mlir::ShapedType data_type,
+    mlir::DenseElementsAttr data_value, mlir::ShapedType indices_type,
+    mlir::DenseElementsAttr indices_value, mlir::ShapedType updates_type,
+    mlir::DenseElementsAttr updates_value) {
+  auto data_shape = data_type.getShape();
+  auto indices_shape = indices_type.getShape();
+  auto updates_shape = updates_type.getShape();
+
+  // the output shape keep same with data, so fill with input data temporarily
+  std::vector<mlir::Attribute> output_data;
+  for (Attribute v : data_value.getValues<mlir::Attribute>()) {
+    output_data.push_back(v);
+  }
+
+  std::vector<int64_t> indices_data;
+  for (int64_t v : indices_value.getValues<int64_t>()) {
+    indices_data.push_back(v);
+  }
+
+  std::vector<mlir::Attribute> updates_data;
+  for (mlir::Attribute v : updates_value.getValues<mlir::Attribute>()) {
+    updates_data.push_back(v);
+  }
+
+  int32_t n_slices = 1;
+  int32_t slice_size = 1;
+
+  int32_t outer_dims = indices_shape.size() - 1;
+  int32_t indices_nd = indices_shape[outer_dims];
+  int32_t updates_dims = updates_shape.size();
+
+  for (int32_t i = 0; i < outer_dims; i++) {
+    n_slices *= indices_shape[i];
+  }
+
+  for (int32_t i = outer_dims; i < updates_dims; ++i) {
+    slice_size *= updates_shape[i];
+  }
+
+  auto flat_size = [](ArrayRef<int64_t> &shape) -> int64_t {
+    int64_t total = 1;
+    for (auto dim : shape)
+      total *= dim;
+    return total;
+  };
+
+  int32_t output_flat_size = static_cast<int32_t>(flat_size(data_shape));
+  int32_t remain_flat_size = output_flat_size;
+  std::vector<int32_t> dims_to_count(indices_nd, 0);
+
+  for (int32_t i = 0; i < indices_nd; ++i) {
+    dims_to_count[i] = remain_flat_size / data_shape[i];
+    remain_flat_size = dims_to_count[i];
+  }
+
+  for (int32_t i = 0; i < n_slices; ++i) {
+    int32_t to_pos = 0;
+    for (int32_t j = 0; j < indices_nd; ++j) {
+      int64_t idx = indices_data[i * indices_nd + j];
+      assert(0 <= idx && idx < data_shape[j]);
+      to_pos += idx * dims_to_count[j];
+    }
+    for (int32_t j = 0; j < slice_size; j++) {
+      output_data[to_pos + j] = updates_data[i * slice_size + j];
+    }
+  }
+  return output_data;
+}
+
+class ConstPropScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
+public:
+  using OpRewritePattern<ONNXScatterNDOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXScatterNDOp scatterNdOp, PatternRewriter &rewriter) const override {
+    // Match
+    if (!scatterNdOp.getResult()
+             .getType()
+             .template dyn_cast_or_null<RankedTensorType>())
+      return failure();
+
+    auto data_op =
+        dyn_cast_or_null<ONNXConstantOp>(scatterNdOp.data().getDefiningOp());
+    if (!data_op)
+      return failure();
+
+    auto indices_op =
+        dyn_cast_or_null<ONNXConstantOp>(scatterNdOp.indices().getDefiningOp());
+    if (!indices_op)
+      return failure();
+
+    auto updates_op =
+        dyn_cast_or_null<ONNXConstantOp>(scatterNdOp.updates().getDefiningOp());
+    if (!updates_op)
+      return failure();
+
+    auto data_type = scatterNdOp.data().getType().cast<mlir::ShapedType>();
+    auto indices_type =
+        scatterNdOp.indices().getType().cast<mlir::ShapedType>();
+    auto updates_type =
+        scatterNdOp.updates().getType().cast<mlir::ShapedType>();
+
+    if (!data_type || !indices_type || !updates_type ||
+        !indices_type.hasStaticShape() || !data_type.hasStaticShape() ||
+        !updates_type.hasStaticShape()) {
+      return failure();
+    }
+
+    mlir::DenseElementsAttr data_value =
+        data_op->getAttrOfType<mlir::DenseElementsAttr>("value");
+    mlir::DenseElementsAttr indices_value =
+        indices_op->getAttrOfType<mlir::DenseElementsAttr>("value");
+    mlir::DenseElementsAttr updates_value =
+        updates_op->getAttrOfType<mlir::DenseElementsAttr>("value");
+
+    auto output_data = ScatterNDImpl(data_type, data_value, indices_type,
+        indices_value, updates_type, updates_value);
+    mlir::DenseElementsAttr result = mlir::DenseElementsAttr::get(
+        scatterNdOp.data().getType().cast<mlir::RankedTensorType>(),
+        llvm::makeArrayRef(output_data));
+
+    // Rewrite
+    ONNXConstantOp gen_const_op =
+        rewriter.create<ONNXConstantOp>(scatterNdOp.getOperation()->getLoc(),
+            mlir::DenseElementsAttr(), result);
+
+    SmallVector<Value, 1> op_repl_values(1, gen_const_op.getResult());
+    rewriter.replaceOp(scatterNdOp, op_repl_values);
+    return success();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
@@ -649,7 +788,7 @@ void ConstPropONNXToONNXPass::runOnFunction() {
   populateWithGenerated(patterns);
   patterns.insert<ConstPropSplitPattern>(&getContext());
   patterns.insert<ConstPropSplitV11Pattern>(&getContext());
-
+  patterns.insert<ConstPropScatterNDPattern>(&getContext());
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 
