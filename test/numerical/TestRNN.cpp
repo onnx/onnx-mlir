@@ -216,7 +216,6 @@ bool isOMRNNTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 }
 
 int main(int argc, char *argv[]) {
-  setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
   llvm::cl::ParseCommandLineOptions(argc, argv, "TestRNN\n", nullptr, "TEST_ARGS");

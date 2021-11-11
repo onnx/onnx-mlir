@@ -116,6 +116,11 @@ mlir::DenseElementsAttr getDenseElementAttributeFromONNXValue(
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
 mlir::Value createONNXConstantOpWithDenseAttr(
     mlir::OpBuilder &builder, mlir::Location loc, mlir::Attribute dense);
+mlir::Value createNoneIntegerConstant(
+    mlir::PatternRewriter &rewriter, mlir::Location loc);
+mlir::Value createNoneFloatConstant(
+    mlir::PatternRewriter &rewriter, mlir::Location loc);
+
 bool isFromNone(mlir::Value value);
 mlir::Type getBroadcastedRankedType(mlir::Type type1, mlir::Type type2);
 
@@ -141,6 +146,9 @@ bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
 /// Test if two constant ops contain the same values or not.
 bool AreTheSameConstantOpDenseAttr(
     mlir::Builder &builder, int64_t rank, mlir::Value lhsOp, mlir::Value rhsOp);
+
+/// Test if 'val' has shape and rank or not.
+bool hasShapeAndRank(mlir::Value val);
 
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.

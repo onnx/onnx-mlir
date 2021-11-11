@@ -9,33 +9,24 @@ In the example below, we assume that we add support for the Concat ONNX operatio
 
 ## Generate the proper ONNX.td.inc
 
-The first step is to add support so that MLIR can determine the output type and shape from its input variables and parameters. This step is called “Shape Inference.” The first step is to indicate in the automatically generated `ONNXOps.td.inc` that the new operation needs to implement the shape inference interface method.
+The first step is to add support so that MLIR can determine the output type and shape from its input variables and parameters. This step is called “Shape Inference.” The first step is to check if the new operation needs support for  special handling, such as support for canonical forms or special parsing tools. If that is the case, the script that automatically generates the `ONNXOps.td.inc` file will need to be updated.  The script file is named [gen_onnx_mlir.py](../utils/gen_onnx_mlir.py). Detailed list of customization is described [here](ImportONNXDefs.md#customization).
 
-In the `utils/gen_doc.py` file, locate the `OpsWithShapeInference` python list and add your operation to it. For concat, we added the following:
-
-```
-OpsWithShapeInference = [
-    'Exp', 'Tanh', 'Sinh', 'Cosh', 'Sigmoid', 'Relu', 'Add', 'Mul', 'Div',
-    'Sub', 'And', 'Or', 'Xor', 'Sum', 'Max', 'Min', 'MatMul', 'Gemm',
-    'LeakyRelu', 'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
-    'Identity', 'Cos', 'Log', 'Transpose', 'Softmax', 'ReduceMax', 'ReduceMin',
-    'ReduceProd', 'ReduceSum', 'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze',
-    'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat'
-]
-```
-
-If the new operation needs support for other special handling, such as support for canonical forms or special parsing tools, the new operation will have to be added to such lists as well.
-
-Most operations have constraints on their input and parameters. The best way to test for these are in a verifier. Locate the array below and add your new operation in it.
+Most operations have constraints on their input and parameters. The best way to test for these are in a verifier. Locate the array below in `gen_onnx_mlir.py` and add your new operation in it.
 ```
 OpsWithVerifier = ['AveragePool', 'Conv', 'InstanceNormalization', 'Mod']
 ```
 
-The next step will be to invoke the modified `gen_doc.py` file. For this operation, consult the help [here](https://github.com/onnx/onnx-mlir/blob/master/docs/ImportONNXDefs.md)
+The next step will be to invoke the modified `gen_onnx_mlir.py` file. For this operation, consult the help [here](ImportONNXDefs.md).
 
 ## Add verifier
 
-You will need to add code in the `src/Dialect/ONNX/ONNXOps.cpp` when the new op was declared as using a verifier.  Best is to look at other operations to get the general pattern, by searching for `static LogicalResult verify(ONNXInstanceNormalizationOp op)`, for example. Note that a verifier will execute each time that one such op is created. So you will need to ensure that it can work with tensors and MemRefs, and possibly unranked tensors. So guard each of your tests to the proper circumstances. For examples, once a tensor is ranked, you may then verify that the rank is within the approved range (if there is such a constraint); before it is ranked, do not perform this test yet.
+You will need to add code in the `src/Dialect/ONNX/ONNXOps.cpp` when the new op was declared as using a verifier.  Best is to look at other operations to get the general pattern, by searching for [static LogicalResult verify(ONNXInstanceNormalizationOp op)](../src/Dialect/ONNX/ONNXOps.cpp), for example. Note that a verifier will execute each time that one such op is created. So you will need to ensure that it can work with tensors and MemRefs, and possibly unranked tensors. So guard each of your tests to the proper circumstances. For examples, once a tensor is ranked, you may then verify that the rank is within the approved range (if there is such a constraint); before it is ranked, do not perform this test yet.
+
+Tips:
+* Use `operandAdaptor` object to get the inputs (must use  `operandAdaptor` to get the current values of the inputs) and the `op` object to get the attributes (can use `op` because attributes are typically immutable). 
+* Use `hasShapeAndRank(X)` to test if `X` input is currently shaped and ranked. If not, return success as we will get a chance later to test the operation with this info. Note that some inputs may be scalar too, in which case they may or may not be encoded as a shape type.
+* You can then use MLIR call `X.getType().cast<ShapedType>()` to get a shape types, for which you can get the rank and the dimensions. At this time, we only check dimension validity for values known at runtime. Unknown dimensions are encoded as a negative number. Please only use the cast when you are sure that it will not assert, i.e. the type is indeed a `ShapedType`.
+* When you find an error, report it with a friendly error message using `op->emitError(msg)`.
 
 ## Add shape inference
 
@@ -53,7 +44,7 @@ Once it is invoked, you will need to add literal tests in ` test/mlir/onnx/onnx_
 
 ## Lowering to krnl dialect
 
-Files related to the lowering of the new operations resides in the `src/Conversion/ONNXtoKRNL` directory and subdirectories. For the `concat` operation, we added code to lower it to krnl dialect in the ` src/Conversion/ONNXToKrnl/Tensor/concat.cpp` file. See other similar lowering for inspiration. We suggest to use `assert` statements for any unexpected values encountered while lowering the operation, as illegal parameter values should be caught in the shape inference phase, not successive passes such as lowering to the krnl dialect.
+Files related to the lowering of the new operations resides in the `src/Conversion/ONNXtoKRNL` directory and subdirectories. For the `concat` operation, we added code to lower it to krnl dialect in the `src/Conversion/ONNXToKrnl/Tensor/concat.cpp` file. See other similar lowering for inspiration. We suggest to use `assert` statements for any unexpected values encountered while lowering the operation, as illegal parameter values should be caught in the shape inference phase, not successive passes such as lowering to the krnl dialect.
 
 In that file, the `populateLoweringONNXConcatOpPattern` operation (where `Concat` would be replaced with the actual new operation) will need to be defined in ` src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp` and invoked in the ` runOnOperation` function in the ` src/Conversion/ONNXToKrnl/ConvertONNXToKrnl.cpp` file.
 
@@ -71,11 +62,6 @@ When adding new tests in the `test.py` file, make sure to also include the appro
 ```
 enables a new test, `test_erf_cpu`, where all inputs may accommodate a fully dynamic input. See [here](Testing.md) for more details.
 
-## Update your operation’s status
-
-The operation’s status should be updated in the [Sharing work file](https://github.com/onnx/onnx-mlir/blob/master/SharingWork.md).
-
 Tests are executed by the `make check-onnx-backend` command in the build directory. Additionally, `make check-onnx-backend-dynamic` and `make check-onnx-backend-constant` will further test the new operations with, respectively, dynamic and constant inputs.
-
 
 

@@ -23,25 +23,6 @@ using namespace mlir;
 
 namespace {
 
-Value createNoneIntegerConstant(PatternRewriter &rewriter, Location loc) {
-  SmallVector<int64_t, 1> dims(1, 0);
-  SmallVector<int64_t> values;
-  auto tensorType =
-      mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  auto denseAttr =
-      mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
-  return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
-}
-
-Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
-  SmallVector<int64_t, 1> dims(1, 0);
-  SmallVector<float> values;
-  auto tensorType = mlir::RankedTensorType::get(dims, rewriter.getF32Type());
-  auto denseAttr =
-      mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
-  return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
-}
-
 // If 'lhs' is not NoneType, return 'lhs - rhs'.
 // If 'lhs' is not NoneType, return 'lhs - rhs'.
 // Otherwise, return '-rhs'.
@@ -183,9 +164,4 @@ void ONNXConstantOp::getCanonicalizationPatterns(
   results.insert<ConstantOpNormalizationPattern4>(context);
   results.insert<ConstantOpNormalizationPattern5>(context);
   results.insert<ConstantOpNormalizationPattern6>(context);
-}
-
-void ONNXResizeV10Op::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<ResizeV10Pattern>(context);
 }
