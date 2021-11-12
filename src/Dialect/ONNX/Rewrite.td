@@ -115,13 +115,17 @@ def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
 
 def NotNoneType : Constraint<CPred<"!($0.getType().isa<NoneType>())">>;
 
+def HasShapeAndRank : Constraint<CPred<"hasShapeAndRank($0)">>;
+
 def HasSameElementType : Constraint<
     CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
           "$1.cast<::mlir::TypeAttr>().getValue())">,
     "has same element type">;
 
 def AreTheSameAxisArray: Constraint<
-    CPred<"AreTheSameAxisArray($0.getType().cast<ShapedType>().getRank(), $1, $2)">,
+    CPred<"AreTheSameAxisArray("
+          "(hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
+          "$1, $2)">,
     "Two axis arrays are the same">;
 
 def HasSpecifiedConstantShape: Constraint<
@@ -137,7 +141,9 @@ def IsNotFromONNXConstantOp: Constraint<
     "Is a value not from ONNXConstantOp">;
 
 def AreTheSameConstantOpDenseAttr: Constraint<
-    CPred<"AreTheSameConstantOpDenseAttr($_builder, $0.getType().cast<ShapedType>().getRank(), $1, $2)">,
+    CPred<"AreTheSameConstantOpDenseAttr($_builder,"
+          "(hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
+          "$1, $2)">,
     "Two ConstantOps have the same dense attribute values">;
 
 class AllDimsFromAxisToEndAre<int axis, int val>: Constraint<

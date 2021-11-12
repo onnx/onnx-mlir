@@ -220,8 +220,29 @@ ONNXConstantOp getONNXConstantOp(Value value) {
 }
 
 Value createONNXConstantOpWithDenseAttr(
-    PatternRewriter &rewriter, Location loc, Attribute dense) {
-  return rewriter.create<ONNXConstantOp>(loc, Attribute(), dense);
+    OpBuilder &builder, Location loc, Attribute dense) {
+  return builder.create<ONNXConstantOp>(loc, Attribute(), dense);
+}
+
+// Use 0xi64 to represent a None for an optional integer input
+Value createNoneIntegerConstant(PatternRewriter &rewriter, Location loc) {
+  SmallVector<int64_t, 1> dims(1, 0);
+  SmallVector<int64_t> values;
+  auto tensorType =
+      mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  auto denseAttr =
+      mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+}
+
+// Use 0xf32 to represent a None for an optional float input
+Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
+  SmallVector<int64_t, 1> dims(1, 0);
+  SmallVector<float> values;
+  auto tensorType = mlir::RankedTensorType::get(dims, rewriter.getF32Type());
+  auto denseAttr =
+      mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
 // Returns true if the Value is defined by none constant
@@ -302,24 +323,23 @@ bool IsIdentityPermuteVector(ArrayAttr permAttr) {
 
 /// Test if the value has the specified constant shape
 bool HasSpecifiedConstantShape(Value value, Value shape) {
-  if (!value.getType().isa<ShapedType>()) {
+  if (!hasShapeAndRank(value) || !hasShapeAndRank(shape))
     return false;
-  }
+
   ArrayRef<int64_t> valueShape = value.getType().cast<ShapedType>().getShape();
   DenseElementsAttr shapeAttr = getDenseElementAttributeFromONNXValue(shape);
-  if (shapeAttr == nullptr) {
+  if (shapeAttr == nullptr)
     return false;
-  }
+
   int64_t dimensionsOfShape = shapeAttr.getType().getShape()[0];
-  if ((int64_t)valueShape.size() != dimensionsOfShape) {
+  if ((int64_t)valueShape.size() != dimensionsOfShape)
     return false;
-  }
+
   auto valueIt = shapeAttr.getValues<APInt>().begin();
   for (int64_t i = 0; i < dimensionsOfShape; i++) {
     int64_t value = (*valueIt++).getSExtValue();
-    if (valueShape[i] != value) {
+    if (valueShape[i] != value)
       return false;
-    }
   }
   return true;
 }
@@ -368,6 +388,12 @@ bool AreTheSameConstantOpDenseAttr(
   } else {
     return false;
   }
+}
+
+/// Test if 'val' has shape and rank or not.
+bool hasShapeAndRank(Value val) {
+  return val.getType().isa<ShapedType>() &&
+         val.getType().cast<ShapedType>().hasRank();
 }
 
 //===----------------------------------------------------------------------===//

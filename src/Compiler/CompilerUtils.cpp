@@ -140,6 +140,20 @@ static bool keepFiles(KeepFilesOfType preserve) {
   return false;
 }
 
+string getExecPath() {
+  // argv0 is only used as a fallback for rare environments
+  // where /proc isn't mounted and mainExecAddr is only needed for
+  // unknown unix-like platforms
+  auto execPath = llvm::sys::fs::getMainExecutable(nullptr, nullptr);
+  if (execPath.empty()) {
+    std::cerr << "Warning: Could not find path to current executable, falling "
+                 "back to default install path: "
+              << kExecPath << std::endl;
+    return kExecPath;
+  }
+  return execPath;
+}
+
 // Runtime directory contains all the libraries, jars, etc. that are
 // necessary for running onnx-mlir. It's resolved in the following order:
 //
@@ -156,7 +170,7 @@ string getRuntimeDir() {
   if (envDir && llvm::sys::fs::exists(envDir.getValue()))
     return envDir.getValue();
 
-  string execDir = llvm::sys::path::parent_path(kExecPath).str();
+  string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   if (llvm::sys::path::stem(execDir).str().compare("bin") == 0) {
     string p = execDir.substr(0, execDir.size() - 3);
     if (llvm::sys::fs::exists(p + "lib64"))
@@ -194,7 +208,7 @@ string getRuntimeDir() {
 // removed. So we force CMAKE_INSTALL_PREFIX to be the same as that of
 // llvm-project.
 string getToolPath(string tool) {
-  string execDir = llvm::sys::path::parent_path(kExecPath).str();
+  string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   llvm::SmallString<8> toolPath(execDir);
   llvm::sys::path::append(toolPath, tool);
   string p = llvm::StringRef(toolPath).str();
@@ -267,12 +281,6 @@ struct Command {
   }
 };
 } // namespace
-
-void setExecPath(const char *argv0, void *fmain) {
-  string p;
-  if (!(p = llvm::sys::fs::getMainExecutable(argv0, fmain)).empty())
-    kExecPath = p;
-}
 
 void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }

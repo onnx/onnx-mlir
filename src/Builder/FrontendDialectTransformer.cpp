@@ -25,6 +25,7 @@
 
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Debug.h"
 
 SUPPRESS_WARNINGS_PUSH
 #include "onnx/checker.h"
@@ -37,6 +38,12 @@ SUPPRESS_WARNINGS_POP
 #include <iostream>
 #include <map>
 #include <type_traits>
+
+#define DEBUG_TYPE "frontend_dialect_transformer"
+
+/// We consider opset < 6 is old. Users will see a warning if their model
+/// contains ops of old opset.
+static constexpr int32_t MINIMUM_SUPPORTED_OPSET = 6;
 
 using namespace mlir;
 
@@ -974,6 +981,16 @@ private:
       return std::string("");
     }
     auto current_opset = opset_map_.find(node.domain())->second;
+
+    if (current_opset < MINIMUM_SUPPORTED_OPSET)
+      llvm::outs() << "Warning: ONNX " << node.op_type()
+                   << " in your model is using Opset " << current_opset
+                   << ", which is quite old. Please consider regenerating your "
+                      "model with a newer Opset.\n";
+    LLVM_DEBUG(llvm::dbgs()
+               << DEBUG_TYPE << ": Importing ONNX " << node.op_type()
+               << ", Opset: " << current_opset << "\n");
+
     // Custom ops may not be present in op_dialect_version_map_. If no version
     // info is found, treat as unversioned (no renaming).
     auto opset_list_it = op_dialect_version_map_.find(node.op_type());
@@ -987,6 +1004,8 @@ private:
         return std::string("");
       for (int i = opset_list.size() - 1; i > 0; i--) {
         if (current_opset < opset_list[i - 1]) {
+          LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ":   - use Opset "
+                                  << opset_list[i] << "\n");
           return "V" + std::to_string(opset_list[i]);
         }
       }
@@ -1153,7 +1172,7 @@ private:
     builder_.restoreInsertionPoint(prev_ip);
 
     // Generate call statement
-    auto op = builder_.create<CallOp>(UnknownLoc(), funcOp, operands);
+    auto op = builder_.create<ONNXCallOp>(UnknownLoc(), funcOp, operands);
     int result_num = 0;
     for (auto &v : node.output()) {
       BindOnnxName(v, op.getResult(result_num++));

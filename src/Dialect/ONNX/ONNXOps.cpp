@@ -36,15 +36,6 @@ using namespace mlir::OpTrait::util;
 using namespace mlir::onnxmlir;
 
 //===----------------------------------------------------------------------===//
-// ONNX Helper functions for verify
-//===----------------------------------------------------------------------===//
-
-static bool hasShapeAndRank(Value val) {
-  return val.getType().isa<ShapedType>() &&
-         val.getType().cast<ShapedType>().hasRank();
-}
-
-//===----------------------------------------------------------------------===//
 // ONNX Helper functions for shape helpers
 //===----------------------------------------------------------------------===//
 
@@ -2739,14 +2730,19 @@ LogicalResult ONNXResizeOp::inferShapes(
   }
 
   if (isFromNone(scales()) == isFromNone(sizes())) {
-    return emitError("scales() and sizes() can not both None/not None");
+    if (isFromNone(scales()))
+      return emitError("scales() and sizes() can not be both None");
+    else
+      return emitError("scales() and sizes() can not be both defined");
   }
 
   if (!(mode() == "nearest" &&
           (coordinate_transformation_mode() == "half_pixel" ||
               coordinate_transformation_mode() == "asymmetric"))) {
     return emitError("these modes() or coordinate_transformation_mode() not "
-                     "implemented yet");
+                     "implemented yet. mode: " +
+                     mode() + " coordinate_transformation_mode: " +
+                     coordinate_transformation_mode());
   }
 
   // Current implementation handles constant scales only
@@ -4217,9 +4213,41 @@ LogicalResult ONNXScatterElementsOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXScatterNDOp op) {
+  ONNXScatterNDOpAdaptor operandAdaptor(op);
+  // Get operands.
+  mlir::Value data = operandAdaptor.data();
+  mlir::Value indices = operandAdaptor.indices();
+  mlir::Value updates = operandAdaptor.updates();
+
+  // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(data) || !hasShapeAndRank(indices) ||
+      !hasShapeAndRank(updates))
+    return success();
+
+  int64_t data_rank = data.getType().cast<mlir::ShapedType>().getRank();
+  int64_t indices_rank = indices.getType().cast<mlir::ShapedType>().getRank();
+  int64_t updates_rank = updates.getType().cast<mlir::ShapedType>().getRank();
+  int32_t indices_last_dim =
+      indices.getType().cast<mlir::ShapedType>().getShape()[indices_rank - 1];
+
+  if (data_rank < 1)
+    return op->emitError("data rank should >= 1");
+  if (indices_rank < 1)
+    return op->emitError("indices rank should >= 1");
+  if (updates_rank != (data_rank + indices_rank - indices_last_dim - 1))
+    return op->emitError("updates rank not meet the op spec");
+
+  return success();
+}
+
 LogicalResult ONNXScatterNDOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!data().getType().isa<mlir::RankedTensorType>())
+    return success();
+
+  getResult().setType(data().getType());
+  return success();
 }
 
 LogicalResult ONNXSequenceAtOp::inferShapes(
@@ -4560,6 +4588,8 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV9Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV11Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV11Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV10Op);
 
 //===----------------------------------------------------------------------===//
 // Loop
@@ -4660,6 +4690,44 @@ LogicalResult ONNXCustomOp::inferShapes(
   return success();
 }
 
+LogicalResult ONNXCallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
+  // Check that the callee attribute was specified.
+  auto fnAttr = (*this)->getAttrOfType<FlatSymbolRefAttr>("callee");
+  if (!fnAttr)
+    return emitOpError("requires a 'callee' symbol reference attribute");
+  FuncOp fn = symbolTable.lookupNearestSymbolFrom<FuncOp>(*this, fnAttr);
+  if (!fn)
+    return emitOpError() << "'" << fnAttr.getValue()
+                         << "' does not reference a valid function";
+
+  // Verify that the operand and result types match the callee.
+  auto fnType = fn.getType();
+  if (fnType.getNumInputs() != getNumOperands())
+    return emitOpError("incorrect number of operands for callee");
+
+  for (unsigned i = 0, e = fnType.getNumInputs(); i != e; ++i)
+    if (getOperand(i).getType() != fnType.getInput(i))
+      return emitOpError("operand type mismatch: expected operand type ")
+             << fnType.getInput(i) << ", but provided "
+             << getOperand(i).getType() << " for operand number " << i;
+
+  if (fnType.getNumResults() != getNumResults())
+    return emitOpError("incorrect number of results for callee");
+
+  for (unsigned i = 0, e = fnType.getNumResults(); i != e; ++i)
+    if (getResult(i).getType() != fnType.getResult(i)) {
+      auto diag = emitOpError("result type mismatch at index ") << i;
+      diag.attachNote() << "      op result types: " << getResultTypes();
+      diag.attachNote() << "function result types: " << fnType.getResults();
+      return diag;
+    }
+
+  return success();
+}
+
+FunctionType ONNXCallOp::getCalleeType() {
+  return FunctionType::get(getContext(), getOperandTypes(), getResultTypes());
+}
 //===----------------------------------------------------------------------===//
 // PrintTensorsOp
 //===----------------------------------------------------------------------===//
