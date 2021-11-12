@@ -40,19 +40,21 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     createKrnl.iterateIE(outerLoops, outerLoops, outerLbs,
         shapeHelper.dimsForOutput(0),
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
-          MemRefBuilder createMemRef(createKrnl);
-          MathBuilder createMath(createKrnl);
+          MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+              createKrnl);
           // Single scalar, no need for default alignment.
           Value reductionVal =
-              createMemRef.alignedAlloca(MemRefType::get({}, elementType));
-          createKrnl.store(fzero, reductionVal);
+              create.mem.alignedAlloca(MemRefType::get({}, elementType));
+          create.krnl.store(fzero, reductionVal);
           int aRank = shapeHelper.aDims.size();
           int bRank = aRank; // Add for better readability.
-          ValueRange innerLoop = createKrnl.defineLoops(1);
+          ValueRange innerLoop = create.krnl.defineLoops(1);
           Value innerUb = shapeHelper.aDims[aRank - 1].getValue();
-          Value izero = createMath.constantIndex(0);
-          createKrnl.iterate(innerLoop, innerLoop, {izero}, {innerUb},
+          Value izero = create.math.constantIndex(0);
+          create.krnl.iterate(innerLoop, innerLoop, {izero}, {innerUb},
               [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
+                MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
+                    createKrnl);
                 Value k = innerIndex[0];
                 SmallVector<Value, 4> aAccessFct, bAccessFct;
                 for (int i = 0; i < aRank; ++i) {
@@ -84,16 +86,17 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
                   }
                 }
                 // Add mat mul operation.
-                Value loadedA = createKrnl.load(operandAdaptor.A(), aAccessFct);
-                Value loadedB = createKrnl.load(operandAdaptor.B(), bAccessFct);
-                Value loadedY = createKrnl.load(reductionVal);
-                MathBuilder createMath(createKrnl);
-                Value AB = createMath.mul(loadedA, loadedB);
-                Value accumulated = createMath.add(loadedY, AB);
-                createKrnl.store(accumulated, reductionVal);
+                Value loadedA =
+                    create.krnl.load(operandAdaptor.A(), aAccessFct);
+                Value loadedB =
+                    create.krnl.load(operandAdaptor.B(), bAccessFct);
+                Value loadedY = create.krnl.load(reductionVal);
+                Value AB = create.math.mul(loadedA, loadedB);
+                Value accumulated = create.math.add(loadedY, AB);
+                create.krnl.store(accumulated, reductionVal);
               });
-          Value accumulated = createKrnl.load(reductionVal);
-          createKrnl.store(accumulated, alloc, outerIndices);
+          Value accumulated = create.krnl.load(reductionVal);
+          create.krnl.store(accumulated, alloc, outerIndices);
         });
   }
 
@@ -106,16 +109,15 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
-    KrnlBuilder createKrnl(rewriter, loc);
-    MemRefBuilder createMemRef(createKrnl);
-    MathBuilder createMath(createKrnl);
-    Value zero = createMath.constantIndex(0);
-    Value I = createMemRef.dim(C, 0);
-    Value J = createMemRef.dim(C, 1);
-    Value K = createMemRef.dim(A, 1);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+    Value zero = create.math.constantIndex(0);
+    Value I = create.mem.dim(C, 0);
+    Value J = create.mem.dim(C, 1);
+    Value K = create.mem.dim(A, 1);
 
     // Initialize alloc/C to zero.
-    createKrnl.memset(alloc, zeroVal);
+    create.krnl.memset(alloc, zeroVal);
 
     // Compute.
     // Define blocking, with simdization along the j axis.
@@ -151,17 +153,17 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     }
 
     // I, J, K loop.
-    ValueRange origLoop = createKrnl.defineLoops(3);
+    ValueRange origLoop = create.krnl.defineLoops(3);
     Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
     // Define blocked loop and permute.
-    ValueRange iRegBlock = createKrnl.block(ii, iRegTile);
+    ValueRange iRegBlock = create.krnl.block(ii, iRegTile);
     Value ii1(iRegBlock[0]), ii2(iRegBlock[1]);
-    ValueRange jRegBlock = createKrnl.block(jj, jRegTile);
+    ValueRange jRegBlock = create.krnl.block(jj, jRegTile);
     Value jj1(jRegBlock[0]), jj2(jRegBlock[1]);
-    ValueRange kRegBlock = createKrnl.block(kk, kRegTile);
+    ValueRange kRegBlock = create.krnl.block(kk, kRegTile);
     Value kk1(kRegBlock[0]), kk2(kRegBlock[1]);
-    createKrnl.permute({ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
-    createKrnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
+    create.krnl.permute({ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
+    create.krnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
         {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange indices) {
           Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
           createKrnl.matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},

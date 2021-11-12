@@ -47,13 +47,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Create temp and set to zero, single scalar, no need for default
           // alignment.
-          MemRefBuilder createMemRef(createKrnl);
-          MathBuilder createMath(createKrnl);
-          Value red = createMemRef.alloca(MemRefType::get({}, elementType));
+          MultiDialectBuilder<MemRefBuilder, MathBuilder> create(createKrnl);
+          Value red = create.mem.alloca(MemRefType::get({}, elementType));
           createKrnl.store(zeroVal, red);
           // Inner loop
           ValueRange innerLoop = createKrnl.defineLoops(1);
-          Value innerLb = createMath.constantIndex(0);
+          Value innerLb = create.math.constantIndex(0);
           Value innerUb = shapeHelper.aDims[1].getValue();
           createKrnl.iterate(innerLoop, innerLoop, {innerLb}, {innerUb},
               [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
@@ -79,7 +78,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
           // Handle alpha/beta coefficients.
           // new scope
           IndexExprScope innerScope(createKrnl, shapeHelper.scope);
-          Value res = createMath.mul(alphaVal, createKrnl.load(red));
+          Value res = create.math.mul(alphaVal, createKrnl.load(red));
           if (shapeHelper.hasBias) {
             SmallVector<Value, 2> cAccess;
             for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
@@ -90,7 +89,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                       .getValue());
             }
             Value c = createKrnl.load(operandAdaptor.C(), cAccess);
-            res = createMath.add(res, createMath.mul(betaVal, c));
+            res = create.math.add(res, create.math.mul(betaVal, c));
           }
           createKrnl.store(res, R, outerIndices);
         });
