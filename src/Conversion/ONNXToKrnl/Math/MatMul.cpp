@@ -48,7 +48,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     int bRank = aRank; // Add for better readability.
     IndexExpr innerUb = shapeHelper.aDims[aRank - 1];
     loopUbs.emplace_back(innerUb);
-    ValueRange innerLoop{loopDef[totLoopNum - 1]}; // Last loop def.
+    SmallVector<Value, 1> innerLoop{loopDef[totLoopNum - 1]}; // Last loop def.
 
     // Non-reduction loop iterations: output-rank.
     createKrnl.iterateIE(loopDef, outerLoops, loopLbs, loopUbs,
