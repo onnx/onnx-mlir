@@ -208,6 +208,7 @@ private:
   *  MathBuilder, access field with math
   *  MemRefBuilder, access field with mem
   *  ONNXBuilder, access field with onnx
+  *  SCFBuilder, access field with scf
 
   PS: at this time, affine cannot be combined as it is itself a template.
 
