@@ -308,8 +308,8 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   // Wbi: [hidden_size]
   // Rbi: [hidden_size]
 
-  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder> create(
-      rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
 
   // Get Ht.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
