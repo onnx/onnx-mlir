@@ -112,6 +112,7 @@ if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   endif()
 endif()
 
+set(pybind11_FIND_QUIETLY ON)
 add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/rapidcheck)

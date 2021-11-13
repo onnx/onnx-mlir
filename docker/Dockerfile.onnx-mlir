@@ -47,10 +47,13 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
             CTEST_PARALLEL_LEVEL=${NPROC} \
             TEST_MCPU=${TEST_MCPU} \
             TEST_ARGS="${TEST_ARGS}" \
-	    -f CMakeFiles/Makefile2 \
+	    -j${NPROC} -f CMakeFiles/Makefile2 \
             check-onnx-backend \
             check-onnx-backend-dynamic \
             check-onnx-backend-constant \
+	    check-onnx-backend-jni \
+	    check-onnx-backend-dynamic-jni \
+	    check-onnx-backend-constant-jni \
             check-onnx-numerical \
     && make check-docs \
     && make -j${NPROC} install \
@@ -58,7 +61,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && cd ${WORK_DIR} \
     && apt-get purge --autoremove -qq -y \
                autoconf automake cmake git libtool make \
-               ninja-build python3 wget \
+               maven ninja-build python3 wget \
     && rm -rf /tmp/* /var/lib/apt/lists/* \
               /usr/bin/python llvm-project onnx-mlir
 

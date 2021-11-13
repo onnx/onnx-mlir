@@ -163,9 +163,13 @@ void log_printf(
       strftime(buf, sizeof(buf), "[%F %T %z]", tm) == 0)
     sprintf(buf, "[-]");
 
-  /* Output thread ID, log level, file name, function number, and line number */
-  snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), "[%p][%s]%s:%s:%d ",
-      get_threadid(), log_level_name[level], get_filename(file), func, line);
+  /* Output thread ID, log level, file name, function number, and line number.
+   * Note that pthread_t on most platforms is unsigned long but is a struct
+   * of 8 bytes on z/OS.
+   */
+  snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf),
+      "[%016lx][%s]%s:%s:%d ", get_threadid(), log_level_name[level],
+      get_filename(file), func, line);
 
   /* Output actual log data */
   va_list log_data;
@@ -204,7 +208,7 @@ static FILE *get_log_file_by_name(char *name) {
   else {
     char *tname = (char *)malloc(strlen(name) + 32);
     if (tname) {
-      snprintf(tname, strlen(name) + 32, "%s.%p", name, get_threadid());
+      snprintf(tname, strlen(name) + 32, "%s.%016lx", name, get_threadid());
       fp = fopen(tname, "w");
       free(tname);
     }
