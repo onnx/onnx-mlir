@@ -547,9 +547,18 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
 
     // Interpret and remove 'krnl.get_induction_var' inside the unrolling loop
     // if any. Otherwise, we lost the trace of the loop induction variables.
-    if (failed(interpretOperation(loopToUnroll.getOperation(), builder,
-            loopRefToOp, opsToErase, mover)))
-      return failure();
+    for (auto &region : loopToUnroll->getRegions())
+      for (auto &block : region.getBlocks()) {
+        auto &blockOps = block.getOperations();
+        for (auto itr = blockOps.begin(); itr != blockOps.end(); ++itr) {
+          Operation *genericOp = &(*itr);
+          if (auto getIVOp = dyn_cast_or_null<KrnlGetInductionVariableValueOp>(
+                  genericOp)) {
+            lowerGetInductionVariableValueOp(getIVOp, loopRefToOp);
+            opsToErase.insert(genericOp);
+          }
+        }
+      }
     removeOps(opsToErase);
 
     // Assert that there's no floating code within the loop to be unrolled.
@@ -558,13 +567,6 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     });
     LogicalResult res = loopUnrollFull(loopToUnroll);
     assert(succeeded(res) && "failed to unroll");
-    opsToErase.insert(op);
-    return success();
-  } else if (auto getIVOp =
-                 dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
-    LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << " interpret get_induction_var op "
-                            << getIVOp << "\n");
-    lowerGetInductionVariableValueOp(getIVOp, loopRefToOp);
     opsToErase.insert(op);
     return success();
   }
@@ -1479,6 +1481,10 @@ void ConvertKrnlToAffinePass::runOnFunction() {
       for (auto loopRef : loopRefs)
         opsToErase.insert(loopRefToOp[loopRef]);
       kernelOp.getLoopRefs().clear();
+    }
+    if (auto getIVOp = dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
+      lowerGetInductionVariableValueOp(getIVOp, loopRefToOp);
+      opsToErase.insert(op);
     }
   });
   removeOps(opsToErase);
