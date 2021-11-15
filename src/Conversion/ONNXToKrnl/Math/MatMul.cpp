@@ -32,13 +32,26 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value fzero,
       ConversionPatternRewriter &rewriter, Location loc) const {
 
-    // Non-reduction loop iterations: output-rank.
+    // Define loops and bounds.
     KrnlBuilder createKrnl(rewriter, loc);
-    int outerloopNum = shapeHelper.dimsForOutput(0).size();
-    ValueRange outerLoops = createKrnl.defineLoops(outerloopNum);
-    SmallVector<IndexExpr, 4> outerLbs(outerloopNum, LiteralIndexExpr(0));
-    createKrnl.iterateIE(outerLoops, outerLoops, outerLbs,
-        shapeHelper.dimsForOutput(0),
+    int outerLoopNum = shapeHelper.dimsForOutput(0).size();
+    int totLoopNum = outerLoopNum + 1; // Add reduction inner loop.
+    ValueRange loopDef = createKrnl.defineLoops(totLoopNum);
+    SmallVector<IndexExpr, 4> loopLbs(totLoopNum, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> loopUbs; // All dimsForOutputs, plus reduction.
+    SmallVector<Value, 4> outerLoops;  // All but the last loop def.
+    for (int i = 0; i < outerLoopNum; ++i) {
+      loopUbs.emplace_back(shapeHelper.dimsForOutput(0)[i]);
+      outerLoops.emplace_back(loopDef[i]);
+    }
+    int aRank = shapeHelper.aDims.size();
+    int bRank = aRank; // Add for better readability.
+    IndexExpr innerUb = shapeHelper.aDims[aRank - 1];
+    loopUbs.emplace_back(innerUb);
+    SmallVector<Value, 1> innerLoop{loopDef[totLoopNum - 1]}; // Last loop def.
+
+    // Non-reduction loop iterations: output-rank.
+    createKrnl.iterateIE(loopDef, outerLoops, loopLbs, loopUbs,
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           MemRefBuilder createMemRef(createKrnl);
           MathBuilder createMath(createKrnl);
@@ -46,12 +59,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           Value reductionVal =
               createMemRef.alignedAlloca(MemRefType::get({}, elementType));
           createKrnl.store(fzero, reductionVal);
-          int aRank = shapeHelper.aDims.size();
-          int bRank = aRank; // Add for better readability.
-          ValueRange innerLoop = createKrnl.defineLoops(1);
-          Value innerUb = shapeHelper.aDims[aRank - 1].getValue();
-          Value izero = createMath.constantIndex(0);
-          createKrnl.iterate(innerLoop, innerLoop, {izero}, {innerUb},
+          // Inner loop for reduction.
+          createKrnl.iterate({}, innerLoop, {}, {},
               [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
                 Value k = innerIndex[0];
                 SmallVector<Value, 4> aAccessFct, bAccessFct;
@@ -69,7 +78,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
                     // For B, reduction index is second to last.
                     if (i == bRank - 2) {
                       bAccessFct.emplace_back(k);
-                    } else if (i == outerloopNum) {
+                    } else if (i == outerLoopNum) {
                       // When the rank of A 1D, then the output lost one
                       // dimension. E,g, (5) x (10, 5, 4) -> padded (1, 5) x
                       // (10, 5, 4) = (10, 1, 4). But we drop the "1" so its
