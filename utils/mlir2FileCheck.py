@@ -233,6 +233,11 @@ def process_line(i, line):
         num = res.group(1).replace("-", "minus_")
         num = num.replace(".", "_dot_")
         new_line = process_name(new_line, def_qual_pat, "CST_"+num, " =", 0)
+    elif re.search(r'.*=\s+krnl\.block\s+', line) is not None:
+        def1_pat = re.compile(r'%([a-zA-Z0-9][a-zA-Z0-9_\-]*)()\s*,.*=')
+        def2_pat = re.compile(r'.*,\s+%([a-zA-Z0-9][a-zA-Z0-9_\-]*)()\s+=')
+        new_line = process_name(new_line, def1_pat, "BLOCK_TILE_", ",", 1)
+        new_line = process_name(new_line, def2_pat, "BLOCK_IN_", " =", 1)
     else:
         definitions = def_qual_pat.findall(new_line)
         for d in definitions:
