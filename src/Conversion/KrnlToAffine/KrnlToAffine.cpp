@@ -557,7 +557,6 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
       llvm_unreachable("Loop to unroll must not contain movable op.");
     });
     LogicalResult res = loopUnrollFull(loopToUnroll);
-
     assert(succeeded(res) && "failed to unroll");
     opsToErase.insert(op);
     return success();
