@@ -26,10 +26,15 @@ def Krnl_Dialect : Dialect {
   let cppNamespace = "::mlir";
 }
 
+// Base class for Krnl dialect ops.
+class Krnl_Op<string mnemonic, list<OpTrait> traits = []> :
+    Op<Krnl_Dialect, mnemonic, !listconcat(traits,[MemRefsNormalizable])> {
+}
+
 // Require regions to have krnl.terminate terminator operation.
 def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
 
-def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
+def KrnlDefineLoopsOp : Krnl_Op<"define_loops"> {
   let summary = "define_loops operation";
   let description = [{
     The "krnl.define_loops" operation is used to define input loops,
@@ -58,7 +63,7 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
 }];
 }
 
-def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
+def KrnlIterateOp : Krnl_Op<"iterate", [ImplicitKrnlTerminator,
     DeclareOpInterfaceMethods<LoopLikeOpInterface>]> {
   let summary = "iterate operation";
   let description = [{
@@ -129,7 +134,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
     let verifier = [{ return ::verify(*this); }];
 }
 
-def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
+def KrnlTerminatorOp : Krnl_Op<"terminate", [Terminator]> {
   let summary = "Krnl terminator operation";
   let description = [{
     Krnl terminator is a special terminator operation for blocks inside krnl
@@ -148,7 +153,7 @@ def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
   let verifier = ?;
 }
 
-def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
+def KrnlEntryPointOp : Krnl_Op<"entry_point"> {
   let summary = "Indicate ONNX entry point";
   let description = [{The "krnl.entry_point" function indicates the main entry
                            point of ONNX model.}];
@@ -167,7 +172,7 @@ def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
   let printer = ?;
 }
 
-def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
+def KrnlMemcpyOp : Krnl_Op<"memcpy"> {
   let summary = "Krnl memcpy operation";
   let description = [{
     In the KRNL dialect the reshape op
@@ -180,7 +185,7 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
   let printer = ?;
 }
 
-def KrnlGlobalOp : Op<Krnl_Dialect, "global", [NoSideEffect, MemRefsNormalizable]> {
+def KrnlGlobalOp : Krnl_Op<"global", [NoSideEffect]> {
   let summary = "Krnl global operation";
   let description = [{
     Operation for holding global data values. A global constant can have a
@@ -197,7 +202,7 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global", [NoSideEffect, MemRefsNormalizable
   let printer = ?;
 }
 
-def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
+def KrnlGetRefOp : Krnl_Op<"getref"> {
   let summary = "Krnl a MemRef from within another MemRef starting at a specific offset.";
   let description = [{
     Retreieves a MemRef from within another MemRef:
@@ -230,7 +235,7 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
   let printer = ?;
 }
 
-def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
+def KrnlBlockOp : Krnl_Op<"block"> {
   let summary = "Krnl block operation";
   let description = [{
     Block a single for loop by a constant tile size. For instance,
@@ -247,7 +252,7 @@ def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
   }];
 }
 
-def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
+def KrnlPermuteOp : Krnl_Op<"permute"> {
   let summary = "Krnl permute operation";
   let description = [{
     Permute a set of affine for loops using a specified permutation map.
@@ -314,7 +319,7 @@ def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
   }];
 }
 
-def KrnlUnrollOp : Op<Krnl_Dialect, "unroll"> {
+def KrnlUnrollOp : Krnl_Op<"unroll"> {
   let summary = "Krnl unroll operation";
   let description = [{
     Fully unroll the specified loops.
@@ -331,7 +336,7 @@ def KrnlUnrollOp : Op<Krnl_Dialect, "unroll"> {
   }];
 }
 
-def KrnlDimOp : Op<Krnl_Dialect, "dim"> {
+def KrnlDimOp : Krnl_Op<"dim"> {
   let summary = "Krnl dimensions operation.";
   let description = [{
     Emits the dimension of a MemRef independent of the MemRef alloc:
@@ -352,7 +357,7 @@ def KrnlDimOp : Op<Krnl_Dialect, "dim"> {
   let printer = ?;
 }
 
-def KrnlShapeOp : Op<Krnl_Dialect, "shape"> {
+def KrnlShapeOp : Krnl_Op<"shape"> {
   let summary = "Krnl operation to retreieve the shape of a MemRef.";
   let description = [{
     Extracts the shape of a MemRef:
@@ -369,7 +374,7 @@ def KrnlShapeOp : Op<Krnl_Dialect, "shape"> {
   let printer = ?;
 }
 
-def KrnlDummyCastOp : Op<Krnl_Dialect, "dummy_cast"> {
+def KrnlDummyCastOp : Krnl_Op<"dummy_cast"> {
   let summary = "A dummy Krnl operation to perform type casting.";
   let hasCanonicalizer = 1;
 
@@ -389,7 +394,7 @@ def KrnlDummyCastOp : Op<Krnl_Dialect, "dummy_cast"> {
 }
 
 
-def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
+def KrnlErfOp : Krnl_Op<"erf"> {
   let summary = "Krnl erf scalar operation";
   let description = [{
     Krnl erf scalar operation.
@@ -402,7 +407,7 @@ def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
   let printer = ?;
 }
 
-def KrnlAcosOp : Op<Krnl_Dialect, "acos"> {
+def KrnlAcosOp : Krnl_Op<"acos"> {
   let summary = "Krnl acos scalar operation";
   let description = [{
     Krnl acos scalar operation.
@@ -415,7 +420,7 @@ def KrnlAcosOp : Op<Krnl_Dialect, "acos"> {
   let printer = ?;
 }
 
-def KrnlAcoshOp : Op<Krnl_Dialect, "acosh"> {
+def KrnlAcoshOp : Krnl_Op<"acosh"> {
   let summary = "Krnl acosh scalar operation";
   let description = [{
     Krnl acosh scalar operation.
@@ -428,7 +433,7 @@ def KrnlAcoshOp : Op<Krnl_Dialect, "acosh"> {
   let printer = ?;
 }
 
-def KrnlAsinOp : Op<Krnl_Dialect, "asin"> {
+def KrnlAsinOp : Krnl_Op<"asin"> {
   let summary = "Krnl asin scalar operation";
   let description = [{
     Krnl asin scalar operation.
@@ -441,7 +446,7 @@ def KrnlAsinOp : Op<Krnl_Dialect, "asin"> {
   let printer = ?;
 }
 
-def KrnlAsinhOp : Op<Krnl_Dialect, "asinh"> {
+def KrnlAsinhOp : Krnl_Op<"asinh"> {
   let summary = "Krnl asinh scalar operation";
   let description = [{
     Krnl asinh scalar operation.
@@ -454,7 +459,7 @@ def KrnlAsinhOp : Op<Krnl_Dialect, "asinh"> {
   let printer = ?;
 }
 
-def KrnlAtanOp : Op<Krnl_Dialect, "atan"> {
+def KrnlAtanOp : Krnl_Op<"atan"> {
   let summary = "Krnl atan scalar operation";
   let description = [{
     Krnl atan scalar operation.
@@ -467,7 +472,7 @@ def KrnlAtanOp : Op<Krnl_Dialect, "atan"> {
   let printer = ?;
 }
 
-def KrnlAtanhOp : Op<Krnl_Dialect, "atanh"> {
+def KrnlAtanhOp : Krnl_Op<"atanh"> {
   let summary = "Krnl atanh scalar operation";
   let description = [{
     Krnl atanh scalar operation.
@@ -480,7 +485,7 @@ def KrnlAtanhOp : Op<Krnl_Dialect, "atanh"> {
   let printer = ?;
 }
 
-def KrnlTanOp : Op<Krnl_Dialect, "tan"> {
+def KrnlTanOp : Krnl_Op<"tan"> {
   let summary = "Krnl tan scalar operation";
   let description = [{
     Krnl tan scalar operation.
@@ -494,11 +499,10 @@ def KrnlTanOp : Op<Krnl_Dialect, "tan"> {
 }
 
 
-def KrnlLoadOp : Op<Krnl_Dialect, "load",
+def KrnlLoadOp : Krnl_Op<"load",
   [TypesMatchWith<"result type matches element type of 'memref'",
                   "memref", "result",
-                  "$_self.cast<MemRefType>().getElementType()">,
-                  MemRefsNormalizable]> {
+                  "$_self.cast<MemRefType>().getElementType()">]> {
   let summary = "A Krnl operation to load data from the memref.";
 
   let description = [{
@@ -535,11 +539,10 @@ def KrnlLoadOp : Op<Krnl_Dialect, "load",
   let assemblyFormat = [{$memref `[` $indices `]` attr-dict `:` type($memref)}];
 }
 
-def KrnlStoreOp : Op<Krnl_Dialect, "store",
+def KrnlStoreOp : Krnl_Op<"store",
      [TypesMatchWith<"type of 'value' matches element type of 'memref'",
                      "memref", "value",
-                     "$_self.cast<MemRefType>().getElementType()">,
-                     MemRefsNormalizable]> {
+                     "$_self.cast<MemRefType>().getElementType()">]> {
   let summary = "A Krnl operation to store data to the memref.";
   let description = [{
     The `krnl.store` stores a value to a memref location given by indices. The
@@ -578,7 +581,7 @@ def KrnlStoreOp : Op<Krnl_Dialect, "store",
   }];
 }
 
-def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
+def KrnlMovableOp : Krnl_Op<"movable", [ImplicitKrnlTerminator]> {
   let summary = "Krnl movable operation";
   let description = [{
      Encapsulates a list of operations, which should be moved under a newly lowered
@@ -601,7 +604,7 @@ def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
 
 }
 
-def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"> {
+def KrnlGetInductionVariableValueOp : Krnl_Op<"get_induction_var_value"> {
   let summary = "Krnl ";
   let description = [{
      Krnl operation to convert loop references to corresponding induction
@@ -625,7 +628,7 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
 
 // =============================================================================
 
-def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect]> {
+def KrnlVectorTypeCastOp : Krnl_Op<"vector_type_cast", [NoSideEffect]> {
   let summary = "vector type cast operation";
   let description = [{
     The "vector_type_cast" operation converts a memref from an non-vector
@@ -666,7 +669,7 @@ def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect]> 
 
 // =============================================================================
 
-def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel",
+def KrnlSpecializedKernel : Krnl_Op<"specialized_kernel",
                             [DeclareOpInterfaceMethods<SpecializedKernelOpInterface>]> {
   let summary = "Krnl specialized kernel op";
   let description = [{
@@ -683,7 +686,7 @@ def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel",
 
 // =============================================================================
 
-def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments, 
+def KrnlMatMulOp : Krnl_Op<"matmul", [AttrSizedOperandSegments, 
        DeclareOpInterfaceMethods<SpecializedKernelOpInterface>]> {
   let summary = "Matmul operation for a single pannel.";
   let description = [{
@@ -865,7 +868,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
   }];
 }
 
-def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
+def KrnlCopyToBufferOp : Krnl_Op<"copy_to_tile_buffer", [
     TypesMatchWith<"type of 'padValue' matches element type of 'source'",
                   "source", "padValue",
                   "$_self.cast<MemRefType>().getElementType()">,
@@ -939,7 +942,7 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
   }];
 }
 
-def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
+def KrnlCopyFromBufferOp : Krnl_Op<"copy_from_tile_buffer",
     []> {
   let summary = "Copy from buffer.";
   let description = [{
@@ -971,7 +974,7 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
   }];
 }
 
-def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
+def KrnlInstrumentOp : Krnl_Op<"runtime_instrument",
     []> {
   let summary = "instrumentation point.";
   let description = [{
@@ -984,8 +987,8 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
   let builders = [ OpBuilder<(ins "Operation *": $op, "int ": $tag)> ];
 }
 
-def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
-    TypesMatchWith<"type of 'value' matches element type of 'dest'",
+def KrnlMemsetOp : Krnl_Op<"memset",
+    [TypesMatchWith<"type of 'value' matches element type of 'dest'",
                    "dest", "value",
                    "$_self.cast<MemRefType>().getElementType()">]> {
   let summary = "Set buffer to a given value.";
@@ -997,7 +1000,7 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
   let assemblyFormat = [{ $dest `,` $value attr-dict `:` type($dest) }];
 }
 
-def KrnlRandomNormalOp : Op<Krnl_Dialect, "random_normal",
+def KrnlRandomNormalOp : Krnl_Op<"random_normal",
     []> {
   let summary = "Generate a random normal tensor.";
   let description = [{
