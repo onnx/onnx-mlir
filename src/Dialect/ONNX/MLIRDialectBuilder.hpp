@@ -72,6 +72,7 @@ struct MathBuilder final : DialectBuilder {
   Value exp(Value val) const;
   Value exp2(Value val) const;
   Value log2(Value val) const;
+  Value sqrt(Value val) const;
 
   Value select(Value cmp, Value lhs, Value rhs) const;
   Value sgt(Value lhs, Value rhs) const;
@@ -176,6 +177,77 @@ private:
   // Support for adding blocks.
   void appendToBlock(
       Block *block, function_ref<void(ValueRange)> builderFn) const;
+};
+
+//===----------------------------------------------------------------------===//
+// Multi Dialect Builder
+//===----------------------------------------------------------------------===//
+
+/*
+  Instead of creating multiple builders, e.g.
+
+  KrnlBuilder createKrnl(rewriter, loc);
+  MathBuilder createMath(createKrnl);
+  MemRefBuilder createMemRef(createKrnl);
+
+  createKrnl.defineLoop(1);
+  createMath.add(i1, i2);
+  createMemRef.alloca(type);
+
+  We can create a single builder composed of multiple types
+
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder>
+    create(rewriter, loc);
+
+  create.krnl.defineLoop(1);
+  create.math.add(i1, i2);
+  create.mem.alloca(type);
+
+  Types that can be used here are
+  *  KrnlBuilder, access field with krnl
+  *  MathBuilder, access field with math
+  *  MemRefBuilder, access field with mem
+  *  ONNXBuilder, access field with onnx
+  *  SCFBuilder, access field with scf
+
+  PS: at this time, affine cannot be combined as it is itself a template.
+
+*/
+// Anchor class.
+template <class... Ts>
+struct MultiDialectBuilder {
+  MultiDialectBuilder(OpBuilder &b, Location loc) {}
+  MultiDialectBuilder(DialectBuilder &db) {}
+};
+
+// Recursive class specialized for MathBuilder refereed to as math.
+template <class... Ts>
+struct MultiDialectBuilder<MathBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(OpBuilder &b, Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), math(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), math(db) {}
+  MathBuilder math;
+};
+
+// Recursive class specialized for MemRefBuilder refereed to as mem.
+template <class... Ts>
+struct MultiDialectBuilder<MemRefBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(OpBuilder &b, Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), mem(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), mem(db) {}
+  MemRefBuilder mem;
+};
+
+// Recursive class specialized for SCFBuilder refereed to as scf.
+template <class... Ts>
+struct MultiDialectBuilder<SCFBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(OpBuilder &b, Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), scf(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), scf(db) {}
+  SCFBuilder scf;
 };
 
 // Include template implementations.

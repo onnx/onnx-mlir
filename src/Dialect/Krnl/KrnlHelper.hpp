@@ -359,6 +359,16 @@ struct KrnlBuilder : public DialectBuilder {
       ValueRange globalUBs, bool simdize, bool unroll, bool overcompute);
 };
 
+// Recursive class specialized for KrnlBuilder refereed to as krnl.
+template <class... Ts>
+struct MultiDialectBuilder<KrnlBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(OpBuilder &b, Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), krnl(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), krnl(db) {}
+  KrnlBuilder krnl;
+};
+
 //====---------------- Common helper functions --------------------------===//
 
 /// Check whether a value is produced by a dense KrnlGlobalOp.

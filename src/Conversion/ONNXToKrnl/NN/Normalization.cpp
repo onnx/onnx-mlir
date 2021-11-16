@@ -178,11 +178,10 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     // Get rank, bounds, and constructors.
     int64_t rank = memRefType.getRank();
     IndexExprScope outerScope(&rewriter, loc);
-    KrnlBuilder createKrnl(rewriter, loc);
-    MathBuilder createMath(createKrnl);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
     MemRefBoundsIndexCapture inputBounds(inputMemRef);
     MemRefType tmpType = MemRefType::get({}, elementType);
-    Value fZero = emitConstantOp(rewriter, loc, elementType, 0);
+    Value fZero = create.math.constant(elementType, 0);
 
     // Compute the number of values in a single channel: product of spatial
     // dimensions, converted to float.
@@ -190,21 +189,21 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     for (int d = 3; d < rank; ++d)
       num = num * inputBounds.getSymbol(d);
     // Convert num to float from Pooling postProcessPoolingWindow.
-    Value meanDenom = createMath.cast(elementType, num.getValue());
+    Value meanDenom = create.math.cast(elementType, num.getValue());
 
     // Iterate over the batch and channels.
     LiteralIndexExpr iZero(0);
-    ValueRange n_c_loopDef = createKrnl.defineLoops(2);
-    createKrnl.iterateIE(n_c_loopDef, n_c_loopDef, {iZero, iZero},
+    ValueRange n_c_loopDef = create.krnl.defineLoops(2);
+    create.krnl.iterateIE(n_c_loopDef, n_c_loopDef, {iZero, iZero},
         {inputBounds.getSymbol(0), inputBounds.getSymbol(1)},
         [&](KrnlBuilder &createKrnl, ValueRange n_c_loopInd) {
-          MemRefBuilder createMemRef(createKrnl);
-          MathBuilder createMath(createKrnl);
+          MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+              createKrnl);
           IndexExprScope channelScope(createKrnl);
           DimIndexExpr n(n_c_loopInd[0]), c(n_c_loopInd[1]);
 
           // Set bounds for iterating over values in channel.
-          ValueRange spatial_loopDef = createKrnl.defineLoops(rank - 2);
+          ValueRange spatial_loopDef = create.krnl.defineLoops(rank - 2);
           SmallVector<IndexExpr, 4> lbs(rank - 2, iZero);
           SmallVector<IndexExpr, 4> ubs;
           for (int d = 2; d < rank; ++d)
@@ -213,11 +212,11 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
           // First compute the mean: store zero in reduction value, then sum up
           // all of the values in the channel, and divide by the number of
           // values.
-          Value tmpMemRef = createMemRef.alloca(tmpType);
-          createKrnl.store(fZero, tmpMemRef, {});
+          Value tmpMemRef = create.mem.alloca(tmpType);
+          create.krnl.store(fZero, tmpMemRef, {});
           // Iterate over kernel and add values.
-          ValueRange spatial2_loopDef = createKrnl.defineLoops(rank - 2);
-          createKrnl.iterateIE(spatial2_loopDef, spatial2_loopDef, lbs, ubs,
+          ValueRange spatial2_loopDef = create.krnl.defineLoops(rank - 2);
+          create.krnl.iterateIE(spatial2_loopDef, spatial2_loopDef, lbs, ubs,
               [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
                 MathBuilder createMath(createKrnl);
                 SmallVector<Value, 6> inputAccessFct = {
@@ -230,12 +229,12 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
                 Value newSum = createMath.add(oldSum, val);
                 createKrnl.store(newSum, tmpMemRef, {});
               });
-          Value sum = createKrnl.load(tmpMemRef, {});
-          Value mean = createMath.div(sum, meanDenom);
+          Value sum = create.krnl.load(tmpMemRef, {});
+          Value mean = create.math.div(sum, meanDenom);
           // Second, compute the standard dev: sum of (val - mean)2 / (num-1).
-          createKrnl.store(fZero, tmpMemRef, {});
+          create.krnl.store(fZero, tmpMemRef, {});
           // Iterate over kernel and add values.
-          createKrnl.iterateIE(spatial_loopDef, spatial_loopDef, lbs, ubs,
+          create.krnl.iterateIE(spatial_loopDef, spatial_loopDef, lbs, ubs,
               [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
                 MathBuilder createMath(createKrnl);
                 SmallVector<Value, 6> inputAccessFct = {
@@ -250,22 +249,22 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
                 Value newSum = createMath.add(oldSum, val);
                 createKrnl.store(newSum, tmpMemRef, {});
               });
-          sum = createKrnl.load(tmpMemRef, {});
+          sum = create.krnl.load(tmpMemRef, {});
           // Variance is numerically off when divided by (num -1), but
           // passes the tests when divided by num, so keep that.
-          Value variance = createMath.div(sum, meanDenom);
+          Value variance = create.math.div(sum, meanDenom);
 
           // Calculate ahead the scale[c] / sqrt(var + epsilon)
-          Value denom = createMath.add(variance, epsilon);
-          denom = rewriter.create<math::SqrtOp>(loc, denom);
-          Value nom = createKrnl.load(scaleMemRef, {c.getValue()});
-          Value factor = createMath.div(nom, denom);
-          Value term = createKrnl.load(biasMemRef, {c.getValue()});
+          Value denom = create.math.add(variance, epsilon);
+          denom = create.math.sqrt(denom);
+          Value nom = create.krnl.load(scaleMemRef, {c.getValue()});
+          Value factor = create.math.div(nom, denom);
+          Value term = create.krnl.load(biasMemRef, {c.getValue()});
 
           // Iterate over all channel values and compute y = factor * (x - mean)
           // + term.
-          ValueRange spatial3_loopDef = createKrnl.defineLoops(rank - 2);
-          createKrnl.iterateIE(spatial3_loopDef, spatial3_loopDef, lbs, ubs,
+          ValueRange spatial3_loopDef = create.krnl.defineLoops(rank - 2);
+          create.krnl.iterateIE(spatial3_loopDef, spatial3_loopDef, lbs, ubs,
               [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
                 MathBuilder createMath(createKrnl);
                 SmallVector<Value, 6> accessFct = {n.getValue(), c.getValue()};
