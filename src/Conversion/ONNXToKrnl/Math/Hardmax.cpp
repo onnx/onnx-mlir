@@ -20,14 +20,13 @@ using namespace mlir;
 /// Returns the indices of the maximum values along a given axis.
 static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
     Value input, int64_t axis) {
-  KrnlBuilder createKrnl(rewriter, loc);
-  MathBuilder createMath(createKrnl);
-  IndexExprScope scope(createKrnl);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+  IndexExprScope scope(create.krnl);
 
   MemRefType memRefType = input.getType().cast<MemRefType>();
   Type indexType = rewriter.getIndexType();
   int64_t rank = memRefType.getRank();
-  Value zero = createMath.constantIndex(0);
+  Value zero = create.math.constantIndex(0);
 
   MemRefBoundsIndexCapture inputBounds(input);
   SmallVector<IndexExpr, 4> inputUBS;
@@ -43,30 +42,30 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
   Value resMemRef = insertAllocAndDeallocSimple(rewriter, nullptr,
       MemRefType::get(outputShape, indexType), loc, outputUBS,
       /*insertDealloc=*/true);
-  createKrnl.memset(resMemRef, zero);
+  create.krnl.memset(resMemRef, zero);
 
-  ValueRange loopDef = createKrnl.defineLoops(rank);
+  ValueRange loopDef = create.krnl.defineLoops(rank);
   SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
-  createKrnl.iterateIE(loopDef, loopDef, lbs, inputUBS,
+  create.krnl.iterateIE(loopDef, loopDef, lbs, inputUBS,
       [&](KrnlBuilder &createKrnl, ValueRange inputLoopInd) {
-        MathBuilder createMath(createKrnl);
-        SCFBuilder createSCF(createKrnl);
-
+        MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
+            createKrnl);
         // Load the index of the current max value.
         SmallVector<Value> resLoopInd(inputLoopInd);
         resLoopInd[axis] = zero;
-        Value maxInd = createKrnl.load(resMemRef, resLoopInd);
+        Value maxInd = create.krnl.load(resMemRef, resLoopInd);
 
         // Load the current max value.
         SmallVector<Value> maxLoopInd(inputLoopInd);
         maxLoopInd[axis] = maxInd;
-        Value maxValue = createKrnl.load(input, maxLoopInd);
+        Value maxValue = create.krnl.load(input, maxLoopInd);
         // Load a new value.
-        Value next = createKrnl.load(input, inputLoopInd);
+        Value next = create.krnl.load(input, inputLoopInd);
 
         // Compare and update the index for the maximum value.
-        Value gt = createMath.sgt(next, maxValue);
-        createSCF.ifThenElse(gt, [&](SCFBuilder &createSCF) {
+        Value gt = create.math.sgt(next, maxValue);
+        create.scf.ifThenElse(gt, [&](SCFBuilder &createSCF) {
+          KrnlBuilder createKrnl(createSCF);
           createKrnl.store(inputLoopInd[axis], resMemRef, resLoopInd);
         });
       });
@@ -80,16 +79,15 @@ struct ONNXHardmaxOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    KrnlBuilder createKrnl(rewriter, loc);
-    MathBuilder createMath(createKrnl);
-    IndexExprScope scope(createKrnl);
+    MultiDialectBuilder<MathBuilder, KrnlBuilder> create(rewriter, loc);
+    IndexExprScope scope(create.krnl);
 
     ONNXHardmaxOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();
 
     MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
     auto elementType = memRefType.getElementType();
-    Value zero = createMath.constantIndex(0);
+    Value zero = create.math.constantIndex(0);
 
     int64_t rank = memRefType.getRank();
     int64_t axis = llvm::dyn_cast<ONNXHardmaxOp>(op).axis();
@@ -110,30 +108,31 @@ struct ONNXHardmaxOpLowering : public ConversionPattern {
 
     // Produce the final result.
     // Set value to 1 if index is argmax. Otherwise, 0.
-    ValueRange loopDef = createKrnl.defineLoops(rank);
+    ValueRange loopDef = create.krnl.defineLoops(rank);
     SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
-    createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-          MathBuilder createMath(createKrnl);
-          SCFBuilder createSCF(createKrnl);
-
+          MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
+              createKrnl);
           // Load the index of the current max value.
           SmallVector<Value> maxLoopInd(loopInd);
           maxLoopInd[axis] = zero;
-          Value maxInd = createKrnl.load(argmax, maxLoopInd);
+          Value maxInd = create.krnl.load(argmax, maxLoopInd);
 
           // Set value to 1 if the index is argmax. Otherwise, 0.
-          Value eq = createMath.eq(maxInd, loopInd[axis]);
-          createSCF.ifThenElse(
+          Value eq = create.math.eq(maxInd, loopInd[axis]);
+          create.scf.ifThenElse(
               eq, /*then*/
               [&](SCFBuilder &createSCF) {
-                Value one = createMath.constant(elementType, 1);
-                createKrnl.store(one, resMemRef, loopInd);
+                MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createSCF);
+                Value one = create.math.constant(elementType, 1);
+                create.krnl.store(one, resMemRef, loopInd);
               },
               /*else*/
               [&](SCFBuilder &createSCF) {
-                Value zero = createMath.constant(elementType, 0);
-                createKrnl.store(zero, resMemRef, loopInd);
+                MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createSCF);
+                Value zero = create.math.constant(elementType, 0);
+                create.krnl.store(zero, resMemRef, loopInd);
               });
         });
 

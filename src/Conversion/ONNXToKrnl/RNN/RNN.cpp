@@ -308,9 +308,8 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   // Wbi: [hidden_size]
   // Rbi: [hidden_size]
 
-  KrnlBuilder createKrnl(rewriter, loc);
-  OnnxBuilder createONNX(rewriter, loc);
-  MemRefBuilder createMemRef(rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
 
   // Get Ht.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
@@ -318,19 +317,19 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   unsigned htRank = matrixType.getRank();
 
   // Do matrix multiplications.
-  Value XtWi = createONNX.matmul(matrixType, Xt, weightPack.Wi);
-  Value HtRi = createONNX.matmul(matrixType, Ht, weightPack.Ri);
+  Value XtWi = create.onnx.matmul(matrixType, Xt, weightPack.Wi);
+  Value HtRi = create.onnx.matmul(matrixType, Ht, weightPack.Ri);
 
   // Do element-wise computations. Fuse them into a single nested loop.
   // Lower and upper bounds derived from Ht tensor.
-  Value iZero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+  Value iZero = create.math.constantIndex(0);
   SmallVector<Value, 4> htLbs(htRank, iZero);
   SmallVector<Value, 4> htUbs;
   for (unsigned r = 0; r < htRank; ++r) {
-    htUbs.emplace_back(createMemRef.dim(Ht, r));
+    htUbs.emplace_back(create.mem.dim(Ht, r));
   }
-  ValueRange loops = createKrnl.defineLoops(htRank);
-  createKrnl.iterate(loops, loops, htLbs, htUbs,
+  ValueRange loops = create.krnl.defineLoops(htRank);
+  create.krnl.iterate(loops, loops, htLbs, htUbs,
       [&](KrnlBuilder &createKrnl, ValueRange indices) {
         MathBuilder createMath(createKrnl);
         Value bs(indices[0]), hs(indices[1]);
