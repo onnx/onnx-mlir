@@ -1,7 +1,9 @@
 # Constant Propagation for ONNX operations
 
 This document describes `--constprop-onnx` pass which is used to do
-constant propagation for operations in the ONNX dialect. [source
+constant propagation for operations in the ONNX dialect.
+
+[source
 code](https://github.com/onnx/onnx-mlir/blob/master/src/Transform/ONNX/ConstProp.td).
 
 ## Example
@@ -49,14 +51,14 @@ buffers, which is to avoid creating DenseElementsAttr for intermediate
 ONNXConstantOps. Buffers are automatically freed if they are not used.
 
 We provide three helper functions to use when working with buffers:
-1. getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op)
+1. `getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op)`
    - create a buffer from a dense attribute at the first time we reach the
      const 'op' and add the buffer to the buffer pool, or
    - get the buffer from the buffer pool if it was created.
-2. createConstantOpAndStoreBufferPtr(..., char *buffer)
+2. `createConstantOpAndStoreBufferPtr(..., char *buffer)`
    - create a new ONNXConstantOp using the given buffer, and
    - add the buffer to the buffer pool.
-3. allocateBufferFor(Value value, bool useMaxSize = false)
+3. `allocateBufferFor(Value value, bool useMaxSize = false)`
    - create a new buffer whose size is obtained from the type of 'value'.
 
 Note that:
@@ -77,14 +79,15 @@ class Pattern<
    dag benefitsAdded = (addBenefit 0)
 >;
 ```
+
 More information about DRR can be found [here](https://mlir.llvm.org/docs/DeclarativeRewrites/).
 
 There is a limitation in writing DRRs for `--constprop-onnx` pass so that the
 memory footprint is minimized, that is:
 - Never use ONNXConstant in the result patterns of a DRR, because this
-  ONNXConstant will not be managed by our buffer pool.
+  ONNXConstant will not be managed by the buffer pool.
 
-We will explain how to consturct a return ONNXConstant in [Step 2](#step2).
+We will explain how to construct a returned ONNXConstant in [Step 2](#step2).
  
 Now, we go through a simple example that adds constant propagation for ONNXAddOp.
 
@@ -205,7 +208,7 @@ We provide two helper functions for index conversion, they are:
 Below is a snippet code in `IterateConstPropElementwiseBinary` to demonstrate
 how to use them.
 
-```
+```c++
 // Iterate over the linea space of the result index.
 for (int64_t i = 0; i < getNumberOfElements(outputShape); ++i) {
   // Compute indices to access the output.
