@@ -278,6 +278,11 @@ int64_t omTensorGetNumElems(OMTensor *tensor);
  */
 int64_t omTensorGetOwning(OMTensor *tensor);
 
+/**
+ * \brief OMTensor owning flag setter
+ */
+void omTensorSetOwning(OMTensor *tensor, int64_t owning);
+
 #ifdef __cplusplus
 }
 #endif

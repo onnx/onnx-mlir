@@ -364,7 +364,12 @@ string genModelObject(string bitcodePath, string outputBaseName) {
 void genJniObject(const mlir::OwningModuleRef &module, string jniSharedLibPath,
     string jniObjPath) {
   Command ar(/*exePath=*/kArPath);
-  ar.appendStr("x").appendStr(jniSharedLibPath).appendStr(jniObjPath).exec();
+  ar.appendStr("x")
+      .appendStr("--output")
+      .appendStr(llvm::sys::path::parent_path(jniObjPath).str())
+      .appendStr(jniSharedLibPath)
+      .appendStr(llvm::sys::path::filename(jniObjPath).str())
+      .exec();
 }
 
 // Link everything into a shared object.
@@ -416,7 +421,12 @@ void genJniJar(const mlir::OwningModuleRef &module, string modelSharedLibPath,
 
   // Add shared library to model jar.
   Command jar(kJarPath);
-  jar.appendList({"uf", modelJniJarPath}).appendStr(modelSharedLibPath).exec();
+  jar.appendStr("uf")
+      .appendStr(modelJniJarPath)
+      .appendStr("-C")
+      .appendStr(llvm::sys::path::parent_path(modelSharedLibPath).str())
+      .appendStr(llvm::sys::path::filename(modelSharedLibPath).str())
+      .exec();
 }
 
 string compileModuleToSharedLibrary(
@@ -447,13 +457,25 @@ void compileModuleToJniJar(
   llvm::FileRemover modelObjRemover(
       modelObjPath, !keepFiles(KeepFilesOfType::Object));
 
+  StringRef outputDir = llvm::sys::path::parent_path(outputBaseName);
+  if (outputDir.empty())
+    outputDir = StringRef(".");
+
   string jniSharedLibPath = getRuntimeDir() + "/libjniruntime.a";
-  string jniObjPath = "jnidummy.c.o";
+
+  llvm::SmallString<8> jniObjDir(outputDir);
+  llvm::sys::path::append(jniObjDir, "jnidummy.c.o");
+  string jniObjPath = llvm::StringRef(jniObjDir).str();
+
   genJniObject(module, jniSharedLibPath, jniObjPath);
   llvm::FileRemover jniObjRemover(
       jniObjPath, !keepFiles(KeepFilesOfType::Object));
 
-  string modelSharedLibPath = genSharedLib("libmodel", {"-z", "noexecstack"},
+  llvm::SmallString<8> jniLibDir(outputDir);
+  llvm::sys::path::append(jniLibDir, "libmodel");
+  string jniLibBase = llvm::StringRef(jniLibDir).str();
+
+  string modelSharedLibPath = genSharedLib(jniLibBase, {"-z", "noexecstack"},
       {modelObjPath, jniObjPath}, {"jniruntime", "cruntime"},
       {getRuntimeDir()});
   llvm::FileRemover modelSharedLibRemover(
