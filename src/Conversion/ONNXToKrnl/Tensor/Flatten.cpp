@@ -24,8 +24,7 @@ using namespace mlir;
 Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
     ConversionPatternRewriter &rewriter, bool insertDealloc, Value input,
     int64_t axisValue) {
-  MemRefBuilder createMemRef(rewriter, loc);
-  MathBuilder createMath(createMemRef);
+  MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
   memref::AllocOp alloc;
   auto inputShape = input.getType().cast<MemRefType>().getShape();
   int64_t inputRank = inputShape.size();
@@ -33,28 +32,26 @@ Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
   SmallVector<Value, 2> allocOperands;
   // Compute size for the first dimension when not constant
   if (memRefType.getShape()[0] == -1) {
-    auto dimVal = createMath.constantIndex(1);
+    auto dimVal = create.math.constantIndex(1);
     for (auto i = 0; i < axisValue; i++) {
-      dimVal = rewriter.create<arith::MulIOp>(
-          loc, dimVal, createMemRef.dim(input, i));
+      dimVal = create.math.mul(dimVal, create.mem.dim(input, i));
     }
     allocOperands.emplace_back(dimVal);
   }
 
   // Compute size for the second dimension when not constant
   if (memRefType.getShape()[1] == -1) {
-    auto dimVal = createMath.constantIndex(1);
+    auto dimVal = create.math.constantIndex(1);
     for (auto i = axisValue; i < inputRank; i++) {
-      dimVal = rewriter.create<arith::MulIOp>(
-          loc, dimVal, createMemRef.dim(input, i));
+      dimVal = create.math.mul(dimVal, create.mem.dim(input, i));
     }
     allocOperands.emplace_back(dimVal);
   }
 
-  alloc = createMemRef.alignedAlloc(memRefType, allocOperands);
+  alloc = create.mem.alignedAlloc(memRefType, allocOperands);
   if (insertDealloc) {
     auto *parentBlock = alloc.getOperation()->getBlock();
-    auto dealloc = createMemRef.dealloc(alloc);
+    auto dealloc = create.mem.dealloc(alloc);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   return alloc;

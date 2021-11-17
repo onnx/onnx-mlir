@@ -450,9 +450,8 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // Ht = ot (.) h(Ct)
 
   // TODO remove scope
-  KrnlBuilder createKrnl(rewriter, loc);
-  MemRefBuilder createMemRef(createKrnl);
-  MathBuilder createMath(createKrnl);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
 
   ArrayRef<int64_t> xtShape = Xt.getType().cast<ShapedType>().getShape();
   int64_t batchSize = xtShape[0];
@@ -474,22 +473,21 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // Xt * (Wi^T ++ Wo^T ++ Wf^T ++ Wc^T)
   // Ht * (Ri^T ++ Ro^T ++ Rf^T ++ Rc^T)
   // where '++' is matrix concatenation.
-  OnnxBuilder createONNX(createKrnl);
-  Value XtWT = createONNX.matmul(matrixAllGatesType, Xt, weightPack.WT);
-  Value HtRT = createONNX.matmul(matrixAllGatesType, Ht, weightPack.RT);
+  Value XtWT = create.onnx.matmul(matrixAllGatesType, Xt, weightPack.WT);
+  Value HtRT = create.onnx.matmul(matrixAllGatesType, Ht, weightPack.RT);
 
   // Do element-wise computations. Fuse them into a single nested loop.
   // Lower and upper bounds derived from Ht tensor.
   unsigned HtRank = matrixType.getRank();
-  Value iZero = createMath.constantIndex(0);
+  Value iZero = create.math.constantIndex(0);
   SmallVector<Value, 4> HtLbs(HtRank, iZero);
   SmallVector<Value, 4> HtUbs;
   for (unsigned r = 0; r < HtRank; ++r) {
-    HtUbs.emplace_back(createMemRef.dim(Ht, r));
+    HtUbs.emplace_back(create.mem.dim(Ht, r));
   }
 
-  ValueRange loops = createKrnl.defineLoops(HtRank);
-  createKrnl.iterate(loops, loops, HtLbs, HtUbs,
+  ValueRange loops = create.krnl.defineLoops(HtRank);
+  create.krnl.iterate(loops, loops, HtLbs, HtUbs,
       [&](KrnlBuilder &createKrnl, ValueRange indices) {
         MathBuilder createMath(createKrnl);
         IndexExprScope ieScope(createKrnl);
