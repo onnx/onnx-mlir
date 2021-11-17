@@ -369,7 +369,18 @@ OMTensorList *omTensorListCreateFromInputSignature(
         assert(data && "failed to allocate data");
       }
       tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_FLOAT);
+    } else if (type.equals("double") || type.equals("f64") || type.equals("i64")) {
+      // Treat floats/f64 and i64 alike as they take the same memory footprint.
+      double *data = nullptr;
+      if (dataPtrList) {
+        data = (double *)dataPtrList[i];
+      } else if (dataAlloc) {
+        data = new double[size];
+        assert(data && "failed to allocate data");
+      }
+      tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_DOUBLE);
     }
+
     assert(tensor && "add support for the desired type");
     // Add tensor to list.
     inputTensors[i] = tensor;
