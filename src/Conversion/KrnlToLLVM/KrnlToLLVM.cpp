@@ -1171,10 +1171,7 @@ private:
       auto dimSizePtr =
           rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
               sizesArrayPtr, ArrayRef<Value>({dimIdx}));
-      auto dimSizeLoad = rewriter.create<LLVM::LoadOp>(
-          loc, LLVM::LLVMPointerType::get(int64Ty), dimSizePtr);
-      Value dimSize =
-          rewriter.create<LLVM::PtrToIntOp>(loc, int64Ty, dimSizeLoad);
+      auto dimSize = rewriter.create<LLVM::LoadOp>(loc, int64Ty, dimSizePtr);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
           dimSize,
           rewriter.getArrayAttr(
@@ -1184,10 +1181,8 @@ private:
       auto dimStridePtr =
           rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
               stridesArrayPtr, ArrayRef<Value>({dimIdx}));
-      auto dimStrideLoad = rewriter.create<LLVM::LoadOp>(
-          loc, LLVM::LLVMPointerType::get(int64Ty), dimStridePtr);
-      Value dimStride =
-          rewriter.create<LLVM::PtrToIntOp>(loc, int64Ty, dimStrideLoad);
+      auto dimStride =
+          rewriter.create<LLVM::LoadOp>(loc, int64Ty, dimStridePtr);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
           dimStride,
           rewriter.getArrayAttr(
