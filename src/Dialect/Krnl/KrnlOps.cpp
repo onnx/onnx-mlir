@@ -32,18 +32,43 @@
 #include "llvm/ADT/SmallBitVector.h"
 
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
 
+//===----------------------------------------------------------------------===//
+// KrnlOpsDialect
+//===----------------------------------------------------------------------===//
+
 KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
     : Dialect(getDialectNamespace(), context, TypeID::get<KrnlOpsDialect>()) {
+  addTypes<LoopType, StringType>();
   addOperations<
 #define GET_OP_LIST
 #include "src/Dialect/Krnl/KrnlOps.cpp.inc"
       >();
-  addTypes<LoopType>();
+}
+
+Type KrnlOpsDialect::parseType(DialectAsmParser &parser) const {
+  StringRef keyword;
+  if (parser.parseKeyword(&keyword))
+    return Type();
+  MLIRContext *context = getContext();
+
+  if (keyword == "loop")
+    return LoopType::get(context);
+  if (keyword == "string")
+    return StringType::get(context);
+
+  parser.emitError(parser.getNameLoc(), "unknown krnl type: " + keyword);
+  return Type();
+}
+
+void KrnlOpsDialect::printType(Type type, DialectAsmPrinter &os) const {
+  TypeSwitch<Type>(type)
+      .Case<LoopType>([&](Type) { os << "loop"; })
+      .Case<StringType>([&](Type) { os << "string"; })
+      .Default([](Type) { llvm_unreachable("Unexpected 'krnl' type kind"); });
 }
 
 namespace mlir {
@@ -94,10 +119,10 @@ ParseResult parseKrnlDefineLoopsOp(
  * optimized_loops: a collection of optimized (scheduled) krnl.loops.
  * operand_bounds: a collection of SSA value bounds.
  * const_bounds: a collection of constant bounds.
- * bound_types: a collection of integer values indicating how bounds are given.
- *   0 : bound is given as an integer in const_bounds.
- *   1 : bound is given as an operand in operand_bounds.
- *   2 : bound is given as an affine map. (TODO).
+ * bound_types: a collection of integer values indicating how bounds are
+ * given. 0 : bound is given as an integer in const_bounds. 1 : bound is given
+ * as an operand in operand_bounds. 2 : bound is given as an affine map.
+ * (TODO).
  *
  * The following example illustrates how induction variable bounds are parsed
  * from builder function inputs:
@@ -130,8 +155,9 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   bodyRegion->push_back(body);
 
   // If nonnull, invoke the lambda function that creates the loop body. This
-  // feature is used to build structured operations using lambda. Parameters to
-  // the functions are the builder, location, and arguments passed as iterArgs.
+  // feature is used to build structured operations using lambda. Parameters
+  // to the functions are the builder, location, and arguments passed as
+  // iterArgs.
   if (bodyBuilderFn) {
     PatternRewriter::InsertionGuard insertGuard(builder);
     builder.setInsertionPointToStart(body);
@@ -247,8 +273,8 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
   // A function to parse a lower or upper bound.
   auto parseBound = [&result, &builder, &parser, &operandParser, &boundMaps](
                         bool isUpper) -> ParseResult {
-    // 'min' / 'max' prefixes are generally syntactic sugar, but are required if
-    // the map has multiple results.
+    // 'min' / 'max' prefixes are generally syntactic sugar, but are required
+    // if the map has multiple results.
     bool failedToParsedMinMax =
         failed(parser.parseOptionalKeyword(isUpper ? "min" : "max"));
 

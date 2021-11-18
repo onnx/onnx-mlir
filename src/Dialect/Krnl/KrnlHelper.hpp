@@ -278,10 +278,10 @@ struct KrnlBuilder : public DialectBuilder {
   KrnlBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   KrnlBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  Value load(Value memref, ValueRange indices = {});
-  Value loadIE(Value memref, ArrayRef<IndexExpr> indices);
-  void store(Value val, Value memref, ValueRange indices = {});
-  void storeIE(Value val, Value memref, ArrayRef<IndexExpr> indices);
+  Value load(Value memref, ValueRange indices = {}) const;
+  Value loadIE(Value memref, ArrayRef<IndexExpr> indices) const;
+  void store(Value val, Value memref, ValueRange indices = {}) const;
+  void storeIE(Value val, Value memref, ArrayRef<IndexExpr> indices) const;
 
   Value vectorTypeCast(Value sourceMemref, int64_t vectorLen);
 
@@ -301,9 +301,6 @@ struct KrnlBuilder : public DialectBuilder {
       ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
       function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
           bodyBuilderFn);
-
-  void memcpy(Value dest, Value src, Value size);
-  void memset(Value dest, Value val);
 
   void copyToBuffer(
       // Buffer and source memory. Source memref may have a higher rank than
@@ -357,6 +354,18 @@ struct KrnlBuilder : public DialectBuilder {
   void matmul(Value A, ValueRange aStart, Value B, ValueRange bStart, Value C,
       ValueRange cStart, ValueRange loops, ValueRange computeStarts,
       ValueRange globalUBs, bool simdize, bool unroll, bool overcompute);
+
+  Value constant(
+      MemRefType type, StringRef name, DenseElementsAttr value) const;
+
+  // C library functions.
+  void memcpy(Value dest, Value src, Value size) const;
+  void memset(Value dest, Value val) const;
+  Value strncmp(Value str1, Value str2, Value len) const;
+  Value strlen(Value str) const;
+
+  // Onnx-mlir runtime functions.
+  Value findIndex(Value input, Value G, Value V, Value len) const;
 };
 
 // Recursive class specialized for KrnlBuilder refereed to as krnl.

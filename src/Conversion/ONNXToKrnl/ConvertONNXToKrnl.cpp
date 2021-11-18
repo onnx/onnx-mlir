@@ -154,24 +154,24 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // the set of patterns that will lower the frontend operations.
   RewritePatternSet patterns(&getContext());
 
-  // Convert TensorType to MemRef
-  TensorTypeConverter tensorToMemRefConverter;
+  // Convert types to legal types for the Krnl dialect.
+  KrnlTypeConverter krnlTypeConverter;
   target.addDynamicallyLegalOp<FuncOp>([&](FuncOp op) {
     // FuncOp is legal only if types have been converted to Std types.
-    return tensorToMemRefConverter.isSignatureLegal(op.getType());
+    return krnlTypeConverter.isSignatureLegal(op.getType());
   });
 
   target.addDynamicallyLegalOp<CallOp>([&](CallOp op) {
     // CallOp is legal only if types have been converted to Std types.
-    return tensorToMemRefConverter.isLegal(op);
+    return krnlTypeConverter.isLegal(op);
   });
 
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
-  populateFuncOpTypeConversionPattern(patterns, tensorToMemRefConverter);
-  populateCallOpTypeConversionPattern(patterns, tensorToMemRefConverter);
-  populateReturnOpTypeConversionPattern(patterns, tensorToMemRefConverter);
+  populateFuncOpTypeConversionPattern(patterns, krnlTypeConverter);
+  populateCallOpTypeConversionPattern(patterns, krnlTypeConverter);
+  populateReturnOpTypeConversionPattern(patterns, krnlTypeConverter);
 
   // Frontend operation lowering.
   // ControlFlow
@@ -189,6 +189,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXMatMulOpPattern(patterns, &getContext());
   populateLoweringONNXRandomNormalOpPattern(patterns, &getContext());
   populateLoweringONNXLRNOpPattern(patterns, &getContext());
+  // ML
+  populateLoweringONNXCategoryMapperOpPattern(patterns, &getContext());
   // ObjectDetection
   populateLoweringONNXNonMaxSuppressionOpPattern(patterns, &getContext());
   // Tensor
