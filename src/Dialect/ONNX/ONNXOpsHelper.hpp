@@ -40,7 +40,7 @@ struct OnnxBuilder : DialectBuilder {
   Value reshape(Type outputType, Value input, Value shape) const;
   Value transpose(Type outputType, Value input, ArrayAttr perm) const;
 
-  Value constant(Attribute denseAttr);
+  Value constant(Attribute denseAttr) const;
 };
 
 // Recursive class specialized for OnnxBuilder refereed to as onnx.

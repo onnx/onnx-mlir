@@ -4,6 +4,7 @@
 add_onnx_mlir_library(OMONNXToKrnl
   ConvertONNXToKrnl.cpp
   ONNXToKrnlCommon.cpp
+  PerfectHash.cpp
   ControlFlow/Loop.cpp
   ControlFlow/Scan.cpp
   Math/CumSum.cpp
@@ -17,6 +18,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Math/Reduction.cpp
   Math/Softmax.cpp
   Math/TopK.cpp
+  ML/CategoryMapper.cpp
   NN/Conv.cpp
   NN/Normalization.cpp
   NN/Pooling.cpp
