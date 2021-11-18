@@ -25,9 +25,8 @@ struct ONNXCompressOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = ONNXLoc<ONNXCompressOp>(op);
-    KrnlBuilder createKrnl(rewriter, loc);
-    MemRefBuilder createMemRef(createKrnl);
-    MathBuilder createMath(createKrnl);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+        rewriter, loc);
     ONNXCompressOpAdaptor operandAdaptor(operands);
     ONNXCompressOp compressOp = llvm::dyn_cast<ONNXCompressOp>(op);
 
@@ -40,8 +39,8 @@ struct ONNXCompressOpLowering : public ConversionPattern {
 
     // Create a few constants.
     auto bitType = rewriter.getIntegerType(1);
-    Value falseVal = createMath.constant(bitType, 0);
-    Value trueVal = createMath.constant(bitType, 1);
+    Value falseVal = create.math.constant(bitType, 0);
+    Value trueVal = create.math.constant(bitType, 1);
     LiteralIndexExpr zero(0), one(1);
     int axis = shapeHelper.axis;
 
@@ -50,13 +49,13 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     // Create temp memory for summing up the true value and init to zero.
     Type indexType = rewriter.getIndexType();
     MemRefType indexMemRefType = MemRefType::get({}, indexType);
-    Value sumMemRef = createMemRef.alloca(indexMemRefType);
-    createKrnl.store(zero.getValue(), sumMemRef);
+    Value sumMemRef = create.mem.alloca(indexMemRefType);
+    create.krnl.store(zero.getValue(), sumMemRef);
     // Now create a loop to iterate over all conditions.
     Value condMemRef = operandAdaptor.condition();
     MemRefBoundsIndexCapture condBounds(condMemRef);
-    ValueRange loopDef = createKrnl.defineLoops(1);
-    createKrnl.iterateIE(loopDef, loopDef, {zero}, {condBounds.getDim(0)},
+    ValueRange loopDef = create.krnl.defineLoops(1);
+    create.krnl.iterateIE(loopDef, loopDef, {zero}, {condBounds.getDim(0)},
         [&](KrnlBuilder createKrnl, ValueRange loopInd) {
           MathBuilder createMath(createKrnl);
           // Load the condition
@@ -68,7 +67,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
           createKrnl.store(newSum, sumMemRef);
         });
     // Now replace questionmark by actual computed size.
-    Value sum = createKrnl.load(sumMemRef);
+    Value sum = create.krnl.load(sumMemRef);
     DimIndexExpr dynDim(sum);
     if (axis == -1) {
       shapeHelper.dimsForOutput(0)[0] = dynDim;
@@ -86,7 +85,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     // indexMemRef. We reuse here the same memref as used to sum the true
     // predicates.
     Value writeIndexMemRef = sumMemRef;
-    createKrnl.store(zero.getValue(), writeIndexMemRef);
+    create.krnl.store(zero.getValue(), writeIndexMemRef);
     // Get input shape.
     Value inputMemRef = operandAdaptor.input();
     MemRefBoundsIndexCapture inputBounds(inputMemRef);
@@ -132,39 +131,38 @@ struct ONNXCompressOpLowering : public ConversionPattern {
         }
       }
 
-      Value readIndexMemRef = createMemRef.alloca(indexMemRefType);
-      createKrnl.store(zero.getValue(), readIndexMemRef);
+      Value readIndexMemRef = create.mem.alloca(indexMemRefType);
+      create.krnl.store(zero.getValue(), readIndexMemRef);
 
-      ValueRange inputLoopDef = createKrnl.defineLoops(inputRank);
-      createKrnl.iterateIE(inputLoopDef, inputLoopDef, inputLbs, inputUbs,
+      ValueRange inputLoopDef = create.krnl.defineLoops(inputRank);
+      create.krnl.iterateIE(inputLoopDef, inputLoopDef, inputLbs, inputUbs,
           [&](KrnlBuilder createKrnl, ValueRange inputLoopInd) {
-            MathBuilder createMath(createKrnl);
-            SCFBuilder createSCF(createKrnl);
-            Value readIndex = createKrnl.load(readIndexMemRef);
+            MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
+                createKrnl);
+            Value readIndex = create.krnl.load(readIndexMemRef);
             Value inBound = trueVal;
             if (!skipCond)
-              inBound = createMath.slt(readIndex, condUb);
-            createSCF.ifThenElse(inBound, [&](SCFBuilder &createSCF) {
-              KrnlBuilder createKrnl(createSCF);
-              MathBuilder createMath(createSCF);
-              Value currCond = createKrnl.load(condMemRef, {readIndex});
-              Value copy = createMath.neq(currCond, falseVal);
-              createSCF.ifThenElse(copy, [&](SCFBuilder &createSCF) {
-                KrnlBuilder createKrnl(createSCF);
-                MathBuilder createMath(createSCF);
-                Value val = createKrnl.load(inputMemRef, inputLoopInd);
+              inBound = create.math.slt(readIndex, condUb);
+            create.scf.ifThenElse(inBound, [&](SCFBuilder &createSCF) {
+              MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
+                  createSCF);
+              Value currCond = create.krnl.load(condMemRef, {readIndex});
+              Value copy = create.math.neq(currCond, falseVal);
+              create.scf.ifThenElse(copy, [&](SCFBuilder &createSCF) {
+                MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createSCF);
+                Value val = create.krnl.load(inputMemRef, inputLoopInd);
                 // Copy to output.
-                Value writeIndex = createKrnl.load(writeIndexMemRef);
-                createKrnl.store(val, alloc, {writeIndex});
+                Value writeIndex = create.krnl.load(writeIndexMemRef);
+                create.krnl.store(val, alloc, {writeIndex});
                 // Update write index
-                Value one = createMath.constant(indexType, 1);
-                Value newWriteIndex = createMath.add(writeIndex, one);
-                createKrnl.store(newWriteIndex, writeIndexMemRef);
+                Value one = create.math.constant(indexType, 1);
+                Value newWriteIndex = create.math.add(writeIndex, one);
+                create.krnl.store(newWriteIndex, writeIndexMemRef);
               });
               // Update read index
-              Value one = createMath.constant(indexType, 1);
-              Value newReadIndex = createMath.add(readIndex, one);
-              createKrnl.store(newReadIndex, readIndexMemRef);
+              Value one = create.math.constant(indexType, 1);
+              Value newReadIndex = create.math.add(readIndex, one);
+              create.krnl.store(newReadIndex, readIndexMemRef);
             });
           });
     } else {
@@ -201,24 +199,24 @@ struct ONNXCompressOpLowering : public ConversionPattern {
         innerLbs.emplace_back(inputLbs[i]);
         innerUbs.emplace_back(inputUbs[i]);
       }
-      ValueRange axisLoopDef = createKrnl.defineLoops(1);
-      createKrnl.iterateIE(axisLoopDef, axisLoopDef, {inputLbs[axis]},
+      ValueRange axisLoopDef = create.krnl.defineLoops(1);
+      create.krnl.iterateIE(axisLoopDef, axisLoopDef, {inputLbs[axis]},
           {inputUbs[axis]},
           [&](KrnlBuilder createKrnl, ValueRange axisLoopInd) {
-            MathBuilder createMath(createKrnl);
-            SCFBuilder createSCF(createKrnl);
+            MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
+                createKrnl);
             // Compute the test if we have enough condition value for current
             // index.
             Value readIndex = axisLoopInd[0];
             Value inBound = trueVal;
             if (!skipCond)
-              inBound = createMath.slt(readIndex, condUb);
-            createSCF.ifThenElse(inBound, [&](SCFBuilder &createSCF) {
-              KrnlBuilder createKrnl(createSCF);
-              MathBuilder createMath(createSCF);
-              Value currCond = createKrnl.load(condMemRef, {readIndex});
-              Value copy = createMath.neq(currCond, falseVal);
-              createSCF.ifThenElse(copy, [&](SCFBuilder &createSCF) {
+              inBound = create.math.slt(readIndex, condUb);
+            create.scf.ifThenElse(inBound, [&](SCFBuilder &createSCF) {
+              MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
+                  createSCF);
+              Value currCond = create.krnl.load(condMemRef, {readIndex});
+              Value copy = create.math.neq(currCond, falseVal);
+              create.scf.ifThenElse(copy, [&](SCFBuilder &createSCF) {
                 KrnlBuilder createKrnl(createSCF);
                 // Load the write index.
                 Value writeIndex = createKrnl.load(writeIndexMemRef);
@@ -247,9 +245,9 @@ struct ONNXCompressOpLowering : public ConversionPattern {
                     });
                 // Done with copying, now increment writeIndex
                 // Value writeIndex = createKrnl.load(writeIndexMemRef);
-                Value one = createMath.constant(indexType, 1);
-                Value newWriteIndex = createMath.add(writeIndex, one);
-                createKrnl.store(newWriteIndex, writeIndexMemRef);
+                Value one = create.math.constant(indexType, 1);
+                Value newWriteIndex = create.math.add(writeIndex, one);
+                create.krnl.store(newWriteIndex, writeIndexMemRef);
               }); // If we must copy.
             });   // If we are inbound for tests.
           });

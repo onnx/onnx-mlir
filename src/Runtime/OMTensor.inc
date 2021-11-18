@@ -106,9 +106,9 @@ struct OMTensor {
   OM_DATA_TYPE _dataType; // ONNX data type
 
   int64_t _owning; // indicates whether the Omt owns the memory space
-               // referenced by _allocatedPtr. Omt struct will release the
-               // memory space referred to by _allocatedPtr upon destruction if
-               // and only if it owns it.
+                   // referenced by _allocatedPtr. Omt struct will release the
+                   // memory space referred to by _allocatedPtr upon destruction
+                   // if and only if it owns it.
 };
 
 /* Helper function to compute the number of data elements */
@@ -217,9 +217,8 @@ OMTensor *omTensorCreateEmpty(
 
 /* OMTensor destroyer */
 void omTensorDestroy(OMTensor *tensor) {
-  if (tensor->_owning) {
+  if (tensor->_owning)
     free(tensor->_allocatedPtr);
-  }
   free(tensor->_shape);
   free(tensor->_strides);
   free(tensor);
@@ -319,6 +318,13 @@ int64_t omTensorGetNumElems(OMTensor *tensor) {
  * @return owning flag of the OMTensor.
  */
 int64_t omTensorGetOwning(OMTensor *tensor) { return tensor->_owning; }
+
+/**
+ * OMTensor owning flag setter.
+ */
+void omTensorSetOwning(OMTensor *tensor, int64_t owning) {
+  tensor->_owning = owning;
+}
 
 /**
  * OMTensor allocated ptr getter.

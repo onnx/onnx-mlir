@@ -263,3 +263,42 @@ Note also that we use the loop indices `loopInd` directly in the memory operatio
 ## Generating affine loops
 
 There is one more builder to assist the lowering of the Krnl dialect into the affine dialect. This builder is named `AffineBuilder` and is found in [KrnlToAffine.cpp](../src/Conversion/KrnlToAffine/KrnlToAffine.cpp)  file. It provides helper methods to generate multiple nested `affine.for` loops as well as `affine.if then else` constructs.
+
+## Generating SCF operations
+
+There is an additional builder for generating MLIR's SCF dialect.
+
+## Combining multiple builders
+
+Instead of creating multiple builders, e.g.
+
+```C++
+  KrnlBuilder createKrnl(rewriter, loc);
+  MathBuilder createMath(createKrnl);
+  MemRefBuilder createMemRef(createKrnl);
+```
+and then using them like this
+
+```C++
+  createKrnl.defineLoop(1);
+  createMath.add(i1, i2);
+  createMemRef.alloca(type);
+```
+
+we can create a single builder composed of multiple types and then as follows.
+
+```C++
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder>
+    create(rewriter, loc);
+
+  create.krnl.defineLoop(1);
+  create.math.add(i1, i2);
+  create.mem.alloca(type);
+```
+
+Types that can be used here are listed here.
+  *  `KrnlBuilder`, accessed with `krnl` field.
+  *  `MathBuilder`, accessed with `math` field.
+  *  `MemRefBuilder`, accessed with `mem` field.
+  *  `ONNXBuilder`, accessed with `onnx` field.
+  *  `SCFBuilder`, accessed with the `scf` field.

@@ -43,6 +43,16 @@ struct OnnxBuilder : DialectBuilder {
   Value constant(Attribute denseAttr);
 };
 
+// Recursive class specialized for OnnxBuilder refereed to as onnx.
+template <class... Ts>
+struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(OpBuilder &b, Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), onnx(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), onnx(db) {}
+  OnnxBuilder onnx;
+};
+
 } // namespace mlir
 
 // Identity affine map:

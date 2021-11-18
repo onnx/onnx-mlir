@@ -50,13 +50,13 @@ ExecutionSession::run(
   std::vector<OMTensor *> omts;
   for (const auto &inOmt : ins)
     omts.emplace_back(inOmt.get());
-  auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
+  auto *wrappedInput = omTensorListCreate(&omts[0], (int64_t)omts.size());
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
   std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> outs;
 
-  for (size_t i = 0; i < (size_t)omTensorListGetSize(wrappedOutput); i++) {
+  for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
     outs.emplace_back(std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
         omTensorListGetOmtByIndex(wrappedOutput, i), omTensorDestroy));
   }
