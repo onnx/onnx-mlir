@@ -14,9 +14,11 @@
 
 #pragma once
 
-#include <mlir/IR/Types.h>
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/Types.h"
 
 namespace mlir {
+
 class LoopType
     : public mlir::Type::TypeBase<LoopType, mlir::Type, mlir::TypeStorage> {
 
@@ -28,4 +30,18 @@ public:
   // Get a unique instance of Loop type.
   static LoopType get(mlir::MLIRContext *context) { return Base::get(context); }
 };
+
+class StringType
+    : public mlir::Type::TypeBase<StringType, mlir::Type, mlir::TypeStorage,
+          mlir::MemRefElementTypeInterface::Trait> {
+
+public:
+  using Base::Base;
+
+  // Get a unique instance of StringType.
+  static StringType get(mlir::MLIRContext *context) {
+    return Base::get(context);
+  }
+};
+
 } // namespace mlir

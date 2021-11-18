@@ -63,9 +63,12 @@ namespace mlir {
 // Will put all the ONNXOps into this namespace
 namespace onnxmlir {
 class StringType
-    : public mlir::Type::TypeBase<StringType, mlir::Type, mlir::TypeStorage> {
+    : public mlir::Type::TypeBase<StringType, mlir::Type, mlir::TypeStorage,
+          mlir::MemRefElementTypeInterface::Trait> {
+
 public:
   using Base::Base;
+  using Base::getChecked;
 
   static StringType get(MLIRContext *ctx) { return Base::get(ctx); }
 };
