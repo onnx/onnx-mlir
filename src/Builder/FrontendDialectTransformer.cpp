@@ -25,6 +25,7 @@
 
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Debug.h"
 
 SUPPRESS_WARNINGS_PUSH
 #include "onnx/checker.h"
@@ -37,6 +38,12 @@ SUPPRESS_WARNINGS_POP
 #include <iostream>
 #include <map>
 #include <type_traits>
+
+#define DEBUG_TYPE "frontend_dialect_transformer"
+
+/// We consider opset < 6 is old. Users will see a warning if their model
+/// contains ops of old opset.
+static constexpr int32_t MINIMUM_SUPPORTED_OPSET = 6;
 
 using namespace mlir;
 
@@ -95,8 +102,6 @@ private:
   ModuleOp module_;
   OpBuilder builder_;
 
-  Value none_;
-  std::map<FuncOp, Value> func2None_;
   std::map<std::string, std::vector<int>> op_dialect_version_map_;
 
   /*!
@@ -185,32 +190,18 @@ private:
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
   Value none() {
-    // Get the enclosing Func Op.
-    auto block = builder_.getInsertionBlock();
-    assert(block && "Builder insertion block must be set.");
-    auto *op = block->getParentOp();
-    FuncOp func =
-        isa<FuncOp>(op) ? dyn_cast<FuncOp>(op) : op->getParentOfType<FuncOp>();
-
-    assert(func && "Cannot find FuncOp surrounding current insertion point.");
-
-    // Check if there's a none-typed value in the curent Func already, if so,
-    // return it; if not create one.
-    if (func2None_.count(func)) {
-      return func2None_.at(func);
-    } else {
-      auto none =
-          builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr())
-              .getResult();
-      func2None_.emplace(func, none);
-      return none;
-    }
+    auto none =
+        builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr())
+            .getResult();
+    return none;
   }
 
   // onnx_type_map: a map from ONNX tensor name to ONNX TypeProto.
   SymbolToOnnxTypeMapping onnx_type_map;
 
-  void AddValueInfo(const onnx::ValueInfoProto &vi) {
+  void AddValueInfo(const onnx::ValueInfoProto &vi, bool allowExist = false) {
+    if (allowExist && onnx_type_map.ContainKey(vi.name()))
+      return;
     onnx_type_map.AddMapping(vi.name(), vi.type());
   }
 
@@ -432,7 +423,8 @@ private:
       }
     }
     for (const auto &output : graph.output()) {
-      AddValueInfo(output);
+      // Output tensor may be in input list
+      AddValueInfo(output, true);
       outputNames.push_back(output.name());
     }
 
@@ -704,10 +696,7 @@ private:
     for (const auto &item : node.input())
       if (item.empty()) {
         // Optional inputs using empty string will be imported as NoneType.
-        if (!none_)
-          none_ =
-              builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
-        inputs.emplace_back(none_);
+        inputs.emplace_back(none());
       } else {
         if (initializedTensors.ContainKey(item)) {
           inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
@@ -974,6 +963,16 @@ private:
       return std::string("");
     }
     auto current_opset = opset_map_.find(node.domain())->second;
+
+    if (current_opset < MINIMUM_SUPPORTED_OPSET)
+      llvm::outs() << "Warning: ONNX " << node.op_type()
+                   << " in your model is using Opset " << current_opset
+                   << ", which is quite old. Please consider regenerating your "
+                      "model with a newer Opset.\n";
+    LLVM_DEBUG(llvm::dbgs()
+               << DEBUG_TYPE << ": Importing ONNX " << node.op_type()
+               << ", Opset: " << current_opset << "\n");
+
     // Custom ops may not be present in op_dialect_version_map_. If no version
     // info is found, treat as unversioned (no renaming).
     auto opset_list_it = op_dialect_version_map_.find(node.op_type());
@@ -987,6 +986,8 @@ private:
         return std::string("");
       for (int i = opset_list.size() - 1; i > 0; i--) {
         if (current_opset < opset_list[i - 1]) {
+          LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ":   - use Opset "
+                                  << opset_list[i] << "\n");
           return "V" + std::to_string(opset_list[i]);
         }
       }
@@ -1153,7 +1154,7 @@ private:
     builder_.restoreInsertionPoint(prev_ip);
 
     // Generate call statement
-    auto op = builder_.create<CallOp>(UnknownLoc(), funcOp, operands);
+    auto op = builder_.create<ONNXCallOp>(UnknownLoc(), funcOp, operands);
     int result_num = 0;
     for (auto &v : node.output()) {
       BindOnnxName(v, op.getResult(result_num++));
@@ -1394,12 +1395,15 @@ void ImportFrontendModelArray(const void *onnxBuffer, int size,
 }
 
 void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
-    OwningModuleRef &module, ImportOptions options) {
+    OwningModuleRef &module, std::string *errorMessage, ImportOptions options) {
   onnx::ModelProto model;
   std::fstream input(model_fname, std::ios::in | std::ios::binary);
 
   auto parse_success = model.ParseFromIstream(&input);
-  assert(parse_success && "Onnx Model Parsing Failed.");
+  if (!parse_success) {
+    *errorMessage = "Onnx Model Parsing Failed on " + model_fname;
+    return;
+  }
   ImportFrontendModelInternal(model, context, module, options);
 }
 

@@ -17,6 +17,86 @@
 
 bool gEmitDealloc = true;
 
+Value OnnxToKrnlBuilder::reshape(
+    const Value input, const ArrayRef<DimIndexExpr> shapeDims) const {
+  assert(!shapeDims.empty() && "Shape dimensions should not be empty");
+
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  Type elementType = inputType.getElementType();
+
+  // If the output dimensions are all literals the 'onnx/Reshape' operation
+  // can take the new shape via an 'onnx.Constant'.
+  if (llvm::all_of(
+          shapeDims, [](const DimIndexExpr &dim) { return dim.isLiteral(); })) {
+    SmallVector<int64_t, 6> shape;
+    for (const IndexExpr &dim : shapeDims)
+      shape.push_back(dim.getLiteral());
+
+    auto constantOp =
+        createONNXConstantOpWithDenseAttr(b, loc, b.getI64TensorAttr(shape));
+
+    Value reshapeRes = b.create<ONNXReshapeOp>(
+        loc, MemRefType::get(shape, elementType), input, constantOp);
+
+    return reshapeRes;
+  }
+
+  MemRefBuilder memRefBuilder(b, loc);
+  KrnlBuilder krnlBuilder(memRefBuilder);
+
+  // When the output dimensions aren't all literals we need to generate code
+  // to compute the shape. Allocate a buffer and store the putput dimension
+  // into it.
+  IndexType indexTy = b.getIndexType();
+  int64_t length = shapeDims.size();
+  memref::AllocOp alloc =
+      memRefBuilder.alignedAlloc(MemRefType::get({length}, indexTy), 16);
+
+  for (int64_t i = 0; i < length; ++i) {
+    Value index = emitConstantOp(b, loc, indexTy, i);
+    Value data = shapeDims[i].getValue();
+    krnlBuilder.store(data, alloc, index);
+  }
+
+  // Now create the 'onnx.Reshape' operation. Because the shape is not a
+  // compile time constant it is effectively unknown.
+  SmallVector<int64_t> shape(length, -1);
+  Value reshapeRes = b.create<ONNXReshapeOp>(
+      loc, MemRefType::get(shape, elementType), input, alloc);
+
+  // The 'onnx.Reshape' operation yields a memref with unknown extents, so we
+  // need to explicitly cast the result to the know size.
+  SmallVector<int64_t, 6> castOutputShape;
+  for (const IndexExpr &dim : shapeDims)
+    castOutputShape.push_back(dim.isLiteral() ? dim.getLiteral() : -1);
+
+  Value castRes = memRefBuilder.cast(
+      reshapeRes, MemRefType::get(castOutputShape, elementType));
+
+  return castRes;
+}
+
+Value OnnxToKrnlBuilder::transpose(const Value input,
+    const ArrayRef<int64_t> perm,
+    const ArrayRef<DimIndexExpr> outputDims) const {
+  assert(!outputDims.empty() && "Output dimensions should not be empty");
+  assert(!perm.empty() && perm.size() == outputDims.size() &&
+         "Expecitng valid permutation array");
+
+  // Compute the shape of the 'onnx.Transpose' result.
+  SmallVector<int64_t, 6> shape;
+  for (const IndexExpr &dim : outputDims)
+    shape.push_back(dim.isLiteral() ? dim.getLiteral() : -1);
+
+  // Create the "onnx.Transpose" operation.
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  Value transposeRes = b.create<ONNXTransposeOp>(loc,
+      MemRefType::get(shape, inputType.getElementType()), input,
+      b.getI64ArrayAttr(perm));
+
+  return transposeRes;
+}
+
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values) {
   for (Value value : values) {
@@ -375,13 +455,12 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     Value operand, int64_t axis, Type type) {
   ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
   Value dimVal;
+  MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
   if (shape[axis] < 0) {
-    MemRefBuilder createMemRef(rewriter, loc);
-    MathBuilder createMath(createMemRef);
-    Value dim = createMemRef.dim(operand, axis);
-    dimVal = createMath.cast(type, dim);
+    Value dim = create.mem.dim(operand, axis);
+    dimVal = create.math.cast(type, dim);
   } else {
-    dimVal = emitConstantOp(rewriter, loc, type, shape[axis]);
+    dimVal = create.math.constant(type, shape[axis]);
   }
   return dimVal;
 }
@@ -561,8 +640,6 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
 Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     Value input, int64_t axis, bool ascending) {
   KrnlBuilder createKrnl(rewriter, loc);
-  MathBuilder createMath(createKrnl);
-  SCFBuilder createSCF(createKrnl);
   IndexExprScope scope(createKrnl);
 
   MemRefType inputMemRefType = input.getType().cast<MemRefType>();
@@ -598,26 +675,29 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
         ValueRange swapLoopDef = createKrnl.defineLoops(1);
         createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i1}, {ubs[axis]},
             [&](KrnlBuilder &createKrnl, ValueRange swapLoopInd) {
+              MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
+                  createKrnl);
               SmallVector<Value> kLoopInd(iLoopInd);
               kLoopInd[axis] = swapLoopInd[0];
               // Load current indices.
-              Value iOrd = createKrnl.load(order, iLoopInd);
-              Value kOrd = createKrnl.load(order, kLoopInd);
+              Value iOrd = create.krnl.load(order, iLoopInd);
+              Value kOrd = create.krnl.load(order, kLoopInd);
               // Load x.
               SmallVector<Value> xLoopInd(iLoopInd);
               xLoopInd[axis] = iOrd;
-              Value x = createKrnl.load(input, xLoopInd);
+              Value x = create.krnl.load(input, xLoopInd);
               // Load y.
               SmallVector<Value> yLoopInd(iLoopInd);
               yLoopInd[axis] = kOrd;
-              Value y = createKrnl.load(input, yLoopInd);
+              Value y = create.krnl.load(input, yLoopInd);
               // Compare values and swap indices.
               Value cond;
               if (ascending)
-                cond = createMath.sgt(x, y);
+                cond = create.math.sgt(x, y);
               else
-                cond = createMath.slt(x, y);
-              createSCF.ifThenElse(cond, [&](SCFBuilder &createSCF) {
+                cond = create.math.slt(x, y);
+              create.scf.ifThenElse(cond, [&](SCFBuilder &createSCF) {
+                KrnlBuilder createKrnl(createSCF);
                 createKrnl.store(kOrd, order, iLoopInd);
                 createKrnl.store(iOrd, order, kLoopInd);
               });
@@ -648,14 +728,13 @@ DenseElementsAttr getDenseElementAttributeFromConstantValue(Value value) {
 /// value is used in case of NoneType.
 Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
     Value optionalScalar, Type elementType, double defaultValue) {
-  KrnlBuilder createKrnl(rewriter, loc);
-  MathBuilder createMath(createKrnl);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
   if (optionalScalar.getType().isa<NoneType>()) {
-    return createMath.constant(elementType, defaultValue);
+    return create.math.constant(elementType, defaultValue);
   } else if (optionalScalar.getType().cast<ShapedType>().getRank() == 0) {
-    return createKrnl.load(optionalScalar, {});
+    return create.krnl.load(optionalScalar, {});
   } else {
-    Value zero = createMath.constantIndex(0);
-    return createKrnl.load(optionalScalar, {zero});
+    Value zero = create.math.constantIndex(0);
+    return create.krnl.load(optionalScalar, {zero});
   }
 }

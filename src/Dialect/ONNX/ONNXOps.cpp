@@ -36,15 +36,6 @@ using namespace mlir::OpTrait::util;
 using namespace mlir::onnxmlir;
 
 //===----------------------------------------------------------------------===//
-// ONNX Helper functions for verify
-//===----------------------------------------------------------------------===//
-
-static bool hasShapeAndRank(Value val) {
-  return val.getType().isa<ShapedType>() &&
-         val.getType().cast<ShapedType>().hasRank();
-}
-
-//===----------------------------------------------------------------------===//
 // ONNX Helper functions for shape helpers
 //===----------------------------------------------------------------------===//
 
@@ -88,7 +79,10 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
 }
 
 #define NOT_IMPLEMENTED_MESSAGE                                                \
-  (getOperationName() + ": inferShapes() not implemented")
+  (getOperationName() +                                                        \
+      ": is not supported at this time. Please open an issue on "              \
+      "https://github.com/onnx/onnx-mlir and/or consider contribute code. "    \
+      "Error encountered in shape inference.")
 
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
@@ -2736,14 +2730,19 @@ LogicalResult ONNXResizeOp::inferShapes(
   }
 
   if (isFromNone(scales()) == isFromNone(sizes())) {
-    return emitError("scales() and sizes() can not both None/not None");
+    if (isFromNone(scales()))
+      return emitError("scales() and sizes() can not be both None");
+    else
+      return emitError("scales() and sizes() can not be both defined");
   }
 
   if (!(mode() == "nearest" &&
           (coordinate_transformation_mode() == "half_pixel" ||
               coordinate_transformation_mode() == "asymmetric"))) {
     return emitError("these modes() or coordinate_transformation_mode() not "
-                     "implemented yet");
+                     "implemented yet. mode: " +
+                     mode() + " coordinate_transformation_mode: " +
+                     coordinate_transformation_mode());
   }
 
   // Current implementation handles constant scales only
@@ -3830,6 +3829,48 @@ LogicalResult ONNXNotOp::inferShapes(
   return success();
 }
 
+static LogicalResult verify(ONNXOneHotOp op) {
+  ONNXOneHotOpAdaptor operandAdaptor = ONNXOneHotOpAdaptor(op);
+  // Check indices.
+  Value indices = operandAdaptor.indices();
+  if (hasShapeAndRank(indices)) {
+    // Get rank.
+    int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
+    // Verify axis.
+    int64_t axisValue = op.axis();
+    // Unusually, with a rank of 3, acceptable values are 0 (before first) to 3
+    // (after last).
+    if (axisValue < 0)
+      axisValue += indicesRank + 1;
+    if (!(axisValue >= 0 && axisValue <= indicesRank))
+      return op->emitError("OneHot axis value is out of range");
+  }
+  // Check that values is a rank 2 with 2 elements
+  Value values = operandAdaptor.values();
+  if (hasShapeAndRank(values)) {
+    ShapedType valuesShape = values.getType().cast<ShapedType>();
+    if (valuesShape.getRank() != 1)
+      return op->emitError("OneHot values must be 1D tensor");
+    int64_t dim = valuesShape.getDimSize(0);
+    if (dim >= 0 && dim != 2)
+      return op->emitError("OneHot values must be 1D tensor with 2 elements");
+  }
+  // Depth is a scalar, check when its a tensor of rank 0 or 1.
+  Value depth = operandAdaptor.depth();
+  if (hasShapeAndRank(depth)) {
+    ShapedType depthShape = depth.getType().cast<ShapedType>();
+    if (depthShape.getRank() == 1) {
+      int64_t dim = depthShape.getDimSize(0);
+      if (dim >= 0 && dim != 1)
+        return op->emitError("OneHot depth can be 1D tensor with 1 elements");
+    } else {
+      if (depthShape.getRank() > 1)
+        return op->emitError("OneHot depth must be 0 or 1D tensor");
+    }
+  }
+  return success();
+}
+
 LogicalResult ONNXOneHotOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
@@ -3838,7 +3879,7 @@ LogicalResult ONNXOneHotOp::inferShapes(
 
   ONNXOneHotOpShapeHelper shapeHelper(this);
   ONNXOneHotOpAdaptor operandAdaptor(*this);
-  if (failed(shapeHelper.ComputeShape(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan OneHot parameters successfully");
 
   SmallVector<int64_t, 4> outputDims;
@@ -3950,9 +3991,9 @@ LogicalResult ONNXRangeOp::inferShapes(
   auto constantDelta = getONNXConstantOp(delta());
   if (constantStart && constantLimit && constantDelta) {
     // Get all inputs:
-    double start = getScalarValue(constantStart, startTensorTy);
-    double limit = getScalarValue(constantLimit, limitTensorTy);
-    double delta = getScalarValue(constantDelta, deltaTensorTy);
+    double start = getScalarValue<double>(constantStart, startTensorTy);
+    double limit = getScalarValue<double>(constantLimit, limitTensorTy);
+    double delta = getScalarValue<double>(constantDelta, deltaTensorTy);
 
     // Compute size:
     number_of_elements = (int64_t)ceil((limit - start) / delta);
@@ -4172,9 +4213,41 @@ LogicalResult ONNXScatterElementsOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXScatterNDOp op) {
+  ONNXScatterNDOpAdaptor operandAdaptor(op);
+  // Get operands.
+  mlir::Value data = operandAdaptor.data();
+  mlir::Value indices = operandAdaptor.indices();
+  mlir::Value updates = operandAdaptor.updates();
+
+  // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(data) || !hasShapeAndRank(indices) ||
+      !hasShapeAndRank(updates))
+    return success();
+
+  int64_t data_rank = data.getType().cast<mlir::ShapedType>().getRank();
+  int64_t indices_rank = indices.getType().cast<mlir::ShapedType>().getRank();
+  int64_t updates_rank = updates.getType().cast<mlir::ShapedType>().getRank();
+  int32_t indices_last_dim =
+      indices.getType().cast<mlir::ShapedType>().getShape()[indices_rank - 1];
+
+  if (data_rank < 1)
+    return op->emitError("data rank should >= 1");
+  if (indices_rank < 1)
+    return op->emitError("indices rank should >= 1");
+  if (updates_rank != (data_rank + indices_rank - indices_last_dim - 1))
+    return op->emitError("updates rank not meet the op spec");
+
+  return success();
+}
+
 LogicalResult ONNXScatterNDOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!data().getType().isa<mlir::RankedTensorType>())
+    return success();
+
+  getResult().setType(data().getType());
+  return success();
 }
 
 LogicalResult ONNXSequenceAtOp::inferShapes(
@@ -4372,9 +4445,68 @@ LogicalResult ONNXCastMapOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXCategoryMapperOp op) {
+  ONNXCategoryMapperOpAdaptor operandAdaptor(op);
+
+  // Check input.
+  const Value X = operandAdaptor.X();
+  if (!hasShapeAndRank(X)) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
+
+  ShapedType inputType = X.getType().dyn_cast<RankedTensorType>();
+  Type elementType = inputType.getElementType();
+  if (!elementType.isInteger(64) && !elementType.isa<StringType>())
+    return op.emitError("input must be a tensor of int64 or string");
+
+  // Check attributes.
+  if (!op.cats_int64s())
+    return op.emitError("cats_int64 attribute must be present");
+  if (!op.cats_strings())
+    return op.emitError("cats_strings attribute must be present");
+  if (ArrayAttrSize(op.cats_int64s()) != ArrayAttrSize(op.cats_strings()))
+    return op.emitError(
+        "cats_int64 and cats_strings should have the same size");
+
+  if (elementType.isInteger(64) && !op.default_stringAttr())
+    return op.emitError("'default_string' attribute is missing.");
+  if (elementType.isa<StringType>() && !op.default_int64Attr())
+    return op.emitError("'default_int64' attribute is missing.");
+  if (op.default_stringAttr() && op.default_int64Attr())
+    return op.emitError("Only one of 'default_int64' or 'default_string' "
+                        "attributes must be specified");
+
+  return success();
+}
+
 LogicalResult ONNXCategoryMapperOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Cannot infer shape if no shape exists.
+  if (!X().getType().isa<RankedTensorType>())
+    return success();
+
+  Type inputElementType = X().getType().cast<ShapedType>().getElementType();
+  assert(
+      (inputElementType.isInteger(64) || inputElementType.isa<StringType>()) &&
+      "Input tensor must have int64 or string element type.");
+
+  ONNXCategoryMapperOpAdaptor operandAdaptor(*this);
+  ONNXCategoryMapperOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan CategoryMapper parameters successfully");
+
+  Type outputElementType;
+  if (inputElementType.isInteger(64))
+    outputElementType = StringType::get(getContext());
+  else
+    outputElementType = IntegerType::get(getContext(), /*width=*/64);
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, outputElementType));
+
+  return success();
 }
 
 LogicalResult ONNXDictVectorizerOp::inferShapes(
@@ -4456,6 +4588,8 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV9Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV11Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV11Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV10Op);
 
 //===----------------------------------------------------------------------===//
 // Loop
@@ -4556,6 +4690,44 @@ LogicalResult ONNXCustomOp::inferShapes(
   return success();
 }
 
+LogicalResult ONNXCallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
+  // Check that the callee attribute was specified.
+  auto fnAttr = (*this)->getAttrOfType<FlatSymbolRefAttr>("callee");
+  if (!fnAttr)
+    return emitOpError("requires a 'callee' symbol reference attribute");
+  FuncOp fn = symbolTable.lookupNearestSymbolFrom<FuncOp>(*this, fnAttr);
+  if (!fn)
+    return emitOpError() << "'" << fnAttr.getValue()
+                         << "' does not reference a valid function";
+
+  // Verify that the operand and result types match the callee.
+  auto fnType = fn.getType();
+  if (fnType.getNumInputs() != getNumOperands())
+    return emitOpError("incorrect number of operands for callee");
+
+  for (unsigned i = 0, e = fnType.getNumInputs(); i != e; ++i)
+    if (getOperand(i).getType() != fnType.getInput(i))
+      return emitOpError("operand type mismatch: expected operand type ")
+             << fnType.getInput(i) << ", but provided "
+             << getOperand(i).getType() << " for operand number " << i;
+
+  if (fnType.getNumResults() != getNumResults())
+    return emitOpError("incorrect number of results for callee");
+
+  for (unsigned i = 0, e = fnType.getNumResults(); i != e; ++i)
+    if (getResult(i).getType() != fnType.getResult(i)) {
+      auto diag = emitOpError("result type mismatch at index ") << i;
+      diag.attachNote() << "      op result types: " << getResultTypes();
+      diag.attachNote() << "function result types: " << fnType.getResults();
+      return diag;
+    }
+
+  return success();
+}
+
+FunctionType ONNXCallOp::getCalleeType() {
+  return FunctionType::get(getContext(), getOperandTypes(), getResultTypes());
+}
 //===----------------------------------------------------------------------===//
 // ONNX type related code
 //===----------------------------------------------------------------------===//

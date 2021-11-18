@@ -39,7 +39,7 @@ jobs:
          echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OnnxMlirRuntime) | \
         doxygen -
         # Add Jekyll front matter to pass the html through Jekyll processing
-        sed -i -e '1s/^/---\ntitle: $title\nlayout: default\n---\n/' \
+        sed -i -e '1s/^/---\nlayout: default\n---\n/' \
             $GITHUB_WORKSPACE/gh-pages/doxygen_html/OnnxMlirRuntime/index.html
 
         (cat  $GITHUB_WORKSPACE/onnx-mlir/Doxyfile; \
@@ -47,7 +47,7 @@ jobs:
          echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensor) | \
         doxygen -
         # Add Jekyll front matter to pass the html through Jekyll processing
-        sed -i -e '1s/^/---\ntitle: $title\nlayout: default\n---\n/' \
+        sed -i -e '1s/^/---\nlayout: default\n---\n/' \
             $GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensor/_o_m_tensor_8h.html
 
         (cat  $GITHUB_WORKSPACE/onnx-mlir/Doxyfile; \
@@ -55,7 +55,7 @@ jobs:
          echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensorList) | \
         doxygen -
         # Add Jekyll front matter to pass the html through Jekyll processing
-        sed -i -e '1s/^/---\ntitle: $title\nlayout: default\n---\n/' \
+        sed -i -e '1s/^/---\nlayout: default\n---\n/' \
             $GITHUB_WORKSPACE/gh-pages/doxygen_html/OMTensorList/_o_m_tensor_list_8h.html
 
     - name: commit updated gh-pages

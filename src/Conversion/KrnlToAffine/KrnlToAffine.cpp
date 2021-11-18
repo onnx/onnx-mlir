@@ -163,8 +163,16 @@ public:
     explicit Movable(KrnlMovableOp op) : movableOp(op) {}
     explicit Movable(KrnlIterateOp op) {
       auto operandRange = op->getOperands();
-      loopsToSkip = llvm::SmallVector<Value, 4>(operandRange.begin(),
-          operandRange.begin() + op.getNumOptimizedLoops());
+      SmallVector<Value, 4> values;
+      for (int64_t i = 0; i < op.getNumOptimizedLoops(); ++i) {
+        Value val = operandRange[i];
+        // Only skip non-unroll loops.
+        if (llvm::all_of(val.getUsers(), [&](Operation *user) {
+              return dyn_cast_or_null<KrnlUnrollOp>(user);
+            }))
+          values.emplace_back(val);
+      }
+      loopsToSkip = values;
     }
   };
 
@@ -237,7 +245,7 @@ public:
 
         // Move iterator to point to the next AffineFor Op.
         while (insertPt != loopBody.end() &&
-               !dyn_cast_or_null<AffineForOp>(&*insertPt)) {
+               !dyn_cast_or_null<AffineForOp>(&*insertPt) && loopToSkip) {
           assert(dyn_cast_or_null<KrnlMovableOp>(&*insertPt));
           insertPt++;
         }
@@ -405,6 +413,17 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
     refToOps.try_emplace(pair.first, pair.second);
 }
 
+void lowerGetInductionVariableValueOp(KrnlGetInductionVariableValueOp &getIVOp,
+    llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp) {
+  auto zippedOperandsResults =
+      llvm::zip(getIVOp->getOperands(), getIVOp->getResults());
+  for (const auto &operandAndResult : zippedOperandsResults) {
+    auto operand = std::get<0>(operandAndResult);
+    auto result = std::get<1>(operandAndResult);
+    result.replaceAllUsesWith(loopRefToOp[operand].getInductionVar());
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // ConvertKrnlToAffinePass
 //===----------------------------------------------------------------------===//
@@ -429,16 +448,20 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
   for (auto &region : op->getRegions())
     for (auto &block : region.getBlocks()) {
       auto &blockOps = block.getOperations();
-      for (auto itr = blockOps.begin(); itr != blockOps.end();)
+      for (auto itr = blockOps.begin(); itr != blockOps.end();) {
+        LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << " Call interpretOperation \n");
         if (failed(interpretOperation(
                 &(*itr), builder, loopRefToOp, opsToErase, mover))) {
           return failure();
         } else {
           ++itr;
         }
+      }
     }
 
   if (auto defineOp = dyn_cast_or_null<KrnlDefineLoopsOp>(op)) {
+    LLVM_DEBUG(llvm::dbgs()
+               << DEBUG_TYPE << " interpret define op " << defineOp << "\n");
     // Collect users of defineLoops operations that are iterate operations.
     std::vector<KrnlIterateOp> iterateOps;
     for (auto result : op->getResults())
@@ -461,6 +484,8 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     opsToErase.insert(op);
     return success();
   } else if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(op)) {
+    LLVM_DEBUG(llvm::dbgs()
+               << DEBUG_TYPE << " interpret iterate op " << iterateOp << "\n");
     // If an iterateOp has no unoptimized loop references, then we need to lower
     // them manually.
     if (opsToErase.count(op) == 0) {
@@ -469,6 +494,8 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     }
     return success();
   } else if (auto blockOp = dyn_cast_or_null<KrnlBlockOp>(op)) {
+    LLVM_DEBUG(llvm::dbgs()
+               << DEBUG_TYPE << " interpret block op " << blockOp << "\n");
     SmallVector<AffineForOp, 2> tiledLoops;
     SmallVector<AffineForOp, 1> loopsToTile = {loopRefToOp[blockOp.loop()]};
 
@@ -489,6 +516,8 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     opsToErase.insert(op);
     return success();
   } else if (auto permuteOp = dyn_cast_or_null<KrnlPermuteOp>(op)) {
+    LLVM_DEBUG(llvm::dbgs()
+               << DEBUG_TYPE << " interpret permute op " << permuteOp << "\n");
     // TODO(tjingrant): call it whenever an operation lowering completes.
     removeOps(opsToErase);
     // Collect loops to permute.
@@ -508,10 +537,29 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     opsToErase.insert(op);
     return success();
   } else if (auto unrollOp = dyn_cast_or_null<KrnlUnrollOp>(op)) {
+    LLVM_DEBUG(llvm::dbgs()
+               << DEBUG_TYPE << " interpret unroll op " << unrollOp << "\n");
     // Unroll the affine for loop fully.
     auto loopRef = unrollOp.loop();
     auto loopToUnroll = loopRefToOp[loopRef];
+
     mover.moveOne(loopRef, loopRefToOp);
+
+    // Interpret and remove 'krnl.get_induction_var' inside the unrolling loop
+    // if any. Otherwise, we lost the trace of the loop induction variables.
+    for (auto &region : loopToUnroll->getRegions())
+      for (auto &block : region.getBlocks()) {
+        auto &blockOps = block.getOperations();
+        for (auto itr = blockOps.begin(); itr != blockOps.end(); ++itr) {
+          Operation *genericOp = &(*itr);
+          if (auto getIVOp = dyn_cast_or_null<KrnlGetInductionVariableValueOp>(
+                  genericOp)) {
+            lowerGetInductionVariableValueOp(getIVOp, loopRefToOp);
+            opsToErase.insert(genericOp);
+          }
+        }
+      }
+    removeOps(opsToErase);
 
     // Assert that there's no floating code within the loop to be unrolled.
     loopToUnroll.walk([](KrnlMovableOp op) {
@@ -1434,16 +1482,8 @@ void ConvertKrnlToAffinePass::runOnFunction() {
         opsToErase.insert(loopRefToOp[loopRef]);
       kernelOp.getLoopRefs().clear();
     }
-
-    if (auto convertOp =
-            dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
-      auto zippedOperandsResults =
-          llvm::zip(op->getOperands(), op->getResults());
-      for (const auto &operandAndResult : zippedOperandsResults) {
-        auto operand = std::get<0>(operandAndResult);
-        auto result = std::get<1>(operandAndResult);
-        result.replaceAllUsesWith(loopRefToOp[operand].getInductionVar());
-      }
+    if (auto getIVOp = dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
+      lowerGetInductionVariableValueOp(getIVOp, loopRefToOp);
       opsToErase.insert(op);
     }
   });

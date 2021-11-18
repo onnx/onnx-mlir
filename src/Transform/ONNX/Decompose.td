@@ -282,4 +282,27 @@ def PadV11Pattern : Pat<
   (ONNXPadOp $x, $pads, $mode, $value)
 >;
 
+def ResizeV10Pattern: Pat<
+   (ONNXResizeV10Op:$res $x, $scales, $mode),
+   (ONNXResizeOp $x, (createNoneFloatConstant $res),
+        $scales, (createNoneIntegerConstant $res),
+       /*coordinate_transformation_mode*/(GetNullStringAttr),
+       /*cubic_coeff_a*/(GetNullFloatAttr),
+       /*exclude_outside*/(GetNullIntegerAttr),
+       /*exttrapolation_value*/(GetNullFloatAttr),
+       /*mode*/$mode,
+       /*nearest_mode*/(GetNullStringAttr))
+>;
+
+def ResizeV11Pattern: Pat<
+   (ONNXResizeV11Op:$res $x, $roi, $scales, $size,
+                    $coordinate_transformation_node, $cubic_coeff_a,
+                    $exclude_outside, $exttrapolation_value, $mode,
+                    $nearest_mode),
+   (ONNXResizeOp    $x, $roi, $scales, $size,
+                    $coordinate_transformation_node, $cubic_coeff_a,
+                    $exclude_outside, $exttrapolation_value, $mode,
+                    $nearest_mode)
+>;
+
 #endif // ONNX_DECOMPOSE

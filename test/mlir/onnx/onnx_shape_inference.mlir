@@ -2107,7 +2107,7 @@ func @test_onehot(%arg0: tensor<2x2xi64>, %arg1: tensor<2xf32>) -> tensor<*xf32>
 
   // CHECK-LABEL: test_onehot
   // CHECK: [[R0:%.+]] = "onnx.Constant"() {value = dense<10> : tensor<i64>} : () -> tensor<i64>
-  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, [[R0]], %arg1) {axis = 2 : si64} : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<2x2x10xf32>
+  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, [[R0]], %arg1) : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<2x2x10xf32>
 }
 
 // -----
@@ -2119,7 +2119,7 @@ func @test_onehot_axis(%arg0: tensor<2x2xi64>, %arg1: tensor<2xf32>) -> tensor<*
 
   // CHECK-LABEL: test_onehot_axis
   // CHECK: [[R0:%.+]] = "onnx.Constant"() {value = dense<1.000000e+01> : tensor<f32>} : () -> tensor<f32>
-  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, [[R0]], %arg1)  {axis = 1 : si64} : (tensor<2x2xi64>, tensor<f32>, tensor<2xf32>) -> tensor<2x10x2xf32>
+  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, [[R0]], %arg1) {axis = 1 : si64} : (tensor<2x2xi64>, tensor<f32>, tensor<2xf32>) -> tensor<2x10x2xf32>
 }
 
 // -----
@@ -2129,7 +2129,7 @@ func @test_onehot_depth(%arg0: tensor<2x2xi64>, %arg1: tensor<i64>, %arg2: tenso
   return %0 : tensor<*xf32>
 
   // CHECK-LABEL: test_onehot_depth
-  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, %arg1, %arg2)  {axis = 2 : si64} : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<2x2x?xf32>
+  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, %arg1, %arg2)  : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<2x2x?xf32>
 }
 
 // -----
@@ -2263,3 +2263,66 @@ func @topk_constant_k(%X: tensor<3x4x5xf32>) -> tensor<*xf32> {
   // CHECK-LABEL: topk_constant_k
   // CHECK: {{.*}} = "onnx.TopK"({{.*}}, {{.*}}) {axis = 1 : si64} : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<3x2x5xf32>, tensor<3x2x5xi64>)
 }
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for CategoryMapper.
+//===----------------------------------------------------------------------===//
+
+func @test_category_mapper_string (%arg0: tensor<20x1x!onnx.String>) -> tensor<*xi64> {
+  %0 = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2, 3], cats_strings = ["cat", "dog", "human"], default_int64 = 0 : si64} : (tensor<20x1x!onnx.String>) -> tensor<*xi64>
+  "std.return"(%0) : (tensor<*xi64>) -> ()
+
+  // CHECK-LABEL: test_category_mapper_string
+  // CHECK: [[RES:%.+]] = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2, 3], cats_strings = ["cat", "dog", "human"], default_int64 = 0 : si64} : (tensor<20x1x!onnx.String>) -> tensor<20x1xi64>
+  // CHECK: return [[RES]] : tensor<20x1xi64>
+}
+
+// -----
+
+func @test_category_mapper_int64 (%arg0: tensor<20x1xi64>) -> tensor<*x!onnx.String> {
+  %0 = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2, 3], cats_strings = ["cat", "dog", "human"], default_string = "unclassified" : !onnx.String} : (tensor<20x1xi64>) -> tensor<*x!onnx.String>
+  "std.return"(%0) : (tensor<*x!onnx.String>) -> ()
+
+  // CHECK-LABEL: test_category_mapper_int64
+  // CHECK: [[RES:%.+]] = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2, 3], cats_strings = ["cat", "dog", "human"], default_string = "unclassified" : !onnx.String} : (tensor<20x1xi64>) -> tensor<20x1x!onnx.String>
+  // CHECK: return [[RES]] : tensor<20x1x!onnx.String>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for ScatterND.
+//===----------------------------------------------------------------------===//
+func @test_scatternd_int32(%arg0: tensor<8xi32>) -> tensor<*xi32> {
+  %1 = "onnx.Constant"() {value = dense<[[4], [3], [1], [7]]> : tensor<4x1xi64> } : () -> tensor<4x1xi64>
+  %2 = "onnx.Constant"() {value = dense<[9, 10, 11, 12]> : tensor<4xi32> } : () -> tensor<4xi32>
+  %3 = "onnx.ScatterND"(%arg0, %1, %2) : (tensor<8xi32>, tensor<4x1xi64>, tensor<4xi32>) ->  tensor<*xi32>
+  "std.return"(%3) : (tensor<*xi32>) -> ()
+
+  // CHECK-LABEL: test_scatternd_int32
+  // CHECK: [[R1:%.+]] = "onnx.Constant"() {{.*}}
+  // CHECK-NEXT: [[R2:%.+]] = "onnx.Constant"() {{.*}}
+  // CHECK-NEXT: [[RES:%.+]] = "onnx.ScatterND"(%arg0, [[R1]], [[R2]]) : (tensor<8xi32>, tensor<4x1xi64>, tensor<4xi32>) -> tensor<8xi32>
+  // CHECK-NEXT: return [[RES]] : tensor<8xi32>
+}
+
+// -----
+
+func @test_scatternd_float32(%arg0: tensor<4x4x4xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Constant"() {value = dense<[[0], [2]]> : tensor<2x1xi64> } : () -> tensor<2x1xi64>
+  %2 = "onnx.Constant"() {value = dense<[[[5., 5., 5., 5.], [6., 6., 6., 6.], [7., 7., 7., 7.], [8., 8., 8., 8.]],
+                                         [[1., 1., 1., 1.], [2., 2., 2., 2.], [3., 3., 3., 3.], [4., 4., 4., 4.]]]> : tensor<2x4x4xf32> } : () -> tensor<2x4x4xf32>
+  %3 = "onnx.ScatterND"(%arg0, %1, %2) : (tensor<4x4x4xf32>, tensor<2x1xi64>, tensor<2x4x4xf32>) ->  tensor<*xf32>
+  "std.return"(%3) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_scatternd_float32
+  // CHECK: [[R1:%.+]] = "onnx.Constant"() {{.*}}
+  // CHECK-NEXT: [[R2:%.+]] = "onnx.Constant"() {{.*}}
+  // CHECK-NEXT: [[RES:%.+]] = "onnx.ScatterND"(%arg0, [[R1]], [[R2]]) : (tensor<4x4x4xf32>, tensor<2x1xi64>, tensor<2x4x4xf32>) -> tensor<4x4x4xf32>
+  // CHECK-NEXT: return [[RES]] : tensor<4x4x4xf32>
+}
+
+// -----
+

@@ -24,6 +24,7 @@ using namespace mlir;
 namespace {
 
 // If 'lhs' is not NoneType, return 'lhs - rhs'.
+// If 'lhs' is not NoneType, return 'lhs - rhs'.
 // Otherwise, return '-rhs'.
 Value subtractOrNeg(
     PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) {

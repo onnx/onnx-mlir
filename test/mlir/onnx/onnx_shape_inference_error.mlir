@@ -148,3 +148,48 @@ func @unsupport_resize_cubic_mode(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32> 
   "std.return"(%2) : (tensor<*xf32>) -> ()
 }
 
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Unsupported configurations for ONNXCategoryMapperOp.
+//===----------------------------------------------------------------------===//
+
+func @unsupport_category_mapper_default_int64_missing(%arg0: tensor<20x1x!onnx.String>) -> tensor<*xi64> {
+  // expected-error @+1 {{'default_int64' attribute is missing.}}    
+  %0 = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2], cats_strings = ["cat", "dog"], default_string = "abc" : si64} : (tensor<20x1x!onnx.String>) -> tensor<*xi64>
+  "std.return"(%0) : (tensor<*xi64>) -> ()
+}
+
+// -----
+
+func @unsupport_category_mapper_default_string_missing (%arg0: tensor<20x1xi64>) -> tensor<*x!onnx.String> {
+  // expected-error @+1 {{'default_string' attribute is missing.}}      
+  %0 = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2], cats_strings = ["cat", "dog"], default_int64 = 1 : si64} : (tensor<20x1xi64>) -> tensor<*x!onnx.String>
+  "std.return"(%0) : (tensor<*x!onnx.String>) -> ()
+}
+
+// -----
+
+func @test_category_mapper_diff_size_attrs (%arg0: tensor<20x1xi64>) -> tensor<*x!onnx.String> {
+  // expected-error @+1 {{cats_int64 and cats_strings should have the same size}}      
+  %0 = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2], cats_strings = ["dog"]} : (tensor<20x1xi64>) -> tensor<*x!onnx.String>
+  "std.return"(%0) : (tensor<*x!onnx.String>) -> ()
+}
+
+// -----
+
+func @test_category_mapper_diff_size_attrs (%arg0: tensor<20x1xi32>) -> tensor<*x!onnx.String> {
+  // expected-error @+1 {{'onnx.CategoryMapper' op operand #0 must be tensor of string type values or tensor of 64-bit signless integer values or memref of any type values, but got 'tensor<20x1xi32>'}}      
+  %0 = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1], cats_strings = ["cat"]} : (tensor<20x1xi32>) -> tensor<*x!onnx.String>
+  "std.return"(%0) : (tensor<*x!onnx.String>) -> ()
+}
+
+// -----
+
+// Please update to an unsupported op if/when ArgMin becomes supported
+func @test_unsupported_op(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  // expected-error @+2 {{is not supported at this time. Please open an issue}}
+  // expected-error @+1 {{shape inference failed}}
+  %0 = "onnx.ArgMin"(%arg0) : (tensor<2x2xi64>) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+}

@@ -124,6 +124,20 @@ static bool keepFiles(KeepFilesOfType preserve) {
   return false;
 }
 
+string getExecPath() {
+  // argv0 is only used as a fallback for rare environments
+  // where /proc isn't mounted and mainExecAddr is only needed for
+  // unknown unix-like platforms
+  auto execPath = llvm::sys::fs::getMainExecutable(nullptr, nullptr);
+  if (execPath.empty()) {
+    std::cerr << "Warning: Could not find path to current executable, falling "
+                 "back to default install path: "
+              << kExecPath << std::endl;
+    return kExecPath;
+  }
+  return execPath;
+}
+
 // Runtime directory contains all the libraries, jars, etc. that are
 // necessary for running onnx-mlir. It's resolved in the following order:
 //
@@ -140,7 +154,7 @@ string getRuntimeDir() {
   if (envDir && llvm::sys::fs::exists(envDir.getValue()))
     return envDir.getValue();
 
-  string execDir = llvm::sys::path::parent_path(kExecPath).str();
+  string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   if (llvm::sys::path::stem(execDir).str().compare("bin") == 0) {
     string p = execDir.substr(0, execDir.size() - 3);
     if (llvm::sys::fs::exists(p + "lib64"))
@@ -178,7 +192,7 @@ string getRuntimeDir() {
 // removed. So we force CMAKE_INSTALL_PREFIX to be the same as that of
 // llvm-project.
 string getToolPath(string tool) {
-  string execDir = llvm::sys::path::parent_path(kExecPath).str();
+  string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   llvm::SmallString<8> toolPath(execDir);
   llvm::sys::path::append(toolPath, tool);
   string p = llvm::StringRef(toolPath).str();
@@ -251,12 +265,6 @@ struct Command {
   }
 };
 } // namespace
-
-void setExecPath(const char *argv0, void *fmain) {
-  string p;
-  if (!(p = llvm::sys::fs::getMainExecutable(argv0, fmain)).empty())
-    kExecPath = p;
-}
 
 void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }
@@ -356,7 +364,12 @@ string genModelObject(string bitcodePath, string outputBaseName) {
 void genJniObject(const mlir::OwningModuleRef &module, string jniSharedLibPath,
     string jniObjPath) {
   Command ar(/*exePath=*/kArPath);
-  ar.appendStr("x").appendStr(jniSharedLibPath).appendStr(jniObjPath).exec();
+  ar.appendStr("x")
+      .appendStr("--output")
+      .appendStr(llvm::sys::path::parent_path(jniObjPath).str())
+      .appendStr(jniSharedLibPath)
+      .appendStr(llvm::sys::path::filename(jniObjPath).str())
+      .exec();
 }
 
 // Link everything into a shared object.
@@ -408,7 +421,12 @@ void genJniJar(const mlir::OwningModuleRef &module, string modelSharedLibPath,
 
   // Add shared library to model jar.
   Command jar(kJarPath);
-  jar.appendList({"uf", modelJniJarPath}).appendStr(modelSharedLibPath).exec();
+  jar.appendStr("uf")
+      .appendStr(modelJniJarPath)
+      .appendStr("-C")
+      .appendStr(llvm::sys::path::parent_path(modelSharedLibPath).str())
+      .appendStr(llvm::sys::path::filename(modelSharedLibPath).str())
+      .exec();
 }
 
 string compileModuleToSharedLibrary(
@@ -439,13 +457,25 @@ void compileModuleToJniJar(
   llvm::FileRemover modelObjRemover(
       modelObjPath, !keepFiles(KeepFilesOfType::Object));
 
+  StringRef outputDir = llvm::sys::path::parent_path(outputBaseName);
+  if (outputDir.empty())
+    outputDir = StringRef(".");
+
   string jniSharedLibPath = getRuntimeDir() + "/libjniruntime.a";
-  string jniObjPath = "jnidummy.c.o";
+
+  llvm::SmallString<8> jniObjDir(outputDir);
+  llvm::sys::path::append(jniObjDir, "jnidummy.c.o");
+  string jniObjPath = llvm::StringRef(jniObjDir).str();
+
   genJniObject(module, jniSharedLibPath, jniObjPath);
   llvm::FileRemover jniObjRemover(
       jniObjPath, !keepFiles(KeepFilesOfType::Object));
 
-  string modelSharedLibPath = genSharedLib("libmodel", {"-z", "noexecstack"},
+  llvm::SmallString<8> jniLibDir(outputDir);
+  llvm::sys::path::append(jniLibDir, "libmodel");
+  string jniLibBase = llvm::StringRef(jniLibDir).str();
+
+  string modelSharedLibPath = genSharedLib(jniLibBase, {"-z", "noexecstack"},
       {modelObjPath, jniObjPath}, {"jniruntime", "cruntime"},
       {getRuntimeDir()});
   llvm::FileRemover modelSharedLibRemover(
@@ -542,21 +572,25 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
 }
 
 void processInputFile(string inputFilename, mlir::MLIRContext &context,
-    mlir::OwningModuleRef &module) {
+    mlir::OwningModuleRef &module, std::string *errorMessage) {
   // Decide if the input file is an ONNX model or a model specified
   // in MLIR. The extension of the file is the decider.
   string extension = inputFilename.substr(inputFilename.find_last_of(".") + 1);
   bool inputIsONNX = (extension == "onnx");
   bool inputIsMLIR = (extension == "mlir");
-  assert(inputIsONNX != inputIsMLIR &&
-         "Either ONNX model or MLIR file needs to be provided.");
+  if (inputIsONNX == inputIsMLIR) {
+    *errorMessage = "Invaid input file '" + inputFilename +
+                    "': Either ONNX model or MLIR file needs to be provided.";
+    return;
+  }
 
   if (inputIsONNX) {
     ImportOptions options;
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
-    ImportFrontendModelFile(inputFilename, context, module, options);
+    ImportFrontendModelFile(
+        inputFilename, context, module, errorMessage, options);
   } else {
     LoadMLIR(inputFilename, context, module);
   }

@@ -87,6 +87,11 @@ Value MathBuilder::log2(Value val) const {
   return b.create<math::Log2Op>(loc, val);
 }
 
+Value MathBuilder::sqrt(Value val) const {
+  assert(val.getType().isa<FloatType>() && "Data type must be float.");
+  return b.create<math::SqrtOp>(loc, val);
+}
+
 Value MathBuilder::min(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())

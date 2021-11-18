@@ -43,18 +43,25 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                    [ "$(uname -m)" = "x86_64" ] &&  echo || \
                    [ "$(uname -m)" = "ppc64le" ] && echo || echo) \
     && TEST_ARGS="-mcpu=${TEST_MCPU}" \
-    && make NPROC=${NPROC} TEST_MCPU=${TEST_MCPU} check-onnx-backend \
-    && make NPROC=${NPROC} TEST_MCPU=${TEST_MCPU} check-onnx-backend-dynamic \
-    && make NPROC=${NPROC} TEST_MCPU=${TEST_MCPU} check-onnx-backend-constant \
-    && make NPROC=${NPROC} TEST_MCPU=${TEST_MCPU} check-compilerlib-backend \
-    && make ARGS=-j${NPROC} TEST_ARGS="${TEST_ARGS}" test \
+    && make NPROC=${NPROC} \
+            CTEST_PARALLEL_LEVEL=${NPROC} \
+            TEST_MCPU=${TEST_MCPU} \
+            TEST_ARGS="${TEST_ARGS}" \
+	    -j${NPROC} -f CMakeFiles/Makefile2 \
+            check-onnx-backend \
+            check-onnx-backend-dynamic \
+            check-onnx-backend-constant \
+	    check-onnx-backend-jni \
+	    check-onnx-backend-dynamic-jni \
+	    check-onnx-backend-constant-jni \
+            check-onnx-numerical \
     && make check-docs \
     && make -j${NPROC} install \
 # Clean up
     && cd ${WORK_DIR} \
     && apt-get purge --autoremove -qq -y \
                autoconf automake cmake git libtool make \
-               ninja-build python3 wget \
+               maven ninja-build python3 wget \
     && rm -rf /tmp/* /var/lib/apt/lists/* \
               /usr/bin/python llvm-project onnx-mlir
 
