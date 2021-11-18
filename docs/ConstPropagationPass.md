@@ -55,17 +55,22 @@ We provide three helper functions to use when working with buffers:
    - create a buffer from a dense attribute at the first time we reach the
      const 'op' and add the buffer to the buffer pool, or
    - get the buffer from the buffer pool if it was created.
-2. `createConstantOpAndStoreBufferPtr(..., char *buffer)`
+2. `allocateBufferFor(Value value, bool useMaxSize = false)`
+   - create a new buffer whose size is obtained from the type of 'value'. This
+     buffer has not yet been added to the buffer pool.
+3. `createConstantOpAndStoreBufferPtr(..., char *buffer)`
    - create a new ONNXConstantOp using the given buffer, and
    - add the buffer to the buffer pool.
-3. `allocateBufferFor(Value value, bool useMaxSize = false)`
-   - create a new buffer whose size is obtained from the type of 'value'.
 
 Note that:
-  - The buffers in the buffer pool will be automatically freed. Users don't
+  - A buffer in the buffer pool will be automatically freed when there is
+    no use of the ONNXConstantOp associated with the buffer. Users don't
     need to take care about that.
-  - If we create a buffer and do not put it on the buffer pool, please
-    make sure that it is correctly freed. We don't recommend to do this.
+  - If we create a buffer by calling `allocateBufferFor` and the buffer is not
+    used with `createConstantOpAndStoreBufferPtr` to create a new
+    ONNXConstantOp, it is not managed by the buffer pool. Please make sure to
+    free the buffer. We do not manage buffers that are not associated with an
+    ONNXConstantOp.
     
 ## Write rules for constant propagation
 
@@ -84,10 +89,11 @@ More information about DRR can be found [here](https://mlir.llvm.org/docs/Declar
 
 There is a limitation in writing DRRs for `--constprop-onnx` pass so that the
 memory footprint is minimized, that is:
-- Never use ONNXConstant in the result patterns of a DRR, because this
-  ONNXConstant will not be managed by the buffer pool.
+- Do not use ONNXConstantOp directly in the result patterns of a DRR, because this
+  ONNXConstant will create a new DenseElementsAttr which consumes memory. Creating an
+  ONNXConstantOp should be done with `createConstantOpAndStoreBufferPtr`.
 
-We will explain how to construct a returned ONNXConstant in [Step 2](#step2).
+We will explain in detail how to construct a returned ONNXConstant in [Step 2](#step2).
  
 Now, we go through a simple example that adds constant propagation for ONNXAddOp.
 
@@ -118,7 +124,7 @@ In the result pattern, to produce a ONNXConstantOp, we will add `lhs`
 and `rhs` at compile time, and emit an ONNXConstantOp. To minimize the
 memory footprint, **this ONNXConstant does not have a DenseElementsAttr**, but
 refers to an internal buffer where the real data is stored. DenseElementsAttrs
-will be added to only **the final ONNXConstantOps of the whold pass**,
+will be added to only **the final ONNXConstantOps of the whole pass**,
 not to intermediate generated ONNXConstantOps.
 
 Function `CreateAddOfTwoConst` will do the addition at compile time and return
