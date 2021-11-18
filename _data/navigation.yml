@@ -41,6 +41,9 @@ toc:
         url:  Options.html
       - page: Instrumentation
         url:  Instrumentation.html
+      - page: Constant Propagation
+        url:  ConstantPropagationPass.html
+  - title: Tools
   - title: Tools
     subfolderitems:
       - page: RunONNXModel.py
