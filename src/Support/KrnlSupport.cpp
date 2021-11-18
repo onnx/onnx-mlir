@@ -249,7 +249,11 @@ unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
   unsigned sizeInBits;
   if (elementType.isIntOrFloat()) {
     sizeInBits = elementType.getIntOrFloatBitWidth();
+  } else if (elementType.isa<StringType>()) {
+    auto stringType = elementType.cast<StringType>();
+    sizeInBits = stringType.getElementSize();
   } else {
+    assert(elementType.isa<VectorType>() && "elementType is not a VectorType");
     auto vectorType = elementType.cast<VectorType>();
     sizeInBits =
         vectorType.getElementTypeBitWidth() * vectorType.getNumElements();
@@ -273,6 +277,8 @@ int64_t getMemRefSizeInBytes(Value value) {
 /// Otherwise, emit runtime computations.
 Value getDynamicMemRefSizeInBytes(
     PatternRewriter &rewriter, Location loc, Value val) {
+  assert(
+      val.getType().isa<MemRefType>() && "Value type should be a MemRefType");
   MemRefType memRefType = val.getType().cast<MemRefType>();
   auto shape = memRefType.getShape();
   // Accumulate static dimensions first.
