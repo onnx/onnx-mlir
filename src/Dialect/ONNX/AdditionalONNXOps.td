@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 include "mlir/Interfaces/CallInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 

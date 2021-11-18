@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //===------------------- HasOnnxSubgraphOpInterface.hpp ------------------===//
 //===------------- Has Onnx Subgraph Op Interface Definition -------------===//
 //
