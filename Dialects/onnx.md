@@ -618,6 +618,46 @@ ONNX BitShift operation
 | :----: | ----------- |
 `Z` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or memref of any type values
 
+### `onnx.ONNX_Call` (::mlir::ONNXCallOp)
+
+call operation
+
+
+Syntax:
+
+```
+operation ::= `onnx.ONNX_Call` $callee `(` $operands `)` attr-dict `:` functional-type($operands, results)
+```
+
+The `call` operation represents a direct call to a function that is within
+the same symbol scope as the call. The operands and result types of the
+call must match the specified function type. The callee is encoded as a
+symbol reference attribute named "callee".
+
+Example:
+
+```mlir
+%2 = call @my_add(%0, %1) : (f32, f32) -> f32
+```
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`callee` | ::mlir::FlatSymbolRefAttr | flat symbol reference attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`operands` | any type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+&laquo;unnamed&raquo; | tensor of any type values
+
 ### `onnx.CastMap` (::mlir::ONNXCastMapOp)
 
 ONNX CastMap operation
