@@ -38,7 +38,7 @@ ONNXConstantOps produced by folding the two ONNXAddOps also exist. For a
 practice model, the number of intermediate DenseElementsAttrs will increase
 quickly, which lead to a large memory footprint during compilation. 
 
-To avoid creating too many DenseElementsAttrs for intermediate ONNXConstant ops
+To avoid creating too many DenseElementsAttrs for intermediate ONNXConstantOps
 during `--constprop-onnx`, we design a mechanism that dynamically allocates and
 deallocates buffers for intermediate ONNXConstantOps and only creates
 DenseElementsAttr for the final results of constant propagation.
@@ -90,10 +90,10 @@ More information about DRR can be found [here](https://mlir.llvm.org/docs/Declar
 There is a limitation in writing DRRs for `--constprop-onnx` pass so that the
 memory footprint is minimized, that is:
 - Do not use ONNXConstantOp directly in the result patterns of a DRR, because this
-  ONNXConstant will create a new DenseElementsAttr which consumes memory. Creating an
+  ONNXConstantOp will create a new DenseElementsAttr which consumes memory. Creating an
   ONNXConstantOp should be done with `createConstantOpAndStoreBufferPtr`.
 
-We will explain in detail how to construct a returned ONNXConstant in [Step 2](#step2).
+We will explain in detail how to construct a returned ONNXConstantOp in [Step 2](#step2).
  
 Now, we go through a simple example that adds constant propagation for ONNXAddOp.
 
@@ -122,13 +122,13 @@ check a dense constant tensor by using `IsFromDenseONNXConstantOp`.
 
 In the result pattern, to produce a ONNXConstantOp, we will add `lhs`
 and `rhs` at compile time, and emit an ONNXConstantOp. To minimize the
-memory footprint, **this ONNXConstant does not have a DenseElementsAttr**, but
+memory footprint, **this ONNXConstantOp does not have a DenseElementsAttr**, but
 refers to an internal buffer where the real data is stored. DenseElementsAttrs
 will be added to only **the final ONNXConstantOps of the whole pass**,
 not to intermediate generated ONNXConstantOps.
 
 Function `CreateAddOfTwoConst` will do the addition at compile time and return
-an ONNXConstant.
+an ONNXConstantOp.
 
 ```
 def CreateAddOfTwoConst :
@@ -184,7 +184,7 @@ ONNXConstantOp ConstPropElementwiseBinary(
 
 For each constant tensor defined by ONNXConstantOp, we get an array buffer
 associated with it by using function `getArrayFromAttributeOrBuffer`. The buffer
-is created from DenseElementsAttr at the first time we reach an ONNXConstant.
+is created from DenseElementsAttr at the first time we reach an ONNXConstantOp.
 For the other reaches, the buffer is obtained from the buffer pool.
 
 To allocate an array buffer for the result, we use function `allocateBufferFor`
