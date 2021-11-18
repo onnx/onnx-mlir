@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # Function to setup Jsoniter jar. First look for an installed version
 # using find_jar. If not found, clone the jsoniter github repo and
 # build one locally. Either way, JSONITER_JAR is set to the proper

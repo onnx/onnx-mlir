@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //===--- ONNXOps.td -- ONNX Dialect Operation Definitions ----*- tablegen -===//
 //
 // Copyright 2019-2020 The IBM Research Authors

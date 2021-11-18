@@ -167,8 +167,9 @@ void log_printf(
    * Note that pthread_t on most platforms is unsigned long but is a struct
    * of 8 bytes on z/OS.
    */
+  pthread_t tid = get_threadid();
   snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf),
-      "[%016lx][%s]%s:%s:%d ", get_threadid(), log_level_name[level],
+      "[%016lx][%s]%s:%s:%d ", *(unsigned long *)&tid, log_level_name[level],
       get_filename(file), func, line);
 
   /* Output actual log data */
@@ -208,7 +209,9 @@ static FILE *get_log_file_by_name(char *name) {
   else {
     char *tname = (char *)malloc(strlen(name) + 32);
     if (tname) {
-      snprintf(tname, strlen(name) + 32, "%s.%016lx", name, get_threadid());
+      pthread_t tid = get_threadid();
+      snprintf(
+          tname, strlen(name) + 32, "%s.%016lx", name, *(unsigned long *)&tid);
       fp = fopen(tname, "w");
       free(tname);
     }
