@@ -334,6 +334,30 @@ Krnl erf scalar operation.
 | :----: | ----------- |
 `out` | floating-point
 
+### `krnl.find_index` (::mlir::KrnlFindIndexOp)
+
+Retrieve an index into a perfect hash table described by G and V.
+
+This operation can be used to generate a call to a runtime function which, 
+given two arrays of int32_t values (G and V), whih are used to represent a perfect 
+hash table for a dictionary, returns the index corresponding to the input value.
+The index returned is valid only if 'input' is in the dictionary described by G and V.
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`input` | string type or 64-bit signless integer
+`G` | memref of 32-bit signless integer values
+`V` | memref of 32-bit signless integer values
+`len` | 32-bit signless integer
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`index` | index
+
 ### `krnl.get_induction_var_value` (::mlir::KrnlGetInductionVariableValueOp)
 
 Krnl 
@@ -857,6 +881,44 @@ the memref.
 `value` | any type
 `memref` | memref of any type values
 `indices` | index
+
+### `krnl.strlen` (::mlir::KrnlStrlenOp)
+
+Compute the length of a string.
+
+Krnl operation that computes the length of a string.
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`str` | string type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`res` | 64-bit signless integer
+
+### `krnl.strncmp` (::mlir::KrnlStrncmpOp)
+
+Perform string comparison up to N bytes.
+
+Krnl operation that performs a string comparison up to N bytes.
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`str1` | string type
+`str2` | string type
+`len` | 64-bit signless integer
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`res` | 32-bit signless integer
 
 ### `krnl.tan` (::mlir::KrnlTanOp)
 
