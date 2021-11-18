@@ -53,14 +53,16 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Create temp and set to zero, single scalar, no need for default
           // alignment.
-          MathBuilder createMath(createKrnl);
-          MemRefBuilder createMemRef(createKrnl);
-          Value red = createMemRef.alloca(MemRefType::get({}, elementType));
+          MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+              createKrnl);
+          Value red = create.mem.alloca(MemRefType::get({}, elementType));
           createKrnl.store(zeroVal, red);
           // Inner loop.
-          createKrnl.iterate({}, innerLoopDef, {}, {},
+          create.krnl.iterate({}, innerLoopDef, {}, {},
               [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
                 Value i(outerIndices[0]), j(outerIndices[1]), k(innerIndex[0]);
+                MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
+                    createKrnl);
                 // Handle transposed accesses.
                 SmallVector<Value, 2> aAccess, bAccess;
                 if (gemmOp.transA() != 0)
@@ -72,17 +74,16 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                 else
                   bAccess = {k, j};
                 // Perform the reduction by adding a*b to reduction.
-                MathBuilder createMath(createKrnl);
-                Value aVal = createKrnl.load(A, aAccess);
-                Value bVal = createKrnl.load(B, bAccess);
-                Value tmp = createMath.mul(aVal, bVal);
-                Value rVal = createKrnl.load(red);
-                createKrnl.store(createMath.add(tmp, rVal), red);
+                Value aVal = create.krnl.load(A, aAccess);
+                Value bVal = create.krnl.load(B, bAccess);
+                Value tmp = create.math.mul(aVal, bVal);
+                Value rVal = create.krnl.load(red);
+                create.krnl.store(create.math.add(tmp, rVal), red);
               });
           // Handle alpha/beta coefficients.
           // new scope
-          IndexExprScope innerScope(createKrnl, shapeHelper.scope);
-          Value res = createMath.mul(alphaVal, createKrnl.load(red));
+          IndexExprScope innerScope(create.krnl, shapeHelper.scope);
+          Value res = create.math.mul(alphaVal, createKrnl.load(red));
           if (shapeHelper.hasBias) {
             SmallVector<Value, 2> cAccess;
             for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
@@ -92,10 +93,10 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                   IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0)
                       .getValue());
             }
-            Value c = createKrnl.load(operandAdaptor.C(), cAccess);
-            res = createMath.add(res, createMath.mul(betaVal, c));
+            Value c = create.krnl.load(operandAdaptor.C(), cAccess);
+            res = create.math.add(res, create.math.mul(betaVal, c));
           }
-          createKrnl.store(res, R, outerIndices);
+          create.krnl.store(res, R, outerIndices);
         });
   }
 

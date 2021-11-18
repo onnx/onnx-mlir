@@ -147,7 +147,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
       // Use this when math::CeilOp is available in MLIR.
       // nos = createMath.ceil(createMath.log2(nos));
       nos = createMath.log2(nos);
-      nos = rewriter.create<arith::FPToSIOp>(loc, i64Ty, nos);
+      nos = createMath.cast(i64Ty, nos);
       // Use this when math::CeilOp is available in MLIR.
       // numberOfStep = SymbolIndexExpr(nos);
       numberOfStep = SymbolIndexExpr(nos) + LiteralIndexExpr(1);

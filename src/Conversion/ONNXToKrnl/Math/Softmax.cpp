@@ -27,7 +27,7 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
   ValueRange maxLoops = createKrnl.defineLoops(numberOfLoops);
   createKrnl.iterateIE(maxLoops, maxLoops, Lbs, Ubs,
       [&](KrnlBuilder &createKrnl, ValueRange maxIndices) {
-        MathBuilder createMath(createKrnl);
+        MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
         IndexExprScope ieScope(createKrnl);
 
         // Get induction variables.
@@ -45,11 +45,11 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
             maxLoopIVs.push_back(outerIndices[i - 1]);
         }
 
-        Value max = createKrnl.load(maxOp, {});
-        Value nextMax = createKrnl.load(input, maxLoopIVs);
-        auto maxCond = createMath.sgt(max, nextMax);
-        max = createMath.select(maxCond, max, nextMax);
-        createKrnl.store(max, maxOp, ArrayRef<Value>{});
+        Value max = create.krnl.load(maxOp, {});
+        Value nextMax = create.krnl.load(input, maxLoopIVs);
+        auto maxCond = create.math.sgt(max, nextMax);
+        max = create.math.select(maxCond, max, nextMax);
+        create.krnl.store(max, maxOp, ArrayRef<Value>{});
       });
   // Load the maximum value.
   Value max = createKrnl.load(maxOp, {});
@@ -58,7 +58,7 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
   ValueRange sumLoops = createKrnl.defineLoops(numberOfLoops);
   createKrnl.iterateIE(sumLoops, sumLoops, Lbs, Ubs,
       [&](KrnlBuilder &createKrnl, ValueRange sumIndices) {
-        MathBuilder createMath(createKrnl);
+        MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
         IndexExprScope ieScope(createKrnl);
 
         // Get induction variables.
@@ -76,15 +76,15 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
             sumLoopIVs.push_back(outerIndices[i - 1]);
         }
 
-        Value sum = createKrnl.load(sumOp, {});
-        Value next = createKrnl.load(input, sumLoopIVs);
-        Value sub = createMath.sub(next, max);
-        Value exp = createMath.exp(sub);
-        sum = createMath.add(sum, exp);
-        createKrnl.store(sum, sumOp, ArrayRef<Value>{});
+        Value sum = create.krnl.load(sumOp, {});
+        Value next = create.krnl.load(input, sumLoopIVs);
+        Value sub = create.math.sub(next, max);
+        Value exp = create.math.exp(sub);
+        sum = create.math.add(sum, exp);
+        create.krnl.store(sum, sumOp, ArrayRef<Value>{});
         // Store intermediate values in the result to avoid
         // recomputation.
-        createKrnl.store(exp, alloc, sumLoopIVs);
+        create.krnl.store(exp, alloc, sumLoopIVs);
       });
 
   // Load the sum value.
@@ -94,7 +94,7 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
   ValueRange softmaxLoops = createKrnl.defineLoops(numberOfLoops);
   createKrnl.iterateIE(softmaxLoops, softmaxLoops, Lbs, Ubs,
       [&](KrnlBuilder &createKrnl, ValueRange softmaxIndices) {
-        MathBuilder createMath(createKrnl);
+        MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
         IndexExprScope ieScope(createKrnl);
 
         // Get induction variables.
@@ -112,9 +112,9 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
             softmaxLoopIVs.push_back(outerIndices[i - 1]);
         }
 
-        Value expLoadedVal = createKrnl.load(alloc, softmaxLoopIVs);
-        Value result = createMath.div(expLoadedVal, sum);
-        createKrnl.store(result, alloc, softmaxLoopIVs);
+        Value expLoadedVal = create.krnl.load(alloc, softmaxLoopIVs);
+        Value result = create.math.div(expLoadedVal, sum);
+        create.krnl.store(result, alloc, softmaxLoopIVs);
       });
 }
 
