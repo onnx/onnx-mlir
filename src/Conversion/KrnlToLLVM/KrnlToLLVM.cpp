@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Analysis/DataLayoutAnalysis.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
@@ -35,8 +36,13 @@
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 
 #include "onnx/onnx_pb.h"
 
@@ -1907,14 +1913,11 @@ struct ConvertKrnlToLLVMPass
 } // end anonymous namespace
 
 void ConvertKrnlToLLVMPass::runOnOperation() {
-  // Annotate ModuleOp with endian information so that LLVM global constants are
-  // handled correctly by the other LLVM tools such as 'opt'.
-
-  bool isLittleEndian = llvm::support::endian::system_endianness() ==
-                        llvm::support::endianness::little;
-  StringRef endian = isLittleEndian ? "e" : "E";
   ModuleOp module = getOperation();
-  module->setAttr("llvm.data_layout", StringAttr::get(&getContext(), endian));
+  const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
+  LowerToLLVMOptions options(
+      &getContext(), dataLayoutAnalysis.getAtOrAbove(module));
+  options.emitCWrappers = true;
 
   // Determine, for each output, whether it is a constant or not.
   SmallVector<bool, 4> constantOutputs;
@@ -1925,10 +1928,6 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<UnrealizedConversionCastOp>();
-
-  // Lower the MemRef types to a representation in LLVM.
-  LowerToLLVMOptions options(&getContext());
-  options.emitCWrappers = true;
 
   // Convert types to legal types for the LLVM dialect.
   LLVMTypeConverter typeConverter(&getContext(), options);
