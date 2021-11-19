@@ -1466,7 +1466,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateStdExpandOpsPatterns(patterns);
   // Use polynomial approximation for math.{tanh, sin, cos and exp} for better
-  // prformance.
+  // performance.
   populateMathPolynomialApproximationPatterns(patterns);
   arith::populateArithmeticExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
