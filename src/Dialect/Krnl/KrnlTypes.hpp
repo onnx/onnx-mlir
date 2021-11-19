@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Types.h"
 
@@ -42,6 +43,25 @@ public:
   static StringType get(mlir::MLIRContext *context) {
     return Base::get(context);
   }
+
+  // Return the LLVM dialect type for a string with unknown value.
+  Type getLLVMType(mlir::MLIRContext *context) const {
+    // This should really be an i8* so a
+    // LLVM::PointerType::get(IntegerType::get(context, 8)); but a ptr type is
+    // not a valid element type for a memref, so we represents the string as a
+    // memref<?xi8>.
+    SmallVector<int64_t> shape(1, -1);
+    return MemRefType::get(shape, IntegerType::get(context, 8));
+  }
+
+  // Return the LLVM dialect type for a string with a know value (a string
+  // literal). In LLVM a string literal is represented by an array of i8.
+  Type getLLVMType(mlir::MLIRContext *context, StringRef value) const {
+    return LLVM::LLVMArrayType::get(IntegerType::get(context, 8), value.size());
+  }
+
+  // Return the size in bits for the underlying element type (i8).
+  int32_t getElementSize() const { return 8; }
 };
 
 } // namespace mlir

@@ -355,8 +355,9 @@ struct KrnlBuilder : public DialectBuilder {
       ValueRange cStart, ValueRange loops, ValueRange computeStarts,
       ValueRange globalUBs, bool simdize, bool unroll, bool overcompute);
 
-  Value constant(
-      MemRefType type, StringRef name, DenseElementsAttr value) const;
+  Value constant(MemRefType type, StringRef name, DenseElementsAttr value,
+      Optional<IntegerAttr> offset = None,
+      Optional<IntegerAttr> alignment = None) const;
 
   // C library functions.
   void memcpy(Value dest, Value src, Value size) const;
