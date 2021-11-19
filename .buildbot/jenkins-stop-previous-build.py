@@ -69,7 +69,7 @@ def stop_previous_build(job_name, build_number, pr_number):
             # pr_number in all the values in action['parameters'] and stop
             # the previous build if we find the value.
             #
-            # Note that all merges will be using the 'master' pull request number
+            # Note that all merges will be using the 'main' pull request number
             # so there can be only one merge at a time, across all pull requests.
 
             for action in build_info['actions']:

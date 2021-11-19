@@ -30,16 +30,16 @@ github_pr_request_url       = os.getenv('GITHUB_PR_REQUEST_URL')
 # dot can be used in docker image name
 docker_static_image_name    = (github_repo_name + '-llvm-static' +
                                ('.' + github_pr_baseref2
-                                if github_pr_baseref != 'master' else ''))
+                                if github_pr_baseref != 'main' else ''))
 docker_shared_image_name    = (github_repo_name + '-llvm-shared' +
                                ('.' + github_pr_baseref2
-                                if github_pr_baseref != 'master' else ''))
+                                if github_pr_baseref != 'main' else ''))
 docker_dev_image_name       = (github_repo_name + '-dev' +
                                ('.' + github_pr_baseref2
-                                if github_pr_baseref != 'master' else ''))
+                                if github_pr_baseref != 'main' else ''))
 docker_usr_image_name       = (github_repo_name +
                                ('.' + github_pr_baseref2
-                                if github_pr_baseref != 'master' else ''))
+                                if github_pr_baseref != 'main' else ''))
 
 # dot cannot be used in python dict key so we use dash
 python_static_image_name    = docker_static_image_name.replace('.', '-')
