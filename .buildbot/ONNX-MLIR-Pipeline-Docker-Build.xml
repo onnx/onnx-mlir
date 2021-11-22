@@ -1,8 +1,8 @@
 <?xml version='1.1' encoding='UTF-8'?>
-<flow-definition plugin="workflow-job@2.40">
+<flow-definition plugin="workflow-job@2.42">
   <actions>
-    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobAction plugin="pipeline-model-definition@1.8.4"/>
-    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction plugin="pipeline-model-definition@1.8.4">
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobAction plugin="pipeline-model-definition@1.9.2"/>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction plugin="pipeline-model-definition@1.9.2">
       <jobProperties/>
       <triggers/>
       <parameters/>
@@ -22,7 +22,7 @@ o Event: issue_comment, Action: created&#xd;
   - if the comment body includes the phrase &quot;test this please&quot;, the pull request is rebuilt&#xd;
   - if the comment body includes the phrase &quot;publish this please&quot;, the pull request is rebuilt and published&#xd;
 o Event: push, Action: N/A (merging the pull request)&#xd;
-  - the merged master is built and published if necessary&#xd;
+  - the merged main is built and published if necessary&#xd;
   - all docker images and containers related to the pull request are removed&#xd;
 &#xd;
 Note that a pull request contains two branches:&#xd;
@@ -35,8 +35,8 @@ The &quot;head&quot; branch is the actual branch that is to be merged. The &quot
 The GitHub Plugin has a &quot;bug&quot; that it would use the SHA we are building to post the commit status. So if we build the &quot;merge&quot; branch, it would post to the wrong &quot;merge&quot; SHA. The GitHub Pull Request Builder Plugin handles building either branch correctly.</description>
   <keepDependencies>false</keepDependencies>
   <properties>
-    <hudson.plugins.jira.JiraProjectProperty plugin="jira@3.2.1"/>
-    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.33.1">
+    <hudson.plugins.jira.JiraProjectProperty plugin="jira@3.6"/>
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.34.1">
       <projectUrl>https://github.com/onnx/onnx-mlir/</projectUrl>
       <displayName></displayName>
     </com.coravy.hudson.plugins.github.GithubProjectProperty>
@@ -44,32 +44,29 @@ The GitHub Plugin has a &quot;bug&quot; that it would use the SHA we are buildin
       <parameterDefinitions>
         <hudson.model.StringParameterDefinition>
           <name>GITHUB_PR_NUMBER_PULL_REQUEST</name>
-          <description></description>
           <defaultValue>${GITHUB_PR_NUMBER_PULL_REQUEST}</defaultValue>
           <trim>false</trim>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
           <name>GITHUB_PR_NUMBER_ISSUE_COMMENT</name>
-          <description></description>
           <defaultValue>${GITHUB_PR_NUMBER_ISSUE_COMMENT}</defaultValue>
           <trim>false</trim>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
           <name>GITHUB_PR_NUMBER_PUSH</name>
-          <description></description>
           <defaultValue>${GITHUB_PR_NUMBER_PUSH}</defaultValue>
           <trim>false</trim>
         </hudson.model.StringParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>
-    <jenkins.branch.RateLimitBranchProperty_-JobPropertyImpl plugin="branch-api@2.6.3">
+    <jenkins.branch.RateLimitBranchProperty_-JobPropertyImpl plugin="branch-api@2.7.0">
       <durationName>minute</durationName>
       <count>1</count>
       <userBoost>false</userBoost>
     </jenkins.branch.RateLimitBranchProperty_-JobPropertyImpl>
     <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
       <triggers>
-        <org.jenkinsci.plugins.gwt.GenericTrigger plugin="generic-webhook-trigger@1.72">
+        <org.jenkinsci.plugins.gwt.GenericTrigger plugin="generic-webhook-trigger@1.77">
           <spec></spec>
           <genericVariables>
             <org.jenkinsci.plugins.gwt.GenericVariable>
@@ -123,7 +120,7 @@ The GitHub Plugin has a &quot;bug&quot; that it would use the SHA we are buildin
             </org.jenkinsci.plugins.gwt.GenericVariable>
           </genericVariables>
           <regexpFilterText>${x_github_event}:${github_webhook_payload_action}:${github_webhook_payload_issue_pull_request_url}:${github_webhook_payload_comment_body}:${GITHUB_PR_NUMBER_PUSH}</regexpFilterText>
-          <regexpFilterExpression>(pull_request:(opened|reopened|synchronize|closed):.*:.*:.*)|(issue_comment:created:.*pull.*:.*@jenkins-droid (test|publish) this please.*:.*)|(push:.*:.*:.*:(master|llvm-12-release-branch))</regexpFilterExpression>
+          <regexpFilterExpression>(pull_request:(opened|reopened|synchronize|closed):.*:.*:.*)|(issue_comment:created:.*pull.*:.*@jenkins-droid (test|publish) this please.*:.*)|(push:.*:.*:.*:(main|llvm-12-release-branch))</regexpFilterExpression>
           <genericHeaderVariables>
             <org.jenkinsci.plugins.gwt.GenericHeaderVariable>
               <key>x-github-delivery</key>
@@ -145,7 +142,7 @@ The GitHub Plugin has a &quot;bug&quot; that it would use the SHA we are buildin
       </triggers>
     </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
   </properties>
-  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2.90">
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2633.v6baeedc13805">
     <script>/* Script here should be minimal. It mainly does two things:
  *
  * 1. Check if webhook event is sent by one of the admins
@@ -317,7 +314,7 @@ def set_environ_vars(event) {
  * These need the PR source code repo to be present.
  */
 def set_environ_vars2(event) {
-   /* Note that the push event from merging a PR is just a push on master
+   /* Note that the push event from merging a PR is just a push on main
     * branch and is not tied to the specific PR. Only the commit message
     * indicates which PR is merged. So the commit message is used as the
     * title. The push event also does not have its own statuses url since
@@ -387,7 +384,7 @@ def post_build_status(event, state) {
         &quot;at ${JENKINS_START_TIME}&quot; : &quot;after ${currentBuild.durationString.replace(&apos; and counting&apos;,&apos;&apos;)}&quot;
     def status   = (state == &apos;aborted&apos;) ? &apos;failure&apos; : state
 
-    /* If the action is &quot;push&quot;, it&apos;s for merging into master. The GitHub page
+    /* If the action is &quot;push&quot;, it&apos;s for merging into main. The GitHub page
      * for the pull request is already closed and commit status is no longer
      * updated. So we post the build status as a comment.
      */

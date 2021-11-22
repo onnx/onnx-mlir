@@ -2,7 +2,7 @@ name: GitHub Action Doxygen docs
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   publish:
