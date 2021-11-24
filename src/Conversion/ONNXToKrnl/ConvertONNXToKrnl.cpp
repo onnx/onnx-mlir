@@ -13,7 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 
@@ -124,9 +123,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   if (!gEmitDealloc)
     target.addIllegalOp<mlir::memref::DeallocOp>();
 
-  // std.tanh will be expanded.
-  target.addIllegalOp<mlir::math::TanhOp>();
-
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
   // if any of these operations are *not* converted.
@@ -233,9 +229,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXRNNOpPattern(patterns, &getContext());
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(&getContext());
-
-  // Expand std.tanh
-  populateExpandTanhPattern(patterns);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

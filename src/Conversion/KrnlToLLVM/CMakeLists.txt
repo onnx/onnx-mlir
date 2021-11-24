@@ -7,6 +7,7 @@ add_onnx_mlir_library(OMKrnlToLLVM
   OMSupport
   MLIRAffineToStandard
   MLIRMathToLLVM
+  MLIRMathTransforms
   MLIRMemRefToLLVM
   MLIRReconcileUnrealizedCasts
   MLIRSCFToStandard
