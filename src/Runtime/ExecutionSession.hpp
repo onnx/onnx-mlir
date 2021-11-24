@@ -29,7 +29,8 @@ typedef const char *(*signatureFuncType)();
 
 class ExecutionSession {
 public:
-  ExecutionSession(std::string sharedLibPath, std::string entryPointName);
+  ExecutionSession(std::string sharedLibPath, std::string entryPointName,
+      std::string inputSignatureName = "omInputSignature");
 
   // Use custom deleter since forward declared OMTensor hides destructor
   std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> run(
