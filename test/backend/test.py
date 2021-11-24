@@ -1132,6 +1132,7 @@ class EndiannessAwareExecutionSession:
             command_list.append("--invokeOnnxVersionConverter=true")
         command_list.append(target[emit])
         command_list.append(model_name)
+        command_list.append('-O3')
         command_list.append('-o=' + exec_base)
         # Call frontend to process model_name.onnx, bit code will be generated.
         dynamic_inputs_dims = determine_dynamic_parameters(name)
