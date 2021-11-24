@@ -108,18 +108,24 @@ bool hasAllScalarValues(ArrayRef<Value> values) {
 
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type) {
-  MemRefType memRefType;
-  auto tensorType = type.dyn_cast<TensorType>();
-  if (tensorType) {
-    assert(tensorType.hasRank() && "expected only ranked shapes");
-    Type elementType = tensorType.getElementType();
-    if (elementType.isa<onnxmlir::StringType>())
-      elementType = StringType::get(type.getContext());
-    memRefType = MemRefType::get(tensorType.getShape(), elementType);
-  } else
-    memRefType = type.dyn_cast<MemRefType>();
+  // Convert the element type of the (tensor or memref) to a valid Krnl type.
+  auto convertElemType = [](Type elemType) -> Type {
+    if (elemType.isa<onnxmlir::StringType>())
+      return StringType::get(elemType.getContext());
+    return elemType;
+  };
 
-  return memRefType;
+  if (auto tensorType = type.dyn_cast_or_null<TensorType>()) {
+    assert(tensorType.hasRank() && "expected only ranked shapes");
+    MemRefType memRefType = MemRefType::get(
+        tensorType.getShape(), convertElemType(tensorType.getElementType()));
+    return memRefType;
+  }
+
+  assert(type.isa<MemRefType>() && "Expecting a MemRefType");
+  auto memRefType = type.cast<MemRefType>();
+  return MemRefType::get(
+      memRefType.getShape(), convertElemType(memRefType.getElementType()));
 }
 
 /// Insert an allocation and deallocation for the given MemRefType.

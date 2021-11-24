@@ -204,32 +204,21 @@ func private @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Tanh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_tanh
-  // CHECK: [[C0:%.+]] = arith.constant 0 : index
-  // CHECK: [[DIM_0:%.+]] = memref.dim %arg0, [[C0]] : memref<?x10xf32>
-  // CHECK: [[RES:%.+]] = memref.alloc([[DIM_0]]) {{.*}}: memref<?x10xf32>
-  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
-  // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_0]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[X:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[ONE:%.+]] = arith.constant 1.000000e+00 : f32
-  // CHECK: [[TWO:%.+]] = arith.constant 2.000000e+00 : f32
-  // CHECK: [[X_MUL_2:%.+]] = arith.mulf [[X]], [[TWO]] : f32
-  // CHECK: [[NEG_X_MUL_2:%.+]] = arith.negf [[X_MUL_2]] : f32
-  // CHECK: [[EXP_1:%.+]] = math.exp [[NEG_X_MUL_2]] : f32
-  // CHECK: [[SUB_1:%.+]] = arith.subf %cst, [[EXP_1]] : f32
-  // CHECK: [[ADD_1:%.+]] = arith.addf %cst, [[EXP_1]] : f32
-  // CHECK: [[DIV_1:%.+]] = arith.divf [[SUB_1]], [[ADD_1]] : f32
-  // CHECK: [[EXP_2:%.+]] = math.exp [[X_MUL_2]] : f32
-  // CHECK: [[SUB_2:%.+]] = arith.subf [[EXP_2]], %cst : f32
-  // CHECK: [[ADD_2:%.+]] = arith.addf [[EXP_2]], %cst : f32
-  // CHECK: [[DIV_2:%.+]] = arith.divf [[SUB_2]], [[ADD_2]] : f32
-  // CHECK: [[ZERO:%.+]] = arith.constant 0.000000e+00 : f32
-  // CHECK: [[CMP:%.+]] = arith.cmpf oge, [[X]], [[ZERO]] : f32
-  // CHECK: [[TANH:%.+]] = select [[CMP]], [[DIV_1]], [[DIV_2]] : f32
-  // CHECK: krnl.store [[TANH]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: return [[RES]] : memref<?x10xf32>
+  // CHECK-LABEL:  func private @test_tanh
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>) -> memref<?x10xf32> {
+  // CHECK:           [[VAR_c0_:%.+]] = arith.constant 0 : index
+  // CHECK:           [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_]] : memref<?x10xf32>
+  // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_0_]]) {{.*}}: memref<?x10xf32>
+  // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+  // CHECK-DAG:       [[VAR_c0_0_:%.+]] = arith.constant 0 : index
+  // CHECK:           [[VAR_3_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_0_]] : memref<?x10xf32>
+  // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[VAR_3_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10) {
+  // CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<?x10xf32>
+  // CHECK:             [[VAR_5_:%.+]] = math.tanh [[LOAD_PARAM_0_MEM_]] : f32
+  // CHECK:             krnl.store [[VAR_5_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<?x10xf32>
+  // CHECK:           }
+  // CHECK:           return [[RES_]] : memref<?x10xf32>
+  // CHECK:         }
 }
 
 // -----
