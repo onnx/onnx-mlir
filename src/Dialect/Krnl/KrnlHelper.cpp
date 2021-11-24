@@ -511,13 +511,14 @@ void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
       globalUBs[1], globalUBs[2], simdize, unroll, overcompute);
 }
 
-Value KrnlBuilder::constant(
-    MemRefType type, StringRef name, DenseElementsAttr value) const {
+Value KrnlBuilder::constant(MemRefType type, StringRef name,
+    DenseElementsAttr value, Optional<IntegerAttr> offset,
+    Optional<IntegerAttr> alignment) const {
   static int32_t constantID = 0;
   return b.create<KrnlGlobalOp>(loc, type, b.getI64ArrayAttr(type.getShape()),
       b.getStringAttr(name + std::to_string(constantID++)), value,
-      /*offset=*/nullptr,
-      /*alignment=*/nullptr);
+      offset.hasValue() ? offset.getValue() : nullptr,
+      alignment.hasValue() ? alignment.getValue() : nullptr);
 }
 
 void KrnlBuilder::memcpy(Value dest, Value src, Value size) const {
