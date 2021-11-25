@@ -170,6 +170,8 @@ STATIC_SHAPE = "static"
 DYNAMIC_SHAPE = "dynamic"
 CONSTANT_INPUT = "constant"
 
+### immutable variables ###
+
 # IMPORTER_FORCE_CONSTANT
 try:
     _ = IMPORTER_FORCE_CONSTANT
@@ -194,6 +196,8 @@ try:
 except NameError:
     result_dir, RUNTIME_DIR, TEST_DRIVER = get_runtime_vars()
 
+### mutable variables ###
+
 # test_xxx
 try:
     _, _, _ = test_for_dynamic, test_for_constant, test_need_converter
@@ -202,12 +206,14 @@ except NameError:
     test_for_constant = []
     test_need_converter = []
 
-# real_model_tests
+# real_model_tests, node_model_tests
 try:
-    _ = real_model_tests
+    _ = real_model_tests, node_model_tests
 except NameError:
     real_model_tests = []
+    node_model_tests = []
 
+# test_to_enable_dict
 try:
     _ = test_to_enable_dict
 except NameError:

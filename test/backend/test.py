@@ -14,7 +14,8 @@ from inference_backend import (
     get_test_models,
 )
 from signature_backend import SignatureBackendTest, SignatureBackend
-from variables import *
+import variables
+from variables import args
 
 ###########   main process   #############
 sys.argv[1:] = args.unittest_args
@@ -30,15 +31,14 @@ else:
 
     # Extract name of all test cases.
     all_tests = []
-    global real_model_tests
-    real_model_tests = inspect.getmembers(
+    variables.real_model_tests = inspect.getmembers(
         backend_test.test_cases["OnnxBackendRealModelTest"]
     )
-    all_tests += real_model_tests
-    node_model_tests = inspect.getmembers(
+    all_tests += variables.real_model_tests
+    variables.node_model_tests = inspect.getmembers(
         backend_test.test_cases["OnnxBackendNodeModelTest"]
     )
-    all_tests += node_model_tests
+    all_tests += variables.node_model_tests
     all_test_names = list(map(lambda x: x[0], all_tests))
 
     # Ensure that test names specified in test_to_enable actually exist.

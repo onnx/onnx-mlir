@@ -17,6 +17,7 @@ import sys
 import os
 import onnx
 import subprocess
+import variables
 from variables import *
 
 # determine the dynamic input and dim
@@ -28,9 +29,9 @@ def determine_dynamic_parameters(test_name):
     # TEST_INPUT and TEST_DIM to control the values.
     selected_list = {args.input: {args.dim}}
     test_name_cpu = test_name + "_cpu"
-    if test_name_cpu in test_for_dynamic:
-        if len(test_to_enable_dict[test_name_cpu]) > 1:
-            selected_list = test_to_enable_dict[test_name_cpu].get(DYNAMIC_SHAPE)
+    if test_name_cpu in variables.test_for_dynamic:
+        if len(variables.test_to_enable_dict[test_name_cpu]) > 1:
+            selected_list = variables.test_to_enable_dict[test_name_cpu].get(DYNAMIC_SHAPE)
     return selected_list
 
 
@@ -73,7 +74,7 @@ def compile_model(model, emit):
     print("ONNX_HOME=" + os.getenv("ONNX_HOME"))
 
     # For real models, the onnx files are downloaded, no need to save again.
-    if (name + "_cpu") in list(map(lambda x: x[0], real_model_tests)):
+    if (name + "_cpu") in list(map(lambda x: x[0], variables.real_model_tests)):
         model_name = os.path.join(os.getenv("ONNX_HOME"), "models", name, "model.onnx")
     # For node models, write the models in memory out to onnx files.
     else:
@@ -100,7 +101,7 @@ def compile_model(model, emit):
         command_list.append("--mcpu=" + args.mcpu)
     if args.mtriple:
         command_list.append("--mtriple=" + args.mtriple)
-    if args.converter or name in test_need_converter:
+    if args.converter or name in variables.test_need_converter:
         command_list.append("--invokeOnnxVersionConverter=true")
     command_list.append(target[emit])
     command_list.append(model_name)

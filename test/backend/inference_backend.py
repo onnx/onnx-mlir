@@ -19,6 +19,7 @@ import numpy as np
 import subprocess
 from onnx.backend.base import Device, DeviceType, Backend
 from onnx import numpy_helper
+import variables
 from variables import *
 from common import compile_model
 
@@ -46,8 +47,7 @@ def get_test_models():
     #
     # Value for "constant" key is set of indices, e.g. {0, 2, 3}
 
-    global test_to_enable_dict
-    test_to_enable_dict = {
+    variables.test_to_enable_dict = {
         ############################################################
         # Elementary ops, ordered alphabetically.
 
@@ -863,7 +863,7 @@ def get_test_models():
 
     # Test for static inputs.
     test_to_enable = [
-        key for (key, value) in test_to_enable_dict.items() if STATIC_SHAPE in value
+        key for (key, value) in variables.test_to_enable_dict.items() if STATIC_SHAPE in value
     ]
 
     # Test for dynamic inputs.
@@ -871,28 +871,25 @@ def get_test_models():
     # Presumably, this list should be empty
     # Except for some operation too difficult to handle for dynamic shape
     # or big models
-    global test_for_dynamic
-    test_for_dynamic = [
-        key for (key, value) in test_to_enable_dict.items() if DYNAMIC_SHAPE in value
+    variables.test_for_dynamic = [
+        key for (key, value) in variables.test_to_enable_dict.items() if DYNAMIC_SHAPE in value
     ]
 
     # Test for constant inputs.
-    global test_for_constant
-    test_for_constant = [
-        key for (key, value) in test_to_enable_dict.items() if CONSTANT_INPUT in value
+    variables.test_for_constant = [
+        key for (key, value) in variables.test_to_enable_dict.items() if CONSTANT_INPUT in value
     ]
 
     # Specify the test cases which need version converter
-    global test_need_converter
-    test_need_converter = []
+    variables.test_need_converter = []
 
     if args.dynamic:
         print("dynamic shape is enabled", file=sys.stderr)
-        test_to_enable = test_for_dynamic
+        test_to_enable = variables.test_for_dynamic
 
     if args.constant:
         print("constant input is enabled", file=sys.stderr)
-        test_to_enable = test_for_constant
+        test_to_enable = variables.test_for_constant
 
     # User case specify one test case with BCKEND_TEST env
     TEST_CASE_BY_USER = os.getenv("TEST_CASE_BY_USER")
@@ -1017,8 +1014,8 @@ class EndiannessAwareExecutionSession(object):
             )
         else:
             test_name_cpu = self.model.graph.name + "_cpu"
-            if test_name_cpu in test_for_constant:
-                test_info = test_to_enable_dict[test_name_cpu]
+            if test_name_cpu in variables.test_for_constant:
+                test_info = variables.test_to_enable_dict[test_name_cpu]
                 input_indices = test_info.get(CONSTANT_INPUT)
 
         # Change the model by turning input tensors to initializers with the
