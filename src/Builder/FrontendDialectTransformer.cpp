@@ -229,6 +229,8 @@ private:
    * @param type_proto onnx tensor TypeProto.
    */
   Type ImportTensorType(const onnx::TypeProto &type_proto) {
+    assert(type_proto.value_case() == onnx::TypeProto::kTensorType &&
+           "expect tensor type");
     std::vector<int64_t> dims;
     auto tensor_type = type_proto.tensor_type();
     auto elementOnnxType = (onnx::TensorProto_DataType)tensor_type.elem_type();
@@ -256,6 +258,33 @@ private:
 
     llvm::ArrayRef<int64_t> tensor_dims(dims.data(), dims.size());
     return RankedTensorType::get(tensor_dims, elementType);
+  }
+
+  Type ImportSequenceType(const onnx::TypeProto &type_proto) {
+    auto input_seq_type = type_proto.sequence_type();
+    if (input_seq_type.has_elem_type()) {
+      onnx::TypeProto elem_type = input_seq_type.elem_type();
+      assert(elem_type.value_case() == onnx::TypeProto::kTensorType &&
+             "expect tensor inside sequence type");
+      Type mlir_elem_type = ImportTensorType(elem_type);
+      Type seq_type = mlir::onnxmlir::SeqType::get({mlir_elem_type});
+      return seq_type;
+    }
+    llvm_unreachable("unexpected type");
+  }
+
+  Type ImportType(const onnx::TypeProto &type_proto) {
+    switch (type_proto.value_case()) {
+    case onnx::TypeProto::kTensorType:
+      return ImportTensorType(type_proto);
+      break;
+    case onnx::TypeProto::kSequenceType:
+      return ImportSequenceType(type_proto);
+      break;
+    default:
+      llvm_unreachable("unexpected type");
+      break;
+    }
   }
 
   llvm::Optional<Type> ConvertOnnxType(const std::string &onnx_name) {
@@ -384,7 +413,7 @@ private:
       AddValueInfo(input);
       if (!initializedTensors.ContainKey(input.name())) {
         inputNames.push_back(input.name());
-        auto argTy = ImportTensorType(input.type());
+        auto argTy = ImportType(input.type());
         auto shapedTy = argTy.dyn_cast<RankedTensorType>();
         // Change the first dimension to unknown (-1) for test purpose only
         if (shapedTy && force_dim_dynamic_enabled_ &&
@@ -1241,7 +1270,13 @@ private:
   void concatTypeString(
       Type argType, Attribute attr, llvm::raw_ostream &dstream) {
     std::string comma = std::string("");
+
     TypeSwitch<Type>(argType)
+        .Case<mlir::onnxmlir::SeqType>([&](mlir::onnxmlir::SeqType seqTy) {
+          auto et = seqTy.getElementType();
+          dstream << "   {\"seq\" : ";
+          concatTypeString(et, attr, dstream);
+        })
         .Case<ShapedType>([&](ShapedType tensorTy) {
           auto et = tensorTy.getElementType();
           dstream << "   { \"type\" : ";
