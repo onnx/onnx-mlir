@@ -291,7 +291,7 @@ private:
     if (options_.useOnnxModelTypes) {
       if (onnx_type_map.ContainKey(onnx_name)) {
         return llvm::Optional<Type>(
-            ImportTensorType(onnx_type_map.GetTensorByOnnxName(onnx_name)));
+            ImportType(onnx_type_map.GetTensorByOnnxName(onnx_name)));
       }
     }
     return llvm::Optional<Type>();
@@ -1113,7 +1113,7 @@ private:
         continue;
       if (!onnx_type_map.ContainKey(v))
         return false;
-      auto resultType = ImportTensorType(onnx_type_map.GetTensorByOnnxName(v));
+      auto resultType = ImportType(onnx_type_map.GetTensorByOnnxName(v));
       resultTypes.push_back(resultType);
     }
 
@@ -1253,7 +1253,7 @@ private:
     Value tensor_val = frontend_symbols_.GetTensorByOnnxName(output.name());
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       if (output.type().tensor_type().has_shape()) {
-        tensor_val.setType(ImportTensorType(output.type()));
+        tensor_val.setType(ImportType(output.type()));
       }
     }
     ret_types.emplace_back(tensor_val.getType());
