@@ -251,8 +251,8 @@ public:
 //===----------------------------------------------------------------------===//
 
 // For all ONNX operations.
-void populateONNXToKrnlConversion(RewritePatternSet &patterns, MLIRContext *ctx,
-    TypeConverter &typeConverter);
+void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
+    MLIRContext *ctx, TypeConverter &typeConverter);
 
 // `ControlFlow` directory methods:
 void populateLoweringONNXLoopOpPattern(

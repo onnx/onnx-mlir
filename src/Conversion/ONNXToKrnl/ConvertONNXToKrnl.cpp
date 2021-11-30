@@ -43,8 +43,8 @@ public:
   }
 };
 
-void populateONNXToKrnlConversion(RewritePatternSet &patterns, MLIRContext *ctx,
-    TypeConverter &typeConverter) {
+void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
+    MLIRContext *ctx, TypeConverter &typeConverter) {
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
@@ -234,7 +234,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   });
 
   // Define patterns.
-  populateONNXToKrnlConversion(patterns, &getContext(), krnlTypeConverter);
+  populateONNXToKrnlConversionPattern(
+      patterns, &getContext(), krnlTypeConverter);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
