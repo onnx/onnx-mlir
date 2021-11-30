@@ -37,12 +37,8 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetOptions.h"
 
 #include "onnx/onnx_pb.h"
 
@@ -416,19 +412,20 @@ public:
 class KrnlGlobalOpLowering : public ConvertToLLVMPattern {
 public:
   explicit KrnlGlobalOpLowering(
-      MLIRContext *context, LLVMTypeConverter &typeConverter)
+      MLIRContext *context, LLVMTypeConverter &llvmTypeConverter)
       : ConvertToLLVMPattern(
-            KrnlGlobalOp::getOperationName(), context, typeConverter) {}
+            KrnlGlobalOp::getOperationName(), context, llvmTypeConverter) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto *context = op->getContext();
-    auto loc = op->getLoc();
+    MLIRContext *context = op->getContext();
+    Location loc = op->getLoc();
+
     auto krnlGlobalOp = llvm::dyn_cast<KrnlGlobalOp>(op);
-    auto alignmentAttr = krnlGlobalOp.alignmentAttr();
+    IntegerAttr alignmentAttr = krnlGlobalOp.alignmentAttr();
 
     ModuleOp module = op->getParentOfType<ModuleOp>();
-    auto name = krnlGlobalOp.name();
+    StringRef name = krnlGlobalOp.name();
 
     // Compute total number of elements.
     auto shape = (krnlGlobalOp.shape()).dyn_cast<ArrayAttr>();
@@ -504,9 +501,21 @@ public:
         llvm_unreachable("Unsupported attribute type");
     }
 
-    // Set alignment if alignment != 0.
+    // If the operation has a valid alignment attribute use it, otherwise
+    // attempt to set the alignment based on the module datalayout (if it
+    // exists).
     if (alignmentAttr && alignmentAttr.getValue().getSExtValue() != 0)
       global.alignmentAttr(alignmentAttr);
+    else if (module->getAttr(LLVM::LLVMDialect::getDataLayoutAttrName())) {
+      // TODO: use MLIR data layout when it becomes available.
+      llvm::LLVMContext llvmContext;
+      int32_t align = LLVM::TypeToLLVMIRTranslator(llvmContext)
+                          .getPreferredAlignment(global.getType(),
+                              getTypeConverter()->getDataLayout());
+      align = std::max(align, MinGlobalAlign);
+      global.alignmentAttr(rewriter.getI64IntegerAttr(align));
+    } else
+      global.alignmentAttr(rewriter.getI64IntegerAttr(MinGlobalAlign));
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
     Value globalOpAddr = rewriter.create<LLVM::AddressOfOp>(loc, global);
@@ -617,6 +626,8 @@ private:
     return builder.create<LLVM::GEPOp>(
         loc, i8PtrType, globalPtr, ArrayRef<Value>({zero, zero}));
   }
+
+  const int32_t MinGlobalAlign = 16;
 };
 
 class KrnlInstrumentOpLowering : public ConversionPattern {
