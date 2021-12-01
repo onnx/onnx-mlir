@@ -34,9 +34,9 @@ RUN apt-get install -y vim
 # WORKDIR /workdir/workspace
 # ADD workspace /workdir/workspace
 
-# 5) Fix git by reattaching head and making git see other branches than master.
+# 5) Fix git by reattaching head and making git see other branches than main.
 WORKDIR /workdir/onnx-mlir
-RUN git checkout master
+RUN git checkout main
 RUN git fetch --unshallow
 
 # 6) Set the PATH environment vars for make/debug mode. Replace Debug

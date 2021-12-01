@@ -115,7 +115,7 @@ static int64_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
   // that the corresponding tensor of this MemRef is a scalar, the 4th and 5th
   // elements will have 0-length, which in turn causes the MemRef struct to
   // degenerate into a 3-element struct. For more information, refer to
-  // https://github.com/llvm/llvm-project/blob/master/mlir/docs/ConversionToLLVMDialect.md#memref-types.
+  // https://github.com/llvm/llvm-project/blob/main/mlir/docs/ConversionToLLVMDialect.md#memref-types.
   auto numElems = memRefTy.getBody().size();
   assert((numElems == 3 || numElems == 5) &&
          "Expect MemRef type to contain either 3 or 5 elements.");
