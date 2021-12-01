@@ -42,7 +42,7 @@ toc:
       - page: Instrumentation
         url:  Instrumentation.html
       - page: Constant Propagation
-        url:  ConstantPropagationPass.html
+        url:  ConstPropagationPass.html
   - title: Tools
   - title: Tools
     subfolderitems:
