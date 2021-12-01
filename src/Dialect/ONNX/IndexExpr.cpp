@@ -1514,9 +1514,9 @@ bool ArrayValueIndexCapture::getSymbolList(
   auto shapeType = array.getType().dyn_cast_or_null<ShapedType>();
   if (!shapeType)
     return false; // Assume error if its not a shape type.
-  assert(shapeType.getRank() == 1 &&
-         "Array value index capture supports 1D arrays");
-  int num = shapeType.getShape()[0];
+  int rank = shapeType.getRank();
+  assert(rank <= 1 && "Array value index capture supports const or 1D arrays");
+  int num = (rank == 0) ? 1 : shapeType.getShape()[0];
   if (num == -1)
     return false; // Cannot read an unranked array.
   return getSymbolList(num, symbolList);

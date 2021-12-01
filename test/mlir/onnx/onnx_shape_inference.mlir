@@ -1180,6 +1180,22 @@ func @test_unsqueeze(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
 
 // -----
 
+func private @unsqueeze_of_const(%arg0: tensor<32x64xi64>) -> tensor<*xi64> {
+   %1 = "onnx.Constant"() {value = dense<0> : tensor<i64>} : () -> tensor<i64>
+   %2 = "onnx.Unsqueeze"(%arg0, %1) : (tensor<32x64xi64>, tensor<i64>) -> tensor<*xi64>
+  "std.return"(%2) : (tensor<*xi64>) -> ()
+
+// mlir2FileCheck.py -a'["data"]'
+// CHECK-LABEL:  func private @unsqueeze_of_const
+// CHECK-SAME:   ([[DATA_:%.+]]: tensor<32x64xi64>) -> tensor<1x32x64xi64> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<i64>} : () -> tensor<i64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Unsqueeze"([[DATA_]], [[VAR_0_]]) : (tensor<32x64xi64>, tensor<i64>) -> tensor<1x32x64xi64>
+// CHECK:           return [[VAR_1_]] : tensor<1x32x64xi64>
+// CHECK:         }
+}
+
+// -----
+
 func @test_unsqueezev11(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
   %0 = "onnx.UnsqueezeV11"(%arg0) { axes = [1]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
