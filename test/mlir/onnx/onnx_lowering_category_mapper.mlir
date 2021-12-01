@@ -65,4 +65,3 @@ func private @test_category_mapper_int64_to_string(%arg0 : tensor<2x2xi64>) -> t
   // CHECK:     }
   // CHECK:     return [[ALLOCA]] : memref<2x2x!krnl.string>
 }
-
