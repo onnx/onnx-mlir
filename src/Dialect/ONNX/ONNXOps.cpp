@@ -885,7 +885,7 @@ static LogicalResult verify(ONNXSequenceInsertOp op) {
   auto elementType2 = insertType.getElementType();
 
   if (elementType1 != elementType2) {
-    return op.emitError("Element typeis of the tensor in seqence and input "
+    return op.emitError("Element types of the tensor in seqence and input "
                         "have to be the same");
   }
   return success();
