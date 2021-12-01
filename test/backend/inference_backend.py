@@ -1007,7 +1007,9 @@ class EndiannessAwareExecutionSession(object):
     def turn_model_input_to_constant(self, inputs):
         # If IMPORTER_FORCE_CONSTANT is set, get input indices from it.
         # Otherwise, get from test_to_enable_dict.
+        IMPORTER_FORCE_CONSTANT = os.getenv("IMPORTER_FORCE_CONSTANT")
         input_indices = {}
+
         if IMPORTER_FORCE_CONSTANT:
             input_indices = set(
                 map(lambda x: int(x.strip()), IMPORTER_FORCE_CONSTANT.split(","))

@@ -5,12 +5,12 @@
 # Copyright 2021 The IBM Research Authors.
 #
 ################################################################################
-# Initialize global variables only once
-#   - IMPORTER_FORCE_CONSTANT
-#   - args
-#   - tempdir
-#   - result_dir, RUNTIME_DIR, TEST_DRIVER
+# Immutable global variables:
+#   - args, tempdir, result_dir, RUNTIME_DIR, TEST_DRIVER
+# Mutable global variables:
 #   - test_for_dynamic, test_for_constant, test_need_converter
+#   - real_model_tests, node_model_tests
+#   - test_to_enable_dict
 ################################################################################
 
 from __future__ import absolute_import
@@ -171,12 +171,6 @@ DYNAMIC_SHAPE = "dynamic"
 CONSTANT_INPUT = "constant"
 
 ### immutable variables ###
-
-# IMPORTER_FORCE_CONSTANT
-try:
-    _ = IMPORTER_FORCE_CONSTANT
-except NameError:
-    IMPORTER_FORCE_CONSTANT = os.getenv("IMPORTER_FORCE_CONSTANT")
 
 # parse arguments
 try:

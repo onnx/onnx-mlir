@@ -24,6 +24,7 @@ from variables import *
 def determine_dynamic_parameters(test_name):
     if not args.dynamic:
         return None
+
     # set default value: all inputs, first dimension.
     # Use this script's arguments '--input' and '--dim' or environment variables
     # TEST_INPUT and TEST_DIM to control the values.
@@ -31,7 +32,9 @@ def determine_dynamic_parameters(test_name):
     test_name_cpu = test_name + "_cpu"
     if test_name_cpu in variables.test_for_dynamic:
         if len(variables.test_to_enable_dict[test_name_cpu]) > 1:
-            selected_list = variables.test_to_enable_dict[test_name_cpu].get(DYNAMIC_SHAPE)
+            selected_list = variables.test_to_enable_dict[test_name_cpu].get(
+                DYNAMIC_SHAPE
+            )
     return selected_list
 
 
@@ -39,6 +42,7 @@ def execute_commands(cmds, dynamic_inputs_dims):
     if args.verbose:
         print(" ".join(cmds), file=sys.stderr)
         print("IMPORTER FORCE DYNAMIC ", dynamic_inputs_dims, file=sys.stderr)
+
     my_env = os.environ.copy()
     env_string = ""
     if dynamic_inputs_dims is not None:
@@ -107,10 +111,13 @@ def compile_model(model, emit):
     command_list.append(model_name)
     command_list.append('-O3')
     command_list.append("-o=" + exec_base)
+
     # Call frontend to process model_name.onnx, bit code will be generated.
     dynamic_inputs_dims = determine_dynamic_parameters(name)
     print("cwd: " + os.getcwd(), file=sys.stderr)
     execute_commands(command_list, dynamic_inputs_dims)
+
+    # Check if compiled model file exists
     if not os.path.exists(exec_name):
         print("Failed " + TEST_DRIVER + ": " + name, file=sys.stderr)
     return exec_name
