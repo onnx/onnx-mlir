@@ -250,6 +250,10 @@ public:
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
 
+// For all ONNX operations.
+void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
+    MLIRContext *ctx, TypeConverter &typeConverter);
+
 // `ControlFlow` directory methods:
 void populateLoweringONNXLoopOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
