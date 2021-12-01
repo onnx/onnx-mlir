@@ -295,6 +295,7 @@ OpsWithVerifier = [
     'ReverseSequence',
     'ScatterND',
     'SpaceToDepth',
+    'SequenceInsert',
     'TopK',
 ]
 
