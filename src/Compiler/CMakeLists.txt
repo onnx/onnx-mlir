@@ -46,10 +46,10 @@ add_onnx_mlir_library(CompilerUtils
 
   # Link LLVM libraries necessary to query which target architectures are configured.
   LINK_COMPONENTS PRIVATE
-  AllTargetsDescs 
-  AllTargetsInfos 
-  AllTargetsCodeGens 
-  AllTargetsAsmParsers 
+  AllTargetsAsmParsers
+  AllTargetsCodeGens
+  AllTargetsDescs
+  AllTargetsInfos
   MC
   )
 

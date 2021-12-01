@@ -110,6 +110,7 @@ endfunction()
 #     Same semantics as target_link_libraries().
 #   LINK_COMPONENTS llvm_components...
 #     Link the specified LLVM components.
+#     Note: only one linkage mode can be specified.
 #   )
 function(add_onnx_mlir_library name)
   cmake_parse_arguments(ARG
