@@ -312,7 +312,9 @@ def ResizeV11Pattern: Pat<
 
 def SequenceConstructPattern1: Pat<
     (ONNXSequenceConstructOp:$res $x1),
-    (createSequenceConstructOp  (ONNXSequenceEmptyOp (GetNullIntegerAttr), (returnType $res)), $x1)
+    (createSequenceConstructOp
+        (ONNXSequenceEmptyOp (GetNullIntegerAttr), (returnType $res)),
+        $x1)
 >;
 
 #endif // ONNX_DECOMPOSE
