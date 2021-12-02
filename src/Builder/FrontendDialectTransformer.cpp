@@ -18,23 +18,32 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <type_traits>
-
-#include "mlir/IR/BuiltinOps.h"
-#include "onnx/defs/schema.h"
-#include "llvm/ADT/TypeSwitch.h"
-
-#include "onnx/checker.h"
-#include "onnx/shape_inference/implementation.h"
-#include "onnx/version_converter/convert.h"
-
+#include "FrontendDialectTransformer.hpp"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
+#include "src/Support/SuppressWarnings.h"
 
-#include "FrontendDialectTransformer.hpp"
+#include "mlir/IR/BuiltinOps.h"
+#include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Debug.h"
+
+SUPPRESS_WARNINGS_PUSH
+#include "onnx/checker.h"
+#include "onnx/defs/schema.h"
+#include "onnx/shape_inference/implementation.h"
+#include "onnx/version_converter/convert.h"
+SUPPRESS_WARNINGS_POP
+
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <type_traits>
+
+#define DEBUG_TYPE "frontend_dialect_transformer"
+
+/// We consider opset < 6 is old. Users will see a warning if their model
+/// contains ops of old opset.
+static constexpr int32_t MINIMUM_SUPPORTED_OPSET = 6;
 
 using namespace mlir;
 
@@ -93,8 +102,6 @@ private:
   ModuleOp module_;
   OpBuilder builder_;
 
-  Value none_;
-  std::map<FuncOp, Value> func2None_;
   std::map<std::string, std::vector<int>> op_dialect_version_map_;
 
   /*!
@@ -183,32 +190,18 @@ private:
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
   Value none() {
-    // Get the enclosing Func Op.
-    auto block = builder_.getInsertionBlock();
-    assert(block && "Builder insertion block must be set.");
-    auto *op = block->getParentOp();
-    FuncOp func =
-        isa<FuncOp>(op) ? dyn_cast<FuncOp>(op) : op->getParentOfType<FuncOp>();
-
-    assert(func && "Cannot find FuncOp surrounding current insertion point.");
-
-    // Check if there's a none-typed value in the curent Func already, if so,
-    // return it; if not create one.
-    if (func2None_.count(func)) {
-      return func2None_.at(func);
-    } else {
-      auto none =
-          builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr())
-              .getResult();
-      func2None_.emplace(func, none);
-      return none;
-    }
+    auto none =
+        builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr())
+            .getResult();
+    return none;
   }
 
   // onnx_type_map: a map from ONNX tensor name to ONNX TypeProto.
   SymbolToOnnxTypeMapping onnx_type_map;
 
-  void AddValueInfo(const onnx::ValueInfoProto &vi) {
+  void AddValueInfo(const onnx::ValueInfoProto &vi, bool allowExist = false) {
+    if (allowExist && onnx_type_map.ContainKey(vi.name()))
+      return;
     onnx_type_map.AddMapping(vi.name(), vi.type());
   }
 
@@ -236,6 +229,8 @@ private:
    * @param type_proto onnx tensor TypeProto.
    */
   Type ImportTensorType(const onnx::TypeProto &type_proto) {
+    assert(type_proto.value_case() == onnx::TypeProto::kTensorType &&
+           "expect tensor type");
     std::vector<int64_t> dims;
     auto tensor_type = type_proto.tensor_type();
     auto elementOnnxType = (onnx::TensorProto_DataType)tensor_type.elem_type();
@@ -265,11 +260,38 @@ private:
     return RankedTensorType::get(tensor_dims, elementType);
   }
 
+  Type ImportSequenceType(const onnx::TypeProto &type_proto) {
+    auto input_seq_type = type_proto.sequence_type();
+    if (input_seq_type.has_elem_type()) {
+      onnx::TypeProto elem_type = input_seq_type.elem_type();
+      assert(elem_type.value_case() == onnx::TypeProto::kTensorType &&
+             "expect tensor inside sequence type");
+      Type mlir_elem_type = ImportTensorType(elem_type);
+      Type seq_type = mlir::onnxmlir::SeqType::get({mlir_elem_type});
+      return seq_type;
+    }
+    llvm_unreachable("unexpected type");
+  }
+
+  Type ImportType(const onnx::TypeProto &type_proto) {
+    switch (type_proto.value_case()) {
+    case onnx::TypeProto::kTensorType:
+      return ImportTensorType(type_proto);
+      break;
+    case onnx::TypeProto::kSequenceType:
+      return ImportSequenceType(type_proto);
+      break;
+    default:
+      llvm_unreachable("unexpected type");
+      break;
+    }
+  }
+
   llvm::Optional<Type> ConvertOnnxType(const std::string &onnx_name) {
     if (options_.useOnnxModelTypes) {
       if (onnx_type_map.ContainKey(onnx_name)) {
         return llvm::Optional<Type>(
-            ImportTensorType(onnx_type_map.GetTensorByOnnxName(onnx_name)));
+            ImportType(onnx_type_map.GetTensorByOnnxName(onnx_name)));
       }
     }
     return llvm::Optional<Type>();
@@ -391,7 +413,7 @@ private:
       AddValueInfo(input);
       if (!initializedTensors.ContainKey(input.name())) {
         inputNames.push_back(input.name());
-        auto argTy = ImportTensorType(input.type());
+        auto argTy = ImportType(input.type());
         auto shapedTy = argTy.dyn_cast<RankedTensorType>();
         // Change the first dimension to unknown (-1) for test purpose only
         if (shapedTy && force_dim_dynamic_enabled_ &&
@@ -430,7 +452,8 @@ private:
       }
     }
     for (const auto &output : graph.output()) {
-      AddValueInfo(output);
+      // Output tensor may be in input list
+      AddValueInfo(output, true);
       outputNames.push_back(output.name());
     }
 
@@ -702,10 +725,7 @@ private:
     for (const auto &item : node.input())
       if (item.empty()) {
         // Optional inputs using empty string will be imported as NoneType.
-        if (!none_)
-          none_ =
-              builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
-        inputs.emplace_back(none_);
+        inputs.emplace_back(none());
       } else {
         if (initializedTensors.ContainKey(item)) {
           inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
@@ -972,6 +992,16 @@ private:
       return std::string("");
     }
     auto current_opset = opset_map_.find(node.domain())->second;
+
+    if (current_opset < MINIMUM_SUPPORTED_OPSET)
+      llvm::outs() << "Warning: ONNX " << node.op_type()
+                   << " in your model is using Opset " << current_opset
+                   << ", which is quite old. Please consider regenerating your "
+                      "model with a newer Opset.\n";
+    LLVM_DEBUG(llvm::dbgs()
+               << DEBUG_TYPE << ": Importing ONNX " << node.op_type()
+               << ", Opset: " << current_opset << "\n");
+
     // Custom ops may not be present in op_dialect_version_map_. If no version
     // info is found, treat as unversioned (no renaming).
     auto opset_list_it = op_dialect_version_map_.find(node.op_type());
@@ -985,6 +1015,8 @@ private:
         return std::string("");
       for (int i = opset_list.size() - 1; i > 0; i--) {
         if (current_opset < opset_list[i - 1]) {
+          LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ":   - use Opset "
+                                  << opset_list[i] << "\n");
           return "V" + std::to_string(opset_list[i]);
         }
       }
@@ -1081,7 +1113,7 @@ private:
         continue;
       if (!onnx_type_map.ContainKey(v))
         return false;
-      auto resultType = ImportTensorType(onnx_type_map.GetTensorByOnnxName(v));
+      auto resultType = ImportType(onnx_type_map.GetTensorByOnnxName(v));
       resultTypes.push_back(resultType);
     }
 
@@ -1151,7 +1183,7 @@ private:
     builder_.restoreInsertionPoint(prev_ip);
 
     // Generate call statement
-    auto op = builder_.create<CallOp>(UnknownLoc(), funcOp, operands);
+    auto op = builder_.create<ONNXCallOp>(UnknownLoc(), funcOp, operands);
     int result_num = 0;
     for (auto &v : node.output()) {
       BindOnnxName(v, op.getResult(result_num++));
@@ -1221,7 +1253,7 @@ private:
     Value tensor_val = frontend_symbols_.GetTensorByOnnxName(output.name());
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       if (output.type().tensor_type().has_shape()) {
-        tensor_val.setType(ImportTensorType(output.type()));
+        tensor_val.setType(ImportType(output.type()));
       }
     }
     ret_types.emplace_back(tensor_val.getType());
@@ -1238,7 +1270,13 @@ private:
   void concatTypeString(
       Type argType, Attribute attr, llvm::raw_ostream &dstream) {
     std::string comma = std::string("");
+
     TypeSwitch<Type>(argType)
+        .Case<mlir::onnxmlir::SeqType>([&](mlir::onnxmlir::SeqType seqTy) {
+          auto et = seqTy.getElementType();
+          dstream << "   {\"seq\" : ";
+          concatTypeString(et, attr, dstream);
+        })
         .Case<ShapedType>([&](ShapedType tensorTy) {
           auto et = tensorTy.getElementType();
           dstream << "   { \"type\" : ";
@@ -1392,12 +1430,20 @@ void ImportFrontendModelArray(const void *onnxBuffer, int size,
 }
 
 void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
-    OwningModuleRef &module, ImportOptions options) {
+    OwningModuleRef &module, std::string *errorMessage, ImportOptions options) {
   onnx::ModelProto model;
   std::fstream input(model_fname, std::ios::in | std::ios::binary);
+  // check if the input file is opened
+  if (!input.is_open()) {
+    *errorMessage = "Unable to open or access " + model_fname;
+    return;
+  }
 
   auto parse_success = model.ParseFromIstream(&input);
-  assert(parse_success && "Onnx Model Parsing Failed.");
+  if (!parse_success) {
+    *errorMessage = "Onnx Model Parsing Failed on " + model_fname;
+    return;
+  }
   ImportFrontendModelInternal(model, context, module, options);
 }
 

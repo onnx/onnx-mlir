@@ -357,8 +357,9 @@ ArrayRef<BlockArgument> BuildKrnlLoop::getAllInductionVar() {
 // This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
 // lambda type, using ONNX and Krnl operations.
 DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value) {
-  auto definingOp = value.getDefiningOp();
-  if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
+  KrnlGlobalOp globalOp =
+      dyn_cast_or_null<mlir::KrnlGlobalOp>(value.getDefiningOp());
+  if (globalOp) {
     if (globalOp.value().hasValue())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
   }
@@ -395,22 +396,22 @@ void generateIndexMap(
 
 //====---------------- Support for Krnl Builder ----------------------===//
 
-Value KrnlBuilder::load(Value memref, ValueRange indices) {
+Value KrnlBuilder::load(Value memref, ValueRange indices) const {
   return b.create<KrnlLoadOp>(loc, memref, indices);
 }
 
-Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) {
+Value KrnlBuilder::loadIE(Value memref, ArrayRef<IndexExpr> indices) const {
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
   return b.create<KrnlLoadOp>(loc, memref, indexValues);
 }
 
-void KrnlBuilder::store(Value val, Value memref, ValueRange indices) {
+void KrnlBuilder::store(Value val, Value memref, ValueRange indices) const {
   b.create<KrnlStoreOp>(loc, val, memref, indices);
 }
 
 void KrnlBuilder::storeIE(
-    Value val, Value memref, ArrayRef<IndexExpr> indices) {
+    Value val, Value memref, ArrayRef<IndexExpr> indices) const {
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
   b.create<KrnlStoreOp>(loc, val, memref, indexValues);
@@ -468,14 +469,6 @@ void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
       });
 }
 
-void KrnlBuilder::memcpy(Value dest, Value src, Value size) {
-  b.create<KrnlMemcpyOp>(loc, dest, src, size);
-}
-
-void KrnlBuilder::memset(Value dest, Value val) {
-  b.create<KrnlMemsetOp>(loc, dest, val);
-}
-
 void KrnlBuilder::copyToBuffer(Value bufferMemref, Value sourceMemref,
     ValueRange starts, Value padValue, ArrayRef<int64_t> tileSize,
     ArrayRef<int64_t> padToNext, bool transpose) {
@@ -516,6 +509,36 @@ void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
   b.create<KrnlMatMulOp>(loc, A, aStart, B, bStart, C, cStart, loops,
       computeStarts[0], computeStarts[1], computeStarts[2], globalUBs[0],
       globalUBs[1], globalUBs[2], simdize, unroll, overcompute);
+}
+
+Value KrnlBuilder::constant(MemRefType type, StringRef name,
+    DenseElementsAttr value, Optional<IntegerAttr> offset,
+    Optional<IntegerAttr> alignment) const {
+  static int32_t constantID = 0;
+  return b.create<KrnlGlobalOp>(loc, type, b.getI64ArrayAttr(type.getShape()),
+      b.getStringAttr(name + std::to_string(constantID++)), value,
+      offset.hasValue() ? offset.getValue() : nullptr,
+      alignment.hasValue() ? alignment.getValue() : nullptr);
+}
+
+void KrnlBuilder::memcpy(Value dest, Value src, Value size) const {
+  b.create<KrnlMemcpyOp>(loc, dest, src, size);
+}
+
+void KrnlBuilder::memset(Value dest, Value val) const {
+  b.create<KrnlMemsetOp>(loc, dest, val);
+}
+
+Value KrnlBuilder::strncmp(Value str1, Value str2, Value len) const {
+  return b.create<KrnlStrncmpOp>(loc, b.getI32Type(), str1, str2, len);
+}
+
+Value KrnlBuilder::strlen(Value str) const {
+  return b.create<KrnlStrlenOp>(loc, b.getI64Type(), str);
+}
+
+Value KrnlBuilder::findIndex(Value input, Value G, Value V, Value len) const {
+  return b.create<KrnlFindIndexOp>(loc, b.getIndexType(), input, G, V, len);
 }
 
 bool isKrnlGlobalConstant(Value result) {

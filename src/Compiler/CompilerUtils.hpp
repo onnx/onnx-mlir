@@ -34,8 +34,6 @@
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::opt<std::string> instrumentONNXOps;
 
-void setExecPath(const char *argv0, void *fmain);
-
 void setTargetCPU(const std::string &cpu);
 void setTargetTriple(const std::string &triple);
 
@@ -59,7 +57,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm);
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm);
 
 void processInputFile(std::string inputFilename, mlir::MLIRContext &context,
-    mlir::OwningModuleRef &module);
+    mlir::OwningModuleRef &module, std::string *errorMessage);
 
 void processInputArray(const void *onnxBuffer, int bufferSize,
     mlir::MLIRContext &context, mlir::OwningModuleRef &module);

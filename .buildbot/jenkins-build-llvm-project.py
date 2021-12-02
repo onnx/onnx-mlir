@@ -46,10 +46,10 @@ github_pr_number2           = os.getenv('GITHUB_PR_NUMBER2')
 
 docker_static_image_name    = (github_repo_name + '-llvm-static' +
                                ('.' + github_pr_baseref2
-                                if github_pr_baseref != 'master' else ''))
+                                if github_pr_baseref != 'main' else ''))
 docker_shared_image_name    = (github_repo_name + '-llvm-shared' +
                                ('.' + github_pr_baseref2
-                                if github_pr_baseref != 'master' else ''))
+                                if github_pr_baseref != 'main' else ''))
 
 LLVM_PROJECT_SHA1_FILE      = 'utils/clone-mlir.sh'
 LLVM_PROJECT_SHA1_REGEX     = 'git checkout ([0-9a-f]+)'

@@ -6,6 +6,7 @@ cmake_minimum_required(VERSION 3.13.4)
 project(onnx-mlir)
 
 option(ONNX_MLIR_BUILD_TESTS "Build ONNX MLIR test executables. If OFF, just generate build targets." ON)
+option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 
 set(CMAKE_CXX_STANDARD 14)
 
@@ -38,6 +39,7 @@ set(ONNX_MLIR_LIBRARY_PATH ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 set(ONNX_MLIR_RUNTIME_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 include(CTest)
+include(ExternalProject)
 include(MLIR.cmake)
 
 # MLIR.cmake calls find_package(MLIR) which sets LLVM_MINIMUM_PYTHON_VERSION
@@ -96,7 +98,34 @@ elseif ((ONNX_USE_PROTOBUF_SHARED_LIBS AND Protobuf_USE_STATIC_LIBS)
     "ONNX_USE_PROTOBUF_SHARED_LIBS and Protobuf_USE_STATIC_LIBS must be opposites of each other.")
 endif()
 
-add_subdirectory(third_party)
+# Suppress warnings in third party code.
+if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
+  set(CMAKE_C_FLAGS_COPY ${CMAKE_C_FLAGS})
+  set(CMAKE_CXX_FLAGS_COPY ${CMAKE_CXX_FLAGS})
+  if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
+  elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC") 
+    # MSVC complains when overriding existing warning levels flags, remove
+    # them and add "/W".
+    STRING(REGEX REPLACE "/W[0-9]" "/W0" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})  
+    STRING(REGEX REPLACE "/W[0-9]" "/W0" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+  endif()
+endif()
+
+set(pybind11_FIND_QUIETLY ON)
+add_subdirectory(third_party/onnx)
+add_subdirectory(third_party/pybind11)
+add_subdirectory(third_party/rapidcheck)
+
+# Ensure warnings are reported for onnx-mlir code.
+if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
+  set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS_COPY})
+  set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS_COPY})
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
+endif()
+
 add_subdirectory(utils)
 add_subdirectory(include)
 add_subdirectory(src)

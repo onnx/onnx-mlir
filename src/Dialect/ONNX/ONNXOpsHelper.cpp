@@ -12,9 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "mlir/IR/TypeUtilities.h"
+
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
 // Identity affine
 using namespace mlir;
@@ -22,25 +24,40 @@ using namespace mlir::onnxmlir;
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
-Value OnnxBuilder::add(Value A, Value B) {
+Value OnnxBuilder::add(Value A, Value B) const {
   return b.create<ONNXAddOp>(loc, A, B);
 }
 
-Value OnnxBuilder::sub(Value A, Value B) {
+Value OnnxBuilder::sub(Value A, Value B) const {
   return b.create<ONNXSubOp>(loc, A, B);
 }
 
-Value OnnxBuilder::mul(Value A, Value B) {
+Value OnnxBuilder::mul(Value A, Value B) const {
   return b.create<ONNXMulOp>(loc, A, B);
 }
 
-Value OnnxBuilder::div(Value A, Value B) {
+Value OnnxBuilder::div(Value A, Value B) const {
   return b.create<ONNXDivOp>(loc, A, B);
 }
 
-Value OnnxBuilder::matmul(Type Y, Value A, Value B) {
+Value OnnxBuilder::matmul(Type Y, Value A, Value B) const {
   return b.create<ONNXMatMulOp>(loc, Y, A, B);
 }
+
+Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
+  return b.create<ONNXReshapeOp>(loc, outputType, input, shape);
+}
+
+Value OnnxBuilder::transpose(
+    Type outputType, Value input, ArrayAttr perm) const {
+  return b.create<ONNXTransposeOp>(loc, outputType, input, perm);
+}
+
+Value OnnxBuilder::constant(Attribute denseAttr) const {
+  return b.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+}
+
+//====-------------------------- ONNX Support -------------------------===//
 
 AffineMap getIdentityDimMap(Builder &builder) {
   return AffineMap::get(1, 0, {builder.getAffineDimExpr(0)});
@@ -118,13 +135,13 @@ std::vector<IndexExpr> getIndexExprsForConvWindow(
       outputIndex * strideDim + (kernelDim - 1) * dilationDim + 1 - padTopDim;
 
   // windowStartExpr
-  SmallVector<mlir::IndexExpr, 2> startExprs = {start1, start2};
+  SmallVector<IndexExpr, 2> startExprs = {start1, start2};
   windowStartExpr = IndexExpr::max(startExprs);
   // windowEndExpr
-  SmallVector<mlir::IndexExpr, 2> endExprs = {end1, end2};
+  SmallVector<IndexExpr, 2> endExprs = {end1, end2};
   windowEndExpr = IndexExpr::min(endExprs);
   // kernelOffsetExpr
-  SmallVector<mlir::IndexExpr, 2> kernelExprs = {LiteralIndexExpr(0), start2};
+  SmallVector<IndexExpr, 2> kernelExprs = {LiteralIndexExpr(0), start2};
   kernelOffsetExpr = IndexExpr::min(kernelExprs);
 
   return std::vector<IndexExpr>{
@@ -191,35 +208,53 @@ int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
 }
 
 DenseElementsAttr getDenseElementAttributeFromONNXValue(Value value) {
-  auto definingOp = value.getDefiningOp();
-  if (auto constantOp = dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
+  ONNXConstantOp constantOp = getONNXConstantOp(value);
+  if (constantOp)
     return constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-  }
   return nullptr;
 }
 
 // Returns the ConstantOp which defines an MLIR Value or null.
 ONNXConstantOp getONNXConstantOp(Value value) {
-  return dyn_cast_or_null<mlir::ONNXConstantOp>(value.getDefiningOp());
+  return dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
 }
 
-Value getONNXConstantOpFromDenseAttr(
-    PatternRewriter &rewriter, Location loc, Attribute dense) {
-  return rewriter.create<ONNXConstantOp>(loc, Attribute(), dense);
+Value createONNXConstantOpWithDenseAttr(
+    OpBuilder &builder, Location loc, Attribute dense) {
+  return builder.create<ONNXConstantOp>(loc, Attribute(), dense);
+}
+
+// Use 0xi64 to represent a None for an optional integer input
+Value createNoneIntegerConstant(PatternRewriter &rewriter, Location loc) {
+  SmallVector<int64_t, 1> dims(1, 0);
+  SmallVector<int64_t> values;
+  auto tensorType =
+      mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  auto denseAttr =
+      mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+}
+
+// Use 0xf32 to represent a None for an optional float input
+Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
+  SmallVector<int64_t, 1> dims(1, 0);
+  SmallVector<float> values;
+  auto tensorType = mlir::RankedTensorType::get(dims, rewriter.getF32Type());
+  auto denseAttr =
+      mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
 // Returns true if the Value is defined by none constant
 bool isFromNone(Value v) {
-  if (v.getDefiningOp() &&
-      llvm::dyn_cast_or_null<mlir::ConstantOp>(v.getDefiningOp())) {
-    mlir::ConstantOp c = llvm::dyn_cast<mlir::ConstantOp>(v.getDefiningOp());
+  if (v.getDefiningOp() && dyn_cast_or_null<ConstantOp>(v.getDefiningOp())) {
+    ConstantOp c = dyn_cast<ConstantOp>(v.getDefiningOp());
     if (c.getValue().isa<UnitAttr>())
       return true;
   }
   if (v.getDefiningOp() &&
-      llvm::dyn_cast_or_null<mlir::ONNXConstantOp>(v.getDefiningOp())) {
-    mlir::ONNXConstantOp c =
-        llvm::dyn_cast<mlir::ONNXConstantOp>(v.getDefiningOp());
+      dyn_cast_or_null<ONNXConstantOp>(v.getDefiningOp())) {
+    ONNXConstantOp c = dyn_cast<ONNXConstantOp>(v.getDefiningOp());
     if (c.value().hasValue() && c.valueAttr().isa<DenseElementsAttr>()) {
       DenseElementsAttr d = c.valueAttr().cast<DenseElementsAttr>();
       auto shape = d.getType().dyn_cast<RankedTensorType>().getShape();
@@ -287,25 +322,24 @@ bool IsIdentityPermuteVector(ArrayAttr permAttr) {
 }
 
 /// Test if the value has the specified constant shape
-bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape) {
-  if (!value.getType().isa<ShapedType>()) {
+bool HasSpecifiedConstantShape(Value value, Value shape) {
+  if (!hasShapeAndRank(value) || !hasShapeAndRank(shape))
     return false;
-  }
+
   ArrayRef<int64_t> valueShape = value.getType().cast<ShapedType>().getShape();
   DenseElementsAttr shapeAttr = getDenseElementAttributeFromONNXValue(shape);
-  if (shapeAttr == nullptr) {
+  if (shapeAttr == nullptr)
     return false;
-  }
+
   int64_t dimensionsOfShape = shapeAttr.getType().getShape()[0];
-  if ((int64_t)valueShape.size() != dimensionsOfShape) {
+  if ((int64_t)valueShape.size() != dimensionsOfShape)
     return false;
-  }
+
   auto valueIt = shapeAttr.getValues<APInt>().begin();
   for (int64_t i = 0; i < dimensionsOfShape; i++) {
     int64_t value = (*valueIt++).getSExtValue();
-    if (valueShape[i] != value) {
+    if (valueShape[i] != value)
       return false;
-    }
   }
   return true;
 }
@@ -356,6 +390,12 @@ bool AreTheSameConstantOpDenseAttr(
   }
 }
 
+/// Test if 'val' has shape and rank or not.
+bool hasShapeAndRank(Value val) {
+  return val.getType().isa<ShapedType>() &&
+         val.getType().cast<ShapedType>().hasRank();
+}
+
 //===----------------------------------------------------------------------===//
 // Support for rewrite patterns.
 //===----------------------------------------------------------------------===//
@@ -376,8 +416,8 @@ DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     PatternRewriter &rewriter, Type elementType, FloatAttr attr) {
   SmallVector<int64_t, 1> dims(1, 1);
   SmallVector<float, 1> values(1, attr.getValue().convertToFloat());
-  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  auto tensorType = RankedTensorType::get(dims, elementType);
+  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
 }
 
 // Create a DenseElementsAttr from a integer attribute.
@@ -386,8 +426,8 @@ DenseElementsAttr createDenseElementsAttrFromIntegerAttr(
     PatternRewriter &rewriter, Type elementType, IntegerAttr attr) {
   SmallVector<int64_t, 1> dims(1, 1);
   SmallVector<int64_t, 1> values(1, attr.getSInt());
-  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  auto tensorType = RankedTensorType::get(dims, elementType);
+  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
 }
 
 DenseElementsAttr createDenseElementsAttrFromFloatAttrs(
@@ -397,8 +437,8 @@ DenseElementsAttr createDenseElementsAttrFromFloatAttrs(
   for (auto attr : attrs) {
     values.push_back(attr.cast<FloatAttr>().getValue().convertToFloat());
   }
-  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  auto tensorType = RankedTensorType::get(dims, elementType);
+  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
 }
 
 // Integer attribute is assumed to be Signedless
@@ -409,8 +449,8 @@ DenseElementsAttr createDenseElementsAttrFromIntegerAttrs(
   for (auto attr : attrs) {
     values.push_back(attr.cast<IntegerAttr>().getInt());
   }
-  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  auto tensorType = RankedTensorType::get(dims, elementType);
+  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
 }
 
 // Create a DenseElementsAttr from a String attribute.
@@ -421,8 +461,8 @@ DenseElementsAttr createDenseElementsAttrFromStringAttrs(
   for (auto attr : attrs) {
     values.push_back(attr.cast<StringAttr>().getValue());
   }
-  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  auto tensorType = RankedTensorType::get(dims, elementType);
+  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
 }
 
 Value normalizeConstantOp(
@@ -476,9 +516,8 @@ DenseElementsAttr createDenseElementsAttrFromShape(
   auto shape = inType.getShape();
   SmallVector<int64_t, 1> dims = {inType.getRank()};
   SmallVector<int64_t, 4> values(shape.begin(), shape.end());
-  auto tensorType =
-      mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
 }
 
 // Create a DenseElementsAttr based on the size of type.
@@ -487,68 +526,70 @@ DenseElementsAttr createDenseElementsAttrFromSize(
   auto inType = value.getType().cast<ShapedType>();
   SmallVector<int64_t, 1> dims(1, 1);
   SmallVector<int64_t, 1> values = {inType.getNumElements()};
-  auto tensorType =
-      mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
 }
 
 /// Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(Value result) {
   Operation *op = result.getDefiningOp();
 
-  ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
+  ONNXConstantOp constOp = dyn_cast_or_null<ONNXConstantOp>(op);
   // Not a constant.
   if (!constOp)
     return false;
 
   // If the dense attribute is null, there must be buffer_id
   // attribute.
-  if (!(op->getAttrOfType<::mlir::Attribute>("value")))
+  if (!(op->getAttrOfType<Attribute>("value")))
     return false;
   // The other attributes must be null.
-  if (op->getAttrOfType<::mlir::Attribute>("sparse_value"))
+  if (op->getAttrOfType<Attribute>("sparse_value"))
     return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_float"))
+  if (op->getAttrOfType<Attribute>("value_float"))
     return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_floats"))
+  if (op->getAttrOfType<Attribute>("value_floats"))
     return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_int"))
+  if (op->getAttrOfType<Attribute>("value_int"))
     return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_ints"))
+  if (op->getAttrOfType<Attribute>("value_ints"))
     return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_string"))
+  if (op->getAttrOfType<Attribute>("value_string"))
     return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_strings"))
+  if (op->getAttrOfType<Attribute>("value_strings"))
     return false;
 
   return true;
 }
 
-/// Check if a value is a 16, 32 or 64 bit integer.
-bool isCommonInteger(mlir::RankedTensorType tensorType) {
-  return tensorType.getElementType().isInteger(16) ||
-         tensorType.getElementType().isInteger(32) ||
-         tensorType.getElementType().isInteger(64);
+/// Get scalar value when it is a constant.
+template <typename RESULT_TYPE>
+RESULT_TYPE getScalarValue(DenseElementsAttr &denseAttr, Type type) {
+  Type elementaryType = getElementTypeOrSelf(type);
+  if (elementaryType.isInteger(16) || elementaryType.isInteger(32) ||
+      elementaryType.isInteger(64)) {
+    auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
+    return (RESULT_TYPE)(*valueIt).cast<IntegerAttr>().getInt();
+  } else if (elementaryType.isF32()) {
+    auto valueIt = denseAttr.getValues<APFloat>().begin();
+    return (RESULT_TYPE)(*valueIt).convertToFloat();
+  } else if (elementaryType.isF64()) {
+    auto valueIt = denseAttr.getValues<APFloat>().begin();
+    return (RESULT_TYPE)(*valueIt).convertToDouble();
+  }
+  llvm_unreachable("Unexpected type.");
+  return 0;
 }
 
-/// Get scalar value when it is a constant.
-double getScalarValue(
-    mlir::ONNXConstantOp constantOp, mlir::RankedTensorType tensorType) {
-  double value;
+template <typename RESULT_TYPE>
+RESULT_TYPE getScalarValue(ONNXConstantOp constantOp, Type type) {
   DenseElementsAttr attr = constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
   if (!attr)
     constantOp.emitError("DenseElementsAttr expected");
-  if (isCommonInteger(tensorType)) {
-    auto valueIt = attr.getValues<IntegerAttr>().begin();
-    value = (double)(*valueIt).cast<IntegerAttr>().getInt();
-  } else if (tensorType.getElementType().isF32()) {
-    auto valueIt = attr.getValues<APFloat>().begin();
-    value = (double)(*valueIt).convertToFloat();
-  } else if (tensorType.getElementType().isF64()) {
-    auto valueIt = attr.getValues<APFloat>().begin();
-    value = (double)(*valueIt).convertToDouble();
-  } else {
-    llvm_unreachable("Unexpected type.");
-  }
-  return value;
+  return getScalarValue<RESULT_TYPE>(attr, type);
 }
+
+// Template instantiation for getScalarValue
+
+template double getScalarValue<double>(ONNXConstantOp constantOp, Type type);
+template int64_t getScalarValue<int64_t>(ONNXConstantOp constantOp, Type type);

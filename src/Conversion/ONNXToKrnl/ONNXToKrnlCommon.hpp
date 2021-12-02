@@ -4,7 +4,7 @@
 
 //====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2021 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -48,6 +48,26 @@ using namespace mlir;
 extern bool gEmitDealloc;
 
 //===----------------------------------------------------------------------===//
+// Extends OnnxBuilder with member functions that might generate Krnl dialect
+// operations.
+//===----------------------------------------------------------------------===//
+
+struct OnnxToKrnlBuilder : public OnnxBuilder {
+  OnnxToKrnlBuilder(OpBuilder &b, Location loc) : OnnxBuilder(b, loc) {}
+  OnnxToKrnlBuilder(DialectBuilder &db) : OnnxBuilder(db) {}
+
+  // Generate an 'onnx.reshape' operation on the 'input' tensor, the new shape
+  // is provided by 'shapeDims'.
+  Value reshape(
+      const Value input, const ArrayRef<DimIndexExpr> shapeDims) const;
+
+  // Generate a 'onnx.Transpose' operation on the 'input' tensor given the
+  // permutation array 'perm' and the operator output dimensions 'outputDims'.
+  Value transpose(const Value input, const ArrayRef<int64_t> perm,
+      const ArrayRef<DimIndexExpr> outputDims) const;
+};
+
+//===----------------------------------------------------------------------===//
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
 //===----------------------------------------------------------------------===//
 
@@ -69,11 +89,11 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // compile time relying on the above function, and extracting the runtime
 // definitions from the index expressions otherwise.
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
+    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
     int64_t alignment = -1);
 // Same where boolean to assert if dealloc is to be gen or not is specified
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
+    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
     bool insertDealloc, int64_t alignment = -1);
 
 // Determine if current function returns the result value of the
@@ -141,8 +161,13 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
 /// The new view is created using the given 'memRefType' and 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, MemRefType memRefType,
-    SmallVectorImpl<IndexExpr> &outputDims);
+    Location loc, Value data, const MemRefType &memRefType,
+    const SmallVectorImpl<IndexExpr> &outputDims);
+
+/// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
+/// Output MemRef has the same shape as the input MemRef but is of IndexType.
+Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
+    Value input, int64_t axis, bool ascending = false);
 
 /// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
 /// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
@@ -192,23 +217,16 @@ Value emitScalarOpFor(ConversionPatternRewriter &rewriter, Location loc,
 }
 
 //===----------------------------------------------------------------------===//
-// Conversion from Tensor type to the Standard dialect MemRef type.
+// Type conversion from Onnx types to Krnl types:
+//   - from Tensor type to the Standard dialect MemRef type
+//   - from onnx.StringType to krnl.StringType
 //===----------------------------------------------------------------------===//
 
-struct TensorTypeConverter : public TypeConverter {
+class KrnlTypeConverter : public TypeConverter {
+public:
   using TypeConverter::TypeConverter;
 
-  TensorTypeConverter() { addConversion(convertType); }
-
-  static LogicalResult convertType(Type t, SmallVectorImpl<Type> &results) {
-    if (auto type = convertToMemRefType(t)) {
-      results.push_back(type);
-      return success();
-    }
-
-    results.push_back(t);
-    return success();
-  }
+  KrnlTypeConverter();
 
   /// Return true if the inputs and outputs of the given function type are
   /// legal. [Taken from MLIR and adapted to only check the legality of the
@@ -232,8 +250,11 @@ struct TensorTypeConverter : public TypeConverter {
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
 
-// `ControlFlow` directory methods:
+// For all ONNX operations.
+void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
+    MLIRContext *ctx, TypeConverter &typeConverter);
 
+// `ControlFlow` directory methods:
 void populateLoweringONNXLoopOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
@@ -241,7 +262,6 @@ void populateLoweringONNXScanOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 // `Math` directory methods:
-
 void populateLoweringONNXClipOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
@@ -254,10 +274,16 @@ void populateLoweringONNXElementwiseOpPattern(
 void populateLoweringONNXGemmOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXHardmaxOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXLRNOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXMatMulOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXRandomNormalOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXReductionOpPattern(
@@ -266,8 +292,14 @@ void populateLoweringONNXReductionOpPattern(
 void populateLoweringONNXSoftmaxOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
-// `NN` directory methods:
+void populateLoweringONNXTopKOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
+// `ML` directory methods:
+void populateLoweringONNXCategoryMapperOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+// `NN` directory methods:
 void populateLoweringONNXConvOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
@@ -275,6 +307,10 @@ void populateLoweringONNXNormalizationOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXPoolingOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+// `ObjectDetection` directory methods:
+void populateLoweringONNXNonMaxSuppressionOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 // `RNN` directory methods:
@@ -326,6 +362,12 @@ void populateLoweringONNXConstantOpPattern(
 void populateLoweringONNXConcatOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXDepthToSpaceOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXSpaceToDepthOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXShapeOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
@@ -359,10 +401,16 @@ void populateLoweringONNXResizeOpPattern(
 void populateLoweringONNXNonZeroOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXReverseSequenceOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXExpandOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXOneHotOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXCompressOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp);
@@ -389,3 +437,9 @@ Location ONNXLoc(Operation *op) {
       Identifier::get(OP_TYPE::getOperationName(), op->getContext()),
       op->getLoc());
 }
+
+/// This function returns a scalar of type 'dtype' from an optional value.
+/// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>.
+/// Default value is used in case of NoneType.
+Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
+    Value optionalScalar, Type elementType, double defaultValue);

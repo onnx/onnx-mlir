@@ -392,10 +392,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
   //   ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh)
   // Ht = (1 - zt) (.) ht + zt (.) Ht-1"
 
-  KrnlBuilder createKrnl(rewriter, loc);
-  OnnxBuilder createONNX(createKrnl);
-  MemRefBuilder createMemRef(createKrnl);
-  MathBuilder createMath(createKrnl);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
 
   ArrayRef<int64_t> xtShape = Xt.getType().cast<ShapedType>().getShape();
   int64_t batchSize = xtShape[0];
@@ -414,15 +412,15 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
       MemRefType::get({batchSize, 3 * hiddenSize}, elementType);
 
   // Common matrix multiplications.
-  Value XtWT = createONNX.matmul(matrixAllGatesType, Xt, weightPack.WT);
-  Value one = emitConstantOp(rewriter, loc, elementType, 1);
+  Value XtWT = create.onnx.matmul(matrixAllGatesType, Xt, weightPack.WT);
+  Value one = create.math.constant(elementType, 1);
 
   // Lower and upper bounds derived from Ht tensor.
-  Value iZero = createMath.constantIndex(0);
+  Value iZero = create.math.constantIndex(0);
   SmallVector<Value, 4> htLbs(htRank, iZero);
   SmallVector<Value, 4> htUbs;
   for (unsigned r = 0; r < htRank; ++r) {
-    htUbs.emplace_back(createMemRef.dim(Ht, r));
+    htUbs.emplace_back(create.mem.dim(Ht, r));
   }
 
   if (state.linearBeforeReset) {
@@ -432,11 +430,11 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     // Ht = (1 - zt) (.) ht + zt (.) Ht-1"
     // In this case, we can do all matrix multiplications first, then fuse all
     // element-wise computations into a single nested loop.
-    Value HtRT = createONNX.matmul(matrixAllGatesType, Ht, weightPack.RT);
+    Value HtRT = create.onnx.matmul(matrixAllGatesType, Ht, weightPack.RT);
 
     // Do element-wise computations. Fuse them into a single nested loop.
-    ValueRange loops = createKrnl.defineLoops(htRank);
-    createKrnl.iterate(loops, loops, htLbs, htUbs,
+    ValueRange loops = create.krnl.defineLoops(htRank);
+    create.krnl.iterate(loops, loops, htLbs, htUbs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           MathBuilder createMath(createKrnl);
           IndexExprScope ieScope(createKrnl);
@@ -504,8 +502,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     // In this case, besides computing matrix multiplications, we need to
     // compute rt and (rt (.) Ht-1) first, then fuse the remaining element-wise
     // computations into a single nested loop.
-    Value HtRz = createONNX.matmul(matrixType, Ht, weightPack.Rz);
-    Value HtRr = createONNX.matmul(matrixType, Ht, weightPack.Rr);
+    Value HtRz = create.onnx.matmul(matrixType, Ht, weightPack.Rz);
+    Value HtRr = create.onnx.matmul(matrixType, Ht, weightPack.Rr);
     Value rt, rtHt;
     if (hasAllConstantDimensions(matrixType)) {
       rt = insertAllocAndDealloc(matrixType, loc, rewriter, false);
@@ -513,14 +511,14 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     } else {
       // matrixType's shape is of [BatchSize, HiddenSize].
       // HiddenSize is always static. Thus, only BatchSize is dynamic.
-      Value batchSize = createMemRef.dim(Ht, 0);
-      rt = createMemRef.alignedAlloc(matrixType, {batchSize});
-      rtHt = createMemRef.alignedAlloc(matrixType, {batchSize});
+      Value batchSize = create.mem.dim(Ht, 0);
+      rt = create.mem.alignedAlloc(matrixType, {batchSize});
+      rtHt = create.mem.alignedAlloc(matrixType, {batchSize});
     }
 
     // Emit rt and (rt (.) Ht-1).
-    ValueRange loops1 = createKrnl.defineLoops(htRank);
-    createKrnl.iterate(loops1, loops1, htLbs, htUbs,
+    ValueRange loops1 = create.krnl.defineLoops(htRank);
+    create.krnl.iterate(loops1, loops1, htLbs, htUbs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           MathBuilder createMath(createKrnl);
           IndexExprScope ieScope(createKrnl);
@@ -548,11 +546,11 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
         });
 
     // Emit (rt (.) Ht-1)*(Rh^T)
-    Value rtHtRh = createONNX.matmul(matrixType, rtHt, weightPack.Rh);
+    Value rtHtRh = create.onnx.matmul(matrixType, rtHt, weightPack.Rh);
 
     // Do element-wise computations. Fuse them into a single nested loop.
-    ValueRange loops2 = createKrnl.defineLoops(htRank);
-    createKrnl.iterate(loops2, loops2, htLbs, htUbs,
+    ValueRange loops2 = create.krnl.defineLoops(htRank);
+    create.krnl.iterate(loops2, loops2, htLbs, htUbs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           MathBuilder createMath(createKrnl);
           IndexExprScope ieScope(createKrnl);

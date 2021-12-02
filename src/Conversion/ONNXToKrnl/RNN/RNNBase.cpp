@@ -176,21 +176,18 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
 void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
     Value ht, Value ct, Value initialH, Value initialC, Type elementType,
     bool onlyHidden) {
-  // TODO remove
-  // scope(rewriter, loc);
-  KrnlBuilder createKrnl(rewriter, loc);
-  MemRefBuilder createMemRef(createKrnl);
-  MathBuilder createMath(createKrnl);
-  Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+      rewriter, loc);
+  Value zero = create.math.constant(elementType, 0);
   unsigned htRank = ht.getType().cast<MemRefType>().getRank();
-  Value iZero = createMath.constantIndex(0);
+  Value iZero = create.math.constantIndex(0);
   SmallVector<Value, 4> htLbs(htRank, iZero);
   SmallVector<Value, 4> htUbs;
   for (unsigned r = 0; r < htRank; ++r) {
-    htUbs.emplace_back(createMemRef.dim(ht, r));
+    htUbs.emplace_back(create.mem.dim(ht, r));
   }
-  ValueRange loops = createKrnl.defineLoops(htRank);
-  createKrnl.iterate(loops, loops, htLbs, htUbs,
+  ValueRange loops = create.krnl.defineLoops(htRank);
+  create.krnl.iterate(loops, loops, htLbs, htUbs,
       [&](KrnlBuilder &createKrnl, ValueRange indices) {
         Value hiddenVal = zero;
         if (!isNoneType(initialH))
@@ -213,24 +210,23 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     Location loc, Value forwardVal, Value reverseVal, StringRef direction,
     Value output) {
   // TODO remove
-  KrnlBuilder createKrnl(rewriter, loc);
-  MemRefBuilder createMemRef(createKrnl);
-  MathBuilder createMath(createKrnl);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+      rewriter, loc);
   if (direction == FORWARD || direction == REVERSE) {
     Value val = (direction == FORWARD) ? forwardVal : reverseVal;
     Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, val);
-    createKrnl.memcpy(output, val, sizeInBytes);
+    create.krnl.memcpy(output, val, sizeInBytes);
   } else { // BIDIRECTIONAL
     unsigned rank = forwardVal.getType().cast<MemRefType>().getRank();
-    Value zero = createMath.constantIndex(0);
-    Value one = createMath.constantIndex(1);
+    Value zero = create.math.constantIndex(0);
+    Value one = create.math.constantIndex(1);
     SmallVector<Value, 4> lbs(rank, zero);
     SmallVector<Value, 4> ubs;
     for (unsigned r = 0; r < rank; ++r) {
-      ubs.emplace_back(createMemRef.dim(forwardVal, r));
+      ubs.emplace_back(create.mem.dim(forwardVal, r));
     }
-    ValueRange loops = createKrnl.defineLoops(2);
-    createKrnl.iterate(loops, loops, lbs, ubs,
+    ValueRange loops = create.krnl.defineLoops(2);
+    create.krnl.iterate(loops, loops, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           Value b(indices[0]), h(indices[1]);
           // Forward.
@@ -308,9 +304,8 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value timestepIV) {
   // TODO remove
   IndexExprScope scope(&rewriter, loc);
-  KrnlBuilder createKrnl(rewriter, loc);
-  MemRefBuilder createMemRef(createKrnl);
-  MathBuilder createMath(createKrnl);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+      rewriter, loc);
 
   int64_t batchSize = dimAt(X, 1);
   int64_t inputSize = dimAt(X, 2);
@@ -326,14 +321,14 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
       rewriter, nullptr, sliceXType, loc, dims, /*insertDealloc=*/false);
 
   // Copy data from X.
-  Value iZero = createMath.constantIndex(0);
+  Value iZero = create.math.constantIndex(0);
   SmallVector<Value, 2> lbs(2, iZero);
   SmallVector<Value, 2> ubs;
   for (unsigned r = 0; r < 2; ++r) {
-    ubs.emplace_back(createMemRef.dim(sliceX, r));
+    ubs.emplace_back(create.mem.dim(sliceX, r));
   }
-  ValueRange loops = createKrnl.defineLoops(2);
-  createKrnl.iterate(
+  ValueRange loops = create.krnl.defineLoops(2);
+  create.krnl.iterate(
       loops, loops, lbs, ubs, [&](KrnlBuilder &createKrnl, ValueRange indices) {
         Value b(indices[0]), i(indices[1]);
         Value val = createKrnl.load(X, {timestepIV, b, i});

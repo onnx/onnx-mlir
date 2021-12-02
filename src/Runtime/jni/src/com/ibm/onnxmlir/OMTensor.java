@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package com.ibm.onnxmlir;
 
 import java.nio.ByteBuffer;
@@ -14,26 +16,29 @@ public class OMTensor {
     
     /* We can use enum but that creates another class
      * which complicates things for JNI.
+     *
+     * Values are standard ONNX data types defined in
+     * https://github.com/onnx/onnx/blob/master/onnx/onnx.proto#L484
      */
-    final int ONNX_TYPE_UNDEFINED  = 0;
-    final int ONNX_TYPE_FLOAT      = 1;
-    final int ONNX_TYPE_UINT8      = 2;
-    final int ONNX_TYPE_INT8       = 3;
-    final int ONNX_TYPE_UINT16     = 4;
-    final int ONNX_TYPE_INT16      = 5;
-    final int ONNX_TYPE_INT32      = 6;
-    final int ONNX_TYPE_INT64      = 7;
-    final int ONNX_TYPE_STRING     = 8;
-    final int ONNX_TYPE_BOOL       = 9;
-    final int ONNX_TYPE_FLOAT16    = 10;
-    final int ONNX_TYPE_DOUBLE     = 11;
-    final int ONNX_TYPE_UINT32     = 12;
-    final int ONNX_TYPE_UINT64     = 13;
-    final int ONNX_TYPE_COMPLEX64  = 14;
-    final int ONNX_TYPE_COMPLEX128 = 15;
-    final int ONNX_TYPE_BFLOAT16   = 16;
+    final static int ONNX_TYPE_UNDEFINED  = 0;
+    final static int ONNX_TYPE_FLOAT      = 1;
+    final static int ONNX_TYPE_UINT8      = 2;
+    final static int ONNX_TYPE_INT8       = 3;
+    final static int ONNX_TYPE_UINT16     = 4;
+    final static int ONNX_TYPE_INT16      = 5;
+    final static int ONNX_TYPE_INT32      = 6;
+    final static int ONNX_TYPE_INT64      = 7;
+    final static int ONNX_TYPE_STRING     = 8;
+    final static int ONNX_TYPE_BOOL       = 9;
+    final static int ONNX_TYPE_FLOAT16    = 10;
+    final static int ONNX_TYPE_DOUBLE     = 11;
+    final static int ONNX_TYPE_UINT32     = 12;
+    final static int ONNX_TYPE_UINT64     = 13;
+    final static int ONNX_TYPE_COMPLEX64  = 14;
+    final static int ONNX_TYPE_COMPLEX128 = 15;
+    final static int ONNX_TYPE_BFLOAT16   = 16;
 
-    final int[] ONNX_TYPE_SIZE = new int[] {
+    final static int[] ONNX_TYPE_SIZE = new int[] {
             0,  /* UNDEFINED  */
             4,  /* FLOAT      */
             1,  /* UINT8      */
@@ -53,45 +58,167 @@ public class OMTensor {
             2,  /* BFLOAT16   */
     };
 
+    final static String[] ONNX_TYPE_NAME = new String[] {
+            "UNDEFINED",
+            "FLOAT",
+            "UINT8",
+            "INT8",
+            "UINT16",
+            "INT16",
+            "INT32",
+            "INT64",
+            "STRING",
+            "BOOL",
+            "FLOAT16",
+            "DOUBLE",
+            "UINT32",
+            "UINT64",
+            "COMPLEX64",
+            "COMPLEX128",
+            "BFLOAT16",
+    };
+
     private ByteBuffer _data;
     private long[] _shape;
     private long[] _strides;
     private int _dataType;
+    /* Use int internally since rank is the length of shape[]
+     * and Java array length is int.
+     */
     private int _rank;
 
     /**
      * Constructor
+     *
+     * @param data byte data array for tensor
+     * @param shape data shape array
+     * @param bool true for bool tensor, false for byte tensor
+     *
+     * @return OMTensor with bool or byte data
      */
-    public OMTensor(byte[] data, long[] shape) {
-        setByteData(data);
-        putShape(shape);
+    public OMTensor(byte[] data, long[] shape, boolean bool) {
+	if (bool)
+	    setBoolData(data);
+	else
+	    setByteData(data);
+	putShape(shape);
     }
 
+    /**
+     * Constructor
+     *
+     * @param data byte data array for tensor
+     * @param shape data shape array
+     *
+     * @return OMTensor with byte data
+     */
+    public OMTensor(byte[] data, long[] shape) {
+	this(data, shape, false);
+    }
+
+    /**
+     * Constructor
+     *
+     * @param data short data array for tensor
+     * @param shape data shape array
+     *
+     * @return OMTensor with short data
+     */
     public OMTensor(short[] data, long[] shape) {
         setShortData(data);
         putShape(shape);
     }
 
+    /**
+     * Constructor
+     *
+     * @param data int data array for tensor
+     * @param shape data shape array
+     *
+     * @return OMTensor with int data
+     */
     public OMTensor(int[] data, long[] shape) {
         setIntData(data);
         putShape(shape);
     }
 
+    /**
+     * Constructor
+     *
+     * @param data long data array for tensor
+     * @param shape data shape array
+     *
+     * @return OMTensor with long data
+     */
     public OMTensor(long[] data, long[] shape) {
         setLongData(data);
         putShape(shape);
     }
 
+    /**
+     * Constructor
+     *
+     * @param data float data array for tensor
+     * @param shape data shape array
+     *
+     * @return OMTensor with float data
+     */
     public OMTensor(float[] data, long[] shape) {
         setFloatData(data);
         putShape(shape);
     }
 
+    /**
+     * Constructor
+     *
+     * @param data double data array for tensor
+     * @param shape data shape array
+     *
+     * @return OMTensor with double data
+     */
     public OMTensor(double[] data, long[] shape) {
         setDoubleData(data);
         putShape(shape);
     }
 
+
+    /* ---------- Bool data getter and setter ---------- */
+    /* On the native side bool is backed by byte so bool */
+    /* array is the same as byte array.                  */
+
+    /**
+     * Bool data getter
+     *
+     * @return bool data array
+     */
+    public byte[] getBoolData() {
+	if (_dataType != ONNX_TYPE_BOOL)
+	    throw new NumberFormatException("Data type is " +
+					    ONNX_TYPE_NAME[_dataType]);
+	if (_data == null) return null;
+
+        /* asReadOnlyBuffer() creates a new view so the position of the
+         * original data will stay at 0 for subsequent getByteData()
+         * after get(b).
+         */
+        byte[] b = new byte[_data.limit()];
+        _data.asReadOnlyBuffer().get(b);
+        return b;
+    }
+
+    /**
+     * Bool data setter
+     *
+     * @param data bool array to be set
+     */
+    public void setBoolData(byte[] data) {
+        /* slice() creates a new view so the position of the
+         * original data will stay at 0 for getByteData() after put(data).
+         */
+        _data = ByteBuffer.allocateDirect(data.length);
+        _data.slice().put(data);
+        _dataType = ONNX_TYPE_INT8;
+    }
 
     /* ---------- Byte data getter and setter ---------- */
 
@@ -101,7 +228,10 @@ public class OMTensor {
      * @return byte data array
      */
     public byte[] getByteData() {
-        if (_data == null) return null;
+	if (_dataType != ONNX_TYPE_INT8 && _dataType != ONNX_TYPE_UINT8)
+	    throw new NumberFormatException("Data type is " +
+					    ONNX_TYPE_NAME[_dataType]);
+	if (_data == null) return null;
 
         /* asReadOnlyBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getByteData()
@@ -134,6 +264,9 @@ public class OMTensor {
      * @return short data array
      */
     public short[] getShortData() {
+	if (_dataType != ONNX_TYPE_INT16 && _dataType != ONNX_TYPE_UINT16)
+	    throw new NumberFormatException("Data type is " +
+					    ONNX_TYPE_NAME[_dataType]);
         if (_data == null) return null;
 
         /* asShortBuffer() creates a new view so the position of the
@@ -168,6 +301,9 @@ public class OMTensor {
      * @return int data array
      */
     public int[] getIntData() {
+	if (_dataType != ONNX_TYPE_INT32 && _dataType != ONNX_TYPE_UINT32)
+	    throw new NumberFormatException("Data type is " +
+					    ONNX_TYPE_NAME[_dataType]);
         if (_data == null) return null;
 
         /* asIntBuffer() creates a new view so the position of the
@@ -202,6 +338,9 @@ public class OMTensor {
      * @return long data array
      */
     public long[] getLongData() {
+	if (_dataType != ONNX_TYPE_INT64 && _dataType != ONNX_TYPE_UINT64)
+	    throw new NumberFormatException("Data type is " +
+					    ONNX_TYPE_NAME[_dataType]);
         if (_data == null) return null;
 
         /* asLongBuffer() creates a new view so the position of the
@@ -236,6 +375,9 @@ public class OMTensor {
      * @return float data array
      */
     public float[] getFloatData() {
+	if (_dataType != ONNX_TYPE_FLOAT)
+	    throw new NumberFormatException("Data type is " +
+					    ONNX_TYPE_NAME[_dataType]);
         if (_data == null) return null;
 
         /* asFloatBuffer() creates a new view so the position of the
@@ -270,6 +412,9 @@ public class OMTensor {
      * @return double data array
      */
     public double[] getDoubleData() {
+	if (_dataType != ONNX_TYPE_DOUBLE)
+	    throw new NumberFormatException("Data type is " +
+					    ONNX_TYPE_NAME[_dataType]);
         if (_data == null) return null;
 
         /* asDoubleBuffer() creates a new view so the position of the
@@ -379,12 +524,12 @@ public class OMTensor {
     /* ---------- Rank getter ---------- */
 
     /**
-     * Rank getter
+     * Rank getter (return long to be consistent with C/C++ API)
      *
      * @return rank of the OMTensor
      */
-    public int getRank() {
-        return _rank;
+    public long getRank() {
+        return (long)_rank;
     }
 
     /* ---------- Number of elements getter ---------- */
@@ -395,6 +540,7 @@ public class OMTensor {
      * @return number of data elements in the data buffer
      */
     public long getNumElems() {
+        if (_shape.length == 0) return 1;
         long n = _shape[0];
         for (int i = 1; i < _shape.length; i++) n *= _shape[i];
         return n;
@@ -419,17 +565,35 @@ public class OMTensor {
         }
     }
 
-    /* For JNI wrapper only. Not intended for end user. */
     /**
-     * Constructor
+     * Constructor (For OMRunner only. Not intended for end user)
+     *
+     * @param data data buffer
+     * @param shape data shape
+     * @param dataType data type
+     * @param endian data endian
+     */
+    protected OMTensor(ByteBuffer data, long[] shape, ByteOrder endian, int dataType) {
+        if (dataType < 0 || dataType > ONNX_TYPE_BFLOAT16)
+            throw new IllegalArgumentException(
+                    "data type " + dataType + " unknown");
+	if (endian == null)
+	    throw new IllegalArgumentException("endian unknown");
+
+        _data = data.order(endian);
+        _dataType = dataType;
+	putShape(shape);
+    }
+
+    /**
+     * Constructor (For JNI wrapper only. Not intended for end user)
      * 
      * @param data data buffer
      * @param shape data shape
      * @param strides data stride
      * @param dataType data type
      */
-    @SuppressWarnings("unused")
-    private OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType) {
+    protected OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType) {
         if (shape.length != strides.length)
             throw new IllegalArgumentException(
                     "shape.length (" + shape.length + ") != stride.length (" + strides.length + ")");
@@ -443,25 +607,21 @@ public class OMTensor {
         _strides = strides;
     }
 
-    /* For JNI wrapper only. Not intended for end user. */
     /**
-     * Raw data getter
+     * Raw data getter (For JNI wrapper only. Not intended for end user)
      * 
      * @return raw data
      */
-    @SuppressWarnings("unused")
-    private ByteBuffer getData() {
+    protected ByteBuffer getData() {
         return _data;
     }
 
-    /* For JNI wrapper only. Not intended for end user. */
     /**
-     * Raw data setter
+     * Raw data setter (For JNI wrapper only. Not intended for end user)
      * 
      * @param data raw data to be set
      */
-    @SuppressWarnings("unused")
-    private void setData(ByteBuffer data) {
+    protected void setData(ByteBuffer data) {
         _data = data.order(nativeEndian);
     }
 }

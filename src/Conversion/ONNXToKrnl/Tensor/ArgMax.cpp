@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- ArgMax.cpp - Lowering ArgMax Op -------------------===//
 //
 // This file lowers the ONNX ArgMax Operator to Krnl dialect.

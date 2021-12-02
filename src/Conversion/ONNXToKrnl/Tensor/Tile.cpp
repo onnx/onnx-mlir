@@ -25,6 +25,7 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
     ConversionPatternRewriter &rewriter, bool insertDealloc, Value inputOperand,
     Value repeatsOperand) {
   MemRefBuilder createMemRef(rewriter, loc);
+  MathBuilder createMath(createMemRef);
   memref::AllocOp alloc;
   auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
   auto inputRank = inputShape.size();
@@ -33,15 +34,13 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
   SmallVector<Value, 4> allocOperands;
   for (unsigned int i = 0; i < inputRank; ++i) {
     if (outputShape[i] == -1) {
-      auto indexVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
+      Value indexVal = createMath.constantIndex(i);
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
-      auto repeatsLoadVal =
+      Value repeatsLoadVal =
           rewriter.create<KrnlLoadOp>(loc, repeatsOperand, repeatsMemRefVal);
-      auto repeatsElementVal = rewriter.create<arith::IndexCastOp>(
-          loc, repeatsLoadVal, rewriter.getIndexType());
-      auto dimVal = createMemRef.dim(inputOperand, i);
-      Value allocDimVal =
-          rewriter.create<arith::MulIOp>(loc, dimVal, repeatsElementVal);
+      Value repeatsElementVal = createMath.castToIndex(repeatsLoadVal);
+      Value dimVal = createMemRef.dim(inputOperand, i);
+      Value allocDimVal = createMath.mul(dimVal, repeatsElementVal);
       allocOperands.emplace_back(allocDimVal);
     }
   }
@@ -89,8 +88,6 @@ struct ONNXTileOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     SmallVector<Value, 4> loadIndices;
-    bool isAffineLoad = true;
-
     // This implementation is to iterate the output tensor.
     // The store has simple affine subscript expression.
     // Alternative implementation is to iterate the input tensor and repeats.
@@ -105,9 +102,6 @@ struct ONNXTileOpLowering : public ConversionPattern {
       MemRefBoundsIndexCapture inputBounds(input);
       DimIndexExpr dimSize(inputBounds.getDim(i));
       IndexExpr exprVal = index % dimSize;
-      if (!exprVal.isAffine()) {
-        isAffineLoad = false;
-      }
       loadIndices.emplace_back(exprVal.getValue());
     }
 

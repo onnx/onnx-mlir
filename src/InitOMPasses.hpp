@@ -13,6 +13,10 @@ void initOMPasses() {
   // function to make themselves available as a command-line option.
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createONNXOpTransformPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createDecomposeONNXToONNXPass();
   });
 

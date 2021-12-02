@@ -43,12 +43,12 @@ struct ONNXShapeOpLowering : public ConversionPattern {
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
     // Iterate along the data shape storing dim value to result.
-    KrnlBuilder createKrnl(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
     uint64_t dataRank = shapeHelper.selectedData.size();
     for (uint64_t i = 0; i < dataRank; ++i) {
       Value val = shapeHelper.selectedData[i].getValue();
-      Value intVal = rewriter.create<arith::IndexCastOp>(loc, val, elementType);
-      createKrnl.storeIE(intVal, alloc, {LiteralIndexExpr(i)});
+      Value intVal = create.math.cast(elementType, val);
+      create.krnl.storeIE(intVal, alloc, {LiteralIndexExpr(i)});
     }
     rewriter.replaceOp(op, alloc);
     return success();

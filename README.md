@@ -1,4 +1,5 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
+<p align="center"><img width="50%" src="docs/logo/onnx-mlir-1280x640.png" /></p>
 
 # ONNX MLIR
 The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mlir/).
@@ -74,9 +75,9 @@ RUN apt-get install -y vim
 # WORKDIR /workdir/workspace
 # ADD workspace /workdir/workspace
 
-# 5) Fix git by reattaching head and making git see other branches than master.
+# 5) Fix git by reattaching head and making git see other branches than main.
 WORKDIR /workdir/onnx-mlir
-RUN git checkout master
+RUN git checkout main
 RUN git fetch --unshallow
 
 # 6) Set the PATH environment vars for make/debug mode. Replace Debug
@@ -153,7 +154,7 @@ git clone --recursive https://github.com/onnx/onnx-mlir.git
 export MLIR_DIR=$(pwd)/llvm-project/build/lib/cmake/mlir
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
-cmake ..
+cmake -G Ninja ..
 cmake --build .
 
 # Run lit tests:
@@ -278,9 +279,9 @@ call cmake --build . --config Release --target check-onnx-lit
 
 To run the numerical ONNX MLIR tests, use the following command:
 
-[same-as-file]: <> ({"ref": "utils/check-numerical.cmd", "skip-ref": 1})
+[same-as-file]: <> ({"ref": "utils/check-onnx-numerical.cmd", "skip-ref": 1})
 ```shell
-call cmake --build . --config Release --target check-numerical
+call cmake --build . --config Release --target check-onnx-numerical
 ```
 
 To run the doc ONNX MLIR tests, use the following command after installing third_party ONNX:

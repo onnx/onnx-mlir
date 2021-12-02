@@ -16,32 +16,17 @@
 
 using namespace mlir;
 
-bool checkOpResultIsReturned(ONNXConstantOp *constantOp) {
-  FuncOp function = getContainingFunction(constantOp->getOperation());
-
-  bool opIsReturned = false;
-  function.walk([&opIsReturned, constantOp](ReturnOp op) {
-    auto result = constantOp->getResult();
-    for (const auto &operand : op.getOperands())
-      if (operand == result)
-        opIsReturned = true;
-  });
-
-  return opIsReturned;
-}
-
 struct ONNXConstantOpLowering : public ConversionPattern {
   static int constantID;
 
   ONNXConstantOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXConstantOp::getOperationName(), 1, ctx) {
-    constantID = 0;
-  }
+      : ConversionPattern(mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = ONNXLoc<ONNXConstantOp>(op);
     auto constantOp = llvm::dyn_cast<ONNXConstantOp>(op);
+    assert(constantOp && "Op does not have type ONNXConstantOp");
 
     if (constantOp.sparse_value().hasValue())
       return emitError(loc, "Only support dense values at this time");
@@ -66,38 +51,14 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     // Increment constant ID:
     constantID++;
 
-    // Check if the variable is returned.
-    if (checkOpResultIsReturned(&constantOp)) {
-      // In this case, use an AllocOp for the constant since krnl.Global
-      // operations are not mean to be returned.
-      MemRefBuilder createMemRef(rewriter, loc);
-      memref::AllocOp alloc = createMemRef.alignedAlloc(memRefType);
-
-      // Compute size in bytes using the input tensor.
-      Value tensorSize = emitConstantOp(rewriter, loc,
-          rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
-      auto numElementsValue = emitConstantOp(
-          rewriter, loc, rewriter.getIntegerType(64), numElements);
-      tensorSize =
-          rewriter.create<arith::MulIOp>(loc, tensorSize, numElementsValue);
-
-      // Copy the value in the AllocOp.
-      rewriter.create<KrnlMemcpyOp>(
-          loc, alloc, constantGlobal.getResult(), tensorSize);
-
-      // Since the value is returned we need to only work with the AllocOp
-      // not the KrnlGlobalOp. Globals cannot be returned.
-      rewriter.replaceOp(op, alloc.getResult());
-    } else {
-      // Replace this operation with the generated krnl.global.
-      rewriter.replaceOp(op, constantGlobal.getResult());
-    }
+    // Replace this operation with the generated krnl.global.
+    rewriter.replaceOp(op, constantGlobal.getResult());
 
     return success();
   }
 };
 
-int ONNXConstantOpLowering::constantID;
+int ONNXConstantOpLowering::constantID = 0;
 
 void populateLoweringONNXConstantOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {

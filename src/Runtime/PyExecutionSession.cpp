@@ -30,7 +30,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
            "Expect contiguous python array.");
 
     void *dataPtr;
-    int ownData = 0;
+    int64_t ownData = 0;
     if (inputPyArray.writeable()) {
       dataPtr = inputPyArray.mutable_data();
     } else {
@@ -76,7 +76,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
     auto *inputOMTensor = omTensorCreateWithOwnership(dataPtr,
         (int64_t *)(const_cast<ssize_t *>(inputPyArray.shape())),
-        inputPyArray.ndim(), dtype, ownData);
+        (int64_t)inputPyArray.ndim(), dtype, ownData);
     omTensorSetStridesWithPyArrayStrides(inputOMTensor,
         (int64_t *)const_cast<ssize_t *>(inputPyArray.strides()));
 
@@ -87,7 +87,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
   std::vector<py::array> outputPyArrays;
-  for (int i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
+  for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
     auto *omt = omTensorListGetOmtByIndex(wrappedOutput, i);
     auto shape = std::vector<int64_t>(
         omTensorGetShape(omt), omTensorGetShape(omt) + omTensorGetRank(omt));

@@ -29,6 +29,13 @@
 
 using namespace mlir;
 
+// Steps to add a new op XXX:
+// 1) Create a new shape inference type inside this file, ONNXShapeHelper.hpp.
+// 2) Create new shape inference file, say XXX.cpp and implement.
+// 3) Add template instantiation at bottom of ONNXShapeHelper.cpp.
+// 4) Add new file name XXX.cpp to ../CMakeLists.txt
+// 5) Use the new object in ONNXOps.cpp and ONNXToKrnl lowering for XXX.
+
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
@@ -55,11 +62,11 @@ using DimsExpr = SmallVector<IndexExpr, 4>;
 template <class OP>
 struct ONNXOpShapeHelper {
   // Constructor for shape inference. Reuse scope if given, otherwise create one
-  // now and free in destructor.
+  // now and free it in destructor.
   ONNXOpShapeHelper(
       OP *newOp, int numResults, IndexExprScope *inScope = nullptr);
   // Constructor when code can be generated. Reuse scope if given, otherwise
-  // create one now and free in destructor.
+  // create one now and free it in destructor.
   ONNXOpShapeHelper(OP *newOp, int numResults, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal,
@@ -69,11 +76,14 @@ struct ONNXOpShapeHelper {
       delete scope;
   }
 
-  // Define in every children. Use op to get attributes, and operandAdaptor
-  // to get the input/output parameters.
-  LogicalResult computeShape(ONNXSliceOpAdaptor operandAdaptor) {
-    llvm_unreachable("implement in child structs");
-  }
+  // Every child class is expected to create a computeShape with the following
+  // signature. This method is responsible to compute at a minimum the output
+  // dims.
+  //
+  // LogicalResult computeShape(<<OpAdaptor>> operandAdaptor);
+  //
+  // Use the op to get attributes, and operandAdaptor to get the input/output
+  // tensors.
 
   // Return output dims for the N-th output.
   DimsExpr &dimsForOutput(int n = 0) { return outputsDims[n]; }
@@ -168,7 +178,6 @@ struct ONNXArgMaxOpShapeHelper : public ONNXOpShapeHelper<ONNXArgMaxOp> {
   ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXArgMaxOpAdaptor operandAdaptor);
 };
 
@@ -178,7 +187,6 @@ struct ONNXConcatOpShapeHelper : public ONNXOpShapeHelper<ONNXConcatOp> {
   ONNXConcatOpShapeHelper(ONNXConcatOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXConcatOpAdaptor operandAdaptor);
 };
 
@@ -198,9 +206,7 @@ struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
   ONNXSliceOpShapeHelper(ONNXSliceOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXSliceOpAdaptor operandAdaptor);
-
   // Additional data for SliceOp.
   SmallVector<IndexExpr, 4> starts;
   SmallVector<IndexExpr, 4> ends;
@@ -213,7 +219,6 @@ struct ONNXTileOpShapeHelper : public ONNXOpShapeHelper<ONNXTileOp> {
   ONNXTileOpShapeHelper(ONNXTileOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXTileOpAdaptor operandAdaptor);
 };
 
@@ -225,9 +230,7 @@ struct ONNXGemmOpShapeHelper : public ONNXOpShapeHelper<ONNXGemmOp> {
   ONNXGemmOpShapeHelper(ONNXGemmOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXGemmOpAdaptor operandAdaptor);
-
   // Additional data for GemmOp: output = a * b.
   SmallVector<IndexExpr, 4> aDims; // Dim of A, after applying transpose.
   SmallVector<IndexExpr, 4> bDims; // Dim of B, after applying transpose.
@@ -242,9 +245,7 @@ struct ONNXMatMulOpShapeHelper : public ONNXOpShapeHelper<ONNXMatMulOp> {
   ONNXMatMulOpShapeHelper(ONNXMatMulOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXMatMulOpAdaptor operandAdaptor);
-
   // Additional data for MatMulOp: output = a & b.
   SmallVector<IndexExpr, 4> aDims; // Dim of A, after applying padding.
   SmallVector<IndexExpr, 4> bDims; // Dim of B, after applying padding.
@@ -258,9 +259,8 @@ struct ONNXGatherOpShapeHelper : public ONNXOpShapeHelper<ONNXGatherOp> {
   ONNXGatherOpShapeHelper(ONNXGatherOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXGatherOpAdaptor operandAdaptor);
-
+  // Additional data for GatherOp.
   SmallVector<IndexExpr, 4> dataDims;    // Dim of data.
   SmallVector<IndexExpr, 4> indicesDims; // Dim of indices.
   bool positiveConstantIndices; // True when all indices are positive consants.
@@ -282,7 +282,6 @@ struct ONNXSplitOpShapeHelper : public ONNXOpShapeHelper<ONNXSplitOp> {
   ONNXSplitOpShapeHelper(ONNXSplitOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXSplitOpAdaptor operandAdaptor);
 };
 
@@ -292,7 +291,6 @@ struct ONNXSplitV11OpShapeHelper : public ONNXOpShapeHelper<ONNXSplitV11Op> {
   ONNXSplitV11OpShapeHelper(ONNXSplitV11Op *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXSplitV11OpAdaptor operandAdaptor);
 };
 
@@ -302,7 +300,6 @@ struct ONNXTransposeOpShapeHelper : public ONNXOpShapeHelper<ONNXTransposeOp> {
   ONNXTransposeOpShapeHelper(ONNXTransposeOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXTransposeOpAdaptor operandAdaptor);
 };
 
@@ -312,7 +309,6 @@ struct ONNXLRNOpShapeHelper : public ONNXOpShapeHelper<ONNXLRNOp> {
   ONNXLRNOpShapeHelper(ONNXLRNOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXLRNOpAdaptor operandAdaptor);
 };
 
@@ -335,7 +331,7 @@ struct ONNXGenericPoolShapeHelper : public ONNXOpShapeHelper<OP_TYPE> {
   LogicalResult computeShape(OP_ADAPTOR operandAdaptor, Value filterValue,
       Optional<ArrayAttr> kernelShapeOpt, Optional<ArrayAttr> padOpt,
       Optional<ArrayAttr> strideOpt, Optional<ArrayAttr> dilationOpt);
-
+  // Additional data for Pool operations.
   bool hasFilter; // If has filter, it also has CO and optional kernel.
   bool ceilMode;  // Use ceil or floor for auto_pad=NOTSET policy.
   // Values set by Compute.
@@ -398,8 +394,20 @@ struct ONNXReshapeOpShapeHelper : public ONNXOpShapeHelper<ONNXReshapeOp> {
   ONNXReshapeOpShapeHelper(ONNXReshapeOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXReshapeOpAdaptor operandAdaptor);
+};
+
+// Shape for ONNXReverseSequence.
+struct ONNXReverseSequenceOpShapeHelper
+    : public ONNXOpShapeHelper<ONNXReverseSequenceOp> {
+  ONNXReverseSequenceOpShapeHelper(
+      ONNXReverseSequenceOp *newOp, IndexExprScope *inScope = nullptr);
+  ONNXReverseSequenceOpShapeHelper(ONNXReverseSequenceOp *newOp,
+      OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal,
+      IndexExprScope *inScope = nullptr);
+
+  LogicalResult Compute(ONNXReverseSequenceOpAdaptor operandAdaptor);
 };
 
 // Shape for SqueezeOp.
@@ -408,7 +416,6 @@ struct ONNXSqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXSqueezeOp> {
   ONNXSqueezeOpShapeHelper(ONNXSqueezeOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXSqueezeOpAdaptor operandAdaptor);
 };
 
@@ -419,7 +426,6 @@ struct ONNXSqueezeV11OpShapeHelper
   ONNXSqueezeV11OpShapeHelper(ONNXSqueezeV11Op *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXSqueezeV11OpAdaptor operandAdaptor);
 };
 
@@ -429,7 +435,6 @@ struct ONNXUnsqueezeOpShapeHelper : public ONNXOpShapeHelper<ONNXUnsqueezeOp> {
   ONNXUnsqueezeOpShapeHelper(ONNXUnsqueezeOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXUnsqueezeOpAdaptor operandAdaptor);
 };
 
@@ -440,7 +445,6 @@ struct ONNXUnsqueezeV11OpShapeHelper
   ONNXUnsqueezeV11OpShapeHelper(ONNXUnsqueezeV11Op *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXUnsqueezeV11OpAdaptor operandAdaptor);
 };
 
@@ -451,9 +455,8 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper<ONNXShapeOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal,
       IndexExprScope *inScope = nullptr);
-
   LogicalResult computeShape(ONNXShapeOpAdaptor operandAdaptor);
-
+  // Additional data for ShapeOp.
   DimsExpr selectedData;
 };
 
@@ -463,9 +466,7 @@ struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper<ONNXPadOp> {
   ONNXPadOpShapeHelper(ONNXPadOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXPadOpAdaptor operandAdaptor);
-
   // Additional data for PadOp.
   SmallVector<IndexExpr, 4> pads;
 };
@@ -477,8 +478,8 @@ struct ONNXExpandOpShapeHelper
   ONNXExpandOpShapeHelper(ONNXExpandOp *newOp, OpBuilder *rewriter,
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
-
   LogicalResult computeShape(ONNXExpandOpAdaptor operandAdaptor);
+  // Additional data for ExpandOp.
   ONNXExpandOp *expandOp;
 };
 
@@ -489,5 +490,38 @@ struct ONNXOneHotOpShapeHelper : public ONNXOpShapeHelper<ONNXOneHotOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
 
-  LogicalResult ComputeShape(ONNXOneHotOpAdaptor operandAdaptor);
+  LogicalResult computeShape(ONNXOneHotOpAdaptor operandAdaptor);
+  // Additional data for ExpandOp.
+  int64_t axis = -1; // Default value.
+  IndexExpr depth;   // Depth which may/maynot be known at compile time.
+};
+
+// Shape for ONNXCompressOp.
+struct ONNXCompressOpShapeHelper : public ONNXOpShapeHelper<ONNXCompressOp> {
+  ONNXCompressOpShapeHelper(ONNXCompressOp *newOp);
+  ONNXCompressOpShapeHelper(ONNXCompressOp *newOp, OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult computeShape(ONNXCompressOpAdaptor operandAdaptor);
+  // Additional data for CompressOp.
+  int axis = -1; // Value -1 signify axis was not specified.
+};
+
+// Shape for ONNXTopKOp.
+struct ONNXTopKOpShapeHelper : public ONNXOpShapeHelper<ONNXTopKOp> {
+  ONNXTopKOpShapeHelper(ONNXTopKOp *newOp);
+  ONNXTopKOpShapeHelper(ONNXTopKOp *newOp, OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult computeShape(ONNXTopKOpAdaptor operandAdaptor);
+};
+
+// Shape for ONNXCategoryMapperOp.
+struct ONNXCategoryMapperOpShapeHelper
+    : public ONNXOpShapeHelper<ONNXCategoryMapperOp> {
+  ONNXCategoryMapperOpShapeHelper(ONNXCategoryMapperOp *newOp);
+  ONNXCategoryMapperOpShapeHelper(ONNXCategoryMapperOp *newOp,
+      OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult computeShape(ONNXCategoryMapperOpAdaptor operandAdaptor);
 };

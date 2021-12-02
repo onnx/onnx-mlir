@@ -5,7 +5,7 @@ OMTensorList *run_main_graph(OMTensorList *);
 
 int main() {
   // Shared shape & rank.
-  int64_t shape[] = {2, 2};
+  int64_t shape[] = {3, 2};
   int64_t rank = 2;
   // Construct x1 omt filled with 1.
   float x1Data[] = {1., 1., 1., 1., 1., 1.};
@@ -24,5 +24,6 @@ int main() {
   // Print its content, should be all 3.
   for (int i = 0; i < 6; i++)
     printf("%f ", outputPtr[i]);
+  printf("\n");
   return 0;
 }

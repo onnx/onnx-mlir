@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //===------------------ SpecializedKernelOpInterface.hpp -----------------===//
 //===------------ Specialized Kernel Op Interface Definition -------------===//
 //

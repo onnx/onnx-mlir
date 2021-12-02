@@ -1180,6 +1180,22 @@ func @test_unsqueeze(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
 
 // -----
 
+func private @unsqueeze_of_const(%arg0: tensor<32x64xi64>) -> tensor<*xi64> {
+   %1 = "onnx.Constant"() {value = dense<0> : tensor<i64>} : () -> tensor<i64>
+   %2 = "onnx.Unsqueeze"(%arg0, %1) : (tensor<32x64xi64>, tensor<i64>) -> tensor<*xi64>
+  "std.return"(%2) : (tensor<*xi64>) -> ()
+
+// mlir2FileCheck.py -a'["data"]'
+// CHECK-LABEL:  func private @unsqueeze_of_const
+// CHECK-SAME:   ([[DATA_:%.+]]: tensor<32x64xi64>) -> tensor<1x32x64xi64> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<i64>} : () -> tensor<i64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Unsqueeze"([[DATA_]], [[VAR_0_]]) : (tensor<32x64xi64>, tensor<i64>) -> tensor<1x32x64xi64>
+// CHECK:           return [[VAR_1_]] : tensor<1x32x64xi64>
+// CHECK:         }
+}
+
+// -----
+
 func @test_unsqueezev11(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
   %0 = "onnx.UnsqueezeV11"(%arg0) { axes = [1]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -2067,6 +2083,25 @@ func @test_resize1(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32> {
 
 // -----
 
+  func @test_reversesequence_1(%arg0: tensor<10x30xf32>, %arg1: tensor<30xi64>) -> tensor<*xf32> {
+    %0 = "onnx.ReverseSequence"(%arg0, %arg1) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<10x30xf32>, tensor<30xi64>) -> tensor<*xf32>
+    return %0 : tensor<*xf32>
+// CHECK-LABEL:  @test_reversesequence_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x30xf32>, [[PARAM_1_:%.+]]: tensor<30xi64>) -> tensor<10x30xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ReverseSequence"([[PARAM_0_]], [[PARAM_1_]]) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<10x30xf32>, tensor<30xi64>) -> tensor<10x30xf32>
+// CHECK:           return [[VAR_0_]] : tensor<10x30xf32>
+  }
+
+
+  func @test_reversesequence_2(%arg0: tensor<10x?xf32>, %arg1: tensor<10xi64>) -> tensor<*xf32> {
+    %0 = "onnx.ReverseSequence"(%arg0, %arg1) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<10x?xf32>, tensor<10xi64>) -> tensor<*xf32>
+    return %0 : tensor<*xf32>
+// CHECK-LABEL:  @test_reversesequence_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x?xf32>, [[PARAM_1_:%.+]]: tensor<10xi64>) -> tensor<10x?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ReverseSequence"([[PARAM_0_]], [[PARAM_1_]]) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<10x?xf32>, tensor<10xi64>) -> tensor<10x?xf32>
+// CHECK:           return [[VAR_0_]] : tensor<10x?xf32>
+  }
+
 // COM: Output's shape should be the same as input's shape.
 func @test_cumsum(%arg0: tensor<2x3xf64>, %arg1: tensor<i32>) -> tensor<*xf64> {
   %0 = "onnx.CumSum"(%arg0, %arg1) : (tensor<2x3xf64>, tensor<i32>) -> tensor<*xf64>
@@ -2088,8 +2123,10 @@ func @test_onehot(%arg0: tensor<2x2xi64>, %arg1: tensor<2xf32>) -> tensor<*xf32>
 
   // CHECK-LABEL: test_onehot
   // CHECK: [[R0:%.+]] = "onnx.Constant"() {value = dense<10> : tensor<i64>} : () -> tensor<i64>
-  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, [[R0]], %arg1) {axis = 2 : si64} : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<2x2x10xf32>
+  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, [[R0]], %arg1) : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<2x2x10xf32>
 }
+
+// -----
 
 func @test_onehot_axis(%arg0: tensor<2x2xi64>, %arg1: tensor<2xf32>) -> tensor<*xf32> {
   %depth = "onnx.Constant"() {value = dense<10.0> : tensor<f32>} : () -> tensor<f32>
@@ -2098,16 +2135,20 @@ func @test_onehot_axis(%arg0: tensor<2x2xi64>, %arg1: tensor<2xf32>) -> tensor<*
 
   // CHECK-LABEL: test_onehot_axis
   // CHECK: [[R0:%.+]] = "onnx.Constant"() {value = dense<1.000000e+01> : tensor<f32>} : () -> tensor<f32>
-  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, [[R0]], %arg1)  {axis = 1 : si64} : (tensor<2x2xi64>, tensor<f32>, tensor<2xf32>) -> tensor<2x10x2xf32>
+  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, [[R0]], %arg1) {axis = 1 : si64} : (tensor<2x2xi64>, tensor<f32>, tensor<2xf32>) -> tensor<2x10x2xf32>
 }
+
+// -----
 
 func @test_onehot_depth(%arg0: tensor<2x2xi64>, %arg1: tensor<i64>, %arg2: tensor<2xf32>) -> tensor<*xf32> {
   %0 = "onnx.OneHot"(%arg0, %arg1, %arg2) : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
   // CHECK-LABEL: test_onehot_depth
-  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, %arg1, %arg2)  {axis = 2 : si64} : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<2x2x?xf32>
+  // CHECK: {{.*}} = "onnx.OneHot"(%arg0, %arg1, %arg2)  : (tensor<2x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<2x2x?xf32>
 }
+
+// -----
 
 func @test_onehot_dynamic(%arg0: tensor<?x2xi64>, %arg1: tensor<i64>, %arg2: tensor<2xf32>) -> tensor<*xf32> {
   %0 = "onnx.OneHot"(%arg0, %arg1, %arg2) {axis = 0 : si64} : (tensor<?x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<*xf32>
@@ -2116,3 +2157,188 @@ func @test_onehot_dynamic(%arg0: tensor<?x2xi64>, %arg1: tensor<i64>, %arg2: ten
   // CHECK-LABEL: test_onehot_dynamic
   // CHECK: {{.*}} = "onnx.OneHot"(%arg0, %arg1, %arg2)  {axis = 0 : si64} : (tensor<?x2xi64>, tensor<i64>, tensor<2xf32>) -> tensor<?x?x2xf32>
 }
+
+//===----------------------------------------------------------------------===//
+
+// -----
+
+// Test RandomNormal static
+
+func @test_random_normal_static_f16() -> tensor<*xf32> {
+  %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 0 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_static_f16
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormal"() {dtype = 0 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf16>
+}
+
+func @test_random_normal_static_f32() -> tensor<*xf32> {
+  %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_static_f32
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormal"() {dtype = 1 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf32>
+}
+
+func @test_random_normal_static_f64() -> tensor<*xf32> {
+  %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_static_f64
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormal"() {dtype = 2 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf64>
+}
+
+// -----
+
+func @test_nonmaxsuppression(%arg0: tensor<1x6x4xf32>, %arg1: tensor<1x1x6xf32>, %arg2: tensor<1xi64>, %arg3: tensor<1xf32>, %arg4: tensor<1xf32>) -> tensor<*xi64> {
+    %0 = "onnx.NonMaxSuppression"(%arg0, %arg1, %arg2, %arg3, %arg4) {center_point_box = 1 : si64} : (tensor<1x6x4xf32>, tensor<1x1x6xf32>, tensor<1xi64>, tensor<1xf32>, tensor<1xf32>) -> tensor<*xi64>
+    return %0 : tensor<*xi64>
+    // CHECK-LABEL: test_nonmaxsuppression
+    // CHECK: [[RES:%.+]] = "onnx.NonMaxSuppression"(%arg0, %arg1, %arg2, %arg3, %arg4) {center_point_box = 1 : si64} : (tensor<1x6x4xf32>, tensor<1x1x6xf32>, tensor<1xi64>, tensor<1xf32>, tensor<1xf32>) -> tensor<?x3xi64>
+    // CHECK: return [[RES]] : tensor<?x3xi64>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// Test compress
+
+func @compress_axis0(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x?xf32> {
+  %0 = "onnx.Compress"(%arg0, %arg1) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?x?xf32>
+  return %0 : tensor<?x?xf32>
+
+// mlir2FileCheck.py -a'["input", "condition"]'
+// CHECK-LABEL:  func @compress_axis0
+// CHECK-SAME:   ([[INPUT_:%.+]]: tensor<3x2xf32>, [[CONDITION_:%.+]]: tensor<3xi1>) -> tensor<?x2xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Compress"([[INPUT_]], [[CONDITION_]]) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?x2xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x2xf32>
+// CHECK:         }
+}
+
+// -----
+
+func @compress_axis1(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x?xf32> {
+    %0 = "onnx.Compress"(%arg0, %arg1) {axis = 1 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?x?xf32>
+    return %0 : tensor<?x?xf32>
+// mlir2FileCheck.py -a'["input", "condition"]'
+// CHECK-LABEL:  func @compress_axis1
+// CHECK-SAME:   ([[INPUT_:%.+]]: tensor<3x2xf32>, [[CONDITION_:%.+]]: tensor<3xi1>) -> tensor<3x?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Compress"([[INPUT_]], [[CONDITION_]]) {axis = 1 : si64} : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<3x?xf32>
+// CHECK:           return [[VAR_0_]] : tensor<3x?xf32>
+// CHECK:         }
+}
+
+// -----
+
+func @compress_no_axis(%arg0: tensor<3x2xf32>, %arg1: tensor<3xi1>) -> tensor<?x?xf32> {
+    %0 = "onnx.Compress"(%arg0, %arg1) : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?x?xf32>
+    return %0 : tensor<?x?xf32>
+
+// mlir2FileCheck.py -a'["input", "condition"]'
+// CHECK-LABEL:  func @compress_no_axis
+// CHECK-SAME:   ([[INPUT_:%.+]]: tensor<3x2xf32>, [[CONDITION_:%.+]]: tensor<3xi1>) -> tensor<?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Compress"([[INPUT_]], [[CONDITION_]]) : (tensor<3x2xf32>, tensor<3xi1>) -> tensor<?xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?xf32>
+// CHECK:         }
+}
+
+// -----
+
+func @hardmax(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32>{
+  %0 = "onnx.Hardmax"(%arg0) {axis = 1 : si64} : (tensor<3x4x5xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+  // CHECK-LABEL: hardmax
+  // CHECK: [[RES:%.+]] = "onnx.Hardmax"(%arg0) {axis = 1 : si64} : (tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+  // CHECK: return [[RES]] : tensor<3x4x5xf32>
+}
+
+// -----
+
+func @topk_default_axis_minus_one(%X: tensor<3x4x5xf32>, %K: tensor<i64>) -> tensor<*xf32> {
+  %value, %indices = "onnx.TopK"(%X, %K) : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<*xf32>, tensor<*xi64>)
+  return %value : tensor<*xf32>
+  // CHECK-LABEL: topk_default_axis_minus_one
+  // CHECK: {{.*}} = "onnx.TopK"({{.*}}, {{.*}}) : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<3x4x?xf32>, tensor<3x4x?xi64>)
+}
+
+// -----
+
+func @topk_default_axis_one(%X: tensor<3x4x5xf32>, %K: tensor<i64>) -> tensor<*xf32> {
+  %value, %indices = "onnx.TopK"(%X, %K) {axis = 1 : si64} : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<*xf32>, tensor<*xi64>)
+  return %value : tensor<*xf32>
+  // CHECK-LABEL: topk_default_axis_one
+  // CHECK: {{.*}} = "onnx.TopK"({{.*}}, {{.*}}) {axis = 1 : si64} : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<3x?x5xf32>, tensor<3x?x5xi64>)
+}
+
+// -----
+
+func @topk_constant_k(%X: tensor<3x4x5xf32>) -> tensor<*xf32> {
+  %K = "onnx.Constant"() {value = dense<2> : tensor<i64>} : () -> tensor<i64>
+  %value, %indices = "onnx.TopK"(%X, %K) {axis = 1 : si64} : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<*xf32>, tensor<*xi64>)
+  return %value : tensor<*xf32>
+  // CHECK-LABEL: topk_constant_k
+  // CHECK: {{.*}} = "onnx.TopK"({{.*}}, {{.*}}) {axis = 1 : si64} : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<3x2x5xf32>, tensor<3x2x5xi64>)
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for CategoryMapper.
+//===----------------------------------------------------------------------===//
+
+func @test_category_mapper_string (%arg0: tensor<20x1x!onnx.String>) -> tensor<*xi64> {
+  %0 = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2, 3], cats_strings = ["cat", "dog", "human"], default_int64 = 0 : si64} : (tensor<20x1x!onnx.String>) -> tensor<*xi64>
+  "std.return"(%0) : (tensor<*xi64>) -> ()
+
+  // CHECK-LABEL: test_category_mapper_string
+  // CHECK: [[RES:%.+]] = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2, 3], cats_strings = ["cat", "dog", "human"], default_int64 = 0 : si64} : (tensor<20x1x!onnx.String>) -> tensor<20x1xi64>
+  // CHECK: return [[RES]] : tensor<20x1xi64>
+}
+
+// -----
+
+func @test_category_mapper_int64 (%arg0: tensor<20x1xi64>) -> tensor<*x!onnx.String> {
+  %0 = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2, 3], cats_strings = ["cat", "dog", "human"], default_string = "unclassified" : !onnx.String} : (tensor<20x1xi64>) -> tensor<*x!onnx.String>
+  "std.return"(%0) : (tensor<*x!onnx.String>) -> ()
+
+  // CHECK-LABEL: test_category_mapper_int64
+  // CHECK: [[RES:%.+]] = "onnx.CategoryMapper"(%arg0) {cats_int64s = [1, 2, 3], cats_strings = ["cat", "dog", "human"], default_string = "unclassified" : !onnx.String} : (tensor<20x1xi64>) -> tensor<20x1x!onnx.String>
+  // CHECK: return [[RES]] : tensor<20x1x!onnx.String>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for ScatterND.
+//===----------------------------------------------------------------------===//
+func @test_scatternd_int32(%arg0: tensor<8xi32>) -> tensor<*xi32> {
+  %1 = "onnx.Constant"() {value = dense<[[4], [3], [1], [7]]> : tensor<4x1xi64> } : () -> tensor<4x1xi64>
+  %2 = "onnx.Constant"() {value = dense<[9, 10, 11, 12]> : tensor<4xi32> } : () -> tensor<4xi32>
+  %3 = "onnx.ScatterND"(%arg0, %1, %2) : (tensor<8xi32>, tensor<4x1xi64>, tensor<4xi32>) ->  tensor<*xi32>
+  "std.return"(%3) : (tensor<*xi32>) -> ()
+
+  // CHECK-LABEL: test_scatternd_int32
+  // CHECK: [[R1:%.+]] = "onnx.Constant"() {{.*}}
+  // CHECK-NEXT: [[R2:%.+]] = "onnx.Constant"() {{.*}}
+  // CHECK-NEXT: [[RES:%.+]] = "onnx.ScatterND"(%arg0, [[R1]], [[R2]]) : (tensor<8xi32>, tensor<4x1xi64>, tensor<4xi32>) -> tensor<8xi32>
+  // CHECK-NEXT: return [[RES]] : tensor<8xi32>
+}
+
+// -----
+
+func @test_scatternd_float32(%arg0: tensor<4x4x4xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Constant"() {value = dense<[[0], [2]]> : tensor<2x1xi64> } : () -> tensor<2x1xi64>
+  %2 = "onnx.Constant"() {value = dense<[[[5., 5., 5., 5.], [6., 6., 6., 6.], [7., 7., 7., 7.], [8., 8., 8., 8.]],
+                                         [[1., 1., 1., 1.], [2., 2., 2., 2.], [3., 3., 3., 3.], [4., 4., 4., 4.]]]> : tensor<2x4x4xf32> } : () -> tensor<2x4x4xf32>
+  %3 = "onnx.ScatterND"(%arg0, %1, %2) : (tensor<4x4x4xf32>, tensor<2x1xi64>, tensor<2x4x4xf32>) ->  tensor<*xf32>
+  "std.return"(%3) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_scatternd_float32
+  // CHECK: [[R1:%.+]] = "onnx.Constant"() {{.*}}
+  // CHECK-NEXT: [[R2:%.+]] = "onnx.Constant"() {{.*}}
+  // CHECK-NEXT: [[RES:%.+]] = "onnx.ScatterND"(%arg0, [[R1]], [[R2]]) : (tensor<4x4x4xf32>, tensor<2x1xi64>, tensor<2x4x4xf32>) -> tensor<4x4x4xf32>
+  // CHECK-NEXT: return [[RES]] : tensor<4x4x4xf32>
+}
+
+// -----
+

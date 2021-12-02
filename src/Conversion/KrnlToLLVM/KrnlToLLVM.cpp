@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Analysis/DataLayoutAnalysis.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
@@ -25,6 +26,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
@@ -34,7 +36,13 @@
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 
 #include "onnx/onnx_pb.h"
 
@@ -43,6 +51,8 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
+
+#define DEBUG_TYPE "krnl_to_llvm"
 
 using namespace mlir;
 namespace {
@@ -62,7 +72,8 @@ static onnx::TensorProto::DataType llvmTypeToOnnxType(mlir::Type elemType) {
     return onnx::TensorProto::INT32;
   if (elemType.isSignedInteger(64))
     return onnx::TensorProto::INT64;
-  // TODO, wait for Tong's input about how string is represented in MLIR.
+  if (elemType.isa<StringType>())
+    return onnx::TensorProto::STRING;
   if (elemType.isa<Float16Type>())
     return onnx::TensorProto::FLOAT16;
   if (elemType.isa<Float64Type>())
@@ -104,13 +115,13 @@ static FlatSymbolRefAttr getOrInsertExternFunc(StringRef funcName,
   return SymbolRefAttr::get(context, funcName);
 }
 
-static size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
+static int64_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
   // Usually a MemRef is a 5-element struct, where the 4th and 5th elements in
   // this struct are arrays whose size is the rank of the tensor. In the event
   // that the corresponding tensor of this MemRef is a scalar, the 4th and 5th
   // elements will have 0-length, which in turn causes the MemRef struct to
   // degenerate into a 3-element struct. For more information, refer to
-  // https://github.com/llvm/llvm-project/blob/master/mlir/docs/ConversionToLLVMDialect.md#memref-types.
+  // https://github.com/llvm/llvm-project/blob/main/mlir/docs/ConversionToLLVMDialect.md#memref-types.
   auto numElems = memRefTy.getBody().size();
   assert((numElems == 3 || numElems == 5) &&
          "Expect MemRef type to contain either 3 or 5 elements.");
@@ -163,6 +174,50 @@ static FlatSymbolRefAttr getOrInsertMemcpy(
   rewriter.create<LLVM::LLVMFuncOp>(
       module.getLoc(), "llvm.memcpy.p0i8.p0i8.i64", llvmFnType);
   return SymbolRefAttr::get(context, "llvm.memcpy.p0i8.p0i8.i64");
+}
+
+static Optional<FlatSymbolRefAttr> getFunctionDeclaration(
+    ModuleOp module, const char *funcName) {
+  assert(funcName && "Missing function name");
+  if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
+    return SymbolRefAttr::get(module.getContext(), funcName);
+
+  return None;
+}
+
+static FlatSymbolRefAttr getOrInsertRandomNormal(
+    PatternRewriter &rewriter, ModuleOp module, Type inType) {
+  MLIRContext *context = module.getContext();
+  StringRef functionName = inType.isF64() ? "get_random_normal_value_f64"
+                                          : "get_random_normal_value_f32";
+  if (module.lookupSymbol<LLVM::LLVMFuncOp>(functionName.str()))
+    return SymbolRefAttr::get(context, functionName.str());
+
+  // Signature of the input is:
+  //  "krnl.random_normal"(%0, %c60, %cst, %cst_0, %cst_1)
+  // with types:
+  //  (memref<3x4x5xf32>, index, f32, f32, f32)
+  // or
+  //  (memref<3x4x5xf64>, index, f64, f64, f64)
+  auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
+  auto llvmOptionsTy = FloatType::getF32(context);
+  auto llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
+  if (inType.isF64()) {
+    llvmOptionsTy = FloatType::getF64(context);
+    llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
+  }
+  auto llvmI64Ty = IntegerType::get(context, 64);
+  auto llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy,
+      ArrayRef<mlir::Type>({llvmOutputTy, llvmI64Ty, llvmOptionsTy,
+          llvmOptionsTy, llvmOptionsTy}),
+      false);
+
+  // Insert the random normal function into the body of the parent module.
+  PatternRewriter::InsertionGuard insertGuard(rewriter);
+  rewriter.setInsertionPointToStart(module.getBody());
+  rewriter.create<LLVM::LLVMFuncOp>(
+      module.getLoc(), functionName.str(), llvmFnType);
+  return SymbolRefAttr::get(context, functionName.str());
 }
 
 static FlatSymbolRefAttr getOrInsertMalloc(
@@ -243,7 +298,6 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    KrnlGetRefOp getRefOp = llvm::dyn_cast<KrnlGetRefOp>(op);
     auto loc = op->getLoc();
 
     KrnlGetRefOpAdaptor operandAdaptor(operands);
@@ -353,11 +407,6 @@ public:
     rewriter.replaceOp(op, {memRefDescriptor});
     return success();
   }
-
-private:
-  static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
-    return (a.getValue()[i]).cast<IntegerAttr>().getInt();
-  }
 };
 
 //===----------------------------------------------------------------------===//
@@ -367,22 +416,18 @@ private:
 class KrnlGlobalOpLowering : public ConvertToLLVMPattern {
 public:
   explicit KrnlGlobalOpLowering(
-      MLIRContext *context, LLVMTypeConverter &lowering_)
+      MLIRContext *context, LLVMTypeConverter &typeConverter)
       : ConvertToLLVMPattern(
-            KrnlGlobalOp::getOperationName(), context, lowering_) {}
+            KrnlGlobalOp::getOperationName(), context, typeConverter) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     auto *context = op->getContext();
     auto loc = op->getLoc();
-
     auto krnlGlobalOp = llvm::dyn_cast<KrnlGlobalOp>(op);
     auto alignmentAttr = krnlGlobalOp.alignmentAttr();
 
-    // Get module.
     ModuleOp module = op->getParentOfType<ModuleOp>();
-
-    // Global name.
     auto name = krnlGlobalOp.name();
 
     // Compute total number of elements.
@@ -395,7 +440,6 @@ public:
     LLVM::GlobalOp global;
     auto type = op->getResult(0).getType();
     auto memRefTy = type.cast<mlir::MemRefType>();
-    // auto llvmMemRefType = typeConverter->convertType(type).cast<Type>();
 
     // The element type of the array.
     auto constantElementType =
@@ -461,23 +505,16 @@ public:
     }
 
     // Set alignment if alignment != 0.
-    if (alignmentAttr && alignmentAttr.getValue().getSExtValue() != 0) {
+    if (alignmentAttr && alignmentAttr.getValue().getSExtValue() != 0)
       global.alignmentAttr(alignmentAttr);
-    }
 
-    // Prepare data to be inserted into MemRef.
-    Value globalValue = rewriter.create<LLVM::AddressOfOp>(loc, global);
-    auto globalPtrType =
-        LLVM::LLVMPointerType::get(constantElementType.cast<Type>());
-    // Bitcast the global to the MemRefType's element type.
-    Value localValue =
-        rewriter.create<LLVM::BitcastOp>(loc, globalPtrType, globalValue);
+    // Prepare data to be inserted into a MemRefDescriptor (a struct).
+    Value globalOpAddr = rewriter.create<LLVM::AddressOfOp>(loc, global);
+    MemRefDescriptor memRefDescr =
+        createMemRefDescriptor(globalOpAddr, memRefTy, loc, rewriter);
 
-    // Create llvm MemRef from original MemRef and fill the data pointers.
-    auto llvmMemRef = MemRefDescriptor::fromStaticShape(
-        rewriter, loc, *getTypeConverter(), memRefTy, localValue);
+    rewriter.replaceOp(op, {memRefDescr});
 
-    rewriter.replaceOp(op, {llvmMemRef});
     return success();
   }
 
@@ -486,18 +523,99 @@ private:
     return (a.getValue()[i]).cast<IntegerAttr>().getInt();
   }
 
-  // Copied from lib/Conversion/StandardToLLVM/StandardToLLVM.cpp
-  // Returns 'input' aligned up to 'alignment'. Computes
-  // bumped = input + alignement - 1
-  // aligned = bumped - bumped % alignment
-  static Value createAligned(ConversionPatternRewriter &rewriter, Location loc,
-      Value input, Value alignment) {
-    Value one = rewriter.create<LLVM::ConstantOp>(loc, alignment.getType(),
-        rewriter.getIntegerAttr(rewriter.getIndexType(), 1));
-    Value bump = rewriter.create<LLVM::SubOp>(loc, alignment, one);
-    Value bumped = rewriter.create<LLVM::AddOp>(loc, input, bump);
-    Value mod = rewriter.create<LLVM::URemOp>(loc, bumped, alignment);
-    return rewriter.create<LLVM::SubOp>(loc, bumped, mod);
+  // Store the given address into a MemRefDescriptor (a struct).
+  MemRefDescriptor createMemRefDescriptor(Value address, MemRefType memRefType,
+      Location loc, OpBuilder &builder) const {
+    Type elementType = memRefType.getElementType();
+    LLVMTypeConverter &typeConverter = *getTypeConverter();
+    Type llvmElemType = typeConverter.convertType(elementType);
+
+    // Prepare data to be inserted into a MemRefDescriptor (a struct).
+    auto ptrType = LLVM::LLVMPointerType::get(llvmElemType);
+    // Bitcast the address to the MemRefType's element type.
+    Value bitCastOp = builder.create<LLVM::BitcastOp>(loc, ptrType, address);
+    // Create llvm MemRef from original MemRef and fill the data pointers.
+    return MemRefDescriptor::fromStaticShape(
+        builder, loc, typeConverter, memRefType, bitCastOp);
+  }
+
+  // Generate a global string for each krnlGlobalOp string value, and store
+  // the address of the global strings into an array. Return the array address.
+  Value lowerStringLiteral(
+      KrnlGlobalOp &krnlGlobalOp, OpBuilder &builder) const {
+    assert(krnlGlobalOp.value().getValue().isa<DenseElementsAttr>() &&
+           "Expecting a dense value");
+
+    Location loc = krnlGlobalOp.getLoc();
+    ModuleOp module = krnlGlobalOp->getParentOfType<ModuleOp>();
+    DenseElementsAttr value =
+        krnlGlobalOp.value().getValue().cast<DenseElementsAttr>();
+
+    Type i8Type = IntegerType::get(builder.getContext(), 8);
+    Type i32Type = IntegerType::get(builder.getContext(), 32);
+    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+
+    // Generate LLVM GlobalOps for each string in the KrnlGlobalOp dense value.
+    SmallVector<LLVM::GlobalOp> globalOps;
+    for (StringRef str : value.getValues<StringRef>()) {
+      LLVM::GlobalOp globalOp =
+          getOrCreateGlobalString(str, loc, builder, module);
+      globalOps.push_back(globalOp);
+    }
+
+    // Allocate memory for an array (to hold the address of the global strings).
+    auto cstNumElems = builder.create<LLVM::ConstantOp>(
+        loc, i32Type, builder.getI32IntegerAttr(globalOps.size()));
+    Value alloca = builder.create<LLVM::AllocaOp>(loc,
+        LLVM::LLVMPointerType::get(i8PtrType), cstNumElems, /*alignment=*/16);
+
+    // Store the address of the global strings into the array.
+    int32_t index = 0;
+    for (const LLVM::GlobalOp &globalOp : globalOps) {
+      LLVM::GEPOp strAddr = getPtrToGlobalString(globalOp, loc, builder);
+      Type llvmIndexType = typeConverter->convertType(builder.getIndexType());
+      Value cstIndex = builder.create<LLVM::ConstantOp>(
+          loc, llvmIndexType, builder.getIndexAttr(index++));
+      LLVM::GEPOp arrayElemAddr = builder.create<LLVM::GEPOp>(loc,
+          LLVM::LLVMPointerType::get(i8PtrType), alloca,
+          ArrayRef<Value>{cstIndex});
+      builder.create<LLVM::StoreOp>(loc, strAddr, arrayElemAddr);
+    }
+
+    return alloca;
+  }
+
+  // Return the GlobalOp for the given string, creating one if not found.
+  LLVM::GlobalOp getOrCreateGlobalString(
+      StringRef str, Location loc, OpBuilder &builder, ModuleOp module) const {
+    LLVM::GlobalOp global = module.lookupSymbol<LLVM::GlobalOp>(str);
+    if (!global) {
+      // Create the global at the entry of the module.
+      OpBuilder::InsertionGuard insertGuard(builder);
+      builder.setInsertionPointToStart(module.getBody());
+
+      Type i8Type = IntegerType::get(builder.getContext(), 8);
+      Type type = LLVM::LLVMArrayType::get(i8Type, str.size());
+      global = builder.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
+          LLVM::Linkage::Internal, str, builder.getStringAttr(str),
+          /*alignment=*/0);
+    }
+    return global;
+  }
+
+  // Return a pointer to the first character in a global string.
+  LLVM::GEPOp getPtrToGlobalString(
+      const LLVM::GlobalOp &global, Location loc, OpBuilder &builder) const {
+    Type i8Type = IntegerType::get(builder.getContext(), 8);
+    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    Type llvmIndexType =
+        getTypeConverter()->convertType(builder.getIndexType());
+
+    Value globalPtr = builder.create<LLVM::AddressOfOp>(loc, global);
+    Value zero = builder.create<LLVM::ConstantOp>(
+        loc, llvmIndexType, builder.getIndexAttr(0));
+    return builder.create<LLVM::GEPOp>(
+        loc, i8PtrType, globalPtr, ArrayRef<Value>({zero, zero}));
   }
 };
 
@@ -601,6 +719,138 @@ public:
 
     rewriter.eraseOp(op);
     return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// KRNL to LLVM: KrnlStrlenOpLowering
+//===----------------------------------------------------------------------===//
+
+class KrnlStrlenOpLowering : public ConversionPattern {
+public:
+  explicit KrnlStrlenOpLowering(MLIRContext *context)
+      : ConversionPattern(KrnlStrlenOp::getOperationName(), 1, context) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    MLIRContext *context = op->getContext();
+    KrnlStrlenOpAdaptor operandAdaptor(operands);
+    Location loc = op->getLoc();
+
+    // Get a symbol reference to the strlen function, inserting it if necessary.
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    auto strlenRef = getOrInsertStrlen(rewriter, parentModule);
+
+    // Operand.
+    Type strType = operandAdaptor.str()
+                       .getType()
+                       .cast<LLVM::LLVMStructType>()
+                       .getBody()[1];
+    Value extractedStrPtr = rewriter.create<LLVM::ExtractValueOp>(
+        loc, strType, operandAdaptor.str(), rewriter.getI64ArrayAttr(1));
+
+    // Strlen call.
+    // TODO: should return a size_t
+    Type retType = IntegerType::get(context, 64);
+    auto funcCall = rewriter.create<CallOp>(
+        loc, strlenRef, retType, ArrayRef<Value>({extractedStrPtr}));
+
+    rewriter.replaceOp(op, funcCall.getResults()[0]);
+    return success();
+  }
+
+private:
+  /// Return a symbol reference to the strlen function, inserting it into the
+  /// module if necessary.
+  static FlatSymbolRefAttr getOrInsertStrlen(
+      PatternRewriter &rewriter, ModuleOp module) {
+    constexpr const char *funcName = "strlen";
+    Optional<FlatSymbolRefAttr> optFuncDecl =
+        getFunctionDeclaration(module, funcName);
+    if (optFuncDecl.hasValue())
+      return optFuncDecl.getValue();
+
+    // Create 'strlen' function signature: `size_t (i8*)`
+    // TODO: need to create size_t not i64.
+    MLIRContext *ctx = module.getContext();
+    Type i8Type = IntegerType::get(ctx, 8);
+    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    Type fnType = LLVM::LLVMFunctionType::get(
+        rewriter.getI64Type(), ArrayRef<Type>({i8PtrType}), false);
+
+    // Insert the function declaration the module.
+    PatternRewriter::InsertionGuard insertGuard(rewriter);
+    rewriter.setInsertionPointToStart(module.getBody());
+    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, fnType);
+
+    return SymbolRefAttr::get(ctx, funcName);
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// KRNL to LLVM: KrnlStrncmpOpLowering
+//===----------------------------------------------------------------------===//
+
+class KrnlStrncmpOpLowering : public ConversionPattern {
+public:
+  explicit KrnlStrncmpOpLowering(MLIRContext *context)
+      : ConversionPattern(KrnlStrncmpOp::getOperationName(), 1, context) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    KrnlStrncmpOpAdaptor operandAdaptor(operands);
+    Location loc = op->getLoc();
+
+    // Get a symbol reference to the strncmp function, inserting it if
+    // necessary.
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    auto StrncmpRef = getOrInsertStrncmp(rewriter, parentModule);
+
+    // Operands.
+    Type strType = operandAdaptor.str1()
+                       .getType()
+                       .cast<LLVM::LLVMStructType>()
+                       .getBody()[1];
+    Value extractedStrPtr1 = rewriter.create<LLVM::ExtractValueOp>(
+        loc, strType, operandAdaptor.str1(), rewriter.getI64ArrayAttr(1));
+    Value extractedStrPtr2 = rewriter.create<LLVM::ExtractValueOp>(
+        loc, strType, operandAdaptor.str2(), rewriter.getI64ArrayAttr(1));
+    Value length = operandAdaptor.len();
+
+    // Strncmp call.
+    MLIRContext *ctx = op->getContext();
+    Type i32Type = IntegerType::get(ctx, 32);
+    auto funcCall = rewriter.create<CallOp>(loc, StrncmpRef, i32Type,
+        ArrayRef<Value>({extractedStrPtr1, extractedStrPtr2, length}));
+
+    rewriter.replaceOp(op, funcCall.getResults()[0]);
+    return success();
+  }
+
+private:
+  /// Return a symbol reference to the strncmp function, inserting it into the
+  /// module if necessary.
+  static FlatSymbolRefAttr getOrInsertStrncmp(
+      PatternRewriter &rewriter, ModuleOp module) {
+    constexpr const char *funcName = "strncmp";
+    Optional<FlatSymbolRefAttr> optFuncDecl =
+        getFunctionDeclaration(module, funcName);
+    if (optFuncDecl.hasValue())
+      return optFuncDecl.getValue();
+
+    // Create 'strncmp' function signature: `i32 (i8*, i8*, i64)`
+    MLIRContext *ctx = module.getContext();
+    Type i8Type = IntegerType::get(ctx, 8);
+    Type i8PtrTy = LLVM::LLVMPointerType::get(i8Type);
+    Type fnType = LLVM::LLVMFunctionType::get(rewriter.getI32Type(),
+        ArrayRef<Type>({i8PtrTy, i8PtrTy, rewriter.getI64Type()}), false);
+
+    // Insert the function declaration the module.
+    PatternRewriter::InsertionGuard insertGuard(rewriter);
+    rewriter.setInsertionPointToStart(module.getBody());
+    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, fnType);
+
+    return SymbolRefAttr::get(ctx, funcName);
   }
 };
 
@@ -742,6 +992,11 @@ public:
 class KrnlEntryPointOpLowering : public OpRewritePattern<KrnlEntryPointOp> {
 public:
   using OpRewritePattern<KrnlEntryPointOp>::OpRewritePattern;
+  ArrayRef<bool> constantOutputs;
+
+  KrnlEntryPointOpLowering(MLIRContext *ctx, ArrayRef<bool> constantOutputs)
+      : OpRewritePattern<KrnlEntryPointOp>(ctx),
+        constantOutputs(constantOutputs) {}
 
   enum class API {
     CREATE_OMTENSOR_LIST,
@@ -811,7 +1066,6 @@ public:
     auto signature = sigAttr.getValue();
 
     auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
-    auto int32Ty = IntegerType::get(context, 32);
     auto int64Ty = IntegerType::get(context, 64);
 
     // create global to hold signature
@@ -880,7 +1134,7 @@ public:
     auto omTensorPtrArr =
         callApi(rewriter, loc, apiRegistry, API::GET_OMT_ARRAY, {wrappedInput});
     auto one = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI32IntegerAttr(1));
+        loc, int64Ty, rewriter.getI64IntegerAttr(1));
 
     // Create a memref type for the return argument of the iface call
     auto memRefOutPtrTy = staticEntryPointTy.getParamType(0);
@@ -893,7 +1147,7 @@ public:
     for (size_t i = 1; i < staticEntryPointTy.getNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
-          loc, int32Ty, rewriter.getI32IntegerAttr(i - 1));
+          loc, int64Ty, rewriter.getI64IntegerAttr(i - 1));
 
       auto omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
       auto omTensorPtrAddr = rewriter
@@ -947,7 +1201,7 @@ public:
     }
 
     auto numOutput = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI64IntegerAttr(outMemRefList.size()));
+        loc, int64Ty, rewriter.getI64IntegerAttr(outMemRefList.size()));
 
     auto mallocSym = getOrInsertMalloc(rewriter, module);
     // TODO(tjingrant): get pointer size from data layout.
@@ -981,11 +1235,15 @@ public:
           loc, int64Ty, rewriter.getI64IntegerAttr(outMemRefRank));
       auto outOMTensor = callApi(
           rewriter, loc, apiRegistry, API::CREATE_OMTENSOR, {outMemRefRankVal});
+      // If output is a constant tensor, OMTensor does not own it.
+      auto outOwning = constantOutputs[i] ? 0 : 1;
+      LLVM_DEBUG(llvm::dbgs() << "Output OMTensor " << i
+                              << " with owning = " << outOwning << "\n");
       fillOMTensorWithMemRef(
-          memRef, outOMTensor, rewriter, loc, apiRegistry, module);
+          memRef, outOMTensor, outOwning, rewriter, loc, apiRegistry, module);
 
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
-          loc, int32Ty, rewriter.getI32IntegerAttr(i));
+          loc, int64Ty, rewriter.getI64IntegerAttr(i));
 
       auto omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
       auto omTensorPtrAddr = rewriter
@@ -1016,7 +1274,6 @@ private:
     auto voidTy = LLVM::LLVMVoidType::get(context);
     auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
     auto opaquePtrPtrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
-    auto int32Ty = IntegerType::get(context, 32);
     auto int64Ty = IntegerType::get(context, 64);
     auto int64PtrTy = LLVM::LLVMPointerType::get(int64Ty);
 
@@ -1024,14 +1281,14 @@ private:
     // specifying its signature.
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
-        ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreateWithOwnership", opaquePtrTy, {opaquePtrPtrTy, int32Ty, int32Ty}),
-        ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmptyDeprecated", opaquePtrTy, {int64Ty}),
+        ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreateWithOwnership", opaquePtrTy, {opaquePtrPtrTy, int64Ty, int64Ty}),
+        ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateUntyped", opaquePtrTy, {int64Ty}),
         ApiSpec(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
-        ApiSpec(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy, opaquePtrTy}),
+        ApiSpec(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int64Ty, opaquePtrTy, opaquePtrTy}),
         ApiSpec(API::GET_DATA_SHAPE, "omTensorGetShape", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_DATA_STRIDES, "omTensorGetStrides", int64PtrTy, {opaquePtrTy}),
-        ApiSpec(API::GET_DATA_TYPE, "omTensorGetDataType", int32Ty, {opaquePtrTy}),
-        ApiSpec(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {opaquePtrTy, int32Ty}),
+        ApiSpec(API::GET_DATA_TYPE, "omTensorGetDataType", int64Ty, {opaquePtrTy}),
+        ApiSpec(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {opaquePtrTy, int64Ty}),
         ApiSpec(API::GET_OMT_ARRAY, "omTensorListGetOmtArray", opaquePtrPtrTy, {opaquePtrTy}),
     };
     // clang-format on
@@ -1102,15 +1359,15 @@ private:
     dataPtr = rewriter.create<LLVM::BitcastOp>(
         loc, memRefTy.cast<LLVM::LLVMStructType>().getBody()[0], dataPtr);
     memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
-        dataPtr, rewriter.getArrayAttr({rewriter.getI32IntegerAttr(0)}));
+        dataPtr, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(0)}));
     memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
-        dataPtr, rewriter.getArrayAttr({rewriter.getI32IntegerAttr(1)}));
+        dataPtr, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(1)}));
 
     // Use zero offset now.
     auto zero = rewriter.create<LLVM::ConstantOp>(
         loc, int64Ty, rewriter.getI64IntegerAttr(0));
     memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef, zero,
-        rewriter.getArrayAttr({rewriter.getI32IntegerAttr(2)}));
+        rewriter.getArrayAttr({rewriter.getI64IntegerAttr(2)}));
 
     // Get rank, sizes array ptr and strides array ptr.
     auto rank = getRankFromMemRefType(memRefTy.cast<LLVM::LLVMStructType>());
@@ -1127,10 +1384,7 @@ private:
       auto dimSizePtr =
           rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
               sizesArrayPtr, ArrayRef<Value>({dimIdx}));
-      auto dimSizeLoad = rewriter.create<LLVM::LoadOp>(
-          loc, LLVM::LLVMPointerType::get(int64Ty), dimSizePtr);
-      Value dimSize =
-          rewriter.create<LLVM::PtrToIntOp>(loc, int64Ty, dimSizeLoad);
+      auto dimSize = rewriter.create<LLVM::LoadOp>(loc, int64Ty, dimSizePtr);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
           dimSize,
           rewriter.getArrayAttr(
@@ -1140,10 +1394,8 @@ private:
       auto dimStridePtr =
           rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
               stridesArrayPtr, ArrayRef<Value>({dimIdx}));
-      auto dimStrideLoad = rewriter.create<LLVM::LoadOp>(
-          loc, LLVM::LLVMPointerType::get(int64Ty), dimStridePtr);
-      Value dimStride =
-          rewriter.create<LLVM::PtrToIntOp>(loc, int64Ty, dimStrideLoad);
+      auto dimStride =
+          rewriter.create<LLVM::LoadOp>(loc, int64Ty, dimStridePtr);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
           dimStride,
           rewriter.getArrayAttr(
@@ -1154,16 +1406,15 @@ private:
   }
 
   void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
-      PatternRewriter &rewriter, const Location &loc,
+      int64_t outOwning, PatternRewriter &rewriter, const Location &loc,
       const std::map<API, ApiSpec> &apiRegistry, ModuleOp &module) const {
     auto *context = module.getContext();
     auto outMemRefTy = outMemRef.getType().dyn_cast<LLVM::LLVMStructType>();
     auto int64Ty = IntegerType::get(context, 64);
-    auto int32Ty = IntegerType::get(context, 32);
 
-    // Set ownership to true, i.e., free after OMTensor is destroyed.
+    // Set ownership, i.e., free after OMTensor is destroyed.
     Value owning = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI32IntegerAttr(1));
+        loc, int64Ty, rewriter.getI64IntegerAttr(outOwning));
 
     // Extract the allocated pointer.
     Value outMemRefAllocatedPtr =
@@ -1189,7 +1440,7 @@ private:
         outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
     auto onnxTy = llvmTypeToOnnxType(elemTy);
     auto onnxTyVal = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI32IntegerAttr(onnxTy));
+        loc, int64Ty, rewriter.getI64IntegerAttr(onnxTy));
     callApi(rewriter, loc, apiRegistry, API::SET_DATA_TYPE,
         {outOMTensor, onnxTyVal});
 
@@ -1362,10 +1613,156 @@ public:
   }
 };
 
+//===----------------------------------------------------------------------===//
+// KRNL to LLVM: KrnlRandomNormalOpLowering
+//===----------------------------------------------------------------------===//
+
+class KrnlRandomNormalOpLowering : public ConversionPattern {
+public:
+  explicit KrnlRandomNormalOpLowering(MLIRContext *context)
+      : ConversionPattern(KrnlRandomNormalOp::getOperationName(), 1, context) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    KrnlRandomNormalOpAdaptor operandAdaptor(operands);
+    auto loc = op->getLoc();
+    mlir::Type inType = op->getOperand(2).getType();
+
+    // Get a symbol reference to the memcpy function, inserting it if necessary.
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    auto randomNormalFuncRef =
+        getOrInsertRandomNormal(rewriter, parentModule, inType);
+
+    // First operand.
+    Type outputType = operandAdaptor.output()
+                          .getType()
+                          .cast<LLVM::LLVMStructType>()
+                          .getBody()[1];
+    Value alignedOutput = rewriter.create<LLVM::ExtractValueOp>(
+        loc, outputType, operandAdaptor.output(), rewriter.getI64ArrayAttr(1));
+
+    // Memcpy call
+    rewriter.create<CallOp>(loc, randomNormalFuncRef, ArrayRef<Type>({}),
+        ArrayRef<Value>({alignedOutput, operandAdaptor.numberOfValues(),
+            operandAdaptor.mean(), operandAdaptor.scale(),
+            operandAdaptor.seed()}));
+
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// KRNL to LLVM: KrnlFindIndexOpLowering
+//===----------------------------------------------------------------------===//
+
+class KrnlFindIndexOpLowering : public ConversionPattern {
+public:
+  explicit KrnlFindIndexOpLowering(MLIRContext *context)
+      : ConversionPattern(KrnlFindIndexOp::getOperationName(), 1, context) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    auto findIndexOp = cast<KrnlFindIndexOp>(op);
+    MLIRContext *context = findIndexOp.getContext();
+    Location loc = findIndexOp.getLoc();
+    KrnlFindIndexOpAdaptor operandAdaptor(operands);
+
+    // Get a symbol reference to the runtime function to use, creating one if
+    // necessary.
+    ModuleOp parentModule = findIndexOp->getParentOfType<ModuleOp>();
+    auto FindIndexRef = getOrInsertFindIndex(
+        rewriter, parentModule, findIndexOp.input().getType());
+
+    // Select the value to pass to as the first argument based on the operator
+    // input type.
+    Value firstOperand;
+    TypeSwitch<Type>(findIndexOp.input().getType())
+        .Case<IntegerType>([&](IntegerType type) {
+          assert(type.getWidth() == 64 && "expecting an i64 type");
+          firstOperand = operandAdaptor.input();
+        })
+        .Case<StringType>([&](StringType type) {
+          Type ptrType = operandAdaptor.input()
+                             .getType()
+                             .cast<LLVM::LLVMStructType>()
+                             .getBody()[1];
+          firstOperand = rewriter.create<LLVM::ExtractValueOp>(loc, ptrType,
+              operandAdaptor.input(), rewriter.getI64ArrayAttr(1));
+        })
+        .Default([](Type) { llvm_unreachable("unexpected inputType"); });
+
+    Type GType =
+        operandAdaptor.G().getType().cast<LLVM::LLVMStructType>().getBody()[1];
+    Type VType =
+        operandAdaptor.V().getType().cast<LLVM::LLVMStructType>().getBody()[1];
+
+    // Remaining operands.
+    Value extractedGPtr = rewriter.create<LLVM::ExtractValueOp>(
+        loc, GType, operandAdaptor.G(), rewriter.getI64ArrayAttr(1));
+    Value extractedVPtr = rewriter.create<LLVM::ExtractValueOp>(
+        loc, VType, operandAdaptor.V(), rewriter.getI64ArrayAttr(1));
+    Value length = operandAdaptor.len();
+
+    // Generate the call to the runtime function.
+    Type retType = IntegerType::get(context, 32);
+    auto funcCall = rewriter.create<CallOp>(loc, FindIndexRef, retType,
+        ArrayRef<Value>({firstOperand, extractedGPtr, extractedVPtr, length}));
+
+    rewriter.replaceOp(op, funcCall.getResults()[0]);
+    return success();
+  }
+
+private:
+  /// Return a symbol reference to the appropriate 'find_index_*' runtime
+  /// function, inserting it into the module if necessary.
+  static FlatSymbolRefAttr getOrInsertFindIndex(
+      PatternRewriter &rewriter, ModuleOp module, Type inputType) {
+    MLIRContext *ctx = module.getContext();
+    Type i8Type = IntegerType::get(ctx, 8);
+    Type i32Type = IntegerType::get(ctx, 32);
+    Type i64Type = IntegerType::get(ctx, 64);
+    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    Type i32PtrType = LLVM::LLVMPointerType::get(i32Type);
+
+    // Select the runtime function to use based on the input type.
+    std::string funcName = "find_index_";
+    Type firstArgType;
+    TypeSwitch<Type>(inputType)
+        .Case<IntegerType>([&](IntegerType type) {
+          assert(type.getWidth() == 64 && "expecting an i64 type");
+          funcName += "i64";
+          firstArgType = i64Type;
+        })
+        .Case<StringType>([&](StringType type) {
+          funcName += "str";
+          firstArgType = i8PtrType;
+        })
+        .Default([](Type) { llvm_unreachable("unexpected type"); });
+
+    Optional<FlatSymbolRefAttr> optFuncDecl =
+        getFunctionDeclaration(module, funcName.c_str());
+    if (optFuncDecl.hasValue())
+      return optFuncDecl.getValue();
+
+    // Create 'find_index_*' signature: `i32 ([i8*|i64], i32*, i32*, i32)`
+    Type fnType = LLVM::LLVMFunctionType::get(i32Type,
+        ArrayRef<Type>({firstArgType, i32PtrType, i32PtrType, i32Type}), false);
+
+    // Insert the function declaration the module.
+    PatternRewriter::InsertionGuard insertGuard(rewriter);
+    rewriter.setInsertionPointToStart(module.getBody());
+    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, fnType);
+
+    return SymbolRefAttr::get(ctx, funcName);
+  }
+};
+
 } // end namespace
 
 void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
-    MLIRContext *ctx, LLVMTypeConverter &typeConverter) {
+    MLIRContext *ctx, LLVMTypeConverter &typeConverter,
+    ArrayRef<bool> constantOutputs) {
   // TODO: look at what is done in
   // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
@@ -1386,6 +1783,9 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateStdExpandOpsPatterns(patterns);
+  // Use polynomial approximation for math.{tanh, sin, cos and exp} for better
+  // performance.
+  populateMathPolynomialApproximationPatterns(patterns);
   arith::populateArithmeticExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
@@ -1396,9 +1796,12 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   patterns.insert<KrnlGlobalOpLowering, KrnlVectorTypeCastOpLowering>(
       ctx, typeConverter);
   patterns.insert<KrnlGetRefOpLowering>(ctx, typeConverter);
-  patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(ctx);
+  patterns.insert<KrnlEntryPointOpLowering>(ctx, constantOutputs);
 
   patterns.insert<KrnlInstrumentOpLowering>(ctx);
+
+  patterns.insert<KrnlRandomNormalOpLowering>(ctx);
+  patterns.insert<KrnlFindIndexOpLowering>(ctx);
 
   // Math library functions.
   patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(ctx);
@@ -1409,6 +1812,86 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAtanOp>>(ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAtanhOp>>(ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlTanOp>>(ctx);
+
+  // C library functions.
+  patterns.insert<KrnlMemcpyOpLowering>(ctx);
+  patterns.insert<KrnlStrlenOpLowering>(ctx);
+  patterns.insert<KrnlStrncmpOpLowering>(ctx);
+}
+
+void mlir::checkConstantOutputs(
+    ModuleOp &module, SmallVectorImpl<bool> &constantOutputs) {
+  Operation *entryPointOp;
+  auto walkResult = module->walk([&](mlir::Operation *op) -> WalkResult {
+    if (llvm::dyn_cast<KrnlEntryPointOp>(op)) {
+      entryPointOp = op;
+      return WalkResult::interrupt();
+    }
+    return WalkResult::advance();
+  });
+
+  // Do nothing if there is no EntryPoint.
+  if (!walkResult.wasInterrupted())
+    return;
+
+  // Get entry function name.
+  StringRef entryPointFuncName =
+      entryPointOp
+          ->getAttrOfType<SymbolRefAttr>(
+              KrnlEntryPointOp::getEntryPointFuncAttrName())
+          .getLeafReference()
+          .getValue();
+
+  // Get entry function op.
+  Operation *entryFunc;
+  module->walk([&](FuncOp op) -> WalkResult {
+    if (SymbolRefAttr::get(op).getValue() == entryPointFuncName) {
+      entryFunc = op;
+      return WalkResult::interrupt();
+    }
+    return WalkResult::advance();
+  });
+  assert(entryFunc && "Entry function not found");
+
+  // Get ReturnOp of the entry function op.
+  Operation *returnOp;
+  entryFunc->walk([&](Operation *op) -> WalkResult {
+    if (llvm::dyn_cast<ReturnOp>(op)) {
+      returnOp = op;
+      return WalkResult::interrupt();
+    }
+    return WalkResult::advance();
+  });
+
+  // Check, for each output, if it was transitively produced by a constant or
+  // not.
+  for (Value v : returnOp->getOperands()) {
+    bool isConstant = false;
+    Operation *definingOp = v.getDefiningOp();
+    if (!definingOp)
+      // Block argument, not a constant.
+      isConstant = false;
+    else {
+      // If output is just a view, trace back to find which op was producing the
+      // source memref.
+      while (auto viewOp = llvm::dyn_cast<ViewLikeOpInterface>(definingOp)) {
+        Value source = viewOp.getViewSource();
+        definingOp = source.getDefiningOp();
+        // Block argument, stop.
+        if (!definingOp)
+          break;
+      }
+      if (!definingOp)
+        // Block argument, not a constant.
+        isConstant = false;
+      else if (llvm::dyn_cast<KrnlGlobalOp>(definingOp))
+        // A constant defined by KrnlGlobalOp.
+        isConstant = true;
+    }
+    constantOutputs.emplace_back(isConstant);
+    LLVM_DEBUG(llvm::dbgs()
+               << "Is entry function output constant? " << isConstant << "\n");
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -1430,29 +1913,45 @@ struct ConvertKrnlToLLVMPass
 } // end anonymous namespace
 
 void ConvertKrnlToLLVMPass::runOnOperation() {
-  // Annotate ModuleOp with endian information so that LLVM global constants are
-  // handled correctly by the other LLVM tools such as 'opt'.
-  bool isLittleEndian = llvm::support::endian::system_endianness() ==
-                        llvm::support::endianness::little;
-  StringRef endian = isLittleEndian ? "e" : "E";
   ModuleOp module = getOperation();
-  module->setAttr("llvm.data_layout", StringAttr::get(&getContext(), endian));
+  const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
+  LowerToLLVMOptions options(
+      &getContext(), dataLayoutAnalysis.getAtOrAbove(module));
+  options.emitCWrappers = true;
+
+  // Determine, for each output, whether it is a constant or not.
+  SmallVector<bool, 4> constantOutputs;
+  checkConstantOutputs(module, constantOutputs);
 
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp>();
-  target.addIllegalOp<UnrealizedConversionCastOp>();
+  target.addLegalOp<UnrealizedConversionCastOp>();
 
-  // Lower the MemRef types to a representation in LLVM.
-  LowerToLLVMOptions options(&getContext());
-  options.emitCWrappers = true;
+  // Convert types to legal types for the LLVM dialect.
   LLVMTypeConverter typeConverter(&getContext(), options);
+
+  typeConverter.addConversion([&](MemRefType type) -> llvm::Optional<Type> {
+    Type elementType = type.getElementType();
+    if (!elementType.isa<StringType>())
+      return llvm::None;
+
+    elementType = elementType.cast<StringType>().getLLVMType(type.getContext());
+    return typeConverter.convertType(
+        MemRefType::get(type.getShape(), elementType));
+  });
+
+  typeConverter.addConversion([&](StringType type) -> Type {
+    return typeConverter.convertType(type.getLLVMType(type.getContext()));
+  });
 
   // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
   // We lower in stages until all the code is in the LLVM dialect.
   RewritePatternSet patterns(&getContext());
-  populateAffineAndKrnlToLLVMConversion(patterns, &getContext(), typeConverter);
+
+  populateAffineAndKrnlToLLVMConversion(
+      patterns, &getContext(), typeConverter, constantOutputs);
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.

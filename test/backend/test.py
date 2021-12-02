@@ -15,9 +15,11 @@ from onnx import numpy_helper
 
 from onnx.backend.base import Device, DeviceType
 import subprocess
-import test_config
 import tempfile
 import argparse
+import json
+import base64
+import numpy as np
 
 # Casting with "bool" does not work well. When you specify VERBOSE=xxx,
 # regardless of the value of xxx (e.g., true, false, y, n, etc.) the
@@ -35,6 +37,12 @@ IMPORTER_FORCE_DYNAMIC = os.getenv("IMPORTER_FORCE_DYNAMIC")
 IMPORTER_FORCE_CONSTANT = os.getenv("IMPORTER_FORCE_CONSTANT")
 TEST_DYNAMIC = os.getenv("TEST_DYNAMIC")
 TEST_CONSTANT = os.getenv("TEST_CONSTANT")
+TEST_COMPILERLIB = os.getenv("TEST_COMPILERLIB")
+
+# Set ONNX_HOME to /tmp if not set to prevent onnx from downloading
+# real model files into home directory.
+if os.getenv('ONNX_HOME') is None or not os.getenv('ONNX_HOME').strip():
+    os.environ['ONNX_HOME'] = '/tmp'
 
 parser = argparse.ArgumentParser(description='with dynamic shape or not.')
 parser.add_argument('--dynamic', action='store_true',
@@ -43,12 +51,18 @@ parser.add_argument('--dynamic', action='store_true',
 parser.add_argument('--constant', action='store_true',
     default=(strtobool(TEST_CONSTANT) if TEST_CONSTANT else False),
     help='enable constant input tests (default: false if TEST_CONSTANT env var not set)')
+parser.add_argument('--compilerlib', action='store_true',
+    default=(strtobool(TEST_COMPILERLIB) if TEST_COMPILERLIB else False),
+    help='enable compiler lib tests (default: false if TEST_COMPILERLIB env var not set)')
 parser.add_argument('-i', '--input', type=int,
     default=os.getenv("TEST_INPUT", -1),
     help='inputs whose dimensions to be changed to unknown (default: all inputs if TEST_INPUT env var not set)')
 parser.add_argument('-d', '--dim', type=int,
     default=os.getenv("TEST_DIM", -1),
     help='dimensions to be changed to unknown (default: all dimensions if TEST_DIM env var not set)')
+parser.add_argument('-e', '--emit', type=str, choices=[ 'lib', 'jni' ],
+    default=os.getenv('TEST_EMIT', 'lib'),
+    help='emit lib or jni for testing (default: lib)')
 parser.add_argument('-v', '--verbose', action='store_true',
     default=(strtobool(VERBOSE) if VERBOSE else False),
     help='verbose output (default: false if VERBOSE env var not set)')
@@ -69,17 +83,26 @@ if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
 else :
     tempdir = tempfile.TemporaryDirectory()
     result_dir = tempdir.name+"/"
-print("Test info:")
-print("  temporary results are in dir:"+result_dir)
-if args.mcpu:
-    print("  targeting cpu:", args.mcpu)
-if args.mtriple:
-    print("  targeting triple:", args.mtriple)
 
-CXX = test_config.CXX_PATH
-LLC = test_config.LLC_PATH
-RUNTIME_DIR = test_config.TEST_DRIVER_RUNTIME_PATH
-TEST_DRIVER = test_config.TEST_DRIVER_PATH
+print("Test info:", file=sys.stderr)
+print("  temporary results are in dir:"+result_dir, file=sys.stderr)
+if args.mcpu:
+    print("  targeting cpu:", args.mcpu, file=sys.stderr)
+if args.mtriple:
+    print("  targeting triple:", args.mtriple, file=sys.stderr)
+
+if args.compilerlib:
+    import test_config_compilerlib
+    CXX = test_config_compilerlib.CXX_PATH
+    LLC = test_config_compilerlib.LLC_PATH
+    RUNTIME_DIR = test_config_compilerlib.TEST_DRIVER_RUNTIME_PATH
+    TEST_DRIVER = test_config_compilerlib.TEST_DRIVER_PATH
+else:
+    import test_config
+    CXX = test_config.CXX_PATH
+    LLC = test_config.LLC_PATH
+    RUNTIME_DIR = test_config.TEST_DRIVER_RUNTIME_PATH
+    TEST_DRIVER = test_config.TEST_DRIVER_PATH
 
 # Make lib folder under build directory visible in PYTHONPATH
 doc_check_base_dir = os.path.dirname(os.path.realpath(__file__))
@@ -218,6 +241,10 @@ test_to_enable_dict = {
     #"test_clip_default_int8_min_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
 
     # Compress
+    "test_compress_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_compress_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_compress_default_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_compress_negative_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Concat
     "test_concat_1d_axis_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0}}, CONSTANT_INPUT:{-1}},
@@ -271,6 +298,8 @@ test_to_enable_dict = {
     "test_cumsum_2d_negative_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # DepthOfSpace
+    "test_depthtospace_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_depthtospace_crd_mode_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # DequatizeLinear
 
@@ -388,6 +417,13 @@ test_to_enable_dict = {
     "test_gru_with_initial_bias_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1,2}}, CONSTANT_INPUT:{1,2}},
 
     # Hard Max
+    "test_hardmax_axis_0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_hardmax_axis_2_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_hardmax_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_hardmax_one_hot_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_hardmax_axis_1_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_hardmax_default_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_hardmax_negative_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Hard Sigmoid
     "test_hardsigmoid_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -540,6 +576,15 @@ test_to_enable_dict = {
     # Negative Log Likelihood Loss
 
     # Non Max Supression
+    "test_nonmaxsuppression_center_point_box_format_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_nonmaxsuppression_flipped_coordinates_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_nonmaxsuppression_identical_boxes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_nonmaxsuppression_limit_output_size_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_nonmaxsuppression_single_box_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_nonmaxsuppression_suppress_by_IOU_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_nonmaxsuppression_suppress_by_IOU_and_scores_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_nonmaxsuppression_two_batches_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_nonmaxsuppression_two_classes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Non Zero
     "test_nonzero_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -550,10 +595,10 @@ test_to_enable_dict = {
     "test_not_4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # One Hot
-    "test_onehot_without_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
-    "test_onehot_with_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
-    "test_onehot_negative_indices_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
-    "test_onehot_with_negative_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_onehot_without_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_onehot_with_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_onehot_negative_indices_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_onehot_with_negative_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Or
     "test_or2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -714,6 +759,8 @@ test_to_enable_dict = {
     "test_resize_downsample_sizes_nearest_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Reverse Sequence
+    "test_reversesequence_time_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_reversesequence_batch_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # RNN
     # CONSTANT_INPUT for W and R.
@@ -836,6 +883,9 @@ test_to_enable_dict = {
     "test_tile_precomputed_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # TopK
+    "test_top_k_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_top_k_smallest_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+    "test_top_k_negative_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
     # Training Dropout
 
@@ -916,11 +966,11 @@ test_for_constant = [ key for (key, value) in test_to_enable_dict.items() if CON
 test_need_converter = []
 
 if args.dynamic :
-    print("dynamic shape is enabled")
+    print("dynamic shape is enabled", file=sys.stderr)
     test_to_enable = test_for_dynamic
 
 if args.constant:
-    print("constant input is enabled")
+    print("constant input is enabled", file=sys.stderr)
     test_to_enable = test_for_constant
 
 # User case specify one test case with BCKEND_TEST env
@@ -943,8 +993,8 @@ def determine_dynamic_parameters(test_name):
 
 def execute_commands(cmds, dynamic_inputs_dims):
     if (args.verbose):
-        print(" ".join(cmds))
-        print("IMPORTER FORCE DYNAMIC ", dynamic_inputs_dims)
+        print(" ".join(cmds), file=sys.stderr)
+        print("IMPORTER FORCE DYNAMIC ", dynamic_inputs_dims, file=sys.stderr)
     my_env = os.environ.copy();
     env_string = ""
     if dynamic_inputs_dims is not None:
@@ -965,6 +1015,36 @@ def execute_commands(cmds, dynamic_inputs_dims):
         my_env["IMPORTER_FORCE_DYNAMIC"] = env_string
     subprocess.run(cmds, env=my_env)
 
+def JniExecutionSession(jar_name, inputs):
+    procStdin = json.dumps(
+        list(map(lambda tensor:
+                 { 'buffer': base64.b64encode(tensor.flatten().tobytes()).decode('utf-8'),
+                   'dtype': tensor.dtype.str,
+                   'shape': np.shape(tensor) }, inputs)))
+    #print(str(inputs), file=sys.stderr)
+    #print('stdin=' + str(procStdin), file=sys.stderr)
+    cmd = [ 'java', '-cp', jar_name + ':' + os.getenv('JSONITER_JAR'),
+            'com.ibm.onnxmlir.OMRunner' ]
+    print(cmd, file=sys.stderr)
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    procStdout = json.loads(proc.communicate(
+        input=procStdin.encode('utf-8'))[0].decode('utf-8').strip())
+
+    dtype = { 'b1': np.bool,
+              'i1': np.int8,    'u1': np.uint8,
+              'i2': np.int16,   'u2': np.uint16,
+              'i4': np.int32,   'u4': np.uint32,
+              'i8': np.int64,   'u8': np.uint64,
+              'f4': np.float32,
+              'f8': np.float64 }
+
+    #print('stdout=' + str(procStdout), file=sys.stderr)
+    outputs = list(map(lambda tensor:
+                       np.frombuffer(base64.b64decode(tensor['buffer']),
+                                     dtype[tensor['dtype'][1:]]).reshape(tensor['shape']),
+                       procStdout))
+    #print('outputs=' + str(outputs), file=sys.stderr)
+    return outputs
 
 # There are two issues, which necessitates the adoption of this endianness
 # aware wrapper around Execution Session:
@@ -986,7 +1066,7 @@ class EndiannessAwareExecutionSession:
         # Compiling the model in advance if not testing constants, so that
         # the model is compiled once and used multiple times.
         if not args.constant:
-            self.exec_name = self.compile_model()
+            self.exec_name = self.compile_model(args.emit)
 
     def is_input_le(self, inputs):
         inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
@@ -1013,16 +1093,35 @@ class EndiannessAwareExecutionSession:
         i1_not_relevant_endian = inputs_endianness[0] == "|"
         return i1_not_relevant_endian
 
-    def compile_model(self):
+    def compile_model(self, emit):
+        suffix = { 'lib': '.so', 'jni': '.jar' }
+        target = { 'lib': '--EmitLib', 'jni': '--EmitJNI' }
         name = self.model.graph.name
-        model_name = result_dir+name+".onnx"
-        exec_name = result_dir+name + ".so"
-        # Clean the temporary files in case
-        # Save model to disk as temp_model.onnx.
-        onnx.save(self.model, model_name)
-        if not os.path.exists(model_name) :
-            print("Failed save model: "+ name)
-        print(name)
+
+        # Each model will have its own model_dir. This is necessary for JNI tests
+        # since all the models will extract libmodel.so. So if all the models are
+        # in the same directory, their libmodel.so will trash each other.
+        model_dir = os.path.join(result_dir, name)
+        os.makedirs(model_dir, exist_ok=True)
+
+        print('ONNX_HOME=' + os.getenv('ONNX_HOME'))
+
+        # For real models, the onnx files are downloaded, no need to save again.
+        if (name + '_cpu') in list(map(lambda x: x[0], real_model_tests)):
+            model_name = os.path.join(os.getenv('ONNX_HOME'),
+                                      'models', name, 'model.onnx')
+        # For node models, write the models in memory out to onnx files.
+        else:
+            model_name = os.path.join(model_dir, name + '.onnx')
+            # Save model to disk as model_name.onnx.
+            onnx.save(self.model, model_name)
+
+        print(('Success downloading/saving ' if os.path.exists(model_name) else
+               'Failure downloading/saving ') + model_name, file=sys.stderr)
+
+        exec_base = os.path.join(model_dir, name)
+        exec_name = exec_base + suffix[emit]
+
         # Command
         command_list = [TEST_DRIVER]
         if args.mcpu:
@@ -1031,12 +1130,15 @@ class EndiannessAwareExecutionSession:
             command_list.append("--mtriple="+args.mtriple)
         if args.converter or name in test_need_converter :
             command_list.append("--invokeOnnxVersionConverter=true")
+        command_list.append(target[emit])
         command_list.append(model_name)
-        # Call frontend to process temp_model.onnx, bit code will be generated.
+        command_list.append('-o=' + exec_base)
+        # Call frontend to process model_name.onnx, bit code will be generated.
         dynamic_inputs_dims = determine_dynamic_parameters(name)
+        print('cwd: ' + os.getcwd(), file=sys.stderr)
         execute_commands(command_list, dynamic_inputs_dims)
         if not os.path.exists(exec_name) :
-            print("Failed " + test_config.TEST_DRIVER_PATH + ": " + name)
+            print("Failed " + TEST_DRIVER + ": " + name, file=sys.stderr)
         return exec_name
 
     def turn_model_input_to_constant(self, inputs):
@@ -1087,9 +1189,14 @@ class EndiannessAwareExecutionSession:
             # If constant test, change the model inputs to constants.
             if args.constant:
                 inputs = self.turn_model_input_to_constant(inputs)
-                self.exec_name = self.compile_model()
-            session = ExecutionSession(self.exec_name, self.entry_point)
-            outputs = session.run(inputs)
+                self.exec_name = self.compile_model(args.emit)
+            if args.emit == 'lib':
+                session = ExecutionSession(self.exec_name, self.entry_point)
+                outputs = session.run(inputs)
+                #print('input='+str(inputs), file=sys.stderr)
+                #print('output='+str(outputs), file=sys.stderr)
+            elif args.emit == 'jni':
+                outputs = JniExecutionSession(self.exec_name, inputs)
             if (endianness_is_consistent and not inp_is_not_relevant_endian and
                 sys_is_le != inp_is_le):
                 outputs = list(
@@ -1100,8 +1207,12 @@ class EndiannessAwareExecutionSession:
             warnings.warn(
                 "Cannot deduce desired output endianness, using native endianness by default."
             )
-            session = ExecutionSession(self.exec_name, self.entry_point)
-            return session.run(inputs)
+            if args.emit == 'lib':
+                session = ExecutionSession(self.exec_name, self.entry_point)
+                outputs = session.run(inputs)
+            elif args.emit == 'jni':
+                outputs = JniExecutionSession(self.exec_name, inputs)
+            return outputs
 
 
 class DummyBackend(onnx.backend.base.Backend):
@@ -1123,10 +1234,12 @@ backend_test = onnx.backend.test.BackendTest(DummyBackend, __name__)
 # Extract name of all test cases.
 import inspect
 all_tests = []
-all_tests += inspect.getmembers(
+real_model_tests = inspect.getmembers(
     backend_test.test_cases["OnnxBackendRealModelTest"])
-all_tests += inspect.getmembers(
+all_tests += real_model_tests
+node_model_tests = inspect.getmembers(
     backend_test.test_cases["OnnxBackendNodeModelTest"])
+all_tests += node_model_tests
 all_test_names = list(map(lambda x: x[0], all_tests))
 
 # Ensure that test names specified in test_to_enable actually exist.

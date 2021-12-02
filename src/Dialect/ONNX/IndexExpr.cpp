@@ -29,7 +29,6 @@
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "index_expr"
-#define DEBUG 0
 
 using namespace mlir;
 
@@ -285,7 +284,6 @@ bool IndexExpr::canBeUsedInScope() const {
     break;
   case IndexExprKind::Questionmark:
     return true;
-    printf(" kind(predicate)");
     break;
   case IndexExprKind::Affine:
   case IndexExprKind::Dim:
@@ -334,65 +332,64 @@ IndexExprKind IndexExpr::getKind() const { return getObj().getKind(); }
 // IndexExpr Debug.
 //===----------------------------------------------------------------------===//
 
-void IndexExpr::debugPrint(
-    const std::string &msg, const bool forcePrint) const {
-  if (DEBUG || forcePrint) {
-    printf("%s:", msg.c_str());
+void IndexExpr::debugPrint(const std::string &msg) const {
+  LLVM_DEBUG({
+    llvm::dbgs() << msg.c_str();
     if (!isDefined()) {
-      printf(" undefined\n");
+      llvm::dbgs() << " undefined\n";
       return;
     }
     if (isLiteral())
-      printf(" literal(%lli)", getLiteral());
+      llvm::dbgs() << " literal(" << (long long)getLiteral() << ")";
     if (hasAffineExpr())
-      printf(" hasAffine");
+      llvm::dbgs() << " hasAffine";
     if (hasValue()) {
-      printf(" hasValue");
+      llvm::dbgs() << " hasValue";
       auto op = getValue().getDefiningOp();
       if (op) {
         std::string str;
         llvm::raw_string_ostream os(str);
         op->print(os);
-        printf("( \"%s\" )", str.c_str());
+        llvm::dbgs() << "( \"" << str.c_str() << "\")";
       } else
-        printf("(op not found)");
+        llvm::dbgs() << "(op not found)";
     }
     if (isAffine())
-      printf(" is affine");
+      llvm::dbgs() << " is affine";
     switch (getKind()) {
     case IndexExprKind::NonAffine:
-      printf(" kind(non-affine)");
+      llvm::dbgs() << " kind(non-affine)";
       break;
     case IndexExprKind::Questionmark:
-      printf(" kind(questionmark)");
+      llvm::dbgs() << " kind(questionmark)";
       break;
     case IndexExprKind::Predicate:
-      printf(" kind(predicate)");
+      llvm::dbgs() << " kind(predicate)";
       break;
     case IndexExprKind::Affine:
-      printf(" kind(affine)");
+      llvm::dbgs() << " kind(affine)";
       break;
     case IndexExprKind::Dim:
-      printf(" kind(dim)");
+      llvm::dbgs() << " kind(dim)";
       break;
     case IndexExprKind::Symbol:
-      printf(" kind(symbol)");
+      llvm::dbgs() << " kind(symbol)";
       break;
     }
-    printf(" scope(0x%llx)\n", (long long unsigned)getScopePtr());
-  }
+    llvm::dbgs() << " scope(0x " << (long long unsigned)getScopePtr() << ")\n";
+  });
 }
 
-void IndexExpr::debugPrint(const std::string &msg,
-    const SmallVectorImpl<IndexExpr> &list, const bool forcePrint) {
-  if (DEBUG || forcePrint) {
+void IndexExpr::debugPrint(
+    const std::string &msg, const SmallVectorImpl<IndexExpr> &list) {
+  LLVM_DEBUG({
     int s = list.size();
-    printf("%s (%d elements)\n", msg.c_str(), s);
+    llvm::dbgs() << msg.c_str() << " (" << s << "elements)\n";
     for (int i = 0; i < s; ++i) {
       std::string element = "  " + std::to_string(i) + ": ";
-      list[i].debugPrint(element, true);
+      list[i].debugPrint(element);
     }
-  }
+  });
 }
 
 //===----------------------------------------------------------------------===//
@@ -1015,7 +1012,9 @@ UndefinedIndexExpr::UndefinedIndexExpr() : IndexExpr() {}
 // IndexExpr Subclasses for constructing LiteralIndexExpr.
 //===----------------------------------------------------------------------===//
 
-LiteralIndexExpr::LiteralIndexExpr(int64_t const value) { init(value); }
+LiteralIndexExpr::LiteralIndexExpr(int64_t const value) : IndexExpr() {
+  init(value);
+}
 
 void LiteralIndexExpr::init(int64_t const value) {
   indexExprObj = new IndexExprImpl();
@@ -1023,39 +1022,40 @@ void LiteralIndexExpr::init(int64_t const value) {
   indexExprObj->initAsLiteral(value, IndexExprKind::Affine);
 }
 
-LiteralIndexExpr::LiteralIndexExpr(IndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(IndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(UndefinedIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(UndefinedIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(LiteralIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(LiteralIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(NonAffineIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(NonAffineIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(QuestionmarkIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(QuestionmarkIndexExpr const &o)
+    : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(PredicateIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(PredicateIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(AffineIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(AffineIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(DimIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(DimIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
-LiteralIndexExpr::LiteralIndexExpr(SymbolIndexExpr const &o) {
+LiteralIndexExpr::LiteralIndexExpr(SymbolIndexExpr const &o) : IndexExpr() {
   assert(o.isLiteral() && "cannot make a literal from non literal");
   init(o.getLiteral());
 }
@@ -1063,13 +1063,14 @@ LiteralIndexExpr::LiteralIndexExpr(SymbolIndexExpr const &o) {
 // IndexExpr Subclasses for constructing NonAffineIndexExpr.
 //===----------------------------------------------------------------------===//
 
-NonAffineIndexExpr::NonAffineIndexExpr(Value const value) {
+NonAffineIndexExpr::NonAffineIndexExpr(Value const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
   indexExprObj->initAsKind(value, IndexExprKind::NonAffine);
 }
 
-NonAffineIndexExpr::NonAffineIndexExpr(IndexExprImpl *otherObjPtr) {
+NonAffineIndexExpr::NonAffineIndexExpr(IndexExprImpl *otherObjPtr)
+    : IndexExpr() {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
@@ -1134,7 +1135,7 @@ NonAffineIndexExpr::NonAffineIndexExpr(SymbolIndexExpr const &o)
 // IndexExpr Subclasses for constructing QuestionmarkIndexExpr.
 //===----------------------------------------------------------------------===//
 
-QuestionmarkIndexExpr::QuestionmarkIndexExpr() {
+QuestionmarkIndexExpr::QuestionmarkIndexExpr() : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
   indexExprObj->initAsQuestionmark();
@@ -1165,19 +1166,20 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr(SymbolIndexExpr const &o)
 // IndexExpr Subclasses for constructing PredicateIndexExpr.
 //===----------------------------------------------------------------------===//
 
-PredicateIndexExpr::PredicateIndexExpr(bool const value) {
+PredicateIndexExpr::PredicateIndexExpr(bool const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
   indexExprObj->initAsLiteral(value, IndexExprKind::Predicate);
 }
 
-PredicateIndexExpr::PredicateIndexExpr(Value const value) {
+PredicateIndexExpr::PredicateIndexExpr(Value const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
   indexExprObj->initAsKind(value, IndexExprKind::Predicate);
 }
 
-PredicateIndexExpr::PredicateIndexExpr(IndexExprImpl *otherObjPtr) {
+PredicateIndexExpr::PredicateIndexExpr(IndexExprImpl *otherObjPtr)
+    : IndexExpr() {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
@@ -1218,13 +1220,13 @@ PredicateIndexExpr::PredicateIndexExpr(SymbolIndexExpr const &o)
 // IndexExpr Subclasses for constructing AffineIndexExpr.
 //===----------------------------------------------------------------------===//
 
-AffineIndexExpr::AffineIndexExpr(AffineExpr const value) {
+AffineIndexExpr::AffineIndexExpr(AffineExpr const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
   indexExprObj->initAsAffineExpr(value);
 }
 
-AffineIndexExpr::AffineIndexExpr(IndexExprImpl *otherObjPtr) {
+AffineIndexExpr::AffineIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
@@ -1291,13 +1293,13 @@ AffineIndexExpr::AffineIndexExpr(SymbolIndexExpr const &o)
 // IndexExpr Subclasses for constructing DimIndexExpr.
 //===----------------------------------------------------------------------===//
 
-DimIndexExpr::DimIndexExpr(Value const value) {
+DimIndexExpr::DimIndexExpr(Value const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
   indexExprObj->initAsKind(value, IndexExprKind::Dim);
 }
 
-DimIndexExpr::DimIndexExpr(IndexExprImpl *otherObjPtr) {
+DimIndexExpr::DimIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
@@ -1364,13 +1366,13 @@ DimIndexExpr::DimIndexExpr(SymbolIndexExpr const &o)
 // IndexExpr Subclasses for constructing SymbolIndexExpr.
 //===----------------------------------------------------------------------===//
 
-SymbolIndexExpr::SymbolIndexExpr(Value const value) {
+SymbolIndexExpr::SymbolIndexExpr(Value const value) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
   indexExprObj->initAsKind(value, IndexExprKind::Symbol);
 }
 
-SymbolIndexExpr::SymbolIndexExpr(IndexExprImpl *otherObjPtr) {
+SymbolIndexExpr::SymbolIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   // Create new IndexExpr implementation object.
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
@@ -1512,9 +1514,9 @@ bool ArrayValueIndexCapture::getSymbolList(
   auto shapeType = array.getType().dyn_cast_or_null<ShapedType>();
   if (!shapeType)
     return false; // Assume error if its not a shape type.
-  assert(shapeType.getRank() == 1 &&
-         "Array value index capture supports 1D arrays");
-  int num = shapeType.getShape()[0];
+  int rank = shapeType.getRank();
+  assert(rank <= 1 && "Array value index capture supports const or 1D arrays");
+  int num = (rank == 0) ? 1 : shapeType.getShape()[0];
   if (num == -1)
     return false; // Cannot read an unranked array.
   return getSymbolList(num, symbolList);

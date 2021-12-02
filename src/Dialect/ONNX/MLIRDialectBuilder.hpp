@@ -58,52 +58,67 @@ protected:
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //===----------------------------------------------------------------------===//
 
-struct MathBuilder : DialectBuilder {
+struct MathBuilder final : DialectBuilder {
   MathBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   MathBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  Value _and(Value lhs, Value rhs);
-  Value _or(Value lhs, Value rhs);
+  Value _and(Value lhs, Value rhs) const;
+  Value _or(Value lhs, Value rhs) const;
 
-  Value add(Value lhs, Value rhs);
-  Value sub(Value lhs, Value rhs);
-  Value mul(Value lhs, Value rhs);
-  Value div(Value lhs, Value rhs);
-  Value exp(Value val);
-  Value exp2(Value val);
-  Value log2(Value val);
+  Value add(Value lhs, Value rhs) const;
+  Value sub(Value lhs, Value rhs) const;
+  Value mul(Value lhs, Value rhs) const;
+  Value div(Value lhs, Value rhs) const;
+  Value exp(Value val) const;
+  Value exp2(Value val) const;
+  Value log2(Value val) const;
+  Value sqrt(Value val) const;
 
-  Value select(Value cmp, Value lhs, Value rhs);
-  Value sgt(Value lhs, Value rhs);
-  Value sge(Value lhs, Value rhs);
-  Value slt(Value lhs, Value rhs);
-  Value eq(Value lhs, Value rhs);
+  Value select(Value cmp, Value lhs, Value rhs) const;
+  Value sgt(Value lhs, Value rhs) const;
+  Value sge(Value lhs, Value rhs) const;
+  Value slt(Value lhs, Value rhs) const;
+  Value sle(Value lhs, Value rhs) const;
+  Value eq(Value lhs, Value rhs) const;
+  Value neq(Value lhs, Value rhs) const;
+  Value min(Value lhs, Value rhs) const;
+  Value max(Value lhs, Value rhs) const;
 
-  Value constant(Type type, double val);
-  Value constantIndex(int64_t val);
+  Value constant(Type type, double val) const;
+  Value constantIndex(int64_t val) const;
+
+  // Cast handle bool/int/float/index elementary types. Do not convert
+  // signed/index to unsigned.
+  Value cast(Type destType, Value val) const;
+  Value castToIndex(Value val) const;
+
+private:
+  Value castToSignless(Value source, int64_t width) const;
+  Value castToUnsigned(Value source, int64_t width) const;
 };
 
 //===----------------------------------------------------------------------===//
 // MemRef Builder with added support for aligned memory
 //===----------------------------------------------------------------------===//
 
-struct MemRefBuilder : DialectBuilder {
+struct MemRefBuilder final : DialectBuilder {
   MemRefBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   MemRefBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  // Alloc.
-  memref::AllocOp alloc(MemRefType type);
-  memref::AllocOp alloc(MemRefType type, ValueRange dynSymbols);
-  memref::AllocOp alignedAlloc(MemRefType type, int64_t align = -1);
+  memref::AllocOp alloc(MemRefType type) const;
+  memref::AllocOp alloc(MemRefType type, ValueRange dynSymbols) const;
+  memref::AllocOp alignedAlloc(MemRefType type, int64_t align = -1) const;
   memref::AllocOp alignedAlloc(
-      MemRefType type, ValueRange dynSymbols, int64_t align = -1);
-  // Alloca.
-  memref::AllocaOp alloca(MemRefType type);
-  memref::AllocaOp alignedAlloca(MemRefType type, int64_t align = -1);
-  // Dealloc.
-  memref::DeallocOp dealloc(Value val);
-  // DimOp
-  Value dim(Value val, int64_t index);
+      MemRefType type, ValueRange dynSymbols, int64_t align = -1) const;
+
+  memref::AllocaOp alloca(MemRefType type) const;
+  memref::AllocaOp alignedAlloca(MemRefType type, int64_t align = -1) const;
+
+  memref::DeallocOp dealloc(Value val) const;
+
+  memref::CastOp cast(Value input, MemRefType outputType) const;
+
+  Value dim(Value val, int64_t index) const;
 };
 
 // Default alignment attribute for all allocation of memory. On most system, it
@@ -111,40 +126,128 @@ struct MemRefBuilder : DialectBuilder {
 static constexpr int64_t gDefaultAllocAlign = 16;
 
 //===----------------------------------------------------------------------===//
+// Structured Control Flow (SCF) Builder
+//===----------------------------------------------------------------------===//
+
+struct SCFBuilder final : DialectBuilder {
+  SCFBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  SCFBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+
+  /// Create an if then with optional else. Construct does not generate a result
+  /// (unlike some scf::if) and introduces the yields automatically.
+  void ifThenElse(Value cond, function_ref<void(SCFBuilder &createSCF)> thenFn,
+      function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
+
+  void yield() const;
+};
+
+//===----------------------------------------------------------------------===//
 // Affine Builder
 //===----------------------------------------------------------------------===//
 
 template <class LOAD_OP, class STORE_OP>
-struct GenericAffineBuilder : DialectBuilder {
+struct GenericAffineBuilder final : DialectBuilder {
   GenericAffineBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   GenericAffineBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  Value load(Value memref, ValueRange indices = {});
-  void store(Value val, Value memref, ValueRange indices = {});
+  Value load(Value memref, ValueRange indices = {}) const;
+  void store(Value val, Value memref, ValueRange indices = {}) const;
 
   void forIE(IndexExpr lb, IndexExpr ub, int64_t step,
-      function_ref<void(GenericAffineBuilder &, Value)> builderFn);
+      function_ref<void(GenericAffineBuilder &, Value)> builderFn) const;
 
   void forIE(SmallVectorImpl<IndexExpr> &lbs, SmallVectorImpl<IndexExpr> &ubs,
       SmallVectorImpl<int64_t> &steps,
-      function_ref<void(GenericAffineBuilder &, ValueRange)> builderFn);
+      function_ref<void(GenericAffineBuilder &, ValueRange)> builderFn) const;
 
   // This if then else construct has no arguments to the blocks.
   void ifThenElse(IndexExprScope &scope, SmallVectorImpl<IndexExpr> &conditions,
       function_ref<void(GenericAffineBuilder &createAffine)> thenFn,
-      function_ref<void(GenericAffineBuilder &createAffine)> elseFn);
+      function_ref<void(GenericAffineBuilder &createAffine)> elseFn) const;
 
-  void yield();
+  void yield() const;
 
 private:
   // Support for multiple forIE loops.
   void recursionForIE(SmallVectorImpl<IndexExpr> &lbs,
       SmallVectorImpl<IndexExpr> &ubs, SmallVectorImpl<int64_t> &steps,
       SmallVectorImpl<Value> &loopIndices,
-      function_ref<void(GenericAffineBuilder &, ValueRange)> builderFn);
+      function_ref<void(GenericAffineBuilder &, ValueRange)> builderFn) const;
 
   // Support for adding blocks.
-  void appendToBlock(Block *block, function_ref<void(ValueRange)> builderFn);
+  void appendToBlock(
+      Block *block, function_ref<void(ValueRange)> builderFn) const;
+};
+
+//===----------------------------------------------------------------------===//
+// Multi Dialect Builder
+//===----------------------------------------------------------------------===//
+
+/*
+  Instead of creating multiple builders, e.g.
+
+  KrnlBuilder createKrnl(rewriter, loc);
+  MathBuilder createMath(createKrnl);
+  MemRefBuilder createMemRef(createKrnl);
+
+  createKrnl.defineLoop(1);
+  createMath.add(i1, i2);
+  createMemRef.alloca(type);
+
+  We can create a single builder composed of multiple types
+
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder>
+    create(rewriter, loc);
+
+  create.krnl.defineLoop(1);
+  create.math.add(i1, i2);
+  create.mem.alloca(type);
+
+  Types that can be used here are
+  *  KrnlBuilder, access field with krnl
+  *  MathBuilder, access field with math
+  *  MemRefBuilder, access field with mem
+  *  ONNXBuilder, access field with onnx
+  *  SCFBuilder, access field with scf
+
+  PS: at this time, affine cannot be combined as it is itself a template.
+
+*/
+// Anchor class.
+template <class... Ts>
+struct MultiDialectBuilder {
+  MultiDialectBuilder(OpBuilder &b, Location loc) {}
+  MultiDialectBuilder(DialectBuilder &db) {}
+};
+
+// Recursive class specialized for MathBuilder refereed to as math.
+template <class... Ts>
+struct MultiDialectBuilder<MathBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(OpBuilder &b, Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), math(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), math(db) {}
+  MathBuilder math;
+};
+
+// Recursive class specialized for MemRefBuilder refereed to as mem.
+template <class... Ts>
+struct MultiDialectBuilder<MemRefBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(OpBuilder &b, Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), mem(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), mem(db) {}
+  MemRefBuilder mem;
+};
+
+// Recursive class specialized for SCFBuilder refereed to as scf.
+template <class... Ts>
+struct MultiDialectBuilder<SCFBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(OpBuilder &b, Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), scf(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), scf(db) {}
+  SCFBuilder scf;
 };
 
 // Include template implementations.

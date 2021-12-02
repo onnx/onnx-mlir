@@ -181,7 +181,7 @@ version_dict = {
  'ReduceSumSquare': [13],
  'Relu': [13],
  'Reshape': [13],
- 'Resize': [13],
+ 'Resize': [13, 11, 10],
  'ReverseSequence': [10],
  'RoiAlign': [10],
  'Round': [11],
@@ -260,94 +260,6 @@ special_op_handler = dict([
     #("Transpose", "ImportNodeTranspose")
 ])
 
-# Operations supporting shape inference (alphabetical order).
-OpsWithShapeInference=[
-    'Abs',
-    'Add',
-    'And',
-    'Atan',
-    'AveragePool',
-    'Cast',
-    'Concat',
-    'Constant',
-    'ConstantOfShape',
-    'Conv',
-    'ConvInteger',
-    'ConvTranspose',
-    'Cos',
-    'Cosh',
-    'DequantizeLinear',
-    'Div',
-    'Dropout',
-    'DynamicQuantizeLinear',
-    'Elu',
-    'Erf',
-    'Exp',
-    'Expand',
-    'Flatten',
-    'GRU',
-    'Gather',
-    'Gemm',
-    'GlobalAveragePool',
-    'GlobalLpPool',
-    'GlobalMaxPool',
-    'HardSigmoid',
-    'Identity',
-    'LSTM',
-    'LeakyRelu',
-    'Less',
-    'Log',
-    'Loop',
-    'MatMul',
-    'Max',
-    'Min',
-    'Mul',
-    'Neg',
-    'OneHotEncoder',
-    'Or',
-    'PRelu',
-    'Pad',
-    'Pow',
-    'QLinearConv',
-    'QLinearMatMul',
-    'QuantizeLinear',
-    'RNN',
-    'Reciprocal',
-    'ReduceMax',
-    'ReduceMean',
-    'ReduceMin',
-    'ReduceProd',
-    'ReduceSum',
-    'ReduceSumV11',
-    'Relu',
-    'Reshape',
-    'Scaler',
-    'Selu',
-    'Shape',
-    'Sigmoid',
-    'Sign',
-    'Sin',
-    'Sinh',
-    'Size',
-    'Slice',
-    'Softmax',
-    'Softplus',
-    'Softsign',
-    'Split',
-    'Sqrt',
-    'Squeeze',
-    'SqueezeV11',
-    'Sub',
-    'Sum',
-    'Tan',
-    'Tanh',
-    'Tile',
-    'Transpose',
-    'Unsqueeze',
-    'Unsqueeze11',
-    'Xor',
-]
-
 # Operations supporting canonicalization (alphabetical order).
 OpsWithCanonicalizer = [
     'Add',
@@ -370,12 +282,20 @@ OpsWithCanonicalizer = [
 # Operations with custom verifiers (alphabetical order).
 OpsWithVerifier = [
     'AveragePool',
+    'CategoryMapper',    
+    'Compress',
     'Conv',
     'DepthToSpace',
     'Expand',
+    'Hardmax',
     'InstanceNormalization',
     'Mod',
+    'NonMaxSuppression',
+    'OneHot',
+    'ReverseSequence',
+    'ScatterND',
     'SpaceToDepth',
+    'TopK',
 ]
 
 OpsWithHelpers = {
@@ -417,7 +337,7 @@ OpsWithResultTypeInference = {
 # an UnrankedTensorType whose element type is the same as the first operand's
 # element type.
 #
-# Currenlty, there are only two build methods generated:
+# Currently, there are only two build methods generated:
 #  - one with operands and attributes having a separate parameter, and
 #  - one with operands and attributes having aggregated parameters.
 custom_builder_unranked_ops_list = [

@@ -23,6 +23,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
+#include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/FormatVariadic.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -33,16 +34,6 @@
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
-using namespace mlir::onnxmlir;
-
-//===----------------------------------------------------------------------===//
-// ONNX Helper functions for verify
-//===----------------------------------------------------------------------===//
-
-static bool hasShapeAndRank(Value val) {
-  return val.getType().isa<ShapedType>() &&
-         val.getType().cast<ShapedType>().hasRank();
-}
 
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions for shape helpers
@@ -88,7 +79,10 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
 }
 
 #define NOT_IMPLEMENTED_MESSAGE                                                \
-  (getOperationName() + ": inferShapes() not implemented")
+  (getOperationName() +                                                        \
+      ": is not supported at this time. Please open an issue on "              \
+      "https://github.com/onnx/onnx-mlir and/or consider contribute code. "    \
+      "Error encountered in shape inference.")
 
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
@@ -582,8 +576,7 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
 #define GET_OP_LIST
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
       >();
-  addTypes<StringType>();
-  addTypes<SeqType>();
+  addTypes<onnxmlir::StringType, onnxmlir::SeqType>();
 }
 
 mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
@@ -591,8 +584,9 @@ mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
   if (parser.parseKeyword(&keyword))
     return Type();
 
+  MLIRContext *context = getContext();
   if (keyword == "String")
-    return StringType::get(getContext());
+    return onnxmlir::StringType::get(context);
   if (keyword == "Seq") {
     if (parser.parseLess())
       return Type();
@@ -610,23 +604,23 @@ mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
 
     if (parser.parseGreater())
       return Type();
-    return SeqType::get(elementTypes);
-  } else {
-    llvm_unreachable("Unexpected onnxmlir keyword");
+    return onnxmlir::SeqType::get(elementTypes);
   }
+
+  parser.emitError(parser.getNameLoc(), "unknown onnx type: " + keyword);
+  return Type();
 }
 
 void ONNXOpsDialect::printType(
-    mlir::Type type, mlir::DialectAsmPrinter &printer) const {
-  if (auto stringType = type.dyn_cast<StringType>()) {
-    printer << "String";
-  } else if (auto seqType = type.dyn_cast<SeqType>()) {
-    printer << "Seq<";
-    llvm::interleaveComma(seqType.getElementTypes(), printer);
-    printer << '>';
-  } else {
-    llvm_unreachable("Unexpected onnxmlir type");
-  }
+    mlir::Type type, mlir::DialectAsmPrinter &os) const {
+  TypeSwitch<Type>(type)
+      .Case<onnxmlir::StringType>([&](Type) { os << "String"; })
+      .Case<onnxmlir::SeqType>([&](onnxmlir::SeqType type) {
+        os << "Seq<";
+        llvm::interleaveComma(type.getElementTypes(), os);
+        os << '>';
+      })
+      .Default([](Type) { llvm_unreachable("Unexpected 'onnx' type kind"); });
 }
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
@@ -2358,7 +2352,9 @@ LogicalResult ONNXUnsqueezeOp::inferShapes(
     auto axesAttr = createArrayAttrFromConstantOp(builder, axesConstOp);
     optionalAttr.emplace(axesAttr);
   } else if (!axes().getType().isa<NoneType>()) {
-    llvm_unreachable("dynamic axes not yet supported");
+    // Cannot handle Non-constant axes
+    // Hope further transformation may creat constant axes
+    return success();
   }
   return ONNXUnsqueezeOpInferShapesCommon<ONNXUnsqueezeOp,
       ONNXUnsqueezeOpAdaptor, ONNXUnsqueezeOpShapeHelper>(
@@ -2734,14 +2730,19 @@ LogicalResult ONNXResizeOp::inferShapes(
   }
 
   if (isFromNone(scales()) == isFromNone(sizes())) {
-    return emitError("scales() and sizes() can not both None/not None");
+    if (isFromNone(scales()))
+      return emitError("scales() and sizes() can not be both None");
+    else
+      return emitError("scales() and sizes() can not be both defined");
   }
 
   if (!(mode() == "nearest" &&
           (coordinate_transformation_mode() == "half_pixel" ||
               coordinate_transformation_mode() == "asymmetric"))) {
     return emitError("these modes() or coordinate_transformation_mode() not "
-                     "implemented yet");
+                     "implemented yet. mode: " +
+                     mode() + " coordinate_transformation_mode: " +
+                     coordinate_transformation_mode());
   }
 
   // Current implementation handles constant scales only
@@ -3453,9 +3454,48 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
   return success();
 }
 
+static LogicalResult verify(ONNXCompressOp op) {
+  // Look up input.
+  if (!hasShapeAndRank(op.input()))
+    // Too early to verify.
+    return success();
+  int64_t inputRank = op.input().getType().cast<ShapedType>().getRank();
+  // Check axis.
+  auto optionalAxis = op.axis();
+  if (optionalAxis.hasValue()) {
+    // We have an axis, make sure its in the range
+    int64_t axis = optionalAxis.getValue();
+    if (!(axis >= -inputRank && axis < inputRank))
+      return op.emitError("axis is out of bound");
+  }
+  // Check condition.
+  if (!hasShapeAndRank(op.condition()))
+    // Too early to verify.
+    return success();
+  int64_t condRank = op.condition().getType().cast<ShapedType>().getRank();
+  if (condRank != 1)
+    return op.emitError("condition's rank must be one");
+  return success();
+}
+
 LogicalResult ONNXCompressOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Check input type.
+  if (!input().getType().isa<RankedTensorType>()) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
+  // Infer shape for the output.
+  ONNXCompressOpAdaptor operandAdaptor(*this);
+  ONNXCompressOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan Compress parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  auto elementType =
+      input().getType().template cast<ShapedType>().getElementType();
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
+  return success();
 }
 
 LogicalResult ONNXConcatFromSequenceOp::inferShapes(
@@ -3473,7 +3513,7 @@ static LogicalResult verify(ONNXDepthToSpaceOp op) {
   ONNXDepthToSpaceOpAdaptor operandAdaptor(op);
 
   // Check input.
-  auto input = operandAdaptor.input();
+  Value input = operandAdaptor.input();
   if (!hasShapeAndRank(input)) {
     // Won't be able to do any checking at this stage.
     return success();
@@ -3484,13 +3524,13 @@ static LogicalResult verify(ONNXDepthToSpaceOp op) {
     return op.emitError("Input should have a rank of four");
 
   // Check blocksize.
-  auto blocksize = operandAdaptor.blocksize().getValue();
+  APInt blocksize = operandAdaptor.blocksize().getValue();
   if (blocksize.isNegative())
     return op.emitError("Blocksize should be non negative");
 
-  auto C = inputShape[1];
+  int64_t C = inputShape[1];
   uint64_t bs = blocksize.getZExtValue();
-  if (C % (bs * bs) != 0)
+  if (C != -1 && C % (bs * bs) != 0)
     return op.emitError("The input tensor depth must be divisible by the "
                         "(blocksize * blocksize)");
 
@@ -3516,7 +3556,7 @@ LogicalResult ONNXDepthToSpaceOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-  auto elementType =
+  Type elementType =
       input().getType().template cast<ShapedType>().getElementType();
   getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
@@ -3584,9 +3624,26 @@ LogicalResult ONNXGreaterOrEqualOp::inferShapes(
   return success();
 }
 
+static LogicalResult verify(ONNXHardmaxOp op) {
+  ONNXHardmaxOpAdaptor hmOp = ONNXHardmaxOpAdaptor(op);
+  auto input = hmOp.input();
+  int64_t axis = op.axis();
+
+  // Verify that axis must be in range [-r, r - 1], where r is the rank of
+  // input.
+  if (hasShapeAndRank(input)) {
+    int64_t rank = input.getType().cast<ShapedType>().getRank();
+    if (axis < -rank || axis > rank - 1)
+      return op.emitError("axis value is out of range");
+  }
+
+  return success();
+}
+
 LogicalResult ONNXHardmaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(getOperand().getType());
+  return success();
 }
 
 LogicalResult ONNXIfOp::inferShapes(
@@ -3704,9 +3761,50 @@ LogicalResult ONNXMultinomialOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXNonMaxSuppressionOp op) {
+  ONNXNonMaxSuppressionOpAdaptor operandAdaptor =
+      ONNXNonMaxSuppressionOpAdaptor(op);
+  // Get operands.
+  auto boxes = operandAdaptor.boxes();
+  auto scores = operandAdaptor.scores();
+  auto MOPC = operandAdaptor.max_output_boxes_per_class();
+  auto scoreThreshold = operandAdaptor.score_threshold();
+  auto iouThreshold = operandAdaptor.iou_threshold();
+
+  // Check operands.
+  if (hasShapeAndRank(boxes)) {
+    auto shape = boxes.getType().cast<ShapedType>().getShape();
+    if (shape.size() != 3)
+      return op.emitError("boxes should have a rank of three");
+    if (shape[2] != -1 && shape[2] != 4)
+      return op.emitError("The last dim of Boxes should be four");
+  }
+
+  if (hasShapeAndRank(scores))
+    if (scores.getType().cast<ShapedType>().getRank() != 3)
+      return op.emitError("scores should have a rank of three");
+
+  if (hasShapeAndRank(MOPC))
+    if (MOPC.getType().cast<ShapedType>().getRank() > 1)
+      return op.emitError(
+          "max_output_boxex_per_class should have a rank of zero or one");
+
+  if (hasShapeAndRank(scoreThreshold))
+    if (scoreThreshold.getType().cast<ShapedType>().getRank() > 1)
+      return op.emitError("score_threshold should have a rank of zero or one");
+
+  if (hasShapeAndRank(iouThreshold))
+    if (iouThreshold.getType().cast<ShapedType>().getRank() > 1)
+      return op.emitError("iou_threshold should have a rank of zero or one");
+
+  return success();
+}
+
 LogicalResult ONNXNonMaxSuppressionOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  auto b = mlir::Builder(getContext());
+  getResult().setType(RankedTensorType::get({-1, 3}, b.getI64Type()));
+  return success();
 }
 
 LogicalResult ONNXNonZeroOp::inferShapes(
@@ -3731,6 +3829,48 @@ LogicalResult ONNXNotOp::inferShapes(
   return success();
 }
 
+static LogicalResult verify(ONNXOneHotOp op) {
+  ONNXOneHotOpAdaptor operandAdaptor = ONNXOneHotOpAdaptor(op);
+  // Check indices.
+  Value indices = operandAdaptor.indices();
+  if (hasShapeAndRank(indices)) {
+    // Get rank.
+    int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
+    // Verify axis.
+    int64_t axisValue = op.axis();
+    // Unusually, with a rank of 3, acceptable values are 0 (before first) to 3
+    // (after last).
+    if (axisValue < 0)
+      axisValue += indicesRank + 1;
+    if (!(axisValue >= 0 && axisValue <= indicesRank))
+      return op->emitError("OneHot axis value is out of range");
+  }
+  // Check that values is a rank 2 with 2 elements
+  Value values = operandAdaptor.values();
+  if (hasShapeAndRank(values)) {
+    ShapedType valuesShape = values.getType().cast<ShapedType>();
+    if (valuesShape.getRank() != 1)
+      return op->emitError("OneHot values must be 1D tensor");
+    int64_t dim = valuesShape.getDimSize(0);
+    if (dim >= 0 && dim != 2)
+      return op->emitError("OneHot values must be 1D tensor with 2 elements");
+  }
+  // Depth is a scalar, check when its a tensor of rank 0 or 1.
+  Value depth = operandAdaptor.depth();
+  if (hasShapeAndRank(depth)) {
+    ShapedType depthShape = depth.getType().cast<ShapedType>();
+    if (depthShape.getRank() == 1) {
+      int64_t dim = depthShape.getDimSize(0);
+      if (dim >= 0 && dim != 1)
+        return op->emitError("OneHot depth can be 1D tensor with 1 elements");
+    } else {
+      if (depthShape.getRank() > 1)
+        return op->emitError("OneHot depth must be 0 or 1D tensor");
+    }
+  }
+  return success();
+}
+
 LogicalResult ONNXOneHotOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
@@ -3739,7 +3879,7 @@ LogicalResult ONNXOneHotOp::inferShapes(
 
   ONNXOneHotOpShapeHelper shapeHelper(this);
   ONNXOneHotOpAdaptor operandAdaptor(*this);
-  if (failed(shapeHelper.ComputeShape(operandAdaptor)))
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
     return emitError("Failed to scan OneHot parameters successfully");
 
   SmallVector<int64_t, 4> outputDims;
@@ -3748,13 +3888,34 @@ LogicalResult ONNXOneHotOp::inferShapes(
   auto valuesTensorTy = values().getType().cast<RankedTensorType>();
   getResult().setType(
       RankedTensorType::get(outputDims, valuesTensorTy.getElementType()));
-
   return success();
 }
 
 LogicalResult ONNXRandomNormalOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  auto outputShape = shape();
+  auto elementTypeID = dtype();
+
+  SmallVector<int64_t, 4> outputDims;
+  auto spatialRank = ArrayAttrSize(outputShape);
+  for (unsigned long i = 0; i < spatialRank; ++i) {
+    int64_t dimension = ArrayAttrIntVal(outputShape, i);
+    if (dimension < 0)
+      return emitError("Random normal tensor has dynamic dimension.");
+    outputDims.emplace_back(dimension);
+  }
+
+  RankedTensorType outputTensorType =
+      RankedTensorType::get(outputDims, FloatType::getF32(getContext()));
+  if (elementTypeID == 0)
+    outputTensorType =
+        RankedTensorType::get(outputDims, FloatType::getF16(getContext()));
+  else if (elementTypeID == 2)
+    outputTensorType =
+        RankedTensorType::get(outputDims, FloatType::getF64(getContext()));
+
+  getResult().setType(outputTensorType);
+  return success();
 }
 
 LogicalResult ONNXRandomNormalLikeOp::inferShapes(
@@ -3830,9 +3991,9 @@ LogicalResult ONNXRangeOp::inferShapes(
   auto constantDelta = getONNXConstantOp(delta());
   if (constantStart && constantLimit && constantDelta) {
     // Get all inputs:
-    double start = getScalarValue(constantStart, startTensorTy);
-    double limit = getScalarValue(constantLimit, limitTensorTy);
-    double delta = getScalarValue(constantDelta, deltaTensorTy);
+    double start = getScalarValue<double>(constantStart, startTensorTy);
+    double limit = getScalarValue<double>(constantLimit, limitTensorTy);
+    double delta = getScalarValue<double>(constantDelta, deltaTensorTy);
 
     // Compute size:
     number_of_elements = (int64_t)ceil((limit - start) / delta);
@@ -3846,6 +4007,59 @@ LogicalResult ONNXRangeOp::inferShapes(
   SmallVector<int64_t, 1> dims(1, number_of_elements);
   getResult().setType(
       RankedTensorType::get(dims, startTensorTy.getElementType()));
+  return success();
+}
+
+LogicalResult ONNXReverseSequenceOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!input().getType().isa<RankedTensorType>())
+    return success();
+
+  // Propagate the type of input to output
+  ONNXReverseSequenceOpShapeHelper shapeHelper(this);
+  ONNXReverseSequenceOpAdaptor operandAdaptor(*this);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to shape inference for ReserveSequence");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  auto elementType =
+      input().getType().cast<RankedTensorType>().getElementType();
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
+  return success();
+}
+
+static LogicalResult verify(ONNXReverseSequenceOp op) {
+  ONNXReverseSequenceOpAdaptor operandAdaptor =
+      ONNXReverseSequenceOpAdaptor(op);
+
+  auto sequence_lensTy =
+      operandAdaptor.sequence_lens().getType().dyn_cast<RankedTensorType>();
+  auto inputTy = operandAdaptor.input().getType().dyn_cast<RankedTensorType>();
+
+  // sequence_lens should be 1D tensor
+  if (sequence_lensTy) {
+    if (sequence_lensTy.getRank() != 1)
+      return op.emitError(
+          "sequence_lens of ReverseSequnce should be 1D tensor");
+  }
+
+  if (inputTy) {
+    if (inputTy.getRank() < 2)
+      return op.emitError(
+          "input of Reversesequence should be 2D or higher rank tensor");
+  }
+
+  if (sequence_lensTy && inputTy) {
+    int64_t batchAxis = op.batch_axis();
+    if (sequence_lensTy.getShape()[0] != -1 &&
+        inputTy.getShape()[batchAxis] != -1) {
+      if (sequence_lensTy.getShape()[0] != inputTy.getShape()[batchAxis]) {
+        return op.emitError("Length of sequence_lens should match the sizeof  "
+                            "batch axis of the input");
+      }
+    }
+  }
+
   return success();
 }
 
@@ -3870,11 +4084,6 @@ LogicalResult ONNXReduceLogSumExpOp::inferShapes(
 }
 
 LogicalResult ONNXReduceSumSquareOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXReverseSequenceOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
@@ -4004,9 +4213,41 @@ LogicalResult ONNXScatterElementsOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXScatterNDOp op) {
+  ONNXScatterNDOpAdaptor operandAdaptor(op);
+  // Get operands.
+  mlir::Value data = operandAdaptor.data();
+  mlir::Value indices = operandAdaptor.indices();
+  mlir::Value updates = operandAdaptor.updates();
+
+  // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(data) || !hasShapeAndRank(indices) ||
+      !hasShapeAndRank(updates))
+    return success();
+
+  int64_t data_rank = data.getType().cast<mlir::ShapedType>().getRank();
+  int64_t indices_rank = indices.getType().cast<mlir::ShapedType>().getRank();
+  int64_t updates_rank = updates.getType().cast<mlir::ShapedType>().getRank();
+  int32_t indices_last_dim =
+      indices.getType().cast<mlir::ShapedType>().getShape()[indices_rank - 1];
+
+  if (data_rank < 1)
+    return op->emitError("data rank should >= 1");
+  if (indices_rank < 1)
+    return op->emitError("indices rank should >= 1");
+  if (updates_rank != (data_rank + indices_rank - indices_last_dim - 1))
+    return op->emitError("updates rank not meet the op spec");
+
+  return success();
+}
+
 LogicalResult ONNXScatterNDOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!data().getType().isa<mlir::RankedTensorType>())
+    return success();
+
+  getResult().setType(data().getType());
+  return success();
 }
 
 LogicalResult ONNXSequenceAtOp::inferShapes(
@@ -4048,7 +4289,7 @@ static LogicalResult verify(ONNXSpaceToDepthOp op) {
   ONNXSpaceToDepthOpAdaptor operandAdaptor(op);
 
   // Check input.
-  auto input = operandAdaptor.input();
+  Value input = operandAdaptor.input();
   if (!hasShapeAndRank(input)) {
     // Won't be able to do any checking at this stage.
     return success();
@@ -4059,18 +4300,18 @@ static LogicalResult verify(ONNXSpaceToDepthOp op) {
     return op.emitError("Input should have a rank of four");
 
   // Check blocksize.
-  auto blocksize = operandAdaptor.blocksize().getValue();
+  APInt blocksize = operandAdaptor.blocksize().getValue();
   if (blocksize.isNegative())
     return op.emitError("Blocksize should be non negative");
 
-  auto H = inputShape[2];
-  auto W = inputShape[3];
+  int64_t H = inputShape[2];
+  int64_t W = inputShape[3];
   uint64_t bs = blocksize.getZExtValue();
 
-  if (H % bs != 0)
+  if (H != -1 && H % bs != 0)
     return op.emitError(
         "The input tensor height must be divisible by the block size");
-  if (W % bs != 0)
+  if (W != -1 && W % bs != 0)
     return op.emitError(
         "The input tensor width must be divisible by the block size");
 
@@ -4091,7 +4332,7 @@ LogicalResult ONNXSpaceToDepthOp::inferShapes(
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-  auto elementType =
+  Type elementType =
       input().getType().template cast<ShapedType>().getElementType();
   getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
@@ -4117,9 +4358,49 @@ LogicalResult ONNXThresholdedReluOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXTopKOp op) {
+  ONNXTopKOpAdaptor operandAdaptor = ONNXTopKOpAdaptor(op);
+  // Get operands.
+  auto X = operandAdaptor.X();
+  auto K = operandAdaptor.K();
+
+  // Verify that axis value is in the valid range.
+  if (hasShapeAndRank(X)) {
+    ArrayRef<int64_t> shape = X.getType().cast<ShapedType>().getShape();
+    int64_t rank = shape.size();
+    int64_t axis = op.axis();
+    axis = axis < 0 ? axis + rank : axis;
+    if (axis < 0 || axis >= rank)
+      return op.emitError("axis must be in range [-rank, rank -1]");
+  }
+
+  // Verify that K's rank must be zero or one.
+  if (hasShapeAndRank(K))
+    if (K.getType().cast<ShapedType>().getRank() > 1)
+      return op.emitError("K should have a rank of zero or one");
+
+  return success();
+}
+
 LogicalResult ONNXTopKOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Cannot infer shape if no shape exists.
+  if (!X().getType().isa<RankedTensorType>() ||
+      !K().getType().isa<RankedTensorType>())
+    return success();
+
+  Builder b = mlir::Builder(getContext());
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXTopKOpAdaptor operandAdaptor(*this);
+  ONNXTopKOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan TopK parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  getResult(0).setType(RankedTensorType::get(outputDims, elementType));
+  getResult(1).setType(RankedTensorType::get(outputDims, b.getI64Type()));
+
+  return success();
 }
 
 LogicalResult ONNXUniqueOp::inferShapes(
@@ -4164,9 +4445,68 @@ LogicalResult ONNXCastMapOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXCategoryMapperOp op) {
+  ONNXCategoryMapperOpAdaptor operandAdaptor(op);
+
+  // Check input.
+  const Value X = operandAdaptor.X();
+  if (!hasShapeAndRank(X)) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
+
+  ShapedType inputType = X.getType().cast<ShapedType>();
+  Type elementType = inputType.getElementType();
+  if (!elementType.isInteger(64) && !elementType.isa<onnxmlir::StringType>())
+    return op.emitError("input must be a tensor of int64 or string");
+
+  // Check attributes.
+  if (!op.cats_int64s())
+    return op.emitError("cats_int64 attribute must be present");
+  if (!op.cats_strings())
+    return op.emitError("cats_strings attribute must be present");
+  if (ArrayAttrSize(op.cats_int64s()) != ArrayAttrSize(op.cats_strings()))
+    return op.emitError(
+        "cats_int64 and cats_strings should have the same size");
+
+  if (elementType.isInteger(64) && !op.default_stringAttr())
+    return op.emitError("'default_string' attribute is missing.");
+  if (elementType.isa<onnxmlir::StringType>() && !op.default_int64Attr())
+    return op.emitError("'default_int64' attribute is missing.");
+  if (op.default_stringAttr() && op.default_int64Attr())
+    return op.emitError("Only one of 'default_int64' or 'default_string' "
+                        "attributes must be specified");
+
+  return success();
+}
+
 LogicalResult ONNXCategoryMapperOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Cannot infer shape if no shape exists.
+  if (!X().getType().isa<RankedTensorType>())
+    return success();
+
+  Type inputElementType = X().getType().cast<ShapedType>().getElementType();
+  assert((inputElementType.isInteger(64) ||
+             inputElementType.isa<onnxmlir::StringType>()) &&
+         "Input tensor must have int64 or string element type.");
+
+  ONNXCategoryMapperOpAdaptor operandAdaptor(*this);
+  ONNXCategoryMapperOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan CategoryMapper parameters successfully");
+
+  Type outputElementType;
+  if (inputElementType.isInteger(64))
+    outputElementType = onnxmlir::StringType::get(getContext());
+  else
+    outputElementType = IntegerType::get(getContext(), /*width=*/64);
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, outputElementType));
+
+  return success();
 }
 
 LogicalResult ONNXDictVectorizerOp::inferShapes(
@@ -4248,6 +4588,8 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV9Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV11Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV11Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV10Op);
 
 //===----------------------------------------------------------------------===//
 // Loop
@@ -4348,6 +4690,44 @@ LogicalResult ONNXCustomOp::inferShapes(
   return success();
 }
 
+LogicalResult ONNXCallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
+  // Check that the callee attribute was specified.
+  auto fnAttr = (*this)->getAttrOfType<FlatSymbolRefAttr>("callee");
+  if (!fnAttr)
+    return emitOpError("requires a 'callee' symbol reference attribute");
+  FuncOp fn = symbolTable.lookupNearestSymbolFrom<FuncOp>(*this, fnAttr);
+  if (!fn)
+    return emitOpError() << "'" << fnAttr.getValue()
+                         << "' does not reference a valid function";
+
+  // Verify that the operand and result types match the callee.
+  auto fnType = fn.getType();
+  if (fnType.getNumInputs() != getNumOperands())
+    return emitOpError("incorrect number of operands for callee");
+
+  for (unsigned i = 0, e = fnType.getNumInputs(); i != e; ++i)
+    if (getOperand(i).getType() != fnType.getInput(i))
+      return emitOpError("operand type mismatch: expected operand type ")
+             << fnType.getInput(i) << ", but provided "
+             << getOperand(i).getType() << " for operand number " << i;
+
+  if (fnType.getNumResults() != getNumResults())
+    return emitOpError("incorrect number of results for callee");
+
+  for (unsigned i = 0, e = fnType.getNumResults(); i != e; ++i)
+    if (getResult(i).getType() != fnType.getResult(i)) {
+      auto diag = emitOpError("result type mismatch at index ") << i;
+      diag.attachNote() << "      op result types: " << getResultTypes();
+      diag.attachNote() << "function result types: " << fnType.getResults();
+      return diag;
+    }
+
+  return success();
+}
+
+FunctionType ONNXCallOp::getCalleeType() {
+  return FunctionType::get(getContext(), getOperandTypes(), getResultTypes());
+}
 //===----------------------------------------------------------------------===//
 // ONNX type related code
 //===----------------------------------------------------------------------===//
@@ -4382,17 +4762,20 @@ struct SeqTypeStorage : public mlir::TypeStorage {
 } // end namespace onnxmlir
 } // end namespace mlir
 
-SeqType SeqType::get(llvm::ArrayRef<mlir::Type> elementTypes) {
+onnxmlir::SeqType onnxmlir::SeqType::get(
+    llvm::ArrayRef<mlir::Type> elementTypes) {
   assert(!elementTypes.empty() && "expected non-empty seq");
   mlir::MLIRContext *ctx = elementTypes.front().getContext();
   return Base::get(ctx, elementTypes);
 }
 
-llvm::ArrayRef<mlir::Type> SeqType::getElementTypes() const {
+llvm::ArrayRef<mlir::Type> onnxmlir::SeqType::getElementTypes() const {
   return getImpl()->elementTypes;
 }
 
-mlir::Type SeqType::getElementType() const { return getElementTypes()[0]; }
+mlir::Type onnxmlir::SeqType::getElementType() const {
+  return getElementTypes()[0];
+}
 
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
@@ -4400,6 +4783,7 @@ mlir::Type SeqType::getElementType() const { return getElementTypes()[0]; }
 
 #define GET_OP_CLASSES
 
+using namespace onnxmlir;
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
 
 template struct ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,

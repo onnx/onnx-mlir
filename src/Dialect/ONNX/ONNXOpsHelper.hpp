@@ -31,11 +31,26 @@ struct OnnxBuilder : DialectBuilder {
   OnnxBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  Value add(Value A, Value B);
-  Value sub(Value A, Value B);
-  Value mul(Value A, Value B);
-  Value div(Value A, Value B);
-  Value matmul(Type Y, Value A, Value B);
+  Value add(Value A, Value B) const;
+  Value sub(Value A, Value B) const;
+  Value mul(Value A, Value B) const;
+  Value div(Value A, Value B) const;
+  Value matmul(Type Y, Value A, Value B) const;
+
+  Value reshape(Type outputType, Value input, Value shape) const;
+  Value transpose(Type outputType, Value input, ArrayAttr perm) const;
+
+  Value constant(Attribute denseAttr) const;
+};
+
+// Recursive class specialized for OnnxBuilder refereed to as onnx.
+template <class... Ts>
+struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(OpBuilder &b, Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), onnx(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), onnx(db) {}
+  OnnxBuilder onnx;
 };
 
 } // namespace mlir
@@ -109,8 +124,13 @@ mlir::DenseElementsAttr getDenseElementAttributeFromONNXValue(
     mlir::Value value);
 
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
-mlir::Value getONNXConstantOpFromDenseAttr(
-    mlir::PatternRewriter &rewriter, mlir::Location loc, mlir::Attribute dense);
+mlir::Value createONNXConstantOpWithDenseAttr(
+    mlir::OpBuilder &builder, mlir::Location loc, mlir::Attribute dense);
+mlir::Value createNoneIntegerConstant(
+    mlir::PatternRewriter &rewriter, mlir::Location loc);
+mlir::Value createNoneFloatConstant(
+    mlir::PatternRewriter &rewriter, mlir::Location loc);
+
 bool isFromNone(mlir::Value value);
 mlir::Type getBroadcastedRankedType(mlir::Type type1, mlir::Type type2);
 
@@ -136,6 +156,9 @@ bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
 /// Test if two constant ops contain the same values or not.
 bool AreTheSameConstantOpDenseAttr(
     mlir::Builder &builder, int64_t rank, mlir::Value lhsOp, mlir::Value rhsOp);
+
+/// Test if 'val' has shape and rank or not.
+bool hasShapeAndRank(mlir::Value val);
 
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
@@ -188,9 +211,9 @@ mlir::ArrayAttr createArrayAttrFromConstantOp(
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);
 
-// Check if a value is a 16, 32 or 64 bit integer.
-bool isCommonInteger(mlir::RankedTensorType tensorType);
-
 // Get scalar value when it is a constant.
-double getScalarValue(
-    mlir::ONNXConstantOp constantOp, mlir::RankedTensorType tensorType);
+template <typename RESULT_TYPE>
+RESULT_TYPE getScalarValue(mlir::DenseElementsAttr &denseAttr, mlir::Type type);
+
+template <typename RESULT_TYPE>
+RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp, mlir::Type type);
