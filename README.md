@@ -332,7 +332,7 @@ These are frontend options.
       --EmitLib       - Lower model to LLVM IR, emit (to file) LLVM bitcode for model, compile and link it to a shared library.
 ```
 
-## Example
+## Simple Example
 
 For example, to lower an ONNX model (e.g., add.onnx) to ONNX dialect, use the following command:
 ```shell
@@ -347,6 +347,13 @@ module {
   }
 }
 ```
+
+An example based on the add operation is found [here](docs/doc_example), which build an ONNX model using a python script, and then provide a main program to load the model's value, compute, and print the models output.
+
+## End to end example
+
+An end to end example is provided [here](docs/mnist_example/README.md), which train, compile, and execute a simple MNINST example.
+
 
 ## Troubleshooting
 
