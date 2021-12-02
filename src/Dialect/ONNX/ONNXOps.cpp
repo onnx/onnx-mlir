@@ -867,6 +867,24 @@ LogicalResult ONNXSeluOp::inferShapes(
   return success();
 }
 
+// Sequence related operations
+// The general form for seq is seq<tensor<*xT>>
+// Tensors will be add or removed a seq dynamically.
+// The type of tensor should be a summary of all the tensors in the seq,
+// and can change after insertion.
+// It is possible seq<tensor<*xT>> can be refined into seq<RankedTensor>,
+// or even seq<StaticShapedTensor> if all the tensors have common shape info
+// A seq is started empty as the result of SequenceEmpty. We can track this 
+// property with a tag in seq type or along dataflow.
+// When the an element is added, we can do some shape inference.
+// It is not easy to do anything when an element is removed.
+// Since the seq is usually used as a parameter of a graph (e.g. for LoopOp),
+// shape inference for region may need improvement.
+// However, the motivation for seq is to support tensors with 
+// different shape in a seq. Otherwise a tensor with an extra dimension can 
+// be used. The benefit to refine shape info for seq is unclear to me.
+// Therefore, the current implementation does not try to refine the shape info.
+
 LogicalResult ONNXSequenceInsertOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return success();
