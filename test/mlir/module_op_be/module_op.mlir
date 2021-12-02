@@ -1,6 +1,6 @@
-// RUN: onnx-mlir-opt --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir --printIR %s | FileCheck %s
 
-// CHECK: module attributes {llvm.data_layout = "E"}
+// CHECK: module attributes {llvm.data_layout = "E-{{.*}}"}
 module {
 }
 
