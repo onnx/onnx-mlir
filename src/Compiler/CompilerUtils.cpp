@@ -130,9 +130,10 @@ string getExecPath() {
   // unknown unix-like platforms
   auto execPath = llvm::sys::fs::getMainExecutable(nullptr, nullptr);
   if (execPath.empty()) {
-    std::cerr << "Warning: Could not find path to current executable, falling "
-                 "back to default install path: "
-              << kExecPath << std::endl;
+    llvm::errs()
+        << "Warning: Could not find path to current executable, falling "
+           "back to default install path: "
+        << kExecPath << "\n";
     return kExecPath;
   }
   return execPath;
@@ -258,14 +259,14 @@ struct Command {
     llvm::sys::fs::current_path(cur_wdir);
     llvm::sys::fs::make_absolute(cur_wdir, new_wdir);
     if (std::error_code ec = llvm::sys::fs::set_current_path(new_wdir)) {
-      cerr << StringRef(new_wdir).str() << ": " << ec.message() << endl;
+      llvm::errs() << StringRef(new_wdir).str() << ": " << ec.message() << "\n";
       exit(ec.value());
     }
 
     // If in verbose mode, print out command before execution.
     if (verbose)
-      cout << "[" << StringRef(new_wdir).str() << "]" << _path << ": "
-           << llvm::join(argsRef, " ") << endl;
+      llvm::outs() << "[" << StringRef(new_wdir).str() << "]" << _path << ": "
+                   << llvm::join(argsRef, " ") << "\n";
 
     std::string errMsg;
     int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
@@ -273,10 +274,11 @@ struct Command {
         /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
 
     if (rc != 0) {
-      cerr << llvm::join(argsRef, " ") << endl
-           << "Error message: " << errMsg << endl
-           << "Program path: " << _path << endl
-           << "Command execution failed." << endl;
+      llvm::errs() << llvm::join(argsRef, " ") << "\n"
+                   << "Error message: " << errMsg << "\n"
+                   << "Program path: " << _path << "\n"
+                   << "Command execution failed."
+                   << "\n";
       exit(rc);
     }
 
@@ -343,7 +345,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   llvm::raw_fd_ostream moduleBitcodeStream(
       unoptimizedBitcodePath, error, llvm::sys::fs::OF_None);
   if (error) {
-    cerr << unoptimizedBitcodePath << ": " << error.message() << endl;
+    llvm::errs() << unoptimizedBitcodePath << ": " << error.message() << "\n";
     exit(error.value());
   }
 
