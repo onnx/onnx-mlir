@@ -44,17 +44,22 @@ extern OMTensorList *run_main_graph(OMTensorList *);
 /* Make a JNI call, log error and throw Java exception if the call
  * failed. stmt is out of do/while block because for a variable
  * definition it needs to be visible outside the do/while block.
+ *
+ * Note if the JNI call throws an exception, we simply return since
+ * the exception will stay thrown until Java handles it. Some JNI
+ * calls may fail with bad return value without throwing an exception.
+ * In that case, we throw a new exception for Java to handle.
  */
-#define JNI_CALL(env, stmt, success, ...)                                      \
+#define JNI_CALL(env, stmt, success, ecpt, ...)                                \
   stmt;                                                                        \
   do {                                                                         \
-    jthrowable e = (*env)->ExceptionOccurred(env);                             \
-    if (e) {                                                                   \
-      LOG_PRINTF(LOG_ERROR, "JNI call exception occurred");                    \
-      (*env)->Throw(env, e);                                                   \
+    if ((*env)->ExceptionCheck(env)) {                                         \
+      LOG_PRINTF(LOG_ERROR, __VA_ARGS__);                                      \
       return NULL;                                                             \
     } else if (!(success)) {                                                   \
       LOG_PRINTF(LOG_ERROR, __VA_ARGS__);                                      \
+      if (ecpt)                                                                \
+        (*env)->ThrowNew(env, ecpt, "JNI call error");                         \
       return NULL;                                                             \
     }                                                                          \
   } while (0)
@@ -62,26 +67,27 @@ extern OMTensorList *run_main_graph(OMTensorList *);
 /* Make a JNI call and assign return value to var,
  * log error and throw Java exception if the call failed.
  */
-#define JNI_VAR_CALL(env, var, call, success, ...)                             \
-  JNI_CALL(env, var = call, success, __VA_ARGS__)
+#define JNI_VAR_CALL(env, var, call, success, ecpt, ...)                       \
+  JNI_CALL(env, var = call, success, ecpt, __VA_ARGS__)
 
 /* Declare type var, make a JNI call and assign return value to var,
  * log error and throw Java exception if the call failed.
  */
-#define JNI_TYPE_VAR_CALL(env, type, var, call, success, ...)                  \
-  JNI_CALL(env, type var = call, success, __VA_ARGS__);
+#define JNI_TYPE_VAR_CALL(env, type, var, call, success, ecpt, ...)            \
+  JNI_CALL(env, type var = call, success, ecpt, __VA_ARGS__);
 
 /* Make a native library call, check success condition,
  * log error and throw Java exception if native code failed.
  * stmt is out of do/while block because for a variable
  * definition it needs to be visible outside the do/while block.
  */
-#define LIB_CALL(stmt, success, env, cls, ...)                                 \
+#define LIB_CALL(stmt, success, env, ecpt, ...)                                \
   stmt;                                                                        \
   do {                                                                         \
     if (!(success)) {                                                          \
       LOG_PRINTF(LOG_ERROR, __VA_ARGS__);                                      \
-      (*env)->ThrowNew(env, cls, "native code error");                         \
+      if (ecpt)                                                                \
+        (*env)->ThrowNew(env, ecpt, "native code error");                      \
       return NULL;                                                             \
     }                                                                          \
   } while (0)
@@ -90,15 +96,15 @@ extern OMTensorList *run_main_graph(OMTensorList *);
  * log error and throw Java exception if the call failed.
  * Also check success condition.
  */
-#define LIB_VAR_CALL(var, call, success, env, cls, ...)                        \
-  LIB_CALL(var = call, success, env, cls, __VA_ARGS__);
+#define LIB_VAR_CALL(var, call, success, env, ecpt, ...)                       \
+  LIB_CALL(var = call, success, env, ecpt, __VA_ARGS__);
 
 /* Declare type var, make a native library call and assign
  * return value to var, log error and throw Java exception
  * if the call failed. Also check success condition.
  */
-#define LIB_TYPE_VAR_CALL(type, var, call, success, env, cls, ...)             \
-  LIB_CALL(type var = call, success, env, cls, __VA_ARGS__);
+#define LIB_TYPE_VAR_CALL(type, var, call, success, env, ecpt, ...)            \
+  LIB_CALL(type var = call, success, env, ecpt, __VA_ARGS__);
 
 /* Debug output of OMTensor fields */
 #define OMT_DEBUG(                                                             \
@@ -158,70 +164,85 @@ jniapi_t *fill_jniapi(JNIEnv *env, jniapi_t *japi) {
    */
   JNI_VAR_CALL(env, japi->jecpt_cls,
       (*env)->FindClass(env, "java/lang/Exception"), japi->jecpt_cls != NULL,
-      "Class java/lang/Exception not found");
+      NULL, "Class java/lang/Exception not found");
   JNI_VAR_CALL(env, japi->jlong_cls, (*env)->FindClass(env, "java/lang/Long"),
-      japi->jlong_cls != NULL, "Class java/lang/Long not found");
+      japi->jlong_cls != NULL, japi->jecpt_cls,
+      "Class java/lang/Long not found");
   JNI_VAR_CALL(env, japi->jstring_cls,
       (*env)->FindClass(env, "java/lang/String"), japi->jstring_cls != NULL,
-      "Class java/lang/String not found");
+      japi->jecpt_cls, "Class java/lang/String not found");
   JNI_VAR_CALL(env, japi->jomt_cls,
       (*env)->FindClass(env, "com/ibm/onnxmlir/OMTensor"),
-      japi->jomt_cls != NULL, "Class com/ibm/onnxmlir/OMTensor not found");
+      japi->jomt_cls != NULL, japi->jecpt_cls,
+      "Class com/ibm/onnxmlir/OMTensor not found");
   JNI_VAR_CALL(env, japi->jomtl_cls,
       (*env)->FindClass(env, "com/ibm/onnxmlir/OMTensorList"),
-      japi->jomtl_cls != NULL, "Class com/ibm/onnxmlir/OMTensorList not found");
+      japi->jomtl_cls != NULL, japi->jecpt_cls,
+      "Class com/ibm/onnxmlir/OMTensorList not found");
 
   /* Get method ID of constructor and various methods in OMTensor */
   JNI_VAR_CALL(env, japi->jomt_constructor,
       (*env)->GetMethodID(
           env, japi->jomt_cls, "<init>", "(Ljava/nio/ByteBuffer;[J[JI)V"),
-      japi->jomt_constructor != NULL, "Method OMTensor.<init> not found");
+      japi->jomt_constructor != NULL, japi->jecpt_cls,
+      "Method OMTensor.<init> not found");
   JNI_VAR_CALL(env, japi->jomt_getData,
       (*env)->GetMethodID(
           env, japi->jomt_cls, "getData", "()Ljava/nio/ByteBuffer;"),
-      japi->jomt_getData != NULL, "Method OMTensor.getData not found");
+      japi->jomt_getData != NULL, japi->jecpt_cls,
+      "Method OMTensor.getData not found");
   JNI_VAR_CALL(env, japi->jomt_setData,
       (*env)->GetMethodID(
           env, japi->jomt_cls, "setData", "(Ljava/nio/ByteBuffer;)V"),
-      japi->jomt_setData != NULL, "Method OMTensor.setData not found");
+      japi->jomt_setData != NULL, japi->jecpt_cls,
+      "Method OMTensor.setData not found");
   JNI_VAR_CALL(env, japi->jomt_getShape,
       (*env)->GetMethodID(env, japi->jomt_cls, "getShape", "()[J"),
-      japi->jomt_getShape != NULL, "Method OMTensor.getShape not found");
+      japi->jomt_getShape != NULL, japi->jecpt_cls,
+      "Method OMTensor.getShape not found");
   JNI_VAR_CALL(env, japi->jomt_setShape,
       (*env)->GetMethodID(env, japi->jomt_cls, "setShape", "([J)V"),
-      japi->jomt_setShape != NULL, "Method OMTensor.setShape not found");
+      japi->jomt_setShape != NULL, japi->jecpt_cls,
+      "Method OMTensor.setShape not found");
   JNI_VAR_CALL(env, japi->jomt_getStrides,
       (*env)->GetMethodID(env, japi->jomt_cls, "getStrides", "()[J"),
-      japi->jomt_getStrides != NULL, "Method OMTensor.getStrides not found");
+      japi->jomt_getStrides != NULL, japi->jecpt_cls,
+      "Method OMTensor.getStrides not found");
   JNI_VAR_CALL(env, japi->jomt_setStrides,
       (*env)->GetMethodID(env, japi->jomt_cls, "setStrides", "([J)V"),
-      japi->jomt_setStrides != NULL, "Method OMTensor.setStrides not found");
+      japi->jomt_setStrides != NULL, japi->jecpt_cls,
+      "Method OMTensor.setStrides not found");
   JNI_VAR_CALL(env, japi->jomt_getDataType,
       (*env)->GetMethodID(env, japi->jomt_cls, "getDataType", "()I"),
-      japi->jomt_getDataType != NULL, "Method OMTensor.getDataType not found");
+      japi->jomt_getDataType != NULL, japi->jecpt_cls,
+      "Method OMTensor.getDataType not found");
   JNI_VAR_CALL(env, japi->jomt_setDataType,
       (*env)->GetMethodID(env, japi->jomt_cls, "setDataType", "(I)V"),
-      japi->jomt_setDataType != NULL, "Method OMTensor.setDataType not found");
+      japi->jomt_setDataType != NULL, japi->jecpt_cls,
+      "Method OMTensor.setDataType not found");
   JNI_VAR_CALL(env, japi->jomt_getBufferSize,
       (*env)->GetMethodID(env, japi->jomt_cls, "getBufferSize", "()J"),
-      japi->jomt_getBufferSize != NULL,
+      japi->jomt_getBufferSize != NULL, japi->jecpt_cls,
       "Method OMTensor.getBufferSize not found");
   JNI_VAR_CALL(env, japi->jomt_getRank,
       (*env)->GetMethodID(env, japi->jomt_cls, "getRank", "()J"),
-      japi->jomt_getRank != NULL, "Method OMTensor.getRank not found");
+      japi->jomt_getRank != NULL, japi->jecpt_cls,
+      "Method OMTensor.getRank not found");
   JNI_VAR_CALL(env, japi->jomt_getNumElems,
       (*env)->GetMethodID(env, japi->jomt_cls, "getNumElems", "()J"),
-      japi->jomt_getNumElems != NULL, "Method OMTensor.getNumElems not found");
+      japi->jomt_getNumElems != NULL, japi->jecpt_cls,
+      "Method OMTensor.getNumElems not found");
 
   /* Get method ID of constructor and various methods in OMTensorList */
   JNI_VAR_CALL(env, japi->jomtl_constructor,
       (*env)->GetMethodID(
           env, japi->jomtl_cls, "<init>", "([Lcom/ibm/onnxmlir/OMTensor;)V"),
-      japi->jomtl_constructor != NULL, "Method OMTensorList.<init> not found");
+      japi->jomtl_constructor != NULL, japi->jecpt_cls,
+      "Method OMTensorList.<init> not found");
   JNI_VAR_CALL(env, japi->jomtl_getOmtArray,
       (*env)->GetMethodID(env, japi->jomtl_cls, "getOmtArray",
           "()[Lcom/ibm/onnxmlir/OMTensor;"),
-      japi->jomtl_getOmtArray != NULL,
+      japi->jomtl_getOmtArray != NULL, japi->jecpt_cls,
       "Method OMTensorList.getOmtArray not found");
 
   return japi;
@@ -266,12 +287,13 @@ OMTensorList *omtl_java_to_native(
   /* Get OMTensor array Java object in OMTensorList */
   JNI_TYPE_VAR_CALL(env, jobjectArray, jomtl_omts,
       (*env)->CallObjectMethod(env, java_omtl, japi->jomtl_getOmtArray),
-      jomtl_omts != NULL, "jomtl_omts=%p", jomtl_omts);
+      jomtl_omts != NULL, japi->jecpt_cls, "jomtl_omts=%p", jomtl_omts);
 
   /* Get the number of OMTensors in the array */
   JNI_TYPE_VAR_CALL(env, jlong, jomtl_omtn,
       (*env)->GetArrayLength(env, jomtl_omts),
-      jomtl_omtn >= 0 && jomtl_omtn <= INT_MAX, "jomtl_omtn=%ld", jomtl_omtn);
+      jomtl_omtn >= 0 && jomtl_omtn <= INT_MAX, japi->jecpt_cls,
+      "jomtl_omtn=%ld", jomtl_omtn);
 
   /* Allocate memory for holding each Java omt object and OMTensor pointers
    * for constructing native OMTensor array
@@ -294,46 +316,50 @@ OMTensorList *omtl_java_to_native(
   for (int i = 0; i < jomtl_omtn; i++) {
     JNI_VAR_CALL(env, jobj_omts[i],
         (*env)->GetObjectArrayElement(env, jomtl_omts, i), jobj_omts[i] != NULL,
-        "jobj_omts[%d]=%p", i, jobj_omts[i]);
+        japi->jecpt_cls, "jobj_omts[%d]=%p", i, jobj_omts[i]);
 
     /* Get data, shape, strides, dataType, rank, and bufferSize by calling
      * corresponding methods
      */
     JNI_TYPE_VAR_CALL(env, jobject, jomt_data,
         (*env)->CallObjectMethod(env, jobj_omts[i], japi->jomt_getData),
-        jomt_data != NULL, "omt[%d]:data=%p", i, jomt_data);
+        jomt_data != NULL, japi->jecpt_cls, "omt[%d]:data=%p", i, jomt_data);
     JNI_TYPE_VAR_CALL(env, jobject, jomt_shape,
         (*env)->CallObjectMethod(env, jobj_omts[i], japi->jomt_getShape),
-        jomt_shape != NULL, "omt[%d]:shape=%p", i, jomt_shape);
+        jomt_shape != NULL, japi->jecpt_cls, "omt[%d]:shape=%p", i, jomt_shape);
     JNI_TYPE_VAR_CALL(env, jobject, jomt_strides,
         (*env)->CallObjectMethod(env, jobj_omts[i], japi->jomt_getStrides),
-        jomt_strides != NULL, "omt[%d]:strides=%p", i, jomt_strides);
+        jomt_strides != NULL, japi->jecpt_cls, "omt[%d]:strides=%p", i,
+        jomt_strides);
     JNI_TYPE_VAR_CALL(env, jint, jomt_dataType,
         (*env)->CallIntMethod(env, jobj_omts[i], japi->jomt_getDataType),
-        jomt_dataType != ONNX_TYPE_UNDEFINED, "omt[%d]:dataType=%d", i,
-        jomt_dataType);
+        jomt_dataType != ONNX_TYPE_UNDEFINED, japi->jecpt_cls,
+        "omt[%d]:dataType=%d", i, jomt_dataType);
     JNI_TYPE_VAR_CALL(env, jlong, jomt_bufferSize,
         (*env)->CallLongMethod(env, jobj_omts[i], japi->jomt_getBufferSize),
-        jomt_bufferSize >= 0, "omt[%d]:bufferSize=%ld", i, jomt_bufferSize);
+        jomt_bufferSize >= 0, japi->jecpt_cls, "omt[%d]:bufferSize=%ld", i,
+        jomt_bufferSize);
     JNI_TYPE_VAR_CALL(env, jlong, jomt_rank,
         (*env)->CallLongMethod(env, jobj_omts[i], japi->jomt_getRank),
-        jomt_rank >= 0, "omt[%d]:rank=%ld", i, jomt_rank);
+        jomt_rank >= 0, japi->jecpt_cls, "omt[%d]:rank=%ld", i, jomt_rank);
     JNI_TYPE_VAR_CALL(env, jlong, jomt_numElems,
         (*env)->CallLongMethod(env, jobj_omts[i], japi->jomt_getNumElems),
-        jomt_numElems >= 0, "omt[%d]:numElems=%ld", i, jomt_numElems);
+        jomt_numElems >= 0, japi->jecpt_cls, "omt[%d]:numElems=%ld", i,
+        jomt_numElems);
 
     /* Get direct buffer associated with data */
     JNI_TYPE_VAR_CALL(env, void *, jni_data,
         (*env)->GetDirectBufferAddress(env, jomt_data), jni_data != NULL,
-        "omt[%d]:jni_data=%p", i, jni_data);
+        japi->jecpt_cls, "omt[%d]:jni_data=%p", i, jni_data);
 
     /* Get long array associated with data shape and strides */
     JNI_TYPE_VAR_CALL(env, jlong *, jni_shape,
         (*env)->GetLongArrayElements(env, jomt_shape, NULL), jni_shape != NULL,
-        "omt[%d]:jni_shape=%p", i, jni_shape);
+        japi->jecpt_cls, "omt[%d]:jni_shape=%p", i, jni_shape);
     JNI_TYPE_VAR_CALL(env, jlong *, jni_strides,
         (*env)->GetLongArrayElements(env, jomt_strides, NULL),
-        jni_strides != NULL, "omt[%d]:jni_strides=%p", i, jni_strides);
+        jni_strides != NULL, japi->jecpt_cls, "omt[%d]:jni_strides=%p", i,
+        jni_strides);
 
     /* Primitive type int and long can be directly used */
     int jni_dataType = jomt_dataType;
@@ -359,10 +385,11 @@ OMTensorList *omtl_java_to_native(
 
     /* Release reference to the shape and strides Java objects */
     JNI_CALL(env,
-        (*env)->ReleaseLongArrayElements(env, jomt_shape, jni_shape, 0), 1, "");
+        (*env)->ReleaseLongArrayElements(env, jomt_shape, jni_shape, 0), 1,
+        NULL, "");
     JNI_CALL(env,
         (*env)->ReleaseLongArrayElements(env, jomt_strides, jni_strides, 0), 1,
-        "");
+        NULL, "");
   }
 
   /* We have constructed the native OMTensor structs so the pointers
@@ -431,7 +458,7 @@ jobject omtl_native_to_java(
   /* Create OMTensor java object array */
   JNI_TYPE_VAR_CALL(env, jobjectArray, jobj_omts,
       (*env)->NewObjectArray(env, jni_omtn, japi->jomt_cls, NULL),
-      jobj_omts != NULL, "jobj_omts=%p", jobj_omts);
+      jobj_omts != NULL, japi->jecpt_cls, "jobj_omts=%p", jobj_omts);
 
   /* Loop through the native OMTensor structs */
   for (int i = 0; i < jni_omtn; i++) {
@@ -504,42 +531,43 @@ jobject omtl_native_to_java(
     }
     JNI_TYPE_VAR_CALL(env, jobject, jomt_data,
         (*env)->NewDirectByteBuffer(env, jbytebuffer_data, jomt_bufferSize),
-        jomt_data != NULL, "omt[%d]:jomt_data=%p", i, jomt_data);
+        jomt_data != NULL, japi->jecpt_cls, "omt[%d]:jomt_data=%p", i,
+        jomt_data);
 
     /* Create data shape array Java object, fill in from native array */
     JNI_TYPE_VAR_CALL(env, jlongArray, jomt_shape,
         (*env)->NewLongArray(env, jomt_rank), jomt_shape != NULL,
-        "omt[%d]:jomt_shape=%p", i, jomt_shape);
+        japi->jecpt_cls, "omt[%d]:jomt_shape=%p", i, jomt_shape);
     JNI_CALL(env,
         (*env)->SetLongArrayRegion(
             env, jomt_shape, 0, jomt_rank, (jlong *)jni_shape),
-        1, "");
+        1, NULL, "");
 
     /* Create data strides array Java object, fill in from native array */
     JNI_TYPE_VAR_CALL(env, jlongArray, jomt_strides,
         (*env)->NewLongArray(env, jomt_rank), jomt_strides != NULL,
-        "omt[%d]:jomt_strides=%p", i, jomt_strides);
+        japi->jecpt_cls, "omt[%d]:jomt_strides=%p", i, jomt_strides);
     JNI_CALL(env,
         (*env)->SetLongArrayRegion(
             env, jomt_strides, 0, jomt_rank, (jlong *)jni_strides),
-        1, "");
+        1, NULL, "");
 
     /* Create the OMTensor Java object */
     JNI_TYPE_VAR_CALL(env, jobject, jobj_omt,
         (*env)->NewObject(env, japi->jomt_cls, japi->jomt_constructor,
             jomt_data, jomt_shape, jomt_strides, jomt_dataType),
-        jobj_omt != NULL, "omt[%d]:jobj_omt=%p", i, jobj_omt);
+        jobj_omt != NULL, japi->jecpt_cls, "omt[%d]:jobj_omt=%p", i, jobj_omt);
 
     /* Set the OMTensor object in the object array */
-    JNI_CALL(
-        env, (*env)->SetObjectArrayElement(env, jobj_omts, i, jobj_omt), 1, "");
+    JNI_CALL(env, (*env)->SetObjectArrayElement(env, jobj_omts, i, jobj_omt), 1,
+        NULL, "");
   }
 
   /* Create the OMTensorList java object */
   JNI_TYPE_VAR_CALL(env, jobject, java_omtl,
       (*env)->NewObject(
           env, japi->jomtl_cls, japi->jomtl_constructor, jobj_omts),
-      java_omtl != NULL, "java_omtl=%p", java_omtl);
+      java_omtl != NULL, japi->jecpt_cls, "java_omtl=%p", java_omtl);
 
   return java_omtl;
 }
@@ -584,6 +612,11 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
 
   log_init();
 
+  /* Find and initialize Java Exception class */
+  JNI_TYPE_VAR_CALL(env, jclass, jecpt_cls,
+      (*env)->FindClass(env, "java/lang/Exception"), jecpt_cls != NULL, NULL,
+      "Class java/lang/Exception not found");
+
   /* Call model input signature API */
   CHECK_CALL(const char *, jni_isig, omInputSignature(), jni_isig != NULL,
       "jni_isig=%p", jni_isig);
@@ -591,8 +624,8 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
 
   /* Convert to Java String object */
   JNI_TYPE_VAR_CALL(env, jstring, jstr_isig,
-      (*env)->NewStringUTF(env, jni_isig), jstr_isig != NULL, "jstr_isig=%p",
-      jstr_isig);
+      (*env)->NewStringUTF(env, jni_isig), jstr_isig != NULL, jecpt_cls,
+      "jstr_isig=%p", jstr_isig);
 
   return jstr_isig;
 }
@@ -602,6 +635,11 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
 
   log_init();
 
+  /* Find and initialize Java Exception class */
+  JNI_TYPE_VAR_CALL(env, jclass, jecpt_cls,
+      (*env)->FindClass(env, "java/lang/Exception"), jecpt_cls != NULL, NULL,
+      "Class java/lang/Exception not found");
+
   /* Call model output signature API */
   CHECK_CALL(const char *, jni_osig, omOutputSignature(), jni_osig != NULL,
       "jni_osig=%p", jni_osig);
@@ -609,8 +647,8 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
 
   /* Convert to Java String object */
   JNI_TYPE_VAR_CALL(env, jstring, jstr_osig,
-      (*env)->NewStringUTF(env, jni_osig), jstr_osig != NULL, "jstr_osig=%p",
-      jstr_osig);
+      (*env)->NewStringUTF(env, jni_osig), jstr_osig != NULL, jecpt_cls,
+      "jstr_osig=%p", jstr_osig);
 
   return jstr_osig;
 }
