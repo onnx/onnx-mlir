@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------------------- MainUtils.cpp ---------------------------===//
+//===-------------------------- CompilerUtils.cpp -------------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -17,12 +17,16 @@
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Target/TargetMachine.h"
 
-#include "CompilerUtils.hpp"
 #include "ExternalUtil.hpp"
+#include "src/Compiler/CompilerUtils.hpp"
 #include "src/Support/OMOptions.hpp"
 
 using namespace std;
@@ -88,13 +92,14 @@ llvm::cl::opt<string> shapeInformation("shapeInformation",
         "unknown dimensions)"),
     llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<string> mtriple("mtriple", llvm::cl::desc("Target architecture"),
-    llvm::cl::value_desc("<llvm target triple>"),
-    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
-
-llvm::cl::opt<string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
-    llvm::cl::value_desc("<llvm cpu value>"), llvm::cl::cat(OnnxMlirOptions),
+llvm::cl::opt<std::string> mtriple("mtriple",
+    llvm::cl::desc("Target architecture"),
+    llvm::cl::value_desc("LLVM target triple>"), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
+
+llvm::cl::opt<std::string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
+    llvm::cl::value_desc("Target a specific CPU type"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
@@ -313,7 +318,7 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
   }
 }
 
-string getTargetCpuOption() {
+static std::string getTargetCpuOption() {
   string targetOptions = "";
   if (mcpu != "")
     targetOptions += "--mcpu=" + mcpu;
@@ -679,9 +684,6 @@ void outputCode(
 
   module->print(output->os(), flags);
   output->keep();
-
-  if (printIR)
-    module->print(llvm::outs(), flags);
 }
 
 void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
@@ -744,8 +746,50 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   }
 }
 
+/// Return the module datalayout string. The datalayout string is determined by
+/// creating a target machine using the target triple and target cpu.
+static std::string getDataLayout(const Location &loc) {
+  const std::string targetTriple =
+      (mtriple != "") ? mtriple.getValue() : kDefaultTriple;
+  const std::string targetCpu = (mcpu != "") ? mcpu.getValue() : "";
+
+  std::string error;
+  const llvm::Target *LLVMTarget =
+      llvm::TargetRegistry::lookupTarget(targetTriple, error);
+  if (!LLVMTarget) {
+    emitError(loc, Twine("Target architecture is unknown: ") + error);
+    return nullptr;
+  }
+
+  llvm::TargetOptions ops;
+  llvm::TargetMachine *targetMachine = LLVMTarget->createTargetMachine(
+      targetTriple, targetCpu, "" /*features*/, ops, None);
+  if (!targetMachine) {
+    emitError(loc, "failed to create target machine");
+    return nullptr;
+  }
+
+  const llvm::DataLayout &dl = targetMachine->createDataLayout();
+  std::string dataLayoutString = dl.getStringRepresentation();
+  assert(dataLayoutString != "" && "Expecting a valid target datalayout");
+
+  return dataLayoutString;
+}
+
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
+  // Initialize the targets support for all targets LLVM was configured for.
+  llvm::InitializeAllTargets();
+  llvm::InitializeAllTargetMCs();
+  llvm::InitializeAllAsmPrinters();
+  llvm::InitializeAllAsmParsers();
+
+  // Set the module datalayout.
+  Operation &moduleOp = *(module->getOperation());
+  Location loc = moduleOp.getLoc();
+  moduleOp.setAttr(LLVM::LLVMDialect::getDataLayoutAttrName(),
+      StringAttr::get(&context, getDataLayout(loc)));
+
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
 
   if (keepFiles(KeepFilesOfType::MLIR)) {
@@ -756,9 +800,8 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
 
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
-  if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR) {
+  if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
     addONNXToMLIRPasses(pm);
-  }
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
@@ -774,6 +817,13 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
   if (mlir::failed(pm.run(*module)))
     return 4;
 
-  emitOutputFiles(outputBaseName, emissionTarget, context, module);
+  if (printIR) {
+    mlir::OpPrintingFlags flags;
+    if (preserveLocations)
+      flags.enableDebugInfo();
+    module->print(llvm::outs(), flags);
+  } else
+    emitOutputFiles(outputBaseName, emissionTarget, context, module);
+
   return 0;
 }

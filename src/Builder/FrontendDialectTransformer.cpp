@@ -1433,6 +1433,11 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
     OwningModuleRef &module, std::string *errorMessage, ImportOptions options) {
   onnx::ModelProto model;
   std::fstream input(model_fname, std::ios::in | std::ios::binary);
+  // check if the input file is opened
+  if (!input.is_open()) {
+    *errorMessage = "Unable to open or access " + model_fname;
+    return;
+  }
 
   auto parse_success = model.ParseFromIstream(&input);
   if (!parse_success) {

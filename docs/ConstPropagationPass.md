@@ -4,7 +4,7 @@ This document describes `--constprop-onnx` pass which is used to do
 constant propagation for operations in the ONNX dialect.
 
 [source
-code](https://github.com/onnx/onnx-mlir/blob/master/src/Transform/ONNX/ConstProp.td).
+code](https://github.com/onnx/onnx-mlir/blob/main/src/Transform/ONNX/ConstProp.td).
 
 ## Example
 Given the following code:
@@ -100,7 +100,7 @@ Now, we go through a simple example that adds constant propagation for ONNXAddOp
 ### Step 1: Write DRR patterns <a id="step1"></a>
 
 We first add a pattern to
-[ConstProp.td](https://github.com/onnx/onnx-mlir/blob/master/src/Transform/ONNX/ConstProp.td).
+[ConstProp.td](https://github.com/onnx/onnx-mlir/blob/main/src/Transform/ONNX/ConstProp.td).
 
 ```mlir
 // Constant Propagation for Add
@@ -138,7 +138,7 @@ def CreateAddOfTwoConst :
 ### Step 2: Prepare array buffers for inputs and result <a id="step2"></a>
 
 Function `CreateAddOfTwoConst` in the pattern calls
-`ConstPropElementwiseBinary` in [ConstProp.cpp](https://github.com/onnx/onnx-mlir/blob/master/src/Transform/ONNX/ConstProp.cpp) whose content is as follows.
+`ConstPropElementwiseBinary` in [ConstProp.cpp](https://github.com/onnx/onnx-mlir/blob/main/src/Transform/ONNX/ConstProp.cpp) whose content is as follows.
 
 ```c++
 template <typename ElementwiseBinaryOp>
@@ -267,6 +267,6 @@ indices for the lhs and rhs according to the broadcasting rule. After that, it
 computes linear indices for the lhs and rhs, then get lhs and rhs values for
 addition. The result is finally stored to the result array buffer.
 
-For more information about constant propagation, please see [ConstProp.td](https://github.com/onnx/onnx-mlir/blob/master/src/Transform/ONNX/ConstProp.td)
+For more information about constant propagation, please see [ConstProp.td](https://github.com/onnx/onnx-mlir/blob/main/src/Transform/ONNX/ConstProp.td)
 and
-[ConstProp.cpp](https://github.com/onnx/onnx-mlir/blob/master/src/Transform/ONNX/ConstProp.cpp).
+[ConstProp.cpp](https://github.com/onnx/onnx-mlir/blob/main/src/Transform/ONNX/ConstProp.cpp).

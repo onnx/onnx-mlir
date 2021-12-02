@@ -39,7 +39,7 @@ cd $working_dir/onnx-mlir
 git remote add upstream https://github.com/onnx-mlir/onnx-mlir.git
 # or: git remote add upstream git@github.com:onnx-mlir/onnx-mlir.git
 
-# Never push to upstream master since you do not have write access.
+# Never push to upstream main since you do not have write access.
 git remote set-url --push upstream no_push
 
 # Confirm that your remotes make sense:
@@ -53,16 +53,16 @@ git remote -v
 
 ### Step 3: Branch
 
-Get your local master up to date:
+Get your local main up to date:
 
 ```sh
 cd $working_dir/onnx-mlir
 git fetch upstream
-git checkout master
-git rebase upstream/master
+git checkout main
+git rebase upstream/main
 ```
 
-Branch from master:
+Branch from main:
 
 ```sh
 git checkout -b myfeature
@@ -107,10 +107,10 @@ in a few cycles.
 ```sh
 # While on your myfeature branch.
 git fetch upstream
-git rebase upstream/master
+git rebase upstream/main
 ```
 
-If the administrator merges other's PR on master branch while you're working on the `myfeature` branch,
+If the administrator merges other's PR on main branch while you're working on the `myfeature` branch,
 conflict may occurs. You're responsible for solving the conflict. Then continue:
 
 ```sh
