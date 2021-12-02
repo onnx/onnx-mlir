@@ -874,14 +874,14 @@ LogicalResult ONNXSeluOp::inferShapes(
 // and can change after insertion.
 // It is possible seq<tensor<*xT>> can be refined into seq<RankedTensor>,
 // or even seq<StaticShapedTensor> if all the tensors have common shape info
-// A seq is started empty as the result of SequenceEmpty. We can track this 
+// A seq is started empty as the result of SequenceEmpty. We can track this
 // property with a tag in seq type or along dataflow.
 // When the an element is added, we can do some shape inference.
 // It is not easy to do anything when an element is removed.
 // Since the seq is usually used as a parameter of a graph (e.g. for LoopOp),
 // shape inference for region may need improvement.
-// However, the motivation for seq is to support tensors with 
-// different shape in a seq. Otherwise a tensor with an extra dimension can 
+// However, the motivation for seq is to support tensors with
+// different shape in a seq. Otherwise a tensor with an extra dimension can
 // be used. The benefit to refine shape info for seq is unclear to me.
 // Therefore, the current implementation does not try to refine the shape info.
 
@@ -894,13 +894,14 @@ static LogicalResult verify(ONNXSequenceInsertOp op) {
   ONNXSequenceInsertOpAdaptor operandAdaptor = ONNXSequenceInsertOpAdaptor(op);
 
   // These cast should be guaranteed by default verifier
-  auto seqElementType = operandAdaptor.input_sequence()
+  Type seqElementType = operandAdaptor.input_sequence()
                             .getType()
                             .dyn_cast<mlir::onnxmlir::SeqType>()
                             .getElementType();
-  auto elementType1 = seqElementType.dyn_cast<ShapedType>().getElementType();
-  auto insertType = operandAdaptor.tensor().getType().dyn_cast<ShapedType>();
-  auto elementType2 = insertType.getElementType();
+  Type elementType1 = seqElementType.dyn_cast<ShapedType>().getElementType();
+  ShapedType insertType =
+      operandAdaptor.tensor().getType().dyn_cast<ShapedType>();
+  Type elementType2 = insertType.getElementType();
 
   if (elementType1 != elementType2) {
     return op.emitError("Element types of the tensor in seqence and input "
@@ -934,9 +935,18 @@ LogicalResult ONNXSequenceEraseOp::inferShapes(
   return success();
 }
 
-// Output should an integer64
 LogicalResult ONNXSequenceLengthOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+  Type outputTy = getResult().getType();
+  if (!outputTy.isa<RankedTensorType>() ||
+      outputTy.cast<RankedTensorType>().getRank() != 0) {
+    SmallVector<int64_t, 1> dims;
+    auto builder = mlir::Builder(getContext());
+    Type scalarTy =
+        mlir::RankedTensorType::get(dims, builder.getIntegerType(64));
+    getResult().setType(scalarTy);
+  }
+  // ElementType of I64 will be checked by verifier
   return success();
 }
 
