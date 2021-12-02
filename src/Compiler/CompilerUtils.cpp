@@ -239,16 +239,33 @@ struct Command {
     return *this;
   }
 
-  // Execute command.
-  void exec() {
+  // Execute command in current work directory.
+  //
+  // If the optional wdir is specified, the command will be executed
+  // in the specified work directory. Current work directory is
+  // restored after the command is executed.
+  void exec(std::string wdir = "") {
     auto argsRef = std::vector<llvm::StringRef>(_args.begin(), _args.end());
     bool verbose = false;
     if (const auto &verboseStr = getEnvVar("ONNX_MLIR_VERBOSE"))
       istringstream(verboseStr.getValue()) >> verbose;
 
+    // If a work directory is specified, save the current work directory
+    // and switch into it. Note that if wdir is empty, new_wdir will be
+    // cur_wdir.
+    SmallString<8> cur_wdir;
+    SmallString<8> new_wdir(wdir);
+    llvm::sys::fs::current_path(cur_wdir);
+    llvm::sys::fs::make_absolute(cur_wdir, new_wdir);
+    if (std::error_code ec = llvm::sys::fs::set_current_path(new_wdir)) {
+      cerr << StringRef(new_wdir).str() << ": " << ec.message() << endl;
+      exit(ec.value());
+    }
+
     // If in verbose mode, print out command before execution.
     if (verbose)
-      cout << _path << ": " << llvm::join(argsRef, " ") << "\n";
+      cout << "[" << StringRef(new_wdir).str() << "]"
+	   << _path << ": " << llvm::join(argsRef, " ") << endl;
 
     std::string errMsg;
     int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
@@ -256,12 +273,15 @@ struct Command {
         /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
 
     if (rc != 0) {
-      fprintf(stderr, "%s\n", llvm::join(argsRef, " ").c_str());
-      fprintf(stderr, "Error message: %s\n", errMsg.c_str());
-      fprintf(stderr, "Program path: %s\n", _path.c_str());
-      fprintf(stderr, "Command execution failed.");
+      cerr << llvm::join(argsRef, " ") << endl
+	   << "Error message: " << errMsg << endl
+	   << "Program path: " << _path << endl
+	   << "Command execution failed." << endl;
       exit(rc);
     }
+
+    // Restore saved work directory.
+    llvm::sys::fs::set_current_path(cur_wdir);
   }
 };
 } // namespace
@@ -318,8 +338,14 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   llvm::FileRemover unoptimzedBitcodeRemover(
       unoptimizedBitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
 
+  // outputBaseName might contain a directory, which must exist.
+  // Otherwise, a "No such file or directory" error will be returned.
   llvm::raw_fd_ostream moduleBitcodeStream(
       unoptimizedBitcodePath, error, llvm::sys::fs::OF_None);
+  if (error) {
+    cerr << unoptimizedBitcodePath << ": " << error.message() << endl;
+    exit(error.value());
+  }
 
   llvm::LLVMContext llvmContext;
   mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
@@ -365,11 +391,14 @@ void genJniObject(const mlir::OwningModuleRef &module, string jniSharedLibPath,
     string jniObjPath) {
   Command ar(/*exePath=*/kArPath);
   ar.appendStr("x")
-      .appendStr("--output")
-      .appendStr(llvm::sys::path::parent_path(jniObjPath).str())
+    // old version of ar does not support --output so comment out
+    // for now and use the optional wdir for exec() to get around
+    // the problem.
+    //.appendStr("--output")
+    //.appendStr(llvm::sys::path::parent_path(jniObjPath).str())
       .appendStr(jniSharedLibPath)
       .appendStr(llvm::sys::path::filename(jniObjPath).str())
-      .exec();
+      .exec(llvm::sys::path::parent_path(jniObjPath).str());
 }
 
 // Link everything into a shared object.
