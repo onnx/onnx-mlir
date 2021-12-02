@@ -264,8 +264,8 @@ struct Command {
 
     // If in verbose mode, print out command before execution.
     if (verbose)
-      cout << "[" << StringRef(new_wdir).str() << "]"
-	   << _path << ": " << llvm::join(argsRef, " ") << endl;
+      cout << "[" << StringRef(new_wdir).str() << "]" << _path << ": "
+           << llvm::join(argsRef, " ") << endl;
 
     std::string errMsg;
     int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
@@ -274,9 +274,9 @@ struct Command {
 
     if (rc != 0) {
       cerr << llvm::join(argsRef, " ") << endl
-	   << "Error message: " << errMsg << endl
-	   << "Program path: " << _path << endl
-	   << "Command execution failed." << endl;
+           << "Error message: " << errMsg << endl
+           << "Program path: " << _path << endl
+           << "Command execution failed." << endl;
       exit(rc);
     }
 
@@ -391,11 +391,11 @@ void genJniObject(const mlir::OwningModuleRef &module, string jniSharedLibPath,
     string jniObjPath) {
   Command ar(/*exePath=*/kArPath);
   ar.appendStr("x")
-    // old version of ar does not support --output so comment out
-    // for now and use the optional wdir for exec() to get around
-    // the problem.
-    //.appendStr("--output")
-    //.appendStr(llvm::sys::path::parent_path(jniObjPath).str())
+      // old version of ar does not support --output so comment out
+      // for now and use the optional wdir for exec() to get around
+      // the problem.
+      //.appendStr("--output")
+      //.appendStr(llvm::sys::path::parent_path(jniObjPath).str())
       .appendStr(jniSharedLibPath)
       .appendStr(llvm::sys::path::filename(jniObjPath).str())
       .exec(llvm::sys::path::parent_path(jniObjPath).str());
