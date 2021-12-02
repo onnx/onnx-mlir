@@ -1431,16 +1431,13 @@ void ImportFrontendModelArray(const void *onnxBuffer, int size,
 
 void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
     OwningModuleRef &module, std::string *errorMessage, ImportOptions options) {
-  // try to open the input file to check if it can be opened in advance.
-  std::fstream test;
-  test.open(model_fname);
-  if (!test) {
+  onnx::ModelProto model;
+  std::fstream input(model_fname, std::ios::in | std::ios::binary);
+  // check if the input file is opened
+  if (!input.is_open()) {
     *errorMessage = "Unable to open or access " + model_fname;
     return;
   }
-  test.close();
-  onnx::ModelProto model;
-  std::fstream input(model_fname, std::ios::in | std::ios::binary);
 
   auto parse_success = model.ParseFromIstream(&input);
   if (!parse_success) {
