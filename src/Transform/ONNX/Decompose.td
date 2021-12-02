@@ -81,6 +81,9 @@ def IsDenseONNXConstant:
 def createArrayAttrFromConstantOp : NativeCodeCall<
   "createArrayAttrFromConstantOp($_builder, $0)">;
 
+def createSequenceConstructOp : NativeCodeCall<
+  "createSequenceConstructOp($_builder, $0, $1)">;
+
 //===----------------------------------------------------------------------===//
 // ONNXReduceL1Op %X = ONNXReduceSumOp (ONNXAbsOp %X)
 //===----------------------------------------------------------------------===//
@@ -305,6 +308,11 @@ def ResizeV11Pattern: Pat<
                     $coordinate_transformation_node, $cubic_coeff_a,
                     $exclude_outside, $exttrapolation_value, $mode,
                     $nearest_mode)
+>;
+
+def SequenceConstructPattern1: Pat<
+    (ONNXSequenceConstructOp:$res $x1),
+    (createSequenceConstructOp  (ONNXSequenceEmptyOp (GetNullIntegerAttr), (returnType $res)), $x1)
 >;
 
 #endif // ONNX_DECOMPOSE
