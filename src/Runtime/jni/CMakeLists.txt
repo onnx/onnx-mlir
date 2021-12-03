@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 if (ONNX_MLIR_ENABLE_JNI)
+  option(ONNX_MLIR_BUILD_JSONITER "Build jsoniter locally" OFF)
+
   # Setup Jsoniter jar
   include(Jsoniter.cmake)
   setup_jsoniter(0.9.23)
