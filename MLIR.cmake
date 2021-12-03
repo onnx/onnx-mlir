@@ -68,7 +68,7 @@ function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
   add_custom_target(${dialect}DocGen DEPENDS ${GEN_DOC_FILE})
   add_dependencies(onnx-mlir-docs ${dialect}DocGen)
 endfunction()
-add_custom_target(onnx-mlir-docs ALL)
+add_custom_target(onnx-mlir-docs)
 
 function(add_onnx_mlir_dialect dialect)
   set(LLVM_TARGET_DEFINITIONS ${dialect}.td)
@@ -92,7 +92,7 @@ endfunction()
 
 # add_onnx_mlir_library(name sources...
 #   This function (generally) has the same semantic as add_library. In
-#   addition is supports the arguments below and it does the following
+#   addition it supports the arguments below and it does the following
 #   by default (unless an argument overrides this):
 #   1. Add the library
 #   2. Add the default target_include_directories
@@ -108,12 +108,15 @@ endfunction()
 #     Same semantics as target_include_directories().
 #   LINK_LIBS lib_targets...
 #     Same semantics as target_link_libraries().
+#   LINK_COMPONENTS llvm_components...
+#     Link the specified LLVM components.
+#     Note: only one linkage mode can be specified.
 #   )
 function(add_onnx_mlir_library name)
   cmake_parse_arguments(ARG
     "EXCLUDE_FROM_OM_LIBS;NO_INSTALL"
     ""
-    "DEPENDS;INCLUDE_DIRS;LINK_LIBS"
+    "DEPENDS;INCLUDE_DIRS;LINK_LIBS;LINK_COMPONENTS"
     ${ARGN}
     )
 
@@ -140,6 +143,21 @@ function(add_onnx_mlir_library name)
 
   if (ARG_LINK_LIBS)
     target_link_libraries(${name} ${ARG_LINK_LIBS})
+  endif()
+
+  if (ARG_LINK_COMPONENTS)
+    set(LinkageMode)
+    if (ARG_LINK_COMPONENTS MATCHES "^(PUBLIC|PRIVATE|INTERFACE)")
+      list(POP_FRONT ARG_LINK_COMPONENTS LinkageMode)
+    endif()
+
+    llvm_map_components_to_libnames(COMPONENT_LIBS ${ARG_LINK_COMPONENTS})
+
+    if (LinkageMode)
+      target_link_libraries(${name} ${LinkageMode} ${COMPONENT_LIBS})
+    else()
+      target_link_libraries(${name} PRIVATE ${COMPONENT_LIBS})
+    endif()
   endif()
 
   if (NOT ARG_NO_INSTALL)

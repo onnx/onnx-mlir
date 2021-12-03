@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- OneHot.cpp - Lowering OneHot Op -------------------===//
 //
 // This file lowers the ONNX OneHot Operator to Krnl dialect.

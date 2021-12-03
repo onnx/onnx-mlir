@@ -10,19 +10,19 @@ In onnx-mlir, there are three types of tests to ensure correctness of implementa
 
 ## ONNX Backend Tests
 
-Backend tests are end-to-end tests for onnx-mlir based on onnx node tests.
+Backend tests are end-to-end tests for onnx-mlir based on onnx node and model tests. They are available for testing both the C/C++ .so library and the JNI .jar archive. For each C/C++ test target, adding the `-jni` suffix gives the corresponding JNI test target.
 To invoke the test, use the following command:
 
 ```
-cmake --build . --config Release --target check-onnx-backend
+cmake --build . --config Release --target check-onnx-backend[-jni]
 ``` 
-Packages, such as third_party/onnx and ssl, needs to be installed to run the backend test.
+Packages, such as third_party/onnx, needs to be installed to run the backend test. JNI test requires the jsoniter jar which is downloaed from maven repository by default if no installed version is found on the system. If the user turns on the cmake option `ONNX_MLIR_BUILD_JSONITER` when building ONNX-MLIR, the jsoniter jar will be built locally from the source cloned from its github repository. Note that building jsoniter jar locally requires maven build tool to be installed.
 
-The node tests in onnx that will be run by check-onnx-backend is defined by variable test_to_enable in test/backend/test.py. User can test one test case by environment variable TEST_CASE_BY_USER. For example,
+The node and model tests in onnx that will be run by check-onnx-backend is defined by variable test_to_enable in test/backend/test.py. User can test one test case by environment variable `TEST_CASE_BY_USER`. For example,
 ```
-TEST_CASE_BY_USER=selected_test_name cmake --build . --config Release --target check-onnx-backend
+TEST_CASE_BY_USER=selected_test_name cmake --build . --config Release --target check-onnx-backend[-jni]
 ```
-With TEST_CASE_BY_USER specified, the intermediate result, the .onnx file and .so file, are kept in build/test/backend for debugging.
+With `TEST_CASE_BY_USER` specified, the intermediate result, the .onnx file and .so file, are kept in build/test/backend for debugging.
 
 When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in third_part/onnx/onnx/backend/test/case/node. Please note to add suffix `_cpu` to the onnx test name. 
 
@@ -30,7 +30,7 @@ When the ONNX-to-Krnl conversion of an operator is added, the corresponding back
 
 Testing with dynamic tensor sizes is most easily performed by using the following command, also used by our checkers. 
 ```
-cmake --build . --config Release --target check-onnx-backend-dynamic
+cmake --build . --config Release --target check-onnx-backend-dynamic[-jni]
 ``` 
 
 The onnx node tests usually have known dimension size for input tensors. So, to test tensor with unknown dimension, the model importer (Build/FrontendONNXTransformer.cpp) provides a functionality to generate such cases. When the environment variable, `IMPORTER_FORCE_DYNAMIC`, is set, the frontend import will turn the all the dimensions (by default) of all the input tensors of the model into -1. For example,
@@ -40,7 +40,7 @@ IMPORTER_FORCE_DYNAMIC='0:-1' all dimensions of the first input will be changed
 IMPORTER_FORCE_DYNAMIC='0:-1|1:0,1' all dimensions of the first input and the 1st and 2nd dimensions of the second input will be changed
 ```
 
-The Backus-Naur Form (BNF) for IMPORTER_FORCE_DYNAMIC is as follows.
+The Backus-Naur Form (BNF) for `IMPORTER_FORCE_DYNAMIC` is as follows.
 ```
 <ImportForceDynamicExpr> :== `'` <expr> `'`
                   <expr> ::= <inputString> | <inputString> `|` <expr>
@@ -55,22 +55,22 @@ The Backus-Naur Form (BNF) for IMPORTER_FORCE_DYNAMIC is as follows.
 Value `-1` semantically represents all inputs or all dimensions, and it has the highest priority. E.g. `'0: -1, 0'` means all dimensions of the first input will be changed. Input and dimension indices start from 0.
 
 For example, the default model for test_add_cpu is:
-
-`func @main_graph(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32>`
-
-with IMPORTER_FORCE_DYNAMIC='-1:-1', the result is:
-
-`func @main_graph(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>) -> tensor<?x?x?xf32>`
-
-with IMPORTER_FORCE_DYNAMIC='0:-1', the result is:
-
-`func @main_graph(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32>`.
-
-with IMPORTER_FORCE_DYNAMIC='0:0,2|1:1', the result is:
-
-`func @main_graph(%arg0: tensor<?x4x?xf32>, %arg1: tensor<3x?x5xf32>) -> tensor<3x4x5xf32>`.
-
-This is a way to use existing node test for dynamic tensors. Since not all test case can pass with dynamic tensor, there is a list in test/backend/test.py, test_not_for_dynamic, to specify which test can not pass with IMPORTER_FORCE_DYNAMIC is defined.
+```
+func @main_graph(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+```
+with `IMPORTER_FORCE_DYNAMIC='-1:-1'`, the result is:
+```
+func @main_graph(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
+```
+with `IMPORTER_FORCE_DYNAMIC='0:-1'`, the result is:
+```
+func @main_graph(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+```
+with `IMPORTER_FORCE_DYNAMIC='0:0,2|1:1'`, the result is:
+```
+func @main_graph(%arg0: tensor<?x4x?xf32>, %arg1: tensor<3x?x5xf32>) -> tensor<3x4x5xf32>
+```
+This is a way to use existing node test for dynamic tensors. Since not all test case can pass with dynamic tensor, there is a list in test/backend/test.py, test_not_for_dynamic, to specify which test can not pass with `IMPORTER_FORCE_DYNAMIC` is defined.
 
 ### Tests with constant inputs
 
@@ -81,13 +81,13 @@ constants and we want to test such a situation.
 Testing with constant inputs is most easily performed by using the following
 command, also used by our checkers.
 ```
-cmake --build . --config Release --target check-onnx-backend-constant
+cmake --build . --config Release --target check-onnx-backend-constant[-jni]
 ```
 
 To test a single onnx node, e.g. `test_add_cpu`, use two environment variables
-"TEST_CONSTANT" and "IMPORTER_FORCE_CONSTANT", e.g.:
+`TEST_CONSTANT` and `IMPORTER_FORCE_CONSTANT`, e.g.:
 ```
-TEST_CONSTANT=true IMPORTER_FORCE_CONSTANT="0" TEST_CASE_BY_USER=test_add_cpu make check-onnx-backend
+TEST_CONSTANT=true IMPORTER_FORCE_CONSTANT="0" TEST_CASE_BY_USER=test_add_cpu make check-onnx-backend[-jni]
 ```
 which turns the first input (index 0) to a constant, and thus the model now has
 only one input instead of two.
@@ -100,7 +100,7 @@ or `-1`.
 
 On supported platforms, currently s390x only, backend tests can generate SIMD instructions for the compiled models. To enable SIMD, set the TEST_MCPU environment variable, e.g.,
 ```
-TEST_MCPU=z14 cmake --build . --config Release --target check-onnx-backend
+TEST_MCPU=z14 cmake --build . --config Release --target check-onnx-backend[-jni]
 ```
 
 ### Execution of backend tests
@@ -212,9 +212,9 @@ unoptimized and optimized bytecode files as well as a few additional binaries.
 
 ### Enable SIMD instructions
 
-On supported platforms, currently s390x only, numerical tests can generate SIMD instructions for the compiled models. To enable SIMD, set the TEST_ARGS environment variable, e.g.,
+On supported platforms, currently s390x only, numerical tests can generate SIMD instructions for the compiled models. To enable SIMD, set the `TEST_ARGS` environment variable, e.g.,
 ```
-TEST_ARGS="-mcpu=z14" ARGS=-j$(nproc) cmake --build . --config Release --target test
+TEST_ARGS="-mcpu=z14" CTEST_PARALLEL_LEVEL=$(nproc) cmake --build . --config Release --target check-onnx-numerical
 ```
 
 ## Use gdb

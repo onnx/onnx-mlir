@@ -23,6 +23,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
+#include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/FormatVariadic.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -33,7 +34,6 @@
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
-using namespace mlir::onnxmlir;
 
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions for shape helpers
@@ -576,8 +576,7 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
 #define GET_OP_LIST
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
       >();
-  addTypes<StringType>();
-  addTypes<SeqType>();
+  addTypes<onnxmlir::StringType, onnxmlir::SeqType>();
 }
 
 mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
@@ -585,8 +584,9 @@ mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
   if (parser.parseKeyword(&keyword))
     return Type();
 
+  MLIRContext *context = getContext();
   if (keyword == "String")
-    return StringType::get(getContext());
+    return onnxmlir::StringType::get(context);
   if (keyword == "Seq") {
     if (parser.parseLess())
       return Type();
@@ -604,23 +604,23 @@ mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
 
     if (parser.parseGreater())
       return Type();
-    return SeqType::get(elementTypes);
-  } else {
-    llvm_unreachable("Unexpected onnxmlir keyword");
+    return onnxmlir::SeqType::get(elementTypes);
   }
+
+  parser.emitError(parser.getNameLoc(), "unknown onnx type: " + keyword);
+  return Type();
 }
 
 void ONNXOpsDialect::printType(
-    mlir::Type type, mlir::DialectAsmPrinter &printer) const {
-  if (auto stringType = type.dyn_cast<StringType>()) {
-    printer << "String";
-  } else if (auto seqType = type.dyn_cast<SeqType>()) {
-    printer << "Seq<";
-    llvm::interleaveComma(seqType.getElementTypes(), printer);
-    printer << '>';
-  } else {
-    llvm_unreachable("Unexpected onnxmlir type");
-  }
+    mlir::Type type, mlir::DialectAsmPrinter &os) const {
+  TypeSwitch<Type>(type)
+      .Case<onnxmlir::StringType>([&](Type) { os << "String"; })
+      .Case<onnxmlir::SeqType>([&](onnxmlir::SeqType type) {
+        os << "Seq<";
+        llvm::interleaveComma(type.getElementTypes(), os);
+        os << '>';
+      })
+      .Default([](Type) { llvm_unreachable("Unexpected 'onnx' type kind"); });
 }
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
@@ -4455,9 +4455,9 @@ static LogicalResult verify(ONNXCategoryMapperOp op) {
     return success();
   }
 
-  ShapedType inputType = X.getType().dyn_cast<RankedTensorType>();
+  ShapedType inputType = X.getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  if (!elementType.isInteger(64) && !elementType.isa<StringType>())
+  if (!elementType.isInteger(64) && !elementType.isa<onnxmlir::StringType>())
     return op.emitError("input must be a tensor of int64 or string");
 
   // Check attributes.
@@ -4471,7 +4471,7 @@ static LogicalResult verify(ONNXCategoryMapperOp op) {
 
   if (elementType.isInteger(64) && !op.default_stringAttr())
     return op.emitError("'default_string' attribute is missing.");
-  if (elementType.isa<StringType>() && !op.default_int64Attr())
+  if (elementType.isa<onnxmlir::StringType>() && !op.default_int64Attr())
     return op.emitError("'default_int64' attribute is missing.");
   if (op.default_stringAttr() && op.default_int64Attr())
     return op.emitError("Only one of 'default_int64' or 'default_string' "
@@ -4487,9 +4487,9 @@ LogicalResult ONNXCategoryMapperOp::inferShapes(
     return success();
 
   Type inputElementType = X().getType().cast<ShapedType>().getElementType();
-  assert(
-      (inputElementType.isInteger(64) || inputElementType.isa<StringType>()) &&
-      "Input tensor must have int64 or string element type.");
+  assert((inputElementType.isInteger(64) ||
+             inputElementType.isa<onnxmlir::StringType>()) &&
+         "Input tensor must have int64 or string element type.");
 
   ONNXCategoryMapperOpAdaptor operandAdaptor(*this);
   ONNXCategoryMapperOpShapeHelper shapeHelper(this);
@@ -4498,7 +4498,7 @@ LogicalResult ONNXCategoryMapperOp::inferShapes(
 
   Type outputElementType;
   if (inputElementType.isInteger(64))
-    outputElementType = StringType::get(getContext());
+    outputElementType = onnxmlir::StringType::get(getContext());
   else
     outputElementType = IntegerType::get(getContext(), /*width=*/64);
 
@@ -4762,17 +4762,20 @@ struct SeqTypeStorage : public mlir::TypeStorage {
 } // end namespace onnxmlir
 } // end namespace mlir
 
-SeqType SeqType::get(llvm::ArrayRef<mlir::Type> elementTypes) {
+onnxmlir::SeqType onnxmlir::SeqType::get(
+    llvm::ArrayRef<mlir::Type> elementTypes) {
   assert(!elementTypes.empty() && "expected non-empty seq");
   mlir::MLIRContext *ctx = elementTypes.front().getContext();
   return Base::get(ctx, elementTypes);
 }
 
-llvm::ArrayRef<mlir::Type> SeqType::getElementTypes() const {
+llvm::ArrayRef<mlir::Type> onnxmlir::SeqType::getElementTypes() const {
   return getImpl()->elementTypes;
 }
 
-mlir::Type SeqType::getElementType() const { return getElementTypes()[0]; }
+mlir::Type onnxmlir::SeqType::getElementType() const {
+  return getElementTypes()[0];
+}
 
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
@@ -4780,6 +4783,7 @@ mlir::Type SeqType::getElementType() const { return getElementTypes()[0]; }
 
 #define GET_OP_CLASSES
 
+using namespace onnxmlir;
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
 
 template struct ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,

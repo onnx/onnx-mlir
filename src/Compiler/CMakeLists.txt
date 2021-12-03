@@ -43,6 +43,14 @@ add_onnx_mlir_library(CompilerUtils
   MLIRAffineTransforms
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
+
+  # Link LLVM libraries necessary to query which target architectures are configured.
+  LINK_COMPONENTS PRIVATE
+  AllTargetsAsmParsers
+  AllTargetsCodeGens
+  AllTargetsDescs
+  AllTargetsInfos
+  MC
   )
 
 # CompilerUtils does not require cruntime or jniruntime to build, however, they are

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //===- ShapeInferenceInterface.td - ShapeInference Interface -*- tablegen -===//
 //
 // Copyright 2019-2020 The IBM Research Authors.

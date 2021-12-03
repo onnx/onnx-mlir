@@ -4,7 +4,7 @@
 
 //====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2021 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -217,23 +217,16 @@ Value emitScalarOpFor(ConversionPatternRewriter &rewriter, Location loc,
 }
 
 //===----------------------------------------------------------------------===//
-// Conversion from Tensor type to the Standard dialect MemRef type.
+// Type conversion from Onnx types to Krnl types:
+//   - from Tensor type to the Standard dialect MemRef type
+//   - from onnx.StringType to krnl.StringType
 //===----------------------------------------------------------------------===//
 
-struct TensorTypeConverter : public TypeConverter {
+class KrnlTypeConverter : public TypeConverter {
+public:
   using TypeConverter::TypeConverter;
 
-  TensorTypeConverter() { addConversion(convertType); }
-
-  static LogicalResult convertType(Type t, SmallVectorImpl<Type> &results) {
-    if (auto type = convertToMemRefType(t)) {
-      results.push_back(type);
-      return success();
-    }
-
-    results.push_back(t);
-    return success();
-  }
+  KrnlTypeConverter();
 
   /// Return true if the inputs and outputs of the given function type are
   /// legal. [Taken from MLIR and adapted to only check the legality of the
@@ -257,8 +250,11 @@ struct TensorTypeConverter : public TypeConverter {
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
 
-// `ControlFlow` directory methods:
+// For all ONNX operations.
+void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
+    MLIRContext *ctx, TypeConverter &typeConverter);
 
+// `ControlFlow` directory methods:
 void populateLoweringONNXLoopOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
@@ -266,7 +262,6 @@ void populateLoweringONNXScanOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 // `Math` directory methods:
-
 void populateLoweringONNXClipOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
@@ -300,8 +295,11 @@ void populateLoweringONNXSoftmaxOpPattern(
 void populateLoweringONNXTopKOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
-// `NN` directory methods:
+// `ML` directory methods:
+void populateLoweringONNXCategoryMapperOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
 
+// `NN` directory methods:
 void populateLoweringONNXConvOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
@@ -441,7 +439,7 @@ Location ONNXLoc(Operation *op) {
 }
 
 /// This function returns a scalar of type 'dtype' from an optional value.
-/// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>. Default
-/// value is used in case of NoneType.
+/// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>.
+/// Default value is used in case of NoneType.
 Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
     Value optionalScalar, Type elementType, double defaultValue);

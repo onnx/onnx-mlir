@@ -39,6 +39,7 @@ set(ONNX_MLIR_LIBRARY_PATH ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 set(ONNX_MLIR_RUNTIME_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 include(CTest)
+include(ExternalProject)
 include(MLIR.cmake)
 
 # MLIR.cmake calls find_package(MLIR) which sets LLVM_MINIMUM_PYTHON_VERSION
@@ -112,6 +113,7 @@ if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   endif()
 endif()
 
+set(pybind11_FIND_QUIETLY ON)
 add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/rapidcheck)

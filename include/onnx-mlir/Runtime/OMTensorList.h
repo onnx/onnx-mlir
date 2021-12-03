@@ -43,6 +43,28 @@ extern "C" {
 OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n);
 
 /**
+ * \brief OMTensorList creator with tensor array pointers ownership
+ *
+ * Create an OMTensorList with specified OMTensor array. The array of pointers
+ * to OMTensor pointers is used without copying, so caller should not free the
+ * `tensors` ptr.
+ *
+ * This call allows the user to specify whether OMTensorList owns the tensor
+ * array of pointers, which subsequently determines whether the memory space
+ * underlying the pointers will be freed or not when OMTensorList gets
+ * destroyed.
+ *
+ * @param tensors array of pointers to OMTensor
+ * @param n number of elements in tensors array
+ * @param owning whether OMTensorList owns the tensor array pointers, if set
+ * to true, OMTensorList will release memory for the pointers upon destruction.
+ * @return pointer to the OMTensorList created, NULL if creation failed.
+ *
+ */
+OMTensorList *omTensorListCreateWithOwnership(
+    OMTensor **tensors, int64_t n, int64_t owning);
+
+/**
  * \brief OMTensorList destroyer
  *
  * Destroy the OMTensorList struct recursively. That is to say, both the

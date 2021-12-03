@@ -108,16 +108,24 @@ bool hasAllScalarValues(ArrayRef<Value> values) {
 
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type) {
-  MemRefType memRefType;
-  auto tensorType = type.dyn_cast<TensorType>();
-  if (tensorType) {
+  // Convert the element type of the (tensor or memref) to a valid Krnl type.
+  auto convertElemType = [](Type elemType) -> Type {
+    if (elemType.isa<onnxmlir::StringType>())
+      return StringType::get(elemType.getContext());
+    return elemType;
+  };
+
+  if (auto tensorType = type.dyn_cast_or_null<TensorType>()) {
     assert(tensorType.hasRank() && "expected only ranked shapes");
-    memRefType =
-        MemRefType::get(tensorType.getShape(), tensorType.getElementType());
-  } else {
-    memRefType = type.dyn_cast<MemRefType>();
+    MemRefType memRefType = MemRefType::get(
+        tensorType.getShape(), convertElemType(tensorType.getElementType()));
+    return memRefType;
   }
-  return memRefType;
+
+  assert(type.isa<MemRefType>() && "Expecting a MemRefType");
+  auto memRefType = type.cast<MemRefType>();
+  return MemRefType::get(
+      memRefType.getShape(), convertElemType(memRefType.getElementType()));
 }
 
 /// Insert an allocation and deallocation for the given MemRefType.
@@ -737,4 +745,46 @@ Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
     Value zero = create.math.constantIndex(0);
     return create.krnl.load(optionalScalar, {zero});
   }
+}
+
+//===----------------------------------------------------------------------===//
+// Type conversion from Onnx types to Krnl types.
+//===----------------------------------------------------------------------===//
+
+KrnlTypeConverter::KrnlTypeConverter() {
+  // The order of type conversion is important: later ones are tried earlier.
+  addConversion([](Type type) { return type; });
+
+  addConversion([](onnxmlir::StringType stringType) {
+    return StringType::get(stringType.getContext());
+  });
+
+  addConversion([](TensorType tensorType) {
+    assert(tensorType.hasRank() && "expected only ranked shapes");
+    if (tensorType.getElementType().isa<onnxmlir::StringType>()) {
+      Type elementType = StringType::get(tensorType.getContext());
+      return MemRefType::get(tensorType.getShape(), elementType);
+    }
+    return MemRefType::get(tensorType.getShape(), tensorType.getElementType());
+  });
+
+  addSourceMaterialization([&](OpBuilder &builder, Type resultType,
+                               ValueRange inputs,
+                               Location loc) -> Optional<Value> {
+    if (inputs.size() != 1)
+      return llvm::None;
+
+    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+        .getResult(0);
+  });
+
+  addTargetMaterialization([&](OpBuilder &builder, Type resultType,
+                               ValueRange inputs,
+                               Location loc) -> Optional<Value> {
+    if (inputs.size() != 1)
+      return llvm::None;
+
+    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+        .getResult(0);
+  });
 }

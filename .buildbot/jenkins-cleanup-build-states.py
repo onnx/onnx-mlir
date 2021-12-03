@@ -94,7 +94,7 @@ def cleanup_docker_images(host_name,
         image_tag = pr_number.lower()
         for image_name in IMAGE_NAMES:
             image_repo2 = (image_name +
-                           ('.' + pr_baseref2 if pr_baseref != 'master' else ''))
+                           ('.' + pr_baseref2 if pr_baseref != 'main' else ''))
             image_full = image_repo1 + image_repo2 + ':' + image_tag
             images.append(image_full)
 
@@ -152,7 +152,7 @@ def main():
                           github_pr_baseref2, # lower case base branch name
                                               # for use in image name
                           github_pr_number,   # github pull request number or merge branch
-                                              # which can be alphanumeric (e.g. master)
+                                              # which can be alphanumeric (e.g. main)
                           github_pr_number2,  # original github pull request number
                                               # which is numeric only
                           dangling)

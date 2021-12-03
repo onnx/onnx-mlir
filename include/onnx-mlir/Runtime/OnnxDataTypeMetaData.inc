@@ -5,6 +5,8 @@
 #if defined(OM_TYPE_METADATA_DEF)
 // Data type metadata declared in the following format:
 // OM_TYPE_METADATA_DEF( dtype enum name, dtype enum value, dtype size)
+// dtype enum values are standard ONNX data types defined in
+// https://github.com/onnx/onnx/blob/master/onnx/onnx.proto#L484
 // clang-format off
 OM_TYPE_METADATA_DEF(ONNX_TYPE_UNDEFINED,   0,  0)
 OM_TYPE_METADATA_DEF(ONNX_TYPE_FLOAT,       1,  sizeof(float))

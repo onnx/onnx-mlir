@@ -53,7 +53,7 @@ Value OnnxBuilder::transpose(
   return b.create<ONNXTransposeOp>(loc, outputType, input, perm);
 }
 
-Value OnnxBuilder::constant(Attribute denseAttr) {
+Value OnnxBuilder::constant(Attribute denseAttr) const {
   return b.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 

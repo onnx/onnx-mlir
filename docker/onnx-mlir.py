@@ -48,6 +48,7 @@ def main():
               end='', flush=True)
     proc.wait()
     if (proc.returncode != 0):
+        print("docker pull failed")
         return
 
     # Go through the command line options and locate the
