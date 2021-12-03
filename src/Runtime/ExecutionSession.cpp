@@ -56,10 +56,10 @@ ExecutionSession::ExecutionSession(
       _sharedLibraryHandle.getAddressOfSymbol(outputSignatureName.c_str()));
   if (!_outputSignatureFunc) {
     std::stringstream errStr;
-    errStr << "Cannot load symbol: '" << outputSignatureName << "'" << std::endl;
+    errStr << "Cannot load symbol: '" << outputSignatureName << "'"
+           << std::endl;
     throw std::runtime_error(errStr.str());
   }
-
 }
 
 std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>>
@@ -82,14 +82,11 @@ ExecutionSession::run(
   return outs;
 }
 
-std::string ExecutionSession::inputSignature() {
-  return _inputSignatureFunc();
-}
+std::string ExecutionSession::inputSignature() { return _inputSignatureFunc(); }
 
 std::string ExecutionSession::outputSignature() {
   return _outputSignatureFunc();
 }
-
 
 ExecutionSession::~ExecutionSession() {
   // Call llvm_shutdown which will take care of cleaning up our shared library

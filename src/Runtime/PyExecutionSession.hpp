@@ -40,5 +40,6 @@ PYBIND11_MODULE(PyRuntime, m) {
       .def(py::init<const std::string &, const std::string &>())
       .def("run", &onnx_mlir::PyExecutionSession::pyRun)
       .def("input_signature", &onnx_mlir::PyExecutionSession::pyInputSignature)
-      .def("output_signature", &onnx_mlir::PyExecutionSession::pyOutputSignature);
+      .def("output_signature",
+          &onnx_mlir::PyExecutionSession::pyOutputSignature);
 }
