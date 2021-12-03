@@ -25,6 +25,14 @@
 #include "ExternalUtil.hpp"
 #include "src/Support/OMOptions.hpp"
 
+extern "C" {
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+}
+
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
@@ -320,6 +328,14 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
 
   llvm::raw_fd_ostream moduleBitcodeStream(
       unoptimizedBitcodePath, error, llvm::sys::fs::OF_None);
+  if (error.value() == EACCES) {
+    llvm::errs() << "Permission denied to write " << unoptimizedBitcodePath +
+        "\n";
+    exit(1);
+  } else if (error.value() == ENOENT) {
+    llvm::errs() << "Path not found for " << unoptimizedBitcodePath + "\n";
+    exit(1);
+  }
 
   llvm::LLVMContext llvmContext;
   mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
@@ -642,7 +658,20 @@ void outputCode(
   string errorMessage;
   auto output = openOutputFile(filename + extension, &errorMessage);
   if (!output) {
-    llvm::errs() << errorMessage << "\n";
+    // Investigate the error detail reason
+    int fd = open((filename + extension).c_str(), O_CREAT | O_WRONLY);
+    switch (errno) {
+    case ENOTDIR:
+      llvm::errs() << "directory not found for " + filename + extension + "\n";
+      break;
+    case EPERM:
+      llvm::errs() << "no write permission for " + filename + extension + "\n";
+      break;
+    default:
+      llvm::errs() << errorMessage << "\n";
+      break;
+    }
+    close(fd);
     exit(1);
   }
 

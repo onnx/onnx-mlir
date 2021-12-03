@@ -32,6 +32,15 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
 
+extern "C" {
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#define PATH_SIZE 1024
+}
+
 #ifdef _WIN32
 #include <io.h>
 #endif
@@ -72,7 +81,24 @@ private:
     std::string errorMessage;
     auto output = mlir::openOutputFile(filename, &errorMessage);
     if (!output) {
-      llvm::errs() << errorMessage << "\n";
+      // Investigate the error detail reason
+      char curr_dir[PATH_SIZE];
+      getcwd(curr_dir, PATH_SIZE);
+      std::string outputname = ((filename.c_str())[0] == '/') ? filename :
+          (filename + " at " + curr_dir);
+      int fd = open(filename.c_str(), O_CREAT | O_WRONLY);
+      switch (errno) {
+      case ENOTDIR:
+        llvm::errs() << "directory not found for " + outputname << "\n";
+        break;
+      case EACCES:
+        llvm::errs() << "no write permission for " + outputname << "\n";
+        break;
+      default:
+        llvm::errs() << errorMessage << "\n";
+        break;
+      }
+      close(fd);
       exit(1);
     }
 
