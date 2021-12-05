@@ -174,7 +174,7 @@ class SignatureExecutionSession(object):
         from PyRuntime import ExecutionSession
 
         session = ExecutionSession(self.exec_name, self.entry_point)
-        output = session.inputSig()
+        output = session.input_signature()
         return output
 
 

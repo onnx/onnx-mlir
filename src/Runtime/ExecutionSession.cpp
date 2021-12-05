@@ -25,8 +25,8 @@ namespace onnx_mlir {
 const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
 const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
 
-ExecutionSession::ExecutionSession(std::string sharedLibPath,
-    std::string entryPointName, std::string inputSignatureName) {
+ExecutionSession::ExecutionSession(
+    std::string sharedLibPath, std::string entryPointName) {
 
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getPermanentLibrary(sharedLibPath.c_str());
