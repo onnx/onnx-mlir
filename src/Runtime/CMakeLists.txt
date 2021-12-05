@@ -58,8 +58,16 @@ set_target_properties(ExecutionSession
   )
 
 pybind11_add_module(PyRuntime PyExecutionSession.cpp)
+target_compile_definitions(PyRuntime
+  PRIVATE
+  -DONNX_ML=1 -DONNX_NAMESPACE=onnx
+  )
+target_include_directories(PyRuntime
+  PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/third_party/onnx>
+  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/third_party/onnx>
+  )
 target_link_libraries(PyRuntime
   PRIVATE
   ExecutionSession
-  onnx
   )
