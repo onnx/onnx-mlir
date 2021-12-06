@@ -1,2 +1,5 @@
 EXPORTS 
 run_main_graph
+omInputSignature
+omOutputSignature
+

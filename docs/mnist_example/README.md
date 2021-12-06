@@ -5,9 +5,10 @@ Table of Contents
       * [Training the Model](#training-the-model)
       * [Environment Variables Setup:](#environment-variables-setup)
       * [Compile Model](#compile-model)
-      * [Write a Driver Code](#write-a-driver-code)
+      * [Write a C Driver Code](#write-a-C-driver-code)
          * [Inference Entry Point](#inference-entry-point)
          * [Feeding Inputs and Retrieving Results](#feeding-inputs-and-retrieving-results)
+      * [Write a Python Driver Code](#write-a-Python-driver-code)
 
 # Train Model in PyTorch, Compile using ONNX-MLIR
 
@@ -95,7 +96,7 @@ onnx-mlir mnist.onnx
 
 A `mnist.so` should appear, which corresponds to the compiled model object file.
 
-## Write a Driver Code
+## Write a C Driver Code
 
 To invoke the compiled model, we need to know the entry point signature with which to call into the model inference function, and based on it, engineer a C++ driver that feeds test data into this inference function and retrieve the prediction results.
 
@@ -178,5 +179,36 @@ prediction[8] = 0.000000
 prediction[9] = 0.000000
 The digit is 0
 ```
+
+The full code is available [here](mnist.cpp).
+
+## Write a Python Driver Code
+
+You will find most of the details of they Python driver interface described [here](../UsingPyRuntime.md). We summarize here quickly how to execute mnist in python.
+
+First, we include the necessary Python runtime library. The library path can be set by using the PYTHONPATH or simply creating a soft link in the current directory to the Python shared library (typically: `build/Debug/lib/PyRuntime.cpython-<target>.so`).
+
+``` Python
+import numpy as np
+from PyRuntime import ExecutionSession
+```
+
+The runtime use an `ExecutionSession` object to hold a specific model and entry point. On this object, we can perform in inference using the `run(input)` call where `input` is a list of numpy arrays. The signature of the input and output model can be extracted using, respectively, the `input_signature()` and `output_signature()` formatted as JSON strings. The code is shown below.
+
+``` Python
+# Load the model mnist.so compiled with onnx-mlir.
+model = 'mnist.so'
+session = ExecutionSession(model, "run_main_graph")
+# Print the models input/output signature, for display.
+print("input signature in json", session.input_signature())
+print("output signature in json",session.output_signature())
+# Create an input arbitrarily filled of 1.0 values.
+input = np.full((1, 1, 28, 28), 1, np.dtype(np.float32))
+# Run the model.
+outputs = session.run([input])
+```
+The outputs can then be analyzed by inspecting the values inside the `output` list of numpy arrays.
+
+The full code is available [here](mnist.py). It finds that `8` is the most likely digit for the given input.
 
 
