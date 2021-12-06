@@ -29,12 +29,12 @@ add_onnx_mlir_library(OMONNXOps
   ShapeInference/Expand.cpp
   ShapeInference/Gather.cpp
   ShapeInference/Gemm.cpp
+  ShapeInference/LRN.cpp
   ShapeInference/MatMul.cpp
   ShapeInference/MaxPool.cpp
   ShapeInference/ONNXShapeHelper.cpp  
   ShapeInference/OneHot.cpp
   ShapeInference/Pad.cpp
-  ShapeInference/RNN.cpp
   ShapeInference/Reshape.cpp
   ShapeInference/ReverseSequence.cpp
   ShapeInference/Shape.cpp
