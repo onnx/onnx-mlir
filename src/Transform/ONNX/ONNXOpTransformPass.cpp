@@ -33,11 +33,11 @@
 #include "src/Support/OMOptions.hpp"
 
 extern "C" {
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #define PATH_SIZE 1024
 }
 
@@ -84,9 +84,11 @@ private:
       // Investigate the error detail reason
       char curr_dir[PATH_SIZE];
       getcwd(curr_dir, PATH_SIZE);
-      std::string outputname = ((filename.c_str())[0] == '/') ? filename :
-          (filename + " at " + curr_dir);
-      int fd = open(filename.c_str(), O_CREAT | O_WRONLY);
+      std::string outputname = ((filename.c_str())[0] == '/')
+                                   ? filename
+                                   : (filename + " at " + curr_dir);
+      int fd = open(filename.c_str(), O_CREAT | O_WRONLY,
+          S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
       switch (errno) {
       case ENOTDIR:
         llvm::errs() << "directory not found for " + outputname << "\n";
