@@ -30,11 +30,11 @@
 #include "src/Support/OMOptions.hpp"
 
 extern "C" {
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 }
 
 using namespace std;
@@ -358,8 +358,8 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   llvm::raw_fd_ostream moduleBitcodeStream(
       unoptimizedBitcodePath, error, llvm::sys::fs::OF_None);
   if (error.value() == EACCES) {
-    llvm::errs() << "Permission denied to write " << unoptimizedBitcodePath +
-        "\n";
+    llvm::errs() << "Permission denied to write "
+                 << unoptimizedBitcodePath + "\n";
     exit(error.value());
   } else if (error.value() == ENOENT) {
     llvm::errs() << "Path not found for " << unoptimizedBitcodePath + "\n";
