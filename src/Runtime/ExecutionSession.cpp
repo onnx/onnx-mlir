@@ -22,6 +22,8 @@
 #include "llvm/Support/ManagedStatic.h"
 
 namespace onnx_mlir {
+const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
+const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
 
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, std::string entryPointName) {
@@ -42,21 +44,20 @@ ExecutionSession::ExecutionSession(
     throw std::runtime_error(errStr.str());
   }
 
-  std::string inputSignatureName("omInputSignature");
   _inputSignatureFunc = reinterpret_cast<signatureFuncType>(
-      _sharedLibraryHandle.getAddressOfSymbol(inputSignatureName.c_str()));
+      _sharedLibraryHandle.getAddressOfSymbol(_inputSignatureName.c_str()));
   if (!_inputSignatureFunc) {
     std::stringstream errStr;
-    errStr << "Cannot load symbol: '" << inputSignatureName << "'" << std::endl;
+    errStr << "Cannot load symbol: '" << _inputSignatureName << "'"
+           << std::endl;
     throw std::runtime_error(errStr.str());
   }
 
-  std::string outputSignatureName("omOutputSignature");
   _outputSignatureFunc = reinterpret_cast<signatureFuncType>(
-      _sharedLibraryHandle.getAddressOfSymbol(outputSignatureName.c_str()));
+      _sharedLibraryHandle.getAddressOfSymbol(_outputSignatureName.c_str()));
   if (!_outputSignatureFunc) {
     std::stringstream errStr;
-    errStr << "Cannot load symbol: '" << outputSignatureName << "'"
+    errStr << "Cannot load symbol: '" << _outputSignatureName << "'"
            << std::endl;
     throw std::runtime_error(errStr.str());
   }
