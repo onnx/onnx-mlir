@@ -14,7 +14,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "onnx/onnx_pb.h"
-#include <third_party/onnx/onnx/onnx_pb.h>
 
 #include "PyExecutionSession.hpp"
 
