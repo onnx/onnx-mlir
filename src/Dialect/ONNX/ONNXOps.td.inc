@@ -5291,6 +5291,7 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",

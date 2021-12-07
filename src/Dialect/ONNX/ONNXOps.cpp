@@ -867,6 +867,89 @@ LogicalResult ONNXSeluOp::inferShapes(
   return success();
 }
 
+// Sequence related operations
+// The general form for seq is seq<tensor<*xT>>
+// Tensors will be add or removed a seq dynamically.
+// The type of tensor should be a summary of all the tensors in the seq,
+// and can change after insertion.
+// It is possible seq<tensor<*xT>> can be refined into seq<RankedTensor>,
+// or even seq<StaticShapedTensor> if all the tensors have common shape info
+// A seq is started empty as the result of SequenceEmpty. We can track this
+// property with a tag in seq type or along dataflow.
+// When the an element is added, we can do some shape inference.
+// It is not easy to do anything when an element is removed.
+// Since the seq is usually used as a parameter of a graph (e.g. for LoopOp),
+// shape inference for region may need improvement.
+// However, the motivation for seq is to support tensors with
+// different shape in a seq. Otherwise a tensor with an extra dimension can
+// be used. The benefit to refine shape info for seq is unclear to me.
+// Therefore, the current implementation does not try to refine the shape info.
+
+LogicalResult ONNXSequenceInsertOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return success();
+}
+
+static LogicalResult verify(ONNXSequenceInsertOp op) {
+  ONNXSequenceInsertOpAdaptor operandAdaptor = ONNXSequenceInsertOpAdaptor(op);
+
+  // These cast should be guaranteed by default verifier
+  Type seqElementType = operandAdaptor.input_sequence()
+                            .getType()
+                            .dyn_cast<mlir::onnxmlir::SeqType>()
+                            .getElementType();
+  Type elementType1 = seqElementType.dyn_cast<ShapedType>().getElementType();
+  ShapedType insertType =
+      operandAdaptor.tensor().getType().dyn_cast<ShapedType>();
+  Type elementType2 = insertType.getElementType();
+
+  if (elementType1 != elementType2) {
+    return op.emitError("Element types of the tensor in seqence and input "
+                        "have to be the same");
+  }
+  return success();
+}
+
+LogicalResult ONNXConcatFromSequenceOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return success();
+}
+
+LogicalResult ONNXSequenceAtOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return success();
+}
+
+LogicalResult ONNXSequenceConstructOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return success();
+}
+
+LogicalResult ONNXSequenceEmptyOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return success();
+}
+
+LogicalResult ONNXSequenceEraseOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return success();
+}
+
+LogicalResult ONNXSequenceLengthOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  Type outputTy = getResult().getType();
+  if (!outputTy.isa<RankedTensorType>() ||
+      outputTy.cast<RankedTensorType>().getRank() != 0) {
+    SmallVector<int64_t, 1> dims;
+    auto builder = mlir::Builder(getContext());
+    Type scalarTy =
+        mlir::RankedTensorType::get(dims, builder.getIntegerType(64));
+    getResult().setType(scalarTy);
+  }
+  // ElementType of I64 will be checked by verifier
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // PRelu
 //===----------------------------------------------------------------------===//
@@ -3498,11 +3581,6 @@ LogicalResult ONNXCompressOp::inferShapes(
   return success();
 }
 
-LogicalResult ONNXConcatFromSequenceOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
 LogicalResult ONNXCumSumOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   getResult().setType(getOperand(0).getType());
@@ -4248,36 +4326,6 @@ LogicalResult ONNXScatterNDOp::inferShapes(
 
   getResult().setType(data().getType());
   return success();
-}
-
-LogicalResult ONNXSequenceAtOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXSequenceConstructOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXSequenceEmptyOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXSequenceEraseOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXSequenceInsertOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXSequenceLengthOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
 LogicalResult ONNXShrinkOp::inferShapes(
