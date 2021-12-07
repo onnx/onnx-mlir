@@ -352,7 +352,7 @@ An example based on the add operation is found [here](docs/doc_example), which b
 
 ## End to end example
 
-An end to end example is provided [here](docs/mnist_example/README.md), which train, compile, and execute a simple MNINST example.
+An end to end example is provided [here](docs/mnist_example/README.md), which train, compile, and execute a simple MNIST example using both the C++ or Python interface.
 
 
 ## Troubleshooting

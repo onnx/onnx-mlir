@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------ PyExecusionSession.hpp - PyExecutionSession Declaration -------===//
+//===------ PyExecutionSession.hpp - PyExecutionSession Declaration -------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains declaration of PyExecusionSession class, which helps
+// This file contains declaration of PyExecutionSession class, which helps
 // python programs interact with compiled binary model libraries.
 //
 //===----------------------------------------------------------------------===//
@@ -29,11 +29,17 @@ public:
       : onnx_mlir::ExecutionSession(sharedLibPath, entryPointName){};
 
   std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray);
+
+  std::string pyInputSignature();
+  std::string pyOutputSignature();
 };
 } // namespace onnx_mlir
 
 PYBIND11_MODULE(PyRuntime, m) {
   py::class_<onnx_mlir::PyExecutionSession>(m, "ExecutionSession")
       .def(py::init<const std::string &, const std::string &>())
-      .def("run", &onnx_mlir::PyExecutionSession::pyRun);
+      .def("run", &onnx_mlir::PyExecutionSession::pyRun)
+      .def("input_signature", &onnx_mlir::PyExecutionSession::pyInputSignature)
+      .def("output_signature",
+          &onnx_mlir::PyExecutionSession::pyOutputSignature);
 }
