@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------- RNN.cpp - Shape Inference for RNN Op -----------------===//
+//===--------------- LRN.cpp - Shape Inference for LRN Op -----------------===//
 //
-// This file implements shape inference for the ONNX RNN Operator.
+// This file implements shape inference for the ONNX LRN Operator.
 //
 //===----------------------------------------------------------------------===//
 

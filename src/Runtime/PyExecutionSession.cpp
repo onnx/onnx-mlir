@@ -2,19 +2,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----- PyExecusionSession.hpp - PyExecutionSession Implementation -----===//
+//===----- PyExecutionSession.hpp - PyExecutionSession Implementation -----===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains implementations of PyExecusionSession class, which helps
+// This file contains implementations of PyExecutionSession class, which helps
 // python programs interact with compiled binary model libraries.
 //
 //===----------------------------------------------------------------------===//
 
 #include "onnx/onnx_pb.h"
-#include <third_party/onnx/onnx/onnx_pb.h>
 
 #include "PyExecutionSession.hpp"
 
@@ -135,4 +134,15 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
   return outputPyArrays;
 }
+
+std::string PyExecutionSession::pyInputSignature() {
+  assert(_inputSignatureFunc && "Input signature entry point not loaded.");
+  return inputSignature();
+}
+
+std::string PyExecutionSession::pyOutputSignature() {
+  assert(_outputSignatureFunc && "Output signature entry point not loaded.");
+  return outputSignature();
+}
+
 } // namespace onnx_mlir

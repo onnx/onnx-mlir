@@ -47,6 +47,7 @@ Since you are interested in contributing code, you may look [here](docs/Workflow
 
 ## Running ONNX models in Python and C
 
+* Here is an end to end MNIST example using C++ or python interface [link](docs/mnist_example/README.md).
 * Here is how to run a compiled model in python [link](docs/UsingPyRuntime.md).
 * Here is the C runtime API to run models in C/C++ [link](http://onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html).
 
