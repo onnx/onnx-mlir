@@ -113,7 +113,7 @@ int32_t getAttrValue(Attribute attr) {
 char *getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op) {
   ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
   assert(constOp && "Not a constant operation");
-  char *res;
+  char *res = nullptr;
 
   Attribute bufferIDAttr = op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR);
   if (bufferIDAttr) {
@@ -203,11 +203,13 @@ ONNXConstantOp createConstantOpAndStoreBufferPtr(
 
   // Store the buffer pointer.
   unsigned bufferId = (unsigned)-1;
-  for (unsigned i = 0; i < bufferPtrs.size(); ++i)
+  for (unsigned i = 0; i < bufferPtrs.size(); ++i) {
     if (bufferPtrs[i] == vt) {
       bufferId = i;
       break;
     }
+  }
+
   if (bufferId == (unsigned)-1) {
     bufferPtrs.emplace_back(vt);
     bufferId = bufferPtrs.size() - 1;
@@ -614,6 +616,124 @@ public:
   }
 };
 
+// https://github.com/onnx/onnx/blob/master/docs/Changelog.md#ScatterND-13
+/*
+ * output = np.copy(data)
+ * update_indices = indices.shape[:-1]
+ * for idx in np.ndindex(update_indices):
+ *     output[indices[idx]] = updates[idx]
+ */
+template <typename T>
+LogicalResult ScatterNDImpl(
+    PatternRewriter &rewriter, ONNXScatterNDOp scatterNdOp, char *raw_buffer) {
+
+  char *data_value = getArrayFromAttributeOrBuffer(
+      rewriter, scatterNdOp.data().getDefiningOp());
+  char *indices_value = getArrayFromAttributeOrBuffer(
+      rewriter, scatterNdOp.indices().getDefiningOp());
+  char *updates_value = getArrayFromAttributeOrBuffer(
+      rewriter, scatterNdOp.updates().getDefiningOp());
+
+  auto data_shape = scatterNdOp.data().getType().cast<ShapedType>().getShape();
+  auto indices_shape =
+      scatterNdOp.indices().getType().cast<ShapedType>().getShape();
+  auto updates_shape =
+      scatterNdOp.updates().getType().cast<ShapedType>().getShape();
+
+  // the output shape keep same with data, so fill with input data temporarily
+  T *output_data = reinterpret_cast<T *>(data_value);
+  int64_t *indices_data = reinterpret_cast<int64_t *>(indices_value);
+  T *updates_data = reinterpret_cast<T *>(updates_value);
+
+  int64_t n_slices = 1;
+  int64_t slice_size = 1;
+
+  int64_t outer_dims = indices_shape.size() - 1;
+  int64_t indices_nd = indices_shape[outer_dims];
+  int64_t updates_dims = updates_shape.size();
+
+  for (int64_t i = 0; i < outer_dims; i++) {
+    n_slices *= indices_shape[i];
+  }
+
+  for (int64_t i = outer_dims; i < updates_dims; i++) {
+    slice_size *= updates_shape[i];
+  }
+
+  int64_t output_flat_size = getNumberOfElements(data_shape);
+  int64_t remain_flat_size = output_flat_size;
+  std::vector<int64_t> dims_to_count(indices_nd, 0);
+
+  for (int64_t i = 0; i < indices_nd; ++i) {
+    dims_to_count[i] = remain_flat_size / data_shape[i];
+    remain_flat_size = dims_to_count[i];
+  }
+
+  for (int64_t i = 0; i < n_slices; ++i) {
+    int64_t to_pos = 0;
+    for (int64_t j = 0; j < indices_nd; ++j) {
+      int64_t idx = indices_data[i * indices_nd + j];
+      // assert(0 <= idx && idx < data_shape[j]);
+      to_pos += idx * dims_to_count[j];
+    }
+    for (int64_t j = 0; j < slice_size; j++) {
+      output_data[to_pos + j] = updates_data[i * slice_size + j];
+    }
+  }
+
+  std::memcpy(raw_buffer, data_value, output_flat_size * 8);
+  return success();
+}
+
+class ConstPropScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
+public:
+  using OpRewritePattern<ONNXScatterNDOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXScatterNDOp scatterNdOp, PatternRewriter &rewriter) const override {
+    // Match
+    if (!scatterNdOp.getResult()
+             .getType()
+             .template dyn_cast_or_null<RankedTensorType>())
+      return failure();
+
+    if (!isFromDenseONNXConstantOp(scatterNdOp.data()))
+      return failure();
+
+    if (!isFromDenseONNXConstantOp(scatterNdOp.indices()))
+      return failure();
+
+    if (!isFromDenseONNXConstantOp(scatterNdOp.updates()))
+      return failure();
+
+    char *result_raw_data =
+        allocateBufferFor(scatterNdOp.data().getType(), /*useMaxSize=*/true);
+
+    mlir::ShapedType shaped_type =
+        scatterNdOp.data().getType().cast<ShapedType>();
+
+    if (shaped_type.getElementType().isa<FloatType>()) {
+      if (mlir::failed(
+              ScatterNDImpl<double>(rewriter, scatterNdOp, result_raw_data)))
+        return failure();
+    } else if (shaped_type.getElementType().isa<IntegerType>()) {
+      if (mlir::failed(
+              ScatterNDImpl<int64_t>(rewriter, scatterNdOp, result_raw_data)))
+        return failure();
+    } else {
+      llvm_unreachable("type not yet supported");
+    }
+
+    // Construct result values.
+    ONNXConstantOp gen_const_op = createConstantOpAndStoreBufferPtr(
+        rewriter, scatterNdOp.data(), result_raw_data);
+
+    SmallVector<Value, 1> op_repl_values(1, gen_const_op.getResult());
+    rewriter.replaceOp(scatterNdOp, op_repl_values);
+    return success();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
@@ -649,7 +769,7 @@ void ConstPropONNXToONNXPass::runOnFunction() {
   populateWithGenerated(patterns);
   patterns.insert<ConstPropSplitPattern>(&getContext());
   patterns.insert<ConstPropSplitV11Pattern>(&getContext());
-
+  patterns.insert<ConstPropScatterNDPattern>(&getContext());
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 
