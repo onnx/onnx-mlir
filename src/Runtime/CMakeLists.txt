@@ -66,6 +66,7 @@ target_include_directories(PyRuntime
   PRIVATE
   $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/third_party/onnx>
   $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/third_party/onnx>
+  ${Protobuf_INCLUDE_DIR}
   )
 target_link_libraries(PyRuntime
   PRIVATE
