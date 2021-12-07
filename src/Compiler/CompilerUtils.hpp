@@ -34,6 +34,9 @@
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::opt<std::string> instrumentONNXOps;
 
+string getErrorMessageforFileOpeningErrors(string path, int _errno, int _flags,
+    int _mode);
+
 void setTargetCPU(const std::string &cpu);
 void setTargetTriple(const std::string &triple);
 

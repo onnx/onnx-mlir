@@ -216,6 +216,25 @@ string getToolPath(string tool) {
     return string();
 }
 
+//
+// Return error message for given error number for opening file at given path
+// If error number is not given, investigate it by opening it.
+//
+string getErrorMessageforFileOpeningErrors(string path, int _errno = -1,
+    int _flags = -1, int _mode = -1) {
+  // If errno not given investigate the error by opening the path
+  if (_errno < 0) {
+    int flags = (_flags >= 0) ? _flags : (O_CREAT | O_WRONLY);
+    int mode = (_mode >= 0) ? _mode : (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    fd = open(path, flags, mode);
+    _errno = errno;
+    close(fd);
+  }
+  char dir[PATH_SIZE];
+  getcwd(dir, PATH_SIZE);
+  string msg = strerror(_errno) + "(" + _errno + ") for " + path + " at " dir;
+  return errorMessage;
+}
 // Helper struct to make command construction and execution easy & readable.
 struct Command {
   std::string _path;
@@ -357,15 +376,10 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   // Otherwise, a "No such file or directory" error will be returned.
   llvm::raw_fd_ostream moduleBitcodeStream(
       unoptimizedBitcodePath, error, llvm::sys::fs::OF_None);
-  if (error.value() == EACCES) {
-    llvm::errs() << "Permission denied to write "
-                 << unoptimizedBitcodePath + "\n";
-    exit(error.value());
-  } else if (error.value() == ENOENT) {
-    llvm::errs() << "Path not found for " << unoptimizedBitcodePath + "\n";
-    exit(error.value());
-  } else if (error) {
-    llvm::errs() << unoptimizedBitcodePath << ": " << error.message() << "\n";
+  if (error) {
+    string errorMessage = getErrorMessageforFileOpeningErrors(
+        unoptimizedBitcodePath, error.value());
+    llvm::errs() << errorMessage << "\n";
     exit(error.value());
   }
 
@@ -693,20 +707,10 @@ void outputCode(
   string errorMessage;
   auto output = openOutputFile(filename + extension, &errorMessage);
   if (!output) {
-    // Investigate the error detail reason
-    int fd = open((filename + extension).c_str(), O_CREAT | O_WRONLY);
-    switch (errno) {
-    case ENOTDIR:
-      llvm::errs() << "directory not found for " + filename + extension + "\n";
-      break;
-    case EPERM:
-      llvm::errs() << "no write permission for " + filename + extension + "\n";
-      break;
-    default:
-      llvm::errs() << errorMessage << "\n";
-      break;
-    }
-    close(fd);
+    // Geneate error message for opning file
+    string fileErrorMessage =
+        getErrorMessageforFileOpeningErrors(filename + extension);
+    llvm::errs() << fileErrorMessage << "\n";
     exit(1);
   }
 
