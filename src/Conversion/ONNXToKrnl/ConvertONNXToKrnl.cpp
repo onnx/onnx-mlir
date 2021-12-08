@@ -132,7 +132,8 @@ struct FrontendToKrnlLoweringPass
   // Make sure that we have a valid default constructor and copy
   // constructor to make sure that the options are initialized properly.
   FrontendToKrnlLoweringPass() = default;
-  FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass) {}
+  FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass)
+      : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {}
   FrontendToKrnlLoweringPass(bool emitDealloc) {
     this->emitDealloc = emitDealloc;
   }
