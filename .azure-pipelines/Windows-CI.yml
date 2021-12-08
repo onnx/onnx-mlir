@@ -55,10 +55,9 @@ jobs:
       Write-Output "##vso[task.setvariable variable=MLIRArtifactName]$mlir_tag"
       if ($build_id) {
         Write-Output "##vso[task.setvariable variable=MLIRBuildID]$build_id"
-        Write-Output "##vso[task.setvariable variable=BuildMLIR]false"
       } else {
         Write-Output "##vso[build.addbuildtag]$mlir_tag"
-        Write-Output "##vso[task.setvariable variable=BuildMLIR]true"
+        Write-Output "##vso[task.setvariable variable=MLIRBuildID]NotFound"
       }
     displayName: Check for MLIR Artifact
     failOnStderr: true
@@ -69,12 +68,12 @@ jobs:
       call onnx-mlir\utils\install-mlir.cmd
     displayName: Install mlir
     workingDirectory: $(Agent.BuildDirectory)
-    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'true'))
+    condition: and(succeeded(), neq(variables['MLIRBuildID'], 'NotFound'))
 
   - publish: $(Agent.BuildDirectory)/llvm-project/build/install
     artifact: $(MLIRArtifactName)
     displayName: Publish MLIR Artifact
-    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'true'))
+    condition: and(succeeded(), neq(variables['MLIRBuildID'], 'NotFound'))
       
   - task: DownloadPipelineArtifact@2
     inputs:
@@ -86,7 +85,7 @@ jobs:
       artifact: $(MLIRArtifactName)
       path: $(Agent.BuildDirectory)\llvm-project\build
     displayName: Download MLIR Artifact
-    condition: and(succeeded(), neq(variables['MLIRBuildID'], 'false'))
+    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
