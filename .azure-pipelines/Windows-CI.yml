@@ -85,7 +85,7 @@ jobs:
       artifact: $(MLIRArtifactName)
       path: $(Agent.BuildDirectory)\llvm-project\build
     displayName: Download mlir artifact
-    condition: and(succeeded(), neq(variables['MLIRBuildID'], 'NotFound'))
+    condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
