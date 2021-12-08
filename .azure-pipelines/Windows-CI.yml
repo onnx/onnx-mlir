@@ -1,3 +1,6 @@
+# Builds and tests ONNX MLIR
+# Downloads MLIR artifact if it exists for the current LLVM commit, otherwise builds MLIR and publishes artifact
+
 trigger:
 - main
 
@@ -7,12 +10,10 @@ parameters:
   default: '4'
 
 jobs:
-- job: 'Build_onnx_mlir_Windows'
+- job: Build_onnx_mlir_Windows
   timeoutInMinutes: 240
   pool:
     vmImage: 'windows-2019'
-  strategy:
-    maxParallel: 4
 
   steps:
   - task: UsePythonVersion@0
@@ -43,11 +44,49 @@ jobs:
     displayName: Install protobuf
     workingDirectory: $(Agent.BuildDirectory)
 
+  - powershell: |
+      $mlir_match = Select-String -Path onnx-mlir\utils\clone-mlir.sh -Pattern "git checkout ([\da-f]+)"
+      $mlir_tag = "MLIR_Windows_$($mlir_match.Matches.Groups[1].Value)"
+
+      $build_list = az pipelines build list --org https://dev.azure.com/onnx-pipelines --project onnx --definition-ids 9 --tags $mlir_tag --status completed --result succeeded | ConvertFrom-Json
+      $most_recent = $build_list | Sort-Object startTime | Select-Object -Last 1
+      $build_id = $most_recent.id
+
+      Write-Output "##vso[task.setvariable variable=MLIRArtifactName]$mlir_tag"
+      if ($build_id) {
+        Write-Output "##vso[task.setvariable variable=MLIRBuildID]$build_id"
+        Write-Output "##vso[task.setvariable variable=BuildMLIR]false"
+      } else {
+        Write-Output "##vso[build.addbuildtag]$mlir_tag"
+        Write-Output "##vso[task.setvariable variable=BuildMLIR]true"
+      }
+    displayName: Check for MLIR Artifact
+    failOnStderr: true
+    workingDirectory: $(Agent.BuildDirectory)
+
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
       call onnx-mlir\utils\install-mlir.cmd
     displayName: Install mlir
     workingDirectory: $(Agent.BuildDirectory)
+    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'true'))
+
+  - publish: $(Agent.BuildDirectory)/llvm-project/build/install
+    artifact: $(MLIRArtifactName)
+    displayName: Publish MLIR Artifact
+    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'true'))
+      
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      source: specific
+      project: onnx
+      pipeline: 9
+      runVersion: specific
+      runId: $(MLIRBuildID)
+      artifact: $(MLIRArtifactName)
+      path: $(Agent.BuildDirectory)\llvm-project\build
+    displayName: Download MLIR Artifact
+    condition: and(succeeded(), neq(variables['MLIRBuildID'], 'false'))
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
@@ -83,4 +122,3 @@ jobs:
       call onnx-mlir\utils\check-docs.cmd
     displayName: Run onnx-mlir doc tests
     workingDirectory: $(Agent.BuildDirectory)
-
