@@ -2341,4 +2341,14 @@ func @test_scatternd_float32(%arg0: tensor<4x4x4xf32>) -> tensor<*xf32> {
 }
 
 // -----
+func @test_seqence_length(%arg0 : !onnx.Seq<tensor<*xf32>>) -> tensor<*xi64> {
+  %0 = "onnx.SequenceLength"(%arg0) : (!onnx.Seq<tensor<*xf32>>) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func @test_seqence_length
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: !onnx.Seq<tensor<*xf32>>) -> tensor<i64> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceLength"([[PARAM_0_]]) : (!onnx.Seq<tensor<*xf32>>) -> tensor<i64>
+// CHECK:           return [[VAR_0_]] : tensor<i64>
+}
+
 

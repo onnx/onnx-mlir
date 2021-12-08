@@ -84,6 +84,18 @@ DenseElementsAttr createDenseArrayAttrOrEmpty(
   }
 }
 
+Value createSequenceConstructOp(
+    PatternRewriter &rewriter, mlir::Value seq, mlir::OperandRange inputs) {
+  Type resType = seq.getType();
+  Location loc = seq.getLoc();
+  Value position = rewriter.create<ConstantOp>(loc, rewriter.getUnitAttr());
+  for (auto input : inputs) {
+    seq = rewriter.create<ONNXSequenceInsertOp>(
+        loc, resType, seq, input, position);
+  }
+  return seq;
+}
+
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXDecompose.inc"
 
@@ -126,6 +138,7 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   target.addIllegalOp<ONNXPadV11Op>();
   target.addIllegalOp<ONNXResizeV11Op>();
   target.addIllegalOp<ONNXResizeV10Op>();
+  target.addIllegalOp<ONNXSequenceConstructOp>();
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
