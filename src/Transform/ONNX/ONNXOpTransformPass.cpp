@@ -58,7 +58,9 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
       llvm::cl::init(3)};
 
   ONNXOpTransformPass() = default;
-  ONNXOpTransformPass(const ONNXOpTransformPass &pass) {}
+  ONNXOpTransformPass(const ONNXOpTransformPass &pass)
+      : mlir::PassWrapper<ONNXOpTransformPass,
+            OperationPass<mlir::ModuleOp>>() {}
   ONNXOpTransformPass(int threshold_) {
     this->onnxOpTransformThreshold = threshold_;
   }
