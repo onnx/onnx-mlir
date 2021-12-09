@@ -60,6 +60,8 @@ jobs:
         Write-Output "##vso[task.setvariable variable=MLIRBuildID]NotFound"
       }
     displayName: Check for MLIR Artifact
+    env:
+      AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
     failOnStderr: true
     workingDirectory: $(Agent.BuildDirectory)
 
