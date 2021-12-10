@@ -735,7 +735,7 @@ void outputCode(
   string errorMessage;
   auto output = openOutputFile(filename + extension, &errorMessage);
   if (!output) {
-    // Geneate error message for opning file
+    // Generate error message for opening file
     string fileErrorMessage =
       getErrorMessageforFileOpeningErrors(filename + extension, -1);
     llvm::errs() << fileErrorMessage << "\n";
