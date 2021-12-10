@@ -75,7 +75,7 @@ private:
     std::string errorMessage;
     auto output = mlir::openOutputFile(filename, &errorMessage);
     if (!output) {
-      llvm::errs() << getErrorMessageforFileOpeningErrors(filename);
+      llvm::errs() << getErrorMessageforFileOpeningErrors(filename) << "\n";
       exit(1);
     }
 

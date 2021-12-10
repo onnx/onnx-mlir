@@ -29,13 +29,11 @@
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Support/OMOptions.hpp"
 
-extern "C" {
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-}
 
 using namespace std;
 using namespace mlir;
@@ -316,20 +314,20 @@ struct Command {
 // If error number is not given, investigate it by opening it.
 //
 #define PATH_SIZE 4096
-string getErrorMessageforFileOpeningErrors(string path, int _errno,
-    int flags, int mode) {
+string getErrorMessageforFileOpeningErrors(
+    const string &path, int msgnum, int flags, int mode) {
   // If errno not given investigate the error by opening the path
-  if (_errno < 0) {
+  if (msgnum < 0) {
     flags = (flags > 0) ? flags : (O_CREAT | O_WRONLY);
     mode = (mode >= 0) ? mode : (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     int fd = open(path.c_str(), flags, mode);
-    _errno = errno;
+    msgnum = errno;
     close(fd);
   }
   char dir[PATH_SIZE];
   getcwd(dir, PATH_SIZE);
-  string msg = string(strerror(_errno)) + "(" + std::to_string(_errno) +
-      ") for " + path + " at " + dir;
+  string msg = string(strerror(msgnum)) + "(" + std::to_string(msgnum) +
+               ") for " + path + " at " + dir;
   return msg;
 }
 void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
@@ -737,7 +735,7 @@ void outputCode(
   if (!output) {
     // Generate error message for opening file
     string fileErrorMessage =
-      getErrorMessageforFileOpeningErrors(filename + extension, -1);
+        getErrorMessageforFileOpeningErrors(filename + extension, -1);
     llvm::errs() << fileErrorMessage << "\n";
     exit(1);
   }
