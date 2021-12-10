@@ -82,7 +82,7 @@ class SeqType
 public:
   using Base::Base;
 
-  static SeqType get(mlir::Type elementType, int64_t length=-1);
+  static SeqType get(mlir::Type elementType, int64_t length = -1);
 
   mlir::Type getElementType() const;
 
@@ -90,7 +90,6 @@ public:
   // 0 : if the seq is empty
   // -1  if unknown at compiler time
   int64_t getLength() const;
-
 };
 
 } // end namespace onnxmlir
