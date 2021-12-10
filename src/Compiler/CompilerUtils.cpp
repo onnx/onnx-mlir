@@ -670,7 +670,7 @@ void processInputFile(string inputFilename, mlir::MLIRContext &context,
   bool inputIsONNX = (extension == "onnx");
   bool inputIsMLIR = (extension == "mlir");
   if (inputIsONNX == inputIsMLIR) {
-    *errorMessage = "Invaid input file '" + inputFilename +
+    *errorMessage = "Invalid input file '" + inputFilename +
                     "': Either ONNX model or MLIR file needs to be provided.";
     return;
   }
