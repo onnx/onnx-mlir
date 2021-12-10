@@ -97,10 +97,6 @@ public:
         if (!allOpsAllowed && allowedOps.find(opName) == allowedOps.end())
           return;
 
-        // Do not instrument ONNXReturn, which has terminate Trait
-        if (strcmp(opName, "Return") == 0)
-          return;
-
         Location loc = op->getLoc();
         OpBuilder opBuilder(op);
         if (InstrumentControlBits.isSet(InstrumentBeforeOp)) {
@@ -108,7 +104,10 @@ public:
               runtimeActions & (~(1 << static_cast<int>(InstrumentAfterOp)));
           opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
         }
-        if (InstrumentControlBits.isSet(InstrumentAfterOp)) {
+
+        // Can not insert after Op (e.g. ONNXReturnOP) with IsTerminator
+	if (InstrumentControlBits.isSet(InstrumentAfterOp) &&
+            !op->hasTrait<OpTrait::IsTerminator>()) {
           opBuilder.setInsertionPointAfter(op);
           uint64_t tag =
               runtimeActions & (~(1 << static_cast<int>(InstrumentBeforeOp)));
