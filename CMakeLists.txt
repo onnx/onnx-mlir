@@ -126,6 +126,9 @@ if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
 endif()
 
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I$ENV{PROTOBUF_HOME}/include -I${ONNX_MLIR_SRC_ROOT}/third_party/onnx -I${ONNX_MLIR_SRC_ROOT}/include")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I$ENV{PROTOBUF_HOME}/include")
+
 add_subdirectory(utils)
 add_subdirectory(include)
 add_subdirectory(src)

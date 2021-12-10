@@ -216,25 +216,6 @@ string getToolPath(string tool) {
     return string();
 }
 
-//
-// Return error message for given error number for opening file at given path
-// If error number is not given, investigate it by opening it.
-//
-string getErrorMessageforFileOpeningErrors(string path, int _errno = -1,
-    int _flags = -1, int _mode = -1) {
-  // If errno not given investigate the error by opening the path
-  if (_errno < 0) {
-    int flags = (_flags >= 0) ? _flags : (O_CREAT | O_WRONLY);
-    int mode = (_mode >= 0) ? _mode : (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-    fd = open(path, flags, mode);
-    _errno = errno;
-    close(fd);
-  }
-  char dir[PATH_SIZE];
-  getcwd(dir, PATH_SIZE);
-  string msg = strerror(_errno) + "(" + _errno + ") for " + path + " at " dir;
-  return errorMessage;
-}
 // Helper struct to make command construction and execution easy & readable.
 struct Command {
   std::string _path;
@@ -320,6 +301,27 @@ struct Command {
 };
 } // namespace
 
+//
+// Return error message for given error number for opening file at given path
+// If error number is not given, investigate it by opening it.
+//
+#define PATH_SIZE 4096
+string getErrorMessageforFileOpeningErrors(string path, int _errno,
+    int flags, int mode) {
+  // If errno not given investigate the error by opening the path
+  if (_errno < 0) {
+    flags = (flags < 0) ? (O_CREAT | O_WRONLY) : flags;
+    mode = (mode < 0) ? (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) : mode;
+    int fd = open(path.c_str(), flags, mode);
+    _errno = errno;
+    close(fd);
+  }
+  char dir[PATH_SIZE];
+  getcwd(dir, PATH_SIZE);
+  string msg = string(strerror(_errno)) + "(" + std::to_string(_errno) +
+      ") for " + path + " at " + dir;
+  return msg;
+}
 void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }
 
@@ -377,7 +379,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   llvm::raw_fd_ostream moduleBitcodeStream(
       unoptimizedBitcodePath, error, llvm::sys::fs::OF_None);
   if (error) {
-    string errorMessage = getErrorMessageforFileOpeningErrors(
+    const string errorMessage = getErrorMessageforFileOpeningErrors(
         unoptimizedBitcodePath, error.value());
     llvm::errs() << errorMessage << "\n";
     exit(error.value());
@@ -709,7 +711,7 @@ void outputCode(
   if (!output) {
     // Geneate error message for opning file
     string fileErrorMessage =
-        getErrorMessageforFileOpeningErrors(filename + extension);
+      getErrorMessageforFileOpeningErrors(filename + extension, -1);
     llvm::errs() << fileErrorMessage << "\n";
     exit(1);
   }
