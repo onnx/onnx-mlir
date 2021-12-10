@@ -881,6 +881,35 @@ LogicalResult ONNXSeluOp::inferShapes(
 
 LogicalResult ONNXSequenceInsertOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+  onnxmlir::SeqType seqType =
+      input_sequence().getType().dyn_cast<mlir::onnxmlir::SeqType>();
+  ShapedType tensorType = tensor().getType().dyn_cast<ShapedType>();
+  if (seqType.getLength() == 0) {
+    getResult().setType(onnxmlir::SeqType::get(tensorType, 1));
+    return success();
+  }
+
+  auto seqShape = seqType.getElementType().cast<ShapedType>().getShape();
+  auto seqRank = seqType.getElementType().cast<ShapedType>().getRank();
+  if (seqRank == -1)
+    return success();
+
+  auto tensorShape = tensorType.getShape();
+  auto tensorRank = tensorType.getRank();
+  if (tensorRank != seqRank)
+    return success();
+  SmallVector<int64_t, 4> dims;
+  for (auto i = 0; i < tensorRank; i++) {
+    if (seqShape[i] != tensorShape[i]) {
+      dims.emplace_back(-1);
+    } else {
+      dims.emplace_back(tensorShape[i]);
+    }
+  }
+  getResult().setType(onnxmlir::SeqType::get(
+      mlir::RankedTensorType::get(dims, tensorType.getElementType()),
+      seqType.getLength() == -1 ? -1 : seqType.getLength() + 1));
+
   return success();
 }
 
@@ -921,11 +950,22 @@ LogicalResult ONNXSequenceConstructOp::inferShapes(
 
 LogicalResult ONNXSequenceEmptyOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+  auto originTy = getResult().getType().cast<onnxmlir::SeqType>();
+  auto elementTy = originTy.getElementType();
+  auto returnTy = onnxmlir::SeqType::get(elementTy, 0);
+  getResult().setType(returnTy);
   return success();
 }
 
 LogicalResult ONNXSequenceEraseOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+  auto inputTy = input_sequence().getType().cast<onnxmlir::SeqType>();
+  int64_t length = inputTy.getLength();
+
+  if (length == 0)
+    return emitError("SequenceErase from an empty seq");
+  getResult().setType(onnxmlir::SeqType::get(
+      inputTy.getElementType(), length == -1 ? -1 : length - 1));
   return success();
 }
 
@@ -4784,11 +4824,13 @@ struct SeqTypeStorage : public mlir::TypeStorage {
   SeqTypeStorage(mlir::Type elementType, int64_t length)
       : elementType(elementType), seqLength(length) {}
 
-  bool operator==(const KeyTy &key) const { return key == KeyTy(elementType, seqLength); }
+  bool operator==(const KeyTy &key) const {
+    return key == KeyTy(elementType, seqLength);
+  }
   static llvm::hash_code hasKey(const KeyTy &key) {
     mlir::Type eT;
     int64_t l;
-    std::tie(eT,l) = key;
+    std::tie(eT, l) = key;
     return llvm::hash_combine(eT, l);
   }
 
@@ -4800,9 +4842,8 @@ struct SeqTypeStorage : public mlir::TypeStorage {
       mlir::TypeStorageAllocator &allocator, const KeyTy &key) {
     mlir::Type eT;
     int64_t l;
-    std::tie(eT,l) = key;
-    return new (allocator.allocate<SeqTypeStorage>())
-        SeqTypeStorage(eT, l);
+    std::tie(eT, l) = key;
+    return new (allocator.allocate<SeqTypeStorage>()) SeqTypeStorage(eT, l);
   }
   mlir::Type elementType;
   int64_t seqLength;
@@ -4821,9 +4862,7 @@ mlir::Type onnxmlir::SeqType::getElementType() const {
   return getImpl()->elementType;
 }
 
-int64_t onnxmlir::SeqType::getLength() const {
-  return getImpl()->seqLength;
-}
+int64_t onnxmlir::SeqType::getLength() const { return getImpl()->seqLength; }
 
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
