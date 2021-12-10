@@ -105,8 +105,8 @@ public:
           opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
         }
 
-        // Can not insert after Op (e.g. ONNXReturnOP) with IsTerminator
-	if (InstrumentControlBits.isSet(InstrumentAfterOp) &&
+        // Can not insert after Op (e.g. ONNXReturnOP) with IsTerminator Trait
+        if (InstrumentControlBits.isSet(InstrumentAfterOp) &&
             !op->hasTrait<OpTrait::IsTerminator>()) {
           opBuilder.setInsertionPointAfter(op);
           uint64_t tag =
