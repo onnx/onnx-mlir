@@ -320,8 +320,8 @@ string getErrorMessageforFileOpeningErrors(string path, int _errno,
     int flags, int mode) {
   // If errno not given investigate the error by opening the path
   if (_errno < 0) {
-    flags = (flags < 0) ? (O_CREAT | O_WRONLY) : flags;
-    mode = (mode < 0) ? (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) : mode;
+    flags = (flags > 0) ? flags : (O_CREAT | O_WRONLY);
+    mode = (mode >= 0) ? mode : (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     int fd = open(path.c_str(), flags, mode);
     _errno = errno;
     close(fd);
