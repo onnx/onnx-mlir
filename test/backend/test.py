@@ -1,3 +1,26 @@
+#!/usr/local/bin/python3
+
+##################### common.py ################################################
+#
+# Copyright 2021 The IBM Research Authors.
+#
+################################################################################
+# Reorgnize backend testing into following modules:
+# - varaibles.py: all global variables
+#   * Immutable variables are initialized once
+#   * Mutable variables are set in one module file and used in another
+# - common.py: common functions called by xxxExecuteSession
+# - inference_backend.py:
+#   * model list for inference testing
+#   * class InferenceBackend
+#   * class EndiannessAwareExecutionSession & JniExecuteSession
+# - signature_backend.py:
+#   * class SliceModel which generate slice models for signature testing
+#   * class SignatureBackendTest which inherits from BackendTest
+#   * class SignatureBackend
+#   * class SignatureExecutionSession
+# - test.py: main process
+################################################################################
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
