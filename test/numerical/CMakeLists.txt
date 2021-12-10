@@ -29,7 +29,9 @@ function(add_numerical_unittest test_name)
     set_property(TARGET ${test_name} PROPERTY FOLDER "${test_suite_folder}")
   endif ()
 
-  add_test(NAME ${test_name} COMMAND ${test_name} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  # Force -O3 when invoking the numerical tests, so that the models in the test
+  # are compiled with -O3. TODO: make that a runtime env variable.
+  add_test(NAME ${test_name} COMMAND ${test_name} -O3 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
   set_tests_properties(${test_name} PROPERTIES LABELS numerical)
 
   if (WIN32)
