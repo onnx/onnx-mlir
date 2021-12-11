@@ -884,11 +884,16 @@ LogicalResult ONNXSequenceInsertOp::inferShapes(
   onnxmlir::SeqType seqType =
       input_sequence().getType().dyn_cast<mlir::onnxmlir::SeqType>();
   ShapedType tensorType = tensor().getType().dyn_cast<ShapedType>();
+
+  // When the input seq is empty, inherit the tensor type
   if (seqType.getLength() == 0) {
     getResult().setType(onnxmlir::SeqType::get(tensorType, 1));
     return success();
   }
 
+  // Merge the tensor type for the seq and the inserted tensor
+  // Pick the weaker attr: known dim > unknown dim > unranked tensor
+  // If inference gets an unranked tensor, no need to update the result
   auto seqShape = seqType.getElementType().cast<ShapedType>().getShape();
   auto seqRank = seqType.getElementType().cast<ShapedType>().getRank();
   if (seqRank == -1)
@@ -900,11 +905,7 @@ LogicalResult ONNXSequenceInsertOp::inferShapes(
     return success();
   SmallVector<int64_t, 4> dims;
   for (auto i = 0; i < tensorRank; i++) {
-    if (seqShape[i] != tensorShape[i]) {
-      dims.emplace_back(-1);
-    } else {
-      dims.emplace_back(tensorShape[i]);
-    }
+    dims.emplace_back(seqShape[i] != tensorShape[i] ? -1 : tensorShape[i]);
   }
   getResult().setType(onnxmlir::SeqType::get(
       mlir::RankedTensorType::get(dims, tensorType.getElementType()),
@@ -4818,7 +4819,8 @@ namespace mlir {
 namespace onnxmlir {
 namespace detail {
 struct SeqTypeStorage : public mlir::TypeStorage {
-  // std::tuple is used because the storage for the elements may be added later
+  // std::tuple, instead of std::pair,  is used as the key for seq Type
+  // because the list of elements may be added later for lowering seq
   using KeyTy = std::tuple<mlir::Type, int64_t>;
 
   SeqTypeStorage(mlir::Type elementType, int64_t length)
@@ -4845,8 +4847,8 @@ struct SeqTypeStorage : public mlir::TypeStorage {
     std::tie(eT, l) = key;
     return new (allocator.allocate<SeqTypeStorage>()) SeqTypeStorage(eT, l);
   }
-  mlir::Type elementType;
-  int64_t seqLength;
+  mlir::Type elementType; // Type for element of Seq
+  int64_t seqLength;      // Length of Seq. -1 when is not statically known
 };
 } // end namespace detail
 } // end namespace onnxmlir
