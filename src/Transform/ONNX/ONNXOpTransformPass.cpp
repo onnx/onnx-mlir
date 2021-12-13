@@ -26,12 +26,12 @@
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/ToolOutputFile.h"
 
-#include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
+#include "src/Support/ErrorMessage.hpp"
 
 #ifdef _WIN32
 #include <io.h>
