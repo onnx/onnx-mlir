@@ -27,8 +27,8 @@
 
 #include "ExternalUtil.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
-#include "src/Support/OMOptions.hpp"
 #include "src/Support/ErrorMessage.hpp"
+#include "src/Support/OMOptions.hpp"
 
 using namespace std;
 using namespace mlir;
