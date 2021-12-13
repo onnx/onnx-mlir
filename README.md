@@ -95,6 +95,7 @@ gcc >= 6.4
 libprotoc >= 3.11.0
 cmake >= 3.15.4
 ninja >= 1.10.2
+onnx >= 1.10.2 
 ```
 GCC can be found [here](https://gcc.gnu.org/install/), or if you have [Homebrew](https://docs.brew.sh/Installation), you can use `brew install gcc`. To check what version of gcc you have installed, run `gcc --version`.
 
@@ -104,7 +105,9 @@ Cmake can be found [here](https://cmake.org/download/). However, to use Cmake, y
 
 The instructions for installing Ninja can be found [here](https://ninja-build.org/). Or, using Homebrew, you can run `brew install ninja`. To check the version, run `ninja --version`.
 
+The instructions for installing ONNX in Python can be found [here](https://pypi.org/project/onnx/).
 
+To view the ONNX files, you can use Netron with command `open [FILE_NAME]`. The instructions for installing Netron can be found [here](https://github.com/lutzroeder/Netron).
 
 At any point in time, ONNX MLIR depends on a specific commit of the LLVM project that has been shown to work with the project. Periodically the maintainers
 need to move to a more recent LLVM level. Among other things, this requires that the commit string in utils/clone-mlir.sh be updated. A consequence of
