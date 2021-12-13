@@ -38,6 +38,6 @@ static std::string getErrorMessageforFileOpeningErrors(
   char dir[PATH_SIZE];
   getcwd(dir, PATH_SIZE);
   std::string msg = std::string(strerror(msgnum)) + "(" +
-      std::to_string(msgnum) + ") for " + path + " at " + dir;
+                    std::to_string(msgnum) + ") for " + path + " at " + dir;
   return msg;
 }

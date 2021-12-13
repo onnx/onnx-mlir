@@ -30,8 +30,8 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
 #include "src/Support/ErrorMessage.hpp"
+#include "src/Support/OMOptions.hpp"
 
 #ifdef _WIN32
 #include <io.h>
