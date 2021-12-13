@@ -25,8 +25,8 @@
 // If error number is not given, investigate it by opening it.
 //
 #define PATH_SIZE 4096
-static string getErrorMessageforFileOpeningErrors(
-    const string &path, int msgnum, int flags, int mode) {
+static std::string getErrorMessageforFileOpeningErrors(
+    const std::string &path, int msgnum = -1, int flags = -1, int mode = -1) {
   // If errno not given investigate the error by opening the path
   if (msgnum < 0) {
     flags = (flags > 0) ? flags : (O_CREAT | O_WRONLY);
@@ -37,7 +37,7 @@ static string getErrorMessageforFileOpeningErrors(
   }
   char dir[PATH_SIZE];
   getcwd(dir, PATH_SIZE);
-  string msg = string(strerror(msgnum)) + "(" + std::to_string(msgnum) +
-               ") for " + path + " at " + dir;
+  std::string msg = std::string(strerror(msgnum)) + "(" +
+      std::to_string(msgnum) + ") for " + path + " at " + dir;
   return msg;
 }
