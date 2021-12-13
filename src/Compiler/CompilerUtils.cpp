@@ -112,6 +112,10 @@ static llvm::cl::opt<OptLevel> OptimizationLevel(
         clEnumVal(O3, "Optimization level 3.")),
     llvm::cl::init(O0), llvm::cl::cat(OnnxMlirOptions));
 
+static llvm::cl::opt<bool> VerboseOutput("v",
+    llvm::cl::desc("Use verbose output"), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
 enum class KeepFilesOfType { All, MLIR, Bitcode, Object, None };
@@ -280,8 +284,8 @@ struct Command {
     }
 
     // If in verbose mode, print out command before execution.
-    if (verbose)
-      llvm::outs() << "[" << StringRef(new_wdir).str() << "]" << _path << ": "
+    if (VerboseOutput || verbose)
+      llvm::errs() << "[" << StringRef(new_wdir).str() << "]" << _path << ": "
                    << llvm::join(argsRef, " ") << "\n";
 
     std::string errMsg;
@@ -448,7 +452,7 @@ static std::string genSharedLib(string outputBaseName, std::vector<string> opts,
   // link has to be before def and libpath since they need to be passed through
   // to the linker
   std::vector<string> sharedLibOpts = {
-      "/LD", "/link", "/def:" + outputBaseName + ".def"};
+      "/LD", "/link", "/NOLOGO", "/def:" + outputBaseName + ".def"};
 
   llvm::for_each(libs, [](string &lib) { lib = lib + ".lib"; });
   llvm::for_each(
