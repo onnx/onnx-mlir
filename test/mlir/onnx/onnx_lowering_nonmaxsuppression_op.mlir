@@ -92,29 +92,29 @@ func @test_nonmaxsuppression_center_point_box_format(%arg0: tensor<1x6x4xf32>, %
 // CHECK:             [[LOOP_6_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[LOOP_6_]]) with ([[LOOP_6_]] -> [[I_12_:%.+]] = [[VAR_c0_]] to [[VAR_c6_]]) {
 // CHECK:               [[LOAD_SCORES_MEM_3_:%.+]] = krnl.get_induction_var_value([[LOOP_6_]]) : (!krnl.loop) -> index
-// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_21_3_]]#0, [[VAR_21_3_]]#1, [[LOAD_SCORES_MEM_3_]]{{.}} : memref<1x1x6xf32>
-// CHECK-DAG:           [[LOAD_RES_2_MEM_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
-// CHECK-DAG:           [[VAR_31_1_:%.+]] = krnl.load [[RES_6_]][] : memref<index>
+// CHECK:               [[VAR_29_1_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_21_3_]]#0, [[VAR_21_3_]]#1, [[LOAD_SCORES_MEM_3_]]{{.}} : memref<1x1x6xindex>
+// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_21_3_]]#0, [[VAR_21_3_]]#1, [[VAR_29_1_]]{{.}} : memref<1x1x6xf32>
+// CHECK-DAG:           [[VAR_31_1_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
+// CHECK-DAG:           [[VAR_32_1_:%.+]] = krnl.load [[RES_6_]][] : memref<index>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_32_1_:%.+]] = arith.cmpi slt, [[VAR_31_1_]], [[LOAD_RES_MEM_1_]] : index
-// CHECK-DAG:           [[LOAD_RES_7_MEM_:%.+]] = krnl.load [[RES_7_]]{{.}}[[LOAD_SCORES_MEM_3_]]{{.}} : memref<6xi1>
+// CHECK-DAG:           [[VAR_33_:%.+]] = arith.cmpi slt, [[VAR_32_1_]], [[LOAD_RES_MEM_1_]] : index
+// CHECK-DAG:           [[LOAD_RES_7_MEM_:%.+]] = krnl.load [[RES_7_]]{{.}}[[VAR_29_1_]]{{.}} : memref<6xi1>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_34_:%.+]] = arith.cmpi eq, [[LOAD_RES_7_MEM_]], [[VAR_false_]] : i1
-// CHECK-DAG:           [[VAR_35_:%.+]] = arith.andi [[LOAD_RES_2_MEM_2_]], [[VAR_32_1_]] : i1
-// CHECK:               [[VAR_36_:%.+]] = arith.andi [[VAR_35_]], [[VAR_34_]] : i1
-// CHECK:               scf.if [[VAR_36_]] {
-// CHECK:                 [[LOAD_RES_3_MEM_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_21_3_]]#0, [[VAR_21_3_]]#1, [[LOAD_SCORES_MEM_3_]]{{.}} : memref<1x1x6xindex>
-// CHECK-DAG:             [[LOAD_BOXES_MEM_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_21_3_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_BOXES_MEM_1_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_21_3_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_BOXES_MEM_2_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_21_3_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_BOXES_MEM_3_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_21_3_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:           [[VAR_35_:%.+]] = arith.cmpi eq, [[LOAD_RES_7_MEM_]], [[VAR_false_]] : i1
+// CHECK-DAG:           [[VAR_36_:%.+]] = arith.andi [[VAR_31_1_]], [[VAR_33_]] : i1
+// CHECK:               [[VAR_37_:%.+]] = arith.andi [[VAR_36_]], [[VAR_35_]] : i1
+// CHECK:               scf.if [[VAR_37_]] {
+// CHECK-DAG:             [[LOAD_BOXES_MEM_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_21_3_]]#0, [[VAR_29_1_]], [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_BOXES_MEM_1_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_21_3_]]#0, [[VAR_29_1_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_BOXES_MEM_2_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_21_3_]]#0, [[VAR_29_1_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_BOXES_MEM_3_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_21_3_]]#0, [[VAR_29_1_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:             [[VAR_42_:%.+]] = arith.muli [[VAR_21_3_]]#1, [[LOAD_RES_MEM_1_]] : index
 // CHECK:                 [[VAR_43_:%.+]] = arith.addi [[VAR_21_3_]]#0, [[VAR_42_]] : index
-// CHECK:                 [[VAR_44_:%.+]] = arith.addi [[VAR_43_]], [[VAR_31_1_]] : index
+// CHECK:                 [[VAR_44_:%.+]] = arith.addi [[VAR_43_]], [[VAR_32_1_]] : index
 // CHECK:                 krnl.store [[VAR_21_3_]]#0, [[RES_4_]]{{.}}[[VAR_44_]], [[VAR_c0_]]{{.}} : memref<?x3xindex>
 // CHECK:                 krnl.store [[VAR_21_3_]]#1, [[RES_4_]]{{.}}[[VAR_44_]], [[VAR_c1_]]{{.}} : memref<?x3xindex>
-// CHECK:                 krnl.store [[LOAD_RES_3_MEM_]], [[RES_4_]]{{.}}[[VAR_44_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
-// CHECK:                 [[VAR_45_:%.+]] = affine.apply #map([[VAR_31_1_]])
+// CHECK:                 krnl.store [[VAR_29_1_]], [[RES_4_]]{{.}}[[VAR_44_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
+// CHECK:                 [[VAR_45_:%.+]] = affine.apply #map([[VAR_32_1_]])
 // CHECK:                 krnl.store [[VAR_45_]], [[RES_6_]][] : memref<index>
 // CHECK:                 [[LOOP_7_:%.+]] = krnl.define_loops 1
 // CHECK:                 krnl.iterate([[LOOP_7_]]) with ([[LOOP_7_]] -> [[I_13_:%.+]] = [[VAR_c0_]] to [[VAR_c6_]]) {
@@ -161,10 +161,10 @@ func @test_nonmaxsuppression_center_point_box_format(%arg0: tensor<1x6x4xf32>, %
 // CHECK-DAG:                 [[VAR_76_:%.+]] = arith.subf [[VAR_74_]], [[VAR_72_]] : f32
 // CHECK-DAG:                 [[VAR_77_:%.+]] = arith.subf [[VAR_75_]], [[VAR_73_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_78_:%.+]] = maxf [[VAR_77_]], [[VAR_cst_0_]] : f32
-// CHECK-DAG:                 [[VAR_79_:%.+]] = maxf [[VAR_76_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_78_:%.+]] = maxf [[VAR_76_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_79_:%.+]] = maxf [[VAR_77_]], [[VAR_cst_0_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_80_:%.+]] = arith.mulf [[VAR_79_]], [[VAR_78_]] : f32
+// CHECK-DAG:                 [[VAR_80_:%.+]] = arith.mulf [[VAR_78_]], [[VAR_79_]] : f32
 // CHECK-DAG:                 [[VAR_81_:%.+]] = arith.addf [[VAR_70_]], [[VAR_71_]] : f32
 // CHECK:                     [[VAR_82_:%.+]] = arith.subf [[VAR_81_]], [[VAR_80_]] : f32
 // CHECK:                     [[VAR_83_:%.+]] = arith.addf [[VAR_82_]], [[VAR_cst_]] : f32
@@ -307,29 +307,29 @@ func @test_nonmaxsuppression_flipped_coordinates(%arg0: tensor<1x6x4xf32>, %arg1
 // CHECK:             [[LOOP_7_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[LOOP_7_]]) with ([[LOOP_7_]] -> [[I_14_:%.+]] = [[VAR_c0_]] to [[VAR_c6_]]) {
 // CHECK:               [[LOAD_SCORES_MEM_3_1_:%.+]] = krnl.get_induction_var_value([[LOOP_7_]]) : (!krnl.loop) -> index
-// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x6xf32>
-// CHECK-DAG:           [[LOAD_RES_2_MEM_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
-// CHECK-DAG:           [[VAR_33_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
+// CHECK:               [[VAR_31_1_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x6xindex>
+// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[VAR_31_1_]]{{.}} : memref<1x1x6xf32>
+// CHECK-DAG:           [[VAR_33_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
+// CHECK-DAG:           [[VAR_34_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_34_1_:%.+]] = arith.cmpi slt, [[VAR_33_1_]], [[LOAD_RES_MEM_1_]] : index
-// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<6xi1>
+// CHECK-DAG:           [[VAR_35_:%.+]] = arith.cmpi slt, [[VAR_34_1_]], [[LOAD_RES_MEM_1_]] : index
+// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[VAR_31_1_]]{{.}} : memref<6xi1>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_36_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
-// CHECK-DAG:           [[VAR_37_:%.+]] = arith.andi [[LOAD_RES_2_MEM_2_]], [[VAR_34_1_]] : i1
-// CHECK:               [[VAR_38_:%.+]] = arith.andi [[VAR_37_]], [[VAR_36_]] : i1
-// CHECK:               scf.if [[VAR_38_]] {
-// CHECK:                 [[LOAD_RES_3_MEM_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x6xindex>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:           [[VAR_37_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
+// CHECK-DAG:           [[VAR_38_:%.+]] = arith.andi [[VAR_33_2_]], [[VAR_35_]] : i1
+// CHECK:               [[VAR_39_:%.+]] = arith.andi [[VAR_38_]], [[VAR_37_]] : i1
+// CHECK:               scf.if [[VAR_39_]] {
+// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:             [[VAR_44_:%.+]] = arith.muli [[VAR_23_4_]]#1, [[LOAD_RES_MEM_1_]] : index
 // CHECK:                 [[VAR_45_:%.+]] = arith.addi [[VAR_23_4_]]#0, [[VAR_44_]] : index
-// CHECK:                 [[VAR_46_:%.+]] = arith.addi [[VAR_45_]], [[VAR_33_1_]] : index
+// CHECK:                 [[VAR_46_:%.+]] = arith.addi [[VAR_45_]], [[VAR_34_1_]] : index
 // CHECK:                 krnl.store [[VAR_23_4_]]#0, [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c0_]]{{.}} : memref<?x3xindex>
 // CHECK:                 krnl.store [[VAR_23_4_]]#1, [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c1_]]{{.}} : memref<?x3xindex>
-// CHECK:                 krnl.store [[LOAD_RES_3_MEM_]], [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
-// CHECK:                 [[VAR_47_:%.+]] = affine.apply #map([[VAR_33_1_]])
+// CHECK:                 krnl.store [[VAR_31_1_]], [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
+// CHECK:                 [[VAR_47_:%.+]] = affine.apply #map([[VAR_34_1_]])
 // CHECK:                 krnl.store [[VAR_47_]], [[RES_7_]][] : memref<index>
 // CHECK:                 [[LOOP_8_:%.+]] = krnl.define_loops 1
 // CHECK:                 krnl.iterate([[LOOP_8_]]) with ([[LOOP_8_]] -> [[I_15_:%.+]] = [[VAR_c0_]] to [[VAR_c6_]]) {
@@ -341,14 +341,14 @@ func @test_nonmaxsuppression_flipped_coordinates(%arg0: tensor<1x6x4xf32>, %arg1
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_5_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_6_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_7_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
-// CHECK-DAG:                 [[VAR_57_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_57_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.mulf [[VAR_57_]], [[VAR_56_]] : f32
-// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.mulf [[VAR_56_]], [[VAR_57_]] : f32
+// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.mulf [[VAR_60_]], [[VAR_59_]] : f32
+// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.mulf [[VAR_59_]], [[VAR_60_]] : f32
 // CHECK-DAG:                 [[VAR_62_:%.+]] = maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-DAG:                 [[VAR_63_:%.+]] = maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
 // CHECK-DAG:                 [[VAR_64_:%.+]] = minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
@@ -357,10 +357,10 @@ func @test_nonmaxsuppression_flipped_coordinates(%arg0: tensor<1x6x4xf32>, %arg1
 // CHECK-DAG:                 [[VAR_66_:%.+]] = arith.subf [[VAR_64_]], [[VAR_62_]] : f32
 // CHECK-DAG:                 [[VAR_67_:%.+]] = arith.subf [[VAR_65_]], [[VAR_63_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_68_:%.+]] = maxf [[VAR_67_]], [[VAR_cst_0_]] : f32
-// CHECK-DAG:                 [[VAR_69_:%.+]] = maxf [[VAR_66_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_68_:%.+]] = maxf [[VAR_66_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_69_:%.+]] = maxf [[VAR_67_]], [[VAR_cst_0_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_70_:%.+]] = arith.mulf [[VAR_69_]], [[VAR_68_]] : f32
+// CHECK-DAG:                 [[VAR_70_:%.+]] = arith.mulf [[VAR_68_]], [[VAR_69_]] : f32
 // CHECK-DAG:                 [[VAR_71_:%.+]] = arith.addf [[VAR_58_]], [[VAR_61_]] : f32
 // CHECK:                     [[VAR_72_:%.+]] = arith.subf [[VAR_71_]], [[VAR_70_]] : f32
 // CHECK:                     [[VAR_73_:%.+]] = arith.addf [[VAR_72_]], [[VAR_cst_]] : f32
@@ -503,29 +503,29 @@ func @test_nonmaxsuppression_identical_boxes(%arg0: tensor<1x10x4xf32>, %arg1: t
 // CHECK:             [[LOOP_7_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[LOOP_7_]]) with ([[LOOP_7_]] -> [[I_14_:%.+]] = [[VAR_c0_]] to [[VAR_c10_]]) {
 // CHECK:               [[LOAD_SCORES_MEM_3_1_:%.+]] = krnl.get_induction_var_value([[LOOP_7_]]) : (!krnl.loop) -> index
-// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x10xf32>
-// CHECK-DAG:           [[LOAD_RES_2_MEM_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
-// CHECK-DAG:           [[VAR_33_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
+// CHECK:               [[VAR_31_1_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x10xindex>
+// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[VAR_31_1_]]{{.}} : memref<1x1x10xf32>
+// CHECK-DAG:           [[VAR_33_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
+// CHECK-DAG:           [[VAR_34_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_34_1_:%.+]] = arith.cmpi slt, [[VAR_33_1_]], [[LOAD_RES_MEM_1_]] : index
-// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<10xi1>
+// CHECK-DAG:           [[VAR_35_:%.+]] = arith.cmpi slt, [[VAR_34_1_]], [[LOAD_RES_MEM_1_]] : index
+// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[VAR_31_1_]]{{.}} : memref<10xi1>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_36_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
-// CHECK-DAG:           [[VAR_37_:%.+]] = arith.andi [[LOAD_RES_2_MEM_2_]], [[VAR_34_1_]] : i1
-// CHECK:               [[VAR_38_:%.+]] = arith.andi [[VAR_37_]], [[VAR_36_]] : i1
-// CHECK:               scf.if [[VAR_38_]] {
-// CHECK:                 [[LOAD_RES_3_MEM_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x10xindex>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c0_]]{{.}} : memref<1x10x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c1_]]{{.}} : memref<1x10x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c2_]]{{.}} : memref<1x10x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c3_]]{{.}} : memref<1x10x4xf32>
+// CHECK-DAG:           [[VAR_37_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
+// CHECK-DAG:           [[VAR_38_:%.+]] = arith.andi [[VAR_33_2_]], [[VAR_35_]] : i1
+// CHECK:               [[VAR_39_:%.+]] = arith.andi [[VAR_38_]], [[VAR_37_]] : i1
+// CHECK:               scf.if [[VAR_39_]] {
+// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c0_]]{{.}} : memref<1x10x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c1_]]{{.}} : memref<1x10x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c2_]]{{.}} : memref<1x10x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c3_]]{{.}} : memref<1x10x4xf32>
 // CHECK-DAG:             [[VAR_44_:%.+]] = arith.muli [[VAR_23_4_]]#1, [[LOAD_RES_MEM_1_]] : index
 // CHECK:                 [[VAR_45_:%.+]] = arith.addi [[VAR_23_4_]]#0, [[VAR_44_]] : index
-// CHECK:                 [[VAR_46_:%.+]] = arith.addi [[VAR_45_]], [[VAR_33_1_]] : index
+// CHECK:                 [[VAR_46_:%.+]] = arith.addi [[VAR_45_]], [[VAR_34_1_]] : index
 // CHECK:                 krnl.store [[VAR_23_4_]]#0, [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c0_]]{{.}} : memref<?x3xindex>
 // CHECK:                 krnl.store [[VAR_23_4_]]#1, [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c1_]]{{.}} : memref<?x3xindex>
-// CHECK:                 krnl.store [[LOAD_RES_3_MEM_]], [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
-// CHECK:                 [[VAR_47_:%.+]] = affine.apply #map([[VAR_33_1_]])
+// CHECK:                 krnl.store [[VAR_31_1_]], [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
+// CHECK:                 [[VAR_47_:%.+]] = affine.apply #map([[VAR_34_1_]])
 // CHECK:                 krnl.store [[VAR_47_]], [[RES_7_]][] : memref<index>
 // CHECK:                 [[LOOP_8_:%.+]] = krnl.define_loops 1
 // CHECK:                 krnl.iterate([[LOOP_8_]]) with ([[LOOP_8_]] -> [[I_15_:%.+]] = [[VAR_c0_]] to [[VAR_c10_]]) {
@@ -537,14 +537,14 @@ func @test_nonmaxsuppression_identical_boxes(%arg0: tensor<1x10x4xf32>, %arg1: t
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_5_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c1_]]{{.}} : memref<1x10x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_6_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c2_]]{{.}} : memref<1x10x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_7_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c3_]]{{.}} : memref<1x10x4xf32>
-// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
-// CHECK-DAG:                 [[VAR_57_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_57_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.mulf [[VAR_57_]], [[VAR_56_]] : f32
-// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.mulf [[VAR_56_]], [[VAR_57_]] : f32
+// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.mulf [[VAR_60_]], [[VAR_59_]] : f32
+// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.mulf [[VAR_59_]], [[VAR_60_]] : f32
 // CHECK-DAG:                 [[VAR_62_:%.+]] = maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-DAG:                 [[VAR_63_:%.+]] = maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
 // CHECK-DAG:                 [[VAR_64_:%.+]] = minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
@@ -553,10 +553,10 @@ func @test_nonmaxsuppression_identical_boxes(%arg0: tensor<1x10x4xf32>, %arg1: t
 // CHECK-DAG:                 [[VAR_66_:%.+]] = arith.subf [[VAR_64_]], [[VAR_62_]] : f32
 // CHECK-DAG:                 [[VAR_67_:%.+]] = arith.subf [[VAR_65_]], [[VAR_63_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_68_:%.+]] = maxf [[VAR_67_]], [[VAR_cst_0_]] : f32
-// CHECK-DAG:                 [[VAR_69_:%.+]] = maxf [[VAR_66_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_68_:%.+]] = maxf [[VAR_66_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_69_:%.+]] = maxf [[VAR_67_]], [[VAR_cst_0_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_70_:%.+]] = arith.mulf [[VAR_69_]], [[VAR_68_]] : f32
+// CHECK-DAG:                 [[VAR_70_:%.+]] = arith.mulf [[VAR_68_]], [[VAR_69_]] : f32
 // CHECK-DAG:                 [[VAR_71_:%.+]] = arith.addf [[VAR_58_]], [[VAR_61_]] : f32
 // CHECK:                     [[VAR_72_:%.+]] = arith.subf [[VAR_71_]], [[VAR_70_]] : f32
 // CHECK:                     [[VAR_73_:%.+]] = arith.addf [[VAR_72_]], [[VAR_cst_]] : f32
@@ -699,29 +699,29 @@ func @test_nonmaxsuppression_limit_output_size(%arg0: tensor<1x6x4xf32>, %arg1: 
 // CHECK:             [[LOOP_7_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[LOOP_7_]]) with ([[LOOP_7_]] -> [[I_14_:%.+]] = [[VAR_c0_]] to [[VAR_c6_]]) {
 // CHECK:               [[LOAD_SCORES_MEM_3_1_:%.+]] = krnl.get_induction_var_value([[LOOP_7_]]) : (!krnl.loop) -> index
-// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x6xf32>
-// CHECK-DAG:           [[LOAD_RES_2_MEM_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
-// CHECK-DAG:           [[VAR_33_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
+// CHECK:               [[VAR_31_1_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x6xindex>
+// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[VAR_31_1_]]{{.}} : memref<1x1x6xf32>
+// CHECK-DAG:           [[VAR_33_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
+// CHECK-DAG:           [[VAR_34_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_34_1_:%.+]] = arith.cmpi slt, [[VAR_33_1_]], [[LOAD_RES_MEM_1_]] : index
-// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<6xi1>
+// CHECK-DAG:           [[VAR_35_:%.+]] = arith.cmpi slt, [[VAR_34_1_]], [[LOAD_RES_MEM_1_]] : index
+// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[VAR_31_1_]]{{.}} : memref<6xi1>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_36_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
-// CHECK-DAG:           [[VAR_37_:%.+]] = arith.andi [[LOAD_RES_2_MEM_2_]], [[VAR_34_1_]] : i1
-// CHECK:               [[VAR_38_:%.+]] = arith.andi [[VAR_37_]], [[VAR_36_]] : i1
-// CHECK:               scf.if [[VAR_38_]] {
-// CHECK:                 [[LOAD_RES_3_MEM_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x6xindex>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:           [[VAR_37_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
+// CHECK-DAG:           [[VAR_38_:%.+]] = arith.andi [[VAR_33_2_]], [[VAR_35_]] : i1
+// CHECK:               [[VAR_39_:%.+]] = arith.andi [[VAR_38_]], [[VAR_37_]] : i1
+// CHECK:               scf.if [[VAR_39_]] {
+// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:             [[VAR_44_:%.+]] = arith.muli [[VAR_23_4_]]#1, [[LOAD_RES_MEM_1_]] : index
 // CHECK:                 [[VAR_45_:%.+]] = arith.addi [[VAR_23_4_]]#0, [[VAR_44_]] : index
-// CHECK:                 [[VAR_46_:%.+]] = arith.addi [[VAR_45_]], [[VAR_33_1_]] : index
+// CHECK:                 [[VAR_46_:%.+]] = arith.addi [[VAR_45_]], [[VAR_34_1_]] : index
 // CHECK:                 krnl.store [[VAR_23_4_]]#0, [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c0_]]{{.}} : memref<?x3xindex>
 // CHECK:                 krnl.store [[VAR_23_4_]]#1, [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c1_]]{{.}} : memref<?x3xindex>
-// CHECK:                 krnl.store [[LOAD_RES_3_MEM_]], [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
-// CHECK:                 [[VAR_47_:%.+]] = affine.apply #map([[VAR_33_1_]])
+// CHECK:                 krnl.store [[VAR_31_1_]], [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
+// CHECK:                 [[VAR_47_:%.+]] = affine.apply #map([[VAR_34_1_]])
 // CHECK:                 krnl.store [[VAR_47_]], [[RES_7_]][] : memref<index>
 // CHECK:                 [[LOOP_8_:%.+]] = krnl.define_loops 1
 // CHECK:                 krnl.iterate([[LOOP_8_]]) with ([[LOOP_8_]] -> [[I_15_:%.+]] = [[VAR_c0_]] to [[VAR_c6_]]) {
@@ -733,14 +733,14 @@ func @test_nonmaxsuppression_limit_output_size(%arg0: tensor<1x6x4xf32>, %arg1: 
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_5_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_6_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_7_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
-// CHECK-DAG:                 [[VAR_57_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_57_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.mulf [[VAR_57_]], [[VAR_56_]] : f32
-// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.mulf [[VAR_56_]], [[VAR_57_]] : f32
+// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.mulf [[VAR_60_]], [[VAR_59_]] : f32
+// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.mulf [[VAR_59_]], [[VAR_60_]] : f32
 // CHECK-DAG:                 [[VAR_62_:%.+]] = maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-DAG:                 [[VAR_63_:%.+]] = maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
 // CHECK-DAG:                 [[VAR_64_:%.+]] = minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
@@ -749,10 +749,10 @@ func @test_nonmaxsuppression_limit_output_size(%arg0: tensor<1x6x4xf32>, %arg1: 
 // CHECK-DAG:                 [[VAR_66_:%.+]] = arith.subf [[VAR_64_]], [[VAR_62_]] : f32
 // CHECK-DAG:                 [[VAR_67_:%.+]] = arith.subf [[VAR_65_]], [[VAR_63_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_68_:%.+]] = maxf [[VAR_67_]], [[VAR_cst_0_]] : f32
-// CHECK-DAG:                 [[VAR_69_:%.+]] = maxf [[VAR_66_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_68_:%.+]] = maxf [[VAR_66_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_69_:%.+]] = maxf [[VAR_67_]], [[VAR_cst_0_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_70_:%.+]] = arith.mulf [[VAR_69_]], [[VAR_68_]] : f32
+// CHECK-DAG:                 [[VAR_70_:%.+]] = arith.mulf [[VAR_68_]], [[VAR_69_]] : f32
 // CHECK-DAG:                 [[VAR_71_:%.+]] = arith.addf [[VAR_58_]], [[VAR_61_]] : f32
 // CHECK:                     [[VAR_72_:%.+]] = arith.subf [[VAR_71_]], [[VAR_70_]] : f32
 // CHECK:                     [[VAR_73_:%.+]] = arith.addf [[VAR_72_]], [[VAR_cst_]] : f32
@@ -894,29 +894,29 @@ func @test_nonmaxsuppression_single_box(%arg0: tensor<1x1x4xf32>, %arg1: tensor<
 // CHECK:             [[LOOP_7_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[LOOP_7_]]) with ([[LOOP_7_]] -> [[I_14_:%.+]] = [[VAR_c0_]] to [[VAR_c1_]]) {
 // CHECK:               [[LOAD_SCORES_MEM_3_1_:%.+]] = krnl.get_induction_var_value([[LOOP_7_]]) : (!krnl.loop) -> index
-// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x1xf32>
-// CHECK-DAG:           [[LOAD_RES_2_MEM_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
-// CHECK-DAG:           [[VAR_33_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
+// CHECK:               [[VAR_31_1_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x1xindex>
+// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[VAR_31_1_]]{{.}} : memref<1x1x1xf32>
+// CHECK-DAG:           [[VAR_33_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
+// CHECK-DAG:           [[VAR_34_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_34_1_:%.+]] = arith.cmpi slt, [[VAR_33_1_]], [[LOAD_RES_MEM_1_]] : index
-// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1xi1>
+// CHECK-DAG:           [[VAR_35_:%.+]] = arith.cmpi slt, [[VAR_34_1_]], [[LOAD_RES_MEM_1_]] : index
+// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[VAR_31_1_]]{{.}} : memref<1xi1>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_36_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
-// CHECK-DAG:           [[VAR_37_:%.+]] = arith.andi [[LOAD_RES_2_MEM_2_]], [[VAR_34_1_]] : i1
-// CHECK:               [[VAR_38_:%.+]] = arith.andi [[VAR_37_]], [[VAR_36_]] : i1
-// CHECK:               scf.if [[VAR_38_]] {
-// CHECK:                 [[LOAD_RES_3_MEM_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x1xindex>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c0_]]{{.}} : memref<1x1x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c1_]]{{.}} : memref<1x1x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c2_]]{{.}} : memref<1x1x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c3_]]{{.}} : memref<1x1x4xf32>
+// CHECK-DAG:           [[VAR_37_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
+// CHECK-DAG:           [[VAR_38_:%.+]] = arith.andi [[VAR_33_2_]], [[VAR_35_]] : i1
+// CHECK:               [[VAR_39_:%.+]] = arith.andi [[VAR_38_]], [[VAR_37_]] : i1
+// CHECK:               scf.if [[VAR_39_]] {
+// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c0_]]{{.}} : memref<1x1x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c1_]]{{.}} : memref<1x1x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c2_]]{{.}} : memref<1x1x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c3_]]{{.}} : memref<1x1x4xf32>
 // CHECK-DAG:             [[VAR_44_:%.+]] = arith.muli [[VAR_23_4_]]#1, [[LOAD_RES_MEM_1_]] : index
 // CHECK:                 [[VAR_45_:%.+]] = arith.addi [[VAR_23_4_]]#0, [[VAR_44_]] : index
-// CHECK:                 [[VAR_46_:%.+]] = arith.addi [[VAR_45_]], [[VAR_33_1_]] : index
+// CHECK:                 [[VAR_46_:%.+]] = arith.addi [[VAR_45_]], [[VAR_34_1_]] : index
 // CHECK:                 krnl.store [[VAR_23_4_]]#0, [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c0_]]{{.}} : memref<?x3xindex>
 // CHECK:                 krnl.store [[VAR_23_4_]]#1, [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c1_]]{{.}} : memref<?x3xindex>
-// CHECK:                 krnl.store [[LOAD_RES_3_MEM_]], [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
-// CHECK:                 [[VAR_47_:%.+]] = affine.apply #map([[VAR_33_1_]])
+// CHECK:                 krnl.store [[VAR_31_1_]], [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
+// CHECK:                 [[VAR_47_:%.+]] = affine.apply #map([[VAR_34_1_]])
 // CHECK:                 krnl.store [[VAR_47_]], [[RES_7_]][] : memref<index>
 // CHECK:                 [[LOOP_8_:%.+]] = krnl.define_loops 1
 // CHECK:                 krnl.iterate([[LOOP_8_]]) with ([[LOOP_8_]] -> [[I_15_:%.+]] = [[VAR_c0_]] to [[VAR_c1_]]) {
@@ -928,14 +928,14 @@ func @test_nonmaxsuppression_single_box(%arg0: tensor<1x1x4xf32>, %arg1: tensor<
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_5_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c1_]]{{.}} : memref<1x1x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_6_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c2_]]{{.}} : memref<1x1x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_7_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c3_]]{{.}} : memref<1x1x4xf32>
-// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
-// CHECK-DAG:                 [[VAR_57_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_57_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.mulf [[VAR_57_]], [[VAR_56_]] : f32
-// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.mulf [[VAR_56_]], [[VAR_57_]] : f32
+// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.mulf [[VAR_60_]], [[VAR_59_]] : f32
+// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.mulf [[VAR_59_]], [[VAR_60_]] : f32
 // CHECK-DAG:                 [[VAR_62_:%.+]] = maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-DAG:                 [[VAR_63_:%.+]] = maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
 // CHECK-DAG:                 [[VAR_64_:%.+]] = minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
@@ -944,10 +944,10 @@ func @test_nonmaxsuppression_single_box(%arg0: tensor<1x1x4xf32>, %arg1: tensor<
 // CHECK-DAG:                 [[VAR_66_:%.+]] = arith.subf [[VAR_64_]], [[VAR_62_]] : f32
 // CHECK-DAG:                 [[VAR_67_:%.+]] = arith.subf [[VAR_65_]], [[VAR_63_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_68_:%.+]] = maxf [[VAR_67_]], [[VAR_cst_0_]] : f32
-// CHECK-DAG:                 [[VAR_69_:%.+]] = maxf [[VAR_66_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_68_:%.+]] = maxf [[VAR_66_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_69_:%.+]] = maxf [[VAR_67_]], [[VAR_cst_0_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_70_:%.+]] = arith.mulf [[VAR_69_]], [[VAR_68_]] : f32
+// CHECK-DAG:                 [[VAR_70_:%.+]] = arith.mulf [[VAR_68_]], [[VAR_69_]] : f32
 // CHECK-DAG:                 [[VAR_71_:%.+]] = arith.addf [[VAR_58_]], [[VAR_61_]] : f32
 // CHECK:                     [[VAR_72_:%.+]] = arith.subf [[VAR_71_]], [[VAR_70_]] : f32
 // CHECK:                     [[VAR_73_:%.+]] = arith.addf [[VAR_72_]], [[VAR_cst_]] : f32
@@ -1090,29 +1090,29 @@ func @test_nonmaxsuppression_suppress_by_IOU(%arg0: tensor<1x6x4xf32>, %arg1: te
 // CHECK:             [[LOOP_7_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[LOOP_7_]]) with ([[LOOP_7_]] -> [[I_14_:%.+]] = [[VAR_c0_]] to [[VAR_c6_]]) {
 // CHECK:               [[LOAD_SCORES_MEM_3_1_:%.+]] = krnl.get_induction_var_value([[LOOP_7_]]) : (!krnl.loop) -> index
-// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x6xf32>
-// CHECK-DAG:           [[LOAD_RES_2_MEM_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
-// CHECK-DAG:           [[VAR_33_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
+// CHECK:               [[VAR_31_1_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x6xindex>
+// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[VAR_31_1_]]{{.}} : memref<1x1x6xf32>
+// CHECK-DAG:           [[VAR_33_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
+// CHECK-DAG:           [[VAR_34_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_34_1_:%.+]] = arith.cmpi slt, [[VAR_33_1_]], [[LOAD_RES_MEM_1_]] : index
-// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<6xi1>
+// CHECK-DAG:           [[VAR_35_:%.+]] = arith.cmpi slt, [[VAR_34_1_]], [[LOAD_RES_MEM_1_]] : index
+// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[VAR_31_1_]]{{.}} : memref<6xi1>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_36_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
-// CHECK-DAG:           [[VAR_37_:%.+]] = arith.andi [[LOAD_RES_2_MEM_2_]], [[VAR_34_1_]] : i1
-// CHECK:               [[VAR_38_:%.+]] = arith.andi [[VAR_37_]], [[VAR_36_]] : i1
-// CHECK:               scf.if [[VAR_38_]] {
-// CHECK:                 [[LOAD_RES_3_MEM_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x6xindex>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:           [[VAR_37_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
+// CHECK-DAG:           [[VAR_38_:%.+]] = arith.andi [[VAR_33_2_]], [[VAR_35_]] : i1
+// CHECK:               [[VAR_39_:%.+]] = arith.andi [[VAR_38_]], [[VAR_37_]] : i1
+// CHECK:               scf.if [[VAR_39_]] {
+// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:             [[VAR_44_:%.+]] = arith.muli [[VAR_23_4_]]#1, [[LOAD_RES_MEM_1_]] : index
 // CHECK:                 [[VAR_45_:%.+]] = arith.addi [[VAR_23_4_]]#0, [[VAR_44_]] : index
-// CHECK:                 [[VAR_46_:%.+]] = arith.addi [[VAR_45_]], [[VAR_33_1_]] : index
+// CHECK:                 [[VAR_46_:%.+]] = arith.addi [[VAR_45_]], [[VAR_34_1_]] : index
 // CHECK:                 krnl.store [[VAR_23_4_]]#0, [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c0_]]{{.}} : memref<?x3xindex>
 // CHECK:                 krnl.store [[VAR_23_4_]]#1, [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c1_]]{{.}} : memref<?x3xindex>
-// CHECK:                 krnl.store [[LOAD_RES_3_MEM_]], [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
-// CHECK:                 [[VAR_47_:%.+]] = affine.apply #map([[VAR_33_1_]])
+// CHECK:                 krnl.store [[VAR_31_1_]], [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
+// CHECK:                 [[VAR_47_:%.+]] = affine.apply #map([[VAR_34_1_]])
 // CHECK:                 krnl.store [[VAR_47_]], [[RES_7_]][] : memref<index>
 // CHECK:                 [[LOOP_8_:%.+]] = krnl.define_loops 1
 // CHECK:                 krnl.iterate([[LOOP_8_]]) with ([[LOOP_8_]] -> [[I_15_:%.+]] = [[VAR_c0_]] to [[VAR_c6_]]) {
@@ -1124,14 +1124,14 @@ func @test_nonmaxsuppression_suppress_by_IOU(%arg0: tensor<1x6x4xf32>, %arg1: te
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_5_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_6_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_7_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
-// CHECK-DAG:                 [[VAR_57_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_57_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.mulf [[VAR_57_]], [[VAR_56_]] : f32
-// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.mulf [[VAR_56_]], [[VAR_57_]] : f32
+// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.mulf [[VAR_60_]], [[VAR_59_]] : f32
+// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.mulf [[VAR_59_]], [[VAR_60_]] : f32
 // CHECK-DAG:                 [[VAR_62_:%.+]] = maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-DAG:                 [[VAR_63_:%.+]] = maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
 // CHECK-DAG:                 [[VAR_64_:%.+]] = minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
@@ -1140,10 +1140,10 @@ func @test_nonmaxsuppression_suppress_by_IOU(%arg0: tensor<1x6x4xf32>, %arg1: te
 // CHECK-DAG:                 [[VAR_66_:%.+]] = arith.subf [[VAR_64_]], [[VAR_62_]] : f32
 // CHECK-DAG:                 [[VAR_67_:%.+]] = arith.subf [[VAR_65_]], [[VAR_63_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_68_:%.+]] = maxf [[VAR_67_]], [[VAR_cst_0_]] : f32
-// CHECK-DAG:                 [[VAR_69_:%.+]] = maxf [[VAR_66_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_68_:%.+]] = maxf [[VAR_66_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_69_:%.+]] = maxf [[VAR_67_]], [[VAR_cst_0_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_70_:%.+]] = arith.mulf [[VAR_69_]], [[VAR_68_]] : f32
+// CHECK-DAG:                 [[VAR_70_:%.+]] = arith.mulf [[VAR_68_]], [[VAR_69_]] : f32
 // CHECK-DAG:                 [[VAR_71_:%.+]] = arith.addf [[VAR_58_]], [[VAR_61_]] : f32
 // CHECK:                     [[VAR_72_:%.+]] = arith.subf [[VAR_71_]], [[VAR_70_]] : f32
 // CHECK:                     [[VAR_73_:%.+]] = arith.addf [[VAR_72_]], [[VAR_cst_]] : f32
@@ -1286,29 +1286,29 @@ func @test_nonmaxsuppression_suppress_by_IOU_and_scores(%arg0: tensor<1x6x4xf32>
 // CHECK:             [[LOOP_7_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[LOOP_7_]]) with ([[LOOP_7_]] -> [[I_14_:%.+]] = [[VAR_c0_]] to [[VAR_c6_]]) {
 // CHECK:               [[LOAD_SCORES_MEM_3_1_:%.+]] = krnl.get_induction_var_value([[LOOP_7_]]) : (!krnl.loop) -> index
-// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x6xf32>
-// CHECK-DAG:           [[LOAD_RES_2_MEM_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
-// CHECK-DAG:           [[VAR_33_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
+// CHECK:               [[VAR_31_1_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x6xindex>
+// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[VAR_31_1_]]{{.}} : memref<1x1x6xf32>
+// CHECK-DAG:           [[VAR_33_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
+// CHECK-DAG:           [[VAR_34_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_34_1_:%.+]] = arith.cmpi slt, [[VAR_33_1_]], [[LOAD_RES_MEM_1_]] : index
-// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<6xi1>
+// CHECK-DAG:           [[VAR_35_:%.+]] = arith.cmpi slt, [[VAR_34_1_]], [[LOAD_RES_MEM_1_]] : index
+// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[VAR_31_1_]]{{.}} : memref<6xi1>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_36_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
-// CHECK-DAG:           [[VAR_37_:%.+]] = arith.andi [[LOAD_RES_2_MEM_2_]], [[VAR_34_1_]] : i1
-// CHECK:               [[VAR_38_:%.+]] = arith.andi [[VAR_37_]], [[VAR_36_]] : i1
-// CHECK:               scf.if [[VAR_38_]] {
-// CHECK:                 [[LOAD_RES_3_MEM_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_23_4_]]#0, [[VAR_23_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x1x6xindex>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:           [[VAR_37_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
+// CHECK-DAG:           [[VAR_38_:%.+]] = arith.andi [[VAR_33_2_]], [[VAR_35_]] : i1
+// CHECK:               [[VAR_39_:%.+]] = arith.andi [[VAR_38_]], [[VAR_37_]] : i1
+// CHECK:               scf.if [[VAR_39_]] {
+// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_31_1_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:             [[VAR_44_:%.+]] = arith.muli [[VAR_23_4_]]#1, [[LOAD_RES_MEM_1_]] : index
 // CHECK:                 [[VAR_45_:%.+]] = arith.addi [[VAR_23_4_]]#0, [[VAR_44_]] : index
-// CHECK:                 [[VAR_46_:%.+]] = arith.addi [[VAR_45_]], [[VAR_33_1_]] : index
+// CHECK:                 [[VAR_46_:%.+]] = arith.addi [[VAR_45_]], [[VAR_34_1_]] : index
 // CHECK:                 krnl.store [[VAR_23_4_]]#0, [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c0_]]{{.}} : memref<?x3xindex>
 // CHECK:                 krnl.store [[VAR_23_4_]]#1, [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c1_]]{{.}} : memref<?x3xindex>
-// CHECK:                 krnl.store [[LOAD_RES_3_MEM_]], [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
-// CHECK:                 [[VAR_47_:%.+]] = affine.apply #map([[VAR_33_1_]])
+// CHECK:                 krnl.store [[VAR_31_1_]], [[RES_5_]]{{.}}[[VAR_46_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
+// CHECK:                 [[VAR_47_:%.+]] = affine.apply #map([[VAR_34_1_]])
 // CHECK:                 krnl.store [[VAR_47_]], [[RES_7_]][] : memref<index>
 // CHECK:                 [[LOOP_8_:%.+]] = krnl.define_loops 1
 // CHECK:                 krnl.iterate([[LOOP_8_]]) with ([[LOOP_8_]] -> [[I_15_:%.+]] = [[VAR_c0_]] to [[VAR_c6_]]) {
@@ -1320,14 +1320,14 @@ func @test_nonmaxsuppression_suppress_by_IOU_and_scores(%arg0: tensor<1x6x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_5_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_6_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_7_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_23_4_]]#0, [[VAR_49_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
-// CHECK-DAG:                 [[VAR_57_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_57_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.mulf [[VAR_57_]], [[VAR_56_]] : f32
-// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.mulf [[VAR_56_]], [[VAR_57_]] : f32
+// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.mulf [[VAR_60_]], [[VAR_59_]] : f32
+// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.mulf [[VAR_59_]], [[VAR_60_]] : f32
 // CHECK-DAG:                 [[VAR_62_:%.+]] = maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-DAG:                 [[VAR_63_:%.+]] = maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
 // CHECK-DAG:                 [[VAR_64_:%.+]] = minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
@@ -1336,10 +1336,10 @@ func @test_nonmaxsuppression_suppress_by_IOU_and_scores(%arg0: tensor<1x6x4xf32>
 // CHECK-DAG:                 [[VAR_66_:%.+]] = arith.subf [[VAR_64_]], [[VAR_62_]] : f32
 // CHECK-DAG:                 [[VAR_67_:%.+]] = arith.subf [[VAR_65_]], [[VAR_63_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_68_:%.+]] = maxf [[VAR_67_]], [[VAR_cst_0_]] : f32
-// CHECK-DAG:                 [[VAR_69_:%.+]] = maxf [[VAR_66_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_68_:%.+]] = maxf [[VAR_66_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_69_:%.+]] = maxf [[VAR_67_]], [[VAR_cst_0_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_70_:%.+]] = arith.mulf [[VAR_69_]], [[VAR_68_]] : f32
+// CHECK-DAG:                 [[VAR_70_:%.+]] = arith.mulf [[VAR_68_]], [[VAR_69_]] : f32
 // CHECK-DAG:                 [[VAR_71_:%.+]] = arith.addf [[VAR_58_]], [[VAR_61_]] : f32
 // CHECK:                     [[VAR_72_:%.+]] = arith.subf [[VAR_71_]], [[VAR_70_]] : f32
 // CHECK:                     [[VAR_73_:%.+]] = arith.addf [[VAR_72_]], [[VAR_cst_]] : f32
@@ -1485,30 +1485,30 @@ func @test_nonmaxsuppression_two_batches(%arg0: tensor<2x6x4xf32>, %arg1: tensor
 // CHECK:             [[LOOP_7_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[LOOP_7_]]) with ([[LOOP_7_]] -> [[I_14_:%.+]] = [[VAR_c0_]] to [[VAR_c6_]]) {
 // CHECK:               [[LOAD_SCORES_MEM_3_1_:%.+]] = krnl.get_induction_var_value([[LOOP_7_]]) : (!krnl.loop) -> index
-// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_24_4_]]#0, [[VAR_24_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<2x1x6xf32>
-// CHECK-DAG:           [[LOAD_RES_2_MEM_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
-// CHECK-DAG:           [[VAR_34_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
+// CHECK:               [[VAR_32_1_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_24_4_]]#0, [[VAR_24_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<2x1x6xindex>
+// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_24_4_]]#0, [[VAR_24_4_]]#1, [[VAR_32_1_]]{{.}} : memref<2x1x6xf32>
+// CHECK-DAG:           [[VAR_34_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
+// CHECK-DAG:           [[VAR_35_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_35_1_:%.+]] = arith.cmpi slt, [[VAR_34_1_]], [[LOAD_RES_MEM_1_]] : index
-// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<6xi1>
+// CHECK-DAG:           [[VAR_36_:%.+]] = arith.cmpi slt, [[VAR_35_1_]], [[LOAD_RES_MEM_1_]] : index
+// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[VAR_32_1_]]{{.}} : memref<6xi1>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_37_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
-// CHECK-DAG:           [[VAR_38_:%.+]] = arith.andi [[LOAD_RES_2_MEM_2_]], [[VAR_35_1_]] : i1
-// CHECK:               [[VAR_39_:%.+]] = arith.andi [[VAR_38_]], [[VAR_37_]] : i1
-// CHECK:               scf.if [[VAR_39_]] {
-// CHECK:                 [[LOAD_RES_3_MEM_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_24_4_]]#0, [[VAR_24_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<2x1x6xindex>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c0_]]{{.}} : memref<2x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c1_]]{{.}} : memref<2x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c2_]]{{.}} : memref<2x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c3_]]{{.}} : memref<2x6x4xf32>
-// CHECK-DAG:             [[VAR_45_:%.+]] = arith.muli [[VAR_24_4_]]#1, [[LOAD_RES_MEM_1_]] : index
-// CHECK-DAG:             [[VAR_46_:%.+]] = affine.apply #map2([[VAR_24_4_]]#0)
-// CHECK:                 [[VAR_47_:%.+]] = arith.addi [[VAR_46_]], [[VAR_45_]] : index
-// CHECK:                 [[VAR_48_:%.+]] = arith.addi [[VAR_47_]], [[VAR_34_1_]] : index
+// CHECK-DAG:           [[VAR_38_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
+// CHECK-DAG:           [[VAR_39_:%.+]] = arith.andi [[VAR_34_2_]], [[VAR_36_]] : i1
+// CHECK:               [[VAR_40_:%.+]] = arith.andi [[VAR_39_]], [[VAR_38_]] : i1
+// CHECK:               scf.if [[VAR_40_]] {
+// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[VAR_32_1_]], [[VAR_c0_]]{{.}} : memref<2x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[VAR_32_1_]], [[VAR_c1_]]{{.}} : memref<2x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[VAR_32_1_]], [[VAR_c2_]]{{.}} : memref<2x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[VAR_32_1_]], [[VAR_c3_]]{{.}} : memref<2x6x4xf32>
+// CHECK-DAG:             [[VAR_45_:%.+]] = affine.apply #map2([[VAR_24_4_]]#0)
+// CHECK-DAG:             [[VAR_46_:%.+]] = arith.muli [[VAR_24_4_]]#1, [[LOAD_RES_MEM_1_]] : index
+// CHECK:                 [[VAR_47_:%.+]] = arith.addi [[VAR_45_]], [[VAR_46_]] : index
+// CHECK:                 [[VAR_48_:%.+]] = arith.addi [[VAR_47_]], [[VAR_35_1_]] : index
 // CHECK:                 krnl.store [[VAR_24_4_]]#0, [[RES_5_]]{{.}}[[VAR_48_]], [[VAR_c0_]]{{.}} : memref<?x3xindex>
 // CHECK:                 krnl.store [[VAR_24_4_]]#1, [[RES_5_]]{{.}}[[VAR_48_]], [[VAR_c1_]]{{.}} : memref<?x3xindex>
-// CHECK:                 krnl.store [[LOAD_RES_3_MEM_]], [[RES_5_]]{{.}}[[VAR_48_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
-// CHECK:                 [[VAR_49_:%.+]] = affine.apply #map0([[VAR_34_1_]])
+// CHECK:                 krnl.store [[VAR_32_1_]], [[RES_5_]]{{.}}[[VAR_48_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
+// CHECK:                 [[VAR_49_:%.+]] = affine.apply #map0([[VAR_35_1_]])
 // CHECK:                 krnl.store [[VAR_49_]], [[RES_7_]][] : memref<index>
 // CHECK:                 [[LOOP_8_:%.+]] = krnl.define_loops 1
 // CHECK:                 krnl.iterate([[LOOP_8_]]) with ([[LOOP_8_]] -> [[I_15_:%.+]] = [[VAR_c0_]] to [[VAR_c6_]]) {
@@ -1520,14 +1520,14 @@ func @test_nonmaxsuppression_two_batches(%arg0: tensor<2x6x4xf32>, %arg1: tensor
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_5_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[VAR_51_]], [[VAR_c1_]]{{.}} : memref<2x6x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_6_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[VAR_51_]], [[VAR_c2_]]{{.}} : memref<2x6x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_7_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[VAR_51_]], [[VAR_c3_]]{{.}} : memref<2x6x4xf32>
-// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
-// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.mulf [[VAR_59_]], [[VAR_58_]] : f32
-// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_62_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.mulf [[VAR_58_]], [[VAR_59_]] : f32
+// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_62_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_63_:%.+]] = arith.mulf [[VAR_62_]], [[VAR_61_]] : f32
+// CHECK-DAG:                 [[VAR_63_:%.+]] = arith.mulf [[VAR_61_]], [[VAR_62_]] : f32
 // CHECK-DAG:                 [[VAR_64_:%.+]] = maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-DAG:                 [[VAR_65_:%.+]] = maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
 // CHECK-DAG:                 [[VAR_66_:%.+]] = minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
@@ -1536,10 +1536,10 @@ func @test_nonmaxsuppression_two_batches(%arg0: tensor<2x6x4xf32>, %arg1: tensor
 // CHECK-DAG:                 [[VAR_68_:%.+]] = arith.subf [[VAR_66_]], [[VAR_64_]] : f32
 // CHECK-DAG:                 [[VAR_69_:%.+]] = arith.subf [[VAR_67_]], [[VAR_65_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_70_:%.+]] = maxf [[VAR_69_]], [[VAR_cst_0_]] : f32
-// CHECK-DAG:                 [[VAR_71_:%.+]] = maxf [[VAR_68_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_70_:%.+]] = maxf [[VAR_68_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_71_:%.+]] = maxf [[VAR_69_]], [[VAR_cst_0_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_72_:%.+]] = arith.mulf [[VAR_71_]], [[VAR_70_]] : f32
+// CHECK-DAG:                 [[VAR_72_:%.+]] = arith.mulf [[VAR_70_]], [[VAR_71_]] : f32
 // CHECK-DAG:                 [[VAR_73_:%.+]] = arith.addf [[VAR_60_]], [[VAR_63_]] : f32
 // CHECK:                     [[VAR_74_:%.+]] = arith.subf [[VAR_73_]], [[VAR_72_]] : f32
 // CHECK:                     [[VAR_75_:%.+]] = arith.addf [[VAR_74_]], [[VAR_cst_]] : f32
@@ -1684,29 +1684,29 @@ func @test_nonmaxsuppression_two_classes(%arg0: tensor<1x6x4xf32>, %arg1: tensor
 // CHECK:             [[LOOP_7_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[LOOP_7_]]) with ([[LOOP_7_]] -> [[I_14_:%.+]] = [[VAR_c0_]] to [[VAR_c6_]]) {
 // CHECK:               [[LOAD_SCORES_MEM_3_1_:%.+]] = krnl.get_induction_var_value([[LOOP_7_]]) : (!krnl.loop) -> index
-// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_24_4_]]#0, [[VAR_24_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x2x6xf32>
-// CHECK-DAG:           [[LOAD_RES_2_MEM_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
-// CHECK-DAG:           [[VAR_34_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
+// CHECK:               [[VAR_32_1_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_24_4_]]#0, [[VAR_24_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x2x6xindex>
+// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_24_4_]]#0, [[VAR_24_4_]]#1, [[VAR_32_1_]]{{.}} : memref<1x2x6xf32>
+// CHECK-DAG:           [[VAR_34_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
+// CHECK-DAG:           [[VAR_35_1_:%.+]] = krnl.load [[RES_7_]][] : memref<index>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_35_1_:%.+]] = arith.cmpi slt, [[VAR_34_1_]], [[LOAD_RES_MEM_1_]] : index
-// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<6xi1>
+// CHECK-DAG:           [[VAR_36_:%.+]] = arith.cmpi slt, [[VAR_35_1_]], [[LOAD_RES_MEM_1_]] : index
+// CHECK-DAG:           [[LOAD_RES_8_MEM_:%.+]] = krnl.load [[RES_8_]]{{.}}[[VAR_32_1_]]{{.}} : memref<6xi1>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_37_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
-// CHECK-DAG:           [[VAR_38_:%.+]] = arith.andi [[LOAD_RES_2_MEM_2_]], [[VAR_35_1_]] : i1
-// CHECK:               [[VAR_39_:%.+]] = arith.andi [[VAR_38_]], [[VAR_37_]] : i1
-// CHECK:               scf.if [[VAR_39_]] {
-// CHECK:                 [[LOAD_RES_3_MEM_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_24_4_]]#0, [[VAR_24_4_]]#1, [[LOAD_SCORES_MEM_3_1_]]{{.}} : memref<1x2x6xindex>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:           [[VAR_38_:%.+]] = arith.cmpi eq, [[LOAD_RES_8_MEM_]], [[VAR_false_]] : i1
+// CHECK-DAG:           [[VAR_39_:%.+]] = arith.andi [[VAR_34_2_]], [[VAR_36_]] : i1
+// CHECK:               [[VAR_40_:%.+]] = arith.andi [[VAR_39_]], [[VAR_38_]] : i1
+// CHECK:               scf.if [[VAR_40_]] {
+// CHECK-DAG:             [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[VAR_32_1_]], [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[VAR_32_1_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_2_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[VAR_32_1_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
+// CHECK-DAG:             [[LOAD_RES_4_MEM_3_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[VAR_32_1_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:             [[VAR_45_:%.+]] = arith.muli [[VAR_24_4_]]#1, [[LOAD_RES_MEM_1_]] : index
 // CHECK:                 [[VAR_46_:%.+]] = arith.addi [[VAR_24_4_]]#0, [[VAR_45_]] : index
-// CHECK:                 [[VAR_47_:%.+]] = arith.addi [[VAR_46_]], [[VAR_34_1_]] : index
+// CHECK:                 [[VAR_47_:%.+]] = arith.addi [[VAR_46_]], [[VAR_35_1_]] : index
 // CHECK:                 krnl.store [[VAR_24_4_]]#0, [[RES_5_]]{{.}}[[VAR_47_]], [[VAR_c0_]]{{.}} : memref<?x3xindex>
 // CHECK:                 krnl.store [[VAR_24_4_]]#1, [[RES_5_]]{{.}}[[VAR_47_]], [[VAR_c1_]]{{.}} : memref<?x3xindex>
-// CHECK:                 krnl.store [[LOAD_RES_3_MEM_]], [[RES_5_]]{{.}}[[VAR_47_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
-// CHECK:                 [[VAR_48_:%.+]] = affine.apply #map0([[VAR_34_1_]])
+// CHECK:                 krnl.store [[VAR_32_1_]], [[RES_5_]]{{.}}[[VAR_47_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
+// CHECK:                 [[VAR_48_:%.+]] = affine.apply #map0([[VAR_35_1_]])
 // CHECK:                 krnl.store [[VAR_48_]], [[RES_7_]][] : memref<index>
 // CHECK:                 [[LOOP_8_:%.+]] = krnl.define_loops 1
 // CHECK:                 krnl.iterate([[LOOP_8_]]) with ([[LOOP_8_]] -> [[I_15_:%.+]] = [[VAR_c0_]] to [[VAR_c6_]]) {
@@ -1718,14 +1718,14 @@ func @test_nonmaxsuppression_two_classes(%arg0: tensor<1x6x4xf32>, %arg1: tensor
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_5_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[VAR_50_]], [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_6_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[VAR_50_]], [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:                 [[LOAD_RES_4_MEM_7_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_24_4_]]#0, [[VAR_50_]], [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
-// CHECK-DAG:                 [[VAR_57_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
-// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_57_:%.+]] = arith.subf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_]] : f32
+// CHECK-DAG:                 [[VAR_58_:%.+]] = arith.subf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.mulf [[VAR_58_]], [[VAR_57_]] : f32
-// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.mulf [[VAR_57_]], [[VAR_58_]] : f32
+// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.subf [[LOAD_RES_4_MEM_6_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_62_:%.+]] = arith.mulf [[VAR_61_]], [[VAR_60_]] : f32
+// CHECK-DAG:                 [[VAR_62_:%.+]] = arith.mulf [[VAR_60_]], [[VAR_61_]] : f32
 // CHECK-DAG:                 [[VAR_63_:%.+]] = maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-DAG:                 [[VAR_64_:%.+]] = maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
 // CHECK-DAG:                 [[VAR_65_:%.+]] = minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
@@ -1734,10 +1734,10 @@ func @test_nonmaxsuppression_two_classes(%arg0: tensor<1x6x4xf32>, %arg1: tensor
 // CHECK-DAG:                 [[VAR_67_:%.+]] = arith.subf [[VAR_65_]], [[VAR_63_]] : f32
 // CHECK-DAG:                 [[VAR_68_:%.+]] = arith.subf [[VAR_66_]], [[VAR_64_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_69_:%.+]] = maxf [[VAR_68_]], [[VAR_cst_0_]] : f32
-// CHECK-DAG:                 [[VAR_70_:%.+]] = maxf [[VAR_67_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_69_:%.+]] = maxf [[VAR_67_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_70_:%.+]] = maxf [[VAR_68_]], [[VAR_cst_0_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_71_:%.+]] = arith.mulf [[VAR_70_]], [[VAR_69_]] : f32
+// CHECK-DAG:                 [[VAR_71_:%.+]] = arith.mulf [[VAR_69_]], [[VAR_70_]] : f32
 // CHECK-DAG:                 [[VAR_72_:%.+]] = arith.addf [[VAR_59_]], [[VAR_62_]] : f32
 // CHECK:                     [[VAR_73_:%.+]] = arith.subf [[VAR_72_]], [[VAR_71_]] : f32
 // CHECK:                     [[VAR_74_:%.+]] = arith.addf [[VAR_73_]], [[VAR_cst_]] : f32
@@ -1880,30 +1880,30 @@ func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tenso
 // CHECK:             [[LOOP_6_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[LOOP_6_]]) with ([[LOOP_6_]] -> [[I_12_:%.+]] = [[VAR_c0_]] to [[VAR_5_]]) {
 // CHECK:               [[LOAD_SCORES_MEM_3_:%.+]] = krnl.get_induction_var_value([[LOOP_6_]]) : (!krnl.loop) -> index
-// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_32_3_]]#0, [[VAR_32_3_]]#1, [[LOAD_SCORES_MEM_3_]]{{.}} : memref<?x?x?xf32>
-// CHECK-DAG:           [[LOAD_RES_2_MEM_2_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
-// CHECK-DAG:           [[VAR_42_1_:%.+]] = krnl.load [[RES_6_]][] : memref<index>
+// CHECK:               [[VAR_40_1_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_32_3_]]#0, [[VAR_32_3_]]#1, [[LOAD_SCORES_MEM_3_]]{{.}} : memref<?x?x?xindex>
+// CHECK:               [[LOAD_SCORES_MEM_4_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_32_3_]]#0, [[VAR_32_3_]]#1, [[VAR_40_1_]]{{.}} : memref<?x?x?xf32>
+// CHECK-DAG:           [[VAR_42_1_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_4_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
+// CHECK-DAG:           [[VAR_43_1_:%.+]] = krnl.load [[RES_6_]][] : memref<index>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_43_1_:%.+]] = arith.cmpi slt, [[VAR_42_1_]], [[LOAD_RES_MEM_1_]] : index
-// CHECK-DAG:           [[LOAD_RES_7_MEM_:%.+]] = krnl.load [[RES_7_]]{{.}}[[LOAD_SCORES_MEM_3_]]{{.}} : memref<?xi1>
+// CHECK-DAG:           [[VAR_44_:%.+]] = arith.cmpi slt, [[VAR_43_1_]], [[LOAD_RES_MEM_1_]] : index
+// CHECK-DAG:           [[LOAD_RES_7_MEM_:%.+]] = krnl.load [[RES_7_]]{{.}}[[VAR_40_1_]]{{.}} : memref<?xi1>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_45_:%.+]] = arith.cmpi eq, [[LOAD_RES_7_MEM_]], [[VAR_false_]] : i1
-// CHECK-DAG:           [[VAR_46_:%.+]] = arith.andi [[LOAD_RES_2_MEM_2_]], [[VAR_43_1_]] : i1
-// CHECK:               [[VAR_47_:%.+]] = arith.andi [[VAR_46_]], [[VAR_45_]] : i1
-// CHECK:               scf.if [[VAR_47_]] {
-// CHECK:                 [[LOAD_RES_3_MEM_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_32_3_]]#0, [[VAR_32_3_]]#1, [[LOAD_SCORES_MEM_3_]]{{.}} : memref<?x?x?xindex>
-// CHECK-DAG:             [[LOAD_BOXES_MEM_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_32_3_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c0_]]{{.}} : memref<?x?x?xf32>
-// CHECK-DAG:             [[LOAD_BOXES_MEM_1_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_32_3_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c1_]]{{.}} : memref<?x?x?xf32>
-// CHECK-DAG:             [[LOAD_BOXES_MEM_2_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_32_3_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c2_]]{{.}} : memref<?x?x?xf32>
-// CHECK-DAG:             [[LOAD_BOXES_MEM_3_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_32_3_]]#0, [[LOAD_RES_3_MEM_]], [[VAR_c3_]]{{.}} : memref<?x?x?xf32>
-// CHECK-DAG:             [[VAR_53_:%.+]] = arith.muli [[VAR_32_3_]]#1, [[LOAD_RES_MEM_1_]] : index
-// CHECK-DAG:             [[VAR_54_:%.+]] = arith.muli [[VAR_32_3_]]#0, [[VAR_3_]] : index
-// CHECK:                 [[VAR_55_:%.+]] = arith.addi [[VAR_54_]], [[VAR_53_]] : index
-// CHECK:                 [[VAR_56_:%.+]] = arith.addi [[VAR_55_]], [[VAR_42_1_]] : index
+// CHECK-DAG:           [[VAR_46_:%.+]] = arith.cmpi eq, [[LOAD_RES_7_MEM_]], [[VAR_false_]] : i1
+// CHECK-DAG:           [[VAR_47_:%.+]] = arith.andi [[VAR_42_1_]], [[VAR_44_]] : i1
+// CHECK:               [[VAR_48_:%.+]] = arith.andi [[VAR_47_]], [[VAR_46_]] : i1
+// CHECK:               scf.if [[VAR_48_]] {
+// CHECK-DAG:             [[LOAD_BOXES_MEM_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_32_3_]]#0, [[VAR_40_1_]], [[VAR_c0_]]{{.}} : memref<?x?x?xf32>
+// CHECK-DAG:             [[LOAD_BOXES_MEM_1_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_32_3_]]#0, [[VAR_40_1_]], [[VAR_c1_]]{{.}} : memref<?x?x?xf32>
+// CHECK-DAG:             [[LOAD_BOXES_MEM_2_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_32_3_]]#0, [[VAR_40_1_]], [[VAR_c2_]]{{.}} : memref<?x?x?xf32>
+// CHECK-DAG:             [[LOAD_BOXES_MEM_3_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_32_3_]]#0, [[VAR_40_1_]], [[VAR_c3_]]{{.}} : memref<?x?x?xf32>
+// CHECK-DAG:             [[VAR_53_:%.+]] = arith.muli [[VAR_32_3_]]#0, [[VAR_3_]] : index
+// CHECK-DAG:             [[VAR_54_:%.+]] = arith.muli [[VAR_32_3_]]#1, [[LOAD_RES_MEM_1_]] : index
+// CHECK:                 [[VAR_55_:%.+]] = arith.addi [[VAR_53_]], [[VAR_54_]] : index
+// CHECK:                 [[VAR_56_:%.+]] = arith.addi [[VAR_55_]], [[VAR_43_1_]] : index
 // CHECK:                 krnl.store [[VAR_32_3_]]#0, [[RES_4_]]{{.}}[[VAR_56_]], [[VAR_c0_]]{{.}} : memref<?x3xindex>
 // CHECK:                 krnl.store [[VAR_32_3_]]#1, [[RES_4_]]{{.}}[[VAR_56_]], [[VAR_c1_]]{{.}} : memref<?x3xindex>
-// CHECK:                 krnl.store [[LOAD_RES_3_MEM_]], [[RES_4_]]{{.}}[[VAR_56_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
-// CHECK:                 [[VAR_57_:%.+]] = affine.apply #map8([[VAR_42_1_]])
+// CHECK:                 krnl.store [[VAR_40_1_]], [[RES_4_]]{{.}}[[VAR_56_]], [[VAR_c2_]]{{.}} : memref<?x3xindex>
+// CHECK:                 [[VAR_57_:%.+]] = affine.apply #map8([[VAR_43_1_]])
 // CHECK:                 krnl.store [[VAR_57_]], [[RES_6_]][] : memref<index>
 // CHECK:                 [[LOOP_7_:%.+]] = krnl.define_loops 1
 // CHECK:                 krnl.iterate([[LOOP_7_]]) with ([[LOOP_7_]] -> [[I_13_:%.+]] = [[VAR_c0_]] to [[VAR_5_]]) {
@@ -1950,10 +1950,10 @@ func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tenso
 // CHECK-DAG:                 [[VAR_88_:%.+]] = arith.subf [[VAR_86_]], [[VAR_84_]] : f32
 // CHECK-DAG:                 [[VAR_89_:%.+]] = arith.subf [[VAR_87_]], [[VAR_85_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_90_:%.+]] = maxf [[VAR_89_]], [[VAR_cst_0_]] : f32
-// CHECK-DAG:                 [[VAR_91_:%.+]] = maxf [[VAR_88_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_90_:%.+]] = maxf [[VAR_88_]], [[VAR_cst_0_]] : f32
+// CHECK-DAG:                 [[VAR_91_:%.+]] = maxf [[VAR_89_]], [[VAR_cst_0_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_92_:%.+]] = arith.mulf [[VAR_91_]], [[VAR_90_]] : f32
+// CHECK-DAG:                 [[VAR_92_:%.+]] = arith.mulf [[VAR_90_]], [[VAR_91_]] : f32
 // CHECK-DAG:                 [[VAR_93_:%.+]] = arith.addf [[VAR_82_]], [[VAR_83_]] : f32
 // CHECK:                     [[VAR_94_:%.+]] = arith.subf [[VAR_93_]], [[VAR_92_]] : f32
 // CHECK:                     [[VAR_95_:%.+]] = arith.addf [[VAR_94_]], [[VAR_cst_]] : f32
