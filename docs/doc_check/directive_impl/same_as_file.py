@@ -30,6 +30,7 @@ def handle(config, ctx):
             os.path.join(ctx.root_dir, ref_file_path), encoding='utf-8')) as ref_file:
         doc_file.skip_lines(config.get("skip-doc", 0))
         ref_file.skip_lines(config.get("skip-ref", 0))
+
         while not ref_file.eof():
             ref_line = ref_file.readline().rstrip('\r\n')
             doc_line = doc_file.readline().rstrip('\r\n')

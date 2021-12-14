@@ -2,7 +2,7 @@
 export MLIR_DIR=$(pwd)/llvm-project/build/lib/cmake/mlir
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
-cmake -G Ninja ..
+cmake -G Ninja -DCMAKE_CXX_COMPILER=/usr/bin/c++ ..
 cmake --build .
 
 # Run lit tests:
