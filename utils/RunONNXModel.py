@@ -75,7 +75,7 @@ if (not os.environ.get('ONNX_MLIR_HOME', None)):
         "Environment variable ONNX_MLIR_HOME is not set, please set it to the path to "
         "the HOME directory for onnx-mlir. The HOME directory for onnx-mlir refers to "
         "the parent folder containing the bin, lib, etc sub-folders in which ONNX-MLIR "
-        "executables and libraries can be found.")
+        "executables and libraries can be found, typically `onnx-mlir/build/Debug`")
 
 VERBOSE = os.environ.get('VERBOSE', False)
 
@@ -95,6 +95,7 @@ try:
 except ImportError:
     raise ImportError(
         "Looks like you did not build the PyRuntime target, build it by running `make PyRuntime`."
+        "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntime` outputs to `build/Debug` by default"
     )
 
 

@@ -234,10 +234,10 @@ Value MathBuilder::cast(Type destType, Value src) const {
   // Only support Integer or Float type at this stage. Index were transformed to
   // signless int.
   // TODO: add support for shaped tensor (MemRef, Vector, Tensor?) if needed.
-  assert(srcType.isa<IntegerType>() ||
-         srcType.isa<FloatType>() && "support only float or int");
-  assert(destType.isa<IntegerType>() ||
-         destType.isa<FloatType>() && "support only float or int");
+  assert((srcType.isa<IntegerType>() || srcType.isa<FloatType>()) &&
+         "support only float or int");
+  assert((destType.isa<IntegerType>() || destType.isa<FloatType>()) &&
+         "support only float or int");
   // Get source and dest type width.
   int64_t srcWidth = srcType.getIntOrFloatBitWidth();
   int64_t destWidth = destType.getIntOrFloatBitWidth();
