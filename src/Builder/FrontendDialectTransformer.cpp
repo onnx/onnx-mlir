@@ -267,7 +267,7 @@ private:
       assert(elem_type.value_case() == onnx::TypeProto::kTensorType &&
              "expect tensor inside sequence type");
       Type mlir_elem_type = ImportTensorType(elem_type);
-      Type seq_type = mlir::onnxmlir::SeqType::get({mlir_elem_type});
+      Type seq_type = mlir::onnxmlir::SeqType::get(mlir_elem_type);
       return seq_type;
     }
     llvm_unreachable("unexpected type");
