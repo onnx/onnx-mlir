@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "llvm/Support/Errno.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -37,7 +38,7 @@ static std::string getErrorMessageforFileOpeningErrors(
   }
   char dir[PATH_SIZE];
   getcwd(dir, PATH_SIZE);
-  std::string msg = std::string(strerror(msgnum)) + "(" +
-                    std::to_string(msgnum) + ") for " + path + " at " + dir;
+  std::string msg = llvm::sys::StrError(msgnum) + "(" + std::to_string(msgnum) +
+                    ") for " + path + " at " + dir;
   return msg;
 }
