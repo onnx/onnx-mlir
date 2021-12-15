@@ -369,6 +369,24 @@ You will also need `pybind11` which may need to be installed (mac: `brew install
 
 On Macs/POWER and possibly other platforms, there is currently an issue that arises when installing ONNX. If you get an error during the build, try a fix where you edit the top CMakefile as reported in this PR: `https://github.com/onnx/onnx/pull/2482/files`.
 
+While running `make check-onnx-backend` on a Mac you might encouter the following error: 
+
+```shell
+Fatal Python error: Aborted
+
+Current thread 0x0000000107919e00 (most recent call first):
+  File "/usr/local/Cellar/python@3.9/3.9.7/Frameworks/Python.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 2632 in getproxies_macosx_sysconf
+  File "/usr/local/Cellar/python@3.9/3.9.7/Frameworks/Python.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 2650 in getproxies
+  File "/usr/local/Cellar/python@3.9/3.9.7/Frameworks/Python.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 795 in __init__
+  ...
+ ```
+
+ A known workaround is to export the `no_proxy` environment variable in your shell as follow, and rerun the tests.
+
+ ```shell
+ % export no_proxy="*"
+ ```
+
 ## Slack channel
 
 We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`. This channel can be used for asking quick questions related to this project. A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
