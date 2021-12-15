@@ -103,7 +103,7 @@ jobs:
       runVersion: specific
       runId: $(MLIRBuildID)
       artifact: $(MLIRArtifactName)
-      path: $(Agent.BuildDirectory)\llvm-project
+      path: $(Agent.BuildDirectory)\llvm-project\build
     displayName: Download mlir artifact
     condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
 
