@@ -359,12 +359,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       }
     });
 
-    if (DEBUG_OPTIMIZED_OFF) {
-      genericGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,
-          alpha, beta, rewriter, loc);
-    } else {
+    if (ONNXToKrnl_tileAndUnroll() && !DEBUG_OPTIMIZED_OFF) {
       tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, alpha, beta, rewriter, loc);
+    } else {
+      genericGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,
+          alpha, beta, rewriter, loc);
     }
     rewriter.replaceOp(op, alloc);
     return success();

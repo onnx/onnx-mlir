@@ -20,7 +20,7 @@
 
 using namespace mlir;
 
-#define DEBUG_TRACE 0
+#define DEBUG_TYPE "matmul"
 
 struct ONNXMatMulOpLowering : public ConversionPattern {
   ONNXMatMulOpLowering(MLIRContext *ctx)
@@ -137,8 +137,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       int64_t constI = dimI.getLiteral();
       if (constI < iRegTile) {
         iRegTile = constI;
-        if (DEBUG_TRACE)
-          printf("MatMul: Tiling I is reduced to %d\n", (int)iRegTile);
+        LLVM_DEBUG(llvm::dbgs() << "MatMul: Tiling I is reduced to " << iRegTile << "\n");
       }
     }
     if (dimJ.isLiteral()) {
@@ -148,16 +147,14 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       // ignore the last partial block.
       if (constJ % jRegTile != 0 && constJ % 4 == 0 && constJ <= 32) {
         jRegTile = 4;
-        if (DEBUG_TRACE)
-          printf("MatMul: Tiling J is reduced to %d\n", (int)jRegTile);
+        LLVM_DEBUG(llvm::dbgs() << "MatMul: Tiling J is reduced to " << jRegTile << "\n");
       }
     }
     if (dimK.isLiteral()) {
       int64_t constK = dimK.getLiteral();
       if (constK < kRegTile) {
         kRegTile = constK;
-        if (DEBUG_TRACE)
-          printf("MatMul: Tiling K is reduced to %d\n", (int)kRegTile);
+        LLVM_DEBUG(llvm::dbgs() << "MatMul: Tiling K is reduced to " << kRegTile << "\n");
       }
     }
 
@@ -210,7 +207,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value A(operandAdaptor.A()), B(operandAdaptor.B());
     auto aRank = A.getType().cast<MemRefType>().getShape().size();
     auto bRank = B.getType().cast<MemRefType>().getShape().size();
-    if (aRank == 2 && bRank == 2) {
+    if (ONNXToKrnl_tileAndUnroll() && aRank == 2 && bRank == 2) {
+      // Optimized Matmul only when 2D and allowed to tile and unroll.
       replace2x2Matmul2d(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);
     } else {

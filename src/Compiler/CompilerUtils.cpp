@@ -601,11 +601,11 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createSymbolDCEPass());
 }
 
-void addONNXToKrnlPasses(mlir::PassManager &pm) {
+void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel) {
   pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass());
-  pm.addPass(mlir::createLowerToKrnlPass(/*emitDealloc=*/false));
+  pm.addPass(mlir::createLowerToKrnlPass(/*emitDealloc=*/false, optLevel));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
@@ -835,7 +835,7 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
-      addONNXToKrnlPasses(pm);
+      addONNXToKrnlPasses(pm, OptimizationLevel);
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }

@@ -1,3 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+
+############################### test.py ########################################
+#
+# Copyright 2019-2021 The IBM Research Authors.
+#
+################################################################################
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function

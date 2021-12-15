@@ -134,8 +134,9 @@ struct FrontendToKrnlLoweringPass
   FrontendToKrnlLoweringPass() = default;
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass)
       : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {}
-  FrontendToKrnlLoweringPass(bool emitDealloc) {
+  FrontendToKrnlLoweringPass(bool emitDealloc, int optLevel) {
     this->emitDealloc = emitDealloc;
+    this->optLevel = optLevel;
   }
 
   void runOnOperation() final;
@@ -159,6 +160,9 @@ public:
   Option<bool> emitDealloc{*this, "emit-dealloc",
       llvm::cl::desc("Emit dealloc for allocated memrefs or not."),
       llvm::cl::init(false)};
+  Option<int> optLevel{*this, "opt-level",
+      llvm::cl::desc("Optimization level (>=O3: tiling & simd; <3: none)."),
+      llvm::cl::init(0)};
 };
 } // end anonymous namespace.
 
@@ -166,7 +170,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
 
   // Set up whether emitting dealloc for allocated memrefs or not.
-  gEmitDealloc = emitDealloc;
+  ONNXToKrnl_gEmitDealloc = emitDealloc;
+  // Set up the optimization.
+  ONNXToKrnl_gOptLevel = optLevel;
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -192,7 +198,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // If `emitDealloc` is turned off, make sure we don't have buffer deallocation
   // at this level. Will use MLIR buffer-deallocation for this purpose instead.
-  if (!gEmitDealloc)
+  if (!emitDealloc)
     target.addIllegalOp<mlir::memref::DeallocOp>();
 
   // TODO: enable this once more ops are supported.
@@ -250,6 +256,7 @@ std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
 }
 
-std::unique_ptr<Pass> mlir::createLowerToKrnlPass(bool emitDealloc) {
-  return std::make_unique<FrontendToKrnlLoweringPass>(emitDealloc);
+std::unique_ptr<Pass> mlir::createLowerToKrnlPass(
+    bool emitDealloc, int optLevel) {
+  return std::make_unique<FrontendToKrnlLoweringPass>(emitDealloc, optLevel);
 }

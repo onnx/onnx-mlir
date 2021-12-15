@@ -44,8 +44,13 @@
 using namespace mlir;
 
 // A global variable to indicate whether this pass will emit dealloc for
-// allocated memrefs or not.
-extern bool gEmitDealloc;
+// allocated memrefs or not during the conversion of ONNX to Krnl.
+extern bool ONNXToKrnl_gEmitDealloc;
+// A global variable to indicate the optimization level during the conversion of
+// ONNX to Krnl. At O3 or more, we do tiling, inlining, and simdization. Below
+// O3 we don't.
+extern int ONNXToKrnl_gOptLevel;
+inline bool ONNXToKrnl_tileAndUnroll() { return ONNXToKrnl_gOptLevel >= 3; }
 
 //===----------------------------------------------------------------------===//
 // Extends OnnxBuilder with member functions that might generate Krnl dialect
