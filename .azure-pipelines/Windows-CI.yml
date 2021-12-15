@@ -48,7 +48,7 @@ jobs:
       $mlir_match = Select-String -Path onnx-mlir\utils\clone-mlir.sh -Pattern "git checkout ([\da-f]+)"
       $mlir_tag = "MLIR_Windows_$($mlir_match.Matches.Groups[1].Value)"
 
-      # Use this version to select artifact by tag, once permissions are enabled this will be significantly faster
+      # TODO Use this version to select artifact by tag, once permissions are enabled this will be significantly faster
       #$build_list = az pipelines build list --org https://dev.azure.com/onnx-pipelines --project onnx --definition-ids 9 --tags $mlir_tag --status completed --result succeeded | ConvertFrom-Json
       #$most_recent = $build_list | Sort-Object startTime | Select-Object -Last 1
       #$build_id = $most_recent.id
@@ -59,6 +59,7 @@ jobs:
       #  Write-Output "##vso[build.addbuildtag]$mlir_tag"
       #  Write-Output "##vso[task.setvariable variable=MLIRBuildID]NotFound"
       #}
+      # TODO When changing to tag version, remove this line and below
 
       $build_list = az pipelines build list --org https://dev.azure.com/onnx-pipelines --project onnx --definition-ids 9 --status completed --result succeeded | ConvertFrom-Json
       $build_list_by_date = $build_list | Sort-Object -Descending startTime
@@ -76,7 +77,7 @@ jobs:
 
       Write-Output "##vso[task.setvariable variable=MLIRArtifactName]$mlir_tag"
       Write-Output "##vso[task.setvariable variable=MLIRBuildID]$build_id"
-    displayName: Check for MLIR Artifact
+    displayName: Check for mlir artifact
     env:
       AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
     failOnStderr: true
