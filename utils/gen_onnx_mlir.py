@@ -41,13 +41,13 @@ args = parser.parse_args()
 
 import onnx
 
-with open("../third_party/onnx/VERSION_NUMBER","r") as f :
-    version = f.readline()[:-1]
-    # Only warning message because such inconsistency may occur
-    # in the process of upgrading to new onnx version
-    if version != onnx.__version__ :
-        print("version of third_party/onnx is {}, ".format(version)+
-          "while onnx package you are using is {}".format(onnx.__version__))
+current_onnx_version = "1.9.0"
+# check the version of onnx package being used
+if current_onnx_version != onnx.__version__ :
+    print("version of expected onnx is {}, ".format(current_onnx_version)+
+          "while onnx package being used is {}".format(onnx.__version__))
+    quit()
+
 check_operation_version = args.check_operation_version
 
 
