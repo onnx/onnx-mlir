@@ -1,6 +1,21 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
+# Table of Contents
+  1. Overview
+  2. Pre-requests
+  3. Version of operation
+  4. Traits and Interface
+  5. Semantics verifier
+  6. Customized builder
+  7. Customized importer
+  8. Go to a newer version of onnx
+# Overview
+Onnx-mlir defines an onnx dialect to represent operations specified by onnx.The onnx dialect is defined with MLIR table
+gen support and the semantics of each operation is transferred from onnx with a python script, gen_onnx_mlir.py. This python
+program uses onnx package, and generates ONNXOps.td.inc for dialect table gen and OpBuilderTable.inc for onnx model
+importer in onnx-mlir.
 
-# Import ONNX specifications into ONNX-MLIR
+# Operation Version
+onnx-mlir project started when onnx was at version 1.7.0 and does not intended to be backward compactible. We relies on onnx/converter to convert the model to the version which onnx-mlir supports. As onnx version is evolving, onnx-mlir tries to follow but may be behind the latest version. 
 
 ONNX specifications are defined under `onnx/defs` directory in the ONNX project repository. 
 There is a python script [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py) that automatically generates documents about operations in ONNX (docs/Operations.md). 
