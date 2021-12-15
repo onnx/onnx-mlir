@@ -137,7 +137,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       int64_t constI = dimI.getLiteral();
       if (constI < iRegTile) {
         iRegTile = constI;
-        LLVM_DEBUG(llvm::dbgs() << "MatMul: Tiling I is reduced to " << iRegTile << "\n");
+        LLVM_DEBUG(llvm::dbgs()
+                   << "MatMul: Tiling I is reduced to " << iRegTile << "\n");
       }
     }
     if (dimJ.isLiteral()) {
@@ -147,14 +148,16 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       // ignore the last partial block.
       if (constJ % jRegTile != 0 && constJ % 4 == 0 && constJ <= 32) {
         jRegTile = 4;
-        LLVM_DEBUG(llvm::dbgs() << "MatMul: Tiling J is reduced to " << jRegTile << "\n");
+        LLVM_DEBUG(llvm::dbgs()
+                   << "MatMul: Tiling J is reduced to " << jRegTile << "\n");
       }
     }
     if (dimK.isLiteral()) {
       int64_t constK = dimK.getLiteral();
       if (constK < kRegTile) {
         kRegTile = constK;
-        LLVM_DEBUG(llvm::dbgs() << "MatMul: Tiling K is reduced to " << kRegTile << "\n");
+        LLVM_DEBUG(llvm::dbgs()
+                   << "MatMul: Tiling K is reduced to " << kRegTile << "\n");
       }
     }
 
