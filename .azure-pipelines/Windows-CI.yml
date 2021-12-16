@@ -39,9 +39,10 @@ jobs:
     path: onnx-mlir
 
   - script: |
+      python3 -m pip install --user lit
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
       call onnx-mlir\utils\install-protobuf.cmd
-    displayName: Install protobuf
+    displayName: Install lit and protobuf
     workingDirectory: $(Agent.BuildDirectory)
 
   - powershell: |
@@ -88,12 +89,19 @@ jobs:
       call onnx-mlir\utils\install-mlir.cmd
     displayName: Install mlir
     workingDirectory: $(Agent.BuildDirectory)
-    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
+    condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
 
-  - publish: $(Agent.BuildDirectory)\llvm-project\build
+  - task: CopyFiles@2
+    inputs:
+      contents: $(Agent.BuildDirectory)\llvm-project\build\bin\llvm-lit
+      targetFolder: $(Agent.BuildDirectory)\llvm-project\build\install\bin
+    displayName: Copy llvm-lit to install
+    condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
+
+  - publish: $(Agent.BuildDirectory)\llvm-project\build\install
     artifact: $(MLIRArtifactName)
     displayName: Publish mlir artifact
-    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
+    condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
       
   - task: DownloadPipelineArtifact@2
     inputs:
@@ -105,7 +113,7 @@ jobs:
       artifact: $(MLIRArtifactName)
       path: $(Agent.BuildDirectory)\llvm-project\build
     displayName: Download mlir artifact
-    condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
+    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
