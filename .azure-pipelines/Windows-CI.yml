@@ -39,6 +39,7 @@ jobs:
     path: onnx-mlir
 
   - script: |
+      python3 -m pip install --user wheel
       python3 -m pip install --user lit
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
       call onnx-mlir\utils\install-protobuf.cmd
@@ -93,7 +94,8 @@ jobs:
 
   - task: CopyFiles@2
     inputs:
-      contents: $(Agent.BuildDirectory)\llvm-project\build\bin\llvm-lit*
+      sourceFolder: $(Agent.BuildDirectory)\llvm-project\build\bin
+      contents: llvm-lit.py
       targetFolder: $(Agent.BuildDirectory)\llvm-project\build\install\bin
     displayName: Copy llvm-lit to install
     condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
