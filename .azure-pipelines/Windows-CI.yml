@@ -90,7 +90,7 @@ jobs:
       call onnx-mlir\utils\install-mlir.cmd
     displayName: Install mlir
     workingDirectory: $(Agent.BuildDirectory)
-    condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
+    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
 
   - task: CopyFiles@2
     inputs:
@@ -98,12 +98,12 @@ jobs:
       contents: llvm-lit.py
       targetFolder: $(Agent.BuildDirectory)\llvm-project\build\install\bin
     displayName: Copy llvm-lit to install
-    condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
+    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
 
   - publish: $(Agent.BuildDirectory)\llvm-project\build\install
     artifact: $(MLIRArtifactName)
     displayName: Publish mlir artifact
-    condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
+    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
       
   - task: DownloadPipelineArtifact@2
     inputs:
@@ -115,7 +115,7 @@ jobs:
       artifact: $(MLIRArtifactName)
       path: $(Agent.BuildDirectory)\llvm-project\build
     displayName: Download mlir artifact
-    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
+    condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
