@@ -74,3 +74,10 @@ void emitOutputFiles(std::string outputBaseName,
 
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, onnx_mlir::EmissionTargetType targetType);
+
+void setupModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName);
+
+void emitOutput(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName, mlir::PassManager &pm,
+    onnx_mlir::EmissionTargetType emissionTarget);
