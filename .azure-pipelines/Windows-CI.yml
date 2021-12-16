@@ -93,7 +93,7 @@ jobs:
 
   - task: CopyFiles@2
     inputs:
-      contents: $(Agent.BuildDirectory)\llvm-project\build\bin\llvm-lit
+      contents: $(Agent.BuildDirectory)\llvm-project\build\bin\llvm-lit*
       targetFolder: $(Agent.BuildDirectory)\llvm-project\build\install\bin
     displayName: Copy llvm-lit to install
     condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
