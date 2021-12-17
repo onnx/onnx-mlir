@@ -863,6 +863,17 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     auto loc = ONNXLoc<ElementwiseUnaryOp>(op);
     auto X = operands[0];
 
+    // If type is scalar, there need not allocate a buffer. Just call scalar
+    // computation and return the result.
+    // This is efficient when elementwise ops are used as activations for ops
+    // like LSTM/GRU/RNN.
+    if (!X.getType().isa<TensorType>() && !X.getType().isa<MemRefType>()) {
+      Value res = emitScalarOpFor<ElementwiseUnaryOp>(
+          rewriter, loc, op, X.getType(), {X});
+      rewriter.replaceOp(op, res);
+      return success();
+    }
+
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 

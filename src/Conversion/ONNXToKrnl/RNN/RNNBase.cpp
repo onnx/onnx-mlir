@@ -247,12 +247,6 @@ Value applyActivation(OpBuilder &rewriter, Location loc,
   bool isScalar = !operand.getType().isa<ShapedType>();
   assert(isScalar && "Not a scalar operand");
 
-  MemRefType memRefType = MemRefType::get({}, operand.getType(), {}, 0);
-  // Single scalar, no need for default alignment.
-  MemRefBuilder createMemRef(rewriter, loc);
-  Value alloc = createMemRef.alloca(memRefType);
-  rewriter.create<KrnlStoreOp>(loc, operand, alloc, ArrayRef<Value>{});
-
   std::vector<mlir::NamedAttribute> attributes;
   if (activation.alpha) {
     attributes.emplace_back(
@@ -262,36 +256,34 @@ Value applyActivation(OpBuilder &rewriter, Location loc,
     attributes.emplace_back(
         rewriter.getNamedAttr("beta", activation.beta.getValue()));
   }
+  Type resType = operand.getType();
 
   // Change equality to be case insensitive.
   if (activation.name.equals_insensitive("relu"))
-    res = rewriter.create<ONNXReluOp>(loc, memRefType, alloc);
+    res = rewriter.create<ONNXReluOp>(loc, resType, operand);
   else if (activation.name.equals_insensitive("tanh"))
-    res = rewriter.create<ONNXTanhOp>(loc, memRefType, alloc);
+    res = rewriter.create<ONNXTanhOp>(loc, resType, operand);
   else if (activation.name.equals_insensitive("sigmoid"))
-    res = rewriter.create<ONNXSigmoidOp>(loc, memRefType, alloc);
+    res = rewriter.create<ONNXSigmoidOp>(loc, resType, operand);
   else if (activation.name.equals_insensitive("affine"))
     llvm_unreachable("Unsupported activation");
   else if (activation.name.equals_insensitive("leakyrelu"))
-    res = rewriter.create<ONNXLeakyReluOp>(loc, memRefType, alloc, attributes);
+    res = rewriter.create<ONNXLeakyReluOp>(loc, resType, operand, attributes);
   else if (activation.name.equals_insensitive("thresholdedrelu"))
     res = rewriter.create<ONNXThresholdedReluOp>(
-        loc, memRefType, alloc, attributes);
+        loc, resType, operand, attributes);
   else if (activation.name.equals_insensitive("scaledtanh"))
     llvm_unreachable("Unsupported activation");
   else if (activation.name.equals_insensitive("hardsigmoid"))
-    res =
-        rewriter.create<ONNXHardSigmoidOp>(loc, memRefType, alloc, attributes);
+    res = rewriter.create<ONNXHardSigmoidOp>(loc, resType, operand, attributes);
   else if (activation.name.equals_insensitive("elu"))
-    res = rewriter.create<ONNXEluOp>(loc, memRefType, alloc, attributes);
+    res = rewriter.create<ONNXEluOp>(loc, resType, operand, attributes);
   else if (activation.name.equals_insensitive("softsign"))
-    res = rewriter.create<ONNXSoftsignOp>(loc, memRefType, alloc);
+    res = rewriter.create<ONNXSoftsignOp>(loc, resType, operand);
   else if (activation.name.equals_insensitive("softplus"))
-    res = rewriter.create<ONNXSoftplusOp>(loc, memRefType, alloc);
+    res = rewriter.create<ONNXSoftplusOp>(loc, resType, operand);
   else
     llvm_unreachable("Unsupported activation");
-
-  res = rewriter.create<KrnlLoadOp>(loc, res);
 
   return res;
 }
