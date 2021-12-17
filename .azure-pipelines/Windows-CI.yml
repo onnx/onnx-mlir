@@ -22,7 +22,7 @@ jobs:
       versionSpec: '3.9'
 
   - task: PowerShell@2
-    displayName: Setup ninja
+    displayName: Setup ninja and lit
     inputs:
       targetType: 'inline'
       script: |
@@ -32,6 +32,15 @@ jobs:
           echo "choco install ninja"
           choco install ninja
         }
+        echo "Check and set up lit"
+        if (-Not (Get-Command lit -errorAction SilentlyContinue))
+        {
+          python3 -m pip install --upgrade wheel
+          python3 -m pip install --upgrade lit
+        }
+        $litPath=(Get-Command lit).Path
+        echo "Setting LitPath to $litPath"
+        Write-Host "##vso[task.setvariable variable=LitPath;]$litPath"
 
   - checkout: self
     clean: true
@@ -39,8 +48,6 @@ jobs:
     path: onnx-mlir
 
   - script: |
-      python3 -m pip install --user wheel
-      python3 -m pip install --user lit
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
       call onnx-mlir\utils\install-protobuf.cmd
     displayName: Install lit and protobuf
@@ -90,20 +97,12 @@ jobs:
       call onnx-mlir\utils\install-mlir.cmd
     displayName: Install mlir
     workingDirectory: $(Agent.BuildDirectory)
-    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
-
-  - task: CopyFiles@2
-    inputs:
-      sourceFolder: $(Agent.BuildDirectory)\llvm-project\build\bin
-      contents: llvm-lit.py
-      targetFolder: $(Agent.BuildDirectory)\llvm-project\build\install\bin
-    displayName: Copy llvm-lit to install
-    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
+    condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
 
   - publish: $(Agent.BuildDirectory)\llvm-project\build\install
     artifact: $(MLIRArtifactName)
     displayName: Publish mlir artifact
-    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
+    condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
       
   - task: DownloadPipelineArtifact@2
     inputs:
@@ -115,11 +114,11 @@ jobs:
       artifact: $(MLIRArtifactName)
       path: $(Agent.BuildDirectory)\llvm-project\build
     displayName: Download mlir artifact
-    condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
+    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-      call onnx-mlir\utils\build-onnx-mlir.cmd
+      call onnx-mlir\utils\build-onnx-mlir.cmd $(LitPath)
     displayName: Install onnx-mlir
     workingDirectory: $(Agent.BuildDirectory)
 
