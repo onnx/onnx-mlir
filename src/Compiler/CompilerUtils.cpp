@@ -611,14 +611,6 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // opportunities.
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
-  // Emit buffer dealloc.
-  pm.addNestedPass<FuncOp>(mlir::createBufferDeallocationPass());
-  if (!disableMemoryBundling) {
-    pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
-    pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
-    pm.addPass(mlir::createCanonicalizerPass());
-    pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
-  }
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
@@ -631,6 +623,19 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
   pm.addNestedPass<FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
+
+  // Use MLIR buffer deallocation pass to emit buffer deallocs.
+  // Currently this has to be done *after* lowering the affine dialect because
+  // operations in that dialect do not conform to the requirements explained in
+  // https://mlir.llvm.org/docs/BufferDeallocationInternals.
+  pm.addNestedPass<FuncOp>(mlir::createBufferDeallocationPass());
+  if (enableMemoryBundling) {
+    pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
+    pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
+  }
+
   pm.addPass(mlir::createLowerToCFGPass());
   pm.addPass(mlir::createConvertKrnlToLLVMPass());
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
