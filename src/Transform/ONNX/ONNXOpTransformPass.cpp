@@ -21,7 +21,9 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
 #include "mlir/Support/FileUtilities.h"
+#include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/ToolOutputFile.h"
@@ -107,7 +109,7 @@ private:
     _mktemp(tempFile);
 #else
     strcpy(tempFile, "onnxtempdumpXXXXXX");
-    mkstemp(tempFile);
+    (void)mkstemp(tempFile);
 #endif
     outputCode(module, tempFile);
     uint64_t r = hashFile(tempFile);
