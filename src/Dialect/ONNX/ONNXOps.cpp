@@ -4203,7 +4203,22 @@ LogicalResult ONNXReduceSumSquareOp::inferShapes(
 
 LogicalResult ONNXRoiAlignOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  int64_t height = output_height();
+  int64_t width  = output_width();
+
+  auto xTy = X().getType().cast<RankedTensorType>();
+  auto xShape = xTy.getShape();
+  auto biTy = batch_indices().getType().cast<RankedTensorType>();
+  auto biShape = biTy.getShape();
+
+  SmallVector<int64_t, 4> outputDims = { biShape[0], xShape[1], height, width};
+
+  Type elementType =
+      X().getType().template cast<ShapedType>().getElementType();
+
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
+
+  return success();
 }
 
 LogicalResult ONNXRoundOp::inferShapes(
@@ -4323,7 +4338,8 @@ LogicalResult ONNXScatterOp::inferShapes(
 
 LogicalResult ONNXScatterElementsOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(data().getType());
+  return success();
 }
 
 static LogicalResult verify(ONNXScatterNDOp op) {
