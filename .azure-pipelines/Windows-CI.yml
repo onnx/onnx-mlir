@@ -70,7 +70,7 @@ jobs:
       #}
       # TODO When changing to tag version, remove this line and below
 
-      $build_list = az pipelines build list --org https://dev.azure.com/onnx-pipelines --project onnx --definition-ids 9 --status completed --result succeeded | ConvertFrom-Json
+      $build_list = az pipelines build list --org https://dev.azure.com/onnx-pipelines --project onnx --definition-ids 9 --status completed | ConvertFrom-Json
       $build_list_by_date = $build_list | Sort-Object -Descending startTime
 
       $build_id = "NotFound"
