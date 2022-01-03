@@ -50,7 +50,7 @@ jobs:
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
       call onnx-mlir\utils\install-protobuf.cmd
-    displayName: Install lit and protobuf
+    displayName: Install protobuf
     workingDirectory: $(Agent.BuildDirectory)
 
   - powershell: |
