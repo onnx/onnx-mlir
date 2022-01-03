@@ -61,12 +61,12 @@ jobs:
       #$build_list = az pipelines build list --org https://dev.azure.com/onnx-pipelines --project onnx --definition-ids 9 --tags $mlir_tag --status completed --result succeeded | ConvertFrom-Json
       #$most_recent = $build_list | Sort-Object startTime | Select-Object -Last 1
       #$build_id = $most_recent.id
-      #Write-Output "##vso[task.setvariable variable=MLIRArtifactName]$mlir_tag"
+      #Write-Host "##vso[task.setvariable variable=MLIRArtifactName]$mlir_tag"
       #if ($build_id) {
-      #  Write-Output "##vso[task.setvariable variable=MLIRBuildID]$build_id"
+      #  Write-Host "##vso[task.setvariable variable=MLIRBuildID]$build_id"
       #} else {
-      #  Write-Output "##vso[build.addbuildtag]$mlir_tag"
-      #  Write-Output "##vso[task.setvariable variable=MLIRBuildID]NotFound"
+      #  Write-Host "##vso[build.addbuildtag]$mlir_tag"
+      #  Write-Host "##vso[task.setvariable variable=MLIRBuildID]NotFound"
       #}
       # TODO When changing to tag version, remove this line and below
 
@@ -84,8 +84,9 @@ jobs:
         }
       }
 
-      Write-Output "##vso[task.setvariable variable=MLIRArtifactName]$mlir_tag"
-      Write-Output "##vso[task.setvariable variable=MLIRBuildID]$build_id"
+      Write-Host "Found build $build_id containing artifact $mlir_tag"
+      Write-Host "##vso[task.setvariable variable=MLIRArtifactName]$mlir_tag"
+      Write-Host "##vso[task.setvariable variable=MLIRBuildID]$build_id"
     displayName: Check for mlir artifact
     env:
       AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
