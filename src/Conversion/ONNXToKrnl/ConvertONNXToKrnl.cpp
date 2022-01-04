@@ -131,12 +131,27 @@ struct FrontendToKrnlLoweringPass
 
   // Make sure that we have a valid default constructor and copy
   // constructor to make sure that the options are initialized properly.
-  FrontendToKrnlLoweringPass() = default;
+  FrontendToKrnlLoweringPass() //= default;
+  {
+    printf("hi alex: default inti\n");
+    assert(0);
+  }
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass)
-      : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {}
-  FrontendToKrnlLoweringPass(bool emitDealloc, int optLevel) {
+      : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {
+    printf("hi alex: default copy\n");
+  }
+  FrontendToKrnlLoweringPass(bool emitDealloc, bool disableTiling) {
+    // Below, need explicit assignment to enable implicit conversion of bool to
+    // Option<bool>.
     this->emitDealloc = emitDealloc;
-    this->optLevel = optLevel;
+    this->disableTiling = disableTiling;
+    printf("hi alex, full init with emit dealloc %d / disable tiling %d",
+        (int)emitDealloc, (int)disableTiling);
+  }
+  FrontendToKrnlLoweringPass(int optLevel)
+      : FrontendToKrnlLoweringPass(
+            /*emitDealloc=*/false, /*disableTiling=*/optLevel < 3) {
+    printf("hi alex: init with optLevel %d\n", optLevel);
   }
 
   void runOnOperation() final;
@@ -160,9 +175,9 @@ public:
   Option<bool> emitDealloc{*this, "emit-dealloc",
       llvm::cl::desc("Emit dealloc for allocated memrefs or not."),
       llvm::cl::init(false)};
-  Option<int> optLevel{*this, "opt-level",
-      llvm::cl::desc("Optimization level (>=O3: tiling & simd; <3: none)."),
-      llvm::cl::init(0)};
+  Option<bool> disableTiling{*this, "no-tiling",
+      llvm::cl::desc("Disable loop tiling and unrolling optimizations"),
+      llvm::cl::init(false)};
 };
 } // end anonymous namespace.
 
@@ -172,7 +187,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Set up whether emitting dealloc for allocated memrefs or not.
   ONNXToKrnl_gEmitDealloc = emitDealloc;
   // Set up the optimization.
-  ONNXToKrnl_gOptLevel = optLevel;
+  ONNXToKrnl_gDisableTiling = disableTiling;
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -256,7 +271,12 @@ std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
 }
 
+std::unique_ptr<Pass> mlir::createLowerToKrnlPass(int optLevel) {
+  return std::make_unique<FrontendToKrnlLoweringPass>(optLevel);
+}
+
 std::unique_ptr<Pass> mlir::createLowerToKrnlPass(
-    bool emitDealloc, int optLevel) {
-  return std::make_unique<FrontendToKrnlLoweringPass>(emitDealloc, optLevel);
+    bool emitDealloc, bool disableTiling) {
+  return std::make_unique<FrontendToKrnlLoweringPass>(
+      emitDealloc, disableTiling);
 }

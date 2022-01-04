@@ -64,6 +64,15 @@ static llvm::cl::opt<bool> allowUnregisteredDialects(
     llvm::cl::desc("Allow operation with no registered dialects"),
     llvm::cl::init(false));
 
+enum OptLevel { O0 = 0, O1, O2, O3 };
+static llvm::cl::opt<OptLevel> OptimizationLevel(
+    llvm::cl::desc("Optimization levels:"),
+    llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default)."),
+        clEnumVal(O1, "Optimization level 1."),
+        clEnumVal(O2, "Optimization level 2."),
+        clEnumVal(O3, "Optimization level 3.")),
+    llvm::cl::init(O0));
+
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
   registry.insert<mlir::linalg::LinalgDialect>();
@@ -86,8 +95,9 @@ int main(int argc, char **argv) {
   registerStandardPasses();
 
   llvm::InitLLVM y(argc, argv);
+  printf("optimizationLevel in main is %d\n", (int) OptimizationLevel);
 
-  initOMPasses();
+  initOMPasses(OptimizationLevel);
   initMLIRPasses();
 
   mlir::registerAsmPrinterCLOptions();
@@ -97,6 +107,8 @@ int main(int argc, char **argv) {
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "ONNX MLIR modular optimizer driver\n");
+
+  printf("optimizationLevel in main is %d\n", (int) OptimizationLevel);
 
   // Set up the input file.
   std::string error_message;

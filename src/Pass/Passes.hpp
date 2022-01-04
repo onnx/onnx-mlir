@@ -51,9 +51,8 @@ std::unique_ptr<Pass> createONNXPreKrnlVerifyPass();
 
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<Pass> createLowerToKrnlPass();
-
-/// Add pass for lowering to Krnl IR.
-std::unique_ptr<Pass> createLowerToKrnlPass(bool emitDealloc, int optLevel);
+std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel);
+std::unique_ptr<Pass> createLowerToKrnlPass(bool emitDealloc, bool disableTiling);
 
 /// Pass for lowering frontend dialects to Krnl IR dialect.
 std::unique_ptr<Pass> createConvertKrnlToAffinePass();
