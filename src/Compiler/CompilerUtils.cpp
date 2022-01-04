@@ -614,14 +614,6 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // opportunities.
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
-  // Emit buffer dealloc.
-  pm.addNestedPass<FuncOp>(mlir::createBufferDeallocationPass());
-  if (!disableMemoryBundling) {
-    pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
-    pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
-    pm.addPass(mlir::createCanonicalizerPass());
-    pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
-  }
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
@@ -634,6 +626,19 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
   pm.addNestedPass<FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
+
+  // Use MLIR buffer deallocation pass to emit buffer deallocs.
+  // Currently this has to be done *after* lowering the affine dialect because
+  // operations in that dialect do not conform to the requirements explained in
+  // https://mlir.llvm.org/docs/BufferDeallocationInternals.
+  pm.addNestedPass<FuncOp>(mlir::createBufferDeallocationPass());
+  if (enableMemoryBundling) {
+    pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
+    pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
+  }
+
   pm.addPass(mlir::createLowerToCFGPass());
   pm.addPass(mlir::createConvertKrnlToLLVMPass());
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
@@ -812,8 +817,8 @@ static std::string getDataLayout(const Location &loc) {
   return dataLayoutString;
 }
 
-int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
-    std::string outputBaseName, EmissionTargetType emissionTarget) {
+void setupModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName) {
   // Initialize the targets support for all targets LLVM was configured for.
   llvm::InitializeAllTargets();
   llvm::InitializeAllTargetMCs();
@@ -826,14 +831,15 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
   moduleOp.setAttr(LLVM::LLVMDialect::getDataLayoutAttrName(),
       StringAttr::get(&context, getDataLayout(loc)));
 
-  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-
   if (keepFiles(KeepFilesOfType::MLIR)) {
     outputCode(module, outputBaseName, ".input.mlir");
     module.release();
     LoadMLIR(outputBaseName + ".input.mlir", context, module);
   }
+}
 
+void addPasses(mlir::OwningModuleRef &module, mlir::PassManager &pm,
+    EmissionTargetType emissionTarget) {
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
   if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
@@ -848,11 +854,11 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
 
   if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
     addKrnlToLLVMPasses(pm);
+}
 
-  mlir::applyPassManagerCLOptions(pm);
-  if (mlir::failed(pm.run(*module)))
-    return 4;
-
+void emitOutput(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName, mlir::PassManager &pm,
+    EmissionTargetType emissionTarget) {
   if (printIR) {
     mlir::OpPrintingFlags flags;
     if (preserveLocations)
@@ -860,6 +866,16 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     module->print(llvm::outs(), flags);
   } else
     emitOutputFiles(outputBaseName, emissionTarget, context, module);
+}
 
+int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName, EmissionTargetType emissionTarget) {
+  setupModule(module, context, outputBaseName);
+  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
+  addPasses(module, pm, emissionTarget);
+  mlir::applyPassManagerCLOptions(pm);
+  if (mlir::failed(pm.run(*module)))
+    return 4;
+  emitOutput(module, context, outputBaseName, pm, emissionTarget);
   return 0;
 }
