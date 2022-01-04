@@ -178,6 +178,21 @@ The following CMake variables from LLVM and ONNX MLIR can be used when compiling
   Path to the lit tool. Defaults to an empty string and LLVM will find the tool based on **MLIR_DIR** if possible.
   This is required when **MLIR_DIR** points to an install directory.
 
+### MacOS Issues
+
+There is a known issue when building onnx-mlir. If you see a error of this sorts
+``` shell
+Cloning into '/home/chentong/onnx-mlir/build/src/Runtime/jni/jsoniter'...
+
+[...]
+
+make[2]: *** [src/Runtime/jni/CMakeFiles/jsoniter.dir/build.make:74: src/Runtime/jni/jsoniter/target/jsoniter-0.9.23.jar] Error 127
+make[1]: *** [CMakeFiles/Makefile2:3349: src/Runtime/jni/CMakeFiles/jsoniter.dir/all] Error 2
+make: *** [Makefile:146: all] Error 2
+```
+
+The suggested workaround before it's fixed: `brew install maven` and run `alias nproc="sysctl -n hw.logicalcpu"` in your shell.
+
 ## Installation on Windows
 Building onnx-mlir on Windows requires building some additional prerequisites that are not available by default.
 
