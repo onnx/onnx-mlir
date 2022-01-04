@@ -51,7 +51,7 @@ struct VariableScope {
 
 private:
   /*!
-   * Identifier of the current scope, used for debugging and sanity check.
+   * Identifier of the current scope, used for debugging and safety check.
    */
   const std::string identifier;
 

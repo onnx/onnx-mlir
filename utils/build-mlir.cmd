@@ -8,7 +8,8 @@ call cmake %root_dir%\llvm-project\llvm -G "Ninja" ^
    -DCMAKE_BUILD_TYPE=Release ^
    -DLLVM_ENABLE_ASSERTIONS=ON ^
    -DLLVM_ENABLE_RTTI=ON ^
-   -DLLVM_ENABLE_ZLIB=OFF
+   -DLLVM_ENABLE_ZLIB=OFF ^
+   -DLLVM_INSTALL_UTILS=ON
 
 call cmake --build . --config Release
 call cmake --build . --config Release --target install
