@@ -4203,22 +4203,13 @@ LogicalResult ONNXReduceSumSquareOp::inferShapes(
 
 LogicalResult ONNXRoiAlignOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  int64_t height = output_height();
-  int64_t width  = output_width();
+  // Cannot infer shape if no shape exists.
+  if (!X().getType().isa<RankedTensorType>() ||
+      !batch_indices().getType().isa<RankedTensorType>())
+    return success();
 
-  auto xTy = X().getType().cast<RankedTensorType>();
-  auto xShape = xTy.getShape();
-  auto biTy = batch_indices().getType().cast<RankedTensorType>();
-  auto biShape = biTy.getShape();
-
-  SmallVector<int64_t, 4> outputDims = { biShape[0], xShape[1], height, width};
-
-  Type elementType =
-      X().getType().template cast<ShapedType>().getElementType();
-
-  getResult().setType(RankedTensorType::get(outputDims, elementType));
-
-  return success();
+  return shapeHelperInferShapes<ONNXRoiAlignOpShapeHelper, ONNXRoiAlignOp,
+      ONNXRoiAlignOpAdaptor>(this, X());
 }
 
 LogicalResult ONNXRoundOp::inferShapes(

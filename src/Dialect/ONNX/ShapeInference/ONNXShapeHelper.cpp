@@ -419,6 +419,7 @@ template struct ONNXOpShapeHelper<ONNXPadOp>;
 template struct ONNXOpShapeHelper<ONNXReshapeOp>;
 template struct ONNXOpShapeHelper<ONNXLRNOp>;
 template struct ONNXOpShapeHelper<ONNXReverseSequenceOp>;
+template struct ONNXOpShapeHelper<ONNXRoiAlignOp>;
 template struct ONNXOpShapeHelper<ONNXShapeOp>;
 template struct ONNXOpShapeHelper<ONNXSliceOp>;
 template struct ONNXOpShapeHelper<ONNXSpaceToDepthOp>;
