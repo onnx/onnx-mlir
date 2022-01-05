@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------------------- main_utils.hpp ---------------------------===//
+//===-------------------------- CompilerUtils.hpp -------------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2021 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -73,4 +73,11 @@ void emitOutputFiles(std::string outputBaseName,
     mlir::OwningModuleRef &module);
 
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
-    std::string outputBaseName, onnx_mlir::EmissionTargetType targetType);
+    std::string outputBaseName, onnx_mlir::EmissionTargetType emissionTarget);
+
+void setupModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName);
+
+void emitOutput(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName, mlir::PassManager &pm,
+    onnx_mlir::EmissionTargetType emissionTarget);

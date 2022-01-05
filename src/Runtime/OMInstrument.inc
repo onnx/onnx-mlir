@@ -59,14 +59,14 @@ static bool instrumentReportMemoryDisabled = false;
 static int instrumentCounter = 0;
 
 #ifdef __MVS__
-#define timersub(a, b, result)                              \
-  do {                                                      \
-    (result)->tv_sec = (a)->tv_sec - (b)->tv_sec;           \
-    (result)->tv_usec = (a)->tv_usec - (b)->tv_usec;        \
-    if ((result)->tv_usec < 0) {                            \
-      --(result)->tv_sec;                                   \
-      (result)->tv_usec += 1000000;                         \
-    }                                                       \
+#define timersub(a, b, result)                                                 \
+  do {                                                                         \
+    (result)->tv_sec = (a)->tv_sec - (b)->tv_sec;                              \
+    (result)->tv_usec = (a)->tv_usec - (b)->tv_usec;                           \
+    if ((result)->tv_usec < 0) {                                               \
+      --(result)->tv_sec;                                                      \
+      (result)->tv_usec += 1000000;                                            \
+    }                                                                          \
   } while (0);
 #endif
 
@@ -85,10 +85,11 @@ void TimeInit() {
 
 #ifdef _WIN32
 inline void WinTimerSub(LARGE_INTEGER newTime, LARGE_INTEGER prevTime,
-                        LONGLONG* resultSeconds, LONGLONG* resultMicroseconds) {
+    LONGLONG *resultSeconds, LONGLONG *resultMicroseconds) {
   LONGLONG elapsed = newTime.QuadPart - prevTime.QuadPart;
   *resultSeconds = elapsed / perfFrequency.QuadPart;
-  *resultMicroseconds = ((elapsed * 1000000) / perfFrequency.QuadPart) % 1000000;
+  *resultMicroseconds =
+      ((elapsed * 1000000) / perfFrequency.QuadPart) % 1000000;
 }
 void ReportTime() {
   LARGE_INTEGER newTime;
@@ -117,7 +118,8 @@ void ReportTime() {
 #ifdef _WIN32
 void ReportMemory() {
   PROCESS_MEMORY_COUNTERS_EX pmc;
-  GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
+  GetProcessMemoryInfo(
+      GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS *)&pmc, sizeof(pmc));
   SIZE_T vMemSizeKB = pmc.PrivateUsage / 1024;
   printf(" VMem: %zu", vMemSizeKB);
 }
@@ -125,7 +127,7 @@ void ReportMemory() {
 void ReportMemory() {
   char memCommand[200];
   char memOutput[200];
-  FILE* memPipe;
+  FILE *memPipe;
   mypid = getpid();
   sprintf(memCommand, "ps -o vsz='' -p %d", mypid);
   memPipe = popen(memCommand, "r");
@@ -135,8 +137,8 @@ void ReportMemory() {
     fprintf(stderr, "ERROR: Failed to execute ps");
     psErrorCount++;
   }
-  fgets(memOutput, 200, memPipe);
-  fgetc(memPipe);
+  (void)fgets(memOutput, 200, memPipe);
+  (void)fgetc(memPipe);
   memOutput[strcspn(memOutput, "\n")] = 0;
   printf(" VMem:%s", memOutput);
   if (!feof(memPipe)) {
