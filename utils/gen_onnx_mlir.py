@@ -241,17 +241,7 @@ version_dict = {
  'Where': [9],
  'Xor': [7],
  'ZipMap': [1]}
-# Manual specification of attribute defaults.
-special_attr_defaults = dict([
-    # ("AveragePool.kernel_shape", ('ints', '{}')),
-    # ("MaxPool.kernel_shape", ('ints', '{}')),
-    # ("Cast.to", ('int', '0')),
-    # ("Concat.axis", ('int', '0')),
-    # ("Conv.group", ('int', '1')),
-    # ("Unsqueeze.axes", ('ints', '{}')),
-    # ("RNN.activation_alpha", ('floats', '{}')),
-    # ("RNN.activation_beta", ('floats', '{}')),
-])
+
 # Manual specification of attribute type.
 special_attr_types = dict([("Cast.to", 'type')])
 
@@ -660,9 +650,6 @@ def get_attrs(schema):
           continue
 
         qualified_attr_name = "{}.{}".format(schema.name, attr.name)
-        if qualified_attr_name in special_attr_defaults:
-            name_to_type[attr.name] = get_attr_type_with_default(
-                *special_attr_defaults[qualified_attr_name])
         if qualified_attr_name in special_attr_types:
             name_to_type[attr.name] = onnx_attr_type_to_mlir_attr_type(
                 special_attr_types[qualified_attr_name])

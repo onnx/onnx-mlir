@@ -1,61 +1,89 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 # Table of Contents
-  1. Overview
-  2. Pre-requests
-  3. Version of operation
-  4. Traits and Interface
-  5. Semantics verifier
-  6. Customized builder
-  7. Customized importer
-  8. Go to a newer version of onnx
-# Overview
-Onnx-mlir defines an onnx dialect to represent operations specified by onnx.The onnx dialect is defined with MLIR table
-gen support and the semantics of each operation is transferred from onnx with a python script, gen_onnx_mlir.py. This python
-program uses onnx package, and generates ONNXOps.td.inc for dialect table gen and OpBuilderTable.inc for onnx model
-importer in onnx-mlir.
+  1. [Overview](#overview)
+  2. [Add an Operation](#add_operation)
+  3. Customize an Operation
+  4. Build
+  5. Details about version
+# Overview <a name="overview"></a>
+Onnx-mlir defines an onnx dialect to represent operations specified by onnx.The onnx dialect is createdd with MLIR table
+gen tool. The definition of each operation is transferred from onnx automatically with a 
+ python script, 
+[utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py). 
+This script retrieves operation definition from
+ onnx package to generate ONNXOps.td.inc for dialect table gen and OpBuilderTable.inc for 
+onnx model importer in onnx-mlir. 
+The following sections will describe how to use gen_onnx_mlir.py to add an operation into onnx
+ dialect in onnx-mlir and how to refine the definition of the operation.
 
-# Operation Version
-onnx-mlir project started when onnx was at version 1.7.0 and does not intended to be backward compactible. We relies on onnx/converter to convert the model to the version which onnx-mlir supports. As onnx version is evolving, onnx-mlir tries to follow but may be behind the latest version. 
+# Add an Operation <a name="add_operation"></a>
+To generate an operation for onnx dialect, add this operation into the dictionary, 
+'version_dict', in 
+gen_onnx_mlir.py. The key of this directory is the operation name and the value is the list of 
+opset for this operation. Usually only the top version opset of this operation (in onnx-mlir/third_party/onnx) is supported. Details about versioning can be found in [version section](#Operation Version).
+With this entry, the script will generate the operation defintion for onnx dialect.
 
-ONNX specifications are defined under `onnx/defs` directory in the ONNX project repository. 
-There is a python script [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py) that automatically generates documents about operations in ONNX (docs/Operations.md). 
-ONNX-MLIR modified this script to import ONNX specifications into ONNX-MLIR. 
-There are two files generated for ONNX MLIR with the modified gen_onnx_mlir.py:
+# Customization
 
-1. `src/Dialect/ONNX/ONNXOps.td.inc`: Operation definition for MLIR TableGen. `src/Dialect/ONNX/ONNXOps.td` includes this file.
-2. `src/Builder/OpBuildTable.inc`: C++ code for ONNX-MLIR frontend to import operation nodes from ONNX model. `src/Builder/FrontendDialectTransformer.cpp` includes this file.
+## Add Interface and Trait
+By default, all operation has shape inference interface and `NoSideEffect` trait.
+If an opration has `ResultTypeInferenceOpInterface`, use dictionary `OpsWithResultTypeInference`. 
+This interface inferes the type of result tensor, not shape. 
+If an operation has subgraph, it will has interface `HasOnnxSubgraphOpInterface`. 
 
-## How to use the script
-1. Install [ONNX](https://github.com/onnx/onnx). We highly recommend that you use the one located at `third_party/onnx.` On many systems, it can be installed by executing the `pip install -e third_party/onnx` command in the top onnx-mlir directory.
-2. Make target `OMONNXOpsIncTranslation`. For example, run the command below in your onnx-mlir build directory.
+## Add canonicalization interface
+If a transformation should be applied locally to an operation across passes, canonicalization 
+interface can be used for this transformation. To enable the canonicalization for an operation, 
+add the name of this operation into this list of  `OpsWithCanonicalizer` and then the operation 
+will have `hasCanonicalizer = 1;` in its definition.
+
+## Customize builder
+The default builders for an operation require the type of results as a parameter. However, the type
+of results can be inferred. A customize builder may be a useful to simplify the code. Based on the
+type of inference, there are two kinds builder, unranked type and broadcast type. To enable the 
+special builder for an operation, you can add its name into `custom_builder_unranked_ops_list`
+ and `custom_builder_broadcast_ops_list` respectively.
+
+Please note that the need of special builder in rewriting rules can be avoided with the use of `returnType`. It may be a better solution to just move such type inference code into ONNXOpHelper.cpp
+and get rid of customize builder.
+
+
+## Customize verifier
+The operation description for an operation lists out the allowed types of each input/output and
+attribute. The table gen will geneate a default verifier to check IR for the allowed types.
+If an operation has extra constraints, a custmized verifier should be defined to enhance error detection.
+For example, two inputs of an operation may require the same element type or same rank. 
+Such information can be found in the onnx operation definition, but can not be expressed with the dialect definition.
+The best way to test for these constraints are in a verifier. To add the interface of customized verifier to an operation, locate the array below in `gen_onnx_mlir.py` and add your operation in it.
 ```
-make OMONNXOpsIncTranslation
-````
-Target `OMONNXOpsIncTranslation` invokes the script and places the generated files into the correct directories correspondingly.
+OpsWithVerifier = ['AveragePool', 'Conv', 'InstanceNormalization', 'Mod']
+```
 
-## Consistency
-For reference to the schema and semantics of an operation, please refer to [ONNX Dialect](Dialects/onnx.md). 
-Even though we strive to support the latest version of ONNX specification as quickly as we can, there will inevitably be a delay between the introduction of new changes in the ONNX specification and the adoption in our codebase. 
-Due to the possibility of such a delay, operator definition within the ONNX project repository may describe features and schemas that we do not yet support.
+You will need to add the implementation code in the `src/Dialect/ONNX/ONNXOps.cpp` when the new op was declared as using a customized verifier.  Best is to look at other operations to get the general pattern, by searching for [static LogicalResult verify(ONNXInstanceNormalizationOp op)](../src/Dialect/ONNX/ONNXOps.cpp), for example. Note that a verifier will execute each time that one such op is created. So you will need to ensure that it can work with tensors and MemRefs, and possibly unranked tensors. So guard each of your tests to the proper circumstances. For examples, once a tensor is ranked, you may then verify that the rank is within the approved range (if there is such a constraint); before it is ranked, do not perform this test yet.
 
-## Customization
-In addition to following the ONNX specification, the script [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py), modified gen_onnx_mlir.py, provides some mechanism for you to customize the output.
-Several tables are defined at the beginning of the script:
-1. `special_attr_defaults`: gives attribute special default value.
-2. `special_op_handler`: creates special import function in frontend_dialect_transformer.cpp. Currently, a special handler is used for operations with operational arguments
-3. `OpsWithCanonicalizer`: list of operations which have a canonical form
-4. `OpsWithPromotableConstOperands`: list of operations which have operands that, if produced by constant operations, should be promoted to become an attribute (via attribute promotion)
-5. `custom_builder_ops_list`: list of operations which need custom build methods to deduce result types
+Tips:
+* Use `operandAdaptor` object to get the inputs (must use  `operandAdaptor` to get the current values of the inputs) and the `op` object to get the attributes (can use `op` because attributes are typically immutable).
+* Use `hasShapeAndRank(X)` to test if `X` input is currently shaped and ranked. If not, return success as we will get a chance later to test the operation with this info. Note that some inputs may be scalar too, in which case they may or may not be encoded as a shape type.
+* You can then use MLIR call `X.getType().cast<ShapedType>()` to get a shape types, for which you can get the rank and the dimensions. At this time, we only check dimension validity for values known at runtime. Unknown dimensions are encoded as a negative number. Please only use the cast when you are sure that it will not assert, i.e. the type is indeed a `ShapedType`.
+* When you find an error, report it with a friendly error message using `op->emitError(msg)`.
 
-## Version of Operations
-As stated previous, we try to support the latest version of ONNX operations. The version of each operation currently supported is recorded in [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py). This mechanism provides some stability in version. To check the changes in version, run gen_onnx_mlir.py with flag "--check-version" and the changes will be reported. To move to a newer version, manually update the version dictionary in the script.
+## Customize importer
+`special_op_handler`: creates special import function in frontend_dialect_transformer.cpp. Currently, a special handler is used for operations with operational arguments
 
-### Support Multiple versions
-To support multiple versions of an op, the selected version should be added in the version dictionary in [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py). For example, there are two versions (opset), 11 and 13, forReduceSum that are supported. The corresponding entry in version_dic is `'ReduceSum': [13, 11]`.
+## Arbitrary extra definition
+If the definition of an operation needs extra code other than descripbed above, you can put 
+the code in the dictionary `custom_definition_misc`. The key is the operation name and the value is the code.
 
-In onnx dialect, the op for the top version has no version in the op name, while other version with name followed by 'V' and version number. For example, ReduceSum of opset 13 will be `ONNXReduceSumOp`, while ReduceSum of opset 11 is 'ONNXReduceSumV11Op`. Since most of onnx op are compatible when upgraded to higher version, we can keep the name of the operation in the dialect and just update version_dict in gen_onnx_mlir.py without touching the code in onnx-mlir.
 
-When a model is imported, the highest version which is not higher than the next available version is used. For the example of ReduceSum, if the opset is 12, ONNXReduceSumV11Op is chosen.  
+# Build
+In order to run gen_onnx_mlir.py, onnx has to be installed. Refer to Readme. In your build 
+directory, execute command `make OMONNXOpsINcTranslation`. This command will generate those two
+files (src/Dialect/ONNX/ONNXOps.td.inc and OpBuilderTable.inc),
+and copy them to the right place in src directory.
+If you modified gen_onnx_mlir.py, you need to check in two generated files too. They are treated 
+source file in onnx-mlir build so that user of onnx-mlir does not need to install the particular 
+version of onnx. Do not modif
+You can also run the script directly with the files generated in utils directory. `python ../utils/gen_onnx_mlir.py`.
 
 ## Update the documentation
 
@@ -68,3 +96,34 @@ make onnx-mlir-docs
 The above command is run in the usual `build` directory and it will install the new dialect md files directly into the `docs/Dialects` directory.
 
 The same command should be used when adding operations/making changes to the Krnl dialect.
+
+# Operation Version
+onnx-mlir project started when onnx was at version 1.7.0 and does not intended to be backward compactible. We relies on onnx/converter to convert the model to the version which onnx-mlir supports. As onnx version is evolving, onnx-mlir tries to follow but may be behind the latest version. 
+
+## Version of Operations
+As stated previous, we try to support the latest version of ONNX operations. The version of each operation currently supported is recorded in [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py). This mechanism provides some stability in version. To check the changes in version, run gen_onnx_mlir.py with flag "--check-version" and the changes will be reported. To move to a newer version, manually update the version dictionary in the script.
+
+## Support Multiple versions
+To support multiple versions of an op, the selected version should be added in the version dictionary in [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py). For example, there are two versions (opset), 11 and 13, forReduceSum that are supported. The corresponding entry in version_dic is `'ReduceSum': [13, 11]`.
+
+In onnx dialect, the op for the top version has no version in the op name, while other version with name followed by 'V' and version number. For example, ReduceSum of opset 13 will be `ONNXReduceSumOp`, while ReduceSum of opset 11 is 'ONNXReduceSumV11Op`. Since most of onnx op are compatible when upgraded to higher version, we can keep the name of the operation in the dialect and just update version_dict in gen_onnx_mlir.py without touching the code in onnx-mlir.
+
+When a model is imported, the highest version which is not higher than the next available version is used. For the example of ReduceSum, if the opset is 12, ONNXReduceSumV11Op is chosen.  
+
+## Migrating
+To migrate a new version onnx, first the third_part/onnx should be upgraded and your installation 
+of onnx.
+Then you can run gen_onnx_mlir.py with flag `--check_operation_version`. The top version for all 
+operation will be outputed as a new `version_dict`. 
+If the interface of an operation remains the same (from the change document of onnx), you can 
+just use the new version.
+If the interface does change, you can insert the new version as the first in the version list.
+For the existing code, all the corresponding code has to be changed. For example, when ReduceSum 
+is moved from version 11 to 13, ONNXReduceSumOp is replaced with ONNXReduceSumOpV11 first. 
+Then the code for version 13 will use ONNXReduceSumOp.
+The reason for such design is that most of onnx changes do not change the interface. We do not 
+want to put burdon on developer to remember which version of operation is used unless abusolutely 
+necessary. 
+It is not always needed to keep the code for an older version, which may be rewritten into the new
+operation. Thus, we just need to have the dialect definition, but not the code for inference or 
+lowering. 
