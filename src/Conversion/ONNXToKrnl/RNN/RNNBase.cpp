@@ -244,9 +244,6 @@ Value applyActivation(OpBuilder &rewriter, Location loc,
     RNNActivation activation, Value operand) {
   Value res;
 
-  bool isScalar = !operand.getType().isa<ShapedType>();
-  assert(isScalar && "Not a scalar operand");
-
   std::vector<mlir::NamedAttribute> attributes;
   if (activation.alpha) {
     attributes.emplace_back(
