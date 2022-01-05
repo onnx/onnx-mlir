@@ -13,7 +13,9 @@ jobs:
       with:
         python-version: '3.7'
     - name: install tools that are needed for compilation
-      run: brew install ninja protobuf
+      run: brew install ninja protobuf llvm
+    - name: install pytest-xdist
+      run: pip3 install pytest-xdist
     - name: cache MLIR directory
       id: cache-mlir
       uses: actions/cache@v2
@@ -32,3 +34,7 @@ jobs:
       run: |
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/install-onnx-mlir.sh
+    - name: run onnx-mlir numerical tests
+      run: |
+        cd ~/work/onnx-mlir
+        sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-numerical.sh

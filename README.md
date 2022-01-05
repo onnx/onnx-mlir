@@ -6,10 +6,10 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 
 | System        | Build Status |
 |---------------|--------------|
-| s390x-Linux   | [![Build Status](https://www.onnxmlir.xyz/jenkins/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=master%7D&subject=Jenkins%20CI)](https://www.onnxmlir.xyz/jenkins/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
-| ppc64le-Linux | [![Build Status](https://www.onnxmlir.xyz/jenkinp/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=master%7D&subject=Jenkins%20CI)](https://www.onnxmlir.xyz/jenkinp/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
-| amd64-Linux   | [![Build Status](https://www.onnxmlir.xyz/jenkinx/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=master%7D&subject=Jenkins%20CI)](https://www.onnxmlir.xyz/jenkinx/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
-| amd64-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)             |
+| s390x-Linux   | [![Build Status](https://www.onnxmlir.xyz/jenkins/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=main%7D&subject=Jenkins%20CI)](https://www.onnxmlir.xyz/jenkins/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| ppc64le-Linux | [![Build Status](https://www.onnxmlir.xyz/jenkinp/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=main%7D&subject=Jenkins%20CI)](https://www.onnxmlir.xyz/jenkinp/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| amd64-Linux   | [![Build Status](https://www.onnxmlir.xyz/jenkinx/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=main%7D&subject=Jenkins%20CI)](https://www.onnxmlir.xyz/jenkinx/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
+| amd64-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=main)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=main)             |
 | amd64-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/workflows/Build%20x86%20onnx-mlir%20on%20macOS/badge.svg)](https://github.com/onnx/onnx-mlir/actions?query=workflow%3A%22Build+x86+onnx-mlir+on+macOS%22)             |
 
 ## Prebuilt Containers
@@ -154,7 +154,7 @@ git clone --recursive https://github.com/onnx/onnx-mlir.git
 export MLIR_DIR=$(pwd)/llvm-project/build/lib/cmake/mlir
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
-cmake -G Ninja ..
+cmake -G Ninja -DCMAKE_CXX_COMPILER=/usr/bin/c++ ..
 cmake --build .
 
 # Run lit tests:
@@ -177,6 +177,21 @@ The following CMake variables from LLVM and ONNX MLIR can be used when compiling
 **LLVM_EXTERNAL_LIT**:PATH
   Path to the lit tool. Defaults to an empty string and LLVM will find the tool based on **MLIR_DIR** if possible.
   This is required when **MLIR_DIR** points to an install directory.
+
+### MacOS Issues
+
+There is a known issue when building onnx-mlir. If you see a error of this sorts
+``` shell
+Cloning into '/home/chentong/onnx-mlir/build/src/Runtime/jni/jsoniter'...
+
+[...]
+
+make[2]: *** [src/Runtime/jni/CMakeFiles/jsoniter.dir/build.make:74: src/Runtime/jni/jsoniter/target/jsoniter-0.9.23.jar] Error 127
+make[1]: *** [CMakeFiles/Makefile2:3349: src/Runtime/jni/CMakeFiles/jsoniter.dir/all] Error 2
+make: *** [Makefile:146: all] Error 2
+```
+
+The suggested workaround before it's fixed: `brew install maven` and run `alias nproc="sysctl -n hw.logicalcpu"` in your shell.
 
 ## Installation on Windows
 Building onnx-mlir on Windows requires building some additional prerequisites that are not available by default.
@@ -238,7 +253,8 @@ call cmake %root_dir%\llvm-project\llvm -G "Ninja" ^
    -DCMAKE_BUILD_TYPE=Release ^
    -DLLVM_ENABLE_ASSERTIONS=ON ^
    -DLLVM_ENABLE_RTTI=ON ^
-   -DLLVM_ENABLE_ZLIB=OFF
+   -DLLVM_ENABLE_ZLIB=OFF ^
+   -DLLVM_INSTALL_UTILS=ON
 
 call cmake --build . --config Release
 call cmake --build . --config Release --target install
@@ -249,7 +265,7 @@ call cmake --build . --config Release --target check-mlir
 The following environment variables can be set before building onnx-mlir (or alternatively, they need to be passed as CMake variables):
 - MLIR_DIR should point to the mlir cmake module inside an llvm-project build or install directory (e.g., c:/repos/llvm-project/build/lib/cmake/mlir).
 
-This project uses lit ([LLVM's Integrated Tester](http://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running CMake, we can also specify the path to the lit tool from LLVM using the LLVM_EXTERNAL_LIT define but it is not required as long as MLIR_DIR points to a build directory of llvm-project. If MLIR_DIR points to an install directory of llvm-project, LLVM_EXTERNAL_LIT is required.
+This project uses lit ([LLVM's Integrated Tester](http://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running CMake, we can specify the path to the lit tool from LLVM using the LLVM_EXTERNAL_LIT define, as in the example below. If MLIR_DIR points to an install directory of llvm-project, LLVM_EXTERNAL_LIT is required and %lit_path% should point to a valid lit. It is not required if MLIR_DIR points to a build directory of llvm-project, which will contain lit.
 
 To build ONNX MLIR, use the following commands:
 
@@ -264,6 +280,7 @@ cd onnx-mlir\build
 call cmake %root_dir%\onnx-mlir -G "Ninja" ^
    -DCMAKE_BUILD_TYPE=Release ^
    -DCMAKE_PREFIX_PATH=%root_dir%\protobuf_install ^
+   -DLLVM_EXTERNAL_LIT=%lit_path% ^
    -DLLVM_LIT_ARGS=-v ^
    -DMLIR_DIR=%root_dir%\llvm-project\build\lib\cmake\mlir
 
@@ -368,6 +385,24 @@ You will need to install python 3.x if its not default in your environment, and 
 You will also need `pybind11` which may need to be installed (mac: `brew install pybind11` for example) and you may need to indicate where to find the software (Mac, POWER, possibly other platforms: `export pybind11_DIR=<your path to pybind>`). Then install the `third_party/onnx` software (Mac: `pip install -e third_party/onnx`) typed in the top directory.
 
 On Macs/POWER and possibly other platforms, there is currently an issue that arises when installing ONNX. If you get an error during the build, try a fix where you edit the top CMakefile as reported in this PR: `https://github.com/onnx/onnx/pull/2482/files`.
+
+While running `make check-onnx-backend` on a Mac you might encouter the following error: 
+
+```shell
+Fatal Python error: Aborted
+
+Current thread 0x0000000107919e00 (most recent call first):
+  File "/usr/local/Cellar/python@3.9/3.9.7/Frameworks/Python.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 2632 in getproxies_macosx_sysconf
+  File "/usr/local/Cellar/python@3.9/3.9.7/Frameworks/Python.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 2650 in getproxies
+  File "/usr/local/Cellar/python@3.9/3.9.7/Frameworks/Python.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 795 in __init__
+  ...
+ ```
+
+ A known workaround is to export the `no_proxy` environment variable in your shell as follow, and rerun the tests.
+
+ ```shell
+ % export no_proxy="*"
+ ```
 
 ## Slack channel
 
