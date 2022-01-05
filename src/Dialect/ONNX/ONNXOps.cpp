@@ -4329,6 +4329,9 @@ LogicalResult ONNXScatterOp::inferShapes(
 
 LogicalResult ONNXScatterElementsOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+  if (!data().getType().isa<mlir::RankedTensorType>())
+    return success();
+
   getResult().setType(data().getType());
   return success();
 }

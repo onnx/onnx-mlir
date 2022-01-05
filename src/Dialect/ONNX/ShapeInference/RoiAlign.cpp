@@ -2,10 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------- RoiAlign.cpp - Shape Inference for RoiAlign Op
-//--------------===//
+//===-------------- RoiAlign.cpp - Shape Inference for RoiAlign Op --------===//
 //
-// This file implements shape inference for the ONNX Shape Operator.
+// This file implements shape inference for the ONNX RoiAlign Operator.
 //
 //===----------------------------------------------------------------------===//
 
