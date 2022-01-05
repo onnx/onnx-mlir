@@ -18,8 +18,8 @@ The following sections will describe how to use gen_onnx_mlir.py to add an opera
 
 # Add an Operation <a name="add_operation"></a>
 To generate an operation for onnx dialect, add this operation into the dictionary, 
-'version_dict', in 
-gen_onnx_mlir.py. The key of this directory is the operation name and the value is the list of 
+'version_dict', in gen_onnx_mlir.py. 
+The key of this directory is the operation name and the value is the list of 
 opset for this operation. Usually only the top version opset of this operation (in onnx-mlir/third_party/onnx) is supported. Details about versioning can be found in [version section](#Operation Version).
 With this entry, the script will generate the operation defintion for onnx dialect.
 
