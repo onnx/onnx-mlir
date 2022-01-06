@@ -893,7 +893,7 @@ private:
     const auto elementType = builder_.getIntegerType(64);
     const auto attributes = ImportNodeAttributes(node);
     for (auto attr : attributes) {
-      if (auto arrayAttr = attr.second.dyn_cast<ArrayAttr>()) {
+      if (auto arrayAttr = attr.getValue().dyn_cast<ArrayAttr>()) {
         const auto tensorType =
             RankedTensorType::get({(int64_t)arrayAttr.size()}, elementType);
         auto constantDenseAttribute =
@@ -904,7 +904,7 @@ private:
 
         // Map from ONNX attributes to indices, which are
         // matched with ONNXSliceOp::build ordering.
-        auto inputIdx = llvm::StringSwitch<int>(attr.first)
+        auto inputIdx = llvm::StringSwitch<int>(attr.getName())
                             .Case("starts", 1)
                             .Case("ends", 2)
                             .Case("axes", 3)
@@ -956,7 +956,7 @@ private:
     auto attributes = ImportNodeAttributes(node);
     bool hasAxisAttribute = false;
     for (auto &attr : attributes)
-      if (attr.first.strref().equals_insensitive("axis")) {
+      if (attr.getName().strref().equals_insensitive("axis")) {
         hasAxisAttribute = true;
         break;
       }

@@ -644,16 +644,16 @@ static LogicalResult verify(KrnlMatMulOp op) {
     return op.emitOpError("cMemStart should have same rank as memref A");
   if (operandAdaptor.loops().size() != 3)
     return op.emitOpError("loops rank should be 3 (i,j,k)");
-  ArrayAttr computeAttr = operandAdaptor.computeTileSize();
+  ArrayAttr computeAttr = operandAdaptor.computeTileSize().getValue();
   if (computeAttr && !(computeAttr.size() == 0 || computeAttr.size() == 3))
     return op.emitOpError("computeTileSize rank should be 0 or 3");
-  ArrayAttr aTileAttr = operandAdaptor.aTileSize();
+  ArrayAttr aTileAttr = operandAdaptor.aTileSize().getValue();;
   if (aTileAttr && !(aTileAttr.size() == 0 || aTileAttr.size() == 2))
     return op.emitOpError("aTileSize rank should be 0 or 2");
-  ArrayAttr bTileAttr = operandAdaptor.bTileSize();
+  ArrayAttr bTileAttr = operandAdaptor.bTileSize().getValue();;
   if (bTileAttr && !(bTileAttr.size() == 0 || bTileAttr.size() == 2))
     return op.emitOpError("bTileSize rank should be 0 or 2");
-  ArrayAttr cTileAttr = operandAdaptor.cTileSize();
+  ArrayAttr cTileAttr = operandAdaptor.cTileSize().getValue();;
   if (cTileAttr && !(cTileAttr.size() == 0 || cTileAttr.size() == 2))
     return op.emitOpError("cTileSize rank should be 0 or 2");
   return success();
@@ -701,12 +701,12 @@ static LogicalResult verify(KrnlCopyToBufferOp op) {
   if (startRank != srcRank)
     return op.emitOpError("Rank of starts and memrefs must be identical");
   if (opAdaptor.tileSize()) {
-    int64_t tRank = opAdaptor.tileSize().size();
+    int64_t tRank = opAdaptor.tileSize().getValue().size();
     if (!(tRank == 0 || tRank == bufferRank))
       return op.emitOpError("Rank of tileSize must be identical to buffer");
   }
   if (opAdaptor.padToNext()) {
-    int64_t padRank = opAdaptor.padToNext().size();
+    int64_t padRank = opAdaptor.padToNext().getValue().size();
     if (!(padRank == 0 || padRank == bufferRank))
       return op.emitOpError("Rank of padToNext must be identical to buffer");
   }
@@ -756,7 +756,7 @@ static LogicalResult verify(KrnlCopyFromBufferOp op) {
   if (startRank != destRank)
     return op.emitOpError("Rank of starts and memrefs must be identical");
   if (opAdaptor.tileSize()) {
-    int64_t tRank = opAdaptor.tileSize().size();
+    int64_t tRank = opAdaptor.tileSize().getValue().size();
     if (!(tRank == 0 || tRank == bufferRank))
       return op.emitOpError("Rank of tileSize must be identical to buffer");
   }

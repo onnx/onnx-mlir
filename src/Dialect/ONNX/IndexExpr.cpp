@@ -1475,7 +1475,7 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
       // Has no default: error
       return UndefinedIndexExpr();
     }
-    auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
+    auto attrVal = attrArray.getValues<Attribute>()[ArrayRef<uint64_t>({i})];
     int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
     return LiteralIndexExpr(attrInt);
   }

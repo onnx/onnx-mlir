@@ -69,7 +69,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
       auto condReg = rewriter.create<KrnlLoadOp>(loc, cond).getResult();
       auto ifOp = rewriter.create<scf::IfOp>(loc, condReg, false);
-      rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
+      rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
 
       // Create a scalar tensor out of loop iteration variable, as the first
       // argument passed to the body graph function.
@@ -98,7 +98,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         mapper.map(regionArg, params[i]);
       }
 
-      auto &thenRegion = ifOp.thenRegion();
+      auto &thenRegion = ifOp.getThenRegion();
       auto &thenBlock = thenRegion.front();
 
       // Split the insertion block into two, where the second block

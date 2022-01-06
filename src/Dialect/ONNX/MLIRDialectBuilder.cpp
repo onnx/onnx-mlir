@@ -97,11 +97,11 @@ Value MathBuilder::min(Value lhs, Value rhs) const {
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     // Test for unsigned as signless are treated as signed.
     if (lhs.getType().isUnsignedInteger())
-      return b.create<MinUIOp>(loc, lhs, rhs);
+      return b.create<arith::MinUIOp>(loc, lhs, rhs);
     else
-      return b.create<MinSIOp>(loc, lhs, rhs);
+      return b.create<arith::MinSIOp>(loc, lhs, rhs);
   else
-    return b.create<MinFOp>(loc, lhs, rhs);
+    return b.create<arith::MinFOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::max(Value lhs, Value rhs) const {
@@ -109,11 +109,11 @@ Value MathBuilder::max(Value lhs, Value rhs) const {
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     // Test for unsigned as signless are treated as signed.
     if (lhs.getType().isUnsignedInteger())
-      return b.create<MaxUIOp>(loc, lhs, rhs);
+      return b.create<arith::MaxUIOp>(loc, lhs, rhs);
     else
-      return b.create<MaxSIOp>(loc, lhs, rhs);
+      return b.create<arith::MaxSIOp>(loc, lhs, rhs);
   else
-    return b.create<MaxFOp>(loc, lhs, rhs);
+    return b.create<arith::MaxFOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::sgt(Value lhs, Value rhs) const {
