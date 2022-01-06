@@ -210,9 +210,26 @@ outputs = session.run([input])
 ```
 The outputs can then be analyzed by inspecting the values inside the `output` list of numpy arrays.
 
-The full code is available [here](mnist.py). It finds that `8` is the most likely digit for the given input. The command is as follows.
+The full code is available [here](mnist.py). It finds that `8` is the most likely digit for the given input. The command is:
 ``` shell
 python mnist.py
 ```
-
+and produces this output.
+``` shell
+input signature in json [    { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "name" : "image" }
+]
+output signature in json [   { "type" : "f32" , "dims" : [1 , 10] , "name" : "prediction" }
+]
+prediction  0 = 0.0026081407
+prediction  1 = 4.1191046e-07
+prediction  2 = 0.0033903052
+prediction  3 = 0.004245711
+prediction  4 = 2.899269e-05
+prediction  5 = 0.00031389543
+prediction  6 = 0.0005816657
+prediction  7 = 1.2604411e-06
+prediction  8 = 0.98813987
+prediction  9 = 0.0006896525
+The digit is 8
+```
 
