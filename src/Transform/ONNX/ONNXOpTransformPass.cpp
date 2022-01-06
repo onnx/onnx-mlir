@@ -108,7 +108,7 @@ private:
     strcpy(tempFile, "onnxtempdumpXXXXXX");
     _mktemp(tempFile);
 #else
-    strcpy(tempFile, "onnxtempdumpXXXXXX");
+    strcpy(tempFile, "/tmp/onnxtempdumpXXXXXX");
     (void)mkstemp(tempFile);
 #endif
     outputCode(module, tempFile);
