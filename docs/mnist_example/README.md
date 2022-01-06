@@ -161,7 +161,7 @@ int main() {
 
 Now, putting everything together, we invoke g++ to compile and link together the driver code, C runtime API and the compiled model inference function:
 ```bash
-g++ --std=c++11 mnist.cpp mnist.so -o mnist -I $ONNX_MLIR_INCLUDE
+g++ --std=c++11 mnist.cpp ./mnist.so -o mnist -I $ONNX_MLIR_INCLUDE
 ```
 
 Now run it by calling `./mnist`! It outputs the following on the test set image I used:
@@ -200,8 +200,9 @@ The runtime use an `ExecutionSession` object to hold a specific model and entry 
 model = 'mnist.so'
 session = ExecutionSession(model, "run_main_graph")
 # Print the models input/output signature, for display.
+# If there are problems with the signature functions, they can be simply commented out.
 print("input signature in json", session.input_signature())
-print("output signature in json",session.output_signature())
+print("output signature in json", session.output_signature())
 # Create an input arbitrarily filled of 1.0 values.
 input = np.full((1, 1, 28, 28), 1, np.dtype(np.float32))
 # Run the model.
@@ -209,6 +210,9 @@ outputs = session.run([input])
 ```
 The outputs can then be analyzed by inspecting the values inside the `output` list of numpy arrays.
 
-The full code is available [here](mnist.py). It finds that `8` is the most likely digit for the given input.
+The full code is available [here](mnist.py). It finds that `8` is the most likely digit for the given input. The command is as follows.
+``` shell
+python mnist.py
+```
 
 

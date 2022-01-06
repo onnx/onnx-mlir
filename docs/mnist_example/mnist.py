@@ -2,9 +2,10 @@ import numpy as np
 from PyRuntime import ExecutionSession
 
 # Load the model mnist.so compiled with onnx-mlir.
-model = 'mnist.so'
+model = './mnist.so'
 session = ExecutionSession(model, "run_main_graph")
 # Print the models input/output signature, for display.
+# If there are problems with the signature functions, they can be simply commented out.
 print("input signature in json", session.input_signature())
 print("output signature in json",session.output_signature())
 # Create an input arbitrarily filled of 1.0 values.
