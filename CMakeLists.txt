@@ -51,7 +51,7 @@ if (WIN32)
 endif()
 
 # Use the Python version specified by pythonLocation.
-if (NOT DEFINED Python_ROOT_DIR AND DEFINED ENV{pythonLocation})
+if (NOT DEFINED Python3_ROOT_DIR AND DEFINED ENV{pythonLocation})
   set(Python3_ROOT_DIR "$ENV{pythonLocation}")
 endif()
 
