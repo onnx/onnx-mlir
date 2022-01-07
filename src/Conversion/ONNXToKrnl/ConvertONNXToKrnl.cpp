@@ -211,10 +211,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     // 'emitIntermediateIR' for more details.
     target.addLegalOp<ONNXMatMulOp>();
     target.addLegalOp<ONNXReshapeOp>();
-    target.addLegalOp<ONNXSigmoidOp>();
     target.addLegalOp<ONNXSplitV11Op>();
     target.addLegalOp<ONNXSqueezeV11Op>();
-    target.addLegalOp<ONNXTanhOp>();
     target.addLegalOp<ONNXTransposeOp>();
   }
 

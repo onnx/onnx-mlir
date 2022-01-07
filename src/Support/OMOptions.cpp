@@ -27,7 +27,7 @@ llvm::cl::opt<std::string> instrumentONNXOps("instrument-onnx-ops",
 llvm::cl::opt<bool> enableMemoryBundling("enable-memory-bundling",
     llvm::cl::desc(
         "Enable memory bundling related optimizations (default=false)\n"
-        "Set to 'true' if you experience significant compile time."),
+        "Set to 'false' if you experience significant compile time."),
     llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
 
 llvm::cl::opt<int> onnxOpTransformThreshold("onnx-op-transform-threshold",
