@@ -48,10 +48,10 @@ if (WIN32)
   # This allows us to pick up the correct version of Python instead of always picking the latest
   # installed on the machine.
   set(Python3_FIND_REGISTRY NEVER)
-  endif()
+endif()
 
 # Use the Python version specified by pythonLocation.
-if(NOT DEFINED Python_ROOT_DIR AND DEFINED ENV{pythonLocation})
+if (NOT DEFINED Python_ROOT_DIR AND DEFINED ENV{pythonLocation})
   set(Python3_ROOT_DIR "$ENV{pythonLocation}")
 endif()
 
