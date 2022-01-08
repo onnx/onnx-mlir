@@ -20,16 +20,18 @@ The following sections will describe how to use gen_onnx_mlir.py to add an opera
 To generate an operation for onnx dialect, add this operation into the dictionary, 
 'version_dict', in gen_onnx_mlir.py. 
 The key of this directory is the operation name and the value is the list of 
-opset for this operation. Usually only the top version opset of this operation (in onnx-mlir/third_party/onnx) is supported. Details about versioning can be found in [version section](#Operation Version).
+opset for this operation. Usually only the top version opset of this operation (in onnx-mlir/third_party/onnx) is supported. Details about versioning can be found in [version section](#version).
 With this entry, the script will generate the operation defintion for onnx dialect.
 
 # Customization <a name="customize"></a>
 
 ## Add Interface and Trait
-By default, all operation has shape inference interface and `NoSideEffect` trait.
-If an opration has `ResultTypeInferenceOpInterface`, use dictionary `OpsWithResultTypeInference`. 
+* By default, all operation has shape inference interface and `NoSideEffect` trait.
+* If an opration has `ResultTypeInferenceOpInterface`, add it to dictionary `OpsWithResultTypeInference`. 
 This interface inferes the type of result tensor, not shape. 
-If an operation has subgraph, it will has interface `HasOnnxSubgraphOpInterface`. 
+* If an operation has subgraph, it will has interface `HasOnnxSubgraphOpInterface`. 
+This attribute is inferred from the ONNX operation definition.
+* You can define helper function for an operation with dictionary `OpsWithHelpers`. 
 
 ## Add canonicalization interface
 If a transformation should be applied locally to an operation across passes, canonicalization 
@@ -44,8 +46,11 @@ type of inference, there are two kinds builder, unranked type and broadcast type
 special builder for an operation, you can add its name into `custom_builder_unranked_ops_list`
  and `custom_builder_broadcast_ops_list` respectively.
 
-Please note that the need of special builder in rewriting rules can be avoided with the use of `returnType`. It may be a better solution to just move such type inference code into ONNXOpHelper.cpp
-and get rid of customize builder.
+Please note that the need of special builder in rewriting rules can be avoided
+with the use of `returnType`. Refer to [mlir doc](https://mlir.llvm.org/docs/DeclarativeRewrites/) or 
+the [example in onnx-mlir](../src/Transform/ONNX/Decompose.td).
+ It may be a better solution to just move such
+type inference code into ONNXOpHelper.cpp and get rid of customize builder.
 
 
 ## Customize verifier
@@ -57,6 +62,10 @@ Such information can be found in the onnx operation definition, but can not be e
 The best way to test for these constraints are in a verifier. To add the interface of customized verifier to an operation, locate the array below in `gen_onnx_mlir.py` and add your operation in it.
 ```
 OpsWithVerifier = ['AveragePool', 'Conv', 'InstanceNormalization', 'Mod']
+```
+Then you will find the following line in operation definition in ONNXOps.td.inc:
+```
+let verifier = [{ return ::verify(*this); }];
 ```
 
 You will need to add the implementation code in the `src/Dialect/ONNX/ONNXOps.cpp` when the new op was declared as using a customized verifier.  Best is to look at other operations to get the general pattern, by searching for [static LogicalResult verify(ONNXInstanceNormalizationOp op)](../src/Dialect/ONNX/ONNXOps.cpp), for example. Note that a verifier will execute each time that one such op is created. So you will need to ensure that it can work with tensors and MemRefs, and possibly unranked tensors. So guard each of your tests to the proper circumstances. For examples, once a tensor is ranked, you may then verify that the rank is within the approved range (if there is such a constraint); before it is ranked, do not perform this test yet.
