@@ -10,6 +10,26 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test.py
   )
 
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/inference_backend.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/inference_backend.py
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/signature_backend.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/signature_backend.py
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/variables.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/variables.py
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/common.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/common.py
+  )
+
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/test_config.py.in
   ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
@@ -97,6 +117,15 @@ add_custom_target(check-onnx-backend-constant
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
+add_custom_target(check-onnx-backend-signature
+  COMMAND
+    TEST_SIGNATURE=true
+    ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+  DEPENDS
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
+  )
+
 add_custom_target(check-onnx-backend-compilerlib
   COMMAND
     TEST_COMPILERLIB=true ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}
@@ -119,6 +148,8 @@ add_dependencies(check-onnx-backend-dynamic onnx-mlir)
 add_dependencies(check-onnx-backend-dynamic PyRuntime)
 add_dependencies(check-onnx-backend-constant onnx-mlir)
 add_dependencies(check-onnx-backend-constant PyRuntime)
+add_dependencies(check-onnx-backend-signature onnx-mlir)
+add_dependencies(check-onnx-backend-signature PyRuntime)
 add_dependencies(check-onnx-backend-compilerlib CompilerLibTest)
 add_dependencies(check-onnx-backend-compilerlib PyRuntime)
 

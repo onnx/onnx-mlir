@@ -96,6 +96,14 @@ The environment variable `IMPORTER_FORCE_CONSTANT` is a list of indices
 separated by `,` (starting from 0, or -1 for all input indices), e.g. `0, 2, 3`
 or `-1`.
 
+### Input Signature tests
+
+Testing input signature of an onnx models with a variety of data type by using the following command, also used by our checkers.
+
+```
+cmake --build . --config Release --target check-onnx-backend-signature
+```
+
 ### Enable SIMD instructions
 
 On supported platforms, currently s390x only, backend tests can generate SIMD instructions for the compiled models. To enable SIMD, set the TEST_MCPU environment variable, e.g.,
