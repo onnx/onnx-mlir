@@ -50,11 +50,6 @@ if (WIN32)
   set(Python3_FIND_REGISTRY NEVER)
 endif()
 
-# Use the Python version specified by pythonLocation.
-if (NOT DEFINED Python3_ROOT_DIR AND DEFINED ENV{pythonLocation})
-  set(Python3_ROOT_DIR "$ENV{pythonLocation}")
-endif()
-
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
 # Don't require AWT to allow headless JDK to reduce docker image size
