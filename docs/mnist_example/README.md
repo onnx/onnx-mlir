@@ -74,12 +74,12 @@ Now we are ready to compile the model! To make it easier to invoke commands and 
 # ONNX_MLIR_ROOT points to the root of the onnx-mlir, 
 # under which the include and the build directory lies.
 export ONNX_MLIR_ROOT=$(pwd)/../..
-# Define the bin directory where onnx-mlir binary resides. Change only if you
-# have a non-standard install.
-export ONNX_MLIR_BIN=$ONNX_MLIR_ROOT/build/Debug/bin
 # Define the include directory where onnx-mlir runtime include files resides.
 # Change only if you have a non-standard install.
 export ONNX_MLIR_INCLUDE=$ONNX_MLIR_ROOT/include
+# Define the bin directory where onnx-mlir binary resides. Change only if you
+# have a non-standard install.
+export ONNX_MLIR_BIN=$ONNX_MLIR_ROOT/build/Debug/bin
 
 # Include ONNX-MLIR executable directories part of $PATH.
 export PATH=$ONNX_MLIR_ROOT/build/Debug/bin:$PATH
@@ -164,9 +164,9 @@ Now, putting everything together, we invoke g++ to compile and link together the
 g++ --std=c++11 mnist.cpp ./mnist.so -o mnist -I $ONNX_MLIR_INCLUDE
 ```
 
-Now run it by calling `./mnist`! It outputs the following on the test set image I used:
+Now run it by calling `./mnist`! It outputs the following for the image in the test:
 
-```cpp
+``` shell
 prediction[0] = 1.000000
 prediction[1] = 0.000000
 prediction[2] = 0.000000
@@ -177,7 +177,7 @@ prediction[6] = 0.000000
 prediction[7] = 0.000000
 prediction[8] = 0.000000
 prediction[9] = 0.000000
-The digit is 0
+The digit is 0.
 ```
 
 The full code is available [here](mnist.cpp).
@@ -203,14 +203,14 @@ session = ExecutionSession(model, "run_main_graph")
 # If there are problems with the signature functions, they can be simply commented out.
 print("input signature in json", session.input_signature())
 print("output signature in json", session.output_signature())
-# Create an input arbitrarily filled of 1.0 values.
+# Create an input arbitrarily filled of 1.0 values (file has the actual values).
 input = np.full((1, 1, 28, 28), 1, np.dtype(np.float32))
 # Run the model.
 outputs = session.run([input])
 ```
 The outputs can then be analyzed by inspecting the values inside the `output` list of numpy arrays.
 
-The full code is available [here](mnist.py). It finds that `8` is the most likely digit for the given input. The command is:
+The full code is available [here](mnist.py). It finds that `0` is the most likely digit for the given input. The command is:
 ``` shell
 python mnist.py
 ```
@@ -220,16 +220,16 @@ input signature in json [    { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "na
 ]
 output signature in json [   { "type" : "f32" , "dims" : [1 , 10] , "name" : "prediction" }
 ]
-prediction  0 = 0.0026081407
-prediction  1 = 4.1191046e-07
-prediction  2 = 0.0033903052
-prediction  3 = 0.004245711
-prediction  4 = 2.899269e-05
-prediction  5 = 0.00031389543
-prediction  6 = 0.0005816657
-prediction  7 = 1.2604411e-06
-prediction  8 = 0.98813987
-prediction  9 = 0.0006896525
-The digit is 8
+prediction  0 = 0.9999999
+prediction  1 = 6.745636e-18
+prediction  2 = 5.504603e-09
+prediction  3 = 9.146374e-12
+prediction  4 = 3.2389183e-15
+prediction  5 = 1.2362976e-07
+prediction  6 = 9.871477e-12
+prediction  7 = 2.1788185e-13
+prediction  8 = 2.0332518e-08
+prediction  9 = 1.6744228e-15
+The digit is 0
 ```
 
