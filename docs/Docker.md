@@ -33,7 +33,7 @@ The onnx-mlir-dev image contains the full build tree including the prerequisites
 The source can be modified and `onnx-mlir` can be rebuilt from within the container, so it is possible to use it
 as a development environment. New pull requests can be generated, and the repository can be updated to the latest using git commands.
 It is also possible to attach vscode to the running container.
-An example Dockerfile useful for development and vscode configuration files can be seen in the [docs/docker-example](docker-examnple) folder.
+An example Dockerfile useful for development and vscode configuration files can be seen in the [docs/docker-example](docker-example) folder.
 If the workspace directory and the vscode files are not present in the directory where the Docker build is run, then the lines referencing them should be commented out or deleted.
 
 The Dockerfile is shown here, and should be modified according to one's need. The file below includes debugging tools as well as pytorch, which can be used to train the mnist model in our end-to-end example provided in the [docs/mnist_example](mnist_example) directory.
