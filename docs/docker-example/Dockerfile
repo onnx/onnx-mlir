@@ -11,7 +11,7 @@ RUN python -m pip install --upgrade pip
 RUN apt-get install -y gdb
 RUN apt-get install -y lldb
 RUN apt-get install -y vim
-# 2) Instal/remove optional packages, comment/uncomment/add as you see fit.
+# 2) Instal optional packages, comment/uncomment/add as you see fit.
 RUN apt-get install -y valgrind
 RUN apt-get install -y libeigen3-dev
 RUN apt-get install -y clang-format

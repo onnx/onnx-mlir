@@ -12,7 +12,7 @@ The onnx-mlir image just contains the built compiler and you can use it immediat
 
 ## Easy Script to Compile a Model
 
-A python convenience script is provided to allow you to run ONNX-MLIR inside a docker container as if running the ONNX-MLIR compiler directly on the host. For example,
+A python convenience script is provided to allow you to run ONNX-MLIR inside a docker container as if running the ONNX-MLIR compiler directly on the host. The `onnx-mlir.py` script is located in the [docker](../docker) directory. For example, compiling a mninst model can be done as follows.
 ```
 # docker/onnx-mlir.py --EmitLib mnist/model.onnx
 505a5a6fb7d0: Pulling fs layer
@@ -24,21 +24,21 @@ Shared library model.so has been compiled.
 
 The script will pull the onnx-mlir image if it's not available locally, mount the directory containing the `model.onnx` into the container, and compile and generate the `model.so` in the same directory.
 
-This script takes the same option as the normal command used to compile a ONNX model. Typical options are `-O3`, `--EmitONNXIR`, `--EmitJNI`, ... 
-A list of all options are provided by using the `--help` option.
+This script takes the same option as the normal  `onnx-mlir` command used to compile a ONNX model. Typical options are `-O3`, `--EmitONNXIR`, `--EmitJNI`, ... 
+A list of all options is provided by using the `--help` option.
 
 ## Building ONNX-MLIR in a docker environment
 
 The onnx-mlir-dev image contains the full build tree including the prerequisites and a clone of the source code.
 The source can be modified and onnx-mlir rebuilt from within the container, so it is possible to use it
-as a development environment.
+as a development environment. New pull requests can be generated, and the repository can be updated to the latest using git commands.
 It is also possible to attach vscode to the running container.
-An example Dockerfile useful for development and vscode configuration files can be seen in the docs folder.
+An example Dockerfile useful for development and vscode configuration files can be seen in the [docs/docker-example](docs/docker-examnple) folder.
 If the workspace directory and the vscode files are not present in the directory where the Docker build is run, then the lines referencing them should be commented out or deleted.
 
 The Dockerfile is shown here, and should be modified according to one's need. The file below includes debugging tools as well as pytorch, which can be used to train the mnist model in our end-to-end example provided in the [docs/mnist_example](mnist_example) directory.
 
-[same-as-file]: <> (../docs/docker-example/Dockerfile)
+[same-as-file]: <> (docs/docker-example/Dockerfile)
 ```
 FROM onnxmlirczar/onnx-mlir-dev
 WORKDIR /workdir
@@ -53,7 +53,7 @@ RUN python -m pip install --upgrade pip
 RUN apt-get install -y gdb
 RUN apt-get install -y lldb
 RUN apt-get install -y vim
-# 2) Instal/remove optional packages, comment/uncomment/add as you see fit.
+# 2) Instal optional packages, comment/uncomment/add as you see fit.
 RUN apt-get install -y valgrind
 RUN apt-get install -y libeigen3-dev
 RUN apt-get install -y clang-format
@@ -96,12 +96,12 @@ ENV PATH=$PATH:/workdir/onnx-mlir/build/Debug/bin/:/workdir/onnx-mlir/build/Debu
 
 The first step is to copy the [docs/ocker-example](docker-example) directory to another directory outside of the repo, say `~/DockerOnnxMlir`. 
 
-Then, the `Dockerfile` in that directory should then be modified to suit one's need. In particuliar, we recommend developpers to use their own fork for development. Uncomment the lines associated with git (Step 5 in the file) using your GitHub Id. 
-The lines associated with VSCode (Step 3 in the file) should be also uncommented. 
-Finally, you may create a subdirectory that contains test examples you would like to have in your Docker Image and Container. 
-If so, uncomment the lines associated with copying a personal workspace folder (Step 4 in the file). The name the folder containing the test examples is assumed here to be named `workspace`. Use the same name for your test directory, or rename the directory name in the Docker file accordingly.
+Then, the `Dockerfile` in the copied directory should then be modified to suit one's need. In particuliar, we recommend developpers to use their own fork for development. Uncomment the lines associated with git (Step 5 in the file) and substitute the appropriate GitHub Id in the commented out directives. 
+The lines associated with VSCode (Step 3 in the file) should be also uncommented when using VSCode. 
+Finally, we recommend creating a subdirectory named `workspace` that contains test examples you would like to have in your Docker Image and Container. 
+If so, uncomment the lines associated with copying a personal workspace folder (Step 4 in the file), and that subdirectory's contend will be copied over to the Docker Image.
 
-The next step is to create a Docker imange. This step can be performed using this command: `docker build --tag imageName .` Once this command is successful, we must start a container. This can be done by a command line (e.g. `docker run -it imageName`) or by opening the Docker Dashboard, locating the Image Tab, and clicking the `run` button associated with the image just created (e.g. `imageName` above).
+The next step is to create a Docker imange. This step can be performed using the `docker build --tag imageName .` shell command. Once this command is successful, we must start a container. This can be done by a command line (e.g. `docker run -it imageName`) or by opening the Docker Dashboard, locating the Image Tab, and clicking the `run` button associated with the image just created (e.g. `imageName` above).
 
 These steps are summarized here.
 ``` shell
@@ -112,23 +112,24 @@ cd ~/DockerOnnxMlir
 vi Dockerfile
 # Build the Docker image.
 docker build --tag onnx-mlir-dev
+# Start a container using the Docker dashboard or a docker run command.
 ```
 
-The next step is to open VSCode, load the Docker extension if not already present, and open the docker tab on the left pane. Locate the container that was just started in the previous step, right click on it, and select the `Attach Visual Studio Code` option.
-This will open a new window. Open a local folder on the `workdir` directory, this will give you access to all of the ONNX/MLIR/LLVM code.
+The next step is to open VSCode, load the Docker Extension if not already present, and then open the docker tab on the left pane. Locate the container that was just started in the previous step, right click on it, and select the `Attach Visual Studio Code` option.
+This will open a new VSCode window. Open a local folder on the `workdir` directory, this will give you access to all of the ONNX/MLIR/LLVM code as well as the `workspace` subdirectory.
 
-You may then open a shell, go to the `onnx-mlir` subdirectory, and check that all of your git is properly setup.
+You may then open a shell, go to the `onnx-mlir` subdirectory, and check that all of the git is properly setup.
 
 If you opted to add your own fork, it will be listed under `origin` with `upstream` being the official ONNX-MLIR repo. For example:
 ``` shell
 git remote -v
-#origin  https://github.com/AlexandreEichenberger/onnx-mlir.git (fetch)
-#origin  https://github.com/AlexandreEichenberger/onnx-mlir.git (push)
-#upstream        https://github.com/onnx/onnx-mlir.git (fetch)
-#upstream        no_push (push)
+#origin   https://github.com/AlexandreEichenberger/onnx-mlir.git (fetch)
+#origin   https://github.com/AlexandreEichenberger/onnx-mlir.git (push)
+#upstream https://github.com/onnx/onnx-mlir.git (fetch)
+#upstream no_push (push)
 ```
 
-Now, you may fetch your own branches using `git fetch origin`, and switch to one of your `my-opt` branch using the `git checkout --track origin/my-opt` command. The `--track` option is recommended as `upstream` was cloned and `origin` was added as remote. Once you want to push your changes, you should use `git push -u origin my-opt`, again using the `-u` option to link the local branch with the `origin` remote repo.
+Now, you may fetch your own branches using `git fetch origin`, and switch to one of your branch (say `my-opt`) using the `git checkout --track origin/my-opt` command. The `--track` option is recommended as `upstream` was cloned and `origin` was added as remote. Once you want to push your changes, you should use `git push -u origin my-opt`, using the `-u` option to link the local branch with the `origin` remote repo.
 
 The `main` branch will default to the upstream repo. If you prefer it to be associated with your own fork's `main` branch, you may update your main branch to the latest and associate the local main branch with `origin` using the commands listed below.
 ``` shell
@@ -137,4 +138,5 @@ git branch --unset-upstream
 git push --set-upstream origin main
 ```
 
+A docker container can be used to investigate a bug, or to develop a new feature. Some like to create a new images for each new version of ONNX-MLIR; others prefer to create one image and use git to update the main branch and use git to switch between multiple branches. Both are valid approaches.
 
