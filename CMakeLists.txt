@@ -8,7 +8,14 @@ project(onnx-mlir)
 option(ONNX_MLIR_BUILD_TESTS "Build ONNX MLIR test executables. If OFF, just generate build targets." ON)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 
+# On systems that still have legacy lib64 directories (e.g., rhel/fedora,
+# etc.), by default some components (e.g., cmake) install into lib while
+# others (e.g., python) install into lib64.
+# This causes trouble when we try to figure out the runtime directory in
+# CompilerUtils.cpp::getRuntimeDir(). So we explicitly set CMAKE_INSTALL_LIBDIR
+# to install into lib on all systems so we don't have to deal with lib64.
 set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_INSTALL_LIBDIR lib)
 
 if (NOT CMAKE_BUILD_TYPE)
   message(STATUS "No build type selected, default to Debug")
