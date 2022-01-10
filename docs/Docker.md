@@ -1,6 +1,6 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 
-# Building and Developping ONNX-MLIR using Docker
+# Building and Developping ONNX MLIR using Docker
 
 ## Prebuilt Containers
 An easy way to get started with ONNX-MLIR is to use a prebuilt docker image.

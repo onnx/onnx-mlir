@@ -77,10 +77,10 @@ These are frontend options.
       --EmitLib       - Lower model to LLVM IR, emit (to file) LLVM bitcode for model,            compile and link it to a shared library.
 
   Optimization levels:
-      --O0                                              - Optimization level 0 (default).
-      --O1                                              - Optimization level 1.
-      --O2                                              - Optimization level 2.
-      --O3                                              - Optimization level 3.
+      --O0            - Optimization level 0 (default).
+      --O1            - Optimization level 1.
+      --O2            - Optimization level 2.
+      --O3            - Optimization level 3.
 ```
 
 The full list of options is given with the `--help` option. Note that just as most compilers, the default optimization level is `-O0`. 
