@@ -41,15 +41,16 @@ else()
   set(OMRuntimeTestModelLibraryFiles ${CMAKE_CURRENT_BINARY_DIR}/add${CMAKE_SHARED_MODULE_SUFFIX})
 endif()
 
-add_custom_target(OMRuntimeTestModel)
 add_custom_command(
-  TARGET OMRuntimeTestModel
-  PRE_BUILD
+  OUTPUT ${OMRuntimeTestModelLibraryFiles}
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/gen_add_onnx.py
   COMMAND onnx-mlir add.onnx
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   DEPENDS onnx-mlir
-  BYPRODUCTS ${OMRuntimeTestModelLibraryFiles}
+  )
+
+add_custom_target(OMRuntimeTestModel
+  DEPENDS ${OMRuntimeTestModelLibraryFiles}
   )
 
 add_library(OMRuntimeTestModelLibrary SHARED IMPORTED)
