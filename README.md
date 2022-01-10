@@ -28,7 +28,7 @@ cmake >= 3.15.4
 ninja >= 1.10.2
 ```
 
-Help to update the prerequisite are found [here](docs/Prerequisite.md)
+Help to update the prerequisite are found [here](docs/Prerequisite.md).
 
 At any point in time, ONNX MLIR depends on a specific commit of the LLVM project that has been shown to work with the project. 
 Periodically the maintainers need to move to a more recent LLVM level. 
