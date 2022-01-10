@@ -8,5 +8,5 @@ export ONNX_MLIR_BIN=$ONNX_MLIR_ROOT/build/Debug/bin
 # Change only if you have a non-standard install.
 export ONNX_MLIR_INCLUDE=$ONNX_MLIR_ROOT/include
 
-# Include ONNX-MLIR executable directories part of $PATH.
+# Include ONNX MLIR executable directories part of $PATH.
 export PATH=$ONNX_MLIR_ROOT/build/Debug/bin:$PATH

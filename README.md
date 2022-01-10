@@ -14,7 +14,7 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 
 ## Setting up ONNX MLIR using Prebuilt Containers
 
-The prefered approach to using and developing ONNX-MLIR is to used Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with dockers are [here](docs/Docker.md).
+The prefered approach to using and developing ONNX MLIR is to used Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX MLIR with dockers are [here](docs/Docker.md).
 
 ## Setting up ONNX MLIR directly
 

@@ -71,7 +71,7 @@ call cmake --build . --config Release --target install
 call cmake --build . --config Release --target check-mlir
 ```
 
-## ONNX-MLIR (this project)
+## ONNX MLIR (this project)
 
 ### Build
 The following environment variables can be set before building onnx-mlir (or alternatively, they need to be passed as CMake variables):
