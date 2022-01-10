@@ -91,7 +91,7 @@ Run these commands directly in the docs/docs/mnist_example and everything should
 
 Firstly, we invoke `onnx-mlir` to compile the trained onnx model into LLVM bitcode:
 ```bash
-onnx-mlir mnist.onnx
+onnx-mlir -O3 mnist.onnx
 ```
 
 A `mnist.so` should appear, which corresponds to the compiled model object file.
@@ -161,7 +161,7 @@ int main() {
 
 Now, putting everything together, we invoke g++ to compile and link together the driver code, C runtime API and the compiled model inference function:
 ```bash
-g++ --std=c++11 mnist.cpp ./mnist.so -o mnist -I $ONNX_MLIR_INCLUDE
+g++ --std=c++11 -O3 mnist.cpp ./mnist.so -o mnist -I $ONNX_MLIR_INCLUDE
 ```
 
 Now run it by calling `./mnist`! It outputs the following for the image in the test:
