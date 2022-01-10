@@ -154,7 +154,11 @@ git clone --recursive https://github.com/onnx/onnx-mlir.git
 export MLIR_DIR=$(pwd)/llvm-project/build/lib/cmake/mlir
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
-cmake -G Ninja -DCMAKE_CXX_COMPILER=/usr/bin/c++ ..
+if [[ -z "$pythonLocation" ]]; then
+  cmake -G Ninja -DCMAKE_CXX_COMPILER=/usr/bin/c++ ..
+else
+  cmake -G Ninja -DCMAKE_CXX_COMPILER=/usr/bin/c++ -DPython3_ROOT_DIR=$pythonLocation ..
+fi
 cmake --build .
 
 # Run lit tests:
@@ -163,7 +167,8 @@ cmake --build . --target check-onnx-lit
 ```
 
 If you are running on OSX Big Sur, you need to add `-DCMAKE_CXX_COMPILER=/usr/bin/c++`
-to the `cmake ..` command due to changes in the compilers.
+to the `cmake ..` command due to changes in the compilers. The environment variable 
+`$pythonLocation` may be used to specify the base directory of the Python compiler.
 After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory.
 
 ##### LLVM and ONNX-MLIR CMake variables
