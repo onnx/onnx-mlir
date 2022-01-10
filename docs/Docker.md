@@ -3,6 +3,7 @@
 # Building and Developping ONNX MLIR using Docker
 
 ## Prebuilt Containers
+
 An easy way to get started with ONNX MLIR is to use a prebuilt docker image.
 These images are created as a result of a successful merge build on the trunk.
 This means that the latest image represents the tip of the trunk.
@@ -12,9 +13,11 @@ The onnx-mlir image just contains the built compiler and you can use it immediat
 
 ## Easy Script to Compile a Model
 
-A python convenience script is provided to allow you to run ONNX MLIR inside a docker container as if running the ONNX MLIR compiler directly on the host. The `onnx-mlir.py` script is located in the [docker](../docker) directory. For example, compiling a mninst model can be done as follows.
+A python convenience script is provided to allow you to run ONNX MLIR inside a docker container as if running the ONNX MLIR compiler directly on the host.
+The resulting output is an Linux ELF library implemening the ONNX model.
+The `onnx-mlir.py` script is located in the [docker](../docker) directory. For example, compiling a mninst model can be done as follows.
 ```
-# docker/onnx-mlir.py --EmitLib mnist/model.onnx
+# docker/onnx-mlir.py -O3 --EmitLib mnist/model.onnx
 505a5a6fb7d0: Pulling fs layer
 505a5a6fb7d0: Verifying Checksum
 505a5a6fb7d0: Download complete
@@ -24,14 +27,16 @@ Shared library model.so has been compiled.
 
 The script will pull the onnx-mlir image if it's not available locally, mount the directory containing the `model.onnx` into the container, and compile and generate the `model.so` in the same directory.
 
-This script takes the same option as the normal  `onnx-mlir` command used to compile a ONNX model. Typical options are `-O3`, `--EmitONNXIR`, `--EmitJNI`, ... 
-A list of all options is provided by using the `--help` option.
+This script takes the same option as the normal  `onnx-mlir` command used to compile a ONNX model. Typical options are `-O0` (default) or `-O3` to define an optimization level and `--EmitLib` (default) or `--EmitJNI` to generate a dynamic library or a jar file.
+A complete list of options is provided by using the traditional `--help` option.
+
+This script generates codes that can be executed on a Linux system or within a Docker container.
 
 ## Building ONNX MLIR in a docker environment
 
 The onnx-mlir-dev image contains the full build tree including the prerequisites and a clone of the source code.
-The source can be modified and `onnx-mlir` can be rebuilt from within the container, so it is possible to use it
-as a development environment. New pull requests can be generated, and the repository can be updated to the latest using git commands.
+The source can be modified and `onnx-mlir` can be rebuilt from within the container, so it is possible to use it as a development environment.
+New pull requests can be generated, and the repository can be updated to the latest using git commands.
 It is also possible to attach vscode to the running container.
 An example Dockerfile useful for development and vscode configuration files can be seen in the [docs/docker-example](docker-example) folder.
 If the workspace directory and the vscode files are not present in the directory where the Docker build is run, then the lines referencing them should be commented out or deleted.
