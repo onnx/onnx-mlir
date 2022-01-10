@@ -28,11 +28,11 @@ cmake >= 3.15.4
 ninja >= 1.10.2
 ```
 
-Help to update the prerequisite are found [here](docs/Prerequisite.md).
+Help to update the prerequisites is found [here](docs/Prerequisite.md).
 
 At any point in time, ONNX MLIR depends on a specific commit of the LLVM project that has been shown to work with the project. 
 Periodically the maintainers need to move to a more recent LLVM level. 
-Among other things, this requires that the commit string in (utils/clone-mlir.sh) be updated. 
+Among other things, this requires to update the commit string in (utils/clone-mlir.sh). 
 When updating ONNX MLIR, it is good practice to check that the commit string of the MLIR/LLVM is the same as the one listed in that file.
 
 ### Build on Linux or OSX
@@ -71,24 +71,27 @@ These are frontend options.
 
   Choose target to emit:
       --EmitONNXBasic - Ingest ONNX and emit the basic ONNX operations without inferred shapes.
-      --EmitONNXIR    - Ingest ONNX and emit corresponding ONNX dialect.
-      --EmitMLIR      - Lower model to MLIR built-in transformation dialect.
-      --EmitLLVMIR    - Lower model to LLVM IR (LLVM dialect).
-      --EmitLib       - Lower model to LLVM IR, emit (to file) LLVM bitcode for model,            compile and link it to a shared library.
+      --EmitONNXIR   - Ingest ONNX and emit corresponding ONNX dialect.
+      --EmitMLIR     - Lower model to MLIR built-in transformation dialect.
+      --EmitLLVMIR   - Lower model to LLVM IR (LLVM dialect).
+      --EmitLib      - Lower model to LLVM IR, emit (to file) LLVM bitcode for model,
+                       compile and link it to a shared library.
+      --EmitJNI      - Lower model to LLVM IR -> LLVM bitcode -> JNI shared library ->
+                       jar  Optimization levels:
 
   Optimization levels:
-      --O0            - Optimization level 0 (default).
-      --O1            - Optimization level 1.
-      --O2            - Optimization level 2.
-      --O3            - Optimization level 3.
+      --O0           - Optimization level 0 (default).
+      --O1           - Optimization level 1.
+      --O2           - Optimization level 2.
+      --O3           - Optimization level 3.
 ```
 
-The full list of options is given with the `--help` option. Note that just as most compilers, the default optimization level is `-O0`. 
+The full list of options is given by the `--help` option. Note that just as most compilers, the default optimization level is `-O0`. 
 We recommend using `-O3` for most applications.
 
 ### Simple Example
 
-For example, to lower an ONNX model (e.g., add.onnx) to ONNX dialect, use the following command:
+For example, use the following command to lower an ONNX model (e.g., add.onnx) to ONNX dialect:
 ```shell
 ./onnx-mlir --EmitONNXIR add.onnx
 ```
