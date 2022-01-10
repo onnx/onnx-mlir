@@ -1305,25 +1305,25 @@ private:
     auto input_names = op->getAttrOfType<mlir::ArrayAttr>("input_names");
     auto output_names = op->getAttrOfType<mlir::ArrayAttr>("output_names");
 
-    std::string const sf32 = std::string("f32");
-    std::string const sf64 = std::string("f64");
-    std::string const si32 = std::string("i32");
-    std::string const si64 = std::string("i64");
-    std::string const si16 = std::string("i16");
-    std::string const si8 = std::string("i8");
-    std::string const si1 = std::string("i1");
-    std::string const sui32 = std::string("ui32");
-    std::string const sui64 = std::string("ui64");
-    std::string const sui16 = std::string("ui16");
-    std::string const sui8 = std::string("ui8");
+    std::string const sf32 = std::string(" f32 ");
+    std::string const sf64 = std::string(" f64 ");
+    std::string const si32 = std::string(" i32 ");
+    std::string const si64 = std::string(" i64 ");
+    std::string const si16 = std::string(" i16 ");
+    std::string const si8 = std::string(" i8 ");
+    std::string const si1 = std::string(" i1 ");
+    std::string const sui32 = std::string(" ui32 ");
+    std::string const sui64 = std::string(" ui64 ");
+    std::string const sui16 = std::string(" ui16 ");
+    std::string const sui8 = std::string(" ui8 ");
 
     std::map<std::string, std::string> typeMap = {
-        {sf32, std::string("\"f32\"")}, {sf64, std::string("\"f64\"")},
-        {si32, std::string("\"i32\"")}, {si64, std::string("\"i64\"")},
-        {si16, std::string("\"i16\"")}, {si8, std::string("\"i8\"")},
-        {si1, std::string("\"i1\"")}, {sui32, std::string("\"ui32\"")},
-        {sui64, std::string("\"ui64\"")}, {sui16, std::string("\"ui16\"")},
-        {sui8, std::string("\"ui8\"")}};
+        {sf32, std::string(" \"f32\" ")}, {sf64, std::string(" \"f64\" ")},
+        {si32, std::string(" \"i32\" ")}, {si64, std::string(" \"i64\" ")},
+        {si16, std::string(" \"i16\" ")}, {si8, std::string(" \"i8\" ")},
+        {si1, std::string(" \"i1\" ")}, {sui32, std::string(" \"ui32\" ")},
+        {sui64, std::string(" \"ui64\" ")}, {sui16, std::string(" \"ui16\" ")},
+        {sui8, std::string(" \"ui8\" ")}};
     std::string dstring;
     llvm::raw_string_ostream dstream(dstring);
     dstream << "[ ";
