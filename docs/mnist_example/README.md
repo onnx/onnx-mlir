@@ -1,7 +1,7 @@
 Table of Contents
 =================
 
-   * [Train Model in PyTorch, Compile using ONNX MLIR](#train-model-in-pytorch-compile-using-onnx-mlir)
+   * [Train Model in PyTorch, Compile using ONNX-MLIR](#train-model-in-pytorch-compile-using-onnx-mlir)
       * [Training the Model](#training-the-model)
       * [Environment Variables Setup:](#environment-variables-setup)
       * [Compile Model](#compile-model)
@@ -10,7 +10,7 @@ Table of Contents
          * [Feeding Inputs and Retrieving Results](#feeding-inputs-and-retrieving-results)
       * [Write a Python Driver Code](#write-a-Python-driver-code)
 
-# Train Model in PyTorch, Compile using ONNX MLIR
+# Train Model in PyTorch, Compile using ONNX-MLIR
 
 In this example, we will demonstrate training a mnist model in PyTorch and compile, run it using only C++.
 
@@ -81,7 +81,7 @@ export ONNX_MLIR_INCLUDE=$ONNX_MLIR_ROOT/include
 # have a non-standard install.
 export ONNX_MLIR_BIN=$ONNX_MLIR_ROOT/build/Debug/bin
 
-# Include ONNX MLIR executable directories part of $PATH.
+# Include ONNX-MLIR executable directories part of $PATH.
 export PATH=$ONNX_MLIR_ROOT/build/Debug/bin:$PATH
 ```
 

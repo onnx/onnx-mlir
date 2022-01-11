@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
   // llvm::cl::HideUnrelatedOptions(OnnxMlirOptions);
   mlir::registerPassManagerCLOptions();
   llvm::cl::ParseCommandLineOptions(
-      argc, argv, "ONNX MLIR modular optimizer driver\n");
+      argc, argv, "ONNX-MLIR modular optimizer driver\n");
 
   mlir::OwningModuleRef module;
   std::string errorMessage;

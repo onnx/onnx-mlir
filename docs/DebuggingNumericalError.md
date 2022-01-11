@@ -11,7 +11,7 @@ intermediate results produced by these two backends layer by layer.
 ## Prerequisite
 - Set `ONNX_MLIR_HOME` environment variable to be the path to the HOME
   directory for onnx-mlir. The HOME directory for onnx-mlir refers to the
-  parent folder containing the `bin`, `lib`, etc sub-folders in which ONNX MLIR
+  parent folder containing the `bin`, `lib`, etc sub-folders in which ONNX-MLIR
   executables and libraries can be found.
 
 ## Reference backend

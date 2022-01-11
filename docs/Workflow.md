@@ -76,7 +76,7 @@ You can now edit the code on the `myfeature` branch.
 
 #### Run cmake & make
 
-Follow the directions to build ONNX MLIR in this section of the main 
+Follow the directions to build ONNX-MLIR in this section of the main 
 [README](../README.md#onnx-mlir-this-project)
 
 

@@ -1,10 +1,10 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 
-# Building and Developping ONNX MLIR using Docker
+# Building and Developping ONNX-MLIR using Docker
 
 ## Prebuilt Containers
 
-An easy way to get started with ONNX MLIR is to use a prebuilt docker image.
+An easy way to get started with ONNX-MLIR is to use a prebuilt docker image.
 These images are created as a result of a successful merge build on the trunk.
 This means that the latest image represents the tip of the trunk.
 Currently there are both Release and Debug mode images for `amd64`, `ppc64le` and `s390x` saved in Docker Hub as, respectively, [onnxmlirczar/onnx-mlir](https://hub.docker.com/r/onnxmlirczar/onnx-mlir) and [onnxmlirczar/onnx-mlir-dev](https://hub.docker.com/r/onnxmlirczar/onnx-mlir-dev).
@@ -13,7 +13,7 @@ The onnx-mlir image just contains the built compiler and you can use it immediat
 
 ## Easy Script to Compile a Model
 
-A python convenience script is provided to allow you to run ONNX MLIR inside a docker container as if running the ONNX MLIR compiler directly on the host.
+A python convenience script is provided to allow you to run ONNX-MLIR inside a docker container as if running the ONNX-MLIR compiler directly on the host.
 The resulting output is an Linux ELF library implemening the ONNX model.
 The `onnx-mlir.py` script is located in the [docker](../docker) directory. For example, compiling a mninst model can be done as follows.
 ```
@@ -32,7 +32,7 @@ A complete list of options is provided by using the traditional `--help` option.
 
 This script generates codes that can be executed on a Linux system or within a Docker container.
 
-## Building ONNX MLIR in a docker environment
+## Building ONNX-MLIR in a docker environment
 
 The onnx-mlir-dev image contains the full build tree including the prerequisites and a clone of the source code.
 The source can be modified and `onnx-mlir` can be rebuilt from within the container, so it is possible to use it as a development environment.
@@ -127,7 +127,7 @@ This will open a new VSCode window. Open a local folder on the `workdir` directo
 
 You may then open a shell, go to the `onnx-mlir` subdirectory, and check that all of the git is properly setup.
 
-If you opted to add your own fork, it will be listed under `origin` with `upstream` being the official ONNX MLIR repo. For example:
+If you opted to add your own fork, it will be listed under `origin` with `upstream` being the official ONNX-MLIR repo. For example:
 ``` shell
 git remote -v
 #origin   https://github.com/AlexandreEichenberger/onnx-mlir.git (fetch)
@@ -145,5 +145,5 @@ git branch --unset-upstream
 git push --set-upstream origin main
 ```
 
-A docker container can be used to investigate a bug, or to develop a new feature. Some like to create a new images for each new version of ONNX MLIR; others prefer to create one image and use git to update the main branch and use git to switch between multiple branches. Both are valid approaches.
+A docker container can be used to investigate a bug, or to develop a new feature. Some like to create a new images for each new version of ONNX-MLIR; others prefer to create one image and use git to update the main branch and use git to switch between multiple branches. Both are valid approaches.
 

@@ -1,7 +1,7 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 <p align="center"><img width="50%" src="docs/logo/onnx-mlir-1280x640.png" /></p>
 
-# ONNX MLIR
+# ONNX-MLIR
 The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mlir/).
 
 | System        | Build Status |
@@ -12,11 +12,11 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 | amd64-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=main)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=main)             |
 | amd64-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/workflows/Build%20x86%20onnx-mlir%20on%20macOS/badge.svg)](https://github.com/onnx/onnx-mlir/actions?query=workflow%3A%22Build+x86+onnx-mlir+on+macOS%22)             |
 
-## Setting up ONNX MLIR using Prebuilt Containers
+## Setting up ONNX-MLIR using Prebuilt Containers
 
-The prefered approach to using and developing ONNX MLIR is to used Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX MLIR with dockers are [here](docs/Docker.md).
+The prefered approach to using and developing ONNX-MLIR is to used Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with dockers are [here](docs/Docker.md).
 
-## Setting up ONNX MLIR directly
+## Setting up ONNX-MLIR directly
 
 ### Prerequisites
 
@@ -30,18 +30,18 @@ ninja >= 1.10.2
 
 Help to update the prerequisites is found [here](docs/Prerequisite.md).
 
-At any point in time, ONNX MLIR depends on a specific commit of the LLVM project that has been shown to work with the project. 
+At any point in time, ONNX-MLIR depends on a specific commit of the LLVM project that has been shown to work with the project. 
 Periodically the maintainers need to move to a more recent LLVM level. 
 Among other things, this requires to update the commit string in (utils/clone-mlir.sh). 
-When updating ONNX MLIR, it is good practice to check that the commit string of the MLIR/LLVM is the same as the one listed in that file.
+When updating ONNX-MLIR, it is good practice to check that the commit string of the MLIR/LLVM is the same as the one listed in that file.
 
 ### Build on Linux or OSX
 
-Directions to install MLIR and ONNX MLIR are provided [here](docs/BuildOnLinuxOSX.md).
+Directions to install MLIR and ONNX-MLIR are provided [here](docs/BuildOnLinuxOSX.md).
 
 ### Build on Windows
 
-Directions to install Protobuf, MLIR, and ONNX MLIR are provided [here](docs/BuildOnWindows.md).
+Directions to install Protobuf, MLIR, and ONNX-MLIR are provided [here](docs/BuildOnWindows.md).
 
 ### Testing build and summary of custom envrionment variables
 
@@ -49,12 +49,12 @@ After installation, an `onnx-mlir` executable should appear in the `build/Debug/
 
 There are several cmake targets that are used to verify the validity of the `onnx-mlir` compiler, which are listed [here](docs/TestingHighLevel.md).
 
-## Using ONNX MLIR
+## Using ONNX-MLIR
 
 The usage of `onnx-mlir` is as such:
 
 ```
-OVERVIEW: ONNX MLIR modular optimizer driver
+OVERVIEW: ONNX-MLIR modular optimizer driver
 
 USAGE: onnx-mlir [options] <input file>
 
@@ -66,7 +66,7 @@ Generic Options:
   --help-list   - Display list of available options (--help-list-hidden for more)
   --version     - Display the version of this program
 
-ONNX MLIR Options:
+ONNX-MLIR Options:
 These are frontend options.
 
   Choose target to emit:
