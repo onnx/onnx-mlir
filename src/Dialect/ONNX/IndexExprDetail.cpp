@@ -227,7 +227,7 @@ bool IndexExprImpl::hasValue() const {
 IndexExprScope &IndexExprImpl::getScope() const {
   assert(hasScope());
   return *scope;
-};
+}
 
 IndexExprScope *IndexExprImpl::getScopePtr() const {
   assert(scope && "expected to have scope");

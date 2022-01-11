@@ -44,7 +44,7 @@ IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
 }
 
 IndexExprScope::IndexExprScope(DialectBuilder &db)
-    : IndexExprScope(&db.getBuilder(), db.getLoc()){};
+    : IndexExprScope(&db.getBuilder(), db.getLoc()) {}
 
 // Nested scopes.
 IndexExprScope::IndexExprScope(
