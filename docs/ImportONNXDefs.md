@@ -83,7 +83,6 @@ Tips:
 If the definition of an operation needs extra code other than descripbed above, you can put 
 the code in the dictionary `custom_definition_misc`. The key is the operation name and the value is the code.
 
-
 # Build <a name="build"></a>
 In order to run gen_onnx_mlir.py, onnx has to be installed. Refer to Readme. In your build 
 directory, execute command `make OMONNXOpsINcTranslation`. This command will generate those two
