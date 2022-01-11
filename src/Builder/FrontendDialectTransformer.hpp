@@ -30,7 +30,7 @@ class OwningModuleRef;
 } // namespace mlir
 
 //===----------------------------------------------------------------------===//
-// Import a model into the ONNX MLIR dialect.
+// Import a model into the ONNX-MLIR dialect.
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {

@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.13.4)
 
 project(onnx-mlir)
 
-option(ONNX_MLIR_BUILD_TESTS "Build ONNX MLIR test executables. If OFF, just generate build targets." ON)
+option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables. If OFF, just generate build targets." ON)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 
 set(CMAKE_CXX_STANDARD 14)
