@@ -4,7 +4,7 @@
 
 //===---------------- Constant.cpp - Lowering Constant Op -----------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,8 +19,9 @@ using namespace mlir;
 struct ONNXConstantOpLowering : public ConversionPattern {
   static int constantID;
 
-  ONNXConstantOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
+  ONNXConstantOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -60,7 +61,7 @@ struct ONNXConstantOpLowering : public ConversionPattern {
 
 int ONNXConstantOpLowering::constantID = 0;
 
-void populateLoweringONNXConstantOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXConstantOpLowering>(ctx);
+void populateLoweringONNXConstantOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXConstantOpLowering>(typeConverter, ctx);
 }

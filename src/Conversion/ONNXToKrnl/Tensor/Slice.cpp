@@ -4,7 +4,7 @@
 
 //===----------------Slice.cpp - Lowering Slice Op----------------------=== //
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,8 +18,9 @@
 using namespace mlir;
 
 struct ONNXSliceOpLowering : public ConversionPattern {
-  ONNXSliceOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXSliceOp::getOperationName(), 1, ctx) {}
+  ONNXSliceOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXSliceOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -71,7 +72,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXSliceOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXSliceOpLowering>(ctx);
+void populateLoweringONNXSliceOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXSliceOpLowering>(typeConverter, ctx);
 }

@@ -4,7 +4,7 @@
 
 //===----------------------- TopK.cpp - TopK Op ---------------------------===//
 //
-// Copyright 2021 The IBM Research Authors.
+// Copyright 2021-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,8 +18,9 @@
 using namespace mlir;
 
 struct ONNXTopKOpLowering : public ConversionPattern {
-  ONNXTopKOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXTopKOp::getOperationName(), 1, ctx) {}
+  ONNXTopKOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXTopKOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
@@ -89,7 +90,7 @@ struct ONNXTopKOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXTopKOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXTopKOpLowering>(ctx);
+void populateLoweringONNXTopKOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXTopKOpLowering>(typeConverter, ctx);
 }

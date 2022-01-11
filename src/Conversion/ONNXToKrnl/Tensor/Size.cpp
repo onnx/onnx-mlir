@@ -18,8 +18,9 @@
 using namespace mlir;
 
 struct ONNXSizeOpLowering : public ConversionPattern {
-  ONNXSizeOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXSizeOp::getOperationName(), 1, ctx) {}
+  ONNXSizeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXSizeOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -72,7 +73,7 @@ struct ONNXSizeOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXSizeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXSizeOpLowering>(ctx);
+void populateLoweringONNXSizeOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXSizeOpLowering>(typeConverter, ctx);
 }

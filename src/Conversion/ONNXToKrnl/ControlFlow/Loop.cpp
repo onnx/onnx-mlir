@@ -17,8 +17,9 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 struct ONNXLoopOpLowering : public ConversionPattern {
-  explicit ONNXLoopOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXLoopOp::getOperationName(), 1, ctx) {}
+  explicit ONNXLoopOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXLoopOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -295,7 +296,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXLoopOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXLoopOpLowering>(ctx);
+void populateLoweringONNXLoopOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXLoopOpLowering>(typeConverter, ctx);
 }

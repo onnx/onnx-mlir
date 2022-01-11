@@ -4,7 +4,7 @@
 
 //===----------------Tile.cpp - Lowering Tile Op----------------------=== //
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -54,8 +54,9 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
 }
 
 struct ONNXTileOpLowering : public ConversionPattern {
-  ONNXTileOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXTileOp::getOperationName(), 1, ctx) {}
+  ONNXTileOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXTileOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -122,8 +123,9 @@ struct ONNXTileOpLowering : public ConversionPattern {
 // This is the alternative way of lowering.
 // It is kept here for record in case this implementation is needed
 struct ONNXTileOpLoweringAlternative : public ConversionPattern {
-  ONNXTileOpLoweringAlternative(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXTileOp::getOperationName(), 1, ctx) {}
+  ONNXTileOpLoweringAlternative(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXTileOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -214,7 +216,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXTileOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXTileOpLowering>(ctx);
+void populateLoweringONNXTileOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXTileOpLowering>(typeConverter, ctx);
 }
