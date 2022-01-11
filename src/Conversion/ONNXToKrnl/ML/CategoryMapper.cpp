@@ -268,23 +268,23 @@ private:
     TypeSwitch<Type>(elementType)
         .Case<IntegerType>([&](IntegerType type) {
           // index is valid: retrieve the value from 'cat_strings'.
-          rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
+          rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
           Value loadData = createKrnl.load(constantForCatsStrings, {index});
           createKrnl.store(loadData, alloc, loopInd);
 
           // index is not valid: store the default value.
-          rewriter.setInsertionPointToStart(&ifOp.elseRegion().front());
+          rewriter.setInsertionPointToStart(&ifOp.getElseRegion().front());
           Value loadDefault = createKrnl.load(defaultString);
           createKrnl.store(loadDefault, alloc, loopInd);
         })
         .Case<StringType>([&](StringType type) {
           // index is valid: retrieve the value from 'cat_int64s'.
-          rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
+          rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
           Value loadData = createKrnl.load(constantForCatsInt64s, {index});
           createKrnl.store(loadData, alloc, loopInd);
 
           // index is not valid: store the default value.
-          rewriter.setInsertionPointToStart(&ifOp.elseRegion().front());
+          rewriter.setInsertionPointToStart(&ifOp.getElseRegion().front());
           createKrnl.store(defaultInt64, alloc, loopInd);
         })
         .Default([&](Type type) { llvm_unreachable("Illegal KeyTy"); });
