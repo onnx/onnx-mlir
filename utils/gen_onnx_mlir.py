@@ -57,6 +57,13 @@ if current_onnx_version != onnx.__version__ :
           "while onnx package being used is {}".format(onnx.__version__))
     quit()
 
+current_onnx_version = "1.9.0"
+# check the version of onnx package being used
+if current_onnx_version != onnx.__version__ :
+    print("version of expected onnx is {}, ".format(current_onnx_version)+
+          "while onnx package being used is {}".format(onnx.__version__))
+    quit()
+
 check_operation_version = args.check_operation_version
 
 

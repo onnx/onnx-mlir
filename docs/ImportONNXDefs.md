@@ -21,6 +21,9 @@ To generate an operation for onnx dialect, add this operation into the dictionar
 'version_dict', in gen_onnx_mlir.py. 
 The key of this directory is the operation name and the value is the list of 
 opset for this operation. Usually only the top version opset of this operation (in onnx-mlir/third_party/onnx) is supported. Details about versioning can be found in [version section](#version).
+opset for this operation. Usually only the top version opset of this operation (in onnx-mlir/third_party/onnx) is supported. Details about versioning can be found in [version section](#Operation Version).
+>>>>>>> origin/tong-docs
+>>>>>>> origin/tong-docs
 With this entry, the script will generate the operation defintion for onnx dialect.
 
 # Customization <a name="customize"></a>
@@ -32,6 +35,11 @@ This interface inferes the type of result tensor, not shape.
 * If an operation has subgraph, it will has interface `HasOnnxSubgraphOpInterface`. 
 This attribute is inferred from the ONNX operation definition.
 * You can define helper function for an operation with dictionary `OpsWithHelpers`. 
+
+By default, all operation has shape inference interface and `NoSideEffect` trait.
+If an opration has `ResultTypeInferenceOpInterface`, use dictionary `OpsWithResultTypeInference`. 
+This interface inferes the type of result tensor, not shape. 
+If an operation has subgraph, it will has interface `HasOnnxSubgraphOpInterface`. 
 
 ## Add canonicalization interface
 If a transformation should be applied locally to an operation across passes, canonicalization 
@@ -51,6 +59,9 @@ with the use of `returnType`. Refer to [mlir doc](https://mlir.llvm.org/docs/Dec
 the [example in onnx-mlir](../src/Transform/ONNX/Decompose.td).
  It may be a better solution to just move such
 type inference code into ONNXOpHelper.cpp and get rid of customize builder.
+
+Please note that the need of special builder in rewriting rules can be avoided with the use of `returnType`. It may be a better solution to just move such type inference code into ONNXOpHelper.cpp
+and get rid of customize builder.
 
 
 ## Customize verifier
@@ -75,6 +86,13 @@ Tips:
 * Use `hasShapeAndRank(X)` to test if `X` input is currently shaped and ranked. If not, return success as we will get a chance later to test the operation with this info. Note that some inputs may be scalar too, in which case they may or may not be encoded as a shape type.
 * You can then use MLIR call `X.getType().cast<ShapedType>()` to get a shape types, for which you can get the rank and the dimensions. At this time, we only check dimension validity for values known at runtime. Unknown dimensions are encoded as a negative number. Please only use the cast when you are sure that it will not assert, i.e. the type is indeed a `ShapedType`.
 * When you find an error, report it with a friendly error message using `op->emitError(msg)`.
+
+## Customize importer
+`special_op_handler`: creates special import function in frontend_dialect_transformer.cpp. Currently, a special handler is used for operations with operational arguments
+
+## Arbitrary extra definition
+If the definition of an operation needs extra code other than descripbed above, you can put 
+the code in the dictionary `custom_definition_misc`. The key is the operation name and the value is the code.
 
 ## Customize importer
 `special_op_handler`: creates special import function in frontend_dialect_transformer.cpp. Currently, a special handler is used for operations with operational arguments
