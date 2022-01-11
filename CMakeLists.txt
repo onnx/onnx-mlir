@@ -56,6 +56,7 @@ if (WIN32)
   # installed on the machine.
   set(Python3_FIND_REGISTRY NEVER)
 endif()
+
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
 # Don't require AWT to allow headless JDK to reduce docker image size
