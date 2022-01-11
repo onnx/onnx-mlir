@@ -21,6 +21,10 @@ from onnx.backend.sample.ops import collect_sample_implementations
 from typing import Any, Text, Sequence, Dict, List, Type, Set, Tuple
 
 import pprint
+import onnx
+
+# change this variable only when upgrading the ONNX support within ONNX-MLIR
+current_onnx_version = "1.9.0"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dry-run-onnx-ops",
@@ -39,9 +43,7 @@ parser.add_argument("--check-operation-version",
 
 args = parser.parse_args()
 
-import onnx
 
-current_onnx_version = "1.9.0"
 # check the version of onnx package being used
 if current_onnx_version != onnx.__version__ :
     print("version of expected onnx is {}, ".format(current_onnx_version)+
