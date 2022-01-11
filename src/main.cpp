@@ -37,12 +37,12 @@ int main(int argc, char *argv[]) {
           clEnumVal(
               EmitONNXIR, "Ingest ONNX and emit corresponding ONNX dialect."),
           clEnumVal(
-              EmitMLIR, "Lower model to MLIR built-in transformation dialect."),
-          clEnumVal(EmitLLVMIR, "Lower model to LLVM IR (LLVM dialect)."),
-          clEnumVal(EmitLib, "Lower model to LLVM IR, emit (to file) "
-                             "LLVM bitcode for model, compile and link it to a "
-                             "shared library."),
-          clEnumVal(EmitJNI, "Lower model to LLVM IR -> LLVM bitcode "
+              EmitMLIR, "Lower input to MLIR built-in transformation dialect."),
+          clEnumVal(EmitLLVMIR, "Lower input to LLVM IR (LLVM MLIR dialect)."),
+          clEnumVal(EmitLib, "Lower input to LLVM IR, emit "
+                             "LLVM bitcode, compile and link it to a "
+                             "shared library (default)."),
+          clEnumVal(EmitJNI, "Lower input to LLVM IR -> LLVM bitcode "
                              "-> JNI shared library -> jar")),
       llvm::cl::init(EmitLib), llvm::cl::cat(OnnxMlirOptions));
 
