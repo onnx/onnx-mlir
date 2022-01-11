@@ -52,9 +52,9 @@ export MLIR_DIR=$(pwd)/llvm-project/build/lib/cmake/mlir
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
 if [[ -z "$pythonLocation" ]]; then
-   cmake -G Ninja -DCMAKE_CXX_COMPILER=/usr/bin/c++ ..
+  cmake -G Ninja -DCMAKE_CXX_COMPILER=/usr/bin/c++ ..
 else
-   cmake -G Ninja -DCMAKE_CXX_COMPILER=/usr/bin/c++ -DPython3_ROOT_DIR=$pythonLocation ..
+  cmake -G Ninja -DCMAKE_CXX_COMPILER=/usr/bin/c++ -DPython3_ROOT_DIR=$pythonLocation ..
 fi
 cmake --build .
 
