@@ -5,7 +5,7 @@
 ONNX specifications are defined under `onnx/defs` directory in the ONNX project repository. 
 There is a python script [utils/gen_onnx_mlir.py](../utils/gen_onnx_mlir.py) that automatically generates documents about operations in ONNX (docs/Operations.md). 
 ONNX-MLIR modified this script to import ONNX specifications into ONNX-MLIR. 
-There are two files generated for ONNX MLIR with the modified gen_onnx_mlir.py:
+There are two files generated for ONNX-MLIR with the modified gen_onnx_mlir.py:
 
 1. `src/Dialect/ONNX/ONNXOps.td.inc`: Operation definition for MLIR TableGen. `src/Dialect/ONNX/ONNXOps.td` includes this file.
 2. `src/Builder/OpBuildTable.inc`: C++ code for ONNX-MLIR frontend to import operation nodes from ONNX model. `src/Builder/FrontendDialectTransformer.cpp` includes this file.
