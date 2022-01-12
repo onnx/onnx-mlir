@@ -95,12 +95,17 @@ static llvm::cl::opt<string> shapeInformation("shapeInformation",
     llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<std::string> mtriple("mtriple",
-    llvm::cl::desc("Target architecture"),
+    llvm::cl::desc("Override target triple for module"),
     llvm::cl::value_desc("LLVM target triple>"), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
 
 static llvm::cl::opt<std::string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
     llvm::cl::value_desc("Target a specific CPU type"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
+
+static llvm::cl::opt<std::string> march("march",
+    llvm::cl::desc("Target architecture to generate code for"),
+    llvm::cl::value_desc("Target a specific architecture type"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
 enum OptLevel { O0, O1, O2, O3 };
@@ -300,6 +305,7 @@ struct Command {
 } // namespace
 
 void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
+void setTargetArch(const std::string &arch) { march = arch; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }
 
 static void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
@@ -328,6 +334,13 @@ static std::string getTargetCpuOption() {
   string targetOptions = "";
   if (mcpu != "")
     targetOptions += "--mcpu=" + mcpu;
+  return targetOptions;
+}
+
+static std::string getTargetArchOption() {
+  string targetOptions = "";
+  if (march != "")
+    targetOptions += "--march=" + march;
   return targetOptions;
 }
 
@@ -390,6 +403,7 @@ static void genLLVMBitcode(const mlir::OwningModuleRef &module,
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
   optBitcode.appendStr(getOptimizationLevelOption())
       .appendStr(getTargetTripleOption())
+      .appendStr(getTargetArchOption())
       .appendStr(getTargetCpuOption())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
@@ -408,6 +422,9 @@ static std::string genModelObject(string bitcodePath, string outputBaseName) {
   string llcPath = getToolPath("llc");
   Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
   llvmToObj.appendStr(getOptimizationLevelOption())
+      .appendStr(getTargetTripleOption())
+      .appendStr(getTargetArchOption())
+      .appendStr(getTargetCpuOption())
       .appendStr("-filetype=obj")
       .appendStr("-relocation-model=pic")
       .appendList({"-o", modelObjPath})
