@@ -16,6 +16,7 @@ EMIT_IR_OPTS    = [ '--EmitONNXBasic',
                     '--EmitMLIR',
                     '--EmitLLVMIR' ]
 EMIT_BIN_OPTS   = [ '--EmitLib',
+                    '--EmitObj',
                     '--EmitJNI' ]
 
 # When running onnx-mlir inside a docker container, the directory
