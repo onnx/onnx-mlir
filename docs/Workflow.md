@@ -99,8 +99,13 @@ Commit your changes, always using the `-s` flag in order to sign your commits.
 git commit -s
 ```
 
-Likely you'll go back and edit/build/test some more than `commit --amend -s`
-in a few cycles.
+Likely you'll go back and edit/build/test some more than `commit --amend -s` in a few cycles. To avoid polluting the history you should squash all your feature commits together by using the following command:
+
+```sh
+git commit -i rebase HEAD~n (where n is the number of commits you want to squash)
+```
+
+An editor will pop up, and you should mark all commits except the first one with an 's' to indicate that those are the commits you want to squash with the first one. At this point you will be able to edit the commit message (remove all individual commit messages except for the first one). After rebasing, the `git log` should contain only one commit for your feature.
 
 ### Step 6: Keep your branch in sync
 
@@ -132,21 +137,33 @@ git push -f origin myfeature
 
 1. Visit your fork at https://github.com/$user/onnx-mlir (replace `$user` obviously).
 2. Click the `Compare & pull request` button next to your `myfeature` branch.
+3. New pull requests should be created in "draft mode", unless they are ready for code review (you know they already pass all tests).
+4. When the pull request is clean (i.e. all build bots are green) it is ready for code review. At this point you should change it into a regular pull request by clicking the 'Ready for Review' in the GUI.
+
+Pull requests that are in draft mode can be modified by the author. Should you need to modify a pull request in **draft** mode, squashing additional commits together is encouraged (to keep the log history clean).
+Important: when a pull request is under active review (not in draft mode), any additional commits should **not** be squashed (in order to allow reviewers to more easily determine their code review comments have been addressed).
 
 ### Step 9: Get a code review
 
-Once your pull request has been opened, it will be assigned to at least one
-reviewer. The reviewer(s) will do a thorough code review, looking for
-correctness, bugs, opportunities for improvement, documentation and comments,
-and style.
+Once your pull request is ready for code review, you need to request code review from one or more reviewers. The reviewer(s) will do a thorough code review, looking for correctness, bugs, opportunities for improvement, documentation and comments, and style.
 
-Commit changes made in response to review comments to the same branch on your
-fork.
+Commit changes made in response to review comments to the same branch on your fork. At this point in the process you should **not** rebase your feature commits in order to preserve history while the pull request is under active review. If the branch goes out of sync with `main` you are encouraged to rebase your feature commit(s) on the latest version of the `main` branch (please do not squash your feature commits while doing so):
 
-Very small PRs are easy to review. Very large PRs are very difficult to
-review.
+```sh
+  git rebase -i origin/main
+```
+
+Very small PRs are easy to review. Very large PRs are very difficult to review. Submission of minimal pull requests for review is highly encouraged.
+
+### Step 10: Committing an approved pull request
+
+Once code review comments have been addressed, and at least a reviewer has approved the pull requests, it is time to merge it into the `main` branch. 
+
+If the pull request is "out-of-date" with the main branch, it needs to be rebased. Rebasing can be done either through the command line `git rebase -i origin/main`, or by using the GUI. Either way this action will trigger a new test cycle.
+
+Once the tests are green again, and the pull request is no longer out-of-date with the `main` branch it can be merged. The final merge can be done by using the GUI. Remember to edit the final commit message so that the git log will show a clean and concise commit message (rather than a set of individual commits).
 
 ## Code style
 
-Please  follow the coding style used by LLVM (https://llvm.org/docs/CodingStandards.html).
+Please follow the coding style used by LLVM (https://llvm.org/docs/CodingStandards.html).
 
