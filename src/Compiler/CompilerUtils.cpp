@@ -266,9 +266,6 @@ struct Command {
   // restored after the command is executed.
   void exec(std::string wdir = "") const {
     auto argsRef = std::vector<llvm::StringRef>(_args.begin(), _args.end());
-    bool verbose = false;
-    if (const auto &verboseStr = getEnvVar("ONNX_MLIR_VERBOSE"))
-      istringstream(verboseStr.getValue()) >> verbose;
 
     // If a work directory is specified, save the current work directory
     // and switch into it. Note that if wdir is empty, new_wdir will be
@@ -282,8 +279,7 @@ struct Command {
       exit(ec.value());
     }
 
-    // If in verbose mode, print out command before execution.
-    if (VerboseOutput || verbose)
+    if (VerboseOutput)
       llvm::errs() << "[" << StringRef(new_wdir).str() << "]" << _path << ": "
                    << llvm::join(argsRef, " ") << "\n";
 
@@ -746,17 +742,20 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
     if (keepFiles(KeepFilesOfType::MLIR)) {
       outputCode(module, outputBaseName, ".llvm.mlir");
     }
-    printf("Shared library %s has been compiled.\n", sharedLib.c_str());
+    if (VerboseOutput)
+      printf("Shared library %s has been compiled.\n", sharedLib.c_str());
   } else if (emissionTarget == EmitJNI) {
     compileModuleToJniJar(module, outputBaseName);
     if (keepFiles(KeepFilesOfType::MLIR))
       outputCode(module, outputBaseName, ".llvm.mlir");
-    printf("JNI archive %s.jar has been compiled.\n", outputBaseName.c_str());
+    if (VerboseOutput)
+      printf("JNI archive %s.jar has been compiled.\n", outputBaseName.c_str());
   } else {
     // Emit the version with all constants included.
     outputCode(module, outputBaseName, ".onnx.mlir");
-    printf("Full MLIR code written to: \n\t%s\n\n",
-        (outputBaseName + ".onnx.mlir").c_str());
+    if (VerboseOutput)
+      printf("Full MLIR code written to: \n\t%s\n\n",
+          (outputBaseName + ".onnx.mlir").c_str());
 
     // Apply specific passes to clean up the code where necessary.
     mlir::PassManager cleanSourcePM(
@@ -772,11 +771,12 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
       if (mlir::failed(cleanSourcePM.run(*module)))
         llvm::errs() << "Could not apply simplification passes.\n";
       outputCode(module, outputBaseName, ".tmp");
-      printf("Constant-free MLIR Code written to: \n\t%s\n\n",
-          (outputBaseName + ".tmp").c_str());
-
-      printf("Use:\n\t%s\nto continue lowering the code to other dialects.\n",
-          (outputBaseName + ".onnx.mlir").c_str());
+      if (VerboseOutput) {
+        printf("Constant-free MLIR Code written to: \n\t%s\n\n",
+            (outputBaseName + ".tmp").c_str());
+        printf("Use:\n\t%s\nto continue lowering the code to other dialects.\n",
+            (outputBaseName + ".onnx.mlir").c_str());
+      }
     }
   }
 }
