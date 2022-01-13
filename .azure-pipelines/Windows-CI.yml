@@ -1,4 +1,4 @@
-# Builds and tests ONNX MLIR
+# Builds and tests ONNX-MLIR
 # Downloads MLIR artifact if it exists for the current LLVM commit, otherwise builds MLIR and publishes artifact
 
 trigger:

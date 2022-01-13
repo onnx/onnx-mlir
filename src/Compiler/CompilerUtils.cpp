@@ -34,7 +34,7 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 llvm::cl::OptionCategory OnnxMlirOptions(
-    "ONNX MLIR Options", "These are frontend options.");
+    "ONNX-MLIR Options", "These are frontend options.");
 
 namespace {
 
@@ -307,7 +307,7 @@ void setTargetTriple(const std::string &triple) { mtriple = triple; }
 
 void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {
-  // Handle '.mlir' input to the ONNX MLIR frontend.
+  // Handle '.mlir' input to the ONNX-MLIR frontend.
   // The mlir format indicates that one or more of the supported
   // representations are used in the file.
   string errorMessage;
