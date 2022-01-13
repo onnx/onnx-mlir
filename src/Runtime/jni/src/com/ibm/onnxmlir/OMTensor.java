@@ -13,12 +13,12 @@ import java.nio.ShortBuffer;
 public class OMTensor {
 
     private final ByteOrder nativeEndian = ByteOrder.nativeOrder();
-    
+
     /* We can use enum but that creates another class
      * which complicates things for JNI.
      *
      * Values are standard ONNX data types defined in
-     * https://github.com/onnx/onnx/blob/master/onnx/onnx.proto#L484
+     * https://github.com/onnx/onnx/blob/main/onnx/onnx.proto#L484
      */
     final static int ONNX_TYPE_UNDEFINED  = 0;
     final static int ONNX_TYPE_FLOAT      = 1;
@@ -244,7 +244,7 @@ public class OMTensor {
 
     /**
      * Byte data setter
-     * 
+     *
      * @param data byte array to be set
      */
     public void setByteData(byte[] data) {
@@ -260,7 +260,7 @@ public class OMTensor {
 
     /**
      * Short data getter
-     * 
+     *
      * @return short data array
      */
     public short[] getShortData() {
@@ -281,7 +281,7 @@ public class OMTensor {
 
     /**
      * Short data setter
-     * 
+     *
      * @param data short array to be set
      */
     public void setShortData(short[] data) {
@@ -318,7 +318,7 @@ public class OMTensor {
 
     /**
      * Int data setter
-     * 
+     *
      * @param data int array to be set
      */
     public void setIntData(int[] data) {
@@ -334,7 +334,7 @@ public class OMTensor {
 
     /**
      * Long data getter
-     * 
+     *
      * @return long data array
      */
     public long[] getLongData() {
@@ -355,7 +355,7 @@ public class OMTensor {
 
     /**
      * Long data setter
-     * 
+     *
      * @param data long array to be set
      */
     public void setLongData(long[] data) {
@@ -371,7 +371,7 @@ public class OMTensor {
 
     /**
      * Float data getter
-     * 
+     *
      * @return float data array
      */
     public float[] getFloatData() {
@@ -392,7 +392,7 @@ public class OMTensor {
 
     /**
      * Float data setter
-     * 
+     *
      * @param data float array to be set
      */
     public void setFloatData(float[] data) {
@@ -408,7 +408,7 @@ public class OMTensor {
 
     /**
      * Double data getter
-     * 
+     *
      * @return double data array
      */
     public double[] getDoubleData() {
@@ -429,7 +429,7 @@ public class OMTensor {
 
     /**
      * Double data setter
-     * 
+     *
      * @param data double array to be set
      */
     public void setDoubleData(double[] data) {
@@ -468,7 +468,7 @@ public class OMTensor {
 
     /**
      * Data strides getter
-     * 
+     *
      * @return data strides array
      */
     public long[] getStrides() {
@@ -477,7 +477,7 @@ public class OMTensor {
 
     /**
      * Data strides setter
-     * 
+     *
      * @param strides data strides array to be set
      */
     public void setStrides(long[] strides) {
@@ -500,7 +500,7 @@ public class OMTensor {
 
     /**
      * Data type setter
-     * 
+     *
      * @param type data type to be set
      */
     public void setDataType(int dataType) {
@@ -511,10 +511,10 @@ public class OMTensor {
     }
 
     /* ---------- Data buffer size getter ---------- */
-    
+
     /**
      * Data buffer size getter
-     * 
+     *
      * @return total size of the data buffer in bytes
      */
     public long getBufferSize() {
@@ -536,7 +536,7 @@ public class OMTensor {
 
     /**
      * Number of elements getter
-     * 
+     *
      * @return number of data elements in the data buffer
      */
     public long getNumElems() {
@@ -554,7 +554,7 @@ public class OMTensor {
         _rank = shape.length;
         _shape = new long[_rank];
         _strides = new long[_rank];
-                
+
         /* Using signed indices helps detect when index falls below 0. */
         for (int i = _rank - 1; i >= 0; i--) {
           _shape[i] = shape[i];
@@ -587,7 +587,7 @@ public class OMTensor {
 
     /**
      * Constructor (For JNI wrapper only. Not intended for end user)
-     * 
+     *
      * @param data data buffer
      * @param shape data shape
      * @param strides data stride
@@ -609,7 +609,7 @@ public class OMTensor {
 
     /**
      * Raw data getter (For JNI wrapper only. Not intended for end user)
-     * 
+     *
      * @return raw data
      */
     protected ByteBuffer getData() {
@@ -618,7 +618,7 @@ public class OMTensor {
 
     /**
      * Raw data setter (For JNI wrapper only. Not intended for end user)
-     * 
+     *
      * @param data raw data to be set
      */
     protected void setData(ByteBuffer data) {
