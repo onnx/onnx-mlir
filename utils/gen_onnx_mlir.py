@@ -284,6 +284,7 @@ OpsWithVerifier = [
     'AveragePool',
     'CategoryMapper',    
     'Compress',
+    'Concat',
     'Conv',
     'DepthToSpace',
     'Expand',

@@ -2672,6 +2672,49 @@ LogicalResult ONNXConstantOp::inferShapes(
 // Concat
 //===----------------------------------------------------------------------===//
 
+static LogicalResult verify(ONNXConcatOp op){
+  ONNXConcatOpAdaptor operandAdaptor =
+    ONNXConcatOpAdaptor(op);
+
+  int inputNum = op.getNumOperands();
+
+   // Check input.
+  if (!hasShapeAndRank(operandAdaptor.getOperands()[0])) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
+
+  // Checking value of axis parameter.
+  auto commonType = operandAdaptor.getOperands()[0].getType().cast<RankedTensorType>();
+  auto commonShape = commonType.getShape();
+  int64_t commonRank = commonShape.size();
+  int64_t axisIndex = op.axis();
+  if (axisIndex < 0)
+    axisIndex = commonRank + axisIndex;
+  if (axisIndex >= commonRank)
+    return op->emitError("Concat axis value out of bound");
+
+  for (int i = 1; i < inputNum; ++i) {
+    auto currShape =
+        operandAdaptor.getOperands()[i].getType().cast<RankedTensorType>().getShape();
+    if ((int64_t)currShape.size() != commonRank)
+      return op->emitError("Concat input must all have the same rank");
+    for (int j = 0; j < commonRank; ++j) {
+      if (j == axisIndex) {
+      } else if (currShape[j] != -1 && commonShape[j] != -1 &&
+                 currShape[j] != commonShape[j]) {
+        return op->emitError("Concat input dimensions must be all identical, "
+                         "except for dimension on the axis of the "
+                         "concatenation. Expected something compatible with: ")
+               << commonType << " but got " << operandAdaptor.getOperands()[i].getType()
+               << " instead.";
+      }
+    }
+  }
+
+  return success();
+}
+
 LogicalResult ONNXConcatOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // The check of constraints is kept
@@ -2695,26 +2738,6 @@ LogicalResult ONNXConcatOp::inferShapes(
     auto builder = mlir::Builder(getContext());
     axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
         APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
-  }
-  if (axisIndex >= commonRank)
-    return emitError("Concat axis value out of bound");
-
-  for (int i = 1; i < inputNum; ++i) {
-    auto currShape =
-        getOperand(i).getType().cast<RankedTensorType>().getShape();
-    if ((int64_t)currShape.size() != commonRank)
-      return emitError("Concat input must all have the same rank");
-    for (int j = 0; j < commonRank; ++j) {
-      if (j == axisIndex) {
-      } else if (currShape[j] != -1 && commonShape[j] != -1 &&
-                 currShape[j] != commonShape[j]) {
-        return emitError("Concat input dimensions must be all identical, "
-                         "except for dimension on the axis of the "
-                         "concatenation. Expected something compatible with: ")
-               << commonType << " but got " << getOperand(i).getType()
-               << " instead.";
-      }
-    }
   }
 
   ONNXConcatOpAdaptor operandAdaptor(*this);
