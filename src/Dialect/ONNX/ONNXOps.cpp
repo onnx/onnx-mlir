@@ -1875,7 +1875,7 @@ static LogicalResult verify(ONNXConvOp op) {
     // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html
     // ONNX clearly states that C (channel in or CI here) is a multiple of group
     // number (G).
-    // https://github.com/onnx/onnx/blob/master/docs/Operators.md#Conv
+    // https://github.com/onnx/onnx/blob/main/docs/Operators.md#Conv
     // Quote: X.shape[1] == (W.shape[1] * group) == C
     // Keras also specifies it: Input channels and filters must both be
     // divisible by groups.
