@@ -33,7 +33,7 @@ set(ONNX_MLIR_TEST_DEPENDS
   )
 
 add_lit_testsuite(check-onnx-lit
-                  "Running the ONNX MLIR regression tests"
+                  "Running the ONNX-MLIR regression tests"
                   ${CMAKE_CURRENT_BINARY_DIR}
                   DEPENDS
                   ${ONNX_MLIR_TEST_DEPENDS})
