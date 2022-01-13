@@ -4,7 +4,7 @@ add_custom_target(numerical)
 set_target_properties(numerical PROPERTIES FOLDER "Tests")
 
 add_custom_target(check-onnx-numerical
-  COMMENT "Running the ONNX MLIR numerical regression tests"
+  COMMENT "Running the ONNX-MLIR numerical regression tests"
   COMMAND "${CMAKE_CTEST_COMMAND}" -L numerical --output-on-failure -C $<CONFIG> --force-new-ctest-process
   USES_TERMINAL
   DEPENDS numerical
@@ -47,7 +47,7 @@ function(add_numerical_unittest test_name)
   endif()
 endfunction()
 
-# All libraries and executables coming from llvm or ONNX MLIR have had their
+# All libraries and executables coming from llvm or ONNX-MLIR have had their
 # compile flags updated via llvm_update_compile_flags, so we need to do that to
 # rapidcheck as well, so that we can successfully link against it. Otherwise some
 # of the flags for exceptions (among others) are not set correctly.

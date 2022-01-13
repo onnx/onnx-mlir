@@ -14,7 +14,7 @@
 
 #include "src/Support/OMOptions.hpp"
 
-llvm::cl::OptionCategory OMPassOptions("ONNX MLIR Pass Options",
+llvm::cl::OptionCategory OMPassOptions("ONNX-MLIR Pass Options",
     "These are options to provide fine control on passes");
 
 llvm::cl::opt<std::string> instrumentONNXOps("instrument-onnx-ops",

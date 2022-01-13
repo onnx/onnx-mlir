@@ -27,11 +27,15 @@ if (ONNX_MLIR_ENABLE_JNI)
   # in the default location and copy it to the library path after it is built.
   #
   # Note target must be ${ONNX_MLIR_LIBRARY_PATH}/javaruntime.jar instead of
-  # just ${ONNX_MLIR_LIBRARY_PATH} for Windows CI.
-  add_custom_command(TARGET javaruntime POST_BUILD
+  # just ${ONNX_MLIR_LIBRARY_PATH} for Windows - otherwise, if the directory
+  # ${ONNX_MLIR_LIBRARY_PATH} has not yet been created, it will be treated as
+  # the name of the file.
+  add_custom_command(
+    TARGET javaruntime
+    POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_PROPERTY:javaruntime,JAR_FILE>
-            ${ONNX_MLIR_LIBRARY_PATH}/javaruntime.jar)
+            $<TARGET_PROPERTY:javaruntime,JAR_FILE> ${ONNX_MLIR_LIBRARY_PATH}/javaruntime.jar
+    )
 
   # Build jniruntime lib
   add_onnx_mlir_library(jniruntime STATIC

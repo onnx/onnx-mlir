@@ -33,7 +33,7 @@ jobs:
           paths:
             - llvm-project
       - run:
-          name: Install ONNX MLIR
+          name: Install ONNX-MLIR
           command: source onnx-mlir/utils/install-onnx-mlir.sh
       - run:
           name: Run End-To-End Tests

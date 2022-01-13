@@ -129,7 +129,7 @@ static void emitInstForSoftmaxBeforeV13(ConversionPatternRewriter &rewriter,
 
   // Coerce the input into a 2-D tensor. `axis` will be the coercing
   // point. This coercing follows the softmax definition in ONNX:
-  // https://github.com/onnx/onnx/blob/master/docs/Operators.md#Softmax
+  // https://github.com/onnx/onnx/blob/main/docs/Operators.md#Softmax
   // Here, we create an outer loop and inner loop for handling the two
   // dimensions. The outer loop is only created once `axis` is not
   // zero.
