@@ -2677,13 +2677,13 @@ static LogicalResult verify(ONNXConcatOp op){
     ONNXConcatOpAdaptor(op);
 
   int inputNum = op.getNumOperands();
-
-   // Check input.
-  if (!hasShapeAndRank(operandAdaptor.getOperands()[0])) {
-    // Won't be able to do any checking at this stage.
-    return success();
+  // Check all inputs.
+  for (int i = 0; i < inputNum; ++i) {
+    if (!hasShapeAndRank(operandAdaptor.getOperands()[i])) {
+      // Won't be able to do any checking at this stage.
+      return success();
+    }
   }
-
   // Checking value of axis parameter.
   auto commonType = operandAdaptor.getOperands()[0].getType().cast<RankedTensorType>();
   auto commonShape = commonType.getShape();
