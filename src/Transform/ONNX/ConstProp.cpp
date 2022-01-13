@@ -616,7 +616,7 @@ public:
   }
 };
 
-// https://github.com/onnx/onnx/blob/master/docs/Changelog.md#ScatterND-13
+// https://github.com/onnx/onnx/blob/main/docs/Changelog.md#ScatterND-13
 /*
  * output = np.copy(data)
  * update_indices = indices.shape[:-1]
