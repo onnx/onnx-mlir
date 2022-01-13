@@ -78,7 +78,7 @@ LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
   int O[] = {HOut, WOut};
 
   // Check dimensions for the spatial axes. From MaxPool:
-  // https://github.com/onnx/onnx/blob/master/docs/Operators.md#maxpool
+  // https://github.com/onnx/onnx/blob/main/docs/Operators.md#maxpool
   int myO[2], myPBegin[2], myPEnd[2];
   for (int i = 0; i < 2; ++i) {
     if (autoPad == AUTO_PAD_NOTSET) {
