@@ -71,6 +71,8 @@ RUN git clone https://github.com/onnx/tutorials.git
 # Install clang
 RUN apt-get install -y lsb-release wget software-properties-common
 RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+# For development
+RUN apt-get install ssh-client
 
 # 3) When using vscode, copy your .vscode in the Dockerfile dir and
 #    uncomment the two lines below.
@@ -101,14 +103,14 @@ ENV PATH=$PATH:/workdir/onnx-mlir/build/Debug/bin/:/workdir/onnx-mlir/build/Debu
 
 ### Developping with Docker in VSCode
 
-The first step is to copy the [docs/ocker-example](docker-example) directory to another directory outside of the repo, say `~/DockerOnnxMlir`. 
+The first step is to copy the [docs/docker-example](docker-example) directory to another directory outside of the repo, say `~/DockerOnnxMlir`. 
 
-Then, the `Dockerfile` in the copied directory should then be modified to suit one's need. In particuliar, we recommend developpers to use their own fork for development. Uncomment the lines associated with git (Step 5 in the file) and substitute the appropriate GitHub Id in the commented out directives. 
+Then, the `Dockerfile` in the copied directory should then be modified to suit one's need. In particular, we recommend developers to use their own fork for development. Uncomment the lines associated with git (Step 5 in the file) and substitute the appropriate GitHub Id in the commented out directives. 
 The lines associated with VSCode (Step 3 in the file) should be also uncommented when using VSCode. 
 Finally, we recommend creating a subdirectory named `workspace` that contains test examples you would like to have in your Docker Image and Container. 
-If so, uncomment the lines associated with copying a personal workspace folder (Step 4 in the file), and that subdirectory's contend will be copied over to the Docker Image.
+If so, uncomment the lines associated with copying a personal workspace folder (Step 4 in the file), and that subdirectory's content will be copied over to the Docker Image.
 
-The next step is to create a Docker imange. This step can be performed using the `docker build --tag imageName .` shell command. Once this command is successful, we must start a container. This can be done by a command line (e.g. `docker run -it imageName`) or by opening the Docker Dashboard, locating the Image Tab, and clicking the `run` button associated with the image just created (e.g. `imageName` above).
+The next step is to create a Docker image. This step can be performed using the `docker build --tag imageName .` shell command. Once this command is successful, we must start a container. This can be done by a command line (e.g. `docker run -it imageName`) or by opening the Docker Dashboard, locating the Image Tab, and clicking the `run` button associated with the image just created (e.g. `imageName` above).
 
 These steps are summarized here.
 ``` shell
@@ -118,7 +120,7 @@ cd ~/DockerOnnxMlir
 # Edit the Docker file.
 vi Dockerfile
 # Build the Docker image.
-docker build --tag onnx-mlir-dev
+docker build --tag onnx-mlir-dev .
 # Start a container using the Docker dashboard or a docker run command.
 ```
 
