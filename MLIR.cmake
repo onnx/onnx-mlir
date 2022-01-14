@@ -192,7 +192,12 @@ function(add_onnx_mlir_executable name)
     ${ARGN}
     )
 
-  add_executable(${name} ${ARG_UNPARSED_ARGUMENTS})
+  if (EXCLUDE_FROM_ALL)
+    add_executable(${name} EXCLUDE_FROM_ALL ${ARG_UNPARSED_ARGUMENTS})
+  else()
+    add_executable(${name} ${ARG_UNPARSED_ARGUMENTS})
+  endif()
+
   llvm_update_compile_flags(${name})
 
   if (ARG_DEPENDS)

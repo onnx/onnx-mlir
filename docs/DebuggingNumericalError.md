@@ -23,8 +23,8 @@ reference inputs and outputs in protobuf.
 - To verify using reference outputs, use `--verify=ref --ref_folder=ref_folder`
   where `ref_folder` is the path to a folder containing protobuf files for
   inputs and outputs. [This
-  guideline](https://github.com/onnx/onnx/blob/master/docs/PythonAPIOverview.md#manipulating-tensorproto-and-numpy-array)
-  is a how-to for creating protobuf files from numpy arrays. 
+  guideline](https://github.com/onnx/onnx/blob/main/docs/PythonAPIOverview.md#manipulating-tensorproto-and-numpy-array)
+  is a how-to for creating protobuf files from numpy arrays.
 
 ## Usage
 
