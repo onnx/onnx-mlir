@@ -309,3 +309,17 @@ func @test_seqence_construct_1(%arg0: tensor<*xf32>, %arg1: tensor<*xf32>) -> !o
 // CHECK:           return [[VAR_2_]] : !onnx.Seq<tensor<*xf32>>
 }
 
+// -----
+
+func @test_clipv6(%arg0 : tensor<*xf32>) -> () {
+  %0 = "onnx.ClipV6"(%arg0) {max = 6.000000e+00 : f32, min = 0.000000e+00 : f32} : (tensor<*xf32>) -> tensor<*xf32>
+  return 
+
+// CHECK-LABEL:  func @test_clipv6
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<f32>} : () -> tensor<f32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Constant"() {value = dense<6.000000e+00> : tensor<f32>} : () -> tensor<f32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Clip"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]]) : (tensor<*xf32>, tensor<f32>, tensor<f32>) -> tensor<*xf32>
+// CHECK:           return
+// CHECK:         }
+}
