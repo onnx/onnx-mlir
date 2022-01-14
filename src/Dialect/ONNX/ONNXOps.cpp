@@ -2687,21 +2687,19 @@ LogicalResult ONNXConstantOp::inferShapes(
 // Concat
 //===----------------------------------------------------------------------===//
 
-static LogicalResult verify(ONNXConcatOp op){
-  ONNXConcatOpAdaptor operandAdaptor =
-    ONNXConcatOpAdaptor(op);
-
-  int inputNum = op.getNumOperands();
+static LogicalResult verify(ONNXConcatOp op) {
+  ONNXConcatOpAdaptor operandAdaptor(op);
   // Check all inputs.
-  for (int i = 0; i < inputNum; ++i) {
-    if (!hasShapeAndRank(operandAdaptor.getOperands()[i])) {
+  for (const auto &operand : operandAdaptor.getOperands()) {
+    if (!hasShapeAndRank(operand)) {
       // Won't be able to do any checking at this stage.
       return success();
     }
   }
   // Checking value of axis parameter.
-  auto commonType = operandAdaptor.getOperands()[0].getType().cast<RankedTensorType>();
-  auto commonShape = commonType.getShape();
+  auto commonType =
+      operandAdaptor.getOperands()[0].getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> commonShape = commonType.getShape();
   int64_t commonRank = commonShape.size();
   int64_t axisIndex = op.axis();
   if (axisIndex < 0)
@@ -2709,20 +2707,21 @@ static LogicalResult verify(ONNXConcatOp op){
   if (axisIndex >= commonRank)
     return op->emitError("Concat axis value out of bound");
 
-  for (int i = 1; i < inputNum; ++i) {
-    auto currShape =
-        operandAdaptor.getOperands()[i].getType().cast<RankedTensorType>().getShape();
+  for (const auto &operand : operandAdaptor.getOperands()) {
+    ArrayRef<int64_t> currShape =
+        operand.getType().cast<RankedTensorType>().getShape();
     if ((int64_t)currShape.size() != commonRank)
       return op->emitError("Concat input must all have the same rank");
     for (int j = 0; j < commonRank; ++j) {
-      if (j == axisIndex) {
-      } else if (currShape[j] != -1 && commonShape[j] != -1 &&
-                 currShape[j] != commonShape[j]) {
-        return op->emitError("Concat input dimensions must be all identical, "
-                         "except for dimension on the axis of the "
-                         "concatenation. Expected something compatible with: ")
-               << commonType << " but got " << operandAdaptor.getOperands()[i].getType()
-               << " instead.";
+      if (j == axisIndex)
+        continue;
+      if (currShape[j] != -1 && commonShape[j] != -1 &&
+          currShape[j] != commonShape[j]) {
+        return op->emitError(
+                   "Concat input dimensions must be all identical, "
+                   "except for dimension on the axis of the "
+                   "concatenation. Expected something compatible with: ")
+               << commonType << " but got " << operand.getType() << " instead.";
       }
     }
   }
