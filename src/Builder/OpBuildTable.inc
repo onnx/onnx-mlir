@@ -27,7 +27,7 @@ op_dialect_version_map_["CastMap"] = {1};
 op_dialect_version_map_["CategoryMapper"] = {1};
 op_dialect_version_map_["Ceil"] = {13};
 op_dialect_version_map_["Celu"] = {12};
-op_dialect_version_map_["Clip"] = {13};
+op_dialect_version_map_["Clip"] = {13, 12, 11, 6};
 op_dialect_version_map_["Compress"] = {11};
 op_dialect_version_map_["Concat"] = {13};
 op_dialect_version_map_["ConcatFromSequence"] = {11};
@@ -224,6 +224,12 @@ import_handler_map_["Celu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCeluOp>;
 import_handler_map_["Clip"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipOp>;
+import_handler_map_["ClipV12"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipV12Op>;
+import_handler_map_["ClipV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipV11Op>;
+import_handler_map_["ClipV6"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipV6Op>;
 import_handler_map_["Compress"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCompressOp>;
 import_handler_map_["Concat"] = 

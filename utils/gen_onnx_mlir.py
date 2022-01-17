@@ -73,7 +73,7 @@ version_dict = {
  'CategoryMapper': [1],
  'Ceil': [13],
  'Celu': [12],
- 'Clip': [13],
+ 'Clip': [13, 12, 11, 6],
  'Compress': [11],
  'Concat': [13],
  'ConcatFromSequence': [11],
