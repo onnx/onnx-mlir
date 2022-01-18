@@ -884,6 +884,11 @@ LogicalResult ONNXSequenceInsertOp::inferShapes(
   onnxmlir::SeqType seqType =
       input_sequence().getType().dyn_cast<mlir::onnxmlir::SeqType>();
   ShapedType tensorType = tensor().getType().dyn_cast<ShapedType>();
+  ShapedType seqTensorType = seqType.getElementType().cast<ShapedType>();
+
+  // Merge the tensor type for the seq and the inserted tensor
+  // Pick the weaker attr: known dim > unknown dim > unranked
+  // If inference gets an unranked tensor, no need to update the result
 
   // When the input seq is empty, inherit the tensor type
   if (seqType.getLength() == 0) {
@@ -891,11 +896,21 @@ LogicalResult ONNXSequenceInsertOp::inferShapes(
     return success();
   }
 
-  // Merge the tensor type for the seq and the inserted tensor
-  // Pick the weaker attr: known dim > unknown dim > unranked tensor
-  // If inference gets an unranked tensor, no need to update the result
-  auto seqShape = seqType.getElementType().cast<ShapedType>().getShape();
-  auto seqRank = seqType.getElementType().cast<ShapedType>().getRank();
+  auto newLength = seqType.getLength() == -1 ? -1 : seqType.getLength() + 1;
+
+  // When one of the tensor is unranked
+  if (!tensorType.hasRank()) {
+    getResult().setType(onnxmlir::SeqType::get(tensorType, newLength));
+    return success();
+  }
+  if (!seqTensorType.hasRank()) {
+    getResult().setType(onnxmlir::SeqType::get(seqTensorType, newLength));
+    return success();
+  }
+
+  // Merge when both are ranked
+  auto seqShape = seqTensorType.getShape();
+  auto seqRank = seqTensorType.getRank();
   if (seqRank == -1)
     return success();
 
@@ -909,7 +924,7 @@ LogicalResult ONNXSequenceInsertOp::inferShapes(
   }
   getResult().setType(onnxmlir::SeqType::get(
       mlir::RankedTensorType::get(dims, tensorType.getElementType()),
-      seqType.getLength() == -1 ? -1 : seqType.getLength() + 1));
+      newLength));
 
   return success();
 }
@@ -1860,7 +1875,7 @@ static LogicalResult verify(ONNXConvOp op) {
     // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html
     // ONNX clearly states that C (channel in or CI here) is a multiple of group
     // number (G).
-    // https://github.com/onnx/onnx/blob/master/docs/Operators.md#Conv
+    // https://github.com/onnx/onnx/blob/main/docs/Operators.md#Conv
     // Quote: X.shape[1] == (W.shape[1] * group) == C
     // Keras also specifies it: Input channels and filters must both be
     // divisible by groups.
@@ -4683,6 +4698,9 @@ NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV11Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV11Op);
 NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV10Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV6Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV11Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV12Op);
 
 //===----------------------------------------------------------------------===//
 // Loop

@@ -34,7 +34,7 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 llvm::cl::OptionCategory OnnxMlirOptions(
-    "ONNX MLIR Options", "These are frontend options.");
+    "ONNX-MLIR Options", "These are frontend options.");
 
 namespace {
 
@@ -163,12 +163,15 @@ static std::string getExecPath() {
 //
 //   - if ONNX_MLIR_RUNTIME_DIR is set, use it, otherwise
 //   - get path from where onnx-mlir is run, if it's of the form
-//   /foo/bar/bin/onnx-mlir,
+//     /foo/bar/bin/onnx-mlir,
 //     the runtime directory is /foo/bar/lib (note that when onnx-mlir is
 //     installed system wide, which is typically /usr/local/bin, this will
 //     correctly resolve to /usr/local/lib), but some systems still have
 //     lib64 so we check that first. If neither exists, then
 //   - use CMAKE_INSTALL_PREFIX/lib, which is typically /usr/local/lib
+//
+// We now explicitly set CMAKE_INSTALL_LIBDIR to lib so we don't have
+// to deal with lib64 anymore.
 static std::string getRuntimeDir() {
   const auto &envDir = getEnvVar("ONNX_MLIR_RUNTIME_DIR");
   if (envDir && llvm::sys::fs::exists(envDir.getValue()))
@@ -177,17 +180,9 @@ static std::string getRuntimeDir() {
   string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   if (llvm::sys::path::stem(execDir).str().compare("bin") == 0) {
     string p = execDir.substr(0, execDir.size() - 3);
-    if (llvm::sys::fs::exists(p + "lib64"))
-      return p + "lib64";
     if (llvm::sys::fs::exists(p + "lib"))
       return p + "lib";
   }
-
-  llvm::SmallString<8> instDir64(kInstPath);
-  llvm::sys::path::append(instDir64, "lib64");
-  string p = llvm::StringRef(instDir64).str();
-  if (llvm::sys::fs::exists(p))
-    return p;
 
   llvm::SmallString<8> instDir(kInstPath);
   llvm::sys::path::append(instDir, "lib");
@@ -200,7 +195,7 @@ static std::string getRuntimeDir() {
 // and its source has been removed.
 //
 // To account for this scenario, we first search for the tools in the same
-// directory where onnx-mlir is run. If they are found, it  means both onnx-mlir
+// directory where onnx-mlir is run. If they are found, it means both onnx-mlir
 // and llvm-project have been installed system wide under the same directory,
 // so we get them from that directory (typically /usr/local/bin). Otherwise,
 // at least one of onnx-mlir and llvm-project has not been installed system
@@ -266,9 +261,6 @@ struct Command {
   // restored after the command is executed.
   void exec(std::string wdir = "") const {
     auto argsRef = std::vector<llvm::StringRef>(_args.begin(), _args.end());
-    bool verbose = false;
-    if (const auto &verboseStr = getEnvVar("ONNX_MLIR_VERBOSE"))
-      istringstream(verboseStr.getValue()) >> verbose;
 
     // If a work directory is specified, save the current work directory
     // and switch into it. Note that if wdir is empty, new_wdir will be
@@ -282,8 +274,7 @@ struct Command {
       exit(ec.value());
     }
 
-    // If in verbose mode, print out command before execution.
-    if (VerboseOutput || verbose)
+    if (VerboseOutput)
       llvm::errs() << "[" << StringRef(new_wdir).str() << "]" << _path << ": "
                    << llvm::join(argsRef, " ") << "\n";
 
@@ -312,7 +303,7 @@ void setTargetTriple(const std::string &triple) { mtriple = triple; }
 
 void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {
-  // Handle '.mlir' input to the ONNX MLIR frontend.
+  // Handle '.mlir' input to the ONNX-MLIR frontend.
   // The mlir format indicates that one or more of the supported
   // representations are used in the file.
   string errorMessage;
@@ -746,17 +737,20 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
     if (keepFiles(KeepFilesOfType::MLIR)) {
       outputCode(module, outputBaseName, ".llvm.mlir");
     }
-    printf("Shared library %s has been compiled.\n", sharedLib.c_str());
+    if (VerboseOutput)
+      printf("Shared library %s has been compiled.\n", sharedLib.c_str());
   } else if (emissionTarget == EmitJNI) {
     compileModuleToJniJar(module, outputBaseName);
     if (keepFiles(KeepFilesOfType::MLIR))
       outputCode(module, outputBaseName, ".llvm.mlir");
-    printf("JNI archive %s.jar has been compiled.\n", outputBaseName.c_str());
+    if (VerboseOutput)
+      printf("JNI archive %s.jar has been compiled.\n", outputBaseName.c_str());
   } else {
     // Emit the version with all constants included.
     outputCode(module, outputBaseName, ".onnx.mlir");
-    printf("Full MLIR code written to: \n\t%s\n\n",
-        (outputBaseName + ".onnx.mlir").c_str());
+    if (VerboseOutput)
+      printf("Full MLIR code written to: \n\t%s\n\n",
+          (outputBaseName + ".onnx.mlir").c_str());
 
     // Apply specific passes to clean up the code where necessary.
     mlir::PassManager cleanSourcePM(
@@ -772,11 +766,12 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
       if (mlir::failed(cleanSourcePM.run(*module)))
         llvm::errs() << "Could not apply simplification passes.\n";
       outputCode(module, outputBaseName, ".tmp");
-      printf("Constant-free MLIR Code written to: \n\t%s\n\n",
-          (outputBaseName + ".tmp").c_str());
-
-      printf("Use:\n\t%s\nto continue lowering the code to other dialects.\n",
-          (outputBaseName + ".onnx.mlir").c_str());
+      if (VerboseOutput) {
+        printf("Constant-free MLIR Code written to: \n\t%s\n\n",
+            (outputBaseName + ".tmp").c_str());
+        printf("Use:\n\t%s\nto continue lowering the code to other dialects.\n",
+            (outputBaseName + ".onnx.mlir").c_str());
+      }
     }
   }
 }
