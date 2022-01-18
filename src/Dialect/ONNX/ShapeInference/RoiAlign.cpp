@@ -30,12 +30,6 @@ LogicalResult ONNXRoiAlignOpShapeHelper::computeShape(
   Value X = operandAdaptor.X();
   Value batch_indices = operandAdaptor.batch_indices();
 
-  // Test ranks.
-  if (X.getType().cast<ShapedType>().getShape().size() != 4)
-    return op->emitError("RoiAlign with X should be a 4D tensor");
-  if (batch_indices.getType().cast<ShapedType>().getShape().size() != 1)
-    return op->emitError("RoiAlign with batch_indices should be a 1D tensor");
-
   // Read X and batch_indices shapes as dim indices.
   MemRefBoundsIndexCapture xBounds(X);
   MemRefBoundsIndexCapture batchIndicesBounds(batch_indices);
