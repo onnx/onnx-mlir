@@ -75,7 +75,8 @@ def compile_model(model, emit):
     model_dir = os.path.join(result_dir, name)
     os.makedirs(model_dir, exist_ok=True)
 
-    print("ONNX_HOME=" + os.getenv("ONNX_HOME"))
+    if args.verbose:
+        print("ONNX_HOME=" + os.getenv("ONNX_HOME"))
 
     # For real models, the onnx files are downloaded, no need to save again.
     if (name + "_cpu") in list(map(lambda x: x[0], variables.real_model_tests)):
@@ -86,15 +87,16 @@ def compile_model(model, emit):
         # Save model to disk as model_name.onnx.
         onnx.save(model, model_name)
 
-    print(
-        (
-            "Success downloading/saving "
-            if os.path.exists(model_name)
-            else "Failure downloading/saving "
+    if args.verbose:
+        print(
+            (
+                "Success downloading/saving "
+                if os.path.exists(model_name)
+                else "Failure downloading/saving "
+            )
+            + model_name,
+            file=sys.stderr,
         )
-        + model_name,
-        file=sys.stderr,
-    )
 
     exec_base = os.path.join(model_dir, name)
     exec_name = exec_base + suffix[emit]
@@ -114,7 +116,8 @@ def compile_model(model, emit):
 
     # Call frontend to process model_name.onnx, bit code will be generated.
     dynamic_inputs_dims = determine_dynamic_parameters(name)
-    print("cwd: " + os.getcwd(), file=sys.stderr)
+    if args.verbose:
+        print("cwd: " + os.getcwd(), file=sys.stderr)
     execute_commands(command_list, dynamic_inputs_dims)
 
     # Check if compiled model file exists
