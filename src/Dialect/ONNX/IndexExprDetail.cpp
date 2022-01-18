@@ -83,7 +83,7 @@ void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
   // we might consider checking.
   assert(val != nullptr && "expected a defined value");
   // Do we have a literal integer, if we do, handle it now.
-  int64_t valIntLit;
+  int64_t valIntLit = 0;
   if (getIntegerLiteralFromValue(val, valIntLit)) {
     // We have an integer. No need for symbol or dim. It is by default affine.
     // Ignore the predicate type as we treat all literal int as untyped.

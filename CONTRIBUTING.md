@@ -19,7 +19,7 @@ Now you have a local `main`, which tracks `origin/main`.
 
 ## Building ONNX-MLIR
 
-Up to date info on how to build the project is located in the top directory [here](README.md). 
+Up to date info on how to build the project is located in the top directory [here](README.md).
 
 Since you are interested in contributing code, you may look [here](docs/Workflow.md) for detailed step by step directives on how to create a fork, compile it, and then push your changes for review.
 
@@ -35,7 +35,7 @@ Since you are interested in contributing code, you may look [here](docs/Workflow
 
 ## ONNX-MLIR specific dialects
 
-* The onnx-mlir project is based on the opset version defined [here](docs/Dialects/onnx.md). This is a reference to a possibly older version of the current version of the ONNX operators defined in the onnx/onnx repo [here](https://github.com/onnx/onnx/blob/master/docs/Operators.md).
+* The onnx-mlir project is based on the opset version defined [here](docs/Dialects/onnx.md). This is a reference to a possibly older version of the current version of the ONNX operators defined in the onnx/onnx repo [here](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
 * The Krnl Dialect is used to lower ONNX operators to MLIR affine. The Krnl Dialect is defined [here](docs/Dialects/krnl.md).
 * To update the internal documentation on our dialects when there are changes, please look for guidance [here](docs/HowToAddAnOperation.md#update-your-operations-status).
 
@@ -47,6 +47,7 @@ Since you are interested in contributing code, you may look [here](docs/Workflow
 
 ## Running ONNX models in Python and C
 
+* Here is an end to end MNIST example using C++ or python interface [link](docs/mnist_example/README.md).
 * Here is how to run a compiled model in python [link](docs/UsingPyRuntime.md).
 * Here is the C runtime API to run models in C/C++ [link](http://onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html).
 
@@ -58,4 +59,3 @@ Since you are interested in contributing code, you may look [here](docs/Workflow
 
 * Check this issue for status on operations required for ONNX Model Zoo [Issue 128](https://github.com/onnx/onnx-mlir/issues/128).
 * Claim an op that you are working on by adding a comment on this [Issue #922](https://github.com/onnx/onnx-mlir/issues/922).
-

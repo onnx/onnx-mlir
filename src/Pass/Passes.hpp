@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- Passes.hpp - ONNX MLIR Passes Definition ------------------===//
+//===---------- Passes.hpp - ONNX-MLIR Passes Definition ------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file exposes the entry points to create compiler passes for ONNX MLIR.
+// This file exposes the entry points to create compiler passes for ONNX-MLIR.
 //
 //===----------------------------------------------------------------------===//
 

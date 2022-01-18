@@ -2341,4 +2341,62 @@ func @test_scatternd_float32(%arg0: tensor<4x4x4xf32>) -> tensor<*xf32> {
 }
 
 // -----
+func @test_seqence_length(%arg0 : !onnx.Seq<tensor<*xf32>>) -> tensor<*xi64> {
+  %0 = "onnx.SequenceLength"(%arg0) : (!onnx.Seq<tensor<*xf32>>) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func @test_seqence_length
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: !onnx.Seq<tensor<*xf32>>) -> tensor<i64> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceLength"([[PARAM_0_]]) : (!onnx.Seq<tensor<*xf32>>) -> tensor<i64>
+// CHECK:           return [[VAR_0_]] : tensor<i64>
+}
 
+// -----
+func @test_seqence_1(%arg0: tensor<2x4xf32>, %arg1: tensor<2x6xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  %0 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
+  %cst = constant unit
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<2x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %2 = "onnx.SequenceInsert"(%1, %arg1, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<2x6xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  return %2 : !onnx.Seq<tensor<*xf32>>
+// CHECK-LABEL:  func @test_seqence_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4xf32>, [[PARAM_1_:%.+]]: tensor<2x6xf32>) -> !onnx.Seq<tensor<2x?xf32>> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = constant unit
+// CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<2x4xf32>, none) -> !onnx.Seq<tensor<2x4xf32>>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.SequenceInsert"([[VAR_1_]], [[PARAM_1_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<2x4xf32>>, tensor<2x6xf32>, none) -> !onnx.Seq<tensor<2x?xf32>>
+// CHECK:           return [[VAR_2_]] : !onnx.Seq<tensor<2x?xf32>>
+}
+
+// -----
+
+func @test_seqence_2(%arg0: tensor<2x4xf32>, %arg1: tensor<3x6xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  %0 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
+  %cst = constant unit
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<2x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %2 = "onnx.SequenceInsert"(%1, %arg1, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<3x6xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  return %2 : !onnx.Seq<tensor<*xf32>>
+// CHECK-LABEL:  func @test_seqence_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4xf32>, [[PARAM_1_:%.+]]: tensor<3x6xf32>) -> !onnx.Seq<tensor<?x?xf32>> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = constant unit
+// CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<2x4xf32>, none) -> !onnx.Seq<tensor<2x4xf32>>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.SequenceInsert"([[VAR_1_]], [[PARAM_1_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<2x4xf32>>, tensor<3x6xf32>, none) -> !onnx.Seq<tensor<?x?xf32>>
+// CHECK:           return [[VAR_2_]] : !onnx.Seq<tensor<?x?xf32>>
+}
+
+// -----
+
+func @test_seqence_3(%arg0: tensor<2x4x8xf32>, %arg1: tensor<3x6xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  %0 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
+  %cst = constant unit
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<2x4x8xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %2 = "onnx.SequenceInsert"(%1, %arg1, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<3x6xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  return %2 : !onnx.Seq<tensor<*xf32>>
+// CHECK-LABEL:  func @test_seqence_3
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x8xf32>, [[PARAM_1_:%.+]]: tensor<3x6xf32>) -> !onnx.Seq<tensor<*xf32>> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = constant unit
+// CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<2x4x8xf32>, none) -> !onnx.Seq<tensor<2x4x8xf32>>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.SequenceInsert"([[VAR_1_]], [[PARAM_1_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<2x4x8xf32>>, tensor<3x6xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+// CHECK:           return [[VAR_2_]] : !onnx.Seq<tensor<*xf32>>
+}

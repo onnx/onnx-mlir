@@ -1,11 +1,11 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 
-# Define and Use Command-line Options for ONNX MLIR
+# Define and Use Command-line Options for ONNX-MLIR
 
-Command-line options can be used to alter the default behavior of onnx-mlir, or onnx-mlir-opt, and help user experimenting, debugging or performance tuning. We implemented command-line in ONNX MLIR based on the command-line utility provided by LLVM. We did not define `Option` or `ListOption` with MLIR pass classes(see discussion). 
+Command-line options can be used to alter the default behavior of onnx-mlir, or onnx-mlir-opt, and help user experimenting, debugging or performance tuning. We implemented command-line in ONNX-MLIR based on the command-line utility provided by LLVM. We did not define `Option` or `ListOption` with MLIR pass classes(see discussion). 
  
 ## Organize Options
-Refer [llvm document](https://llvm.org/docs/CommandLine.html) for basic idea of how to define an option. In ONNX MLIR, options are put into groups (`llvm::cl::OptionCategory`).
+Refer [llvm document](https://llvm.org/docs/CommandLine.html) for basic idea of how to define an option. In ONNX-MLIR, options are put into groups (`llvm::cl::OptionCategory`).
 One group of options are only used by onnx-mlir to configure its input or output. These options are defined in src/main.cpp and src/Compiler/CompilerUtils.cpp within OnnxMlirOptions category.
 The rest of options may be used by both onnx-mlir and onnx-mlir-opt to control the behavior of a pass or passes. So far, only one group is defined as an example. 
 

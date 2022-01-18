@@ -88,32 +88,33 @@ public:
     if (instrumentONNXOps == "" || instrumentONNXOps == "NONE")
       return;
     init(instrumentONNXOps);
-    auto function = getFunction();
-    auto &funcBody = function.getBody();
 
-    // Iterate on the operations
-    for (Operation &op : funcBody.getOps()) {
-      if (isa<mlir::ONNXOpsDialect>(op.getDialect())) {
+    // Iterate on the operations nested in this function
+    getFunction().walk([&](mlir::Operation *op) {
+      if (isa<mlir::ONNXOpsDialect>(op->getDialect())) {
         // Skip the prefix "onnx." of onnx op name
-        const char *opName = op.getName().getStringRef().data() + 5;
+        const char *opName = op->getName().getStringRef().data() + 5;
         if (!allOpsAllowed && allowedOps.find(opName) == allowedOps.end())
-          continue;
+          return;
 
-        Location loc = op.getLoc();
-        OpBuilder opBuilder(&op);
+        Location loc = op->getLoc();
+        OpBuilder opBuilder(op);
         if (InstrumentControlBits.isSet(InstrumentBeforeOp)) {
           uint64_t tag =
               runtimeActions & (~(1 << static_cast<int>(InstrumentAfterOp)));
-          opBuilder.create<mlir::KrnlInstrumentOp>(loc, &op, tag);
+          opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
         }
-        if (InstrumentControlBits.isSet(InstrumentAfterOp)) {
-          opBuilder.setInsertionPointAfter(&op);
+
+        // Can not insert after Op (e.g. ONNXReturnOP) with IsTerminator Trait
+        if (InstrumentControlBits.isSet(InstrumentAfterOp) &&
+            !op->hasTrait<OpTrait::IsTerminator>()) {
+          opBuilder.setInsertionPointAfter(op);
           uint64_t tag =
               runtimeActions & (~(1 << static_cast<int>(InstrumentBeforeOp)));
-          opBuilder.create<mlir::KrnlInstrumentOp>(loc, &op, tag);
+          opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
         }
       }
-    }
+    });
   }
 };
 } // end anonymous namespace

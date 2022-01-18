@@ -60,6 +60,27 @@ DenseElementsAttr createDenseArrayAttr(
   llvm_unreachable("unexpected attribute type");
 }
 
+/// Create an Scalar DenseElementsAttr from FloatAttr or IntergerAttr.
+/// This is used to create an ONNXConstant of rank 0, e.g. tensor<f32>.
+DenseElementsAttr createScalarDenseAttr(
+    PatternRewriter &rewriter, Attribute attr) {
+  if (attr.dyn_cast<FloatAttr>()) {
+    mlir::Type elementType = rewriter.getF32Type();
+    SmallVector<float, 1> wrapper;
+    wrapper.emplace_back(attr.cast<FloatAttr>().getValueAsDouble());
+    return DenseElementsAttr::get(
+        RankedTensorType::get({}, elementType), llvm::makeArrayRef(wrapper));
+  }
+  if (attr.dyn_cast<IntegerAttr>()) {
+    mlir::Type elementType = rewriter.getIntegerType(64);
+    SmallVector<int64_t, 1> wrapper;
+    wrapper.emplace_back(attr.cast<IntegerAttr>().getInt());
+    return DenseElementsAttr::get(
+        RankedTensorType::get({}, elementType), llvm::makeArrayRef(wrapper));
+  }
+  llvm_unreachable("unexpected attribute type");
+}
+
 ConstantOp createUnitConstant(PatternRewriter &rewriter, Location loc) {
   return rewriter.create<ConstantOp>(loc, rewriter.getUnitAttr());
 }
@@ -82,6 +103,18 @@ DenseElementsAttr createDenseArrayAttrOrEmpty(
         RankedTensorType::get(wrapper.size(), elementType),
         llvm::makeArrayRef(wrapper));
   }
+}
+
+Value createSequenceConstructOp(
+    PatternRewriter &rewriter, mlir::Value seq, mlir::OperandRange inputs) {
+  Type resType = seq.getType();
+  Location loc = seq.getLoc();
+  Value position = rewriter.create<ConstantOp>(loc, rewriter.getUnitAttr());
+  for (auto input : inputs) {
+    seq = rewriter.create<ONNXSequenceInsertOp>(
+        loc, resType, seq, input, position);
+  }
+  return seq;
 }
 
 /// Include the patterns defined in the Declarative Rewrite framework.
@@ -112,20 +145,24 @@ void DecomposeONNXToONNXPass::runOnFunction() {
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
+  target.addIllegalOp<ONNXClipV6Op>();
+  target.addIllegalOp<ONNXClipV11Op>();
+  target.addIllegalOp<ONNXClipV12Op>();
+  target.addIllegalOp<ONNXLogSoftmaxOp>();
+  target.addIllegalOp<ONNXPadV2Op>();
+  target.addIllegalOp<ONNXPadV11Op>();
   target.addIllegalOp<ONNXReduceL1Op>();
   target.addIllegalOp<ONNXReduceL2Op>();
   target.addIllegalOp<ONNXReduceLogSumOp>();
   target.addIllegalOp<ONNXReduceLogSumExpOp>();
   target.addIllegalOp<ONNXReduceSumSquareOp>();
+  target.addIllegalOp<ONNXResizeV11Op>();
+  target.addIllegalOp<ONNXResizeV10Op>();
   target.addIllegalOp<ONNXScalerOp>();
-  target.addIllegalOp<ONNXLogSoftmaxOp>();
+  target.addIllegalOp<ONNXSequenceConstructOp>();
   target.addIllegalOp<ONNXUpsampleOp>();
   target.addIllegalOp<ONNXUpsampleV9Op>();
   target.addIllegalOp<ONNXUpsampleV7Op>();
-  target.addIllegalOp<ONNXPadV2Op>();
-  target.addIllegalOp<ONNXPadV11Op>();
-  target.addIllegalOp<ONNXResizeV11Op>();
-  target.addIllegalOp<ONNXResizeV10Op>();
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);

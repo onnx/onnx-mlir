@@ -60,7 +60,7 @@ if (ONNX_MLIR_ENABLE_JNI)
   add_dependencies(CompilerUtils jniruntime)
 endif()
 
-add_onnx_mlir_library(OnnxMlirCompiler SHARED
+add_onnx_mlir_library(OnnxMlirCompiler
   OnnxMlirCompiler.cpp
 
   EXCLUDE_FROM_OM_LIBS
