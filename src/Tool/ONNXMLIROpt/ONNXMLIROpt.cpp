@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
   registerStandardPasses();
 
   llvm::InitLLVM y(argc, argv);
-  printf("optimizationLevel in main is %d\n", (int) OptimizationLevel);
+  printf("1) optimizationLevel in main is %d\n", (int) OptimizationLevel);
 
   initOMPasses(OptimizationLevel);
   initMLIRPasses();
@@ -104,11 +104,11 @@ int main(int argc, char **argv) {
   mlir::registerMLIRContextCLOptions();
   // Register any pass manager command line options.
   mlir::registerPassManagerCLOptions();
+
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "ONNX-MLIR modular optimizer driver\n");
-
-  printf("optimizationLevel in main is %d\n", (int) OptimizationLevel);
+   printf("2) optimizationLevel in main is %d\n", (int) OptimizationLevel);
 
   // Set up the input file.
   std::string error_message;
