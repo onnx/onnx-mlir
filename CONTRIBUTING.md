@@ -2,21 +2,6 @@
 
 # Contributing to the ONNX-MLIR project
 
-## Temporary warning: we now use a `main` branch
-
-In case you forked your own repo some times ago, you will need to update your forked onnx-mlir to also use the `main` branch as a basis for all your pull requests.
-
-Assuming that you have a remote upstream which points to the original onnx-mlir repo, and a remote origin which points to your fork of the onnx-mlir repo, you can get a local clone of the main branch with the following commands:
-
-```
-# git fetch upstream                  (fetch upstream/main and other branches)
-# git checkout main                   (checkout local copy of upstream/main)
-# git branch --unset-upstream         (stop tracking upstream/main)
-# git push --set-upstream origin main (push to and track origin/main instead)
-```
-
-Now you have a local `main`, which tracks `origin/main`.
-
 ## Building ONNX-MLIR
 
 Up to date info on how to build the project is located in the top directory [here](README.md).
