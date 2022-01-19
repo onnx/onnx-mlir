@@ -361,7 +361,8 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                     createMath._and(checkScore, checkMOPC), isNotRemoved);
                 auto ifOp = rewriter.create<scf::IfOp>(
                     loc, canSelectBox, /*withElseRegion=*/false);
-                rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
+                rewriter.setInsertionPointToStart(
+                    &ifOp.getThenRegion().front());
 
                 // Select the bounding box with the largest score.
                 SmallVector<Value, 4> selectedBox;
@@ -406,7 +407,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                       auto if1Op = rewriter.create<scf::IfOp>(
                           loc, isNotRemoved, /*withElseRegion=*/false);
                       rewriter.setInsertionPointToStart(
-                          &if1Op.thenRegion().front());
+                          &if1Op.getThenRegion().front());
 
                       // Pick the current box.
                       SmallVector<Value, 4> otherBox;
@@ -425,7 +426,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                       auto if2Op = rewriter.create<scf::IfOp>(
                           loc, checkIOU, /*withElseRegion=*/false);
                       rewriter.setInsertionPointToStart(
-                          &if2Op.thenRegion().front());
+                          &if2Op.getThenRegion().front());
 
                       // If IOU is satified, mark the current box as removed.
                       createKrnl.store(trueVal, removedIndices, {o});
