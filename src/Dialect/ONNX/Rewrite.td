@@ -160,6 +160,11 @@ class RankXMinusRankYIs<int diff>: Constraint<
           " - $1.getType().cast<ShapedType>().getRank() == " # diff # ")">,
     "X' rank is greater than Y's rank dif units">;
 
+class SameDimAt<int n, int m> : Constraint<
+  CPred<"$0.getType().cast<RankedTensorType>().getShape()[" # n # "] == "
+        "$1.getType().cast<RankedTensorType>().getShape()[" # m # "]">
+>;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -312,6 +317,22 @@ def RemoveIdentityReshapePattern:  Pat<
   // Check that val has the specified shape.
   [(HasSpecifiedConstantShape $val, $shape)]>;
 
+def RemoveReshapeBeforeMatmul : Pattern<
+ // Reshape is redudant if A and B can be multiplied directly.
+ // E.g. the 1st reshape keep the last dim of A unchanged and the 2nd reshape
+ // produces a type consistent with the ones in A and B.
+ // This pattern sometimes happens to models converted by tf2onnx.
+ (ONNXReshapeOp:$res2 (ONNXMatMulOp (ONNXReshapeOp:$res1 $A, $_), $B), $_),
+ // Just multiply A by B.
+ [(ONNXMatMulOp $A, $B)],
+ [(HasRankOf<3> $A), (HasRankOf<3> $res2),
+  (HasRankOf<2> $B), (HasRankOf<2> $res1),
+  (SameDimAt<0, 0> $A, $res2), // A and the final result has the same 1st dim. 
+  (SameDimAt<1, 1> $A, $res2), // A and the final result has the same 2nd dim. 
+  (SameDimAt<1, 2> $B, $res2),  // B and the final result has the same last dim. 
+  (SameDimAt<2, 1> $A, $res1)  // 1st Reshape keeps the last (3rd) dim of A unchanged.
+ ]
+>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXSqueezeOp

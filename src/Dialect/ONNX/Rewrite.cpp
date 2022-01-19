@@ -93,6 +93,7 @@ void ONNXReshapeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseReshapePattern>(context);
   result.insert<RemoveIdentityReshapePattern>(context);
+  result.insert<RemoveReshapeBeforeMatmul>(context);
 }
 
 /// on the ONNXDropoutOp.

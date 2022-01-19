@@ -180,6 +180,21 @@ func @test_reshape_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13
 
 // -----
 
+// Check the removal of reshapes that are used for matmul's input and output.
+// CHECK-LABEL: func @test_reshape_removal_with_matmul(%arg0: tensor<5x10x20xf32>, %arg1: tensor<20x1xf32>) -> tensor<5x10x1xf32> {
+func @test_reshape_removal_with_matmul(%arg0: tensor<5x10x20xf32>, %arg1: tensor<20x1xf32>) -> tensor<5x10x1xf32> {
+  %shape1 = "onnx.Constant"() { value = dense<[50, 20]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %shape2 = "onnx.Constant"() { value = dense<[5, 10, 1]> : tensor<3xi64> } : () -> tensor<3xi64>
+  %0 = "onnx.Reshape"(%arg0, %shape1) : (tensor<5x10x20xf32>, tensor<2xi64>) -> tensor<50x20xf32>
+  %1 = "onnx.MatMul"(%0, %arg1) : (tensor<50x20xf32>, tensor<20x1xf32>) -> tensor<50x1xf32>
+  %2 = "onnx.Reshape"(%1, %shape2)  : (tensor<50x1xf32>, tensor<3xi64>) -> tensor<5x10x1xf32>
+  return %2 : tensor<5x10x1xf32>
+  // CHECK-NEXT: "onnx.MatMul"({{.*}}, {{.*}}) : (tensor<5x10x20xf32>, tensor<20x1xf32>) -> tensor<5x10x1xf32>
+  // CHECK-NOT: "onnx.Reshape"
+}
+
+// -----
+
 // Check the combining of transposes into a simple transpose.
 // CHECK-LABEL: func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
 func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
