@@ -897,7 +897,7 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
   "output_shape can also be explicitly specified in which case pads values are auto generated using these equations:"
   ""
   "  total_padding[i] = stride[i] * (input_size[i] - 1) + output_padding[i] + ((kernel_shape[i] - 1) * dilations[i] + 1) - output_shape[i]"
-  "  If (auto_pads != SAME_UPPER): pads[start_i] = total_padding[i]/2; pads[end_i] = total_padding[i] - (total_padding[i]/2)"
+  "  If (auto_pads == SAME_UPPER): pads[start_i] = total_padding[i]/2; pads[end_i] = total_padding[i] - (total_padding[i]/2)"
   "  Else: pads[start_i] = total_padding[i] - (total_padding[i]/2); pads[end_i] = (total_padding[i]/2)."
   ""
   "    "
@@ -1743,10 +1743,8 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
   "  ]"
   "  axis = 1"
   "  output = ["
-  "      ["
-  "        [1, 1],"
-  "        [4, 3],"
-  "      ],"
+  "      [1, 1],"
+  "      [4, 3],"
   "  ]"
   "```"
   "Example 2:"
@@ -1762,10 +1760,8 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
   "  ]"
   "  axis = 0"
   "  output = ["
-  "      ["
-  "        [4, 8, 3],"
-  "        [7, 2, 3],"
-  "      ],"
+  "      [4, 8, 3],"
+  "      [7, 2, 3],"
   "  ]"
   "```"
   }];
@@ -2119,9 +2115,8 @@ def ONNXHardmaxOp:ONNX_Op<"Hardmax",
   ""
   " Hardmax(element in input, axis) = 1 if the element is the first maximum value along the specified axis, 0 otherwise"
   ""
-  "The input does not need to explicitly be a 2D vector. The \"axis\" attribute"
-  "indicates the dimension along which Hardmax will be performed."
-  "The output tensor has the same shape"
+  "The \"axis\" attribute indicates the dimension along which Hardmax"
+  "will be performed. The output tensor has the same shape"
   "and contains the Hardmax values of the corresponding input."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$input,
@@ -2557,9 +2552,8 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
   ""
   " LogSoftmax(input, axis) = Log(Softmax(input, axis=axis))"
   ""
-  "The input does not need to explicitly be a 2D vector. The \"axis\" attribute"
-  "indicates the dimension along which LogSoftmax will be performed."
-  "The output tensor has the same shape"
+  "The \"axis\" attribute indicates the dimension along which LogSoftmax"
+  "will be performed. The output tensor has the same shape"
   "and contains the LogSoftmax values of the corresponding input."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$input,
@@ -3858,12 +3852,15 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
   let summary = "ONNX QLinearMatMul operation";
   let description = [{
   "Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html."
-  "It consumes two quantized input tensors, their scales and zero points, scale and zero point of output, and computes the quantized output."
-  "The quantization formula is y = saturate((x / y_scale) + y_zero_point). For (x / y_scale), it is rounding to nearest ties to even."
-  "Refer to https://en.wikipedia.org/wiki/Rounding for details. Scale and zero point must have same shape."
-  "They must be either scalar (per tensor) or 1-D tensor (per row for 'a' and per column for 'b'). If scale and zero point are 1-D tensor,"
-  "the number of elements of scale and zero point tensor of input 'a' and output 'y' should be equal to the number of rows of input 'a',"
-  "and the number of elements of scale and zero point tensor of input 'b' should be equal to the number of columns of input 'b'."
+  "It consumes two quantized input tensors, their scales and zero points, scale and zero point of output, "
+  "and computes the quantized output. The quantization formula is y = saturate((x / y_scale) + y_zero_point). "
+  "For (x / y_scale), it is rounding to nearest ties to even. Refer to https://en.wikipedia.org/wiki/Rounding for details. "
+  "Scale and zero point must have same shape. They must be either scalar (per tensor) or N-D tensor "
+  "(per row for 'a' and per column for 'b'). Scalar refers to per tensor quantization whereas N-D refers to per row "
+  "or per column quantization. If the input is 2D of shape [M, K] then zero point and scale tensor may be "
+  "an M element vector [v_1, v_2, ..., v_M] for per row quantization and K element vector of shape [v_1, v_2, ..., v_K] "
+  "for per column quantization. If the input is N-D tensor with shape [D1, D2, M, K] then zero point and scale tensor may "
+  "have shape [D1, D2, M, 1] for per row quantization and shape [D1, D2, 1, K] for per column quantization."
   "Production must never overflow, and accumulation may overflow if and only if in 32 bits."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef]>:$a,
@@ -5617,9 +5614,8 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
   ""
   " Softmax(input, axis) = Exp(input) / ReduceSum(Exp(input), axis=axis, keepdims=1) "
   ""
-  "The input does not need to explicitly be a 2D vector. The \"axis\" attribute"
-  "indicates the dimension along which Softmax will be performed."
-  "The output tensor has the same shape"
+  "The \"axis\" attribute indicates the dimension along which Softmax"
+  "will be performed. The output tensor has the same shape"
   "and contains the Softmax values of the corresponding input."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$input,

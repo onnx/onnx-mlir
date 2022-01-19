@@ -297,6 +297,8 @@ OpsWithVerifier = [
     'SequenceInsert',
     'SpaceToDepth',
     'TopK',
+    "RoiAlign",
+    "ScatterElements",
 ]
 
 OpsWithHelpers = {
