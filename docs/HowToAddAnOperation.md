@@ -64,4 +64,17 @@ enables a new test, `test_erf_cpu`, where all inputs may accommodate a fully dyn
 
 Tests are executed by the `make check-onnx-backend` command in the build directory. Additionally, `make check-onnx-backend-dynamic` and `make check-onnx-backend-constant` will further test the new operations with, respectively, dynamic and constant inputs.
 
+# How to add a custom ONNX or Krnl operation
+
+Sometime, we need to add support for a custom ONNX Operation (for example to support older version of a current ONNX operation) or for a custom Krnl Operation. 
+
+Custom ONNX Operations are added in the `src/Dialects/ONNX/ONNXOps.td`. Once added there, this new operation will augment all of the spec-defined ONNX operations. Support is needed for this op and is added following the same steps as above.
+
+Custom Krnl Operations are added in the `src/Dialects/KrnlOps.td` and support is also needed to implement the new operation. Handling of the operation itself (e.g. custom builders) are handled in the KrnlOps.cpp in the same folder. Eventually, this operation will need to be converted to standard MLIR operation. Depending on whether this operation is lowered to affine/standard dialects or LLVM dialects, such code will be required, respectively, in the `src/Conversion/KrnlToAffine` or `src/Conversion/KrnlToLLVM` subdirectories. 
+
+When adding new operations, we eventually need to update our internal documentation about such ops. Be verbose in your definition of the operation in its `.td` file. The new documentation is then generated using the command below, which will regenerate files in the `docs/Dialects` subdirectory.
+
+``` shell
+make onnx-mlir-docs
+```
 
