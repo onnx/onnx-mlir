@@ -4,7 +4,7 @@
 
 //===---------------- Concat.cpp - Lowering Concat Op -------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,8 +18,9 @@
 using namespace mlir;
 
 struct ONNXConcatOpLowering : public ConversionPattern {
-  ONNXConcatOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXConcatOp::getOperationName(), 1, ctx) {}
+  ONNXConcatOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXConcatOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -85,7 +86,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXConcatOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXConcatOpLowering>(ctx);
+void populateLoweringONNXConcatOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXConcatOpLowering>(typeConverter, ctx);
 }

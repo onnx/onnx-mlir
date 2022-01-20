@@ -4,7 +4,7 @@
 
 //===------------ ConstantOfShape.cpp - Lowering ConstantOfShape Op -------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -17,8 +17,8 @@
 using namespace mlir;
 
 struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
-  ONNXConstantOfShapeOpLowering(MLIRContext *ctx)
-      : ConversionPattern(
+  ONNXConstantOfShapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
             mlir::ONNXConstantOfShapeOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -99,7 +99,7 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXConstantOfShapeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXConstantOfShapeOpLowering>(ctx);
+void populateLoweringONNXConstantOfShapeOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXConstantOfShapeOpLowering>(typeConverter, ctx);
 }

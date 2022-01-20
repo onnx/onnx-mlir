@@ -4,7 +4,7 @@
 
 //===----------------- Clip.cpp - Lowering Clip Op ------------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -22,8 +22,9 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 
 struct ONNXClipOpLowering : public ConversionPattern {
-  ONNXClipOpLowering(MLIRContext *ctx)
-      : ConversionPattern(ONNXClipOp::getOperationName(), 1, ctx) {}
+  ONNXClipOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ONNXClipOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
@@ -101,7 +102,7 @@ struct ONNXClipOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXClipOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXClipOpLowering>(ctx);
+void populateLoweringONNXClipOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXClipOpLowering>(typeConverter, ctx);
 }

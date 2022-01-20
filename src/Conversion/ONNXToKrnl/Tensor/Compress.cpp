@@ -4,7 +4,7 @@
 
 //===---------------- Compress.cpp - Lowering Compress Op -----------------===//
 //
-// Copyright 2021 The IBM Research Authors.
+// Copyright 2021-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,8 +19,9 @@ using namespace mlir;
 
 struct ONNXCompressOpLowering : public ConversionPattern {
 
-  ONNXCompressOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXCompressOp::getOperationName(), 1, ctx) {}
+  ONNXCompressOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXCompressOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -257,7 +258,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXCompressOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXCompressOpLowering>(ctx);
+void populateLoweringONNXCompressOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXCompressOpLowering>(typeConverter, ctx);
 }

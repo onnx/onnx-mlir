@@ -4,7 +4,7 @@
 
 //===----------------Shape.cpp - Lowering Shape Op----------------------=== //
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,8 +19,9 @@
 using namespace mlir;
 
 struct ONNXShapeOpLowering : public ConversionPattern {
-  ONNXShapeOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXShapeOp::getOperationName(), 1, ctx) {}
+  ONNXShapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXShapeOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -55,7 +56,7 @@ struct ONNXShapeOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXShapeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXShapeOpLowering>(ctx);
+void populateLoweringONNXShapeOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXShapeOpLowering>(typeConverter, ctx);
 }

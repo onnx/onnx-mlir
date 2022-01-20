@@ -4,6 +4,10 @@
 
 //===---------------- OneHot.cpp - Lowering OneHot Op -------------------===//
 //
+// Copyright 2021-2022 The IBM Research Authors.
+//
+// =============================================================================
+//
 // This file lowers the ONNX OneHot Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
@@ -14,8 +18,9 @@
 using namespace mlir;
 
 struct ONNXOneHotOpLowering : public ConversionPattern {
-  ONNXOneHotOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXOneHotOp::getOperationName(), 1, ctx) {}
+  ONNXOneHotOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXOneHotOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -107,7 +112,7 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXOneHotOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXOneHotOpLowering>(ctx);
+void populateLoweringONNXOneHotOpPattern(OwningRewritePatternList &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXOneHotOpLowering>(typeConverter, ctx);
 }

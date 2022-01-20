@@ -4,7 +4,7 @@
 
 //===----------- RandomNormal.cpp - Lowering RandomNormal Op --------------===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -23,8 +23,8 @@
 using namespace mlir;
 
 struct ONNXRandomNormalOpLowering : public ConversionPattern {
-  ONNXRandomNormalOpLowering(MLIRContext *ctx)
-      : ConversionPattern(
+  ONNXRandomNormalOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
             mlir::ONNXRandomNormalOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -66,7 +66,7 @@ struct ONNXRandomNormalOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXRandomNormalOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXRandomNormalOpLowering>(ctx);
+void populateLoweringONNXRandomNormalOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXRandomNormalOpLowering>(typeConverter, ctx);
 }
