@@ -2698,7 +2698,7 @@ static LogicalResult verify(ONNXConcatOp op) {
   }
   // Checking value of axis parameter.
   auto commonType =
-      operandAdaptor.getOperands()[0].getType().cast<RankedTensorType>();
+      operandAdaptor.getOperands().front().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> commonShape = commonType.getShape();
   int64_t commonRank = commonShape.size();
   int64_t axisIndex = op.axis();
