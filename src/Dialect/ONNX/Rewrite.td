@@ -329,7 +329,6 @@ def SwapReshapeMatMulPattern: Pattern<
  // for MatMul. In other words, swapping Reshape and MatMul.
  // This rule will put reshape ops together, then the reshape fusion rule can be applied.
  (ONNXMatMulOp:$res2 (ONNXReshapeOp:$res1 $A, $_), $B),
- // Just multiply A by B.
  [(ONNXReshapeOp (ONNXMatMulOp $A, $B, (returnType (GetReturnTypeForMatMulOpND2D $A, $B))),
                  (ONNXConstantOpFromDenseAttr (createDenseElementsAttrFromShape $res2)))],
  [(HasRankGT<2> $A), (HasRankOf<2> $res1), (HasRankOf<2> $B), // A is reshaped to 2D.
