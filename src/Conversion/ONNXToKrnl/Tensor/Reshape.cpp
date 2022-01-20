@@ -4,7 +4,7 @@
 
 //===---------------- Reshape.cpp - Lowering Reshape Op -------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -22,8 +22,9 @@ using llvm::dbgs;
 #define DEBUG_TYPE "reshape_onnx_to_krnl"
 
 struct ONNXReshapeOpLowering : public ConversionPattern {
-  ONNXReshapeOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXReshapeOp::getOperationName(), 1, ctx) {}
+  ONNXReshapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXReshapeOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -52,7 +53,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXReshapeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXReshapeOpLowering>(ctx);
+void populateLoweringONNXReshapeOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXReshapeOpLowering>(typeConverter, ctx);
 }

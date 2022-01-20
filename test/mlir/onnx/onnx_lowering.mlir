@@ -1,7 +1,5 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
 
-// ----
-
 // TODO: Remove test_no_argument_1 from the test - empty function body is no longer
 // supported in mlir: https://reviews.llvm.org/D91886
 func private @test_no_argument_2() -> tensor<*xf32> {
@@ -2162,8 +2160,7 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
     onnx.Return %0, %1 : tensor<i1>, tensor<1xi64>
   }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> tensor<1xi64>
   return %0 : tensor<1xi64>
-  // CHECK:       module  {
-  // CHECK-LABEL:       func private @test_loop_simple_main_graph
+  // CHECK-LABEL:  func private @test_loop_simple_main_graph
   // CHECK-SAME:     ([[TRIP_COUNT:%.+]]: memref<i64>, [[COND:%.+]]: memref<i1>, [[Y_INIT:%.+]]: memref<1xi64>) -> memref<1xi64> {
   // CHECK:           [[Y:%.+]] = memref.alloc() {{.*}}: memref<1xi64>
   // CHECK:           [[Y_COPY_LOOP:%.+]] = krnl.define_loops 1
@@ -2183,6 +2180,7 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
   // CHECK:               [[LOOP_IV_VAL:%.+]] = arith.index_cast [[LOOP_IV]] : index to i64
   // CHECK:               [[CURR_LOOP_IV:%.+]] = memref.alloc() {{.*}}: memref<i64>
   // CHECK:               krnl.store [[LOOP_IV_VAL]], [[CURR_LOOP_IV]][] : memref<i64>
+  // CHECK:               [[UCC_COND:%.+]] = builtin.unrealized_conversion_cast [[COND]] : memref<i1> to tensor<i1>  
   // CHECK:               [[Y_CURR:%.+]] = memref.alloc() {{.*}}: memref<1xi64>
   // CHECK:               [[Y_COMPUTE_LOOP:%.+]] = krnl.define_loops 1
   // CHECK:               krnl.iterate([[Y_COMPUTE_LOOP]]) with ([[Y_COMPUTE_LOOP]] -> [[Y_COMPUTE_IV:%.+]] = 0 to 1) {
@@ -2191,8 +2189,9 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
   // CHECK:                 [[NEW_Y_VAL:%.+]] = arith.addi [[Y_VAL]], [[LOO_IV_VAL]] : i64
   // CHECK:                 krnl.store [[NEW_Y_VAL]], [[Y_CURR]]{{.}}[[Y_COMPUTE_IV]]{{.}} : memref<1xi64>
   // CHECK:               }
-  // CHECK:               [[COND_CAST:%.+]] = krnl.dummy_cast [[COND]] : (memref<i1>) -> memref<i1>
-  // CHECK:               [[Y_CURR_CAST:%.+]] = krnl.dummy_cast [[Y_CURR]] : (memref<1xi64>) -> memref<1xi64>
+  // CHECK:               [[UCC_Y_CURR:%.+]] = builtin.unrealized_conversion_cast [[Y_CURR]] : memref<1xi64> to tensor<1xi64>
+  // CHECK:               [[COND_CAST:%.+]] = builtin.unrealized_conversion_cast [[UCC_COND]] : tensor<i1> to memref<i1> 
+  // CHECK:               [[Y_CURR_CAST:%.+]] = builtin.unrealized_conversion_cast [[UCC_Y_CURR]] : tensor<1xi64> to memref<1xi64>
   // CHECK:               [[COND_CAST_VAL:%.+]] = krnl.load [[COND_CAST]][] : memref<i1>
   // CHECK:               krnl.store [[COND_CAST_VAL]], [[COND_GLOBAL]][] : memref<i1>
   // CHECK:               [[Y_COPY_LOOP:%.+]] = krnl.define_loops 1
@@ -2203,8 +2202,7 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
   // CHECK:             }
   // CHECK:           }
   // CHECK:           return [[Y]] : memref<1xi64>
-  // CHECK:         }
-  // CHECK:       }
+  // CHECK:        }
 }
 
 // -----

@@ -7,12 +7,10 @@
 
 void setCompileContext(
     mlir::MLIRContext &context, const char *mcpu, const char *mtriple) {
-  if (mcpu) {
+  if (mcpu)
     setTargetCPU(std::string(mcpu));
-  }
-  if (mtriple) {
+  if (mtriple)
     setTargetTriple(std::string(mtriple));
-  }
 
   registerDialects(context);
 }
