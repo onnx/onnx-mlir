@@ -126,12 +126,30 @@ add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/rapidcheck)
 
+include_directories(../../build/third-party/torch-mlir/include
+   ../../third-party/torch-mlir/include
+   ../../build/third-party/torch-mlir/include/torch-mlir/Dialect
+   ../../build/third-party/torch-mlir/include/torch-mlir/Dialect/Torch/IR
+   ../../build/third-party/torch-mlir/include/torch-mlir/Dialect/Torch/Transforms
+   ../../build/third-party/torch-mlir/include/torch-mlir/Dialect/TorchConversion
+   ../../build/third-party/torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR
+   ../../build/third-party/torch-mlir/include/torch-mlir/Dialect/TorchConversion/Transforms
+   ../../build/third-party/torch-mlir/include/torch-mlir/Conversion
+   ../../build/third-party/torch-mlir/include/torch-mlir/RefBackend
+)
+
+LINK_DIRECTORIES(../../build/third-party/torch-mlir/lib/)
+
+
+#find_library(DIA_LIB TorchMLIRTorchDialect)
+#find_library(FOO_LIB TorchMLIRTorchUtils)
+
 # Ensure warnings are reported for onnx-mlir code.
 if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS_COPY})
   set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS_COPY})
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS -frtti")
 endif()
 
 add_subdirectory(utils)
@@ -139,3 +157,5 @@ add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(docs)
 add_subdirectory(test)
+
+
