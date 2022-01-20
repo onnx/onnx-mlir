@@ -16,7 +16,6 @@ add_onnx_mlir_library(OMKrnlOps
 
   DEPENDS
   OMKrnlOpsIncGen
-  OMSpecializedKernelOpInterfaceIncGen
 
   LINK_LIBS PUBLIC
   OMONNXOps
