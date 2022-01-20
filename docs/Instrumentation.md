@@ -25,7 +25,7 @@ Currently, the call of initialization, OMInstrumentInit, need to be added before
 
 ## Run with instrumentation
 Run the model in the same way as usual.
-The instrumentation library will print out the time and memory usage along at each instrumentation point. 
+The instrumentation library will print out the time and memory usage along at each instrumentation point.
 For example, a model, `mymodel.onnx`, is compiled with `Debug/bin/onnx-mlir  --instrument-onnx-ops="ALL" --InstrumentAfterOp --InstrumentReportMemory --InstrumentReportTime mymodel.onnx`.
 Its runtime output is listed below:
 

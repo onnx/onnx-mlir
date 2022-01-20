@@ -12,7 +12,7 @@ You will also need `pybind11` which may need to be installed (mac: `brew install
 
 On Macs/POWER and possibly other platforms, there is currently an issue that arises when installing ONNX. If you get an error during the build, try a fix where you edit the top CMakefile as reported in this PR: `https://github.com/onnx/onnx/pull/2482/files`.
 
-While running `make check-onnx-backend` on a Mac you might encounter the following error: 
+While running `make check-onnx-backend` on a Mac you might encounter the following error:
 
 ```shell
 Fatal Python error: Aborted

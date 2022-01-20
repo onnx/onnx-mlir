@@ -117,4 +117,4 @@ We have a slack channel established under the Linux Foundation AI and Data Works
 
 ## Contributing
 
-Want to contribute, consult this page for specific help on our project [here](CONTRIBUTING.md) or the docs sub-directory.
+Want to contribute, consult this page for specific help on our project [here](CONTRIBUTING.md) or the docs sub-directory. A comprehensive list of documents is found [here](docs/DocumentList.md).
