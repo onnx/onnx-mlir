@@ -4,7 +4,7 @@
 
 //===------------------- Range.cpp - Lowering Range Op --------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,8 +18,9 @@
 using namespace mlir;
 
 struct ONNXRangeOpLowering : public ConversionPattern {
-  ONNXRangeOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXRangeOp::getOperationName(), 1, ctx) {}
+  ONNXRangeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXRangeOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -199,7 +200,7 @@ struct ONNXRangeOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXRangeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXRangeOpLowering>(ctx);
+void populateLoweringONNXRangeOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXRangeOpLowering>(typeConverter, ctx);
 }

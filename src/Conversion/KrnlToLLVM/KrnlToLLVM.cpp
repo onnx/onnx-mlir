@@ -30,7 +30,7 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Vector/VectorRewritePatterns.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
@@ -505,7 +505,7 @@ public:
     // attempt to set the alignment based on the module datalayout (if it
     // exists).
     if (alignmentAttr && alignmentAttr.getValue().getSExtValue() != 0)
-      global.alignmentAttr(alignmentAttr);
+      global.setAlignmentAttr(alignmentAttr);
     else if (module->getAttr(LLVM::LLVMDialect::getDataLayoutAttrName())) {
       // TODO: use MLIR data layout when it becomes available.
       llvm::LLVMContext llvmContext;
@@ -513,9 +513,9 @@ public:
                           .getPreferredAlignment(global.getType(),
                               getTypeConverter()->getDataLayout());
       align = std::max(align, MinGlobalAlign);
-      global.alignmentAttr(rewriter.getI64IntegerAttr(align));
+      global.setAlignmentAttr(rewriter.getI64IntegerAttr(align));
     } else
-      global.alignmentAttr(rewriter.getI64IntegerAttr(MinGlobalAlign));
+      global.setAlignmentAttr(rewriter.getI64IntegerAttr(MinGlobalAlign));
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
     Value globalOpAddr = rewriter.create<LLVM::AddressOfOp>(loc, global);

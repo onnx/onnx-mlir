@@ -4,7 +4,7 @@
 
 //===----------------- RNN.cpp - Lowering RNN Op --------------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -372,8 +372,8 @@ void stateToOutput<ONNXRNNOp, RnnState>(ConversionPatternRewriter &rewriter,
   }
 }
 
-void populateLoweringONNXRNNOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+void populateLoweringONNXRNNOpPattern(OwningRewritePatternList &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXRNNOpLowering<ONNXRNNOp, RnnState, RnnActivationPack,
-      RnnWeightPack, RnnBiasPack>>(ctx);
+      RnnWeightPack, RnnBiasPack>>(typeConverter, ctx);
 }

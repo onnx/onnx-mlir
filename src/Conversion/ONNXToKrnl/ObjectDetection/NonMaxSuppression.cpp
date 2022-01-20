@@ -4,7 +4,7 @@
 
 //===----- NonMaxSuppression.cpp - Lowering NonMaxSuppression Op ----------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -203,9 +203,10 @@ static Value tryToUnflip(
 }
 
 struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
-  ONNXNonMaxSuppressionOpLowering(MLIRContext *ctx)
-      : ConversionPattern(ONNXNonMaxSuppressionOp::getOperationName(), 1, ctx) {
-  }
+  ONNXNonMaxSuppressionOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
+            ONNXNonMaxSuppressionOp::getOperationName(), 1, ctx) {}
 
   /// To understand how code is generated for NonMaxSuppression, look at the
   /// python implementation at the end of this file.
@@ -361,7 +362,8 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                     createMath._and(checkScore, checkMOPC), isNotRemoved);
                 auto ifOp = rewriter.create<scf::IfOp>(
                     loc, canSelectBox, /*withElseRegion=*/false);
-                rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
+                rewriter.setInsertionPointToStart(
+                    &ifOp.getThenRegion().front());
 
                 // Select the bounding box with the largest score.
                 SmallVector<Value, 4> selectedBox;
@@ -406,7 +408,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                       auto if1Op = rewriter.create<scf::IfOp>(
                           loc, isNotRemoved, /*withElseRegion=*/false);
                       rewriter.setInsertionPointToStart(
-                          &if1Op.thenRegion().front());
+                          &if1Op.getThenRegion().front());
 
                       // Pick the current box.
                       SmallVector<Value, 4> otherBox;
@@ -425,7 +427,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                       auto if2Op = rewriter.create<scf::IfOp>(
                           loc, checkIOU, /*withElseRegion=*/false);
                       rewriter.setInsertionPointToStart(
-                          &if2Op.thenRegion().front());
+                          &if2Op.getThenRegion().front());
 
                       // If IOU is satified, mark the current box as removed.
                       createKrnl.store(trueVal, removedIndices, {o});
@@ -465,9 +467,9 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXNonMaxSuppressionOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXNonMaxSuppressionOpLowering>(ctx);
+void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXNonMaxSuppressionOpLowering>(typeConverter, ctx);
 }
 
 // clang-format off

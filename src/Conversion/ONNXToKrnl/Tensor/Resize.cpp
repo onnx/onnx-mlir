@@ -2,10 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- Resize.cpp - Lowering Resize Op
-//-------------------===//
+//===---------------- Resize.cpp - Lowering Resize Op ---------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,8 +18,9 @@
 using namespace mlir;
 
 struct ONNXResizeOpLowering : public ConversionPattern {
-  ONNXResizeOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXResizeOp::getOperationName(), 1, ctx) {}
+  ONNXResizeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXResizeOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -215,7 +215,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXResizeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXResizeOpLowering>(ctx);
+void populateLoweringONNXResizeOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXResizeOpLowering>(typeConverter, ctx);
 }

@@ -3652,18 +3652,17 @@ static LogicalResult verify(ONNXDepthToSpaceOp op) {
     return op.emitError("Input should have a rank of four");
 
   // Check blocksize.
-  APInt blocksize = operandAdaptor.blocksize().getValue();
-  if (blocksize.isNegative())
+  int64_t blocksize = operandAdaptor.blocksize();
+  if (blocksize < 0)
     return op.emitError("Blocksize should be non negative");
 
   int64_t C = inputShape[1];
-  uint64_t bs = blocksize.getZExtValue();
-  if (C != -1 && C % (bs * bs) != 0)
+  if (C != -1 && C % (blocksize * blocksize) != 0)
     return op.emitError("The input tensor depth must be divisible by the "
                         "(blocksize * blocksize)");
 
   // Check mode.
-  StringRef mode = operandAdaptor.mode().getValue();
+  StringRef mode = operandAdaptor.mode();
   if (mode != "DCR" && mode != "CRD")
     return op.emitError("Mode must be DCR or CRD");
 
@@ -4398,18 +4397,17 @@ static LogicalResult verify(ONNXSpaceToDepthOp op) {
     return op.emitError("Input should have a rank of four");
 
   // Check blocksize.
-  APInt blocksize = operandAdaptor.blocksize().getValue();
-  if (blocksize.isNegative())
+  int64_t blocksize = operandAdaptor.blocksize();
+  if (blocksize < 0)
     return op.emitError("Blocksize should be non negative");
 
   int64_t H = inputShape[2];
   int64_t W = inputShape[3];
-  uint64_t bs = blocksize.getZExtValue();
 
-  if (H != -1 && H % bs != 0)
+  if (H != -1 && H % blocksize != 0)
     return op.emitError(
         "The input tensor height must be divisible by the block size");
-  if (W != -1 && W % bs != 0)
+  if (W != -1 && W % blocksize != 0)
     return op.emitError(
         "The input tensor width must be divisible by the block size");
 
