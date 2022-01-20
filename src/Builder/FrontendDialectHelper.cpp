@@ -269,10 +269,11 @@ mlir::Type convertONNXTypeToMLIRType(
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
   case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
-  default:
     assert(false && "Unsupported data type encountered.");
     return nullptr;
   }
+
+  llvm_unreachable("Unsupported data type encountered.");
 }
 
 } // namespace onnx_mlir
