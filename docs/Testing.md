@@ -75,7 +75,7 @@ This is a way to use existing node test for dynamic tensors. Since not all test 
 ### Tests with constant inputs
 
 Because the onnx node tests accepts input tensors at runtime, the inputs are not
-constants when compiling the onnx model. However, in pratice, inputs can be
+constants when compiling the onnx model. However, in practice, inputs can be
 constants and we want to test such a situation.
 
 Testing with constant inputs is most easily performed by using the following
@@ -160,7 +160,44 @@ run-onnx-lib test/backend/test_add.so
 
 ## LLVM FileCheck Tests
 
-TODO.
+We can test the functionality of one pass by giving intermediate representation
+as input and checking the output IR with LLVM FileCheck utility.
+For example, we have a test case, test.mlir,  for shape inference.
+```
+func @test_default_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+```
+
+You can run the shape inference pass  on this test case, and get the following 
+output:
+```
+module  {
+  func @test_default_transpose(%arg0: tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32> {
+    %0 = "onnx.Transpose"(%arg0) {perm = [3, 2, 1, 0]} : (tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32>
+    return %0 : tensor<32x1x5x5xf32>
+  }
+}
+```
+Manually check whether the output is correct.
+If the output is correct, cover the output to what can be automatically checked
+in future. Use command:
+```
+Debug/bin/onnx-mlir-opt --shape-inference test.mlir | python ../utils/mlir2FileCheck.py 
+```
+You will get the following:
+```
+// mlir2FileCheck.py
+// CHECK-LABEL:  func @test_default_transpose
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [3, 2, 1, 0]} : (tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32>
+// CHECK:           return [[VAR_0_]] : tensor<32x1x5x5xf32>
+// CHECK:         }
+```
+Combine the source and the check code and add to the adequate test cases. 
+All the test cases for onnx dialect are collected under test/mlir/onnx directory.
+These test cases can be invoked with `make check-onnx-lit`. 
+This target is an essential requirement for a build.
 
 ## Numerical Tests
 
