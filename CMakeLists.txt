@@ -126,19 +126,21 @@ add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/rapidcheck)
 
-include_directories(../../build/third-party/torch-mlir/include
-   ../../third-party/torch-mlir/include
-   ../../build/third-party/torch-mlir/include/torch-mlir/Dialect
-   ../../build/third-party/torch-mlir/include/torch-mlir/Dialect/Torch/IR
-   ../../build/third-party/torch-mlir/include/torch-mlir/Dialect/Torch/Transforms
-   ../../build/third-party/torch-mlir/include/torch-mlir/Dialect/TorchConversion
-   ../../build/third-party/torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR
-   ../../build/third-party/torch-mlir/include/torch-mlir/Dialect/TorchConversion/Transforms
-   ../../build/third-party/torch-mlir/include/torch-mlir/Conversion
-   ../../build/third-party/torch-mlir/include/torch-mlir/RefBackend
+# TODO: properly specify the location of torch and its components
+include_directories(
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include
+   ${CMAKE_CURRENT_SOURCE_DIR}/../torch-mlir/include
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/Torch/IR
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/Torch/Transforms
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/TorchConversion
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/TorchConversion/Transforms
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Conversion
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/RefBackend
 )
 
-LINK_DIRECTORIES(../../build/third-party/torch-mlir/lib/)
+LINK_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/lib/)
 
 
 #find_library(DIA_LIB TorchMLIRTorchDialect)
@@ -149,7 +151,7 @@ if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS_COPY})
   set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS_COPY})
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS -frtti")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
 endif()
 
 add_subdirectory(utils)

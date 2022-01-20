@@ -33,16 +33,16 @@
 #include "src/Support/OMOptions.hpp"
 
 
-#include "../../../../../llvm-project/mlir/include/mlir/Transforms/DialectConversion.h"
-#include "../../../../../torch-mlir/include/torch-mlir/Dialect/Torch/IR/TorchDialect.h"
-#include "../../../../../torch-mlir/include/torch-mlir/Dialect/Torch/IR/TorchOps.h"
-#include "../../../../../torch-mlir/include/torch-mlir/Dialect/Torch/Transforms/Passes.h"
-#include "../../../../../torch-mlir/include/torch-mlir/Dialect/Torch/Utils/Utils.h"
-#include "../../../../../llvm-project/llvm/include/llvm/ADT/StringExtras.h"
+#include "mlir/Transforms/DialectConversion.h"
+#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
+#include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
+#include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
+#include "torch-mlir/Dialect/Torch/Utils/Utils.h"
+#include "llvm/ADT/StringExtras.h"
 
-#include "../../../../../torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
-#include "../../../../../torch-mlir/include/torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
-#include "../../../../../torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
+#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
+#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
+#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 
 #ifdef _WIN32
 #include <io.h>
