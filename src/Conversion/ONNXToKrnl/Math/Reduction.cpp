@@ -4,7 +4,7 @@
 
 //===-------------- Reduction.cpp - Lowering Reduction Ops ----------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -132,8 +132,10 @@ template <typename ONNXReductionOp>
 struct ONNXReductionOpLowering : public ConversionPattern {
   bool computeMean = false;
 
-  ONNXReductionOpLowering(MLIRContext *ctx, bool computeMean = false)
-      : ConversionPattern(ONNXReductionOp::getOperationName(), 1, ctx) {
+  ONNXReductionOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool computeMean = false)
+      : ConversionPattern(
+            typeConverter, ONNXReductionOp::getOperationName(), 1, ctx) {
     this->computeMean = computeMean;
   }
 
@@ -358,8 +360,10 @@ struct ONNXReductionOpLowering : public ConversionPattern {
 struct ONNXReduceSumOpLowering : public ConversionPattern {
   bool computeMean = false;
 
-  ONNXReduceSumOpLowering(MLIRContext *ctx, bool computeMean = false)
-      : ConversionPattern(ONNXReduceSumOp::getOperationName(), 1, ctx),
+  ONNXReduceSumOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool computeMean = false)
+      : ConversionPattern(
+            typeConverter, ONNXReduceSumOp::getOperationName(), 1, ctx),
         computeMean(computeMean) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -690,13 +694,13 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXReductionOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
+void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMaxOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceMinOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceProdOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceSumV11Op>,
-      ONNXReduceSumOpLowering>(ctx);
+      ONNXReduceSumOpLowering>(typeConverter, ctx);
   patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMeanOp>>(
-      ctx, /*computeMean=*/true);
+      typeConverter, ctx, /*computeMean=*/true);
 }
