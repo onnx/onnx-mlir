@@ -4,7 +4,7 @@
 
 //====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,8 +18,7 @@
 #include <map>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
-#include "mlir/Dialect/Linalg/IR/LinalgTypes.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -269,7 +268,7 @@ void populateLoweringONNXCumSumOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXElementwiseOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 void populateLoweringONNXGemmOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
@@ -351,7 +350,7 @@ void populateLoweringONNXReshapeOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXIdentityOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 void populateLoweringONNXConstantOfShapeOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
