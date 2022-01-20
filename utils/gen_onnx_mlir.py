@@ -306,12 +306,12 @@ OpsWithVerifier = [
     'NonMaxSuppression',
     'OneHot',
     'ReverseSequence',
+    "RoiAlign",
+    "ScatterElements",
     'ScatterND',
     'SequenceInsert',
     'SpaceToDepth',
     'TopK',
-    "RoiAlign",
-    "ScatterElements",
 ]
 
 OpsWithHelpers = {
