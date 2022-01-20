@@ -24,4 +24,4 @@ at the ONNX operand level.
 # Execution
 The compiled ONNX model can be executed with either [c/c++ driver](document missing)
 or [python driver](DebuggingNumericalError.md).
-The routine testing for onnx-mlir build is describe in this [document](Testing.md)
+The routine testing for onnx-mlir build is describe in this [document](Testing.md).
