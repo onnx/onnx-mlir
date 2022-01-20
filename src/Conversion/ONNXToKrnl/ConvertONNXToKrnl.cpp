@@ -4,7 +4,7 @@
 
 //====------ ConvertONNXToKrnl.cpp - ONNX dialects to Krnl lowering -------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -59,7 +59,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Math
   populateLoweringONNXClipOpPattern(patterns, ctx);
   populateLoweringONNXCumSumOpPattern(patterns, ctx);
-  populateLoweringONNXElementwiseOpPattern(patterns, ctx);
+  populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXGemmOpPattern(patterns, ctx);
   populateLoweringONNXHardmaxOpPattern(patterns, ctx);
   populateLoweringONNXReductionOpPattern(patterns, ctx);
@@ -80,7 +80,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXUnsqueezeV11OpPattern(patterns, ctx);
   populateLoweringONNXTransposeOpPattern(patterns, ctx);
   populateLoweringONNXGatherOpPattern(patterns, ctx);
-  populateLoweringONNXIdentityOpPattern(patterns, ctx);
+  populateLoweringONNXIdentityOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOfShapeOpPattern(patterns, ctx);
   populateLoweringONNXConstantOpPattern(patterns, ctx);
   populateLoweringONNXConcatOpPattern(patterns, ctx);
@@ -230,6 +230,12 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target.addDynamicallyLegalOp<CallOp>([&](CallOp op) {
     // CallOp is legal only if types have been converted to Std types.
     return krnlTypeConverter.isLegal(op);
+  });
+
+  // Operations that are legal only if types are not tensors.
+  target.addDynamicallyLegalOp<mlir::ReturnOp>([&](Operation *op) {
+    return llvm::none_of(op->getOperandTypes(),
+        [](Type type) { return type.isa<TensorType>(); });
   });
 
   // Define patterns.

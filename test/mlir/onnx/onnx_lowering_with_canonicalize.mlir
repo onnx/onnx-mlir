@@ -768,7 +768,7 @@ func private @test_reducemean_f32(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL: test_reducemean_f32
   // CHECK-DAG: [[IDENTITY:%.+]] = arith.constant 0.000000e+00 : f32
-  // CHECK-DAG: [[DIVISOR_I64:%.+]] = arith.constant 2 : i64 
+  // CHECK-DAG: [[DIVISOR:%.+]] = arith.constant 2.000000e+00 : f32
   // CHECK-DAG: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x2xf32>
   // CHECK-DAG: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 2) {
@@ -782,7 +782,6 @@ func private @test_reducemean_f32(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   // CHECK: krnl.store [[REDUCE]], [[RES]][%arg1, %arg3] : memref<3x2xf32>
   // CHECK: }
 
-  // CHECK: [[DIVISOR:%.+]] = arith.uitofp [[DIVISOR_I64]] : i64 to f32
   // CHECK: [[DEF_MEAN_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_MEAN_LOOPS]]#0, [[DEF_MEAN_LOOPS]]#1) with ([[DEF_MEAN_LOOPS]]#0 -> %arg1 = 0 to 3, [[DEF_MEAN_LOOPS]]#1 -> %arg2 = 0 to 2) {
   // CHECK:   [[LOAD3:%.+]] = krnl.load [[RES]][%arg1, %arg2] : memref<3x2xf32>
@@ -1639,12 +1638,11 @@ func @instance_norm(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %arg2: ten
 // mlir2FileCheck.py -a'["input", "scale", "bias"]'
 // CHECK-LABEL:  func @instance_norm
 // CHECK-SAME:   ([[INPUT_:%.+]]: memref<2x3x4x5xf32>, [[SCALE_:%.+]]: memref<3xf32>, [[BIAS_:%.+]]: memref<3xf32>) -> memref<2x3x4x5xf32> attributes {input_names = ["x", "s", "bias"], output_names = ["y"]} {
-// CHECK-DAG:       [[CST_20_:%.+]] = arith.constant 20 : i64
+// CHECK-DAG:       [[CST_20_:%.+]] = arith.constant 2.000000e+01 : f32
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_0_dot_00999999977_:%.+]] = arith.constant 0.00999999977 : f32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4x5xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_1_:%.+]] = arith.sitofp [[CST_20_]] : i64 to f32
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 3) {
 // CHECK-DAG:         [[VAR_3_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -1660,7 +1658,7 @@ func @instance_norm(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %arg2: ten
 // CHECK:               krnl.store [[VAR_20_]], [[RES_1_]][] : memref<f32>
 // CHECK:             }
 // CHECK:             [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
-// CHECK:             [[VAR_8_:%.+]] = arith.divf [[LOAD_RES_1_MEM_1_]], [[VAR_1_]] : f32
+// CHECK:             [[VAR_8_:%.+]] = arith.divf [[LOAD_RES_1_MEM_1_]], [[CST_20_]] : f32
 // CHECK:             krnl.store [[CST_0_dot_000000_]], [[RES_1_]][] : memref<f32>
 // CHECK:             krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_4_:%.+]] = 0 to 4, [[LOOP_1_]]#1 -> [[I_5_:%.+]] = 0 to 5) {
 // CHECK-DAG:           [[VAR_17_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -1672,7 +1670,7 @@ func @instance_norm(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %arg2: ten
 // CHECK:               krnl.store [[VAR_22_]], [[RES_1_]][] : memref<f32>
 // CHECK:             }
 // CHECK:             [[LOAD_RES_1_MEM_3_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
-// CHECK:             [[VAR_10_:%.+]] = arith.divf [[LOAD_RES_1_MEM_3_]], [[VAR_1_]] : f32
+// CHECK:             [[VAR_10_:%.+]] = arith.divf [[LOAD_RES_1_MEM_3_]], [[CST_20_]] : f32
 // CHECK:             [[VAR_11_:%.+]] = arith.addf [[VAR_10_]], [[CST_0_dot_00999999977_]] : f32
 // CHECK-DAG:         [[VAR_12_:%.+]] = math.sqrt [[VAR_11_]] : f32
 // CHECK-DAG:         [[LOAD_SCALE_MEM_:%.+]] = krnl.load [[SCALE_]]{{.}}[[VAR_3_]]#1] : memref<3xf32>

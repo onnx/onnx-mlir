@@ -42,7 +42,7 @@ struct ONNXDepthToSpaceOpLowering : public ConversionPattern {
     assert(succeeded(shapeComputed) && "Could not compute output shape");
 
     Location loc = spaceToDepthOp.getLoc();
-    Value input = spaceToDepthOp.input();
+    Value input = operandAdaptor.input();
     int64_t bs = spaceToDepthOp.blocksize();
     StringRef mode = spaceToDepthOp.mode();
 
