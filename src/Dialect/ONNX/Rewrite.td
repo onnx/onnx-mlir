@@ -109,6 +109,14 @@ class HasRankOf<int rank> :
   Constraint<CPred<"$0.getType().isa<ShapedType>() && "
                    "$0.getType().cast<ShapedType>().getRank() == " # rank>>;
 
+def HaveSameLastDim: Constraint<
+  CPred<"hasShapeAndRank($0) && hasShapeAndRank($1) && "
+        "($0.getType().cast<RankedTensorType>().getShape()"
+        "[$0.getType().cast<RankedTensorType>().getRank() - 1] == "
+        "$1.getType().cast<RankedTensorType>().getShape()"
+        "[$1.getType().cast<RankedTensorType>().getRank() - 1])">,
+  "Two tensors have the same last dimension">;
+
 def GetUnitAttr: NativeCodeCall<"$_builder.getUnitAttr()">;
 
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
@@ -159,11 +167,6 @@ class RankXMinusRankYIs<int diff>: Constraint<
     CPred<"($0.getType().cast<ShapedType>().getRank() "
           " - $1.getType().cast<ShapedType>().getRank() == " # diff # ")">,
     "X' rank is greater than Y's rank dif units">;
-
-class SameDimAt<int n, int m> : Constraint<
-  CPred<"$0.getType().cast<RankedTensorType>().getShape()[" # n # "] == "
-        "$1.getType().cast<RankedTensorType>().getShape()[" # m # "]">
->;
 
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
@@ -317,20 +320,20 @@ def RemoveIdentityReshapePattern:  Pat<
   // Check that val has the specified shape.
   [(HasSpecifiedConstantShape $val, $shape)]>;
 
-def RemoveReshapeBeforeMatmul : Pattern<
- // Reshape is redudant if A and B can be multiplied directly.
- // E.g. the 1st reshape keep the last dim of A unchanged and the 2nd reshape
- // produces a type consistent with the ones in A and B.
- // This pattern sometimes happens to models converted by tf2onnx.
- (ONNXReshapeOp:$res2 (ONNXMatMulOp (ONNXReshapeOp:$res1 $A, $_), $B), $_),
+def GetReturnTypeForMatMulOpND2D: NativeCodeCall<
+  "getReturnTypeForMatMulOpND2D($0, $1)"
+>;
+
+def SwapReshapeMatMulPattern: Pattern<
+ // If the input of Reshape is suitable for the next MatMul, use the input directly
+ // for MatMul. In other words, swapping Reshape and MatMul.
+ // This rule will put reshape ops together, then the reshape fusion rule can be applied.
+ (ONNXMatMulOp:$res2 (ONNXReshapeOp:$res1 $A, $_), $B),
  // Just multiply A by B.
- [(ONNXMatMulOp $A, $B)],
- [(HasRankOf<3> $A), (HasRankOf<3> $res2),
-  (HasRankOf<2> $B), (HasRankOf<2> $res1),
-  (SameDimAt<0, 0> $A, $res2), // A and the final result has the same 1st dim. 
-  (SameDimAt<1, 1> $A, $res2), // A and the final result has the same 2nd dim. 
-  (SameDimAt<1, 2> $B, $res2),  // B and the final result has the same last dim. 
-  (SameDimAt<2, 1> $A, $res1)  // 1st Reshape keeps the last (3rd) dim of A unchanged.
+ [(ONNXReshapeOp (ONNXMatMulOp $A, $B, (returnType (GetReturnTypeForMatMulOpND2D $A, $B))),
+                 (ONNXConstantOpFromDenseAttr (createDenseElementsAttrFromShape $res2)))],
+ [(HasRankGT<2> $A), (HasRankOf<2> $res1), (HasRankOf<2> $B), // A is reshaped to 2D.
+  (HaveSameLastDim $A, $res1) // The last dim of A is unchanged by reshape.
  ]
 >;
 
