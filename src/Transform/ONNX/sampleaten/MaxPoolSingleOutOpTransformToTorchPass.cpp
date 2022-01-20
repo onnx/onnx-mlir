@@ -205,6 +205,7 @@ namespace {
 
 class  ONNXToAtenMaxPool2dOpTransformPass
     : public PassWrapper<ONNXToAtenMaxPool2dOpTransformPass, OperationPass<::mlir::FuncOp>> {
+  StringRef getArgument() const override { return "onnx-to-aten-maxpool2d-transform"; }
      void runOnOperation() override {
           MLIRContext *context = &getContext();
           

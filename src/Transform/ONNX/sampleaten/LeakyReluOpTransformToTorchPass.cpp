@@ -142,6 +142,7 @@ namespace {
 
 class ONNXToAtenLeakyReluOpTransformPass 
     : public PassWrapper<ONNXToAtenLeakyReluOpTransformPass, OperationPass<::mlir::FuncOp>> {
+  StringRef getArgument() const override { return "onnx-to-aten-leakyrelu-transform"; }
      void runOnOperation() override {
 
           MLIRContext *context = &getContext();

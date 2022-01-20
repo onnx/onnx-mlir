@@ -197,6 +197,8 @@ namespace {
 
 class ONNXToAtenConv2DOpTransformPass 
     : public PassWrapper<ONNXToAtenConv2DOpTransformPass, OperationPass<::mlir::FuncOp>> {
+  StringRef getArgument() const override { return "onnx-to-aten-conv2d-transform"; }
+
      void runOnOperation() override {
           MLIRContext *context = &getContext();
           
