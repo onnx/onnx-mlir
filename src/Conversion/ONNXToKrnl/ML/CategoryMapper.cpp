@@ -4,7 +4,7 @@
 
 //===------------ CategoryMapper.cpp - Lowering CategoryMapper Op ---------===//
 //
-// Copyright 2021 The IBM Research Authors.
+// Copyright 2021-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -34,8 +34,9 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     Value len;
   };
 
-  ONNXCategoryMapperOpLowering(MLIRContext *ctx)
-      : ConversionPattern(ONNXCategoryMapperOp::getOperationName(), 1, ctx) {}
+  ONNXCategoryMapperOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ONNXCategoryMapperOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -291,7 +292,7 @@ private:
   }
 };
 
-void populateLoweringONNXCategoryMapperOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXCategoryMapperOpLowering>(ctx);
+void populateLoweringONNXCategoryMapperOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXCategoryMapperOpLowering>(typeConverter, ctx);
 }

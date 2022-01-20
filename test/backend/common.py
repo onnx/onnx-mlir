@@ -2,7 +2,7 @@
 
 ##################### common.py ################################################
 #
-# Copyright 2021 The IBM Research Authors.
+# Copyright 2021-2022 The IBM Research Authors.
 #
 ################################################################################
 # commom function `compile_model` called by both
@@ -65,8 +65,8 @@ def execute_commands(cmds, dynamic_inputs_dims):
 
 
 def compile_model(model, emit):
-    suffix = {"lib": ".so", "jni": ".jar"}
-    target = {"lib": "--EmitLib", "jni": "--EmitJNI"}
+    suffix = {"lib": ".so", "obj" : ".o", "jni": ".jar"}
+    target = {"lib": "--EmitLib", "obj": "--EmitObj", "jni": "--EmitJNI"}
     name = model.graph.name
 
     # Each model will have its own model_dir. This is necessary for JNI tests

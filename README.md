@@ -71,13 +71,12 @@ These are frontend options.
 
   Choose target to emit:
       --EmitONNXBasic - Ingest ONNX and emit the basic ONNX operations without inferred shapes.
-      --EmitONNXIR   - Ingest ONNX and emit corresponding ONNX dialect.
-      --EmitMLIR     - Lower input to MLIR built-in transformation dialect.
-      --EmitLLVMIR   - Lower input to LLVM IR (LLVM MLIR dialect).
-      --EmitLib      - Lower input to LLVM IR, emit LLVM bitcode,
-                       compile and link it to a shared library (default).
-      --EmitJNI      - Lower input to LLVM IR -> LLVM bitcode -> JNI shared library ->
-                       jar.
+      --EmitONNXIR    - Ingest ONNX and emit corresponding ONNX dialect.
+      --EmitMLIR      - Lower the input to MLIR built-in transformation dialect.
+      --EmitLLVMIR    - Lower the input to LLVM IR (LLVM MLIR dialect).
+      --EmitObj       - Compile the input to an object file.      
+      --EmitLib       - Compile and link the input into a shared library (default).
+      --EmitJNI       - Compile the input to a jar file.
 
   Optimization levels:
       --O0           - Optimization level 0 (default).

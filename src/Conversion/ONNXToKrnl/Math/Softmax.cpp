@@ -4,7 +4,7 @@
 
 //===----------------- Softmax.cpp - Softmax Op ---------------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -218,8 +218,9 @@ static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
 }
 
 struct ONNXSoftmaxOpLowering : public ConversionPattern {
-  ONNXSoftmaxOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXSoftmaxOp::getOperationName(), 1, ctx) {}
+  ONNXSoftmaxOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXSoftmaxOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // softmax(x) = let max_x = max(x) in
@@ -278,7 +279,7 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXSoftmaxOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXSoftmaxOpLowering>(ctx);
+void populateLoweringONNXSoftmaxOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXSoftmaxOpLowering>(typeConverter, ctx);
 }

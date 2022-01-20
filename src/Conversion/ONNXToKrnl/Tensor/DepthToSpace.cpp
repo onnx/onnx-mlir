@@ -4,7 +4,7 @@
 
 //===------------ DepthToSpace.cpp - Lowering DepthToSpace Op -------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2021-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -23,8 +23,8 @@ using llvm::dbgs;
 #define DEBUG_TYPE "depth_to_space_onnx_to_krnl"
 
 struct ONNXDepthToSpaceOpLowering : public ConversionPattern {
-  ONNXDepthToSpaceOpLowering(MLIRContext *ctx)
-      : ConversionPattern(
+  ONNXDepthToSpaceOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
             mlir::ONNXDepthToSpaceOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -96,7 +96,7 @@ struct ONNXDepthToSpaceOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXDepthToSpaceOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXDepthToSpaceOpLowering>(ctx);
+void populateLoweringONNXDepthToSpaceOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXDepthToSpaceOpLowering>(typeConverter, ctx);
 }

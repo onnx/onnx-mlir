@@ -44,7 +44,7 @@ public:
 };
 
 void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
-    MLIRContext *ctx, TypeConverter &typeConverter) {
+    TypeConverter &typeConverter, MLIRContext *ctx) {
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
@@ -54,62 +54,62 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
 
   // Frontend operation lowering.
   // ControlFlow
-  populateLoweringONNXLoopOpPattern(patterns, ctx);
-  populateLoweringONNXScanOpPattern(patterns, ctx);
+  populateLoweringONNXLoopOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
   // Math
-  populateLoweringONNXClipOpPattern(patterns, ctx);
-  populateLoweringONNXCumSumOpPattern(patterns, ctx);
+  populateLoweringONNXClipOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXGemmOpPattern(patterns, ctx);
-  populateLoweringONNXHardmaxOpPattern(patterns, ctx);
-  populateLoweringONNXReductionOpPattern(patterns, ctx);
-  populateLoweringONNXSoftmaxOpPattern(patterns, ctx);
-  populateLoweringONNXTopKOpPattern(patterns, ctx);
-  populateLoweringONNXMatMulOpPattern(patterns, ctx);
-  populateLoweringONNXRandomNormalOpPattern(patterns, ctx);
-  populateLoweringONNXLRNOpPattern(patterns, ctx);
+  populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXHardmaxOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXLRNOpPattern(patterns, typeConverter, ctx);
   // ML
-  populateLoweringONNXCategoryMapperOpPattern(patterns, ctx);
+  populateLoweringONNXCategoryMapperOpPattern(patterns, typeConverter, ctx);
   // ObjectDetection
-  populateLoweringONNXNonMaxSuppressionOpPattern(patterns, ctx);
+  populateLoweringONNXNonMaxSuppressionOpPattern(patterns, typeConverter, ctx);
   // Tensor
-  populateLoweringONNXArgMaxOpPattern(patterns, ctx);
-  populateLoweringONNXReshapeOpPattern(patterns, ctx);
-  populateLoweringONNXPadOpPattern(patterns, ctx);
-  populateLoweringONNXUnsqueezeOpPattern(patterns, ctx);
-  populateLoweringONNXUnsqueezeV11OpPattern(patterns, ctx);
-  populateLoweringONNXTransposeOpPattern(patterns, ctx);
-  populateLoweringONNXGatherOpPattern(patterns, ctx);
+  populateLoweringONNXArgMaxOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXReshapeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXPadOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXUnsqueezeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXUnsqueezeV11OpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXIdentityOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXConstantOfShapeOpPattern(patterns, ctx);
-  populateLoweringONNXConstantOpPattern(patterns, ctx);
-  populateLoweringONNXConcatOpPattern(patterns, ctx);
-  populateLoweringONNXDepthToSpaceOpPattern(patterns, ctx);
-  populateLoweringONNXSpaceToDepthOpPattern(patterns, ctx);
-  populateLoweringONNXShapeOpPattern(patterns, ctx);
-  populateLoweringONNXSliceOpPattern(patterns, ctx);
-  populateLoweringONNXSqueezeOpPattern(patterns, ctx);
-  populateLoweringONNXSqueezeV11OpPattern(patterns, ctx);
-  populateLoweringONNXSplitOpPattern(patterns, ctx);
-  populateLoweringONNXSplitV11OpPattern(patterns, ctx);
-  populateLoweringONNXSizeOpPattern(patterns, ctx);
-  populateLoweringONNXTileOpPattern(patterns, ctx);
-  populateLoweringONNXFlattenOpPattern(patterns, ctx);
-  populateLoweringONNXRangeOpPattern(patterns, ctx);
-  populateLoweringONNXResizeOpPattern(patterns, ctx);
-  populateLoweringONNXNonZeroOpPattern(patterns, ctx);
-  populateLoweringONNXReverseSequenceOpPattern(patterns, ctx);
-  populateLoweringONNXExpandOpPattern(patterns, ctx);
-  populateLoweringONNXOneHotOpPattern(patterns, ctx);
-  populateLoweringONNXCompressOpPattern(patterns, ctx);
+  populateLoweringONNXConstantOfShapeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSpaceToDepthOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXShapeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSliceOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSqueezeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSqueezeV11OpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSplitOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSplitV11OpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSizeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXTileOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXFlattenOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXRangeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXResizeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXNonZeroOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXReverseSequenceOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXExpandOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXOneHotOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   // Neural network
-  populateLoweringONNXConvOpPattern(patterns, ctx);
-  populateLoweringONNXNormalizationOpPattern(patterns, ctx);
-  populateLoweringONNXPoolingOpPattern(patterns, ctx);
+  populateLoweringONNXConvOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXPoolingOpPattern(patterns, typeConverter, ctx);
   // Recurrent neural network
-  populateLoweringONNXGRUOpPattern(patterns, ctx);
-  populateLoweringONNXLSTMOpPattern(patterns, ctx);
-  populateLoweringONNXRNNOpPattern(patterns, ctx);
+  populateLoweringONNXGRUOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXLSTMOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXRNNOpPattern(patterns, typeConverter, ctx);
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(ctx);
 }
@@ -240,7 +240,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // Define patterns.
   populateONNXToKrnlConversionPattern(
-      patterns, &getContext(), krnlTypeConverter);
+      patterns, krnlTypeConverter, &getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
