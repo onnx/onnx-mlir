@@ -8,7 +8,7 @@ Up to date info on how to build the project is located in the top directory [her
 
 Since you are interested in contributing code, you may look [here](docs/Workflow.md) for detailed step by step directives on how to create a fork, compile it, and then push your changes for review.
 
-A comprehensive list of documents is found [here](DocumentList.md).
+A comprehensive list of documents is found [here](docs/DocumentList.md).
 
 ## Guides for code generation for ONNX operations
 * A guide on how to add support for a new operation is found [here](docs/ImportONNXDefs.md#add_operation).
