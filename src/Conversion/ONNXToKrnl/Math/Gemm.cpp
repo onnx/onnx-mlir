@@ -4,7 +4,7 @@
 
 //===----------------- Gemm.cpp - Lowering Gemm Op ------------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -29,8 +29,8 @@ using namespace mlir;
 
 template <typename GemmOp>
 struct ONNXGemmOpLowering : public ConversionPattern {
-  ONNXGemmOpLowering(MLIRContext *ctx)
-      : ConversionPattern(GemmOp::getOperationName(), 1, ctx) {}
+  ONNXGemmOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter, GemmOp::getOperationName(), 1, ctx) {}
 
   void genericGemm(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
       Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
@@ -372,7 +372,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXGemmOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(ctx);
+void populateLoweringONNXGemmOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(typeConverter, ctx);
 }

@@ -4,7 +4,7 @@
 
 //===---------------- Transpose.cpp - Lowering Transpose Op ---------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,8 +18,9 @@
 using namespace mlir;
 
 struct ONNXTransposeOpLowering : public ConversionPattern {
-  ONNXTransposeOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXTransposeOp::getOperationName(), 1, ctx) {}
+  ONNXTransposeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXTransposeOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -78,7 +79,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXTransposeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXTransposeOpLowering>(ctx);
+void populateLoweringONNXTransposeOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXTransposeOpLowering>(typeConverter, ctx);
 }

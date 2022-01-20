@@ -9,13 +9,13 @@ Krnl acos scalar operation.
 
 | Operand | Description |
 | :-----: | ----------- |
-`in` | floating-point
+| `in` | floating-point
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`out` | floating-point
+| `out` | floating-point
 
 ### `krnl.acosh` (::mlir::KrnlAcoshOp)
 
@@ -27,13 +27,13 @@ Krnl acosh scalar operation.
 
 | Operand | Description |
 | :-----: | ----------- |
-`in` | floating-point
+| `in` | floating-point
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`out` | floating-point
+| `out` | floating-point
 
 ### `krnl.asin` (::mlir::KrnlAsinOp)
 
@@ -45,13 +45,13 @@ Krnl asin scalar operation.
 
 | Operand | Description |
 | :-----: | ----------- |
-`in` | floating-point
+| `in` | floating-point
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`out` | floating-point
+| `out` | floating-point
 
 ### `krnl.asinh` (::mlir::KrnlAsinhOp)
 
@@ -63,13 +63,13 @@ Krnl asinh scalar operation.
 
 | Operand | Description |
 | :-----: | ----------- |
-`in` | floating-point
+| `in` | floating-point
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`out` | floating-point
+| `out` | floating-point
 
 ### `krnl.atan` (::mlir::KrnlAtanOp)
 
@@ -81,13 +81,13 @@ Krnl atan scalar operation.
 
 | Operand | Description |
 | :-----: | ----------- |
-`in` | floating-point
+| `in` | floating-point
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`out` | floating-point
+| `out` | floating-point
 
 ### `krnl.atanh` (::mlir::KrnlAtanhOp)
 
@@ -99,13 +99,13 @@ Krnl atanh scalar operation.
 
 | Operand | Description |
 | :-----: | ----------- |
-`in` | floating-point
+| `in` | floating-point
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`out` | floating-point
+| `out` | floating-point
 
 ### `krnl.block` (::mlir::KrnlBlockOp)
 
@@ -126,20 +126,20 @@ means to block the for loop referred to by %i using a tile size of 4.
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`tile_size` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+| `tile_size` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`loop` | any type
+| `loop` | any type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`loop_block` | any type
-`loop_local` | any type
+| `loop_block` | any type
+| `loop_local` | any type
 
 ### `krnl.copy_from_tile_buffer` (::mlir::KrnlCopyFromBufferOp)
 
@@ -162,19 +162,21 @@ in the tile, the actual tile size can be given using the tileSize
 optional attribute. This attributes has the same rank as the buffer size,
 and each dimension must be smaller or equal to the actual buffer size.
 
+Traits: MemRefsNormalizable
+
 #### Attributes:
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`tileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `tileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`buffer` | memref of any type values
-`dest` | memref of any type values
-`starts` | index
+| `buffer` | memref of any type values
+| `dest` | memref of any type values
+| `starts` | index
 
 ### `krnl.copy_to_tile_buffer` (::mlir::KrnlCopyToBufferOp)
 
@@ -226,22 +228,24 @@ several actions may happen.
 padToNext and overreadToNext are of the same rank as source and memory
 memrefs.
 
+Traits: MemRefsNormalizable
+
 #### Attributes:
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`tileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`padToNext` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`transpose` | ::mlir::BoolAttr | bool attribute
+| `tileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `padToNext` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `transpose` | ::mlir::BoolAttr | bool attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`buffer` | memref of any type values
-`source` | memref of any type values
-`starts` | index
-`padValue` | any type
+| `buffer` | memref of any type values
+| `source` | memref of any type values
+| `starts` | index
+| `padValue` | any type
 
 ### `krnl.define_loops` (::mlir::KrnlDefineLoopsOp)
 
@@ -271,44 +275,20 @@ Unlike the std.dim operation which maintains a dependency on the alloc of the Me
 
 Any changes to the original MemRef size after the krnl.dim has been lowered will not be picked up by the emitted dimension. This allows the original MemRef to be safely modified via code transformations or affine map normalization without the risk of changing the value already emitted via krnl.dim.
 
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-`alloc` | memref of any type values
-`index` | index
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-`dimension` | index
-
-### `krnl.dummy_cast` (::mlir::KrnlDummyCastOp)
-
-A dummy Krnl operation to perform type casting.
-
-
-Syntax:
-
-```
-operation ::= `krnl.dummy_cast` $in attr-dict `:` functional-type($in, results)
-```
-
-Krnl operation to perform dummy type casting to remove the type
-dependencies existing between lowering of multiple IR objects.
+Traits: MemRefsNormalizable
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`in` | memref of any type values or tensor of any type values
+| `alloc` | memref of any type values
+| `index` | index
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`out` | memref of any type values or tensor of any type values
+| `dimension` | index
 
 ### `krnl.entry_point` (::mlir::KrnlEntryPointOp)
 
@@ -326,13 +306,13 @@ Krnl erf scalar operation.
 
 | Operand | Description |
 | :-----: | ----------- |
-`in` | floating-point
+| `in` | floating-point
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`out` | floating-point
+| `out` | floating-point
 
 ### `krnl.find_index` (::mlir::KrnlFindIndexOp)
 
@@ -343,20 +323,26 @@ given two arrays of int32_t values (G and V), whih are used to represent a perfe
 hash table for a dictionary, returns the index corresponding to the input value.
 The index returned is valid only if 'input' is in the dictionary described by G and V.
 
+Traits: MemRefsNormalizable
+
+Interfaces: NoSideEffect (MemoryEffectOpInterface)
+
+Effects: MemoryEffects::Effect{}
+
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | string type or 64-bit signless integer
-`G` | memref of 32-bit signless integer values
-`V` | memref of 32-bit signless integer values
-`len` | 32-bit signless integer
+| `input` | string type or 64-bit signless integer
+| `G` | memref of 32-bit signless integer values
+| `V` | memref of 32-bit signless integer values
+| `len` | 32-bit signless integer
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`index` | index
+| `index` | index
 
 ### `krnl.get_induction_var_value` (::mlir::KrnlGetInductionVariableValueOp)
 
@@ -381,13 +367,13 @@ current tile being iterated over.
 
 | Operand | Description |
 | :-----: | ----------- |
-`loops` | any type
+| `loops` | any type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`ind_var_vals` | any type
+| `ind_var_vals` | any type
 
 ### `krnl.getref` (::mlir::KrnlGetRefOp)
 
@@ -400,19 +386,21 @@ Retreieves a MemRef from within another MemRef:
 The offset is an integer which is used as an index into the input MemRef. It works
 just like an array index.
 
+Traits: MemRefsNormalizable
+
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`mempool` | memref of any type values
-`offset` | integer
-`value` | index
+| `mempool` | memref of any type values
+| `offset` | integer
+| `value` | index
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values
+| `output` | memref of any type values
 
 ### `krnl.global` (::mlir::KrnlGlobalOp)
 
@@ -422,21 +410,27 @@ Operation for holding global data values. A global constant can have a
 meaningful name recorded as its `name` attribute. Its content is stored
 in the `value` dense/opaque element attribute.
 
+Traits: MemRefsNormalizable
+
+Interfaces: NoSideEffect (MemoryEffectOpInterface)
+
+Effects: MemoryEffects::Effect{}
+
 #### Attributes:
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`shape` | ::mlir::Attribute | any attribute
-`name` | ::mlir::StringAttr | string attribute
-`value` | ::mlir::Attribute | any attribute
-`offset` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`alignment` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+| `shape` | ::mlir::Attribute | any attribute
+| `name` | ::mlir::StringAttr | string attribute
+| `value` | ::mlir::Attribute | any attribute
+| `offset` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+| `alignment` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values
+| `output` | memref of any type values
 
 ### `krnl.runtime_instrument` (::mlir::KrnlInstrumentOp)
 
@@ -449,8 +443,8 @@ May be used for gdb.
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`opID` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`tag` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+| `opID` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+| `tag` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 ### `krnl.iterate` (::mlir::KrnlIterateOp)
 
@@ -475,6 +469,10 @@ for (i0 = 0; i0 < 10; i0++)
   for (i1 = 0; i1 < 10; i1++)
     // Some operations.
 
+Traits: ImplicitKrnlTerminator
+
+Interfaces: LoopLikeOpInterface
+
 #### Operands:
 
 | Operand | Description |
@@ -498,18 +496,20 @@ of the memref. The arity of indices is the rank of the memref (i.e., if the
 memref loaded from is of rank 3, then 3 indices are required for the load
 following the memref identifier).
 
+Traits: MemRefsNormalizable
+
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`memref` | memref of any type values
-`indices` | index
+| `memref` | memref of any type values
+| `indices` | index
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`result` | any type
+| `result` | any type
 
 ### `krnl.matmul` (::mlir::KrnlMatMulOp)
 
@@ -638,35 +638,39 @@ following condition must be true:
 By copying the original data B and result C into tiles of known compile time
 sizes, any computations can be made to simdize.
 
+Traits: AttrSizedOperandSegments, MemRefsNormalizable
+
+Interfaces: SpecializedKernelOpInterface
+
 #### Attributes:
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`computeTileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`aTileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`bTileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`cTileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`simdize` | ::mlir::BoolAttr | bool attribute
-`unroll` | ::mlir::BoolAttr | bool attribute
-`overcompute` | ::mlir::BoolAttr | bool attribute
+| `computeTileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `aTileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `bTileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `cTileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `simdize` | ::mlir::BoolAttr | bool attribute
+| `unroll` | ::mlir::BoolAttr | bool attribute
+| `overcompute` | ::mlir::BoolAttr | bool attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | memref of any type values
-`aMemStart` | index
-`B` | memref of any type values
-`bMemStart` | index
-`C` | memref of any type values
-`cMemStart` | index
-`loops` | any type
-`iComputeStart` | index
-`jComputeStart` | index
-`kComputeStart` | index
-`iGlobalUB` | index
-`jGlobalUB` | index
-`kGlobalUB` | index
+| `A` | memref of any type values
+| `aMemStart` | index
+| `B` | memref of any type values
+| `bMemStart` | index
+| `C` | memref of any type values
+| `cMemStart` | index
+| `loops` | any type
+| `iComputeStart` | index
+| `jComputeStart` | index
+| `kComputeStart` | index
+| `iGlobalUB` | index
+| `jGlobalUB` | index
+| `kGlobalUB` | index
 
 ### `krnl.memcpy` (::mlir::KrnlMemcpyOp)
 
@@ -675,13 +679,15 @@ Krnl memcpy operation
 In the KRNL dialect the reshape op
 doesn't generate a new memory entry and treats a reshape like a cast.
 
+Traits: MemRefsNormalizable
+
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`dest` | memref of any type values
-`src` | memref of any type values
-`size` | integer
+| `dest` | memref of any type values
+| `src` | memref of any type values
+| `size` | integer
 
 ### `krnl.memset` (::mlir::KrnlMemsetOp)
 
@@ -696,12 +702,14 @@ operation ::= `krnl.memset` $dest `,` $value attr-dict `:` type($dest)
 
 Krnl operation that set buffer to a given value.
 
+Traits: MemRefsNormalizable
+
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`dest` | memref of any type values
-`value` | any type
+| `dest` | memref of any type values
+| `value` | any type
 
 ### `krnl.movable` (::mlir::KrnlMovableOp)
 
@@ -722,6 +730,8 @@ This operation is automatically generated by the lowering of Krnl to affine dial
 to assist with maintaining the relative positioning of loop and inner-loop statements.
 This construct is particularly helpful, for example, for lowering statements that
 are nested imperfectly between an "eager" and a "lazy" loop.
+
+Traits: ImplicitKrnlTerminator
 
 ### `krnl.permute` (::mlir::KrnlPermuteOp)
 
@@ -793,13 +803,13 @@ affine.for %arg0 = 0 to 1024 step 4 {
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`map` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `map` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`loops` | any type
+| `loops` | any type
 
 ### `krnl.random_normal` (::mlir::KrnlRandomNormalOp)
 
@@ -807,15 +817,17 @@ Generate a random normal tensor.
 
 Operation that generates a random normally distributed tensor.
 
+Traits: MemRefsNormalizable
+
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`output` | memref of any type values
-`numberOfValues` | index
-`mean` | floating-point
-`scale` | floating-point
-`seed` | floating-point
+| `output` | memref of any type values
+| `numberOfValues` | index
+| `mean` | floating-point
+| `scale` | floating-point
+| `seed` | floating-point
 
 ### `krnl.shape` (::mlir::KrnlShapeOp)
 
@@ -827,17 +839,19 @@ Extracts the shape of a MemRef:
 ```
 The return result is of `shape.type`.
 
+Traits: MemRefsNormalizable
+
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`alloc` | memref of any type values
+| `alloc` | memref of any type values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`shape` | memref of any type values
+| `shape` | memref of any type values
 
 ### `krnl.specialized_kernel` (::mlir::KrnlSpecializedKernel)
 
@@ -852,11 +866,13 @@ operation ::= `krnl.specialized_kernel` `(` $loops `)` attr-dict `:` type($loops
 
 Krnl operation to convert.
 
+Interfaces: SpecializedKernelOpInterface
+
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`loops` | any type
+| `loops` | any type
 
 ### `krnl.store` (::mlir::KrnlStoreOp)
 
@@ -874,13 +890,15 @@ value stored should have the same type as the elemental type of the memref.
 The number of arguments provided within brackets need to match the rank of
 the memref.
 
+Traits: MemRefsNormalizable
+
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`value` | any type
-`memref` | memref of any type values
-`indices` | index
+| `value` | any type
+| `memref` | memref of any type values
+| `indices` | index
 
 ### `krnl.strlen` (::mlir::KrnlStrlenOp)
 
@@ -888,17 +906,21 @@ Compute the length of a string.
 
 Krnl operation that computes the length of a string.
 
+Interfaces: NoSideEffect (MemoryEffectOpInterface)
+
+Effects: MemoryEffects::Effect{}
+
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`str` | string type
+| `str` | string type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`res` | 64-bit signless integer
+| `res` | 64-bit signless integer
 
 ### `krnl.strncmp` (::mlir::KrnlStrncmpOp)
 
@@ -906,19 +928,23 @@ Perform string comparison up to N bytes.
 
 Krnl operation that performs a string comparison up to N bytes.
 
+Interfaces: NoSideEffect (MemoryEffectOpInterface)
+
+Effects: MemoryEffects::Effect{}
+
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`str1` | string type
-`str2` | string type
-`len` | 64-bit signless integer
+| `str1` | string type
+| `str2` | string type
+| `len` | 64-bit signless integer
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`res` | 32-bit signless integer
+| `res` | 32-bit signless integer
 
 ### `krnl.tan` (::mlir::KrnlTanOp)
 
@@ -930,13 +956,13 @@ Krnl tan scalar operation.
 
 | Operand | Description |
 | :-----: | ----------- |
-`in` | floating-point
+| `in` | floating-point
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`out` | floating-point
+| `out` | floating-point
 
 ### `krnl.terminate` (::mlir::KrnlTerminatorOp)
 
@@ -948,6 +974,8 @@ successor of the operation enclosing the region.
 
 This operation does _not_ have a custom syntax. However, krnl control
 operations omit the terminator in their custom syntax for brevity.
+
+Traits: Terminator
 
 ### `krnl.unroll` (::mlir::KrnlUnrollOp)
 
@@ -970,7 +998,7 @@ unrolls the loop referred to by %i fully.
 
 | Operand | Description |
 | :-----: | ----------- |
-`loop` | any type
+| `loop` | any type
 
 ### `krnl.vector_type_cast` (::mlir::KrnlVectorTypeCastOp)
 
@@ -992,15 +1020,21 @@ corresponding dimension for target memref type.
 %MV = vector_type_cast %M : memref<64x16xf32> to memref<64x2xvector<8xf32>>
 %AV = vector_type_cast %A : memref<?x?xf32> to memref<?x?xvector<8xf32>>
 
+Traits: MemRefsNormalizable
+
+Interfaces: NoSideEffect (MemoryEffectOpInterface), ViewLikeOpInterface
+
+Effects: MemoryEffects::Effect{}
+
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`source` | memref of any type values
+| `source` | memref of any type values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`result` | memref of any type values
+| `result` | memref of any type values
 

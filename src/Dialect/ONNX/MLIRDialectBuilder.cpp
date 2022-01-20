@@ -397,7 +397,6 @@ Value MemRefBuilder::dim(Value val, int64_t index) const {
          "memref::DimOp expects input operand to have MemRefType or "
          "UnrankedMemRefType");
   assert(index >= 0 && "Expecting a valid index");
-
   Value i = b.create<arith::ConstantIndexOp>(loc, index);
   return b.createOrFold<memref::DimOp>(loc, val, i);
 }

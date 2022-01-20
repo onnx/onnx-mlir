@@ -4,7 +4,7 @@
 
 //===----------------Gather.cpp - Lowering Gather Op----------------------=== //
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,8 +18,9 @@
 using namespace mlir;
 
 struct ONNXGatherOpLowering : public ConversionPattern {
-  ONNXGatherOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXGatherOp::getOperationName(), 1, ctx) {}
+  ONNXGatherOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXGatherOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -110,7 +111,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXGatherOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXGatherOpLowering>(ctx);
+void populateLoweringONNXGatherOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXGatherOpLowering>(typeConverter, ctx);
 }

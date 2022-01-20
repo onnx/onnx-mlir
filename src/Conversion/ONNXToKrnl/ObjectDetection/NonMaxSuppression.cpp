@@ -4,7 +4,7 @@
 
 //===----- NonMaxSuppression.cpp - Lowering NonMaxSuppression Op ----------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -203,9 +203,10 @@ static Value tryToUnflip(
 }
 
 struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
-  ONNXNonMaxSuppressionOpLowering(MLIRContext *ctx)
-      : ConversionPattern(ONNXNonMaxSuppressionOp::getOperationName(), 1, ctx) {
-  }
+  ONNXNonMaxSuppressionOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
+            ONNXNonMaxSuppressionOp::getOperationName(), 1, ctx) {}
 
   /// To understand how code is generated for NonMaxSuppression, look at the
   /// python implementation at the end of this file.
@@ -466,9 +467,9 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXNonMaxSuppressionOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXNonMaxSuppressionOpLowering>(ctx);
+void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXNonMaxSuppressionOpLowering>(typeConverter, ctx);
 }
 
 // clang-format off
