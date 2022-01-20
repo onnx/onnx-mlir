@@ -286,6 +286,9 @@ void populateLoweringONNXMatMulOpPattern(
 void populateLoweringONNXRandomNormalOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXRandomNormalLikeOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXReductionOpPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 

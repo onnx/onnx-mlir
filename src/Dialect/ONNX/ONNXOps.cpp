@@ -4048,7 +4048,21 @@ LogicalResult ONNXRandomNormalOp::inferShapes(
 
 LogicalResult ONNXRandomNormalLikeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!input().getType().isa<RankedTensorType>())
+    return success();
+  auto outputShape = input().getType().cast<RankedTensorType>().getShape();
+  auto elementTypeID = dtype().getValue();
+
+  RankedTensorType outputTensorType =
+      RankedTensorType::get(outputShape, FloatType::getF32(getContext()));
+  if (elementTypeID == 0)
+    outputTensorType =
+        RankedTensorType::get(outputShape, FloatType::getF16(getContext()));
+  else if (elementTypeID == 2)
+    outputTensorType =
+        RankedTensorType::get(outputShape, FloatType::getF64(getContext()));
+  getResult().setType(outputTensorType);
+  return success();
 }
 
 LogicalResult ONNXRandomUniformOp::inferShapes(
