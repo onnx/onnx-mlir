@@ -58,27 +58,48 @@ int main(int argc, char *argv[]) {
     outputBaseName = testFileName.substr(0, testFileName.find_last_of("."));
   }
 
-  OptLevel optLevel = OptLevel::O0;
-  bool hasOptLevel = true;
-  if (optO0)
-    optLevel = OptLevel::O0;
-  else if (optO1)
-    optLevel = OptLevel::O1;
-  else if (optO2)
-    optLevel = OptLevel::O2;
-  else if (optO3)
-    optLevel = OptLevel::O3;
-  else
-    hasOptLevel = false;
+  // Build list of compiler option.
+  OptionKind optionKey[4];
+  const char *optionVal[4];
+  int optionNum = 0;
+  if (!mtriple.empty()) {
+    optionKey[optionNum] = OptionKind::TargetTriple;
+    optionVal[optionNum] = mtriple.c_str();
+    optionNum++;
+  }
+  if (!march.empty()) {
+    optionKey[optionNum] = OptionKind::TargetArch;
+    optionVal[optionNum] = march.c_str();
+    optionNum++;
+  }
+  if (!mcpu.empty()) {
+    optionKey[optionNum] = OptionKind::TargetCPU;
+    optionVal[optionNum] = mcpu.c_str();
+    optionNum++;
+  }
+  if (optO0) {
+    optionKey[optionNum] = OptionKind::CompilerOptLevel;
+    optionVal[optionNum] = "0";
+    optionNum++;
+  } else if (optO1) {
+    optionKey[optionNum] = OptionKind::CompilerOptLevel;
+    optionVal[optionNum] = "1";
+    optionNum++;
+  } else if (optO2) {
+    optionKey[optionNum] = OptionKind::CompilerOptLevel;
+    optionVal[optionNum] = "2";
+    optionNum++;
+  } else if (optO3) {
+    optionKey[optionNum] = OptionKind::CompilerOptLevel;
+    optionVal[optionNum] = "3";
+    optionNum++;
+  }
 
   int retVal = 0;
   if (compileFromFile) {
     const char *errorMessage = NULL;
     retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
-        onnx_mlir::EmitLib, mcpu.empty() ? nullptr : mcpu.c_str(),
-        march.empty() ? nullptr : march.c_str(),
-        mtriple.empty() ? nullptr : mtriple.c_str(),
-        hasOptLevel ? &optLevel : nullptr, &errorMessage);
+        onnx_mlir::EmitLib, optionKey, optionVal, optionNum, &errorMessage);
     if (errorMessage != NULL) {
       std::cerr << errorMessage;
       retVal = 0xf;
@@ -90,10 +111,7 @@ int main(int argc, char *argv[]) {
         std::istreambuf_iterator<char>());
     retVal =
         omCompileFromArray(test.data(), test.size(), outputBaseName.c_str(),
-            onnx_mlir::EmitLib, mcpu.empty() ? nullptr : mcpu.c_str(),
-            march.empty() ? nullptr : march.c_str(),
-            mtriple.empty() ? nullptr : mtriple.c_str(),
-            hasOptLevel ? &optLevel : nullptr);
+            onnx_mlir::EmitLib, optionKey, optionVal, optionNum);
   }
   if (retVal != 0) {
     std::cerr << "Compiling " << testFileName << "failed with code" << retVal;

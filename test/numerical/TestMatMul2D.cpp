@@ -32,7 +32,8 @@ using namespace onnx_mlir;
 // parameters/configuration. Matmul: A[IxK] * B[KxJ] = C[IxJ]
 bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
   MLIRContext ctx;
-  setCompileContext(ctx, OptLevel::O3);
+  setCompileContext(ctx, {OptionKind::CompilerOptLevel}, {"3"});
+
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
 
@@ -116,7 +117,8 @@ bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
-  llvm::cl::ParseCommandLineOptions(argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
+  llvm::cl::ParseCommandLineOptions(
+      argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
 
   printf("RapidCheck test case generation.\n");
   bool success = rc::check("Matmul implementation correctness", []() {

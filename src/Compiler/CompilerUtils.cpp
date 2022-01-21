@@ -308,25 +308,49 @@ void setTargetArch(const std::string &arch) { march = arch; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }
 void setOptLevel(const OptLevel level) { OptimizationLevel = level; }
 
-void setCompileContext(mlir::MLIRContext &context, const char *mcpu,
-    const char *march, const char *mtriple, const OptLevel *optLevel) {
-  if (mcpu)
-    setTargetCPU(std::string(mcpu));
-  if (march)
-    setTargetArch(std::string(march));
-  if (mtriple)
-    setTargetTriple(std::string(mtriple));
-  if (optLevel)
-    setOptLevel(*optLevel);
+static void setCompilerKeyValue(const OptionKind key, const string val) {
+  switch (key) {
+  case OptionKind::TargetTriple:
+    setTargetTriple(val);
+    return;
+  case OptionKind::TargetArch:
+    setTargetArch(val);
+    return;
+  case OptionKind::TargetCPU:
+    setTargetCPU(val);
+    return;
+  case OptionKind::CompilerOptLevel:
+    int level = (int)val[0] - (int)'0';
+    assert(level >= 0 && level <= 3 && "expected an OptLevel in [0..3] range");
+    setOptLevel((OptLevel)level);
+    return;
+  }
+  // In case there are options that were added but are unknown here, just ignore
+  // them.
+}
+
+// Set compiler context using a list of key/value pairs.
+void setCompileContext(mlir::MLIRContext &context,
+    const SmallVector<OptionKind, 4> key, const SmallVector<string, 4> val) {
+  assert(key.size() == val.size() && "expected same number of keys and vals");
+  for (unsigned int i = 0; i < key.size(); ++i) {
+    setCompilerKeyValue(key[i], val[i]);
+  }
   registerDialects(context);
 }
 
-void setCompileContext(
-    mlir::MLIRContext &context, const onnx_mlir::OptLevel optLevel) {
-  setCompileContext(context, nullptr, nullptr, nullptr, &optLevel);
+// Set compiler context for legacy C interface.
+void setCompileContext(mlir::MLIRContext &context, const OptionKind *key,
+    const char **val, const int64_t num) {
+  assert((!num || (key && val)) && "expected key and val defined for options");
+  for (int64_t i = 0; i < num; ++i) {
+    assert(val[i] && "expected value for option");
+    setCompilerKeyValue(key[i], string(val[i]));
+  }
+  registerDialects(context);
 }
 
-void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
+void loadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {
   // Handle '.mlir' input to the ONNX-MLIR frontend.
   // The mlir format indicates that one or more of the supported
@@ -690,7 +714,7 @@ void processInputFile(string inputFilename, mlir::MLIRContext &context,
     ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
   } else if (inputIsMLIR)
-    LoadMLIR(inputFilename, context, module);
+    loadMLIR(inputFilename, context, module);
 }
 
 void processInputArray(const void *onnxBuffer, int bufferSize,
@@ -867,7 +891,7 @@ void setupModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
   if (keepFiles(KeepFilesOfType::MLIR)) {
     outputCode(module, outputBaseName, ".input.mlir");
     module.release();
-    LoadMLIR(outputBaseName + ".input.mlir", context, module);
+    loadMLIR(outputBaseName + ".input.mlir", context, module);
   }
 }
 

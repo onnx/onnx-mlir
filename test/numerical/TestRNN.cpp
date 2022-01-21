@@ -34,7 +34,7 @@ bool isOMRNNTheSameAsNaiveImplFor(const int direction, const int S, const int B,
     const int I, const int H, bool isDynamicS = false,
     bool isDynamicB = false) {
   MLIRContext ctx;
-  setCompileContext(ctx, OptLevel::O3);
+  setCompileContext(ctx, {OptionKind::CompilerOptLevel}, {"3"});
 
   int D = abs(direction);
   int S1 = S, B1 = B;
@@ -219,7 +219,8 @@ bool isOMRNNTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
-  llvm::cl::ParseCommandLineOptions(argc, argv, "TestRNN\n", nullptr, "TEST_ARGS");
+  llvm::cl::ParseCommandLineOptions(
+      argc, argv, "TestRNN\n", nullptr, "TEST_ARGS");
 
   // RapidCheck test case generation.
   bool success = rc::check("RNN implementation correctness", []() {

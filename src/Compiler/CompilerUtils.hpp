@@ -24,6 +24,7 @@
 #include "mlir/Parser.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
+#include "llvm/ADT/SmallVector.h"
 
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 
@@ -40,16 +41,15 @@ void setTargetCPU(const std::string &cpu);
 void setTargetArch(const std::string &arch);
 void setTargetTriple(const std::string &triple);
 void setOptLevel(const onnx_mlir::OptLevel level);
-// Set compile context to specific machine with specific opt level. Nullptr
-// corresponds to using the default value.
-void setCompileContext(mlir::MLIRContext &context, const char *mcpu,
-    const char *march, const char *mtriple,
-    const onnx_mlir::OptLevel *optLevel);
-// Same as above, only specify OptLevel (default is -O0).
+// Set compile context according to the (key, value) fields passed.
 void setCompileContext(mlir::MLIRContext &context,
-    const onnx_mlir::OptLevel optLevel = onnx_mlir::OptLevel::O0);
+    const llvm::SmallVector<onnx_mlir::OptionKind, 4> key,
+    const llvm::SmallVector<std::string, 4> val);
+// Set compile context, legacy C array and string representation.
+void setCompileContext(mlir::MLIRContext &context,
+    const onnx_mlir::OptionKind *key, const char **val, const int64_t num);
 
-void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
+void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);
 
 std::string compileModuleToObject(
