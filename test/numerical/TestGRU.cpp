@@ -34,7 +34,7 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
     const int I, const int H, const int LinearBeforeReset,
     bool isDynamicS = false, bool isDynamicB = false) {
   MLIRContext ctx;
-  setCompileContext(ctx, {OptionKind::CompilerOptLevel}, {"3"});
+  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
 
   int D = abs(direction);
 

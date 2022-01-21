@@ -61,7 +61,7 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
     const int aTrans, const int bTrans, const int cRank, const float alphaVal,
     const float betaVal) {
   MLIRContext ctx;
-  setCompileContext(ctx, {OptionKind::CompilerOptLevel}, {"3"});
+  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
 
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d%s%s, cRank %d, alpha %7.3f, beta "

@@ -150,7 +150,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   }
 
   MLIRContext ctx;
-  setCompileContext(ctx, {OptionKind::CompilerOptLevel}, {"3"});
+  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
 
   int N1 = N;
   int C1 = C;

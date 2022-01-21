@@ -32,7 +32,7 @@ using namespace onnx_mlir;
 // parameters/configuration. Matmul: A[IxK] * B[KxJ] = C[IxJ]
 bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
   MLIRContext ctx;
-  setCompileContext(ctx, {OptionKind::CompilerOptLevel}, {"3"});
+  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
 
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);

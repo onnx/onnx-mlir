@@ -82,7 +82,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
         std::numeric_limits<int64_t>::max(),
     const int64_t constOffset = 0) {
   MLIRContext ctx;
-  setCompileContext(ctx, {OptionKind::CompilerOptLevel}, {"3"});
+  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
 
   auto module = mlir::parseSourceString(moduleIR, &ctx);
   OwningModuleRef moduleRef(std::move(module));

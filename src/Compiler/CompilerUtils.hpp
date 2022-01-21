@@ -43,8 +43,8 @@ void setTargetTriple(const std::string &triple);
 void setOptLevel(const onnx_mlir::OptLevel level);
 // Set compile context according to the (key, value) fields passed.
 void setCompileContext(mlir::MLIRContext &context,
-    const llvm::SmallVector<onnx_mlir::OptionKind, 4> key,
-    const llvm::SmallVector<std::string, 4> val);
+    const llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>
+        options);
 // Set compile context, legacy C array and string representation.
 void setCompileContext(mlir::MLIRContext &context,
     const onnx_mlir::OptionKind *key, const char **val, const int64_t num);
