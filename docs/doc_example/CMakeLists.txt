@@ -34,7 +34,6 @@ if (WIN32)
     )
 endif()
 
-
 if (WIN32)
   set(OMRuntimeTestModelLibraryFiles ${CMAKE_CURRENT_BINARY_DIR}/add${CMAKE_SHARED_LIBRARY_SUFFIX})
   list(APPEND OMRuntimeTestModelLibraryFiles ${CMAKE_CURRENT_BINARY_DIR}/add${CMAKE_LINK_LIBRARY_SUFFIX})

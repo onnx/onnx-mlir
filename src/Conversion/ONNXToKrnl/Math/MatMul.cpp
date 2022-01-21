@@ -4,7 +4,7 @@
 
 //===----------------- Matmul.cpp - Lowering Matmul Op --------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -23,8 +23,9 @@ using namespace mlir;
 #define DEBUG_TYPE "matmul"
 
 struct ONNXMatMulOpLowering : public ConversionPattern {
-  ONNXMatMulOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXMatMulOp::getOperationName(), 1, ctx) {}
+  ONNXMatMulOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXMatMulOp::getOperationName(), 1, ctx) {}
 
   // Handle the generic cases, including when there are broadcasts.
   void replaceGenericMatmul(ONNXMatMulOp &matMulOp,
@@ -224,7 +225,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXMatMulOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXMatMulOpLowering>(ctx);
+void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx);
 }

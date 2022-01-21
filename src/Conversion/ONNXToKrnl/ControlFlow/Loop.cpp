@@ -17,8 +17,9 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 struct ONNXLoopOpLowering : public ConversionPattern {
-  explicit ONNXLoopOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXLoopOp::getOperationName(), 1, ctx) {}
+  explicit ONNXLoopOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXLoopOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -69,7 +70,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
       auto condReg = rewriter.create<KrnlLoadOp>(loc, cond).getResult();
       auto ifOp = rewriter.create<scf::IfOp>(loc, condReg, false);
-      rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
+      rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
 
       // Create a scalar tensor out of loop iteration variable, as the first
       // argument passed to the body graph function.
@@ -98,7 +99,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         mapper.map(regionArg, params[i]);
       }
 
-      auto &thenRegion = ifOp.thenRegion();
+      auto &thenRegion = ifOp.getThenRegion();
       auto &thenBlock = thenRegion.front();
 
       // Split the insertion block into two, where the second block
@@ -131,12 +132,12 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       rewriter.setInsertionPointToStart(postInsertBlock);
 
       // Cast loop body outputs from tensor type to memref type in case it has
-      // not already been lowered via dummy_cast. Eventually, dummy cast becomes
-      // a cast from memref type to a memref type when everything is lowered and
-      // thus becomes redundant.
+      // not already been lowered. Eventually, 'UnrealizedConversionCastOp'
+      // becomes a cast from memref type to a memref type when everything is
+      // lowered and thus becomes redundant.
       SmallVector<Value, 4> bodyOutputs(
           resultsRange.begin(), resultsRange.end());
-      for (unsigned int i = 0; i < bodyOutputs.size(); i++) {
+      for (unsigned i = 0; i < bodyOutputs.size(); i++) {
         auto output = bodyOutputs[i];
         assert((output.getType().isa<TensorType>() ||
                    output.getType().isa<MemRefType>()) &&
@@ -144,10 +145,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
                "tensors/memrefs.");
         auto outputTy = output.getType().cast<ShapedType>();
         bodyOutputs[i] = rewriter
-                             .create<KrnlDummyCastOp>(loc, output,
+                             .create<UnrealizedConversionCastOp>(loc,
                                  MemRefType::get(outputTy.getShape(),
-                                     outputTy.getElementType()))
-                             .getResult();
+                                     outputTy.getElementType()),
+                                 output)
+                             .getResult(0);
       }
 
       // Copy the newly computed loop condition to pre-allocated buffer.
@@ -294,7 +296,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXLoopOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXLoopOpLowering>(ctx);
+void populateLoweringONNXLoopOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXLoopOpLowering>(typeConverter, ctx);
 }

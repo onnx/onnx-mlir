@@ -2,10 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- Flatten.cpp - Lowering Flatten Op
-//-------------------===//
+//===---------------- Flatten.cpp - Lowering Flatten Op -------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -58,8 +57,9 @@ Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
 }
 
 struct ONNXFlattenOpLowering : public ConversionPattern {
-  ONNXFlattenOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXFlattenOp::getOperationName(), 1, ctx) {}
+  ONNXFlattenOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXFlattenOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -170,7 +170,7 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXFlattenOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXFlattenOpLowering>(ctx);
+void populateLoweringONNXFlattenOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXFlattenOpLowering>(typeConverter, ctx);
 }

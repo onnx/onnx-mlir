@@ -4,7 +4,7 @@
 
 //===---------------- Split.cpp - Lowering Split Op -----------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -83,8 +83,9 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
 }
 
 struct ONNXSplitOpLowering : public ConversionPattern {
-  ONNXSplitOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXSplitOp::getOperationName(), 1, ctx) {}
+  ONNXSplitOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXSplitOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -94,8 +95,9 @@ struct ONNXSplitOpLowering : public ConversionPattern {
 };
 
 struct ONNXSplitV11OpLowering : public ConversionPattern {
-  ONNXSplitV11OpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXSplitV11Op::getOperationName(), 1, ctx) {}
+  ONNXSplitV11OpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXSplitV11Op::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -104,12 +106,12 @@ struct ONNXSplitV11OpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXSplitOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXSplitOpLowering>(ctx);
+void populateLoweringONNXSplitOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXSplitOpLowering>(typeConverter, ctx);
 }
 
-void populateLoweringONNXSplitV11OpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXSplitV11OpLowering>(ctx);
+void populateLoweringONNXSplitV11OpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXSplitV11OpLowering>(typeConverter, ctx);
 }

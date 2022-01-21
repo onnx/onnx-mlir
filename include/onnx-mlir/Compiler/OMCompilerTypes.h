@@ -12,6 +12,7 @@ enum EmissionTargetType {
   EmitONNXIR,
   EmitMLIR,
   EmitLLVMIR,
+  EmitObj,
   EmitLib,
   EmitJNI,
 };

@@ -4,7 +4,7 @@
 
 //====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,8 +18,7 @@
 #include <map>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
-#include "mlir/Dialect/Linalg/IR/LinalgTypes.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -255,167 +254,124 @@ public:
 //===----------------------------------------------------------------------===//
 
 // For all ONNX operations.
-void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
-    MLIRContext *ctx, TypeConverter &typeConverter);
+void populateONNXToKrnlConversionPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 // `ControlFlow` directory methods:
 void populateLoweringONNXLoopOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXScanOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 // `Math` directory methods:
 void populateLoweringONNXClipOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXCumSumOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXElementwiseOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXGemmOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXHardmaxOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXLRNOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXMatMulOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXRandomNormalOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXReductionOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSoftmaxOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXTopKOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 // `ML` directory methods:
 void populateLoweringONNXCategoryMapperOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 // `NN` directory methods:
 void populateLoweringONNXConvOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXNormalizationOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXPoolingOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 // `ObjectDetection` directory methods:
 void populateLoweringONNXNonMaxSuppressionOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 // `RNN` directory methods:
 void populateLoweringONNXGRUOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXLSTMOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXRNNOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 // `Tensor` directory methods:
 void populateLoweringONNXArgMaxOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXUnsqueezeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXUnsqueezeV11OpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXTransposeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXGatherOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXPadConstantValuePadOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXPadOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXRangeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXReshapeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXIdentityOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXConstantOfShapeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXConstantOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXConcatOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXDepthToSpaceOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSpaceToDepthOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXShapeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSliceOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSqueezeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSqueezeV11OpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSplitOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSplitV11OpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSizeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXTileOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXFlattenOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXResizeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXNonZeroOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXReverseSequenceOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXExpandOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXOneHotOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
-
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXCompressOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx);
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp);
 

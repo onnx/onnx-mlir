@@ -2,7 +2,7 @@
 
 ##################### common.py ################################################
 #
-# Copyright 2021 The IBM Research Authors.
+# Copyright 2021-2022 The IBM Research Authors.
 #
 ################################################################################
 # commom function `compile_model` called by both
@@ -65,8 +65,8 @@ def execute_commands(cmds, dynamic_inputs_dims):
 
 
 def compile_model(model, emit):
-    suffix = {"lib": ".so", "jni": ".jar"}
-    target = {"lib": "--EmitLib", "jni": "--EmitJNI"}
+    suffix = {"lib": ".so", "obj" : ".o", "jni": ".jar"}
+    target = {"lib": "--EmitLib", "obj": "--EmitObj", "jni": "--EmitJNI"}
     name = model.graph.name
 
     # Each model will have its own model_dir. This is necessary for JNI tests
@@ -75,7 +75,8 @@ def compile_model(model, emit):
     model_dir = os.path.join(result_dir, name)
     os.makedirs(model_dir, exist_ok=True)
 
-    print("ONNX_HOME=" + os.getenv("ONNX_HOME"))
+    if args.verbose:
+        print("ONNX_HOME=" + os.getenv("ONNX_HOME"))
 
     # For real models, the onnx files are downloaded, no need to save again.
     if (name + "_cpu") in list(map(lambda x: x[0], variables.real_model_tests)):
@@ -86,15 +87,16 @@ def compile_model(model, emit):
         # Save model to disk as model_name.onnx.
         onnx.save(model, model_name)
 
-    print(
-        (
-            "Success downloading/saving "
-            if os.path.exists(model_name)
-            else "Failure downloading/saving "
+    if args.verbose:
+        print(
+            (
+                "Success downloading/saving "
+                if os.path.exists(model_name)
+                else "Failure downloading/saving "
+            )
+            + model_name,
+            file=sys.stderr,
         )
-        + model_name,
-        file=sys.stderr,
-    )
 
     exec_base = os.path.join(model_dir, name)
     exec_name = exec_base + suffix[emit]
@@ -103,6 +105,8 @@ def compile_model(model, emit):
     command_list = [TEST_DRIVER]
     if args.mcpu:
         command_list.append("--mcpu=" + args.mcpu)
+    if args.march:
+        command_list.append("--march=" + args.march)
     if args.mtriple:
         command_list.append("--mtriple=" + args.mtriple)
     if args.converter or name in variables.test_need_converter:
@@ -114,7 +118,8 @@ def compile_model(model, emit):
 
     # Call frontend to process model_name.onnx, bit code will be generated.
     dynamic_inputs_dims = determine_dynamic_parameters(name)
-    print("cwd: " + os.getcwd(), file=sys.stderr)
+    if args.verbose:
+        print("cwd: " + os.getcwd(), file=sys.stderr)
     execute_commands(command_list, dynamic_inputs_dims)
 
     # Check if compiled model file exists

@@ -4,7 +4,7 @@
 
 //===-----------------------Pad.cpp - Lowering Pad Op -------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,8 +18,9 @@
 using namespace mlir;
 
 struct ONNXPadOpLowering : public ConversionPattern {
-  ONNXPadOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXPadOp::getOperationName(), 1, ctx) {}
+  ONNXPadOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXPadOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -132,7 +133,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXPadOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXPadOpLowering>(ctx);
+void populateLoweringONNXPadOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXPadOpLowering>(typeConverter, ctx);
 }

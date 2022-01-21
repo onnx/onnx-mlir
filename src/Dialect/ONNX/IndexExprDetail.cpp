@@ -61,7 +61,7 @@ static bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
   // From lib/Dialect/LinAlg/Transform/Promotion.cpp
   if (auto constantOp = value.getDefiningOp<arith::ConstantOp>()) {
     if (constantOp.getType().isa<IndexType>())
-      intLit = constantOp.value().cast<IntegerAttr>().getInt();
+      intLit = constantOp.getValue().cast<IntegerAttr>().getInt();
     return true;
   }
   // Since ConsantIndexOp is a subclass of ConstantOp, not sure if this one is
@@ -227,7 +227,7 @@ bool IndexExprImpl::hasValue() const {
 IndexExprScope &IndexExprImpl::getScope() const {
   assert(hasScope());
   return *scope;
-};
+}
 
 IndexExprScope *IndexExprImpl::getScopePtr() const {
   assert(scope && "expected to have scope");
