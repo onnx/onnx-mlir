@@ -95,12 +95,17 @@ static llvm::cl::opt<string> shapeInformation("shapeInformation",
     llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<std::string> mtriple("mtriple",
-    llvm::cl::desc("Target architecture"),
+    llvm::cl::desc("Override target triple for module"),
     llvm::cl::value_desc("LLVM target triple>"), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
 
 static llvm::cl::opt<std::string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
     llvm::cl::value_desc("Target a specific CPU type"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
+
+static llvm::cl::opt<std::string> march("march",
+    llvm::cl::desc("Target architecture to generate code for"),
+    llvm::cl::value_desc("Target a specific architecture type"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
 enum OptLevel { O0, O1, O2, O3 };
@@ -300,9 +305,10 @@ struct Command {
 } // namespace
 
 void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
+void setTargetArch(const std::string &arch) { march = arch; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }
 
-static void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
+void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {
   // Handle '.mlir' input to the ONNX-MLIR frontend.
   // The mlir format indicates that one or more of the supported
@@ -328,6 +334,13 @@ static std::string getTargetCpuOption() {
   string targetOptions = "";
   if (mcpu != "")
     targetOptions += "--mcpu=" + mcpu;
+  return targetOptions;
+}
+
+static std::string getTargetArchOption() {
+  string targetOptions = "";
+  if (march != "")
+    targetOptions += "--march=" + march;
   return targetOptions;
 }
 
@@ -390,6 +403,7 @@ static void genLLVMBitcode(const mlir::OwningModuleRef &module,
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
   optBitcode.appendStr(getOptimizationLevelOption())
       .appendStr(getTargetTripleOption())
+      .appendStr(getTargetArchOption())
       .appendStr(getTargetCpuOption())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
@@ -408,6 +422,9 @@ static std::string genModelObject(string bitcodePath, string outputBaseName) {
   string llcPath = getToolPath("llc");
   Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
   llvmToObj.appendStr(getOptimizationLevelOption())
+      .appendStr(getTargetTripleOption())
+      .appendStr(getTargetArchOption())
+      .appendStr(getTargetCpuOption())
       .appendStr("-filetype=obj")
       .appendStr("-relocation-model=pic")
       .appendList({"-o", modelObjPath})
@@ -667,7 +684,7 @@ void processInputArray(const void *onnxBuffer, int bufferSize,
   ImportFrontendModelArray(onnxBuffer, bufferSize, context, module, options);
 }
 
-static InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
+InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
   Operation *moduleOp = module->getOperation();
 
   // Collect dialect namespaces.
@@ -694,7 +711,7 @@ static InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
   return LLVMLevel;
 }
 
-static void outputCode(
+void outputCode(
     mlir::OwningModuleRef &module, string filename, string extension) {
   mlir::OpPrintingFlags flags;
   if (preserveLocations)
@@ -711,9 +728,8 @@ static void outputCode(
   output->keep();
 }
 
-static void emitOutputFiles(string outputBaseName,
-    EmissionTargetType emissionTarget, mlir::MLIRContext &context,
-    mlir::OwningModuleRef &module) {
+void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
   // For EmitONNXIR and EmitMLIR the constant value are embedded in the code
   // thus making the code hard to read. These values can be elided by emitting
   // two versions of the same source code:
@@ -816,8 +832,8 @@ static std::string getDataLayout(const Location &loc) {
   return dataLayoutString;
 }
 
-static void setupModule(mlir::OwningModuleRef &module,
-    mlir::MLIRContext &context, std::string outputBaseName) {
+void setupModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName) {
   // Initialize the targets support for all targets LLVM was configured for.
   llvm::InitializeAllTargets();
   llvm::InitializeAllTargetMCs();
@@ -855,9 +871,9 @@ static void addPasses(mlir::OwningModuleRef &module, mlir::PassManager &pm,
     addKrnlToLLVMPasses(pm);
 }
 
-static void emitOutput(mlir::OwningModuleRef &module,
-    mlir::MLIRContext &context, std::string outputBaseName,
-    mlir::PassManager &pm, EmissionTargetType emissionTarget) {
+void emitOutput(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName, mlir::PassManager &pm,
+    EmissionTargetType emissionTarget) {
   if (printIR) {
     mlir::OpPrintingFlags flags;
     if (preserveLocations)

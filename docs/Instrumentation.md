@@ -25,8 +25,8 @@ Currently, the call of initialization, OMInstrumentInit, need to be added before
 
 ## Run with instrumentation
 Run the model in the same way as usual.
-The instrumenation library will print out the time and memory usage along at each instrumentation point. 
-For example, a model, mymodel.onnx, is compiled with `Debug/bin/onnx-mlir  --instrument-onnx-ops="ALL" --InstrumentAfterOp --InstrumentReportMemory --InstrumentReportTime mymodel.onnx`.
+The instrumentation library will print out the time and memory usage along at each instrumentation point.
+For example, a model, `mymodel.onnx`, is compiled with `Debug/bin/onnx-mlir  --instrument-onnx-ops="ALL" --InstrumentAfterOp --InstrumentReportMemory --InstrumentReportTime mymodel.onnx`.
 Its runtime output is listed below:
 
 ```
@@ -48,7 +48,7 @@ The output is explained here:
 * VMem: the virtual memory size (in kb) used by this process.
 
 ## Control instrument at runtime
-By providing certain env variable at runtime, you can disable reports from  instrument libary.
+By providing certain env variable at runtime, you can disable reports from  instrument library.
 * If env variable NOOMINSTRUMENT is set, no report at all
 * If env variable NOOMINSTRUMENTTIME is set, the report of time usage is disabled
 * If env variable NOOMINSTRUMENTMEMORY is set, the report of memory usage is disabled
