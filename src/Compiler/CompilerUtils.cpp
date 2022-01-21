@@ -308,7 +308,7 @@ void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
 void setTargetArch(const std::string &arch) { march = arch; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }
 
-static void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
+void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {
   // Handle '.mlir' input to the ONNX-MLIR frontend.
   // The mlir format indicates that one or more of the supported
@@ -684,7 +684,7 @@ void processInputArray(const void *onnxBuffer, int bufferSize,
   ImportFrontendModelArray(onnxBuffer, bufferSize, context, module, options);
 }
 
-static InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
+InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
   Operation *moduleOp = module->getOperation();
 
   // Collect dialect namespaces.
@@ -711,7 +711,7 @@ static InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
   return LLVMLevel;
 }
 
-static void outputCode(
+void outputCode(
     mlir::OwningModuleRef &module, string filename, string extension) {
   mlir::OpPrintingFlags flags;
   if (preserveLocations)
@@ -728,9 +728,8 @@ static void outputCode(
   output->keep();
 }
 
-static void emitOutputFiles(string outputBaseName,
-    EmissionTargetType emissionTarget, mlir::MLIRContext &context,
-    mlir::OwningModuleRef &module) {
+void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
   // For EmitONNXIR and EmitMLIR the constant value are embedded in the code
   // thus making the code hard to read. These values can be elided by emitting
   // two versions of the same source code:
@@ -833,8 +832,8 @@ static std::string getDataLayout(const Location &loc) {
   return dataLayoutString;
 }
 
-static void setupModule(mlir::OwningModuleRef &module,
-    mlir::MLIRContext &context, std::string outputBaseName) {
+void setupModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName) {
   // Initialize the targets support for all targets LLVM was configured for.
   llvm::InitializeAllTargets();
   llvm::InitializeAllTargetMCs();
@@ -872,9 +871,9 @@ static void addPasses(mlir::OwningModuleRef &module, mlir::PassManager &pm,
     addKrnlToLLVMPasses(pm);
 }
 
-static void emitOutput(mlir::OwningModuleRef &module,
-    mlir::MLIRContext &context, std::string outputBaseName,
-    mlir::PassManager &pm, EmissionTargetType emissionTarget) {
+void emitOutput(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName, mlir::PassManager &pm,
+    EmissionTargetType emissionTarget) {
   if (printIR) {
     mlir::OpPrintingFlags flags;
     if (preserveLocations)
