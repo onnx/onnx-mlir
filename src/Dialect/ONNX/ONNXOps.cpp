@@ -4075,19 +4075,25 @@ LogicalResult ONNXRandomNormalLikeOp::inferShapes(
   auto outputShape = inputType.getShape();
   auto elementTypeIDDType = dtype();
 
+  // Default output tensor type in all cases is the input tensor type.
+  auto outputTensorType =
+      RankedTensorType::get(outputShape, inputType.getElementType());
   if (!elementTypeIDDType) {
-    getResult().setType(
-        RankedTensorType::get(outputShape, inputType.getElementType()));
+    getResult().setType(outputTensorType);
   } else {
     int64_t elementTypeID = elementTypeIDDType.getValue();
-    auto outputTensorType =
-        RankedTensorType::get(outputShape, FloatType::getF32(getContext()));
     if (elementTypeID == 0)
       outputTensorType =
           RankedTensorType::get(outputShape, FloatType::getF16(getContext()));
+    else if (elementTypeID == 1)
+      outputTensorType =
+          RankedTensorType::get(outputShape, FloatType::getF32(getContext()));
     else if (elementTypeID == 2)
       outputTensorType =
           RankedTensorType::get(outputShape, FloatType::getF64(getContext()));
+    else
+      return emitError(
+          "Random normal like dtype attribute is invalid (use: 0, 1 or 2)");
     getResult().setType(outputTensorType);
   }
   return success();
