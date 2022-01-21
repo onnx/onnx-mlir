@@ -35,6 +35,7 @@ extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::opt<std::string> instrumentONNXOps;
 
 void setTargetCPU(const std::string &cpu);
+void setTargetArch(const std::string &arch);
 void setTargetTriple(const std::string &triple);
 
 std::string compileModuleToObject(

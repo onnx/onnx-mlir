@@ -105,6 +105,8 @@ def compile_model(model, emit):
     command_list = [TEST_DRIVER]
     if args.mcpu:
         command_list.append("--mcpu=" + args.mcpu)
+    if args.march:
+        command_list.append("--march=" + args.march)
     if args.mtriple:
         command_list.append("--mtriple=" + args.mtriple)
     if args.converter or name in variables.test_need_converter:
