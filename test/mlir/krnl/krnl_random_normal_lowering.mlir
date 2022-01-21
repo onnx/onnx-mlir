@@ -9,44 +9,14 @@ func @test_random_normal_lowering() -> memref<3x4x5xf32> {
   "krnl.random_normal"(%0, %c60, %cst, %cst_0, %cst_1) : (memref<3x4x5xf32>, index, f32, f32, f32) -> ()
   return %0 : memref<3x4x5xf32>
 
-  // CHECK: llvm.func @get_random_normal_value_f32(!llvm.ptr<f32>, i64, f32, f32, f32)
+  // CHECK-LABEL: llvm.func @get_random_normal_value_f32(!llvm.ptr<f32>, i64, f32, f32, f32)
   // CHECK: llvm.func @malloc(i64) -> !llvm.ptr<i8>
-  // CHECK: llvm.func @test_random_normal_lowering() -> !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<3 x i64>, array<3 x i64>)> {
-  // CHECK: llvm.mlir.constant(3 : index) : i64
-  // CHECK: llvm.mlir.constant(4 : index) : i64
-  // CHECK: llvm.mlir.constant(5 : index) : i64
-  // CHECK: llvm.mlir.constant(1 : index) : i64
-  // CHECK: llvm.mlir.constant(20 : index) : i64
-  // CHECK: llvm.mlir.constant(60 : index) : i64
-  
-  /// Allocate aligned tensor:
-  // CHECK: llvm.mlir.null : !llvm.ptr<f32>
-  // CHECK: llvm.getelementptr
-  // CHECK: llvm.ptrtoint
-  // CHECK: llvm.mlir.constant(16 : index) : i64
-  // CHECK: llvm.add
-  // CHECK: llvm.call @malloc
-  // CHECK: llvm.bitcast
-  // CHECK: llvm.ptrtoint
-  // CHECK: llvm.mlir.constant(1 : index) : i64
-  // CHECK: llvm.sub
-  // CHECK: llvm.add
-  // CHECK: llvm.urem
-  // CHECK: llvm.sub
-  // CHECK: [[ALIGNED_TENSOR_MEMORY:%.+]] = llvm.inttoptr %18 : i64 to !llvm.ptr<f32>
+  // CHECK-LABEL: llvm.func @test_random_normal_lowering() -> !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<3 x i64>, array<3 x i64>)> {
+  // CHECK-DAG: [[ALIGNED_TENSOR_MEMORY:%.+]] = llvm.inttoptr %18 : i64 to !llvm.ptr<f32>
 
   /// Populate tensor:
   // CHECK: llvm.mlir.undef : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<3 x i64>, array<3 x i64>)>
-  // CHECK: llvm.insertvalue
-  // CHECK: llvm.insertvalue
-  // CHECK: llvm.mlir.constant(0 : index) : i64
-  // CHECK: llvm.insertvalue
-  // CHECK: llvm.insertvalue
-  // CHECK: llvm.insertvalue
-  // CHECK: llvm.insertvalue
-  // CHECK: llvm.insertvalue
-  // CHECK: llvm.insertvalue
-  // CHECK: [[OUTPUT_TENSOR:%.+]] = llvm.insertvalue
+  // CHECK: [[OUTPUT_TENSOR:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 2] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<3 x i64>, array<3 x i64>)>
   // CHECK: [[ALL_VALUES:%.+]] = llvm.mlir.constant(60 : index) : i64
   // CHECK: [[MEAN:%.+]] = llvm.mlir.constant(0.000000e+00 : f32) : f32
   // CHECK: [[SCALE:%.+]] = llvm.mlir.constant(1.000000e+00 : f32) : f32
@@ -76,9 +46,9 @@ func @test_random_normal_dynamic_lowering(%arg0: memref<3x4x?x?xf32>) -> memref<
   "krnl.random_normal"(%2, %6, %cst, %cst_2, %cst_3) : (memref<3x4x?x?xf32>, index, f32, f32, f32) -> ()
   return %2 : memref<3x4x?x?xf32>
 
-  // CHECK: llvm.func @get_random_normal_value_f32(!llvm.ptr<f32>, i64, f32, f32, f32)
+  // CHECK-LABEL: llvm.func @get_random_normal_value_f32(!llvm.ptr<f32>, i64, f32, f32, f32)
   // CHECK: llvm.func @malloc(i64) -> !llvm.ptr<i8>
-  // CHECK: llvm.func @test_random_normal_dynamic_lowering(%arg0: !llvm.ptr<f32>, %arg1: !llvm.ptr<f32>, %arg2: i64, %arg3: i64, %arg4: i64, %arg5: i64, %arg6: i64, %arg7: i64, %arg8: i64, %arg9: i64, %arg10: i64) -> !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)> {
+  // CHECK-LABEL: llvm.func @test_random_normal_dynamic_lowering(%arg0: !llvm.ptr<f32>, %arg1: !llvm.ptr<f32>, %arg2: i64, %arg3: i64, %arg4: i64, %arg5: i64, %arg6: i64, %arg7: i64, %arg8: i64, %arg9: i64, %arg10: i64) -> !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)> {
   // CHECK: [[C3:%.+]] = llvm.mlir.constant(3 : index) : i64
   // CHECK: [[C4:%.+]] = llvm.mlir.constant(4 : index) : i64
   // CHECK: llvm.mlir.constant(1 : index) : i64
@@ -89,33 +59,11 @@ func @test_random_normal_dynamic_lowering(%arg0: memref<3x4x?x?xf32>) -> memref<
   /// Allocate aligned tensor:
   // CHECK: [[POINTER:%.+]] = llvm.mlir.null : !llvm.ptr<f32>
   // CHECK: llvm.getelementptr [[POINTER]][%[[MUL3]]]
-  // CHECK: llvm.ptrtoint
-  // CHECK: llvm.mlir.constant(16 : index) : i64
-  // CHECK: llvm.add
-  // CHECK: llvm.call @malloc
-  // CHECK: llvm.bitcast
-  // CHECK: llvm.ptrtoint
-  // CHECK: llvm.mlir.constant(1 : index) : i64
-  // CHECK: llvm.sub
-  // CHECK: llvm.add
-  // CHECK: llvm.urem
-  // CHECK: llvm.sub
   // CHECK: [[ALIGNED_TENSOR_MEMORY:%.+]] = llvm.inttoptr %18 : i64 to !llvm.ptr<f32>
 
   /// Populate tensor:
   // CHECK: llvm.mlir.undef : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
-  // CHECK: llvm.insertvalue
-  // CHECK: llvm.insertvalue
-  // CHECK: llvm.mlir.constant(0 : index) : i64
-  // CHECK: llvm.insertvalue
-  // CHECK: llvm.insertvalue
-  // CHECK: llvm.insertvalue
-  // CHECK: llvm.insertvalue %arg5
-  // CHECK: llvm.insertvalue %arg6
-  // CHECK: llvm.insertvalue
-  // CHECK: llvm.insertvalue
-  // CHECK: llvm.insertvalue %arg6
-  // CHECK: [[OUTPUT_TENSOR:%.+]] = llvm.insertvalue
+  // CHECK: [[OUTPUT_TENSOR:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 3] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
   // CHECK: [[ALL_VALUES1:%.+]] = llvm.mlir.constant(12 : index) : i64
   // CHECK: [[ALL_VALUES2:%.+]] = llvm.mul [[ALL_VALUES1]], %arg5  : i64
   // CHECK: [[ALL_VALUES3:%.+]] = llvm.mul [[ALL_VALUES2]], %arg6  : i64

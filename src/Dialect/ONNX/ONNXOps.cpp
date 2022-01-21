@@ -4071,18 +4071,25 @@ LogicalResult ONNXRandomNormalLikeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!input().getType().isa<RankedTensorType>())
     return success();
-  auto outputShape = input().getType().cast<RankedTensorType>().getShape();
-  auto elementTypeID = dtype().getValue();
+  auto inputType = input().getType().cast<RankedTensorType>();
+  auto outputShape = inputType.getShape();
+  auto elementTypeIDDType = dtype();
 
-  RankedTensorType outputTensorType =
-      RankedTensorType::get(outputShape, FloatType::getF32(getContext()));
-  if (elementTypeID == 0)
-    outputTensorType =
-        RankedTensorType::get(outputShape, FloatType::getF16(getContext()));
-  else if (elementTypeID == 2)
-    outputTensorType =
-        RankedTensorType::get(outputShape, FloatType::getF64(getContext()));
-  getResult().setType(outputTensorType);
+  if (!elementTypeIDDType) {
+    getResult().setType(
+        RankedTensorType::get(outputShape, inputType.getElementType()));
+  } else {
+    int64_t elementTypeID = elementTypeIDDType.getValue();
+    auto outputTensorType =
+        RankedTensorType::get(outputShape, FloatType::getF32(getContext()));
+    if (elementTypeID == 0)
+      outputTensorType =
+          RankedTensorType::get(outputShape, FloatType::getF16(getContext()));
+    else if (elementTypeID == 2)
+      outputTensorType =
+          RankedTensorType::get(outputShape, FloatType::getF64(getContext()));
+    getResult().setType(outputTensorType);
+  }
   return success();
 }
 
