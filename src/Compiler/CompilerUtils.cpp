@@ -320,7 +320,7 @@ static void setCompilerKeyValue(const OptionKind key, const string val) {
     setTargetCPU(val);
     return;
   case OptionKind::CompilerOptLevel:
-    int level = (int)val[0] - (int)'0';
+    int level = atoi(val.c_str());
     assert(level >= 0 && level <= 3 && "expected an OptLevel in [0..3] range");
     setOptLevel((OptLevel)level);
     return;
