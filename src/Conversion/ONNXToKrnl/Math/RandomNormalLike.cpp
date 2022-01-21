@@ -23,8 +23,8 @@
 using namespace mlir;
 
 struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
-  ONNXRandomNormalLikeOpLowering(MLIRContext *ctx)
-      : ConversionPattern(
+  ONNXRandomNormalLikeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
             mlir::ONNXRandomNormalLikeOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -83,7 +83,7 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXRandomNormalLikeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXRandomNormalLikeOpLowering>(ctx);
+void populateLoweringONNXRandomNormalLikeOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXRandomNormalLikeOpLowering>(typeConverter, ctx);
 }
