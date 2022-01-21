@@ -203,7 +203,7 @@ is associated with the buffer. No DenseElementsAttr is created.
 Now we describe how to do computation on array buffers. In other words, we
 describe the function `IterateConstPropElementwiseBinary`.
 
-An array buffer is an 1D array while its orignal data layout is tensor. Thus,
+An array buffer is an 1D array while its original data layout is tensor. Thus,
 to access elements, we need to convert a linear access index to a tensor index,
 and vice versa.
 
