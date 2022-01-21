@@ -14,7 +14,7 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 
 ## Setting up ONNX-MLIR using Prebuilt Containers
 
-The prefered approach to using and developing ONNX-MLIR is to used Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with dockers are [here](docs/Docker.md).
+The preferred approach to using and developing ONNX-MLIR is to used Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with dockers are [here](docs/Docker.md).
 
 ## Setting up ONNX-MLIR directly
 
@@ -43,7 +43,7 @@ Directions to install MLIR and ONNX-MLIR are provided [here](docs/BuildOnLinuxOS
 
 Directions to install Protobuf, MLIR, and ONNX-MLIR are provided [here](docs/BuildOnWindows.md).
 
-### Testing build and summary of custom envrionment variables
+### Testing build and summary of custom environment variables
 
 After installation, an `onnx-mlir` executable should appear in the `build/Debug/bin` or `build/Release/bin` directory.
 
@@ -116,4 +116,4 @@ We have a slack channel established under the Linux Foundation AI and Data Works
 
 ## Contributing
 
-Want to contribute, consult this page for specific help on our project [here](CONTRIBUTING.md) or the docs sub-directory.
+Want to contribute, consult this page for specific help on our project [here](CONTRIBUTING.md) or the docs sub-directory. A comprehensive list of documents is found [here](docs/DocumentList.md).
