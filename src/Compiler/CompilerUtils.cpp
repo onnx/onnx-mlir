@@ -802,13 +802,9 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   }
 } // end anonymous namespace
 
-/// Return the module datalayout string. The datalayout string is determined
-/// by creating a target machine using the target triple and target cpu.
-static std::string getDataLayout(const Location &loc) {
-  const std::string targetTriple =
-      (mtriple != "") ? mtriple.getValue() : kDefaultTriple;
-  const std::string targetCpu = (mcpu != "") ? mcpu.getValue() : "";
-
+// Get the LLVM Target object corresponding to the target triple (if valid).
+static const llvm::Target *getLLVMTarget(
+    const std::string &targetTriple, const Location &loc) {
   std::string error;
   const llvm::Target *LLVMTarget =
       llvm::TargetRegistry::lookupTarget(targetTriple, error);
@@ -817,8 +813,24 @@ static std::string getDataLayout(const Location &loc) {
     return nullptr;
   }
 
+  return LLVMTarget;
+}
+
+static std::string getTargetTriple() {
+  return (mtriple != "") ? mtriple.getValue() : kDefaultTriple;
+}
+static std::string getTargetCpu() {
+  return (mcpu != "") ? mcpu.getValue() : "";
+}
+
+/// Return the module datalayout string. The datalayout string is determined
+/// by creating a target machine using the target triple and target cpu.
+static std::string getDataLayout(const Location &loc) {
+  const std::string targetTriple = getTargetTriple();
+  const std::string targetCpu = getTargetCpu();
+  const llvm::Target &LLVMTarget = *getLLVMTarget(targetTriple, loc);
   llvm::TargetOptions ops;
-  llvm::TargetMachine *targetMachine = LLVMTarget->createTargetMachine(
+  llvm::TargetMachine *targetMachine = LLVMTarget.createTargetMachine(
       targetTriple, targetCpu, "" /*features*/, ops, None);
   if (!targetMachine) {
     emitError(loc, "failed to create target machine");
@@ -840,9 +852,11 @@ void setupModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
   llvm::InitializeAllAsmPrinters();
   llvm::InitializeAllAsmParsers();
 
-  // Set the module datalayout.
+  // Set the module target triple and datalayout.
   Operation &moduleOp = *(module->getOperation());
   Location loc = moduleOp.getLoc();
+  moduleOp.setAttr(LLVM::LLVMDialect::getTargetTripleAttrName(),
+      StringAttr::get(&context, getTargetTriple()));
   moduleOp.setAttr(LLVM::LLVMDialect::getDataLayoutAttrName(),
       StringAttr::get(&context, getDataLayout(loc)));
 
