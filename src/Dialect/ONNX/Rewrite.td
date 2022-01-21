@@ -109,6 +109,14 @@ class HasRankOf<int rank> :
   Constraint<CPred<"$0.getType().isa<ShapedType>() && "
                    "$0.getType().cast<ShapedType>().getRank() == " # rank>>;
 
+def HaveSameLastDim: Constraint<
+  CPred<"hasShapeAndRank($0) && hasShapeAndRank($1) && "
+        "($0.getType().cast<RankedTensorType>().getShape()"
+        "[$0.getType().cast<RankedTensorType>().getRank() - 1] == "
+        "$1.getType().cast<RankedTensorType>().getShape()"
+        "[$1.getType().cast<RankedTensorType>().getRank() - 1])">,
+  "Two tensors have the same last dimension">;
+
 def GetUnitAttr: NativeCodeCall<"$_builder.getUnitAttr()">;
 
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
@@ -312,6 +320,21 @@ def RemoveIdentityReshapePattern:  Pat<
   // Check that val has the specified shape.
   [(HasSpecifiedConstantShape $val, $shape)]>;
 
+def GetReturnTypeForMatMulOpND2D: NativeCodeCall<
+  "getReturnTypeForMatMulOpND2D($0, $1)"
+>;
+
+def SwapReshapeMatMulPattern: Pattern<
+ // If the input of Reshape is suitable for the next MatMul, use the input directly
+ // for MatMul. In other words, swapping Reshape and MatMul.
+ // This rule will put reshape ops together, then the reshape fusion rule can be applied.
+ (ONNXMatMulOp:$res2 (ONNXReshapeOp:$res1 $A, $_), $B),
+ [(ONNXReshapeOp (ONNXMatMulOp $A, $B, (returnType (GetReturnTypeForMatMulOpND2D $A, $B))),
+                 (ONNXConstantOpFromDenseAttr (createDenseElementsAttrFromShape $res2)))],
+ [(HasRankGT<2> $A), (HasRankOf<2> $res1), (HasRankOf<2> $B), // A is reshaped to 2D.
+  (HaveSameLastDim $A, $res1) // The last dim of A is unchanged by reshape.
+ ]
+>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXSqueezeOp

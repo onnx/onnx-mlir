@@ -27,4 +27,4 @@ If an option is only used in one transformation,  it can be defined locally in t
 
 ## Discussion
 ### MLIR Option support
-MLIR allows to define options within the pass class definition. However, the document said you have to define the same options for PassPipleline and pass a lambda function to assign the options. I thought that this requirement complicated code. I am open to using MLIR if someone know how to easily implement it and know its advantages. 
+MLIR allows to define options within the pass class definition. However, the document said you have to define the same options for PassPipeline and pass a lambda function to assign the options. I thought that this requirement complicated code. I am open to using MLIR if someone know how to easily implement it and know its advantages.

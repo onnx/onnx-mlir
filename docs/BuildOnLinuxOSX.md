@@ -2,7 +2,7 @@
 
 # Installation of ONNX-MLIR on Linux / OSX
 
-We provide here directions to insall ONNX-MLIR on Linux and OSX. 
+We provide here directions to install ONNX-MLIR on Linux and OSX.
 On Mac, there are a couple of commands that are different. 
 These differences will be listed in the explanation below, when relevant.
 
