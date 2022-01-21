@@ -23,6 +23,13 @@ enum InputIRLevelType {
   LLVMLevel,
 };
 
+enum OptLevel {
+  O0 = 0,
+  O1,
+  O2,
+  O3
+};
+
 } // namespace onnx_mlir
 
 #endif

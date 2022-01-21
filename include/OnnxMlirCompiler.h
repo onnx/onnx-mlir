@@ -45,11 +45,13 @@ namespace onnx_mlir {
  *  @param mcpu Optional target CPU
  *  @param march Optional target architecture
  *  @param mtriple Optional target architecture
+ *  @param optLevel Optional optimization Level
  *  @return 0 on success or non-zero error code on failure
  */
 ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char *mcpu, const char *march, const char *mtriple,
+    const OptLevel *optLevel,
     const char **errorMessage);
 
 /*!
@@ -65,7 +67,9 @@ ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
  */
 ONNX_MLIR_EXPORT int omCompileFromArray(const void *inputBuffer, int bufferSize,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char *mcpu, const char *march, const char *mtriple);
+    const char *mcpu, const char *march, const char *mtriple,
+    const OptLevel *optLevel
+);
 
 } // namespace onnx_mlir
 

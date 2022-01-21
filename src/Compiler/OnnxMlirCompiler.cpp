@@ -22,7 +22,7 @@ namespace onnx_mlir {
 ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char *mcpu, const char *march, const char *mtriple,
-    const char **errorMessage) {
+    const OptLevel *optLevel, const char **errorMessage) {
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
 
@@ -38,7 +38,8 @@ ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
 
 ONNX_MLIR_EXPORT int omCompileFromArray(const void *inputBuffer, int bufferSize,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char *mcpu, const char *march, const char *mtriple) {
+    const char *mcpu, const char *march, const char *mtriple,
+    const OptLevel *optLevel) {
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
 
