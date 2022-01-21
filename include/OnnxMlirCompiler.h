@@ -43,12 +43,14 @@ namespace onnx_mlir {
  *  @param outputBaseName File name without extension to write output
  *  @param emissionTarget Target format to compile to
  *  @param mcpu Optional target CPU
+ *  @param march Optional target architecture
  *  @param mtriple Optional target architecture
  *  @return 0 on success or non-zero error code on failure
  */
 ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char *mcpu, const char *mtriple, const char **errorMessage);
+    const char *mcpu, const char *march, const char *mtriple,
+    const char **errorMessage);
 
 /*!
  *  Compile an onnx model from an ONNX protobuf array
@@ -57,12 +59,13 @@ ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
  *  @param outputBaseName File name without extension to write output
  *  @param emissionTarget Target format to compile to
  *  @param mcpu Optional target CPU
+ *  @param march Optional target architecture
  *  @param mtriple Optional compile target triple
  *  @return 0 on success or non-zero error code on failure
  */
 ONNX_MLIR_EXPORT int omCompileFromArray(const void *inputBuffer, int bufferSize,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char *mcpu, const char *mtriple);
+    const char *mcpu, const char *march, const char *mtriple);
 
 } // namespace onnx_mlir
 

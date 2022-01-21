@@ -75,7 +75,7 @@ This is a way to use existing node test for dynamic tensors. Since not all test 
 ### Tests with constant inputs
 
 Because the onnx node tests accepts input tensors at runtime, the inputs are not
-constants when compiling the onnx model. However, in pratice, inputs can be
+constants when compiling the onnx model. However, in practice, inputs can be
 constants and we want to test such a situation.
 
 Testing with constant inputs is most easily performed by using the following
@@ -160,7 +160,7 @@ run-onnx-lib test/backend/test_add.so
 
 ## LLVM FileCheck Tests
 
-We can test the functionality of one pass by giving intermdiate representation
+We can test the functionality of one pass by giving intermediate representation
 as input and checking the output IR with LLVM FileCheck utility.
 For example, we have a test case, test.mlir,  for shape inference.
 ```
@@ -180,7 +180,7 @@ module  {
 }
 ```
 Manually check whether the output is correct.
-If the output is correct, cover the ouput to what can be automatically checked
+If the output is correct, cover the output to what can be automatically checked
 in future. Use command:
 ```
 Debug/bin/onnx-mlir-opt --shape-inference test.mlir | python ../utils/mlir2FileCheck.py 
