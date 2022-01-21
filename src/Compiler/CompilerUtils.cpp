@@ -306,6 +306,25 @@ struct Command {
 void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
 void setTargetArch(const std::string &arch) { march = arch; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }
+void setOptLevel(const OptLevel level) { OptimizationLevel = level; }
+
+void setCompileContext(mlir::MLIRContext &context, const char *mcpu,
+    const char *march, const char *mtriple, const OptLevel *optLevel) {
+  if (mcpu)
+    setTargetCPU(std::string(mcpu));
+  if (march)
+    setTargetArch(std::string(march));
+  if (mtriple)
+    setTargetTriple(std::string(mtriple));
+  if (optLevel)
+    setOptLevel(*optLevel);
+  registerDialects(context);
+}
+
+void setCompileContext(
+    mlir::MLIRContext &context, const onnx_mlir::OptLevel optLevel) {
+  setCompileContext(context, nullptr, nullptr, nullptr, &optLevel);
+}
 
 static void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {

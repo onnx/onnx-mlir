@@ -22,6 +22,7 @@
 
 using namespace std;
 using namespace mlir;
+using namespace onnx_mlir;
 
 // Include some helper functions.
 #include "Helper.hpp"
@@ -149,7 +150,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   }
 
   MLIRContext ctx;
-  registerDialects(ctx);
+  setCompileContext(ctx, OptLevel::O3);
 
   int N1 = N;
   int C1 = C;

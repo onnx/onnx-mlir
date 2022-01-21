@@ -22,6 +22,7 @@
 
 using namespace std;
 using namespace mlir;
+using namespace onnx_mlir;
 
 // Include some helper functions.
 #include "Helper.hpp"
@@ -33,7 +34,7 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
     const int I, const int H, const int LinearBeforeReset,
     bool isDynamicS = false, bool isDynamicB = false) {
   MLIRContext ctx;
-  registerDialects(ctx);
+  setCompileContext(ctx, OptLevel::O3);
 
   int D = abs(direction);
 

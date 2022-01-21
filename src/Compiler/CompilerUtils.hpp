@@ -37,6 +37,15 @@ extern llvm::cl::opt<std::string> instrumentONNXOps;
 void setTargetCPU(const std::string &cpu);
 void setTargetArch(const std::string &arch);
 void setTargetTriple(const std::string &triple);
+void setOptLevel(const onnx_mlir::OptLevel level);
+// Set compile context to specific machine with specific opt level. Nullptr
+// corresponds to using the default value.
+void setCompileContext(mlir::MLIRContext &context, const char *mcpu,
+    const char *march, const char *mtriple,
+    const onnx_mlir::OptLevel *optLevel);
+// Same as above, only specify OptLevel (default is -O0).
+void setCompileContext(mlir::MLIRContext &context,
+    const onnx_mlir::OptLevel optLevel = onnx_mlir::OptLevel::O0);
 
 std::string compileModuleToObject(
     const mlir::OwningModuleRef &module, std::string outputBaseName);

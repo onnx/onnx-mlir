@@ -22,6 +22,7 @@
 
 using namespace std;
 using namespace mlir;
+using namespace onnx_mlir;
 
 // Include some helper functions.
 #include "Helper.hpp"
@@ -31,7 +32,7 @@ using namespace mlir;
 // parameters/configuration. Matmul: A[IxK] * B[KxJ] = C[IxJ]
 bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
   MLIRContext ctx;
-  registerDialects(ctx);
+  setCompileContext(ctx, OptLevel::O3);
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
 
