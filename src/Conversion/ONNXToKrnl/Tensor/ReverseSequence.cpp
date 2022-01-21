@@ -4,7 +4,7 @@
 
 //===----------------Gather.cpp - Lowering Gather Op----------------------=== //
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,8 +18,8 @@
 using namespace mlir;
 
 struct ONNXReverseSequenceOpLowering : public ConversionPattern {
-  ONNXReverseSequenceOpLowering(MLIRContext *ctx)
-      : ConversionPattern(
+  ONNXReverseSequenceOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
             mlir::ONNXReverseSequenceOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -127,7 +127,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXReverseSequenceOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXReverseSequenceOpLowering>(ctx);
+void populateLoweringONNXReverseSequenceOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXReverseSequenceOpLowering>(typeConverter, ctx);
 }

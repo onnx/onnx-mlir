@@ -4,7 +4,7 @@
 
 //===-------------------- Scan.cpp - Lowering Scan Op ---------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,8 +18,9 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 struct ONNXScanOpLowering : public ConversionPattern {
-  explicit ONNXScanOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXScanOp::getOperationName(), 1, ctx) {}
+  explicit ONNXScanOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXScanOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -329,7 +330,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXScanOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXScanOpLowering>(ctx);
+void populateLoweringONNXScanOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXScanOpLowering>(typeConverter, ctx);
 }

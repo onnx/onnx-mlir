@@ -4,6 +4,10 @@
 
 //===---------------- ArgMax.cpp - Lowering ArgMax Op -------------------===//
 //
+// Copyright 2021-2022 The IBM Research Authors.
+//
+// =============================================================================
+//
 // This file lowers the ONNX ArgMax Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
@@ -15,8 +19,9 @@
 using namespace mlir;
 
 struct ONNXArgMaxOpLowering : public ConversionPattern {
-  ONNXArgMaxOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXArgMaxOp::getOperationName(), 1, ctx) {}
+  ONNXArgMaxOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXArgMaxOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -139,7 +144,7 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXArgMaxOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXArgMaxOpLowering>(ctx);
+void populateLoweringONNXArgMaxOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXArgMaxOpLowering>(typeConverter, ctx);
 }
