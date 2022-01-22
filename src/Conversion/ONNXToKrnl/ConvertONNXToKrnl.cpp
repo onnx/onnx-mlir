@@ -133,8 +133,7 @@ struct FrontendToKrnlLoweringPass
   // constructor to make sure that the options are initialized properly.
   FrontendToKrnlLoweringPass() = default;
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass)
-      : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {
-  }
+      : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {}
   FrontendToKrnlLoweringPass(bool emitDealloc, bool disableTiling) {
     // Below, need explicit assignment to enable implicit conversion of bool to
     // Option<bool>.
@@ -143,8 +142,7 @@ struct FrontendToKrnlLoweringPass
   }
   FrontendToKrnlLoweringPass(int optLevel)
       : FrontendToKrnlLoweringPass(
-            /*emitDealloc=*/false, /*disableTiling=*/optLevel < 3) {
-  }
+            /*emitDealloc=*/false, /*disableTiling=*/optLevel < 3) {}
 
   void runOnOperation() final;
 
