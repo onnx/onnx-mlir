@@ -1,7 +1,7 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl='opt-level=0' --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O0 --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
 // -----
-// COM: 2D matmul.
+// COM: 2D matmul with no unrolling
 func private @test_matmul1(%arg0 : tensor<16x16xf32>, %arg1 : tensor<16x16xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<16x16xf32>, tensor<16x16xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()

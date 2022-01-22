@@ -11,7 +11,6 @@ namespace onnx_mlir {
 void initOMPasses(int optLevel) {
   // All passes implemented within onnx-mlir should register within this
   // function to make themselves available as a command-line option.
-  printf("hi alex: opt level in initOMPasses is %d\n", optLevel);
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createONNXOpTransformPass();
   });

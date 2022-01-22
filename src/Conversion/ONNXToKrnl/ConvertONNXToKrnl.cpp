@@ -131,27 +131,19 @@ struct FrontendToKrnlLoweringPass
 
   // Make sure that we have a valid default constructor and copy
   // constructor to make sure that the options are initialized properly.
-  FrontendToKrnlLoweringPass() //= default;
-  {
-    printf("hi alex: default inti\n");
-    assert(0);
-  }
+  FrontendToKrnlLoweringPass() = default;
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass)
       : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {
-    printf("hi alex: default copy\n");
   }
   FrontendToKrnlLoweringPass(bool emitDealloc, bool disableTiling) {
     // Below, need explicit assignment to enable implicit conversion of bool to
     // Option<bool>.
     this->emitDealloc = emitDealloc;
     this->disableTiling = disableTiling;
-    printf("hi alex, full init with emit dealloc %d / disable tiling %d",
-        (int)emitDealloc, (int)disableTiling);
   }
   FrontendToKrnlLoweringPass(int optLevel)
       : FrontendToKrnlLoweringPass(
             /*emitDealloc=*/false, /*disableTiling=*/optLevel < 3) {
-    printf("hi alex: init with optLevel %d\n", optLevel);
   }
 
   void runOnOperation() final;

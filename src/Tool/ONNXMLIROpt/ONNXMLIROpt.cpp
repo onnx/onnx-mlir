@@ -73,6 +73,21 @@ static llvm::cl::opt<OptLevel> OptimizationLevel(
         clEnumVal(O3, "Optimization level 3.")),
     llvm::cl::init(O0));
 
+void scanAndSetOptLevel(int argc, char **argv) {
+  // In decreasing order, so we pick the last one if there are many.
+  for (int i = argc - 1; i > 0; --i) {
+    std::string currStr(argv[i]);
+    if (currStr.find("-O") == 0) {
+      int num = atoi(&argv[i][2]); // Get the number starting 2 char down.
+      // Silently ignore out of bound opt levels.
+      if (num >= 0 && num <= 3) {
+        OptimizationLevel = (OptLevel)num;
+        return;
+      }
+    }
+  }
+}
+
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
   registry.insert<mlir::linalg::LinalgDialect>();
@@ -95,7 +110,8 @@ int main(int argc, char **argv) {
   registerStandardPasses();
 
   llvm::InitLLVM y(argc, argv);
-  printf("1) optimizationLevel in main is %d\n", (int) OptimizationLevel);
+  // Scan Opt Level manually now as it is needed for initializing the OM Passes.
+  scanAndSetOptLevel(argc, argv);
 
   initOMPasses(OptimizationLevel);
   initMLIRPasses();
@@ -108,7 +124,6 @@ int main(int argc, char **argv) {
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "ONNX-MLIR modular optimizer driver\n");
-   printf("2) optimizationLevel in main is %d\n", (int) OptimizationLevel);
 
   // Set up the input file.
   std::string error_message;

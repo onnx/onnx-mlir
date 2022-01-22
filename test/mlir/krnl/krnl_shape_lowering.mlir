@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --lower-krnl-shape %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --lower-krnl-shape %s -split-input-file | FileCheck %s
 
 func @test_krnl_shape_lowering(%arg0: memref<?x?xf32>) -> index {
   %c1 = arith.constant 1 : index
