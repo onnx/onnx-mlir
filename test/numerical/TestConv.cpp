@@ -22,6 +22,7 @@
 
 using namespace std;
 using namespace mlir;
+using namespace onnx_mlir;
 
 // Include some helper functions.
 #include "Helper.hpp"
@@ -149,7 +150,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   }
 
   MLIRContext ctx;
-  registerDialects(ctx);
+  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
 
   int N1 = N;
   int C1 = C;
@@ -290,7 +291,8 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
-  llvm::cl::ParseCommandLineOptions(argc, argv, "TestConv\n", nullptr, "TEST_ARGS");
+  llvm::cl::ParseCommandLineOptions(
+      argc, argv, "TestConv\n", nullptr, "TEST_ARGS");
 
   // Had to explicitly iterate over dynamic as otherwise the random algorithm
   // never got to testing the dynamic cases.

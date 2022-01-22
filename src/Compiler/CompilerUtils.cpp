@@ -108,7 +108,6 @@ static llvm::cl::opt<std::string> march("march",
     llvm::cl::value_desc("Target a specific architecture type"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
-enum OptLevel { O0, O1, O2, O3 };
 static llvm::cl::opt<OptLevel> OptimizationLevel(
     llvm::cl::desc("Optimization levels:"),
     llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default)."),
@@ -307,8 +306,49 @@ struct Command {
 void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
 void setTargetArch(const std::string &arch) { march = arch; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }
+void setOptLevel(const OptLevel level) { OptimizationLevel = level; }
 
-void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
+static void setCompilerKeyValue(const OptionKind key, const string val) {
+  switch (key) {
+  case OptionKind::TargetTriple:
+    setTargetTriple(val);
+    return;
+  case OptionKind::TargetArch:
+    setTargetArch(val);
+    return;
+  case OptionKind::TargetCPU:
+    setTargetCPU(val);
+    return;
+  case OptionKind::CompilerOptLevel:
+    int level = atoi(val.c_str());
+    assert(level >= 0 && level <= 3 && "expected an OptLevel in [0..3] range");
+    setOptLevel((OptLevel)level);
+    return;
+  }
+  // In case there are options that were added but are unknown here, just ignore
+  // them.
+}
+
+// Set compiler context using a list of key/value pairs.
+void setCompileContext(mlir::MLIRContext &context,
+    const SmallVector<pair<OptionKind, string>, 4> options) {
+  for (const auto &pair : options)
+    setCompilerKeyValue(pair.first, pair.second);
+  registerDialects(context);
+}
+
+// Set compiler context for legacy C interface.
+void setCompileContext(mlir::MLIRContext &context, const OptionKind *key,
+    const char **val, const int64_t num) {
+  assert((!num || (key && val)) && "expected key and val defined for options");
+  for (int64_t i = 0; i < num; ++i) {
+    assert(val[i] && "expected value for option");
+    setCompilerKeyValue(key[i], string(val[i]));
+  }
+  registerDialects(context);
+}
+
+void loadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {
   // Handle '.mlir' input to the ONNX-MLIR frontend.
   // The mlir format indicates that one or more of the supported
@@ -672,7 +712,7 @@ void processInputFile(string inputFilename, mlir::MLIRContext &context,
     ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
   } else if (inputIsMLIR)
-    LoadMLIR(inputFilename, context, module);
+    loadMLIR(inputFilename, context, module);
 }
 
 void processInputArray(const void *onnxBuffer, int bufferSize,
@@ -863,7 +903,7 @@ void setupModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
   if (keepFiles(KeepFilesOfType::MLIR)) {
     outputCode(module, outputBaseName, ".input.mlir");
     module.release();
-    LoadMLIR(outputBaseName + ".input.mlir", context, module);
+    loadMLIR(outputBaseName + ".input.mlir", context, module);
   }
 }
 
