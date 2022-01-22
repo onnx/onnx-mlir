@@ -22,6 +22,7 @@
 
 using namespace std;
 using namespace mlir;
+using namespace onnx_mlir;
 
 // Include some helper functions.
 #include "Helper.hpp"
@@ -33,7 +34,7 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
     const int I, const int H, const int LinearBeforeReset,
     bool isDynamicS = false, bool isDynamicB = false) {
   MLIRContext ctx;
-  registerDialects(ctx);
+  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
 
   int D = abs(direction);
 
@@ -302,7 +303,8 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
-  llvm::cl::ParseCommandLineOptions(argc, argv, "TestGRU\n", nullptr, "TEST_ARGS");
+  llvm::cl::ParseCommandLineOptions(
+      argc, argv, "TestGRU\n", nullptr, "TEST_ARGS");
 
   // RapidCheck test case generation.
   bool success = rc::check("GRU implementation correctness", []() {

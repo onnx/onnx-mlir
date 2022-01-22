@@ -24,6 +24,7 @@
 #include "mlir/Parser.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
+#include "llvm/ADT/SmallVector.h"
 
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 
@@ -39,8 +40,16 @@ extern llvm::cl::opt<std::string> instrumentONNXOps;
 void setTargetCPU(const std::string &cpu);
 void setTargetArch(const std::string &arch);
 void setTargetTriple(const std::string &triple);
+void setOptLevel(const onnx_mlir::OptLevel level);
+// Set compile context according to the (key, value) fields passed.
+void setCompileContext(mlir::MLIRContext &context,
+    const llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>
+        options);
+// Set compile context, legacy C array and string representation.
+void setCompileContext(mlir::MLIRContext &context,
+    const onnx_mlir::OptionKind *key, const char **val, const int64_t num);
 
-void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
+void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);
 
 std::string compileModuleToObject(
