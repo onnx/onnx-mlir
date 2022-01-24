@@ -360,7 +360,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       }
     });
 
-    if (!ONNXToKrnl_gDisableTiling && !DEBUG_OPTIMIZED_OFF) {
+    if (ONNXToKrnl_gEnableTiling && !DEBUG_OPTIMIZED_OFF) {
       tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, alpha, beta, rewriter, loc);
     } else {

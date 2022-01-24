@@ -77,13 +77,13 @@ void scanAndSetOptLevel(int argc, char **argv) {
   // In decreasing order, so we pick the last one if there are many.
   for (int i = argc - 1; i > 0; --i) {
     std::string currStr(argv[i]);
-    if (currStr.find("-O") == 0) {
-      int num = atoi(&argv[i][2]); // Get the number starting 2 char down.
-      // Silently ignore out of bound opt levels.
-      if (num >= 0 && num <= 3) {
-        OptimizationLevel = (OptLevel)num;
-        return;
-      }
+    if (currStr.find("-O") != 0)
+      continue;
+    int num = atoi(&argv[i][2]); // Get the number starting 2 char down.
+    // Silently ignore out of bound opt levels.
+    if (num >= 0 && num <= 3) {
+      OptimizationLevel = (OptLevel)num;
+      return;
     }
   }
 }

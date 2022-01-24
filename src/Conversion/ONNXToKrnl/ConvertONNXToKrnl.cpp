@@ -134,15 +134,15 @@ struct FrontendToKrnlLoweringPass
   FrontendToKrnlLoweringPass() = default;
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass)
       : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {}
-  FrontendToKrnlLoweringPass(bool emitDealloc, bool disableTiling) {
+  FrontendToKrnlLoweringPass(bool emitDealloc, bool enableTiling) {
     // Below, need explicit assignment to enable implicit conversion of bool to
     // Option<bool>.
     this->emitDealloc = emitDealloc;
-    this->disableTiling = disableTiling;
+    this->enableTiling = enableTiling;
   }
   FrontendToKrnlLoweringPass(int optLevel)
       : FrontendToKrnlLoweringPass(
-            /*emitDealloc=*/false, /*disableTiling=*/optLevel < 3) {}
+            /*emitDealloc=*/false, /*enableTiling=*/optLevel >= 3) {}
 
   void runOnOperation() final;
 
@@ -165,8 +165,8 @@ public:
   Option<bool> emitDealloc{*this, "emit-dealloc",
       llvm::cl::desc("Emit dealloc for allocated memrefs or not."),
       llvm::cl::init(false)};
-  Option<bool> disableTiling{*this, "no-tiling",
-      llvm::cl::desc("Disable loop tiling and unrolling optimizations"),
+  Option<bool> enableTiling{*this, "enable-tiling",
+      llvm::cl::desc("Enable loop tiling and unrolling optimizations"),
       llvm::cl::init(false)};
 };
 } // end anonymous namespace.
@@ -177,7 +177,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Set up whether emitting dealloc for allocated memrefs or not.
   ONNXToKrnl_gEmitDealloc = emitDealloc;
   // Set up the optimization.
-  ONNXToKrnl_gDisableTiling = disableTiling;
+  ONNXToKrnl_gEnableTiling = enableTiling;
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -270,7 +270,7 @@ std::unique_ptr<Pass> mlir::createLowerToKrnlPass(int optLevel) {
 }
 
 std::unique_ptr<Pass> mlir::createLowerToKrnlPass(
-    bool emitDealloc, bool disableTiling) {
+    bool emitDealloc, bool enableTiling) {
   return std::make_unique<FrontendToKrnlLoweringPass>(
-      emitDealloc, disableTiling);
+      emitDealloc, enableTiling);
 }

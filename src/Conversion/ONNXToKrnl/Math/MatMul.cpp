@@ -213,7 +213,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value A(operandAdaptor.A()), B(operandAdaptor.B());
     auto aRank = A.getType().cast<MemRefType>().getShape().size();
     auto bRank = B.getType().cast<MemRefType>().getShape().size();
-    if (!ONNXToKrnl_gDisableTiling && aRank == 2 && bRank == 2) {
+    if (ONNXToKrnl_gEnableTiling && aRank == 2 && bRank == 2) {
       // Optimized Matmul only when 2D and allowed to tile and unroll.
       replace2x2Matmul2d(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);

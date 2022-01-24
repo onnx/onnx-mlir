@@ -1,8 +1,8 @@
 #!/usr/local/bin/python3
 
-##################### common.py ################################################
+####################### test.py ################################################
 #
-# Copyright 2021 The IBM Research Authors.
+# Copyright 2021-2022 The IBM Research Authors.
 #
 ################################################################################
 # Reorganize backend testing into following modules:

@@ -48,7 +48,7 @@ extern bool ONNXToKrnl_gEmitDealloc;
 // A global variable to indicate the optimization level during the conversion of
 // ONNX to Krnl. At O3 or more, we do tiling, inlining, and simdization. Below
 // O3 we don't.
-extern bool ONNXToKrnl_gDisableTiling;
+extern bool ONNXToKrnl_gEnableTiling;
 
 //===----------------------------------------------------------------------===//
 // Extends OnnxBuilder with member functions that might generate Krnl dialect
