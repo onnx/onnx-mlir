@@ -22,6 +22,7 @@
 
 using namespace std;
 using namespace mlir;
+using namespace onnx_mlir;
 
 // Include some helper functions.
 #include "Helper.hpp"
@@ -33,7 +34,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
     const int B, const int I, const int H, bool isDynamicS = false,
     bool isDynamicB = false) {
   MLIRContext ctx;
-  registerDialects(ctx);
+  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
 
   int D = abs(direction);
   int S1 = S, B1 = B;
@@ -311,7 +312,8 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
-  llvm::cl::ParseCommandLineOptions(argc, argv, "TestLSTM\n", nullptr, "TEST_ARGS");
+  llvm::cl::ParseCommandLineOptions(
+      argc, argv, "TestLSTM\n", nullptr, "TEST_ARGS");
 
   // RapidCheck test case generation.
   bool success = rc::check("LSTM implementation correctness", []() {

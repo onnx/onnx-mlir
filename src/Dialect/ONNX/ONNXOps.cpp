@@ -2687,6 +2687,48 @@ LogicalResult ONNXConstantOp::inferShapes(
 // Concat
 //===----------------------------------------------------------------------===//
 
+static LogicalResult verify(ONNXConcatOp op) {
+  ONNXConcatOpAdaptor operandAdaptor(op);
+  // Check all inputs.
+  for (const auto &operand : operandAdaptor.getOperands()) {
+    if (!hasShapeAndRank(operand)) {
+      // Won't be able to do any checking at this stage.
+      return success();
+    }
+  }
+  // Checking value of axis parameter.
+  auto commonType =
+      operandAdaptor.getOperands().front().getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> commonShape = commonType.getShape();
+  int64_t commonRank = commonShape.size();
+  int64_t axisIndex = op.axis();
+  if (axisIndex < 0)
+    axisIndex = commonRank + axisIndex;
+  if (axisIndex >= commonRank)
+    return op->emitError("Concat axis value out of bound");
+
+  for (const auto &operand : operandAdaptor.getOperands()) {
+    ArrayRef<int64_t> currShape =
+        operand.getType().cast<RankedTensorType>().getShape();
+    if ((int64_t)currShape.size() != commonRank)
+      return op->emitError("Concat input must all have the same rank");
+    for (int j = 0; j < commonRank; ++j) {
+      if (j == axisIndex)
+        continue;
+      if (currShape[j] != -1 && commonShape[j] != -1 &&
+          currShape[j] != commonShape[j]) {
+        return op->emitError(
+                   "Concat input dimensions must be all identical, "
+                   "except for dimension on the axis of the "
+                   "concatenation. Expected something compatible with: ")
+               << commonType << " but got " << operand.getType() << " instead.";
+      }
+    }
+  }
+
+  return success();
+}
+
 LogicalResult ONNXConcatOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // The check of constraints is kept
@@ -2710,26 +2752,6 @@ LogicalResult ONNXConcatOp::inferShapes(
     auto builder = mlir::Builder(getContext());
     axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
         APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
-  }
-  if (axisIndex >= commonRank)
-    return emitError("Concat axis value out of bound");
-
-  for (int i = 1; i < inputNum; ++i) {
-    auto currShape =
-        getOperand(i).getType().cast<RankedTensorType>().getShape();
-    if ((int64_t)currShape.size() != commonRank)
-      return emitError("Concat input must all have the same rank");
-    for (int j = 0; j < commonRank; ++j) {
-      if (j == axisIndex) {
-      } else if (currShape[j] != -1 && commonShape[j] != -1 &&
-                 currShape[j] != commonShape[j]) {
-        return emitError("Concat input dimensions must be all identical, "
-                         "except for dimension on the axis of the "
-                         "concatenation. Expected something compatible with: ")
-               << commonType << " but got " << getOperand(i).getType()
-               << " instead.";
-      }
-    }
   }
 
   ONNXConcatOpAdaptor operandAdaptor(*this);
@@ -4738,23 +4760,23 @@ LogicalResult ONNXZipMapOp::inferShapes(
     return emitError(NOT_IMPLEMENTED_MESSAGE);                                 \
   }
 
-NOT_IMPLEMENTED_INFERSHAPE(ONNXAdagradOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXAdamOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXCeluOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXEinsumOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXGradientOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXMomentumOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXNegativeLogLikelihoodLossOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXSoftmaxCrossEntropyLossOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV9Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV11Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV11Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV10Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV6Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV11Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV12Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXAdagradOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXAdamOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXCeluOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXEinsumOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXGradientOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXMomentumOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXNegativeLogLikelihoodLossOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXSoftmaxCrossEntropyLossOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV9Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV11Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV11Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV10Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV6Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV11Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV12Op)
 
 //===----------------------------------------------------------------------===//
 // Loop

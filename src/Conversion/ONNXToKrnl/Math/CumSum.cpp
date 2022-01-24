@@ -4,7 +4,7 @@
 
 //===-------------- CumSum.cpp - Lowering CumSum Ops ----------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -54,8 +54,9 @@ static Value getLoopIndexByAxisAndOffset(MathBuilder &createMath,
 }
 
 struct ONNXCumSumOpLowering : public ConversionPattern {
-  ONNXCumSumOpLowering(MLIRContext *ctx)
-      : ConversionPattern(ONNXCumSumOp::getOperationName(), 1, ctx) {}
+  ONNXCumSumOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ONNXCumSumOp::getOperationName(), 1, ctx) {}
 
   /// We use a paralel algorithm for cumsum [1] as follows:
   /// Assume that input is x whose shape in [n,m], and axis for cumsum is 0.
@@ -244,7 +245,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXCumSumOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXCumSumOpLowering>(ctx);
+void populateLoweringONNXCumSumOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXCumSumOpLowering>(typeConverter, ctx);
 }

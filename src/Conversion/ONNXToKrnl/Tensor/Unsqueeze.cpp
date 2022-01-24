@@ -4,7 +4,7 @@
 
 //===--------------- Unsqueeze.cpp - Lowering Unsqueeze Op ----------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -40,8 +40,9 @@ LogicalResult ONNXUnsqueezeOpLoweringCommon(Operation *op,
 }
 
 struct ONNXUnsqueezeOpLowering : public ConversionPattern {
-  ONNXUnsqueezeOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXUnsqueezeOp::getOperationName(), 1, ctx) {}
+  ONNXUnsqueezeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXUnsqueezeOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -51,8 +52,8 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
 };
 
 struct ONNXUnsqueezeV11OpLowering : public ConversionPattern {
-  ONNXUnsqueezeV11OpLowering(MLIRContext *ctx)
-      : ConversionPattern(
+  ONNXUnsqueezeV11OpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
             mlir::ONNXUnsqueezeV11Op::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -63,12 +64,12 @@ struct ONNXUnsqueezeV11OpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXUnsqueezeOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXUnsqueezeOpLowering>(ctx);
+void populateLoweringONNXUnsqueezeOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXUnsqueezeOpLowering>(typeConverter, ctx);
 }
 
-void populateLoweringONNXUnsqueezeV11OpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXUnsqueezeV11OpLowering>(ctx);
+void populateLoweringONNXUnsqueezeV11OpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXUnsqueezeV11OpLowering>(typeConverter, ctx);
 }

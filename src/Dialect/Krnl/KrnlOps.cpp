@@ -467,16 +467,6 @@ void KrnlGetInductionVariableValueOp::build(::mlir::OpBuilder &odsBuilder,
 }
 
 //===----------------------------------------------------------------------===//
-// KrnlDummyCastOp
-//===----------------------------------------------------------------------===//
-
-void KrnlDummyCastOp::build(
-    OpBuilder &builder, OperationState &state, Value in, Type outType) {
-  state.operands.emplace_back(in);
-  state.types.emplace_back(outType);
-}
-
-//===----------------------------------------------------------------------===//
 // KrnlVectorTypeCastOp
 //===----------------------------------------------------------------------===//
 
