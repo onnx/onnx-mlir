@@ -22,6 +22,7 @@
 
 using namespace std;
 using namespace mlir;
+using namespace onnx_mlir;
 
 // Include some helper functions.
 #include "Helper.hpp"
@@ -60,7 +61,8 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
     const int aTrans, const int bTrans, const int cRank, const float alphaVal,
     const float betaVal) {
   MLIRContext ctx;
-  registerDialects(ctx);
+  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
+
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d%s%s, cRank %d, alpha %7.3f, beta "
          "%7.3f\n",
@@ -217,7 +219,8 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
 
-  llvm::cl::ParseCommandLineOptions(argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
+  llvm::cl::ParseCommandLineOptions(
+      argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
 
   if (true) {
     printf("RapidCheck test case generation.\n");
