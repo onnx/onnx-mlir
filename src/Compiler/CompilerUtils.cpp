@@ -53,7 +53,7 @@ static llvm::Optional<std::string> getEnvVar(std::string name) {
 static llvm::cl::opt<bool> invokeOnnxVersionConverter(
     "invokeOnnxVersionConverter",
     llvm::cl::desc(
-        "call onnx vesion converter to convert ONNX model to current version"),
+        "call onnx version converter to convert ONNX model to current version"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool> preserveLocations("preserveLocations",
@@ -79,7 +79,7 @@ static llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
 
 static llvm::cl::opt<int> repeatOnnxTransform("repeatOnnxTransform",
     llvm::cl::desc(
-        "invoke extra onnx transform pass(shape infernce, constant and etc.)"),
+        "invoke extra onnx transform pass(shape inference, constant and etc.)"),
     llvm::cl::init(0), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<string> shapeInformation("shapeInformation",
@@ -416,7 +416,7 @@ static void genLLVMBitcode(const mlir::OwningModuleRef &module,
 
   // Write bitcode to a file.
   string unoptimizedBitcodePath = outputBaseName + ".unoptimized.bc";
-  llvm::FileRemover unoptimzedBitcodeRemover(
+  llvm::FileRemover unoptimizedBitcodeRemover(
       unoptimizedBitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
 
   // outputBaseName might contain a directory, which must exist.
@@ -698,7 +698,7 @@ void processInputFile(string inputFilename, mlir::MLIRContext &context,
   bool inputIsMLIR = (extension == "mlir");
 
   if (!inputIsONNX && !inputIsMLIR) {
-    *errorMessage = "Invaid input file '" + inputFilename +
+    *errorMessage = "Invalid input file '" + inputFilename +
                     "': Either an ONNX model (.onnx), or an MLIR file (.mlir) "
                     "needs to be provided.";
     return;
