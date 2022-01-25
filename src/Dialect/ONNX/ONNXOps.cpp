@@ -4067,6 +4067,23 @@ LogicalResult ONNXRandomNormalOp::inferShapes(
   return success();
 }
 
+static LogicalResult verify(ONNXRandomNormalLikeOp op) {
+  ONNXRandomNormalLikeOpAdaptor operandAdaptor(op);
+  mlir::Value input = operandAdaptor.input();
+  if (!hasShapeAndRank(input))
+    return op->emitError("input tensor does not have shape or rank.");
+
+  auto elementTypeIDDType = operandAdaptor.dtype();
+  if (elementTypeIDDType) {
+    int64_t elementTypeID = elementTypeIDDType.getValue();
+    if (elementTypeID < 0 or elementTypeID > 2) {
+      return op->emitError("dtype not 0, 1 or 2.");
+    }
+  }
+
+  return success();
+}
+
 LogicalResult ONNXRandomNormalLikeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!input().getType().isa<RankedTensorType>())
@@ -4092,8 +4109,7 @@ LogicalResult ONNXRandomNormalLikeOp::inferShapes(
       outputTensorType =
           RankedTensorType::get(outputShape, FloatType::getF64(getContext()));
     else
-      return emitError(
-          "Random normal like dtype attribute is invalid (use: 0, 1 or 2)");
+      return emitError("dtype attribute is invalid (use: 0, 1 or 2)");
     getResult().setType(outputTensorType);
   }
   return success();
