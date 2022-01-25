@@ -1556,13 +1556,13 @@ public:
     sizes.reserve(targetType.getRank());
     for (unsigned pos = 0, e = targetType.getRank() - 1; pos < e; ++pos) {
       int64_t dimSize = targetType.getDimSize(pos);
-      if (dimSize == MemRefType::kDynamicSize)
+      if (ShapedType::isDynamic(dimSize))
         sizes.push_back(srcMemRefDesc.size(rewriter, loc, pos));
       else
         sizes.push_back(createIndexConstant(rewriter, loc, dimSize));
     }
 
-    if (targetType.getShape().back() != MemRefType::kDynamicSize) {
+    if (!ShapedType::isDynamic(targetType.getShape().back())) {
       // The op is already verified to have the right size for the last
       // dimension.
       sizes.push_back(

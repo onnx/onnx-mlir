@@ -2473,3 +2473,31 @@ func @test_seqence_3(%arg0: tensor<2x4x8xf32>, %arg1: tensor<3x6xf32>) -> !onnx.
 // CHECK:           [[VAR_2_:%.+]] = "onnx.SequenceInsert"([[VAR_1_]], [[PARAM_1_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<2x4x8xf32>>, tensor<3x6xf32>, none) -> !onnx.Seq<tensor<*xf32>>
 // CHECK:           return [[VAR_2_]] : !onnx.Seq<tensor<*xf32>>
 }
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for RoiAlign.
+//===----------------------------------------------------------------------===//
+func @test_roialign(%arg0: tensor<1x2x4x8xf32>, %arg1: tensor<100x4xf32>, %arg2: tensor<100xi64>) -> tensor<*xf32> {
+  %0 = "onnx.RoiAlign"(%arg0, %arg1, %arg2) {output_height = 7 : si64, output_width = 7 : si64, sampling_ratio = 2 : si64, spatial_scale = 1.000000e+00 : f32} : (tensor<1x2x4x8xf32>, tensor<100x4xf32>, tensor<100xi64>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+  
+  // CHECK-LABEL: func @test_roialign
+  // CHECK: [[RES:%.+]] = "onnx.RoiAlign"(%arg0, %arg1, %arg2) {output_height = 7 : si64, output_width = 7 : si64, sampling_ratio = 2 : si64, spatial_scale = 1.000000e+00 : f32} : (tensor<1x2x4x8xf32>, tensor<100x4xf32>, tensor<100xi64>) -> tensor<100x2x7x7xf32>
+  // CHECK: return [[RES]] : tensor<100x2x7x7xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for ScatterElements.
+//===----------------------------------------------------------------------===//
+func @test_scatterelements(%arg0: tensor<64x25600xf32>, %arg1: tensor<64x100xi64>, %arg2: tensor<64x100xf32>) -> tensor<*xf32> {
+  %0 = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<64x25600xf32>, tensor<64x100xi64>, tensor<64x100xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+  
+  // CHECK-LABEL: func @test_scatterelements
+  // CHECK: [[RES:%.+]] = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<64x25600xf32>, tensor<64x100xi64>, tensor<64x100xf32>) -> tensor<64x25600xf32>
+  // CHECK: return [[RES]] : tensor<64x25600xf32>
+}
