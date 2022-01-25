@@ -30,7 +30,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   // Handle the generic cases, including when there are broadcasts.
   void replaceGenericMatmul(ONNXMatMulOp &matMulOp,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
-      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value fzero,
+      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value fZero,
       ConversionPatternRewriter &rewriter, Location loc) const {
 
     // Define loops and bounds.
@@ -59,7 +59,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           // Single scalar, no need for default alignment.
           Value reductionVal =
               create.mem.alignedAlloca(MemRefType::get({}, elementType));
-          create.krnl.store(fzero, reductionVal);
+          create.krnl.store(fZero, reductionVal);
           // Inner loop for reduction.
           create.krnl.iterate({}, innerLoop, {}, {},
               [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
