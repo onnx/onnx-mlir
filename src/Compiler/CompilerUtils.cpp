@@ -30,9 +30,16 @@
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Support/OMOptions.hpp"
 
+#include "../../../torch-mlir/include/torch-mlir/Dialect/Torch/IR/TorchDialect.h"
+#include "../../../torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
+
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
+
+using namespace mlir::torch;
+using namespace mlir::torch::Torch;
+
 
 llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX-MLIR Options", "These are frontend options.");
@@ -570,6 +577,8 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
   context.getOrLoadDialect<mlir::ONNXOpsDialect>();
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
+  context.getOrLoadDialect<mlir::torch::Torch::TorchDialect>();
+  context.getOrLoadDialect<mlir::torch::TorchConversion::TorchConversionDialect>();
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
@@ -585,6 +594,12 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   // this function.
 
   pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
+  //pm.addNestedPass<FuncOp>(mlir::createONNXSampleOpTransformPass());
+  //pm.addNestedPass<FuncOp>(mlir::createONNXLeakyReluOpTransformPass());
+  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenLeakyReluOpTransformPass());
+  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenMaxPool2dOpTransformPass());
+  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConv2DOpTransformPass());
+
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createShapeInferencePass());

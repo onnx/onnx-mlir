@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# add subdir here 
+#
+add_subdirectory(sampleaten)
+
 add_onnx_mlir_library(OMElideConstants
   ElideConstants.cpp
 
