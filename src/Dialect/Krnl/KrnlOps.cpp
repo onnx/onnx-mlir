@@ -539,8 +539,7 @@ bool KrnlVectorTypeCastOp::areCastCompatible(Type a, Type b) {
   if (lastDimA * lastDimB < 0)
     return false;
 
-  if (lastDimA != MemRefType::kDynamicSize &&
-      lastDimB != MemRefType::kDynamicSize &&
+  if (!ShapedType::isDynamic(lastDimA) && !ShapedType::isDynamic(lastDimB) &&
       lastDimA / shapedEltTypeB.getNumElements() != lastDimB)
     return false;
 
