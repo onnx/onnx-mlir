@@ -4239,7 +4239,35 @@ LogicalResult ONNXReduceSumSquareOp::inferShapes(
 
 LogicalResult ONNXRoiAlignOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Cannot infer shape if no shape exists.
+  if (!X().getType().isa<RankedTensorType>() ||
+      !batch_indices().getType().isa<RankedTensorType>())
+    return success();
+
+  return shapeHelperInferShapes<ONNXRoiAlignOpShapeHelper, ONNXRoiAlignOp,
+      ONNXRoiAlignOpAdaptor>(this, X());
+}
+
+static LogicalResult verify(ONNXRoiAlignOp op) {
+  ONNXRoiAlignOpAdaptor operandAdaptor = ONNXRoiAlignOpAdaptor(op);
+  // get input info.
+  mlir::Value X = operandAdaptor.X();
+  mlir::Value batch_indices = operandAdaptor.batch_indices();
+
+  if (!hasShapeAndRank(X) || !hasShapeAndRank(batch_indices))
+    return success();
+
+  int64_t x_rank = X.getType().cast<mlir::ShapedType>().getRank();
+  int64_t batch_indices_rank =
+      batch_indices.getType().cast<mlir::ShapedType>().getRank();
+
+  // Test ranks.
+  if (x_rank != 4)
+    return op->emitError("RoiAlign with X should be a 4D tensor");
+  if (batch_indices_rank != 1)
+    return op->emitError("RoiAlign with batch_indices should be a 1D tensor");
+
+  return success();
 }
 
 LogicalResult ONNXRoundOp::inferShapes(
@@ -4357,9 +4385,47 @@ LogicalResult ONNXScatterOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXScatterElementsOp op) {
+  ONNXScatterElementsOpAdaptor operandAdaptor(op);
+  // Get operands.
+  mlir::Value data = operandAdaptor.data();
+  mlir::Value indices = operandAdaptor.indices();
+  mlir::Value updates = operandAdaptor.updates();
+
+  // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(data) || !hasShapeAndRank(indices) ||
+      !hasShapeAndRank(updates))
+    return success();
+
+  int64_t data_rank = data.getType().cast<mlir::ShapedType>().getRank();
+  int64_t indices_rank = indices.getType().cast<mlir::ShapedType>().getRank();
+  int64_t updates_rank = updates.getType().cast<mlir::ShapedType>().getRank();
+  int64_t axis = op.axis();
+
+  if (data_rank < 1)
+    return op->emitError("data rank should >= 1");
+  if (indices_rank < 1)
+    return op->emitError("indices rank should >= 1");
+  if (updates_rank < 1)
+    return op->emitError("updates rank rank should >= 1");
+  if (data_rank != indices_rank || data_rank != updates_rank ||
+      indices_rank != updates_rank) {
+    return op->emitError("data, indices, updates rank should equal");
+  }
+
+  if (axis >= data_rank || axis < 0)
+    return op->emitError("axis value out of bound");
+
+  return success();
+}
+
 LogicalResult ONNXScatterElementsOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!data().getType().isa<mlir::RankedTensorType>())
+    return success();
+
+  getResult().setType(data().getType());
+  return success();
 }
 
 static LogicalResult verify(ONNXScatterNDOp op) {

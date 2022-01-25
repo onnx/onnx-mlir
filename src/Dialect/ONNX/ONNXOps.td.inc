@@ -4804,6 +4804,7 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXRoundOp:ONNX_Op<"Round",
@@ -5143,6 +5144,7 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXScatterNDOp:ONNX_Op<"ScatterND",
