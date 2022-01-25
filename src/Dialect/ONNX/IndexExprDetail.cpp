@@ -61,7 +61,7 @@ static bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
   // From lib/Dialect/LinAlg/Transform/Promotion.cpp
   if (auto constantOp = value.getDefiningOp<arith::ConstantOp>()) {
     if (constantOp.getType().isa<IndexType>())
-      intLit = constantOp.value().cast<IntegerAttr>().getInt();
+      intLit = constantOp.getValue().cast<IntegerAttr>().getInt();
     return true;
   }
   // Since ConsantIndexOp is a subclass of ConstantOp, not sure if this one is
@@ -83,7 +83,7 @@ void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
   // we might consider checking.
   assert(val != nullptr && "expected a defined value");
   // Do we have a literal integer, if we do, handle it now.
-  int64_t valIntLit;
+  int64_t valIntLit = 0;
   if (getIntegerLiteralFromValue(val, valIntLit)) {
     // We have an integer. No need for symbol or dim. It is by default affine.
     // Ignore the predicate type as we treat all literal int as untyped.
@@ -227,7 +227,7 @@ bool IndexExprImpl::hasValue() const {
 IndexExprScope &IndexExprImpl::getScope() const {
   assert(hasScope());
   return *scope;
-};
+}
 
 IndexExprScope *IndexExprImpl::getScopePtr() const {
   assert(scope && "expected to have scope");

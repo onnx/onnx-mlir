@@ -4,7 +4,7 @@
 
 //===----------- Normalization.cpp - Lowering Normalization Ops -----------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,8 +18,9 @@ using namespace mlir;
 
 struct ONNXBatchNormalizationInferenceModeOpLowering
     : public ConversionPattern {
-  ONNXBatchNormalizationInferenceModeOpLowering(MLIRContext *ctx)
-      : ConversionPattern(
+  ONNXBatchNormalizationInferenceModeOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
             mlir::ONNXBatchNormalizationInferenceModeOp::getOperationName(), 1,
             ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -138,9 +139,9 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
 };
 
 struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
-
-  ONNXInstanceNormalizationOpLowering(MLIRContext *ctx)
-      : ConversionPattern(
+  ONNXInstanceNormalizationOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
             mlir::ONNXInstanceNormalizationOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -284,8 +285,9 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXNormalizationOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXBatchNormalizationInferenceModeOpLowering>(ctx);
-  patterns.insert<ONNXInstanceNormalizationOpLowering>(ctx);
+void populateLoweringONNXNormalizationOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXBatchNormalizationInferenceModeOpLowering>(
+      typeConverter, ctx);
+  patterns.insert<ONNXInstanceNormalizationOpLowering>(typeConverter, ctx);
 }

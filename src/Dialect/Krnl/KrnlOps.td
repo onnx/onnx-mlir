@@ -2,7 +2,7 @@
 
 //===------------------ KrnlOps.td - MLIR Operations ---------*- tablegen -===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -21,6 +21,7 @@ include "mlir/IR/OpBase.td"
 include "mlir/Dialect/Shape/IR/ShapeBase.td"
 include "mlir/Interfaces/LoopLikeInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/Interfaces/ViewLikeInterface.td"
 include "src/Interface/SpecializedKernelOpInterface.td"
 
 def Krnl_Dialect : Dialect {
@@ -373,26 +374,6 @@ def KrnlShapeOp : Op<Krnl_Dialect, "shape", [MemRefsNormalizable]> {
   let printer = ?;
 }
 
-def KrnlDummyCastOp : Op<Krnl_Dialect, "dummy_cast", [MemRefsNormalizable]> {
-  let summary = "A dummy Krnl operation to perform type casting.";
-  let hasCanonicalizer = 1;
-
-  let description = [{
-    Krnl operation to perform dummy type casting to remove the type
-    dependencies existing between lowering of multiple IR objects.
-  }];
-
-  let builders = [ OpBuilder<(ins "Value":$in, "Type":$outType)> ];
-
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$in);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$out);
-
-  let assemblyFormat = [{
-          $in attr-dict `:` functional-type($in, results)
-  }];
-}
-
-
 def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
   let summary = "Krnl erf scalar operation";
   let description = [{
@@ -629,7 +610,8 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
 
 // =============================================================================
 
-def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect, MemRefsNormalizable]> {
+def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect,
+    MemRefsNormalizable, ViewLikeOpInterface]> {
   let summary = "vector type cast operation";
   let description = [{
     The "vector_type_cast" operation converts a memref from an non-vector
@@ -657,6 +639,9 @@ def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect, M
 
     /// The result of a vector_type_cast is always a memref.
     MemRefType getType() { return getResult().getType().cast<MemRefType>(); }
+
+    /// Return the view source.
+    Value getViewSource() { return source(); }
   }];
 
   let hasFolder = 1;

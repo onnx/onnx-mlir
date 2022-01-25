@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- Passes.hpp - ONNX MLIR Passes Definition ------------------===//
+//===---------- Passes.hpp - ONNX-MLIR Passes Definition ------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file exposes the entry points to create compiler passes for ONNX MLIR.
+// This file exposes the entry points to create compiler passes for ONNX-MLIR.
 //
 //===----------------------------------------------------------------------===//
 
@@ -25,6 +25,13 @@ std::unique_ptr<Pass> createONNXOpTransformPass(int threshold);
 
 /// Pass for rewriting inside frontend dialect.
 std::unique_ptr<Pass> createDecomposeONNXToONNXPass();
+
+/// pass for ONNX to Leaky relu
+std::unique_ptr<Pass> createONNXToAtenLeakyReluOpTransformPass();
+std::unique_ptr<Pass> createONNXToAtenMaxPool2dOpTransformPass();
+
+/// Pass for ONNX to Aten conv2d operation
+std::unique_ptr<Pass> createONNXToAtenConv2DOpTransformPass();
 
 std::unique_ptr<Pass> createShapeInferencePass(
     bool analyzeAllFunctions = false);

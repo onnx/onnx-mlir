@@ -97,11 +97,11 @@ Value MathBuilder::min(Value lhs, Value rhs) const {
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     // Test for unsigned as signless are treated as signed.
     if (lhs.getType().isUnsignedInteger())
-      return b.create<MinUIOp>(loc, lhs, rhs);
+      return b.create<arith::MinUIOp>(loc, lhs, rhs);
     else
-      return b.create<MinSIOp>(loc, lhs, rhs);
+      return b.create<arith::MinSIOp>(loc, lhs, rhs);
   else
-    return b.create<MinFOp>(loc, lhs, rhs);
+    return b.create<arith::MinFOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::max(Value lhs, Value rhs) const {
@@ -109,11 +109,11 @@ Value MathBuilder::max(Value lhs, Value rhs) const {
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
     // Test for unsigned as signless are treated as signed.
     if (lhs.getType().isUnsignedInteger())
-      return b.create<MaxUIOp>(loc, lhs, rhs);
+      return b.create<arith::MaxUIOp>(loc, lhs, rhs);
     else
-      return b.create<MaxSIOp>(loc, lhs, rhs);
+      return b.create<arith::MaxSIOp>(loc, lhs, rhs);
   else
-    return b.create<MaxFOp>(loc, lhs, rhs);
+    return b.create<arith::MaxFOp>(loc, lhs, rhs);
 }
 
 Value MathBuilder::sgt(Value lhs, Value rhs) const {
@@ -234,10 +234,10 @@ Value MathBuilder::cast(Type destType, Value src) const {
   // Only support Integer or Float type at this stage. Index were transformed to
   // signless int.
   // TODO: add support for shaped tensor (MemRef, Vector, Tensor?) if needed.
-  assert(srcType.isa<IntegerType>() ||
-         srcType.isa<FloatType>() && "support only float or int");
-  assert(destType.isa<IntegerType>() ||
-         destType.isa<FloatType>() && "support only float or int");
+  assert((srcType.isa<IntegerType>() || srcType.isa<FloatType>()) &&
+         "support only float or int");
+  assert((destType.isa<IntegerType>() || destType.isa<FloatType>()) &&
+         "support only float or int");
   // Get source and dest type width.
   int64_t srcWidth = srcType.getIntOrFloatBitWidth();
   int64_t destWidth = destType.getIntOrFloatBitWidth();
@@ -392,6 +392,11 @@ memref::CastOp MemRefBuilder::cast(Value input, MemRefType outputType) const {
 }
 
 Value MemRefBuilder::dim(Value val, int64_t index) const {
+  assert((val.getType().isa<MemRefType>() ||
+             val.getType().isa<UnrankedMemRefType>()) &&
+         "memref::DimOp expects input operand to have MemRefType or "
+         "UnrankedMemRefType");
+  assert(index >= 0 && "Expecting a valid index");
   Value i = b.create<arith::ConstantIndexOp>(loc, index);
   return b.createOrFold<memref::DimOp>(loc, val, i);
 }

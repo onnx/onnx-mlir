@@ -4,7 +4,7 @@
 
 //===--------------------------- main.cpp ---------------------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -36,20 +36,19 @@ int main(int argc, char *argv[]) {
               "inferred shapes."),
           clEnumVal(
               EmitONNXIR, "Ingest ONNX and emit corresponding ONNX dialect."),
+          clEnumVal(EmitMLIR,
+              "Lower the input to MLIR built-in transformation dialect."),
           clEnumVal(
-              EmitMLIR, "Lower model to MLIR built-in transformation dialect."),
-          clEnumVal(EmitLLVMIR, "Lower model to LLVM IR (LLVM dialect)."),
-          clEnumVal(EmitLib, "Lower model to LLVM IR, emit (to file) "
-                             "LLVM bitcode for model, compile and link it to a "
-                             "shared library."),
-          clEnumVal(EmitJNI, "Lower model to LLVM IR -> LLVM bitcode "
-                             "-> JNI shared library -> jar")),
+              EmitLLVMIR, "Lower the input to LLVM IR (LLVM MLIR dialect)."),
+          clEnumVal(EmitObj, "Compile the input into a object file."),
+          clEnumVal(
+              EmitLib, "Compile the input into a shared library (default)."),
+          clEnumVal(EmitJNI, "Compile the input into a jar file.")),
       llvm::cl::init(EmitLib), llvm::cl::cat(OnnxMlirOptions));
 
-  // llvm::cl::HideUnrelatedOptions(OnnxMlirOptions);
   mlir::registerPassManagerCLOptions();
   llvm::cl::ParseCommandLineOptions(
-      argc, argv, "ONNX MLIR modular optimizer driver\n");
+      argc, argv, "ONNX-MLIR modular optimizer driver\n");
 
   mlir::OwningModuleRef module;
   std::string errorMessage;

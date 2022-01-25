@@ -16,7 +16,7 @@ To invoke the test, use the following command:
 ```
 cmake --build . --config Release --target check-onnx-backend[-jni]
 ``` 
-Packages, such as third_party/onnx, needs to be installed to run the backend test. JNI test requires the jsoniter jar which is downloaed from maven repository by default if no installed version is found on the system. If the user turns on the cmake option `ONNX_MLIR_BUILD_JSONITER` when building ONNX-MLIR, the jsoniter jar will be built locally from the source cloned from its github repository. Note that building jsoniter jar locally requires maven build tool to be installed.
+Packages, such as third_party/onnx, needs to be installed to run the backend test. JNI test requires the jsoniter jar which is downloaded from its maven repository by default if no installed version is found on the system. If the user turns on the cmake option `ONNX_MLIR_BUILD_JSONITER` when building ONNX-MLIR, the jsoniter jar will be built locally from the source cloned from its github repository. Note that building jsoniter jar locally requires the maven build tool to be installed.
 
 The node and model tests in onnx that will be run by check-onnx-backend is defined by variable test_to_enable in test/backend/test.py. User can test one test case by environment variable `TEST_CASE_BY_USER`. For example,
 ```
@@ -96,6 +96,14 @@ The environment variable `IMPORTER_FORCE_CONSTANT` is a list of indices
 separated by `,` (starting from 0, or -1 for all input indices), e.g. `0, 2, 3`
 or `-1`.
 
+### Input Signature tests
+
+Testing input signature of an onnx models with a variety of data type by using the following command, also used by our checkers.
+
+```
+cmake --build . --config Release --target check-onnx-backend-signature
+```
+
 ### Enable SIMD instructions
 
 On supported platforms, currently s390x only, backend tests can generate SIMD instructions for the compiled models. To enable SIMD, set the TEST_MCPU environment variable, e.g.,
@@ -152,7 +160,44 @@ run-onnx-lib test/backend/test_add.so
 
 ## LLVM FileCheck Tests
 
-TODO.
+We can test the functionality of one pass by giving intermdiate representation
+as input and checking the output IR with LLVM FileCheck utility.
+For example, we have a test case, test.mlir,  for shape inference.
+```
+func @test_default_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+```
+
+You can run the shape inference pass  on this test case, and get the following 
+output:
+```
+module  {
+  func @test_default_transpose(%arg0: tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32> {
+    %0 = "onnx.Transpose"(%arg0) {perm = [3, 2, 1, 0]} : (tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32>
+    return %0 : tensor<32x1x5x5xf32>
+  }
+}
+```
+Manually check whether the output is correct.
+If the output is correct, cover the ouput to what can be automatically checked
+in future. Use command:
+```
+Debug/bin/onnx-mlir-opt --shape-inference test.mlir | python ../utils/mlir2FileCheck.py 
+```
+You will get the following:
+```
+// mlir2FileCheck.py
+// CHECK-LABEL:  func @test_default_transpose
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [3, 2, 1, 0]} : (tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32>
+// CHECK:           return [[VAR_0_]] : tensor<32x1x5x5xf32>
+// CHECK:         }
+```
+Combine the source and the check code and add to the adequate test cases. 
+All the test cases for onnx dialect are collected under test/mlir/onnx directory.
+These test cases can be invoked with `make check-onnx-lit`. 
+This target is an essential requirement for a build.
 
 ## Numerical Tests
 

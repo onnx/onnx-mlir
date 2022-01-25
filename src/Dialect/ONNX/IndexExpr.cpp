@@ -44,7 +44,7 @@ IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
 }
 
 IndexExprScope::IndexExprScope(DialectBuilder &db)
-    : IndexExprScope(&db.getBuilder(), db.getLoc()){};
+    : IndexExprScope(&db.getBuilder(), db.getLoc()) {}
 
 // Nested scopes.
 IndexExprScope::IndexExprScope(
@@ -1475,7 +1475,7 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
       // Has no default: error
       return UndefinedIndexExpr();
     }
-    auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
+    auto attrVal = attrArray.getValues<Attribute>()[ArrayRef<uint64_t>({i})];
     int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
     return LiteralIndexExpr(attrInt);
   }
@@ -1629,9 +1629,10 @@ void MemRefBoundsIndexCapture::getLiteralList(
 template <class INDEX>
 IndexExpr MemRefBoundsIndexCapture::get(uint64_t i) {
   assert(tensorOrMemref && "Expected defined tensor or memref");
-  ArrayRef<int64_t> shape =
-      tensorOrMemref.getType().cast<ShapedType>().getShape();
   assert(i < memRank && "index out of bound");
+
+  Type type = tensorOrMemref.getType();
+  ArrayRef<int64_t> shape = type.cast<ShapedType>().getShape();
   if (shape[i] >= 0) {
     // We have a constant dimension.
     int64_t intVal = shape[i];
@@ -1643,8 +1644,9 @@ IndexExpr MemRefBoundsIndexCapture::get(uint64_t i) {
     // Not a constant; don't add code.
     return QuestionmarkIndexExpr();
   }
-  Value dynVal = scope.getRewriter().create<memref::DimOp>(
-      scope.getLoc(), tensorOrMemref, i);
+
+  MemRefBuilder createMemRef(scope.getRewriter(), scope.getLoc());
+  Value dynVal = createMemRef.dim(tensorOrMemref, i);
   return INDEX(dynVal);
 }
 

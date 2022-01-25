@@ -4,7 +4,7 @@
 
 //===---------------- Elementwise.cpp - Elementwise Ops -------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -856,12 +856,23 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOp>
 struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
-  ONNXElementwiseUnaryOpLowering(MLIRContext *ctx)
-      : ConversionPattern(ElementwiseUnaryOp::getOperationName(), 1, ctx) {}
+  ONNXElementwiseUnaryOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ElementwiseUnaryOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = ONNXLoc<ElementwiseUnaryOp>(op);
     auto X = operands[0];
+
+    // If type is scalar or vector, there is no need to allocate a buffer. Just
+    // call scalar computation and return the result. This is efficient when
+    // elementwise ops are used as activations for ops like LSTM/GRU/RNN.
+    if (!X.getType().isa<TensorType>() && !X.getType().isa<MemRefType>()) {
+      Value res = emitScalarOpFor<ElementwiseUnaryOp>(
+          rewriter, loc, op, X.getType(), {X});
+      rewriter.replaceOp(op, res);
+      return success();
+    }
 
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
@@ -910,9 +921,10 @@ template <typename ElementwiseBinaryOp>
 struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
   bool isUniBroadcasting = false;
 
-  ONNXElementwiseBinaryOpLowering(
+  ONNXElementwiseBinaryOpLowering(TypeConverter &typeConverter,
       MLIRContext *ctx, bool isUniBroadcasting = false)
-      : ConversionPattern(ElementwiseBinaryOp::getOperationName(), 1, ctx) {
+      : ConversionPattern(
+            typeConverter, ElementwiseBinaryOp::getOperationName(), 1, ctx) {
     this->isUniBroadcasting = isUniBroadcasting;
   }
 
@@ -988,8 +1000,10 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseVariadicOp>
 struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
-  ONNXElementwiseVariadicOpLowering(MLIRContext *ctx)
-      : ConversionPattern(ElementwiseVariadicOp::getOperationName(), 1, ctx) {}
+  ONNXElementwiseVariadicOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ElementwiseVariadicOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc =
@@ -1071,8 +1085,9 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 // where op lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 struct ONNXWhereOpLowering : public ConversionPattern {
-  ONNXWhereOpLowering(MLIRContext *ctx)
-      : ConversionPattern(ONNXWhereOp::getOperationName(), 1, ctx) {}
+  ONNXWhereOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ONNXWhereOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -1145,8 +1160,8 @@ struct ONNXWhereOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXElementwiseOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
+void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
@@ -1197,7 +1212,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>, ONNXWhereOpLowering,
-      ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
+      ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(typeConverter, ctx);
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
-      ctx, /*isUniBroadcasting=*/true);
+      typeConverter, ctx, /*isUniBroadcasting=*/true);
 }

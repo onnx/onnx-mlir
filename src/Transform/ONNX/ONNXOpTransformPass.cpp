@@ -21,7 +21,9 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
 #include "mlir/Support/FileUtilities.h"
+#include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/ToolOutputFile.h"
@@ -58,7 +60,9 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
       llvm::cl::init(3)};
 
   ONNXOpTransformPass() = default;
-  ONNXOpTransformPass(const ONNXOpTransformPass &pass) {}
+  ONNXOpTransformPass(const ONNXOpTransformPass &pass)
+      : mlir::PassWrapper<ONNXOpTransformPass,
+            OperationPass<mlir::ModuleOp>>() {}
   ONNXOpTransformPass(int threshold_) {
     this->onnxOpTransformThreshold = threshold_;
   }
@@ -104,8 +108,8 @@ private:
     strcpy(tempFile, "onnxtempdumpXXXXXX");
     _mktemp(tempFile);
 #else
-    strcpy(tempFile, "onnxtempdumpXXXXXX");
-    mkstemp(tempFile);
+    strcpy(tempFile, "/tmp/onnxtempdumpXXXXXX");
+    (void)mkstemp(tempFile);
 #endif
     outputCode(module, tempFile);
     uint64_t r = hashFile(tempFile);

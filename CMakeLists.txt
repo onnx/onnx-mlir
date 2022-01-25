@@ -5,10 +5,17 @@ cmake_minimum_required(VERSION 3.13.4)
 
 project(onnx-mlir)
 
-option(ONNX_MLIR_BUILD_TESTS "Build ONNX MLIR test executables. If OFF, just generate build targets." ON)
+option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables. If OFF, just generate build targets." ON)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 
+# On systems that still have legacy lib64 directories (e.g., rhel/fedora,
+# etc.), by default some components (e.g., cmake) install into lib while
+# others (e.g., python) install into lib64.
+# This causes trouble when we try to figure out the runtime directory in
+# CompilerUtils.cpp::getRuntimeDir(). So we explicitly set CMAKE_INSTALL_LIBDIR
+# to install into lib on all systems so we don't have to deal with lib64.
 set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_INSTALL_LIBDIR lib)
 
 if (NOT CMAKE_BUILD_TYPE)
   message(STATUS "No build type selected, default to Debug")
@@ -49,6 +56,7 @@ if (WIN32)
   # installed on the machine.
   set(Python3_FIND_REGISTRY NEVER)
 endif()
+
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
 # Don't require AWT to allow headless JDK to reduce docker image size
@@ -118,6 +126,26 @@ add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/rapidcheck)
 
+# TODO: properly specify the location of torch and its components
+include_directories(
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include
+   ${CMAKE_CURRENT_SOURCE_DIR}/../torch-mlir/include
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/Torch/IR
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/Torch/Transforms
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/TorchConversion
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/TorchConversion/Transforms
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Conversion
+   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/RefBackend
+)
+
+LINK_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/lib/)
+
+
+#find_library(DIA_LIB TorchMLIRTorchDialect)
+#find_library(FOO_LIB TorchMLIRTorchUtils)
+
 # Ensure warnings are reported for onnx-mlir code.
 if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS_COPY})
@@ -131,3 +159,5 @@ add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(docs)
 add_subdirectory(test)
+
+

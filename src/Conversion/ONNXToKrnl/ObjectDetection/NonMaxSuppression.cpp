@@ -4,7 +4,7 @@
 
 //===----- NonMaxSuppression.cpp - Lowering NonMaxSuppression Op ----------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -203,9 +203,10 @@ static Value tryToUnflip(
 }
 
 struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
-  ONNXNonMaxSuppressionOpLowering(MLIRContext *ctx)
-      : ConversionPattern(ONNXNonMaxSuppressionOp::getOperationName(), 1, ctx) {
-  }
+  ONNXNonMaxSuppressionOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
+            ONNXNonMaxSuppressionOp::getOperationName(), 1, ctx) {}
 
   /// To understand how code is generated for NonMaxSuppression, look at the
   /// python implementation at the end of this file.
@@ -341,17 +342,19 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                 AffineBuilderKrnlMem createAffine(createKrnl);
                 MathBuilder createMath(createKrnl);
 
-                Value score = createKrnl.load(scores, {b, c, s});
+                // Index of the bounding box with the largest score.
+                Value selectedBI = createKrnl.load(order, {b, c, s});
 
                 // Check conditions to select a bounding box.
                 // 1. Only bounding boxes whose score > score_threshold.
+                Value score = createKrnl.load(scores, {b, c, selectedBI});
                 Value checkScore = createMath.sgt(score, scoreTH);
                 // 2. Have not yet got enough outputs.
                 Value currentMOPC =
                     createKrnl.load(effectiveMaxOutputPerClass, {});
                 Value checkMOPC = createMath.slt(currentMOPC, MOPC);
                 // 3. Bounding box has not yet been removed.
-                Value isRemoved = createKrnl.load(removedIndices, {s});
+                Value isRemoved = createKrnl.load(removedIndices, {selectedBI});
                 Value isNotRemoved = createMath.eq(isRemoved, falseVal);
 
                 // Only proceed if the box satisfies the above conditions.
@@ -359,10 +362,10 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                     createMath._and(checkScore, checkMOPC), isNotRemoved);
                 auto ifOp = rewriter.create<scf::IfOp>(
                     loc, canSelectBox, /*withElseRegion=*/false);
-                rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
+                rewriter.setInsertionPointToStart(
+                    &ifOp.getThenRegion().front());
 
                 // Select the bounding box with the largest score.
-                Value selectedBI = createKrnl.load(order, {b, c, s});
                 SmallVector<Value, 4> selectedBox;
                 for (int i = 0; i < 4; ++i) {
                   Value iVal = createMath.constantIndex(i);
@@ -405,7 +408,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                       auto if1Op = rewriter.create<scf::IfOp>(
                           loc, isNotRemoved, /*withElseRegion=*/false);
                       rewriter.setInsertionPointToStart(
-                          &if1Op.thenRegion().front());
+                          &if1Op.getThenRegion().front());
 
                       // Pick the current box.
                       SmallVector<Value, 4> otherBox;
@@ -424,7 +427,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                       auto if2Op = rewriter.create<scf::IfOp>(
                           loc, checkIOU, /*withElseRegion=*/false);
                       rewriter.setInsertionPointToStart(
-                          &if2Op.thenRegion().front());
+                          &if2Op.getThenRegion().front());
 
                       // If IOU is satified, mark the current box as removed.
                       createKrnl.store(trueVal, removedIndices, {o});
@@ -464,9 +467,9 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXNonMaxSuppressionOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXNonMaxSuppressionOpLowering>(ctx);
+void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXNonMaxSuppressionOpLowering>(typeConverter, ctx);
 }
 
 // clang-format off
@@ -589,18 +592,20 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 //             effective_max_output_per_class = 0
 //             removed_indices = np.full((spatial_size), False)
 //             for s in range(spatial_size):
+//                 # Index of the bounding box with the largest score.
+//                 selected_box_index = order[b, c, s]
+//
 //                 # Discard bounding boxes using score threshold.
-//                 if (scores[b, c, s] <= score_threshold):
+//                 if (scores[b, c, selected_box_index] <= score_threshold):
 //                     continue
 //                 # Have enough the number of outputs.
 //                 if (effective_max_output_per_class >= max_output_per_class):
 //                     continue
 //                 # Removed, ignore.
-//                 if removed_indices[s]:
+//                 if removed_indices[selected_box_index]:
 //                     continue
 // 
 //                 # Pick the bounding box with the largest score.
-//                 selected_box_index = order[b, c, s]
 //                 selected_box = boxes[b, selected_box_index, :]
 // 
 //                 # Store the index of the picked box to the output.

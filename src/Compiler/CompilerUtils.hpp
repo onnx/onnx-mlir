@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------------------- main_utils.hpp ---------------------------===//
+//===-------------------------- CompilerUtils.hpp -------------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -37,40 +37,24 @@ extern llvm::cl::opt<std::string> instrumentONNXOps;
 void setTargetCPU(const std::string &cpu);
 void setTargetTriple(const std::string &triple);
 
-void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
-    mlir::OwningModuleRef &module);
-
+std::string compileModuleToObject(
+    const mlir::OwningModuleRef &module, std::string outputBaseName);
 std::string compileModuleToSharedLibrary(
     const mlir::OwningModuleRef &module, std::string outputBaseName);
-
 void compileModuleToJniJar(
     const mlir::OwningModuleRef &module, std::string outputBaseName);
 
 void registerDialects(mlir::MLIRContext &context);
 
 void addONNXToMLIRPasses(mlir::PassManager &pm);
-
 void addONNXToKrnlPasses(mlir::PassManager &pm);
-
 void addKrnlToAffinePasses(mlir::PassManager &pm);
-
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm);
 
 void processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module, std::string *errorMessage);
-
 void processInputArray(const void *onnxBuffer, int bufferSize,
     mlir::MLIRContext &context, mlir::OwningModuleRef &module);
 
-onnx_mlir::InputIRLevelType determineInputIRLevel(
-    mlir::OwningModuleRef &module);
-
-void outputCode(
-    mlir::OwningModuleRef &module, std::string filename, std::string extension);
-
-void emitOutputFiles(std::string outputBaseName,
-    onnx_mlir::EmissionTargetType emissionTarget, mlir::MLIRContext &context,
-    mlir::OwningModuleRef &module);
-
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
-    std::string outputBaseName, onnx_mlir::EmissionTargetType targetType);
+    std::string outputBaseName, onnx_mlir::EmissionTargetType emissionTarget);
