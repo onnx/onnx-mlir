@@ -81,7 +81,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
     const ArrayRef<DimIndexExpr> outputDims) const {
   assert(!outputDims.empty() && "Output dimensions should not be empty");
   assert(!perm.empty() && perm.size() == outputDims.size() &&
-         "Expecting valid permutation array");
+         "Expecitng valid permutation array");
 
   // Compute the shape of the 'onnx.Transpose' result.
   SmallVector<int64_t, 6> shape;
