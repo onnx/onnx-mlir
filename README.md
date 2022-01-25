@@ -2,7 +2,8 @@
 <p align="center"><img width="50%" src="docs/logo/onnx-mlir-1280x640.png" /></p>
 
 # ONNX-MLIR
-The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mlir/).
+The Open Neural Network Exchange (ONNX) implementation in MLIR (http://onnx.ai/onnx-mlir/). 
+The goal of this project is to take an ONNX graph as an input and generate code that implement the graph directly, with minimum runtime support to implement the graph operations.
 
 | System        | Build Status |
 |---------------|--------------|
@@ -14,7 +15,7 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 
 ## Setting up ONNX-MLIR using Prebuilt Containers
 
-The preferred approach to using and developing ONNX-MLIR is to used Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with dockers are [here](docs/Docker.md).
+The preferred approach to using and developing ONNX-MLIR is to use Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with dockers are [here](docs/Docker.md).
 
 ## Setting up ONNX-MLIR directly
 
@@ -110,9 +111,11 @@ An example based on the add operation is found [here](docs/doc_example), which b
 
 An end to end example is provided [here](docs/mnist_example/README.md), which train, compile, and execute a simple MNIST example using both the C++ or Python interface.
 
-## Slack channel
+## Interacting via Slack and GitHub.
 
 We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`. This channel can be used for asking quick questions related to this project. A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
+
+You may also open GitHub Issues for any issues and/or suggestions you may have.
 
 ## Contributing
 
