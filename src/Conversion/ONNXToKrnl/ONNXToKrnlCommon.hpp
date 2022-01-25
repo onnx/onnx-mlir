@@ -390,7 +390,7 @@ int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index);
 template <typename OP_TYPE>
 Location ONNXLoc(Operation *op) {
   return NameLoc::get(
-      Identifier::get(OP_TYPE::getOperationName(), op->getContext()),
+      StringAttr::get(op->getContext(), OP_TYPE::getOperationName()),
       op->getLoc());
 }
 

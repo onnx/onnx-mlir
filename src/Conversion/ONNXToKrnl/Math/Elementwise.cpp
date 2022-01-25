@@ -930,10 +930,9 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc =
-        NameLoc::get(Identifier::get(ElementwiseBinaryOp::getOperationName(),
-                         op->getContext()),
-            op->getLoc());
+    auto loc = NameLoc::get(StringAttr::get(op->getContext(),
+                                ElementwiseBinaryOp::getOperationName()),
+        op->getLoc());
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputElementType = outputMemRefType.getElementType();
     auto outputRank = outputMemRefType.getRank();
@@ -1006,10 +1005,9 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
             typeConverter, ElementwiseVariadicOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc =
-        NameLoc::get(Identifier::get(ElementwiseVariadicOp::getOperationName(),
-                         op->getContext()),
-            op->getLoc());
+    auto loc = NameLoc::get(StringAttr::get(op->getContext(),
+                                ElementwiseVariadicOp::getOperationName()),
+        op->getLoc());
     auto numArgs = op->getNumOperands();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputElementType = outputMemRefType.getElementType();
@@ -1092,7 +1090,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = NameLoc::get(
-        Identifier::get(ONNXWhereOp::getOperationName(), op->getContext()),
+        StringAttr::get(op->getContext(), ONNXWhereOp::getOperationName()),
         op->getLoc());
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputRank = outputMemRefType.getRank();
