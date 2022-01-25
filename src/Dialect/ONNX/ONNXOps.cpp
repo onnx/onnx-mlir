@@ -4082,7 +4082,7 @@ static LogicalResult verify(ONNXRandomNormalLikeOp op) {
   auto elementTypeIDDType = operandAdaptor.dtype();
   if (elementTypeIDDType) {
     int64_t elementTypeID = elementTypeIDDType.getValue();
-    if (elementTypeID < 0 or elementTypeID > 2) {
+    if (elementTypeID < 0 || elementTypeID > 2) {
       return op->emitError("dtype not 0, 1 or 2.");
     }
     if (elementTypeID == 0 && outputType != FloatType::getF16(op.getContext()))
