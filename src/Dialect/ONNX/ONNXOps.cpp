@@ -4071,7 +4071,13 @@ static LogicalResult verify(ONNXRandomNormalLikeOp op) {
   ONNXRandomNormalLikeOpAdaptor operandAdaptor(op);
   mlir::Value input = operandAdaptor.input();
   if (!hasShapeAndRank(input))
-    return op->emitError("input tensor does not have shape or rank.");
+    return success();
+  mlir::Value output = op.output();
+  if (!hasShapeAndRank(output))
+    return success();
+
+  auto inputType = input.getType().cast<RankedTensorType>().getElementType();
+  auto outputType = output.getType().cast<RankedTensorType>().getElementType();
 
   auto elementTypeIDDType = operandAdaptor.dtype();
   if (elementTypeIDDType) {
@@ -4079,6 +4085,16 @@ static LogicalResult verify(ONNXRandomNormalLikeOp op) {
     if (elementTypeID < 0 or elementTypeID > 2) {
       return op->emitError("dtype not 0, 1 or 2.");
     }
+    if (elementTypeID == 0 && outputType != FloatType::getF16(op.getContext()))
+      return op->emitError("output tensor does match 0 dtype.");
+    else if (elementTypeID == 1 &&
+             outputType != FloatType::getF32(op.getContext()))
+      return op->emitError("output tensor does match 1 dtype.");
+    else if (elementTypeID == 2 &&
+             outputType != FloatType::getF64(op.getContext()))
+      return op->emitError("output tensor does match 2 dtype.");
+  } else if (inputType != outputType) {
+    return op->emitError("output and input element types do not match.");
   }
 
   return success();
