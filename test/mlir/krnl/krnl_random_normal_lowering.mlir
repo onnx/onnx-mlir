@@ -65,7 +65,7 @@ func @test_random_normal_dynamic_lowering(%arg0: memref<3x4x?x?xf32>) -> memref<
   // CHECK: llvm.mlir.undef : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
   // CHECK: [[OUTPUT_TENSOR:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 3] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
   // CHECK: [[ALL_VALUES1:%.+]] = llvm.mlir.constant(12 : index) : i64
-  // CHECK: [[ALL_VALUES2:%.+]] = llvm.mul [[ALL_VALUES1]], %arg5  : i64
+  // CHECK: [[ALL_VALUES2:%.+]] = llvm.mul %arg5, [[ALL_VALUES1]]  : i64
   // CHECK: [[ALL_VALUES3:%.+]] = llvm.mul [[ALL_VALUES2]], %arg6  : i64
   // CHECK: [[MEAN:%.+]] = llvm.mlir.constant(0.000000e+00 : f32) : f32
   // CHECK: [[SCALE:%.+]] = llvm.mlir.constant(1.000000e+00 : f32) : f32
