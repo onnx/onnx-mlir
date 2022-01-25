@@ -129,21 +129,15 @@ LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
 // Evaluate Convolution
 //===----------------------------------------------------------------------===//
 
-// Returns whether onnx-mlir compiled convolution is producing the same results
-// as a naive implementation of convolution for a specific set of convolution
-// parameters/configuration. Stride and dilation are square (same along H and
-// W).
-bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
-    const int W, const int kH, const int kW, int pHBegin, int pHEnd,
-    int pWBegin, int pWEnd, const int autoPad) {
-  static int testNum = 0;
-  if (DEBUG)
-    printf(
-        "attempt %d with N %d, C %d, H %d, W %d, kH %d, kW %d, pHBegin %d, "
-        "pHEnd %d, pWBegin %d, pWEnd %d, autopad %s, isDynamic %d, stride %d, "
-        "dilation %d\n",
-        ++testNum, N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
-        autoPadName[autoPad].c_str(), isDynamic, stride, dilation);
+bool generateCompiledConv2DModel(const string modelName, const int N,
+    const int C, const int H, const int W, const int kH, const int kW,
+    const int autoPad, const int stride, const int dilation,
+    const int isDynamic,
+    /* in/out */
+    int &pHBegin, int &pHEnd, int &pWBegin, int &pWEnd,
+    /* out */
+    int &NOut, int &COut, int &HOut, int &WOut) {
+
   if (autoPad != AUTO_PAD_NOTSET) {
     // make sure all pads are initially zero, only value tolarated.
     assert(pHBegin == 0 && pHEnd == 0 && pWBegin == 0 && pWEnd == 0);
@@ -152,6 +146,10 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   MLIRContext ctx;
   setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
 
+  // We use the Ns for the shape of the input, and the N1s for the construction
+  // of the model. That way, when the shape is dynamic, we set the N1s to "-1"
+  // (dynamic value) so that the compiler may not infer the size of the model,
+  // and instead generate code to figure the sizes at run time.
   int N1 = N;
   int C1 = C;
   int H1 = H;
@@ -212,10 +210,10 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
     return false;
   }
   auto outputShape = convOp.getResult().getType().cast<ShapedType>().getShape();
-  auto NOut = outputShape[0];
-  auto COut = outputShape[1];
-  auto HOut = outputShape[2];
-  auto WOut = outputShape[3];
+  NOut = outputShape[0];
+  COut = outputShape[1];
+  HOut = outputShape[2];
+  WOut = outputShape[3];
   convOp.getResult().setType(yType);
   convOp.X().setType(xTypeSymbol);
   res = checkShapes(N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd, autoPad,
@@ -245,7 +243,34 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 
   OwningModuleRef moduleRef(module);
 
-  compileModule(moduleRef, ctx, SHARED_LIB_BASE, onnx_mlir::EmitLib);
+  compileModule(moduleRef, ctx, modelName, onnx_mlir::EmitLib);
+
+  return true;
+}
+
+// Returns whether onnx-mlir compiled convolution is producing the same results
+// as a naive implementation of convolution for a specific set of convolution
+// parameters/configuration. Stride and dilation are square (same along H and
+// W).
+bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
+    const int W, const int kH, const int kW, int pHBegin, int pHEnd,
+    int pWBegin, int pWEnd, const int autoPad) {
+  static int testNum = 0;
+  if (DEBUG)
+    printf(
+        "attempt %d with N %d, C %d, H %d, W %d, kH %d, kW %d, pHBegin %d, "
+        "pHEnd %d, pWBegin %d, pWEnd %d, autopad %s, isDynamic %d, stride %d, "
+        "dilation %d\n",
+        ++testNum, N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
+        autoPadName[autoPad].c_str(), isDynamic, stride, dilation);
+
+  int NOut, COut, HOut, WOut;
+  if (!generateCompiledConv2DModel(/*lib name*/ SHARED_LIB_BASE,
+          /*input params*/ N, C, H, W, kH, kW, autoPad, stride, dilation,
+          isDynamic, /*in/out*/ pHBegin, pHEnd, pWBegin, pWEnd, /*out*/ NOut,
+          COut, HOut, WOut))
+    return false;
+
   onnx_mlir::ExecutionSession sess(
       getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
 
