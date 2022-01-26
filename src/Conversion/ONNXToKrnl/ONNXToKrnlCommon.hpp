@@ -276,6 +276,8 @@ void populateLoweringONNXMatMulOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);
 void populateLoweringONNXRandomNormalOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXRandomNormalLikeOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXReductionOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSoftmaxOpPattern(
@@ -390,7 +392,7 @@ int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index);
 template <typename OP_TYPE>
 Location ONNXLoc(Operation *op) {
   return NameLoc::get(
-      Identifier::get(OP_TYPE::getOperationName(), op->getContext()),
+      StringAttr::get(op->getContext(), OP_TYPE::getOperationName()),
       op->getLoc());
 }
 
