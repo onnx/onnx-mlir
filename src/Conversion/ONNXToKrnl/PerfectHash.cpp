@@ -8,12 +8,13 @@
 //
 // =============================================================================
 //
-// This file contains the inplementation of a perfect hash table.
+// This file contains the implementation of a perfect hash table.
 //
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/PerfectHash.hpp"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
