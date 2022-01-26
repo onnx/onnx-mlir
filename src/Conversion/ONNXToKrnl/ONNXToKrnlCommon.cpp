@@ -16,7 +16,6 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 bool ONNXToKrnl_gEmitDealloc = false;
-bool ONNXToKrnl_gEnableTiling = false;
 
 Value OnnxToKrnlBuilder::reshape(
     const Value input, const ArrayRef<DimIndexExpr> shapeDims) const {

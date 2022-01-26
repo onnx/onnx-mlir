@@ -44,7 +44,7 @@ public:
 };
 
 void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
@@ -60,12 +60,13 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXClipOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling);
   populateLoweringONNXHardmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXMatMulOpPattern(
+      patterns, typeConverter, ctx, enableTiling);
   populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLRNOpPattern(patterns, typeConverter, ctx);
   // ML
@@ -176,8 +177,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // Set up whether emitting dealloc for allocated memrefs or not.
   ONNXToKrnl_gEmitDealloc = emitDealloc;
-  // Set up the optimization.
-  ONNXToKrnl_gEnableTiling = enableTiling;
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -251,7 +250,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // Define patterns.
   populateONNXToKrnlConversionPattern(
-      patterns, krnlTypeConverter, &getContext());
+      patterns, krnlTypeConverter, &getContext(), enableTiling);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

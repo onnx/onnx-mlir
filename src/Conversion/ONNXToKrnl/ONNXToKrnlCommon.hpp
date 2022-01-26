@@ -45,10 +45,6 @@ using namespace mlir;
 // A global variable to indicate whether this pass will emit dealloc for
 // allocated memrefs or not during the conversion of ONNX to Krnl.
 extern bool ONNXToKrnl_gEmitDealloc;
-// A global variable to indicate the optimization level during the conversion of
-// ONNX to Krnl. At O3 or more, we do tiling, inlining, and simdization. Below
-// O3 we don't.
-extern bool ONNXToKrnl_gEnableTiling;
 
 //===----------------------------------------------------------------------===//
 // Extends OnnxBuilder with member functions that might generate Krnl dialect
@@ -255,7 +251,7 @@ public:
 
 // For all ONNX operations.
 void populateONNXToKrnlConversionPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
+    RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);
 
 // `ControlFlow` directory methods:
 void populateLoweringONNXLoopOpPattern(
@@ -271,13 +267,13 @@ void populateLoweringONNXCumSumOpPattern(
 void populateLoweringONNXElementwiseOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXGemmOpPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
+    RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);
 void populateLoweringONNXHardmaxOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXLRNOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXMatMulOpPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
+    RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);
 void populateLoweringONNXRandomNormalOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXReductionOpPattern(
