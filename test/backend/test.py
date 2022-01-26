@@ -1,12 +1,12 @@
 #!/usr/local/bin/python3
 
-##################### common.py ################################################
+####################### test.py ################################################
 #
-# Copyright 2021 The IBM Research Authors.
+# Copyright 2021-2022 The IBM Research Authors.
 #
 ################################################################################
-# Reorgnize backend testing into following modules:
-# - varaibles.py: all global variables
+# Reorganize backend testing into following modules:
+# - variables.py: all global variables
 #   * Immutable variables are initialized once
 #   * Mutable variables are set in one module file and used in another
 # - common.py: common functions called by xxxExecuteSession
