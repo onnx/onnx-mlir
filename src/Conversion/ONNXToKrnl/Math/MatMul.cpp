@@ -25,10 +25,12 @@ using namespace mlir;
 #define DEBUG_TYPE "matmul"
 
 struct ONNXMatMulOpLowering : public ConversionPattern {
-  ONNXMatMulOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+  ONNXMatMulOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling)
       : ConversionPattern(
-            typeConverter, mlir::ONNXMatMulOp::getOperationName(), 1, ctx) {}
-
+            typeConverter, mlir::ONNXMatMulOp::getOperationName(), 1, ctx),
+        enableTiling(enableTiling) {}
+  bool enableTiling;
   // Handle the generic cases, including when there are broadcasts.
   void replaceGenericMatmul(ONNXMatMulOp &matMulOp,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
@@ -227,7 +229,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value A(operandAdaptor.A()), B(operandAdaptor.B());
     auto aRank = A.getType().cast<MemRefType>().getShape().size();
     auto bRank = B.getType().cast<MemRefType>().getShape().size();
-    if (aRank == 2 && bRank == 2) {
+    if (enableTiling && aRank == 2 && bRank == 2) {
+      // Optimized Matmul only when 2D and allowed to tile and unroll.
       replace2x2Matmul2d(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);
     } else {
@@ -241,6 +244,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
+  patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx, enableTiling);
 }

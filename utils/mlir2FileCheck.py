@@ -1,5 +1,7 @@
 #!/usr/local/bin/python3
 
+# SPDX-License-Identifier: Apache-2.0
+
 ##################### mlir2FileCheck.py ########################################
 #
 # Copyright 2020 The IBM Research Authors.
