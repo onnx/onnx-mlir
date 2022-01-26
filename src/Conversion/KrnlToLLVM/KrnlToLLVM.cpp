@@ -1121,7 +1121,7 @@ public:
     auto dynamicEntryPointFunc = rewriter.create<LLVM::LLVMFuncOp>(
         loc, dynEntryPointName.str(), dynEntryPointFuncTy);
     auto &entryPointEntryBlock =
-        createEntryBlock(dynEntryPointFuncTy, dynamicEntryPointFunc);
+        createEntryBlock(dynEntryPointFuncTy, dynamicEntryPointFunc, loc);
     rewriter.setInsertionPointToStart(&entryPointEntryBlock);
 
     // Based on the static entry point type signature, unpack dynamic memory
@@ -1342,7 +1342,7 @@ private:
   // Helper function to insert an entry block to LLVM function.
   // (TODO): upstream this to MLIR.
   Block &createEntryBlock(
-      Type &dynEntryPoint, LLVM::LLVMFuncOp &dynamicEntryPointFunc) const {
+      Type &dynEntryPoint, LLVM::LLVMFuncOp &dynamicEntryPointFunc, Location &loc) const {
     // Add entry block:
     auto *entryPointEntryBlock = new Block();
     auto dynEntryPointFuncType = dynEntryPoint.cast<LLVM::LLVMFunctionType>();
@@ -1350,7 +1350,9 @@ private:
     llvm::SmallVector<Type, 4> argTypes;
     for (size_t i = 0; i < dynEntryPointFuncType.getNumParams(); i++)
       argTypes.emplace_back(dynEntryPointFuncType.getParamType(i));
-    entryPointEntryBlock->addArguments(argTypes);
+    auto argLocs = llvm::SmallVector<Location, 4>(
+        dynEntryPointFuncType.getNumParams(), loc);
+    entryPointEntryBlock->addArguments(argTypes, argLocs);
     return *entryPointEntryBlock;
   }
 

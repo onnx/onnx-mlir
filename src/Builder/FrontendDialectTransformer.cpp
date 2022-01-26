@@ -461,7 +461,7 @@ private:
       AddValueInfo(internal);
     }
 
-    entryBlock->addArguments(argTypes);
+    entryBlock->addArguments(argTypes, llvm::SmallVector<Location, 4>(argTypes.size(), UnknownLoc()));
     // Map graph inputs to entry block arguments.
     // Counter of un-initialized tensors. This counter is used to index the
     // entry block arguments.
