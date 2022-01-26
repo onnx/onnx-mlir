@@ -6,8 +6,6 @@
 This project (https://onnx.ai/onnx-mlir/) provides compiler technology to transform a valid Open Neural Network Exchange (ONNX) graph into code that implement the graph with minimum runtime support. 
 It implements the [ONNX standard](https://github.com/onnx/onnx#readme) and is based on the underlying [LLVM/MLIR](https://mlir.llvm.org) compiler technology. 
 
-This project contributes an ONNX Dialect that can be integrated in other projects, a compiler interfaces that lower ONNX graphs into MLIR files/LLVM bytecodes/C & Java libraries, an `onnx-mlir` driver to perform these lowering, and a python/C/C++/Java runtime environment.
-
 | System        | Build Status |
 |---------------|--------------|
 | s390x-Linux   | [![Build Status](https://www.onnxmlir.xyz/jenkins/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=main%7D&subject=Jenkins%20CI)](https://www.onnxmlir.xyz/jenkins/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
@@ -16,13 +14,15 @@ This project contributes an ONNX Dialect that can be integrated in other project
 | amd64-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=main)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=main)             |
 | amd64-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/actions/workflows/macos-amd64-build.yml/badge.svg)](https://github.com/onnx/onnx-mlir/actions/workflows/macos-amd64-build.yml)             |
 
+This project contributes an ONNX Dialect that can be integrated in other projects, a compiler interfaces that lower ONNX graphs into MLIR files/LLVM bytecodes/C & Java libraries, an `onnx-mlir` driver to perform these lowering, and a python/C/C++/Java runtime environment.
+
 ## Setting up ONNX-MLIR using Prebuilt Containers
 
 The preferred approach to using and developing ONNX-MLIR is to use Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with dockers are [here](docs/Docker.md).
 
 ## Setting up ONNX-MLIR directly
 
-ONNX-MLIR can also run natively on Linux, OSX, and Windows.
+ONNX-MLIR runs natively on Linux, OSX, and Windows.
 
 ### Prerequisites
 
@@ -130,7 +130,7 @@ Do not use public channels to discuss any security-related issues; use instead t
 
 We are welcoming contributions from the community. 
 Please consult the [CONTRIBUTING](CONTRIBUTING.md) page for help on how to proceed.
-Documentation is provided in the `docs` sub-directory; the (docs/DocumentList.md) page provides an organized list of documents.
+Documentation is provided in the `docs` sub-directory; the [DocumentList](docs/DocumentList.md) page provides an organized list of documents.
 
 ## Code of Conduct
 

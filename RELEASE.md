@@ -7,6 +7,7 @@ ONNX-MLIR follows the [Semantic Versioning](https://semver.org) numbering scheme
 Releases are extensively tested, including the following steps.
 * Functional and performance testing.
 * Static code analysis (`cppchecker`) testing.
+* Updates each of the third_party software to the latest version that is compatible with the given release of the ONNX-MLIR code.
 
 # Current releases
 
