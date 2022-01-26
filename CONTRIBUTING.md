@@ -36,7 +36,7 @@ A comprehensive list of documents is found [here](docs/DocumentList.md).
 
 * Here is an end to end MNIST example using C++ or python interface [link](docs/mnist_example/README.md).
 * Here is how to run a compiled model in python [link](docs/UsingPyRuntime.md).
-* Here is the C runtime API to run models in C/C++ [link](http://onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html).
+* Here is the C runtime API to run models in C/C++ [link](https://onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html).
 
 ## Documentation
 

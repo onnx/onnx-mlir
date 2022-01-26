@@ -2,7 +2,11 @@
 
 # Release
 
-ONNX-MLIR follows the [Semantic Versioning](https://semver.org) numbering scheme for its releases.
+ONNX-MLIR follows the [Semantic Versioning](https://semver.org) numbering scheme for its releases. 
+
+Releases are extensively tested, including the following steps.
+* Functional and performance testing.
+* Static code analysis (`cppchecker`) testing.
 
 # Current releases
 

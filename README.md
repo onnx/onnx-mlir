@@ -2,8 +2,11 @@
 <p align="center"><img width="50%" src="docs/logo/onnx-mlir-1280x640.png" /></p>
 
 # ONNX-MLIR
-The Open Neural Network Exchange (ONNX) implementation in MLIR (http://onnx.ai/onnx-mlir/). 
-The goal of this project is to take an ONNX graph as an input and generate code that implement the graph directly, with minimum runtime support to implement the graph operations.
+
+This project (https://onnx.ai/onnx-mlir/) provides compiler technology to transform a valid Open Neural Network Exchange (ONNX) graph into code that implement the graph with minimum runtime support. 
+It implements the [ONNX standard](https://github.com/onnx/onnx#readme) and is based on the underlying [LLVM/MLIR](https://mlir.llvm.org) compiler technology. 
+
+This project contributes an ONNX Dialect that can be integrated in other projects, a compiler interfaces that lower ONNX graphs into MLIR files/LLVM bytecodes/C & Java libraries, an `onnx-mlir` driver to perform these lowering, and a python/C/C++/Java runtime environment.
 
 | System        | Build Status |
 |---------------|--------------|
@@ -18,6 +21,8 @@ The goal of this project is to take an ONNX graph as an input and generate code 
 The preferred approach to using and developing ONNX-MLIR is to use Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with dockers are [here](docs/Docker.md).
 
 ## Setting up ONNX-MLIR directly
+
+ONNX-MLIR can also run natively on Linux, OSX, and Windows.
 
 ### Prerequisites
 
@@ -113,10 +118,20 @@ An end to end example is provided [here](docs/mnist_example/README.md), which tr
 
 ## Interacting via Slack and GitHub.
 
-We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`. This channel can be used for asking quick questions related to this project. A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
+We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`. 
+This channel can be used for asking quick questions related to this project. 
+A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
 
-You may also open GitHub Issues for any issues and/or suggestions you may have.
+You may also open GitHub Issues for any questions and/or suggestions you may have.
+
+Do not use public channels to discuss any security-related issues; use instead the specific instructions provided [here](SECURITY.md).
 
 ## Contributing
 
-Want to contribute, consult this page for specific help on our project [here](CONTRIBUTING.md) or the docs sub-directory. A comprehensive list of documents is found [here](docs/DocumentList.md).
+We are welcoming contributions from the community. 
+Please consult the [CONTRIBUTING](CONTRIBUTING.md) page for help on how to proceed.
+Documentation is provided in the `docs` sub-directory; the (docs/DocumentList.md) page provides an organized list of documents.
+
+## Code of Conduct
+
+The ONNX-MLIR code of conduct is described at https://onnx.ai/codeofconduct.html.

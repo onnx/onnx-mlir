@@ -77,10 +77,14 @@ You can now edit the code on the `myfeature` branch.
 #### Run cmake & make
 
 Follow the directions to build ONNX-MLIR in this section of the main 
-[README](../README.md#onnx-mlir-this-project)
+[README](../README.md#onnx-mlir-this-project).
 
+We expect code to compile without generating any compiler warnings. 
 
 #### Run Test
+
+In general, the new features must be tested in one or more of our test suite. 
+At a high level, our testing strategy includes  `literal` tests (`check-onnx-lit` below), end-to-end tests derived from the ONNX Standard (`check-onnx-backend` and derivatives below, and semi-exhaustive numerical tests (`test` below).
 
 ```sh
 # Run unit test to make sure all test passed.
@@ -90,6 +94,8 @@ make check-onnx-backend-dynamic
 make check-onnx-backend-constant
 make test
 ```
+
+Specific testing help is provided in these documents to [run](TestingHighLevel.md) and[generate new tests](Testing.md).
 
 ### Step 5: Commit
 
@@ -132,13 +138,13 @@ git push -f origin myfeature
 
 1. Visit your fork at https://github.com/$user/onnx-mlir (replace `$user` obviously).
 2. Click the `Compare & pull request` button next to your `myfeature` branch.
+3. Please provide a meaningful description of the pull request's new functionality.
+4. If your pull request is not currently ready for review, we recommend to activate the `draft mode` button. Pull requests that are failing some CIs should probably remain in draft mode.
 
 ### Step 9: Get a code review
 
-Once your pull request has been opened, it will be assigned to at least one
-reviewer. The reviewer(s) will do a thorough code review, looking for
-correctness, bugs, opportunities for improvement, documentation and comments,
-and style.
+Once your pull request has been opened and is not in draft mode anymore, it will be assigned to at least one reviewer. 
+The reviewer(s) will do a thorough code review, looking for correctness, bugs, opportunities for improvement, testing, documentation and comments, and style.
 
 Commit changes made in response to review comments to the same branch on your
 fork.
