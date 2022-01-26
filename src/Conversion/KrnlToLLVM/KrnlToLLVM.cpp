@@ -30,7 +30,7 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Vector/VectorRewritePatterns.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
@@ -505,7 +505,7 @@ public:
     // attempt to set the alignment based on the module datalayout (if it
     // exists).
     if (alignmentAttr && alignmentAttr.getValue().getSExtValue() != 0)
-      global.alignmentAttr(alignmentAttr);
+      global.setAlignmentAttr(alignmentAttr);
     else if (module->getAttr(LLVM::LLVMDialect::getDataLayoutAttrName())) {
       // TODO: use MLIR data layout when it becomes available.
       llvm::LLVMContext llvmContext;
@@ -513,9 +513,9 @@ public:
                           .getPreferredAlignment(global.getType(),
                               getTypeConverter()->getDataLayout());
       align = std::max(align, MinGlobalAlign);
-      global.alignmentAttr(rewriter.getI64IntegerAttr(align));
+      global.setAlignmentAttr(rewriter.getI64IntegerAttr(align));
     } else
-      global.alignmentAttr(rewriter.getI64IntegerAttr(MinGlobalAlign));
+      global.setAlignmentAttr(rewriter.getI64IntegerAttr(MinGlobalAlign));
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
     Value globalOpAddr = rewriter.create<LLVM::AddressOfOp>(loc, global);
@@ -1556,13 +1556,13 @@ public:
     sizes.reserve(targetType.getRank());
     for (unsigned pos = 0, e = targetType.getRank() - 1; pos < e; ++pos) {
       int64_t dimSize = targetType.getDimSize(pos);
-      if (dimSize == MemRefType::kDynamicSize)
+      if (ShapedType::isDynamic(dimSize))
         sizes.push_back(srcMemRefDesc.size(rewriter, loc, pos));
       else
         sizes.push_back(createIndexConstant(rewriter, loc, dimSize));
     }
 
-    if (targetType.getShape().back() != MemRefType::kDynamicSize) {
+    if (!ShapedType::isDynamic(targetType.getShape().back())) {
       // The op is already verified to have the right size for the last
       // dimension.
       sizes.push_back(

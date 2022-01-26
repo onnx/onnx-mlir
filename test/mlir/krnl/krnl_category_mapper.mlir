@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-krnl-to-affine --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
 
 // -----
 
@@ -107,8 +107,7 @@ func private @test_category_mapper_string_to_int64(%arg0: memref<2x2x!krnl.strin
   // CHECK-NEXT:  [[IS_EQUAL:%.+]] = llvm.icmp "eq" [[STREQ]], [[C0]] : i32  
   // CHECK-NEXT:  llvm.cond_br [[IS_EQUAL]], [[LAB_TRUE:\^.+]], [[LAB_FALSE:\^.+]]
   // CHECK:       [[LAB_TRUE]]:
-  // CHECK:       [[UNR_CONV1:%.+]] = builtin.unrealized_conversion_cast [[INDEX]] : i32 to i64  
-  // CHECK:       [[GEP1:%.+]] = llvm.getelementptr {{.*}}[[UNR_CONV1]]{{.*}} : (!llvm.ptr<i64>, i64) -> !llvm.ptr<i64>  
+  // CHECK:       [[GEP1:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr<i64>, i64) -> !llvm.ptr<i64>  
   // CHECK:       [[LOAD1:%.+]] = llvm.load [[GEP1]] : !llvm.ptr<i64>  
   // CHECK:       llvm.store [[LOAD1]], {{.*}} : !llvm.ptr<i64>
   // CHECK-NEXT:  llvm.br [[IF_END:\^.+]]
@@ -178,8 +177,7 @@ func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) -> me
   // CHECK-NEXT:  [[IS_EQUAL:%.+]] = llvm.icmp "eq" {{.*}}, [[INDEX1]] : i64  
   // CHECK-NEXT:  llvm.cond_br [[IS_EQUAL]], [[LAB_TRUE:\^.+]], [[LAB_FALSE:\^.+]]
   // CHECK:       [[LAB_TRUE]]:
-  // CHECK:       [[UNR_CONV1:%.+]] = builtin.unrealized_conversion_cast [[INDEX]] : i32 to i64  
-  // CHECK:       [[GEP1:%.+]] = llvm.getelementptr {{.*}}[[UNR_CONV1]]{{.*}} : (!llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>, i64) -> !llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>
+  // CHECK:       [[GEP1:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>, i64) -> !llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>
   // CHECK:       [[LOAD1:%.+]] = llvm.load [[GEP1]] : !llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>
   // CHECK:       llvm.store [[LOAD1]], {{.*}} : !llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>
   // CHECK-NEXT:  llvm.br [[IF_END:\^.+]]

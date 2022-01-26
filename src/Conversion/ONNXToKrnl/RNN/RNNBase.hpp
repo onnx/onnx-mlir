@@ -4,7 +4,7 @@
 
 //===--------------- RNNBase.hpp - Lowering RNN Ops -----------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -123,8 +123,8 @@ void stateToOutput(ConversionPatternRewriter &rewriter, Location loc, RNNOp *op,
 // A common template for lowering an RNN operation.
 template <typename RNNOp, typename S, typename A, typename W, typename B>
 struct ONNXRNNOpLowering : public ConversionPattern {
-  ONNXRNNOpLowering(MLIRContext *ctx)
-      : ConversionPattern(RNNOp::getOperationName(), 1, ctx) {}
+  ONNXRNNOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter, RNNOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {

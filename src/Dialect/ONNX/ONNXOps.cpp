@@ -2687,6 +2687,48 @@ LogicalResult ONNXConstantOp::inferShapes(
 // Concat
 //===----------------------------------------------------------------------===//
 
+static LogicalResult verify(ONNXConcatOp op) {
+  ONNXConcatOpAdaptor operandAdaptor(op);
+  // Check all inputs.
+  for (const auto &operand : operandAdaptor.getOperands()) {
+    if (!hasShapeAndRank(operand)) {
+      // Won't be able to do any checking at this stage.
+      return success();
+    }
+  }
+  // Checking value of axis parameter.
+  auto commonType =
+      operandAdaptor.getOperands().front().getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> commonShape = commonType.getShape();
+  int64_t commonRank = commonShape.size();
+  int64_t axisIndex = op.axis();
+  if (axisIndex < 0)
+    axisIndex = commonRank + axisIndex;
+  if (axisIndex >= commonRank)
+    return op->emitError("Concat axis value out of bound");
+
+  for (const auto &operand : operandAdaptor.getOperands()) {
+    ArrayRef<int64_t> currShape =
+        operand.getType().cast<RankedTensorType>().getShape();
+    if ((int64_t)currShape.size() != commonRank)
+      return op->emitError("Concat input must all have the same rank");
+    for (int j = 0; j < commonRank; ++j) {
+      if (j == axisIndex)
+        continue;
+      if (currShape[j] != -1 && commonShape[j] != -1 &&
+          currShape[j] != commonShape[j]) {
+        return op->emitError(
+                   "Concat input dimensions must be all identical, "
+                   "except for dimension on the axis of the "
+                   "concatenation. Expected something compatible with: ")
+               << commonType << " but got " << operand.getType() << " instead.";
+      }
+    }
+  }
+
+  return success();
+}
+
 LogicalResult ONNXConcatOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // The check of constraints is kept
@@ -2710,26 +2752,6 @@ LogicalResult ONNXConcatOp::inferShapes(
     auto builder = mlir::Builder(getContext());
     axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
         APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
-  }
-  if (axisIndex >= commonRank)
-    return emitError("Concat axis value out of bound");
-
-  for (int i = 1; i < inputNum; ++i) {
-    auto currShape =
-        getOperand(i).getType().cast<RankedTensorType>().getShape();
-    if ((int64_t)currShape.size() != commonRank)
-      return emitError("Concat input must all have the same rank");
-    for (int j = 0; j < commonRank; ++j) {
-      if (j == axisIndex) {
-      } else if (currShape[j] != -1 && commonShape[j] != -1 &&
-                 currShape[j] != commonShape[j]) {
-        return emitError("Concat input dimensions must be all identical, "
-                         "except for dimension on the axis of the "
-                         "concatenation. Expected something compatible with: ")
-               << commonType << " but got " << getOperand(i).getType()
-               << " instead.";
-      }
-    }
   }
 
   ONNXConcatOpAdaptor operandAdaptor(*this);
@@ -3652,18 +3674,17 @@ static LogicalResult verify(ONNXDepthToSpaceOp op) {
     return op.emitError("Input should have a rank of four");
 
   // Check blocksize.
-  APInt blocksize = operandAdaptor.blocksize().getValue();
-  if (blocksize.isNegative())
+  int64_t blocksize = operandAdaptor.blocksize();
+  if (blocksize < 0)
     return op.emitError("Blocksize should be non negative");
 
   int64_t C = inputShape[1];
-  uint64_t bs = blocksize.getZExtValue();
-  if (C != -1 && C % (bs * bs) != 0)
+  if (C != -1 && C % (blocksize * blocksize) != 0)
     return op.emitError("The input tensor depth must be divisible by the "
                         "(blocksize * blocksize)");
 
   // Check mode.
-  StringRef mode = operandAdaptor.mode().getValue();
+  StringRef mode = operandAdaptor.mode();
   if (mode != "DCR" && mode != "CRD")
     return op.emitError("Mode must be DCR or CRD");
 
@@ -4046,9 +4067,68 @@ LogicalResult ONNXRandomNormalOp::inferShapes(
   return success();
 }
 
+static LogicalResult verify(ONNXRandomNormalLikeOp op) {
+  ONNXRandomNormalLikeOpAdaptor operandAdaptor(op);
+  mlir::Value input = operandAdaptor.input();
+  if (!hasShapeAndRank(input))
+    return success();
+  mlir::Value output = op.output();
+  if (!hasShapeAndRank(output))
+    return success();
+
+  auto inputType = input.getType().cast<RankedTensorType>().getElementType();
+  auto outputType = output.getType().cast<RankedTensorType>().getElementType();
+
+  auto elementTypeIDDType = operandAdaptor.dtype();
+  if (elementTypeIDDType) {
+    int64_t elementTypeID = elementTypeIDDType.getValue();
+    if (elementTypeID < 0 || elementTypeID > 2) {
+      return op->emitError("dtype not 0, 1 or 2.");
+    }
+    if (elementTypeID == 0 && outputType != FloatType::getF16(op.getContext()))
+      return op->emitError("output tensor does match 0 dtype.");
+    else if (elementTypeID == 1 &&
+             outputType != FloatType::getF32(op.getContext()))
+      return op->emitError("output tensor does match 1 dtype.");
+    else if (elementTypeID == 2 &&
+             outputType != FloatType::getF64(op.getContext()))
+      return op->emitError("output tensor does match 2 dtype.");
+  } else if (inputType != outputType) {
+    return op->emitError("output and input element types do not match.");
+  }
+
+  return success();
+}
+
 LogicalResult ONNXRandomNormalLikeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!input().getType().isa<RankedTensorType>())
+    return success();
+  auto inputType = input().getType().cast<RankedTensorType>();
+  auto outputShape = inputType.getShape();
+  auto elementTypeIDDType = dtype();
+
+  // Default output tensor type in all cases is the input tensor type.
+  auto outputTensorType =
+      RankedTensorType::get(outputShape, inputType.getElementType());
+  if (!elementTypeIDDType) {
+    getResult().setType(outputTensorType);
+  } else {
+    int64_t elementTypeID = elementTypeIDDType.getValue();
+    if (elementTypeID == 0)
+      outputTensorType =
+          RankedTensorType::get(outputShape, FloatType::getF16(getContext()));
+    else if (elementTypeID == 1)
+      outputTensorType =
+          RankedTensorType::get(outputShape, FloatType::getF32(getContext()));
+    else if (elementTypeID == 2)
+      outputTensorType =
+          RankedTensorType::get(outputShape, FloatType::getF64(getContext()));
+    else
+      return emitError("dtype attribute is invalid (use: 0, 1 or 2)");
+    getResult().setType(outputTensorType);
+  }
+  return success();
 }
 
 LogicalResult ONNXRandomUniformOp::inferShapes(
@@ -4218,7 +4298,35 @@ LogicalResult ONNXReduceSumSquareOp::inferShapes(
 
 LogicalResult ONNXRoiAlignOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Cannot infer shape if no shape exists.
+  if (!X().getType().isa<RankedTensorType>() ||
+      !batch_indices().getType().isa<RankedTensorType>())
+    return success();
+
+  return shapeHelperInferShapes<ONNXRoiAlignOpShapeHelper, ONNXRoiAlignOp,
+      ONNXRoiAlignOpAdaptor>(this, X());
+}
+
+static LogicalResult verify(ONNXRoiAlignOp op) {
+  ONNXRoiAlignOpAdaptor operandAdaptor = ONNXRoiAlignOpAdaptor(op);
+  // get input info.
+  mlir::Value X = operandAdaptor.X();
+  mlir::Value batch_indices = operandAdaptor.batch_indices();
+
+  if (!hasShapeAndRank(X) || !hasShapeAndRank(batch_indices))
+    return success();
+
+  int64_t x_rank = X.getType().cast<mlir::ShapedType>().getRank();
+  int64_t batch_indices_rank =
+      batch_indices.getType().cast<mlir::ShapedType>().getRank();
+
+  // Test ranks.
+  if (x_rank != 4)
+    return op->emitError("RoiAlign with X should be a 4D tensor");
+  if (batch_indices_rank != 1)
+    return op->emitError("RoiAlign with batch_indices should be a 1D tensor");
+
+  return success();
 }
 
 LogicalResult ONNXRoundOp::inferShapes(
@@ -4336,9 +4444,47 @@ LogicalResult ONNXScatterOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
+static LogicalResult verify(ONNXScatterElementsOp op) {
+  ONNXScatterElementsOpAdaptor operandAdaptor(op);
+  // Get operands.
+  mlir::Value data = operandAdaptor.data();
+  mlir::Value indices = operandAdaptor.indices();
+  mlir::Value updates = operandAdaptor.updates();
+
+  // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(data) || !hasShapeAndRank(indices) ||
+      !hasShapeAndRank(updates))
+    return success();
+
+  int64_t data_rank = data.getType().cast<mlir::ShapedType>().getRank();
+  int64_t indices_rank = indices.getType().cast<mlir::ShapedType>().getRank();
+  int64_t updates_rank = updates.getType().cast<mlir::ShapedType>().getRank();
+  int64_t axis = op.axis();
+
+  if (data_rank < 1)
+    return op->emitError("data rank should >= 1");
+  if (indices_rank < 1)
+    return op->emitError("indices rank should >= 1");
+  if (updates_rank < 1)
+    return op->emitError("updates rank rank should >= 1");
+  if (data_rank != indices_rank || data_rank != updates_rank ||
+      indices_rank != updates_rank) {
+    return op->emitError("data, indices, updates rank should equal");
+  }
+
+  if (axis >= data_rank || axis < 0)
+    return op->emitError("axis value out of bound");
+
+  return success();
+}
+
 LogicalResult ONNXScatterElementsOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!data().getType().isa<mlir::RankedTensorType>())
+    return success();
+
+  getResult().setType(data().getType());
+  return success();
 }
 
 static LogicalResult verify(ONNXScatterNDOp op) {
@@ -4398,18 +4544,17 @@ static LogicalResult verify(ONNXSpaceToDepthOp op) {
     return op.emitError("Input should have a rank of four");
 
   // Check blocksize.
-  APInt blocksize = operandAdaptor.blocksize().getValue();
-  if (blocksize.isNegative())
+  int64_t blocksize = operandAdaptor.blocksize();
+  if (blocksize < 0)
     return op.emitError("Blocksize should be non negative");
 
   int64_t H = inputShape[2];
   int64_t W = inputShape[3];
-  uint64_t bs = blocksize.getZExtValue();
 
-  if (H != -1 && H % bs != 0)
+  if (H != -1 && H % blocksize != 0)
     return op.emitError(
         "The input tensor height must be divisible by the block size");
-  if (W != -1 && W % bs != 0)
+  if (W != -1 && W % blocksize != 0)
     return op.emitError(
         "The input tensor width must be divisible by the block size");
 
@@ -4674,23 +4819,23 @@ LogicalResult ONNXZipMapOp::inferShapes(
     return emitError(NOT_IMPLEMENTED_MESSAGE);                                 \
   }
 
-NOT_IMPLEMENTED_INFERSHAPE(ONNXAdagradOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXAdamOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXCeluOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXEinsumOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXGradientOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXMomentumOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXNegativeLogLikelihoodLossOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXSoftmaxCrossEntropyLossOp);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV9Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV11Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV11Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV10Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV6Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV11Op);
-NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV12Op);
+NOT_IMPLEMENTED_INFERSHAPE(ONNXAdagradOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXAdamOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXCeluOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXEinsumOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXGradientOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXMomentumOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXNegativeLogLikelihoodLossOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXSoftmaxCrossEntropyLossOp)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV9Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXUpsampleV7Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV2Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXPadV11Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV11Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXResizeV10Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV6Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV11Op)
+NOT_IMPLEMENTED_INFERSHAPE(ONNXClipV12Op)
 
 //===----------------------------------------------------------------------===//
 // Loop

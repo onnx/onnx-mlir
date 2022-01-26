@@ -2,7 +2,7 @@
 
 ############################ variables.py #####################################
 #
-# Copyright 2021 The IBM Research Authors.
+# Copyright 2021-2022 The IBM Research Authors.
 #
 ################################################################################
 # Immutable global variables:
@@ -116,6 +116,12 @@ def get_args_from_env():
         help="target a specific cpu, passed to the compiler",
     )
     parser.add_argument(
+        "--march",
+        type=str,
+        default=os.getenv("TEST_MARCH", ""),
+        help="target a specific architecture, passed to the compiler",
+    )
+    parser.add_argument(
         "--converter",
         action="store_true",
         default=(strtobool(INVOKECONVERTER) if INVOKECONVERTER else False),
@@ -139,6 +145,8 @@ def get_runtime_vars():
 
     if args.mcpu:
         print("  targeting cpu:", args.mcpu, file=sys.stderr)
+    if args.march:
+        print("  targeting arch:", args.march, file=sys.stderr)
     if args.mtriple:
         print("  targeting triple:", args.mtriple, file=sys.stderr)
 

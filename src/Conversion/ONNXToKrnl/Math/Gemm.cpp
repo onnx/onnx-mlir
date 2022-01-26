@@ -4,13 +4,15 @@
 
 //===----------------- Gemm.cpp - Lowering Gemm Op ------------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
 // This file lowers the ONNX Gemm Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#include "llvm/Support/Debug.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
@@ -28,8 +30,12 @@ using namespace mlir;
 
 template <typename GemmOp>
 struct ONNXGemmOpLowering : public ConversionPattern {
-  ONNXGemmOpLowering(MLIRContext *ctx)
-      : ConversionPattern(GemmOp::getOperationName(), 1, ctx) {}
+  ONNXGemmOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling)
+      : ConversionPattern(typeConverter, GemmOp::getOperationName(), 1, ctx),
+        enableTiling(enableTiling) {}
+
+  bool enableTiling;
 
   void genericGemm(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
       Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
@@ -359,19 +365,20 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       }
     });
 
-    if (DEBUG_OPTIMIZED_OFF) {
-      genericGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,
-          alpha, beta, rewriter, loc);
-    } else {
+    if (enableTiling && !DEBUG_OPTIMIZED_OFF) {
       tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, alpha, beta, rewriter, loc);
+    } else {
+      genericGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,
+          alpha, beta, rewriter, loc);
     }
     rewriter.replaceOp(op, alloc);
     return success();
   }
 };
 
-void populateLoweringONNXGemmOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(ctx);
+void populateLoweringONNXGemmOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
+  patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(
+      typeConverter, ctx, enableTiling);
 }

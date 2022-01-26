@@ -4,7 +4,7 @@
 
 //===---------------- Pooling.cpp - Lowering Pooling Ops ------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -195,8 +195,8 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
 //
 template <typename PoolOp, typename PoolOpAdaptor, typename PoolOpShapeHelper>
 struct ONNXPoolOpLowering : public ConversionPattern {
-  ONNXPoolOpLowering(MLIRContext *ctx)
-      : ConversionPattern(PoolOp::getOperationName(), 1, ctx) {}
+  ONNXPoolOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter, PoolOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -491,10 +491,12 @@ struct ONNXPoolOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXPoolingOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
+void populateLoweringONNXPoolingOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXPoolOpLowering<ONNXMaxPoolSingleOutOp,
-      ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>>(ctx);
+      ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>>(
+      typeConverter, ctx);
   patterns.insert<ONNXPoolOpLowering<ONNXAveragePoolOp,
-      ONNXAveragePoolOpAdaptor, ONNXAveragePoolOpShapeHelper>>(ctx);
+      ONNXAveragePoolOpAdaptor, ONNXAveragePoolOpShapeHelper>>(
+      typeConverter, ctx);
 }

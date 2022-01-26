@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- RandomNormal.cpp - Lowering RandomNormal Op --------------===//
+//===-------- RandomNormalLike.cpp - Lowering RandomNormal Op -------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file lowers the ONNX Random Normal Operator to Krnl dialect.
+// This file lowers the ONNX Random Normal Like Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
 
@@ -22,13 +22,19 @@
 
 using namespace mlir;
 
-struct ONNXRandomNormalOpLowering : public ConversionPattern {
-  ONNXRandomNormalOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
+  ONNXRandomNormalLikeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
-            mlir::ONNXRandomNormalOp::getOperationName(), 1, ctx) {}
+            mlir::ONNXRandomNormalLikeOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
+
+    // Get the input memref:
+    ONNXRandomNormalLikeOpAdaptor operandAdaptor(operands);
+    Value input = operandAdaptor.input();
+
+    // Output type:
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     ArrayRef<int64_t> outputMemRefShape = outputMemRefType.getShape();
     int outputRank = outputMemRefShape.size();
@@ -36,23 +42,34 @@ struct ONNXRandomNormalOpLowering : public ConversionPattern {
 
     // Insert alloc/dealloc pair for output tensor.
     bool insertDealloc = checkInsertDealloc(op);
-    Value alloc =
-        insertAllocAndDealloc(outputMemRefType, loc, rewriter, insertDealloc);
+    Value alloc = insertAllocAndDealloc(
+        outputMemRefType, loc, rewriter, insertDealloc, input);
 
-    // Compute the number of random values required:
-    int64_t randomValues = 1;
+    // Compute the number of random values required.
+    int64_t constantValues = 1;
     for (decltype(outputRank) i = 0; i < outputRank; ++i)
-      randomValues *= outputMemRefShape[i];
+      if (outputMemRefShape[i] > 0)
+        constantValues *= outputMemRefShape[i];
     Value numberOfRandomValues =
-        emitConstantOp(rewriter, loc, rewriter.getIndexType(), randomValues);
+        emitConstantOp(rewriter, loc, rewriter.getIndexType(), constantValues);
+
+    // Incorporate any dynamic values into the number of values:
+    for (decltype(outputRank) i = 0; i < outputRank; ++i) {
+      if (outputMemRefShape[i] < 0) {
+        Value dim = rewriter.create<memref::DimOp>(loc, input, i);
+        numberOfRandomValues =
+            rewriter.create<arith::MulIOp>(loc, numberOfRandomValues, dim);
+      }
+    }
 
     // Create the Krnl Random Normal operation:
-    ONNXRandomNormalOp randomNormalOp = llvm::cast<ONNXRandomNormalOp>(op);
-    double mean = randomNormalOp.mean().convertToDouble();
+    ONNXRandomNormalLikeOp randomNormalLikeOp =
+        llvm::cast<ONNXRandomNormalLikeOp>(op);
+    double mean = randomNormalLikeOp.mean().convertToDouble();
     Value meanValue = emitConstantOp(rewriter, loc, elementType, mean);
-    double scale = randomNormalOp.scale().convertToDouble();
+    double scale = randomNormalLikeOp.scale().convertToDouble();
     Value scaleValue = emitConstantOp(rewriter, loc, elementType, scale);
-    auto seed = randomNormalOp.seed();
+    auto seed = randomNormalLikeOp.seed();
     srand(time(NULL));
     double doubleSeed = rand() % 100;
     if (seed)
@@ -66,7 +83,7 @@ struct ONNXRandomNormalOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXRandomNormalOpPattern(RewritePatternSet &patterns,
+void populateLoweringONNXRandomNormalLikeOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXRandomNormalOpLowering>(typeConverter, ctx);
+  patterns.insert<ONNXRandomNormalLikeOpLowering>(typeConverter, ctx);
 }

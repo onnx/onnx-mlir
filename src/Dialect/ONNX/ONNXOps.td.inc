@@ -708,6 +708,7 @@ def ONNXConcatOp:ONNX_Op<"Concat",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
@@ -4068,6 +4069,7 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
       return {-1};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
@@ -4803,6 +4805,7 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXRoundOp:ONNX_Op<"Round",
@@ -5142,6 +5145,7 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXScatterNDOp:ONNX_Op<"ScatterND",

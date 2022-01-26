@@ -4,7 +4,7 @@
 
 //===---------- SpaceToDepth.cpp - Lowering SpaceToDepthOp ----------------===//
 //
-// Copyright 2021 The IBM Research Authors.
+// Copyright 2021-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -23,8 +23,9 @@ using llvm::dbgs;
 #define DEBUG_TYPE "space_to_depth_onnx_to_krnl"
 
 struct ONNXSpaceToDepthOpLowering : public ConversionPattern {
-  ONNXSpaceToDepthOpLowering(MLIRContext *ctx)
-      : ConversionPattern(ONNXSpaceToDepthOp::getOperationName(), 1, ctx) {}
+  ONNXSpaceToDepthOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ONNXSpaceToDepthOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -41,7 +42,7 @@ struct ONNXSpaceToDepthOpLowering : public ConversionPattern {
     assert(succeeded(shapeComputed) && "Could not compute output shape");
 
     Location loc = spaceToDepthOp.getLoc();
-    Value input = spaceToDepthOp.input();
+    Value input = operandAdaptor.input();
     int64_t bs = spaceToDepthOp.blocksize();
 
     // Compute the new dimensions.
@@ -81,7 +82,7 @@ struct ONNXSpaceToDepthOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXSpaceToDepthOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXSpaceToDepthOpLowering>(ctx);
+void populateLoweringONNXSpaceToDepthOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXSpaceToDepthOpLowering>(typeConverter, ctx);
 }

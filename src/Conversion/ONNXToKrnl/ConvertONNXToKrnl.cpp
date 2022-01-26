@@ -4,7 +4,7 @@
 
 //====------ ConvertONNXToKrnl.cpp - ONNX dialects to Krnl lowering -------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -44,72 +44,74 @@ public:
 };
 
 void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
-    MLIRContext *ctx, TypeConverter &typeConverter) {
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
-  populateFuncOpTypeConversionPattern(patterns, typeConverter);
+  populateFunctionLikeTypeConversionPattern<FuncOp>(patterns, typeConverter);
   populateCallOpTypeConversionPattern(patterns, typeConverter);
   populateReturnOpTypeConversionPattern(patterns, typeConverter);
 
   // Frontend operation lowering.
   // ControlFlow
-  populateLoweringONNXLoopOpPattern(patterns, ctx);
-  populateLoweringONNXScanOpPattern(patterns, ctx);
+  populateLoweringONNXLoopOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
   // Math
-  populateLoweringONNXClipOpPattern(patterns, ctx);
-  populateLoweringONNXCumSumOpPattern(patterns, ctx);
-  populateLoweringONNXElementwiseOpPattern(patterns, ctx);
-  populateLoweringONNXGemmOpPattern(patterns, ctx);
-  populateLoweringONNXHardmaxOpPattern(patterns, ctx);
-  populateLoweringONNXReductionOpPattern(patterns, ctx);
-  populateLoweringONNXSoftmaxOpPattern(patterns, ctx);
-  populateLoweringONNXTopKOpPattern(patterns, ctx);
-  populateLoweringONNXMatMulOpPattern(patterns, ctx);
-  populateLoweringONNXRandomNormalOpPattern(patterns, ctx);
-  populateLoweringONNXLRNOpPattern(patterns, ctx);
+  populateLoweringONNXClipOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling);
+  populateLoweringONNXHardmaxOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXMatMulOpPattern(
+      patterns, typeConverter, ctx, enableTiling);
+  populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXRandomNormalLikeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXLRNOpPattern(patterns, typeConverter, ctx);
   // ML
-  populateLoweringONNXCategoryMapperOpPattern(patterns, ctx);
+  populateLoweringONNXCategoryMapperOpPattern(patterns, typeConverter, ctx);
   // ObjectDetection
-  populateLoweringONNXNonMaxSuppressionOpPattern(patterns, ctx);
+  populateLoweringONNXNonMaxSuppressionOpPattern(patterns, typeConverter, ctx);
   // Tensor
-  populateLoweringONNXArgMaxOpPattern(patterns, ctx);
-  populateLoweringONNXReshapeOpPattern(patterns, ctx);
-  populateLoweringONNXPadOpPattern(patterns, ctx);
-  populateLoweringONNXUnsqueezeOpPattern(patterns, ctx);
-  populateLoweringONNXUnsqueezeV11OpPattern(patterns, ctx);
-  populateLoweringONNXTransposeOpPattern(patterns, ctx);
-  populateLoweringONNXGatherOpPattern(patterns, ctx);
-  populateLoweringONNXIdentityOpPattern(patterns, ctx);
-  populateLoweringONNXConstantOfShapeOpPattern(patterns, ctx);
-  populateLoweringONNXConstantOpPattern(patterns, ctx);
-  populateLoweringONNXConcatOpPattern(patterns, ctx);
-  populateLoweringONNXDepthToSpaceOpPattern(patterns, ctx);
-  populateLoweringONNXSpaceToDepthOpPattern(patterns, ctx);
-  populateLoweringONNXShapeOpPattern(patterns, ctx);
-  populateLoweringONNXSliceOpPattern(patterns, ctx);
-  populateLoweringONNXSqueezeOpPattern(patterns, ctx);
-  populateLoweringONNXSqueezeV11OpPattern(patterns, ctx);
-  populateLoweringONNXSplitOpPattern(patterns, ctx);
-  populateLoweringONNXSplitV11OpPattern(patterns, ctx);
-  populateLoweringONNXSizeOpPattern(patterns, ctx);
-  populateLoweringONNXTileOpPattern(patterns, ctx);
-  populateLoweringONNXFlattenOpPattern(patterns, ctx);
-  populateLoweringONNXRangeOpPattern(patterns, ctx);
-  populateLoweringONNXResizeOpPattern(patterns, ctx);
-  populateLoweringONNXNonZeroOpPattern(patterns, ctx);
-  populateLoweringONNXReverseSequenceOpPattern(patterns, ctx);
-  populateLoweringONNXExpandOpPattern(patterns, ctx);
-  populateLoweringONNXOneHotOpPattern(patterns, ctx);
-  populateLoweringONNXCompressOpPattern(patterns, ctx);
+  populateLoweringONNXArgMaxOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXReshapeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXPadOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXUnsqueezeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXUnsqueezeV11OpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXIdentityOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXConstantOfShapeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSpaceToDepthOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXShapeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSliceOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSqueezeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSqueezeV11OpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSplitOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSplitV11OpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSizeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXTileOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXFlattenOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXRangeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXResizeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXNonZeroOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXReverseSequenceOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXExpandOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXOneHotOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   // Neural network
-  populateLoweringONNXConvOpPattern(patterns, ctx);
-  populateLoweringONNXNormalizationOpPattern(patterns, ctx);
-  populateLoweringONNXPoolingOpPattern(patterns, ctx);
+  populateLoweringONNXConvOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXPoolingOpPattern(patterns, typeConverter, ctx);
   // Recurrent neural network
-  populateLoweringONNXGRUOpPattern(patterns, ctx);
-  populateLoweringONNXLSTMOpPattern(patterns, ctx);
-  populateLoweringONNXRNNOpPattern(patterns, ctx);
+  populateLoweringONNXGRUOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXLSTMOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXRNNOpPattern(patterns, typeConverter, ctx);
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(ctx);
 }
@@ -134,9 +136,15 @@ struct FrontendToKrnlLoweringPass
   FrontendToKrnlLoweringPass() = default;
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass)
       : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {}
-  FrontendToKrnlLoweringPass(bool emitDealloc) {
+  FrontendToKrnlLoweringPass(bool emitDealloc, bool enableTiling) {
+    // Below, need explicit assignment to enable implicit conversion of bool to
+    // Option<bool>.
     this->emitDealloc = emitDealloc;
+    this->enableTiling = enableTiling;
   }
+  FrontendToKrnlLoweringPass(int optLevel)
+      : FrontendToKrnlLoweringPass(
+            /*emitDealloc=*/false, /*enableTiling=*/optLevel >= 3) {}
 
   void runOnOperation() final;
 
@@ -159,6 +167,9 @@ public:
   Option<bool> emitDealloc{*this, "emit-dealloc",
       llvm::cl::desc("Emit dealloc for allocated memrefs or not."),
       llvm::cl::init(false)};
+  Option<bool> enableTiling{*this, "enable-tiling",
+      llvm::cl::desc("Enable loop tiling and unrolling optimizations"),
+      llvm::cl::init(false)};
 };
 } // end anonymous namespace.
 
@@ -166,7 +177,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
 
   // Set up whether emitting dealloc for allocated memrefs or not.
-  gEmitDealloc = emitDealloc;
+  ONNXToKrnl_gEmitDealloc = emitDealloc;
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -192,7 +203,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // If `emitDealloc` is turned off, make sure we don't have buffer deallocation
   // at this level. Will use MLIR buffer-deallocation for this purpose instead.
-  if (!gEmitDealloc)
+  if (!emitDealloc)
     target.addIllegalOp<mlir::memref::DeallocOp>();
 
   // TODO: enable this once more ops are supported.
@@ -232,9 +243,15 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     return krnlTypeConverter.isLegal(op);
   });
 
+  // Operations that are legal only if types are not tensors.
+  target.addDynamicallyLegalOp<mlir::ReturnOp>([&](Operation *op) {
+    return llvm::none_of(op->getOperandTypes(),
+        [](Type type) { return type.isa<TensorType>(); });
+  });
+
   // Define patterns.
   populateONNXToKrnlConversionPattern(
-      patterns, &getContext(), krnlTypeConverter);
+      patterns, krnlTypeConverter, &getContext(), enableTiling);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
@@ -248,6 +265,12 @@ std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
 }
 
-std::unique_ptr<Pass> mlir::createLowerToKrnlPass(bool emitDealloc) {
-  return std::make_unique<FrontendToKrnlLoweringPass>(emitDealloc);
+std::unique_ptr<Pass> mlir::createLowerToKrnlPass(int optLevel) {
+  return std::make_unique<FrontendToKrnlLoweringPass>(optLevel);
+}
+
+std::unique_ptr<Pass> mlir::createLowerToKrnlPass(
+    bool emitDealloc, bool enableTiling) {
+  return std::make_unique<FrontendToKrnlLoweringPass>(
+      emitDealloc, enableTiling);
 }

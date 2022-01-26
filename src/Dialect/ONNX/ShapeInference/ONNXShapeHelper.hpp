@@ -525,3 +525,15 @@ struct ONNXCategoryMapperOpShapeHelper
       ArrayValueIndexCapture::LoadVal fLoadVal);
   LogicalResult computeShape(ONNXCategoryMapperOpAdaptor operandAdaptor);
 };
+
+// Shape for ONNXRoiAlignOp
+struct ONNXRoiAlignOpShapeHelper : public ONNXOpShapeHelper<ONNXRoiAlignOp> {
+  ONNXRoiAlignOpShapeHelper(ONNXRoiAlignOp *newOp);
+  ONNXRoiAlignOpShapeHelper(ONNXRoiAlignOp *newOp, OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult computeShape(ONNXRoiAlignOpAdaptor operandAdaptor);
+  // Additional data for RoiAlignOp.
+  SmallVector<IndexExpr, 4> xDims;            // Dim of X.
+  SmallVector<IndexExpr, 1> batchIndicesDims; // Dim of batch_indices.
+};

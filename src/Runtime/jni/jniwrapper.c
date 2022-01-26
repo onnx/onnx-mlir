@@ -4,7 +4,7 @@
 
 //===------------- jniwrapper.c - JNI wrapper Implementation -------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -162,6 +162,7 @@ typedef struct {
 jniapi_t *fill_jniapi(JNIEnv *env, jniapi_t *japi) {
   /* Get Java Exception, Long, String, OMTensor, and OMTensorList classes
    */
+  assert(env);
   JNI_VAR_CALL(env, japi->jecpt_cls,
       (*env)->FindClass(env, "java/lang/Exception"), japi->jecpt_cls != NULL,
       NULL, "Class java/lang/Exception not found");
@@ -610,6 +611,7 @@ JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMModel_main_1graph_1jni(
 JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
     JNIEnv *env, jclass cls) {
 
+  assert(env);
   log_init();
 
   /* Find and initialize Java Exception class */
@@ -633,6 +635,7 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
 JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
     JNIEnv *env, jclass cls) {
 
+  assert(env);
   log_init();
 
   /* Find and initialize Java Exception class */

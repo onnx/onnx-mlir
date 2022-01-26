@@ -1,6 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
-
-// ----
+// RUN: onnx-mlir-opt -O3 --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
 
 // TODO: Remove test_no_argument_1 from the test - empty function body is no longer
 // supported in mlir: https://reviews.llvm.org/D91886
@@ -2162,8 +2160,7 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
     onnx.Return %0, %1 : tensor<i1>, tensor<1xi64>
   }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> tensor<1xi64>
   return %0 : tensor<1xi64>
-  // CHECK:       module  {
-  // CHECK-LABEL:       func private @test_loop_simple_main_graph
+  // CHECK-LABEL:  func private @test_loop_simple_main_graph
   // CHECK-SAME:     ([[TRIP_COUNT:%.+]]: memref<i64>, [[COND:%.+]]: memref<i1>, [[Y_INIT:%.+]]: memref<1xi64>) -> memref<1xi64> {
   // CHECK:           [[Y:%.+]] = memref.alloc() {{.*}}: memref<1xi64>
   // CHECK:           [[Y_COPY_LOOP:%.+]] = krnl.define_loops 1
@@ -2183,6 +2180,7 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
   // CHECK:               [[LOOP_IV_VAL:%.+]] = arith.index_cast [[LOOP_IV]] : index to i64
   // CHECK:               [[CURR_LOOP_IV:%.+]] = memref.alloc() {{.*}}: memref<i64>
   // CHECK:               krnl.store [[LOOP_IV_VAL]], [[CURR_LOOP_IV]][] : memref<i64>
+  // CHECK:               [[UCC_COND:%.+]] = builtin.unrealized_conversion_cast [[COND]] : memref<i1> to tensor<i1>  
   // CHECK:               [[Y_CURR:%.+]] = memref.alloc() {{.*}}: memref<1xi64>
   // CHECK:               [[Y_COMPUTE_LOOP:%.+]] = krnl.define_loops 1
   // CHECK:               krnl.iterate([[Y_COMPUTE_LOOP]]) with ([[Y_COMPUTE_LOOP]] -> [[Y_COMPUTE_IV:%.+]] = 0 to 1) {
@@ -2191,8 +2189,9 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
   // CHECK:                 [[NEW_Y_VAL:%.+]] = arith.addi [[Y_VAL]], [[LOO_IV_VAL]] : i64
   // CHECK:                 krnl.store [[NEW_Y_VAL]], [[Y_CURR]]{{.}}[[Y_COMPUTE_IV]]{{.}} : memref<1xi64>
   // CHECK:               }
-  // CHECK:               [[COND_CAST:%.+]] = krnl.dummy_cast [[COND]] : (memref<i1>) -> memref<i1>
-  // CHECK:               [[Y_CURR_CAST:%.+]] = krnl.dummy_cast [[Y_CURR]] : (memref<1xi64>) -> memref<1xi64>
+  // CHECK:               [[UCC_Y_CURR:%.+]] = builtin.unrealized_conversion_cast [[Y_CURR]] : memref<1xi64> to tensor<1xi64>
+  // CHECK:               [[COND_CAST:%.+]] = builtin.unrealized_conversion_cast [[UCC_COND]] : tensor<i1> to memref<i1> 
+  // CHECK:               [[Y_CURR_CAST:%.+]] = builtin.unrealized_conversion_cast [[UCC_Y_CURR]] : tensor<1xi64> to memref<1xi64>
   // CHECK:               [[COND_CAST_VAL:%.+]] = krnl.load [[COND_CAST]][] : memref<i1>
   // CHECK:               krnl.store [[COND_CAST_VAL]], [[COND_GLOBAL]][] : memref<i1>
   // CHECK:               [[Y_COPY_LOOP:%.+]] = krnl.define_loops 1
@@ -2203,8 +2202,7 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
   // CHECK:             }
   // CHECK:           }
   // CHECK:           return [[Y]] : memref<1xi64>
-  // CHECK:         }
-  // CHECK:       }
+  // CHECK:        }
 }
 
 // -----
@@ -2331,4 +2329,84 @@ func @test_resize1(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[SEED:%.+]] = arith.constant
 // CHECK-DAG:       "krnl.random_normal"([[ALLOC]], [[ALL_VALUES]], [[MEAN]], [[SCALE]], [[SEED]]) : (memref<3x4x5xf64>, index, f64, f64, f64) -> ()
 // CHECK:           return [[ALLOC]] : memref<3x4x5xf64>
+}
+
+//-----
+  func @test_random_normal_like1(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32> {
+    %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<3x4x5xf32>) -> tensor<*xf32>
+    "std.return"(%0) : (tensor<*xf32>) -> ()
+// CHECK-LABEL:  @test_random_normal_like1
+// CHECK-DAG:       [[ALLOC:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf32>
+// CHECK-DAG:       [[ALL_VALUES:%.+]] = arith.constant 60 : index
+// CHECK-DAG:       [[MEAN:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-DAG:       [[SCALE:%.+]] = arith.constant 1.000000e+00 : f32
+// CHECK-DAG:       [[SEED:%.+]] = arith.constant 2.000000e+00 : f32
+// CHECK-DAG:       "krnl.random_normal"([[ALLOC]], [[ALL_VALUES]], [[MEAN]], [[SCALE]], [[SEED]]) : (memref<3x4x5xf32>, index, f32, f32, f32) -> ()
+// CHECK:           return [[ALLOC]] : memref<3x4x5xf32>
+}
+
+//-----
+  func @test_random_normal_like2(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32> {
+    %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<3x4x5xf32>) -> tensor<*xf32>
+    "std.return"(%0) : (tensor<*xf32>) -> ()
+// CHECK-LABEL:  @test_random_normal_like2
+// CHECK-DAG:       [[ALLOC:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf64>
+// CHECK-DAG:       [[ALL_VALUES:%.+]] = arith.constant 60 : index
+// CHECK-DAG:       [[MEAN:%.+]] = arith.constant 0.000000e+00 : f64
+// CHECK-DAG:       [[SCALE:%.+]] = arith.constant 1.000000e+00 : f64
+// CHECK-DAG:       [[SEED:%.+]] = arith.constant 2.000000e+00 : f64
+// CHECK-DAG:       "krnl.random_normal"([[ALLOC]], [[ALL_VALUES]], [[MEAN]], [[SCALE]], [[SEED]]) : (memref<3x4x5xf64>, index, f64, f64, f64) -> ()
+// CHECK:           return [[ALLOC]] : memref<3x4x5xf64>
+}
+
+//-----
+  func @test_random_normal_like3(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32> {
+    %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32} : (tensor<3x4x5xf32>) -> tensor<*xf32>
+    "std.return"(%0) : (tensor<*xf32>) -> ()
+// CHECK-LABEL:  @test_random_normal_like3
+// CHECK-DAG:       [[ALLOC:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf64>
+// CHECK-DAG:       [[ALL_VALUES:%.+]] = arith.constant 60 : index
+// CHECK-DAG:       [[MEAN:%.+]] = arith.constant 0.000000e+00 : f64
+// CHECK-DAG:       [[SCALE:%.+]] = arith.constant 1.000000e+00 : f64
+// CHECK-DAG:       [[SEED:%.+]] = arith.constant
+// CHECK-DAG:       "krnl.random_normal"([[ALLOC]], [[ALL_VALUES]], [[MEAN]], [[SCALE]], [[SEED]]) : (memref<3x4x5xf64>, index, f64, f64, f64) -> ()
+// CHECK:           return [[ALLOC]] : memref<3x4x5xf64>
+}
+
+//-----
+  func @test_random_normal_like4(%arg0: tensor<3x4x?x?xf32>) -> tensor<*xf32> {
+    %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<3x4x?x?xf32>) -> tensor<*xf32>
+    "std.return"(%0) : (tensor<*xf32>) -> ()
+// CHECK-LABEL:  @test_random_normal_like4
+// CHECK-DAG:       [[C2:%.+]] = arith.constant 2 : index
+// CHECK-DAG:       [[DIM2:%.+]] = memref.dim %arg0, [[C2]] : memref<3x4x?x?xf32>
+// CHECK-DAG:       [[C3:%.+]] = arith.constant 3 : index
+// CHECK-DAG:       [[DIM3:%.+]] = memref.dim %arg0, [[C3]] : memref<3x4x?x?xf32>
+// CHECK-DAG:       [[DYN_ALLOC:%.+]] = memref.alloc([[DIM2]], [[DIM3]]) {alignment = 16 : i64} : memref<3x4x?x?xf32>
+// CHECK-DAG:       [[C12:%.+]] = arith.constant 12 : index
+// CHECK-DAG:       [[C2:%.+]] = arith.constant 2 : index
+// CHECK-DAG:       [[DIM2:%.+]] = memref.dim %arg0, [[C2]] : memref<3x4x?x?xf32>
+// CHECK-DAG:       [[MUL1:%.+]] = arith.muli [[C12]], [[DIM2]] : index
+// CHECK-DAG:       [[C3:%.+]] = arith.constant 3 : index
+// CHECK-DAG:       [[DIM3:%.+]] = memref.dim %arg0, [[C3]] : memref<3x4x?x?xf32>
+// CHECK-DAG:       [[ALL_VALUES:%.+]] = arith.muli [[MUL1]], [[DIM3]] : index
+// CHECK-DAG:       [[MEAN:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-DAG:       [[SCALE:%.+]] = arith.constant 1.000000e+00 : f32
+// CHECK-DAG:       [[SEED:%.+]] = arith.constant 2.000000e+00 : f32
+// CHECK-DAG:       "krnl.random_normal"([[DYN_ALLOC]], [[ALL_VALUES]], [[MEAN]], [[SCALE]], [[SEED]]) : (memref<3x4x?x?xf32>, index, f32, f32, f32) -> ()
+// CHECK:           return [[DYN_ALLOC]] : memref<3x4x?x?xf32>
+}
+
+//-----
+  func @test_random_normal_like5(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32> {
+    %0 = "onnx.RandomNormalLike"(%arg0) {mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<3x4x5xf32>) -> tensor<*xf32>
+    "std.return"(%0) : (tensor<*xf32>) -> ()
+// CHECK-LABEL:  @test_random_normal_like5
+// CHECK-DAG:       [[ALLOC:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf32>
+// CHECK-DAG:       [[ALL_VALUES:%.+]] = arith.constant 60 : index
+// CHECK-DAG:       [[MEAN:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-DAG:       [[SCALE:%.+]] = arith.constant 1.000000e+00 : f32
+// CHECK-DAG:       [[SEED:%.+]] = arith.constant 2.000000e+00 : f32
+// CHECK-DAG:       "krnl.random_normal"([[ALLOC]], [[ALL_VALUES]], [[MEAN]], [[SCALE]], [[SEED]]) : (memref<3x4x5xf32>, index, f32, f32, f32) -> ()
+// CHECK:           return [[ALLOC]] : memref<3x4x5xf32>
 }
