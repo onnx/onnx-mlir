@@ -67,6 +67,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXRandomNormalLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLRNOpPattern(patterns, typeConverter, ctx);
   // ML
   populateLoweringONNXCategoryMapperOpPattern(patterns, typeConverter, ctx);
