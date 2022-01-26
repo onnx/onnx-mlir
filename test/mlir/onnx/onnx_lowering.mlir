@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
 
 // TODO: Remove test_no_argument_1 from the test - empty function body is no longer
 // supported in mlir: https://reviews.llvm.org/D91886
