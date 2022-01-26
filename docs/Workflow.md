@@ -98,7 +98,7 @@ You can now edit the code on the `myfeature` branch.
 
 ### Run cmake & make
 
-Follow the directions to build ONNX-MLIR for the OS that you are using BuildOnLinuxOSX.md#Build) or [Windows](BuildOnWindows.md#Build).
+Follow the directions to build ONNX-MLIR for the OS that you are using [Linux](BuildOnLinuxOSX.md#Build) or [Windows](BuildOnWindows.md#Build).
 
 
 ### Run Test
