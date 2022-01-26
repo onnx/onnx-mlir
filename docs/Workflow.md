@@ -143,6 +143,8 @@ push your branch to your fork on `github.com`:
 git push -f -u origin myfeature
 ```
 
+Note that even if branches are pushing to one's own fork, the PR will be created on the shared https://github.com/onnx/onnx-mlir/pulls site for everyone to review.
+
 ## Step 9: Create a pull request
 
 1. Visit your fork at https://github.com/$user/onnx-mlir (replace `$user` obviously).
