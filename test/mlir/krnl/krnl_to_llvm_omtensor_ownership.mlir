@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-krnl-to-llvm --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --convert-krnl-to-llvm --canonicalize %s -split-input-file | FileCheck %s
 
 module {
 // Check that output OMTensor does not own the data pointer because data is a constant.
@@ -20,7 +20,7 @@ module {
  // Check that output OMTensor does not own the data pointer because data is a constant via a view op.
   func @return_view_of_constant() -> memref<2x4xf32> {
     %0 = "krnl.global"() {name = "cst0", shape = [8], value = dense<[1., 2., 3., 4., 5., 6., 7., 8.]> : tensor<8xf32>} : () -> memref<8xf32>
-    %1 = memref.reinterpret_cast %0 to offset: [0], sizes: [2, 4], strides: [8, 1] : memref<8xf32> to memref<2x4xf32>
+    %1 = memref.reinterpret_cast %0 to offset: [0], sizes: [2, 4], strides: [4, 1] : memref<8xf32> to memref<2x4xf32>
     return %1 : memref<2x4xf32>
   }
   "krnl.entry_point"() {func = @return_view_of_constant, numInputs = 0 : i32, numOutputs = 1 : i32, signature = ""} : () -> ()

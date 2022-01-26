@@ -4067,9 +4067,68 @@ LogicalResult ONNXRandomNormalOp::inferShapes(
   return success();
 }
 
+static LogicalResult verify(ONNXRandomNormalLikeOp op) {
+  ONNXRandomNormalLikeOpAdaptor operandAdaptor(op);
+  mlir::Value input = operandAdaptor.input();
+  if (!hasShapeAndRank(input))
+    return success();
+  mlir::Value output = op.output();
+  if (!hasShapeAndRank(output))
+    return success();
+
+  auto inputType = input.getType().cast<RankedTensorType>().getElementType();
+  auto outputType = output.getType().cast<RankedTensorType>().getElementType();
+
+  auto elementTypeIDDType = operandAdaptor.dtype();
+  if (elementTypeIDDType) {
+    int64_t elementTypeID = elementTypeIDDType.getValue();
+    if (elementTypeID < 0 || elementTypeID > 2) {
+      return op->emitError("dtype not 0, 1 or 2.");
+    }
+    if (elementTypeID == 0 && outputType != FloatType::getF16(op.getContext()))
+      return op->emitError("output tensor does match 0 dtype.");
+    else if (elementTypeID == 1 &&
+             outputType != FloatType::getF32(op.getContext()))
+      return op->emitError("output tensor does match 1 dtype.");
+    else if (elementTypeID == 2 &&
+             outputType != FloatType::getF64(op.getContext()))
+      return op->emitError("output tensor does match 2 dtype.");
+  } else if (inputType != outputType) {
+    return op->emitError("output and input element types do not match.");
+  }
+
+  return success();
+}
+
 LogicalResult ONNXRandomNormalLikeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!input().getType().isa<RankedTensorType>())
+    return success();
+  auto inputType = input().getType().cast<RankedTensorType>();
+  auto outputShape = inputType.getShape();
+  auto elementTypeIDDType = dtype();
+
+  // Default output tensor type in all cases is the input tensor type.
+  auto outputTensorType =
+      RankedTensorType::get(outputShape, inputType.getElementType());
+  if (!elementTypeIDDType) {
+    getResult().setType(outputTensorType);
+  } else {
+    int64_t elementTypeID = elementTypeIDDType.getValue();
+    if (elementTypeID == 0)
+      outputTensorType =
+          RankedTensorType::get(outputShape, FloatType::getF16(getContext()));
+    else if (elementTypeID == 1)
+      outputTensorType =
+          RankedTensorType::get(outputShape, FloatType::getF32(getContext()));
+    else if (elementTypeID == 2)
+      outputTensorType =
+          RankedTensorType::get(outputShape, FloatType::getF64(getContext()));
+    else
+      return emitError("dtype attribute is invalid (use: 0, 1 or 2)");
+    getResult().setType(outputTensorType);
+  }
+  return success();
 }
 
 LogicalResult ONNXRandomUniformOp::inferShapes(
