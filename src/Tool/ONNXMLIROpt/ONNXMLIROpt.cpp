@@ -19,6 +19,7 @@
 #include <mlir/IR/AsmState.h>
 #include <mlir/IR/Dialect.h>
 #include <mlir/IR/MLIRContext.h>
+#include <mlir/Dialect/MemRef/Transforms/Passes.h>
 #include <mlir/InitAllDialects.h>
 #include <mlir/InitAllPasses.h>
 #include <mlir/Interfaces/ViewLikeInterface.h>
@@ -106,6 +107,7 @@ int main(int argc, char **argv) {
   registerTransformsPasses();
   registerAffinePasses();
   registerLinalgPasses();
+  memref::registerMemRefPasses();
   registerSCFPasses();
   registerStandardPasses();
 

@@ -9,5 +9,6 @@ add_onnx_mlir_executable(onnx-mlir-opt
   ${OMLibs}
   MLIRAffineTransforms
   MLIRLinalgTransforms
+  MLIRMemRefTransforms
   MLIROptLib
   )
