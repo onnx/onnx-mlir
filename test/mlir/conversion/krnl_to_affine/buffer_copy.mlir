@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-krnl-to-affine --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine --canonicalize %s -split-input-file | FileCheck %s
 
 ///////////////////////////////////////////////////////////////////////////////
 // COPY TO

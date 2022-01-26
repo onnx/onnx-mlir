@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-krnl-to-affine %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
 // Hoist invariant instructions outside of the loop.
 func @simple_block(%arg0 : memref<?xf32>) {

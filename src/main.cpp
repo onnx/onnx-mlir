@@ -7,13 +7,14 @@
 // Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
-//
+// Implements main for onnx-mlir driver.
 //===----------------------------------------------------------------------===//
 
 #include "src/Compiler/CompilerUtils.hpp"
 
 using namespace std;
 using namespace onnx_mlir;
+
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 
 int main(int argc, char *argv[]) {
