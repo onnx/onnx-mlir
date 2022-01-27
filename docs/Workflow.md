@@ -267,5 +267,8 @@ Using the GitHub interface:
 
 ## Code style
 
-Please  follow the coding style used by LLVM (https://llvm.org/docs/CodingStandards.html).
+Very small PRs are easy to review. Very large PRs are very difficult to review.
 
+Follow the [coding style](https://llvm.org/docs/CodingStandards.html) used by LLVM for your code. We use the `clang-format` command to get the proper style, which is also tested by our CIs. It is acceptable to run the command on all of the files that were modified by your PR.
+
+Please follow the coding style used by LLVM (https://llvm.org/docs/CodingStandards.html).
