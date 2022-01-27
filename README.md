@@ -20,6 +20,8 @@ This project contributes an ONNX Dialect that can be integrated in other project
 
 The preferred approach to using and developing ONNX-MLIR is to use Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with dockers are [here](docs/Docker.md).
 
+If you intend to develop code, you should look at our [workflow](docs/Workflow.md) document which help you setup your docker environment in a way that let you contribute code easily.
+
 ## Setting up ONNX-MLIR directly
 
 ONNX-MLIR runs natively on Linux, OSX, and Windows.
@@ -125,7 +127,7 @@ A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
 
 You may also open GitHub Issues for any questions and/or suggestions you may have.
 
-Do not use public channels to discuss any security-related issues; use instead the specific instructions provided [here](SECURITY.md).
+Do not use public channels to discuss any security-related issues; use instead the specific instructions provided in the [SECURITY](SECURITY.md) page.
 
 ## Contributing
 
