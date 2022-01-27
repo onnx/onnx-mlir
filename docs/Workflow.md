@@ -11,14 +11,14 @@ Creating a new fork is easy:
 2. Click `Fork` button (top right) to establish a fork.
 3. Navigate to your newly created fork, click on the the green `Code` button to get the link to *your* newly-created ONNX-MLIR fork:
 ```sh
-git@github.com:<<GitID>>/onnx-mlir.git
+git@github.com:<user>/onnx-mlir.git
 ```
 or
 ```sh
-https://github.com/<<GitID>>/onnx-mlir.git
+https://github.com/<user>/onnx-mlir.git
 ```
 
-where `<<GitID>>` is your GitHub username.
+where `<user>` is your GitHub username.
 
 ## Step 2: Setup MLIR
 
@@ -48,7 +48,7 @@ At the end of the two commands above:
 
 At any point you can access your Docker image interactively:
 ```sh
-docker run -it <<ImageName>> /bin/bash
+docker run -it myImageName /bin/bash
 ```
 
 Once inside the image you can navigate to the ONNX-MLIR GitHub repository:
@@ -71,13 +71,13 @@ Then follow the directions in this section of the top level [README](../README.m
 
 If you already have an MLIR copy in your working directory, you should ensure that you have the latest copy. To do so, compare the most recent commit ID from a `git log` command with the specific branch version extracted by the `git checkout` command listed [here](BuildOnLinuxOSX.md#MLIR). If your MLIR in not up to date, you must  bring it up to the correct commit level by either reinstalling it or updating it with `git fetch`, `git merge`, and `git checkout` commands.
 
-Create your clone (replace `<<GitID>>` with your GitHub username):
+Create your clone (replace `<user>` with your GitHub username):
 
 ```sh
 mkdir -p $working_dir
 cd $working_dir
-git clone --recursive https://github.com/<<GitID>>/onnx-mlir.git
-# or: git clone --recursive git@github.com:<<GitID>>/onnx-mlir.git
+git clone --recursive https://github.com/<user>/onnx-mlir.git
+# or: git clone --recursive git@github.com:<user>/onnx-mlir.git
 
 cd $working_dir/onnx-mlir
 git remote add upstream https://github.com/onnx-mlir/onnx-mlir.git
@@ -131,14 +131,14 @@ and the command will return immediately signaling that no differences exist betw
 4. (Optional) Assuming your `main` is up to date, to update any branches you are currently working on to use the latest ONNX-MLIR, you need to do the following:
 
 ```sh
-git checkout <my_branch>
+git checkout my-branch
 git merge origin/main
 ```
 
 If no conflicts are signaled and the merge is complete do:
 
 ```sh
-git push origin <my_branch>
+git push origin my-branch
 ```
 
 However, if conflicts appear, the merge will be interrupted until the conflicts are resolved. A list of files will be marked as containing conflicts. To identify those files do:
@@ -163,10 +163,10 @@ git commit
 
 Followed by a git push:
 ```sh
-git push origin <my_branch>
+git push origin my-branch
 ```
 
-Your branch is now up to date with the lastes ONNX-MLIR.
+Your branch is now up to date with the latest ONNX-MLIR.
 
 ## Step 5: Create a branch for your changes
 
@@ -179,7 +179,7 @@ git checkout main
 Then create your new branch:
 
 ```sh
-git checkout -b <my_branch>
+git checkout -b my-branch
 ```
 
 At this point you are ready to develop the code.
@@ -188,7 +188,7 @@ At this point you are ready to develop the code.
 
 ### Edit your code
 
-You can now edit the code on the `<my_branch>` branch.
+You can now edit the code on the `my-branch` branch.
 
 ### Run cmake & make
 
@@ -215,15 +215,15 @@ git commit -s
 
 Push your changes:
 ```sh
-git push origin <my_branch>
+git push origin my-branch
 ```
 
 Note that even if branches are pushing to one's own fork, the PR will be created on the shared https://github.com/onnx/onnx-mlir/pulls site for everyone to review.
 
 ## Step 8: Create a pull request
 
-1. Visit your fork at https://github.com/<<GitID>>/onnx-mlir (replace `<<GitID>>` obviously).
-2. Click the `Compare & pull request` button next to your `<my_branch>` branch.
+1. Visit your fork at https://github.com/<user>/onnx-mlir (replace `<user>` obviously).
+2. Click the `Compare & pull request` button next to your `my-branch` branch.
 
 ## Step 9: Get a code review
 
