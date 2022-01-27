@@ -128,46 +128,6 @@ git diff upstream/main
 ```
 and the command will return immediately signaling that no differences exist between `upstream/main` and `origin/main`
 
-4. (Optional) Assuming your `main` is up to date, to update any branches you are currently working on to use the latest ONNX-MLIR, you need to do the following:
-
-```sh
-git checkout my-branch
-git merge origin/main
-```
-
-If no conflicts are signaled and the merge is complete do:
-
-```sh
-git push origin my-branch
-```
-
-However, if conflicts appear, the merge will be interrupted until the conflicts are resolved. A list of files will be marked as containing conflicts. To identify those files do:
-
-```sh
-git status -uno
-```
-
-The files in red are the files containing conflicts. Go to all the files which contain a conflict and resolve the conflicts.
-When the conflicts are resolved do a `git add` on each conflicted file:
-
-```sh
-git add path/to/file1
-git add path/to/file2
-...
-```
-
-When all conflicted files have been added do:
-```sh
-git commit
-```
-
-Followed by a git push:
-```sh
-git push origin my-branch
-```
-
-Your branch is now up to date with the latest ONNX-MLIR.
-
 ## Step 5: Create a branch for your changes
 
 To create a branch off your fork's `main` branch ensure your current branch is `main` by doing:
@@ -220,12 +180,55 @@ git push origin my-branch
 
 Note that even if branches are pushing to one's own fork, the PR will be created on the shared https://github.com/onnx/onnx-mlir/pulls site for everyone to review.
 
-## Step 8: Create a pull request
+## Step 8: Update your branch
+
+4. (Optional) Assuming your `main` is up to date, to update any branches you are currently working on to use the latest ONNX-MLIR, you need to do the following:
+
+```sh
+git checkout my-branch
+git merge origin/main
+```
+
+If no conflicts are signaled and the merge is complete do:
+
+```sh
+git push origin my-branch
+```
+
+However, if conflicts appear, the merge will be interrupted until the conflicts are resolved. A list of files will be marked as containing conflicts. To identify those files do:
+
+```sh
+git status -uno
+```
+
+The files in red are the files containing conflicts. Go to all the files which contain a conflict and resolve the conflicts.
+When the conflicts are resolved do a `git add` on each conflicted file:
+
+```sh
+git add path/to/file1
+git add path/to/file2
+...
+```
+
+When all conflicted files have been added do:
+```sh
+git commit -s
+```
+
+Followed by a git push:
+```sh
+git push origin my-branch
+```
+
+Your branch is now up to date with the latest ONNX-MLIR.
+
+
+## Step 9: Create a pull request
 
 1. Visit your fork at https://github.com/<user>/onnx-mlir (replace `<user>` obviously).
 2. Click the `Compare & pull request` button next to your `my-branch` branch.
 
-## Step 9: Get a code review
+## Step 10: Get a code review
 
 Once your pull request has been opened, it will be assigned to at least one
 reviewer. The reviewer(s) will do a thorough code review, looking for
@@ -234,11 +237,11 @@ and style.
 
 Commit changes made in response to review comments to the same branch on your fork. Continue to do a sequence of `git commit -s` and `git push` commands (Step 7) to update GitHub of your changes.
 
-If you wish to update your branch to contain the latest ONNX-MLIR changes perform Step 3.
+If you wish to update your branch to contain the latest ONNX-MLIR changes perform Step 8.
 
 This step can also be performed on the GitHub website by visiting your PR page and clicking the `Update` button. This step will merge the latest `upstream/main` branch into your branch without updating the `main` branch of your fork.
 
-## Step 10: Patch approval
+## Step 11: Patch approval
 
 When the PR has been approved by one or more reviewers and all the CIs have passed, the PR can now be merged into the main branch of ONNX-MLIR.
 
@@ -269,6 +272,4 @@ Using the GitHub interface:
 
 Very small PRs are easy to review. Very large PRs are very difficult to review.
 
-Follow the [coding style](https://llvm.org/docs/CodingStandards.html) used by LLVM for your code. We use the `clang-format` command to get the proper style, which is also tested by our CIs. It is acceptable to run the command on all of the files that were modified by your PR.
-
-Please follow the coding style used by LLVM (https://llvm.org/docs/CodingStandards.html).
+Follow the [coding style](https://llvm.org/docs/CodingStandards.html) used by LLVM for your code. We use the `clang-format` command to get the proper style, which is also tested by our CIs. It is acceptable to run the command on all of the files that were modified by your PR. We recommend using VS code where the clang formatter will be run automatically using the clang format configuration file already present in the repository.
