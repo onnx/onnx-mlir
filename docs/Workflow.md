@@ -31,12 +31,14 @@ Use the template provided in [here](Docker.md#building-onnx-mlir-in-a-docker-env
 RUN git remote add origin https://github.com/<<GitID>>/onnx-mlir.git
 ```
 
+Replace `<<GitID>>` with your GitHub user name.
+
 As a best practice, uncomment the line which disables the pushing to upstream to avoid accidental pushes:
 ```sh
 RUN git remote set-url --push upstream no_push
 ```
 
-At the end of the two commands above:
+At the end of the commands in Step 5:
 - `upstream` will refer to the original ONNX-MLIR repository.
 - `origin` will refer to your own fork of ONNX-MLIR.
 
