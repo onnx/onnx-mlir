@@ -4657,9 +4657,6 @@ static LogicalResult verify(ONNXCategoryMapperOp op) {
     return op.emitError("'default_string' attribute is missing.");
   if (elementType.isa<onnxmlir::StringType>() && !op.default_int64Attr())
     return op.emitError("'default_int64' attribute is missing.");
-  if (op.default_stringAttr() && op.default_int64Attr())
-    return op.emitError("Only one of 'default_int64' or 'default_string' "
-                        "attributes must be specified");
 
   return success();
 }
