@@ -13,7 +13,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Support/SuppressWarnings.h"
+
+SUPPRESS_WARNINGS_PUSH
 #include "onnx/onnx_pb.h"
+SUPPRESS_WARNINGS_POP
 
 #include "PyExecutionSession.hpp"
 
