@@ -188,7 +188,7 @@ At this point you are ready to develop the code.
 
 ### Edit your code
 
-You can now edit the code on the `myfeature` branch.
+You can now edit the code on the `<my_branch>` branch.
 
 ### Run cmake & make
 
