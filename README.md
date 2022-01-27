@@ -3,8 +3,8 @@
 
 # ONNX-MLIR
 
-This project (https://onnx.ai/onnx-mlir/) provides compiler technology to transform a valid Open Neural Network Exchange (ONNX) graph into code that implement the graph with minimum runtime support. 
-It implements the [ONNX standard](https://github.com/onnx/onnx#readme) and is based on the underlying [LLVM/MLIR](https://mlir.llvm.org) compiler technology. 
+This project (https://onnx.ai/onnx-mlir/) provides compiler technology to transform a valid Open Neural Network Exchange (ONNX) graph into code that implement the graph with minimum runtime support.
+It implements the [ONNX standard](https://github.com/onnx/onnx#readme) and is based on the underlying [LLVM/MLIR](https://mlir.llvm.org) compiler technology.
 
 | System        | Build Status |
 |---------------|--------------|
@@ -23,6 +23,7 @@ The preferred approach to using and developing ONNX-MLIR is to use Docker Images
 ## Setting up ONNX-MLIR directly
 
 ONNX-MLIR runs natively on Linux, OSX, and Windows.
+Detailed instructions are provided below.
 
 ### Prerequisites
 
@@ -118,8 +119,8 @@ An end to end example is provided [here](docs/mnist_example/README.md), which tr
 
 ## Interacting via Slack and GitHub.
 
-We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`. 
-This channel can be used for asking quick questions related to this project. 
+We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`.
+This channel can be used for asking quick questions related to this project.
 A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
 
 You may also open GitHub Issues for any questions and/or suggestions you may have.
@@ -128,7 +129,7 @@ Do not use public channels to discuss any security-related issues; use instead t
 
 ## Contributing
 
-We are welcoming contributions from the community. 
+We are welcoming contributions from the community.
 Please consult the [CONTRIBUTING](CONTRIBUTING.md) page for help on how to proceed.
 Documentation is provided in the `docs` sub-directory; the [DocumentList](docs/DocumentList.md) page provides an organized list of documents.
 

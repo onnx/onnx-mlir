@@ -79,12 +79,12 @@ You can now edit the code on the `myfeature` branch.
 Follow the directions to build ONNX-MLIR in this section of the main 
 [README](../README.md#onnx-mlir-this-project).
 
-We expect code to compile without generating any compiler warnings. 
+We expect code to compile without generating any compiler warnings.
 
 #### Run Test
 
-In general, the new features must be tested in one or more of our test suite. 
-At a high level, our testing strategy includes  `literal` tests (`check-onnx-lit` below), end-to-end tests derived from the ONNX Standard (`check-onnx-backend` and derivatives below, and semi-exhaustive numerical tests (`test` below).
+In general, the new features must be tested in one or more of our test suite.
+At a high level, our testing strategy includes `literal` tests (`check-onnx-lit` below), end-to-end tests derived from the ONNX Standard (`check-onnx-backend` and derivatives below, and semi-exhaustive numerical tests (`test` below).
 
 ```sh
 # Run unit test to make sure all test passed.
@@ -143,7 +143,7 @@ git push -f origin myfeature
 
 ### Step 9: Get a code review
 
-Once your pull request has been opened and is not in draft mode anymore, it will be assigned to at least one reviewer. 
+Once your pull request has been opened and is not in draft mode anymore, one of us will review the code.
 The reviewer(s) will do a thorough code review, looking for correctness, bugs, opportunities for improvement, testing, documentation and comments, and style.
 
 Commit changes made in response to review comments to the same branch on your
