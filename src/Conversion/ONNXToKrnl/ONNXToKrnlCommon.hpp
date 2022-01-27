@@ -43,8 +43,8 @@
 using namespace mlir;
 
 // A global variable to indicate whether this pass will emit dealloc for
-// allocated memrefs or not.
-extern bool gEmitDealloc;
+// allocated memrefs or not during the conversion of ONNX to Krnl.
+extern bool ONNXToKrnl_gEmitDealloc;
 
 //===----------------------------------------------------------------------===//
 // Extends OnnxBuilder with member functions that might generate Krnl dialect
@@ -251,7 +251,7 @@ public:
 
 // For all ONNX operations.
 void populateONNXToKrnlConversionPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
+    RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);
 
 // `ControlFlow` directory methods:
 void populateLoweringONNXLoopOpPattern(
@@ -267,14 +267,16 @@ void populateLoweringONNXCumSumOpPattern(
 void populateLoweringONNXElementwiseOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXGemmOpPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
+    RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);
 void populateLoweringONNXHardmaxOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXLRNOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXMatMulOpPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
+    RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);
 void populateLoweringONNXRandomNormalOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXRandomNormalLikeOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXReductionOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
@@ -390,7 +392,7 @@ int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index);
 template <typename OP_TYPE>
 Location ONNXLoc(Operation *op) {
   return NameLoc::get(
-      Identifier::get(OP_TYPE::getOperationName(), op->getContext()),
+      StringAttr::get(op->getContext(), OP_TYPE::getOperationName()),
       op->getLoc());
 }
 
