@@ -117,7 +117,7 @@ git fetch --all
 2. Update the `main` branch on your fork:
 ```sh
 git checkout main
-git pull
+git merge origin/main
 git merge upstream/main
 git push origin main
 ```
@@ -184,7 +184,7 @@ Note that even if branches are pushing to one's own fork, the PR will be created
 
 ## Step 8: Update your branch
 
-4. (Optional) Assuming your `main` is up to date, to update any branches you are currently working on to use the latest ONNX-MLIR, you need to do the following:
+Assuming your `main` is up to date (Step 4), to update any branches you are currently working on to use the latest ONNX-MLIR, you need to do the following:
 
 ```sh
 git checkout my-branch
@@ -243,7 +243,7 @@ If you wish to update your branch to contain the latest ONNX-MLIR changes perfor
 
 This step can also be performed on the GitHub website by visiting your PR page and clicking the `Update` button. This step will merge the latest `upstream/main` branch into your branch without updating the `main` branch of your fork.
 
-## Step 11: Patch approval
+## Step 11: Pull request approval
 
 When the PR has been approved by one or more reviewers and all the CIs have passed, the PR can now be merged into the main branch of ONNX-MLIR.
 
@@ -260,7 +260,7 @@ For contributors who wish to provide a custom description you will have to do th
 
 For lengthy, detailed descriptions please use the main comment box in your PR.
 
-### Admin guidelines
+### Collaborators with Write access guidelines
 
 By default, the log will include the messages of every `commit` performed during the development, which is necessary for smooth reviewing but is unnecessarily long. During the merge phase this message will be replaced with the title of the patch unless the author of the patch has already squashed all his commits via an interactive rebase and provided his own custom (but brief) description of the patch.
 
