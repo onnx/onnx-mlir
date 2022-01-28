@@ -1341,8 +1341,8 @@ private:
 
   // Helper function to insert an entry block to LLVM function.
   // (TODO): upstream this to MLIR.
-  Block &createEntryBlock(
-      Type &dynEntryPoint, LLVM::LLVMFuncOp &dynamicEntryPointFunc, Location &loc) const {
+  Block &createEntryBlock(Type &dynEntryPoint,
+      LLVM::LLVMFuncOp &dynamicEntryPointFunc, Location &loc) const {
     // Add entry block:
     auto *entryPointEntryBlock = new Block();
     auto dynEntryPointFuncType = dynEntryPoint.cast<LLVM::LLVMFunctionType>();

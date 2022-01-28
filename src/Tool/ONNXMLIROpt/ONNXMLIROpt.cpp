@@ -16,10 +16,10 @@
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/ToolOutputFile.h>
+#include <mlir/Dialect/MemRef/Transforms/Passes.h>
 #include <mlir/IR/AsmState.h>
 #include <mlir/IR/Dialect.h>
 #include <mlir/IR/MLIRContext.h>
-#include <mlir/Dialect/MemRef/Transforms/Passes.h>
 #include <mlir/InitAllDialects.h>
 #include <mlir/InitAllPasses.h>
 #include <mlir/Interfaces/ViewLikeInterface.h>
