@@ -51,7 +51,7 @@ public:
 
     // Iterate on the operations
     for (Operation &op : funcBody.getOps()) {
-      if (isa<mlir::ONNXOpsDialect>(op.getDialect())) {
+      if (isa<mlir::ONNXDialect>(op.getDialect())) {
         if (failed(verifyRanked(op)))
           signalPassFailure();
       }

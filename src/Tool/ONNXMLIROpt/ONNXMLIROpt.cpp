@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
   registry.insert<mlir::math::MathDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
 
-  registry.insert<mlir::ONNXOpsDialect>();
+  registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
 
   registerTransformsPasses();

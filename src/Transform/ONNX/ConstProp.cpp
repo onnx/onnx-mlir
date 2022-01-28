@@ -763,7 +763,7 @@ void ConstPropONNXToONNXPass::runOnFunction() {
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());
-  target.addLegalDialect<ONNXOpsDialect>();
+  target.addLegalDialect<ONNXDialect>();
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);

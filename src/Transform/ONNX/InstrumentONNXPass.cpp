@@ -91,7 +91,7 @@ public:
 
     // Iterate on the operations nested in this function
     getFunction().walk([&](mlir::Operation *op) {
-      if (isa<mlir::ONNXOpsDialect>(op->getDialect())) {
+      if (isa<mlir::ONNXDialect>(op->getDialect())) {
         // Skip the prefix "onnx." of onnx op name
         const char *opName = op->getName().getStringRef().data() + 5;
         if (!allOpsAllowed && allowedOps.find(opName) == allowedOps.end())

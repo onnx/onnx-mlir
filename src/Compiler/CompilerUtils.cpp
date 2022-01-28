@@ -608,7 +608,7 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::shape::ShapeDialect>();
   context.getOrLoadDialect<mlir::math::MathDialect>();
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
-  context.getOrLoadDialect<mlir::ONNXOpsDialect>();
+  context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
 }
 
@@ -735,7 +735,7 @@ InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
 
   // If there are ONNX ops, the input level is ONNX.
   bool hasONNXOps = llvm::any_of(dialectNamespace, [&](StringRef ns) {
-    return (ns == ONNXOpsDialect::getDialectNamespace());
+    return (ns == ONNXDialect::getDialectNamespace());
   });
   if (hasONNXOps)
     return ONNXLevel;
