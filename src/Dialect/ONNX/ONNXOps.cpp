@@ -3274,7 +3274,41 @@ LogicalResult ONNXIfOp::inferShapes() {
 }
 
 LogicalResult ONNXInstanceNormalizationOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Cannot infer shape if no shape exists.
+  if (!input().getType().isa<RankedTensorType>() ||
+      !scale().getType().isa<RankedTensorType>() ||
+      !B().getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+
+  auto inputTensorTy = input().getType().cast<RankedTensorType>();
+  auto scaleTensorTy = scale().getType().cast<RankedTensorType>();
+  auto biasTensorTy = B().getType().cast<RankedTensorType>();
+
+  // Check whether the shapes of scale, bias are valid.
+  // Operand's dimensions can be in the form of NxCxD1xD2x...xDn or N.
+  // In case of N, C is assumed to be 1.
+  // 2-D tensors are assumed to be of shape NxC
+  // Shapes of scale, bias, mean and variance must be C.
+  int64_t c = -1;
+  if (inputTensorTy.getShape().size() == 1) {
+    c = 1;
+  } else if (inputTensorTy.getShape().size() >= 2) {
+    c = (inputTensorTy.getShape()[1] != -1) ? inputTensorTy.getShape()[1] : -1;
+  }
+
+  if (c != -1) {
+    auto s = scaleTensorTy.getShape();
+    auto b = biasTensorTy.getShape();
+
+    if ((s.size() != 1) || (s[0] != -1 && s[0] != c))
+      return emitError("Wrong rank for the scale");
+    if ((b.size() != 1) || (b[0] != -1 && b[0] != c))
+      return emitError("Wrong rank for the bias");
+  }
+
+  // The output tensor of the same shape as the input.
+  getResult().setType(input().getType());
+  return success();
 }
 
 LogicalResult ONNXIsInfOp::inferShapes() {
