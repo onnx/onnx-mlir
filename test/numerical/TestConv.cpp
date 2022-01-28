@@ -129,9 +129,10 @@ LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
 // Evaluate Convolution
 //===----------------------------------------------------------------------===//
 
-bool generateCompiledConv2DModel(const string modelName, const int N,
-    const int C, const int H, const int W, const int kH, const int kW,
-    const int autoPad, const int stride, const int dilation,
+bool generateCompiledConv2DModel(const string modelName,
+    /*in*/
+    const int N, const int C, const int H, const int W, const int kH,
+    const int kW, const int autoPad, const int stride, const int dilation,
     const int isDynamic,
     /* in/out */
     int &pHBegin, int &pHEnd, int &pWBegin, int &pWEnd,
