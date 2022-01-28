@@ -17,6 +17,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
+#include "test/modellib/ModelLib.hpp"
 
 #define DEBUG 0
 
@@ -29,6 +30,13 @@ using namespace onnx_mlir;
 
 #define SHARED_LIB_BASE string("./TestConv_main_graph")
 
+// Made global so that we can repeat the test with different strides and
+// dilations. Had to make them global to conform with the signatures of lambda
+// requested by RapidTest.
+int stride, dilation, isDynamic;
+
+#if 0
+
 // Convention for RapidCheck values to auto pad policies. UB is the one after
 // the last official policy.
 #define AUTO_PAD_NOTSET 0
@@ -38,10 +46,6 @@ using namespace onnx_mlir;
 #define AUTO_PAD_UB 4
 const string autoPadName[] = {"NOTSET", "VALID", "SAME_LOWER", "SAME_UPPER"};
 
-// Made global so that we can repeat the test with different strides and
-// dilations. Had to make them global to conform with the signatures of lambda
-// requested by RapidTest.
-int stride, dilation, isDynamic;
 
 // Support.
 int myCeil(int a, int b) { return ceil((1.0 * a) / (1.0 * b)); }
@@ -248,6 +252,7 @@ bool generateCompiledConv2DModel(const string modelName,
 
   return true;
 }
+#endif
 
 // Returns whether onnx-mlir compiled convolution is producing the same results
 // as a naive implementation of convolution for a specific set of convolution
@@ -263,7 +268,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
         "pHEnd %d, pWBegin %d, pWEnd %d, autopad %s, isDynamic %d, stride %d, "
         "dilation %d\n",
         ++testNum, N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
-        autoPadName[autoPad].c_str(), isDynamic, stride, dilation);
+        getAutoPadName(autoPad).c_str(), isDynamic, stride, dilation);
 
   int NOut, COut, HOut, WOut;
   if (!generateCompiledConv2DModel(/*lib name*/ SHARED_LIB_BASE,

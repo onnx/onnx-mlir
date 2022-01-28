@@ -57,7 +57,7 @@ set(TEST_LINK_LIBS rapidcheck CompilerUtils ExecutionSession)
 
 add_numerical_unittest(TestConv
   TestConv.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS} ModelLib
   )
 
 add_numerical_unittest(TestMatMul2D
