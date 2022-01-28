@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --enable-memory-pool %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --enable-memory-pool %s -split-input-file | FileCheck %s
 
 #map0 = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
 func @test_allocs_not_lowered(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) -> memref<10x10xf32> {

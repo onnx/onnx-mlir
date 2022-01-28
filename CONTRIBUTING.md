@@ -6,7 +6,7 @@
 
 Up to date info on how to build the project is located in the top directory [here](README.md).
 
-Since you are interested in contributing code, you may look [here](docs/Workflow.md) for detailed step by step directives on how to create a fork, compile it, and then push your changes for review.
+Since you are interested in contributing code, you should look [here](docs/Workflow.md) for detailed step by step directives on how to create a fork, compile it, and then push your changes for review.
 
 A comprehensive list of documents is found [here](docs/DocumentList.md).
 
