@@ -3,7 +3,7 @@
 
 # ONNX-MLIR
 
-This project (https://onnx.ai/onnx-mlir/) provides compiler technology to transform a valid Open Neural Network Exchange (ONNX) graph into code that implement the graph with minimum runtime support.
+This project (https://onnx.ai/onnx-mlir/) provides compiler technology to transform a valid Open Neural Network Exchange (ONNX) graph into code that implements the graph with minimum runtime support.
 It implements the [ONNX standard](https://github.com/onnx/onnx#readme) and is based on the underlying [LLVM/MLIR](https://mlir.llvm.org) compiler technology.
 
 | System        | Build Status |
@@ -14,13 +14,17 @@ It implements the [ONNX standard](https://github.com/onnx/onnx#readme) and is ba
 | amd64-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=main)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=main)             |
 | amd64-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/actions/workflows/macos-amd64-build.yml/badge.svg)](https://github.com/onnx/onnx-mlir/actions/workflows/macos-amd64-build.yml)             |
 
-This project contributes an ONNX Dialect that can be integrated in other projects, a compiler interfaces that lower ONNX graphs into MLIR files/LLVM bytecodes/C & Java libraries, an `onnx-mlir` driver to perform these lowering, and a python/C/C++/Java runtime environment.
+This project contributes:
+* an ONNX Dialect that can be integrated in other projects,
+* a compiler interfaces that lower ONNX graphs into MLIR files/LLVM bytecodes/C & Java libraries,
+* an `onnx-mlir` driver to perform these lowering,
+* and a python/C/C++/Java runtime environment.
 
 ## Setting up ONNX-MLIR using Prebuilt Containers
 
-The preferred approach to using and developing ONNX-MLIR is to use Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with dockers are [here](docs/Docker.md).
+The preferred approach to using and developing ONNX-MLIR is to use Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with Dockers are [here](docs/Docker.md).
 
-If you intend to develop code, you should look at our [workflow](docs/Workflow.md) document which help you setup your docker environment in a way that let you contribute code easily.
+If you intend to develop code, you should look at our [workflow](docs/Workflow.md) document which help you setup your Docker environment in a way that let you contribute code easily.
 
 ## Setting up ONNX-MLIR directly
 
