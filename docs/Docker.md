@@ -101,9 +101,7 @@ ENV NPROC=4
 ENV PATH=$PATH:/workdir/onnx-mlir/build/Debug/bin/:/workdir/onnx-mlir/build/Debug/lib:/workdir/llvm-project/build/bin
 ```
 
-### Developping with Docker in VSCode
-
-The first step is to copy the [docs/docker-example](docker-example) directory to another directory outside of the repo, say `~/DockerOnnxMlir`. 
+The first step is to copy the [docs/docker-example](docker-example) directory to another directory outside of the repo, say `~/DockerOnnxMlir`. Or simply download the `Dockerfile` and the `.vscode` file if you intend to use VSCode.
 
 Then, the `Dockerfile` in the copied directory should then be modified to suit one's need. In particular, we recommend developers to use their own fork for development. Uncomment the lines associated with git (Step 5 in the file) and substitute the appropriate GitHub Id in the commented out directives. 
 The lines associated with VSCode (Step 3 in the file) should be also uncommented when using VSCode. 
@@ -123,6 +121,8 @@ vi Dockerfile
 docker build --tag onnx-mlir-dev .
 # Start a container using the Docker dashboard or a docker run command.
 ```
+
+### Developing with Docker in VSCode
 
 The next step is to open VSCode, load the Docker Extension if not already present, and then open the docker tab on the left pane. Locate the container that was just started in the previous step, right click on it, and select the `Attach Visual Studio Code` option.
 This will open a new VSCode window. Open a local folder on the `workdir` directory, this will give you access to all of the ONNX/MLIR/LLVM code as well as the `workspace` subdirectory.
