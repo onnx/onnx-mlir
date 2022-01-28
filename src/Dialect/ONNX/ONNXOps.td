@@ -41,8 +41,8 @@ def createNoneIntegerConstant : NativeCodeCall<
 def createNoneFloatConstant : NativeCodeCall<
   "createNoneFloatConstant($_builder, $0.getDefiningOp()->getLoc())">;
 
-def ONNX_Dialect : Dialect {
-  let name = "onnx";
+def ONNXOps_Dialect : Dialect {
+  let name = "ONNXOps";
   let summary = "A high-level dialect for the ONNX specification";
   let cppNamespace = "::mlir";
 }
@@ -53,7 +53,7 @@ def ONNX_Dialect : Dialect {
 //   * The mnemonic for the operation, or the name without the dialect prefix.
 //   * A list of traits for the operation.
 class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
-    Op<ONNX_Dialect, mnemonic, traits> ;
+    Op<ONNXOps_Dialect, mnemonic, traits> ;
 
 //===----------------------------------------------------------------------===//
 // ONNX Operations

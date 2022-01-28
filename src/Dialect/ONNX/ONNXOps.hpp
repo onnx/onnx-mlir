@@ -27,12 +27,14 @@
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
+#include "src/Dialect/ONNX/ONNXOpsDialect.hpp.inc"
 
 namespace mlir {
 
 // OpSet level supported by onnx-mlir
 static constexpr int CURRENT_ONNX_OPSET = 13;
 
+#if 0
 class ONNXOpsDialect : public Dialect {
 public:
   ONNXOpsDialect(MLIRContext *context);
@@ -48,6 +50,7 @@ public:
   /// several utilities for casting between dialects.
   static StringRef getDialectNamespace() { return "onnx"; }
 };
+#endif
 } // end namespace mlir
 
 /// Include the auto-generated header file containing the declarations of the

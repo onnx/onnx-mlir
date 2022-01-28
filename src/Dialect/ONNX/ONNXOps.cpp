@@ -568,17 +568,24 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
 // ONNXOpsDialect
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOpsDialect.cpp.inc"
+
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
-ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
-    : mlir::Dialect(getDialectNamespace(), ctx, TypeID::get<ONNXOpsDialect>()) {
+void ONNXOpsDialect::initialize() {
   addOperations<
 #define GET_OP_LIST
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
       >();
+
+//  #define GET_TYPEDEF_LIST
+//#include "torch-mlir/Dialect/Torch/IR/TorchTypes.cpp.inc"
+      //>();
+  //addInterfaces<TorchInlinerInterface>();
   addTypes<onnxmlir::StringType, onnxmlir::SeqType>();
 }
 
+#if 0
 mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
   StringRef keyword;
   if (parser.parseKeyword(&keyword))
@@ -616,6 +623,7 @@ void ONNXOpsDialect::printType(
       })
       .Default([](Type) { llvm_unreachable("Unexpected 'onnx' type kind"); });
 }
+#endif
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
     mlir::OperationState &state, mlir::FuncOp function, int numInputs,
