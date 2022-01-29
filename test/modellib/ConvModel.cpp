@@ -13,15 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/BuiltinOps.h"
-#include "llvm/Support/FileSystem.h"
 
+#include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Runtime/ExecutionSession.hpp"
-#include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
-
-#define DEBUG 0
 
 using namespace std;
 using namespace mlir;
@@ -35,12 +31,12 @@ const string getAutoPadName(const int autoPad) {
 }
 
 //===----------------------------------------------------------------------===//
-// Evaluate Convolution.
+// Generate and compile a convolution.
 //===----------------------------------------------------------------------===//
 
-bool generateCompiledConv2DModel(
+bool genConv2DModelAndCompile(
     /* compile option */
-    const std::string modelName, const CompilerOptionList &options,
+    const string modelName, const CompilerOptionList &options,
     /* conv param in*/
     const int N, const int C, const int H, const int W, const int kH,
     const int kW, const int autoPad, const int pHBegin, const int pHEnd,

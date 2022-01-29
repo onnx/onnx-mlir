@@ -10,11 +10,9 @@
 #include <string>
 #include <vector>
 
-#include "mlir/IR/BuiltinOps.h"
 #include "llvm/Support/FileSystem.h"
 
 #include "src/Compiler/CompilerUtils.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
@@ -36,16 +34,17 @@ using namespace onnx_mlir;
 int stride, dilation, isDynamic;
 
 // Support.
-int myCeil(int a, int b) { return ceil((1.0 * a) / (1.0 * b)); }
-int myFloor(int a, int b) { return floor((1.0 * a) / (1.0 * b)); }
+static int myCeil(int a, int b) { return ceil((1.0 * a) / (1.0 * b)); }
+static int myFloor(int a, int b) { return floor((1.0 * a) / (1.0 * b)); }
 
 //===----------------------------------------------------------------------===//
 // Compute shape for various auto pad value and check results.
 //===----------------------------------------------------------------------===//
 
-// TODO: Ideally these values would be corroborated with Pytorch/TF. However,
+// TODO: Ideally these values would be corroborated with Pytorch/TF. However
 // Pytorch only supports same/valid with unit strides. Maybe check with TF?
-LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
+
+static LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
     const int WIn, const int kH, const int kW, const int autoPad,
     const int NOut, const int COut, const int HOut, const int WOut,
     int &pHBegin, int &pHEnd, int &pWBegin, int &pWEnd) {
@@ -134,8 +133,9 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
         getAutoPadName(autoPad).c_str(), isDynamic, stride, dilation);
 
   int NOut, COut, HOut, WOut;
-  if (!generateCompiledConv2DModel(/*compiler options */ SHARED_LIB_BASE,
-          {{OptionKind::CompilerOptLevel, "3"}},
+  if (!genConv2DModelAndCompile(
+          /*compiler options */
+          SHARED_LIB_BASE, {{OptionKind::CompilerOptLevel, "3"}},
           /*input conv param */ N, C, H, W, kH, kW, autoPad, pHBegin, pHEnd,
           pWBegin, pWEnd, stride, dilation, isDynamic,
           /*output conv param*/ NOut, COut, HOut, WOut))

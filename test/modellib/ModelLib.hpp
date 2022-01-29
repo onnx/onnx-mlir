@@ -15,6 +15,10 @@
 
 #include <string>
 
+#include "llvm/ADT/SmallVector.h"
+
+#include "src/Compiler/CompilerUtils.hpp"
+
 // Padding schemes
 #define AUTO_PAD_NOTSET 0
 #define AUTO_PAD_VALID 1
@@ -24,7 +28,7 @@
 const std::string getAutoPadName(const int autoPad);
 
 // Conv2D
-bool generateCompiledConv2DModel(
+bool genConv2DModelAndCompile(
     /* compile option */
     const std::string modelName, const CompilerOptionList &options,
     /* conv param in*/
@@ -34,3 +38,22 @@ bool generateCompiledConv2DModel(
     const int isDynamic,
     /* conv param out */
     int &NOut, int &COut, int &HOut, int &WOut);
+
+// GEMM
+bool genGemmAndCompileModel(
+    /* compile option */
+    const std::string modelName, const CompilerOptionList &options,
+    /* GEMM param in*/
+    const int I, const int J, const int K, const int aTrans, const int bTrans,
+    const int cRank, const float alphaVal, const float betaVal,
+    /* GEMM param out*/
+    llvm::SmallVector<int64_t, 2> &aShape,
+    llvm::SmallVector<int64_t, 2> &bShape,
+    llvm::SmallVector<int64_t, 2> &cShape);
+
+// MatMul
+bool genMatMul2DModelAndCompile(
+    /* compile option */
+    const std::string modelName, const CompilerOptionList &options,
+    /* conv param in*/
+    const int I, const int J, const int K);
