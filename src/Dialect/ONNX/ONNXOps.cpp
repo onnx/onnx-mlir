@@ -568,7 +568,7 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
 // ONNXOpsDialect
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXDialect.cpp.inc"
+#include "src/Dialect/ONNX/ONNXOpsDialect.cpp.inc"
 
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
