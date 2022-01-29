@@ -28,10 +28,10 @@ Use the template provided in [here](Docker.md#building-onnx-mlir-in-a-docker-env
 
 1. Since the base image used by the template already contains a clone of the ONNX-MLIR main repository, in step 5, add your fork as a remote repository by uncommenting:
 ```sh
-RUN git remote add origin https://github.com/<<GitID>>/onnx-mlir.git
+RUN git remote add origin https://github.com/<user>/onnx-mlir.git
 ```
 
-Replace `<<GitID>>` with your GitHub user name.
+Replace `<user>` with your GitHub user name.
 
 As a best practice, uncomment the line which disables the pushing to upstream to avoid accidental pushes:
 ```sh
@@ -156,8 +156,12 @@ You can now edit the code on the `my-branch` branch.
 
 Follow the directions to build ONNX-MLIR for the OS that you are using [Linux](BuildOnLinuxOSX.md#Build) or [Windows](BuildOnWindows.md#Build).
 
+We expect code to compile without generating any compiler warnings.
 
 ### Run Test
+
+In general, the new features must be tested in one or more of our test suite.
+At a high level, our testing strategy includes `literal` tests (`check-onnx-lit` below), end-to-end tests derived from the ONNX Standard (`check-onnx-backend` and derivatives below, and semi-exhaustive numerical tests (`test` below).
 
 ```sh
 # Run unit test to make sure all test passed.
@@ -167,6 +171,7 @@ make check-onnx-backend-dynamic
 make check-onnx-backend-constant
 make test
 ```
+Specific testing help is provided in these pages to [run](TestingHighLevel.md) and[generate new tests](Testing.md).
 
 ## Step 7: Commit & Push
 
@@ -232,10 +237,8 @@ Your branch is now up to date with the latest ONNX-MLIR.
 
 ## Step 10: Get a code review
 
-Once your pull request has been opened, it will be assigned to at least one
-reviewer. The reviewer(s) will do a thorough code review, looking for
-correctness, bugs, opportunities for improvement, documentation and comments,
-and style.
+Once your pull request has been opened and is not in draft mode anymore, one of us will review the code.
+The reviewer(s) will do a thorough code review, looking for correctness, bugs, opportunities for improvement, testing, documentation and comments, and style.
 
 Commit changes made in response to review comments to the same branch on your fork. Continue to do a sequence of `git commit -s` and `git push` commands (Step 7) to update GitHub of your changes.
 
