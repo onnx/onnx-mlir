@@ -43,7 +43,7 @@ RUN git remote rename origin upstream
 RUN git checkout main
 RUN git fetch --unshallow
 # Add optional personal fork and disable pushing to upstream (best practice).
-# RUN git remote add origin https://github.com/<<GitID>>/onnx-mlir.git
+# RUN git remote add origin https://github.com/<user>/onnx-mlir.git
 # RUN git remote set-url --push upstream no_push
 
 # 6) Set the PATH environment vars for make/debug mode. Replace Debug
