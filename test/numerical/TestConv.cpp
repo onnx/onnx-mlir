@@ -35,32 +35,20 @@ using namespace onnx_mlir;
 // requested by RapidTest.
 int stride, dilation, isDynamic;
 
-#if 0
-
-// Convention for RapidCheck values to auto pad policies. UB is the one after
-// the last official policy.
-#define AUTO_PAD_NOTSET 0
-#define AUTO_PAD_VALID 1
-#define AUTO_PAD_LOWER 2
-#define AUTO_PAD_UPPER 3
-#define AUTO_PAD_UB 4
-const string autoPadName[] = {"NOTSET", "VALID", "SAME_LOWER", "SAME_UPPER"};
-
-
 // Support.
 int myCeil(int a, int b) { return ceil((1.0 * a) / (1.0 * b)); }
 int myFloor(int a, int b) { return floor((1.0 * a) / (1.0 * b)); }
 
 //===----------------------------------------------------------------------===//
-// Compute Shape for various auto pad value.
+// Compute shape for various auto pad value and check results.
 //===----------------------------------------------------------------------===//
 
 // TODO: Ideally these values would be corroborated with Pytorch/TF. However,
 // Pytorch only supports same/valid with unit strides. Maybe check with TF?
 LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
-    const int WIn, const int kH, const int kW, int &pHBegin, int &pHEnd,
-    int &pWBegin, int &pWEnd, const int autoPad, const int NOut, const int COut,
-    const int HOut, const int WOut) {
+    const int WIn, const int kH, const int kW, const int autoPad,
+    const int NOut, const int COut, const int HOut, const int WOut,
+    int &pHBegin, int &pHEnd, int &pWBegin, int &pWEnd) {
 
   // Check first params.
   if (NIn != NOut) {
@@ -129,131 +117,6 @@ LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
   return success();
 }
 
-//===----------------------------------------------------------------------===//
-// Evaluate Convolution
-//===----------------------------------------------------------------------===//
-
-bool generateCompiledConv2DModel(const string modelName,
-    /*in*/
-    const int N, const int C, const int H, const int W, const int kH,
-    const int kW, const int autoPad, const int stride, const int dilation,
-    const int isDynamic,
-    /* in/out */
-    int &pHBegin, int &pHEnd, int &pWBegin, int &pWEnd,
-    /* out */
-    int &NOut, int &COut, int &HOut, int &WOut) {
-
-  if (autoPad != AUTO_PAD_NOTSET) {
-    // make sure all pads are initially zero, only value tolarated.
-    assert(pHBegin == 0 && pHEnd == 0 && pWBegin == 0 && pWEnd == 0);
-  }
-
-  MLIRContext ctx;
-  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
-
-  // We use the Ns for the shape of the input, and the N1s for the construction
-  // of the model. That way, when the shape is dynamic, we set the N1s to "-1"
-  // (dynamic value) so that the compiler may not infer the size of the model,
-  // and instead generate code to figure the sizes at run time.
-  int N1 = N;
-  int C1 = C;
-  int H1 = H;
-  int W1 = W;
-  if (isDynamic)
-    N1 = C1 = H1 = W1 = -1;
-
-  auto module = ModuleOp::create(UnknownLoc::get(&ctx));
-  OpBuilder builder(&ctx);
-  llvm::SmallVector<int64_t, 4> xShape = {N, C, H, W};
-  llvm::SmallVector<int64_t, 3> xShapeSymbol = {N1, C1, H1, W1};
-  llvm::SmallVector<int64_t, 1> bShape = {C};
-  llvm::SmallVector<int64_t, 4> wShape = {C, C, kH, kW};
-  auto xType = RankedTensorType::get(xShape, builder.getF32Type());
-  auto xTypeSymbol = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
-  auto wType = RankedTensorType::get(wShape, builder.getF32Type());
-  auto yType = UnrankedTensorType::get(builder.getF32Type());
-
-  llvm::SmallVector<Type, 2> inputsType{xTypeSymbol, wType};
-  llvm::SmallVector<Type, 1> outputsType{yType};
-
-  auto funcType = builder.getFunctionType(inputsType, outputsType);
-  string funcName = "main_graph";
-  llvm::SmallVector<NamedAttribute, 1> attrs;
-  auto funcOp =
-      builder.create<FuncOp>(UnknownLoc::get(&ctx), funcName, funcType, attrs);
-
-  auto entryBlock = funcOp.addEntryBlock();
-  builder.setInsertionPointToStart(entryBlock);
-
-  auto xVal = entryBlock->getArgument(0);
-  auto wVal = entryBlock->getArgument(1);
-  auto bVal =
-      builder.create<ConstantOp>(UnknownLoc::get(&ctx), builder.getUnitAttr())
-          .getResult();
-
-  auto dilations = builder.getI64ArrayAttr({dilation, dilation});
-  auto kernel_shape = builder.getI64ArrayAttr({kH, kW});
-  auto pads = builder.getI64ArrayAttr({pHBegin, pWBegin, pHEnd, pWEnd});
-  auto strides = builder.getI64ArrayAttr({stride, stride});
-
-  auto convOp = builder.create<ONNXConvOp>(UnknownLoc::get(&ctx),
-      /*Y=*/yType,
-      /*X=*/xVal, /*W=*/wVal, /*B=*/bVal,
-      /*auto_pad=*/builder.getStringAttr(autoPadName[autoPad]),
-      /*dilations=*/dilations,
-      /*group=*/
-      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, 1, /*isSigned=*/true)),
-      /*kernel_shape=*/kernel_shape, /*pads=*/pads,
-      /*strides=*/strides);
-
-  // Use the convOp shape inference method to compute output shape, and unset
-  // the shape so that we don't leave IR in a inconsistent state.
-  convOp.X().setType(xType); // Use static dims to infer shape.
-  LogicalResult res = convOp.inferShapes([](mlir::Region &) {});
-  if (failed(res)) {
-    return false;
-  }
-  auto outputShape = convOp.getResult().getType().cast<ShapedType>().getShape();
-  NOut = outputShape[0];
-  COut = outputShape[1];
-  HOut = outputShape[2];
-  WOut = outputShape[3];
-  convOp.getResult().setType(yType);
-  convOp.X().setType(xTypeSymbol);
-  res = checkShapes(N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd, autoPad,
-      NOut, COut, HOut, WOut);
-  if (failed(res)) {
-    if (DEBUG) {
-      cerr << "Conv after check shape, N out " << NOut << ", C out " << COut
-           << ", H out " << HOut << ", W out " << WOut << ", ph begin "
-           << pHBegin << ", ph end " << pHEnd << ", pw begin " << pWBegin
-           << ", pw end " << pWEnd << endl;
-    }
-    return false;
-  }
-
-  llvm::SmallVector<Value, 1> results = {convOp.getResult()};
-  builder.create<ReturnOp>(UnknownLoc::get(&ctx), results);
-  module.push_back(funcOp);
-
-  // Emit the entry point operation which specifies the number of user
-  // inputs and outputs.
-  std::string signature("");
-  auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
-      /*numInputs=*/2,
-      /*numOutputs=*/1,
-      /*signature*/ signature);
-  module.push_back(entryPoint);
-
-  OwningModuleRef moduleRef(module);
-
-  compileModule(moduleRef, ctx, modelName, onnx_mlir::EmitLib);
-
-  return true;
-}
-#endif
-
 // Returns whether onnx-mlir compiled convolution is producing the same results
 // as a naive implementation of convolution for a specific set of convolution
 // parameters/configuration. Stride and dilation are square (same along H and
@@ -271,10 +134,11 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
         getAutoPadName(autoPad).c_str(), isDynamic, stride, dilation);
 
   int NOut, COut, HOut, WOut;
-  if (!generateCompiledConv2DModel(/*lib name*/ SHARED_LIB_BASE,
-          /*input params*/ N, C, H, W, kH, kW, autoPad, stride, dilation,
-          isDynamic, /*in/out*/ pHBegin, pHEnd, pWBegin, pWEnd, /*out*/ NOut,
-          COut, HOut, WOut))
+  if (!generateCompiledConv2DModel(/*compiler options */ SHARED_LIB_BASE,
+          {{OptionKind::CompilerOptLevel, "3"}},
+          /*input conv param */ N, C, H, W, kH, kW, autoPad, pHBegin, pHEnd,
+          pWBegin, pWEnd, stride, dilation, isDynamic,
+          /*output conv param*/ NOut, COut, HOut, WOut))
     return false;
 
   onnx_mlir::ExecutionSession sess(
@@ -287,6 +151,19 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   auto wOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateWithRandomData<float>({C, C, kH, kW}), omTensorDestroy);
   inputs.emplace_back(move(wOmt));
+
+  // Check shape and also compute pad H/W Begin/End params.
+  LogicalResult res = checkShapes(/*in*/ N, C, H, W, kH, kW, autoPad, NOut,
+      COut, HOut, WOut, /*in/out*/ pHBegin, pHEnd, pWBegin, pWEnd);
+  if (failed(res)) {
+    if (DEBUG) {
+      cerr << "Conv after check shape, N out " << NOut << ", C out " << COut
+           << ", H out " << HOut << ", W out " << WOut << ", ph begin "
+           << pHBegin << ", ph end " << pHEnd << ", pw begin " << pWBegin
+           << ", pw end " << pWEnd << endl;
+    }
+    return false;
+  }
 
   auto ref = omTensorCreateWithShape<float>({NOut, COut, HOut, WOut});
   auto &img = inputs.at(0);
