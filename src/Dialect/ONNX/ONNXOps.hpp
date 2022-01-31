@@ -24,10 +24,10 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/ONNX/ONNXOpsDialect.hpp.inc"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
-#include "src/Dialect/ONNX/ONNXOpsDialect.hpp.inc"
 #define GET_TYPEDEF_CLASSES
 #include "src/Dialect/ONNX/ONNXOpsTypes.hpp.inc"
 

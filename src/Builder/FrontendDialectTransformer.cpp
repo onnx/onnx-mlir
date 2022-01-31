@@ -268,7 +268,7 @@ private:
              "expect tensor inside sequence type");
       Type mlir_elem_type = ImportTensorType(elem_type);
       if (!mlir_elem_type.isa<ShapedType>())
-	llvm_unreachable("Seq type is incorrect");
+        llvm_unreachable("Seq type is incorrect");
       Type seq_type = mlir::SeqType::get(mlir_elem_type.cast<ShapedType>(), -1);
       return seq_type;
     }

@@ -585,7 +585,7 @@ void ONNXDialect::initialize() {
 #define GET_TYPEDEF_LIST
 #include "src/Dialect/ONNX/ONNXOpsTypes.cpp.inc"
       >();
-  //addInterfaces<TorchInlinerInterface>();
+  // addInterfaces<TorchInlinerInterface>();
 }
 
 Type ONNXDialect::parseType(DialectAsmParser &parser) const {
@@ -869,8 +869,7 @@ LogicalResult ONNXSeluOp::inferShapes(
 
 LogicalResult ONNXSequenceInsertOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  SeqType seqType =
-      input_sequence().getType().dyn_cast<mlir::SeqType>();
+  SeqType seqType = input_sequence().getType().dyn_cast<mlir::SeqType>();
   ShapedType tensorType = tensor().getType().dyn_cast<ShapedType>();
   ShapedType seqTensorType = seqType.getElementType().cast<ShapedType>();
 
@@ -968,8 +967,8 @@ LogicalResult ONNXSequenceEraseOp::inferShapes(
 
   if (length == 0)
     return emitError("SequenceErase from an empty seq");
-  getResult().setType(SeqType::get(
-      inputTy.getElementType(), length == -1 ? -1 : length - 1));
+  getResult().setType(
+      SeqType::get(inputTy.getElementType(), length == -1 ? -1 : length - 1));
   return success();
 }
 
