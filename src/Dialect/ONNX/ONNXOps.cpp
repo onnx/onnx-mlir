@@ -3178,7 +3178,17 @@ LogicalResult ONNXAcoshOp::inferShapes() {
 }
 
 LogicalResult ONNXArgMaxOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+    if (!getOperand().getType().isa<RankedTensorType>())
+      return emitError("Input tensor not ranked");
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  auto shape = operandTy.getShape();
+  auto int64Ty = IntegerType::get(64, getContext());
+  auto outputTy = RankedTensorType::get(shape, int64Ty);
+  Attribute axisIndex = IntegerAttr::get(int64Ty, axis());
+  auto axes = ArrayAttr::get(llvm::makeArrayRef(axisIndex), getContext());
+  getResult().setType(getReductionOutputType(outputTy, axes, keepdims()));
+  return success();
 }
 
 LogicalResult ONNXArgMinOp::inferShapes() {
