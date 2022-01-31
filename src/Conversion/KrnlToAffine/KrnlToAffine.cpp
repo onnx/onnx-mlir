@@ -1525,7 +1525,7 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   patterns.insert<KrnlCopyFromBufferLowering>(&getContext());
   patterns.insert<KrnlMemsetLowering>(&getContext());
 
-  // runOrecording the <loop, unroll factor> pairs associated with
+  // Create list for recording the <loop, unroll factor> pairs associated with
   // this function.
   UnrollAndJamList *currUnrollAndJamList = new UnrollAndJamList();
   Operation *currFuncOp = funcOp.getOperation();
