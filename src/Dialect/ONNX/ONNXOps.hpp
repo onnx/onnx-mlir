@@ -29,6 +29,9 @@
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Dialect/ONNX/ONNXOpsDialect.hpp.inc"
 
+#define GET_TYPEDEF_CLASSES
+#include "src/Dialect/ONNX/ONNXOpsTypes.hpp.inc"
+
 namespace mlir {
 
 // OpSet level supported by onnx-mlir
@@ -65,6 +68,7 @@ namespace mlir {
 // Or we need two namespace?
 // Will put all the ONNXOps into this namespace
 namespace onnxmlir {
+#if 0
 class StringType
     : public mlir::Type::TypeBase<StringType, mlir::Type, mlir::TypeStorage,
           mlir::MemRefElementTypeInterface::Trait> {
@@ -75,11 +79,15 @@ public:
 
   static StringType get(MLIRContext *ctx) { return Base::get(ctx); }
 };
+#endif
 
+#if 0
 namespace detail {
 struct SeqTypeStorage;
 } // namespace detail
+#endif
 
+#if 0
 class SeqType
     : public mlir::Type::TypeBase<SeqType, mlir::Type, detail::SeqTypeStorage> {
 public:
@@ -94,6 +102,7 @@ public:
   // -1  if unknown at compiler time
   int64_t getLength() const;
 };
+#endif
 
 } // end namespace onnxmlir
 } // end namespace mlir

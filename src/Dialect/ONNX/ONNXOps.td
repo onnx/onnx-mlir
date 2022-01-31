@@ -204,4 +204,47 @@ def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceM
   }];
 }
 
+class ONNX_Type<string name, string typeMnemonic,
+                string baseCppClass = "::mlir::Type">
+    : TypeDef<ONNX_Dialect, name, [], baseCppClass> {
+  let mnemonic = typeMnemonic;
+}
+
+def ONNX_StringType : ONNX_Type<"String", "str"> {
+  let summary = " ONNX StringType";
+  let description = [{
+    An array of characters.
+  }];
+}
+
+def ONNX_SeqType : ONNX_Type<"Seq", "seq"> {
+  let summary = " ONNX SeqType";
+  let description = [{
+    An list of tensors which may have different shape
+  }];
+  let parameters = (ins "::mlir::ShapedType":$ElementType, "int64_t":$Length);
+
+  // Previous implementation did not print/parse the length field
+  // May add the field in future
+  let printer = [{
+    $_printer << "<" << getImpl()->ElementType << ">";
+  }];
+  let parser = [{
+    if (parser.parseLess())
+      return Type();
+    Type elementType;
+    if ($_parser.parseType(elementType))
+      return Type();
+    if ($_parser.parseGreater())
+      return Type();
+    return get($_ctxt, elementType, -1);
+  }];
+  let builders = [
+    TypeBuilderWithInferredContext<(ins "::mlir::ShapedType":$elementType,
+                                        "int64_t":$length), [{
+      return Base::get(elementType.getContext(), elementType, valueType);
+    }]>
+  ];
+}
+
 #endif // ONNX_OPS
