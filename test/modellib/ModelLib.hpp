@@ -11,6 +11,8 @@
 // This file contains the declarations for all the models that can be built.
 // The result of each function is a .so built using the modelName.
 //
+// For each model, the function that implements it is named "main_graph".
+//
 //===----------------------------------------------------------------------===//
 
 #include <string>
@@ -18,6 +20,7 @@
 #include "llvm/ADT/SmallVector.h"
 
 #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 // Padding schemes
 #define AUTO_PAD_NOTSET 0
@@ -57,3 +60,15 @@ bool genMatMul2DModelAndCompile(
     const std::string modelName, const CompilerOptionList &options,
     /* conv param in*/
     const int I, const int J, const int K);
+
+// GRU
+bool genGRUModelAndCompile(
+    /* compile option */
+    const std::string modelName, const CompilerOptionList &options,
+    /* GRU param in*/
+    const int direction, const int S, const int B, const int I, const int H,
+    const int LinearBeforeReset, const bool isDynamicS, const bool isDynamicB,
+    /* GRU param out*/
+    int &D, llvm::SmallVector<int64_t, 3> &xShape,
+    llvm::SmallVector<int64_t, 3> &hShape, OMTensor *&wOmt, OMTensor *&rOmt,
+    OMTensor *&bOmt);

@@ -77,7 +77,6 @@ bool genMatMul2DModelAndCompile(
   module.push_back(entryPoint);
 
   OwningModuleRef moduleRef(module);
-
   compileModule(moduleRef, ctx, modelName, onnx_mlir::EmitLib);
 
   return true;
