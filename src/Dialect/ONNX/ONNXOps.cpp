@@ -4903,72 +4903,12 @@ LogicalResult ONNXCallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
 FunctionType ONNXCallOp::getCalleeType() {
   return FunctionType::get(getContext(), getOperandTypes(), getResultTypes());
 }
-//===----------------------------------------------------------------------===//
-// ONNX type related code
-//===----------------------------------------------------------------------===//
-
-namespace mlir {
-#if 0
-namespace onnxmlir {
-namespace detail {
-struct SeqTypeStorage : public mlir::TypeStorage {
-  // std::tuple, instead of std::pair,  is used as the key for seq Type
-  // because the list of elements may be added later for lowering seq
-  using KeyTy = std::tuple<mlir::Type, int64_t>;
-
-  SeqTypeStorage(mlir::Type elementType, int64_t length)
-      : elementType(elementType), seqLength(length) {}
-
-  bool operator==(const KeyTy &key) const {
-    return key == KeyTy(elementType, seqLength);
-  }
-  static llvm::hash_code hasKey(const KeyTy &key) {
-    mlir::Type eT;
-    int64_t l;
-    std::tie(eT, l) = key;
-    return llvm::hash_combine(eT, l);
-  }
-
-  static KeyTy getKey(mlir::Type elementType, int64_t length) {
-    return KeyTy(elementType, length);
-  }
-
-  static SeqTypeStorage *construct(
-      mlir::TypeStorageAllocator &allocator, const KeyTy &key) {
-    mlir::Type eT;
-    int64_t l;
-    std::tie(eT, l) = key;
-    return new (allocator.allocate<SeqTypeStorage>()) SeqTypeStorage(eT, l);
-  }
-  mlir::Type elementType; // Type for element of Seq
-  int64_t seqLength;      // Length of Seq. -1 when is not statically known
-};
-} // end namespace detail
-} // end namespace onnxmlir
-#endif
-} // end namespace mlir
-
-#if 0
-SeqType SeqType::get(
-    mlir::Type elementType, int64_t length) {
-  mlir::MLIRContext *ctx = elementType.getContext();
-  return Base::get(ctx, elementType, length);
-}
-
-mlir::Type SeqType::getElementType() const {
-  return getImpl()->elementType;
-}
-
-int64_t SeqType::getLength() const { return getImpl()->seqLength; }
-#endif
 
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 
 #define GET_OP_CLASSES
-
-using namespace onnxmlir;
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
 
 template struct ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
