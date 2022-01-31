@@ -237,12 +237,17 @@ def ONNX_SeqType : ONNX_Type<"Seq", "seq"> {
       return Type();
     if ($_parser.parseGreater())
       return Type();
-    return get($_ctxt, elementType, -1);
+    if (!elementType.isa<ShapedType>()) 
+      return Type();
+    else {
+      ShapedType ty = elementType.cast<ShapedType>();
+      return get($_ctxt, ty, -1);
+    }
   }];
   let builders = [
     TypeBuilderWithInferredContext<(ins "::mlir::ShapedType":$elementType,
                                         "int64_t":$length), [{
-      return Base::get(elementType.getContext(), elementType, valueType);
+      return Base::get(elementType.getContext(), elementType, length);
     }]>
   ];
 }

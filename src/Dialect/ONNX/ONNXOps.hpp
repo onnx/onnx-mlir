@@ -28,7 +28,6 @@
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Dialect/ONNX/ONNXOpsDialect.hpp.inc"
-
 #define GET_TYPEDEF_CLASSES
 #include "src/Dialect/ONNX/ONNXOpsTypes.hpp.inc"
 

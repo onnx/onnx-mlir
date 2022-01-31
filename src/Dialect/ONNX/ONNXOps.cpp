@@ -570,6 +570,9 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
 
 #include "src/Dialect/ONNX/ONNXOpsDialect.cpp.inc"
 
+#define GET_TYPEDEF_CLASSES
+#include "src/Dialect/ONNX/ONNXOpsTypes.cpp.inc"
+
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
 void ONNXDialect::initialize() {
@@ -585,45 +588,22 @@ void ONNXDialect::initialize() {
   //addInterfaces<TorchInlinerInterface>();
 }
 
-#if 0
-mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
+Type ONNXDialect::parseType(DialectAsmParser &parser) const {
   StringRef keyword;
   if (parser.parseKeyword(&keyword))
     return Type();
-
-  MLIRContext *context = getContext();
-  if (keyword == "String")
-    return StringType::get(context);
-  if (keyword == "Seq") {
-    if (parser.parseLess())
-      return Type();
-
-    SmallVector<mlir::Type, 1> elementTypes;
-    mlir::Type elementType;
-    if (parser.parseType(elementType))
-      return Type();
-
-    if (parser.parseGreater())
-      return Type();
-    return SeqType::get(elementType);
-  }
-
-  parser.emitError(parser.getNameLoc(), "unknown onnx type: " + keyword);
+  Type type;
+  if (generatedTypeParser(parser, keyword, type).hasValue())
+    return type;
+  parser.emitError(parser.getNameLoc(), "invalid 'onnx' type:`")
+      << keyword << "'";
   return Type();
 }
 
-void ONNXOpsDialect::printType(
-    mlir::Type type, mlir::DialectAsmPrinter &os) const {
-  TypeSwitch<Type>(type)
-      .Case<StringType>([&](Type) { os << "String"; })
-      .Case<SeqType>([&](SeqType type) {
-        os << "Seq<";
-        os << type.getElementType();
-        os << '>';
-      })
-      .Default([](Type) { llvm_unreachable("Unexpected 'onnx' type kind"); });
+void ONNXDialect::printType(Type type, DialectAsmPrinter &printer) const {
+  if (failed(generatedTypePrinter(type, printer)))
+    llvm_unreachable("unknown 'onnx' type");
 }
-#endif
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
     mlir::OperationState &state, mlir::FuncOp function, int numInputs,
