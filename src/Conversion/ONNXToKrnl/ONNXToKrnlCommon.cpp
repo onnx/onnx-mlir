@@ -110,7 +110,7 @@ bool hasAllScalarValues(ArrayRef<Value> values) {
 MemRefType convertToMemRefType(Type type) {
   // Convert the element type of the (tensor or memref) to a valid Krnl type.
   auto convertElemType = [](Type elemType) -> Type {
-    if (elemType.isa<onnxmlir::StringType>())
+    if (elemType.isa<ONNXStringType>())
       return StringType::get(elemType.getContext());
     return elemType;
   };
@@ -755,13 +755,13 @@ KrnlTypeConverter::KrnlTypeConverter() {
   // The order of type conversion is important: later ones are tried earlier.
   addConversion([](Type type) { return type; });
 
-  addConversion([](onnxmlir::StringType stringType) {
+  addConversion([](ONNXStringType stringType) {
     return StringType::get(stringType.getContext());
   });
 
   addConversion([](TensorType tensorType) {
     assert(tensorType.hasRank() && "expected only ranked shapes");
-    if (tensorType.getElementType().isa<onnxmlir::StringType>()) {
+    if (tensorType.getElementType().isa<ONNXStringType>()) {
       Type elementType = StringType::get(tensorType.getContext());
       return MemRefType::get(tensorType.getShape(), elementType);
     }

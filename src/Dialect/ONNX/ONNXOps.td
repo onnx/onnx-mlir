@@ -24,7 +24,7 @@ include "src/Interface/HasOnnxSubgraphOpInterface.td"
 // Definition for rewrite rules for onnx dialect
 // Can be used in other table gen files (.td) for onnx dialect
 
-def StringType : Type<CPred<"$_self.isa<StringType>()">, "string type">;
+def StringType : Type<CPred<"$_self.isa<ONNXStringType>()">, "string type">;
 
 def IsSeqTypePred : CPred<"$_self.isa<SeqType>()">;
 
@@ -210,14 +210,14 @@ class ONNX_Type<string name, string typeMnemonic,
   let mnemonic = typeMnemonic;
 }
 
-def ONNX_StringType : ONNX_Type<"String", "str"> {
+def ONNX_StringType : ONNX_Type<"ONNXString", "String"> {
   let summary = " ONNX StringType";
   let description = [{
     An array of characters.
   }];
 }
 
-def ONNX_SeqType : ONNX_Type<"Seq", "seq"> {
+def ONNX_SeqType : ONNX_Type<"Seq", "Seq"> {
   let summary = " ONNX SeqType";
   let description = [{
     An list of tensors which may have different shape
