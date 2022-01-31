@@ -734,9 +734,8 @@ InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
   });
 
   // If there are ONNX ops, the input level is ONNX.
-  bool hasONNXOps = llvm::any_of(dialectNamespace, [&](StringRef ns) {
-    return (ns == ONNXDialect::getDialectNamespace());
-  });
+  bool hasONNXOps = llvm::any_of(dialectNamespace,
+      [&](StringRef ns) { return (ns == ONNXDialect::getDialectNamespace()); });
   if (hasONNXOps)
     return ONNXLevel;
 
