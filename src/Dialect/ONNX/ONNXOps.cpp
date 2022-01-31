@@ -1554,31 +1554,38 @@ LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
 // Reshape
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXReshapeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+static LogicalResult verify(ONNXReshapeOp op) {
   // Cannot infer shape if no shape tensor is specified.
-  if (!data().getType().isa<RankedTensorType>())
+  if (!op.data().getType().isa<RankedTensorType>())
     return success();
 
-  if (!shape().getType().isa<RankedTensorType>())
+  if (!op.shape().getType().isa<RankedTensorType>())
     return success();
 
-  auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
+  auto shapeTensorTy = op.shape().getType().cast<RankedTensorType>();
 
   // Only rank 1 shape tensors are supported.
   if (shapeTensorTy.getShape().size() != 1)
-    return emitError("Shape tensor must have rank one");
+    return op.emitError("Shape tensor must have rank one");
+  
   int64_t outputRank = shapeTensorTy.getShape()[0];
-
-  // Shape tensor must have constant shape.
   if (outputRank < 0)
-    return emitError("Shape tensor must have constant shape");
-
-  ONNXReshapeOpAdaptor operandAdaptor(*this);
-  ONNXReshapeOpShapeHelper shapeHelper(this);
+    return op.emitError("Shape tensor must have constant shape");
+  
+  ONNXReshapeOpAdaptor operandAdaptor(*&op);
+  ONNXReshapeOpShapeHelper shapeHelper(&op);
   if (failed(shapeHelper.computeShape(operandAdaptor)))
-    return emitError("Failed to scan Reshape parameters successfully");
+    return op.emitError("Failed to scan Reshape parameters successfully");
+  
+  return success();
+}
+
+LogicalResult ONNXReshapeOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+
+  auto elementType = data().getType().cast<ShapedType>().getElementType();
+
+  ONNXReshapeOpShapeHelper shapeHelper(this);
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
@@ -2819,19 +2826,31 @@ LogicalResult ONNXSplitV11Op::inferShapes(
 // Flatten
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXFlattenOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto inTy = input().getType().dyn_cast<RankedTensorType>();
+static LogicalResult verify(ONNXFlattenOp op) {
+
+  auto inTy = op.input().getType().dyn_cast<RankedTensorType>();
   if (!inTy) {
     return success();
   }
 
+  int64_t axisValue = op.axis();
+  auto inputShape = inTy.getShape();
+  int64_t inputRank = inputShape.size();
+
+  if (axisValue < -1 * inputRank || axisValue > inputRank) {
+    return op.emitError("ONNXFlattenOP: axis() value is out of range");
+  }
+
+  return success();
+}
+
+LogicalResult ONNXFlattenOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  auto inTy = input().getType().dyn_cast<RankedTensorType>();
+
   int64_t axisValue = axis();
   auto inputShape = inTy.getShape();
   int64_t inputRank = inputShape.size();
-  if (axisValue < -1 * inputRank || axisValue > inputRank) {
-    return emitOpError("ONNXFlattenOP: axis() value is out of range");
-  }
 
   SmallVector<int64_t, 2> dims;
 

@@ -1502,6 +1502,7 @@ def ONNXFlattenOp:ONNX_Op<"Flatten",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXFloorOp:ONNX_Op<"Floor",
@@ -4621,6 +4622,7 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXResizeOp:ONNX_Op<"Resize",
