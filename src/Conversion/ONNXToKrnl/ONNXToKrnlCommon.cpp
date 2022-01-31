@@ -15,7 +15,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
-bool gEmitDealloc = true;
+bool ONNXToKrnl_gEmitDealloc = false;
 
 Value OnnxToKrnlBuilder::reshape(
     const Value input, const ArrayRef<DimIndexExpr> shapeDims) const {
@@ -81,7 +81,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
     const ArrayRef<DimIndexExpr> outputDims) const {
   assert(!outputDims.empty() && "Output dimensions should not be empty");
   assert(!perm.empty() && perm.size() == outputDims.size() &&
-         "Expecitng valid permutation array");
+         "Expecting valid permutation array");
 
   // Compute the shape of the 'onnx.Transpose' result.
   SmallVector<int64_t, 6> shape;
@@ -150,7 +150,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     alloc = createMemRef.alignedAlloc(type, alignment);
   }
 
-  if (!gEmitDealloc)
+  if (!ONNXToKrnl_gEmitDealloc)
     return alloc;
 
   // Make sure to allocate at the beginning of the block if
@@ -193,7 +193,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   memref::AllocOp allocOp =
       createMemRef.alignedAlloc(type, allocOperands, alignment);
 
-  if (!gEmitDealloc)
+  if (!ONNXToKrnl_gEmitDealloc)
     return allocOp;
 
   if (insertDealloc) {
@@ -219,7 +219,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
 // operand is the result value of current op. If it does then
 // dealloc should not be inserted.
 bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
-  if (gEmitDealloc == false)
+  if (ONNXToKrnl_gEmitDealloc == false)
     return false;
 
   auto parentBlock = currentOp->getBlock();

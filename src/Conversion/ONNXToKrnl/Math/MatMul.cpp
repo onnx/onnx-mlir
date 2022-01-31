@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
+
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
@@ -20,17 +22,19 @@
 
 using namespace mlir;
 
-#define DEBUG_TRACE 0
+#define DEBUG_TYPE "matmul"
 
 struct ONNXMatMulOpLowering : public ConversionPattern {
-  ONNXMatMulOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+  ONNXMatMulOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling)
       : ConversionPattern(
-            typeConverter, mlir::ONNXMatMulOp::getOperationName(), 1, ctx) {}
-
+            typeConverter, mlir::ONNXMatMulOp::getOperationName(), 1, ctx),
+        enableTiling(enableTiling) {}
+  bool enableTiling;
   // Handle the generic cases, including when there are broadcasts.
   void replaceGenericMatmul(ONNXMatMulOp &matMulOp,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
-      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value fzero,
+      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value fZero,
       ConversionPatternRewriter &rewriter, Location loc) const {
 
     // Define loops and bounds.
@@ -59,7 +63,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           // Single scalar, no need for default alignment.
           Value reductionVal =
               create.mem.alignedAlloca(MemRefType::get({}, elementType));
-          create.krnl.store(fzero, reductionVal);
+          create.krnl.store(fZero, reductionVal);
           // Inner loop for reduction.
           create.krnl.iterate({}, innerLoop, {}, {},
               [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
@@ -128,6 +132,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Initialize alloc/C to zero.
     create.krnl.memset(alloc, zeroVal);
+    bool simdize = true;
 
     // Compute.
     // Define blocking, with simdization along the j axis.
@@ -138,27 +143,39 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       int64_t constI = dimI.getLiteral();
       if (constI < iRegTile) {
         iRegTile = constI;
-        if (DEBUG_TRACE)
-          printf("MatMul: Tiling I is reduced to %d\n", (int)iRegTile);
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Tiling I is reduced to " << iRegTile << "\n";
+        });
       }
     }
     if (dimJ.isLiteral()) {
       int64_t constJ = dimJ.getLiteral();
       // When jRegTile does not divide J, but 4 would, use 4, unless J is very
-      // large, in which case it is better to simdize well the steady state and
-      // ignore the last partial block.
+      // large, in which case it is better to simdize well the steady state
+      // and ignore the last partial block.
       if (constJ % jRegTile != 0 && constJ % 4 == 0 && constJ <= 32) {
         jRegTile = 4;
-        if (DEBUG_TRACE)
-          printf("MatMul: Tiling J is reduced to %d\n", (int)jRegTile);
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Tiling J is reduced to " << jRegTile << "\n";
+        });
+      }
+      // Simdization occurs along j and jRegTile. If dimJ is smaller than
+      // jRegTile, disable simdization.
+      if (constJ < jRegTile) {
+        simdize = false;
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Disable simdization because trip " << constJ
+                       << " is smaller than reg tile " << jRegTile << "\n";
+        });
       }
     }
     if (dimK.isLiteral()) {
       int64_t constK = dimK.getLiteral();
       if (constK < kRegTile) {
         kRegTile = constK;
-        if (DEBUG_TRACE)
-          printf("MatMul: Tiling K is reduced to %d\n", (int)kRegTile);
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Tiling K is reduced to " << kRegTile << "\n";
+        });
       }
     }
 
@@ -178,13 +195,14 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
           createKrnl.matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},
               {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
-              {iRegTile, jRegTile, kRegTile}, {}, {}, {},
-              /*simd*/ true, /*unroll*/ true, /*overcompute*/ false);
+              {iRegTile, jRegTile, kRegTile}, {}, {}, {}, simdize,
+              /*unroll*/ true, /*overcompute*/ false);
         });
   }
 
-  // Handle the cases with 2x2 matrices both for A, B, and C without broadcast.
-  // Implementation here uses the efficient 2d tiling plus kernel substitution.
+  // Handle the cases with 2x2 matrices both for A, B, and C without
+  // broadcast. Implementation here uses the efficient 2d tiling plus kernel
+  // substitution.
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -211,7 +229,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value A(operandAdaptor.A()), B(operandAdaptor.B());
     auto aRank = A.getType().cast<MemRefType>().getShape().size();
     auto bRank = B.getType().cast<MemRefType>().getShape().size();
-    if (aRank == 2 && bRank == 2) {
+    if (enableTiling && aRank == 2 && bRank == 2) {
+      // Optimized Matmul only when 2D and allowed to tile and unroll.
       replace2x2Matmul2d(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);
     } else {
@@ -225,6 +244,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
+  patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx, enableTiling);
 }
