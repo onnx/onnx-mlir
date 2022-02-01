@@ -79,17 +79,9 @@ using namespace mlir::torch::Torch;
  * ----------
  * ./Debug/bin/onnx-mlir --EmitONNXIR --debug ../../../third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_leakyrelu/model.onnx 
  * 
- * Limitations
- * -----------
- * Present version of torch-mlir project does not have leaky relu implemented. Take the latest version. 
- * 
- * Resolutions
- * ----------
- * Incomplete. Take the latest torch build version that has leaky relu implemented. 
  */
 
 
-// LeakyReLU(x) = max(0,x)+negative_slope∗min(0,x) 
 namespace {
 
 class DecomposeONNXToAtenLeakyReluOp : public OpRewritePattern<ONNXLeakyReluOp> {
@@ -99,38 +91,29 @@ public:
                                 PatternRewriter &rewriter) const override {
 
     Location loc = op.getLoc();
+    mlir::MLIRContext *context =  op.getContext();
     ONNXLeakyReluOpAdaptor adapter(op);
-    auto attributes = adapter.getAttributes();
 
     Value x = op.X();
 
-    auto r0 = Torch::ValueTensorType::getWithLeastStaticInformation(op.getContext());
-    auto xtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>( op.getLoc(), r0, x);
+    auto alpha = adapter.alphaAttr(); // mlir::FloatAttr
+    auto neg_slope = alpha.getValue(); // APSFloat
+    auto f3 = FloatAttr::get(alpha.getType(), neg_slope.convertToFloat());
+    Value f3v = rewriter.create<ConstantFloatOp>(loc,f3);
 
-    /// torch tensor of exactly same size as input
-    auto zerott = rewriter.create<AtenZerosOp>( op.getLoc(), r0, x);
+    TensorType x_tensor_type  = x.getType().cast<TensorType>();
+    TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
 
-    /// max component
-    auto maxoutput = rewriter.create<PrimMaxIntOp>(loc, xtt, zerott);
+    auto xTy      = Torch::ValueTensorType::get(context, x_tensor_type.getShape(), x_tensor_type.getElementType());
+    auto xtt  = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>( loc, xTy, x); 
+    auto resultTy = Torch::ValueTensorType::get(op.getContext(), op_tensor_type.getShape(), op_tensor_type.getElementType());
 
-    /// min component
-    auto minoutput = rewriter.create<PrimMinIntOp>(loc, xtt, zerott);
+    Value atenleakyrelu = rewriter.create<AtenLeakyReluOp>(loc, resultTy, xtt, f3v); 
 
-    /// multiply min component with scalar attribute received from op
-    //Value scalar = rewriter.create<PrimNumToTensorScalarOp>(loc, 1.0);
+    llvm::outs() << "ATENRELU CREATED is " << atenleakyrelu << "\n"; 
+    Value result = atenleakyrelu; 
 
-    //auto component2 = rewriter.create<AtenMulScalarOp>(loc, minoutput, scalar); 
-
-    auto component2 = zerott; 
-    /// get result
-    auto res1 = rewriter.create<AtenAddFloatIntOp>(loc, maxoutput, component2);
-
-    Value atenrelu = rewriter.create<AtenReluOp>(loc, r0 , res1); 
-
-    llvm::outs() << "ATENRELU CREATED is " << atenrelu << "\n"; 
-    Value result = atenrelu; 
-
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, op.getType(), result);
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, op->getResult(0).getType() , result);
     return success();
   }
 };
@@ -142,7 +125,7 @@ namespace {
 
 class ONNXToAtenLeakyReluOpTransformPass 
     : public PassWrapper<ONNXToAtenLeakyReluOpTransformPass, OperationPass<::mlir::FuncOp>> {
-  StringRef getArgument() const override { return "onnx-to-aten-leakyrelu-transform"; }
+     StringRef getArgument() const override { return "onnx-to-aten-leakyrelu-transform"; }
      void runOnOperation() override {
 
           MLIRContext *context = &getContext();
@@ -158,7 +141,6 @@ class ONNXToAtenLeakyReluOpTransformPass
 	  llvm::outs() << "ONNXToAtenLeakyReluOpTransformPass Before " << "\n"; 
 
 	  patterns.add<DecomposeONNXToAtenLeakyReluOp >(context);
-	  target.addIllegalOp<ONNXReluOp>();
 
 	  llvm::outs() << "ONNXToAtenLeakyReluOpTransformPass After " << "\n"; 
 
