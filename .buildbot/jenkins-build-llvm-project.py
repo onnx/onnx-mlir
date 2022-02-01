@@ -28,6 +28,7 @@ MEMORY_IN_GB                = (os.sysconf('SC_PAGE_SIZE') *
 NPROC                       = str(math.ceil(min(max(2, MEMORY_IN_GB/4), os.cpu_count())))
 
 READ_CHUNK_SIZE             = 1024*1024
+BASE_BRANCH                 = 'main'
 
 cpu_arch                    = os.getenv('CPU_ARCH')
 docker_pushpull_rwlock      = os.getenv('DOCKER_PUSHPULL_RWLOCK')
@@ -46,10 +47,10 @@ github_pr_number2           = os.getenv('GITHUB_PR_NUMBER2')
 
 docker_static_image_name    = (github_repo_name + '-llvm-static' +
                                ('.' + github_pr_baseref2
-                                if github_pr_baseref != 'main' else ''))
+                                if github_pr_baseref != BASE_BRANCH else ''))
 docker_shared_image_name    = (github_repo_name + '-llvm-shared' +
                                ('.' + github_pr_baseref2
-                                if github_pr_baseref != 'main' else ''))
+                                if github_pr_baseref != BASE_BRANCH else ''))
 
 LLVM_PROJECT_SHA1_FILE      = 'utils/clone-mlir.sh'
 LLVM_PROJECT_SHA1_REGEX     = 'git checkout ([0-9a-f]+)'
@@ -355,13 +356,22 @@ def setup_private_llvm(image_type, exp):
 
                 if 'error' in line:
                     # Tag the latest successful image layer for easier debugging
-                    if layer_sha256:
+                    # if the image tag is not BASE_BRANCH (main).
+                    #
+                    # When we merge and publish, images are tagged as BASE_BRANCH
+                    # and potentially shared across PRs. However, if the image is
+                    # bad due to error (e.g., git clone llvm-project can fail),
+                    # we don't want to tag it to avoid other PRs using the corrupted
+                    # image when they merge and publish.
+                    if image_tag == BASE_BRANCH:
+                        logging.info('not tagging failed image as ' + BASE_BRANCH)
+                    elif not layer_sha256:
+                        logging.info('no successful image layer for tagging')
+                    else:
                         image_layer = 'sha256:' + layer_sha256
                         remove_dependent_containers(image_layer)
-                        logging.info('tagging %s -> %s', image_layer, image_full)
+                        logging.info('tagging %s -> %s for debugging', image_layer, image_full)
                         docker_api.tag(image_layer, image_repo, image_tag, force=True)
-                    else:
-                        logging.info('no successful image layer for tagging')
                     raise Exception(line['error'])
 
             id = docker_api.images(name=image_full, all=False, quiet=True)
