@@ -2,12 +2,14 @@
 
 add_onnx_mlir_library(ModelLib
   ConvModel.cpp
-  GemmModel.cpp
   GRUModel.cpp
+  GemmModel.cpp
+  LSTMModel.cpp
   MatMulModel.cpp
-  ModelLib.hpp
   ModelHelper.cpp
   ModelHelper.hpp
+  ModelLib.hpp
+  RNNModel.cpp
 
   EXCLUDE_FROM_OM_LIBS
 

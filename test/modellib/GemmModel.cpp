@@ -4,7 +4,7 @@
 
 //==============-- GemmModel.cpp - Building GEMM Models for tests -===========//
 //
-// Copyright 2022-2022 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -24,7 +24,7 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
-// Generate and compile a convolution.
+// Generate and compile a GEMM.
 //===----------------------------------------------------------------------===//
 
 bool genGemmAndCompileModel(

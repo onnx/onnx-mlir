@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//==============-- GRUModel.cpp - Building GRU Models for tests -==============//
+//=============-- LSTMModel.cpp - Building LSTM Models for tests -============//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains a function that build a GRU model and compiles it.
+// This file contains a function that build a LSTM model and compiles it.
 //
 //===----------------------------------------------------------------------===//
 
@@ -26,24 +26,24 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
-// Generate and compile a GRU.
+// Generate and compile a LSTM.
 //===----------------------------------------------------------------------===//
 
-bool genGRUModelAndCompile(
+bool genLSTMModelAndCompile(
     /* compile option */
     const string modelName, const CompilerOptionList &options,
-    /* GRU param in*/
+    /* LSTM param in*/
     const int direction, const int S, const int B, const int I, const int H,
-    const int LinearBeforeReset, const bool isDynamicS, const bool isDynamicB,
-    /* GRU param out*/
+    const bool isDynamicS, const bool isDynamicB,
+    /* LSTM param out*/
     int &D, SmallVector<int64_t, 3> &xShape, SmallVector<int64_t, 3> &hShape,
-    OMTensor *&wOmt, OMTensor *&rOmt, OMTensor *&bOmt) {
+    SmallVector<int64_t, 3> &cShape, OMTensor *&wOmt, OMTensor *&rOmt,
+    OMTensor *&bOmt, OMTensor *&pOmt) {
 
   MLIRContext ctx;
   setCompileContext(ctx, options);
 
   D = abs(direction);
-
   int S1 = S, B1 = B;
   if (isDynamicS)
     S1 = -1;
@@ -53,23 +53,29 @@ bool genGRUModelAndCompile(
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);
   xShape = {S, B, I};
-  SmallVector<int64_t, 3> xShapeSymbol = {S1, B1, I};
-  SmallVector<int64_t, 3> wShape = {D, 3 * H, I};
-  SmallVector<int64_t, 3> rShape = {D, 3 * H, H};
-  SmallVector<int64_t, 2> bShape = {D, 6 * H};
+  llvm::SmallVector<int64_t, 3> xShapeSymbol = {S1, B1, I};
+  llvm::SmallVector<int64_t, 3> wShape = {D, 4 * H, I};
+  llvm::SmallVector<int64_t, 3> rShape = {D, 4 * H, H};
+  llvm::SmallVector<int64_t, 2> bShape = {D, 8 * H};
   hShape = {D, B, H};
-  SmallVector<int64_t, 3> hShapeSymbol = {D, B1, H};
+  llvm::SmallVector<int64_t, 3> hShapeSymbol = {D, B1, H};
+  cShape = {D, B, H};
+  llvm::SmallVector<int64_t, 3> cShapeSymbol = {D, B1, H};
+  llvm::SmallVector<int64_t, 2> pShape = {D, 3 * H};
 
   auto xType = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
   auto wType = RankedTensorType::get(wShape, builder.getF32Type());
   auto rType = RankedTensorType::get(rShape, builder.getF32Type());
   auto bType = RankedTensorType::get(bShape, builder.getF32Type());
   auto hType = RankedTensorType::get(hShapeSymbol, builder.getF32Type());
+  auto cType = RankedTensorType::get(cShapeSymbol, builder.getF32Type());
+  auto pType = RankedTensorType::get(pShape, builder.getF32Type());
   auto yType = UnrankedTensorType::get(builder.getF32Type());
   auto yHType = UnrankedTensorType::get(builder.getF32Type());
+  auto yCType = UnrankedTensorType::get(builder.getF32Type());
 
-  SmallVector<Type, 2> inputsType{xType, hType};
-  SmallVector<Type, 2> outputsType{yType, yHType};
+  llvm::SmallVector<Type, 3> inputsType{xType, hType, cType};
+  llvm::SmallVector<Type, 3> outputsType{yType, yHType, yCType};
 
   auto funcType = builder.getFunctionType(inputsType, outputsType);
   string funcName = "main_graph";
@@ -85,8 +91,9 @@ bool genGRUModelAndCompile(
                          UnknownLoc::get(&ctx), builder.getUnitAttr())
                      .getResult();
   auto xVal = entryBlock->getArgument(0);
-  auto sVal = noneVal;
   auto hVal = entryBlock->getArgument(1);
+  auto cVal = entryBlock->getArgument(2);
+  auto sVal = noneVal;
 
   StringAttr directionAttr;
   if (direction == 1)
@@ -98,38 +105,42 @@ bool genGRUModelAndCompile(
   auto hiddenSizeAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, H, /*isSigned=*/true));
-  auto linearBeforeResetAttr =
+  auto inputForgetAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, LinearBeforeReset, /*isSigned=*/true));
+          APInt(64, 0, /*isSigned=*/true));
 
   wOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1);
   rOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1);
   bOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1);
+  pOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape), 0, 1);
   auto wConstant = buildONNXConstantOp(&ctx, builder, wOmt, wType);
   auto rConstant = buildONNXConstantOp(&ctx, builder, rOmt, rType);
   auto bConstant = buildONNXConstantOp(&ctx, builder, bOmt, bType);
+  auto pConstant = buildONNXConstantOp(&ctx, builder, pOmt, pType);
 
-  auto gruOp = builder.create<ONNXGRUOp>(UnknownLoc::get(&ctx),
-      /*Y=*/yType, /*Y_h=*/yHType,
+  auto lstmOp = builder.create<ONNXLSTMOp>(UnknownLoc::get(&ctx),
+      /*Y=*/yType, /*Y_h=*/yHType, /*Y_c=*/yCType,
       /*X=*/xVal, /*W=*/wConstant, /*R=*/rConstant, /*B=*/bConstant,
       /*sequence_lens=*/sVal, /*initial_h=*/hVal,
+      /*initial_c=*/cVal, /*P=*/pConstant,
       /*activation_alpha=*/ArrayAttr(), /*activation_beta=*/ArrayAttr(),
       /*activations=*/ArrayAttr(), /*clip=*/FloatAttr(),
       /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
-      /*linear_before_reset=*/linearBeforeResetAttr);
+      /*input_forget=*/inputForgetAttr);
 
-  gruOp.getResults()[0].setType(yType);
-  gruOp.getResults()[1].setType(yHType);
+  lstmOp.getResults()[0].setType(yType);
+  lstmOp.getResults()[1].setType(yHType);
+  lstmOp.getResults()[2].setType(yCType);
 
-  builder.create<ReturnOp>(UnknownLoc::get(&ctx), gruOp.getResults());
+  builder.create<ReturnOp>(UnknownLoc::get(&ctx), lstmOp.getResults());
   module.push_back(funcOp);
 
   // Emit the entry point operation which specifies the number of user
   // inputs and outputs.
   std::string signature("");
   auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
-      /*numInputs=*/5,
-      /*numOutputs=*/2,
+      /*numInputs=*/3,
+      /*numOutputs=*/3,
       /*signature*/ signature);
   module.push_back(entryPoint);
 

@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====-- ModelLib.cpp - Building Models for numerical and benchmark tests -===//
+//===========-- ModelHelper.cpp - Helper function for building models -=======//
 //
 // Copyright 2022-2022 The IBM Research Authors.
 //

@@ -10,13 +10,12 @@
 #include <string>
 #include <vector>
 
-#include "mlir/IR/BuiltinOps.h"
 #include "llvm/Support/FileSystem.h"
 
 #include "src/Compiler/CompilerUtils.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
+#include "test/modellib/ModelLib.hpp"
 
 #define SHARED_LIB_BASE string("./TestLSTM_main_graph")
 
@@ -33,126 +32,22 @@ using namespace onnx_mlir;
 bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
     const int B, const int I, const int H, bool isDynamicS = false,
     bool isDynamicB = false) {
-  MLIRContext ctx;
-  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
 
-  int D = abs(direction);
-  int S1 = S, B1 = B;
-  if (isDynamicS)
-    S1 = -1;
-  if (isDynamicB)
-    B1 = -1;
+  int D;
+  SmallVector<int64_t, 3> xShape, hShape, cShape;
+  OMTensor *wOmt = nullptr;
+  OMTensor *rOmt = nullptr;
+  OMTensor *bOmt = nullptr;
+  OMTensor *pOmt = nullptr;
+  if (!genLSTMModelAndCompile(
+          /* compile option */
+          SHARED_LIB_BASE, {{OptionKind::CompilerOptLevel, "3"}},
+          /* LSTM param in*/
+          direction, S, B, I, H, isDynamicS, isDynamicB,
+          /* LSTM param out*/
+          D, xShape, hShape, cShape, wOmt, rOmt, bOmt, pOmt))
+    return false;
 
-  auto module = ModuleOp::create(UnknownLoc::get(&ctx));
-  OpBuilder builder(&ctx);
-  llvm::SmallVector<int64_t, 3> xShape = {S, B, I};
-  llvm::SmallVector<int64_t, 3> xShapeSymbol = {S1, B1, I};
-  llvm::SmallVector<int64_t, 3> wShape = {D, 4 * H, I};
-  llvm::SmallVector<int64_t, 3> rShape = {D, 4 * H, H};
-  llvm::SmallVector<int64_t, 2> bShape = {D, 8 * H};
-  llvm::SmallVector<int64_t, 3> hShape = {D, B, H};
-  llvm::SmallVector<int64_t, 3> hShapeSymbol = {D, B1, H};
-  llvm::SmallVector<int64_t, 3> cShape = {D, B, H};
-  llvm::SmallVector<int64_t, 3> cShapeSymbol = {D, B1, H};
-  llvm::SmallVector<int64_t, 2> pShape = {D, 3 * H};
-
-  auto xType = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
-  auto wType = RankedTensorType::get(wShape, builder.getF32Type());
-  auto rType = RankedTensorType::get(rShape, builder.getF32Type());
-  auto bType = RankedTensorType::get(bShape, builder.getF32Type());
-  auto hType = RankedTensorType::get(hShapeSymbol, builder.getF32Type());
-  auto cType = RankedTensorType::get(cShapeSymbol, builder.getF32Type());
-  auto pType = RankedTensorType::get(pShape, builder.getF32Type());
-  auto yType = UnrankedTensorType::get(builder.getF32Type());
-  auto yHType = UnrankedTensorType::get(builder.getF32Type());
-  auto yCType = UnrankedTensorType::get(builder.getF32Type());
-
-  llvm::SmallVector<Type, 3> inputsType{xType, hType, cType};
-  llvm::SmallVector<Type, 3> outputsType{yType, yHType, yCType};
-
-  auto funcType = builder.getFunctionType(inputsType, outputsType);
-  string funcName = "main_graph";
-  llvm::SmallVector<NamedAttribute, 1> attrs;
-  auto funcOp =
-      builder.create<FuncOp>(UnknownLoc::get(&ctx), funcName, funcType, attrs);
-
-  auto entryBlock = funcOp.addEntryBlock();
-  builder.setInsertionPointToStart(entryBlock);
-
-  auto noneVal = builder
-                     .create<mlir::ConstantOp>(
-                         UnknownLoc::get(&ctx), builder.getUnitAttr())
-                     .getResult();
-  auto xVal = entryBlock->getArgument(0);
-  auto hVal = entryBlock->getArgument(1);
-  auto cVal = entryBlock->getArgument(2);
-  auto sVal = noneVal;
-
-  StringAttr directionAttr;
-  if (direction == 1)
-    directionAttr = builder.getStringAttr("forward");
-  else if (direction == 2)
-    directionAttr = builder.getStringAttr("bidirectional");
-  else
-    directionAttr = builder.getStringAttr("reverse");
-  auto hiddenSizeAttr =
-      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, H, /*isSigned=*/true));
-  auto inputForgetAttr =
-      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, 0, /*isSigned=*/true));
-
-  std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> constants;
-  auto wOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1),
-      omTensorDestroy);
-  constants.emplace_back(move(wOmt));
-  auto rOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1),
-      omTensorDestroy);
-  constants.emplace_back(move(rOmt));
-  auto bOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1),
-      omTensorDestroy);
-  constants.emplace_back(move(bOmt));
-  auto pOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape), 0, 1),
-      omTensorDestroy);
-  constants.emplace_back(move(pOmt));
-  auto wConstant = buildONNXConstantOp(&ctx, builder, constants.at(0), wType);
-  auto rConstant = buildONNXConstantOp(&ctx, builder, constants.at(1), rType);
-  auto bConstant = buildONNXConstantOp(&ctx, builder, constants.at(2), bType);
-  auto pConstant = buildONNXConstantOp(&ctx, builder, constants.at(3), pType);
-
-  auto lstmOp = builder.create<ONNXLSTMOp>(UnknownLoc::get(&ctx),
-      /*Y=*/yType, /*Y_h=*/yHType, /*Y_c=*/yCType,
-      /*X=*/xVal, /*W=*/wConstant, /*R=*/rConstant, /*B=*/bConstant,
-      /*sequence_lens=*/sVal, /*initial_h=*/hVal,
-      /*initial_c=*/cVal, /*P=*/pConstant,
-      /*activation_alpha=*/ArrayAttr(), /*activation_beta=*/ArrayAttr(),
-      /*activations=*/ArrayAttr(), /*clip=*/FloatAttr(),
-      /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
-      /*input_forget=*/inputForgetAttr);
-
-  lstmOp.getResults()[0].setType(yType);
-  lstmOp.getResults()[1].setType(yHType);
-  lstmOp.getResults()[2].setType(yCType);
-
-  builder.create<ReturnOp>(UnknownLoc::get(&ctx), lstmOp.getResults());
-  module.push_back(funcOp);
-
-  // Emit the entry point operation which specifies the number of user
-  // inputs and outputs.
-  std::string signature("");
-  auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
-      /*numInputs=*/3,
-      /*numOutputs=*/3,
-      /*signature*/ signature);
-  module.push_back(entryPoint);
-
-  OwningModuleRef moduleRef(module);
-
-  compileModule(moduleRef, ctx, SHARED_LIB_BASE, onnx_mlir::EmitLib);
   onnx_mlir::ExecutionSession sess(
       getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
 
@@ -182,10 +77,14 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
   // Ht = ot (.) h(Ct)
 
-  auto &weight = constants.at(0);
-  auto &recurr = constants.at(1);
-  auto &bias = constants.at(2);
-  auto &peepholes = constants.at(3);
+  auto weight =
+      unique_ptr<OMTensor, decltype(&omTensorDestroy)>(wOmt, omTensorDestroy);
+  auto recurr =
+      unique_ptr<OMTensor, decltype(&omTensorDestroy)>(rOmt, omTensorDestroy);
+  auto bias =
+      unique_ptr<OMTensor, decltype(&omTensorDestroy)>(bOmt, omTensorDestroy);
+  auto peepholes =
+      unique_ptr<OMTensor, decltype(&omTensorDestroy)>(pOmt, omTensorDestroy);
 
   auto &input = inputs.at(0);
   auto &initialH = inputs.at(1);

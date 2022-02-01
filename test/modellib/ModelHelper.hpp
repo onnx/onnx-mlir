@@ -20,5 +20,5 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 // Helper function
-mlir::ONNXConstantOp buildONNXConstantOp(mlir::MLIRContext *ctx, mlir::OpBuilder builder,
-    OMTensor *omt, mlir::RankedTensorType resultType);
+mlir::ONNXConstantOp buildONNXConstantOp(mlir::MLIRContext *ctx,
+    mlir::OpBuilder builder, OMTensor *omt, mlir::RankedTensorType resultType);

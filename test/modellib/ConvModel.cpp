@@ -4,7 +4,7 @@
 
 //==============-- ConvModel.cpp - Building Conv Models for tests -===========//
 //
-// Copyright 2022-2022 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //

@@ -72,3 +72,28 @@ bool genGRUModelAndCompile(
     int &D, llvm::SmallVector<int64_t, 3> &xShape,
     llvm::SmallVector<int64_t, 3> &hShape, OMTensor *&wOmt, OMTensor *&rOmt,
     OMTensor *&bOmt);
+
+// RNN
+bool genRNNModelAndCompile(
+    /* compile option */
+    const std::string modelName, const CompilerOptionList &options,
+    /* RNN param in*/
+    const int direction, const int S, const int B, const int I, const int H,
+    const bool isDynamicS, const bool isDynamicB,
+    /* RNN param out*/
+    int &D, llvm::SmallVector<int64_t, 3> &xShape,
+    llvm::SmallVector<int64_t, 3> &hShape, OMTensor *&wOmt, OMTensor *&rOmt,
+    OMTensor *&bOmt);
+
+// LSTM
+bool genLSTMModelAndCompile(
+    /* compile option */
+    const std::string modelName, const CompilerOptionList &options,
+    /* LSTM param in*/
+    const int direction, const int S, const int B, const int I, const int H,
+    const bool isDynamicS, const bool isDynamicB,
+    /* LTSM param out*/
+    int &D, llvm::SmallVector<int64_t, 3> &xShape,
+    llvm::SmallVector<int64_t, 3> &hShape,
+    llvm::SmallVector<int64_t, 3> &cShape, OMTensor *&wOmt, OMTensor *&rOmt,
+    OMTensor *&bOmt, OMTensor *&pOmt);

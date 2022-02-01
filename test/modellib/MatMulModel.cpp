@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//==============-- MatMulModel.cpp - Building Conv Models for tests -=========//
+//==============-- MatMulModel.cpp - Building MatMul Models for tests -=======//
 //
-// Copyright 2022-2022 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -24,7 +24,7 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
-// Generate and compile a convolution.
+// Generate and compile a MatMul 2D.
 //===----------------------------------------------------------------------===//
 
 bool genMatMul2DModelAndCompile(
