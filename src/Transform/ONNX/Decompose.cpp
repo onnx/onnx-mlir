@@ -123,7 +123,7 @@ Value createSequenceConstructOp(
 namespace {
 
 struct DecomposeONNXToONNXPass
-    : public PassWrapper<DecomposeONNXToONNXPass, FunctionPass> {
+    : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<FuncOp>> {
 
   StringRef getArgument() const override { return "decompose-onnx"; }
 
@@ -132,12 +132,12 @@ struct DecomposeONNXToONNXPass
            "operations.";
   }
 
-  void runOnFunction() final;
+  void runOnOperation() final;
 };
 } // end anonymous namespace.
 
-void DecomposeONNXToONNXPass::runOnFunction() {
-  auto function = getFunction();
+void DecomposeONNXToONNXPass::runOnOperation() {
+  auto function = getOperation();
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());

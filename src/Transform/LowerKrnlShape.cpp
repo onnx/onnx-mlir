@@ -78,7 +78,7 @@ public:
  *  Function pass that emits the shape of a MemRef.
  */
 class LowerKrnlShapePass
-    : public PassWrapper<LowerKrnlShapePass, FunctionPass> {
+    : public PassWrapper<LowerKrnlShapePass, OperationPass<FuncOp>> {
 public:
   StringRef getArgument() const override { return "lower-krnl-shape"; }
 
@@ -86,8 +86,8 @@ public:
     return "Lower krnl.shape operation to use Shape dialect operations.";
   }
 
-  void runOnFunction() override {
-    auto function = getFunction();
+  void runOnOperation() override {
+    auto function = getOperation();
 
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
