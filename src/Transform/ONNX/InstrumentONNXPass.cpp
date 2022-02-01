@@ -57,7 +57,7 @@ llvm::cl::bits<InstrumentActions> InstrumentControlBits(
     llvm::cl::cat(OMPassOptions));
 
 class InstrumentONNXPass
-    : public mlir::PassWrapper<InstrumentONNXPass, FunctionPass> {
+    : public mlir::PassWrapper<InstrumentONNXPass, OperationPass<FuncOp>> {
 
 private:
   bool allOpsAllowed;
@@ -84,13 +84,13 @@ public:
     runtimeActions = InstrumentControlBits.getBits();
   };
 
-  void runOnFunction() override {
+  void runOnOperation() override {
     if (instrumentONNXOps == "" || instrumentONNXOps == "NONE")
       return;
     init(instrumentONNXOps);
 
     // Iterate on the operations nested in this function
-    getFunction().walk([&](mlir::Operation *op) {
+    getOperation().walk([&](mlir::Operation *op) {
       if (isa<mlir::ONNXOpsDialect>(op->getDialect())) {
         // Skip the prefix "onnx." of onnx op name
         const char *opName = op->getName().getStringRef().data() + 5;

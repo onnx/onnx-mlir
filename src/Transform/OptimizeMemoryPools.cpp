@@ -868,7 +868,7 @@ public:
  *  Function pass that optimizes memory pools.
  */
 class KrnlOptimizeMemoryPoolsPass
-    : public PassWrapper<KrnlOptimizeMemoryPoolsPass, FunctionPass> {
+    : public PassWrapper<KrnlOptimizeMemoryPoolsPass, OperationPass<FuncOp>> {
   BlockToCompactedAlignments blockToStaticPoolAlignments;
   BlockToDiscardedGetRefs blockToDiscardedGetRefs;
 
@@ -879,8 +879,8 @@ public:
     return "Optimize the static and dynamic memory pools.";
   }
 
-  void runOnFunction() override {
-    auto function = getFunction();
+  void runOnOperation() override {
+    auto function = getOperation();
 
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
