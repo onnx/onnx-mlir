@@ -80,7 +80,7 @@ namespace {
  *  Function pass that performs constant value elision of Krnl globals.
  */
 class ElideConstGlobalValuePass
-    : public PassWrapper<ElideConstGlobalValuePass, FunctionPass> {
+    : public PassWrapper<ElideConstGlobalValuePass, OperationPass<FuncOp>> {
 public:
   StringRef getArgument() const override { return "elide-krnl-constants"; }
 
@@ -88,8 +88,8 @@ public:
     return "Elide the constant values of the Global Krnl operations.";
   }
 
-  void runOnFunction() override {
-    auto function = getFunction();
+  void runOnOperation() override {
+    auto function = getOperation();
 
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
