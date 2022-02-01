@@ -4,9 +4,9 @@
 
 ## Building ONNX-MLIR
 
-Up to date info on how to build the project is located in the top directory [here](README.md).
+Up to date info on how to build the project is located in the top directory [README](README.md).
 
-Since you are interested in contributing code, you should look [here](docs/Workflow.md) for detailed step by step directives on how to create a fork, compile it, and then push your changes for review.
+Since you are interested in contributing code, you should look in the [Workflow](docs/Workflow.md) for detailed step by step directives on how to create a fork, compile it, and then push your changes for review.
 
 A comprehensive list of documents is found [here](docs/DocumentList.md).
 
@@ -36,7 +36,7 @@ A comprehensive list of documents is found [here](docs/DocumentList.md).
 
 * Here is an end to end MNIST example using C++ or python interface [link](docs/mnist_example/README.md).
 * Here is how to run a compiled model in python [link](docs/UsingPyRuntime.md).
-* Here is the C runtime API to run models in C/C++ [link](http://onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html).
+* Here is the C runtime API to run models in C/C++ [link](https://onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html).
 
 ## Documentation
 
