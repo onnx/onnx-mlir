@@ -2,13 +2,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//==============-- GRUModel.cpp - Building GRU Models for tests -==============//
+//==============-- GRUModel.cpp - Building GRU Models for tests
+//-==============//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains a function that build a GRU model and compiles it.
+// This file contains a function that builds a GRU model and compiles it.
 //
 //===----------------------------------------------------------------------===//
 
@@ -31,7 +32,7 @@ using namespace onnx_mlir;
 
 bool genGRUModelAndCompile(
     /* compile option */
-    const string modelName, const CompilerOptionList &options,
+    const string &modelName, const CompilerOptionList &options,
     /* GRU param in*/
     const int direction, const int S, const int B, const int I, const int H,
     const int LinearBeforeReset, const bool isDynamicS, const bool isDynamicB,

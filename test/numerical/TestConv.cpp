@@ -26,7 +26,7 @@ using namespace onnx_mlir;
 // Include some helper functions.
 #include "Helper.hpp"
 
-#define SHARED_LIB_BASE string("./TestConv_main_graph")
+static const llvm::StringRef SHARED_LIB_BASE("./TestConv_main_graph");
 
 // Made global so that we can repeat the test with different strides and
 // dilations. Had to make them global to conform with the signatures of lambda
@@ -135,14 +135,14 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   int NOut, COut, HOut, WOut;
   if (!genConv2DModelAndCompile(
           /*compiler options */
-          SHARED_LIB_BASE, {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
           /*input conv param */ N, C, H, W, kH, kW, autoPad, pHBegin, pHEnd,
           pWBegin, pWEnd, stride, dilation, isDynamic,
           /*output conv param*/ NOut, COut, HOut, WOut))
     return false;
 
   onnx_mlir::ExecutionSession sess(
-      getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
+      getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto xOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
@@ -197,7 +197,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 }
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
+  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestConv\n", nullptr, "TEST_ARGS");

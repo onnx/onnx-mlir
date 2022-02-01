@@ -8,7 +8,8 @@
 //
 // =============================================================================
 //
-// This file contains a function that build a convolution model and compiles it.
+// This file contains a function that builds a convolution model and compiles
+// it.
 //
 //===----------------------------------------------------------------------===//
 
@@ -36,7 +37,7 @@ const string getAutoPadName(const int autoPad) {
 
 bool genConv2DModelAndCompile(
     /* compile option */
-    const string modelName, const CompilerOptionList &options,
+    const string &modelName, const CompilerOptionList &options,
     /* conv param in*/
     const int N, const int C, const int H, const int W, const int kH,
     const int kW, const int autoPad, const int pHBegin, const int pHEnd,

@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// This file contains a function that build a LSTM model and compiles it.
+// This file contains a function that builds an LSTM model and compiles it.
 //
 //===----------------------------------------------------------------------===//
 
@@ -31,7 +31,7 @@ using namespace onnx_mlir;
 
 bool genLSTMModelAndCompile(
     /* compile option */
-    const string modelName, const CompilerOptionList &options,
+    const string &modelName, const CompilerOptionList &options,
     /* LSTM param in*/
     const int direction, const int S, const int B, const int I, const int H,
     const bool isDynamicS, const bool isDynamicB,

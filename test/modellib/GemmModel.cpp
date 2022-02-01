@@ -8,15 +8,15 @@
 //
 // =============================================================================
 //
-// This file contains a function that build a GEMM model and compiles it.
+// This file contains a function that builds a GEMM model and compiles it.
 //
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/BuiltinOps.h"
 
+#include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "include/OnnxMlirRuntime.h"
 #include "test/modellib/ModelLib.hpp"
 
 using namespace std;
@@ -29,7 +29,7 @@ using namespace onnx_mlir;
 
 bool genGemmAndCompileModel(
     /* compile option */
-    const string modelName, const CompilerOptionList &options,
+    const string &modelName, const CompilerOptionList &options,
     /* conv param in*/
     const int I, const int J, const int K, const int aTrans, const int bTrans,
     const int cRank, const float alphaVal, const float betaVal,

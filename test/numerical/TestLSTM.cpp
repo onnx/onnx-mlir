@@ -17,7 +17,7 @@
 #include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
-#define SHARED_LIB_BASE string("./TestLSTM_main_graph")
+static const llvm::StringRef SHARED_LIB_BASE("./TestLSTM_main_graph");
 
 using namespace std;
 using namespace mlir;
@@ -41,7 +41,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   OMTensor *pOmt = nullptr;
   if (!genLSTMModelAndCompile(
           /* compile option */
-          SHARED_LIB_BASE, {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
           /* LSTM param in*/
           direction, S, B, I, H, isDynamicS, isDynamicB,
           /* LSTM param out*/
@@ -49,7 +49,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
     return false;
 
   onnx_mlir::ExecutionSession sess(
-      getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
+      getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto xOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
@@ -209,7 +209,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
 }
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
+  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLSTM\n", nullptr, "TEST_ARGS");

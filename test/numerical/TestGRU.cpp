@@ -17,7 +17,7 @@
 #include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
-#define SHARED_LIB_BASE string("./TestGRU_main_graph")
+static const llvm::StringRef SHARED_LIB_BASE("./TestGRU_main_graph");
 
 using namespace std;
 using namespace mlir;
@@ -40,14 +40,14 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   OMTensor *bOmt = nullptr;
   if (!genGRUModelAndCompile(
           /* compile option */
-          SHARED_LIB_BASE, {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
           /* GRU param in*/
           direction, S, B, I, H, LinearBeforeReset, isDynamicS, isDynamicB,
           /* GRU param out*/
           D, xShape, hShape, wOmt, rOmt, bOmt))
     return false;
   onnx_mlir::ExecutionSession sess(
-      getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
+      getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto xOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
@@ -210,7 +210,7 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 }
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
+  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGRU\n", nullptr, "TEST_ARGS");

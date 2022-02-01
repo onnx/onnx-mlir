@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// This file contains a function that build a RNN model and compiles it.
+// This file contains a function that builds a RNN model and compiles it.
 //
 //===----------------------------------------------------------------------===//
 
@@ -31,7 +31,7 @@ using namespace onnx_mlir;
 
 bool genRNNModelAndCompile(
     /* compile option */
-    const string modelName, const CompilerOptionList &options,
+    const string &modelName, const CompilerOptionList &options,
     /* RNN param in*/
     const int direction, const int S, const int B, const int I, const int H,
     const bool isDynamicS, const bool isDynamicB,

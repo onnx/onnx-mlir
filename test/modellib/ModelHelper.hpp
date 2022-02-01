@@ -4,7 +4,7 @@
 
 //===========-- ModelHelper.hpp - Helper function for building models -=======//
 //
-// Copyright 2022-2022 The IBM Research Authors.
+// Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //

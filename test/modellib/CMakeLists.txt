@@ -7,13 +7,11 @@ add_onnx_mlir_library(ModelLib
   LSTMModel.cpp
   MatMulModel.cpp
   ModelHelper.cpp
-  ModelHelper.hpp
-  ModelLib.hpp
   RNNModel.cpp
 
   EXCLUDE_FROM_OM_LIBS
 
-  LINK_LIBS PRIVATE 
+  LINK_LIBS PRIVATE
   CompilerUtils
   ExecutionSession
   )

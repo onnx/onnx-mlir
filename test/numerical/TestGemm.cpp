@@ -17,7 +17,7 @@
 #include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
-#define SHARED_LIB_BASE string("./TestGemm_main_graph")
+static const llvm::StringRef SHARED_LIB_BASE("./TestGemm_main_graph");
 
 using namespace std;
 using namespace mlir;
@@ -68,9 +68,8 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
 
   SmallVector<int64_t, 2> aShape, bShape, cShape;
   if (!genGemmAndCompileModel(
-          /*compiler options */ 
-          SHARED_LIB_BASE,
-          {{OptionKind::CompilerOptLevel, "3"}},
+          /*compiler options */
+          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
           /* GEMM param in*/
           I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal,
           /* GEMM param out*/
@@ -78,7 +77,7 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
     return false;
 
   onnx_mlir::ExecutionSession sess(
-      getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
+      getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto aOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
@@ -158,7 +157,7 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
 }
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
+  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");

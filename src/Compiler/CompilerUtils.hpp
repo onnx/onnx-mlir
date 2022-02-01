@@ -36,14 +36,14 @@ extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::opt<std::string> instrumentONNXOps;
 
 // The following functions are useful for drivers building upon onnx-mlir.
+using CompilerOptionList =
+    llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
 
 void setTargetCPU(const std::string &cpu);
 void setTargetArch(const std::string &arch);
 void setTargetTriple(const std::string &triple);
 void setOptLevel(const onnx_mlir::OptLevel level);
 // Set compile context according to the (key, value) fields passed.
-using CompilerOptionList =
-    llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
 void setCompileContext(
     mlir::MLIRContext &context, const CompilerOptionList &options);
 // Set compile context, legacy C array and string representation.

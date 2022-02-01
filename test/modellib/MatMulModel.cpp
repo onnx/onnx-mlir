@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// This file contains a function that build a MatMul model and compiles it.
+// This file contains a function that builds a MatMul model and compiles it.
 //
 //===----------------------------------------------------------------------===//
 
@@ -29,7 +29,7 @@ using namespace onnx_mlir;
 
 bool genMatMul2DModelAndCompile(
     /* compile option */
-    const string modelName, const CompilerOptionList &options,
+    const string &modelName, const CompilerOptionList &options,
     /* conv param in*/
     const int I, const int J, const int K) {
 
