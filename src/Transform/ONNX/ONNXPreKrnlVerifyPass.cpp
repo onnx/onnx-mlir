@@ -38,15 +38,15 @@ namespace {
  */
 
 class ONNXPreKrnlVerifyPass
-    : public mlir::PassWrapper<ONNXPreKrnlVerifyPass, FunctionPass> {
+    : public mlir::PassWrapper<ONNXPreKrnlVerifyPass, OperationPass<FuncOp>> {
 
 public:
   StringRef getArgument() const override { return "onnx-pre-krnl-verify"; }
 
   StringRef getDescription() const override { return "Verify onnx ops."; }
 
-  void runOnFunction() override {
-    auto function = getFunction();
+  void runOnOperation() override {
+    auto function = getOperation();
     auto &funcBody = function.getBody();
 
     // Iterate on the operations
