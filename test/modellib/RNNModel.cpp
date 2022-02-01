@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//==============-- RNNModel.cpp - Building RNN Models for tests -======+======//
+//==============-- RNNModel.cpp - Building RNN Models for tests -=============//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //

@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//==============-- GRUModel.cpp - Building GRU Models for tests
-//-==============//
+//==============-- GRUModel.cpp - Building GRU Models for tests -=============//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
