@@ -142,29 +142,35 @@ public:
     int64_t storage_order = op.storage_order();	// int64_t
 
     auto one = 1;
+    auto two = 2;
     auto three = 3;
     auto zero  = 0;
     
-    //auto f3 = IntegerAttr::get(ceiling_mode_attr.getType(), three);
-    auto f3 = IntegerAttr::get( IntegerType::get(op.getContext(), 1) , APInt(64, three));
-    auto f0 = IntegerAttr::get( IntegerType::get(op.getContext(), 1) , APInt(64, zero));
-    //auto f0 = IntegerAttr::get(ceiling_mode_attr.getType(), zero);
+    auto ty = IntegerType::get(op.getContext(), 32);
+    auto f33 = IntegerAttr::get(ty, three);
+    auto f00 = IntegerAttr::get(ty, zero);
+    auto f22 = IntegerAttr::get(ty, two);
+
+    auto f3 = f33; 
+    auto f0 = f00;
+    auto f2 = f22;
 
     Value f3v = rewriter.create<ConstantIntOp>(loc,f3);
     Value f0v = rewriter.create<ConstantIntOp>(loc,f0);
-    Value f1v = rewriter.create<ConstantIntOp>(loc,storage_order_attr);
-    Value f2v = rewriter.create<ConstantIntOp>(loc,storage_order_attr);
+    Value f22v = rewriter.create<ConstantIntOp>(loc,f2);
 
-    
-    Value ceiling_mode_val = rewriter.create<ConstantIntOp>(loc,ceiling_mode_attr);
-    Value storage_order_val = rewriter.create<ConstantIntOp>(loc,storage_order_attr);
-    Type tensorType = op.getType();
+
+    Value f1v = f0v; //rewriter.create<ConstantIntOp>(loc,storage_order_attr);
+    Value f2v = f0v; //rewriter.create<ConstantIntOp>(loc,storage_order_attr);
+
+    Value ceiling_mode_val = f0v; //rewriter.create<ConstantIntOp>(loc,ceiling_mode_attr);
+    Value storage_order_val = f0v; //rewriter.create<ConstantIntOp>(loc,storage_order_attr);
 
     Value stridesList = rewriter.create<PrimListConstructOp>(
-	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{f1v, f2v}); 
+	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{f22v, f22v}); 
 
     Value dilationList = rewriter.create<PrimListConstructOp>(
-	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{f1v, f2v});
+	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{f22v, f22v});
 
     Value padsList = rewriter.create<PrimListConstructOp>(
 	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{f0v, f0v, f0v, f0v});
@@ -172,23 +178,25 @@ public:
     Value kernalShapeList = rewriter.create<PrimListConstructOp>(
 	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{f3v, f3v});
 
-    auto r0 = Torch::ValueTensorType::getWithLeastStaticInformation(op.getContext());
-    auto xtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>( op.getLoc(), r0, x);
+    TensorType x_tensor_type  = x.getType().cast<TensorType>();
+    TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
+
+    auto xTy      = Torch::ValueTensorType::get(context, x_tensor_type.getShape(), x_tensor_type.getElementType());
+    auto resultTy = Torch::ValueTensorType::get(op.getContext(), op_tensor_type.getShape(), op_tensor_type.getElementType());
+    auto xtt  = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>( loc, xTy, x); 
 
     llvm::outs() << "xtt torch tensor from MLIR tensor " << "\n" << xtt << "\n" << "\n";
 
-    //auto t = Torch::ValueTensorType::get(context, optionalSizesArrayRef, x1.getType());
-
-    Value atenmaxpool2d = rewriter.create<AtenMaxPool2dOp>(loc, x.getType(), xtt, 
-		kernalShapeList, stridesList, padsList, dilationList, ceiling_mode_val);
+    Value atenmaxpool2d = rewriter.create<AtenMaxPool2dOp>(loc, resultTy, xtt, 
+                kernalShapeList, stridesList, padsList, dilationList, ceiling_mode_val);
 
     llvm::outs() << "AtenMaxPool2dOp operation creation" << "\n" << atenmaxpool2d << "\n" << "\n";
 
-    Value result = atenmaxpool2d; 
+    Value result = atenmaxpool2d;
 
     llvm::outs() << "Before Writer replace Op " << "\n"; 
     
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, op.getType(), result);
+    rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(op, op->getResult(0).getType(), result);
 
     llvm::outs() << "After Writer replace Op " << "\n"; 
 
@@ -205,7 +213,8 @@ namespace {
 
 class  ONNXToAtenMaxPool2dOpTransformPass
     : public PassWrapper<ONNXToAtenMaxPool2dOpTransformPass, OperationPass<::mlir::FuncOp>> {
-  StringRef getArgument() const override { return "onnx-to-aten-maxpool2d-transform"; }
+
+     StringRef getArgument() const override { return "onnx-to-aten-maxpool2d-transform"; }
      void runOnOperation() override {
           MLIRContext *context = &getContext();
           
@@ -220,7 +229,6 @@ class  ONNXToAtenMaxPool2dOpTransformPass
 	  llvm::outs() << "ONNXToAtenMaxPool2dOpTransformPass Before OpTransform " << "\n"; 
 	  patterns.add<DecomposeONNXToAtenMaxPool2DOp>(context);
 
-	  //target.addIllegalOp<ONNXConvOp>();
 	  llvm::outs() << "ONNXToAtenMaxPool2dOpTransformPass After OpTransform " << "\n"; 
 
 	  
@@ -230,7 +238,7 @@ class  ONNXToAtenMaxPool2dOpTransformPass
 	  }
 
 	  if (onnxOpTransformReport) {
-	    llvm::outs() << "ONNXToAtenConv2DOpTransformPass iterated " << 3 
+	    llvm::outs() << "ONNXToAtenMaxPool2DOpTransformPass iterated " << 3 
 			 << " times, converged "
 			 << "\n";
 	  }
