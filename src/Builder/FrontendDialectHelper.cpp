@@ -138,6 +138,13 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
   // Initializer for input.
   onnx::TensorProto initializer = GetInitializedTensor(name);
 
+  // Return none if the initializer is an empty tensor, e.g tensor<0xf32>.
+  llvm::ArrayRef<int64_t> tensorDims(
+      initializer.dims().data(), initializer.dims().size());
+  if (tensorDims.size() == 1 && tensorDims[0] == 0)
+    return builder.create<mlir::ConstantOp>(loc, builder.getUnitAttr())
+        .getResult();
+
   // Emit ConstantOp and record the mapping between the input and
   // the constant value.
   // Create value attribute.
