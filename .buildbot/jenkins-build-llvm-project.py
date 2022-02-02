@@ -213,7 +213,8 @@ def extract_llvm_info():
     # Labels used to filter local images
     exp_llvm_project_filter = { 'label': [
         'llvm_project_sha1=' + exp_llvm_project_sha1,
-        'llvm_project_dockerfile_sha1=' + exp_llvm_project_dockerfile_sha1 ] }
+        'llvm_project_dockerfile_sha1=' + exp_llvm_project_dockerfile_sha1,
+        'llvm_project_successfully_built=yes' ] }
 
     logging.info('llvm-project expected')
     logging.info('commit sha1:     %s', exp_llvm_project_sha1)
@@ -355,23 +356,18 @@ def setup_private_llvm(image_type, exp):
                     print(line['stream'], end='', flush=True)
 
                 if 'error' in line:
-                    # Tag the latest successful image layer for easier debugging
-                    # if the image tag is not BASE_BRANCH (main).
+                    # Tag the latest successful image layer for easier debugging.
                     #
-                    # When we merge and publish, images are tagged as BASE_BRANCH
-                    # and potentially shared across PRs. However, if the image is
-                    # bad due to error (e.g., git clone llvm-project can fail),
-                    # we don't want to tag it to avoid other PRs using the corrupted
-                    # image when they merge and publish.
-                    if image_tag == BASE_BRANCH:
-                        logging.info('not tagging failed image as ' + BASE_BRANCH)
-                    elif not layer_sha256:
-                        logging.info('no successful image layer for tagging')
-                    else:
+                    # It's OK to tag the broken image since it will not have the
+                    # llvm_project_successfully_built=yes label so it will not be
+                    # incorrectly reused.
+                    if layer_sha256:
                         image_layer = 'sha256:' + layer_sha256
                         remove_dependent_containers(image_layer)
                         logging.info('tagging %s -> %s for debugging', image_layer, image_full)
                         docker_api.tag(image_layer, image_repo, image_tag, force=True)
+                    else:
+                        logging.info('no successful image layer for tagging')
                     raise Exception(line['error'])
 
             id = docker_api.images(name=image_full, all=False, quiet=True)
