@@ -745,7 +745,7 @@ public:
 //===----------------------------------------------------------------------===//
 
 struct ConstPropONNXToONNXPass
-    : public PassWrapper<ConstPropONNXToONNXPass, FunctionPass> {
+    : public PassWrapper<ConstPropONNXToONNXPass, OperationPass<FuncOp>> {
 
   StringRef getArgument() const override { return "constprop-onnx"; }
 
@@ -754,12 +754,12 @@ struct ConstPropONNXToONNXPass
            "other ONNX operations.";
   }
 
-  void runOnFunction() final;
+  void runOnOperation() final;
 };
 } // end anonymous namespace.
 
-void ConstPropONNXToONNXPass::runOnFunction() {
-  auto function = getFunction();
+void ConstPropONNXToONNXPass::runOnOperation() {
+  auto function = getOperation();
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());

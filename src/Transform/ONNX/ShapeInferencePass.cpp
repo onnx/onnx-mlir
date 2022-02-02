@@ -41,7 +41,7 @@ static SmallVector<mlir::FuncOp, 4> lookUpFuncsMatching(
 }
 
 /*!
- *  FunctionPass that performs shape inference by iterating over a list of
+ *  Function pass that performs shape inference by iterating over a list of
  *  candidate operations and propagating the shape information until the list
  *  of operations is empty [credit MLIR authors].
  *

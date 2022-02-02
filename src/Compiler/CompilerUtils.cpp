@@ -330,8 +330,8 @@ static void setCompilerKeyValue(const OptionKind key, const string val) {
 }
 
 // Set compiler context using a list of key/value pairs.
-void setCompileContext(mlir::MLIRContext &context,
-    const SmallVector<pair<OptionKind, string>, 4> options) {
+void setCompileContext(
+    mlir::MLIRContext &context, const CompilerOptionList &options) {
   for (const auto &pair : options)
     setCompilerKeyValue(pair.first, pair.second);
   registerDialects(context);
