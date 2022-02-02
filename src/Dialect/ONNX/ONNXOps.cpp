@@ -36,6 +36,51 @@ using namespace mlir;
 using namespace mlir::OpTrait::util;
 
 //===----------------------------------------------------------------------===//
+// Tablegen Type Definitions
+//===----------------------------------------------------------------------===//
+// Explanation: the print/parse function is used in dialect initialization
+// If put the type code in ONNXTypes.cpp, compilation warning of
+// unused symbol
+#define GET_TYPEDEF_CLASSES
+#include "src/Dialect/ONNX/ONNXTypes.cpp.inc"
+
+
+//===----------------------------------------------------------------------===//
+// ONNXDialect initialization
+//===----------------------------------------------------------------------===//
+
+/// Dialect creation, the instance will be owned by the context. This is the
+/// point of registration of custom types and operations for the dialect.
+void ONNXDialect::initialize() {
+  addOperations<
+#define GET_OP_LIST
+#include "src/Dialect/ONNX/ONNXOps.cpp.inc"
+      >();
+
+  addTypes<
+#define GET_TYPEDEF_LIST
+#include "src/Dialect/ONNX/ONNXTypes.cpp.inc"
+      >();
+}
+
+Type ONNXDialect::parseType(DialectAsmParser &parser) const {
+  StringRef keyword;
+  if (parser.parseKeyword(&keyword))
+    return Type();
+  Type type;
+  if (generatedTypeParser(parser, keyword, type).hasValue())
+    return type;
+  parser.emitError(parser.getNameLoc(), "invalid 'onnx' type:`")
+      << keyword << "'";
+  return Type();
+}
+
+void ONNXDialect::printType(Type type, DialectAsmPrinter &printer) const {
+  if (failed(generatedTypePrinter(type, printer)))
+    llvm_unreachable("unknown 'onnx' type");
+}
+
+//===----------------------------------------------------------------------===//
 // ONNX Helper functions for shape helpers
 //===----------------------------------------------------------------------===//
 
@@ -562,47 +607,6 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
                   ((kernelSize - 1) * dilationVal + 1) - sumOfPads;
     outputDims.emplace_back(res);
   }
-}
-
-//===----------------------------------------------------------------------===//
-// ONNXOpsDialect
-//===----------------------------------------------------------------------===//
-
-#include "src/Dialect/ONNX/ONNXOpsDialect.cpp.inc"
-
-#define GET_TYPEDEF_CLASSES
-#include "src/Dialect/ONNX/ONNXOpsTypes.cpp.inc"
-
-/// Dialect creation, the instance will be owned by the context. This is the
-/// point of registration of custom types and operations for the dialect.
-void ONNXDialect::initialize() {
-  addOperations<
-#define GET_OP_LIST
-#include "src/Dialect/ONNX/ONNXOps.cpp.inc"
-      >();
-
-  addTypes<
-#define GET_TYPEDEF_LIST
-#include "src/Dialect/ONNX/ONNXOpsTypes.cpp.inc"
-      >();
-  // addInterfaces<TorchInlinerInterface>();
-}
-
-Type ONNXDialect::parseType(DialectAsmParser &parser) const {
-  StringRef keyword;
-  if (parser.parseKeyword(&keyword))
-    return Type();
-  Type type;
-  if (generatedTypeParser(parser, keyword, type).hasValue())
-    return type;
-  parser.emitError(parser.getNameLoc(), "invalid 'onnx' type:`")
-      << keyword << "'";
-  return Type();
-}
-
-void ONNXDialect::printType(Type type, DialectAsmPrinter &printer) const {
-  if (failed(generatedTypePrinter(type, printer)))
-    llvm_unreachable("unknown 'onnx' type");
 }
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
