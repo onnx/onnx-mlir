@@ -84,3 +84,4 @@ LABEL onnx_mlir_pr_number2=${ONNX_MLIR_PR_NUMBER2}
 COPY --from=onnx-mlir-test / /
 ENTRYPOINT [ "onnx-mlir" ]
 CMD [ "--help" ]
+LABEL onnx_mlir_successfully_built=yes
