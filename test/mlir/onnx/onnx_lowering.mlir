@@ -1694,6 +1694,24 @@ func private @cast_lowering_int_to_bool(%arg0: tensor<i64>) -> tensor<i1> {
 
 // -----
 
+func private @cast_lowering_uint_to_bool(%arg0 : tensor<ui8>) -> tensor<i1> {
+  %0 = "onnx.Cast"(%arg0) {to = i1} : (tensor<ui8>) -> tensor<i1>
+  "std.return"(%0): (tensor<i1>) -> ()
+
+// CHECK-LABEL:  func private @cast_lowering_uint_to_bool
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<ui8>) -> memref<i1> {  
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<i1>
+// CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][] : memref<ui8>  
+// CHECK-DAG:       [[LOAD_PARAM_UCC:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_0_MEM_:%.+]] : ui8 to i8
+// CHECK-DAG:       [[VAR_c0_i8_:%.+]] = arith.constant 0 : i8
+// CHECK:           [[VAR_2_:%.+]] = arith.cmpi ne, [[LOAD_PARAM_UCC]], [[VAR_c0_i8_]] : i8
+// CHECK:           krnl.store [[VAR_2_]], [[RES_]][] : memref<i1>
+// CHECK:           return [[RES_]] : memref<i1>
+// CHECK:         }
+}
+
+// -----
+
 func private @cast_lowering_float_to_bool(%arg0: tensor<f32>) -> tensor<i1> {
   %0 = "onnx.Cast"(%arg0) {to = i1 } : (tensor<f32>) -> tensor<i1>
   "std.return"(%0) : (tensor<i1>) -> ()
