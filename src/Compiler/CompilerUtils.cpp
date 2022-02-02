@@ -307,6 +307,7 @@ void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
 void setTargetArch(const std::string &arch) { march = arch; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }
 void setOptLevel(const OptLevel level) { OptimizationLevel = level; }
+OptLevel getOptLevel() { return OptimizationLevel; }
 
 static void setCompilerKeyValue(const OptionKind key, const string val) {
   switch (key) {
