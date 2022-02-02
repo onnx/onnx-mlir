@@ -47,7 +47,10 @@ int main(int argc, char *argv[]) {
           clEnumVal(EmitJNI, "Compile the input into a jar file.")),
       llvm::cl::init(EmitLib), llvm::cl::cat(OnnxMlirOptions));
 
+  // Register MLIR command line options.
   mlir::registerPassManagerCLOptions();
+  mlir::registerDefaultTimingManagerCLOptions();
+
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "ONNX-MLIR modular optimizer driver\n");
 
