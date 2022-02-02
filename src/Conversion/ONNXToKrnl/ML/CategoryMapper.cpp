@@ -175,8 +175,8 @@ private:
 
       MemRefType type = MemRefType::get(
           {static_cast<int64_t>(V.size())}, builder.getIntegerType(32));
-      res.G = create.krnl.constant(type, "G", builder.getI32VectorAttr(G));
-      res.V = create.krnl.constant(type, "V", builder.getI32VectorAttr(V));
+      res.G = create.krnl.constant(type, "G", builder.getI32TensorAttr(G));
+      res.V = create.krnl.constant(type, "V", builder.getI32TensorAttr(V));
       res.len = create.math.constant(builder.getIntegerType(32), G.size());
       return res;
     };
