@@ -20,7 +20,7 @@ parser.add_argument('--print_input',
 parser.add_argument('--print_output',
                     action='store_true',
                     help="Print out inference outputs produced by onnx-mlir")
-lib_group.add_argument('--save_onnx',
+parser.add_argument('--save_onnx',
                        metavar='PATH',
                        type=str,
                        help="File path to save the onnx model")
@@ -240,7 +240,7 @@ def main():
 
     # Save the generated .so file of the model if required.
     if (args.save_onnx):
-        print("Saving the onnx model to", args.save_onnx, "\n")
+        print("Saving the onnx model to ", args.save_onnx, "\n")
         onnx.save(model, args.save_onnx)
 
     # Compile, run, and verify.

@@ -32,13 +32,18 @@ reference inputs and outputs in protobuf.
 
 ```bash
 $ python ../utils/RunONNXModel.py  --help
-usage: RunONNXModel.py [-h] [--print_input] [--print_output]
-                       [--save_onnx PATH | --save_so PATH | --load_so PATH]
+usage: RunONNXModel.py [-h]
+                       [--print_input]
+                       [--print_output]
+                       [--save_onnx PATH]
+                       [--save_so PATH | --load_so PATH]
                        [--save_data PATH]
                        [--data_folder DATA_FOLDER | --shape_info SHAPE_INFO]
                        [--compile_args COMPILE_ARGS]
-                       [--verify {onnxruntime,ref}] [--verify_all_ops]
-                       [--compile_using_input_shape] [--rtol RTOL]
+                       [--verify {onnxruntime,ref}]
+                       [--verify_all_ops]
+                       [--compile_using_input_shape]
+                       [--rtol RTOL]
                        [--atol ATOL]
                        model_path
 
