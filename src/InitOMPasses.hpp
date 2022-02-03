@@ -8,10 +8,9 @@
 
 namespace onnx_mlir {
 
-void initOMPasses() {
+void initOMPasses(int optLevel) {
   // All passes implemented within onnx-mlir should register within this
   // function to make themselves available as a command-line option.
-
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createONNXOpTransformPass();
   });
@@ -22,10 +21,10 @@ void initOMPasses() {
     return mlir::createONNXSampleOpTransformPass();
   }); 
 
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createONNXLeakyReluOpTransformPass();
-  }); 
   */
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createONNXToAtenConstantOpTransformPass();
+  }); 
   
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createONNXToAtenLeakyReluOpTransformPass();
@@ -81,8 +80,8 @@ void initOMPasses() {
     return mlir::createConvertKrnlToAffinePass();
   });
 
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createLowerToKrnlPass();
+  mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createLowerToKrnlPass(optLevel);
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
