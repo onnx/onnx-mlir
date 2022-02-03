@@ -29,6 +29,7 @@
 #include "ExternalUtil.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Support/OMOptions.hpp"
+#include "src/Accelerators/OMAccelerator.hpp"
 
 using namespace std;
 using namespace mlir;
@@ -939,6 +940,10 @@ void emitOutput(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
 
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
+  // Initialize accelerator if required
+  for (auto accel : OMAcceleratorTargets) {
+    accel->prepareAccelerator();
+  }   
   setupModule(module, context, outputBaseName);
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   addPasses(module, pm, emissionTarget);

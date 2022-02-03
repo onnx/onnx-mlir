@@ -8,10 +8,36 @@
 //
 // =============================================================================
 //
-// Dummy file to add accelerator passes when there are no accelerators being targeted.
+// Add accelerator support for NNPA
 //
 //===----------------------------------------------------------------------===//
 
-void prepareNNPA() {
-    
+#include "src/Accelerators/OMAccelerator.hpp"
+#include "src/Support/OMOptions.hpp"
+#include <iostream>
+
+namespace mlir {
+    class OMnnpaAccelerator : public OMAccelerator {
+        private:
+            static bool initialized;
+        public:    
+            OMnnpaAccelerator() {
+                if (!initialized) {
+                    initialized = true;
+                    OMAcceleratorTargets.push_back(this);
+                }
+
+            };
+
+            void prepareAccelerator() {
+                if (acceleratorTarget=="NNPA") {
+                    std::cout << "Targeting NNPA accelerator";
+                }
+            };
+
+    };
+
+    bool OMnnpaAccelerator::initialized = false;
+    static OMAccelerator nnpaAccelerator;
+
 }

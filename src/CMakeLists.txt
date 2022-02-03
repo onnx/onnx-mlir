@@ -20,7 +20,7 @@ else( ACCELERATORS_TO_BUILD )
   message(STATUS "No Accelerators Targeted")
   add_subdirectory(Accelerators/None)
 endif( MSVC )
-
+  
 
 add_onnx_mlir_executable(onnx-mlir
   main.cpp
