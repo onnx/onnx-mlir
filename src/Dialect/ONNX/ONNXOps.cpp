@@ -69,7 +69,7 @@ Type ONNXDialect::parseType(DialectAsmParser &parser) const {
   Type type;
   if (generatedTypeParser(parser, keyword, type).hasValue())
     return type;
-  parser.emitError(parser.getNameLoc(), "invalid 'onnx' type:`")
+  parser.emitError(parser.getNameLoc(), "invalid 'onnx' type: '")
       << keyword << "'";
   return Type();
 }

@@ -52,7 +52,7 @@ add_onnx_mlir_library(OMONNXOps
 
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen
-  OMONNXOpsIncGen
+  OMONNXIncGen
   OMONNXRewriteIncGen
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
