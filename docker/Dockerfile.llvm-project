@@ -71,3 +71,5 @@ RUN cd llvm-project && mkdir build && cd build \
         cmake --build . --parallel ${NPROC} --target check-mlir) \
     && rm -rf /tmp/* \
     && echo "llvm-project commit $(git rev-parse HEAD) successfully built"
+
+LABEL llvm_project_successfully_built=yes
