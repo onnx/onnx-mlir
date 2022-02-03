@@ -59,6 +59,9 @@ parser.add_argument('--verify',
                     choices=['onnxruntime', 'ref'],
                     help="Verify the output by using onnxruntime or reference"
                     " inputs/outputs. By default, no verification")
+parser.add_argument('--verify_all_ops',
+                    action='store_true',
+                    help="Verify all operation outputs when using onnxruntime.")
 parser.add_argument(
     '--compile_using_input_shape',
     action='store_true',
@@ -228,14 +231,14 @@ def main():
     # If using onnxruntime for verification, we can verify every operation output.
     output_names = [o.name for o in model.graph.output]
     output_names = list(OrderedDict.fromkeys(output_names))
-    # if (args.verify and args.verify == "onnxruntime"):
-    #     print("Extending the onnx model to check every node output ...\n")
-    #     for node in model.graph.node:
-    #         print(node.output[0])
-    #     output_names = sum([[n for n in node.output if n != '']
-    #                         for node in model.graph.node], [])
-    #     output_names = list(OrderedDict.fromkeys(output_names))
-    #     model = extend_model_output(model, output_names)
+    if (args.verify and args.verify == "onnxruntime" and args.verify_all_ops):
+        print("Extending the onnx model to check every node output ...\n")
+        for node in model.graph.node:
+            print(node.output[0])
+        output_names = sum([[n for n in node.output if n != '']
+                            for node in model.graph.node], [])
+        output_names = list(OrderedDict.fromkeys(output_names))
+        model = extend_model_output(model, output_names)
 
     # Save the generated .so file of the model if required.
     if (args.save_onnx):
