@@ -6,6 +6,7 @@ cmake_minimum_required(VERSION 3.13.4)
 project(onnx-mlir)
 
 option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables. If OFF, just generate build targets." ON)
+option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 
 # On systems that still have legacy lib64 directories (e.g., rhel/fedora,
@@ -34,6 +35,10 @@ if (MSVC)
   # See: https://github.com/onnx/onnx/issues/3530
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -wd4125")
 endif()
+
+# Enable warnings as errors
+# Leverage the imported LLVM_ENABLE_WERROR for compiler logic
+set(LLVM_ENABLE_WERROR ${ONNX_MLIR_ENABLE_WERROR})
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
