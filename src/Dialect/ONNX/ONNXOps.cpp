@@ -44,7 +44,6 @@ using namespace mlir::OpTrait::util;
 #define GET_TYPEDEF_CLASSES
 #include "src/Dialect/ONNX/ONNXTypes.cpp.inc"
 
-
 //===----------------------------------------------------------------------===//
 // ONNXDialect initialization
 //===----------------------------------------------------------------------===//
