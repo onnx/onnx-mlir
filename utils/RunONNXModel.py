@@ -20,6 +20,10 @@ parser.add_argument('--print_input',
 parser.add_argument('--print_output',
                     action='store_true',
                     help="Print out inference outputs produced by onnx-mlir")
+lib_group.add_argument('--save_onnx',
+                       metavar='PATH',
+                       type=str,
+                       help="File path to save the onnx model")
 lib_group.add_argument('--save_so',
                        metavar='PATH',
                        type=str,
@@ -113,15 +117,11 @@ def execute_commands(cmds):
 
 
 def extend_model_output(model, intermediate_outputs):
-    # onnx-mlir doesn't care about manually specified output types & shapes.
-    DUMMY_TENSOR_TYPE = onnx.TensorProto.FLOAT
-
     while (len(model.graph.output)):
         model.graph.output.pop()
 
     for output_name in intermediate_outputs:
-        output_value_info = onnx.helper.make_tensor_value_info(
-            output_name, DUMMY_TENSOR_TYPE, None)
+        output_value_info = onnx.helper.make_empty_tensor_value_info(output_name)
         model.graph.output.extend([output_value_info])
     return model
 
@@ -228,11 +228,19 @@ def main():
     # If using onnxruntime for verification, we can verify every operation output.
     output_names = [o.name for o in model.graph.output]
     output_names = list(OrderedDict.fromkeys(output_names))
-    if (args.verify and args.verify == "onnxruntime"):
-        output_names = sum([[n for n in node.output if n != '']
-                            for node in model.graph.node], [])
-        output_names = list(OrderedDict.fromkeys(output_names))
-        model = extend_model_output(model, output_names)
+    # if (args.verify and args.verify == "onnxruntime"):
+    #     print("Extending the onnx model to check every node output ...\n")
+    #     for node in model.graph.node:
+    #         print(node.output[0])
+    #     output_names = sum([[n for n in node.output if n != '']
+    #                         for node in model.graph.node], [])
+    #     output_names = list(OrderedDict.fromkeys(output_names))
+    #     model = extend_model_output(model, output_names)
+
+    # Save the generated .so file of the model if required.
+    if (args.save_onnx):
+        print("Saving the onnx model to", args.save_onnx, "\n")
+        onnx.save(model, args.save_onnx)
 
     # Compile, run, and verify.
     with tempfile.TemporaryDirectory() as temp_dir:
