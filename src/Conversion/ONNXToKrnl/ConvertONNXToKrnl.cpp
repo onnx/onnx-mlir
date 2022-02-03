@@ -48,7 +48,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
-  populateFunctionLikeTypeConversionPattern<FuncOp>(patterns, typeConverter);
+  populateFunctionOpInterfaceTypeConversionPattern<FuncOp>(
+      patterns, typeConverter);
   populateCallOpTypeConversionPattern(patterns, typeConverter);
   populateReturnOpTypeConversionPattern(patterns, typeConverter);
 
