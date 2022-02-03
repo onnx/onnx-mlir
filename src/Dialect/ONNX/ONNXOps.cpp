@@ -1556,10 +1556,10 @@ LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
 
 static LogicalResult verify(ONNXReshapeOp op) {
   // Cannot infer shape if no shape tensor is specified.
-  if (!op.data().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(op.data()))
     return success();
 
-  if (!op.shape().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(op.shape()))
     return success();
 
   auto shapeTensorTy = op.shape().getType().cast<RankedTensorType>();
@@ -1582,6 +1582,9 @@ static LogicalResult verify(ONNXReshapeOp op) {
 
 LogicalResult ONNXReshapeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+
+  if (!shape().getType().isa<RankedTensorType>())
+    return success();
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
 
@@ -2847,6 +2850,9 @@ static LogicalResult verify(ONNXFlattenOp op) {
 LogicalResult ONNXFlattenOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   auto inTy = input().getType().dyn_cast<RankedTensorType>();
+  if (!inTy) {
+    return success();
+  }
 
   int64_t axisValue = axis();
   auto inputShape = inTy.getShape();
