@@ -45,4 +45,3 @@ llvm::cl::opt<std::string> acceleratorTarget("accel",
     llvm::cl::desc("Specify an accelerator to generate code for\n"
                    "\"NONE\" or \"\" for no accelerator\n"),
     llvm::cl::init(""), llvm::cl::cat(OMPassOptions));
-   

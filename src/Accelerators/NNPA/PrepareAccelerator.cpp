@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- PrepareAccelerator.cpp -------------------------===//
+//===-------------------------- PrepareAccelerator.cpp
+//-------------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -17,27 +18,26 @@
 #include <iostream>
 
 namespace mlir {
-    class OMnnpaAccelerator : public OMAccelerator {
-        private:
-            static bool initialized;
-        public:    
-            OMnnpaAccelerator() {
-                if (!initialized) {
-                    initialized = true;
-                    OMAcceleratorTargets.push_back(this);
-                }
+class OMnnpaAccelerator : public OMAccelerator {
+private:
+  static bool initialized;
 
-            };
+public:
+  OMnnpaAccelerator() {
+    if (!initialized) {
+      initialized = true;
+      OMAcceleratorTargets.push_back(this);
+    }
+  };
 
-            void prepareAccelerator() {
-                if (acceleratorTarget=="NNPA") {
-                    std::cout << "Targeting NNPA accelerator";
-                }
-            };
+  void prepareAccelerator() {
+    if (acceleratorTarget == "NNPA") {
+      std::cout << "Targeting NNPA accelerator";
+    }
+  };
+};
 
-    };
+bool OMnnpaAccelerator::initialized = false;
+static OMAccelerator nnpaAccelerator;
 
-    bool OMnnpaAccelerator::initialized = false;
-    static OMAccelerator nnpaAccelerator;
-
-}
+} // namespace mlir

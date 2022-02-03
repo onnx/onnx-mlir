@@ -14,10 +14,8 @@
 #include <vector>
 
 class OMAccelerator {
-    public:
-     virtual void prepareAccelerator();
-     
-    
+public:
+  virtual void prepareAccelerator();
 };
 
-std::vector<OMAccelerator*> OMAcceleratorTargets;
+std::vector<OMAccelerator *> OMAcceleratorTargets;
