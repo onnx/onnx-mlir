@@ -48,13 +48,11 @@ Periodically the maintainers need to move to a more recent LLVM level.
 Among other things, this requires to update the commit string in (utils/clone-mlir.sh). 
 When updating ONNX-MLIR, it is good practice to check that the commit string of the MLIR/LLVM is the same as the one listed in that file.
 
-### Build on Linux or OSX
+### Build
 
-Directions to install MLIR and ONNX-MLIR are provided [here](docs/BuildOnLinuxOSX.md).
-
-### Build on Windows
-
-Directions to install Protobuf, MLIR, and ONNX-MLIR are provided [here](docs/BuildOnWindows.md).
+Directions to install MLIR and ONNX-MLIR are dependent on your OS.
+* [Linux or OSX](docs/BuildOnLinuxOSX.md).
+* [Windows](docs/BuildOnWindows.md).
 
 ### Testing build and summary of custom environment variables
 
