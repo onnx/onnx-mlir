@@ -233,8 +233,6 @@ def main():
     output_names = list(OrderedDict.fromkeys(output_names))
     if (args.verify and args.verify == "onnxruntime" and args.verify_all_ops):
         print("Extending the onnx model to check every node output ...\n")
-        for node in model.graph.node:
-            print(node.output[0])
         output_names = sum([[n for n in node.output if n != '']
                             for node in model.graph.node], [])
         output_names = list(OrderedDict.fromkeys(output_names))
