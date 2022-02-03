@@ -940,9 +940,12 @@ void emitOutput(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
   setupModule(module, context, outputBaseName);
+
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   addPasses(module, pm, emissionTarget);
   mlir::applyPassManagerCLOptions(pm);
+  mlir::applyDefaultTimingPassManagerCLOptions(pm);
+
   if (mlir::failed(pm.run(*module)))
     return 4;
   emitOutput(module, context, outputBaseName, pm, emissionTarget);
