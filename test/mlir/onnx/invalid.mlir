@@ -44,8 +44,8 @@ func @test_concat_verifier_3(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x
 // -----
 
 func @test_flatten_verifier_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
-  // expected-error @+1 {{Flatten axis value out of range}}
-  %1 = "onnx.Flatten"(%arg0) { axis = 4 : si64} : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
+  // expected-error @+1 {{ONNXFlattenOP: axis() value is out of range}}
+  %1 = "onnx.Flatten"(%arg0) { axis = 5 : si64} : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 }
 
