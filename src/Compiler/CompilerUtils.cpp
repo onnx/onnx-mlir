@@ -396,7 +396,7 @@ static std::string getTargetTripleOption() {
 }
 
 static std::string getOptimizationLevelOption() {
-  switch (OptimizationLevel) {
+  switch (getOptLevel()) {
   case OptLevel::O0:
     return "-O0";
   case OptLevel::O1:
@@ -917,7 +917,7 @@ static void addPasses(mlir::OwningModuleRef &module, mlir::PassManager &pm,
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
-      addONNXToKrnlPasses(pm, OptimizationLevel);
+      addONNXToKrnlPasses(pm, getOptLevel());
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }
