@@ -13,7 +13,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Support/SuppressWarnings.h"
+
+SUPPRESS_WARNINGS_PUSH
 #include "onnx/onnx_pb.h"
+SUPPRESS_WARNINGS_POP
 
 #include "PyExecutionSession.hpp"
 
@@ -58,6 +62,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
       dtype = ONNX_TYPE_INT32;
     else if (py::isinstance<py::array_t<std::int64_t>>(inputPyArray))
       dtype = ONNX_TYPE_INT64;
+    // string type missing
     else if (py::isinstance<py::array_t<bool>>(inputPyArray))
       dtype = ONNX_TYPE_BOOL;
     // Missing fp16 support.
@@ -67,6 +72,11 @@ std::vector<py::array> PyExecutionSession::pyRun(
       dtype = ONNX_TYPE_UINT32;
     else if (py::isinstance<py::array_t<std::uint64_t>>(inputPyArray))
       dtype = ONNX_TYPE_UINT64;
+    else if (py::isinstance<py::array_t<std::complex<float>>>(inputPyArray))
+      dtype = ONNX_TYPE_COMPLEX64;
+    else if (py::isinstance<py::array_t<std::complex<double>>>(inputPyArray))
+      dtype = ONNX_TYPE_COMPLEX128;
+    // Missing bfloat16 support
     else {
       std::cerr << "Numpy type not supported: " << inputPyArray.dtype()
                 << ".\n";
@@ -93,38 +103,55 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
     // https://numpy.org/devdocs/user/basics.types.html
     py::dtype dtype;
-    if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::FLOAT)
+    switch (omTensorGetDataType(omt)) {
+    case (OM_DATA_TYPE)onnx::TensorProto::FLOAT:
       dtype = py::dtype("float32");
-    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::UINT8)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::UINT8:
       dtype = py::dtype("uint8");
-    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::INT8)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::INT8:
       dtype = py::dtype("int8");
-    else if (omTensorGetDataType(omt) ==
-             (OM_DATA_TYPE)onnx::TensorProto::UINT16)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::UINT16:
       dtype = py::dtype("uint16");
-    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::INT16)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::INT16:
       dtype = py::dtype("int16");
-    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::INT32)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::INT32:
       dtype = py::dtype("int32");
-    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::INT64)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::INT64:
       dtype = py::dtype("int64");
-    // TODO(tjingrant) wait for Tong's input for how to represent string.
-    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::BOOL)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::STRING:
+      dtype = py::dtype("str");
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::BOOL:
       dtype = py::dtype("bool_");
-    else if (omTensorGetDataType(omt) ==
-             (OM_DATA_TYPE)onnx::TensorProto::FLOAT16)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::FLOAT16:
       dtype = py::dtype("float32");
-    else if (omTensorGetDataType(omt) ==
-             (OM_DATA_TYPE)onnx::TensorProto::DOUBLE)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::DOUBLE:
       dtype = py::dtype("float64");
-    else if (omTensorGetDataType(omt) ==
-             (OM_DATA_TYPE)onnx::TensorProto::UINT32)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::UINT32:
       dtype = py::dtype("uint32");
-    else if (omTensorGetDataType(omt) ==
-             (OM_DATA_TYPE)onnx::TensorProto::UINT64)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::UINT64:
       dtype = py::dtype("uint64");
-    else {
-      fprintf(stderr, "Unsupported ONNX type in OMTensor.");
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::COMPLEX64:
+      dtype = py::dtype("csingle");
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::COMPLEX128:
+      dtype = py::dtype("cdouble");
+      break;
+    default:
+      std::cerr << "Unsupported ONNX type in OMTensor: "
+                << omTensorGetDataType(omt) << ".\n";
       exit(1);
     }
 

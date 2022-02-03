@@ -129,7 +129,8 @@ public:
  *  Function pass that disconnects krnl.dim emission from its MemRef alloc.
  */
 class DisconnectKrnlDimFromAllocPass
-    : public PassWrapper<DisconnectKrnlDimFromAllocPass, FunctionPass> {
+    : public PassWrapper<DisconnectKrnlDimFromAllocPass,
+          OperationPass<FuncOp>> {
 public:
   StringRef getArgument() const override { return "lower-krnl-shape-to-std"; }
 
@@ -137,8 +138,8 @@ public:
     return "Lowers krnl shape-related operations.";
   }
 
-  void runOnFunction() override {
-    auto function = getFunction();
+  void runOnOperation() override {
+    auto function = getOperation();
 
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
