@@ -1567,16 +1567,16 @@ static LogicalResult verify(ONNXReshapeOp op) {
   // Only rank 1 shape tensors are supported.
   if (shapeTensorTy.getShape().size() != 1)
     return op.emitError("Shape tensor must have rank one");
-  
+
   int64_t outputRank = shapeTensorTy.getShape()[0];
   if (outputRank < 0)
     return op.emitError("Shape tensor must have constant shape");
-  
+
   ONNXReshapeOpAdaptor operandAdaptor(*&op);
   ONNXReshapeOpShapeHelper shapeHelper(&op);
   if (failed(shapeHelper.computeShape(operandAdaptor)))
     return op.emitError("Failed to scan Reshape parameters successfully");
-  
+
   return success();
 }
 
