@@ -29,6 +29,7 @@ std::unique_ptr<Pass> createDecomposeONNXToONNXPass();
 /// pass for ONNX to Leaky relu
 std::unique_ptr<Pass> createONNXToAtenLeakyReluOpTransformPass();
 std::unique_ptr<Pass> createONNXToAtenMaxPool2dOpTransformPass();
+std::unique_ptr<Pass> createONNXToAtenConstantOpTransformPass();
 
 /// Pass for ONNX to Aten conv2d operation
 std::unique_ptr<Pass> createONNXToAtenConv2DOpTransformPass();
@@ -58,9 +59,9 @@ std::unique_ptr<Pass> createONNXPreKrnlVerifyPass();
 
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<Pass> createLowerToKrnlPass();
-
-/// Add pass for lowering to Krnl IR.
-std::unique_ptr<Pass> createLowerToKrnlPass(bool emitDealloc);
+std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel);
+std::unique_ptr<Pass> createLowerToKrnlPass(
+    bool emitDealloc, bool enableTiling);
 
 /// Pass for lowering frontend dialects to Krnl IR dialect.
 std::unique_ptr<Pass> createConvertKrnlToAffinePass();

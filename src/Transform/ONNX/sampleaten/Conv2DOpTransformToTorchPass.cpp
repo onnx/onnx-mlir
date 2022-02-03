@@ -29,7 +29,6 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
-#include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
 
@@ -189,6 +188,8 @@ public:
     llvm::outs() << "xtt torch tensor from MLIR tensor " << "\n" << xtt << "\n" << "\n";
     llvm::outs() << "wtt torch tensor from MLIR tensor " << "\n" << wtt << "\n" << "\n";
 
+    //auto t = Torch::ValueTensorType::get(context, optionalSizesArrayRef, x1.getType());
+
     Value atenconv2d = rewriter.create<AtenConv2dOp>(loc, resultTy, xtt, wtt, btt, stridesList, padsList, dilationList, f1v);
 
     llvm::outs() << "AtenConv2d operation creation" << "\n" << atenconv2d << "\n" << "\n";
@@ -197,6 +198,7 @@ public:
 
     llvm::outs() << "Before Writer replace Op " << "\n"; 
 
+    //rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, op.getType(), result);
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(op, op->getResult(0).getType(), result);
  
     llvm::outs() << "After Writer replace Op " << "\n"; 
