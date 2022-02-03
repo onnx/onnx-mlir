@@ -118,10 +118,11 @@ int main(int argc, char **argv) {
   initOMPasses(OptimizationLevel);
   initMLIRPasses();
 
+  // Register any command line options.
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
-  // Register any pass manager command line options.
   mlir::registerPassManagerCLOptions();
+  mlir::registerDefaultTimingManagerCLOptions();
 
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
   llvm::cl::ParseCommandLineOptions(

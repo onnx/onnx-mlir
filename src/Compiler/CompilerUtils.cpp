@@ -308,6 +308,7 @@ void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
 void setTargetArch(const std::string &arch) { march = arch; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }
 void setOptLevel(const OptLevel level) { OptimizationLevel = level; }
+OptLevel getOptLevel() { return OptimizationLevel; }
 
 static void setCompilerKeyValue(const OptionKind key, const string val) {
   switch (key) {
@@ -396,7 +397,7 @@ static std::string getTargetTripleOption() {
 }
 
 static std::string getOptimizationLevelOption() {
-  switch (OptimizationLevel) {
+  switch (getOptLevel()) {
   case OptLevel::O0:
     return "-O0";
   case OptLevel::O1:
@@ -917,7 +918,7 @@ static void addPasses(mlir::OwningModuleRef &module, mlir::PassManager &pm,
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
-      addONNXToKrnlPasses(pm, OptimizationLevel);
+      addONNXToKrnlPasses(pm, getOptLevel());
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }
@@ -941,9 +942,12 @@ void emitOutput(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
   setupModule(module, context, outputBaseName);
+
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   addPasses(module, pm, emissionTarget);
   mlir::applyPassManagerCLOptions(pm);
+  mlir::applyDefaultTimingPassManagerCLOptions(pm);
+
   if (mlir::failed(pm.run(*module)))
     return 4;
   emitOutput(module, context, outputBaseName, pm, emissionTarget);

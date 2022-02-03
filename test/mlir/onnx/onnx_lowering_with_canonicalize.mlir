@@ -3365,3 +3365,58 @@ func @top_k_unknown_dims(%arg0: tensor<?x?xf32>, %arg1: tensor<1xi64>) -> (tenso
 // CHECK:           return [[RES_]], [[RES_1_]] : memref<?x?xf32>, memref<?x?xi64>
 // CHECK:         }
 }
+
+// -----
+
+func @test_loop_tiny_yolo() -> tensor<?xi32> {
+    %0 = "onnx.Constant"() {value = dense<7> : tensor<i64>} : () -> tensor<i64>
+    %1 = "onnx.Constant"() {value = dense<true> : tensor<i1>} : () -> tensor<i1>
+    %2 = "onnx.Constant"() {value = dense<0> : tensor<i32>} : () -> tensor<i32>
+    %3:2 = "onnx.Loop"(%0, %1, %2) ( {
+    ^bb0(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<i32>):  // no predecessors
+      %4 = "onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+      %5 = "onnx.Add"(%arg2, %4) : (tensor<i32>, tensor<i32>) -> tensor<i32>
+      onnx.Return %arg1, %5, %arg2 : tensor<i1>, tensor<i32>, tensor<i32>
+    }) {input_names = ["i", "cond", "prev"], output_names = ["cond_out", "current", "range"]} : (tensor<i64>, tensor<i1>, tensor<i32>) -> (tensor<i32>, tensor<?xi32>)
+    return %3#1 : tensor<?xi32>
+
+// CHECK-LABEL:  func @test_loop_tiny_yolo
+// CHECK-SAME:   () -> memref<?xi32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [], value = dense<7> : tensor<i64>} : () -> memref<i64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [], value = dense<true> : tensor<i1>} : () -> memref<i1>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [], value = dense<0> : tensor<i32>} : () -> memref<i32>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<i32>
+// CHECK:           [[LOAD_VAR_0_MEM_:%.+]] = krnl.load [[VAR_0_]][] : memref<i64>
+// CHECK:           [[VAR_5_:%.+]] = arith.index_cast [[LOAD_VAR_0_MEM_]] : i64 to index
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[VAR_5_]]) {{.*}}: memref<?xi32>
+// CHECK-DAG:       [[LOAD_VAR_2_MEM_:%.+]] = krnl.load [[VAR_2_]][] : memref<i32>
+// CHECK:           krnl.store [[LOAD_VAR_2_MEM_]], [[RES_]][] : memref<i32>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() : memref<i1>
+// CHECK-DAG:       [[LOAD_VAR_1_MEM_:%.+]] = krnl.load [[VAR_1_]][] : memref<i1>
+// CHECK:           krnl.store [[LOAD_VAR_1_MEM_]], [[RES_2_]][] : memref<i1>
+// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK-DAG:       [[LOAD_VAR_0_MEM_1_:%.+]] = krnl.load [[VAR_0_]][] : memref<i64>
+// CHECK:           [[VAR_12_:%.+]] = arith.index_cast [[LOAD_VAR_0_MEM_1_]] : i64 to index
+// CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[VAR_12_]]) {
+// CHECK:             [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<i1>
+// CHECK:             scf.if [[LOAD_RES_2_MEM_]] {
+// CHECK-DAG:           [[VAR_14_:%.+]] = arith.index_cast [[I_0_]] : index to i64
+// CHECK-DAG:           [[RES_3_:%.+]] = memref.alloc() : memref<i64>
+// CHECK:               krnl.store [[VAR_14_]], [[RES_3_]][] : memref<i64>
+// CHECK-DAG:           [[VAR_16_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [], value = dense<1> : tensor<i32>} : () -> memref<i32>
+// CHECK-DAG:           [[RES_4_:%.+]] = memref.alloc() : memref<i32>
+// CHECK-DAG:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<i32>
+// CHECK:               [[LOAD_VAR_16_MEM_:%.+]] = krnl.load [[VAR_16_]][] : memref<i32>
+// CHECK:               [[VAR_20_:%.+]] = arith.addi [[LOAD_RES_MEM_]], [[LOAD_VAR_16_MEM_]] : i32
+// CHECK:               krnl.store [[VAR_20_]], [[RES_4_]][] : memref<i32>
+// CHECK:               [[LOAD_VAR_1_MEM_1_:%.+]] = krnl.load [[VAR_1_]][] : memref<i1>
+// CHECK:               krnl.store [[LOAD_VAR_1_MEM_1_]], [[RES_2_]][] : memref<i1>
+// CHECK:               [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<i32>
+// CHECK:               krnl.store [[LOAD_RES_MEM_1_]], [[RES_1_]]{{.}}[[I_0_]]{{.}} : memref<?xi32>
+// CHECK:               [[LOAD_RES_4_MEM_:%.+]] = krnl.load [[RES_4_]][] : memref<i32>
+// CHECK:               krnl.store [[LOAD_RES_4_MEM_]], [[RES_]][] : memref<i32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return [[RES_1_]] : memref<?xi32>
+// CHECK:         }
+}
