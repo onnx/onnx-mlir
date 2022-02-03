@@ -53,47 +53,60 @@
 using namespace mlir;
 namespace {
 
-static onnx::TensorProto::DataType llvmTypeToOnnxType(mlir::Type elemType) {
-  if (elemType.isa<Float32Type>())
-    return onnx::TensorProto::FLOAT;
-  if (elemType.isUnsignedInteger(8))
-    return onnx::TensorProto::UINT8;
-  if (elemType.isSignedInteger(8))
-    return onnx::TensorProto::INT8;
-  if (elemType.isUnsignedInteger(16))
-    return onnx::TensorProto::UINT16;
-  if (elemType.isSignedInteger(16))
-    return onnx::TensorProto::INT16;
-  if (elemType.isSignedInteger(32))
-    return onnx::TensorProto::INT32;
-  if (elemType.isSignedInteger(64))
-    return onnx::TensorProto::INT64;
-  if (elemType.isa<StringType>())
-    return onnx::TensorProto::STRING;
-  if (elemType.isa<Float16Type>())
-    return onnx::TensorProto::FLOAT16;
-  if (elemType.isa<Float64Type>())
-    return onnx::TensorProto::DOUBLE;
-  if (elemType.isUnsignedInteger(32))
-    return onnx::TensorProto::UINT32;
-  if (elemType.isUnsignedInteger(64))
-    return onnx::TensorProto::INT64;
-  // LLVM Dialect does not have signed/unsigned int, only signless int
-  if (auto llvmIntType = elemType.dyn_cast<IntegerType>()) {
-    if (llvmIntType.getWidth() == 1)
-      return onnx::TensorProto::BOOL;
-    if (llvmIntType.getWidth() == 8)
-      return onnx::TensorProto::INT8;
-    if (llvmIntType.getWidth() == 16)
-      return onnx::TensorProto::INT16;
-    if (llvmIntType.getWidth() == 32)
-      return onnx::TensorProto::INT32;
-    if (llvmIntType.getWidth() == 64)
-      return onnx::TensorProto::INT64;
+// Convert an MLIR  type to the correspoding ONNX type.
+static onnx::TensorProto::DataType mlirTypeToOnnxType(mlir::Type elemType) {
+  onnx::TensorProto::DataType onnxType = onnx::TensorProto::UNDEFINED;
+
+  TypeSwitch<mlir::Type>(elemType)
+      .Case<mlir::BFloat16Type>(
+          [&](mlir::BFloat16Type) { onnxType = onnx::TensorProto::BFLOAT16; })
+      .Case<mlir::ComplexType>([&](mlir::ComplexType type) {
+        if (type.getElementType().isa<mlir::Float32Type>())
+          onnxType = onnx::TensorProto::COMPLEX64;
+        else if (type.getElementType().isa<mlir::Float64Type>())
+          onnxType = onnx::TensorProto::COMPLEX128;
+      })
+      .Case<mlir::Float16Type>(
+          [&](mlir::Float16Type) { onnxType = onnx::TensorProto::FLOAT16; })
+      .Case<mlir::Float32Type>(
+          [&](mlir::Float32Type) { onnxType = onnx::TensorProto::FLOAT; })
+      .Case<mlir::Float64Type>(
+          [&](mlir::Float64Type) { onnxType = onnx::TensorProto::DOUBLE; })
+      .Case<mlir::IntegerType>([&](mlir::IntegerType type) {
+        switch (type.getWidth()) {
+        case 1:
+          // only a signless type can be a bool.
+          onnxType = (type.isSigned() || type.isUnsigned())
+                         ? onnx::TensorProto::UNDEFINED
+                         : onnx::TensorProto::BOOL;
+          break;
+        case 8:
+          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT8
+                                       : onnx::TensorProto::INT8;
+          break;
+        case 16:
+          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT16
+                                       : onnx::TensorProto::INT16;
+          break;
+        case 32:
+          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT32
+                                       : onnx::TensorProto::INT32;
+          break;
+        case 64:
+          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT64
+                                       : onnx::TensorProto::INT64;
+          break;
+        }
+      })
+      .Case<mlir::StringType>(
+          [&](mlir::StringType) { onnxType = onnx::TensorProto::STRING; });
+
+  if (onnxType == onnx::TensorProto::UNDEFINED) {
+    elemType.dump();
+    llvm_unreachable("MLIR type cannot be converted to ONNX type");
   }
-  // Complex types don't seem to exist in LLVM Dialect.
-  elemType.dump();
-  llvm_unreachable("Unexpected LLVM type, cannot be converted to ONNX type.");
+
+  return onnxType;
 }
 
 static FlatSymbolRefAttr getOrInsertExternFunc(StringRef funcName,
@@ -418,109 +431,51 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    MLIRContext *context = op->getContext();
-    Location loc = op->getLoc();
-
     auto krnlGlobalOp = llvm::dyn_cast<KrnlGlobalOp>(op);
-    IntegerAttr alignmentAttr = krnlGlobalOp.alignmentAttr();
-
-    ModuleOp module = op->getParentOfType<ModuleOp>();
-    StringRef name = krnlGlobalOp.name();
-
-    // Compute total number of elements.
-    auto shape = (krnlGlobalOp.shape()).dyn_cast<ArrayAttr>();
-    int64_t numElements = 1;
-    for (unsigned int i = 0; i < shape.size(); ++i)
-      numElements *= ArrayAttrIntVal(shape, i);
-
-    // Create the global at the entry of the module.
-    LLVM::GlobalOp global;
-    auto type = op->getResult(0).getType();
-    auto memRefTy = type.cast<mlir::MemRefType>();
 
     // The element type of the array.
-    auto constantElementType =
+    const auto type = op->getResult(0).getType();
+    const auto memRefTy = type.cast<mlir::MemRefType>();
+    const auto constantElementType =
         typeConverter->convertType(memRefTy.getElementType());
     auto globalType = constantElementType;
 
-    // The llvm type of the global (example: [2 x [8 x float]])
-    if (shape.empty()) {
+    // The llvm type of the global (example: [2 x [8 x float]]).
+    const auto shape = (krnlGlobalOp.shape()).dyn_cast<ArrayAttr>();
+    if (shape.empty())
       globalType = LLVM::LLVMArrayType::get(globalType.cast<Type>(), 1);
-    } else {
+    else {
       for (int i = shape.size() - 1; i >= 0; i--)
         globalType = LLVM::LLVMArrayType::get(
             globalType.cast<Type>(), ArrayAttrIntVal(shape, i));
     }
-    auto llvmGlobalType = globalType.cast<Type>();
 
-    if (!krnlGlobalOp.value().hasValue())
-      llvm_unreachable("Krnl Global must always have a value");
+    // Create the global at the entry of the module.
+    assert(krnlGlobalOp.value().hasValue() &&
+           "Krnl Global must always have a value");
+    auto value = krnlGlobalOp.value().getValue();
+    LLVM::GlobalOp global;
+    TypeSwitch<Attribute>(value)
+        .Case<OpaqueElementsAttr>([&](OpaqueElementsAttr attr) {
+          global = lowerOpaqueConstant(krnlGlobalOp, globalType, rewriter);
+        })
+        .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
+          global = lowerDenseConstant(krnlGlobalOp, globalType, rewriter);
+        })
+        .Default([&](Attribute attr) {
+          llvm_unreachable("Unsupported attribute type");
+        });
 
-    int64_t sizeInBytes = numElements * getMemRefEltSizeInBytes(memRefTy);
-    {
-      OpBuilder::InsertionGuard insertGuard(rewriter);
-      rewriter.setInsertionPointToStart(module.getBody());
-
-      auto llvmArrayI8Ty =
-          LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
-      if (krnlGlobalOp.value().getValue().isa<OpaqueElementsAttr>()) {
-        // LLVM::GlobalOp does not support OpaqueElementsAttr.
-        // Both StringAttr and OpaqueElementsAttr use StringRef for internal
-        // data array. Thus, it looks safe to use StringAtrr instead of
-        // OpaqueElementsAttr.
-        StringRef data = krnlGlobalOp.value()
-                             .getValue()
-                             .cast<OpaqueElementsAttr>()
-                             .getValue();
-        // Check data size.
-        assert(((int64_t)data.size() == sizeInBytes) && "Data size mismatch.");
-
-        StringAttr llvmStringAttr = StringAttr::get(context, data);
-        global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
-            /*isConstant=*/true, LLVM::Linkage::Internal, name, llvmStringAttr);
-      } else if (krnlGlobalOp.value().getValue().isa<DenseElementsAttr>()) {
-        DenseElementsAttr denseAttr =
-            krnlGlobalOp.value().getValue().cast<DenseElementsAttr>();
-        if ((!denseAttr.isSplat()) && (sizeInBytes > 1024)) {
-          std::vector<char> rawData = denseAttr.getRawData();
-          // Check data size.
-          assert(((int64_t)rawData.size() == sizeInBytes) &&
-                 "Data size mismatch.");
-
-          StringRef data = StringRef((char *)rawData.data(), rawData.size());
-          StringAttr llvmStringAttr = StringAttr::get(context, data);
-          global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
-              /*isConstant=*/true, LLVM::Linkage::Internal, name,
-              llvmStringAttr);
-        } else {
-          global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
-              /*isConstant=*/true, LLVM::Linkage::Internal, name,
-              krnlGlobalOp.value().getValue());
-        }
-      } else
-        llvm_unreachable("Unsupported attribute type");
-    }
-
-    // If the operation has a valid alignment attribute use it, otherwise
-    // attempt to set the alignment based on the module datalayout (if it
-    // exists).
-    if (alignmentAttr && alignmentAttr.getValue().getSExtValue() != 0)
-      global.setAlignmentAttr(alignmentAttr);
-    else if (module->getAttr(LLVM::LLVMDialect::getDataLayoutAttrName())) {
-      // TODO: use MLIR data layout when it becomes available.
-      llvm::LLVMContext llvmContext;
-      int32_t align = LLVM::TypeToLLVMIRTranslator(llvmContext)
-                          .getPreferredAlignment(global.getType(),
-                              getTypeConverter()->getDataLayout());
-      align = std::max(align, MinGlobalAlign);
-      global.setAlignmentAttr(rewriter.getI64IntegerAttr(align));
-    } else
-      global.setAlignmentAttr(rewriter.getI64IntegerAttr(MinGlobalAlign));
+    // Set the global alignment based on the alignment attribute if it exists,
+    // otherwise use the module datalayout info.
+    setAlignment(global, krnlGlobalOp.alignmentAttr(),
+        krnlGlobalOp->getParentOfType<ModuleOp>(), rewriter);
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
-    Value globalOpAddr = rewriter.create<LLVM::AddressOfOp>(loc, global);
-    MemRefDescriptor memRefDescr =
-        createMemRefDescriptor(globalOpAddr, memRefTy, loc, rewriter);
+    Value globalOpAddr =
+        rewriter.create<LLVM::AddressOfOp>(krnlGlobalOp.getLoc(), global);
+    MemRefDescriptor memRefDescr = createMemRefDescriptor(
+        globalOpAddr, memRefTy, krnlGlobalOp.getLoc(), rewriter);
 
     rewriter.replaceOp(op, {memRefDescr});
 
@@ -530,6 +485,116 @@ public:
 private:
   static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
     return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+  }
+
+  // LLVM::GlobalOp does not support OpaqueElementsAttr.
+  // Both StringAttr and OpaqueElementsAttr use StringRef for internal data
+  // array. Thus, it looks safe to use StringAtrr instead of
+  // OpaqueElementsAttr.
+  LLVM::GlobalOp lowerOpaqueConstant(KrnlGlobalOp &krnlGlobalOp,
+      Type globalType, ConversionPatternRewriter &rewriter) const {
+    assert(krnlGlobalOp.value().hasValue() &&
+           "Expecting KrnlGlobalOp with a valid value");
+    assert(krnlGlobalOp.value().getValue().isa<OpaqueElementsAttr>() &&
+           "Expecting a global with an opaque elements attribute");
+
+    MLIRContext *context = krnlGlobalOp.getContext();
+    Location loc = krnlGlobalOp.getLoc();
+    ModuleOp module = krnlGlobalOp->getParentOfType<ModuleOp>();
+
+    OpBuilder::InsertionGuard insertGuard(rewriter);
+    rewriter.setInsertionPointToStart(module.getBody());
+
+    StringRef data =
+        krnlGlobalOp.value().getValue().cast<OpaqueElementsAttr>().getValue();
+    // Check data size.
+    int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
+    assert(((int64_t)data.size() == sizeInBytes) && "Data size mismatch.");
+
+    StringAttr llvmStringAttr = StringAttr::get(context, data);
+    auto llvmArrayI8Ty =
+        LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
+    LLVM::GlobalOp global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
+        /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
+        llvmStringAttr);
+
+    LLVM_DEBUG(llvm::dbgs() << "global: " << global << "\n";);
+    return global;
+  }
+
+  LLVM::GlobalOp lowerDenseConstant(KrnlGlobalOp &krnlGlobalOp, Type globalType,
+      ConversionPatternRewriter &rewriter) const {
+    assert(krnlGlobalOp.value().hasValue() &&
+           "Expecting KrnlGlobalOp with a valid value");
+    assert(krnlGlobalOp.value().getValue().isa<DenseElementsAttr>() &&
+           "Expecting a global with an dense elements attribute");
+
+    MLIRContext *context = krnlGlobalOp.getContext();
+    Location loc = krnlGlobalOp.getLoc();
+    ModuleOp module = krnlGlobalOp->getParentOfType<ModuleOp>();
+
+    OpBuilder::InsertionGuard insertGuard(rewriter);
+    rewriter.setInsertionPointToStart(module.getBody());
+
+    DenseElementsAttr denseAttr =
+        krnlGlobalOp.value().getValue().cast<DenseElementsAttr>();
+
+    int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
+    LLVM::GlobalOp global;
+    if ((!denseAttr.isSplat()) && (sizeInBytes > 1024)) {
+      ArrayRef<char> rawData = denseAttr.getRawData();
+      assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
+
+      StringRef data(rawData.data(), rawData.size());
+      StringAttr llvmStringAttr = StringAttr::get(context, data);
+      auto llvmArrayI8Ty =
+          LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
+      global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
+          /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
+          llvmStringAttr);
+    } else {
+      if (denseAttr.getElementType().isa<StringType>())
+        global = lowerStringLiteral(krnlGlobalOp, globalType, rewriter);
+      else
+        global = rewriter.create<LLVM::GlobalOp>(loc, globalType,
+            /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
+            krnlGlobalOp.value().getValue());
+    }
+
+    //  LLVM_DEBUG(llvm::dbgs() << "global: " << global << "\n";);
+    return global;
+  }
+
+  // If the operation has a valid alignment attribute use it, otherwise
+  // attempt to set the alignment based on the module datalayout (if it
+  // exists).
+  void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,
+      ModuleOp module, OpBuilder &builder) const {
+    if (alignmentAttr && alignmentAttr.getValue().getSExtValue() != 0)
+      global.setAlignmentAttr(alignmentAttr);
+    else if (module->getAttr(LLVM::LLVMDialect::getDataLayoutAttrName())) {
+      // TODO: use MLIR data layout when it becomes available.
+      llvm::LLVMContext llvmContext;
+      int32_t align = LLVM::TypeToLLVMIRTranslator(llvmContext)
+                          .getPreferredAlignment(global.getType(),
+                              getTypeConverter()->getDataLayout());
+      align = std::max(align, MinGlobalAlign);
+      global.setAlignmentAttr(builder.getI64IntegerAttr(align));
+    } else
+      global.setAlignmentAttr(builder.getI64IntegerAttr(MinGlobalAlign));
+  }
+
+  int64_t computeSizeInBytes(KrnlGlobalOp &krnlGlobalOp) const {
+    // Compute total number of elements.
+    const auto shape = (krnlGlobalOp.shape()).dyn_cast<ArrayAttr>();
+    int64_t numElements = 1;
+    for (unsigned int i = 0; i < shape.size(); ++i)
+      numElements *= ArrayAttrIntVal(shape, i);
+
+    const auto type = krnlGlobalOp.getResult().getType();
+    const auto memRefTy = type.cast<mlir::MemRefType>();
+
+    return numElements * getMemRefEltSizeInBytes(memRefTy);
   }
 
   // Store the given address into a MemRefDescriptor (a struct).
@@ -550,48 +615,64 @@ private:
 
   // Generate a global string for each krnlGlobalOp string value, and store
   // the address of the global strings into an array. Return the array address.
-  Value lowerStringLiteral(
-      KrnlGlobalOp &krnlGlobalOp, OpBuilder &builder) const {
+  LLVM::GlobalOp lowerStringLiteral(
+      KrnlGlobalOp &krnlGlobalOp, Type globalType, OpBuilder &builder) const {
     assert(krnlGlobalOp.value().getValue().isa<DenseElementsAttr>() &&
            "Expecting a dense value");
 
     Location loc = krnlGlobalOp.getLoc();
     ModuleOp module = krnlGlobalOp->getParentOfType<ModuleOp>();
-    DenseElementsAttr value =
+    DenseElementsAttr denseAttr =
         krnlGlobalOp.value().getValue().cast<DenseElementsAttr>();
 
     Type i8Type = IntegerType::get(builder.getContext(), 8);
-    Type i32Type = IntegerType::get(builder.getContext(), 32);
     Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
 
-    // Generate LLVM GlobalOps for each string in the KrnlGlobalOp dense value.
+    int64_t numStrings = denseAttr.getValues<StringRef>().size();
+    if (numStrings == 1) {
+      StringRef str = *denseAttr.getValues<StringRef>().begin();
+      LLVM::GlobalOp global =
+          getOrCreateGlobalString(str, loc, builder, module);
+
+      //      return builder.create<LLVM::GlobalOp>(loc, globalType,
+      //        /*isConstant=*/true, LLVM::Linkage::Internal,
+      //        krnlGlobalOp.name(),
+      //      StringAttr::get(builder.getContext(), str));
+      return global;
+    }
+
+    // Generate LLVM GlobalOps for each string in the KrnlGlobalOp dense
+    // attribute.
     SmallVector<LLVM::GlobalOp> globalOps;
-    for (StringRef str : value.getValues<StringRef>()) {
+    for (StringRef str : denseAttr.getValues<StringRef>()) {
       LLVM::GlobalOp globalOp =
           getOrCreateGlobalString(str, loc, builder, module);
       globalOps.push_back(globalOp);
     }
 
-    // Allocate memory for an array (to hold the address of the global strings).
-    auto cstNumElems = builder.create<LLVM::ConstantOp>(
-        loc, i32Type, builder.getI32IntegerAttr(globalOps.size()));
-    Value alloca = builder.create<LLVM::AllocaOp>(loc,
-        LLVM::LLVMPointerType::get(i8PtrType), cstNumElems, /*alignment=*/16);
+    // Generate an LLVM GlobalOps with an initializer region containing one
+    // block.
+    auto arrayType = LLVM::LLVMArrayType::get(i8PtrType, globalOps.size());
+    auto global = builder.create<LLVM::GlobalOp>(loc, arrayType,
+        /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
+        Attribute());
+    Region &region = global.getInitializerRegion();
+    Block *block = builder.createBlock(&region);
 
-    // Store the address of the global strings into the array.
+    // Initialize an array with the addresses of the global strings.
+    builder.setInsertionPoint(block, block->begin());
+    Value array = builder.create<LLVM::UndefOp>(loc, arrayType);
+
     int32_t index = 0;
+    Value lastValue = array;
     for (const LLVM::GlobalOp &globalOp : globalOps) {
       LLVM::GEPOp strAddr = getPtrToGlobalString(globalOp, loc, builder);
-      Type llvmIndexType = typeConverter->convertType(builder.getIndexType());
-      Value cstIndex = builder.create<LLVM::ConstantOp>(
-          loc, llvmIndexType, builder.getIndexAttr(index++));
-      LLVM::GEPOp arrayElemAddr = builder.create<LLVM::GEPOp>(loc,
-          LLVM::LLVMPointerType::get(i8PtrType), alloca,
-          ArrayRef<Value>{cstIndex});
-      builder.create<LLVM::StoreOp>(loc, strAddr, arrayElemAddr);
+      lastValue = builder.create<LLVM::InsertValueOp>(loc, arrayType, lastValue,
+          strAddr, builder.getArrayAttr({builder.getIndexAttr(index++)}));
     }
 
-    return alloca;
+    builder.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({lastValue}));
+    return global;
   }
 
   // Return the GlobalOp for the given string, creating one if not found.
@@ -606,8 +687,9 @@ private:
       Type i8Type = IntegerType::get(builder.getContext(), 8);
       Type type = LLVM::LLVMArrayType::get(i8Type, str.size());
       global = builder.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
-          LLVM::Linkage::Internal, str, builder.getStringAttr(str),
-          /*alignment=*/0);
+          LLVM::Linkage::Internal, str, builder.getStringAttr(str));
+
+      setAlignment(global, nullptr, module, builder);
     }
     return global;
   }
@@ -970,8 +1052,8 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto *context = op->getContext();
-    auto loc = op->getLoc();
+    MLIRContext *context = op->getContext();
+    Location loc = op->getLoc();
 
     // get the LLVM type for the function args and result
     mlir::Type inType = op->getOperand(0).getType();
@@ -1142,13 +1224,13 @@ public:
     SmallVector<Value, 4> staticInputs;
     auto wrappedInput = entryPointEntryBlock.getArgument(0);
 
-    auto omTensorPtrArr =
+    Value omTensorPtrArr =
         callApi(rewriter, loc, apiRegistry, API::GET_OMT_ARRAY, {wrappedInput});
     auto one = rewriter.create<LLVM::ConstantOp>(
         loc, int64Ty, rewriter.getI64IntegerAttr(1));
 
     // Create a memref type for the return argument of the iface call
-    auto memRefOutPtrTy = staticEntryPointTy.getParamType(0);
+    Type memRefOutPtrTy = staticEntryPointTy.getParamType(0);
     Value ptrToOutMemRef =
         rewriter.create<LLVM::AllocaOp>(loc, memRefOutPtrTy, one,
             /*alignment=*/0);
@@ -1244,7 +1326,7 @@ public:
       auto outMemRefRank = getRankFromMemRefType(outMemRefTy);
       auto outMemRefRankVal = rewriter.create<LLVM::ConstantOp>(
           loc, int64Ty, rewriter.getI64IntegerAttr(outMemRefRank));
-      auto outOMTensor = callApi(
+      Value outOMTensor = callApi(
           rewriter, loc, apiRegistry, API::CREATE_OMTENSOR, {outMemRefRankVal});
       // If output is a constant tensor, OMTensor does not own it.
       auto outOwning = constantOutputs[i] ? 0 : 1;
@@ -1266,7 +1348,7 @@ public:
     }
 
     // Create wrapped output.
-    auto wrappedOutput = callApi(rewriter, loc, apiRegistry,
+    Value wrappedOutput = callApi(rewriter, loc, apiRegistry,
         API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput, one});
 
     // Return wrapped output.
@@ -1365,7 +1447,7 @@ private:
     Value memRef = rewriter.create<LLVM::UndefOp>(loc, memRefTy);
 
     // Set dataPtr and alignedDataPtr;
-    auto dataPtr =
+    Value dataPtr =
         callApi(rewriter, loc, apiRegistry, API::GET_DATA, {rtMemRef});
     dataPtr = rewriter.create<LLVM::BitcastOp>(
         loc, memRefTy.cast<LLVM::LLVMStructType>().getBody()[0], dataPtr);
@@ -1382,9 +1464,9 @@ private:
 
     // Get rank, sizes array ptr and strides array ptr.
     auto rank = getRankFromMemRefType(memRefTy.cast<LLVM::LLVMStructType>());
-    auto sizesArrayPtr =
+    Value sizesArrayPtr =
         callApi(rewriter, loc, apiRegistry, API::GET_DATA_SHAPE, {rtMemRef});
-    auto stridesArrayPtr =
+    Value stridesArrayPtr =
         callApi(rewriter, loc, apiRegistry, API::GET_DATA_STRIDES, {rtMemRef});
 
     for (decltype(rank) i = 0; i < rank; i++) {
@@ -1447,18 +1529,25 @@ private:
     callApi(rewriter, loc, apiRegistry, API::SET_DATA,
         {outOMTensor, owning, outMemRefAllocatedPtr, outMemRefAlignedPtr});
 
-    auto elemTy =
+    Type elemTy =
         outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
-    auto onnxTy = llvmTypeToOnnxType(elemTy);
+
+    if (auto structType = elemTy.dyn_cast_or_null<LLVM::LLVMStructType>()) {
+      elemTy = structType.getBody()[0]
+                   .cast<LLVM::LLVMPointerType>()
+                   .getElementType();
+    }
+
+    onnx::TensorProto::DataType onnxTy = mlirTypeToOnnxType(elemTy);
     auto onnxTyVal = rewriter.create<LLVM::ConstantOp>(
         loc, int64Ty, rewriter.getI64IntegerAttr(onnxTy));
     callApi(rewriter, loc, apiRegistry, API::SET_DATA_TYPE,
         {outOMTensor, onnxTyVal});
 
-    auto rank = getRankFromMemRefType(outMemRefTy);
-    auto sizesArrayPtr =
+    int64_t rank = getRankFromMemRefType(outMemRefTy);
+    Value sizesArrayPtr =
         callApi(rewriter, loc, apiRegistry, API::GET_DATA_SHAPE, {outOMTensor});
-    auto stridesArrayPtr = callApi(
+    Value stridesArrayPtr = callApi(
         rewriter, loc, apiRegistry, API::GET_DATA_STRIDES, {outOMTensor});
 
     for (decltype(rank) i = 0; i < rank; i++) {
@@ -1682,7 +1771,7 @@ public:
     // Get a symbol reference to the runtime function to use, creating one if
     // necessary.
     ModuleOp parentModule = findIndexOp->getParentOfType<ModuleOp>();
-    auto FindIndexRef = getOrInsertFindIndex(
+    FlatSymbolRefAttr findIndexRef = getOrInsertFindIndex(
         rewriter, parentModule, findIndexOp.input().getType());
 
     // Select the value to pass to as the first argument based on the operator
@@ -1716,8 +1805,8 @@ public:
     Value length = operandAdaptor.len();
 
     // Generate the call to the runtime function.
-    Type retType = IntegerType::get(context, 32);
-    auto funcCall = rewriter.create<CallOp>(loc, FindIndexRef, retType,
+    Type retType = IntegerType::get(context, 64);
+    auto funcCall = rewriter.create<CallOp>(loc, findIndexRef, retType,
         ArrayRef<Value>({firstOperand, extractedGPtr, extractedVPtr, length}));
 
     rewriter.replaceOp(op, funcCall.getResults()[0]);
@@ -1756,8 +1845,8 @@ private:
     if (optFuncDecl.hasValue())
       return optFuncDecl.getValue();
 
-    // Create 'find_index_*' signature: `i32 ([i8*|i64], i32*, i32*, i32)`
-    Type fnType = LLVM::LLVMFunctionType::get(i32Type,
+    // Create 'find_index_*' signature: `i64 ([i8*|i64], i32*, i32*, i32)`
+    Type fnType = LLVM::LLVMFunctionType::get(i64Type,
         ArrayRef<Type>({firstArgType, i32PtrType, i32PtrType, i32Type}), false);
 
     // Insert the function declaration the module.

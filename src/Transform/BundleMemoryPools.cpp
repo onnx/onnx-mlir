@@ -506,7 +506,7 @@ public:
  */
 
 class KrnlBundleMemoryPoolsPass
-    : public PassWrapper<KrnlBundleMemoryPoolsPass, FunctionPass> {
+    : public PassWrapper<KrnlBundleMemoryPoolsPass, OperationPass<FuncOp>> {
 
   BlockToMemPool blockToStaticPool;
   BlockToMemPool blockToDynamicPool;
@@ -518,8 +518,8 @@ public:
     return "Bundle memory pools of internal MemRefs into a single memory pool.";
   }
 
-  void runOnFunction() override {
-    auto function = getFunction();
+  void runOnOperation() override {
+    auto function = getOperation();
 
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
