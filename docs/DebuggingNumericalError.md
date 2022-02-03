@@ -32,12 +32,18 @@ reference inputs and outputs in protobuf.
 
 ```bash
 $ python ../utils/RunONNXModel.py  --help
-usage: RunONNXModel.py [-h] [--print_input] [--print_output]
-                       [--save_so PATH | --load_so PATH] [--save_data PATH]
+usage: RunONNXModel.py [-h]
+                       [--print_input]
+                       [--print_output]
+                       [--save_onnx PATH]
+                       [--save_so PATH | --load_so PATH]
+                       [--save_data PATH]
                        [--data_folder DATA_FOLDER | --shape_info SHAPE_INFO]
                        [--compile_args COMPILE_ARGS]
                        [--verify {onnxruntime,ref}]
-                       [--compile_using_input_shape] [--rtol RTOL]
+                       [--verify_all_ops]
+                       [--compile_using_input_shape]
+                       [--rtol RTOL]
                        [--atol ATOL]
                        model_path
 
@@ -48,6 +54,7 @@ optional arguments:
   -h, --help            show this help message and exit
   --print_input         Print out inputs
   --print_output        Print out inference outputs produced by onnx-mlir
+  --save_onnx PATH      File path to save the onnx model
   --save_so PATH        File path to save the generated shared library of the
                         model
   --load_so PATH        File path to load a generated shared library for
@@ -68,6 +75,7 @@ optional arguments:
   --verify {onnxruntime,ref}
                         Verify the output by using onnxruntime or reference
                         inputs/outputs. By default, no verification
+  --verify_all_ops      Verify all operation outputs when using onnxruntime.
   --compile_using_input_shape
                         Compile the model by using the shape info getting from
                         the inputs in data folder. Must set --data_folder
