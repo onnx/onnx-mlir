@@ -170,7 +170,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             /*writePrefix=*/{origIV});
 
       // Copy intermediate values of loop carried dependencies to MemRef outside
-      // the iteration scope so next iteration can have use them as init value.
+      // the iteration scope so next iteration can use them as init value.
       for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
         emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
             std::get<1>(vIntermediateToFinal));
