@@ -1,0 +1,9 @@
+EXPORTS 
+run_main_graph
+omInputSignature
+omOutputSignature
+omTensorCreate
+omTensorGetDataPtr
+omTensorListCreate
+omTensorListGetOmtByIndex
+
