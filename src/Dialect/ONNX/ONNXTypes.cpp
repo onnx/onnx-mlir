@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------------ ONNXTypes.cpp - ONNX Operations -------------------===//
+//===------------------ ONNXTypes.cpp - ONNX Types ------------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
