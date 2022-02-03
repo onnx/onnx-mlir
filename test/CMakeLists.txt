@@ -5,6 +5,7 @@ add_subdirectory(backend)
 
 # The lit and unit tests do NOT require ONNX package installation
 add_subdirectory(mlir)
+add_subdirectory(modellib)
 add_subdirectory(numerical)
 add_subdirectory(onnx2mlir)
 add_subdirectory(unit)

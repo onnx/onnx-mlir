@@ -185,7 +185,7 @@ public:
  *  Function pass that enables memory pooling for MemRefs.
  */
 class KrnlEnableMemoryPoolPass
-    : public PassWrapper<KrnlEnableMemoryPoolPass, FunctionPass> {
+    : public PassWrapper<KrnlEnableMemoryPoolPass, OperationPass<FuncOp>> {
 public:
   StringRef getArgument() const override { return "enable-memory-pool"; }
 
@@ -193,8 +193,8 @@ public:
     return "Enable a memory pool for allocating internal MemRefs.";
   }
 
-  void runOnFunction() override {
-    auto function = getFunction();
+  void runOnOperation() override {
+    auto function = getOperation();
 
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
