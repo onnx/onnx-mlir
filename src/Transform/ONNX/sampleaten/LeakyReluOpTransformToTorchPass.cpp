@@ -98,7 +98,7 @@ public:
 
     auto alpha = adapter.alphaAttr(); // mlir::FloatAttr
     auto neg_slope = alpha.getValue(); // APSFloat
-    auto f3 = FloatAttr::get(alpha.getType(), neg_slope.convertToFloat());
+    auto f3 = FloatAttr::get(/*alpha.getType()*/mlir::FloatType::getF64(op.getContext()), neg_slope.convertToFloat());
     Value f3v = rewriter.create<ConstantFloatOp>(loc,f3);
 
     TensorType x_tensor_type  = x.getType().cast<TensorType>();
@@ -111,9 +111,10 @@ public:
     Value atenleakyrelu = rewriter.create<AtenLeakyReluOp>(loc, resultTy, xtt, f3v); 
 
     llvm::outs() << "ATENRELU CREATED is " << atenleakyrelu << "\n"; 
-    Value result = atenleakyrelu; 
+    Value result = atenleakyrelu;
+    
+    rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(op, op->getResult(0).getType(), result);
 
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, op->getResult(0).getType() , result);
     return success();
   }
 };
@@ -137,6 +138,7 @@ class ONNXToAtenLeakyReluOpTransformPass
 
 	  target.addLegalDialect<Torch::TorchDialect>();
 	  target.addLegalDialect<::mlir::torch::Torch::TorchDialect>();
+	  target.addLegalDialect<::mlir::torch::TorchConversion::TorchConversionDialect>();
 
 	  llvm::outs() << "ONNXToAtenLeakyReluOpTransformPass Before " << "\n"; 
 

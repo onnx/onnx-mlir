@@ -134,7 +134,7 @@ public:
     auto kernal_shape = op.kernel_shapeAttr(); 	// ::mlir::ArrayAttr
     auto pads = op.padsAttr(); 			// ::mlir::ArrayAttr
     auto strides = op.stridesAttr(); 		// ::mlir::ArrayAttr
-    int64_t ceiling_mode = op.ceil_mode();         // int64_t
+    //int64_t ceiling_mode = op.ceil_mode();         // int64_t
     auto ceiling_mode_attr = op.ceil_modeAttr();// ::mlir::IntegerAttr
 
 
@@ -146,7 +146,7 @@ public:
     auto three = 3;
     auto zero  = 0;
     
-    auto ty = IntegerType::get(op.getContext(), 32);
+    auto ty = IntegerType::get(op.getContext(), 64);
     auto f33 = IntegerAttr::get(ty, three);
     auto f00 = IntegerAttr::get(ty, zero);
     auto f22 = IntegerAttr::get(ty, two);
@@ -163,7 +163,13 @@ public:
     Value f1v = f0v; //rewriter.create<ConstantIntOp>(loc,storage_order_attr);
     Value f2v = f0v; //rewriter.create<ConstantIntOp>(loc,storage_order_attr);
 
-    Value ceiling_mode_val = f0v; //rewriter.create<ConstantIntOp>(loc,ceiling_mode_attr);
+    ::mlir::IntegerAttr ceiling_val;
+    if (ceiling_mode_attr)    
+      ceiling_val = ceiling_mode_attr;
+    else
+      ceiling_val = IntegerAttr::get( IntegerType::get(op.getContext(), 1), zero);
+
+    Value ceiling_mode_val    = rewriter.create<ConstantBoolOp>(loc, ceiling_val);
     Value storage_order_val = f0v; //rewriter.create<ConstantIntOp>(loc,storage_order_attr);
 
     Value stridesList = rewriter.create<PrimListConstructOp>(
@@ -225,6 +231,7 @@ class  ONNXToAtenMaxPool2dOpTransformPass
 	  ConversionTarget target(*context);
 	  target.addLegalDialect<Torch::TorchDialect>();
 	  target.addLegalDialect<::mlir::torch::Torch::TorchDialect>();
+	  target.addLegalDialect<::mlir::torch::TorchConversion::TorchConversionDialect>();
 
 	  llvm::outs() << "ONNXToAtenMaxPool2dOpTransformPass Before OpTransform " << "\n"; 
 	  patterns.add<DecomposeONNXToAtenMaxPool2DOp>(context);
