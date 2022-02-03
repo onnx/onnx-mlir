@@ -11,7 +11,7 @@ add_onnx_mlir_library(ModelLib
 
   EXCLUDE_FROM_OM_LIBS
 
-  LINK_LIBS PRIVATE
+  LINK_LIBS PUBLIC
   CompilerUtils
   ExecutionSession
   )
