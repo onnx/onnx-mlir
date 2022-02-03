@@ -111,7 +111,8 @@ def get_proj_repo_info(image_type, local_repo):
     # Labels used to filter local images
     exp_proj_repo_filter = { 'label': [
         github_repo_name2 + '_sha1=' + exp_proj_repo_sha1,
-        github_repo_name2 + '_dockerfile_sha1=' + exp_proj_repo_dockerfile_sha1 ] }
+        github_repo_name2 + '_dockerfile_sha1=' + exp_proj_repo_dockerfile_sha1,
+        github_repo_name2 + '_successfully_built=yes' ] }
 
     logging.info('%s expected', PROJECT_IMAGE[image_type])
     logging.info('commit sha1:     %s', exp_proj_repo_sha1)
@@ -334,8 +335,9 @@ def build_private_project(image_type, exp):
             if 'error' in line:
                 # Tag the latest successful image layer for easier debugging.
                 #
-                # It's OK to tag failed image as BASE_BRANCH (main) here because
-                # dev and usr images are not shared across PRs.
+                # It's OK to tag the broken image since it will not have the
+                # onnx_mlir_successfully_built=yes label so it will not be
+                # incorrectly reused.
                 if layer_sha256:
                     image_layer = 'sha256:' + layer_sha256
                     remove_dependent_containers(image_layer)
