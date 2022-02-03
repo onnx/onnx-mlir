@@ -12,19 +12,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "test/extra/TestHelper.hpp"
+#include "test/backend-cpp/TestHelper.hpp"
 #include "llvm/Support/Debug.h"
 
-#define DEBUG_TYPE "tests"
-
-using namespace onnx_mlir;
+#define DEBUG_TYPE "backend-cpp"
 
 static const string SharedLibBase("./TestCategoryMapper_main_graph");
 
 namespace {
 
 class CategoryMapperTester {
-  using TestHelper = Tests::TestHelper;
+  using TestHelper = BackendCppTests::TestHelper;
   TestHelper testHelper;
 
 public:
@@ -124,7 +122,8 @@ private:
 } // namespace
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(Tests::TestHelper::getSharedLibName(SharedLibBase));
+  llvm::FileRemover remover(
+      BackendCppTests::TestHelper::getSharedLibName(SharedLibBase));
 
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestCategoryMapper\n", nullptr, "TEST_ARGS");

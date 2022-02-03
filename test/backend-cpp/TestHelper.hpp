@@ -21,12 +21,14 @@
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
 
+#include <memory>
 #include <string>
+#include <vector>
 
 using namespace std;
 using namespace mlir;
 
-namespace Tests {
+namespace BackendCppTests {
 
 // Helper class containing useful function for creating, compiling and running a
 // test.
@@ -78,6 +80,6 @@ private:
   ModuleOp createEmptyModule() const;
 };
 
-} // namespace Tests
+} // namespace BackendCppTests
 
 #endif // ONNX_MLIR_TEST_HELPER_H

@@ -12,14 +12,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "test/extra/TestHelper.hpp"
+#include "test/backend-cpp/TestHelper.hpp"
 #include "llvm/Support/Debug.h"
 
-#define DEBUG_TYPE "tests"
-
+using namespace std;
+using namespace mlir;
 using namespace onnx_mlir;
 
-namespace Tests {
+#define DEBUG_TYPE "backend-cpp"
+
+namespace BackendCppTests {
 
 FuncOp TestHelper::createEmptyTestFunction(Type inputType, Type outputType) {
   llvm::SmallVector<Type, 1> inputsType{inputType};
@@ -113,4 +115,4 @@ ModuleOp TestHelper::createEmptyModule() const {
 
 void TestHelper::reset() { module = createEmptyModule(); }
 
-} // namespace Tests
+} // namespace BackendCppTests
