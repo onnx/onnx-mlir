@@ -27,7 +27,7 @@
 #include "llvm/Target/TargetMachine.h"
 
 #include "ExternalUtil.hpp"
-#include "src/Accelerators/OMAccelerator.hpp"
+//#include "src/Accelerators/OMAccelerator.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Support/OMOptions.hpp"
 
@@ -938,14 +938,16 @@ void emitOutput(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     emitOutputFiles(outputBaseName, emissionTarget, context, module);
 }
 
+#include "src/Accelerators/NNPA/OMnnpaAccelerator.hpp" 
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
   // Initialize accelerator if required
   std::cout << "initializing accelerators" << std::endl;
-  std::vector<OMAccelerator *> OMAcceleratorTargets;
+  std::vector<OMAccelerator *> *OMAcceleratorTargets;
+  mlir::OMnnpaAccelerator* accelerator=new OMnnpaAccelerator();
   OMAcceleratorTargets=OMAccelerator::getAcceleratorList();
-  std::cout << "target count is " << OMAcceleratorTargets.size() << std::endl;
-  for (auto accel : OMAcceleratorTargets) {
+  std::cout << "target count is " << OMAcceleratorTargets->size() << std::endl;
+  for (auto accel : *OMAcceleratorTargets) {
     std::cout << "--" << std::endl;
     accel->prepareAccelerator();
   }

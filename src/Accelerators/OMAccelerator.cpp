@@ -13,15 +13,25 @@
 //===----------------------------------------------------------------------===//
 #include <vector>
 #include "src/Accelerators/OMAccelerator.hpp"
+#include <iostream>
 
-/*namespace mlir {
-    
-std::vector<OMAccelerator *> OMAccelerator::acceleratorTargets();
+namespace mlir {
+std::vector<OMAccelerator *> *OMAccelerator::acceleratorTargets;
 
-std::vector<OMAccelerator *> OMAccelerator::getAcceleratorList() {
+OMAccelerator::OMAccelerator() {
+    std::cout << "creating OMAccelerator" << std::endl;
+    if (acceleratorTargets == NULL) {
+        std::cout << "initializing acceleratorTargets" << std::endl;
+        acceleratorTargets =  new std::vector<OMAccelerator *>();
+    }
+ }
+
+std::vector<OMAccelerator *> *OMAccelerator::getAcceleratorList() {
     //if (OMAcceleratorTargets == NULL)
-      //OMAcceleratorTargets = new vector<OMAccelerator *>;
-
+      //OMAcceleratorTargets = new vector<OMAccelerator *>();
+    std::cout << "getting accelerator targets" << std::endl;  
     return acceleratorTargets;  
-  }
-}*/
+  }    
+
+
+}

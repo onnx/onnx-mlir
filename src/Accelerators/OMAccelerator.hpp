@@ -16,9 +16,10 @@
 namespace mlir {
 class OMAccelerator {
 public:
-  static std::vector<OMAccelerator *> getAcceleratorList();
+  OMAccelerator();
+  static std::vector<OMAccelerator *> *getAcceleratorList();
   virtual void prepareAccelerator() = 0;
 private:  
-  static std::vector<OMAccelerator *> acceleratorTargets;
+  static std::vector<OMAccelerator *> *acceleratorTargets;
 };
 }
