@@ -1,6 +1,6 @@
 //===---- MLIRDialectBuilder.hpp - Helper functions for MLIR dialects -----===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -93,6 +93,8 @@ struct MathBuilder final : DialectBuilder {
   Value castToIndex(Value val) const;
 
 private:
+  Value createArithCmp(Value lhs, Value rhs, arith::CmpIPredicate pred) const;
+  Value createArithCmp(Value lhs, Value rhs, arith::CmpFPredicate pred) const;
   Value castToSignless(Value source, int64_t width) const;
   Value castToUnsigned(Value source, int64_t width) const;
 };

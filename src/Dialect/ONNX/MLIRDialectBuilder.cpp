@@ -1,6 +1,6 @@
 //===---- MLIRDialectBuilder.cpp - Helper functions for MLIR dialects -----===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -15,13 +15,16 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "dialect_builder"
 
 using namespace mlir;
 
 //===----------------------------------------------------------------------===//
 // Original code for MathBuilder is copied from LLVM MLIR Utils.cpp
 // Modified here to add operations, add super class.
-// Liscense added here for this class for completness.
+// License added here for this class for completness.
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -117,45 +120,39 @@ Value MathBuilder::max(Value lhs, Value rhs) const {
 }
 
 Value MathBuilder::sgt(Value lhs, Value rhs) const {
-  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt, lhs, rhs);
-  return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGT, lhs, rhs);
+    return createArithCmp(lhs, rhs, arith::CmpIPredicate::sgt);
+  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OGT);
 }
 
 Value MathBuilder::sge(Value lhs, Value rhs) const {
-  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, lhs, rhs);
-  return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGE, lhs, rhs);
+    return createArithCmp(lhs, rhs, arith::CmpIPredicate::sge);
+  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OGE);
 }
 
 Value MathBuilder::slt(Value lhs, Value rhs) const {
-  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt, lhs, rhs);
-  return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OLT, lhs, rhs);
+    return createArithCmp(lhs, rhs, arith::CmpIPredicate::slt);
+  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OLT);
 }
 
 Value MathBuilder::sle(Value lhs, Value rhs) const {
-  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sle, lhs, rhs);
-  return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OLE, lhs, rhs);
+    return createArithCmp(lhs, rhs, arith::CmpIPredicate::sle);
+  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OLE);
 }
 
 Value MathBuilder::eq(Value lhs, Value rhs) const {
-  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq, lhs, rhs);
-  return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, lhs, rhs);
+    return createArithCmp(lhs, rhs, arith::CmpIPredicate::eq);
+  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OEQ);
 }
 
 Value MathBuilder::neq(Value lhs, Value rhs) const {
-  assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    return b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ne, lhs, rhs);
-  return b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::ONE, lhs, rhs);
+    return createArithCmp(lhs, rhs, arith::CmpIPredicate::ne);
+  return createArithCmp(lhs, rhs, arith::CmpFPredicate::ONE);
 }
 
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) const {
@@ -164,27 +161,38 @@ Value MathBuilder::select(Value cmp, Value lhs, Value rhs) const {
 }
 
 Value MathBuilder::constant(Type type, double val) const {
-  Attribute constantAttr;
+  Value constant = nullptr;
   TypeSwitch<Type>(type)
-      .Case<Float16Type>(
-          [&](Type) { constantAttr = b.getF16FloatAttr((float)val); })
-      .Case<Float32Type>(
-          [&](Type) { constantAttr = b.getF32FloatAttr((float)val); })
-      .Case<Float64Type>(
-          [&](Type) { constantAttr = b.getF64FloatAttr((float)val); })
-      .Case<IntegerType>([&](Type) {
+      .Case<Float16Type>([&](Type) {
+        constant = b.create<arith::ConstantOp>(loc, b.getF16FloatAttr(val));
+      })
+      .Case<Float32Type>([&](Type) {
+        constant = b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(val));
+      })
+      .Case<Float64Type>([&](Type) {
+        constant = b.create<arith::ConstantOp>(loc, b.getF64FloatAttr(val));
+      })
+      .Case<IntegerType>([&](IntegerType type) {
         assert(val == (int64_t)val && "value is ambiguous");
-        auto width = type.cast<IntegerType>().getWidth();
-        if (width == 1) {
-          constantAttr = b.getBoolAttr(val != 0);
-        } else {
-          constantAttr = b.getIntegerAttr(type, APInt(width, (int64_t)val));
+        unsigned width = type.getWidth();
+
+        if (width == 1)
+          constant = b.create<arith::ConstantOp>(loc, b.getBoolAttr(val != 0));
+        else {
+          assert(type.isSignless() &&
+                 "arith::ConstantOp requires a signless type.");
+          constant = b.create<arith::ConstantOp>(
+              loc, b.getIntegerAttr(type, APInt(width, (int64_t)val)));
         }
       })
-      .Case<IndexType>(
-          [&](Type) { constantAttr = b.getIntegerAttr(type, (int64_t)val); })
+      .Case<IndexType>([&](Type) {
+        constant =
+            b.create<arith::ConstantOp>(loc, b.getIntegerAttr(type, val));
+      })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
-  return b.create<arith::ConstantOp>(loc, constantAttr);
+
+  assert(constant != nullptr && "Expecting valid constant value");
+  return constant;
 }
 
 Value MathBuilder::constantIndex(int64_t val) const {
@@ -192,21 +200,40 @@ Value MathBuilder::constantIndex(int64_t val) const {
   return b.create<arith::ConstantOp>(loc, constantAttr);
 }
 
-// For some reason, operations on unsigned int are often unhappy because
-// operations are mainly used on signless integers. So this cast remove the sign
-// of unsigned int for successful processing, to the best of my understanding.
+Value MathBuilder::createArithCmp(
+    Value lhs, Value rhs, arith::CmpIPredicate pred) const {
+  Type type = lhs.getType();
+  assert(type == rhs.getType() && "Operands should have the same type");
+  assert(((type.isa<IntegerType>() && type.isSignlessInteger()) ||
+             type.isa<IndexType>()) &&
+         "Expecting a signless IntegerType or an IndexType");
+  return b.create<arith::CmpIOp>(loc, pred, lhs, rhs);
+}
+
+Value MathBuilder::createArithCmp(
+    Value lhs, Value rhs, arith::CmpFPredicate pred) const {
+  Type type = lhs.getType();
+  assert(type == rhs.getType() && "Operands should have the same type");
+  assert(type.isa<FloatType>() && "Expecting a FloatType");
+  return b.create<arith::CmpFOp>(loc, pred, lhs, rhs);
+}
+
+// Several operations in the arith dialect require signless integers. This
+// cast remove the sign of integer types for successful processing, to the
+// best of my understanding.
 Value MathBuilder::castToSignless(Value val, int64_t width) const {
-  Value res =
-      b.create<UnrealizedConversionCastOp>(loc, b.getIntegerType(width), val)
-          .getResult(0);
-  return res;
+  assert(val.getType().isa<IntegerType>() &&
+         !val.getType().isSignlessInteger() && "Expecting signed integer type");
+  return b.create<UnrealizedConversionCastOp>(loc, b.getIntegerType(width), val)
+      .getResult(0);
 }
 
 Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
-  Value res = b.create<UnrealizedConversionCastOp>(
-                   loc, b.getIntegerType(width, /*is signed*/ false), val)
-                  .getResult(0);
-  return res;
+  assert(val.getType().isa<IntegerType>() && "Expecting integer type");
+  return b
+      .create<UnrealizedConversionCastOp>(
+          loc, b.getIntegerType(width, false /*signed*/), val)
+      .getResult(0);
 }
 
 // Methods inspired from MLIR TosaToLinalg CastOp.
@@ -231,8 +258,8 @@ Value MathBuilder::cast(Type destType, Value src) const {
     destIsIndex = true;
   }
 
-  // Only support Integer or Float type at this stage. Index were transformed to
-  // signless int.
+  // Only support Integer or Float type at this stage. Index were transformed
+  // to signless int.
   // TODO: add support for shaped tensor (MemRef, Vector, Tensor?) if needed.
   assert((srcType.isa<IntegerType>() || srcType.isa<FloatType>()) &&
          "support only float or int");
@@ -243,6 +270,9 @@ Value MathBuilder::cast(Type destType, Value src) const {
   int64_t destWidth = destType.getIntOrFloatBitWidth();
   bool bitExtend = srcWidth < destWidth;
   bool bitTrunc = srcWidth > destWidth;
+
+  LLVM_DEBUG(llvm::dbgs() << "srcType: " << srcType << "\n";
+             llvm::dbgs() << "destType: " << destType << "\n";);
 
   // Handle boolean first because they need special handling.
   // Boolean to int/float conversions. Boolean are unsigned.
@@ -259,7 +289,14 @@ Value MathBuilder::cast(Type destType, Value src) const {
 
   // Int/Float to booleans, just compare value to be unequal zero.
   if (destType.isInteger(1)) {
-    Value zero = constant(srcType, 0);
+    Type constantType = srcType;
+    if (srcType.isa<IntegerType>() && !srcType.isSignlessInteger()) {
+      // An integer constant must be signless.
+      unsigned srcWidth = srcType.cast<IntegerType>().getWidth();
+      constantType = IntegerType::get(srcType.getContext(), srcWidth);
+      src = castToSignless(src, srcWidth);
+    }
+    Value zero = constant(constantType, 0);
     return neq(src, zero);
   }
 
@@ -302,8 +339,8 @@ Value MathBuilder::cast(Type destType, Value src) const {
   // Int to int conversion.
   if (srcType.isa<IntegerType>() && destType.isa<IntegerType>()) {
     if (srcType.isUnsignedInteger()) {
-      // Unsigned to unsigned conversion. Has to convert to signless first, and
-      // recovert output to unsigned.
+      // Unsigned to unsigned conversion. Has to convert to signless first,
+      // and recovert output to unsigned.
       assert(destType.isUnsignedInteger() && "no unsigned/signed conversion");
       assert((bitExtend || bitTrunc) && "expected extend or trunc");
       Value cast = castToSignless(src, srcWidth);
