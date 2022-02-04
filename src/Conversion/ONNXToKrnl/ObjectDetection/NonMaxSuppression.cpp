@@ -419,7 +419,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                       Value iou = emitIOU(
                           createMath, selectedBox, otherBox, centerPointBox);
 
-                      // Only proceed if IOU > iou_threshold.
+                      // Only proceed if IOU >= iou_threshold.
                       Value checkIOU = createMath.sge(iou, iouTH);
                       auto if2Op = rewriter.create<scf::IfOp>(
                           loc, checkIOU, /*withElseRegion=*/false);
@@ -610,7 +610,7 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 //                 for o in range(spatial_size):
 //                     other_box = boxes[b, o, :]
 //                     iou = IOU(selected_box, other_box, center_point_box)
-//                     if (not removed_indices[o]) and (iou > iou_threshold):
+//                     if (not removed_indices[o]) and (iou >= iou_threshold):
 //                         removed_indices[o] = True
 //                     else:
 //                         removed_indices[o] = removed_indices[o]
