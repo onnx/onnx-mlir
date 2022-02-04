@@ -350,6 +350,71 @@ void setCompileContext(mlir::MLIRContext &context, const OptionKind *key,
   registerDialects(context);
 }
 
+OMCompilerOptions::OMCompilerOptions(CompilerOptionList &list) {
+  for (const auto &pair : list)
+    values[pair.first] = pair.second;
+}
+
+int OMCompilerOptions::setFromEnv() {
+  char *val;
+  // Override values if corresponding environment variables exist.
+  if ((val = std::getenv("ONNX_MLIR_TRIPLE")) != nullptr)
+    values[OptionKind::TargetTriple] = string(val);
+  if ((val = std::getenv("ONNX_MLIR_ARCH")) != nullptr)
+    values[OptionKind::TargetArch] = string(val);
+  if ((val = std::getenv("ONNX_MLIR_CPU")) != nullptr)
+    values[OptionKind::TargetCPU] = string(val);
+  if ((val = std::getenv("ONNX_MLIR_OPT")) != nullptr) {
+    // Check val to be 0 to 3 inclusively
+    values[OptionKind::CompilerOptLevel] = string(val);
+  }
+  return 0;
+}
+
+int OMCompilerOptions::setFromArgs(const int64_t argc, const char *argv[]) {
+  for (int i = 0; i < argc; ++i) {
+    string val(argv[i]);
+    // Check known compiler options, and override value when new value found.
+    if (val.find("--mtriple=") == 0)
+      values[OptionKind::TargetTriple] =
+          val.substr(sizeof("--mtriple="));
+    else if (val.find("--march=") == 0)
+      values[OptionKind::TargetArch] = val.substr(sizeof("--march="));
+    else if (val.find("--mcpu=") == 0)
+      values[OptionKind::TargetCPU] = val.substr(sizeof("--mcpu="));
+    else if (val.find("-O0") == 0)
+      values [OptionKind::CompilerOptLevel] = "0";
+    else if (val.find("-O1") == 0)
+      values [OptionKind::CompilerOptLevel] = "1";
+    else if (val.find("-O2") == 0)
+      values [OptionKind::CompilerOptLevel] = "2";
+    else if (val.find("-O3") == 0)
+      values [OptionKind::CompilerOptLevel] = "3";
+  }
+  return 0;
+}
+
+int OMCompilerOptions::set(const OptionKind kind, const char *val) {
+  values[kind] = string(val);
+  return 0;
+}
+
+void OMCompilerOptions::setAndRegisterCompilerContext(
+    mlir::MLIRContext &context) {
+  if (!values[OptionKind::TargetTriple].empty())
+    setTargetTriple(values[OptionKind::TargetTriple]);
+  if (!values[OptionKind::TargetArch].empty())
+    setTargetArch(values[OptionKind::TargetArch]);
+  if (!values[OptionKind::TargetCPU].empty())
+    setTargetCPU(values[OptionKind::TargetCPU]);
+  if (!values[OptionKind::CompilerOptLevel].empty()) {
+    int level = atoi(values[OptionKind::CompilerOptLevel].c_str());
+    assert(level >= 0 && level <= 3 && "expected an OptLevel in [0..3] range");
+    setOptLevel((OptLevel)level);
+  }
+  registerDialects(context);
+}
+
 void loadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {
   // Handle '.mlir' input to the ONNX-MLIR frontend.

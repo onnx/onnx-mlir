@@ -5,7 +5,9 @@
 #ifndef ONNX_MLIR_OMCOMPILERTYPES_H
 #define ONNX_MLIR_OMCOMPILERTYPES_H
 
+//#ifdef __cplusplus
 namespace onnx_mlir {
+//#endif
 
 /* Type of compiler emission targets */
 enum EmissionTargetType {
@@ -35,12 +37,20 @@ enum OptLevel {
 
 /* Compiler options to describe the architecture, optimization level,... */
 enum OptionKind {
-  TargetTriple,     /* Kind for mtriple string. */
+  TargetTriple = 0, /* Kind for mtriple string. */
   TargetArch,       /* Kind for march string. */
   TargetCPU,        /* Kind for mcpu string. */
   CompilerOptLevel, /* Kind for '0'...'3' string describing OptLevel. */
+  LastOptionKind = CompilerOptLevel, /* last option */
 };
 
-} // namespace onnx_mlir
+//#ifdef _cplusplus
+} /* namespace onnx_mlir */
+//#else 
+//typedef enum EmissionTargetType EmissionTargetType;
+//typedef enum InputIRLevelType InputIRLevelType;
+//typedef enum OptLevel OptLevel;
+//typedef enum OptionKind OptionKind;
+//#endif 
 
 #endif

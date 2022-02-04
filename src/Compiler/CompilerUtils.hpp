@@ -34,10 +34,19 @@
 
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::opt<std::string> instrumentONNXOps;
-
-// The following functions are useful for drivers building upon onnx-mlir.
 using CompilerOptionList =
     llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
+
+// The following functions are useful for drivers building upon onnx-mlir.
+struct OMCompilerOptions {
+  OMCompilerOptions(CompilerOptionList &list);
+  int setFromEnv();
+  int setFromArgs(const int64_t argc, const char *argv[]);
+  int set(const onnx_mlir::OptionKind kind, const char *val);
+  void setAndRegisterCompilerContext(mlir::MLIRContext &context);
+  // data
+  std::string values[onnx_mlir::OptionKind::LastOptionKind];
+};
 
 // Setters for command-line options.
 void setTargetCPU(const std::string &cpu);

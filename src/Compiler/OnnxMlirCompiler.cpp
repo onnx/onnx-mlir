@@ -7,14 +7,44 @@
 
 extern "C" {
 namespace onnx_mlir {
+
+ONNX_MLIR_EXPORT OMCompilerOptions *omCreateCompilerOptions() {
+  return new OMCompilerOptions();
+}
+
+ONNX_MLIR_EXPORT void omDestroyCompilerOptions(OMCompilerOptions *options) {
+  if (options)
+    delete options;
+}
+
+ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(
+    OMCompilerOptions *options) {
+  if (!options)
+    return 1;
+  return options->setFromEnv();
+}
+
+ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
+    OMCompilerOptions *options, const int64_t argc, const char *argv[]) {
+  if (!options)
+    return 1;
+  return options->setFromArgs(argc, argv);
+}
+
+ONNX_MLIR_EXPORT int64_t omSetCompilerOptions(
+    OMCompilerOptions *options, const OptionKind kind, const char *val) {
+  if (!options)
+    return 1;
+  return options->set(kind, val)
+}
+
 ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const onnx_mlir::OptionKind *optionKey, const char **optionVal,
-    const int optionNum, const char **errorMessage) {
+    const OMCompilerOptions *options, const char **errorMessage) {
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
 
-  setCompileContext(context, optionKey, optionVal, optionNum);
+  if (options) options->setCompileContext(context);
   std::string error_message;
   processInputFile(std::string(inputFilename), context, module, &error_message);
   if (errorMessage != NULL) {
@@ -26,12 +56,11 @@ ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
 
 ONNX_MLIR_EXPORT int omCompileFromArray(const void *inputBuffer, int bufferSize,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const onnx_mlir::OptionKind *optionKey, const char **optionVal,
-    const int optionNum) {
+    const OMCompilerOptions *options) {
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
 
-  setCompileContext(context, optionKey, optionVal, optionNum);
+  if (options) options->setCompileContext(context);
   processInputArray(inputBuffer, bufferSize, context, module);
   return compileModule(module, context, outputBaseName, emissionTarget);
 }
