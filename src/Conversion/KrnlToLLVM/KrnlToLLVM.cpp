@@ -30,7 +30,8 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
-#include "mlir/Dialect/Vector/VectorRewritePatterns.h"
+#include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
+#include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
@@ -1884,7 +1885,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
-  populateStdExpandOpsPatterns(patterns);
+  memref::populateExpandOpsPatterns(patterns);
   // Use polynomial approximation for math.{tanh, sin, cos and exp} for better
   // performance.
   populateMathPolynomialApproximationPatterns(patterns);

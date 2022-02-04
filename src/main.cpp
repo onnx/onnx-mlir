@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "ONNX-MLIR modular optimizer driver\n");
 
-  mlir::OwningModuleRef module;
+  mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;
   processInputFile(inputFilename, context, module, &errorMessage);
   if (!errorMessage.empty()) {

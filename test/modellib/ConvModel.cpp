@@ -139,7 +139,7 @@ bool genConv2DModelAndCompile(
   module.push_back(entryPoint);
 
   // Compile model.
-  OwningModuleRef moduleRef(module);
+  OwningOpRef<ModuleOp> moduleRef(module);
   compileModule(moduleRef, ctx, modelName, onnx_mlir::EmitLib);
   return true;
 }

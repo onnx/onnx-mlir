@@ -79,7 +79,7 @@ void registerDialects(mlir::MLIRContext &context) {
 int check(ModelProto &model) {
   mlir::MLIRContext context;
   registerDialects(context);
-  mlir::OwningModuleRef module;
+  mlir::OwningOpRef<ModuleOp> module;
 
   onnx_mlir::ImportOptions options;
   options.useOnnxModelTypes = true;

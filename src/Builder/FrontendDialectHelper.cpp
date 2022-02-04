@@ -142,7 +142,7 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
   llvm::ArrayRef<int64_t> tensorDims(
       initializer.dims().data(), initializer.dims().size());
   if (tensorDims.size() == 1 && tensorDims[0] == 0)
-    return builder.create<mlir::ConstantOp>(loc, builder.getUnitAttr())
+    return builder.create<mlir::arith::ConstantOp>(loc, builder.getUnitAttr())
         .getResult();
 
   // Emit ConstantOp and record the mapping between the input and

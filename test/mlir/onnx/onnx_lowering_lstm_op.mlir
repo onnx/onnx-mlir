@@ -70,7 +70,7 @@ func private @test_lstm_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x1
 // CHECK:               [[VAR_29_:%.+]] = arith.addf [[VAR_26_]], [[VAR_28_]] : f32
 // CHECK:               [[VAR_30_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_29_]] : f32
 // CHECK:               [[VAR_31_:%.+]] = math.exp [[VAR_30_]] : f32
-// CHECK:               [[VAR_32_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_31_]] : f32
+// CHECK:               [[VAR_32_:%.+]] = arith.addf [[VAR_31_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_33_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_32_]] : f32
 // CHECK-DAG:           [[VAR_34_:%.+]] = affine.apply #map0(){{.}}[[VAR_18_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -87,7 +87,7 @@ func private @test_lstm_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x1
 // CHECK:               [[VAR_45_:%.+]] = arith.addf [[VAR_42_]], [[VAR_44_]] : f32
 // CHECK:               [[VAR_46_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_45_]] : f32
 // CHECK:               [[VAR_47_:%.+]] = math.exp [[VAR_46_]] : f32
-// CHECK:               [[VAR_48_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_47_]] : f32
+// CHECK:               [[VAR_48_:%.+]] = arith.addf [[VAR_47_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_49_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_48_]] : f32
 // CHECK-DAG:           [[VAR_50_:%.+]] = affine.apply #map1(){{.}}[[VAR_18_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -118,7 +118,7 @@ func private @test_lstm_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x1
 // CHECK:               [[VAR_74_:%.+]] = arith.addf [[VAR_71_]], [[VAR_73_]] : f32
 // CHECK:               [[VAR_75_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_74_]] : f32
 // CHECK:               [[VAR_76_:%.+]] = math.exp [[VAR_75_]] : f32
-// CHECK:               [[VAR_77_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_76_]] : f32
+// CHECK:               [[VAR_77_:%.+]] = arith.addf [[VAR_76_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_78_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_77_]] : f32
 // CHECK-DAG:           [[VAR_79_:%.+]] = math.tanh [[VAR_62_]] : f32
 // CHECK:               [[VAR_80_:%.+]] = arith.mulf [[VAR_78_]], [[VAR_79_]] : f32
@@ -206,7 +206,7 @@ func private @test_lstm_forward_mode_constant_weight_and_bias(%arg0: tensor<7x2x
 // CHECK:               [[VAR_34_:%.+]] = arith.addf [[VAR_31_]], [[VAR_33_]] : f32
 // CHECK:               [[VAR_35_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_34_]] : f32
 // CHECK:               [[VAR_36_:%.+]] = math.exp [[VAR_35_]] : f32
-// CHECK:               [[VAR_37_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_36_]] : f32
+// CHECK:               [[VAR_37_:%.+]] = arith.addf [[VAR_36_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_38_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_37_]] : f32
 // CHECK-DAG:           [[VAR_39_:%.+]] = affine.apply #map0(){{.}}[[VAR_23_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -223,7 +223,7 @@ func private @test_lstm_forward_mode_constant_weight_and_bias(%arg0: tensor<7x2x
 // CHECK:               [[VAR_50_:%.+]] = arith.addf [[VAR_47_]], [[VAR_49_]] : f32
 // CHECK:               [[VAR_51_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_50_]] : f32
 // CHECK:               [[VAR_52_:%.+]] = math.exp [[VAR_51_]] : f32
-// CHECK:               [[VAR_53_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_52_]] : f32
+// CHECK:               [[VAR_53_:%.+]] = arith.addf [[VAR_52_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_54_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_53_]] : f32
 // CHECK-DAG:           [[VAR_55_:%.+]] = affine.apply #map1(){{.}}[[VAR_23_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -254,7 +254,7 @@ func private @test_lstm_forward_mode_constant_weight_and_bias(%arg0: tensor<7x2x
 // CHECK:               [[VAR_79_:%.+]] = arith.addf [[VAR_76_]], [[VAR_78_]] : f32
 // CHECK:               [[VAR_80_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_79_]] : f32
 // CHECK:               [[VAR_81_:%.+]] = math.exp [[VAR_80_]] : f32
-// CHECK:               [[VAR_82_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_81_]] : f32
+// CHECK:               [[VAR_82_:%.+]] = arith.addf [[VAR_81_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_83_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_82_]] : f32
 // CHECK-DAG:           [[VAR_84_:%.+]] = math.tanh [[VAR_67_]] : f32
 // CHECK:               [[VAR_85_:%.+]] = arith.mulf [[VAR_83_]], [[VAR_84_]] : f32
@@ -341,7 +341,7 @@ func private @test_lstm_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x1
 // CHECK:               [[VAR_30_:%.+]] = arith.addf [[VAR_27_]], [[VAR_29_]] : f32
 // CHECK:               [[VAR_31_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_30_]] : f32
 // CHECK:               [[VAR_32_:%.+]] = math.exp [[VAR_31_]] : f32
-// CHECK:               [[VAR_33_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_32_]] : f32
+// CHECK:               [[VAR_33_:%.+]] = arith.addf [[VAR_32_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_34_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_33_]] : f32
 // CHECK-DAG:           [[VAR_35_:%.+]] = affine.apply #map1(){{.}}[[VAR_19_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -358,7 +358,7 @@ func private @test_lstm_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x1
 // CHECK:               [[VAR_46_:%.+]] = arith.addf [[VAR_43_]], [[VAR_45_]] : f32
 // CHECK:               [[VAR_47_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_46_]] : f32
 // CHECK:               [[VAR_48_:%.+]] = math.exp [[VAR_47_]] : f32
-// CHECK:               [[VAR_49_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_48_]] : f32
+// CHECK:               [[VAR_49_:%.+]] = arith.addf [[VAR_48_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_50_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_49_]] : f32
 // CHECK-DAG:           [[VAR_51_:%.+]] = affine.apply #map2(){{.}}[[VAR_19_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -389,7 +389,7 @@ func private @test_lstm_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x1
 // CHECK:               [[VAR_75_:%.+]] = arith.addf [[VAR_72_]], [[VAR_74_]] : f32
 // CHECK:               [[VAR_76_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_75_]] : f32
 // CHECK:               [[VAR_77_:%.+]] = math.exp [[VAR_76_]] : f32
-// CHECK:               [[VAR_78_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_77_]] : f32
+// CHECK:               [[VAR_78_:%.+]] = arith.addf [[VAR_77_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_79_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_78_]] : f32
 // CHECK-DAG:           [[VAR_80_:%.+]] = math.tanh [[VAR_63_]] : f32
 // CHECK:               [[VAR_81_:%.+]] = arith.mulf [[VAR_79_]], [[VAR_80_]] : f32
@@ -497,7 +497,7 @@ func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tens
 // CHECK:               [[VAR_45_:%.+]] = arith.addf [[VAR_42_]], [[VAR_44_]] : f32
 // CHECK:               [[VAR_46_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_45_]] : f32
 // CHECK:               [[VAR_47_:%.+]] = math.exp [[VAR_46_]] : f32
-// CHECK:               [[VAR_48_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_47_]] : f32
+// CHECK:               [[VAR_48_:%.+]] = arith.addf [[VAR_47_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_49_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_48_]] : f32
 // CHECK-DAG:           [[VAR_50_:%.+]] = affine.apply #map0(){{.}}[[VAR_34_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -514,7 +514,7 @@ func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tens
 // CHECK:               [[VAR_61_:%.+]] = arith.addf [[VAR_58_]], [[VAR_60_]] : f32
 // CHECK:               [[VAR_62_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_61_]] : f32
 // CHECK:               [[VAR_63_:%.+]] = math.exp [[VAR_62_]] : f32
-// CHECK:               [[VAR_64_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_63_]] : f32
+// CHECK:               [[VAR_64_:%.+]] = arith.addf [[VAR_63_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_65_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_64_]] : f32
 // CHECK-DAG:           [[VAR_66_:%.+]] = affine.apply #map1(){{.}}[[VAR_34_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -545,7 +545,7 @@ func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tens
 // CHECK:               [[VAR_90_:%.+]] = arith.addf [[VAR_87_]], [[VAR_89_]] : f32
 // CHECK:               [[VAR_91_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_90_]] : f32
 // CHECK:               [[VAR_92_:%.+]] = math.exp [[VAR_91_]] : f32
-// CHECK:               [[VAR_93_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_92_]] : f32
+// CHECK:               [[VAR_93_:%.+]] = arith.addf [[VAR_92_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_94_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_93_]] : f32
 // CHECK-DAG:           [[VAR_95_:%.+]] = math.tanh [[VAR_78_]] : f32
 // CHECK:               [[VAR_96_:%.+]] = arith.mulf [[VAR_94_]], [[VAR_95_]] : f32
@@ -582,7 +582,7 @@ func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tens
 // CHECK:               [[VAR_46_1_:%.+]] = arith.addf [[LOAD_VAR_24_MEM_3_]], [[VAR_45_1_]] : f32
 // CHECK:               [[VAR_47_1_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_46_1_]] : f32
 // CHECK:               [[VAR_48_1_:%.+]] = math.exp [[VAR_47_1_]] : f32
-// CHECK:               [[VAR_49_1_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_48_1_]] : f32
+// CHECK:               [[VAR_49_1_:%.+]] = arith.addf [[VAR_48_1_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_50_1_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_49_1_]] : f32
 // CHECK-DAG:           [[LOAD_LOAD_PARAM_4_MEM_1_MEM_1_:%.+]] = affine.apply #map0(){{.}}[[LOAD_PARAM_0_MEM_1_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -599,7 +599,7 @@ func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tens
 // CHECK:               [[VAR_62_1_:%.+]] = arith.addf [[LOAD_VAR_24_MEM_1_]], [[VAR_61_1_]] : f32
 // CHECK:               [[VAR_63_1_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_62_1_]] : f32
 // CHECK:               [[VAR_64_1_:%.+]] = math.exp [[VAR_63_1_]] : f32
-// CHECK:               [[VAR_65_1_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_64_1_]] : f32
+// CHECK:               [[VAR_65_1_:%.+]] = arith.addf [[VAR_64_1_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_66_1_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_65_1_]] : f32
 // CHECK-DAG:           [[LOAD_LOAD_PARAM_4_MEM_1_MEM_2_:%.+]] = affine.apply #map1(){{.}}[[LOAD_PARAM_0_MEM_1_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -630,7 +630,7 @@ func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tens
 // CHECK:               [[VAR_91_1_:%.+]] = arith.addf [[LOAD_VAR_24_MEM_2_]], [[VAR_90_1_]] : f32
 // CHECK:               [[VAR_92_1_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_91_1_]] : f32
 // CHECK:               [[VAR_93_1_:%.+]] = math.exp [[VAR_92_1_]] : f32
-// CHECK:               [[VAR_94_1_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_93_1_]] : f32
+// CHECK:               [[VAR_94_1_:%.+]] = arith.addf [[VAR_93_1_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_95_1_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_94_1_]] : f32
 // CHECK-DAG:           [[VAR_96_1_:%.+]] = math.tanh [[VAR_79_1_]] : f32
 // CHECK:               [[VAR_97_:%.+]] = arith.mulf [[VAR_95_1_]], [[VAR_96_1_]] : f32
@@ -731,7 +731,7 @@ func private @test_lstm_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x1
 // CHECK:               [[VAR_37_:%.+]] = arith.addf [[VAR_34_]], [[VAR_36_]] : f32
 // CHECK:               [[VAR_38_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_37_]] : f32
 // CHECK:               [[VAR_39_:%.+]] = math.exp [[VAR_38_]] : f32
-// CHECK:               [[VAR_40_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_39_]] : f32
+// CHECK:               [[VAR_40_:%.+]] = arith.addf [[VAR_39_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_41_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_40_]] : f32
 // CHECK-DAG:           [[VAR_42_:%.+]] = affine.apply #map0(){{.}}[[VAR_26_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -748,7 +748,7 @@ func private @test_lstm_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x1
 // CHECK:               [[VAR_53_:%.+]] = arith.addf [[VAR_50_]], [[VAR_52_]] : f32
 // CHECK:               [[VAR_54_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_53_]] : f32
 // CHECK:               [[VAR_55_:%.+]] = math.exp [[VAR_54_]] : f32
-// CHECK:               [[VAR_56_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_55_]] : f32
+// CHECK:               [[VAR_56_:%.+]] = arith.addf [[VAR_55_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_57_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_56_]] : f32
 // CHECK-DAG:           [[VAR_58_:%.+]] = affine.apply #map1(){{.}}[[VAR_26_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -779,7 +779,7 @@ func private @test_lstm_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x1
 // CHECK:               [[VAR_82_:%.+]] = arith.addf [[VAR_79_]], [[VAR_81_]] : f32
 // CHECK:               [[VAR_83_:%.+]] = arith.subf [[VAR_cst_0_]], [[VAR_82_]] : f32
 // CHECK:               [[VAR_84_:%.+]] = math.exp [[VAR_83_]] : f32
-// CHECK:               [[VAR_85_:%.+]] = arith.addf [[VAR_cst_]], [[VAR_84_]] : f32
+// CHECK:               [[VAR_85_:%.+]] = arith.addf [[VAR_84_]], [[VAR_cst_]] : f32
 // CHECK-DAG:           [[VAR_86_:%.+]] = arith.divf [[VAR_cst_]], [[VAR_85_]] : f32
 // CHECK-DAG:           [[VAR_87_:%.+]] = math.tanh [[VAR_70_]] : f32
 // CHECK:               [[VAR_88_:%.+]] = arith.mulf [[VAR_86_]], [[VAR_87_]] : f32

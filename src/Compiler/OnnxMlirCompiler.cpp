@@ -11,7 +11,7 @@ ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const onnx_mlir::OptionKind *optionKey, const char **optionVal,
     const int optionNum, const char **errorMessage) {
-  mlir::OwningModuleRef module;
+  mlir::OwningOpRef<ModuleOp> module;
   mlir::MLIRContext context;
 
   setCompileContext(context, optionKey, optionVal, optionNum);
@@ -28,7 +28,7 @@ ONNX_MLIR_EXPORT int omCompileFromArray(const void *inputBuffer, int bufferSize,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const onnx_mlir::OptionKind *optionKey, const char **optionVal,
     const int optionNum) {
-  mlir::OwningModuleRef module;
+  mlir::OwningOpRef<ModuleOp> module;
   mlir::MLIRContext context;
 
   setCompileContext(context, optionKey, optionVal, optionNum);

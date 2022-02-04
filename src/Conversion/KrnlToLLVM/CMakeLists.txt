@@ -9,6 +9,7 @@ add_onnx_mlir_library(OMKrnlToLLVM
   MLIRMathToLLVM
   MLIRMathTransforms
   MLIRMemRefToLLVM
+  MLIRMemRefTransforms
   MLIRReconcileUnrealizedCasts
   MLIRSCFToStandard
   MLIRShapeToStandard

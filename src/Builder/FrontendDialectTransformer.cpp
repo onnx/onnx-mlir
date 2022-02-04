@@ -191,7 +191,7 @@ private:
 
   Value none() {
     auto none =
-        builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr())
+      builder_.create<arith::ConstantOp>(UnknownLoc(), builder_.getUnitAttr())
             .getResult();
     return none;
   }
@@ -1097,7 +1097,7 @@ private:
         // Missing (optional) parameter.
         operandOnnxTypes.push_back(unspecifiedType);
         auto no_value =
-            builder_.create<ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
+          builder_.create<arith::ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
         operands.push_back(no_value);
         operandTypes.push_back(builder_.getNoneType());
         continue;
@@ -1395,7 +1395,7 @@ private:
 namespace onnx_mlir {
 
 void ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
-    OwningModuleRef &module, ImportOptions options) {
+    OwningOpRef<ModuleOp> &module, ImportOptions options) {
   int originVersion = CURRENT_ONNX_OPSET;
   // Get the version of the model
   // Code copied from onnx/onnx/version_coverter/convert.cc
@@ -1423,7 +1423,7 @@ void ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
 }
 
 void ImportFrontendModelArray(const void *onnxBuffer, int size,
-    MLIRContext &context, OwningModuleRef &module, ImportOptions options) {
+    MLIRContext &context, OwningOpRef<ModuleOp> &module, ImportOptions options) {
   onnx::ModelProto model;
 
   auto parse_success = model.ParseFromArray(onnxBuffer, size);
@@ -1432,7 +1432,7 @@ void ImportFrontendModelArray(const void *onnxBuffer, int size,
 }
 
 void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
-    OwningModuleRef &module, std::string *errorMessage, ImportOptions options) {
+    OwningOpRef<ModuleOp> &module, std::string *errorMessage, ImportOptions options) {
   onnx::ModelProto model;
   std::fstream input(model_fname, std::ios::in | std::ios::binary);
   // check if the input file is opened
@@ -1450,7 +1450,7 @@ void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
 }
 
 void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,
-    OwningModuleRef &module, ImportOptions options) {
+    OwningOpRef<ModuleOp> &module, ImportOptions options) {
 
   detail::FrontendGenImpl myONNXGen(context);
   module = myONNXGen.ImportONNXModel(model, options);

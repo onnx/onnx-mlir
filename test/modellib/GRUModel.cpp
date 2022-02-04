@@ -133,7 +133,7 @@ bool genGRUModelAndCompile(
       /*signature*/ signature);
   module.push_back(entryPoint);
 
-  OwningModuleRef moduleRef(module);
+  OwningOpRef<ModuleOp> moduleRef(module);
   compileModule(moduleRef, ctx, modelName, onnx_mlir::EmitLib);
   return true;
 }

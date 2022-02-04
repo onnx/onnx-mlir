@@ -351,7 +351,7 @@ void setCompileContext(mlir::MLIRContext &context, const OptionKind *key,
 }
 
 void loadMLIR(string inputFilename, mlir::MLIRContext &context,
-    mlir::OwningModuleRef &module) {
+    mlir::OwningOpRef<ModuleOp> &module) {
   // Handle '.mlir' input to the ONNX-MLIR frontend.
   // The mlir format indicates that one or more of the supported
   // representations are used in the file.
@@ -412,7 +412,7 @@ static std::string getOptimizationLevelOption() {
 }
 
 // Write LLVM optimized bitcode.
-static void genLLVMBitcode(const mlir::OwningModuleRef &module,
+static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
     string optimizedBitcodePath, string outputBaseName) {
   error_code error;
 
@@ -475,7 +475,7 @@ static std::string genModelObject(string bitcodePath, string outputBaseName) {
   return modelObjPath;
 }
 
-static void genJniObject(const mlir::OwningModuleRef &module,
+static void genJniObject(const mlir::OwningOpRef<ModuleOp> &module,
     string jniSharedLibPath, string jniObjPath) {
   Command ar(/*exePath=*/kArPath);
   ar.appendStr("x")
@@ -527,7 +527,7 @@ static std::string genSharedLib(string outputBaseName, std::vector<string> opts,
 
 // Create jar containing java runtime and model shared library (which includes
 // jni runtime).
-static void genJniJar(const mlir::OwningModuleRef &module,
+static void genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
     string modelSharedLibPath, string modelJniJarPath) {
   llvm::SmallString<8> runtimeDir(getRuntimeDir());
   llvm::sys::path::append(runtimeDir, "javaruntime.jar");
@@ -547,7 +547,7 @@ static void genJniJar(const mlir::OwningModuleRef &module,
 }
 
 std::string compileModuleToObject(
-    const mlir::OwningModuleRef &module, std::string outputBaseName) {
+    const mlir::OwningOpRef<ModuleOp> &module, std::string outputBaseName) {
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
   llvm::FileRemover bitcodeRemover(
@@ -557,7 +557,7 @@ std::string compileModuleToObject(
 }
 
 std::string compileModuleToSharedLibrary(
-    const mlir::OwningModuleRef &module, std::string outputBaseName) {
+    const mlir::OwningOpRef<ModuleOp> &module, std::string outputBaseName) {
   string modelObjPath = compileModuleToObject(module, outputBaseName);
   llvm::FileRemover modelObjRemover(
       modelObjPath, !keepFiles(KeepFilesOfType::Object));
@@ -567,7 +567,7 @@ std::string compileModuleToSharedLibrary(
 }
 
 void compileModuleToJniJar(
-    const mlir::OwningModuleRef &module, std::string outputBaseName) {
+    const mlir::OwningOpRef<ModuleOp> &module, std::string outputBaseName) {
   string modelObjPath = compileModuleToObject(module, outputBaseName);
   llvm::FileRemover modelObjRemover(
       modelObjPath, !keepFiles(KeepFilesOfType::Object));
@@ -692,7 +692,7 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
 }
 
 void processInputFile(string inputFilename, mlir::MLIRContext &context,
-    mlir::OwningModuleRef &module, std::string *errorMessage) {
+    mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
   // Decide if the input file is an ONNX model or a model specified
   // in MLIR. The extension of the file is the decider.
   string extension = inputFilename.substr(inputFilename.find_last_of(".") + 1);
@@ -718,7 +718,7 @@ void processInputFile(string inputFilename, mlir::MLIRContext &context,
 }
 
 void processInputArray(const void *onnxBuffer, int bufferSize,
-    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
+    mlir::MLIRContext &context, mlir::OwningOpRef<ModuleOp> &module) {
   ImportOptions options;
   options.useOnnxModelTypes = useOnnxModelTypes;
   options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
@@ -726,7 +726,7 @@ void processInputArray(const void *onnxBuffer, int bufferSize,
   ImportFrontendModelArray(onnxBuffer, bufferSize, context, module, options);
 }
 
-InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
+InputIRLevelType determineInputIRLevel(mlir::OwningOpRef<ModuleOp> &module) {
   Operation *moduleOp = module->getOperation();
 
   // Collect dialect namespaces.
@@ -754,7 +754,7 @@ InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
 }
 
 void outputCode(
-    mlir::OwningModuleRef &module, string filename, string extension) {
+    mlir::OwningOpRef<ModuleOp> &module, string filename, string extension) {
   mlir::OpPrintingFlags flags;
   if (preserveLocations)
     flags.enableDebugInfo();
@@ -771,7 +771,7 @@ void outputCode(
 }
 
 void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
-    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
+    mlir::MLIRContext &context, mlir::OwningOpRef<ModuleOp> &module) {
   // For EmitONNXIR and EmitMLIR the constant value are embedded in the code
   // thus making the code hard to read. These values can be elided by emitting
   // two versions of the same source code:
@@ -886,7 +886,7 @@ static std::string getDataLayout(const Location &loc) {
   return dataLayoutString;
 }
 
-void setupModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+void setupModule(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
     std::string outputBaseName) {
   // Initialize the targets support for all targets LLVM was configured for.
   llvm::InitializeAllTargets();
@@ -909,7 +909,7 @@ void setupModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
   }
 }
 
-static void addPasses(mlir::OwningModuleRef &module, mlir::PassManager &pm,
+static void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     EmissionTargetType emissionTarget) {
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
@@ -927,7 +927,7 @@ static void addPasses(mlir::OwningModuleRef &module, mlir::PassManager &pm,
     addKrnlToLLVMPasses(pm);
 }
 
-void emitOutput(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+void emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
     std::string outputBaseName, mlir::PassManager &pm,
     EmissionTargetType emissionTarget) {
   if (printIR) {
@@ -939,7 +939,7 @@ void emitOutput(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     emitOutputFiles(outputBaseName, emissionTarget, context, module);
 }
 
-int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+int compileModule(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
   setupModule(module, context, outputBaseName);
 
