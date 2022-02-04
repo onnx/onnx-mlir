@@ -155,16 +155,10 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // Copy the newly computed loop condition to pre-allocated buffer.
       emitCopy(rewriter, loc, bodyOutputs[0], cond);
 
-      // Copy intermediate values of loop carried dependencies to MemRef outside
-      // the iteration scope so next iteration can have use them as init value.
-      auto vIntermediate = llvm::make_range(bodyOutputs.begin() + 1,
-          bodyOutputs.begin() + 1 + loopOpAdapter.v_initial().size());
-      for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
-        emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
-            std::get<1>(vIntermediateToFinal));
-
       // Copy intermediate values of scan outputs to their corresponding slice
       // in the loop scan output tensor.
+      auto vIntermediate = llvm::make_range(bodyOutputs.begin() + 1,
+          bodyOutputs.begin() + 1 + loopOpAdapter.v_initial().size());
       auto scanIntermediate =
           llvm::make_range(vIntermediate.end(), bodyOutputs.end());
       auto scanOutputs = llvm::make_range(
@@ -174,6 +168,12 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         emitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
             std::get<1>(scanIntermediateToFinal),
             /*writePrefix=*/{origIV});
+
+      // Copy intermediate values of loop carried dependencies to MemRef outside
+      // the iteration scope so next iteration can use them as init value.
+      for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
+        emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
+            std::get<1>(vIntermediateToFinal));
 
       // Remove loop body terminator op.
       rewriter.eraseOp(loopBodyTerminator);
