@@ -21,8 +21,6 @@
 using namespace mlir;
 
 // ONNXTyps.cpp.inc is NOT included here, but in ONNXOps.cpp.
-// The reason is that the functions for type print/parse is used
-// in dialect initialization. If included here, compilation warning
-// for unsed symbol will occur.
+// The reason is that the type is used in dialect initialization
 
 // This file is for  utility functions for type definition if there is any.

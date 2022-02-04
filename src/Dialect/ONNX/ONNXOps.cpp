@@ -38,9 +38,8 @@ using namespace mlir::OpTrait::util;
 //===----------------------------------------------------------------------===//
 // Tablegen Type Definitions
 //===----------------------------------------------------------------------===//
-// Explanation: the print/parse function is used in dialect initialization
-// If put the type code in ONNXTypes.cpp, compilation warning of
-// unused symbol
+// Explanation: the type implementation is used in dialect initialization.
+// If ONNXTypes.cpp.inc is included in ONNXTypes.cpp, compilation error occurs.
 #define GET_TYPEDEF_CLASSES
 #include "src/Dialect/ONNX/ONNXTypes.cpp.inc"
 
@@ -60,23 +59,6 @@ void ONNXDialect::initialize() {
 #define GET_TYPEDEF_LIST
 #include "src/Dialect/ONNX/ONNXTypes.cpp.inc"
       >();
-}
-
-Type ONNXDialect::parseType(DialectAsmParser &parser) const {
-  StringRef keyword;
-  if (parser.parseKeyword(&keyword))
-    return Type();
-  Type type;
-  if (generatedTypeParser(parser, keyword, type).hasValue())
-    return type;
-  parser.emitError(parser.getNameLoc(), "invalid 'onnx' type: '")
-      << keyword << "'";
-  return Type();
-}
-
-void ONNXDialect::printType(Type type, DialectAsmPrinter &printer) const {
-  if (failed(generatedTypePrinter(type, printer)))
-    llvm_unreachable("unknown 'onnx' type");
 }
 
 //===----------------------------------------------------------------------===//
