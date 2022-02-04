@@ -63,13 +63,16 @@ public:
     using OMTensorPtr = unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
 
     std::vector<OMTensorPtr> inputOMTs, expectedOutputOMTs;
-    auto inputOMT = OMTensorPtr(omTensorCreate((void *)input.data(), inputShape,
-                                    1 /*rank*/, ONNX_TYPE_INT64),
+    auto inputOMT = OMTensorPtr(
+        omTensorCreate(
+            static_cast<void *>(const_cast<long long *>(input.data())),
+            inputShape, 1 /*rank*/, ONNX_TYPE_INT64),
         omTensorDestroy);
-    auto expectedOutputOMT =
-        OMTensorPtr(omTensorCreate((void *)expectedOutput.data(), inputShape,
-                        1 /*rank*/, ONNX_TYPE_STRING),
-            omTensorDestroy);
+    auto expectedOutputOMT = OMTensorPtr(
+        omTensorCreate(static_cast<void *>(
+                           const_cast<const char **>(expectedOutput.data())),
+            inputShape, 1 /*rank*/, ONNX_TYPE_STRING),
+        omTensorDestroy);
 
     LLVM_DEBUG({
       llvm::dbgs() << "input: ";
