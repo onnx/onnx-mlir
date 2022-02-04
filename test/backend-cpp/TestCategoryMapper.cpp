@@ -54,7 +54,8 @@ public:
     testHelper.createEntryPoint(funcOp);
 
     // Compile the test.
-    if (!testHelper.compileTest(SharedLibBase)) {
+    if (!testHelper.compileTest(
+            SharedLibBase, {{onnx_mlir::OptionKind::CompilerOptLevel, "3"}})) {
       llvm::errs() << "Failed to compile test case\n";
       return false;
     }
@@ -64,8 +65,7 @@ public:
 
     std::vector<OMTensorPtr> inputOMTs, expectedOutputOMTs;
     auto inputOMT = OMTensorPtr(
-        omTensorCreate(
-            static_cast<void *>(const_cast<long long *>(input.data())),
+        omTensorCreate(static_cast<void *>(const_cast<int64_t *>(input.data())),
             inputShape, 1 /*rank*/, ONNX_TYPE_INT64),
         omTensorDestroy);
     auto expectedOutputOMT = OMTensorPtr(
@@ -76,14 +76,15 @@ public:
 
     LLVM_DEBUG({
       llvm::dbgs() << "input: ";
-      int64_t *inputDataPtr = (int64_t *)omTensorGetDataPtr(inputOMT.get());
+      int64_t *inputDataPtr =
+          static_cast<int64_t *>(omTensorGetDataPtr(inputOMT.get()));
       for (int i = 0; i < omTensorGetNumElems(inputOMT.get()); ++i)
         llvm::dbgs() << inputDataPtr[i] << " ";
       llvm::dbgs() << "\n";
 
       llvm::errs() << "expectedOutput: ";
-      const char **outputDataPtr =
-          (const char **)omTensorGetDataPtr(expectedOutputOMT.get());
+      const char **outputDataPtr = static_cast<const char **>(
+          omTensorGetDataPtr(expectedOutputOMT.get()));
       for (int i = 0; i < omTensorGetNumElems(expectedOutputOMT.get()); ++i)
         llvm::dbgs() << outputDataPtr[i] << " ";
       llvm::dbgs() << "\n";

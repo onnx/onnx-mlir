@@ -44,13 +44,14 @@ void TestHelper::createEntryPoint(
   module.push_back(entryPoint);
 }
 
-bool TestHelper::compileTest(const string &sharedLibBase) {
+bool TestHelper::compileTest(
+    const string &sharedLibBase, const CompilerOptionList &compileOptions) {
   assert(!module.getBody()->empty() &&
          "Expecting the module to contain the test code");
   assert(module.verify().succeeded() && "Malformed module");
 
   OwningModuleRef modRef(module);
-  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
+  setCompileContext(ctx, compileOptions);
   return (compileModule(modRef, ctx, sharedLibBase, onnx_mlir::EmitLib) == 0);
 }
 
