@@ -16,6 +16,7 @@
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/ToolOutputFile.h>
+#include <mlir/Dialect/MemRef/Transforms/Passes.h>
 #include <mlir/IR/AsmState.h>
 #include <mlir/IR/Dialect.h>
 #include <mlir/IR/MLIRContext.h>
@@ -106,6 +107,7 @@ int main(int argc, char **argv) {
   registerTransformsPasses();
   registerAffinePasses();
   registerLinalgPasses();
+  memref::registerMemRefPasses();
   registerSCFPasses();
   registerStandardPasses();
 
