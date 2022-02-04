@@ -56,7 +56,8 @@ public:
   void createEntryPoint(FuncOp &funcOp, int numInputs = 1, int numOutputs = 1);
 
   // Compile the module.
-  bool compileTest(const string &sharedLibBase);
+  bool compileTest(
+      const string &sharedLibBase, const CompilerOptionList &compileOptions);
 
   // Run the test and verify the correctness of the result.
   bool runAndVerifyTest(
