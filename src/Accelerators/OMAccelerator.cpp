@@ -12,13 +12,16 @@
 //
 //===----------------------------------------------------------------------===//
 #include <vector>
+#include "src/Accelerators/OMAccelerator.hpp"
 
-namespace mlir {
-class OMAccelerator {
-public:
-  static std::vector<OMAccelerator *> getAcceleratorList();
-  virtual void prepareAccelerator() = 0;
-private:  
-  static std::vector<OMAccelerator *> acceleratorTargets;
-};
-}
+/*namespace mlir {
+    
+std::vector<OMAccelerator *> OMAccelerator::acceleratorTargets();
+
+std::vector<OMAccelerator *> OMAccelerator::getAcceleratorList() {
+    //if (OMAcceleratorTargets == NULL)
+      //OMAcceleratorTargets = new vector<OMAccelerator *>;
+
+    return acceleratorTargets;  
+  }
+}*/

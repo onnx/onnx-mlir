@@ -27,11 +27,11 @@ public:
     std::cout << "initializing NNPA" << std::endl;
     if (!initialized) {
       initialized = true;
-      OMAcceleratorTargets.push_back(this);
+      this->getAcceleratorList().push_back(this);
     }
   };
 
-  void prepareAccelerator() {
+  void prepareAccelerator() override {
     if (acceleratorTarget == "NNPA") {
       std::cout << "Targeting NNPA accelerator";
     }
@@ -39,6 +39,14 @@ public:
 };
 
 bool OMnnpaAccelerator::initialized = false;
-static OMnnpaAccelerator nnpaAccelerator();
+OMnnpaAccelerator nnpaAccelerator();
 
-} // namespace mlir
+std::vector<OMAccelerator *> OMAccelerator::acceleratorTargets;
+
+std::vector<OMAccelerator *> OMAccelerator::getAcceleratorList() {
+    //if (OMAcceleratorTargets == NULL)
+      //OMAcceleratorTargets = new vector<OMAccelerator *>;
+      
+    return acceleratorTargets;  
+  }
+  } // namespace mlir

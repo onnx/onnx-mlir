@@ -942,6 +942,9 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
   // Initialize accelerator if required
   std::cout << "initializing accelerators" << std::endl;
+  std::vector<OMAccelerator *> OMAcceleratorTargets;
+  OMAcceleratorTargets=OMAccelerator::getAcceleratorList();
+  std::cout << "target count is " << OMAcceleratorTargets.size() << std::endl;
   for (auto accel : OMAcceleratorTargets) {
     std::cout << "--" << std::endl;
     accel->prepareAccelerator();

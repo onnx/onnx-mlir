@@ -53,6 +53,10 @@ add_onnx_mlir_library(CompilerUtils
   MC
   )
 
+add_dependencies(CompilerUtils OMNNPAAccel)
+
+
+
 # CompilerUtils does not require cruntime or jniruntime to build, however, they are
 # required for execution when using the EmitLib or EmitJNI options
 add_dependencies(CompilerUtils cruntime)
@@ -68,8 +72,6 @@ endif()
 #     endif ()
 #     endforeach(t)
 # endif( ACCELERATORS_TO_BUILD )
-
-add_dependencies(CompilerUtils OMNNPAAccel)
 
 add_onnx_mlir_library(OnnxMlirCompiler
   OnnxMlirCompiler.cpp
