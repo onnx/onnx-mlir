@@ -12,13 +12,13 @@ add_onnx_mlir_dialect_doc(onnx ONNX.td)
 add_onnx_mlir_rewriter(Rewrite)
 
 add_onnx_mlir_library(OMONNXOps
-  ONNXDialect.cpp
-  ONNXTypes.cpp
-  ONNXOps.cpp
-  ONNXOpsHelper.cpp
   IndexExpr.cpp
   IndexExprDetail.cpp
   MLIRDialectBuilder.cpp
+  ONNXDialect.cpp
+  ONNXOps.cpp
+  ONNXOpsHelper.cpp
+  ONNXTypes.cpp
   Rewrite.cpp
 
   ShapeInference/ArgMax.cpp
