@@ -25,6 +25,7 @@ private:
 
 public:
   OMAbsentAccelerator() {
+    std::cout << "initializing NONE" << std::endl;
     if (!initialized) {
       initialized = true;
       OMAcceleratorTargets.push_back(this);
@@ -39,6 +40,6 @@ public:
 };
 
 bool OMAbsentAccelerator::initialized = false;
-static OMAccelerator absentAccelerator;
+static OMAbsentAccelerator absentAccelerator;
 
 } // namespace mlir

@@ -941,7 +941,9 @@ void emitOutput(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
   // Initialize accelerator if required
+  std::cout << "initializing accelerators" << std::endl;
   for (auto accel : OMAcceleratorTargets) {
+    std::cout << "--" << std::endl;
     accel->prepareAccelerator();
   }
   setupModule(module, context, outputBaseName);

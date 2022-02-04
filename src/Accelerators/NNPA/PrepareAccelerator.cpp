@@ -24,6 +24,7 @@ private:
 
 public:
   OMnnpaAccelerator() {
+    std::cout << "initializing NNPA" << std::endl;
     if (!initialized) {
       initialized = true;
       OMAcceleratorTargets.push_back(this);
@@ -38,6 +39,6 @@ public:
 };
 
 bool OMnnpaAccelerator::initialized = false;
-static OMAccelerator nnpaAccelerator;
+static OMnnpaAccelerator nnpaAccelerator();
 
 } // namespace mlir
