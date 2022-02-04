@@ -20,6 +20,7 @@
 #include "mlir/Target/LLVMIR/Export.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
@@ -307,6 +308,7 @@ void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
 void setTargetArch(const std::string &arch) { march = arch; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }
 void setOptLevel(const OptLevel level) { OptimizationLevel = level; }
+OptLevel getOptLevel() { return OptimizationLevel; }
 
 static void setCompilerKeyValue(const OptionKind key, const string val) {
   switch (key) {
@@ -395,7 +397,7 @@ static std::string getTargetTripleOption() {
 }
 
 static std::string getOptimizationLevelOption() {
-  switch (OptimizationLevel) {
+  switch (getOptLevel()) {
   case OptLevel::O0:
     return "-O0";
   case OptLevel::O1:
@@ -916,7 +918,7 @@ static void addPasses(mlir::OwningModuleRef &module, mlir::PassManager &pm,
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
-      addONNXToKrnlPasses(pm, OptimizationLevel);
+      addONNXToKrnlPasses(pm, getOptLevel());
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }

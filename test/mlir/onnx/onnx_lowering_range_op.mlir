@@ -25,7 +25,7 @@ func @test_range_dynamic_f32(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tens
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
   // CHECK: [[NUM_ELEMS:%.*]] = memref.dim [[RES]], %[[C0_1]] : memref<?xf32>
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[NUM_ELEMS]]) {
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[NUM_ELEMS]]){
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xf32>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][%arg3] : memref<?xf32>
   // CHECK: [[ADD:%.*]] = arith.addf [[LOAD_ACC]], [[DELTA]] : f32
@@ -60,7 +60,7 @@ func @test_range_dynamic_f64(%arg0: tensor<f64>, %arg1: tensor<f64>, %arg2: tens
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
   // CHECK: [[NUM_ELEMS:%.*]] = memref.dim [[RES]], %[[C0_1]] : memref<?xf64>
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[NUM_ELEMS]]) {
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[NUM_ELEMS]]){
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xf64>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][%arg3] : memref<?xf64>
   // CHECK: [[ADD:%.*]] = arith.addf [[LOAD_ACC]], [[DELTA]] : f64
@@ -93,7 +93,7 @@ func @test_range_dynamic_i16(%arg0: tensor<i16>, %arg1: tensor<i16>, %arg2: tens
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
   // CHECK: [[NUM_ELEMS:%.*]] = memref.dim [[RES]], %[[C0_1]] : memref<?xi16>
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[NUM_ELEMS]]) {
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[NUM_ELEMS]]){
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xi16>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][%arg3] : memref<?xi16>
   // CHECK: [[ADD:%.*]] = arith.addi [[LOAD_ACC]], [[DELTA]] : i16
@@ -126,7 +126,7 @@ func @test_range_dynamic_i32(%arg0: tensor<i32>, %arg1: tensor<i32>, %arg2: tens
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
   // CHECK: [[NUM_ELEMS:%.*]] = memref.dim [[RES]], %[[C0_1]] : memref<?xi32>
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[NUM_ELEMS]]) {
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[NUM_ELEMS]]){
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xi32>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][%arg3] : memref<?xi32>
   // CHECK: [[ADD:%.*]] = arith.addi [[LOAD_ACC]], [[DELTA]] : i32
@@ -159,7 +159,7 @@ func @test_range_dynamic_i64(%arg0: tensor<i64>, %arg1: tensor<i64>, %arg2: tens
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
   // CHECK: [[NUM_ELEMS:%.*]] = memref.dim [[RES]], %[[C0_1]] : memref<?xi64>
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[NUM_ELEMS]]) {
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[NUM_ELEMS]]){
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xi64>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][%arg3] : memref<?xi64>
   // CHECK: [[ADD:%.*]] = arith.addi [[LOAD_ACC]], [[DELTA]] : i64
@@ -193,7 +193,7 @@ func @test_range_static_f32() -> tensor<*xf32> {
   // CHECK: %[[C0_0:.*]] = arith.constant 0 : index
   // CHECK: krnl.store [[START]], [[ACC]][%[[C0_0]]] : memref<1xf32>
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg0 = 0 to 9) {
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg0 = 0 to 9){
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xf32>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][%arg0] : memref<9xf32>
   // CHECK: [[ADD:%.*]] = arith.addf [[LOAD_ACC]], [[DELTA]] : f32
@@ -227,7 +227,7 @@ func @test_range_static_f64() -> tensor<*xf64> {
   // CHECK: %[[C0_0:.*]] = arith.constant 0 : index
   // CHECK: krnl.store [[START]], [[ACC]][%[[C0_0]]] : memref<1xf64>
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg0 = 0 to 9) {
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg0 = 0 to 9){
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xf64>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][%arg0] : memref<9xf64>
   // CHECK: [[ADD:%.*]] = arith.addf [[LOAD_ACC]], [[DELTA]] : f64
@@ -261,7 +261,7 @@ func @test_range_static_i16() -> tensor<*xi16> {
   // CHECK: %[[C0_0:.*]] = arith.constant 0 : index
   // CHECK: krnl.store [[START]], [[ACC]][%[[C0_0]]] : memref<1xi16>
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg0 = 0 to 9) {
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg0 = 0 to 9){
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xi16>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][%arg0] : memref<9xi16>
   // CHECK: [[ADD:%.*]] = arith.addi [[LOAD_ACC]], [[DELTA]] : i16
@@ -295,7 +295,7 @@ func @test_range_static_i32() -> tensor<*xi32> {
   // CHECK: %[[C0_0:.*]] = arith.constant 0 : index
   // CHECK: krnl.store [[START]], [[ACC]][%[[C0_0]]] : memref<1xi32>
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg0 = 0 to 9) {
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg0 = 0 to 9){
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xi32>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][%arg0] : memref<9xi32>
   // CHECK: [[ADD:%.*]] = arith.addi [[LOAD_ACC]], [[DELTA]] : i32
@@ -329,7 +329,7 @@ func @test_range_static_i64() -> tensor<*xi64> {
   // CHECK: %[[C0_0:.*]] = arith.constant 0 : index
   // CHECK: krnl.store [[START]], [[ACC]][%[[C0_0]]] : memref<1xi64>
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg0 = 0 to 9) {
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg0 = 0 to 9){
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xi64>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][%arg0] : memref<9xi64>
   // CHECK: [[ADD:%.*]] = arith.addi [[LOAD_ACC]], [[DELTA]] : i64

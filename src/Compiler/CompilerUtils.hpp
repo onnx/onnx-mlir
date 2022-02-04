@@ -39,10 +39,14 @@ extern llvm::cl::opt<std::string> instrumentONNXOps;
 using CompilerOptionList =
     llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
 
+// Setters for command-line options.
 void setTargetCPU(const std::string &cpu);
 void setTargetArch(const std::string &arch);
 void setTargetTriple(const std::string &triple);
 void setOptLevel(const onnx_mlir::OptLevel level);
+// Getters for command-line options.
+onnx_mlir::OptLevel getOptLevel();
+
 // Set compile context according to the (key, value) fields passed.
 void setCompileContext(
     mlir::MLIRContext &context, const CompilerOptionList &options);
