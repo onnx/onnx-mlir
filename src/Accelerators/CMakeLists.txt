@@ -6,4 +6,12 @@ if( ACCELERATORS_TO_BUILD )
     add_subdirectory(${t})
     endforeach(t)
 endif( ACCELERATORS_TO_BUILD )
-  
+
+add_onnx_mlir_library(Accel
+  Accelerator.cpp
+
+  DEPENDS
+
+  LINK_LIBS PUBLIC
+  )
+
