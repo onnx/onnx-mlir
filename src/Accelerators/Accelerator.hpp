@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- OMAccelerator.hpp -------------------------===//
+//===-------------------------- Accelerator.hpp -------------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -11,15 +11,17 @@
 // OMAccelerator base class
 //
 //===----------------------------------------------------------------------===//
+#pragma once
 #include <vector>
 
 namespace mlir {
-class OMAccelerator {
+class Accelerator {
 public:
-  OMAccelerator();
-  static std::vector<OMAccelerator *> *getAcceleratorList();
+  Accelerator();
+  static std::vector<Accelerator *> *getAcceleratorList();
   virtual void prepareAccelerator() = 0;
-private:  
-  static std::vector<OMAccelerator *> *acceleratorTargets;
+
+private:
+  static std::vector<Accelerator *> *acceleratorTargets;
 };
-}
+} // namespace mlir
