@@ -34,21 +34,26 @@
 
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::opt<std::string> instrumentONNXOps;
-using CompilerOptionList =
-    llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
 
 // The following functions are useful for drivers building upon onnx-mlir.
+namespace onnx_mlir {
 struct OMCompilerOptions {
+  using CompilerOptionList =
+      llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
+
+  OMCompilerOptions() {}
   OMCompilerOptions(CompilerOptionList &list);
   int setFromEnv();
   int setFromArgs(int64_t argc, char *argv[]);
   int getUnusedArgs(int64_t &argc, char ***argv);
   int set(const onnx_mlir::OptionKind kind, const char *val);
-  void setAndRegisterCompilerContext(mlir::MLIRContext &context);
+  void registerOptionsAndDialects(mlir::MLIRContext &context);
+  void print(std::string msg);
   // data
-  std::string values[onnx_mlir::OptionKind::LastOptionKind];
+  std::string values[onnx_mlir::OptionKind::LastOptionKind + 1];
   llvm::SmallVector<char *> unusedArgs;
 };
+} // namespace onnx_mlir
 
 // Setters for command-line options.
 void setTargetCPU(const std::string &cpu);
@@ -57,13 +62,6 @@ void setTargetTriple(const std::string &triple);
 void setOptLevel(const onnx_mlir::OptLevel level);
 // Getters for command-line options.
 onnx_mlir::OptLevel getOptLevel();
-
-// Set compile context according to the (key, value) fields passed.
-void setCompileContext(
-    mlir::MLIRContext &context, const CompilerOptionList &options);
-// Set compile context, legacy C array and string representation.
-void setCompileContext(mlir::MLIRContext &context,
-    const onnx_mlir::OptionKind *key, const char **val, const int64_t num);
 
 void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);

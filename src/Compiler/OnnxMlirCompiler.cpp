@@ -12,6 +12,20 @@ ONNX_MLIR_EXPORT OMCompilerOptions *omCreateCompilerOptions() {
   return new OMCompilerOptions;
 }
 
+ONNX_MLIR_EXPORT OMCompilerOptions *omCreateCompilerOptionsAndInitialize(
+    int64_t argc, char *argv[]) {
+  OMCompilerOptions *options = new OMCompilerOptions;
+  // Failed to allocate?
+  if (!options)
+    return nullptr;
+  // Succeed to scan env vars and args?
+  if (options->setFromEnv() == 0 && options->setFromArgs(argc, argv) == 0)
+    return options;
+  // Failed one of the two scans.
+  delete options;
+  return nullptr;
+}
+
 ONNX_MLIR_EXPORT void omDestroyCompilerOptions(OMCompilerOptions *options) {
   if (options)
     delete options;
@@ -31,29 +45,28 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
   return options->setFromArgs(argc, argv);
 }
 
-ONNX_MLIR_EXPORT int64_t omSetCompilerOptions(
-    OMCompilerOptions *options, const OptionKind kind, const char *val) {
-  if (!options)
-    return 1;
-  return options->set(kind, val)
-}
-
 ONNX_MLIR_EXPORT int64_t omGetUnusedCompilerOptionsArgs(
-    OMCompilerOptions *options, int64_t *argc, char ***argv)
-    {
+    OMCompilerOptions *options, int64_t *argc, char ***argv) {
   if (!options)
     return 1;
   return options->getUnusedArgs(*argc, argv);
 }
 
+ONNX_MLIR_EXPORT int64_t omSetCompilerOptions(
+    OMCompilerOptions *options, const OptionKind kind, const char *val) {
+  if (!options)
+    return 1;
+  return options->set(kind, val);
+}
 
-ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
+ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const OMCompilerOptions *options, const char **errorMessage) {
+    OMCompilerOptions *options, const char **errorMessage) {
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
 
-  if (options) options->setCompileContext(context);
+  if (options)
+    options->registerOptionsAndDialects(context);
   std::string error_message;
   processInputFile(std::string(inputFilename), context, module, &error_message);
   if (errorMessage != NULL) {
@@ -63,13 +76,14 @@ ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
   return compileModule(module, context, outputBaseName, emissionTarget);
 }
 
-ONNX_MLIR_EXPORT int omCompileFromArray(const void *inputBuffer, int bufferSize,
-    const char *outputBaseName, EmissionTargetType emissionTarget,
-    const OMCompilerOptions *options) {
+ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
+    int bufferSize, const char *outputBaseName,
+    EmissionTargetType emissionTarget, OMCompilerOptions *options) {
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
 
-  if (options) options->setCompileContext(context);
+  if (options)
+    options->registerOptionsAndDialects(context);
   processInputArray(inputBuffer, bufferSize, context, module);
   return compileModule(module, context, outputBaseName, emissionTarget);
 }

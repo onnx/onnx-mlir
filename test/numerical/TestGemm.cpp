@@ -67,9 +67,10 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
       (bTrans ? ", bTrans" : ""), cRank, (double)alphaVal, (double)betaVal);
 
   SmallVector<int64_t, 2> aShape, bShape, cShape;
+  OMCompilerOptions options({{OptionKind::CompilerOptLevel, "3"}});
   if (!genGemmAndCompileModel(
           /*compiler options */
-          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(), options,
           /* GEMM param in*/
           I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal,
           /* GEMM param out*/

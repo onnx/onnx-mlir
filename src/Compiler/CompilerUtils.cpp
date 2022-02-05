@@ -20,6 +20,7 @@
 #include "mlir/Target/LLVMIR/Export.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SourceMgr.h"
@@ -30,6 +31,8 @@
 #include "ExternalUtil.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Support/OMOptions.hpp"
+
+#define DEBUG_TYPE "compiler_utils"
 
 using namespace std;
 using namespace mlir;
@@ -310,49 +313,12 @@ void setTargetTriple(const std::string &triple) { mtriple = triple; }
 void setOptLevel(const OptLevel level) { OptimizationLevel = level; }
 OptLevel getOptLevel() { return OptimizationLevel; }
 
-static void setCompilerKeyValue(const OptionKind key, const string val) {
-  switch (key) {
-  case OptionKind::TargetTriple:
-    setTargetTriple(val);
-    return;
-  case OptionKind::TargetArch:
-    setTargetArch(val);
-    return;
-  case OptionKind::TargetCPU:
-    setTargetCPU(val);
-    return;
-  case OptionKind::CompilerOptLevel:
-    int level = atoi(val.c_str());
-    assert(level >= 0 && level <= 3 && "expected an OptLevel in [0..3] range");
-    setOptLevel((OptLevel)level);
-    return;
-  }
-  // In case there are options that were added but are unknown here, just ignore
-  // them.
-}
-
-// Set compiler context using a list of key/value pairs.
-void setCompileContext(
-    mlir::MLIRContext &context, const CompilerOptionList &options) {
-  for (const auto &pair : options)
-    setCompilerKeyValue(pair.first, pair.second);
-  registerDialects(context);
-}
-
-// Set compiler context for legacy C interface.
-void setCompileContext(mlir::MLIRContext &context, const OptionKind *key,
-    const char **val, const int64_t num) {
-  assert((!num || (key && val)) && "expected key and val defined for options");
-  for (int64_t i = 0; i < num; ++i) {
-    assert(val[i] && "expected value for option");
-    setCompilerKeyValue(key[i], string(val[i]));
-  }
-  registerDialects(context);
-}
+// Methods for OMCompilerOptions
 
 OMCompilerOptions::OMCompilerOptions(CompilerOptionList &list) {
   for (const auto &pair : list)
     values[pair.first] = pair.second;
+  LLVM_DEBUG(print("after set from list"));
 }
 
 int OMCompilerOptions::setFromEnv() {
@@ -368,6 +334,7 @@ int OMCompilerOptions::setFromEnv() {
     // Check val to be 0 to 3 inclusively
     values[OptionKind::CompilerOptLevel] = string(val);
   }
+  LLVM_DEBUG(print("after set from env vars"));
   return 0;
 }
 
@@ -379,11 +346,11 @@ int OMCompilerOptions::setFromArgs(int64_t argc, char *argv[]) {
     string val(argv[i]);
     // Check known compiler options, and override value when new value found.
     if (val.find("--mtriple=") == 0)
-      values[OptionKind::TargetTriple] = val.substr(sizeof("--mtriple="));
+      values[OptionKind::TargetTriple] = val.substr(sizeof("--mtriple=") - 1);
     else if (val.find("--march=") == 0)
-      values[OptionKind::TargetArch] = val.substr(sizeof("--march="));
+      values[OptionKind::TargetArch] = val.substr(sizeof("--march=") - 1);
     else if (val.find("--mcpu=") == 0)
-      values[OptionKind::TargetCPU] = val.substr(sizeof("--mcpu="));
+      values[OptionKind::TargetCPU] = val.substr(sizeof("--mcpu=") - 1);
     else if (val.find("-O0") == 0)
       values[OptionKind::CompilerOptLevel] = "0";
     else if (val.find("-O1") == 0)
@@ -395,6 +362,7 @@ int OMCompilerOptions::setFromArgs(int64_t argc, char *argv[]) {
     else
       unusedArgs.emplace_back(argv[i]);
   }
+  LLVM_DEBUG(print("after set from args"));
   return 0;
 }
 
@@ -418,11 +386,13 @@ int OMCompilerOptions::getUnusedArgs(int64_t &argc, char ***argv) {
 
 int OMCompilerOptions::set(const OptionKind kind, const char *val) {
   values[kind] = string(val);
+  LLVM_DEBUG(print("after setting one"));
   return 0;
 }
 
-void OMCompilerOptions::setAndRegisterCompilerContext(
+void OMCompilerOptions::registerOptionsAndDialects(
     mlir::MLIRContext &context) {
+  LLVM_DEBUG(print("when registering"));
   if (!values[OptionKind::TargetTriple].empty())
     setTargetTriple(values[OptionKind::TargetTriple]);
   if (!values[OptionKind::TargetArch].empty())
@@ -435,6 +405,24 @@ void OMCompilerOptions::setAndRegisterCompilerContext(
     setOptLevel((OptLevel)level);
   }
   registerDialects(context);
+}
+
+void OMCompilerOptions::print(std::string msg) {
+  LLVM_DEBUG({
+    llvm::dbgs() << DEBUG_TYPE << "Print compiler options " << msg << "\n";
+    llvm::dbgs() << DEBUG_TYPE << "  triple: \""
+                 << values[OptionKind::TargetTriple] << "\""
+                 << "\n";
+    llvm::dbgs() << DEBUG_TYPE << "  arch: \"" << values[OptionKind::TargetArch]
+                 << "\""
+                 << "\n";
+    llvm::dbgs() << DEBUG_TYPE << "  cpu: \"" << values[OptionKind::TargetArch]
+                 << "\""
+                 << "\n";
+    llvm::dbgs() << DEBUG_TYPE << "  opt: \""
+                 << values[OptionKind::CompilerOptLevel] << "\""
+                 << "\n";
+  });
 }
 
 void loadMLIR(string inputFilename, mlir::MLIRContext &context,

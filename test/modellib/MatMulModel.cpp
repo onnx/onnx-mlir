@@ -29,12 +29,12 @@ using namespace onnx_mlir;
 
 bool genMatMul2DModelAndCompile(
     /* compile option */
-    const string &modelName, const CompilerOptionList &options,
+    const string &modelName, OMCompilerOptions &options,
     /* conv param in*/
     const int I, const int J, const int K) {
 
   MLIRContext ctx;
-  setCompileContext(ctx, options);
+  options.registerOptionsAndDialects(ctx);
 
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);

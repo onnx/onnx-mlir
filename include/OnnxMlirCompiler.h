@@ -56,8 +56,19 @@ typedef struct OMCompilerOptions OMCompilerOptions;
  * @return a pointer to the compiler option datastructure, null in clase
  * of error.
  */
-
 ONNX_MLIR_EXPORT OMCompilerOptions *omCreateCompilerOptions();
+
+/*! 
+ *  Create the data structure, set using the environment variables, 
+ *  and the overwrite the argc/argv paramters. 
+ *  @param argc Number of input parameters in argv.
+ *  @param argv Array of strings, some of which may be compiler options.
+ *  First argv is ignore as it is the name of the program.
+ *  @return a pointer to the initialized compiler option datastructure,
+ *  null if there were any errors.
+ */
+ONNX_MLIR_EXPORT OMCompilerOptions *omCreateCompilerOptionsAndInitialize(
+    int64_t argc, char *argv[]);
 
 /*!
  *  Destoy a list of compiler options.
@@ -87,10 +98,17 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
     OMCompilerOptions *options, int64_t argc, char *argv[]);
 
+/*! After having read the argc/argv parameters using the 
+ *  omSetCompilerOptionsFromArgs call, the unused argv paramters can
+ *  be extracted using this call.
+ *  @param argc Number of input parameters in argv.
+ *  @param argv Array of strings that are not compiler options.
+ *  @return 0 on success or non-zero error code on failure.
+ */
 ONNX_MLIR_EXPORT int64_t omGetUnusedCompilerOptionsArgs(
     OMCompilerOptions *options, int64_t *argc, char ***argv);
 
-/*! 
+/*!  
  *  Overwrite the given set of compiler options with the options defined
  *  by input parameters. Values not recoginzed as compiler options
  *  are simply ignored.
@@ -114,7 +132,7 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptions(OMCompilerOptions *options,
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const OMCompilerOptions *options, const char **errorMessage);
+    OMCompilerOptions *options, const char **errorMessage);
 
 /*!
  *  Compile an onnx model from an ONNX protobuf array.
@@ -125,9 +143,9 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
  *  @param options List of compiler options.
  *  @return 0 on success or non-zero error code on failure
  */
-ONNX_MLIR_EXPORT int omCompileFromArray(const void *inputBuffer, int bufferSize,
+ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer, int bufferSize,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const OMCompilerOptions *options);
+    OMCompilerOptions *options);
 
 #ifdef __cplusplus
 } // namespace onnx_mlir
