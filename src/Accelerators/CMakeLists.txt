@@ -7,8 +7,11 @@ if( ACCELERATORS_TO_BUILD )
     endforeach(t)
 endif( ACCELERATORS_TO_BUILD )
 
-add_onnx_mlir_library(Accel
-  Accelerator.cpp
+
+
+
+  add_onnx_mlir_library(NoAccel
+  NoAccelerator.cpp
 
   DEPENDS
 

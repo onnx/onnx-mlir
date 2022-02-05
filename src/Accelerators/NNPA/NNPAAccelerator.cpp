@@ -39,29 +39,3 @@ bool NNPAAccelerator::initialized = false;
 NNPAAccelerator nnpaAccelerator;
 
 } // namespace mlir
-  /*namespace mlir {
-  class OMnnpaAccelerator : public OMAccelerator {
-  private:
-    static bool initialized;
-  
-  public:
-    OMnnpaAccelerator() {
-      std::cout << "initializing NNPA" << std::endl;
-      if (!initialized) {
-        initialized = true;
-        getAcceleratorList().push_back(this);
-      }
-    };
-  
-    void prepareAccelerator() override {
-      if (acceleratorTarget == "NNPA") {
-        std::cout << "Targeting NNPA accelerator";
-      }
-    };
-  };
-  
-  bool OMnnpaAccelerator::initialized = false;
-  OMnnpaAccelerator nnpaAccelerator();
-  
-  } // namespace mlir
-  */
