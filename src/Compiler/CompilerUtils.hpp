@@ -41,11 +41,13 @@ using CompilerOptionList =
 struct OMCompilerOptions {
   OMCompilerOptions(CompilerOptionList &list);
   int setFromEnv();
-  int setFromArgs(const int64_t argc, const char *argv[]);
+  int setFromArgs(int64_t argc, char *argv[]);
+  int getUnusedArgs(int64_t &argc, char ***argv);
   int set(const onnx_mlir::OptionKind kind, const char *val);
   void setAndRegisterCompilerContext(mlir::MLIRContext &context);
   // data
   std::string values[onnx_mlir::OptionKind::LastOptionKind];
+  llvm::SmallVector<char *> unusedArgs;
 };
 
 // Setters for command-line options.

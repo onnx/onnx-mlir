@@ -81,10 +81,14 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(
  *  @param options List to be overwridden by environment variable values.
  *  @param argc Number of input parameters in argv.
  *  @param argv Array of strings, some of which may be compiler options.
+ *  First argv is ignore as it is the name of the program.
  *  @return 0 on success or non-zero error code on failure.
  */
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
-    OMCompilerOptions *options, const int64_t argc, const char *argv[]);
+    OMCompilerOptions *options, int64_t argc, char *argv[]);
+
+ONNX_MLIR_EXPORT int64_t omGetUnusedCompilerOptionsArgs(
+    OMCompilerOptions *options, int64_t *argc, char ***argv);
 
 /*! 
  *  Overwrite the given set of compiler options with the options defined

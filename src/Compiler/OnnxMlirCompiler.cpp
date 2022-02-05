@@ -9,7 +9,7 @@ extern "C" {
 namespace onnx_mlir {
 
 ONNX_MLIR_EXPORT OMCompilerOptions *omCreateCompilerOptions() {
-  return new OMCompilerOptions();
+  return new OMCompilerOptions;
 }
 
 ONNX_MLIR_EXPORT void omDestroyCompilerOptions(OMCompilerOptions *options) {
@@ -25,7 +25,7 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
-    OMCompilerOptions *options, const int64_t argc, const char *argv[]) {
+    OMCompilerOptions *options, int64_t argc, char *argv[]) {
   if (!options)
     return 1;
   return options->setFromArgs(argc, argv);
@@ -37,6 +37,15 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptions(
     return 1;
   return options->set(kind, val)
 }
+
+ONNX_MLIR_EXPORT int64_t omGetUnusedCompilerOptionsArgs(
+    OMCompilerOptions *options, int64_t *argc, char ***argv)
+    {
+  if (!options)
+    return 1;
+  return options->getUnusedArgs(*argc, argv);
+}
+
 
 ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,

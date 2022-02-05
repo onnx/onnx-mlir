@@ -58,6 +58,7 @@ int main(int argc, char *argv[]) {
     outputBaseName = testFileName.substr(0, testFileName.find_last_of("."));
   }
 
+  
   // Build list of compiler option.
   OptionKind optionKey[4];
   const char *optionVal[4];
@@ -95,11 +96,17 @@ int main(int argc, char *argv[]) {
     optionNum++;
   }
 
+
+  OMCompilerOptions *optList = omCreateCompilerOptions();
+  int rc = omSetCompilerOptionsFromArgs(optList, argc, argv);
+
   int retVal = 0;
   if (compileFromFile) {
     const char *errorMessage = NULL;
+    //retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
+    //    onnx_mlir::EmitLib, optionKey, optionVal, optionNum, &errorMessage);
     retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
-        onnx_mlir::EmitLib, optionKey, optionVal, optionNum, &errorMessage);
+        onnx_mlir::EmitLib, optList, &errorMessage);
     if (errorMessage != NULL) {
       std::cerr << errorMessage;
       retVal = 0xf;

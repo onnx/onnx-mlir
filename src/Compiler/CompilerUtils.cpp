@@ -371,26 +371,48 @@ int OMCompilerOptions::setFromEnv() {
   return 0;
 }
 
-int OMCompilerOptions::setFromArgs(const int64_t argc, const char *argv[]) {
-  for (int i = 0; i < argc; ++i) {
+int OMCompilerOptions::setFromArgs(int64_t argc, char *argv[]) {
+  // First arg (name of the program) is by definition unused.
+  unusedArgs.clear();
+  unusedArgs.emplace_back(argv[0]);
+  for (int i = 1; i < argc; ++i) {
     string val(argv[i]);
     // Check known compiler options, and override value when new value found.
     if (val.find("--mtriple=") == 0)
-      values[OptionKind::TargetTriple] =
-          val.substr(sizeof("--mtriple="));
+      values[OptionKind::TargetTriple] = val.substr(sizeof("--mtriple="));
     else if (val.find("--march=") == 0)
       values[OptionKind::TargetArch] = val.substr(sizeof("--march="));
     else if (val.find("--mcpu=") == 0)
       values[OptionKind::TargetCPU] = val.substr(sizeof("--mcpu="));
     else if (val.find("-O0") == 0)
-      values [OptionKind::CompilerOptLevel] = "0";
+      values[OptionKind::CompilerOptLevel] = "0";
     else if (val.find("-O1") == 0)
-      values [OptionKind::CompilerOptLevel] = "1";
+      values[OptionKind::CompilerOptLevel] = "1";
     else if (val.find("-O2") == 0)
-      values [OptionKind::CompilerOptLevel] = "2";
+      values[OptionKind::CompilerOptLevel] = "2";
     else if (val.find("-O3") == 0)
-      values [OptionKind::CompilerOptLevel] = "3";
+      values[OptionKind::CompilerOptLevel] = "3";
+    else
+      unusedArgs.emplace_back(argv[i]);
   }
+  return 0;
+}
+
+int OMCompilerOptions::getUnusedArgs(int64_t &argc, char ***argv) {
+  argc = 0;
+  if (!argv)
+    return 1;
+  // Scaning args save the first unused parameters. If size is zero, this means
+  // we never scanned the var args to begin with.
+  if (unusedArgs.size() == 0)
+    return 2;
+  argc = unusedArgs.size();
+  char **myArgv = (char **)malloc(sizeof(char *) * argc);
+  if (!myArgv)
+    return 3;
+  for (int i = 0; i < argc; ++i)
+    myArgv[i] = unusedArgs[i];
+  *argv = myArgv;
   return 0;
 }
 
