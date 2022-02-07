@@ -208,8 +208,9 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       Value inputDim = dataBounds.getDim(i).getValue();
       Value lessThanDim = rewriter.create<arith::CmpIOp>(
           loc, arith::CmpIPredicate::ult, inIndexLBPadded, inputDim);
+      Value inputDimMinus = rewriter.create<arith::SubIOp>(loc, inputDim, one);
       Value inIndexPadded = rewriter.create<SelectOp>(loc, lessThanDim,
-          inIndexLBPadded, rewriter.create<arith::SubIOp>(loc, inputDim, one));
+          inIndexLBPadded, inputDimMinus);
 
       readIndices.emplace_back(inIndexPadded);
       writeIndices.emplace_back(outIndex);
