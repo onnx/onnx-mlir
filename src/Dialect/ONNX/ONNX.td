@@ -24,7 +24,7 @@ include "src/Interface/HasOnnxSubgraphOpInterface.td"
 // Definition for rewrite rules for onnx dialect
 // Can be used in other table gen files (.td) for onnx dialect
 
-def StringType : Type<CPred<"$_self.isa<StringType>()">, "string type">;
+def StringType : Type<CPred<"$_self.isa<ONNXStringType>()">, "string type">;
 
 def IsSeqTypePred : CPred<"$_self.isa<SeqType>()">;
 
@@ -202,6 +202,54 @@ def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceM
       return {20};
     }
   }];
+}
+
+class ONNX_Type<string name, string typeMnemonic,
+                string baseCppClass = "::mlir::Type">
+    : TypeDef<ONNX_Dialect, name, [], baseCppClass> {
+  let mnemonic = typeMnemonic;
+}
+
+def ONNX_StringType : ONNX_Type<"ONNXString", "String"> {
+  let summary = " ONNX StringType";
+  let description = [{
+    An array of characters.
+  }];
+}
+
+def ONNX_SeqType : ONNX_Type<"Seq", "Seq"> {
+  let summary = " ONNX SeqType";
+  let description = [{
+    An list of tensors which may have different shape
+  }];
+  let parameters = (ins "::mlir::ShapedType":$ElementType, "int64_t":$Length);
+
+  // Previous implementation did not print/parse the length field
+  // May add the field in future
+  let printer = [{
+    $_printer << "<" << getImpl()->ElementType << ">";
+  }];
+  let parser = [{
+    if (parser.parseLess())
+      return Type();
+    Type elementType;
+    if ($_parser.parseType(elementType))
+      return Type();
+    if ($_parser.parseGreater())
+      return Type();
+    if (!elementType.isa<ShapedType>()) 
+      return Type();
+    else {
+      ShapedType ty = elementType.cast<ShapedType>();
+      return get($_ctxt, ty, -1);
+    }
+  }];
+  let builders = [
+    TypeBuilderWithInferredContext<(ins "::mlir::ShapedType":$elementType,
+                                        "int64_t":$length), [{
+      return Base::get(elementType.getContext(), elementType, length);
+    }]>
+  ];
 }
 
 #endif // ONNX_OPS

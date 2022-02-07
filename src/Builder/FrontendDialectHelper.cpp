@@ -271,7 +271,7 @@ mlir::Type convertONNXTypeToMLIRType(
   case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
     return builder_.getI1Type();
   case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
-    return mlir::onnxmlir::StringType::get(builder_.getContext());
+    return mlir::ONNXStringType::get(builder_.getContext());
 
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
