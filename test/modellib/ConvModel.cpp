@@ -37,7 +37,7 @@ const string getAutoPadName(const int autoPad) {
 
 bool genConv2DModelAndCompile(
     /* compile option */
-    const string &modelName, 
+    const string &modelName,
     /* conv param in*/
     const int N, const int C, const int H, const int W, const int kH,
     const int kW, const int autoPad, const int pHBegin, const int pHEnd,

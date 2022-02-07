@@ -37,7 +37,7 @@ enum OptLevel {
 
 /* Compiler options to describe the architecture, optimization level,... */
 enum OptionKind {
-  TargetTriple = 0, /* Kind for mtriple string. */
+  TargetTriple,     /* Kind for mtriple string. */
   TargetArch,       /* Kind for march string. */
   TargetCPU,        /* Kind for mcpu string. */
   CompilerOptLevel, /* Kind for '0'...'3' string describing OptLevel. */
@@ -46,11 +46,11 @@ enum OptionKind {
 
 //#ifdef _cplusplus
 } /* namespace onnx_mlir */
-//#else 
+//#else
 //typedef enum EmissionTargetType EmissionTargetType;
 //typedef enum InputIRLevelType InputIRLevelType;
 //typedef enum OptLevel OptLevel;
 //typedef enum OptionKind OptionKind;
-//#endif 
+//#endif
 
 #endif

@@ -31,7 +31,7 @@ using namespace onnx_mlir;
 
 bool genGRUModelAndCompile(
     /* compile option */
-    const string &modelName, 
+    const string &modelName,
     /* GRU param in*/
     const int direction, const int S, const int B, const int I, const int H,
     const int LinearBeforeReset, const bool isDynamicS, const bool isDynamicB,

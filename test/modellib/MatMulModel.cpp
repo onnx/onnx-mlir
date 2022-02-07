@@ -29,7 +29,7 @@ using namespace onnx_mlir;
 
 bool genMatMul2DModelAndCompile(
     /* compile option */
-    const string &modelName, 
+    const string &modelName,
     /* conv param in*/
     const int I, const int J, const int K) {
 

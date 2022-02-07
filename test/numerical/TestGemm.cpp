@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
       argc, argv, "TestGEMM\n", nullptr, "TEST_ARGS");
   cout << "Opt Level is " << getCompilerOption(OptionKind::CompilerOptLevel)
        << endl;
-       
+
   if (true) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Gemm implementation correctness", []() {

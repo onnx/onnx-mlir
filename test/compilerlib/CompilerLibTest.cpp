@@ -16,17 +16,17 @@ bool compileFromFile = false;
 
 #define IGNORE_ARG(FLAG)                                                       \
   if (arg.find(FLAG) == 0) {                                                   \
-    return false;                                                                    \
+    return false;                                                              \
   }
 #define PARSE_ARG(NAME, FLAG)                                                  \
   if (arg.find(FLAG) == 0) {                                                   \
     NAME = arg.substr(sizeof(FLAG));                                           \
-    return true;                                                                    \
+    return true;                                                               \
   }
 #define PARSE_FLAG(NAME, FLAG)                                                 \
   if (arg.find(FLAG) == 0) {                                                   \
     NAME = true;                                                               \
-    return true;                                                                    \
+    return true;                                                               \
   }
 
 // Return 1 if arg used, 0 if unused.
@@ -39,7 +39,7 @@ bool readArg(const std::string &arg) {
 }
 
 // Read the arguments used by this program, and leave in argc/argv
-// the unused arguments, which may then be processed by the 
+// the unused arguments, which may then be processed by the
 // ONNX-MLIR compiler.
 void readCommandLineAndKeepUnused(int &argc, char *argv[]) {
   int num = argc;
@@ -47,7 +47,7 @@ void readCommandLineAndKeepUnused(int &argc, char *argv[]) {
   argv[argc++] = argv[0]; // Keep program name.
   for (int i = 1; i < num; ++i) {
     if (!readArg(std::string(argv[i]))) {
-       argv[argc++] = argv[i];
+      argv[argc++] = argv[i];
     }
   }
 }
