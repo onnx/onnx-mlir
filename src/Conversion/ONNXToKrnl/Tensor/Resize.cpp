@@ -39,10 +39,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     // Check implementation constraints
     if (resizeOp.mode() != "nearest" ||
         (resizeOp.coordinate_transformation_mode() != "asymmetric" &&
-            resizeOp.coordinate_transformation_mode() != "half_pixel") ||
-        (resizeOp.nearest_mode() != "floor" &&
-            resizeOp.nearest_mode() != "ceil" &&
-            resizeOp.nearest_mode() != "round_prefer_floor"))
+            resizeOp.coordinate_transformation_mode() != "half_pixel"))
       return emitError(loc, "not implemented yet");
 
     SmallVector<Value, 4> scaleValues;
@@ -166,8 +163,6 @@ struct ONNXResizeOpLowering : public ConversionPattern {
 
       // Handle coordinate transformation
       if (resizeOp.coordinate_transformation_mode() == "asymmetric") {
-        // FPToSIOp is round-to-zero, same as floor for positive
-        // round_prefer_floor will round 2.5 to 2, not 3
         inIndexFloat =
             rewriter.create<arith::DivFOp>(loc, outIndexFloat, scaleValues[i]);
       } else if (resizeOp.coordinate_transformation_mode() == "half_pixel") {
@@ -189,29 +184,39 @@ struct ONNXResizeOpLowering : public ConversionPattern {
             emitConstantOp(rewriter, loc, rewriter.getF32Type(), 0.499999);
         inIndexFloat =
             rewriter.create<arith::AddFOp>(loc, inIndexFloat, deltaConstant);
+      } else if (resizeOp.nearest_mode() == "round_prefer_ceil") {
+        Value deltaConstant =
+            emitConstantOp(rewriter, loc, rewriter.getF32Type(), 0.5);
+        inIndexFloat =
+            rewriter.create<arith::AddFOp>(loc, inIndexFloat, deltaConstant);
       } else if (resizeOp.nearest_mode() == "floor") {
         inIndexFloat = rewriter.create<math::FloorOp>(loc, inIndexFloat);
       } else if (resizeOp.nearest_mode() == "ceil") {
         inIndexFloat = rewriter.create<math::CeilOp>(loc, inIndexFloat);
       }
+
+      // FPToSIOp is round-to-zero, same as floor for positive
+      // round_prefer_floor will round 2.5 to 2, not 3
       Value inIndexInteger = rewriter.create<arith::FPToSIOp>(
           loc, rewriter.getIntegerType(64), inIndexFloat);
 
       // When the index is out of bound, use the boundary index.
-      // This is equivalent to np.pad with mode = "edge" 
+      // This is equivalent to np.pad with mode = "edge"
 
       // Compare with integer type because The lower bound may be less than zeor
       Value lessThanZero = rewriter.create<arith::CmpIOp>(
-          loc, arith::CmpIPredicate::slt, inIndexInteger, zero); 
-      Value inIndexLBPadded = rewriter.create<SelectOp>(loc, lessThanZero, zero, inIndexInteger);
+          loc, arith::CmpIPredicate::slt, inIndexInteger, zero);
+      Value inIndexLBPadded =
+          rewriter.create<SelectOp>(loc, lessThanZero, zero, inIndexInteger);
 
       // Upper bound comparison can be done with Index type
       inIndexLBPadded = rewriter.create<arith::IndexCastOp>(
           loc, rewriter.getIndexType(), inIndexLBPadded);
       Value inputDim = dataBounds.getDim(i).getValue();
       Value lessThanDim = rewriter.create<arith::CmpIOp>(
-          loc, arith::CmpIPredicate::ult, inIndexLBPadded, inputDim); 
-      Value inIndexPadded = rewriter.create<SelectOp>(loc, lessThanDim, inIndexLBPadded, rewriter.create<arith::SubIOp>(loc, inputDim, one));
+          loc, arith::CmpIPredicate::ult, inIndexLBPadded, inputDim);
+      Value inIndexPadded = rewriter.create<SelectOp>(loc, lessThanDim,
+          inIndexLBPadded, rewriter.create<arith::SubIOp>(loc, inputDim, one));
 
       readIndices.emplace_back(inIndexPadded);
       writeIndices.emplace_back(outIndex);
