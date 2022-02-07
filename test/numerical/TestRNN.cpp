@@ -47,8 +47,7 @@ bool isOMRNNTheSameAsNaiveImplFor(const int direction, const int S, const int B,
           D, xShape, hShape, wOmt, rOmt, bOmt))
     return false;
 
-  onnx_mlir::ExecutionSession sess(
-      getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
+  onnx_mlir::ExecutionSession sess(getSharedLibName(SHARED_LIB_BASE.str()));
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto xOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(

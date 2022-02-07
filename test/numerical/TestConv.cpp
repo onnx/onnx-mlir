@@ -141,8 +141,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
           /*output conv param*/ NOut, COut, HOut, WOut))
     return false;
 
-  onnx_mlir::ExecutionSession sess(
-      getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
+  onnx_mlir::ExecutionSession sess(getSharedLibName(SHARED_LIB_BASE.str()));
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto xOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(

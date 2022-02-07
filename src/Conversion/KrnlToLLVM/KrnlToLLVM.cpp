@@ -1172,10 +1172,12 @@ public:
     auto int64Ty = IntegerType::get(context, 64);
 
     // create a global constant to hold the entry point function name.
+    std::string terminatedEntryPointName = dynEntryPointName.str();
+    terminatedEntryPointName.push_back('\0'); // null to terminate the string.
     mlir::StringAttr entryPointFuncNameAttr =
-        mlir::StringAttr::get(context, dynEntryPointName);
+        mlir::StringAttr::get(context, terminatedEntryPointName);
     LLVM::LLVMArrayType entryPointArrayType = LLVM::LLVMArrayType::get(
-        IntegerType::get(context, 8), dynEntryPointName.str().size());
+        IntegerType::get(context, 8), terminatedEntryPointName.size());
     LLVM::GlobalOp entryPoint =
         rewriter.create<LLVM::GlobalOp>(loc, entryPointArrayType,
             /*isConstant=*/true, LLVM::Linkage::External, "_entry_point",
