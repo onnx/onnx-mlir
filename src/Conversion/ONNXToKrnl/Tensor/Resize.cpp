@@ -88,14 +88,6 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       }
     }
 
-    // Keep the code using IndexExpr for bug fixing
-    // ArrayValueIndexCapture scaleIEs(op, scales,
-    // getDenseElementAttributeFromKrnlValue,
-    // loadDenseElementArrayValueAtIndex); for (decltype(rank) i = 0; i < rank;
-    // i++) {
-    //  scaleValues.emplace_back(scaleIEs.getSymbol(i).getValue());
-    // }
-
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else if (fromScale) {
@@ -145,9 +137,8 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     outputLoops.createDefineAndIterateOp(alloc);
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
-    // Constant used in loop body
+    // Constants used in the loop body
     Value zero = emitConstantOp(rewriter, loc, rewriter.getIntegerType(64), 0);
-    Value zeroIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
     Value one = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
 
     // Loop body
@@ -193,6 +184,8 @@ struct ONNXResizeOpLowering : public ConversionPattern {
         inIndexFloat = rewriter.create<math::FloorOp>(loc, inIndexFloat);
       } else if (resizeOp.nearest_mode() == "ceil") {
         inIndexFloat = rewriter.create<math::CeilOp>(loc, inIndexFloat);
+      } else {
+        llvm_unreachable("Unexpected nearest_mode() for ResizeOp");
       }
 
       // FPToSIOp is round-to-zero, same as floor for positive
@@ -203,7 +196,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       // When the index is out of bound, use the boundary index.
       // This is equivalent to np.pad with mode = "edge"
 
-      // Compare with integer type because The lower bound may be less than zeor
+      // Compare with integer type because lower bound may be negative
       Value lessThanZero = rewriter.create<arith::CmpIOp>(
           loc, arith::CmpIPredicate::slt, inIndexInteger, zero);
       Value inIndexLBPadded =
