@@ -373,26 +373,23 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                   selectedBox.emplace_back(x);
                 }
 
-                // Compute the position to store the selected box.
-                // out_index = b * batch_size + c * max_output_per_class +
-                //             effective_max_output_per_class;
-                DimIndexExpr bIE(b), cIE(c), bsIE(bs);
-                DimIndexExpr MOPCIE(MOPC), effectiveMOPCIE(currentMOPC);
-                IndexExpr soIE = bIE * bsIE + cIE * MOPCIE + effectiveMOPCIE;
-
                 // Store the index of the selected box to the output.
+                // out_index = effective_num_selected_indices
                 // selected_indices[out_index] = [b, c, selected_box_index]
-                Value soVal = soIE.getValue();
+                Value soVal = createKrnl.load(effectiveNumSelectedIndices, {});
                 createKrnl.store(b, selectedMemRef, {soVal, zero});
                 createKrnl.store(c, selectedMemRef, {soVal, one});
                 createKrnl.store(selectedBI, selectedMemRef, {soVal, two});
 
                 // Update the number of output boxes per class.
                 // effective_max_output_per_class += 1
-                IndexExpr newEffectiveMOPCIE =
-                    effectiveMOPCIE + LiteralIndexExpr(1);
-                createKrnl.store(newEffectiveMOPCIE.getValue(),
+                createKrnl.store(createMath.add(currentMOPC, one),
                     effectiveMaxOutputPerClass, {});
+
+                // Update the effective number of seleted indices.
+                // effective_num_selected_indices += 1
+                createKrnl.store(createMath.add(soVal, one),
+                    effectiveNumSelectedIndices, {});
 
                 // Remove boxes overlapped too much with the selected box,
                 // using IOU.
@@ -422,8 +419,8 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                       Value iou = emitIOU(
                           createMath, selectedBox, otherBox, centerPointBox);
 
-                      // Only proceed if IOU > iou_threshold.
-                      Value checkIOU = createMath.sgt(iou, iouTH);
+                      // Only proceed if IOU >= iou_threshold.
+                      Value checkIOU = createMath.sge(iou, iouTH);
                       auto if2Op = rewriter.create<scf::IfOp>(
                           loc, checkIOU, /*withElseRegion=*/false);
                       rewriter.setInsertionPointToStart(
@@ -433,13 +430,6 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                       createKrnl.store(trueVal, removedIndices, {o});
                     });
               });
-          // Update the effective numbers of selected indices.
-          Value effectiveMOPC =
-              create.krnl.load(effectiveMaxOutputPerClass, {});
-          Value effectiveNSI =
-              create.krnl.load(effectiveNumSelectedIndices, {});
-          Value newEffectiveNSI = create.math.add(effectiveNSI, effectiveMOPC);
-          create.krnl.store(newEffectiveNSI, effectiveNumSelectedIndices, {});
         });
 
     // Insert allocation and deallocation for the final output.
@@ -609,20 +599,21 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 //                 selected_box = boxes[b, selected_box_index, :]
 // 
 //                 # Store the index of the picked box to the output.
-//                 out_index = b * batch_size + c * max_output_per_class + effective_max_output_per_class
-//                 selected_indices[out_index] = [b, c, selected_box_index]
+//                 selected_indices[effective_num_selected_indices] = [b, c, selected_box_index]
+//
+//                 # Update counters.
 //                 effective_max_output_per_class += 1
+//                 effective_num_selected_indices += 1
 // 
 //                 # Remove boxes overlapped too much with the selected box, using
 //                 # IOU.
 //                 for o in range(spatial_size):
 //                     other_box = boxes[b, o, :]
 //                     iou = IOU(selected_box, other_box, center_point_box)
-//                     if (not removed_indices[o]) and (iou > iou_threshold):
+//                     if (not removed_indices[o]) and (iou >= iou_threshold):
 //                         removed_indices[o] = True
 //                     else:
 //                         removed_indices[o] = removed_indices[o]
-//             effective_num_selected_indices += effective_max_output_per_class
 // 
 //     # Since we cannot suppress by IOU in advance, so remove redundant score
 //     # now.
