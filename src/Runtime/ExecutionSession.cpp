@@ -22,8 +22,14 @@
 #include "llvm/Support/ManagedStatic.h"
 
 namespace onnx_mlir {
+
+const std::string ExecutionSession::_entryPointNameFuncName =
+    "omEntryPointName";
 const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
 const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
+
+ExecutionSession::ExecutionSession(std::string sharedLibPath)
+    : ExecutionSession::ExecutionSession(sharedLibPath, "") {}
 
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, std::string entryPointName) {
@@ -34,6 +40,21 @@ ExecutionSession::ExecutionSession(
     std::stringstream errStr;
     errStr << "Cannot open library: '" << sharedLibPath << "'" << std::endl;
     throw std::runtime_error(errStr.str());
+  }
+
+  // Get entry point name if it is not given.
+  if (entryPointName.empty()) {
+    entryPointNameFuncType _entryPointNameFunc =
+        reinterpret_cast<entryPointNameFuncType>(
+            _sharedLibraryHandle.getAddressOfSymbol(
+                _entryPointNameFuncName.c_str()));
+    if (!_entryPointNameFunc) {
+      std::stringstream errStr;
+      errStr << "Cannot load symbol: '" << _entryPointNameFuncName << "'"
+             << std::endl;
+      throw std::runtime_error(errStr.str());
+    }
+    entryPointName = _entryPointNameFunc();
   }
 
   _entryPointFunc = reinterpret_cast<entryPointFuncType>(

@@ -1154,12 +1154,34 @@ public:
     auto numOutputs = op->getAttrOfType<IntegerAttr>(
                             KrnlEntryPointOp::getNumOutputsAttrName())
                           .getInt();
+
+    auto staticEntryPointFuncName =
+        op->getAttrOfType<SymbolRefAttr>(
+              KrnlEntryPointOp::getEntryPointFuncAttrName())
+            .getLeafReference()
+            .getValue();
+    auto dynEntryPointName = "run_" + staticEntryPointFuncName;
+    assert(module.lookupSymbol(dynEntryPointName.str()) == nullptr &&
+           "dynamic entry point name is not unique");
+
     auto sigAttr =
         op->getAttrOfType<StringAttr>(KrnlEntryPointOp::getSignatureAttrName());
     auto signature = sigAttr.getValue();
 
     auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
     auto int64Ty = IntegerType::get(context, 64);
+
+    // create a global constant to hold the entry point function name.
+    mlir::StringAttr entryPointFuncNameAttr =
+        mlir::StringAttr::get(context, dynEntryPointName);
+    LLVM::LLVMArrayType entryPointArrayType = LLVM::LLVMArrayType::get(
+        IntegerType::get(context, 8), dynEntryPointName.str().size());
+    LLVM::GlobalOp entryPoint =
+        rewriter.create<LLVM::GlobalOp>(loc, entryPointArrayType,
+            /*isConstant=*/true, LLVM::Linkage::External, "_entry_point",
+            entryPointFuncNameAttr);
+    genSignatureFunction(
+        rewriter, context, "omEntryPointName", entryPoint, loc);
 
     // create global to hold signature
     auto splitSig = signature.split('@');
@@ -1189,14 +1211,6 @@ public:
     // containing a set of dynamic memrefs wrapped in a vector; similarly the
     // output is also a opaque ptr to a data structure with output memrefs
     // wrapped within it.
-    auto staticEntryPointFuncName =
-        op->getAttrOfType<SymbolRefAttr>(
-              KrnlEntryPointOp::getEntryPointFuncAttrName())
-            .getLeafReference()
-            .getValue();
-    auto dynEntryPointName = "run_" + staticEntryPointFuncName;
-    assert(module.lookupSymbol(dynEntryPointName.str()) == nullptr &&
-           "dynamic entry point name is not unique");
     rewriter.eraseOp(op);
     auto dynEntryPointFuncTy =
         LLVM::LLVMFunctionType::get(opaquePtrTy, {opaquePtrTy}, false);

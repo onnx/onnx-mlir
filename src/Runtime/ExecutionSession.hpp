@@ -25,10 +25,12 @@
 namespace onnx_mlir {
 
 typedef OMTensorList *(*entryPointFuncType)(OMTensorList *);
+typedef const char *(*entryPointNameFuncType)();
 typedef const char *(*signatureFuncType)();
 
 class ExecutionSession {
 public:
+  ExecutionSession(std::string sharedLibPath);
   ExecutionSession(std::string sharedLibPath, std::string entryPointName);
 
   // Use custom deleter since forward declared OMTensor hides destructor
@@ -47,6 +49,7 @@ protected:
   llvm::sys::DynamicLibrary _sharedLibraryHandle;
 
   // Entry point function.
+  static const std::string _entryPointNameFuncName;
   entryPointFuncType _entryPointFunc = nullptr;
 
   // Entry point for input/output signatures
