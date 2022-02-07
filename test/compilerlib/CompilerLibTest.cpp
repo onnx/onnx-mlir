@@ -3,10 +3,10 @@
  */
 
 #include "OnnxMlirCompiler.h"
+#include <assert.h>
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <assert.h>
 
 using namespace onnx_mlir;
 
@@ -14,37 +14,50 @@ std::string testFileName;
 std::string outputBaseName;
 bool compileFromFile = false;
 
+#define IGNORE_ARG(FLAG)                                                       \
+  if (arg.find(FLAG) == 0) {                                                   \
+    return false;                                                                    \
+  }
 #define PARSE_ARG(NAME, FLAG)                                                  \
   if (arg.find(FLAG) == 0) {                                                   \
     NAME = arg.substr(sizeof(FLAG));                                           \
-    return;                                                                    \
+    return true;                                                                    \
   }
 #define PARSE_FLAG(NAME, FLAG)                                                 \
   if (arg.find(FLAG) == 0) {                                                   \
     NAME = true;                                                               \
-    return;                                                                    \
+    return true;                                                                    \
   }
 
-void readArg(const std::string &arg) {
+// Return 1 if arg used, 0 if unused.
+bool readArg(const std::string &arg) {
   PARSE_ARG(outputBaseName, "-o");
   PARSE_FLAG(compileFromFile, "--fromfile");
+  IGNORE_ARG("-"); // Ignore all other options.
   testFileName = arg;
+  return true;
 }
 
-void readCommandLine(int argc, char *argv[]) {
-  for (int i = 1; i < argc; ++i) {
-    readArg(std::string(argv[i]));
+// Read the arguments used by this program, and leave in argc/argv
+// the unused arguments, which may then be processed by the 
+// ONNX-MLIR compiler.
+void readCommandLineAndKeepUnused(int &argc, char *argv[]) {
+  int num = argc;
+  argc = 0;
+  argv[argc++] = argv[0]; // Keep program name.
+  for (int i = 1; i < num; ++i) {
+    if (!readArg(std::string(argv[i]))) {
+       argv[argc++] = argv[i];
+    }
   }
 }
 
 int main(int argc, char *argv[]) {
-// Read the compiler options from env and args.
-  OMCompilerOptions *optList = omCreateCompilerOptionsAndInitialize(argc, argv);
-  assert(optList && "failure to get opts");
-  int64_t newArgc;
-  char **newArgv;
-  omGetUnusedCompilerOptionsArgs(optList, &newArgc, &newArgv);
-  readCommandLine(newArgc, newArgv);
+  // Read the compiler options from env and args.
+  readCommandLineAndKeepUnused(argc, argv);
+  omSetCompilerOptionsFromEnvAndArgs(nullptr, argc, argv);
+  std::string opt(omGetCompilerOption(OptionKind::CompilerOptLevel));
+  std::cout << "Opt Level is " << opt << std::endl;
 
   if (outputBaseName == "") {
     outputBaseName = testFileName.substr(0, testFileName.find_last_of("."));
@@ -54,7 +67,7 @@ int main(int argc, char *argv[]) {
   if (compileFromFile) {
     const char *errorMessage = NULL;
     retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
-        onnx_mlir::EmitLib, optList, &errorMessage);
+        onnx_mlir::EmitLib, &errorMessage);
     if (errorMessage != NULL) {
       std::cerr << errorMessage;
       retVal = 0xf;
@@ -64,8 +77,8 @@ int main(int argc, char *argv[]) {
         testFileName, std::ios_base::in | std::ios_base::binary);
     std::string test((std::istreambuf_iterator<char>(inFile)),
         std::istreambuf_iterator<char>());
-    retVal = omCompileFromArray(test.data(), test.size(),
-        outputBaseName.c_str(), onnx_mlir::EmitLib, optList);
+    retVal = omCompileFromArray(
+        test.data(), test.size(), outputBaseName.c_str(), onnx_mlir::EmitLib);
   }
   if (retVal != 0) {
     std::cerr << "Compiling " << testFileName << "failed with code" << retVal;

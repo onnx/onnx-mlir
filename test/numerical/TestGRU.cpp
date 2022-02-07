@@ -211,21 +211,11 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
-  OMCompilerOptions options;
-  options.printOptions("before");
-  //for(int i=0; i<argc; ++i) printf("opt %d: %s\n", i, argv[i]);
-  string emptyStr = "";
-  const char *myargv[1];
-  myargv[0] = emptyStr.c_str();
+  setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
-      0, myargv, "TestGRU\n", nullptr, "TEST_ARGS");
-  for(int i=0; i<argc; ++i) printf("opt %d: %s\n", i, argv[i]);
-  options.printOptions("after parse llvm");
-  options.setOption(OptionKind::CompilerOptLevel, "3");
-  options.printOptions("after parse options");
-  llvm::cl::ParseCommandLineOptions(
-      0, myargv, "TestGRU\n", nullptr, "TEST_ARGS");
-  options.printOptions("after 2nd llvm");
+      argc, argv, "TestGRU\n", nullptr, "TEST_ARGS");
+  cout << "Opt Level is " << getCompilerOption(OptionKind::CompilerOptLevel)
+       << endl;
 
   // RapidCheck test case generation.
   bool success = rc::check("GRU implementation correctness", []() {

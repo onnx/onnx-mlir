@@ -8,59 +8,42 @@
 extern "C" {
 namespace onnx_mlir {
 
-ONNX_MLIR_EXPORT OMCompilerOptions *omCreateCompilerOptions() {
-  return new OMCompilerOptions;
-}
-
-ONNX_MLIR_EXPORT OMCompilerOptions *omCreateCompilerOptionsAndInitialize(
-    int64_t argc, char *argv[]) {
-  OMCompilerOptions *options = new OMCompilerOptions;
-  // Failed to allocate?
-  if (!options)
-    return nullptr;
-  // Succeed to scan env vars and args?
-  if (options->setFromEnv() == 0 && options->setFromArgs(argc, argv) == 0)
-    return options;
-  // Failed one of the two scans.
-  delete options;
-  return nullptr;
-}
-
-ONNX_MLIR_EXPORT void omDestroyCompilerOptions(OMCompilerOptions *options) {
-  if (options)
-    delete options;
-}
-
-ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(
-    OMCompilerOptions *options) {
-  if (!options)
-    return 1;
-  return options->setFromEnv();
+ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(const char *envVarName) {
+  // ParseCommandLineOptions needs at least one argument
+  std::string nameStr = "program-name";
+  const char *argv[1];
+  argv[0] = nameStr.c_str();
+  const char *name = envVarName ? envVarName : OnnxMlirEnvOptionName.c_str();
+  return llvm::cl::ParseCommandLineOptions(
+      1, argv, "SetCompilerOptionsFromEnv\n", nullptr, name);
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
-    OMCompilerOptions *options, int64_t argc, char *argv[]) {
-  if (!options)
-    return 1;
-  return options->setFromArgs(argc, argv);
+    int64_t argc, char *argv[]) {
+  return llvm::cl::ParseCommandLineOptions(
+      argc, argv, "SetCompilerOptionsFromEnv\n", nullptr, nullptr);
 }
 
-ONNX_MLIR_EXPORT int64_t omGetUnusedCompilerOptionsArgs(
-    OMCompilerOptions *options, int64_t *argc, char ***argv) {
-  if (!options)
-    return 1;
-  return options->getUnusedArgs(*argc, argv);
+ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnvAndArgs(
+    const char *envVarName, int64_t argc, char *argv[]) {
+  const char *name = envVarName ? envVarName : OnnxMlirEnvOptionName.c_str();
+  return llvm::cl::ParseCommandLineOptions(
+      argc, argv, "SetCompilerOptionsFromEnv\n", nullptr, name);
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptions(
-    OMCompilerOptions *options, const OptionKind kind, const char *val) {
-  if (!options)
-    return 1;
-  return options->setOption(kind, val);
+    const OptionKind kind, const char *val) {
+  return setCompilerOption(kind, std::string(val));
+}
+
+ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
+  std::string val = getCompilerOption(kind);
+  return val.c_str();
 }
 
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
-    const char *outputBaseName, EmissionTargetType emissionTarget,const char **errorMessage) {
+    const char *outputBaseName, EmissionTargetType emissionTarget,
+    const char **errorMessage) {
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
   registerDialects(context);

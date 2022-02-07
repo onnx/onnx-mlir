@@ -38,6 +38,8 @@ using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
 
+const string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
+
 llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX-MLIR Options", "These are frontend options.");
 
@@ -374,7 +376,7 @@ OptLevel getOptLevel() { return OptimizationLevel; }
 // =============================================================================
 // Methods for OMCompilerOptions
 
-int OMCompilerOptions::setOption(const OptionKind kind, string val) {
+int setCompilerOption(const OptionKind kind, string val) {
   switch (kind) {
   case OptionKind::TargetTriple:
     setTargetTriple(val);
@@ -395,81 +397,27 @@ int OMCompilerOptions::setOption(const OptionKind kind, string val) {
   return 0;
 }
 
-void OMCompilerOptions::printOptions(string msg) {
-  cout << "Compiler options" << msg << endl;
-  cout << "  triple: \"" << mtriple << "\"" << endl;
-  cout << "  arch: \"" << march << "\"" << endl;
-  cout << "  cpu: \"" << mcpu << "\"" << endl;
-  cout << "  opt: \"" << OptimizationLevel << "\"" << endl;
+string getCompilerOption(const OptionKind kind) {
+  switch (kind) {
+  case OptionKind::TargetTriple:
+    return mtriple;
+  case OptionKind::TargetArch:
+    return march;
+  case OptionKind::TargetCPU:
+    return mcpu;
+  case OptionKind::CompilerOptLevel:
+    return getOptimizationLevelOption();
+  }
+  llvm_unreachable("unknown option");
+  return string();
 }
 
-int OMCompilerOptions::setOptions(CompilerOptionList &list) {
+int setCompilerOptions(CompilerOptionList &list) {
   for (const auto &pair : list) {
-    int rc = setOption(pair.first, pair.second);
+    int rc = setCompilerOption(pair.first, pair.second);
     if (rc != 0)
       return rc;
   }
-  return 0;
-}
-
-int OMCompilerOptions::setFromEnv() {
-  char *val;
-  // Override values if corresponding environment variables exist.
-  if ((val = std::getenv("ONNX_MLIR_TRIPLE")) != nullptr)
-    setTargetTriple(string(val));
-  if ((val = std::getenv("ONNX_MLIR_ARCH")) != nullptr)
-    setTargetArch(string(val));
-  if ((val = std::getenv("ONNX_MLIR_CPU")) != nullptr)
-    setTargetCPU(string(val));
-  if ((val = std::getenv("ONNX_MLIR_OPT")) != nullptr) {
-    // Check val to be 0 to 3 inclusively
-    return setOption(OptionKind::CompilerOptLevel, string(val));
-  }
-  return 0;
-}
-
-int OMCompilerOptions::setFromArgs(int64_t argc, char *argv[]) {
-  // First arg (name of the program) is by definition unused.
-  unusedArgs.clear();
-  unusedArgs.emplace_back(argv[0]);
-  for (int i = 1; i < argc; ++i) {
-    string val(argv[i]);
-    // Check known compiler options, and override value when new value found.
-    if (val.find("--mtriple=") == 0)
-      setTargetTriple(val.substr(sizeof("--mtriple=") - 1));
-    else if (val.find("--march=") == 0)
-      setTargetArch(val.substr(sizeof("--march=") - 1));
-    else if (val.find("--mcpu=") == 0)
-      setTargetCPU(val.substr(sizeof("--mcpu=") - 1));
-    else if (val.find("-O0") == 0)
-      setOptLevel(OptLevel::O0);
-    else if (val.find("-O1") == 0)
-      setOptLevel(OptLevel::O1);
-    else if (val.find("-O2") == 0)
-      setOptLevel(OptLevel::O2);
-    else if (val.find("-O3") == 0)
-      setOptLevel(OptLevel::O3);
-    else
-      unusedArgs.emplace_back(argv[i]);
-  }
-  return 0;
-}
-
-int OMCompilerOptions::getUnusedArgs(int64_t &argc, char ***argv) {
-  argc = 0;
-  if (!argv)
-    return 1;
-  // Scaning args save the first unused parameters. If size is zero, this means
-  // we never scanned the var args to begin with.
-  if (unusedArgs.size() == 0)
-    return 2;
-  argc = unusedArgs.size();
-  char **myArgv = (char **)malloc(sizeof(char *) * argc);
-  if (!myArgv)
-    return 3;
-  for (int i = 0; i < argc; ++i)
-    myArgv[i] = unusedArgs[i];
-  *argv = myArgv;
   return 0;
 }
 

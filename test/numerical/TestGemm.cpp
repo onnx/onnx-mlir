@@ -69,7 +69,7 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
   SmallVector<int64_t, 2> aShape, bShape, cShape;
   if (!genGemmAndCompileModel(
           /*compiler options */
-          SHARED_LIB_BASE.str(), 
+          SHARED_LIB_BASE.str(),
           /* GEMM param in*/
           I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal,
           /* GEMM param out*/
@@ -159,11 +159,12 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
+  setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
-      argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
-  OMCompilerOptions options;
-  options.setOption(OptionKind::CompilerOptLevel, "3");
-
+      argc, argv, "TestGEMM\n", nullptr, "TEST_ARGS");
+  cout << "Opt Level is " << getCompilerOption(OptionKind::CompilerOptLevel)
+       << endl;
+       
   if (true) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Gemm implementation correctness", []() {

@@ -42,84 +42,72 @@ extern "C" {
 namespace onnx_mlir {
 #endif
 
-struct OMCompilerOptions;
-#ifndef _cplusplus
-typedef struct OMCompilerOptions OMCompilerOptions;
-#endif
-
 /*!
- * Type that contains the defined compiler options and their values.
- */
-
-/*!
- * Create a list of compiler options. All options are set to undefined.
- * @return a pointer to the compiler option datastructure, null in clase
- * of error.
- */
-ONNX_MLIR_EXPORT OMCompilerOptions *omCreateCompilerOptions();
-
-/*! 
- *  Create the data structure, set using the environment variables, 
- *  and the overwrite the argc/argv paramters. 
- *  @param argc Number of input parameters in argv.
- *  @param argv Array of strings, some of which may be compiler options.
- *  First argv is ignore as it is the name of the program.
- *  @return a pointer to the initialized compiler option datastructure,
- *  null if there were any errors.
- */
-ONNX_MLIR_EXPORT OMCompilerOptions *omCreateCompilerOptionsAndInitialize(
-    int64_t argc, char *argv[]);
-
-/*!
- *  Destoy a list of compiler options.
- *  @param options List to be destroyed.
- */
-ONNX_MLIR_EXPORT void omDestroyCompilerOptions(OMCompilerOptions *options);
-
-/*!
- *  Overwrite the given set of compiler options with options defined
- *  by environment variables.
- *  @param options List to be overwridden by environment variable values.
+ *  Define ONNX-MLIR compiler options with options defined by
+ *  the envVarName (default ONNX_MLIR_FLAGS) environment variable.
+ *  Values not recoginzed as compiler options result in an error.
+ *  Only a single call to omSetCompilerOptionsFromEnv,
+ *  omSetCompilerOptionsFromArgs, or omSetCompilerOptionsFromEnvAndArgs
+ *  is allowed.
+ *  @param envVarName Environment varialble name, use default when null.
  *  @return 0 on success or non-zero error code on failure.
  */
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(
-    OMCompilerOptions *options);
+    const char *envVarName);
 
 /*! 
- *  Overwrite the given set of compiler options with the options defined
- *  by the argc/argv parameters. Values not recoginzed as compiler options
- *  are simply ignored.
- *  @param options List to be overwridden by environment variable values.
+ *  Define ONNX-MLIR compiler options with options defined by
+ *  the argc/argv parameters. Call expects argv[0] to contain the program
+ *  name. Values not recoginzed as compiler options result in an error.
+ *  Only a single call to omSetCompilerOptionsFromEnv,
+ *  omSetCompilerOptionsFromArgs, or omSetCompilerOptionsFromEnvAndArgs
+ *  is allowed.
  *  @param argc Number of input parameters in argv.
  *  @param argv Array of strings, some of which may be compiler options.
- *  First argv is ignore as it is the name of the program.
+ *  First argv is ignored as it is the name of the program.
  *  @return 0 on success or non-zero error code on failure.
  */
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
-    OMCompilerOptions *options, int64_t argc, char *argv[]);
+    int64_t argc, char *argv[]);
 
-/*! After having read the argc/argv parameters using the 
- *  omSetCompilerOptionsFromArgs call, the unused argv paramters can
- *  be extracted using this call.
+/*! 
+ *  Define ONNX-MLIR compiler options with options defined by
+ *  the envVarName (default ONNX_MLIR_FLAGS) environment varialbe
+ *  and the argc/argv parameters. Call expects argv[0] to contain the program
+ *  name. Values not recoginzed as compiler options result in an error.
+ *  Only a single call to omSetCompilerOptionsFromEnv,
+ *  omSetCompilerOptionsFromArgs, or omSetCompilerOptionsFromEnvAndArgs
+ *  is allowed.
+ *  @param envVarName Environment varialble name, use default when null.
  *  @param argc Number of input parameters in argv.
- *  @param argv Array of strings that are not compiler options.
+ *  @param argv Array of strings, some of which may be compiler options.
+ *  First argv is ignored as it is the name of the program.
  *  @return 0 on success or non-zero error code on failure.
  */
-ONNX_MLIR_EXPORT int64_t omGetUnusedCompilerOptionsArgs(
-    OMCompilerOptions *options, int64_t *argc, char ***argv);
+ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnvAndArgs(
+    const char *envVarName, int64_t argc, char *argv[]);
 
 /*!  
- *  Overwrite the given set of compiler options with the options defined
- *  by input parameters. Values not recoginzed as compiler options
- *  are simply ignored.
- *  @param options List to be overwridden by environment variable values.
- *  @param kind Describe which option kind is beign set.
+ *  Overwrite the compiler option defined by input parameters. 
+ *  Set default value by calling this function before a call to
+ *  omSetCompilerOptionsFromEnv, omSetCompilerOptionsFromArgs, or 
+ *  omSetCompilerOptionsFromEnvAndArgs. Or overwrite the current value 
+ *  by calling this function after one of the above 3 setter functions. 
+ *  @param kind Describe which option kind is beign set. 
  *  @param val Value of the option being set. Null pointer undefines the
  *  option.
  *  @return 0 on success or non-zero error code on failure.
  */
-ONNX_MLIR_EXPORT int64_t omSetCompilerOptions(OMCompilerOptions *options, 
+ONNX_MLIR_EXPORT int64_t omSetCompilerOption( 
     const OptionKind kind, const char *val);
+
+/*!  
+ *  Get the compiler options. 
+ *  @param kind Describe which option kind is beign set.
+ *  @return Value of compiler option. 
+ */
+ONNX_MLIR_EXPORT const char *omGetCompilerOption( 
+    const OptionKind kind);
 
 /*!
  *  Compile an onnx model from a file containing MLIR or ONNX protobuf.

@@ -32,25 +32,10 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 
+extern const std::string OnnxMlirEnvOptionName;
+
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::opt<std::string> instrumentONNXOps;
-
-// The following functions are useful for drivers building upon onnx-mlir.
-namespace onnx_mlir {
-struct OMCompilerOptions {
-  using CompilerOptionList =
-      llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
-  int setFromEnv();
-  int setFromArgs(int64_t argc, char *argv[]);
-  int getUnusedArgs(int64_t &argc, char ***argv);
-  int setOption(const onnx_mlir::OptionKind kind, std::string val);
-  int setOptions(CompilerOptionList &list);
-  void printOptions(std::string msg);
-
-  // data
-  llvm::SmallVector<char *> unusedArgs;
-};
-} // namespace onnx_mlir
 
 // Setters for command-line options.
 void setTargetCPU(const std::string &cpu);
@@ -59,6 +44,14 @@ void setTargetTriple(const std::string &triple);
 void setOptLevel(const onnx_mlir::OptLevel level);
 // Getters for command-line options.
 onnx_mlir::OptLevel getOptLevel();
+
+// Options support for OMCompilerOptions.
+using CompilerOptionList =
+    llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
+// Return 0 on success.
+int setCompilerOption(const onnx_mlir::OptionKind kind, std::string val);
+int setCompilerOptions(CompilerOptionList &list);
+std::string getCompilerOption(const onnx_mlir::OptionKind kind);
 
 void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);
