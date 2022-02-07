@@ -32,10 +32,9 @@ using namespace onnx_mlir;
 bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
-
   if (!genMatMul2DModelAndCompile(
           /*compiler options */
-          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(),
           /* GEMM param in*/
           I, J, K))
     return false;
@@ -79,6 +78,8 @@ int main(int argc, char *argv[]) {
 
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
+  OMCompilerOptions options;
+  options.setOption(OptionKind::CompilerOptLevel, "3");
 
   printf("RapidCheck test case generation.\n");
   bool success = rc::check("Matmul implementation correctness", []() {

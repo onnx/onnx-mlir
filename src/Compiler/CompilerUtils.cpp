@@ -307,34 +307,124 @@ struct Command {
 };
 } // namespace
 
-void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
-void setTargetArch(const std::string &arch) { march = arch; }
-void setTargetTriple(const std::string &triple) { mtriple = triple; }
-void setOptLevel(const OptLevel level) { OptimizationLevel = level; }
+// =============================================================================
+// Methods for setting and getting compiler variables.
+
+void setTargetTriple(const std::string &triple) {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set triple\"" << triple << "\"\n");
+  mtriple = triple;
+}
+
+void setTargetArch(const std::string &arch) {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set arch\"" << arch << "\"\n");
+  march = arch;
+}
+
+void setTargetCPU(const std::string &cpu) {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set CPU\"" << cpu << "\"\n");
+  mcpu = cpu;
+}
+
+void setOptLevel(const OptLevel level) {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set opt level " << level << "\n");
+  OptimizationLevel = level;
+}
+
+static std::string getTargetTripleOption() {
+  string targetOptions = "";
+  // Command cannot tolerate extra spaces. Add only when needed.
+  if (mtriple != "")
+    targetOptions = "--mtriple=" + mtriple;
+  else if (kDefaultTriple != "")
+    targetOptions = "--mtriple=" + kDefaultTriple;
+  return targetOptions;
+}
+
+static std::string getTargetArchOption() {
+  string targetOptions = "";
+  if (march != "")
+    targetOptions += "--march=" + march;
+  return targetOptions;
+}
+
+static std::string getTargetCpuOption() {
+  string targetOptions = "";
+  if (mcpu != "")
+    targetOptions += "--mcpu=" + mcpu;
+  return targetOptions;
+}
+
+static std::string getOptimizationLevelOption() {
+  switch (getOptLevel()) {
+  case OptLevel::O0:
+    return "-O0";
+  case OptLevel::O1:
+    return "-O1";
+  case OptLevel::O2:
+    return "-O2";
+  case OptLevel::O3:
+    return "-O3";
+  }
+  llvm_unreachable("Unexpected optimization level");
+  return "";
+}
+
 OptLevel getOptLevel() { return OptimizationLevel; }
 
+// =============================================================================
 // Methods for OMCompilerOptions
 
-OMCompilerOptions::OMCompilerOptions(CompilerOptionList &list) {
-  for (const auto &pair : list)
-    values[pair.first] = pair.second;
-  LLVM_DEBUG(print("after set from list"));
+int OMCompilerOptions::setOption(const OptionKind kind, string val) {
+  switch (kind) {
+  case OptionKind::TargetTriple:
+    setTargetTriple(val);
+    break;
+  case OptionKind::TargetArch:
+    setTargetArch(val);
+    break;
+  case OptionKind::TargetCPU:
+    setTargetCPU(val);
+    break;
+  case OptionKind::CompilerOptLevel:
+    int level = atoi(val.c_str());
+    if (level < 0 && level > 3)
+      return 1;
+    setOptLevel((OptLevel)level);
+    break;
+  }
+  return 0;
+}
+
+void OMCompilerOptions::printOptions(string msg) {
+  cout << "Compiler options" << msg << endl;
+  cout << "  triple: \"" << mtriple << "\"" << endl;
+  cout << "  arch: \"" << march << "\"" << endl;
+  cout << "  cpu: \"" << mcpu << "\"" << endl;
+  cout << "  opt: \"" << OptimizationLevel << "\"" << endl;
+}
+
+int OMCompilerOptions::setOptions(CompilerOptionList &list) {
+  for (const auto &pair : list) {
+    int rc = setOption(pair.first, pair.second);
+    if (rc != 0)
+      return rc;
+  }
+  return 0;
 }
 
 int OMCompilerOptions::setFromEnv() {
   char *val;
   // Override values if corresponding environment variables exist.
   if ((val = std::getenv("ONNX_MLIR_TRIPLE")) != nullptr)
-    values[OptionKind::TargetTriple] = string(val);
+    setTargetTriple(string(val));
   if ((val = std::getenv("ONNX_MLIR_ARCH")) != nullptr)
-    values[OptionKind::TargetArch] = string(val);
+    setTargetArch(string(val));
   if ((val = std::getenv("ONNX_MLIR_CPU")) != nullptr)
-    values[OptionKind::TargetCPU] = string(val);
+    setTargetCPU(string(val));
   if ((val = std::getenv("ONNX_MLIR_OPT")) != nullptr) {
     // Check val to be 0 to 3 inclusively
-    values[OptionKind::CompilerOptLevel] = string(val);
+    return setOption(OptionKind::CompilerOptLevel, string(val));
   }
-  LLVM_DEBUG(print("after set from env vars"));
   return 0;
 }
 
@@ -346,23 +436,22 @@ int OMCompilerOptions::setFromArgs(int64_t argc, char *argv[]) {
     string val(argv[i]);
     // Check known compiler options, and override value when new value found.
     if (val.find("--mtriple=") == 0)
-      values[OptionKind::TargetTriple] = val.substr(sizeof("--mtriple=") - 1);
+      setTargetTriple(val.substr(sizeof("--mtriple=") - 1));
     else if (val.find("--march=") == 0)
-      values[OptionKind::TargetArch] = val.substr(sizeof("--march=") - 1);
+      setTargetArch(val.substr(sizeof("--march=") - 1));
     else if (val.find("--mcpu=") == 0)
-      values[OptionKind::TargetCPU] = val.substr(sizeof("--mcpu=") - 1);
+      setTargetCPU(val.substr(sizeof("--mcpu=") - 1));
     else if (val.find("-O0") == 0)
-      values[OptionKind::CompilerOptLevel] = "0";
+      setOptLevel(OptLevel::O0);
     else if (val.find("-O1") == 0)
-      values[OptionKind::CompilerOptLevel] = "1";
+      setOptLevel(OptLevel::O1);
     else if (val.find("-O2") == 0)
-      values[OptionKind::CompilerOptLevel] = "2";
+      setOptLevel(OptLevel::O2);
     else if (val.find("-O3") == 0)
-      values[OptionKind::CompilerOptLevel] = "3";
+      setOptLevel(OptLevel::O3);
     else
       unusedArgs.emplace_back(argv[i]);
   }
-  LLVM_DEBUG(print("after set from args"));
   return 0;
 }
 
@@ -382,47 +471,6 @@ int OMCompilerOptions::getUnusedArgs(int64_t &argc, char ***argv) {
     myArgv[i] = unusedArgs[i];
   *argv = myArgv;
   return 0;
-}
-
-int OMCompilerOptions::set(const OptionKind kind, const char *val) {
-  values[kind] = string(val);
-  LLVM_DEBUG(print("after setting one"));
-  return 0;
-}
-
-void OMCompilerOptions::registerOptionsAndDialects(
-    mlir::MLIRContext &context) {
-  LLVM_DEBUG(print("when registering"));
-  if (!values[OptionKind::TargetTriple].empty())
-    setTargetTriple(values[OptionKind::TargetTriple]);
-  if (!values[OptionKind::TargetArch].empty())
-    setTargetArch(values[OptionKind::TargetArch]);
-  if (!values[OptionKind::TargetCPU].empty())
-    setTargetCPU(values[OptionKind::TargetCPU]);
-  if (!values[OptionKind::CompilerOptLevel].empty()) {
-    int level = atoi(values[OptionKind::CompilerOptLevel].c_str());
-    assert(level >= 0 && level <= 3 && "expected an OptLevel in [0..3] range");
-    setOptLevel((OptLevel)level);
-  }
-  registerDialects(context);
-}
-
-void OMCompilerOptions::print(std::string msg) {
-  LLVM_DEBUG({
-    llvm::dbgs() << DEBUG_TYPE << "Print compiler options " << msg << "\n";
-    llvm::dbgs() << DEBUG_TYPE << "  triple: \""
-                 << values[OptionKind::TargetTriple] << "\""
-                 << "\n";
-    llvm::dbgs() << DEBUG_TYPE << "  arch: \"" << values[OptionKind::TargetArch]
-                 << "\""
-                 << "\n";
-    llvm::dbgs() << DEBUG_TYPE << "  cpu: \"" << values[OptionKind::TargetArch]
-                 << "\""
-                 << "\n";
-    llvm::dbgs() << DEBUG_TYPE << "  opt: \""
-                 << values[OptionKind::CompilerOptLevel] << "\""
-                 << "\n";
-  });
 }
 
 void loadMLIR(string inputFilename, mlir::MLIRContext &context,
@@ -445,45 +493,6 @@ void loadMLIR(string inputFilename, mlir::MLIRContext &context,
     llvm::errs() << "Error can't load file " << inputFilename << "\n";
     exit(1);
   }
-}
-
-static std::string getTargetCpuOption() {
-  string targetOptions = "";
-  if (mcpu != "")
-    targetOptions += "--mcpu=" + mcpu;
-  return targetOptions;
-}
-
-static std::string getTargetArchOption() {
-  string targetOptions = "";
-  if (march != "")
-    targetOptions += "--march=" + march;
-  return targetOptions;
-}
-
-static std::string getTargetTripleOption() {
-  string targetOptions = "";
-  // Command cannot tolerate extra spaces. Add only when needed.
-  if (mtriple != "")
-    targetOptions = "--mtriple=" + mtriple;
-  else if (kDefaultTriple != "")
-    targetOptions = "--mtriple=" + kDefaultTriple;
-  return targetOptions;
-}
-
-static std::string getOptimizationLevelOption() {
-  switch (getOptLevel()) {
-  case OptLevel::O0:
-    return "-O0";
-  case OptLevel::O1:
-    return "-O1";
-  case OptLevel::O2:
-    return "-O2";
-  case OptLevel::O3:
-    return "-O3";
-  }
-  llvm_unreachable("Unexpected optimization level");
-  return "";
 }
 
 // Write LLVM optimized bitcode.

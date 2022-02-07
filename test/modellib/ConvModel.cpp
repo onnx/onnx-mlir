@@ -37,7 +37,7 @@ const string getAutoPadName(const int autoPad) {
 
 bool genConv2DModelAndCompile(
     /* compile option */
-    const string &modelName, OMCompilerOptions &options,
+    const string &modelName, 
     /* conv param in*/
     const int N, const int C, const int H, const int W, const int kH,
     const int kW, const int autoPad, const int pHBegin, const int pHEnd,
@@ -52,7 +52,7 @@ bool genConv2DModelAndCompile(
   }
 
   MLIRContext ctx;
-  options.registerOptionsAndDialects(ctx);
+  registerDialects(ctx);
 
   // We use the Ns for the shape of the input, and the N1s for the construction
   // of the model. That way, when the shape is dynamic, we set the N1s to "-1"

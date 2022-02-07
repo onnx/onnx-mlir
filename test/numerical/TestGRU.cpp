@@ -40,7 +40,7 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   OMTensor *bOmt = nullptr;
   if (!genGRUModelAndCompile(
           /* compile option */
-          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(),
           /* GRU param in*/
           direction, S, B, I, H, LinearBeforeReset, isDynamicS, isDynamicB,
           /* GRU param out*/
@@ -211,9 +211,21 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
-
+  OMCompilerOptions options;
+  options.printOptions("before");
+  //for(int i=0; i<argc; ++i) printf("opt %d: %s\n", i, argv[i]);
+  string emptyStr = "";
+  const char *myargv[1];
+  myargv[0] = emptyStr.c_str();
   llvm::cl::ParseCommandLineOptions(
-      argc, argv, "TestGRU\n", nullptr, "TEST_ARGS");
+      0, myargv, "TestGRU\n", nullptr, "TEST_ARGS");
+  for(int i=0; i<argc; ++i) printf("opt %d: %s\n", i, argv[i]);
+  options.printOptions("after parse llvm");
+  options.setOption(OptionKind::CompilerOptLevel, "3");
+  options.printOptions("after parse options");
+  llvm::cl::ParseCommandLineOptions(
+      0, myargv, "TestGRU\n", nullptr, "TEST_ARGS");
+  options.printOptions("after 2nd llvm");
 
   // RapidCheck test case generation.
   bool success = rc::check("GRU implementation correctness", []() {

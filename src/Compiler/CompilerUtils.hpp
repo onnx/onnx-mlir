@@ -40,17 +40,14 @@ namespace onnx_mlir {
 struct OMCompilerOptions {
   using CompilerOptionList =
       llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
-
-  OMCompilerOptions() {}
-  OMCompilerOptions(CompilerOptionList &list);
   int setFromEnv();
   int setFromArgs(int64_t argc, char *argv[]);
   int getUnusedArgs(int64_t &argc, char ***argv);
-  int set(const onnx_mlir::OptionKind kind, const char *val);
-  void registerOptionsAndDialects(mlir::MLIRContext &context);
-  void print(std::string msg);
+  int setOption(const onnx_mlir::OptionKind kind, std::string val);
+  int setOptions(CompilerOptionList &list);
+  void printOptions(std::string msg);
+
   // data
-  std::string values[onnx_mlir::OptionKind::LastOptionKind + 1];
   llvm::SmallVector<char *> unusedArgs;
 };
 } // namespace onnx_mlir

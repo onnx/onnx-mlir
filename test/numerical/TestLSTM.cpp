@@ -41,7 +41,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   OMTensor *pOmt = nullptr;
   if (!genLSTMModelAndCompile(
           /* compile option */
-          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(),
           /* LSTM param in*/
           direction, S, B, I, H, isDynamicS, isDynamicB,
           /* LSTM param out*/
@@ -213,6 +213,8 @@ int main(int argc, char *argv[]) {
 
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLSTM\n", nullptr, "TEST_ARGS");
+  OMCompilerOptions options;
+  options.setOption(OptionKind::CompilerOptLevel, "3");
 
   // RapidCheck test case generation.
   bool success = rc::check("LSTM implementation correctness", []() {

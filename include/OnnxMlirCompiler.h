@@ -132,7 +132,7 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptions(OMCompilerOptions *options,
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    OMCompilerOptions *options, const char **errorMessage);
+    const char **errorMessage);
 
 /*!
  *  Compile an onnx model from an ONNX protobuf array.
@@ -144,8 +144,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
  *  @return 0 on success or non-zero error code on failure
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer, int bufferSize,
-    const char *outputBaseName, EmissionTargetType emissionTarget,
-    OMCompilerOptions *options);
+    const char *outputBaseName, EmissionTargetType emissionTarget);
 
 #ifdef __cplusplus
 } // namespace onnx_mlir

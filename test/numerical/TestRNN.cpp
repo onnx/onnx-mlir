@@ -40,7 +40,7 @@ bool isOMRNNTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   OMTensor *bOmt = nullptr;
   if (!genRNNModelAndCompile(
           /* compile option */
-          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(),
           /* RNN param in*/
           direction, S, B, I, H, isDynamicS, isDynamicB,
           /* RNN param out*/
@@ -135,6 +135,8 @@ int main(int argc, char *argv[]) {
 
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestRNN\n", nullptr, "TEST_ARGS");
+  OMCompilerOptions options;
+  options.setOption(OptionKind::CompilerOptLevel, "3");
 
   // RapidCheck test case generation.
   bool success = rc::check("RNN implementation correctness", []() {

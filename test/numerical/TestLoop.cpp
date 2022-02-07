@@ -82,8 +82,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
         std::numeric_limits<int64_t>::max(),
     const int64_t constOffset = 0) {
   MLIRContext ctx;
-  OMCompilerOptions options({{OptionKind::CompilerOptLevel, "3"}});
-  option.registerOptionsAndDialects(ctx);
+  registerDialects(ctx);
 
   auto module = mlir::parseSourceString(moduleIR, &ctx);
   OwningModuleRef moduleRef(std::move(module));
@@ -132,6 +131,8 @@ int main(int argc, char *argv[]) {
 
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLoop\n", nullptr, "TEST_ARGS");
+  OMCompilerOptions options;
+  options.setOption(OptionKind::CompilerOptLevel, "3");
 
   // Loop tests, simple.
   assert(isOMLoopTheSameAsNaiveImplFor(testLoopSimpleIR, 0, 42));

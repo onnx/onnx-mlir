@@ -67,10 +67,9 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
       (bTrans ? ", bTrans" : ""), cRank, (double)alphaVal, (double)betaVal);
 
   SmallVector<int64_t, 2> aShape, bShape, cShape;
-  OMCompilerOptions options({{OptionKind::CompilerOptLevel, "3"}});
   if (!genGemmAndCompileModel(
           /*compiler options */
-          SHARED_LIB_BASE.str(), options,
+          SHARED_LIB_BASE.str(), 
           /* GEMM param in*/
           I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal,
           /* GEMM param out*/
@@ -162,6 +161,8 @@ int main(int argc, char *argv[]) {
 
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
+  OMCompilerOptions options;
+  options.setOption(OptionKind::CompilerOptLevel, "3");
 
   if (true) {
     printf("RapidCheck test case generation.\n");
