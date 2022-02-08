@@ -45,7 +45,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
         rewriter, loc);
     SmallVector<Value, 4> scaleValues;
-    bool fromScale = !isFromNone(resizeOp.scales());
+    bool fromScale = !isDefinedByUnitConstant(resizeOp.scales());
     IndexExprScope outerloopContex(&rewriter, loc);
     DimsExpr outputDims(rank);
     MemRefBoundsIndexCapture dataBounds(data);

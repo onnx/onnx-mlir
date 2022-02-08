@@ -4,7 +4,7 @@
 
 //===------------------ ONNXOps.cpp - ONNX Operations ---------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -590,6 +590,10 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
   }
 }
 
+//===----------------------------------------------------------------------===//
+// ONNXEntryPointOp
+//===----------------------------------------------------------------------===//
+
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
     mlir::OperationState &state, mlir::FuncOp function, int numInputs,
     int numOutputs, std::string signature) {
@@ -615,9 +619,20 @@ ONNXEntryPointOp ONNXEntryPointOp::create(mlir::Location location,
 }
 
 //===----------------------------------------------------------------------===//
+// ONNXUnitConstantOp
+//===----------------------------------------------------------------------===//
+
+OpFoldResult ONNXUnitConstantOp::fold(ArrayRef<Attribute> operands) {
+  return valueAttr();
+}
+
+//===----------------------------------------------------------------------===//
 // ONNX Operations
 //===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
 // Exp
+//===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXExpOp. This method is required by the
 /// shape inference interface.
 LogicalResult ONNXExpOp::inferShapes(
@@ -650,6 +665,7 @@ LogicalResult ONNXTanOp::inferShapes(
 
 //===----------------------------------------------------------------------===//
 // Tanh
+//===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXTanhOp. This method is required by the
 /// shape inference interface.
 LogicalResult ONNXTanhOp::inferShapes(
@@ -852,6 +868,10 @@ LogicalResult ONNXSeluOp::inferShapes(
 // be used. The benefit to refine shape info for seq is unclear to me.
 // Therefore, the current implementation does not try to refine the shape info.
 
+//===----------------------------------------------------------------------===//
+// SequenceInsertOp
+//===----------------------------------------------------------------------===//
+
 LogicalResult ONNXSequenceInsertOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   SeqType seqType = input_sequence().getType().dyn_cast<mlir::SeqType>();
@@ -921,20 +941,36 @@ static LogicalResult verify(ONNXSequenceInsertOp op) {
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// ConcatFromSequenceOp
+//===----------------------------------------------------------------------===//
+
 LogicalResult ONNXConcatFromSequenceOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// SequenceAtOp
+//===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSequenceAtOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// SequenceConstructOp
+//===----------------------------------------------------------------------===//
+
 LogicalResult ONNXSequenceConstructOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// SequenceEmptyOp
+//===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSequenceEmptyOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -944,6 +980,10 @@ LogicalResult ONNXSequenceEmptyOp::inferShapes(
   getResult().setType(returnTy);
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// SequenceEraseOp
+//===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSequenceEraseOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -956,6 +996,10 @@ LogicalResult ONNXSequenceEraseOp::inferShapes(
       SeqType::get(inputTy.getElementType(), length == -1 ? -1 : length - 1));
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// SequenceLengthOp
+//===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSequenceLengthOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -1006,7 +1050,7 @@ LogicalResult ONNXPReluOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Reciprocal
+// ReciprocalOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXReciprocalOp. This method is required by
 /// the shape inference interface.
@@ -1017,7 +1061,7 @@ LogicalResult ONNXReciprocalOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Softmax
+// SoftmaxOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSoftmaxOp. This method is required by
 /// the shape inference interface.
@@ -1028,7 +1072,7 @@ LogicalResult ONNXSoftmaxOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Softplus
+// SoftplusOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSoftplusOp. This method is required by
 /// the shape inference interface.
@@ -1039,7 +1083,7 @@ LogicalResult ONNXSoftplusOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Softsign
+// SoftsignOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSoftsignOp. This method is required by
 /// the shape inference interface.
@@ -1050,7 +1094,7 @@ LogicalResult ONNXSoftsignOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Sqrt
+// SqrtOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSqrtOp. This method is required by
 /// the shape inference interface.
@@ -1061,7 +1105,7 @@ LogicalResult ONNXSqrtOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Sign
+// SignOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSignOp. This method is required by
 /// the shape inference interface.
@@ -1072,7 +1116,7 @@ LogicalResult ONNXSignOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Abs
+// AbsOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXAbsOp. This method is required by the
 /// shape inference interface.
@@ -1083,7 +1127,7 @@ LogicalResult ONNXAbsOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Erf
+// ErfOp
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXErfOp::inferShapes(
@@ -1093,7 +1137,7 @@ LogicalResult ONNXErfOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Pow
+// PowOp
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXPowOp::inferShapes(
@@ -1114,7 +1158,7 @@ LogicalResult ONNXPowOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Add
+// AddOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXAddOp. This method is required by the
 /// shape inference interface.
@@ -1130,7 +1174,7 @@ LogicalResult ONNXAddOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Mul
+// MulOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXMulOp. This method is required by the
 /// shape inference interface.
@@ -1146,7 +1190,7 @@ LogicalResult ONNXMulOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Div
+// DivOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXDivOp. This method is required by the
 /// shape inference interface.
@@ -1162,7 +1206,7 @@ LogicalResult ONNXDivOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Sub
+// SubOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSubOp. This method is required by the
 /// shape inference interface.
@@ -1178,7 +1222,7 @@ LogicalResult ONNXSubOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// And
+// AndOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXAndOp. This method is required by the
 /// shape inference interface.
@@ -1194,7 +1238,7 @@ LogicalResult ONNXAndOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Or
+// OrOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXOrOp. This method is required by the
 /// shape inference interface.
@@ -1210,7 +1254,7 @@ LogicalResult ONNXOrOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Xor
+// XorOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXXorOp. This method is required by the
 /// shape inference interface.
@@ -1226,7 +1270,7 @@ LogicalResult ONNXXorOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Sum
+// SumOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSumOp. This method is required by the
 /// shape inference interface.
@@ -1246,7 +1290,7 @@ LogicalResult ONNXSumOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Max
+// MaxOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXMaxOp. This method is required by the
 /// shape inference interface.
@@ -1266,7 +1310,7 @@ LogicalResult ONNXMaxOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Min
+// MinOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXMinOp. This method is required by the
 /// shape inference interface.
@@ -1286,7 +1330,7 @@ LogicalResult ONNXMinOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Neg
+// NegOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXNegOp. This method is required by the
 /// shape inference interface.
@@ -1297,7 +1341,7 @@ LogicalResult ONNXNegOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Identity
+// IdentityOp
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXIdentityOp. This method is required by the
 /// shape inference interface.
@@ -1308,7 +1352,7 @@ LogicalResult ONNXIdentityOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// MatMul
+// MatMulOp
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXMatMulOp::inferShapes(
@@ -1323,7 +1367,7 @@ LogicalResult ONNXMatMulOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// QLinearMatMul
+// QLinearMatMulOp
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXQLinearMatMulOp::inferShapes(
@@ -1454,7 +1498,7 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
   return success();
 }
 
-// Gemm
+// GemmOp
 LogicalResult ONNXGemmOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   bool hasBias = !C().getType().isa<NoneType>();
@@ -1468,7 +1512,7 @@ LogicalResult ONNXGemmOp::inferShapes(
       ONNXGemmOpAdaptor>(this, A());
 }
 
-/// BatchNormalizationInferenceMode
+/// BatchNormalizationInferenceModeOp
 LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
@@ -1653,7 +1697,7 @@ LogicalResult ONNXReduceSumOp::inferShapes(
    *    An array attribute is generated from the constant input
    **/
   DenseElementsAttr constAxes;
-  if (isFromNone(axes())) {
+  if (isDefinedByUnitConstant(axes())) {
     // constAxes should just be NULL
     // Default value will be given in getReductionOutputType
   } else if (getONNXConstantOp(axes())) {
@@ -2550,7 +2594,7 @@ LogicalResult ONNXSqueezeOp::inferShapes(
   OpBuilder builder(getContext());
   llvm::Optional<ArrayAttr> optionalAttr;
 
-  if (isFromNone(axes())) {
+  if (isDefinedByUnitConstant(axes())) {
     auto axesAttr = getSqueezeOpAxesFromShape(builder, dataType.getShape());
     optionalAttr.emplace(axesAttr);
 
@@ -2856,8 +2900,8 @@ LogicalResult ONNXResizeOp::inferShapes(
     getResult().setType(RankedTensorType::get(dims, inputTy.getElementType()));
   }
 
-  if (isFromNone(scales()) == isFromNone(sizes())) {
-    if (isFromNone(scales()))
+  if (isDefinedByUnitConstant(scales()) == isDefinedByUnitConstant(sizes())) {
+    if (isDefinedByUnitConstant(scales()))
       return emitError("scales() and sizes() can not be both None");
     else
       return emitError("scales() and sizes() can not be both defined");
@@ -2873,7 +2917,7 @@ LogicalResult ONNXResizeOp::inferShapes(
   }
 
   // Current implementation handles constant scales only
-  if (!isFromNone(scales())) {
+  if (!isDefinedByUnitConstant(scales())) {
     DenseElementsAttr scalesAttrs =
         getDenseElementAttributeFromONNXValue(scales());
     if (!scalesAttrs) {

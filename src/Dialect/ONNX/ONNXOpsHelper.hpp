@@ -131,7 +131,7 @@ mlir::Value createNoneIntegerConstant(
 mlir::Value createNoneFloatConstant(
     mlir::PatternRewriter &rewriter, mlir::Location loc);
 
-bool isFromNone(mlir::Value value);
+bool isDefinedByUnitConstant(mlir::Value value);
 mlir::Type getBroadcastedRankedType(mlir::Type type1, mlir::Type type2);
 
 //===----------------------------------------------------------------------===//
