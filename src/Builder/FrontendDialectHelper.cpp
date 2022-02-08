@@ -246,6 +246,8 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
 mlir::Type convertONNXTypeToMLIRType(
     mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType) {
   switch (onnxType) {
+  case onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16:
+    return builder_.getBF16Type();
   case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
     return builder_.getF16Type();
   case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT:
