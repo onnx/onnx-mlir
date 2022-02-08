@@ -10,18 +10,18 @@
 #include <string>
 #include <vector>
 
-#include "mlir/IR/BuiltinOps.h"
 #include "llvm/Support/FileSystem.h"
 
 #include "src/Compiler/CompilerUtils.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
+#include "test/modellib/ModelLib.hpp"
 
-#define SHARED_LIB_BASE string("./TestGemm_main_graph")
+static const llvm::StringRef SHARED_LIB_BASE("./TestGemm_main_graph");
 
 using namespace std;
 using namespace mlir;
+using namespace onnx_mlir;
 
 // Include some helper functions.
 #include "Helper.hpp"
@@ -59,83 +59,25 @@ void omPrintAsPython(OMTensor *tensor, string name) {
 bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
     const int aTrans, const int bTrans, const int cRank, const float alphaVal,
     const float betaVal) {
-  MLIRContext ctx;
-  registerDialects(ctx);
+
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d%s%s, cRank %d, alpha %7.3f, beta "
          "%7.3f\n",
       ++testNum, I, J, K, (aTrans ? ", aTrans" : ""),
       (bTrans ? ", bTrans" : ""), cRank, (double)alphaVal, (double)betaVal);
 
-  auto module = ModuleOp::create(UnknownLoc::get(&ctx));
-  OpBuilder builder(&ctx);
+  SmallVector<int64_t, 2> aShape, bShape, cShape;
+  if (!genGemmAndCompileModel(
+          /*compiler options */
+          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          /* GEMM param in*/
+          I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal,
+          /* GEMM param out*/
+          aShape, bShape, cShape))
+    return false;
 
-  llvm::SmallVector<int64_t, 2> aShape = {I, K};
-  llvm::SmallVector<int64_t, 2> aShapeT = {K, I};
-  llvm::SmallVector<int64_t, 2> bShape = {K, J};
-  llvm::SmallVector<int64_t, 2> bShapeT = {J, K};
-  if (aTrans)
-    aShape = aShapeT;
-  if (bTrans)
-    bShape = bShapeT;
-  llvm::SmallVector<int64_t, 2> cShape = {J};
-  llvm::SmallVector<int64_t, 2> cShape2 = {I, J};
-  if (cRank == 2)
-    cShape = cShape2;
-  else
-    assert(cRank == 1 && "cRank == 1 or 2");
-
-  llvm::SmallVector<int64_t, 2> yShape = {I, J};
-  auto aType = RankedTensorType::get(aShape, builder.getF32Type());
-  auto bType = RankedTensorType::get(bShape, builder.getF32Type());
-  auto cType = RankedTensorType::get(cShape, builder.getF32Type());
-  auto yType = RankedTensorType::get(yShape, builder.getF32Type());
-
-  llvm::SmallVector<Type, 3> inputsType{aType, bType, cType};
-  llvm::SmallVector<Type, 1> outputsType{yType};
-
-  auto funcType = builder.getFunctionType(inputsType, outputsType);
-  string funcName = "main_graph";
-  llvm::SmallVector<NamedAttribute, 1> attrs;
-  auto funcOp =
-      builder.create<FuncOp>(UnknownLoc::get(&ctx), funcName, funcType, attrs);
-
-  auto entryBlock = funcOp.addEntryBlock();
-  builder.setInsertionPointToStart(entryBlock);
-
-  auto aVal = entryBlock->getArgument(0);
-  auto bVal = entryBlock->getArgument(1);
-  auto cVal = entryBlock->getArgument(2);
-
-  FloatAttr alphaAttr = FloatAttr::get(builder.getF32Type(), alphaVal);
-  FloatAttr betaAttr = FloatAttr::get(builder.getF32Type(), betaVal);
-  IntegerAttr aTransAttr =
-      IntegerAttr::get(builder.getIntegerType(64, true), aTrans);
-  IntegerAttr bTransAttr =
-      IntegerAttr::get(builder.getIntegerType(64, true), bTrans);
-  auto gemmOp = builder.create<ONNXGemmOp>(UnknownLoc::get(&ctx),
-      /*Y=*/yType, /*A=*/aVal, /*B=*/bVal, /*C=*/cVal, alphaAttr, betaAttr,
-      aTransAttr, bTransAttr);
-  gemmOp.getResult().setType(yType);
-
-  llvm::SmallVector<Value, 1> results = {gemmOp.getResult()};
-  builder.create<ReturnOp>(UnknownLoc::get(&ctx), results);
-  module.push_back(funcOp);
-
-  // Emit the entry point operation which specifies the number of user
-  // inputs and outputs.
-  std::string signature("");
-  auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
-      /*numInputs=*/3,
-      /*numOutputs=*/1,
-      /*signature*/ signature);
-  module.push_back(entryPoint);
-
-  OwningModuleRef moduleRef(module);
-
-  compileModule(moduleRef, ctx, SHARED_LIB_BASE, onnx_mlir::EmitLib);
   onnx_mlir::ExecutionSession sess(
-      getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
+      getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto aOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
@@ -215,9 +157,10 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
 }
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
+  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
-  llvm::cl::ParseCommandLineOptions(argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
+  llvm::cl::ParseCommandLineOptions(
+      argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
 
   if (true) {
     printf("RapidCheck test case generation.\n");

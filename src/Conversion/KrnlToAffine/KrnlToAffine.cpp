@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Affine/LoopUtils.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -21,7 +22,6 @@
 #include "mlir/Interfaces/LoopLikeInterface.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "mlir/Transforms/LoopUtils.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -432,13 +432,13 @@ void lowerGetInductionVariableValueOp(KrnlGetInductionVariableValueOp &getIVOp,
 /// At this stage the dialect will contain standard operations as well like
 /// add and multiply, this pass will leave these operations intact.
 struct ConvertKrnlToAffinePass
-    : public PassWrapper<ConvertKrnlToAffinePass, FunctionPass> {
+    : public PassWrapper<ConvertKrnlToAffinePass, OperationPass<FuncOp>> {
 
   StringRef getArgument() const override { return "convert-krnl-to-affine"; }
 
   StringRef getDescription() const override { return "Lower Krnl dialect."; }
 
-  void runOnFunction() final;
+  void runOnOperation() final;
 };
 
 LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
@@ -1443,9 +1443,15 @@ void markLoopBodyAsMovable(
   }
 }
 
-void ConvertKrnlToAffinePass::runOnFunction() {
+void ConvertKrnlToAffinePass::runOnOperation() {
   OpBuilder builder(&getContext());
-  FuncOp funcOp = getFunction();
+  FuncOp funcOp = getOperation();
+
+  // external function: nothing to do
+  if (funcOp.body().empty()) {
+    return;
+  }
+
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
@@ -1530,7 +1536,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
 
   DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
-          getFunction(), target, std::move(patterns), &unconverted))) {
+          getOperation(), target, std::move(patterns), &unconverted))) {
     {
       const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
       unrollAndJamMap.erase(currFuncOp);

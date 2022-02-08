@@ -2,7 +2,7 @@
 
 # Installation of ONNX-MLIR on Linux / OSX
 
-We provide here directions to insall ONNX-MLIR on Linux and OSX. 
+We provide here directions to install ONNX-MLIR on Linux and OSX.
 On Mac, there are a couple of commands that are different. 
 These differences will be listed in the explanation below, when relevant.
 
@@ -14,7 +14,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout 0bf230d4220660af8b2667506f8905df2f716bdf && cd ..
+cd llvm-project && git checkout 2c8a77ab21ff3a41829a5d67e0b838cc7a9f5f21 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -39,7 +39,7 @@ cmake --build . --target check-mlir
 The following environment variables can be set before building onnx-mlir (or alternatively, they need to be passed as CMake variables):
 - `MLIR_DIR` should point to the mlir cmake module inside an llvm-project build or install directory (e.g., llvm-project/build/lib/cmake/mlir).
 
-This project uses lit ([LLVM's Integrated Tester](http://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running CMake, we can also specify the path to the lit tool from LLVM using the LLVM_EXTERNAL_LIT define but it is not required as long as MLIR_DIR points to a build directory of llvm-project. If MLIR_DIR points to an install directory of llvm-project, LLVM_EXTERNAL_LIT is required.
+This project uses lit ([LLVM's Integrated Tester](https://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running CMake, we can also specify the path to the lit tool from LLVM using the LLVM_EXTERNAL_LIT define but it is not required as long as MLIR_DIR points to a build directory of llvm-project. If MLIR_DIR points to an install directory of llvm-project, LLVM_EXTERNAL_LIT is required.
 
 To build ONNX-MLIR, use the following commands:
 

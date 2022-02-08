@@ -10,18 +10,18 @@
 #include <string>
 #include <vector>
 
-#include "mlir/IR/BuiltinOps.h"
 #include "llvm/Support/FileSystem.h"
 
 #include "src/Compiler/CompilerUtils.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
+#include "test/modellib/ModelLib.hpp"
 
-#define SHARED_LIB_BASE string("./TestMatmul2D_main_graph")
+static const llvm::StringRef SHARED_LIB_BASE("./TestMatmul2D_main_graph");
 
 using namespace std;
 using namespace mlir;
+using namespace onnx_mlir;
 
 // Include some helper functions.
 #include "Helper.hpp"
@@ -30,56 +30,18 @@ using namespace mlir;
 // as a naive implementation of Matmul for a specific set of Matmul
 // parameters/configuration. Matmul: A[IxK] * B[KxJ] = C[IxJ]
 bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
-  MLIRContext ctx;
-  registerDialects(ctx);
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
 
-  auto module = ModuleOp::create(UnknownLoc::get(&ctx));
-  OpBuilder builder(&ctx);
-  llvm::SmallVector<int64_t, 4> aShape = {I, K};
-  llvm::SmallVector<int64_t, 1> bShape = {K, J};
-  llvm::SmallVector<int64_t, 4> cShape = {I, J};
-  auto aType = RankedTensorType::get(aShape, builder.getF32Type());
-  auto bType = RankedTensorType::get(bShape, builder.getF32Type());
-  auto yType = RankedTensorType::get(cShape, builder.getF32Type());
+  if (!genMatMul2DModelAndCompile(
+          /*compiler options */
+          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          /* GEMM param in*/
+          I, J, K))
+    return false;
 
-  llvm::SmallVector<Type, 2> inputsType{aType, bType};
-  llvm::SmallVector<Type, 1> outputsType{yType};
-
-  auto funcType = builder.getFunctionType(inputsType, outputsType);
-  string funcName = "main_graph";
-  llvm::SmallVector<NamedAttribute, 1> attrs;
-  auto funcOp =
-      builder.create<FuncOp>(UnknownLoc::get(&ctx), funcName, funcType, attrs);
-
-  auto entryBlock = funcOp.addEntryBlock();
-  builder.setInsertionPointToStart(entryBlock);
-
-  auto aVal = entryBlock->getArgument(0);
-  auto bVal = entryBlock->getArgument(1);
-
-  auto MatmulOp = builder.create<ONNXMatMulOp>(UnknownLoc::get(&ctx),
-      /*Y=*/yType, /*A=*/aVal, /*B=*/bVal);
-
-  llvm::SmallVector<Value, 1> results = {MatmulOp.getResult()};
-  builder.create<ReturnOp>(UnknownLoc::get(&ctx), results);
-  module.push_back(funcOp);
-
-  // Emit the entry point operation which specifies the number of user
-  // inputs and outputs.
-  std::string signature("");
-  auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
-      /*numInputs=*/2,
-      /*numOutputs=*/1,
-      /*signature*/ signature);
-  module.push_back(entryPoint);
-
-  OwningModuleRef moduleRef(module);
-
-  compileModule(moduleRef, ctx, SHARED_LIB_BASE, onnx_mlir::EmitLib);
   onnx_mlir::ExecutionSession sess(
-      getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
+      getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto aOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
@@ -113,9 +75,10 @@ bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
 }
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
+  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
-  llvm::cl::ParseCommandLineOptions(argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
+  llvm::cl::ParseCommandLineOptions(
+      argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
 
   printf("RapidCheck test case generation.\n");
   bool success = rc::check("Matmul implementation correctness", []() {

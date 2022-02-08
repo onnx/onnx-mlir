@@ -19,10 +19,11 @@
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
 
-#define SHARED_LIB_BASE string("./TestLoop_main_graph")
+static const llvm::StringRef SHARED_LIB_BASE("./TestLoop_main_graph");
 
 using namespace std;
 using namespace mlir;
+using namespace onnx_mlir;
 
 // Include some helper functions.
 #include "Helper.hpp"
@@ -81,13 +82,13 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
         std::numeric_limits<int64_t>::max(),
     const int64_t constOffset = 0) {
   MLIRContext ctx;
-  registerDialects(ctx);
+  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
 
   auto module = mlir::parseSourceString(moduleIR, &ctx);
   OwningModuleRef moduleRef(std::move(module));
-  compileModule(moduleRef, ctx, SHARED_LIB_BASE, onnx_mlir::EmitLib);
+  compileModule(moduleRef, ctx, SHARED_LIB_BASE.str(), onnx_mlir::EmitLib);
   onnx_mlir::ExecutionSession sess(
-      getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
+      getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto tripCountTensor = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
@@ -126,9 +127,10 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
 }
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
+  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
-  llvm::cl::ParseCommandLineOptions(argc, argv, "TestLoop\n", nullptr, "TEST_ARGS");
+  llvm::cl::ParseCommandLineOptions(
+      argc, argv, "TestLoop\n", nullptr, "TEST_ARGS");
 
   // Loop tests, simple.
   assert(isOMLoopTheSameAsNaiveImplFor(testLoopSimpleIR, 0, 42));

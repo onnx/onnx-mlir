@@ -60,6 +60,27 @@ DenseElementsAttr createDenseArrayAttr(
   llvm_unreachable("unexpected attribute type");
 }
 
+/// Create an Scalar DenseElementsAttr from FloatAttr or IntergerAttr.
+/// This is used to create an ONNXConstant of rank 0, e.g. tensor<f32>.
+DenseElementsAttr createScalarDenseAttr(
+    PatternRewriter &rewriter, Attribute attr) {
+  if (attr.dyn_cast<FloatAttr>()) {
+    mlir::Type elementType = rewriter.getF32Type();
+    SmallVector<float, 1> wrapper;
+    wrapper.emplace_back(attr.cast<FloatAttr>().getValueAsDouble());
+    return DenseElementsAttr::get(
+        RankedTensorType::get({}, elementType), llvm::makeArrayRef(wrapper));
+  }
+  if (attr.dyn_cast<IntegerAttr>()) {
+    mlir::Type elementType = rewriter.getIntegerType(64);
+    SmallVector<int64_t, 1> wrapper;
+    wrapper.emplace_back(attr.cast<IntegerAttr>().getInt());
+    return DenseElementsAttr::get(
+        RankedTensorType::get({}, elementType), llvm::makeArrayRef(wrapper));
+  }
+  llvm_unreachable("unexpected attribute type");
+}
+
 ConstantOp createUnitConstant(PatternRewriter &rewriter, Location loc) {
   return rewriter.create<ConstantOp>(loc, rewriter.getUnitAttr());
 }
@@ -102,7 +123,7 @@ Value createSequenceConstructOp(
 namespace {
 
 struct DecomposeONNXToONNXPass
-    : public PassWrapper<DecomposeONNXToONNXPass, FunctionPass> {
+    : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<FuncOp>> {
 
   StringRef getArgument() const override { return "decompose-onnx"; }
 
@@ -111,34 +132,37 @@ struct DecomposeONNXToONNXPass
            "operations.";
   }
 
-  void runOnFunction() final;
+  void runOnOperation() final;
 };
 } // end anonymous namespace.
 
-void DecomposeONNXToONNXPass::runOnFunction() {
-  auto function = getFunction();
+void DecomposeONNXToONNXPass::runOnOperation() {
+  auto function = getOperation();
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());
-  target.addLegalDialect<ONNXOpsDialect, StandardOpsDialect>();
+  target.addLegalDialect<ONNXDialect, StandardOpsDialect>();
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
+  target.addIllegalOp<ONNXClipV6Op>();
+  target.addIllegalOp<ONNXClipV11Op>();
+  target.addIllegalOp<ONNXClipV12Op>();
+  target.addIllegalOp<ONNXLogSoftmaxOp>();
+  target.addIllegalOp<ONNXPadV2Op>();
+  target.addIllegalOp<ONNXPadV11Op>();
   target.addIllegalOp<ONNXReduceL1Op>();
   target.addIllegalOp<ONNXReduceL2Op>();
   target.addIllegalOp<ONNXReduceLogSumOp>();
   target.addIllegalOp<ONNXReduceLogSumExpOp>();
   target.addIllegalOp<ONNXReduceSumSquareOp>();
+  target.addIllegalOp<ONNXResizeV11Op>();
+  target.addIllegalOp<ONNXResizeV10Op>();
   target.addIllegalOp<ONNXScalerOp>();
-  target.addIllegalOp<ONNXLogSoftmaxOp>();
+  target.addIllegalOp<ONNXSequenceConstructOp>();
   target.addIllegalOp<ONNXUpsampleOp>();
   target.addIllegalOp<ONNXUpsampleV9Op>();
   target.addIllegalOp<ONNXUpsampleV7Op>();
-  target.addIllegalOp<ONNXPadV2Op>();
-  target.addIllegalOp<ONNXPadV11Op>();
-  target.addIllegalOp<ONNXResizeV11Op>();
-  target.addIllegalOp<ONNXResizeV10Op>();
-  target.addIllegalOp<ONNXSequenceConstructOp>();
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);

@@ -4,7 +4,7 @@
 
 //===----------------- Softmax.cpp - Softmax Op ---------------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -129,7 +129,7 @@ static void emitInstForSoftmaxBeforeV13(ConversionPatternRewriter &rewriter,
 
   // Coerce the input into a 2-D tensor. `axis` will be the coercing
   // point. This coercing follows the softmax definition in ONNX:
-  // https://github.com/onnx/onnx/blob/master/docs/Operators.md#Softmax
+  // https://github.com/onnx/onnx/blob/main/docs/Operators.md#Softmax
   // Here, we create an outer loop and inner loop for handling the two
   // dimensions. The outer loop is only created once `axis` is not
   // zero.
@@ -218,8 +218,9 @@ static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
 }
 
 struct ONNXSoftmaxOpLowering : public ConversionPattern {
-  ONNXSoftmaxOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXSoftmaxOp::getOperationName(), 1, ctx) {}
+  ONNXSoftmaxOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXSoftmaxOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // softmax(x) = let max_x = max(x) in
@@ -278,7 +279,7 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXSoftmaxOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXSoftmaxOpLowering>(ctx);
+void populateLoweringONNXSoftmaxOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXSoftmaxOpLowering>(typeConverter, ctx);
 }

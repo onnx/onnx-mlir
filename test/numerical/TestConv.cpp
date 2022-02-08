@@ -10,32 +10,23 @@
 #include <string>
 #include <vector>
 
-#include "mlir/IR/BuiltinOps.h"
 #include "llvm/Support/FileSystem.h"
 
 #include "src/Compiler/CompilerUtils.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
+#include "test/modellib/ModelLib.hpp"
 
 #define DEBUG 0
 
 using namespace std;
 using namespace mlir;
+using namespace onnx_mlir;
 
 // Include some helper functions.
 #include "Helper.hpp"
 
-#define SHARED_LIB_BASE string("./TestConv_main_graph")
-
-// Convention for RapidCheck values to auto pad policies. UB is the one after
-// the last official policy.
-#define AUTO_PAD_NOTSET 0
-#define AUTO_PAD_VALID 1
-#define AUTO_PAD_LOWER 2
-#define AUTO_PAD_UPPER 3
-#define AUTO_PAD_UB 4
-const string autoPadName[] = {"NOTSET", "VALID", "SAME_LOWER", "SAME_UPPER"};
+static const llvm::StringRef SHARED_LIB_BASE("./TestConv_main_graph");
 
 // Made global so that we can repeat the test with different strides and
 // dilations. Had to make them global to conform with the signatures of lambda
@@ -43,19 +34,20 @@ const string autoPadName[] = {"NOTSET", "VALID", "SAME_LOWER", "SAME_UPPER"};
 int stride, dilation, isDynamic;
 
 // Support.
-int myCeil(int a, int b) { return ceil((1.0 * a) / (1.0 * b)); }
-int myFloor(int a, int b) { return floor((1.0 * a) / (1.0 * b)); }
+static int myCeil(int a, int b) { return ceil((1.0 * a) / (1.0 * b)); }
+static int myFloor(int a, int b) { return floor((1.0 * a) / (1.0 * b)); }
 
 //===----------------------------------------------------------------------===//
-// Compute Shape for various auto pad value.
+// Compute shape for various auto pad value and check results.
 //===----------------------------------------------------------------------===//
 
-// TODO: Ideally these values would be corroborated with Pytorch/TF. However,
+// TODO: Ideally these values would be corroborated with Pytorch/TF. However
 // Pytorch only supports same/valid with unit strides. Maybe check with TF?
-LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
-    const int WIn, const int kH, const int kW, int &pHBegin, int &pHEnd,
-    int &pWBegin, int &pWEnd, const int autoPad, const int NOut, const int COut,
-    const int HOut, const int WOut) {
+
+static LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
+    const int WIn, const int kH, const int kW, const int autoPad,
+    const int NOut, const int COut, const int HOut, const int WOut,
+    int &pHBegin, int &pHEnd, int &pWBegin, int &pWEnd) {
 
   // Check first params.
   if (NIn != NOut) {
@@ -78,7 +70,7 @@ LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
   int O[] = {HOut, WOut};
 
   // Check dimensions for the spatial axes. From MaxPool:
-  // https://github.com/onnx/onnx/blob/master/docs/Operators.md#maxpool
+  // https://github.com/onnx/onnx/blob/main/docs/Operators.md#maxpool
   int myO[2], myPBegin[2], myPEnd[2];
   for (int i = 0; i < 2; ++i) {
     if (autoPad == AUTO_PAD_NOTSET) {
@@ -124,10 +116,6 @@ LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
   return success();
 }
 
-//===----------------------------------------------------------------------===//
-// Evaluate Convolution
-//===----------------------------------------------------------------------===//
-
 // Returns whether onnx-mlir compiled convolution is producing the same results
 // as a naive implementation of convolution for a specific set of convolution
 // parameters/configuration. Stride and dilation are square (same along H and
@@ -142,83 +130,31 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
         "pHEnd %d, pWBegin %d, pWEnd %d, autopad %s, isDynamic %d, stride %d, "
         "dilation %d\n",
         ++testNum, N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
-        autoPadName[autoPad].c_str(), isDynamic, stride, dilation);
-  if (autoPad != AUTO_PAD_NOTSET) {
-    // make sure all pads are initially zero, only value tolarated.
-    assert(pHBegin == 0 && pHEnd == 0 && pWBegin == 0 && pWEnd == 0);
-  }
+        getAutoPadName(autoPad).c_str(), isDynamic, stride, dilation);
 
-  MLIRContext ctx;
-  registerDialects(ctx);
-
-  int N1 = N;
-  int C1 = C;
-  int H1 = H;
-  int W1 = W;
-  if (isDynamic)
-    N1 = C1 = H1 = W1 = -1;
-
-  auto module = ModuleOp::create(UnknownLoc::get(&ctx));
-  OpBuilder builder(&ctx);
-  llvm::SmallVector<int64_t, 4> xShape = {N, C, H, W};
-  llvm::SmallVector<int64_t, 3> xShapeSymbol = {N1, C1, H1, W1};
-  llvm::SmallVector<int64_t, 1> bShape = {C};
-  llvm::SmallVector<int64_t, 4> wShape = {C, C, kH, kW};
-  auto xType = RankedTensorType::get(xShape, builder.getF32Type());
-  auto xTypeSymbol = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
-  auto wType = RankedTensorType::get(wShape, builder.getF32Type());
-  auto yType = UnrankedTensorType::get(builder.getF32Type());
-
-  llvm::SmallVector<Type, 2> inputsType{xTypeSymbol, wType};
-  llvm::SmallVector<Type, 1> outputsType{yType};
-
-  auto funcType = builder.getFunctionType(inputsType, outputsType);
-  string funcName = "main_graph";
-  llvm::SmallVector<NamedAttribute, 1> attrs;
-  auto funcOp =
-      builder.create<FuncOp>(UnknownLoc::get(&ctx), funcName, funcType, attrs);
-
-  auto entryBlock = funcOp.addEntryBlock();
-  builder.setInsertionPointToStart(entryBlock);
-
-  auto xVal = entryBlock->getArgument(0);
-  auto wVal = entryBlock->getArgument(1);
-  auto bVal =
-      builder.create<ConstantOp>(UnknownLoc::get(&ctx), builder.getUnitAttr())
-          .getResult();
-
-  auto dilations = builder.getI64ArrayAttr({dilation, dilation});
-  auto kernel_shape = builder.getI64ArrayAttr({kH, kW});
-  auto pads = builder.getI64ArrayAttr({pHBegin, pWBegin, pHEnd, pWEnd});
-  auto strides = builder.getI64ArrayAttr({stride, stride});
-
-  auto convOp = builder.create<ONNXConvOp>(UnknownLoc::get(&ctx),
-      /*Y=*/yType,
-      /*X=*/xVal, /*W=*/wVal, /*B=*/bVal,
-      /*auto_pad=*/builder.getStringAttr(autoPadName[autoPad]),
-      /*dilations=*/dilations,
-      /*group=*/
-      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, 1, /*isSigned=*/true)),
-      /*kernel_shape=*/kernel_shape, /*pads=*/pads,
-      /*strides=*/strides);
-
-  // Use the convOp shape inference method to compute output shape, and unset
-  // the shape so that we don't leave IR in a inconsistent state.
-  convOp.X().setType(xType); // Use static dims to infer shape.
-  LogicalResult res = convOp.inferShapes([](mlir::Region &) {});
-  if (failed(res)) {
+  int NOut, COut, HOut, WOut;
+  if (!genConv2DModelAndCompile(
+          /*compiler options */
+          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          /*input conv param */ N, C, H, W, kH, kW, autoPad, pHBegin, pHEnd,
+          pWBegin, pWEnd, stride, dilation, isDynamic,
+          /*output conv param*/ NOut, COut, HOut, WOut))
     return false;
-  }
-  auto outputShape = convOp.getResult().getType().cast<ShapedType>().getShape();
-  auto NOut = outputShape[0];
-  auto COut = outputShape[1];
-  auto HOut = outputShape[2];
-  auto WOut = outputShape[3];
-  convOp.getResult().setType(yType);
-  convOp.X().setType(xTypeSymbol);
-  res = checkShapes(N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd, autoPad,
-      NOut, COut, HOut, WOut);
+
+  onnx_mlir::ExecutionSession sess(
+      getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
+
+  std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
+  auto xOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>({N, C, H, W}), omTensorDestroy);
+  inputs.emplace_back(move(xOmt));
+  auto wOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>({C, C, kH, kW}), omTensorDestroy);
+  inputs.emplace_back(move(wOmt));
+
+  // Check shape and also compute pad H/W Begin/End params.
+  LogicalResult res = checkShapes(/*in*/ N, C, H, W, kH, kW, autoPad, NOut,
+      COut, HOut, WOut, /*in/out*/ pHBegin, pHEnd, pWBegin, pWEnd);
   if (failed(res)) {
     if (DEBUG) {
       cerr << "Conv after check shape, N out " << NOut << ", C out " << COut
@@ -228,33 +164,6 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
     }
     return false;
   }
-
-  llvm::SmallVector<Value, 1> results = {convOp.getResult()};
-  builder.create<ReturnOp>(UnknownLoc::get(&ctx), results);
-  module.push_back(funcOp);
-
-  // Emit the entry point operation which specifies the number of user
-  // inputs and outputs.
-  std::string signature("");
-  auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
-      /*numInputs=*/2,
-      /*numOutputs=*/1,
-      /*signature*/ signature);
-  module.push_back(entryPoint);
-
-  OwningModuleRef moduleRef(module);
-
-  compileModule(moduleRef, ctx, SHARED_LIB_BASE, onnx_mlir::EmitLib);
-  onnx_mlir::ExecutionSession sess(
-      getSharedLibName(SHARED_LIB_BASE), "run_main_graph");
-
-  std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
-  auto xOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>({N, C, H, W}), omTensorDestroy);
-  inputs.emplace_back(move(xOmt));
-  auto wOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>({C, C, kH, kW}), omTensorDestroy);
-  inputs.emplace_back(move(wOmt));
 
   auto ref = omTensorCreateWithShape<float>({NOut, COut, HOut, WOut});
   auto &img = inputs.at(0);
@@ -288,9 +197,10 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 }
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE));
+  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
-  llvm::cl::ParseCommandLineOptions(argc, argv, "TestConv\n", nullptr, "TEST_ARGS");
+  llvm::cl::ParseCommandLineOptions(
+      argc, argv, "TestConv\n", nullptr, "TEST_ARGS");
 
   // Had to explicitly iterate over dynamic as otherwise the random algorithm
   // never got to testing the dynamic cases.

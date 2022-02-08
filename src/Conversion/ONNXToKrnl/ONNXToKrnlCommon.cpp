@@ -4,7 +4,7 @@
 
 //====----- ONNXToKrnlCommon.cpp - ONNX dialects to Krnl lowering ---------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -15,7 +15,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
-bool gEmitDealloc = true;
+bool ONNXToKrnl_gEmitDealloc = false;
 
 Value OnnxToKrnlBuilder::reshape(
     const Value input, const ArrayRef<DimIndexExpr> shapeDims) const {
@@ -81,7 +81,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
     const ArrayRef<DimIndexExpr> outputDims) const {
   assert(!outputDims.empty() && "Output dimensions should not be empty");
   assert(!perm.empty() && perm.size() == outputDims.size() &&
-         "Expecitng valid permutation array");
+         "Expecting valid permutation array");
 
   // Compute the shape of the 'onnx.Transpose' result.
   SmallVector<int64_t, 6> shape;
@@ -110,7 +110,7 @@ bool hasAllScalarValues(ArrayRef<Value> values) {
 MemRefType convertToMemRefType(Type type) {
   // Convert the element type of the (tensor or memref) to a valid Krnl type.
   auto convertElemType = [](Type elemType) -> Type {
-    if (elemType.isa<onnxmlir::StringType>())
+    if (elemType.isa<ONNXStringType>())
       return StringType::get(elemType.getContext());
     return elemType;
   };
@@ -150,7 +150,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     alloc = createMemRef.alignedAlloc(type, alignment);
   }
 
-  if (!gEmitDealloc)
+  if (!ONNXToKrnl_gEmitDealloc)
     return alloc;
 
   // Make sure to allocate at the beginning of the block if
@@ -193,7 +193,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   memref::AllocOp allocOp =
       createMemRef.alignedAlloc(type, allocOperands, alignment);
 
-  if (!gEmitDealloc)
+  if (!ONNXToKrnl_gEmitDealloc)
     return allocOp;
 
   if (insertDealloc) {
@@ -219,7 +219,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
 // operand is the result value of current op. If it does then
 // dealloc should not be inserted.
 bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
-  if (gEmitDealloc == false)
+  if (ONNXToKrnl_gEmitDealloc == false)
     return false;
 
   auto parentBlock = currentOp->getBlock();
@@ -755,13 +755,13 @@ KrnlTypeConverter::KrnlTypeConverter() {
   // The order of type conversion is important: later ones are tried earlier.
   addConversion([](Type type) { return type; });
 
-  addConversion([](onnxmlir::StringType stringType) {
+  addConversion([](ONNXStringType stringType) {
     return StringType::get(stringType.getContext());
   });
 
   addConversion([](TensorType tensorType) {
     assert(tensorType.hasRank() && "expected only ranked shapes");
-    if (tensorType.getElementType().isa<onnxmlir::StringType>()) {
+    if (tensorType.getElementType().isa<ONNXStringType>()) {
       Type elementType = StringType::get(tensorType.getContext());
       return MemRefType::get(tensorType.getShape(), elementType);
     }

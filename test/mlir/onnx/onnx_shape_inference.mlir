@@ -1947,8 +1947,8 @@ func @test_loop_simple_no_scan_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
   return %0 : tensor<*xi64>
 // CHECK-LABEL:   func @test_loop_simple_no_scan_main_graph
 // CHECK-SAME:     ([[TRIP_COUNT:%.+]]: tensor<i64>, [[COND:%.+]]: tensor<i1>, [[Y_INIT:%.+]]: tensor<1xi64>) -> tensor<1xi64> {
-// CHECK:           [[Y_FINAL:%.+]] = "onnx.Loop"([[TRIP_COUNT]], [[COND]], [[Y_INIT]]) ( {
-// CHECK:           ^bb0([[I:%.+]]: tensor<i64>, [[BODY_COND:%.+]]: tensor<i1>, [[Y_PREV:%.+]]: tensor<1xi64>):  // no predecessors
+// CHECK:           [[Y_FINAL:%.+]] = "onnx.Loop"([[TRIP_COUNT]], [[COND]], [[Y_INIT]]) ({
+// CHECK:           ^bb0([[I:%.+]]: tensor<i64>, [[BODY_COND:%.+]]: tensor<i1>, [[Y_PREV:%.+]]: tensor<1xi64>):
 // CHECK:             [[NEXT_COND:%.+]] = "onnx.Identity"([[BODY_COND]]) : (tensor<i1>) -> tensor<i1>
 // CHECK:             [[Y_CURR:%.+]] = "onnx.Add"([[Y_PREV]], [[I]]) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
 // CHECK:             onnx.Return [[NEXT_COND]], [[Y_CURR]] : tensor<i1>, tensor<1xi64>
@@ -1968,8 +1968,8 @@ func @test_loop_simple_one_scan_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>
   return %0#0, %0#1 : tensor<*xi64>, tensor<*xi64>
   // CHECK-LABEL:       func @test_loop_simple_one_scan_main_graph
   // CHECK-SAME:     ([[TRIP_COUNT:%.+]]: tensor<i64>, [[COND:%.+]]: tensor<i1>, [[Y_INIT:%.+]]: tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>) {
-  // CHECK:           [[LOOP_OUT:%.+]]:2 = "onnx.Loop"([[TRIP_COUNT]], [[COND]], [[Y_INIT]]) ( {
-  // CHECK:           ^bb0([[I:%.+]]: tensor<i64>, [[BODY_COND:%.+]]: tensor<i1>, [[Y_PREV:%.+]]: tensor<1xi64>):  // no predecessors
+  // CHECK:           [[LOOP_OUT:%.+]]:2 = "onnx.Loop"([[TRIP_COUNT]], [[COND]], [[Y_INIT]]) ({
+  // CHECK:           ^bb0([[I:%.+]]: tensor<i64>, [[BODY_COND:%.+]]: tensor<i1>, [[Y_PREV:%.+]]: tensor<1xi64>):
   // CHECK:             [[COND_NEXT:%.+]] = "onnx.Identity"([[BODY_COND]]) : (tensor<i1>) -> tensor<i1>
   // CHECK:             [[Y_CURR:%.+]] = "onnx.Add"([[Y_PREV]], [[I]]) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
   // CHECK:             [[Y_CURR_SCAN:%.+]] = "onnx.Identity"([[Y_CURR]]) : (tensor<1xi64>) -> tensor<1xi64>
@@ -1992,8 +1992,8 @@ func @test_loop_multi_scan_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %ar
   return %0#0, %0#1, %0#2, %0#3 : tensor<*xi64>, tensor<*xf32>, tensor<*xi64>, tensor<*xf32>
   // CHECK-LABEL:       func @test_loop_multi_scan_main_graph
   // CHECK-SAME:     ([[TRIP_COUNT:%.+]]: tensor<i64>, [[COND:%.+]]: tensor<i1>, [[Y_INIT:%.+]]: tensor<1xi64>, [[Z_INIT:%.+]]: tensor<1xf32>) -> (tensor<1xi64>, tensor<1xf32>, tensor<?x1xi64>, tensor<?x1xf32>) {
-  // CHECK:           [[LOOP_OUT:%.+]]:4 = "onnx.Loop"([[TRIP_COUNT]], [[COND]], [[Y_INIT]], [[Z_INIT]]) ( {
-  // CHECK:           ^bb0([[I:%.+]]: tensor<i64>, [[BODY_COND:%.+]]: tensor<i1>, [[Y_PREV:%.+]]: tensor<1xi64>, [[Z_PREV:%.+]]: tensor<1xf32>):  // no predecessors
+  // CHECK:           [[LOOP_OUT:%.+]]:4 = "onnx.Loop"([[TRIP_COUNT]], [[COND]], [[Y_INIT]], [[Z_INIT]]) ({
+  // CHECK:           ^bb0([[I:%.+]]: tensor<i64>, [[BODY_COND:%.+]]: tensor<i1>, [[Y_PREV:%.+]]: tensor<1xi64>, [[Z_PREV:%.+]]: tensor<1xf32>):
   // CHECK:             [[COND_NEXT:%.+]] = "onnx.Identity"([[BODY_COND]]) : (tensor<i1>) -> tensor<i1>
   // CHECK:             [[Y_CURR:%.+]] = "onnx.Add"([[Y_PREV]], [[I:%.+]]) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
   // CHECK:             [[Y_CURR_SCAN:%.+]] = "onnx.Identity"([[Y_CURR]]) : (tensor<1xi64>) -> tensor<1xi64>
@@ -2014,8 +2014,8 @@ func @test_scan_simple_main_graph(%arg0: tensor<2xf32>, %arg1: tensor<3x2xf32>) 
   return %0#0, %0#1 : tensor<*xf32>, tensor<*xf32>
 // CHECK-LABEL:       func @test_scan_simple_main_graph
 // CHECK-SAME:     ([[SUM_INIT:%.+]]: tensor<2xf32>, [[TO_SUM:%.+]]: tensor<3x2xf32>) -> (tensor<2xf32>, tensor<3x2xf32>) {
-// CHECK:           [[SCAN_OUT:%.+]]:2 = "onnx.Scan"([[SUM_INIT]], [[TO_SUM]]) ( {
-// CHECK:           ^bb0([[SUM_PREV:%.+]]: tensor<2xf32>, [[SUM_CURR:%.+]]: tensor<2xf32>):  // no predecessors
+// CHECK:           [[SCAN_OUT:%.+]]:2 = "onnx.Scan"([[SUM_INIT]], [[TO_SUM]]) (
+// CHECK:           ^bb0([[SUM_PREV:%.+]]: tensor<2xf32>, [[SUM_CURR:%.+]]: tensor<2xf32>):
 // CHECK:             [[ADD:%.+]] = "onnx.Add"([[SUM_PREV]], [[SUM_CURR]]) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
 // CHECK:             onnx.Return [[ADD]], [[ADD]] : tensor<2xf32>, tensor<2xf32>
 // CHECK:           }) {num_scan_inputs = 1 : si64} : (tensor<2xf32>, tensor<3x2xf32>) -> (tensor<2xf32>, tensor<3x2xf32>)
@@ -2188,7 +2188,80 @@ func @test_random_normal_static_f64() -> tensor<*xf32> {
   // CHECK: [[R0:%.+]] = "onnx.RandomNormal"() {dtype = 2 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]} : () -> tensor<3x4x5xf64>
 }
 
+//===----------------------------------------------------------------------===//
+
 // -----
+
+// Test RandomNormalLike static
+
+func @test_random_normal_like_static_f16(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
+  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 0 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_static_f16
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 0 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf16>
+}
+
+func @test_random_normal_like_static_f32(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
+  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_static_f32
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf32>
+}
+
+func @test_random_normal_like_static_f64(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
+  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_static_f64
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 2 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<1x1x28x28xf64>
+}
+
+// -----
+
+// Test RandomNormalLike dynamic
+
+func @test_random_normal_like_dynamic_f16(%arg0: tensor<1x?x28x28xf32>) -> tensor<*xf32> {
+  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 0 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x?x28x28xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_dynamic_f16
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 0 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x?x28x28xf32>) -> tensor<1x?x28x28xf16>
+}
+
+func @test_random_normal_like_dynamic_f32(%arg0: tensor<1x1x?x28xf32>) -> tensor<*xf32> {
+  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x?x28xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_dynamic_f32
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x?x28xf32>) -> tensor<1x1x?x28xf32>
+}
+
+func @test_random_normal_like_dynamic_f64(%arg0: tensor<1x1x28x?xf32>) -> tensor<*xf32> {
+  %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 2 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x?xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_dynamic_f64
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {dtype = 2 : si64, mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x?xf32>) -> tensor<1x1x28x?xf64>
+}
+
+// -----
+
+// Test RandomNormalLike missing dtype
+
+func @test_random_normal_like_type_default1(%arg0: tensor<1x1x28x28xf64>) -> tensor<*xf32> {
+  %0 = "onnx.RandomNormalLike"(%arg0) {mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf64>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_random_normal_like_type_default1
+  // CHECK: [[R0:%.+]] = "onnx.RandomNormalLike"(%arg0) {mean = 0.000000e+00 : f32, scale = 1.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf64>) -> tensor<1x1x28x28xf64>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// Test NonMaxSuppression
 
 func @test_nonmaxsuppression(%arg0: tensor<1x6x4xf32>, %arg1: tensor<1x1x6xf32>, %arg2: tensor<1xi64>, %arg3: tensor<1xf32>, %arg4: tensor<1xf32>) -> tensor<*xi64> {
     %0 = "onnx.NonMaxSuppression"(%arg0, %arg1, %arg2, %arg3, %arg4) {center_point_box = 1 : si64} : (tensor<1x6x4xf32>, tensor<1x1x6xf32>, tensor<1xi64>, tensor<1xf32>, tensor<1xf32>) -> tensor<*xi64>
@@ -2399,4 +2472,32 @@ func @test_seqence_3(%arg0: tensor<2x4x8xf32>, %arg1: tensor<3x6xf32>) -> !onnx.
 // CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<2x4x8xf32>, none) -> !onnx.Seq<tensor<2x4x8xf32>>
 // CHECK:           [[VAR_2_:%.+]] = "onnx.SequenceInsert"([[VAR_1_]], [[PARAM_1_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<2x4x8xf32>>, tensor<3x6xf32>, none) -> !onnx.Seq<tensor<*xf32>>
 // CHECK:           return [[VAR_2_]] : !onnx.Seq<tensor<*xf32>>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for RoiAlign.
+//===----------------------------------------------------------------------===//
+func @test_roialign(%arg0: tensor<1x2x4x8xf32>, %arg1: tensor<100x4xf32>, %arg2: tensor<100xi64>) -> tensor<*xf32> {
+  %0 = "onnx.RoiAlign"(%arg0, %arg1, %arg2) {output_height = 7 : si64, output_width = 7 : si64, sampling_ratio = 2 : si64, spatial_scale = 1.000000e+00 : f32} : (tensor<1x2x4x8xf32>, tensor<100x4xf32>, tensor<100xi64>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+  
+  // CHECK-LABEL: func @test_roialign
+  // CHECK: [[RES:%.+]] = "onnx.RoiAlign"(%arg0, %arg1, %arg2) {output_height = 7 : si64, output_width = 7 : si64, sampling_ratio = 2 : si64, spatial_scale = 1.000000e+00 : f32} : (tensor<1x2x4x8xf32>, tensor<100x4xf32>, tensor<100xi64>) -> tensor<100x2x7x7xf32>
+  // CHECK: return [[RES]] : tensor<100x2x7x7xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for ScatterElements.
+//===----------------------------------------------------------------------===//
+func @test_scatterelements(%arg0: tensor<64x25600xf32>, %arg1: tensor<64x100xi64>, %arg2: tensor<64x100xf32>) -> tensor<*xf32> {
+  %0 = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<64x25600xf32>, tensor<64x100xi64>, tensor<64x100xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+  
+  // CHECK-LABEL: func @test_scatterelements
+  // CHECK: [[RES:%.+]] = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<64x25600xf32>, tensor<64x100xi64>, tensor<64x100xf32>) -> tensor<64x25600xf32>
+  // CHECK: return [[RES]] : tensor<64x25600xf32>
 }

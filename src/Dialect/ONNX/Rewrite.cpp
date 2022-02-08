@@ -53,6 +53,16 @@ ArrayAttr createArrayAttrOfNToM(PatternRewriter &rewriter, int N, int M) {
   return rewriter.getI64ArrayAttr(vals);
 }
 
+// Get return type for a MatMulOp whose A's rank is N (>2) and B's rank is 2.
+Type getReturnTypeForMatMulOpND2D(Value A, Value B) {
+  ArrayRef<int64_t> aShape = A.getType().cast<RankedTensorType>().getShape();
+  ArrayRef<int64_t> bShape = B.getType().cast<RankedTensorType>().getShape();
+  SmallVector<int64_t> resShape(aShape.begin(), aShape.end() - 1);
+  resShape.emplace_back(bShape[bShape.size() - 1]);
+  return RankedTensorType::get(
+      resShape, A.getType().cast<ShapedType>().getElementType());
+}
+
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Dialect/ONNX/ONNXRewrite.inc"
 
@@ -93,6 +103,7 @@ void ONNXReshapeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseReshapePattern>(context);
   result.insert<RemoveIdentityReshapePattern>(context);
+  result.insert<SwapReshapeMatMulPattern>(context);
 }
 
 /// on the ONNXDropoutOp.

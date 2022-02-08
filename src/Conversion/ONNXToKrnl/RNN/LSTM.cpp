@@ -4,7 +4,7 @@
 
 //===--------------- LSTM.cpp - Lowering LSTM Op --------------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -609,8 +609,8 @@ void stateToOutput<ONNXLSTMOp, LstmState>(ConversionPatternRewriter &rewriter,
   }
 }
 
-void populateLoweringONNXLSTMOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+void populateLoweringONNXLSTMOpPattern(OwningRewritePatternList &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXRNNOpLowering<ONNXLSTMOp, LstmState, LstmActivationPack,
-      LstmWeightPack, LstmBiasPack>>(ctx);
+      LstmWeightPack, LstmBiasPack>>(typeConverter, ctx);
 }

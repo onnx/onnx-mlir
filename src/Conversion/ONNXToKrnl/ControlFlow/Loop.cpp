@@ -17,8 +17,9 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 struct ONNXLoopOpLowering : public ConversionPattern {
-  explicit ONNXLoopOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXLoopOp::getOperationName(), 1, ctx) {}
+  explicit ONNXLoopOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXLoopOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -69,7 +70,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
       auto condReg = rewriter.create<KrnlLoadOp>(loc, cond).getResult();
       auto ifOp = rewriter.create<scf::IfOp>(loc, condReg, false);
-      rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
+      rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
 
       // Create a scalar tensor out of loop iteration variable, as the first
       // argument passed to the body graph function.
@@ -98,7 +99,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         mapper.map(regionArg, params[i]);
       }
 
-      auto &thenRegion = ifOp.thenRegion();
+      auto &thenRegion = ifOp.getThenRegion();
       auto &thenBlock = thenRegion.front();
 
       // Split the insertion block into two, where the second block
@@ -131,12 +132,12 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       rewriter.setInsertionPointToStart(postInsertBlock);
 
       // Cast loop body outputs from tensor type to memref type in case it has
-      // not already been lowered via dummy_cast. Eventually, dummy cast becomes
-      // a cast from memref type to a memref type when everything is lowered and
-      // thus becomes redundant.
+      // not already been lowered. Eventually, 'UnrealizedConversionCastOp'
+      // becomes a cast from memref type to a memref type when everything is
+      // lowered and thus becomes redundant.
       SmallVector<Value, 4> bodyOutputs(
           resultsRange.begin(), resultsRange.end());
-      for (unsigned int i = 0; i < bodyOutputs.size(); i++) {
+      for (unsigned i = 0; i < bodyOutputs.size(); i++) {
         auto output = bodyOutputs[i];
         assert((output.getType().isa<TensorType>() ||
                    output.getType().isa<MemRefType>()) &&
@@ -144,25 +145,20 @@ struct ONNXLoopOpLowering : public ConversionPattern {
                "tensors/memrefs.");
         auto outputTy = output.getType().cast<ShapedType>();
         bodyOutputs[i] = rewriter
-                             .create<KrnlDummyCastOp>(loc, output,
+                             .create<UnrealizedConversionCastOp>(loc,
                                  MemRefType::get(outputTy.getShape(),
-                                     outputTy.getElementType()))
-                             .getResult();
+                                     outputTy.getElementType()),
+                                 output)
+                             .getResult(0);
       }
 
       // Copy the newly computed loop condition to pre-allocated buffer.
       emitCopy(rewriter, loc, bodyOutputs[0], cond);
 
-      // Copy intermediate values of loop carried dependencies to MemRef outside
-      // the iteration scope so next iteration can have use them as init value.
-      auto vIntermediate = llvm::make_range(bodyOutputs.begin() + 1,
-          bodyOutputs.begin() + 1 + loopOpAdapter.v_initial().size());
-      for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
-        emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
-            std::get<1>(vIntermediateToFinal));
-
       // Copy intermediate values of scan outputs to their corresponding slice
       // in the loop scan output tensor.
+      auto vIntermediate = llvm::make_range(bodyOutputs.begin() + 1,
+          bodyOutputs.begin() + 1 + loopOpAdapter.v_initial().size());
       auto scanIntermediate =
           llvm::make_range(vIntermediate.end(), bodyOutputs.end());
       auto scanOutputs = llvm::make_range(
@@ -172,6 +168,12 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         emitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
             std::get<1>(scanIntermediateToFinal),
             /*writePrefix=*/{origIV});
+
+      // Copy intermediate values of loop carried dependencies to MemRef outside
+      // the iteration scope so next iteration can use them as init value.
+      for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
+        emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
+            std::get<1>(vIntermediateToFinal));
 
       // Remove loop body terminator op.
       rewriter.eraseOp(loopBodyTerminator);
@@ -294,7 +296,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXLoopOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXLoopOpLowering>(ctx);
+void populateLoweringONNXLoopOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXLoopOpLowering>(typeConverter, ctx);
 }

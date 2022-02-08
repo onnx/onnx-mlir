@@ -138,6 +138,13 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
   // Initializer for input.
   onnx::TensorProto initializer = GetInitializedTensor(name);
 
+  // Return none if the initializer is an empty tensor, e.g tensor<0xf32>.
+  llvm::ArrayRef<int64_t> tensorDims(
+      initializer.dims().data(), initializer.dims().size());
+  if (tensorDims.size() == 1 && tensorDims[0] == 0)
+    return builder.create<mlir::ConstantOp>(loc, builder.getUnitAttr())
+        .getResult();
+
   // Emit ConstantOp and record the mapping between the input and
   // the constant value.
   // Create value attribute.
@@ -264,15 +271,16 @@ mlir::Type convertONNXTypeToMLIRType(
   case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
     return builder_.getI1Type();
   case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
-    return mlir::onnxmlir::StringType::get(builder_.getContext());
+    return mlir::ONNXStringType::get(builder_.getContext());
 
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
   case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
-  default:
     assert(false && "Unsupported data type encountered.");
     return nullptr;
   }
+
+  llvm_unreachable("Unsupported data type encountered.");
 }
 
 } // namespace onnx_mlir

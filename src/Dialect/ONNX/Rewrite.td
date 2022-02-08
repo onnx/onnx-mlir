@@ -15,7 +15,7 @@
 #define ONNX_REWRITE
 
 #ifndef OP_BASE
-include "src/Dialect/ONNX/ONNXOps.td"
+include "src/Dialect/ONNX/ONNX.td"
 #endif // OP_BASE
 
 /// Note: The DRR definition used for defining patterns is shown below:
@@ -65,7 +65,7 @@ def ONNXConstantOpNormalize: NativeCodeCall<
 def AttributeIsNotNull :
     Constraint<CPred<" ($_self) ">, "Attribute is null">;
 
-// Intended to check whether there is at least one not-Null the attributes 
+// Intended to check whether there is at least one not-Null the attributes
 // However, the current table gen can only support max 4 parameters
 // Multiple rules are used instead of one rule
 def AttributesNotAllNull :
@@ -108,6 +108,14 @@ class HasRankGT<int rank> :
 class HasRankOf<int rank> :
   Constraint<CPred<"$0.getType().isa<ShapedType>() && "
                    "$0.getType().cast<ShapedType>().getRank() == " # rank>>;
+
+def HaveSameLastDim: Constraint<
+  CPred<"hasShapeAndRank($0) && hasShapeAndRank($1) && "
+        "($0.getType().cast<RankedTensorType>().getShape()"
+        "[$0.getType().cast<RankedTensorType>().getRank() - 1] == "
+        "$1.getType().cast<RankedTensorType>().getShape()"
+        "[$1.getType().cast<RankedTensorType>().getRank() - 1])">,
+  "Two tensors have the same last dimension">;
 
 def GetUnitAttr: NativeCodeCall<"$_builder.getUnitAttr()">;
 
@@ -170,7 +178,7 @@ def GemmTransA : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /
 def GemmTransB : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXAddOp 
+// Canonicalization for ONNXAddOp
 //===----------------------------------------------------------------------===//
 
 // onnx.add(onnx.matmul(%X, %Y), %Z) = onnx.Gemm(%X, %Y, %Z)
@@ -184,12 +192,12 @@ def FuseGemmFollowedByAddition : Pat<(ONNXAddOp (ONNXGemmOp:$res $m1, $m2, $none
                                      [(HasOneUse $res), (HasNoneType $none)]>;
 
 //===----------------------------------------------------------------------===//
-// This is to fuse the composition: 'Add o Conv' into 'Conv' if the other input 
+// This is to fuse the composition: 'Add o Conv' into 'Conv' if the other input
 // of Add is a constant, by adding the constant to 'b' of 'Conv':
 //
 // We have:
-//   (Conv)      z = w * x + b 
-//   (Add)       y = z + constant 
+//   (Conv)      z = w * x + b
+//   (Add)       y = z + constant
 //
 // which corresponds to the following computation:
 //   y = w * x + new_b
@@ -246,7 +254,7 @@ def FuseAddConvPattern: Pat<
 >;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXIdentityOp 
+// Canonicalization for ONNXIdentityOp
 //===----------------------------------------------------------------------===//
 
 // ONNX_Op (onnx.Identity (%X)) = ONNX_Op (%X)
@@ -259,7 +267,7 @@ def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $arg, $arg1, $arg2, $rati
                                          (ONNXConstantOp (GetNullAttr), (GetUnitAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr))]>;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXCastOp 
+// Canonicalization for ONNXCastOp
 //===----------------------------------------------------------------------===//
 
 // ONNX_Op (onnx.Cast (%X, $type)) = ONNX_Op (%X)
@@ -269,7 +277,7 @@ def CastEliminationPattern : Pat<
   [(HasSameElementType $arg, $type)]>;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXTransposeOp 
+// Canonicalization for ONNXTransposeOp
 //===----------------------------------------------------------------------===//
 
 // Combine transposes.
@@ -295,7 +303,7 @@ def RemoveIdentityTransposePattern:  Pat<
   [(IsIdentityPermuteAttribute:$p)]>;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXReshapeOp 
+// Canonicalization for ONNXReshapeOp
 //===----------------------------------------------------------------------===//
 
 def FuseReshapePattern:  Pat<
@@ -312,9 +320,24 @@ def RemoveIdentityReshapePattern:  Pat<
   // Check that val has the specified shape.
   [(HasSpecifiedConstantShape $val, $shape)]>;
 
+def GetReturnTypeForMatMulOpND2D: NativeCodeCall<
+  "getReturnTypeForMatMulOpND2D($0, $1)"
+>;
+
+def SwapReshapeMatMulPattern: Pattern<
+ // If the input of Reshape is suitable for the next MatMul, use the input directly
+ // for MatMul. In other words, swapping Reshape and MatMul.
+ // This rule will put reshape ops together, then the reshape fusion rule can be applied.
+ (ONNXMatMulOp:$res2 (ONNXReshapeOp:$res1 $A, $_), $B),
+ [(ONNXReshapeOp (ONNXMatMulOp $A, $B, (returnType (GetReturnTypeForMatMulOpND2D $A, $B))),
+                 (ONNXConstantOpFromDenseAttr (createDenseElementsAttrFromShape $res2)))],
+ [(HasRankGT<2> $A), (HasRankOf<2> $res1), (HasRankOf<2> $B), // A is reshaped to 2D.
+  (HaveSameLastDim $A, $res1) // The last dim of A is unchanged by reshape.
+ ]
+>;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXSqueezeOp 
+// Canonicalization for ONNXSqueezeOp
 //===----------------------------------------------------------------------===//
 
 /// Combine squeeze and unsqueeze.
@@ -339,7 +362,7 @@ def RemoveSqueezeV11UnsqueezeV11Pattern:  Pat<
   [(AreTheSameAxisArray $val, $u_axes, $s_axes)]>;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXUnsqueezeOp 
+// Canonicalization for ONNXUnsqueezeOp
 //===----------------------------------------------------------------------===//
 
 /// Combine unsqueeze and squeeze.
@@ -364,7 +387,7 @@ def RemoveUnsqueezeV11SqueezeV11Pattern:  Pat<
   [(AreTheSameAxisArray $res, $u_axes, $s_axes)]>;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXBatchNormOp 
+// Canonicalization for ONNXBatchNormOp
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
@@ -372,7 +395,7 @@ def RemoveUnsqueezeV11SqueezeV11Pattern:  Pat<
 // by deriving new 'w' and 'b' for 'Conv':
 //
 // We have:
-//   (Conv)      z = w * x + b 
+//   (Conv)      z = w * x + b
 //   (BatchNorm) y = scale * (z - mean) / sqrt(var + eps) + bias
 //
 // which corresponds to the following computation:
@@ -381,7 +404,7 @@ def RemoveUnsqueezeV11SqueezeV11Pattern:  Pat<
 //   w_ = scale * w / sqrt(var + eps)
 //   b_ = B + scale * (b - mean) / sqrt(var + eps)
 //
-// Hence, we rewrite: 
+// Hence, we rewrite:
 //   onnx.BatchNormalizationInferenceMode(
 //       onnx.Conv(x, w, b),
 //       scale, B, mean, var
@@ -389,7 +412,7 @@ def RemoveUnsqueezeV11SqueezeV11Pattern:  Pat<
 //
 // as:
 //    onnx.Conv(x, w_, b_)
-//    
+//
 //    where
 //      w_ = scale * w / sqrt(var + eps)
 //      b_ = B + scale * (b - mean) / sqrt(var + eps)
@@ -467,7 +490,7 @@ def RewriteBatchNormInferenceModeConvPattern1: Pat<
 
 // Special case of BatchNorm whose input shape is [N]. In this case, 'scale',
 // 'bias', 'mean', and 'var' will have shape of [1], according to ONNXBatchNorm
-// decription: https://github.com/onnx/onnx/blob/master/docs/Operators.md#inputs-12.
+// decription: https://github.com/onnx/onnx/blob/main/docs/Operators.md#inputs-12.
 // Thus, we need not unsqueeze intermediate results.
 def RewriteBatchNormInferenceModeConvPattern2: Pat<
   (ONNXBatchNormalizationInferenceModeOp:$res
@@ -489,7 +512,7 @@ def RewriteBatchNormInferenceModeConvPattern2: Pat<
 >;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXShapeOp 
+// Canonicalization for ONNXShapeOp
 //===----------------------------------------------------------------------===//
 
 def IsStaticShapeTensor:
@@ -510,7 +533,7 @@ def ShapeToConstantPattern: Pat<
 >;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXSizeOp 
+// Canonicalization for ONNXSizeOp
 //===----------------------------------------------------------------------===//
 
 def SizeToConstantPattern: Pat<
@@ -524,7 +547,7 @@ def SizeToConstantPattern: Pat<
 >;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXGlobalAveragePoolOp 
+// Canonicalization for ONNXGlobalAveragePoolOp
 //===----------------------------------------------------------------------===//
 
 // Rewrite GlobalAveragePool using ReduceMean.
@@ -540,46 +563,46 @@ def GlobalMaxPoolPattern: Pat<
 >;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXConstantOp 
+// Canonicalization for ONNXConstantOp
 //===----------------------------------------------------------------------===//
 
 def ConstantOpNormalizationPattern1: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
        $intsAttr, $stringAttr, $stringsAttr),
    (ONNXConstantOpNormalize $res, $floatAttr),
    [(AttributeIsNotNull:$floatAttr)]
 >;
 
 def ConstantOpNormalizationPattern2: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
        $intsAttr, $stringAttr, $stringsAttr),
    (ONNXConstantOpNormalize $res, $intAttr),
    [(AttributeIsNotNull:$intAttr)]
 >;
 
 def ConstantOpNormalizationPattern3: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
        $intsAttr, $stringAttr, $stringsAttr),
    (ONNXConstantOpNormalize $res, $stringAttr),
    [(AttributeIsNotNull:$stringAttr)]
 >;
 
 def ConstantOpNormalizationPattern4: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
        $intsAttr, $stringAttr, $stringsAttr),
    (ONNXConstantOpNormalize $res, $floatsAttr),
    [(AttributeIsNotNull:$floatsAttr)]
 >;
 
 def ConstantOpNormalizationPattern5: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
        $intsAttr, $stringAttr, $stringsAttr),
    (ONNXConstantOpNormalize $res, $intsAttr),
    [(AttributeIsNotNull:$intsAttr)]
 >;
 
 def ConstantOpNormalizationPattern6: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
        $intsAttr, $stringAttr, $stringsAttr),
    (ONNXConstantOpNormalize $res, $stringsAttr),
    [(AttributeIsNotNull:$stringsAttr)]

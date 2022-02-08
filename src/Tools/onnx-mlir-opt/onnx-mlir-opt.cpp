@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------- ONNXMLIROpt.cpp - Optimization Driver -----------------===//
+//===-------------- onnx-mlir-opt.cpp - Optimization Driver ---------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-//
+// Main entry function for onnx-mlir-opt tool.
 //
 //===----------------------------------------------------------------------===//
 
@@ -16,6 +16,7 @@
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/ToolOutputFile.h>
+#include <mlir/Dialect/MemRef/Transforms/Passes.h>
 #include <mlir/IR/AsmState.h>
 #include <mlir/IR/Dialect.h>
 #include <mlir/IR/MLIRContext.h>
@@ -64,6 +65,30 @@ static llvm::cl::opt<bool> allowUnregisteredDialects(
     llvm::cl::desc("Allow operation with no registered dialects"),
     llvm::cl::init(false));
 
+enum OptLevel { O0 = 0, O1, O2, O3 };
+static llvm::cl::opt<OptLevel> OptimizationLevel(
+    llvm::cl::desc("Optimization levels:"),
+    llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default)."),
+        clEnumVal(O1, "Optimization level 1."),
+        clEnumVal(O2, "Optimization level 2."),
+        clEnumVal(O3, "Optimization level 3.")),
+    llvm::cl::init(O0));
+
+void scanAndSetOptLevel(int argc, char **argv) {
+  // In decreasing order, so we pick the last one if there are many.
+  for (int i = argc - 1; i > 0; --i) {
+    std::string currStr(argv[i]);
+    if (currStr.find("-O") != 0)
+      continue;
+    int num = atoi(&argv[i][2]); // Get the number starting 2 char down.
+    // Silently ignore out of bound opt levels.
+    if (num >= 0 && num <= 3) {
+      OptimizationLevel = (OptLevel)num;
+      return;
+    }
+  }
+}
+
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
   registry.insert<mlir::linalg::LinalgDialect>();
@@ -76,24 +101,29 @@ int main(int argc, char **argv) {
   registry.insert<mlir::math::MathDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
 
-  registry.insert<mlir::ONNXOpsDialect>();
+  registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
 
   registerTransformsPasses();
   registerAffinePasses();
   registerLinalgPasses();
+  memref::registerMemRefPasses();
   registerSCFPasses();
   registerStandardPasses();
 
   llvm::InitLLVM y(argc, argv);
+  // Scan Opt Level manually now as it is needed for initializing the OM Passes.
+  scanAndSetOptLevel(argc, argv);
 
-  initOMPasses();
+  initOMPasses(OptimizationLevel);
   initMLIRPasses();
 
+  // Register any command line options.
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
-  // Register any pass manager command line options.
   mlir::registerPassManagerCLOptions();
+  mlir::registerDefaultTimingManagerCLOptions();
+
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "ONNX-MLIR modular optimizer driver\n");

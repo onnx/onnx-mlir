@@ -28,6 +28,7 @@ MEMORY_IN_GB                = (os.sysconf('SC_PAGE_SIZE') *
 NPROC                       = str(math.ceil(min(max(2, MEMORY_IN_GB/4), os.cpu_count())))
 
 READ_CHUNK_SIZE             = 1024*1024
+BASE_BRANCH                 = 'main'
 
 cpu_arch                    = os.getenv('CPU_ARCH')
 docker_pushpull_rwlock      = os.getenv('DOCKER_PUSHPULL_RWLOCK')
@@ -46,10 +47,10 @@ github_pr_number2           = os.getenv('GITHUB_PR_NUMBER2')
 
 docker_static_image_name    = (github_repo_name + '-llvm-static' +
                                ('.' + github_pr_baseref2
-                                if github_pr_baseref != 'main' else ''))
+                                if github_pr_baseref != BASE_BRANCH else ''))
 docker_shared_image_name    = (github_repo_name + '-llvm-shared' +
                                ('.' + github_pr_baseref2
-                                if github_pr_baseref != 'main' else ''))
+                                if github_pr_baseref != BASE_BRANCH else ''))
 
 LLVM_PROJECT_SHA1_FILE      = 'utils/clone-mlir.sh'
 LLVM_PROJECT_SHA1_REGEX     = 'git checkout ([0-9a-f]+)'
@@ -212,7 +213,8 @@ def extract_llvm_info():
     # Labels used to filter local images
     exp_llvm_project_filter = { 'label': [
         'llvm_project_sha1=' + exp_llvm_project_sha1,
-        'llvm_project_dockerfile_sha1=' + exp_llvm_project_dockerfile_sha1 ] }
+        'llvm_project_dockerfile_sha1=' + exp_llvm_project_dockerfile_sha1,
+        'llvm_project_successfully_built=yes' ] }
 
     logging.info('llvm-project expected')
     logging.info('commit sha1:     %s', exp_llvm_project_sha1)
@@ -354,11 +356,15 @@ def setup_private_llvm(image_type, exp):
                     print(line['stream'], end='', flush=True)
 
                 if 'error' in line:
-                    # Tag the latest successful image layer for easier debugging
+                    # Tag the latest successful image layer for easier debugging.
+                    #
+                    # It's OK to tag the broken image since it will not have the
+                    # llvm_project_successfully_built=yes label so it will not be
+                    # incorrectly reused.
                     if layer_sha256:
                         image_layer = 'sha256:' + layer_sha256
                         remove_dependent_containers(image_layer)
-                        logging.info('tagging %s -> %s', image_layer, image_full)
+                        logging.info('tagging %s -> %s for debugging', image_layer, image_full)
                         docker_api.tag(image_layer, image_repo, image_tag, force=True)
                     else:
                         logging.info('no successful image layer for tagging')

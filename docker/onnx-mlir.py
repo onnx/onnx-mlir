@@ -11,11 +11,12 @@ DOCKER_SOCKET   = '/var/run/docker.sock'
 ONNX_MLIR_IMAGE = 'onnxmlirczar/onnx-mlir'
 WORK_DIR        = '/workdir'
 OUTPUT_DIR      = '/output'
-EMIT_OPTS       = [ '--EmitONNXBasic',
+EMIT_IR_OPTS    = [ '--EmitONNXBasic',
                     '--EmitONNXIR',
                     '--EmitMLIR',
-                    '--EmitLLVMIR',
-                    '--EmitLib',
+                    '--EmitLLVMIR' ]
+EMIT_BIN_OPTS   = [ '--EmitLib',
+                    '--EmitObj',
                     '--EmitJNI' ]
 
 # When running onnx-mlir inside a docker container, the directory
@@ -67,11 +68,14 @@ def main():
             ionnx = argv[i]
         # If a file is not specified on the first argument, it must be
         # specified after a valid --EmitXXX option.
-        elif (arg in EMIT_OPTS and i < argc-1 and
+        elif (arg in EMIT_IR_OPTS+EMIT_BIN_OPTS and i < argc-1 and
               not argv[i+1].startswith('-')):
             # File specified more than once, treat as not specified
             if ionnx:
                 sys.exit("Too many --EmitXXX options")
+            if (arg in EMIT_BIN_OPTS and sys.platform != 'linux'):
+                print(('Warning: host {} is not linux, ' +
+                       'output not directly usable').format(sys.platform))
             argi = i + 1
             ionnx = argv[argi]
         elif (arg == "-o" and i < argc-1 and

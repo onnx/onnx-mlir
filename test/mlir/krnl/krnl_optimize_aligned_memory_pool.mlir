@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -allow-unregistered-dialect --optimize-memory-pools --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 -allow-unregistered-dialect --optimize-memory-pools --canonicalize %s -split-input-file | FileCheck %s
 
 /// 1. Single-chain workflow with alignment.
 func @single_chain_dataflow(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) -> memref<10x10xf32> {

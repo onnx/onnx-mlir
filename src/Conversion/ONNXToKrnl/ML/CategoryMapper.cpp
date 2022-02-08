@@ -4,7 +4,7 @@
 
 //===------------ CategoryMapper.cpp - Lowering CategoryMapper Op ---------===//
 //
-// Copyright 2021 The IBM Research Authors.
+// Copyright 2021-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -34,8 +34,9 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     Value len;
   };
 
-  ONNXCategoryMapperOpLowering(MLIRContext *ctx)
-      : ConversionPattern(ONNXCategoryMapperOp::getOperationName(), 1, ctx) {}
+  ONNXCategoryMapperOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ONNXCategoryMapperOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -174,8 +175,8 @@ private:
 
       MemRefType type = MemRefType::get(
           {static_cast<int64_t>(V.size())}, builder.getIntegerType(32));
-      res.G = create.krnl.constant(type, "G", builder.getI32VectorAttr(G));
-      res.V = create.krnl.constant(type, "V", builder.getI32VectorAttr(V));
+      res.G = create.krnl.constant(type, "G", builder.getI32TensorAttr(G));
+      res.V = create.krnl.constant(type, "V", builder.getI32TensorAttr(V));
       res.len = create.math.constant(builder.getIntegerType(32), G.size());
       return res;
     };
@@ -268,30 +269,30 @@ private:
     TypeSwitch<Type>(elementType)
         .Case<IntegerType>([&](IntegerType type) {
           // index is valid: retrieve the value from 'cat_strings'.
-          rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
+          rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
           Value loadData = createKrnl.load(constantForCatsStrings, {index});
           createKrnl.store(loadData, alloc, loopInd);
 
           // index is not valid: store the default value.
-          rewriter.setInsertionPointToStart(&ifOp.elseRegion().front());
+          rewriter.setInsertionPointToStart(&ifOp.getElseRegion().front());
           Value loadDefault = createKrnl.load(defaultString);
           createKrnl.store(loadDefault, alloc, loopInd);
         })
         .Case<StringType>([&](StringType type) {
           // index is valid: retrieve the value from 'cat_int64s'.
-          rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
+          rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
           Value loadData = createKrnl.load(constantForCatsInt64s, {index});
           createKrnl.store(loadData, alloc, loopInd);
 
           // index is not valid: store the default value.
-          rewriter.setInsertionPointToStart(&ifOp.elseRegion().front());
+          rewriter.setInsertionPointToStart(&ifOp.getElseRegion().front());
           createKrnl.store(defaultInt64, alloc, loopInd);
         })
         .Default([&](Type type) { llvm_unreachable("Illegal KeyTy"); });
   }
 };
 
-void populateLoweringONNXCategoryMapperOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXCategoryMapperOpLowering>(ctx);
+void populateLoweringONNXCategoryMapperOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXCategoryMapperOpLowering>(typeConverter, ctx);
 }

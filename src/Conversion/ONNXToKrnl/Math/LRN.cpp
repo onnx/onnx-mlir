@@ -4,7 +4,7 @@
 
 //===----------------LRN.cpp - Lowering LRN Op----------------------=== //
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,8 +18,9 @@
 using namespace mlir;
 
 struct ONNXLRNOpLowering : public ConversionPattern {
-  ONNXLRNOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXLRNOp::getOperationName(), 1, ctx) {}
+  ONNXLRNOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXLRNOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -143,7 +144,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXLRNOpPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXLRNOpLowering>(ctx);
+void populateLoweringONNXLRNOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXLRNOpLowering>(typeConverter, ctx);
 }

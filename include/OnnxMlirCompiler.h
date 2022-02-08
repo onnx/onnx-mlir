@@ -38,31 +38,37 @@ extern "C" {
 namespace onnx_mlir {
 
 /*!
- *  Compile an onnx model from a file containing MLIR or ONNX protobuf
- *  @param inputFilename File name pointing onnx model protobuf or MLIR
- *  @param outputBaseName File name without extension to write output
- *  @param emissionTarget Target format to compile to
- *  @param mcpu Optional target CPU
- *  @param mtriple Optional target architecture
- *  @return 0 on success or non-zero error code on failure
+ *  Compile an onnx model from a file containing MLIR or ONNX protobuf.
+ *  @param inputFilename File name pointing onnx model protobuf or MLIR.
+ *  @param outputBaseName File name without extension to write output.
+ *  @param emissionTarget Target format to compile to.
+ *  @param optionKey List of keys specified for the compiler options.
+ *  @param optionVal List of string values for corresponding keys.
+ *  @param optionNum Number of keys and strings.
+ *  @param errorMessage Error message.
+ *  @return 0 on success or non-zero error code on failure.
  */
 ONNX_MLIR_EXPORT int omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char *mcpu, const char *mtriple, const char **errorMessage);
+    const onnx_mlir::OptionKind *optionKey, const char **optionVal,
+    const int optionNum, const char **errorMessage);
 
 /*!
- *  Compile an onnx model from an ONNX protobuf array
- *  @param inputBuffer ONNX protobuf array
- *  @param bufferSize Size of ONNX protobuf array
- *  @param outputBaseName File name without extension to write output
- *  @param emissionTarget Target format to compile to
- *  @param mcpu Optional target CPU
- *  @param mtriple Optional compile target triple
+ *  Compile an onnx model from an ONNX protobuf array.
+ *  @param inputBuffer ONNX protobuf array.
+ *  @param bufferSize Size of ONNX protobuf array.
+ *  @param outputBaseName File name without extension to write output.
+ *  @param emissionTarget Target format to compile to.
+ *  @param optionKey List of keys specified for the compiler options.
+ *  @param optionVal List of string values for corresponding keys.
+ *  @param optionNum Number of keys and strings.
  *  @return 0 on success or non-zero error code on failure
  */
 ONNX_MLIR_EXPORT int omCompileFromArray(const void *inputBuffer, int bufferSize,
     const char *outputBaseName, EmissionTargetType emissionTarget,
-    const char *mcpu, const char *mtriple);
+    const onnx_mlir::OptionKind *optionKey, const char **optionVal,
+    const int optionNum
+);
 
 } // namespace onnx_mlir
 

@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -allow-unregistered-dialect --optimize-memory-pools --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 -allow-unregistered-dialect --optimize-memory-pools --canonicalize %s -split-input-file | FileCheck %s
 
 #map0 = affine_map<(d0) -> (d0 + 4)>
 #map1 = affine_map<(d0) -> (d0 + 8)>

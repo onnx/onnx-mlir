@@ -304,7 +304,7 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
     outputDims.emplace_back(XBounds.getDim(1)); // CO is CI.
 
   // Insert dimensions for the spatial axes. From MaxPool:
-  // https://github.com/onnx/onnx/blob/master/docs/Operators.md#maxpool
+  // https://github.com/onnx/onnx/blob/main/docs/Operators.md#maxpool
   //
   // NOSET:
   //  * O[i] = floor((I[i] + P[i] - ((K[i] - 1) * d[i] + 1)) / s[i] + 1)
@@ -419,6 +419,7 @@ template struct ONNXOpShapeHelper<ONNXPadOp>;
 template struct ONNXOpShapeHelper<ONNXReshapeOp>;
 template struct ONNXOpShapeHelper<ONNXLRNOp>;
 template struct ONNXOpShapeHelper<ONNXReverseSequenceOp>;
+template struct ONNXOpShapeHelper<ONNXRoiAlignOp>;
 template struct ONNXOpShapeHelper<ONNXShapeOp>;
 template struct ONNXOpShapeHelper<ONNXSliceOp>;
 template struct ONNXOpShapeHelper<ONNXSpaceToDepthOp>;

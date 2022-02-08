@@ -15,7 +15,7 @@
 #define ONNX_DECOMPOSE
 
 #ifndef OP_BASE
-include "src/Dialect/ONNX/ONNXOps.td"
+include "src/Dialect/ONNX/ONNX.td"
 #endif // OP_BASE
 
 /// Note: The DRR definition used for defining patterns is shown below:
@@ -55,6 +55,11 @@ def GetNullStringAttr :
 // Create a unit constant that will be used as none input.
 def CreateUnitConstant
     : NativeCodeCall<"createUnitConstant($_builder, $_loc)">;
+
+// Create a scalar DenseElementsAttr (rank 0) from a single attribute.
+// E.g return type is tensor<f32> instead of tensor<0xf32> or tensor<1xf32>
+def createScalarDenseAttrRank0
+    : NativeCodeCall<"createScalarDenseAttr($_builder, $0)">;
 
 // Create a DenseElementsAttr from a single attribute.
 def createDenseArrayAttrFromSingleAttr
@@ -315,6 +320,25 @@ def SequenceConstructPattern1: Pat<
     (createSequenceConstructOp
         (ONNXSequenceEmptyOp (GetNullIntegerAttr), (returnType $res)),
         $x1)
+>;
+
+// Express Clip V6 using Clip V11.
+def ClipV6Pattern : Pat<
+  (ONNXClipV6Op $x, $maxAttr, $minAttr),
+  (ONNXClipV11Op $x, (ONNXConstantOpFromDenseAttr(createScalarDenseAttrRank0 $minAttr)),
+     (ONNXConstantOpFromDenseAttr(createScalarDenseAttrRank0 $maxAttr)))
+>;
+
+// Express Clip V11 using Clip V12.
+def ClipV11Pattern : Pat<
+  (ONNXClipV11Op $x, $min, $max),
+  (ONNXClipV12Op $x, $min, $max)
+>;
+
+// Express Clip V12 using Clip V13 (the lastest).
+def ClipV12Pattern : Pat<
+  (ONNXClipV12Op $x, $min, $max),
+  (ONNXClipOp $x, $min, $max)
 >;
 
 #endif // ONNX_DECOMPOSE

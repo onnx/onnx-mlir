@@ -2,11 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------------------- main.cpp ---------------------------------===//
+//===------------------ onnx-mlir.cpp - Compiler Driver  ------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
+//
+// Main entry function for onnx-mlir driver.
 //
 //===----------------------------------------------------------------------===//
 
@@ -14,6 +16,7 @@
 
 using namespace std;
 using namespace onnx_mlir;
+
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 
 int main(int argc, char *argv[]) {
@@ -28,6 +31,7 @@ int main(int argc, char *argv[]) {
       llvm::cl::desc("Base path for output files, extensions will be added."),
       llvm::cl::value_desc("path"), llvm::cl::cat(OnnxMlirOptions),
       llvm::cl::ValueRequired);
+
   llvm::cl::opt<EmissionTargetType> emissionTarget(
       llvm::cl::desc("Choose target to emit:"),
       llvm::cl::values(
@@ -36,18 +40,20 @@ int main(int argc, char *argv[]) {
               "inferred shapes."),
           clEnumVal(
               EmitONNXIR, "Ingest ONNX and emit corresponding ONNX dialect."),
+          clEnumVal(EmitMLIR,
+              "Lower the input to MLIR built-in transformation dialect."),
           clEnumVal(
-              EmitMLIR, "Lower input to MLIR built-in transformation dialect."),
-          clEnumVal(EmitLLVMIR, "Lower input to LLVM IR (LLVM MLIR dialect)."),
-          clEnumVal(EmitLib, "Lower input to LLVM IR, emit "
-                             "LLVM bitcode, compile and link it to a "
-                             "shared library (default)."),
-          clEnumVal(EmitJNI, "Lower input to LLVM IR -> LLVM bitcode "
-                             "-> JNI shared library -> jar")),
+              EmitLLVMIR, "Lower the input to LLVM IR (LLVM MLIR dialect)."),
+          clEnumVal(EmitObj, "Compile the input into a object file."),
+          clEnumVal(
+              EmitLib, "Compile the input into a shared library (default)."),
+          clEnumVal(EmitJNI, "Compile the input into a jar file.")),
       llvm::cl::init(EmitLib), llvm::cl::cat(OnnxMlirOptions));
 
-  // llvm::cl::HideUnrelatedOptions(OnnxMlirOptions);
+  // Register MLIR command line options.
   mlir::registerPassManagerCLOptions();
+  mlir::registerDefaultTimingManagerCLOptions();
+
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "ONNX-MLIR modular optimizer driver\n");
 

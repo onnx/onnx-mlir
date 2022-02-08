@@ -586,6 +586,81 @@ def ONNXClipOp:ONNX_Op<"Clip",
   }];
 }
 
+def ONNXClipV12Op:ONNX_Op<"ClipV12",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Clip operation";
+  let description = [{
+  "Clip operator limits the given input within an interval. The interval is"
+  "specified by the inputs 'min' and 'max'. They default to"
+  "numeric_limits::lowest() and numeric_limits::max(), respectively."
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$input,
+    AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType]>:$min,
+    AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType, NoneType]>:$max);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType, NoneType]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
+def ONNXClipV11Op:ONNX_Op<"ClipV11",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Clip operation";
+  let description = [{
+  "Clip operator limits the given input within an interval. The interval is"
+  "specified by the inputs 'min' and 'max'. They default to"
+  "numeric_limits::lowest() and numeric_limits::max(), respectively."
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$input,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType]>:$min,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType, NoneType]>:$max);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType, NoneType]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
+def ONNXClipV6Op:ONNX_Op<"ClipV6",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Clip operation";
+  let description = [{
+  "Clip operator limits the given input within an interval. The interval is"
+  "specified with arguments 'min' and 'max'. They default to"
+  "numeric_limits::lowest() and numeric_limits::max() respectively."
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$input,
+    DefaultValuedAttr<F32Attr, "(3.402823e+38)">:$max,
+    DefaultValuedAttr<F32Attr, "(-3.402823e+38)">:$min);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
 def ONNXCompressOp:ONNX_Op<"Compress",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Compress operation";
@@ -633,6 +708,7 @@ def ONNXConcatOp:ONNX_Op<"Concat",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
@@ -3993,6 +4069,7 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
       return {-1};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
@@ -4728,6 +4805,7 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXRoundOp:ONNX_Op<"Round",
@@ -5067,6 +5145,7 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXScatterNDOp:ONNX_Op<"ScatterND",
