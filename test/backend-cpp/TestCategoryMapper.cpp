@@ -12,18 +12,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "test/backend-cpp/TestHelper.hpp"
+#include "test/backend-cpp/ModelBuilder.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "backend-cpp"
 
-static const string SharedLibBase("./TestCategoryMapper_main_graph");
+static const string SharedLibBaseName("./TestCategoryMapper_main_graph");
 
 namespace {
 
 class CategoryMapperTester {
-  using TestHelper = BackendCppTests::TestHelper;
-  TestHelper testHelper;
+  using ModelBuilder = BackendCppTests::ModelBuilder;
+  ModelBuilder modelBuilder;
 
 public:
   // Aggregate CategoryMapper attributes.
@@ -34,7 +34,8 @@ public:
     StringRef default_string;
   };
 
-  CategoryMapperTester(MLIRContext &ctx) : testHelper(TestHelper(ctx)) {}
+  CategoryMapperTester(MLIRContext &ctx)
+      : modelBuilder(ModelBuilder(ctx, SharedLibBaseName)) {}
 
   // Test CategoryMapper (with an input tensor of int64_t numbers).
   bool testInt64ToStr(const CMAttributes &attributes, ArrayRef<int64_t> input,
@@ -43,26 +44,26 @@ public:
            "Expecting input/output to have the same size");
 
     int64_t inputShape[] = {static_cast<int64_t>(input.size())};
-    auto inputType =
-        RankedTensorType::get(inputShape, testHelper.getBuilder().getI64Type());
+    auto inputType = RankedTensorType::get(
+        inputShape, modelBuilder.getBuilder().getI64Type());
     auto outputType = RankedTensorType::get(
-        inputShape, onnxmlir::StringType::get(&testHelper.getContext()));
+        inputShape, ONNXStringType::get(&modelBuilder.getContext()));
 
     // Create the test code.
-    FuncOp funcOp = testHelper.createEmptyTestFunction(inputType, outputType);
+    llvm::SmallVector<Type, 1> inputsType{inputType}, outputsType{outputType};
+    FuncOp funcOp =
+        modelBuilder.createEmptyTestFunction(inputsType, outputsType);
     createCategoryMapper(outputType, attributes, funcOp);
-    testHelper.createEntryPoint(funcOp);
+    modelBuilder.createEntryPoint(funcOp);
 
     // Compile the test.
-    if (!testHelper.compileTest(
-            SharedLibBase, {{onnx_mlir::OptionKind::CompilerOptLevel, "3"}})) {
-      llvm::errs() << "Failed to compile test case\n";
+    if (!modelBuilder.compileTest(
+            {{onnx_mlir::OptionKind::CompilerOptLevel, "3"}})) {
+      llvm::errs() << "Failed to compile the test case\n";
       return false;
     }
 
     // Run the test and verify the result.
-    using OMTensorPtr = unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
-
     std::vector<OMTensorPtr> inputOMTs, expectedOutputOMTs;
     auto inputOMT = OMTensorPtr(
         omTensorCreate(static_cast<void *>(const_cast<int64_t *>(input.data())),
@@ -93,21 +94,21 @@ public:
     inputOMTs.emplace_back(move(inputOMT));
     expectedOutputOMTs.emplace_back(move(expectedOutputOMT));
 
-    return testHelper.runAndVerifyTest(
-        inputOMTs, expectedOutputOMTs, SharedLibBase);
+    return modelBuilder.runAndVerifyTest(
+        inputOMTs, expectedOutputOMTs, verifyFunction);
   }
 
   // Prepare for a new test.
-  void reset() { testHelper.reset(); }
+  void reset() { modelBuilder.reset(); }
 
 private:
   // Create the category mapper test code into the given function, and add the
   // function into the given module.
   void createCategoryMapper(
       Type outputType, const CMAttributes &attributes, FuncOp &funcOp) {
-    ModuleOp &module = testHelper.getModule();
-    Location &loc = testHelper.getLocation();
-    OpBuilder &builder = testHelper.getBuilder();
+    ModuleOp &module = modelBuilder.getModule();
+    Location &loc = modelBuilder.getLocation();
+    OpBuilder &builder = modelBuilder.getBuilder();
 
     Block &entryBlock = funcOp.getBody().front();
     auto input = entryBlock.getArgument(0);
@@ -121,13 +122,49 @@ private:
 
     module.push_back(funcOp);
   }
+
+  static bool verifyFunction(OMTensor *out, OMTensor *expected) {
+    // Verify that the output tensor has the expected rank/extents.
+    if (omTensorGetRank(out) != omTensorGetRank(expected)) {
+      llvm::errs() << "Output tensor has rank " << omTensorGetRank(out)
+                   << ", expecting " << omTensorGetRank(expected) << "\n";
+      return false;
+    }
+    if (omTensorGetNumElems(out) != omTensorGetNumElems(expected)) {
+      llvm::errs() << "Output tensor has " << omTensorGetNumElems(out)
+                   << "elements, expecting " << omTensorGetNumElems(expected)
+                   << "\n";
+      return false;
+    }
+
+    // Verify that the output tensor contains the expected result.
+    auto outDataPtr = (const char **)omTensorGetDataPtr(out);
+    auto expectedDataPtr = (const char **)(omTensorGetDataPtr(expected));
+
+    LLVM_DEBUG(llvm::dbgs() << "Result Verification:\n");
+    for (int i = 0; i < omTensorGetNumElems(out); i++) {
+      const char *str = outDataPtr[i];
+      const char *expectedStr = expectedDataPtr[i];
+      LLVM_DEBUG(llvm::dbgs()
+                 << "str: " << str << ", expectedStr: " << expectedStr << "\n");
+
+      if (strcmp(str, expectedStr) != 0) {
+        llvm::errs() << "Output tensor contains \"" << str
+                     << "\" at index = " << i << ", expecting \"" << expectedStr
+                     << "\"\n";
+        return false;
+      }
+    }
+
+    return true;
+  }
 };
 
 } // namespace
 
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(
-      BackendCppTests::TestHelper::getSharedLibName(SharedLibBase));
+      BackendCppTests::ModelBuilder::getSharedLibName(SharedLibBaseName));
 
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestCategoryMapper\n", nullptr, "TEST_ARGS");
