@@ -40,8 +40,7 @@ enum OptionKind {
   TargetTriple,     /* Kind for mtriple string. */
   TargetArch,       /* Kind for march string. */
   TargetCPU,        /* Kind for mcpu string. */
-  CompilerOptLevel, /* Kind for '0'...'3' string describing OptLevel. */
-  LastOptionKind = CompilerOptLevel, /* last option */
+  CompilerOptLevel /* Kind for '0'...'3' string describing OptLevel. */
 };
 
 //#ifdef _cplusplus
