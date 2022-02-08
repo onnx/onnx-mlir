@@ -8,14 +8,14 @@ add_subdirectory(Conversion)
 add_subdirectory(Transform)
 add_subdirectory(Builder)
 add_subdirectory(Runtime)
-add_subdirectory(Tool)
+add_subdirectory(Tools)
 add_subdirectory(Compiler)
 
 
 
 
 add_onnx_mlir_executable(onnx-mlir
-  main.cpp
+  onnx-mlir.cpp
 
   LINK_LIBS PRIVATE
   CompilerUtils

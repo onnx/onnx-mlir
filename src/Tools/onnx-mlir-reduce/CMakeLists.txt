@@ -2,12 +2,12 @@
 
 get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
-add_onnx_mlir_executable(onnx-mlir-opt
-  ONNXMLIROpt.cpp
+add_onnx_mlir_executable(onnx-mlir-reduce
+  onnx-mlir-reduce.cpp
 
   LINK_LIBS PRIVATE
   ${OMLibs}
   MLIRAffineTransforms
   MLIRLinalgTransforms
-  MLIROptLib
+  MLIRReduceLib
   )

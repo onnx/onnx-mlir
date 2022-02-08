@@ -151,7 +151,9 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   auto *body = new Block();
   auto body_args = llvm::SmallVector<Type, 4>(
       operandPack.getNumInputLoops(), IndexType::get(builder.getContext()));
-  body->addArguments(body_args);
+  auto body_arg_locs = llvm::SmallVector<Location, 4>(
+      operandPack.getNumInputLoops(), result.location);
+  body->addArguments(body_args, body_arg_locs);
   bodyRegion->push_back(body);
 
   // If nonnull, invoke the lambda function that creates the loop body. This

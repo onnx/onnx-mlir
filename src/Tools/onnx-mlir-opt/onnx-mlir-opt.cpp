@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------- ONNXMLIROpt.cpp - Optimization Driver -----------------===//
+//===-------------- onnx-mlir-opt.cpp - Optimization Driver ---------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-//
+// Main entry function for onnx-mlir-opt tool.
 //
 //===----------------------------------------------------------------------===//
 
@@ -16,6 +16,7 @@
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/ToolOutputFile.h>
+#include <mlir/Dialect/MemRef/Transforms/Passes.h>
 #include <mlir/IR/AsmState.h>
 #include <mlir/IR/Dialect.h>
 #include <mlir/IR/MLIRContext.h>
@@ -100,12 +101,13 @@ int main(int argc, char **argv) {
   registry.insert<mlir::math::MathDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
 
-  registry.insert<mlir::ONNXOpsDialect>();
+  registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
 
   registerTransformsPasses();
   registerAffinePasses();
   registerLinalgPasses();
+  memref::registerMemRefPasses();
   registerSCFPasses();
   registerStandardPasses();
 
@@ -116,10 +118,11 @@ int main(int argc, char **argv) {
   initOMPasses(OptimizationLevel);
   initMLIRPasses();
 
+  // Register any command line options.
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
-  // Register any pass manager command line options.
   mlir::registerPassManagerCLOptions();
+  mlir::registerDefaultTimingManagerCLOptions();
 
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
   llvm::cl::ParseCommandLineOptions(

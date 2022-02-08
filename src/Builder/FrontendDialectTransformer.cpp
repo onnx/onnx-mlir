@@ -267,7 +267,9 @@ private:
       assert(elem_type.value_case() == onnx::TypeProto::kTensorType &&
              "expect tensor inside sequence type");
       Type mlir_elem_type = ImportTensorType(elem_type);
-      Type seq_type = mlir::onnxmlir::SeqType::get(mlir_elem_type);
+      if (!mlir_elem_type.isa<ShapedType>())
+        llvm_unreachable("Seq type is incorrect");
+      Type seq_type = mlir::SeqType::get(mlir_elem_type.cast<ShapedType>(), -1);
       return seq_type;
     }
     llvm_unreachable("unexpected type");
@@ -461,7 +463,9 @@ private:
       AddValueInfo(internal);
     }
 
-    entryBlock->addArguments(argTypes);
+    entryBlock->addArguments(argTypes,
+        llvm::SmallVector<Location, 4>(argTypes.size(), UnknownLoc()));
+
     // Map graph inputs to entry block arguments.
     // Counter of un-initialized tensors. This counter is used to index the
     // entry block arguments.
@@ -1272,7 +1276,7 @@ private:
     std::string comma = std::string("");
 
     TypeSwitch<Type>(argType)
-        .Case<mlir::onnxmlir::SeqType>([&](mlir::onnxmlir::SeqType seqTy) {
+        .Case<mlir::SeqType>([&](mlir::SeqType seqTy) {
           auto et = seqTy.getElementType();
           dstream << "   {\"seq\" : ";
           concatTypeString(et, attr, dstream);
