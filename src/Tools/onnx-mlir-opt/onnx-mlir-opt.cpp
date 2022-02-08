@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------- ONNXMLIROpt.cpp - Optimization Driver -----------------===//
+//===-------------- onnx-mlir-opt.cpp - Optimization Driver ---------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
