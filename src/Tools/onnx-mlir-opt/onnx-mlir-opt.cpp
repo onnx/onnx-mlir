@@ -127,8 +127,7 @@ int main(int argc, char **argv) {
 
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
   llvm::cl::ParseCommandLineOptions(argc, argv,
-      "ONNX-MLIR modular optimizer driver\n", nullptr,
-      "ONNX_MLIR_OPT_FLAGS");
+      "ONNX-MLIR modular optimizer driver\n", nullptr, "ONNX_MLIR_OPT_FLAGS");
 
   // Set up the input file.
   std::string error_message;
