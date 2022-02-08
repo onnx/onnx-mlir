@@ -413,7 +413,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
 
     Value axesValue = llvm::dyn_cast<ONNXReduceSumOp>(op).axes();
     // Dynamic axes
-    if (!isFromNone(axesValue) && !getONNXConstantOp(axesValue)) {
+    if (!isDefinedByUnitConstant(axesValue) && !getONNXConstantOp(axesValue)) {
       dynamicAxes = true;
       // Handle only when keepdims == true
       if (!isKeepdims) {
@@ -444,7 +444,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
                 axesBounds.getDim(0).getValue(), zeroIndex);
         initVal = rewriter.create<SelectOp>(loc, cond, trueVal, falseVal);
       } else {
-        // When axesDim is known, it can not be 0 due to !isFromNone
+        // When axesDim is known, it can not be 0 due to
+        // !isDefinedByUnitConstant
         initVal = falseVal;
       }
       for (auto i = 0; i < inRank; i++) {
@@ -491,22 +492,19 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         }
       }
     } else {
-      // Get axes value defined by op
-      // Leave empty is not defined
+      // Get axes value defined by op. Leave empty is not defined.
       std::vector<int64_t> definedAxes;
 
-      // Assume it is verified that axes are known
-      // Convert DenseElementsAttr to ArrayAttr
-      if (isFromNone(axesValue)) {
+      // Assume it is verified that axes are known. Convert DenseElementsAttr to
+      // ArrayAttr.
+      if (isDefinedByUnitConstant(axesValue)) {
       } else if (getONNXConstantOp(axesValue)) {
-        DenseElementsAttr constAxes =
-            getONNXConstantOp(axesValue)
-                .valueAttr()
-                .dyn_cast_or_null<mlir::DenseElementsAttr>();
-        SmallVector<int64_t, 4> values;
-        for (auto element : constAxes.getValues<IntegerAttr>()) {
+        auto constAxes = getONNXConstantOp(axesValue)
+                             .valueAttr()
+                             .dyn_cast_or_null<mlir::DenseElementsAttr>();
+        //        SmallVector<int64_t, 4> values;
+        for (auto element : constAxes.getValues<IntegerAttr>())
           definedAxes.push_back(element.getInt());
-        }
       }
 
       std::vector<int64_t> axes;

@@ -87,8 +87,8 @@ bool genLSTMModelAndCompile(
   builder.setInsertionPointToStart(entryBlock);
 
   auto noneVal = builder
-                     .create<mlir::ConstantOp>(
-                         UnknownLoc::get(&ctx), builder.getUnitAttr())
+                     .create<ONNXUnitConstantOp>(UnknownLoc::get(&ctx),
+                         builder.getNoneType(), builder.getUnitAttr())
                      .getResult();
   auto xVal = entryBlock->getArgument(0);
   auto hVal = entryBlock->getArgument(1);

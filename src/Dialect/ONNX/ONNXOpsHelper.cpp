@@ -244,18 +244,17 @@ Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
-// Returns true if the Value is defined by none constant
-bool isFromNone(Value v) {
-  if (v.getDefiningOp() && dyn_cast_or_null<ConstantOp>(v.getDefiningOp())) {
-    ConstantOp c = dyn_cast<ConstantOp>(v.getDefiningOp());
-    if (c.getValue().isa<UnitAttr>())
-      return true;
-  }
+// Returns true if the Value is defined by a unit constant.
+bool isDefinedByUnitConstant(Value v) {
+  if (v.getDefiningOp() &&
+      dyn_cast_or_null<ONNXUnitConstantOp>(v.getDefiningOp()))
+    return true;
+
   if (v.getDefiningOp() &&
       dyn_cast_or_null<ONNXConstantOp>(v.getDefiningOp())) {
-    ONNXConstantOp c = dyn_cast<ONNXConstantOp>(v.getDefiningOp());
+    auto c = dyn_cast<ONNXConstantOp>(v.getDefiningOp());
     if (c.value().hasValue() && c.valueAttr().isa<DenseElementsAttr>()) {
-      DenseElementsAttr d = c.valueAttr().cast<DenseElementsAttr>();
+      auto d = c.valueAttr().cast<DenseElementsAttr>();
       auto shape = d.getType().dyn_cast<RankedTensorType>().getShape();
       if (shape.size() == 1 && shape[0] == 0)
         return true;
