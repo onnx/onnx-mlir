@@ -376,7 +376,7 @@ OptLevel getOptLevel() { return OptimizationLevel; }
 // =============================================================================
 // Methods for OMCompilerOptions
 
-int setCompilerOption(const OptionKind kind, string val) {
+int setCompilerOption(const OptionKind kind, const string &val) {
   switch (kind) {
   case OptionKind::TargetTriple:
     setTargetTriple(val);
@@ -412,7 +412,7 @@ string getCompilerOption(const OptionKind kind) {
   return string();
 }
 
-int setCompilerOptions(CompilerOptionList list) {
+int setCompilerOptions(const CompilerOptionList &list) {
   for (const auto &pair : list) {
     int rc = setCompilerOption(pair.first, pair.second);
     if (rc != 0)

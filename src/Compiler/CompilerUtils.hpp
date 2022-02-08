@@ -49,8 +49,8 @@ onnx_mlir::OptLevel getOptLevel();
 using CompilerOptionList =
     llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
 // Return 0 on success.
-int setCompilerOption(const onnx_mlir::OptionKind kind, std::string val);
-int setCompilerOptions(CompilerOptionList list);
+int setCompilerOption(const onnx_mlir::OptionKind kind, const std::string &val);
+int setCompilerOptions(const CompilerOptionList &list);
 std::string getCompilerOption(const onnx_mlir::OptionKind kind);
 
 void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
