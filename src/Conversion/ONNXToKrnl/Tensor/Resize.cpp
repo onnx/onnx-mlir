@@ -39,11 +39,11 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     // Check implementation constraints
     if (resizeOp.mode() != "nearest" ||
         (resizeOp.coordinate_transformation_mode() != "asymmetric" &&
-            resizeOp.coordinate_transformation_mode() != "half_pixel") ||
-        (resizeOp.nearest_mode() != "floor" &&
-            resizeOp.nearest_mode() != "round_prefer_floor"))
+            resizeOp.coordinate_transformation_mode() != "half_pixel"))
       return emitError(loc, "not implemented yet");
 
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+        rewriter, loc);
     SmallVector<Value, 4> scaleValues;
     bool fromScale = !isFromNone(resizeOp.scales());
     IndexExprScope outerloopContex(&rewriter, loc);
@@ -60,43 +60,29 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       SmallVector<float, 4> scalesConstant;
       if (scalesAttrs) {
         for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
-          Value scaleConstant = emitConstantOp(rewriter, loc,
+          Value scaleConstant = create.math.constant(
               rewriter.getF32Type(), scaleAttr.getValueAsDouble());
           scaleValues.emplace_back(scaleConstant);
         }
       } else {
         for (decltype(rank) i = 0; i < rank; i++) {
-          Value indexValue =
-              emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
-          Value scaleVal = rewriter.create<KrnlLoadOp>(loc, scales, indexValue);
+          Value indexValue = create.math.constantIndex(i);
+          Value scaleVal = create.krnl.load(scales, indexValue);
           scaleValues.emplace_back(scaleVal);
         }
       }
     } else {
       for (decltype(rank) i = 0; i < rank; i++) {
-        Value indexValue =
-            emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
-        Value resizedVal = rewriter.create<KrnlLoadOp>(loc, sizes, indexValue);
+        Value indexValue = create.math.constantIndex(i);
+        Value resizedVal = create.krnl.load(sizes, indexValue);
         Value resizedFVal = rewriter.create<arith::SIToFPOp>(
             loc, rewriter.getF32Type(), resizedVal);
         Value inputDim = dataBounds.getDim(i).getValue();
-        Value inputDimInteger = rewriter.create<arith::IndexCastOp>(
-            loc, inputDim, rewriter.getIntegerType(64));
-        Value inputDimFloat = rewriter.create<arith::SIToFPOp>(
-            loc, rewriter.getF32Type(), inputDimInteger);
-        Value scaleVal =
-            rewriter.create<arith::DivFOp>(loc, resizedFVal, inputDimFloat);
+        Value inputDimFloat = create.math.cast(rewriter.getF32Type(), inputDim);
+        Value scaleVal = create.math.div(resizedFVal, inputDimFloat);
         scaleValues.emplace_back(scaleVal);
       }
     }
-
-    // Keep the code using IndexExpr for bug fixing
-    // ArrayValueIndexCapture scaleIEs(op, scales,
-    // getDenseElementAttributeFromKrnlValue,
-    // loadDenseElementArrayValueAtIndex); for (decltype(rank) i = 0; i < rank;
-    // i++) {
-    //  scaleValues.emplace_back(scaleIEs.getSymbol(i).getValue());
-    // }
 
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
@@ -106,16 +92,10 @@ struct ONNXResizeOpLowering : public ConversionPattern {
           outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
         } else {
           Value inputDim = dataBounds.getDim(i).getValue();
-          Value inputDimInteger = rewriter.create<arith::IndexCastOp>(
-              loc, inputDim, rewriter.getIntegerType(64));
-          Value inputDimFloat = rewriter.create<arith::SIToFPOp>(
-              loc, rewriter.getF32Type(), inputDimInteger);
-          Value outputDimFloat = rewriter.create<arith::MulFOp>(
-              loc, inputDimFloat, scaleValues[i]);
-          Value outputDimInteger = rewriter.create<arith::FPToSIOp>(
-              loc, rewriter.getIntegerType(64), outputDimFloat);
-          Value outDim = rewriter.create<arith::IndexCastOp>(
-              loc, rewriter.getIndexType(), outputDimInteger);
+          Value inputDimFloat =
+              create.math.cast(rewriter.getF32Type(), inputDim);
+          Value outputDimFloat = create.math.mul(inputDimFloat, scaleValues[i]);
+          Value outDim = create.math.castToIndex(outputDimFloat);
           SymbolIndexExpr outDimIE(outDim);
           outputDims[i] = SymbolIndexExpr(outDimIE);
         }
@@ -128,12 +108,9 @@ struct ONNXResizeOpLowering : public ConversionPattern {
         if (memRefType.getShape()[i] != -1) {
           outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
         } else {
-          Value indexValue =
-              emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
-          Value resizedVal =
-              rewriter.create<KrnlLoadOp>(loc, sizes, indexValue);
-          Value outDim = rewriter.create<arith::IndexCastOp>(
-              loc, rewriter.getIndexType(), resizedVal);
+          Value indexValue = create.math.constantIndex(i);
+          Value resizedVal = create.krnl.load(sizes, indexValue);
+          Value outDim = create.math.castToIndex(resizedVal);
           SymbolIndexExpr outDimIE(outDim);
           outputDims[i] = SymbolIndexExpr(outDimIE);
         }
@@ -141,6 +118,10 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       alloc = insertAllocAndDeallocSimple(
           rewriter, op, memRefType, loc, outputDims, insertDealloc);
     }
+
+    // Constants used in the loop body
+    Value zero = create.math.constant(rewriter.getIntegerType(64), 0);
+    Value one = create.math.constantIndex(1);
 
     // Create loops
     BuildKrnlLoop outputLoops(rewriter, loc, rank);
@@ -151,64 +132,71 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     SmallVector<Value, 4> readIndices;
     SmallVector<Value, 4> writeIndices;
     for (decltype(rank) i = 0; i < rank; ++i) {
+      Value inIndexFloat;
+      Value outIndex = outputLoops.getInductionVar(i);
+      Value outIndexInteger = rewriter.create<arith::IndexCastOp>(
+          loc, outIndex, rewriter.getIntegerType(64));
+      Value outIndexFloat =
+          create.math.cast(rewriter.getF32Type(), outIndexInteger);
+
+      // Handle coordinate transformation
       if (resizeOp.coordinate_transformation_mode() == "asymmetric") {
-        Value outIndex = outputLoops.getInductionVar(i);
-        Value outIndexInteger = rewriter.create<arith::IndexCastOp>(
-            loc, outIndex, rewriter.getIntegerType(64));
-        Value outIndexFloat = rewriter.create<arith::SIToFPOp>(
-            loc, rewriter.getF32Type(), outIndexInteger);
-        Value inIndexFloat =
-            rewriter.create<arith::DivFOp>(loc, outIndexFloat, scaleValues[i]);
-        // FPToSIOp is round-to-zero, same as floor for positive
-        // round_prefer_floor will round 2.5 to 2, not 3
-        if (resizeOp.nearest_mode() == "round_prefer_floor") {
-          Value deltaConstant =
-              emitConstantOp(rewriter, loc, rewriter.getF32Type(), 0.499999);
-          inIndexFloat =
-              rewriter.create<arith::AddFOp>(loc, inIndexFloat, deltaConstant);
-        } else if (resizeOp.nearest_mode() == "floor") {
-          inIndexFloat = rewriter.create<math::FloorOp>(loc, inIndexFloat);
-        }
-        Value inIndexInteger = rewriter.create<arith::FPToSIOp>(
-            loc, rewriter.getIntegerType(64), inIndexFloat);
-        Value inIndex = rewriter.create<arith::IndexCastOp>(
-            loc, rewriter.getIndexType(), inIndexInteger);
-        readIndices.emplace_back(inIndex);
-        writeIndices.emplace_back(outIndex);
+        inIndexFloat = create.math.div(outIndexFloat, scaleValues[i]);
       } else if (resizeOp.coordinate_transformation_mode() == "half_pixel") {
         // If coordinate_transformation_mode is "half_pixel",
         // x_original = (x_resized + 0.5) / scale - 0.5,
-        Value outIndex = outputLoops.getInductionVar(i);
-        Value outIndexInteger = rewriter.create<arith::IndexCastOp>(
-            loc, outIndex, rewriter.getIntegerType(64));
-        Value outIndexFloat = rewriter.create<arith::SIToFPOp>(
-            loc, rewriter.getF32Type(), outIndexInteger);
         Value halfPixelConstant =
-            emitConstantOp(rewriter, loc, rewriter.getF32Type(), 0.5);
-        Value inIndexFloat = rewriter.create<arith::SubFOp>(loc,
-            rewriter.create<arith::DivFOp>(loc,
-                rewriter.create<arith::AddFOp>(
-                    loc, outIndexFloat, halfPixelConstant),
-                scaleValues[i]),
-            halfPixelConstant);
-        if (resizeOp.nearest_mode() == "round_prefer_floor") {
-          Value deltaConstant =
-              emitConstantOp(rewriter, loc, rewriter.getF32Type(), 0.499999);
-          inIndexFloat =
-              rewriter.create<arith::AddFOp>(loc, inIndexFloat, deltaConstant);
-        } else if (resizeOp.nearest_mode() == "floor") {
-          inIndexFloat = rewriter.create<math::FloorOp>(loc, inIndexFloat);
-        }
-        Value inIndexInteger = rewriter.create<arith::FPToSIOp>(
-            loc, rewriter.getIntegerType(64), inIndexFloat);
-        Value inIndex = rewriter.create<arith::IndexCastOp>(
-            loc, rewriter.getIndexType(), inIndexInteger);
-        readIndices.emplace_back(inIndex);
-        writeIndices.emplace_back(outIndex);
+            create.math.constant(rewriter.getF32Type(), 0.5);
+        Value addValue = create.math.add(outIndexFloat, halfPixelConstant);
+        Value divValue = create.math.div(addValue, scaleValues[i]);
+        inIndexFloat = create.math.sub(divValue, halfPixelConstant);
       }
+
+      // Handle nearest_mode
+      if (resizeOp.nearest_mode() == "round_prefer_floor") {
+        // round_prefer_floor will round 2.5 to 2, not 3
+        Value deltaConstant =
+            create.math.constant(rewriter.getF32Type(), 0.499999);
+        inIndexFloat = create.math.add(inIndexFloat, deltaConstant);
+      } else if (resizeOp.nearest_mode() == "round_prefer_ceil") {
+        Value deltaConstant = create.math.constant(rewriter.getF32Type(), 0.5);
+        inIndexFloat = create.math.add(inIndexFloat, deltaConstant);
+      } else if (resizeOp.nearest_mode() == "floor") {
+        // Not supported by create.math
+        inIndexFloat = rewriter.create<math::FloorOp>(loc, inIndexFloat);
+      } else if (resizeOp.nearest_mode() == "ceil") {
+        // Not supported by create.math
+        inIndexFloat = rewriter.create<math::CeilOp>(loc, inIndexFloat);
+      } else {
+        llvm_unreachable("Unexpected nearest_mode() for ResizeOp");
+      }
+
+      // FPToSIOp is round-to-zero, same as floor for positive
+      Value inIndexInteger =
+          create.math.cast(rewriter.getIntegerType(64), inIndexFloat);
+
+      // When the index is out of bound, use the boundary index.
+      // This is equivalent to np.pad with mode = "edge"
+
+      // Compare with integer type because lower bound may be negative
+      Value lessThanZero = create.math.slt(inIndexInteger, zero);
+      Value inIndexLBPadded =
+          create.math.select(lessThanZero, zero, inIndexInteger);
+
+      // Upper bound comparison can be done with Index type
+      inIndexLBPadded = create.math.castToIndex(inIndexLBPadded);
+      Value inputDim = dataBounds.getDim(i).getValue();
+
+      Value lessThanDim = create.math.slt(inIndexLBPadded, inputDim);
+      Value inputDimMinus = create.math.sub(inputDim, one);
+      Value inIndexPadded =
+          create.math.select(lessThanDim, inIndexLBPadded, inputDimMinus);
+
+      readIndices.emplace_back(inIndexPadded);
+      writeIndices.emplace_back(outIndex);
     }
-    Value loadVal = rewriter.create<KrnlLoadOp>(loc, data, readIndices);
-    rewriter.create<KrnlStoreOp>(loc, loadVal, alloc, writeIndices);
+    Value loadVal = create.krnl.load(data, readIndices);
+    create.krnl.store(loadVal, alloc, writeIndices);
 
     rewriter.replaceOp(op, alloc);
     return success();
