@@ -11,9 +11,12 @@ find_package(MLIR REQUIRED CONFIG)
 
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+message(STATUS "CMAKE_MODULE_PATH is: ${CMAKE_MODULE_PATH}")
 
 list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+
+message(STATUS "CMAKE_MODULE_PATH now is: ${CMAKE_MODULE_PATH}")
 
 include(TableGen)
 include(AddLLVM)
