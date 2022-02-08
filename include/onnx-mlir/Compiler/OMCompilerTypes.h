@@ -5,12 +5,12 @@
 #ifndef ONNX_MLIR_OMCOMPILERTYPES_H
 #define ONNX_MLIR_OMCOMPILERTYPES_H
 
-//#ifdef __cplusplus
+#ifdef __cplusplus
 namespace onnx_mlir {
-//#endif
+#endif
 
 /* Type of compiler emission targets */
-enum EmissionTargetType {
+typedef enum {
   EmitONNXBasic,
   EmitONNXIR,
   EmitMLIR,
@@ -18,38 +18,31 @@ enum EmissionTargetType {
   EmitObj,
   EmitLib,
   EmitJNI,
-};
+} EmissionTargetType;
 
 /* Input IR can be at one of these levels */
-enum InputIRLevelType {
+typedef enum {
   ONNXLevel,
   MLIRLevel,
   LLVMLevel,
-};
+} InputIRLevelType;
 
 /* Compiler optimization level (traditional -O0 ... -O3 flags) */
-enum OptLevel {
-  O0 = 0,
-  O1,
-  O2,
-  O3
-};
+typedef enum { O0 = 0, O1, O2, O3 } OptLevel;
 
 /* Compiler options to describe the architecture, optimization level,... */
-enum OptionKind {
+typedef enum {
   TargetTriple,     /* Kind for mtriple string. */
   TargetArch,       /* Kind for march string. */
   TargetCPU,        /* Kind for mcpu string. */
-  CompilerOptLevel /* Kind for '0'...'3' string describing OptLevel. */
-};
+  CompilerOptLevel, /* Kind for '0'...'3' string describing OptLevel. */
+  OPTFlag,          /* Kind for -Xopt string. */
+  LLCFlag,          /* Kind for -Xllc string. */
+  LLVMFlag          /* Kind for -mllvm string. */
+} OptionKind;
 
-//#ifdef _cplusplus
-} /* namespace onnx_mlir */
-//#else
-//typedef enum EmissionTargetType EmissionTargetType;
-//typedef enum InputIRLevelType InputIRLevelType;
-//typedef enum OptLevel OptLevel;
-//typedef enum OptionKind OptionKind;
-//#endif
-
+#ifdef __cplusplus
+} // namespace onnx_mlir
 #endif
+
+#endif /* ONNX_MLIR_OMCOMPILERTYPES_H */

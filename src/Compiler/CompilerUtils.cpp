@@ -126,6 +126,22 @@ static llvm::cl::opt<bool> VerboseOutput("v",
     llvm::cl::desc("Use verbose output"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
+static llvm::cl::opt<std::string> Xopt("Xopt",
+    llvm::cl::desc("Arguments to forward to LLVM's 'opt' option processing"),
+    llvm::cl::value_desc("A valid LLVM's 'opt' option"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+
+static llvm::cl::opt<std::string> Xllc("Xllc",
+    llvm::cl::desc("Arguments to forward to LLVM's 'llc' option processing"),
+    llvm::cl::value_desc("A valid LLVM's 'llc' option"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+
+static llvm::cl::opt<std::string> mllvm("mllvm",
+    llvm::cl::desc(
+        "Arguments to forward to LLVM's 'opt' and 'llc' option processing"),
+    llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
 enum class KeepFilesOfType { All, MLIR, Bitcode, Object, None };
@@ -312,24 +328,10 @@ struct Command {
 // =============================================================================
 // Methods for setting and getting compiler variables.
 
-void setTargetTriple(const std::string &triple) {
+// Triple.
+static void setTargetTriple(const std::string &triple) {
   LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set triple\"" << triple << "\"\n");
   mtriple = triple;
-}
-
-void setTargetArch(const std::string &arch) {
-  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set arch\"" << arch << "\"\n");
-  march = arch;
-}
-
-void setTargetCPU(const std::string &cpu) {
-  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set CPU\"" << cpu << "\"\n");
-  mcpu = cpu;
-}
-
-void setOptLevel(const OptLevel level) {
-  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set opt level " << level << "\n");
-  OptimizationLevel = level;
 }
 
 static std::string getTargetTripleOption() {
@@ -342,19 +344,33 @@ static std::string getTargetTripleOption() {
   return targetOptions;
 }
 
-static std::string getTargetArchOption() {
-  string targetOptions = "";
-  if (march != "")
-    targetOptions += "--march=" + march;
-  return targetOptions;
+// Arch.
+static void setTargetArch(const std::string &arch) {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set arch\"" << arch << "\"\n");
+  march = arch;
 }
 
-static std::string getTargetCpuOption() {
-  string targetOptions = "";
-  if (mcpu != "")
-    targetOptions += "--mcpu=" + mcpu;
-  return targetOptions;
+static std::string getTargetArchOption() {
+  return (march != "") ? "--march=" + march : "";
 }
+
+// CPU.
+static void setTargetCPU(const std::string &cpu) {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set CPU\"" << cpu << "\"\n");
+  mcpu = cpu;
+}
+
+static std::string getTargetCPUOption() {
+  return (mcpu != "") ? "--mcpu=" + mcpu : "";
+}
+
+// Optimization level.
+static void setOptLevel(const OptLevel level) {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set opt level " << level << "\n");
+  OptimizationLevel = level;
+}
+
+OptLevel getOptLevel() { return OptimizationLevel; }
 
 static std::string getOptimizationLevelOption() {
   switch (getOptLevel()) {
@@ -371,7 +387,26 @@ static std::string getOptimizationLevelOption() {
   return "";
 }
 
-OptLevel getOptLevel() { return OptimizationLevel; }
+// Xopt.
+static void setXoptOption(const std::string &flag) { Xopt = flag; }
+
+static std::string getXoptOption() {
+  return (Xopt != "") ? Xopt : std::string();
+}
+
+// Xllc.
+static void setXllcOption(const std::string &flag) { Xllc = flag; }
+
+static std::string getXllcOption() {
+  return (Xllc != "") ? Xllc : std::string();
+}
+
+// LLVM.
+static void setLLVMOption(const std::string &flag) { mllvm = flag; }
+
+static std::string getLLVMOption() {
+  return (mllvm != "") ? mllvm : std::string();
+}
 
 // =============================================================================
 // Methods for OMCompilerOptions
@@ -387,12 +422,22 @@ int setCompilerOption(const OptionKind kind, const string &val) {
   case OptionKind::TargetCPU:
     setTargetCPU(val);
     break;
-  case OptionKind::CompilerOptLevel:
+  case OptionKind::CompilerOptLevel: {
     int level = atoi(val.c_str());
     if (level < 0 && level > 3)
       return 1;
     setOptLevel((OptLevel)level);
+  } break;
+  case OptionKind::OPTFlag:
+    setXoptOption(val);
     break;
+  case OptionKind::LLCFlag:
+    setXllcOption(val);
+    break;
+  case OptionKind::LLVMFlag:
+    setLLVMOption(val);
+    break;
+    // Ignore options that were added but are unknown.
   }
   return 0;
 }
@@ -404,11 +449,16 @@ string getCompilerOption(const OptionKind kind) {
   case OptionKind::TargetArch:
     return getTargetArchOption();
   case OptionKind::TargetCPU:
-    return getTargetCpuOption();
+    return getTargetCPUOption();
   case OptionKind::CompilerOptLevel:
     return getOptimizationLevelOption();
+  case OptionKind::OPTFlag:
+    return getXoptOption();
+  case OptionKind::LLCFlag:
+    return getXllcOption();
+  case OptionKind::LLVMFlag:
+    return getLLVMOption();
   }
-  llvm_unreachable("unknown option");
   return string();
 }
 
@@ -420,6 +470,9 @@ int setCompilerOptions(const CompilerOptionList &list) {
   }
   return 0;
 }
+
+// =============================================================================
+// Methods for compiling and file processing.
 
 void loadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {
@@ -478,7 +531,9 @@ static void genLLVMBitcode(const mlir::OwningModuleRef &module,
   optBitcode.appendStr(getOptimizationLevelOption())
       .appendStr(getTargetTripleOption())
       .appendStr(getTargetArchOption())
-      .appendStr(getTargetCpuOption())
+      .appendStr(getTargetCPUOption())
+      .appendStr(getXoptOption())
+      .appendStr(getLLVMOption())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
       .exec();
@@ -498,7 +553,9 @@ static std::string genModelObject(string bitcodePath, string outputBaseName) {
   llvmToObj.appendStr(getOptimizationLevelOption())
       .appendStr(getTargetTripleOption())
       .appendStr(getTargetArchOption())
-      .appendStr(getTargetCpuOption())
+      .appendStr(getTargetCPUOption())
+      .appendStr(getXllcOption())
+      .appendStr(getLLVMOption())
       .appendStr("-filetype=obj")
       .appendStr("-relocation-model=pic")
       .appendList({"-o", modelObjPath})
