@@ -400,11 +400,11 @@ int setCompilerOption(const OptionKind kind, string val) {
 string getCompilerOption(const OptionKind kind) {
   switch (kind) {
   case OptionKind::TargetTriple:
-    return mtriple;
+    return getTargetTripleOption();
   case OptionKind::TargetArch:
-    return march;
+    return getTargetArchOption();
   case OptionKind::TargetCPU:
-    return mcpu;
+    return getTargetCpuOption();
   case OptionKind::CompilerOptLevel:
     return getOptimizationLevelOption();
   }
@@ -412,7 +412,7 @@ string getCompilerOption(const OptionKind kind) {
   return string();
 }
 
-int setCompilerOptions(CompilerOptionList &list) {
+int setCompilerOptions(CompilerOptionList list) {
   for (const auto &pair : list) {
     int rc = setCompilerOption(pair.first, pair.second);
     if (rc != 0)

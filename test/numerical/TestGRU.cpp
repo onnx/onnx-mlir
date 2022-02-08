@@ -211,7 +211,7 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
-  setCompilerOption(OptionKind::CompilerOptLevel, "3");
+  setCompilerOptions({{OptionKind::CompilerOptLevel, "3"}});
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGRU\n", nullptr, "TEST_ARGS");
   cout << "Opt Level is " << getCompilerOption(OptionKind::CompilerOptLevel)

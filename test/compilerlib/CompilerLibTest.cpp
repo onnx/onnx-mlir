@@ -55,7 +55,7 @@ void readCommandLineAndKeepUnused(int &argc, char *argv[]) {
 int main(int argc, char *argv[]) {
   // Read the compiler options from env and args.
   readCommandLineAndKeepUnused(argc, argv);
-  omSetCompilerOptionsFromEnvAndArgs(nullptr, argc, argv);
+  omSetCompilerOptionsFromArgsAndEnv(argc, argv, nullptr);
   std::string opt(omGetCompilerOption(OptionKind::CompilerOptLevel));
   std::cout << "Opt Level is " << opt << std::endl;
 

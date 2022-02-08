@@ -64,7 +64,7 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(
  *  is allowed.
  *  @param argc Number of input parameters in argv.
  *  @param argv Array of strings, some of which may be compiler options.
- *  First argv is ignored as it is the name of the program.
+ *  First argv is ignored as it contains the name of the program.
  *  @return 0 on success or non-zero error code on failure.
  */
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
@@ -78,14 +78,14 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
  *  Only a single call to omSetCompilerOptionsFromEnv,
  *  omSetCompilerOptionsFromArgs, or omSetCompilerOptionsFromEnvAndArgs
  *  is allowed.
- *  @param envVarName Environment varialble name, use default when null.
  *  @param argc Number of input parameters in argv.
  *  @param argv Array of strings, some of which may be compiler options.
- *  First argv is ignored as it is the name of the program.
+ *  First argv is ignored as it contains the name of the program.
+ *  @param envVarName Environment varialble name, use default when null.
  *  @return 0 on success or non-zero error code on failure.
  */
-ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnvAndArgs(
-    const char *envVarName, int64_t argc, char *argv[]);
+ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
+    int64_t argc, char *argv[], const char *envVarName);
 
 /*!
  *  Overwrite the compiler option defined by input parameters.

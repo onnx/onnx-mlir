@@ -4,11 +4,12 @@
 
 //===-------------- ONNXMLIROpt.cpp - Optimization Driver -----------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-//
+// Main function for onnx-mlir-opt.
+// Implements main for onnx-mlir-opt driver.
 //
 //===----------------------------------------------------------------------===//
 
@@ -125,8 +126,9 @@ int main(int argc, char **argv) {
   mlir::registerDefaultTimingManagerCLOptions();
 
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
-  llvm::cl::ParseCommandLineOptions(
-      argc, argv, "ONNX-MLIR modular optimizer driver\n");
+  llvm::cl::ParseCommandLineOptions(argc, argv,
+      "ONNX-MLIR modular optimizer driver\n", nullptr,
+      "ONNX_MLIR_OPT_FLAGS");
 
   // Set up the input file.
   std::string error_message;

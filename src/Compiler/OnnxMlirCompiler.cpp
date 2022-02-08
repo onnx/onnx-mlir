@@ -21,11 +21,11 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(const char *envVarName) {
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
     int64_t argc, char *argv[]) {
   return llvm::cl::ParseCommandLineOptions(
-      argc, argv, "SetCompilerOptionsFromEnv\n", nullptr, nullptr);
+      argc, argv, "SetCompilerOptionsFromEnv\n");
 }
 
-ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnvAndArgs(
-    const char *envVarName, int64_t argc, char *argv[]) {
+ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
+    int64_t argc, char *argv[], const char *envVarName) {
   const char *name = envVarName ? envVarName : OnnxMlirEnvOptionName.c_str();
   return llvm::cl::ParseCommandLineOptions(
       argc, argv, "SetCompilerOptionsFromEnv\n", nullptr, name);
