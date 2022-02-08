@@ -56,8 +56,6 @@ int main(int argc, char *argv[]) {
   // Read the compiler options from env and args.
   readCommandLineAndKeepUnused(argc, argv);
   omSetCompilerOptionsFromArgsAndEnv(argc, argv, nullptr);
-  std::string opt(omGetCompilerOption(OptionKind::CompilerOptLevel));
-  std::cout << "Opt Level is " << opt << std::endl;
 
   if (outputBaseName == "") {
     outputBaseName = testFileName.substr(0, testFileName.find_last_of("."));

@@ -162,8 +162,6 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGEMM\n", nullptr, "TEST_ARGS");
-  cout << "Opt Level is " << getCompilerOption(OptionKind::CompilerOptLevel)
-       << endl;
 
   if (true) {
     printf("RapidCheck test case generation.\n");

@@ -45,11 +45,11 @@ namespace onnx_mlir {
 /*!
  *  Define ONNX-MLIR compiler options with options defined by
  *  the envVarName (default ONNX_MLIR_FLAGS) environment variable.
- *  Values not recoginzed as compiler options result in an error.
+ *  Values not recognized as compiler options result in an error.
  *  Only a single call to omSetCompilerOptionsFromEnv,
  *  omSetCompilerOptionsFromArgs, or omSetCompilerOptionsFromEnvAndArgs
  *  is allowed.
- *  @param envVarName Environment varialble name, use default when null.
+ *  @param envVarName Environment variable name, use default when null.
  *  @return 0 on success or non-zero error code on failure.
  */
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(
@@ -58,7 +58,7 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(
 /*!
  *  Define ONNX-MLIR compiler options with options defined by
  *  the argc/argv parameters. Call expects argv[0] to contain the program
- *  name. Values not recoginzed as compiler options result in an error.
+ *  name. Values not recognized as compiler options result in an error.
  *  Only a single call to omSetCompilerOptionsFromEnv,
  *  omSetCompilerOptionsFromArgs, or omSetCompilerOptionsFromEnvAndArgs
  *  is allowed.
@@ -72,16 +72,16 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
 
 /*!
  *  Define ONNX-MLIR compiler options with options defined by
- *  the envVarName (default ONNX_MLIR_FLAGS) environment varialbe
+ *  the envVarName (default ONNX_MLIR_FLAGS) environment variable
  *  and the argc/argv parameters. Call expects argv[0] to contain the program
- *  name. Values not recoginzed as compiler options result in an error.
+ *  name. Values not recognized as compiler options result in an error.
  *  Only a single call to omSetCompilerOptionsFromEnv,
  *  omSetCompilerOptionsFromArgs, or omSetCompilerOptionsFromEnvAndArgs
  *  is allowed.
  *  @param argc Number of input parameters in argv.
  *  @param argv Array of strings, some of which may be compiler options.
  *  First argv is ignored as it contains the name of the program.
- *  @param envVarName Environment varialble name, use default when null.
+ *  @param envVarName Environment variable name, use default when null.
  *  @return 0 on success or non-zero error code on failure.
  */
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
@@ -93,8 +93,8 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
  *  omSetCompilerOptionsFromEnv, omSetCompilerOptionsFromArgs, or
  *  omSetCompilerOptionsFromEnvAndArgs. Or overwrite the current value
  *  by calling this function after one of the above 3 setter functions.
- *  @param kind Describe which option kind is beign set.
- *  @param val Value of the option being set. Null pointer undefines the
+ *  @param kind Describe which option kind is being set.
+ *  @param val Value of the option being set. Null pointer reset the
  *  option.
  *  @return 0 on success or non-zero error code on failure.
  */
@@ -103,7 +103,7 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOption(
 
 /*!
  *  Get the compiler options.
- *  @param kind Describe which option kind is beign set.
+ *  @param kind Describe which option kind is being set.
  *  @return Value of compiler option.
  */
 ONNX_MLIR_EXPORT const char *omGetCompilerOption(

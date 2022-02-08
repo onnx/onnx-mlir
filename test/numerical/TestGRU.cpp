@@ -214,8 +214,6 @@ int main(int argc, char *argv[]) {
   setCompilerOptions({{OptionKind::CompilerOptLevel, "3"}});
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGRU\n", nullptr, "TEST_ARGS");
-  cout << "Opt Level is " << getCompilerOption(OptionKind::CompilerOptLevel)
-       << endl;
 
   // RapidCheck test case generation.
   bool success = rc::check("GRU implementation correctness", []() {

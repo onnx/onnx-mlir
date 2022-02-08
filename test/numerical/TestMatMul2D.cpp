@@ -79,8 +79,6 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
-  cout << "Opt Level is " << getCompilerOption(OptionKind::CompilerOptLevel)
-       << endl;
 
   printf("RapidCheck test case generation.\n");
   bool success = rc::check("Matmul implementation correctness", []() {

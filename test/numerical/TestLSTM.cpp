@@ -214,8 +214,6 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLSTM\n", nullptr, "TEST_ARGS");
-  cout << "Opt Level is " << getCompilerOption(OptionKind::CompilerOptLevel)
-       << endl;
 
   // RapidCheck test case generation.
   bool success = rc::check("LSTM implementation correctness", []() {
