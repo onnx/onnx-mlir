@@ -559,4 +559,5 @@ template bool omTensorAreTwoOmtsClose<float>(
     OMTensor *a, OMTensor *b, float rtol, float atol);
 template bool omTensorAreTwoOmtsClose<double>(
     OMTensor *a, OMTensor *b, float rtol, float atol);
+
 #endif
