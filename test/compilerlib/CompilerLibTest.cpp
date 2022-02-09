@@ -62,8 +62,8 @@ int main(int argc, char *argv[]) {
   }
 
   int retVal = 0;
+  const char *errorMessage = NULL;
   if (compileFromFile) {
-    const char *errorMessage = NULL;
     retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
         onnx_mlir::EmitLib, &errorMessage);
     if (errorMessage != NULL) {
@@ -75,8 +75,12 @@ int main(int argc, char *argv[]) {
         testFileName, std::ios_base::in | std::ios_base::binary);
     std::string test((std::istreambuf_iterator<char>(inFile)),
         std::istreambuf_iterator<char>());
-    retVal = omCompileFromArray(
-        test.data(), test.size(), outputBaseName.c_str(), onnx_mlir::EmitLib);
+    retVal = omCompileFromArray(test.data(), test.size(),
+        outputBaseName.c_str(), onnx_mlir::EmitLib, &errorMessage);
+    if (errorMessage != NULL) {
+      std::cerr << errorMessage;
+      retVal = 0xf;
+    }
   }
   if (retVal != 0) {
     std::cerr << "Compiling " << testFileName << "failed with code" << retVal;
