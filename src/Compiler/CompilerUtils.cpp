@@ -121,6 +121,22 @@ static llvm::cl::opt<bool> VerboseOutput("v",
     llvm::cl::desc("Use verbose output"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
+static llvm::cl::opt<std::string> Xopt("Xopt",
+    llvm::cl::desc("Arguments to forward to LLVM's 'opt' option processing"),
+    llvm::cl::value_desc("A valid LLVM's 'opt' option"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+
+static llvm::cl::opt<std::string> Xllc("Xllc",
+    llvm::cl::desc("Arguments to forward to LLVM's 'llc' option processing"),
+    llvm::cl::value_desc("A valid LLVM's 'llc' option"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+
+static llvm::cl::opt<std::string> mllvm("mllvm",
+    llvm::cl::desc(
+        "Arguments to forward to LLVM's 'opt' and 'llc' option processing"),
+    llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
 enum class KeepFilesOfType { All, MLIR, Bitcode, Object, None };
@@ -309,26 +325,37 @@ void setTargetArch(const std::string &arch) { march = arch; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }
 void setOptLevel(const OptLevel level) { OptimizationLevel = level; }
 OptLevel getOptLevel() { return OptimizationLevel; }
+void setXoptOption(const std::string &flag) { Xopt = flag; }
+void setXllcOption(const std::string &flag) { Xllc = flag; }
+void setLLVMOption(const std::string &flag) { mllvm = flag; }
 
 static void setCompilerKeyValue(const OptionKind key, const string val) {
   switch (key) {
   case OptionKind::TargetTriple:
     setTargetTriple(val);
-    return;
+    break;
   case OptionKind::TargetArch:
     setTargetArch(val);
-    return;
-  case OptionKind::TargetCPU:
+    break;
+  case TargetCPU:
     setTargetCPU(val);
-    return;
-  case OptionKind::CompilerOptLevel:
+    break;
+  case OptionKind::CompilerOptLevel: {
     int level = atoi(val.c_str());
     assert(level >= 0 && level <= 3 && "expected an OptLevel in [0..3] range");
     setOptLevel((OptLevel)level);
-    return;
+  } break;
+  case OptionKind::OPTFlag:
+    setXoptOption(val);
+    break;
+  case OptionKind::LLCFlag:
+    setXllcOption(val);
+    break;
+  case OptionKind::LLVMFlag:
+    setLLVMOption(val);
+    break;
+    // Ignore options that were added but are unknown.
   }
-  // In case there are options that were added but are unknown here, just ignore
-  // them.
 }
 
 // Set compiler context using a list of key/value pairs.
@@ -373,17 +400,11 @@ void loadMLIR(string inputFilename, mlir::MLIRContext &context,
 }
 
 static std::string getTargetCpuOption() {
-  string targetOptions = "";
-  if (mcpu != "")
-    targetOptions += "--mcpu=" + mcpu;
-  return targetOptions;
+  return (mcpu != "") ? "--mcpu=" + mcpu : "";
 }
 
 static std::string getTargetArchOption() {
-  string targetOptions = "";
-  if (march != "")
-    targetOptions += "--march=" + march;
-  return targetOptions;
+  return (march != "") ? "--march=" + march : "";
 }
 
 static std::string getTargetTripleOption() {
@@ -409,6 +430,18 @@ static std::string getOptimizationLevelOption() {
   }
   llvm_unreachable("Unexpected optimization level");
   return "";
+}
+
+static std::string getXoptOption() {
+  return (Xopt != "") ? Xopt : std::string();
+}
+
+static std::string getXllcOption() {
+  return (Xllc != "") ? Xllc : std::string();
+}
+
+static std::string getLLVMOption() {
+  return (mllvm != "") ? mllvm : std::string();
 }
 
 // Write LLVM optimized bitcode.
@@ -447,6 +480,8 @@ static void genLLVMBitcode(const mlir::OwningModuleRef &module,
       .appendStr(getTargetTripleOption())
       .appendStr(getTargetArchOption())
       .appendStr(getTargetCpuOption())
+      .appendStr(getXoptOption())
+      .appendStr(getLLVMOption())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
       .exec();
@@ -467,6 +502,8 @@ static std::string genModelObject(string bitcodePath, string outputBaseName) {
       .appendStr(getTargetTripleOption())
       .appendStr(getTargetArchOption())
       .appendStr(getTargetCpuOption())
+      .appendStr(getXllcOption())
+      .appendStr(getLLVMOption())
       .appendStr("-filetype=obj")
       .appendStr("-relocation-model=pic")
       .appendList({"-o", modelObjPath})
@@ -610,7 +647,7 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::shape::ShapeDialect>();
   context.getOrLoadDialect<mlir::math::MathDialect>();
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
-  context.getOrLoadDialect<mlir::ONNXOpsDialect>();
+  context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
 }
 
@@ -736,9 +773,8 @@ InputIRLevelType determineInputIRLevel(mlir::OwningModuleRef &module) {
   });
 
   // If there are ONNX ops, the input level is ONNX.
-  bool hasONNXOps = llvm::any_of(dialectNamespace, [&](StringRef ns) {
-    return (ns == ONNXOpsDialect::getDialectNamespace());
-  });
+  bool hasONNXOps = llvm::any_of(dialectNamespace,
+      [&](StringRef ns) { return (ns == ONNXDialect::getDialectNamespace()); });
   if (hasONNXOps)
     return ONNXLevel;
 

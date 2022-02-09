@@ -15,7 +15,7 @@
 #define ONNX_CONSTPROP
 
 #ifndef OP_BASE
-include "src/Dialect/ONNX/ONNXOps.td"
+include "src/Dialect/ONNX/ONNX.td"
 #endif // OP_BASE
 
 //===----------------------------------------------------------------------===//

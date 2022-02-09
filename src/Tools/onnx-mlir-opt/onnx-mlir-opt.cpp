@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------- ONNXMLIROpt.cpp - Optimization Driver -----------------===//
+//===-------------- onnx-mlir-opt.cpp - Optimization Driver ---------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-//
+// Main entry function for onnx-mlir-opt tool.
 //
 //===----------------------------------------------------------------------===//
 
@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
   registry.insert<mlir::math::MathDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
 
-  registry.insert<mlir::ONNXOpsDialect>();
+  registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
 
   registerTransformsPasses();

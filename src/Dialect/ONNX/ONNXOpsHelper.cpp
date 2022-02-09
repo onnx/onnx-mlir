@@ -20,7 +20,6 @@
 
 // Identity affine
 using namespace mlir;
-using namespace mlir::onnxmlir;
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
