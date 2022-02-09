@@ -44,17 +44,17 @@ ExecutionSession::ExecutionSession(
 
   // Get entry point name if it is not given.
   if (entryPointName.empty()) {
-    entryPointNameFuncType _entryPointNameFunc =
+    entryPointNameFuncType entryPointNameFunc =
         reinterpret_cast<entryPointNameFuncType>(
             _sharedLibraryHandle.getAddressOfSymbol(
                 _entryPointNameFuncName.c_str()));
-    if (!_entryPointNameFunc) {
+    if (!entryPointNameFunc) {
       std::stringstream errStr;
       errStr << "Cannot load symbol: '" << _entryPointNameFuncName << "'"
              << std::endl;
       throw std::runtime_error(errStr.str());
     }
-    entryPointName = _entryPointNameFunc();
+    entryPointName = entryPointNameFunc();
   }
 
   _entryPointFunc = reinterpret_cast<entryPointFuncType>(

@@ -26,9 +26,9 @@ namespace onnx_mlir {
 class PyExecutionSession : public onnx_mlir::ExecutionSession {
 public:
   PyExecutionSession(std::string sharedLibPath)
-      : onnx_mlir::ExecutionSession(sharedLibPath){};
+      : onnx_mlir::ExecutionSession(sharedLibPath) {}
   PyExecutionSession(std::string sharedLibPath, std::string entryPointName)
-      : onnx_mlir::ExecutionSession(sharedLibPath, entryPointName){};
+      : onnx_mlir::ExecutionSession(sharedLibPath, entryPointName) {}
 
   std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray);
 
