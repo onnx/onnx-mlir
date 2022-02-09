@@ -22,9 +22,6 @@
 #include "llvm/Support/ManagedStatic.h"
 
 namespace onnx_mlir {
-
-const std::string ExecutionSession::_entryPointNameFuncName =
-    "omEntryPointName";
 const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
 const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
 
@@ -42,20 +39,10 @@ ExecutionSession::ExecutionSession(
     throw std::runtime_error(errStr.str());
   }
 
-  // Get entry point name if it is not given.
-  if (entryPointName.empty()) {
-    entryPointNameFuncType entryPointNameFunc =
-        reinterpret_cast<entryPointNameFuncType>(
-            _sharedLibraryHandle.getAddressOfSymbol(
-                _entryPointNameFuncName.c_str()));
-    if (!entryPointNameFunc) {
-      std::stringstream errStr;
-      errStr << "Cannot load symbol: '" << _entryPointNameFuncName << "'"
-             << std::endl;
-      throw std::runtime_error(errStr.str());
-    }
-    entryPointName = entryPointNameFunc();
-  }
+  // When entry point name is not given, use the default "run_main_graph".
+  // TODO(tung): support multiple entry point functions.
+  if (entryPointName.empty())
+    entryPointName = "run_main_graph";
 
   _entryPointFunc = reinterpret_cast<entryPointFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(entryPointName.c_str()));

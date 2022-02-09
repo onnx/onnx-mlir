@@ -1194,29 +1194,19 @@ public:
               KrnlEntryPointOp::getEntryPointFuncAttrName())
             .getLeafReference()
             .getValue();
-    auto dynEntryPointName = "run_" + staticEntryPointFuncName;
-    assert(module.lookupSymbol(dynEntryPointName.str()) == nullptr &&
-           "dynamic entry point name is not unique");
 
-    // create a global constant to hold the entry point function name.
-    std::string terminatedEntryPointName = dynEntryPointName.str();
-    terminatedEntryPointName.push_back('\0'); // null to terminate the string.
-    mlir::StringAttr entryPointFuncNameAttr =
-        mlir::StringAttr::get(context, terminatedEntryPointName);
-    LLVM::LLVMArrayType entryPointArrayType = LLVM::LLVMArrayType::get(
-        IntegerType::get(context, 8), terminatedEntryPointName.size());
-    LLVM::GlobalOp entryPoint =
-        rewriter.create<LLVM::GlobalOp>(loc, entryPointArrayType,
-            /*isConstant=*/true, LLVM::Linkage::External, "_entry_point",
-            entryPointFuncNameAttr);
-    genSignatureFunction(
-        rewriter, context, "omEntryPointName", entryPoint, loc);
+    // When there is only a single entry point function in a model, use
+    // "run_main_graph" as the default name.
+    // TODO(tung): support multiple entry point functions.
+    std::string entryPointName = "run_main_graph";
+    assert(module.lookupSymbol(entryPointName) == nullptr &&
+           "run_main_graph is reserved for the entry point function");
 
     rewriter.eraseOp(op);
     auto dynEntryPointFuncTy =
         LLVM::LLVMFunctionType::get(opaquePtrTy, {opaquePtrTy}, false);
     auto dynamicEntryPointFunc = rewriter.create<LLVM::LLVMFuncOp>(
-        loc, dynEntryPointName.str(), dynEntryPointFuncTy);
+        loc, entryPointName, dynEntryPointFuncTy);
     auto &entryPointEntryBlock =
         createEntryBlock(dynEntryPointFuncTy, dynamicEntryPointFunc, loc);
     rewriter.setInsertionPointToStart(&entryPointEntryBlock);
