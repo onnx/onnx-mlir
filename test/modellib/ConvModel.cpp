@@ -90,10 +90,7 @@ bool genConv2DModelAndCompile(
 
   auto xVal = entryBlock->getArgument(0);
   auto wVal = entryBlock->getArgument(1);
-  auto bVal = builder
-                  .create<ONNXUnitConstantOp>(UnknownLoc::get(&ctx),
-                      builder.getNoneType(), builder.getUnitAttr())
-                  .getResult();
+  auto bVal = builder.create<ONNXNoneOp>(UnknownLoc::get(&ctx)).getResult();
 
   auto dilations = builder.getI64ArrayAttr({dilation, dilation});
   auto kernel_shape = builder.getI64ArrayAttr({kH, kW});

@@ -190,21 +190,23 @@ def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceM
   }];
 }
 
-def ONNXUnitConstantOp : ONNX_Op<"UnitConstant", [ConstantLike, NoSideEffect]> {
-  let summary = "A constant representing the absence of a value.";
+def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, NoSideEffect]> {
+  let summary = "An operation representing the absence of a value.";
   let description = [{
-    This operation can be used to generate a unit constant. A unit constant has 'None' 
-    type and represents the absence of a value. It is typically used as an argument to operators 
-    that have optional parameters.
+    This operation can be used to represent the absence of a value. It is typically 
+    used as an argument to operators that have optional parameters.
+    Example:
+      %cst = "onnx.NoValue"() {value} : () -> none
+      %0, %1 = "onnx.Split"(%arg0, %cst) { axis=1 : si64 } : (tensor<?xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
   }];
 
   let arguments = (ins UnitAttr:$value);
   let results = (outs NoneType:$none_val);
   let hasFolder = 1;
-//  let extraClassDeclaration = [{
-    /// Determines whether a unit_constant operation can be built with the given value/type.
-  //  static bool isBuildableWith(Attribute value, Type resType);
-//  }];
+  let builders = [
+    OpBuilder<(ins),[{ 
+      build($_builder, $_state, $_builder.getNoneType(), $_builder.getUnitAttr());
+    }]>];
 }
 
 class ONNX_Type<string name, string typeMnemonic,

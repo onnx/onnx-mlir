@@ -413,7 +413,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
 
     Value axesValue = llvm::dyn_cast<ONNXReduceSumOp>(op).axes();
     // Dynamic axes
-    if (!isDefinedByUnitConstant(axesValue) && !getONNXConstantOp(axesValue)) {
+    if (!isFromNone(axesValue) && !getONNXConstantOp(axesValue)) {
       dynamicAxes = true;
       // Handle only when keepdims == true
       if (!isKeepdims) {
@@ -444,8 +444,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
                 axesBounds.getDim(0).getValue(), zeroIndex);
         initVal = rewriter.create<SelectOp>(loc, cond, trueVal, falseVal);
       } else {
-        // When axesDim is known, it can not be 0 due to
-        // !isDefinedByUnitConstant
+        // When axesDim is known, it can not be 0 due to !isFromNone
         initVal = falseVal;
       }
       for (auto i = 0; i < inRank; i++) {
@@ -497,12 +496,10 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
 
       // Assume it is verified that axes are known. Convert DenseElementsAttr to
       // ArrayAttr.
-      if (isDefinedByUnitConstant(axesValue)) {
-      } else if (getONNXConstantOp(axesValue)) {
+      if (!isFromNone(axesValue) && getONNXConstantOp(axesValue)) {
         auto constAxes = getONNXConstantOp(axesValue)
                              .valueAttr()
                              .dyn_cast_or_null<mlir::DenseElementsAttr>();
-        //        SmallVector<int64_t, 4> values;
         for (auto element : constAxes.getValues<IntegerAttr>())
           definedAxes.push_back(element.getInt());
       }
