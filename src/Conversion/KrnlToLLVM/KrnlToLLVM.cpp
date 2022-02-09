@@ -1200,7 +1200,7 @@ public:
     // TODO(tung): support multiple entry point functions.
     std::string entryPointName = "run_main_graph";
     assert(module.lookupSymbol(entryPointName) == nullptr &&
-           "run_main_graph is reserved for the entry point function");
+           "Only support a single entry point function.");
 
     rewriter.eraseOp(op);
     auto dynEntryPointFuncTy =
