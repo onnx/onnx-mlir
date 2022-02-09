@@ -619,10 +619,10 @@ ONNXEntryPointOp ONNXEntryPointOp::create(mlir::Location location,
 }
 
 //===----------------------------------------------------------------------===//
-// ONNXUnitConstantOp
+// ONNXNoneOp
 //===----------------------------------------------------------------------===//
 
-OpFoldResult ONNXUnitConstantOp::fold(ArrayRef<Attribute> operands) {
+OpFoldResult ONNXNoneOp::fold(ArrayRef<Attribute> operands) {
   return valueAttr();
 }
 
@@ -1697,7 +1697,7 @@ LogicalResult ONNXReduceSumOp::inferShapes(
    *    An array attribute is generated from the constant input
    **/
   DenseElementsAttr constAxes;
-  if (isDefinedByUnitConstant(axes())) {
+  if (isFromNone(axes())) {
     // constAxes should just be NULL
     // Default value will be given in getReductionOutputType
   } else if (getONNXConstantOp(axes())) {
@@ -2594,7 +2594,7 @@ LogicalResult ONNXSqueezeOp::inferShapes(
   OpBuilder builder(getContext());
   llvm::Optional<ArrayAttr> optionalAttr;
 
-  if (isDefinedByUnitConstant(axes())) {
+  if (isFromNone(axes())) {
     auto axesAttr = getSqueezeOpAxesFromShape(builder, dataType.getShape());
     optionalAttr.emplace(axesAttr);
 
@@ -2900,8 +2900,8 @@ LogicalResult ONNXResizeOp::inferShapes(
     getResult().setType(RankedTensorType::get(dims, inputTy.getElementType()));
   }
 
-  if (isDefinedByUnitConstant(scales()) == isDefinedByUnitConstant(sizes())) {
-    if (isDefinedByUnitConstant(scales()))
+  if (isFromNone(scales()) == isFromNone(sizes())) {
+    if (isFromNone(scales()))
       return emitError("scales() and sizes() can not be both None");
     else
       return emitError("scales() and sizes() can not be both defined");
@@ -2917,7 +2917,7 @@ LogicalResult ONNXResizeOp::inferShapes(
   }
 
   // Current implementation handles constant scales only
-  if (!isDefinedByUnitConstant(scales())) {
+  if (!isFromNone(scales())) {
     DenseElementsAttr scalesAttrs =
         getDenseElementAttributeFromONNXValue(scales());
     if (!scalesAttrs) {

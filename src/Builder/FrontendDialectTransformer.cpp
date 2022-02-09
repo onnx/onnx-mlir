@@ -189,12 +189,7 @@ private:
 
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
-  Value none() {
-    return builder_
-        .create<ONNXUnitConstantOp>(
-            UnknownLoc(), builder_.getNoneType(), builder_.getUnitAttr())
-        .getResult();
-  }
+  Value none() { return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult(); }
 
   // onnx_type_map: a map from ONNX tensor name to ONNX TypeProto.
   SymbolToOnnxTypeMapping onnx_type_map;
@@ -1098,8 +1093,7 @@ private:
       if (v.empty()) {
         // Missing (optional) parameter.
         operandOnnxTypes.push_back(unspecifiedType);
-        auto no_value = builder_.create<ONNXUnitConstantOp>(
-            UnknownLoc(), builder_.getNoneType(), builder_.getUnitAttr());
+        auto no_value = builder_.create<ONNXNoneOp>(UnknownLoc());
         operands.push_back(no_value);
         operandTypes.push_back(builder_.getNoneType());
         continue;

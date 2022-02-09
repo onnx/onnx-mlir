@@ -82,8 +82,7 @@ DenseElementsAttr createScalarDenseAttr(
 }
 
 Value createUnitConstant(PatternRewriter &rewriter, Location loc) {
-  return rewriter.create<ONNXUnitConstantOp>(
-      loc, rewriter.getNoneType(), rewriter.getUnitAttr());
+  return rewriter.create<ONNXNoneOp>(loc);
 }
 
 // Create an DenseElementsAttr of ArrayAttr.
@@ -110,8 +109,7 @@ Value createSequenceConstructOp(
     PatternRewriter &rewriter, mlir::Value seq, mlir::OperandRange inputs) {
   Type resType = seq.getType();
   Location loc = seq.getLoc();
-  Value position = rewriter.create<ONNXUnitConstantOp>(
-      loc, rewriter.getNoneType(), rewriter.getUnitAttr());
+  Value position = rewriter.create<ONNXNoneOp>(loc);
 
   for (auto input : inputs) {
     seq = rewriter.create<ONNXSequenceInsertOp>(

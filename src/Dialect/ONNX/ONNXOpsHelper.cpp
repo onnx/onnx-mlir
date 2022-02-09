@@ -245,9 +245,8 @@ Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
 }
 
 // Returns true if the Value is defined by a unit constant.
-bool isDefinedByUnitConstant(Value v) {
-  if (v.getDefiningOp() &&
-      dyn_cast_or_null<ONNXUnitConstantOp>(v.getDefiningOp()))
+bool isFromNone(Value v) {
+  if (v.getDefiningOp() && dyn_cast_or_null<ONNXNoneOp>(v.getDefiningOp()))
     return true;
 
   if (v.getDefiningOp() &&

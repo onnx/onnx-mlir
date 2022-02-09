@@ -86,10 +86,7 @@ bool genLSTMModelAndCompile(
   auto entryBlock = funcOp.addEntryBlock();
   builder.setInsertionPointToStart(entryBlock);
 
-  auto noneVal = builder
-                     .create<ONNXUnitConstantOp>(UnknownLoc::get(&ctx),
-                         builder.getNoneType(), builder.getUnitAttr())
-                     .getResult();
+  auto noneVal = builder.create<ONNXNoneOp>(UnknownLoc::get(&ctx)).getResult();
   auto xVal = entryBlock->getArgument(0);
   auto hVal = entryBlock->getArgument(1);
   auto cVal = entryBlock->getArgument(2);
