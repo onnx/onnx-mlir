@@ -17,6 +17,7 @@
 
 #include <string>
 
+#include "mlir/IR/BuiltinOps.h"
 #include "llvm/ADT/SmallVector.h"
 
 #include "src/Compiler/CompilerUtils.hpp"
@@ -97,3 +98,38 @@ bool genLSTMModelAndCompile(
     llvm::SmallVector<int64_t, 3> &hShape,
     llvm::SmallVector<int64_t, 3> &cShape, OMTensor *&wOmt, OMTensor *&rOmt,
     OMTensor *&bOmt, OMTensor *&pOmt);
+
+
+class ModelLibBuilder {
+public:
+  ModelLibBuilder(const std::string &sharedLibBaseName);
+  // Build, subclass should add all parameters needed to determine the precise
+  // parameter of the model being build.
+  bool build();
+  // Compile model.
+  bool compile(const CompilerOptionList &options);
+  // Run model. Subclasses must define the inputs.
+  bool run();
+  // Test model, subclass must define the reference and compare against it.
+  bool test();
+
+protected:
+  // Create a function with an empty body.
+  // This function will contain the model to be tested.
+  mlir::FuncOp createEmptyTestFunction(
+      const llvm::SmallVectorImpl<mlir::Type> &inputsType,
+      const llvm::SmallVectorImpl<mlir::Type> &outputsType);
+
+  // Create the entry point function (used to call the model test function).
+  void createEntryPoint(mlir::FuncOp &funcOp);
+
+  mlir::ONNXConstantOp buildONNXConstantOp(
+      OMTensor *omt, mlir::RankedTensorType resultType);
+
+  // Data (order matter).
+  const std::string sharedLibBaseName;
+  mlir::MLIRContext ctx;
+  mlir::Location loc;
+  mlir::ModuleOp module;
+  mlir::OpBuilder builder;
+};

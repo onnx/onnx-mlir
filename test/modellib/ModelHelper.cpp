@@ -17,6 +17,7 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "test/modellib/ModelHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
 using namespace std;
