@@ -114,7 +114,6 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(
  *  @param inputFilename File name pointing onnx model protobuf or MLIR.
  *  @param outputBaseName File name without extension to write output.
  *  @param emissionTarget Target format to compile to.
- *  @param options List of compiler options.
  *  @param errorMessage Error message.
  *  @return 0 on success or non-zero error code on failure.
  */
@@ -128,11 +127,12 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
  *  @param bufferSize Size of ONNX protobuf array.
  *  @param outputBaseName File name without extension to write output.
  *  @param emissionTarget Target format to compile to.
- *  @param options List of compiler options.
+ *  @param errorMessage Error message.
  *  @return 0 on success or non-zero error code on failure
  */
-ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer, int bufferSize,
-    const char *outputBaseName, EmissionTargetType emissionTarget);
+ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
+    int bufferSize, const char *outputBaseName,
+    EmissionTargetType emissionTarget, const char **errorMessage);
 
 #ifdef __cplusplus
 } // namespace onnx_mlir

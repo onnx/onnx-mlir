@@ -14,21 +14,24 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(const char *envVarName) {
   const char *argv[1];
   argv[0] = nameStr.c_str();
   const char *name = envVarName ? envVarName : OnnxMlirEnvOptionName.c_str();
-  return llvm::cl::ParseCommandLineOptions(
+  bool success = llvm::cl::ParseCommandLineOptions(
       1, argv, "SetCompilerOptionsFromEnv\n", nullptr, name);
+  return !success; // success result in 0, failure result in nonzero (1 here).
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgs(
     int64_t argc, char *argv[]) {
-  return llvm::cl::ParseCommandLineOptions(
+  bool success = llvm::cl::ParseCommandLineOptions(
       argc, argv, "SetCompilerOptionsFromArgs\n");
+  return !success; // success result in 0, failure result in nonzero (1 here).
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromArgsAndEnv(
     int64_t argc, char *argv[], const char *envVarName) {
   const char *name = envVarName ? envVarName : OnnxMlirEnvOptionName.c_str();
-  return llvm::cl::ParseCommandLineOptions(
+  bool success = llvm::cl::ParseCommandLineOptions(
       argc, argv, "SetCompilerOptionsFromArgsAndEnv\n", nullptr, name);
+  return !success; // success result in 0, failure result in nonzero (1 here).
 }
 
 ONNX_MLIR_EXPORT int64_t omSetCompilerOptions(
@@ -59,7 +62,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
 
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int bufferSize, const char *outputBaseName,
-    EmissionTargetType emissionTarget) {
+    EmissionTargetType emissionTarget, const char **errorMessage) {
   mlir::OwningModuleRef module;
   mlir::MLIRContext context;
   registerDialects(context);
