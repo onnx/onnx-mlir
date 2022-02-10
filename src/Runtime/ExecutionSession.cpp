@@ -84,8 +84,8 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
 
 // Run using public interface. Explicit calls are needed to free tensor & tensor
 // lists.
-OMTensorList *ExecutionSession::run(const OMTensorList *input) {
-  _entryPointFunc(input);
+OMTensorList *ExecutionSession::run(OMTensorList *input) {
+  return _entryPointFunc(input);
 }
 
 std::string ExecutionSession::inputSignature() { return _inputSignatureFunc(); }

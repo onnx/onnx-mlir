@@ -64,8 +64,8 @@ public:
   // Run the model and verify the result(s). The \p verifyFunction parameter
   // is used to pass in the function object used to verify the correctness of
   // the test result.
-  bool runAndVerifyTest(std::vector<OMTensorUniquePtr> &inputs,
-      std::vector<OMTensorUniquePtr> &expectedOutputs,
+  bool runAndVerifyTest(std::vector<onnx_mlir::OMTensorUniquePtr> &inputs,
+      std::vector<onnx_mlir::OMTensorUniquePtr> &expectedOutputs,
       std::function<bool(OMTensor *, OMTensor *)> verifyFunction);
 
   void reset();
