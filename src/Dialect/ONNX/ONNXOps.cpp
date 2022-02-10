@@ -1534,7 +1534,7 @@ static LogicalResult verify(ONNXReshapeOp op) {
   if (!hasShapeAndRank(op.shape()))
     return success();
 
-  auto shapeTensorTy = op.shape().getType().cast<RankedTensorType>();
+  auto shapeTensorTy = op.shape().getType().cast<ShapedType>();
 
   // Only rank 1 shape tensors are supported.
   if (shapeTensorTy.getShape().size() != 1)
@@ -1543,11 +1543,6 @@ static LogicalResult verify(ONNXReshapeOp op) {
   int64_t outputRank = shapeTensorTy.getShape()[0];
   if (outputRank < 0)
     return op.emitError("Shape tensor must have constant shape");
-
-  ONNXReshapeOpAdaptor operandAdaptor(*&op);
-  ONNXReshapeOpShapeHelper shapeHelper(&op);
-  if (failed(shapeHelper.computeShape(operandAdaptor)))
-    return op.emitError("Failed to scan Reshape parameters successfully");
 
   return success();
 }
@@ -1560,7 +1555,10 @@ LogicalResult ONNXReshapeOp::inferShapes(
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
 
+  ONNXReshapeOpAdaptor operandAdaptor(*this);
   ONNXReshapeOpShapeHelper shapeHelper(this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan Reshape parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
