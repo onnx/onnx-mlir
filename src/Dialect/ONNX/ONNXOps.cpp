@@ -1526,34 +1526,26 @@ LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
 // Reshape
 //===----------------------------------------------------------------------===//
 
-static LogicalResult verify(ONNXReshapeOp op) {
-  // Cannot infer shape if no shape tensor is specified.
-  if (!hasShapeAndRank(op.data()))
-    return success();
-
-  if (!hasShapeAndRank(op.shape()))
-    return success();
-
-  auto shapeTensorTy = op.shape().getType().cast<ShapedType>();
-
-  // Only rank 1 shape tensors are supported.
-  if (shapeTensorTy.getShape().size() != 1)
-    return op.emitError("Shape tensor must have rank one");
-
-  int64_t outputRank = shapeTensorTy.getShape()[0];
-  if (outputRank < 0)
-    return op.emitError("Shape tensor must have constant shape");
-
-  return success();
-}
-
 LogicalResult ONNXReshapeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+  // Cannot infer shape if no shape tensor is specified.
+  if (!data().getType().isa<RankedTensorType>())
+    return success();
 
   if (!shape().getType().isa<RankedTensorType>())
     return success();
 
+  auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
   auto elementType = data().getType().cast<ShapedType>().getElementType();
+
+  // Only rank 1 shape tensors are supported.
+  if (shapeTensorTy.getShape().size() != 1)
+    return emitError("Shape tensor must have rank one");
+  int64_t outputRank = shapeTensorTy.getShape()[0];
+
+  // Shape tensor must have constant shape.
+  if (outputRank < 0)
+    return emitError("Shape tensor must have constant shape");
 
   ONNXReshapeOpAdaptor operandAdaptor(*this);
   ONNXReshapeOpShapeHelper shapeHelper(this);

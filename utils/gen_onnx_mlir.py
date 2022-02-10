@@ -308,7 +308,6 @@ OpsWithVerifier = [
     'NonMaxSuppression',
     'OneHot',
     'RandomNormalLike',
-    'Reshape',
     'ReverseSequence',
     "RoiAlign",
     "ScatterElements",
