@@ -2,7 +2,7 @@
 
 //===--- ONNXOps.td -- ONNX Dialect Operation Definitions ----*- tablegen -===//
 //
-// Copyright 2019-2020 The IBM Research Authors
+// Copyright 2019-2022 The IBM Research Authors
 //
 // =============================================================================
 //
@@ -10,8 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef ONNX_OPS
-#else
+#ifndef ONNX_OPS
 #define ONNX_OPS
 
 include "mlir/IR/OpBase.td"
@@ -19,7 +18,6 @@ include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "src/Interface/ShapeInferenceOpInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"
 include "src/Interface/HasOnnxSubgraphOpInterface.td"
-
 
 // Definition for rewrite rules for onnx dialect
 // Can be used in other table gen files (.td) for onnx dialect
@@ -30,7 +28,7 @@ def IsSeqTypePred : CPred<"$_self.isa<SeqType>()">;
 
 class SeqOf<list<Type> allowedTypes> : 
   ContainerType<AnyTypeOf<allowedTypes>, IsSeqTypePred,
-                "$_self.cast<SeqType>().getElementType()",  "SeqType">;
+                "$_self.cast<SeqType>().getElementType()", "SeqType">;
 
 def ONNXConstantOpFromDenseAttr: NativeCodeCall<
   "createONNXConstantOpWithDenseAttr($_builder, $_loc, $0)">;
@@ -154,15 +152,9 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
            OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
   let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
+    static int getNumberOfOperands() { return 1; }
+    static int getNumberOfResults() { return 1; }
+    static std::vector<int> getTypeMap() { return {20}; }
   }];
   let verifier = [{ return ::verify(*this); }];
 }
@@ -192,16 +184,29 @@ def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceM
            DefaultValuedAttr<F32Attr, "0.9">:$momentum);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
   let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 5;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
+    static int getNumberOfOperands() { return 5; }
+    static int getNumberOfResults() { return 1; }
+    static std::vector<int> getTypeMap() { return {20}; }
   }];
+}
+
+def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, NoSideEffect]> {
+  let summary = "An operation representing the absence of a value.";
+  let description = [{
+    This operation can be used to represent the absence of a value. It is typically 
+    used as an argument to operators that have optional parameters.
+    Example:
+      %cst = "onnx.NoValue"() {value} : () -> none
+      %0, %1 = "onnx.Split"(%arg0, %cst) { axis=1 : si64 } : (tensor<?xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
+  }];
+
+  let arguments = (ins UnitAttr:$value);
+  let results = (outs NoneType:$none_val);
+  let hasFolder = 1;
+  let builders = [
+    OpBuilder<(ins),[{ 
+      build($_builder, $_state, $_builder.getNoneType(), $_builder.getUnitAttr());
+    }]>];
 }
 
 class ONNX_Type<string name, string typeMnemonic,

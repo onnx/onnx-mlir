@@ -80,10 +80,7 @@ bool genGRUModelAndCompile(
   auto entryBlock = funcOp.addEntryBlock();
   builder.setInsertionPointToStart(entryBlock);
 
-  auto noneVal = builder
-                     .create<mlir::ConstantOp>(
-                         UnknownLoc::get(&ctx), builder.getUnitAttr())
-                     .getResult();
+  auto noneVal = builder.create<ONNXNoneOp>(UnknownLoc::get(&ctx)).getResult();
   auto xVal = entryBlock->getArgument(0);
   auto sVal = noneVal;
   auto hVal = entryBlock->getArgument(1);
