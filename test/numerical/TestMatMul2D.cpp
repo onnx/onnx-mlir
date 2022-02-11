@@ -32,10 +32,9 @@ using namespace onnx_mlir;
 bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
-
   if (!genMatMul2DModelAndCompile(
           /*compiler options */
-          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(),
           /* GEMM param in*/
           I, J, K))
     return false;
@@ -43,11 +42,11 @@ bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
   onnx_mlir::ExecutionSession sess(
       getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
 
-  std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
-  auto aOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+  std::vector<OMTensorUniquePtr> inputs;
+  auto aOmt = OMTensorUniquePtr(
       omTensorCreateWithRandomData<float>({I, K}), omTensorDestroy);
   inputs.emplace_back(move(aOmt));
-  auto bOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+  auto bOmt = OMTensorUniquePtr(
       omTensorCreateWithRandomData<float>({K, J}), omTensorDestroy);
   inputs.emplace_back(move(bOmt));
 
@@ -77,6 +76,7 @@ bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
+  setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
 
