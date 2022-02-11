@@ -3462,7 +3462,11 @@ LogicalResult ONNXScatterElementsOp::inferShapes() {
 }
 
 LogicalResult ONNXScatterNDOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!data().getType().isa<mlir::RankedTensorType>())
+    return success();
+
+  getResult().setType(data().getType());
+  return success();
 }
 
 LogicalResult ONNXSequenceAtOp::inferShapes() {
