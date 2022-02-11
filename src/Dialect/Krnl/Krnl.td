@@ -34,6 +34,19 @@ def StringType : Type<CPred<"$_self.isa<::mlir::StringType>()">, "string type">;
 // Require regions to have krnl.terminate terminator operation.
 def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
 
+def KrnlCallOp : Op<Krnl_Dialect, "call"> {
+  let summary = "call operation";
+  let description = [{
+    The call operation provide a generic way to call a external function.
+    The function signature will be determined with the types of parameters.
+    Tensors and attributes will be handled.
+  }];
+
+  let arguments = (ins StrAttr:$funcName, Variadic<AnyType>:$operands);
+  let results =(outs AnyType:$result);
+  let builders = [OpBuilder<(ins "std::string":$name, "mlir::Operation *":$op)>];
+}
+ 
 def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   let summary = "define_loops operation";
   let description = [{

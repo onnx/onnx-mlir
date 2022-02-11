@@ -295,6 +295,58 @@ static FlatSymbolRefAttr getOrInsertUnaryMathFunction(PatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// KRNL to LLVM: KrnlCallOpLowering
+//===----------------------------------------------------------------------===//
+
+class KrnlCallOpLowering : public ConversionPattern {
+public:
+  explicit KrnlCallOpLowering(MLIRContext *context)
+      : ConversionPattern(KrnlCallOp::getOperationName(), 1, context) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    auto *context = op->getContext();
+    KrnlCallOpAdaptor operandAdaptor(operands);
+    auto loc = op->getLoc();
+    KrnlCallOp instrumentOp = llvm::dyn_cast<KrnlCallOp>(op);
+
+    auto funcName = op->funcName();
+    ValueRange parameters = operanddaptor.parameters();
+
+#if 0
+    // Get a symbol reference to the memcpy function, inserting it if necessary.
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    // auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
+    // auto llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context,
+    // 8));
+    // auto llvmI64Ty = IntegerType::get(context, 64); auto llvmFnType =
+    // LLVM::LLVMFunctionType::get(
+    //    llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
+
+    auto instrumentRef = getOrInsertCall(rewriter, parentModule);
+
+    Value nodeName =
+        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
+            rewriter.getIntegerAttr(
+                rewriter.getIntegerType(64), instrumentOp.opID()));
+    Value tag =
+        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
+            rewriter.getIntegerAttr(
+                rewriter.getIntegerType(64), instrumentOp.tag()));
+    // StringRef txt = instrumentOp->op_name();
+    // Value nodeName = rewriter.create<LLVM::ConstantOp>(loc, llvmI8PtrTy,
+    // instrumentOp->op_name());
+
+    rewriter.create<CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
+        ArrayRef<Value>({nodeName, tag}));
+
+#endif
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // KRNL to LLVM: KrnlGetRefOpLowering
 //===----------------------------------------------------------------------===//
 
@@ -1900,6 +1952,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   arith::populateArithmeticToLLVMConversionPatterns(typeConverter, patterns);
   populateReconcileUnrealizedCastsPatterns(patterns);
 
+  patterns.insert<KrnlCallOpLowering>(ctx);
   patterns.insert<KrnlGlobalOpLowering, KrnlVectorTypeCastOpLowering>(
       ctx, typeConverter);
   patterns.insert<KrnlGetRefOpLowering>(ctx, typeConverter);
