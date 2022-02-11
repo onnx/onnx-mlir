@@ -135,7 +135,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   int NOut, COut, HOut, WOut;
   if (!genConv2DModelAndCompile(
           /*compiler options */
-          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(),
           /*input conv param */ N, C, H, W, kH, kW, autoPad, pHBegin, pHEnd,
           pWBegin, pWEnd, stride, dilation, isDynamic,
           /*output conv param*/ NOut, COut, HOut, WOut))
@@ -144,11 +144,11 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   onnx_mlir::ExecutionSession sess(
       getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
 
-  std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
-  auto xOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+  std::vector<OMTensorUniquePtr> inputs;
+  auto xOmt = OMTensorUniquePtr(
       omTensorCreateWithRandomData<float>({N, C, H, W}), omTensorDestroy);
   inputs.emplace_back(move(xOmt));
-  auto wOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+  auto wOmt = OMTensorUniquePtr(
       omTensorCreateWithRandomData<float>({C, C, kH, kW}), omTensorDestroy);
   inputs.emplace_back(move(wOmt));
 
@@ -199,6 +199,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
+  setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestConv\n", nullptr, "TEST_ARGS");
 
