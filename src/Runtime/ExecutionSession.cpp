@@ -25,6 +25,9 @@ namespace onnx_mlir {
 const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
 const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
 
+ExecutionSession::ExecutionSession(std::string sharedLibPath)
+    : ExecutionSession::ExecutionSession(sharedLibPath, "") {}
+
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, std::string entryPointName) {
 
@@ -35,6 +38,11 @@ ExecutionSession::ExecutionSession(
     errStr << "Cannot open library: '" << sharedLibPath << "'" << std::endl;
     throw std::runtime_error(errStr.str());
   }
+
+  // When entry point name is not given, use the default "run_main_graph".
+  // TODO(tung): support multiple entry point functions.
+  if (entryPointName.empty())
+    entryPointName = "run_main_graph";
 
   _entryPointFunc = reinterpret_cast<entryPointFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(entryPointName.c_str()));

@@ -31,6 +31,7 @@ using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
 
 class ExecutionSession {
 public:
+  ExecutionSession(std::string sharedLibPath);
   ExecutionSession(std::string sharedLibPath, std::string entryPointName);
 
   // Use custom deleter since forward declared OMTensor hides destructor
