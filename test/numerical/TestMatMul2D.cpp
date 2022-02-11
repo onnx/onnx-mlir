@@ -32,10 +32,9 @@ using namespace onnx_mlir;
 bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
-
   if (!genMatMul2DModelAndCompile(
           /*compiler options */
-          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(),
           /* GEMM param in*/
           I, J, K))
     return false;
@@ -77,6 +76,7 @@ bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
+  setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
 

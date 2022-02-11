@@ -53,7 +53,7 @@ bool ModelBuilder::compileTest(const CompilerOptionList &compileOptions) {
   assert(module.verify().succeeded() && "Malformed module");
 
   OwningModuleRef modRef(module);
-  setCompileContext(ctx, compileOptions);
+  setCompilerOptions(compileOptions);
   return (
       compileModule(modRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) == 0);
 }
@@ -82,7 +82,8 @@ bool ModelBuilder::runAndVerifyTest(std::vector<OMTensorPtr> &inputs,
 }
 
 ModuleOp ModelBuilder::createEmptyModule() const {
-  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
+  registerDialects(ctx);
+  setCompilerOptions({{OptionKind::CompilerOptLevel, "3"}});
   return ModuleOp::create(loc);
 }
 

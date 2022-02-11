@@ -135,7 +135,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   int NOut, COut, HOut, WOut;
   if (!genConv2DModelAndCompile(
           /*compiler options */
-          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(),
           /*input conv param */ N, C, H, W, kH, kW, autoPad, pHBegin, pHEnd,
           pWBegin, pWEnd, stride, dilation, isDynamic,
           /*output conv param*/ NOut, COut, HOut, WOut))
@@ -199,6 +199,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
+  setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestConv\n", nullptr, "TEST_ARGS");
 

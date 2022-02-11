@@ -82,7 +82,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
         std::numeric_limits<int64_t>::max(),
     const int64_t constOffset = 0) {
   MLIRContext ctx;
-  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
+  registerDialects(ctx);
 
   auto module = mlir::parseSourceString(moduleIR, &ctx);
   OwningModuleRef moduleRef(std::move(module));
@@ -129,6 +129,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
+  setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLoop\n", nullptr, "TEST_ARGS");
 

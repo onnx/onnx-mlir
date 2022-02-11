@@ -31,7 +31,7 @@ using namespace onnx_mlir;
 
 bool genRNNModelAndCompile(
     /* compile option */
-    const string &modelName, const CompilerOptionList &options,
+    const string &modelName,
     /* RNN param in*/
     const int direction, const int S, const int B, const int I, const int H,
     const bool isDynamicS, const bool isDynamicB,
@@ -40,7 +40,7 @@ bool genRNNModelAndCompile(
     OMTensor *&wOmt, OMTensor *&rOmt, OMTensor *&bOmt) {
 
   MLIRContext ctx;
-  setCompileContext(ctx, options);
+  registerDialects(ctx);
 
   D = abs(direction);
   int S1 = S, B1 = B;
