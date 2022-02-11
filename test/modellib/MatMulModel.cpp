@@ -23,6 +23,72 @@ using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
 
+MatMul2DLibBuilder::MatMul2DLibBuilder(
+    const string &modelName, const int I, const int J, const int K)
+    : ModelLibBuilder(modelName), I(I), J(J), K(K) {}
+
+bool MatMul2DLibBuilder::build() {
+  llvm::SmallVector<int64_t, 4> aShape = {I, K};
+  llvm::SmallVector<int64_t, 1> bShape = {K, J};
+  llvm::SmallVector<int64_t, 4> cShape = {I, J};
+  auto aType = RankedTensorType::get(aShape, builder.getF32Type());
+  auto bType = RankedTensorType::get(bShape, builder.getF32Type());
+  auto yType = RankedTensorType::get(cShape, builder.getF32Type());
+
+  llvm::SmallVector<Type, 2> inputsType{aType, bType};
+  llvm::SmallVector<Type, 1> outputsType{yType};
+
+  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  Block &entryBlock = funcOp.getBody().front();
+  auto aVal = entryBlock->getArgument(0);
+  auto bVal = entryBlock->getArgument(1);
+
+  auto MatmulOp = builder.create<ONNXMatMulOp>(UnknownLoc::get(&ctx),
+      /*Y=*/yType, /*A=*/aVal, /*B=*/bVal);
+
+  llvm::SmallVector<Value, 1> results = {MatmulOp.getResult()};
+  builder.create<ReturnOp>(UnknownLoc::get(&ctx), results);
+  module.push_back(funcOp);
+
+  createEntryPoint(funcOp);
+  return true;
+}
+
+bool MatMul2DLibBuilder::prepareInputs() {
+    const int num = 2;
+      OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
+  if (!list)
+    return false;
+  list[0] = omTensorCreateWithRandomData<float>({I,K});
+  list[1] = omTensorCreateWithRandomData<float>({K, J}));
+  inputs = omTensorListCreateWithOwnership(list, num, true);
+  return inputs != nullptr;
+}
+
+bool MatMul2DLibBuilder::verifyOutputs() {
+      // Get inputs and outputs.
+  if (!inputs || !outputs)
+    return false;
+  OMTensor *b = omTensorListGetOmtByIndex(inputs, 1);
+  OMTensor *a = omTensorListGetOmtByIndex(inputs, 0);
+  OMTensor *res = omTensorListGetOmtByIndex(outputs, 0);
+  OMTensor *ref = omTensorCreateWithShape<float>({I, J});
+  if (!a || !b || !res || !ref)
+    return false;
+  // Compute reference, Matmul A * B.
+  for (int64_t i = 0; i < I; ++i) {
+    for (int64_t j = 0; j < J; ++j) {
+      omTensorGetElem<float>(ref, {i, j}) = 0;
+      for (int64_t k = 0; k < K; k++) {
+        omTensorGetElem<float>(ref, {i, j}) +=
+            omTensorGetElem<float>(a.get(), {i, k}) *
+            omTensorGetElem<float>(b.get(), {k, j});
+      }
+    }
+  }
+  return areCloseFloat(res, ref);
+}
+
 //===----------------------------------------------------------------------===//
 // Generate and compile a MatMul 2D.
 //===----------------------------------------------------------------------===//

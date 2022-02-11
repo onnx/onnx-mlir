@@ -17,6 +17,7 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
 using namespace std;
@@ -54,7 +55,7 @@ bool ModelLibBuilder::compileAndLoad() {
 }
 
 bool ModelLibBuilder::run() {
-  assert(exec && "expected successful compile and load");
+  assert(inputs && exec && "expected successful compile and load");
   if (outputs) {
     omTensorListDestroy(outputs);
     outputs = nullptr;
@@ -87,7 +88,7 @@ void ModelLibBuilder::createEntryPoint(FuncOp &funcOp) {
 }
 
 ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
-    OMTensor *omt, RankedTensorType resultType) {
+    const OMTensor *omt, const RankedTensorType resultType) {
   int64_t numElems = omTensorGetNumElems(omt);
   auto bufferPtr = omTensorGetDataPtr(omt);
   float *arrayPtr = reinterpret_cast<float *>(bufferPtr);
@@ -97,4 +98,12 @@ ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
   return builder.create<ONNXConstantOp>(loc, resultType, Attribute(), denseAttr,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
       ArrayAttr());
+}
+
+bool ModelLibBuilder::areCloseFloat(const OMTensor *res, const OMTensor *ref) {
+  if (!res || !ref)
+    return false;
+  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
+  float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
+  return omTensorAreTwoOmtsClose<float>(res, ref, rtol, atol);
 }

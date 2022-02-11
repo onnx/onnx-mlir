@@ -32,6 +32,11 @@ using namespace onnx_mlir;
 bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
+#if 1
+  MatMul2DLibBuilder matmul(SHARED_LIB_BASE.str(), I, J, K);
+  return matmul.build() && matmul.compileAndLoad() && matmul.prepareInputs() &&
+         matmul.run() && matmul.verifyOutputs();
+#else
   if (!genMatMul2DModelAndCompile(
           /*compiler options */
           SHARED_LIB_BASE.str(),
@@ -70,6 +75,7 @@ bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
   float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
 
   return omTensorAreTwoOmtsClose<float>(Matmul.get(), ref, rtol, atol);
+#endif
 }
 
 int main(int argc, char *argv[]) {

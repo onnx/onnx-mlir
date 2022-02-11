@@ -128,12 +128,13 @@ protected:
   mlir::FuncOp createEmptyTestFunction(
       const llvm::SmallVectorImpl<mlir::Type> &inputsType,
       const llvm::SmallVectorImpl<mlir::Type> &outputsType);
-
   // Create the entry point function (used to call the model test function).
   void createEntryPoint(mlir::FuncOp &funcOp);
-
+  // Create a onnx constant op loaded with values in the tensor omt.
   mlir::ONNXConstantOp buildONNXConstantOp(
-      OMTensor *omt, mlir::RankedTensorType resultType);
+      const OMTensor *omt, const mlir::RankedTensorType resultType);
+  // Compare results as float.
+  bool areCloseFloat(const OMTensor *res, const OMTensor *ref);
 
   // Data for building and compiling the model.
   const std::string sharedLibBaseName; // Name for the library.
@@ -162,4 +163,17 @@ private:
   const float alphaVal, betaVal;
   // Derived data that defines model.
   llvm::SmallVector<int64_t, 2> aShape, bShape, cShape;
+};
+
+class MatMul2DLibBuilder : public ModelLibBuilder {
+public:
+  MatMul2DLibBuilder(
+      const std::string &modelName, const int I, const int J, const int K);
+  bool build();
+  bool prepareInputs();
+  bool verifyOutputs();
+
+private:
+  // Data that defines model.
+  const int I, J, K;
 };
