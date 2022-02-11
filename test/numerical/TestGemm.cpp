@@ -176,8 +176,15 @@ int main(int argc, char *argv[]) {
       const auto hasBeta = *rc::gen::inRange(0, 2);
       float alpha = hasAlpha ? 1.2 : 1.0;
       float beta = hasBeta ? 0.8 : 1.0;
+#if 1
+      GemmLibBuilder gemm(
+          SHARED_LIB_BASE.str(), I, J, K, aTrans, bTrans, cRank, alpha, beta);
+      RC_ASSERT(gemm.build() && gemm.compileAndLoad() && gemm.prepareInputs() &&
+                gemm.run() && gemm.verifyOutputs());
+#else
       RC_ASSERT(isOMGemmTheSameAsNaiveImplFor(
           I, J, K, aTrans, bTrans, cRank, alpha, beta));
+#endif
     });
     if (!success)
       return 1;

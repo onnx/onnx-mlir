@@ -17,26 +17,13 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
 
-class GemmLibBuilder : public ModelLibBuilder {
-public:
-  GemmLibBuilder(const string &modelName, const int I, const int J, const int K,
-      const int aTrans, const int bTrans, const int cRank, const float alphaVal,
-      const float betaVal);
-  void build();
-
-private:
-  // Data that defines model.
-  const int I, J, K, aTrans, bTrans, cRank;
-  const float alphaVal, betaVal;
-  // Derived data that defines model.
-  SmallVector<int64_t, 2> aShape, bShape, cShape;
-};
 
 GemmLibBuilder::GemmLibBuilder(const string &modelName, const int I,
     const int J, const int K, const int aTrans, const int bTrans,
@@ -44,7 +31,7 @@ GemmLibBuilder::GemmLibBuilder(const string &modelName, const int I,
     : ModelLibBuilder(modelName), I(I), J(J), K(K), aTrans(aTrans),
       bTrans(bTrans), cRank(cRank), alphaVal(alphaVal), betaVal(betaVal) {}
 
-void GemmLibBuilder::build() {
+bool GemmLibBuilder::build() {
   aShape = {I, K};
   if (aTrans)
     aShape = {K, I};
@@ -89,6 +76,69 @@ void GemmLibBuilder::build() {
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
+  return true;
+}
+
+bool GemmLibBuilder::prepareInputs() {
+  OMTensor **list = (OMTensor **)malloc(3 * sizeof(OMTensor *));
+  if (!list)
+    return false;
+  list[0] = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(aShape));
+  list[1] = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape));
+  list[2] = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape));
+  inputs = omTensorListCreateWithOwnership(list, 3, true);
+  return inputs;
+}
+
+bool GemmLibBuilder::verifyOutputs() {
+  // Get inputs and outputs.
+  if (!inputs || !outputs)
+    return false;
+  OMTensor *b = omTensorListGetOmtByIndex(inputs, 1);
+  OMTensor *a = omTensorListGetOmtByIndex(inputs, 0);
+  OMTensor *c = omTensorListGetOmtByIndex(inputs, 2);
+  OMTensor *res = omTensorListGetOmtByIndex(outputs, 0);
+  OMTensor *ref = omTensorCreateWithShape<float>({I, J});
+  if (!a || !b || !c || !res || !ref)
+    return false;
+  // Compute reference.
+  // Matmul A * B.
+  for (int64_t i = 0; i < I; ++i) {
+    for (int64_t j = 0; j < J; ++j) {
+      omTensorGetElem<float>(ref, {i, j}) = 0;
+      for (int64_t k = 0; k < K; k++) {
+        float aVal, bVal;
+        if (aTrans == 0)
+          aVal = omTensorGetElem<float>(a, {i, k});
+        else
+          aVal = omTensorGetElem<float>(a, {k, i});
+        if (bTrans == 0)
+          bVal = omTensorGetElem<float>(b, {k, j});
+        else
+          bVal = omTensorGetElem<float>(b, {j, k});
+        omTensorGetElem<float>(ref, {i, j}) += aVal * bVal;
+      }
+    }
+  }
+  // Add C.
+  for (int64_t i = 0; i < I; ++i) {
+    for (int64_t j = 0; j < J; ++j) {
+      float cVal;
+      if (cRank == 1)
+        cVal = omTensorGetElem<float>(c, {j});
+      else if (cRank == 2)
+        cVal = omTensorGetElem<float>(c, {i, j});
+      else
+        assert(false);
+      omTensorGetElem<float>(ref, {i, j}) =
+          alphaVal * omTensorGetElem<float>(ref, {i, j}) + betaVal * cVal;
+    }
+  }
+  // Compare res and ref.
+  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
+  float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
+  bool success = omTensorAreTwoOmtsClose<float>(res, ref, rtol, atol);
+  return success;
 }
 
 //===----------------------------------------------------------------------===//

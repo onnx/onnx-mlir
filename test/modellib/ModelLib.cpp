@@ -43,7 +43,7 @@ bool ModelLibBuilder::build() {
   llvm_unreachable("subclass must overload build function");
 }
 
-bool ModelLibBuilder::compileAndLoad(const CompilerOptionList &options) {
+bool ModelLibBuilder::compileAndLoad() {
   // hi alex, set options
   OwningModuleRef moduleRef(module);
   int rc = compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib);

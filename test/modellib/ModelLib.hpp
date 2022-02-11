@@ -114,7 +114,7 @@ public:
   bool build();
   // Compile model from the model and ctx variables. The output is an executable
   // dynamic library.
-  bool compileAndLoad(const CompilerOptionList &options);
+  bool compileAndLoad();
   // Prepare inputs for running model.
   bool prepareInputs();
   // Run model using prepared inputs, resulting in outputs.
@@ -145,4 +145,21 @@ protected:
   // Data for runing the model (freed in destructor).
   OMTensorList *inputs, *outputs;
   onnx_mlir::ExecutionSession *exec;
+};
+
+class GemmLibBuilder : public ModelLibBuilder {
+public:
+  GemmLibBuilder(const std::string &modelName, const int I, const int J,
+      const int K, const int aTrans, const int bTrans, const int cRank,
+      const float alphaVal, const float betaVal);
+  bool build();
+  bool prepareInputs();
+  bool verifyOutputs();
+
+private:
+  // Data that defines model.
+  const int I, J, K, aTrans, bTrans, cRank;
+  const float alphaVal, betaVal;
+  // Derived data that defines model.
+  llvm::SmallVector<int64_t, 2> aShape, bShape, cShape;
 };
