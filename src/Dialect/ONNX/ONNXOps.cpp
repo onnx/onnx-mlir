@@ -2858,7 +2858,7 @@ static LogicalResult verify(ONNXFlattenOp op) {
 
 LogicalResult ONNXFlattenOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  auto inTy = input().getType().dyn_cast<RankedTensorType>();
+  auto inTy = input().getType().dyn_cast_or_null<RankedTensorType>();
   if (!inTy) {
     return success();
   }
