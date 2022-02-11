@@ -31,7 +31,7 @@ using namespace onnx_mlir;
 
 bool genGRUModelAndCompile(
     /* compile option */
-    const string &modelName, const CompilerOptionList &options,
+    const string &modelName,
     /* GRU param in*/
     const int direction, const int S, const int B, const int I, const int H,
     const int LinearBeforeReset, const bool isDynamicS, const bool isDynamicB,
@@ -40,7 +40,7 @@ bool genGRUModelAndCompile(
     OMTensor *&wOmt, OMTensor *&rOmt, OMTensor *&bOmt) {
 
   MLIRContext ctx;
-  setCompileContext(ctx, options);
+  registerDialects(ctx);
 
   D = abs(direction);
 
@@ -80,10 +80,7 @@ bool genGRUModelAndCompile(
   auto entryBlock = funcOp.addEntryBlock();
   builder.setInsertionPointToStart(entryBlock);
 
-  auto noneVal = builder
-                     .create<mlir::ConstantOp>(
-                         UnknownLoc::get(&ctx), builder.getUnitAttr())
-                     .getResult();
+  auto noneVal = builder.create<ONNXNoneOp>(UnknownLoc::get(&ctx)).getResult();
   auto xVal = entryBlock->getArgument(0);
   auto sVal = noneVal;
   auto hVal = entryBlock->getArgument(1);
