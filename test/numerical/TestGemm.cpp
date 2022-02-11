@@ -76,8 +76,7 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
           aShape, bShape, cShape))
     return false;
 
-  onnx_mlir::ExecutionSession sess(
-      getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
+  onnx_mlir::ExecutionSession sess(getSharedLibName(SHARED_LIB_BASE.str()));
 
   std::vector<OMTensorUniquePtr> inputs;
   auto aOmt = OMTensorUniquePtr(
