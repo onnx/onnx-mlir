@@ -38,7 +38,7 @@ typedef enum {
   CompilerOptLevel, /* Kind for '0'...'3' string describing OptLevel. */
   OPTFlag,          /* Kind for -Xopt string. */
   LLCFlag,          /* Kind for -Xllc string. */
-  LLVMFlag          /* Kind for -mllvm string. */
+  LLVMFlag,         /* Kind for -mllvm string. */
 } OptionKind;
 
 #ifdef __cplusplus

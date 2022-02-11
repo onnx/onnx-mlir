@@ -1463,7 +1463,7 @@ func private @test_squeezev11_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>
 // -----
 
 func private @test_split_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
-  %cst = constant unit
+  %cst = "onnx.NoValue"() {value} : () -> none
   %0, %1 = "onnx.Split"(%arg0, %cst) { axis = 0 : si64} : (tensor<16x32x64xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
   "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
@@ -2039,7 +2039,7 @@ func private @test_clip(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<
 // -----
 
 func private @test_clip_default_min(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
-  %cst = constant unit
+  %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.Clip"(%arg0, %cst, %arg2) : (tensor<3xf32>, none, tensor<f32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
@@ -2226,14 +2226,14 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
 // -----
 
 func @test_resize1(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
-    %cst = constant unit
+    %cst = "onnx.NoValue"() {value} : () -> none
     %0 = "onnx.Constant"() {value = dense<[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
     %1 = "onnx.Constant"() {value = dense<[1.000000e+00,  3.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
     %2 = "onnx.Resize"(%arg0, %0, %1, %cst) {coordinate_transformation_mode = "asymmetric", mode = "nearest", nearest_mode = "floor"} : (tensor<3x4xf32>, tensor<4xf32>, tensor<2xf32>, none) -> tensor<*xf32>
     "std.return"(%2) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  func @test_resize1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x4xf32>) -> memref<3x12xf32> {
-// CHECK-DAG:       [[VAR_cst_:%.+]] = constant unit
+// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [4], value = dense<[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<4xf32>} : () -> memref<4xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [2], value = dense<[1.000000e+00, 3.000000e+00]> : tensor<2xf32>} : () -> memref<2xf32>
 // CHECK-DAG:       [[VAR_cst_0_:%.+]] = arith.constant 1.000000e+00 : f32

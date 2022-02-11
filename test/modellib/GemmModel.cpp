@@ -29,7 +29,7 @@ using namespace onnx_mlir;
 
 bool genGemmAndCompileModel(
     /* compile option */
-    const string &modelName, const CompilerOptionList &options,
+    const string &modelName,
     /* conv param in*/
     const int I, const int J, const int K, const int aTrans, const int bTrans,
     const int cRank, const float alphaVal, const float betaVal,
@@ -37,7 +37,7 @@ bool genGemmAndCompileModel(
     SmallVector<int64_t, 2> &aShape, SmallVector<int64_t, 2> &bShape,
     SmallVector<int64_t, 2> &cShape) {
   MLIRContext ctx;
-  setCompileContext(ctx, options);
+  registerDialects(ctx);
 
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);

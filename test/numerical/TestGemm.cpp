@@ -69,7 +69,7 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
   SmallVector<int64_t, 2> aShape, bShape, cShape;
   if (!genGemmAndCompileModel(
           /*compiler options */
-          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(),
           /* GEMM param in*/
           I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal,
           /* GEMM param out*/
@@ -78,16 +78,16 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
 
   onnx_mlir::ExecutionSession sess(getSharedLibName(SHARED_LIB_BASE.str()));
 
-  std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
-  auto aOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+  std::vector<OMTensorUniquePtr> inputs;
+  auto aOmt = OMTensorUniquePtr(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(aShape)),
       omTensorDestroy);
   inputs.emplace_back(move(aOmt));
-  auto bOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+  auto bOmt = OMTensorUniquePtr(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape)),
       omTensorDestroy);
   inputs.emplace_back(move(bOmt));
-  auto cOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+  auto cOmt = OMTensorUniquePtr(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape)),
       omTensorDestroy);
   inputs.emplace_back(move(cOmt));
@@ -158,6 +158,7 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
+  setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
 

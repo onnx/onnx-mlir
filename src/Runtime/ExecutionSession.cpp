@@ -71,9 +71,8 @@ ExecutionSession::ExecutionSession(
   }
 }
 
-std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>>
-ExecutionSession::run(
-    std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> ins) {
+std::vector<OMTensorUniquePtr> ExecutionSession::run(
+    std::vector<OMTensorUniquePtr> ins) {
 
   std::vector<OMTensor *> omts;
   for (const auto &inOmt : ins)
@@ -82,13 +81,19 @@ ExecutionSession::run(
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
-  std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> outs;
+  std::vector<OMTensorUniquePtr> outs;
 
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
-    outs.emplace_back(std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+    outs.emplace_back(OMTensorUniquePtr(
         omTensorListGetOmtByIndex(wrappedOutput, i), omTensorDestroy));
   }
   return outs;
+}
+
+// Run using public interface. Explicit calls are needed to free tensor & tensor
+// lists.
+OMTensorList *ExecutionSession::run(OMTensorList *input) {
+  return _entryPointFunc(input);
 }
 
 std::string ExecutionSession::inputSignature() { return _inputSignatureFunc(); }

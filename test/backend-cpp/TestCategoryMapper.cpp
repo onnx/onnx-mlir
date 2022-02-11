@@ -64,12 +64,12 @@ public:
     }
 
     // Run the test and verify the result.
-    std::vector<OMTensorPtr> inputOMTs, expectedOutputOMTs;
-    auto inputOMT = OMTensorPtr(
+    std::vector<onnx_mlir::OMTensorUniquePtr> inputOMTs, expectedOutputOMTs;
+    auto inputOMT = onnx_mlir::OMTensorUniquePtr(
         omTensorCreate(static_cast<void *>(const_cast<int64_t *>(input.data())),
             inputShape, 1 /*rank*/, ONNX_TYPE_INT64),
         omTensorDestroy);
-    auto expectedOutputOMT = OMTensorPtr(
+    auto expectedOutputOMT = onnx_mlir::OMTensorUniquePtr(
         omTensorCreate(static_cast<void *>(
                            const_cast<const char **>(expectedOutput.data())),
             inputShape, 1 /*rank*/, ONNX_TYPE_STRING),
