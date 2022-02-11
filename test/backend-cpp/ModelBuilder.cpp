@@ -58,8 +58,8 @@ bool ModelBuilder::compileTest(const CompilerOptionList &compileOptions) {
       compileModule(modRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) == 0);
 }
 
-bool ModelBuilder::runAndVerifyTest(std::vector<OMTensorPtr> &inputs,
-    std::vector<OMTensorPtr> &expectedOutputs,
+bool ModelBuilder::runAndVerifyTest(std::vector<OMTensorUniquePtr> &inputs,
+    std::vector<OMTensorUniquePtr> &expectedOutputs,
     std::function<bool(OMTensor *, OMTensor *)> verifyFunction) {
   assert(!inputs.empty() && "Expecting valid inputs");
 
@@ -72,8 +72,8 @@ bool ModelBuilder::runAndVerifyTest(std::vector<OMTensorPtr> &inputs,
 
   // Verify the result(s).
   for (size_t i = 0; i < outputs.size(); ++i) {
-    OMTensorPtr &output = outputs.at(i);
-    OMTensorPtr &expectedOutput = expectedOutputs.at(i);
+    OMTensorUniquePtr &output = outputs.at(i);
+    OMTensorUniquePtr &expectedOutput = expectedOutputs.at(i);
     if (!verifyFunction(output.get(), expectedOutput.get()))
       return false;
   }

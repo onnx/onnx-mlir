@@ -25,6 +25,9 @@ namespace onnx_mlir {
 const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
 const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
 
+ExecutionSession::ExecutionSession(std::string sharedLibPath)
+    : ExecutionSession::ExecutionSession(sharedLibPath, "") {}
+
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, std::string entryPointName) {
 
@@ -35,6 +38,11 @@ ExecutionSession::ExecutionSession(
     errStr << "Cannot open library: '" << sharedLibPath << "'" << std::endl;
     throw std::runtime_error(errStr.str());
   }
+
+  // When entry point name is not given, use the default "run_main_graph".
+  // TODO(tung): support multiple entry point functions.
+  if (entryPointName.empty())
+    entryPointName = "run_main_graph";
 
   _entryPointFunc = reinterpret_cast<entryPointFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(entryPointName.c_str()));
@@ -63,9 +71,8 @@ ExecutionSession::ExecutionSession(
   }
 }
 
-std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>>
-ExecutionSession::run(
-    std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> ins) {
+std::vector<OMTensorUniquePtr> ExecutionSession::run(
+    std::vector<OMTensorUniquePtr> ins) {
 
   std::vector<OMTensor *> omts;
   for (const auto &inOmt : ins)
@@ -74,13 +81,19 @@ ExecutionSession::run(
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
-  std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> outs;
+  std::vector<OMTensorUniquePtr> outs;
 
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
-    outs.emplace_back(std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+    outs.emplace_back(OMTensorUniquePtr(
         omTensorListGetOmtByIndex(wrappedOutput, i), omTensorDestroy));
   }
   return outs;
+}
+
+// Run using public interface. Explicit calls are needed to free tensor & tensor
+// lists.
+OMTensorList *ExecutionSession::run(OMTensorList *input) {
+  return _entryPointFunc(input);
 }
 
 std::string ExecutionSession::inputSignature() { return _inputSignatureFunc(); }
