@@ -39,22 +39,18 @@ ModelLibBuilder::~ModelLibBuilder() {
     delete exec;
 }
 
-bool ModelLibBuilder::build() {
-  llvm_unreachable("subclass must overload build function");
-}
-
 bool ModelLibBuilder::compileAndLoad() {
-  // hi alex, set options
   OwningModuleRef moduleRef(module);
   int rc = compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib);
   if (rc != 0)
     return false;
-  exec = new ExecutionSession(sharedLibBaseName, "run_main_graph");
+#ifdef _WIN32
+  std::string fullName(sharedLibBaseName + ".dll");
+#else
+  std::string fullName(sharedLibBaseName + ".so");
+#endif
+  exec = new ExecutionSession(fullName);
   return exec != nullptr;
-}
-
-bool ModelLibBuilder::prepareInputs() {
-  llvm_unreachable("subclass must overload prepareInput function");
 }
 
 bool ModelLibBuilder::run() {
@@ -65,10 +61,6 @@ bool ModelLibBuilder::run() {
   }
   outputs = exec->run(inputs);
   return outputs != nullptr;
-}
-
-bool ModelLibBuilder::verifyOutputs() {
-  llvm_unreachable("subclass must overload verifyOutputs function");
 }
 
 FuncOp ModelLibBuilder::createEmptyTestFunction(
@@ -84,7 +76,6 @@ FuncOp ModelLibBuilder::createEmptyTestFunction(
 
   Block *entryBlock = funcOp.addEntryBlock();
   builder.setInsertionPointToStart(entryBlock);
-
   return funcOp;
 }
 

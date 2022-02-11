@@ -111,16 +111,16 @@ public:
   // the model, they should be created here and saved in the subclass, as these
   // values will be needed to verify the accuracy of the model. The model is
   // saved in the model and ctx variable.
-  bool build();
+  bool build() { llvm_unreachable("subclass must implement build."); }
   // Compile model from the model and ctx variables. The output is an executable
   // dynamic library.
   bool compileAndLoad();
   // Prepare inputs for running model.
-  bool prepareInputs();
+  bool prepareInputs() { llvm_unreachable("subclass must implement prepare."); }
   // Run model using prepared inputs, resulting in outputs.
   bool run();
   // Verify outputs with reference data.
-  bool verifyOutputs();
+  bool verifyOutputs() { llvm_unreachable("subclass must implement verify."); }
 
 protected:
   // Create a function with an empty body.

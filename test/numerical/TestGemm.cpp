@@ -66,6 +66,42 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
       ++testNum, I, J, K, (aTrans ? ", aTrans" : ""),
       (bTrans ? ", bTrans" : ""), cRank, (double)alphaVal, (double)betaVal);
 
+#if 1
+  GemmLibBuilder gemm(
+      SHARED_LIB_BASE.str(), I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal);
+  return gemm.build() && gemm.compileAndLoad() && gemm.prepareInputs() &&
+         gemm.run() && gemm.verifyOutputs();
+#elif 0
+  printf("\n\n\nhi alex, build gemm obj\n");
+  GemmLibBuilder gemm(
+      SHARED_LIB_BASE.str(), I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal);
+  printf("build gemm\n");
+  if (!gemm.build()) {
+    printf("failed to build\n");
+    return false;
+  }
+  printf("compile & load gemm\n");
+  if (!gemm.compileAndLoad()) {
+    printf("failed to compile and load\n");
+    return false;
+  }
+  printf("prepare input gemm\n");
+  if (!gemm.prepareInputs()) {
+    printf("failed to prepare\n");
+    return false;
+  }
+  printf("run gemm\n");
+  if (!gemm.run()) {
+    printf("failed to run\n");
+    return false;
+  }
+  printf("verify output\n");
+  if (!gemm.verifyOutputs()) {
+    printf("failed to verify\n");
+    return false;
+  }
+  return true;
+#else
   SmallVector<int64_t, 2> aShape, bShape, cShape;
   if (!genGemmAndCompileModel(
           /*compiler options */
@@ -153,6 +189,7 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
 
   bool success = omTensorAreTwoOmtsClose<float>(gemm.get(), ref, rtol, atol);
   return success;
+#endif
 }
 
 int main(int argc, char *argv[]) {
@@ -176,15 +213,8 @@ int main(int argc, char *argv[]) {
       const auto hasBeta = *rc::gen::inRange(0, 2);
       float alpha = hasAlpha ? 1.2 : 1.0;
       float beta = hasBeta ? 0.8 : 1.0;
-#if 1
-      GemmLibBuilder gemm(
-          SHARED_LIB_BASE.str(), I, J, K, aTrans, bTrans, cRank, alpha, beta);
-      RC_ASSERT(gemm.build() && gemm.compileAndLoad() && gemm.prepareInputs() &&
-                gemm.run() && gemm.verifyOutputs());
-#else
       RC_ASSERT(isOMGemmTheSameAsNaiveImplFor(
           I, J, K, aTrans, bTrans, cRank, alpha, beta));
-#endif
     });
     if (!success)
       return 1;
