@@ -46,8 +46,7 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
           /* GRU param out*/
           D, xShape, hShape, wOmt, rOmt, bOmt))
     return false;
-  onnx_mlir::ExecutionSession sess(
-      getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
+  onnx_mlir::ExecutionSession sess(getSharedLibName(SHARED_LIB_BASE.str()));
 
   std::vector<OMTensorUniquePtr> inputs;
   auto xOmt = OMTensorUniquePtr(
