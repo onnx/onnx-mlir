@@ -2837,7 +2837,10 @@ LogicalResult ONNXSplitV11Op::inferShapes(
 
 static LogicalResult verify(ONNXFlattenOp op) {
 
-  auto inTy = op.input().getType().dyn_cast<RankedTensorType>();
+  if (!hasShapeAndRank(op.input())) {
+    return success();
+  }
+  auto inTy = op.input().getType().dyn_cast<ShapedType>();
   if (!inTy) {
     return success();
   }
