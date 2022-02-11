@@ -24,20 +24,51 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 ModelLibBuilder::ModelLibBuilder(const string &name)
-    : sharedLibBaseName(name), ctx(), loc(UnknownLoc::get(&ctx)),
-      module(ModuleOp::create(loc)), builder(&ctx) {
+    : sharedLibBaseName(name), ctx(), loc(UnknownLoc::get(&ctx)), builder(&ctx),
+      module(ModuleOp::create(loc)), inputs(nullptr), outputs(nullptr),
+      exec(nullptr) {
   registerDialects(ctx);
 }
 
-bool ModelLibBuilder::build() {
-  llvm_unreachable("subclass must overload this");
+ModelLibBuilder::~ModelLibBuilder() {
+  if (inputs)
+    omTensorListDestroy(inputs);
+  if (outputs)
+    omTensorListDestroy(outputs);
+  if (exec)
+    delete exec;
 }
 
-bool ModelLibBuilder::compile(const CompilerOptionList &options) {
+bool ModelLibBuilder::build() {
+  llvm_unreachable("subclass must overload build function");
+}
+
+bool ModelLibBuilder::compileAndLoad(const CompilerOptionList &options) {
   // hi alex, set options
   OwningModuleRef moduleRef(module);
   int rc = compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib);
-  return rc == 0;
+  if (rc != 0)
+    return false;
+  exec = new ExecutionSession(sharedLibBaseName, "run_main_graph");
+  return exec != nullptr;
+}
+
+bool ModelLibBuilder::prepareInputs() {
+  llvm_unreachable("subclass must overload prepareInput function");
+}
+
+bool ModelLibBuilder::run() {
+  assert(exec && "expected successful compile and load");
+  if (outputs) {
+    omTensorListDestroy(outputs);
+    outputs = nullptr;
+  }
+  outputs = exec->run(inputs);
+  return outputs != nullptr;
+}
+
+bool ModelLibBuilder::verifyOutputs() {
+  llvm_unreachable("subclass must overload verifyOutputs function");
 }
 
 FuncOp ModelLibBuilder::createEmptyTestFunction(
@@ -64,8 +95,8 @@ void ModelLibBuilder::createEntryPoint(FuncOp &funcOp) {
   module.push_back(entryPoint);
 }
 
-mlir::ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
-    OMTensor *omt, mlir::RankedTensorType resultType) {
+ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
+    OMTensor *omt, RankedTensorType resultType) {
   int64_t numElems = omTensorGetNumElems(omt);
   auto bufferPtr = omTensorGetDataPtr(omt);
   float *arrayPtr = reinterpret_cast<float *>(bufferPtr);

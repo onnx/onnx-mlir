@@ -22,6 +22,7 @@
 
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Runtime/ExecutionSession.hpp"
 
 // Padding schemes
 #define AUTO_PAD_NOTSET 0
@@ -99,19 +100,27 @@ bool genLSTMModelAndCompile(
     llvm::SmallVector<int64_t, 3> &cShape, OMTensor *&wOmt, OMTensor *&rOmt,
     OMTensor *&bOmt, OMTensor *&pOmt);
 
-
 class ModelLibBuilder {
 public:
+  // Define the model. Subclass should add to the builder all of the specific
+  // parameters that uniquely define the model.
   ModelLibBuilder(const std::string &sharedLibBaseName);
-  // Build, subclass should add all parameters needed to determine the precise
-  // parameter of the model being build.
+  // Destructor needed to free the inputs/outputs data structures.
+  ~ModelLibBuilder();
+  // Build, subclass should generate a graph. If constant nodes are needed by
+  // the model, they should be created here and saved in the subclass, as these
+  // values will be needed to verify the accuracy of the model. The model is
+  // saved in the model and ctx variable.
   bool build();
-  // Compile model.
-  bool compile(const CompilerOptionList &options);
-  // Run model. Subclasses must define the inputs.
+  // Compile model from the model and ctx variables. The output is an executable
+  // dynamic library.
+  bool compileAndLoad(const CompilerOptionList &options);
+  // Prepare inputs for running model.
+  bool prepareInputs();
+  // Run model using prepared inputs, resulting in outputs.
   bool run();
-  // Test model, subclass must define the reference and compare against it.
-  bool test();
+  // Verify outputs with reference data.
+  bool verifyOutputs();
 
 protected:
   // Create a function with an empty body.
@@ -126,10 +135,14 @@ protected:
   mlir::ONNXConstantOp buildONNXConstantOp(
       OMTensor *omt, mlir::RankedTensorType resultType);
 
-  // Data (order matter).
-  const std::string sharedLibBaseName;
-  mlir::MLIRContext ctx;
-  mlir::Location loc;
-  mlir::ModuleOp module;
-  mlir::OpBuilder builder;
+  // Data for building and compiling the model.
+  const std::string sharedLibBaseName; // Name for the library.
+  mlir::MLIRContext ctx;   // Context for the model (used until compilation).
+  mlir::Location loc;      // Location for the model (used during building).
+  mlir::OpBuilder builder; // Builder (used during building)
+  mlir::ModuleOp module;   // Code for the model (used until compilation)
+
+  // Data for runing the model (freed in destructor).
+  OMTensorList *inputs, *outputs;
+  onnx_mlir::ExecutionSession *exec;
 };
