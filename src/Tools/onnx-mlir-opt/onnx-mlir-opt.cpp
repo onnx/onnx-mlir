@@ -8,7 +8,8 @@
 //
 // =============================================================================
 //
-// Main entry function for onnx-mlir-opt tool.
+// Main function for onnx-mlir-opt.
+// Implements main for onnx-mlir-opt driver.
 //
 //===----------------------------------------------------------------------===//
 
@@ -125,8 +126,8 @@ int main(int argc, char **argv) {
   mlir::registerDefaultTimingManagerCLOptions();
 
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
-  llvm::cl::ParseCommandLineOptions(
-      argc, argv, "ONNX-MLIR modular optimizer driver\n");
+  llvm::cl::ParseCommandLineOptions(argc, argv,
+      "ONNX-MLIR modular optimizer driver\n", nullptr, "ONNX_MLIR_OPT_FLAGS");
 
   // Set up the input file.
   std::string error_message;

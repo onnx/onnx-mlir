@@ -41,7 +41,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   OMTensor *pOmt = nullptr;
   if (!genLSTMModelAndCompile(
           /* compile option */
-          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(),
           /* LSTM param in*/
           direction, S, B, I, H, isDynamicS, isDynamicB,
           /* LSTM param out*/
@@ -207,6 +207,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
+  setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLSTM\n", nullptr, "TEST_ARGS");
 

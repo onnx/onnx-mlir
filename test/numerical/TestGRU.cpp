@@ -40,7 +40,7 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   OMTensor *bOmt = nullptr;
   if (!genGRUModelAndCompile(
           /* compile option */
-          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(),
           /* GRU param in*/
           direction, S, B, I, H, LinearBeforeReset, isDynamicS, isDynamicB,
           /* GRU param out*/
@@ -208,7 +208,7 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
-
+  setCompilerOptions({{OptionKind::CompilerOptLevel, "3"}});
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGRU\n", nullptr, "TEST_ARGS");
 

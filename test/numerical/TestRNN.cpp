@@ -40,7 +40,7 @@ bool isOMRNNTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   OMTensor *bOmt = nullptr;
   if (!genRNNModelAndCompile(
           /* compile option */
-          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(),
           /* RNN param in*/
           direction, S, B, I, H, isDynamicS, isDynamicB,
           /* RNN param out*/
@@ -130,6 +130,7 @@ bool isOMRNNTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
+  setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestRNN\n", nullptr, "TEST_ARGS");
 

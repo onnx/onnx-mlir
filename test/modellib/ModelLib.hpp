@@ -35,7 +35,7 @@ const std::string getAutoPadName(const int autoPad);
 // Conv2D
 bool genConv2DModelAndCompile(
     /* compile option */
-    const std::string &modelName, const CompilerOptionList &options,
+    const std::string &modelName,
     /* conv param in*/
     const int N, const int C, const int H, const int W, const int kH,
     const int kW, const int autoPad, const int pHBegin, const int pHEnd,
@@ -47,7 +47,7 @@ bool genConv2DModelAndCompile(
 // GEMM
 bool genGemmAndCompileModel(
     /* compile option */
-    const std::string &modelName, const CompilerOptionList &options,
+    const std::string &modelName,
     /* GEMM param in*/
     const int I, const int J, const int K, const int aTrans, const int bTrans,
     const int cRank, const float alphaVal, const float betaVal,
@@ -59,14 +59,14 @@ bool genGemmAndCompileModel(
 // MatMul
 bool genMatMul2DModelAndCompile(
     /* compile option */
-    const std::string &modelName, const CompilerOptionList &options,
+    const std::string &modelName,
     /* conv param in*/
     const int I, const int J, const int K);
 
 // GRU
 bool genGRUModelAndCompile(
     /* compile option */
-    const std::string &modelName, const CompilerOptionList &options,
+    const std::string &modelName,
     /* GRU param in*/
     const int direction, const int S, const int B, const int I, const int H,
     const int LinearBeforeReset, const bool isDynamicS, const bool isDynamicB,
@@ -78,7 +78,7 @@ bool genGRUModelAndCompile(
 // RNN
 bool genRNNModelAndCompile(
     /* compile option */
-    const std::string &modelName, const CompilerOptionList &options,
+    const std::string &modelName,
     /* RNN param in*/
     const int direction, const int S, const int B, const int I, const int H,
     const bool isDynamicS, const bool isDynamicB,
@@ -90,7 +90,7 @@ bool genRNNModelAndCompile(
 // LSTM
 bool genLSTMModelAndCompile(
     /* compile option */
-    const std::string &modelName, const CompilerOptionList &options,
+    const std::string &modelName,
     /* LSTM param in*/
     const int direction, const int S, const int B, const int I, const int H,
     const bool isDynamicS, const bool isDynamicB,
