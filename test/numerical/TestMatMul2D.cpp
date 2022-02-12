@@ -2,19 +2,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <algorithm>
-#include <cmath>
 #include <iostream>
-#include <random>
 #include <rapidcheck.h>
 #include <string>
-#include <vector>
 
 #include "llvm/Support/FileSystem.h"
 
-#include "src/Compiler/CompilerUtils.hpp"
-#include "src/Runtime/ExecutionSession.hpp"
-#include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestMatmul2D_main_graph");
@@ -23,13 +16,11 @@ using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
 
-// Include some helper functions.
-#include "Helper.hpp"
-
 // Returns whether onnx-mlir compiled Matmul is producing the same results
 // as a naive implementation of Matmul for a specific set of Matmul
 // parameters/configuration. Matmul: A[IxK] * B[KxJ] = C[IxJ]
-bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
+static bool isOMMatmulTheSameAsNaiveImplFor(
+    const int I, const int J, const int K) {
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
   MatMul2DLibBuilder matmul(SHARED_LIB_BASE.str(), I, J, K);
@@ -38,7 +29,8 @@ bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
 }
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
+  llvm::FileRemover remover(
+      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(

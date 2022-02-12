@@ -64,6 +64,14 @@ bool ModelLibBuilder::run() {
   return outputs != nullptr;
 }
 
+string ModelLibBuilder::getSharedLibName(const string &sharedLibBaseName) {
+#ifdef _WIN32
+  return sharedLibBaseName + ".dll";
+#else
+  return sharedLibBaseName + ".so";
+#endif
+}
+
 FuncOp ModelLibBuilder::createEmptyTestFunction(
     const llvm::SmallVectorImpl<Type> &inputsType,
     const llvm::SmallVectorImpl<Type> &outputsType) {

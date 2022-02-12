@@ -121,6 +121,8 @@ public:
   bool run();
   // Verify outputs with reference data.
   bool verifyOutputs() { llvm_unreachable("subclass must implement verify."); }
+  // Get the dynamic library file name compiled here.
+  static std::string getSharedLibName(const std::string &sharedLibBaseName);
 
 protected:
   // Create a function with an empty body.
@@ -157,6 +159,7 @@ public:
   bool build();
   bool prepareInputs();
   bool verifyOutputs();
+
 private:
   // Data that defines model.
   const int I, J, K, aTrans, bTrans, cRank;
@@ -172,7 +175,29 @@ public:
   bool build();
   bool prepareInputs();
   bool verifyOutputs();
+
 private:
   // Data that defines model.
   const int I, J, K;
+};
+
+class Conv2DLibBuilder : public ModelLibBuilder {
+public:
+  Conv2DLibBuilder(const std::string &modelName, const int N, const int C,
+      const int H, const int W, const int kH, const int kW, const int autoPad,
+      const int pHBegin, const int pHEnd, const int pWBegin, const int pWEnd,
+      const int stride, const int dilation, const int isDynamic);
+  bool build();
+  bool prepareInputs();
+  bool verifyOutputs();
+
+private:
+  const std::string getAutoPadName(const int autoPad);
+  bool verifyShapeAndComputeBeginEnd();
+
+  // Data that defines model.
+  const int N, C, H, W, kH, kW, autoPad;
+  int pHBegin, pHEnd, pWBegin, pWEnd;
+  const int stride, dilation, isDynamic;
+  int NOut, COut, HOut, WOut;
 };

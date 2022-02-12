@@ -2,18 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <algorithm>
-#include <cmath>
 #include <iostream>
-#include <random>
 #include <rapidcheck.h>
 #include <string>
-#include <vector>
 
 #include "llvm/Support/FileSystem.h"
 
-#include "src/Compiler/CompilerUtils.hpp"
-#include "src/Runtime/ExecutionSession.hpp"
+#include "include/OnnxMlirRuntime.h"
 #include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
@@ -22,9 +17,6 @@ static const llvm::StringRef SHARED_LIB_BASE("./TestGemm_main_graph");
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
-
-// Include some helper functions.
-#include "Helper.hpp"
 
 void *omTensorGetAllocatedPtr(OMTensor *tensor);
 template <typename TYPE>
@@ -56,7 +48,7 @@ void omPrintAsPython(OMTensor *tensor, string name) {
 // Returns whether onnx-mlir compiled Gemm is producing the same results
 // as a naive implementation of Gemm for a specific set of Gemm
 // parameters/configuration. Gemm: A[IxK] * B[KxJ] = C[IxJ]
-bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
+static bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
     const int aTrans, const int bTrans, const int cRank, const float alphaVal,
     const float betaVal) {
 
@@ -73,7 +65,8 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
 }
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
+  llvm::FileRemover remover(
+      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(

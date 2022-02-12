@@ -44,11 +44,11 @@ bool MatMul2DLibBuilder::build() {
   auto aVal = entryBlock.getArgument(0);
   auto bVal = entryBlock.getArgument(1);
 
-  auto MatmulOp = builder.create<ONNXMatMulOp>(UnknownLoc::get(&ctx),
+  auto MatmulOp = builder.create<ONNXMatMulOp>(loc,
       /*Y=*/yType, /*A=*/aVal, /*B=*/bVal);
 
   llvm::SmallVector<Value, 1> results = {MatmulOp.getResult()};
-  builder.create<ReturnOp>(UnknownLoc::get(&ctx), results);
+  builder.create<ReturnOp>(loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
@@ -70,8 +70,8 @@ bool MatMul2DLibBuilder::verifyOutputs() {
   // Get inputs and outputs.
   if (!inputs || !outputs)
     return false;
-  OMTensor *b = omTensorListGetOmtByIndex(inputs, 1);
   OMTensor *a = omTensorListGetOmtByIndex(inputs, 0);
+  OMTensor *b = omTensorListGetOmtByIndex(inputs, 1);
   OMTensor *res = omTensorListGetOmtByIndex(outputs, 0);
   OMTensor *ref = omTensorCreateWithShape<float>({I, J});
   if (!a || !b || !res || !ref)
