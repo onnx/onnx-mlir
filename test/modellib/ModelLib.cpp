@@ -88,7 +88,7 @@ void ModelLibBuilder::createEntryPoint(FuncOp &funcOp) {
 }
 
 ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
-    const OMTensor *omt, const RankedTensorType resultType) {
+    OMTensor *omt, const RankedTensorType resultType) {
   int64_t numElems = omTensorGetNumElems(omt);
   auto bufferPtr = omTensorGetDataPtr(omt);
   float *arrayPtr = reinterpret_cast<float *>(bufferPtr);
@@ -100,7 +100,7 @@ ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
       ArrayAttr());
 }
 
-bool ModelLibBuilder::areCloseFloat(const OMTensor *res, const OMTensor *ref) {
+bool ModelLibBuilder::areCloseFloat(OMTensor *res, OMTensor *ref) {
   if (!res || !ref)
     return false;
   float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;

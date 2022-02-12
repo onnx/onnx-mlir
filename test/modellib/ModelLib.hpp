@@ -132,9 +132,10 @@ protected:
   void createEntryPoint(mlir::FuncOp &funcOp);
   // Create a onnx constant op loaded with values in the tensor omt.
   mlir::ONNXConstantOp buildONNXConstantOp(
-      const OMTensor *omt, const mlir::RankedTensorType resultType);
+      /* hi alex const*/ OMTensor *omt,
+      const mlir::RankedTensorType resultType);
   // Compare results as float.
-  bool areCloseFloat(const OMTensor *res, const OMTensor *ref);
+  bool areCloseFloat(/* hi alex const*/ OMTensor *res, /*const*/ OMTensor *ref);
 
   // Data for building and compiling the model.
   const std::string sharedLibBaseName; // Name for the library.
@@ -156,7 +157,6 @@ public:
   bool build();
   bool prepareInputs();
   bool verifyOutputs();
-
 private:
   // Data that defines model.
   const int I, J, K, aTrans, bTrans, cRank;
@@ -172,7 +172,6 @@ public:
   bool build();
   bool prepareInputs();
   bool verifyOutputs();
-
 private:
   // Data that defines model.
   const int I, J, K;
