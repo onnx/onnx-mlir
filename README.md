@@ -100,6 +100,8 @@ These are frontend options.
 The full list of options is given by the `--help` option. Note that just as most compilers, the default optimization level is `-O0`. 
 We recommend using `-O3` for most applications.
 
+Options are also read from the `ONNX_MLIR_FLAGS` environment variable. For example, `ONNX_MLIR_FLAGS="-O3"` will ensure `-O3` for all compilations.
+
 ### Simple Example
 
 For example, use the following command to lower an ONNX model (e.g., add.onnx) to ONNX dialect:

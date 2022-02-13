@@ -972,7 +972,6 @@ def JniExecutionSession(jar_name, inputs):
 class EndiannessAwareExecutionSession(object):
     def __init__(self, model):
         self.model = model
-        self.entry_point = "run_main_graph"
         self.exec_name = None
         # Compiling the model in advance if not testing constants, so that
         # the model is compiled once and used multiple times.
@@ -1060,7 +1059,7 @@ class EndiannessAwareExecutionSession(object):
                 inputs = self.turn_model_input_to_constant(inputs)
                 self.exec_name = compile_model(self.model, args.emit)
             if args.emit == "lib":
-                session = ExecutionSession(self.exec_name, self.entry_point)
+                session = ExecutionSession(self.exec_name)
                 outputs = session.run(inputs)
                 # print('input='+str(inputs), file=sys.stderr)
                 # print('output='+str(outputs), file=sys.stderr)
@@ -1079,7 +1078,7 @@ class EndiannessAwareExecutionSession(object):
                 "Cannot deduce desired output endianness, using native endianness by default."
             )
             if args.emit == "lib":
-                session = ExecutionSession(self.exec_name, self.entry_point)
+                session = ExecutionSession(self.exec_name)
                 outputs = session.run(inputs)
             elif args.emit == "jni":
                 outputs = JniExecutionSession(self.exec_name, inputs)

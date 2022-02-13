@@ -41,26 +41,25 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   OMTensor *pOmt = nullptr;
   if (!genLSTMModelAndCompile(
           /* compile option */
-          SHARED_LIB_BASE.str(), {{OptionKind::CompilerOptLevel, "3"}},
+          SHARED_LIB_BASE.str(),
           /* LSTM param in*/
           direction, S, B, I, H, isDynamicS, isDynamicB,
           /* LSTM param out*/
           D, xShape, hShape, cShape, wOmt, rOmt, bOmt, pOmt))
     return false;
 
-  onnx_mlir::ExecutionSession sess(
-      getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
+  onnx_mlir::ExecutionSession sess(getSharedLibName(SHARED_LIB_BASE.str()));
 
-  std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
-  auto xOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+  std::vector<OMTensorUniquePtr> inputs;
+  auto xOmt = OMTensorUniquePtr(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(xOmt));
-  auto hOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+  auto hOmt = OMTensorUniquePtr(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(hOmt));
-  auto cOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+  auto cOmt = OMTensorUniquePtr(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(cOmt));
@@ -77,14 +76,10 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
   // Ht = ot (.) h(Ct)
 
-  auto weight =
-      unique_ptr<OMTensor, decltype(&omTensorDestroy)>(wOmt, omTensorDestroy);
-  auto recurr =
-      unique_ptr<OMTensor, decltype(&omTensorDestroy)>(rOmt, omTensorDestroy);
-  auto bias =
-      unique_ptr<OMTensor, decltype(&omTensorDestroy)>(bOmt, omTensorDestroy);
-  auto peepholes =
-      unique_ptr<OMTensor, decltype(&omTensorDestroy)>(pOmt, omTensorDestroy);
+  auto weight = OMTensorUniquePtr(wOmt, omTensorDestroy);
+  auto recurr = OMTensorUniquePtr(rOmt, omTensorDestroy);
+  auto bias = OMTensorUniquePtr(bOmt, omTensorDestroy);
+  auto peepholes = OMTensorUniquePtr(pOmt, omTensorDestroy);
 
   auto &input = inputs.at(0);
   auto &initialH = inputs.at(1);
@@ -211,6 +206,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
 
+  setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLSTM\n", nullptr, "TEST_ARGS");
 

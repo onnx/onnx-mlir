@@ -9,7 +9,7 @@
 
 // CHECK-LABEL: @test_split_axis_0_no_splitattr() -> (tensor<1x10xf32>, tensor<1x10xf32>) {
 func @test_split_axis_0_no_splitattr() -> (tensor<1x10xf32>, tensor<1x10xf32>) {
-  %cst = constant unit
+  %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.Constant"() {value = dense<[[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0]]> : tensor<2x10xf32>} : () -> tensor<2x10xf32>
   %1, %2 = "onnx.Split"(%0, %cst) { axis = 0 : si64} : (tensor<2x10xf32>, none) -> (tensor<1x10xf32>, tensor<1x10xf32>)
   "std.return"(%1, %2) : (tensor<1x10xf32>, tensor<1x10xf32>) -> ()
@@ -25,7 +25,7 @@ func @test_split_axis_0_no_splitattr() -> (tensor<1x10xf32>, tensor<1x10xf32>) {
 
 // CHECK-LABEL: @test_split_axis_1_no_splitattr() -> (tensor<2x5xf32>, tensor<2x5xf32>) {
 func @test_split_axis_1_no_splitattr() -> (tensor<2x5xf32>, tensor<2x5xf32>) {
-  %cst = constant unit
+  %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.Constant"() {value = dense<[[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0]]> : tensor<2x10xf32>} : () -> tensor<2x10xf32>
   %1, %2 = "onnx.Split"(%0, %cst) { axis = 1 : si64} : (tensor<2x10xf32>, none) -> (tensor<2x5xf32>, tensor<2x5xf32>)
   "std.return"(%1, %2) : (tensor<2x5xf32>, tensor<2x5xf32>) -> ()

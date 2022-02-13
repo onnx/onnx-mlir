@@ -27,13 +27,19 @@ namespace onnx_mlir {
 typedef OMTensorList *(*entryPointFuncType)(OMTensorList *);
 typedef const char *(*signatureFuncType)();
 
+using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
+
 class ExecutionSession {
 public:
+  ExecutionSession(std::string sharedLibPath);
   ExecutionSession(std::string sharedLibPath, std::string entryPointName);
 
   // Use custom deleter since forward declared OMTensor hides destructor
-  std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> run(
-      std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>>);
+  std::vector<OMTensorUniquePtr> run(std::vector<OMTensorUniquePtr>);
+
+  // Run using public interface. Explicit calls are needed to free tensor &
+  // tensor lists.
+  OMTensorList *run(OMTensorList *input);
 
   // Get input and output signature as a Json string. For example for nminst:
   // `[ { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "name" : "image" } ]`
