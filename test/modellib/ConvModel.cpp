@@ -77,14 +77,14 @@ bool Conv2DLibBuilder::build() {
 
   auto xVal = entryBlock.getArgument(0);
   auto wVal = entryBlock.getArgument(1);
-  auto bVal = builder.create<ONNXNoneOp>(UnknownLoc::get(&ctx)).getResult();
+  auto bVal = builder.create<ONNXNoneOp>(loc).getResult();
 
   auto dilations = builder.getI64ArrayAttr({dilation, dilation});
   auto kernel_shape = builder.getI64ArrayAttr({kH, kW});
   auto pads = builder.getI64ArrayAttr({pHBegin, pWBegin, pHEnd, pWEnd});
   auto strides = builder.getI64ArrayAttr({stride, stride});
 
-  auto convOp = builder.create<ONNXConvOp>(UnknownLoc::get(&ctx),
+  auto convOp = builder.create<ONNXConvOp>(loc,
       /*Y=*/yType,
       /*X=*/xVal, /*W=*/wVal, /*B=*/bVal,
       /*auto_pad=*/builder.getStringAttr(getAutoPadName(autoPad)),
@@ -111,7 +111,7 @@ bool Conv2DLibBuilder::build() {
   convOp.X().setType(xTypeSymbol);
 
   llvm::SmallVector<Value, 1> results = {convOp.getResult()};
-  builder.create<ReturnOp>(UnknownLoc::get(&ctx), results);
+  builder.create<ReturnOp>(loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
@@ -126,7 +126,7 @@ bool Conv2DLibBuilder::prepareInputs() {
   list[0] = omTensorCreateWithRandomData<float>({N, C, H, W});
   list[1] = omTensorCreateWithRandomData<float>({C, C, kH, kW});
   inputs = omTensorListCreateWithOwnership(list, num, true);
-  return inputs != nullptr;
+  return inputs && list[0] && list[1];
 }
 
 bool Conv2DLibBuilder::verifyShapeAndComputeBeginEnd() {

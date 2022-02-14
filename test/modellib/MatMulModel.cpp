@@ -63,7 +63,7 @@ bool MatMul2DLibBuilder::prepareInputs() {
   list[0] = omTensorCreateWithRandomData<float>({I, K});
   list[1] = omTensorCreateWithRandomData<float>({K, J});
   inputs = omTensorListCreateWithOwnership(list, num, true);
-  return inputs != nullptr;
+  return inputs && list[0] && list[1];
 }
 
 bool MatMul2DLibBuilder::verifyOutputs() {

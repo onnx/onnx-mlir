@@ -32,10 +32,8 @@ ModelLibBuilder::ModelLibBuilder(const string &name)
 }
 
 ModelLibBuilder::~ModelLibBuilder() {
-  if (inputs)
-    omTensorListDestroy(inputs);
-  if (outputs)
-    omTensorListDestroy(outputs);
+  omTensorListDestroy(inputs);
+  omTensorListDestroy(outputs);
   if (exec)
     delete exec;
 }
@@ -58,7 +56,7 @@ bool ModelLibBuilder::run() {
   assert(inputs && exec && "expected successful compile and load");
   if (outputs) {
     omTensorListDestroy(outputs);
-    outputs = nullptr;
+    outputs = nullptr; // Reset in case run has an exception.
   }
   outputs = exec->run(inputs);
   return outputs != nullptr;
@@ -96,7 +94,7 @@ void ModelLibBuilder::createEntryPoint(FuncOp &funcOp) {
 }
 
 ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
-    OMTensor *omt, const RankedTensorType resultType) {
+    const OMTensor *omt, const RankedTensorType resultType) {
   int64_t numElems = omTensorGetNumElems(omt);
   auto bufferPtr = omTensorGetDataPtr(omt);
   float *arrayPtr = reinterpret_cast<float *>(bufferPtr);
@@ -108,7 +106,7 @@ ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
       ArrayAttr());
 }
 
-bool ModelLibBuilder::areCloseFloat(OMTensor *res, OMTensor *ref) {
+bool ModelLibBuilder::areCloseFloat(const OMTensor *res, const OMTensor *ref) {
   if (!res || !ref)
     return false;
   float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
