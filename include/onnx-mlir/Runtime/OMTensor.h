@@ -141,7 +141,7 @@ void omTensorDestroy(OMTensor *tensor);
  * @return pointer to the data buffer of the OMTensor,
  *         NULL if the data buffer is not set.
  */
-void *omTensorGetDataPtr(OMTensor *tensor);
+void *omTensorGetDataPtr(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data shape getter.
@@ -155,7 +155,7 @@ void *omTensorGetDataPtr(OMTensor *tensor);
  * @param tensor pointer to the OMTensor
  * @return pointer to the data shape array.
  */
-int64_t *omTensorGetShape(OMTensor *tensor);
+int64_t *omTensorGetShape(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data shape setter.
@@ -185,7 +185,7 @@ void omTensorSetShape(OMTensor *tensor, int64_t *shape);
  * @param tensor pointer to the OMTensor
  * @return pointer to the data strides array.
  */
-int64_t *omTensorGetStrides(OMTensor *tensor);
+int64_t *omTensorGetStrides(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data strides setter
@@ -230,7 +230,7 @@ void omTensorSetStridesWithPyArrayStrides(
  * @param tensor pointer to the OMTensor
  * @return ONNX data type of the data buffer elements.
  */
-OM_DATA_TYPE omTensorGetDataType(OMTensor *tensor);
+OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data type setter
@@ -253,7 +253,7 @@ static inline int64_t getDataTypeSize(OM_DATA_TYPE dataType) {
  * @param tensor pointer to the OMTensor
  * @return the total size of the data buffer in bytes.
  */
-int64_t omTensorGetBufferSize(OMTensor *tensor);
+int64_t omTensorGetBufferSize(const OMTensor *tensor);
 
 /**
  * \brief OMTensor rank getter
@@ -261,7 +261,7 @@ int64_t omTensorGetBufferSize(OMTensor *tensor);
  * @param tensor, pointer to the OMTensor
  * @return rank of data shape and strides of the OMTensor.
  */
-int64_t omTensorGetRank(OMTensor *tensor);
+int64_t omTensorGetRank(const OMTensor *tensor);
 
 /**
  * \brief OMTensor number of elements getter
@@ -269,14 +269,14 @@ int64_t omTensorGetRank(OMTensor *tensor);
  * @param tensor, pointer to the OMTensor
  * @return the number of elements in the data buffer.
  */
-int64_t omTensorGetNumElems(OMTensor *tensor);
+int64_t omTensorGetNumElems(const OMTensor *tensor);
 
 /**
  * \brief OMTensor owning flag getter
  *
  * @return owning flag of the OMTensor.
  */
-int64_t omTensorGetOwning(OMTensor *tensor);
+int64_t omTensorGetOwning(const OMTensor *tensor);
 
 /**
  * \brief OMTensor owning flag setter
