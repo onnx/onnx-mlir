@@ -1194,14 +1194,19 @@ public:
               KrnlEntryPointOp::getEntryPointFuncAttrName())
             .getLeafReference()
             .getValue();
-    auto dynEntryPointName = "run_" + staticEntryPointFuncName;
-    assert(module.lookupSymbol(dynEntryPointName.str()) == nullptr &&
-           "dynamic entry point name is not unique");
+
+    // When there is only a single entry point function in a model, use
+    // "run_main_graph" as the default name.
+    // TODO(tung): support multiple entry point functions.
+    std::string entryPointName = "run_main_graph";
+    assert(module.lookupSymbol(entryPointName) == nullptr &&
+           "Only support a single entry point function.");
+
     rewriter.eraseOp(op);
     auto dynEntryPointFuncTy =
         LLVM::LLVMFunctionType::get(opaquePtrTy, {opaquePtrTy}, false);
     auto dynamicEntryPointFunc = rewriter.create<LLVM::LLVMFuncOp>(
-        loc, dynEntryPointName.str(), dynEntryPointFuncTy);
+        loc, entryPointName, dynEntryPointFuncTy);
     auto &entryPointEntryBlock =
         createEntryBlock(dynEntryPointFuncTy, dynamicEntryPointFunc, loc);
     rewriter.setInsertionPointToStart(&entryPointEntryBlock);

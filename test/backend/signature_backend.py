@@ -166,14 +166,13 @@ class SignatureBackendTest(BackendTest):
 class SignatureExecutionSession(object):
     def __init__(self, model):
         self.model = model
-        self.entry_point = "run_main_graph"
         self.exec_name = compile_model(self.model, args.emit)
 
     def run(self, **kwargs):
         sys.path.append(RUNTIME_DIR)
         from PyRuntime import ExecutionSession
 
-        session = ExecutionSession(self.exec_name, self.entry_point)
+        session = ExecutionSession(self.exec_name)
         output = session.input_signature()
         return output
 
