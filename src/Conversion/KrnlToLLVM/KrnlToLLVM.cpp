@@ -308,10 +308,10 @@ public:
     auto *context = op->getContext();
     KrnlCallOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
-    KrnlCallOp instrumentOp = llvm::dyn_cast<KrnlCallOp>(op);
+    KrnlCallOp callOp = llvm::dyn_cast<KrnlCallOp>(op);
 
-    auto funcName = op->funcName();
-    ValueRange parameters = operanddaptor.parameters();
+    auto funcName = callOp.funcName();
+    ValueRange parameters = operandAdaptor.parameters();
 
 #if 0
     // Get a symbol reference to the memcpy function, inserting it if necessary.

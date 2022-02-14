@@ -119,6 +119,14 @@ struct ONNXResizeOpLowering : public ConversionPattern {
           rewriter, op, memRefType, loc, outputDims, insertDealloc);
     }
 
+    // For test purpose
+    // Create KrnlCallOp and replace the du chain
+    if (resizeOp.mode() == "nearest") {
+      Value resizeCall = rewriter.create<KrnlCallOp>(loc, alloc, op, operands);
+      rewriter.replaceOp(op, resizeCall);
+      return success();
+    }
+
     // Constants used in the loop body
     Value zero = create.math.constant(rewriter.getIntegerType(64), 0);
     Value one = create.math.constantIndex(1);

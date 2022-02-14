@@ -73,6 +73,28 @@ void KrnlOpsDialect::printType(Type type, DialectAsmPrinter &os) const {
 
 namespace mlir {
 
+
+//===----------------------------------------------------------------------===//
+// KrnlCallOp
+//===----------------------------------------------------------------------===//
+
+void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState, Value resultVal, Operation *op, ValueRange operands) {
+  StringRef name = op->getName().getStringRef();
+  ShapedType resultType = resultVal.getType().cast<ShapedType>();
+  Type elementType = resultType.getElementType();
+  std::string funcNameStr;
+  if (elementType.isF32()) {
+    funcNameStr = name.str()+"_f32";
+  }
+  StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
+
+  // ToDo Attributes of the original op are ignored
+  // Two options for attributes:
+  // 1. propagated to KrnlCallOp
+  // 2. Converted to parameters
+  build(builder, odsState, resultVal.getType(), funcNameAttr, resultVal, operands);
+}
+
 //===----------------------------------------------------------------------===//
 // KrnlDefineLoopsOp
 //===----------------------------------------------------------------------===//

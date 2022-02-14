@@ -42,9 +42,10 @@ def KrnlCallOp : Op<Krnl_Dialect, "call"> {
     Tensors and attributes will be handled.
   }];
 
-  let arguments = (ins StrAttr:$funcName, Variadic<AnyType>:$operands);
+  let arguments = (ins StrAttr:$funcName, AnyMemRef:$alloc, Variadic<AnyTypeOf<[AnyMemRef, NoneType]>>:$parameters);
   let results =(outs AnyType:$result);
-  let builders = [OpBuilder<(ins "std::string":$name, "mlir::Operation *":$op)>];
+  let builders = [OpBuilder<(ins "mlir::Value":$alloc, "mlir::Operation *":$op, "mlir::ValueRange":$operands)>];
+  //let builders = [OpBuilder<(ins "mlir::Operation *":$op, "mlir::ValueRange":$operands)>];
 }
  
 def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
