@@ -108,7 +108,7 @@ OMTensor *omTensorCreateWithRandomData(
  * @return typed element by reference at the offset computed by the index array.
  */
 template <typename T>
-T &omTensorGetElem(OMTensor *omt, std::vector<int64_t> indexes);
+T &omTensorGetElem(const OMTensor *omt, std::vector<int64_t> indexes);
 
 /**
  * OMTensor data element getter by index
@@ -118,7 +118,7 @@ T &omTensorGetElem(OMTensor *omt, std::vector<int64_t> indexes);
  * @return typed element by reference at the linear offset.
  */
 template <typename T>
-T &omTensorGetElemByOffset(OMTensor *omt, int64_t index);
+T &omTensorGetElemByOffset(const OMTensor *omt, int64_t index);
 
 /**
  * OMTensor strides computation
@@ -126,7 +126,7 @@ T &omTensorGetElemByOffset(OMTensor *omt, int64_t index);
  * @param omt, pointer to the OMTensor
  * @return data strides of the OMTensor computed from the data sizes.
  */
-std::vector<int64_t> omTensorComputeStridesFromShape(OMTensor *omt);
+std::vector<int64_t> omTensorComputeStridesFromShape(const OMTensor *omt);
 
 /**
  * OMTensor linear offset computation
@@ -135,7 +135,8 @@ std::vector<int64_t> omTensorComputeStridesFromShape(OMTensor *omt);
  * @param indexes, multi-dimensional index array
  * @return linear offset.
  */
-int64_t omTensorComputeElemOffset(OMTensor *omt, std::vector<int64_t> &indexes);
+int64_t omTensorComputeElemOffset(
+    const OMTensor *omt, std::vector<int64_t> &indexes);
 
 /**
  * OMTensor index set computation
@@ -145,7 +146,7 @@ int64_t omTensorComputeElemOffset(OMTensor *omt, std::vector<int64_t> &indexes);
  *         that can be used to access this OMTensor's constituent elements)
  *         for the whole OMTensor.
  */
-std::vector<std::vector<int64_t>> omTensorComputeIndexSet(OMTensor *omt);
+std::vector<std::vector<int64_t>> omTensorComputeIndexSet(const OMTensor *omt);
 
 /**
  * OMTensor "distance" computation
