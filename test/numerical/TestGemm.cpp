@@ -2,18 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <algorithm>
-#include <cmath>
 #include <iostream>
-#include <random>
 #include <rapidcheck.h>
 #include <string>
-#include <vector>
 
 #include "llvm/Support/FileSystem.h"
 
-#include "src/Compiler/CompilerUtils.hpp"
-#include "src/Runtime/ExecutionSession.hpp"
+#include "include/OnnxMlirRuntime.h"
 #include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
@@ -22,9 +17,6 @@ static const llvm::StringRef SHARED_LIB_BASE("./TestGemm_main_graph");
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
-
-// Include some helper functions.
-#include "Helper.hpp"
 
 void *omTensorGetAllocatedPtr(OMTensor *tensor);
 template <typename TYPE>
@@ -56,7 +48,7 @@ void omPrintAsPython(OMTensor *tensor, string name) {
 // Returns whether onnx-mlir compiled Gemm is producing the same results
 // as a naive implementation of Gemm for a specific set of Gemm
 // parameters/configuration. Gemm: A[IxK] * B[KxJ] = C[IxJ]
-bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
+static bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
     const int aTrans, const int bTrans, const int cRank, const float alphaVal,
     const float betaVal) {
 
@@ -66,97 +58,15 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
       ++testNum, I, J, K, (aTrans ? ", aTrans" : ""),
       (bTrans ? ", bTrans" : ""), cRank, (double)alphaVal, (double)betaVal);
 
-  SmallVector<int64_t, 2> aShape, bShape, cShape;
-  if (!genGemmAndCompileModel(
-          /*compiler options */
-          SHARED_LIB_BASE.str(),
-          /* GEMM param in*/
-          I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal,
-          /* GEMM param out*/
-          aShape, bShape, cShape))
-    return false;
-
-  onnx_mlir::ExecutionSession sess(getSharedLibName(SHARED_LIB_BASE.str()));
-
-  std::vector<OMTensorUniquePtr> inputs;
-  auto aOmt = OMTensorUniquePtr(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(aShape)),
-      omTensorDestroy);
-  inputs.emplace_back(move(aOmt));
-  auto bOmt = OMTensorUniquePtr(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape)),
-      omTensorDestroy);
-  inputs.emplace_back(move(bOmt));
-  auto cOmt = OMTensorUniquePtr(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape)),
-      omTensorDestroy);
-  inputs.emplace_back(move(cOmt));
-
-  auto ref = omTensorCreateWithShape<float>({I, J});
-  auto &a = inputs.at(0);
-  auto &b = inputs.at(1);
-  auto &c = inputs.at(2);
-
-  if (false) {
-    printf("Initializes using defined values, better for debugging\n");
-    assert(cRank == 1);
-    // init A
-    for (int64_t i = 0; i < I; ++i)
-      for (int64_t k = 0; k < K; k++)
-        omTensorGetElem<float>(a.get(), {i, k}) = 100.0 * i + 1.0 * k;
-    // init B
-    for (int64_t k = 0; k < K; k++)
-      for (int64_t j = 0; j < J; ++j)
-        omTensorGetElem<float>(b.get(), {k, j}) = 10 * j + 1.0 * k;
-    // init C
-    for (int64_t j = 0; j < J; ++j) {
-      omTensorGetElem<float>(c.get(), {j}) = 0.0;
-    }
-  }
-
-  for (int64_t i = 0; i < I; ++i) {
-    for (int64_t j = 0; j < J; ++j) {
-      omTensorGetElem<float>(ref, {i, j}) = 0;
-      for (int64_t k = 0; k < K; k++) {
-        float aVal, bVal;
-        if (aTrans == 0)
-          aVal = omTensorGetElem<float>(a.get(), {i, k});
-        else
-          aVal = omTensorGetElem<float>(a.get(), {k, i});
-        if (bTrans == 0)
-          bVal = omTensorGetElem<float>(b.get(), {k, j});
-        else
-          bVal = omTensorGetElem<float>(b.get(), {j, k});
-        omTensorGetElem<float>(ref, {i, j}) += aVal * bVal;
-      }
-    }
-  }
-  for (int64_t i = 0; i < I; ++i) {
-    for (int64_t j = 0; j < J; ++j) {
-      float cVal;
-      if (cRank == 1)
-        cVal = omTensorGetElem<float>(c.get(), {j});
-      else if (cRank == 2)
-        cVal = omTensorGetElem<float>(c.get(), {i, j});
-      else
-        assert(false);
-      omTensorGetElem<float>(ref, {i, j}) =
-          alphaVal * omTensorGetElem<float>(ref, {i, j}) + betaVal * cVal;
-    }
-  }
-
-  auto outputs = sess.run(move(inputs));
-
-  auto &gemm = outputs.at(0);
-  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
-  float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
-
-  bool success = omTensorAreTwoOmtsClose<float>(gemm.get(), ref, rtol, atol);
-  return success;
+  GemmLibBuilder gemm(
+      SHARED_LIB_BASE.str(), I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal);
+  return gemm.build() && gemm.compileAndLoad() && gemm.prepareInputs() &&
+         gemm.run() && gemm.verifyOutputs();
 }
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
+  llvm::FileRemover remover(
+      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(

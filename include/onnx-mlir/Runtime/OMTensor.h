@@ -129,7 +129,8 @@ OMTensor *omTensorCreateEmpty(int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
  * function will free up the memory space underlying the tensor as well. The
  * documentation of OMTensor constructors clarifies the ownership semantics.
  *
- * @param tensor pointer to the OMTensor
+ * @param tensor pointer to the OMTensor. The function simply returns when
+ * pointer is null.
  *
  */
 void omTensorDestroy(OMTensor *tensor);
