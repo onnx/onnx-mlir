@@ -227,7 +227,7 @@ Functions</h2></td></tr>
 <p>Destroy the OMTensorList struct recursively. That is to say, both the ptr to the OMTensor pointers AND the OMTensor pointers are freed.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">list</td><td>pointer to the OMTensorList to be destroyed </td></tr>
+    <tr><td class="paramname">list</td><td>pointer to the OMTensorList to be destroyed. The function simply returns when pointer is null. </td></tr>
   </table>
   </dd>
 </dl>
