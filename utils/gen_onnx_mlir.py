@@ -301,6 +301,7 @@ OpsWithVerifier = [
     'Conv',
     'DepthToSpace',
     'Expand',
+    'Flatten',
     'Hardmax',
     'InstanceNormalization',
     'Mod',
