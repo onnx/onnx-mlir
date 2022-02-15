@@ -37,7 +37,6 @@ static void BM_Conv2D_C16_K3(benchmark::State &state) {
       modelName, N, C, HW, HW, K, K, AUTO_PAD_VALID, P, P, P, P, S, D, false);
   assert(model.build() && model.compileAndLoad(opts) && model.prepareInputs() &&
          "failed conv");
-
   for (auto _ : state)
     model.run();
   state.SetComplexityN(N * (C) * (HW) * (K));

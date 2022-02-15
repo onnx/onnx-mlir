@@ -14,7 +14,6 @@
 
 #include "mlir/IR/BuiltinOps.h"
 
-#include "include/OnnxMlirCompiler.h"
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"

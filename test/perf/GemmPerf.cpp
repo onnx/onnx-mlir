@@ -30,7 +30,6 @@ static void BM_MatmulSquare(benchmark::State &state) {
   MatMul2DLibBuilder model(modelName, IJK, IJK, IJK);
   assert(model.build() && model.compileAndLoad(opts) && model.prepareInputs() &&
          "failed matmul");
-
   for (auto _ : state)
     model.run();
   state.SetComplexityN(IJK);
@@ -46,7 +45,6 @@ static void BM_GemmSquare(benchmark::State &state) {
   GemmLibBuilder model(modelName, IJK, IJK, IJK, false, false, 1, 1.0, 1.0);
   assert(model.build() && model.compileAndLoad(opts) && model.prepareInputs() &&
          "failed gemm");
-
   for (auto _ : state)
     model.run();
   state.SetComplexityN(IJK);
