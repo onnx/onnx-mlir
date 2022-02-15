@@ -14,6 +14,7 @@
 
 #include "mlir/IR/BuiltinOps.h"
 
+#include "include/OnnxMlirCompiler.h"
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -50,6 +51,12 @@ bool ModelLibBuilder::compileAndLoad() {
 #endif
   exec = new ExecutionSession(fullName);
   return exec != nullptr;
+}
+
+bool ModelLibBuilder::compileAndLoad(const CompilerOptionList &list) {
+  if (setCompilerOptions(list) != 0)
+    return false;
+  return compileAndLoad();
 }
 
 bool ModelLibBuilder::run() {

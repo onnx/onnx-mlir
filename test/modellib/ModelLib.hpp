@@ -26,14 +26,6 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 
-// Padding schemes for Convolutions.
-#define AUTO_PAD_NOTSET 0
-#define AUTO_PAD_VALID 1
-#define AUTO_PAD_LOWER 2
-#define AUTO_PAD_UPPER 3
-#define AUTO_PAD_UB 4
-const std::string getAutoPadName(const int autoPad);
-
 /*
    Superclass that defines a template to create models, creating an ONNX
    function programatically, then compiling, loading, runing and testing the
@@ -83,14 +75,19 @@ public:
   // saved in the model and ctx variable.
   virtual bool build() = 0;
   // Compile model from the model and ctx variables. The output is an executable
-  // dynamic library.
+  // dynamic library. Can pass compiler options, which will become the new
+  // default until reset to different values.
   bool compileAndLoad();
+  bool compileAndLoad(const CompilerOptionList &list);
+  // Prepare inputs for running model. Subclass may add arguments as necessary.
   // Prepare inputs for running model. Subclass may add arguments as necessary.
   virtual bool prepareInputs() = 0;
   // Run model using prepared inputs, resulting in outputs.
   bool run();
   // Verify outputs from a run with reference data.
   virtual bool verifyOutputs() = 0;
+
+  // Helper functions.
   // Get the dynamic library file name compiled here.
   static std::string getSharedLibName(const std::string &sharedLibBaseName);
 
@@ -149,6 +146,14 @@ private:
   // Data that defines model.
   const int I, J, K;
 };
+
+// Padding schemes for Convolutions.
+#define AUTO_PAD_NOTSET 0
+#define AUTO_PAD_VALID 1
+#define AUTO_PAD_LOWER 2
+#define AUTO_PAD_UPPER 3
+#define AUTO_PAD_UB 4
+const std::string getAutoPadName(const int autoPad);
 
 class Conv2DLibBuilder : public ModelLibBuilder {
 public:
