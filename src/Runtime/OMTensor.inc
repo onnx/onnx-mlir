@@ -4,7 +4,7 @@
 
 //===--------- OMTensor.inc - C/C++ Neutral OMTensor Implementation--------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -225,7 +225,7 @@ void omTensorDestroy(OMTensor *tensor) {
 }
 
 /* OMTensor data getter */
-void *omTensorGetDataPtr(OMTensor *tensor) { return tensor->_alignedPtr; }
+void *omTensorGetDataPtr(const OMTensor *tensor) { return tensor->_alignedPtr; }
 
 /**
  * OMTensor allocated and aligned pointer setter.
@@ -255,7 +255,7 @@ void omTensorSetDataPtr(
 }
 
 /* OMTensor data shape getter */
-int64_t *omTensorGetShape(OMTensor *tensor) { return tensor->_shape; }
+int64_t *omTensorGetShape(const OMTensor *tensor) { return tensor->_shape; }
 
 /* OMTensor data shape setter */
 void omTensorSetShape(OMTensor *tensor, int64_t *shape) {
@@ -264,7 +264,7 @@ void omTensorSetShape(OMTensor *tensor, int64_t *shape) {
 }
 
 /* OMTensor data strides getter */
-int64_t *omTensorGetStrides(OMTensor *tensor) { return tensor->_strides; }
+int64_t *omTensorGetStrides(const OMTensor *tensor) { return tensor->_strides; }
 
 /* OMTensor data strides setter */
 void omTensorSetStrides(OMTensor *tensor, int64_t *strides) {
@@ -281,7 +281,9 @@ void omTensorSetStridesWithPyArrayStrides(
 }
 
 /* OMTensor data type getter */
-OM_DATA_TYPE omTensorGetDataType(OMTensor *tensor) { return tensor->_dataType; }
+OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor) {
+  return tensor->_dataType;
+}
 
 /* OMTensor data type setter */
 void omTensorSetDataType(OMTensor *tensor, OM_DATA_TYPE dataType) {
@@ -289,16 +291,16 @@ void omTensorSetDataType(OMTensor *tensor, OM_DATA_TYPE dataType) {
 }
 
 /* OMTensor data buffer size getter */
-int64_t omTensorGetBufferSize(OMTensor *tensor) {
+int64_t omTensorGetBufferSize(const OMTensor *tensor) {
   return getNumElems(tensor->_shape, tensor->_rank) *
          getDataTypeSize(tensor->_dataType);
 }
 
 /* OMTensor rank getter */
-int64_t omTensorGetRank(OMTensor *tensor) { return tensor->_rank; }
+int64_t omTensorGetRank(const OMTensor *tensor) { return tensor->_rank; }
 
 /* OMTensor number of elements getter */
-int64_t omTensorGetNumElems(OMTensor *tensor) {
+int64_t omTensorGetNumElems(const OMTensor *tensor) {
   // Using signed indices helps detect when index falls below 0.
   // Verify that strides are dense, meaning that there're
   // no skipping elements.
@@ -317,7 +319,7 @@ int64_t omTensorGetNumElems(OMTensor *tensor) {
  *
  * @return owning flag of the OMTensor.
  */
-int64_t omTensorGetOwning(OMTensor *tensor) { return tensor->_owning; }
+int64_t omTensorGetOwning(const OMTensor *tensor) { return tensor->_owning; }
 
 /**
  * OMTensor owning flag setter.
@@ -336,7 +338,7 @@ void omTensorSetOwning(OMTensor *tensor, int64_t owning) {
  * @return pointer to the allocated data buffer of the OMTensor,
  *         NULL if the allocated data buffer is not set.
  */
-void *omTensorGetAllocatedPtr(OMTensor *tensor) {
+void *omTensorGetAllocatedPtr(const OMTensor *tensor) {
   return tensor->_allocatedPtr;
 }
 
@@ -403,25 +405,25 @@ OMTensor *omTensorCreateWithRandomData(
 
 /* Access an element (by reference) at offset computed by index array */
 template <typename T>
-T &omTensorGetElem(OMTensor *omt, std::vector<int64_t> indexes) {
+T &omTensorGetElem(const OMTensor *omt, std::vector<int64_t> indexes) {
   int64_t elemOffset = omTensorComputeElemOffset(omt, indexes);
   return ((T *)omt->_alignedPtr)[elemOffset];
 }
 
 /* Access an element (by reference) at linear offset */
 template <typename T>
-T &omTensorGetElemByOffset(OMTensor *omt, int64_t index) {
+T &omTensorGetElemByOffset(const OMTensor *omt, int64_t index) {
   return ((T *)omt->_alignedPtr)[index];
 }
 
 /* Compute strides vector from shape vector */
-std::vector<int64_t> omTensorComputeStridesFromShape(OMTensor *omt) {
+std::vector<int64_t> omTensorComputeStridesFromShape(const OMTensor *omt) {
   return computeStridesFromShape(omt->_shape, omt->_rank);
 }
 
 /* Compute linear element offset from multi-dimensional index array */
 int64_t omTensorComputeElemOffset(
-    OMTensor *omt, std::vector<int64_t> &indexes) {
+    const OMTensor *omt, std::vector<int64_t> &indexes) {
   return computeElemOffset(omt->_strides, omt->_rank, indexes);
 }
 
@@ -529,20 +531,25 @@ template OMTensor *omTensorCreateWithRandomData<float>(
 template OMTensor *omTensorCreateWithRandomData<double>(
     std::vector<int64_t> shape, double lbound, double ubound);
 
-template bool &omTensorGetElem<bool>(OMTensor *, std::vector<int64_t> indexes);
+template bool &omTensorGetElem<bool>(
+    const OMTensor *, std::vector<int64_t> indexes);
 template int32_t &omTensorGetElem<int32_t>(
-    OMTensor *, std::vector<int64_t> indexes);
+    const OMTensor *, std::vector<int64_t> indexes);
 template int64_t &omTensorGetElem<int64_t>(
-    OMTensor *, std::vector<int64_t> indexes);
+    const OMTensor *, std::vector<int64_t> indexes);
 template float &omTensorGetElem<float>(
-    OMTensor *, std::vector<int64_t> indexes);
+    const OMTensor *, std::vector<int64_t> indexes);
 template double &omTensorGetElem<double>(
-    OMTensor *, std::vector<int64_t> indexes);
+    const OMTensor *, std::vector<int64_t> indexes);
 
-template int32_t &omTensorGetElemByOffset<int32_t>(OMTensor *, int64_t index);
-template int64_t &omTensorGetElemByOffset<int64_t>(OMTensor *, int64_t index);
-template float &omTensorGetElemByOffset<float>(OMTensor *, int64_t indexs);
-template double &omTensorGetElemByOffset<double>(OMTensor *, int64_t index);
+template int32_t &omTensorGetElemByOffset<int32_t>(
+    const OMTensor *, int64_t index);
+template int64_t &omTensorGetElemByOffset<int64_t>(
+    const OMTensor *, int64_t index);
+template float &omTensorGetElemByOffset<float>(
+    const OMTensor *, int64_t indexs);
+template double &omTensorGetElemByOffset<double>(
+    const OMTensor *, int64_t index);
 
 template bool omTensorAreTwoOmtsClose<int32_t>(
     OMTensor *a, OMTensor *b, float rtol, float atol);

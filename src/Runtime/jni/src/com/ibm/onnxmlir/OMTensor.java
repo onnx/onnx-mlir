@@ -12,33 +12,31 @@ import java.nio.ShortBuffer;
 
 public class OMTensor {
 
-    private final ByteOrder nativeEndian = ByteOrder.nativeOrder();
-
     /* We can use enum but that creates another class
      * which complicates things for JNI.
      *
      * Values are standard ONNX data types defined in
      * https://github.com/onnx/onnx/blob/main/onnx/onnx.proto#L484
      */
-    final static int ONNX_TYPE_UNDEFINED  = 0;
-    final static int ONNX_TYPE_FLOAT      = 1;
-    final static int ONNX_TYPE_UINT8      = 2;
-    final static int ONNX_TYPE_INT8       = 3;
-    final static int ONNX_TYPE_UINT16     = 4;
-    final static int ONNX_TYPE_INT16      = 5;
-    final static int ONNX_TYPE_INT32      = 6;
-    final static int ONNX_TYPE_INT64      = 7;
-    final static int ONNX_TYPE_STRING     = 8;
-    final static int ONNX_TYPE_BOOL       = 9;
-    final static int ONNX_TYPE_FLOAT16    = 10;
-    final static int ONNX_TYPE_DOUBLE     = 11;
-    final static int ONNX_TYPE_UINT32     = 12;
-    final static int ONNX_TYPE_UINT64     = 13;
-    final static int ONNX_TYPE_COMPLEX64  = 14;
-    final static int ONNX_TYPE_COMPLEX128 = 15;
-    final static int ONNX_TYPE_BFLOAT16   = 16;
+    public final static int ONNX_TYPE_UNDEFINED  = 0;
+    public final static int ONNX_TYPE_FLOAT      = 1;
+    public final static int ONNX_TYPE_UINT8      = 2;
+    public final static int ONNX_TYPE_INT8       = 3;
+    public final static int ONNX_TYPE_UINT16     = 4;
+    public final static int ONNX_TYPE_INT16      = 5;
+    public final static int ONNX_TYPE_INT32      = 6;
+    public final static int ONNX_TYPE_INT64      = 7;
+    public final static int ONNX_TYPE_STRING     = 8;
+    public final static int ONNX_TYPE_BOOL       = 9;
+    public final static int ONNX_TYPE_FLOAT16    = 10;
+    public final static int ONNX_TYPE_DOUBLE     = 11;
+    public final static int ONNX_TYPE_UINT32     = 12;
+    public final static int ONNX_TYPE_UINT64     = 13;
+    public final static int ONNX_TYPE_COMPLEX64  = 14;
+    public final static int ONNX_TYPE_COMPLEX128 = 15;
+    public final static int ONNX_TYPE_BFLOAT16   = 16;
 
-    final static int[] ONNX_TYPE_SIZE = new int[] {
+    public final static int[] ONNX_TYPE_SIZE = new int[] {
             0,  /* UNDEFINED  */
             4,  /* FLOAT      */
             1,  /* UINT8      */
@@ -58,7 +56,7 @@ public class OMTensor {
             2,  /* BFLOAT16   */
     };
 
-    final static String[] ONNX_TYPE_NAME = new String[] {
+    public final static String[] ONNX_TYPE_NAME = new String[] {
             "UNDEFINED",
             "FLOAT",
             "UINT8",
@@ -77,6 +75,8 @@ public class OMTensor {
             "COMPLEX128",
             "BFLOAT16",
     };
+
+    private final ByteOrder nativeEndian = ByteOrder.nativeOrder();
 
     private ByteBuffer _data;
     private long[] _shape;
