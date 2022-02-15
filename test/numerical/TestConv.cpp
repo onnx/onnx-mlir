@@ -2,19 +2,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <algorithm>
-#include <cmath>
 #include <iostream>
-#include <random>
 #include <rapidcheck.h>
 #include <string>
-#include <vector>
 
 #include "llvm/Support/FileSystem.h"
 
-#include "src/Compiler/CompilerUtils.hpp"
-#include "src/Runtime/ExecutionSession.hpp"
-#include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
 #define DEBUG 0
@@ -23,98 +16,12 @@ using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
 
-// Include some helper functions.
-#include "Helper.hpp"
-
 static const llvm::StringRef SHARED_LIB_BASE("./TestConv_main_graph");
 
 // Made global so that we can repeat the test with different strides and
 // dilations. Had to make them global to conform with the signatures of lambda
 // requested by RapidTest.
 int stride, dilation, isDynamic;
-
-// Support.
-static int myCeil(int a, int b) { return ceil((1.0 * a) / (1.0 * b)); }
-static int myFloor(int a, int b) { return floor((1.0 * a) / (1.0 * b)); }
-
-//===----------------------------------------------------------------------===//
-// Compute shape for various auto pad value and check results.
-//===----------------------------------------------------------------------===//
-
-// TODO: Ideally these values would be corroborated with Pytorch/TF. However
-// Pytorch only supports same/valid with unit strides. Maybe check with TF?
-
-static LogicalResult checkShapes(const int NIn, const int CIn, const int HIn,
-    const int WIn, const int kH, const int kW, const int autoPad,
-    const int NOut, const int COut, const int HOut, const int WOut,
-    int &pHBegin, int &pHEnd, int &pWBegin, int &pWEnd) {
-
-  // Check first params.
-  if (NIn != NOut) {
-    cerr << "N mismatch: in " << NIn << ", out " << NOut << endl;
-    return failure();
-  }
-  if (CIn != COut) {
-    cerr << "C mismatch: in " << CIn << ", out " << COut << endl;
-    return failure();
-  }
-
-  // Gather variables in arrays to match ONNX descriptions.
-  int I[] = {HIn, WIn};
-  int K[] = {kH, kW};
-  int pBegin[] = {pHBegin, pWBegin};
-  int pEnd[] = {pHEnd, pWEnd};
-  int p[] = {pHBegin + pHEnd, pWBegin + pWEnd};
-  int s[] = {stride, stride};
-  int d[] = {dilation, dilation};
-  int O[] = {HOut, WOut};
-
-  // Check dimensions for the spatial axes. From MaxPool:
-  // https://github.com/onnx/onnx/blob/main/docs/Operators.md#maxpool
-  int myO[2], myPBegin[2], myPEnd[2];
-  for (int i = 0; i < 2; ++i) {
-    if (autoPad == AUTO_PAD_NOTSET) {
-      // NOSET:
-      //  * O[i] = floor((I[i] + P[i] - ((K[i] - 1) * d[i] + 1)) / s[i] + 1)
-      myO[i] = myFloor((I[i] + p[i] - ((K[i] - 1) * d[i] + 1)), s[i]) + 1;
-      myPBegin[i] = pBegin[i];
-      myPEnd[i] = pEnd[i];
-    } else if (autoPad == AUTO_PAD_VALID) {
-      // VALID:
-      // * O[i] = ceil((I[i] - ((K[i] - 1) * d[i] + 1) + 1) / s[i])
-      // * P = 0
-      myO[i] = myCeil((I[i] - ((K[i] - 1) * d[i] + 1) + 1), s[i]);
-      myPBegin[i] = myPEnd[i] = 0;
-    } else {
-      // SAME_LOWER or SAME_UPPER:
-      // * O[i] = ceil(I[i] / s[i])
-      // * p' = (O[i] - 1) * s[i] + ((K[i] - 1) * d[i] + 1) - I[i]
-      // * P[i] = p' / 2, if odd, first or second are increased by one.
-      myO[i] = myCeil(I[i], s[i]);
-      int pSum = (myO[i] - 1) * s[i] + ((K[i] - 1) * d[i] + 1) - I[i];
-      pSum = pSum >= 0 ? pSum : 0;
-      myPBegin[i] = myPEnd[i] = pSum / 2;
-      if (pSum % 2 != 0) {
-        if (autoPad == AUTO_PAD_UPPER)
-          myPEnd[i] += 1;
-        else
-          myPBegin[i] += 1;
-      }
-    }
-    if (myO[i] != O[i]) {
-      cerr << "output sizes mismatch: computed " << myO[i] << ", got " << O[i]
-           << endl;
-      return failure();
-    }
-  }
-  // Test all good, set padding values for computed ones.
-  pHBegin = myPBegin[0];
-  pWBegin = myPBegin[1];
-  pHEnd = myPEnd[0];
-  pWEnd = myPEnd[1];
-
-  return success();
-}
 
 // Returns whether onnx-mlir compiled convolution is producing the same results
 // as a naive implementation of convolution for a specific set of convolution
@@ -132,71 +39,15 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
         ++testNum, N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
         getAutoPadName(autoPad).c_str(), isDynamic, stride, dilation);
 
-  int NOut, COut, HOut, WOut;
-  if (!genConv2DModelAndCompile(
-          /*compiler options */
-          SHARED_LIB_BASE.str(),
-          /*input conv param */ N, C, H, W, kH, kW, autoPad, pHBegin, pHEnd,
-          pWBegin, pWEnd, stride, dilation, isDynamic,
-          /*output conv param*/ NOut, COut, HOut, WOut))
-    return false;
-
-  onnx_mlir::ExecutionSession sess(getSharedLibName(SHARED_LIB_BASE.str()));
-
-  std::vector<OMTensorUniquePtr> inputs;
-  auto xOmt = OMTensorUniquePtr(
-      omTensorCreateWithRandomData<float>({N, C, H, W}), omTensorDestroy);
-  inputs.emplace_back(move(xOmt));
-  auto wOmt = OMTensorUniquePtr(
-      omTensorCreateWithRandomData<float>({C, C, kH, kW}), omTensorDestroy);
-  inputs.emplace_back(move(wOmt));
-
-  // Check shape and also compute pad H/W Begin/End params.
-  LogicalResult res = checkShapes(/*in*/ N, C, H, W, kH, kW, autoPad, NOut,
-      COut, HOut, WOut, /*in/out*/ pHBegin, pHEnd, pWBegin, pWEnd);
-  if (failed(res)) {
-    if (DEBUG) {
-      cerr << "Conv after check shape, N out " << NOut << ", C out " << COut
-           << ", H out " << HOut << ", W out " << WOut << ", ph begin "
-           << pHBegin << ", ph end " << pHEnd << ", pw begin " << pWBegin
-           << ", pw end " << pWEnd << endl;
-    }
-    return false;
-  }
-
-  auto ref = omTensorCreateWithShape<float>({NOut, COut, HOut, WOut});
-  auto &img = inputs.at(0);
-  auto &filter = inputs.at(1);
-  for (int64_t n = 0; n < NOut; n++)
-    for (int64_t c = 0; c < COut; c++)
-      for (int64_t h = 0; h < HOut; h++)
-        for (int64_t w = 0; w < WOut; w++) {
-          omTensorGetElem<float>(ref, {n, c, h, w}) = 0;
-          for (int64_t ci = 0; ci < C; ci++)
-            for (int64_t kh = 0; kh < kH; kh++)
-              for (int64_t kw = 0; kw < kW; kw++)
-                if ((h * stride + kh * dilation - pHBegin >= 0 &&
-                        h * stride + kh * dilation - pHBegin < H) &&
-                    (w * stride + kw * dilation - pWBegin >= 0 &&
-                        w * stride + kw * dilation - pWBegin < W))
-                  omTensorGetElem<float>(ref, {n, c, h, w}) +=
-                      omTensorGetElem<float>(img.get(),
-                          {n, ci, h * stride + kh * dilation - pHBegin,
-                              w * stride + kw * dilation - pWBegin}) *
-                      omTensorGetElem<float>(filter.get(), {c, ci, kh, kw});
-        }
-
-  auto outputs = sess.run(move(inputs));
-  auto &conv = outputs.at(0);
-
-  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
-  float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
-
-  return omTensorAreTwoOmtsClose<float>(conv.get(), ref, rtol, atol);
+  Conv2DLibBuilder conv(SHARED_LIB_BASE.str(), N, C, H, W, kH, kW, autoPad,
+      pHBegin, pHEnd, pWBegin, pWEnd, stride, dilation, isDynamic);
+  return conv.build() && conv.compileAndLoad() && conv.prepareInputs() &&
+         conv.run() && conv.verifyOutputs();
 }
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
+  llvm::FileRemover remover(
+      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
