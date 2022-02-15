@@ -74,8 +74,7 @@ public:
   ModelLibBuilder(const std::string &sharedLibBaseName);
   // Destructor needed to free the inputs/outputs data structures.
   virtual ~ModelLibBuilder();
-  // Default constructor removed as only subclasses may construct a
-  // ModelLibBuilder using the protected constructors.
+  // Default constructor removed.
   ModelLibBuilder() = delete;
   // Build, subclass should generate a graph. If constant nodes are needed by
   // the model, they should be created here and saved in the subclass, as these
