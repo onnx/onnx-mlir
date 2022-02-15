@@ -126,10 +126,15 @@ if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   endif()
 endif()
 
+# Add third party subdirectories and define options appropriate to run their cmakes.
 set(pybind11_FIND_QUIETLY ON)
+set(BENCHMARK_USE_BUNDLED_GTEST OFF)
+set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
+set(BENCHMARK_ENABLE_TESTING OFF)
 add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/rapidcheck)
+add_subdirectory(third_party/benchmark)
 
 # Ensure warnings are reported for onnx-mlir code.
 if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
