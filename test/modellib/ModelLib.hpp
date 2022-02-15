@@ -67,12 +67,18 @@ const std::string getAutoPadName(const int autoPad);
 */
 
 class ModelLibBuilder {
-public:
+protected:
+  // Constructor is protected as only subclass may use a ModelLibBuilder.
   // Define the model. Subclass should add to the builder all of the specific
   // parameters that uniquely define the model.
   ModelLibBuilder(const std::string &sharedLibBaseName);
   // Destructor needed to free the inputs/outputs data structures.
   ~ModelLibBuilder();
+
+public:
+  // Default constructor removed as only subclasses may construct a
+  // ModelLibBuilder using the protected constructors.
+  ModelLibBuilder() = delete;
   // Build, subclass should generate a graph. If constant nodes are needed by
   // the model, they should be created here and saved in the subclass, as these
   // values will be needed to verify the accuracy of the model. The model is
@@ -81,11 +87,11 @@ public:
   // Compile model from the model and ctx variables. The output is an executable
   // dynamic library.
   bool compileAndLoad();
-  // Prepare inputs for running model.
+  // Prepare inputs for running model. Subclass may add arguments as necessary.
   bool prepareInputs() { llvm_unreachable("subclass must implement prepare."); }
   // Run model using prepared inputs, resulting in outputs.
   bool run();
-  // Verify outputs with reference data.
+  // Verify outputs from a run with reference data.
   bool verifyOutputs() { llvm_unreachable("subclass must implement verify."); }
   // Get the dynamic library file name compiled here.
   static std::string getSharedLibName(const std::string &sharedLibBaseName);
