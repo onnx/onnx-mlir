@@ -160,6 +160,6 @@ std::vector<std::vector<int64_t>> omTensorComputeIndexSet(const OMTensor *omt);
  */
 template <typename T>
 bool omTensorAreTwoOmtsClose(
-    OMTensor *a, OMTensor *b, float rtol = 1e-5, float atol = 1e-5);
+    const OMTensor *a, const OMTensor *b, float rtol = 1e-5, float atol = 1e-5);
 
 #endif // ONNX_MLIR_OMTENSORHELPER_H
