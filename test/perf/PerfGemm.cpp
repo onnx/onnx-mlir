@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====-- GemmPerf.hpp - Simple performance tests -===//
+//====-- PerfGemm.hpp - Simple performance tests -===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -22,7 +22,7 @@
 
 using namespace std;
 
-const std::string modelName("./gemmperf");
+const std::string modelName("./perfgemm");
 const CompilerOptionList opts{{onnx_mlir::OptionKind::CompilerOptLevel, "3"}};
 
 static void BM_MatmulSquare(benchmark::State &state) {

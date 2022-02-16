@@ -59,7 +59,6 @@
 */
 
 class ModelLibBuilder {
-
 public:
   // Define the model. Subclasses should add to the builder all of the specific
   // parameters that uniquely define the model.
@@ -76,12 +75,15 @@ public:
   // Compile model from the model and ctx variables. The output is an executable
   // dynamic library.
   bool compileAndLoad();
+  bool compileAndLoad(const CompilerOptionList &list);
   // Prepare inputs for running model. Subclass may add arguments as necessary.
   virtual bool prepareInputs() = 0;
   // Run model using prepared inputs, resulting in outputs.
   bool run();
   // Verify outputs from a run with reference data.
   virtual bool verifyOutputs() = 0;
+
+  // Helper functions.
   // Get the dynamic library file name compiled here.
   static std::string getSharedLibName(const std::string &sharedLibBaseName);
 

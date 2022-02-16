@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====-- ConvPerf.hpp - Simple Conv performance tests -===//
+//====-- PerfConv.hpp - Simple Conv performance tests -===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -22,7 +22,7 @@
 
 using namespace std;
 
-const std::string modelName("./convperf");
+const std::string modelName("./perfconv");
 const CompilerOptionList opts{{onnx_mlir::OptionKind::CompilerOptLevel, "3"}};
 
 static void BM_Conv2D_C16_K3(benchmark::State &state) {

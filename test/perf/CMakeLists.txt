@@ -57,12 +57,12 @@ llvm_update_compile_flags(benchmark)
 # but it did not compile when I removed these two. TODO, figure out why.
 set(TEST_LINK_LIBS ModelLib CompilerUtils benchmark benchmark_main)
 
-add_perf_unittest(GemmPerf
-  GemmPerf.cpp
+add_perf_unittest(PerfGemm
+  PerfGemm.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-add_perf_unittest(ConvPerf
-  ConvPerf.cpp
+add_perf_unittest(PerfConv
+  PerfConv.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
