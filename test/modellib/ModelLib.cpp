@@ -43,12 +43,7 @@ bool ModelLibBuilder::compileAndLoad() {
   int rc = compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib);
   if (rc != 0)
     return false;
-#ifdef _WIN32
-  std::string fullName(sharedLibBaseName + ".dll");
-#else
-  std::string fullName(sharedLibBaseName + ".so");
-#endif
-  exec = new ExecutionSession(fullName);
+  exec = new ExecutionSession(getSharedLibName(sharedLibBaseName));
   return exec != nullptr;
 }
 

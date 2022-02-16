@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====-- PerfConv.hpp - Simple Conv performance tests -===//
+//==================-- PerfConv.hpp - Simple Conv performance tests -=========//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -12,7 +12,7 @@
 // of parameters.
 //===----------------------------------------------------------------------===//
 
-#include <assert.h>
+#include <cassert>
 #include <iostream>
 #include <string>
 
