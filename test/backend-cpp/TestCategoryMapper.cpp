@@ -106,13 +106,13 @@ public:
         createOMTensor<const char *>(input, shape, 1, ONNX_TYPE_STRING),
         omTensorDestroy);
     auto expOutputOMT = onnx_mlir::OMTensorUniquePtr(
-        createOMTensor<int64_t>(expOutput, shape, 1, ONNX_TYPE_INT64),
+        createOMTensor<int64_t>(expOutput, shape, 1 /*rank*/, ONNX_TYPE_INT64),
         omTensorDestroy);
     LLVM_DEBUG({
       llvm::dbgs() << "input: ";
-      printTensorData<int64_t>(inputOMT.get());
+      printTensorData<const char *>(inputOMT.get());
       llvm::dbgs() << "expected output: ";
-      printTensorData<const char *>(expOutputOMT.get());
+      printTensorData<int64_t>(expOutputOMT.get());
     });
 
     std::vector<onnx_mlir::OMTensorUniquePtr> inputOMTs, expOutputOMTs;
@@ -120,7 +120,7 @@ public:
     expOutputOMTs.emplace_back(move(expOutputOMT));
 
     return modelBuilder.runAndVerifyTest(
-        inputOMTs, expOutputOMTs, verifyResults<const char *>);
+        inputOMTs, expOutputOMTs, verifyResults<int64_t>);
   }
 
   // Prepare for a new test.
@@ -239,7 +239,7 @@ bool CategoryMapperTester::compareEqual(
 
 } // namespace
 
-bool testInt64ToStr() {
+static bool testInt64ToStr() {
   MLIRContext ctx;
   CategoryMapperTester categoryMapperTester(ctx);
   const CategoryMapperTester::CMAttributes attributes = {{1, 2, 3, 4, 5},
@@ -249,10 +249,21 @@ bool testInt64ToStr() {
       attributes, {1, 2, 3, 4, 5}, {"cat", "dog", "human", "tiger", "beaver"});
 }
 
+static bool testStrToInt64() {
+  MLIRContext ctx;
+  CategoryMapperTester categoryMapperTester(ctx);
+  const CategoryMapperTester::CMAttributes attributes = {{1, 2, 3, 4, 5},
+      {"cat", "dog", "human", "tiger", "beaver"}, -1, "unknown"};
+
+  return categoryMapperTester.testStrToInt64(
+      attributes, {"dog", "cat", "human", "tiger", "beaver"}, {1, 2, 3, 4, 5});
+}
+
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(
       BackendCppTests::ModelBuilder::getSharedLibName(SharedLibBaseName));
 
+  registerPassManagerCLOptions();
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestCategoryMapper\n", nullptr, "TEST_ARGS");
 

@@ -2,6 +2,7 @@
 
 add_onnx_mlir_library(OMKrnlToLLVM
   KrnlToLLVM.cpp
+  RuntimeAPI.cpp
 
   LINK_LIBS PUBLIC
   OMSupport
