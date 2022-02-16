@@ -18,41 +18,36 @@
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
 
-const string getAutoPadName(const int autoPad) {
+static int myCeil(int a, int b) { return ceil((1.0 * a) / (1.0 * b)); }
+static int myFloor(int a, int b) { return floor((1.0 * a) / (1.0 * b)); }
+
+Conv2DLibBuilder::Conv2DLibBuilder(const std::string &modelName, const int N,
+    const int C, const int H, const int W, const int kH, const int kW,
+    const int autoPad, const int pHBegin, const int pHEnd, const int pWBegin,
+    const int pWEnd, const int stride, const int dilation, const int isDynamic)
+    : ModelLibBuilder(modelName), N(N), C(C), H(H), W(W), kH(kH), kW(kW),
+      autoPad(autoPad), pHBegin(pHBegin), pHEnd(pHEnd), pWBegin(pWBegin),
+      pWEnd(pWEnd), stride(stride), dilation(dilation), isDynamic(isDynamic) {}
+
+const string Conv2DLibBuilder::getAutoPadName(const int autoPad) {
   static const string autoPadName[] = {
       "NOTSET", "VALID", "SAME_LOWER", "SAME_UPPER"};
   assert(autoPad >= 0 && autoPad < AUTO_PAD_UB && "out of bound autopad");
   return autoPadName[autoPad];
 }
 
-//===----------------------------------------------------------------------===//
-// Generate and compile a convolution.
-//===----------------------------------------------------------------------===//
-
-bool genConv2DModelAndCompile(
-    /* compile option */
-    const string &modelName,
-    /* conv param in*/
-    const int N, const int C, const int H, const int W, const int kH,
-    const int kW, const int autoPad, const int pHBegin, const int pHEnd,
-    const int pWBegin, const int pWEnd, const int stride, const int dilation,
-    const int isDynamic,
-    /* conv param out */
-    int &NOut, int &COut, int &HOut, int &WOut) {
-
+bool Conv2DLibBuilder::build() {
   if (autoPad != AUTO_PAD_NOTSET) {
     // Make sure all pads are initially zero, only value tolarated.
     assert(pHBegin == 0 && pHEnd == 0 && pWBegin == 0 && pWEnd == 0);
   }
-
-  MLIRContext ctx;
-  registerDialects(ctx);
 
   // We use the Ns for the shape of the input, and the N1s for the construction
   // of the model. That way, when the shape is dynamic, we set the N1s to "-1"
@@ -65,8 +60,6 @@ bool genConv2DModelAndCompile(
   if (isDynamic)
     N1 = C1 = H1 = W1 = -1;
 
-  auto module = ModuleOp::create(UnknownLoc::get(&ctx));
-  OpBuilder builder(&ctx);
   llvm::SmallVector<int64_t, 4> xShape = {N, C, H, W};
   llvm::SmallVector<int64_t, 3> xShapeSymbol = {N1, C1, H1, W1};
   llvm::SmallVector<int64_t, 1> bShape = {C};
@@ -79,25 +72,19 @@ bool genConv2DModelAndCompile(
   llvm::SmallVector<Type, 2> inputsType{xTypeSymbol, wType};
   llvm::SmallVector<Type, 1> outputsType{yType};
 
-  auto funcType = builder.getFunctionType(inputsType, outputsType);
-  string funcName = "main_graph";
-  llvm::SmallVector<NamedAttribute, 1> attrs;
-  auto funcOp =
-      builder.create<FuncOp>(UnknownLoc::get(&ctx), funcName, funcType, attrs);
+  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  Block &entryBlock = funcOp.getBody().front();
 
-  auto entryBlock = funcOp.addEntryBlock();
-  builder.setInsertionPointToStart(entryBlock);
-
-  auto xVal = entryBlock->getArgument(0);
-  auto wVal = entryBlock->getArgument(1);
-  auto bVal = builder.create<ONNXNoneOp>(UnknownLoc::get(&ctx)).getResult();
+  auto xVal = entryBlock.getArgument(0);
+  auto wVal = entryBlock.getArgument(1);
+  auto bVal = builder.create<ONNXNoneOp>(loc).getResult();
 
   auto dilations = builder.getI64ArrayAttr({dilation, dilation});
   auto kernel_shape = builder.getI64ArrayAttr({kH, kW});
   auto pads = builder.getI64ArrayAttr({pHBegin, pWBegin, pHEnd, pWEnd});
   auto strides = builder.getI64ArrayAttr({stride, stride});
 
-  auto convOp = builder.create<ONNXConvOp>(UnknownLoc::get(&ctx),
+  auto convOp = builder.create<ONNXConvOp>(loc,
       /*Y=*/yType,
       /*X=*/xVal, /*W=*/wVal, /*B=*/bVal,
       /*auto_pad=*/builder.getStringAttr(getAutoPadName(autoPad)),
@@ -112,9 +99,9 @@ bool genConv2DModelAndCompile(
   // the shape so that we don't leave IR in a inconsistent state.
   convOp.X().setType(xType); // Use static dims to infer shape.
   LogicalResult res = convOp.inferShapes([](mlir::Region &) {});
-  if (failed(res)) {
+  if (failed(res))
     return false;
-  }
+
   auto outputShape = convOp.getResult().getType().cast<ShapedType>().getShape();
   NOut = outputShape[0];
   COut = outputShape[1];
@@ -124,20 +111,121 @@ bool genConv2DModelAndCompile(
   convOp.X().setType(xTypeSymbol);
 
   llvm::SmallVector<Value, 1> results = {convOp.getResult()};
-  builder.create<ReturnOp>(UnknownLoc::get(&ctx), results);
+  builder.create<ReturnOp>(loc, results);
   module.push_back(funcOp);
 
-  // Emit the entry point operation which specifies the number of user
-  // inputs and outputs.
-  std::string signature("");
-  auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
-      /*numInputs=*/2,
-      /*numOutputs=*/1,
-      /*signature*/ signature);
-  module.push_back(entryPoint);
-
-  // Compile model.
-  OwningModuleRef moduleRef(module);
-  compileModule(moduleRef, ctx, modelName, onnx_mlir::EmitLib);
+  createEntryPoint(funcOp);
   return true;
+}
+
+bool Conv2DLibBuilder::prepareInputs() {
+  const int num = 2;
+  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
+  if (!list)
+    return false;
+  list[0] = omTensorCreateWithRandomData<float>({N, C, H, W});
+  list[1] = omTensorCreateWithRandomData<float>({C, C, kH, kW});
+  inputs = omTensorListCreateWithOwnership(list, num, true);
+  return inputs && list[0] && list[1];
+}
+
+bool Conv2DLibBuilder::verifyShapeAndComputeBeginEnd() {
+  // Check first params.
+  if (N != NOut) {
+    cerr << "N mismatch: in " << N << ", out " << NOut << endl;
+    return false;
+  }
+  if (C != COut) {
+    cerr << "C mismatch: in " << C << ", out " << COut << endl;
+    return false;
+  }
+
+  // Gather variables in arrays to match ONNX descriptions.
+  int I[] = {H, W};
+  int K[] = {kH, kW};
+  int pBegin[] = {pHBegin, pWBegin};
+  int pEnd[] = {pHEnd, pWEnd};
+  int p[] = {pHBegin + pHEnd, pWBegin + pWEnd};
+  int s[] = {stride, stride};
+  int d[] = {dilation, dilation};
+  int O[] = {HOut, WOut};
+
+  // Check dimensions for the spatial axes. From MaxPool:
+  // https://github.com/onnx/onnx/blob/main/docs/Operators.md#maxpool
+  int myO[2], myPBegin[2], myPEnd[2];
+  for (int i = 0; i < 2; ++i) {
+    if (autoPad == AUTO_PAD_NOTSET) {
+      // NOSET:
+      //  * O[i] = floor((I[i] + P[i] - ((K[i] - 1) * d[i] + 1)) / s[i] + 1)
+      myO[i] = myFloor((I[i] + p[i] - ((K[i] - 1) * d[i] + 1)), s[i]) + 1;
+      myPBegin[i] = pBegin[i];
+      myPEnd[i] = pEnd[i];
+    } else if (autoPad == AUTO_PAD_VALID) {
+      // VALID:
+      // * O[i] = ceil((I[i] - ((K[i] - 1) * d[i] + 1) + 1) / s[i])
+      // * P = 0
+      myO[i] = myCeil((I[i] - ((K[i] - 1) * d[i] + 1) + 1), s[i]);
+      myPBegin[i] = myPEnd[i] = 0;
+    } else {
+      // SAME_LOWER or SAME_UPPER:
+      // * O[i] = ceil(I[i] / s[i])
+      // * p' = (O[i] - 1) * s[i] + ((K[i] - 1) * d[i] + 1) - I[i]
+      // * P[i] = p' / 2, if odd, first or second are increased by one.
+      myO[i] = myCeil(I[i], s[i]);
+      int pSum = (myO[i] - 1) * s[i] + ((K[i] - 1) * d[i] + 1) - I[i];
+      pSum = pSum >= 0 ? pSum : 0;
+      myPBegin[i] = myPEnd[i] = pSum / 2;
+      if (pSum % 2 != 0) {
+        if (autoPad == AUTO_PAD_UPPER)
+          myPEnd[i] += 1;
+        else
+          myPBegin[i] += 1;
+      }
+    }
+    if (myO[i] != O[i]) {
+      cerr << "output sizes mismatch: computed " << myO[i] << ", got " << O[i]
+           << endl;
+      return false;
+    }
+  }
+  // Test all good, set padding values for computed ones.
+  pHBegin = myPBegin[0];
+  pWBegin = myPBegin[1];
+  pHEnd = myPEnd[0];
+  pWEnd = myPEnd[1];
+  return true;
+}
+
+bool Conv2DLibBuilder::verifyOutputs() {
+  // Get inputs and outputs.
+  if (!inputs || !outputs)
+    return false;
+  OMTensor *img = omTensorListGetOmtByIndex(inputs, 0);
+  OMTensor *filter = omTensorListGetOmtByIndex(inputs, 1);
+  OMTensor *res = omTensorListGetOmtByIndex(outputs, 0);
+  OMTensor *ref = omTensorCreateWithShape<float>({NOut, COut, HOut, WOut});
+  if (!img || !filter || !res || !ref)
+    return false;
+  if (!verifyShapeAndComputeBeginEnd())
+    return false;
+  // Compute reference.
+  for (int64_t n = 0; n < NOut; n++)
+    for (int64_t c = 0; c < COut; c++)
+      for (int64_t h = 0; h < HOut; h++)
+        for (int64_t w = 0; w < WOut; w++) {
+          omTensorGetElem<float>(ref, {n, c, h, w}) = 0;
+          for (int64_t ci = 0; ci < C; ci++)
+            for (int64_t kh = 0; kh < kH; kh++)
+              for (int64_t kw = 0; kw < kW; kw++)
+                if ((h * stride + kh * dilation - pHBegin >= 0 &&
+                        h * stride + kh * dilation - pHBegin < H) &&
+                    (w * stride + kw * dilation - pWBegin >= 0 &&
+                        w * stride + kw * dilation - pWBegin < W))
+                  omTensorGetElem<float>(ref, {n, c, h, w}) +=
+                      omTensorGetElem<float>(
+                          img, {n, ci, h * stride + kh * dilation - pHBegin,
+                                   w * stride + kw * dilation - pWBegin}) *
+                      omTensorGetElem<float>(filter, {c, ci, kh, kw});
+        }
+  return areCloseFloat(res, ref);
 }
