@@ -422,7 +422,7 @@ int setCompilerOption(const OptionKind kind, const string &val) {
     break;
   case OptionKind::CompilerOptLevel: {
     int level = atoi(val.c_str());
-    if (level < 0 && level > 3)
+    if (level < 0 || level > 3)
       return 1;
     setOptLevel((OptLevel)level);
   } break;

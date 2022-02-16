@@ -18,30 +18,26 @@
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/OMTensorHelper.h"
-#include "test/modellib/ModelHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
 
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
 
-//===----------------------------------------------------------------------===//
-// Generate and compile a RNN.
-//===----------------------------------------------------------------------===//
+RNNLibBuilder::RNNLibBuilder(const string &modelName, const int direction,
+    const int S, const int B, const int I, const int H, const bool isDynamicS,
+    const bool isDynamicB)
+    : ModelLibBuilder(modelName), direction(direction), S(S), B(B), I(I), H(H),
+      isDynamicS(isDynamicS), isDynamicB(isDynamicB), xShape(), hShape(),
+      wOmt(nullptr), rOmt(nullptr), bOmt(nullptr) {}
 
-bool genRNNModelAndCompile(
-    /* compile option */
-    const string &modelName,
-    /* RNN param in*/
-    const int direction, const int S, const int B, const int I, const int H,
-    const bool isDynamicS, const bool isDynamicB,
-    /* RNN param out*/
-    int &D, SmallVector<int64_t, 3> &xShape, SmallVector<int64_t, 3> &hShape,
-    OMTensor *&wOmt, OMTensor *&rOmt, OMTensor *&bOmt) {
+RNNLibBuilder::~RNNLibBuilder() {
+  omTensorDestroy(wOmt);
+  omTensorDestroy(rOmt);
+  omTensorDestroy(bOmt);
+}
 
-  MLIRContext ctx;
-  registerDialects(ctx);
-
+bool RNNLibBuilder::build() {
   D = abs(direction);
   int S1 = S, B1 = B;
   if (isDynamicS)
@@ -49,8 +45,6 @@ bool genRNNModelAndCompile(
   if (isDynamicB)
     B1 = -1;
 
-  auto module = ModuleOp::create(UnknownLoc::get(&ctx));
-  OpBuilder builder(&ctx);
   xShape = {S, B, I};
   llvm::SmallVector<int64_t, 3> xShapeSymbol = {S1, B1, I};
   llvm::SmallVector<int64_t, 3> wShape = {D, H, I};
@@ -70,19 +64,13 @@ bool genRNNModelAndCompile(
   llvm::SmallVector<Type, 5> inputsType{xType, hType};
   llvm::SmallVector<Type, 2> outputsType{yType, yHType};
 
-  auto funcType = builder.getFunctionType(inputsType, outputsType);
-  string funcName = "main_graph";
-  llvm::SmallVector<NamedAttribute, 1> attrs;
-  auto funcOp =
-      builder.create<FuncOp>(UnknownLoc::get(&ctx), funcName, funcType, attrs);
+  FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  Block &entryBlock = funcOp.getBody().front();
 
-  auto entryBlock = funcOp.addEntryBlock();
-  builder.setInsertionPointToStart(entryBlock);
-
-  auto noneVal = builder.create<ONNXNoneOp>(UnknownLoc::get(&ctx)).getResult();
-  auto xVal = entryBlock->getArgument(0);
+  auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();
+  auto xVal = entryBlock.getArgument(0);
   auto sVal = noneVal;
-  auto hVal = entryBlock->getArgument(1);
+  auto hVal = entryBlock.getArgument(1);
 
   StringAttr directionAttr;
   if (direction == 1)
@@ -99,11 +87,11 @@ bool genRNNModelAndCompile(
   wOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1);
   rOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1);
   bOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1);
-  auto wConstant = buildONNXConstantOp(&ctx, builder, wOmt, wType);
-  auto rConstant = buildONNXConstantOp(&ctx, builder, rOmt, rType);
-  auto bConstant = buildONNXConstantOp(&ctx, builder, bOmt, bType);
+  auto wConstant = buildONNXConstantOp(wOmt, wType);
+  auto rConstant = buildONNXConstantOp(rOmt, rType);
+  auto bConstant = buildONNXConstantOp(bOmt, bType);
 
-  auto rnnOp = builder.create<ONNXRNNOp>(UnknownLoc::get(&ctx),
+  auto rnnOp = builder.create<ONNXRNNOp>(loc,
       /*Y=*/yType, /*Y_h=*/yHType,
       /*X=*/xVal, /*W=*/wConstant, /*R=*/rConstant, /*B=*/bConstant,
       /*sequence_lens=*/sVal, /*initial_h=*/hVal,
@@ -114,19 +102,99 @@ bool genRNNModelAndCompile(
   rnnOp.getResults()[0].setType(yType);
   rnnOp.getResults()[1].setType(yHType);
 
-  builder.create<ReturnOp>(UnknownLoc::get(&ctx), rnnOp.getResults());
+  builder.create<ReturnOp>(loc, rnnOp.getResults());
   module.push_back(funcOp);
 
-  // Emit the entry point operation which specifies the number of user
-  // inputs and outputs.
-  std::string signature("");
-  auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
-      /*numInputs=*/2,
-      /*numOutputs=*/2,
-      /*signature*/ signature);
-  module.push_back(entryPoint);
+  createEntryPoint(funcOp);
+  return true;
+}
 
-  OwningModuleRef moduleRef(module);
-  compileModule(moduleRef, ctx, modelName, onnx_mlir::EmitLib);
+bool RNNLibBuilder::prepareInputs() {
+  const int num = 2;
+  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
+  if (!list)
+    return false;
+  list[0] =
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape), 0.0, 1.0);
+  list[1] =
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape), 0.0, 1.0);
+  inputs = omTensorListCreateWithOwnership(list, num, true);
+  return inputs && list[0] && list[1];
+}
+
+bool RNNLibBuilder::verifyOutputs() {
+  // Get inputs and outputs.
+  if (!inputs || !outputs)
+    return false;
+
+  // Naive RNN implementation.
+  // Equations for RNN.
+  // - Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
+
+  // Rename constant tensors with more explicit names.
+
+  OMTensor *weight = wOmt;
+  OMTensor *recurr = rOmt;
+  OMTensor *bias = bOmt;
+  // Get inputs and outputs.
+  OMTensor *refY = omTensorCreateWithShape<float>({S, D, B, H});
+  OMTensor *refYh = omTensorCreateWithShape<float>({D, B, H});
+  OMTensor *input = omTensorListGetOmtByIndex(inputs, 0);
+  OMTensor *initialH = omTensorListGetOmtByIndex(inputs, 1);
+  OMTensor *rnnY = omTensorListGetOmtByIndex(outputs, 0);
+  OMTensor *rnnYh = omTensorListGetOmtByIndex(outputs, 1);
+
+  // Initialize refYh.
+  for (int64_t d = 0; d < D; d++)
+    for (int64_t b = 0; b < B; b++)
+      for (int64_t h = 0; h < H; h++)
+        omTensorGetElem<float>(refYh, {d, b, h}) =
+            omTensorGetElem<float>(initialH, {d, b, h});
+
+  // Main computation.
+  OMTensor *XtWi = omTensorCreateWithShape<float>({B, H});
+  OMTensor *HtRi = omTensorCreateWithShape<float>({B, H});
+  for (int64_t d = 0; d < D; ++d) {
+    for (int64_t s = 0; s < S; ++s) {
+      int64_t seq = s;
+      if (d == 1 || direction == -1)
+        // reverse
+        seq = S - s - 1;
+      for (int64_t b = 0; b < B; b++) {
+        for (int64_t h = 0; h < H; h++) {
+          omTensorGetElem<float>(XtWi, {b, h}) = 0;
+          for (int64_t k = 0; k < I; k++) {
+            float xt = omTensorGetElem<float>(input, {seq, b, k});
+            omTensorGetElem<float>(XtWi, {b, h}) +=
+                xt * omTensorGetElem<float>(weight, {d, h, k});
+          }
+          omTensorGetElem<float>(HtRi, {b, h}) = 0;
+          for (int64_t k = 0; k < H; k++) {
+            float previousHt = omTensorGetElem<float>(refYh, {d, b, k});
+            omTensorGetElem<float>(HtRi, {b, h}) +=
+                previousHt * omTensorGetElem<float>(recurr, {d, h, k});
+          }
+        }
+      }
+      for (int64_t b = 0; b < B; b++) {
+        for (int64_t h = 0; h < H; h++) {
+          // - Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
+          float Ht = tanh(omTensorGetElem<float>(XtWi, {b, h}) +
+                          omTensorGetElem<float>(HtRi, {b, h}) +
+                          omTensorGetElem<float>(bias, {d, h}) +
+                          omTensorGetElem<float>(bias, {d, h + H}));
+          omTensorGetElem<float>(refYh, {d, b, h}) = Ht;
+          omTensorGetElem<float>(refY, {seq, d, b, h}) = Ht;
+        }
+      }
+    }
+  }
+  omTensorDestroy(XtWi);
+  omTensorDestroy(HtRi);
+
+  if (!areCloseFloat(rnnY, refY))
+    return false;
+  if (!areCloseFloat(rnnYh, refYh))
+    return false;
   return true;
 }
