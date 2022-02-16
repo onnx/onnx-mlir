@@ -978,6 +978,9 @@ void emitOutput(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
 
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
+  setupModule(module, context, outputBaseName);
+
+  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   // Initialize accelerator if required
   if (acceleratorTarget.compare("") != 0) {
     std::cout << "initializing accelerators" << std::endl;
@@ -986,13 +989,13 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::cout << "target count is " << accTargets->size() << std::endl;
     for (auto accel : *accTargets) {
       std::cout << "--" << std::endl;
-      accel->prepareAccelerator();
+      if (accel->isActive()) {
+        accel->prepareAccelerator(module,context,pm,emissionTarget);
+      }
     }
   }
-  setupModule(module, context, outputBaseName);
-
-  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-  addPasses(module, pm, emissionTarget);
+  else
+    addPasses(module, pm, emissionTarget);
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 

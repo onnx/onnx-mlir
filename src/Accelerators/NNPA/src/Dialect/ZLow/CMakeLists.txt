@@ -1,0 +1,15 @@
+set(LLVM_TARGET_DEFINITIONS ZLowOps.td)
+mlir_tablegen(ZLowOps.hpp.inc -gen-op-decls)
+mlir_tablegen(ZLowOps.cpp.inc -gen-op-defs)
+
+add_public_tablegen_target(OMZLowOpsIncGen)
+
+add_dlc_library(OMZLowOps
+  ZLowOps.cpp
+
+  DEPENDS
+  OMZLowOpsIncGen
+
+  LINK_LIBS PUBLIC
+  MLIRIR
+  )
