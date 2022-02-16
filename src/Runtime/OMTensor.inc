@@ -217,6 +217,8 @@ OMTensor *omTensorCreateEmpty(
 
 /* OMTensor destroyer */
 void omTensorDestroy(OMTensor *tensor) {
+  if (!tensor)
+    return;
   if (tensor->_owning)
     free(tensor->_allocatedPtr);
   free(tensor->_shape);
@@ -343,6 +345,10 @@ void *omTensorGetAllocatedPtr(const OMTensor *tensor) {
 }
 
 #ifdef __cplusplus
+/* For C++ methods, which are not used in the time critical runtime,
+ * asserts are present to ensure that we do not perform a null ptr access.
+ */
+
 /* OMTensor creator with data shape and element type  */
 template <typename T>
 OMTensor *omTensorCreateWithShape(std::vector<int64_t> shape) {
@@ -406,6 +412,7 @@ OMTensor *omTensorCreateWithRandomData(
 /* Access an element (by reference) at offset computed by index array */
 template <typename T>
 T &omTensorGetElem(const OMTensor *omt, std::vector<int64_t> indexes) {
+  assert(omt && "attempt to access element of null OMTensor");
   int64_t elemOffset = omTensorComputeElemOffset(omt, indexes);
   return ((T *)omt->_alignedPtr)[elemOffset];
 }
@@ -413,22 +420,26 @@ T &omTensorGetElem(const OMTensor *omt, std::vector<int64_t> indexes) {
 /* Access an element (by reference) at linear offset */
 template <typename T>
 T &omTensorGetElemByOffset(const OMTensor *omt, int64_t index) {
+  assert(omt && "attempt to access element of null OMTensor");
   return ((T *)omt->_alignedPtr)[index];
 }
 
 /* Compute strides vector from shape vector */
 std::vector<int64_t> omTensorComputeStridesFromShape(const OMTensor *omt) {
+  assert(omt && "attempt to access element of null OMTensor");
   return computeStridesFromShape(omt->_shape, omt->_rank);
 }
 
 /* Compute linear element offset from multi-dimensional index array */
 int64_t omTensorComputeElemOffset(
     const OMTensor *omt, std::vector<int64_t> &indexes) {
+  assert(omt && "attempt to access element of null OMTensor");
   return computeElemOffset(omt->_strides, omt->_rank, indexes);
 }
 
 /* Compute index set for the whole OMTensor */
-std::vector<std::vector<int64_t>> omTensorComputeIndexSet(OMTensor *omt) {
+std::vector<std::vector<int64_t>> omTensorComputeIndexSet(const OMTensor *omt) {
+  assert(omt && "attempt to access element of null OMTensor");
   // First, we create index set of each dimension separately.
   // i.e., for a tensor/OMT of shape (2, 3), its dimWiseIdxSet will be:
   // {{0,1}, {0,1,2}};
@@ -447,7 +458,8 @@ std::vector<std::vector<int64_t>> omTensorComputeIndexSet(OMTensor *omt) {
 /* Check whether two OMTensor data are "close" to each other */
 template <typename T>
 inline bool omTensorAreTwoOmtsClose(
-    OMTensor *a, OMTensor *b, float rtol, float atol) {
+    const OMTensor *a, const OMTensor *b, float rtol, float atol) {
+  assert(a && b && "attempt to access element of null OMTensor");
 
   // Compare shape.
   auto aShape = std::vector<int64_t>(a->_shape, a->_shape + a->_rank);
@@ -552,11 +564,11 @@ template double &omTensorGetElemByOffset<double>(
     const OMTensor *, int64_t index);
 
 template bool omTensorAreTwoOmtsClose<int32_t>(
-    OMTensor *a, OMTensor *b, float rtol, float atol);
+    const OMTensor *a, const OMTensor *b, float rtol, float atol);
 template bool omTensorAreTwoOmtsClose<int64_t>(
-    OMTensor *a, OMTensor *b, float rtol, float atol);
+    const OMTensor *a, const OMTensor *b, float rtol, float atol);
 template bool omTensorAreTwoOmtsClose<float>(
-    OMTensor *a, OMTensor *b, float rtol, float atol);
+    const OMTensor *a, const OMTensor *b, float rtol, float atol);
 template bool omTensorAreTwoOmtsClose<double>(
-    OMTensor *a, OMTensor *b, float rtol, float atol);
+    const OMTensor *a, const OMTensor *b, float rtol, float atol);
 #endif
