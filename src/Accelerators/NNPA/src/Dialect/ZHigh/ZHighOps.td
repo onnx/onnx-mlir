@@ -15,7 +15,8 @@
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
-include "third_party/onnx-mlir/src/Interface/ShapeInferenceOpInterface.td"
+//include "third_party/onnx-mlir/src/Interface/ShapeInferenceOpInterface.td"
+include "src/Interface/ShapeInferenceOpInterface.td"
 
 //===----------------------------------------------------------------------===//
 // ZHigh Dialect

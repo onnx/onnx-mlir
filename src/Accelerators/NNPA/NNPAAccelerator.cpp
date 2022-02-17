@@ -17,15 +17,10 @@
 #include "src/Support/OMOptions.hpp"
 #include <iostream>
 // modified from DLC main
-//#include "src/Accelerators/NNPA/Compiler/DLCompilerUtils.hpp"
-//#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
-//#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
-//#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
-
-#include "Compiler/DLCompilerUtils.hpp"
-#include "Dialect/ZHigh/ZHighOps.hpp"
-#include "Dialect/ZLow/ZLowOps.hpp"
-#include "Pass/DLCPasses.hpp"
+#include "src/Compiler/DLCompilerUtils.hpp"
+#include "src/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Dialect/ZLow/ZLowOps.hpp"
+#include "src/Pass/DLCPasses.hpp"
 namespace mlir {
 
 NNPAAccelerator::NNPAAccelerator() {
