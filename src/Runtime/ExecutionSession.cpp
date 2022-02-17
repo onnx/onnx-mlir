@@ -26,10 +26,11 @@ const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
 const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
 
 ExecutionSession::ExecutionSession(std::string sharedLibPath)
-    : ExecutionSession::ExecutionSession(sharedLibPath, "") {}
+    : ExecutionSession::ExecutionSession(sharedLibPath, "run_main_graph") {}
 
 ExecutionSession::ExecutionSession(
-    std::string sharedLibPath, std::string entryPointName) {
+    std::string sharedLibPath, std::string entryPointName)
+    : _entryPointName(entryPointName) {
 
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getPermanentLibrary(sharedLibPath.c_str());
@@ -39,16 +40,11 @@ ExecutionSession::ExecutionSession(
     throw std::runtime_error(errStr.str());
   }
 
-  // When entry point name is not given, use the default "run_main_graph".
-  // TODO(tung): support multiple entry point functions.
-  if (entryPointName.empty())
-    entryPointName = "run_main_graph";
-
   _entryPointFunc = reinterpret_cast<entryPointFuncType>(
-      _sharedLibraryHandle.getAddressOfSymbol(entryPointName.c_str()));
+      _sharedLibraryHandle.getAddressOfSymbol(_entryPointName.c_str()));
   if (!_entryPointFunc) {
     std::stringstream errStr;
-    errStr << "Cannot load symbol: '" << entryPointName << "'" << std::endl;
+    errStr << "Cannot load symbol: '" << _entryPointName << "'" << std::endl;
     throw std::runtime_error(errStr.str());
   }
 
@@ -96,10 +92,12 @@ OMTensorList *ExecutionSession::run(OMTensorList *input) {
   return _entryPointFunc(input);
 }
 
-std::string ExecutionSession::inputSignature() { return _inputSignatureFunc(); }
+std::string ExecutionSession::inputSignature() {
+  return _inputSignatureFunc(_entryPointName.c_str());
+}
 
 std::string ExecutionSession::outputSignature() {
-  return _outputSignatureFunc();
+  return _outputSignatureFunc(_entryPointName.c_str());
 }
 
 ExecutionSession::~ExecutionSession() {

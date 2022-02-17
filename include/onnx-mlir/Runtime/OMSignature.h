@@ -23,14 +23,14 @@ extern "C" {
  *
  * @return pointer to input signature JSON string
  */
-const char *omInputSignature();
+const char *omInputSignature(const char *);
 
 /**
  * \brief Return the model's output signature as a JSON string.
  *
  * @return pointer to output signature JSON string
  */
-const char *omOutputSignature();
+const char *omOutputSignature(const char *);
 
 #ifdef __cplusplus
 }

@@ -25,7 +25,7 @@
 namespace onnx_mlir {
 
 typedef OMTensorList *(*entryPointFuncType)(OMTensorList *);
-typedef const char *(*signatureFuncType)();
+typedef const char *(*signatureFuncType)(const char *);
 
 using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
 
@@ -53,6 +53,7 @@ protected:
   llvm::sys::DynamicLibrary _sharedLibraryHandle;
 
   // Entry point function.
+  std::string _entryPointName;
   entryPointFuncType _entryPointFunc = nullptr;
 
   // Entry point for input/output signatures
