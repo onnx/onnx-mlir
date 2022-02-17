@@ -40,11 +40,11 @@ static void BM_MatmulSquare(benchmark::State &state) {
   for (auto _ : state)
     model.run();
   state.SetComplexityN(I);
-  PERF_RECORD_FLOPS(2 * I * J * K);
+  PERF_RECORD_FLOPS(2.0 * I * J * K);
 }
 BENCHMARK(BM_MatmulSquare)
     ->RangeMultiplier(2)
-    ->Range(16, 1024)
+    ->Range(16, 2048)
     ->Unit(benchmark::kMillisecond)
     ->Complexity();
 
@@ -59,11 +59,11 @@ static void BM_MatMulWithGemmSquare(benchmark::State &state) {
     model.run();
   state.SetComplexityN(I);
   // Because alpha is 1, its not counted; beta is zero, sum of B is ignored.
-  PERF_RECORD_FLOPS(2 * I * J * K);
+  PERF_RECORD_FLOPS(2.0 * I * J * K);
 }
 BENCHMARK(BM_MatMulWithGemmSquare)
     ->RangeMultiplier(2)
-    ->Range(16, 1024)
+    ->Range(16, 2048)
     ->Unit(benchmark::kMillisecond)
     ->Complexity();
 
@@ -78,11 +78,11 @@ static void BM_GemmSquare(benchmark::State &state) {
     model.run();
   state.SetComplexityN(I);
   // Because alpha is 1, its not counted; beta is 1, sum of B is counted.
-  PERF_RECORD_FLOPS(2 * I * J * K + I * K);
+  PERF_RECORD_FLOPS(2.0 * I * J * K + I * K);
 }
 BENCHMARK(BM_GemmSquare)
     ->RangeMultiplier(2)
-    ->Range(16, 1024)
+    ->Range(16, 2048)
     ->Unit(benchmark::kMillisecond)
     ->Complexity();
 

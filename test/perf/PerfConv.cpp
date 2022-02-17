@@ -47,7 +47,7 @@ static void BM_Conv2D_C16_K3(benchmark::State &state) {
   for (auto _ : state)
     model.run();
   // FLOPS assume D=1, S=1.
-  PERF_RECORD_FLOPS(2 * N * C * C * H * W * K * K);
+  PERF_RECORD_FLOPS(2.0 * N * C * C * H * W * K * K);
 }
 BENCHMARK(BM_Conv2D_C16_K3)
     ->ArgsProduct({{1, 16, 64}, {16, 64, 256}})

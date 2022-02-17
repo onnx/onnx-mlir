@@ -12,10 +12,17 @@
 // actions.
 //===----------------------------------------------------------------------===//
 
-// Pass f as the number of FLOP in the measurement and report is as a rate.
+// Pass f as a (double) number of FLOP in the measurement and report it as the
+// actual number (FLOP) and as a rate per seconds (FLOPS).
 #define PERF_RECORD_FLOPS(_f)                                                  \
-  state.counters["FLOPS"] = benchmark::Counter(                                \
-      (_f), benchmark::Counter::kIsRate, benchmark::Counter::OneK::kIs1024)
+  {                                                                            \
+    state.counters["FLOPS"] = benchmark::Counter((_f),                         \
+        benchmark::Counter::kIsRate |                                          \
+            benchmark::Counter::kIsIterationInvariant,                         \
+        benchmark::Counter::OneK::kIs1000);                                    \
+    state.counters["FLOP"] = benchmark::Counter((_f),                          \
+        benchmark::Counter::kDefaults, benchmark::Counter::OneK::kIs1000);     \
+  }
 
 // Define performance main, with default opt level of 3, and scan PERF_ARGS to
 // override default onnx-mlir compiler options.
