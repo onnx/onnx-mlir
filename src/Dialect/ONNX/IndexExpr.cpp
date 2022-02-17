@@ -782,8 +782,9 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   if (compare.isShapeInferencePass())
     return QuestionmarkIndexExpr();
   // Generate code for the select.
-  Value results = compare.getRewriter().create<arith::SelectOp>(compare.getLoc(),
-      compare.getValue(), trueVal.getValue(), falseVal.getValue());
+  Value results =
+      compare.getRewriter().create<arith::SelectOp>(compare.getLoc(),
+          compare.getValue(), trueVal.getValue(), falseVal.getValue());
   return NonAffineIndexExpr(results);
 }
 

@@ -79,7 +79,7 @@ void registerDialects(mlir::MLIRContext &context) {
 int check(ModelProto &model) {
   mlir::MLIRContext context;
   registerDialects(context);
-  mlir::OwningOpRef<ModuleOp> module;
+  mlir::OwningOpRef<mlir::ModuleOp> module;
 
   onnx_mlir::ImportOptions options;
   options.useOnnxModelTypes = true;
@@ -94,7 +94,7 @@ int check(ModelProto &model) {
     return 1;
   }
 
-  if (mlir::failed(module->verify())) {
+  if (mlir::failed(module->verifyInvariants())) {
     module->dump();
     std::cerr << "Error verifying module!\n";
     return 1;

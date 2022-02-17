@@ -442,7 +442,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         auto cond =
             rewriter.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq,
                 axesBounds.getDim(0).getValue(), zeroIndex);
-        initVal = rewriter.create<arith::SelectOp>(loc, cond, trueVal, falseVal);
+        initVal =
+            rewriter.create<arith::SelectOp>(loc, cond, trueVal, falseVal);
       } else {
         // When axesDim is known, it can not be 0 due to !isFromNone
         initVal = falseVal;
@@ -540,7 +541,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
             auto mask = rewriter.create<KrnlLoadOp>(loc, maskVal, indexVal);
             auto cond = rewriter.create<arith::CmpIOp>(
                 loc, arith::CmpIPredicate::eq, mask, trueVal);
-            auto dim = rewriter.create<arith::SelectOp>(loc, cond, valueOne, inputDim);
+            auto dim =
+                rewriter.create<arith::SelectOp>(loc, cond, valueOne, inputDim);
             allocOperands.push_back(dim);
           } else {
             auto dim = createMemRef.dim(input, outInDimMap[i]);
@@ -620,8 +622,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         auto mask = rewriter.create<KrnlLoadOp>(loc, maskVal, indexVal);
         auto cond = rewriter.create<arith::CmpIOp>(
             loc, arith::CmpIPredicate::eq, mask, trueVal);
-        auto dim =
-            rewriter.create<arith::SelectOp>(loc, cond, zeroIndex, inLoopIVs[i]);
+        auto dim = rewriter.create<arith::SelectOp>(
+            loc, cond, zeroIndex, inLoopIVs[i]);
         outLoopIVs.push_back(dim);
       } else if (outInDimMap.find(i) != outInDimMap.end()) {
         outLoopIVs.push_back(inLoopIVs[outInDimMap[i]]);

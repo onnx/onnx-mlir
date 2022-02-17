@@ -972,8 +972,8 @@ static std::string getDataLayout(const Location &loc) {
   return dataLayoutString;
 }
 
-void setupModule(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
-    std::string outputBaseName) {
+void setupModule(mlir::OwningOpRef<ModuleOp> &module,
+    mlir::MLIRContext &context, std::string outputBaseName) {
   // Initialize the targets support for all targets LLVM was configured for.
   llvm::InitializeAllTargets();
   llvm::InitializeAllTargetMCs();
@@ -995,8 +995,8 @@ void setupModule(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context
   }
 }
 
-static void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
-    EmissionTargetType emissionTarget) {
+static void addPasses(mlir::OwningOpRef<ModuleOp> &module,
+    mlir::PassManager &pm, EmissionTargetType emissionTarget) {
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
   if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
@@ -1025,8 +1025,9 @@ void emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
     emitOutputFiles(outputBaseName, emissionTarget, context, module);
 }
 
-int compileModule(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
-    std::string outputBaseName, EmissionTargetType emissionTarget) {
+int compileModule(mlir::OwningOpRef<ModuleOp> &module,
+    mlir::MLIRContext &context, std::string outputBaseName,
+    EmissionTargetType emissionTarget) {
   setupModule(module, context, outputBaseName);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);

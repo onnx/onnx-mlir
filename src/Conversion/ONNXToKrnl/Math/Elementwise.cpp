@@ -332,7 +332,8 @@ Value emitScalarOpFor<ONNXReluOp>(ConversionPatternRewriter &rewriter,
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
   auto lessThanZero = rewriter.create<arith::CmpFOp>(
       loc, arith::CmpFPredicate::OLT, operand, zero);
-  auto result = rewriter.create<arith::SelectOp>(loc, lessThanZero, zero, operand);
+  auto result =
+      rewriter.create<arith::SelectOp>(loc, lessThanZero, zero, operand);
 
   return result;
 }
@@ -497,11 +498,11 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
     auto plusPredicate = rewriter.create<arith::CmpIOp>(
         loc, arith::CmpIPredicate::sgt, operand, zero);
     auto plusSelect =
-      rewriter.create<arith::SelectOp>(loc, plusPredicate, one, minusOne);
+        rewriter.create<arith::SelectOp>(loc, plusPredicate, one, minusOne);
     auto zeroPredicate = rewriter.create<arith::CmpIOp>(
         loc, arith::CmpIPredicate::eq, operand, zero);
     auto result =
-      rewriter.create<arith::SelectOp>(loc, zeroPredicate, zero, plusSelect);
+        rewriter.create<arith::SelectOp>(loc, zeroPredicate, zero, plusSelect);
     return result;
   } else if (elementType.isa<FloatType>()) {
     // %Y = SelectOP(CmpFOp(OGT, %X, ConstantOp 0),
@@ -516,11 +517,11 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
     auto plusPredicate = rewriter.create<arith::CmpFOp>(
         loc, arith::CmpFPredicate::OGT, operand, zero);
     auto plusSelect =
-      rewriter.create<arith::SelectOp>(loc, plusPredicate, one, minusOne);
+        rewriter.create<arith::SelectOp>(loc, plusPredicate, one, minusOne);
     auto zeroPredicate = rewriter.create<arith::CmpFOp>(
         loc, arith::CmpFPredicate::OEQ, operand, zero);
     auto result =
-      rewriter.create<arith::SelectOp>(loc, zeroPredicate, zero, plusSelect);
+        rewriter.create<arith::SelectOp>(loc, zeroPredicate, zero, plusSelect);
     return result;
   } else {
     llvm_unreachable("unsupported element type");

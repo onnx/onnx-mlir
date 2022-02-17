@@ -2249,27 +2249,27 @@ func @test_resize1(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 // CHECK:             [[VAR_7_:%.+]] = math.floor [[VAR_6_]] : f32
 // CHECK:             [[VAR_8_:%.+]] = arith.fptosi [[VAR_7_]] : f32 to i64
 // CHECK:             [[VAR_9_:%.+]] = arith.cmpi slt, [[VAR_8_]], [[VAR_c0_i64_]] : i64
-// CHECK:             [[VAR_10_:%.+]] = select [[VAR_9_]], [[VAR_c0_i64_]], [[VAR_8_]] : i64
+// CHECK:             [[VAR_10_:%.+]] = arith.select [[VAR_9_]], [[VAR_c0_i64_]], [[VAR_8_]] : i64
 // CHECK-DAG:         [[VAR_11_:%.+]] = arith.index_cast [[VAR_10_]] : i64 to index
 // CHECK-DAG:         [[VAR_c3_:%.+]] = arith.constant 3 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_12_:%.+]] = arith.cmpi slt, [[VAR_11_]], [[VAR_c3_]] : index
 // CHECK-DAG:         [[VAR_13_:%.+]] = arith.subi [[VAR_c3_]], [[VAR_c1_]] : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_14_:%.+]] = select [[VAR_12_]], [[VAR_11_]], [[VAR_13_]] : index
+// CHECK-DAG:         [[VAR_14_:%.+]] = arith.select [[VAR_12_]], [[VAR_11_]], [[VAR_13_]] : index
 // CHECK-DAG:         [[VAR_15_:%.+]] = arith.index_cast [[I_1_]] : index to i64
 // CHECK:             [[VAR_16_:%.+]] = arith.sitofp [[VAR_15_]] : i64 to f32
 // CHECK:             [[VAR_17_:%.+]] = arith.divf [[VAR_16_]], [[VAR_cst_1_]] : f32
 // CHECK:             [[VAR_18_:%.+]] = math.floor [[VAR_17_]] : f32
 // CHECK:             [[VAR_19_:%.+]] = arith.fptosi [[VAR_18_]] : f32 to i64
 // CHECK:             [[VAR_20_:%.+]] = arith.cmpi slt, [[VAR_19_]], [[VAR_c0_i64_]] : i64
-// CHECK:             [[VAR_21_:%.+]] = select [[VAR_20_]], [[VAR_c0_i64_]], [[VAR_19_]] : i64
+// CHECK:             [[VAR_21_:%.+]] = arith.select [[VAR_20_]], [[VAR_c0_i64_]], [[VAR_19_]] : i64
 // CHECK-DAG:         [[VAR_22_:%.+]] = arith.index_cast [[VAR_21_]] : i64 to index
 // CHECK-DAG:         [[VAR_c4_:%.+]] = arith.constant 4 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_23_:%.+]] = arith.cmpi slt, [[VAR_22_]], [[VAR_c4_]] : index
 // CHECK-DAG:         [[VAR_24_:%.+]] = arith.subi [[VAR_c4_]], [[VAR_c1_]] : index
-// CHECK:             [[VAR_25_:%.+]] = select [[VAR_23_]], [[VAR_22_]], [[VAR_24_]] : index
+// CHECK:             [[VAR_25_:%.+]] = arith.select [[VAR_23_]], [[VAR_22_]], [[VAR_24_]] : index
 // CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_14_]], [[VAR_25_]]{{.}} : memref<3x4xf32>
 // CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<3x12xf32>
 // CHECK:           }

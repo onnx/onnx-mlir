@@ -64,7 +64,7 @@ struct ImportOptions {
  *  @return MLIR::module generated for the ONNX model.
  */
 void ImportFrontendModelArray(const void *onnxBuffer, int bufferSize,
-                              mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,
+    mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,
     ImportOptions options = ImportOptions());
 
 /*!
@@ -73,7 +73,7 @@ void ImportFrontendModelArray(const void *onnxBuffer, int bufferSize,
  *  @return MLIR::module generated for the ONNX model.
  */
 void ImportFrontendModelFile(std::string model_fname,
-                             mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,
+    mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,
     std::string *errorMessage, ImportOptions options = ImportOptions());
 
 /*!
@@ -82,7 +82,7 @@ void ImportFrontendModelFile(std::string model_fname,
  *  @return MLIR::module generated for the ONNX model.
  */
 void ImportFrontendModel(const onnx::ModelProto &model,
-                         mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,
+    mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,
     ImportOptions options = ImportOptions());
 
 /*!
