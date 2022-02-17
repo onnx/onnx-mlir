@@ -19,7 +19,6 @@
 #include <stdint.h>
 #endif // #ifdef __cplusplus
 
-
 #ifdef ONNX_MLIR_BUILT_AS_STATIC
 #define ONNX_MLIR_EXPORT
 #define ONNX_MLIR_NO_EXPORT
@@ -52,8 +51,8 @@ namespace onnx_mlir {
  *  @param envVarName Environment variable name, use default when null.
  *  @return 0 on success or non-zero error code on failure.
  */
-ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(
-    const char *envVarName);
+ONNX_MLIR_EXPORT int64_t
+omSetCompilerOptionsFromEnv(const char *envVarName);
 
 /*!
  *  Define ONNX-MLIR compiler options with options defined by
@@ -106,8 +105,7 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOption(
  *  @param kind Describe which option kind is being set.
  *  @return Value of compiler option.
  */
-ONNX_MLIR_EXPORT const char *omGetCompilerOption(
-    const OptionKind kind);
+ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind);
 
 /*!
  *  Compile an onnx model from a file containing MLIR or ONNX protobuf.
