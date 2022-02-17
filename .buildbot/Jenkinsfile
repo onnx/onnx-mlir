@@ -230,7 +230,7 @@ def post_build_status(event, state) {
      * string while for replaceAll the 1st string is a regex.
      */
     def MAXLEN   = 24
-    def title    = "${GITHUB_PR_COMMIT_MESSAGE}".replace('\n', ' ').replace('\'', '').replace('"', '')
+    def title    = "${GITHUB_PR_COMMIT_MESSAGE}".replace('\n', ' ').replace('\r', ' ').replace('\'', '').replace('"', '')
     def phrase   = (event == 'issue_comment') ?
                    "${GITHUB_PR_PHRASE}" : "${GITHUB_PR_ACTION}"
     def desc     = ("${GITHUB_PR_ACTION}" == 'push' ?

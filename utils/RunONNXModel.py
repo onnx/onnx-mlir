@@ -306,7 +306,7 @@ def main():
         # Use the generated shared library to create an execution session.
         print("Loading the compiled model ...")
         start = time.perf_counter()
-        sess = ExecutionSession(shared_lib_path, "run_main_graph")
+        sess = ExecutionSession(shared_lib_path)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
 

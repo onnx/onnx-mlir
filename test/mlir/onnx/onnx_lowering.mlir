@@ -1463,7 +1463,7 @@ func private @test_squeezev11_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>
 // -----
 
 func private @test_split_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
-  %cst = constant unit
+  %cst = "onnx.NoValue"() {value} : () -> none
   %0, %1 = "onnx.Split"(%arg0, %cst) { axis = 0 : si64} : (tensor<16x32x64xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
   "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
@@ -2039,7 +2039,7 @@ func private @test_clip(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<
 // -----
 
 func private @test_clip_default_min(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
-  %cst = constant unit
+  %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.Clip"(%arg0, %cst, %arg2) : (tensor<3xf32>, none, tensor<f32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
@@ -2226,37 +2226,55 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
 // -----
 
 func @test_resize1(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
-    %cst = constant unit
+    %cst = "onnx.NoValue"() {value} : () -> none
     %0 = "onnx.Constant"() {value = dense<[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
     %1 = "onnx.Constant"() {value = dense<[1.000000e+00,  3.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
     %2 = "onnx.Resize"(%arg0, %0, %1, %cst) {coordinate_transformation_mode = "asymmetric", mode = "nearest", nearest_mode = "floor"} : (tensor<3x4xf32>, tensor<4xf32>, tensor<2xf32>, none) -> tensor<*xf32>
     "std.return"(%2) : (tensor<*xf32>) -> ()
-// CHECK-LABEL:       func @test_resize1       
-// CHECK-SAME:     ([[VAR_arg0:%.+]]: memref<3x4xf32>) -> memref<3x12xf32> {
-// CHECK:           [[VAR_cst:%.+]] = constant unit
-// CHECK:           [[VAR_1:%.+]] = "krnl.global"() {name = {{.*}}, shape = [4], value = dense<[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<4xf32>} : () -> memref<4xf32>
-// CHECK:           [[VAR_2:%.+]] = "krnl.global"() {name = {{.*}}, shape = [2], value = dense<[1.000000e+00, 3.000000e+00]> : tensor<2xf32>} : () -> memref<2xf32>
-// CHECK:           [[VAR_cst_0:%.+]] = arith.constant 1.000000e+00 : f32
-// CHECK:           [[VAR_cst_1:%.+]] = arith.constant 3.000000e+00 : f32
-// CHECK:           [[VAR_0:%.+]] = memref.alloc() {{.*}}: memref<3x12xf32>
-// CHECK:           [[VAR_3:%.+]]:2 = krnl.define_loops 2
-// CHECK:           krnl.iterate([[VAR_3]]#0, [[VAR_3]]#1) with ([[VAR_3]]#0 -> [[VAR_arg1:%.+]] = 0 to 3, [[VAR_3]]#1 -> [[VAR_arg2:%.+]] = 0 to 12){
-// CHECK:             [[VAR_4:%.+]] = arith.index_cast [[VAR_arg1]] : index to i64
-// CHECK:             [[VAR_5:%.+]] = arith.sitofp [[VAR_4]] : i64 to f32
-// CHECK:             [[VAR_6:%.+]] = arith.divf [[VAR_5]], [[VAR_cst_0]] : f32
-// CHECK:             [[VAR_7:%.+]] = math.floor [[VAR_6]] : f32
-// CHECK:             [[VAR_8:%.+]] = arith.fptosi [[VAR_7]] : f32 to i64
-// CHECK:             [[VAR_9:%.+]] = arith.index_cast [[VAR_8]] : i64 to index
-// CHECK:             [[VAR_10:%.+]] = arith.index_cast [[VAR_arg2]] : index to i64
-// CHECK:             [[VAR_11:%.+]] = arith.sitofp [[VAR_10]] : i64 to f32
-// CHECK:             [[VAR_12:%.+]] = arith.divf [[VAR_11]], [[VAR_cst_1]] : f32
-// CHECK:             [[VAR_13:%.+]] = math.floor [[VAR_12]] : f32
-// CHECK:             [[VAR_14:%.+]] = arith.fptosi [[VAR_13]] : f32 to i64
-// CHECK:             [[VAR_15:%.+]] = arith.index_cast [[VAR_14]] : i64 to index
-// CHECK:             [[VAR_16:%.+]] = krnl.load [[VAR_arg0]]{{.}}[[VAR_9]], [[VAR_15]]{{.}} : memref<3x4xf32>
-// CHECK:             krnl.store [[VAR_16]], [[VAR_0]]{{.}}[[VAR_arg1]], [[VAR_arg2]]{{.}} : memref<3x12xf32>
+// CHECK-LABEL:  func @test_resize1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x4xf32>) -> memref<3x12xf32> {
+// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [4], value = dense<[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<4xf32>} : () -> memref<4xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [2], value = dense<[1.000000e+00, 3.000000e+00]> : tensor<2xf32>} : () -> memref<2xf32>
+// CHECK-DAG:       [[VAR_cst_0_:%.+]] = arith.constant 1.000000e+00 : f32
+// CHECK-DAG:       [[VAR_cst_1_:%.+]] = arith.constant 3.000000e+00 : f32
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x12xf32>
+// CHECK-DAG:       [[VAR_c0_i64_:%.+]] = arith.constant 0 : i64
+// CHECK-DAG:       [[VAR_c1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 12){
+// CHECK:             [[VAR_4_:%.+]] = arith.index_cast [[I_0_]] : index to i64
+// CHECK:             [[VAR_5_:%.+]] = arith.sitofp [[VAR_4_]] : i64 to f32
+// CHECK:             [[VAR_6_:%.+]] = arith.divf [[VAR_5_]], [[VAR_cst_0_]] : f32
+// CHECK:             [[VAR_7_:%.+]] = math.floor [[VAR_6_]] : f32
+// CHECK:             [[VAR_8_:%.+]] = arith.fptosi [[VAR_7_]] : f32 to i64
+// CHECK:             [[VAR_9_:%.+]] = arith.cmpi slt, [[VAR_8_]], [[VAR_c0_i64_]] : i64
+// CHECK:             [[VAR_10_:%.+]] = select [[VAR_9_]], [[VAR_c0_i64_]], [[VAR_8_]] : i64
+// CHECK-DAG:         [[VAR_11_:%.+]] = arith.index_cast [[VAR_10_]] : i64 to index
+// CHECK-DAG:         [[VAR_c3_:%.+]] = arith.constant 3 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_12_:%.+]] = arith.cmpi slt, [[VAR_11_]], [[VAR_c3_]] : index
+// CHECK-DAG:         [[VAR_13_:%.+]] = arith.subi [[VAR_c3_]], [[VAR_c1_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_14_:%.+]] = select [[VAR_12_]], [[VAR_11_]], [[VAR_13_]] : index
+// CHECK-DAG:         [[VAR_15_:%.+]] = arith.index_cast [[I_1_]] : index to i64
+// CHECK:             [[VAR_16_:%.+]] = arith.sitofp [[VAR_15_]] : i64 to f32
+// CHECK:             [[VAR_17_:%.+]] = arith.divf [[VAR_16_]], [[VAR_cst_1_]] : f32
+// CHECK:             [[VAR_18_:%.+]] = math.floor [[VAR_17_]] : f32
+// CHECK:             [[VAR_19_:%.+]] = arith.fptosi [[VAR_18_]] : f32 to i64
+// CHECK:             [[VAR_20_:%.+]] = arith.cmpi slt, [[VAR_19_]], [[VAR_c0_i64_]] : i64
+// CHECK:             [[VAR_21_:%.+]] = select [[VAR_20_]], [[VAR_c0_i64_]], [[VAR_19_]] : i64
+// CHECK-DAG:         [[VAR_22_:%.+]] = arith.index_cast [[VAR_21_]] : i64 to index
+// CHECK-DAG:         [[VAR_c4_:%.+]] = arith.constant 4 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_23_:%.+]] = arith.cmpi slt, [[VAR_22_]], [[VAR_c4_]] : index
+// CHECK-DAG:         [[VAR_24_:%.+]] = arith.subi [[VAR_c4_]], [[VAR_c1_]] : index
+// CHECK:             [[VAR_25_:%.+]] = select [[VAR_23_]], [[VAR_22_]], [[VAR_24_]] : index
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_14_]], [[VAR_25_]]{{.}} : memref<3x4xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<3x12xf32>
 // CHECK:           }
-// CHECK:           return [[VAR_0]] : memref<3x12xf32>
+// CHECK:           return [[RES_]] : memref<3x12xf32>
+// CHECK:         }
 }
 
 //-----

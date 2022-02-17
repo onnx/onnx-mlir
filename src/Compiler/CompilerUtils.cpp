@@ -20,6 +20,7 @@
 #include "mlir/Target/LLVMIR/Export.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SourceMgr.h"
@@ -31,9 +32,13 @@
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Support/OMOptions.hpp"
 
+#define DEBUG_TYPE "compiler_utils"
+
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
+
+const string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
 llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX-MLIR Options", "These are frontend options.");
@@ -120,6 +125,22 @@ static llvm::cl::opt<OptLevel> OptimizationLevel(
 static llvm::cl::opt<bool> VerboseOutput("v",
     llvm::cl::desc("Use verbose output"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string> Xopt("Xopt",
+    llvm::cl::desc("Arguments to forward to LLVM's 'opt' option processing"),
+    llvm::cl::value_desc("A valid LLVM's 'opt' option"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+
+static llvm::cl::opt<std::string> Xllc("Xllc",
+    llvm::cl::desc("Arguments to forward to LLVM's 'llc' option processing"),
+    llvm::cl::value_desc("A valid LLVM's 'llc' option"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+
+static llvm::cl::opt<std::string> mllvm("mllvm",
+    llvm::cl::desc(
+        "Arguments to forward to LLVM's 'opt' and 'llc' option processing"),
+    llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
 
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
@@ -304,51 +325,152 @@ struct Command {
 };
 } // namespace
 
-void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
-void setTargetArch(const std::string &arch) { march = arch; }
-void setTargetTriple(const std::string &triple) { mtriple = triple; }
-void setOptLevel(const OptLevel level) { OptimizationLevel = level; }
-OptLevel getOptLevel() { return OptimizationLevel; }
+// =============================================================================
+// Methods for setting and getting compiler variables.
 
-static void setCompilerKeyValue(const OptionKind key, const string val) {
-  switch (key) {
+// Triple.
+static void setTargetTriple(const std::string &triple) {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set triple\"" << triple << "\"\n");
+  mtriple = triple;
+}
+
+static std::string getTargetTripleOption() {
+  string targetOptions = "";
+  // Command cannot tolerate extra spaces. Add only when needed.
+  if (mtriple != "")
+    targetOptions = "--mtriple=" + mtriple;
+  else if (kDefaultTriple != "")
+    targetOptions = "--mtriple=" + kDefaultTriple;
+  return targetOptions;
+}
+
+// Arch.
+static void setTargetArch(const std::string &arch) {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set arch\"" << arch << "\"\n");
+  march = arch;
+}
+
+static std::string getTargetArchOption() {
+  return (march != "") ? "--march=" + march : "";
+}
+
+// CPU.
+static void setTargetCPU(const std::string &cpu) {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set CPU\"" << cpu << "\"\n");
+  mcpu = cpu;
+}
+
+static std::string getTargetCPUOption() {
+  return (mcpu != "") ? "--mcpu=" + mcpu : "";
+}
+
+// Optimization level.
+static void setOptLevel(const OptLevel level) {
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << "Set opt level " << level << "\n");
+  OptimizationLevel = level;
+}
+
+static std::string getOptimizationLevelOption() {
+  switch (OptimizationLevel) {
+  case OptLevel::O0:
+    return "-O0";
+  case OptLevel::O1:
+    return "-O1";
+  case OptLevel::O2:
+    return "-O2";
+  case OptLevel::O3:
+    return "-O3";
+  }
+  llvm_unreachable("Unexpected optimization level");
+  return "";
+}
+
+// Xopt.
+static void setXoptOption(const std::string &flag) { Xopt = flag; }
+
+static std::string getXoptOption() {
+  return (Xopt != "") ? Xopt : std::string();
+}
+
+// Xllc.
+static void setXllcOption(const std::string &flag) { Xllc = flag; }
+
+static std::string getXllcOption() {
+  return (Xllc != "") ? Xllc : std::string();
+}
+
+// LLVM.
+static void setLLVMOption(const std::string &flag) { mllvm = flag; }
+
+static std::string getLLVMOption() {
+  return (mllvm != "") ? mllvm : std::string();
+}
+
+// =============================================================================
+// Methods for OMCompilerOptions
+
+int setCompilerOption(const OptionKind kind, const string &val) {
+  switch (kind) {
   case OptionKind::TargetTriple:
     setTargetTriple(val);
-    return;
+    break;
   case OptionKind::TargetArch:
     setTargetArch(val);
-    return;
+    break;
   case OptionKind::TargetCPU:
     setTargetCPU(val);
-    return;
-  case OptionKind::CompilerOptLevel:
+    break;
+  case OptionKind::CompilerOptLevel: {
     int level = atoi(val.c_str());
-    assert(level >= 0 && level <= 3 && "expected an OptLevel in [0..3] range");
+    if (level < 0 || level > 3)
+      return 1;
     setOptLevel((OptLevel)level);
-    return;
+  } break;
+  case OptionKind::OPTFlag:
+    setXoptOption(val);
+    break;
+  case OptionKind::LLCFlag:
+    setXllcOption(val);
+    break;
+  case OptionKind::LLVMFlag:
+    setLLVMOption(val);
+    break;
+    // Ignore options that were added but are unknown.
   }
-  // In case there are options that were added but are unknown here, just ignore
-  // them.
+  return 0;
 }
 
-// Set compiler context using a list of key/value pairs.
-void setCompileContext(
-    mlir::MLIRContext &context, const CompilerOptionList &options) {
-  for (const auto &pair : options)
-    setCompilerKeyValue(pair.first, pair.second);
-  registerDialects(context);
+string getCompilerOption(const OptionKind kind) {
+  switch (kind) {
+  case OptionKind::TargetTriple:
+    return getTargetTripleOption();
+  case OptionKind::TargetArch:
+    return getTargetArchOption();
+  case OptionKind::TargetCPU:
+    return getTargetCPUOption();
+  case OptionKind::CompilerOptLevel:
+    return getOptimizationLevelOption();
+  case OptionKind::OPTFlag:
+    return getXoptOption();
+  case OptionKind::LLCFlag:
+    return getXllcOption();
+  case OptionKind::LLVMFlag:
+    return getLLVMOption();
+  }
+  return string();
 }
 
-// Set compiler context for legacy C interface.
-void setCompileContext(mlir::MLIRContext &context, const OptionKind *key,
-    const char **val, const int64_t num) {
-  assert((!num || (key && val)) && "expected key and val defined for options");
-  for (int64_t i = 0; i < num; ++i) {
-    assert(val[i] && "expected value for option");
-    setCompilerKeyValue(key[i], string(val[i]));
+int setCompilerOptions(const CompilerOptionList &list) {
+  for (const auto &pair : list) {
+    int rc = setCompilerOption(pair.first, pair.second);
+    if (rc != 0)
+      return rc;
   }
-  registerDialects(context);
+  return 0;
 }
+
+// =============================================================================
+// Methods for compiling and file processing.
 
 void loadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module) {
@@ -370,45 +492,6 @@ void loadMLIR(string inputFilename, mlir::MLIRContext &context,
     llvm::errs() << "Error can't load file " << inputFilename << "\n";
     exit(1);
   }
-}
-
-static std::string getTargetCpuOption() {
-  string targetOptions = "";
-  if (mcpu != "")
-    targetOptions += "--mcpu=" + mcpu;
-  return targetOptions;
-}
-
-static std::string getTargetArchOption() {
-  string targetOptions = "";
-  if (march != "")
-    targetOptions += "--march=" + march;
-  return targetOptions;
-}
-
-static std::string getTargetTripleOption() {
-  string targetOptions = "";
-  // Command cannot tolerate extra spaces. Add only when needed.
-  if (mtriple != "")
-    targetOptions = "--mtriple=" + mtriple;
-  else if (kDefaultTriple != "")
-    targetOptions = "--mtriple=" + kDefaultTriple;
-  return targetOptions;
-}
-
-static std::string getOptimizationLevelOption() {
-  switch (getOptLevel()) {
-  case OptLevel::O0:
-    return "-O0";
-  case OptLevel::O1:
-    return "-O1";
-  case OptLevel::O2:
-    return "-O2";
-  case OptLevel::O3:
-    return "-O3";
-  }
-  llvm_unreachable("Unexpected optimization level");
-  return "";
 }
 
 // Write LLVM optimized bitcode.
@@ -446,7 +529,9 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   optBitcode.appendStr(getOptimizationLevelOption())
       .appendStr(getTargetTripleOption())
       .appendStr(getTargetArchOption())
-      .appendStr(getTargetCpuOption())
+      .appendStr(getTargetCPUOption())
+      .appendStr(getXoptOption())
+      .appendStr(getLLVMOption())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
       .exec();
@@ -466,7 +551,9 @@ static std::string genModelObject(string bitcodePath, string outputBaseName) {
   llvmToObj.appendStr(getOptimizationLevelOption())
       .appendStr(getTargetTripleOption())
       .appendStr(getTargetArchOption())
-      .appendStr(getTargetCpuOption())
+      .appendStr(getTargetCPUOption())
+      .appendStr(getXllcOption())
+      .appendStr(getLLVMOption())
       .appendStr("-filetype=obj")
       .appendStr("-relocation-model=pic")
       .appendList({"-o", modelObjPath})
@@ -610,7 +697,7 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::shape::ShapeDialect>();
   context.getOrLoadDialect<mlir::math::MathDialect>();
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
-  context.getOrLoadDialect<mlir::ONNXOpsDialect>();
+  context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
 }
 
@@ -736,9 +823,8 @@ InputIRLevelType determineInputIRLevel(mlir::OwningOpRef<ModuleOp> &module) {
   });
 
   // If there are ONNX ops, the input level is ONNX.
-  bool hasONNXOps = llvm::any_of(dialectNamespace, [&](StringRef ns) {
-    return (ns == ONNXOpsDialect::getDialectNamespace());
-  });
+  bool hasONNXOps = llvm::any_of(dialectNamespace,
+      [&](StringRef ns) { return (ns == ONNXDialect::getDialectNamespace()); });
   if (hasONNXOps)
     return ONNXLevel;
 
@@ -918,7 +1004,7 @@ static void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
-      addONNXToKrnlPasses(pm, getOptLevel());
+      addONNXToKrnlPasses(pm, OptimizationLevel);
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }

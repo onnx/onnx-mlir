@@ -81,8 +81,8 @@ DenseElementsAttr createScalarDenseAttr(
   llvm_unreachable("unexpected attribute type");
 }
 
-arith::ConstantOp createUnitConstant(PatternRewriter &rewriter, Location loc) {
-  return rewriter.create<arith::ConstantOp>(loc, rewriter.getUnitAttr());
+Value createUnitConstant(PatternRewriter &rewriter, Location loc) {
+  return rewriter.create<ONNXNoneOp>(loc);
 }
 
 // Create an DenseElementsAttr of ArrayAttr.
@@ -109,7 +109,8 @@ Value createSequenceConstructOp(
     PatternRewriter &rewriter, mlir::Value seq, mlir::OperandRange inputs) {
   Type resType = seq.getType();
   Location loc = seq.getLoc();
-  Value position = rewriter.create<arith::ConstantOp>(loc, rewriter.getUnitAttr());
+  Value position = rewriter.create<ONNXNoneOp>(loc);
+
   for (auto input : inputs) {
     seq = rewriter.create<ONNXSequenceInsertOp>(
         loc, resType, seq, input, position);
@@ -141,7 +142,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   ConversionTarget target(getContext());
-  target.addLegalDialect<ONNXOpsDialect, arith::ArithmeticDialect, StandardOpsDialect>();
+  target.addLegalDialect<ONNXDialect, arith::ArithmeticDialect,
+      StandardOpsDialect>();
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.

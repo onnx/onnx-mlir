@@ -2,11 +2,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------------------- main.cpp ---------------------------------===//
+//===------------------ onnx-mlir.cpp - Compiler Driver  ------------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
+// Main function for onnx-mlir.
 // Implements main for onnx-mlir driver.
 //===----------------------------------------------------------------------===//
 
@@ -29,6 +30,7 @@ int main(int argc, char *argv[]) {
       llvm::cl::desc("Base path for output files, extensions will be added."),
       llvm::cl::value_desc("path"), llvm::cl::cat(OnnxMlirOptions),
       llvm::cl::ValueRequired);
+
   llvm::cl::opt<EmissionTargetType> emissionTarget(
       llvm::cl::desc("Choose target to emit:"),
       llvm::cl::values(
@@ -51,8 +53,10 @@ int main(int argc, char *argv[]) {
   mlir::registerPassManagerCLOptions();
   mlir::registerDefaultTimingManagerCLOptions();
 
-  llvm::cl::ParseCommandLineOptions(
-      argc, argv, "ONNX-MLIR modular optimizer driver\n");
+  // Parse options from argc/argv and default ONNX_MLIR_FLAG env var.
+  llvm::cl::ParseCommandLineOptions(argc, argv,
+      "ONNX-MLIR modular optimizer driver\n", nullptr,
+      OnnxMlirEnvOptionName.c_str());
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;

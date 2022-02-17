@@ -3,6 +3,7 @@
  */
 
 #include "OnnxMlirCompiler.h"
+#include <assert.h>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -11,95 +12,60 @@ using namespace onnx_mlir;
 
 std::string testFileName;
 std::string outputBaseName;
-std::string mcpu;
-std::string march;
-std::string mtriple;
 bool compileFromFile = false;
-bool optO0 = false;
-bool optO1 = false;
-bool optO2 = false;
-bool optO3 = false;
 
+#define IGNORE_ARG(FLAG)                                                       \
+  if (arg.find(FLAG) == 0) {                                                   \
+    return false;                                                              \
+  }
 #define PARSE_ARG(NAME, FLAG)                                                  \
   if (arg.find(FLAG) == 0) {                                                   \
     NAME = arg.substr(sizeof(FLAG));                                           \
-    return;                                                                    \
+    return true;                                                               \
   }
-
 #define PARSE_FLAG(NAME, FLAG)                                                 \
   if (arg.find(FLAG) == 0) {                                                   \
     NAME = true;                                                               \
-    return;                                                                    \
+    return true;                                                               \
   }
 
-void readArg(const std::string &arg) {
-  PARSE_ARG(mcpu, "--mcpu=");
-  PARSE_ARG(march, "--march=");
-  PARSE_ARG(mtriple, "--mtriple=");
+// Return 1 if arg used, 0 if unused.
+bool readArg(const std::string &arg) {
   PARSE_ARG(outputBaseName, "-o");
-  PARSE_FLAG(optO0, "-O0");
-  PARSE_FLAG(optO1, "-O1");
-  PARSE_FLAG(optO2, "-O2");
-  PARSE_FLAG(optO3, "-O3");
   PARSE_FLAG(compileFromFile, "--fromfile");
+  IGNORE_ARG("-"); // Ignore all other options.
   testFileName = arg;
+  return true;
 }
 
-void readCommandLine(int argc, char *argv[]) {
-  for (int i = 1; i < argc; ++i) {
-    readArg(std::string(argv[i]));
+// Read the arguments used by this program, and leave in argc/argv
+// the unused arguments, which may then be processed by the
+// ONNX-MLIR compiler.
+void readCommandLineAndKeepUnused(int &argc, char *argv[]) {
+  int num = argc;
+  argc = 0;
+  argv[argc++] = argv[0]; // Keep program name.
+  for (int i = 1; i < num; ++i) {
+    if (!readArg(std::string(argv[i]))) {
+      argv[argc++] = argv[i];
+    }
   }
 }
 
 int main(int argc, char *argv[]) {
-  readCommandLine(argc, argv);
+  // Read the compiler options from env and args.
+  readCommandLineAndKeepUnused(argc, argv);
+  omSetCompilerOptionsFromArgsAndEnv(argc, argv, nullptr);
 
   if (outputBaseName == "") {
     outputBaseName = testFileName.substr(0, testFileName.find_last_of("."));
   }
 
-  // Build list of compiler option.
-  OptionKind optionKey[4];
-  const char *optionVal[4];
-  int optionNum = 0;
-  if (!mtriple.empty()) {
-    optionKey[optionNum] = OptionKind::TargetTriple;
-    optionVal[optionNum] = mtriple.c_str();
-    optionNum++;
-  }
-  if (!march.empty()) {
-    optionKey[optionNum] = OptionKind::TargetArch;
-    optionVal[optionNum] = march.c_str();
-    optionNum++;
-  }
-  if (!mcpu.empty()) {
-    optionKey[optionNum] = OptionKind::TargetCPU;
-    optionVal[optionNum] = mcpu.c_str();
-    optionNum++;
-  }
-  if (optO0) {
-    optionKey[optionNum] = OptionKind::CompilerOptLevel;
-    optionVal[optionNum] = "0";
-    optionNum++;
-  } else if (optO1) {
-    optionKey[optionNum] = OptionKind::CompilerOptLevel;
-    optionVal[optionNum] = "1";
-    optionNum++;
-  } else if (optO2) {
-    optionKey[optionNum] = OptionKind::CompilerOptLevel;
-    optionVal[optionNum] = "2";
-    optionNum++;
-  } else if (optO3) {
-    optionKey[optionNum] = OptionKind::CompilerOptLevel;
-    optionVal[optionNum] = "3";
-    optionNum++;
-  }
-
   int retVal = 0;
+  const char *errorMessage = NULL;
   if (compileFromFile) {
-    const char *errorMessage = NULL;
     retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
-        onnx_mlir::EmitLib, optionKey, optionVal, optionNum, &errorMessage);
+        onnx_mlir::EmitLib, &errorMessage);
     if (errorMessage != NULL) {
       std::cerr << errorMessage;
       retVal = 0xf;
@@ -109,9 +75,12 @@ int main(int argc, char *argv[]) {
         testFileName, std::ios_base::in | std::ios_base::binary);
     std::string test((std::istreambuf_iterator<char>(inFile)),
         std::istreambuf_iterator<char>());
-    retVal =
-        omCompileFromArray(test.data(), test.size(), outputBaseName.c_str(),
-            onnx_mlir::EmitLib, optionKey, optionVal, optionNum);
+    retVal = omCompileFromArray(test.data(), test.size(),
+        outputBaseName.c_str(), onnx_mlir::EmitLib, &errorMessage);
+    if (errorMessage != NULL) {
+      std::cerr << errorMessage;
+      retVal = 0xf;
+    }
   }
   if (retVal != 0) {
     std::cerr << "Compiling " << testFileName << "failed with code" << retVal;

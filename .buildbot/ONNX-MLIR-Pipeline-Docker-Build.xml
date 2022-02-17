@@ -1,8 +1,8 @@
 <?xml version='1.1' encoding='UTF-8'?>
-<flow-definition plugin="workflow-job@2.42">
+<flow-definition plugin="workflow-job@1145.v7f2433caa07f">
   <actions>
-    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobAction plugin="pipeline-model-definition@1.9.2"/>
-    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction plugin="pipeline-model-definition@1.9.2">
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobAction plugin="pipeline-model-definition@1.9.3"/>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction plugin="pipeline-model-definition@1.9.3">
       <jobProperties/>
       <triggers/>
       <parameters/>
@@ -66,7 +66,7 @@ The GitHub Plugin has a &quot;bug&quot; that it would use the SHA we are buildin
     </jenkins.branch.RateLimitBranchProperty_-JobPropertyImpl>
     <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
       <triggers>
-        <org.jenkinsci.plugins.gwt.GenericTrigger plugin="generic-webhook-trigger@1.77">
+        <org.jenkinsci.plugins.gwt.GenericTrigger plugin="generic-webhook-trigger@1.83">
           <spec></spec>
           <genericVariables>
             <org.jenkinsci.plugins.gwt.GenericVariable>
@@ -142,7 +142,7 @@ The GitHub Plugin has a &quot;bug&quot; that it would use the SHA we are buildin
       </triggers>
     </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
   </properties>
-  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2633.v6baeedc13805">
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2648.va9433432b33c">
     <script>/* Script here should be minimal. It mainly does two things:
  *
  * 1. Check if webhook event is sent by one of the admins
@@ -371,7 +371,7 @@ def post_build_status(event, state) {
      * string while for replaceAll the 1st string is a regex.
      */
     def MAXLEN   = 24
-    def title    = &quot;${GITHUB_PR_COMMIT_MESSAGE}&quot;.replace(&apos;\n&apos;, &apos; &apos;).replace(&apos;\&apos;&apos;, &apos;&apos;).replace(&apos;&quot;&apos;, &apos;&apos;)
+    def title    = &quot;${GITHUB_PR_COMMIT_MESSAGE}&quot;.replace(&apos;\n&apos;, &apos; &apos;).replace(&apos;\r&apos;, &apos; &apos;).replace(&apos;\&apos;&apos;, &apos;&apos;).replace(&apos;&quot;&apos;, &apos;&apos;)
     def phrase   = (event == &apos;issue_comment&apos;) ?
                    &quot;${GITHUB_PR_PHRASE}&quot; : &quot;${GITHUB_PR_ACTION}&quot;
     def desc     = (&quot;${GITHUB_PR_ACTION}&quot; == &apos;push&apos; ?

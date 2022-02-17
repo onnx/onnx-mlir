@@ -73,7 +73,7 @@ void RegisterFunSchema() {
 
 void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::StandardOpsDialect>();
-  context.getOrLoadDialect<mlir::ONNXOpsDialect>();
+  context.getOrLoadDialect<mlir::ONNXDialect>();
 }
 
 int check(ModelProto &model) {

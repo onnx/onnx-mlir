@@ -18,15 +18,13 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
+#include "test/modellib/ModelLib.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestLoop_main_graph");
 
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
-
-// Include some helper functions.
-#include "Helper.hpp"
 
 std::string testLoopSimpleIR = R"(
 module {
@@ -82,29 +80,29 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
         std::numeric_limits<int64_t>::max(),
     const int64_t constOffset = 0) {
   MLIRContext ctx;
-  setCompileContext(ctx, {{OptionKind::CompilerOptLevel, "3"}});
+  registerDialects(ctx);
 
   auto module = mlir::parseSourceString(moduleIR, &ctx);
   OwningOpRef<ModuleOp> moduleRef(std::move(module));
   compileModule(moduleRef, ctx, SHARED_LIB_BASE.str(), onnx_mlir::EmitLib);
   onnx_mlir::ExecutionSession sess(
-      getSharedLibName(SHARED_LIB_BASE.str()), "run_main_graph");
+      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
-  std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
-  auto tripCountTensor = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+  std::vector<OMTensorUniquePtr> inputs;
+  auto tripCountTensor = OMTensorUniquePtr(
       omTensorCreateEmpty(nullptr, 0, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
   omTensorGetElem<int64_t>(tripCountTensor.get(), {}) = tripCount;
   inputs.emplace_back(move(tripCountTensor));
 
-  auto condTensor = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+  auto condTensor = OMTensorUniquePtr(
       omTensorCreateEmpty(nullptr, 0, OM_DATA_TYPE::ONNX_TYPE_BOOL),
       omTensorDestroy);
   omTensorGetElem<bool>(condTensor.get(), {}) = true;
   inputs.emplace_back(move(condTensor));
 
   auto *yInitShape = new int64_t[1]{1};
-  auto yInitTensor = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+  auto yInitTensor = OMTensorUniquePtr(
       omTensorCreateEmpty(&yInitShape[0], 1, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
   omTensorGetElem<int64_t>(yInitTensor.get(), {0}) = yInit;
@@ -113,7 +111,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   auto outputs = sess.run(move(inputs));
 
   auto *yRefInitShape = new int64_t[1]{1};
-  auto vFinalRef = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+  auto vFinalRef = OMTensorUniquePtr(
       omTensorCreateEmpty(&yRefInitShape[0], 1, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
 
@@ -127,8 +125,10 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
 }
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
+  llvm::FileRemover remover(
+      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
+  setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLoop\n", nullptr, "TEST_ARGS");
 

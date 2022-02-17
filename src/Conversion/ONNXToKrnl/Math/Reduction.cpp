@@ -491,22 +491,17 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         }
       }
     } else {
-      // Get axes value defined by op
-      // Leave empty is not defined
+      // Get axes value defined by op. Leave empty is not defined.
       std::vector<int64_t> definedAxes;
 
-      // Assume it is verified that axes are known
-      // Convert DenseElementsAttr to ArrayAttr
-      if (isFromNone(axesValue)) {
-      } else if (getONNXConstantOp(axesValue)) {
-        DenseElementsAttr constAxes =
-            getONNXConstantOp(axesValue)
-                .valueAttr()
-                .dyn_cast_or_null<mlir::DenseElementsAttr>();
-        SmallVector<int64_t, 4> values;
-        for (auto element : constAxes.getValues<IntegerAttr>()) {
+      // Assume it is verified that axes are known. Convert DenseElementsAttr to
+      // ArrayAttr.
+      if (!isFromNone(axesValue) && getONNXConstantOp(axesValue)) {
+        auto constAxes = getONNXConstantOp(axesValue)
+                             .valueAttr()
+                             .dyn_cast_or_null<mlir::DenseElementsAttr>();
+        for (auto element : constAxes.getValues<IntegerAttr>())
           definedAxes.push_back(element.getInt());
-        }
       }
 
       std::vector<int64_t> axes;

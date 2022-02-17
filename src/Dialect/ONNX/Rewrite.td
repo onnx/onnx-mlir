@@ -15,7 +15,7 @@
 #define ONNX_REWRITE
 
 #ifndef OP_BASE
-include "src/Dialect/ONNX/ONNXOps.td"
+include "src/Dialect/ONNX/ONNX.td"
 #endif // OP_BASE
 
 /// Note: The DRR definition used for defining patterns is shown below:
@@ -263,8 +263,9 @@ def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
 
 // y, mask = onnx.Dropout(x) -> y, mask = x, none
 def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $arg, $arg1, $arg2, $ratio),
-                                        [(replaceWithValue $arg),
-                                         (ONNXConstantOp (GetNullAttr), (GetUnitAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr))]>;
+  [(replaceWithValue $arg), (ONNXConstantOp (GetNullAttr), (GetUnitAttr), 
+   (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), 
+   (GetNullAttr))]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXCastOp

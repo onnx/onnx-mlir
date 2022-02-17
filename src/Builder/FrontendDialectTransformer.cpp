@@ -189,12 +189,7 @@ private:
 
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
-  Value none() {
-    auto none =
-      builder_.create<arith::ConstantOp>(UnknownLoc(), builder_.getUnitAttr())
-            .getResult();
-    return none;
-  }
+  Value none() { return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult(); }
 
   // onnx_type_map: a map from ONNX tensor name to ONNX TypeProto.
   SymbolToOnnxTypeMapping onnx_type_map;
@@ -267,7 +262,9 @@ private:
       assert(elem_type.value_case() == onnx::TypeProto::kTensorType &&
              "expect tensor inside sequence type");
       Type mlir_elem_type = ImportTensorType(elem_type);
-      Type seq_type = mlir::onnxmlir::SeqType::get(mlir_elem_type);
+      if (!mlir_elem_type.isa<ShapedType>())
+        llvm_unreachable("Seq type is incorrect");
+      Type seq_type = mlir::SeqType::get(mlir_elem_type.cast<ShapedType>(), -1);
       return seq_type;
     }
     llvm_unreachable("unexpected type");
@@ -1096,8 +1093,8 @@ private:
       if (v.empty()) {
         // Missing (optional) parameter.
         operandOnnxTypes.push_back(unspecifiedType);
-        auto no_value =
-          builder_.create<arith::ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
+        auto no_value = builder_.create<ONNXNoneOp>(UnknownLoc());
+
         operands.push_back(no_value);
         operandTypes.push_back(builder_.getNoneType());
         continue;
@@ -1274,7 +1271,7 @@ private:
     std::string comma = std::string("");
 
     TypeSwitch<Type>(argType)
-        .Case<mlir::onnxmlir::SeqType>([&](mlir::onnxmlir::SeqType seqTy) {
+        .Case<mlir::SeqType>([&](mlir::SeqType seqTy) {
           auto et = seqTy.getElementType();
           dstream << "   {\"seq\" : ";
           concatTypeString(et, attr, dstream);
@@ -1423,7 +1420,8 @@ void ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
 }
 
 void ImportFrontendModelArray(const void *onnxBuffer, int size,
-    MLIRContext &context, OwningOpRef<ModuleOp> &module, ImportOptions options) {
+    MLIRContext &context, OwningOpRef<ModuleOp> &module,
+    ImportOptions options) {
   onnx::ModelProto model;
 
   auto parse_success = model.ParseFromArray(onnxBuffer, size);
@@ -1432,7 +1430,8 @@ void ImportFrontendModelArray(const void *onnxBuffer, int size,
 }
 
 void ImportFrontendModelFile(std::string model_fname, MLIRContext &context,
-    OwningOpRef<ModuleOp> &module, std::string *errorMessage, ImportOptions options) {
+    OwningOpRef<ModuleOp> &module, std::string *errorMessage,
+    ImportOptions options) {
   onnx::ModelProto model;
   std::fstream input(model_fname, std::ios::in | std::ios::binary);
   // check if the input file is opened
