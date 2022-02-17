@@ -3,6 +3,7 @@ cmake-*/
 CMakePresets.json
 data/
 *.onnx
+pytest/*.txt
 
 # Prerequisites
 *.d

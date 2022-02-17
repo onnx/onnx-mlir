@@ -46,8 +46,8 @@ static inline uint32_t hash_int64(uint32_t hval, int64_t val) {
 extern "C"
 #endif
     uint64_t
-    find_index_str(
-        const char *str, int32_t G[], int32_t V[], int32_t dictSize) {
+    find_index_str(const char *str, const int32_t G[], const int32_t V[],
+        int32_t dictSize) {
   assert(str && G && V && dictSize > 0);
   int32_t d = G[hash_string(0, str) % dictSize];
   int64_t index = (d < 0) ? V[-d - 1] : V[hash_string(d, str) % dictSize];
@@ -63,7 +63,8 @@ extern "C"
 extern "C"
 #endif
     uint64_t
-    find_index_i64(int64_t val, int32_t G[], int32_t V[], int32_t dictSize) {
+    find_index_i64(
+        int64_t val, const int32_t G[], const int32_t V[], int32_t dictSize) {
   assert(G && V && dictSize > 0);
   int32_t d = G[hash_int64(0, val) % dictSize];
   int64_t index = (d < 0) ? V[-d - 1] : V[hash_int64(d, val) % dictSize];

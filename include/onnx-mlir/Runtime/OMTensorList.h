@@ -70,7 +70,8 @@ OMTensorList *omTensorListCreateWithOwnership(
  * Destroy the OMTensorList struct recursively. That is to say, both the
  * ptr to the OMTensor pointers AND the OMTensor pointers are freed.
  *
- * @param list pointer to the OMTensorList to be destroyed
+ * @param list pointer to the OMTensorList to be destroyed.  The function
+ * simply returns when pointer is null.
  *
  */
 void omTensorListDestroy(OMTensorList *list);
