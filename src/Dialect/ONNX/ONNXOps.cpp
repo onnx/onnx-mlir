@@ -3418,23 +3418,48 @@ LogicalResult ONNXRangeOp::inferShapes() {
 }
 
 LogicalResult ONNXReduceL1Op::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+  return success();
 }
 
 LogicalResult ONNXReduceL2Op::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+  return success();
 }
 
 LogicalResult ONNXReduceLogSumOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+  return success();
 }
 
 LogicalResult ONNXReduceLogSumExpOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+  return success();
 }
 
 LogicalResult ONNXReduceSumSquareOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+  return success();
 }
 
 LogicalResult ONNXReverseSequenceOp::inferShapes() {
