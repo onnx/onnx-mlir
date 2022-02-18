@@ -47,7 +47,7 @@ ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind) {
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *outputBaseName, EmissionTargetType emissionTarget,
     const char **errorMessage) {
-  mlir::OwningModuleRef module;
+  mlir::OwningOpRef<mlir::ModuleOp> module;
   mlir::MLIRContext context;
   registerDialects(context);
 
@@ -63,7 +63,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int bufferSize, const char *outputBaseName,
     EmissionTargetType emissionTarget, const char **errorMessage) {
-  mlir::OwningModuleRef module;
+  mlir::OwningOpRef<mlir::ModuleOp> module;
   mlir::MLIRContext context;
   registerDialects(context);
 

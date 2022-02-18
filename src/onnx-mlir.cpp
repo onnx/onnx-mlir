@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
       "ONNX-MLIR modular optimizer driver\n", nullptr,
       OnnxMlirEnvOptionName.c_str());
 
-  mlir::OwningModuleRef module;
+  mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;
   processInputFile(inputFilename, context, module, &errorMessage);
   if (!errorMessage.empty()) {
