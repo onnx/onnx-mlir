@@ -39,7 +39,7 @@ ModelLibBuilder::~ModelLibBuilder() {
 }
 
 bool ModelLibBuilder::compileAndLoad() {
-  OwningModuleRef moduleRef(module);
+  OwningOpRef<ModuleOp> moduleRef(module);
   int rc = compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib);
   if (rc != 0)
     return false;

@@ -50,9 +50,8 @@ void ModelBuilder::createEntryPoint(FuncOp &funcOp) {
 bool ModelBuilder::compileTest(const CompilerOptionList &compileOptions) {
   assert(!module.getBody()->empty() &&
          "Expecting the module to contain the test code");
-  assert(module.verify().succeeded() && "Malformed module");
 
-  OwningModuleRef modRef(module);
+  OwningOpRef<ModuleOp> modRef(module);
   setCompilerOptions(compileOptions);
   return (
       compileModule(modRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) == 0);
