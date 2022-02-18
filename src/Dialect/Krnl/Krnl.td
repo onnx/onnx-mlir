@@ -37,15 +37,27 @@ def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
 def KrnlCallOp : Op<Krnl_Dialect, "call"> {
   let summary = "call operation";
   let description = [{
-    The call operation provide a generic way to call a external function.
-    The function signature will be determined with the types of parameters.
-    Tensors and attributes will be handled.
+    The call operation provide a generic way to call a external function at Krnl level.
+    The `funcName` determines which function to call.
+    The `alloc` is the Value to store the function return. Since allocation of the return 
+    MemRef involves shape inference sometime with IndexExpr. Thus most of time the allocation
+    should stay in compiler, not in runtime library. However, `alloc` can be optional if 
+    it is easy to handle the allocation inside the runtime library.
+    The parameters can be of any type: MemRef, NoneType or llvm type. 
+    Different types of parameters will be converted, if needed, when KrnlCallOp is lowered.
+    Attributes will be converted to parameters too (To be Added). 
+    The function signature will be determined with the types of parameters after conversion.
+    A LLVM::CallOp to either a runtime library or a llvm intrinsic function will be generated. 
   }];
 
-  let arguments = (ins StrAttr:$funcName, AnyMemRef:$alloc, Variadic<AnyTypeOf<[AnyMemRef, NoneType]>>:$parameters);
+  let arguments = (ins StrAttr:$funcName, AnyType:$alloc, Variadic<AnyType>:$parameters);
   let results =(outs AnyType:$result);
-  let builders = [OpBuilder<(ins "mlir::Value":$alloc, "mlir::Operation *":$op, "mlir::ValueRange":$operands)>];
-  //let builders = [OpBuilder<(ins "mlir::Operation *":$op, "mlir::ValueRange":$operands)>];
+
+  // builders to build KrnlCallOp from op and operands, helping conversion from onnx to krnl.
+  // The name of function will be determined by the op name and elemnt type of the return.
+  // Attributes of the op will be propagated to generated KrnlCallOp
+  let builders = [OpBuilder<(ins "mlir::Value":$alloc, "mlir::Operation *":$op, "mlir::ValueRange":$operands)>,
+      OpBuilder<(ins "mlir::Operation *":$op, "mlir::ValueRange":$operands)>];
 }
  
 def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {

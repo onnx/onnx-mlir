@@ -73,26 +73,50 @@ void KrnlOpsDialect::printType(Type type, DialectAsmPrinter &os) const {
 
 namespace mlir {
 
-
 //===----------------------------------------------------------------------===//
 // KrnlCallOp
 //===----------------------------------------------------------------------===//
 
-void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState, Value resultVal, Operation *op, ValueRange operands) {
+void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
+    Value resultVal, Operation *op, ValueRange operands) {
   StringRef name = op->getName().getStringRef();
   ShapedType resultType = resultVal.getType().cast<ShapedType>();
   Type elementType = resultType.getElementType();
   std::string funcNameStr;
   if (elementType.isF32()) {
-    funcNameStr = name.str()+"_f32";
+    funcNameStr = name.str() + "_f32";
+  } else if (elementType.isSignedInteger(32)) {
+    funcNameStr = name.str() + "_i32";
+  } else if (elementType.isSignedInteger(64)) {
+    funcNameStr = name.str() + "_i64";
+  } else {
+    llvm_unreachable("type to be implemented");
   }
+
   StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
+  auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
+  std::vector<NamedAttribute> attributes;
+  attributes.emplace_back(namedAttr);
+  for (auto namedAttr : op->getAttrs()) {
+    attributes.emplace_back(namedAttr);
+  }
+
+  // Creates inputs
+  SmallVector<Value, 4> allInputs;
+  allInputs.emplace_back(resultVal);
+  for (auto operand : operands)
+    allInputs.emplace_back(operand);
 
   // ToDo Attributes of the original op are ignored
   // Two options for attributes:
   // 1. propagated to KrnlCallOp
   // 2. Converted to parameters
-  build(builder, odsState, resultVal.getType(), funcNameAttr, resultVal, operands);
+  // build(builder, odsState, resultVal.getType(), funcNameAttr, resultVal,
+  // operands);
+  build(builder, odsState, resultVal.getType(), ValueRange(allInputs),
+      attributes);
+  // auto callOp = builder.create<KrnlCallOp>(resultVal.getType(), funcNameAttr,
+  // resultVal, operands);
 }
 
 //===----------------------------------------------------------------------===//

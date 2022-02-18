@@ -305,44 +305,8 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto *context = op->getContext();
-    KrnlCallOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
-    KrnlCallOp callOp = llvm::dyn_cast<KrnlCallOp>(op);
-
-    auto funcName = callOp.funcName();
-    ValueRange parameters = operandAdaptor.parameters();
-
-#if 0
-    // Get a symbol reference to the memcpy function, inserting it if necessary.
-    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
-    // auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    // auto llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context,
-    // 8));
-    // auto llvmI64Ty = IntegerType::get(context, 64); auto llvmFnType =
-    // LLVM::LLVMFunctionType::get(
-    //    llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
-
-    auto instrumentRef = getOrInsertCall(rewriter, parentModule);
-
-    Value nodeName =
-        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
-            rewriter.getIntegerAttr(
-                rewriter.getIntegerType(64), instrumentOp.opID()));
-    Value tag =
-        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
-            rewriter.getIntegerAttr(
-                rewriter.getIntegerType(64), instrumentOp.tag()));
-    // StringRef txt = instrumentOp->op_name();
-    // Value nodeName = rewriter.create<LLVM::ConstantOp>(loc, llvmI8PtrTy,
-    // instrumentOp->op_name());
-
-    rewriter.create<CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
-        ArrayRef<Value>({nodeName, tag}));
-
-#endif
-    rewriter.eraseOp(op);
-    return success();
+    llvm_unreachable("lowering KrnlCallOp is not implemented yet");
+    return failure();
   }
 };
 
