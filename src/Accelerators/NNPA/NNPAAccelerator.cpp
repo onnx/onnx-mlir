@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-//#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
-#include "src/Accelerators/Accelerator.hpp"
+#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
+//#include "src/Accelerators/Accelerator.hpp"
 #include "src/Support/OMOptions.hpp"
 #include <iostream>
 // modified from DLC main
@@ -25,13 +25,8 @@
 extern llvm::cl::OptionCategory OMDLCPassOptions;
 
 namespace mlir {
-class NNPAAccelerator : public Accelerator {
-private:
-  static bool initialized;
 
-public:
-//NNPAAccelerator::NNPAAccelerator() {
-NNPAAccelerator() {
+NNPAAccelerator::NNPAAccelerator() {
   std::cout << "initializing NNPA" << std::endl;
   if (!initialized) {
     initialized = true;
@@ -41,20 +36,16 @@ NNPAAccelerator() {
 };
 
 
-//bool NNPAAccelerator::isActive() {
-bool isActive() override {
+bool NNPAAccelerator::isActive() {
   if (acceleratorTarget.compare("NNPA") == 0) {
     std::cout << "Targeting NNPA accelerator" << std::endl;
     return true;
   } else
     return false;
-
-
 }
 
-//void NNPAAccelerator::prepareAccelerator(mlir::OwningModuleRef &module, mlir::MLIRContext &context, mlir::PassManager &pm,
-void prepareAccelerator(mlir::OwningModuleRef &module, mlir::MLIRContext &context, mlir::PassManager &pm,
-    onnx_mlir::EmissionTargetType emissionTarget)  override {
+void NNPAAccelerator::prepareAccelerator(mlir::OwningModuleRef &module, mlir::MLIRContext &context, mlir::PassManager &pm,
+    onnx_mlir::EmissionTargetType emissionTarget) {
   std::cout << "preparing accelerator " << acceleratorTarget << std::endl;
   llvm::cl::opt<DLCEmissionTargetType> dlcEmissionTarget(
       llvm::cl::desc("[Optional] Choose Z-related target to emit "
@@ -80,9 +71,8 @@ void prepareAccelerator(mlir::OwningModuleRef &module, mlir::MLIRContext &contex
   addPassesDLC(module, pm, emissionTarget, dlcEmissionTarget, execNodesOnCpu);
 
     }
-};
-
 bool NNPAAccelerator::initialized = false;
 NNPAAccelerator nnpaAccelerator;
-
 } // namespace mlir
+
+
