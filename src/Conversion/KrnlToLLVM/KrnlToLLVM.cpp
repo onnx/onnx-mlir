@@ -1886,8 +1886,9 @@ void mlir::recordEntryPointSignatures(ModuleOp &module,
 }
 
 void mlir::genSignatureFunction(ModuleOp module,
-    ArrayRef<std::string> entryPointNames, ArrayRef<std::string> inSignatures,
-    ArrayRef<std::string> outSignatures) {
+    const ArrayRef<std::string> entryPointNames,
+    const ArrayRef<std::string> inSignatures,
+    const ArrayRef<std::string> outSignatures) {
   MLIRContext *context = module.getContext();
   Location loc = module.getLoc();
   OpBuilder b(context);
@@ -1934,7 +1935,7 @@ void mlir::genSignatureFunction(ModuleOp module,
         /*isConstant=*/true, LLVM::Linkage::External, inSigVarName, inSigAttr);
     inSigOps.emplace_back(inSigOp);
 
-    // Global constants for input signatures.
+    // Global constants for output signatures.
     mlir::StringAttr outSigAttr =
         mlir::StringAttr::get(context, outSignatures[i]);
     Type outSigArrayType =

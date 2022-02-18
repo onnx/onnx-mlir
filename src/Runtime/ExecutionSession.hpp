@@ -24,9 +24,8 @@
 
 namespace onnx_mlir {
 
-typedef OMTensorList *(*entryPointFuncType)(OMTensorList *);
-typedef const char *(*signatureFuncType)(const char *);
-
+using entryPointFuncType = OMTensorList *(*)(OMTensorList *);
+using signatureFuncType = const char *(*)(const char *);
 using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
 
 class ExecutionSession {
@@ -43,8 +42,8 @@ public:
 
   // Get input and output signature as a Json string. For example for nminst:
   // `[ { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "name" : "image" } ]`
-  std::string inputSignature();
-  std::string outputSignature();
+  std::string inputSignature() const;
+  std::string outputSignature() const;
 
   ~ExecutionSession();
 
@@ -53,7 +52,7 @@ protected:
   llvm::sys::DynamicLibrary _sharedLibraryHandle;
 
   // Entry point function.
-  std::string _entryPointName;
+  const std::string _entryPointName;
   entryPointFuncType _entryPointFunc = nullptr;
 
   // Entry point for input/output signatures

@@ -92,11 +92,11 @@ OMTensorList *ExecutionSession::run(OMTensorList *input) {
   return _entryPointFunc(input);
 }
 
-std::string ExecutionSession::inputSignature() {
+std::string ExecutionSession::inputSignature() const {
   return _inputSignatureFunc(_entryPointName.c_str());
 }
 
-std::string ExecutionSession::outputSignature() {
+std::string ExecutionSession::outputSignature() const {
   return _outputSignatureFunc(_entryPointName.c_str());
 }
 
