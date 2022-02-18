@@ -77,24 +77,25 @@ namespace mlir {
 // KrnlCallOp
 //===----------------------------------------------------------------------===//
 
+static std::string typeToString(Type ty) {
+  std::string str;
+  llvm::raw_string_ostream out(str);
+  ty.print(out);
+  return out.str();
+}
+
 void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
     Value resultVal, Operation *op, ValueRange operands) {
+
+  // Create funcName
   StringRef name = op->getName().getStringRef();
   ShapedType resultType = resultVal.getType().cast<ShapedType>();
   Type elementType = resultType.getElementType();
-  std::string funcNameStr;
-  if (elementType.isF32()) {
-    funcNameStr = name.str() + "_f32";
-  } else if (elementType.isSignedInteger(32)) {
-    funcNameStr = name.str() + "_i32";
-  } else if (elementType.isSignedInteger(64)) {
-    funcNameStr = name.str() + "_i64";
-  } else {
-    llvm_unreachable("type to be implemented");
-  }
-
+  std::string funcNameStr = name.str() + "_" + typeToString(elementType);
   StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
   auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
+
+  // Propagate all attributes
   std::vector<NamedAttribute> attributes;
   attributes.emplace_back(namedAttr);
   for (auto namedAttr : op->getAttrs()) {
@@ -107,16 +108,12 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
   for (auto operand : operands)
     allInputs.emplace_back(operand);
 
-  // ToDo Attributes of the original op are ignored
-  // Two options for attributes:
-  // 1. propagated to KrnlCallOp
-  // 2. Converted to parameters
-  // build(builder, odsState, resultVal.getType(), funcNameAttr, resultVal,
-  // operands);
   build(builder, odsState, resultVal.getType(), ValueRange(allInputs),
       attributes);
-  // auto callOp = builder.create<KrnlCallOp>(resultVal.getType(), funcNameAttr,
-  // resultVal, operands);
+
+  // Alternative implementation: not propagate the attribute
+  // build(builder, odsState, resultVal.getType(), funcNameAttr, resultVal,
+  // operands);
 }
 
 //===----------------------------------------------------------------------===//

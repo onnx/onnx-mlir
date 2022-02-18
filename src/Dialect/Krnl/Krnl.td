@@ -37,17 +37,17 @@ def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
 def KrnlCallOp : Op<Krnl_Dialect, "call"> {
   let summary = "call operation";
   let description = [{
-    The call operation provide a generic way to call a external function at Krnl level.
+    The call operation provides a generic way to call an external function at Krnl level.
     The `funcName` determines which function to call.
     The `alloc` is the Value to store the function return. Since allocation of the return 
-    MemRef involves shape inference sometime with IndexExpr. Thus most of time the allocation
+    MemRef involves shape inference usually with IndexExpr. Thus most of time the allocation
     should stay in compiler, not in runtime library. However, `alloc` can be optional if 
-    it is easy to handle the allocation inside the runtime library.
-    The parameters can be of any type: MemRef, NoneType or llvm type. 
+    the allocation is handled inside the runtime library.
+    The parameters can be of any type: MemRef, NoneType or any llvm type. 
     Different types of parameters will be converted, if needed, when KrnlCallOp is lowered.
     Attributes will be converted to parameters too (To be Added). 
-    The function signature will be determined with the types of parameters after conversion.
-    A LLVM::CallOp to either a runtime library or a llvm intrinsic function will be generated. 
+    The function signature will be determined with the types of parameters.
+    An LLVM::CallOp to either a runtime library or a llvm intrinsic function will be generated. 
   }];
 
   let arguments = (ins StrAttr:$funcName, AnyType:$alloc, Variadic<AnyType>:$parameters);

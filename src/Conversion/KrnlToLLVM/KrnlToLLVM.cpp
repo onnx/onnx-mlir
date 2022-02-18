@@ -284,10 +284,12 @@ static FlatSymbolRefAttr getOrInsertUnaryMathFunction(PatternRewriter &rewriter,
 // KRNL to LLVM: KrnlCallOpLowering
 //===----------------------------------------------------------------------===//
 
-class KrnlCallOpLowering : public ConversionPattern {
+class KrnlCallOpLowering : public ConvertToLLVMPattern {
 public:
-  explicit KrnlCallOpLowering(MLIRContext *context)
-      : ConversionPattern(KrnlCallOp::getOperationName(), 1, context) {}
+  explicit KrnlCallOpLowering(
+      MLIRContext *context, LLVMTypeConverter &lowering_)
+      : ConvertToLLVMPattern(
+            KrnlCallOp::getOperationName(), context, lowering_) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
@@ -1810,7 +1812,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   arith::populateArithmeticToLLVMConversionPatterns(typeConverter, patterns);
   populateReconcileUnrealizedCastsPatterns(patterns);
 
-  patterns.insert<KrnlCallOpLowering>(ctx);
+  patterns.insert<KrnlCallOpLowering>(ctx, typeConverter);
   patterns.insert<KrnlGlobalOpLowering, KrnlVectorTypeCastOpLowering>(
       ctx, typeConverter);
   patterns.insert<KrnlGetRefOpLowering>(ctx, typeConverter);
