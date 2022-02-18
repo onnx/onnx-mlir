@@ -120,6 +120,14 @@ protected:
   onnx_mlir::ExecutionSession *exec;
 };
 
+// Padding schemes for Convolutions.
+#define AUTO_PAD_NOTSET 0
+#define AUTO_PAD_VALID 1
+#define AUTO_PAD_LOWER 2
+#define AUTO_PAD_UPPER 3
+#define AUTO_PAD_UB 4
+const std::string getAutoPadName(const int autoPad);
+
 class GemmLibBuilder : public ModelLibBuilder {
 public:
   GemmLibBuilder(const std::string &modelName, const int I, const int J,
