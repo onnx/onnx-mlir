@@ -167,7 +167,7 @@ void PyExecutionSession::pySetEntryPoint(std::string entryPointName) {
   return;
 }
 
-std::vector<std::string> PyExecutionSession::pyQueryEntryPoint() {
+std::vector<std::string> PyExecutionSession::pyQueryEntryPoints() {
   assert(_queryEntryFunc && "Query entry point not loaded.");
   const char **entryPointArr = _queryEntryFunc();
 
