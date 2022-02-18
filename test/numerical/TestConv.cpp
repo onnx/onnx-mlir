@@ -29,7 +29,7 @@ int stride, dilation, isDynamic;
 // W).
 bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
     const int W, const int kH, const int kW, int pHBegin, int pHEnd,
-    int pWBegin, int pWEnd, const int autoPad) {
+    int pWBegin, int pWEnd, const ConvAutoPad autoPad) {
   static int testNum = 0;
   if (DEBUG)
     printf(
@@ -37,7 +37,8 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
         "pHEnd %d, pWBegin %d, pWEnd %d, autopad %s, isDynamic %d, stride %d, "
         "dilation %d\n",
         ++testNum, N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd,
-        getAutoPadName(autoPad).c_str(), isDynamic, stride, dilation);
+        Conv2DLibBuilder::getAutoPadName(autoPad).c_str(), isDynamic, stride,
+        dilation);
 
   Conv2DLibBuilder conv(SHARED_LIB_BASE.str(), N, C, H, W, kH, kW, autoPad,
       pHBegin, pHEnd, pWBegin, pWEnd, stride, dilation, isDynamic);
@@ -65,7 +66,8 @@ int main(int argc, char *argv[]) {
       stride = S;
       const auto D = *rc::gen::inRange(1, 3);
       dilation = D;
-      const auto autoPad = *rc::gen::inRange(ConvAutoPad::VALID, ConvAutoPad::UB);
+      const auto autoPad = (ConvAutoPad)*rc::gen::inRange(
+          (int)ConvAutoPad::VALID, (int)ConvAutoPad::UB);
       const auto N = *rc::gen::inRange(1, 5);
       const auto C = *rc::gen::inRange(1, 10);
       const auto H = *rc::gen::inRange(5, 32 * stride);
