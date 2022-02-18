@@ -196,5 +196,6 @@ bool RNNLibBuilder::verifyOutputs() {
     return false;
   if (!areCloseFloat(rnnYh, refYh))
     return false;
+
   return true;
 }

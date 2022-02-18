@@ -69,26 +69,26 @@ struct ONNXClipOpLowering : public ConversionPattern {
         Value minVal = rewriter.create<KrnlLoadOp>(loc, min).getResult();
         Value lessThanMin = rewriter.create<arith::CmpFOp>(
             loc, arith::CmpFPredicate::OLT, res, minVal);
-        res = rewriter.create<SelectOp>(loc, lessThanMin, minVal, res);
+        res = rewriter.create<arith::SelectOp>(loc, lessThanMin, minVal, res);
       }
       if (!max.getType().isa<NoneType>()) {
         Value maxVal = rewriter.create<KrnlLoadOp>(loc, max).getResult();
         Value lessThanMax = rewriter.create<arith::CmpFOp>(
             loc, arith::CmpFPredicate::OLT, res, maxVal);
-        res = rewriter.create<SelectOp>(loc, lessThanMax, res, maxVal);
+        res = rewriter.create<arith::SelectOp>(loc, lessThanMax, res, maxVal);
       }
     } else if (inputType.isa<IntegerType>()) {
       if (!min.getType().isa<NoneType>()) {
         Value minVal = rewriter.create<KrnlLoadOp>(loc, min).getResult();
         Value lessThanMin = rewriter.create<arith::CmpIOp>(
             loc, arith::CmpIPredicate::slt, res, minVal);
-        res = rewriter.create<SelectOp>(loc, lessThanMin, minVal, res);
+        res = rewriter.create<arith::SelectOp>(loc, lessThanMin, minVal, res);
       }
       if (!max.getType().isa<NoneType>()) {
         Value maxVal = rewriter.create<KrnlLoadOp>(loc, max).getResult();
         Value lessThanMax = rewriter.create<arith::CmpIOp>(
             loc, arith::CmpIPredicate::slt, res, maxVal);
-        res = rewriter.create<SelectOp>(loc, lessThanMax, res, maxVal);
+        res = rewriter.create<arith::SelectOp>(loc, lessThanMax, res, maxVal);
       }
     } else {
       llvm_unreachable("unsupported element type");
