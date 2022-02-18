@@ -1999,9 +1999,9 @@ void mlir::genSignatureFunction(ModuleOp module,
     Block *entryBlock = funcOp.addEntryBlock();
     OpBuilder::InsertionGuard bodyGuard(b);
     b.setInsertionPointToStart(entryBlock);
-    Value sigAddr = b.create<LLVM::AddressOfOp>(loc, entryArrayOp);
-    Value sigVoidPtr = b.create<LLVM::BitcastOp>(loc, i8PtrPtrTy, sigAddr);
-    b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({sigVoidPtr}));
+    Value entryAddr = b.create<LLVM::AddressOfOp>(loc, entryArrayOp);
+    Value entryI8Ptr = b.create<LLVM::BitcastOp>(loc, i8PtrPtrTy, entryAddr);
+    b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({entryI8Ptr}));
   }
 
   // Emit two signature functions, omInputSignature and omOutputSignature, of
@@ -2060,18 +2060,18 @@ void mlir::genSignatureFunction(ModuleOp module,
       // Emit code for the condition block.
       b.setInsertionPointToEnd(condBlock);
       // Read an entry point name.
-      Value entryVoidPtr = getGlobalOpGEP(globalEntryPoint).getResult();
+      Value entryI8Ptr = getGlobalOpGEP(globalEntryPoint).getResult();
       // Compare it with the user's entry point name.
       FlatSymbolRefAttr StrncmpRef = getOrInsertStrncmp(b, module);
       Value length = b.create<LLVM::ConstantOp>(
           loc, i64Type, b.getI64IntegerAttr(entryPointName.size()));
       Value strncmpResult = b.create<LLVM::CallOp>(loc, i32Type, StrncmpRef,
-                                 ArrayRef<Value>({input, entryVoidPtr, length}))
+                                 ArrayRef<Value>({input, entryI8Ptr, length}))
                                 .getResult(0);
       // Equal if strncmp returns `0`.
       Value found = b.create<LLVM::ICmpOp>(
           loc, LLVM::ICmpPredicate::eq, strncmpResult, zeroI32);
-      llvm::SmallVector<Value, 1> results = {entryVoidPtr};
+      llvm::SmallVector<Value, 1> results = {entryI8Ptr};
       // Branch the block into the true and false blocks.
       b.create<LLVM::CondBrOp>(
           loc, found, trueBlock, ValueRange(), falseBlock, ValueRange());
@@ -2079,8 +2079,8 @@ void mlir::genSignatureFunction(ModuleOp module,
       // Emit code for the true block.
       b.setInsertionPointToStart(trueBlock);
       Value sigAddr = b.create<LLVM::AddressOfOp>(loc, globalSignature);
-      Value sigVoidPtr = b.create<LLVM::BitcastOp>(loc, i8PtrTy, sigAddr);
-      b.create<LLVM::StoreOp>(loc, sigVoidPtr, ptrToReturnSig);
+      Value sigI8Ptr = b.create<LLVM::BitcastOp>(loc, i8PtrTy, sigAddr);
+      b.create<LLVM::StoreOp>(loc, sigI8Ptr, ptrToReturnSig);
       b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
 
       // Emit code for the false block.
