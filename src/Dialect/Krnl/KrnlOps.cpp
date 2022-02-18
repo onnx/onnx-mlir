@@ -88,11 +88,11 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
     Value resultVal, Operation *op, ValueRange operands) {
 
   // Create funcName
-  StringRef name = op->getName().getStringRef();
+  std::string name = op->getName().getStringRef().str();
+  std::replace(name.begin(), name.end(), '.', '_');
   ShapedType resultType = resultVal.getType().cast<ShapedType>();
   Type elementType = resultType.getElementType();
-  std::string funcNameStr =
-      name.str().replace('.', '_') + "_" + typeToString(elementType);
+  std::string funcNameStr = name + "_" + typeToString(elementType);
   StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
   auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
 
