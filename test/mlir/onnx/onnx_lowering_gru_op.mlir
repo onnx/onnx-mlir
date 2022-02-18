@@ -68,7 +68,7 @@ func private @test_gru_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x12
 // CHECK:               [[VAR_32_:%.+]] = arith.addf [[VAR_31_]], [[LOAD_VAR_11_MEM_1_]] : f32
 // CHECK:               [[VAR_33_:%.+]] = arith.subf [[VAR_cst_]], [[VAR_32_]] : f32
 // CHECK:               [[VAR_34_:%.+]] = math.exp [[VAR_33_]] : f32
-// CHECK:               [[VAR_35_:%.+]] = arith.addf [[VAR_cst_0_]], [[VAR_34_]] : f32
+// CHECK:               [[VAR_35_:%.+]] = arith.addf [[VAR_34_]], [[VAR_cst_0_]] : f32
 // CHECK:               [[VAR_36_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_35_]] : f32
 // CHECK:               krnl.store [[VAR_36_]], [[RES_3_]]{{.}}[[VAR_23_1_]]#0, [[VAR_23_1_]]#1] : memref<2x4xf32>
 // CHECK:               [[VAR_37_:%.+]] = arith.mulf [[VAR_36_]], [[LOAD_PARAM_0_MEM_1_]] : f32
@@ -89,7 +89,7 @@ func private @test_gru_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x12
 // CHECK:               [[VAR_31_1_:%.+]] = arith.addf [[LOAD_VAR_11_MEM_1_]], [[LOAD_VAR_11_MEM_3_]] : f32
 // CHECK:               [[VAR_32_1_:%.+]] = arith.subf [[VAR_cst_]], [[VAR_31_1_]] : f32
 // CHECK:               [[VAR_33_1_:%.+]] = math.exp [[VAR_32_1_]] : f32
-// CHECK:               [[VAR_34_1_:%.+]] = arith.addf [[VAR_cst_0_]], [[VAR_33_1_]] : f32
+// CHECK:               [[VAR_34_1_:%.+]] = arith.addf [[VAR_33_1_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_35_1_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_34_1_]] : f32
 // CHECK-DAG:           [[VAR_36_1_:%.+]] = affine.apply #map1(){{.}}[[VAR_23_2_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -176,7 +176,7 @@ func private @test_gru_forward_mode_linear_before_reset(%arg0: tensor<7x2x3xf32>
 // CHECK:               [[VAR_23_:%.+]] = arith.addf [[VAR_22_]], [[LOAD_VAR_8_MEM_1_]] : f32
 // CHECK:               [[VAR_24_:%.+]] = arith.subf [[VAR_cst_]], [[VAR_23_]] : f32
 // CHECK:               [[VAR_25_:%.+]] = math.exp [[VAR_24_]] : f32
-// CHECK:               [[VAR_26_:%.+]] = arith.addf [[VAR_cst_0_]], [[VAR_25_]] : f32
+// CHECK:               [[VAR_26_:%.+]] = arith.addf [[VAR_25_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_27_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_26_]] : f32
 // CHECK-DAG:           [[VAR_28_:%.+]] = affine.apply #map0(){{.}}[[VAR_15_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -190,7 +190,7 @@ func private @test_gru_forward_mode_linear_before_reset(%arg0: tensor<7x2x3xf32>
 // CHECK:               [[VAR_36_:%.+]] = arith.addf [[VAR_35_]], [[LOAD_VAR_8_MEM_3_]] : f32
 // CHECK:               [[VAR_37_:%.+]] = arith.subf [[VAR_cst_]], [[VAR_36_]] : f32
 // CHECK:               [[VAR_38_:%.+]] = math.exp [[VAR_37_]] : f32
-// CHECK:               [[VAR_39_:%.+]] = arith.addf [[VAR_cst_0_]], [[VAR_38_]] : f32
+// CHECK:               [[VAR_39_:%.+]] = arith.addf [[VAR_38_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_40_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_39_]] : f32
 // CHECK-DAG:           [[VAR_41_:%.+]] = affine.apply #map1(){{.}}[[VAR_15_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -287,7 +287,7 @@ func private @test_gru_forward_mode_constant_weight_and_bias(%arg0: tensor<7x2x3
 // CHECK:               [[VAR_33_:%.+]] = arith.addf [[VAR_32_]], [[LOAD_VAR_11_MEM_]] : f32
 // CHECK:               [[VAR_34_:%.+]] = arith.subf [[VAR_cst_]], [[VAR_33_]] : f32
 // CHECK:               [[VAR_35_:%.+]] = math.exp [[VAR_34_]] : f32
-// CHECK:               [[VAR_36_:%.+]] = arith.addf [[VAR_cst_0_]], [[VAR_35_]] : f32
+// CHECK:               [[VAR_36_:%.+]] = arith.addf [[VAR_35_]], [[VAR_cst_0_]] : f32
 // CHECK:               [[VAR_37_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_36_]] : f32
 // CHECK:               krnl.store [[VAR_37_]], [[RES_3_]]{{.}}[[VAR_24_1_]]#0, [[VAR_24_1_]]#1] : memref<2x4xf32>
 // CHECK:               [[VAR_38_:%.+]] = arith.mulf [[VAR_37_]], [[LOAD_PARAM_0_MEM_1_]] : f32
@@ -308,7 +308,7 @@ func private @test_gru_forward_mode_constant_weight_and_bias(%arg0: tensor<7x2x3
 // CHECK:               [[VAR_32_1_:%.+]] = arith.addf [[LOAD_VAR_11_MEM_1_]], [[LOAD_VAR_8_MEM_1_]] : f32
 // CHECK:               [[VAR_33_1_:%.+]] = arith.subf [[VAR_cst_]], [[VAR_32_1_]] : f32
 // CHECK:               [[VAR_34_1_:%.+]] = math.exp [[VAR_33_1_]] : f32
-// CHECK:               [[VAR_35_1_:%.+]] = arith.addf [[VAR_cst_0_]], [[VAR_34_1_]] : f32
+// CHECK:               [[VAR_35_1_:%.+]] = arith.addf [[VAR_34_1_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_36_1_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_35_1_]] : f32
 // CHECK-DAG:           [[VAR_37_1_:%.+]] = affine.apply #map1(){{.}}[[VAR_24_2_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -406,7 +406,7 @@ func private @test_gru_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x12
 // CHECK:               [[VAR_33_:%.+]] = arith.addf [[VAR_32_]], [[LOAD_VAR_11_MEM_1_]] : f32
 // CHECK:               [[VAR_34_:%.+]] = arith.subf [[VAR_cst_]], [[VAR_33_]] : f32
 // CHECK:               [[VAR_35_:%.+]] = math.exp [[VAR_34_]] : f32
-// CHECK:               [[VAR_36_:%.+]] = arith.addf [[VAR_cst_0_]], [[VAR_35_]] : f32
+// CHECK:               [[VAR_36_:%.+]] = arith.addf [[VAR_35_]], [[VAR_cst_0_]] : f32
 // CHECK:               [[VAR_37_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_36_]] : f32
 // CHECK:               krnl.store [[VAR_37_]], [[RES_3_]]{{.}}[[VAR_24_1_]]#0, [[VAR_24_1_]]#1] : memref<2x4xf32>
 // CHECK:               [[VAR_38_:%.+]] = arith.mulf [[VAR_37_]], [[LOAD_PARAM_0_MEM_1_]] : f32
@@ -427,7 +427,7 @@ func private @test_gru_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x12
 // CHECK:               [[VAR_32_1_:%.+]] = arith.addf [[LOAD_VAR_11_MEM_1_]], [[LOAD_VAR_11_MEM_3_]] : f32
 // CHECK:               [[VAR_33_1_:%.+]] = arith.subf [[VAR_cst_]], [[VAR_32_1_]] : f32
 // CHECK:               [[VAR_34_1_:%.+]] = math.exp [[VAR_33_1_]] : f32
-// CHECK:               [[VAR_35_1_:%.+]] = arith.addf [[VAR_cst_0_]], [[VAR_34_1_]] : f32
+// CHECK:               [[VAR_35_1_:%.+]] = arith.addf [[VAR_34_1_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_36_1_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_35_1_]] : f32
 // CHECK-DAG:           [[VAR_37_1_:%.+]] = affine.apply #map2(){{.}}[[VAR_24_2_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -540,7 +540,7 @@ func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK:               [[VAR_47_:%.+]] = arith.addf [[VAR_46_]], [[LOAD_VAR_23_MEM_1_]] : f32
 // CHECK:               [[VAR_48_:%.+]] = arith.subf [[VAR_cst_]], [[VAR_47_]] : f32
 // CHECK:               [[VAR_49_:%.+]] = math.exp [[VAR_48_]] : f32
-// CHECK:               [[VAR_50_:%.+]] = arith.addf [[VAR_cst_0_]], [[VAR_49_]] : f32
+// CHECK:               [[VAR_50_:%.+]] = arith.addf [[VAR_49_]], [[VAR_cst_0_]] : f32
 // CHECK:               [[VAR_51_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_50_]] : f32
 // CHECK:               krnl.store [[VAR_51_]], [[RES_4_]]{{.}}[[VAR_38_1_]]#0, [[VAR_38_1_]]#1] : memref<2x4xf32>
 // CHECK:               [[VAR_52_:%.+]] = arith.mulf [[VAR_51_]], [[LOAD_PARAM_0_MEM_1_]] : f32
@@ -561,7 +561,7 @@ func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK:               [[VAR_46_1_:%.+]] = arith.addf [[LOAD_VAR_23_MEM_1_]], [[LOAD_VAR_23_MEM_3_]] : f32
 // CHECK:               [[VAR_47_1_:%.+]] = arith.subf [[VAR_cst_]], [[VAR_46_1_]] : f32
 // CHECK:               [[VAR_48_1_:%.+]] = math.exp [[VAR_47_1_]] : f32
-// CHECK:               [[VAR_49_1_:%.+]] = arith.addf [[VAR_cst_0_]], [[VAR_48_1_]] : f32
+// CHECK:               [[VAR_49_1_:%.+]] = arith.addf [[VAR_48_1_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_50_1_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_49_1_]] : f32
 // CHECK-DAG:           [[VAR_51_1_:%.+]] = affine.apply #map1(){{.}}[[VAR_38_2_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -613,7 +613,7 @@ func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK:               [[VAR_48_2_:%.+]] = arith.addf [[VAR_47_2_]], [[VAR_46_1_]] : f32
 // CHECK:               [[VAR_49_2_:%.+]] = arith.subf [[VAR_cst_]], [[VAR_48_2_]] : f32
 // CHECK:               [[VAR_50_2_:%.+]] = math.exp [[VAR_49_2_]] : f32
-// CHECK:               [[VAR_51_2_:%.+]] = arith.addf [[VAR_cst_0_]], [[VAR_50_2_]] : f32
+// CHECK:               [[VAR_51_2_:%.+]] = arith.addf [[VAR_50_2_]], [[VAR_cst_0_]] : f32
 // CHECK:               [[VAR_52_1_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_51_2_]] : f32
 // CHECK:               krnl.store [[VAR_52_1_]], [[RES_7_]]{{.}}[[LOAD_PARAM_0_MEM_1_1_]]#0, [[LOAD_PARAM_0_MEM_1_1_]]#1] : memref<2x4xf32>
 // CHECK:               [[LOAD_VAR_36_MEM_1_:%.+]] = arith.mulf [[VAR_52_1_]], [[LOAD_PARAM_0_MEM_2_]] : f32
@@ -634,7 +634,7 @@ func private @test_gru_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK:               [[VAR_47_3_:%.+]] = arith.addf [[VAR_46_2_]], [[LOAD_VAR_23_MEM_1_1_]] : f32
 // CHECK:               [[VAR_48_3_:%.+]] = arith.subf [[VAR_cst_]], [[VAR_47_3_]] : f32
 // CHECK:               [[VAR_49_3_:%.+]] = math.exp [[VAR_48_3_]] : f32
-// CHECK:               [[VAR_50_3_:%.+]] = arith.addf [[VAR_cst_0_]], [[VAR_49_3_]] : f32
+// CHECK:               [[VAR_50_3_:%.+]] = arith.addf [[VAR_49_3_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_51_3_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_50_3_]] : f32
 // CHECK-DAG:           [[VAR_52_2_:%.+]] = affine.apply #map1(){{.}}[[LOAD_PARAM_0_MEM_1_1_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
@@ -744,7 +744,7 @@ func private @test_gru_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x12
 // CHECK:               [[VAR_39_:%.+]] = arith.addf [[VAR_38_]], [[LOAD_VAR_13_MEM_1_]] : f32
 // CHECK:               [[VAR_40_:%.+]] = arith.subf [[VAR_cst_]], [[VAR_39_]] : f32
 // CHECK:               [[VAR_41_:%.+]] = math.exp [[VAR_40_]] : f32
-// CHECK:               [[VAR_42_:%.+]] = arith.addf [[VAR_cst_0_]], [[VAR_41_]] : f32
+// CHECK:               [[VAR_42_:%.+]] = arith.addf [[VAR_41_]], [[VAR_cst_0_]] : f32
 // CHECK:               [[VAR_43_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_42_]] : f32
 // CHECK:               krnl.store [[VAR_43_]], [[RES_3_]]{{.}}[[VAR_30_1_]]#0, [[VAR_30_1_]]#1] : memref<?x4xf32>
 // CHECK:               [[VAR_44_:%.+]] = arith.mulf [[VAR_43_]], [[LOAD_PARAM_0_MEM_1_]] : f32
@@ -765,7 +765,7 @@ func private @test_gru_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x12
 // CHECK:               [[VAR_38_1_:%.+]] = arith.addf [[LOAD_VAR_13_MEM_1_]], [[LOAD_VAR_13_MEM_3_]] : f32
 // CHECK:               [[VAR_39_1_:%.+]] = arith.subf [[VAR_cst_]], [[VAR_38_1_]] : f32
 // CHECK:               [[VAR_40_1_:%.+]] = math.exp [[VAR_39_1_]] : f32
-// CHECK:               [[VAR_41_1_:%.+]] = arith.addf [[VAR_cst_0_]], [[VAR_40_1_]] : f32
+// CHECK:               [[VAR_41_1_:%.+]] = arith.addf [[VAR_40_1_]], [[VAR_cst_0_]] : f32
 // CHECK-DAG:           [[VAR_42_1_:%.+]] = arith.divf [[VAR_cst_0_]], [[VAR_41_1_]] : f32
 // CHECK-DAG:           [[VAR_43_1_:%.+]] = affine.apply #map1(){{.}}[[VAR_30_2_]]#1]
 // CHECK-NOT: separator of consecutive DAGs

@@ -289,5 +289,6 @@ bool GRULibBuilder::verifyOutputs() {
     return false;
   if (!areCloseFloat(gruYh, refYh))
     return false;
+
   return true;
 }

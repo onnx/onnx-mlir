@@ -45,7 +45,7 @@ Value emitScalarOpFor<ONNXMaxPoolSingleOutOp>(
   Value rhs = scalarOperands[1];
   auto max =
       rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGT, lhs, rhs);
-  auto result = rewriter.create<SelectOp>(loc, max, lhs, rhs);
+  auto result = rewriter.create<arith::SelectOp>(loc, max, lhs, rhs);
   return result;
 }
 
