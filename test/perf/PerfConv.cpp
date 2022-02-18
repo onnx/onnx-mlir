@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//==================-- PerfConv.hpp - Simple Conv performance tests -=========//
+//==================-- PerfConv.cpp - Simple Conv performance tests -=========//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -41,7 +41,7 @@ static void BM_Conv2D_C16_K3(benchmark::State &state) {
   int S = 1;
   int D = 1;
   Conv2DLibBuilder model(
-      modelName, N, C, H, W, K, K, AUTO_PAD_VALID, P, P, P, P, S, D, false);
+      modelName, N, C, H, W, K, K, ConvAutoPad::VALID, P, P, P, P, S, D, false);
   assert(model.build() && model.compileAndLoad(opts) && model.prepareInputs() &&
          "failed conv");
   for (auto _ : state)

@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
       stride = S;
       const auto D = *rc::gen::inRange(1, 3);
       dilation = D;
-      const auto autoPad = *rc::gen::inRange(AUTO_PAD_VALID, AUTO_PAD_UB);
+      const auto autoPad = *rc::gen::inRange(ConvAutoPad::VALID, ConvAutoPad::UB);
       const auto N = *rc::gen::inRange(1, 5);
       const auto C = *rc::gen::inRange(1, 10);
       const auto H = *rc::gen::inRange(5, 32 * stride);
@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
               RC_PRE((H / stride >= kH * dilation) &&
                      (W / stride > kW * dilation));
               RC_ASSERT(isOMConvTheSameAsNaiveImplFor(N, C, H, W, kH, kW,
-                  pHBegin, pHEnd, pWBegin, pWEnd, AUTO_PAD_NOTSET));
+                  pHBegin, pHEnd, pWBegin, pWEnd, ConvAutoPad::NOTSET));
             });
         if (!success)
           return 1;
@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
         for (int pWBegin = 0; pWBegin < 3; pWBegin++)
           for (int pWEnd = 0; pWEnd < 3; pWEnd++)
             assert(isOMConvTheSameAsNaiveImplFor(2, 4, 5, 5, 3, 3, pHBegin,
-                pHEnd, pWBegin, pWEnd, AUTO_PAD_NOTSET));
+                pHEnd, pWBegin, pWEnd, ConvAutoPad::NOTSET));
 
   } // End loop over static / dynamic
   return 0;

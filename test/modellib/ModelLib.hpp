@@ -85,7 +85,7 @@ public:
   // Prepare inputs for running model. Subclass may add arguments as necessary.
   // It can run second or third.
   virtual bool prepareInputs() = 0;
-  // Run model using prepared inputs, resulting in outputs. It must run forth.
+  // Run model using prepared inputs, resulting in outputs. It must run fourth.
   bool run();
   // Verify outputs from a run with reference data. It can run last.
   virtual bool verifyOutputs() = 0;
@@ -120,14 +120,6 @@ protected:
   onnx_mlir::ExecutionSession *exec;
 };
 
-// Padding schemes for Convolutions.
-#define AUTO_PAD_NOTSET 0
-#define AUTO_PAD_VALID 1
-#define AUTO_PAD_LOWER 2
-#define AUTO_PAD_UPPER 3
-#define AUTO_PAD_UB 4
-const std::string getAutoPadName(const int autoPad);
-
 class GemmLibBuilder : public ModelLibBuilder {
 public:
   GemmLibBuilder(const std::string &modelName, const int I, const int J,
@@ -158,23 +150,34 @@ private:
   const int I, J, K;
 };
 
+// Padding schemes for Convolutions.
+enum ConvAutoPad {
+  NOTSET = 0,
+  VALID = 1,
+  LOWER = 2,
+  UPPER = 3,
+  UB = 4 // Always the last element.
+};
+
 class Conv2DLibBuilder : public ModelLibBuilder {
 public:
   Conv2DLibBuilder(const std::string &modelName, const int N, const int C,
-      const int H, const int W, const int kH, const int kW, const int autoPad,
-      const int pHBegin, const int pHEnd, const int pWBegin, const int pWEnd,
-      const int stride, const int dilation, const int isDynamic);
+      const int H, const int W, const int kH, const int kW,
+      const ConvAutoPad autoPad, const int pHBegin, const int pHEnd,
+      const int pWBegin, const int pWEnd, const int stride, const int dilation,
+      const int isDynamic);
   bool build() final;
   bool prepareInputs() final;
   bool verifyOutputs() final;
 
 private:
-  const std::string getAutoPadName(const int autoPad);
+  const std::string getAutoPadName(const ConvAutoPad autoPad);
   bool verifyShapeAndComputeBeginEnd();
 
   // Data that defines model, where const define model, non-const are derived
   // paramters.
-  const int N, C, H, W, kH, kW, autoPad;
+  const int N, C, H, W, kH, kW;
+  const ConvAutoPad autoPad;
   int pHBegin, pHEnd, pWBegin, pWEnd;
   const int stride, dilation, isDynamic;
   int NOut, COut, HOut, WOut;

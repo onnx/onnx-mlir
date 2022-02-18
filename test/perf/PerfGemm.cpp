@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===================-- PerfGemm.hpp - Simple performance tests -=============//
+//===================-- PerfGemm.cpp - Simple performance tests -=============//
 //
 // Copyright 2022 The IBM Research Authors.
 //
