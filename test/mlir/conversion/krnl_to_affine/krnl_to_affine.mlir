@@ -44,7 +44,7 @@ func @test_krnl_load_with_krnl_iterate(%arg0: memref<10x10xf32>, %arg1: memref<1
   krnl.iterate(%2#0, %2#1) with (%2#0 -> %arg2 = 0 to 10, %2#1 -> %arg3 = 0 to 10) {
     %3 = krnl.load %arg0[%arg2, %arg3] : memref<10x10xf32>
     %4 = arith.cmpi sgt, %1, %c1 : index
-    %5 = select %4, %arg3, %c0 : index
+    %5 = arith.select %4, %arg3, %c0 : index
     %6 = krnl.load %arg1[%arg2, %5] : memref<10x?xf32>
     %7 = arith.addf %3, %6 : f32
     krnl.store %7, %0[%arg2, %arg3] : memref<10x10xf32>
@@ -71,7 +71,7 @@ func @test_krnl_store_with_krnl_iterate(%arg0: memref<10x10xf32>, %arg1: memref<
   krnl.iterate(%2#0, %2#1) with (%2#0 -> %arg2 = 0 to 10, %2#1 -> %arg3 = 0 to 10) {
     %3 = krnl.load %arg0[%arg2, %arg3] : memref<10x10xf32>
     %4 = arith.cmpi sgt, %1, %c1 : index
-    %5 = select %4, %arg3, %c0 : index
+    %5 = arith.select %4, %arg3, %c0 : index
     %6 = krnl.load %arg1[%arg2, %5] : memref<10x?xf32>
     %7 = arith.addf %3, %6 : f32
     krnl.store %7, %0[%arg2, %5] : memref<10x10xf32>

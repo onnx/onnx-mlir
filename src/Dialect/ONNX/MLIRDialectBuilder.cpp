@@ -157,7 +157,7 @@ Value MathBuilder::neq(Value lhs, Value rhs) const {
 
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  return b.create<SelectOp>(loc, cmp, lhs, rhs);
+  return b.create<arith::SelectOp>(loc, cmp, lhs, rhs);
 }
 
 Value MathBuilder::constant(Type type, double val) const {
