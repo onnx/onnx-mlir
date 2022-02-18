@@ -10,4 +10,4 @@ call cmake %root_dir%\onnx-mlir -G "Ninja" ^
    -DMLIR_DIR=%root_dir%\llvm-project\build\lib\cmake\mlir
    -DONNX_MLIR_BUILD_TESTS=OFF
 
-call cmake --build . --config Release
+call cmake --build . --config Release --target onnx-mlir
