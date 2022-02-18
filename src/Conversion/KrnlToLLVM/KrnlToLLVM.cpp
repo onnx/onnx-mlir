@@ -1989,12 +1989,13 @@ void mlir::genSignatureFunction(ModuleOp module,
   // Emit a function, omQueryEntryPoints, of type `**8 ()` to query an array of
   // entry point names.
   {
+    OpBuilder::InsertionGuard guard(b);
     b.setInsertionPointToEnd(module.getBody());
-    // 1. Emit the function type.
+    // Emit the function type.
     Type llvmFnType = LLVM::LLVMFunctionType::get(i8PtrPtrTy, {}, false);
     LLVM::LLVMFuncOp funcOp =
         b.create<LLVM::LLVMFuncOp>(loc, "omQueryEntryPoints", llvmFnType);
-    // 2. Emit the body of the function.
+    // Emit the body of the function.
     Block *entryBlock = funcOp.addEntryBlock();
     OpBuilder::InsertionGuard bodyGuard(b);
     b.setInsertionPointToStart(entryBlock);

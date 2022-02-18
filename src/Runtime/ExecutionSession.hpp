@@ -25,7 +25,7 @@
 namespace onnx_mlir {
 
 using entryPointFuncType = OMTensorList *(*)(OMTensorList *);
-using queryEntryFuncType = const char **(*)();
+using queryEntryPointsFuncType = const char **(*)();
 using signatureFuncType = const char *(*)(const char *);
 using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
 
@@ -64,8 +64,8 @@ protected:
   entryPointFuncType _entryPointFunc = nullptr;
 
   // Query entry point function.
-  static const std::string _queryEntryName;
-  queryEntryFuncType _queryEntryFunc = nullptr;
+  static const std::string _queryEntryPointsName;
+  queryEntryPointsFuncType _queryEntryPointsFunc = nullptr;
 
   // Entry point for input/output signatures
   static const std::string _inputSignatureName;

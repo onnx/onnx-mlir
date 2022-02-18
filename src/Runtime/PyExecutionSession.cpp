@@ -168,8 +168,8 @@ void PyExecutionSession::pySetEntryPoint(std::string entryPointName) {
 }
 
 std::vector<std::string> PyExecutionSession::pyQueryEntryPoints() {
-  assert(_queryEntryFunc && "Query entry point not loaded.");
-  const char **entryPointArr = _queryEntryFunc();
+  assert(_queryEntryPointsFunc && "Query entry point not loaded.");
+  const char **entryPointArr = _queryEntryPointsFunc();
 
   std::vector<std::string> outputPyArrays;
   int i = 0;

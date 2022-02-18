@@ -22,7 +22,8 @@
 #include "llvm/Support/ManagedStatic.h"
 
 namespace onnx_mlir {
-const std::string ExecutionSession::_queryEntryName = "omQueryEntryPoints";
+const std::string ExecutionSession::_queryEntryPointsName =
+    "omQueryEntryPoints";
 const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
 const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
 
@@ -43,11 +44,12 @@ ExecutionSession::ExecutionSession(
   if (defaultEntryPoint)
     setEntryPoint("run_main_graph");
 
-  _queryEntryFunc = reinterpret_cast<queryEntryFuncType>(
-      _sharedLibraryHandle.getAddressOfSymbol(_queryEntryName.c_str()));
-  if (!_queryEntryFunc) {
+  _queryEntryPointsFunc = reinterpret_cast<queryEntryPointsFuncType>(
+      _sharedLibraryHandle.getAddressOfSymbol(_queryEntryPointsName.c_str()));
+  if (!_queryEntryPointsFunc) {
     std::stringstream errStr;
-    errStr << "Cannot load symbol: '" << _queryEntryName << "'" << std::endl;
+    errStr << "Cannot load symbol: '" << _queryEntryPointsName << "'"
+           << std::endl;
     throw std::runtime_error(errStr.str());
   }
 
@@ -107,7 +109,7 @@ void ExecutionSession::setEntryPoint(std::string entryPointName) {
 }
 
 const std::string *ExecutionSession::queryEntryPoints() const {
-  return (std::string *)_queryEntryFunc();
+  return (std::string *)_queryEntryPointsFunc();
 }
 
 std::string ExecutionSession::inputSignature() const {
