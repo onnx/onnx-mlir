@@ -91,7 +91,8 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
   StringRef name = op->getName().getStringRef();
   ShapedType resultType = resultVal.getType().cast<ShapedType>();
   Type elementType = resultType.getElementType();
-  std::string funcNameStr = name.str() + "_" + typeToString(elementType);
+  std::string funcNameStr =
+      name.str().replace('.', '_') + "_" + typeToString(elementType);
   StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
   auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
 
