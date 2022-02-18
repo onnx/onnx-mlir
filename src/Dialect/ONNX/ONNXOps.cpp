@@ -2835,9 +2835,30 @@ LogicalResult ONNXSplitV11Op::inferShapes(
 // Flatten
 //===----------------------------------------------------------------------===//
 
+static LogicalResult verify(ONNXFlattenOp op) {
+
+  if (!hasShapeAndRank(op.input())) {
+    return success();
+  }
+  auto inTy = op.input().getType().dyn_cast<ShapedType>();
+  if (!inTy) {
+    return success();
+  }
+
+  int64_t axisValue = op.axis();
+  auto inputShape = inTy.getShape();
+  int64_t inputRank = inputShape.size();
+
+  if (axisValue < -1 * inputRank || axisValue > inputRank) {
+    return op.emitError("ONNXFlattenOP: axis() value is out of range");
+  }
+
+  return success();
+}
+
 LogicalResult ONNXFlattenOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  auto inTy = input().getType().dyn_cast<RankedTensorType>();
+  auto inTy = input().getType().dyn_cast_or_null<RankedTensorType>();
   if (!inTy) {
     return success();
   }
@@ -2845,9 +2866,6 @@ LogicalResult ONNXFlattenOp::inferShapes(
   int64_t axisValue = axis();
   auto inputShape = inTy.getShape();
   int64_t inputRank = inputShape.size();
-  if (axisValue < -1 * inputRank || axisValue > inputRank) {
-    return emitOpError("ONNXFlattenOP: axis() value is out of range");
-  }
 
   SmallVector<int64_t, 2> dims;
 

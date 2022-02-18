@@ -6,7 +6,7 @@ add_onnx_mlir_library(ModelLib
   GemmModel.cpp
   LSTMModel.cpp
   MatMulModel.cpp
-  ModelHelper.cpp
+  ModelLib.cpp
   RNNModel.cpp
 
   EXCLUDE_FROM_OM_LIBS

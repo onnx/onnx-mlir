@@ -18,15 +18,13 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 #include "src/Runtime/OMTensorHelper.h"
+#include "test/modellib/ModelLib.hpp"
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestLoop_main_graph");
 
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
-
-// Include some helper functions.
-#include "Helper.hpp"
 
 std::string testLoopSimpleIR = R"(
 module {
@@ -87,7 +85,8 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   auto module = mlir::parseSourceString(moduleIR, &ctx);
   OwningModuleRef moduleRef(std::move(module));
   compileModule(moduleRef, ctx, SHARED_LIB_BASE.str(), onnx_mlir::EmitLib);
-  onnx_mlir::ExecutionSession sess(getSharedLibName(SHARED_LIB_BASE.str()));
+  onnx_mlir::ExecutionSession sess(
+      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
   std::vector<OMTensorUniquePtr> inputs;
   auto tripCountTensor = OMTensorUniquePtr(
@@ -126,7 +125,8 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
 }
 
 int main(int argc, char *argv[]) {
-  llvm::FileRemover remover(getSharedLibName(SHARED_LIB_BASE.str()));
+  llvm::FileRemover remover(
+      ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
