@@ -23,6 +23,7 @@
 using namespace std;
 
 const std::string modelName("./perfgemm");
+
 const CompilerOptionList opts{{onnx_mlir::OptionKind::CompilerOptLevel, "3"}};
 
 static void BM_MatmulSquare(benchmark::State &state) {
