@@ -69,3 +69,7 @@ add_onnx_mlir_library(OnnxMlirCompiler
   LINK_LIBS PRIVATE
   CompilerUtils
   )
+
+if (NOT BUILD_SHARED_LIBS)
+  target_compile_definitions(OnnxMlirCompiler PUBLIC OnnxMlirCompiler_EXPORTS)
+endif()
