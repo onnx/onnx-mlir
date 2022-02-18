@@ -33,8 +33,9 @@ void recordEntryPointSignatures(ModuleOp &module,
     SmallVectorImpl<std::string> &outSignatures);
 
 void genSignatureFunction(ModuleOp module,
-    ArrayRef<std::string> entryPointNames, ArrayRef<std::string> inSignatures,
-    ArrayRef<std::string> outSignatures);
+    const ArrayRef<std::string> entryPointNames,
+    const ArrayRef<std::string> inSignatures,
+    const ArrayRef<std::string> outSignatures);
 
 void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     MLIRContext *ctx, LLVMTypeConverter &typeConverter,

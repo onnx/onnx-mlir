@@ -27,11 +27,14 @@ class PyExecutionSession : public onnx_mlir::ExecutionSession {
 public:
   PyExecutionSession(std::string sharedLibPath)
       : onnx_mlir::ExecutionSession(sharedLibPath) {}
-  PyExecutionSession(std::string sharedLibPath, std::string entryPointName)
-      : onnx_mlir::ExecutionSession(sharedLibPath, entryPointName) {}
+
+  PyExecutionSession(std::string sharedLibPath, bool defaultEntryPoint)
+      : onnx_mlir::ExecutionSession(sharedLibPath, defaultEntryPoint) {}
 
   std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray);
 
+  void pySetEntryPoint(std::string entryPointName);
+  std::vector<std::string> pyQueryEntryPoint();
   std::string pyInputSignature();
   std::string pyOutputSignature();
 };
@@ -40,8 +43,10 @@ public:
 PYBIND11_MODULE(PyRuntime, m) {
   py::class_<onnx_mlir::PyExecutionSession>(m, "ExecutionSession")
       .def(py::init<const std::string &>())
-      .def(py::init<const std::string &, const std::string &>())
+      .def(py::init<const std::string &, const bool>())
       .def("run", &onnx_mlir::PyExecutionSession::pyRun)
+      .def("set_entry_point", &onnx_mlir::PyExecutionSession::pySetEntryPoint)
+      .def("entry_points", &onnx_mlir::PyExecutionSession::pyQueryEntryPoint)
       .def("input_signature", &onnx_mlir::PyExecutionSession::pyInputSignature)
       .def("output_signature",
           &onnx_mlir::PyExecutionSession::pyOutputSignature);

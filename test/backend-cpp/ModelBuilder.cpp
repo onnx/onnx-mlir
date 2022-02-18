@@ -64,8 +64,8 @@ bool ModelBuilder::runAndVerifyTest(std::vector<OMTensorUniquePtr> &inputs,
   assert(!inputs.empty() && "Expecting valid inputs");
 
   // Run the test code.
-  onnx_mlir::ExecutionSession execSession(
-      getSharedLibName(sharedLibBaseName), "run_main_graph");
+  onnx_mlir::ExecutionSession execSession(getSharedLibName(sharedLibBaseName));
+  execSession.setEntryPoint("run_main_graph");
   auto outputs = execSession.run(move(inputs));
   assert(
       outputs.size() == expectedOutputs.size() && "Should have the same size");

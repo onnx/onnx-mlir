@@ -1885,9 +1885,12 @@ void mlir::recordEntryPointSignatures(ModuleOp &module,
   }
 }
 
-/// This function emits two functions, omInputSignature and omOutputSignature,
-/// of type `*i8 (*i8)` at the end of the module. They are to query input and
-/// output signatures of the given entry point.
+/// This function emits three functions: omQueryEntryPoints, omInputSignature
+/// and omOutputSignature.
+/// - omQueryEntryPoints has type of `**i8 ()` to query an array of entry point
+/// names.
+/// - omInputSignature and omOutputSignature have type of type `*i8 (*i8)` to
+/// return input and output signatures of the given entry point.
 void mlir::genSignatureFunction(ModuleOp module,
     const ArrayRef<std::string> entryPointNames,
     const ArrayRef<std::string> inSignatures,
@@ -1900,8 +1903,8 @@ void mlir::genSignatureFunction(ModuleOp module,
   Type i8Type = IntegerType::get(context, 8);
   Type i32Type = IntegerType::get(context, 32);
   Type i64Type = IntegerType::get(context, 64);
-  Type opaquePtrTy = LLVM::LLVMPointerType::get(i8Type);
-  Type opaquePtrPtrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
+  Type i8PtrTy = LLVM::LLVMPointerType::get(i8Type);
+  Type i8PtrPtrTy = LLVM::LLVMPointerType::get(i8PtrTy);
   IntegerAttr zeroI32Attr = b.getI32IntegerAttr(0);
   IntegerAttr zeroI64Attr = b.getI64IntegerAttr(0);
   IntegerAttr oneI64Attr = b.getI64IntegerAttr(1);
@@ -1918,6 +1921,16 @@ void mlir::genSignatureFunction(ModuleOp module,
     return globalOp;
   };
 
+  // A helper function to get a pointer to the first element in an array.
+  auto getGlobalOpGEP = [&loc, &b, &i8PtrTy, &i64Type, &zeroI64Attr](
+                            LLVM::GlobalOp op) {
+    Value zeroI64 = b.create<LLVM::ConstantOp>(loc, i64Type, zeroI64Attr);
+    Value address = b.create<LLVM::AddressOfOp>(loc, op);
+    LLVM::GEPOp gepOp = b.create<LLVM::GEPOp>(
+        loc, i8PtrTy, address, ArrayRef<Value>({zeroI64, zeroI64}));
+    return gepOp;
+  };
+
   // For each entry point name, emit three global constants to store the entry
   // point name and input/output signatures. For the i-th entry point, these
   // constants are named as follows:
@@ -1928,7 +1941,7 @@ void mlir::genSignatureFunction(ModuleOp module,
   b.setInsertionPointToStart(module.getBody());
   SmallVector<LLVM::GlobalOp, 2> entryOps, inSigOps, outSigOps;
   for (uint64_t i = 0; i < numOfEntryPoints; ++i) {
-    // Global constants for entry point names prefixed by `run_`.
+    // Global constants for entry point names.
     std::string entryVarName = "_entry_point_" + std::to_string(i);
     LLVM::GlobalOp entryOp = emitGlobalOp(entryVarName, entryPointNames[i]);
     entryOps.emplace_back(entryOp);
@@ -1944,6 +1957,52 @@ void mlir::genSignatureFunction(ModuleOp module,
     outSigOps.emplace_back(outSigOp);
   }
 
+  // Emit a global constant to store an array of pointers pointing to each entry
+  // point constants. The array ends with NULL.
+  auto arrayType = LLVM::LLVMArrayType::get(i8PtrTy, entryOps.size() + 1);
+  auto entryArrayOp = b.create<LLVM::GlobalOp>(loc, arrayType,
+      /*isConstant=*/true, LLVM::Linkage::Internal, "_entry_point_arrays",
+      Attribute());
+  { // Fill the initializer with pointers to entry point constants.
+    Region &region = entryArrayOp.getInitializerRegion();
+    Block *block = b.createBlock(&region);
+
+    // Initialize an array with the addresses of the global strings.
+    b.setInsertionPointToStart(block);
+    Value array = b.create<LLVM::UndefOp>(loc, arrayType);
+
+    uint32_t index = 0;
+    Value lastValue = array;
+    for (const LLVM::GlobalOp &globalOp : entryOps) {
+      LLVM::GEPOp strAddr = getGlobalOpGEP(globalOp);
+      lastValue = b.create<LLVM::InsertValueOp>(loc, arrayType, lastValue,
+          strAddr, b.getArrayAttr({b.getIndexAttr(index++)}));
+    }
+
+    // The last element of the array is NULL.
+    Value nullPtr = b.create<LLVM::NullOp>(loc, i8PtrTy);
+    lastValue = b.create<LLVM::InsertValueOp>(loc, arrayType, lastValue,
+        nullPtr, b.getArrayAttr({b.getIndexAttr(index++)}));
+    b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({lastValue}));
+  }
+
+  // Emit a function, omQueryEntryPoints, of type `**8 ()` to query an array of
+  // entry point names.
+  {
+    b.setInsertionPointToEnd(module.getBody());
+    // 1. Emit the function type.
+    Type llvmFnType = LLVM::LLVMFunctionType::get(i8PtrPtrTy, {}, false);
+    LLVM::LLVMFuncOp funcOp =
+        b.create<LLVM::LLVMFuncOp>(loc, "omQueryEntryPoints", llvmFnType);
+    // 2. Emit the body of the function.
+    Block *entryBlock = funcOp.addEntryBlock();
+    OpBuilder::InsertionGuard bodyGuard(b);
+    b.setInsertionPointToStart(entryBlock);
+    Value sigAddr = b.create<LLVM::AddressOfOp>(loc, entryArrayOp);
+    Value sigVoidPtr = b.create<LLVM::BitcastOp>(loc, i8PtrPtrTy, sigAddr);
+    b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({sigVoidPtr}));
+  }
+
   // Emit two signature functions, omInputSignature and omOutputSignature, of
   // type `*i8 (*i8)` at the end of the module.
   SmallVector<std::string, 2> funcNames = {
@@ -1953,8 +2012,7 @@ void mlir::genSignatureFunction(ModuleOp module,
     OpBuilder::InsertionGuard guard(b);
     b.setInsertionPointToEnd(module.getBody());
     // 1. Emit the function type.
-    Type llvmFnType =
-        LLVM::LLVMFunctionType::get(opaquePtrTy, {opaquePtrTy}, false);
+    Type llvmFnType = LLVM::LLVMFunctionType::get(i8PtrTy, {i8PtrTy}, false);
     LLVM::LLVMFuncOp funcOp =
         b.create<LLVM::LLVMFuncOp>(loc, funcNames[i], llvmFnType);
 
@@ -1964,11 +2022,10 @@ void mlir::genSignatureFunction(ModuleOp module,
     b.setInsertionPointToStart(entryBlock);
 
     Value zeroI32 = b.create<LLVM::ConstantOp>(loc, i32Type, zeroI32Attr);
-    Value zeroI64 = b.create<LLVM::ConstantOp>(loc, i64Type, zeroI64Attr);
     Value oneI64 = b.create<LLVM::ConstantOp>(loc, i64Type, oneI64Attr);
 
     // 2.1 A buffer to keep a pointer pointing to the return signature string.
-    Value ptrToReturnSig = b.create<LLVM::AllocaOp>(loc, opaquePtrPtrTy, oneI64,
+    Value ptrToReturnSig = b.create<LLVM::AllocaOp>(loc, i8PtrPtrTy, oneI64,
         /*alignment=*/0);
 
     // 2.2 The name of the entry point that we want to return its signature.
@@ -1991,7 +2048,7 @@ void mlir::genSignatureFunction(ModuleOp module,
 
     // Emit code for the end block.
     b.setInsertionPointToStart(endBlock);
-    Value res = b.create<LLVM::LoadOp>(loc, opaquePtrTy, ptrToReturnSig);
+    Value res = b.create<LLVM::LoadOp>(loc, i8PtrTy, ptrToReturnSig);
     b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({res}));
 
     // Emit code for the condition, true and false blocks.
@@ -2002,10 +2059,7 @@ void mlir::genSignatureFunction(ModuleOp module,
       // Emit code for the condition block.
       b.setInsertionPointToEnd(condBlock);
       // Read an entry point name.
-      Value entryAddr = b.create<LLVM::AddressOfOp>(loc, globalEntryPoint);
-      Value entryVoidPtr = b.create<LLVM::GEPOp>(loc, opaquePtrTy, entryAddr,
-                                ArrayRef<Value>({zeroI64, zeroI64}))
-                               .getResult();
+      Value entryVoidPtr = getGlobalOpGEP(globalEntryPoint).getResult();
       // Compare it with the user's entry point name.
       FlatSymbolRefAttr StrncmpRef = getOrInsertStrncmp(b, module);
       Value length = b.create<LLVM::ConstantOp>(
@@ -2024,7 +2078,7 @@ void mlir::genSignatureFunction(ModuleOp module,
       // Emit code for the true block.
       b.setInsertionPointToStart(trueBlock);
       Value sigAddr = b.create<LLVM::AddressOfOp>(loc, globalSignature);
-      Value sigVoidPtr = b.create<LLVM::BitcastOp>(loc, opaquePtrTy, sigAddr);
+      Value sigVoidPtr = b.create<LLVM::BitcastOp>(loc, i8PtrTy, sigAddr);
       b.create<LLVM::StoreOp>(loc, sigVoidPtr, ptrToReturnSig);
       b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
 

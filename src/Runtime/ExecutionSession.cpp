@@ -22,16 +22,16 @@
 #include "llvm/Support/ManagedStatic.h"
 
 namespace onnx_mlir {
+const std::string ExecutionSession::_queryEntryName = "omQueryEntryPoints";
 const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
 const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
 
 ExecutionSession::ExecutionSession(std::string sharedLibPath)
-    : ExecutionSession::ExecutionSession(sharedLibPath, "run_main_graph") {}
+    : ExecutionSession::ExecutionSession(
+          sharedLibPath, /*defaultEntryPoint=*/true) {}
 
 ExecutionSession::ExecutionSession(
-    std::string sharedLibPath, std::string entryPointName)
-    : _entryPointName(entryPointName) {
-
+    std::string sharedLibPath, bool defaultEntryPoint) {
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getPermanentLibrary(sharedLibPath.c_str());
   if (!_sharedLibraryHandle.isValid()) {
@@ -40,11 +40,14 @@ ExecutionSession::ExecutionSession(
     throw std::runtime_error(errStr.str());
   }
 
-  _entryPointFunc = reinterpret_cast<entryPointFuncType>(
-      _sharedLibraryHandle.getAddressOfSymbol(_entryPointName.c_str()));
-  if (!_entryPointFunc) {
+  if (defaultEntryPoint)
+    setEntryPoint("run_main_graph");
+
+  _queryEntryFunc = reinterpret_cast<queryEntryFuncType>(
+      _sharedLibraryHandle.getAddressOfSymbol(_queryEntryName.c_str()));
+  if (!_queryEntryFunc) {
     std::stringstream errStr;
-    errStr << "Cannot load symbol: '" << _entryPointName << "'" << std::endl;
+    errStr << "Cannot load symbol: '" << _queryEntryName << "'" << std::endl;
     throw std::runtime_error(errStr.str());
   }
 
@@ -90,6 +93,21 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
 // lists.
 OMTensorList *ExecutionSession::run(OMTensorList *input) {
   return _entryPointFunc(input);
+}
+
+void ExecutionSession::setEntryPoint(std::string entryPointName) {
+  _entryPointFunc = reinterpret_cast<entryPointFuncType>(
+      _sharedLibraryHandle.getAddressOfSymbol(entryPointName.c_str()));
+  if (!_entryPointFunc) {
+    std::stringstream errStr;
+    errStr << "Cannot load symbol: '" << entryPointName << "'" << std::endl;
+    throw std::runtime_error(errStr.str());
+  }
+  _entryPointName = entryPointName;
+}
+
+const std::string *ExecutionSession::queryEntryPoints() const {
+  return (std::string *)_queryEntryFunc();
 }
 
 std::string ExecutionSession::inputSignature() const {
