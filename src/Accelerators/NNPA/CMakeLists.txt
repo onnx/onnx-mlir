@@ -44,3 +44,7 @@ add_onnx_mlir_library(NNPAAccel
   onnx
   )
 
+  target_link_libraries(NNPAAccel PUBLIC DLCompilerUtils)
+  target_link_libraries(NNPAAccel PUBLIC OMZHighOps)
+  target_link_libraries(NNPAAccel PUBLIC OMZLowOps)
+

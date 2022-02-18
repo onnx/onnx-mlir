@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
+//#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
+#include "src/Accelerators/Accelerator.hpp"
 #include "src/Support/OMOptions.hpp"
 #include <iostream>
 // modified from DLC main
@@ -21,9 +22,16 @@
 #include "src/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Pass/DLCPasses.hpp"
-namespace mlir {
+extern llvm::cl::OptionCategory OMDLCPassOptions;
 
-NNPAAccelerator::NNPAAccelerator() {
+namespace mlir {
+class NNPAAccelerator : public Accelerator {
+private:
+  static bool initialized;
+
+public:
+//NNPAAccelerator::NNPAAccelerator() {
+NNPAAccelerator() {
   std::cout << "initializing NNPA" << std::endl;
   if (!initialized) {
     initialized = true;
@@ -32,18 +40,21 @@ NNPAAccelerator::NNPAAccelerator() {
     // getAcceleratorList()->push_back(this);
 };
 
-extern llvm::cl::OptionCategory OMDLCPassOptions;
 
-bool NNPAAccelerator::isActive() {
+//bool NNPAAccelerator::isActive() {
+bool isActive() override {
   if (acceleratorTarget.compare("NNPA") == 0) {
     std::cout << "Targeting NNPA accelerator" << std::endl;
     return true;
-  }
+  } else
+    return false;
+
 
 }
 
-void NNPAAccelerator::prepareAccelerator(mlir::OwningModuleRef &module, mlir::MLIRContext &context, mlir::PassManager &pm,
-    EmissionTargetType emissionTarget) {
+//void NNPAAccelerator::prepareAccelerator(mlir::OwningModuleRef &module, mlir::MLIRContext &context, mlir::PassManager &pm,
+void prepareAccelerator(mlir::OwningModuleRef &module, mlir::MLIRContext &context, mlir::PassManager &pm,
+    onnx_mlir::EmissionTargetType emissionTarget)  override {
   std::cout << "preparing accelerator " << acceleratorTarget << std::endl;
   llvm::cl::opt<DLCEmissionTargetType> dlcEmissionTarget(
       llvm::cl::desc("[Optional] Choose Z-related target to emit "
@@ -68,7 +79,7 @@ void NNPAAccelerator::prepareAccelerator(mlir::OwningModuleRef &module, mlir::ML
   context.getOrLoadDialect<mlir::ZLowDialect>();
   addPassesDLC(module, pm, emissionTarget, dlcEmissionTarget, execNodesOnCpu);
 
-
+    }
 };
 
 bool NNPAAccelerator::initialized = false;
