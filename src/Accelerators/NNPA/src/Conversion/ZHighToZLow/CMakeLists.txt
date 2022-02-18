@@ -1,5 +1,5 @@
 set(LLVM_TARGET_DEFINITIONS ZHighToZLow.td)
-mlir_tablegen(ZHighToZLow.inc -gen-rewriters "-I${DLC_SRC_ROOT}")
+mlir_tablegen(ZHighToZLow.inc -gen-rewriters "-I${DLC_ONNX_MLIR_SRC_ROOT}" "-I${DLC_SRC_ROOT}")
 add_public_tablegen_target(OMZHighToZLowIncGen)
 
 add_dlc_library(OMZHighToZLow

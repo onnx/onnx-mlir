@@ -12,9 +12,12 @@
 #include "src/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Pass/DLCPasses.hpp"
-#include "third_party/onnx-mlir/src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
-#include "third_party/onnx-mlir/src/Dialect/ONNX/ONNXOps.hpp"
-#include "third_party/onnx-mlir/src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+//#include "third_party/onnx-mlir/src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+//#include "third_party/onnx-mlir/src/Dialect/ONNX/ONNXOps.hpp"
+//#include "third_party/onnx-mlir/src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 

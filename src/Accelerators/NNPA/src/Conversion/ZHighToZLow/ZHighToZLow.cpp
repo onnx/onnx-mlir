@@ -29,7 +29,8 @@
 #include "src/Dialect/ZHigh/ZHighShapeHelper.hpp"
 #include "src/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Pass/DLCPasses.hpp"
-#include "third_party/onnx-mlir/src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+//#include "third_party/onnx-mlir/src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+#include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 
 using namespace mlir;
 
