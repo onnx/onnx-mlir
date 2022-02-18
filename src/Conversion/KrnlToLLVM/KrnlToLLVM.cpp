@@ -1885,6 +1885,9 @@ void mlir::recordEntryPointSignatures(ModuleOp &module,
   }
 }
 
+/// This function emits two functions, omInputSignature and omOutputSignature,
+/// of type `*i8 (*i8)` at the end of the module. They are to query input and
+/// output signatures of the given entry point.
 void mlir::genSignatureFunction(ModuleOp module,
     const ArrayRef<std::string> entryPointNames,
     const ArrayRef<std::string> inSignatures,
@@ -1905,6 +1908,16 @@ void mlir::genSignatureFunction(ModuleOp module,
 
   uint64_t numOfEntryPoints = entryPointNames.size();
 
+  // A helper function to emit a global constant operation storing a string.
+  auto emitGlobalOp = [&context, &b, &loc, &i8Type](
+                          std::string name, std::string value) {
+    mlir::StringAttr valueAttr = mlir::StringAttr::get(context, value);
+    Type valueArrayType = LLVM::LLVMArrayType::get(i8Type, value.size());
+    LLVM::GlobalOp globalOp = b.create<LLVM::GlobalOp>(loc, valueArrayType,
+        /*isConstant=*/true, LLVM::Linkage::External, name, valueAttr);
+    return globalOp;
+  };
+
   // For each entry point name, emit three global constants to store the entry
   // point name and input/output signatures. For the i-th entry point, these
   // constants are named as follows:
@@ -1916,34 +1929,18 @@ void mlir::genSignatureFunction(ModuleOp module,
   SmallVector<LLVM::GlobalOp, 2> entryOps, inSigOps, outSigOps;
   for (uint64_t i = 0; i < numOfEntryPoints; ++i) {
     // Global constants for entry point names prefixed by `run_`.
-    mlir::StringAttr entryAttr =
-        mlir::StringAttr::get(context, entryPointNames[i]);
-    Type entryArrayType =
-        LLVM::LLVMArrayType::get(i8Type, entryPointNames[i].size());
     std::string entryVarName = "_entry_point_" + std::to_string(i);
-    LLVM::GlobalOp entryOp = b.create<LLVM::GlobalOp>(loc, entryArrayType,
-        /*isConstant=*/true, LLVM::Linkage::External, entryVarName, entryAttr);
+    LLVM::GlobalOp entryOp = emitGlobalOp(entryVarName, entryPointNames[i]);
     entryOps.emplace_back(entryOp);
 
     // Global constants for input signatures.
-    mlir::StringAttr inSigAttr =
-        mlir::StringAttr::get(context, inSignatures[i]);
-    Type inSigArrayType =
-        LLVM::LLVMArrayType::get(i8Type, inSignatures[i].size());
     std::string inSigVarName = entryVarName + "_in_sig";
-    LLVM::GlobalOp inSigOp = b.create<LLVM::GlobalOp>(loc, inSigArrayType,
-        /*isConstant=*/true, LLVM::Linkage::External, inSigVarName, inSigAttr);
+    LLVM::GlobalOp inSigOp = emitGlobalOp(inSigVarName, inSignatures[i]);
     inSigOps.emplace_back(inSigOp);
 
     // Global constants for output signatures.
-    mlir::StringAttr outSigAttr =
-        mlir::StringAttr::get(context, outSignatures[i]);
-    Type outSigArrayType =
-        LLVM::LLVMArrayType::get(i8Type, outSignatures[i].size());
     std::string outSigVarName = entryVarName + "_out_sig";
-    LLVM::GlobalOp outSigOp = b.create<LLVM::GlobalOp>(loc, outSigArrayType,
-        /*isConstant=*/true, LLVM::Linkage::External, outSigVarName,
-        outSigAttr);
+    LLVM::GlobalOp outSigOp = emitGlobalOp(outSigVarName, outSignatures[i]);
     outSigOps.emplace_back(outSigOp);
   }
 
