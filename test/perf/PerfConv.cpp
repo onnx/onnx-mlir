@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// This file contains tests for simple test cases, for an arbitrary small
+// This file contains tests for simple test cases for an arbitrary small
 // set of parameters.
 //   * Time is set to report in miliseconds (ms)
 //   * Complexity is calculated in the original nanoseconds.
