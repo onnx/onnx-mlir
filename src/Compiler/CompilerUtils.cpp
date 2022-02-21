@@ -655,17 +655,12 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
     }
   }
 
-  pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
-  //pm.addNestedPass<FuncOp>(mlir::createONNXSampleOpTransformPass());
-  //pm.addNestedPass<FuncOp>(mlir::createONNXLeakyReluOpTransformPass());
 
-  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConstantOpTransformPass());
-  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConv2DOpTransformPass());
   pm.addNestedPass<FuncOp>(mlir::createONNXToAtenLeakyReluOpTransformPass());
   pm.addNestedPass<FuncOp>(mlir::createONNXToAtenMaxPool2dOpTransformPass());
-
-  pm.addNestedPass<FuncOp>(mlir::createCSEPass());
-  
+  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConv2DOpTransformPass());
+  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConstantOpTransformPass());
+  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConstantPadNdOpTransformPass())  
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
 }

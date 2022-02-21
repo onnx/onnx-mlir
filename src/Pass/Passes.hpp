@@ -27,12 +27,13 @@ std::unique_ptr<Pass> createONNXOpTransformPass(int threshold);
 std::unique_ptr<Pass> createDecomposeONNXToONNXPass();
 
 /// pass for ONNX to Leaky relu
+std::unique_ptr<Pass> createONNXToAtenConstantOpTransformPass();
 std::unique_ptr<Pass> createONNXToAtenLeakyReluOpTransformPass();
 std::unique_ptr<Pass> createONNXToAtenMaxPool2dOpTransformPass();
-std::unique_ptr<Pass> createONNXToAtenConstantOpTransformPass();
 
 /// Pass for ONNX to Aten conv2d operation
 std::unique_ptr<Pass> createONNXToAtenConv2DOpTransformPass();
+std::unique_ptr<Pass> createONNXToAtenConstantPadNdOpTransformPass();
 
 std::unique_ptr<Pass> createShapeInferencePass(
     bool analyzeAllFunctions = false);

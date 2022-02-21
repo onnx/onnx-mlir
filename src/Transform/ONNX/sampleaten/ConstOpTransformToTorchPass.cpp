@@ -53,43 +53,20 @@ using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
 /**
- * ONNX Conv operation
+ * ONNX Constant  operation
  *
- * “The convolution operator consumes an input tensor and a filter, and” “computes the output.”
+ * Creates the constant tensor.
  *
  * Operands :
- * X		tensor of 16-bit/32-bit/64-bit float values or memref of any type values
- * W		tensor of 16-bit/32-bit/64-bit float values or memref of any type values
- * B		tensor of 16-bit/32-bit/64-bit float values or memref of any type values or none type
- * Output   : 
- * Y		tensor of 16-bit/32-bit/64-bit float values or memref of any type values or none type
- *
- * Attributes 
- * auto_pad 	string attribute
- * dilations 	64-bit integer array attribute
- * group 	64-bit signed integer attribute
- * kernel_shape 64-bit integer array attribute
- * pads 	64-bit integer array attribute
- * strides 	64-bit integer array attribute
  * 
- * AtenConv2dOp Arguments as below 
- * -------------------------------
- *
- *  AnyTorchTensorType : $input
- *  AnyTorchTensorType : $weight
- *  AnyTorchOptionalTensorType : $bias
- *  TorchIntListType : $stride
- *  TorchIntListType : $padding
- *  TorchIntListType : $dilation
- *  Torch_IntType : $group
  * 
  * Validation 
  * ----------
- * ./Debug/bin/onnx-mlir --EmitONNXIR --debug  ../../../third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/pytorch-operator/test_operator_conv/model.onnx
+ * /scripts/docker/build_with_docker.py --external-build --build-dir build --command "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir --EmitONNXIR --debug third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_constant/model.onnx"
  * 
  * Limitations
  * -----------
- * The atribute values have been used in the below code are specific to this input model specified on line no 88.
+ * uses literal.
  * 
  */
 namespace {
@@ -153,17 +130,18 @@ public:
 
     auto ty = IntegerType::get(op.getContext(), 32);
     auto f33 = IntegerAttr::get(ty, three);
+    Value device = rewriter.create<ConstantDeviceOp>(loc,"CPU");
     Value f3v = rewriter.create<ConstantIntOp>(loc,f33);
+    Value bfv = rewriter.create<ConstantBoolOp>(loc,false);
     auto xTy      = Torch::ValueTensorType::get(context, flt_array_tensor_type.getShape(), flt_array_tensor_type.getElementType());
 
     llvm::outs() << "XTY IS HERE " << "\n" << xTy << "\n"; 
 
-    Value constfloatop = rewriter.create<Torch::ConstantFloatOp>(loc, resultTy, value_attr.cast<FloatAttr>());
-    //Value constfloatop = rewriter.create<Torch::ConstantFloatOp>(loc, value_attr.cast<FloatAttr>());
+    Value literal = rewriter.create<Torch::ValueTensorLiteralOp>(loc, resultTy, value_attr);
 
-    //llvm::outs() << "constfloatop operation creation" << "\n" << constfloatop << "\n" << "\n";
+    llvm::outs() << "ValueTensorLiteralOp operation creation" << "\n" << literal << "\n" << "\n";
 
-    Value result = f3v; 
+    Value result = literal; 
 
     llvm::outs() << "Before Writer replace Op " << "\n"; 
 
