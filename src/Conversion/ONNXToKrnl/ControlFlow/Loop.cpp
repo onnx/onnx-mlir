@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/OpenMP/OpenMPDialect.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
@@ -279,12 +280,19 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     auto srcTy = src.getType().cast<MemRefType>();
     SmallVector<Value, 4> readIV;
     if (srcTy.getRank() > 0) {
+      // Create the parallel wrapper.
+      auto ompParallel = rewriter.create<omp::ParallelOp>(loc);
+      rewriter.createBlock(&ompParallel.region());
+
       BuildKrnlLoop loop(rewriter, loc, srcTy.getRank());
       // Do not create defineLoo
       loop.createDefineOp();
       for (int i = 0; i < srcTy.getRank(); i++)
         loop.pushBounds(0, src, i);
       loop.createIterateOp();
+
+      rewriter.create<omp::TerminatorOp>(loc);
+      
       rewriter.setInsertionPointToStart(loop.getIterateBlock());
       auto loopIVs = loop.getAllInductionVar();
       readIV = SmallVector<Value, 4>(loopIVs.begin(), loopIVs.end());
