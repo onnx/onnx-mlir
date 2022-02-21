@@ -309,6 +309,10 @@ void populateLoweringONNXLSTMOpPattern(
 void populateLoweringONNXRNNOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
+// `Sequence` directory methods:
+void populateLoweringONNXSequenceEmptyOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
 // `Tensor` directory methods:
 void populateLoweringONNXArgMaxOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);

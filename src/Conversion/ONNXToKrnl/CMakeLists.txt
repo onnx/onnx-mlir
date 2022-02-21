@@ -29,6 +29,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   RNN/LSTM.cpp
   RNN/RNN.cpp
   RNN/RNNBase.cpp
+  Sequence/SequenceEmpty.cpp
   Tensor/ArgMax.cpp
   Tensor/Concat.cpp
   Tensor/Compress.cpp  
