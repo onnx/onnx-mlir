@@ -13,13 +13,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <assert.h>
-#include <limits.h>
-#if defined(__APPLE__) || defined(__MVS__)
+#if defined(__APPLE__)
 #include <stdlib.h>
+#elif defined(__MVS__)
+#define _XOPEN_SOURCE_EXTENDED 1
+#include <stdlib.h>
+#include <unistd.h>
 #else
 #include <malloc.h>
 #endif
+#include <assert.h>
+#include <limits.h>
 #include <string.h>
 
 #include "OnnxMlirRuntime.h"
@@ -59,7 +63,7 @@ extern OMTensorList *run_main_graph(OMTensorList *);
     } else if (!(success)) {                                                   \
       LOG_PRINTF(LOG_ERROR, __VA_ARGS__);                                      \
       if (ecpt)                                                                \
-        (*env)->ThrowNew(env, ecpt, "JNI call error");                         \
+        (*env)->ThrowNew(env, ecpt, jnistr[MSG_JNI_CALL_ERROR]);               \
       return NULL;                                                             \
     }                                                                          \
   } while (0)
@@ -87,7 +91,7 @@ extern OMTensorList *run_main_graph(OMTensorList *);
     if (!(success)) {                                                          \
       LOG_PRINTF(LOG_ERROR, __VA_ARGS__);                                      \
       if (ecpt)                                                                \
-        (*env)->ThrowNew(env, ecpt, "native code error");                      \
+        (*env)->ThrowNew(env, ecpt, jnistr[MSG_NATIVE_CODE_ERROR]);            \
       return NULL;                                                             \
     }                                                                          \
   } while (0)
@@ -158,91 +162,184 @@ typedef struct {
   jmethodID jomtl_getOmtArray; /* OMTensorList getOmtArray method */
 } jniapi_t;
 
+/* z/OS JNI expects ASCII but xlc encodes in EBCDIC so
+ * convert string literals for JNI calls to ASCII on z/OS.
+ */
+#ifdef __MVS__
+#pragma convert("ISO8859-1")
+#endif
+const char *jnistr[] = {
+    "java/lang/Exception",             /* 0  CLS_JAVA_LANG_EXCEPTION          */
+    "java/lang/Long",                  /* 1  CLS_JAVA_LANG_LONG               */
+    "java/lang/String",                /* 2  CLS_JAVA_LANG_STRING             */
+    "com/ibm/onnxmlir/OMTensor",       /* 3  CLS_COM_IBM_ONNXMLIR_OMTENSOR    */
+    "com/ibm/onnxmlir/OMTensorList",   /* 4  CLS_COM_IBM_ONNXMLIR_OMTENSORLIST*/
+    "<init>",                          /* 5  CTOR_INIT                        */
+    "(Ljava/nio/ByteBuffer;[J[JI)V",   /* 6  CTOR_OMTENSOR                    */
+    "([Lcom/ibm/onnxmlir/OMTensor;)V", /* 7  CTOR_OMTENSORLIST */
+    "()Ljava/nio/ByteBuffer;",         /* 8  SIG_GET_DATA                     */
+    "(Ljava/nio/ByteBuffer;)V",        /* 9  SIG_SET_DATA                     */
+    "()[Lcom/ibm/onnxmlir/OMTensor;",  /* 10 SIG_GET_OMT_ARRAY                */
+    "()[J",                            /* 11 SIG_GET_SHAPE, SIG_GET_STRIDES   */
+    "([J)V",                           /* 12 SIG_SET_SHAPE, SIG_SET_STRIDES   */
+    "()I",                             /* 13 SIG_GET_DATA_TYPE                */
+    "(I)V",                            /* 14 SIG_SET_DATA_TYPE                */
+    "()J",                             /* 15 SIG_GET_BUFFER_SIZE, SIG_GET_RANK,
+                                             SIG_GET_NUM_ELEMS                */
+    "getData",                         /* 16 FUNC_GET_DATA                    */
+    "setData",                         /* 17 FUNC_SET_DATA                    */
+    "getShape",                        /* 18 FUNC_GET_SHAPE                   */
+    "setShape",                        /* 19 FUNC_SET_SHAPE                   */
+    "getStrides",                      /* 20 FUNC_GET_STRIDES                 */
+    "setStrides",                      /* 21 FUNC_SET_STRIDES                 */
+    "getDataType",                     /* 22 FUNC_GET_DATA_TYPE               */
+    "setDataType",                     /* 23 FUNC_SET_DATA_TYPE               */
+    "getBufferSize",                   /* 24 FUNC_GET_BUFFER_SIZE             */
+    "getRank",                         /* 25 FUNC_GET_RANK                    */
+    "getNumElems",                     /* 26 FUNC_GET_NUM_ELEMS               */
+    "getOmtArray",                     /* 27 FUNC_GET_OMT_ARRAY               */
+    "JNI call error",                  /* 28 MSG_JNI_CALL_ERROR               */
+    "native code error",               /* 29 MSG_NATIVE_CODE_ERROR            */
+};
+#ifdef __MVS__
+#pragma convert(pop)
+#endif
+
+/* clang-format off */
+enum {
+  CLS_JAVA_LANG_EXCEPTION           = 0,  /* java/lang/Exception             */
+  CLS_JAVA_LANG_LONG                = 1,  /* java/lang/Long                  */
+  CLS_JAVA_LANG_STRING              = 2,  /* java/lang/String                */
+  CLS_COM_IBM_ONNXMLIR_OMTENSOR     = 3,  /* com/ibm/onnxmlir/OMTensor       */
+  CLS_COM_IBM_ONNXMLIR_OMTENSORLIST = 4,  /* com/ibm/onnxmlir/OMTensorList   */
+  CTOR_INIT                         = 5,  /* <init>                          */
+  CTOR_OMTENSOR                     = 6,  /* (Ljava/nio/ByteBuffer;[J[JI)V   */
+  CTOR_OMTENSORLIST                 = 7,  /* ([Lcom/ibm/onnxmlir/OMTensor;)V */
+  SIG_GET_DATA                      = 8,  /* ()Ljava/nio/ByteBuffer;         */
+  SIG_SET_DATA                      = 9,  /* (Ljava/nio/ByteBuffer;)V        */
+  SIG_GET_OMT_ARRAY                 = 10, /* ()[Lcom/ibm/onnxmlir/OMTensor;  */
+  SIG_GET_SHAPE                     = 11, /* ()[J                            */
+  SIG_GET_STRIDES                   = 11, /* ()[J                            */
+  SIG_SET_SHAPE                     = 12, /* ([J)V                           */
+  SIG_SET_STRIDES                   = 12, /* ([J)V                           */
+  SIG_GET_DATA_TYPE                 = 13, /* ()I                             */
+  SIG_SET_DATA_TYPE                 = 14, /* (I)V                            */
+  SIG_GET_BUFFER_SIZE               = 15, /* ()J                             */
+  SIG_GET_RANK                      = 15, /* ()J                             */
+  SIG_GET_NUM_ELEMS                 = 15, /* ()J                             */
+  FUNC_GET_DATA                     = 16, /* getData                         */
+  FUNC_SET_DATA                     = 17, /* setData                         */
+  FUNC_GET_SHAPE                    = 18, /* getShape                        */
+  FUNC_SET_SHAPE                    = 19, /* setShape                        */
+  FUNC_GET_STRIDES                  = 20, /* getStrides                      */
+  FUNC_SET_STRIDES                  = 21, /* setStrides                      */
+  FUNC_GET_DATA_TYPE                = 22, /* getDataType                     */
+  FUNC_SET_DATA_TYPE                = 23, /* setDataType                     */
+  FUNC_GET_BUFFER_SIZE              = 24, /* getBufferSize                   */
+  FUNC_GET_RANK                     = 25, /* getRank                         */
+  FUNC_GET_NUM_ELEMS                = 26, /* getNumElems                     */
+  FUNC_GET_OMT_ARRAY                = 27, /* getOmtArray                     */
+  MSG_JNI_CALL_ERROR                = 28, /* JNI call error                  */
+  MSG_NATIVE_CODE_ERROR             = 29, /* native code error               */
+};
+/* clang-format on */
+
 /* Find and initialize Java method IDs in struct jniapi */
 jniapi_t *fill_jniapi(JNIEnv *env, jniapi_t *japi) {
   /* Get Java Exception, Long, String, OMTensor, and OMTensorList classes
    */
   assert(env);
   JNI_VAR_CALL(env, japi->jecpt_cls,
-      (*env)->FindClass(env, "java/lang/Exception"), japi->jecpt_cls != NULL,
-      NULL, "Class java/lang/Exception not found");
-  JNI_VAR_CALL(env, japi->jlong_cls, (*env)->FindClass(env, "java/lang/Long"),
+      (*env)->FindClass(env, jnistr[CLS_JAVA_LANG_EXCEPTION]),
+      japi->jecpt_cls != NULL, NULL, "Class java/lang/Exception not found");
+  JNI_VAR_CALL(env, japi->jlong_cls,
+      (*env)->FindClass(env, jnistr[CLS_JAVA_LANG_LONG]),
       japi->jlong_cls != NULL, japi->jecpt_cls,
       "Class java/lang/Long not found");
   JNI_VAR_CALL(env, japi->jstring_cls,
-      (*env)->FindClass(env, "java/lang/String"), japi->jstring_cls != NULL,
-      japi->jecpt_cls, "Class java/lang/String not found");
+      (*env)->FindClass(env, jnistr[CLS_JAVA_LANG_STRING]),
+      japi->jstring_cls != NULL, japi->jecpt_cls,
+      "Class java/lang/String not found");
   JNI_VAR_CALL(env, japi->jomt_cls,
-      (*env)->FindClass(env, "com/ibm/onnxmlir/OMTensor"),
+      (*env)->FindClass(env, jnistr[CLS_COM_IBM_ONNXMLIR_OMTENSOR]),
       japi->jomt_cls != NULL, japi->jecpt_cls,
       "Class com/ibm/onnxmlir/OMTensor not found");
   JNI_VAR_CALL(env, japi->jomtl_cls,
-      (*env)->FindClass(env, "com/ibm/onnxmlir/OMTensorList"),
+      (*env)->FindClass(env, jnistr[CLS_COM_IBM_ONNXMLIR_OMTENSORLIST]),
       japi->jomtl_cls != NULL, japi->jecpt_cls,
       "Class com/ibm/onnxmlir/OMTensorList not found");
 
   /* Get method ID of constructor and various methods in OMTensor */
   JNI_VAR_CALL(env, japi->jomt_constructor,
       (*env)->GetMethodID(
-          env, japi->jomt_cls, "<init>", "(Ljava/nio/ByteBuffer;[J[JI)V"),
+          env, japi->jomt_cls, jnistr[CTOR_INIT], jnistr[CTOR_OMTENSOR]),
       japi->jomt_constructor != NULL, japi->jecpt_cls,
       "Method OMTensor.<init> not found");
   JNI_VAR_CALL(env, japi->jomt_getData,
       (*env)->GetMethodID(
-          env, japi->jomt_cls, "getData", "()Ljava/nio/ByteBuffer;"),
+          env, japi->jomt_cls, jnistr[FUNC_GET_DATA], jnistr[SIG_GET_DATA]),
       japi->jomt_getData != NULL, japi->jecpt_cls,
       "Method OMTensor.getData not found");
   JNI_VAR_CALL(env, japi->jomt_setData,
       (*env)->GetMethodID(
-          env, japi->jomt_cls, "setData", "(Ljava/nio/ByteBuffer;)V"),
+          env, japi->jomt_cls, jnistr[FUNC_SET_DATA], jnistr[SIG_SET_DATA]),
       japi->jomt_setData != NULL, japi->jecpt_cls,
       "Method OMTensor.setData not found");
   JNI_VAR_CALL(env, japi->jomt_getShape,
-      (*env)->GetMethodID(env, japi->jomt_cls, "getShape", "()[J"),
+      (*env)->GetMethodID(
+          env, japi->jomt_cls, jnistr[FUNC_GET_SHAPE], jnistr[SIG_GET_SHAPE]),
       japi->jomt_getShape != NULL, japi->jecpt_cls,
       "Method OMTensor.getShape not found");
   JNI_VAR_CALL(env, japi->jomt_setShape,
-      (*env)->GetMethodID(env, japi->jomt_cls, "setShape", "([J)V"),
+      (*env)->GetMethodID(
+          env, japi->jomt_cls, jnistr[FUNC_SET_SHAPE], jnistr[SIG_SET_SHAPE]),
       japi->jomt_setShape != NULL, japi->jecpt_cls,
       "Method OMTensor.setShape not found");
   JNI_VAR_CALL(env, japi->jomt_getStrides,
-      (*env)->GetMethodID(env, japi->jomt_cls, "getStrides", "()[J"),
+      (*env)->GetMethodID(env, japi->jomt_cls, jnistr[FUNC_GET_STRIDES],
+          jnistr[SIG_GET_STRIDES]),
       japi->jomt_getStrides != NULL, japi->jecpt_cls,
       "Method OMTensor.getStrides not found");
   JNI_VAR_CALL(env, japi->jomt_setStrides,
-      (*env)->GetMethodID(env, japi->jomt_cls, "setStrides", "([J)V"),
+      (*env)->GetMethodID(env, japi->jomt_cls, jnistr[FUNC_SET_STRIDES],
+          jnistr[SIG_SET_STRIDES]),
       japi->jomt_setStrides != NULL, japi->jecpt_cls,
       "Method OMTensor.setStrides not found");
   JNI_VAR_CALL(env, japi->jomt_getDataType,
-      (*env)->GetMethodID(env, japi->jomt_cls, "getDataType", "()I"),
+      (*env)->GetMethodID(env, japi->jomt_cls, jnistr[FUNC_GET_DATA_TYPE],
+          jnistr[SIG_GET_DATA_TYPE]),
       japi->jomt_getDataType != NULL, japi->jecpt_cls,
       "Method OMTensor.getDataType not found");
   JNI_VAR_CALL(env, japi->jomt_setDataType,
-      (*env)->GetMethodID(env, japi->jomt_cls, "setDataType", "(I)V"),
+      (*env)->GetMethodID(env, japi->jomt_cls, jnistr[FUNC_SET_DATA_TYPE],
+          jnistr[SIG_SET_DATA_TYPE]),
       japi->jomt_setDataType != NULL, japi->jecpt_cls,
       "Method OMTensor.setDataType not found");
   JNI_VAR_CALL(env, japi->jomt_getBufferSize,
-      (*env)->GetMethodID(env, japi->jomt_cls, "getBufferSize", "()J"),
+      (*env)->GetMethodID(env, japi->jomt_cls, jnistr[FUNC_GET_BUFFER_SIZE],
+          jnistr[SIG_GET_BUFFER_SIZE]),
       japi->jomt_getBufferSize != NULL, japi->jecpt_cls,
       "Method OMTensor.getBufferSize not found");
   JNI_VAR_CALL(env, japi->jomt_getRank,
-      (*env)->GetMethodID(env, japi->jomt_cls, "getRank", "()J"),
+      (*env)->GetMethodID(
+          env, japi->jomt_cls, jnistr[FUNC_GET_RANK], jnistr[SIG_GET_RANK]),
       japi->jomt_getRank != NULL, japi->jecpt_cls,
       "Method OMTensor.getRank not found");
   JNI_VAR_CALL(env, japi->jomt_getNumElems,
-      (*env)->GetMethodID(env, japi->jomt_cls, "getNumElems", "()J"),
+      (*env)->GetMethodID(env, japi->jomt_cls, jnistr[FUNC_GET_NUM_ELEMS],
+          jnistr[SIG_GET_NUM_ELEMS]),
       japi->jomt_getNumElems != NULL, japi->jecpt_cls,
       "Method OMTensor.getNumElems not found");
 
   /* Get method ID of constructor and various methods in OMTensorList */
   JNI_VAR_CALL(env, japi->jomtl_constructor,
       (*env)->GetMethodID(
-          env, japi->jomtl_cls, "<init>", "([Lcom/ibm/onnxmlir/OMTensor;)V"),
+          env, japi->jomtl_cls, jnistr[CTOR_INIT], jnistr[CTOR_OMTENSORLIST]),
       japi->jomtl_constructor != NULL, japi->jecpt_cls,
       "Method OMTensorList.<init> not found");
   JNI_VAR_CALL(env, japi->jomtl_getOmtArray,
-      (*env)->GetMethodID(env, japi->jomtl_cls, "getOmtArray",
-          "()[Lcom/ibm/onnxmlir/OMTensor;"),
+      (*env)->GetMethodID(env, japi->jomtl_cls, jnistr[FUNC_GET_OMT_ARRAY],
+          jnistr[SIG_GET_OMT_ARRAY]),
       japi->jomtl_getOmtArray != NULL, japi->jecpt_cls,
       "Method OMTensorList.getOmtArray not found");
 
@@ -608,6 +705,44 @@ JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMModel_main_1graph_1jni(
   return java_oomtl;
 }
 
+/* On z/OS, we convert signature in EBCDIC into ASCII for the JNI
+ * NewStringUTF function using __e2a_s. However, __e2a_s converts
+ * in place so we need to make a copy of the signature. But we don't
+ * want to keep making copies on every call so the copy will be
+ * static and made only once by the first call. Compare-and-swap
+ * is used to serialize setting of the static sigptr by multiple
+ * threads so the function is thread safe.
+ */
+#ifdef __MVS__
+static inline const char *sig_e2a(const char *origsig) {
+  static char *sigptr = NULL;
+
+  if (sigptr == NULL) {
+    char *dupsig = strdup(origsig);
+    if (dupsig == NULL)
+      return NULL;
+
+    /* Convert EBCDIC to ASCII in place */
+    if (__e2a_s(dupsig) < 0) {
+      free(dupsig);
+      return NULL;
+    }
+
+    /* Compare-and-swap to set sigptr. If cds fails, someone already
+     * set sigptr, so free our dupsig. Otherwise, sigptr is set by us.
+     * Either way, after cds sigptr will be set and points to the copy
+     * of the signature, already converted to ASCII.
+     */
+    char *oldsig = NULL;
+    cds_t newsig = *(cds_t *)&dupsig;
+    if (cds((cds_t *)&oldsig, (cds_t *)&sigptr, newsig))
+      free(dupsig);
+  }
+
+  return sigptr;
+}
+#endif
+
 JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
     JNIEnv *env, jclass cls) {
 
@@ -616,8 +751,8 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
 
   /* Find and initialize Java Exception class */
   JNI_TYPE_VAR_CALL(env, jclass, jecpt_cls,
-      (*env)->FindClass(env, "java/lang/Exception"), jecpt_cls != NULL, NULL,
-      "Class java/lang/Exception not found");
+      (*env)->FindClass(env, jnistr[CLS_JAVA_LANG_EXCEPTION]),
+      jecpt_cls != NULL, NULL, "Class java/lang/Exception not found");
 
   /* Call model input signature API */
   CHECK_CALL(const char *, jni_isig, omInputSignature(), jni_isig != NULL,
@@ -625,9 +760,14 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
   HEX_DEBUG("isig", jni_isig, strlen(jni_isig));
 
   /* Convert to Java String object */
-  JNI_TYPE_VAR_CALL(env, jstring, jstr_isig,
-      (*env)->NewStringUTF(env, jni_isig), jstr_isig != NULL, jecpt_cls,
-      "jstr_isig=%p", jstr_isig);
+#ifdef __MVS__
+  CHECK_CALL(const char *, sigptr, sig_e2a(jni_isig), sigptr != NULL,
+      "sigptr=%p", sigptr);
+#else
+  const char *sigptr = jni_isig;
+#endif
+  JNI_TYPE_VAR_CALL(env, jstring, jstr_isig, (*env)->NewStringUTF(env, sigptr),
+      jstr_isig != NULL, jecpt_cls, "jstr_isig=%p", jstr_isig);
 
   return jstr_isig;
 }
@@ -640,8 +780,8 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
 
   /* Find and initialize Java Exception class */
   JNI_TYPE_VAR_CALL(env, jclass, jecpt_cls,
-      (*env)->FindClass(env, "java/lang/Exception"), jecpt_cls != NULL, NULL,
-      "Class java/lang/Exception not found");
+      (*env)->FindClass(env, jnistr[CLS_JAVA_LANG_EXCEPTION]),
+      jecpt_cls != NULL, NULL, "Class java/lang/Exception not found");
 
   /* Call model output signature API */
   CHECK_CALL(const char *, jni_osig, omOutputSignature(), jni_osig != NULL,
@@ -649,9 +789,14 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
   HEX_DEBUG("osig", jni_osig, strlen(jni_osig));
 
   /* Convert to Java String object */
-  JNI_TYPE_VAR_CALL(env, jstring, jstr_osig,
-      (*env)->NewStringUTF(env, jni_osig), jstr_osig != NULL, jecpt_cls,
-      "jstr_osig=%p", jstr_osig);
+#ifdef __MVS__
+  CHECK_CALL(const char *, sigptr, sig_e2a(jni_osig), sigptr != NULL,
+      "sigptr=%p", sigptr);
+#else
+  const char *sigptr = jni_osig;
+#endif
+  JNI_TYPE_VAR_CALL(env, jstring, jstr_osig, (*env)->NewStringUTF(env, sigptr),
+      jstr_osig != NULL, jecpt_cls, "jstr_osig=%p", jstr_osig);
 
   return jstr_osig;
 }

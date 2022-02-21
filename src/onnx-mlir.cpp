@@ -7,9 +7,8 @@
 // Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
-//
-// Main entry function for onnx-mlir driver.
-//
+// Main function for onnx-mlir.
+// Implements main for onnx-mlir driver.
 //===----------------------------------------------------------------------===//
 
 #include "src/Compiler/CompilerUtils.hpp"
@@ -54,10 +53,12 @@ int main(int argc, char *argv[]) {
   mlir::registerPassManagerCLOptions();
   mlir::registerDefaultTimingManagerCLOptions();
 
-  llvm::cl::ParseCommandLineOptions(
-      argc, argv, "ONNX-MLIR modular optimizer driver\n");
+  // Parse options from argc/argv and default ONNX_MLIR_FLAG env var.
+  llvm::cl::ParseCommandLineOptions(argc, argv,
+      "ONNX-MLIR modular optimizer driver\n", nullptr,
+      OnnxMlirEnvOptionName.c_str());
 
-  mlir::OwningModuleRef module;
+  mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;
   processInputFile(inputFilename, context, module, &errorMessage);
   if (!errorMessage.empty()) {
