@@ -85,36 +85,40 @@ static std::string typeToString(Type ty) {
 }
 
 void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
-    Value resultVal, Operation *op, ValueRange operands) {
-
-  // Create funcName
-  std::string name = op->getName().getStringRef().str();
-  std::replace(name.begin(), name.end(), '.', '_');
-  ShapedType resultType = resultVal.getType().cast<ShapedType>();
-  Type elementType = resultType.getElementType();
-  std::string funcNameStr = name + "_" + typeToString(elementType);
-  StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
-  auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
-
-  // Propagate all attributes
-  std::vector<NamedAttribute> attributes;
-  attributes.emplace_back(namedAttr);
-  for (auto namedAttr : op->getAttrs()) {
-    attributes.emplace_back(namedAttr);
-  }
-
+    std::string funcNameStr, Value resultVal, Operation *op,
+    ValueRange operands, bool copyAttrs) {
   // Creates inputs
   SmallVector<Value, 4> allInputs;
   allInputs.emplace_back(resultVal);
   for (auto operand : operands)
     allInputs.emplace_back(operand);
 
-  build(builder, odsState, resultVal.getType(), ValueRange(allInputs),
-      attributes);
+  StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
+  auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
+  if (!copyAttrs) {
+    build(builder, odsState, resultVal.getType(), funcNameAttr, resultVal,
+        operands);
+  } else {
+    std::vector<NamedAttribute> attributes;
+    attributes.emplace_back(namedAttr);
+    for (auto namedAttr : op->getAttrs()) {
+      attributes.emplace_back(namedAttr);
+    }
+    build(builder, odsState, resultVal.getType(), ValueRange(allInputs),
+        attributes);
+  }
+}
 
-  // Alternative implementation: not propagate the attribute
-  // build(builder, odsState, resultVal.getType(), funcNameAttr, resultVal,
-  // operands);
+void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
+    Value resultVal, Operation *op, ValueRange operands, bool copyAttrs) {
+  // Create funcName
+  std::string name = op->getName().getStringRef().str();
+  std::replace(name.begin(), name.end(), '.', '_');
+  ShapedType resultType = resultVal.getType().cast<ShapedType>();
+  Type elementType = resultType.getElementType();
+  std::string funcNameStr = name + "_" + typeToString(elementType);
+
+  build(builder, odsState, funcNameStr, resultVal, op, operands, copyAttrs);
 }
 
 //===----------------------------------------------------------------------===//

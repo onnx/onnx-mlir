@@ -41,8 +41,7 @@ def KrnlCallOp : Op<Krnl_Dialect, "call"> {
     The `funcName` determines which function to call.
     The `alloc` is the Value to store the function return. Since allocation of the return 
     MemRef involves shape inference usually with IndexExpr. Thus most of time the allocation
-    should stay in compiler, not in runtime library. However, `alloc` can be optional if 
-    the allocation is handled inside the runtime library.
+    should stay in compiler, not in runtime library.
     The parameters can be of any type: MemRef, NoneType or any llvm type. 
     Different types of parameters will be converted, if needed, when KrnlCallOp is lowered.
     Attributes will be converted to parameters too (To be Added). 
@@ -54,10 +53,11 @@ def KrnlCallOp : Op<Krnl_Dialect, "call"> {
   let results =(outs AnyType:$result);
 
   // builders to build KrnlCallOp from op and operands, helping conversion from onnx to krnl.
-  // The name of function will be determined by the op name and elemnt type of the return.
-  // Attributes of the op will be propagated to generated KrnlCallOp
-  let builders = [OpBuilder<(ins "mlir::Value":$alloc, "mlir::Operation *":$op, "mlir::ValueRange":$operands)>,
-      OpBuilder<(ins "mlir::Operation *":$op, "mlir::ValueRange":$operands)>];
+  // The name of function can be determined by the op name and elemnt type of the return,
+  // or given to builder if the simple rule does not work
+  // Attributes of the op will be propagated to KrnlCallOp if the copyAttrs is true
+  let builders = [OpBuilder<(ins "mlir::Value":$alloc, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
+      OpBuilder<(ins "std::string":$funcNameStr, "mlir::Value":$alloc, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
 }
  
 def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
