@@ -164,7 +164,6 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
 void PyExecutionSession::pySetEntryPoint(std::string entryPointName) {
   setEntryPoint(entryPointName);
-  return;
 }
 
 std::vector<std::string> PyExecutionSession::pyQueryEntryPoints() {

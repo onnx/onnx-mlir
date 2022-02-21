@@ -24,7 +24,7 @@ extern "C" {
  * @return an array of strings. The array ends with NULL. For example:
  * ["run_add", "run_sub", NULL].
  */
-const char **omQueryEntryPoints();
+const char *const *omQueryEntryPoints();
 
 #ifdef __cplusplus
 }
