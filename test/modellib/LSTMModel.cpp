@@ -286,5 +286,6 @@ bool LSTMLibBuilder::verifyOutputs() {
     return false;
   if (!areCloseFloat(lstmYc, refYc))
     return false;
+
   return true;
 }

@@ -112,7 +112,7 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXOneHotOpPattern(OwningRewritePatternList &patterns,
+void populateLoweringONNXOneHotOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXOneHotOpLowering>(typeConverter, ctx);
 }
