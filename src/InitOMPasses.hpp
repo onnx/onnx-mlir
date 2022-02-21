@@ -15,15 +15,12 @@ void initOMPasses(int optLevel) {
     return mlir::createONNXOpTransformPass();
   });
 
-  
-  /*
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createONNXSampleOpTransformPass();
-  }); 
-
-  */
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createONNXToAtenConstantOpTransformPass();
+  }); 
+  
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createONNXToAtenConstantPadNdOpTransformPass();
   }); 
   
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
