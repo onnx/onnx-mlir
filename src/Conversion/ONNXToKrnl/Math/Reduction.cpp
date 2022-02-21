@@ -92,12 +92,12 @@ Value emitScalarOpFor<ONNXReduceMaxOp>(ConversionPatternRewriter &rewriter,
   if (element_type.isa<IntegerType>()) {
     auto max = rewriter.create<arith::CmpIOp>(
         loc, arith::CmpIPredicate::sgt, lhs, rhs);
-    auto result = rewriter.create<SelectOp>(loc, max, lhs, rhs);
+    auto result = rewriter.create<arith::SelectOp>(loc, max, lhs, rhs);
     return result;
   } else if (element_type.isa<FloatType>()) {
     auto max = rewriter.create<arith::CmpFOp>(
         loc, arith::CmpFPredicate::OGT, lhs, rhs);
-    auto result = rewriter.create<SelectOp>(loc, max, lhs, rhs);
+    auto result = rewriter.create<arith::SelectOp>(loc, max, lhs, rhs);
     return result;
   } else {
     llvm_unreachable("unsupported element type");
@@ -116,12 +116,12 @@ Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
   if (elementType.isa<IntegerType>()) {
     auto min = rewriter.create<arith::CmpIOp>(
         loc, arith::CmpIPredicate::slt, lhs, rhs);
-    auto result = rewriter.create<SelectOp>(loc, min, lhs, rhs);
+    auto result = rewriter.create<arith::SelectOp>(loc, min, lhs, rhs);
     return result;
   } else if (elementType.isa<FloatType>()) {
     auto min = rewriter.create<arith::CmpFOp>(
         loc, arith::CmpFPredicate::OLT, lhs, rhs);
-    auto result = rewriter.create<SelectOp>(loc, min, lhs, rhs);
+    auto result = rewriter.create<arith::SelectOp>(loc, min, lhs, rhs);
     return result;
   } else {
     llvm_unreachable("unsupported element type");
@@ -442,7 +442,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         auto cond =
             rewriter.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq,
                 axesBounds.getDim(0).getValue(), zeroIndex);
-        initVal = rewriter.create<SelectOp>(loc, cond, trueVal, falseVal);
+        initVal =
+            rewriter.create<arith::SelectOp>(loc, cond, trueVal, falseVal);
       } else {
         // When axesDim is known, it can not be 0 due to !isFromNone
         initVal = falseVal;
@@ -470,7 +471,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
             loc, axesVal, axesLoops.getInductionVar(0));
         auto cond = rewriter.create<arith::CmpIOp>(
             loc, arith::CmpIPredicate::slt, axe, zeroValue);
-        auto dim = rewriter.create<SelectOp>(loc, cond,
+        auto dim = rewriter.create<arith::SelectOp>(loc, cond,
             rewriter.create<arith::AddIOp>(loc, axe, dataDimConst), axe);
         Value jVal = rewriter.create<arith::IndexCastOp>(
             loc, rewriter.getIndexType(), dim);
@@ -483,7 +484,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           // Check negative
           auto cond = rewriter.create<arith::CmpIOp>(
               loc, arith::CmpIPredicate::slt, axe, zeroValue);
-          auto dim = rewriter.create<SelectOp>(loc, cond,
+          auto dim = rewriter.create<arith::SelectOp>(loc, cond,
               rewriter.create<arith::AddIOp>(loc, axe, dataDimConst), axe);
           Value jVal = rewriter.create<arith::IndexCastOp>(
               loc, rewriter.getIndexType(), dim);
@@ -540,7 +541,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
             auto mask = rewriter.create<KrnlLoadOp>(loc, maskVal, indexVal);
             auto cond = rewriter.create<arith::CmpIOp>(
                 loc, arith::CmpIPredicate::eq, mask, trueVal);
-            auto dim = rewriter.create<SelectOp>(loc, cond, valueOne, inputDim);
+            auto dim =
+                rewriter.create<arith::SelectOp>(loc, cond, valueOne, inputDim);
             allocOperands.push_back(dim);
           } else {
             auto dim = createMemRef.dim(input, outInDimMap[i]);
@@ -620,8 +622,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         auto mask = rewriter.create<KrnlLoadOp>(loc, maskVal, indexVal);
         auto cond = rewriter.create<arith::CmpIOp>(
             loc, arith::CmpIPredicate::eq, mask, trueVal);
-        auto dim =
-            rewriter.create<SelectOp>(loc, cond, zeroIndex, inLoopIVs[i]);
+        auto dim = rewriter.create<arith::SelectOp>(
+            loc, cond, zeroIndex, inLoopIVs[i]);
         outLoopIVs.push_back(dim);
       } else if (outInDimMap.find(i) != outInDimMap.end()) {
         outLoopIVs.push_back(inLoopIVs[outInDimMap[i]]);

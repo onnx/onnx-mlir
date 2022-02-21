@@ -41,7 +41,7 @@ func @test_nonmaxsuppression_center_point_box_format(%arg0: tensor<1x6x4xf32>, %
 // CHECK-DAG:           [[VAR_29_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
 // CHECK-DAG:           [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK:               [[VAR_31_:%.+]] = arith.addi [[LOAD_RES_2_MEM_]], [[VAR_c1_]] : index
-// CHECK:               [[VAR_32_:%.+]] = select [[VAR_29_]], [[VAR_31_]], [[LOAD_RES_2_MEM_]] : index
+// CHECK:               [[VAR_32_:%.+]] = arith.select [[VAR_29_]], [[VAR_31_]], [[LOAD_RES_2_MEM_]] : index
 // CHECK:               krnl.store [[VAR_32_]], [[RES_2_]][] : memref<index>
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
@@ -232,7 +232,7 @@ func @test_nonmaxsuppression_flipped_coordinates(%arg0: tensor<1x6x4xf32>, %arg1
 // CHECK-DAG:           [[VAR_31_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
 // CHECK-DAG:           [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK:               [[VAR_33_:%.+]] = arith.addi [[LOAD_RES_2_MEM_]], [[VAR_c1_]] : index
-// CHECK:               [[VAR_34_:%.+]] = select [[VAR_31_]], [[VAR_33_]], [[LOAD_RES_2_MEM_]] : index
+// CHECK:               [[VAR_34_:%.+]] = arith.select [[VAR_31_]], [[VAR_33_]], [[LOAD_RES_2_MEM_]] : index
 // CHECK:               krnl.store [[VAR_34_]], [[RES_2_]][] : memref<index>
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
@@ -278,12 +278,12 @@ func @test_nonmaxsuppression_flipped_coordinates(%arg0: tensor<1x6x4xf32>, %arg1
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_1_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_2_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             [[VAR_28_1_:%.+]] = arith.cmpf ogt, [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
-// CHECK-DAG:         [[VAR_29_1_:%.+]] = select [[VAR_28_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
-// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = select [[VAR_28_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
+// CHECK-DAG:         [[VAR_29_1_:%.+]] = arith.select [[VAR_28_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = arith.select [[VAR_28_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
 // CHECK-DAG:         [[VAR_31_1_:%.+]] = arith.cmpf ogt, [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = select [[VAR_31_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
-// CHECK-DAG:         [[VAR_33_1_:%.+]] = select [[VAR_31_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = arith.select [[VAR_31_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
+// CHECK-DAG:         [[VAR_33_1_:%.+]] = arith.select [[VAR_31_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK:             krnl.store [[LOAD_RES_2_MEM_2_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[VAR_29_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[VAR_33_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
@@ -424,7 +424,7 @@ func @test_nonmaxsuppression_identical_boxes(%arg0: tensor<1x10x4xf32>, %arg1: t
 // CHECK-DAG:           [[VAR_31_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
 // CHECK-DAG:           [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK:               [[VAR_33_:%.+]] = arith.addi [[LOAD_RES_2_MEM_]], [[VAR_c1_]] : index
-// CHECK:               [[VAR_34_:%.+]] = select [[VAR_31_]], [[VAR_33_]], [[LOAD_RES_2_MEM_]] : index
+// CHECK:               [[VAR_34_:%.+]] = arith.select [[VAR_31_]], [[VAR_33_]], [[LOAD_RES_2_MEM_]] : index
 // CHECK:               krnl.store [[VAR_34_]], [[RES_2_]][] : memref<index>
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
@@ -470,12 +470,12 @@ func @test_nonmaxsuppression_identical_boxes(%arg0: tensor<1x10x4xf32>, %arg1: t
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_1_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x10x4xf32>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_2_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c3_]]{{.}} : memref<1x10x4xf32>
 // CHECK:             [[VAR_28_1_:%.+]] = arith.cmpf ogt, [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
-// CHECK-DAG:         [[VAR_29_1_:%.+]] = select [[VAR_28_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
-// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = select [[VAR_28_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
+// CHECK-DAG:         [[VAR_29_1_:%.+]] = arith.select [[VAR_28_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = arith.select [[VAR_28_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
 // CHECK-DAG:         [[VAR_31_1_:%.+]] = arith.cmpf ogt, [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = select [[VAR_31_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
-// CHECK-DAG:         [[VAR_33_1_:%.+]] = select [[VAR_31_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = arith.select [[VAR_31_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
+// CHECK-DAG:         [[VAR_33_1_:%.+]] = arith.select [[VAR_31_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK:             krnl.store [[LOAD_RES_2_MEM_2_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c0_]]{{.}} : memref<1x10x4xf32>
 // CHECK:             krnl.store [[VAR_29_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c1_]]{{.}} : memref<1x10x4xf32>
 // CHECK:             krnl.store [[VAR_33_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x10x4xf32>
@@ -616,7 +616,7 @@ func @test_nonmaxsuppression_limit_output_size(%arg0: tensor<1x6x4xf32>, %arg1: 
 // CHECK-DAG:           [[VAR_31_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
 // CHECK-DAG:           [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK:               [[VAR_33_:%.+]] = arith.addi [[LOAD_RES_2_MEM_]], [[VAR_c1_]] : index
-// CHECK:               [[VAR_34_:%.+]] = select [[VAR_31_]], [[VAR_33_]], [[LOAD_RES_2_MEM_]] : index
+// CHECK:               [[VAR_34_:%.+]] = arith.select [[VAR_31_]], [[VAR_33_]], [[LOAD_RES_2_MEM_]] : index
 // CHECK:               krnl.store [[VAR_34_]], [[RES_2_]][] : memref<index>
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
@@ -662,12 +662,12 @@ func @test_nonmaxsuppression_limit_output_size(%arg0: tensor<1x6x4xf32>, %arg1: 
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_1_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_2_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             [[VAR_28_1_:%.+]] = arith.cmpf ogt, [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
-// CHECK-DAG:         [[VAR_29_1_:%.+]] = select [[VAR_28_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
-// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = select [[VAR_28_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
+// CHECK-DAG:         [[VAR_29_1_:%.+]] = arith.select [[VAR_28_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = arith.select [[VAR_28_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
 // CHECK-DAG:         [[VAR_31_1_:%.+]] = arith.cmpf ogt, [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = select [[VAR_31_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
-// CHECK-DAG:         [[VAR_33_1_:%.+]] = select [[VAR_31_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = arith.select [[VAR_31_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
+// CHECK-DAG:         [[VAR_33_1_:%.+]] = arith.select [[VAR_31_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK:             krnl.store [[LOAD_RES_2_MEM_2_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[VAR_29_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[VAR_33_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
@@ -807,7 +807,7 @@ func @test_nonmaxsuppression_single_box(%arg0: tensor<1x1x4xf32>, %arg1: tensor<
 // CHECK-DAG:           [[VAR_31_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
 // CHECK-DAG:           [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK:               [[VAR_33_:%.+]] = arith.addi [[LOAD_RES_2_MEM_]], [[VAR_c1_]] : index
-// CHECK:               [[VAR_34_:%.+]] = select [[VAR_31_]], [[VAR_33_]], [[LOAD_RES_2_MEM_]] : index
+// CHECK:               [[VAR_34_:%.+]] = arith.select [[VAR_31_]], [[VAR_33_]], [[LOAD_RES_2_MEM_]] : index
 // CHECK:               krnl.store [[VAR_34_]], [[RES_2_]][] : memref<index>
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
@@ -853,12 +853,12 @@ func @test_nonmaxsuppression_single_box(%arg0: tensor<1x1x4xf32>, %arg1: tensor<
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_1_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x1x4xf32>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_2_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c3_]]{{.}} : memref<1x1x4xf32>
 // CHECK:             [[VAR_28_1_:%.+]] = arith.cmpf ogt, [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
-// CHECK-DAG:         [[VAR_29_1_:%.+]] = select [[VAR_28_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
-// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = select [[VAR_28_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
+// CHECK-DAG:         [[VAR_29_1_:%.+]] = arith.select [[VAR_28_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = arith.select [[VAR_28_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
 // CHECK-DAG:         [[VAR_31_1_:%.+]] = arith.cmpf ogt, [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = select [[VAR_31_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
-// CHECK-DAG:         [[VAR_33_1_:%.+]] = select [[VAR_31_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = arith.select [[VAR_31_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
+// CHECK-DAG:         [[VAR_33_1_:%.+]] = arith.select [[VAR_31_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK:             krnl.store [[LOAD_RES_2_MEM_2_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c0_]]{{.}} : memref<1x1x4xf32>
 // CHECK:             krnl.store [[VAR_29_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c1_]]{{.}} : memref<1x1x4xf32>
 // CHECK:             krnl.store [[VAR_33_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x1x4xf32>
@@ -999,7 +999,7 @@ func @test_nonmaxsuppression_suppress_by_IOU(%arg0: tensor<1x6x4xf32>, %arg1: te
 // CHECK-DAG:           [[VAR_31_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
 // CHECK-DAG:           [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK:               [[VAR_33_:%.+]] = arith.addi [[LOAD_RES_2_MEM_]], [[VAR_c1_]] : index
-// CHECK:               [[VAR_34_:%.+]] = select [[VAR_31_]], [[VAR_33_]], [[LOAD_RES_2_MEM_]] : index
+// CHECK:               [[VAR_34_:%.+]] = arith.select [[VAR_31_]], [[VAR_33_]], [[LOAD_RES_2_MEM_]] : index
 // CHECK:               krnl.store [[VAR_34_]], [[RES_2_]][] : memref<index>
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
@@ -1045,12 +1045,12 @@ func @test_nonmaxsuppression_suppress_by_IOU(%arg0: tensor<1x6x4xf32>, %arg1: te
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_1_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_2_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             [[VAR_28_1_:%.+]] = arith.cmpf ogt, [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
-// CHECK-DAG:         [[VAR_29_1_:%.+]] = select [[VAR_28_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
-// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = select [[VAR_28_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
+// CHECK-DAG:         [[VAR_29_1_:%.+]] = arith.select [[VAR_28_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = arith.select [[VAR_28_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
 // CHECK-DAG:         [[VAR_31_1_:%.+]] = arith.cmpf ogt, [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = select [[VAR_31_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
-// CHECK-DAG:         [[VAR_33_1_:%.+]] = select [[VAR_31_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = arith.select [[VAR_31_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
+// CHECK-DAG:         [[VAR_33_1_:%.+]] = arith.select [[VAR_31_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK:             krnl.store [[LOAD_RES_2_MEM_2_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[VAR_29_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[VAR_33_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
@@ -1191,7 +1191,7 @@ func @test_nonmaxsuppression_suppress_by_IOU_and_scores(%arg0: tensor<1x6x4xf32>
 // CHECK-DAG:           [[VAR_31_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
 // CHECK-DAG:           [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK:               [[VAR_33_:%.+]] = arith.addi [[LOAD_RES_2_MEM_]], [[VAR_c1_]] : index
-// CHECK:               [[VAR_34_:%.+]] = select [[VAR_31_]], [[VAR_33_]], [[LOAD_RES_2_MEM_]] : index
+// CHECK:               [[VAR_34_:%.+]] = arith.select [[VAR_31_]], [[VAR_33_]], [[LOAD_RES_2_MEM_]] : index
 // CHECK:               krnl.store [[VAR_34_]], [[RES_2_]][] : memref<index>
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
@@ -1237,12 +1237,12 @@ func @test_nonmaxsuppression_suppress_by_IOU_and_scores(%arg0: tensor<1x6x4xf32>
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_1_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_2_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             [[VAR_28_1_:%.+]] = arith.cmpf ogt, [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
-// CHECK-DAG:         [[VAR_29_1_:%.+]] = select [[VAR_28_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
-// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = select [[VAR_28_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
+// CHECK-DAG:         [[VAR_29_1_:%.+]] = arith.select [[VAR_28_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = arith.select [[VAR_28_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
 // CHECK-DAG:         [[VAR_31_1_:%.+]] = arith.cmpf ogt, [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = select [[VAR_31_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
-// CHECK-DAG:         [[VAR_33_1_:%.+]] = select [[VAR_31_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = arith.select [[VAR_31_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
+// CHECK-DAG:         [[VAR_33_1_:%.+]] = arith.select [[VAR_31_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK:             krnl.store [[LOAD_RES_2_MEM_2_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[VAR_29_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[VAR_33_1_]], [[RES_4_]]{{.}}[[VAR_23_3_]]#0, [[VAR_23_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
@@ -1384,7 +1384,7 @@ func @test_nonmaxsuppression_two_batches(%arg0: tensor<2x6x4xf32>, %arg1: tensor
 // CHECK-DAG:           [[VAR_32_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
 // CHECK-DAG:           [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK:               [[VAR_34_:%.+]] = arith.addi [[LOAD_RES_2_MEM_]], [[VAR_c1_]] : index
-// CHECK:               [[VAR_35_:%.+]] = select [[VAR_32_]], [[VAR_34_]], [[LOAD_RES_2_MEM_]] : index
+// CHECK:               [[VAR_35_:%.+]] = arith.select [[VAR_32_]], [[VAR_34_]], [[LOAD_RES_2_MEM_]] : index
 // CHECK:               krnl.store [[VAR_35_]], [[RES_2_]][] : memref<index>
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
@@ -1430,12 +1430,12 @@ func @test_nonmaxsuppression_two_batches(%arg0: tensor<2x6x4xf32>, %arg1: tensor
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_1_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_24_3_]]#0, [[VAR_24_3_]]#1, [[VAR_c2_]]{{.}} : memref<2x6x4xf32>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_2_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_24_3_]]#0, [[VAR_24_3_]]#1, [[VAR_c3_]]{{.}} : memref<2x6x4xf32>
 // CHECK:             [[VAR_29_1_:%.+]] = arith.cmpf ogt, [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
-// CHECK-DAG:         [[VAR_30_1_:%.+]] = select [[VAR_29_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
-// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = select [[VAR_29_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
+// CHECK-DAG:         [[VAR_30_1_:%.+]] = arith.select [[VAR_29_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = arith.select [[VAR_29_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
 // CHECK-DAG:         [[VAR_32_1_:%.+]] = arith.cmpf ogt, [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = select [[VAR_32_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
-// CHECK-DAG:         [[VAR_34_1_:%.+]] = select [[VAR_32_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = arith.select [[VAR_32_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
+// CHECK-DAG:         [[VAR_34_1_:%.+]] = arith.select [[VAR_32_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK:             krnl.store [[LOAD_RES_2_MEM_2_]], [[RES_4_]]{{.}}[[VAR_24_3_]]#0, [[VAR_24_3_]]#1, [[VAR_c0_]]{{.}} : memref<2x6x4xf32>
 // CHECK:             krnl.store [[VAR_30_1_]], [[RES_4_]]{{.}}[[VAR_24_3_]]#0, [[VAR_24_3_]]#1, [[VAR_c1_]]{{.}} : memref<2x6x4xf32>
 // CHECK:             krnl.store [[VAR_34_1_]], [[RES_4_]]{{.}}[[VAR_24_3_]]#0, [[VAR_24_3_]]#1, [[VAR_c2_]]{{.}} : memref<2x6x4xf32>
@@ -1578,7 +1578,7 @@ func @test_nonmaxsuppression_two_classes(%arg0: tensor<1x6x4xf32>, %arg1: tensor
 // CHECK-DAG:           [[VAR_32_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
 // CHECK-DAG:           [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK:               [[VAR_34_:%.+]] = arith.addi [[LOAD_RES_2_MEM_]], [[VAR_c1_]] : index
-// CHECK:               [[VAR_35_:%.+]] = select [[VAR_32_]], [[VAR_34_]], [[LOAD_RES_2_MEM_]] : index
+// CHECK:               [[VAR_35_:%.+]] = arith.select [[VAR_32_]], [[VAR_34_]], [[LOAD_RES_2_MEM_]] : index
 // CHECK:               krnl.store [[VAR_35_]], [[RES_2_]][] : memref<index>
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
@@ -1624,12 +1624,12 @@ func @test_nonmaxsuppression_two_classes(%arg0: tensor<1x6x4xf32>, %arg1: tensor
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_1_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_24_3_]]#0, [[VAR_24_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_2_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_24_3_]]#0, [[VAR_24_3_]]#1, [[VAR_c3_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             [[VAR_29_1_:%.+]] = arith.cmpf ogt, [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
-// CHECK-DAG:         [[VAR_30_1_:%.+]] = select [[VAR_29_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
-// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = select [[VAR_29_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
+// CHECK-DAG:         [[VAR_30_1_:%.+]] = arith.select [[VAR_29_1_]], [[LOAD_RES_1_MEM_2_]], [[LOOP_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_SCORES_MEM_3_:%.+]] = arith.select [[VAR_29_1_]], [[LOOP_1_1_]], [[LOAD_RES_1_MEM_2_]] : f32
 // CHECK-DAG:         [[VAR_32_1_:%.+]] = arith.cmpf ogt, [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = select [[VAR_32_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
-// CHECK-DAG:         [[VAR_34_1_:%.+]] = select [[VAR_32_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
+// CHECK-DAG:         [[LOAD_RES_2_MEM_2_:%.+]] = arith.select [[VAR_32_1_]], [[LOAD_RES_2_MEM_1_1_]], [[LOOP_4_]] : f32
+// CHECK-DAG:         [[VAR_34_1_:%.+]] = arith.select [[VAR_32_1_]], [[LOOP_4_]], [[LOAD_RES_2_MEM_1_1_]] : f32
 // CHECK:             krnl.store [[LOAD_RES_2_MEM_2_]], [[RES_4_]]{{.}}[[VAR_24_3_]]#0, [[VAR_24_3_]]#1, [[VAR_c0_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[VAR_30_1_]], [[RES_4_]]{{.}}[[VAR_24_3_]]#0, [[VAR_24_3_]]#1, [[VAR_c1_]]{{.}} : memref<1x6x4xf32>
 // CHECK:             krnl.store [[VAR_34_1_]], [[RES_4_]]{{.}}[[VAR_24_3_]]#0, [[VAR_24_3_]]#1, [[VAR_c2_]]{{.}} : memref<1x6x4xf32>
@@ -1784,7 +1784,7 @@ func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tenso
 // CHECK-DAG:           [[VAR_40_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
 // CHECK-DAG:           [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
 // CHECK:               [[VAR_42_:%.+]] = arith.addi [[LOAD_RES_2_MEM_]], [[VAR_c1_]] : index
-// CHECK:               [[VAR_43_:%.+]] = select [[VAR_40_]], [[VAR_42_]], [[LOAD_RES_2_MEM_]] : index
+// CHECK:               [[VAR_43_:%.+]] = arith.select [[VAR_40_]], [[VAR_42_]], [[LOAD_RES_2_MEM_]] : index
 // CHECK:               krnl.store [[VAR_43_]], [[RES_2_]][] : memref<index>
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_2_MEM_1_:%.+]] = krnl.load [[RES_2_]][] : memref<index>
