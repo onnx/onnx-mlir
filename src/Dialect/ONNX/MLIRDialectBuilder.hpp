@@ -144,6 +144,21 @@ struct SCFBuilder final : DialectBuilder {
 };
 
 //===----------------------------------------------------------------------===//
+// Vector Builder
+//===----------------------------------------------------------------------===//
+
+struct VectorBuilder final : DialectBuilder {
+  VectorBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  VectorBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+
+  Value load(VectorType vecType, Value memref, ValueRange indices = {}) const;
+  void store(Value val, Value memref, ValueRange indices = {}) const;
+
+  Value broadcast(VectorType vecType, Value val) const;
+  Value fma(Value lhs, Value rhs, Value acc) const;
+};
+
+//===----------------------------------------------------------------------===//
 // Affine Builder
 //===----------------------------------------------------------------------===//
 
