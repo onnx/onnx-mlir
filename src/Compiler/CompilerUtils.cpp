@@ -990,11 +990,10 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     for (auto accel : *accTargets) {
       std::cout << "--" << std::endl;
       if (accel->isActive()) {
-        accel->prepareAccelerator(module,context,pm,emissionTarget);
+        accel->prepareAccelerator(module, context, pm, emissionTarget);
       }
     }
-  }
-  else
+  } else
     addPasses(module, pm, emissionTarget);
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);

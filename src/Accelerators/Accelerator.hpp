@@ -12,10 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 #pragma once
-#include <vector>
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
+#include <vector>
 
 namespace mlir {
 class Accelerator {
@@ -23,8 +23,9 @@ public:
   Accelerator();
   static std::vector<Accelerator *> *getAcceleratorList();
   virtual bool isActive() = 0;
-  virtual void prepareAccelerator(mlir::OwningModuleRef &module, mlir::MLIRContext &context, mlir::PassManager &pm,
-    onnx_mlir::EmissionTargetType emissionTarget) = 0;
+  virtual void prepareAccelerator(mlir::OwningModuleRef &module,
+      mlir::MLIRContext &context, mlir::PassManager &pm,
+      onnx_mlir::EmissionTargetType emissionTarget) = 0;
 
 private:
   static std::vector<Accelerator *> *acceleratorTargets;

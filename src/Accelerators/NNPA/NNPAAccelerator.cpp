@@ -38,7 +38,7 @@ NNPAAccelerator::NNPAAccelerator() {
 };
 
 bool NNPAAccelerator::isActive() {
-  std::cout << "check if NNPA is active" << acceleratorTarget << std::endl; 
+  std::cout << "check if NNPA is active" << acceleratorTarget << std::endl;
   if (acceleratorTarget.compare("NNPA") == 0) {
     std::cout << "Targeting NNPA accelerator" << std::endl;
     return true;
@@ -46,18 +46,16 @@ bool NNPAAccelerator::isActive() {
     return false;
 }
 
-void NNPAAccelerator::prepareAccelerator(mlir::OwningModuleRef &module, mlir::MLIRContext &context, mlir::PassManager &pm,
+void NNPAAccelerator::prepareAccelerator(mlir::OwningModuleRef &module,
+    mlir::MLIRContext &context, mlir::PassManager &pm,
     onnx_mlir::EmissionTargetType emissionTarget) {
   std::cout << "preparing accelerator " << acceleratorTarget << std::endl;
 
-      // Load our Dialect in this MLIR Context.
+  // Load our Dialect in this MLIR Context.
   context.getOrLoadDialect<mlir::ZHighDialect>();
   context.getOrLoadDialect<mlir::ZLowDialect>();
   addPassesDLC(module, pm, emissionTarget, dlcEmissionTarget, execNodesOnCpu);
-
-    }
+}
 bool NNPAAccelerator::initialized = false;
 NNPAAccelerator nnpaAccelerator;
 } // namespace mlir
-
-
