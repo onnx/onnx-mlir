@@ -190,9 +190,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target
       .addLegalDialect<KrnlOpsDialect, AffineDialect, arith::ArithmeticDialect,
           StandardOpsDialect, linalg::LinalgDialect, math::MathDialect,
-          memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect>();
-
-  target.addLegalDialect<omp::OpenMPDialect>();
+          memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect, omp::OpenMPDialect>();
+  
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
