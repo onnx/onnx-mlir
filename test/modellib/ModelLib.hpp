@@ -26,14 +26,6 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 
-// Padding schemes for Convolutions.
-#define AUTO_PAD_NOTSET 0
-#define AUTO_PAD_VALID 1
-#define AUTO_PAD_LOWER 2
-#define AUTO_PAD_UPPER 3
-#define AUTO_PAD_UB 4
-const std::string getAutoPadName(const int autoPad);
-
 /*
    Superclass that defines a template to create models, creating an ONNX
    function programatically, then compiling, loading, runing and testing the
@@ -52,6 +44,11 @@ const std::string getAutoPadName(const int autoPad);
   the inputs and outputs for testing. When object is deleted, defined
   tensors will be freed.
 
+  The build function must execute first. The compileAndLoad and
+  prepareInputs function can then execute in any orders. The run function
+  must execute after compileAndLoad and prepareInputs. VerifyOutputs can only
+  execute after the run function.
+
   A actual model will typically define its model-specific functions, namely
   constructor/destructor to handle custom model variables, the build() function,
   the prepareInputs() function, and the optional verifyOutputs() function.
@@ -63,11 +60,11 @@ const std::string getAutoPadName(const int autoPad);
     setCompilerOption(OptionKind::CompilerOptLevel, "3"); // Default is O3.
     llvm::cl::ParseCommandLineOptions( // Read from args and TEST_ARGS env var.
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
-
+  The compileAndLoad function can also process compiler options, which will
+  remain in effect until changed again.
 */
 
 class ModelLibBuilder {
-
 public:
   // Define the model. Subclasses should add to the builder all of the specific
   // parameters that uniquely define the model.
@@ -79,17 +76,21 @@ public:
   // Build, subclass should generate a graph. If constant nodes are needed by
   // the model, they should be created here and saved in the subclass, as these
   // values will be needed to verify the accuracy of the model. The model is
-  // saved in the model and ctx variable.
+  // saved in the model and ctx variable. It must run first.
   virtual bool build() = 0;
   // Compile model from the model and ctx variables. The output is an executable
-  // dynamic library.
+  // dynamic library. It can run second or third.
   bool compileAndLoad();
+  bool compileAndLoad(const CompilerOptionList &list);
   // Prepare inputs for running model. Subclass may add arguments as necessary.
+  // It can run second or third.
   virtual bool prepareInputs() = 0;
-  // Run model using prepared inputs, resulting in outputs.
+  // Run model using prepared inputs, resulting in outputs. It must run forth.
   bool run();
-  // Verify outputs from a run with reference data.
+  // Verify outputs from a run with reference data. It can run last.
   virtual bool verifyOutputs() = 0;
+
+  // Helper functions.
   // Get the dynamic library file name compiled here.
   static std::string getSharedLibName(const std::string &sharedLibBaseName);
 
@@ -118,6 +119,14 @@ protected:
   OMTensorList *inputs, *outputs;
   onnx_mlir::ExecutionSession *exec;
 };
+
+// Padding schemes for Convolutions.
+#define AUTO_PAD_NOTSET 0
+#define AUTO_PAD_VALID 1
+#define AUTO_PAD_LOWER 2
+#define AUTO_PAD_UPPER 3
+#define AUTO_PAD_UB 4
+const std::string getAutoPadName(const int autoPad);
 
 class GemmLibBuilder : public ModelLibBuilder {
 public:
