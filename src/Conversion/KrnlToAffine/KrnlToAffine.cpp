@@ -763,26 +763,6 @@ public:
       simdize = false;
       LLVM_DEBUG(llvm::dbgs() << "Matmul: No simd due to vl not a literal\n");
     }
-#if 0 // hi alex, remove after a successful run on all archs.
-    if (!bBounds.isLiteral(bRank - 1) || !cBounds.isLiteral(cRank - 1)) {
-      // Cannot simdize if the last dim of B or C are not constant.
-      simdize = false;
-      LLVM_DEBUG(llvm::dbgs()
-                 << "Matmul: No simd due to B & C last dim not a literal\n");
-    }
-    if (simdize) {
-      int64_t VL = vectorLen.getLiteral();
-      if (bBounds.getShape(bRank - 1) % VL != 0 ||
-          cBounds.getShape(cRank - 1) % VL != 0) {
-        // If the memref of B and C are not multiple of the vector length in
-        // their last dim, then we cannot simdize either.
-        simdize = false;
-        LLVM_DEBUG(
-            llvm::dbgs()
-            << "Matmul: No simd due to B & C last dim not a multiple of VL\n");
-      }
-    }
-#endif
     if (!simdize)
       vectorLen = LiteralIndexExpr(1);
 
@@ -847,7 +827,7 @@ public:
       // SIMD code generator.
       // clang-format off
       createAffine.ifThenElse(indexScope, allFullTiles,
-        /* then full */ [&](AffineBuilderKrnlMem &createAffine) {
+        /* then full tiles */ [&](AffineBuilderKrnlMem &createAffine) {
         genSimd(rewriter, loc, op, elementType, aStart, bStart, cStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
           vectorLen, fullUnrollAndJam); 
@@ -857,16 +837,17 @@ public:
         createAffine.ifThenElse(indexScope, jFullTiles,
           /* full SIMD */ [&](AffineBuilderKrnlMem &createAffine) {
           genSimd(rewriter, loc, op, elementType, aStart, bStart, cStart,
-            iTrip, jComputeTileSize, kTrip, vectorLen, false);
+            iTrip, jComputeTileSize, kTrip, vectorLen, /*unroll*/ false);
         }, /* else partial SIMD */ [&](AffineBuilderKrnlMem &createAffine) {
+          // TODO: evaluate if get performance from partial SIMD
           if (false && jPartialTrip.isLiteral() && jPartialTrip.getLiteral() >=2) {
             // has a known trip count along the simd dimension of at least 2
             // elements, use simd again.
             genSimd(rewriter, loc, op, elementType, aStart, bStart, cStart,
-              iTrip, jPartialTrip, kTrip, vectorLen, false);
+              iTrip, jPartialTrip, kTrip, vectorLen, /*unroll*/ false);
           } else {
             genScalar(rewriter, op, elementType, aStart, bStart,  cStart,
-              iTrip, jPartialTrip, kTrip, false);
+              iTrip, jPartialTrip, kTrip, /*unroll*/ false);
           }
         });
       });
