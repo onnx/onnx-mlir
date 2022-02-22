@@ -763,7 +763,7 @@ public:
       simdize = false;
       LLVM_DEBUG(llvm::dbgs() << "Matmul: No simd due to vl not a literal\n");
     }
-#if 0
+#if 0 // hi alex, remove after a successful run on all archs.
     if (!bBounds.isLiteral(bRank - 1) || !cBounds.isLiteral(cRank - 1)) {
       // Cannot simdize if the last dim of B or C are not constant.
       simdize = false;
@@ -973,9 +973,6 @@ private:
     // can simdize only if K is compile time
     assert(J.isLiteral() &&
            "can only simdize with compile time blocking factor on simd axis");
-    MultiDialectBuilder<AffineBuilderKrnlMem, MemRefBuilder, KrnlBuilder>
-        create(rewriter, loc);
-
     AffineBuilderKrnlMem createAffine(rewriter, loc);
     MemRefBuilder createMemRef(rewriter, loc);
     // Get operands.
@@ -989,9 +986,6 @@ private:
     int64_t unrollFactor = (unrollJam && I.isLiteral()) ? I.getLiteral() : 1;
     // Have to privatize CTmpType by unroll factor (1 if none).
     MemRefType CTmpType = MemRefType::get({unrollFactor}, vecType);
-    KrnlBuilder createKrnl(rewriter, loc);
-    // Value vecB = createKrnl.vectorTypeCast(B, VL);
-    // Value vecC = createKrnl.vectorTypeCast(C, VL);
     assert(BUFFER_ALIGN >= gDefaultAllocAlign);
     Value TmpC = createMemRef.alignedAlloca(CTmpType, BUFFER_ALIGN);
 
@@ -1000,38 +994,37 @@ private:
     LiteralIndexExpr zero(0);
     createAffine.forIE(
         zero, I, 1, [&](AffineBuilderKrnlMem &createAffine, Value i) {
-          MathBuilder createMath(createAffine);
-          VectorBuilder createVec(createAffine);
+          MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
           iSaved = i; // Saved for unroll and jam.
           // Alloca temp vector TmpC and save C(i)/0.0 into it.
           SmallVector<Value, 4> cAccess;
           // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
           IndexExpr::getValues(cStart, cAccess);
-          cAccess[cRank - 2] = createMath.add(i, cAccess[cRank - 2]);
-          Value initVal = createVec.load(vecType, C, cAccess);
+          cAccess[cRank - 2] = create.math.add(i, cAccess[cRank - 2]);
+          Value initVal = create.vec.load(vecType, C, cAccess);
           Value tmpCAccess = (unrollFactor > 1) ? i : zero.getValue();
           createAffine.store(initVal, TmpC, tmpCAccess);
           // Sum over k.
           createAffine.forIE(
               zero, K, 1, [&](AffineBuilderKrnlMem &createAffine, Value k) {
-                MathBuilder createMath(createAffine);
-                VectorBuilder createVec(createAffine);
+                MultiDialectBuilder<MathBuilder, VectorBuilder> create(
+                    createAffine);
                 kSaved = k;
                 // Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
                 SmallVector<Value, 4> aAccess, bAccess;
                 IndexExpr::getValues(aStart, aAccess);
-                aAccess[aRank - 2] = createMath.add(i, aAccess[aRank - 2]);
-                aAccess[aRank - 1] = createMath.add(k, aAccess[aRank - 1]);
+                aAccess[aRank - 2] = create.math.add(i, aAccess[aRank - 2]);
+                aAccess[aRank - 1] = create.math.add(k, aAccess[aRank - 1]);
                 Value a = createAffine.load(A, aAccess);
                 // Value va = vector_broadcast(vecType, a);
-                Value va = createVec.broadcast(vecType, a);
+                Value va = create.vec.broadcast(vecType, a);
                 // bAccess = {k + bStart0.getValue(), bStart1.getValue()};
                 IndexExpr::getValues(bStart, bAccess);
-                bAccess[bRank - 2] = createMath.add(k, bAccess[bRank - 2]);
-                Value vb = createVec.load(vecType, B, bAccess);
+                bAccess[bRank - 2] = create.math.add(k, bAccess[bRank - 2]);
+                Value vb = create.vec.load(vecType, B, bAccess);
                 // TTmpC() = vector_fma(va, vb, TTmpC());
                 Value tmpVal = createAffine.load(TmpC, tmpCAccess);
-                Value res = createVec.fma(va, vb, tmpVal);
+                Value res = create.vec.fma(va, vb, tmpVal);
                 createAffine.store(res, TmpC, tmpCAccess);
               });
           // Store temp result into C(i)
@@ -1043,11 +1036,11 @@ private:
             for (int64_t i = 0; i < VL; i++)
               mask.emplace_back((i < JLit) ? i : VL + i);
             // permute
-            Value originalCvec = createVec.load(vecType, C, cAccess);
-            tmpResults = createVec.shuffle(tmpResults, originalCvec, mask);
+            Value originalCvec = create.vec.load(vecType, C, cAccess);
+            tmpResults = create.vec.shuffle(tmpResults, originalCvec, mask);
           }
           // CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
-          createVec.store(tmpResults, C, cAccess);
+          create.vec.store(tmpResults, C, cAccess);
         });
 
     if (unrollJam && (I.isLiteral() || K.isLiteral())) {

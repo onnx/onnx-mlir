@@ -268,6 +268,16 @@ struct MultiDialectBuilder<SCFBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   SCFBuilder scf;
 };
 
+// Recursive class specialized for VectorBuilder refereed to as scf.
+template <class... Ts>
+struct MultiDialectBuilder<VectorBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(OpBuilder &b, Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), vec(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), vec(db) {}
+  VectorBuilder vec;
+};
+
 // Include template implementations.
 #include "MLIRDialectBuilder.hpp.inc"
 
