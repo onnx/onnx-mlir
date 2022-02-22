@@ -30,21 +30,21 @@ static int myFloor(int a, int b) { return floor((1.0 * a) / (1.0 * b)); }
 
 Conv2DLibBuilder::Conv2DLibBuilder(const std::string &modelName, const int N,
     const int C, const int H, const int W, const int kH, const int kW,
-    const int autoPad, const int pHBegin, const int pHEnd, const int pWBegin,
-    const int pWEnd, const int stride, const int dilation, const int isDynamic)
+    const ConvAutoPad autoPad, const int pHBegin, const int pHEnd,
+    const int pWBegin, const int pWEnd, const int stride, const int dilation,
+    const int isDynamic)
     : ModelLibBuilder(modelName), N(N), C(C), H(H), W(W), kH(kH), kW(kW),
       autoPad(autoPad), pHBegin(pHBegin), pHEnd(pHEnd), pWBegin(pWBegin),
       pWEnd(pWEnd), stride(stride), dilation(dilation), isDynamic(isDynamic) {}
 
-const string Conv2DLibBuilder::getAutoPadName(const int autoPad) {
+const string Conv2DLibBuilder::getAutoPadName(const ConvAutoPad autoPad) {
   static const string autoPadName[] = {
       "NOTSET", "VALID", "SAME_LOWER", "SAME_UPPER"};
-  assert(autoPad >= 0 && autoPad < AUTO_PAD_UB && "out of bound autopad");
   return autoPadName[autoPad];
 }
 
 bool Conv2DLibBuilder::build() {
-  if (autoPad != AUTO_PAD_NOTSET) {
+  if (autoPad != ConvAutoPad::NOTSET) {
     // Make sure all pads are initially zero, only value tolarated.
     assert(pHBegin == 0 && pHEnd == 0 && pWBegin == 0 && pWEnd == 0);
   }
@@ -154,13 +154,13 @@ bool Conv2DLibBuilder::verifyShapeAndComputeBeginEnd() {
   // https://github.com/onnx/onnx/blob/main/docs/Operators.md#maxpool
   int myO[2], myPBegin[2], myPEnd[2];
   for (int i = 0; i < 2; ++i) {
-    if (autoPad == AUTO_PAD_NOTSET) {
+    if (autoPad == ConvAutoPad::NOTSET) {
       // NOSET:
       //  * O[i] = floor((I[i] + P[i] - ((K[i] - 1) * d[i] + 1)) / s[i] + 1)
       myO[i] = myFloor((I[i] + p[i] - ((K[i] - 1) * d[i] + 1)), s[i]) + 1;
       myPBegin[i] = pBegin[i];
       myPEnd[i] = pEnd[i];
-    } else if (autoPad == AUTO_PAD_VALID) {
+    } else if (autoPad == ConvAutoPad::VALID) {
       // VALID:
       // * O[i] = ceil((I[i] - ((K[i] - 1) * d[i] + 1) + 1) / s[i])
       // * P = 0
@@ -176,7 +176,7 @@ bool Conv2DLibBuilder::verifyShapeAndComputeBeginEnd() {
       pSum = pSum >= 0 ? pSum : 0;
       myPBegin[i] = myPEnd[i] = pSum / 2;
       if (pSum % 2 != 0) {
-        if (autoPad == AUTO_PAD_UPPER)
+        if (autoPad == ConvAutoPad::UPPER)
           myPEnd[i] += 1;
         else
           myPBegin[i] += 1;
