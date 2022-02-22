@@ -968,16 +968,12 @@ private:
     }
   }
 
-#define USE_NEW 0
-
+#define USE_OLD 0
+#if USE_OLD
   void genSimd(PatternRewriter &rewriter, Location loc, KrnlMatMulOp op,
       Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
       ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
       IndexExpr vectorLen, bool unrollJam) const {
-#if USE_NEW
-    return genSimd2(rewriter, loc, op, elementType, aStart, bStart, cStart, I,
-        J, K, vectorLen, unrollJam);
-#endif
     // can simdize only if K is compile time
     assert(J.isLiteral() &&
            "can only simdize with compile time blocking factor on simd axis");
@@ -1088,14 +1084,17 @@ private:
       }
     }
   }
-
-  void genSimd2(PatternRewriter &rewriter, Location loc, KrnlMatMulOp op,
+#else
+  void genSimd(PatternRewriter &rewriter, Location loc, KrnlMatMulOp op,
       Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
       ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
       IndexExpr vectorLen, bool unrollJam) const {
     // can simdize only if K is compile time
     assert(J.isLiteral() &&
            "can only simdize with compile time blocking factor on simd axis");
+    MultiDialectBuilder<AffineBuilderKrnlMem, MemRefBuilder, KrnlBuilder>
+        create(rewriter, loc);
+
     AffineBuilderKrnlMem createAffine(rewriter, loc);
     MemRefBuilder createMemRef(rewriter, loc);
     // Get operands.
@@ -1164,8 +1163,7 @@ private:
               mask.emplace_back((i < JLit) ? i : VL + i);
             // permute
             Value originalCvec = createVec.load(vecType, C, cAccess);
-            tmpResults = createAffine.getBuilder().create<vector::ShuffleOp>(
-                createAffine.getLoc(), tmpResults, originalCvec, mask);
+            tmpResults = createVec.shuffle(tmpResults, originalCvec, mask);
           }
           // CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
           createVec.store(tmpResults, C, cAccess);
@@ -1202,6 +1200,7 @@ private:
       }
     }
   }
+#endif
 };
 
 //===----------------------------------------------------------------------===//

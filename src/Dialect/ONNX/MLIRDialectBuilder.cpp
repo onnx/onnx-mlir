@@ -491,6 +491,11 @@ Value VectorBuilder::broadcast(VectorType vecType, Value val) const {
   return b.create<vector::BroadcastOp>(loc, vecType, val);
 }
 
+Value VectorBuilder::shuffle(
+    Value lhs, Value rhs, SmallVectorImpl<int64_t> &mask) const {
+  return b.create<vector::ShuffleOp>(loc, lhs, rhs, mask);
+}
+
 Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
   return b.create<vector::FMAOp>(loc, lhs, rhs, acc);
 }
