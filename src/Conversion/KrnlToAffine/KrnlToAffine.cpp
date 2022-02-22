@@ -695,6 +695,10 @@ static IndexExpr startInBuffer(
   return globalStart % tileSize;
 }
 
+// hi alex remove
+#define USE_OLD 0
+#define ENABLE_UNROLL 1
+
 // KrnlMatmul will be lowered to vector and affine expressions
 class KrnlMatmulLowering : public OpRewritePattern<KrnlMatMulOp> {
 
@@ -817,8 +821,13 @@ public:
         jComputeStart - DimIndexExpr(operandAdaptor.cMemStart()[cRank - 1]));
 
     SmallVector<IndexExpr, 4> bVecStart(bStart), cVecStart(cStart);
+    #if USE_OLD
     bVecStart[bRank - 1] = bStart[bRank - 1].floorDiv(vectorLen);
     cVecStart[cRank - 1] = cStart[cRank - 1].floorDiv(vectorLen);
+    #else
+    bVecStart[bRank - 1] = bStart[bRank - 1];
+    cVecStart[cRank - 1] = cStart[cRank - 1];
+    #endif
 
     // Now determine if we have full/partial tiles. This is determined by the
     // outer dimensions of the original computations, as by definition tiling
@@ -968,7 +977,6 @@ private:
     }
   }
 
-#define USE_OLD 0
 #if USE_OLD
   void genSimd(PatternRewriter &rewriter, Location loc, KrnlMatMulOp op,
       Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
@@ -1053,7 +1061,7 @@ private:
           createAffine.store(tmpResults, vecC, cAccess);
         });
 
-    if (unrollJam && (I.isLiteral() || K.isLiteral())) {
+    if (ENABLE_UNROLL && unrollJam && (I.isLiteral() || K.isLiteral())) {
       auto list = getUnrollAndJamList(op.getOperation());
       if (K.isLiteral()) {
         int64_t kUnroll = K.getLiteral();
@@ -1169,7 +1177,7 @@ private:
           createVec.store(tmpResults, C, cAccess);
         });
 
-    if (unrollJam && (I.isLiteral() || K.isLiteral())) {
+    if (ENABLE_UNROLL && unrollJam && (I.isLiteral() || K.isLiteral())) {
       auto list = getUnrollAndJamList(op.getOperation());
       if (K.isLiteral()) {
         int64_t kUnroll = K.getLiteral();
