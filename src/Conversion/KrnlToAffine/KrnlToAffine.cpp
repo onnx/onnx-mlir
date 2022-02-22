@@ -763,7 +763,7 @@ public:
       simdize = false;
       LLVM_DEBUG(llvm::dbgs() << "Matmul: No simd due to vl not a literal\n");
     }
-    #if 0
+#if 0
     if (!bBounds.isLiteral(bRank - 1) || !cBounds.isLiteral(cRank - 1)) {
       // Cannot simdize if the last dim of B or C are not constant.
       simdize = false;
@@ -782,7 +782,7 @@ public:
             << "Matmul: No simd due to B & C last dim not a multiple of VL\n");
       }
     }
-    #endif
+#endif
     if (!simdize)
       vectorLen = LiteralIndexExpr(1);
 
