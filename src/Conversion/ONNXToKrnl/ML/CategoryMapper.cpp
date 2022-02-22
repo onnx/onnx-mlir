@@ -145,7 +145,7 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     LLVM_DEBUG({
       FuncOp function = getContainingFunction(op);
       assert(function && "Could not find parent function");
-      dbgs() << "function: " << function << "\n";
+      dbgs() << "function:\n" << function << "\n";
     });
 
     return success();

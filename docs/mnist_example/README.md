@@ -198,7 +198,7 @@ The runtime use an `ExecutionSession` object to hold a specific model and entry 
 ``` Python
 # Load the model mnist.so compiled with onnx-mlir.
 model = 'mnist.so'
-session = ExecutionSession(model, "run_main_graph")
+session = ExecutionSession(model)
 # Print the models input/output signature, for display.
 # If there are problems with the signature functions, they can be simply commented out.
 print("input signature in json", session.input_signature())
