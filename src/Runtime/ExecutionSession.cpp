@@ -109,7 +109,7 @@ void ExecutionSession::setEntryPoint(const std::string &entryPointName) {
 }
 
 const std::string *ExecutionSession::queryEntryPoints() const {
-  return _queryEntryPointsFunc();
+  return (const std::string *)_queryEntryPointsFunc();
 }
 
 const std::string ExecutionSession::inputSignature() const {
