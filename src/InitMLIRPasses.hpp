@@ -14,7 +14,7 @@ void initMLIRPasses() {
     return mlir::createLowerAffinePass();
   });
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createLowerToCFGPass();
+    return mlir::createConvertSCFToCFPass();
   });
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createConvertVectorToLLVMPass();
