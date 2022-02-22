@@ -97,7 +97,7 @@ OMTensorList *ExecutionSession::run(OMTensorList *input) {
   return _entryPointFunc(input);
 }
 
-void ExecutionSession::setEntryPoint(std::string entryPointName) {
+void ExecutionSession::setEntryPoint(const std::string &entryPointName) {
   _entryPointFunc = reinterpret_cast<entryPointFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(entryPointName.c_str()));
   if (!_entryPointFunc) {
@@ -109,14 +109,14 @@ void ExecutionSession::setEntryPoint(std::string entryPointName) {
 }
 
 const std::string *ExecutionSession::queryEntryPoints() const {
-  return (std::string *)_queryEntryPointsFunc();
+  return (const std::string *)_queryEntryPointsFunc();
 }
 
-std::string ExecutionSession::inputSignature() const {
+const std::string ExecutionSession::inputSignature() const {
   return _inputSignatureFunc(_entryPointName.c_str());
 }
 
-std::string ExecutionSession::outputSignature() const {
+const std::string ExecutionSession::outputSignature() const {
   return _outputSignatureFunc(_entryPointName.c_str());
 }
 

@@ -42,16 +42,16 @@ public:
   OMTensorList *run(OMTensorList *input);
 
   // Set entry point for this session.
-  void setEntryPoint(std::string);
+  void setEntryPoint(const std::string &entryPointName);
 
-  // Get an array of entry point names.
+  // Get a NULL-terminated array of entry point names.
   // For example {"run_addition, "run_substraction", NULL}
   const std::string *queryEntryPoints() const;
 
   // Get input and output signature as a Json string. For example for nminst:
   // `[ { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "name" : "image" } ]`
-  std::string inputSignature() const;
-  std::string outputSignature() const;
+  const std::string inputSignature() const;
+  const std::string outputSignature() const;
 
   ~ExecutionSession();
 
