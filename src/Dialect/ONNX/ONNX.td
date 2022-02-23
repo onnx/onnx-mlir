@@ -51,7 +51,7 @@ def ONNX_Dialect : Dialect {
 //   * The mnemonic for the operation, or the name without the dialect prefix.
 //   * A list of traits for the operation.
 class ONNX_Op<string mnemonic, list<Trait> traits = []> :
-    Op<ONNX_Dialect, mnemonic, traits> ;
+  Op<ONNX_Dialect, mnemonic, traits> ;
 
 //===----------------------------------------------------------------------===//
 // ONNX Operations
@@ -84,10 +84,11 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
   let description = [{
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
   }];
+
   let arguments = (ins SymbolRefAttr:$func,
-           I32Attr:$numInputs,
-           I32Attr:$numOutputs,
-           StrAttr:$signature);
+                       I32Attr:$numInputs,
+                       I32Attr:$numOutputs,
+                       StrAttr:$signature);
 
   let builders = [OpBuilder<(ins "FuncOp":$function, "int":$numInputs,
                                  "int":$numOutputs, "std::string":$signature)>];
@@ -142,27 +143,29 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
     "ONNX MaxPool operation with a single output."
     "See ONNXMaxPoolOp for a full description of the MaxPool semantics."
   }];
+
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-           DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
-           DefaultValuedAttr<SI64Attr, "0">:$ceil_mode,
-           OptionalAttr<I64ArrayAttr>:$dilations,
-           DefaultValuedAttr<I64ArrayAttr, "{}">:$kernel_shape,
-           OptionalAttr<I64ArrayAttr>:$pads,
-           DefaultValuedAttr<SI64Attr, "0">:$storage_order,
-           OptionalAttr<I64ArrayAttr>:$strides);
+                       DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
+                       DefaultValuedAttr<SI64Attr, "0">:$ceil_mode,
+                       OptionalAttr<I64ArrayAttr>:$dilations,
+                       DefaultValuedAttr<I64ArrayAttr, "{}">:$kernel_shape,
+                       OptionalAttr<I64ArrayAttr>:$pads,
+                       DefaultValuedAttr<SI64Attr, "0">:$storage_order,
+                       OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
+
+  let hasVerifier = 1;
+
   let extraClassDeclaration = [{
     static int getNumberOfOperands() { return 1; }
     static int getNumberOfResults() { return 1; }
     static std::vector<int> getTypeMap() { return {20}; }
   }];
-  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceMode",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX BatchNormalization operation in test mode";
-  let hasCanonicalizer = 1;
   let description = [{
     "Carries out batch normalization as described in the paper"
     "https://arxiv.org/abs/1502.03167. Depending on the mode it is being run,"
@@ -175,14 +178,18 @@ def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceM
     "to flatten the input shape to (N x C*D1*D2 ..*Dn) before a BatchNormalization Op."
     "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
+
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-           AnyTypeOf<[AnyMemRef, AnyTensor]>:$scale,
-           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
-           AnyTypeOf<[AnyMemRef, AnyTensor]>:$mean,
-           AnyTypeOf<[AnyMemRef, AnyTensor]>:$var,
-           DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
-           DefaultValuedAttr<F32Attr, "0.9">:$momentum);
+                       AnyTypeOf<[AnyMemRef, AnyTensor]>:$scale,
+                       AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+                       AnyTypeOf<[AnyMemRef, AnyTensor]>:$mean,
+                       AnyTypeOf<[AnyMemRef, AnyTensor]>:$var,
+                       DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
+                       DefaultValuedAttr<F32Attr, "0.9">:$momentum);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
+
+  let hasCanonicalizer = 1;
+
   let extraClassDeclaration = [{
     static int getNumberOfOperands() { return 5; }
     static int getNumberOfResults() { return 1; }
@@ -202,6 +209,7 @@ def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, NoSideEffect]> {
 
   let arguments = (ins UnitAttr:$value);
   let results = (outs NoneType:$none_val);
+
   let hasFolder = 1;
   let builders = [
     OpBuilder<(ins),[{ 
@@ -227,6 +235,7 @@ def ONNX_SeqType : ONNX_Type<"Seq", "Seq"> {
   let description = [{
     An list of tensors which may have different shape
   }];
+
   let parameters = (ins "::mlir::ShapedType":$ElementType, "int64_t":$Length);
 
   // Previous implementation did not print/parse the length field
