@@ -284,6 +284,14 @@ int64_t omTensorGetOwning(const OMTensor *tensor);
  */
 void omTensorSetOwning(OMTensor *tensor, int64_t owning);
 
+/**
+ * Print an OMTensor to stdout.
+ *
+ * @param msg, pointer to descriptive string
+ * @param tensor, pointer to the OMTensor to print
+ */
+void omTensorPrint(const char *msg, const OMTensor *tensor);
+
 #ifdef __cplusplus
 }
 #endif

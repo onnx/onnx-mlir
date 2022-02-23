@@ -2,6 +2,9 @@
 
 add_onnx_mlir_library(OMKrnlToLLVM
   KrnlToLLVM.cpp
+  KrnlToLLVMHelper.cpp  
+  KrnlPrintTensor.cpp
+  KrnlPrint.cpp  
   RuntimeAPI.cpp
 
   LINK_LIBS PUBLIC
@@ -10,8 +13,9 @@ add_onnx_mlir_library(OMKrnlToLLVM
   MLIRMathToLLVM
   MLIRMathTransforms
   MLIRMemRefToLLVM
+  MLIRMemRefTransforms
   MLIRReconcileUnrealizedCasts
-  MLIRSCFToStandard
+  MLIRSCFToControlFlow
   MLIRShapeToStandard
   MLIRStandardOpsTransforms
   MLIRStandardToLLVM

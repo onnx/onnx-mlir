@@ -19,6 +19,7 @@
 
 include "mlir/IR/OpBase.td"
 include "mlir/Dialect/Shape/IR/ShapeBase.td"
+include "mlir/Interfaces/CastInterfaces.td"
 include "mlir/Interfaces/LoopLikeInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/ViewLikeInterface.td"
@@ -42,8 +43,8 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
     intend to optimize.
   }];
 
-  let arguments = (ins);
   let results = (outs Variadic<AnyType>);
+
   let skipDefaultBuilders = 1;
   let builders = [ OpBuilder<(ins "int64_t":$num_loops)> ];
 
@@ -53,14 +54,14 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   let extraClassDeclaration = [{
     static StringRef getNumLoopsAttrName() { return "num_loops"; }
 
-  // Helper function to extract the number of loops being defined.
-  int64_t getNumLoops() {
-    auto num_loops = (*this)->getAttrOfType<IntegerAttr>(getNumLoopsAttrName())
-                         .getValue()
-                         .getSExtValue();
-    return num_loops;
-  }
-}];
+    // Helper function to extract the number of loops being defined.
+    int64_t getNumLoops() {
+      auto num_loops = (*this)->getAttrOfType<IntegerAttr>(getNumLoopsAttrName())
+                           .getValue()
+                           .getSExtValue();
+      return num_loops;
+    }
+  }];
 }
 
 def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
@@ -88,7 +89,9 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   }];
 
   let arguments = (ins Variadic<AnyType>);
+
   let regions = (region SizedRegion<1>:$bodyRegion);
+
   let skipDefaultBuilders = 1;
   let builders = [
     // Main builder.
@@ -106,7 +109,12 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
       CArg<"ArrayRef<IndexExpr>">:$lbs, CArg<"ArrayRef<IndexExpr>">:$ubs, 
       CArg<"ValueRange">:$iterArgs,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>">:$bodyBuilderFn)>
- ];
+  ];
+
+  let printer = [{ return ::print(p, *this); }];
+  let parser = [{ return ::parse$cppClass(parser, result); }];
+
+  let hasVerifier = 1;
 
   let extraClassDeclaration = [{
     // In krnl.iterate operation, operands are stored as such
@@ -127,11 +135,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
 
     // Get name of the attribute for storing bound represented using affine maps.
       static StringRef getBoundsAttrName() { return "bounds"; }
-    }];
-
-    let printer = [{ return ::print(p, *this); }];
-    let parser = [{ return ::parse$cppClass(parser, result); }];
-    let verifier = [{ return ::verify(*this); }];
+  }];
 }
 
 def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
@@ -148,9 +152,6 @@ def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
   // No custom parsing/printing form.
   let parser = ?;
   let printer = ?;
-
-  // Fully specified by traits.
-  let verifier = ?;
 }
 
 def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
@@ -223,6 +224,9 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
     }]>,
     ];
 
+  let parser = ?;
+  let printer = ?;
+
   let extraClassDeclaration = [{
     /// Returns the symbolic operands (the ones in square brackets), which bind
     /// to the symbols of the memref's layout map.
@@ -230,9 +234,6 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
       return {operand_begin() + 2, operand_end()};
     }
   }];
-
-  let parser = ?;
-  let printer = ?;
 }
 
 def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
@@ -243,9 +244,9 @@ def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
     means to block the for loop referred to by %i using a tile size of 4.
   }];
 
-  let arguments = (ins
-    AnyType:$loop, I64Attr:$tile_size);
+  let arguments = (ins AnyType:$loop, I64Attr:$tile_size);
   let results = (outs AnyType:$loop_block, AnyType:$loop_local);
+
   let builders = [ OpBuilder<(ins "Value": $loop, "int64_t":$tile_size)> ];
   let assemblyFormat = [{
       $loop $tile_size attr-dict `:` functional-type($loop, results)
@@ -312,7 +313,7 @@ def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
   }];
 
   let arguments = (ins Variadic<AnyType>:$loops, I64ArrayAttr:$map);
-  let results = (outs);
+
   let builders = [ OpBuilder<(ins "ValueRange": $loops, "ArrayRef<int64_t>":$map)> ];
   let assemblyFormat = [{
       `(` $loops `)` $map attr-dict `:` type($loops)
@@ -330,7 +331,7 @@ def KrnlUnrollOp : Op<Krnl_Dialect, "unroll"> {
   }];
 
   let arguments = (ins AnyType:$loop);
-  let results = (outs);
+
   let assemblyFormat = [{
       $loop attr-dict `:` type($loop)
   }];
@@ -507,6 +508,8 @@ def KrnlLoadOp : Op<Krnl_Dialect, "load",
       $_state.types.push_back(memrefType.getElementType());
     }]>];
 
+  let assemblyFormat = [{$memref `[` $indices `]` attr-dict `:` type($memref)}];
+
   let extraClassDeclaration = [{
     Value getMemRef() { return getOperand(0); }
     void setMemRef(Value value) { setOperand(0, value); }
@@ -516,8 +519,6 @@ def KrnlLoadOp : Op<Krnl_Dialect, "load",
 
     operand_range getIndices() { return {operand_begin() + 1, operand_end()}; }
   }];
-
-  let assemblyFormat = [{$memref `[` $indices `]` attr-dict `:` type($memref)}];
 }
 
 def KrnlStoreOp : Op<Krnl_Dialect, "store",
@@ -544,6 +545,10 @@ def KrnlStoreOp : Op<Krnl_Dialect, "store",
       $_state.addOperands(memref);
     }]>];
 
+  let assemblyFormat = [{
+    $value `,` $memref `[` $indices `]` attr-dict `:` type($memref)
+  }];
+
   let extraClassDeclaration = [{
       Value getValueToStore() { return getOperand(0); }
 
@@ -556,10 +561,6 @@ def KrnlStoreOp : Op<Krnl_Dialect, "store",
       operand_range getIndices() {
         return {operand_begin() + 2, operand_end()};
       }
-  }];
-
-  let assemblyFormat = [{
-    $value `,` $memref `[` $indices `]` attr-dict `:` type($memref)
   }];
 }
 
@@ -575,8 +576,6 @@ def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
      This construct is particularly helpful, for example, for lowering statements that
      are nested imperfectly between an "eager" and a "lazy" loop.
   }];
-
-  let arguments = (ins );
 
   let regions = (region AnyRegion:$region);
 
@@ -600,6 +599,7 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
 
   let arguments = (ins Variadic<AnyType> : $loops);
   let results = (outs Variadic<AnyType> : $ind_var_vals);
+
   let builders = [ OpBuilder<(ins "ValueRange": $loops)>];
 
   let assemblyFormat = [{
@@ -611,7 +611,7 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
 // =============================================================================
 
 def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect,
-    MemRefsNormalizable, ViewLikeOpInterface]> {
+    MemRefsNormalizable, DeclareOpInterfaceMethods<CastOpInterface>, ViewLikeOpInterface]> {
   let summary = "vector type cast operation";
   let description = [{
     The "vector_type_cast" operation converts a memref from an non-vector
@@ -627,23 +627,6 @@ def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect,
   let arguments = (ins AnyMemRef:$source);
   let results = (outs AnyMemRef:$result);
 
-  let parser = ?;
-  let printer = ?;
-
-  let verifier = [{ return impl::verifyCastOp(*this, areCastCompatible); }];
-
-  let extraClassDeclaration = [{
-    /// Return true if `a` and `b` are valid operand and result pairs for
-    /// the operation.
-    static bool areCastCompatible(Type a, Type b);
-
-    /// The result of a vector_type_cast is always a memref.
-    MemRefType getType() { return getResult().getType().cast<MemRefType>(); }
-
-    /// Return the view source.
-    Value getViewSource() { return source(); }
-  }];
-
   let hasFolder = 1;
   let builders = [ OpBuilder<(ins "Value": $source, "int64_t": $vectorLen)> ];
 
@@ -651,6 +634,13 @@ def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect,
     $source attr-dict `:` type($source) `to` type($result)
   }];
 
+  let extraClassDeclaration = [{
+    /// The result of a vector_type_cast is always a memref.
+    MemRefType getType() { return getResult().getType().cast<MemRefType>(); }
+
+    /// Return the view source.
+    Value getViewSource() { return source(); }
+  }];
 }
 
 // =============================================================================
@@ -663,7 +653,6 @@ def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel",
   }];
 
   let arguments = (ins Variadic<AnyType> : $loops);
-  let results = (outs );
 
   let assemblyFormat = [{
       `(` $loops `)` attr-dict `:` type($loops)
@@ -841,7 +830,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
       "bool": $overcompute)>
     ];
 
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 
   let assemblyFormat = [{
     $A `[` $aMemStart `]` `,`
@@ -922,8 +911,9 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
       "bool": $transpose)>
   ];
 
-  let verifier = [{ return ::verify(*this); }];
-    let assemblyFormat = [{
+  let hasVerifier = 1;
+
+  let assemblyFormat = [{
     $buffer `,` $source `[` $starts `]` `,`  $padValue  attr-dict
      `:` type($buffer) `,` type($source)
   }];
@@ -955,8 +945,9 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
     OpBuilder<(ins "Value": $buffer, "Value": $dest, "ValueRange": $starts)>
   ];
 
-  let verifier = [{ return ::verify(*this); }];
-    let assemblyFormat = [{
+  let hasVerifier = 1;
+
+  let assemblyFormat = [{
     $buffer `,` $dest `[` $starts `]`  attr-dict `:` type($buffer) `,` type($dest)
   }];
 }
@@ -984,6 +975,7 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
   }];
 
   let arguments = (ins AnyMemRef:$dest, AnyType: $value); 
+
   let assemblyFormat = [{ $dest `,` $value attr-dict `:` type($dest) }];
 }
 
@@ -1019,8 +1011,6 @@ def KrnlRandomNormalOp : Op<Krnl_Dialect, "random_normal",
     AnyFloat:$mean,
     AnyFloat:$scale,
     AnyFloat:$seed);
-
-  let results = (outs );
 }
 
 def KrnlFindIndexOp : Op<Krnl_Dialect, "find_index",
@@ -1036,3 +1026,23 @@ def KrnlFindIndexOp : Op<Krnl_Dialect, "find_index",
   let arguments = (ins AnyTypeOf<[StringType, I64]>:$input, I32MemRef:$G, I32MemRef:$V, I32:$len);
   let results = (outs Index:$index);
 }
+
+def KrnlPrintTensorOp : Op<Krnl_Dialect, "print_tensor", [MemRefsNormalizable]> {
+  let summary = "Print a tensor.";
+  let description = [{
+    This operation can be used to generate a call to a runtime function which prints a tensor.
+  }];
+
+  let arguments = (ins StrAttr:$msg, AnyMemRef:$input);
+} 
+
+def KrnlPrintOp : Op<Krnl_Dialect, "print", [MemRefsNormalizable]> {
+  let summary = "Print a value.";
+  let description = [{
+    This operation can be used to print the input value. The user needs to provide a 
+    format string (à la printf) to specify how to print the input value. 
+    If the input value is not specified the operator will print the format string.
+  }];
+
+  let arguments = (ins StrAttr:$format, Optional<AnyType>:$input);
+} 
