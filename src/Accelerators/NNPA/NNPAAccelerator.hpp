@@ -17,7 +17,7 @@
 #include "src/Accelerators/Accelerator.hpp"
 
 namespace mlir {
-class NNPAAccelerator : public Accelerator {
+class NNPAAccelerator final : public Accelerator {
 private:
   static bool initialized;
 
