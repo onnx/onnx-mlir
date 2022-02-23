@@ -2273,38 +2273,38 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
 // MaxPoolSingleOut
 //===----------------------------------------------------------------------===//
 
-static LogicalResult verify(ONNXMaxPoolSingleOutOp op) {
+LogicalResult ONNXMaxPoolSingleOutOp::verify() {
   ONNXMaxPoolSingleOutOpAdaptor operandAdaptor =
-      ONNXMaxPoolSingleOutOpAdaptor(op);
+      ONNXMaxPoolSingleOutOpAdaptor(*this);
 
   // Mandatory and unsupported parameters.
-  if (!op.kernel_shape())
-    return op.emitError("kernel_shape is a mandatory attribute");
+  if (!kernel_shape())
+    return emitOpError("kernel_shape is a mandatory attribute");
   // Get spatial rank from mandatory kernel_shape parameter.
-  int64_t spatialRank = op.kernel_shape().size();
+  int64_t spatialRank = kernel_shape().size();
   if (spatialRank < 1)
-    return op.emitError("Spatial rank must be strictly positive");
+    return emitOpError("Spatial rank must be strictly positive");
   // Not supported for storage order in column major mode.
-  if (op.storage_order() != 0)
-    return op.emitError("Column major storage order not implemented yet");
+  if (storage_order() != 0)
+    return emitOpError("Column major storage order not implemented yet");
 
   // Get operands.
   auto X = operandAdaptor.X();
   if (hasShapeAndRank(X)) {
     auto xShape = X.getType().cast<ShapedType>().getShape();
-    if ((int64_t)xShape.size() - 2 != spatialRank)
-      return op->emitError("Input and kernel shape rank mismatch");
+    if (static_cast<int64_t>(xShape.size()) - 2 != spatialRank)
+      return (*this)->emitError("Input and kernel shape rank mismatch");
   }
 
   // Verify parameters.
   if (failed(verifyKernelShape<ONNXMaxPoolSingleOutOp>(
-          &op, nullptr, op.kernel_shape(), spatialRank)))
+          this, nullptr, kernel_shape(), spatialRank)))
     return failure();
-  if (failed(verifyStrides<ONNXMaxPoolSingleOutOp>(&op, spatialRank)))
+  if (failed(verifyStrides<ONNXMaxPoolSingleOutOp>(this, spatialRank)))
     return failure();
-  if (failed(verifyDilations<ONNXMaxPoolSingleOutOp>(&op, spatialRank)))
+  if (failed(verifyDilations<ONNXMaxPoolSingleOutOp>(this, spatialRank)))
     return failure();
-  if (failed(verifyPadding<ONNXMaxPoolSingleOutOp>(&op, spatialRank)))
+  if (failed(verifyPadding<ONNXMaxPoolSingleOutOp>(this, spatialRank)))
     return failure();
   return success();
 }
