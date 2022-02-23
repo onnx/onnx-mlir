@@ -23,6 +23,7 @@
 using namespace mlir;
 
 namespace onnx_mlir {
+namespace krnl {
 
 /// Get the rank of the given tensor (represented as a memref).
 int64_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy);
@@ -48,4 +49,13 @@ Value getPtrToGlobalString(
 void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,
     ModuleOp module, OpBuilder &builder, LLVMTypeConverter &typeConverter);
 
+/// Retrieve the declaration of a function in the given module.
+Optional<FlatSymbolRefAttr> getFunctionDeclaration(
+    ModuleOp module, StringRef funcName);
+
+/// Return a symbol reference to the strncmp function, inserting it into the
+/// module if necessary.
+FlatSymbolRefAttr getOrInsertStrncmp(OpBuilder &builder, ModuleOp module);
+
+} // namespace krnl
 } // namespace onnx_mlir

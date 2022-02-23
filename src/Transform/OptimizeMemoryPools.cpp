@@ -897,6 +897,6 @@ public:
 };
 } // namespace
 
-std::unique_ptr<Pass> mlir::createKrnlOptimizeMemoryPoolsPass() {
+std::unique_ptr<Pass> onnx_mlir::krnl::createKrnlOptimizeMemoryPoolsPass() {
   return std::make_unique<KrnlOptimizeMemoryPoolsPass>();
 }
