@@ -1,11 +1,11 @@
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/CodeGen/TargetPassConfig.h"
 #include <mlir/Dialect/MemRef/Transforms/Passes.h>
 
 #include "src/Compiler/CompilerUtils.hpp"
@@ -94,7 +94,6 @@ void addAllToLLVMPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
-
 void addPassesDLC(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     EmissionTargetType &emissionTarget, DLCEmissionTargetType dlcEmissionTarget,
     ArrayRef<std::string> execNodesOnCpu) {
@@ -118,8 +117,8 @@ void addPassesDLC(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
       if (instrumentZHighOps != "" && instrumentZHighOps != "NONE")
         pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass());
       // Lower all ONNX and ZHigh ops.
-      //addZHighToZLowPasses(pm, getOptLevel());
-      addZHighToZLowPasses(pm, 3); // TODO: Fix this 
+      // addZHighToZLowPasses(pm, getOptLevel());
+      addZHighToZLowPasses(pm, 3); // TODO: Fix this
       // Constant folding for std.alloc.
       pm.addNestedPass<FuncOp>(mlir::createFoldStdAllocPass());
 
@@ -137,8 +136,9 @@ void addPassesDLC(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     addAllToLLVMPasses(pm);
 }
 
-int compileModuleDLC(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
-    std::string outputBaseName, onnx_mlir::EmissionTargetType emissionTarget,
+int compileModuleDLC(mlir::OwningOpRef<ModuleOp> &module,
+    mlir::MLIRContext &context, std::string outputBaseName,
+    onnx_mlir::EmissionTargetType emissionTarget,
     DLCEmissionTargetType dlcEmissionTarget,
     ArrayRef<std::string> execNodesOnCpu) {
   // Load our Dialect in this MLIR Context.
