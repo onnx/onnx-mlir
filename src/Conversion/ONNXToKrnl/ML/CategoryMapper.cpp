@@ -34,6 +34,9 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     Value len;
   };
 
+  // When true causes injection of print stmts in the generated code.
+  static const bool emitPrintStmts = false;
+
   ONNXCategoryMapperOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
             typeConverter, ONNXCategoryMapperOp::getOperationName(), 1, ctx) {}
@@ -119,6 +122,9 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> ubs;
     inputBounds.getDimList(ubs);
 
+    if (emitPrintStmts)
+      create.krnl.printTensor("Input tensor:\n", X);
+
     ValueRange loopDef = create.krnl.defineLoops(rank);
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
@@ -127,10 +133,17 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
           // when the 'inputElem' is not present in the perfect hash
           // table).
           Value inputElem = createKrnl.load(X, loopInd);
+
+          if (emitPrintStmts)
+            create.krnl.printf("inputElem: ", inputElem, elementType);
+
           Value index, isIndexValid;
           std::tie(index, isIndexValid) =
               emitFindIndex(inputElem, elementType, perfectHashTable,
                   constantForCatsInt64s, constantForCatsStrings, create);
+
+          if (emitPrintStmts)
+            create.krnl.printf("index: ", index, index.getType());
 
           // Store the final result.
           scf::IfOp ifOp = rewriter.create<scf::IfOp>(
