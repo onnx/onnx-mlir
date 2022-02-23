@@ -5,6 +5,7 @@
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/CodeGen/TargetPassConfig.h"
 #include <mlir/Dialect/MemRef/Transforms/Passes.h>
 
 #include "src/Compiler/CompilerUtils.hpp"
@@ -93,7 +94,8 @@ void addAllToLLVMPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
-void addPassesDLC(mlir::OwningModuleRef &module, mlir::PassManager &pm,
+
+void addPassesDLC(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     EmissionTargetType &emissionTarget, DLCEmissionTargetType dlcEmissionTarget,
     ArrayRef<std::string> execNodesOnCpu) {
   // TODO: Develop and use determineInputIRLevel for DLC
@@ -116,7 +118,8 @@ void addPassesDLC(mlir::OwningModuleRef &module, mlir::PassManager &pm,
       if (instrumentZHighOps != "" && instrumentZHighOps != "NONE")
         pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass());
       // Lower all ONNX and ZHigh ops.
-      addZHighToZLowPasses(pm, getOptLevel());
+      //addZHighToZLowPasses(pm, getOptLevel());
+      addZHighToZLowPasses(pm, 3); // TODO: Fix this 
       // Constant folding for std.alloc.
       pm.addNestedPass<FuncOp>(mlir::createFoldStdAllocPass());
 
@@ -134,7 +137,7 @@ void addPassesDLC(mlir::OwningModuleRef &module, mlir::PassManager &pm,
     addAllToLLVMPasses(pm);
 }
 
-int compileModuleDLC(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+int compileModuleDLC(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
     std::string outputBaseName, onnx_mlir::EmissionTargetType emissionTarget,
     DLCEmissionTargetType dlcEmissionTarget,
     ArrayRef<std::string> execNodesOnCpu) {

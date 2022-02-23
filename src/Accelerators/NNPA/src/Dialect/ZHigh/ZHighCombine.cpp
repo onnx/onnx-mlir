@@ -25,7 +25,7 @@ namespace {
 /// Register optimization patterns as "canonicalization" patterns
 /// on the ZHighStickOp.
 void ZHighStickOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
+    RewritePatternSet &results, MLIRContext *context) {
   results.insert<StickUnstickRemovalPattern>(context);
   results.insert<NoneTypeStickRemovalPattern>(context);
 }
@@ -33,7 +33,7 @@ void ZHighStickOp::getCanonicalizationPatterns(
 /// Register optimization patterns as "canonicalization" patterns
 /// on the ZHighUnstickOp.
 void ZHighUnstickOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
+    RewritePatternSet &results, MLIRContext *context) {
   results.insert<UnstickStickRemovalPattern>(context);
   results.insert<SigmoidLayoutChangingPattern>(context);
 }

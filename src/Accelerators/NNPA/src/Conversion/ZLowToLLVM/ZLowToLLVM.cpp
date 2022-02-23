@@ -20,7 +20,7 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
@@ -34,7 +34,7 @@
 #include "src/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Pass/DLCPasses.hpp"
 #include "src/Support/LayoutHelper.hpp"
-#include "third_party/zdnn-lib/zdnn.h"
+#include "third_party/zdnn-lib/zdnn/zdnn.h"
 
 using namespace mlir;
 

@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/BuiltinAttributes.h"
-#include "third_party/zdnn-lib/zdnn.h"
+#include "third_party/zdnn-lib/zdnn/zdnn.h"
 
 /// Note: Keep these strings in sync with the one in Dialect/ZHigh/ZHighOps.td.
 const std::string LAYOUT_1D = "1D";

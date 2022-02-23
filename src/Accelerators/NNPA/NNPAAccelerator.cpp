@@ -46,7 +46,7 @@ bool NNPAAccelerator::isActive() {
     return false;
 }
 
-void NNPAAccelerator::prepareAccelerator(mlir::OwningModuleRef &module,
+void NNPAAccelerator::prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, mlir::PassManager &pm,
     onnx_mlir::EmissionTargetType emissionTarget) {
   std::cout << "preparing accelerator " << acceleratorTarget << std::endl;

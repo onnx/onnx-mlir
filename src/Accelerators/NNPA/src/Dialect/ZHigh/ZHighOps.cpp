@@ -28,7 +28,7 @@
 #include "ZHighOps.hpp"
 #include "ZHighShapeHelper.hpp"
 #include "src/Support/LayoutHelper.hpp"
-#include "third_party/zdnn-lib/zdnn.h"
+#include "third_party/zdnn-lib/zdnn/zdnn.h"
 
 using namespace mlir;
 

@@ -24,7 +24,7 @@ private:
 public:
   NNPAAccelerator();
 
-  void prepareAccelerator(mlir::OwningModuleRef &module,
+  void prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
       mlir::MLIRContext &context, mlir::PassManager &pm,
       onnx_mlir::EmissionTargetType emissionTarget) override;
   bool isActive() override;

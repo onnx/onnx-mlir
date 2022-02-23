@@ -24,7 +24,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 extern "C" {
-#include "third_party/zdnn-lib/zdnn.h"
+#include "third_party/zdnn-lib/zdnn/zdnn.h"
 }
 
 /// Set information for a pre transformed descriptor.

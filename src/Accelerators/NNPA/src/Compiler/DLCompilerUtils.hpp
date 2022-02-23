@@ -18,12 +18,12 @@ void addZHighToZLowPasses(mlir::PassManager &pm);
 
 void addAllToLLVMPasses(mlir::PassManager &pm);
 
-void addPassesDLC(mlir::OwningModuleRef &module, mlir::PassManager &pm,
+void addPassesDLC(mlir::OwningOpRef<mlir::ModuleOp> &module, mlir::PassManager &pm,
     onnx_mlir::EmissionTargetType &emissionTarget,
     DLCEmissionTargetType dlcEmissionTarget,
     mlir::ArrayRef<std::string> execNodesOnCpu);
 
-int compileModuleDLC(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+int compileModuleDLC(mlir::OwningOpRef<mlir::ModuleOp> &module, mlir::MLIRContext &context,
     std::string outputBaseName, onnx_mlir::EmissionTargetType emissionTarget,
     DLCEmissionTargetType dlcEmissionTarget = EmitZNONE,
     mlir::ArrayRef<std::string> execNodesOnCpu = mlir::ArrayRef<std::string>());

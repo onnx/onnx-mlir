@@ -129,7 +129,7 @@ def SameOperandsAndResultLayout: NativeOpTrait<"SameOperandsAndResultLayout">;
 //   * The mnemonic for the operation, or the name without the dialect prefix.
 //   * A list of traits for the operation.
 
-class ZHigh_Op<string mnemonic, list<OpTrait> traits = []> :
+class ZHigh_Op<string mnemonic, list<Trait> traits = []> :
     Op<ZHigh_Dialect, mnemonic, traits>;
 
 def ZHighStickOp:ZHigh_Op<"Stick", [NoSideEffect,

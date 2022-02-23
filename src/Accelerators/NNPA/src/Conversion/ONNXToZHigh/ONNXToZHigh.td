@@ -44,7 +44,7 @@ class VariadicSizeIsGT<int N> : Constraint<
 
 // Create a unit constant that will be used as none input.
 def CreateUnitConstant
-    : NativeCodeCall<"$_builder.create<ConstantOp>($_loc, $_builder.getUnitAttr())">;
+    : NativeCodeCall<"$_builder.create<arith::ConstantOp>($_loc, $_builder.getUnitAttr())">;
 
 class getNth<int n, string x> : NativeCodeCall<x # "[" # n # "]">;
 

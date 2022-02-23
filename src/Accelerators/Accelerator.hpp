@@ -23,7 +23,7 @@ public:
   Accelerator();
   static std::vector<Accelerator *> *getAcceleratorList();
   virtual bool isActive() = 0;
-  virtual void prepareAccelerator(mlir::OwningModuleRef &module,
+  virtual void prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
       mlir::MLIRContext &context, mlir::PassManager &pm,
       onnx_mlir::EmissionTargetType emissionTarget) = 0;
 
