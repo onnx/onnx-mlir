@@ -173,11 +173,13 @@ $(function() {
 <div class="line"><a name="l00281"></a><span class="lineno">  281</span>&#160; </div>
 <div class="line"><a name="l00285"></a><span class="lineno">  285</span>&#160;<span class="keywordtype">void</span> <a class="code" href="_o_m_tensor_8h.html#a83b1068f9644d6244616055494928614">omTensorSetOwning</a>(<a class="code" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, int64_t owning);</div>
 <div class="line"><a name="l00286"></a><span class="lineno">  286</span>&#160; </div>
-<div class="line"><a name="l00287"></a><span class="lineno">  287</span>&#160;<span class="preprocessor">#ifdef __cplusplus</span></div>
-<div class="line"><a name="l00288"></a><span class="lineno">  288</span>&#160;}</div>
-<div class="line"><a name="l00289"></a><span class="lineno">  289</span>&#160;<span class="preprocessor">#endif</span></div>
-<div class="line"><a name="l00290"></a><span class="lineno">  290</span>&#160; </div>
-<div class="line"><a name="l00291"></a><span class="lineno">  291</span>&#160;<span class="preprocessor">#endif // ONNX_MLIR_OMTENSOR_H</span></div>
+<div class="line"><a name="l00293"></a><span class="lineno">  293</span>&#160;<span class="keywordtype">void</span> <a class="code" href="_o_m_tensor_8h.html#a08469a4d63d12959f98ad77a611ffa24">omTensorPrint</a>(<span class="keyword">const</span> <span class="keywordtype">char</span> *msg, <span class="keyword">const</span> <a class="code" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor);</div>
+<div class="line"><a name="l00294"></a><span class="lineno">  294</span>&#160; </div>
+<div class="line"><a name="l00295"></a><span class="lineno">  295</span>&#160;<span class="preprocessor">#ifdef __cplusplus</span></div>
+<div class="line"><a name="l00296"></a><span class="lineno">  296</span>&#160;}</div>
+<div class="line"><a name="l00297"></a><span class="lineno">  297</span>&#160;<span class="preprocessor">#endif</span></div>
+<div class="line"><a name="l00298"></a><span class="lineno">  298</span>&#160; </div>
+<div class="line"><a name="l00299"></a><span class="lineno">  299</span>&#160;<span class="preprocessor">#endif // ONNX_MLIR_OMTENSOR_H</span></div>
 </div><!-- fragment --></div><!-- contents -->
 <div class="ttc" id="a_o_m_tensor_8h_html_ac34c18cf3b39e27a3efab5ebe5191312"><div class="ttname"><a href="_o_m_tensor_8h.html#ac34c18cf3b39e27a3efab5ebe5191312">omTensorGetOwning</a></div><div class="ttdeci">int64_t omTensorGetOwning(const OMTensor *tensor)</div><div class="ttdoc">OMTensor owning flag getter.</div></div>
 <div class="ttc" id="a_o_m_tensor_8h_html_aced13d48f1e6f1e856b4fa92780fdef4"><div class="ttname"><a href="_o_m_tensor_8h.html#aced13d48f1e6f1e856b4fa92780fdef4">omTensorCreateWithOwnership</a></div><div class="ttdeci">OMTensor * omTensorCreateWithOwnership(void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype, int64_t owning)</div><div class="ttdoc">Create an OMTensor with specified data pointer, shape, rank and element type, manually setting data p...</div></div>
@@ -185,6 +187,7 @@ $(function() {
 <div class="ttc" id="a_o_m_tensor_8h_html_a5e7b452b053fcdcbbb0d85deed59a314"><div class="ttname"><a href="_o_m_tensor_8h.html#a5e7b452b053fcdcbbb0d85deed59a314">omTensorCreateEmpty</a></div><div class="ttdeci">OMTensor * omTensorCreateEmpty(int64_t *shape, int64_t rank, OM_DATA_TYPE dtype)</div></div>
 <div class="ttc" id="a_o_m_tensor_8h_html_a08c52ae3ff05a7545ee28c3846ffc458"><div class="ttname"><a href="_o_m_tensor_8h.html#a08c52ae3ff05a7545ee28c3846ffc458">omTensorGetDataPtr</a></div><div class="ttdeci">void * omTensorGetDataPtr(const OMTensor *tensor)</div><div class="ttdoc">OMTensor data pointer getter.</div></div>
 <div class="ttc" id="a_o_m_tensor_8h_html_a5814f2aebd685f424a5cc40aa9daef96"><div class="ttname"><a href="_o_m_tensor_8h.html#a5814f2aebd685f424a5cc40aa9daef96">omTensorSetStrides</a></div><div class="ttdeci">void omTensorSetStrides(OMTensor *tensor, int64_t *stride)</div><div class="ttdoc">OMTensor data strides setter.</div></div>
+<div class="ttc" id="a_o_m_tensor_8h_html_a08469a4d63d12959f98ad77a611ffa24"><div class="ttname"><a href="_o_m_tensor_8h.html#a08469a4d63d12959f98ad77a611ffa24">omTensorPrint</a></div><div class="ttdeci">void omTensorPrint(const char *msg, const OMTensor *tensor)</div></div>
 <div class="ttc" id="a_o_m_tensor_8h_html_a425a838c94082f3c6287c80a658e5d31"><div class="ttname"><a href="_o_m_tensor_8h.html#a425a838c94082f3c6287c80a658e5d31">omTensorDestroy</a></div><div class="ttdeci">void omTensorDestroy(OMTensor *tensor)</div><div class="ttdoc">Destroy the OMTensor struct.</div></div>
 <div class="ttc" id="a_o_m_tensor_8h_html_a83b1068f9644d6244616055494928614"><div class="ttname"><a href="_o_m_tensor_8h.html#a83b1068f9644d6244616055494928614">omTensorSetOwning</a></div><div class="ttdeci">void omTensorSetOwning(OMTensor *tensor, int64_t owning)</div><div class="ttdoc">OMTensor owning flag setter.</div></div>
 <div class="ttc" id="a_o_m_tensor_8h_html_a5546b8450f375aceef777b66d3dd2af3"><div class="ttname"><a href="_o_m_tensor_8h.html#a5546b8450f375aceef777b66d3dd2af3">omTensorGetDataType</a></div><div class="ttdeci">OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor)</div><div class="ttdoc">OMTensor data type getter.</div></div>
