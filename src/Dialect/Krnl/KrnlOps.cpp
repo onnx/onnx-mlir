@@ -632,12 +632,12 @@ LogicalResult KrnlMatMulOp::verify() {
       operandAdaptor.C().getType().cast<MemRefType>().getShape().size();
   if (!(aRank >= 2 && bRank >= 2 && cRank >= 2))
     return emitOpError("currently only support ranks >=2");
-  if (operandAdaptor.aMemStart().size() != aRank)
-    return emitOpError("aMemStart should have same rank as memref A");
-  if (operandAdaptor.bMemStart().size() != bRank)
-    return emitOpError("bMemStart should have same rank as memref A");
-  if (operandAdaptor.cMemStart().size() != cRank)
-    return emitOpError("cMemStart should have same rank as memref A");
+  if (operandAdaptor.aGlobalIndexMemStart().size() != aRank)
+    return emitOpError("aGlobalIndexMemStart should have same rank as memref A");
+  if (operandAdaptor.bGlobalIndexMemStart().size() != bRank)
+    return emitOpError("bGlobalIndexMemStart should have same rank as memref A");
+  if (operandAdaptor.cGlobalIndexMemStart().size() != cRank)
+    return emitOpError("cGlobalIndexMemStart should have same rank as memref A");
   if (operandAdaptor.loops().size() != 3)
     return emitOpError("loops rank should be 3 (i,j,k)");
 

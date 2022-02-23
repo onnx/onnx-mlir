@@ -768,9 +768,9 @@ public:
 
     // Now get global start indices, which would define the first element of the
     // tiles in the original computations.
-    DimIndexExpr iComputeStart(operandAdaptor.iComputeStart()),
-        jComputeStart(operandAdaptor.jComputeStart()),
-        kComputeStart(operandAdaptor.kComputeStart());
+    DimIndexExpr iGlobalIndexComputeStart(operandAdaptor.iGlobalIndexComputeStart()),
+        jGlobalIndexComputeStart(operandAdaptor.jGlobalIndexComputeStart()),
+        kGlobalIndexComputeStart(operandAdaptor.kGlobalIndexComputeStart());
     // And get the global upper bound of the original computations.
     SymbolIndexExpr iGlobalUB(operandAdaptor.iGlobalUB()),
         jGlobalUB(operandAdaptor.jGlobalUB()),
@@ -778,36 +778,36 @@ public:
     // A[i, k];
     SmallVector<IndexExpr, 4> aStart, bStart, cStart;
     for (int t = 0; t < aRank - 2; t++)
-      aStart.emplace_back(SymbolIndexExpr(operandAdaptor.aMemStart()[t]));
+      aStart.emplace_back(SymbolIndexExpr(operandAdaptor.aGlobalIndexMemStart()[t]));
     aStart.emplace_back(
-        iComputeStart - DimIndexExpr(operandAdaptor.aMemStart()[aRank - 2]));
+        iGlobalIndexComputeStart - DimIndexExpr(operandAdaptor.aGlobalIndexMemStart()[aRank - 2]));
     aStart.emplace_back(
-        kComputeStart - DimIndexExpr(operandAdaptor.aMemStart()[aRank - 1]));
+        kGlobalIndexComputeStart - DimIndexExpr(operandAdaptor.aGlobalIndexMemStart()[aRank - 1]));
     // B[k, j];
     for (int t = 0; t < bRank - 2; t++)
-      bStart.emplace_back(SymbolIndexExpr(operandAdaptor.bMemStart()[t]));
+      bStart.emplace_back(SymbolIndexExpr(operandAdaptor.bGlobalIndexMemStart()[t]));
     bStart.emplace_back(
-        kComputeStart - DimIndexExpr(operandAdaptor.bMemStart()[bRank - 2]));
+        kGlobalIndexComputeStart - DimIndexExpr(operandAdaptor.bGlobalIndexMemStart()[bRank - 2]));
     bStart.emplace_back(
-        jComputeStart - DimIndexExpr(operandAdaptor.bMemStart()[bRank - 1]));
+        jGlobalIndexComputeStart - DimIndexExpr(operandAdaptor.bGlobalIndexMemStart()[bRank - 1]));
     // C[i, j]
     for (int t = 0; t < cRank - 2; t++)
-      cStart.emplace_back(SymbolIndexExpr(operandAdaptor.cMemStart()[t]));
+      cStart.emplace_back(SymbolIndexExpr(operandAdaptor.cGlobalIndexMemStart()[t]));
     cStart.emplace_back(
-        iComputeStart - DimIndexExpr(operandAdaptor.cMemStart()[cRank - 2]));
+        iGlobalIndexComputeStart - DimIndexExpr(operandAdaptor.cGlobalIndexMemStart()[cRank - 2]));
     cStart.emplace_back(
-        jComputeStart - DimIndexExpr(operandAdaptor.cMemStart()[cRank - 1]));
+        jGlobalIndexComputeStart - DimIndexExpr(operandAdaptor.cGlobalIndexMemStart()[cRank - 1]));
 
     // Now determine if we have full/partial tiles. This is determined by the
     // outer dimensions of the original computations, as by definition tiling
     // within the buffer always results in full tiles. In other words, partial
     // tiles only occurs because of "runing out" of the original data.
     IndexExpr iIsFullTile =
-        isFullTile(iGlobalUB, iComputeTileSize, iComputeStart);
+        isFullTile(iGlobalUB, iComputeTileSize, iGlobalIndexComputeStart);
     IndexExpr jIsFullTile =
-        isFullTile(jGlobalUB, jComputeTileSize, jComputeStart);
+        isFullTile(jGlobalUB, jComputeTileSize, jGlobalIndexComputeStart);
     IndexExpr kIsFullTile =
-        isFullTile(kGlobalUB, kComputeTileSize, kComputeStart);
+        isFullTile(kGlobalUB, kComputeTileSize, kGlobalIndexComputeStart);
     SmallVector<IndexExpr, 3> allFullTiles = {
         iIsFullTile, jIsFullTile, kIsFullTile};
 
@@ -815,13 +815,13 @@ public:
     // And if the tiles are not full, determine how many elements to compute.
     // With overcompute, this could be relaxed.
     IndexExpr iTrip = trip(
-        iGlobalUB, iComputeTileSize, iComputeStart); // May or may not be full.
+        iGlobalUB, iComputeTileSize, iGlobalIndexComputeStart); // May or may not be full.
     IndexExpr jTrip = trip(
-        jGlobalUB, jComputeTileSize, jComputeStart); // May or may not be full.
+        jGlobalUB, jComputeTileSize, jGlobalIndexComputeStart); // May or may not be full.
     IndexExpr kTrip = trip(
-        kGlobalUB, kComputeTileSize, kComputeStart); // May or may not be full.
+        kGlobalUB, kComputeTileSize, kGlobalIndexComputeStart); // May or may not be full.
     IndexExpr jPartialTrip =
-        partialTrip(jGlobalUB, jComputeTileSize, jComputeStart);
+        partialTrip(jGlobalUB, jComputeTileSize, jGlobalIndexComputeStart);
 
     if (simdize) {
       // SIMD code generator.
