@@ -19,5 +19,6 @@ endif( ACCELERATORS_TO_BUILD )
   ${ONNX_MLIR_SRC_ROOT}/include
   
   LINK_LIBS PUBLIC
+  LLVMSupport
   )
 
