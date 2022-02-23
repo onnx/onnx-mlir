@@ -495,7 +495,8 @@ void KrnlVectorTypeCastOp::build(OpBuilder &builder, OperationState &state,
   build(builder, state, resultType, sourceMemRef);
 }
 
-bool KrnlVectorTypeCastOp::areCastCompatible(TypeRange inputs, TypeRange outputs) {
+bool KrnlVectorTypeCastOp::areCastCompatible(
+    TypeRange inputs, TypeRange outputs) {
   if (inputs.size() != 1 || outputs.size() != 1)
     return false;
   Type a = inputs.front(), b = outputs.front();
