@@ -680,6 +680,26 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     for a small tile A * B + C of sizes
     [IxK] * [KxJ] + [IxJ].
 
+    
+    ORIGINAL ARRAY
+     -------------------------------------------------
+     |                                               ]
+     |                                               ]
+     |               buffer array       pad          ]
+     |            (3)---------------- ++++           ]
+     |             |                 |   +           ]
+     |             |      ******     |   +           ]
+     |             |      *    *     |   +           ]
+     |             |      *    *     |   +           ]
+     |             |      ******     |   +           ]
+     |             |                 |   +           ]
+     |             |                 |   +           ]
+     |             ------------------|   +           ]
+     |             +                     +           ]
+     |             +++++++++++++++++++++(4)          ]
+     |                                               ]
+     -----------------------------------------------(1)
+
     The i/j/k ComputeStarts indicate the global indices of the first element
     of a tile to be computed in the original computations.
     The i/j/k GlobalUBs indicate the upper bounds in the original computations.
