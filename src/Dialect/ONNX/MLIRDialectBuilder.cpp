@@ -13,6 +13,7 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
@@ -472,3 +473,29 @@ void SCFBuilder::ifThenElse(Value cond,
 }
 
 void SCFBuilder::yield() const { b.create<scf::YieldOp>(loc); }
+
+//===----------------------------------------------------------------------===//
+// Vector Builder
+//===----------------------------------------------------------------------===//
+
+Value VectorBuilder::load(
+    VectorType vecType, Value memref, ValueRange indices) const {
+  return b.create<vector::LoadOp>(loc, vecType, memref, indices);
+}
+
+void VectorBuilder::store(Value val, Value memref, ValueRange indices) const {
+  b.create<vector::StoreOp>(loc, val, memref, indices);
+}
+
+Value VectorBuilder::broadcast(VectorType vecType, Value val) const {
+  return b.create<vector::BroadcastOp>(loc, vecType, val);
+}
+
+Value VectorBuilder::shuffle(
+    Value lhs, Value rhs, SmallVectorImpl<int64_t> &mask) const {
+  return b.create<vector::ShuffleOp>(loc, lhs, rhs, mask);
+}
+
+Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
+  return b.create<vector::FMAOp>(loc, lhs, rhs, acc);
+}
