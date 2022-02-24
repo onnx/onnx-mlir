@@ -14,3 +14,8 @@ add_onnx_mlir_library(OMBuilder
   OMResultTypeInferenceOpInterface
   onnx
   )
+
+configure_file(OpBuildTable.inc.dc.in
+  ${CMAKE_CURRENT_BINARY_DIR}/OpBuildTable.inc.dc
+  @ONLY
+  )
