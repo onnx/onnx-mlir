@@ -3272,7 +3272,18 @@ LogicalResult ONNXGatherNDOp::inferShapes() {
 }
 
 LogicalResult ONNXGreaterOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  for (int i = 0; i < getNumOperands(); ++i) {
+    if (!getOperand(i).getType().cast<RankedTensorType>())
+      return emitError("Input tensor(s) not ranked");
+  }
+  Type lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  Type rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> dims =
+      getBroadcastedType(lhsTy, rhsTy).cast<RankedTensorType>().getShape();
+
+  getResult().setType(
+      RankedTensorType::get(dims, IntegerType::get(/*width=*/1, getContext())));
+  return success();
 }
 
 LogicalResult ONNXHardmaxOp::inferShapes() {
