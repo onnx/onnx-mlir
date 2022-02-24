@@ -3245,14 +3245,15 @@ LogicalResult ONNXGatherOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // ConstantOfShape
 //===----------------------------------------------------------------------===//
-static LogicalResult verify(ONNXConstantOfShapeOp op){
-  ONNXConstantOfShapeOpAdaptor operandAdaptor = ONNXConstantOfShapeOpAdaptor(op);
+static LogicalResult verify(ONNXConstantOfShapeOp op) {
+  ONNXConstantOfShapeOpAdaptor operandAdaptor =
+      ONNXConstantOfShapeOpAdaptor(op);
 
   auto input = operandAdaptor.input();
 
-  if(!hasShapeAndRank(input)){
+  if (!hasShapeAndRank(input))
     return success();
-  }
+
   auto inputShape = input.getType().cast<RankedTensorType>().getShape();
   if (inputShape.size() != 1)
     return op->emitError("Input tensor must be a 1D tensor");
@@ -3274,15 +3275,16 @@ static LogicalResult verify(ONNXConstantOfShapeOp op){
         return op->emitError("All values of the input tensor must be >=0");
     }
     if (valueIt != valueAttribute.getValues<IntegerAttr>().end())
-      return op->emitError("Constant value must have same length as output's rank");
+      return op->emitError(
+          "Constant value must have same length as output's rank");
   }
   return success();
 }
 
 LogicalResult ONNXConstantOfShapeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-      
- Type elementType;
+
+  Type elementType;
 
   // 'value' attribute is a one-element tensor whose value and datatype are
   // used to set the output tensor value and datatype.
@@ -3449,15 +3451,13 @@ LogicalResult ONNXDropoutOp::inferShapes(
 // OneHotEncoder
 //===----------------------------------------------------------------------===//
 
-static LogicalResult verify(ONNXOneHotEncoderOp op){
-  ONNXOneHotEncoderOpAdaptor operandAdaptor =
-      ONNXOneHotEncoderOpAdaptor(op);
+static LogicalResult verify(ONNXOneHotEncoderOp op) {
+  ONNXOneHotEncoderOpAdaptor operandAdaptor = ONNXOneHotEncoderOpAdaptor(op);
 
   // get operands
   auto input = operandAdaptor.X();
-  if(!hasShapeAndRank(input)){
+  if (!hasShapeAndRank(input))
     return success();
-  }
 
   auto inputType = input.getType().cast<ShapedType>();
   if (!inputType)
@@ -3468,13 +3468,15 @@ static LogicalResult verify(ONNXOneHotEncoderOp op){
   // the cats_int64s category list will be used for the lookups.
   if (inputType.getElementType().isIntOrFloat()) {
     if (!operandAdaptor.cats_int64s()) {
-      return op->emitError("input is a tensor of float, int32, or double, but no "
-                       "cats_int64s attribute");
+      return op->emitError(
+          "input is a tensor of float, int32, or double, but no "
+          "cats_int64s attribute");
     }
   } else {
     if (!operandAdaptor.cats_strings()) {
-      return op->emitError("input is not a tensor of float, int32, or double, but "
-                       "no cats_strings attribute");
+      return op->emitError(
+          "input is not a tensor of float, int32, or double, but "
+          "no cats_strings attribute");
     }
   }
   return success();
@@ -3500,17 +3502,14 @@ LogicalResult ONNXOneHotEncoderOp::inferShapes(
   // Encoded output data, having one more dimension than X
   // total category count will determine the size of the extra dimension
   SmallVector<int64_t, 2> dims;
-  for (unsigned int i = 0; i != shape.size(); ++i) {
+  for (unsigned int i = 0; i != shape.size(); ++i)
     dims.emplace_back(shape[i]);
-  }
   dims.emplace_back(outDim);
 
   getResult().setType(
       RankedTensorType::get(dims, FloatType::getF32(getContext())));
   return success();
 }
-
-
 
 //===----------------------------------------------------------------------===//
 // Less
