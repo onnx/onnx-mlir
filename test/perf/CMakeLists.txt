@@ -55,7 +55,7 @@ llvm_update_compile_flags(benchmark)
 
 # The CompilerUtils ExecutionSession are also included in ModelLib,
 # but it did not compile when I removed these two. TODO, figure out why.
-set(TEST_LINK_LIBS ModelLib CompilerUtils benchmark benchmark_main)
+set(TEST_LINK_LIBS ModelLib CompilerUtils benchmark)
 
 add_perf_unittest(PerfGemm
   PerfGemm.cpp
