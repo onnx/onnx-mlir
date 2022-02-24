@@ -82,3 +82,21 @@ optional arguments:
   --rtol RTOL           Relative tolerance for verification
   --atol ATOL           Absolute tolerance for verification
 ```
+
+## Debugging the Code Generated for an Operator.
+
+If you know, or suspect, that a particular ONNX MLIR operator produces an incorrect result, and want to narrow down the problem, we provide a couple of useful Krnl operators that allow printing (at runtime) the value of a tensor, or a value that has a primitive data type. 
+
+To print out the value of a tensor at a particular program point, inject the following code (where `X` is the tensor to be printed):
+
+```code
+create.krnl.printTensor("Tensor X: ", X);
+```
+
+Note: currently the content of the tensor is printed only when the tensor rank is less than four.
+
+To print a message followed by one value, inject the following code (where `val` is the value to be printed and `valType` is its type):
+
+```code
+create.krnl.printf("inputElem: ", val, valType);
+```

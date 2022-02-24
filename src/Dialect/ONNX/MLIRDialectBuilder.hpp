@@ -144,6 +144,22 @@ struct SCFBuilder final : DialectBuilder {
 };
 
 //===----------------------------------------------------------------------===//
+// Vector Builder
+//===----------------------------------------------------------------------===//
+
+struct VectorBuilder final : DialectBuilder {
+  VectorBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+  VectorBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+
+  Value load(VectorType vecType, Value memref, ValueRange indices = {}) const;
+  void store(Value val, Value memref, ValueRange indices = {}) const;
+
+  Value broadcast(VectorType vecType, Value val) const;
+  Value shuffle(Value lhs, Value rhs, SmallVectorImpl<int64_t> &mask) const;
+  Value fma(Value lhs, Value rhs, Value acc) const;
+};
+
+//===----------------------------------------------------------------------===//
 // Affine Builder
 //===----------------------------------------------------------------------===//
 
@@ -250,6 +266,16 @@ struct MultiDialectBuilder<SCFBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), scf(db) {}
   SCFBuilder scf;
+};
+
+// Recursive class specialized for VectorBuilder refereed to as scf.
+template <class... Ts>
+struct MultiDialectBuilder<VectorBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(OpBuilder &b, Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), vec(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), vec(db) {}
+  VectorBuilder vec;
 };
 
 // Include template implementations.

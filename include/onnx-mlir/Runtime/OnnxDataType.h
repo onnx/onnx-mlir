@@ -26,7 +26,7 @@
 #endif
 
 enum OM_DATA_TYPE {
-#define OM_TYPE_METADATA_DEF(ENUM_NAME, ENUM_VAL, DTYPE_SIZE)                  \
+#define OM_TYPE_METADATA_DEF(ENUM_NAME, ENUM_VAL, DTYPE_SIZE, DTYPE_NAME)      \
   ENUM_NAME = ENUM_VAL,
 #include "OnnxDataTypeMetaData.inc"
 
@@ -38,6 +38,7 @@ typedef enum OM_DATA_TYPE OM_DATA_TYPE;
 #endif
 
 extern const int OM_DATA_TYPE_SIZE[];
+extern const char *OM_DATA_TYPE_NAME[];
 
 #ifdef __cplusplus
 // Note by design const map has no [] operator since [] creates a default
@@ -55,6 +56,9 @@ const std::map<std::string, OM_DATA_TYPE> OM_DATA_TYPE_CPP_TO_ONNX = {
     {"m", ONNX_TYPE_UINT64}, // uint64_t -> UINT64, unsigned long  -> UINT64
     {"f", ONNX_TYPE_FLOAT},  // float    -> FLOAT
     {"d", ONNX_TYPE_DOUBLE}, // double   -> DOUBLE
+    {"PKc", ONNX_TYPE_STRING},    // const char * -> STRING
+    {"Cf", ONNX_TYPE_COMPLEX64},  // _Complex float -> COMPLEX64
+    {"Cd", ONNX_TYPE_COMPLEX128}, // _Complex double -> COMPLEX128
 };
 #endif //__cplusplus
 
