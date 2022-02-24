@@ -31,8 +31,14 @@ using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
 
 class ExecutionSession {
 public:
-  ExecutionSession(std::string sharedLibPath);
-  ExecutionSession(std::string sharedLibPath, bool defaultEntryPoint);
+  ExecutionSession(std::string sharedLibPath, bool defaultEntryPoint = true);
+
+  // Get a NULL-terminated array of entry point names.
+  // For example {"run_addition, "run_substraction", NULL}
+  const std::string *queryEntryPoints() const;
+
+  // Set entry point for this session.
+  void setEntryPoint(const std::string &entryPointName);
 
   // Use custom deleter since forward declared OMTensor hides destructor
   std::vector<OMTensorUniquePtr> run(std::vector<OMTensorUniquePtr>);
@@ -40,13 +46,6 @@ public:
   // Run using public interface. Explicit calls are needed to free tensor &
   // tensor lists.
   OMTensorList *run(OMTensorList *input);
-
-  // Set entry point for this session.
-  void setEntryPoint(const std::string &entryPointName);
-
-  // Get a NULL-terminated array of entry point names.
-  // For example {"run_addition, "run_substraction", NULL}
-  const std::string *queryEntryPoints() const;
 
   // Get input and output signature as a Json string. For example for nminst:
   // `[ { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "name" : "image" } ]`
