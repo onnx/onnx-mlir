@@ -720,10 +720,6 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     following condition must be true:
     1) The vector length is the second entry of (i, j, k) compute tile size.
        The vector length must be a compile time constant.
-    2) last dim of B & C mem ref must be constant and a multiple of the vector
-       length.
-    By copying the original data B and result C into tiles of known compile time
-    sizes, any computations can be made to simdize.
   }];
 
   let arguments = (ins 
