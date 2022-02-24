@@ -38,6 +38,8 @@ public:
   const std::string *queryEntryPoints() const;
 
   // Set entry point for this session.
+  // Call this before running the session or querying signatures if
+  // defaultEntryPoint is false or there are multiple entry points in the model.
   void setEntryPoint(const std::string &entryPointName);
 
   // Use custom deleter since forward declared OMTensor hides destructor
