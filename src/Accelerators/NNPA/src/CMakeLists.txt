@@ -100,7 +100,7 @@ message(STATUS "in NNPA/src: DLC_ONNX_MLIR_SRC_ROOT=${DLC_ONNX_MLIR_SRC_ROOT}")
   
   # add_subdirectory(Tool)
   
-  find_package(ZLIB REQUIRED)
+  # find_package(ZLIB REQUIRED)
   
 
   add_subdirectory(Compiler)

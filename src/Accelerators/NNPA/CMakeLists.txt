@@ -10,27 +10,23 @@ set(DLC_ONNX_MLIR_SRC_ROOT ${ONNX_MLIR_SRC_ROOT})
 set(DLC_ONNX_MLIR_BIN_ROOT ${ONNX_MLIR_BIN_ROOT})
 
 # The path to find the zDNN library.
-if(DEFINED ENV{ZDNN_LIBRARY_DIR} AND EXISTS $ENV{ZDNN_LIBRARY_DIR})
-  message(STATUS "ZDNN_LIBRARY_DIR        : " $ENV{ZDNN_LIBRARY_DIR})
+if (DEFINED ENV{ZDNN_LIBRARY_DIR} AND EXISTS $ENV{ZDNN_LIBRARY_DIR})
+  message(DEBUG "ZDNN_LIBRARY_DIR        : " $ENV{ZDNN_LIBRARY_DIR})
   set(ZDNN_LIBRARY_DIR $ENV{ZDNN_LIBRARY_DIR})
   set(ZDNN_LIBRARY_ENABLED 1)
 else()
-  message(STATUS "ZDNN_LIBRARY_DIR not found. zDNN-related tests will be turned off.")
+  message(DEBUG "ZDNN_LIBRARY_DIR not found. zDNN-related tests will be turned off.")
   set(ZDNN_LIBRARY_ENABLED 0)
 endif()
 
 add_subdirectory(src)
-
-
-message(STATUS "in NNPA: DLC_ONNX_MLIR_SRC_ROOT=${DLC_ONNX_MLIR_SRC_ROOT}") 
-message(STATUS "in NNPA: DLC_ONNX_MLIR_BIN_ROOT=${DLC_ONNX_MLIR_BIN_ROOT}") 
-message(STATUS "in NNPA: DLC_BIN_ROOT=${DLC_BIN_ROOT}") 
 add_onnx_mlir_library(NNPAAccel
   NNPAAccelerator.cpp
   ../Accelerator.cpp
 
   DEPENDS
   DLCompilerUtils
+  onnx
   
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
@@ -38,13 +34,16 @@ add_onnx_mlir_library(NNPAAccel
   ${DLC_ONNX_MLIR_SRC_ROOT}
   ${DLC_SRC_ROOT}
   ${DLC_BIN_ROOT}
-  /workdir/onnx-mlir/third_party/onnx
+  # /workdir/onnx-mlir/third_party/onnx
 
   LINK_LIBS PUBLIC
   onnx
+  DLCompilerUtils
+  OMZHighOps
+  OMZLowOps
   )
 
-  target_link_libraries(NNPAAccel PUBLIC DLCompilerUtils)
-  target_link_libraries(NNPAAccel PUBLIC OMZHighOps)
-  target_link_libraries(NNPAAccel PUBLIC OMZLowOps)
+  # target_link_libraries(NNPAAccel PUBLIC DLCompilerUtils)
+  # target_link_libraries(NNPAAccel PUBLIC OMZHighOps)
+  # target_link_libraries(NNPAAccel PUBLIC OMZLowOps)
 

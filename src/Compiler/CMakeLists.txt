@@ -54,22 +54,22 @@ add_onnx_mlir_library(CompilerUtils
   MC
   )
 
-if( ACCELERATORS_TO_BUILD )
+if (ACCELERATORS_TO_BUILD)
   add_dependencies(CompilerUtils NNPAAccel)
 else ()
   add_dependencies(CompilerUtils NoAccel)
-endif(ACCELERATORS_TO_BUILD)
+endif (ACCELERATORS_TO_BUILD)
 
 
-if( ACCELERATORS_TO_BUILD )
+if (ACCELERATORS_TO_BUILD)
    foreach(t ${ACCELERATORS_TO_BUILD})
      message(STATUS "Targeting ${t}")
      if (${t}=="NNPA")
       message(STATUS "Adding NNPAAccel dependency")
       add_dependencies(CompilerUtils NNPAAccel)
      endif ()
-     endforeach(t)
- endif( ACCELERATORS_TO_BUILD )
+    endforeach(t)
+ endif (ACCELERATORS_TO_BUILD)
 
 
 # CompilerUtils does not require cruntime or jniruntime to build, however, they are
