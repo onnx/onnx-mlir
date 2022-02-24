@@ -812,7 +812,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     For simd to be enabled, the simdized flag must be set to true, and the
     following condition must be true:
     1) The vector length is the second entry of (i, j, k) compute tile size.
-       The vector length must be a compile time constant.q
+       The vector length must be a compile time constant.
   }];
 
   let arguments = (ins 
