@@ -15,6 +15,7 @@
 
 #ifdef __cplusplus
 #include <cassert>
+#include <complex>
 #include <map>
 #include <numeric>
 #include <random>
@@ -23,6 +24,7 @@
 #include <vector>
 #else
 #include <assert.h>
+#include <complex.h>
 #endif
 
 #if defined(__APPLE__) || defined(__MVS__)
@@ -112,11 +114,78 @@ struct OMTensor {
 };
 
 /* Helper function to compute the number of data elements */
-static inline int64_t getNumElems(int64_t *shape, int64_t rank) {
+static inline int64_t getNumElems(const int64_t *shape, int64_t rank) {
   int64_t numElem = 1;
   for (int64_t i = 0; i < rank; i++)
     numElem *= shape[i];
   return numElem;
+}
+
+/* Helper function to get the ONNX data type C name string */
+static inline const char *getDataTypeName(OM_DATA_TYPE dataType) {
+  return OM_DATA_TYPE_NAME[dataType];
+}
+
+/* Helper function to print an element of a tensor */
+static inline void printElement(
+    void *dataPtr, int64_t elemOffset, OM_DATA_TYPE dataType) {
+  assert(dataPtr && "Expecting a valid data pointer");
+  assert(elemOffset >= 0 && "Expecting a valid element offset");
+
+  switch (dataType) {
+  case ONNX_TYPE_BOOL:
+    printf("%d", ((bool *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_UINT8:
+    printf("%hhu", ((uint8_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_INT8:
+    printf("%hhd", ((int8_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_UINT16:
+    printf("%hu", ((uint16_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_INT16:
+    printf("%hd", ((int16_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_UINT32:
+    printf("%u", ((uint32_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_INT32:
+    printf("%d", ((int32_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_UINT64:
+    printf("%llu", (unsigned long long)((uint64_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_INT64:
+    printf("%lld", (long long)((int64_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_FLOAT:
+    printf("%g", ((float *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_DOUBLE:
+    printf("%g", ((double *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_STRING:
+    printf("%s", ((const char **)dataPtr)[elemOffset]);
+    break;
+  default:
+    assert(false && "unexpected data type");
+  }
+}
+
+/* Helper function to compute the inner product of 2 arrays (of equal size) */
+static inline int64_t inner_product(
+    const int64_t v[], const int64_t u[], int64_t len, int64_t init) {
+  int64_t result = init;
+  for (int64_t i = 0; i < len; i++)
+    result += v[i] * u[i];
+  return result;
+}
+
+static inline int64_t computeElemOffset(
+    const int64_t strides[], const int64_t indexes[], int64_t rank) {
+  return inner_product(strides, indexes, rank, 0ll);
 }
 
 // Create a OMTensor.
@@ -344,6 +413,80 @@ void *omTensorGetAllocatedPtr(const OMTensor *tensor) {
   return tensor->_allocatedPtr;
 }
 
+void omTensorPrint(const char *msg, const OMTensor *tensor) {
+  assert(tensor && "attempt to print a null OMTensor");
+
+  const OM_DATA_TYPE dataType = omTensorGetDataType(tensor);
+  const int64_t rank = omTensorGetRank(tensor);
+  const int64_t *shape = omTensorGetShape(tensor);
+  const int64_t *strides = omTensorGetStrides(tensor);
+  void *dataPtr = omTensorGetDataPtr(tensor);
+
+  if (msg)
+    printf("%s", msg);
+
+  printf("\trank = %lld\n", (long long)rank);
+  printf("\tdataType = %s\n", getDataTypeName(dataType));
+  printf("\tnumElems = %lld\n", (long long)omTensorGetNumElems(tensor));
+  printf("\tstrides: ");
+  for (int64_t i = 0; i < rank; i++)
+    printf("[%lld]", (long long)strides[i]);
+  printf("\n");
+
+  printf("\tdata: ([");
+  switch (rank) {
+  case 1:
+    for (int64_t i = 0; i < shape[0]; ++i) {
+      if (i)
+        printf(", ");
+      int64_t indexes[] = {i};
+      int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);
+      printElement(dataPtr, elemOffset, dataType);
+    }
+    break;
+  case 2:
+    for (int64_t i = 0; i < shape[0]; ++i) {
+      if (i)
+        printf(", ");
+      printf("[");
+      for (int64_t j = 0; j < shape[1]; ++j) {
+        if (j)
+          printf(", ");
+        int64_t indexes[] = {i, j};
+        int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);
+        printElement(dataPtr, elemOffset, dataType);
+      }
+      printf("]");
+    }
+    break;
+  case 3:
+    for (int64_t i = 0; i < shape[0]; ++i) {
+      if (i)
+        printf(", ");
+      printf("[");
+      for (int64_t j = 0; j < shape[1]; ++j) {
+        if (j)
+          printf(", ");
+        printf("[");
+        for (int64_t k = 0; k < shape[2]; ++k) {
+          if (k)
+            printf(", ");
+          int64_t indexes[] = {i, j, k};
+          int64_t elemOffset =
+              computeElemOffset(tensor->_strides, indexes, rank);
+          printElement(dataPtr, elemOffset, dataType);
+        }
+        printf("]");
+      }
+      printf("]");
+    }
+    break;
+  default:
+    assert(false && "not implemented");
+  }
+  printf("])\n");
+}
+
 #ifdef __cplusplus
 /* For C++ methods, which are not used in the time critical runtime,
  * asserts are present to ensure that we do not perform a null ptr access.
@@ -351,7 +494,7 @@ void *omTensorGetAllocatedPtr(const OMTensor *tensor) {
 
 /* OMTensor creator with data shape and element type  */
 template <typename T>
-OMTensor *omTensorCreateWithShape(std::vector<int64_t> shape) {
+OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &shape) {
   /* Create a OMTensor with data shape and strides allocated */
   auto omt = omTensorCreateUntyped(shape.size());
   if (omt == NULL)
@@ -392,7 +535,7 @@ OMTensor *omTensorCreateWithShape(std::vector<int64_t> shape) {
 /* OMTensor creator with data shape, element type and random data */
 template <typename T>
 OMTensor *omTensorCreateWithRandomData(
-    std::vector<int64_t> shape, T lbound, T ubound) {
+    const std::vector<int64_t> &shape, T lbound, T ubound) {
   // Will be used to obtain a seed for the random number engine
   std::random_device rd;
   // Standard mersenne_twister_engine seeded with rd()
@@ -411,7 +554,7 @@ OMTensor *omTensorCreateWithRandomData(
 
 /* Access an element (by reference) at offset computed by index array */
 template <typename T>
-T &omTensorGetElem(const OMTensor *omt, std::vector<int64_t> indexes) {
+T &omTensorGetElem(const OMTensor *omt, const std::vector<int64_t> &indexes) {
   assert(omt && "attempt to access element of null OMTensor");
   int64_t elemOffset = omTensorComputeElemOffset(omt, indexes);
   return ((T *)omt->_alignedPtr)[elemOffset];
@@ -432,7 +575,7 @@ std::vector<int64_t> omTensorComputeStridesFromShape(const OMTensor *omt) {
 
 /* Compute linear element offset from multi-dimensional index array */
 int64_t omTensorComputeElemOffset(
-    const OMTensor *omt, std::vector<int64_t> &indexes) {
+    const OMTensor *omt, const std::vector<int64_t> &indexes) {
   assert(omt && "attempt to access element of null OMTensor");
   return computeElemOffset(omt->_strides, omt->_rank, indexes);
 }
@@ -529,30 +672,34 @@ inline bool omTensorAreTwoOmtsClose(
 
 // Explicit instantiation of all templated API functions.
 
-template OMTensor *omTensorCreateWithShape<int32_t>(std::vector<int64_t> shape);
-template OMTensor *omTensorCreateWithShape<int64_t>(std::vector<int64_t> shape);
-template OMTensor *omTensorCreateWithShape<float>(std::vector<int64_t> shape);
-template OMTensor *omTensorCreateWithShape<double>(std::vector<int64_t> shape);
+template OMTensor *omTensorCreateWithShape<int32_t>(
+    const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<int64_t>(
+    const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<float>(
+    const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<double>(
+    const std::vector<int64_t> &shape);
 
 template OMTensor *omTensorCreateWithRandomData<int32_t>(
-    std::vector<int64_t> shape, int32_t lbound, int32_t ubound);
+    const std::vector<int64_t> &shape, int32_t lbound, int32_t ubound);
 template OMTensor *omTensorCreateWithRandomData<int64_t>(
-    std::vector<int64_t> shape, int64_t lbound, int64_t ubound);
+    const std::vector<int64_t> &shape, int64_t lbound, int64_t ubound);
 template OMTensor *omTensorCreateWithRandomData<float>(
-    std::vector<int64_t> shape, float lbound, float ubound);
+    const std::vector<int64_t> &shape, float lbound, float ubound);
 template OMTensor *omTensorCreateWithRandomData<double>(
-    std::vector<int64_t> shape, double lbound, double ubound);
+    const std::vector<int64_t> &shape, double lbound, double ubound);
 
 template bool &omTensorGetElem<bool>(
-    const OMTensor *, std::vector<int64_t> indexes);
+    const OMTensor *, const std::vector<int64_t> &indexes);
 template int32_t &omTensorGetElem<int32_t>(
-    const OMTensor *, std::vector<int64_t> indexes);
+    const OMTensor *, const std::vector<int64_t> &indexes);
 template int64_t &omTensorGetElem<int64_t>(
-    const OMTensor *, std::vector<int64_t> indexes);
+    const OMTensor *, const std::vector<int64_t> &indexes);
 template float &omTensorGetElem<float>(
-    const OMTensor *, std::vector<int64_t> indexes);
+    const OMTensor *, const std::vector<int64_t> &indexes);
 template double &omTensorGetElem<double>(
-    const OMTensor *, std::vector<int64_t> indexes);
+    const OMTensor *, const std::vector<int64_t> &indexes);
 
 template int32_t &omTensorGetElemByOffset<int32_t>(
     const OMTensor *, int64_t index);
@@ -571,4 +718,4 @@ template bool omTensorAreTwoOmtsClose<float>(
     const OMTensor *a, const OMTensor *b, float rtol, float atol);
 template bool omTensorAreTwoOmtsClose<double>(
     const OMTensor *a, const OMTensor *b, float rtol, float atol);
-#endif
+#endif // __cplusplus

@@ -15,12 +15,13 @@
 #include "mlir/Analysis/DataLayoutAnalysis.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
+#include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
-#include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
+#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -43,7 +44,10 @@
 
 #include "onnx/onnx_pb.h"
 
+#include "src/Conversion/KrnlToLLVM/KrnlPrint.hpp"
+#include "src/Conversion/KrnlToLLVM/KrnlPrintTensor.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVM.hpp"
+#include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -55,80 +59,8 @@
 const std::string DEFAULT_DYN_ENTRY_POINT = "run_main_graph";
 
 using namespace mlir;
+
 namespace {
-
-// Convert an MLIR  type to the correspoding ONNX type.
-static onnx::TensorProto::DataType mlirTypeToOnnxType(mlir::Type elemType) {
-  onnx::TensorProto::DataType onnxType = onnx::TensorProto::UNDEFINED;
-
-  TypeSwitch<mlir::Type>(elemType)
-      .Case<mlir::BFloat16Type>(
-          [&](mlir::BFloat16Type) { onnxType = onnx::TensorProto::BFLOAT16; })
-      .Case<mlir::ComplexType>([&](mlir::ComplexType type) {
-        if (type.getElementType().isa<mlir::Float32Type>())
-          onnxType = onnx::TensorProto::COMPLEX64;
-        else if (type.getElementType().isa<mlir::Float64Type>())
-          onnxType = onnx::TensorProto::COMPLEX128;
-      })
-      .Case<mlir::Float16Type>(
-          [&](mlir::Float16Type) { onnxType = onnx::TensorProto::FLOAT16; })
-      .Case<mlir::Float32Type>(
-          [&](mlir::Float32Type) { onnxType = onnx::TensorProto::FLOAT; })
-      .Case<mlir::Float64Type>(
-          [&](mlir::Float64Type) { onnxType = onnx::TensorProto::DOUBLE; })
-      .Case<mlir::IntegerType>([&](mlir::IntegerType type) {
-        switch (type.getWidth()) {
-        case 1:
-          // only a signless type can be a bool.
-          onnxType = (type.isSigned() || type.isUnsigned())
-                         ? onnx::TensorProto::UNDEFINED
-                         : onnx::TensorProto::BOOL;
-          break;
-        case 8:
-          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT8
-                                       : onnx::TensorProto::INT8;
-          break;
-        case 16:
-          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT16
-                                       : onnx::TensorProto::INT16;
-          break;
-        case 32:
-          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT32
-                                       : onnx::TensorProto::INT32;
-          break;
-        case 64:
-          onnxType = type.isUnsigned() ? onnx::TensorProto::UINT64
-                                       : onnx::TensorProto::INT64;
-          break;
-        }
-      })
-      .Case<mlir::StringType>(
-          [&](mlir::StringType) { onnxType = onnx::TensorProto::STRING; });
-
-  if (onnxType == onnx::TensorProto::UNDEFINED) {
-    elemType.dump();
-    llvm_unreachable("MLIR type cannot be converted to ONNX type");
-  }
-
-  return onnxType;
-}
-
-static int64_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
-  // Usually a MemRef is a 5-element struct, where the 4th and 5th elements in
-  // this struct are arrays whose size is the rank of the tensor. In the event
-  // that the corresponding tensor of this MemRef is a scalar, the 4th and 5th
-  // elements will have 0-length, which in turn causes the MemRef struct to
-  // degenerate into a 3-element struct. For more information, refer to
-  // https://github.com/llvm/llvm-project/blob/main/mlir/docs/ConversionToLLVMDialect.md#memref-types.
-  auto numElems = memRefTy.getBody().size();
-  assert((numElems == 3 || numElems == 5) &&
-         "Expect MemRef type to contain either 3 or 5 elements.");
-
-  if (numElems == 3)
-    return 0; // MemRef refers to a scalar.
-  else
-    return memRefTy.getBody()[3].cast<LLVM::LLVMArrayType>().getNumElements();
-}
 
 // Create a function declaration for OMInstrumentPoint, the signature is:
 //   `void (i64, i64)`
@@ -482,8 +414,9 @@ public:
 
     // Set the global alignment based on the alignment attribute if it exists,
     // otherwise use the module datalayout info.
-    setAlignment(global, krnlGlobalOp.alignmentAttr(),
-        krnlGlobalOp->getParentOfType<ModuleOp>(), rewriter);
+    onnx_mlir::setAlignment(global, krnlGlobalOp.alignmentAttr(),
+        krnlGlobalOp->getParentOfType<ModuleOp>(), rewriter,
+        *getTypeConverter());
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
     Value globalOpAddr =
@@ -579,25 +512,6 @@ private:
     return global;
   }
 
-  // If the operation has a valid alignment attribute use it, otherwise
-  // attempt to set the alignment based on the module datalayout (if it
-  // exists).
-  void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,
-      ModuleOp module, OpBuilder &builder) const {
-    if (alignmentAttr && alignmentAttr.getValue().getSExtValue() != 0)
-      global.setAlignmentAttr(alignmentAttr);
-    else if (module->getAttr(LLVM::LLVMDialect::getDataLayoutAttrName())) {
-      // TODO: use MLIR data layout when it becomes available.
-      llvm::LLVMContext llvmContext;
-      int32_t align = LLVM::TypeToLLVMIRTranslator(llvmContext)
-                          .getPreferredAlignment(global.getType(),
-                              getTypeConverter()->getDataLayout());
-      align = std::max(align, MinGlobalAlign);
-      global.setAlignmentAttr(builder.getI64IntegerAttr(align));
-    } else
-      global.setAlignmentAttr(builder.getI64IntegerAttr(MinGlobalAlign));
-  }
-
   int64_t computeSizeInBytes(KrnlGlobalOp &krnlGlobalOp) const {
     // Compute total number of elements.
     const auto shape = (krnlGlobalOp.shape()).dyn_cast<ArrayAttr>();
@@ -645,22 +559,16 @@ private:
     int64_t numStrings = denseAttr.getValues<StringRef>().size();
     if (numStrings == 1) {
       StringRef str = *denseAttr.getValues<StringRef>().begin();
-      LLVM::GlobalOp global =
-          getOrCreateGlobalString(str, loc, builder, module);
-
-      //      return builder.create<LLVM::GlobalOp>(loc, globalType,
-      //        /*isConstant=*/true, LLVM::Linkage::Internal,
-      //        krnlGlobalOp.name(),
-      //      StringAttr::get(builder.getContext(), str));
-      return global;
+      return onnx_mlir::getOrCreateGlobalString(
+          str, loc, builder, module, getTypeConverter());
     }
 
     // Generate LLVM GlobalOps for each string in the KrnlGlobalOp dense
     // attribute.
     SmallVector<LLVM::GlobalOp> globalOps;
     for (StringRef str : denseAttr.getValues<StringRef>()) {
-      LLVM::GlobalOp globalOp =
-          getOrCreateGlobalString(str, loc, builder, module);
+      LLVM::GlobalOp globalOp = onnx_mlir::getOrCreateGlobalString(
+          str, loc, builder, module, getTypeConverter());
       globalOps.push_back(globalOp);
     }
 
@@ -680,7 +588,7 @@ private:
     int32_t index = 0;
     Value lastValue = array;
     for (const LLVM::GlobalOp &globalOp : globalOps) {
-      LLVM::GEPOp strAddr = getPtrToGlobalString(globalOp, loc, builder);
+      Value strAddr = onnx_mlir::getPtrToGlobalString(globalOp, loc, builder);
       lastValue = builder.create<LLVM::InsertValueOp>(loc, arrayType, lastValue,
           strAddr, builder.getArrayAttr({builder.getIndexAttr(index++)}));
     }
@@ -688,42 +596,6 @@ private:
     builder.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({lastValue}));
     return global;
   }
-
-  // Return the GlobalOp for the given string, creating one if not found.
-  LLVM::GlobalOp getOrCreateGlobalString(
-      StringRef str, Location loc, OpBuilder &builder, ModuleOp module) const {
-    LLVM::GlobalOp global = module.lookupSymbol<LLVM::GlobalOp>(str);
-    if (!global) {
-      // Create the global at the entry of the module.
-      OpBuilder::InsertionGuard insertGuard(builder);
-      builder.setInsertionPointToStart(module.getBody());
-
-      Type i8Type = IntegerType::get(builder.getContext(), 8);
-      Type type = LLVM::LLVMArrayType::get(i8Type, str.size());
-      global = builder.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
-          LLVM::Linkage::Internal, str, builder.getStringAttr(str));
-
-      setAlignment(global, nullptr, module, builder);
-    }
-    return global;
-  }
-
-  // Return a pointer to the first character in a global string.
-  LLVM::GEPOp getPtrToGlobalString(
-      const LLVM::GlobalOp &global, Location loc, OpBuilder &builder) const {
-    Type i8Type = IntegerType::get(builder.getContext(), 8);
-    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
-    Type llvmIndexType =
-        getTypeConverter()->convertType(builder.getIndexType());
-
-    Value globalPtr = builder.create<LLVM::AddressOfOp>(loc, global);
-    Value zero = builder.create<LLVM::ConstantOp>(
-        loc, llvmIndexType, builder.getIndexAttr(0));
-    return builder.create<LLVM::GEPOp>(
-        loc, i8PtrType, globalPtr, ArrayRef<Value>({zero, zero}));
-  }
-
-  const int32_t MinGlobalAlign = 16;
 };
 
 class KrnlInstrumentOpLowering : public ConversionPattern {
@@ -740,13 +612,6 @@ public:
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
-    // auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    // auto llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context,
-    // 8));
-    // auto llvmI64Ty = IntegerType::get(context, 64); auto llvmFnType =
-    // LLVM::LLVMFunctionType::get(
-    //    llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
-
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 
     Value nodeName =
@@ -757,9 +622,6 @@ public:
         rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
             rewriter.getIntegerAttr(
                 rewriter.getIntegerType(64), instrumentOp.tag()));
-    // StringRef txt = instrumentOp->op_name();
-    // Value nodeName = rewriter.create<LLVM::ConstantOp>(loc, llvmI8PtrTy,
-    // instrumentOp->op_name());
 
     rewriter.create<CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
         ArrayRef<Value>({nodeName, tag}));
@@ -1239,16 +1101,16 @@ public:
 
       auto memRef = outMemRefList.at(i);
       auto outMemRefTy = memRef.getType().dyn_cast<LLVM::LLVMStructType>();
-      auto outMemRefRank = getRankFromMemRefType(outMemRefTy);
+      auto outMemRefRank = onnx_mlir::getRankFromMemRefType(outMemRefTy);
       auto outMemRefRankVal = rewriter.create<LLVM::ConstantOp>(
           loc, int64Ty, rewriter.getI64IntegerAttr(outMemRefRank));
       Value outOMTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
           RuntimeAPI::API::CREATE_OMTENSOR, {outMemRefRankVal});
       // If output is a constant tensor, OMTensor does not own it.
-      auto outOwning = constantOutputs[i] ? 0 : 1;
+      bool outOwning = constantOutputs[i] ? false : true;
       LLVM_DEBUG(llvm::dbgs() << "Output OMTensor " << i
                               << " with owning = " << outOwning << "\n");
-      fillOMTensorWithMemRef(
+      onnx_mlir::fillOMTensorWithMemRef(
           memRef, outOMTensor, outOwning, rewriter, loc, apiRegistry, module);
 
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
@@ -1318,7 +1180,8 @@ private:
         rewriter.getArrayAttr({rewriter.getI64IntegerAttr(2)}));
 
     // Get rank, sizes array ptr and strides array ptr.
-    auto rank = getRankFromMemRefType(memRefTy.cast<LLVM::LLVMStructType>());
+    auto rank =
+        onnx_mlir::getRankFromMemRefType(memRefTy.cast<LLVM::LLVMStructType>());
     Value sizesArrayPtr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::GET_DATA_SHAPE, {rtMemRef});
     Value stridesArrayPtr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
@@ -1351,84 +1214,6 @@ private:
     }
 
     rewriter.create<LLVM::StoreOp>(loc, memRef, ptrToMemRef);
-  }
-
-  void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
-      int64_t outOwning, PatternRewriter &rewriter, const Location &loc,
-      const RuntimeAPIRegistry &apiRegistry, ModuleOp &module) const {
-    auto *context = module.getContext();
-    auto outMemRefTy = outMemRef.getType().dyn_cast<LLVM::LLVMStructType>();
-    auto int64Ty = IntegerType::get(context, 64);
-
-    // Set ownership, i.e., free after OMTensor is destroyed.
-    Value owning = rewriter.create<LLVM::ConstantOp>(
-        loc, int64Ty, rewriter.getI64IntegerAttr(outOwning));
-
-    // Extract the allocated pointer.
-    Value outMemRefAllocatedPtr =
-        rewriter.create<LLVM::ExtractValueOp>(loc, outMemRefTy.getBody()[0],
-            outMemRef, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(0)}));
-    outMemRefAllocatedPtr = rewriter.create<LLVM::BitcastOp>(loc,
-        LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
-        outMemRefAllocatedPtr);
-
-    // Extract the aligned pointer.
-    Value outMemRefAlignedPtr =
-        rewriter.create<LLVM::ExtractValueOp>(loc, outMemRefTy.getBody()[1],
-            outMemRef, rewriter.getArrayAttr({rewriter.getI64IntegerAttr(1)}));
-    outMemRefAlignedPtr = rewriter.create<LLVM::BitcastOp>(loc,
-        LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
-        outMemRefAlignedPtr);
-
-    // Set ownership, allocated and aligned pointer.
-    RuntimeAPI::callApi(rewriter, loc, apiRegistry, RuntimeAPI::API::SET_DATA,
-        {outOMTensor, owning, outMemRefAllocatedPtr, outMemRefAlignedPtr});
-
-    Type elemTy =
-        outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
-
-    if (auto structType = elemTy.dyn_cast_or_null<LLVM::LLVMStructType>()) {
-      elemTy = structType.getBody()[0]
-                   .cast<LLVM::LLVMPointerType>()
-                   .getElementType();
-    }
-
-    onnx::TensorProto::DataType onnxTy = mlirTypeToOnnxType(elemTy);
-    auto onnxTyVal = rewriter.create<LLVM::ConstantOp>(
-        loc, int64Ty, rewriter.getI64IntegerAttr(onnxTy));
-    RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-        RuntimeAPI::API::SET_DATA_TYPE, {outOMTensor, onnxTyVal});
-
-    int64_t rank = getRankFromMemRefType(outMemRefTy);
-    Value sizesArrayPtr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-        RuntimeAPI::API::GET_DATA_SHAPE, {outOMTensor});
-    Value stridesArrayPtr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-        RuntimeAPI::API::GET_DATA_STRIDES, {outOMTensor});
-
-    for (decltype(rank) i = 0; i < rank; i++) {
-      auto dimIdx = rewriter.create<LLVM::ConstantOp>(
-          loc, int64Ty, rewriter.getI64IntegerAttr(i));
-
-      // Transfer size of dimension from memref to dynamic memref.
-      auto dimSize = rewriter.create<LLVM::ExtractValueOp>(loc, int64Ty,
-          outMemRef,
-          rewriter.getArrayAttr(
-              {rewriter.getI64IntegerAttr(3), rewriter.getI64IntegerAttr(i)}));
-      auto dimSizePtr =
-          rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
-              sizesArrayPtr, ArrayRef<Value>({dimIdx}));
-      rewriter.create<LLVM::StoreOp>(loc, dimSize, dimSizePtr);
-
-      // Transfer stride of dimension from memref to dynamic memref.
-      auto dimStride = rewriter.create<LLVM::ExtractValueOp>(loc, int64Ty,
-          outMemRef,
-          rewriter.getArrayAttr(
-              {rewriter.getI64IntegerAttr(4), rewriter.getI64IntegerAttr(i)}));
-      auto dimStridePtr =
-          rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
-              stridesArrayPtr, ArrayRef<Value>({dimIdx}));
-      rewriter.create<LLVM::StoreOp>(loc, dimStride, dimStridePtr);
-    }
   }
 };
 
@@ -1731,7 +1516,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   vector::populateVectorTransposeLoweringPatterns(patterns);
 
   populateAffineToStdConversionPatterns(patterns);
-  populateLoopToStdConversionPatterns(patterns);
+  populateSCFToControlFlowConversionPatterns(patterns);
 
   populateShapeToStandardConversionPatterns(patterns);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
@@ -1746,6 +1531,8 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
   populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
   arith::populateArithmeticToLLVMConversionPatterns(typeConverter, patterns);
+  cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
+
   populateReconcileUnrealizedCastsPatterns(patterns);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlVectorTypeCastOpLowering>(
@@ -1758,6 +1545,8 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
 
   patterns.insert<KrnlRandomNormalOpLowering>(ctx);
   patterns.insert<KrnlFindIndexOpLowering>(ctx);
+  patterns.insert<onnx_mlir::KrnlPrintTensorOpLowering>(ctx, typeConverter);
+  patterns.insert<onnx_mlir::KrnlPrintOpLowering>(ctx, typeConverter);
 
   // Math library functions.
   patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(ctx);
