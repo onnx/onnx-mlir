@@ -61,4 +61,10 @@ add_onnx_mlir_library(OMONNXOps
   MLIRMath
   MLIRAffine
   MLIRSCF
+  MLIRVector
+  )
+
+configure_file(ONNXOps.td.inc.dc.in
+  ${CMAKE_CURRENT_BINARY_DIR}/ONNXOps.td.inc.dc
+  @ONLY
   )
