@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- PrepareAccelerator.cpp
-//-------------------------===//
+//===-------------------------- PrepareAccelerator.cpp -------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -18,10 +17,10 @@
 #include "src/Support/OMOptions.hpp"
 #include <iostream>
 // modified from DLC main
-#include "src/Compiler/DLCompilerUtils.hpp"
-#include "src/Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Dialect/ZLow/ZLowOps.hpp"
-#include "src/Pass/DLCPasses.hpp"
+#include "Compiler/DLCompilerUtils.hpp"
+#include "Dialect/ZHigh/ZHighOps.hpp"
+#include "Dialect/ZLow/ZLowOps.hpp"
+#include "Pass/DLCPasses.hpp"
 extern llvm::cl::OptionCategory OMDLCPassOptions;
 extern llvm::cl::opt<DLCEmissionTargetType> dlcEmissionTarget;
 extern llvm::cl::list<std::string> execNodesOnCpu;
