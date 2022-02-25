@@ -1,5 +1,5 @@
-EXPORTS 
+EXPORTS
 run_main_graph
+omQueryEntryPoints
 omInputSignature
 omOutputSignature
-
