@@ -86,13 +86,13 @@ void KrnlDefineLoopsOp::build(
       getNumLoopsAttrName(), builder.getI64IntegerAttr(num_loops));
 }
 
-void print(OpAsmPrinter &p, KrnlDefineLoopsOp &op) {
-  auto numLoopAttr =
-      op->getAttrOfType<IntegerAttr>(KrnlDefineLoopsOp::getNumLoopsAttrName());
-  p << ' ' << numLoopAttr.getValue().getSExtValue();
+void KrnlDefineLoopsOp::print(OpAsmPrinter &printer) {
+  auto numLoopAttr = (*this)->getAttrOfType<IntegerAttr>(
+      KrnlDefineLoopsOp::getNumLoopsAttrName());
+  printer << ' ' << numLoopAttr.getValue().getSExtValue();
 }
 
-ParseResult parseKrnlDefineLoopsOp(
+ParseResult KrnlDefineLoopsOp::parse(
     OpAsmParser &parser, OperationState &result) {
   // Parse the attribute indicating number of loops defined.
   IntegerAttr numLoops;
@@ -209,46 +209,47 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   build(builder, result, pack, iterArgs, bodyBuilderFn);
 }
 
-void print(OpAsmPrinter &p, KrnlIterateOp &op) {
-  p << "(";
+void KrnlIterateOp::print(OpAsmPrinter &printer) {
+  printer << "(";
   // Print optimized loops:
-  auto numOptimizedLoops = op.getNumOptimizedLoops();
-  p.printOperands(op.operand_begin(), op.operand_begin() + numOptimizedLoops);
-  p << ") with (";
+  auto numOptimizedLoops = getNumOptimizedLoops();
+  printer.printOperands(operand_begin(), operand_begin() + numOptimizedLoops);
+  printer << ") with (";
 
   // In the event where body region has been lowered, do not print body.
-  if (op.bodyRegion().empty()) {
-    p << ")";
+  if (bodyRegion().empty()) {
+    printer << ")";
     return;
   }
-  auto inductionVars = op.bodyRegion().begin()->getArguments();
+  auto inductionVars = bodyRegion().begin()->getArguments();
   auto boundItr =
-      op->getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
+      (*this)
+          ->getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
           .getValue()
           .begin();
-  auto operandItr = op.operand_begin() + numOptimizedLoops;
+  auto operandItr = operand_begin() + numOptimizedLoops;
 
   std::string delimiter;
   for (auto &var : inductionVars) {
-    p << delimiter;
-    p.printOperand(*operandItr++);
-    p << " -> ";
-    p.printOperand(var);
-    p << " = ";
+    printer << delimiter;
+    printer.printOperand(*operandItr++);
+    printer << " -> ";
+    printer.printOperand(var);
+    printer << " = ";
     onnx_mlir::printBound(
-        (*boundItr++).cast<AffineMapAttr>(), operandItr, "max", p);
-    p << " to ";
+        (*boundItr++).cast<AffineMapAttr>(), operandItr, "max", printer);
+    printer << " to ";
     onnx_mlir::printBound(
-        (*boundItr++).cast<AffineMapAttr>(), operandItr, "min", p);
+        (*boundItr++).cast<AffineMapAttr>(), operandItr, "min", printer);
     delimiter = ", ";
   }
 
-  p << ")";
-  p.printRegion(op.bodyRegion(), /*printEntryBlockArgs=*/false,
+  printer << ")";
+  printer.printRegion(bodyRegion(), /*printEntryBlockArgs=*/false,
       /*printBlockTerminators=*/false);
 }
 
-ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
+ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   auto builder = parser.getBuilder();
   auto context = builder.getContext();
   onnx_mlir::KrnlDialectOperandParser operandParser(parser);
