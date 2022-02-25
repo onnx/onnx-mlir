@@ -74,6 +74,6 @@ private:
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createONNXPreKrnlVerifyPass() {
+std::unique_ptr<mlir::Pass> onnx_mlir::createONNXPreKrnlVerifyPass() {
   return std::make_unique<ONNXPreKrnlVerifyPass>();
 }

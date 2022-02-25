@@ -543,6 +543,6 @@ public:
 };
 } // namespace
 
-std::unique_ptr<Pass> mlir::createKrnlBundleMemoryPoolsPass() {
+std::unique_ptr<Pass> onnx_mlir::krnl::createKrnlBundleMemoryPoolsPass() {
   return std::make_unique<KrnlBundleMemoryPoolsPass>();
 }

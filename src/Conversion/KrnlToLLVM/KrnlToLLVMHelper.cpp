@@ -18,8 +18,10 @@
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace onnx_mlir {
+namespace krnl {
 
 static const int32_t MinGlobalAlign = 16;
 
@@ -30,14 +32,14 @@ int64_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
   // elements will have 0-length, which in turn causes the MemRef struct to
   // degenerate into a 3-element struct. For more information, refer to
   // https://github.com/llvm/llvm-project/blob/main/mlir/docs/ConversionToLLVMDialect.md#memref-types.
-  auto numElems = memRefTy.getBody().size();
+  size_t numElems = memRefTy.getBody().size();
   assert((numElems == 3 || numElems == 5) &&
          "Expect MemRef type to contain either 3 or 5 elements.");
 
-  if (numElems == 3)
-    return 0; // MemRef refers to a scalar.
-  else
-    return memRefTy.getBody()[3].cast<LLVM::LLVMArrayType>().getNumElements();
+  return (numElems == 3) ? 0 // MemRef refers to a scalar.
+                         : memRefTy.getBody()[3]
+                               .cast<LLVM::LLVMArrayType>()
+                               .getNumElements();
 }
 
 // Convert an MLIR type to the correspoding ONNX type.
@@ -47,7 +49,7 @@ onnx::TensorProto::DataType mlirTypeToOnnxType(Type elemType) {
   TypeSwitch<Type>(elemType)
       .Case<BFloat16Type>(
           [&](BFloat16Type) { onnxType = onnx::TensorProto::BFLOAT16; })
-      .Case<mlir::ComplexType>([&](ComplexType type) {
+      .Case<ComplexType>([&](ComplexType type) {
         if (type.getElementType().isa<Float32Type>())
           onnxType = onnx::TensorProto::COMPLEX64;
         else if (type.getElementType().isa<Float64Type>())
@@ -99,7 +101,7 @@ onnx::TensorProto::DataType mlirTypeToOnnxType(Type elemType) {
 void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
     int64_t outOwning, PatternRewriter &rewriter, const Location &loc,
     const RuntimeAPIRegistry &apiRegistry, ModuleOp &module) {
-  auto *context = module.getContext();
+  MLIRContext *context = module.getContext();
   auto outMemRefTy = outMemRef.getType().dyn_cast<LLVM::LLVMStructType>();
   auto int64Ty = IntegerType::get(context, 64);
 
@@ -130,13 +132,13 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
   Type elemTy =
       outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
 
-  onnx::TensorProto::DataType onnxTy = onnx_mlir::mlirTypeToOnnxType(elemTy);
+  onnx::TensorProto::DataType onnxTy = krnl::mlirTypeToOnnxType(elemTy);
   auto onnxTyVal = rewriter.create<LLVM::ConstantOp>(
       loc, int64Ty, rewriter.getI64IntegerAttr(onnxTy));
   RuntimeAPI::callApi(rewriter, loc, apiRegistry,
       RuntimeAPI::API::SET_DATA_TYPE, {outOMTensor, onnxTyVal});
 
-  int64_t rank = onnx_mlir::getRankFromMemRefType(outMemRefTy);
+  int64_t rank = krnl::getRankFromMemRefType(outMemRefTy);
   Value sizesArrayPtr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
       RuntimeAPI::API::GET_DATA_SHAPE, {outOMTensor});
   Value stridesArrayPtr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
@@ -182,7 +184,7 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
     global = builder.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
         LLVM::Linkage::Internal, str, builder.getStringAttr(str));
 
-    setAlignment(global, nullptr, module, builder, *typeConverter);
+    krnl::setAlignment(global, nullptr, module, builder, *typeConverter);
   }
 
   return global;
@@ -218,4 +220,37 @@ void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,
     global.setAlignmentAttr(builder.getI64IntegerAttr(MinGlobalAlign));
 }
 
+Optional<FlatSymbolRefAttr> getFunctionDeclaration(
+    ModuleOp module, StringRef funcName) {
+  if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
+    return SymbolRefAttr::get(module.getContext(), funcName);
+  else
+    return None;
+}
+
+/// Return a symbol reference to the strncmp function, inserting it into the
+/// module if necessary.
+FlatSymbolRefAttr getOrInsertStrncmp(OpBuilder &builder, ModuleOp module) {
+  constexpr const char *funcName = "strncmp";
+  Optional<FlatSymbolRefAttr> optFuncDecl =
+      krnl::getFunctionDeclaration(module, funcName);
+  if (optFuncDecl.hasValue())
+    return optFuncDecl.getValue();
+
+  // Create 'strncmp' function signature: `i32 (i8*, i8*, i64)`
+  MLIRContext *ctx = module.getContext();
+  Type i8Type = IntegerType::get(ctx, 8);
+  Type i8PtrTy = LLVM::LLVMPointerType::get(i8Type);
+  Type fnType = LLVM::LLVMFunctionType::get(builder.getI32Type(),
+      ArrayRef<Type>({i8PtrTy, i8PtrTy, builder.getI64Type()}), false);
+
+  // Insert the function declaration the module.
+  PatternRewriter::InsertionGuard insertGuard(builder);
+  builder.setInsertionPointToStart(module.getBody());
+  builder.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, fnType);
+
+  return SymbolRefAttr::get(ctx, funcName);
+}
+
+} // namespace krnl
 } // namespace onnx_mlir

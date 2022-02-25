@@ -44,8 +44,6 @@
 
 #include "onnx/onnx_pb.h"
 
-#include "src/Conversion/KrnlToLLVM/KrnlPrint.hpp"
-#include "src/Conversion/KrnlToLLVM/KrnlPrintTensor.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVM.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
@@ -59,117 +57,9 @@
 const std::string DEFAULT_DYN_ENTRY_POINT = "run_main_graph";
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace {
-
-// Create a function declaration for OMInstrumentPoint, the signature is:
-//   `void (i64, i64)`
-static FlatSymbolRefAttr getOrInsertInstrument(
-    PatternRewriter &rewriter, ModuleOp module) {
-  auto *context = module.getContext();
-  std::string funcName("OMInstrumentPoint");
-  if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
-    return SymbolRefAttr::get(context, funcName);
-  auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-  auto llvmI64Ty = IntegerType::get(context, 64);
-  auto llvmFnType = LLVM::LLVMFunctionType::get(
-      llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
-
-  PatternRewriter::InsertionGuard insertGuard(rewriter);
-  rewriter.setInsertionPointToStart(module.getBody());
-  rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, llvmFnType);
-  return SymbolRefAttr::get(context, funcName);
-}
-
-/// Return a symbol reference to the memcpy function, inserting it into the
-/// module if necessary.
-static FlatSymbolRefAttr getOrInsertMemcpy(
-    PatternRewriter &rewriter, ModuleOp module) {
-  auto *context = module.getContext();
-  if (module.lookupSymbol<LLVM::LLVMFuncOp>("llvm.memcpy.p0i8.p0i8.i64"))
-    return SymbolRefAttr::get(context, "llvm.memcpy.p0i8.p0i8.i64");
-  // Create a function declaration for memcpy, the signature is:
-  //   * `void (i8*, i8* , i64, i1)`
-  auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-  auto llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
-  auto llvmI64Ty = IntegerType::get(context, 64);
-  auto llvmI1Ty = IntegerType::get(context, 1);
-  auto llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy,
-      ArrayRef<mlir::Type>({llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty}),
-      false);
-
-  // Insert the memcpy function into the body of the parent module.
-  PatternRewriter::InsertionGuard insertGuard(rewriter);
-  rewriter.setInsertionPointToStart(module.getBody());
-  rewriter.create<LLVM::LLVMFuncOp>(
-      module.getLoc(), "llvm.memcpy.p0i8.p0i8.i64", llvmFnType);
-  return SymbolRefAttr::get(context, "llvm.memcpy.p0i8.p0i8.i64");
-}
-
-static Optional<FlatSymbolRefAttr> getFunctionDeclaration(
-    ModuleOp module, const char *funcName) {
-  assert(funcName && "Missing function name");
-  if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
-    return SymbolRefAttr::get(module.getContext(), funcName);
-
-  return None;
-}
-
-static FlatSymbolRefAttr getOrInsertRandomNormal(
-    PatternRewriter &rewriter, ModuleOp module, Type inType) {
-  MLIRContext *context = module.getContext();
-  StringRef functionName = inType.isF64() ? "get_random_normal_value_f64"
-                                          : "get_random_normal_value_f32";
-  if (module.lookupSymbol<LLVM::LLVMFuncOp>(functionName.str()))
-    return SymbolRefAttr::get(context, functionName.str());
-
-  // Signature of the input is:
-  //  "krnl.random_normal"(%0, %c60, %cst, %cst_0, %cst_1)
-  // with types:
-  //  (memref<3x4x5xf32>, index, f32, f32, f32)
-  // or
-  //  (memref<3x4x5xf64>, index, f64, f64, f64)
-  auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-  auto llvmOptionsTy = FloatType::getF32(context);
-  auto llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
-  if (inType.isF64()) {
-    llvmOptionsTy = FloatType::getF64(context);
-    llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
-  }
-  auto llvmI64Ty = IntegerType::get(context, 64);
-  auto llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy,
-      ArrayRef<mlir::Type>({llvmOutputTy, llvmI64Ty, llvmOptionsTy,
-          llvmOptionsTy, llvmOptionsTy}),
-      false);
-
-  // Insert the random normal function into the body of the parent module.
-  PatternRewriter::InsertionGuard insertGuard(rewriter);
-  rewriter.setInsertionPointToStart(module.getBody());
-  rewriter.create<LLVM::LLVMFuncOp>(
-      module.getLoc(), functionName.str(), llvmFnType);
-  return SymbolRefAttr::get(context, functionName.str());
-}
-
-static FlatSymbolRefAttr getOrInsertMalloc(
-    PatternRewriter &rewriter, ModuleOp module) {
-  // Insert the malloc/aligned_alloc declaration if it is not already present.
-  auto allocFunc = module.lookupSymbol<LLVM::LLVMFuncOp>("malloc");
-  auto ctx = rewriter.getContext();
-  LLVMTypeConverter converter(ctx);
-  if (!allocFunc) {
-    OpBuilder::InsertionGuard guard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    SmallVector<Type, 2> callArgTypes = {converter.getIndexType()};
-    // aligned_alloc(size_t alignment, size_t size)
-    auto voidPtrType = LLVM::LLVMPointerType::get(
-        IntegerType::get(&converter.getContext(), 8));
-    allocFunc =
-        rewriter.create<LLVM::LLVMFuncOp>(rewriter.getUnknownLoc(), "malloc",
-            LLVM::LLVMFunctionType::get(voidPtrType, callArgTypes,
-                /*isVarArg=*/false));
-  }
-  return SymbolRefAttr::get(ctx, "malloc");
-}
 
 ATTRIBUTE(unused)
 static FlatSymbolRefAttr getOrInsertDealloc(
@@ -193,6 +83,7 @@ static FlatSymbolRefAttr getOrInsertDealloc(
   return SymbolRefAttr::get(ctx, "free");
 }
 
+#if 0
 // This function emits a declaration of the form:
 //
 // declare float <mathFuncName>(float)
@@ -631,135 +522,21 @@ public:
   }
 };
 
+=======
+>>>>>>> 1289f43 (Split krnlToLLVM.cpp file)
 //===----------------------------------------------------------------------===//
 // KRNL to LLVM: KrnlMemcpyOpLowering
 //===----------------------------------------------------------------------===//
-
-class KrnlMemcpyOpLowering : public ConversionPattern {
-public:
-  explicit KrnlMemcpyOpLowering(MLIRContext *context)
-      : ConversionPattern(KrnlMemcpyOp::getOperationName(), 1, context) {}
-
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const override {
-    auto *context = op->getContext();
-    KrnlMemcpyOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
-
-    // Get a symbol reference to the memcpy function, inserting it if necessary.
-    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
-    auto memcpyRef = getOrInsertMemcpy(rewriter, parentModule);
-
-    // First operand.
-    Type dstType = operandAdaptor.dest()
-                       .getType()
-                       .cast<LLVM::LLVMStructType>()
-                       .getBody()[1];
-    Value alignedDstMemory = rewriter.create<LLVM::ExtractValueOp>(
-        loc, dstType, operandAdaptor.dest(), rewriter.getI64ArrayAttr(1));
-    Value alignedInt8PtrDstMemory = rewriter.create<LLVM::BitcastOp>(loc,
-        LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
-        alignedDstMemory);
-
-    // Second operand.
-    Type srcType = operandAdaptor.src()
-                       .getType()
-                       .cast<LLVM::LLVMStructType>()
-                       .getBody()[1];
-    Value alignedSrcMemory = rewriter.create<LLVM::ExtractValueOp>(
-        loc, srcType, operandAdaptor.src(), rewriter.getI64ArrayAttr(1));
-    Value alignedInt8PtrSrcMemory = rewriter.create<LLVM::BitcastOp>(loc,
-        LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
-        alignedSrcMemory);
-
-    // Size.
-    Value int64Size = rewriter.create<LLVM::SExtOp>(
-        loc, IntegerType::get(context, 64), operandAdaptor.size());
-
-    // Is volatile (set to false).
-    Value isVolatile =
-        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 1),
-            rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
-
-    // Memcpy call
-    rewriter.create<CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
-        ArrayRef<Value>({alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory,
-            int64Size, isVolatile}));
-
-    rewriter.eraseOp(op);
-    return success();
-  }
-};
 
 //===----------------------------------------------------------------------===//
 // KRNL to LLVM: KrnlStrlenOpLowering
 //===----------------------------------------------------------------------===//
 
-class KrnlStrlenOpLowering : public ConversionPattern {
-public:
-  explicit KrnlStrlenOpLowering(MLIRContext *context)
-      : ConversionPattern(KrnlStrlenOp::getOperationName(), 1, context) {}
-
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const override {
-    MLIRContext *context = op->getContext();
-    KrnlStrlenOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
-
-    // Get a symbol reference to the strlen function, inserting it if necessary.
-    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
-    auto strlenRef = getOrInsertStrlen(rewriter, parentModule);
-
-    // Operand.
-    Type strType = operandAdaptor.str()
-                       .getType()
-                       .cast<LLVM::LLVMStructType>()
-                       .getBody()[1];
-    Value extractedStrPtr = rewriter.create<LLVM::ExtractValueOp>(
-        loc, strType, operandAdaptor.str(), rewriter.getI64ArrayAttr(1));
-
-    // Strlen call.
-    // TODO: should return a size_t
-    Type retType = IntegerType::get(context, 64);
-    auto funcCall = rewriter.create<CallOp>(
-        loc, strlenRef, retType, ArrayRef<Value>({extractedStrPtr}));
-
-    rewriter.replaceOp(op, funcCall.getResults()[0]);
-    return success();
-  }
-
-private:
-  /// Return a symbol reference to the strlen function, inserting it into the
-  /// module if necessary.
-  static FlatSymbolRefAttr getOrInsertStrlen(
-      PatternRewriter &rewriter, ModuleOp module) {
-    constexpr const char *funcName = "strlen";
-    Optional<FlatSymbolRefAttr> optFuncDecl =
-        getFunctionDeclaration(module, funcName);
-    if (optFuncDecl.hasValue())
-      return optFuncDecl.getValue();
-
-    // Create 'strlen' function signature: `size_t (i8*)`
-    // TODO: need to create size_t not i64.
-    MLIRContext *ctx = module.getContext();
-    Type i8Type = IntegerType::get(ctx, 8);
-    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
-    Type fnType = LLVM::LLVMFunctionType::get(
-        rewriter.getI64Type(), ArrayRef<Type>({i8PtrType}), false);
-
-    // Insert the function declaration the module.
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, fnType);
-
-    return SymbolRefAttr::get(ctx, funcName);
-  }
-};
-
 //===----------------------------------------------------------------------===//
 // KRNL to LLVM: KrnlStrncmpOpLowering
 //===----------------------------------------------------------------------===//
 
+<<<<<<< HEAD
 class KrnlStrncmpOpLowering : public ConversionPattern {
 public:
   explicit KrnlStrncmpOpLowering(MLIRContext *context)
@@ -1392,10 +1169,13 @@ public:
   }
 };
 
+#endif
+
 //===----------------------------------------------------------------------===//
 // KRNL to LLVM: KrnlFindIndexOpLowering
 //===----------------------------------------------------------------------===//
 
+#if 0
 class KrnlFindIndexOpLowering : public ConversionPattern {
 public:
   explicit KrnlFindIndexOpLowering(MLIRContext *context)
@@ -1481,7 +1261,7 @@ private:
         .Default([](Type) { llvm_unreachable("unexpected type"); });
 
     Optional<FlatSymbolRefAttr> optFuncDecl =
-        getFunctionDeclaration(module, funcName.c_str());
+        krnl::getFunctionDeclaration(module, funcName.c_str());
     if (optFuncDecl.hasValue())
       return optFuncDecl.getValue();
 
@@ -1498,7 +1278,11 @@ private:
   }
 };
 
+#endif
+
 } // end namespace
+
+#if 0
 
 void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     MLIRContext *ctx, LLVMTypeConverter &typeConverter,
@@ -1563,7 +1347,9 @@ void mlir::populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   patterns.insert<KrnlStrlenOpLowering>(ctx);
   patterns.insert<KrnlStrncmpOpLowering>(ctx);
 }
+#endif
 
+#if 0
 void mlir::checkConstantOutputs(
     ModuleOp &module, SmallVectorImpl<bool> &constantOutputs) {
   Operation *entryPointOp;
@@ -1638,7 +1424,9 @@ void mlir::checkConstantOutputs(
                << "Is entry function output constant? " << isConstant << "\n");
   }
 }
+#endif
 
+<<<<<<< HEAD
 void mlir::recordEntryPointSignatures(ModuleOp &module,
     SmallVectorImpl<std::string> &entryPointNames,
     SmallVectorImpl<std::string> &inSignatures,
@@ -1888,6 +1676,9 @@ void mlir::genSignatureFunction(ModuleOp module,
   }
 }
 
+=======
+#if 0
+>>>>>>> 1289f43 (Split krnlToLLVM.cpp file)
 //===----------------------------------------------------------------------===//
 // KRNL + Standard + Vector + Affine dialects lowering to LLVM.
 //===----------------------------------------------------------------------===//
@@ -1970,3 +1761,5 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 std::unique_ptr<mlir::Pass> mlir::createConvertKrnlToLLVMPass() {
   return std::make_unique<ConvertKrnlToLLVMPass>();
 }
+
+#endif
