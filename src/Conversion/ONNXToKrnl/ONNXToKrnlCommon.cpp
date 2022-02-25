@@ -14,6 +14,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+// hi alex
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 
 bool ONNXToKrnl_gEmitDealloc = false;
 
@@ -606,8 +608,15 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 /// The new view is created using the given 'memRefType' and 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
     Location loc, Value data, const MemRefType &memRefType,
-    const SmallVectorImpl<IndexExpr> &outputDims) {
+    /* hi alex  const*/ SmallVectorImpl<IndexExpr> &outputDims) {
+
+#if 1
+  MemRefBuilder createMemRef(rewriter, loc);
+  return createMemRef.reinterpretCast(data, outputDims);
+#else
   int64_t rank = memRefType.getRank();
+  assert(rank == (int64_t) outputDims.size() &&
+         "expected same memref rank and output dim size");
 
   // Compute new sizes and strides.
   SmallVector<IndexExpr, 4> sizesIE, stridesIE;
@@ -640,6 +649,7 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
       rewriter.create<memref::ReinterpretCastOp>(loc, memRefType, data,
           /*offset=*/rewriter.getIndexAttr(0), sizes, strides);
   return newView;
+#endif
 }
 
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.

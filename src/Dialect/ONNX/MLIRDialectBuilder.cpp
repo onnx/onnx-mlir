@@ -429,6 +429,44 @@ memref::CastOp MemRefBuilder::cast(Value input, MemRefType outputType) const {
   return b.create<memref::CastOp>(loc, input, outputType);
 }
 
+Value MemRefBuilder::reinterpretCast(
+    Value input, SmallVectorImpl<IndexExpr> &outputDims) const {
+  int64_t rank = outputDims.size();
+  // Compute new sizes and strides.
+  SmallVector<IndexExpr, 4> sizesIE, stridesIE;
+  sizesIE.resize(rank);
+  stridesIE.resize(rank);
+  IndexExpr strideIE = LiteralIndexExpr(1);
+  for (int i = rank - 1; i >= 0; --i) {
+    sizesIE[i] = outputDims[i];
+    stridesIE[i] = strideIE;
+    if (i > 0)
+      strideIE = strideIE * sizesIE[i];
+  }
+
+  SmallVector<OpFoldResult, 4> sizes, strides;
+  sizes.resize(rank);
+  strides.resize(rank);
+  for (int i = rank - 1; i >= 0; --i) {
+    if (sizesIE[i].isLiteral())
+      sizes[i] = b.getIndexAttr(sizesIE[i].getLiteral());
+    else
+      sizes[i] = sizesIE[i].getValue();
+    if (stridesIE[i].isLiteral())
+      strides[i] = b.getIndexAttr(stridesIE[i].getLiteral());
+    else
+      strides[i] = stridesIE[i].getValue();
+  }
+  // Compute output type
+  SmallVector<int64_t, 4> outputShape;
+  IndexExpr::getShape(outputDims, outputShape);
+  Type elementType = input.getType().cast<ShapedType>().getElementType();
+  MemRefType outputMemRefType = MemRefType::get(outputShape, elementType);
+
+  return b.create<memref::ReinterpretCastOp>(loc, outputMemRefType, input,
+      /*offset=*/b.getIndexAttr(0), sizes, strides);
+}
+
 Value MemRefBuilder::dim(Value val, int64_t index) const {
   assert((val.getType().isa<MemRefType>() ||
              val.getType().isa<UnrankedMemRefType>()) &&

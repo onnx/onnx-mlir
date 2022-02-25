@@ -120,6 +120,8 @@ struct MemRefBuilder final : DialectBuilder {
 
   memref::CastOp cast(Value input, MemRefType outputType) const;
 
+  Value reinterpretCast(
+      Value input, SmallVectorImpl<IndexExpr> &outputDims) const;
   Value dim(Value val, int64_t index) const;
 };
 
