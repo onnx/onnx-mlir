@@ -3245,9 +3245,10 @@ LogicalResult ONNXGatherOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // ConstantOfShape
 //===----------------------------------------------------------------------===//
-static LogicalResult verify(ONNXConstantOfShapeOp op) {
+
+LogicalResult ONNXConstantOfShapeOp::verify() {
   ONNXConstantOfShapeOpAdaptor operandAdaptor =
-      ONNXConstantOfShapeOpAdaptor(op);
+      ONNXConstantOfShapeOpAdaptor(*this);
 
   auto input = operandAdaptor.input();
 
@@ -3256,9 +3257,9 @@ static LogicalResult verify(ONNXConstantOfShapeOp op) {
 
   auto inputShape = input.getType().cast<RankedTensorType>().getShape();
   if (inputShape.size() != 1)
-    return op->emitError("Input tensor must be a 1D tensor");
+    return emitOpError("Input tensor must be a 1D tensor");
   if (inputShape[0] == -1)
-    return op->emitError("Input tensor must have static shape");
+    return emitOpError("Input tensor must have static shape");
 
   // Calculate output dimensions.
   SmallVector<int64_t, 4> outputDims(inputShape[0], -1);
@@ -3272,10 +3273,10 @@ static LogicalResult verify(ONNXConstantOfShapeOp op) {
     for (int i = 0; i < inputShape[0]; ++i) {
       auto dim = (*valueIt++).cast<IntegerAttr>().getInt();
       if (dim < 0)
-        return op->emitError("All values of the input tensor must be >=0");
+        return emitOpError("All values of the input tensor must be >=0");
     }
     if (valueIt != valueAttribute.getValues<IntegerAttr>().end())
-      return op->emitError(
+      return emitOpError(
           "Constant value must have same length as output's rank");
   }
   return success();
@@ -3450,9 +3451,8 @@ LogicalResult ONNXDropoutOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // OneHotEncoder
 //===----------------------------------------------------------------------===//
-
 static LogicalResult verify(ONNXOneHotEncoderOp op) {
-  ONNXOneHotEncoderOpAdaptor operandAdaptor = ONNXOneHotEncoderOpAdaptor(op);
+  ONNXOneHotEncoderOpAdaptor operandAdaptor = ONNXOneHotEncoderOpAdaptor(*this);
 
   // get operands
   auto input = operandAdaptor.X();
@@ -3468,13 +3468,12 @@ static LogicalResult verify(ONNXOneHotEncoderOp op) {
   // the cats_int64s category list will be used for the lookups.
   if (inputType.getElementType().isIntOrFloat()) {
     if (!operandAdaptor.cats_int64s()) {
-      return op->emitError(
-          "input is a tensor of float, int32, or double, but no "
-          "cats_int64s attribute");
+      return emitOpError("input is a tensor of float, int32, or double, but no "
+                         "cats_int64s attribute");
     }
   } else {
     if (!operandAdaptor.cats_strings()) {
-      return op->emitError(
+      return emitOpError(
           "input is not a tensor of float, int32, or double, but "
           "no cats_strings attribute");
     }
