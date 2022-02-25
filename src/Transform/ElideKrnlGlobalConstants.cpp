@@ -104,6 +104,6 @@ public:
 
 } // namespace
 
-std::unique_ptr<Pass> mlir::createElideConstGlobalValuePass() {
+std::unique_ptr<Pass> onnx_mlir::createElideConstGlobalValuePass() {
   return std::make_unique<ElideConstGlobalValuePass>();
 }
