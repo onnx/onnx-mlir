@@ -1060,7 +1060,7 @@ def gen_op_def(schema, with_version = False):
         s += custom_definition_misc[opName] + '\n'
 
     if opName in OpsWithVerifier:
-        if opName is "ConstantOfShape" or opName is "OneHotEncoder":
+        if opName == "ConstantOfShape" or opName == "OneHotEncoder":
             s += indent + 'let hasVerifier = 1;\n'
         else:
             s += indent + 'let verifier = [{ return ::verify(*this); }];\n'
