@@ -445,6 +445,10 @@ Value MemRefBuilder::reinterpretCast(
   }
 
   SmallVector<OpFoldResult, 4> sizes, strides;
+  #if 1
+  IndexExpr::getOpOrFoldResults(sizesIE, sizes);
+  IndexExpr::getOpOrFoldResults(stridesIE, strides);
+  #else
   sizes.resize(rank);
   strides.resize(rank);
   for (int i = rank - 1; i >= 0; --i) {
@@ -457,6 +461,7 @@ Value MemRefBuilder::reinterpretCast(
     else
       strides[i] = stridesIE[i].getValue();
   }
+  #endif
   // Compute output type
   SmallVector<int64_t, 4> outputShape;
   IndexExpr::getShape(outputDims, outputShape);
