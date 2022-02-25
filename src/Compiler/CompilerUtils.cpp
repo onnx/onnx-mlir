@@ -18,7 +18,9 @@
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Path.h"
@@ -519,6 +521,13 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   if (!llvmModule) {
     llvm::errs() << "Failed to translate module to LLVMIR.\n";
     exit(1);
+  }
+  // Emit metadata for char mode.
+  StringRef charModeKey = "zos_le_char_mode";
+  StringRef ebcdic = "ebcdic";
+  if (!llvmModule->getModuleFlag(charModeKey)) {
+    auto val = llvm::MDString::get(llvmContext, ebcdic);
+    llvmModule->addModuleFlag(llvm::Module::Error, charModeKey, val);
   }
   llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();
