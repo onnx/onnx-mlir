@@ -1715,7 +1715,6 @@ LogicalResult ONNXConvTransposeOp::inferShapes() {
   auto outputPads = output_padding();
   auto outputShape = output_shape();
   // TODO: handle the spatial dimension computation if output shape is specified
-  assert(!outputShape.hasValue() && "unhandled option in ConvTranspose");
 
   // First two output dimensions consist of the number of batches and the
   // number of kernels being applied.
