@@ -248,7 +248,7 @@ Your branch is now up to date with the latest ONNX-MLIR.
 
 ## Step 9: Create a pull request
 
-1. Visit your fork at https://github.com/<user>/onnx-mlir (replace `<user>` obviously).
+1. Visit your fork at `https://github.com/<user>/onnx-mlir` (replace `<user>` obviously).
 2. Click the `Compare & pull request` button next to your `my-branch` branch.
 
 ## Step 10: Get a code review
