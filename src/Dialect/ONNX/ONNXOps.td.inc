@@ -380,7 +380,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
@@ -685,7 +685,7 @@ def ONNXCompressOp:ONNX_Op<"Compress",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXConcatOp:ONNX_Op<"Concat",
@@ -708,7 +708,7 @@ def ONNXConcatOp:ONNX_Op<"Concat",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
@@ -851,7 +851,7 @@ def ONNXConvOp:ONNX_Op<"Conv",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
@@ -1061,7 +1061,7 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
@@ -1449,7 +1449,7 @@ def ONNXExpandOp:ONNX_Op<"Expand",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
@@ -1503,7 +1503,7 @@ def ONNXFlattenOp:ONNX_Op<"Flatten",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXFloorOp:ONNX_Op<"Floor",
@@ -2141,7 +2141,7 @@ def ONNXHardmaxOp:ONNX_Op<"Hardmax",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXIdentityOp:ONNX_Op<"Identity",
@@ -2233,7 +2233,7 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXIsInfOp:ONNX_Op<"IsInf",
@@ -3097,7 +3097,7 @@ def ONNXModOp:ONNX_Op<"Mod",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXMulOp:ONNX_Op<"Mul",
@@ -3350,7 +3350,7 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
       return {4};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXNonZeroOp:ONNX_Op<"NonZero",
@@ -3438,7 +3438,7 @@ def ONNXOneHotOp:ONNX_Op<"OneHot",
       return {22};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXOrOp:ONNX_Op<"Or",
@@ -4071,7 +4071,7 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
       return {-1};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
@@ -4768,7 +4768,7 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
@@ -4807,7 +4807,7 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXRoundOp:ONNX_Op<"Round",
@@ -5147,7 +5147,7 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXScatterNDOp:ONNX_Op<"ScatterND",
@@ -5226,7 +5226,7 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXSeluOp:ONNX_Op<"Selu",
@@ -5372,7 +5372,7 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
@@ -5776,7 +5776,7 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
       return {20};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXSplitOp:ONNX_Op<"Split",
@@ -6262,7 +6262,7 @@ def ONNXTopKOp:ONNX_Op<"TopK",
       return {20,4};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXTransposeOp:ONNX_Op<"Transpose",
@@ -6723,7 +6723,7 @@ def ONNXCategoryMapperOp:ONNX_Op<"CategoryMapper",
       return {-1};
     }
   }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def ONNXDictVectorizerOp:ONNX_Op<"DictVectorizer",

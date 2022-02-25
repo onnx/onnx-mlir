@@ -27,9 +27,19 @@ class RewritePatternSet;
 void checkConstantOutputs(
     ModuleOp &module, SmallVectorImpl<bool> &constantOutputs);
 
+void recordEntryPointSignatures(ModuleOp &module,
+    SmallVectorImpl<std::string> &entryPointNames,
+    SmallVectorImpl<std::string> &inSignatures,
+    SmallVectorImpl<std::string> &outSignatures);
+
+void genSignatureFunction(ModuleOp module,
+    const ArrayRef<std::string> entryPointNames,
+    const ArrayRef<std::string> inSignatures,
+    const ArrayRef<std::string> outSignatures);
+
 void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     MLIRContext *ctx, LLVMTypeConverter &typeConverter,
-    ArrayRef<bool> constantOutputs);
+    ArrayRef<bool> constantOutputs, bool singleEntryPoint);
 
 } // namespace mlir
 
