@@ -161,7 +161,7 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 /// The new view is created using the given 'memRefType' and 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
     Location loc, Value data, const MemRefType &memRefType,
-    /* hi alex const*/ SmallVectorImpl<IndexExpr> &outputDims);
+    SmallVectorImpl<IndexExpr> &outputDims);
 
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
