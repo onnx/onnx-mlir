@@ -19,18 +19,20 @@ extern "C" {
 #endif
 
 /**
- * \brief Return the model's input signature as a JSON string.
+ * \brief Return the input signature of the given entry point as a JSON string.
  *
+ * @param entry point name
  * @return pointer to input signature JSON string
  */
-const char *omInputSignature();
+const char *omInputSignature(const char *entryPointName);
 
 /**
- * \brief Return the model's output signature as a JSON string.
+ * \brief Return the output signature of the given entry point as a JSON string.
  *
+ * @param entry point name
  * @return pointer to output signature JSON string
  */
-const char *omOutputSignature();
+const char *omOutputSignature(const char *entryPointName);
 
 #ifdef __cplusplus
 }
