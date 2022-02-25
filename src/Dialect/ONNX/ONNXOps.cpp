@@ -3451,7 +3451,7 @@ LogicalResult ONNXDropoutOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // OneHotEncoder
 //===----------------------------------------------------------------------===//
-static LogicalResult verify(ONNXOneHotEncoderOp op) {
+LogicalResult ONNXOneHotEncoderOp::verify() {
   ONNXOneHotEncoderOpAdaptor operandAdaptor = ONNXOneHotEncoderOpAdaptor(*this);
 
   // get operands
