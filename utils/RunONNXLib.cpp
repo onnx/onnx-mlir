@@ -78,15 +78,15 @@ vector<uint64_t> timeLogInMicroSec;
 
 // Interface definitions
 extern "C" OMTensorList *run_main_graph(OMTensorList *);
-extern "C" const char *omInputSignature();
-extern "C" const char *omOutputSignature();
+extern "C" const char *omInputSignature(const char *);
+extern "C" const char *omOutputSignature(const char *);
 extern "C" OMTensor *omTensorCreate(void *, int64_t *, int64_t, OM_DATA_TYPE);
 extern "C" OMTensorList *TensorListCreate(OMTensor **, int);
 extern "C" void omTensorListDestroy(OMTensorList *list);
 // DLL definitions
 OMTensorList *(*dll_run_main_graph)(OMTensorList *);
-const char *(*dll_omInputSignature)();
-const char *(*dll_omOutputSignature)();
+const char *(*dll_omInputSignature)(const char *);
+const char *(*dll_omOutputSignature)(const char *);
 OMTensor *(*dll_omTensorCreate)(void *, int64_t *, int64_t, OM_DATA_TYPE);
 OMTensorList *(*dll_omTensorListCreate)(OMTensor **, int);
 void (*dll_omTensorListDestroy)(OMTensorList *);
@@ -169,9 +169,11 @@ void loadDLL(string name, string entryPointName) {
   dll_run_main_graph = (OMTensorList * (*)(OMTensorList *))
       dlsym(handle, entryPointName.c_str());
   assert(!dlerror() && "failed to load entry point");
-  dll_omInputSignature = (const char *(*)())dlsym(handle, "omInputSignature");
+  dll_omInputSignature =
+      (const char *(*)(const char *))dlsym(handle, "omInputSignature");
   assert(!dlerror() && "failed to load omInputSignature");
-  dll_omOutputSignature = (const char *(*)())dlsym(handle, "omOutputSignature");
+  dll_omOutputSignature =
+      (const char *(*)(const char *))dlsym(handle, "omOutputSignature");
   assert(!dlerror() && "failed to load omOutputSignature");
   dll_omTensorCreate =
       (OMTensor * (*)(void *, int64_t *, int64_t, OM_DATA_TYPE))
@@ -303,10 +305,11 @@ void parseArgs(int argc, char **argv) {
  */
 OMTensorList *omTensorListCreateFromInputSignature(
     void **dataPtrList, bool dataAlloc, bool trace, bool silent) {
-  const char *sigIn = OM_INPUT_SIGNATURE();
+  string entryPointName("run_main_graph");
+  const char *sigIn = OM_INPUT_SIGNATURE(entryPointName.c_str());
   if (trace) {
     cout << "Model Input Signature " << (sigIn ? sigIn : "(empty)") << endl;
-    const char *sigOut = OM_OUTPUT_SIGNATURE();
+    const char *sigOut = OM_OUTPUT_SIGNATURE(entryPointName.c_str());
     cout << "Output signature: " << (sigOut ? sigOut : "(empty)") << endl;
   }
   if (!sigIn)
@@ -369,7 +372,8 @@ OMTensorList *omTensorListCreateFromInputSignature(
         assert(data && "failed to allocate data");
       }
       tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_FLOAT);
-    } else if (type.equals("double") || type.equals("f64") || type.equals("i64")) {
+    } else if (type.equals("double") || type.equals("f64") ||
+               type.equals("i64")) {
       // Treat floats/f64 and i64 alike as they take the same memory footprint.
       double *data = nullptr;
       if (dataPtrList) {

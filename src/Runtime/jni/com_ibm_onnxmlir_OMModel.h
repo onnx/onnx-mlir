@@ -18,18 +18,18 @@ JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMModel_main_1graph_1jni(
 /*
  * Class:     com_ibm_onnxmlir_OMModel
  * Method:    input_signature_jni
- * Signature: ()Ljava/lang/String;
+ * Signature: (Ljava/lang/String;)Ljava/lang/String;
  */
 JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
-    JNIEnv *, jclass);
+    JNIEnv *, jclass, jstring);
 
 /*
  * Class:     com_ibm_onnxmlir_OMModel
  * Method:    output_signature_jni
- * Signature: ()Ljava/lang/String;
+ * Signature: (Ljava/lang/String;)Ljava/lang/String;
  */
 JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
-    JNIEnv *, jclass);
+    JNIEnv *, jclass, jstring);
 
 #ifdef __cplusplus
 }

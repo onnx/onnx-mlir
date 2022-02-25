@@ -83,17 +83,27 @@ public class OMModel {
 
     private static native OMTensorList main_graph_jni(OMTensorList list);
     private static native String input_signature_jni();
+    private static native String input_signature_jni(String entry_point);
     private static native String output_signature_jni();
+    private static native String output_signature_jni(String entry_point);
     
     public static OMTensorList mainGraph(OMTensorList list) {
         return main_graph_jni(list);
     }
 
     public static String inputSignature() {
-        return input_signature_jni();
+        return input_signature_jni("run_main_graph");
+    }
+
+    public static String inputSignature(String entry_point) {
+        return input_signature_jni(entry_point);
     }
 
     public static String outputSignature() {
-        return output_signature_jni();
+        return output_signature_jni("run_main_graph");
+    }
+
+    public static String outputSignature(String entry_point) {
+        return output_signature_jni(entry_point);
     }
 }
