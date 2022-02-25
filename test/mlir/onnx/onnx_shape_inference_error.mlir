@@ -42,24 +42,6 @@ func @unsupport_maxpool_column_storage(%arg0 : tensor<5x5x32x32xf32>) -> tensor<
 /// Unsupported configurations for ONNXPowOp.
 //===----------------------------------------------------------------------===//
 
-func @unsupport_pow_diff_types(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<i32>) -> tensor<*xf32> {
-  // expected-error @+2 {{Pow with different input type not implemented yet}}
-  // expected-error @+1 {{shape inference failed}}
-  %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<1x2x3x4xf32>, tensor<i32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
-func @unsupport_pow_int_power(%arg0: tensor<1x2x3x4xi32>, %arg1: tensor<i32>) -> tensor<*xi32> {
-  // expected-error @+2 {{Integer power not implemented yet}}
-  // expected-error @+1 {{shape inference failed}}
-  %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<1x2x3x4xi32>, tensor<i32>) -> tensor<*xi32>
-  "std.return"(%0) : (tensor<*xi32>) -> ()
-}
-
-// -----
-
 func @test_reshape_2D_shape(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<1x2xi64>) -> tensor<*xf32> {
   // expected-error @+2 {{Shape tensor must have rank one}}
   // expected-error @+1 {{shape inference failed}}
