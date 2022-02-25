@@ -3245,7 +3245,7 @@ LogicalResult ONNXGatherOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // ConstantOfShape
 //===----------------------------------------------------------------------===//
-LogicalResult ONNXConstantOfShapeOp::verify() {
+static LogicalResult verify(ONNXConstantOfShapeOp op) {
   ONNXConstantOfShapeOpAdaptor operandAdaptor =
       ONNXConstantOfShapeOpAdaptor(op);
 
@@ -3451,7 +3451,7 @@ LogicalResult ONNXDropoutOp::inferShapes(
 // OneHotEncoder
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXOneHotEncoderOp::verify() {
+static LogicalResult verify(ONNXOneHotEncoderOp op) {
   ONNXOneHotEncoderOpAdaptor operandAdaptor = ONNXOneHotEncoderOpAdaptor(op);
 
   // get operands
