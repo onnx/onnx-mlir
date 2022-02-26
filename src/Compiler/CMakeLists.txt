@@ -54,24 +54,6 @@ add_onnx_mlir_library(CompilerUtils
   MC
   )
 
-if (ACCELERATORS_TO_BUILD)
-  add_dependencies(CompilerUtils NNPAAccel)
-else ()
-  add_dependencies(CompilerUtils NoAccel)
-endif (ACCELERATORS_TO_BUILD)
-
-
-if (ACCELERATORS_TO_BUILD)
-   foreach(t ${ACCELERATORS_TO_BUILD})
-     message(STATUS "Targeting ${t}")
-     if (${t}=="NNPA")
-      message(STATUS "Adding NNPAAccel dependency")
-      add_dependencies(CompilerUtils NNPAAccel)
-     endif ()
-    endforeach(t)
- endif (ACCELERATORS_TO_BUILD)
-
-
 # CompilerUtils does not require cruntime or jniruntime to build, however, they are
 # required for execution when using the EmitLib or EmitJNI options
 add_dependencies(CompilerUtils cruntime)
@@ -79,11 +61,13 @@ if (ONNX_MLIR_ENABLE_JNI)
   add_dependencies(CompilerUtils jniruntime)
 endif()
 
-
 add_onnx_mlir_library(OnnxMlirCompiler
   OnnxMlirCompiler.cpp
 
   EXCLUDE_FROM_OM_LIBS
+  
+  DEPENDS
+  ${ACCEL_LIST}
 
   LINK_LIBS PRIVATE
   CompilerUtils

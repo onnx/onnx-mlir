@@ -20,6 +20,7 @@
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 
 using llvm::SmallMapVector;
+using namespace mlir;
 
 /// Default 4K alignment for sticked tensors.
 static constexpr int64_t gAlignment = 4096;
