@@ -1143,19 +1143,16 @@ LogicalResult ONNXErfOp::inferShapes(
 
 static LogicalResult verify(ONNXPowOp op) {
   ONNXPowOp operandAdaptor = ONNXPowOp(op);
-  
   ShapedType lhsTy = operandAdaptor.X().getType().cast<ShapedType>();
   ShapedType rhsTy = operandAdaptor.Y().getType().cast<ShapedType>();
   Type rhsETy = rhsTy.getElementType();
   Type lhsETy = lhsTy.getElementType();
-
   if (rhsETy != lhsETy)
     return op->emitError("Pow with different input type not implemented yet");
   if (lhsETy.isa<IntegerType>() || lhsETy.isa<IntegerType>())
     return op->emitError("Integer power not implemented yet");
   return success();
 }
-  
 LogicalResult ONNXPowOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
@@ -1163,7 +1160,6 @@ LogicalResult ONNXPowOp::inferShapes(
     return success();
   RankedTensorType lhsTy = X().getType().cast<RankedTensorType>();
   RankedTensorType rhsTy = Y().getType().cast<RankedTensorType>();
-
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
   return success();
 }
