@@ -307,6 +307,7 @@ OpsWithVerifier = [
     'Mod',
     'NonMaxSuppression',
     'OneHot',
+    'Pow',
     'RandomNormalLike',
     'ReverseSequence',
     "RoiAlign",
