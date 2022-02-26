@@ -15,71 +15,70 @@
 
 #pragma once
 
-#include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
 
 const std::string DEFAULT_DYN_ENTRY_POINT = "run_main_graph";
 
-using namespace mlir;
-
 namespace onnx_mlir {
 namespace krnl {
 
-void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx,
-    ArrayRef<bool> constantOutputs, bool singleEntryPoint);
+void populateKrnlToLLVMConversion(mlir::LLVMTypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx,
+    llvm::ArrayRef<bool> constantOutputs, bool singleEntryPoint);
 
-void populateLoweringKrnlEntryPointOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx,
-    ArrayRef<bool> constantOutputs, bool singleEntryPoint);
+void populateLoweringKrnlEntryPointOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx,
+    llvm::ArrayRef<bool> constantOutputs, bool singleEntryPoint);
 
-void populateLoweringKrnlFindIndexOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlFindIndexOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlGetRefOpPattern(LLVMTypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlGetRefOpPattern(mlir::LLVMTypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlGlobalOpPattern(LLVMTypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlGlobalOpPattern(mlir::LLVMTypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlInstrumentOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlInstrumentOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlMemcpyOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlMemcpyOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlPrintOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlPrintOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlPrintTensorOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlPrintTensorOpPattern(
+    mlir::TypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlRandomNormalOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlRandomNormalOpPattern(
+    mlir::TypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlStrlenOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlStrlenOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlStrncmpOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlStrncmpOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlUnaryMathOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlUnaryMathOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
 void populateLoweringKrnlVectorTypeCastOpPattern(
-    LLVMTypeConverter &typeConverter, RewritePatternSet &patterns,
-    MLIRContext *ctx);
+    LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx);
 
-void recordEntryPointSignatures(ModuleOp &module,
-    SmallVectorImpl<std::string> &entryPointNames,
-    SmallVectorImpl<std::string> &inSignatures,
-    SmallVectorImpl<std::string> &outSignatures);
+void recordEntryPointSignatures(mlir::ModuleOp &module,
+    llvm::SmallVectorImpl<std::string> &entryPointNames,
+    llvm::SmallVectorImpl<std::string> &inSignatures,
+    llvm::SmallVectorImpl<std::string> &outSignatures);
 
-void genSignatureFunction(ModuleOp module,
-    const ArrayRef<std::string> entryPointNames,
-    const ArrayRef<std::string> inSignatures,
-    const ArrayRef<std::string> outSignatures);
+void genSignatureFunction(mlir::ModuleOp module,
+    const llvm::ArrayRef<std::string> entryPointNames,
+    const llvm::ArrayRef<std::string> inSignatures,
+    const llvm::ArrayRef<std::string> outSignatures);
 } // namespace krnl
 } // namespace onnx_mlir
