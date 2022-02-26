@@ -164,7 +164,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
       auto repeatsLoadVal =
           rewriter.create<KrnlLoadOp>(loc, repeats, repeatsMemRefVal);
       auto repeatsElementVal = rewriter.create<arith::IndexCastOp>(
-          loc, repeatsLoadVal, rewriter.getIndexType());
+          loc, rewriter.getIndexType(), repeatsLoadVal);
       pack.pushOperandBound(repeatsElementVal);
     }
 

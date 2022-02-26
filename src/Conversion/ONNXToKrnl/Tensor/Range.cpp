@@ -88,27 +88,28 @@ struct ONNXRangeOpLowering : public ConversionPattern {
                 rewriter.create<arith::SubFOp>(loc, loadedLimit, loadedStart),
                 loadedDelta);
             numberOfElements = rewriter.create<arith::IndexCastOp>(loc,
+                rewriter.getIndexType(),
                 rewriter.create<arith::FPToUIOp>(loc,
-                    rewriter.create<math::CeilOp>(loc, elements),
-                    rewriter.getIntegerType(64)),
-                rewriter.getIndexType());
+                    rewriter.getIntegerType(64),
+                    rewriter.create<math::CeilOp>(loc, elements)));
           })
           .Case<Float64Type>([&](Type) {
             Value elements = rewriter.create<arith::DivFOp>(loc,
                 rewriter.create<arith::SubFOp>(loc, loadedLimit, loadedStart),
                 loadedDelta);
             numberOfElements = rewriter.create<arith::IndexCastOp>(loc,
+                rewriter.getIndexType(),
                 rewriter.create<arith::FPToUIOp>(loc,
-                    rewriter.create<math::CeilOp>(loc, elements),
-                    rewriter.getIntegerType(64)),
-                rewriter.getIndexType());
+                    rewriter.getIntegerType(64),
+                    rewriter.create<math::CeilOp>(loc, elements)));
           })
           .Case<IntegerType>([&](Type) {
             Value elements = rewriter.create<arith::CeilDivSIOp>(loc,
                 rewriter.create<arith::SubIOp>(loc, loadedLimit, loadedStart),
                 loadedDelta);
+
             numberOfElements = rewriter.create<arith::IndexCastOp>(
-                loc, elements, rewriter.getIndexType());
+                loc, rewriter.getIndexType(), elements);
           });
 
       SmallVector<Value, 4> allocOperands;
