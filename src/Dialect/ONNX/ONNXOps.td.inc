@@ -3812,6 +3812,7 @@ def ONNXPowOp:ONNX_Op<"Pow",
         return {20};
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
