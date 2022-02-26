@@ -100,6 +100,6 @@ public:
 } // namespace
 
 // TODO: integrate with other passes if needed.
-std::unique_ptr<Pass> mlir::createLowerKrnlShapePass() {
+std::unique_ptr<Pass> onnx_mlir::createLowerKrnlShapePass() {
   return std::make_unique<LowerKrnlShapePass>();
 }
