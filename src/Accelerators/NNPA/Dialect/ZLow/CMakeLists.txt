@@ -4,7 +4,7 @@ mlir_tablegen(ZLowOps.cpp.inc -gen-op-defs)
 
 add_public_tablegen_target(OMZLowOpsIncGen)
 
-add_dlc_library(OMZLowOps
+add_onnx_mlir_library(OMZLowOps
   ZLowOps.cpp
 
   DEPENDS
@@ -12,4 +12,8 @@ add_dlc_library(OMZLowOps
 
   LINK_LIBS PUBLIC
   MLIRIR
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+ ${DLC_SRC_ROOT}
+ ${DLC_BIN_ROOT}
   )

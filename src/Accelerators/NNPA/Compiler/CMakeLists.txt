@@ -1,8 +1,7 @@
 get_property(DLCOMLibs GLOBAL PROPERTY DLC_LIBS)
 
-message(STATUS "in DLCompilerUtils: DLC_ONNX_MLIR_SRC_ROOT=${DLC_ONNX_MLIR_SRC_ROOT}")
-message(STATUS "in DLCompilerUtils: DLC_SRC_ROOT=${DLC_SRC_ROOT}")
-add_dlc_library(DLCompilerUtils
+
+add_onnx_mlir_library(DLCompilerUtils
   EXCLUDE_FROM_OM_LIBS
   DLCompilerUtils.cpp
 
@@ -15,6 +14,10 @@ add_dlc_library(DLCompilerUtils
   LINK_LIBS PUBLIC
   CompilerUtils
   ${DLCOMLibs}
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${DLC_ONNX_MLIR_SRC_ROOT}
+  ${DLC_ONNX_MLIR_BIN_ROOT}
   )
 
 # add_dependencies(CompilerUtils NNPAAccel) 
