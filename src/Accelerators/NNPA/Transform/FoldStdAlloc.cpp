@@ -16,8 +16,8 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
-#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "Pass/DLCPasses.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
 

@@ -18,11 +18,11 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "Dialect/ZHigh/ZHighOps.hpp"
 #include "Pass/DLCPasses.hpp"
 #include "Support/LayoutHelper.hpp"
 #include "Transform/ZHigh/Stickify/stickify.h"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
 

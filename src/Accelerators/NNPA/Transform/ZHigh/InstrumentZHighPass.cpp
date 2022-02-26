@@ -22,12 +22,12 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "Pass/DLCPasses.hpp"
 #include "Support/OMDLCOptions.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Interface/ShapeInferenceOpInterface.hpp"
 
 using namespace mlir;
 

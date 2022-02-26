@@ -28,10 +28,10 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "Support/LayoutHelper.hpp"
 #include "ZHighHelper.hpp"
 #include "ZHighOps.hpp"
 #include "ZHighShapeHelper.hpp"
-#include "Support/LayoutHelper.hpp"
 #include "third_party/zdnn-lib/zdnn/zdnn.h"
 
 using namespace mlir;

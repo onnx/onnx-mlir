@@ -32,12 +32,12 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/IR/DataLayout.h"
 
-#include "src/Conversion/KrnlToLLVM/KrnlToLLVM.hpp"
 #include "Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
-#include "src/Dialect/Krnl/KrnlTypes.hpp"
 #include "Dialect/ZLow/ZLowOps.hpp"
 #include "Pass/DLCPasses.hpp"
 #include "Support/LayoutHelper.hpp"
+#include "src/Conversion/KrnlToLLVM/KrnlToLLVM.hpp"
+#include "src/Dialect/Krnl/KrnlTypes.hpp"
 #include "third_party/zdnn-lib/zdnn/zdnn.h"
 
 using namespace mlir;

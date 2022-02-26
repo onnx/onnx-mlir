@@ -25,14 +25,14 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "Conversion/ZHighToZLow/ZHighToZLow.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "Dialect/ZHigh/ZHighHelper.hpp"
 #include "Dialect/ZHigh/ZHighOps.hpp"
 #include "Dialect/ZHigh/ZHighShapeHelper.hpp"
 #include "Dialect/ZLow/ZLowOps.hpp"
 #include "Pass/DLCPasses.hpp"
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 //#include "third_party/onnx-mlir/src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 

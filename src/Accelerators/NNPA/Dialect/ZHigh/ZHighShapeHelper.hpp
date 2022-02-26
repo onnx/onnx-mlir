@@ -20,9 +20,9 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Value.h"
 
-#include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "Dialect/ZHigh/ZHighHelper.hpp"
 #include "Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Dialect/ONNX/IndexExpr.hpp"
 
 using namespace mlir;
 

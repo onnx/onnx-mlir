@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- DLCompilerUtils.cpp -------------------------===//
+//===-------------------------- DLCompilerUtils.cpp
+//-------------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -22,12 +23,12 @@
 #include "llvm/Target/TargetMachine.h"
 #include <mlir/Dialect/MemRef/Transforms/Passes.h>
 
-#include "src/Compiler/CompilerUtils.hpp"
 #include "Compiler/DLCompilerUtils.hpp"
 #include "Dialect/ZHigh/ZHighOps.hpp"
 #include "Dialect/ZLow/ZLowOps.hpp"
 #include "Pass/DLCPasses.hpp"
 #include "Support/OMDLCOptions.hpp"
+#include "src/Compiler/CompilerUtils.hpp"
 
 using namespace std;
 using namespace mlir;
@@ -102,7 +103,7 @@ void addAllToLLVMPasses(mlir::PassManager &pm) {
     pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
   }
 
-  //pm.addPass(mlir::createLowerToCFGPass());
+  // pm.addPass(mlir::createLowerToCFGPass());
   pm.addNestedPass<FuncOp>(mlir::createConvertSCFToCFPass());
   pm.addPass(mlir::createZLowToLLVMPass());
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());

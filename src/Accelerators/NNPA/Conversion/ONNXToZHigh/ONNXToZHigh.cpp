@@ -13,12 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "Dialect/ZHigh/ZHighOps.hpp"
 #include "Pass/DLCPasses.hpp"
+#include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 

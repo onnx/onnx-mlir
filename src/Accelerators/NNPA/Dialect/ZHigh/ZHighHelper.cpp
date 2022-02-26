@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "ZHighHelper.hpp"
-#include "ZHighOps.hpp"
 #include "Support/LayoutHelper.hpp"
+#include "ZHighOps.hpp"
 
 using namespace mlir;
 
