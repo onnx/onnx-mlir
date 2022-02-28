@@ -61,4 +61,5 @@ add_onnx_mlir_library(OMONNXOps
   MLIRMath
   MLIRAffine
   MLIRSCF
+  onnx
   )
