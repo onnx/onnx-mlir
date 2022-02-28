@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// Implement Accelerator methods for case that no accelerator was specified. 
+// Implement Accelerator methods for case that no accelerator was specified.
 //
 //===----------------------------------------------------------------------===//
 #include "src/Accelerators/Accelerator.hpp"
