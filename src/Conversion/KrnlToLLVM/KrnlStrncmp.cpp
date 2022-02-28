@@ -44,25 +44,23 @@ public:
 
     // Get a symbol reference to the strncmp function, inserting it if
     // necessary.
-    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
-    auto StrncmpRef = getOrInsertStrncmp(rewriter, parentModule);
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    FlatSymbolRefAttr StrncmpRef = getOrInsertStrncmp(rewriter, module);
 
     // Operands.
-    Type strType = operandAdaptor.str1()
-                       .getType()
-                       .cast<LLVM::LLVMStructType>()
-                       .getBody()[1];
-    Value extractedStrPtr1 = rewriter.create<LLVM::ExtractValueOp>(
-        loc, strType, operandAdaptor.str1(), rewriter.getI64ArrayAttr(1));
-    Value extractedStrPtr2 = rewriter.create<LLVM::ExtractValueOp>(
-        loc, strType, operandAdaptor.str2(), rewriter.getI64ArrayAttr(1));
+    MLIRContext *ctx = module.getContext();
+    Type i8Type = IntegerType::get(ctx, 8);
+    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    Value str1Ptr = rewriter.create<LLVM::IntToPtrOp>(
+        loc, i8PtrType, operandAdaptor.str1());
+    Value str2Ptr = rewriter.create<LLVM::IntToPtrOp>(
+        loc, i8PtrType, operandAdaptor.str2());
     Value length = operandAdaptor.len();
 
     // Strncmp call.
-    MLIRContext *ctx = op->getContext();
     Type i32Type = IntegerType::get(ctx, 32);
-    auto funcCall = rewriter.create<CallOp>(loc, StrncmpRef, i32Type,
-        ArrayRef<Value>({extractedStrPtr1, extractedStrPtr2, length}));
+    auto funcCall = rewriter.create<CallOp>(
+        loc, StrncmpRef, i32Type, ArrayRef<Value>({str1Ptr, str2Ptr, length}));
 
     rewriter.replaceOp(op, funcCall.getResults()[0]);
     return success();
