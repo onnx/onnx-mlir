@@ -1,5 +1,4 @@
 get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
-get_property(DLCOMLibs GLOBAL PROPERTY DLC_LIBS)
 
 add_dlc_executable(dlc-opt
   DLCOpt.cpp
@@ -12,7 +11,6 @@ add_dlc_executable(dlc-opt
 
   LINK_LIBS PRIVATE
   ${OMLibs}
-  ${DLCOMLibs}
   MLIROptLib
   MLIRAffineTransforms
   MLIRLinalgTransforms

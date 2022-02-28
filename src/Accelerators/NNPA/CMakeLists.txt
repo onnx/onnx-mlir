@@ -39,8 +39,7 @@ add_onnx_mlir_library(NNPAAccel
   ${DLC_ONNX_MLIR_SRC_ROOT}
   ${DLC_SRC_ROOT}
   ${DLC_BIN_ROOT}
-  # /workdir/onnx-mlir/third_party/onnx
-
+  
   LINK_LIBS PUBLIC
   onnx
   DLCompilerUtils

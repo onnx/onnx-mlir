@@ -1,4 +1,4 @@
-get_property(DLCOMLibs GLOBAL PROPERTY DLC_LIBS)
+get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
 
 add_onnx_mlir_library(DLCompilerUtils
@@ -13,7 +13,7 @@ add_onnx_mlir_library(DLCompilerUtils
 
   LINK_LIBS PUBLIC
   CompilerUtils
-  ${DLCOMLibs}
+  ${OMLibs}
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${DLC_ONNX_MLIR_SRC_ROOT}

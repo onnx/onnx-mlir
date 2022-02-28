@@ -143,7 +143,6 @@ function(add_onnx_mlir_library name)
 
   if (ARG_ACCEL_INCLUDE_DIRS)
     target_include_directories(${name} ${ARG_ACCEL_INCLUDE_DIRS})
-    set_property(GLOBAL APPEND PROPERTY DLC_LIBS ${name})
   endif()
 
   target_include_directories(${name}

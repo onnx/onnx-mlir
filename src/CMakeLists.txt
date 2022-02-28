@@ -11,9 +11,6 @@ add_subdirectory(Runtime)
 add_subdirectory(Tools)
 add_subdirectory(Compiler)
 
-
-
-
 add_onnx_mlir_executable(onnx-mlir
   onnx-mlir.cpp
 
