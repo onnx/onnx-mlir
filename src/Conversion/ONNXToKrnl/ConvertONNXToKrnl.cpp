@@ -262,15 +262,15 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   }
 }
 
-std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {
+std::unique_ptr<Pass> onnx_mlir::createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
 }
 
-std::unique_ptr<Pass> mlir::createLowerToKrnlPass(int optLevel) {
+std::unique_ptr<Pass> onnx_mlir::createLowerToKrnlPass(int optLevel) {
   return std::make_unique<FrontendToKrnlLoweringPass>(optLevel);
 }
 
-std::unique_ptr<Pass> mlir::createLowerToKrnlPass(
+std::unique_ptr<Pass> onnx_mlir::createLowerToKrnlPass(
     bool emitDealloc, bool enableTiling) {
   return std::make_unique<FrontendToKrnlLoweringPass>(
       emitDealloc, enableTiling);
