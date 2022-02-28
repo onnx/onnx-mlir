@@ -56,6 +56,8 @@ LLVM_PROJECT_SHA1_FILE      = 'utils/clone-mlir.sh'
 LLVM_PROJECT_SHA1_REGEX     = 'git checkout ([0-9a-f]+)'
 LLVM_PROJECT_DOCKERFILE     = 'docker/Dockerfile.llvm-project'
 LLVM_PROJECT_GITHUB_URL     = 'https://api.github.com/repos/llvm/llvm-project'
+BASE_IMAGE                  = { 'static': 'ubuntu:focal',
+                                'shared': 'registry.access.redhat.com/ubi8-minimal:latest' }
 LLVM_PROJECT_IMAGE          = { 'static': docker_static_image_name,
                                 'shared': docker_shared_image_name }
 BUILD_SHARED_LIBS           = { 'static': 'off',
@@ -339,13 +341,14 @@ def setup_private_llvm(image_type, exp):
                     decode = True,
                     rm = True,
                     buildargs = {
+                        'BASE_IMAGE': BASE_IMAGE[image_type],
                         'NPROC': NPROC,
                         'BUILD_SHARED_LIBS': BUILD_SHARED_LIBS[image_type],
                         'LLVM_PROJECT_SHA1': exp['llvm_project_sha1'],
                         'LLVM_PROJECT_SHA1_DATE': exp['llvm_project_sha1_date'],
                         'LLVM_PROJECT_DOCKERFILE_SHA1': exp['llvm_project_dockerfile_sha1'],
                         GITHUB_REPO_NAME2 + '_PR_NUMBER': github_pr_number,
-                        GITHUB_REPO_NAME2 + '_PR_NUMBER2': github_pr_number2
+                        GITHUB_REPO_NAME2 + '_PR_NUMBER2': github_pr_number2,
                     }):
 
                 if 'stream' in line:
