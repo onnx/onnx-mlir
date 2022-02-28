@@ -179,10 +179,11 @@ void recordEntryPointSignatures(ModuleOp &module,
     SmallVectorImpl<std::string> &inSignatures,
     SmallVectorImpl<std::string> &outSignatures) {
 
-  StringRef mtriple = module->getAttrOfType<StringAttr>("llvm.target_triple")
-                          .cast<StringAttr>()
-                          .getValue();
-  bool zOS = mtriple.endswith_insensitive("zos");
+  Attribute mtripleAttr =
+      module->getAttrOfType<::mlir::Attribute>("llvm.target_triple");
+  bool zOS =
+      mtripleAttr &&
+      mtripleAttr.cast<StringAttr>().getValue().endswith_insensitive("zos");
 
   module->walk([&](KrnlEntryPointOp entryOp) -> WalkResult {
     Operation *op = entryOp.getOperation();
