@@ -1,7 +1,7 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} AS onnx-mlir-test
 
-# Label	the base image so it can be cleaned up after becoming dangling
+# Label the base image so it can be cleaned up after becoming dangling
 ARG ONNX_MLIR_PR_NUMBER
 ARG ONNX_MLIR_PR_NUMBER2
 LABEL onnx_mlir_pr_number=${ONNX_MLIR_PR_NUMBER}
@@ -14,15 +14,17 @@ WORKDIR ${WORK_DIR}
 COPY . onnx-mlir
 
 # Setup onnx
-#ARG THIRD_PARTY_ONNX_SHA1=b2a20a9d07678e89ae9346243035e194b63e0e8a
-#RUN pip3 install git+git://github.com/onnx/onnx.git@${THIRD_PARTY_ONNX_SHA1} \
-#    && rm -rf /root/.cache
+# Install into lib instead of lib64 since everything else is in lib
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
+    && INSTALL_LIB=$(python3 -c "import re; import site; \
+         print(list(filter(lambda site: not re.search('lib64', site), \
+                           site.getsitepackages()))[0])") \
     && cd ${ONNX_ROOT} \
-    && python3 setup.py -q install \
+    && python3 setup.py -q install --install-lib=${INSTALL_LIB} \
     && rm -rf .eggs .setuptools-cmake-build build dist onnx.egg-info
 
-ARG NPROC=2
+ARG NPROC=4
+ARG TEST_MCPU
 
 RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && ONNX_MLIR_ROOT=${WORK_DIR}/onnx-mlir \
@@ -39,31 +41,44 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && make -j${NPROC} \
     && make -j${NPROC} LIT_OPTS=-v check-onnx-lit \
 # User image is built with SIMD (currently on s390x only)
-    && TEST_MCPU=$([ "$(uname -m)" = "s390x" ] && echo z14 || \
-                   [ "$(uname -m)" = "x86_64" ] &&  echo || \
-                   [ "$(uname -m)" = "ppc64le" ] && echo || echo) \
+    && TEST_MCPU=${TEST_MCPU:-$([ "$(uname -m)" = "s390x" ] && echo z14 || \
+                                [ "$(uname -m)" = "x86_64" ] &&  echo || \
+                                [ "$(uname -m)" = "ppc64le" ] && echo || echo)} \
     && TEST_ARGS="-mcpu=${TEST_MCPU}" \
     && make NPROC=${NPROC} \
             CTEST_PARALLEL_LEVEL=${NPROC} \
             TEST_MCPU=${TEST_MCPU} \
             TEST_ARGS="${TEST_ARGS}" \
-	    -j${NPROC} -f CMakeFiles/Makefile2 \
+            -j${NPROC} -f CMakeFiles/Makefile2 \
             check-onnx-backend \
             check-onnx-backend-dynamic \
             check-onnx-backend-constant \
-	    check-onnx-backend-jni \
-	    check-onnx-backend-dynamic-jni \
-	    check-onnx-backend-constant-jni \
+            check-onnx-backend-signature \
+            check-onnx-backend-jni \
+            check-onnx-backend-dynamic-jni \
+            check-onnx-backend-constant-jni \
             check-onnx-numerical \
     && make check-docs \
     && make -j${NPROC} install \
+    && echo -e "/usr/local/lib" > \
+            /etc/ld.so.conf.d/onnx-mlir.conf && ldconfig \
 # Clean up
     && cd ${WORK_DIR} \
-    && apt-get purge --autoremove -qq -y \
-               autoconf automake cmake git libtool make \
-               maven ninja-build python3 wget \
-    && rm -rf /tmp/* /var/lib/apt/lists/* \
-              /usr/bin/python llvm-project onnx-mlir
+    && distro=$(cat /etc/os-release|grep -Po '(?<=^ID=).*'|sed 's/\"//g') \
+    && if [ "${distro}" = "debian" ] || [ "${distro}" = "ubuntu" ]; then \
+          apt-get purge --autoremove -qq -y \
+                  autoconf automake cmake curl git libtool \
+                  make ninja-build python3 && \
+          rm -rf /var/lib/apt/lists/*; \
+       elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
+          pip3 uninstall -q -y Cython pybind11 pytest pytest-forked \
+               pytest-xdist typing-extensions && \
+          yum remove -q -y \
+              adwaita-icon-theme autoconf automake cmake diffutils file \
+              git libtool make python39 && \
+          rm -rf /var/cache/dnf/* /usr/local/bin/ninja; \
+       fi \
+    && rm -rf /tmp/* /usr/bin/python llvm-project onnx-mlir
 
 # Copy from onnx-mlir-test to squash removed source layer and
 # remove dependency on base image (onnx-mlir-llvm-shared)
