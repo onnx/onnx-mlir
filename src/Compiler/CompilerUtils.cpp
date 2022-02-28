@@ -522,13 +522,18 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
     llvm::errs() << "Failed to translate module to LLVMIR.\n";
     exit(1);
   }
-  // Emit metadata for char mode.
-  StringRef charModeKey = "zos_le_char_mode";
-  StringRef ebcdic = "ebcdic";
-  if (!llvmModule->getModuleFlag(charModeKey)) {
-    auto val = llvm::MDString::get(llvmContext, ebcdic);
-    llvmModule->addModuleFlag(llvm::Module::Error, charModeKey, val);
+
+  // Emit metadata "zos_le_char_mode" for zOS.
+  bool zOS = StringRef(getTargetTripleOption()).endswith_insensitive("zos");
+  if (zOS) {
+    StringRef charModeKey = "zos_le_char_mode";
+    StringRef charModeValue = "ebcdic";
+    if (!llvmModule->getModuleFlag(charModeKey)) {
+      auto val = llvm::MDString::get(llvmContext, charModeValue);
+      llvmModule->addModuleFlag(llvm::Module::Error, charModeKey, val);
+    }
   }
+
   llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();
 

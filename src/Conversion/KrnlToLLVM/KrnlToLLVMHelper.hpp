@@ -48,4 +48,8 @@ Value getPtrToGlobalString(
 void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,
     ModuleOp module, OpBuilder &builder, LLVMTypeConverter &typeConverter);
 
+/// Convert a string from ASCII to EBCDIC.
+/// This is not in-place conversion and a new string in EBCDIC is returned.
+std::string a2e_s(std::string a_s);
+
 } // namespace onnx_mlir
