@@ -135,9 +135,9 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
       denominator =
           rewriter.create<arith::MulIOp>(loc, denominator, poolDimValues[i]);
     denominator = rewriter.create<arith::IndexCastOp>(
-        loc, denominator, rewriter.getIntegerType(64));
+        loc, rewriter.getIntegerType(64), denominator);
     denominator =
-        rewriter.create<arith::SIToFPOp>(loc, denominator, numerator.getType());
+        rewriter.create<arith::SIToFPOp>(loc, numerator.getType(), denominator);
   }
 
   Value average = rewriter.create<arith::DivFOp>(loc, numerator, denominator);
@@ -169,20 +169,20 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
       kernelSize = kernelSize * kernelShape[i];
     denominator = kernelSize.getValue();
     denominator = rewriter.create<arith::IndexCastOp>(
-        loc, denominator, rewriter.getI64Type());
+        loc, rewriter.getI64Type(), denominator);
     // TODO: we are implying here that the dest type is a float.
     denominator =
-        rewriter.create<arith::SIToFPOp>(loc, denominator, numerator.getType());
+        rewriter.create<arith::SIToFPOp>(loc, numerator.getType(), denominator);
   } else {
     denominator = poolDimValues[0];
     for (unsigned int i = 1; i < poolDimValues.size(); ++i)
       denominator =
           rewriter.create<arith::MulIOp>(loc, denominator, poolDimValues[i]);
     denominator = rewriter.create<arith::IndexCastOp>(
-        loc, denominator, rewriter.getIntegerType(64));
+        loc, rewriter.getIntegerType(64), denominator);
     // TODO: we are implying here that the dest type is a float.
     denominator =
-        rewriter.create<arith::SIToFPOp>(loc, denominator, numerator.getType());
+        rewriter.create<arith::SIToFPOp>(loc, numerator.getType(), denominator);
   }
 
   Value average = rewriter.create<arith::DivFOp>(loc, numerator, denominator);
