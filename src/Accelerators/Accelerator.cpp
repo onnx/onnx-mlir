@@ -35,4 +35,3 @@ std::vector<Accelerator *> *Accelerator::getAcceleratorList() {
 }
 
 } // namespace mlir
-
