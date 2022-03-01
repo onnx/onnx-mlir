@@ -135,7 +135,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       Value inIndexFloat;
       Value outIndex = outputLoops.getInductionVar(i);
       Value outIndexInteger = rewriter.create<arith::IndexCastOp>(
-          loc, outIndex, rewriter.getIntegerType(64));
+          loc, rewriter.getIntegerType(64), outIndex);
       Value outIndexFloat =
           create.math.cast(rewriter.getF32Type(), outIndexInteger);
 

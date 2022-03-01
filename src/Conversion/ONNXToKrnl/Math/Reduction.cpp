@@ -326,11 +326,11 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       Value divisor = divisorExpr.getValue();
       if (elementType.isa<FloatType>()) {
         divisor = rewriter.create<arith::IndexCastOp>(
-            loc, divisor, rewriter.getIntegerType(64));
+            loc, rewriter.getIntegerType(64), divisor);
         divisor = rewriter.create<arith::UIToFPOp>(loc, elementType, divisor);
       } else if (elementType.isa<IntegerType>()) {
         divisor =
-            rewriter.create<arith::IndexCastOp>(loc, divisor, elementType);
+            rewriter.create<arith::IndexCastOp>(loc, elementType, divisor);
       } else
         llvm_unreachable("unsupported element type");
 
@@ -662,11 +662,11 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       Value divisor = divisorExpr.getValue();
       if (elementType.isa<FloatType>()) {
         divisor = rewriter.create<arith::IndexCastOp>(
-            loc, divisor, rewriter.getIntegerType(64));
+            loc, rewriter.getIntegerType(64), divisor);
         divisor = rewriter.create<arith::UIToFPOp>(loc, elementType, divisor);
       } else if (elementType.isa<IntegerType>()) {
         divisor =
-            rewriter.create<arith::IndexCastOp>(loc, divisor, elementType);
+            rewriter.create<arith::IndexCastOp>(loc, elementType, divisor);
       } else
         llvm_unreachable("unsupported element type");
 

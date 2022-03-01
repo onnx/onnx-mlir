@@ -60,7 +60,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     Value maxTripCount =
         rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M()).getResult();
     maxTripCount = rewriter.create<arith::IndexCastOp>(
-        loc, maxTripCount, rewriter.getIndexType());
+        loc, rewriter.getIndexType(), maxTripCount);
     loop.pushBounds(0, maxTripCount);
     loop.createIterateOp();
     rewriter.setInsertionPointToStart(loop.getIterateBlock());
@@ -77,7 +77,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       Value origIV = loop.getInductionVar(0);
       auto iv =
           rewriter
-              .create<arith::IndexCastOp>(loc, origIV, rewriter.getI64Type())
+              .create<arith::IndexCastOp>(loc, rewriter.getI64Type(), origIV)
               .getResult();
       MemRefBuilder createMemRef(rewriter, loc);
       Value ivMemRef =
@@ -248,7 +248,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
                   rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M())
                       .getResult();
               allocParams.emplace_back(rewriter.create<arith::IndexCastOp>(
-                  loc, maxTripCount, rewriter.getIndexType()));
+                  loc, rewriter.getIndexType(), maxTripCount));
             } else {
               // TODO(tjingrant): we can support dynamic dimensions for scan
               // output, however, then we will be unable to allocate memory

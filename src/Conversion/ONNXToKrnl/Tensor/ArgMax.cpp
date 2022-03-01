@@ -127,7 +127,7 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
         maxLoopIVs.push_back(calcLoops.getInductionVar(i));
       else
         maxLoopIVs.push_back(rewriter.create<arith::IndexCastOp>(
-            loc, idx, rewriter.getIndexType()));
+            loc, rewriter.getIndexType(), idx));
     }
     Value maxVal = rewriter.create<KrnlLoadOp>(loc, data, maxLoopIVs);
 
@@ -135,7 +135,7 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
     Value greaterThanMax = rewriter.create<arith::CmpFOp>(
         loc, arith::CmpFPredicate::OGT, next, maxVal);
     Value pos = rewriter.create<arith::IndexCastOp>(
-        loc, inLoopIVs[axis], rewriter.getIntegerType(64));
+        loc, rewriter.getIntegerType(64), inLoopIVs[axis]);
     idx = rewriter.create<arith::SelectOp>(loc, greaterThanMax, pos, idx);
     rewriter.create<KrnlStoreOp>(loc, idx, alloc, outLoopIVs);
 
