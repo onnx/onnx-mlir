@@ -65,6 +65,9 @@ add_onnx_mlir_library(OnnxMlirCompiler
   OnnxMlirCompiler.cpp
 
   EXCLUDE_FROM_OM_LIBS
+  
+  DEPENDS
+  ${ACCEL_LIST}
 
   LINK_LIBS PRIVATE
   CompilerUtils
