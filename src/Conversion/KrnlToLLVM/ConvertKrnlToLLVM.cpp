@@ -40,7 +40,7 @@
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
-#include "llvm/IR/DataLayout.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"
 
@@ -179,11 +179,10 @@ void recordEntryPointSignatures(ModuleOp &module,
     SmallVectorImpl<std::string> &inSignatures,
     SmallVectorImpl<std::string> &outSignatures) {
 
-  Attribute mtripleAttr =
-      module->getAttrOfType<::mlir::Attribute>("llvm.target_triple");
-  bool zOS =
-      mtripleAttr &&
-      mtripleAttr.cast<StringAttr>().getValue().endswith_insensitive("zos");
+  bool zOS = false;
+  if (Attribute mtripleAttr =
+          module->getAttrOfType<::mlir::Attribute>("llvm.target_triple"))
+    zOS = llvm::Triple(mtripleAttr.cast<StringAttr>().getValue()).isOSzOS();
 
   module->walk([&](KrnlEntryPointOp entryOp) -> WalkResult {
     Operation *op = entryOp.getOperation();
