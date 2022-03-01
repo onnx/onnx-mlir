@@ -35,5 +35,4 @@ std::vector<Accelerator *> *Accelerator::getAcceleratorList() {
 }
 
 } // namespace mlir
-© 2022 GitHub, Inc.
-Terms
+© 2022 GitHub, Inc.Terms
