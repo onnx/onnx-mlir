@@ -447,7 +447,7 @@ public:
     // Current memory pool size is the offset for the newly bundled
     // internal MemRef.
     Value integerDynamicMemoryPoolSize = rewriter.create<arith::IndexCastOp>(
-        loc, dynamicMemoryPoolSize, rewriter.getIntegerType(64));
+        loc, rewriter.getIntegerType(64), dynamicMemoryPoolSize);
     integerDynamicMemoryPoolSize.getDefiningOp()->moveBefore(
         oldDynamicMemoryPool);
 

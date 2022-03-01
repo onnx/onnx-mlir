@@ -244,7 +244,7 @@ def ONNX_SeqType : ONNX_Type<"Seq", "Seq"> {
     $_printer << "<" << getImpl()->ElementType << ">";
   }];
   let parser = [{
-    if (parser.parseLess())
+    if ($_parser.parseLess())
       return Type();
     Type elementType;
     if ($_parser.parseType(elementType))
