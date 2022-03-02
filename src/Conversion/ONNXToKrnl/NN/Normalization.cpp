@@ -224,7 +224,7 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
                 Value oldSum = create.krnl.load(tmpMemRef, {});
                 Value val = create.krnl.load(inputMemRef, inputAccessFct);
                 Value newSum = create.math.add(oldSum, val);
-                createKrnl.store(newSum, tmpMemRef, {});
+                create.krnl.store(newSum, tmpMemRef, {});
               });
           Value sum = create.krnl.load(tmpMemRef, {});
           Value mean = create.math.div(sum, meanDenom);
