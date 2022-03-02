@@ -76,8 +76,11 @@ public:
     inputOMTs.emplace_back(move(inputOMT));
     expOutputOMTs.emplace_back(move(expOutputOMT));
 
-    return modelBuilder.runAndVerifyTest(
+    bool passed = modelBuilder.runAndVerifyTest(
         inputOMTs, expOutputOMTs, verifyResults<const char *>);
+    llvm::outs() << __func__ << (passed ? " - passed\n" : " - failed\n");
+
+    return passed;
   }
 
   // Test CategoryMapper (with an input tensor of strings).
@@ -119,8 +122,11 @@ public:
     inputOMTs.emplace_back(move(inputOMT));
     expOutputOMTs.emplace_back(move(expOutputOMT));
 
-    return modelBuilder.runAndVerifyTest(
+    bool passed = modelBuilder.runAndVerifyTest(
         inputOMTs, expOutputOMTs, verifyResults<int64_t>);
+    llvm::outs() << __func__ << (passed ? " - passed\n" : " - failed\n");
+
+    return passed;
   }
 
   // Prepare for a new test.
@@ -208,7 +214,6 @@ private:
         return false;
       }
     }
-    LLVM_DEBUG(llvm::dbgs() << "Result is OK.\n");
 
     return true;
   }
@@ -256,7 +261,7 @@ static bool testStrToInt64() {
       {"cat", "dog", "human", "tiger", "beaver"}, -1, "unknown"};
 
   return categoryMapperTester.testStrToInt64(
-      attributes, {"dog", "cat", "human", "tiger", "beaver"}, {1, 2, 3, 4, 5});
+      attributes, {"dog", "human", "cat", "beaver", "tiger"}, {2, 3, 1, 5, 4});
 }
 
 int main(int argc, char *argv[]) {
@@ -267,8 +272,8 @@ int main(int argc, char *argv[]) {
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestCategoryMapper\n", nullptr, "TEST_ARGS");
 
-  if (!testInt64ToStr())
-    return 1;
+  bool rc = testInt64ToStr();
+  rc &= testStrToInt64();
 
-  return 0;
+  return rc ? 0 : 1;
 }

@@ -151,6 +151,6 @@ public:
 };
 } // namespace
 
-std::unique_ptr<Pass> mlir::createDisconnectKrnlDimFromAllocPass() {
+std::unique_ptr<Pass> onnx_mlir::createDisconnectKrnlDimFromAllocPass() {
   return std::make_unique<DisconnectKrnlDimFromAllocPass>();
 }

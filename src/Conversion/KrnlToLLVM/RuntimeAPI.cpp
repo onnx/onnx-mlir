@@ -15,6 +15,8 @@
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 
+using namespace mlir;
+
 //===----------------------------------------------------------------------===//
 // RuntimeAPI
 //===----------------------------------------------------------------------===//
@@ -87,7 +89,8 @@ RuntimeAPIRegistry::RuntimeAPIRegistry(ModuleOp &module, OpBuilder &builder)
     : registry() {
   MLIRContext *context = module.getContext();
   auto voidTy = LLVM::LLVMVoidType::get(context);
-  auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
+  auto int8Ty = IntegerType::get(context, 8);
+  auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
   auto opaquePtrPtrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
   auto int64Ty = IntegerType::get(context, 64);
   auto int64PtrTy = LLVM::LLVMPointerType::get(int64Ty);
@@ -106,7 +109,7 @@ RuntimeAPIRegistry::RuntimeAPIRegistry(ModuleOp &module, OpBuilder &builder)
     RuntimeAPI(API::GET_DATA_TYPE, "omTensorGetDataType", int64Ty, {opaquePtrTy}),
     RuntimeAPI(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {opaquePtrTy, int64Ty}),
     RuntimeAPI(API::GET_OMT_ARRAY, "omTensorListGetOmtArray", opaquePtrPtrTy, {opaquePtrTy}),
-    RuntimeAPI(API::PRINT_OMTENSOR, "omTensorPrint", voidTy, {opaquePtrTy}),
+    RuntimeAPI(API::PRINT_OMTENSOR, "omTensorPrint", voidTy, {opaquePtrTy, opaquePtrTy}),
   };
   // clang-format on
 

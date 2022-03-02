@@ -176,6 +176,6 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 /*!
  * Create a DecomposeONNX pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createDecomposeONNXToONNXPass() {
+std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass() {
   return std::make_unique<DecomposeONNXToONNXPass>();
 }
