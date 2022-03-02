@@ -124,67 +124,66 @@ struct ONNXRangeOpLowering : public ConversionPattern {
     MemRefType accType;
     TypeSwitch<Type>(elementType)
         .Case<Float32Type>([&](Type) {
-          accType = MemRefType::get(accShape, rewriter.getF32Type());
+      accType = MemRefType::get(accShape, rewriter.getF32Type());
         })
         .Case<Float64Type>([&](Type) {
-          accType = MemRefType::get(accShape, rewriter.getF64Type());
+      accType = MemRefType::get(accShape, rewriter.getF64Type());
         })
         .Case<IntegerType>([&](IntegerType type) {
-          switch (type.getWidth()) {
-          case 8:
-            llvm_unreachable("Integer 8 type not supported for Range op.");
-            break;
-          case 16:
-            accType = MemRefType::get(accShape, rewriter.getIntegerType(16));
-            break;
-          case 32:
-            accType = MemRefType::get(accShape, rewriter.getIntegerType(32));
-            break;
-          case 64:
-            accType = MemRefType::get(accShape, rewriter.getIntegerType(64));
-            break;
-          default:
-            llvm_unreachable(
-                "Integer type over 64 bits not supported for Range op.");
-          }
-        });
+      switch (type.getWidth()) {
+      case 8:
+        llvm_unreachable("Integer 8 type not supported for Range op.");
+        break;
+      case 16:
+        accType = MemRefType::get(accShape, rewriter.getIntegerType(16));
+        break;
+      case 32:
+        accType = MemRefType::get(accShape, rewriter.getIntegerType(32));
+        break;
+      case 64:
+        accType = MemRefType::get(accShape, rewriter.getIntegerType(64));
+        break;
+      default:
+        llvm_unreachable(
+            "Integer type over 64 bits not supported for Range op.");
+      });
 
-    Value acc = create.mem.alignedAlloc(accType);
+      Value acc = create.mem.alignedAlloc(accType);
 
-    // Acc index:
-    SmallVector<IndexExpr, 4> accIndex;
-    accIndex.emplace_back(LiteralIndexExpr(0));
+      // Acc index:
+      SmallVector<IndexExpr, 4> accIndex;
+      accIndex.emplace_back(LiteralIndexExpr(0));
 
-    // Initialize accumulator with value:
-    create.krnl.storeIE(loadedStart, acc, accIndex);
+      // Initialize accumulator with value:
+      create.krnl.storeIE(loadedStart, acc, accIndex);
 
-    // Emit body of the loop:
-    // output[i] = start + (i * delta);
-    int nIndex = krnlLoop.pushBounds(0, alloc, 0);
-    krnlLoop.createIterateOp();
-    rewriter.setInsertionPointToStart(krnlLoop.getIterateBlock());
-    {
-      // Read value:
-      Value result = create.krnl.loadIE(acc, accIndex);
+      // Emit body of the loop:
+      // output[i] = start + (i * delta);
+      int nIndex = krnlLoop.pushBounds(0, alloc, 0);
+      krnlLoop.createIterateOp();
+      rewriter.setInsertionPointToStart(krnlLoop.getIterateBlock());
+      {
+        // Read value:
+        Value result = create.krnl.loadIE(acc, accIndex);
 
-      // Store result:
-      SmallVector<IndexExpr, 4> resultIndices;
-      resultIndices.emplace_back(
-          DimIndexExpr(krnlLoop.getInductionVar(nIndex)));
-      create.krnl.storeIE(result, alloc, resultIndices);
+        // Store result:
+        SmallVector<IndexExpr, 4> resultIndices;
+        resultIndices.emplace_back(
+            DimIndexExpr(krnlLoop.getInductionVar(nIndex)));
+        create.krnl.storeIE(result, alloc, resultIndices);
 
-      // Increment result:
-      Value accResult = create.math.add(result, loadedDelta);
-      create.krnl.storeIE(accResult, acc, accIndex);
-    }
+        // Increment result:
+        Value accResult = create.math.add(result, loadedDelta);
+        create.krnl.storeIE(accResult, acc, accIndex);
+      }
 
-    rewriter.replaceOp(op, alloc);
+      rewriter.replaceOp(op, alloc);
 
-    return success();
+      return success();
   }
-};
+  };
 
-void populateLoweringONNXRangeOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXRangeOpLowering>(typeConverter, ctx);
-}
+  void populateLoweringONNXRangeOpPattern(RewritePatternSet &patterns,
+      TypeConverter &typeConverter, MLIRContext *ctx) {
+    patterns.insert<ONNXRangeOpLowering>(typeConverter, ctx);
+  }
