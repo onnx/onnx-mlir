@@ -511,6 +511,10 @@ void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
       globalUBs[1], globalUBs[2], simdize, unroll, overcompute);
 }
 
+Value KrnlBuilder::getRef(MemRefType type, Value memref, Value offset) const {
+  return b.create<KrnlGetRefOp>(loc, type, memref, offset);
+}
+
 Value KrnlBuilder::constant(MemRefType type, StringRef name,
     DenseElementsAttr value, Optional<IntegerAttr> offset,
     Optional<IntegerAttr> alignment) const {

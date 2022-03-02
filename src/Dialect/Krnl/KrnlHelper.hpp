@@ -355,6 +355,8 @@ struct KrnlBuilder : public DialectBuilder {
       ValueRange cStart, ValueRange loops, ValueRange computeStarts,
       ValueRange globalUBs, bool simdize, bool unroll, bool overcompute);
 
+  Value getRef(MemRefType type, Value memref, Value offset) const;
+
   Value constant(MemRefType type, StringRef name, DenseElementsAttr value,
       Optional<IntegerAttr> offset = None,
       Optional<IntegerAttr> alignment = None) const;
