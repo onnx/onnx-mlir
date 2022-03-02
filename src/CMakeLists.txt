@@ -17,3 +17,4 @@ add_onnx_mlir_executable(onnx-mlir
   LINK_LIBS PRIVATE
   CompilerUtils
   )
+  

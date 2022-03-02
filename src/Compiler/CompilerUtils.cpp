@@ -1037,12 +1037,9 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   // Initialize accelerator if required
   if (acceleratorTarget.compare("") != 0) {
-    std::cout << "initializing accelerators" << std::endl;
     std::vector<Accelerator *> *accTargets;
     accTargets = Accelerator::getAcceleratorList();
-    std::cout << "target count is " << accTargets->size() << std::endl;
     for (auto accel : *accTargets) {
-      std::cout << "--" << std::endl;
       if (accel->isActive()) {
         accel->prepareAccelerator(module, context, pm, emissionTarget);
       }

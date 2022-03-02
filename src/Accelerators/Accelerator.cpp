@@ -12,12 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 #include "src/Accelerators/Accelerator.hpp"
-#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
 #include <iostream>
 #include <vector>
 
 namespace mlir {
-extern NNPAAccelerator nnpaAccelerator;
 std::vector<Accelerator *> *Accelerator::acceleratorTargets;
 
 Accelerator::Accelerator() {
@@ -25,7 +23,6 @@ Accelerator::Accelerator() {
   if (acceleratorTargets == NULL) {
     std::cout << "initializing acceleratorTargets" << std::endl;
     acceleratorTargets = new std::vector<Accelerator *>();
-    acceleratorTargets->push_back(&nnpaAccelerator);
   }
 }
 
