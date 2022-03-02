@@ -1141,19 +1141,24 @@ LogicalResult ONNXErfOp::inferShapes(
 // PowOp
 //===----------------------------------------------------------------------===//
 
+LogicalResult ONNXPowOp::verify() {
+  ShapedType lhsTy = X().getType().cast<ShapedType>();
+  ShapedType rhsTy = Y().getType().cast<ShapedType>();
+  Type rhsETy = rhsTy.getElementType();
+  Type lhsETy = lhsTy.getElementType();
+  if (rhsETy != lhsETy)
+    return emitOpError("Pow with different input type not implemented yet");
+  if (lhsETy.isa<IntegerType>() || lhsETy.isa<IntegerType>())
+    return emitOpError("Integer power not implemented yet");
+  return success();
+}
 LogicalResult ONNXPowOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return success();
-  RankedTensorType lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  RankedTensorType rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-  Type rhsETy = rhsTy.getElementType();
-  Type lhsETy = lhsTy.getElementType();
-  if (rhsETy != lhsETy)
-    return emitError("Pow with different input type not implemented yet");
-  if (lhsETy.isa<IntegerType>() || lhsETy.isa<IntegerType>())
-    return emitError("Integer power not implemented yet");
+  RankedTensorType lhsTy = X().getType().cast<RankedTensorType>();
+  RankedTensorType rhsTy = Y().getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
   return success();
 }
