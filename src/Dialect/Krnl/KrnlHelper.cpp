@@ -213,29 +213,28 @@ void KrnlIterateOperandPack::pushIndexExprsBound(
 
 //====---------------- BuildKrnlLoop --------------------------------===//
 
-BuildKrnlLoop::BuildKrnlLoop(
-    ConversionPatternRewriter &rewriter, Location loc, int loopNum)
-    : rewriter(rewriter), loc(loc), originalLoopNum(loopNum), pack(nullptr),
+BuildKrnlLoop::BuildKrnlLoop(OpBuilder &builder, Location loc, int loopNum)
+    : builder(builder), loc(loc), originalLoopNum(loopNum), pack(nullptr),
       pushCount(0), createdDefineOp(false), createdIterateOp(false) {
   if (originalLoopNum < 0)
     emitError(loc, "Expected non-negative number of original loops.");
 }
 
 BuildKrnlLoop::BuildKrnlLoop(
-    ConversionPatternRewriter &rewriter, Location loc, Value memRefOperand)
-    : BuildKrnlLoop(rewriter, loc,
+    OpBuilder &builder, Location loc, Value memRefOperand)
+    : BuildKrnlLoop(builder, loc,
           memRefOperand.getType().cast<MemRefType>().getShape().size()) {}
 
 void BuildKrnlLoop::createDefineOp() {
   // Insert define loop operation.
-  auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, originalLoopNum);
+  auto loopsOp = builder.create<KrnlDefineLoopsOp>(loc, originalLoopNum);
   originalLoops.reserve(originalLoopNum);
   for (auto result : loopsOp.getResults())
     originalLoops.push_back(result);
   createdDefineOp = true;
 
   // prepare data structure to push bounds
-  pack = new KrnlIterateOperandPack(rewriter, originalLoops);
+  pack = new KrnlIterateOperandPack(builder, originalLoops);
 }
 
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, int64_t upperBound) {
@@ -288,7 +287,7 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
   if (shape[upperBoundMemRefIndex] < 0) {
     assert(!upperBoundMustBeConstant && "Bound expected to be constant.");
     pack->pushOperandBound(
-        rewriter
+        builder
             .create<memref::DimOp>(
                 loc, upperBoundMemRefOperand, upperBoundMemRefIndex)
             .getResult());
@@ -319,7 +318,7 @@ void BuildKrnlLoop::createIterateOp() {
          "Must push bounds for all original loops.");
 
   // Emit iteration operation.
-  auto iterateOp = rewriter.create<KrnlIterateOp>(loc, *pack);
+  auto iterateOp = builder.create<KrnlIterateOp>(loc, *pack);
   iterBlock = &iterateOp.bodyRegion().front();
   createdIterateOp = true;
 }
