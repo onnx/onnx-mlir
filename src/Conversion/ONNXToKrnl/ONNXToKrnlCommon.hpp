@@ -310,7 +310,17 @@ void populateLoweringONNXRNNOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 // `Sequence` directory methods:
+void populateLoweringONNXSequenceAtOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceConstructOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSequenceEmptyOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceEraseOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceInsertOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceLengthOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 // `Tensor` directory methods:
