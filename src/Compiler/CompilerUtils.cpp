@@ -525,9 +525,8 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   // Emit metadata "zos_le_char_mode" for z/OS. Use EBCDIC codepage by default.
   if (llvm::Triple(getTargetTripleOption()).isOSzOS()) {
     StringRef charModeKey = "zos_le_char_mode";
-    StringRef charModeValue = "ebcdic";
     if (!llvmModule->getModuleFlag(charModeKey)) {
-      auto val = llvm::MDString::get(llvmContext, charModeValue);
+      auto val = llvm::MDString::get(llvmContext, "ebcdic");
       llvmModule->addModuleFlag(llvm::Module::Error, charModeKey, val);
     }
   }
