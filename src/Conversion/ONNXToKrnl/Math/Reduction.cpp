@@ -450,10 +450,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         for (auto i = 0; i < axesDim; i++) {
           Value indexVal = create.math.constantIndex(i);
           Value axe = create.krnl.load(axesVal, indexVal);
-          // Check negative
-          Value cond = create.math.slt(axe, zeroValue);
-          Value dim =
-              create.math.select(cond, create.math.add(axe, dataDimConst), axe);
+          create.math.select(cond, create.math.add(axe, dataDimConst), axe);
           Value jVal = rewriter.create<arith::IndexCastOp>(
               loc, rewriter.getIndexType(), dim);
           create.krnl.store(trueVal, maskVal, jVal);
