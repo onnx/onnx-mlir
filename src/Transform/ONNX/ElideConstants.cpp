@@ -88,6 +88,6 @@ public:
 /*!
  * Create a Constant Value Elision pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createElideConstantValuePass() {
+std::unique_ptr<Pass> onnx_mlir::createElideConstantValuePass() {
   return std::make_unique<ElideConstantValuePass>();
 }

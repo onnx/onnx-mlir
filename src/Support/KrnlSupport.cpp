@@ -298,7 +298,7 @@ Value getDynamicMemRefSizeInBytes(
       if (shape[i] == -1) {
         Value index = rewriter.create<memref::DimOp>(loc, val, i);
         Value dim = rewriter.create<arith::IndexCastOp>(
-            loc, index, rewriter.getI64Type());
+            loc, rewriter.getI64Type(), index);
         sizeInBytes = rewriter.create<arith::MulIOp>(loc, sizeInBytes, dim);
       }
     }

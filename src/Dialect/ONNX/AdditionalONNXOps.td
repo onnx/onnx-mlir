@@ -4,7 +4,7 @@ include "mlir/Interfaces/CallInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 
 def ONNXCustomOp:ONNX_Op<"Custom",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Custom operation";
   let description = [{
   "Allow call-out to a user defined operation. A single attribute"
@@ -12,8 +12,10 @@ def ONNXCustomOp:ONNX_Op<"Custom",
   "passed to the user operation."
   "The number of inputs and outputs can vary."
   }];
+
   let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$input, StrAttr:$function_name);
   let results = (outs Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$outputs);
+
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return -1;
@@ -49,9 +51,7 @@ def ONNXCallOp : ONNX_Op<"ONNX_Call",
   // TODO I would rather have <anyTypeOf<AnyTensor>> here, but the testcase for CustomOps supplies an empty parameter which fails that test --
   //will try to figure out why and revert, leaving this old style as a reminder
   //let results = (outs Variadic<AnyType>);
-
   let results = (outs Variadic<AnyTypeOf<[AnyTensor]>>);
-
 
   let builders = [
     OpBuilder<(ins "FuncOp":$callee, CArg<"ValueRange", "{}">:$operands), [{
@@ -75,6 +75,10 @@ def ONNXCallOp : ONNX_Op<"ONNX_Call",
             results, operands);
     }]>];
 
+  let assemblyFormat = [{
+    $callee `(` $operands `)` attr-dict `:` functional-type($operands, results)
+  }];
+
   let extraClassDeclaration = [{
     StringRef getCallee() { return callee(); }
     StringAttr getCalleeAttr() { return calleeAttr().getAttr(); }
@@ -93,10 +97,4 @@ def ONNXCallOp : ONNX_Op<"ONNX_Call",
       return (*this)->getAttrOfType<SymbolRefAttr>("callee");
     }
   }];
-
-  let assemblyFormat = [{
-    $callee `(` $operands `)` attr-dict `:` functional-type($operands, results)
-  }];
-  let verifier = ?;
 }
-

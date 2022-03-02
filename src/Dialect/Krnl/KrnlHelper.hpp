@@ -355,6 +355,8 @@ struct KrnlBuilder : public DialectBuilder {
       ValueRange cStart, ValueRange loops, ValueRange computeStarts,
       ValueRange globalUBs, bool simdize, bool unroll, bool overcompute);
 
+  Value getRef(MemRefType type, Value memref, Value offset) const;
+
   Value constant(MemRefType type, StringRef name, DenseElementsAttr value,
       Optional<IntegerAttr> offset = None,
       Optional<IntegerAttr> alignment = None) const;
@@ -364,9 +366,12 @@ struct KrnlBuilder : public DialectBuilder {
   void memset(Value dest, Value val) const;
   Value strncmp(Value str1, Value str2, Value len) const;
   Value strlen(Value str) const;
+  void printf(StringRef msg) const;
+  void printf(StringRef msg, Value input, Type inputType) const;
 
   // Onnx-mlir runtime functions.
   Value findIndex(Value input, Value G, Value V, Value len) const;
+  void printTensor(StringRef msg, Value input) const;
 };
 
 // Recursive class specialized for KrnlBuilder refereed to as krnl.

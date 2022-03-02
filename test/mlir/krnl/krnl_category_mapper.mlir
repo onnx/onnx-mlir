@@ -15,9 +15,9 @@ func private @test_find_index_str(%str: !krnl.string) -> index {
 // CHECK-DAG:   llvm.mlir.global internal constant @V(dense<[1, 2, 0]> : tensor<3xi32>) {alignment = 16 : i64} : !llvm.array<3 x i32>
 // CHECK-DAG:   llvm.mlir.global internal constant @G(dense<[1, 0, -3]> : tensor<3xi32>) {alignment = 16 : i64} : !llvm.array<3 x i32>
 
-// CHECK-LABEL: @test_find_index_str(%arg0: !llvm.struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>) -> i64
+// CHECK-LABEL: @test_find_index_str(%arg0: i64) -> i64
 // CHECK-DAG:   [[LEN:%.+]] = llvm.mlir.constant(3 : i32) : i32
-// CHECK-DAG:   [[STR:%.+]] = llvm.extractvalue %arg0[1] : !llvm.struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>
+// CHECK-DAG:   [[STR:%.+]] = llvm.inttoptr %arg0 : i64 to !llvm.ptr<i8>
 // CHECK-DAG:   [[G:%.+]] = llvm.extractvalue {{.*}}[1] : !llvm.struct<(ptr<i32>, ptr<i32>, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK-DAG:   [[V:%.+]] = llvm.extractvalue {{.*}}[1] : !llvm.struct<(ptr<i32>, ptr<i32>, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK:       [[INDEX:%.+]] = llvm.call @find_index_str([[STR]], [[G]], [[V]], [[LEN]]) : (!llvm.ptr<i8>, !llvm.ptr<i32>, !llvm.ptr<i32>, i32) -> i64
@@ -101,22 +101,22 @@ func private @test_category_mapper_string_to_int64(%arg0: memref<2x2x!krnl.strin
   // CHECK-DAG: llvm.mlir.global internal constant @V{{.*}}(dense<[1, 2, 0]> : tensor<3xi32>) {alignment = 16 : i64} : !llvm.array<3 x i32>
   // CHECK-DAG: llvm.mlir.global internal constant @G{{.*}}(dense<[1, 0, -3]> : tensor<3xi32>) {alignment = 16 : i64} : !llvm.array<3 x i32>
 
-  // CHECK-LABEL: @test_category_mapper_string_to_int64(%arg0: !llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>, %arg1: !llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>, %arg2: i64, %arg3: i64, %arg4: i64, %arg5: i64, %arg6: i64) -> !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK-LABEL: @test_category_mapper_string_to_int64(%arg0: !llvm.ptr<i64>, %arg1: !llvm.ptr<i64>, %arg2: i64, %arg3: i64, %arg4: i64, %arg5: i64, %arg6: i64) -> !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<2 x i64>, array<2 x i64>)>
   // CHECK-DAG:   [[C0:%.+]] = llvm.mlir.constant(0 : i32) : i32  
   // CHECK-DAG:   [[DEF_VAL:%.+]] = llvm.mlir.constant(-1 : i64) : i64  
   // CHECK-DAG:   [[LEN:%.+]] = llvm.mlir.constant(3 : i32) : i32
 
   /// Find the index of the input string:
-  // CHECK-DAG:   [[STR:%.+]] = llvm.extractvalue {{.*}}[1] : !llvm.struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>
+  // CHECK-DAG:   [[STR:%.+]] = llvm.inttoptr {{.*}} : i64 to !llvm.ptr<i8>
   // CHECK-DAG:   [[G:%.+]] = llvm.extractvalue {{.*}}[1] : !llvm.struct<(ptr<i32>, ptr<i32>, i64, array<1 x i64>, array<1 x i64>)>
   // CHECK-DAG:   [[V:%.+]] = llvm.extractvalue {{.*}}[1] : !llvm.struct<(ptr<i32>, ptr<i32>, i64, array<1 x i64>, array<1 x i64>)>
   // CHECK:       [[INDEX:%.+]] = llvm.call @find_index_str([[STR]], [[G]], [[V]], [[LEN]]) : (!llvm.ptr<i8>, !llvm.ptr<i32>, !llvm.ptr<i32>, i32) -> i64
 
   /// Determine whether the index is valid:
-  // CHECK:       [[STR1:%.+]]  = llvm.extractvalue {{.*}}[1] : !llvm.struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>
+  // CHECK:       [[STR1:%.+]]  = llvm.inttoptr {{.*}} : i64 to !llvm.ptr<i8>
   // CHECK-DAG:   [[STRLEN:%.+]] = llvm.call @strlen([[STR1]]) : (!llvm.ptr<i8>) -> i64
-  // CHECK-DAG:   [[STR2:%.+]] = llvm.extractvalue {{.*}}[1] : !llvm.struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>
-  // CHECK-DAG:   [[STR3:%.+]] = llvm.extractvalue {{.*}}[1] : !llvm.struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>
+  // CHECK-DAG:   [[STR2:%.+]] = llvm.inttoptr {{.*}} : i64 to !llvm.ptr<i8>
+  // CHECK-DAG:   [[STR3:%.+]] = llvm.inttoptr {{.*}} : i64 to !llvm.ptr<i8>
   // CHECK:       [[STREQ:%.+]] = llvm.call @strncmp([[STR2]], [[STR3]], [[STRLEN]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
 
   /// Store the index if valid, otherwise store the default value:
@@ -186,14 +186,14 @@ func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) -> me
   // CHECK-DAG:  llvm.mlir.global internal constant @V{{.*}}(dense<[2, 1, 0]> : tensor<3xi32>) {alignment = 16 : i64} : !llvm.array<3 x i32>
   // CHECK-DAG:  llvm.mlir.global internal constant @G{{.*}}(dense<[-1, 1, 0]> : tensor<3xi32>) {alignment = 16 : i64} : !llvm.array<3 x i32>
 
-  // CHECK-LABEL: @test_category_mapper_int64_to_string(%arg0: !llvm.ptr<i64>, %arg1: !llvm.ptr<i64>, %arg2: i64, %arg3: i64, %arg4: i64, %arg5: i64, %arg6: i64) -> !llvm.struct<(ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>, ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>, i64, array<2 x i64>, array<2 x i64>)> 
+  // CHECK-LABEL: @test_category_mapper_int64_to_string(%arg0: !llvm.ptr<i64>, %arg1: !llvm.ptr<i64>, %arg2: i64, %arg3: i64, %arg4: i64, %arg5: i64, %arg6: i64) -> !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<2 x i64>, array<2 x i64>)> 
   // CHECK-DAG:   [[LEN:%.+]] = llvm.mlir.constant(3 : i32) : i32
   // CHECK:       [[MALLOC:%.+]] = llvm.call @malloc({{.*}}) : (i64) -> !llvm.ptr<i8>
-  // CHECK:       [[UNDEF:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>, ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>, i64)>  
+  // CHECK:       [[UNDEF:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr<i64>, ptr<i64>, i64)>
   // CHECK:       [[EV_1:%.+]] = llvm.insertvalue {{.*}}, [[UNDEF]][0]
   // CHECK:       [[EV_2:%.+]] = llvm.insertvalue {{.*}}, [[EV_1]][1]
   // CHECK:       [[C0:%.+]] = llvm.mlir.constant(0 : index) : i64
-  // CHECK:       [[DEF_VAL:%.+]] = llvm.insertvalue [[C0]], [[EV_2]][2] : !llvm.struct<(ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>, ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>, i64)>
+  // CHECK:       [[DEF_VAL:%.+]] = llvm.insertvalue [[C0]], [[EV_2]][2] : !llvm.struct<(ptr<i64>, ptr<i64>, i64)>
 
   /// Find the index of the input string:
   // CHECK-DAG:   [[INPUT:%.+]] = llvm.load {{.*}} : !llvm.ptr<i64>  
@@ -202,7 +202,7 @@ func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) -> me
   // CHECK:       [[INDEX:%.+]] = llvm.call @find_index_i64([[INPUT]], [[G]], [[V]], [[LEN]]) : (i64, !llvm.ptr<i32>, !llvm.ptr<i32>, i32) -> i64
 
   /// Determine whether the index is valid:
-  // CHECK:       [[EV1:%.+]] = llvm.extractvalue {{.*}}[1] : !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<1 x i64>, array<1 x i64>)>
+  // CHECK:       [[EV1:%.+]] = llvm.extractvalue {{.*}}[1] : !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<1 x i64>, array<1 x i64>)> 
   // CHECK-DAG:   [[GEP1:%.+]] = llvm.getelementptr [[EV1]]{{.*}}[[INDEX]]{{.*}} : (!llvm.ptr<i64>, i64) -> !llvm.ptr<i64>
   // CHECK-DAG:   [[INDEX1:%.+]] = llvm.load [[GEP1]] : !llvm.ptr<i64>
 
@@ -210,14 +210,14 @@ func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) -> me
   // CHECK-NEXT:  [[IS_EQUAL:%.+]] = llvm.icmp "eq" {{.*}}, [[INDEX1]] : i64  
   // CHECK-NEXT:  llvm.cond_br [[IS_EQUAL]], [[LAB_TRUE:\^.+]], [[LAB_FALSE:\^.+]]
   // CHECK:       [[LAB_TRUE]]:
-  // CHECK:       [[GEP1:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>, i64) -> !llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>
-  // CHECK:       [[LOAD1:%.+]] = llvm.load [[GEP1]] : !llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>
-  // CHECK:       llvm.store [[LOAD1]], {{.*}} : !llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>
+  // CHECK:       [[GEP1:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr<i64>, i64) -> !llvm.ptr<i64> 
+  // CHECK:       [[LOAD1:%.+]] = llvm.load [[GEP1]] : !llvm.ptr<i64> 
+  // CHECK:       llvm.store [[LOAD1]], {{.*}} : !llvm.ptr<i64>
   // CHECK-NEXT:  llvm.br [[IF_END:\^.+]]
   // CHECK:       [[LAB_FALSE]]:  
-  // CHECK:       [[EV2:%.+]] = llvm.extractvalue [[DEF_VAL]][1] : !llvm.struct<(ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>, ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>, i64)>
-  // CHECK:       [[LOAD_EXT_VAL:%.+]] = llvm.load [[EV2]] : !llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>
-  // CHECK:       llvm.store [[LOAD_EXT_VAL]], {{.*}} : !llvm.ptr<struct<(ptr<i8>, ptr<i8>, i64, array<1 x i64>, array<1 x i64>)>>
+  // CHECK:       [[EV2:%.+]] = llvm.extractvalue [[DEF_VAL]][1] : !llvm.struct<(ptr<i64>, ptr<i64>, i64)>
+  // CHECK:       [[LOAD_EXT_VAL:%.+]] = llvm.load [[EV2]] : !llvm.ptr<i64>
+  // CHECK:       llvm.store [[LOAD_EXT_VAL]], {{.*}} : !llvm.ptr<i64>
   // CHECK-NEXT:  llvm.br [[IF_END]]
   // CHECK:       [[IF_END]]:
 }

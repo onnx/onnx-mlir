@@ -9,5 +9,4 @@ add_onnx_mlir_library(OMKrnlToAffine
   OMSupport
   MLIRTransforms
   MLIRAffineUtils
-  MLIRVector
   )

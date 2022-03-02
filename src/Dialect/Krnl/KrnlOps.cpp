@@ -86,13 +86,13 @@ void KrnlDefineLoopsOp::build(
       getNumLoopsAttrName(), builder.getI64IntegerAttr(num_loops));
 }
 
-void print(OpAsmPrinter &p, KrnlDefineLoopsOp &op) {
-  auto numLoopAttr =
-      op->getAttrOfType<IntegerAttr>(KrnlDefineLoopsOp::getNumLoopsAttrName());
-  p << ' ' << numLoopAttr.getValue().getSExtValue();
+void KrnlDefineLoopsOp::print(OpAsmPrinter &printer) {
+  auto numLoopAttr = (*this)->getAttrOfType<IntegerAttr>(
+      KrnlDefineLoopsOp::getNumLoopsAttrName());
+  printer << ' ' << numLoopAttr.getValue().getSExtValue();
 }
 
-ParseResult parseKrnlDefineLoopsOp(
+ParseResult KrnlDefineLoopsOp::parse(
     OpAsmParser &parser, OperationState &result) {
   // Parse the attribute indicating number of loops defined.
   IntegerAttr numLoops;
@@ -209,46 +209,47 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   build(builder, result, pack, iterArgs, bodyBuilderFn);
 }
 
-void print(OpAsmPrinter &p, KrnlIterateOp &op) {
-  p << "(";
+void KrnlIterateOp::print(OpAsmPrinter &printer) {
+  printer << "(";
   // Print optimized loops:
-  auto numOptimizedLoops = op.getNumOptimizedLoops();
-  p.printOperands(op.operand_begin(), op.operand_begin() + numOptimizedLoops);
-  p << ") with (";
+  auto numOptimizedLoops = getNumOptimizedLoops();
+  printer.printOperands(operand_begin(), operand_begin() + numOptimizedLoops);
+  printer << ") with (";
 
   // In the event where body region has been lowered, do not print body.
-  if (op.bodyRegion().empty()) {
-    p << ")";
+  if (bodyRegion().empty()) {
+    printer << ")";
     return;
   }
-  auto inductionVars = op.bodyRegion().begin()->getArguments();
+  auto inductionVars = bodyRegion().begin()->getArguments();
   auto boundItr =
-      op->getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
+      (*this)
+          ->getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
           .getValue()
           .begin();
-  auto operandItr = op.operand_begin() + numOptimizedLoops;
+  auto operandItr = operand_begin() + numOptimizedLoops;
 
   std::string delimiter;
   for (auto &var : inductionVars) {
-    p << delimiter;
-    p.printOperand(*operandItr++);
-    p << " -> ";
-    p.printOperand(var);
-    p << " = ";
+    printer << delimiter;
+    printer.printOperand(*operandItr++);
+    printer << " -> ";
+    printer.printOperand(var);
+    printer << " = ";
     onnx_mlir::printBound(
-        (*boundItr++).cast<AffineMapAttr>(), operandItr, "max", p);
-    p << " to ";
+        (*boundItr++).cast<AffineMapAttr>(), operandItr, "max", printer);
+    printer << " to ";
     onnx_mlir::printBound(
-        (*boundItr++).cast<AffineMapAttr>(), operandItr, "min", p);
+        (*boundItr++).cast<AffineMapAttr>(), operandItr, "min", printer);
     delimiter = ", ";
   }
 
-  p << ")";
-  p.printRegion(op.bodyRegion(), /*printEntryBlockArgs=*/false,
+  printer << ")";
+  printer.printRegion(bodyRegion(), /*printEntryBlockArgs=*/false,
       /*printBlockTerminators=*/false);
 }
 
-ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
+ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   auto builder = parser.getBuilder();
   auto context = builder.getContext();
   onnx_mlir::KrnlDialectOperandParser operandParser(parser);
@@ -392,7 +393,7 @@ bool KrnlIterateOp::isDefinedOutsideOfLoop(Value value) {
   return !bodyRegion().isAncestor(value.getParentRegion());
 }
 
-static LogicalResult verify(KrnlIterateOp op) {
+LogicalResult KrnlIterateOp::verify() {
   // TODO: Verify number of induction variable bounds matches the number of
   // input loops.
   return success();
@@ -495,7 +496,12 @@ void KrnlVectorTypeCastOp::build(OpBuilder &builder, OperationState &state,
   build(builder, state, resultType, sourceMemRef);
 }
 
-bool KrnlVectorTypeCastOp::areCastCompatible(Type a, Type b) {
+bool KrnlVectorTypeCastOp::areCastCompatible(
+    TypeRange inputs, TypeRange outputs) {
+  if (inputs.size() != 1 || outputs.size() != 1)
+    return false;
+  Type a = inputs.front(), b = outputs.front();
+
   auto aT = a.dyn_cast<MemRefType>();
   auto bT = b.dyn_cast<MemRefType>();
 
@@ -564,7 +570,7 @@ static LogicalResult foldMemRefCast(Operation *op) {
 }
 
 OpFoldResult KrnlVectorTypeCastOp::fold(ArrayRef<Attribute> operands) {
-  if (Value folded = impl::foldCastOp(*this))
+  if (OpFoldResult folded = OpFoldResult())
     return folded;
   return succeeded(foldMemRefCast(*this)) ? getResult() : Value();
 }
@@ -617,8 +623,8 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
       odsSimdize, odsUnroll, odsOvercompute);
 }
 
-static LogicalResult verify(KrnlMatMulOp op) {
-  KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
+LogicalResult KrnlMatMulOp::verify() {
+  KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(*this);
   uint64_t aRank =
       operandAdaptor.A().getType().cast<MemRefType>().getShape().size();
   uint64_t bRank =
@@ -626,35 +632,35 @@ static LogicalResult verify(KrnlMatMulOp op) {
   uint64_t cRank =
       operandAdaptor.C().getType().cast<MemRefType>().getShape().size();
   if (!(aRank >= 2 && bRank >= 2 && cRank >= 2))
-    return op.emitOpError("currently only support ranks >=2");
+    return emitOpError("currently only support ranks >=2");
   if (operandAdaptor.aMemStart().size() != aRank)
-    return op.emitOpError("aMemStart should have same rank as memref A");
+    return emitOpError("aMemStart should have same rank as memref A");
   if (operandAdaptor.bMemStart().size() != bRank)
-    return op.emitOpError("bMemStart should have same rank as memref A");
+    return emitOpError("bMemStart should have same rank as memref A");
   if (operandAdaptor.cMemStart().size() != cRank)
-    return op.emitOpError("cMemStart should have same rank as memref A");
+    return emitOpError("cMemStart should have same rank as memref A");
   if (operandAdaptor.loops().size() != 3)
-    return op.emitOpError("loops rank should be 3 (i,j,k)");
+    return emitOpError("loops rank should be 3 (i,j,k)");
 
   if (operandAdaptor.computeTileSize().hasValue()) {
     ArrayAttr computeAttr = operandAdaptor.computeTileSize().getValue();
     if (!(computeAttr.size() == 0 || computeAttr.size() == 3))
-      return op.emitOpError("computeTileSize rank should be 0 or 3");
+      return emitOpError("computeTileSize rank should be 0 or 3");
   }
   if (operandAdaptor.aTileSize().hasValue()) {
     ArrayAttr aTileAttr = operandAdaptor.aTileSize().getValue();
     if (!(aTileAttr.size() == 0 || aTileAttr.size() == 2))
-      return op.emitOpError("aTileSize rank should be 0 or 2");
+      return emitOpError("aTileSize rank should be 0 or 2");
   }
   if (operandAdaptor.bTileSize().hasValue()) {
     ArrayAttr bTileAttr = operandAdaptor.bTileSize().getValue();
     if (!(bTileAttr.size() == 0 || bTileAttr.size() == 2))
-      return op.emitOpError("bTileSize rank should be 0 or 2");
+      return emitOpError("bTileSize rank should be 0 or 2");
   }
   if (operandAdaptor.cTileSize().hasValue()) {
     ArrayAttr cTileAttr = operandAdaptor.cTileSize().getValue();
     if (!(cTileAttr.size() == 0 || cTileAttr.size() == 2))
-      return op.emitOpError("cTileSize rank should be 0 or 2");
+      return emitOpError("cTileSize rank should be 0 or 2");
   }
   return success();
 }
@@ -687,32 +693,32 @@ void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
       odsPadValue, empty, empty, odsTranspose);
 }
 
-static LogicalResult verify(KrnlCopyToBufferOp op) {
-  KrnlCopyToBufferOpAdaptor opAdaptor = KrnlCopyToBufferOpAdaptor(op);
+LogicalResult KrnlCopyToBufferOp::verify() {
+  KrnlCopyToBufferOpAdaptor opAdaptor = KrnlCopyToBufferOpAdaptor(*this);
   MemRefBoundsIndexCapture buffCapture(opAdaptor.buffer());
   MemRefBoundsIndexCapture srcCapture(opAdaptor.source());
   int64_t bufferRank = buffCapture.getRank();
   int64_t srcRank = srcCapture.getRank();
   int64_t startRank = opAdaptor.starts().size();
   if (!buffCapture.areAllLiteral())
-    return op.emitOpError("buffer expect constant dimensions");
+    return emitOpError("buffer expect constant dimensions");
   if (srcRank < bufferRank)
-    return op.emitOpError("Rank of memref cannot be smaller than buffer");
+    return emitOpError("Rank of memref cannot be smaller than buffer");
   if (startRank != srcRank)
-    return op.emitOpError("Rank of starts and memrefs must be identical");
+    return emitOpError("Rank of starts and memrefs must be identical");
   if (opAdaptor.tileSize()) {
     int64_t tRank = opAdaptor.tileSize().getValue().size();
     if (!(tRank == 0 || tRank == bufferRank))
-      return op.emitOpError("Rank of tileSize must be identical to buffer");
+      return emitOpError("Rank of tileSize must be identical to buffer");
   }
   if (opAdaptor.padToNext()) {
     int64_t padRank = opAdaptor.padToNext().getValue().size();
     if (!(padRank == 0 || padRank == bufferRank))
-      return op.emitOpError("Rank of padToNext must be identical to buffer");
+      return emitOpError("Rank of padToNext must be identical to buffer");
   }
   if (opAdaptor.transpose()) {
     if (bufferRank < 2)
-      return op.emitOpError(
+      return emitOpError(
           "To transpose buffer, its rank must be greater than 1");
   }
 
@@ -742,23 +748,23 @@ void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
   build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange, empty);
 }
 
-static LogicalResult verify(KrnlCopyFromBufferOp op) {
-  KrnlCopyFromBufferOpAdaptor opAdaptor = KrnlCopyFromBufferOpAdaptor(op);
+LogicalResult KrnlCopyFromBufferOp::verify() {
+  KrnlCopyFromBufferOpAdaptor opAdaptor = KrnlCopyFromBufferOpAdaptor(*this);
   MemRefBoundsIndexCapture buffCapture(opAdaptor.buffer());
   int64_t bufferRank = buffCapture.getRank();
   int64_t destRank =
       opAdaptor.dest().getType().cast<MemRefType>().getShape().size();
   int64_t startRank = opAdaptor.starts().size();
   if (!buffCapture.areAllLiteral())
-    return op.emitOpError("buffer expect constant dimensions");
+    return emitOpError("buffer expect constant dimensions");
   if (destRank < bufferRank)
-    return op.emitOpError("Rank of memref cannot be smaller than buffer");
+    return emitOpError("Rank of memref cannot be smaller than buffer");
   if (startRank != destRank)
-    return op.emitOpError("Rank of starts and memrefs must be identical");
+    return emitOpError("Rank of starts and memrefs must be identical");
   if (opAdaptor.tileSize()) {
     int64_t tRank = opAdaptor.tileSize().getValue().size();
     if (!(tRank == 0 || tRank == bufferRank))
-      return op.emitOpError("Rank of tileSize must be identical to buffer");
+      return emitOpError("Rank of tileSize must be identical to buffer");
   }
   return success();
 }

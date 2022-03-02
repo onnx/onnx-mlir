@@ -511,6 +511,10 @@ void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
       globalUBs[1], globalUBs[2], simdize, unroll, overcompute);
 }
 
+Value KrnlBuilder::getRef(MemRefType type, Value memref, Value offset) const {
+  return b.create<KrnlGetRefOp>(loc, type, memref, offset);
+}
+
 Value KrnlBuilder::constant(MemRefType type, StringRef name,
     DenseElementsAttr value, Optional<IntegerAttr> offset,
     Optional<IntegerAttr> alignment) const {
@@ -540,6 +544,50 @@ Value KrnlBuilder::strlen(Value str) const {
 Value KrnlBuilder::findIndex(Value input, Value G, Value V, Value len) const {
   return b.create<KrnlFindIndexOp>(loc, b.getIndexType(), input, G, V, len);
 }
+
+void KrnlBuilder::printTensor(StringRef msg, Value input) const {
+  b.create<KrnlPrintTensorOp>(loc, msg, input);
+}
+
+void KrnlBuilder::printf(StringRef msg) const {
+  Value noneValue;
+  b.create<KrnlPrintOp>(loc, msg, noneValue);
+}
+
+void KrnlBuilder::printf(StringRef msg, Value input, Type inputType) const {
+  StringRef format;
+  TypeSwitch<Type>(inputType)
+      .Case<mlir::Float16Type>([&](mlir::Float16Type) { format = "%g\n"; })
+      .Case<mlir::Float32Type>([&](mlir::Float32Type) { format = "%g\n"; })
+      .Case<mlir::Float64Type>([&](mlir::Float64Type) { format = "%g\n"; })
+      .Case<IntegerType>([&](IntegerType type) {
+        switch (type.getWidth()) {
+        case 1:
+        case 8:
+        case 16:
+        case 32:
+          format = type.isUnsigned() ? "%u\n" : "%d\n";
+          break;
+        case 64:
+          format = type.isUnsigned() ? "%llu\n" : "%lld\n";
+          break;
+        }
+      })
+      .Case<IndexType>([&](IndexType type) { format = "%lld\n"; })
+      .Case<StringType>([&](StringType type) { format = "%s\n"; })
+      .Case<LLVM::LLVMPointerType>(
+          [&](LLVM::LLVMPointerType type) { format = "%s\n"; })
+      .Default([&](Type type) {
+        llvm::errs() << "type: " << type << "\n";
+        llvm_unreachable("Unhandled type");
+      });
+
+  std::string concat(msg.str() + format.str());
+  StringRef newFormat(concat);
+  b.create<KrnlPrintOp>(loc, newFormat, input);
+}
+
+//====---------------- Common helper functions --------------------------===//
 
 bool isKrnlGlobalConstant(Value result) {
   Operation *op = result.getDefiningOp();

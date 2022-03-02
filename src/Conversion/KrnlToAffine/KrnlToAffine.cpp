@@ -763,24 +763,6 @@ public:
       simdize = false;
       LLVM_DEBUG(llvm::dbgs() << "Matmul: No simd due to vl not a literal\n");
     }
-    if (!bBounds.isLiteral(bRank - 1) || !cBounds.isLiteral(cRank - 1)) {
-      // Cannot simdize if the last dim of B or C are not constant.
-      simdize = false;
-      LLVM_DEBUG(llvm::dbgs()
-                 << "Matmul: No simd due to B & C last dim not a literal\n");
-    }
-    if (simdize) {
-      int64_t VL = vectorLen.getLiteral();
-      if (bBounds.getShape(bRank - 1) % VL != 0 ||
-          cBounds.getShape(cRank - 1) % VL != 0) {
-        // If the memref of B and C are not multiple of the vector length in
-        // their last dim, then we cannot simdize either.
-        simdize = false;
-        LLVM_DEBUG(
-            llvm::dbgs()
-            << "Matmul: No simd due to B & C last dim not a multiple of VL\n");
-      }
-    }
     if (!simdize)
       vectorLen = LiteralIndexExpr(1);
 
@@ -816,10 +798,6 @@ public:
     cStart.emplace_back(
         jComputeStart - DimIndexExpr(operandAdaptor.cMemStart()[cRank - 1]));
 
-    SmallVector<IndexExpr, 4> bVecStart(bStart), cVecStart(cStart);
-    bVecStart[bRank - 1] = bStart[bRank - 1].floorDiv(vectorLen);
-    cVecStart[cRank - 1] = cStart[cRank - 1].floorDiv(vectorLen);
-
     // Now determine if we have full/partial tiles. This is determined by the
     // outer dimensions of the original computations, as by definition tiling
     // within the buffer always results in full tiles. In other words, partial
@@ -849,8 +827,8 @@ public:
       // SIMD code generator.
       // clang-format off
       createAffine.ifThenElse(indexScope, allFullTiles,
-        /* then full */ [&](AffineBuilderKrnlMem &createAffine) {
-        genSimd(rewriter, loc, op, elementType, aStart, bVecStart, cVecStart,
+        /* then full tiles */ [&](AffineBuilderKrnlMem &createAffine) {
+        genSimd(rewriter, loc, op, elementType, aStart, bStart, cStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
           vectorLen, fullUnrollAndJam); 
       }, /* has some partial tiles */ [&](AffineBuilderKrnlMem &createAffine) {
@@ -858,17 +836,18 @@ public:
         // Test if SIMD dim (M) is full.
         createAffine.ifThenElse(indexScope, jFullTiles,
           /* full SIMD */ [&](AffineBuilderKrnlMem &createAffine) {
-          genSimd(rewriter, loc, op, elementType, aStart, bVecStart, cVecStart,
-            iTrip, jComputeTileSize, kTrip, vectorLen, false);
+          genSimd(rewriter, loc, op, elementType, aStart, bStart, cStart,
+            iTrip, jComputeTileSize, kTrip, vectorLen, /*unroll*/ false);
         }, /* else partial SIMD */ [&](AffineBuilderKrnlMem &createAffine) {
+          // TODO: evaluate if get performance from partial SIMD
           if (false && jPartialTrip.isLiteral() && jPartialTrip.getLiteral() >=2) {
             // has a known trip count along the simd dimension of at least 2
             // elements, use simd again.
-            genSimd(rewriter, loc, op, elementType, aStart, bVecStart, cVecStart,
-              iTrip, jPartialTrip, kTrip, vectorLen, false);
+            genSimd(rewriter, loc, op, elementType, aStart, bStart, cStart,
+              iTrip, jPartialTrip, kTrip, vectorLen, /*unroll*/ false);
           } else {
             genScalar(rewriter, op, elementType, aStart, bStart,  cStart,
-              iTrip, jPartialTrip, kTrip, false);
+              iTrip, jPartialTrip, kTrip, /*unroll*/ false);
           }
         });
       });
@@ -988,9 +967,6 @@ private:
     int64_t unrollFactor = (unrollJam && I.isLiteral()) ? I.getLiteral() : 1;
     // Have to privatize CTmpType by unroll factor (1 if none).
     MemRefType CTmpType = MemRefType::get({unrollFactor}, vecType);
-    KrnlBuilder createKrnl(rewriter, loc);
-    Value vecB = createKrnl.vectorTypeCast(B, VL);
-    Value vecC = createKrnl.vectorTypeCast(C, VL);
     assert(BUFFER_ALIGN >= gDefaultAllocAlign);
     Value TmpC = createMemRef.alignedAlloca(CTmpType, BUFFER_ALIGN);
 
@@ -999,39 +975,37 @@ private:
     LiteralIndexExpr zero(0);
     createAffine.forIE(
         zero, I, 1, [&](AffineBuilderKrnlMem &createAffine, Value i) {
-          MathBuilder createMath(createAffine);
+          MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
           iSaved = i; // Saved for unroll and jam.
           // Alloca temp vector TmpC and save C(i)/0.0 into it.
           SmallVector<Value, 4> cAccess;
           // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
           IndexExpr::getValues(cStart, cAccess);
-          cAccess[cRank - 2] = createMath.add(i, cAccess[cRank - 2]);
-          Value initVal = createAffine.load(vecC, cAccess);
+          cAccess[cRank - 2] = create.math.add(i, cAccess[cRank - 2]);
+          Value initVal = create.vec.load(vecType, C, cAccess);
           Value tmpCAccess = (unrollFactor > 1) ? i : zero.getValue();
           createAffine.store(initVal, TmpC, tmpCAccess);
           // Sum over k.
           createAffine.forIE(
               zero, K, 1, [&](AffineBuilderKrnlMem &createAffine, Value k) {
-                MathBuilder createMath(createAffine);
+                MultiDialectBuilder<MathBuilder, VectorBuilder> create(
+                    createAffine);
                 kSaved = k;
                 // Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
                 SmallVector<Value, 4> aAccess, bAccess;
                 IndexExpr::getValues(aStart, aAccess);
-                aAccess[aRank - 2] = createMath.add(i, aAccess[aRank - 2]);
-                aAccess[aRank - 1] = createMath.add(k, aAccess[aRank - 1]);
+                aAccess[aRank - 2] = create.math.add(i, aAccess[aRank - 2]);
+                aAccess[aRank - 1] = create.math.add(k, aAccess[aRank - 1]);
                 Value a = createAffine.load(A, aAccess);
                 // Value va = vector_broadcast(vecType, a);
-                Value va =
-                    createAffine.getBuilder().create<vector::BroadcastOp>(
-                        createAffine.getLoc(), vecType, a);
+                Value va = create.vec.broadcast(vecType, a);
                 // bAccess = {k + bStart0.getValue(), bStart1.getValue()};
                 IndexExpr::getValues(bStart, bAccess);
-                bAccess[bRank - 2] = createMath.add(k, bAccess[bRank - 2]);
-                Value vb = createAffine.load(vecB, bAccess);
+                bAccess[bRank - 2] = create.math.add(k, bAccess[bRank - 2]);
+                Value vb = create.vec.load(vecType, B, bAccess);
                 // TTmpC() = vector_fma(va, vb, TTmpC());
                 Value tmpVal = createAffine.load(TmpC, tmpCAccess);
-                Value res = createAffine.getBuilder().create<vector::FMAOp>(
-                    createAffine.getLoc(), va, vb, tmpVal);
+                Value res = create.vec.fma(va, vb, tmpVal);
                 createAffine.store(res, TmpC, tmpCAccess);
               });
           // Store temp result into C(i)
@@ -1043,12 +1017,11 @@ private:
             for (int64_t i = 0; i < VL; i++)
               mask.emplace_back((i < JLit) ? i : VL + i);
             // permute
-            Value originalCvec = createAffine.load(vecC, cAccess);
-            tmpResults = createAffine.getBuilder().create<vector::ShuffleOp>(
-                createAffine.getLoc(), tmpResults, originalCvec, mask);
+            Value originalCvec = create.vec.load(vecType, C, cAccess);
+            tmpResults = create.vec.shuffle(tmpResults, originalCvec, mask);
           }
           // CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
-          createAffine.store(tmpResults, vecC, cAccess);
+          create.vec.store(tmpResults, C, cAccess);
         });
 
     if (unrollJam && (I.isLiteral() || K.isLiteral())) {
@@ -1560,6 +1533,6 @@ void ConvertKrnlToAffinePass::runOnOperation() {
 
 } // namespace
 
-std::unique_ptr<Pass> mlir::createConvertKrnlToAffinePass() {
+std::unique_ptr<Pass> onnx_mlir::createConvertKrnlToAffinePass() {
   return std::make_unique<ConvertKrnlToAffinePass>();
 }

@@ -298,6 +298,7 @@ OpsWithVerifier = [
     'CategoryMapper',    
     'Compress',
     'Concat',
+    'ConstantOfShape',
     'Conv',
     'DepthToSpace',
     'Expand',
@@ -307,6 +308,8 @@ OpsWithVerifier = [
     'Mod',
     'NonMaxSuppression',
     'OneHot',
+    'OneHotEncoder',
+    'Pow',
     'RandomNormalLike',
     'ReverseSequence',
     "RoiAlign",
@@ -1059,7 +1062,7 @@ def gen_op_def(schema, with_version = False):
 
     # Generate decl for verifier.
     if opName in OpsWithVerifier:
-        s += indent + 'let verifier = [{ return ::verify(*this); }];\n'
+        s += indent + 'let hasVerifier = 1;\n'
 
     s += '}\n\n'
     return s
