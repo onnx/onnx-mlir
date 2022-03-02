@@ -3249,6 +3249,7 @@ LogicalResult ONNXGatherOp::inferShapes(
 
 LogicalResult ONNXConstantOfShapeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+
   Type elementType;
 
   // 'value' attribute is a one-element tensor whose value and datatype are
@@ -3271,10 +3272,6 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes(
 
   // 'input' must be a 1D tensor.
   auto inputShape = input().getType().cast<RankedTensorType>().getShape();
-  if (inputShape.size() != 1)
-    return emitError("Input tensor must be a 1D tensor");
-  if (inputShape[0] == -1)
-    return emitError("Input tensor must have static shape");
   if (inputShape[0] == 0) {
     // If 'input' is an empty tensor, the output would be a scalar.
     getResult().setType(RankedTensorType::get({}, elementType));
@@ -3292,16 +3289,47 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes(
     auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
     for (int i = 0; i < inputShape[0]; ++i) {
       auto dim = (*valueIt++).cast<IntegerAttr>().getInt();
-      if (dim < 0)
-        return emitError("All values of the input tensor must be >=0");
       outputDims[i] = dim;
     }
-
-    if (valueIt != valueAttribute.getValues<IntegerAttr>().end())
-      return emitError("Constant value must have same length as output's rank");
   }
 
   getResult().setType(RankedTensorType::get(outputDims, elementType));
+  return success();
+}
+
+LogicalResult ONNXConstantOfShapeOp::verify() {
+  ONNXConstantOfShapeOpAdaptor operandAdaptor =
+      ONNXConstantOfShapeOpAdaptor(*this);
+
+  auto input = operandAdaptor.input();
+
+  if (!hasShapeAndRank(input))
+    return success();
+
+  auto inputShape = input.getType().cast<RankedTensorType>().getShape();
+  if (inputShape.size() != 1)
+    return emitOpError("Input tensor must be a 1D tensor");
+  if (inputShape[0] == -1)
+    return emitOpError("Input tensor must have static shape");
+
+  // Calculate output dimensions.
+  SmallVector<int64_t, 4> outputDims(inputShape[0], -1);
+  // If 'input' is a constant, check whether its values are valid or not.
+  // If the values are valid, it is possible to infer shape.
+  if (auto constantOp = getONNXConstantOp(input)) {
+    DenseElementsAttr valueAttribute =
+        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    // Get repeat values from valueAttribute.
+    auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
+    for (int i = 0; i < inputShape[0]; ++i) {
+      auto dim = (*valueIt++).cast<IntegerAttr>().getInt();
+      if (dim < 0)
+        return emitOpError("All values of the input tensor must be >=0");
+    }
+    if (valueIt != valueAttribute.getValues<IntegerAttr>().end())
+      return emitOpError(
+          "Constant value must have same length as output's rank");
+  }
   return success();
 }
 
@@ -3437,27 +3465,50 @@ LogicalResult ONNXOneHotEncoderOp::inferShapes(
   // the data will be cast to integers and
   // the cats_int64s category list will be used for the lookups.
   if (inputType.getElementType().isIntOrFloat()) {
-    if (!cats_int64s())
-      return emitError("input is a tensor of float, int32, or double, but no "
-                       "cats_int64s attribute");
     outDim = ArrayAttrSize(cats_int64s());
   } else {
-    if (!cats_strings())
-      return emitError("input is not a tensor of float, int32, or double, but "
-                       "no cats_strings attribute");
     outDim = ArrayAttrSize(cats_strings());
   }
 
   // Encoded output data, having one more dimension than X
   // total category count will determine the size of the extra dimension
   SmallVector<int64_t, 2> dims;
-  for (unsigned int i = 0; i != shape.size(); ++i) {
+  for (unsigned int i = 0; i != shape.size(); ++i)
     dims.emplace_back(shape[i]);
-  }
   dims.emplace_back(outDim);
 
   getResult().setType(
       RankedTensorType::get(dims, FloatType::getF32(getContext())));
+  return success();
+}
+
+LogicalResult ONNXOneHotEncoderOp::verify() {
+  ONNXOneHotEncoderOpAdaptor operandAdaptor = ONNXOneHotEncoderOpAdaptor(*this);
+
+  // get operands
+  auto input = operandAdaptor.X();
+  if (!hasShapeAndRank(input))
+    return success();
+
+  auto inputType = input.getType().cast<ShapedType>();
+  if (!inputType)
+    return success();
+
+  // If the input is a tensor of float, int32, or double,
+  // the data will be cast to integers and
+  // the cats_int64s category list will be used for the lookups.
+  if (inputType.getElementType().isIntOrFloat()) {
+    if (!operandAdaptor.cats_int64s()) {
+      return emitOpError("input is a tensor of float, int32, or double, but no "
+                         "cats_int64s attribute");
+    }
+  } else {
+    if (!operandAdaptor.cats_strings()) {
+      return emitOpError(
+          "input is not a tensor of float, int32, or double, but "
+          "no cats_strings attribute");
+    }
+  }
   return success();
 }
 
