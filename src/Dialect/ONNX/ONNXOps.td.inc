@@ -820,6 +820,7 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
       return resultTypes;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXConvOp:ONNX_Op<"Conv",
@@ -6981,6 +6982,7 @@ def ONNXOneHotEncoderOp:ONNX_Op<"OneHotEncoder",
       return {7};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXSVMClassifierOp:ONNX_Op<"SVMClassifier",
