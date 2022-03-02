@@ -132,8 +132,8 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
           // 'pHash'. Note: the index might not be valid (this happens
           // when the 'inputElem' is not present in the perfect hash
           // table).
-          Value inputElem = createKrnl.load(X, loopInd);
-
+          Value inputElem =
+              loadElement(X, loopInd, elementType, rank, createKrnl);
           if (emitPrintStmts)
             create.krnl.printf("inputElem: ", inputElem, elementType);
 
@@ -226,9 +226,35 @@ private:
           PerfectHash<StringRef, int32_t> pHash(dict);
           res = createConstants(pHash.getG(), pHash.getV());
         })
-        .Default([&](Type type) { llvm_unreachable("Illegal KeyTy"); });
+        .Default([&](Type type) {
+          llvm::errs() << "type: " << type << "\n";
+          llvm_unreachable("Illegal KeyTy");
+        });
 
     return res;
+  }
+
+  Value loadElement(Value memref, ValueRange loopInd, Type elementType,
+      int64_t rank, KrnlBuilder &createKrnl) const {
+    Value inputElem;
+    TypeSwitch<Type>(elementType)
+        .Case<IntegerType>(
+            [&](IntegerType) { inputElem = createKrnl.load(memref, loopInd); })
+        .Case<StringType>([&](StringType stringType) {
+          MathBuilder createMath(createKrnl);
+          Value zero = createMath.constant(
+              createMath.getBuilder().getIntegerType(64), 0);
+          auto memRefType = MemRefType::get(
+              {rank}, StringType::get(elementType.getContext()));
+          Value stringMemRef = createKrnl.getRef(memRefType, memref, zero);
+          inputElem = createKrnl.load(stringMemRef, loopInd);
+        })
+        .Default([&](Type type) {
+          llvm::errs() << "type: " << type << "\n";
+          llvm_unreachable("Unexpected elementType");
+        });
+
+    return inputElem;
   }
 
   // Determine the index of 'inputElem' in the perfect hash table 'pHash'.
@@ -263,7 +289,10 @@ private:
           Value isIndexValid = create.math.eq(strncmpRes, zeroVal);
           res = std::make_tuple(index, isIndexValid);
         })
-        .Default([&](Type type) { llvm_unreachable("Illegal KeyTy"); });
+        .Default([&](Type type) {
+          llvm::errs() << "type: " << type << "\n";
+          llvm_unreachable("Illegal KeyTy");
+        });
 
     return res;
   }
@@ -301,7 +330,10 @@ private:
           rewriter.setInsertionPointToStart(&ifOp.getElseRegion().front());
           createKrnl.store(defaultInt64, alloc, loopInd);
         })
-        .Default([&](Type type) { llvm_unreachable("Illegal KeyTy"); });
+        .Default([&](Type type) {
+          llvm::errs() << "type: " << type << "\n";
+          llvm_unreachable("Illegal KeyTy");
+        });
   }
 };
 
