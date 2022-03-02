@@ -59,5 +59,9 @@ llvm::Optional<mlir::FlatSymbolRefAttr> getFunctionDeclaration(
 mlir::FlatSymbolRefAttr getOrInsertStrncmp(
     mlir::OpBuilder &builder, mlir::ModuleOp module);
 
+/// Convert a string from ASCII to EBCDIC.
+/// This is not in-place conversion and a new string in EBCDIC is returned.
+std::string a2e_s(std::string a_s);
+
 } // namespace krnl
 } // namespace onnx_mlir
