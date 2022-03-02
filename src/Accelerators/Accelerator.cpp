@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- OMAccelerator.hpp -------------------------===//
+//===-------------------------- Accelerator.cpp -------------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-// OMAccelerator base class
+// Accelerator base class
 //
 //===----------------------------------------------------------------------===//
 #include "src/Accelerators/Accelerator.hpp"
