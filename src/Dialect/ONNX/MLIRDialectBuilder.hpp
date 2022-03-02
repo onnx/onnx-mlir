@@ -73,6 +73,7 @@ struct MathBuilder final : DialectBuilder {
   Value exp2(Value val) const;
   Value log2(Value val) const;
   Value sqrt(Value val) const;
+  Value pow(Value base, Value exp) const;
 
   Value select(Value cmp, Value lhs, Value rhs) const;
   Value sgt(Value lhs, Value rhs) const;

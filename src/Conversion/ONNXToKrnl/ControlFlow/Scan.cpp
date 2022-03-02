@@ -281,52 +281,54 @@ struct ONNXScanOpLowering : public ConversionPattern {
   // into a higher dimensional tensor with shape (10x4x2), i.e., a batch of 10
   // tensors, each with shape (4x2). To do so, we can invoke emitCopy(src, dest,
   // {0}).
-  static void emitCopy(ConversionPatternRewriter &rewriter, const Location &loc,
+  static void emitCopy(OpBuilder &builder, const Location &loc,
       const Value &src, const Value &dest,
       std::vector<Value> writePrefix = {}) {
-    OpBuilder::InsertionGuard insertGuard(rewriter);
+    OpBuilder::InsertionGuard insertGuard(builder);
 
     auto srcTy = src.getType().cast<MemRefType>();
     SmallVector<Value, 4> readIV;
     if (srcTy.getRank() > 0) {
-      BuildKrnlLoop loop(rewriter, loc, srcTy.getRank());
+      BuildKrnlLoop loop(builder, loc, srcTy.getRank());
       loop.createDefineOp();
       for (int i = 0; i < srcTy.getRank(); i++)
         loop.pushBounds(0, src, i);
       loop.createIterateOp();
-      rewriter.setInsertionPointToStart(loop.getIterateBlock());
+      builder.setInsertionPointToStart(loop.getIterateBlock());
       auto loopIVs = loop.getAllInductionVar();
       readIV = SmallVector<Value, 4>(loopIVs.begin(), loopIVs.end());
     }
 
     SmallVector<Value, 4> writeIV(writePrefix.begin(), writePrefix.end());
     writeIV.insert(writeIV.end(), readIV.begin(), readIV.end());
-    auto val = rewriter.create<KrnlLoadOp>(loc, src, readIV).getResult();
-    rewriter.create<KrnlStoreOp>(loc, val, dest, writeIV);
+
+    KrnlBuilder createKrnl(builder, loc);
+    Value val = createKrnl.load(src, readIV);
+    createKrnl.store(val, dest, writeIV);
   }
 
-  static void emitCopyFromTensorSlice(ConversionPatternRewriter &rewriter,
-      const Location &loc, const Value &src, const Value &dest,
-      std::vector<Value> readPrefix = {}) {
-    OpBuilder::InsertionGuard insertGuard(rewriter);
+  static void emitCopyFromTensorSlice(OpBuilder &builder, const Location &loc,
+      const Value &src, const Value &dest, std::vector<Value> readPrefix = {}) {
+    OpBuilder::InsertionGuard insertGuard(builder);
 
     auto srcTy = src.getType().cast<MemRefType>();
     SmallVector<Value, 4> readIV(readPrefix.begin(), readPrefix.end());
     SmallVector<Value, 4> writeIV;
     if ((size_t)srcTy.getRank() > readIV.size()) {
-      BuildKrnlLoop loop(rewriter, loc, srcTy.getRank() - readPrefix.size());
+      BuildKrnlLoop loop(builder, loc, srcTy.getRank() - readPrefix.size());
       loop.createDefineOp();
       for (int i = readIV.size(); i < srcTy.getRank(); i++)
         loop.pushBounds(0, src, i);
       loop.createIterateOp();
-      rewriter.setInsertionPointToStart(loop.getIterateBlock());
+      builder.setInsertionPointToStart(loop.getIterateBlock());
       auto IVs = loop.getAllInductionVar();
       writeIV.insert(writeIV.end(), IVs.begin(), IVs.end());
       readIV.insert(readIV.end(), writeIV.begin(), writeIV.end());
     }
 
-    auto val = rewriter.create<KrnlLoadOp>(loc, src, readIV).getResult();
-    rewriter.create<KrnlStoreOp>(loc, val, dest, writeIV);
+    KrnlBuilder createKrnl(builder, loc);
+    Value val = createKrnl.load(src, readIV);
+    createKrnl.store(val, dest, writeIV);
   }
 };
 
