@@ -40,7 +40,7 @@
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
-#include "llvm/IR/DataLayout.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"
 
@@ -178,6 +178,12 @@ void recordEntryPointSignatures(ModuleOp &module,
     SmallVectorImpl<std::string> &entryPointNames,
     SmallVectorImpl<std::string> &inSignatures,
     SmallVectorImpl<std::string> &outSignatures) {
+
+  bool zOS = false;
+  if (Attribute mtripleAttr =
+          module->getAttrOfType<::mlir::Attribute>("llvm.target_triple"))
+    zOS = llvm::Triple(mtripleAttr.cast<StringAttr>().getValue()).isOSzOS();
+
   module->walk([&](KrnlEntryPointOp entryOp) -> WalkResult {
     Operation *op = entryOp.getOperation();
     // Entry point name.
@@ -188,7 +194,10 @@ void recordEntryPointSignatures(ModuleOp &module,
             .getValue();
     std::string terminatedEntryPointName = "run_" + entryPointName.str();
     terminatedEntryPointName.push_back('\0'); // null terminate the string.
-    entryPointNames.emplace_back(terminatedEntryPointName);
+    if (zOS)
+      entryPointNames.emplace_back(krnl::a2e_s(terminatedEntryPointName));
+    else
+      entryPointNames.emplace_back(terminatedEntryPointName);
 
     // Input/output signatures.
     StringAttr sigAttr =
@@ -197,8 +206,13 @@ void recordEntryPointSignatures(ModuleOp &module,
     auto splitSig = signature.split('@');
     llvm::StringRef inSig = splitSig.first;
     llvm::StringRef outSig = splitSig.second;
-    inSignatures.emplace_back(inSig.str());
-    outSignatures.emplace_back(outSig.str());
+    if (zOS) {
+      inSignatures.emplace_back(krnl::a2e_s(inSig.str()));
+      outSignatures.emplace_back(krnl::a2e_s(outSig.str()));
+    } else {
+      inSignatures.emplace_back(inSig.str());
+      outSignatures.emplace_back(outSig.str());
+    }
 
     return WalkResult::advance();
   });
@@ -206,8 +220,11 @@ void recordEntryPointSignatures(ModuleOp &module,
   // When there is only a single entry point function in a model, use
   // DEFAULT_DYN_ENTRY_POINT.
   if (entryPointNames.size() == 1) {
-    entryPointNames[0] = DEFAULT_DYN_ENTRY_POINT;
-    entryPointNames[0].push_back('\0'); // null terminate the string.
+    std::string defaultEntryPoint = DEFAULT_DYN_ENTRY_POINT;
+    defaultEntryPoint.push_back('\0'); // null terminate the string.
+    if (zOS)
+      defaultEntryPoint = krnl::a2e_s(defaultEntryPoint);
+    entryPointNames[0] = defaultEntryPoint;
   }
 }
 
