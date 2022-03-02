@@ -103,7 +103,7 @@ static llvm::cl::opt<string> shapeInformation("shapeInformation",
 
 static llvm::cl::opt<std::string> mtriple("mtriple",
     llvm::cl::desc("Override target triple for module"),
-    llvm::cl::value_desc("LLVM target triple>"), llvm::cl::cat(OnnxMlirOptions),
+    llvm::cl::value_desc("LLVM target triple"), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
 
 static llvm::cl::opt<std::string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
@@ -530,6 +530,14 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
       llvmModule->addModuleFlag(llvm::Module::Error, charModeKey, val);
     }
   }
+
+  // Emit the onnx-mlir version as llvm.ident metadata.
+  llvm::NamedMDNode *identMetadata =
+      llvmModule->getOrInsertNamedMetadata("llvm.ident");
+  std::string version = "onnx-mlir version 1.0.0";
+  llvm::LLVMContext &ctx = llvmModule->getContext();
+  llvm::Metadata *identNode[] = {llvm::MDString::get(ctx, version)};
+  identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
 
   llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();
