@@ -87,7 +87,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
 
     // Insert the input tensor
     // ToDo: need to copy the tensor?
-    auto element = rewriter.create<memref::CastOp>(loc, operandAdaptor.tensor(), outputElementConvertedType);
+    auto element = rewriter.create<memref::CastOp>(loc, outputElementConvertedType, operandAdaptor.tensor());
     create.krnl.store(element, alloc, positionIE.getValue());
 
     // Copy after the insert

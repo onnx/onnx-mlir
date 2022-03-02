@@ -57,7 +57,7 @@ struct ONNXSequenceConstructOpLowering : public ConversionPattern {
     for(uint64_t i = 0 ; i < inputs.size(); i++) {
       auto input = inputs[i];
       // ToDo: copy the memref?
-      auto element = rewriter.create<memref::CastOp>(loc, input, outputElementConvertedType);
+      auto element = rewriter.create<memref::CastOp>(loc, outputElementConvertedType, input);
       create.krnl.store(element, alloc, create.math.constantIndex(i));
     }
     
