@@ -19,15 +19,12 @@ namespace mlir {
 std::vector<Accelerator *> *Accelerator::acceleratorTargets;
 
 Accelerator::Accelerator() {
-  std::cout << "creating Accelerator" << std::endl;
   if (acceleratorTargets == NULL) {
-    std::cout << "initializing acceleratorTargets" << std::endl;
     acceleratorTargets = new std::vector<Accelerator *>();
   }
 }
 
 std::vector<Accelerator *> *Accelerator::getAcceleratorList() {
-  std::cout << "getting accelerator targets" << std::endl;
   return acceleratorTargets;
 }
 
