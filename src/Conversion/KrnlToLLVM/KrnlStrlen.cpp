@@ -44,22 +44,21 @@ public:
     Location loc = op->getLoc();
 
     // Get a symbol reference to the strlen function, inserting it if necessary.
-    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
-    auto strlenRef = getOrInsertStrlen(rewriter, parentModule);
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    FlatSymbolRefAttr strlenRef = getOrInsertStrlen(rewriter, module);
 
     // Operand.
-    Type strType = operandAdaptor.str()
-                       .getType()
-                       .cast<LLVM::LLVMStructType>()
-                       .getBody()[1];
-    Value extractedStrPtr = rewriter.create<LLVM::ExtractValueOp>(
-        loc, strType, operandAdaptor.str(), rewriter.getI64ArrayAttr(1));
+    MLIRContext *ctx = module.getContext();
+    Type i8Type = IntegerType::get(ctx, 8);
+    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    Value strPtr =
+        rewriter.create<LLVM::IntToPtrOp>(loc, i8PtrType, operandAdaptor.str());
 
     // Strlen call.
     // TODO: should return a size_t
     Type retType = IntegerType::get(context, 64);
     auto funcCall = rewriter.create<CallOp>(
-        loc, strlenRef, retType, ArrayRef<Value>({extractedStrPtr}));
+        loc, strlenRef, retType, ArrayRef<Value>({strPtr}));
 
     rewriter.replaceOp(op, funcCall.getResults()[0]);
     return success();
