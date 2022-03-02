@@ -23,6 +23,7 @@
 #include "llvm/Support/Debug.h"
 
 using namespace mlir;
+using namespace onnx_mlir;
 using llvm::dbgs;
 
 #define DEBUG_TYPE "category_mapper_onnx_to_krnl"
@@ -64,8 +65,8 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
             cats_int64sAttr.size(), rewriter.getIntegerType(64)),
         cats_int64sAttr.getValue());
     DenseElementsAttr cats_strings = mlir::DenseElementsAttr::get(
-        RankedTensorType::get(
-            cats_stringsAttr.size(), StringType::get(rewriter.getContext())),
+        RankedTensorType::get(cats_stringsAttr.size(),
+            krnl::StringType::get(rewriter.getContext())),
         cats_stringsAttr.getValue());
 
     IntegerAttr default_int64 = categoryMapperOp.default_int64Attr();
@@ -73,7 +74,7 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
         (categoryMapperOp.default_stringAttr())
             ? mlir::DenseElementsAttr::get(
                   RankedTensorType::get(
-                      {}, StringType::get(rewriter.getContext())),
+                      {}, krnl::StringType::get(rewriter.getContext())),
                   categoryMapperOp.default_stringAttr().getValue())
             : nullptr;
 
@@ -108,11 +109,11 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
                                    default_int64.getSInt())
                              : nullptr;
     Value defaultString =
-        (default_string)
-            ? create.krnl.constant(
-                  MemRefType::get({}, StringType::get(rewriter.getContext())),
-                  "default_string", default_string)
-            : nullptr;
+        (default_string) ? create.krnl.constant(
+                               MemRefType::get({}, krnl::StringType::get(
+                                                       rewriter.getContext())),
+                               "default_string", default_string)
+                         : nullptr;
 
     // Lookup the index in the perfect hash table corresponding to
     // each input value.
@@ -211,7 +212,7 @@ private:
           PerfectHash<int64_t, int32_t> pHash(dict);
           res = createConstants(pHash.getG(), pHash.getV());
         })
-        .Case<StringType>([&](StringType type) {
+        .Case<krnl::StringType>([&](krnl::StringType type) {
           // Populate the dictionary.
           std::map<StringRef, int32_t> dict;
           int32_t size = cats_strings.size();
@@ -277,7 +278,7 @@ private:
           Value isIndexValid = create.math.eq(inputElem, compareVal);
           res = std::make_tuple(index, isIndexValid);
         })
-        .Case<StringType>([&](StringType type) {
+        .Case<krnl::StringType>([&](krnl::StringType type) {
           // Determine whether the index returned is valid.
           // The index is valid if 'inputElem' compares equal to the string in
           // 'constantForCatsStrings'.
@@ -320,7 +321,7 @@ private:
           Value loadDefault = createKrnl.load(defaultString);
           createKrnl.store(loadDefault, alloc, loopInd);
         })
-        .Case<StringType>([&](StringType type) {
+        .Case<krnl::StringType>([&](krnl::StringType type) {
           // index is valid: retrieve the value from 'cat_int64s'.
           rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
           Value loadData = createKrnl.load(constantForCatsInt64s, {index});

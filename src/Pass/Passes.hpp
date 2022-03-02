@@ -51,9 +51,6 @@ std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel);
 std::unique_ptr<Pass> createLowerToKrnlPass(
     bool emitDealloc, bool enableTiling);
 
-/// Pass for lowering frontend dialects to Krnl IR dialect.
-std::unique_ptr<Pass> createConvertKrnlToAffinePass();
-
 /// Pass for lowering krnl.dim operations to standard dialect.
 std::unique_ptr<Pass> createDisconnectKrnlDimFromAllocPass();
 
@@ -64,6 +61,9 @@ std::unique_ptr<Pass> createLowerKrnlShapePass();
 std::unique_ptr<Pass> createElideConstGlobalValuePass();
 
 namespace krnl {
+
+/// Pass for lowering frontend dialects to Krnl IR dialect.
+std::unique_ptr<Pass> createConvertKrnlToAffinePass();
 
 /// Pass for enabling a memory pool for MemRefs.
 std::unique_ptr<Pass> createKrnlEnableMemoryPoolPass();

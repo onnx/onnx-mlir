@@ -19,4 +19,5 @@ add_onnx_mlir_library(OMKrnlOps
 
   LINK_LIBS PUBLIC
   OMONNXOps
+  MLIRLLVMCommonConversion
   )

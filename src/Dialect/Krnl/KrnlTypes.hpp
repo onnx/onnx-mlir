@@ -14,11 +14,13 @@
 
 #pragma once
 
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Types.h"
 
-namespace mlir {
+namespace onnx_mlir {
+namespace krnl {
 
 class LoopType
     : public mlir::Type::TypeBase<LoopType, mlir::Type, mlir::TypeStorage> {
@@ -58,12 +60,18 @@ public:
 
   // Return the LLVM dialect type for a string with a know value (a string
   // literal). In LLVM a string literal is represented by an array of i8.
-  Type getLLVMType(mlir::MLIRContext *context, StringRef value) const {
-    return LLVM::LLVMArrayType::get(IntegerType::get(context, 8), value.size());
+  Type getLLVMType(mlir::MLIRContext *context, mlir::StringRef value) const {
+    return mlir::LLVM::LLVMArrayType::get(
+        mlir::IntegerType::get(context, 8), value.size());
   }
 
   // Return the size in bits for the underlying element type (i64).
   int32_t getElementSize() const { return 64; }
 };
 
-} // namespace mlir
+/// Add custom type conversions to convert krnl types to the given \p
+/// typeConverter.
+void customizeTypeConverter(mlir::LLVMTypeConverter &typeConverter);
+
+} // namespace krnl
+} // namespace onnx_mlir
