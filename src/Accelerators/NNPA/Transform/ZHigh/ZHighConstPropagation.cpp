@@ -190,14 +190,6 @@ ZHighStickifiedConstantOp createConstantForStickForLSTM(
   getRawData(iDataAttr, rawIData);
   getRawData(cDataAttr, rawCData);
   getRawData(oDataAttr, rawOData);
-  // assert((rawFData.size() == (uint64_t)getMemRefSizeInBytes(inputF)) &&
-  //        "Data size mismatched");
-  // assert((rawIData.size() == (uint64_t)getMemRefSizeInBytes(inputI)) &&
-  //        "Data size mismatched");
-  // assert((rawCData.size() == (uint64_t)getMemRefSizeInBytes(inputC)) &&
-  //        "Data size mismatched");
-  // assert((rawOData.size() == (uint64_t)getMemRefSizeInBytes(inputO)) &&
-  //        "Data size mismatched");
 
   // Call stickify.
   zdnn_tensor_desc pre_tfrmd_desc, tfrmd_desc;
@@ -257,12 +249,6 @@ ZHighStickifiedConstantOp createConstantForStickForGRU(
   getRawData(zDataAttr, rawZData);
   getRawData(rDataAttr, rawRData);
   getRawData(hDataAttr, rawHData);
-  // assert((rawZData.size() == (uint64_t)getMemRefSizeInBytes(inputZ)) &&
-  //        "Data size mismatched");
-  // assert((rawRData.size() == (uint64_t)getMemRefSizeInBytes(inputR)) &&
-  //        "Data size mismatched");
-  // assert((rawHData.size() == (uint64_t)getMemRefSizeInBytes(inputH)) &&
-  //        "Data size mismatched");
 
   // Call stickify.
   zdnn_tensor_desc pre_tfrmd_desc, tfrmd_desc;

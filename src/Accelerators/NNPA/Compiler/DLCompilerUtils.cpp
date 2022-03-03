@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// Compiler Utilitiesfor  NNPA
+// Compiler Utilities for  NNPA
 //
 //===----------------------------------------------------------------------===//
 
@@ -21,7 +21,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#include <mlir/Dialect/MemRef/Transforms/Passes.h>
+#include "mlir/Dialect/MemRef/Transforms/Passes.h"
 
 #include "Compiler/DLCompilerUtils.hpp"
 #include "Dialect/ZHigh/ZHighOps.hpp"
