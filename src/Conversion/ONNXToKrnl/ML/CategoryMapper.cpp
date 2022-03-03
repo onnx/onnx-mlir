@@ -241,12 +241,12 @@ private:
     TypeSwitch<Type>(elementType)
         .Case<IntegerType>(
             [&](IntegerType) { inputElem = createKrnl.load(memref, loopInd); })
-        .Case<StringType>([&](StringType stringType) {
+        .Case<krnl::StringType>([&](krnl::StringType stringType) {
           MathBuilder createMath(createKrnl);
           Value zero = createMath.constant(
               createMath.getBuilder().getIntegerType(64), 0);
           auto memRefType = MemRefType::get(
-              {rank}, StringType::get(elementType.getContext()));
+              {rank}, krnl::StringType::get(elementType.getContext()));
           Value stringMemRef = createKrnl.getRef(memRefType, memref, zero);
           inputElem = createKrnl.load(stringMemRef, loopInd);
         })
