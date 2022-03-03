@@ -122,7 +122,7 @@ void addPassesDLC(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   // TODO: Develop and use determineInputIRLevel for DLC
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
-  LLVM_DEBUG(llvm::dbgs() << "Adding DLC passes" << std::endl);
+  // LLVM_DEBUG(llvm::dbgs() << "Adding DLC passes" << std::endl;);
   if (emissionTarget >= onnx_mlir::EmitONNXIR) {
     addONNXToMLIRPasses(pm);
   }
