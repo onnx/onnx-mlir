@@ -55,7 +55,7 @@ public:
     //    SmallVector<int64_t> shape(1, -1);
     //    return MemRefType::get(
     //  shape, LLVM::LLVMPointerType::get(IntegerType::get(context, 8)));
-    return IntegerType::get(context, 64);
+    return mlir::IntegerType::get(context, 64);
   }
 
   // Return the LLVM dialect type for a string with a know value (a string
