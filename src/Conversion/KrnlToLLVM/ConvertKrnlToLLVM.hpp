@@ -24,6 +24,10 @@ const std::string DEFAULT_DYN_ENTRY_POINT = "run_main_graph";
 namespace onnx_mlir {
 namespace krnl {
 
+void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
+    LLVMTypeConverter &typeConverter, MLIRContext *ctx,
+    ArrayRef<bool> constantOutputs, bool singleEntryPoint);
+
 void populateKrnlToLLVMConversion(mlir::LLVMTypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx,
     llvm::ArrayRef<bool> constantOutputs, bool singleEntryPoint);
@@ -70,6 +74,9 @@ void populateLoweringKrnlUnaryMathOpPattern(mlir::TypeConverter &typeConverter,
 void populateLoweringKrnlVectorTypeCastOpPattern(
     LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
     mlir::MLIRContext *ctx);
+
+void checkConstantOutputs(
+    ModuleOp &module, SmallVectorImpl<bool> &constantOutputs);
 
 void recordEntryPointSignatures(mlir::ModuleOp &module,
     llvm::SmallVectorImpl<std::string> &entryPointNames,
