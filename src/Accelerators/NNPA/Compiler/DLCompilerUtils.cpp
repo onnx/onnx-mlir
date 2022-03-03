@@ -21,6 +21,7 @@
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Support/Debug.h"
 #include <mlir/Dialect/MemRef/Transforms/Passes.h>
 
 #include "Compiler/DLCompilerUtils.hpp"
@@ -30,6 +31,7 @@
 #include "Support/OMDLCOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 
+#define DEBUG_TYPE "DLCompiler"
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
@@ -66,15 +68,20 @@ void addONNXToZHighPasses(
   pm.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   pm.addPass(mlir::createCanonicalizerPass());
   // Layout propagation at ZHighIR.
+  /* turn off until stickify code is ready to go
   pm.addNestedPass<FuncOp>(mlir::createZHighLayoutPropagationPass());
+  */
   pm.addPass(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   // Constant propagation at ZHighIR: constant stickify.
   // Only support BE machines.
+
+  /* turn off until stickify code is ready to go
   bool isBE = llvm::support::endian::system_endianness() ==
               llvm::support::endianness::big;
   if (isBE)
     pm.addNestedPass<FuncOp>(mlir::createZHighConstPropagationPass());
+    */
 }
 
 void addZHighToZLowPasses(mlir::PassManager &pm, int optLevel) {
@@ -115,7 +122,7 @@ void addPassesDLC(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   // TODO: Develop and use determineInputIRLevel for DLC
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
-  std::cout << "Adding DLC passes" << std::endl;
+  LLVM_DEBUG(llvm::dbgs() << "Adding DLC passes" << std::endl);
   if (emissionTarget >= onnx_mlir::EmitONNXIR) {
     addONNXToMLIRPasses(pm);
   }
@@ -157,26 +164,4 @@ void addPassesDLC(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   if (emissionTarget >= onnx_mlir::EmitLLVMIR)
     // Lower the remaining Krnl and all ZLow ops to LLVM dialect.
     addAllToLLVMPasses(pm);
-}
-
-int compileModuleDLC(mlir::OwningOpRef<ModuleOp> &module,
-    mlir::MLIRContext &context, std::string outputBaseName,
-    onnx_mlir::EmissionTargetType emissionTarget,
-    DLCEmissionTargetType dlcEmissionTarget,
-    ArrayRef<std::string> execNodesOnCpu) {
-  // Load our Dialect in this MLIR Context.
-  context.getOrLoadDialect<mlir::ZHighDialect>();
-  context.getOrLoadDialect<mlir::ZLowDialect>();
-
-  setupModule(module, context, outputBaseName);
-
-  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-  addPassesDLC(module, pm, emissionTarget, dlcEmissionTarget, execNodesOnCpu);
-  mlir::applyPassManagerCLOptions(pm);
-  if (mlir::failed(pm.run(*module)))
-    return 4;
-
-  emitOutput(module, context, outputBaseName, pm, emissionTarget);
-
-  return 0;
 }
