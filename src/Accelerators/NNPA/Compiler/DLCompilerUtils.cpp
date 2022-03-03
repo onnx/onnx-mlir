@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- DLCompilerUtils.cpp
-//-------------------------===//
+//===-------------------------- DLCompilerUtils.cpp -----------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
