@@ -29,6 +29,7 @@
 #include "llvm/Target/TargetMachine.h"
 
 #include "ExternalUtil.hpp"
+#include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Support/OMOptions.hpp"
@@ -104,7 +105,7 @@ static llvm::cl::opt<string> shapeInformation("shapeInformation",
 
 static llvm::cl::opt<std::string> mtriple("mtriple",
     llvm::cl::desc("Override target triple for module"),
-    llvm::cl::value_desc("LLVM target triple>"), llvm::cl::cat(OnnxMlirOptions),
+    llvm::cl::value_desc("LLVM target triple"), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
 
 static llvm::cl::opt<std::string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
@@ -534,6 +535,14 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
       llvmModule->addModuleFlag(llvm::Module::Error, charModeKey, val);
     }
   }
+
+  // Emit the onnx-mlir version as llvm.ident metadata.
+  llvm::NamedMDNode *identMetadata =
+      llvmModule->getOrInsertNamedMetadata("llvm.ident");
+  std::string version = "onnx-mlir version 1.0.0";
+  llvm::LLVMContext &ctx = llvmModule->getContext();
+  llvm::Metadata *identNode[] = {llvm::MDString::get(ctx, version)};
+  identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
 
   llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();
@@ -1048,7 +1057,17 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   setupModule(module, context, outputBaseName);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-  addPasses(module, pm, emissionTarget);
+  // Initialize accelerator if required
+  if (acceleratorTarget.compare("") != 0) {
+    std::vector<Accelerator *> *accTargets;
+    accTargets = Accelerator::getAcceleratorList();
+    for (auto accel : *accTargets) {
+      if (accel->isActive()) {
+        accel->prepareAccelerator(module, context, pm, emissionTarget);
+      }
+    }
+  } else
+    addPasses(module, pm, emissionTarget);
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 
