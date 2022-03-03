@@ -19,9 +19,9 @@
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Support/Debug.h"
 #include <mlir/Dialect/MemRef/Transforms/Passes.h>
 
 #include "Compiler/DLCompilerUtils.hpp"
