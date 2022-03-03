@@ -142,7 +142,7 @@ void addPassesDLC(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
         optLevel = OptLevel::O2;
       else if (optStr == "-O3")
         optLevel = OptLevel::O3;
-      addZHighToZLowPasses(pm, optLevel);      // Constant folding for std.alloc.
+      addZHighToZLowPasses(pm, optLevel); // Constant folding for std.alloc.
       pm.addNestedPass<FuncOp>(mlir::createFoldStdAllocPass());
 
       if (dlcEmissionTarget >= EmitZLowIR)

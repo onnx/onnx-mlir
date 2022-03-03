@@ -1630,5 +1630,4 @@ void ZLowToLLVMLoweringPass::runOnOperation() {
 /// to LLVM.
 std::unique_ptr<mlir::Pass> mlir::createZLowToLLVMPass() {
   return std::make_unique<ZLowToLLVMLoweringPass>();
-
 }
