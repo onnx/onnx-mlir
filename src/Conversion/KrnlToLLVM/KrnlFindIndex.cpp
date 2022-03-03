@@ -31,7 +31,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     auto findIndexOp = cast<KrnlFindIndexOp>(op);
-    MLIRContext *context = findIndexOp.getContext();
+    MLIRContext *ctx = findIndexOp.getContext();
     Location loc = findIndexOp.getLoc();
     KrnlFindIndexOpAdaptor operandAdaptor(operands);
 
@@ -50,14 +50,15 @@ public:
           firstOperand = operandAdaptor.input();
         })
         .Case<StringType>([&](StringType type) {
-          Type ptrType = operandAdaptor.input()
-                             .getType()
-                             .cast<LLVM::LLVMStructType>()
-                             .getBody()[1];
-          firstOperand = rewriter.create<LLVM::ExtractValueOp>(loc, ptrType,
-              operandAdaptor.input(), rewriter.getI64ArrayAttr(1));
+          Type i8Type = IntegerType::get(ctx, 8);
+          Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+          firstOperand = rewriter.create<LLVM::IntToPtrOp>(
+              loc, i8PtrType, operandAdaptor.input());
         })
-        .Default([](Type) { llvm_unreachable("unexpected inputType"); });
+        .Default([](Type type) {
+          llvm::errs() << "type: " << type << "\n";
+          llvm_unreachable("unexpected inputType");
+        });
 
     Type GType =
         operandAdaptor.G().getType().cast<LLVM::LLVMStructType>().getBody()[1];
@@ -72,7 +73,7 @@ public:
     Value length = operandAdaptor.len();
 
     // Generate the call to the runtime function.
-    Type retType = IntegerType::get(context, 64);
+    Type retType = IntegerType::get(ctx, 64);
     auto funcCall = rewriter.create<CallOp>(loc, findIndexRef, retType,
         ArrayRef<Value>({firstOperand, extractedGPtr, extractedVPtr, length}));
 
@@ -105,7 +106,10 @@ private:
           funcName += "str";
           firstArgType = i8PtrType;
         })
-        .Default([](Type) { llvm_unreachable("unexpected type"); });
+        .Default([](Type type) {
+          llvm::errs() << "type: " << type << "\n";
+          llvm_unreachable("unexpected type");
+        });
 
     Optional<FlatSymbolRefAttr> optFuncDecl =
         krnl::getFunctionDeclaration(module, funcName);

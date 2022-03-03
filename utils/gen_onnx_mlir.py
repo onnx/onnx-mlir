@@ -309,6 +309,7 @@ OpsWithVerifier = [
     'NonMaxSuppression',
     'OneHot',
     'OneHotEncoder',
+    'Pow',
     'RandomNormalLike',
     'ReverseSequence',
     "RoiAlign",
