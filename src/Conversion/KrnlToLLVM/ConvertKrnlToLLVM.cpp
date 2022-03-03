@@ -61,7 +61,7 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
-static void checkConstantOutputs(
+void checkConstantOutputs(
     ModuleOp &module, SmallVectorImpl<bool> &constantOutputs) {
   Operation *entryPointOp;
   auto walkResult = module->walk([&](mlir::Operation *op) -> WalkResult {
@@ -136,7 +136,7 @@ static void checkConstantOutputs(
   }
 }
 
-static void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
+void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     LLVMTypeConverter &typeConverter, MLIRContext *ctx,
     ArrayRef<bool> constantOutputs, bool singleEntryPoint) {
   // TODO: look at what is done in
