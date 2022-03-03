@@ -147,7 +147,6 @@ struct ONNXRangeOpLowering : public ConversionPattern {
         llvm_unreachable(
             "Integer type over 64 bits not supported for Range op.");
       });
-
       Value acc = create.mem.alignedAlloc(accType);
 
       // Acc index:
