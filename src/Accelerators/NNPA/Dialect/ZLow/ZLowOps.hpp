@@ -39,6 +39,6 @@ public:
 /// Include the auto-generated header file containing the declarations of the
 /// ONNX operations.
 #define GET_OP_CLASSES
-#include "Dialect/ZLow/ZLowOps.hpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp.inc"
 
 namespace onnx_mlir {}

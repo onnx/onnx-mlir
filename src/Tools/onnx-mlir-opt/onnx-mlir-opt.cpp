@@ -29,6 +29,8 @@
 #include <mlir/Support/FileUtilities.h>
 #include <mlir/Support/MlirOptMain.h>
 
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/InitMLIRPasses.hpp"
@@ -104,6 +106,10 @@ int main(int argc, char **argv) {
 
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
+#ifdef __NNPA__
+  registry.insert<mlir::ZHighDialect>();
+  registry.insert<mlir::ZLowDialect>();
+#endif
 
   registerTransformsPasses();
   registerAffinePasses();
