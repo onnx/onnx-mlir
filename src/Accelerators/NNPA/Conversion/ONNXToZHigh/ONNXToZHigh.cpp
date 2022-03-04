@@ -4,7 +4,7 @@
 
 //====------ ONNXToZHigh.cpp - ONNX dialect to ZHigh lowering -------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
-#include "Dialect/ZHigh/ZHighOps.hpp"
-#include "Pass/DLCPasses.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
@@ -25,6 +25,8 @@ using namespace mlir;
 //
 // LSTM/GRU specific functions
 //
+
+namespace onnx_mlir {
 
 ArrayAttr getLSTMGRUBiasSplitShape(
     Location loc, PatternRewriter &rewriter, ArrayRef<int64_t> shapeR) {
@@ -73,7 +75,7 @@ Value getLSTMGRUZDNNWeightFromONNXWeight(
     Value o_gate = splitOp.getResults()[1];
     Value f_gate = splitOp.getResults()[2];
     Value c_gate = splitOp.getResults()[3];
-    stickForOp = rewriter.create<ZHighStickForLSTMOp>(
+    stickForOp = rewriter.create<zhigh::ZHighStickForLSTMOp>(
         loc, f_gate, i_gate, c_gate, o_gate);
   } else { // GRU
     SmallVector<Type, 3> splitTypes(splitNum, splitType);
@@ -83,7 +85,7 @@ Value getLSTMGRUZDNNWeightFromONNXWeight(
     Value r_gate = splitOp.getResults()[1];
     Value h_gate = splitOp.getResults()[2];
     stickForOp =
-        rewriter.create<ZHighStickForGRUOp>(loc, z_gate, r_gate, h_gate);
+        rewriter.create<zhigh::ZHighStickForGRUOp>(loc, z_gate, r_gate, h_gate);
   }
   return stickForOp;
 }
@@ -150,7 +152,7 @@ Value getLSTMGRUGetYc(
   Value noneValue;
   if (isNoneType(resYc))
     return noneValue;
-  return rewriter.create<ZHighUnstickOp>(loc, resYc.getType(), val);
+  return rewriter.create<zhigh::ZHighUnstickOp>(loc, resYc.getType(), val);
 }
 
 SmallVector<Value, 4> emitONNXSplitOp(Location loc, PatternRewriter &rewriter,
@@ -264,7 +266,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<ONNXDialect, ZHighDialect, KrnlOpsDialect,
+  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlOpsDialect,
       StandardOpsDialect, arith::ArithmeticDialect>();
 
   // Combined ONNX ops to ZHigh lowering.
@@ -324,11 +326,13 @@ void ONNXToZHighLoweringPass::runOnOperation() {
     signalPassFailure();
 }
 
-std::unique_ptr<Pass> mlir::createONNXToZHighPass() {
+std::unique_ptr<Pass> createONNXToZHighPass() {
   return std::make_unique<ONNXToZHighLoweringPass>();
 }
 
-std::unique_ptr<Pass> mlir::createONNXToZHighPass(
+std::unique_ptr<Pass> createONNXToZHighPass(
     mlir::ArrayRef<std::string> execNodesOnCpu) {
   return std::make_unique<ONNXToZHighLoweringPass>(execNodesOnCpu);
 }
+
+} // namespace onnx_mlir

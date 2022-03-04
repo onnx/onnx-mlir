@@ -16,8 +16,8 @@
 
 #ifndef OP_BASE
 include "src/Dialect/ONNX/ONNX.td"
-include "Dialect/ZHigh/ZHighOps.td"
-include "Conversion/ONNXToZHigh/ONNXToZHighCommon.td"
+include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.td"
+include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.td"
 #endif // OP_BASE
 
 /// Note: The DRR definition used for defining patterns is shown below:

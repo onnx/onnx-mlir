@@ -2,7 +2,7 @@
 
 //===------- ZHighCombine.td - Pattern Match for ZHighDialect -------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -32,20 +32,23 @@ include "ZHighOps.td"
 
 def SameLayout: Constraint<
   CPred<"($0 && $1 &&"
-        " (getZTensorLayout($0.getType()) == getZTensorLayout($1.getType())))">,
+        " (::onnx_mlir::zhigh::getZTensorLayout($0.getType()) == "
+        "::onnx_mlir::zhigh::getZTensorLayout($1.getType())))">,
   "Two ztensors have the same layout"
 >;
 
 def NotSameLayout: Constraint<
   CPred<"($0 && $1 &&"
-        " (getZTensorLayout($0.getType()) != getZTensorLayout($1.getType())))">,
+        " (::onnx_mlir::zhigh::getZTensorLayout($0.getType()) != "
+        "::onnx_mlir::zhigh::getZTensorLayout($1.getType())))">,
   "Two ztensors have different layouts"
 >;
 
 def IsNoneType : Constraint<CPred<"(($_self).getType().isa<NoneType>())">>;
 
 def GetLayout : NativeCodeCall<
-  "convertDataLayoutToStringAttr($_builder, getZTensorLayout($0.getType()))"
+  "convertDataLayoutToStringAttr($_builder, "
+      "::onnx_mlir::zhigh::getZTensorLayout($0.getType()))"
 >;
 
 //===----------------------------------------------------------------------===//

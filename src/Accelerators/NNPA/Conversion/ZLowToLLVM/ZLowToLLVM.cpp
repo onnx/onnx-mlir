@@ -41,6 +41,7 @@
 #include "third_party/zdnn-lib/zdnn/zdnn.h"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 zdnn_data_layouts UNDEFINED_ZDNN_LAYOUT = (zdnn_data_layouts)255;
 

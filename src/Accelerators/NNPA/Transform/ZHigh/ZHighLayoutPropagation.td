@@ -16,7 +16,7 @@
 
 #ifndef OP_BASE
 include "src/Dialect/ONNX/ONNX.td"
-include "Dialect/ZHigh/ZHighOps.td"
+include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.td"
 #endif // OP_BASE
 
 /// Note: The DRR definition used for defining patterns is shown below:
@@ -50,16 +50,16 @@ def IsPermToNCHW:
                  "Permutation is [0, 3, 1, 2]">;
 
 def GetLayout : NativeCodeCall<
-  "convertDataLayoutToStringAttr($_builder, getZTensorLayout($0.getType()))"
+  "convertDataLayoutToStringAttr($_builder, ::onnx_mlir::zhigh::getZTensorLayout($0.getType()))"
 >;
 
 def IsNHWC: Constraint<
-  CPred<"getZTensorLayout($0.getType()) == ZTensorEncodingAttr::DataLayout::NHWC">,
+  CPred<"getZTensorLayout($0.getType()) == ::onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::NHWC">,
   "Check if a value is NHWC"
 >;
 
 def IsNotNHWC: Constraint<
-  CPred<"getZTensorLayout($0.getType()) != ZTensorEncodingAttr::DataLayout::NHWC">,
+  CPred<"getZTensorLayout($0.getType()) != ::onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::NHWC">,
   "Check if a value is not NHWC"
 >;
 

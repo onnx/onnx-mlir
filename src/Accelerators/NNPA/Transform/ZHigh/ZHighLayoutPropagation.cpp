@@ -24,6 +24,8 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
+using namespace onnx_mlir::zhigh;
 
 //===----------------------------------------------------------------------===//
 // ZHigh layout propagation Pass

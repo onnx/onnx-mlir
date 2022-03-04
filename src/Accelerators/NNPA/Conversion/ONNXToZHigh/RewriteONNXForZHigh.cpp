@@ -23,14 +23,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
-#include "Dialect/ZHigh/ZHighOps.hpp"
-#include "Pass/DLCPasses.hpp"
-
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
+namespace zhigh {
 
 /// Calculate sqrt(var + epsilon) for batchnorm op A.
 /// A = scale / sqrt(var + epsilon)
@@ -92,7 +94,8 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<ONNXDialect, ZHighDialect, StandardOpsDialect>();
+  target
+      .addLegalDialect<ONNXDialect, zhigh::ZHighDialect, StandardOpsDialect>();
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
@@ -111,11 +114,14 @@ void RewriteONNXForZHighPass::runOnOperation() {
     signalPassFailure();
 }
 
-std::unique_ptr<Pass> mlir::createRewriteONNXForZHighPass() {
+std::unique_ptr<Pass> createRewriteONNXForZHighPass() {
   return std::make_unique<RewriteONNXForZHighPass>();
 }
 
-std::unique_ptr<Pass> mlir::createRewriteONNXForZHighPass(
+std::unique_ptr<Pass> createRewriteONNXForZHighPass(
     mlir::ArrayRef<std::string> execNodesOnCpu) {
   return std::make_unique<RewriteONNXForZHighPass>(execNodesOnCpu);
 }
+
+} // namespace zhigh
+} // namespace onnx_mlir
