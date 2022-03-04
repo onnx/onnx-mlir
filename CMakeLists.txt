@@ -37,9 +37,13 @@ if (MSVC)
 endif()
 
 # Define preprocessor for accelerators.
+set(NNPA_ENABLED 0)
 if (ACCELERATORS_TO_BUILD)
   foreach(t ${ACCELERATORS_TO_BUILD})
     add_compile_definitions("__${t}__")
+    if (${t} STREQUAL "NNPA")
+      set(NNPA_ENABLED 1)
+    endif()
   endforeach(t)
 endif(ACCELERATORS_TO_BUILD)
 
