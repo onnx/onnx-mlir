@@ -20,6 +20,7 @@
 #include <vector>
 
 namespace onnx_mlir {
+namespace accel {
 
 class Accelerator {
 public:
@@ -35,4 +36,5 @@ private:
   static std::vector<Accelerator *> *acceleratorTargets;
 };
 
+} // namespace accel
 } // namespace onnx_mlir
