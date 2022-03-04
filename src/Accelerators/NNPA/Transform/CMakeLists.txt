@@ -10,5 +10,4 @@ add_onnx_mlir_library(OMFoldStdAlloc
   ${DLC_BIN_ROOT}
    )
 
-# turn off until stickify code is ready   
-# add_subdirectory(ZHigh)
+add_subdirectory(ZHigh)
