@@ -10,17 +10,22 @@
 //
 // Accelerator base class
 //
+// To enable a new accelerator, add the header include, an extern of the
+// subclass and pushback that subclass variable onto acceleratorTargets.
 //===----------------------------------------------------------------------===//
 #include "src/Accelerators/Accelerator.hpp"
+#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
 #include <iostream>
 #include <vector>
 
 namespace mlir {
+extern NNPAAccelerator nnpaAccelerator;
 std::vector<Accelerator *> *Accelerator::acceleratorTargets;
 
 Accelerator::Accelerator() {
   if (acceleratorTargets == NULL) {
     acceleratorTargets = new std::vector<Accelerator *>();
+    acceleratorTargets->push_back(&nnpaAccelerator);
   }
 }
 
