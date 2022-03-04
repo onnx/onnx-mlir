@@ -162,6 +162,23 @@ std::vector<py::array> PyExecutionSession::pyRun(
   return outputPyArrays;
 }
 
+void PyExecutionSession::pySetEntryPoint(std::string entryPointName) {
+  setEntryPoint(entryPointName);
+}
+
+std::vector<std::string> PyExecutionSession::pyQueryEntryPoints() {
+  assert(_queryEntryPointsFunc && "Query entry point not loaded.");
+  const char **entryPointArr = _queryEntryPointsFunc();
+
+  std::vector<std::string> outputPyArrays;
+  int i = 0;
+  while (entryPointArr[i] != NULL) {
+    outputPyArrays.emplace_back(entryPointArr[i]);
+    i++;
+  }
+  return outputPyArrays;
+}
+
 std::string PyExecutionSession::pyInputSignature() {
   assert(_inputSignatureFunc && "Input signature entry point not loaded.");
   return inputSignature();

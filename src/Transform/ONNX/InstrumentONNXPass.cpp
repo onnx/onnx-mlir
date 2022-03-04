@@ -122,6 +122,6 @@ public:
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createInstrumentONNXPass() {
+std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentONNXPass() {
   return std::make_unique<InstrumentONNXPass>();
 }

@@ -15,6 +15,8 @@
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 
+using namespace mlir;
+
 //===----------------------------------------------------------------------===//
 // RuntimeAPI
 //===----------------------------------------------------------------------===//

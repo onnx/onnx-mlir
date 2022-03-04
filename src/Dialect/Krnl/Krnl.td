@@ -48,8 +48,7 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   let skipDefaultBuilders = 1;
   let builders = [ OpBuilder<(ins "int64_t":$num_loops)> ];
 
-  let printer = [{ return ::print(p, *this); }];
-  let parser = [{ return ::parse$cppClass(parser, result); }];
+  let hasCustomAssemblyFormat = 1;
 
   let extraClassDeclaration = [{
     static StringRef getNumLoopsAttrName() { return "num_loops"; }
@@ -111,9 +110,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>">:$bodyBuilderFn)>
   ];
 
-  let printer = [{ return ::print(p, *this); }];
-  let parser = [{ return ::parse$cppClass(parser, result); }];
-
+  let hasCustomAssemblyFormat = 1;
   let hasVerifier = 1;
 
   let extraClassDeclaration = [{
@@ -148,10 +145,6 @@ def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
     This operation does _not_ have a custom syntax. However, krnl control
     operations omit the terminator in their custom syntax for brevity.
   }];
-
-  // No custom parsing/printing form.
-  let parser = ?;
-  let printer = ?;
 }
 
 def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
@@ -167,10 +160,6 @@ def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
     static StringRef getNumOutputsAttrName() { return "numOutputs"; }
     static StringRef getSignatureAttrName() { return "signature"; }
   }];
-
-  // No custom parsing/printing form.
-  let parser = ?;
-  let printer = ?;
 }
 
 def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
@@ -181,9 +170,6 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
   }];
 
   let arguments = (ins AnyMemRef:$dest, AnyMemRef:$src, AnyInteger:$size);
-
-  let parser = ?;
-  let printer = ?;
 }
 
 def KrnlGlobalOp : Op<Krnl_Dialect, "global", [NoSideEffect, MemRefsNormalizable]> {
@@ -198,9 +184,6 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global", [NoSideEffect, MemRefsNormalizable
     StrAttr:$name, OptionalAttr<AnyAttr>:$value, OptionalAttr<I64Attr>:$offset,
     OptionalAttr<I64Attr>:$alignment);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
-
-  let parser = ?;
-  let printer = ?;
 }
 
 def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
@@ -223,9 +206,6 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
       build($_builder, $_state, resultType, mempool, offset, {});
     }]>,
     ];
-
-  let parser = ?;
-  let printer = ?;
 
   let extraClassDeclaration = [{
     /// Returns the symbolic operands (the ones in square brackets), which bind
@@ -353,9 +333,6 @@ def KrnlDimOp : Op<Krnl_Dialect, "dim", [MemRefsNormalizable]> {
 
   let arguments = (ins AnyTypeOf<[AnyMemRef]>:$alloc, Index:$index);
   let results = (outs Index:$dimension);
-
-  let parser = ?;
-  let printer = ?;
 }
 
 def KrnlShapeOp : Op<Krnl_Dialect, "shape", [MemRefsNormalizable]> {
@@ -370,9 +347,6 @@ def KrnlShapeOp : Op<Krnl_Dialect, "shape", [MemRefsNormalizable]> {
 
   let arguments = (ins AnyTypeOf<[AnyMemRef]>:$alloc);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$shape);
-
-  let parser = ?;
-  let printer = ?;
 }
 
 def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
@@ -383,9 +357,6 @@ def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
 
   let arguments = (ins AnyFloat:$in);
   let results = (outs AnyFloat:$out);
-
-  let parser = ?;
-  let printer = ?;
 }
 
 def KrnlAcosOp : Op<Krnl_Dialect, "acos"> {
@@ -396,9 +367,6 @@ def KrnlAcosOp : Op<Krnl_Dialect, "acos"> {
 
   let arguments = (ins AnyFloat:$in);
   let results = (outs AnyFloat:$out);
-
-  let parser = ?;
-  let printer = ?;
 }
 
 def KrnlAcoshOp : Op<Krnl_Dialect, "acosh"> {
@@ -409,9 +377,6 @@ def KrnlAcoshOp : Op<Krnl_Dialect, "acosh"> {
 
   let arguments = (ins AnyFloat:$in);
   let results = (outs AnyFloat:$out);
-
-  let parser = ?;
-  let printer = ?;
 }
 
 def KrnlAsinOp : Op<Krnl_Dialect, "asin"> {
@@ -422,9 +387,6 @@ def KrnlAsinOp : Op<Krnl_Dialect, "asin"> {
 
   let arguments = (ins AnyFloat:$in);
   let results = (outs AnyFloat:$out);
-
-  let parser = ?;
-  let printer = ?;
 }
 
 def KrnlAsinhOp : Op<Krnl_Dialect, "asinh"> {
@@ -435,9 +397,6 @@ def KrnlAsinhOp : Op<Krnl_Dialect, "asinh"> {
 
   let arguments = (ins AnyFloat:$in);
   let results = (outs AnyFloat:$out);
-
-  let parser = ?;
-  let printer = ?;
 }
 
 def KrnlAtanOp : Op<Krnl_Dialect, "atan"> {
@@ -448,9 +407,6 @@ def KrnlAtanOp : Op<Krnl_Dialect, "atan"> {
 
   let arguments = (ins AnyFloat:$in);
   let results = (outs AnyFloat:$out);
-
-  let parser = ?;
-  let printer = ?;
 }
 
 def KrnlAtanhOp : Op<Krnl_Dialect, "atanh"> {
@@ -461,9 +417,6 @@ def KrnlAtanhOp : Op<Krnl_Dialect, "atanh"> {
 
   let arguments = (ins AnyFloat:$in);
   let results = (outs AnyFloat:$out);
-
-  let parser = ?;
-  let printer = ?;
 }
 
 def KrnlTanOp : Op<Krnl_Dialect, "tan"> {
@@ -474,9 +427,6 @@ def KrnlTanOp : Op<Krnl_Dialect, "tan"> {
 
   let arguments = (ins AnyFloat:$in);
   let results = (outs AnyFloat:$out);
-
-  let parser = ?;
-  let printer = ?;
 }
 
 
@@ -770,10 +720,6 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     following condition must be true:
     1) The vector length is the second entry of (i, j, k) compute tile size.
        The vector length must be a compile time constant.
-    2) last dim of B & C mem ref must be constant and a multiple of the vector
-       length.
-    By copying the original data B and result C into tiles of known compile time
-    sizes, any computations can be made to simdize.
   }];
 
   let arguments = (ins 
