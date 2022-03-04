@@ -1,7 +1,3 @@
-/*
- * SPDX-License-Identifier: Apache-2.0
- */
-
 //===---------- ONNXLegalityCheck.hpp - Check legality for ONNX ops -------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -16,9 +12,6 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-//#include
-//"third_party/onnx-mlir/src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-//#include "third_party/onnx-mlir/src/Dialect/ONNX/ONNXOps.hpp"
 
 /// Check whether two tensors have the same shape or not.
 /// In case where they have the same rank but unknown dimensions, we cannot

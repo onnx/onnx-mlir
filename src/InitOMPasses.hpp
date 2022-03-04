@@ -89,6 +89,7 @@ void initOMPasses(int optLevel) {
     return mlir::createRewriteONNXForZHighPass();
   });
 
+  // TODO: enable this when stickification is good.
   // mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
   //   return mlir::createZHighConstPropagationPass();
   // });
@@ -97,9 +98,9 @@ void initOMPasses(int optLevel) {
     return mlir::createZHighToZLowPass(optLevel);
   });
 
-  // mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-  //   return mlir::createZLowRewritePass();
-  // });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createZLowRewritePass();
+  });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createZLowToLLVMPass();

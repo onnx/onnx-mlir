@@ -1,7 +1,3 @@
-/*
- * SPDX-License-Identifier: Apache-2.0
- */
-
 //===------------------ ZHighOps.hpp - ONNX Operations --------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -28,16 +24,16 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/TypeSwitch.h"
 
-#include "Support/LayoutHelper.hpp"
 #include "ZHighHelper.hpp"
 #include "ZHighOps.hpp"
 #include "ZHighShapeHelper.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "third_party/zdnn-lib/zdnn/zdnn.h"
 
 using namespace mlir;
 
 #define GET_ATTRDEF_CLASSES
-#include "Dialect/ZHigh/ZHighAttrs.cpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttrs.cpp.inc"
 
 std::vector<mlir::Type> getZHighAuxSplitResultType(
     Value input, int64_t axis, ArrayAttr split) {
@@ -217,11 +213,11 @@ ZHighDialect::ZHighDialect(MLIRContext *ctx)
     : Dialect(getDialectNamespace(), ctx, TypeID::get<ZHighDialect>()) {
   addAttributes<
 #define GET_ATTRDEF_LIST
-#include "Dialect/ZHigh/ZHighAttrs.cpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttrs.cpp.inc"
       >();
   addOperations<
 #define GET_OP_LIST
-#include "Dialect/ZHigh/ZHighOps.cpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.cpp.inc"
       >();
 }
 
@@ -671,7 +667,7 @@ LogicalResult ZHighLSTMOp::inferShapes(
   // Output type is 3DS.
   Type elementType = input().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
-      this->getContext(), ZTensorEncodingAttr::DataLayout::_3DS);
+      this->getContext(), ZTensorEncodingAttr::DataLayout::_4DS);
   RankedTensorType hnType =
       RankedTensorType::get(hnOutputDims, elementType, encoding);
   RankedTensorType cfType =
@@ -744,7 +740,7 @@ LogicalResult ZHighGRUOp::inferShapes(
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), hnOutputDims);
   Type elementType = input().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
-      this->getContext(), ZTensorEncodingAttr::DataLayout::_3DS);
+      this->getContext(), ZTensorEncodingAttr::DataLayout::_4DS);
   RankedTensorType hnType =
       RankedTensorType::get(hnOutputDims, elementType, encoding);
   getResult().setType(hnType);
@@ -875,4 +871,4 @@ LogicalResult ZHighAvgPool2DOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 #define GET_OP_CLASSES
-#include "Dialect/ZHigh/ZHighOps.cpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.cpp.inc"

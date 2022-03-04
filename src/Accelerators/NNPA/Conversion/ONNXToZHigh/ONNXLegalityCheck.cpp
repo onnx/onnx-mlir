@@ -1,7 +1,3 @@
-/*
- * SPDX-License-Identifier: Apache-2.0
- */
-
 //===---------- ONNXLegalityCheck.cpp - Check legality for ONNX ops -------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -13,9 +9,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+
+#include "NNPALimit.h"
 
 using namespace mlir;
 
@@ -37,21 +35,20 @@ bool isValidElementType(Value val) {
 /// A function to check whether two tensors have the same shape or not.
 /// In case where they have the same rank but unknown dimensions, we cannot
 /// detect whether the shapes are exactly the same or not. Hence, return false.
-/// Also, check the ranks of two tensors, they must be <= 4.
+/// Also, check the ranks of two tensors, they must be in range of (0, 4].
 bool haveSameStaticShape(Value value1, Value value2) {
   auto valueType1 = value1.getType().cast<ShapedType>();
   auto valueType2 = value2.getType().cast<ShapedType>();
   // Different rank, return false.
   if (valueType1.getRank() != valueType2.getRank())
     return false;
-  // Rank must be <= 4.
-  if (valueType1.getRank() > 4 || valueType2.getRank() > 4)
+  // Rank must be in range of (0, 4].
+  if (valueType1.getRank() == 0 || valueType1.getRank() > 4)
     return false;
   // Only check when both tensors have static dimensions.
   if (valueType1.hasStaticShape() && valueType2.hasStaticShape())
     return (valueType1.getShape() == valueType2.getShape());
-  else
-    return false;
+  return false;
 }
 
 /// Common legality check for pooling ops
@@ -569,7 +566,7 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
   if (!R.getType().cast<ShapedType>().hasStaticShape())
     return false;
   // Check hidden_size, zDNN only supports size < 16384.
-  if (hidden_size > 16384)
+  if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_LSTM)
     return false;
   // zDNN does not support sequence_lens.
   if (!isNoneType(op.sequence_lens()))
@@ -633,7 +630,7 @@ bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
   if (!R.getType().cast<ShapedType>().hasStaticShape())
     return false;
   // Check hidden_size, zDNN only supports size < 21824.
-  if (hidden_size > 21824)
+  if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_GRU)
     return false;
   // zDNN does not support sequence_lens.
   if (!isNoneType(op.sequence_lens()))

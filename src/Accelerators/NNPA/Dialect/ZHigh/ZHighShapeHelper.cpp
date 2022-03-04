@@ -1,7 +1,3 @@
-/*
- * SPDX-License-Identifier: Apache-2.0
- */
-
 //===----------------ZHighShapeHelper.cpp - help for shapes---------------=== //
 //
 // Copyright 2019-2021 The IBM Research Authors.
@@ -12,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Dialect/ZHigh/ZHighShapeHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
 using namespace mlir;
@@ -236,19 +232,21 @@ LogicalResult ZHighLSTMOpShapeHelper::computeShape(
   IndexExpr D = RBounds.getDim(0);
   IndexExpr H = RBounds.getDim(1);
 
-  // Shape for hn_ouput : [S, B, H] if return all  timesteps. [1, B, H] if
+  // Shape for hn_ouput : [S, D, B, H] if return all  timesteps. [1, D, B, H] if
   // return the final step only.
   DimsExpr hnOutputDims;
   if (isAllTimesteps)
     hnOutputDims.emplace_back(S);
   else
     hnOutputDims.emplace_back(LiteralIndexExpr(1));
+  hnOutputDims.emplace_back(D);
   hnOutputDims.emplace_back(B);
   hnOutputDims.emplace_back(H);
 
-  // Shape for cf_ouput : [1, B, H]
+  // Shape for cf_ouput : [1, D, B, H]
   DimsExpr cfOutputDims;
   cfOutputDims.emplace_back(LiteralIndexExpr(1));
+  cfOutputDims.emplace_back(D);
   cfOutputDims.emplace_back(B);
   cfOutputDims.emplace_back(H);
 
@@ -307,13 +305,14 @@ LogicalResult ZHighGRUOpShapeHelper::computeShape(
   IndexExpr D = RBounds.getDim(0);
   IndexExpr H = RBounds.getDim(1);
 
-  // Shape for hn_ouput : [S, B, H] if return all  timesteps. [1, B, H] if
+  // Shape for hn_ouput : [S, D, B, H] if return all  timesteps. [1, D, B, H] if
   // return the final step only.
   DimsExpr hnOutputDims;
   if (isAllTimesteps)
     hnOutputDims.emplace_back(S);
   else
     hnOutputDims.emplace_back(LiteralIndexExpr(1));
+  hnOutputDims.emplace_back(D);
   hnOutputDims.emplace_back(B);
   hnOutputDims.emplace_back(H);
 
@@ -448,7 +447,7 @@ LogicalResult ZHighPoolingOpShapeHelper<OP, OP_ADAPTOR>::computeShape(
   IndexExpr WI = XBounds.getDim(2);
   IndexExpr CI = XBounds.getDim(3);
   IndexExpr KH = LiteralIndexExpr(kernelShape[0].cast<IntegerAttr>().getInt());
-  IndexExpr KW = LiteralIndexExpr(kernelShape[0].cast<IntegerAttr>().getInt());
+  IndexExpr KW = LiteralIndexExpr(kernelShape[1].cast<IntegerAttr>().getInt());
   IndexExpr strideH = LiteralIndexExpr(strides[0].cast<IntegerAttr>().getInt());
   IndexExpr strideW = LiteralIndexExpr(strides[1].cast<IntegerAttr>().getInt());
 
