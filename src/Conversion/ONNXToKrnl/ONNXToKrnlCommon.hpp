@@ -312,8 +312,6 @@ void populateLoweringONNXRNNOpPattern(
 // `Sequence` directory methods:
 void populateLoweringONNXSequenceAtOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
-void populateLoweringONNXSequenceConstructOpPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSequenceEmptyOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXSequenceEraseOpPattern(

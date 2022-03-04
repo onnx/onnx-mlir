@@ -115,7 +115,6 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXRNNOpPattern(patterns, typeConverter, ctx);
   // Sequence
   populateLoweringONNXSequenceAtOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXSequenceConstructOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSequenceEmptyOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSequenceEraseOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSequenceInsertOpPattern(patterns, typeConverter, ctx);
