@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------SequenceInsert.cpp - Lowering SequenceInsert
-//Op----------------------=== //
+//===-------SequenceInsert.cpp - Lowering SequenceInsert Op---------------=== //
 //
 // Copyright 2020-2022 The IBM Research Authors.
 //

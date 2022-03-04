@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------SequenceErase.cpp - Lowering SequenceErase
-//Op----------------------=== //
+//===-------SequenceErase.cpp - Lowering SequenceErase Op-----------------=== //
 //
 // Copyright 2020-2022 The IBM Research Authors.
 //
