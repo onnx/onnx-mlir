@@ -26,9 +26,10 @@ struct ONNXSequenceConstructOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-
     ONNXSequenceConstructOpAdaptor operandAdaptor(operands);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+    IndexExprScope IEScope(&rewriter, loc);
+
     //ONNXSequenceConstructOp sequenceConstructOp = cast<ONNXSequenceConstructOp>(op);
 
     // Get element type for seq from the output

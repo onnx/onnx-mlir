@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------SequenceLength.cpp - Lowering SequenceLength Op----------------------=== //
+//===----------------SequenceLength.cpp - Lowering SequenceLength
+//Op----------------------=== //
 //
 // Copyright 2020-2022 The IBM Research Authors.
 //
@@ -20,15 +21,15 @@ using namespace mlir;
 
 struct ONNXSequenceLengthOpLowering : public ConversionPattern {
   ONNXSequenceLengthOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXSequenceLengthOp::getOperationName(), 1, ctx) {}
+      : ConversionPattern(typeConverter,
+            mlir::ONNXSequenceLengthOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-
     ONNXSequenceLengthOpAdaptor operandAdaptor(operands);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+    IndexExprScope IEScope(&rewriter, loc);
 
     auto input_sequence = operandAdaptor.input_sequence();
     MemRefBoundsIndexCapture inputBounds(input_sequence);

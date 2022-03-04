@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------SequenceAt.cpp - Lowering SequenceAt Op----------------------=== //
+//===----------------SequenceAt.cpp - Lowering SequenceAt
+//Op----------------------=== //
 //
 // Copyright 2020-2022 The IBM Research Authors.
 //
@@ -20,22 +21,27 @@ using namespace mlir;
 
 struct ONNXSequenceAtOpLowering : public ConversionPattern {
   ONNXSequenceAtOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXSequenceAtOp::getOperationName(), 1, ctx) {}
+      : ConversionPattern(typeConverter,
+            mlir::ONNXSequenceAtOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-
     ONNXSequenceAtOpAdaptor operandAdaptor(operands);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+    IndexExprScope IEScope(&rewriter, loc);
 
     auto input_sequence = operandAdaptor.input_sequence();
-    MemRefBoundsIndexCapture inputBounds(input_sequence);
-    IndexExpr positionIE = SymbolIndexExpr(operandAdaptor.position());
-    positionIE = IndexExpr::select(positionIE < 0, positionIE + inputBounds.getDim(0), positionIE);
+    auto dimSize = rewriter.create<memref::DimOp>(
+        loc, input_sequence, create.math.constantIndex(0));
+    SymbolIndexExpr boundIE(dimSize);
+    IndexExpr positionIE =
+        SymbolIndexExpr(create.krnl.load(operandAdaptor.position()));
 
-    auto outputVal = create.krnl.load(operandAdaptor.input_sequence(), positionIE.getValue());
+    positionIE =
+        IndexExpr::select(positionIE < 0, positionIE + boundIE, positionIE);
+    auto outputVal = create.krnl.load(
+        operandAdaptor.input_sequence(), positionIE.getValue());
 
     rewriter.replaceOp(op, outputVal);
     return success();

@@ -768,6 +768,22 @@ KrnlTypeConverter::KrnlTypeConverter() {
     return MemRefType::get(tensorType.getShape(), tensorType.getElementType());
   });
 
+  addConversion([](SeqType seqType) {
+    ShapedType seqElementType = seqType.getElementType();
+    Type elementType = seqElementType.getElementType();
+    Type seqElementConvertedType;
+    if (seqElementType.hasRank()) {
+      seqElementConvertedType =
+          MemRefType::get(seqElementType.getShape(), elementType);
+    } else {
+      seqElementConvertedType = UnrankedMemRefType::get(elementType, 0);
+    }
+    SmallVector<int64_t, 1> dims;
+    dims.emplace_back(seqType.getLength());
+    llvm::ArrayRef<int64_t> shape(dims.data(), dims.size());
+    return MemRefType::get(shape, seqElementConvertedType);
+  });
+
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
                                Location loc) -> Optional<Value> {
