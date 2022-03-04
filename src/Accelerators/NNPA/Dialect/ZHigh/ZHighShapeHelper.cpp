@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----------------ZHighShapeHelper.cpp - help for shapes---------------=== //
 //
 // Copyright 2019-2021 The IBM Research Authors.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //===- ONNXToZHigh.td - Replacing ONNX Ops by ZHigh Ops -*- tablegen ------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.

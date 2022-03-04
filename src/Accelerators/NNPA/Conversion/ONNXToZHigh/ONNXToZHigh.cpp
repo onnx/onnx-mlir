@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====------ ONNXToZHigh.cpp - ONNX dialect to ZHigh lowering -------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.

@@ -29,13 +29,16 @@
 #include <mlir/Support/FileUtilities.h>
 #include <mlir/Support/MlirOptMain.h>
 
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/InitMLIRPasses.hpp"
 #include "src/InitOMPasses.hpp"
 #include "src/Pass/Passes.hpp"
+
+#ifdef __NNPA__
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
+#endif
 
 using namespace onnx_mlir;
 

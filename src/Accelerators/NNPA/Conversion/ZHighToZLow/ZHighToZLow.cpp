@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====------ ZHighToZLow.cpp - ZHigh dialect to ZLow lowering -------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.

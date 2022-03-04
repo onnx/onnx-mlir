@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------- ONNXLegalityCheck.hpp - Check legality for ONNX ops -------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
