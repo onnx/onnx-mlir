@@ -15,7 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/Accelerator.hpp"
-#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
+//#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
 #include <iostream>
 #include <vector>
 

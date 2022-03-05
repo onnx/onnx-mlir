@@ -35,9 +35,9 @@ NNPAAccelerator::NNPAAccelerator() : Accelerator() {
 
   if (!initialized) {
     initialized = true;
-    // getAcceleratorList()->push_back(this);
-  } // else
-    // getAcceleratorList()->push_back(this);
+    getAcceleratorList()->push_back(this);
+  }else
+    getAcceleratorList()->push_back(this);
 };
 
 bool NNPAAccelerator::isActive() const {
