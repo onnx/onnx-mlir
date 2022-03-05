@@ -611,6 +611,8 @@ mlir::Type convertONNXTypeToMLIRType(
   case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
     return builder_.getIntegerType(/*width=*/8, false);
   case onnx::TensorProto_DataType::TensorProto_DataType_INT16:
+    return builder_.getIntegerType(/*width=*/16);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
     return builder_.getIntegerType(/*width=*/16, false);
   case onnx::TensorProto_DataType::TensorProto_DataType_INT32:
     return builder_.getIntegerType(/*width=*/32);
