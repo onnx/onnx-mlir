@@ -25,15 +25,19 @@ extern llvm::cl::OptionCategory OMDLCPassOptions;
 extern llvm::cl::opt<DLCEmissionTargetType> dlcEmissionTarget;
 extern llvm::cl::list<std::string> execNodesOnCpu;
 
+void nnpa_keep_alive() {
+
+}
+ 
 namespace mlir {
 
 NNPAAccelerator::NNPAAccelerator() {
-  std::cout << "initializing NNPA" << std::endl;
+  //std::cout << "initializing NNPA" << std::endl;
   if (!initialized) {
     initialized = true;
-    // getAcceleratorList()->push_back(this);
-  } // else
-    // getAcceleratorList()->push_back(this);
+    getAcceleratorList()->push_back(this);
+  }else
+    getAcceleratorList()->push_back(this);
 };
 
 bool NNPAAccelerator::isActive() {
@@ -56,5 +60,5 @@ void NNPAAccelerator::prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
   addPassesDLC(module, pm, emissionTarget, dlcEmissionTarget, execNodesOnCpu);
 }
 bool NNPAAccelerator::initialized = false;
-NNPAAccelerator nnpaAccelerator;
 } // namespace mlir
+mlir::NNPAAccelerator nnpaAccelerator();

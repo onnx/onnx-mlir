@@ -29,11 +29,15 @@
 #include "Pass/DLCPasses.hpp"
 #include "Support/OMDLCOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
 
 #define DEBUG_TYPE "DLCompiler"
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
+
+extern NNPAAccelerator nnpaAccelerator;
+
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 llvm::cl::opt<DLCEmissionTargetType> dlcEmissionTarget(
     llvm::cl::desc("[Optional] Choose Z-related target to emit "
@@ -54,6 +58,7 @@ llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
 
 void addONNXToZHighPasses(
     mlir::PassManager &pm, ArrayRef<std::string> execNodesOnCpu) {
+  if (nnpaAccelerator.isActive()) {  
   pm.addPass(mlir::createRewriteONNXForZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
   pm.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
@@ -81,6 +86,7 @@ void addONNXToZHighPasses(
   if (isBE)
     pm.addNestedPass<FuncOp>(mlir::createZHighConstPropagationPass());
     */
+  }
 }
 
 void addZHighToZLowPasses(mlir::PassManager &pm, int optLevel) {
