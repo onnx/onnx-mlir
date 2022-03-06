@@ -2958,15 +2958,6 @@ LogicalResult ONNXResizeOp::inferShapes(
       return emitError("scales() and sizes() can not be both defined");
   }
 
-  if (!(mode() == "nearest" &&
-          (coordinate_transformation_mode() == "half_pixel" ||
-              coordinate_transformation_mode() == "asymmetric"))) {
-    return emitError("these modes() or coordinate_transformation_mode() not "
-                     "implemented yet. mode: " +
-                     mode() + " coordinate_transformation_mode: " +
-                     coordinate_transformation_mode());
-  }
-
   // Current implementation handles constant scales only
   if (!isFromNone(scales())) {
     DenseElementsAttr scalesAttrs =
