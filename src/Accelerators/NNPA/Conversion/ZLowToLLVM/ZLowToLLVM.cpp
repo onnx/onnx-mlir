@@ -41,6 +41,7 @@
 #include "third_party/zdnn-lib/zdnn/zdnn.h"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 zdnn_data_layouts UNDEFINED_ZDNN_LAYOUT = (zdnn_data_layouts)255;
 
@@ -1554,15 +1555,16 @@ void ZLowToLLVMLoweringPass::runOnOperation() {
 
   typeConverter.addConversion([&](MemRefType type) -> llvm::Optional<Type> {
     Type elementType = type.getElementType();
-    if (!elementType.isa<StringType>())
+    if (!elementType.isa<krnl::StringType>())
       return llvm::None;
 
-    elementType = elementType.cast<StringType>().getLLVMType(type.getContext());
+    elementType =
+        elementType.cast<krnl::StringType>().getLLVMType(type.getContext());
     return typeConverter.convertType(
         MemRefType::get(type.getShape(), elementType));
   });
 
-  typeConverter.addConversion([&](StringType type) -> Type {
+  typeConverter.addConversion([&](krnl::StringType type) -> Type {
     return typeConverter.convertType(type.getLLVMType(type.getContext()));
   });
 

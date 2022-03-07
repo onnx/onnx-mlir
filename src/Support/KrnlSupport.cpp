@@ -14,6 +14,9 @@
 
 #include "src/Support/KrnlSupport.hpp"
 
+using namespace mlir;
+using namespace onnx_mlir;
+
 //===----------------------------------------------------------------------===//
 // Return various operations.
 //===----------------------------------------------------------------------===//
@@ -249,8 +252,8 @@ unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
   unsigned sizeInBits;
   if (elementType.isIntOrFloat()) {
     sizeInBits = elementType.getIntOrFloatBitWidth();
-  } else if (elementType.isa<StringType>()) {
-    auto stringType = elementType.cast<StringType>();
+  } else if (elementType.isa<krnl::StringType>()) {
+    auto stringType = elementType.cast<krnl::StringType>();
     sizeInBits = stringType.getElementSize();
   } else {
     assert(elementType.isa<VectorType>() && "elementType is not a VectorType");

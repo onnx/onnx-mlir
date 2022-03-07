@@ -145,8 +145,6 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   // They run it in two steps, and add additional lowerings.
 
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
-  // Removed in upgrade of LLVM:
-  // vector::populateVectorSlicesLoweringPatterns(patterns);
   vector::populateVectorBroadcastLoweringPatterns(patterns);
   vector::populateVectorContractLoweringPatterns(patterns);
   vector::populateVectorTransposeLoweringPatterns(patterns);
@@ -459,9 +457,9 @@ struct ConvertKrnlToLLVMPass
 
 void ConvertKrnlToLLVMPass::runOnOperation() {
   ModuleOp module = getOperation();
+  MLIRContext *ctx = &getContext();
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
-  LowerToLLVMOptions options(
-      &getContext(), dataLayoutAnalysis.getAtOrAbove(module));
+  LowerToLLVMOptions options(ctx, dataLayoutAnalysis.getAtOrAbove(module));
   options.emitCWrappers = true;
 
   // Determine, for each output, whether it is a constant or not.
@@ -475,14 +473,16 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
       module, entryPointNames, inSignatures, outSignatures);
 
   // Define the target for this lowering i.e. the LLVM dialect.
-  ConversionTarget target(getContext());
+  ConversionTarget target(*ctx);
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<UnrealizedConversionCastOp>();
 
   // Convert types to legal types for the LLVM dialect.
-  LLVMTypeConverter typeConverter(&getContext(), options);
+  LLVMTypeConverter typeConverter(ctx, options);
+  customizeTypeConverter(typeConverter);
 
+#if 0
   typeConverter.addConversion([&](MemRefType type) -> llvm::Optional<Type> {
     Type elementType = type.getElementType();
     if (!elementType.isa<StringType>())
@@ -496,13 +496,15 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   typeConverter.addConversion([&](StringType type) -> Type {
     return typeConverter.convertType(type.getLLVMType(type.getContext()));
   });
+#endif
 
   // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
   // We lower in stages until all the code is in the LLVM dialect.
-  RewritePatternSet patterns(&getContext());
+  RewritePatternSet patterns(ctx);
 
-  populateAffineAndKrnlToLLVMConversion(patterns, typeConverter, &getContext(),
-      constantOutputs, /*singleEntryPoint=*/entryPointNames.size() == 1);
+  populateAffineAndKrnlToLLVMConversion(patterns, typeConverter, ctx,
+      constantOutputs,
+      /*singleEntryPoint=*/entryPointNames.size() == 1);
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.

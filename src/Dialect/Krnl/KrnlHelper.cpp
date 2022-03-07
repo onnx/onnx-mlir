@@ -21,9 +21,10 @@
 
 #include "KrnlHelper.hpp"
 
-namespace onnx_mlir {
-
 using namespace mlir;
+using namespace onnx_mlir;
+
+namespace onnx_mlir {
 
 ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
     const Type &operandType, Value &operand) {
@@ -573,10 +574,10 @@ void KrnlBuilder::printf(StringRef msg, Value input, Type inputType) const {
           break;
         }
       })
-      .Case<IndexType>([&](IndexType type) { format = "%lld\n"; })
-      .Case<StringType>([&](StringType type) { format = "%s\n"; })
+      .Case<IndexType>([&](IndexType) { format = "%lld\n"; })
+      .Case<krnl::StringType>([&](krnl::StringType) { format = "%s\n"; })
       .Case<LLVM::LLVMPointerType>(
-          [&](LLVM::LLVMPointerType type) { format = "%s\n"; })
+          [&](LLVM::LLVMPointerType) { format = "%s\n"; })
       .Default([&](Type type) {
         llvm::errs() << "type: " << type << "\n";
         llvm_unreachable("Unhandled type");
