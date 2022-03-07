@@ -59,7 +59,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
     }
 
     SmallVector<int64_t, 1> dims;
-    // Number of element in seq my be statically known from shape inference
+    // Number of element in seq may be statically known from shape inference
     dims.emplace_back(thisOp.getResult().getType().cast<SeqType>().getLength());
     llvm::ArrayRef<int64_t> shape(dims.data(), dims.size());
     MemRefType outputMemRefType =
@@ -88,7 +88,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
           IndexExpr::select(positionIE < 0, positionIE + boundIE, positionIE);
     }
 
-    // Copy before the insert
+    // Copy elements before the insertion position
     KrnlBuilder createKrnl(rewriter, loc);
     SmallVector<IndexExpr, 1> lbs;
     lbs.emplace_back(LiteralIndexExpr(0));
@@ -105,12 +105,12 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
         });
 
     // Insert the input tensor
-    // ToDo: need to copy the tensor?
+    // ToDo (chentong): need to duplicate the tensor
     auto element = rewriter.create<memref::CastOp>(
         loc, seqElementConvertedType, operandAdaptor.tensor());
     create.krnl.store(element, alloc, positionIE.getValue());
 
-    // Copy after the insert
+    // Copy elements after the insertion position
     SmallVector<IndexExpr, 1> lbs1;
     lbs1.emplace_back(positionIE + 1);
     SmallVector<IndexExpr, 1> ubs1;

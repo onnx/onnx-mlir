@@ -39,7 +39,7 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
         input_sequence.getType().cast<MemRefType>().getElementType();
 
     SmallVector<int64_t, 1> dims;
-    // Number of element in seq my be statically known from shape inference
+    // Number of element in seq may be statically known from shape inference
     dims.emplace_back(thisOp.getResult().getType().cast<SeqType>().getLength());
     llvm::ArrayRef<int64_t> shape(dims.data(), dims.size());
     MemRefType outputMemRefType = MemRefType::get(shape, seqElementType);
@@ -79,6 +79,8 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
               operandAdaptor.input_sequence(), indicesLoopInd[0]);
           createKrnl.store(element, alloc, indicesLoopInd[0]);
         });
+
+    // ToDo (chentong)Free the erased element
 
     // Copy after the insert
     SmallVector<IndexExpr, 1> lbs1;
