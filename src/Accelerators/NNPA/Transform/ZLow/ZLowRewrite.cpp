@@ -1,10 +1,14 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-------- ZLowRewrite.cpp - ZLow Rewrite Patterns ---------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This pass implements optimizations for for ZLow operations.
+// This pass implements optimizations for ZLow operations.
 //
 //===----------------------------------------------------------------------===//
 
@@ -104,13 +108,14 @@ public:
   StringRef getDescription() const override { return "Rewrite ZLow Ops."; }
 
   void runOnOperation() override {
-    auto function = getOperation();
+    Operation *function = getOperation();
 
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
     patterns.insert<StickViewUnstickRemovalPattern>(&getContext());
 
-    (void)applyPatternsAndFoldGreedily(function, std::move(patterns));
+    if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+      return signalPassFailure();
   }
 };
 

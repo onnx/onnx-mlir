@@ -40,5 +40,3 @@ public:
 /// ONNX operations.
 #define GET_OP_CLASSES
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp.inc"
-
-namespace onnx_mlir {}

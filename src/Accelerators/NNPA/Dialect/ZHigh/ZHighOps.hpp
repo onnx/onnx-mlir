@@ -73,5 +73,3 @@ public:
 
 #define GET_OP_CLASSES
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp.inc"
-
-namespace onnx_mlir {}
