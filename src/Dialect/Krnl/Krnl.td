@@ -35,6 +35,32 @@ def StringType : Type<CPred<"$_self.isa<::mlir::StringType>()">, "string type">;
 // Require regions to have krnl.terminate terminator operation.
 def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
 
+def KrnlCallOp : Op<Krnl_Dialect, "call"> {
+  let summary = "call operation";
+  let description = [{
+    The call operation provides a generic way to call an external function at Krnl level.
+    The `funcName` determines which function to call.
+    The `alloc` is the Value to store the function return. Since allocation of the return 
+    MemRef involves shape inference usually with IndexExpr. Thus most of time the allocation
+    should stay in compiler, not in runtime library.
+    The parameters can be of any type: MemRef, NoneType or any llvm type. 
+    Different types of parameters will be converted, if needed, when KrnlCallOp is lowered.
+    Attributes will be converted to parameters too (To be Added). 
+    The function signature will be determined with the types of parameters.
+    An LLVM::CallOp to either a runtime library or a llvm intrinsic function will be generated. 
+  }];
+
+  let arguments = (ins StrAttr:$funcName, AnyType:$alloc, Variadic<AnyType>:$parameters);
+  let results =(outs AnyType:$result);
+
+  // builders to build KrnlCallOp from op and operands, helping conversion from onnx to krnl.
+  // The name of function can be determined by the op name and elemnt type of the return,
+  // or given to builder if the simple rule does not work
+  // Attributes of the op will be propagated to KrnlCallOp if the copyAttrs is true
+  let builders = [OpBuilder<(ins "mlir::Value":$alloc, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
+      OpBuilder<(ins "std::string":$funcNameStr, "mlir::Value":$alloc, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
+}
+ 
 def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   let summary = "define_loops operation";
   let description = [{

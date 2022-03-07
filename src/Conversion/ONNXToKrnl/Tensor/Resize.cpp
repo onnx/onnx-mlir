@@ -37,7 +37,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     int64_t rank = memRefType.getShape().size();
 
     // Check implementation constraints
-    if (resizeOp.mode() != "nearest" ||
+    if (resizeOp.mode() == "nearest" &&
         (resizeOp.coordinate_transformation_mode() != "asymmetric" &&
             resizeOp.coordinate_transformation_mode() != "half_pixel"))
       return emitError(loc, "not implemented yet");
@@ -117,6 +117,15 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       }
       alloc = insertAllocAndDeallocSimple(
           rewriter, op, memRefType, loc, outputDims, insertDealloc);
+    }
+
+    // Call external function when the mode is not "nearest"
+    // Create KrnlCallOp and replace the du chain
+    if (resizeOp.mode() != "nearest") {
+      Value resizeCall =
+          rewriter.create<KrnlCallOp>(loc, alloc, op, operands, true);
+      rewriter.replaceOp(op, resizeCall);
+      return success();
     }
 
     // Constants used in the loop body
