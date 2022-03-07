@@ -132,6 +132,12 @@ def HasSameElementType : Constraint<
           "$1.cast<::mlir::TypeAttr>().getValue())">,
     "has same element type">;
 
+def IsStaticShapeTensor:
+   Constraint<
+     CPred<
+       "$_self.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
+     "hasStaticShape">;
+
 def AreTheSameAxisArray: Constraint<
     CPred<"AreTheSameAxisArray("
           "(hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
@@ -329,11 +335,13 @@ def SwapReshapeMatMulPattern: Pattern<
  // If the input of Reshape is suitable for the next MatMul, use the input directly
  // for MatMul. In other words, swapping Reshape and MatMul.
  // This rule will put reshape ops together, then the reshape fusion rule can be applied.
+ // TODO: Support dynamic dimensions.
  (ONNXMatMulOp:$res2 (ONNXReshapeOp:$res1 $A, $_), $B),
  [(ONNXReshapeOp (ONNXMatMulOp $A, $B, (returnType (GetReturnTypeForMatMulOpND2D $A, $B))),
                  (ONNXConstantOpFromDenseAttr (createDenseElementsAttrFromShape $res2)))],
  [(HasRankGT<2> $A), (HasRankOf<2> $res1), (HasRankOf<2> $B), // A is reshaped to 2D.
-  (HaveSameLastDim $A, $res1) // The last dim of A is unchanged by reshape.
+  (HaveSameLastDim $A, $res1), // The last dim of A is unchanged by reshape.
+  (IsStaticShapeTensor:$res2)  // $res2 has static dims in order to create ReshapeOp.
  ]
 >;
 
@@ -515,12 +523,6 @@ def RewriteBatchNormInferenceModeConvPattern2: Pat<
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXShapeOp
 //===----------------------------------------------------------------------===//
-
-def IsStaticShapeTensor:
-   Constraint<
-     CPred<
-       "$_self.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
-     "hasStaticShape">;
 
 // TODO: this rules may need to be updated once ShapeOp has start/end.
 def ShapeToConstantPattern: Pat<
