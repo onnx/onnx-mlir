@@ -24,6 +24,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && rm -rf .eggs .setuptools-cmake-build build dist onnx.egg-info
 
 ARG NPROC=4
+ARG BUILD_NNPA
 ARG TEST_MCPU
 
 RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
@@ -35,9 +36,14 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
 # Build onnx-mlir, run tests, and install
     && cd ${ONNX_MLIR_ROOT} \
     && rm -rf build && mkdir -p build && cd build \
+# User image is built with NNPA acclerator (currently on s390x only)
+    && BUILD_NNPA=${BUILD_NNPA:-$([ "$(uname -m)" = "s390x" ] && echo NNPA || \
+                                  [ "$(uname -m)" = "x86_64" ] &&  echo || \
+                                  [ "$(uname -m)" = "ppc64le" ] && echo || echo)} \
     && MLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
        cmake -DCMAKE_BUILD_TYPE=Release \
-             -DCMAKE_INSTALL_MESSAGE=NEVER .. \
+             -DCMAKE_INSTALL_MESSAGE=NEVER \
+             -DACCELERATORS_TO_BUILD=${BUILD_NNPA} .. \
     && make -j${NPROC} \
     && make -j${NPROC} LIT_OPTS=-v check-onnx-lit \
 # User image is built with SIMD (currently on s390x only)
