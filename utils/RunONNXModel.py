@@ -21,9 +21,9 @@ parser.add_argument('--print_output',
                     action='store_true',
                     help="Print out inference outputs produced by onnx-mlir")
 parser.add_argument('--save_onnx',
-                    metavar='PATH',
-                    type=str,
-                    help="File path to save the onnx model")
+                       metavar='PATH',
+                       type=str,
+                       help="File path to save the onnx model")
 lib_group.add_argument('--save_so',
                        metavar='PATH',
                        type=str,
@@ -59,10 +59,9 @@ parser.add_argument('--verify',
                     choices=['onnxruntime', 'ref'],
                     help="Verify the output by using onnxruntime or reference"
                     " inputs/outputs. By default, no verification")
-parser.add_argument(
-    '--verify_all_ops',
-    action='store_true',
-    help="Verify all operation outputs when using onnxruntime.")
+parser.add_argument('--verify_all_ops',
+                    action='store_true',
+                    help="Verify all operation outputs when using onnxruntime.")
 parser.add_argument(
     '--compile_using_input_shape',
     action='store_true',
@@ -83,8 +82,7 @@ if (not os.environ.get('ONNX_MLIR_HOME', None)):
         "Environment variable ONNX_MLIR_HOME is not set, please set it to the path to "
         "the HOME directory for onnx-mlir. The HOME directory for onnx-mlir refers to "
         "the parent folder containing the bin, lib, etc sub-folders in which ONNX-MLIR "
-        "executables and libraries can be found, typically `onnx-mlir/build/Debug`"
-    )
+        "executables and libraries can be found, typically `onnx-mlir/build/Debug`")
 
 VERBOSE = os.environ.get('VERBOSE', False)
 
@@ -126,28 +124,9 @@ def extend_model_output(model, intermediate_outputs):
         model.graph.output.pop()
 
     for output_name in intermediate_outputs:
-        output_value_info = onnx.helper.make_empty_tensor_value_info(
-            output_name)
+        output_value_info = onnx.helper.make_empty_tensor_value_info(output_name)
         model.graph.output.extend([output_value_info])
     return model
-
-
-def extract_op_from_model(model, output_name, op_model_path):
-    print("Extracting the failed operation and "
-          "creating a simple test for further debugging")
-    # find inputs
-    op_input_names = []
-    op_output_names = []
-    for node in model.graph.node:
-        if output_name not in node.output:
-            continue
-        for name in node.input:
-            op_input_names += [name]
-        for name in node.output:
-            op_output_names += [name]
-    e = onnx.utils.Extractor(model)
-    op_model = e.extract_model(op_input_names, op_output_names)
-    onnx.save(op_model, op_model_path)
 
 
 def read_input_from_refs(model, data_folder):
@@ -288,8 +267,6 @@ def main():
         # Otherwise, compile the ONNX model.
         if (args.load_so):
             shared_lib_path = args.load_so
-            temp_model_path = os.path.join(temp_dir, "model.onnx")
-            onnx.save(model, temp_model_path)
         else:
             print("Compiling the model ...")
             # Save modified model & invoke onnx-mlir to compile it.
@@ -390,12 +367,6 @@ def main():
                     "Verifying value of {}:{}".format(name,
                                                       list(outs[i].shape)),
                     "using atol={}, rtol={} ...".format(args.atol, args.rtol))
-                if (outs[i].shape != ref_outs[i].shape):
-                    print("  tensor shape mismatched.", outs[i].shape, "vs",
-                          ref_outs[i].shape)
-                    op_model_path = "/Users/tung/dl/onnx-mlir/build/failed.onnx"
-                    extract_op_from_model(model, name, op_model_path)
-                    exit()
                 total_elements = 0
                 mismatched_elements = 0
                 for index, actual_val in np.ndenumerate(outs[i]):
@@ -414,8 +385,6 @@ def main():
                 else:
                     print("  mismatched elements {}/{}.\n".format(
                         mismatched_elements, total_elements))
-                    # stop verification.
-                    exit()
 
 
 if __name__ == '__main__':
