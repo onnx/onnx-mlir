@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// Add accelerator support for the IBM Telum processor.
+// Add accelerator support for the IBM Telum coprocessor
 //
 //===----------------------------------------------------------------------===//
 
@@ -20,7 +20,7 @@
 #include "src/Support/OMOptions.hpp"
 #include "llvm/Support/Debug.h"
 
-#define DEBUG_TYPE "NNPACompiler"
+#define DEBUG_TYPE "nnpa"
 
 extern llvm::cl::OptionCategory OMNNPAPassOptions;
 extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
@@ -30,41 +30,16 @@ namespace onnx_mlir {
 namespace accel {
 namespace nnpa {
 
-NNPAAccelerator::NNPAAccelerator() : Accelerator() {
-  LLVM_DEBUG(llvm::dbgs() << "initializing NNPA\n");
-
-  if (!initialized) {
-    initialized = true;
-    // getAcceleratorList()->push_back(this);
-  } // else
-    // getAcceleratorList()->push_back(this);
-};
-
-bool NNPAAccelerator::isActive() const {
-  LLVM_DEBUG(
-      llvm::dbgs() << "check if NNPA is active" << acceleratorTarget << "\n");
-  if (acceleratorTarget.compare("NNPA") == 0) {
-    LLVM_DEBUG(llvm::dbgs() << "Targeting NNPA accelerator\n");
-    return true;
-  }
-
-  return false;
-}
-
-void NNPAAccelerator::prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
+void NNPAAccelerator::prepare(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, mlir::PassManager &pm,
     onnx_mlir::EmissionTargetType emissionTarget) const {
-  LLVM_DEBUG(
-      llvm::dbgs() << "preparing accelerator " << acceleratorTarget << "\n");
+  LLVM_DEBUG(llvm::dbgs() << "preparing NNPA accelerator\n");
 
   // Load our Dialect in this MLIR Context.
   context.getOrLoadDialect<zhigh::ZHighDialect>();
   context.getOrLoadDialect<zlow::ZLowDialect>();
   addPassesNNPA(module, pm, emissionTarget, nnpaEmissionTarget, execNodesOnCpu);
 }
-
-bool NNPAAccelerator::initialized = false;
-NNPAAccelerator nnpaAccelerator;
 
 } // namespace nnpa
 } // namespace accel

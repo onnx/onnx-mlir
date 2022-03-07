@@ -25,10 +25,8 @@ add_subdirectory(Support)
 add_subdirectory(Transform)
 add_subdirectory(Compiler)
 
-add_onnx_mlir_library(NNPAAccel
+add_onnx_mlir_library(OMNNPAAccel
   NNPAAccelerator.cpp
-
-  EXCLUDE_FROM_OM_LIBS
 
   DEPENDS
   Accelerator

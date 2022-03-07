@@ -17,23 +17,46 @@
 #include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"
-#include <vector>
+#include "llvm/ADT/SmallPtrSet.h"
 
 namespace onnx_mlir {
 namespace accel {
 
 class Accelerator {
 public:
-  Accelerator();
+  /// Kinds of accelerators.
+  enum class Kind {
+    NNPA, // IBM Telum coprocessor
+  };
+
   virtual ~Accelerator();
-  static std::vector<Accelerator *> *getAcceleratorList();
-  virtual bool isActive() const = 0;
-  virtual void prepareAccelerator(mlir::OwningOpRef<mlir::ModuleOp> &module,
+
+  /// Getter for the kind of this accelerator.
+  Kind getKind() const { return kind; }
+
+  /// Create a new accelerator based on \p kind, initialize it, and add it to
+  /// the list of available accelerators.
+  static void create(Accelerator::Kind kind,
+      mlir::OwningOpRef<mlir::ModuleOp> &module, mlir::MLIRContext &context,
+      mlir::PassManager &pm, onnx_mlir::EmissionTargetType emissionTarget);
+
+  /// Return the list of available accelerators.
+  static const llvm::SmallPtrSetImpl<Accelerator *> &getAccelerators();
+
+protected:
+  Accelerator(Kind kind) : kind(kind) {}
+
+private:
+  /// Accelerators available.
+  static llvm::SmallPtrSet<Accelerator *, 2> accelerators;
+
+  /// Initialize the accelerator.
+  virtual void prepare(mlir::OwningOpRef<mlir::ModuleOp> &module,
       mlir::MLIRContext &context, mlir::PassManager &pm,
       onnx_mlir::EmissionTargetType emissionTarget) const = 0;
 
-private:
-  static std::vector<Accelerator *> *acceleratorTargets;
+  /// Kind of accelerator.
+  Kind kind;
 };
 
 } // namespace accel

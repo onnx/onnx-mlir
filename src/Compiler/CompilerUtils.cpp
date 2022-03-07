@@ -126,6 +126,12 @@ static llvm::cl::opt<std::string> march("march",
     llvm::cl::value_desc("Target a specific architecture type"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
+static llvm::cl::list<accel::Accelerator::Kind> maccel("maccel",
+    llvm::cl::desc("Specify an accelerator to generate code for"),
+    llvm::cl::values(clEnumValN(
+        accel::Accelerator::Kind::NNPA, "NNPA", "IBM Telum processor")),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
+
 static llvm::cl::opt<OptLevel> OptimizationLevel(
     llvm::cl::desc("Optimization levels:"),
     llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default)."),
@@ -1060,21 +1066,16 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     EmissionTargetType emissionTarget) {
   setupModule(module, context, outputBaseName);
-
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-  // Initialize accelerator if required
-  if (acceleratorTarget.compare("") != 0) {
-    std::vector<accel::Accelerator *> *accTargets =
-        accel::Accelerator::getAcceleratorList();
-    assert(accTargets && "should not be null");
 
-    for (auto accel : *accTargets) {
-      if (accel->isActive()) {
-        accel->prepareAccelerator(module, context, pm, emissionTarget);
-      }
-    }
+  // Initialize accelerators if required.
+  if (!maccel.empty()) {
+    for (accel::Accelerator::Kind accelKind : maccel)
+      accel::Accelerator::create(
+          accelKind, module, context, pm, emissionTarget);
   } else
     addPasses(module, pm, emissionTarget);
+
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 

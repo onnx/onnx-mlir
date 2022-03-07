@@ -8,7 +8,7 @@
 //
 // ===========================================================================
 //
-// Accelerator class for NNPA
+// Accelerator class for IBM Telum coprocessor
 //
 //===---------------------------------------------------------------------===//
 
@@ -21,14 +21,22 @@ namespace accel {
 namespace nnpa {
 
 class NNPAAccelerator final : public Accelerator {
-private:
-  static bool initialized;
+  friend Accelerator;
 
 public:
-  NNPAAccelerator();
+  ~NNPAAccelerator() {}
 
-  bool isActive() const final;
-  void prepareAccelerator(mlir::OwningOpRef<mlir::ModuleOp> &module,
+  /// Define classof to be able to use isa<>, cast<>, dyn_cast<>, etc.
+  static bool classof(const Accelerator *accel) {
+    return accel->getKind() == Accelerator::Kind::NNPA;
+  }
+  static bool classof(const NNPAAccelerator *) { return true; }
+
+private:
+  NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {}
+
+  /// Initialize the accelerator.
+  void prepare(mlir::OwningOpRef<mlir::ModuleOp> &module,
       mlir::MLIRContext &context, mlir::PassManager &pm,
       onnx_mlir::EmissionTargetType emissionTarget) const final;
 };
