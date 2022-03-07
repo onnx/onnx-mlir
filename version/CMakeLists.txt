@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 set(llvm_source_dir ${LLVM_DIR})
 set(onnx_mlir_source_dir ${ONNX_MLIR_SRC_ROOT})
 
