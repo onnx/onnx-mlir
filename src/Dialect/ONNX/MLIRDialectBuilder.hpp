@@ -159,6 +159,9 @@ struct VectorBuilder final : DialectBuilder {
   Value broadcast(VectorType vecType, Value val) const;
   Value shuffle(Value lhs, Value rhs, SmallVectorImpl<int64_t> &mask) const;
   Value fma(Value lhs, Value rhs, Value acc) const;
+
+  // Composite functions
+  Value reduction(uint64_t actualVL, SmallVectorImpl<Value> &valArray);
 };
 
 //===----------------------------------------------------------------------===//

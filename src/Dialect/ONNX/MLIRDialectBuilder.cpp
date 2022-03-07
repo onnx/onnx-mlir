@@ -526,3 +526,32 @@ Value VectorBuilder::shuffle(
 Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
   return b.create<vector::FMAOp>(loc, lhs, rhs, acc);
 }
+
+// Composite functions
+Value VectorBuilder::reduction(uint64_t actualVL, SmallVectorImpl<Value> &valArray) {
+  uint64_t N = valArray.size();
+  assert(N > 0 && "expected at least one value to reduce");
+  VectorType vecType = valArray[0].getType().dyn_cast_or_null<VectorType>();
+  assert(vecType && "expected a vector type");
+  auto vecShape = vecType.getShape();
+  Type elementaryType = vecType.getElementType();
+  assert(vecShape.size() == 1 && "expected a 1D vector");
+  uint64_t valVL = vecShape[0];
+  bool isAPowerOf2 = (valVL & (valVL - 1)) == 0;
+  assert(valVL > 0 && isAPowerOf2 && "expect for now a power of 2 vl");
+  // verify that all have the same length
+  for (Value val : valArray) {
+    VectorType t = val.getType().dyn_cast_or_null<VectorType>();
+    assert(t && t.getShape().size() == 1 && t.getShape()[0] == (int64_t) valVL &&
+           "all val must be identical 1D vectors");
+  }
+  // For the moment, assume full vectors
+  assert(valArray.size() == actualVL && valVL % actualVL == 0 &&
+         "expect full vectors for now");
+
+  // reductions of full physical vectors
+  for (uint64_t p = valVL; p > 1; p = p / 2) {
+  }
+
+  return nullptr;
+}
