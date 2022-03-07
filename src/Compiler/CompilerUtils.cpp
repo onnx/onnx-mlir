@@ -29,7 +29,9 @@
 #include "llvm/Target/TargetMachine.h"
 
 #include "ExternalUtil.hpp"
+#include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Support/OMOptions.hpp"
 
 #define DEBUG_TYPE "compiler_utils"
@@ -102,7 +104,7 @@ static llvm::cl::opt<string> shapeInformation("shapeInformation",
 
 static llvm::cl::opt<std::string> mtriple("mtriple",
     llvm::cl::desc("Override target triple for module"),
-    llvm::cl::value_desc("LLVM target triple>"), llvm::cl::cat(OnnxMlirOptions),
+    llvm::cl::value_desc("LLVM target triple"), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
 
 static llvm::cl::opt<std::string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
@@ -520,6 +522,24 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
     llvm::errs() << "Failed to translate module to LLVMIR.\n";
     exit(1);
   }
+
+  // Emit metadata "zos_le_char_mode" for z/OS. Use EBCDIC codepage by default.
+  if (llvm::Triple(getTargetTripleOption()).isOSzOS()) {
+    StringRef charModeKey = "zos_le_char_mode";
+    if (!llvmModule->getModuleFlag(charModeKey)) {
+      auto val = llvm::MDString::get(llvmContext, "ebcdic");
+      llvmModule->addModuleFlag(llvm::Module::Error, charModeKey, val);
+    }
+  }
+
+  // Emit the onnx-mlir version as llvm.ident metadata.
+  llvm::NamedMDNode *identMetadata =
+      llvmModule->getOrInsertNamedMetadata("llvm.ident");
+  std::string version = "onnx-mlir version 1.0.0";
+  llvm::LLVMContext &ctx = llvmModule->getContext();
+  llvm::Metadata *identNode[] = {llvm::MDString::get(ctx, version)};
+  identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
+
   llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();
 
@@ -713,23 +733,23 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
   // this function.
 
-  pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
-  pm.addPass(mlir::createShapeInferencePass());
+  pm.addNestedPass<FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+  pm.addPass(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
-  pm.addPass(mlir::createShapeInferencePass());
+  pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
-  pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+  pm.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
 
   if (onnxOpTransformThreshold > 0) {
     // Dynamic iterate in ONNXOpTransformPass
-    pm.addPass(mlir::createONNXOpTransformPass(onnxOpTransformThreshold));
+    pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold));
   } else {
     // Statically add extra passes
     for (int i = 0; i < repeatOnnxTransform; i++) {
       pm.addPass(mlir::createCanonicalizerPass());
-      pm.addPass(mlir::createShapeInferencePass());
-      pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+      pm.addPass(onnx_mlir::createShapeInferencePass());
+      pm.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
     }
   }
 
@@ -738,10 +758,10 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel) {
-  pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
+  pm.addNestedPass<FuncOp>(onnx_mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
-  pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass());
-  pm.addPass(mlir::createLowerToKrnlPass(optLevel));
+  pm.addNestedPass<FuncOp>(onnx_mlir::createInstrumentONNXPass());
+  pm.addPass(onnx_mlir::createLowerToKrnlPass(optLevel));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
@@ -751,7 +771,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel) {
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
-  pm.addNestedPass<FuncOp>(mlir::createConvertKrnlToAffinePass());
+  pm.addNestedPass<FuncOp>(onnx_mlir::createConvertKrnlToAffinePass());
   // Fuse loops in Affine dialect.
   //  pm.addPass(mlir::createLoopFusionPass());
 }
@@ -766,15 +786,15 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
   // https://mlir.llvm.org/docs/BufferDeallocationInternals.
   pm.addNestedPass<FuncOp>(mlir::bufferization::createBufferDeallocationPass());
   if (enableMemoryBundling) {
-    pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
-    pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
+    pm.addNestedPass<FuncOp>(krnl::createKrnlEnableMemoryPoolPass());
+    pm.addNestedPass<FuncOp>(krnl::createKrnlBundleMemoryPoolsPass());
     pm.addPass(mlir::createCanonicalizerPass());
-    pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
+    pm.addNestedPass<FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
   }
 
   pm.addNestedPass<FuncOp>(mlir::createConvertSCFToCFPass());
 
-  pm.addPass(mlir::createConvertKrnlToLLVMPass());
+  pm.addPass(krnl::createConvertKrnlToLLVMPass());
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
@@ -910,10 +930,11 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
     mlir::PassManager cleanSourcePM(
         &context, mlir::OpPassManager::Nesting::Implicit);
     if (emissionTarget == EmitONNXIR || emissionTarget == EmitONNXBasic)
-      cleanSourcePM.addNestedPass<FuncOp>(mlir::createElideConstantValuePass());
+      cleanSourcePM.addNestedPass<FuncOp>(
+          onnx_mlir::createElideConstantValuePass());
     if (emissionTarget == EmitMLIR)
       cleanSourcePM.addNestedPass<FuncOp>(
-          mlir::createElideConstGlobalValuePass());
+          onnx_mlir::createElideConstGlobalValuePass());
 
     if (emissionTarget == EmitONNXBasic || emissionTarget == EmitONNXIR ||
         emissionTarget == EmitMLIR) {
@@ -1032,7 +1053,17 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   setupModule(module, context, outputBaseName);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-  addPasses(module, pm, emissionTarget);
+  // Initialize accelerator if required
+  if (acceleratorTarget.compare("") != 0) {
+    std::vector<Accelerator *> *accTargets;
+    accTargets = Accelerator::getAcceleratorList();
+    for (auto accel : *accTargets) {
+      if (accel->isActive()) {
+        accel->prepareAccelerator(module, context, pm, emissionTarget);
+      }
+    }
+  } else
+    addPasses(module, pm, emissionTarget);
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 

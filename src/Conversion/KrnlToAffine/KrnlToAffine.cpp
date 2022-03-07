@@ -1645,6 +1645,6 @@ void ConvertKrnlToAffinePass::runOnOperation() {
 
 } // namespace
 
-std::unique_ptr<Pass> mlir::createConvertKrnlToAffinePass() {
+std::unique_ptr<Pass> onnx_mlir::createConvertKrnlToAffinePass() {
   return std::make_unique<ConvertKrnlToAffinePass>();
 }

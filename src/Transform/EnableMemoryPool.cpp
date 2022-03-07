@@ -209,6 +209,6 @@ public:
 };
 } // namespace
 
-std::unique_ptr<Pass> mlir::createKrnlEnableMemoryPoolPass() {
+std::unique_ptr<Pass> onnx_mlir::krnl::createKrnlEnableMemoryPoolPass() {
   return std::make_unique<KrnlEnableMemoryPoolPass>();
 }

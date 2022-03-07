@@ -24,15 +24,23 @@
 
 namespace onnx_mlir {
 
-typedef OMTensorList *(*entryPointFuncType)(OMTensorList *);
-typedef const char *(*signatureFuncType)();
-
+using entryPointFuncType = OMTensorList *(*)(OMTensorList *);
+using queryEntryPointsFuncType = const char **(*)();
+using signatureFuncType = const char *(*)(const char *);
 using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
 
 class ExecutionSession {
 public:
-  ExecutionSession(std::string sharedLibPath);
-  ExecutionSession(std::string sharedLibPath, std::string entryPointName);
+  ExecutionSession(std::string sharedLibPath, bool defaultEntryPoint = true);
+
+  // Get a NULL-terminated array of entry point names.
+  // For example {"run_addition, "run_substraction", NULL}
+  const std::string *queryEntryPoints() const;
+
+  // Set entry point for this session.
+  // Call this before running the session or querying signatures if
+  // defaultEntryPoint is false or there are multiple entry points in the model.
+  void setEntryPoint(const std::string &entryPointName);
 
   // Use custom deleter since forward declared OMTensor hides destructor
   std::vector<OMTensorUniquePtr> run(std::vector<OMTensorUniquePtr>);
@@ -43,8 +51,8 @@ public:
 
   // Get input and output signature as a Json string. For example for nminst:
   // `[ { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "name" : "image" } ]`
-  std::string inputSignature();
-  std::string outputSignature();
+  const std::string inputSignature() const;
+  const std::string outputSignature() const;
 
   ~ExecutionSession();
 
@@ -53,7 +61,12 @@ protected:
   llvm::sys::DynamicLibrary _sharedLibraryHandle;
 
   // Entry point function.
+  std::string _entryPointName;
   entryPointFuncType _entryPointFunc = nullptr;
+
+  // Query entry point function.
+  static const std::string _queryEntryPointsName;
+  queryEntryPointsFuncType _queryEntryPointsFunc = nullptr;
 
   // Entry point for input/output signatures
   static const std::string _inputSignatureName;

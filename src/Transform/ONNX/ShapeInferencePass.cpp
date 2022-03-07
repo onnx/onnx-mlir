@@ -174,7 +174,7 @@ public:
 /*!
  * Create a Shape Inference pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createShapeInferencePass(
+std::unique_ptr<mlir::Pass> onnx_mlir::createShapeInferencePass(
     bool analyzeAllFunctions) {
   return std::make_unique<ShapeInferencePass>(analyzeAllFunctions);
 }

@@ -798,6 +798,6 @@ void ConstPropONNXToONNXPass::runOnOperation() {
 /*!
  * Create a ConstPropONNX pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createConstPropONNXToONNXPass() {
+std::unique_ptr<mlir::Pass> onnx_mlir::createConstPropONNXToONNXPass() {
   return std::make_unique<ConstPropONNXToONNXPass>();
 }

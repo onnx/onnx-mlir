@@ -122,7 +122,7 @@ function(add_onnx_mlir_library name)
   cmake_parse_arguments(ARG
     "EXCLUDE_FROM_OM_LIBS;NO_INSTALL"
     ""
-    "DEPENDS;INCLUDE_DIRS;LINK_LIBS;LINK_COMPONENTS"
+    "DEPENDS;INCLUDE_DIRS;ACCEL_INCLUDE_DIRS;LINK_LIBS;LINK_COMPONENTS"
     ${ARGN}
     )
 
@@ -139,6 +139,10 @@ function(add_onnx_mlir_library name)
 
   if (ARG_INCLUDE_DIRS)
     target_include_directories(${name} ${ARG_INCLUDE_DIRS})
+  endif()
+
+  if (ARG_ACCEL_INCLUDE_DIRS)
+    target_include_directories(${name} ${ARG_ACCEL_INCLUDE_DIRS})
   endif()
 
   target_include_directories(${name}
