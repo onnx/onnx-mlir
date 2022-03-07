@@ -1,10 +1,9 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
-
 //===---------SequenceLength.cpp - Lowering SequenceLength Op-------------=== //
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -27,12 +26,11 @@ struct ONNXSequenceLengthOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ONNXSequenceLengthOpAdaptor operandAdaptor(operands);
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
-    auto input_sequence = operandAdaptor.input_sequence();
-    MemRefBoundsIndexCapture inputBounds(input_sequence);
-    auto outputVal = inputBounds.getDim(0).getValue();
+    auto input = operandAdaptor.input_sequence();
+    auto outputVal = create.mem.dim(input, 0);
 
     rewriter.replaceOp(op, outputVal);
     return success();

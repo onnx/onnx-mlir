@@ -1,10 +1,9 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
-
 //===-------SequenceInsert.cpp - Lowering SequenceInsert Op---------------=== //
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -28,42 +27,16 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     ONNXSequenceInsertOpAdaptor operandAdaptor(operands);
     ONNXSequenceInsertOp thisOp = dyn_cast<ONNXSequenceInsertOp>(op);
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+        rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
-    // ONNXSequenceInsertOp sequenceInsertOp = cast<ONNXSequenceInsertOp>(op);
-
-    // Get element type for seq from the output
-
+    auto outputMemRefType = convertToMemRefType(thisOp.getResult().getType());
+    auto seqElementConvertedType =
+        outputMemRefType.getElementType().cast<MemRefType>();
     auto input_sequence = operandAdaptor.input_sequence();
-    auto dimSize = rewriter.create<memref::DimOp>(
-        loc, input_sequence, create.math.constantIndex(0));
+    auto dimSize = create.mem.dim(input_sequence, 0);
     SymbolIndexExpr boundIE(dimSize);
-
-    // Can not use this type because the output element type may be more precise
-    // This issue may be resolved in shape inference by backwards propagation
-    // In some sense, the type info for seq is not consistent at SequenceInsert
-    // The code of type converter for Seq is duplicated
-    // auto seqElementType =
-    // input_sequence.getType().cast<MemRefType>().getElementType();
-
-    ShapedType seqElementType =
-        thisOp.getResult().getType().cast<SeqType>().getElementType();
-    Type elementType = seqElementType.getElementType();
-    Type seqElementConvertedType;
-    if (seqElementType.hasRank()) {
-      seqElementConvertedType =
-          MemRefType::get(seqElementType.getShape(), elementType);
-    } else {
-      seqElementConvertedType = UnrankedMemRefType::get(elementType, 0);
-    }
-
-    SmallVector<int64_t, 1> dims;
-    // Number of element in seq may be statically known from shape inference
-    dims.emplace_back(thisOp.getResult().getType().cast<SeqType>().getLength());
-    llvm::ArrayRef<int64_t> shape(dims.data(), dims.size());
-    MemRefType outputMemRefType =
-        MemRefType::get(shape, seqElementConvertedType);
 
     // Output sequence has one more element
     auto outputBound = boundIE + 1;
@@ -99,15 +72,14 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
         [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
           auto element = createKrnl.load(
               operandAdaptor.input_sequence(), indicesLoopInd[0]);
-          auto converted = rewriter.create<memref::CastOp>(
-              loc, seqElementConvertedType, element);
+          auto converted = create.mem.cast(element, seqElementConvertedType);
           createKrnl.store(converted, alloc, indicesLoopInd[0]);
         });
 
     // Insert the input tensor
     // ToDo (chentong): need to duplicate the tensor
-    auto element = rewriter.create<memref::CastOp>(
-        loc, seqElementConvertedType, operandAdaptor.tensor());
+    auto element =
+        create.mem.cast(operandAdaptor.tensor(), seqElementConvertedType);
     create.krnl.store(element, alloc, positionIE.getValue());
 
     // Copy elements after the insertion position
@@ -120,8 +92,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
         [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
           auto element = createKrnl.load(
               operandAdaptor.input_sequence(), indicesLoopInd[0]);
-          auto converted = rewriter.create<memref::CastOp>(
-              loc, seqElementConvertedType, element);
+          auto converted = create.mem.cast(element, seqElementConvertedType);
           auto outputIndex =
               create.math.add(indicesLoopInd[0], create.math.constantIndex(1));
           createKrnl.store(converted, alloc, outputIndex);

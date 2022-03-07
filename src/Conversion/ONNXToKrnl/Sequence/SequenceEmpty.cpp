@@ -1,10 +1,9 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
-
 //===-------SequenceEmpty.cpp - Lowering SequenceEmpty Op-----------------=== //
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -27,26 +26,8 @@ struct ONNXSequenceEmptyOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
 
-    // Get element type for seq from the output
-    ShapedType outputElementType =
-        (*op->result_type_begin()).cast<SeqType>().getElementType();
-    auto elementType = outputElementType.getElementType();
+    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
 
-    Type outputElementConvertedType;
-    if (!outputElementType.hasRank()) {
-      // convertToMemRefType can not handle unranked tensor
-      outputElementConvertedType = UnrankedMemRefType::get(elementType, 0);
-    } else {
-      outputElementConvertedType = convertToMemRefType(outputElementType);
-    }
-
-    // Use memref with 0 element for empty sequence
-    SmallVector<int64_t, 1> dims;
-    dims.emplace_back(0);
-    llvm::ArrayRef<int64_t> shape(dims.data(), dims.size());
-
-    MemRefType outputMemRefType =
-        MemRefType::get(shape, outputElementConvertedType);
     bool insertDealloc = checkInsertDealloc(op);
     Value alloc =
         insertAllocAndDealloc(outputMemRefType, loc, rewriter, insertDealloc);

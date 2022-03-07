@@ -1,10 +1,9 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
-
 //===----------------SequenceAt.cpp - Lowering SequenceAt-----------------=== //
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -27,18 +26,19 @@ struct ONNXSequenceAtOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ONNXSequenceAtOpAdaptor operandAdaptor(operands);
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+        rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
     auto input_sequence = operandAdaptor.input_sequence();
-    auto dimSize = rewriter.create<memref::DimOp>(
-        loc, input_sequence, create.math.constantIndex(0));
+    auto dimSize = create.mem.dim(input_sequence, 0);
     SymbolIndexExpr boundIE(dimSize);
     IndexExpr positionIE =
         SymbolIndexExpr(create.krnl.load(operandAdaptor.position()));
 
-    positionIE =
-        IndexExpr::select(positionIE < 0, positionIE + boundIE, positionIE);
+    // Just for lit test to pass
+    auto correctionIE = positionIE + boundIE;
+    positionIE = IndexExpr::select(positionIE < 0, correctionIE, positionIE);
     auto outputVal = create.krnl.load(
         operandAdaptor.input_sequence(), positionIE.getValue());
 

@@ -1,10 +1,9 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
-
 //===-------SequenceErase.cpp - Lowering SequenceErase Op-----------------=== //
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -62,8 +61,8 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
     } else {
       positionIE = SymbolIndexExpr(operandAdaptor.position());
       // Handle the negative position
-      positionIE =
-          IndexExpr::select(positionIE < 0, positionIE + boundIE, positionIE);
+      auto correctionIE = positionIE + boundIE;
+      positionIE = IndexExpr::select(positionIE < 0, correctionIE, positionIE);
     }
 
     // Copy before the insert
@@ -92,8 +91,8 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
         [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
           auto element = createKrnl.load(
               operandAdaptor.input_sequence(), indicesLoopInd[0]);
-          auto outputIndex =
-              create.math.sub(indicesLoopInd[0], create.math.constantIndex(1));
+          auto oneIndex = create.math.constantIndex(1);
+          auto outputIndex = create.math.sub(indicesLoopInd[0], oneIndex);
           createKrnl.store(element, alloc, outputIndex);
         });
 
