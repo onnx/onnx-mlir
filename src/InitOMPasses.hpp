@@ -53,7 +53,7 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createConvertKrnlToAffinePass();
+    return krnl::createConvertKrnlToAffinePass();
   });
 
   mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
