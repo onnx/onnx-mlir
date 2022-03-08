@@ -21,13 +21,15 @@ using namespace mlir;
 template <>
 Value getIdentityValue<ONNXReduceMaxOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  return emitNegativeInfinityConstantOp(rewriter, loc, type);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  return create.math.negativeInf(type);
 }
 
 template <>
 Value getIdentityValue<ONNXReduceMinOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  return emitPositiveInfinityConstantOp(rewriter, loc, type);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  return create.math.positiveInf(type);
 }
 
 template <>
@@ -447,9 +449,13 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         create.krnl.store(trueVal, maskVal, jVal);
         rewriter.restoreInsertionPoint(axesLoopBody);
       } else {
-        for (auto i = 0; i < axesDim; i++) {
+        for (int64_t i = 0; i < axesDim; ++i) {
           Value indexVal = create.math.constantIndex(i);
           Value axe = create.krnl.load(axesVal, indexVal);
+          // Check negative
+          Value cond = create.math.slt(axe, zeroValue);
+          Value dim =
+              create.math.select(cond, create.math.add(axe, dataDimConst), axe);
           create.math.select(cond, create.math.add(axe, dataDimConst), axe);
           Value jVal = rewriter.create<arith::IndexCastOp>(
               loc, rewriter.getIndexType(), dim);
