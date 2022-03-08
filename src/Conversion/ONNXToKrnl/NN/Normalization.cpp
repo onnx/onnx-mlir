@@ -81,7 +81,7 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
       for (auto arg : cIterationBlock.getArguments())
         loopCIVs.emplace_back(arg);
     } else
-      loopCIVs.emplace_back(rewriter.create<arith::ConstantIndexOp>(loc, 0));
+      loopCIVs.emplace_back(create.math.constantIndex(0));
 
     Value scaleVal = create.krnl.load(scale, loopCIVs);
     Value biasVal = create.krnl.load(bias, loopCIVs);

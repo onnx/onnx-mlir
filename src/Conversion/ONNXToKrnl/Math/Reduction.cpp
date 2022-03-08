@@ -268,7 +268,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
         if (zeroIndex) {
           outLoopIVs.push_back(zeroIndex);
         } else {
-          zeroIndex = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+          zeroIndex = create.math.constantIndex(0);
           outLoopIVs.push_back(zeroIndex);
         }
       }
@@ -402,7 +402,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           convertToMemRefType(maskType), loc, rewriter, insertDealloc);
       falseVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 0);
       trueVal = emitConstantOp(rewriter, loc, rewriter.getIntegerType(1), 1);
-      valueOne = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+      valueOne = create.math.constantIndex(1);
       auto axesDim = axesVal.getType().cast<MemRefType>().getShape()[0];
 
       // Initialize mask to 0
@@ -412,7 +412,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           !llvm::dyn_cast<ONNXReduceSumOp>(op).noop_with_empty_axes()) {
         IndexExprScope axesloopContex(&rewriter, loc);
         MemRefBoundsIndexCapture axesBounds(axesVal);
-        Value zeroIndex = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+        Value zeroIndex = create.math.constantIndex(0);
         Value cond = create.math.eq(axesBounds.getDim(0).getValue(), zeroIndex);
         initVal = create.math.select(cond, trueVal, falseVal);
       } else {
@@ -420,7 +420,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         initVal = falseVal;
       }
       for (auto i = 0; i < inRank; i++) {
-        Value indexVal = rewriter.create<arith::ConstantIndexOp>(loc, i);
+        Value indexVal = create.math.constantIndex(i);
         create.krnl.store(initVal, maskVal, indexVal);
       }
 
@@ -448,7 +448,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         rewriter.restoreInsertionPoint(axesLoopBody);
       } else {
         for (auto i = 0; i < axesDim; i++) {
-          Value indexVal = rewriter.create<arith::ConstantIndexOp>(loc, i);
+          Value indexVal = create.math.constantIndex(i);
           Value axe = create.krnl.load(axesVal, indexVal);
           // Check negative
           Value cond = create.math.slt(axe, zeroValue);
@@ -504,7 +504,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           if (dynamicAxes) {
             // Dim size: maskVal[i] ? 1 : inputDim[i]
             Value inputDim = create.mem.dim(input, i);
-            Value indexVal = rewriter.create<arith::ConstantIndexOp>(loc, i);
+            Value indexVal = create.math.constantIndex(i);
             Value mask = create.krnl.load(maskVal, indexVal);
             Value cond = create.math.eq(mask, trueVal);
             Value dim = create.math.select(cond, valueOne, inputDim);
@@ -579,11 +579,11 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       inLoopIVs.push_back(args[i]);
     }
     // Value zeroIndex = nullptr;
-    Value zeroIndex = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    Value zeroIndex = create.math.constantIndex(0);
     for (decltype(inRank) i = 0; i < outRank; ++i) {
       if (dynamicAxes) {
         // For the reduced dim, the output index is always 0
-        Value indexVal = rewriter.create<arith::ConstantIndexOp>(loc, i);
+        Value indexVal = create.math.constantIndex(i);
         Value mask = create.krnl.load(maskVal, indexVal);
         Value cond = create.math.eq(mask, trueVal);
         Value dim = create.math.select(cond, zeroIndex, inLoopIVs[i]);
@@ -626,8 +626,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
             loc, rewriter.getIntegerType(64), divisor);
         divisor = rewriter.create<arith::UIToFPOp>(loc, elementType, divisor);
       } else if (elementType.isa<IntegerType>())
-        divisor =
-            rewriter.create<arith::IndexCastOp>(loc, elementType, divisor);
+        divisor = create.math.cast(elementType, divisor);
       else
         llvm_unreachable("unsupported element type");
 
