@@ -15,6 +15,8 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
+using namespace onnx_mlir;
+
 bool ONNXToKrnl_gEmitDealloc = false;
 
 Value OnnxToKrnlBuilder::reshape(
@@ -111,7 +113,7 @@ MemRefType convertToMemRefType(Type type) {
   // Convert the element type of the (tensor or memref) to a valid Krnl type.
   auto convertElemType = [](Type elemType) -> Type {
     if (elemType.isa<ONNXStringType>())
-      return StringType::get(elemType.getContext());
+      return krnl::StringType::get(elemType.getContext());
     return elemType;
   };
 
@@ -756,13 +758,13 @@ KrnlTypeConverter::KrnlTypeConverter() {
   addConversion([](Type type) { return type; });
 
   addConversion([](ONNXStringType stringType) {
-    return StringType::get(stringType.getContext());
+    return krnl::StringType::get(stringType.getContext());
   });
 
   addConversion([](TensorType tensorType) {
     assert(tensorType.hasRank() && "expected only ranked shapes");
     if (tensorType.getElementType().isa<ONNXStringType>()) {
-      Type elementType = StringType::get(tensorType.getContext());
+      Type elementType = krnl::StringType::get(tensorType.getContext());
       return MemRefType::get(tensorType.getShape(), elementType);
     }
     return MemRefType::get(tensorType.getShape(), tensorType.getElementType());

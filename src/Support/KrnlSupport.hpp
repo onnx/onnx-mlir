@@ -25,8 +25,6 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 
-using namespace mlir;
-
 //===----------------------------------------------------------------------===//
 // Return various operations.
 //===----------------------------------------------------------------------===//
