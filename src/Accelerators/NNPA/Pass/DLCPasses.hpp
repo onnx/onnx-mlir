@@ -20,9 +20,6 @@
 namespace mlir {
 class Pass;
 
-/// In ONNX, add pass for lowering Tensor types to MemRef types.
-std::unique_ptr<Pass> createONNXTensorToMemRefPass();
-
 /// Add pass for lowering ONNX ops to ZHigh ops.
 std::unique_ptr<Pass> createONNXToZHighPass();
 std::unique_ptr<Pass> createONNXToZHighPass(
@@ -42,6 +39,9 @@ std::unique_ptr<Pass> createZHighToZLowPass(int optLevel);
 /// Add pass for lowering ZHigh ops to ZLow ops.
 std::unique_ptr<Pass> createZHighToZLowPass(
     bool emitDealloc, bool enableTiling);
+
+/// Add pass for rewriting ZLow ops.
+std::unique_ptr<Pass> createZLowRewritePass();
 
 /// Add pass for lowering ZLow ops to LLVM.
 std::unique_ptr<Pass> createZLowToLLVMPass();
