@@ -14,12 +14,12 @@
 
 #include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
 //#include "src/Accelerators/Accelerator.hpp"
-#include "src/Support/OMOptions.hpp"
-#include <iostream>
 #include "Compiler/NNPACompilerUtils.hpp"
 #include "Dialect/ZHigh/ZHighOps.hpp"
 #include "Dialect/ZLow/ZLowOps.hpp"
 #include "Pass/NNPAPasses.hpp"
+#include "src/Support/OMOptions.hpp"
+#include <iostream>
 extern llvm::cl::OptionCategory OMNNPAPassOptions;
 extern llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget;
 extern llvm::cl::list<std::string> execNodesOnCpu;
