@@ -903,11 +903,12 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
         loopIVs.push_back(arg);
     }
 
-    auto loadedVal = rewriter.create<KrnlLoadOp>(loc, X, loopIVs);
+    KrnlBuilder createKrnl(rewriter, loc);
+    Value loadedVal = createKrnl.load(X, loopIVs);
     auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
         rewriter, loc, op, memRefType.getElementType(), {loadedVal});
     // Store result in the resulting array.
-    rewriter.create<KrnlStoreOp>(loc, loweredOpResult, alloc, loopIVs);
+    createKrnl.store(loweredOpResult, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
     return success();
