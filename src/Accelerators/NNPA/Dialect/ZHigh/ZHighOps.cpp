@@ -105,7 +105,8 @@ Attribute ZTensorEncodingAttr::parse(AsmParser &parser, Type type) {
   if (failed(parser.parseGreater()))
     return {};
 
-  ZTensorEncodingAttr::DataLayout dataLayout;
+  ZTensorEncodingAttr::DataLayout dataLayout =
+      ZTensorEncodingAttr::DataLayout::UNDEFINED;
 
   // Process the data from the parsed dictionary value into struct-like data.
   for (const NamedAttribute &attr : dict) {

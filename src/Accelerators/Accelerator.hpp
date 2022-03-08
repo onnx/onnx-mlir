@@ -24,7 +24,7 @@ namespace onnx_mlir {
 class Accelerator {
 public:
   Accelerator();
-  virtual ~Accelerator() = 0;
+  virtual ~Accelerator();
   static std::vector<Accelerator *> *getAcceleratorList();
   virtual bool isActive() const = 0;
   virtual void prepareAccelerator(mlir::OwningOpRef<mlir::ModuleOp> &module,

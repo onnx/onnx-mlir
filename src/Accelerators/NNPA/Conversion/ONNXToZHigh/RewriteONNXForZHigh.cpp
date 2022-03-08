@@ -32,10 +32,6 @@
 using namespace mlir;
 
 namespace onnx_mlir {
-<<<<<<< HEAD
-namespace zhigh {
-=======
->>>>>>> 12def630e9d8ffe81b6784d6344878a8bcc4b13f
 
 /// Calculate sqrt(var + epsilon) for batchnorm op A.
 /// A = scale / sqrt(var + epsilon)
@@ -76,10 +72,8 @@ struct RewriteONNXForZHighPass
   }
 
   RewriteONNXForZHighPass() = default;
-  RewriteONNXForZHighPass(const RewriteONNXForZHighPass &pass) {}
-  RewriteONNXForZHighPass(mlir::ArrayRef<std::string> execNodesOnCpu) {
-    this->execNodesOnCpu = execNodesOnCpu;
-  }
+  RewriteONNXForZHighPass(mlir::ArrayRef<std::string> execNodesOnCpu)
+      : execNodesOnCpu(execNodesOnCpu) {}
   void runOnOperation() final;
 
 public:

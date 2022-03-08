@@ -34,12 +34,11 @@
 
 using namespace std;
 using namespace mlir;
+using namespace onnx_mlir;
 
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 
-namespace onnx_mlir {
-
-static llvm::cl::opt<DLCEmissionTargetType> dlcEmissionTarget(
+llvm::cl::opt<DLCEmissionTargetType> dlcEmissionTarget(
     llvm::cl::desc("[Optional] Choose Z-related target to emit "
                    "(once selected it will cancel the other targets):"),
     llvm::cl::values(clEnumVal(DLCEmissionTargetType::EmitZHighIR,
@@ -51,13 +50,15 @@ static llvm::cl::opt<DLCEmissionTargetType> dlcEmissionTarget(
     llvm::cl::init(DLCEmissionTargetType::EmitZNONE),
     llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
+llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
     llvm::cl::desc("Comma-separated list of node names in an onnx graph. The "
                    "specified nodes are forced to run on the CPU instead of "
                    "using the zDNN. The node name is an optional attribute "
                    "in onnx graph, which is `onnx_node_name` in ONNX IR"),
     llvm::cl::CommaSeparated, llvm::cl::ZeroOrMore,
     llvm::cl::cat(OnnxMlirOptions)};
+
+namespace onnx_mlir {
 
 void addONNXToZHighPasses(
     mlir::PassManager &pm, ArrayRef<std::string> execNodesOnCpu) {

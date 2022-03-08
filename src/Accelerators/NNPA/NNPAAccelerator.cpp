@@ -28,7 +28,7 @@ extern llvm::cl::list<std::string> execNodesOnCpu;
 
 namespace onnx_mlir {
 
-NNPAAccelerator::NNPAAccelerator() {
+NNPAAccelerator::NNPAAccelerator() : Accelerator() {
   LLVM_DEBUG(llvm::dbgs() << "initializing NNPA\n");
 
   if (!initialized) {
