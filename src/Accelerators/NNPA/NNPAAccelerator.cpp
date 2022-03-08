@@ -16,7 +16,6 @@
 //#include "src/Accelerators/Accelerator.hpp"
 #include "src/Support/OMOptions.hpp"
 #include <iostream>
-// modified from NNPA main
 #include "Compiler/NNPACompilerUtils.hpp"
 #include "Dialect/ZHigh/ZHighOps.hpp"
 #include "Dialect/ZLow/ZLowOps.hpp"

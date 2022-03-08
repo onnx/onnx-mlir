@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// This file exposes the entry points to create compiler passes for NNPA++ in
+// This file exposes the entry points to create compiler passes for NNPA in
 // addition to the passes used by ONNX MLIR.
 //
 //===----------------------------------------------------------------------===//

@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------- ZHighHelper.hpp - NNPA++ ZHigh Helper Functions -------------===//
+//===-------- ZHighHelper.hpp - NNPA ZHigh Helper Functions ---------------===//
 //
 // Copyright 2019-2021 The IBM Research Authors.
 //
