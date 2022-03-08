@@ -35,6 +35,7 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
 // KrnlOpsDialect
@@ -42,7 +43,7 @@ using namespace mlir;
 
 KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
     : Dialect(getDialectNamespace(), context, TypeID::get<KrnlOpsDialect>()) {
-  addTypes<LoopType, StringType>();
+  addTypes<krnl::LoopType, krnl::StringType>();
   addOperations<
 #define GET_OP_LIST
 #include "src/Dialect/Krnl/KrnlOps.cpp.inc"
@@ -56,9 +57,9 @@ Type KrnlOpsDialect::parseType(DialectAsmParser &parser) const {
   MLIRContext *context = getContext();
 
   if (keyword == "loop")
-    return LoopType::get(context);
+    return krnl::LoopType::get(context);
   if (keyword == "string")
-    return StringType::get(context);
+    return krnl::StringType::get(context);
 
   parser.emitError(parser.getNameLoc(), "unknown krnl type: " + keyword);
   return Type();
@@ -66,12 +67,60 @@ Type KrnlOpsDialect::parseType(DialectAsmParser &parser) const {
 
 void KrnlOpsDialect::printType(Type type, DialectAsmPrinter &os) const {
   TypeSwitch<Type>(type)
-      .Case<LoopType>([&](Type) { os << "loop"; })
-      .Case<StringType>([&](Type) { os << "string"; })
+      .Case<krnl::LoopType>([&](Type) { os << "loop"; })
+      .Case<krnl::StringType>([&](Type) { os << "string"; })
       .Default([](Type) { llvm_unreachable("Unexpected 'krnl' type kind"); });
 }
 
 namespace mlir {
+
+//===----------------------------------------------------------------------===//
+// KrnlCallOp
+//===----------------------------------------------------------------------===//
+
+static std::string typeToString(Type ty) {
+  std::string str;
+  llvm::raw_string_ostream out(str);
+  ty.print(out);
+  return out.str();
+}
+
+void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
+    std::string funcNameStr, Value resultVal, Operation *op,
+    ValueRange operands, bool copyAttrs) {
+  // Creates inputs
+  SmallVector<Value, 4> allInputs;
+  allInputs.emplace_back(resultVal);
+  for (auto operand : operands)
+    allInputs.emplace_back(operand);
+
+  StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
+  auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
+  if (!copyAttrs) {
+    build(builder, odsState, resultVal.getType(), funcNameAttr, resultVal,
+        operands);
+  } else {
+    std::vector<NamedAttribute> attributes;
+    attributes.emplace_back(namedAttr);
+    for (auto namedAttr : op->getAttrs()) {
+      attributes.emplace_back(namedAttr);
+    }
+    build(builder, odsState, resultVal.getType(), ValueRange(allInputs),
+        attributes);
+  }
+}
+
+void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
+    Value resultVal, Operation *op, ValueRange operands, bool copyAttrs) {
+  // Create funcName
+  std::string name = op->getName().getStringRef().str();
+  std::replace(name.begin(), name.end(), '.', '_');
+  ShapedType resultType = resultVal.getType().cast<ShapedType>();
+  Type elementType = resultType.getElementType();
+  std::string funcNameStr = name + "_" + typeToString(elementType);
+
+  build(builder, odsState, funcNameStr, resultVal, op, operands, copyAttrs);
+}
 
 //===----------------------------------------------------------------------===//
 // KrnlDefineLoopsOp
@@ -81,7 +130,7 @@ void KrnlDefineLoopsOp::build(
     OpBuilder &builder, OperationState &result, int64_t num_loops) {
   // Create the same number of dimension handlers as the number of
   // dimensions in the associated integer set.
-  result.types.append(num_loops, LoopType::get(builder.getContext()));
+  result.types.append(num_loops, krnl::LoopType::get(builder.getContext()));
   result.addAttribute(
       getNumLoopsAttrName(), builder.getI64IntegerAttr(num_loops));
 }
@@ -102,8 +151,9 @@ ParseResult KrnlDefineLoopsOp::parse(
           KrnlDefineLoopsOp::getNumLoopsAttrName(), result.attributes))
     return failure();
 
-  auto loopTypes = llvm::SmallVector<Type, 4>(
-      numLoops.getValue().getSExtValue(), LoopType::get(builder.getContext()));
+  auto loopTypes =
+      llvm::SmallVector<Type, 4>(numLoops.getValue().getSExtValue(),
+          krnl::LoopType::get(builder.getContext()));
   if (parser.addTypesToList(loopTypes, result.types))
     return failure();
   return success();
@@ -259,7 +309,7 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   if (parser.parseOperandList(
           optimizedLoopRefs, OpAsmParser::Delimiter::Paren) ||
       parser.resolveOperands(optimizedLoopRefs,
-          LoopType::get(result.getContext()), result.operands))
+          krnl::LoopType::get(result.getContext()), result.operands))
     return failure();
 
   // Record how many optimized loops did we parse.
@@ -341,7 +391,7 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
 
   while (failed(parser.parseOptionalRParen())) {
     // Parse an input loop operand;
-    operandParser.ParseOperand(LoopType::get(context), result.operands);
+    operandParser.ParseOperand(krnl::LoopType::get(context), result.operands);
     parser.parseArrow();
 
     // Parse induction variable.
@@ -431,7 +481,8 @@ void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
 
 void KrnlBlockOp::build(::mlir::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsLoop, int64_t odsTileSize) {
-  SmallVector<Type, 4> blockResType(2, LoopType::get(odsBuilder.getContext()));
+  SmallVector<Type, 4> blockResType(
+      2, krnl::LoopType::get(odsBuilder.getContext()));
   build(odsBuilder, odsState, blockResType, odsLoop,
       odsBuilder.getI64IntegerAttr(odsTileSize));
 }

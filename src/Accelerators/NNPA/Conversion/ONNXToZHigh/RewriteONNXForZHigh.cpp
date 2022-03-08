@@ -32,7 +32,10 @@
 using namespace mlir;
 
 namespace onnx_mlir {
+<<<<<<< HEAD
 namespace zhigh {
+=======
+>>>>>>> 12def630e9d8ffe81b6784d6344878a8bcc4b13f
 
 /// Calculate sqrt(var + epsilon) for batchnorm op A.
 /// A = scale / sqrt(var + epsilon)
@@ -60,7 +63,6 @@ Value getSqrtResultBatchNormA(
 // Rewrite ONNX ops to ZHigh ops and ONNX ops for ZHigh.
 //===----------------------------------------------------------------------===//
 
-namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "Conversion/ONNXToZHigh/RewriteONNXForZHigh.inc"
 
@@ -83,7 +85,6 @@ struct RewriteONNXForZHighPass
 public:
   mlir::ArrayRef<std::string> execNodesOnCpu = mlir::ArrayRef<std::string>();
 };
-} // end anonymous namespace.
 
 void RewriteONNXForZHighPass::runOnOperation() {
   ModuleOp module = getOperation();
@@ -123,5 +124,4 @@ std::unique_ptr<Pass> createRewriteONNXForZHighPass(
   return std::make_unique<RewriteONNXForZHighPass>(execNodesOnCpu);
 }
 
-} // namespace zhigh
 } // namespace onnx_mlir

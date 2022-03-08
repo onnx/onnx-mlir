@@ -61,13 +61,13 @@ static llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
 
 void addONNXToZHighPasses(
     mlir::PassManager &pm, ArrayRef<std::string> execNodesOnCpu) {
-  pm.addPass(mlir::createRewriteONNXForZHighPass(execNodesOnCpu));
+  pm.addPass(onnx_mlir::createRewriteONNXForZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
   pm.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   // Add instrumentation for Onnx Ops in the same way as onnx-mlir.
   if (instrumentZHighOps == "" || instrumentZHighOps == "NONE")
     pm.addNestedPass<FuncOp>(onnx_mlir::createInstrumentONNXPass());
-  pm.addPass(mlir::createONNXToZHighPass(execNodesOnCpu));
+  pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
@@ -93,7 +93,7 @@ void addONNXToZHighPasses(
 void addZHighToZLowPasses(mlir::PassManager &pm, int optLevel) {
   // Add instrumentation for ZHigh Ops
   pm.addNestedPass<FuncOp>(mlir::createInstrumentZHighPass());
-  pm.addPass(mlir::createZHighToZLowPass(optLevel));
+  pm.addPass(onnx_mlir::zhigh::createZHighToZLowPass(optLevel));
   pm.addNestedPass<FuncOp>(onnx_mlir::createLowerKrnlShapePass());
   pm.addNestedPass<FuncOp>(onnx_mlir::createDisconnectKrnlDimFromAllocPass());
   pm.addPass(mlir::memref::createNormalizeMemRefsPass());

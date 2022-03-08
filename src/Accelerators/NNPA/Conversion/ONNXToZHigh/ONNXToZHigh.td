@@ -45,8 +45,7 @@ class VariadicSizeIsGT<int N> : Constraint<
 >;
 
 // Create a unit constant that will be used as none input.
-def CreateUnitConstant
-    : NativeCodeCall<"$_builder.create<arith::ConstantOp>($_loc, $_builder.getUnitAttr())">;
+def CreateUnitConstant : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
 
 class getNth<int n, string x> : NativeCodeCall<x # "[" # n # "]">;
 
@@ -589,6 +588,8 @@ def EmitONNXSplitOp8Results :
 //                 $activations, $clip, $direction, $hidden_size,
 //                 $input_forget)
 //===----------------------------------------------------------------------===//
+
+// Pattern1 for the not-none bias($b) and not-none Y($res__0) case
 def replaceONNXLSTMPattern1 : Pattern<
   (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
     $initial_c, $p, $activation_alpha, $activation_beta,
@@ -596,7 +597,7 @@ def replaceONNXLSTMPattern1 : Pattern<
     $input_forget),
   [
    //
-   // Pre-process to prepare input_bais and hidden_bias.
+   // Pre-process to prepare input_bias and hidden_bias.
    // 
    (EmitONNXSplitOp8Results:$splitB $b, (GetI64NAttr<1>), (GetLSTMGRUBiasSplitShape (GetShape $r))),
    (ZHighStickForLSTMOp:$input_bias $splitB__2, $splitB__0, $splitB__3, $splitB__1),
@@ -618,17 +619,18 @@ def replaceONNXLSTMPattern1 : Pattern<
       (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
 
    //
-   // Post-process to generate threel return values of ONNXLSTMOp
+   // Post-process to generate three return values of ONNXLSTMOp
    // from two return values of ZHighLSTMOp(=$zHighLSTM).
    //
-   (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0),
+   (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0, (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
    (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
   ],
-  [(IsNotNoneType:$b)]
+  [(IsNotNoneType:$b), (IsNotNoneType:$res__0)]
 >;
 
+// Pattern2 for the none bias($b) and not-none Y($res__0) case
 def replaceONNXLSTMPattern2 : Pattern<
   (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $initial_c, $p, $activation_alpha, $activation_beta,
@@ -651,7 +653,48 @@ def replaceONNXLSTMPattern2 : Pattern<
       (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
 
    //
-   // Post-process to generate threel return values of ONNXLSTMOp
+   // Post-process to generate three return values of ONNXLSTMOp
+   // from two return values of ZHighLSTMOp(=$zHighLSTM).
+   //
+   (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0, (returnType $res__0)),
+   (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
+  ],
+  [(IsNoneType:$b), (IsNotNoneType:$res__0)]
+>;
+
+// Pattern3 for the bias($b) and not-none Y($res__0) case
+def replaceONNXLSTMPattern3 : Pattern<
+  (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
+    $initial_c, $p, $activation_alpha, $activation_beta,
+    $activations, $clip, $direction, $hidden_size,
+    $input_forget),
+  [
+   //
+   // Pre-process to prepare input_bias and hidden_bias.
+   //
+   (EmitONNXSplitOp8Results:$splitB $b, (GetI64NAttr<1>), (GetLSTMGRUBiasSplitShape (GetShape $r))),
+   (ZHighStickForLSTMOp:$input_bias $splitB__2, $splitB__0, $splitB__3, $splitB__1),
+   (ZHighStickForLSTMOp:$hidden_bias $splitB__6, $splitB__4, $splitB__7, $splitB__5),
+
+   //
+   // Main-process to lower ONNXLSTMOp into ZHighLSTMOp.
+   //
+   (ZHighLSTMOp:$zhighLSTM
+      (ZHighStickOp $x, (_3DSLayoutAttr)),               // input
+      (ZHighStickOp $initial_h, (_3DSLayoutAttr)),       // h0
+      (ZHighStickOp $initial_c, (_3DSLayoutAttr)),       // c0
+      (GetLSTMGRUZDNNWeightFromONNXWeight<"LSTM"> $w),   // input weights
+      $input_bias,                                       // input bias
+      (GetLSTMGRUZDNNWeightFromONNXWeight<"LSTM"> $r),   // hidden weights
+      $hidden_bias,                                      // hidden bias
+      $hidden_size,                                      // hidden_size
+      $direction,                                        // direction
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
+
+   //
+   // Post-process to generate three return values of ONNXLSTMOp
    // from two return values of ZHighLSTMOp(=$zHighLSTM).
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0),
@@ -659,7 +702,41 @@ def replaceONNXLSTMPattern2 : Pattern<
    (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
   ],
-  [(IsNoneType:$b)]
+  [(IsNotNoneType:$b), (IsNoneType:$res__0)]
+>;
+
+// Pattern4 for the none bias($b) and none Y($res__0) case
+def replaceONNXLSTMPattern4 : Pattern<
+  (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
+     $initial_c, $p, $activation_alpha, $activation_beta,
+     $activations, $clip, $direction, $hidden_size,
+     $input_forget),
+  [
+   //
+   // Main-process to lower ONNXLSTMOp into ZHighLSTMOp.
+   //
+   (ZHighLSTMOp:$zhighLSTM
+      (ZHighStickOp $x, (_3DSLayoutAttr)),               // input
+      (ZHighStickOp $initial_h, (_3DSLayoutAttr)),       // h0
+      (ZHighStickOp $initial_c, (_3DSLayoutAttr)),       // c0
+      (GetLSTMGRUZDNNWeightFromONNXWeight<"LSTM"> $w),   // input weights
+      $b,                                                // input bias
+      (GetLSTMGRUZDNNWeightFromONNXWeight<"LSTM"> $r),   // hidden weights
+      $b,                                                // nontype hidden bias
+      $hidden_size,                                      // hidden_size
+      $direction,                                        // direction
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
+
+   //
+   // Post-process to generate three return values of ONNXLSTMOp
+   // from two return values of ZHighLSTMOp(=$zHighLSTM).
+   //
+   (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0),
+   (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
+  ],
+  [(IsNoneType:$b), (IsNoneType:$res__0)]
 >;
 
 //===----------------------------------------------------------------------===//
@@ -668,13 +745,15 @@ def replaceONNXLSTMPattern2 : Pattern<
 //                $activation_alpha, $activation_beta, $activations, $clip,
 //                $direction, $hidden_size, $linear_before_reset)
 //===----------------------------------------------------------------------===//
+
+// Pattern1 for the not-none bias($b) and not-none Y($res__0) case
 def replaceONNXGRUPattern1 : Pattern<
   (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $activation_alpha, $activation_beta, $activations, $clip,
      $direction, $hidden_size, $linear_before_reset),
   [
    //
-   // Pre-process to prepare input_bais and hidden_bias.
+   // Pre-process to prepare input_bias and hidden_bias.
    // 
    (EmitONNXSplitOp6Results:$splitB $b, (GetI64NAttr<1>),
       (GetLSTMGRUBiasSplitShape (GetShape $r))),
@@ -696,16 +775,17 @@ def replaceONNXGRUPattern1 : Pattern<
       (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
   
    //
-   // Post-process to generate threel return values of ONNXGRUOp
+   // Post-process to generate two return values of ONNXGRUOp
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
-   (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
+   (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
    (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
   ],
-  [(IsNotNoneType:$b)]
+  [(IsNotNoneType:$b), (IsNotNoneType:$res__0)]
 >;
 
+// Pattern2 for the none bias($b) and not-none Y($res__0) case
 def replaceONNXGRUPattern2 : Pattern<
   (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
      $activation_alpha, $activation_beta, $activations, $clip,
@@ -726,14 +806,84 @@ def replaceONNXGRUPattern2 : Pattern<
       (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),   // return_all_steps
 
    //
-   // Post-process to generate threel return values of ONNXGRUOp
+   // Post-process to generate two return values of ONNXGRUOp
+   // from two return values of ZHighGRUOp(=$zHighGRU).
+   //
+   (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
+   (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+  ],
+  [(IsNoneType:$b), (IsNotNoneType:$res__0)]
+>;
+
+// Pattern3 for the not-none bias($b) and none Y($res__0) case
+def replaceONNXGRUPattern3 : Pattern<
+  (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
+     $activation_alpha, $activation_beta, $activations, $clip,
+     $direction, $hidden_size, $linear_before_reset),
+  [
+   //
+   // Pre-process to prepare input_bias and hidden_bias.
+   //
+   (EmitONNXSplitOp6Results:$splitB $b, (GetI64NAttr<1>),
+      (GetLSTMGRUBiasSplitShape (GetShape $r))),
+   (ZHighStickForGRUOp:$input_bias $splitB__0, $splitB__1, $splitB__2),
+   (ZHighStickForGRUOp:$hidden_bias $splitB__3, $splitB__4, $splitB__5),
+
+   //
+   // Main-process to lower ONNXGRUOp into ZHighGRUOp.
+   //
+   (ZHighGRUOp:$zhighGRU
+      (ZHighStickOp $x, (_3DSLayoutAttr)),               // input
+      (ZHighStickOp $initial_h, (_3DSLayoutAttr)),       // h0
+      (GetLSTMGRUZDNNWeightFromONNXWeight<"GRU"> $w),    // input weights
+      $input_bias,                                       // input bias
+      (GetLSTMGRUZDNNWeightFromONNXWeight<"GRU"> $r),    // hidden weights
+      $hidden_bias,                                      // hiden bias
+      $hidden_size,                                      // hidden_size
+      $direction,                                        // direction
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
+  
+   //
+   // Post-process to generate two return values of ONNXGRUOp
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
    (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
   ],
-  [(IsNoneType:$b)]
+  [(IsNotNoneType:$b), (IsNoneType:$res__0)]
+>;
+
+// Pattern4 for the none bias($b) and none Y($res__0) case
+def replaceONNXGRUPattern4 : Pattern<
+  (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
+     $activation_alpha, $activation_beta, $activations, $clip,
+     $direction, $hidden_size, $linear_before_reset),
+  [
+   //
+   // Main-process to lower ONNXGRUOp into ZHighGRUOp.
+   //
+   (ZHighGRUOp:$zhighGRU
+      (ZHighStickOp $x, (_3DSLayoutAttr)),                // input
+      (ZHighStickOp $initial_h, (_3DSLayoutAttr)),        // h0
+      (GetLSTMGRUZDNNWeightFromONNXWeight<"GRU"> $w),     // input weights
+      $b,                                                 // nontype input bias
+      (GetLSTMGRUZDNNWeightFromONNXWeight<"GRU"> $r),     // hidden weights
+      $b,                                                 // nontype hidden bias
+      $hidden_size,                                       // hidden_size
+      $direction,                                         // direction
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),   // return_all_steps
+
+   //
+   // Post-process to generate three return values of ONNXGRUOp
+   // from two return values of ZHighGRUOp(=$zHighGRU).
+   //
+   (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
+   (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+  ],
+  [(IsNoneType:$b), (IsNoneType:$res__0)]
 >;
 
 //===----------------------------------------------------------------------===//

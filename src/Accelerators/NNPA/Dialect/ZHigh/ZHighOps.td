@@ -395,9 +395,9 @@ def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
     "Shape for input_weights is  [D, I, 4*H]."
     "Shape for hidden_weights is  [D, H, 4*H]."
     "Shape for input_bias and hidden_bias is [D, 4*H]."
-    "Shape for hn_output is [S, B, H] if return all timesteps "
-    "and [1, B, H] if return the final step only."
-    "Shape for cf_output is [1, B, H]."
+    "Shape for hn_output is [S, D, B, H] if return all timesteps "
+    "and [1, D, B, H] if return the final step only."
+    "Shape for cf_output is [1, D, B, H]."
     "S is timesteps, D is the number of directions (1 for unidirectional and "
     "2 for bidirectional), B is batch size, I is input size, and "
      H is hidden size."
@@ -414,8 +414,8 @@ def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
                        SI64Attr:$hidden_size,
                        DefaultValuedStrAttr<StrAttr, "forward">:$direction,
                        DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps);
-  let results = (outs ZTensor_3DS:$hn_output,
-                      ZTensor_3DS:$cf_output);
+  let results = (outs ZTensor_4DS:$hn_output,
+                      ZTensor_4DS:$cf_output);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$input, "::mlir::Value":$h0, "::mlir::Value":$c0,
                    "::mlir::Value":$input_weights, "::mlir::Value":$input_bias,
@@ -441,8 +441,8 @@ def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
     "Shape for input_weights is  [D, I, 3*H]."
     "Shape for hidden_weights is  [D, H, 3*H]."
     "Shape for input_bias and hidden_bias is [D, 3*H]."
-    "Shape for hn_output is [S, B, H] if return all timesteps "
-    "and [1, B, H] if return the final step only."
+    "Shape for hn_output is [S, D, B, H] if return all timesteps "
+    "and [1, D, B, H] if return the final step only."
     "S is timesteps, D is the number of directions (1 for unidirectional and "
     "2 for bidirectional), B is batch size, I is input size, and "
      H is hidden size."
@@ -458,7 +458,7 @@ def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
                        SI64Attr:$hidden_size,
                        DefaultValuedStrAttr<StrAttr, "forward">:$direction,
                        DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps);
-  let results = (outs ZTensor_3DS:$hn_output);
+  let results = (outs ZTensor_4DS:$hn_output);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$input, "::mlir::Value":$h0, "::mlir::Value":$input_weights,
                    "::mlir::Value":$input_bias, "::mlir::Value":$hidden_weights,

@@ -27,6 +27,9 @@ using namespace mlir;
 using namespace onnx_mlir;
 using namespace onnx_mlir::zhigh;
 
+namespace onnx_mlir {
+namespace zhigh {
+
 //===----------------------------------------------------------------------===//
 // ZHigh layout propagation Pass
 //===----------------------------------------------------------------------===//
@@ -59,7 +62,6 @@ Value emitONNXTranspose(Location loc, PatternRewriter &rewriter, Value x,
   return transposedInput.getResult();
 }
 
-namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "Transform/ZHigh/ZHighLayoutPropagation.inc"
 
@@ -85,8 +87,9 @@ struct ZHighLayoutPropagationPass
   }
 };
 
-} // end anonymous namespace.
-
-std::unique_ptr<Pass> mlir::createZHighLayoutPropagationPass() {
+std::unique_ptr<Pass> createZHighLayoutPropagationPass() {
   return std::make_unique<ZHighLayoutPropagationPass>();
 }
+
+} // namespace zhigh
+} // namespace onnx_mlir
