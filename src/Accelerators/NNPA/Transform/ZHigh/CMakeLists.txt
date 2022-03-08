@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # turn off until stickify code is ready   
 # add_subdirectory(Stickify)
 # 

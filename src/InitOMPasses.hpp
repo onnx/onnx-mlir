@@ -2,8 +2,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+//===----------- InitOMPasses.hpp - Init onnx-mlir passes  ----------------===//
+//
+// Copyright 2019-2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+//===----------------------------------------------------------------------===//
+
 #include "mlir/Pass/Pass.h"
 #include "src/Pass/Passes.hpp"
+
+#ifdef __NNPA__
+#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
+#endif
 
 using namespace onnx_mlir;
 
@@ -53,7 +65,7 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createConvertKrnlToAffinePass();
+    return krnl::createConvertKrnlToAffinePass();
   });
 
   mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
@@ -75,5 +87,36 @@ void initOMPasses(int optLevel) {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createLowerKrnlShapePass();
   });
+
+#ifdef __NNPA__
+  mlir::registerPass(
+      []() -> std::unique_ptr<mlir::Pass> { return createONNXToZHighPass(); });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createRewriteONNXForZHighPass();
+  });
+
+  // TODO: enable this when stickification is good.
+  // mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+  //   return mlir::createZHighConstPropagationPass();
+  // });
+
+  mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
+    return createZHighToZLowPass(optLevel);
+  });
+
+  mlir::registerPass(
+      []() -> std::unique_ptr<mlir::Pass> { return createZLowRewritePass(); });
+
+  mlir::registerPass(
+      []() -> std::unique_ptr<mlir::Pass> { return createZLowToLLVMPass(); });
+
+  mlir::registerPass(
+      []() -> std::unique_ptr<mlir::Pass> { return createFoldStdAllocPass(); });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createZHighLayoutPropagationPass();
+  });
+#endif
 }
 } // namespace onnx_mlir

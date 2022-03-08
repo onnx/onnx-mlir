@@ -69,9 +69,7 @@ public:
 /// Include the auto-generated header file containing the declarations of the
 /// ZHigh operations.
 #define GET_ATTRDEF_CLASSES
-#include "Dialect/ZHigh/ZHighAttrs.hpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttrs.hpp.inc"
 
 #define GET_OP_CLASSES
-#include "Dialect/ZHigh/ZHighOps.hpp.inc"
-
-namespace onnx_mlir {}
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp.inc"

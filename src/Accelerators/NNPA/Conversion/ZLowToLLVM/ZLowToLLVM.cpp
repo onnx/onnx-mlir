@@ -32,15 +32,16 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/IR/DataLayout.h"
 
-#include "Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
-#include "Dialect/ZLow/ZLowOps.hpp"
-#include "Pass/DLCPasses.hpp"
-#include "Support/LayoutHelper.hpp"
+#include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
+#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Dialect/Krnl/KrnlTypes.hpp"
 #include "third_party/zdnn-lib/zdnn/zdnn.h"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 zdnn_data_layouts UNDEFINED_ZDNN_LAYOUT = (zdnn_data_layouts)255;
 
@@ -390,21 +391,19 @@ public:
 
     // Create zTensor for hidden_weights.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.hidden_weights());
-    ZTensor hiddenWeightsZTensor =
-        zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
-            /*layout=*/ZDNN_3DS, /*originalDims=*/{D, H, H},
-            /*isTransformed=*/true, /*'isConcat=*/true,
-            /*concatInfo=*/RNN_TYPE_LSTM | USAGE_WEIGHTS | PREV_LAYER_NONE);
+    ZTensor hiddenWeightsZTensor = zTensorHelper.getZTensor(stickI8Ptr,
+        /*dataType=*/zDNNDataType,
+        /*layout=*/ZDNN_3DS, /*originalDims=*/{D, H, H},
+        /*isTransformed=*/true, /*'isConcat=*/true,
+        /*concatInfo=*/RNN_TYPE_LSTM | USAGE_HIDDEN_WEIGHTS | PREV_LAYER_NONE);
 
-    // Create zTensor for hidden_bias. Reuse descriptors from input_bias because
-    // input_bias and hidden_bias have the same shape.
+    // Create zTensor for hidden_bias.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.hidden_bias());
-    ZTensor hiddenBiasZTensor = zTensorHelper.getZTensor(
-        /*preTransformedDescPtr=*/inputBiasZTensor.preTransformedDescPtr,
-        /*transformedDescPtr=*/inputBiasZTensor.transformedDescPtr,
-        /*bufferSize=*/inputBiasZTensor.bufferSize,
-        /*alignedBuffer=*/stickI8Ptr,
-        /*isTransformed=*/true);
+    ZTensor hiddenBiasZTensor = zTensorHelper.getZTensor(stickI8Ptr,
+        /*dataType=*/zDNNDataType,
+        /*layout=*/ZDNN_2DS, /*originalDims=*/{D, H},
+        /*isTransformed=*/true, /*'isConcat=*/true,
+        /*concatInfo=*/RNN_TYPE_LSTM | USAGE_HIDDEN_BIASES | PREV_LAYER_NONE);
 
     // Direction input.
     Value direction;
@@ -426,11 +425,11 @@ public:
     if (dyn_cast_or_null<ZLowLSTMOp>(op).return_all_steps() == -1)
       // all steps.
       preTransformedDescPtr = zTensorHelper.getPreTransformedDescPtr(
-          zDNNDataType, ZDNN_3DS, {T, B, H});
+          zDNNDataType, ZDNN_4DS, {T, D, B, H});
     else
       // the last step.
       preTransformedDescPtr = zTensorHelper.getPreTransformedDescPtr(
-          zDNNDataType, ZDNN_3DS, {oneI64, B, H});
+          zDNNDataType, ZDNN_4DS, {oneI64, D, B, H});
     zdnn_concat_info concatInfo =
         RNN_TYPE_LSTM | USAGE_WEIGHTS | PREV_LAYER_NONE;
     // Transformed descriptor.
@@ -461,7 +460,7 @@ public:
     else
       cfOutputZTensor =
           zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
-              /*layout=*/ZDNN_3DS, /*originalDims=*/{oneI64, B, H},
+              /*layout=*/ZDNN_4DS, /*originalDims=*/{oneI64, D, B, H},
               /*isTransformed=*/true);
 
     // Ready to call zDNN LSTM.
@@ -566,21 +565,19 @@ public:
 
     // Create zTensor for hidden_weights.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.hidden_weights());
-    ZTensor hiddenWeightsZTensor =
-        zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
-            /*layout=*/ZDNN_3DS, /*originalDims=*/{D, H, H},
-            /*isTransformed=*/true, /*'isConcat=*/true,
-            /*concatInfo=*/RNN_TYPE_GRU | USAGE_WEIGHTS | PREV_LAYER_NONE);
+    ZTensor hiddenWeightsZTensor = zTensorHelper.getZTensor(stickI8Ptr,
+        /*dataType=*/zDNNDataType,
+        /*layout=*/ZDNN_3DS, /*originalDims=*/{D, H, H},
+        /*isTransformed=*/true, /*'isConcat=*/true,
+        /*concatInfo=*/RNN_TYPE_GRU | USAGE_HIDDEN_WEIGHTS | PREV_LAYER_NONE);
 
-    // Create zTensor for hidden_bias. Reuse descriptors from input_bias because
-    // input_bias and hidden_bias have the same shape.
+    // Create zTensor for hidden_bias.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.hidden_bias());
-    ZTensor hiddenBiasZTensor = zTensorHelper.getZTensor(
-        /*preTransformedDescPtr=*/inputBiasZTensor.preTransformedDescPtr,
-        /*transformedDescPtr=*/inputBiasZTensor.transformedDescPtr,
-        /*bufferSize=*/inputBiasZTensor.bufferSize,
-        /*alignedBuffer=*/stickI8Ptr,
-        /*isTransformed=*/true);
+    ZTensor hiddenBiasZTensor = zTensorHelper.getZTensor(stickI8Ptr,
+        /*dataType=*/zDNNDataType,
+        /*layout=*/ZDNN_2DS, /*originalDims=*/{D, H},
+        /*isTransformed=*/true, /*'isConcat=*/true,
+        /*concatInfo=*/RNN_TYPE_GRU | USAGE_HIDDEN_BIASES | PREV_LAYER_NONE);
 
     // Direction input.
     Value direction;
@@ -602,11 +599,11 @@ public:
     if (dyn_cast_or_null<ZLowGRUOp>(op).return_all_steps() == -1)
       // all steps.
       preTransformedDescPtr = zTensorHelper.getPreTransformedDescPtr(
-          zDNNDataType, ZDNN_3DS, {T, B, H});
+          zDNNDataType, ZDNN_4DS, {T, D, B, H});
     else
       // the last step.
       preTransformedDescPtr = zTensorHelper.getPreTransformedDescPtr(
-          zDNNDataType, ZDNN_3DS, {oneI64, B, H});
+          zDNNDataType, ZDNN_4DS, {oneI64, D, B, H});
     zdnn_concat_info concatInfo =
         RNN_TYPE_GRU | USAGE_WEIGHTS | PREV_LAYER_NONE;
     // Transformed descriptor.
@@ -1554,15 +1551,16 @@ void ZLowToLLVMLoweringPass::runOnOperation() {
 
   typeConverter.addConversion([&](MemRefType type) -> llvm::Optional<Type> {
     Type elementType = type.getElementType();
-    if (!elementType.isa<StringType>())
+    if (!elementType.isa<krnl::StringType>())
       return llvm::None;
 
-    elementType = elementType.cast<StringType>().getLLVMType(type.getContext());
+    elementType =
+        elementType.cast<krnl::StringType>().getLLVMType(type.getContext());
     return typeConverter.convertType(
         MemRefType::get(type.getShape(), elementType));
   });
 
-  typeConverter.addConversion([&](StringType type) -> Type {
+  typeConverter.addConversion([&](krnl::StringType type) -> Type {
     return typeConverter.convertType(type.getLLVMType(type.getContext()));
   });
 
