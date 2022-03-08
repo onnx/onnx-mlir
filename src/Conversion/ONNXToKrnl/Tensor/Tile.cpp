@@ -24,30 +24,29 @@ using namespace mlir;
 Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
     ConversionPatternRewriter &rewriter, bool insertDealloc, Value inputOperand,
     Value repeatsOperand) {
-  MemRefBuilder createMemRef(rewriter, loc);
-  MathBuilder createMath(createMemRef);
-  memref::AllocOp alloc;
+  MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+      rewriter, loc);
   auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
-  auto inputRank = inputShape.size();
+  size_t inputRank = inputShape.size();
   auto outputShape = memRefType.getShape();
 
   SmallVector<Value, 4> allocOperands;
-  for (unsigned int i = 0; i < inputRank; ++i) {
+  for (size_t i = 0; i < inputRank; ++i) {
     if (outputShape[i] == -1) {
-      Value indexVal = createMath.constantIndex(i);
+      Value indexVal = create.math.constantIndex(i);
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
-      Value repeatsLoadVal =
-          rewriter.create<KrnlLoadOp>(loc, repeatsOperand, repeatsMemRefVal);
-      Value repeatsElementVal = createMath.castToIndex(repeatsLoadVal);
-      Value dimVal = createMemRef.dim(inputOperand, i);
-      Value allocDimVal = createMath.mul(dimVal, repeatsElementVal);
+      Value repeatsLoadVal = create.krnl.load(repeatsOperand, repeatsMemRefVal);
+      Value repeatsElementVal = create.math.castToIndex(repeatsLoadVal);
+      Value dimVal = create.mem.dim(inputOperand, i);
+      Value allocDimVal = create.math.mul(dimVal, repeatsElementVal);
       allocOperands.emplace_back(allocDimVal);
     }
   }
-  alloc = createMemRef.alignedAlloc(memRefType, allocOperands);
+
+  memref::AllocOp alloc = create.mem.alignedAlloc(memRefType, allocOperands);
   if (insertDealloc) {
-    auto *parentBlock = alloc.getOperation()->getBlock();
-    auto dealloc = createMemRef.dealloc(alloc);
+    Block *parentBlock = alloc.getOperation()->getBlock();
+    memref::DeallocOp dealloc = create.mem.dealloc(alloc);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   return alloc;
@@ -106,13 +105,14 @@ struct ONNXTileOpLowering : public ConversionPattern {
       loadIndices.emplace_back(exprVal.getValue());
     }
 
-    Value loadVal = rewriter.create<KrnlLoadOp>(loc, input, loadIndices);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+    Value loadVal = create.krnl.load(input, loadIndices);
 
     SmallVector<Value, 4> storeIndices;
-    for (int i = 0; i < outputRank; ++i) {
+    for (int i = 0; i < outputRank; ++i)
       storeIndices.emplace_back(outputLoops.getInductionVar(i));
-    }
-    rewriter.create<KrnlStoreOp>(loc, loadVal, alloc, storeIndices);
+    create.krnl.store(loadVal, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
 
@@ -131,6 +131,9 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXTileOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+
     // get input operands, shapes, and rank
     Value input = operandAdaptor.input();
     auto inputShape = input.getType().cast<MemRefType>().getShape();
@@ -143,13 +146,11 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     int64_t outputRank = outputMemRefShape.size();
 
     bool insertDealloc = checkInsertDealloc(op);
-    Value alloc;
-    if (hasAllConstantDimensions(outputMemRefType))
-      alloc =
-          insertAllocAndDealloc(outputMemRefType, loc, rewriter, insertDealloc);
-    else
-      alloc = insertAllocAndDeallocForTile(
-          outputMemRefType, loc, rewriter, insertDealloc, input, repeats);
+    Value alloc = (hasAllConstantDimensions(outputMemRefType))
+                      ? insertAllocAndDealloc(
+                            outputMemRefType, loc, rewriter, insertDealloc)
+                      : insertAllocAndDeallocForTile(outputMemRefType, loc,
+                            rewriter, insertDealloc, input, repeats);
 
     // Define loops and iteration trip counts (equivalent to size of output)
     std::vector<Value> originalLoops;
@@ -161,8 +162,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
       auto indexVal =
           emitConstantOp(rewriter, loc, rewriter.getIndexType(), ii);
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
-      auto repeatsLoadVal =
-          rewriter.create<KrnlLoadOp>(loc, repeats, repeatsMemRefVal);
+      auto repeatsLoadVal = create.krnl.load(repeats, repeatsMemRefVal);
       auto repeatsElementVal = rewriter.create<arith::IndexCastOp>(
           loc, rewriter.getIndexType(), repeatsLoadVal);
       pack.pushOperandBound(repeatsElementVal);
@@ -179,14 +179,12 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     // Handle the operations.
 
     SmallVector<Value, 4> inputMemRefVal;
-    for (int j = 0; j < inputRank; ++j) {
+    for (int j = 0; j < inputRank; ++j)
       inputMemRefVal.emplace_back(iterationBlock.getArguments()[j * 2]);
-    }
 
-    MemRefBuilder createMemRef(rewriter, loc);
     SmallVector<Value, 4> outputMemRefVal;
     for (int i = 0; i < inputRank; ++i) {
-      auto inputDimSizeVal = createMemRef.dim(input, i);
+      auto inputDimSizeVal = create.mem.dim(input, i);
       if (inputShape[i] != -1) {
         auto inputIndexAE = rewriter.getAffineDimExpr(0);
         auto repeatsIndexAE = rewriter.getAffineDimExpr(1);
@@ -201,14 +199,14 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
       } else {
         auto inputIndex = iterationBlock.getArguments()[2 * i];
         auto repeatsIndex = iterationBlock.getArguments()[2 * i + 1];
-        auto dimExprVal = rewriter.create<arith::AddIOp>(loc, inputIndex,
-            rewriter.create<arith::MulIOp>(loc, repeatsIndex, inputDimSizeVal));
+        auto dimExprVal = create.math.add(
+            inputIndex, create.math.mul(repeatsIndex, inputDimSizeVal));
         outputMemRefVal.emplace_back(dimExprVal);
       }
     }
 
-    auto inputVal = rewriter.create<KrnlLoadOp>(loc, input, inputMemRefVal);
-    rewriter.create<KrnlStoreOp>(loc, inputVal, alloc, outputMemRefVal);
+    auto inputVal = create.krnl.load(input, inputMemRefVal);
+    create.krnl.store(inputVal, alloc, outputMemRefVal);
 
     rewriter.replaceOp(op, alloc);
 
