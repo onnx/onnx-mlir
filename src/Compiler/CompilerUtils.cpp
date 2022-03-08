@@ -34,6 +34,8 @@
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Support/OMOptions.hpp"
 
+#include "VCSVersion.inc"
+
 #define DEBUG_TYPE "compiler_utils"
 
 using namespace std;
@@ -41,6 +43,14 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 const string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
+#if defined(ONNX_MLIR_REPOSITORY) && defined(ONNX_MLIR_REVISION) &&            \
+    defined(LLVM_REPOSITORY) && defined(LLVM_REVISION)
+static const string OnnxMlirVersion =
+    "onnx-mlir version 1.0.0 (" ONNX_MLIR_REPOSITORY " " ONNX_MLIR_REVISION
+    " " LLVM_REPOSITORY " " LLVM_REVISION ")";
+#else
+const string OnnxMlirVersion = "onnx-mlir version 1.0.0";
+#endif
 
 llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX-MLIR Options", "These are frontend options.");
@@ -535,9 +545,8 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   // Emit the onnx-mlir version as llvm.ident metadata.
   llvm::NamedMDNode *identMetadata =
       llvmModule->getOrInsertNamedMetadata("llvm.ident");
-  std::string version = "onnx-mlir version 1.0.0";
   llvm::LLVMContext &ctx = llvmModule->getContext();
-  llvm::Metadata *identNode[] = {llvm::MDString::get(ctx, version)};
+  llvm::Metadata *identNode[] = {llvm::MDString::get(ctx, OnnxMlirVersion)};
   identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
 
   llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
