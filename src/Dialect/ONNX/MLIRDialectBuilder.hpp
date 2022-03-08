@@ -122,6 +122,7 @@ struct MemRefBuilder final : DialectBuilder {
   memref::CastOp cast(Value input, MemRefType outputType) const;
 
   Value dim(Value val, int64_t index) const;
+  Value dim(Value val, Value index) const;
 };
 
 // Default alignment attribute for all allocation of memory. On most system, it

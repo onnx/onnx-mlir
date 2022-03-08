@@ -302,9 +302,9 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
     KrnlIterateOperandPack &pack, Value operand, int index) {
   auto shape = operand.getType().cast<MemRefType>().getShape();
   if (shape[index] < 0) {
+    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
     pack.pushConstantBound(0);
-    pack.pushOperandBound(
-        rewriter.create<memref::DimOp>(loc, operand, index).getResult());
+    pack.pushOperandBound(create.mem.dim(operand, index));
   } else {
     pack.pushConstantBound(0);
     pack.pushConstantBound(shape[index]);
@@ -314,165 +314,112 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
 // Function that emits the definition of loops references.
 void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
     std::vector<Value> &loops, int64_t numLoops) {
-  auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
+  MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
+  ValueRange loopsOp = create.krnl.defineLoops(numLoops);
   loops.reserve(numLoops);
-  for (auto result : loopsOp.getResults())
+  for (auto result : loopsOp)
     loops.push_back(result);
 }
 
 Value emitPositiveInfinityConstantOp(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  Attribute constantAttr;
-
+  double value;
   TypeSwitch<Type>(type)
       .Case<Float16Type>([&](Type) {
         // 0x7C00
-        float value = std::numeric_limits<float>::infinity();
-        constantAttr = rewriter.getF16FloatAttr(value);
+        value = std::numeric_limits<float>::infinity();
       })
       .Case<Float32Type>([&](Type) {
         // 0x7F800000
-        float value = std::numeric_limits<float>::infinity();
-        constantAttr = rewriter.getF32FloatAttr(value);
+        value = std::numeric_limits<float>::infinity();
       })
       .Case<Float64Type>([&](Type) {
         // 0x7FF0000000000000
-        double value = std::numeric_limits<double>::infinity();
-        constantAttr = rewriter.getF64FloatAttr(value);
+        value = std::numeric_limits<double>::infinity();
       })
-      .Case<IntegerType>([&](Type) {
-        auto width = type.cast<IntegerType>().getWidth();
-        // The latest llvm-project includes a patch which allows getting the
-        // sign of IntegerType:
-        // https://github.com/llvm/llvm-project/commit/35b685270b410f6a1351c2a527021f22330c25b9
-        // as follows:
-        //   auto isSigned = type.cast<IntegerType>().isSigned();
-        // TODO (tungld): update the following statement once our llvm-project
-        // is upgraded to include the patch.
-        auto isSigned = true;
-        if (width == 8) {
-          if (isSigned) {
-            int8_t value = std::numeric_limits<int8_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint8_t value = std::numeric_limits<uint8_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 16) {
-          if (isSigned) {
-            int16_t value = std::numeric_limits<int16_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint16_t value = std::numeric_limits<uint16_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 32) {
-          if (isSigned) {
-            int32_t value = std::numeric_limits<int32_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint32_t value = std::numeric_limits<uint32_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 64) {
-          if (isSigned) {
-            int64_t value = std::numeric_limits<int64_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint64_t value = std::numeric_limits<uint64_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else {
+      .Case<IntegerType>([&](IntegerType type) {
+        size_t width = type.getWidth();
+        bool isSigned = type.isSigned();
+        switch (width) {
+        case 8:
+          value = (isSigned) ? std::numeric_limits<int8_t>::max()
+                             : std::numeric_limits<uint8_t>::max();
+          break;
+        case 16:
+          value = (isSigned) ? std::numeric_limits<int16_t>::max()
+                             : std::numeric_limits<uint16_t>::max();
+          break;
+        case 32:
+          value = (isSigned) ? std::numeric_limits<int32_t>::max()
+                             : std::numeric_limits<uint32_t>::max();
+          break;
+        case 64:
+          value = (isSigned) ? std::numeric_limits<int64_t>::max()
+                             : std::numeric_limits<uint64_t>::max();
+          break;
+        default:
           llvm_unreachable("unsupported element type");
         }
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
-  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
+
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  return create.math.constant(type, value);
 }
 
 Value emitNegativeInfinityConstantOp(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  Attribute constantAttr;
-
+  double value;
   TypeSwitch<Type>(type)
       .Case<Float16Type>([&](Type) {
         // 0xFC00
-        float value = -std::numeric_limits<float>::infinity();
-        constantAttr = rewriter.getF16FloatAttr(value);
+        value = -std::numeric_limits<float>::infinity();
       })
       .Case<Float32Type>([&](Type) {
         // 0xFF800000
-        float value = -std::numeric_limits<float>::infinity();
-        constantAttr = rewriter.getF32FloatAttr(value);
+        value = -std::numeric_limits<float>::infinity();
       })
       .Case<Float64Type>([&](Type) {
         // 0xFFF0000000000000
-        double value = -std::numeric_limits<double>::infinity();
-        constantAttr = rewriter.getF64FloatAttr(value);
+        value = -std::numeric_limits<double>::infinity();
       })
-      .Case<IntegerType>([&](Type) {
-        auto width = type.cast<IntegerType>().getWidth();
-        // The latest llvm-project includes a patch which allows getting the
-        // sign of IntegerType:
-        // https://github.com/llvm/llvm-project/commit/35b685270b410f6a1351c2a527021f22330c25b9
-        // as follows:
-        //   auto isSigned = type.cast<IntegerType>().isSigned();
-        // TODO (tungld): update the following statement once our llvm-project
-        // is upgraded to include the patch.
-        auto isSigned = true;
-        if (width == 8) {
-          if (isSigned) {
-            int8_t value = std::numeric_limits<int8_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint8_t value = std::numeric_limits<uint8_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 16) {
-          if (isSigned) {
-            int16_t value = std::numeric_limits<int16_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint16_t value = std::numeric_limits<uint16_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 32) {
-          if (isSigned) {
-            int32_t value = std::numeric_limits<int32_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint32_t value = std::numeric_limits<uint32_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 64) {
-          if (isSigned) {
-            int64_t value = std::numeric_limits<int64_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint64_t value = std::numeric_limits<uint64_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else {
+      .Case<IntegerType>([&](IntegerType type) {
+        auto width = type.getWidth();
+        bool isSigned = type.isSigned();
+        switch (width) {
+        case 8:
+          value = (isSigned) ? std::numeric_limits<int8_t>::min()
+                             : std::numeric_limits<uint8_t>::min();
+          break;
+        case 16:
+          value = (isSigned) ? std::numeric_limits<int16_t>::min()
+                             : std::numeric_limits<uint16_t>::min();
+          break;
+        case 32:
+          value = (isSigned) ? std::numeric_limits<int32_t>::min()
+                             : std::numeric_limits<uint32_t>::min();
+          break;
+        case 64:
+          value = (isSigned) ? std::numeric_limits<int64_t>::min()
+                             : std::numeric_limits<uint64_t>::min();
+          break;
+        default:
           llvm_unreachable("unsupported element type");
         }
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
-  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  return create.math.constant(type, value);
 }
 
 Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     Value operand, int64_t axis, Type type) {
-  ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
-  Value dimVal;
   MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
-  if (shape[axis] < 0) {
-    Value dim = create.mem.dim(operand, axis);
-    dimVal = create.math.cast(type, dim);
-  } else {
-    dimVal = create.math.constant(type, shape[axis]);
-  }
-  return dimVal;
+  ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
+  return (shape[axis] < 0)
+             ? create.math.cast(type, create.mem.dim(operand, axis))
+             : create.math.constant(type, shape[axis]);
 }
 
 /// Emit an ONNXSqueezeV11Op. If the input is constant, do const propagation,

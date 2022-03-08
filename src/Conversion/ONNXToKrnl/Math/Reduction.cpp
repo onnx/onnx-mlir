@@ -220,7 +220,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     for (decltype(outRank) i = 0; i < outRank; ++i)
       addDimensionToPack(rewriter, loc, packInit, alloc, i);
 
-    auto iterateOpInit = rewriter.create<KrnlIterateOp>(loc, packInit);
+    KrnlIterateOp iterateOpInit = create.krnl.iterate(packInit);
     Block &iterationBlockInit = iterateOpInit.bodyRegion().front();
 
     // Perform the insertions into the body of the initialization loop.
@@ -244,10 +244,10 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     defineLoops(rewriter, loc, originalLoops, inRank);
     // Iteration information
     KrnlIterateOperandPack pack(rewriter, originalLoops);
-    for (decltype(inRank) i = 0; i < inRank; ++i) {
+    for (decltype(inRank) i = 0; i < inRank; ++i)
       addDimensionToPack(rewriter, loc, pack, input, i);
-    }
-    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
+
+    KrnlIterateOp iterateOp = create.krnl.iterate(pack);
     Block &iterationBlock = iterateOp.bodyRegion().front();
 
     // Perform the insertions into the body of the reduction loop.
@@ -534,10 +534,10 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
 
     // Iteration information
     KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
-    for (decltype(outRank) i = 0; i < outRank; ++i) {
+    for (decltype(outRank) i = 0; i < outRank; ++i)
       addDimensionToPack(rewriter, loc, packInit, alloc, i);
-    }
-    auto iterateOpInit = rewriter.create<KrnlIterateOp>(loc, packInit);
+
+    KrnlIterateOp iterateOpInit = create.krnl.iterate(packInit);
     Block &iterationBlockInit = iterateOpInit.bodyRegion().front();
 
     // Perform the insertions into the body of the initialization loop.
@@ -562,10 +562,10 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     defineLoops(rewriter, loc, originalLoops, inRank);
     // Iteration information
     KrnlIterateOperandPack pack(rewriter, originalLoops);
-    for (decltype(inRank) i = 0; i < inRank; ++i) {
+    for (decltype(inRank) i = 0; i < inRank; ++i)
       addDimensionToPack(rewriter, loc, pack, input, i);
-    }
-    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
+
+    KrnlIterateOp iterateOp = create.krnl.iterate(pack);
     Block &iterationBlock = iterateOp.bodyRegion().front();
 
     // Perform the insertions into the body of the reduction loop.
