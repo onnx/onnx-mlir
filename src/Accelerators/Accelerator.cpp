@@ -8,24 +8,27 @@
 //
 // =============================================================================
 //
-// Accelerator base class
+// Accelerator base class.
 //
 //===----------------------------------------------------------------------===//
+
 #include "src/Accelerators/Accelerator.hpp"
 #include <iostream>
 #include <vector>
 
-namespace mlir {
+namespace onnx_mlir {
+
 std::vector<Accelerator *> *Accelerator::acceleratorTargets;
 
 Accelerator::Accelerator() {
-  if (acceleratorTargets == NULL) {
+  if (acceleratorTargets == NULL)
     acceleratorTargets = new std::vector<Accelerator *>();
-  }
 }
+
+Accelerator::~Accelerator() {}
 
 std::vector<Accelerator *> *Accelerator::getAcceleratorList() {
   return acceleratorTargets;
 }
 
-} // namespace mlir
+} // namespace onnx_mlir

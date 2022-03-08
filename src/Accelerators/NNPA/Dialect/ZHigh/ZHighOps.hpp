@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------------ ZHighOps.hpp - ONNX Operations --------------------===//
+//===------------------ ZHighOps.hpp - ZHigh Operations -------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -46,10 +46,14 @@ public:
   }
 };
 } // namespace OpTrait
+} // namespace mlir
 
-class ZHighDialect : public Dialect {
+namespace onnx_mlir {
+namespace zhigh {
+
+class ZHighDialect : public mlir::Dialect {
 public:
-  ZHighDialect(MLIRContext *context);
+  ZHighDialect(mlir::MLIRContext *context);
 
   /// Parse an instance of an attribute registered to the zhigh dialect.
   mlir::Attribute parseAttribute(
@@ -61,10 +65,11 @@ public:
 
   /// Provide a utility accessor to the dialect namespace. This is used by
   /// several utilities for casting between dialects.
-  static StringRef getDialectNamespace() { return "zhigh"; }
+  static mlir::StringRef getDialectNamespace() { return "zhigh"; }
 };
 
-} // end namespace mlir
+} // namespace zhigh
+} // namespace onnx_mlir
 
 /// Include the auto-generated header file containing the declarations of the
 /// ZHigh operations.
