@@ -96,6 +96,11 @@ Value MathBuilder::sqrt(Value val) const {
   return b.create<math::SqrtOp>(loc, val);
 }
 
+Value MathBuilder::pow(Value base, Value exp) const {
+  assert(base.getType().isa<FloatType>() && "Data type must be float.");
+  return b.create<math::PowFOp>(loc, base, exp);
+}
+
 Value MathBuilder::min(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
