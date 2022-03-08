@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- NNPACompilerUtils.cpp -----------------------===//
+//===-------------------------- NNPACompilerUtils.cpp ---------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -116,7 +116,8 @@ void addAllToLLVMPasses(mlir::PassManager &pm) {
 }
 
 void addPassesNNPA(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
-    EmissionTargetType &emissionTarget, NNPAEmissionTargetType dlcEmissionTarget,
+    EmissionTargetType &emissionTarget,
+    NNPAEmissionTargetType dlcEmissionTarget,
     ArrayRef<std::string> execNodesOnCpu) {
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
