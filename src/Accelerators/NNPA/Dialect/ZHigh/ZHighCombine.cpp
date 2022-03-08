@@ -4,7 +4,7 @@
 
 //===------------- ZHighCombine.cpp - ZHigh High Level Optimizer ----------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -16,8 +16,8 @@
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 
-#include "ZHighHelper.hpp"
-#include "ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 
 using namespace mlir;
 
@@ -25,6 +25,9 @@ namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "Dialect/ZHigh/ZHighCombine.inc"
 } // end anonymous namespace
+
+namespace onnx_mlir {
+namespace zhigh {
 
 /// Register optimization patterns as "canonicalization" patterns
 /// on the ZHighStickOp.
@@ -41,3 +44,6 @@ void ZHighUnstickOp::getCanonicalizationPatterns(
   results.insert<UnstickStickRemovalPattern>(context);
   results.insert<SigmoidLayoutChangingPattern>(context);
 }
+
+} // namespace zhigh
+} // namespace onnx_mlir

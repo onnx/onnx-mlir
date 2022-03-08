@@ -4,7 +4,7 @@
 
 //====------ ZHighToZLow.cpp - ZHigh dialect to ZLow lowering -------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -38,11 +38,12 @@
 
 using namespace mlir;
 
-using llvm::SmallMapVector;
-
 // A global variable to indicate whether this pass will emit dealloc for
 // allocated memrefs or not.
 extern bool ONNXToKrnl_gEmitDealloc;
+
+namespace onnx_mlir {
+namespace zhigh {
 
 //===----------------------------------------------------------------------===//
 // Helper function of Zhigh to Zlow lowering
@@ -480,7 +481,7 @@ ZMemRefType convertZTensorToMemRefType(OpBuilder b, Type type) {
 struct ZHighToZLowStickOpLowering : public ConversionPattern {
   ZHighToZLowStickOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, mlir::ZHighStickOp::getOperationName(), 1, ctx) {}
+            typeConverter, ZHighStickOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -514,8 +515,8 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
 struct ZHighToZLowStickForLSTMOpLowering : public ConversionPattern {
   ZHighToZLowStickForLSTMOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ZHighStickForLSTMOp::getOperationName(), 1, ctx) {}
+      : ConversionPattern(
+            typeConverter, ZHighStickForLSTMOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -552,8 +553,8 @@ struct ZHighToZLowStickForLSTMOpLowering : public ConversionPattern {
 struct ZHighToZLowStickForGRUOpLowering : public ConversionPattern {
   ZHighToZLowStickForGRUOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ZHighStickForGRUOp::getOperationName(), 1, ctx) {}
+      : ConversionPattern(
+            typeConverter, ZHighStickForGRUOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -589,7 +590,7 @@ struct ZHighToZLowStickForGRUOpLowering : public ConversionPattern {
 struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
   ZHighToZLowUnstickOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, mlir::ZHighUnstickOp::getOperationName(), 1, ctx) {}
+            typeConverter, ZHighUnstickOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -625,7 +626,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
   ZHighToZLowStickifiedConstantOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
-            mlir::ZHighStickifiedConstantOp::getOperationName(), 1, ctx) {}
+            ZHighStickifiedConstantOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -816,7 +817,7 @@ struct ZHighToZLowUnaryOpLowering : public ConversionPattern {
 struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
   ZHighToZLowSoftmaxOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, mlir::ZHighSoftmaxOp::getOperationName(), 1, ctx) {}
+            typeConverter, ZHighSoftmaxOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
@@ -858,8 +859,8 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
 struct ZHighToZLowMeanReduce2DOpLowering : public ConversionPattern {
   ZHighToZLowMeanReduce2DOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ZHighMeanReduce2DOp::getOperationName(), 1, ctx) {}
+      : ConversionPattern(
+            typeConverter, ZHighMeanReduce2DOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
@@ -942,7 +943,7 @@ struct ZHighToZLowPool2DOpLowering : public ConversionPattern {
 struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
   ZHighToZLowMatMulOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, mlir::ZHighMatMulOp::getOperationName(), 1, ctx) {}
+            typeConverter, ZHighMatMulOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -1026,11 +1027,11 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
 struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
   ZHighToZLowLSTMOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, mlir::ZHighLSTMOp::getOperationName(), 1, ctx) {}
+            typeConverter, ZHighLSTMOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighLSTMOp lstmOp = llvm::dyn_cast<mlir::ZHighLSTMOp>(op);
+    ZHighLSTMOp lstmOp = llvm::dyn_cast<ZHighLSTMOp>(op);
     ZHighLSTMOpAdaptor operandAdaptor(operands);
 
     // Helper builders.
@@ -1114,11 +1115,11 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
 struct ZHighToZLowGRUOpLowering : public ConversionPattern {
   ZHighToZLowGRUOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, mlir::ZHighGRUOp::getOperationName(), 1, ctx) {}
+            typeConverter, ZHighGRUOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighGRUOp gruOp = llvm::dyn_cast<mlir::ZHighGRUOp>(op);
+    ZHighGRUOp gruOp = llvm::dyn_cast<ZHighGRUOp>(op);
     ZHighGRUOpAdaptor operandAdaptor(operands);
 
     // Helper builders.
@@ -1191,11 +1192,11 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
 struct ZHighToZLowConv2DOpLowering : public ConversionPattern {
   ZHighToZLowConv2DOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, mlir::ZHighConv2DOp::getOperationName(), 1, ctx) {}
+            typeConverter, ZHighConv2DOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighConv2DOp conv2dOp = llvm::dyn_cast<mlir::ZHighConv2DOp>(op);
+    ZHighConv2DOp conv2dOp = llvm::dyn_cast<ZHighConv2DOp>(op);
     ZHighConv2DOpAdaptor operandAdaptor(operands);
 
     // Helper builders.
@@ -1244,8 +1245,8 @@ struct ZHighToZLowConv2DOpLowering : public ConversionPattern {
 //===----------------------------------------------------------------------===//
 struct ZHighToZLowBatchNormOpLowering : public ConversionPattern {
   ZHighToZLowBatchNormOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ZHighBatchNormOp::getOperationName(), 1, ctx) {}
+      : ConversionPattern(
+            typeConverter, ZHighBatchNormOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
@@ -1441,15 +1442,18 @@ void ZHighToZLowLoweringPass::runOnOperation() {
     signalPassFailure();
 }
 
-std::unique_ptr<Pass> mlir::createZHighToZLowPass() {
+std::unique_ptr<Pass> createZHighToZLowPass() {
   return std::make_unique<ZHighToZLowLoweringPass>();
 }
 
-std::unique_ptr<Pass> mlir::createZHighToZLowPass(int optLevel) {
+std::unique_ptr<Pass> createZHighToZLowPass(int optLevel) {
   return std::make_unique<ZHighToZLowLoweringPass>(optLevel);
 }
 
-std::unique_ptr<Pass> mlir::createZHighToZLowPass(
+std::unique_ptr<Pass> createZHighToZLowPass(
     bool emitDealloc, bool enableTiling) {
   return std::make_unique<ZHighToZLowLoweringPass>(emitDealloc, enableTiling);
 }
+
+} // namespace zhigh
+} // namespace onnx_mlir

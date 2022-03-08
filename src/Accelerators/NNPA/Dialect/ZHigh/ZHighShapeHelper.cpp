@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------ZHighShapeHelper.cpp - help for shapes---------------=== //
+//===----------------ZHighShapeHelper.cpp - help for shapes ---------------===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -16,6 +16,9 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
+namespace zhigh {
 
 //===----------------------------------------------------------------------===//
 // ZHigh Op Shape Helper
@@ -37,8 +40,8 @@ template <class OP>
 ZHighOpShapeHelper<OP>::ZHighOpShapeHelper(OP *newOp, int numResults,
     OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseValInput,
     ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
-    : op(newOp), outputsDims(), fGetDenseVal(fGetDenseVal), fLoadVal(fLoadVal),
-      ownScope(inScope == nullptr) {
+    : op(newOp), fGetDenseVal(fGetDenseValInput), fLoadVal(fLoadVal),
+      outputsDims(), ownScope(inScope == nullptr) {
   assert(op && "Expecting a valid pointer");
   if (ownScope)
     scope = new IndexExprScope(rewriter, newOp->getLoc());
@@ -498,3 +501,6 @@ template struct ZHighPoolingOpShapeHelper<ZHighMaxPool2DOp,
     ZHighMaxPool2DOpAdaptor>;
 template struct ZHighPoolingOpShapeHelper<ZHighAvgPool2DOp,
     ZHighAvgPool2DOpAdaptor>;
+
+} // namespace zhigh
+} // namespace onnx_mlir

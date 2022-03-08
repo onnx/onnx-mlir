@@ -11,23 +11,28 @@
 // Accelerator base class
 //
 //===----------------------------------------------------------------------===//
+
 #pragma once
+
+#include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"
-#include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include <vector>
 
-namespace mlir {
+namespace onnx_mlir {
+
 class Accelerator {
 public:
   Accelerator();
+  virtual ~Accelerator() = 0;
   static std::vector<Accelerator *> *getAcceleratorList();
-  virtual bool isActive() = 0;
-  virtual void prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
+  virtual bool isActive() const = 0;
+  virtual void prepareAccelerator(mlir::OwningOpRef<mlir::ModuleOp> &module,
       mlir::MLIRContext &context, mlir::PassManager &pm,
-      onnx_mlir::EmissionTargetType emissionTarget) = 0;
+      onnx_mlir::EmissionTargetType emissionTarget) const = 0;
 
 private:
   static std::vector<Accelerator *> *acceleratorTargets;
 };
-} // namespace mlir
+
+} // namespace onnx_mlir

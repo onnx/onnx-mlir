@@ -22,14 +22,15 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "Dialect/ZHigh/ZHighOps.hpp"
-#include "Pass/DLCPasses.hpp"
-#include "Support/OMDLCOptions.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
+#include "src/Accelerators/NNPA/Support/OMDLCOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace {
 
@@ -94,7 +95,7 @@ public:
 
     // Iterate on the operations nested in this function
     getOperation().walk([&](mlir::Operation *op) {
-      if (isa<mlir::ZHighDialect>(op->getDialect())) {
+      if (isa<zhigh::ZHighDialect>(op->getDialect())) {
         // Skip the prefix "zhigh." of zhigh op name
         const char *opName = op->getName().getStringRef().data() + 6;
         if (!allOpsAllowed && allowedOps.find(opName) == allowedOps.end())
