@@ -155,7 +155,7 @@ private:
 class BuildKrnlLoop final {
 public:
   // Create kernel loop builder for a loop nest of depth loopNum.
-  BuildKrnlLoop(ConversionPatternRewriter &rewriter, Location loc, int loopNum);
+  BuildKrnlLoop(OpBuilder &builder, Location loc, int loopNum);
   BuildKrnlLoop(const BuildKrnlLoop &) = delete;
   BuildKrnlLoop(BuildKrnlLoop &&) = delete;
   BuildKrnlLoop &operator=(const BuildKrnlLoop &) = delete;
@@ -163,8 +163,7 @@ public:
 
   // Create kernel loop builder for a loop nest of depth equal to the
   // dimensionality of the operand. An operand of MemRef type is requied.
-  BuildKrnlLoop(
-      ConversionPatternRewriter &rewriter, Location loc, Value memRefOperand);
+  BuildKrnlLoop(OpBuilder &builder, Location loc, Value memRefOperand);
   ~BuildKrnlLoop() {
     if (pack)
       delete pack;
@@ -231,7 +230,7 @@ public:
 
 private:
   // Required for emitting operations.
-  ConversionPatternRewriter &rewriter;
+  OpBuilder &builder;
   Location loc;
   int originalLoopNum;
 

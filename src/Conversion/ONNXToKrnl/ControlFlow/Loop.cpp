@@ -58,8 +58,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     // Create the loop iteration.
     BuildKrnlLoop loop(rewriter, loc, 1);
     loop.createDefineOp();
-    Value maxTripCount =
-        rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M()).getResult();
+    KrnlBuilder createKrnl(rewriter, loc);
+    Value maxTripCount = createKrnl.load(loopOpAdapter.M());
+
     maxTripCount = rewriter.create<arith::IndexCastOp>(
         loc, rewriter.getIndexType(), maxTripCount);
     loop.pushBounds(0, maxTripCount);
@@ -69,7 +70,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     {
       OpBuilder::InsertionGuard insertGuard(rewriter);
 
-      auto condReg = rewriter.create<KrnlLoadOp>(loc, cond).getResult();
+      Value condReg = createKrnl.load(cond);
       auto ifOp = rewriter.create<scf::IfOp>(loc, condReg, false);
       rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
 
@@ -83,7 +84,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       MemRefBuilder createMemRef(rewriter, loc);
       Value ivMemRef =
           createMemRef.alloc(MemRefType::get({}, rewriter.getI64Type()));
-      rewriter.create<KrnlStoreOp>(loc, iv, ivMemRef);
+      createKrnl.store(iv, ivMemRef);
 
       // Make the call to loop body function.
       SmallVector<Value, 4> params = {ivMemRef, loopOpAdapter.cond()};
@@ -235,6 +236,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       if (hasAllConstantDimensions(memRefType))
         alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
       else {
+        MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
         for (int i = 0; i < rankedScanOutTy.getRank(); i++) {
@@ -245,9 +247,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
               // equal to the max trip count, due to the possibility of early
               // termination.
               assert(!loopOpAdapter.M().getType().isa<NoneType>());
-              Value maxTripCount =
-                  rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M())
-                      .getResult();
+              Value maxTripCount = create.krnl.load(loopOpAdapter.M());
               allocParams.emplace_back(rewriter.create<arith::IndexCastOp>(
                   loc, rewriter.getIndexType(), maxTripCount));
             } else {
@@ -259,8 +259,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             }
           }
         }
-        MemRefBuilder createMemRef(rewriter, loc);
-        alloc = createMemRef.alignedAlloc(rankedScanOutTy, allocParams);
+        alloc = create.mem.alignedAlloc(rankedScanOutTy, allocParams);
       }
       outputs.emplace_back(alloc);
     }
@@ -299,8 +298,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     }
     SmallVector<Value, 4> writeIV(writePrefix.begin(), writePrefix.end());
     writeIV.insert(writeIV.end(), readIV.begin(), readIV.end());
-    auto val = rewriter.create<KrnlLoadOp>(loc, src, readIV).getResult();
-    rewriter.create<KrnlStoreOp>(loc, val, dest, writeIV);
+    KrnlBuilder createKrnl(rewriter, loc);
+    Value val = createKrnl.load(src, readIV);
+    createKrnl.store(val, dest, writeIV);
   }
 };
 
