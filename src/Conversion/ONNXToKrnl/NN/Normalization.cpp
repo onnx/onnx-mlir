@@ -195,8 +195,6 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     create.krnl.iterateIE(n_c_loopDef, n_c_loopDef, {iZero, iZero},
         {inputBounds.getSymbol(0), inputBounds.getSymbol(1)},
         [&](KrnlBuilder &createKrnl, ValueRange n_c_loopInd) {
-          MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-              createKrnl);
           IndexExprScope channelScope(createKrnl);
           DimIndexExpr n(n_c_loopInd[0]), c(n_c_loopInd[1]);
 
@@ -247,9 +245,9 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
                 val = create.math.sub(val, mean);
                 val = create.math.mul(val, val);
                 Value newSum = create.math.add(oldSum, val);
-                create.krnl.store(newSum, tmpMemRef, {});
+                create.krnl.store(newSum, tmpMemRef);
               });
-          sum = create.krnl.load(tmpMemRef, {});
+          sum = create.krnl.load(tmpMemRef);
           // Variance is numerically off when divided by (num -1), but
           // passes the tests when divided by num, so keep that.
           Value variance = create.math.div(sum, meanDenom);
