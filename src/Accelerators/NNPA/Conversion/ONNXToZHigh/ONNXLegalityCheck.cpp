@@ -568,7 +568,7 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
   // Check if R has static dimensions.
   if (!R.getType().cast<ShapedType>().hasStaticShape())
     return false;
-  // Check hidden_size, zDNN only supports size < 16384.
+  // Check hidden_size.
   if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_LSTM)
     return false;
   // zDNN does not support sequence_lens.
@@ -632,7 +632,7 @@ bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
   // Check if R has static dimensions.
   if (!R.getType().cast<ShapedType>().hasStaticShape())
     return false;
-  // Check hidden_size, zDNN only supports size < 21824.
+  // Check hidden_size.
   if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_GRU)
     return false;
   // zDNN does not support sequence_lens.
