@@ -195,6 +195,8 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     create.krnl.iterateIE(n_c_loopDef, n_c_loopDef, {iZero, iZero},
         {inputBounds.getSymbol(0), inputBounds.getSymbol(1)},
         [&](KrnlBuilder &createKrnl, ValueRange n_c_loopInd) {
+          MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+              createKrnl);
           IndexExprScope channelScope(createKrnl);
           DimIndexExpr n(n_c_loopInd[0]), c(n_c_loopInd[1]);
 
@@ -214,6 +216,8 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
           ValueRange spatial2_loopDef = create.krnl.defineLoops(rank - 2);
           create.krnl.iterateIE(spatial2_loopDef, spatial2_loopDef, lbs, ubs,
               [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
+                MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
+                    createKrnl);
                 SmallVector<Value, 6> inputAccessFct = {
                     n.getValue(), c.getValue()};
                 for (int d = 0; d < rank - 2; ++d)
@@ -231,6 +235,8 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
           // Iterate over kernel and add values.
           create.krnl.iterateIE(spatial_loopDef, spatial_loopDef, lbs, ubs,
               [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
+                MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
+                    createKrnl);
                 SmallVector<Value, 6> inputAccessFct = {
                     n.getValue(), c.getValue()};
                 for (int d = 0; d < rank - 2; ++d)
@@ -241,7 +247,7 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
                 val = create.math.sub(val, mean);
                 val = create.math.mul(val, val);
                 Value newSum = create.math.add(oldSum, val);
-                createKrnl.store(newSum, tmpMemRef, {});
+                create.krnl.store(newSum, tmpMemRef, {});
               });
           sum = create.krnl.load(tmpMemRef, {});
           // Variance is numerically off when divided by (num -1), but
@@ -260,6 +266,8 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
           ValueRange spatial3_loopDef = create.krnl.defineLoops(rank - 2);
           create.krnl.iterateIE(spatial3_loopDef, spatial3_loopDef, lbs, ubs,
               [&](KrnlBuilder &createKrnl, ValueRange spatial_loopInd) {
+                MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
+                    createKrnl);
                 SmallVector<Value, 6> accessFct = {n.getValue(), c.getValue()};
                 for (int d = 0; d < rank - 2; ++d)
                   accessFct.emplace_back(spatial_loopInd[d]);
