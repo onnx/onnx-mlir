@@ -36,6 +36,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     SmallVector<Value, 4> outputs;
     allocateMemoryForVFinal(loc, rewriter, op, loopOpAdapter, outputs);
     allocateMemoryForScanOutput(loc, rewriter, op, loopOpAdapter, outputs);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
 
     // Copy content of vInit to vFinal, which is used to host intermediate
     // values produced by loop body function invocation in a scope accessible by
@@ -63,6 +65,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         loc, rewriter.getIndexType(), maxTripCount);
     loop.pushBounds(0, maxTripCount);
     loop.createIterateOp();
+    auto afterLoop = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(loop.getIterateBlock());
 
     {
@@ -164,10 +167,21 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       auto scanOutputs = llvm::make_range(
           outputs.begin() + loopOpAdapter.v_initial().size(), outputs.end());
       for (auto scanIntermediateToFinal :
-          llvm::zip(scanIntermediate, scanOutputs))
-        emitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
-            std::get<1>(scanIntermediateToFinal),
-            /*writePrefix=*/{origIV});
+          llvm::zip(scanIntermediate, scanOutputs)) {
+        auto elementType = std::get<1>(scanIntermediateToFinal)
+                               .getType()
+                               .cast<MemRefType>()
+                               .getElementType();
+        if (elementType.dyn_cast<MemRefType>()) {
+          // ToDo: copy the value
+          create.krnl.store(std::get<0>(scanIntermediateToFinal),
+              std::get<1>(scanIntermediateToFinal), origIV);
+        } else {
+          emitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
+              std::get<1>(scanIntermediateToFinal),
+              /*writePrefix=*/{origIV});
+        }
+      }
 
       // Copy intermediate values of loop carried dependencies to MemRef outside
       // the iteration scope so next iteration can use them as init value.
@@ -188,7 +202,51 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           thenBlock.end(), loopBodyBlock.getOperations());
       rewriter.eraseBlock(&loopBodyBlock);
     }
-    rewriter.replaceOp(op, outputs);
+
+    rewriter.restoreInsertionPoint(afterLoop);
+    // Handle seq in outputs
+    SmallVector<Value, 4> newOutputs;
+
+    for (auto output : outputs) {
+      auto seqElementType =
+          output.getType().cast<MemRefType>().getElementType();
+      if (seqElementType.isa<MemRefType>()) {
+        // need convertion
+        auto firstElement =
+            create.krnl.load(output, create.math.constantIndex(0));
+        SmallVector<mlir::Value, 4> allocParams;
+        SmallVector<int64_t, 4> dims;
+        dims.emplace_back(output.getType().cast<MemRefType>().getShape()[0]);
+        if (output.getType().cast<MemRefType>().getShape()[0] == -1)
+          allocParams.emplace_back(create.mem.dim(output, 0));
+        for (auto i = 0;
+             i < firstElement.getType().cast<MemRefType>().getRank(); i++) {
+          dims.emplace_back(
+              firstElement.getType().cast<MemRefType>().getShape()[i]);
+          if (firstElement.getType().cast<MemRefType>().getShape()[i] == -1)
+            allocParams.emplace_back(create.mem.dim(firstElement, i));
+        }
+        ArrayRef<int64_t> shape(dims.data(), dims.size());
+        auto flatType = MemRefType::get(
+            shape, firstElement.getType().cast<MemRefType>().getElementType());
+        auto alloc = create.mem.alignedAlloc(flatType, allocParams);
+        // copy the value
+        BuildKrnlLoop loop(rewriter, loc, 1);
+        loop.createDefineOp();
+        loop.pushBounds(0, maxTripCount);
+        loop.createIterateOp();
+        auto afterCopyLoop = rewriter.saveInsertionPoint();
+        rewriter.setInsertionPointToStart(loop.getIterateBlock());
+        Value origIV = loop.getInductionVar(0);
+        auto src = create.krnl.load(output, origIV);
+        emitCopy(rewriter, loc, src, alloc, {origIV});
+        rewriter.restoreInsertionPoint(afterCopyLoop);
+        newOutputs.emplace_back(alloc);
+      } else {
+        newOutputs.emplace_back(output);
+      }
+    }
+    rewriter.replaceOp(op, newOutputs);
     return success();
   }
 
@@ -236,7 +294,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       else {
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
-    
+
         // Check the loop accumulation dimemsion
         if (rankedScanOutTy.getShape()[0] == -1) {
           // TODO(tjingrant): in general, it is not correct to expect
@@ -245,8 +303,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // termination.
           assert(!loopOpAdapter.M().getType().isa<NoneType>());
           Value maxTripCount =
-              rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M())
-                  .getResult();
+              rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M()).getResult();
           allocParams.emplace_back(rewriter.create<arith::IndexCastOp>(
               loc, rewriter.getIndexType(), maxTripCount));
         }
@@ -265,10 +322,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // Suppose the shape is [d1, d2, ..., dn]
           // Use memref<d1xmemref<d2, ..., dn>> to represent
           auto elementType = rankedScanOutTy.getElementType();
-          SmallVector<int64_t, 4> dims1;
-          for(auto i = 1 ; i < rankedScanOutTy.getRank(); i++)
-            dims1.emplace_back(rankedScanOutTy.getShape()[i]);
-          SmallVector<int64_t, 1> dims2(rankedScanOutTy.getShape().begin()+1, rankedScanOutTy.getShape().end());
+          // SmallVector<int64_t, 4> dims1;
+          // for(auto i = 1 ; i < rankedScanOutTy.getRank(); i++)
+          // dims1.emplace_back(rankedScanOutTy.getShape()[i]);
+          SmallVector<int64_t, 1> dims1(rankedScanOutTy.getShape().begin() + 1,
+              rankedScanOutTy.getShape().end());
           ArrayRef<int64_t> shape1(dims1.data(), dims1.size());
           auto seqElementType = MemRefType::get(shape1, elementType);
           SmallVector<int64_t, 1> dims;
