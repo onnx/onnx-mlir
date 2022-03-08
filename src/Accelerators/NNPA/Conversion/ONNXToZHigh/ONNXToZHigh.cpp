@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
-#include "Dialect/ZHigh/ZHighOps.hpp"
-#include "Pass/DLCPasses.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
@@ -94,11 +94,7 @@ Value getLSTMGRUGetY(
   if (isNoneType(resY)) {
     return noneValue;
   }
-  ONNXUnsqueezeV11Op unsqueezeOp = rewriter.create<ONNXUnsqueezeV11Op>(
-      loc, resY.getType(), val, rewriter.getI64ArrayAttr(1));
-  Value Y = unsqueezeOp.getResult();
-
-  return Y;
+  return val;
 }
 
 Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
@@ -138,11 +134,18 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
   } else {
     llvm_unreachable("Bidirectional is not supported.");
   }
+  ArrayRef<int64_t> yhShape =
+      resYh.getType().cast<RankedTensorType>().getShape();
+  SmallVector<int64_t> sliceShape({1, yhShape[0], yhShape[1], yhShape[2]});
+  Type elementType = resYh.getType().cast<RankedTensorType>().getElementType();
+  Type sliceType = RankedTensorType::get(sliceShape, elementType);
   Value axis = zero;
   Value step = one;
-  ONNXSliceOp sliceOp = rewriter.create<ONNXSliceOp>(
-      loc, resYh.getType(), val, start, end, axis, step);
-  return sliceOp.getResult();
+  ONNXSliceOp sliceOp =
+      rewriter.create<ONNXSliceOp>(loc, sliceType, val, start, end, axis, step);
+  ONNXSqueezeV11Op squeezeOp = rewriter.create<ONNXSqueezeV11Op>(
+      loc, resYh.getType(), sliceOp.getResult(), rewriter.getI64ArrayAttr(0));
+  return squeezeOp.getResult();
 }
 
 Value getLSTMGRUGetYc(
@@ -150,7 +153,10 @@ Value getLSTMGRUGetYc(
   Value noneValue;
   if (isNoneType(resYc))
     return noneValue;
-  return rewriter.create<ZHighUnstickOp>(loc, resYc.getType(), val);
+  ZHighUnstickOp unstickOp =
+      rewriter.create<ZHighUnstickOp>(loc, val.getType(), val);
+  return rewriter.create<ONNXSqueezeV11Op>(
+      loc, resYc.getType(), unstickOp.getResult(), rewriter.getI64ArrayAttr(0));
 }
 
 SmallVector<Value, 4> emitONNXSplitOp(Location loc, PatternRewriter &rewriter,
@@ -211,7 +217,7 @@ SmallVector<int64_t, 2> getArrayStrides(OP op) {
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "Conversion/ONNXToZHigh/ONNXToZHigh.inc"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.inc"
 
 // Enhance 'replaceONNXSumOpPatternRecursion' to allow operating recursively.
 struct ONNXSumOpPatternEnhancedRecursion

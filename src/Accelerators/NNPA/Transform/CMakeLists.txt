@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 add_onnx_mlir_library(OMFoldStdAlloc
   FoldStdAlloc.cpp
 
@@ -11,3 +13,4 @@ add_onnx_mlir_library(OMFoldStdAlloc
    )
 
 add_subdirectory(ZHigh)
+add_subdirectory(ZLow)
