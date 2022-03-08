@@ -13,9 +13,11 @@
 //===---------------------------------------------------------------------===//
 
 #pragma once
+
 #include "src/Accelerators/Accelerator.hpp"
 
-namespace mlir {
+namespace onnx_mlir {
+
 class NNPAAccelerator final : public Accelerator {
 private:
   static bool initialized;
@@ -23,10 +25,10 @@ private:
 public:
   NNPAAccelerator();
 
-  void prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
+  bool isActive() const final;
+  void prepareAccelerator(mlir::OwningOpRef<mlir::ModuleOp> &module,
       mlir::MLIRContext &context, mlir::PassManager &pm,
-      onnx_mlir::EmissionTargetType emissionTarget) override;
-  bool isActive() override;
+      onnx_mlir::EmissionTargetType emissionTarget) const final;
 };
 
-} // namespace mlir
+} // namespace onnx_mlir

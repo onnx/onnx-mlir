@@ -41,8 +41,6 @@
 #endif
 
 using namespace onnx_mlir;
-
-// TODO(tjingrant): disable the following namespace import.
 using namespace mlir;
 
 static llvm::cl::opt<std::string> input_filename(
@@ -110,7 +108,7 @@ int main(int argc, char **argv) {
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
 #ifdef __NNPA__
-  registry.insert<mlir::ZHighDialect>();
+  registry.insert<zhigh::ZHighDialect>();
   registry.insert<mlir::ZLowDialect>();
 #endif
 
