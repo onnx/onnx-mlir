@@ -35,7 +35,7 @@ using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
 extern llvm::cl::OptionCategory OnnxMlirOptions;
-llvm::cl::opt<NNPAEmissionTargetType> dlcEmissionTarget(
+llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
     llvm::cl::desc("[Optional] Choose Z-related target to emit "
                    "(once selected it will cancel the other targets):"),
     llvm::cl::values(
@@ -117,7 +117,7 @@ void addAllToLLVMPasses(mlir::PassManager &pm) {
 
 void addPassesNNPA(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     EmissionTargetType &emissionTarget,
-    NNPAEmissionTargetType dlcEmissionTarget,
+    NNPAEmissionTargetType nnpaEmissionTarget,
     ArrayRef<std::string> execNodesOnCpu) {
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
@@ -131,7 +131,7 @@ void addPassesNNPA(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.
     addONNXToZHighPasses(pm, execNodesOnCpu);
 
-    if (dlcEmissionTarget >= EmitZHighIR)
+    if (nnpaEmissionTarget >= EmitZHighIR)
       emissionTarget = onnx_mlir::EmitMLIR;
     else {
       pm.addPass(mlir::createCanonicalizerPass());
@@ -152,7 +152,7 @@ void addPassesNNPA(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
       addZHighToZLowPasses(pm, optLevel); // Constant folding for std.alloc.
       pm.addNestedPass<FuncOp>(mlir::createFoldStdAllocPass());
 
-      if (dlcEmissionTarget >= EmitZLowIR)
+      if (nnpaEmissionTarget >= EmitZLowIR)
         emissionTarget = onnx_mlir::EmitMLIR;
       else {
         // Partially lower Krnl ops to Affine dialect.
