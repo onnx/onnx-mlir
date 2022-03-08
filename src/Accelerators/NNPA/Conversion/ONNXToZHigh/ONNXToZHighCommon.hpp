@@ -12,8 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
-#include "Support/LayoutHelper.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 
 template <typename OP_TYPE>
 void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
@@ -30,6 +31,25 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
       if (exists)
         return true;
     }
+
+    // Check zDNN limitations
+    // TODO: Check tensor size DLCPP_MAXIMUM_TENSOR_SIZE of another limitation
+    bool exceedLimit =
+        llvm::any_of(genericOp->getOperands(), [](Value operand) {
+          if (auto valueType = operand.getType().dyn_cast<ShapedType>()) {
+            // Check if static dimension size exceeds zDNN limitations
+            ArrayRef<int64_t> valueShape = valueType.getShape();
+            if (llvm::any_of(valueShape, [](int64_t dim) {
+                  return (dim != -1) &&
+                         (dim > DLCPP_MAXIMUM_DIMENSION_INDEX_SIZE);
+                }))
+              return true;
+          }
+          return false;
+        });
+    if (exceedLimit)
+      return true;
+
     return !isSuitableForZDNN<OP_TYPE>(op);
   });
 }
