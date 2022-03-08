@@ -30,7 +30,7 @@
 #include "Support/OMNNPAOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 
-#define DEBUG_TYPE "NNPAompiler"
+#define DEBUG_TYPE "NNPACompiler"
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
