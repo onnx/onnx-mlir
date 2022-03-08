@@ -25,7 +25,7 @@
 
 #include "Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "Dialect/ZHigh/ZHighOps.hpp"
-#include "Pass/DLCPasses.hpp"
+#include "Pass/NNPAPasses.hpp"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"

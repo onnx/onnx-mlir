@@ -1,5 +1,5 @@
 set(LLVM_TARGET_DEFINITIONS ZHighToZLow.td)
-mlir_tablegen(ZHighToZLow.inc -gen-rewriters "-I${DLC_ONNX_MLIR_SRC_ROOT}" "-I${DLC_SRC_ROOT}")
+mlir_tablegen(ZHighToZLow.inc -gen-rewriters "-I${NNPA_ONNX_MLIR_SRC_ROOT}" "-I${NNPA_SRC_ROOT}")
 add_public_tablegen_target(OMZHighToZLowIncGen)
 
 add_onnx_mlir_library(OMZHighToZLow
@@ -15,7 +15,7 @@ add_onnx_mlir_library(OMZHighToZLow
   OMZLowOps
 
   ACCEL_INCLUDE_DIRS PRIVATE
-  ${DLC_SRC_ROOT}
-  ${DLC_BIN_ROOT}
+  ${NNPA_SRC_ROOT}
+  ${NNPA_BIN_ROOT}
   )
 

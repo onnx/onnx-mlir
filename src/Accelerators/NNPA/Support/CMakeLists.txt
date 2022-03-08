@@ -5,17 +5,17 @@ add_onnx_mlir_library(OMLayoutHelper
   MLIRIR
 
   ACCEL_INCLUDE_DIRS PRIVATE
-  ${DLC_SRC_ROOT}
-  ${DLC_BIN_ROOT}
+  ${NNPA_SRC_ROOT}
+  ${NNPA_BIN_ROOT}
 )
 
-add_onnx_mlir_library(OMDLCSupport
-  OMDLCOptions.cpp
+add_onnx_mlir_library(OMNNPASupport
+  OMNNPAOptions.cpp
 
   LINK_LIBS PUBLIC
   OMKrnlOps
 
   ACCEL_INCLUDE_DIRS PRIVATE
-  ${DLC_SRC_ROOT}
-  ${DLC_BIN_ROOT}
+  ${NNPA_SRC_ROOT}
+  ${NNPA_BIN_ROOT}
 )

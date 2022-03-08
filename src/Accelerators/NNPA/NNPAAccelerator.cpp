@@ -16,13 +16,13 @@
 //#include "src/Accelerators/Accelerator.hpp"
 #include "src/Support/OMOptions.hpp"
 #include <iostream>
-// modified from DLC main
-#include "Compiler/DLCompilerUtils.hpp"
+// modified from NNPA main
+#include "Compiler/NNPACompilerUtils.hpp"
 #include "Dialect/ZHigh/ZHighOps.hpp"
 #include "Dialect/ZLow/ZLowOps.hpp"
-#include "Pass/DLCPasses.hpp"
-extern llvm::cl::OptionCategory OMDLCPassOptions;
-extern llvm::cl::opt<DLCEmissionTargetType> dlcEmissionTarget;
+#include "Pass/NNPAPasses.hpp"
+extern llvm::cl::OptionCategory OMNNPAPassOptions;
+extern llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget;
 extern llvm::cl::list<std::string> execNodesOnCpu;
 
 namespace mlir {
@@ -53,7 +53,7 @@ void NNPAAccelerator::prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
   // Load our Dialect in this MLIR Context.
   context.getOrLoadDialect<mlir::ZHighDialect>();
   context.getOrLoadDialect<mlir::ZLowDialect>();
-  addPassesDLC(module, pm, emissionTarget, dlcEmissionTarget, execNodesOnCpu);
+  addPassesNNPA(module, pm, emissionTarget, nnpaEmissionTarget, execNodesOnCpu);
 }
 bool NNPAAccelerator::initialized = false;
 NNPAAccelerator nnpaAccelerator;

@@ -34,7 +34,7 @@
 
 #include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
-#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Dialect/Krnl/KrnlTypes.hpp"

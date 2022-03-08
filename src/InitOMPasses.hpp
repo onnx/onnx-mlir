@@ -14,7 +14,7 @@
 #include "src/Pass/Passes.hpp"
 
 #ifdef __NNPA__
-#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #endif
 
 using namespace onnx_mlir;

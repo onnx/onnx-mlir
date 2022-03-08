@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- LayoutHelper.cpp - DLC++ Layout Helper --------------------===//
+//===---------- LayoutHelper.cpp - NNPA++ Layout Helper --------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //

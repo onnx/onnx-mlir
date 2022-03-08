@@ -33,7 +33,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     }
 
     // Check zDNN limitations
-    // TODO: Check tensor size DLCPP_MAXIMUM_TENSOR_SIZE of another limitation
+    // TODO: Check tensor size NNPAPP_MAXIMUM_TENSOR_SIZE of another limitation
     bool exceedLimit =
         llvm::any_of(genericOp->getOperands(), [](Value operand) {
           if (auto valueType = operand.getType().dyn_cast<ShapedType>()) {
@@ -41,7 +41,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
             ArrayRef<int64_t> valueShape = valueType.getShape();
             if (llvm::any_of(valueShape, [](int64_t dim) {
                   return (dim != -1) &&
-                         (dim > DLCPP_MAXIMUM_DIMENSION_INDEX_SIZE);
+                         (dim > NNPAPP_MAXIMUM_DIMENSION_INDEX_SIZE);
                 }))
               return true;
           }

@@ -1,5 +1,5 @@
 set(LLVM_TARGET_DEFINITIONS ONNXToZHigh.td)
-mlir_tablegen(ONNXToZHigh.inc -gen-rewriters "-I${DLC_ONNX_MLIR_SRC_ROOT}" "-I${DLC_SRC_ROOT}")
+mlir_tablegen(ONNXToZHigh.inc -gen-rewriters "-I${NNPA_ONNX_MLIR_SRC_ROOT}" "-I${NNPA_SRC_ROOT}")
 add_public_tablegen_target(OMONNXToZHighIncGen)
 
 add_onnx_mlir_library(OMONNXToZHigh
@@ -15,12 +15,12 @@ add_onnx_mlir_library(OMONNXToZHigh
   OMZHighOps
 
   ACCEL_INCLUDE_DIRS PRIVATE
-  ${DLC_SRC_ROOT}
-  ${DLC_BIN_ROOT}
+  ${NNPA_SRC_ROOT}
+  ${NNPA_BIN_ROOT}
   )
 
 set(LLVM_TARGET_DEFINITIONS RewriteONNXForZHigh.td)
-mlir_tablegen(RewriteONNXForZHigh.inc -gen-rewriters "-I${DLC_ONNX_MLIR_SRC_ROOT}" "-I${DLC_SRC_ROOT}")
+mlir_tablegen(RewriteONNXForZHigh.inc -gen-rewriters "-I${NNPA_ONNX_MLIR_SRC_ROOT}" "-I${NNPA_SRC_ROOT}")
 add_public_tablegen_target(OMRewriteONNXForZHighIncGen)
 
 add_onnx_mlir_library(OMRewriteONNXForZHigh
@@ -36,6 +36,6 @@ add_onnx_mlir_library(OMRewriteONNXForZHigh
   OMZHighOps
 
   ACCEL_INCLUDE_DIRS PRIVATE
-  ${DLC_SRC_ROOT}
-  ${DLC_BIN_ROOT}
+  ${NNPA_SRC_ROOT}
+  ${NNPA_BIN_ROOT}
   )

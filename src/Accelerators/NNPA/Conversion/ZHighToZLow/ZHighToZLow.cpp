@@ -31,7 +31,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
-#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
