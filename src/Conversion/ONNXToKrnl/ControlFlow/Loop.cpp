@@ -236,30 +236,49 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       else {
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
-        for (int i = 0; i < rankedScanOutTy.getRank(); i++) {
+    
+        // Check the loop accumulation dimemsion
+        if (rankedScanOutTy.getShape()[0] == -1) {
+          // TODO(tjingrant): in general, it is not correct to expect
+          // loop operation scan output to have the leading dimension extent
+          // equal to the max trip count, due to the possibility of early
+          // termination.
+          assert(!loopOpAdapter.M().getType().isa<NoneType>());
+          Value maxTripCount =
+              rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M())
+                  .getResult();
+          allocParams.emplace_back(rewriter.create<arith::IndexCastOp>(
+              loc, rewriter.getIndexType(), maxTripCount));
+        }
+        bool isDynamic = false;
+        // If the other dimension is dynamic, a memref cannot be allocated
+        // The accumulation has to be done like sequence.
+        // The sequence will be converted to a tensor after loop
+        for (int i = 1; i < rankedScanOutTy.getRank(); i++) {
           if (rankedScanOutTy.getShape()[i] == -1) {
-            if (i == 0) {
-              // TODO(tjingrant): in general, it is not correct to expect
-              // loop operation scan output to have the leading dimension extent
-              // equal to the max trip count, due to the possibility of early
-              // termination.
-              assert(!loopOpAdapter.M().getType().isa<NoneType>());
-              Value maxTripCount =
-                  rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M())
-                      .getResult();
-              allocParams.emplace_back(rewriter.create<arith::IndexCastOp>(
-                  loc, rewriter.getIndexType(), maxTripCount));
-            } else {
-              // TODO(tjingrant): we can support dynamic dimensions for scan
-              // output, however, then we will be unable to allocate memory
-              // before any loop body is called.
-              llvm_unreachable("Loop op doesn't support dynamic dimensions for "
-                               "scan output.");
-            }
+            isDynamic = true;
+            break;
           }
         }
         MemRefBuilder createMemRef(rewriter, loc);
-        alloc = createMemRef.alignedAlloc(rankedScanOutTy, allocParams);
+        if (isDynamic) {
+          // Suppose the shape is [d1, d2, ..., dn]
+          // Use memref<d1xmemref<d2, ..., dn>> to represent
+          auto elementType = rankedScanOutTy.getElementType();
+          SmallVector<int64_t, 4> dims1;
+          for(auto i = 1 ; i < rankedScanOutTy.getRank(); i++)
+            dims1.emplace_back(rankedScanOutTy.getShape()[i]);
+          SmallVector<int64_t, 1> dims2(rankedScanOutTy.getShape().begin()+1, rankedScanOutTy.getShape().end());
+          ArrayRef<int64_t> shape1(dims1.data(), dims1.size());
+          auto seqElementType = MemRefType::get(shape1, elementType);
+          SmallVector<int64_t, 1> dims;
+          dims.emplace_back(rankedScanOutTy.getShape()[0]);
+          ArrayRef<int64_t> shape(dims.data(), dims.size());
+          auto seqType = MemRefType::get(shape, seqElementType);
+          alloc = createMemRef.alignedAlloc(seqType, allocParams);
+        } else {
+          alloc = createMemRef.alignedAlloc(rankedScanOutTy, allocParams);
+        }
       }
       outputs.emplace_back(alloc);
     }
