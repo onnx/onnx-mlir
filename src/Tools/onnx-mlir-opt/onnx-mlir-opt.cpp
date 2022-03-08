@@ -35,6 +35,11 @@
 #include "src/InitOMPasses.hpp"
 #include "src/Pass/Passes.hpp"
 
+#ifdef __NNPA__
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
+#endif
+
 using namespace onnx_mlir;
 
 // TODO(tjingrant): disable the following namespace import.
@@ -105,6 +110,10 @@ int main(int argc, char **argv) {
 
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
+#ifdef __NNPA__
+  registry.insert<mlir::ZHighDialect>();
+  registry.insert<mlir::ZLowDialect>();
+#endif
 
   registerTransformsPasses();
   registerAffinePasses();
