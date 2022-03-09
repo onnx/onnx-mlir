@@ -61,41 +61,39 @@ struct ONNXClipOpLowering : public ConversionPattern {
     }
 
     // Load unary first operand.
-    Value loadedVal = rewriter.create<KrnlLoadOp>(loc, input, loopIVs);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+    Value loadedVal = create.krnl.load(input, loopIVs);
     Type inputType = loadedVal.getType();
     Value res = loadedVal;
+
     if (inputType.isa<FloatType>()) {
       if (!min.getType().isa<NoneType>()) {
-        Value minVal = rewriter.create<KrnlLoadOp>(loc, min).getResult();
-        Value lessThanMin = rewriter.create<arith::CmpFOp>(
-            loc, arith::CmpFPredicate::OLT, res, minVal);
-        res = rewriter.create<arith::SelectOp>(loc, lessThanMin, minVal, res);
+        Value minVal = create.krnl.load(min);
+        Value lessThanMin = create.math.slt(res, minVal);
+        res = create.math.select(lessThanMin, minVal, res);
       }
       if (!max.getType().isa<NoneType>()) {
-        Value maxVal = rewriter.create<KrnlLoadOp>(loc, max).getResult();
-        Value lessThanMax = rewriter.create<arith::CmpFOp>(
-            loc, arith::CmpFPredicate::OLT, res, maxVal);
-        res = rewriter.create<arith::SelectOp>(loc, lessThanMax, res, maxVal);
+        Value maxVal = create.krnl.load(max);
+        Value lessThanMax = create.math.slt(res, maxVal);
+        res = create.math.select(lessThanMax, res, maxVal);
       }
     } else if (inputType.isa<IntegerType>()) {
       if (!min.getType().isa<NoneType>()) {
-        Value minVal = rewriter.create<KrnlLoadOp>(loc, min).getResult();
-        Value lessThanMin = rewriter.create<arith::CmpIOp>(
-            loc, arith::CmpIPredicate::slt, res, minVal);
-        res = rewriter.create<arith::SelectOp>(loc, lessThanMin, minVal, res);
+        Value minVal = create.krnl.load(min);
+        Value lessThanMin = create.math.slt(res, minVal);
+        res = create.math.select(lessThanMin, minVal, res);
       }
       if (!max.getType().isa<NoneType>()) {
-        Value maxVal = rewriter.create<KrnlLoadOp>(loc, max).getResult();
-        Value lessThanMax = rewriter.create<arith::CmpIOp>(
-            loc, arith::CmpIPredicate::slt, res, maxVal);
-        res = rewriter.create<arith::SelectOp>(loc, lessThanMax, res, maxVal);
+        Value maxVal = create.krnl.load(max);
+        Value lessThanMax = create.math.slt(res, maxVal);
+        res = create.math.select(lessThanMax, res, maxVal);
       }
     } else {
       llvm_unreachable("unsupported element type");
     }
 
     // Store result in the resulting array.
-    rewriter.create<KrnlStoreOp>(loc, res, alloc, loopIVs);
+    create.krnl.store(res, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
     return success();

@@ -2,16 +2,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- LayoutHelper.cpp - NNPA Layout Helper ---------------------===//
+//===---------- LayoutHelper.hpp - NNPA Layout Helper ---------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include "mlir/IR/BuiltinAttributes.h"
 #include "third_party/zdnn-lib/zdnn/zdnn.h"
+
+namespace onnx_mlir {
 
 /// Note: Keep these strings in sync with the one in Dialect/ZHigh/ZHighOps.td.
 const std::string LAYOUT_1D = "1D";
@@ -31,3 +35,5 @@ const std::string LAYOUT_BZRH = "BZRH";
 
 zdnn_data_layouts convertLayoutAttrToZDNNDataLayout(
     int64_t rank, mlir::StringAttr layoutAttr);
+
+} // namespace onnx_mlir

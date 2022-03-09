@@ -35,29 +35,29 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     auto elementType = memRefType.getElementType();
     size_t rank = memRefType.cast<ShapedType>().getRank();
 
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+
     // Allocate memory for the output.
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else {
-      MemRefBuilder createMemRef(rewriter, loc);
-      MathBuilder createMath(createMemRef);
-      KrnlBuilder createKrnl(createMemRef);
       SmallVector<Value, 2> allocOperands;
       // Load dimensions from the input.
       for (decltype(rank) i = 0; i < rank; ++i) {
-        Value index = createMath.constantIndex(i);
-        Value dim = createKrnl.load(operandAdaptor.input(), index);
-        Value dimIndex = createMath.castToIndex(dim);
+        Value index = create.math.constantIndex(i);
+        Value dim = create.krnl.load(operandAdaptor.input(), index);
+        Value dimIndex = create.math.castToIndex(dim);
         allocOperands.emplace_back(dimIndex);
       }
       // Allocate memory.
-      alloc = createMemRef.alignedAlloc(memRefType, allocOperands);
+      alloc = create.mem.alignedAlloc(memRefType, allocOperands);
       // Insert deallocation if needed.
       if (insertDealloc) {
         Block *parentBlock = alloc.getDefiningOp()->getBlock();
-        memref::DeallocOp dealloc = createMemRef.dealloc(alloc);
+        memref::DeallocOp dealloc = create.mem.dealloc(alloc);
         dealloc.getOperation()->moveBefore(&parentBlock->back());
       }
     }
@@ -72,9 +72,8 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
       auto valueIt = valueAttr.getValues<FloatAttr>().begin();
       auto valueFloat = (*valueIt++).cast<FloatAttr>().getValueAsDouble();
       constantVal = emitConstantOp(rewriter, loc, elementType, valueFloat);
-    } else {
+    } else
       llvm_unreachable("unsupported element type");
-    }
 
     SmallVector<Value, 4> loopIVs;
     // Create a Krnl iterate if the output is not a scalar tensor.
@@ -90,7 +89,7 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     }
 
     // Store the constant value to the output.
-    rewriter.create<KrnlStoreOp>(loc, constantVal, alloc, loopIVs);
+    create.krnl.store(constantVal, alloc, loopIVs);
 
     // Replace this operation with the generated alloc.
     rewriter.replaceOp(op, alloc);

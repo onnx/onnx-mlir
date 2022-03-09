@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------- ZHighHelper.hpp - NNPA ZHigh Helper Functions ---------------===//
+//===-------- ZHighHelper.hpp - ZHigh Helper Functions --------------------===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,22 +14,24 @@
 
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 
-#include "ZHighOps.hpp"
+namespace onnx_mlir {
+namespace zhigh {
 
 /// Check if a value type is ranked or unranked.
 bool hasRankedType(mlir::Value val);
 
 /// Get a ztensor data layout by StringAttr.
-mlir::ZTensorEncodingAttr::DataLayout convertStringAttrToDataLayout(
+ZTensorEncodingAttr::DataLayout convertStringAttrToDataLayout(
     mlir::StringAttr layoutAttr);
 
 /// Get a ztensor data layout by rank.
-mlir::ZTensorEncodingAttr::DataLayout getDataLayoutByRank(int64_t rank);
+ZTensorEncodingAttr::DataLayout getDataLayoutByRank(int64_t rank);
 
 /// Convert a data layout to StringAttr.
 mlir::StringAttr convertDataLayoutToStringAttr(
-    mlir::OpBuilder &builder, mlir::ZTensorEncodingAttr::DataLayout layout);
+    mlir::OpBuilder &builder, ZTensorEncodingAttr::DataLayout layout);
 
 //===----------------------------------------------------------------------===//
 // Convenience method to query information of a ztensor
@@ -39,7 +41,10 @@ bool isZTensor(mlir::Type type);
 
 /// Get a ztensor encoding attribute from a type.Returns null-attribute for any
 /// type without an encoding.
-mlir::ZTensorEncodingAttr getZTensorEncoding(mlir::Type type);
+ZTensorEncodingAttr getZTensorEncoding(mlir::Type type);
 
 /// Get the layout of a ztensor.
-mlir::ZTensorEncodingAttr::DataLayout getZTensorLayout(mlir::Type type);
+ZTensorEncodingAttr::DataLayout getZTensorLayout(mlir::Type type);
+
+} // namespace zhigh
+} // namespace onnx_mlir

@@ -4,17 +4,20 @@
 
 //===-------- ZHighHelper.cpp - NNPA ZHigh Helper Functions ---------------===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
 //===----------------------------------------------------------------------===//
 
-#include "ZHighHelper.hpp"
-#include "Support/LayoutHelper.hpp"
-#include "ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
+namespace zhigh {
 
 /// Check if a value type is ranked or unranked.
 bool hasRankedType(Value val) {
@@ -150,3 +153,6 @@ ZTensorEncodingAttr::DataLayout getZTensorLayout(Type type) {
     return encoding.getDataLayout();
   return ZTensorEncodingAttr::DataLayout::UNDEFINED;
 }
+
+} // namespace zhigh
+} // namespace onnx_mlir

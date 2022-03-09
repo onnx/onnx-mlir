@@ -4,15 +4,17 @@
 
 //===---------- LayoutHelper.cpp - NNPA Layout Helper ---------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
 //===----------------------------------------------------------------------===//
 
-#include "LayoutHelper.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 zdnn_data_layouts convertLayoutAttrToZDNNDataLayout(
     int64_t rank, StringAttr layoutAttr) {
@@ -64,3 +66,5 @@ zdnn_data_layouts convertLayoutAttrToZDNNDataLayout(
   }
   return zDNNDataLayout;
 }
+
+} // namespace onnx_mlir

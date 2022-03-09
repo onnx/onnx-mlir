@@ -7,8 +7,4 @@ add_onnx_mlir_library(OMZLowToLLVM
   OMKrnlToLLVM
   OMLayoutHelper
   OMZLowOps
-
-  ACCEL_INCLUDE_DIRS PRIVATE
-  ${NNPA_SRC_ROOT}
-  ${NNPA_BIN_ROOT}
   )

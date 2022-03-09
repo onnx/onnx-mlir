@@ -16,14 +16,13 @@
 
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
-
 #include "src/Dialect/ONNX/IndexExpr.hpp"
-
-using llvm::SmallMapVector;
-using namespace mlir;
 
 /// Default 4K alignment for sticked tensors.
 static constexpr int64_t gAlignment = 4096;
+
+namespace onnx_mlir {
+namespace zhigh {
 
 /// A struct to store a MemRefType and a layout attribute, which is to
 /// encapsulate ZTensor type.
@@ -39,7 +38,7 @@ struct ZMemRefType {
 /// Thus, make sure to put the new MemRef and its associated layout into this
 /// map, so that we can obtain the layout for the MemRef later when lowering
 /// other ops.
-SmallMapVector<mlir::Value, mlir::StringAttr, 4> stickedLayouts;
+llvm::SmallMapVector<mlir::Value, mlir::StringAttr, 4> stickedLayouts;
 
 mlir::StringAttr readLayout(mlir::Value val) { return stickedLayouts[val]; }
 
@@ -52,16 +51,19 @@ ZMemRefType convertZTensorToMemRefType(mlir::OpBuilder b, mlir::Type type);
 
 /// Emit instructions to allocate a buffer to store original dimensions.
 mlir::Value insertShapeMemRefI64(mlir::PatternRewriter &rewriter,
-    mlir::Location loc, mlir::ArrayRef<IndexExpr> originalDims);
+    mlir::Location loc, mlir::ArrayRef<mlir::IndexExpr> originalDims);
 
 /// Insert an allocation and deallocation for the given dimensions and layout.
 /// By default, set aligment to 4K.
-mlir::Value insertAllocAndDeallocZMemRefByDim(mlir::ArrayRef<IndexExpr> dims,
-    mlir::Type layoutType, mlir::Operation *op, mlir::PatternRewriter &rewriter,
-    int64_t alignment);
+mlir::Value insertAllocAndDeallocZMemRefByDim(
+    mlir::ArrayRef<mlir::IndexExpr> dims, mlir::Type layoutType,
+    mlir::Operation *op, mlir::PatternRewriter &rewriter, int64_t alignment);
 
 /// Insert an allocation and deallocation for the given ZMemRefType.
 /// By default, set aligment to 4K.
 mlir::Value insertAllocAndDeallocZMemRef(ZMemRefType zType,
-    mlir::ArrayRef<IndexExpr> dims, mlir::Operation *op,
+    mlir::ArrayRef<mlir::IndexExpr> dims, mlir::Operation *op,
     mlir::PatternRewriter &rewriter, int64_t alignment);
+
+} // namespace zhigh
+} // namespace onnx_mlir

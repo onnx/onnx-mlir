@@ -13,10 +13,6 @@ add_onnx_mlir_library(OMONNXToZHigh
   LINK_LIBS PUBLIC
   OMONNXToKrnl
   OMZHighOps
-
-  ACCEL_INCLUDE_DIRS PRIVATE
-  ${NNPA_SRC_ROOT}
-  ${NNPA_BIN_ROOT}
   )
 
 set(LLVM_TARGET_DEFINITIONS RewriteONNXForZHigh.td)
@@ -34,8 +30,4 @@ add_onnx_mlir_library(OMRewriteONNXForZHigh
   LINK_LIBS PUBLIC
   OMONNXToKrnl
   OMZHighOps
-
-  ACCEL_INCLUDE_DIRS PRIVATE
-  ${NNPA_SRC_ROOT}
-  ${NNPA_BIN_ROOT}
   )
