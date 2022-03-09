@@ -104,6 +104,7 @@ int main(int argc, char **argv) {
   registry.insert<mlir::shape::ShapeDialect>();
   registry.insert<mlir::math::MathDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
+  registry.insert<mlir::omp::OpenMPDialect>();
 
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();

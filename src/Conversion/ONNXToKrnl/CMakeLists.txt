@@ -61,4 +61,5 @@ add_onnx_mlir_library(OMONNXToKrnl
   OMONNXOps
   OMSupport
   MLIRStandardOpsTransforms
+  MLIROpenMP
   )

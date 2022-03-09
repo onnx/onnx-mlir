@@ -44,6 +44,7 @@ add_onnx_mlir_library(CompilerUtils
   MLIRAffineTransforms
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
+  MLIROpenMP
 
   # Link LLVM libraries necessary to query which target architectures are configured.
   LINK_COMPONENTS PRIVATE

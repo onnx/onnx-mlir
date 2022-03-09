@@ -32,4 +32,16 @@ add_onnx_mlir_library(OMKrnlToLLVM
   MLIRStandardToLLVM
   MLIRVectorToLLVM
   onnx
+  MLIROpenMP
+  MLIRSCFToOpenMP
+  MLIRAsyncTransforms
+  MLIRArithmeticToLLVM
+  MLIROpenMPToLLVM
+  MLIRArithmetic
+  MLIRControlFlow
+  MLIRSCF
+  MLIRTranslation
+  MLIRTransforms
+  MLIROpenMPToLLVMIRTranslation
+  MLIRToLLVMIRTranslationRegistration
   )

@@ -54,6 +54,14 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
 
+#include "mlir/Conversion/OpenMPToLLVM/ConvertOpenMPToLLVM.h"
+#include "mlir/Conversion/SCFToOpenMP/SCFToOpenMP.h"
+#include "mlir/Dialect/Async/IR/Async.h"
+#include "mlir/Dialect/Async/Passes.h"
+#include "mlir/Dialect/Async/Transforms.h"
+#include "mlir/Dialect/OpenMP/OpenMPDialect.h"
+#include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
+
 using namespace mlir;
 
 #define DEBUG_TYPE "krnl_to_llvm"
@@ -144,6 +152,8 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
   // They run it in two steps, and add additional lowerings.
 
+  populateAffineToVectorConversionPatterns(patterns);
+
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
   vector::populateVectorBroadcastLoweringPatterns(patterns);
   vector::populateVectorContractLoweringPatterns(patterns);
@@ -162,10 +172,13 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateMathPolynomialApproximationPatterns(patterns);
   arith::populateArithmeticExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
-  populateStdToLLVMConversionPatterns(typeConverter, patterns);
-  populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
+
+  mlir::createConvertSCFToOpenMPPass();
   arith::populateArithmeticToLLVMConversionPatterns(typeConverter, patterns);
   cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
+  populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
+  populateStdToLLVMConversionPatterns(typeConverter, patterns);
+  populateOpenMPToLLVMConversionPatterns(typeConverter, patterns);
 
   populateReconcileUnrealizedCastsPatterns(patterns);
   krnl::populateKrnlToLLVMConversion(

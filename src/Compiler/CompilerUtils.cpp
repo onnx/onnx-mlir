@@ -728,6 +728,7 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
   context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
+  context.getOrLoadDialect<mlir::omp::OpenMPDialect>();
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
