@@ -25,7 +25,7 @@
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
@@ -60,7 +60,7 @@ Value getSqrtResultBatchNormA(
 //===----------------------------------------------------------------------===//
 
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "Conversion/ONNXToZHigh/RewriteONNXForZHigh.inc"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.inc"
 
 struct RewriteONNXForZHighPass
     : public PassWrapper<RewriteONNXForZHighPass, OperationPass<ModuleOp>> {

@@ -18,7 +18,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
-#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 
 using namespace mlir;
 

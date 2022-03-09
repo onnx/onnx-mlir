@@ -19,7 +19,7 @@
 
 #include "Dialect/ZHigh/ZHighHelper.hpp"
 #include "Dialect/ZHigh/ZHighOps.hpp"
-#include "Pass/DLCPasses.hpp"
+#include "Pass/NNPAPasses.hpp"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
