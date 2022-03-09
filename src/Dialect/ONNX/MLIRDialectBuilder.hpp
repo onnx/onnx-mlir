@@ -161,7 +161,13 @@ struct VectorBuilder final : DialectBuilder {
   Value fma(Value lhs, Value rhs, Value acc) const;
 
   // Composite functions
-  Value reduction(uint64_t actualVL, SmallVectorImpl<Value> &valArray);
+  Value mergeLow(Value lhs, Value rhs, int64_t step);
+  Value mergeHigh(Value lhs, Value rhs, int64_t step);
+  Value reduction(SmallVectorImpl<Value> &vecArray);
+
+private:
+  bool isPowerOf2(uint64_t num);
+  uint64_t vector1DLength(Value vec);
 };
 
 //===----------------------------------------------------------------------===//

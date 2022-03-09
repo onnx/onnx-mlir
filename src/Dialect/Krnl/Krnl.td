@@ -654,7 +654,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     All indices passed to this operation are the global indices in the original
     computation, so as to better know if we have boundary conditions.
     
-    ORIGINAL ARRAY: if A: *xIxK; if B: *xKxJ; if C: *xI*J). 
+    ORIGINAL ARRAY: if A: *xIxK; if B: *xKxJ; if C: *xI*J).
      -------------------------------------------------
      |                                               ]
      |                                               ]
@@ -858,7 +858,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     $B `[` $bGlobalIndexMemStart `]` `,`
     $C `[` $cGlobalIndexMemStart `]` `,`
     `(` $loops `)` `,`
-    `(` $iGlobalIndexComputeStart `,` $jGlobalIndexComputeStart `,` 
+    `(` $iGlobalIndexComputeStart `,` $jGlobalIndexComputeStart `,`
         $kGlobalIndexComputeStart `)` `,`
     `(` $iGlobalUB `,` $jGlobalUB `,` $kGlobalUB `)` 
     attr-dict `:` type($A) `,` type($B)`,` type($C) `,` `(` type($loops) `)`

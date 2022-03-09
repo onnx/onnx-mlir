@@ -755,48 +755,85 @@ public:
       jComputeTileSize = computeSizeCapture.getLiteral(1);
       kComputeTileSize = computeSizeCapture.getLiteral(2);
     }
+    // Get the global upper bound of the original computations.
+    SymbolIndexExpr iGlobalUB(operandAdaptor.iGlobalUB()),
+        jGlobalUB(operandAdaptor.jGlobalUB()),
+        kGlobalUB(operandAdaptor.kGlobalUB());
 
-    // If we simdize, its along M for the full compute tile.
-    IndexExpr vectorLen = jComputeTileSize;
-    if (!vectorLen.isLiteral()) {
-      // Cannot simdize if the vector length is not a compile time constant.
-      simdize = false;
-      LLVM_DEBUG(llvm::dbgs() << "Matmul: No simd due to vl not a literal\n");
+    // Has a matrix times vector when the J upper bound is literal 1.
+    bool matVectorProduct =
+        jGlobalUB.isLiteral() && jGlobalUB.getLiteral() == 1;
+
+    // Investigate SIMD
+    IndexExpr vectorLen;
+    if (matVectorProduct) {
+      // Matrix (I x K) times vector (K x 1). We currently vectorize along the i
+      // (producing VL results at a time), each of which is a reduction along
+      // the k-axis.
+      if (iComputeTileSize.isLiteral() && kComputeTileSize.isLiteral()) {
+        uint64_t i = iComputeTileSize.getLiteral();
+        uint64_t k = kComputeTileSize.getLiteral();
+        if (i == k && (i & (i - 1) == 0)) {
+          // Square computation tiles of a size that is a power of 2
+          vectorLen = iComputeTileSize;
+        } else {
+          simdize = false;
+          LLVM_DEBUG(llvm::dbgs() << "Matmul: mat*vec with bad sizes\n");
+        }
+      } else {
+        simdize = false;
+        LLVM_DEBUG(llvm::dbgs() << "Matmul: mat*vec with non-literal dims\n");
+      }
+    } else {
+      // Matrix times matrix case. If we simdize, its along M for the full
+      // compute tile.
+      vectorLen = jComputeTileSize;
+      if (!vectorLen.isLiteral()) {
+        // Cannot simdize if the vector length is not a compile time constant.
+        simdize = false;
+        LLVM_DEBUG(llvm::dbgs() << "Matmul: No simd due to vl not a literal\n");
+      }
     }
     if (!simdize)
       vectorLen = LiteralIndexExpr(1);
 
     // Now get global start indices, which would define the first element of the
     // tiles in the original computations.
-    DimIndexExpr iGlobalIndexComputeStart(operandAdaptor.iGlobalIndexComputeStart()),
+    DimIndexExpr iGlobalIndexComputeStart(
+        operandAdaptor.iGlobalIndexComputeStart()),
         jGlobalIndexComputeStart(operandAdaptor.jGlobalIndexComputeStart()),
         kGlobalIndexComputeStart(operandAdaptor.kGlobalIndexComputeStart());
-    // And get the global upper bound of the original computations.
-    SymbolIndexExpr iGlobalUB(operandAdaptor.iGlobalUB()),
-        jGlobalUB(operandAdaptor.jGlobalUB()),
-        kGlobalUB(operandAdaptor.kGlobalUB());
     // A[i, k];
     SmallVector<IndexExpr, 4> aStart, bStart, cStart;
     for (int t = 0; t < aRank - 2; t++)
-      aStart.emplace_back(SymbolIndexExpr(operandAdaptor.aGlobalIndexMemStart()[t]));
+      aStart.emplace_back(
+          SymbolIndexExpr(operandAdaptor.aGlobalIndexMemStart()[t]));
     aStart.emplace_back(
-        iGlobalIndexComputeStart - DimIndexExpr(operandAdaptor.aGlobalIndexMemStart()[aRank - 2]));
+        iGlobalIndexComputeStart -
+        DimIndexExpr(operandAdaptor.aGlobalIndexMemStart()[aRank - 2]));
     aStart.emplace_back(
-        kGlobalIndexComputeStart - DimIndexExpr(operandAdaptor.aGlobalIndexMemStart()[aRank - 1]));
+        kGlobalIndexComputeStart -
+        DimIndexExpr(operandAdaptor.aGlobalIndexMemStart()[aRank - 1]));
     // B[k, j];
     for (int t = 0; t < bRank - 2; t++)
-      bStart.emplace_back(SymbolIndexExpr(operandAdaptor.bGlobalIndexMemStart()[t]));
+      bStart.emplace_back(
+          SymbolIndexExpr(operandAdaptor.bGlobalIndexMemStart()[t]));
     bStart.emplace_back(
-        kGlobalIndexComputeStart - DimIndexExpr(operandAdaptor.bGlobalIndexMemStart()[bRank - 2]));
+        kGlobalIndexComputeStart -
+        DimIndexExpr(operandAdaptor.bGlobalIndexMemStart()[bRank - 2]));
     bStart.emplace_back(
-        jGlobalIndexComputeStart - DimIndexExpr(operandAdaptor.bGlobalIndexMemStart()[bRank - 1]));
+        jGlobalIndexComputeStart -
+        DimIndexExpr(operandAdaptor.bGlobalIndexMemStart()[bRank - 1]));
     // C[i, j]
     for (int t = 0; t < cRank - 2; t++)
-      cStart.emplace_back(SymbolIndexExpr(operandAdaptor.cGlobalIndexMemStart()[t]));
+      cStart.emplace_back(
+          SymbolIndexExpr(operandAdaptor.cGlobalIndexMemStart()[t]));
     cStart.emplace_back(
-        iGlobalIndexComputeStart - DimIndexExpr(operandAdaptor.cGlobalIndexMemStart()[cRank - 2]));
+        iGlobalIndexComputeStart -
+        DimIndexExpr(operandAdaptor.cGlobalIndexMemStart()[cRank - 2]));
     cStart.emplace_back(
-        jGlobalIndexComputeStart - DimIndexExpr(operandAdaptor.cGlobalIndexMemStart()[cRank - 1]));
+        jGlobalIndexComputeStart -
+        DimIndexExpr(operandAdaptor.cGlobalIndexMemStart()[cRank - 1]));
 
     // Now determine if we have full/partial tiles. This is determined by the
     // outer dimensions of the original computations, as by definition tiling
@@ -814,12 +851,12 @@ public:
     SmallVector<IndexExpr, 1> jFullTiles = {jIsFullTile};
     // And if the tiles are not full, determine how many elements to compute.
     // With overcompute, this could be relaxed.
-    IndexExpr iTrip = trip(
-        iGlobalUB, iComputeTileSize, iGlobalIndexComputeStart); // May or may not be full.
-    IndexExpr jTrip = trip(
-        jGlobalUB, jComputeTileSize, jGlobalIndexComputeStart); // May or may not be full.
-    IndexExpr kTrip = trip(
-        kGlobalUB, kComputeTileSize, kGlobalIndexComputeStart); // May or may not be full.
+    IndexExpr iTrip = trip(iGlobalUB, iComputeTileSize,
+        iGlobalIndexComputeStart); // May or may not be full.
+    IndexExpr jTrip = trip(jGlobalUB, jComputeTileSize,
+        jGlobalIndexComputeStart); // May or may not be full.
+    IndexExpr kTrip = trip(kGlobalUB, kComputeTileSize,
+        kGlobalIndexComputeStart); // May or may not be full.
     IndexExpr jPartialTrip =
         partialTrip(jGlobalUB, jComputeTileSize, jGlobalIndexComputeStart);
 
@@ -1057,11 +1094,10 @@ private:
     }
   }
 
-
-  void genSimdMatVectProd(PatternRewriter &rewriter, Location loc, KrnlMatMulOp op,
-      Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
-      ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
-      IndexExpr vectorLen, bool unrollJam) const {
+  void genSimdMatVectProd(PatternRewriter &rewriter, Location loc,
+      KrnlMatMulOp op, Type elementType, ArrayRef<IndexExpr> aStart,
+      ArrayRef<IndexExpr> bStart, ArrayRef<IndexExpr> cStart, IndexExpr I,
+      IndexExpr J, IndexExpr K, IndexExpr vectorLen, bool unrollJam) const {
     // can simdize only if K is compile time
     assert(J.isLiteral() &&
            "can only simdize with compile time blocking factor on simd axis");
@@ -1166,7 +1202,6 @@ private:
       }
     }
   }
-
 };
 
 //===----------------------------------------------------------------------===//

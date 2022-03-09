@@ -514,6 +514,10 @@ void VectorBuilder::store(Value val, Value memref, ValueRange indices) const {
   b.create<vector::StoreOp>(loc, val, memref, indices);
 }
 
+Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
+  return b.create<vector::FMAOp>(loc, lhs, rhs, acc);
+}
+
 Value VectorBuilder::broadcast(VectorType vecType, Value val) const {
   return b.create<vector::BroadcastOp>(loc, vecType, val);
 }
@@ -523,35 +527,94 @@ Value VectorBuilder::shuffle(
   return b.create<vector::ShuffleOp>(loc, lhs, rhs, mask);
 }
 
-Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
-  return b.create<vector::FMAOp>(loc, lhs, rhs, acc);
+// Private vector utilities.
+bool VectorBuilder::isPowerOf2(uint64_t num) { return (num & (num - 1)) == 0; }
+
+uint64_t VectorBuilder::vector1DLength(Value vec) {
+  VectorType vecType = vec.getType().dyn_cast_or_null<VectorType>();
+  assert(vecType && "expected a vector type");
+  auto vecShape = vecType.getShape();
+  assert(vecShape.size() == 1 && "expected a 1D vector");
+  return vecShape[0];
+}
+
+Value VectorBuilder::mergeHigh(Value lhs, Value rhs, int64_t step) {
+  // Inputs: lrs <l0, l1, l2, l3, l4, l5, l6, l7>;
+  //         rhs <r0, r1, r2, r3, r4, r5, r6, r7>.
+  // Merge alternatively the low (least significant) values of lrs and rhs
+  // Setp 1:     <(l0), (r0), (l1), (r1), (l2), (r2), (l3), (r3)> (1x sizes)
+  // Setp 2:     <(l0, l1),   (r0, r1),   (l2, l3),   (r2, r3)>   (2x sizes)
+  // Setp 4:     <(l0, l1, l2, l3),       (r0, r1, r2, r3)>       (4x sizes)
+  uint64_t VL = vector1DLength(lhs);
+  assert(vector1DLength(rhs) == VL && "expected same sized vectors");
+  assert(isPowerOf2(VL) && "expected power of 2 vector length");
+  SmallVector<int64_t, 8> mask(VL, 0);
+  int i = 0;
+  int pairsOfLhsRhs = VL / (2 * step);
+  int64_t firstHalf = 0;
+  for (int p = 0; p < pairsOfLhsRhs; ++p) {
+    // One step-sized item from the LHS
+    for (int e = 0; e < step; ++e)
+      mask[i++] = firstHalf + p * step + e;
+    // One step-sized item from the RHS (RHS offset is VL for the shuffle op).
+    for (int e = 0; e < step; ++e)
+      mask[i++] = firstHalf + VL + p * step + e;
+  }
+  return shuffle(lhs, rhs, mask);
+}
+
+Value VectorBuilder::mergeLow(Value lhs, Value rhs, int64_t step) {
+  // Inputs: lrs <l0, l1, l2, l3, l4, l5, l6, l7>;
+  //         rhs <r0, r1, r2, r3, r4, r5, r6, r7>.
+  // Merge alternatively the low (least significant) values of lrs and rhs
+  // Setp 1:     <(l4), (r4), (l5), (r5), (l6), (r6), (l7), (r7)> (1x sizes)
+  // Setp 2:     <(l4, l5),   (r4, r5),   (l6, l7),   (r6, r7)>   (2x sizes)
+  // Setp 4:     <(l4, l5, l6, l7),       (r4, r5, r6, r7)>       (4x sizes)
+  uint64_t VL = vector1DLength(lhs);
+  assert(vector1DLength(rhs) == VL && "expected same sized vectors");
+  assert(isPowerOf2(VL) && "expected power of 2 vector length");
+  SmallVector<int64_t, 8> mask(VL, 0);
+  int i = 0;
+  int pairsOfLhsRhs = VL / (2 * step);
+  int64_t secondHalf = VL / 2;
+  for (int p = 0; p < pairsOfLhsRhs; ++p) {
+    // One step-sized item from the LHS
+    for (int e = 0; e < step; ++e)
+      mask[i++] = secondHalf + p * step + e;
+    // One step-sized item from the RHS (RHS offset is VL for the shuffle op).
+    for (int e = 0; e < step; ++e)
+      mask[i++] = secondHalf + VL + p * step + e;
+  }
+  return shuffle(lhs, rhs, mask);
 }
 
 // Composite functions
-Value VectorBuilder::reduction(uint64_t actualVL, SmallVectorImpl<Value> &valArray) {
-  uint64_t N = valArray.size();
+Value VectorBuilder::reduction(SmallVectorImpl<Value> &vecArray) {
+  uint64_t N = vecArray.size();
   assert(N > 0 && "expected at least one value to reduce");
-  VectorType vecType = valArray[0].getType().dyn_cast_or_null<VectorType>();
-  assert(vecType && "expected a vector type");
-  auto vecShape = vecType.getShape();
-  Type elementaryType = vecType.getElementType();
-  assert(vecShape.size() == 1 && "expected a 1D vector");
-  uint64_t valVL = vecShape[0];
-  bool isAPowerOf2 = (valVL & (valVL - 1)) == 0;
-  assert(valVL > 0 && isAPowerOf2 && "expect for now a power of 2 vl");
-  // verify that all have the same length
-  for (Value val : valArray) {
-    VectorType t = val.getType().dyn_cast_or_null<VectorType>();
-    assert(t && t.getShape().size() == 1 && t.getShape()[0] == (int64_t) valVL &&
-           "all val must be identical 1D vectors");
+  uint64_t VL = vector1DLength(vecArray[0]);
+  assert(VL==N && "expected the same number of vectors in array as VL");
+  SmallVector<Value, 8> tmpArray;
+  for (uint64_t i = 0; i < VL; ++i) {
+    tmpArray.emplace_back(vecArray[i]);
+    if (i != 0)
+      // verify that all have the same length
+      assert(vector1DLength(vecArray[i]) == VL && "different vector length");
   }
-  // For the moment, assume full vectors
-  assert(valArray.size() == actualVL && valVL % actualVL == 0 &&
-         "expect full vectors for now");
 
   // reductions of full physical vectors
-  for (uint64_t p = valVL; p > 1; p = p / 2) {
+  MathBuilder createMath(*this);
+  uint64_t numPairs = VL / 2;
+  while (true) {
+    for (uint64_t p=0; p < numPairs; ++p) {
+      Value highVal = mergeHigh(tmpArray[2*p], tmpArray[2*p+1], numPairs);
+      Value lowVal = mergeLow(tmpArray[2*p], tmpArray[2*p+1], numPairs);
+      Value red = createMath.add(highVal, lowVal);
+      tmpArray[p] = red;
+    }
+    if (numPairs == 1) 
+      // Completed with 1 pair, return the last value.
+      return tmpArray[0];
+    numPairs = numPairs / 2;
   }
-
-  return nullptr;
 }
