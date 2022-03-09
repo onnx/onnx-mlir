@@ -35,9 +35,12 @@
 #include "src/InitOMPasses.hpp"
 #include "src/Pass/Passes.hpp"
 
-using namespace onnx_mlir;
+#ifdef __NNPA__
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
+#endif
 
-// TODO(tjingrant): disable the following namespace import.
+using namespace onnx_mlir;
 using namespace mlir;
 
 static llvm::cl::opt<std::string> input_filename(
@@ -104,6 +107,10 @@ int main(int argc, char **argv) {
 
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
+#ifdef __NNPA__
+  registry.insert<zhigh::ZHighDialect>();
+  registry.insert<mlir::ZLowDialect>();
+#endif
 
   registerTransformsPasses();
   registerAffinePasses();

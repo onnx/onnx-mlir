@@ -1538,16 +1538,17 @@ void markLoopBodyAsMovable(
     llvm::SmallVector<Operation *> delimeterOps(block.getOps<KrnlIterateOp>());
     delimeterOps.push_back(block.getTerminator());
     Operation *movableBeginOp = &block.front();
-    for (auto delimeterOp : delimeterOps) {
+    for (Operation *delimeterOp : delimeterOps) {
       Block::iterator movableBegin = movableBeginOp->getIterator();
 
       // If no op to extract, continue;
       if (movableBegin == delimeterOp->getIterator())
         continue;
 
-      auto movableOp = builder.create<KrnlMovableOp>(delimeterOp->getLoc());
-      auto &movableRegion = movableOp.region();
-      auto *entryBlock = new Block;
+      MultiDialectBuilder<KrnlBuilder> create(builder, delimeterOp->getLoc());
+      KrnlMovableOp movableOp = create.krnl.movable();
+      Region &movableRegion = movableOp.region();
+      auto *entryBlock = new Block();
       movableRegion.push_back(entryBlock);
       entryBlock->getOperations().splice(entryBlock->end(),
           block.getOperations(), movableBegin, delimeterOp->getIterator());
@@ -1568,9 +1569,8 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   FuncOp funcOp = getOperation();
 
   // external function: nothing to do
-  if (funcOp.body().empty()) {
+  if (funcOp.body().empty())
     return;
-  }
 
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.

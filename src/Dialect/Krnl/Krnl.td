@@ -30,7 +30,7 @@ def Krnl_Dialect : Dialect {
   let cppNamespace = "::mlir";
 }
 
-def StringType : Type<CPred<"$_self.isa<::mlir::StringType>()">, "string type">;
+def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
 
 // Require regions to have krnl.terminate terminator operation.
 def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;

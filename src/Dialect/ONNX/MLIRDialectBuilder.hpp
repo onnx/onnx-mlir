@@ -62,8 +62,8 @@ struct MathBuilder final : DialectBuilder {
   MathBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   MathBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  Value _and(Value lhs, Value rhs) const;
-  Value _or(Value lhs, Value rhs) const;
+  Value andi(Value lhs, Value rhs) const;
+  Value ori(Value lhs, Value rhs) const;
 
   Value add(Value lhs, Value rhs) const;
   Value sub(Value lhs, Value rhs) const;
@@ -73,6 +73,7 @@ struct MathBuilder final : DialectBuilder {
   Value exp2(Value val) const;
   Value log2(Value val) const;
   Value sqrt(Value val) const;
+  Value pow(Value base, Value exp) const;
 
   Value select(Value cmp, Value lhs, Value rhs) const;
   Value sgt(Value lhs, Value rhs) const;
@@ -86,6 +87,17 @@ struct MathBuilder final : DialectBuilder {
 
   Value constant(Type type, double val) const;
   Value constantIndex(int64_t val) const;
+
+  /// Emit a negative infinity constant of a specific type. Supported types:
+  /// F16, F32, F64, Int8, Int16, Int32, Int64. In case of Float, emit the
+  /// negative of the positive infinity. In case of Integer, emit the minimum
+  /// value.
+  Value negativeInf(Type type) const;
+
+  /// Emit a positive infinity constant of a specific type. Supported types:
+  /// F16, F32, F64, Int8, Int16, Int32, Int64. In case of Integer, emit the
+  /// maximum value.
+  Value positiveInf(Type type) const;
 
   // Cast handle bool/int/float/index elementary types. Do not convert
   // signed/index to unsigned.
@@ -123,6 +135,7 @@ struct MemRefBuilder final : DialectBuilder {
   Value reinterpretCast(
       Value input, SmallVectorImpl<IndexExpr> &outputDims) const;
   Value dim(Value val, int64_t index) const;
+  Value dim(Value val, Value index) const;
 };
 
 // Default alignment attribute for all allocation of memory. On most system, it

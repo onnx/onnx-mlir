@@ -4,7 +4,7 @@
 
 //===-- BundleMemoryPools.cpp - Bundle Memory Pools for  internal MemRefs -===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -218,11 +218,13 @@ public:
     if (!currentAllocGetRef)
       return failure();
 
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+
     // Current memory pool size is the offset for the newly bundled
     // internal MemRef. Emit the offset as a constant.
-    auto offset = rewriter.create<arith::ConstantOp>(
-        loc, rewriter.getIntegerAttr(
-                 rewriter.getIntegerType(64), currentMemPoolSize));
+    Value offset =
+        create.math.constant(rewriter.getIntegerType(64), currentMemPoolSize);
 
     // Size in bytes of the output of the krnl.getref operation.
     int64_t unbundledTotalSize = memRefShape[0];
@@ -236,13 +238,16 @@ public:
     auto bundledMemPoolMemRefType =
         MemRefType::get(newMemPoolShape, rewriter.getIntegerType(8));
 
-    auto newStaticMemPoolAlloc = rewriter.create<memref::AllocOp>(
-        loc, bundledMemPoolMemRefType, staticMemPoolAlloc.alignmentAttr());
+    memref::AllocOp newStaticMemPoolAlloc =
+        (staticMemPoolAlloc.alignment().hasValue())
+            ? create.mem.alignedAlloc(bundledMemPoolMemRefType,
+                  staticMemPoolAlloc.alignment().getValue())
+            : create.mem.alloc(bundledMemPoolMemRefType);
 
     // The newly bundled MemRef expressed as a KrnlGetRefOp.
-    auto bundledMemRef = rewriter.create<KrnlGetRefOp>(loc,
-        currentAllocGetRef.getResult().getType(), newStaticMemPoolAlloc,
-        offset);
+    KrnlGetRefOp bundledMemRef =
+        create.krnl.getRef(currentAllocGetRef.getResult().getType(),
+            newStaticMemPoolAlloc, offset);
     rewriter.replaceOp(currentAllocGetRef, bundledMemRef.getResult());
 
     // Replace old memory pool with new one.
@@ -283,7 +288,7 @@ public:
 
   LogicalResult matchAndRewrite(
       memref::AllocOp allocOp, PatternRewriter &rewriter) const override {
-    auto loc = allocOp.getLoc();
+    Location loc = allocOp.getLoc();
 
     auto memRefType = allocOp.getResult().getType().dyn_cast<MemRefType>();
     auto memRefShape = memRefType.getShape();
@@ -308,7 +313,7 @@ public:
     // Visit dependendent operations in the current parent block and assemble
     // a trace of operations which participate in the computation of the size
     // of the AllocOp.
-    auto parentBlock = allocOp.getOperation()->getBlock();
+    Block *parentBlock = allocOp.getOperation()->getBlock();
 
     // Compute alignment.
     int64_t alignment = getAllocAlignment(allocOp);
@@ -324,9 +329,8 @@ public:
 
     // Initialize work queue data structure.
     std::vector<Value> operandList;
-    for (const auto &operand : allocOp.getOperands()) {
+    for (const auto &operand : allocOp.getOperands())
       operandList.emplace_back(operand);
-    }
 
     // Check if list of operations depends on dynamic local AllocOp.
     bool dependsOnLocalDynamicAlloc = false;
@@ -400,9 +404,8 @@ public:
       alignmentToMemPool = new AlignmentToMemPool();
       blockToDynamicPool->insert(std::pair<Block *, AlignmentToMemPool *>(
           parentBlock, alignmentToMemPool));
-    } else {
+    } else
       alignmentToMemPool = blockToDynamicPool->at(parentBlock);
-    }
 
     bool isFirstBundledAllocWithThisAlignment =
         alignmentToMemPool->count(alignment) == 0;
@@ -439,6 +442,9 @@ public:
       dynamicMemoryPoolSize = zero;
     }
 
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+
     arith::AddIOp bundledAllocOperand = rewriter.create<arith::AddIOp>(
         loc, dynamicMemoryPoolSize, allocOp.getOperand(0));
     bundledAllocOperand.getOperation()->moveBefore(oldDynamicMemoryPool);
@@ -452,12 +458,17 @@ public:
         oldDynamicMemoryPool);
 
     // We need to emit a new alloc which contains the additional MemRef.
-    memref::AllocOp bundledAlloc = rewriter.create<memref::AllocOp>(loc,
-        bundledMemPoolMemRefType, bundledAllocOperand.getResult(),
-        oldDynamicMemoryPool.alignmentAttr());
+    memref::AllocOp bundledAlloc =
+        (oldDynamicMemoryPool.alignment().hasValue())
+            ? create.mem.alignedAlloc(bundledMemPoolMemRefType,
+                  bundledAllocOperand.getResult(),
+                  oldDynamicMemoryPool.alignment().getValue())
+            : create.mem.alloc(
+                  bundledMemPoolMemRefType, bundledAllocOperand.getResult());
+
     bundledAlloc.getOperation()->moveBefore(oldDynamicMemoryPool);
 
-    KrnlGetRefOp bundledMemRef = rewriter.create<KrnlGetRefOp>(loc,
+    KrnlGetRefOp bundledMemRef = create.krnl.getRef(
         currentAllocGetRef.getResult().getType(), bundledAlloc,
         integerDynamicMemoryPoolSize, currentAllocGetRef.getDynamicSizes());
 
