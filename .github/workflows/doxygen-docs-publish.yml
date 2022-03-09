@@ -45,8 +45,7 @@ jobs:
         done
 
         (cat  $GITHUB_WORKSPACE/onnx-mlir/Doxyfile; \
-         echo INPUT=$GITHUB_WORKSPACE/onnx-mlir/src/Runtime/jni/src/com/ibm/onnxmlir/OMModel.\
-java; \
+         echo INPUT=$GITHUB_WORKSPACE/onnx-mlir/src/Runtime/jni/src/com/ibm/onnxmlir/OMModel.java; \
          echo HTML_OUTPUT=$GITHUB_WORKSPACE/gh-pages/doxygen_html/OMModel_java) | \
         doxygen -
         # Add Jekyll front matter to pass the html through Jekyll processing
