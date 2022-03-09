@@ -33,7 +33,6 @@
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Support/OMOptions.hpp"
-#include <mutex>
 
 #define DEBUG_TYPE "compiler_utils"
 
@@ -412,12 +411,7 @@ static std::string getLLVMOption() {
 // =============================================================================
 // Methods for OMCompilerOptions
 
-// Set the compiler options, use a mutex to allow multiple threads to set the
-// compiler options in a thread-safe manner.
 int setCompilerOption(const OptionKind kind, const string &val) {
-  static std::mutex mutex;
-  std::lock_guard<std::mutex> lock(mutex);
-
   switch (kind) {
   case OptionKind::TargetTriple:
     setTargetTriple(val);
