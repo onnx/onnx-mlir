@@ -276,8 +276,11 @@ OMTensor *omTensorCreateEmpty(
     return NULL;
 
   void *dataPtr = malloc(omTensorGetNumElems(tensor) * getDataTypeSize(dtype));
-  if (!dataPtr)
+  if (!dataPtr) {
+    // It is safe to free a null pointer (_allocatedPtr is null).
+    omTensorDestroy(tensor);
     return NULL;
+  }
 
   tensor->_alignedPtr = dataPtr;
   tensor->_allocatedPtr = dataPtr;
