@@ -23,6 +23,9 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+namespace zlow {
+
 ApiRegistry RegisterAllApis(MLIRContext *context) {
   auto voidTy = LLVM::LLVMVoidType::get(context);
   auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
@@ -578,5 +581,7 @@ void fillInZTensor(PatternRewriter &rewriter, Location loc, ModuleOp module,
   rewriter.create<LLVM::StoreOp>(loc, isTransformedVal, isTransformedDescPtr);
 
   // 6. Set reserved (not currently used), not touch
+}
 
-} // namespace
+} // namespace zlow
+} // namespace onnx_mlir

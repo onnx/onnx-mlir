@@ -4,7 +4,7 @@
 
 //===---------- NNPAPasses.hpp - NNPA Passes Definition ------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -28,6 +28,10 @@ std::unique_ptr<mlir::Pass> createONNXToZHighPass(
 std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass();
 std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass(
     mlir::ArrayRef<std::string> execNodesOnCpu);
+
+/// Pass for folding std.alloc.
+std::unique_ptr<mlir::Pass> createFoldStdAllocPass();
+
 namespace zhigh {
 
 /// Add pass for lowering ZHigh ops to ZLow ops.
@@ -46,10 +50,12 @@ std::unique_ptr<mlir::Pass> createZHighLayoutPropagationPass();
 /// Pass for constant propagation at ZHighIR.
 std::unique_ptr<mlir::Pass> createZHighConstPropagationPass();
 
-} // end namespace zhigh
-} // end namespace onnx_mlir
+/// Pass for instrument the ZHigh ops
+std::unique_ptr<mlir::Pass> createInstrumentZHighPass();
 
-namespace mlir {
+} // end namespace zhigh
+
+namespace zlow {
 
 /// Add pass for rewriting ZLow ops.
 std::unique_ptr<mlir::Pass> createZLowRewritePass();
@@ -57,13 +63,8 @@ std::unique_ptr<mlir::Pass> createZLowRewritePass();
 /// Add pass for lowering ZLow ops to LLVM.
 std::unique_ptr<mlir::Pass> createZLowToLLVMPass();
 
-/// Pass for rewriting KRNL dialect operations.
-std::unique_ptr<mlir::Pass> createKrnlEmptyOptimizationPass();
+/// Add pass for lowering ZLow ops to LLVM.
+std::unique_ptr<mlir::Pass> createZLowToLLVMPass();
 
-/// Pass for folding std.alloc.
-std::unique_ptr<mlir::Pass> createFoldStdAllocPass();
-
-/// Pass for instrument the ZHigh ops
-std::unique_ptr<mlir::Pass> createInstrumentZHighPass();
-
-} // end namespace mlir
+} // namespace zlow
+} // namespace onnx_mlir
