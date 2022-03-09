@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/OpenMP/OpenMPDialect.h"
+#include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
@@ -291,7 +291,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       loop.createIterateOp();
 
       rewriter.create<omp::TerminatorOp>(loc);
-      
+
       rewriter.setInsertionPointToStart(loop.getIterateBlock());
       auto loopIVs = loop.getAllInductionVar();
       readIV = SmallVector<Value, 4>(loopIVs.begin(), loopIVs.end());
