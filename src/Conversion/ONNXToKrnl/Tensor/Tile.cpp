@@ -60,18 +60,18 @@ struct ONNXTileOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXTileOpAdaptor operandAdaptor(operands);
-    ONNXTileOp tileOp = llvm::cast<ONNXTileOp>(op);
-    auto loc = op->getLoc();
+    ONNXTileOp tileOp = cast<ONNXTileOp>(op);
+    Location loc = op->getLoc();
 
     ONNXTileOpShapeHelper shapeHelper(&tileOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
 
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
-    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
 
@@ -95,7 +95,7 @@ struct ONNXTileOpLowering : public ConversionPattern {
     // But the subscript of store is not contigious, or even not affine.
     // Alternative implementation can be found at the end of this file.
 
-    for (int i = 0; i < outputRank; i++) {
+    for (int64_t i = 0; i < outputRank; i++) {
       // Scope is created for each dimension because they are independent
       IndexExprScope IEScope(&rewriter, loc);
       DimIndexExpr index(outputLoops.getInductionVar(i));
@@ -110,7 +110,7 @@ struct ONNXTileOpLowering : public ConversionPattern {
     Value loadVal = create.krnl.load(input, loadIndices);
 
     SmallVector<Value, 4> storeIndices;
-    for (int i = 0; i < outputRank; ++i)
+    for (int64_t i = 0; i < outputRank; ++i)
       storeIndices.emplace_back(outputLoops.getInductionVar(i));
     create.krnl.store(loadVal, alloc, storeIndices);
 
@@ -130,7 +130,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXTileOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
         rewriter, loc);
 
@@ -141,7 +141,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     Value repeats = operandAdaptor.repeats();
 
     // get output info
-    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
 
@@ -156,20 +156,20 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     std::vector<Value> originalLoops;
     defineLoops(rewriter, loc, originalLoops, outputRank * 2);
     KrnlIterateOperandPack pack(rewriter, originalLoops);
-    for (int ii = 0; ii < outputRank; ++ii) {
+    for (int64_t ii = 0; ii < outputRank; ++ii) {
       addDimensionToPack(rewriter, loc, pack, input, ii);
       pack.pushConstantBound(0);
-      auto indexVal =
+      Value indexVal =
           emitConstantOp(rewriter, loc, rewriter.getIndexType(), ii);
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
-      auto repeatsLoadVal = create.krnl.load(repeats, repeatsMemRefVal);
+      Value repeatsLoadVal = create.krnl.load(repeats, repeatsMemRefVal);
       auto repeatsElementVal = rewriter.create<arith::IndexCastOp>(
           loc, rewriter.getIndexType(), repeatsLoadVal);
       pack.pushOperandBound(repeatsElementVal);
     }
 
     // Create the loops
-    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
+    KrnlIterateOp iterateOp = create.krnl.iterate(pack);
     Block &iterationBlock = iterateOp.bodyRegion().front();
 
     // Now perform the insertions into the body of the just generated loops.
@@ -177,18 +177,17 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     rewriter.setInsertionPointToStart(&iterationBlock);
 
     // Handle the operations.
-
     SmallVector<Value, 4> inputMemRefVal;
-    for (int j = 0; j < inputRank; ++j)
+    for (int64_t j = 0; j < inputRank; ++j)
       inputMemRefVal.emplace_back(iterationBlock.getArguments()[j * 2]);
 
     SmallVector<Value, 4> outputMemRefVal;
-    for (int i = 0; i < inputRank; ++i) {
-      auto inputDimSizeVal = create.mem.dim(input, i);
+    for (int64_t i = 0; i < inputRank; ++i) {
+      Value inputDimSizeVal = create.mem.dim(input, i);
       if (inputShape[i] != -1) {
-        auto inputIndexAE = rewriter.getAffineDimExpr(0);
-        auto repeatsIndexAE = rewriter.getAffineDimExpr(1);
-        auto inputDimAE = rewriter.getAffineSymbolExpr(0);
+        AffineExpr inputIndexAE = rewriter.getAffineDimExpr(0);
+        AffineExpr repeatsIndexAE = rewriter.getAffineDimExpr(1);
+        AffineExpr inputDimAE = rewriter.getAffineSymbolExpr(0);
 
         auto dimMap =
             AffineMap::get(2, 1, inputDimAE * repeatsIndexAE + inputIndexAE);
@@ -199,13 +198,13 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
       } else {
         auto inputIndex = iterationBlock.getArguments()[2 * i];
         auto repeatsIndex = iterationBlock.getArguments()[2 * i + 1];
-        auto dimExprVal = create.math.add(
+        Value dimExprVal = create.math.add(
             inputIndex, create.math.mul(repeatsIndex, inputDimSizeVal));
         outputMemRefVal.emplace_back(dimExprVal);
       }
     }
 
-    auto inputVal = create.krnl.load(input, inputMemRefVal);
+    Value inputVal = create.krnl.load(input, inputMemRefVal);
     create.krnl.store(inputVal, alloc, outputMemRefVal);
 
     rewriter.replaceOp(op, alloc);

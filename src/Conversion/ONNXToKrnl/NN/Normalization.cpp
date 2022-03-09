@@ -34,17 +34,15 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
 
     auto memRefType = convertToMemRefType(*op->result_type_begin());
-    auto epsilonAttr = FloatAttr::get(memRefType.getElementType(),
-        llvm::dyn_cast<ONNXBatchNormalizationInferenceModeOp>(op)
+    Value epsilon = create.math.constant(memRefType.getElementType(),
+        cast<ONNXBatchNormalizationInferenceModeOp>(op)
             .epsilon()
-            .convertToFloat());
-    auto epsilon = rewriter.create<arith::ConstantOp>(loc, epsilonAttr);
-
-    auto operand = operandAdaptor.X();
-    auto scale = operandAdaptor.scale();
-    auto bias = operandAdaptor.B();
-    auto mean = operandAdaptor.mean();
-    auto variance = operandAdaptor.var();
+            .convertToDouble());
+    Value operand = operandAdaptor.X();
+    Value scale = operandAdaptor.scale();
+    Value bias = operandAdaptor.B();
+    Value mean = operandAdaptor.mean();
+    Value variance = operandAdaptor.var();
 
     // Insert an allocation and deallocation for the result of this operation.
     bool insertDealloc = checkInsertDealloc(op);
@@ -75,7 +73,7 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
     if (rank > 1) {
       KrnlIterateOperandPack cPack(rewriter, originalLoops[1]);
       addDimensionToPack(rewriter, loc, cPack, operand, 1);
-      auto cIterateOp = rewriter.create<KrnlIterateOp>(loc, cPack);
+      KrnlIterateOp cIterateOp = create.krnl.iterate(cPack);
       Block &cIterationBlock = cIterateOp.bodyRegion().front();
       rewriter.setInsertionPointToStart(&cIterationBlock);
       for (auto arg : cIterationBlock.getArguments())
@@ -94,15 +92,14 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
     for (int64_t i = 2; i < rank; ++i)
       axes.emplace_back(i);
     std::vector<Value> packLoops;
-    for (unsigned int i = 0; i < axes.size(); ++i)
+    for (size_t i = 0; i < axes.size(); ++i)
       packLoops.emplace_back(originalLoops[axes[i]]);
 
     KrnlIterateOperandPack pack(rewriter, packLoops);
-    for (unsigned int i = 0; i < axes.size(); ++i)
+    for (size_t i = 0; i < axes.size(); ++i)
       addDimensionToPack(rewriter, loc, pack, operand, axes[i]);
 
-    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
-
+    KrnlIterateOp iterateOp = create.krnl.iterate(pack);
     Block &iterationBlock = iterateOp.bodyRegion().front();
     rewriter.setInsertionPointToStart(&iterationBlock);
 
@@ -147,19 +144,18 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     // instance_normalization{epsilon}(x, scale, bias) =
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
     ONNXInstanceNormalizationOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
 
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
-    auto elementType = memRefType.getElementType();
-    auto epsilonAttr = FloatAttr::get(
-        elementType, llvm::dyn_cast<ONNXInstanceNormalizationOp>(op)
-                         .epsilon()
-                         .convertToFloat());
-    auto epsilon = rewriter.create<arith::ConstantOp>(loc, epsilonAttr);
+    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+    Type elementType = memRefType.getElementType();
+    Value epsilon = create.math.constant(elementType,
+        cast<ONNXInstanceNormalizationOp>(op).epsilon().convertToDouble());
 
-    auto inputMemRef = operandAdaptor.input();
-    auto scaleMemRef = operandAdaptor.scale();
-    auto biasMemRef = operandAdaptor.B();
+    Value inputMemRef = operandAdaptor.input();
+    Value scaleMemRef = operandAdaptor.scale();
+    Value biasMemRef = operandAdaptor.B();
 
     // Insert an allocation and deallocation for the result of this operation.
     bool insertDealloc = checkInsertDealloc(op);
@@ -175,8 +171,6 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     // Get rank, bounds, and constructors.
     int64_t rank = memRefType.getRank();
     IndexExprScope outerScope(&rewriter, loc);
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
     MemRefBoundsIndexCapture inputBounds(inputMemRef);
     MemRefType tmpType = MemRefType::get({}, elementType);
     Value fZero = create.math.constant(elementType, 0);
@@ -195,6 +189,9 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     create.krnl.iterateIE(n_c_loopDef, n_c_loopDef, {iZero, iZero},
         {inputBounds.getSymbol(0), inputBounds.getSymbol(1)},
         [&](KrnlBuilder &createKrnl, ValueRange n_c_loopInd) {
+          MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+              createKrnl);
+
           IndexExprScope channelScope(createKrnl);
           DimIndexExpr n(n_c_loopInd[0]), c(n_c_loopInd[1]);
 
@@ -224,9 +221,9 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
                 Value oldSum = create.krnl.load(tmpMemRef, {});
                 Value val = create.krnl.load(inputMemRef, inputAccessFct);
                 Value newSum = create.math.add(oldSum, val);
-                createKrnl.store(newSum, tmpMemRef, {});
+                create.krnl.store(newSum, tmpMemRef);
               });
-          Value sum = create.krnl.load(tmpMemRef, {});
+          Value sum = create.krnl.load(tmpMemRef);
           Value mean = create.math.div(sum, meanDenom);
           // Second, compute the standard dev: sum of (val - mean)2 / (num-1).
           create.krnl.store(fZero, tmpMemRef, {});

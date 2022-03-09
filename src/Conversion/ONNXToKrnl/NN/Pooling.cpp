@@ -21,7 +21,8 @@ using namespace mlir;
 template <>
 Value getIdentityValue<ONNXMaxPoolSingleOutOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  return emitNegativeInfinityConstantOp(rewriter, loc, type);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  return create.math.negativeInf(type);
 }
 
 template <>

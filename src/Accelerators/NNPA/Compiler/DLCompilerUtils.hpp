@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- DLCompilerUtils.hpp
-//------------------------===//
+//===-------------------------- DLCompilerUtils.hpp -----------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -11,13 +10,16 @@
 //
 //
 //===----------------------------------------------------------------------===//
+
 #pragma once
 
 #include "mlir/Pass/PassManager.h"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Support/OMOptions.hpp"
 
-enum DLCEmissionTargetType {
+namespace onnx_mlir {
+
+enum class DLCEmissionTargetType {
   EmitZNONE,
   EmitZLowIR,
   EmitZHighIR,
@@ -39,5 +41,7 @@ void addPassesDLC(mlir::OwningOpRef<mlir::ModuleOp> &module,
 int compileModuleDLC(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     onnx_mlir::EmissionTargetType emissionTarget,
-    DLCEmissionTargetType dlcEmissionTarget = EmitZNONE,
+    DLCEmissionTargetType dlcEmissionTarget = DLCEmissionTargetType::EmitZNONE,
     mlir::ArrayRef<std::string> execNodesOnCpu = mlir::ArrayRef<std::string>());
+
+} // namespace onnx_mlir
