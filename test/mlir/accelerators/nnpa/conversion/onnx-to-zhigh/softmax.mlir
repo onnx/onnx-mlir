@@ -1,0 +1,67 @@
+// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
+
+func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Softmax"(%arg0) {axis = 1: si64} : (tensor<10x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func @test_softmax
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.UnsqueezeV11"([[PARAM_0_]]) {axes = [0]} : (tensor<10x10xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "3DS"} : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_2_:%.+]] = "zhigh.Softmax"([[VAR_1_]]) {act_func = "ACT_NONE"} : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.SqueezeV11"([[VAR_3_]]) {axes = [0]} : (tensor<*xf32>) -> tensor<10x10xf32>
+// CHECK:           return [[VAR_4_]] : tensor<10x10xf32>
+// CHECK:         }
+}
+
+// -----
+
+func @test_onnx_logsoftmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Softmax"(%arg0) : (tensor<10x10xf32>) -> tensor<*xf32>
+  %1 = "onnx.Log"(%0) : (tensor<*xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func @test_onnx_logsoftmax
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.UnsqueezeV11"([[PARAM_0_]]) {axes = [0]} : (tensor<10x10xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "3DS"} : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_2_:%.+]] = "zhigh.Softmax"([[VAR_1_]]) {act_func = "ACT_LOG"} : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.SqueezeV11"([[VAR_3_]]) {axes = [0]} : (tensor<*xf32>) -> tensor<10x10xf32>
+// CHECK:           return [[VAR_4_]] : tensor<10x10xf32>
+// CHECK:         }
+}
+
+// -----
+
+func @test_onnx_logsoftmax_dyn(%arg0 : tensor<?x?xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Softmax"(%arg0) : (tensor<?x?xf32>) -> tensor<*xf32>
+  %1 = "onnx.Log"(%0) : (tensor<*xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func @test_onnx_logsoftmax_dyn
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xf32>) -> tensor<?x?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.UnsqueezeV11"([[PARAM_0_]]) {axes = [0]} : (tensor<?x?xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "3DS"} : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_2_:%.+]] = "zhigh.Softmax"([[VAR_1_]]) {act_func = "ACT_LOG"} : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.SqueezeV11"([[VAR_3_]]) {axes = [0]} : (tensor<*xf32>) -> tensor<?x?xf32>
+// CHECK:           return [[VAR_4_]] : tensor<?x?xf32>
+// CHECK:         }
+}
+
+// -----
+
+/// COM: Test for zdnn limitation.
+/// COM: Not lowered when dimensin size exceeds DLCPP_MAXIMUM_DIMENSION_INDEX_SIZE in `third_party/zdnn-lib/zdnn_limit.h`
+/// COM: DLCPP_MAXIMUM_DIMENSION_INDEX_SIZE depends on zAIU HW. Please check the value if these tests fails.
+
+
+func @test_exceed_limit_softmax(%arg0 : tensor<32769x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Softmax"(%arg0) {axis = 1: si64} : (tensor<32769x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func @test_exceed_limit_softmax
+// CHECK:        "onnx.Softmax"
+}
