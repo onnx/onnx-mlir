@@ -54,6 +54,17 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
 
+#include "mlir/Dialect/OpenMP/OpenMPDialect.h"
+#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Conversion/SCFToOpenMP/SCFToOpenMP.h"
+#include "mlir/Dialect/Async/IR/Async.h"
+#include "mlir/Dialect/Async/Passes.h"
+#include "mlir/Dialect/Async/Transforms.h"
+#include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
+#include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
+#include "mlir/Conversion/OpenMPToLLVM/ConvertOpenMPToLLVM.h"
+
 using namespace mlir;
 
 #define DEBUG_TYPE "krnl_to_llvm"
@@ -143,13 +154,15 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
   // They run it in two steps, and add additional lowerings.
+  
+  populateAffineToStdConversionPatterns(patterns);
+  populateAffineToVectorConversionPatterns(patterns);
 
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
   vector::populateVectorBroadcastLoweringPatterns(patterns);
   vector::populateVectorContractLoweringPatterns(patterns);
   vector::populateVectorTransposeLoweringPatterns(patterns);
 
-  populateAffineToStdConversionPatterns(patterns);
   populateSCFToControlFlowConversionPatterns(patterns);
 
   populateShapeToStandardConversionPatterns(patterns);
@@ -168,6 +181,14 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
 
   populateReconcileUnrealizedCastsPatterns(patterns);
+
+  mlir::createConvertSCFToOpenMPPass();
+  arith::populateArithmeticToLLVMConversionPatterns(typeConverter, patterns);
+  cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
+  populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
+  populateStdToLLVMConversionPatterns(typeConverter, patterns);
+  populateOpenMPToLLVMConversionPatterns(typeConverter, patterns);
+
   krnl::populateKrnlToLLVMConversion(
       typeConverter, patterns, ctx, constantOutputs, singleEntryPoint);
 }
@@ -475,6 +496,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(*ctx);
   target.addLegalDialect<LLVM::LLVMDialect>();
+  target.addLegalDialect<omp::OpenMPDialect>();
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<UnrealizedConversionCastOp>();
 
