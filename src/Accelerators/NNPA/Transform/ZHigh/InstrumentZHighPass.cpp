@@ -23,8 +23,8 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
-#include "src/Accelerators/NNPA/Support/OMDLCOptions.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/OMNNPAOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
@@ -58,7 +58,7 @@ llvm::cl::bits<InstrumentActions> InstrumentControlBits(
             InstrumentReportTimeZHigh, "instrument runtime reports time usage"),
         clEnumVal(InstrumentReportMemoryZHigh,
             "instrument runtime reports memory usage")),
-    llvm::cl::cat(OMDLCPassOptions));
+    llvm::cl::cat(OMNNPAPassOptions));
 
 class InstrumentZHighPass
     : public mlir::PassWrapper<InstrumentZHighPass, OperationPass<FuncOp>> {

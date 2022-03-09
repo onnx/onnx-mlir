@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- DLCPasses.hpp - DLC++ Passes Definition ------------------===//
+//===---------- NNPAPasses.hpp - NNPA Passes Definition ------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file exposes the entry points to create compiler passes for DLC++ in
+// This file exposes the entry points to create compiler passes for NNPA in
 // addition to the passes used by ONNX MLIR.
 //
 //===----------------------------------------------------------------------===//

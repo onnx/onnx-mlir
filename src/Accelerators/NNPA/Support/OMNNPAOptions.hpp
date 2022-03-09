@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- OMDLCOptions.hpp --------------------------===//
+//===-------------------------- OMNNPAOptions.hpp -------------------------===//
 //
 // Copyright 2019-2021 The IBM Research Authors.
 //
 // =============================================================================
 //
-// DLC options that provide fine control on passes.
+// NNPA options that provide fine control on passes.
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,7 +17,7 @@
 #include "llvm/Support/CommandLine.h"
 
 // Declare the option categories.
-extern llvm::cl::OptionCategory OMDLCPassOptions;
+extern llvm::cl::OptionCategory OMNNPAPassOptions;
 
 // Declare options.
 extern llvm::cl::opt<std::string> instrumentZHighOps;
