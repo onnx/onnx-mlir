@@ -4,7 +4,7 @@
 
 //===-------- EnableMemoryPool.cpp - Enable Memory Pool for MemRefs -------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -118,6 +118,9 @@ public:
     if (!hasAllConstantDimensions(memRefType))
       return failure();
 
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+
     memref::AllocOp newAlloc;
     SmallVector<int64_t, 1> memPoolShape;
     if (hasAllConstantDimensions(memRefType)) {
@@ -128,8 +131,11 @@ public:
       memPoolShape.emplace_back(totalSize);
       auto memPoolMemRefType =
           MemRefType::get(memPoolShape, rewriter.getIntegerType(8));
-      newAlloc = rewriter.create<memref::AllocOp>(
-          loc, memPoolMemRefType, allocOp.alignmentAttr());
+      newAlloc = (allocOp.alignment().hasValue())
+                     ? create.mem.alignedAlloc(
+                           memPoolMemRefType, allocOp.alignment().getValue())
+                     : create.mem.alloc(memPoolMemRefType);
+
     } else {
       memPoolShape.emplace_back(-1);
       auto memPoolMemRefType =
@@ -137,25 +143,23 @@ public:
 
       Value dyanmicTotalSize =
           getDynamicMemRefSizeInBytes(memRefType, loc, rewriter, allocOp);
-      newAlloc = rewriter.create<memref::AllocOp>(
-          loc, memPoolMemRefType, dyanmicTotalSize, allocOp.alignmentAttr());
+      newAlloc = (allocOp.alignment().hasValue())
+                     ? create.mem.alignedAlloc(memPoolMemRefType,
+                           dyanmicTotalSize, allocOp.alignment().getValue())
+                     : create.mem.alloc(memPoolMemRefType, dyanmicTotalSize);
     }
 
     // Emit new dealloc.
-    auto dealloc = rewriter.create<memref::DeallocOp>(loc, newAlloc);
+    auto dealloc = create.mem.dealloc(newAlloc);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
 
     // Get reference to local MemRef.
-    auto zero = rewriter.create<arith::ConstantOp>(
-        loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64), 0));
-    KrnlGetRefOp poolMemRef;
-    if (hasAllConstantDimensions(memRefType)) {
-      poolMemRef =
-          rewriter.create<KrnlGetRefOp>(loc, memRefType, newAlloc, zero);
-    } else {
-      poolMemRef = rewriter.create<KrnlGetRefOp>(
-          loc, memRefType, newAlloc, zero, allocOp.getDynamicSizes());
-    }
+    Value zero = create.math.constant(rewriter.getIntegerType(64), 0);
+    KrnlGetRefOp poolMemRef =
+        (hasAllConstantDimensions(memRefType))
+            ? create.krnl.getRef(memRefType, newAlloc, zero)
+            : create.krnl.getRef(
+                  memRefType, newAlloc, zero, allocOp.getDynamicSizes());
 
     rewriter.replaceOp(allocOp, poolMemRef.getResult());
 
