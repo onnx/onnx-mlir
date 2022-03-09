@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------------ ZLowOps.hpp - ONNX Operations ---------------------===//
+//===------------------ ZLowOps.hpp - ZLow Operations ---------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -23,18 +23,20 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 
-namespace mlir {
+namespace onnx_mlir {
+namespace zlow {
 
-class ZLowDialect : public Dialect {
+class ZLowDialect : public mlir::Dialect {
 public:
-  ZLowDialect(MLIRContext *context);
+  ZLowDialect(mlir::MLIRContext *context);
 
   /// Provide a utility accessor to the dialect namespace. This is used by
   /// several utilities for casting between dialects.
-  static StringRef getDialectNamespace() { return "zlow"; }
+  static mlir::StringRef getDialectNamespace() { return "zlow"; }
 };
 
-} // end namespace mlir
+} // namespace zlow
+} // namespace onnx_mlir
 
 /// Include the auto-generated header file containing the declarations of the
 /// ONNX operations.

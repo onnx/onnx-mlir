@@ -93,7 +93,7 @@ void addONNXToZHighPasses(
 
 void addZHighToZLowPasses(mlir::PassManager &pm, int optLevel) {
   // Add instrumentation for ZHigh Ops
-  pm.addNestedPass<FuncOp>(mlir::createInstrumentZHighPass());
+  pm.addNestedPass<FuncOp>(onnx_mlir::zhigh::createInstrumentZHighPass());
   pm.addPass(onnx_mlir::zhigh::createZHighToZLowPass(optLevel));
   pm.addNestedPass<FuncOp>(onnx_mlir::createLowerKrnlShapePass());
   pm.addNestedPass<FuncOp>(onnx_mlir::createDisconnectKrnlDimFromAllocPass());
@@ -118,7 +118,7 @@ void addAllToLLVMPasses(mlir::PassManager &pm) {
   }
 
   pm.addNestedPass<FuncOp>(mlir::createConvertSCFToCFPass());
-  pm.addPass(mlir::createZLowToLLVMPass());
+  pm.addPass(onnx_mlir::zlow::createZLowToLLVMPass());
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
@@ -157,7 +157,7 @@ void addPassesNNPA(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
       else if (optStr == "-O3")
         optLevel = OptLevel::O3;
       addZHighToZLowPasses(pm, optLevel); // Constant folding for std.alloc.
-      pm.addNestedPass<FuncOp>(mlir::createFoldStdAllocPass());
+      pm.addNestedPass<FuncOp>(onnx_mlir::createFoldStdAllocPass());
 
       if (nnpaEmissionTarget >= NNPAEmissionTargetType::EmitZLowIR)
         emissionTarget = EmitMLIR;

@@ -37,6 +37,7 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir::zlow;
 
 // A global variable to indicate whether this pass will emit dealloc for
 // allocated memrefs or not.

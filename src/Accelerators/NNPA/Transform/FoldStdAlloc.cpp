@@ -215,6 +215,6 @@ public:
   }
 };
 
-std::unique_ptr<Pass> mlir::createFoldStdAllocPass() {
+std::unique_ptr<Pass> onnx_mlir::createFoldStdAllocPass() {
   return std::make_unique<FoldStdAllocPass>();
 }

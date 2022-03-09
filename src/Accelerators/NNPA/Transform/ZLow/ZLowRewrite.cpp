@@ -22,6 +22,9 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+namespace zlow {
+
 /// This pattern rewrites
 /// ```mlir
 ///   zlow.unstick(%input, %output)
@@ -119,6 +122,9 @@ public:
   }
 };
 
-std::unique_ptr<Pass> mlir::createZLowRewritePass() {
+std::unique_ptr<Pass> createZLowRewritePass() {
   return std::make_unique<ZLowRewritePass>();
 }
+
+} // namespace zlow
+} // namespace onnx_mlir
