@@ -37,12 +37,12 @@ using namespace mlir;
 // ONNX Integers as MLIR signless, and only flag the ONNX Unsigned Integer as
 // MLIR unsigned integer.
 
-Value MathBuilder::_and(Value lhs, Value rhs) const {
+Value MathBuilder::andi(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   return b.create<arith::AndIOp>(loc, lhs, rhs);
 }
 
-Value MathBuilder::_or(Value lhs, Value rhs) const {
+Value MathBuilder::ori(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   return b.create<arith::OrIOp>(loc, lhs, rhs);
 }
@@ -204,6 +204,82 @@ Value MathBuilder::constant(Type type, double val) const {
 Value MathBuilder::constantIndex(int64_t val) const {
   Attribute constantAttr = b.getIntegerAttr(b.getIndexType(), val);
   return b.create<arith::ConstantOp>(loc, constantAttr);
+}
+
+Value MathBuilder::negativeInf(Type type) const {
+  double value;
+  TypeSwitch<Type>(type)
+      .Case<Float16Type>(
+          [&](Type) { value = -std::numeric_limits<float>::infinity(); })
+      .Case<Float32Type>(
+          [&](Type) { value = -std::numeric_limits<float>::infinity(); })
+      .Case<Float64Type>(
+          [&](Type) { value = -std::numeric_limits<double>::infinity(); })
+      .Case<IntegerType>([&](IntegerType type) {
+        unsigned width = type.getWidth();
+        bool isSigned = type.isSigned();
+        switch (width) {
+        case 8:
+          value = (isSigned) ? std::numeric_limits<int8_t>::min()
+                             : std::numeric_limits<uint8_t>::min();
+          break;
+        case 16:
+          value = (isSigned) ? std::numeric_limits<int16_t>::min()
+                             : std::numeric_limits<uint16_t>::min();
+          break;
+        case 32:
+          value = (isSigned) ? std::numeric_limits<int32_t>::min()
+                             : std::numeric_limits<uint32_t>::min();
+          break;
+        case 64:
+          value = (isSigned) ? std::numeric_limits<int64_t>::min()
+                             : std::numeric_limits<uint64_t>::min();
+          break;
+        default:
+          llvm_unreachable("unsupported element type");
+        }
+      })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
+
+  return constant(type, value);
+}
+
+Value MathBuilder::positiveInf(Type type) const {
+  double value;
+  TypeSwitch<Type>(type)
+      .Case<Float16Type>(
+          [&](Type) { value = std::numeric_limits<float>::infinity(); })
+      .Case<Float32Type>(
+          [&](Type) { value = std::numeric_limits<float>::infinity(); })
+      .Case<Float64Type>(
+          [&](Type) { value = std::numeric_limits<double>::infinity(); })
+      .Case<IntegerType>([&](IntegerType type) {
+        size_t width = type.getWidth();
+        bool isSigned = type.isSigned();
+        switch (width) {
+        case 8:
+          value = (isSigned) ? std::numeric_limits<int8_t>::max()
+                             : std::numeric_limits<uint8_t>::max();
+          break;
+        case 16:
+          value = (isSigned) ? std::numeric_limits<int16_t>::max()
+                             : std::numeric_limits<uint16_t>::max();
+          break;
+        case 32:
+          value = (isSigned) ? std::numeric_limits<int32_t>::max()
+                             : std::numeric_limits<uint32_t>::max();
+          break;
+        case 64:
+          value = (isSigned) ? std::numeric_limits<int64_t>::max()
+                             : std::numeric_limits<uint64_t>::max();
+          break;
+        default:
+          llvm_unreachable("unsupported element type");
+        }
+      })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
+
+  return constant(type, value);
 }
 
 Value MathBuilder::createArithCmp(
@@ -440,8 +516,15 @@ Value MemRefBuilder::dim(Value val, int64_t index) const {
          "memref::DimOp expects input operand to have MemRefType or "
          "UnrankedMemRefType");
   assert(index >= 0 && "Expecting a valid index");
-  Value i = b.create<arith::ConstantIndexOp>(loc, index);
-  return b.createOrFold<memref::DimOp>(loc, val, i);
+  return dim(val, b.create<arith::ConstantIndexOp>(loc, index));
+}
+
+Value MemRefBuilder::dim(Value val, Value index) const {
+  assert((val.getType().isa<MemRefType>() ||
+             val.getType().isa<UnrankedMemRefType>()) &&
+         "memref::DimOp expects input operand to have MemRefType or "
+         "UnrankedMemRefType");
+  return b.createOrFold<memref::DimOp>(loc, val, index);
 }
 
 //===----------------------------------------------------------------------===//
