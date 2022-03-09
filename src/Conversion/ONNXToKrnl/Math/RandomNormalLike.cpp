@@ -53,18 +53,20 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
     Value numberOfRandomValues =
         emitConstantOp(rewriter, loc, rewriter.getIndexType(), constantValues);
 
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+
     // Incorporate any dynamic values into the number of values:
     for (decltype(outputRank) i = 0; i < outputRank; ++i) {
       if (outputMemRefShape[i] < 0) {
-        Value dim = rewriter.create<memref::DimOp>(loc, input, i);
-        numberOfRandomValues =
-            rewriter.create<arith::MulIOp>(loc, numberOfRandomValues, dim);
+        Value dim = create.mem.dim(input, i);
+        numberOfRandomValues = create.math.mul(numberOfRandomValues, dim);
       }
     }
 
     // Create the Krnl Random Normal operation:
     ONNXRandomNormalLikeOp randomNormalLikeOp =
-        llvm::cast<ONNXRandomNormalLikeOp>(op);
+        cast<ONNXRandomNormalLikeOp>(op);
     double mean = randomNormalLikeOp.mean().convertToDouble();
     Value meanValue = emitConstantOp(rewriter, loc, elementType, mean);
     double scale = randomNormalLikeOp.scale().convertToDouble();
@@ -75,8 +77,8 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
     if (seed)
       doubleSeed = seed->convertToDouble();
     Value seedValue = emitConstantOp(rewriter, loc, elementType, doubleSeed);
-    rewriter.create<KrnlRandomNormalOp>(
-        loc, alloc, numberOfRandomValues, meanValue, scaleValue, seedValue);
+    create.krnl.randomNormal(
+        alloc, numberOfRandomValues, meanValue, scaleValue, seedValue);
 
     rewriter.replaceOp(op, alloc);
     return success();

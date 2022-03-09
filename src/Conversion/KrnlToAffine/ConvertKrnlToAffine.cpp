@@ -293,16 +293,17 @@ static void markLoopBodyAsMovable(
     llvm::SmallVector<Operation *> delimeterOps(block.getOps<KrnlIterateOp>());
     delimeterOps.push_back(block.getTerminator());
     Operation *movableBeginOp = &block.front();
-    for (auto &delimeterOp : delimeterOps) {
+    for (Operation *delimeterOp : delimeterOps) {
       Block::iterator movableBegin = movableBeginOp->getIterator();
 
       // If no op to extract, continue;
       if (movableBegin == delimeterOp->getIterator())
         continue;
 
-      auto movableOp = builder.create<KrnlMovableOp>(delimeterOp->getLoc());
+      MultiDialectBuilder<KrnlBuilder> create(builder, delimeterOp->getLoc());
+      KrnlMovableOp movableOp = create.krnl.movable();
       Region &movableRegion = movableOp.region();
-      auto *entryBlock = new Block;
+      Block *entryBlock = new Block();
       movableRegion.push_back(entryBlock);
       entryBlock->getOperations().splice(entryBlock->end(),
           block.getOperations(), movableBegin, delimeterOp->getIterator());

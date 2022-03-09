@@ -95,7 +95,7 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
 
     // Create the loops
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
-    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
+    KrnlIterateOp iterateOp = create.krnl.iterate(pack);
     Block &iterationBlock = iterateOp.bodyRegion().front();
 
     // Now perform the insertions into the body of the just generated loops.

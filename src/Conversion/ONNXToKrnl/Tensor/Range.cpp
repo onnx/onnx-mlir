@@ -129,19 +129,24 @@ struct ONNXRangeOpLowering : public ConversionPattern {
         .Case<Float64Type>([&](Type) {
           accType = MemRefType::get(accShape, rewriter.getF64Type());
         })
-        .Case<IntegerType>([&](Type) {
-          auto width = elementType.cast<IntegerType>().getWidth();
-          if (width == 8)
+        .Case<IntegerType>([&](IntegerType type) {
+          switch (type.getWidth()) {
+          case 8:
             llvm_unreachable("Integer 8 type not supported for Range op.");
-          else if (width == 16)
+            break;
+          case 16:
             accType = MemRefType::get(accShape, rewriter.getIntegerType(16));
-          else if (width == 32)
+            break;
+          case 32:
             accType = MemRefType::get(accShape, rewriter.getIntegerType(32));
-          else if (width == 64)
+            break;
+          case 64:
             accType = MemRefType::get(accShape, rewriter.getIntegerType(64));
-          else
+            break;
+          default:
             llvm_unreachable(
                 "Integer type over 64 bits not supported for Range op.");
+          }
         });
     Value acc = create.mem.alignedAlloc(accType);
 
