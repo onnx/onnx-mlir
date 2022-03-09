@@ -10,18 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef ZLOW_OPS
-#else
-#define ZLOW_OPS
+#ifndef ZLOW_OPS
 
-#ifdef OP_BASE
-#else
+#ifndef OP_BASE
 include "mlir/IR/OpBase.td"
 #endif // OP_BASE
 
 def ZLow_Dialect : Dialect {
   let name = "zlow";
-  let cppNamespace = "::mlir";
+  let cppNamespace = "::onnx_mlir::zlow";
 }
 
 // Base class for ZLow dialect operations. This operation inherits from the
@@ -272,7 +269,7 @@ def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable]> {
                        AnyTypeOf<[AnyMemRef]>:$Out,
                        OptionalAttr<StrAttr>:$layout);
   let builders = [
-    OpBuilder<(ins "Value":$X, "Value":$Out), [{
+    OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out), [{
       build($_builder, $_state, X, Out, StringAttr());
     }]>
   ];
@@ -314,7 +311,7 @@ def ZLowUnstickOp:ZLow_Op<"unstick", [MemRefsNormalizable]> {
                        AnyTypeOf<[AnyMemRef]>:$Out,
                        OptionalAttr<StrAttr>:$layout);
   let builders = [
-    OpBuilder<(ins "Value":$X, "Value":$Out), [{
+    OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out), [{
       build($_builder, $_state, X, Out, StringAttr());
     }]>
   ];
