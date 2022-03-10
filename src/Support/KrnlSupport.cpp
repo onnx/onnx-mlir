@@ -14,6 +14,9 @@
 
 #include "src/Support/KrnlSupport.hpp"
 
+using namespace mlir;
+using namespace onnx_mlir;
+
 //===----------------------------------------------------------------------===//
 // Return various operations.
 //===----------------------------------------------------------------------===//
@@ -249,8 +252,8 @@ unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
   unsigned sizeInBits;
   if (elementType.isIntOrFloat()) {
     sizeInBits = elementType.getIntOrFloatBitWidth();
-  } else if (elementType.isa<StringType>()) {
-    auto stringType = elementType.cast<StringType>();
+  } else if (elementType.isa<krnl::StringType>()) {
+    auto stringType = elementType.cast<krnl::StringType>();
     sizeInBits = stringType.getElementSize();
   } else {
     assert(elementType.isa<VectorType>() && "elementType is not a VectorType");
@@ -294,12 +297,13 @@ Value getDynamicMemRefSizeInBytes(
   Value sizeInBytes =
       emitConstantOp(rewriter, loc, rewriter.getI64Type(), staticSizeInBytes);
   if (!allStaticDimensions) {
+    MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);
     for (unsigned i = 0; i < shape.size(); i++) {
       if (shape[i] == -1) {
-        Value index = rewriter.create<memref::DimOp>(loc, val, i);
+        Value index = create.mem.dim(val, i);
         Value dim = rewriter.create<arith::IndexCastOp>(
             loc, rewriter.getI64Type(), index);
-        sizeInBytes = rewriter.create<arith::MulIOp>(loc, sizeInBytes, dim);
+        sizeInBytes = create.math.mul(sizeInBytes, dim);
       }
     }
   }
@@ -309,6 +313,8 @@ Value getDynamicMemRefSizeInBytes(
 /// Get the size of a dynamic MemRef in bytes.
 Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
     PatternRewriter &rewriter, memref::AllocOp allocOp) {
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+
   // Initialize the size variable with the size in bytes of the type.
   int64_t typeSize = getMemRefEltSizeInBytes(type);
   Value result =
@@ -318,17 +324,18 @@ Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
   auto memRefShape = type.getShape();
   auto rank = memRefShape.size();
   int dynDimIdx = 0;
+
   for (unsigned int idx = 0; idx < rank; ++idx) {
     if (memRefShape[idx] < 0) {
       // Dyanmic size.
       auto dynamicDim = allocOp.getOperands()[dynDimIdx];
       dynDimIdx++;
-      result = rewriter.create<arith::MulIOp>(loc, result, dynamicDim);
+      result = create.math.mul(result, dynamicDim);
     } else {
       // Static size.
       auto staticDim = emitConstantOp(
           rewriter, loc, rewriter.getIndexType(), memRefShape[idx]);
-      result = rewriter.create<arith::MulIOp>(loc, result, staticDim);
+      result = create.math.mul(result, staticDim);
     }
   }
 

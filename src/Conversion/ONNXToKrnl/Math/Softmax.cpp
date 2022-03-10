@@ -246,21 +246,22 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     auto elementType = memRefType.getElementType();
 
-    Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, input);
+    Value alloc =
+        (hasAllConstantDimensions(memRefType))
+            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
+            : insertAllocAndDealloc(
+                  memRefType, loc, rewriter, insertDealloc, input);
 
     // Insert allocations and deallocations for sum and max.
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
     Value sumOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
     Value maxOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
-    Value negInfinity = rewriter.create<arith::ConstantOp>(loc,
-        FloatAttr::get(elementType, -std::numeric_limits<float>::infinity()));
+
+    MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+    Value negInfinity = create.math.constant(
+        elementType, -std::numeric_limits<float>::infinity());
 
     if (opset < 13)
       // For Softmax opset < 13, `axis` is the coerced point. All dimensions

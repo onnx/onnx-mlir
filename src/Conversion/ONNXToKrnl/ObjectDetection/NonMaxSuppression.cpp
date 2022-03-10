@@ -358,8 +358,8 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                 Value isNotRemoved = createMath.eq(isRemoved, falseVal);
 
                 // Only proceed if the box satisfies the above conditions.
-                Value canSelectBox = createMath._and(
-                    createMath._and(checkScore, checkMOPC), isNotRemoved);
+                Value canSelectBox = createMath.andi(
+                    createMath.andi(checkScore, checkMOPC), isNotRemoved);
                 auto ifOp = rewriter.create<scf::IfOp>(
                     loc, canSelectBox, /*withElseRegion=*/false);
                 rewriter.setInsertionPointToStart(

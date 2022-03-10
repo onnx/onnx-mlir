@@ -2,33 +2,37 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- PrepareAccelerator.cpp -------------------===//
+//===-------------------------- NNPAAccelerator.cpp -----------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-// Add accelerator support for NNPA
+// Add accelerator support for the IBM Telum processor.
 //
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
-//#include "src/Accelerators/Accelerator.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Support/OMOptions.hpp"
-#include <iostream>
-// modified from DLC main
-#include "Compiler/DLCompilerUtils.hpp"
-#include "Dialect/ZHigh/ZHighOps.hpp"
-#include "Dialect/ZLow/ZLowOps.hpp"
-#include "Pass/DLCPasses.hpp"
-extern llvm::cl::OptionCategory OMDLCPassOptions;
-extern llvm::cl::opt<DLCEmissionTargetType> dlcEmissionTarget;
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "NNPACompiler"
+
+extern llvm::cl::OptionCategory OMNNPAPassOptions;
+extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
 extern llvm::cl::list<std::string> execNodesOnCpu;
 
-namespace mlir {
+namespace onnx_mlir {
+namespace accel {
+namespace nnpa {
 
-NNPAAccelerator::NNPAAccelerator() {
-  std::cout << "initializing NNPA" << std::endl;
+NNPAAccelerator::NNPAAccelerator() : Accelerator() {
+  LLVM_DEBUG(llvm::dbgs() << "initializing NNPA\n");
+
   if (!initialized) {
     initialized = true;
     // getAcceleratorList()->push_back(this);
@@ -36,25 +40,32 @@ NNPAAccelerator::NNPAAccelerator() {
     // getAcceleratorList()->push_back(this);
 };
 
-bool NNPAAccelerator::isActive() {
-  std::cout << "check if NNPA is active" << acceleratorTarget << std::endl;
+bool NNPAAccelerator::isActive() const {
+  LLVM_DEBUG(
+      llvm::dbgs() << "check if NNPA is active" << acceleratorTarget << "\n");
   if (acceleratorTarget.compare("NNPA") == 0) {
-    std::cout << "Targeting NNPA accelerator" << std::endl;
+    LLVM_DEBUG(llvm::dbgs() << "Targeting NNPA accelerator\n");
     return true;
-  } else
-    return false;
+  }
+
+  return false;
 }
 
 void NNPAAccelerator::prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, mlir::PassManager &pm,
-    onnx_mlir::EmissionTargetType emissionTarget) {
-  std::cout << "preparing accelerator " << acceleratorTarget << std::endl;
+    onnx_mlir::EmissionTargetType emissionTarget) const {
+  LLVM_DEBUG(
+      llvm::dbgs() << "preparing accelerator " << acceleratorTarget << "\n");
 
   // Load our Dialect in this MLIR Context.
-  context.getOrLoadDialect<mlir::ZHighDialect>();
-  context.getOrLoadDialect<mlir::ZLowDialect>();
-  addPassesDLC(module, pm, emissionTarget, dlcEmissionTarget, execNodesOnCpu);
+  context.getOrLoadDialect<zhigh::ZHighDialect>();
+  context.getOrLoadDialect<zlow::ZLowDialect>();
+  addPassesNNPA(module, pm, emissionTarget, nnpaEmissionTarget, execNodesOnCpu);
 }
+
 bool NNPAAccelerator::initialized = false;
 NNPAAccelerator nnpaAccelerator;
-} // namespace mlir
+
+} // namespace nnpa
+} // namespace accel
+} // namespace onnx_mlir

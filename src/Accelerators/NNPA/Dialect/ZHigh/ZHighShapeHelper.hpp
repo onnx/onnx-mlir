@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------ZHighShapeHelper.hpp - help for shapes---------------=== //
+//===----------------ZHighShapeHelper.hpp - help for shapes ---------------===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,6 @@
 // IndexExp is used in order to handle both static and dynamic shapes.
 //
 //===----------------------------------------------------------------------===//
-//
 
 #pragma once
 
@@ -20,11 +19,12 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Value.h"
 
-#include "Dialect/ZHigh/ZHighHelper.hpp"
-#include "Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 
-using namespace mlir;
+namespace onnx_mlir {
+namespace zhigh {
 
 // Steps to add a new op XXX:
 // 1) Create a new shape inference type inside this file, ZHighShapeHelper.hpp.
@@ -40,7 +40,7 @@ using namespace mlir;
 // base class for ZHigh here.
 //===----------------------------------------------------------------------===//
 
-using DimsExpr = SmallVector<IndexExpr, 4>;
+using DimsExpr = llvm::SmallVector<mlir::IndexExpr, 4>;
 
 /// When defining support for a new op, add one such stuct which must
 /// minimally compute the outputDims present in the parent class. Computation
@@ -64,13 +64,13 @@ struct ZHighOpShapeHelper {
   // Constructor for shape inference. Reuse scope if given, otherwise create one
   // now and free it in destructor.
   ZHighOpShapeHelper(
-      OP *newOp, int numResults, IndexExprScope *inScope = nullptr);
+      OP *newOp, int numResults, mlir::IndexExprScope *inScope = nullptr);
   // Constructor when code can be generated. Reuse scope if given, otherwise
   // create one now and free it in destructor.
-  ZHighOpShapeHelper(OP *newOp, int numResults, OpBuilder *rewriter,
-      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-      ArrayValueIndexCapture::LoadVal fLoadVal,
-      IndexExprScope *inScope = nullptr);
+  ZHighOpShapeHelper(OP *newOp, int numResults, mlir::OpBuilder *rewriter,
+      mlir::ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      mlir::ArrayValueIndexCapture::LoadVal fLoadVal,
+      mlir::IndexExprScope *inScope = nullptr);
   ~ZHighOpShapeHelper() {
     if (ownScope)
       delete scope;
@@ -95,16 +95,16 @@ struct ZHighOpShapeHelper {
   // are initialized in the constructor, and outputsDims is computed by the
   // child's struct `computeShape` function.
   OP *op;
-  IndexExprScope *scope;
+  mlir::IndexExprScope *scope;
 
 protected:
   // Function to get a dense value from an attribute.
-  ArrayValueIndexCapture::GetDenseVal fGetDenseVal;
+  mlir::ArrayValueIndexCapture::GetDenseVal fGetDenseVal;
   // Function to load a value from an array.
-  ArrayValueIndexCapture::LoadVal fLoadVal;
+  mlir::ArrayValueIndexCapture::LoadVal fLoadVal;
 
 private:
-  SmallVector<DimsExpr, 1> outputsDims;
+  llvm::SmallVector<DimsExpr, 1> outputsDims;
   bool ownScope;
 };
 
@@ -115,8 +115,8 @@ struct ZHighStickForLSTMOpShapeHelper
     : public ZHighOpShapeHelper<ZHighStickForLSTMOp> {
   ZHighStickForLSTMOpShapeHelper(ZHighStickForLSTMOp *newOp);
   ZHighStickForLSTMOpShapeHelper(
-      ZHighStickForLSTMOp *newOp, OpBuilder *rewriter);
-  LogicalResult computeShape(ZHighStickForLSTMOpAdaptor operandAdaptor);
+      ZHighStickForLSTMOp *newOp, mlir::OpBuilder *rewriter);
+  mlir::LogicalResult computeShape(ZHighStickForLSTMOpAdaptor operandAdaptor);
 };
 
 //===----------------------------------------------------------------------===//
@@ -125,8 +125,9 @@ struct ZHighStickForLSTMOpShapeHelper
 struct ZHighStickForGRUOpShapeHelper
     : public ZHighOpShapeHelper<ZHighStickForGRUOp> {
   ZHighStickForGRUOpShapeHelper(ZHighStickForGRUOp *newOp);
-  ZHighStickForGRUOpShapeHelper(ZHighStickForGRUOp *newOp, OpBuilder *rewriter);
-  LogicalResult computeShape(ZHighStickForGRUOpAdaptor operandAdaptor);
+  ZHighStickForGRUOpShapeHelper(
+      ZHighStickForGRUOp *newOp, mlir::OpBuilder *rewriter);
+  mlir::LogicalResult computeShape(ZHighStickForGRUOpAdaptor operandAdaptor);
 };
 
 //===----------------------------------------------------------------------===//
@@ -134,8 +135,8 @@ struct ZHighStickForGRUOpShapeHelper
 
 struct ZHighMatMulOpShapeHelper : public ZHighOpShapeHelper<ZHighMatMulOp> {
   ZHighMatMulOpShapeHelper(ZHighMatMulOp *newOp);
-  ZHighMatMulOpShapeHelper(ZHighMatMulOp *newOp, OpBuilder *rewriter);
-  LogicalResult computeShape(ZHighMatMulOpAdaptor operandAdaptor);
+  ZHighMatMulOpShapeHelper(ZHighMatMulOp *newOp, mlir::OpBuilder *rewriter);
+  mlir::LogicalResult computeShape(ZHighMatMulOpAdaptor operandAdaptor);
   // Broadcast case: X:3DS - Y:2D
   bool isBroadcasted = false;
   // Stack case: X:3DS - Y:3DS
@@ -149,8 +150,8 @@ struct ZHighMatMulOpShapeHelper : public ZHighOpShapeHelper<ZHighMatMulOp> {
 
 struct ZHighLSTMOpShapeHelper : public ZHighOpShapeHelper<ZHighLSTMOp> {
   ZHighLSTMOpShapeHelper(ZHighLSTMOp *newOp);
-  ZHighLSTMOpShapeHelper(ZHighLSTMOp *newOp, OpBuilder *rewriter);
-  LogicalResult computeShape(ZHighLSTMOpAdaptor operandAdaptor);
+  ZHighLSTMOpShapeHelper(ZHighLSTMOp *newOp, mlir::OpBuilder *rewriter);
+  mlir::LogicalResult computeShape(ZHighLSTMOpAdaptor operandAdaptor);
   // Used to initialize optional biases.
   DimsExpr hc0Shape, biasShape;
   // Keep original dimensions in this order: direction, steps, batchsize,
@@ -163,8 +164,8 @@ struct ZHighLSTMOpShapeHelper : public ZHighOpShapeHelper<ZHighLSTMOp> {
 
 struct ZHighGRUOpShapeHelper : public ZHighOpShapeHelper<ZHighGRUOp> {
   ZHighGRUOpShapeHelper(ZHighGRUOp *newOp);
-  ZHighGRUOpShapeHelper(ZHighGRUOp *newOp, OpBuilder *rewriter);
-  LogicalResult computeShape(ZHighGRUOpAdaptor operandAdaptor);
+  ZHighGRUOpShapeHelper(ZHighGRUOp *newOp, mlir::OpBuilder *rewriter);
+  mlir::LogicalResult computeShape(ZHighGRUOpAdaptor operandAdaptor);
   // Used to initialize optional biases.
   DimsExpr h0Shape, biasShape;
   // Keep original dimensions in this order: direction, steps, batchsize,
@@ -177,8 +178,8 @@ struct ZHighGRUOpShapeHelper : public ZHighOpShapeHelper<ZHighGRUOp> {
 
 struct ZHighConv2DOpShapeHelper : public ZHighOpShapeHelper<ZHighConv2DOp> {
   ZHighConv2DOpShapeHelper(ZHighConv2DOp *newOp);
-  ZHighConv2DOpShapeHelper(ZHighConv2DOp *newOp, OpBuilder *rewriter);
-  LogicalResult computeShape(ZHighConv2DOpAdaptor operandAdaptor);
+  ZHighConv2DOpShapeHelper(ZHighConv2DOp *newOp, mlir::OpBuilder *rewriter);
+  mlir::LogicalResult computeShape(ZHighConv2DOpAdaptor operandAdaptor);
   // Keep original dimensions in this order: batchsize, channel_in, height_in,
   // weight_in, channel_out, height_out, weight_out.
   DimsExpr allOriginalDims;
@@ -190,9 +191,12 @@ struct ZHighConv2DOpShapeHelper : public ZHighOpShapeHelper<ZHighConv2DOp> {
 template <typename OP, typename OP_ADATOR>
 struct ZHighPoolingOpShapeHelper : public ZHighOpShapeHelper<OP> {
   ZHighPoolingOpShapeHelper(OP *newOp);
-  ZHighPoolingOpShapeHelper(OP *newOp, OpBuilder *rewriter);
-  LogicalResult computeShape(OP_ADATOR operandAdaptor);
+  ZHighPoolingOpShapeHelper(OP *newOp, mlir::OpBuilder *rewriter);
+  mlir::LogicalResult computeShape(OP_ADATOR operandAdaptor);
   // Keep original dimensions in this order: batchsize, channel_in, height_in,
   // weight_in, height_out, weight_out.
   DimsExpr allOriginalDims;
 };
+
+} // namespace zhigh
+} // namespace onnx_mlir
