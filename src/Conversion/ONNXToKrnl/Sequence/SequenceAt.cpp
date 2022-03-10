@@ -26,8 +26,7 @@ struct ONNXSequenceAtOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ONNXSequenceAtOpAdaptor operandAdaptor(operands);
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
     auto input_sequence = operandAdaptor.input_sequence();
