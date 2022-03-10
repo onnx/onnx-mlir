@@ -51,8 +51,7 @@ namespace onnx_mlir {
  *  @param envVarName Environment variable name, use default when null.
  *  @return 0 on success or non-zero error code on failure.
  */
-ONNX_MLIR_EXPORT int64_t
-omSetCompilerOptionsFromEnv(const char *envVarName);
+ONNX_MLIR_EXPORT int64_t omSetCompilerOptionsFromEnv(const char *envVarName);
 
 /*!
  *  Define ONNX-MLIR compiler options with options defined by
@@ -103,7 +102,8 @@ ONNX_MLIR_EXPORT int64_t omSetCompilerOption(
 /*!
  *  Get the compiler options.
  *  @param kind Describe which option kind is being set.
- *  @return Value of compiler option.
+ *  @return A copy of the compiler option string. Caller is responsible for
+ *  freeing the returned pointer.
  */
 ONNX_MLIR_EXPORT const char *omGetCompilerOption(const OptionKind kind);
 
