@@ -26,7 +26,9 @@ void Accelerator::create(Accelerator::Kind kind,
   Accelerator *accel = nullptr;
   switch (kind) {
   case Kind::NNPA:
+    #ifdef __NNPA__
     accel = new nnpa::NNPAAccelerator();
+    #endif
     break;
   }
   assert(accel && "should never be null");

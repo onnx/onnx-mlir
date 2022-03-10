@@ -25,7 +25,7 @@ add_subdirectory(Support)
 add_subdirectory(Transform)
 add_subdirectory(Compiler)
 
-add_onnx_mlir_library(OMNNPAAccel
+add_onnx_mlir_library(NNPAAccelerator STATIC
   NNPAAccelerator.cpp
 
   DEPENDS
@@ -42,6 +42,7 @@ add_onnx_mlir_library(OMNNPAAccel
   
   LINK_LIBS PUBLIC
   onnx
+  Accelerator
   NNPACompilerUtils
   OMZHighOps
   OMZLowOps

@@ -61,6 +61,8 @@ if (ONNX_MLIR_ENABLE_JNI)
   add_dependencies(CompilerUtils jniruntime)
 endif()
 
+add_dependencies(CompilerUtils Accelerator)
+
 add_onnx_mlir_library(OnnxMlirCompiler
   OnnxMlirCompiler.cpp
 
