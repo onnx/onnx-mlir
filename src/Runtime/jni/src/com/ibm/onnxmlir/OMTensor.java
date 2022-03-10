@@ -10,6 +10,11 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
 
+/**
+ * Class describing the runtime information such as rank,
+ * shape, strides, data type, etc. associated with a tensor
+ * input/output.
+ */
 public class OMTensor {
 
     /* We can use enum but that creates another class
@@ -92,12 +97,12 @@ public class OMTensor {
      *
      * @param data byte data array for tensor
      * @param shape data shape array
-     * @param bool true for bool tensor, false for byte tensor
+     * @param flag true for boolean tensor, false for byte tensor
      *
-     * @return OMTensor with bool or byte data
+     * @return OMTensor with boolean or byte data
      */
-    public OMTensor(byte[] data, long[] shape, boolean bool) {
-	if (bool)
+    public OMTensor(byte[] data, long[] shape, boolean flag) {
+	if (flag)
 	    setBoolData(data);
 	else
 	    setByteData(data);
@@ -501,7 +506,7 @@ public class OMTensor {
     /**
      * Data type setter
      *
-     * @param type data type to be set
+     * @param dataType data type to be set
      */
     public void setDataType(int dataType) {
         if (dataType < 0 || dataType > ONNX_TYPE_BFLOAT16)
