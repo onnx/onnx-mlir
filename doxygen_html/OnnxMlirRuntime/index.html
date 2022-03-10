@@ -79,7 +79,7 @@ Data Structures</h2>
 <p><code>OMTensorList</code> is the data structure used to hold a list of pointers to OMTensor so that they can be passed into and out of the compiled model as inputs and outputs.</p>
 <h2><a class="anchor" id="model-entry-point-signature"></a>
 Model Entry Point Signature</h2>
-<p>All compiled model will have the same exact C function signature equivalent to:</p>
+<p>All compiled models will have the same exact C function signature equivalent to:</p>
 <div class="fragment"><div class="line">OMTensorList* run_main_graph(OMTensorList*);</div>
 </div><!-- fragment --><p>Intuitively, the model takes a list of tensors as input and returns a list of ensors as output.</p>
 <h2><a class="anchor" id="invoke-models-using-c-runtime-api"></a>
@@ -94,15 +94,13 @@ Invoke Models Using C Runtime</h2>
 <div class="line"> </div>
 <div class="line"><span class="keywordtype">int</span> main() {</div>
 <div class="line">  <span class="comment">// Shared shape &amp; rank.</span></div>
-<div class="line">  int64_t shape[] = {2, 2};</div>
+<div class="line">  int64_t shape[] = {3, 2};</div>
 <div class="line">  int64_t rank = 2;</div>
 <div class="line">  <span class="comment">// Construct x1 omt filled with 1.</span></div>
 <div class="line">  <span class="keywordtype">float</span> x1Data[] = {1., 1., 1., 1., 1., 1.};</div>
-<div class="line">  int64_t *x1Shape = {2, 2};</div>
 <div class="line">  OMTensor *x1 = omTensorCreate(x1Data, shape, rank, ONNX_TYPE_FLOAT);</div>
 <div class="line">  <span class="comment">// Construct x2 omt filled with 2.</span></div>
 <div class="line">  <span class="keywordtype">float</span> x2Data[] = {2., 2., 2., 2., 2., 2.};</div>
-<div class="line">  int64_t *x2Shape = {2, 2};</div>
 <div class="line">  OMTensor *x2 = omTensorCreate(x2Data, shape, rank, ONNX_TYPE_FLOAT);</div>
 <div class="line">  <span class="comment">// Construct a list of omts as input.</span></div>
 <div class="line">  OMTensor *list[2] = {x1, x2};</div>
