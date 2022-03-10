@@ -174,7 +174,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
                                .cast<MemRefType>()
                                .getElementType();
         if (elementType.dyn_cast<MemRefType>()) {
-          // ToDo: copy the value
+          // accumulate dynamic tensor
+          // ToDo: May need to copy the tensor
           create.krnl.store(std::get<0>(scanIntermediateToFinal),
               std::get<1>(scanIntermediateToFinal), origIV);
         } else {
@@ -205,14 +206,17 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     }
 
     rewriter.restoreInsertionPoint(afterLoop);
-    // Handle seq in outputs
+    // accumulate dynamic tensor
+    // Convert the memref<?xmemref<>> to a memref
     SmallVector<Value, 4> newOutputs;
-
     for (auto output : outputs) {
       auto seqElementType =
           output.getType().cast<MemRefType>().getElementType();
       if (seqElementType.isa<MemRefType>()) {
         // need convertion
+        // ToDo: need a IF statement to handle output is empty
+        // we can safely give 0 to the dynamic dim for alloc
+        // Here loop is assumed to be executed at least once.
         auto firstElement =
             create.krnl.load(output, create.math.constantIndex(0));
         SmallVector<mlir::Value, 4> allocParams;
@@ -247,6 +251,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         newOutputs.emplace_back(output);
       }
     }
+    // end accumulate dynamic tensor
+
     rewriter.replaceOp(op, newOutputs);
     return success();
   }
@@ -309,10 +315,14 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           allocParams.emplace_back(rewriter.create<arith::IndexCastOp>(
               loc, rewriter.getIndexType(), maxTripCount));
         }
+
         bool isDynamic = false;
-        // If the other dimension is dynamic, a memref cannot be allocated
-        // The accumulation has to be done like sequence.
-        // The sequence will be converted to a tensor after loop
+        // If one of the rest dimension is dynamic, we cannot allocate the
+        // memref before the loop because the size of the dynamic dim is not
+        // known yet. The accumulation has to be done like sequence. The
+        // sequence will be converted to a tensor after loop when the size is
+        // known All the related code will be marked with 'accumulation for
+        // dynamic tensor'
         for (int i = 1; i < rankedScanOutTy.getRank(); i++) {
           if (rankedScanOutTy.getShape()[i] == -1) {
             isDynamic = true;
@@ -321,12 +331,10 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         }
         MemRefBuilder createMemRef(rewriter, loc);
         if (isDynamic) {
-          // Suppose the shape is [d1, d2, ..., dn]
-          // Use memref<d1xmemref<d2, ..., dn>> to represent
+          // Suppose the scanout type is is <d1 , d2,... dn xT>
+          // Use memref<d1xmemref<d2, ..., dnxT>>
+          // seqElementType: memref<d2, ..., dnXT>
           auto elementType = rankedScanOutTy.getElementType();
-          // SmallVector<int64_t, 4> dims1;
-          // for(auto i = 1 ; i < rankedScanOutTy.getRank(); i++)
-          // dims1.emplace_back(rankedScanOutTy.getShape()[i]);
           SmallVector<int64_t, 1> dims1(rankedScanOutTy.getShape().begin() + 1,
               rankedScanOutTy.getShape().end());
           ArrayRef<int64_t> shape1(dims1.data(), dims1.size());
