@@ -10,14 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef ZHIGH_OPS
-#else
+#ifndef ZHIGH_OPS
 #define ZHIGH_OPS
 
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
-
-//include "third_party/onnx-mlir/src/Interface/ShapeInferenceOpInterface.td"
 include "src/Interface/ShapeInferenceOpInterface.td"
 
 //===----------------------------------------------------------------------===//
@@ -26,7 +23,7 @@ include "src/Interface/ShapeInferenceOpInterface.td"
 
 def ZHigh_Dialect : Dialect {
   let name = "zhigh";
-  let cppNamespace = "::mlir";
+  let cppNamespace = "::onnx_mlir::zhigh";
 }
 
 //===----------------------------------------------------------------------===//
@@ -75,6 +72,8 @@ def ZTensorEncodingAttr : ZHigh_Attr<"ZTensorEncoding"> {
       FICO, ZRH, BFICO, BZRH
     };
   }];
+
+  let cppNamespace = "::onnx_mlir::zhigh";
 }
 
 // Whether a ztensor type has the specified layout.
@@ -147,7 +146,7 @@ def ZHighStickOp:ZHigh_Op<"Stick", [NoSideEffect,
                                  ZTensor_NHWC,  ZTensor_NCHW, ZTensor_HWCK,
                                  NoneType]>:$Out);
   let builders = [
-    OpBuilder<(ins "Value":$In, "StringAttr":$layout)>
+    OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$layout)>
   ];
   let hasCanonicalizer = 1;
 }
@@ -163,7 +162,7 @@ def ZHighUnstickOp:ZHigh_Op<"Unstick", [NoSideEffect,
                                  ZTensor_NHWC, ZTensor_NCHW, ZTensor_HWCK]>:$In);
   let results = (outs TensorOf<[F32]>:$Out);
   let builders = [
-    OpBuilder<(ins "Value":$In)>,
+    OpBuilder<(ins "::mlir::Value":$In)>,
   ];
   let hasCanonicalizer = 1;
 }
@@ -314,7 +313,7 @@ def ZHighMeanReduce2DOp:ZHigh_Op<"MeanReduce2d", [NoSideEffect,
   let arguments = (ins ZTensor_NHWC:$input);
   let results = (outs ZTensor_NHWC:$output);
   let builders = [
-    OpBuilder<(ins "Value":$input), [{
+    OpBuilder<(ins "::mlir::Value":$input), [{
       Type elementType = input.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, input);
@@ -335,8 +334,8 @@ def ZHighMaxPool2DOp:ZHigh_Op<"MaxPool2D", [NoSideEffect,
   );
   let results = (outs ZTensor_NHWC:$output);
   let builders = [
-    OpBuilder<(ins "Value":$input, "ArrayAttr":$kernel_shape,
-                   "ArrayAttr":$strides, "StringAttr":$padding_type), [{
+    OpBuilder<(ins "::mlir::Value":$input, "::mlir::ArrayAttr":$kernel_shape,
+                   "::mlir::ArrayAttr":$strides, "::mlir::StringAttr":$padding_type), [{
       Type elementType = input.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, input, kernel_shape, strides, padding_type);
@@ -357,8 +356,8 @@ def ZHighAvgPool2DOp:ZHigh_Op<"AvgPool2D", [NoSideEffect,
   );
   let results = (outs ZTensor_NHWC:$output);
   let builders = [
-    OpBuilder<(ins "Value":$input, "ArrayAttr":$kernel_shape,
-                   "ArrayAttr":$strides, "StringAttr":$padding_type), [{
+    OpBuilder<(ins "::mlir::Value":$input, "::mlir::ArrayAttr":$kernel_shape,
+                   "::mlir::ArrayAttr":$strides, "::mlir::StringAttr":$padding_type), [{
       Type elementType = input.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, input, kernel_shape, strides, padding_type);
@@ -378,13 +377,13 @@ def ZHighMatMulOp:ZHigh_Op<"MatMul", [NoSideEffect,
 
   let results = (outs AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$Out);
   let builders = [
-    OpBuilder<(ins "Value":$X, "Value":$Y, "Value":$B), [{
+    OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Y, "::mlir::Value":$B), [{
       Type elementType = X.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, X, Y, B);
     }]>
   ];
-  let verifier = [{ return ::verify(*this); }];
+  let verifier = [{ return ::onnx_mlir::zhigh::verify(*this); }];
 }
 
 def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
@@ -396,9 +395,9 @@ def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
     "Shape for input_weights is  [D, I, 4*H]."
     "Shape for hidden_weights is  [D, H, 4*H]."
     "Shape for input_bias and hidden_bias is [D, 4*H]."
-    "Shape for hn_output is [S, B, H] if return all timesteps "
-    "and [1, B, H] if return the final step only."
-    "Shape for cf_output is [1, B, H]."
+    "Shape for hn_output is [S, D, B, H] if return all timesteps "
+    "and [1, D, B, H] if return the final step only."
+    "Shape for cf_output is [1, D, B, H]."
     "S is timesteps, D is the number of directions (1 for unidirectional and "
     "2 for bidirectional), B is batch size, I is input size, and "
      H is hidden size."
@@ -415,14 +414,14 @@ def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
                        SI64Attr:$hidden_size,
                        DefaultValuedStrAttr<StrAttr, "forward">:$direction,
                        DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps);
-  let results = (outs ZTensor_3DS:$hn_output,
-                      ZTensor_3DS:$cf_output);
+  let results = (outs ZTensor_4DS:$hn_output,
+                      ZTensor_4DS:$cf_output);
   let builders = [
-    OpBuilder<(ins "Value":$input, "Value":$h0, "Value":$c0,
-                   "Value":$input_weights, "Value":$input_bias,
-		   "Value":$hidden_weights, "Value":$hidden_bias,
-                   "IntegerAttr":$hidden_size, "StringAttr":$direction,
-                   "IntegerAttr":$return_all_steps), [{
+    OpBuilder<(ins "::mlir::Value":$input, "::mlir::Value":$h0, "::mlir::Value":$c0,
+                   "::mlir::Value":$input_weights, "::mlir::Value":$input_bias,
+            		   "::mlir::Value":$hidden_weights, "::mlir::Value":$hidden_bias,
+                   "::mlir::IntegerAttr":$hidden_size, "::mlir::StringAttr":$direction,
+                   "::mlir::IntegerAttr":$return_all_steps), [{
       Type elementType = input.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, resType,
@@ -430,7 +429,7 @@ def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
             hidden_bias, hidden_size, direction, return_all_steps);
     }]>
   ];
-  let verifier = [{ return ::verify(*this); }];
+  let verifier = [{ return ::onnx_mlir::zhigh::verify(*this); }];
 }
 
 def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
@@ -442,8 +441,8 @@ def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
     "Shape for input_weights is  [D, I, 3*H]."
     "Shape for hidden_weights is  [D, H, 3*H]."
     "Shape for input_bias and hidden_bias is [D, 3*H]."
-    "Shape for hn_output is [S, B, H] if return all timesteps "
-    "and [1, B, H] if return the final step only."
+    "Shape for hn_output is [S, D, B, H] if return all timesteps "
+    "and [1, D, B, H] if return the final step only."
     "S is timesteps, D is the number of directions (1 for unidirectional and "
     "2 for bidirectional), B is batch size, I is input size, and "
      H is hidden size."
@@ -459,12 +458,12 @@ def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
                        SI64Attr:$hidden_size,
                        DefaultValuedStrAttr<StrAttr, "forward">:$direction,
                        DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps);
-  let results = (outs ZTensor_3DS:$hn_output);
+  let results = (outs ZTensor_4DS:$hn_output);
   let builders = [
-    OpBuilder<(ins "Value":$input, "Value":$h0, "Value":$input_weights,
-                   "Value":$input_bias, "Value":$hidden_weights,
-                   "Value":$hidden_bias, "IntegerAttr":$hidden_size,
-                   "StringAttr":$direction, "IntegerAttr":$return_all_steps), [{
+    OpBuilder<(ins "::mlir::Value":$input, "::mlir::Value":$h0, "::mlir::Value":$input_weights,
+                   "::mlir::Value":$input_bias, "::mlir::Value":$hidden_weights,
+                   "::mlir::Value":$hidden_bias, "::mlir::IntegerAttr":$hidden_size,
+                   "::mlir::StringAttr":$direction, "::mlir::IntegerAttr":$return_all_steps), [{
       Type elementType = input.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType,
@@ -472,7 +471,7 @@ def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
             hidden_bias, hidden_size, direction, return_all_steps);
     }]>
   ];
-  let verifier = [{ return ::verify(*this); }];
+  let verifier = [{ return ::onnx_mlir::zhigh::verify(*this); }];
 }
 
 def ZHighStickForLSTMOp:ZHigh_Op<"StickForLSTM", [NoSideEffect,
@@ -490,8 +489,8 @@ def ZHighStickForLSTMOp:ZHigh_Op<"StickForLSTM", [NoSideEffect,
                        TensorOf<[F32]>:$o_gate);
   let results = (outs ZTensor_FICO:$out);
   let builders = [
-    OpBuilder<(ins "Value":$f_gate, "Value":$i_gate,
-                   "Value":$c_gate, "Value":$o_gate), [{
+    OpBuilder<(ins "::mlir::Value":$f_gate, "::mlir::Value":$i_gate,
+                   "::mlir::Value":$c_gate, "::mlir::Value":$o_gate), [{
       Type elementType = f_gate.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, f_gate, i_gate, c_gate, o_gate);
@@ -513,7 +512,7 @@ def ZHighStickForGRUOp:ZHigh_Op<"StickForGRU", [NoSideEffect,
                        TensorOf<[F32]>:$h_gate);
   let results = (outs ZTensor_ZRH:$out);
   let builders = [
-    OpBuilder<(ins "Value":$z_gate, "Value":$r_gate, "Value":$h_gate), [{
+    OpBuilder<(ins "::mlir::Value":$z_gate, "::mlir::Value":$r_gate, "::mlir::Value":$h_gate), [{
       Type elementType = z_gate.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, z_gate, r_gate, h_gate);
@@ -545,16 +544,16 @@ def ZHighConv2DOp:ZHigh_Op<"Conv2D", [NoSideEffect,
   );
   let results = (outs ZTensor_NHWC:$output);
   let builders = [
-    OpBuilder<(ins "Value":$input, "Value":$input_kernel, "Value":$input_bias,
-                   "ArrayAttr":$kernel_shape, "ArrayAttr":$strides,
-                   "StringAttr":$padding_type, "StringAttr":$act_func), [{
+    OpBuilder<(ins "::mlir::Value":$input, "::mlir::Value":$input_kernel, "::mlir::Value":$input_bias,
+                   "::mlir::ArrayAttr":$kernel_shape, "::mlir::ArrayAttr":$strides,
+                   "::mlir::StringAttr":$padding_type, "::mlir::StringAttr":$act_func), [{
       Type elementType = input.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, input, input_kernel, input_bias,
             kernel_shape, strides, padding_type, act_func);
     }]>
   ];
-  let verifier = [{ return ::verify(*this); }];
+  let verifier = [{ return ::onnx_mlir::zhigh::verify(*this); }];
 }
 
 def ZHighBatchNormOp:ZHigh_Op<"BatchNorm", [NoSideEffect,
@@ -569,7 +568,7 @@ def ZHighBatchNormOp:ZHigh_Op<"BatchNorm", [NoSideEffect,
                   );
   let results = (outs ZTensor_NHWC:$output);
   let builders = [
-    OpBuilder<(ins "Value":$input, "Value":$a, "Value":$b), [{
+    OpBuilder<(ins "::mlir::Value":$input, "::mlir::Value":$a, "::mlir::Value":$b), [{
       build($_builder, $_state, input.getType(), input, a, b);
     }]>
   ];

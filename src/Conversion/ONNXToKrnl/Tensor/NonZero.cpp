@@ -196,7 +196,7 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
                   Value s = createKrnl.load(sum, {});
                   Value p = createKrnl.load(pos, {});
                   s = createMath.add(s, o);
-                  Value andCond = createMath._and(
+                  Value andCond = createMath.andi(
                       createMath.slt(i, s), createMath.eq(p, iMinusOne));
                   p = createMath.select(andCond, j, p);
                   createKrnl.store(p, pos, {});

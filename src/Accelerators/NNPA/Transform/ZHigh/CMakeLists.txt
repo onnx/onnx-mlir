@@ -1,8 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # turn off until stickify code is ready   
 # add_subdirectory(Stickify)
 # 
 # set(LLVM_TARGET_DEFINITIONS ZHighConstPropagation.td)
-# mlir_tablegen(ZHighConstPropagation.inc -gen-rewriters "-I${DLC_ONNX_MLIR_SRC_ROOT}" "-I${DLC_SRC_ROOT}")
+# mlir_tablegen(ZHighConstPropagation.inc -gen-rewriters "-I${NNPA_ONNX_MLIR_SRC_ROOT}" "-I${NNPA_SRC_ROOT}")
 # add_public_tablegen_target(OMZHighConstPropagationIncGen)
 # 
 # add_onnx_mlir_library(OMZHighConstPropagation
@@ -20,12 +22,12 @@
 #   OMONNXOps
 # 
 #   ACCEL_INCLUDE_DIRS PRIVATE
-#   ${DLC_SRC_ROOT}
-#   ${DLC_BIN_ROOT}
+#   ${NNPA_SRC_ROOT}
+#   ${NNPA_BIN_ROOT}
 #   )
 
 set(LLVM_TARGET_DEFINITIONS ZHighLayoutPropagation.td)
-mlir_tablegen(ZHighLayoutPropagation.inc -gen-rewriters "-I${DLC_ONNX_MLIR_SRC_ROOT}" "-I${DLC_SRC_ROOT}")
+mlir_tablegen(ZHighLayoutPropagation.inc -gen-rewriters "-I${NNPA_ONNX_MLIR_SRC_ROOT}" "-I${NNPA_SRC_ROOT}")
 add_public_tablegen_target(OMZHighLayoutPropagationIncGen)
 
 add_onnx_mlir_library(OMZHighLayoutPropagation
@@ -41,8 +43,8 @@ add_onnx_mlir_library(OMZHighLayoutPropagation
   OMONNXOps
 
   ACCEL_INCLUDE_DIRS PRIVATE
-  ${DLC_SRC_ROOT}
-  ${DLC_BIN_ROOT}
+  ${NNPA_SRC_ROOT}
+  ${NNPA_BIN_ROOT}
    )
 
 add_onnx_mlir_library(OMInstrumentZHigh
@@ -51,9 +53,9 @@ add_onnx_mlir_library(OMInstrumentZHigh
   LINK_LIBS PUBLIC
   OMKrnlOps
   MLIRPass
-  OMDLCSupport
+  OMNNPASupport
 
   ACCEL_INCLUDE_DIRS PRIVATE
-  ${DLC_SRC_ROOT}
-  ${DLC_BIN_ROOT}
+  ${NNPA_SRC_ROOT}
+  ${NNPA_BIN_ROOT}
    )
