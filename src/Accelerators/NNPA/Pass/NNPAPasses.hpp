@@ -17,6 +17,7 @@
 
 #include <memory>
 
+#ifdef __NNPA__
 namespace onnx_mlir {
 
 /// Add pass for lowering ONNX ops to ZHigh ops.
@@ -68,3 +69,5 @@ std::unique_ptr<mlir::Pass> createZLowToLLVMPass();
 
 } // namespace zlow
 } // namespace onnx_mlir
+
+#endif // __NNPA__

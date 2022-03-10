@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef __NNPA__
 #pragma once
 
 #include <map>
@@ -78,3 +79,5 @@ public:
 
 #define GET_OP_CLASSES
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp.inc"
+
+#endif // __NNPA__

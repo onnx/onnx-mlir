@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef __NNPA__
+
 #pragma once
 
 #include <map>
@@ -42,3 +44,5 @@ public:
 /// ONNX operations.
 #define GET_OP_CLASSES
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp.inc"
+
+#endif // __NNPA__

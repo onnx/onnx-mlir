@@ -11,11 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Pass/Pass.h"
-#include "src/Pass/Passes.hpp"
-
-#ifdef __NNPA__
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
-#endif
+#include "src/Pass/Passes.hpp"
 
 namespace onnx_mlir {
 
@@ -118,7 +115,7 @@ void initOMPasses(int optLevel) {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::zhigh::createZHighLayoutPropagationPass();
   });
-#endif
+#endif // __NNPA__
 }
 
 } // namespace onnx_mlir
