@@ -36,6 +36,17 @@ if (MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -wd4125")
 endif()
 
+# Define preprocessor for accelerators.
+set(NNPA_ENABLED 0)
+if (ACCELERATORS_TO_BUILD)
+  foreach(t ${ACCELERATORS_TO_BUILD})
+    add_compile_definitions("__${t}__")
+    if (${t} STREQUAL "NNPA")
+      set(NNPA_ENABLED 1)
+    endif()
+  endforeach(t)
+endif(ACCELERATORS_TO_BUILD)
+
 # Enable warnings as errors
 # Leverage the imported LLVM_ENABLE_WERROR for compiler logic
 set(LLVM_ENABLE_WERROR ${ONNX_MLIR_ENABLE_WERROR})
@@ -149,3 +160,4 @@ add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(docs)
 add_subdirectory(test)
+add_subdirectory(version)

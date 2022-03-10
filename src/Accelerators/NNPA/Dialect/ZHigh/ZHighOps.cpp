@@ -2,15 +2,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------------ ZHighOps.hpp - ONNX Operations --------------------===//
+//===------------------ ZHighOps.cpp - ONNX Operations --------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
 // This file defines the ZHigh operations in the MLIR operation set.
 //
 //===----------------------------------------------------------------------===//
+
 #include <math.h>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -28,16 +29,44 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/TypeSwitch.h"
 
-#include "Support/LayoutHelper.hpp"
-#include "ZHighHelper.hpp"
-#include "ZHighOps.hpp"
-#include "ZHighShapeHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "third_party/zdnn-lib/zdnn/zdnn.h"
 
 using namespace mlir;
 
-#define GET_ATTRDEF_CLASSES
-#include "Dialect/ZHigh/ZHighAttrs.cpp.inc"
+namespace mlir {
+
+LogicalResult OpTrait::impl::verifySameOperandsAndResultLayout(Operation *op) {
+  if (failed(verifyAtLeastNOperands(op, 1)) ||
+      failed(verifyAtLeastNResults(op, 1)))
+    return failure();
+
+  onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout layout =
+      onnx_mlir::zhigh::getZTensorLayout(op->getResult(0).getType());
+
+  if (layout == onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::UNDEFINED)
+    return success();
+
+  for (auto result : llvm::drop_begin(op->getResults())) {
+    if (onnx_mlir::zhigh::getZTensorLayout(result.getType()) != layout)
+      return op->emitOpError()
+             << "requires the same layout for all operands and results";
+  }
+  for (auto oprd : op->getOperands()) {
+    if (onnx_mlir::zhigh::getZTensorLayout(oprd.getType()) != layout)
+      return op->emitOpError()
+             << "requires the same layout for all operands and results";
+  }
+  return success();
+}
+
+} // namespace mlir
+
+namespace onnx_mlir {
+namespace zhigh {
 
 std::vector<mlir::Type> getZHighAuxSplitResultType(
     Value input, int64_t axis, ArrayAttr split) {
@@ -62,30 +91,6 @@ std::vector<mlir::Type> getZHighAuxSplitResultType(
   return outputTypes;
 }
 
-LogicalResult OpTrait::impl::verifySameOperandsAndResultLayout(Operation *op) {
-  if (failed(verifyAtLeastNOperands(op, 1)) ||
-      failed(verifyAtLeastNResults(op, 1)))
-    return failure();
-
-  ZTensorEncodingAttr::DataLayout layout =
-      getZTensorLayout(op->getResult(0).getType());
-
-  if (layout == ZTensorEncodingAttr::DataLayout::UNDEFINED)
-    return success();
-
-  for (auto result : llvm::drop_begin(op->getResults())) {
-    if (getZTensorLayout(result.getType()) != layout)
-      return op->emitOpError()
-             << "requires the same layout for all operands and results";
-  }
-  for (auto oprd : op->getOperands()) {
-    if (getZTensorLayout(oprd.getType()) != layout)
-      return op->emitOpError()
-             << "requires the same layout for all operands and results";
-  }
-  return success();
-}
-
 //===----------------------------------------------------------------------===//
 // ZHigh Attribute
 //===----------------------------------------------------------------------===//
@@ -100,7 +105,8 @@ Attribute ZTensorEncodingAttr::parse(AsmParser &parser, Type type) {
   if (failed(parser.parseGreater()))
     return {};
 
-  ZTensorEncodingAttr::DataLayout dataLayout;
+  ZTensorEncodingAttr::DataLayout dataLayout =
+      ZTensorEncodingAttr::DataLayout::UNDEFINED;
 
   // Process the data from the parsed dictionary value into struct-like data.
   for (const NamedAttribute &attr : dict) {
@@ -203,6 +209,9 @@ void ZTensorEncodingAttr::print(AsmPrinter &printer) const {
   case DataLayout::BZRH:
     printer << "\"" << LAYOUT_BZRH << "\"";
     break;
+  case DataLayout::UNDEFINED:
+    llvm_unreachable("Unexpected data layout");
+    break;
   }
   printer << "}>";
 }
@@ -217,11 +226,11 @@ ZHighDialect::ZHighDialect(MLIRContext *ctx)
     : Dialect(getDialectNamespace(), ctx, TypeID::get<ZHighDialect>()) {
   addAttributes<
 #define GET_ATTRDEF_LIST
-#include "Dialect/ZHigh/ZHighAttrs.cpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttrs.cpp.inc"
       >();
   addOperations<
 #define GET_OP_LIST
-#include "Dialect/ZHigh/ZHighOps.cpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.cpp.inc"
       >();
 }
 
@@ -671,7 +680,7 @@ LogicalResult ZHighLSTMOp::inferShapes(
   // Output type is 3DS.
   Type elementType = input().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
-      this->getContext(), ZTensorEncodingAttr::DataLayout::_3DS);
+      this->getContext(), ZTensorEncodingAttr::DataLayout::_4DS);
   RankedTensorType hnType =
       RankedTensorType::get(hnOutputDims, elementType, encoding);
   RankedTensorType cfType =
@@ -744,7 +753,7 @@ LogicalResult ZHighGRUOp::inferShapes(
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), hnOutputDims);
   Type elementType = input().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
-      this->getContext(), ZTensorEncodingAttr::DataLayout::_3DS);
+      this->getContext(), ZTensorEncodingAttr::DataLayout::_4DS);
   RankedTensorType hnType =
       RankedTensorType::get(hnOutputDims, elementType, encoding);
   getResult().setType(hnType);
@@ -869,10 +878,16 @@ LogicalResult ZHighAvgPool2DOp::inferShapes(
   return success();
 }
 
+} // namespace zhigh
+} // namespace onnx_mlir
+
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 // Keep this part at the end of the file.
 //===----------------------------------------------------------------------===//
 
 #define GET_OP_CLASSES
-#include "Dialect/ZHigh/ZHighOps.cpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.cpp.inc"
+
+#define GET_ATTRDEF_CLASSES
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighAttrs.cpp.inc"

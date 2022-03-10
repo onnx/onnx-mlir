@@ -35,9 +35,11 @@
 #include "src/InitOMPasses.hpp"
 #include "src/Pass/Passes.hpp"
 
-using namespace onnx_mlir;
+#ifdef __NNPA__
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
+#endif
 
-// TODO(tjingrant): disable the following namespace import.
 using namespace mlir;
 
 static llvm::cl::opt<std::string> input_filename(
@@ -104,6 +106,10 @@ int main(int argc, char **argv) {
 
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
+#ifdef __NNPA__
+  registry.insert<onnx_mlir::zhigh::ZHighDialect>();
+  registry.insert<onnx_mlir::zlow::ZLowDialect>();
+#endif
 
   registerTransformsPasses();
   registerAffinePasses();
@@ -116,8 +122,8 @@ int main(int argc, char **argv) {
   // Scan Opt Level manually now as it is needed for initializing the OM Passes.
   scanAndSetOptLevel(argc, argv);
 
-  initOMPasses(OptimizationLevel);
-  initMLIRPasses();
+  onnx_mlir::initOMPasses(OptimizationLevel);
+  onnx_mlir::initMLIRPasses();
 
   // Register any command line options.
   mlir::registerAsmPrinterCLOptions();

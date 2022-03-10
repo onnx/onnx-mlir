@@ -31,7 +31,7 @@ struct ONNXRandomNormalOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     ArrayRef<int64_t> outputMemRefShape = outputMemRefType.getShape();
-    int outputRank = outputMemRefShape.size();
+    size_t outputRank = outputMemRefShape.size();
     Type elementType = outputMemRefType.getElementType();
 
     // Insert alloc/dealloc pair for output tensor.
@@ -58,8 +58,10 @@ struct ONNXRandomNormalOpLowering : public ConversionPattern {
     if (seed)
       doubleSeed = seed->convertToDouble();
     Value seedValue = emitConstantOp(rewriter, loc, elementType, doubleSeed);
-    rewriter.create<KrnlRandomNormalOp>(
-        loc, alloc, numberOfRandomValues, meanValue, scaleValue, seedValue);
+
+    MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
+    create.krnl.randomNormal(
+        alloc, numberOfRandomValues, meanValue, scaleValue, seedValue);
 
     rewriter.replaceOp(op, alloc);
     return success();

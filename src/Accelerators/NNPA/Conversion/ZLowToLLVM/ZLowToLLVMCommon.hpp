@@ -20,6 +20,9 @@
 
 #include "third_party/zdnn-lib/zdnn/zdnn.h"
 
+namespace onnx_mlir {
+namespace zlow {
+
 enum class API {
   NULL_API,
   // Tensor functions
@@ -191,3 +194,6 @@ void fillInZTensor(mlir::PatternRewriter &rewriter, mlir::Location loc,
     mlir::ModuleOp module, mlir::Value zTensor,
     mlir::Value preTransformedDescPtr, mlir::Value transformedDescPtr,
     bool isTransformed, mlir::Value bufferSize, mlir::Value alignedBuffer);
+
+} // namespace zlow
+} // namespace onnx_mlir

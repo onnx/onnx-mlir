@@ -87,11 +87,11 @@ struct ONNXLRNOpLowering : public ConversionPattern {
 
     // Initialize sum, single scalar, no need for default alignment.
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
-    MemRefBuilder createMemRef(rewriter, loc);
-    Value sumAlloc = createMemRef.alloc(scalarMemRefType);
-    rewriter.create<KrnlStoreOp>(loc,
-        emitConstantOp(rewriter, loc, elementType, 0), sumAlloc,
-        ArrayRef<Value>{});
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+
+    Value sumAlloc = create.mem.alloc(scalarMemRefType);
+    create.krnl.store(emitConstantOp(rewriter, loc, elementType, 0), sumAlloc);
 
     // Create the sum reduction loop
     BuildKrnlLoop sumLoops(rewriter, loc, 1);
@@ -113,13 +113,12 @@ struct ONNXLRNOpLowering : public ConversionPattern {
       }
     }
 
-    Value loadVal = rewriter.create<KrnlLoadOp>(loc, input, loadIndices);
-    Value squareVal = rewriter.create<arith::MulFOp>(loc, loadVal, loadVal);
+    Value loadVal = create.krnl.load(input, loadIndices);
+    Value squareVal = create.math.mul(loadVal, loadVal);
 
-    Value sumValue =
-        rewriter.create<KrnlLoadOp>(loc, sumAlloc, ArrayRef<Value>{});
-    sumValue = rewriter.create<arith::AddFOp>(loc, sumValue, squareVal);
-    rewriter.create<KrnlStoreOp>(loc, sumValue, sumAlloc, ArrayRef<Value>{});
+    Value sumValue = create.krnl.load(sumAlloc, ArrayRef<Value>{});
+    sumValue = create.math.add(sumValue, squareVal);
+    create.krnl.store(sumValue, sumAlloc, ArrayRef<Value>{});
 
     // Compute and store the output
     // y = x / ((bias + (alpha / nsize) * square_sum) ** beta)
@@ -128,15 +127,15 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     for (int i = 0; i < outputRank; ++i) {
       storeIndices.emplace_back(outputLoops.getInductionVar(i));
     }
-    Value xValue = rewriter.create<KrnlLoadOp>(loc, input, storeIndices);
-    sumValue = rewriter.create<KrnlLoadOp>(loc, sumAlloc, ArrayRef<Value>{});
-    Value tempValue = rewriter.create<math::PowFOp>(loc,
-        rewriter.create<arith::AddFOp>(loc, biasValue,
-            rewriter.create<arith::MulFOp>(loc, alphaDivSizeValue, sumValue)),
-        betaValue);
-    Value resultValue = rewriter.create<arith::DivFOp>(loc, xValue, tempValue);
+    Value xValue = create.krnl.load(input, storeIndices);
+    sumValue = create.krnl.load(sumAlloc);
+    Value tempValue =
+        create.math.pow(create.math.add(biasValue,
+                            create.math.mul(alphaDivSizeValue, sumValue)),
+            betaValue);
+    Value resultValue = create.math.div(xValue, tempValue);
 
-    rewriter.create<KrnlStoreOp>(loc, resultValue, alloc, storeIndices);
+    create.krnl.store(resultValue, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
 

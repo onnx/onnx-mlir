@@ -4,7 +4,7 @@
 
 //===------- InstrumentZHighPass.cpp - Instrumentation --------------------===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -22,16 +22,17 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "Dialect/ZHigh/ZHighOps.hpp"
-#include "Pass/DLCPasses.hpp"
-#include "Support/OMDLCOptions.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/OMNNPAOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 
 using namespace mlir;
 
-namespace {
+namespace onnx_mlir {
+namespace zhigh {
 
 /*!
  * This pass insert KrnlInstrumentOp before and after each ZHigh ops
@@ -57,7 +58,7 @@ llvm::cl::bits<InstrumentActions> InstrumentControlBits(
             InstrumentReportTimeZHigh, "instrument runtime reports time usage"),
         clEnumVal(InstrumentReportMemoryZHigh,
             "instrument runtime reports memory usage")),
-    llvm::cl::cat(OMDLCPassOptions));
+    llvm::cl::cat(OMNNPAPassOptions));
 
 class InstrumentZHighPass
     : public mlir::PassWrapper<InstrumentZHighPass, OperationPass<FuncOp>> {
@@ -94,7 +95,7 @@ public:
 
     // Iterate on the operations nested in this function
     getOperation().walk([&](mlir::Operation *op) {
-      if (isa<mlir::ZHighDialect>(op->getDialect())) {
+      if (isa<zhigh::ZHighDialect>(op->getDialect())) {
         // Skip the prefix "zhigh." of zhigh op name
         const char *opName = op->getName().getStringRef().data() + 6;
         if (!allOpsAllowed && allowedOps.find(opName) == allowedOps.end())
@@ -120,11 +121,13 @@ public:
     });
   }
 };
-} // end anonymous namespace
 
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createInstrumentZHighPass() {
+std::unique_ptr<mlir::Pass> createInstrumentZHighPass() {
   return std::make_unique<InstrumentZHighPass>();
 }
+
+} // namespace zhigh
+} // namespace onnx_mlir

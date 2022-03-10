@@ -53,7 +53,7 @@ struct MathBuilder : DialectBuilder {
   MathBuilder(OpBuilder &b, Location loc);
   MathBuilder(DialectBuilder &db);
 
-  Value _and(Value lhs, Value rhs);
+  Value andi(Value lhs, Value rhs);
   Value add(Value lhs, Value rhs);
   Value sub(Value lhs, Value rhs);
   Value mul(Value lhs, Value rhs);
