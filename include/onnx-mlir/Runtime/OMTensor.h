@@ -96,7 +96,7 @@ OMTensor *omTensorCreate(
  *
  * OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL,
  * FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example,
- * a 32-bit signed-integer is represented by the ONNX_TYPE_INT32 enum value.
+ * a 32-bit unsigned-integer is represented by the ONNX_TYPE_UINT32 enum value.
  *
  * @param data_ptr pointer to tensor data.
  * @param shape list of integers indicating the tensor shape.
@@ -122,7 +122,7 @@ OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
  *
  * OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL,
  * FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example,
- * a 32-bit signed-integer is represented by the ONNX_TYPE_INT32 enum value.
+ * a 32-bit floating-point is represented by the ONNX_TYPE_FLOAT enum value.
  *
  * @param shape list of integers indicating the tensor shape.
  * @param rank tensor rank.
@@ -241,7 +241,7 @@ void omTensorSetStridesWithPyArrayStrides(
  *
  * OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL,
  * FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example,
- * a 32-bit signed-integer is represented by the ONNX_TYPE_INT32 enum value.
+ * a string is represented by the ONNX_TYPE_STRING enum value.
  *
  * @param tensor pointer to the OMTensor
  * @return ONNX data type of the data buffer elements.
@@ -253,7 +253,7 @@ OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor);
  *
  * OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL,
  * FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example,
- * a 32-bit signed-integer is represented by the ONNX_TYPE_INT32 enum value.
+ * a 1-bit boolean number is represented by the ONNX_TYPE_BOOL enum value.
  *
  * @param tensor pointer to the OMTensor
  * @param dataType ONNX data type to be set
