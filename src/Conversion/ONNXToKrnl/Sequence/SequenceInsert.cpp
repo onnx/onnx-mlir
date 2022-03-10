@@ -62,13 +62,12 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
     }
 
     // Copy elements before the insertion position
-    KrnlBuilder createKrnl(rewriter, loc);
     SmallVector<IndexExpr, 1> lbs;
     lbs.emplace_back(LiteralIndexExpr(0));
     SmallVector<IndexExpr, 1> ubs;
     ubs.emplace_back(positionIE);
-    ValueRange firstLoopDef = createKrnl.defineLoops(1);
-    createKrnl.iterateIE(firstLoopDef, firstLoopDef, lbs, ubs,
+    ValueRange firstLoopDef = create.krnl.defineLoops(1);
+    create.krnl.iterateIE(firstLoopDef, firstLoopDef, lbs, ubs,
         [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
           auto element = createKrnl.load(
               operandAdaptor.input_sequence(), indicesLoopInd[0]);
@@ -87,7 +86,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
     lbs1.emplace_back(positionIE + 1);
     SmallVector<IndexExpr, 1> ubs1;
     ubs1.emplace_back(outputBound);
-    ValueRange secondLoopDef = createKrnl.defineLoops(1);
+    ValueRange secondLoopDef = create.krnl.defineLoops(1);
     create.krnl.iterateIE(secondLoopDef, secondLoopDef, lbs1, ubs1,
         [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
           auto element = createKrnl.load(

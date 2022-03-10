@@ -27,12 +27,11 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     ONNXSequenceEraseOpAdaptor operandAdaptor(operands);
     ONNXSequenceInsertOp thisOp = dyn_cast<ONNXSequenceInsertOp>(op);
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+    MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
     auto input_sequence = operandAdaptor.input_sequence();
-    auto dimSize = rewriter.create<memref::DimOp>(
-        loc, input_sequence, create.math.constantIndex(0));
+    auto dimSize = create.mem.dim(input_sequence, 0);
     SymbolIndexExpr boundIE(dimSize);
     auto seqElementType =
         input_sequence.getType().cast<MemRefType>().getElementType();
@@ -87,7 +86,7 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 1> ubs1;
     ubs1.emplace_back(boundIE);
     ValueRange secondLoopDef = createKrnl.defineLoops(1);
-    create.krnl.iterateIE(secondLoopDef, secondLoopDef, lbs1, ubs1,
+    createKrnl.iterateIE(secondLoopDef, secondLoopDef, lbs1, ubs1,
         [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
           auto element = createKrnl.load(
               operandAdaptor.input_sequence(), indicesLoopInd[0]);
