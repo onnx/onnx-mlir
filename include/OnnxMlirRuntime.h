@@ -50,7 +50,7 @@
  *
  * \subsection model-entry-point-signature Model Entry Point Signature
  *
- * All compiled model will have the same exact C function signature equivalent
+ * All compiled models will have the same exact C function signature equivalent
  * to:
  *
  * ```c
@@ -79,15 +79,13 @@
  *
  * int main() {
  *   // Shared shape & rank.
- *   int64_t shape[] = {2, 2};
+ *   int64_t shape[] = {3, 2};
  *   int64_t rank = 2;
  *   // Construct x1 omt filled with 1.
  *   float x1Data[] = {1., 1., 1., 1., 1., 1.};
- *   int64_t *x1Shape = {2, 2};
  *   OMTensor *x1 = omTensorCreate(x1Data, shape, rank, ONNX_TYPE_FLOAT);
  *   // Construct x2 omt filled with 2.
  *   float x2Data[] = {2., 2., 2., 2., 2., 2.};
- *   int64_t *x2Shape = {2, 2};
  *   OMTensor *x2 = omTensorCreate(x2Data, shape, rank, ONNX_TYPE_FLOAT);
  *   // Construct a list of omts as input.
  *   OMTensor *list[2] = {x1, x2};

@@ -4,7 +4,7 @@
 
 //===------- InstrumentZHighPass.cpp - Instrumentation --------------------===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -30,9 +30,9 @@
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
-namespace {
+namespace onnx_mlir {
+namespace zhigh {
 
 /*!
  * This pass insert KrnlInstrumentOp before and after each ZHigh ops
@@ -121,11 +121,13 @@ public:
     });
   }
 };
-} // end anonymous namespace
 
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createInstrumentZHighPass() {
+std::unique_ptr<mlir::Pass> createInstrumentZHighPass() {
   return std::make_unique<InstrumentZHighPass>();
 }
+
+} // namespace zhigh
+} // namespace onnx_mlir
