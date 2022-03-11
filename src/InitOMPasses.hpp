@@ -11,8 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Pass/Pass.h"
-#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Pass/Passes.hpp"
+
+#ifdef __NNPA__
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#endif
 
 namespace onnx_mlir {
 

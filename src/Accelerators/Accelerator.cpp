@@ -28,10 +28,11 @@ void Accelerator::create(Accelerator::Kind kind,
   case Kind::NNPA:
 #ifdef __NNPA__
     accel = new nnpa::NNPAAccelerator();
+#else
+    llvm_unreachable("NNPA accelerator support is missing, reconfigure cmake");
 #endif
     break;
   }
-  assert(accel && "should never be null");
 
   // Initialize the new accelerator and add it to the list of available ones.
   accel->prepare(module, context, pm, emissionTarget);
