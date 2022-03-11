@@ -377,6 +377,7 @@ private:
     }
   }
 
+  // Initially, simdize with full K vector length.
   void genSimdMatVect(PatternRewriter &rewriter, Location loc, KrnlMatMulOp op,
       Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
       ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
@@ -396,8 +397,9 @@ private:
     int64_t VL = vectorLen.getLiteral();
     VectorType vecType = VectorType::get({VL}, elementType);
     int64_t unrollFactor = (unrollJam && I.isLiteral()) ? I.getLiteral() : 1;
-    // Have to privatize CTmpType by unroll factor (1 if none).
-    MemRefType CTmpType = MemRefType::get({unrollFactor}, vecType);
+    // Have to privatize CTmpType by I as we need to perform horizontal reductions.
+    int64_t litI = I.getLiteral();
+    MemRefType CTmpType = MemRefType::get({litI}, vecType);
     assert(BUFFER_ALIGN >= gDefaultAllocAlign);
     Value TmpC = createMemRef.alignedAlloca(CTmpType, BUFFER_ALIGN);
 
