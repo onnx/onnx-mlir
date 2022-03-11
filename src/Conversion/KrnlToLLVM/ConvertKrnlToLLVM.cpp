@@ -485,15 +485,21 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   recordEntryPointSignatures(
       module, entryPointNames, inSignatures, outSignatures);
 
+  // Convert types to legal types for the LLVM dialect.
+  LLVMTypeConverter typeConverter(ctx, options);
+  customizeTypeConverter(typeConverter);
+
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(*ctx);
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<UnrealizedConversionCastOp>();
 
-  // Convert types to legal types for the LLVM dialect.
-  LLVMTypeConverter typeConverter(ctx, options);
-  customizeTypeConverter(typeConverter);
+  // OpenMP
+  target.addDynamicallyLegalOp<omp::MasterOp, omp::ParallelOp, omp::WsLoopOp>(
+      [&](Operation *op) { return typeConverter.isLegal(&op->getRegion(0)); });
+  target.addLegalOp<omp::TerminatorOp, omp::TaskyieldOp, omp::FlushOp,
+      omp::BarrierOp, omp::TaskwaitOp>();
 
   // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
   // We lower in stages until all the code is in the LLVM dialect.
