@@ -17,6 +17,7 @@
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -526,7 +527,10 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   }
 
   llvm::LLVMContext llvmContext;
-  mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
+  MLIRContext &ctx = *(module.get().getContext());
+  mlir::registerLLVMDialectTranslation(ctx);
+  mlir::registerOpenMPDialectTranslation(ctx);
+
   auto llvmModule = mlir::translateModuleToLLVMIR(*module, llvmContext);
   if (!llvmModule) {
     llvm::errs() << "Failed to translate module to LLVMIR.\n";
@@ -543,11 +547,13 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   }
 
   // Emit the onnx-mlir version as llvm.ident metadata.
-  llvm::NamedMDNode *identMetadata =
-      llvmModule->getOrInsertNamedMetadata("llvm.ident");
-  llvm::LLVMContext &ctx = llvmModule->getContext();
-  llvm::Metadata *identNode[] = {llvm::MDString::get(ctx, OnnxMlirVersion)};
-  identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
+  {
+    llvm::NamedMDNode *identMetadata =
+        llvmModule->getOrInsertNamedMetadata("llvm.ident");
+    llvm::LLVMContext &ctx = llvmModule->getContext();
+    llvm::Metadata *identNode[] = {llvm::MDString::get(ctx, OnnxMlirVersion)};
+    identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
+  }
 
   llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();

@@ -173,12 +173,12 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   arith::populateArithmeticExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
 
-  mlir::createConvertSCFToOpenMPPass();
+  //  mlir::createConvertSCFToOpenMPPass();
   arith::populateArithmeticToLLVMConversionPatterns(typeConverter, patterns);
   cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
   populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
-  populateStdToLLVMConversionPatterns(typeConverter, patterns);
   populateOpenMPToLLVMConversionPatterns(typeConverter, patterns);
+  populateStdToLLVMConversionPatterns(typeConverter, patterns);
 
   populateReconcileUnrealizedCastsPatterns(patterns);
   krnl::populateKrnlToLLVMConversion(
@@ -494,22 +494,6 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // Convert types to legal types for the LLVM dialect.
   LLVMTypeConverter typeConverter(ctx, options);
   customizeTypeConverter(typeConverter);
-
-#if 0
-  typeConverter.addConversion([&](MemRefType type) -> llvm::Optional<Type> {
-    Type elementType = type.getElementType();
-    if (!elementType.isa<StringType>())
-      return llvm::None;
-
-    elementType = elementType.cast<StringType>().getLLVMType(type.getContext());
-    return typeConverter.convertType(
-        MemRefType::get(type.getShape(), elementType));
-  });
-
-  typeConverter.addConversion([&](StringType type) -> Type {
-    return typeConverter.convertType(type.getLLVMType(type.getContext()));
-  });
-#endif
 
   // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
   // We lower in stages until all the code is in the LLVM dialect.
