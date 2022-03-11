@@ -17,6 +17,8 @@
 #include "src/Accelerators/Accelerator.hpp"
 
 namespace onnx_mlir {
+namespace accel {
+namespace nnpa {
 
 class NNPAAccelerator final : public Accelerator {
 private:
@@ -31,4 +33,6 @@ public:
       onnx_mlir::EmissionTargetType emissionTarget) const final;
 };
 
+} // namespace nnpa
+} // namespace accel
 } // namespace onnx_mlir

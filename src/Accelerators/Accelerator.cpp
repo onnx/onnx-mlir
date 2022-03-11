@@ -17,6 +17,7 @@
 #include <vector>
 
 namespace onnx_mlir {
+namespace accel {
 
 std::vector<Accelerator *> *Accelerator::acceleratorTargets;
 
@@ -31,4 +32,5 @@ std::vector<Accelerator *> *Accelerator::getAcceleratorList() {
   return acceleratorTargets;
 }
 
+} // namespace accel
 } // namespace onnx_mlir

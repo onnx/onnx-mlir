@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- DLCompilerUtils.hpp -----------------------===//
+//===------------------------- NNPACompilerUtils.hpp ----------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -19,7 +19,7 @@
 
 namespace onnx_mlir {
 
-enum class DLCEmissionTargetType {
+enum class NNPAEmissionTargetType {
   EmitZNONE,
   EmitZLowIR,
   EmitZHighIR,
@@ -33,15 +33,16 @@ void addZHighToZLowPasses(mlir::PassManager &pm);
 
 void addAllToLLVMPasses(mlir::PassManager &pm);
 
-void addPassesDLC(mlir::OwningOpRef<mlir::ModuleOp> &module,
+void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget,
-    DLCEmissionTargetType dlcEmissionTarget,
+    NNPAEmissionTargetType nnpaEmissionTarget,
     mlir::ArrayRef<std::string> execNodesOnCpu);
 
-int compileModuleDLC(mlir::OwningOpRef<mlir::ModuleOp> &module,
+int compileModuleNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     onnx_mlir::EmissionTargetType emissionTarget,
-    DLCEmissionTargetType dlcEmissionTarget = DLCEmissionTargetType::EmitZNONE,
+    NNPAEmissionTargetType dlcEmissionTarget =
+        NNPAEmissionTargetType::EmitZNONE,
     mlir::ArrayRef<std::string> execNodesOnCpu = mlir::ArrayRef<std::string>());
 
 } // namespace onnx_mlir

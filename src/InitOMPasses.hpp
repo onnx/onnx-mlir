@@ -14,7 +14,7 @@
 #include "src/Pass/Passes.hpp"
 
 #ifdef __NNPA__
-#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #endif
 
 namespace onnx_mlir {
@@ -104,11 +104,13 @@ void initOMPasses(int optLevel) {
     return onnx_mlir::zhigh::createZHighToZLowPass(optLevel);
   });
 
-  mlir::registerPass(
-      []() -> std::unique_ptr<mlir::Pass> { return createZLowRewritePass(); });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zlow::createZLowRewritePass();
+  });
 
-  mlir::registerPass(
-      []() -> std::unique_ptr<mlir::Pass> { return createZLowToLLVMPass(); });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zlow::createZLowToLLVMPass();
+  });
 
   mlir::registerPass(
       []() -> std::unique_ptr<mlir::Pass> { return createFoldStdAllocPass(); });

@@ -8,8 +8,8 @@ add_onnx_mlir_library(OMFoldStdAlloc
   MLIRAffineToStandard
 
   ACCEL_INCLUDE_DIRS PRIVATE
-  ${DLC_SRC_ROOT}
-  ${DLC_BIN_ROOT}
+  ${NNPA_SRC_ROOT}
+  ${NNPA_BIN_ROOT}
    )
 
 add_subdirectory(ZHigh)

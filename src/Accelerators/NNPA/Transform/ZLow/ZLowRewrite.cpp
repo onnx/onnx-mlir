@@ -18,9 +18,12 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
-#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
+namespace zlow {
 
 /// This pattern rewrites
 /// ```mlir
@@ -119,6 +122,9 @@ public:
   }
 };
 
-std::unique_ptr<Pass> mlir::createZLowRewritePass() {
+std::unique_ptr<Pass> createZLowRewritePass() {
   return std::make_unique<ZLowRewritePass>();
 }
+
+} // namespace zlow
+} // namespace onnx_mlir

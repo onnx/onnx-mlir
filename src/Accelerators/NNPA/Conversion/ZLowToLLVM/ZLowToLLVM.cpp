@@ -4,7 +4,7 @@
 
 //===---------- ZLowToLLVM.cpp - Lowering from ZLow to LLVM ---------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -34,7 +34,7 @@
 
 #include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
-#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Dialect/Krnl/KrnlTypes.hpp"
@@ -42,6 +42,9 @@
 
 using namespace mlir;
 using namespace onnx_mlir;
+
+namespace onnx_mlir {
+namespace zlow {
 
 zdnn_data_layouts UNDEFINED_ZDNN_LAYOUT = (zdnn_data_layouts)255;
 
@@ -1626,6 +1629,9 @@ void ZLowToLLVMLoweringPass::runOnOperation() {
 
 /// Create the pass for lowering `zlow`, `krnl`, `affine` and `std` dialects
 /// to LLVM.
-std::unique_ptr<mlir::Pass> mlir::createZLowToLLVMPass() {
+std::unique_ptr<mlir::Pass> createZLowToLLVMPass() {
   return std::make_unique<ZLowToLLVMLoweringPass>();
 }
+
+} // namespace zlow
+} // namespace onnx_mlir

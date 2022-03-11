@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- DLCompilerUtils.cpp -----------------------===//
+//===-------------------------- NNPACompilerUtils.cpp ---------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -23,14 +23,14 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 
-#include "src/Accelerators/NNPA/Compiler/DLCompilerUtils.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
-#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
-#include "src/Accelerators/NNPA/Support/OMDLCOptions.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/OMNNPAOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 
-#define DEBUG_TYPE "DLCompiler"
+#define DEBUG_TYPE "NNPACompiler"
 
 using namespace std;
 using namespace mlir;
@@ -38,16 +38,16 @@ using namespace onnx_mlir;
 
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 
-llvm::cl::opt<DLCEmissionTargetType> dlcEmissionTarget(
+llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
     llvm::cl::desc("[Optional] Choose Z-related target to emit "
                    "(once selected it will cancel the other targets):"),
-    llvm::cl::values(clEnumVal(DLCEmissionTargetType::EmitZHighIR,
+    llvm::cl::values(clEnumVal(NNPAEmissionTargetType::EmitZHighIR,
                          "Lower model to ZHigh IR (ZHigh dialect)"),
-        clEnumVal(DLCEmissionTargetType::EmitZLowIR,
+        clEnumVal(NNPAEmissionTargetType::EmitZLowIR,
             "Lower model to ZLow IR (ZLow dialect)"),
-        clEnumVal(DLCEmissionTargetType::EmitZNONE,
+        clEnumVal(NNPAEmissionTargetType::EmitZNONE,
             "Do not emit Z-related target (default)")),
-    llvm::cl::init(DLCEmissionTargetType::EmitZNONE),
+    llvm::cl::init(NNPAEmissionTargetType::EmitZNONE),
     llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
@@ -93,7 +93,7 @@ void addONNXToZHighPasses(
 
 void addZHighToZLowPasses(mlir::PassManager &pm, int optLevel) {
   // Add instrumentation for ZHigh Ops
-  pm.addNestedPass<FuncOp>(mlir::createInstrumentZHighPass());
+  pm.addNestedPass<FuncOp>(onnx_mlir::zhigh::createInstrumentZHighPass());
   pm.addPass(onnx_mlir::zhigh::createZHighToZLowPass(optLevel));
   pm.addNestedPass<FuncOp>(onnx_mlir::createLowerKrnlShapePass());
   pm.addNestedPass<FuncOp>(onnx_mlir::createDisconnectKrnlDimFromAllocPass());
@@ -118,18 +118,19 @@ void addAllToLLVMPasses(mlir::PassManager &pm) {
   }
 
   pm.addNestedPass<FuncOp>(mlir::createConvertSCFToCFPass());
-  pm.addPass(mlir::createZLowToLLVMPass());
+  pm.addPass(onnx_mlir::zlow::createZLowToLLVMPass());
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
-void addPassesDLC(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
-    EmissionTargetType &emissionTarget, DLCEmissionTargetType dlcEmissionTarget,
+void addPassesNNPA(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
+    EmissionTargetType &emissionTarget,
+    NNPAEmissionTargetType nnpaEmissionTarget,
     ArrayRef<std::string> execNodesOnCpu) {
-  // TODO: Develop and use determineInputIRLevel for DLC
+  // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
-  // LLVM_DEBUG(llvm::dbgs() << "Adding DLC passes" << std::endl;);
+  // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR)
     addONNXToMLIRPasses(pm);
 
@@ -137,7 +138,7 @@ void addPassesDLC(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.
     addONNXToZHighPasses(pm, execNodesOnCpu);
 
-    if (dlcEmissionTarget >= DLCEmissionTargetType::EmitZHighIR)
+    if (nnpaEmissionTarget >= NNPAEmissionTargetType::EmitZHighIR)
       emissionTarget = EmitMLIR;
     else {
       pm.addPass(mlir::createCanonicalizerPass());
@@ -156,9 +157,9 @@ void addPassesDLC(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
       else if (optStr == "-O3")
         optLevel = OptLevel::O3;
       addZHighToZLowPasses(pm, optLevel); // Constant folding for std.alloc.
-      pm.addNestedPass<FuncOp>(mlir::createFoldStdAllocPass());
+      pm.addNestedPass<FuncOp>(onnx_mlir::createFoldStdAllocPass());
 
-      if (dlcEmissionTarget >= DLCEmissionTargetType::EmitZLowIR)
+      if (nnpaEmissionTarget >= NNPAEmissionTargetType::EmitZLowIR)
         emissionTarget = EmitMLIR;
       else {
         // Partially lower Krnl ops to Affine dialect.

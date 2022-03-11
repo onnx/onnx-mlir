@@ -40,7 +40,6 @@
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #endif
 
-using namespace onnx_mlir;
 using namespace mlir;
 
 static llvm::cl::opt<std::string> input_filename(
@@ -109,8 +108,8 @@ int main(int argc, char **argv) {
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
 #ifdef __NNPA__
-  registry.insert<zhigh::ZHighDialect>();
-  registry.insert<mlir::ZLowDialect>();
+  registry.insert<onnx_mlir::zhigh::ZHighDialect>();
+  registry.insert<onnx_mlir::zlow::ZLowDialect>();
 #endif
 
   registerTransformsPasses();
@@ -124,8 +123,8 @@ int main(int argc, char **argv) {
   // Scan Opt Level manually now as it is needed for initializing the OM Passes.
   scanAndSetOptLevel(argc, argv);
 
-  initOMPasses(OptimizationLevel);
-  initMLIRPasses();
+  onnx_mlir::initOMPasses(OptimizationLevel);
+  onnx_mlir::initMLIRPasses();
 
   // Register any command line options.
   mlir::registerAsmPrinterCLOptions();

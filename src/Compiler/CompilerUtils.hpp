@@ -39,9 +39,12 @@ extern llvm::cl::opt<std::string> instrumentONNXOps;
 // Options support for OMCompilerOptions.
 using CompilerOptionList =
     llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
-// Return 0 on success.
+
+// Return 0 on success. These functions are not thread-safe and should be called
+// by a single program thread.
 int setCompilerOption(const onnx_mlir::OptionKind kind, const std::string &val);
 int setCompilerOptions(const CompilerOptionList &list);
+
 std::string getCompilerOption(const onnx_mlir::OptionKind kind);
 
 void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,

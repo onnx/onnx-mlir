@@ -4,7 +4,7 @@
 
 //===------- InstrumentZHighPass.cpp - Instrumentation --------------------===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -23,16 +23,16 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Accelerators/NNPA/Pass/DLCPasses.hpp"
-#include "src/Accelerators/NNPA/Support/OMDLCOptions.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/OMNNPAOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 
 using namespace mlir;
-using namespace onnx_mlir;
 
-namespace {
+namespace onnx_mlir {
+namespace zhigh {
 
 /*!
  * This pass insert KrnlInstrumentOp before and after each ZHigh ops
@@ -58,7 +58,7 @@ llvm::cl::bits<InstrumentActions> InstrumentControlBits(
             InstrumentReportTimeZHigh, "instrument runtime reports time usage"),
         clEnumVal(InstrumentReportMemoryZHigh,
             "instrument runtime reports memory usage")),
-    llvm::cl::cat(OMDLCPassOptions));
+    llvm::cl::cat(OMNNPAPassOptions));
 
 class InstrumentZHighPass
     : public mlir::PassWrapper<InstrumentZHighPass, OperationPass<FuncOp>> {
@@ -121,11 +121,13 @@ public:
     });
   }
 };
-} // end anonymous namespace
 
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createInstrumentZHighPass() {
+std::unique_ptr<mlir::Pass> createInstrumentZHighPass() {
   return std::make_unique<InstrumentZHighPass>();
 }
+
+} // namespace zhigh
+} // namespace onnx_mlir
