@@ -113,9 +113,6 @@ OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
 /**
  * Create an OMTensor with the specified shape, rank and element type,
  * allocate uninitialized data for the specified shape.
- * This function is intentionally left out from the header because it is only
- * used by the wrapper code we emit around inference function that converts
- * MemRefs to OMTensors for user convenience.
  *
  * The OMTensor created using this constructor owns the underlying memory
  * space allocated to the content of the tensor.
