@@ -221,6 +221,12 @@ private:
       Block *block, function_ref<void(ValueRange)> builderFn) const;
 };
 
+// Affine builder uses affine load and store for memory operations. A later
+// definition of AffineBuilderKrnlMem will use Krnl load and store for memory
+// operations. We recommend to use AffineBuilderKrnlMem when converting the Krnl
+// dialect into the affine dialect.
+using AffineBuilder = GenericAffineBuilder<AffineLoadOp, AffineStoreOp>;
+
 //===----------------------------------------------------------------------===//
 // Multi Dialect Builder
 //===----------------------------------------------------------------------===//
@@ -246,15 +252,16 @@ private:
   create.mem.alloca(type);
 
   Types that can be used here are
+  *  AffineBuilder, access field with affine
+  *  AffineBuilderKrnlMem, access field with affineKMem
   *  KrnlBuilder, access field with krnl
   *  MathBuilder, access field with math
   *  MemRefBuilder, access field with mem
   *  ONNXBuilder, access field with onnx
   *  SCFBuilder, access field with scf
 
-  PS: at this time, affine cannot be combined as it is itself a template.
-
 */
+
 // Anchor class.
 template <class... Ts>
 struct MultiDialectBuilder {
@@ -280,6 +287,16 @@ struct MultiDialectBuilder<MemRefBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), mem(db) {}
   MemRefBuilder mem;
+};
+
+// Recursive class specialized for AffineBuilder refereed to as affine.
+template <class... Ts>
+struct MultiDialectBuilder<AffineBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(OpBuilder &b, Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), affine(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), affine(db) {}
+  AffineBuilder affine;
 };
 
 // Recursive class specialized for SCFBuilder refereed to as scf.

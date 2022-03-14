@@ -25,7 +25,8 @@ namespace mlir {
 // operations is that they distinguish themselves if they are affine or not.
 using AffineBuilderKrnlMem = GenericAffineBuilder<KrnlLoadOp, KrnlStoreOp>;
 
-// Add a Multi Dialect Builder to suport AffineBuilderKrnlMem.
+// Recursive class specialized for AffineBuilderKrnlMem refereed to as
+// affineKMem.
 template <class... Ts>
 struct MultiDialectBuilder<AffineBuilderKrnlMem, Ts...>
     : MultiDialectBuilder<Ts...> {
