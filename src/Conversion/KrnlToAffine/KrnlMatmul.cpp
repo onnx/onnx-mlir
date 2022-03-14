@@ -137,8 +137,8 @@ public:
         kGlobalUB(operandAdaptor.kGlobalUB());
 
     // Has a matrix times vector when the J upper bound is literal 1.
-    bool matVectorProduct =
-        false && jGlobalUB.isLiteral() && jGlobalUB.getLiteral() == 1;
+    bool matVectorProduct = false &&
+        jGlobalUB.isLiteral() && jGlobalUB.getLiteral() == 1;
 
     // Investigate SIMD
     IndexExpr vectorLen = LiteralIndexExpr(1); // Assume no simd.
@@ -386,8 +386,9 @@ private:
     assert(I.isLiteral() && K.isLiteral() &&
            "can only simdize with compile time "
            "blocking factor on simd axis");
-    AffineBuilderKrnlMem createAffine(rewriter, loc);
-    MemRefBuilder createMemRef(rewriter, loc);
+    MultiDialectBuilder<MathBuilder, VectorBuilder, AffineBuilderKrnlMem,
+        MemRefBuilder>
+        create(rewriter, loc);
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
@@ -397,88 +398,39 @@ private:
     int64_t VL = vectorLen.getLiteral();
     VectorType vecType = VectorType::get({VL}, elementType);
     int64_t unrollFactor = (unrollJam && I.isLiteral()) ? I.getLiteral() : 1;
-    // Have to privatize CTmpType by I as we need to perform horizontal reductions.
-    int64_t litI = I.getLiteral();
-    MemRefType CTmpType = MemRefType::get({litI}, vecType);
-    assert(BUFFER_ALIGN >= gDefaultAllocAlign);
-    Value TmpC = createMemRef.alignedAlloca(CTmpType, BUFFER_ALIGN);
+    // Have to privatize CTmpType by I as we need to perform horizontal
+    // reductions.
+    // int64_t litI = I.getLiteral();
+    // MemRefType CTmpType = MemRefType::get({litI}, vecType);
+    // assert(BUFFER_ALIGN >= gDefaultAllocAlign);
+    // Value TmpC = create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
 
     // Iterates over the I indices (j are simd dim).
     Value iSaved, kSaved;
     LiteralIndexExpr zero(0);
-    createAffine.forIE(
+    // load reused B[k=0][0] vector
+    SmallVector<Value, 4> bAccess;
+    IndexExpr::getValues(bStart, bAccess);
+    // bAccess = {k=0 + bStart0.getValue(), bStart1.getValue()};
+    IndexExpr::getValues(bStart, bAccess);
+    Value vb = create.vec.load(vecType, B, bAccess);
+    SmallVector<Value, 8> vresList;
+    create.affineKMem.forIE(
         zero, I, 1, [&](AffineBuilderKrnlMem &createAffine, Value i) {
           MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
           iSaved = i; // Saved for unroll and jam.
-          // Alloca temp vector TmpC and save C(i)/0.0 into it.
-          SmallVector<Value, 4> cAccess;
-          // cAccess = {i + cStart0.getValue(), cStart1.getValue()};
-          IndexExpr::getValues(cStart, cAccess);
-          cAccess[cRank - 2] = create.math.add(i, cAccess[cRank - 2]);
-          Value initVal = create.vec.load(vecType, C, cAccess);
-          Value tmpCAccess = (unrollFactor > 1) ? i : zero.getValue();
-          createAffine.store(initVal, TmpC, tmpCAccess);
-          // Sum over k.
-          createAffine.forIE(
-              zero, K, 1, [&](AffineBuilderKrnlMem &createAffine, Value k) {
-                MultiDialectBuilder<MathBuilder, VectorBuilder> create(
-                    createAffine);
-                kSaved = k;
-                // Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
-                SmallVector<Value, 4> aAccess, bAccess;
-                IndexExpr::getValues(aStart, aAccess);
-                aAccess[aRank - 2] = create.math.add(i, aAccess[aRank - 2]);
-                aAccess[aRank - 1] = create.math.add(k, aAccess[aRank - 1]);
-                Value a = createAffine.load(A, aAccess);
-                // Value va = vector_broadcast(vecType, a);
-                Value va = create.vec.broadcast(vecType, a);
-                // bAccess = {k + bStart0.getValue(), bStart1.getValue()};
-                IndexExpr::getValues(bStart, bAccess);
-                bAccess[bRank - 2] = create.math.add(k, bAccess[bRank - 2]);
-                Value vb = create.vec.load(vecType, B, bAccess);
-                // TTmpC() = vector_fma(va, vb, TTmpC());
-                Value tmpVal = createAffine.load(TmpC, tmpCAccess);
-                Value res = create.vec.fma(va, vb, tmpVal);
-                createAffine.store(res, TmpC, tmpCAccess);
-              });
+          // Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
+          SmallVector<Value, 4> aAccess;
+          IndexExpr::getValues(aStart, aAccess);
+          aAccess[aRank - 2] = create.math.add(i, aAccess[aRank - 2]);
+          Value va = create.vec.load(vecType, A, aAccess);
+          Value vres = create.math.mul(va, vb);
+          vresList.emplace_back(vres);
           // Store temp result into C(i)
-          Value tmpResults = createAffine.load(TmpC, tmpCAccess);
-          int64_t JLit = J.getLiteral();
-          if (JLit != VL) {
-            // create vector constant
-            SmallVector<int64_t, 8> mask;
-            for (int64_t i = 0; i < VL; i++)
-              mask.emplace_back((i < JLit) ? i : VL + i);
-            // permute
-            Value originalCvec = create.vec.load(vecType, C, cAccess);
-            tmpResults = create.vec.shuffle(tmpResults, originalCvec, mask);
-          }
-          // CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
-          create.vec.store(tmpResults, C, cAccess);
         });
 
-    if (unrollJam && (I.isLiteral() || K.isLiteral())) {
+    if (unrollJam && I.isLiteral()) {
       auto list = getUnrollAndJamList(op.getOperation());
-      if (K.isLiteral()) {
-        int64_t kUnroll = K.getLiteral();
-        // We know there is no unrolling along I, make a bigger cutoff.
-        int64_t cutoff = (!I.isLiteral() || I.getLiteral() < 2) ? 8 : 4;
-        if (kUnroll >= cutoff) {
-          // When kUnroll is too big, reduce it by a divisor.
-          for (int64_t m = cutoff; m >= 1; --m) {
-            if (kUnroll % m == 0) {
-              kUnroll = m;
-              break;
-            }
-          }
-        }
-        if (kUnroll > 1) {
-          LLVM_DEBUG(
-              llvm::dbgs() << "Matmul: unroll k by " << kUnroll << "\n";);
-          UnrollAndJamRecord record(getForInductionVarOwner(kSaved), kUnroll);
-          list->emplace_back(record);
-        }
-      }
       if (I.isLiteral() && I.getLiteral() > 1) {
         LLVM_DEBUG(llvm::dbgs()
                    << "Matmul: unroll i by " << (int)I.getLiteral() << "\n");
