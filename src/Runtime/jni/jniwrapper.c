@@ -707,44 +707,26 @@ JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMModel_main_1graph_1jni(
 
 /* On z/OS, we convert signature in EBCDIC into ASCII for the JNI
  * NewStringUTF function using __e2a_s. However, __e2a_s converts
- * in place so we need to make a copy of the signature. But we don't
- * want to keep making copies on every call so the copy will be
- * static and made only once by the first call. Compare-and-swap
- * is used to serialize setting of the static sigptr by multiple
- * threads so the function is thread safe.
+ * in place so we need to make a copy of the signature.
  */
 #ifdef __MVS__
-static inline const char *sig_e2a(const char *origsig) {
-  static char *sigptr = NULL;
+static inline char *sig_e2a(const char *origsig) {
+  char *dupsig = strdup(origsig);
+  if (dupsig == NULL)
+    return NULL;
 
-  if (sigptr == NULL) {
-    char *dupsig = strdup(origsig);
-    if (dupsig == NULL)
-      return NULL;
-
-    /* Convert EBCDIC to ASCII in place */
-    if (__e2a_s(dupsig) < 0) {
-      free(dupsig);
-      return NULL;
-    }
-
-    /* Compare-and-swap to set sigptr. If cds fails, someone already
-     * set sigptr, so free our dupsig. Otherwise, sigptr is set by us.
-     * Either way, after cds sigptr will be set and points to the copy
-     * of the signature, already converted to ASCII.
-     */
-    char *oldsig = NULL;
-    cds_t newsig = *(cds_t *)&dupsig;
-    if (cds((cds_t *)&oldsig, (cds_t *)&sigptr, newsig))
-      free(dupsig);
+  /* Convert EBCDIC to ASCII in place */
+  if (__e2a_s(dupsig) < 0) {
+    free(dupsig);
+    return NULL;
   }
 
-  return sigptr;
+  return dupsig;
 }
 #endif
 
 JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
-    JNIEnv *env, jclass cls, jstring entry_point) {
+    JNIEnv *env, jclass cls, jstring ep) {
 
   assert(env);
   log_init();
@@ -754,26 +736,40 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
       (*env)->FindClass(env, jnistr[CLS_JAVA_LANG_EXCEPTION]),
       jecpt_cls != NULL, NULL, "Class java/lang/Exception not found");
 
+  /* Get reference to the signature Java String object */
+  JNI_TYPE_VAR_CALL(env, const char *, jni_ep,
+      (*env)->GetStringUTFChars(env, ep, NULL), jni_ep != NULL, jecpt_cls,
+      "jni_ep=%p", jni_ep);
+
   /* Call model input signature API */
-  CHECK_CALL(const char *, jni_isig, omInputSignature(entry_point),
-      jni_isig != NULL, "jni_isig=%p", jni_isig);
+  CHECK_CALL(const char *, jni_isig, omInputSignature(jni_ep), jni_isig != NULL,
+      "jni_isig=%p", jni_isig);
+
+  /* Release reference to the signature Java String object */
+  JNI_CALL(env, (*env)->ReleaseStringUTFChars(env, ep, jni_ep), 1, NULL, "");
+
+  /* Output signature in hex and string format for debugging */
   HEX_DEBUG("isig", jni_isig, strlen(jni_isig));
+  LOG_PRINTF(LOG_DEBUG, "isig(%d):%s", strlen(jni_isig), jni_isig);
 
   /* Convert to Java String object */
 #ifdef __MVS__
-  CHECK_CALL(const char *, sigptr, sig_e2a(jni_isig), sigptr != NULL,
-      "sigptr=%p", sigptr);
+  CHECK_CALL(
+      char *, sigptr, sig_e2a(jni_isig), sigptr != NULL, "sigptr=%p", sigptr);
 #else
   const char *sigptr = jni_isig;
 #endif
   JNI_TYPE_VAR_CALL(env, jstring, jstr_isig, (*env)->NewStringUTF(env, sigptr),
       jstr_isig != NULL, jecpt_cls, "jstr_isig=%p", jstr_isig);
+#ifdef __MVS__
+  free(sigptr);
+#endif
 
   return jstr_isig;
 }
 
 JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
-    JNIEnv *env, jclass cls, jstring entry_point) {
+    JNIEnv *env, jclass cls, jstring ep) {
 
   assert(env);
   log_init();
@@ -783,20 +779,34 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
       (*env)->FindClass(env, jnistr[CLS_JAVA_LANG_EXCEPTION]),
       jecpt_cls != NULL, NULL, "Class java/lang/Exception not found");
 
+  /* Get reference to the signature Java String object */
+  JNI_TYPE_VAR_CALL(env, const char *, jni_ep,
+      (*env)->GetStringUTFChars(env, ep, NULL), jni_ep != NULL, jecpt_cls,
+      "jni_ep=%p", jni_ep);
+
   /* Call model output signature API */
-  CHECK_CALL(const char *, jni_osig, omOutputSignature(entry_point),
+  CHECK_CALL(const char *, jni_osig, omOutputSignature(jni_ep),
       jni_osig != NULL, "jni_osig=%p", jni_osig);
+
+  /* Release reference to the signature Java String object */
+  JNI_CALL(env, (*env)->ReleaseStringUTFChars(env, ep, jni_ep), 1, NULL, "");
+
+  /* Output signature in hex and string format for debugging */
   HEX_DEBUG("osig", jni_osig, strlen(jni_osig));
+  LOG_PRINTF(LOG_DEBUG, "osig(%d):%s", strlen(jni_osig), jni_osig);
 
   /* Convert to Java String object */
 #ifdef __MVS__
-  CHECK_CALL(const char *, sigptr, sig_e2a(jni_osig), sigptr != NULL,
-      "sigptr=%p", sigptr);
+  CHECK_CALL(
+      char *, sigptr, sig_e2a(jni_osig), sigptr != NULL, "sigptr=%p", sigptr);
 #else
   const char *sigptr = jni_osig;
 #endif
   JNI_TYPE_VAR_CALL(env, jstring, jstr_osig, (*env)->NewStringUTF(env, sigptr),
       jstr_osig != NULL, jecpt_cls, "jstr_osig=%p", jstr_osig);
+#ifdef __MVS__
+  free(sigptr);
+#endif
 
   return jstr_osig;
 }
