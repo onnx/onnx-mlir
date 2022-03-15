@@ -175,7 +175,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
                                .getElementType();
         if (elementType.dyn_cast<MemRefType>()) {
           // accumulate dynamic tensor
-          // ToDo: May need to copy the tensor
+          // TODO: May need to copy the tensor
           create.krnl.store(std::get<0>(scanIntermediateToFinal),
               std::get<1>(scanIntermediateToFinal), origIV);
         } else {
@@ -213,8 +213,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       auto seqElementType =
           output.getType().cast<MemRefType>().getElementType();
       if (seqElementType.isa<MemRefType>()) {
-        // need convertion
-        // ToDo: need a IF statement to handle output is empty
+        // need to convert memref<memrefs<xT>> to memref<xT>
+        // TODO: need a IF statement to handle output is empty
         // we can safely give 0 to the dynamic dim for alloc
         // Here loop is assumed to be executed at least once.
         auto firstElement =
@@ -303,7 +303,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
 
-        // Check the loop accumulation dimemsion
+        // Check the loop accumulation dimension
         if (rankedScanOutTy.getShape()[0] == -1) {
           // TODO(tjingrant): in general, it is not correct to expect
           // loop operation scan output to have the leading dimension extent
@@ -331,18 +331,16 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         }
         MemRefBuilder createMemRef(rewriter, loc);
         if (isDynamic) {
-          // Suppose the scanout type is is <d1 , d2,... dn xT>
+          // Suppose the scanout type is is <d1 , d2,... dnxT>
           // Use memref<d1xmemref<d2, ..., dnxT>>
-          // seqElementType: memref<d2, ..., dnXT>
+          // seqElementType: memref<d2, ..., dnxT>
           auto elementType = rankedScanOutTy.getElementType();
-          SmallVector<int64_t, 1> dims1(rankedScanOutTy.getShape().begin() + 1,
-              rankedScanOutTy.getShape().end());
-          ArrayRef<int64_t> shape1(dims1.data(), dims1.size());
+          ArrayRef<int64_t> shape1 =
+              llvm::makeArrayRef(rankedScanOutTy.getShape().begin() + 1,
+                  rankedScanOutTy.getShape().end());
           auto seqElementType = MemRefType::get(shape1, elementType);
-          SmallVector<int64_t, 1> dims;
-          dims.emplace_back(rankedScanOutTy.getShape()[0]);
-          ArrayRef<int64_t> shape(dims.data(), dims.size());
-          auto seqType = MemRefType::get(shape, seqElementType);
+          auto seqType =
+              MemRefType::get({rankedScanOutTy.getShape()[0]}, seqElementType);
           alloc = createMemRef.alignedAlloc(seqType, allocParams);
         } else {
           alloc = createMemRef.alignedAlloc(rankedScanOutTy, allocParams);
