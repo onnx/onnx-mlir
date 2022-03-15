@@ -113,6 +113,12 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXGRUOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLSTMOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRNNOpPattern(patterns, typeConverter, ctx);
+  // Sequence
+  populateLoweringONNXSequenceAtOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSequenceEmptyOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSequenceEraseOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSequenceInsertOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSequenceLengthOpPattern(patterns, typeConverter, ctx);
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(ctx);
 }
