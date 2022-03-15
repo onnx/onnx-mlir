@@ -681,7 +681,9 @@ Value VectorBuilder::reduction(SmallVectorImpl<Value> &vecArray) {
   uint64_t N = vecArray.size();
   assert(N > 0 && "expected at least one value to reduce");
   uint64_t VL = vector1DLength(vecArray[0]);
-  assert(VL==N && "expected the same number of vectors in array as VL");
+  LLVM_DEBUG(
+      llvm::dbgs() << "reduction with N " << N << ", VL " << VL << "\n";);
+  assert(VL == N && "expected the same number of vectors in array as VL");
   SmallVector<Value, 8> tmpArray;
   for (uint64_t i = 0; i < VL; ++i) {
     tmpArray.emplace_back(vecArray[i]);
@@ -694,13 +696,13 @@ Value VectorBuilder::reduction(SmallVectorImpl<Value> &vecArray) {
   MathBuilder createMath(*this);
   uint64_t numPairs = VL / 2;
   while (true) {
-    for (uint64_t p=0; p < numPairs; ++p) {
-      Value highVal = mergeHigh(tmpArray[2*p], tmpArray[2*p+1], numPairs);
-      Value lowVal = mergeLow(tmpArray[2*p], tmpArray[2*p+1], numPairs);
+    for (uint64_t p = 0; p < numPairs; ++p) {
+      Value highVal = mergeHigh(tmpArray[2 * p], tmpArray[2 * p + 1], numPairs);
+      Value lowVal = mergeLow(tmpArray[2 * p], tmpArray[2 * p + 1], numPairs);
       Value red = createMath.add(highVal, lowVal);
       tmpArray[p] = red;
     }
-    if (numPairs == 1) 
+    if (numPairs == 1)
       // Completed with 1 pair, return the last value.
       return tmpArray[0];
     numPairs = numPairs / 2;

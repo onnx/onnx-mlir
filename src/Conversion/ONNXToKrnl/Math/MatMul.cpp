@@ -114,6 +114,99 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         });
   }
 
+  void computeTileSizeForMatMatProduct(DimIndexExpr dimI, DimIndexExpr dimJ,
+      DimIndexExpr dimK, int64_t &iRegTile, int64_t &jRegTile,
+      int64_t &kRegTile, bool &simdize) const {
+
+    // Default values
+    iRegTile = 4;
+    jRegTile = 8;
+    kRegTile = 8; // SIMD dim.
+
+    if (dimI.isLiteral()) {
+      int64_t constI = dimI.getLiteral();
+      if (constI < iRegTile) {
+        iRegTile = constI;
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Tiling I is reduced to " << iRegTile << "\n";
+        });
+      }
+    }
+
+    if (dimJ.isLiteral()) {
+      int64_t constJ = dimJ.getLiteral();
+      // No tiling needed when J dim is 1.
+      if (constJ == 1) {
+        // no tiling needed
+        jRegTile = 1;
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Tiling J is set to " << jRegTile << "\n";
+        });
+
+        // When jRegTile does not divide J, but 4 would, use 4, unless J is very
+        // large, in which case it is better to simdize well the steady state
+        // and ignore the last partial block.
+      } else if (constJ % jRegTile != 0 && constJ % 4 == 0 && constJ <= 32) {
+        jRegTile = 4;
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Tiling J is reduced to " << jRegTile << "\n";
+        });
+      }
+      // Simdization occurs along j and jRegTile. If dimJ is smaller than
+      // jRegTile, disable simdization.
+      if (constJ < jRegTile) {
+        simdize = false;
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Disable simdization because trip " << constJ
+                       << " is smaller than reg tile " << jRegTile << "\n";
+        });
+      }
+    }
+
+    if (dimK.isLiteral()) {
+      int64_t constK = dimK.getLiteral();
+      if (constK < kRegTile) {
+        kRegTile = constK;
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Tiling K is reduced to " << kRegTile << "\n";
+        });
+      }
+    }
+  }
+
+  void computeTileSizeForMatVectProduct(DimIndexExpr dimI, DimIndexExpr dimJ,
+      DimIndexExpr dimK, int64_t &iRegTile, int64_t &jRegTile,
+      int64_t &kRegTile, bool &simdize) const {
+
+    // Default values.
+    // Right now i & k must be identical powers of 2.
+    iRegTile = 8;
+    jRegTile = 1;
+    kRegTile = 8;
+
+    if (dimI.isLiteral()) {
+      int64_t constI = dimI.getLiteral();
+      if (constI < iRegTile) {
+        iRegTile = kRegTile = constI;
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Tiling I&K is reduced to " << iRegTile
+                       << "\n";
+        });
+      }
+    }
+
+    if (dimK.isLiteral()) {
+      int64_t constK = dimK.getLiteral();
+      if (constK < kRegTile) {
+        iRegTile = kRegTile = constK;
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Tiling I & K is reduced to " << kRegTile
+                       << "\n";
+        });
+      }
+    }
+  }
+
   // Handle the cases with 2x2 matrices both for A, B, and C without broadcast.
   // Implementation here uses the efficient 1d tiling plus kernel substitution.
   void replace2x2Matmul2d(ONNXMatMulOp &matMulOp,
@@ -134,50 +227,16 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     create.krnl.memset(alloc, zeroVal);
     bool simdize = true;
 
-    // Compute.
     // Define blocking, with simdization along the j axis.
-    int64_t iRegTile(4), jRegTile(8), kRegTile(8);
-    // Update tiling for very small sizes known at compile time.
     DimIndexExpr dimI(I), dimJ(J), dimK(K);
-    if (dimI.isLiteral()) {
-      int64_t constI = dimI.getLiteral();
-      if (constI < iRegTile) {
-        iRegTile = constI;
-        LLVM_DEBUG({
-          llvm::dbgs() << "MatMul: Tiling I is reduced to " << iRegTile << "\n";
-        });
-      }
-    }
-    if (dimJ.isLiteral()) {
-      int64_t constJ = dimJ.getLiteral();
-      // When jRegTile does not divide J, but 4 would, use 4, unless J is very
-      // large, in which case it is better to simdize well the steady state
-      // and ignore the last partial block.
-      if (constJ % jRegTile != 0 && constJ % 4 == 0 && constJ <= 32) {
-        jRegTile = 4;
-        LLVM_DEBUG({
-          llvm::dbgs() << "MatMul: Tiling J is reduced to " << jRegTile << "\n";
-        });
-      }
-      // Simdization occurs along j and jRegTile. If dimJ is smaller than
-      // jRegTile, disable simdization.
-      if (constJ < jRegTile) {
-        simdize = false;
-        LLVM_DEBUG({
-          llvm::dbgs() << "MatMul: Disable simdization because trip " << constJ
-                       << " is smaller than reg tile " << jRegTile << "\n";
-        });
-      }
-    }
-    if (dimK.isLiteral()) {
-      int64_t constK = dimK.getLiteral();
-      if (constK < kRegTile) {
-        kRegTile = constK;
-        LLVM_DEBUG({
-          llvm::dbgs() << "MatMul: Tiling K is reduced to " << kRegTile << "\n";
-        });
-      }
-    }
+    int64_t iRegTile, jRegTile, kRegTile;
+    bool isMatVectorProduct = dimJ.isLiteral() && dimJ.getLiteral() == 1;
+    if (isMatVectorProduct)
+      computeTileSizeForMatVectProduct(
+          dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+    else
+      computeTileSizeForMatMatProduct(
+          dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
 
     // I, J, K loop.
     ValueRange origLoop = create.krnl.defineLoops(3);
