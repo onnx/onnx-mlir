@@ -203,8 +203,7 @@ OMTensor *omTensorCreate(
     tensor->_dataType = dtype;
     tensor->_owning = false;
   } else {
-    if (tensor->_shape)
-      free(tensor->_shape);
+    free(tensor->_shape);
     free(tensor);
     return NULL;
   }
@@ -258,8 +257,7 @@ OMTensor *omTensorCreateUntyped(int64_t rank) {
     omt->_rank = rank;
     omt->_owning = false;
   } else {
-    if (omt->_shape)
-      free(omt->_shape);
+    free(omt->_shape);
     free(omt);
     return NULL;
   }
@@ -519,7 +517,7 @@ OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &shape) {
   /* Convert CPP type to ONNX type */
   try {
     omt->_dataType = OM_DATA_TYPE_CPP_TO_ONNX.at(std::string(typeid(T).name()));
-  } catch (const std::out_of_range &e) {
+  } catch (const std::out_of_range &) {
     omt->_dataType = ONNX_TYPE_UNDEFINED;
   }
 

@@ -62,6 +62,7 @@ add_onnx_mlir_library(OMONNXOps
   MLIRAffine
   MLIRSCF
   MLIRVector
+  onnx
   )
 
 configure_file(ONNXOps.td.inc.dc.in
