@@ -708,6 +708,7 @@ def ONNXConcatOp:ONNX_Op<"Concat",
       return {20};
     }
   }];
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",

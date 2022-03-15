@@ -14,8 +14,8 @@ The onnx-mlir image just contains the built compiler and you can use it immediat
 ## Easy Script to Compile a Model
 
 A python convenience script is provided to allow you to run ONNX-MLIR inside a docker container as if running the ONNX-MLIR compiler directly on the host.
-The resulting output is an Linux ELF library implemening the ONNX model.
-The `onnx-mlir.py` script is located in the [docker](../docker) directory. For example, compiling a mninst model can be done as follows.
+The resulting output is an Linux ELF library implementing the ONNX model.
+The `onnx-mlir.py` script is located in the [docker](../docker) directory. For example, compiling a MNIST model can be done as follows.
 ```
 # docker/onnx-mlir.py -O3 --EmitLib mnist/model.onnx
 505a5a6fb7d0: Pulling fs layer

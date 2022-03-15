@@ -115,6 +115,7 @@ static llvm::cl::opt<std::string> march("march",
     llvm::cl::value_desc("Target a specific architecture type"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
+enum OptLevel { O0, O1, O2, O3 };
 static llvm::cl::opt<OptLevel> OptimizationLevel(
     llvm::cl::desc("Optimization levels:"),
     llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default)."),
@@ -659,7 +660,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   // pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConv2DOpTransformPass());
   // pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConstantOpTransformPass());
   // pm.addNestedPass<FuncOp>(mlir::createONNXToAtenConstantPadNdOpTransformPass());
-  
+
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
 }
