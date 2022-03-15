@@ -203,8 +203,7 @@ OMTensor *omTensorCreate(
     tensor->_dataType = dtype;
     tensor->_owning = false;
   } else {
-    if (tensor->_shape)
-      free(tensor->_shape);
+    free(tensor->_shape);
     free(tensor);
     return NULL;
   }
@@ -258,8 +257,7 @@ OMTensor *omTensorCreateUntyped(int64_t rank) {
     omt->_rank = rank;
     omt->_owning = false;
   } else {
-    if (omt->_shape)
-      free(omt->_shape);
+    free(omt->_shape);
     free(omt);
     return NULL;
   }
