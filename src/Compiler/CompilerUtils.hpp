@@ -48,6 +48,7 @@ void registerDialects(mlir::MLIRContext &context);
 
 void addONNXToMLIRPasses(mlir::PassManager &pm);
 void addONNXToKrnlPasses(mlir::PassManager &pm);
+void addONNXToTorchPasses(mlir::PassManager &pm);
 void addKrnlToAffinePasses(mlir::PassManager &pm);
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm);
 
