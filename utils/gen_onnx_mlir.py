@@ -315,6 +315,7 @@ OpsWithVerifier = [
     "RoiAlign",
     "ScatterElements",
     'ScatterND',
+    'SequenceEmpty',
     'SequenceInsert',
     'SpaceToDepth',
     'TopK',
