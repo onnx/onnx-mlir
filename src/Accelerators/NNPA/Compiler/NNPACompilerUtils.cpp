@@ -75,20 +75,17 @@ void addONNXToZHighPasses(
   pm.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   pm.addPass(mlir::createCanonicalizerPass());
   // Layout propagation at ZHighIR.
-  /* turn off until stickify code is ready to go
-  pm.addNestedPass<FuncOp>(mlir::createZHighLayoutPropagationPass());
-  */
+  pm.addNestedPass<FuncOp>(
+      onnx_mlir::zhigh::createZHighLayoutPropagationPass());
   pm.addPass(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   // Constant propagation at ZHighIR: constant stickify.
   // Only support BE machines.
-
-  /* turn off until stickify code is ready to go
   bool isBE = llvm::support::endian::system_endianness() ==
               llvm::support::endianness::big;
   if (isBE)
-    pm.addNestedPass<FuncOp>(mlir::createZHighConstPropagationPass());
-    */
+    pm.addNestedPass<FuncOp>(
+        onnx_mlir::zhigh::createZHighConstPropagationPass());
 }
 
 void addZHighToZLowPasses(mlir::PassManager &pm, int optLevel) {
