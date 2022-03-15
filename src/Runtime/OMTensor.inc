@@ -269,18 +269,14 @@ OMTensor *omTensorCreateUntyped(int64_t rank) {
 
 OMTensor *omTensorCreateEmpty(
     int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
-  OMTensor *tensor =
-      omTensorCreateWithOwnership(NULL, shape, rank, dtype, /*owning=*/true);
-  // If ctor fails, return null.
-  if (!tensor)
+  OMTensor *tensor;
+  void *dataPtr;
+  if (((dataPtr = malloc(getNumElems(shape, rank) * getDataTypeSize(dtype))) ==
+      NULL) || ((tensor = omTensorCreateWithOwnership(dataPtr, shape, rank,
+      dtype, /*owning=*/true)) == NULL)) {
+    free(dataPtr); // OK if dataPtr == NULL
     return NULL;
-
-  void *dataPtr = malloc(omTensorGetNumElems(tensor) * getDataTypeSize(dtype));
-  if (!dataPtr)
-    return NULL;
-
-  tensor->_alignedPtr = dataPtr;
-  tensor->_allocatedPtr = dataPtr;
+  }
   return tensor;
 }
 
@@ -523,7 +519,7 @@ OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &shape) {
   /* Convert CPP type to ONNX type */
   try {
     omt->_dataType = OM_DATA_TYPE_CPP_TO_ONNX.at(std::string(typeid(T).name()));
-  } catch (const std::out_of_range &e) {
+  } catch (const std::out_of_range &) {
     omt->_dataType = ONNX_TYPE_UNDEFINED;
   }
 
