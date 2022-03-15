@@ -141,6 +141,40 @@ means to block the for loop referred to by %i using a tile size of 4.
 | `loop_block` | any type
 | `loop_local` | any type
 
+### `krnl.call` (::mlir::KrnlCallOp)
+
+call operation
+
+The call operation provides a generic way to call an external function at Krnl level.
+The `funcName` determines which function to call.
+The `alloc` is the Value to store the function return. Since allocation of the return 
+MemRef involves shape inference usually with IndexExpr. Thus most of time the allocation
+should stay in compiler, not in runtime library.
+The parameters can be of any type: MemRef, NoneType or any llvm type. 
+Different types of parameters will be converted, if needed, when KrnlCallOp is lowered.
+Attributes will be converted to parameters too (To be Added). 
+The function signature will be determined with the types of parameters.
+An LLVM::CallOp to either a runtime library or a llvm intrinsic function will be generated. 
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `funcName` | ::mlir::StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `alloc` | any type
+| `parameters` | any type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `result` | any type
+
 ### `krnl.copy_from_tile_buffer` (::mlir::KrnlCopyFromBufferOp)
 
 Copy from buffer.
@@ -542,7 +576,7 @@ This region is depicted using stars '*' below.
 All indices passed to this operation are the global indices in the original
 computation, so as to better know if we have boundary conditions.
 
-ORIGINAL ARRAY: if A: *xIxK; if B: *xKxJ; if C: *xI*J). 
+ORIGINAL ARRAY: if A: *xIxK; if B: *xKxJ; if C: *xI*J).
  -------------------------------------------------
  |                                               ]
  |                                               ]
@@ -676,7 +710,7 @@ Note that code is simdized along the J dim (last dim of B and C matrices).
 For simd to be enabled, the simdized flag must be set to true, and the
 following condition must be true:
 1) The vector length is the second entry of (i, j, k) compute tile size.
-   The vector length must be a compile time constant.q
+   The vector length must be a compile time constant.
 
 Traits: AttrSizedOperandSegments, MemRefsNormalizable
 
@@ -850,6 +884,48 @@ affine.for %arg0 = 0 to 1024 step 4 {
 | Operand | Description |
 | :-----: | ----------- |
 | `loops` | any type
+
+### `krnl.print` (::mlir::KrnlPrintOp)
+
+Print a value.
+
+This operation can be used to print the input value. The user needs to provide a 
+format string (à la printf) to specify how to print the input value. 
+If the input value is not specified the operator will print the format string.
+
+Traits: MemRefsNormalizable
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `format` | ::mlir::StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | any type
+
+### `krnl.print_tensor` (::mlir::KrnlPrintTensorOp)
+
+Print a tensor.
+
+This operation can be used to generate a call to a runtime function which prints a tensor.
+
+Traits: MemRefsNormalizable
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `msg` | ::mlir::StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | memref of any type values
 
 ### `krnl.random_normal` (::mlir::KrnlRandomNormalOp)
 
