@@ -176,7 +176,7 @@ struct VectorBuilder final : DialectBuilder {
   // Composite functions
   Value mergeLow(Value lhs, Value rhs, int64_t step);
   Value mergeHigh(Value lhs, Value rhs, int64_t step);
-  Value reduction(SmallVectorImpl<Value> &vecArray);
+  Value multiReduction(SmallVectorImpl<Value> &vecArray); // Only 4x4 as of now.
 
 private:
   bool isPowerOf2(uint64_t num);

@@ -638,14 +638,14 @@ Value VectorBuilder::mergeHigh(Value lhs, Value rhs, int64_t step) {
   assert(isPowerOf2(VL) && "expected power of 2 vector length");
   SmallVector<int64_t, 8> mask(VL, 0);
   int i = 0;
-  int pairsOfLhsRhs = VL / (2 * step);
+  int64_t pairsOfLhsRhs = VL / (2 * step);
   int64_t firstHalf = 0;
-  for (int p = 0; p < pairsOfLhsRhs; ++p) {
+  for (int64_t p = 0; p < pairsOfLhsRhs; ++p) {
     // One step-sized item from the LHS
-    for (int e = 0; e < step; ++e)
+    for (int64_t e = 0; e < step; ++e)
       mask[i++] = firstHalf + p * step + e;
     // One step-sized item from the RHS (RHS offset is VL for the shuffle op).
-    for (int e = 0; e < step; ++e)
+    for (int64_t e = 0; e < step; ++e)
       mask[i++] = firstHalf + VL + p * step + e;
   }
   return shuffle(lhs, rhs, mask);
@@ -663,27 +663,28 @@ Value VectorBuilder::mergeLow(Value lhs, Value rhs, int64_t step) {
   assert(isPowerOf2(VL) && "expected power of 2 vector length");
   SmallVector<int64_t, 8> mask(VL, 0);
   int i = 0;
-  int pairsOfLhsRhs = VL / (2 * step);
+  int64_t pairsOfLhsRhs = VL / (2 * step);
   int64_t secondHalf = VL / 2;
-  for (int p = 0; p < pairsOfLhsRhs; ++p) {
+  for (int64_t p = 0; p < pairsOfLhsRhs; ++p) {
     // One step-sized item from the LHS
-    for (int e = 0; e < step; ++e)
+    for (int64_t e = 0; e < step; ++e)
       mask[i++] = secondHalf + p * step + e;
     // One step-sized item from the RHS (RHS offset is VL for the shuffle op).
-    for (int e = 0; e < step; ++e)
+    for (int64_t e = 0; e < step; ++e)
       mask[i++] = secondHalf + VL + p * step + e;
   }
   return shuffle(lhs, rhs, mask);
 }
 
 // Composite functions
-Value VectorBuilder::reduction(SmallVectorImpl<Value> &vecArray) {
+Value VectorBuilder::multiReduction(SmallVectorImpl<Value> &vecArray) {
   uint64_t N = vecArray.size();
   assert(N > 0 && "expected at least one value to reduce");
   uint64_t VL = vector1DLength(vecArray[0]);
   LLVM_DEBUG(
       llvm::dbgs() << "reduction with N " << N << ", VL " << VL << "\n";);
   assert(VL == N && "expected the same number of vectors in array as VL");
+  assert(VL == 4 && "only natural sizes supported at this time");
   SmallVector<Value, 8> tmpArray;
   for (uint64_t i = 0; i < VL; ++i) {
     tmpArray.emplace_back(vecArray[i]);
@@ -695,16 +696,14 @@ Value VectorBuilder::reduction(SmallVectorImpl<Value> &vecArray) {
   // reductions of full physical vectors
   MathBuilder createMath(*this);
   uint64_t numPairs = VL / 2;
-  while (true) {
+  for (uint64_t step = 1; step < VL; step = step * 2) {
     for (uint64_t p = 0; p < numPairs; ++p) {
-      Value highVal = mergeHigh(tmpArray[2 * p], tmpArray[2 * p + 1], numPairs);
-      Value lowVal = mergeLow(tmpArray[2 * p], tmpArray[2 * p + 1], numPairs);
+      Value highVal = mergeHigh(tmpArray[2 * p], tmpArray[2 * p + 1], step);
+      Value lowVal = mergeLow(tmpArray[2 * p], tmpArray[2 * p + 1], step);
       Value red = createMath.add(highVal, lowVal);
       tmpArray[p] = red;
     }
-    if (numPairs == 1)
-      // Completed with 1 pair, return the last value.
-      return tmpArray[0];
     numPairs = numPairs / 2;
   }
+  return tmpArray[0];
 }

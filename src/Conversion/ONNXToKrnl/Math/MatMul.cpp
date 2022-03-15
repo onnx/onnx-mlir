@@ -172,6 +172,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         });
       }
     }
+    LLVM_DEBUG({
+      llvm::dbgs() << "MatMul mat: Tiling I " << iRegTile << ", J " << jRegTile
+                   << ", K " << kRegTile << ", simd " << simdize << "\n";
+    });
   }
 
   void computeTileSizeForMatVectProduct(DimIndexExpr dimI, DimIndexExpr dimJ,
@@ -179,32 +183,30 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       int64_t &kRegTile, bool &simdize) const {
 
     // Default values.
-    // Right now i & k must be identical powers of 2.
-    iRegTile = 8;
+    // Right can only tile by 4.
+    iRegTile = 4; // SIMD dim during multi-reduction.
     jRegTile = 1;
-    kRegTile = 8;
+    kRegTile = 4; // SIMD dim during multiplication.
 
     if (dimI.isLiteral()) {
       int64_t constI = dimI.getLiteral();
       if (constI < iRegTile) {
-        iRegTile = kRegTile = constI;
-        LLVM_DEBUG({
-          llvm::dbgs() << "MatMul: Tiling I&K is reduced to " << iRegTile
-                       << "\n";
-        });
+        simdize = false;
+        // Not enough data, can only support i/k reg tile of 4.
       }
     }
 
     if (dimK.isLiteral()) {
       int64_t constK = dimK.getLiteral();
       if (constK < kRegTile) {
-        iRegTile = kRegTile = constK;
-        LLVM_DEBUG({
-          llvm::dbgs() << "MatMul: Tiling I & K is reduced to " << kRegTile
-                       << "\n";
-        });
+        simdize = false;
+        // Not enough data, can only support i/k reg tile of 4.
       }
     }
+    LLVM_DEBUG({
+      llvm::dbgs() << "MatMul vec: Tiling I " << iRegTile << ", J " << jRegTile
+                   << ", K " << kRegTile << ", simd " << simdize << "\n";
+    });
   }
 
   // Handle the cases with 2x2 matrices both for A, B, and C without broadcast.
@@ -213,7 +215,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
       ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
-
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
@@ -265,7 +266,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-
     // Get shape.
     ONNXMatMulOpAdaptor operandAdaptor(operands);
     ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);

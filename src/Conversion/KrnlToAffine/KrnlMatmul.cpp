@@ -139,8 +139,8 @@ public:
         kGlobalUB(operandAdaptor.kGlobalUB());
 
     // Has a matrix times vector when the J upper bound is literal 1.
-    bool matVectorProduct = ENABLE_MAT_VECT_MUL &&
-        jGlobalUB.isLiteral() && jGlobalUB.getLiteral() == 1;
+    bool matVectorProduct = ENABLE_MAT_VECT_MUL && jGlobalUB.isLiteral() &&
+                            jGlobalUB.getLiteral() == 1;
 
     // Investigate SIMD
     IndexExpr vectorLen = LiteralIndexExpr(1); // Assume no simd.
@@ -152,10 +152,8 @@ public:
         if (iComputeTileSize.isLiteral() && kComputeTileSize.isLiteral()) {
           uint64_t i = iComputeTileSize.getLiteral();
           uint64_t k = kComputeTileSize.getLiteral();
-          // if (i % k == 0 && (k & (k - 1)) == 0) {
-          if (i == k && k >= 8 && (k & (k - 1)) == 0) {
-            // Multiple (along I axis) square computation tiles of a size that
-            // is a power of 2.
+          // TODO: longer I & K vectors: (i % k == 0 && (k & (k - 1)) == 0) 
+          if (i == k && k == 4) {
             vectorLen = kComputeTileSize;
           } else {
             simdize = false;
@@ -254,7 +252,7 @@ public:
             vectorLen, fullUnrollAndJam);
         }, /* else has partial tiles */ [&](AffineBuilderKrnlMem &createAffine) {
           genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
-            iTrip, jPartialTrip, kTrip, /*unroll*/ false);
+            iTrip, jTrip, kTrip, /*unroll*/ false);
         });
         // clang-format on
       } else {
@@ -279,7 +277,7 @@ public:
               genSimdMatMat(createAffine, matmulOp, elementType, aStart, bStart,
                 cStart, iTrip, jPartialTrip, kTrip, vectorLen, /*unroll*/ false);
             } else {
-              genScalar(createAffine, matmulOp, elementType, aStart, bStart,  cStart,
+              genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
                 iTrip, jPartialTrip, kTrip, /*unroll*/ false);
             }
           });
@@ -422,7 +420,7 @@ private:
       vResList.emplace_back(vres);
     }
     // Reduce each SIMD vector of length VL==K using a SIMD parallel reduction.
-    Value vReduction = create.vec.reduction(vResList);
+    Value vReduction = create.vec.multiReduction(vResList);
     // Add the reduction to the previous value of C.
     SmallVector<Value, 4> cAccess;
     IndexExpr::getValues(cStart, cAccess);
