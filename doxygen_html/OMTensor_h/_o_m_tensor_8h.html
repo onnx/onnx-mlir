@@ -124,7 +124,7 @@ Functions</h2></td></tr>
 <tr class="memdesc:a7345ee1bac3a3d8f6040fc272ad72e1e"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data type setter.  <a href="_o_m_tensor_8h.html#a7345ee1bac3a3d8f6040fc272ad72e1e">More...</a><br /></td></tr>
 <tr class="separator:a7345ee1bac3a3d8f6040fc272ad72e1e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae4664f46903958e9570b920221a797f5"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#ae4664f46903958e9570b920221a797f5">omTensorGetBufferSize</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
-<tr class="memdesc:ae4664f46903958e9570b920221a797f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data buffer size getter.  <a href="_o_m_tensor_8h.html#ae4664f46903958e9570b920221a797f5">More...</a><br /></td></tr>
+<tr class="memdesc:ae4664f46903958e9570b920221a797f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor numerical data buffer size getter.  <a href="_o_m_tensor_8h.html#ae4664f46903958e9570b920221a797f5">More...</a><br /></td></tr>
 <tr class="separator:ae4664f46903958e9570b920221a797f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7b701366a20291d76492ff1c2fa73a06"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a7b701366a20291d76492ff1c2fa73a06">omTensorGetRank</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
 <tr class="memdesc:a7b701366a20291d76492ff1c2fa73a06"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor rank getter.  <a href="_o_m_tensor_8h.html#a7b701366a20291d76492ff1c2fa73a06">More...</a><br /></td></tr>
@@ -196,10 +196,11 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Create a OMTensor with specified data pointer, shape, rank and element type. </p>
-<p>The call will not create a copy of the data. By default, caller is responsible for managing the memory this pointer refers to. Namely, the OMTensor is not the owner of the data. To indicate OMTensor's ownership of data, use <code>omTensorCreateWithOwnership</code>. Ownership determines what happens with the OMTensor is destroyed. With ownership of the data, the destruction of the OMTensor will also free the data.</p>
+<p>The call will create a copy of the shape array but will not create a copy of the data numerical values. The shape array is copied without being freed, so users are expected to manage the shape array oneself. By default, users are responsible for managing the memory the numerical data pointer refers to, keeping the numerical data alive for the duration of the usage of the created tensor and freeing the numerical data after the last use of the created tensor. Namely, the OMTensor is not the owner of the numerical data. To indicate OMTensor's ownership of numerical data, use <code>omTensorCreateWithOwnership</code>. Ownership determines what happens with the OMTensor is destroyed. With ownership of the numerical data, the destruction of the OMTensor will also free the numerical data associated with the tensor.</p>
+<p>OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL, FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example, a 32-bit signed-integer is represented by the ONNX_TYPE_INT32 enum value.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">data_ptr</td><td>pointer to tensor data. By default, caller is responsible for managing the memory this pointer refers to. </td></tr>
+    <tr><td class="paramname">data_ptr</td><td>pointer to tensor data numerical values. By default, caller is responsible for managing the memory this pointer refers to. </td></tr>
     <tr><td class="paramname">shape</td><td>list of integers indicating the tensor shape. </td></tr>
     <tr><td class="paramname">rank</td><td>tensor rank. </td></tr>
     <tr><td class="paramname">dtype</td><td>tensor element data type. </td></tr>
@@ -242,7 +243,8 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Create an OMTensor with the specified shape, rank and element type, allocate uninitialized data for the specified shape.</p>
-<p>The OMTensor created using this constructor owns the underlying memory space allocated to the content of the tensor.</p>
+<p>The OMTensor created using this constructor owns the underlying memory space allocated to hold the content of the tensor numerical values.</p>
+<p>OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL, FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example, a 32-bit floating-point is represented by the ONNX_TYPE_FLOAT enum value.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">shape</td><td>list of integers indicating the tensor shape. </td></tr>
@@ -300,10 +302,11 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Create an OMTensor with specified data pointer, shape, rank and element type, manually setting data ptr ownership. </p>
-<p>Using this constructor, users can specify whether OMTensor owns the data, which subsequently determines whether the memory space underlying the data will be freed or not when OMTensor gets destroyed.</p>
+<p>The call will create a copy of the shape array but will not create a copy of the numerical data. The shape array is copied without being freed, so users are expected to manage the shape array oneself. Users can specify whether OMTensor owns the numerical data, which subsequently determines whether the memory space underlying the numerical data will be freed or not when OMTensor gets destroyed. Namely, if the ownership flag is set to false, users are responsible for keeping the numerical data live until the last use of the tensor and freeing the numerical data memory after its last use. If the ownership is set to true, then the destruction of the tensor will also free the numerical data associated with the tensor.</p>
+<p>OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL, FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example, a 32-bit unsigned-integer is represented by the ONNX_TYPE_UINT32 enum value.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">data_ptr</td><td>pointer to tensor data. </td></tr>
+    <tr><td class="paramname">data_ptr</td><td>pointer to tensor numerical data values. </td></tr>
     <tr><td class="paramname">shape</td><td>list of integers indicating the tensor shape. </td></tr>
     <tr><td class="paramname">rank</td><td>tensor rank. </td></tr>
     <tr><td class="paramname">dtype</td><td>tensor element data type. </td></tr>
@@ -332,7 +335,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Destroy the OMTensor struct. </p>
-<p>If OMTensor does not own the data, destroying the omTensor does not free up the memory occupied by the tensor content. If OMTensor owns the data, this function will free up the memory space underlying the tensor as well. The documentation of OMTensor constructors clarifies the ownership semantics.</p>
+<p>If OMTensor does not own its numerical data, destroying the omTensor does not free up the memory occupied by the tensor numerical values. If OMTensor owns the numerical data, this function will free up the memory space underlying the tensor's numerical data as well. The documentation of OMTensor constructors clarifies the ownership semantics.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">tensor</td><td>pointer to the OMTensor. The function simply returns when pointer is null. </td></tr>
@@ -358,7 +361,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>OMTensor data buffer size getter. </p>
+<p>OMTensor numerical data buffer size getter. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">tensor</td><td>pointer to the OMTensor </td></tr>
@@ -392,7 +395,7 @@ Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>pointer to the data buffer of the OMTensor, NULL if the data buffer is not set. </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>pointer to the numerical data buffer of the OMTensor, NULL if the numerical data buffer is not set. </dd></dl>
 
 </div>
 </div>
@@ -413,6 +416,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>OMTensor data type getter. </p>
+<p>OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL, FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example, a string is represented by the ONNX_TYPE_STRING enum value.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">tensor</td><td>pointer to the OMTensor </td></tr>
@@ -515,7 +519,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>OMTensor data shape getter. </p>
-<p>The data shape is returned as a pointer pointing to an array of n 64-bit integers where n is the rank of the tensor.</p>
+<p>The numerical data shape is returned as a pointer pointing to an array of n 64-bit integers where n is the rank of the tensor.</p>
 <p>The shape array is returned without copying, so caller should not free the returned pointer.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
@@ -619,6 +623,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>OMTensor data type setter. </p>
+<p>OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL, FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example, a 1-bit boolean number is represented by the ONNX_TYPE_BOOL enum value.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">tensor</td><td>pointer to the OMTensor </td></tr>
