@@ -338,7 +338,8 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
           create.krnl.iterate(sLoopDef, sLoopDef, {zero}, {ss},
               [&](KrnlBuilder &createKrnl, ValueRange sLoopInd) {
                 Value b(bcLoopInd[0]), c(bcLoopInd[1]), s(sLoopInd[0]);
-                MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
+                MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
+                    createKrnl);
 
                 // Index of the bounding box with the largest score.
                 Value selectedBI = create.krnl.load(order, {b, c, s});
@@ -352,7 +353,8 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                     create.krnl.load(effectiveMaxOutputPerClass, {});
                 Value checkMOPC = create.math.slt(currentMOPC, MOPC);
                 // 3. Bounding box has not yet been removed.
-                Value isRemoved = create.krnl.load(removedIndices, {selectedBI});
+                Value isRemoved =
+                    create.krnl.load(removedIndices, {selectedBI});
                 Value isNotRemoved = create.math.eq(isRemoved, falseVal);
 
                 // Only proceed if the box satisfies the above conditions.

@@ -152,7 +152,7 @@ public:
         if (iComputeTileSize.isLiteral() && kComputeTileSize.isLiteral()) {
           uint64_t i = iComputeTileSize.getLiteral();
           uint64_t k = kComputeTileSize.getLiteral();
-          // TODO: longer I & K vectors: (i % k == 0 && (k & (k - 1)) == 0) 
+          // TODO: longer I & K vectors: (i % k == 0 && (k & (k - 1)) == 0)
           if (i == k && k == 4) {
             vectorLen = kComputeTileSize;
           } else {
