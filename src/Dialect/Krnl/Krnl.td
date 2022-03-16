@@ -642,8 +642,8 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
        DeclareOpInterfaceMethods<SpecializedKernelOpInterface>, MemRefsNormalizable]> {
   let summary = "Matmul operation for a single pannel.";
   let description = [{
-    Perform a matrix multiplication A * B + C with sizes [IxK] * [KxJ] + [IxJ].
-    The original matrices A, B, and C can be buffered in buffered arrays
+    Perform a matrix multiplication AA * BB + CC with sizes [IxK] * [KxJ] + [IxJ].
+    The original matrices AA, BB, and CC can be buffered in buffered arrays
     which may be padded. The original matrices and the padded array might
     have a higher rank than 2, but the actual matrix multiplication operation
     only deal with the innermost 2 ranks of the matrices to perform its matrix
@@ -655,13 +655,14 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     All indices passed to this operation are the global indices in the original
     computation, so as to better know if we have boundary conditions.
     
-    ORIGINAL ARRAY: if A: *xIxK; if B: *xKxJ; if C: *xI*J).
-    BUFFER ARRAYS: denotated as aa, bb, and cc. Note that this operation does
-      not require the use of buffers arrays. If none are used, then aa=A,
-      bb=B, cc=C. If buffers are used, it is the responsability of the caller
+    ORIGINAL ARRAY: if AA: *xIxK; if BB: *xKxJ; if CC: *xI*J).
+    BUFFER ARRAYS: denotated as A, B, and C. Note that this operation does
+      not require the use of buffers arrays. If none are used, then A=AA,
+      B=BB, C=CC. If buffers are used, it is the responsability of the caller
       to properly fill the buffers with the appropriate data. Buffers are
       typically used for cache tiling.
 
+     ORIGINAL ARRAY
      -------------------------------------------------
      |                                               ]
      |                                               ]
@@ -685,7 +686,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     (2) iGlobalUB/jGlobalUB/jGlobalUB, required, global 1D indices.
     (3) aGlobalIndexMemStart/bGlobalIndexMemStart/cGlobalIndexMemStart,
         required, global nD indices with the same rank as the buffers
-        a, b, and c.
+        A, B, and C.
     (4) aTileSize/bTileSize/cTileSize, required when padding, 2D sizes.
     (5) computeTileSizes, required when tiled computation within buffer,
         3D sizes (I, J, K).
@@ -697,39 +698,39 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     The iGlobalUB/jGlobalUB/jGlobalUB (2) indicate the global upper bounds
     in the original computations.
 
-    We provide 3 buffers for matrix multipy: aa, bb, and cc. For each buffer,
+    We provide 3 buffers for matrix multipy: A, B, and C. For each buffer,
     we indicate the global indices pointing the beginning of the buffer:
     aGlobalIndexMemStart, bGlobalIndexMemStart, and cGlobalIndexMemStart (3).
     If no buffers are used, i.e. the computation starts directly in the
-    orginal memory, the global index is 0. If a buffer for A is used to
+    orginal memory, the global index is 0. If a buffer for AA is used to
     put data into it starting at indices [i1, k1], where i1 & k1 are the
     global indices in the original computations, then aGlobalIndexMemStart0
     and aGlobalIndexMemStart1 are i1 & k1, respectively.
 
-    If the aa, bb, or cc buffers are larger than the actual data tile they
+    If the A, B, or C buffers are larger than the actual data tile they
     contain (see copy_to_tile_buffer), then the actual tile size must be
     given using an optional attribute: aTileSize, bTileSize, or cTileSize (4).
     These optional tile size have a rank of 2, and their values must be
     equal or smaller than their corresponding buffer memrefs.
 
     If the computation are further tiled with respect to the size of the
-    buffers aa, bb, or cc, then the actual computation tile is given by
+    buffers A, B, or C, then the actual computation tile is given by
     the optional tile attribute computeTileSize (5). Its rank is 3, for the
-    I, J, and K dimension. The actual aa, bb, and cc buffer tile size
+    I, J, and K dimension. The actual A, B, and C buffer tile size
     (possibly specified by the optional parameters) must be a multiple of
     the I, J, and K computeTileSizes, in their respective
-    dimensions (A: IxK], B: [KxJ], C: [IxJ]).
+    dimensions (A: [IxK], B: [KxJ], C: [IxJ]).
 
-    Note that the buffers aa, bb, and cc can be of higher dimensionality than
+    Note that the buffers A, B, and C can be of higher dimensionality than
     the traditional 2D mentioned up to now, because of broadcasting rules.
     At this time, we only support broadcast of arrays having ranks of 2 or
     more. Because of the broadcast rules, the higher dimenstions have a
     constant index during one matrix multiply. These fixed indices are
-    given as prefix dimensions in the starting indices for A, B, and C
-    as described above. E.g. if A has a rank of 3, and B has a rank of 2,
-    the starting indices for A are [d, i1, k1] where i1 and k1 are as
+    given as prefix dimensions in the starting indices for AA, BB, and CC
+    as described above. E.g. if AA has a rank of 3, and BB has a rank of 2,
+    the starting indices for AA are [d, i1, k1] where i1 and k1 are as
     above, and d is index pointing to the current instance of the IxK
-    A matrix to be computed. B start indices would be unchanged at [k1, j1].
+    AA matrix to be computed. B start indices would be unchanged at [k1, j1].
 
     Simdize is used to state if simdization is requested.
     Unrolling is used to unroll and jam loops as warrented.
