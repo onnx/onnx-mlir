@@ -35,9 +35,20 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
+  bool success;
 
-  printf("RapidCheck test case generation.\n");
-  bool success = rc::check("Matmul implementation correctness", []() {
+  printf("RapidCheck Matrix-Vector test case generation.\n");
+  success = rc::check("Matrix-Vector Matmul implementation correctness", []() {
+    const auto I = *rc::gen::inRange(4, 50);
+    const auto K = *rc::gen::inRange(4, 14);
+
+    RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(I, 1, K));
+  });
+  if (!success)
+    return 1;
+
+  printf("RapidCheck Matrix-Matrix test case generation.\n");
+  success = rc::check("Matrix-Matrix Matmul implementation correctness", []() {
     const auto I = *rc::gen::inRange(1, 50);
     const auto J = *rc::gen::inRange(1, 50);
     const auto K = *rc::gen::inRange(1, 50);

@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 
 using namespace onnx_mlir;
 
@@ -476,40 +477,9 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 /// The new view is created using the given 'memRefType' and 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
     Location loc, Value data, const MemRefType &memRefType,
-    const SmallVectorImpl<IndexExpr> &outputDims) {
-  int64_t rank = memRefType.getRank();
-
-  // Compute new sizes and strides.
-  SmallVector<IndexExpr, 4> sizesIE, stridesIE;
-  sizesIE.resize(rank);
-  stridesIE.resize(rank);
-  IndexExpr strideIE = LiteralIndexExpr(1);
-  for (int i = rank - 1; i >= 0; --i) {
-    sizesIE[i] = outputDims[i];
-    stridesIE[i] = strideIE;
-    if (i > 0)
-      strideIE = strideIE * sizesIE[i];
-  }
-
-  SmallVector<OpFoldResult, 4> sizes, strides;
-  sizes.resize(rank);
-  strides.resize(rank);
-  for (int i = rank - 1; i >= 0; --i) {
-    if (sizesIE[i].isLiteral())
-      sizes[i] = rewriter.getIndexAttr(sizesIE[i].getLiteral());
-    else
-      sizes[i] = sizesIE[i].getValue();
-    if (stridesIE[i].isLiteral())
-      strides[i] = rewriter.getIndexAttr(stridesIE[i].getLiteral());
-    else
-      strides[i] = stridesIE[i].getValue();
-  }
-
-  // Emit ReinterpretCastOp.
-  Value newView =
-      rewriter.create<memref::ReinterpretCastOp>(loc, memRefType, data,
-          /*offset=*/rewriter.getIndexAttr(0), sizes, strides);
-  return newView;
+    SmallVectorImpl<IndexExpr> &outputDims) {
+  MemRefBuilder createMemRef(rewriter, loc);
+  return createMemRef.reinterpretCast(data, outputDims);
 }
 
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.

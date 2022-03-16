@@ -456,6 +456,8 @@ public:
       SmallVectorImpl<int64_t> &intDimList);
   static void getValues(
       ArrayRef<IndexExpr> indexExprArray, SmallVectorImpl<Value> &valueList);
+  static void getOpOrFoldResults(SmallVectorImpl<IndexExpr> &indexExprList,
+      SmallVectorImpl<OpFoldResult> &resList);
 
   // Possibly Affine Operations. Return a new IndexExpr
   IndexExpr operator+(IndexExpr const b) const;
