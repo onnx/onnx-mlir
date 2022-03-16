@@ -3376,7 +3376,17 @@ LogicalResult ONNXMaxUnpoolOp::inferShapes() {
 }
 
 LogicalResult ONNXMeanOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  for (int i = 0; i < getNumOperands(); ++i) {
+    if (!getOperand(i).getType().cast<RankedTensorType>())
+      return emitError("Input tensor(s) not ranked");
+  }
+  Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
+  for (int i = 1; i < getNumOperands(); ++i) {
+    Type nextTy = getOperand(i).getType().cast<RankedTensorType>();
+    resultTy = getBroadcastedType(resultTy, nextTy);
+  }
+  getResult().setType(resultTy);
+  return success();
 }
 
 LogicalResult ONNXMeanVarianceNormalizationOp::inferShapes() {
