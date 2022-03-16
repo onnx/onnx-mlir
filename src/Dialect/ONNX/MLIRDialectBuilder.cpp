@@ -630,9 +630,9 @@ Value VectorBuilder::mergeHigh(Value lhs, Value rhs, int64_t step) {
   // Inputs: lrs <l0, l1, l2, l3, l4, l5, l6, l7>;
   //         rhs <r0, r1, r2, r3, r4, r5, r6, r7>.
   // Merge alternatively the low (least significant) values of lrs and rhs
-  // Setp 1:     <(l0), (r0), (l1), (r1), (l2), (r2), (l3), (r3)> (1x sizes)
-  // Setp 2:     <(l0, l1),   (r0, r1),   (l2, l3),   (r2, r3)>   (2x sizes)
-  // Setp 4:     <(l0, l1, l2, l3),       (r0, r1, r2, r3)>       (4x sizes)
+  // Step 1:     <(l0), (r0), (l1), (r1), (l2), (r2), (l3), (r3)> (1x sizes)
+  // Step 2:     <(l0, l1),   (r0, r1),   (l2, l3),   (r2, r3)>   (2x sizes)
+  // Step 4:     <(l0, l1, l2, l3),       (r0, r1, r2, r3)>       (4x sizes)
   uint64_t VL = vector1DLength(lhs);
   assert(vector1DLength(rhs) == VL && "expected same sized vectors");
   assert(isPowerOf2(VL) && "expected power of 2 vector length");
@@ -655,9 +655,9 @@ Value VectorBuilder::mergeLow(Value lhs, Value rhs, int64_t step) {
   // Inputs: lrs <l0, l1, l2, l3, l4, l5, l6, l7>;
   //         rhs <r0, r1, r2, r3, r4, r5, r6, r7>.
   // Merge alternatively the low (least significant) values of lrs and rhs
-  // Setp 1:     <(l4), (r4), (l5), (r5), (l6), (r6), (l7), (r7)> (1x sizes)
-  // Setp 2:     <(l4, l5),   (r4, r5),   (l6, l7),   (r6, r7)>   (2x sizes)
-  // Setp 4:     <(l4, l5, l6, l7),       (r4, r5, r6, r7)>       (4x sizes)
+  // Step 1:     <(l4), (r4), (l5), (r5), (l6), (r6), (l7), (r7)> (1x sizes)
+  // Step 2:     <(l4, l5),   (r4, r5),   (l6, l7),   (r6, r7)>   (2x sizes)
+  // Step 4:     <(l4, l5, l6, l7),       (r4, r5, r6, r7)>       (4x sizes)
   uint64_t VL = vector1DLength(lhs);
   assert(vector1DLength(rhs) == VL && "expected same sized vectors");
   assert(isPowerOf2(VL) && "expected power of 2 vector length");

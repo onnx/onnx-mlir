@@ -38,16 +38,17 @@ def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
 def KrnlCallOp : Op<Krnl_Dialect, "call"> {
   let summary = "call operation";
   let description = [{
-    The call operation provides a generic way to call an external function at Krnl level.
-    The `funcName` determines which function to call.
-    The `alloc` is the Value to store the function return. Since allocation of the return 
-    MemRef involves shape inference usually with IndexExpr. Thus most of time the allocation
-    should stay in compiler, not in runtime library.
-    The parameters can be of any type: MemRef, NoneType or any llvm type. 
-    Different types of parameters will be converted, if needed, when KrnlCallOp is lowered.
-    Attributes will be converted to parameters too (To be Added). 
+    The call operation provides a generic way to call an external function
+    at Krnl level.  The `funcName` determines which function to call.
+    The `alloc` is the Value to store the function return. Since allocation
+    of the return MemRef involves shape inference usually with IndexExpr.
+    Thus most of time the allocation should stay in compiler, not in runtime library.
+    The parameters can be of any type: MemRef, NoneType or any llvm type.
+    Different types of parameters will be converted, if needed, when KrnlCallOp
+    is lowered. Attributes will be converted to parameters too (To be Added).
     The function signature will be determined with the types of parameters.
-    An LLVM::CallOp to either a runtime library or a llvm intrinsic function will be generated. 
+    An LLVM::CallOp to either a runtime library or a llvm intrinsic function
+    will be generated.
   }];
 
   let arguments = (ins StrAttr:$funcName, AnyType:$alloc, Variadic<AnyType>:$parameters);
@@ -655,6 +656,12 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     computation, so as to better know if we have boundary conditions.
     
     ORIGINAL ARRAY: if A: *xIxK; if B: *xKxJ; if C: *xI*J).
+    BUFFER ARRAYS: denotated as aa, bb, and cc. Note that this operation does
+      not require the use of buffers arrays. If none are used, then aa=A,
+      bb=B, cc=C. If buffers are used, it is the responsability of the caller
+      to properly fill the buffers with the appropriate data. Buffers are
+      typically used for cache tiling.
+
      -------------------------------------------------
      |                                               ]
      |                                               ]
@@ -690,7 +697,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     The iGlobalUB/jGlobalUB/jGlobalUB (2) indicate the global upper bounds
     in the original computations.
 
-    We provide 3 buffers for matrix multipy: A, B, and C. For each buffer,
+    We provide 3 buffers for matrix multipy: aa, bb, and cc. For each buffer,
     we indicate the global indices pointing the beginning of the buffer:
     aGlobalIndexMemStart, bGlobalIndexMemStart, and cGlobalIndexMemStart (3).
     If no buffers are used, i.e. the computation starts directly in the
@@ -699,21 +706,21 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     global indices in the original computations, then aGlobalIndexMemStart0
     and aGlobalIndexMemStart1 are i1 & k1, respectively.
 
-    If the A, B, or C buffers are larger than the actual data tile they
+    If the aa, bb, or cc buffers are larger than the actual data tile they
     contain (see copy_to_tile_buffer), then the actual tile size must be
     given using an optional attribute: aTileSize, bTileSize, or cTileSize (4).
     These optional tile size have a rank of 2, and their values must be
     equal or smaller than their corresponding buffer memrefs.
 
     If the computation are further tiled with respect to the size of the
-    buffers A, B, or C, then the actual computation tile is given by
+    buffers aa, bb, or cc, then the actual computation tile is given by
     the optional tile attribute computeTileSize (5). Its rank is 3, for the
-    I, J, and K dimension. The actual A, B, and C buffer tile size
+    I, J, and K dimension. The actual aa, bb, and cc buffer tile size
     (possibly specified by the optional parameters) must be a multiple of
     the I, J, and K computeTileSizes, in their respective
     dimensions (A: IxK], B: [KxJ], C: [IxJ]).
 
-    Note that the buffers A, B, and C can be of higher dimensionality than
+    Note that the buffers aa, bb, and cc can be of higher dimensionality than
     the traditional 2D mentioned up to now, because of broadcasting rules.
     At this time, we only support broadcast of arrays having ranks of 2 or
     more. Because of the broadcast rules, the higher dimenstions have a
