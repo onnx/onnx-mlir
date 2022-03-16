@@ -141,6 +141,41 @@ means to block the for loop referred to by %i using a tile size of 4.
 | `loop_block` | any type
 | `loop_local` | any type
 
+### `krnl.call` (::mlir::KrnlCallOp)
+
+call operation
+
+The call operation provides a generic way to call an external function
+at Krnl level.  The `funcName` determines which function to call.
+The `alloc` is the Value to store the function return. Since allocation
+of the return MemRef involves shape inference usually with IndexExpr.
+Thus most of time the allocation should stay in compiler, not in runtime library.
+The parameters can be of any type: MemRef, NoneType or any llvm type.
+Different types of parameters will be converted, if needed, when KrnlCallOp
+is lowered. Attributes will be converted to parameters too (To be Added).
+The function signature will be determined with the types of parameters.
+An LLVM::CallOp to either a runtime library or a llvm intrinsic function
+will be generated.
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `funcName` | ::mlir::StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `alloc` | any type
+| `parameters` | any type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `result` | any type
+
 ### `krnl.copy_from_tile_buffer` (::mlir::KrnlCopyFromBufferOp)
 
 Copy from buffer.
@@ -519,61 +554,112 @@ Matmul operation for a single pannel.
 Syntax:
 
 ```
-operation ::= `krnl.matmul` $A `[` $aMemStart `]` `,`
-              $B `[` $bMemStart `]` `,`
-              $C `[` $cMemStart `]` `,`
+operation ::= `krnl.matmul` $A `[` $aGlobalIndexMemStart `]` `,`
+              $B `[` $bGlobalIndexMemStart `]` `,`
+              $C `[` $cGlobalIndexMemStart `]` `,`
               `(` $loops `)` `,`
-              `(` $iComputeStart `,` $jComputeStart `,` $kComputeStart `)` `,`
+              `(` $iGlobalIndexComputeStart `,` $jGlobalIndexComputeStart `,`
+              $kGlobalIndexComputeStart `)` `,`
               `(` $iGlobalUB `,` $jGlobalUB `,` $kGlobalUB `)`
               attr-dict `:` type($A) `,` type($B)`,` type($C) `,` `(` type($loops) `)`
 ```
 
-Perform a matrix multiplication A * B + C
-for a small tile A * B + C of sizes
-[IxK] * [KxJ] + [IxJ].
+Perform a matrix multiplication AA * BB + CC with sizes [IxK] * [KxJ] + [IxJ].
+The original matrices AA, BB, and CC can be buffered in buffered arrays
+which may be padded. The original matrices and the padded array might
+have a higher rank than 2, but the actual matrix multiplication operation
+only deal with the innermost 2 ranks of the matrices to perform its matrix
+multiplication operations.
 
-The i/j/k ComputeStarts indicate the global indices of the first element
-of a tile to be computed in the original computations.
-The i/j/k GlobalUBs indicate the upper bounds in the original computations.
+The computations may also compute only a sub-tile of the buffered arrays.
+This region is depicted using stars '*' below.
+
+All indices passed to this operation are the global indices in the original
+computation, so as to better know if we have boundary conditions.
+
+ORIGINAL ARRAY: if AA: *xIxK; if BB: *xKxJ; if CC: *xI*J).
+BUFFER ARRAYS: denotated as A, B, and C. Note that this operation does
+  not require the use of buffers arrays. If none are used, then A=AA,
+  B=BB, C=CC. If buffers are used, it is the responsability of the caller
+  to properly fill the buffers with the appropriate data. Buffers are
+  typically used for cache tiling.
+
+ ORIGINAL ARRAY
+ -------------------------------------------------
+ |                                               ]
+ |                                               ]
+ |             buffer array       buffer pad     ]
+ |            (3)---------------- ++++           ]
+ |             |                 |   +           ]
+ |             |     (1)****     |   +           ]
+ |             |      *    *     |   +           ]
+ |             |      *    *     |   +           ]
+ |             |      ****(5)    |   +           ]
+ |             |                 |   +           ]
+ |             |                 |   +           ]
+ |             ------------------|   +           ]
+ |             +                     +           ]
+ |             +++++++++++++++++++++(4)          ]
+ |                                               ]
+ -----------------------------------------------(2)
+
+(1) iGlobalIndexComputeStart/jGlobalIndexComputeStart/
+    kGlobalIndexComputeStart, required, global 1D indices.
+(2) iGlobalUB/jGlobalUB/jGlobalUB, required, global 1D indices.
+(3) aGlobalIndexMemStart/bGlobalIndexMemStart/cGlobalIndexMemStart,
+    required, global nD indices with the same rank as the buffers
+    A, B, and C.
+(4) aTileSize/bTileSize/cTileSize, required when padding, 2D sizes.
+(5) computeTileSizes, required when tiled computation within buffer,
+    3D sizes (I, J, K).
+
+The iGlobalIndexComputeStart/jGlobalIndexComputeStart/
+kGlobalIndexComputeStart (1) indicate the global indices of the
+first element of a tile to be computed in the original computations.
+
+The iGlobalUB/jGlobalUB/jGlobalUB (2) indicate the global upper bounds
+in the original computations.
 
 We provide 3 buffers for matrix multipy: A, B, and C. For each buffer,
-we indicate the global indices pointing the beginning of the buffer.
-If no buffers are used, i.e. the computation starts directly in the orginal
-memory, the global index is 0. If a buffer for A is used to put data into
-it starting at indices [i1, k1], where i1 & k1 are the global indices in
-the original computations, then aMemStart0 and aMemStart1 are i1 & k1,
-respectively.
+we indicate the global indices pointing the beginning of the buffer:
+aGlobalIndexMemStart, bGlobalIndexMemStart, and cGlobalIndexMemStart (3).
+If no buffers are used, i.e. the computation starts directly in the
+orginal memory, the global index is 0. If a buffer for AA is used to
+put data into it starting at indices [i1, k1], where i1 & k1 are the
+global indices in the original computations, then aGlobalIndexMemStart0
+and aGlobalIndexMemStart1 are i1 & k1, respectively.
 
 If the A, B, or C buffers are larger than the actual data tile they
 contain (see copy_to_tile_buffer), then the actual tile size must be
-given using an optional attribute: ATileSize, BTileSize, or CTileSize.
+given using an optional attribute: aTileSize, bTileSize, or cTileSize (4).
 These optional tile size have a rank of 2, and their values must be
 equal or smaller than their corresponding buffer memrefs.
 
 If the computation are further tiled with respect to the size of the
 buffers A, B, or C, then the actual computation tile is given by
-the optional tile attribute computeTileSize. Its rank is 3, for the
-I, J, and K dimension. The actual A, B, and C buffer tile size 
+the optional tile attribute computeTileSize (5). Its rank is 3, for the
+I, J, and K dimension. The actual A, B, and C buffer tile size
 (possibly specified by the optional parameters) must be a multiple of
 the I, J, and K computeTileSizes, in their respective
-dimensions (A: IxK], B: [KxJ], C: [IxJ]).
+dimensions (A: [IxK], B: [KxJ], C: [IxJ]).
 
 Note that the buffers A, B, and C can be of higher dimensionality than
 the traditional 2D mentioned up to now, because of broadcasting rules.
 At this time, we only support broadcast of arrays having ranks of 2 or
 more. Because of the broadcast rules, the higher dimenstions have a
 constant index during one matrix multiply. These fixed indices are
-given as prefix dimensions in the starting indices for A, B, and C
-as described above. E.g. if A has a rank of 3, and B has a rank of 2,
-the starting indices for A are [d, i1, k1] where i1 and k1 are as
+given as prefix dimensions in the starting indices for AA, BB, and CC
+as described above. E.g. if AA has a rank of 3, and BB has a rank of 2,
+the starting indices for AA are [d, i1, k1] where i1 and k1 are as
 above, and d is index pointing to the current instance of the IxK
-A matrix to be computed. B start indices would be unchanged at [k1, j1].
+AA matrix to be computed. B start indices would be unchanged at [k1, j1].
 
 Simdize is used to state if simdization is requested.
 Unrolling is used to unroll and jam loops as warrented.
 
 Below is an example calculating a matrix multiply with pre-zeroed
-C matrix with the sizes below. 
+C matrix with the sizes below.
+
 %A: memref<40x60xf32>, %B: memref<60x80xf32>, %C: memref<40x80xf32>
 
 // 3 tiled loops.
@@ -586,26 +672,26 @@ C matrix with the sizes below.
 %jlb, %jll = krnl.block %jl 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 %klb, %kll = krnl.block %kl 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // Permute.
-krnl.permute(%ib, %ilb, %ill, %jb, %jlb, %jll, %kb, %klb, %kll) 
-    [0, 3, 6, 1, 4, 7, 2, 5, 8] : 
-    !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, 
+krnl.permute(%ib, %ilb, %ill, %jb, %jlb, %jll, %kb, %klb, %kll)
+    [0, 3, 6, 1, 4, 7, 2, 5, 8] :
+    !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop,
     !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
 // Outer 2 for i, j.
-krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 40, 
-                             %jj -> %j = 0 to 80, 
+krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 40,
+                             %jj -> %j = 0 to 80,
                              %kk -> %k = 0 to 60) {
-    %i1, %j1 = krnl.get_induction_var_value(%ib, %jb) : 
+    %i1, %j1 = krnl.get_induction_var_value(%ib, %jb) :
       (!krnl.loop,!krnl.loop) -> (index, index)
     // Fill C buffer.
     %Cbuff = alloca(): memref<10x8xf32>  // n x m_simd
-    krnl.copy_to_tile_buffer %Cbuff, %C[%i1, %j1], %f0 : 
+    krnl.copy_to_tile_buffer %Cbuff, %C[%i1, %j1], %f0 :
       memref<10x8xf32>, memref<40x80xf32>
     // Outer 1 for k.
     krnl.iterate(%kb) with () {
         %k1 = krnl.get_induction_var_value(%kb) : (!krnl.loop) -> (index)
         // Fill A and B buffer
         %Abuff = alloca(): memref<10x10xf32> // i x k
-        %Bbuff = alloca(): memref<10x8xf32>  // k x j_simd     
+        %Bbuff = alloca(): memref<10x8xf32>  // k x j_simd
         krnl.copy_to_tile_buffer %Abuff, %A[%i1, %k1], %f0 :
           memref<10x10xf32>, memref<40x60xf32>
         krnl.copy_to_tile_buffer %Bbuff, %B[%k1, %j1], %f0 :
@@ -629,14 +715,10 @@ krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 40,
 }
 
 Note that code is simdized along the J dim (last dim of B and C matrices).
-For simd to be enabled, the simdized flag must be set to true, and the 
+For simd to be enabled, the simdized flag must be set to true, and the
 following condition must be true:
 1) The vector length is the second entry of (i, j, k) compute tile size.
    The vector length must be a compile time constant.
-2) last dim of B & C mem ref must be constant and a multiple of the vector
-   length.
-By copying the original data B and result C into tiles of known compile time
-sizes, any computations can be made to simdize.
 
 Traits: AttrSizedOperandSegments, MemRefsNormalizable
 
@@ -659,15 +741,15 @@ Interfaces: SpecializedKernelOpInterface
 | Operand | Description |
 | :-----: | ----------- |
 | `A` | memref of any type values
-| `aMemStart` | index
+| `aGlobalIndexMemStart` | index
 | `B` | memref of any type values
-| `bMemStart` | index
+| `bGlobalIndexMemStart` | index
 | `C` | memref of any type values
-| `cMemStart` | index
+| `cGlobalIndexMemStart` | index
 | `loops` | any type
-| `iComputeStart` | index
-| `jComputeStart` | index
-| `kComputeStart` | index
+| `iGlobalIndexComputeStart` | index
+| `jGlobalIndexComputeStart` | index
+| `kGlobalIndexComputeStart` | index
 | `iGlobalUB` | index
 | `jGlobalUB` | index
 | `kGlobalUB` | index
@@ -810,6 +892,48 @@ affine.for %arg0 = 0 to 1024 step 4 {
 | Operand | Description |
 | :-----: | ----------- |
 | `loops` | any type
+
+### `krnl.print` (::mlir::KrnlPrintOp)
+
+Print a value.
+
+This operation can be used to print the input value. The user needs to provide a 
+format string (à la printf) to specify how to print the input value. 
+If the input value is not specified the operator will print the format string.
+
+Traits: MemRefsNormalizable
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `format` | ::mlir::StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | any type
+
+### `krnl.print_tensor` (::mlir::KrnlPrintTensorOp)
+
+Print a tensor.
+
+This operation can be used to generate a call to a runtime function which prints a tensor.
+
+Traits: MemRefsNormalizable
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `msg` | ::mlir::StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | memref of any type values
 
 ### `krnl.random_normal` (::mlir::KrnlRandomNormalOp)
 
@@ -1022,7 +1146,7 @@ corresponding dimension for target memref type.
 
 Traits: MemRefsNormalizable
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface), ViewLikeOpInterface
+Interfaces: CastOpInterface, NoSideEffect (MemoryEffectOpInterface), ViewLikeOpInterface
 
 Effects: MemoryEffects::Effect{}
 

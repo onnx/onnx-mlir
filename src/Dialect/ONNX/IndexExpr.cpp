@@ -409,6 +409,19 @@ void IndexExpr::debugPrint(
   }
 }
 
+/*static*/ void IndexExpr::getOpOrFoldResults(
+    SmallVectorImpl<IndexExpr> &indexExprList,
+    SmallVectorImpl<OpFoldResult> &resList) {
+  resList.clear();
+  for (IndexExpr &expr : indexExprList) {
+    if (expr.isLiteral()) {
+      auto val = expr.getRewriter().getIndexAttr(expr.getLiteral());
+      resList.emplace_back(val);
+    } else
+      resList.emplace_back(expr.getValue());
+  }
+}
+
 /*static*/ void IndexExpr::getValues(
     ArrayRef<IndexExpr> indexExprArray, SmallVectorImpl<Value> &valueList) {
   valueList.clear();
