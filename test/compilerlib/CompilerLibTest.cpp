@@ -12,6 +12,7 @@ using namespace onnx_mlir;
 std::string testFileName;
 std::string outputBaseName;
 std::string mcpu;
+std::string march;
 std::string mtriple;
 bool compileFromFile = false;
 
@@ -29,6 +30,7 @@ bool compileFromFile = false;
 
 void readArg(const std::string &arg) {
   PARSE_ARG(mcpu, "--mcpu=");
+  PARSE_ARG(march, "--march=");
   PARSE_ARG(mtriple, "--mtriple=");
   PARSE_ARG(outputBaseName, "-o");
   PARSE_FLAG(compileFromFile, "--fromfile");
@@ -52,6 +54,7 @@ int main(int argc, char *argv[]) {
     const char *errorMessage = NULL;
     retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
         onnx_mlir::EmitLib, mcpu.empty() ? nullptr : mcpu.c_str(),
+        march.empty() ? nullptr : march.c_str(),
         mtriple.empty() ? nullptr : mtriple.c_str(), &errorMessage);
     if (errorMessage != NULL) {
       std::cerr << errorMessage;
@@ -65,6 +68,7 @@ int main(int argc, char *argv[]) {
     retVal =
         omCompileFromArray(test.data(), test.size(), outputBaseName.c_str(),
             onnx_mlir::EmitLib, mcpu.empty() ? nullptr : mcpu.c_str(),
+            march.empty() ? nullptr : march.c_str(),
             mtriple.empty() ? nullptr : mtriple.c_str());
   }
   if (retVal != 0) {

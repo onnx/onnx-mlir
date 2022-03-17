@@ -5,14 +5,14 @@ This document serves as an index for onnx-mlir documents.
 
 # Working environment
 * Installation is covered by [README.md](../README.md).
-* [Workflow.md](Workflow.md) describes how to contribute in github enviroment. 
+* [Workflow.md](Workflow.md) describes how to contribute in github environment.
 * [This guideline](Documentation.md) is used to keep documentation and code consistent.
 
 # Development
-* Onnx operation are represented with  [ONNX dialect](Dialect/onnx.md) in onnx-mlir.
-*  This [document](ImportONNXDef.md) 
+* Onnx operation are represented with  [ONNX dialect](Dialects/onnx.md) in onnx-mlir.
+*  This [document](ImportONNXDefs.md#add_operation)
 tell you how to generate an ONNX operation into ONNX dialect.
-* After an ONNX model is imported into onnx-mlir, several graph-level transformations will be apllied.
+* After an ONNX model is imported into onnx-mlir, several graph-level transformations will be applied.
 These transformations include operation decomposition, [constant propagation](ConstPropagationPass.md),
 shape inference, and canonicalization. 
 * Then the ONNX dialect is [lowered to Krnl dialect](LoweringCode.md). 
@@ -23,5 +23,5 @@ at the ONNX operand level.
 
 # Execution
 The compiled ONNX model can be executed with either [c/c++ driver](document missing)
-or [python driver](DebuggingNumbericalError.md).
-The routine testing for onnx-mlir build is describe in this [document](Testing.md)
+or [python driver](DebuggingNumericalError.md).
+The routine testing for onnx-mlir build is describe in this [document](Testing.md).

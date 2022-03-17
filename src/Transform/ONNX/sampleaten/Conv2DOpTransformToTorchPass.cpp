@@ -28,9 +28,9 @@
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
-
 
 #include "mlir/Transforms/DialectConversion.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
@@ -116,11 +116,24 @@ public:
     auto strides = op.stridesAttr(); 		// ::mlir::ArrayAttr
 
     auto b0 = strides.getValue();
-    auto bs = strides.begin();   
+    auto bs = strides.begin();
     auto es = strides.end();
 
+
+    llvm::outs() << "SIZES OF THE STRIDESLIST: " << strides.size() << "\n" << "\n";
+
+    for(bs; bs!= es; ++bs){
+	Attribute a = *bs;
+
+    	llvm::outs() << "STRIDES ITERATOR \t" << *bs << "\n" << "\n";
+    	llvm::outs() << "STRIDES Attribute \t" << a.getType() << "\n" << "\n";
+    	llvm::outs() << "STRIDES Attribute value \t" << a.cast<IntegerAttr>().getInt()  << "\n" << "\n";
+    }
+
+
     auto groupValue = group.getAPSInt();
-    //auto sta = mlir::ArrayAttr::get(context, strides);
+    auto sta = mlir::ArrayAttr::get(context, strides);
+
     auto strides_AR = strides.getValue();
     ::mlir::ArrayAttr stridesArrayAttr = mlir::ArrayAttr::get(context, strides);
 
@@ -134,8 +147,9 @@ public:
     Value f0v = rewriter.create<ConstantIntOp>(loc,f0);
     Value f1v = rewriter.create<ConstantIntOp>(loc,group);
     Value f2v = rewriter.create<ConstantIntOp>(loc,group);
-
+    
     Value groupVal = rewriter.create<ConstantIntOp>(loc,group);
+    Type tensorType = op.getType();
 
     Value stridesList = rewriter.create<PrimListConstructOp>(
 	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{f1v, f2v}); 
@@ -219,7 +233,6 @@ class ONNXToAtenConv2DOpTransformPass
 
 	  //target.addIllegalOp<ONNXConvOp>();
 	  llvm::outs() << "ONNXToAtenConv2DOpTransformPass `After OpTransform " << "\n"; 
-
 
 	  if (failed(applyPartialConversion(getOperation(), target,
 	      std::move(patterns)))) {
