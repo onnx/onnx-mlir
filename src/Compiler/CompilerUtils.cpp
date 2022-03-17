@@ -40,7 +40,6 @@ using namespace onnx_mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
-
 llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX-MLIR Options", "These are frontend options.");
 
@@ -619,7 +618,8 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::ONNXOpsDialect>();
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
   context.getOrLoadDialect<mlir::torch::Torch::TorchDialect>();
-  context.getOrLoadDialect<mlir::torch::TorchConversion::TorchConversionDialect>();
+  context
+      .getOrLoadDialect<mlir::torch::TorchConversion::TorchConversionDialect>();
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
@@ -666,16 +666,16 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 }
 
 void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
-  //pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
+  // pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<ModuleOp>(mlir::createInstrumentONNXPass());
   pm.addPass(mlir::createLowerToTorchPass(optLevel));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
-  //pm.addPass(mlir::createCanonicalizerPass());
-  //pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
-  //pm.addPass(mlir::createCanonicalizerPass());
+  // pm.addPass(mlir::createCanonicalizerPass());
+  // pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
+  // pm.addPass(mlir::createCanonicalizerPass());
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel) {
@@ -952,8 +952,8 @@ static void addPasses(mlir::OwningModuleRef &module, mlir::PassManager &pm,
   }
 
   /// torch pass has been added
-  ///if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
-     addONNXToTorchPasses(pm, OptimizationLevel);
+  /// if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
+  addONNXToTorchPasses(pm, OptimizationLevel);
 
   if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
     addKrnlToLLVMPasses(pm);
