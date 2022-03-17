@@ -120,6 +120,11 @@ using namespace mlir::torch::Torch;
  */
 
 
+typedef struct dim_pads{
+  int dim_start;
+  int dim_end;
+} dim_pads;
+
 struct ONNXMaxPoolSingleOutOpToTorchLowering : public ConversionPattern {
 public:
   ONNXMaxPoolSingleOutOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -149,12 +154,74 @@ public:
     auto storage_order_attr = op1.storage_orderAttr();	// ::mlir::IntegerAttr
     int64_t storage_order = op1.storage_order();	// int64_t
 
+    // Reading the ONNX side pads values and store in the array.
+    dim_pads dimArray[pads.size()];
+    std::vector<Value> translatepadsList;
+    auto ty = IntegerType::get(op1.getContext(), 64);
+    if (pads) {
+      int j = 0;
+      for (unsigned int i = 0; i < pads.size(); i++) {
+        dimArray[j].dim_start = (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+        i++;
+        dimArray[j].dim_end = (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+        j++;
+      }
+
+      // read the onnx pad values from array(dim_start values) 
+      int k = 0;
+      for (unsigned int i = 0; i < pads.size(); i=i+2) {
+        auto f0 = IntegerAttr::get(ty, (dimArray[k].dim_start));
+        Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
+        translatepadsList.push_back(p0v);
+        k++;
+      }
+
+      // read the onnx pad values from array(dim_end values)
+      k = 0;
+      for (unsigned int i = 0; i < pads.size(); i=i+2) {
+        auto f1 = IntegerAttr::get(ty,(dimArray[k].dim_end));
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        translatepadsList.push_back(p1v);
+        k++;
+      }
+    }
+
+    std::vector<Value> dilationonnxList;
+    std::vector<Value> kernalshapeonnxList;
+    std::vector<Value> stridesonnxList;
+
+    // reading the dilation values.
+    if (dilations) {
+      for (unsigned int i = 0; i < dilations.size(); i++) {
+        auto f1 = IntegerAttr::get(ty,(dilations[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        dilationonnxList.push_back(p1v);
+      }
+    }
+
+    // reading the kernal_shape values.
+    if (kernal_shape) {
+      for (unsigned int i = 0; i < kernal_shape.size(); i++) {
+        auto f1 = IntegerAttr::get(ty,(kernal_shape[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        kernalshapeonnxList.push_back(p1v);
+      }
+    }
+
+    // reading the strides values.
+    if (strides) {
+      for (unsigned int i = 0; i < strides.size(); i++) {
+        auto f1 = IntegerAttr::get(ty,(strides[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        stridesonnxList.push_back(p1v);
+      }
+    }
+
     auto one = 1;
     auto two = 2;
     auto three = 3;
     auto zero  = 0;
     
-    auto ty = IntegerType::get(op1.getContext(), 64);
     auto f33 = IntegerAttr::get(ty, three);
     auto f00 = IntegerAttr::get(ty, zero);
     auto f22 = IntegerAttr::get(ty, two);
@@ -167,20 +234,23 @@ public:
     Value f0v = rewriter.create<ConstantIntOp>(loc,f0);
     Value f22v = rewriter.create<ConstantIntOp>(loc,f2);
 
-    Value ceiling_mode_val = f0v;
-    Value storage_order_val = f0v;
+    Value ceiling_mode_val;
+    if (ceiling_mode_attr)
+      ceiling_mode_val = rewriter.create<ConstantIntOp>(loc,ceiling_mode_attr);
+    else
+      ceiling_mode_val = f0v;
 
     Value stridesList = rewriter.create<PrimListConstructOp>(
-	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{f22v, f22v}); 
+	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{stridesonnxList}); 
 
     Value dilationList = rewriter.create<PrimListConstructOp>(
-	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{f22v, f22v});
+	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{dilationonnxList});
 
     Value padsList = rewriter.create<PrimListConstructOp>(
-	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{f0v, f0v, f0v, f0v});
+	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{translatepadsList});
 
     Value kernalShapeList = rewriter.create<PrimListConstructOp>(
-	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{f3v, f3v});
+	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{kernalshapeonnxList});
 
     TensorType x_tensor_type  = x.getType().cast<TensorType>();
     TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
@@ -189,7 +259,13 @@ public:
     auto resultTy = Torch::ValueTensorType::get(op1.getContext(), op_tensor_type.getShape(), op_tensor_type.getElementType());
     auto xtt  = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>( loc, xTy, x); 
 
+    llvm::outs() << "\n resultTy:   " << "\n" << resultTy << "\n" << "\n";
     llvm::outs() << "xtt torch tensor from MLIR tensor " << "\n" << xtt << "\n" << "\n";
+    llvm::outs() << "kernalShapeList:   " << "\n" << kernalShapeList << "\n" << "\n";
+    llvm::outs() << "stridesList:   " << "\n" << stridesList << "\n" << "\n";
+    llvm::outs() << "padsList " << "\n" << padsList << "\n" << "\n";
+    llvm::outs() << "dilationList:   " << "\n" << dilationList << "\n" << "\n";
+    llvm::outs() << "ceiling_mode_val:    " << "\n" << ceiling_mode_val << "\n" << "\n";
 
     Value atenmaxpool2d = rewriter.create<AtenMaxPool2dOp>(loc, resultTy, xtt, 
                 kernalShapeList, stridesList, padsList, dilationList, ceiling_mode_val);
@@ -198,11 +274,7 @@ public:
 
     Value result = atenmaxpool2d;
 
-    llvm::outs() << "Before Writer replace Op " << "\n"; 
-    
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(op, op->getResult(0).getType(), result);
-
-    llvm::outs() << "After Writer replace Op " << "\n"; 
 
     return success();
   }

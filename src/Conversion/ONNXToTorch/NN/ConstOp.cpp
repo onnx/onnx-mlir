@@ -106,7 +106,6 @@ public:
     ::mlir::Attribute value_attr_finalized;
     Type tensor_element_type;
     if (auto integerType = op_tensor_type.getElementType().dyn_cast<IntegerType>()) {
-      //////////// TODO: Only handles dense vectors of APInt type, need to handle other types ///////////////////
       tensor_element_type = IntegerType::get(context, integerType.getWidth(), IntegerType::Signed);
       auto dense_value_attr = value_attr.dyn_cast<::mlir::DenseElementsAttr>();
       ShapedType dense_value_type = RankedTensorType::get(op_tensor_type.getShape(), tensor_element_type);

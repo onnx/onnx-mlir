@@ -18,6 +18,7 @@
 #include <fstream>
 #include <iostream>
 #include <set>
+#include <vector>
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -93,73 +94,108 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     auto strides_AR = strides.getValue();
     ::mlir::ArrayAttr stridesArrayAttr = mlir::ArrayAttr::get(context, strides);
 
-    auto one = 1;
-    auto three = 3;
-    auto zero  = 0;
-    
-    // new implementation
+    // Reading the ONNX side pads values and store in the array.
     dim_pads dimArray[pads.size()];
-    int j = 0;
-    for (unsigned int i = 0; i < pads.size(); i++) {
-      dimArray[j].dim_start = (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
-      i++;
-      dimArray[j].dim_end = (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
-      j++;
-    }
-    int translateArray[pads.size()];
-    int k = 0;
-    for (unsigned int i = 0; i < pads.size(); i=i+2) {
-      llvm::outs() << "DimStartValue   : " << "\n" << dimArray[k].dim_start << "\n" << "\n";
-      translateArray[k] = dimArray[k].dim_start;
-      k++;
+    std::vector<Value> translatepadsList;
+
+    if (pads) {
+      int j = 0;
+      for (unsigned int i = 0; i < pads.size(); i++) {
+        dimArray[j].dim_start = (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+        i++;
+        dimArray[j].dim_end = (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+        j++;
+      }
+    
+      // read the onnx pad values from array(dim_start values) 
+      int k = 0;
+      for (unsigned int i = 0; i < pads.size(); i=i+2) {
+        auto f0 = IntegerAttr::get(group.getType(), (dimArray[k].dim_start));
+        Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
+        translatepadsList.push_back(p0v);
+        k++;
+      }
+
+      // read the onnx pad values from array(dim_end values)
+      k = 0;
+      for (unsigned int i = 0; i < pads.size(); i=i+2) {
+        auto f1 = IntegerAttr::get(group.getType(),(dimArray[k].dim_end));
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        translatepadsList.push_back(p1v);
+        k++;
+      }
     }
 
-    int l = 0;
-    for (unsigned int i = 0; i < pads.size(); i=i+2) {
-      llvm::outs() << "dimEndValue   : " << "\n" << dimArray[l].dim_end << "\n" << "\n";
-      translateArray[k] = dimArray[l].dim_end;
-      k++;
-      l++;
+    std::vector<Value> dilationonnxList;
+    std::vector<Value> kernalshapeonnxList;
+    std::vector<Value> stridesonnxList;
+
+    // reading the dilation values.
+    if (dilations) {
+      for (unsigned int i = 0; i < dilations.size(); i++) {
+        auto f1 = IntegerAttr::get(group.getType(),
+		      (dilations[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        dilationonnxList.push_back(p1v);
+      }
     }
 
-    auto f0 = IntegerAttr::get(group.getType(), (pads[0].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
-    auto f2 = IntegerAttr::get(group.getType(), (pads[2].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
-    auto f1 = IntegerAttr::get(group.getType(), (pads[1].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
-    auto f3 = IntegerAttr::get(group.getType(), (pads[3].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
-   
-      
-    Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
-    Value p1v = rewriter.create<ConstantIntOp>(loc, f2);
-    Value p2v = rewriter.create<ConstantIntOp>(loc, f1);
-    Value p3v = rewriter.create<ConstantIntOp>(loc, f3);
-    //
-    //
-    Value f3v = rewriter.create<ConstantIntOp>(loc,f3);
-    Value f0v = rewriter.create<ConstantIntOp>(loc,f0);
-    Value f1v = rewriter.create<ConstantIntOp>(loc,group);
-    Value f2v = rewriter.create<ConstantIntOp>(loc,group);
+    // reading the kernal_shape values.
+    if (kernal_shape) {
+      for (unsigned int i = 0; i < kernal_shape.size(); i++) {
+        auto f1 = IntegerAttr::get(group.getType(),
+		      (kernal_shape[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        kernalshapeonnxList.push_back(p1v);
+      }
+    }
 
-    Value groupVal = rewriter.create<ConstantIntOp>(loc,group);
+    // reading the strides values.
+    if (strides) {
+      for (unsigned int i = 0; i < strides.size(); i++) {
+        auto f1 = IntegerAttr::get(group.getType(),
+		      (strides[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        stridesonnxList.push_back(p1v);
+      }
+    }
+    auto zero  = 0;
+    auto ty = IntegerType::get(op1.getContext(), 64);
+    auto f00 = IntegerAttr::get(ty, zero);
+    Value f0v = rewriter.create<ConstantIntOp>(loc,f00);
+    Value f1v;
+    Value groupVal;
+    if (group) {
+      f1v = rewriter.create<ConstantIntOp>(loc,group);
+      groupVal = rewriter.create<ConstantIntOp>(loc,group);
+    }
+    else {
+      f1v = rewriter.create<ConstantIntOp>(loc,f0v);
+      groupVal = rewriter.create<ConstantIntOp>(loc,f0v);
+    }
 
     Value stridesList = rewriter.create<PrimListConstructOp>(
-        loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{f1v, f2v}); 
+        loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{stridesonnxList}); 
 
     Value dilationList = rewriter.create<PrimListConstructOp>(
-        loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{f1v, f2v});
+        loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{dilationonnxList});
 
     Value padsList = rewriter.create<PrimListConstructOp>(
-        loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{p0v, p1v, p2v, p3v});
+        loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{translatepadsList});
 
     Value kernalShapeList = rewriter.create<PrimListConstructOp>(
-        loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{f3v, f3v});
+        loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{kernalshapeonnxList});
 
     TensorType x_tensor_type  = x.getType().cast<TensorType>();
     TensorType w_tensor_type  = w.getType().cast<TensorType>();
     TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
 
-    auto xTy      = Torch::ValueTensorType::get(context, x_tensor_type.getShape(), x_tensor_type.getElementType());
-    auto wTy      = Torch::ValueTensorType::get(context, w_tensor_type.getShape(), w_tensor_type.getElementType());
-    auto resultTy = Torch::ValueTensorType::get(op1.getContext(), op_tensor_type.getShape(), op_tensor_type.getElementType());
+    auto xTy      = Torch::ValueTensorType::get(context, x_tensor_type.getShape(), 
+		    x_tensor_type.getElementType());
+    auto wTy      = Torch::ValueTensorType::get(context, w_tensor_type.getShape(), 
+		    w_tensor_type.getElementType());
+    auto resultTy = Torch::ValueTensorType::get(op1.getContext(), op_tensor_type.getShape(), 
+		    op_tensor_type.getElementType());
 
     auto xtt  = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>( loc, xTy, x); 
     auto wtt  = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>( loc, wTy, w); 
@@ -169,11 +205,12 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     }   
     else {
       TensorType b_tensor_type  = b.getType().cast<TensorType>();
-      auto bTy = Torch::ValueTensorType::get(op1.getContext(), b_tensor_type.getShape(), b_tensor_type.getElementType());
+      auto bTy = Torch::ValueTensorType::get(op1.getContext(), b_tensor_type.getShape(), 
+		      b_tensor_type.getElementType());
       btt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>( loc, bTy, b); 
     }   
-    llvm::outs() << "loc   : " << "\n" << loc << "\n" << "\n";
-    llvm::outs() << "ResultType : " << "\n" << resultTy << "\n" << "\n";
+    
+    llvm::outs() << "\n ResultType : " << "\n" << resultTy << "\n" << "\n";
     llvm::outs() << "xtt torch tensor from MLIR tensor " << "\n" << xtt << "\n" << "\n";
     llvm::outs() << "wtt torch tensor from MLIR tensor " << "\n" << wtt << "\n" << "\n";
     llvm::outs() << "btt : " << "\n" << btt << "\n" << "\n";
@@ -181,19 +218,17 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     llvm::outs() << "padsList:   " << "\n" << padsList << "\n" << "\n";
     llvm::outs() << "dilationList:   " << "\n" << dilationList << "\n" << "\n";
     llvm::outs() << "f1v:   " << "\n" << f1v << "\n" << "\n";
-    Value atenconv2d = rewriter.create<AtenConv2dOp>(loc, resultTy, xtt, wtt, btt, stridesList, padsList, dilationList, f1v);
+    
+    Value atenconv2d = rewriter.create<AtenConv2dOp>(loc, resultTy, xtt, wtt, btt, 
+		    stridesList, padsList, dilationList, f1v);
 
     llvm::outs() << "AtenConv2d operation creation" << "\n" << atenconv2d << "\n" << "\n";
 
     Value result = atenconv2d; 
 
-    llvm::outs() << "Before Writer replace Op " << "\n"; 
-
-    rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(op, op->getResult(0).getType(), result);
+    rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(op, 
+		    op->getResult(0).getType(), result);
  
-    llvm::outs() << "After Writer replace Op " << "\n"; 
-
-    llvm::outs() << "matchAndRewrite of conversionPattern is called successfully " << "\n";
     return success();
   }
 };

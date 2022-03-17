@@ -23,6 +23,30 @@ void initOMPasses(int optLevel) {
     return mlir::createShapeInferencePass();
   });
 
+  /*mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createONNXToAtenConstantOpTransformPass();
+  });*/ 
+
+  /*mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createONNXToAtenConstantPadNdOpTransformPass();
+  });*/ 
+  
+  /*mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createONNXToAtenLeakyReluOpTransformPass();
+  });*/ 
+
+  
+  /*mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createONNXToAtenMaxPool2dOpTransformPass();
+  });*/ 
+  
+
+  /*
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createONNXToAtenConv2DOpTransformPass();
+  }); 
+  */
+
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createConstPropONNXToONNXPass();
   });
