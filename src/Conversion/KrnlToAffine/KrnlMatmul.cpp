@@ -152,8 +152,10 @@ public:
         if (iComputeTileSize.isLiteral() && kComputeTileSize.isLiteral()) {
           uint64_t i = iComputeTileSize.getLiteral();
           uint64_t k = kComputeTileSize.getLiteral();
-          // TODO: longer I & K vectors: (i % k == 0 && (k & (k - 1)) == 0)
-          if (i == k && k == 4) {
+          VectorBuilder createVect(createAffine);
+          uint64_t mvl = createVect.getMachineVectorLength(elementType);
+          assert(mvl==4 && "only size we support for now");
+          if (i % k == 0 && k == mvl) {
             vectorLen = kComputeTileSize;
           } else {
             simdize = false;
@@ -383,7 +385,7 @@ private:
       ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
       IndexExpr vectorLen, bool unrollJam) const {
     // can simdize only if I & K is compile time
-    assert(I.isLiteral() && K.isLiteral() &&
+    assert(I.isLiteral() && K.isLiteral() && vectorLen.isLiteral() &&
            "can only simdize with compile time "
            "blocking factor on simd axis");
 
@@ -393,13 +395,14 @@ private:
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
-    int64_t aRank(aStart.size());
+    int64_t aRank(aStart.size()), cRank(cStart.size());
 
     // Generate the vector type conversions.
     int64_t VL = vectorLen.getLiteral();
     VectorType vecType = VectorType::get({VL}, elementType);
-    int64_t iUnrollForReduction = K.getLiteral();
-
+    int64_t iUnrollForReduction = I.getLiteral();
+    assert(iUnrollForReduction % VL == 0 &&
+           "i blocking should be a multiple of VL");
     // Iterates over the I indices (K is SIMD dim).
     // First compute A[i,k]*B[k, 1] for i=0..iUnrollForReduction explicitly.
     // We reuse B[k][0] vector for each iteration of i.
@@ -420,13 +423,21 @@ private:
       vResList.emplace_back(vres);
     }
     // Reduce each SIMD vector of length VL==K using a SIMD parallel reduction.
-    Value vReduction = create.vec.multiReduction(vResList);
-    // Add the reduction to the previous value of C.
-    SmallVector<Value, 4> cAccess;
-    IndexExpr::getValues(cStart, cAccess);
-    Value vc = create.vec.load(vecType, C, cAccess);
-    vc = create.math.add(vc, vReduction);
-    create.vec.store(vc, C, cAccess);
+    SmallVector<Value, 8> vReductionList;
+    create.vec.multiReduction(vResList, vReductionList);
+    uint64_t size = vReductionList.size();
+    printf("reduction size %d\n", (int)size);
+    // For each reduction in the list (vector of VL length), load C, add
+    // reduction, and store C.
+    for (uint64_t i = 0; i < size; ++i) {
+      SmallVector<Value, 4> cAccess;
+      IndexExpr::getValues(cStart, cAccess);
+      LiteralIndexExpr iVal(i * VL);
+      cAccess[cRank - 2] = create.math.add(cAccess[cRank - 2], iVal.getValue());
+      Value vc = create.vec.load(vecType, C, cAccess);
+      vc = create.math.add(vc, vReductionList[i]);
+      create.vec.store(vc, C, cAccess);
+    }
   }
 
   // Simdize along J / memory rows in B and C.

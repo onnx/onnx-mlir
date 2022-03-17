@@ -183,24 +183,34 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       int64_t &kRegTile, bool &simdize) const {
 
     // Default values.
-    // Right can only tile by 4.
-    iRegTile = 4; // SIMD dim during multi-reduction.
+    // Right can only tile by 4 for k, i multiple of k.
+    // TODO: remove hard wiring of 4 for simd.
+    iRegTile = 8; // SIMD dim during multi-reduction.
     jRegTile = 1;
     kRegTile = 4; // SIMD dim during multiplication.
-
-    if (dimI.isLiteral()) {
-      int64_t constI = dimI.getLiteral();
-      if (constI < iRegTile) {
-        simdize = false;
-        // Not enough data, can only support i/k reg tile of 4.
-      }
-    }
 
     if (dimK.isLiteral()) {
       int64_t constK = dimK.getLiteral();
       if (constK < kRegTile) {
+        LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: disable k\n"; });
+        // Not enough data, can only support k reg tile of 4.
         simdize = false;
-        // Not enough data, can only support i/k reg tile of 4.
+        iRegTile = kRegTile = 1;
+      }
+    }
+    if (dimI.isLiteral()) {
+      int64_t constI = dimI.getLiteral();
+      if (constI < iRegTile) {
+        if (constI >= kRegTile) {
+          // Set i to the same as k, which is fine.
+          LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: i same as k\n"; });
+          iRegTile = kRegTile;
+        } else {
+          // Not enough data, can only support i/k reg tile of 4.
+          LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: disable i\n"; });
+          simdize = false;
+          iRegTile = kRegTile = 1;
+        }
       }
     }
     LLVM_DEBUG({

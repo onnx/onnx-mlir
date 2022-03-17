@@ -593,6 +593,27 @@ void SCFBuilder::yield() const { b.create<scf::YieldOp>(loc); }
 // Vector Builder
 //===----------------------------------------------------------------------===//
 
+int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) {
+  unsigned typeBitSize = elementType.getIntOrFloatBitWidth();
+  unsigned simdBitSize;
+  // TODO: use march and mcpu to determine the right size, right now assume
+  // 4*32=128 bits.
+  simdBitSize = 128;
+  assert(simdBitSize >= typeBitSize && simdBitSize % typeBitSize == 0 &&
+         "bad machine vector length");
+  return (simdBitSize / typeBitSize);
+}
+
+int64_t VectorBuilder::getMachineVectorLength(const VectorType &vecType) {
+  return getMachineVectorLength(vecType.getElementType());
+}
+
+int64_t VectorBuilder::getMachineVectorLength(Value vecValue) {
+  VectorType vecType = vecValue.getType().dyn_cast_or_null<VectorType>();
+  assert(vecType && "expected vector type");
+  return getMachineVectorLength(vecType.getElementType());
+}
+
 Value VectorBuilder::load(
     VectorType vecType, Value memref, ValueRange indices) const {
   return b.create<vector::LoadOp>(loc, vecType, memref, indices);
@@ -618,7 +639,7 @@ Value VectorBuilder::shuffle(
 // Private vector utilities.
 bool VectorBuilder::isPowerOf2(uint64_t num) { return (num & (num - 1)) == 0; }
 
-uint64_t VectorBuilder::vector1DLength(Value vec) {
+uint64_t VectorBuilder::getLengthOf1DVector(Value vec) {
   VectorType vecType = vec.getType().dyn_cast_or_null<VectorType>();
   assert(vecType && "expected a vector type");
   auto vecShape = vecType.getShape();
@@ -633,8 +654,8 @@ Value VectorBuilder::mergeHigh(Value lhs, Value rhs, int64_t step) {
   // Step 1:     <(l0), (r0), (l1), (r1), (l2), (r2), (l3), (r3)> (1x sizes)
   // Step 2:     <(l0, l1),   (r0, r1),   (l2, l3),   (r2, r3)>   (2x sizes)
   // Step 4:     <(l0, l1, l2, l3),       (r0, r1, r2, r3)>       (4x sizes)
-  uint64_t VL = vector1DLength(lhs);
-  assert(vector1DLength(rhs) == VL && "expected same sized vectors");
+  uint64_t VL = getLengthOf1DVector(lhs);
+  assert(getLengthOf1DVector(rhs) == VL && "expected same sized vectors");
   assert(isPowerOf2(VL) && "expected power of 2 vector length");
   SmallVector<int64_t, 8> mask(VL, 0);
   int i = 0;
@@ -658,8 +679,8 @@ Value VectorBuilder::mergeLow(Value lhs, Value rhs, int64_t step) {
   // Step 1:     <(l4), (r4), (l5), (r5), (l6), (r6), (l7), (r7)> (1x sizes)
   // Step 2:     <(l4, l5),   (r4, r5),   (l6, l7),   (r6, r7)>   (2x sizes)
   // Step 4:     <(l4, l5, l6, l7),       (r4, r5, r6, r7)>       (4x sizes)
-  uint64_t VL = vector1DLength(lhs);
-  assert(vector1DLength(rhs) == VL && "expected same sized vectors");
+  uint64_t VL = getLengthOf1DVector(lhs);
+  assert(getLengthOf1DVector(rhs) == VL && "expected same sized vectors");
   assert(isPowerOf2(VL) && "expected power of 2 vector length");
   SmallVector<int64_t, 8> mask(VL, 0);
   int i = 0;
@@ -676,34 +697,49 @@ Value VectorBuilder::mergeLow(Value lhs, Value rhs, int64_t step) {
   return shuffle(lhs, rhs, mask);
 }
 
-// Composite functions
-Value VectorBuilder::multiReduction(SmallVectorImpl<Value> &vecArray) {
-  uint64_t N = vecArray.size();
+// Do a parallel-simd reduction of N vectors of SIMD length VL.
+// Restrictions:
+// *  VL is the vector length of the machine SIMD vectors.
+// *  N is a multiple of VL as we can perform consecutive VL x VL
+//    reductions.
+void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
+    SmallVectorImpl<Value> &outputVecArray) {
+  uint64_t N = inputVecArray.size();
   assert(N > 0 && "expected at least one value to reduce");
-  uint64_t VL = vector1DLength(vecArray[0]);
-  LLVM_DEBUG(
-      llvm::dbgs() << "reduction with N " << N << ", VL " << VL << "\n";);
-  assert(VL == N && "expected the same number of vectors in array as VL");
-  assert(VL == 4 && "only natural sizes supported at this time");
+  uint64_t VL = getLengthOf1DVector(inputVecArray[0]);
+  uint64_t machineVL = getMachineVectorLength(inputVecArray[0]);
+  assert(VL == machineVL && "only natural sizes supported at this time");
+  assert(N % machineVL == 0 && "can only reduces multiple of VL vectors at this time");
+  LLVM_DEBUG(llvm::dbgs() << "reduction with N " << N << ", VL " << VL
+                          << ", mVL " << machineVL << "\n";);
+
+  // Emplace all input vectors in a temporary array.
   SmallVector<Value, 8> tmpArray;
-  for (uint64_t i = 0; i < VL; ++i) {
-    tmpArray.emplace_back(vecArray[i]);
-    if (i != 0)
-      // verify that all have the same length
-      assert(vector1DLength(vecArray[i]) == VL && "different vector length");
+  for (uint64_t i = 0; i < N; ++i) {
+    tmpArray.emplace_back(inputVecArray[i]);
+    // Also verify that all have the same vector length.
+    assert(getLengthOf1DVector(inputVecArray[i]) == VL &&
+           "different vector length");
   }
 
-  // reductions of full physical vectors
+  // Reductions of full physical vectors.
+  outputVecArray.clear();
   MathBuilder createMath(*this);
-  uint64_t numPairs = VL / 2;
-  for (uint64_t step = 1; step < VL; step = step * 2) {
-    for (uint64_t p = 0; p < numPairs; ++p) {
-      Value highVal = mergeHigh(tmpArray[2 * p], tmpArray[2 * p + 1], step);
-      Value lowVal = mergeLow(tmpArray[2 * p], tmpArray[2 * p + 1], step);
-      Value red = createMath.add(highVal, lowVal);
-      tmpArray[p] = red;
+  for (uint64_t r = 0; r < N; r += machineVL) {
+    // Algorithm for the set of input arrays from tmp[r] to tmp[r+machineVL-1].
+    uint64_t numPairs = machineVL / 2; // Pair number decrease by power of 2.
+    for (uint64_t step = 1; step < machineVL; step = step * 2) {
+      for (uint64_t p = 0; p < numPairs; ++p) {
+        Value highVal =
+            mergeHigh(tmpArray[r + 2 * p], tmpArray[r + 2 * p + 1], step);
+        Value lowVal =
+            mergeLow(tmpArray[r + 2 * p], tmpArray[r + 2 * p + 1], step);
+        Value red = createMath.add(highVal, lowVal);
+        tmpArray[r + p] = red;
+      }
+      numPairs = numPairs / 2; // Pair number decrease by power of 2.
     }
-    numPairs = numPairs / 2;
+    // Completed the machineVL x machineVL reduction, save it in the output.
+    outputVecArray.emplace_back(tmpArray[r]);
   }
-  return tmpArray[0];
 }
