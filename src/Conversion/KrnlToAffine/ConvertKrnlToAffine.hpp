@@ -14,18 +14,13 @@
 
 #pragma once
 
+#include "src/Dialect/Krnl/KrnlDialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
 
 namespace onnx_mlir {
 namespace krnl {
-
-// We use here a Affine builder that generates Krnl Load and Store ops instead
-// of the affine memory ops directly. This is because we can still generrate
-// Krnl Ops while lowring the dialect, and the big advantage of the Krnl memory
-// operations is that they distinguish themselves if they are affine or not.
-using AffineBuilderKrnlMem = GenericAffineBuilder<KrnlLoadOp, KrnlStoreOp>;
 
 // To assist unroll and jam
 using UnrollAndJamRecord = std::pair<AffineForOp, int64_t>;

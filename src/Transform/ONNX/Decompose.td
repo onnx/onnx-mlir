@@ -315,6 +315,9 @@ def ResizeV11Pattern: Pat<
                     $nearest_mode)
 >;
 
+// ToFix: Create type attribute for SequenceEmpty when type is not F32
+// There is a mlirTypeToOnnxType in KrnlToLLVM conversion. 
+// Need to move it into ONNXOpHelper
 def SequenceConstructPattern1: Pat<
     (ONNXSequenceConstructOp:$res $x1),
     (createSequenceConstructOp

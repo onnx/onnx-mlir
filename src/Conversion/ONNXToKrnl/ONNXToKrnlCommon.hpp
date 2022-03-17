@@ -148,7 +148,7 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 /// The new view is created using the given 'memRefType' and 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
     Location loc, Value data, const MemRefType &memRefType,
-    const SmallVectorImpl<IndexExpr> &outputDims);
+    SmallVectorImpl<IndexExpr> &outputDims);
 
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
@@ -294,6 +294,18 @@ void populateLoweringONNXGRUOpPattern(
 void populateLoweringONNXLSTMOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXRNNOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+// `Sequence` directory methods:
+void populateLoweringONNXSequenceAtOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceEmptyOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceEraseOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceInsertOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceLengthOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 // `Tensor` directory methods:
