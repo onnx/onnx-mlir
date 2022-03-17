@@ -25,7 +25,12 @@
 extern llvm::cl::OptionCategory OMNNPAPassOptions;
 extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
 extern llvm::cl::list<std::string> execNodesOnCpu;
+mlir::NNPAAccelerator* pnnpa;
 
+void createNNPA() {
+  pnnpa = new mlir::NNPAAccelerator; 
+}
+ 
 namespace onnx_mlir {
 namespace accel {
 namespace nnpa {
@@ -33,11 +38,12 @@ namespace nnpa {
 NNPAAccelerator::NNPAAccelerator() : Accelerator() {
   LLVM_DEBUG(llvm::dbgs() << "initializing NNPA\n");
 
+
+NNPAAccelerator::NNPAAccelerator() {
   if (!initialized) {
     initialized = true;
     getAcceleratorList()->push_back(this);
-  }else
-    getAcceleratorList()->push_back(this);
+  }
 };
 
 bool NNPAAccelerator::isActive() const {

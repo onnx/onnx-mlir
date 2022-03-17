@@ -29,7 +29,6 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/OMNNPAOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
-#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
 
 #define DEBUG_TYPE "NNPACompiler"
 
