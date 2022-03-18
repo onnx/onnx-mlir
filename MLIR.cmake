@@ -108,6 +108,8 @@ endfunction()
 #     Do not add the library to the ONNX_MLIR_LIBS property.
 #   NO_INSTALL
 #     Do not add an install target for the library.
+#   FORCE_LOAD
+#     Force the linker to include all object files in the library.
 #   DEPENDS targets...
 #     Same semantics as add_dependencies().
 #   INCLUDE_DIRS include_dirs...
@@ -120,14 +122,25 @@ endfunction()
 #   )
 function(add_onnx_mlir_library name)
   cmake_parse_arguments(ARG
-    "EXCLUDE_FROM_OM_LIBS;NO_INSTALL"
+    "EXCLUDE_FROM_OM_LIBS;NO_INSTALL;FORCE_LOAD"
     ""
     "DEPENDS;INCLUDE_DIRS;ACCEL_INCLUDE_DIRS;LINK_LIBS;LINK_COMPONENTS"
     ${ARGN}
     )
 
   if (NOT ARG_EXCLUDE_FROM_OM_LIBS)
-    set_property(GLOBAL APPEND PROPERTY ONNX_MLIR_LIBS ${name})
+    if (NOT ARG_FORCE_LOAD)
+      set_property(GLOBAL APPEND PROPERTY ONNX_MLIR_LIBS ${name})
+    else() 
+      message(STATUS "FORCE_LOAD ${name}")
+      if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set_property(GLOBAL APPEND PROPERTY ONNX_MLIR_LIBS -Wl,--whole-archive ${name} -Wl,--no-whole-archive)
+      elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        set_property(GLOBAL APPEND PROPERTY ONNX_MLIR_LIBS -Wl,-force_load ${name})
+      elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        set_property(GLOBAL APPEND PROPERTY ONNX_MLIR_LIBS /link /WHOLEARCHIVE:${name})
+      endif()
+    endif()
   endif()
 
   add_library(${name} ${ARG_UNPARSED_ARGUMENTS})
@@ -220,7 +233,7 @@ function(add_onnx_mlir_executable name)
 
   if (ARG_LINK_LIBS)
     target_link_libraries(${name} ${ARG_LINK_LIBS})
-  endif()
+  endif()  
 
   if (NOT ARG_NO_INSTALL)
     install(TARGETS ${name} DESTINATION bin)

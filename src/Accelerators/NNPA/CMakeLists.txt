@@ -28,6 +28,8 @@ add_subdirectory(Compiler)
 add_onnx_mlir_library(NNPAAccelerator STATIC
   NNPAAccelerator.cpp
 
+  FORCE_LOAD
+
   DEPENDS
   Accelerator
   NNPACompilerUtils

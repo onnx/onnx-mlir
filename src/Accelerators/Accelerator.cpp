@@ -10,15 +10,31 @@
 //
 // Accelerator base class.
 //
+// To add support for a new accelerator kind include the accelerator header and
+// provide a weak definition for the getInstance() member function.
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "nnpa"
 
 namespace onnx_mlir {
 namespace accel {
 
 llvm::SmallPtrSet<Accelerator *, 2> Accelerator::accelerators;
+
+// Provide a weak definition for the getInstance() member function. A strong
+// definition (to override this one) must be provided by the accelerator
+// library.
+__attribute__((weak, noinline)) Accelerator *
+nnpa::NNPAAccelerator::getInstance() {
+  LLVM_DEBUG(
+      llvm::dbgs()
+          << "Using weak definition for NNPAAccelerator::getInstance()\n";);
+  return nullptr;
+}
 
 void Accelerator::create(Accelerator::Kind kind,
     mlir::OwningOpRef<mlir::ModuleOp> &module, mlir::MLIRContext &context,
@@ -26,13 +42,12 @@ void Accelerator::create(Accelerator::Kind kind,
   Accelerator *accel = nullptr;
   switch (kind) {
   case Kind::NNPA:
-#ifdef __NNPA__
-    accel = new nnpa::NNPAAccelerator();
-#else
-    llvm_unreachable("NNPA accelerator support is missing, reconfigure cmake");
-#endif
+    accel = nnpa::NNPAAccelerator::getInstance();
+    if (!accel)
+      llvm::errs() << "NNPA accelerator not supported\n";
     break;
   }
+  assert(accel && "Accelerator not initialized correctly");
 
   // Initialize the new accelerator and add it to the list of available ones.
   accel->prepare(module, context, pm, emissionTarget);

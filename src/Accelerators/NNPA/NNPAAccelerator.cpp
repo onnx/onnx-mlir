@@ -30,6 +30,17 @@ namespace onnx_mlir {
 namespace accel {
 namespace nnpa {
 
+NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {}
+
+NNPAAccelerator::~NNPAAccelerator() {}
+
+Accelerator *NNPAAccelerator::getInstance() {
+  LLVM_DEBUG(
+      llvm::dbgs()
+          << "Found strong definition for NNPAAccelerator::getInstance()\n";);
+  return &singleton;
+}
+
 void NNPAAccelerator::prepare(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, mlir::PassManager &pm,
     onnx_mlir::EmissionTargetType emissionTarget) const {
@@ -40,6 +51,8 @@ void NNPAAccelerator::prepare(mlir::OwningOpRef<ModuleOp> &module,
   context.getOrLoadDialect<zlow::ZLowDialect>();
   addPassesNNPA(module, pm, emissionTarget, nnpaEmissionTarget, execNodesOnCpu);
 }
+
+NNPAAccelerator NNPAAccelerator::singleton;
 
 } // namespace nnpa
 } // namespace accel

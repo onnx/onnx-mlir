@@ -20,11 +20,13 @@ namespace onnx_mlir {
 namespace accel {
 namespace nnpa {
 
+/// Singleton class.
 class NNPAAccelerator final : public Accelerator {
-  friend Accelerator;
-
 public:
-  ~NNPAAccelerator() {}
+  ~NNPAAccelerator();
+
+  /// Retrieve the singleton object (non-thread safe).
+  static Accelerator *getInstance();
 
   /// Define classof to be able to use isa<>, cast<>, dyn_cast<>, etc.
   static bool classof(const Accelerator *accel) {
@@ -33,7 +35,13 @@ public:
   static bool classof(const NNPAAccelerator *) { return true; }
 
 private:
-  NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {}
+  static NNPAAccelerator singleton;
+
+  NNPAAccelerator();
+
+  // Prevent copy construction and assignement.
+  NNPAAccelerator(NNPAAccelerator &other) = delete;
+  void operator=(const NNPAAccelerator &) = delete;
 
   /// Initialize the accelerator.
   void prepare(mlir::OwningOpRef<mlir::ModuleOp> &module,
