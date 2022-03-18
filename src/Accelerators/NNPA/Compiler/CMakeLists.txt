@@ -13,6 +13,7 @@ add_onnx_mlir_library(NNPACompilerUtils STATIC
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PRIVATE
+  OMLowerKrnlShape
   ${OMLibs}
 
   ACCEL_INCLUDE_DIRS PRIVATE
