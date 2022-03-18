@@ -4,8 +4,8 @@ add_custom_target(perf)
 set_target_properties(perf PROPERTIES FOLDER "Perf")
 
 add_custom_target(check-onnx-perf
-  COMMENT "Running the ONNX-MLIR performance regression tests, generating .perf.txt log files."
-  COMMAND "${CMAKE_CTEST_COMMAND}" -L perf --output-on-failure -C $<CONFIG> --force-new-ctest-process
+COMMENT "Running the ONNX-MLIR performance regression tests, generating .perf.txt log files. Tune onnx-mlir compiler options using PERF_ARGS env var."
+COMMAND "${CMAKE_CTEST_COMMAND}" -L perf --output-on-failure -C $<CONFIG> --force-new-ctest-process
   USES_TERMINAL
   DEPENDS perf
   )

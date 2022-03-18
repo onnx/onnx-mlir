@@ -71,5 +71,5 @@ add_onnx_mlir_library(OnnxMlirCompiler
   )
 
 if (NOT BUILD_SHARED_LIBS)
-  target_compile_definitions(OnnxMlirCompiler PUBLIC OnnxMlirCompiler_EXPORTS)
+  target_compile_definitions(OnnxMlirCompiler PUBLIC ONNX_MLIR_BUILT_AS_STATIC)
 endif()

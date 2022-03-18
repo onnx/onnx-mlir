@@ -114,31 +114,15 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         });
   }
 
-  // Handle the cases with 2x2 matrices both for A, B, and C without broadcast.
-  // Implementation here uses the efficient 1d tiling plus kernel substitution.
-  void replace2x2Matmul2d(ONNXMatMulOp &matMulOp,
-      ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
-      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
-      ConversionPatternRewriter &rewriter, Location loc) const {
+  void computeTileSizeForMatMatProduct(DimIndexExpr dimI, DimIndexExpr dimJ,
+      DimIndexExpr dimK, int64_t &iRegTile, int64_t &jRegTile,
+      int64_t &kRegTile, bool &simdize) const {
 
-    // Prepare: loop bounds and zero
-    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
-    Value zero = create.math.constantIndex(0);
-    Value I = create.mem.dim(C, 0);
-    Value J = create.mem.dim(C, 1);
-    Value K = create.mem.dim(A, 1);
+    // Default values
+    iRegTile = 4;
+    jRegTile = 8;
+    kRegTile = 8; // SIMD dim.
 
-    // Initialize alloc/C to zero.
-    create.krnl.memset(alloc, zeroVal);
-    bool simdize = true;
-
-    // Compute.
-    // Define blocking, with simdization along the j axis.
-    int64_t iRegTile(4), jRegTile(8), kRegTile(8);
-    // Update tiling for very small sizes known at compile time.
-    DimIndexExpr dimI(I), dimJ(J), dimK(K);
     if (dimI.isLiteral()) {
       int64_t constI = dimI.getLiteral();
       if (constI < iRegTile) {
@@ -148,12 +132,21 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         });
       }
     }
+
     if (dimJ.isLiteral()) {
       int64_t constJ = dimJ.getLiteral();
-      // When jRegTile does not divide J, but 4 would, use 4, unless J is very
-      // large, in which case it is better to simdize well the steady state
-      // and ignore the last partial block.
-      if (constJ % jRegTile != 0 && constJ % 4 == 0 && constJ <= 32) {
+      // No tiling needed when J dim is 1.
+      if (constJ == 1) {
+        // no tiling needed
+        jRegTile = 1;
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Tiling J is set to " << jRegTile << "\n";
+        });
+
+        // When jRegTile does not divide J, but 4 would, use 4, unless J is very
+        // large, in which case it is better to simdize well the steady state
+        // and ignore the last partial block.
+      } else if (constJ % jRegTile != 0 && constJ % 4 == 0 && constJ <= 32) {
         jRegTile = 4;
         LLVM_DEBUG({
           llvm::dbgs() << "MatMul: Tiling J is reduced to " << jRegTile << "\n";
@@ -169,6 +162,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         });
       }
     }
+
     if (dimK.isLiteral()) {
       int64_t constK = dimK.getLiteral();
       if (constK < kRegTile) {
@@ -178,6 +172,72 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         });
       }
     }
+    LLVM_DEBUG({
+      llvm::dbgs() << "MatMul mat: Tiling I " << iRegTile << ", J " << jRegTile
+                   << ", K " << kRegTile << ", simd " << simdize << "\n";
+    });
+  }
+
+  void computeTileSizeForMatVectProduct(DimIndexExpr dimI, DimIndexExpr dimJ,
+      DimIndexExpr dimK, int64_t &iRegTile, int64_t &jRegTile,
+      int64_t &kRegTile, bool &simdize) const {
+
+    // Default values.
+    // Right can only tile by 4.
+    iRegTile = 4; // SIMD dim during multi-reduction.
+    jRegTile = 1;
+    kRegTile = 4; // SIMD dim during multiplication.
+
+    if (dimI.isLiteral()) {
+      int64_t constI = dimI.getLiteral();
+      if (constI < iRegTile) {
+        simdize = false;
+        // Not enough data, can only support i/k reg tile of 4.
+      }
+    }
+
+    if (dimK.isLiteral()) {
+      int64_t constK = dimK.getLiteral();
+      if (constK < kRegTile) {
+        simdize = false;
+        // Not enough data, can only support i/k reg tile of 4.
+      }
+    }
+    LLVM_DEBUG({
+      llvm::dbgs() << "MatMul vec: Tiling I " << iRegTile << ", J " << jRegTile
+                   << ", K " << kRegTile << ", simd " << simdize << "\n";
+    });
+  }
+
+  // Handle the cases with 2x2 matrices both for A, B, and C without broadcast.
+  // Implementation here uses the efficient 1d tiling plus kernel substitution.
+  void replace2x2Matmul2d(ONNXMatMulOp &matMulOp,
+      ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
+      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
+      ConversionPatternRewriter &rewriter, Location loc) const {
+    // Prepare: loop bounds and zero
+    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+    Value zero = create.math.constantIndex(0);
+    Value I = create.mem.dim(C, 0);
+    Value J = create.mem.dim(C, 1);
+    Value K = create.mem.dim(A, 1);
+
+    // Initialize alloc/C to zero.
+    create.krnl.memset(alloc, zeroVal);
+    bool simdize = true;
+
+    // Define blocking, with simdization along the j axis.
+    DimIndexExpr dimI(I), dimJ(J), dimK(K);
+    int64_t iRegTile, jRegTile, kRegTile;
+    bool isMatVectorProduct = dimJ.isLiteral() && dimJ.getLiteral() == 1;
+    if (isMatVectorProduct)
+      computeTileSizeForMatVectProduct(
+          dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+    else
+      computeTileSizeForMatMatProduct(
+          dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
 
     // I, J, K loop.
     ValueRange origLoop = create.krnl.defineLoops(3);
@@ -206,7 +266,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-
     // Get shape.
     ONNXMatMulOpAdaptor operandAdaptor(operands);
     ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
