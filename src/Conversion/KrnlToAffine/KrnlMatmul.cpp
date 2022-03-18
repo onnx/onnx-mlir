@@ -27,7 +27,7 @@
 
 #define DEBUG_TYPE "krnl_to_affine"
 
-#define DISABLE_MAT_VECT_PRODUCT 0
+#define DISABLE_MAT_VEC_PRODUCT 0
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -139,8 +139,7 @@ public:
         kGlobalUB(operandAdaptor.kGlobalUB());
 
     // Has a matrix times vector when the J upper bound is literal 1.
-    bool matVectorProduct = !DISABLE_MAT_VECT_PRODUCT &&
-                            jGlobalUB.isLiteral() &&
+    bool matVectorProduct = !DISABLE_MAT_VEC_PRODUCT && jGlobalUB.isLiteral() &&
                             jGlobalUB.getLiteral() == 1;
 
     // Investigate SIMD

@@ -30,6 +30,24 @@ using namespace std;
 
 const std::string modelName("./perfgemm");
 
+static void BM_MatrixVectorProduct(benchmark::State &state) {
+  int I = state.range(0);
+  int J = 1;
+  int K = state.range(0);
+  MatMul2DLibBuilder model(modelName, I, J, K);
+  assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
+         "failed matmul");
+  for (auto _ : state)
+    model.run();
+  state.SetComplexityN(I);
+  PERF_RECORD_FLOPS(2.0 * I * J * K);
+}
+BENCHMARK(BM_MatrixVectorProduct)
+    ->RangeMultiplier(2)
+    ->Range(16, 2048)
+    ->Unit(benchmark::kMillisecond)
+    ->Complexity();
+
 static void BM_MatmulSquare(benchmark::State &state) {
   int I = state.range(0);
   int J = state.range(0);
