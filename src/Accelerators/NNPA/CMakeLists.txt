@@ -39,7 +39,12 @@ add_onnx_mlir_library(NNPAAccelerator
   
   LINK_LIBS PUBLIC
   onnx
+<<<<<<< HEAD
   NNPACompilerUtils
+=======
+  Accelerator
+  DLCompilerUtils
+>>>>>>> a4b4ca3f43471da28fdca31eff9dee2043f92bad
   OMZHighOps
   OMZLowOps
   )
