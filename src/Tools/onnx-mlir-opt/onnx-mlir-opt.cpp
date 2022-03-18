@@ -154,3 +154,12 @@ int main(int argc, char **argv) {
       registry, split_input_file, verify_diagnostics, verify_passes,
       allowUnregisteredDialects, /*preloadDialectsInContext*/ true));
 }
+
+// These definition are here to avoid link errors.
+#include "onnx-mlir/Compiler/OMCompilerTypes.h"
+
+llvm::cl::OptionCategory OnnxMlirOptions(
+    "ONNX-MLIR Options", "These are frontend options.");
+std::string getCompilerOption(const onnx_mlir::OptionKind kind) { return ""; }
+void addONNXToMLIRPasses(mlir::PassManager &) {}
+void addKrnlToAffinePasses(mlir::PassManager &) {}

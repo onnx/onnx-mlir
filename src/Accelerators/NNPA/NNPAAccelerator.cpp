@@ -30,10 +30,6 @@ namespace onnx_mlir {
 namespace accel {
 namespace nnpa {
 
-NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {}
-
-NNPAAccelerator::~NNPAAccelerator() {}
-
 Accelerator *NNPAAccelerator::getInstance() {
   LLVM_DEBUG(
       llvm::dbgs()

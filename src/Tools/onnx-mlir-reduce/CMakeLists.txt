@@ -6,7 +6,8 @@ add_onnx_mlir_executable(onnx-mlir-reduce
   onnx-mlir-reduce.cpp
 
   LINK_LIBS PRIVATE
-  ${OMLibs}
+  OMKrnlOps
+  MLIRShape
   MLIRAffineTransforms
   MLIRLinalgTransforms
   MLIRReduceLib

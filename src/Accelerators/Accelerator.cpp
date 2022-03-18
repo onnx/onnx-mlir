@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- Accelerator.cpp -------------------------===//
+//===-------------------------- Accelerator.cpp ---------------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -10,8 +10,8 @@
 //
 // Accelerator base class.
 //
-// To add support for a new accelerator kind include the accelerator header and
-// provide a weak definition for the getInstance() member function.
+// To add support for a new accelerator include its header file and provide a
+// weak definition for the getInstance() member function.
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/Accelerator.hpp"
@@ -26,26 +26,30 @@ namespace accel {
 llvm::SmallPtrSet<Accelerator *, 2> Accelerator::accelerators;
 
 // Provide a weak definition for the getInstance() member function. A strong
-// definition (to override this one) must be provided by the accelerator
-// library.
-__attribute__((weak, noinline)) Accelerator *
-nnpa::NNPAAccelerator::getInstance() {
-  LLVM_DEBUG(
-      llvm::dbgs()
-          << "Using weak definition for NNPAAccelerator::getInstance()\n";);
-  return nullptr;
-}
+// definition (to override this one) must be provided by each concrete
+// accelerator.
+#define CREATE_WEAK_DEF(AcceleratorType)                                       \
+  __attribute__((weak)) Accelerator *AcceleratorType::getInstance() {          \
+    LLVM_DEBUG(llvm::dbgs() << "Using weak definition for " #AcceleratorType   \
+                               "::getInstance()\n";);                          \
+    return nullptr;                                                            \
+  }
+CREATE_WEAK_DEF(nnpa::NNPAAccelerator)
+#undef CREATE_WEAK_DEF
 
 void Accelerator::create(Accelerator::Kind kind,
     mlir::OwningOpRef<mlir::ModuleOp> &module, mlir::MLIRContext &context,
     mlir::PassManager &pm, onnx_mlir::EmissionTargetType emissionTarget) {
   Accelerator *accel = nullptr;
   switch (kind) {
-  case Kind::NNPA:
-    accel = nnpa::NNPAAccelerator::getInstance();
-    if (!accel)
-      llvm::errs() << "NNPA accelerator not supported\n";
+#define CREATE_ACCEL(ID, AcceleratorType)                                      \
+  case Kind::ID:                                                               \
+    accel = AcceleratorType::getInstance();                                    \
+    if (!accel)                                                                \
+      llvm::errs() << #ID " accelerator not supported\n";                      \
     break;
+    CREATE_ACCEL(NNPA, nnpa::NNPAAccelerator)
+#undef CREATE_ACCEL
   }
   assert(accel && "Accelerator not initialized correctly");
 
@@ -53,8 +57,6 @@ void Accelerator::create(Accelerator::Kind kind,
   accel->prepare(module, context, pm, emissionTarget);
   accelerators.insert(accel);
 }
-
-Accelerator::~Accelerator() { accelerators.erase(this); }
 
 const llvm::SmallPtrSetImpl<Accelerator *> &Accelerator::getAccelerators() {
   return accelerators;

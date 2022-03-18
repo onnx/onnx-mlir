@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- Accelerator.hpp -------------------------===//
+//===-------------------------- Accelerator.hpp ---------------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -29,7 +29,7 @@ public:
     NNPA, // IBM Telum coprocessor
   };
 
-  virtual ~Accelerator();
+  virtual ~Accelerator() { accelerators.erase(this); }
 
   /// Getter for the kind of this accelerator.
   Kind getKind() const { return kind; }

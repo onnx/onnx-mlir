@@ -28,8 +28,6 @@ add_subdirectory(Compiler)
 add_onnx_mlir_library(NNPAAccelerator STATIC
   NNPAAccelerator.cpp
 
-  FORCE_LOAD
-
   DEPENDS
   Accelerator
   NNPACompilerUtils
@@ -42,7 +40,7 @@ add_onnx_mlir_library(NNPAAccelerator STATIC
   ${NNPA_SRC_ROOT}
   ${NNPA_BIN_ROOT}
   
-  LINK_LIBS PUBLIC
+  LINK_LIBS PRIVATE
   onnx
   Accelerator
   NNPACompilerUtils
@@ -50,3 +48,11 @@ add_onnx_mlir_library(NNPAAccelerator STATIC
   OMZLowOps
   )
 
+ # Force the system linker to keep the all definitions in the NNPAAccelerator library.
+ # This is necessary in order to overwrite weak definitions in the base Accelerator library 
+ # with strong definitions provided by the NNPAAccelerator library when it is built.
+ target_link_options(NNPAAccelerator INTERFACE 
+ "$<$<CXX_COMPILER_ID:AppleClang>:SHELL:LINKER:-force_load $<TARGET_LINKER_FILE:NNPAAccelerator>>"
+ "$<$<CXX_COMPILER_ID:GNU>:SHELL:LINKER:--whole-archive $<TARGET_LINKER_FILE:NNPAAccelerator> LINKER:--no-whole-archive>"
+ "$<$<CXX_COMPILER_ID:MSVC>:SHELL:LINKER:-WHOLEARCHIVE:$<TARGET_LINKER_FILE:NNPAAccelerator>>"
+)

@@ -23,7 +23,7 @@ namespace nnpa {
 /// Singleton class.
 class NNPAAccelerator final : public Accelerator {
 public:
-  ~NNPAAccelerator();
+  ~NNPAAccelerator() {}
 
   /// Retrieve the singleton object (non-thread safe).
   static Accelerator *getInstance();
@@ -37,7 +37,7 @@ public:
 private:
   static NNPAAccelerator singleton;
 
-  NNPAAccelerator();
+  NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {}
 
   // Prevent copy construction and assignement.
   NNPAAccelerator(NNPAAccelerator &other) = delete;
