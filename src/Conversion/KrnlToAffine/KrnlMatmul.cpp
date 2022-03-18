@@ -27,7 +27,7 @@
 
 #define DEBUG_TYPE "krnl_to_affine"
 
-#define ENABLE_MAT_VECT_MUL 1
+#define DISABLE_MAT_VECT_PRODUCT 0
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -139,7 +139,8 @@ public:
         kGlobalUB(operandAdaptor.kGlobalUB());
 
     // Has a matrix times vector when the J upper bound is literal 1.
-    bool matVectorProduct = ENABLE_MAT_VECT_MUL && jGlobalUB.isLiteral() &&
+    bool matVectorProduct = !DISABLE_MAT_VECT_PRODUCT &&
+                            jGlobalUB.isLiteral() &&
                             jGlobalUB.getLiteral() == 1;
 
     // Investigate SIMD
@@ -154,8 +155,6 @@ public:
           uint64_t k = kComputeTileSize.getLiteral();
           VectorBuilder createVect(createAffine);
           uint64_t mVL = createVect.getMachineVectorLength(elementType);
-          assert(mVL == 4 && "only size we support for now"); // hi alex,
-                                                              // remove.
           if (i % mVL == 0 && k % mVL == 0) {
             // Right now, vector length must be mVL.
             vectorLen = LiteralIndexExpr(mVL);

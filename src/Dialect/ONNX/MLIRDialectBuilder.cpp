@@ -709,7 +709,8 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   uint64_t VL = getLengthOf1DVector(inputVecArray[0]);
   uint64_t machineVL = getMachineVectorLength(inputVecArray[0]);
   assert(VL == machineVL && "only natural sizes supported at this time");
-  assert(N % machineVL == 0 && "can only reduces multiple of VL vectors at this time");
+  assert(N % machineVL == 0 &&
+         "can only reduces multiple of VL vectors at this time");
   LLVM_DEBUG(llvm::dbgs() << "reduction with N " << N << ", VL " << VL
                           << ", mVL " << machineVL << "\n";);
 
