@@ -25,16 +25,10 @@ add_subdirectory(Support)
 add_subdirectory(Transform)
 add_subdirectory(Compiler)
 
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--whole-archive -lNNPAAccel -Wl,--no-whole-archive")
 add_onnx_mlir_library(NNPAAccel
   NNPAAccelerator.cpp
 
   EXCLUDE_FROM_OM_LIBS
-
-  DEPENDS
-  Accelerator
-  NNPACompilerUtils
-  onnx
   
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
