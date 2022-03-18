@@ -21,7 +21,6 @@
 
 #ifdef ONNX_MLIR_BUILT_AS_STATIC
 #define ONNX_MLIR_EXPORT
-#define ONNX_MLIR_NO_EXPORT
 #else
 #ifdef _MSC_VER
 #ifdef OnnxMlirCompiler_EXPORTS
