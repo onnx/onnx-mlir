@@ -35,21 +35,9 @@ namespace onnx_mlir {
 namespace accel {
 namespace nnpa {
 
-<<<<<<< HEAD
 NNPAAccelerator::NNPAAccelerator() : Accelerator() {
   LLVM_DEBUG(llvm::dbgs() << "initializing NNPA\n");
 
-=======
-mlir::NNPAAccelerator* pnnpa;
-
-void createNNPA() {
-  pnnpa = new mlir::NNPAAccelerator; 
-}
- 
-namespace mlir {
-
-NNPAAccelerator::NNPAAccelerator() {
->>>>>>> a4b4ca3f43471da28fdca31eff9dee2043f92bad
   if (!initialized) {
     initialized = true;
     getAcceleratorList()->push_back(this);
@@ -80,13 +68,8 @@ void NNPAAccelerator::prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
 }
 
 bool NNPAAccelerator::initialized = false;
-<<<<<<< HEAD
-NNPAAccelerator nnpaAccelerator;
+//NNPAAccelerator nnpaAccelerator;
 
 } // namespace nnpa
 } // namespace accel
 } // namespace onnx_mlir
-=======
-} // namespace mlir
-mlir::NNPAAccelerator nnpaAccelerator();
->>>>>>> a4b4ca3f43471da28fdca31eff9dee2043f92bad

@@ -25,7 +25,7 @@ add_subdirectory(Support)
 add_subdirectory(Transform)
 add_subdirectory(Compiler)
 
-add_onnx_mlir_library(NNPAAccelerator
+add_onnx_mlir_library(NNPAAccel
   NNPAAccelerator.cpp
 
   EXCLUDE_FROM_OM_LIBS
@@ -39,12 +39,8 @@ add_onnx_mlir_library(NNPAAccelerator
   
   LINK_LIBS PUBLIC
   onnx
-<<<<<<< HEAD
   NNPACompilerUtils
-=======
-  Accelerator
-  DLCompilerUtils
->>>>>>> a4b4ca3f43471da28fdca31eff9dee2043f92bad
+  # Accelerator
   OMZHighOps
   OMZLowOps
   )
