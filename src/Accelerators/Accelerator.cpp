@@ -21,7 +21,6 @@
 namespace onnx_mlir {
 namespace accel {
 
-extern NNPAAccelerator nnpaAccelerator;
 std::vector<Accelerator *> *Accelerator::acceleratorTargets;
 
 Accelerator::Accelerator() {

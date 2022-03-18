@@ -1066,8 +1066,8 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   // Initialize accelerator if required
   if (acceleratorTarget.compare("") != 0) {
     InitAccelerators();
-    std::vector<Accelerator *> *accTargets;
-    accTargets = Accelerator::getAcceleratorList();
+    std::vector<onnx_mlir::accel::Accelerator *> *accTargets;
+    accTargets = onnx_mlir::accel::Accelerator::getAcceleratorList();
     for (auto accel : *accTargets) {
       if (accel->isActive()) {
         accel->prepareAccelerator(module, context, pm, emissionTarget);
