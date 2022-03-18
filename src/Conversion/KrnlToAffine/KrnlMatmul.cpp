@@ -153,10 +153,12 @@ public:
           uint64_t i = iComputeTileSize.getLiteral();
           uint64_t k = kComputeTileSize.getLiteral();
           VectorBuilder createVect(createAffine);
-          uint64_t mvl = createVect.getMachineVectorLength(elementType);
-          assert(mvl==4 && "only size we support for now");
-          if (i % k == 0 && k == mvl) {
-            vectorLen = kComputeTileSize;
+          uint64_t mVL = createVect.getMachineVectorLength(elementType);
+          assert(mVL == 4 && "only size we support for now"); // hi alex,
+                                                              // remove.
+          if (i % mVL == 0 && k % mVL == 0) {
+            // Right now, vector length must be mVL.
+            vectorLen = LiteralIndexExpr(mVL);
           } else {
             simdize = false;
             LLVM_DEBUG(llvm::dbgs() << "Matmul: mat*vec with bad sizes: i " << i
@@ -388,52 +390,74 @@ private:
     assert(I.isLiteral() && K.isLiteral() && vectorLen.isLiteral() &&
            "can only simdize with compile time "
            "blocking factor on simd axis");
-
     MultiDialectBuilder<MathBuilder, VectorBuilder, AffineBuilderKrnlMem,
-        MemRefBuilder>
+        MemRefBuilder, KrnlBuilder>
         create(createAffine);
+    int64_t iLit(I.getLiteral()), VL(vectorLen.getLiteral());
+    int64_t mVL = create.vec.getMachineVectorLength(elementType);
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
-    int64_t aRank(aStart.size()), cRank(cStart.size());
+    int64_t aRank(aStart.size()), bRank(bStart.size()), cRank(cStart.size());
 
     // Generate the vector type conversions.
-    int64_t VL = vectorLen.getLiteral();
+    assert(VL == mVL && "vector length and VL must be identical for now");
     VectorType vecType = VectorType::get({VL}, elementType);
-    int64_t iUnrollForReduction = I.getLiteral();
-    assert(iUnrollForReduction % VL == 0 &&
-           "i blocking should be a multiple of VL");
-    // Iterates over the I indices (K is SIMD dim).
-    // First compute A[i,k]*B[k, 1] for i=0..iUnrollForReduction explicitly.
-    // We reuse B[k][0] vector for each iteration of i.
-    SmallVector<Value, 4> bAccess;
-    IndexExpr::getValues(bStart, bAccess);
-    // bAccess = {k=0 + bStart0.getValue(), bStart1.getValue()};
-    IndexExpr::getValues(bStart, bAccess);
-    Value vb = create.vec.load(vecType, B, bAccess);
-    SmallVector<Value, 8> vResList;
-    // Generate computation for each i, preserving the value in vResList.
-    for (int64_t i = 0; i < iUnrollForReduction; ++i) {
-      SmallVector<Value, 4> aAccess;
-      IndexExpr::getValues(aStart, aAccess);
-      LiteralIndexExpr iVal(i);
-      aAccess[aRank - 2] = create.math.add(aAccess[aRank - 2], iVal.getValue());
-      Value va = create.vec.load(vecType, A, aAccess);
-      Value vres = create.math.mul(va, vb);
-      vResList.emplace_back(vres);
+    int64_t iUnrollFactor = iLit;
+    assert(iUnrollFactor % VL == 0 && "i blocking should be a multiple of VL");
+
+    // Have to privatize CTmpType by unroll factor.
+    MemRefType CTmpType = MemRefType::get({iUnrollFactor}, vecType);
+    assert(BUFFER_ALIGN >= gDefaultAllocAlign);
+    Value TmpProd = create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
+    // Init with zero.
+    Value fZero = create.math.constant(elementType, 0);
+    Value vFZero = create.vec.broadcast(vecType, fZero);
+    create.krnl.memset(TmpProd, vFZero);
+
+    LiteralIndexExpr zero(0);
+    create.affineKMem.forIE(
+        zero, K, VL, [&](AffineBuilderKrnlMem &createAffine, Value k) {
+          MultiDialectBuilder<MathBuilder, VectorBuilder> create(createAffine);
+          // Iterates over the I indices (K is SIMD dim).
+          // First compute A[i,k]*B[k, 1] for i=0..iUnrollFactor explicitly.
+          // We reuse B[k][0] vector for each iteration of i.
+          SmallVector<Value, 4> bAccess;
+          IndexExpr::getValues(bStart, bAccess);
+          // bAccess = {k + bStart0.getValue(), bStart1.getValue()};
+          bAccess[bRank - 2] = create.math.add(k, bAccess[bRank - 2]);
+          Value vb = create.vec.load(vecType, B, bAccess);
+          // Generate computation for each i, manually unrolled for simplicity.
+          for (int64_t i = 0; i < iUnrollFactor; ++i) {
+            SmallVector<Value, 4> aAccess;
+            IndexExpr::getValues(aStart, aAccess);
+            Value iVal = create.math.constantIndex(i);
+            aAccess[aRank - 2] = create.math.add(aAccess[aRank - 2], iVal);
+            aAccess[aRank - 1] = create.math.add(k, aAccess[aRank - 1]);
+            Value va = create.vec.load(vecType, A, aAccess);
+            Value vTmpProd = create.vec.load(vecType, TmpProd, {iVal});
+            Value vres = create.vec.fma(va, vb, vTmpProd);
+            create.vec.store(vres, TmpProd, {iVal});
+          }
+        });
+
+    // Reduce each SIMD vector of length mVL using a SIMD parallel reduction.
+    SmallVector<Value, 8> vProdList;
+    for (int64_t i = 0; i < iUnrollFactor; ++i) {
+      Value iVal = create.math.constantIndex(i);
+      Value vTmpProd = create.vec.load(vecType, TmpProd, {iVal});
+      vProdList.emplace_back(vTmpProd);
     }
-    // Reduce each SIMD vector of length VL==K using a SIMD parallel reduction.
     SmallVector<Value, 8> vReductionList;
-    create.vec.multiReduction(vResList, vReductionList);
-    uint64_t size = vReductionList.size();
-    printf("reduction size %d\n", (int)size);
+    create.vec.multiReduction(vProdList, vReductionList);
     // For each reduction in the list (vector of VL length), load C, add
     // reduction, and store C.
+    uint64_t size = vReductionList.size();
     for (uint64_t i = 0; i < size; ++i) {
       SmallVector<Value, 4> cAccess;
       IndexExpr::getValues(cStart, cAccess);
-      LiteralIndexExpr iVal(i * VL);
-      cAccess[cRank - 2] = create.math.add(cAccess[cRank - 2], iVal.getValue());
+      Value iVal = create.math.constantIndex(i * VL);
+      cAccess[cRank - 2] = create.math.add(cAccess[cRank - 2], iVal);
       Value vc = create.vec.load(vecType, C, cAccess);
       vc = create.math.add(vc, vReductionList[i]);
       create.vec.store(vc, C, cAccess);
