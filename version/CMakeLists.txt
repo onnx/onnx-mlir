@@ -31,7 +31,7 @@ if (llvm_vc OR NOT LLVM_APPEND_VC_REV)
   add_custom_command(OUTPUT "${version_inc}"
     DEPENDS "${version_inc}.tmp"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${version_inc}.tmp" "${version_inc}"
-    COMMAND ${CMAKE_COMMAND} -E rm "${version_inc}.tmp"
+    COMMAND ${CMAKE_COMMAND} -E remove "${version_inc}.tmp"
     )
 else()
   set(add_llvm_version_header_script "${CMAKE_CURRENT_SOURCE_DIR}/AddLLVMVersionHeader.cmake")
@@ -40,7 +40,7 @@ else()
     COMMAND ${CMAKE_COMMAND} "-DHEADER_FILE=${version_inc}.tmp"
                              -P "${add_llvm_version_header_script}"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${version_inc}.tmp" "${version_inc}"
-    COMMAND ${CMAKE_COMMAND} -E rm "${version_inc}.tmp"
+    COMMAND ${CMAKE_COMMAND} -E remove "${version_inc}.tmp"
     )
 endif()
 
