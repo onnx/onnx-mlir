@@ -12,7 +12,7 @@ add_onnx_mlir_library(NNPACompilerUtils STATIC
 
   LINK_LIBS PUBLIC
   CompilerUtils
-  ${OMLibs}
+  #${OMLibs}
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_ONNX_MLIR_SRC_ROOT}
