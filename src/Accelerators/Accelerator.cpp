@@ -21,16 +21,14 @@
 namespace onnx_mlir {
 namespace accel {
 
-std::vector<Accelerator *> *Accelerator::acceleratorTargets;
+std::vector<Accelerator *> Accelerator::acceleratorTargets;
 
-Accelerator::Accelerator() {
-  if (acceleratorTargets == NULL)
-    acceleratorTargets = new std::vector<Accelerator *>();
-}
+Accelerator::Accelerator() {}
+
 
 Accelerator::~Accelerator() {}
 
-std::vector<Accelerator *> *Accelerator::getAcceleratorList() {
+std::vector<Accelerator *> Accelerator::getAcceleratorList() {
   return acceleratorTargets;
 }
 

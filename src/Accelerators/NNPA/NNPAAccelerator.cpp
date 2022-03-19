@@ -38,7 +38,8 @@ NNPAAccelerator::NNPAAccelerator() : Accelerator() {
 
   if (!initialized) {
     initialized = true;
-    getAcceleratorList()->push_back(this);
+    //getAcceleratorList()->push_back(this);
+    acceleratorTargets.push_back(this);
   }
 };
 
