@@ -25,7 +25,6 @@ std::vector<Accelerator *> Accelerator::acceleratorTargets;
 
 Accelerator::Accelerator() {}
 
-
 Accelerator::~Accelerator() {}
 
 std::vector<Accelerator *> Accelerator::getAcceleratorList() {
