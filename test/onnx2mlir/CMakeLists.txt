@@ -8,7 +8,10 @@ add_onnx_mlir_executable(CustomFnTest
   NO_INSTALL
 
   LINK_LIBS PRIVATE
-  ${OMLibs}
+  onnx
+  OMSupport
+  OMBuilder
+  OMShapeInference
   )
 
 add_test(NAME CustomFnTest COMMAND CustomFnTest)
