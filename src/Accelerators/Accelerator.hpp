@@ -33,7 +33,7 @@ public:
       onnx_mlir::EmissionTargetType emissionTarget) const = 0;
 
 protected:
-  //static llvm::SmallPtrSet<Accelerator *, 2> acceleratorTargets;
+  // static llvm::SmallPtrSet<Accelerator *, 2> acceleratorTargets;
   static std::vector<Accelerator *> acceleratorTargets;
 };
 
