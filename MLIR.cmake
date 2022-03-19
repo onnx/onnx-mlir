@@ -108,8 +108,6 @@ endfunction()
 #     Do not add the library to the ONNX_MLIR_LIBS property.
 #   NO_INSTALL
 #     Do not add an install target for the library.
-#   FORCE_LOAD
-#     Force the linker to include all object files in the library.
 #   DEPENDS targets...
 #     Same semantics as add_dependencies().
 #   INCLUDE_DIRS include_dirs...
@@ -222,7 +220,7 @@ function(add_onnx_mlir_executable name)
 
   if (ARG_LINK_LIBS)
     target_link_libraries(${name} ${ARG_LINK_LIBS})
-  endif()  
+  endif()
 
   if (NOT ARG_NO_INSTALL)
     install(TARGETS ${name} DESTINATION bin)
