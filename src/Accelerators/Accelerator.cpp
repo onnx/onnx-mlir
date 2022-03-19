@@ -16,6 +16,7 @@
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
+#include "src/Support/Common.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "nnpa"
@@ -29,7 +30,7 @@ llvm::SmallPtrSet<Accelerator *, 2> Accelerator::accelerators;
 // definition (to override this one) must be provided by each concrete
 // accelerator.
 #define CREATE_WEAK_DEF(AcceleratorType)                                       \
-  __attribute__((weak)) Accelerator *AcceleratorType::getInstance() {          \
+  ATTRIBUTE(weak) Accelerator *AcceleratorType::getInstance() {                \
     LLVM_DEBUG(llvm::dbgs() << "Using weak definition for " #AcceleratorType   \
                                "::getInstance()\n";);                          \
     return nullptr;                                                            \
