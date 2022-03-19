@@ -25,7 +25,7 @@ add_subdirectory(Support)
 add_subdirectory(Transform)
 add_subdirectory(Compiler)
 
-add_onnx_mlir_library(NNPAAccel STATIC
+add_onnx_mlir_library(NNPAAccel
   NNPAAccelerator.cpp
 
   EXCLUDE_FROM_OM_LIBS

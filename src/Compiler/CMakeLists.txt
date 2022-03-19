@@ -39,7 +39,7 @@ add_custom_target(ExternalUtil DEPENDS ${FILE_GENERATE_DIR}/ExternalUtil.hpp)
 
 get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
-add_onnx_mlir_library(CompilerUtils STATIC
+add_onnx_mlir_library(CompilerUtils
   CompilerUtils.cpp
   InitAccelerators.cpp
 
