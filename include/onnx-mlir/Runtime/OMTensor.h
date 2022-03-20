@@ -64,15 +64,24 @@ extern "C" {
  * \brief Create a OMTensor with specified data pointer, shape, rank and element
  * type.
  *
- * The call will not create a copy of the data. By default, caller is
- * responsible for managing the memory this pointer refers to. Namely, the
- * OMTensor is not the owner of the data. To indicate OMTensor's ownership of
- * data, use `omTensorCreateWithOwnership`. Ownership determines what happens
- * with the OMTensor is destroyed. With ownership of the data, the destruction
- * of the OMTensor will also free the data.
+ * The call will create a copy of the shape array but will not create a
+ * copy of the data numerical values. The shape array is copied without being freed,
+ * so users are expected to manage the shape array oneself.  By default, users are
+ * responsible for managing the memory the numerical data pointer refers to, keeping
+ * the numerical data alive for the duration of the usage of the created tensor and
+ * freeing the numerical data after the last use of the created tensor.  Namely,
+ * the OMTensor is not the owner of the numerical data.  To indicate OMTensor's
+ * ownership of numerical data, use `omTensorCreateWithOwnership`.  Ownership
+ * determines what happens with the OMTensor is destroyed.  With ownership of the
+ * numerical data, the destruction of the OMTensor will also free the numerical data
+ * associated with the tensor.
  *
- * @param data_ptr pointer to tensor data. By default, caller is responsible for
- * managing the memory this pointer refers to.
+ * OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL,
+ * FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example,
+ * a 32-bit signed-integer is represented by the ONNX_TYPE_INT32 enum value.
+ *
+ * @param data_ptr pointer to tensor data numerical values. By default, caller
+ * is responsible for managing the memory this pointer refers to.
  * @param shape list of integers indicating the tensor shape.
  * @param rank tensor rank.
  * @param dtype tensor element data type.
@@ -86,12 +95,22 @@ OMTensor *omTensorCreate(
  * \brief Create an OMTensor with specified data pointer, shape, rank and
  * element type, manually setting data ptr ownership.
  *
- * Using this constructor, users can
- * specify whether OMTensor owns the data, which subsequently determines whether
- * the memory space underlying the data will be freed or not when OMTensor gets
- * destroyed.
+ * The call will create a copy of the shape array but will not create a
+ * copy of the numerical data.  The shape array is copied without being freed,
+ * so users are expected to manage the shape array oneself. Users can specify
+ * whether OMTensor owns the numerical data, which subsequently determines whether
+ * the memory space underlying the numerical data will be freed or not when OMTensor
+ * gets destroyed. Namely, if the ownership flag is set to false, users are responsible
+ * for keeping the numerical data live until the last use of the tensor and freeing the
+ * numerical data memory after its last use. If the ownership is set to true, then
+ * the destruction of the tensor will also free the numerical data associated with
+ * the tensor.
  *
- * @param data_ptr pointer to tensor data.
+ * OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL,
+ * FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example,
+ * a 32-bit unsigned-integer is represented by the ONNX_TYPE_UINT32 enum value.
+ *
+ * @param data_ptr pointer to tensor numerical data values.
  * @param shape list of integers indicating the tensor shape.
  * @param rank tensor rank.
  * @param dtype tensor element data type.
@@ -106,12 +125,13 @@ OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
 /**
  * Create an OMTensor with the specified shape, rank and element type,
  * allocate uninitialized data for the specified shape.
- * This function is intentionally left out from the header because it is only
- * used by the wrapper code we emit around inference function that converts
- * MemRefs to OMTensors for user convenience.
  *
  * The OMTensor created using this constructor owns the underlying memory
- * space allocated to the content of the tensor.
+ * space allocated to hold the content of the tensor numerical values.
+ *
+ * OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL,
+ * FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example,
+ * a 32-bit floating-point is represented by the ONNX_TYPE_FLOAT enum value.
  *
  * @param shape list of integers indicating the tensor shape.
  * @param rank tensor rank.
@@ -124,10 +144,11 @@ OMTensor *omTensorCreateEmpty(int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
 /**
  * \brief Destroy the OMTensor struct.
  *
- * If OMTensor does not own the data, destroying the omTensor does not free up
- * the memory occupied by the tensor content. If OMTensor owns the data, this
- * function will free up the memory space underlying the tensor as well. The
- * documentation of OMTensor constructors clarifies the ownership semantics.
+ * If OMTensor does not own its numerical data, destroying the omTensor does
+ * not free up the memory occupied by the tensor numerical values. If OMTensor
+ * owns the numerical data, this function will free up the memory space
+ * underlying the tensor's numerical data as well. The documentation of
+ * OMTensor constructors clarifies the ownership semantics.
  *
  * @param tensor pointer to the OMTensor. The function simply returns when
  * pointer is null.
@@ -139,15 +160,15 @@ void omTensorDestroy(OMTensor *tensor);
  * \brief OMTensor data pointer getter.
  *
  * @param tensor pointer to the OMTensor
- * @return pointer to the data buffer of the OMTensor,
- *         NULL if the data buffer is not set.
+ * @return pointer to the numerical data buffer of the OMTensor,
+ *         NULL if the numerical data buffer is not set.
  */
 void *omTensorGetDataPtr(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data shape getter.
  *
- * The data shape is returned as a pointer pointing to an array of
+ * The numerical data shape is returned as a pointer pointing to an array of
  * n 64-bit integers where n is the rank of the tensor.
  *
  * The shape array is returned without copying, so caller should
@@ -228,6 +249,10 @@ void omTensorSetStridesWithPyArrayStrides(
 /**
  * \brief OMTensor data type getter
  *
+ * OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL,
+ * FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example,
+ * a string is represented by the ONNX_TYPE_STRING enum value.
+ *
  * @param tensor pointer to the OMTensor
  * @return ONNX data type of the data buffer elements.
  */
@@ -235,6 +260,10 @@ OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data type setter
+ *
+ * OM_DATA_TYPE enumerates the ONNX data types: INT/UINT 8/16/32/64, BOOL,
+ * FLOAT16, BFLOAT16, FLOAT, DOUBLE, COMPLEX 64/128, and STRING. For example,
+ * a 1-bit boolean number is represented by the ONNX_TYPE_BOOL enum value.
  *
  * @param tensor pointer to the OMTensor
  * @param dataType ONNX data type to be set
@@ -249,7 +278,7 @@ static inline int64_t getDataTypeSize(OM_DATA_TYPE dataType) {
 }
 
 /**
- * \brief OMTensor data buffer size getter
+ * \brief OMTensor numerical data buffer size getter
  *
  * @param tensor pointer to the OMTensor
  * @return the total size of the data buffer in bytes.

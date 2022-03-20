@@ -5321,6 +5321,7 @@ def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
       return {-1};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
