@@ -2019,20 +2019,21 @@ func private @test_clip(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<
   return %0 : tensor<3xf32>
 
 // CHECK-LABEL: test_clip
-// CHECK-SAME:   ([[INPUT_:%.+]]: memref<3xf32>, [[MIN_:%.+]]: memref<f32>, [[MAX_:%.+]]: memref<f32>) -> memref<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 3){
-// CHECK-DAG:         [[LOAD_INPUT_MEM_:%.+]] = krnl.load [[INPUT_]]{{.}}[[I_0_]]{{.}} : memref<3xf32>
-// CHECK-DAG:         [[LOAD_MIN_MEM_:%.+]] = krnl.load [[MIN_]][] : memref<f32>
-// CHECK:             [[VAR_4_:%.+]] = arith.cmpf olt, [[LOAD_INPUT_MEM_]], [[LOAD_MIN_MEM_]] : f32
-// CHECK-DAG:         [[VAR_5_:%.+]] = arith.select [[VAR_4_]], [[LOAD_MIN_MEM_]], [[LOAD_INPUT_MEM_]] : f32
-// CHECK-DAG:         [[LOAD_MAX_MEM_:%.+]] = krnl.load [[MAX_]][] : memref<f32>
-// CHECK:             [[VAR_7_:%.+]] = arith.cmpf olt, [[VAR_5_]], [[LOAD_MAX_MEM_]] : f32
-// CHECK:             [[VAR_8_:%.+]] = arith.select [[VAR_7_]], [[VAR_5_]], [[LOAD_MAX_MEM_]] : f32
-// CHECK:             krnl.store [[VAR_8_]], [[RES_]]{{.}}[[I_0_]]{{.}} : memref<3xf32>
+// CHECK-SAME:   ([[INPUT:%.+]]: memref<3xf32>, [[MIN:%.+]]: memref<f32>, [[MAX:%.+]]: memref<f32>) -> memref<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
+// CHECK-DAG:       [[RES:%.+]] = memref.alloc() {{.*}}: memref<3xf32>
+// CHECK-DAG:       [[LOOP_0:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_0]]) with ([[LOOP_0]] -> [[I_0:%.+]] = 0 to 3){
+// CHECK-NEXT:        [[IV:%.+]] = krnl.get_induction_var_value([[LOOP_0]]) : (!krnl.loop) -> index 
+// CHECK-DAG:         [[LOAD_INPUT_MEM:%.+]] = krnl.load [[INPUT]]{{.}}[[IV]]{{.}} : memref<3xf32>
+// CHECK-DAG:         [[LOAD_MIN_MEM:%.+]] = krnl.load [[MIN]][] : memref<f32>
+// CHECK:             [[VAR_4:%.+]] = arith.cmpf olt, [[LOAD_INPUT_MEM]], [[LOAD_MIN_MEM]] : f32
+// CHECK-DAG:         [[VAR_5:%.+]] = arith.select [[VAR_4]], [[LOAD_MIN_MEM]], [[LOAD_INPUT_MEM]] : f32
+// CHECK-DAG:         [[LOAD_MAX_MEM:%.+]] = krnl.load [[MAX]][] : memref<f32>
+// CHECK:             [[VAR_7:%.+]] = arith.cmpf olt, [[VAR_5]], [[LOAD_MAX_MEM]] : f32
+// CHECK:             [[VAR_8:%.+]] = arith.select [[VAR_7]], [[VAR_5]], [[LOAD_MAX_MEM]] : f32
+// CHECK:             krnl.store [[VAR_8]], [[RES]]{{.}}[[IV]]{{.}} : memref<3xf32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<3xf32>
+// CHECK:           return [[RES]] : memref<3xf32>
 // CHECK:         }
 }
 
@@ -2044,17 +2045,18 @@ func private @test_clip_default_min(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %a
   return %0 : tensor<3xf32>
 
 // CHECK-LABEL: test_clip_default_min
-// CHECK-SAME:   ([[INPUT_:%.+]]: memref<3xf32>, [[MIN_:%.+]]: memref<f32>, [[MAX_:%.+]]: memref<f32>) -> memref<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 3){
-// CHECK-DAG:         [[LOAD_INPUT_MEM_:%.+]] = krnl.load [[INPUT_]]{{.}}[[I_0_]]{{.}} : memref<3xf32>
-// CHECK-DAG:         [[LOAD_MAX_MEM_:%.+]] = krnl.load [[MAX_]][] : memref<f32>
-// CHECK:             [[VAR_7_:%.+]] = arith.cmpf olt, [[LOAD_INPUT_MEM_]], [[LOAD_MAX_MEM_]] : f32
-// CHECK:             [[VAR_8_:%.+]] = arith.select [[VAR_7_]], [[LOAD_INPUT_MEM_]], [[LOAD_MAX_MEM_]] : f32
-// CHECK:             krnl.store [[VAR_8_]], [[RES_]]{{.}}[[I_0_]]{{.}} : memref<3xf32>
+// CHECK-SAME:   ([[INPUT:%.+]]: memref<3xf32>, [[MIN:%.+]]: memref<f32>, [[MAX:%.+]]: memref<f32>) -> memref<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
+// CHECK-DAG:       [[RES:%.+]] = memref.alloc() {{.*}}: memref<3xf32>
+// CHECK-DAG:       [[LOOP_0:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_0]]) with ([[LOOP_0]] -> [[I_0:%.+]] = 0 to 3){
+// CHECK-NEXT:        [[IV:%.+]] = krnl.get_induction_var_value([[LOOP_0]]) : (!krnl.loop) -> index   
+// CHECK-DAG:         [[LOAD_INPUT_MEM:%.+]] = krnl.load [[INPUT]]{{.}}[[IV]]{{.}} : memref<3xf32>
+// CHECK-DAG:         [[LOAD_MAX_MEM:%.+]] = krnl.load [[MAX]][] : memref<f32>
+// CHECK:             [[VAR_7:%.+]] = arith.cmpf olt, [[LOAD_INPUT_MEM]], [[LOAD_MAX_MEM]] : f32
+// CHECK:             [[VAR_8:%.+]] = arith.select [[VAR_7]], [[LOAD_INPUT_MEM]], [[LOAD_MAX_MEM]] : f32
+// CHECK:             krnl.store [[VAR_8]], [[RES]]{{.}}[[IV]]{{.}} : memref<3xf32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<3xf32>
+// CHECK:           return [[RES]] : memref<3xf32>
 // CHECK:         }
 }
 
