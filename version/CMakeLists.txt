@@ -13,7 +13,7 @@ set(vcs_depends "${generate_vcs_version_script}")
 find_first_existing_vc_file("${ONNX_MLIR_SRC_ROOT}" onnx_mlir_vc)
 list(APPEND vcs_depends "${onnx_mlir_vc}")
 
-find_first_existing_vc_file("${LLVM_BUILD_MAIN_SRC_DIR1}" llvm_vc)
+find_first_existing_vc_file("${LLVM_BUILD_MAIN_SRC_DIR}" llvm_vc)
 if (llvm_vc)
   list(APPEND vcs_depends "${llvm_vc}")
 endif()
@@ -21,7 +21,7 @@ endif()
 add_custom_command(OUTPUT "${version_inc}.tmp"
   DEPENDS "${vcs_depends}"
   COMMAND ${CMAKE_COMMAND} "-DNAMES=\"LLVM;ONNX_MLIR\""
-                           "-DLLVM_SOURCE_DIR=${LLVM_BUILD_MAIN_SRC_DIR1}"
+                           "-DLLVM_SOURCE_DIR=${LLVM_BUILD_MAIN_SRC_DIR}"
                            "-DONNX_MLIR_SOURCE_DIR=${ONNX_MLIR_SRC_ROOT}"
                            "-DHEADER_FILE=${version_inc}.tmp"
                            -P "${generate_vcs_version_script}"

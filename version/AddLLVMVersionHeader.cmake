@@ -5,5 +5,5 @@
 
 file(APPEND
   ${HEADER_FILE}
-  "#include \"llvm/Support/VCSRevision.h\""
+  "#include \"llvm/Support/VCSRevision.h\"\n"
   )
