@@ -4,7 +4,7 @@
 
 //===--------------- Clip.cpp - Shape Inference for Clip Op ---------------===//
 //
-// Copyright 2021 The IBM Research Authors.
+// Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
