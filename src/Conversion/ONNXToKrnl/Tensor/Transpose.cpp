@@ -34,7 +34,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
 
     // Basic information.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
-    int64_t rank = memRefType.getShape().size();
+    uint64_t rank = memRefType.getShape().size();
 
     // Get a shape helper.
     ONNXTransposeOpShapeHelper shapeHelper(&transposeOp, &rewriter,
@@ -46,8 +46,31 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
 
+#if 1
+    KrnlBuilder createKrnl(rewriter, loc);
+    ValueRange loopDef = createKrnl.defineLoops(rank);
+    SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+
+    MemRefBoundsIndexCapture dataBounds(data);
+    SmallVector<IndexExpr, 4> ubs;
+    for (uint64_t i = 0; i < rank; ++i)
+      ubs.emplace_back(dataBounds.getDim(i));
+
+    createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+          // Compute the indices used by the load operation.
+          SmallVector<IndexExpr, 4> storeIndices;
+          for (uint64_t i = 0; i < rank; ++i) {
+            Value index = indices[ArrayAttrIntVal(permAttr, i)];
+            storeIndices.emplace_back(DimIndexExpr(index));
+          }
+
+          Value loadData = createKrnl.load(data, indices);
+          createKrnl.storeIE(loadData, alloc, storeIndices);
+        });
+#else
     // Create loop.
     BuildKrnlLoop inputLoops(rewriter, loc, rank);
     inputLoops.createDefineAndIterateOp(data);
@@ -72,6 +95,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
       Value loadData = createKrnl.loadIE(data, readIndices);
       createKrnl.storeIE(loadData, alloc, writeIndices);
     }
+#endif
 
     rewriter.replaceOp(op, alloc);
 
