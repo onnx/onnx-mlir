@@ -1,8 +1,8 @@
+// RUN: cp %s.def %t.def
 // RUN: onnx-mlir --preserveBitcode %s -o %t
 // RUN: llvm-dis %t.bc -o %t.ll
 // RUN: cat %t.ll | FileCheck %s
 
-// REQUIRES: system-linux || system-darwin
 // CHECK: !llvm.ident = !{![[MD:[0-9]*]]}
 // CHECK: ![[MD]] = !{!"onnx-mlir version 1.0.0 ({{.*}}/onnx-mlir{{.*}}/llvm-project{{.*}})"}
 module {
