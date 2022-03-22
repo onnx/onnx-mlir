@@ -26,14 +26,15 @@ class Accelerator {
 public:
   Accelerator();
   virtual ~Accelerator();
-  static std::vector<Accelerator *> *getAcceleratorList();
+  static std::vector<Accelerator *> getAcceleratorList();
   virtual bool isActive() const = 0;
   virtual void prepareAccelerator(mlir::OwningOpRef<mlir::ModuleOp> &module,
       mlir::MLIRContext &context, mlir::PassManager &pm,
       onnx_mlir::EmissionTargetType emissionTarget) const = 0;
 
-private:
-  static std::vector<Accelerator *> *acceleratorTargets;
+protected:
+  // static llvm::SmallPtrSet<Accelerator *, 2> acceleratorTargets;
+  static std::vector<Accelerator *> acceleratorTargets;
 };
 
 } // namespace accel

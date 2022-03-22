@@ -1059,16 +1059,17 @@ void emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
 int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     EmissionTargetType emissionTarget) {
+  extern void InitAccelerators();
   setupModule(module, context, outputBaseName);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   // Initialize accelerator if required
   if (acceleratorTarget.compare("") != 0) {
-    std::vector<accel::Accelerator *> *accTargets =
-        accel::Accelerator::getAcceleratorList();
-    assert(accTargets && "should not be null");
-
-    for (auto accel : *accTargets) {
+    InitAccelerators();
+    // std::vector<onnx_mlir::accel::Accelerator *> *accTargets;
+    // accTargets = onnx_mlir::accel::Accelerator::getAcceleratorList();
+    // for (auto accel : *accTargets) {
+    for (auto accel : onnx_mlir::accel::Accelerator::getAcceleratorList()) {
       if (accel->isActive()) {
         accel->prepareAccelerator(module, context, pm, emissionTarget);
       }
