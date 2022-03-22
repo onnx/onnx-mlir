@@ -48,6 +48,7 @@ add_onnx_mlir_library(CompilerUtils STATIC
   DEPENDS
   ExternalUtil
   MLIRIR
+  OMVersion
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}

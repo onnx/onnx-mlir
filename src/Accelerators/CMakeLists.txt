@@ -11,6 +11,8 @@ endif (ACCELERATORS_TO_BUILD)
 
 add_onnx_mlir_library(Accelerator STATIC
     Accelerator.cpp
+    DEPENDS
+      MLIRIR
     INCLUDE_DIRS PUBLIC
       ${ONNX_MLIR_SRC_ROOT}/include
     LINK_LIBS PUBLIC
