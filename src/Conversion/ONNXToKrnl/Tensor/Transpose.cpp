@@ -48,7 +48,6 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
 
-#if 1
     KrnlBuilder createKrnl(rewriter, loc);
     ValueRange loopDef = createKrnl.defineLoops(rank);
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
@@ -70,32 +69,6 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
           Value loadData = createKrnl.load(data, indices);
           createKrnl.storeIE(loadData, alloc, storeIndices);
         });
-#else
-    // Create loop.
-    BuildKrnlLoop inputLoops(rewriter, loc, rank);
-    inputLoops.createDefineAndIterateOp(data);
-    rewriter.setInsertionPointToStart(inputLoops.getIterateBlock());
-    {
-      // Get a child IndexExpr context.
-      IndexExprScope childScope(&rewriter, shapeHelper.scope);
-      KrnlBuilder createKrnl(rewriter, loc);
-
-      // Get read/write indices.
-      SmallVector<IndexExpr, 4> readIndices;
-      SmallVector<IndexExpr, 4> writeIndices;
-      for (decltype(rank) i = 0; i < rank; ++i) {
-        Value readVal = inputLoops.getInductionVar(i);
-        Value writeVal =
-            inputLoops.getInductionVar(ArrayAttrIntVal(permAttr, i));
-        readIndices.emplace_back(DimIndexExpr(readVal));
-        writeIndices.emplace_back(DimIndexExpr(writeVal));
-      }
-
-      // Copy data.
-      Value loadData = createKrnl.loadIE(data, readIndices);
-      createKrnl.storeIE(loadData, alloc, writeIndices);
-    }
-#endif
 
     rewriter.replaceOp(op, alloc);
 
