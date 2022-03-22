@@ -9,7 +9,7 @@ if (ACCELERATORS_TO_BUILD)
 else (ACCELERATORS_TO_BUILD)
 endif (ACCELERATORS_TO_BUILD)
 
-add_onnx_mlir_library(Accelerator
+add_onnx_mlir_library(Accelerator STATIC
     Accelerator.cpp
     INCLUDE_DIRS PUBLIC
       ${ONNX_MLIR_SRC_ROOT}/include
