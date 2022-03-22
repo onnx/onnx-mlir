@@ -254,7 +254,7 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     Value atenconv2d = rewriter.create<AtenConv2dOp>(
         loc, resultTy, xtt, wtt, btt, stridesList, padsList, dilationList, f1v);
 
-    llvm::outs() << "AtenConv2d operation creation"
+    llvm::outs() << "AtenConv2d operation creation "
                  << "\n"
                  << atenconv2d << "\n"
                  << "\n";

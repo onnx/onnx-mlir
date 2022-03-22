@@ -159,6 +159,8 @@ public:
     dim_pads dimArray[pads.size()];
     std::vector<Value> translatepadsList;
     auto ty = IntegerType::get(op1.getContext(), 64);
+    auto by = IntegerType::get(op1.getContext(), 1);
+
     if (pads) {
       int j = 0;
       for (unsigned int i = 0; i < pads.size(); i++) {
@@ -232,20 +234,23 @@ public:
     auto f33 = IntegerAttr::get(ty, three);
     auto f00 = IntegerAttr::get(ty, zero);
     auto f22 = IntegerAttr::get(ty, two);
+    auto b0  = IntegerAttr::get(by, false);
 
     auto f3 = f33;
     auto f0 = f00;
     auto f2 = f22;
 
+
     Value f3v = rewriter.create<ConstantIntOp>(loc, f3);
-    Value f0v = rewriter.create<ConstantIntOp>(loc, f0);
+    //Value f0v = rewriter.create<ConstantBoolOp>(loc, f0);
     Value f22v = rewriter.create<ConstantIntOp>(loc, f2);
+    Value b0v = rewriter.create<ConstantBoolOp>(loc, b0);
 
     Value ceiling_mode_val;
     if (ceiling_mode_attr)
-      ceiling_mode_val = rewriter.create<ConstantIntOp>(loc, ceiling_mode_attr);
+      ceiling_mode_val = rewriter.create<ConstantBoolOp>(loc, ceiling_mode_attr);
     else
-      ceiling_mode_val = f0v;
+      ceiling_mode_val = b0v;
 
     Value stridesList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),

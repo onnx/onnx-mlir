@@ -201,7 +201,7 @@ public:
     //rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, op.getType(), result);
     rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(op, op->getResult(0).getType(), result);
  
-    llvm::outs() << "After Writer replace Op " << "\n"; 
+    llvm::outs() << "After Writer replace Op GAAAAA" << "\n"; 
 
     return success();
   }

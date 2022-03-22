@@ -99,6 +99,8 @@ void FrontendToTorchLoweringPass::runOnOperation() {
   // this lowering.
   target
       .addLegalDialect<Torch::TorchDialect>();
+  target
+      .addLegalDialect<torch::TorchConversion::TorchConversionDialect>();
 
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.

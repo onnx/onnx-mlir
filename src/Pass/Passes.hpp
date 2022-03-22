@@ -68,7 +68,12 @@ std::unique_ptr<Pass> createLowerToKrnlPass(bool emitDealloc);
 /// Add pass for lowering to Torch IR.
 std::unique_ptr<Pass> createLowerToTorchPass();
 std::unique_ptr<Pass> createLowerToTorchPass(int optLevel);
-
+  
+/// Pass for ONNX to Aten Types Transform
+std::unique_ptr<Pass> createONNXToAtenTypesTransformPass();
+std::unique_ptr<Pass> createONNXToAtenFinalizeTypesTransformPass();
+std::unique_ptr<Pass> createONNXToAtenModifyMainFunctionPass();
+  
 /// Pass for lowering frontend dialects to Krnl IR dialect.
 std::unique_ptr<Pass> createConvertKrnlToAffinePass();
 
