@@ -75,8 +75,8 @@ void populateLoweringKrnlVectorTypeCastOpPattern(
     LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
     mlir::MLIRContext *ctx);
 
-void checkConstantOutputs(
-    ModuleOp &module, SmallVectorImpl<bool> &constantOutputs);
+void determineOwnershipForOutputOMTensors(
+    ModuleOp &module, SmallVectorImpl<bool> &outputOMTensorOwnerships);
 
 void recordEntryPointSignatures(mlir::ModuleOp &module,
     llvm::SmallVectorImpl<std::string> &entryPointNames,
