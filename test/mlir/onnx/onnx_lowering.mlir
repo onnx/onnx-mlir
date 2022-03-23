@@ -1039,7 +1039,7 @@ func private @test_transpose_dynamic_dims(%arg0 : tensor<10x?x30x40xf32>) -> ten
   // CHECK:           krnl.iterate([[LOOP_0]]#0, [[LOOP_0]]#1, [[LOOP_0]]#2, [[LOOP_0]]#3) with ([[LOOP_0]]#0 -> [[I_0:%.+]] = 0 to 10, 
   // CHECK-SAME:        [[LOOP_0]]#1 -> [[I_1:%.+]] = 0 to [[MAP]]{{.}}[[DIM_1]]{{.}}, [[LOOP_0]]#2 -> [[I_2:%.+]] = 0 to 30, 
   // CHECK-SAME:        [[LOOP_0]]#3 -> [[I_3:%.+]] = 0 to 40){
-  // CHECK-NEXT:      [[IV:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0]]#0, [[LOOP_0]]#1, [[LOOP_0]]#2, [[LOOP_0]]#3) :     
+  // CHECK-NEXT:        [[IV:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0]]#0, [[LOOP_0]]#1, [[LOOP_0]]#2, [[LOOP_0]]#3) :     
   // CHECK-SAME:          (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
   // CHECK:             [[LOAD_PARAM_0_MEM:%.+]] = krnl.load [[PARAM_0]]{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2, [[IV]]#3{{.}} : memref<10x?x30x40xf32>
   // CHECK:             krnl.store [[LOAD_PARAM_0_MEM]], [[RES]]{{.}}[[IV]]#0, [[IV]]#3, [[IV]]#1, [[IV]]#2{{.}} : memref<10x40x?x30xf32>
@@ -1478,21 +1478,26 @@ func private @test_split_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, 
 
   // CHECK: [[INDEX_MAP:#.+]] = affine_map<(d0) -> (d0 + 8)>
   // CHECK-LABEL: @test_split_equal
-
-  // CHECK: [[RES_0:%.+]] = memref.alloc() {{.*}}: memref<8x32x64xf32>
-  // CHECK: [[RES_1:%.+]] = memref.alloc() {{.*}}: memref<8x32x64xf32>
-  // CHECK: [[DEF_LOOP_0:%.+]]:3 = krnl.define_loops 3
-  // CHECK: krnl.iterate([[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2) with ([[DEF_LOOP_0]]#0 -> %arg1 = 0 to 8, [[DEF_LOOP_0]]#1 -> %arg2 = 0 to 32, [[DEF_LOOP_0]]#2 -> %arg3 = 0 to 64){
-  // CHECK:   [[LOAD_0:%.+]] = krnl.load %arg0[%arg1, %arg2, %arg3] : memref<16x32x64xf32>
-  // CHECK:   krnl.store [[LOAD_0]], [[RES_0]][%arg1, %arg2, %arg3] : memref<8x32x64xf32>
-  // CHECK: }
-  // CHECK: [[DEF_LOOP_1:%.+]]:3 = krnl.define_loops 3
-  // CHECK: krnl.iterate([[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2) with ([[DEF_LOOP_1]]#0 -> %arg1 = 0 to 8, [[DEF_LOOP_1]]#1 -> %arg2 = 0 to 32, [[DEF_LOOP_1]]#2 -> %arg3 = 0 to 64){
-  // CHECK:   %[[INDEX:.+]] = affine.apply [[INDEX_MAP]](%arg1)
-  // CHECK:   [[LOAD_1:%.+]] = krnl.load %arg0[%[[INDEX]], %arg2, %arg3] : memref<16x32x64xf32>
-  // CHECK:   krnl.store [[LOAD_1]], [[RES_1]][%arg1, %arg2, %arg3] : memref<8x32x64xf32>
-  // CHECK: }
-  // CHECK: return [[RES_0]], [[RES_1]] : memref<8x32x64xf32>, memref<8x32x64xf32>
+  // CHECK:     [[RES_0:%.+]] = memref.alloc() {{.*}}: memref<8x32x64xf32>
+  // CHECK:     [[RES_1:%.+]] = memref.alloc() {{.*}}: memref<8x32x64xf32>
+  // CHECK:     [[DEF_LOOP_0:%.+]]:3 = krnl.define_loops 3
+  // CHECK:     krnl.iterate([[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2) with ([[DEF_LOOP_0]]#0 -> %arg1 = 0 to 8, 
+  // CHECK-SAME:             [[DEF_LOOP_0]]#1 -> %arg2 = 0 to 32, [[DEF_LOOP_0]]#2 -> %arg3 = 0 to 64){
+  // CHECK:       [[IV:%.+]]:3 = krnl.get_induction_var_value([[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2) : 
+  // CHECK-SAME:    (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+  // CHECK:       [[LOAD_0:%.+]] = krnl.load %arg0{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<16x32x64xf32>
+  // CHECK:       krnl.store [[LOAD_0]], [[RES_0]]{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<8x32x64xf32>
+  // CHECK:     }
+  // CHECK:     [[DEF_LOOP_1:%.+]]:3 = krnl.define_loops 3
+  // CHECK:     krnl.iterate([[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2) with ([[DEF_LOOP_1]]#0 -> %arg1 = 0 to 8, 
+  // CHECK-SAME:             [[DEF_LOOP_1]]#1 -> %arg2 = 0 to 32, [[DEF_LOOP_1]]#2 -> %arg3 = 0 to 64){
+  // CHECK:       [[IV:%.+]]:3 = krnl.get_induction_var_value([[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2) :
+  // CHECK-SAME:    (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)  
+  // CHECK:       [[INDEX:%.+]] = affine.apply [[INDEX_MAP]]{{.}}[[IV]]#0{{.}}
+  // CHECK:       [[LOAD_1:%.+]] = krnl.load %arg0{{.}}[[INDEX]], [[IV]]#1, [[IV]]#2{{.}} : memref<16x32x64xf32>
+  // CHECK:       krnl.store [[LOAD_1]], [[RES_1]]{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<8x32x64xf32>
+  // CHECK:     }
+  // CHECK:     return [[RES_0]], [[RES_1]] : memref<8x32x64xf32>, memref<8x32x64xf32>
 }
 
 // -----
@@ -1509,14 +1514,16 @@ func private @test_split_variable(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32
   // CHECK: [[RES_1:%.+]] = memref.alloc() {{.*}}: memref<16x30x64xf32>
   // CHECK: [[DEF_LOOP_0:%.+]]:3 = krnl.define_loops 3
   // CHECK: krnl.iterate([[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2) with ([[DEF_LOOP_0]]#0 -> %arg1 = 0 to 16, [[DEF_LOOP_0]]#1 -> %arg2 = 0 to 2, [[DEF_LOOP_0]]#2 -> %arg3 = 0 to 64){
-  // CHECK:   [[LOAD_0:%.+]] = krnl.load %arg0[%arg1, %arg2, %arg3] : memref<16x32x64xf32>
-  // CHECK:   krnl.store [[LOAD_0]], [[RES_0]][%arg1, %arg2, %arg3] : memref<16x2x64xf32>
+  // CHECK:   [[IV:%.+]]:3 = krnl.get_induction_var_value([[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+  // CHECK:   [[LOAD_0:%.+]] = krnl.load %arg0{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<16x32x64xf32>
+  // CHECK:   krnl.store [[LOAD_0]], [[RES_0]]{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<16x2x64xf32>
   // CHECK: }
   // CHECK: [[DEF_LOOP_1:%.+]]:3 = krnl.define_loops 3
   // CHECK: krnl.iterate([[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2) with ([[DEF_LOOP_1]]#0 -> %arg1 = 0 to 16, [[DEF_LOOP_1]]#1 -> %arg2 = 0 to 30, [[DEF_LOOP_1]]#2 -> %arg3 = 0 to 64){
-  // CHECK:   %[[INDEX:.+]] = affine.apply [[INDEX_MAP]](%arg2)
-  // CHECK:   [[LOAD_1:%.+]] = krnl.load %arg0[%arg1, %[[INDEX]], %arg3] : memref<16x32x64xf32>
-  // CHECK:   krnl.store [[LOAD_1]], [[RES_1]][%arg1, %arg2, %arg3] : memref<16x30x64xf32>
+  // CHECK:   [[IV:%.+]]:3 = krnl.get_induction_var_value([[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)    
+  // CHECK:   [[INDEX:%.+]] = affine.apply [[INDEX_MAP]]{{.}}[[IV]]#1{{.}}
+  // CHECK:   [[LOAD_1:%.+]] = krnl.load %arg0{{.}}[[IV]]#0, [[INDEX]], [[IV]]#2{{.}} : memref<16x32x64xf32>
+  // CHECK:   krnl.store [[LOAD_1]], [[RES_1]]{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<16x30x64xf32>
   // CHECK: }
   // CHECK: return [[RES_0]], [[RES_1]] : memref<16x2x64xf32>, memref<16x30x64xf32>
 }
@@ -1534,14 +1541,16 @@ func private @test_splitv11_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32
   // CHECK: [[RES_1:%.+]] = memref.alloc() {{.*}}: memref<8x32x64xf32>
   // CHECK: [[DEF_LOOP_0:%.+]]:3 = krnl.define_loops 3
   // CHECK: krnl.iterate([[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2) with ([[DEF_LOOP_0]]#0 -> %arg1 = 0 to 8, [[DEF_LOOP_0]]#1 -> %arg2 = 0 to 32, [[DEF_LOOP_0]]#2 -> %arg3 = 0 to 64){
-  // CHECK:   [[LOAD_0:%.+]] = krnl.load %arg0[%arg1, %arg2, %arg3] : memref<16x32x64xf32>
-  // CHECK:   krnl.store [[LOAD_0]], [[RES_0]][%arg1, %arg2, %arg3] : memref<8x32x64xf32>
+  // CHECK:   [[IV:%.+]]:3 = krnl.get_induction_var_value([[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+  // CHECK:   [[LOAD_0:%.+]] = krnl.load %arg0{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<16x32x64xf32>
+  // CHECK:   krnl.store [[LOAD_0]], [[RES_0]]{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<8x32x64xf32>
   // CHECK: }
   // CHECK: [[DEF_LOOP_1:%.+]]:3 = krnl.define_loops 3
   // CHECK: krnl.iterate([[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2) with ([[DEF_LOOP_1]]#0 -> %arg1 = 0 to 8, [[DEF_LOOP_1]]#1 -> %arg2 = 0 to 32, [[DEF_LOOP_1]]#2 -> %arg3 = 0 to 64){
-  // CHECK:   %[[INDEX:.+]] = affine.apply [[INDEX_MAP]](%arg1)
-  // CHECK:   [[LOAD_1:%.+]] = krnl.load %arg0[%[[INDEX]], %arg2, %arg3] : memref<16x32x64xf32>
-  // CHECK:   krnl.store [[LOAD_1]], [[RES_1]][%arg1, %arg2, %arg3] : memref<8x32x64xf32>
+  // CHECK:   [[IV:%.+]]:3 = krnl.get_induction_var_value([[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+  // CHECK:   [[INDEX:%.+]] = affine.apply [[INDEX_MAP]]{{.}}[[IV]]#0{{.}}
+  // CHECK:   [[LOAD_1:%.+]] = krnl.load %arg0{{.}}[[INDEX]], [[IV]]#1, [[IV]]#2{{.}} : memref<16x32x64xf32>
+  // CHECK:   krnl.store [[LOAD_1]], [[RES_1]]{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<8x32x64xf32>
   // CHECK: }
   // CHECK: return [[RES_0]], [[RES_1]] : memref<8x32x64xf32>, memref<8x32x64xf32>
 }
@@ -1559,14 +1568,15 @@ func private @test_splitv11_variable(%arg0 : tensor<16x32x64xf32>) -> (tensor<*x
   // CHECK: [[RES_1:%.+]] = memref.alloc() {{.*}}: memref<16x30x64xf32>
   // CHECK: [[DEF_LOOP_0:%.+]]:3 = krnl.define_loops 3
   // CHECK: krnl.iterate([[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2) with ([[DEF_LOOP_0]]#0 -> %arg1 = 0 to 16, [[DEF_LOOP_0]]#1 -> %arg2 = 0 to 2, [[DEF_LOOP_0]]#2 -> %arg3 = 0 to 64){
-  // CHECK:   [[LOAD_0:%.+]] = krnl.load %arg0[%arg1, %arg2, %arg3] : memref<16x32x64xf32>
-  // CHECK:   krnl.store [[LOAD_0]], [[RES_0]][%arg1, %arg2, %arg3] : memref<16x2x64xf32>
+  // CHECK:   [[IV:%.+]]:3 = krnl.get_induction_var_value([[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)    
+  // CHECK:   [[LOAD_0:%.+]] = krnl.load %arg0{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<16x32x64xf32>
+  // CHECK:   krnl.store [[LOAD_0]], [[RES_0]]{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<16x2x64xf32>
   // CHECK: }
   // CHECK: [[DEF_LOOP_1:%.+]]:3 = krnl.define_loops 3
   // CHECK: krnl.iterate([[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2) with ([[DEF_LOOP_1]]#0 -> %arg1 = 0 to 16, [[DEF_LOOP_1]]#1 -> %arg2 = 0 to 30, [[DEF_LOOP_1]]#2 -> %arg3 = 0 to 64){
-  // CHECK:   %[[INDEX:.+]] = affine.apply [[INDEX_MAP]](%arg2)
-  // CHECK:   [[LOAD_1:%.+]] = krnl.load %arg0[%arg1, %[[INDEX]], %arg3] : memref<16x32x64xf32>
-  // CHECK:   krnl.store [[LOAD_1]], [[RES_1]][%arg1, %arg2, %arg3] : memref<16x30x64xf32>
+  // CHECK:   [[INDEX:%.+]] = affine.apply [[INDEX_MAP]]{{.}}[[IV]]#1{{.}}
+  // CHECK:   [[LOAD_1:%.+]] = krnl.load %arg0{{.}}[[IV]]#0, [[INDEX]], [[IV]]#2{{.}} : memref<16x32x64xf32>
+  // CHECK:   krnl.store [[LOAD_1]], [[RES_1]]{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<16x30x64xf32>
   // CHECK: }
   // CHECK: return [[RES_0]], [[RES_1]] : memref<16x2x64xf32>, memref<16x30x64xf32>
 }
