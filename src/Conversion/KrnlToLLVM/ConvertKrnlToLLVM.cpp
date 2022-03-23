@@ -502,7 +502,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   LowerToLLVMOptions options(ctx, dataLayoutAnalysis.getAtOrAbove(module));
   options.emitCWrappers = true;
 
-  // Determine, for each output, whether it is a constant or not.
+  // Determine whether an output OMTensor should own the underlying buffer or
+  // not.
   SmallVector<bool, 4> outputOMTensorOwnerships;
   determineOwnershipForOutputOMTensors(module, outputOMTensorOwnerships);
 
