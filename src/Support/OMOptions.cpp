@@ -40,8 +40,3 @@ llvm::cl::opt<int> onnxOpTransformThreshold("onnx-op-transform-threshold",
 llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
     llvm::cl::desc("Report diagnostic info for op transform passes."),
     llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
-
-llvm::cl::opt<std::string> acceleratorTarget("maccel",
-    llvm::cl::desc("Specify an accelerator to generate code for\n"
-                   "\"NONE\" or \"\" for no accelerator\n"),
-    llvm::cl::init(""), llvm::cl::cat(OMPassOptions));

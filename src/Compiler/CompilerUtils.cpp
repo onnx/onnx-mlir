@@ -55,8 +55,6 @@ const string OnnxMlirVersion = "onnx-mlir version 1.0.0";
 llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX-MLIR Options", "These are frontend options.");
 
-namespace {
-
 static llvm::Optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
     return std::string(envVerbose);
@@ -126,6 +124,12 @@ static llvm::cl::opt<std::string> march("march",
     llvm::cl::value_desc("Target a specific architecture type"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
+llvm::cl::list<accel::Accelerator::Kind> maccel("maccel",
+    llvm::cl::desc("Specify an accelerator to generate code for"),
+    llvm::cl::values(clEnumValN(
+        accel::Accelerator::Kind::NNPA, "NNPA", "IBM Telum processor")),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
+
 static llvm::cl::opt<OptLevel> OptimizationLevel(
     llvm::cl::desc("Optimization levels:"),
     llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default)."),
@@ -153,6 +157,8 @@ static llvm::cl::opt<std::string> mllvm("mllvm",
         "Arguments to forward to LLVM's 'opt' and 'llc' option processing"),
     llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+
+namespace {
 
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
@@ -1064,7 +1070,7 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   // Initialize accelerator if required
-  if (acceleratorTarget.compare("") != 0) {
+  if (!maccel.empty()) {
     InitAccelerators();
     // std::vector<onnx_mlir::accel::Accelerator *> *accTargets;
     // accTargets = onnx_mlir::accel::Accelerator::getAcceleratorList();
