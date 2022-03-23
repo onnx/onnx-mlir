@@ -34,13 +34,13 @@ namespace krnl {
 class KrnlEntryPointOpLowering : public OpRewritePattern<KrnlEntryPointOp> {
 public:
   using OpRewritePattern<KrnlEntryPointOp>::OpRewritePattern;
-  ArrayRef<bool> omTensorOwnerships;
+  ArrayRef<bool> outputOMTensorOwnerships;
   bool singleEntryPoint;
 
   KrnlEntryPointOpLowering(TypeConverter typeConverter, MLIRContext *ctx,
-      ArrayRef<bool> omTensorOwnerships, bool singleEntryPoint)
+      ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint)
       : OpRewritePattern<KrnlEntryPointOp>(ctx),
-        omTensorOwnerships(omTensorOwnerships),
+        outputOMTensorOwnerships(outputOMTensorOwnerships),
         singleEntryPoint(singleEntryPoint) {}
 
   LogicalResult matchAndRewrite(
@@ -209,7 +209,7 @@ public:
           RuntimeAPI::API::CREATE_OMTENSOR, {outMemRefRankVal});
       // If output is a constant tensor or a block argument, OMTensor does not
       // own it.
-      bool outOwning = omTensorOwnerships[i];
+      bool outOwning = outputOMTensorOwnerships[i];
       LLVM_DEBUG(llvm::dbgs() << "Output OMTensor " << i
                               << " with owning = " << outOwning << "\n");
       krnl::fillOMTensorWithMemRef(
@@ -343,9 +343,9 @@ private:
 
 void populateLoweringKrnlEntryPointOpPattern(TypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx,
-    ArrayRef<bool> omTensorOwnerships, bool singleEntryPoint) {
+    ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint) {
   patterns.insert<KrnlEntryPointOpLowering>(
-      typeConverter, ctx, omTensorOwnerships, singleEntryPoint);
+      typeConverter, ctx, outputOMTensorOwnerships, singleEntryPoint);
 }
 
 } // namespace krnl
