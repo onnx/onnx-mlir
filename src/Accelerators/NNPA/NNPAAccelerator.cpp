@@ -56,7 +56,7 @@ bool NNPAAccelerator::isActive() const {
 
 void NNPAAccelerator::prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, mlir::PassManager &pm,
-    onnx_mlir::EmissionTargetType emissionTarget) const {
+    onnx_mlir::EmissionTargetType &emissionTarget) const {
   LLVM_DEBUG(
       llvm::dbgs() << "preparing accelerator " << acceleratorTarget << "\n");
 

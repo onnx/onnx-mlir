@@ -30,7 +30,7 @@ public:
   virtual bool isActive() const = 0;
   virtual void prepareAccelerator(mlir::OwningOpRef<mlir::ModuleOp> &module,
       mlir::MLIRContext &context, mlir::PassManager &pm,
-      onnx_mlir::EmissionTargetType emissionTarget) const = 0;
+      onnx_mlir::EmissionTargetType &emissionTarget) const = 0;
 
 protected:
   // static llvm::SmallPtrSet<Accelerator *, 2> acceleratorTargets;

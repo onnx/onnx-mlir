@@ -30,7 +30,7 @@ public:
   bool isActive() const final;
   void prepareAccelerator(mlir::OwningOpRef<mlir::ModuleOp> &module,
       mlir::MLIRContext &context, mlir::PassManager &pm,
-      onnx_mlir::EmissionTargetType emissionTarget) const final;
+      onnx_mlir::EmissionTargetType &emissionTarget) const final;
 };
 
 } // namespace nnpa
