@@ -19,11 +19,11 @@
 
 namespace onnx_mlir {
 
-enum class NNPAEmissionTargetType {
+typedef enum {
   EmitZNONE,
   EmitZLowIR,
   EmitZHighIR,
-};
+} NNPAEmissionTargetType;
 
 void addMemoryPooling(mlir::PassManager &pm);
 

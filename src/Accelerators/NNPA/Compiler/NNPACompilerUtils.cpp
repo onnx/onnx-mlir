@@ -41,14 +41,11 @@ extern llvm::cl::OptionCategory OnnxMlirOptions;
 llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
     llvm::cl::desc("[Optional] Choose Z-related target to emit "
                    "(once selected it will cancel the other targets):"),
-    llvm::cl::values(clEnumVal(NNPAEmissionTargetType::EmitZHighIR,
-                         "Lower model to ZHigh IR (ZHigh dialect)"),
-        clEnumVal(NNPAEmissionTargetType::EmitZLowIR,
-            "Lower model to ZLow IR (ZLow dialect)"),
-        clEnumVal(NNPAEmissionTargetType::EmitZNONE,
-            "Do not emit Z-related target (default)")),
-    llvm::cl::init(NNPAEmissionTargetType::EmitZNONE),
-    llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::values(
+        clEnumVal(EmitZHighIR, "Lower model to ZHigh IR (ZHigh dialect)"),
+        clEnumVal(EmitZLowIR, "Lower model to ZLow IR (ZLow dialect)"),
+        clEnumVal(EmitZNONE, "Do not emit Z-related target (default)")),
+    llvm::cl::init(EmitZNONE), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
     llvm::cl::desc("Comma-separated list of node names in an onnx graph. The "
@@ -131,11 +128,11 @@ void addPassesNNPA(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   if (emissionTarget >= EmitONNXIR)
     addONNXToMLIRPasses(pm);
 
-  if (emissionTarget >= onnx_mlir::EmitMLIR) {
+  if (emissionTarget >= EmitMLIR) {
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.
     addONNXToZHighPasses(pm, execNodesOnCpu);
 
-    if (nnpaEmissionTarget >= NNPAEmissionTargetType::EmitZHighIR)
+    if (nnpaEmissionTarget >= EmitZHighIR)
       emissionTarget = EmitMLIR;
     else {
       pm.addPass(mlir::createCanonicalizerPass());
@@ -156,7 +153,7 @@ void addPassesNNPA(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
       addZHighToZLowPasses(pm, optLevel); // Constant folding for std.alloc.
       pm.addNestedPass<FuncOp>(onnx_mlir::createFoldStdAllocPass());
 
-      if (nnpaEmissionTarget >= NNPAEmissionTargetType::EmitZLowIR)
+      if (nnpaEmissionTarget >= EmitZLowIR)
         emissionTarget = EmitMLIR;
       else {
         // Partially lower Krnl ops to Affine dialect.
