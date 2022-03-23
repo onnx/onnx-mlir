@@ -228,8 +228,8 @@ void recordEntryPointSignatures(ModuleOp &module,
 
 /// This function emits three functions: omQueryEntryPoints, omInputSignature
 /// and omOutputSignature.
-/// - omQueryEntryPoints has type of `**i8 ()` to query an array of entry point
-/// names.
+/// - omQueryEntryPoints has type of `**i8 (*i64)` to query an array of entry
+/// point names.
 /// - omInputSignature and omOutputSignature have type of type `*i8 (*i8)` to
 /// return input and output signatures of the given entry point.
 void genSignatureFunction(ModuleOp module,
@@ -244,6 +244,7 @@ void genSignatureFunction(ModuleOp module,
   Type i8Type = IntegerType::get(context, 8);
   Type i32Type = IntegerType::get(context, 32);
   Type i64Type = IntegerType::get(context, 64);
+  Type i64PtrTy = LLVM::LLVMPointerType::get(i64Type);
   Type i8PtrTy = LLVM::LLVMPointerType::get(i8Type);
   Type i8PtrPtrTy = LLVM::LLVMPointerType::get(i8PtrTy);
   IntegerAttr zeroI32Attr = b.getI32IntegerAttr(0);
@@ -327,19 +328,54 @@ void genSignatureFunction(ModuleOp module,
     b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({lastValue}));
   }
 
-  // Emit a function, omQueryEntryPoints, of type `**8 ()` to query an array of
-  // entry point names.
+  // Emit a function, omQueryEntryPoints, of type `**i8 (*i64)` to query an
+  // array of entry point names.
   {
     OpBuilder::InsertionGuard guard(b);
     b.setInsertionPointToEnd(module.getBody());
     // Emit the function type.
-    Type llvmFnType = LLVM::LLVMFunctionType::get(i8PtrPtrTy, {}, false);
+    Type llvmFnType =
+        LLVM::LLVMFunctionType::get(i8PtrPtrTy, {i64PtrTy}, false);
     LLVM::LLVMFuncOp funcOp =
         b.create<LLVM::LLVMFuncOp>(loc, "omQueryEntryPoints", llvmFnType);
     // Emit the body of the function.
     Block *entryBlock = funcOp.addEntryBlock();
     OpBuilder::InsertionGuard bodyGuard(b);
     b.setInsertionPointToStart(entryBlock);
+    Value numOfEntryPoints = entryBlock->getArgument(0);
+    // If the argument is not NULL, update its value to return the number of
+    // entry points.
+    Block *condBlock = b.getInsertionBlock();
+    Block *trueBlock = condBlock->splitBlock(b.getInsertionPoint());
+    Block *falseBlock = b.createBlock(
+        trueBlock->getParent(), std::next(Region::iterator(trueBlock)));
+    Block *endBlock = b.createBlock(
+        falseBlock->getParent(), std::next(Region::iterator(falseBlock)));
+    // Emit code for the condition block: test NULL.
+    b.setInsertionPointToEnd(condBlock);
+    Value nullPtr = b.create<LLVM::NullOp>(loc, i64PtrTy);
+    Value found = b.create<LLVM::ICmpOp>(
+        loc, LLVM::ICmpPredicate::ne, numOfEntryPoints, nullPtr);
+    // Branch the block into the true and false blocks.
+    b.create<LLVM::CondBrOp>(
+        loc, found, trueBlock, ValueRange(), falseBlock, ValueRange());
+
+    // Emit code for the true block: update the value.
+    b.setInsertionPointToStart(trueBlock);
+    Value zero = b.create<LLVM::ConstantOp>(loc, i64Type, zeroI64Attr);
+    Value numOfEntryPointsPtr = b.create<LLVM::GEPOp>(
+        loc, i64PtrTy, numOfEntryPoints, ArrayRef<Value>({zero}));
+    Value noep = b.create<LLVM::ConstantOp>(
+        loc, i64Type, b.getI64IntegerAttr(entryOps.size()));
+    b.create<LLVM::StoreOp>(loc, noep, numOfEntryPointsPtr);
+    b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
+
+    // Emit code for the false block: do nothing.
+    b.setInsertionPointToStart(falseBlock);
+    b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
+
+    // Emit code for the end block to return the entry point array.
+    b.setInsertionPointToStart(endBlock);
     Value entryAddr = b.create<LLVM::AddressOfOp>(loc, entryArrayOp);
     Value entryI8Ptr = b.create<LLVM::BitcastOp>(loc, i8PtrPtrTy, entryAddr);
     b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({entryI8Ptr}));
@@ -412,7 +448,6 @@ void genSignatureFunction(ModuleOp module,
       // Equal if strncmp returns `0`.
       Value found = b.create<LLVM::ICmpOp>(
           loc, LLVM::ICmpPredicate::eq, strncmpResult, zeroI32);
-      llvm::SmallVector<Value, 1> results = {entryI8Ptr};
       // Branch the block into the true and false blocks.
       b.create<LLVM::CondBrOp>(
           loc, found, trueBlock, ValueRange(), falseBlock, ValueRange());
@@ -426,9 +461,11 @@ void genSignatureFunction(ModuleOp module,
 
       // Emit code for the false block.
       b.setInsertionPointToStart(falseBlock);
-      if (j == numOfEntryPoints - 1)
-        b.create<LLVM::BrOp>(loc, ValueRange(), endBlock);
-      else {
+      if (j == numOfEntryPoints - 1) {
+        // Return NULL if the entry point name is not found.
+        Value nullPtr = b.create<LLVM::NullOp>(loc, i8PtrTy);
+        b.create<LLVM::ReturnOp>(loc, ArrayRef<Value>({nullPtr}));
+      } else {
         // Recursively do with the other entry point names.
         condBlock = b.getInsertionBlock();
         trueBlock = condBlock->splitBlock(b.getInsertionPoint());

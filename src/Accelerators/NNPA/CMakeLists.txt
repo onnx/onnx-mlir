@@ -25,15 +25,10 @@ add_subdirectory(Support)
 add_subdirectory(Transform)
 add_subdirectory(Compiler)
 
-add_onnx_mlir_library(NNPAAccel
+add_onnx_mlir_library(NNPAAccel STATIC
   NNPAAccelerator.cpp
 
   EXCLUDE_FROM_OM_LIBS
-
-  DEPENDS
-  Accelerator
-  NNPACompilerUtils
-  onnx
   
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
@@ -45,6 +40,7 @@ add_onnx_mlir_library(NNPAAccel
   LINK_LIBS PUBLIC
   onnx
   NNPACompilerUtils
+  # Accelerator
   OMZHighOps
   OMZLowOps
   )

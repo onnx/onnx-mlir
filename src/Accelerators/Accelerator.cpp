@@ -10,6 +10,8 @@
 //
 // Accelerator base class.
 //
+// To enable a new accelerator, add the header include, an extern of the
+// subclass and pushback that subclass variable onto acceleratorTargets.
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/Accelerator.hpp"
@@ -19,16 +21,13 @@
 namespace onnx_mlir {
 namespace accel {
 
-std::vector<Accelerator *> *Accelerator::acceleratorTargets;
+std::vector<Accelerator *> Accelerator::acceleratorTargets;
 
-Accelerator::Accelerator() {
-  if (acceleratorTargets == NULL)
-    acceleratorTargets = new std::vector<Accelerator *>();
-}
+Accelerator::Accelerator() {}
 
 Accelerator::~Accelerator() {}
 
-std::vector<Accelerator *> *Accelerator::getAcceleratorList() {
+std::vector<Accelerator *> Accelerator::getAcceleratorList() {
   return acceleratorTargets;
 }
 

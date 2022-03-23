@@ -68,8 +68,9 @@ ExecutionSession::ExecutionSession(
   }
 }
 
-const std::string *ExecutionSession::queryEntryPoints() const {
-  return (const std::string *)_queryEntryPointsFunc();
+const std::string *ExecutionSession::queryEntryPoints(
+    int64_t *numOfEntryPoints) const {
+  return (const std::string *)_queryEntryPointsFunc(numOfEntryPoints);
 }
 
 void ExecutionSession::setEntryPoint(const std::string &entryPointName) {
