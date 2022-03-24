@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "llvm/Support/CommandLine.h"
 
 // Declare the option categories.
@@ -25,3 +26,4 @@ extern llvm::cl::opt<bool> enableMemoryBundling;
 extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
 extern llvm::cl::opt<std::string> acceleratorTarget;
+extern llvm::cl::opt<onnx_mlir::OptLevel> OptimizationLevel;

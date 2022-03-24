@@ -35,10 +35,10 @@
 #include "src/InitMLIRPasses.hpp"
 #include "src/InitOMPasses.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/OMOptions.hpp"
 
 using namespace mlir;
-
-extern bool InitAccelerators();
+using namespace onnx_mlir;
 
 static llvm::cl::opt<std::string> input_filename(
     llvm::cl::Positional, llvm::cl::desc("<input file>"), llvm::cl::init("-"));
@@ -65,8 +65,6 @@ static llvm::cl::opt<bool> allowUnregisteredDialects(
     "allow-unregistered-dialect",
     llvm::cl::desc("Allow operation with no registered dialects"),
     llvm::cl::init(false));
-
-onnx_mlir::OptLevel OptimizationLevel = onnx_mlir::OptLevel::O0;
 
 void scanAndSetOptLevel(int argc, char **argv) {
   // In decreasing order, so we pick the last one if there are many.

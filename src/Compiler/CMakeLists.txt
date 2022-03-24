@@ -11,20 +11,6 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
   )
 
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "bool InitAccelerators() {\n")
-if (ACCELERATORS_TO_BUILD)
-  foreach(t ${ACCELERATORS_TO_BUILD})
-  file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "extern void create${t}();\n")
-  file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "create${t}();\n")
-  endforeach(t)
-  file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "return true;\n")
-else (ACCELERATORS_TO_BUILD)
-  file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "return false;\n")
-endif (ACCELERATORS_TO_BUILD)
-
-file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "}\n")  
-
-
 #file(GENERATE 
 #  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp 
 #  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/InitAccelerators.cpp.in
@@ -45,7 +31,6 @@ get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
 add_onnx_mlir_library(CompilerUtils STATIC
   CompilerUtils.cpp
-  InitAccelerators.cpp
 
   EXCLUDE_FROM_OM_LIBS
 

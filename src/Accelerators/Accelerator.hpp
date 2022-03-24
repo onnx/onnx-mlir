@@ -19,6 +19,8 @@
 #include "mlir/Pass/PassManager.h"
 #include <vector>
 
+extern bool InitAccelerators();
+
 namespace onnx_mlir {
 namespace accel {
 
