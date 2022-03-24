@@ -45,10 +45,9 @@ function(add_backend_cpp_unittest test_name)
   endif()
 endfunction()
 
-set(TEST_LINK_LIBS CompilerUtils ExecutionSession)
+set(TEST_LINK_LIBS ModelLib)
 
 add_backend_cpp_unittest(TestCategoryMapper
-  ModelBuilder.cpp
   TestCategoryMapper.cpp
 
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}

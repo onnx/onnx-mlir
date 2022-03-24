@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <type_traits>
 
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/ADT/SmallVector.h"
@@ -25,6 +26,9 @@
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
+
+namespace onnx_mlir {
+namespace tests {
 
 /*
    Superclass that defines a template to create models, creating an ONNX
@@ -106,7 +110,7 @@ protected:
   mlir::ONNXConstantOp buildONNXConstantOp(
       const OMTensor *omt, const mlir::RankedTensorType resultType);
   // Compare results as float.
-  bool areCloseFloat(const OMTensor *res, const OMTensor *ref);
+  bool areCloseFloat(const OMTensor *res, const OMTensor *ref) const;
 
   // Data for building and compiling the model.
   const std::string sharedLibBaseName; // Name for the library.
@@ -118,6 +122,63 @@ protected:
   // Data for runing the model (freed in destructor).
   OMTensorList *inputs, *outputs;
   onnx_mlir::ExecutionSession *exec;
+};
+
+template <typename T1, typename T2>
+class CategoryMapperLibBuilder : public ModelLibBuilder {
+  // Ensure template is instatiated with expected types.
+  static_assert((std::is_same<T1, int64_t>::value ||
+                    std::is_same<T1, const char *>::value),
+      "T1 must be int64_t or const char *");
+  static_assert((std::is_same<T1, int64_t>::value &&
+                    std::is_same<T2, const char *>::value) ||
+                    (std::is_same<T1, const char *>::value &&
+                        std::is_same<T2, int64_t>::value),
+      "T1 and/or T2 are not correct");
+
+public:
+  // CategoryMapper attributes.
+  struct CMAttributes {
+    ArrayRef<int64_t> cat_int64s;
+    ArrayRef<StringRef> cat_strings;
+    int64_t default_int;
+    StringRef default_string;
+  };
+
+  CategoryMapperLibBuilder(std::string name, const CMAttributes &attributes,
+      ArrayRef<T1> input, ArrayRef<T2> expOutput)
+      : ModelLibBuilder(name), attributes(attributes), input(input),
+        expOutput(expOutput) {
+    assert(input.size() == expOutput.size() &&
+           "Expecting input/expOutput to have the same size");
+  }
+
+  bool build() final;
+  bool prepareInputs() final;
+  bool verifyOutputs() final;
+
+private:
+  // Create the function to test.
+  void createTestFunction(
+      Type inputType, Type outputType, const CMAttributes &attributes);
+
+  // Create the category mapper operator, and insert it into the test function.
+  void createCategoryMapper(
+      Type outputType, const CMAttributes &attributes, FuncOp &funcOp);
+
+  // Verify that the output tensor has the expected rank.
+  bool verifyRank(const OMTensor &out, int64_t rank) const;
+
+  // Verify that the output tensor has the expected number of elements.
+  bool verifyNumElements(const OMTensor &out, int64_t numElems) const;
+
+  // Verify that the output tensor contains the expected result.
+  bool verifyResults(const OMTensor *out, const OMTensor *expected) const;
+
+private:
+  const CMAttributes &attributes; // CategoryMapper attributes.
+  const ArrayRef<T1> input;       // model input data.
+  const ArrayRef<T2> expOutput;   // expected result.
 };
 
 class GemmLibBuilder : public ModelLibBuilder {
@@ -240,3 +301,6 @@ private:
   llvm::SmallVector<int64_t, 3> xShape, hShape;
   OMTensor *wOmt, *rOmt, *bOmt;
 };
+
+} // namespace tests
+} // namespace onnx_mlir
