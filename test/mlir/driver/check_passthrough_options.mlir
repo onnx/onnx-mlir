@@ -2,7 +2,6 @@
 // RUN: onnx-mlir -Xllc --data-sections -v %s 2>&1 | FileCheck --check-prefix=LLC %s
 // RUN: onnx-mlir -mllvm --data-sections -v %s 2>&1 | FileCheck --check-prefix=LLVM %s
 
-// REQUIRES: system-linux || system-darwin
 // OPT:       opt{{.*}} --data-sections -o {{.*}}check_passthrough_options.bc
 // OPT-NOT:   llc{{.*}} --data-sections {{.*}} 
 // LLC-NOT:   opt{{.*}} --data-sections -o {{.*}}check_passthrough_options.bc

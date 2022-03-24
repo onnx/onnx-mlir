@@ -613,10 +613,14 @@ static std::string genSharedLib(string outputBaseName, std::vector<string> opts,
 #ifdef _WIN32
   string sharedLibPath = outputBaseName + ".dll";
   std::vector<string> outputOpt = {"/Fe:" + sharedLibPath};
+
+  llvm::SmallString<8> runtimeDir(getRuntimeDir());
+  llvm::sys::path::append(runtimeDir, "OnnxMlirExports.def");
+  string exportsFilePath = llvm::StringRef(runtimeDir).str();
   // link has to be before def and libpath since they need to be passed through
   // to the linker
   std::vector<string> sharedLibOpts = {
-      "/LD", "/link", "/NOLOGO", "/def:" + outputBaseName + ".def"};
+      "/LD", "/link", "/NOLOGO", "/def:" + exportsFilePath};
 
   llvm::for_each(libs, [](string &lib) { lib = lib + ".lib"; });
   llvm::for_each(
@@ -692,7 +696,9 @@ void compileModuleToJniJar(
   if (outputDir.empty())
     outputDir = StringRef(".");
 
-  string jniSharedLibPath = getRuntimeDir() + "/libjniruntime.a";
+  llvm::SmallString<8> runtimeDir(getRuntimeDir());
+  llvm::sys::path::append(runtimeDir, "libjniruntime.a");
+  string jniSharedLibPath = llvm::StringRef(runtimeDir).str();
 
   llvm::SmallString<8> jniObjDir(outputDir);
   llvm::sys::path::append(jniObjDir, "jnidummy.c.o");
@@ -912,7 +918,7 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
       outputCode(module, outputBaseName, ".llvm.mlir");
 
     if (VerboseOutput)
-      printf("Object file %s.o has been compiled.\n", outputBaseName.c_str());
+      printf("Object file %s has been compiled.\n", modelObjPath.c_str());
   } break;
   case EmitLib: {
     string sharedLib = compileModuleToSharedLibrary(module, outputBaseName);
