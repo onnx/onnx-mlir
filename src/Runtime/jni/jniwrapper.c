@@ -725,10 +725,58 @@ static inline char *sig_e2a(const char *origsig) {
 }
 #endif
 
+JNIEXPORT jobjectArray JNICALL
+Java_com_ibm_onnxmlir_OMModel_query_1entry_1points(JNIEnv *env, jclass cls) {
+
+  log_init();
+
+  /* Find and initialize Java Exception and String class */
+  JNI_TYPE_VAR_CALL(env, jclass, jecpt_cls,
+      (*env)->FindClass(env, jnistr[CLS_JAVA_LANG_EXCEPTION]),
+      jecpt_cls != NULL, NULL, "Class java/lang/Exception not found");
+  JNI_TYPE_VAR_CALL(env, jclass, jstring_cls,
+      (*env)->FindClass(env, jnistr[CLS_JAVA_LANG_STRING]), jstring_cls != NULL,
+      jecpt_cls, "Class java/lang/String not found");
+
+  /* Call query entry points API */
+  int64_t neps;
+  const char *const *jni_eps = omQueryEntryPoints(&neps);
+
+  /* Create entry points String array Java object */
+  JNI_TYPE_VAR_CALL(env, jobjectArray, java_eps,
+      (*env)->NewObjectArray(env, neps, jstring_cls, NULL), java_eps != NULL,
+      jecpt_cls, "java_eps=%p", java_eps);
+
+  /* Go through the entry points, convert them into Java String and
+   * put them into the String array.
+   */
+  for (int64_t i = 0; i < neps; i++) {
+    char ep[32];
+    sprintf(ep, "ep[%ld]", i);
+    HEX_DEBUG(ep, jni_eps[i], strlen(jni_eps[i]));
+    LOG_PRINTF(LOG_DEBUG, "ep[%d](%ld):%s", i, strlen(jni_eps[i]), jni_eps[i]);
+
+#ifdef __MVS__
+    CHECK_CALL(
+        char *, epptr, sig_e2a(jni_eps[i]), epptr != NULL, "epptr=%p", epptr);
+#else
+    const char *epptr = jni_eps[i];
+#endif
+    JNI_TYPE_VAR_CALL(env, jstring, jstr_ep, (*env)->NewStringUTF(env, epptr),
+        jstr_ep != NULL, jecpt_cls, "jstr_ep=%p", jstr_ep);
+#ifdef __MVS__
+    free(epptr);
+#endif
+    JNI_CALL(env, (*env)->SetObjectArrayElement(env, java_eps, i, jstr_ep), 1,
+        NULL, "");
+  }
+
+  return java_eps;
+}
+
 JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
     JNIEnv *env, jclass cls, jstring ep) {
 
-  assert(env);
   log_init();
 
   /* Find and initialize Java Exception class */
@@ -759,19 +807,18 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
 #else
   const char *sigptr = jni_isig;
 #endif
-  JNI_TYPE_VAR_CALL(env, jstring, jstr_isig, (*env)->NewStringUTF(env, sigptr),
-      jstr_isig != NULL, jecpt_cls, "jstr_isig=%p", jstr_isig);
+  JNI_TYPE_VAR_CALL(env, jstring, java_isig, (*env)->NewStringUTF(env, sigptr),
+      java_isig != NULL, jecpt_cls, "java_isig=%p", java_isig);
 #ifdef __MVS__
   free(sigptr);
 #endif
 
-  return jstr_isig;
+  return java_isig;
 }
 
 JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
     JNIEnv *env, jclass cls, jstring ep) {
 
-  assert(env);
   log_init();
 
   /* Find and initialize Java Exception class */
@@ -802,11 +849,11 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
 #else
   const char *sigptr = jni_osig;
 #endif
-  JNI_TYPE_VAR_CALL(env, jstring, jstr_osig, (*env)->NewStringUTF(env, sigptr),
-      jstr_osig != NULL, jecpt_cls, "jstr_osig=%p", jstr_osig);
+  JNI_TYPE_VAR_CALL(env, jstring, java_osig, (*env)->NewStringUTF(env, sigptr),
+      java_osig != NULL, jecpt_cls, "java_osig=%p", java_osig);
 #ifdef __MVS__
   free(sigptr);
 #endif
 
-  return jstr_osig;
+  return java_osig;
 }
