@@ -55,4 +55,3 @@ llvm::cl::opt<OptLevel> OptimizationLevel(
         clEnumVal(O2, "Optimization level 2."),
         clEnumVal(O3, "Optimization level 3.")),
     llvm::cl::init(O0), llvm::cl::cat(OMPassOptions));
-

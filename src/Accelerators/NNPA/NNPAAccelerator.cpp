@@ -54,25 +54,26 @@ bool NNPAAccelerator::isActive() const {
   return false;
 }
 
-void NNPAAccelerator::prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
-    mlir::MLIRContext &context, mlir::PassManager &pm,
-    onnx_mlir::EmissionTargetType &emissionTarget) const {
-  LLVM_DEBUG(
-      llvm::dbgs() << "preparing accelerator " << acceleratorTarget << "\n");
-
+void NNPAAccelerator::getOrLoadDialects(mlir::MLIRContext &context) const {
   // Load our Dialect in this MLIR Context.
   context.getOrLoadDialect<zhigh::ZHighDialect>();
   context.getOrLoadDialect<zlow::ZLowDialect>();
+}
+
+void NNPAAccelerator::addPasses(mlir::OwningOpRef<ModuleOp> &module,
+    mlir::PassManager &pm,
+    onnx_mlir::EmissionTargetType &emissionTarget) const {
+  LLVM_DEBUG(llvm::dbgs() << "adding passes for accelerator "
+                          << acceleratorTarget << "\n");
   addPassesNNPA(module, pm, emissionTarget, nnpaEmissionTarget, execNodesOnCpu);
 }
 
-void NNPAAccelerator::registerAcceleratorDialects(
-    mlir::DialectRegistry &registry) const {
+void NNPAAccelerator::registerDialects(mlir::DialectRegistry &registry) const {
   registry.insert<zhigh::ZHighDialect>();
   registry.insert<zlow::ZLowDialect>();
 }
 
-void NNPAAccelerator::initAcceleratorPasses(int optLevel) const {
+void NNPAAccelerator::initPasses(int optLevel) const {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::createONNXToZHighPass();
   });

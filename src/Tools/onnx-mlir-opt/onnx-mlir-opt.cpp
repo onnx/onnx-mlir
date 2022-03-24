@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
   if (hasAccelerator)
     for (auto accel : onnx_mlir::accel::Accelerator::getAcceleratorList())
       if (accel->isActive())
-        accel->registerAcceleratorDialects(registry);
+        accel->registerDialects(registry);
 
   registerTransformsPasses();
   registerAffinePasses();
@@ -122,7 +122,7 @@ int main(int argc, char **argv) {
   if (hasAccelerator)
     for (auto accel : onnx_mlir::accel::Accelerator::getAcceleratorList())
       if (accel->isActive())
-        accel->initAcceleratorPasses(OptimizationLevel);
+        accel->initPasses(OptimizationLevel);
 
   // Register any command line options.
   mlir::registerAsmPrinterCLOptions();

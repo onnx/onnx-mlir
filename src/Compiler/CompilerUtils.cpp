@@ -1062,7 +1062,8 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     // for (auto accel : *accTargets) {
     for (auto accel : onnx_mlir::accel::Accelerator::getAcceleratorList()) {
       if (accel->isActive()) {
-        accel->prepareAccelerator(module, context, pm, emissionTarget);
+        accel->getOrLoadDialects(context);
+        accel->addPasses(module, pm, emissionTarget);
       }
     }
   } else
