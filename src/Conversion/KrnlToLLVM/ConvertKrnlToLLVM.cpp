@@ -106,7 +106,7 @@ void determineOwnershipForOutputOMTensors(
   });
 
   // Check, for each output, if it was transitively produced by a constant or
-  // a block arugment.
+  // a block argument.
   for (Value v : returnOp->getOperands()) {
     bool shouldOwn = true;
     Operation *definingOp = v.getDefiningOp();
