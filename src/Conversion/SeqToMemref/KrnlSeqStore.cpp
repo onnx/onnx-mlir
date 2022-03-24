@@ -47,9 +47,9 @@ public:
     // Allocate a new tensor and copy input tensor into it
     auto inputType = operandAdaptor.input().getType().cast<MemRefType>();
     SmallVector<mlir::Value, 4> allocParams;
-    for (auto dim : inputType.getShape()) {
-      if (dim == -1) {
-        allocParams.emplace_back(create.mem.dim(operandAdaptor.input(), dim));
+    for (size_t i = 0; i < inputType.getShape().size(); i++) {
+      if (inputType.getShape()[i] == -1) {
+        allocParams.emplace_back(create.mem.dim(operandAdaptor.input(), i));
       }
     }
     Value alloc = create.mem.alignedAlloc(inputType, allocParams);

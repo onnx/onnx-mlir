@@ -75,6 +75,10 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return krnl::createConvertSeqToMemrefPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return krnl::createConvertKrnlToLLVMPass();
   });
 
