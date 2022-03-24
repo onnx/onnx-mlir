@@ -20,13 +20,12 @@
 #include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
+using namespace std;
 using namespace mlir;
-
-namespace onnx_mlir {
-namespace tests {
+using namespace onnx_mlir;
 
 MatMul2DLibBuilder::MatMul2DLibBuilder(
-    const std::string &modelName, const int I, const int J, const int K)
+    const string &modelName, const int I, const int J, const int K)
     : ModelLibBuilder(modelName), I(I), J(J), K(K) {}
 
 bool MatMul2DLibBuilder::build() {
@@ -90,6 +89,3 @@ bool MatMul2DLibBuilder::verifyOutputs() {
   }
   return areCloseFloat(res, ref);
 }
-
-} // namespace tests
-} // namespace onnx_mlir

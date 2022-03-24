@@ -20,12 +20,11 @@
 #include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
+using namespace std;
 using namespace mlir;
+using namespace onnx_mlir;
 
-namespace onnx_mlir {
-namespace tests {
-
-ModelLibBuilder::ModelLibBuilder(const std::string &name)
+ModelLibBuilder::ModelLibBuilder(const string &name)
     : sharedLibBaseName(name), ctx(), loc(UnknownLoc::get(&ctx)), builder(&ctx),
       module(ModuleOp::create(loc)), inputs(nullptr), outputs(nullptr),
       exec(nullptr) {
@@ -64,8 +63,7 @@ bool ModelLibBuilder::run() {
   return outputs != nullptr;
 }
 
-std::string ModelLibBuilder::getSharedLibName(
-    const std::string &sharedLibBaseName) {
+string ModelLibBuilder::getSharedLibName(const string &sharedLibBaseName) {
 #ifdef _WIN32
   return sharedLibBaseName + ".dll";
 #else
@@ -109,14 +107,10 @@ ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
       ArrayAttr());
 }
 
-bool ModelLibBuilder::areCloseFloat(
-    const OMTensor *res, const OMTensor *ref) const {
+bool ModelLibBuilder::areCloseFloat(const OMTensor *res, const OMTensor *ref) {
   if (!res || !ref)
     return false;
   float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
   float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
   return omTensorAreTwoOmtsClose<float>(res, ref, rtol, atol);
 }
-
-} // namespace tests
-} // namespace onnx_mlir

@@ -20,17 +20,16 @@
 #include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
+using namespace std;
 using namespace mlir;
-
-namespace onnx_mlir {
-namespace tests {
+using namespace onnx_mlir;
 
 /// Sigmoid
 static float sigmoid(float x) { return 1 / (1 + exp(-x)); }
 
-LSTMLibBuilder::LSTMLibBuilder(const std::string &modelName,
-    const int direction, const int S, const int B, const int I, const int H,
-    const bool isDynamicS, const bool isDynamicB)
+LSTMLibBuilder::LSTMLibBuilder(const string &modelName, const int direction,
+    const int S, const int B, const int I, const int H, const bool isDynamicS,
+    const bool isDynamicB)
     : ModelLibBuilder(modelName), direction(direction), S(S), B(B), I(I), H(H),
       isDynamicS(isDynamicS), isDynamicB(isDynamicB), xShape(), hShape(),
       cShape(), wOmt(nullptr), rOmt(nullptr), bOmt(nullptr), pOmt(nullptr) {}
@@ -290,6 +289,3 @@ bool LSTMLibBuilder::verifyOutputs() {
 
   return true;
 }
-
-} // namespace tests
-} // namespace onnx_mlir

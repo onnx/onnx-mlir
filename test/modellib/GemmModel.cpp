@@ -20,12 +20,11 @@
 #include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
+using namespace std;
 using namespace mlir;
+using namespace onnx_mlir;
 
-namespace onnx_mlir {
-namespace tests {
-
-GemmLibBuilder::GemmLibBuilder(const std::string &modelName, const int I,
+GemmLibBuilder::GemmLibBuilder(const string &modelName, const int I,
     const int J, const int K, const int aTrans, const int bTrans,
     const int cRank, const float alphaVal, const float betaVal)
     : ModelLibBuilder(modelName), I(I), J(J), K(K), aTrans(aTrans),
@@ -137,6 +136,3 @@ bool GemmLibBuilder::verifyOutputs() {
   }
   return areCloseFloat(res, ref);
 }
-
-} // namespace tests
-} // namespace onnx_mlir
