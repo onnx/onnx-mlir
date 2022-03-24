@@ -49,7 +49,7 @@ module {
 // -----
 
 module {
-  // Check that output OMTensor owns the data pointer because data is a block argument.
+  // Check that output OMTensor does not own the data pointer because data is a block argument.
   func @return_argument(%arg0: memref<2x4xf32>) -> memref<2x4xf32> {
     return %arg0 : memref<2x4xf32>
   }
@@ -57,6 +57,6 @@ module {
   // CHECK-LABEL: return_argument
   // CHECK: llvm.call @_mlir_ciface_return_argument
   // CHECK: llvm.call @omTensorCreateUntyped
-  // CHECK: [[OWNING:%.+]] = llvm.mlir.constant(1 : i64) : i64 
+  // CHECK: [[OWNING:%.+]] = llvm.mlir.constant(0 : i64) : i64
   // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, [[OWNING]], {{.*}}, {{.*}}) : (!llvm.ptr<i8>, i64, !llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
 }
