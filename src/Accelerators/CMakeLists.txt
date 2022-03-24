@@ -12,14 +12,13 @@ endif (ACCELERATORS_TO_BUILD)
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "bool InitAccelerators() {\n")
 if (ACCELERATORS_TO_BUILD)
   foreach(t ${ACCELERATORS_TO_BUILD})
-  file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "extern void create${t}();\n")
-  file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "create${t}();\n")
+    file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "extern void create${t}();\n")
+    file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "create${t}();\n")
   endforeach(t)
   file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "return true;\n")
 else (ACCELERATORS_TO_BUILD)
   file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "return false;\n")
 endif (ACCELERATORS_TO_BUILD)
-
 file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "}\n")
 
 add_onnx_mlir_library(Accelerator STATIC
