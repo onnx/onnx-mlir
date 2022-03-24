@@ -11,13 +11,17 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
   )
 
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "void InitAccelerators() {\n")  
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "bool InitAccelerators() {\n")
 if (ACCELERATORS_TO_BUILD)
   foreach(t ${ACCELERATORS_TO_BUILD})
   file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "extern void create${t}();\n")
   file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "create${t}();\n")
   endforeach(t)
+  file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "return true;\n")
+else (ACCELERATORS_TO_BUILD)
+  file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "return false;\n")
 endif (ACCELERATORS_TO_BUILD)
+
 file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "}\n")  
 
 

@@ -1059,7 +1059,7 @@ void emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
 int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     EmissionTargetType emissionTarget) {
-  extern void InitAccelerators();
+  extern bool InitAccelerators();
   setupModule(module, context, outputBaseName);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);

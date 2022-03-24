@@ -31,6 +31,9 @@ public:
   void prepareAccelerator(mlir::OwningOpRef<mlir::ModuleOp> &module,
       mlir::MLIRContext &context, mlir::PassManager &pm,
       onnx_mlir::EmissionTargetType &emissionTarget) const final;
+  virtual void registerAcceleratorDialects(
+      mlir::DialectRegistry &registry) const final;
+  virtual void initAcceleratorPasses(int optLevel) const final;
 };
 
 } // namespace nnpa

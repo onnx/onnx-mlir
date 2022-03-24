@@ -31,6 +31,9 @@ public:
   virtual void prepareAccelerator(mlir::OwningOpRef<mlir::ModuleOp> &module,
       mlir::MLIRContext &context, mlir::PassManager &pm,
       onnx_mlir::EmissionTargetType &emissionTarget) const = 0;
+  virtual void registerAcceleratorDialects(
+      mlir::DialectRegistry &registry) const = 0;
+  virtual void initAcceleratorPasses(int optLevel) const = 0;
 
 protected:
   // static llvm::SmallPtrSet<Accelerator *, 2> acceleratorTargets;
