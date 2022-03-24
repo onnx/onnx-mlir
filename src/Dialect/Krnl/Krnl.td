@@ -163,22 +163,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   }];
 }
 
-def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
-  let summary = "Krnl store into a seq";
-  let description = [{
-    sequence is represented with memref<memref<>>.
-    This op will copy the tensor to be stored, and cast the type if needed.
-    The motivation to introduce this Op is to help bufferization::deallocation
-    The experiment showed that memref will be freed after the memref is stored.
-    However, the store of memref only write out the pointer for the memref,
-    and its memory cannot be freed.
-  }];
-  let arguments = (ins AnyType:$input,
-                       AnyMemRef:$seq,
-                       Index:$index);
-}
-
-def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqExtract", [
+def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
     DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
   let summary = "Krnl load from a seq";
@@ -192,6 +177,21 @@ def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqExtract", [
                        Index:$index);
 
   let results = (outs AnyType:$output);
+}
+
+def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
+  let summary = "Krnl store into a seq";
+  let description = [{
+    sequence is represented with memref<memref<>>.
+    This op will copy the tensor to be stored, and cast the type if needed.
+    The motivation to introduce this Op is to help bufferization::deallocation
+    The experiment showed that memref will be freed after the memref is stored.
+    However, the store of memref only write out the pointer for the memref,
+    and its memory cannot be freed.
+  }];
+  let arguments = (ins AnyType:$input,
+                       AnyMemRef:$seq,
+                       Index:$index);
 }
 
 def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {

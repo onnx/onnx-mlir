@@ -803,6 +803,7 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
 
   pm.addNestedPass<FuncOp>(mlir::createConvertSCFToCFPass());
 
+  pm.addNestedPass<FuncOp>(krnl::createConvertSeqToMemrefPass());
   pm.addPass(krnl::createConvertKrnlToLLVMPass());
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
