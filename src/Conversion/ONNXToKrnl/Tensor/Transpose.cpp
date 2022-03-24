@@ -54,8 +54,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
 
     MemRefBoundsIndexCapture dataBounds(data);
     SmallVector<IndexExpr, 4> ubs;
-    for (uint64_t i = 0; i < rank; ++i)
-      ubs.emplace_back(dataBounds.getDim(i));
+    dataBounds.getDimList(ubs);
 
     createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {

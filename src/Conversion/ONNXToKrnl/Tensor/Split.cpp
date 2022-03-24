@@ -58,8 +58,7 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
 
     MemRefBoundsIndexCapture allocsBounds(allocs[i]);
     SmallVector<IndexExpr, 4> ubs;
-    for (uint64_t i = 0; i < rank; ++i)
-      ubs.emplace_back(allocsBounds.getDim(i));
+    allocsBounds.getDimList(ubs);
 
     createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {

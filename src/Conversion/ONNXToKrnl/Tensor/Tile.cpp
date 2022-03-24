@@ -82,12 +82,9 @@ struct ONNXTileOpLowering : public ConversionPattern {
     KrnlBuilder createKrnl(rewriter, loc);
     ValueRange loopDef = createKrnl.defineLoops(outputRank);
     SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
-    SmallVector<IndexExpr, 4> ubs;
-    for (uint64_t i = 0; i < outputRank; ++i)
-      ubs.emplace_back(shapeHelper.dimsForOutput()[i]);
 
     MemRefBoundsIndexCapture inputBounds(input);
-    createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           // Compute the indices used by the input tensor load operation.
           // Note: An alternative implementation can be found at the end of this
