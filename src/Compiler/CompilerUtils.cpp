@@ -1057,9 +1057,6 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   // Initialize accelerator if required
   if (acceleratorTarget.compare("") != 0) {
     InitAccelerators();
-    // std::vector<onnx_mlir::accel::Accelerator *> *accTargets;
-    // accTargets = onnx_mlir::accel::Accelerator::getAcceleratorList();
-    // for (auto accel : *accTargets) {
     for (auto accel : onnx_mlir::accel::Accelerator::getAcceleratorList()) {
       if (accel->isActive()) {
         accel->getOrLoadDialects(context);
