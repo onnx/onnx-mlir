@@ -19,6 +19,8 @@
 #include "mlir/Pass/PassManager.h"
 #include <vector>
 
+extern bool InitAccelerators();
+
 namespace onnx_mlir {
 namespace accel {
 
@@ -37,9 +39,12 @@ public:
 
   static std::vector<Accelerator *> getAcceleratorList();
   virtual bool isActive() const = 0;
-  virtual void prepareAccelerator(mlir::OwningOpRef<mlir::ModuleOp> &module,
-      mlir::MLIRContext &context, mlir::PassManager &pm,
+  virtual void getOrLoadDialects(mlir::MLIRContext &context) const = 0;
+  virtual void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
+      mlir::PassManager &pm,
       onnx_mlir::EmissionTargetType &emissionTarget) const = 0;
+  virtual void registerDialects(mlir::DialectRegistry &registry) const = 0;
+  virtual void initPasses(int optLevel) const = 0;
 
 protected:
   // static llvm::SmallPtrSet<Accelerator *, 2> acceleratorTargets;
