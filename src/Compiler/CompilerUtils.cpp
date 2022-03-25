@@ -684,8 +684,8 @@ std::string compileModuleToSharedLibrary(
   llvm::FileRemover modelObjRemover(
       modelObjPath, !keepFiles(KeepFilesOfType::Object));
 
-  return genSharedLib(
-      outputBaseName, {}, {modelObjPath}, {"cruntime"}, {getRuntimeDir()});
+  return genSharedLib(outputBaseName, {}, {modelObjPath},
+      {"cruntime", "omp", "ompd", "omptarget"}, {getRuntimeDir()});
 }
 
 void compileModuleToJniJar(
@@ -713,7 +713,8 @@ void compileModuleToJniJar(
   string jniLibBase = llvm::StringRef(jniLibDir).str();
 
   string modelSharedLibPath = genSharedLib(jniLibBase, {"-z", "noexecstack"},
-      {modelObjPath, jniObjPath}, {"jniruntime", "cruntime"},
+      {modelObjPath, jniObjPath},
+      {"jniruntime", "cruntime", "omp", "ompd", "omptarget"},
       {getRuntimeDir()});
   llvm::FileRemover modelSharedLibRemover(
       modelSharedLibPath, !keepFiles(KeepFilesOfType::Object));
