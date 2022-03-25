@@ -28,72 +28,66 @@ struct ONNXClipOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    Value input = operands[0];
-    Value min = operands[1];
-    Value max = operands[2];
+    ONNXClipOp clipOp = cast<ONNXClipOp>(op);
+    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+
+    ONNXClipOpAdaptor operandAdaptor(operands);
+    ONNXClipOpShapeHelper shapeHelper(&clipOp, &rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    auto shapeComputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapeComputed));
+
+    Value input = operandAdaptor.input();
+    Value min = operandAdaptor.min();
+    Value max = operandAdaptor.max();
 
     // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
-
-    Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
+    Value alloc =
+        (hasAllConstantDimensions(memRefType))
+            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
+            : insertAllocAndDealloc(
+                  memRefType, loc, rewriter, insertDealloc, input);
 
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, input);
+    auto computeResult =
+        [&](MultiDialectBuilder<KrnlBuilder, MathBuilder> &create,
+            const ValueRange &indices) {
+          Value loadedVal = create.krnl.load(input, indices);
+          Value res = loadedVal;
+          if (!min.getType().isa<NoneType>()) {
+            Value minVal = create.krnl.load(min);
+            Value lessThanMin = create.math.slt(res, minVal);
+            res = create.math.select(lessThanMin, minVal, res);
+          }
+          if (!max.getType().isa<NoneType>()) {
+            Value maxVal = create.krnl.load(max);
+            Value lessThanMax = create.math.slt(res, maxVal);
+            res = create.math.select(lessThanMax, res, maxVal);
+          }
+          create.krnl.store(res, alloc, indices);
+        };
 
-    SmallVector<Value, 4> loopIVs;
-    // Only create krnl.iterate if one of the operands is not scalar tensor.
+    // Create a loop only is one of the operands is not a scalar tensor.
     if (!hasAllScalarValues(operands)) {
-      // Create iterateOp & get block within iterate op.
-      BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
-      loops.createDefineAndIterateOp(input);
-      Block *iterationBlock = loops.getIterateBlock();
+      KrnlBuilder createKrnl(rewriter, loc);
+      uint64_t numLoops = memRefType.getRank();
+      ValueRange loopDef = createKrnl.defineLoops(numLoops);
 
-      // Insert instructions inside the KernelIterateOp body.
-      rewriter.setInsertionPointToStart(iterationBlock);
+      SmallVector<IndexExpr, 4> lbs(numLoops, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> ubs;
+      for (uint64_t i = 0; i < numLoops; ++i)
+        ubs.emplace_back(shapeHelper.dimsForOutput()[i]);
 
-      // Handle the operation:
-      for (auto arg : iterationBlock->getArguments())
-        loopIVs.push_back(arg);
-    }
-
-    // Load unary first operand.
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-    Value loadedVal = create.krnl.load(input, loopIVs);
-    Type inputType = loadedVal.getType();
-    Value res = loadedVal;
-
-    if (inputType.isa<FloatType>()) {
-      if (!min.getType().isa<NoneType>()) {
-        Value minVal = create.krnl.load(min);
-        Value lessThanMin = create.math.slt(res, minVal);
-        res = create.math.select(lessThanMin, minVal, res);
-      }
-      if (!max.getType().isa<NoneType>()) {
-        Value maxVal = create.krnl.load(max);
-        Value lessThanMax = create.math.slt(res, maxVal);
-        res = create.math.select(lessThanMax, res, maxVal);
-      }
-    } else if (inputType.isa<IntegerType>()) {
-      if (!min.getType().isa<NoneType>()) {
-        Value minVal = create.krnl.load(min);
-        Value lessThanMin = create.math.slt(res, minVal);
-        res = create.math.select(lessThanMin, minVal, res);
-      }
-      if (!max.getType().isa<NoneType>()) {
-        Value maxVal = create.krnl.load(max);
-        Value lessThanMax = create.math.slt(res, maxVal);
-        res = create.math.select(lessThanMax, res, maxVal);
-      }
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange indices) {
+            MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
+            computeResult(create, indices);
+          });
     } else {
-      llvm_unreachable("unsupported element type");
+      MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+      computeResult(create, {});
     }
-
-    // Store result in the resulting array.
-    create.krnl.store(res, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
     return success();

@@ -997,9 +997,9 @@ private:
                    << " in your model is using Opset " << current_opset
                    << ", which is quite old. Please consider regenerating your "
                       "model with a newer Opset.\n";
-    LLVM_DEBUG(llvm::dbgs()
-               << DEBUG_TYPE << ": Importing ONNX " << node.op_type()
-               << ", Opset: " << current_opset << "\n");
+    LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing ONNX"
+                            << node.op_type() << " (" << node.name() << ")"
+                            << ", Opset: " << current_opset << "\n");
 
     // Custom ops may not be present in op_dialect_version_map_. If no version
     // info is found, treat as unversioned (no renaming).
