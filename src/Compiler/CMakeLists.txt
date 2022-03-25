@@ -54,19 +54,19 @@ add_onnx_mlir_library(CompilerPasses
 
   LINK_LIBS PUBLIC
   CompilerOptions
-  OMEnableMemoryPool
-  OMOptimizeMemoryPools
   OMBundleMemoryPools
   OMDisconnectKrnlDimFromAlloc
-  OMLowerKrnlShape
-  OMONNXRewrite
-  OMShapeInference
-  OMOpTransform
-  OMONNXPreKrnlVerifyONNX
+  OMEnableMemoryPool
   OMInstrumentONNX
   OMKrnlToAffine
   OMKrnlToLLVM
+  OMLowerKrnlShape
+  OMONNXPreKrnlVerifyONNX
+  OMONNXRewrite
   OMONNXToKrnl
+  OMOptimizeMemoryPools
+  OMOpTransform
+  OMShapeInference
   MLIRAffineTransforms
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
