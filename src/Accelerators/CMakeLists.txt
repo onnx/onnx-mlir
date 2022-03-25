@@ -1,13 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 set(ACCEL_LIST "")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/AcceleratorKinds.hpp "// Enumeration of accelerators \n")  
 if (ACCELERATORS_TO_BUILD)
   foreach(t ${ACCELERATORS_TO_BUILD})
     message(DEBUG "Targeting ${t}")
     add_subdirectory(${t})
     list(APPEND ACCEL_LIST "${t}Accel")
-  endforeach(t)
+    file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/AcceleratorKinds.hpp "   ${t},\n")
+    endforeach(t)
 else (ACCELERATORS_TO_BUILD)
 endif (ACCELERATORS_TO_BUILD)
+file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/AcceleratorKinds.hpp "   NONE\n")
 
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "bool InitAccelerators() {\n")
 if (ACCELERATORS_TO_BUILD)

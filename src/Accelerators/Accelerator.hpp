@@ -28,7 +28,7 @@ class Accelerator {
 public:
   /// Kinds of accelerators.
   enum class Kind {
-    NNPA, // IBM Telum coprocessor
+    #include "src/Accelerators/AcceleratorKinds.hpp"
   };
 
   Accelerator(Kind kind) : kind(kind) {}
