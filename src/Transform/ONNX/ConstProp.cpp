@@ -1,3 +1,4 @@
+#if 0
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -801,3 +802,5 @@ void ConstPropONNXToONNXPass::runOnOperation() {
 std::unique_ptr<mlir::Pass> onnx_mlir::createConstPropONNXToONNXPass() {
   return std::make_unique<ConstPropONNXToONNXPass>();
 }
+
+#endif

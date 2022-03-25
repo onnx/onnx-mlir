@@ -21,6 +21,7 @@ add_onnx_mlir_rewriter(ConstProp)
 add_onnx_mlir_library(OMONNXRewrite
   Decompose.cpp
   ConstProp.cpp
+  ConstPropNoBuffer.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen

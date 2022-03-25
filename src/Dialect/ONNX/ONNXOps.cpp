@@ -114,6 +114,164 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
 // ONNX Helper functions
 //===----------------------------------------------------------------------===//
 
+
+namespace {
+
+DenseElementsAttr getShapeFoldingAttr(Value value) {
+  return value.getDefiningOp() ? value.getDefiningOp()
+                                     ->getAttr("shape_folding_value")
+                                     .dyn_cast_or_null<DenseElementsAttr>()
+                               : nullptr;
+}
+
+// Sets the value of shape_folding_value if possible.
+void setShapeFoldingAttr(Operation *op, DenseElementsAttr attr) {
+  assert(op);
+  op->setAttr("shape_folding_value", attr);
+}
+
+// Returns a the value of the constantOp or shape_folding_value if possible.
+DenseElementsAttr getONNXConstOrShapeFoldingAttr(Value value) {
+  if (auto constantOp = getONNXConstantOp(value)) {
+    return constantOp.valueAttr()
+        .dyn_cast_or_null<::mlir::DenseElementsAttr>();
+  } else {
+    return getShapeFoldingAttr(value);
+  }
+}
+
+LogicalResult inferMatMulResultShape(
+    mlir::Operation *op, Value a, Value b, Value result) {
+  // Cannot infer shape if no shape exists.
+  if (!a.getType().isa<RankedTensorType>() ||
+      !b.getType().isa<RankedTensorType>())
+    return op->emitError("Input tensor(s) not ranked");
+
+  auto lhsTy = a.getType().cast<RankedTensorType>();
+  auto rhsTy = b.getType().cast<RankedTensorType>();
+
+  SmallVector<int64_t, 2> dims;
+  auto lhsShape = lhsTy.getShape();
+  auto rhsShape = rhsTy.getShape();
+
+  if (lhsShape.size() < 1 && rhsShape.size() < 1) {
+    // Multiplication by scalars is not allowed.
+    return op->emitError("Multiplication by scalar arguments not allowed");
+  } else if (lhsShape.size() == 1 && rhsShape.size() == 1) {
+    // Special case when both arrays are 1-dimensional and according to
+    // numpy rules the types need to be extended to 1xN and Nx1. Helper sizes
+    // need to be removed after the multiplication but cannot be removed if all
+    // sizes are 1.
+    if (lhsShape[0] != -1 && rhsShape[0] != -1 && lhsShape[0] != rhsShape[0])
+      return op->emitError("Attempt to multiply incompatible matrices");
+    dims.emplace_back(1);
+  } else if (lhsShape.size() == 1 && rhsShape.size() >= 2) {
+    // If the first argument is 1-D, it is promoted to a matrix by prepending a
+    // 1 to its dimensions. After matrix multiplication the prepended 1 is
+    // removed.
+    //
+    // N MATMUL (s1 x s2 x... x sK x N x P)
+    // =>
+    // (s1 x s2 x... x sK x P)
+
+    // Check legality of matrix multiplication.
+    unsigned rhsRank = rhsShape.size();
+    if (lhsShape[0] != -1 && rhsShape[rhsRank - 2] != -1 &&
+        lhsShape[0] != rhsShape[rhsRank - 2])
+      return op->emitError("Attempt to multiply incompatible matrices");
+    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
+      dims.emplace_back(rhsShape[i]);
+    dims.emplace_back(rhsShape[rhsRank - 1]);
+  } else if (lhsShape.size() >= 2 && rhsShape.size() == 1) {
+    // If the second argument is 1-D, it is promoted to a matrix by appending a
+    // 1 to its dimensions. After matrix multiplication the appended 1 is
+    // removed.
+    //
+    // (s1 x s2 x... x sK x M x N) MATMUL N
+    // =>
+    // (s1 x s2 x... x sK x M)
+
+    // Check legality of matrix multiplication.
+    unsigned lhsRank = lhsShape.size();
+    if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
+        lhsShape[lhsRank - 1] != rhsShape[0])
+      return op->emitError("Attempt to multiply incompatible matrices");
+    for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
+      dims.emplace_back(lhsShape[i]);
+    dims.emplace_back(lhsShape[lhsRank - 2]);
+  } else if (lhsShape.size() > 2 && rhsShape.size() == 2) {
+    // (s1 x s2 x... x sK x M x N) MATMUL (N x P)
+    // =>
+    // (s1 x s2 x... x sK x M x P)
+
+    // Check legality of matrix multiplication.
+    unsigned lhsRank = lhsShape.size();
+    if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
+        lhsShape[lhsRank - 1] != rhsShape[0])
+      return op->emitError("Attempt to multiply incompatible matrices");
+    for (decltype(lhsRank) i = 0; i < lhsRank - 1; ++i)
+      dims.emplace_back(lhsShape[i]);
+    dims.emplace_back(rhsShape[1]);
+  } else if (lhsShape.size() == 2 && rhsShape.size() > 2) {
+    // (M x N) MATMUL (s1 x s2 x... x sK x N x P)
+    // =>
+    // (s1 x s2 x... x sK x M x P)
+
+    // Check legality of matrix multiplication.
+    unsigned rhsRank = rhsShape.size();
+    if (lhsShape[1] != -1 && rhsShape[rhsRank - 2] != -1 &&
+        lhsShape[1] != rhsShape[rhsRank - 2])
+      return op->emitError("Attempt to multiply incompatible matrices");
+    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
+      dims.emplace_back(rhsShape[i]);
+    dims.emplace_back(lhsShape[0]);
+    dims.emplace_back(rhsShape[rhsRank - 1]);
+  } else if (lhsShape.size() > 2 && rhsShape.size() > 2) {
+    // (s1 x s2 x... x sK x M x N) MATMUL (t1 x t2 x... x tK x N x P)
+    // =>
+    // (u1 x u2 x... x uK x M x P)
+
+    // Check legality of matrix multiplication.
+    unsigned lhsRank = lhsShape.size();
+    unsigned rhsRank = rhsShape.size();
+    if (lhsShape[lhsRank - 1] != -1 && rhsShape[rhsRank - 2] != -1 &&
+        lhsShape[lhsRank - 1] != rhsShape[rhsRank - 2])
+      return op->emitError("Attempt to multiply incompatible matrices");
+    // Check and perform broadcasting for the shapes.
+    SmallVector<int64_t, 2> lhsBcastShape;
+    for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
+      lhsBcastShape.emplace_back(lhsShape[i]);
+    SmallVector<int64_t, 2> rhsBcastShape;
+    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
+      rhsBcastShape.emplace_back(rhsShape[i]);
+    if (!getBroadcastedShape(lhsBcastShape, rhsBcastShape, dims))
+      return op->emitError("Broadcasted dimensions are incompatible");
+    dims.emplace_back(lhsShape[lhsRank - 2]);
+    dims.emplace_back(rhsShape[rhsRank - 1]);
+  } else {
+    // This case covers all remaining combinations of 1 and 2-D matrices.
+    int64_t lhsDim = lhsShape[0];
+    int64_t rhsDim = rhsShape[0];
+    if (lhsShape.size() > 1) {
+      lhsDim = lhsShape[1];
+      dims.emplace_back(lhsShape[0]);
+    }
+
+    // Check legality of matrix multiplication.
+    if (lhsDim != -1 && rhsDim != -1 && lhsDim != rhsDim)
+      return op->emitError("Attempt to multiply incompatible matrices");
+    if (rhsShape.size() > 1)
+      dims.emplace_back(rhsShape[1]);
+  }
+
+  Type elementType = result.getType().cast<ShapedType>().getElementType();
+  result.setType(RankedTensorType::get(dims, elementType));
+  return success();
+}
+
+} // namespace
+
+
 // This method substitutes any uses of dimensions and symbols (e.g.
 // dim#0 with dimReplacements[0]) in an affine map, simplifies the modified
 // affine map, and returns an integer constant.
@@ -1363,13 +1521,7 @@ LogicalResult ONNXIdentityOp::inferShapes(
 
 LogicalResult ONNXMatMulOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer shape if no shape exists.
-  if (!A().getType().isa<RankedTensorType>() ||
-      !B().getType().isa<RankedTensorType>())
-    return success();
-
-  return shapeHelperInferShapes<ONNXMatMulOpShapeHelper, ONNXMatMulOp,
-      ONNXMatMulOpAdaptor>(this, A());
+  return inferMatMulResultShape(getOperation(), A(), B(), getResult());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1378,130 +1530,7 @@ LogicalResult ONNXMatMulOp::inferShapes(
 
 LogicalResult ONNXQLinearMatMulOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer shape if no shape exists.
-  if (!a().getType().isa<RankedTensorType>() ||
-      !b().getType().isa<RankedTensorType>())
-    return success();
-
-  auto lhsTy = a().getType().cast<RankedTensorType>();
-  auto rhsTy = b().getType().cast<RankedTensorType>();
-
-  SmallVector<int64_t, 2> dims;
-  auto lhsShape = lhsTy.getShape();
-  auto rhsShape = rhsTy.getShape();
-
-  if (lhsShape.size() < 1 && rhsShape.size() < 1) {
-    // Multiplication by scalars is not allowed.
-    return emitError("Multiplication by scalar arguments not allowed");
-  } else if (lhsShape.size() == 1 && rhsShape.size() == 1) {
-    // Special case when both arrays are 1-dimensional and according to
-    // numpy rules the types need to be extended to 1xN and Nx1. Helper sizes
-    // need to be removed after the multiplication but cannot be removed if
-    // all sizes are 1.
-    if (lhsShape[0] != -1 && rhsShape[0] != -1 && lhsShape[0] != rhsShape[0])
-      return emitError("Attempt to multiply incompatible matrices");
-    dims.emplace_back(1);
-  } else if (lhsShape.size() == 1 && rhsShape.size() >= 2) {
-    // If the first argument is 1-D, it is promoted to a matrix by prepending
-    // a 1 to its dimensions. After matrix multiplication the prepended 1 is
-    // removed.
-    //
-    // N MATMUL (s1 x s2 x... x sK x N x P)
-    // =>
-    // (s1 x s2 x... x sK x P)
-
-    // Check legality of matrix multiplication.
-    unsigned rhsRank = rhsShape.size();
-    if (lhsShape[0] != -1 && rhsShape[rhsRank - 2] != -1 &&
-        lhsShape[0] != rhsShape[rhsRank - 2])
-      return emitError("Attempt to multiply incompatible matrices");
-    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
-      dims.emplace_back(rhsShape[i]);
-    dims.emplace_back(rhsShape[rhsRank - 1]);
-  } else if (lhsShape.size() >= 2 && rhsShape.size() == 1) {
-    // If the second argument is 1-D, it is promoted to a matrix by appending
-    // a 1 to its dimensions. After matrix multiplication the appended 1 is
-    // removed.
-    //
-    // (s1 x s2 x... x sK x M x N) MATMUL N
-    // =>
-    // (s1 x s2 x... x sK x M)
-
-    // Check legality of matrix multiplication.
-    unsigned lhsRank = lhsShape.size();
-    if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
-        lhsShape[lhsRank - 1] != rhsShape[0])
-      return emitError("Attempt to multiply incompatible matrices");
-    for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
-      dims.emplace_back(lhsShape[i]);
-    dims.emplace_back(lhsShape[lhsRank - 2]);
-  } else if (lhsShape.size() > 2 && rhsShape.size() == 2) {
-    // (s1 x s2 x... x sK x M x N) MATMUL (N x P)
-    // =>
-    // (s1 x s2 x... x sK x M x P)
-
-    // Check legality of matrix multiplication.
-    unsigned lhsRank = lhsShape.size();
-    if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
-        lhsShape[lhsRank - 1] != rhsShape[0])
-      return emitError("Attempt to multiply incompatible matrices");
-    for (decltype(lhsRank) i = 0; i < lhsRank - 1; ++i)
-      dims.emplace_back(lhsShape[i]);
-    dims.emplace_back(rhsShape[1]);
-  } else if (lhsShape.size() == 2 && rhsShape.size() > 2) {
-    // (M x N) MATMUL (s1 x s2 x... x sK x N x P)
-    // =>
-    // (s1 x s2 x... x sK x M x P)
-
-    // Check legality of matrix multiplication.
-    unsigned rhsRank = rhsShape.size();
-    if (lhsShape[1] != -1 && rhsShape[rhsRank - 2] != -1 &&
-        lhsShape[1] != rhsShape[rhsRank - 2])
-      return emitError("Attempt to multiply incompatible matrices");
-    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
-      dims.emplace_back(rhsShape[i]);
-    dims.emplace_back(lhsShape[0]);
-    dims.emplace_back(rhsShape[rhsRank - 1]);
-  } else if (lhsShape.size() > 2 && rhsShape.size() > 2) {
-    // (s1 x s2 x... x sK x M x N) MATMUL (t1 x t2 x... x tK x N x P)
-    // =>
-    // (u1 x u2 x... x uK x M x P)
-
-    // Check legality of matrix multiplication.
-    unsigned lhsRank = lhsShape.size();
-    unsigned rhsRank = rhsShape.size();
-    if (lhsShape[lhsRank - 1] != -1 && rhsShape[rhsRank - 2] != -1 &&
-        lhsShape[lhsRank - 1] != rhsShape[rhsRank - 2])
-      return emitError("Attempt to multiply incompatible matrices");
-    // Check and perform broadcasting for the shapes.
-    SmallVector<int64_t, 2> lhsBcastShape;
-    for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
-      lhsBcastShape.emplace_back(lhsShape[i]);
-    SmallVector<int64_t, 2> rhsBcastShape;
-    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
-      rhsBcastShape.emplace_back(rhsShape[i]);
-    if (!getBroadcastedShape(lhsBcastShape, rhsBcastShape, dims))
-      return emitError("Broadcasted dimensions are incompatible");
-    dims.emplace_back(lhsShape[lhsRank - 2]);
-    dims.emplace_back(rhsShape[rhsRank - 1]);
-  } else {
-    // This case covers all remaining combinations of 1 and 2-D matrices.
-    int64_t lhsDim = lhsShape[0];
-    int64_t rhsDim = rhsShape[0];
-    if (lhsShape.size() > 1) {
-      lhsDim = lhsShape[1];
-      dims.emplace_back(lhsShape[0]);
-    }
-
-    // Check legality of matrix multiplication.
-    if (lhsDim != -1 && rhsDim != -1 && lhsDim != rhsDim)
-      return emitError("Attempt to multiply incompatible matrices");
-    if (rhsShape.size() > 1)
-      dims.emplace_back(rhsShape[1]);
-  }
-
-  getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
-  return success();
+  return inferMatMulResultShape(getOperation(), a(), b(), getResult());
 }
 
 // GemmOp
@@ -2092,7 +2121,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   auto outputShape = output_shape();
   // TODO: handle the spatial dimension computation if output shape is
   // specified
-  assert(!outputShape.hasValue() && "unhandled option in ConvTranspose");
+
 
   // First two output dimensions consist of the number of batches and the
   // number of kernels being applied.
@@ -2913,72 +2942,72 @@ LogicalResult ONNXFlattenOp::inferShapes(
 
 LogicalResult ONNXResizeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!X().getType().isa<RankedTensorType>()) {
-    return success();
-  }
-  auto inputTy = X().getType().cast<RankedTensorType>();
+  auto xTy = X().getType().dyn_cast<RankedTensorType>();
+  if (!xTy)
+    return emitError("Input type not RankedTensorType");
 
-  // Output should at least has the same rank as X input
-  if (!getResult().getType().isa<RankedTensorType>()) {
-    SmallVector<int64_t, 4> dims(inputTy.getRank(), -1);
-    getResult().setType(RankedTensorType::get(dims, inputTy.getElementType()));
-  }
+  auto xShape = xTy.getShape();
+  SmallVector<int64_t, 4> dims(xShape.size(), -1);
 
-  if (isFromNone(scales()) == isFromNone(sizes())) {
-    if (isFromNone(scales()))
-      return emitError("scales() and sizes() can not be both None");
-    else
-      return emitError("scales() and sizes() can not be both defined");
-  }
+  bool hasScales = false;
+  bool hasSizes = false;
 
-  if (!(mode() == "nearest" &&
-          (coordinate_transformation_mode() == "half_pixel" ||
-              coordinate_transformation_mode() == "asymmetric"))) {
-    return emitError("these modes() or coordinate_transformation_mode() not "
-                     "implemented yet. mode: " +
-                     mode() + " coordinate_transformation_mode: " +
-                     coordinate_transformation_mode());
-  }
+  if (!scales().getType().isa<NoneType>()) {
+    auto scalesTensorTy = scales().getType().dyn_cast<RankedTensorType>();
+    if (!scalesTensorTy)
+      return emitError("Scales type not RankedTensorType");
 
-  // Current implementation handles constant scales only
-  if (!isFromNone(scales())) {
-    DenseElementsAttr scalesAttrs =
-        getDenseElementAttributeFromONNXValue(scales());
-    if (!scalesAttrs) {
-      return success();
+    // Only rank 1 scales tensors are supported
+    if (scalesTensorTy.getShape().size() != 1)
+      return emitError("Scales tensor must have rank one");
+
+    // Use scales to generate dims array
+    if (auto valueAttribute = getONNXConstOrShapeFoldingAttr(scales())) {
+      if (valueAttribute.size() > 0) {
+        hasScales = true;
+        dims.resize(valueAttribute.size());
+        auto valueIt = valueAttribute.getValues<FloatAttr>().begin();
+        for (int i = 0; i != valueAttribute.size(); ++i) {
+          double scale = (*valueIt++).cast<FloatAttr>().getValueAsDouble();
+          dims[i] = static_cast<int64_t>(scale * xShape[i]);
+        }
+      }
+    } else {
+      return emitError("Unable to read scales tensor value");
     }
-
-    SmallVector<float, 4> scalesConstant;
-    for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
-      scalesConstant.emplace_back(scaleAttr.getValueAsDouble());
-    }
-
-    SmallVector<int64_t, 4> dims;
-    for (int i = 0; i < inputTy.getRank(); i++) {
-      int newDim;
-      if (inputTy.getShape()[i] == -1)
-        newDim = -1;
-      else
-        newDim = inputTy.getShape()[i] * scalesConstant[i];
-      dims.emplace_back(newDim);
-    }
-
-    getResult().setType(RankedTensorType::get(dims, inputTy.getElementType()));
-  } else {
-    DenseElementsAttr sizesAttrs =
-        getDenseElementAttributeFromONNXValue(sizes());
-    if (!sizesAttrs) {
-      return success();
-    }
-
-    SmallVector<int64_t, 4> sizesConstant;
-    for (auto sizeAttr : sizesAttrs.getValues<IntegerAttr>()) {
-      sizesConstant.emplace_back(sizeAttr.getInt());
-    }
-
-    getResult().setType(
-        RankedTensorType::get(sizesConstant, inputTy.getElementType()));
   }
+
+  if (!sizes().getType().isa<NoneType>()) {
+    auto sizesTensorTy = sizes().getType().dyn_cast<RankedTensorType>();
+    if (!sizesTensorTy)
+      return emitError("Sizes type not RankedTensorType");
+
+    // Only rank 1 sizes tensors are supported
+    if (sizesTensorTy.getShape().size() != 1)
+      return emitError("Sizes tensor must have rank one");
+
+    // Use sizes to generate dims array
+    if (auto valueAttribute = getONNXConstOrShapeFoldingAttr(sizes())) {
+      if (valueAttribute.size() > 0) {
+        hasSizes = true;
+        dims.resize(valueAttribute.size());
+        auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
+        for (int i = 0; i != valueAttribute.size(); ++i) {
+          dims[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+        }
+      }
+    } else {
+      return emitError("Unable to read sizes tensor value");
+    }
+  }
+
+  if (hasScales && hasSizes)
+    return emitError("Scales and sizes are both specified at the same time");
+
+  if (!hasScales && !hasSizes)
+    return emitError("Neither scales nor sizes are specified");
+
+  getResult().setType(RankedTensorType::get(dims, xTy.getElementType()));
   return success();
 }
 
@@ -3035,10 +3064,8 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
   auto yTy = y().getType().cast<ShapedType>();
 
   if (!yTy.hasStaticShape()) {
-    // TODO: Unfortunately, we can't tell if this should be signed or
-    // unsigned here...
-    IntegerType i8Type = IntegerType::get(getContext(), 8);
-    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), i8Type);
+    auto zpTy = y_zero_point().getType().cast<ShapedType>().getElementType();
+    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), zpTy);
     y().setType(outType);
   }
 
@@ -3932,7 +3959,7 @@ LogicalResult ONNXLpPoolOp::inferShapes(
 
 LogicalResult ONNXMatMulIntegerOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  return inferMatMulResultShape(getOperation(), A(), B(), getResult());
 }
 
 LogicalResult ONNXMaxPoolOp::inferShapes(
@@ -4363,27 +4390,52 @@ LogicalResult ONNXReverseSequenceOp::verify() {
 
 LogicalResult ONNXReduceL1Op::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+  return success();
 }
 
 LogicalResult ONNXReduceL2Op::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+  return success();
 }
 
 LogicalResult ONNXReduceLogSumOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+  return success();
 }
 
 LogicalResult ONNXReduceLogSumExpOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+  return success();
 }
 
 LogicalResult ONNXReduceSumSquareOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+  return success();
 }
 
 LogicalResult ONNXRoiAlignOp::inferShapes(
@@ -4743,7 +4795,57 @@ LogicalResult ONNXUniqueOp::inferShapes(
 
 LogicalResult ONNXUpsampleOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  // Sanity checks on input data argument
+  if (!X().getType().isa<RankedTensorType>()) {
+    return emitError("Input data is not a ranked tensor");
+  }
+  auto inputTy = X().getType().cast<RankedTensorType>();
+  int32_t inputRank = inputTy.getShape().size();
+
+  // Sanity checks on scale argument
+  if (!scales().getType().isa<RankedTensorType>()) {
+    return emitError("Scales is not a ranked tensor");
+  }
+  auto scalesTy = scales().getType().cast<RankedTensorType>();
+  if (scalesTy.getShape().size() != 1) {
+    return emitError("Scales tensor must be rank-1");
+  }
+  if (scalesTy.getShape()[0] != inputRank) {
+    return emitError("Input tensor rank doesn't match scales tensor shape");
+  }
+
+  SmallVector<int64_t, 4> outputDims(inputRank, -1);
+
+  // Extract the scale values
+  auto scalesConstOp = getONNXConstantOp(scales());
+  if (!scalesConstOp) {
+    return emitError("Scales is not a constant");
+  }
+  auto valueAttr = scalesConstOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  if (!valueAttr) {
+    return emitError("Scales constant is not a DenseElementsAttr");
+  }
+  int scaleIdx = 0;
+  // Why are the scale values float's?
+  for (auto it = valueAttr.getValues<FloatAttr>().begin();
+       it != valueAttr.getValues<FloatAttr>().end(); ++it) {
+    if (scaleIdx >= inputRank) {
+      return emitError("Scales tensor shape doesn't match # of scale values");
+    }
+    outputDims[scaleIdx++] = (int)((*it).getValueAsDouble());
+  }
+  if (scaleIdx != inputRank) {
+    return emitError("Scales tensor shape doesn't match # of scale values");
+  }
+
+  // Compute and set the output shape
+  for (int i = 0; i < inputRank; ++i) {
+    outputDims[i] *= inputTy.getShape()[i];
+  }
+  getResult().setType(
+      RankedTensorType::get(outputDims, inputTy.getElementType()));
+
+  return success();
 }
 
 LogicalResult ONNXWhereOp::inferShapes(

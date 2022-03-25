@@ -43,7 +43,7 @@ include "src/Dialect/ONNX/ONNX.td"
 // types: RankedTensorType and MemRefType.
 
 
-  
+
 // Useful test definitions.
 
 def IsNotAConstant :
@@ -53,6 +53,15 @@ def IsNotAConstant :
 def AttributeIsNull :
     Constraint<CPred<"! ($_self)">,
   "Attribute is null">;
+
+def canConstPropCastIntToInt : Constraint<
+  CPred<"canConstPropCastIntToInt($_builder, $0, $1, $2)">>;
+
+def canConstPropCastFloatToFloat : Constraint<
+  CPred<"canConstPropCastFloatToFloat($_builder, $0, $1, $2)">>;
+
+def isConstOfZeros : Constraint<
+  CPred<"isConstOfZeros($_builder, $0)">>;
 
 def IsFromDenseONNXConstantOp:
     Constraint<CPred<"isFromDenseONNXConstantOp($_self)">,
@@ -92,10 +101,27 @@ def CreateUnsqueezeOfConst:
 def CreateSqueezeOfConst:
    NativeCodeCall<"ConstPropSqueeze($_builder, $0, $1)">;
 
+def CreateIntToIntCastOfConst :
+  NativeCodeCall<"ConstPropCastIntToInt($_builder, $0, $1, $2)">;
+
+def CreateFloatToFloatCastOfConst :
+  NativeCodeCall<"ConstPropCastFloatToFloat($_builder, $0, $1, $2)">;
+
+def CreateZerosFromTemplate :
+  NativeCodeCall<"CreateZerosFromTemplate($_builder, $0)">;
+
+def CreateMatMulIntegerOfConsts :
+  NativeCodeCall<"CreateMatMulIntegerOfConsts($_builder, $0, $1, $2)">;
+
+def ValuesHaveSameType : Constraint<
+    CPred<"$0.getType() == "
+          "$1.getType()">,
+    "ValuesHaveSameType">;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
 //===----------------------------------------------------------------------===//
-  
+
 // Use commutativity to normalize constants in the second position of Add.
 def AddConstCommutative1 : Pat<
   // From add(c, x).
@@ -104,7 +130,7 @@ def AddConstCommutative1 : Pat<
   (ONNXAddOp $x, $c),
   // To avoid infinite loop, constrain the first arguments to be anything but a constant.
   [(IsNotAConstant:$x)]>;
-  
+
 // Use associativity to add constants together.
 def AddConstAssociative1 : Pat<
   // From add(add(x, c1), c2).
@@ -149,7 +175,7 @@ def AddConstAssociative4 : Pat<
     (ONNXAddOp $x, $y),
     (ONNXAddOp $c1, $c2)),
     [(IsNotAConstant:$x), (IsNotAConstant:$y)]>;
-  
+
 // Constant Propagation for Add
 def AddConstProp : Pat<
     // From add(c1, c2).
@@ -160,6 +186,17 @@ def AddConstProp : Pat<
     // Additional constraints (dense)
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
+def AddByZeroOnRhs : Pat<
+    (ONNXAddOp:$result
+      $a,
+      (ONNXConstantOp $bs, $bv, $_, $_, $_, $_, $_, $_)
+    ),
+    (replaceWithValue $a),
+    [
+      (IsNotAConstant:$a),
+      (AttributeIsNull:$bs), (isConstOfZeros $bv),
+      (ValuesHaveSameType $result, $a)
+    ]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise SUB / NEG operations.
@@ -181,7 +218,7 @@ def NegofConst :  Pat<
     // To (-c)
     (CreateNegOfConst $negOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
-  
+
 // Change a subtraction of a constant c by an addition of -c. Helpfull to combine
 // with other add optimizations.
 def SubConstToNeg : Pat<
@@ -198,7 +235,86 @@ def SqrtofConst :  Pat<
     // To sqrt(c)
     (CreateSqrtOfConst $sqrtOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
- 
+
+
+// Constant Propagation for Cast
+def IntToIntCastofConst :  Pat<
+    // From  onnx.Cast(c)
+    (ONNXCastOp (ONNXConstantOp:$constOp $_, $v, $_, $_, $_, $_, $_, $_), $toType),
+    // To cast(c)
+    (ONNXConstantOp (GetNullAttr), (CreateIntToIntCastOfConst $constOp, $v, $toType),
+      (GetNullAttr), (GetNullAttr), (GetNullAttr),
+      (GetNullAttr), (GetNullAttr), (GetNullAttr)
+    ),
+    [(canConstPropCastIntToInt $constOp, $v, $toType)]>;
+
+// Constant Propagation for Cast (float to float)
+def FloatToFloatCastofConst :  Pat<
+    // From  onnx.Cast(c)
+    (ONNXCastOp (ONNXConstantOp:$constOp $_, $v, $_, $_, $_, $_, $_, $_), $toType),
+    // To cast(c)
+    (ONNXConstantOp (GetNullAttr), (CreateFloatToFloatCastOfConst $constOp, $v, $toType),
+      (GetNullAttr), (GetNullAttr), (GetNullAttr),
+      (GetNullAttr), (GetNullAttr), (GetNullAttr)
+    ),
+    [(canConstPropCastFloatToFloat $constOp, $v, $toType)]>;
+
+def MatMulIntegerZeroOnRhs : Pat<
+    (ONNXMatMulIntegerOp:$resOp
+      $a,
+      (ONNXConstantOp $_, $bv, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp $_, $asv, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp $_, $bsv, $_, $_, $_, $_, $_, $_)
+    ),
+    (ONNXConstantOp
+      (GetNullAttr), (CreateZerosFromTemplate $resOp),
+      (GetNullAttr), (GetNullAttr), (GetNullAttr),
+      (GetNullAttr), (GetNullAttr), (GetNullAttr)
+    ),
+    [
+      (isConstOfZeros $bv),
+      (isConstOfZeros $asv),
+      (isConstOfZeros $bsv)
+    ]
+>;
+
+def MatMulIntegerZeroOnLhs : Pat<
+    (ONNXMatMulIntegerOp:$resOp
+      (ONNXConstantOp $_, $av, $_, $_, $_, $_, $_, $_),
+      $b,
+      (ONNXConstantOp $_, $asv, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp $_, $bsv, $_, $_, $_, $_, $_, $_)
+    ),
+    (ONNXConstantOp
+      (GetNullAttr), (CreateZerosFromTemplate $resOp),
+      (GetNullAttr), (GetNullAttr), (GetNullAttr),
+      (GetNullAttr), (GetNullAttr), (GetNullAttr)
+    ),
+    [
+      (isConstOfZeros $av),
+      (isConstOfZeros $asv),
+      (isConstOfZeros $bsv)
+    ]
+>;
+
+def MatMulIntegerOfConsts : Pat<
+    (ONNXMatMulIntegerOp:$resOp
+      (ONNXConstantOp $_, $av, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp $_, $bv, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp $_, $asv, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp $_, $bsv, $_, $_, $_, $_, $_, $_)
+    ),
+    (ONNXConstantOp
+      (GetNullAttr), (CreateMatMulIntegerOfConsts $resOp, $av, $bv),
+      (GetNullAttr), (GetNullAttr), (GetNullAttr),
+      (GetNullAttr), (GetNullAttr), (GetNullAttr)
+    ),
+    [
+      (isConstOfZeros $asv),
+      (isConstOfZeros $bsv)
+    ]
+>;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise MUL operations.
 // Exactly the same pattern as for the elementwise ADD operations.
@@ -212,7 +328,7 @@ def MulConstCommutative1 : Pat<
   (ONNXMulOp $x, $c),
   // To avoid infinite loop, constrain the first arguments to be anything but a constant.
   [(IsNotAConstant:$x)]>;
-  
+
 // Use associativity to mul constants together.
 def MulConstAssociative1 : Pat<
   // From mul(mul(x, c1), c2).
@@ -224,7 +340,7 @@ def MulConstAssociative1 : Pat<
     $x,
     (ONNXMulOp $c1, $c2)),
     [(IsNotAConstant:$x)]>;
-  
+
 def MulConstAssociative2 : Pat<
   // From mul(mul(x, c), y).
   (ONNXMulOp
@@ -268,7 +384,7 @@ def MulConstProp : Pat<
     // Multiplication constraints
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
-// Constant Propagation for Div 
+// Constant Propagation for Div
 def DivConstProp : Pat<
     // From div(c1, c2).
     (ONNXDivOp:$divOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),

@@ -116,6 +116,9 @@ std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
   // Copy, no need to take care of endianness.
   auto data = TransformValueToONNXData<T>::data(initializer);
   size = data.size();
+  if (size < 1) {
+    return std::vector<T>();
+  }
   return std::vector<T>(&data[0], &data[0] + size);
 }
 
@@ -130,7 +133,11 @@ std::vector<bool> CreateArrayAttribute<bool>(onnx::TensorProto initializer) {
   }
 
   auto data = TransformValueToONNXData<bool>::data(initializer);
-  return std::vector<bool>(&data[0], &data[0] + data.size());
+  size_t size = data.size();
+  if (size < 1) {
+    return std::vector<bool>();
+  }
+  return std::vector<bool>(&data[0], &data[0] + size);
 }
 
 mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
@@ -155,6 +162,22 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
   return builder.create<mlir::ONNXConstantOp>(loc, nullptr, denseElmAttr);
 }
 
+// Helper method for construction an array attribute from a model input for
+// FP16 data types.
+static std::vector<llvm::APFloat> CreateArrayAttributeFP16(
+    onnx::TensorProto initializer) {
+  // Use the uint16_t version to take care of endianness
+  auto vals = CreateArrayAttribute<uint16_t>(initializer);
+
+  std::vector<llvm::APFloat> floatVals(
+      vals.size(), llvm::APFloat(llvm::APFloat::IEEEhalf(), llvm::APInt(16, 0)));
+
+  for (uint32_t i = 0; i < vals.size(); ++i) {
+    floatVals[i] = llvm::APFloat(llvm::APFloat::IEEEhalf(), llvm::APInt(16, vals[i]));
+  }
+  return floatVals;
+}
+
 mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
     mlir::OpBuilder &builder, const onnx::TensorProto &initializer) {
   // Tensor dimensions.
@@ -162,6 +185,14 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
       initializer.dims().data(), initializer.dims().size());
   mlir::DenseElementsAttr denseElmAttr;
   switch (initializer.data_type()) {
+  case (onnx::TensorProto::FLOAT16): {
+    const auto &arrayAttrInitializer = CreateArrayAttributeFP16(initializer);
+    auto elmType = builder.getF16Type();
+    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+    denseElmAttr = mlir::DenseElementsAttr::get(
+        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
+    break;
+  }
   case (onnx::TensorProto::FLOAT): {
     const auto &arrayAttrInitializer = CreateArrayAttribute<float>(initializer);
     auto elmType = builder.getF32Type();

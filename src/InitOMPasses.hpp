@@ -5,8 +5,6 @@
 #include "mlir/Pass/Pass.h"
 #include "src/Pass/Passes.hpp"
 
-using namespace onnx_mlir;
-
 namespace onnx_mlir {
 
 void initOMPasses(int optLevel) {
