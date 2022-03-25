@@ -181,6 +181,15 @@ struct ONNXArgMaxOpShapeHelper : public ONNXOpShapeHelper<ONNXArgMaxOp> {
   LogicalResult computeShape(ONNXArgMaxOpAdaptor operandAdaptor);
 };
 
+// Shape for Clip.
+struct ONNXClipOpShapeHelper : public ONNXOpShapeHelper<ONNXClipOp> {
+  ONNXClipOpShapeHelper(ONNXClipOp *newOp);
+  ONNXClipOpShapeHelper(ONNXClipOp *newOp, OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult computeShape(ONNXClipOpAdaptor operandAdaptor);
+};
+
 // Shape for concat
 struct ONNXConcatOpShapeHelper : public ONNXOpShapeHelper<ONNXConcatOp> {
   ONNXConcatOpShapeHelper(ONNXConcatOp *newOp);
