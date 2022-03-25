@@ -403,6 +403,7 @@ def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
      H is hidden size."
     "direction accepts "forward", "reverse", or "bidirectional"
     "return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+    "prev_layer for where input comes is "none", "uni", or "bidir"
   }];
   let arguments = (ins ZTensor_3DS:$input,
                        AnyTypeOf<[ZTensor_3DS, NoneType]>:$h0,
@@ -413,7 +414,8 @@ def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
                        AnyTypeOf<[ZTensor_FICO, NoneType]>:$hidden_bias,
                        SI64Attr:$hidden_size,
                        DefaultValuedStrAttr<StrAttr, "forward">:$direction,
-                       DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps);
+                       DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps,
+                       DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
   let results = (outs ZTensor_4DS:$hn_output,
                       ZTensor_4DS:$cf_output);
   let builders = [
@@ -421,12 +423,13 @@ def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
                    "::mlir::Value":$input_weights, "::mlir::Value":$input_bias,
             		   "::mlir::Value":$hidden_weights, "::mlir::Value":$hidden_bias,
                    "::mlir::IntegerAttr":$hidden_size, "::mlir::StringAttr":$direction,
-                   "::mlir::IntegerAttr":$return_all_steps), [{
+                   "::mlir::IntegerAttr":$return_all_steps,
+                   "StringAttr":$prev_layer), [{
       Type elementType = input.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, resType,
             input, h0, c0, input_weights, input_bias, hidden_weights,
-            hidden_bias, hidden_size, direction, return_all_steps);
+            hidden_bias, hidden_size, direction, return_all_steps, prev_layer);
     }]>
   ];
   let verifier = [{ return ::onnx_mlir::zhigh::verify(*this); }];
@@ -448,6 +451,7 @@ def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
      H is hidden size."
     "direction accepts "forward", "reverse", or "bidirectional"
     "return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+    "prev_layer for where input comes is "none", "uni", or "bidir"
   }];
   let arguments = (ins ZTensor_3DS:$input,
                        AnyTypeOf<[ZTensor_3DS, NoneType]>:$h0,
@@ -457,18 +461,20 @@ def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
                        AnyTypeOf<[ZTensor_ZRH, NoneType]>:$hidden_bias,
                        SI64Attr:$hidden_size,
                        DefaultValuedStrAttr<StrAttr, "forward">:$direction,
-                       DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps);
+                       DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps,
+                       DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
   let results = (outs ZTensor_4DS:$hn_output);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$input, "::mlir::Value":$h0, "::mlir::Value":$input_weights,
                    "::mlir::Value":$input_bias, "::mlir::Value":$hidden_weights,
                    "::mlir::Value":$hidden_bias, "::mlir::IntegerAttr":$hidden_size,
-                   "::mlir::StringAttr":$direction, "::mlir::IntegerAttr":$return_all_steps), [{
+                   "::mlir::StringAttr":$direction, "::mlir::IntegerAttr":$return_all_steps,
+                   "StringAttr":$prev_layer), [{
       Type elementType = input.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType,
             input, h0, input_weights, input_bias, hidden_weights,
-            hidden_bias, hidden_size, direction, return_all_steps);
+            hidden_bias, hidden_size, direction, return_all_steps, prev_layer);
     }]>
   ];
   let verifier = [{ return ::onnx_mlir::zhigh::verify(*this); }];

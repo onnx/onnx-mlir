@@ -62,6 +62,9 @@ def GetRank :
 def GetSInt :
         NativeCodeCall<"$0.cast<IntegerAttr>().getSInt()">;
 
+class GetStrAttr<string s> :
+        NativeCodeCall<"$_builder.getStringAttr(\"" # s # "\")">;
+
 def GetI64Attr :
 	NativeCodeCall<"$_builder.getIntegerAttr($_builder.getIntegerType(64, true), $0)">;
 
@@ -570,7 +573,7 @@ def GetLSTMGRUGetY :
         NativeCodeCall<"getLSTMGRUGetY($_loc, $_builder, $0, $1)">;
 
 def GetLSTMGRUGetYh :
-        NativeCodeCall<"getLSTMGRUGetYh($_loc, $_builder, $0, $1, $2, $3)">;
+        NativeCodeCall<"getLSTMGRUGetYh($_loc, $_builder, $0, $1, $2, $3, $4)">;
 
 def GetLSTMGRUGetYc :
         NativeCodeCall<"getLSTMGRUGetYc($_loc, $_builder, $0, $1)">;
@@ -616,7 +619,8 @@ def replaceONNXLSTMPattern1 : Pattern<
       $hidden_bias,                                      // hidden bias
       $hidden_size,                                      // hidden_size
       $direction,                                        // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),   // return_all_steps
+      (GetStrAttr<"none">)),                             // prev_layer
 
    //
    // Post-process to generate three return values of ONNXLSTMOp
@@ -624,7 +628,7 @@ def replaceONNXLSTMPattern1 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0, (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
   ],
   [(IsNotNoneType:$b), (IsNotNoneType:$res__0)]
@@ -650,7 +654,8 @@ def replaceONNXLSTMPattern2 : Pattern<
       $b,                                                // nontype hidden bias
       $hidden_size,                                      // hidden_size
       $direction,                                        // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),   // return_all_steps
+      (GetStrAttr<"none">)),                             // prev_layer
 
    //
    // Post-process to generate three return values of ONNXLSTMOp
@@ -658,13 +663,13 @@ def replaceONNXLSTMPattern2 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0, (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
   ],
   [(IsNoneType:$b), (IsNotNoneType:$res__0)]
 >;
 
-// Pattern3 for the bias($b) and not-none Y($res__0) case
+// Pattern3 for the not-none bias($b) and none Y($res__0) case
 def replaceONNXLSTMPattern3 : Pattern<
   (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
     $initial_c, $p, $activation_alpha, $activation_beta,
@@ -691,7 +696,8 @@ def replaceONNXLSTMPattern3 : Pattern<
       $hidden_bias,                                      // hidden bias
       $hidden_size,                                      // hidden_size
       $direction,                                        // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),   // return_all_steps
+      (GetStrAttr<"none">)),                             // prev_layer
 
    //
    // Post-process to generate three return values of ONNXLSTMOp
@@ -699,7 +705,7 @@ def replaceONNXLSTMPattern3 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
   ],
   [(IsNotNoneType:$b), (IsNoneType:$res__0)]
@@ -725,7 +731,8 @@ def replaceONNXLSTMPattern4 : Pattern<
       $b,                                                // nontype hidden bias
       $hidden_size,                                      // hidden_size
       $direction,                                        // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),   // return_all_steps
+      (GetStrAttr<"none">)),                             // prev_layer
 
    //
    // Post-process to generate three return values of ONNXLSTMOp
@@ -733,7 +740,7 @@ def replaceONNXLSTMPattern4 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighLSTM__0),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
    (GetLSTMGRUGetYc $zhighLSTM__1, $res__2),
   ],
   [(IsNoneType:$b), (IsNoneType:$res__0)]
@@ -772,7 +779,8 @@ def replaceONNXGRUPattern1 : Pattern<
       $hidden_bias,                                      // hiden bias
       $hidden_size,                                      // hidden_size
       $direction,                                        // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),   // return_all_steps
+      (GetStrAttr<"none">)),                             // prev_layer
   
    //
    // Post-process to generate two return values of ONNXGRUOp
@@ -780,7 +788,7 @@ def replaceONNXGRUPattern1 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
   ],
   [(IsNotNoneType:$b), (IsNotNoneType:$res__0)]
 >;
@@ -803,7 +811,8 @@ def replaceONNXGRUPattern2 : Pattern<
       $b,                                                 // nontype hidden bias
       $hidden_size,                                       // hidden_size
       $direction,                                         // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),   // return_all_steps
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),    // return_all_steps
+      (GetStrAttr<"none">)),                              // prev_layer
 
    //
    // Post-process to generate two return values of ONNXGRUOp
@@ -811,7 +820,7 @@ def replaceONNXGRUPattern2 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
   ],
   [(IsNoneType:$b), (IsNotNoneType:$res__0)]
 >;
@@ -842,7 +851,8 @@ def replaceONNXGRUPattern3 : Pattern<
       $hidden_bias,                                      // hiden bias
       $hidden_size,                                      // hidden_size
       $direction,                                        // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),   // return_all_steps
+      (GetStrAttr<"none">)),                             // prev_layer
   
    //
    // Post-process to generate two return values of ONNXGRUOp
@@ -850,7 +860,7 @@ def replaceONNXGRUPattern3 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
   ],
   [(IsNotNoneType:$b), (IsNoneType:$res__0)]
 >;
@@ -873,7 +883,8 @@ def replaceONNXGRUPattern4 : Pattern<
       $b,                                                 // nontype hidden bias
       $hidden_size,                                       // hidden_size
       $direction,                                         // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),   // return_all_steps
+      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1),    // return_all_steps
+      (GetStrAttr<"none">)),                              // prev_layer
 
    //
    // Post-process to generate three return values of ONNXGRUOp
@@ -881,7 +892,7 @@ def replaceONNXGRUPattern4 : Pattern<
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
    (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $direction),
+   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, (GetShape $x), $direction),
   ],
   [(IsNoneType:$b), (IsNoneType:$res__0)]
 >;

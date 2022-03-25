@@ -411,13 +411,16 @@ public:
     // Direction input.
     Value direction;
     StringRef directionStr = dyn_cast_or_null<ZLowLSTMOp>(op).direction();
-    if (directionStr.equals_insensitive("forward"))
+    if (directionStr.equals_insensitive("forward")) {
       direction = rewriter.create<LLVM::ConstantOp>(
           loc, llvmI64Ty, rewriter.getI64IntegerAttr(FWD));
-    else if (directionStr.equals_insensitive("reverse"))
+    } else if (directionStr.equals_insensitive("reverse")) {
       direction = rewriter.create<LLVM::ConstantOp>(
           loc, llvmI64Ty, rewriter.getI64IntegerAttr(BWD));
-    else
+    } else if (directionStr.equals_insensitive("bidirectional")) {
+      direction = rewriter.create<LLVM::ConstantOp>(
+          loc, llvmI64Ty, rewriter.getI64IntegerAttr(BIDIR));
+    } else
       llvm_unreachable("Unsupported direction");
 
     // work_area.
@@ -425,6 +428,7 @@ public:
 
     // Create zTensor for hn_output.
     Value preTransformedDescPtr;
+
     if (dyn_cast_or_null<ZLowLSTMOp>(op).return_all_steps() == -1)
       // all steps.
       preTransformedDescPtr = zTensorHelper.getPreTransformedDescPtr(
@@ -437,7 +441,8 @@ public:
         RNN_TYPE_LSTM | USAGE_WEIGHTS | PREV_LAYER_NONE;
     // Transformed descriptor.
     Value transformedDescPtr = zTensorHelper.getTransformedDescPtr(
-        preTransformedDescPtr, /*isConcat=*/false, /*concatInfo=*/concatInfo);
+        preTransformedDescPtr, /*isConcat=*/false,
+        /*concatInfo=*/concatInfo);
     // Buffer size.
     Value bufferSize = zTensorHelper.getBufferSize(transformedDescPtr);
     // Buffer pointer.
@@ -585,13 +590,16 @@ public:
     // Direction input.
     Value direction;
     StringRef directionStr = dyn_cast_or_null<ZLowGRUOp>(op).direction();
-    if (directionStr.equals_insensitive("forward"))
+    if (directionStr.equals_insensitive("forward")) {
       direction = rewriter.create<LLVM::ConstantOp>(
           loc, llvmI64Ty, rewriter.getI64IntegerAttr(FWD));
-    else if (directionStr.equals_insensitive("reverse"))
+    } else if (directionStr.equals_insensitive("reverse")) {
       direction = rewriter.create<LLVM::ConstantOp>(
           loc, llvmI64Ty, rewriter.getI64IntegerAttr(BWD));
-    else
+    } else if (directionStr.equals_insensitive("bidirectional")) {
+      direction = rewriter.create<LLVM::ConstantOp>(
+          loc, llvmI64Ty, rewriter.getI64IntegerAttr(BIDIR));
+    } else
       llvm_unreachable("Unsupported direction");
 
     // work_area.
@@ -611,7 +619,8 @@ public:
         RNN_TYPE_GRU | USAGE_WEIGHTS | PREV_LAYER_NONE;
     // Transformed descriptor.
     Value transformedDescPtr = zTensorHelper.getTransformedDescPtr(
-        preTransformedDescPtr, /*isConcat=*/false, /*concatInfo=*/concatInfo);
+        preTransformedDescPtr, /*isConcat=*/false,
+        /*concatInfo=*/concatInfo);
     // Buffer size.
     Value bufferSize = zTensorHelper.getBufferSize(transformedDescPtr);
     // Buffer pointer.
