@@ -37,9 +37,9 @@
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Pass/Passes.hpp"
-// #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Support/OMOptions.hpp"
 
-#define DEBUG_TYPE "NNPACompiler"
+#define DEBUG_TYPE "NNPACompilerUtils"
 
 using namespace std;
 using namespace mlir;

@@ -11,11 +11,6 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
   )
 
-#file(GENERATE 
-#  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp 
-#  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/InitAccelerators.cpp.in
-#  )
-
 # CMAKE_CFG_INTDIR is . for single-config generators such as make, and
 # it has a value (e.g. $(Configuration)) otherwise, so we can use it to
 # determine whether we are dealing with a multi-config generator.
@@ -34,8 +29,6 @@ add_onnx_mlir_library(CompilerOptions
 
   DEPENDS
   ExternalUtil
-  MLIRIR
-  OMVersion
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
@@ -44,25 +37,13 @@ add_onnx_mlir_library(CompilerOptions
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
-  #${OMLibs}
-  MLIRAffineTransforms
-  MLIRLinalgTransforms
-  MLIRLLVMToLLVMIRTranslation
-
-  # Link LLVM libraries necessary to query which target architectures are configured.
-  LINK_COMPONENTS PRIVATE
-  AllTargetsAsmParsers
-  AllTargetsCodeGens
-  AllTargetsDescs
-  AllTargetsInfos
-  MC
+  MLIRIR
   )
 
 add_onnx_mlir_library(CompilerPasses
   CompilerPasses.cpp
 
   DEPENDS
-  ExternalUtil
   MLIRIR
 
   INCLUDE_DIRS PRIVATE
@@ -86,18 +67,9 @@ add_onnx_mlir_library(CompilerPasses
   OMKrnlToAffine
   OMKrnlToLLVM
   OMONNXToKrnl
-  # ${OMLibs}
   MLIRAffineTransforms
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
-
-  # Link LLVM libraries necessary to query which target architectures are configured.
-  LINK_COMPONENTS PRIVATE
-  AllTargetsAsmParsers
-  AllTargetsCodeGens
-  AllTargetsDescs
-  AllTargetsInfos
-  MC
   )
 
 add_onnx_mlir_library(CompilerUtils STATIC
