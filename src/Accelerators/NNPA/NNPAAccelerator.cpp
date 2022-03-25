@@ -13,27 +13,28 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Transforms/Passes.h"
+#include "llvm/Support/Debug.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
-#include "src/Support/OMOptions.hpp"
-#include "llvm/Support/Debug.h"
+#include "src/Compiler/CompilerOptions.hpp"
 
 #include <memory>
 
 #define DEBUG_TYPE "NNPAAccelerator"
 
 extern llvm::cl::OptionCategory OMNNPAPassOptions;
-extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
-extern llvm::cl::list<std::string> execNodesOnCpu;
 onnx_mlir::accel::nnpa::NNPAAccelerator *pnnpa;
 
 void createNNPA() { pnnpa = new onnx_mlir::accel::nnpa::NNPAAccelerator; }
 
 namespace onnx_mlir {
+extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
+extern llvm::cl::list<std::string> execNodesOnCpu;
+
 namespace accel {
 namespace nnpa {
 

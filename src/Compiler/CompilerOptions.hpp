@@ -18,9 +18,10 @@
 #include <string>
 
 extern const std::string OnnxMlirEnvOptionName;
-extern llvm::cl::OptionCategory OnnxMlirOptions;
 
 namespace onnx_mlir {
+extern llvm::cl::OptionCategory OnnxMlirOptions;
+
 extern llvm::cl::opt<std::string> instrumentONNXOps;
 extern llvm::cl::opt<bool> invokeOnnxVersionConverter;
 extern llvm::cl::opt<bool> preserveLocations;
@@ -30,7 +31,6 @@ extern llvm::cl::opt<bool> preserveMLIR;
 extern llvm::cl::opt<bool> useOnnxModelTypes;
 extern llvm::cl::opt<int> repeatOnnxTransform;
 extern llvm::cl::opt<std::string> shapeInformation;
-
 extern llvm::cl::opt<onnx_mlir::OptLevel> OptimizationLevel;
 extern llvm::cl::opt<std::string> mtriple;
 extern llvm::cl::opt<std::string> mcpu;
@@ -39,7 +39,13 @@ extern llvm::cl::opt<bool> VerboseOutput;
 extern llvm::cl::opt<std::string> Xopt;
 extern llvm::cl::opt<std::string> Xllc;
 extern llvm::cl::opt<std::string> mllvm;
-} // namespace onnx_mlir
+
+extern llvm::cl::OptionCategory OMPassOptions;
+extern llvm::cl::opt<std::string> instrumentONNXOps;
+extern llvm::cl::opt<bool> enableMemoryBundling;
+extern llvm::cl::opt<int> onnxOpTransformThreshold;
+extern llvm::cl::opt<bool> onnxOpTransformReport;
+extern llvm::cl::opt<std::string> acceleratorTarget;
 
 void setTargetTriple(const std::string &triple);
 std::string getTargetTripleOption();
@@ -66,3 +72,5 @@ int setCompilerOption(const onnx_mlir::OptionKind kind, const std::string &val);
 int setCompilerOptions(const CompilerOptionList &list);
 
 std::string getCompilerOption(const onnx_mlir::OptionKind kind);
+
+} // namespace onnx_mlir

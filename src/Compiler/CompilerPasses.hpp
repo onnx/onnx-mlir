@@ -15,7 +15,9 @@
 #pragma once
 #include "mlir/Pass/PassManager.h"
 
+namespace onnx_mlir {
 void addONNXToMLIRPasses(mlir::PassManager &pm);
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel);
 void addKrnlToAffinePasses(mlir::PassManager &pm);
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm);
+} // namespace onnx_mlir

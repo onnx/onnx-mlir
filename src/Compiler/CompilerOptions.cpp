@@ -20,17 +20,9 @@
 
 #define DEBUG_TYPE "compiler_options"
 
-using namespace std;
-using namespace onnx_mlir;
-
+namespace onnx_mlir {
 llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX-MLIR Options", "These are frontend options.");
-
-namespace onnx_mlir {
-
-// This definition is here rather than in main.cpp because otherwise it's not
-// found probably should be pulled out to a more common location
-// TODO: Find a respectable home for the wain
 
 // the option is used in this file, so defined here
 llvm::cl::opt<bool> invokeOnnxVersionConverter("invokeOnnxVersionConverter",
@@ -64,7 +56,7 @@ llvm::cl::opt<int> repeatOnnxTransform("repeatOnnxTransform",
         "invoke extra onnx transform pass(shape inference, constant and etc.)"),
     llvm::cl::init(0), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<string> shapeInformation("shapeInformation",
+llvm::cl::opt<std::string> shapeInformation("shapeInformation",
     llvm::cl::desc(
         "Custom shapes for the inputs of the ONNX model, e.g. setting static "
         "shapes for dynamic inputs.\n"
@@ -116,8 +108,38 @@ llvm::cl::opt<OptLevel> OptimizationLevel(
         clEnumVal(O2, "Optimization level 2."),
         clEnumVal(O3, "Optimization level 3.")),
     llvm::cl::init(O0), llvm::cl::cat(OnnxMlirOptions));
-} // namespace onnx_mlir
 
+llvm::cl::OptionCategory OMPassOptions("ONNX-MLIR Pass Options",
+    "These are options to provide fine control on passes");
+
+llvm::cl::opt<std::string> instrumentONNXOps("instrument-onnx-ops",
+    llvm::cl::desc("Specify onnx ops to be instrumented\n"
+                   "\"NONE\" or \"\" for no instrument\n"
+                   "\"ALL\" for all ops. \n"
+                   "\"op1 op2 ...\" for the specified ops."),
+    llvm::cl::init(""), llvm::cl::cat(OMPassOptions));
+
+llvm::cl::opt<bool> enableMemoryBundling("enable-memory-bundling",
+    llvm::cl::desc(
+        "Enable memory bundling related optimizations (default=false)\n"
+        "Set to 'false' if you experience significant compile time."),
+    llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
+
+llvm::cl::opt<int> onnxOpTransformThreshold("onnx-op-transform-threshold",
+    llvm::cl::desc(
+        "Max iteration for dynamic op transform passes (default=3).\n"
+        "If set to 0, onnxOpTransformPass will be disabled, and\n"
+        "static iteration will be used"),
+    llvm::cl::init(3), llvm::cl::cat(OMPassOptions));
+
+llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
+    llvm::cl::desc("Report diagnostic info for op transform passes."),
+    llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
+
+llvm::cl::opt<std::string> acceleratorTarget("maccel",
+    llvm::cl::desc("Specify an accelerator to generate code for\n"
+                   "\"NONE\" or \"\" for no accelerator\n"),
+    llvm::cl::init(""), llvm::cl::cat(OMPassOptions));
 // =============================================================================
 // Methods for setting and getting compiler variables.
 
@@ -128,7 +150,7 @@ void setTargetTriple(const std::string &triple) {
 }
 
 std::string getTargetTripleOption() {
-  string targetOptions = "";
+  std::string targetOptions = "";
   // Command cannot tolerate extra spaces. Add only when needed.
   if (mtriple != "")
     targetOptions = "--mtriple=" + mtriple;
@@ -196,7 +218,7 @@ std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
 // =============================================================================
 // Methods for OMCompilerOptions
 
-int setCompilerOption(const OptionKind kind, const string &val) {
+int setCompilerOption(const OptionKind kind, const std::string &val) {
   switch (kind) {
   case OptionKind::TargetTriple:
     setTargetTriple(val);
@@ -244,7 +266,7 @@ std::string getCompilerOption(const OptionKind kind) {
   case OptionKind::LLVMFlag:
     return getLLVMOption();
   }
-  return string();
+  return std::string();
 }
 
 int setCompilerOptions(const CompilerOptionList &list) {
@@ -255,3 +277,5 @@ int setCompilerOptions(const CompilerOptionList &list) {
   }
   return 0;
 }
+
+} // namespace onnx_mlir

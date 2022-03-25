@@ -37,7 +37,6 @@
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
 
 #define DEBUG_TYPE "NNPACompilerUtils"
 
@@ -45,6 +44,7 @@ using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
 
+namespace onnx_mlir {
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 
 llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
@@ -63,8 +63,6 @@ llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
                    "in onnx graph, which is `onnx_node_name` in ONNX IR"),
     llvm::cl::CommaSeparated, llvm::cl::ZeroOrMore,
     llvm::cl::cat(OnnxMlirOptions)};
-
-namespace onnx_mlir {
 
 void addONNXToZHighPasses(
     mlir::PassManager &pm, ArrayRef<std::string> execNodesOnCpu) {

@@ -2,7 +2,6 @@
 
 add_onnx_mlir_library(OMSupport
   KrnlSupport.cpp
-  OMOptions.cpp
 
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include

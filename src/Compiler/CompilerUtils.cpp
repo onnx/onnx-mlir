@@ -30,7 +30,6 @@
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
-#include "src/Support/OMOptions.hpp"
 
 #include "VCSVersion.inc"
 

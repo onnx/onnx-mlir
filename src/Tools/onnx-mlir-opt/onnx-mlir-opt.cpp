@@ -36,7 +36,6 @@
 #include "src/InitMLIRPasses.hpp"
 #include "src/InitOMPasses.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;

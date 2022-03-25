@@ -25,11 +25,11 @@
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
 
+namespace onnx_mlir {
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
   // This is a transition from previous static passes to full dynamic passes
   // Static passes are kept and the dynamic pass is added as IF-THEN
@@ -81,8 +81,6 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel) {
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addNestedPass<FuncOp>(onnx_mlir::krnl::createConvertKrnlToAffinePass());
-  // Fuse loops in Affine dialect.
-  //  pm.addPass(mlir::createLoopFusionPass());
 }
 
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
@@ -107,3 +105,4 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
+} // namespace onnx_mlir
