@@ -55,8 +55,6 @@ const string OnnxMlirVersion = "onnx-mlir version 1.0.0";
 llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX-MLIR Options", "These are frontend options.");
 
-namespace {
-
 static llvm::Optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
     return std::string(envVerbose);
@@ -126,6 +124,13 @@ static llvm::cl::opt<std::string> march("march",
     llvm::cl::value_desc("Target a specific architecture type"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
+llvm::cl::list<accel::Accelerator::Kind> maccel("maccel",
+    llvm::cl::desc("Specify an accelerator to generate code for"),
+    llvm::cl::values(
+#include "src/Accelerators/AcceleratorOptions.hpp"
+        ),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
+
 static llvm::cl::opt<bool> VerboseOutput("v",
     llvm::cl::desc("Use verbose output"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
@@ -145,6 +150,8 @@ static llvm::cl::opt<std::string> mllvm("mllvm",
         "Arguments to forward to LLVM's 'opt' and 'llc' option processing"),
     llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+
+namespace {
 
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
@@ -1056,7 +1063,7 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   // Initialize accelerator if required
-  if (acceleratorTarget.compare("") != 0) {
+  if (!maccel.empty()) {
     InitAccelerators();
     for (auto accel : onnx_mlir::accel::Accelerator::getAcceleratorList()) {
       if (accel->isActive()) {
