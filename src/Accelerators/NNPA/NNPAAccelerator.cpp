@@ -20,7 +20,7 @@
 #include "src/Support/OMOptions.hpp"
 #include "llvm/Support/Debug.h"
 
-#define DEBUG_TYPE "NNPACompiler"
+#define DEBUG_TYPE "NNPAAccelerator"
 
 extern llvm::cl::OptionCategory OMNNPAPassOptions;
 extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
@@ -46,7 +46,7 @@ NNPAAccelerator::NNPAAccelerator() : Accelerator() {
 bool NNPAAccelerator::isActive() const {
   LLVM_DEBUG(
       llvm::dbgs() << "check if NNPA is active" << acceleratorTarget << "\n");
-  if (acceleratorTarget.compare("NNPA") == 0) {
+  if (initialized || acceleratorTarget.compare("NNPA") == 0) {
     LLVM_DEBUG(llvm::dbgs() << "Targeting NNPA accelerator\n");
     return true;
   }
@@ -54,16 +54,56 @@ bool NNPAAccelerator::isActive() const {
   return false;
 }
 
-void NNPAAccelerator::prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
-    mlir::MLIRContext &context, mlir::PassManager &pm,
-    onnx_mlir::EmissionTargetType &emissionTarget) const {
-  LLVM_DEBUG(
-      llvm::dbgs() << "preparing accelerator " << acceleratorTarget << "\n");
-
+void NNPAAccelerator::getOrLoadDialects(mlir::MLIRContext &context) const {
   // Load our Dialect in this MLIR Context.
   context.getOrLoadDialect<zhigh::ZHighDialect>();
   context.getOrLoadDialect<zlow::ZLowDialect>();
+}
+
+void NNPAAccelerator::addPasses(mlir::OwningOpRef<ModuleOp> &module,
+    mlir::PassManager &pm,
+    onnx_mlir::EmissionTargetType &emissionTarget) const {
+  LLVM_DEBUG(llvm::dbgs() << "adding passes for accelerator "
+                          << acceleratorTarget << "\n");
   addPassesNNPA(module, pm, emissionTarget, nnpaEmissionTarget, execNodesOnCpu);
+}
+
+void NNPAAccelerator::registerDialects(mlir::DialectRegistry &registry) const {
+  registry.insert<zhigh::ZHighDialect>();
+  registry.insert<zlow::ZLowDialect>();
+}
+
+void NNPAAccelerator::initPasses(int optLevel) const {
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::createONNXToZHighPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::createRewriteONNXForZHighPass();
+  });
+
+  mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zhigh::createZHighToZLowPass(optLevel);
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zlow::createZLowRewritePass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zlow::createZLowToLLVMPass();
+  });
+
+  mlir::registerPass(
+      []() -> std::unique_ptr<mlir::Pass> { return createFoldStdAllocPass(); });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zhigh::createZHighConstPropagationPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zhigh::createZHighLayoutPropagationPass();
+  });
 }
 
 bool NNPAAccelerator::initialized = false;
