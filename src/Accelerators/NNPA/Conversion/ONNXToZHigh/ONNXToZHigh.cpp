@@ -100,7 +100,7 @@ Value getLSTMGRUGetY(
 }
 
 Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
-    Value resY, Value resYh, StringAttr direction) {
+    Value resY, Value resYh, ArrayRef<int64_t> shapeX, StringAttr direction) {
   Value noneValue;
   if (isNoneType(resYh) || isNoneType(val))
     return noneValue;
@@ -126,28 +126,53 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
                          loc, nullptr, rewriter.getI64TensorAttr({INT_MAX}))
                      .getResult();
   StringRef directionStr = direction.getValue();
-  Value start, end;
-  if (directionStr.equals_insensitive("forward")) {
-    start = minusOne;
-    end = intMax;
-  } else if (directionStr.equals_insensitive("reverse")) {
-    start = zero;
-    end = one;
-  } else {
-    llvm_unreachable("Bidirectional is not supported.");
-  }
-  ArrayRef<int64_t> yhShape =
+  ArrayRef<int64_t> resYhShape =
       resYh.getType().cast<RankedTensorType>().getShape();
-  SmallVector<int64_t> sliceShape({1, yhShape[0], yhShape[1], yhShape[2]});
-  Type elementType = resYh.getType().cast<RankedTensorType>().getElementType();
-  Type sliceType = RankedTensorType::get(sliceShape, elementType);
+  int64_t T = isNoneType(resY) ? 1 : shapeX[0];
+  int64_t D = resYhShape[0];
+  int64_t B = resYhShape[1];
+  int64_t H = resYhShape[2];
+  Type elementType = resYh.getType().cast<ShapedType>().getElementType();
   Value axis = zero;
   Value step = one;
-  ONNXSliceOp sliceOp =
-      rewriter.create<ONNXSliceOp>(loc, sliceType, val, start, end, axis, step);
-  ONNXSqueezeV11Op squeezeOp = rewriter.create<ONNXSqueezeV11Op>(
-      loc, resYh.getType(), sliceOp.getResult(), rewriter.getI64ArrayAttr(0));
-  return squeezeOp.getResult();
+  Value ret;
+  if (directionStr.equals_insensitive("forward") ||
+      directionStr.equals_insensitive("reverse")) {
+    Value start = directionStr.equals_insensitive("forward") ? minusOne : zero;
+    Value end = directionStr.equals_insensitive("forward") ? intMax : one;
+
+    SmallVector<int64_t> sliceShape({1, D, B, H});
+    Type sliceType = RankedTensorType::get(sliceShape, elementType);
+    ONNXSliceOp sliceOp = rewriter.create<ONNXSliceOp>(
+        loc, sliceType, val, start, end, axis, step);
+    ret = rewriter.create<ONNXSqueezeV11Op>(
+        loc, resYh.getType(), sliceOp.getResult(), rewriter.getI64ArrayAttr(0));
+  } else if (directionStr.equals_insensitive("bidirectional")) {
+    SmallVector<int64_t> splitShape({T, 1, B, H});
+    Type splitType = RankedTensorType::get(splitShape, elementType);
+    SmallVector<Type> splitTypes = {splitType, splitType};
+    int64_t splitAxis = 1;
+    ONNXSplitV11Op splitOp = rewriter.create<ONNXSplitV11Op>(
+        loc, splitTypes, val, splitAxis, nullptr);
+    SmallVector<int64_t> sliceShape({1, 1, B, H});
+    Type sliceType = RankedTensorType::get(sliceShape, elementType);
+    Value fwdLastSlice = rewriter.create<ONNXSliceOp>(
+        loc, sliceType, splitOp.getResults()[0], minusOne, intMax, axis, step);
+    Value bkwFirstSlice = rewriter.create<ONNXSliceOp>(
+        loc, sliceType, splitOp.getResults()[1], zero, one, axis, step);
+    SmallVector<int64_t> concatShape({1, D, B, H});
+    Type concatType = RankedTensorType::get(concatShape, elementType);
+    int64_t concatAxis = 1;
+    Value concatOp = rewriter.create<ONNXConcatOp>(
+        loc, concatType, ValueRange({fwdLastSlice, bkwFirstSlice}), concatAxis);
+    SmallVector<int64_t> squeezeShape({D, B, H});
+    Type squeezeType = RankedTensorType::get(squeezeShape, elementType);
+    ret = rewriter.create<ONNXSqueezeV11Op>(
+        loc, squeezeType, concatOp, rewriter.getI64ArrayAttr(0));
+  } else {
+    llvm_unreachable("Invalid direction.");
+  }
+  return ret;
 }
 
 Value getLSTMGRUGetYc(

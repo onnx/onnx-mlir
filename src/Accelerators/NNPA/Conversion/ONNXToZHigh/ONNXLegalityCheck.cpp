@@ -548,6 +548,11 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
   Value R = op.R();
   Value B = op.B();
 
+  // Check direction.
+  if ((direction != FORWARD) && (direction != REVERSE) &&
+      (direction != BIDIRECTIONAL))
+    return false;
+
   // Check data type.
   if (!isValidElementType(W))
     return false;
@@ -558,9 +563,6 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
 
   int64_t hidden_size = R.getType().cast<ShapedType>().getShape()[2];
   llvm::Optional<ArrayAttr> activations = op.activations();
-  // check direction. BIDIRECTIONAL not supported now.
-  if (direction == BIDIRECTIONAL)
-    return false;
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
   if (wShape[0] < 0 || wShape[1] < 0)
@@ -612,6 +614,11 @@ bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
   Value R = op.R();
   Value B = op.B();
 
+  // Check direction.
+  if ((direction != FORWARD) && (direction != REVERSE) &&
+      (direction != BIDIRECTIONAL))
+    return false;
+
   // Check data type.
   if (!isValidElementType(W))
     return false;
@@ -622,9 +629,6 @@ bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
 
   int64_t hidden_size = R.getType().cast<ShapedType>().getShape()[2];
   llvm::Optional<ArrayAttr> activations = op.activations();
-  // check direction. BIDIRECTIONAL not supported now.
-  if (direction == BIDIRECTIONAL)
-    return false;
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
   if (wShape[0] < 0 || wShape[1] < 0)
