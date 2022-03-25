@@ -1,10 +1,14 @@
-//===------ PyExecusionSession.hpp - PyExecutionSession Declaration -------===//
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===------ PyExecutionSession.hpp - PyExecutionSession Declaration -------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains declaration of PyExecusionSession class, which helps
+// This file contains declaration of PyExecutionSession class, which helps
 // python programs interact with compiled binary model libraries.
 //
 //===----------------------------------------------------------------------===//
@@ -21,15 +25,25 @@ namespace onnx_mlir {
 
 class PyExecutionSession : public onnx_mlir::ExecutionSession {
 public:
-  PyExecutionSession(std::string sharedLibPath, std::string entryPointName)
-      : onnx_mlir::ExecutionSession(sharedLibPath, entryPointName){};
+  PyExecutionSession(std::string sharedLibPath, bool defaultEntryPoint = true)
+      : onnx_mlir::ExecutionSession(sharedLibPath, defaultEntryPoint) {}
 
+  std::vector<std::string> pyQueryEntryPoints();
+  void pySetEntryPoint(std::string entryPointName);
   std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray);
+  std::string pyInputSignature();
+  std::string pyOutputSignature();
 };
 } // namespace onnx_mlir
 
 PYBIND11_MODULE(PyRuntime, m) {
   py::class_<onnx_mlir::PyExecutionSession>(m, "ExecutionSession")
-      .def(py::init<const std::string &, const std::string &>())
-      .def("run", &onnx_mlir::PyExecutionSession::pyRun);
+      .def(py::init<const std::string &>())
+      .def(py::init<const std::string &, const bool>())
+      .def("entry_points", &onnx_mlir::PyExecutionSession::pyQueryEntryPoints)
+      .def("set_entry_point", &onnx_mlir::PyExecutionSession::pySetEntryPoint)
+      .def("run", &onnx_mlir::PyExecutionSession::pyRun)
+      .def("input_signature", &onnx_mlir::PyExecutionSession::pyInputSignature)
+      .def("output_signature",
+          &onnx_mlir::PyExecutionSession::pyOutputSignature);
 }

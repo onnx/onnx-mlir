@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # ===-------------------------- utils.py - Utility ------------------------===//
 #
 # Copyright 2019-2020 The IBM Research Authors.
@@ -62,7 +64,7 @@ class DocCheckerCtx(object):
         self.doc_file = None
 
     def open_doc(self, file_name):
-        self.doc_file = WrappedFile(open(file_name, 'r'))
+        self.doc_file = WrappedFile(open(file_name, 'r', encoding='utf-8'))
         return self.doc_file
 
     def doc_file_ext(self):

@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --convert-krnl-to-affine --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --shape-inference --convert-onnx-to-krnl --convert-krnl-to-affine --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
 
 // -----
 
@@ -6,22 +6,32 @@ func @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> tensor<*x
   %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<4xi64>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK: llvm.func @llvm.memcpy.p0i8.p0i8.i64(!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.i64, !llvm.i1)
-  // CHECK: [[TMP:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)> 
-  // CHECK: llvm.insertvalue %arg0, %0[0] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)> 
-  // CHECK: llvm.insertvalue %arg1, %1[1] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)> 
-  // CHECK: llvm.insertvalue %arg2, %2[2] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)> 
-  // CHECK: llvm.insertvalue %arg3, %3[3, 0] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)> 
-  // CHECK: llvm.insertvalue %arg5, %4[4, 0] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
-  // CHECK: llvm.insertvalue %arg4, %5[3, 1] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
-  // CHECK: [[TMP1:%.+]] = llvm.insertvalue %arg6, %6[4, 1] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)> 
-  // CHECK: [[RES:%.+]] = llvm.insertvalue {{.*}}[4, 3] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<4 x i64>, array<4 x i64>)> 
-  // CHECK: [[EXT_VAL_0:%.+]] = llvm.extractvalue [[RES]][1] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<4 x i64>, array<4 x i64>)> 
-  // CHECK: [[DST:%.+]] = llvm.bitcast [[EXT_VAL_0]] : !llvm.ptr<float> to !llvm.ptr<i8>
-  // CHECK: [[EXT_VAL_1:%.+]] = llvm.extractvalue [[TMP1]][1] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)> 
-  // CHECK: [[SRC:%.+]] = llvm.bitcast [[EXT_VAL_1]] : !llvm.ptr<float> to !llvm.ptr<i8>
-  // CHECK: [[SIZE:%.+]] = llvm.sext %{{.*}} : !llvm.i64 to !llvm.i64
-  // CHECK: [[VOLATILE:%.+]] = llvm.mlir.constant(false) : !llvm.i1
-  // CHECK: llvm.call @llvm.memcpy.p0i8.p0i8.i64([[DST]], [[SRC]], [[SIZE]], [[VOLATILE]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.i64, !llvm.i1) -> ()
-  // CHECK: llvm.return [[RES]] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<4 x i64>, array<4 x i64>)> 
+// CHECK-LABEL: llvm.func @test_reshape
+// CHECK:    [[OLD_MEMREF:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+// CHECK:    [[INSERT_1_:%.+]] = llvm.insertvalue {{.*}}, [[OLD_MEMREF]][0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+// CHECK:    [[INSERT_2_:%.+]] = llvm.insertvalue {{.*}}, [[INSERT_1_]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+// CHECK:    [[INSERT_3_:%.+]] = llvm.insertvalue {{.*}}, [[INSERT_2_]][2] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+// CHECK:    [[INSERT_4_:%.+]] = llvm.insertvalue {{.*}}, [[INSERT_3_]][3, 0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+// CHECK:    [[INSERT_5_:%.+]] = llvm.insertvalue {{.*}}, [[INSERT_4_]][4, 0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+// CHECK:    [[INSERT_6_:%.+]] = llvm.insertvalue {{.*}}, [[INSERT_5_]][3, 1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+// CHECK-DAG:[[INSERT_7_:%.+]] = llvm.insertvalue {{.*}}, [[INSERT_6_]][4, 1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+
+// COM: Check that there is no copy but only a new MemRef with a new view, i.e. new sizes and strides.
+// CHECK-DAG:  [[NEW_MEMREF:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
+// CHECK-DAG:  [[EXTRACT_1:%.+]] = llvm.extractvalue [[INSERT_7_]][0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+// CHECK-DAG:  [[EXTRACT_2:%.+]] = llvm.extractvalue [[INSERT_7_]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+// CHECK:      [[INSERT_8_:%.+]] = llvm.insertvalue [[EXTRACT_1]], [[NEW_MEMREF]][0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
+// CHECK-DAG:  [[INSERT_9_:%.+]] = llvm.insertvalue [[EXTRACT_2]], [[INSERT_8_]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
+// CHECK-DAG:  [[C0:%.+]] = llvm.mlir.constant(0 : index) : i64
+// CHECK:      [[INSERT_10_:%.+]] = llvm.insertvalue [[C0]], [[INSERT_9_]][2] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
+// CHECK:      [[INSERT_11_:%.+]] = llvm.insertvalue {{.*}}, [[INSERT_10_]][3, 0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
+// CHECK:      [[INSERT_12_:%.+]] = llvm.insertvalue {{.*}}, [[INSERT_11_]][4, 0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
+// CHECK:      [[INSERT_13_:%.+]] = llvm.insertvalue {{.*}}, [[INSERT_12_]][3, 1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
+// CHECK:      [[INSERT_14_:%.+]] = llvm.insertvalue {{.*}}, [[INSERT_13_]][4, 1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
+// CHECK:      [[INSERT_15_:%.+]] = llvm.insertvalue {{.*}}, [[INSERT_14_]][3, 2] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
+// CHECK:      [[INSERT_16_:%.+]] = llvm.insertvalue {{.*}}, [[INSERT_15_]][4, 2] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
+// CHECK-DAG:  [[INSERT_17_:%.+]] = llvm.insertvalue {{.*}}, [[INSERT_16_]][3, 3] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
+// CHECK-DAG:  [[C1:%.+]] = llvm.mlir.constant(1 : index) : i64
+// CHECK:      [[INSERT_18_:%.+]] = llvm.insertvalue [[C1]], [[INSERT_17_]][4, 3] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
+// CHECK:      llvm.return [[INSERT_18_]] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
 }

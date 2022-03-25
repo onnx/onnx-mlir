@@ -1,24 +1,155 @@
+# Builds and tests ONNX-MLIR
+# Downloads MLIR artifact if it exists for the current LLVM commit, otherwise builds MLIR and publishes artifact
+
 trigger:
-- master
+- main
+
+parameters:
+- name: CTEST_PARALLEL_LEVEL
+  type: string
+  default: '4'
 
 jobs:
-
-- job: 'Build_onnx_mlir_Windows'
+- job: Build_onnx_mlir_Windows
   timeoutInMinutes: 240
   pool:
     vmImage: 'windows-2019'
-  strategy:
-    maxParallel: 4
 
   steps:
   - task: UsePythonVersion@0
+    displayName: Set Python Version to 3.9
     inputs:
-      versionSpec: '3.7.9'
-      architecture: 'x64'
+      versionSpec: '3.9'
 
-  - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
-    displayName: Add conda to PATH
+  - task: PowerShell@2
+    displayName: Setup ninja and lit
+    inputs:
+      targetType: 'inline'
+      script: |
+        echo "Check and set up ninja"
+        if (-Not (Get-Command ninja -errorAction SilentlyContinue))
+        {
+          echo "choco install ninja"
+          choco install ninja
+        }
+        echo "Check and set up lit"
+        if (-Not (Get-Command lit -errorAction SilentlyContinue))
+        {
+          python3 -m pip install --upgrade wheel
+          python3 -m pip install --upgrade lit
+        }
+        $litPath=(Get-Command lit).Path
+        echo "Setting LitPath to $litPath"
+        Write-Host "##vso[task.setvariable variable=LitPath;]$litPath"
+
+  - checkout: self
+    clean: true
+    submodules: recursive
+    path: onnx-mlir
 
   - script: |
-      call utils\setup-onnx-mlir-windows.cmd
-    displayName: Build onnx-mlir
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      call onnx-mlir\utils\install-protobuf.cmd
+    displayName: Install protobuf
+    workingDirectory: $(Agent.BuildDirectory)
+
+  - powershell: |
+      $mlir_match = Select-String -Path onnx-mlir\utils\clone-mlir.sh -Pattern "git checkout ([\da-f]+)"
+      $mlir_tag = "MLIR_Windows_$($mlir_match.Matches.Groups[1].Value)"
+
+      # TODO Use this version to select artifact by tag, once permissions are enabled this will be significantly faster
+      #$build_list = az pipelines build list --org https://dev.azure.com/onnx-pipelines --project onnx --definition-ids 9 --tags $mlir_tag --status completed --result succeeded | ConvertFrom-Json
+      #$most_recent = $build_list | Sort-Object startTime | Select-Object -Last 1
+      #$build_id = $most_recent.id
+      #Write-Host "##vso[task.setvariable variable=MLIRArtifactName]$mlir_tag"
+      #if ($build_id) {
+      #  Write-Host "##vso[task.setvariable variable=MLIRBuildID]$build_id"
+      #} else {
+      #  Write-Host "##vso[build.addbuildtag]$mlir_tag"
+      #  Write-Host "##vso[task.setvariable variable=MLIRBuildID]NotFound"
+      #}
+      # TODO When changing to tag version, remove this line and below
+
+      $build_list = az pipelines build list --org https://dev.azure.com/onnx-pipelines --project onnx --definition-ids 9 --status completed | ConvertFrom-Json
+      $build_list_by_date = $build_list | Sort-Object -Descending startTime
+
+      $build_id = "NotFound"
+      :BuildsLoop foreach($build in $build_list_by_date) {
+         $artifact_list = az pipelines runs artifact list --org https://dev.azure.com/onnx-pipelines --project onnx --run-id $build.id | ConvertFrom-Json
+         foreach($artifact in $artifact_list) {
+           if ($artifact.name -eq $mlir_tag) {
+             $build_id = $build.id
+             break BuildsLoop
+           }
+        }
+      }
+
+      Write-Host "Found build $build_id containing artifact $mlir_tag"
+      Write-Host "##vso[task.setvariable variable=MLIRArtifactName]$mlir_tag"
+      Write-Host "##vso[task.setvariable variable=MLIRBuildID]$build_id"
+    displayName: Check for mlir artifact
+    env:
+      AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
+    failOnStderr: true
+    workingDirectory: $(Agent.BuildDirectory)
+
+  - script: |
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      call onnx-mlir\utils\install-mlir.cmd
+    displayName: Install mlir
+    workingDirectory: $(Agent.BuildDirectory)
+    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
+
+  - publish: $(Agent.BuildDirectory)\llvm-project\build\install
+    artifact: $(MLIRArtifactName)
+    displayName: Publish mlir artifact
+    condition: and(succeeded(), eq(variables['MLIRBuildID'], 'NotFound'))
+      
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      source: specific
+      project: onnx
+      pipeline: 9
+      runVersion: specific
+      runId: $(MLIRBuildID)
+      artifact: $(MLIRArtifactName)
+      path: $(Agent.BuildDirectory)\llvm-project\build
+    displayName: Download mlir artifact
+    condition: and(succeeded(), ne(variables['MLIRBuildID'], 'NotFound'))
+
+  - script: |
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      call onnx-mlir\utils\build-onnx-mlir.cmd
+    env:
+      lit_path: $(LitPath)
+    displayName: Install onnx-mlir
+    workingDirectory: $(Agent.BuildDirectory)
+
+  - script: |
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      call onnx-mlir\utils\check-onnx-mlir.cmd
+    displayName: Test onnx-mlir
+    workingDirectory: $(Agent.BuildDirectory)
+
+  - script: |
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      call onnx-mlir\utils\check-onnx-numerical.cmd
+    displayName: Run onnx-mlir numerical tests
+    workingDirectory: $(Agent.BuildDirectory)
+    env:
+      CTEST_PARALLEL_LEVEL: ${{ parameters.CTEST_PARALLEL_LEVEL }}
+
+  - script: |
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      cd onnx-mlir\third_party\onnx
+      python setup.py -q install
+    env:
+      CMAKE_ARGS: -DCMAKE_PREFIX_PATH="$(Agent.BuildDirectory)\protobuf_install" -DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON -DONNX_USE_MSVC_STATIC_RUNTIME=OFF
+    displayName: Install onnx
+    workingDirectory: $(Agent.BuildDirectory)
+
+  - script: |
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      call onnx-mlir\utils\check-docs.cmd
+    displayName: Run onnx-mlir doc tests
+    workingDirectory: $(Agent.BuildDirectory)

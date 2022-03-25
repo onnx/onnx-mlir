@@ -1,6 +1,10 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----------------Slice.cpp - Lowering Slice Op----------------------=== //
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -9,91 +13,66 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
 struct ONNXSliceOpLowering : public ConversionPattern {
-  ONNXSliceOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXSliceOp::getOperationName(), 1, ctx) {}
+  ONNXSliceOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXSliceOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXSliceOpAdaptor operandAdaptor(operands);
     ONNXSliceOp sliceOp = llvm::cast<ONNXSliceOp>(op);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
 
-    ONNXSliceOpShapeHelper shapeHelper(&sliceOp, &rewriter);
-    if (failed(shapeHelper.Compute(operandAdaptor)))
-      return op->emitError("Failed to scan Silce parameters successfully");
+    ONNXSliceOpShapeHelper shapeHelper(&sliceOp, &rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapecomputed));
 
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     int64_t outputRank = outputMemRefType.getShape().size();
-    assert(outputRank == shapeHelper.outputDims.size());
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
-    for (int ii = 0; ii < outputRank; ++ii)
-      outputLoops.pushBounds(
-          shapeHelper.context, 0, shapeHelper.outputDims[ii]);
+    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
-    IndexExprContext childContext(shapeHelper.context);
-#if 0
-    printf("\nalex, make a test for affine\n");
-    Value ind0 = outputLoops.getInductionVar(0);
-    IndexExpr i1 = outerloopContex.CreateSymbolIndex(ind0);
-    IndexExpr t1;
-    t1.Sub(i1, i1);
-    t1.debugPrint("index loop i -i");
-#endif
+    IndexExprScope childScope(&rewriter, shapeHelper.scope);
+    // Scope for krnl ops
+    KrnlBuilder createKrnl(rewriter, loc);
 
-    // Proceed with the load data["i * step + start} for all dim].
-    Value loadVal;
-    SmallVector<Value, 4> loadIndices;
-    bool loadIsAffine = true;
+    // Compute indices for the load and store op.
+    // Load: "i * step + start" for all dim.
+    // Store: "i" for all dims.
+    SmallVector<IndexExpr, 4> loadIndices;
+    SmallVector<IndexExpr, 4> storeIndices;
     for (int ii = 0; ii < outputRank; ++ii) {
-      Value loopVal = outputLoops.getInductionVar(ii);
-      IndexExpr loopIndex = childContext.createLoopIterIndex(loopVal);
-      IndexExpr start = childContext.createSymbolIndexFromParentContext(
-          shapeHelper.starts[ii]);
-      IndexExpr step = childContext.createSymbolIndexFromParentContext(
-          shapeHelper.steps[ii]);
-      loopIndex.debugPrint("loop index");
-      step.debugPrint("  steps");
-      start.debugPrint("  start");
-      IndexExpr actualIndex = (step * loopIndex) + start;
-      loadIndices.emplace_back(actualIndex.getValue());
-
-      if (!actualIndex.isAffine())
-        loadIsAffine = false;
+      Value inductionVal = outputLoops.getInductionVar(ii);
+      DimIndexExpr inductionIndex(inductionVal);
+      IndexExpr start = SymbolIndexExpr(shapeHelper.starts[ii]);
+      IndexExpr step = SymbolIndexExpr(shapeHelper.steps[ii]);
+      loadIndices.emplace_back((step * inductionIndex) + start);
+      storeIndices.emplace_back(inductionIndex);
     }
-    // Load data.
-    if (loadIsAffine) {
-      loadVal = rewriter.create<AffineLoadOp>(
-          loc, operandAdaptor.data(), loadIndices);
-    } else {
-      loadVal =
-          rewriter.create<LoadOp>(loc, operandAdaptor.data(), loadIndices);
-    }
-    // Store data
-    SmallVector<Value, 4> storeIndices;
-    for (int ii = 0; ii < outputRank; ++ii) {
-      storeIndices.emplace_back(outputLoops.getInductionVar(ii));
-    }
-    rewriter.create<AffineStoreOp>(loc, loadVal, alloc, storeIndices);
+    // Load data and store in alloc data.
+    Value loadVal = createKrnl.loadIE(operandAdaptor.data(), loadIndices);
+    createKrnl.storeIE(loadVal, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
-    printf("done alex\n\n");
     return success();
   }
 };
 
-void populateLoweringONNXSliceOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXSliceOpLowering>(ctx);
+void populateLoweringONNXSliceOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXSliceOpLowering>(typeConverter, ctx);
 }

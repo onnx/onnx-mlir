@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # ===------- file_same_as_stdout.py - File Same as stdout Directive -------===//
 #
 # Copyright 2019-2020 The IBM Research Authors.
@@ -26,7 +28,7 @@ def handle(config, ctx):
 
     # Read in file content.
     file = config["file"]
-    with open(os.path.join(ctx.root_dir, file)) as f:
+    with open(os.path.join(ctx.root_dir, file), encoding='utf-8') as f:
         file_content = f.read()
 
     # Execute command and retrieve output.

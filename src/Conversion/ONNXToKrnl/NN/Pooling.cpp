@@ -1,6 +1,10 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- Pooling.cpp - Lowering Pooling Ops ------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -9,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -28,8 +33,8 @@ Value getIdentityValue<ONNXAveragePoolOp>(
 // Scalar operations
 template <>
 struct ScalarOp<ONNXAveragePoolOp> {
-  using FOp = AddFOp;
-  using IOp = AddIOp;
+  using FOp = arith::AddFOp;
+  using IOp = arith::AddIOp;
 };
 
 template <>
@@ -38,8 +43,9 @@ Value emitScalarOpFor<ONNXMaxPoolSingleOutOp>(
     Type elementType, ArrayRef<Value> scalarOperands) {
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  auto max = rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
-  auto result = rewriter.create<SelectOp>(loc, max, lhs, rhs);
+  auto max =
+      rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGT, lhs, rhs);
+  auto result = rewriter.create<arith::SelectOp>(loc, max, lhs, rhs);
   return result;
 }
 
@@ -68,6 +74,21 @@ std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
     return {};
   else
     return dilations;
+}
+
+//===----------------------------------------------------------------------===//
+// Get dilation attribute.
+//
+template <typename PoolOp>
+llvm::Optional<ArrayAttr> getDilationAttr(PoolOp poolOp) {
+  return llvm::None;
+}
+
+// MaxPool has dilations attribute.
+template <>
+llvm::Optional<ArrayAttr> getDilationAttr<ONNXMaxPoolSingleOutOp>(
+    ONNXMaxPoolSingleOutOp poolOp) {
+  return poolOp.dilations();
 }
 
 //===----------------------------------------------------------------------===//
@@ -100,147 +121,122 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
     ArrayRef<Value> poolDimValues) {
   // AveragePool's result type is FloatType, so it's safe to use DivFOp, SubFOp.
   bool countIncludePad = getCountIncludePad<ONNXAveragePoolOp>(poolOp);
-  Value numerator = rewriter.create<AffineLoadOp>(loc, alloc, resultIndices);
+  Value numerator = rewriter.create<KrnlLoadOp>(loc, alloc, resultIndices);
   Value denominator;
   if (countIncludePad) {
     int64_t kernelSize = 1;
-    for (int i = 0; i < kernelShape.size(); ++i)
+    for (unsigned int i = 0; i < kernelShape.size(); ++i)
       kernelSize *= kernelShape[i];
     denominator =
         emitConstantOp(rewriter, loc, numerator.getType(), kernelSize);
   } else {
     denominator = poolDimValues[0];
-    for (int i = 1; i < poolDimValues.size(); ++i)
-      denominator = rewriter.create<MulIOp>(loc, denominator, poolDimValues[i]);
-    denominator = rewriter.create<IndexCastOp>(
-        loc, denominator, rewriter.getIntegerType(64));
+    for (unsigned int i = 1; i < poolDimValues.size(); ++i)
+      denominator =
+          rewriter.create<arith::MulIOp>(loc, denominator, poolDimValues[i]);
+    denominator = rewriter.create<arith::IndexCastOp>(
+        loc, rewriter.getIntegerType(64), denominator);
     denominator =
-        rewriter.create<SIToFPOp>(loc, denominator, numerator.getType());
+        rewriter.create<arith::SIToFPOp>(loc, numerator.getType(), denominator);
   }
 
-  Value average = rewriter.create<DivFOp>(loc, numerator, denominator);
+  Value average = rewriter.create<arith::DivFOp>(loc, numerator, denominator);
 
-  rewriter.create<AffineStoreOp>(loc, average, alloc, resultIndices);
+  rewriter.create<KrnlStoreOp>(loc, average, alloc, resultIndices);
 }
 
 //===----------------------------------------------------------------------===//
-// Helper function to insert alloc and dealloc ops for memref of dynamic shape.
+// Helper function to do post-processing after applying a filter window.
 //
-Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
-    Location loc, bool insertDealloc, MemRefType memRefType, Value inputOperand,
-    ArrayRef<int64_t> kernelShape, ArrayRef<int64_t> pads,
-    ArrayRef<int64_t> strides, ArrayRef<int64_t> dilations, bool ceilMode) {
-  AllocOp alloc;
+template <typename PoolOp>
+void postProcessPoolingWindow(ConversionPatternRewriter &rewriter, Location loc,
+    PoolOp poolOp, Value alloc, ArrayRef<Value> resultIndices,
+    ArrayRef<IndexExpr> kernelShape, ArrayRef<Value> poolDimValues) {}
 
-  // Shape and rank information related to result and kernel.
-  auto resultShape = memRefType.getShape();
-  auto resultRank = resultShape.size();
-  auto kernelRank = kernelShape.size();
-  auto kernelOffset = resultRank - kernelRank;
-
-  // Compute dimensions of the result of this operation.
-  SmallVector<Value, 2> allocOperands;
-  for (int i = 0; i < kernelOffset; ++i) {
-    if (resultShape[i] < 0) {
-      auto dim = rewriter.create<DimOp>(loc, inputOperand, i);
-      allocOperands.emplace_back(dim);
-    }
+// Calculate the average value for AveragePool.
+template <>
+void postProcessPoolingWindow<ONNXAveragePoolOp>(
+    ConversionPatternRewriter &rewriter, Location loc, ONNXAveragePoolOp poolOp,
+    Value alloc, ArrayRef<Value> resultIndices, ArrayRef<IndexExpr> kernelShape,
+    ArrayRef<Value> poolDimValues) {
+  // AveragePool's result type is FloatType, so it's safe to use DivFOp, SubFOp.
+  bool countIncludePad = getCountIncludePad<ONNXAveragePoolOp>(poolOp);
+  Value numerator = rewriter.create<KrnlLoadOp>(loc, alloc, resultIndices);
+  Value denominator;
+  if (countIncludePad) {
+    IndexExpr kernelSize = LiteralIndexExpr(1);
+    for (unsigned int i = 0; i < kernelShape.size(); ++i)
+      kernelSize = kernelSize * kernelShape[i];
+    denominator = kernelSize.getValue();
+    denominator = rewriter.create<arith::IndexCastOp>(
+        loc, rewriter.getI64Type(), denominator);
+    // TODO: we are implying here that the dest type is a float.
+    denominator =
+        rewriter.create<arith::SIToFPOp>(loc, numerator.getType(), denominator);
+  } else {
+    denominator = poolDimValues[0];
+    for (unsigned int i = 1; i < poolDimValues.size(); ++i)
+      denominator =
+          rewriter.create<arith::MulIOp>(loc, denominator, poolDimValues[i]);
+    denominator = rewriter.create<arith::IndexCastOp>(
+        loc, rewriter.getIntegerType(64), denominator);
+    // TODO: we are implying here that the dest type is a float.
+    denominator =
+        rewriter.create<arith::SIToFPOp>(loc, numerator.getType(), denominator);
   }
 
-  // Obtain an affine map to compute the output dimension.
-  AffineMap dimMap = getConvDimMap(rewriter, ceilMode);
-  for (int i = kernelOffset; i < resultShape.size(); ++i) {
-    if (resultShape[i] < 0) {
-      int spatialIndex = i - kernelOffset;
-      // Prepare arguments for the affine map.
-      SmallVector<Value, 4> dimArgs;
-      dimArgs.emplace_back(rewriter.create<DimOp>(loc, inputOperand, i));
-      dimArgs.emplace_back(emitConstantOp(
-          rewriter, loc, rewriter.getIndexType(), kernelShape[spatialIndex]));
-      dimArgs.emplace_back(
-          emitConstantOp(rewriter, loc, rewriter.getIndexType(),
-              (pads[spatialIndex] + pads[spatialIndex + kernelRank])));
-      dimArgs.emplace_back(emitConstantOp(
-          rewriter, loc, rewriter.getIndexType(), strides[spatialIndex]));
-      dimArgs.emplace_back(
-          emitConstantOp(rewriter, loc, rewriter.getIndexType(),
-              dilations.empty() ? 1 : dilations[spatialIndex]));
+  Value average = rewriter.create<arith::DivFOp>(loc, numerator, denominator);
 
-      // Apply the affine map.
-      Value dimVal = rewriter.create<AffineApplyOp>(loc, dimMap, dimArgs);
-      allocOperands.emplace_back(dimVal);
-    }
-  }
-  alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
-  if (insertDealloc) {
-    auto *parentBlock = alloc.getOperation()->getBlock();
-    auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
-    dealloc.getOperation()->moveBefore(&parentBlock->back());
-  }
-  return alloc;
+  rewriter.create<KrnlStoreOp>(loc, average, alloc, resultIndices);
 }
 
 //===----------------------------------------------------------------------===//
 // Template function that does pooling.
 //
-template <typename PoolOp>
+template <typename PoolOp, typename PoolOpAdaptor, typename PoolOpShapeHelper>
 struct ONNXPoolOpLowering : public ConversionPattern {
-  ONNXPoolOpLowering(MLIRContext *ctx)
-      : ConversionPattern(PoolOp::getOperationName(), 1, ctx) {}
+  ONNXPoolOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter, PoolOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXMaxPoolSingleOutOpAdaptor operandAdaptor(operands);
+    PoolOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
 
     PoolOp poolOp = llvm::dyn_cast<PoolOp>(op);
 
-    // Read kernel_shape attribute
-    SmallVector<int64_t, 4> kernelShape;
-    auto kernelShapeAttribute = poolOp.kernel_shapeAttr();
-    for (Attribute dim : kernelShapeAttribute.getValue())
-      kernelShape.emplace_back(dim.cast<IntegerAttr>().getInt());
-
-    // Read strides attribute
-    SmallVector<int64_t, 4> strides;
-    auto stridesAttribute = poolOp.stridesAttr();
-    for (Attribute stride : stridesAttribute.getValue())
-      strides.emplace_back(stride.cast<IntegerAttr>().getInt());
+    // Get shape.
+    PoolOpShapeHelper shapeHelper(&poolOp, &rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapecomputed));
 
     // Read ceil_mode attribute
     auto ceilMode = poolOp.ceil_mode();
 
-    // Read pads attribute
-    SmallVector<int64_t, 4> pads;
-    auto padsAttribute = poolOp.padsAttr();
-    for (Attribute pad : padsAttribute.getValue())
-      pads.emplace_back(pad.cast<IntegerAttr>().getInt());
-
-    // Read dilations attribute if the op has.
-    std::vector<int64_t> dilations = getDilations<PoolOp>(poolOp);
-    bool isDilated = !dilations.empty();
-
     // Type information about the input and result of this operation.
-    auto inputOperand = operandAdaptor.X();
+    auto inputOperand = (Value)operandAdaptor.X();
     auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     auto outputShape = memRefType.getShape();
     auto outputElementType = memRefType.getElementType();
 
     // Kernel offset in the input shape.
-    int kernelOffset = inputShape.size() - kernelShape.size();
+    int kernelShapeSize = shapeHelper.kernelShape.size();
+    int kernelOffset = inputShape.size() - kernelShapeSize;
+    bool isDilated = false;
+    for (int i = 0; i < kernelShapeSize; ++i)
+      if (shapeHelper.dilations[i] > 1)
+        isDilated = true;
+
+    // Scope for krnl ops
+    IndexExprScope ieScope(&rewriter, loc);
+    KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the output of this operation.
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
-
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else {
-      alloc = insertAllocAndDeallocForPooling(rewriter, loc, insertDealloc,
-          memRefType, inputOperand, kernelShape, pads, strides, dilations,
-          ceilMode);
-    }
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
 
     // input = Pool(output)
     //
@@ -285,9 +281,6 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //         startW = max(firstValidW, wo * sW - ptW)
     //         endW = min(W, wo * sW + (kW - 1) * dW + 1 - ptW)
     //
-    //         hDim= round(float(endH - startH) / float(dH))
-    //         wDim= round(float(endW - startW) / float(dW))
-    //
     //         # Apply the pooling window.
     //         # The pooling window can be smaller than the kernel when slicing
     //         # over the border edges.
@@ -298,8 +291,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //
     //         # The above two for-loops are rewritten as follows:
     //         # (since KrnlIterateOp has not supported `step` yet)
-    //         for hp in range(hDim):
-    //           for wp in range(wDim):
+    //         for hp in range(endH - startH):
+    //           for wp in range(endW - startW):
     //             hi = hp * dH + startH
     //             wi = wp * dW + startW
     //             output[n, c, ho, wo] = emitScalarOpFor(output[n, c, ho, wo],
@@ -339,12 +332,19 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     {
       // 2. Emit the body of the output loop nest, which applies a pooling
       // window to a region in the input, producing one output pixel.
-      SmallVector<Value, 4> outputIndices;
-      for (int i = 0; i < outputShape.size(); ++i)
-        outputIndices.emplace_back(outputLoops.getInductionVar(i));
+      SmallVector<IndexExpr, 4> outputIndices;
+      for (unsigned int i = 0; i < outputShape.size(); ++i)
+        outputIndices.emplace_back(
+            DimIndexExpr(outputLoops.getInductionVar(i)));
 
       // 2.1 Emit: output[n][c][ho][wo] = identity
-      rewriter.create<AffineStoreOp>(loc, identity, alloc, outputIndices);
+      // Create a local reduction value for output[n][c][ho][wo].
+      // Single scalar, no need for default alignment.
+      MemRefBuilder createMemRef(rewriter, loc);
+      MathBuilder createMath(createMemRef);
+      Value reductionVal =
+          createMemRef.alloca(MemRefType::get({}, memRefType.getElementType()));
+      createKrnl.store(identity, reductionVal);
 
       // 2.2 Emit affine maps which express the lower and upper bounds for the
       // pooling window's dimensions.
@@ -356,115 +356,63 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
       //   hDim = round(float(endH - startH) / float(dH))
 
-      // Prepare induction variables and constants as arguments for the affine
-      // maps.
-      SmallVector<SmallVector<Value, 4>, 4> IVsAndConstants;
-      { // Construct IVsAndConstants.
-        for (int i = 0; i < kernelShape.size(); ++i) {
-          SmallVector<Value, 4> ic;
+      // Prepare induction variables.
+      SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
+      {
+        MemRefBoundsIndexCapture inputBounds(inputOperand);
+        for (int i = 0; i < kernelShapeSize; ++i) {
+          int j = i + kernelOffset;
+          SmallVector<IndexExpr, 4> ic;
           // d0, output
-          ic.emplace_back(outputLoops.getInductionVar(i + kernelOffset));
+          ic.emplace_back(outputIndices[j]);
           // s0, input dim
-          if (inputShape[i + kernelOffset] < 0) {
-            ic.emplace_back(
-                rewriter.create<DimOp>(loc, inputOperand, i + kernelOffset));
-          } else {
-            ic.emplace_back(emitConstantOp(rewriter, loc,
-                rewriter.getIndexType(), inputShape[i + kernelOffset]));
-          }
+          ic.emplace_back(inputBounds.getDim(j));
           // s1, kernel dim
-          ic.emplace_back(emitConstantOp(
-              rewriter, loc, rewriter.getIndexType(), kernelShape[i]));
+          ic.emplace_back(SymbolIndexExpr(shapeHelper.kernelShape[i]));
           // s2, pad dim
-          ic.emplace_back(
-              emitConstantOp(rewriter, loc, rewriter.getIndexType(), pads[i]));
+          ic.emplace_back(SymbolIndexExpr(shapeHelper.pads[i]));
           // s3, stride dim
-          ic.emplace_back(emitConstantOp(
-              rewriter, loc, rewriter.getIndexType(), strides[i]));
+          ic.emplace_back(LiteralIndexExpr(shapeHelper.strides[i]));
           // s4, dilation dim
-          ic.emplace_back(emitConstantOp(rewriter, loc, rewriter.getIndexType(),
-              (isDilated) ? dilations[i] : 1));
-          IVsAndConstants.emplace_back(ic);
+          ic.emplace_back(LiteralIndexExpr(shapeHelper.dilations[i]));
+          IVExprs.emplace_back(ic);
         }
       }
 
-      // Affine maps for the pooling window.
-      AffineMap poolStartMap, poolEndMap, poolDimMap;
-      { // Construct poolStartMap, poolEndMap and poolDimMap.
-        // AffineExpr(s) to obtain the dimensions and symbols.
-        AffineExpr outputIndex = rewriter.getAffineDimExpr(0);
-        AffineExpr inputDim = rewriter.getAffineSymbolExpr(0);
-        AffineExpr kernelDim = rewriter.getAffineSymbolExpr(1);
-        AffineExpr padTopDim = rewriter.getAffineSymbolExpr(2);
-        AffineExpr strideDim = rewriter.getAffineSymbolExpr(3);
-        AffineExpr dilationDim = rewriter.getAffineSymbolExpr(4);
-        AffineExpr start1 =
-            (padTopDim).ceilDiv(dilationDim) * dilationDim - padTopDim;
-        AffineExpr start2 = outputIndex * strideDim - padTopDim;
-        AffineExpr end1 = inputDim;
-        AffineExpr end2 = outputIndex * strideDim +
-                          (kernelDim - 1) * dilationDim + 1 - padTopDim;
-
-        // poolDimMap
-        SmallVector<AffineExpr, 4> dimExpr;
-        // Upperbound for an affine.for is `min AffineMap`, where `min` is
-        // automatically inserted when an affine.for is constructed from
-        // an AffineMap, thus we rewrite `endH - startH` as follows:
-        //   endH - start H
-        //     = min(end1, end2) - max(start1, start2)
-        //     = min(end1 - start1, end1 - start2, end2 - start1, end2 - start2)
-        AffineExpr dimExpr1 = end1 - start1;
-        AffineExpr dimExpr2 = end1 - start2;
-        AffineExpr dimExpr3 = end2 - start1;
-        AffineExpr dimExpr4 = end2 - start2;
-        for (AffineExpr de : {dimExpr1, dimExpr2, dimExpr3, dimExpr4}) {
-          if (isDilated) {
-            de = de + 1;
-            de =
-                (ceilMode) ? de.ceilDiv(dilationDim) : de.floorDiv(dilationDim);
-          }
-          dimExpr.emplace_back(de);
-        }
-        poolDimMap = AffineMap::get(1, 5, dimExpr, rewriter.getContext());
-
-        // poolStartMap and poolEndMap
-        poolStartMap =
-            AffineMap::get(1, 5, {start1, start2}, rewriter.getContext());
-        poolEndMap = AffineMap::get(1, 5, {end1, end2}, rewriter.getContext());
+      // Compute the start and end position of the conv window.
+      //   firstValidH = ceil(float(ptH / dH)) * dH - ptH
+      //   startH = max(firstValidH, ho * sH - ptH)
+      //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
+      SmallVector<IndexExpr, 4> windowStartExprs, windowEndExprs;
+      for (int i = 0; i < kernelShapeSize; ++i) {
+        std::vector<mlir::IndexExpr> exprs =
+            getIndexExprsForConvWindow(IVExprs[i], ceilMode, isDilated);
+        windowStartExprs.emplace_back(exprs[0]);
+        windowEndExprs.emplace_back(exprs[1]);
       }
 
-      // Obtain values from the affine maps.
-      SmallVector<Value, 4> poolStartValues;
-      SmallVector<Value, 4> poolDimValues;
-      { // Construct poolStartValues and poolDimValues.
-        for (int i = 0; i < kernelShape.size(); ++i) {
-          Value startIndex = rewriter.create<AffineMaxOp>(
-              loc, poolStartMap, IVsAndConstants[i]);
-          poolStartValues.emplace_back(startIndex);
-
-          Value endIndex =
-              rewriter.create<AffineMinOp>(loc, poolEndMap, IVsAndConstants[i]);
-
-          Value dim = rewriter.create<SubIOp>(loc, endIndex, startIndex);
-          if (isDilated) {
-            Value one =
-                emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
-            Value numerator = rewriter.create<AddIOp>(loc, dim, one);
-            Value denominator = IVsAndConstants[i][5]; // dilations[i]
-            dim = rewriter.create<SignedDivIOp>(loc, numerator, denominator);
-            if (ceilMode) {
-              auto remainder =
-                  rewriter.create<SignedRemIOp>(loc, numerator, denominator);
-              Value zero =
-                  emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
-              auto isZero = rewriter.create<CmpIOp>(
-                  loc, CmpIPredicate::eq, remainder, zero);
-              auto dimPlusOne = rewriter.create<AddIOp>(loc, dim, one);
-              dim = rewriter.create<SelectOp>(loc, isZero, dim, dimPlusOne);
-            }
+      // Compute the size of the full conv window.
+      //   hDim = round(float(endH - startH) / float(dH))
+      //   wDim = round(float(endW - startW) / float(dW))
+      SmallVector<Value, 4> fullWindowSize;
+      for (int i = 0; i < kernelShapeSize; ++i) {
+        Value dim = createMath.sub(
+            windowEndExprs[i].getValue(), windowStartExprs[i].getValue());
+        if (isDilated) {
+          Value one = createMath.constantIndex(1);
+          Value numerator = createMath.add(dim, one);
+          Value denominator = IVExprs[i][5].getValue(); // dilations[i]
+          dim = createMath.div(numerator, denominator);
+          if (ceilMode) {
+            auto remainder =
+                rewriter.create<arith::RemSIOp>(loc, numerator, denominator);
+            Value zero = createMath.constantIndex(0);
+            Value isZero = createMath.eq(remainder, zero);
+            Value dimPlusOne = createMath.add(dim, one);
+            dim = createMath.select(isZero, dim, dimPlusOne);
           }
-          poolDimValues.emplace_back(dim);
         }
+        fullWindowSize.emplace_back(dim);
       }
 
       // 2.3 Define pooling loops.
@@ -474,34 +422,41 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //      wi = wp * dW + startW
       //      output[n][c][ho][wo] =
       //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
-      BuildKrnlLoop poolingLoops(rewriter, loc, kernelShape.size());
+      BuildKrnlLoop poolingLoops(rewriter, loc, kernelShapeSize);
       poolingLoops.createDefineOp();
-      for (int i = 0; i < kernelShape.size(); ++i)
-        poolingLoops.pushBounds(
-            0, poolDimMap, llvm::makeArrayRef(IVsAndConstants[i]));
+      // Push bounds.
+      AffineMap windowSizeMap =
+          getWindowAffineMap(rewriter, ceilMode, isDilated);
+      for (int i = 0; i < kernelShapeSize; ++i) {
+        // Affine map's operands.
+        SmallVector<Value, 4> operands;
+        for (IndexExpr expr : IVExprs[i])
+          operands.emplace_back(expr.getValue());
+        poolingLoops.pushBounds(0, windowSizeMap, operands);
+      }
+      // Create a krnl iterate.
       poolingLoops.createIterateOp();
 
-      auto ipOuterLoops = rewriter.saveInsertionPoint();
+      auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
       rewriter.setInsertionPointToStart(poolingLoops.getIterateBlock());
       {
         // 2.4 Emit the body of the pooling loop nest.
         // Prepare indices to access a pixel in the input.
-        std::vector<Value> inputIndices;
+        SmallVector<IndexExpr, 4> inputIndices;
         { // Construct inputIndices
           for (int i = 0; i < kernelOffset; ++i)
             inputIndices.emplace_back(outputIndices[i]);
-          for (int i = kernelOffset; i < inputShape.size(); ++i) {
+          for (int i = kernelOffset; i < (int)inputShape.size(); ++i) {
             int j = i - kernelOffset;
+            DimIndexExpr hp(poolingLoops.getInductionVar(j));
+            IndexExpr startH = windowStartExprs[j];
             if (isDilated) {
               // hi = hp * dH + startH
-              Value index = rewriter.create<MulIOp>(
-                  loc, poolingLoops.getInductionVar(j), IVsAndConstants[j][5]);
-              index = rewriter.create<AddIOp>(loc, index, poolStartValues[j]);
-              inputIndices.emplace_back(index);
+              IndexExpr dH = IVExprs[j][5];
+              inputIndices.emplace_back(hp * dH + startH);
             } else {
               // hi = hp + startH
-              inputIndices.emplace_back(rewriter.create<AddIOp>(
-                  loc, poolingLoops.getInductionVar(j), poolStartValues[j]));
+              inputIndices.emplace_back(hp + startH);
             }
           }
         }
@@ -509,19 +464,22 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         // Apply pooling operation.
         //      output[n][c][ho][wo] =
         //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
-        Value loadInput =
-            rewriter.create<LoadOp>(loc, inputOperand, inputIndices);
-        Value loadPartialOutput =
-            rewriter.create<AffineLoadOp>(loc, alloc, outputIndices);
+        Value loadInput = createKrnl.loadIE(inputOperand, inputIndices);
+        Value loadPartialOutput = createKrnl.load(reductionVal);
         Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
             outputElementType, {loadPartialOutput, loadInput});
-        rewriter.create<AffineStoreOp>(loc, output, alloc, outputIndices);
+        createKrnl.store(output, reductionVal);
       }
+      rewriter.restoreInsertionPoint(ipOuterLoopRegion);
+      Value output = createKrnl.load(reductionVal);
+      createKrnl.storeIE(output, alloc, outputIndices);
 
       // 2.5 Post-processing for the pooling window, e.g. taking average.
-      rewriter.restoreInsertionPoint(ipOuterLoops);
+      SmallVector<Value, 4> outputIndicesInValue;
+      for (IndexExpr expr : outputIndices)
+        outputIndicesInValue.emplace_back(expr.getValue());
       postProcessPoolingWindow<PoolOp>(rewriter, loc, poolOp, alloc,
-          outputIndices, kernelShape, poolDimValues);
+          outputIndicesInValue, shapeHelper.kernelShape, fullWindowSize);
     }
 
     // Go back to the main region.
@@ -533,8 +491,12 @@ struct ONNXPoolOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXPoolingOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXPoolOpLowering<ONNXMaxPoolSingleOutOp>>(ctx);
-  patterns.insert<ONNXPoolOpLowering<ONNXAveragePoolOp>>(ctx);
+void populateLoweringONNXPoolingOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXPoolOpLowering<ONNXMaxPoolSingleOutOp,
+      ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>>(
+      typeConverter, ctx);
+  patterns.insert<ONNXPoolOpLowering<ONNXAveragePoolOp,
+      ONNXAveragePoolOpAdaptor, ONNXAveragePoolOpShapeHelper>>(
+      typeConverter, ctx);
 }

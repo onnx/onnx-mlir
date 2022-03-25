@@ -1,11 +1,12 @@
-add_library(OMKrnlToAffine
-        KrnlToAffine.cpp)
-target_include_directories(OMKrnlToAffine
-        PRIVATE
-        ${ONNX_MLIR_SRC_ROOT}
-        ${ONNX_MLIR_BIN_ROOT}
-        ${ONNX_MLIR_SRC_ROOT})
-# Header dependencies
-add_dependencies(OMKrnlToAffine OMKrnlOpsInc)
-# Linking dependencies
-add_dependencies(OMKrnlToAffine OMKrnlOps)
+# SPDX-License-Identifier: Apache-2.0
+
+add_onnx_mlir_library(OMKrnlToAffine
+  KrnlToAffine.cpp
+
+  LINK_LIBS PUBLIC
+  OMSpecializedKernelOpInterface
+  OMONNXOps
+  OMSupport
+  MLIRTransforms
+  MLIRAffineUtils
+  )

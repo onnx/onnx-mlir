@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===--------------------- KrnlOps.hpp - Krnl Operations ------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -12,40 +16,37 @@
 
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/DialectImplementation.h"
-#include "mlir/IR/Function.h"
 #include "mlir/IR/OpDefinition.h"
-#include "mlir/IR/StandardTypes.h"
+#include "mlir/Interfaces/LoopLikeInterface.h"
+#include "src/Interface/SpecializedKernelOpInterface.hpp"
 #include "llvm/ADT/TypeSwitch.h"
 
-#include "KrnlHelper.hpp"
-#include "KrnlTypes.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
+#include "src/Dialect/Krnl/KrnlTypes.hpp"
+#include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 
 namespace mlir {
+
 class KrnlOpsDialect : public Dialect {
 public:
   KrnlOpsDialect(MLIRContext *context);
+  KrnlOpsDialect() = delete;
+
   static StringRef getDialectNamespace() { return "krnl"; }
 
   /// Parse a type registered to this dialect.
-  Type parseType(DialectAsmParser &parser) const override {
-    if (succeeded(parser.parseOptionalKeyword("loop")))
-      return LoopType::get(parser.getBuilder().getContext());
-
-    parser.emitError(parser.getCurrentLocation(), "Unknown type");
-    return {};
-  }
+  Type parseType(DialectAsmParser &parser) const override;
 
   /// Print a type registered to this dialect.
-  void printType(Type type, DialectAsmPrinter &os) const override {
-    TypeSwitch<Type>(type).Case<LoopType>([&](Type) {
-      os << "loop";
-      return;
-    });
-  }
+  void printType(Type type, DialectAsmPrinter &os) const override;
 };
+
+} // namespace mlir
 
 #define GET_OP_CLASSES
 #include "src/Dialect/Krnl/KrnlOps.hpp.inc"
-} // namespace mlir

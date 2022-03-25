@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-------- DisconnectKrnlDimFromAlloc.cpp ------------------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -14,7 +18,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -69,18 +73,18 @@ public:
     auto loc = krnlDimOp.getLoc();
 
     // If index is not constant, return failure.
-    ConstantOp indexOp =
-        dyn_cast<ConstantOp>(krnlDimOp.index().getDefiningOp());
+    arith::ConstantOp indexOp =
+        dyn_cast<arith::ConstantOp>(krnlDimOp.index().getDefiningOp());
     if (!indexOp)
       return failure();
 
     // Get the integer value of the index.
-    int64_t index = indexOp.getAttrOfType<IntegerAttr>("value").getInt();
+    int64_t index = indexOp->getAttrOfType<IntegerAttr>("value").getInt();
 
     // Get the shape of the MemRef argument.
     auto memRefType = krnlDimOp.alloc().getType().dyn_cast<MemRefType>();
     auto memRefShape = memRefType.getShape();
-    auto rank = memRefShape.size();
+    int64_t rank = memRefShape.size();
     assert(index >= 0 && index < rank && "Index must be in bounds");
 
     // Get the defining operation of the first argument of krnl.dim.
@@ -92,22 +96,24 @@ public:
     Value result;
     if (memRefShape[index] > -1) {
       // If dimension is static, then we can just emit the constant value.
-      result = rewriter.create<ConstantOp>(loc,
+      result = rewriter.create<arith::ConstantOp>(loc,
           rewriter.getIntegerAttr(rewriter.getIndexType(), memRefShape[index]));
-    } else if (firstArgDefOp && isa<AllocOp>(firstArgDefOp)) {
+    } else if (firstArgDefOp && isa<memref::AllocOp>(firstArgDefOp)) {
       // Get defining operation for the MemRef argument.
-      AllocOp allocOp = dyn_cast<AllocOp>(krnlDimOp.alloc().getDefiningOp());
+      memref::AllocOp allocOp =
+          dyn_cast<memref::AllocOp>(krnlDimOp.alloc().getDefiningOp());
 
       // If dimension is dynamic we need to return the input alloc Value which
       // corresponds to it.
       int64_t dynDimIdx = getAllocArgIndex(allocOp, index);
-      assert(dynDimIdx >= 0 && dynDimIdx < allocOp.getOperands().size() &&
+      assert(dynDimIdx >= 0 &&
+             dynDimIdx < (int64_t)allocOp.getOperands().size() &&
              "Dynamic index outside range of alloc argument list.");
       result = allocOp.getOperands()[dynDimIdx];
-    } else if (memRefType.getAffineMaps().empty()) {
+    } else if (memRefType.getLayout().isIdentity()) {
       // Use a standard DimOp since no map is present.
-      result =
-          rewriter.create<DimOp>(loc, krnlDimOp.alloc(), krnlDimOp.index());
+      result = rewriter.create<memref::DimOp>(
+          loc, krnlDimOp.alloc(), krnlDimOp.index());
     } else {
       llvm_unreachable(
           "dynamic sized MemRef with map must be defined by an AllocOp");
@@ -123,20 +129,28 @@ public:
  *  Function pass that disconnects krnl.dim emission from its MemRef alloc.
  */
 class DisconnectKrnlDimFromAllocPass
-    : public PassWrapper<DisconnectKrnlDimFromAllocPass, FunctionPass> {
+    : public PassWrapper<DisconnectKrnlDimFromAllocPass,
+          OperationPass<FuncOp>> {
 public:
-  void runOnFunction() override {
-    auto function = getFunction();
+  StringRef getArgument() const override { return "lower-krnl-shape-to-std"; }
+
+  StringRef getDescription() const override {
+    return "Lowers krnl shape-related operations.";
+  }
+
+  void runOnOperation() override {
+    auto function = getOperation();
 
     ConversionTarget target(getContext());
-    OwningRewritePatternList patterns;
+    RewritePatternSet patterns(&getContext());
     patterns.insert<DisconnectKrnlDimFromAlloc>(&getContext());
 
-    applyPatternsAndFoldGreedily(function, patterns);
+    if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+      signalPassFailure();
   }
 };
 } // namespace
 
-std::unique_ptr<Pass> mlir::createDisconnectKrnlDimFromAllocPass() {
+std::unique_ptr<Pass> onnx_mlir::createDisconnectKrnlDimFromAllocPass() {
   return std::make_unique<DisconnectKrnlDimFromAllocPass>();
 }

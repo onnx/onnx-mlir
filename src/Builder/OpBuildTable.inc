@@ -4,6 +4,190 @@
 //   Details can be found in docs/ImportONNXDefs.md .
 //********************************************************
 
+op_dialect_version_map_["Abs"] = {13};
+op_dialect_version_map_["Acos"] = {7};
+op_dialect_version_map_["Acosh"] = {9};
+op_dialect_version_map_["Adagrad"] = {1};
+op_dialect_version_map_["Adam"] = {1};
+op_dialect_version_map_["Add"] = {13};
+op_dialect_version_map_["And"] = {7};
+op_dialect_version_map_["ArgMax"] = {13};
+op_dialect_version_map_["ArgMin"] = {13};
+op_dialect_version_map_["ArrayFeatureExtractor"] = {1};
+op_dialect_version_map_["Asin"] = {7};
+op_dialect_version_map_["Asinh"] = {9};
+op_dialect_version_map_["Atan"] = {7};
+op_dialect_version_map_["Atanh"] = {9};
+op_dialect_version_map_["AveragePool"] = {11};
+op_dialect_version_map_["BatchNormalization"] = {9};
+op_dialect_version_map_["Binarizer"] = {1};
+op_dialect_version_map_["BitShift"] = {11};
+op_dialect_version_map_["Cast"] = {13};
+op_dialect_version_map_["CastMap"] = {1};
+op_dialect_version_map_["CategoryMapper"] = {1};
+op_dialect_version_map_["Ceil"] = {13};
+op_dialect_version_map_["Celu"] = {12};
+op_dialect_version_map_["Clip"] = {13, 12, 11, 6};
+op_dialect_version_map_["Compress"] = {11};
+op_dialect_version_map_["Concat"] = {13};
+op_dialect_version_map_["ConcatFromSequence"] = {11};
+op_dialect_version_map_["Constant"] = {13};
+op_dialect_version_map_["ConstantOfShape"] = {9};
+op_dialect_version_map_["Conv"] = {11};
+op_dialect_version_map_["ConvInteger"] = {10};
+op_dialect_version_map_["ConvTranspose"] = {11};
+op_dialect_version_map_["Cos"] = {7};
+op_dialect_version_map_["Cosh"] = {9};
+op_dialect_version_map_["CumSum"] = {11};
+op_dialect_version_map_["DepthToSpace"] = {13};
+op_dialect_version_map_["DequantizeLinear"] = {13};
+op_dialect_version_map_["Det"] = {11};
+op_dialect_version_map_["DictVectorizer"] = {1};
+op_dialect_version_map_["Div"] = {13};
+op_dialect_version_map_["Dropout"] = {13};
+op_dialect_version_map_["DynamicQuantizeLinear"] = {11};
+op_dialect_version_map_["Einsum"] = {12};
+op_dialect_version_map_["Elu"] = {6};
+op_dialect_version_map_["Equal"] = {13};
+op_dialect_version_map_["Erf"] = {13};
+op_dialect_version_map_["Exp"] = {13};
+op_dialect_version_map_["Expand"] = {13};
+op_dialect_version_map_["EyeLike"] = {9};
+op_dialect_version_map_["FeatureVectorizer"] = {1};
+op_dialect_version_map_["Flatten"] = {13};
+op_dialect_version_map_["Floor"] = {13};
+op_dialect_version_map_["GRU"] = {7};
+op_dialect_version_map_["Gather"] = {13};
+op_dialect_version_map_["GatherElements"] = {13};
+op_dialect_version_map_["GatherND"] = {13};
+op_dialect_version_map_["Gemm"] = {13};
+op_dialect_version_map_["GlobalAveragePool"] = {1};
+op_dialect_version_map_["GlobalLpPool"] = {2};
+op_dialect_version_map_["GlobalMaxPool"] = {1};
+op_dialect_version_map_["Gradient"] = {1};
+op_dialect_version_map_["Greater"] = {13};
+op_dialect_version_map_["GreaterOrEqual"] = {12};
+op_dialect_version_map_["HardSigmoid"] = {6};
+op_dialect_version_map_["Hardmax"] = {13};
+op_dialect_version_map_["Identity"] = {13};
+op_dialect_version_map_["If"] = {13};
+op_dialect_version_map_["Imputer"] = {1};
+op_dialect_version_map_["InstanceNormalization"] = {6};
+op_dialect_version_map_["IsInf"] = {10};
+op_dialect_version_map_["IsNaN"] = {13};
+op_dialect_version_map_["LRN"] = {13};
+op_dialect_version_map_["LSTM"] = {7};
+op_dialect_version_map_["LabelEncoder"] = {2};
+op_dialect_version_map_["LeakyRelu"] = {6};
+op_dialect_version_map_["Less"] = {13};
+op_dialect_version_map_["LessOrEqual"] = {12};
+op_dialect_version_map_["LinearClassifier"] = {1};
+op_dialect_version_map_["LinearRegressor"] = {1};
+op_dialect_version_map_["Log"] = {13};
+op_dialect_version_map_["LogSoftmax"] = {13};
+op_dialect_version_map_["Loop"] = {13};
+op_dialect_version_map_["LpNormalization"] = {1};
+op_dialect_version_map_["LpPool"] = {11};
+op_dialect_version_map_["MatMul"] = {13};
+op_dialect_version_map_["MatMulInteger"] = {10};
+op_dialect_version_map_["Max"] = {13};
+op_dialect_version_map_["MaxPool"] = {12};
+op_dialect_version_map_["MaxRoiPool"] = {1};
+op_dialect_version_map_["MaxUnpool"] = {11};
+op_dialect_version_map_["Mean"] = {13};
+op_dialect_version_map_["MeanVarianceNormalization"] = {13};
+op_dialect_version_map_["Min"] = {13};
+op_dialect_version_map_["Mod"] = {13};
+op_dialect_version_map_["Momentum"] = {1};
+op_dialect_version_map_["Mul"] = {13};
+op_dialect_version_map_["Multinomial"] = {7};
+op_dialect_version_map_["Neg"] = {13};
+op_dialect_version_map_["NegativeLogLikelihoodLoss"] = {13};
+op_dialect_version_map_["NonMaxSuppression"] = {11};
+op_dialect_version_map_["NonZero"] = {13};
+op_dialect_version_map_["Normalizer"] = {1};
+op_dialect_version_map_["Not"] = {1};
+op_dialect_version_map_["OneHot"] = {11};
+op_dialect_version_map_["OneHotEncoder"] = {1};
+op_dialect_version_map_["Or"] = {7};
+op_dialect_version_map_["PRelu"] = {9};
+op_dialect_version_map_["Pad"] = {13, 11, 2};
+op_dialect_version_map_["Pow"] = {13};
+op_dialect_version_map_["QLinearConv"] = {10};
+op_dialect_version_map_["QLinearMatMul"] = {10};
+op_dialect_version_map_["QuantizeLinear"] = {13};
+op_dialect_version_map_["RNN"] = {7};
+op_dialect_version_map_["RandomNormal"] = {1};
+op_dialect_version_map_["RandomNormalLike"] = {1};
+op_dialect_version_map_["RandomUniform"] = {1};
+op_dialect_version_map_["RandomUniformLike"] = {1};
+op_dialect_version_map_["Range"] = {11};
+op_dialect_version_map_["Reciprocal"] = {13};
+op_dialect_version_map_["ReduceL1"] = {13};
+op_dialect_version_map_["ReduceL2"] = {13};
+op_dialect_version_map_["ReduceLogSum"] = {13};
+op_dialect_version_map_["ReduceLogSumExp"] = {13};
+op_dialect_version_map_["ReduceMax"] = {13};
+op_dialect_version_map_["ReduceMean"] = {13};
+op_dialect_version_map_["ReduceMin"] = {13};
+op_dialect_version_map_["ReduceProd"] = {13};
+op_dialect_version_map_["ReduceSum"] = {13, 11};
+op_dialect_version_map_["ReduceSumSquare"] = {13};
+op_dialect_version_map_["Relu"] = {13};
+op_dialect_version_map_["Reshape"] = {13};
+op_dialect_version_map_["Resize"] = {13, 11, 10};
+op_dialect_version_map_["ReverseSequence"] = {10};
+op_dialect_version_map_["RoiAlign"] = {10};
+op_dialect_version_map_["Round"] = {11};
+op_dialect_version_map_["SVMClassifier"] = {1};
+op_dialect_version_map_["SVMRegressor"] = {1};
+op_dialect_version_map_["Scaler"] = {1};
+op_dialect_version_map_["Scan"] = {11};
+op_dialect_version_map_["Scatter"] = {11};
+op_dialect_version_map_["ScatterElements"] = {13};
+op_dialect_version_map_["ScatterND"] = {13};
+op_dialect_version_map_["Selu"] = {6};
+op_dialect_version_map_["SequenceAt"] = {11};
+op_dialect_version_map_["SequenceConstruct"] = {11};
+op_dialect_version_map_["SequenceEmpty"] = {11};
+op_dialect_version_map_["SequenceErase"] = {11};
+op_dialect_version_map_["SequenceInsert"] = {11};
+op_dialect_version_map_["SequenceLength"] = {11};
+op_dialect_version_map_["Shape"] = {13};
+op_dialect_version_map_["Shrink"] = {9};
+op_dialect_version_map_["Sigmoid"] = {13};
+op_dialect_version_map_["Sign"] = {13};
+op_dialect_version_map_["Sin"] = {7};
+op_dialect_version_map_["Sinh"] = {9};
+op_dialect_version_map_["Size"] = {13};
+op_dialect_version_map_["Slice"] = {13};
+op_dialect_version_map_["Softmax"] = {13};
+op_dialect_version_map_["SoftmaxCrossEntropyLoss"] = {13};
+op_dialect_version_map_["Softplus"] = {1};
+op_dialect_version_map_["Softsign"] = {1};
+op_dialect_version_map_["SpaceToDepth"] = {13};
+op_dialect_version_map_["Split"] = {13, 11};
+op_dialect_version_map_["SplitToSequence"] = {11};
+op_dialect_version_map_["Sqrt"] = {13};
+op_dialect_version_map_["Squeeze"] = {13, 11};
+op_dialect_version_map_["StringNormalizer"] = {10};
+op_dialect_version_map_["Sub"] = {13};
+op_dialect_version_map_["Sum"] = {13};
+op_dialect_version_map_["Tan"] = {7};
+op_dialect_version_map_["Tanh"] = {13};
+op_dialect_version_map_["TfIdfVectorizer"] = {9};
+op_dialect_version_map_["ThresholdedRelu"] = {10};
+op_dialect_version_map_["Tile"] = {13};
+op_dialect_version_map_["TopK"] = {11};
+op_dialect_version_map_["Transpose"] = {13};
+op_dialect_version_map_["TreeEnsembleClassifier"] = {1};
+op_dialect_version_map_["TreeEnsembleRegressor"] = {1};
+op_dialect_version_map_["Unique"] = {11};
+op_dialect_version_map_["Unsqueeze"] = {13, 11};
+op_dialect_version_map_["Upsample"] = {10, 9, 7};
+op_dialect_version_map_["Where"] = {9};
+op_dialect_version_map_["Xor"] = {7};
+op_dialect_version_map_["ZipMap"] = {1};
 import_handler_map_["Abs"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAbsOp>;
 import_handler_map_["Acos"] = 
@@ -33,11 +217,19 @@ import_handler_map_["BatchNormalization"] =
 import_handler_map_["BitShift"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitShiftOp>;
 import_handler_map_["Cast"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCastOp>;
+   &onnx_mlir::detail::FrontendGenImpl::ImportNodeCast;
 import_handler_map_["Ceil"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCeilOp>;
+import_handler_map_["Celu"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCeluOp>;
 import_handler_map_["Clip"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipOp>;
+import_handler_map_["ClipV12"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipV12Op>;
+import_handler_map_["ClipV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipV11Op>;
+import_handler_map_["ClipV6"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipV6Op>;
 import_handler_map_["Compress"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCompressOp>;
 import_handler_map_["Concat"] = 
@@ -69,9 +261,11 @@ import_handler_map_["Det"] =
 import_handler_map_["Div"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDivOp>;
 import_handler_map_["Dropout"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDropoutOp>;
+   &onnx_mlir::detail::FrontendGenImpl::ImportNodeDropout;
 import_handler_map_["DynamicQuantizeLinear"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDynamicQuantizeLinearOp>;
+import_handler_map_["Einsum"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXEinsumOp>;
 import_handler_map_["Elu"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXEluOp>;
 import_handler_map_["Equal"] = 
@@ -106,6 +300,8 @@ import_handler_map_["GlobalMaxPool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGlobalMaxPoolOp>;
 import_handler_map_["Greater"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGreaterOp>;
+import_handler_map_["GreaterOrEqual"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGreaterOrEqualOp>;
 import_handler_map_["HardSigmoid"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXHardSigmoidOp>;
 import_handler_map_["Hardmax"] = 
@@ -128,6 +324,8 @@ import_handler_map_["LeakyRelu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLeakyReluOp>;
 import_handler_map_["Less"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLessOp>;
+import_handler_map_["LessOrEqual"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLessOrEqualOp>;
 import_handler_map_["Log"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLogOp>;
 import_handler_map_["LogSoftmax"] = 
@@ -164,6 +362,8 @@ import_handler_map_["Multinomial"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMultinomialOp>;
 import_handler_map_["Neg"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXNegOp>;
+import_handler_map_["NegativeLogLikelihoodLoss"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXNegativeLogLikelihoodLossOp>;
 import_handler_map_["NonMaxSuppression"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXNonMaxSuppressionOp>;
 import_handler_map_["NonZero"] = 
@@ -178,6 +378,10 @@ import_handler_map_["PRelu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPReluOp>;
 import_handler_map_["Pad"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodePad;
+import_handler_map_["PadV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPadV11Op>;
+import_handler_map_["PadV2"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPadV2Op>;
 import_handler_map_["Pow"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPowOp>;
 import_handler_map_["QLinearConv"] = 
@@ -218,6 +422,8 @@ import_handler_map_["ReduceProd"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceProdOp>;
 import_handler_map_["ReduceSum"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumOp>;
+import_handler_map_["ReduceSumV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumV11Op>;
 import_handler_map_["ReduceSumSquare"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumSquareOp>;
 import_handler_map_["Relu"] = 
@@ -226,6 +432,10 @@ import_handler_map_["Reshape"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReshapeOp>;
 import_handler_map_["Resize"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXResizeOp>;
+import_handler_map_["ResizeV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXResizeV11Op>;
+import_handler_map_["ResizeV10"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXResizeV10Op>;
 import_handler_map_["ReverseSequence"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReverseSequenceOp>;
 import_handler_map_["RoiAlign"] = 
@@ -271,7 +481,9 @@ import_handler_map_["Size"] =
 import_handler_map_["Slice"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeSlice;
 import_handler_map_["Softmax"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxOp>;
+   &onnx_mlir::detail::FrontendGenImpl::ImportNodeSoftmax;
+import_handler_map_["SoftmaxCrossEntropyLoss"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxCrossEntropyLossOp>;
 import_handler_map_["Softplus"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftplusOp>;
 import_handler_map_["Softsign"] = 
@@ -280,12 +492,16 @@ import_handler_map_["SpaceToDepth"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSpaceToDepthOp>;
 import_handler_map_["Split"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSplitOp>;
+import_handler_map_["SplitV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSplitV11Op>;
 import_handler_map_["SplitToSequence"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSplitToSequenceOp>;
 import_handler_map_["Sqrt"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSqrtOp>;
 import_handler_map_["Squeeze"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSqueezeOp>;
+import_handler_map_["SqueezeV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSqueezeV11Op>;
 import_handler_map_["StringNormalizer"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXStringNormalizerOp>;
 import_handler_map_["Sub"] = 
@@ -310,8 +526,14 @@ import_handler_map_["Unique"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUniqueOp>;
 import_handler_map_["Unsqueeze"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUnsqueezeOp>;
+import_handler_map_["UnsqueezeV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUnsqueezeV11Op>;
 import_handler_map_["Upsample"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleOp>;
+import_handler_map_["UpsampleV9"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleV9Op>;
+import_handler_map_["UpsampleV7"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleV7Op>;
 import_handler_map_["Where"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXWhereOp>;
 import_handler_map_["Xor"] = 
@@ -352,3 +574,11 @@ import_handler_map_["TreeEnsembleRegressor"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTreeEnsembleRegressorOp>;
 import_handler_map_["ZipMap"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXZipMapOp>;
+import_handler_map_["Adagrad"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAdagradOp>;
+import_handler_map_["Adam"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAdamOp>;
+import_handler_map_["Gradient"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGradientOp>;
+import_handler_map_["Momentum"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMomentumOp>;

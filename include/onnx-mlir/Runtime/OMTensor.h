@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-------------- OMTensor.h - OMTensor Declaration header --------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -23,7 +27,7 @@
 #include <stdbool.h>
 #endif // #ifdef __cplusplus
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__MVS__)
 #include <stdlib.h>
 #else
 #include <malloc.h>
@@ -50,6 +54,10 @@ struct OMTensor;
 
 #ifndef __cplusplus
 typedef struct OMTensor OMTensor;
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /**
@@ -93,7 +101,25 @@ OMTensor *omTensorCreate(
  *
  */
 OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
-    int64_t rank, OM_DATA_TYPE dtype, int owning);
+    int64_t rank, OM_DATA_TYPE dtype, int64_t owning);
+
+/**
+ * Create an OMTensor with the specified shape, rank and element type,
+ * allocate uninitialized data for the specified shape.
+ * This function is intentionally left out from the header because it is only
+ * used by the wrapper code we emit around inference function that converts
+ * MemRefs to OMTensors for user convenience.
+ *
+ * The OMTensor created using this constructor owns the underlying memory
+ * space allocated to the content of the tensor.
+ *
+ * @param shape list of integers indicating the tensor shape.
+ * @param rank tensor rank.
+ * @param dtype tensor element data type.
+ * @return pointer to OMTensor created, NULL if creation failed.
+ *
+ */
+OMTensor *omTensorCreateEmpty(int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
 
 /**
  * \brief Destroy the OMTensor struct.
@@ -103,7 +129,8 @@ OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
  * function will free up the memory space underlying the tensor as well. The
  * documentation of OMTensor constructors clarifies the ownership semantics.
  *
- * @param tensor pointer to the OMTensor
+ * @param tensor pointer to the OMTensor. The function simply returns when
+ * pointer is null.
  *
  */
 void omTensorDestroy(OMTensor *tensor);
@@ -115,7 +142,7 @@ void omTensorDestroy(OMTensor *tensor);
  * @return pointer to the data buffer of the OMTensor,
  *         NULL if the data buffer is not set.
  */
-void *omTensorGetDataPtr(OMTensor *tensor);
+void *omTensorGetDataPtr(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data shape getter.
@@ -129,7 +156,7 @@ void *omTensorGetDataPtr(OMTensor *tensor);
  * @param tensor pointer to the OMTensor
  * @return pointer to the data shape array.
  */
-int64_t *omTensorGetDataShape(OMTensor *tensor);
+int64_t *omTensorGetShape(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data shape setter.
@@ -141,9 +168,9 @@ int64_t *omTensorGetDataShape(OMTensor *tensor);
  * manage the shape array oneself.
  *
  * @param tensor pointer to the OMTensor
- * @param shape data sizes array to be set
+ * @param shape data shape array to be set
  *
- * Set the data sizes array of the OMTensor to the values in the input array.
+ * Set the data shape array of the OMTensor to the values in the input array.
  */
 void omTensorSetShape(OMTensor *tensor, int64_t *shape);
 
@@ -159,7 +186,7 @@ void omTensorSetShape(OMTensor *tensor, int64_t *shape);
  * @param tensor pointer to the OMTensor
  * @return pointer to the data strides array.
  */
-int64_t *omTensorGetStrides(OMTensor *tensor);
+int64_t *omTensorGetStrides(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data strides setter
@@ -175,7 +202,28 @@ int64_t *omTensorGetStrides(OMTensor *tensor);
  *
  * Set the data strides array of the OMTensor to the values in the input array.
  */
-void omTensorSetStrides(OMTensor *tensor, int64_t *strides);
+void omTensorSetStrides(OMTensor *tensor, int64_t *stride);
+
+/**
+ * \brief OMTensor data strides setter with stride values from PyArray strides
+ *
+ * Note that PyArray stride values are in bytes, while OMTensor stride values in
+ * elements. Thus, PyArray stride values will be divided by datatype size before
+ * passing to OMTensor stride values.
+ *
+ * n int64 elements are copied from the strides array to indicate the
+ * per-dimension stride of the tensor, where n is the rank of the tensor.
+ *
+ * The strides array is copied without being freed, so caller is expected to
+ * manage the strides array oneself.
+ *
+ * @param tensor pointer to the OMTensor
+ * @param strides tensor strides array to be set.
+ *
+ * Set the data strides array of the OMTensor to the values in the input array.
+ */
+void omTensorSetStridesWithPyArrayStrides(
+    OMTensor *tensor, int64_t *stridesInBytes);
 
 /**
  * \brief OMTensor data type getter
@@ -183,7 +231,7 @@ void omTensorSetStrides(OMTensor *tensor, int64_t *strides);
  * @param tensor pointer to the OMTensor
  * @return ONNX data type of the data buffer elements.
  */
-OM_DATA_TYPE omTensorGetDataType(OMTensor *tensor);
+OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data type setter
@@ -196,7 +244,7 @@ OM_DATA_TYPE omTensorGetDataType(OMTensor *tensor);
 void omTensorSetDataType(OMTensor *tensor, OM_DATA_TYPE dataType);
 
 /* Helper function to get the ONNX data type size in bytes */
-static inline int getDataTypeSize(OM_DATA_TYPE dataType) {
+static inline int64_t getDataTypeSize(OM_DATA_TYPE dataType) {
   return OM_DATA_TYPE_SIZE[dataType];
 }
 
@@ -206,15 +254,15 @@ static inline int getDataTypeSize(OM_DATA_TYPE dataType) {
  * @param tensor pointer to the OMTensor
  * @return the total size of the data buffer in bytes.
  */
-int64_t omTensorGetDataBufferSize(OMTensor *tensor);
+int64_t omTensorGetBufferSize(const OMTensor *tensor);
 
 /**
  * \brief OMTensor rank getter
  *
  * @param tensor, pointer to the OMTensor
- * @return rank of data sizes and strides of the OMTensor.
+ * @return rank of data shape and strides of the OMTensor.
  */
-int omTensorGetRank(OMTensor *tensor);
+int64_t omTensorGetRank(const OMTensor *tensor);
 
 /**
  * \brief OMTensor number of elements getter
@@ -222,6 +270,30 @@ int omTensorGetRank(OMTensor *tensor);
  * @param tensor, pointer to the OMTensor
  * @return the number of elements in the data buffer.
  */
-int64_t omTensorGetNumElems(OMTensor *tensor);
+int64_t omTensorGetNumElems(const OMTensor *tensor);
+
+/**
+ * \brief OMTensor owning flag getter
+ *
+ * @return owning flag of the OMTensor.
+ */
+int64_t omTensorGetOwning(const OMTensor *tensor);
+
+/**
+ * \brief OMTensor owning flag setter
+ */
+void omTensorSetOwning(OMTensor *tensor, int64_t owning);
+
+/**
+ * Print an OMTensor to stdout.
+ *
+ * @param msg, pointer to descriptive string
+ * @param tensor, pointer to the OMTensor to print
+ */
+void omTensorPrint(const char *msg, const OMTensor *tensor);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // ONNX_MLIR_OMTENSOR_H

@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===------------ ResultTypeInferenceOpInterface.hpp --------------===//
 //===------- Infer Data Type for Result of Op Interface Definition -------===//
 //

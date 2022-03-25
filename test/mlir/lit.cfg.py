@@ -16,11 +16,14 @@ config.name = 'Open Neural Network Frontend'
 
 config.test_format = lit.formats.ShTest(not llvm_config.use_lit_shell)
 
+# suffixes: A list of file extensions to treat as test files.
+config.suffixes = ['.mlir']
+
 # test_source_root: The root path where tests are located.
-config.test_source_root = config.onnx_mlir_test_src_dir
+config.test_source_root = os.path.dirname(__file__)
 
 # test_exec_root: The root path where tests should be run.
-config.test_exec_root = config.onnx_mlir_test_build_dir
+config.test_exec_root = os.path.join(config.onnx_mlir_obj_root, 'test', 'mlir')
 
 llvm_config.use_default_substitutions()
 
@@ -30,8 +33,18 @@ llvm_config.with_environment('PATH', config.llvm_tools_dir, append_path=True)
 tool_dirs = [
     config.onnx_mlir_tools_dir, config.mlir_tools_dir, config.llvm_tools_dir
 ]
-tool_names = [
-    'onnx-mlir', 'onnx-mlir-opt', 'mlir-opt', 'mlir-translate', "binary-decoder"
+
+tools = [
+    'onnx-mlir',
+    'onnx-mlir-opt',
+    'mlir-opt',
+    'mlir-translate',
 ]
-tools = [ToolSubst(s, unresolved='ignore') for s in tool_names]
+
 llvm_config.add_tool_substitutions(tools, tool_dirs)
+
+# This is based on the same code in llvm and it is meant to determine what
+# the supported targets for llvm & friends are - this allow us to filter test
+# execution based on the available targets
+for arch in config.targets_to_build.split():
+    config.available_features.add(arch.lower())

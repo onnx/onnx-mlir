@@ -1,0 +1,46 @@
+name: GitHub Action MacOS amd64
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+    - name: install tools that are needed for compilation
+      run: brew install ninja protobuf pybind11
+    - name: cache MLIR directory
+      id: cache-mlir
+      uses: actions/cache@v2
+      env:
+        cache-name: cache-mlir-directory
+      with:
+        path: ~/work/onnx-mlir/llvm-project
+        key: V8-${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}
+    - name: clone & build MLIR
+      if: steps.cache-mlir.outputs.cache-hit != 'true'
+      run: |
+        cd ~/work/onnx-mlir
+        sh ~/work/onnx-mlir/onnx-mlir/utils/clone-mlir.sh
+        sh ~/work/onnx-mlir/onnx-mlir/utils/build-mlir.sh
+    - name: install third_party/onnx
+      run: |
+        cd ~/work/onnx-mlir/onnx-mlir
+        pip3 install -e third_party/onnx
+    - name: build onnx-mlir
+      run: |
+        cd ~/work/onnx-mlir
+        sh ~/work/onnx-mlir/onnx-mlir/utils/install-onnx-mlir.sh
+    - name: run onnx-mlir backend tests
+      run: |
+        cd ~/work/onnx-mlir
+        sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-backend.sh
+    - name: run onnx-mlir numerical tests
+      run: |
+        cd ~/work/onnx-mlir
+        sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-numerical.sh

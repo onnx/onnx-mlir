@@ -1,6 +1,10 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- Constant.cpp - Lowering Constant Op -----------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -15,15 +19,15 @@ using namespace mlir;
 struct ONNXConstantOpLowering : public ConversionPattern {
   static int constantID;
 
-  ONNXConstantOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXConstantOp::getOperationName(), 1, ctx) {
-    constantID = 0;
-  }
+  ONNXConstantOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    auto loc = ONNXLoc<ONNXConstantOp>(op);
     auto constantOp = llvm::dyn_cast<ONNXConstantOp>(op);
+    assert(constantOp && "Op does not have type ONNXConstantOp");
 
     if (constantOp.sparse_value().hasValue())
       return emitError(loc, "Only support dense values at this time");
@@ -33,7 +37,7 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     // Shape based computations.
     auto shape = memRefType.getShape();
     int64_t numElements = 1;
-    for (int i = 0; i < shape.size(); ++i)
+    for (unsigned int i = 0; i < shape.size(); ++i)
       numElements *= shape[i];
 
     // Emit the constant global in Krnl dialect.
@@ -42,22 +46,22 @@ struct ONNXConstantOpLowering : public ConversionPattern {
         /*name=*/
         rewriter.getStringAttr("constant_" + std::to_string(constantID)),
         /*value=*/constantOp.value().getValue(),
-        /*offset=*/nullptr);
+        /*offset=*/nullptr,
+        /*alignment=*/nullptr);
 
     // Increment constant ID:
     constantID++;
 
-    // Replace this operation with the generated alloc.
-    // rewriter.replaceOp(op, alloc);
+    // Replace this operation with the generated krnl.global.
     rewriter.replaceOp(op, constantGlobal.getResult());
 
     return success();
   }
 };
 
-int ONNXConstantOpLowering::constantID;
+int ONNXConstantOpLowering::constantID = 0;
 
-void populateLoweringONNXConstantOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXConstantOpLowering>(ctx);
+void populateLoweringONNXConstantOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXConstantOpLowering>(typeConverter, ctx);
 }

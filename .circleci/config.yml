@@ -18,7 +18,7 @@ jobs:
             git submodule update --init --recursive
       # Use cached mlir installation if possible.
       - restore_cache:
-          key: V22-LLVM-PROJECT-{{ arch }}
+          key: V28-LLVM-PROJECT-{{ arch }}
       - run:
           name: Install MLIR
           command: |
@@ -29,11 +29,11 @@ jobs:
               source onnx-mlir/utils/install-mlir.sh
             fi
       - save_cache:
-          key: V22-LLVM-PROJECT-{{ arch }}
+          key: V28-LLVM-PROJECT-{{ arch }}
           paths:
             - llvm-project
       - run:
-          name: Install ONNX MLIR
+          name: Install ONNX-MLIR
           command: source onnx-mlir/utils/install-onnx-mlir.sh
       - run:
           name: Run End-To-End Tests
@@ -42,6 +42,24 @@ jobs:
             cd onnx-mlir/build
             RUNTIME_DIR=$(pwd)/lib cmake --build . --target check-onnx-backend
       - run:
+          name: Run End-To-End Tests With Dynamic Shape
+          command: |
+            sudo pip install -q -e ./onnx-mlir/third_party/onnx
+            cd onnx-mlir/build
+            RUNTIME_DIR=$(pwd)/lib cmake --build . --target check-onnx-backend-dynamic
+      - run:
+          name: Run End-To-End Tests With Compiler Lib
+          command: |
+            sudo pip install -q -e ./onnx-mlir/third_party/onnx
+            cd onnx-mlir/build
+            RUNTIME_DIR=$(pwd)/lib cmake --build . --target check-compilerlib-backend
+      - run:
+          name: Run Document Checks
+          command: |
+            sudo pip install -q -e ./onnx-mlir/third_party/onnx
+            cd onnx-mlir/build
+            RUNTIME_DIR=$(pwd)/lib cmake --build . --target check-docs
+      - run:
           name: Run Unit Tests
           command: |
             cd onnx-mlir/build
@@ -49,15 +67,12 @@ jobs:
             # otherwise CTest fails to find the test executables.
             RUNTIME_DIR=$(pwd)/lib make test -j$(nproc)
       - run:
-          name: Run DocCheck
-          command: cd onnx-mlir/build && cmake --build . --target check-doc
-      - run:
           name: Ensure tablegen documentation is up-to-date
           command: |
             cd onnx-mlir/build
-            cmake --build . --target onnx-mlir-doc
+            cmake --build . --target onnx-mlir-docs
             # Check whether dialect documentation is up-to-date.
-            diff docs/Dialects ../docs/Dialects
+            # diff docs/Dialects ../docs/Dialects
       - run:
           name: Print the Current Time
           command: date

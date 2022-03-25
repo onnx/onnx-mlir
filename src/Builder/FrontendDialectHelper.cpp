@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===--------------------- FrontendDialectHelper.cpp ----------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -7,54 +11,13 @@
 // Helper methods for handling input ONNX models.
 //
 //===----------------------------------------------------------------------===//
+#include "llvm/ADT/SmallVector.h"
 #include <llvm/Support/Endian.h>
 #include <llvm/Support/SwapByteOrder.h>
 
 #include "src/Builder/FrontendDialectHelper.hpp"
 
 namespace onnx_mlir {
-
-void replaceAll(
-    std::string &str, const std::string &from, const std::string &to) {
-  if (from.empty())
-    return;
-  size_t start_pos = 0;
-  while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
-    str.replace(start_pos, from.length(), to);
-    start_pos += to.length(); // In case 'to' contains 'from', like replacing
-                              // 'x' with 'yx'
-  }
-}
-
-std::string legalize_name(std::string name) {
-  std::replace(name.begin(), name.end(), '/', '_');
-  std::replace(name.begin(), name.end(), '-', '_');
-  replaceAll(name, ":", "_colon_");
-  // If tensor name starts with a number, prepend n to make it a legal c++
-  // identifier.
-  if (name.size() > 0 && isdigit(name.at(0)))
-    name.insert(0, 1, 'n');
-  return name;
-}
-
-mlir::Value OnnxMlirSymbolMapping::GetTensorByOnnxName(
-    const std::string &name) {
-  assert(onnx_name2onnx_mlir_tensor.find(legalize_name(name)) !=
-             onnx_name2onnx_mlir_tensor.end() &&
-         "Tensor not found");
-  return onnx_name2onnx_mlir_tensor.at(legalize_name(name));
-}
-
-void OnnxMlirSymbolMapping::AddMapping(
-    const std::string &name, mlir::Value tensor) {
-  assert(onnx_name2onnx_mlir_tensor.count(legalize_name(name)) == 0 &&
-         "Tensor already exists.");
-  onnx_name2onnx_mlir_tensor.emplace(legalize_name(name), tensor);
-}
-
-bool OnnxMlirSymbolMapping::ContainKey(std::string name) {
-  return onnx_name2onnx_mlir_tensor.count(name) != 0;
-}
 
 template <typename T>
 struct TransformValueToONNXData {
@@ -77,6 +40,14 @@ struct TransformValueToONNXData<float> {
   static const google::protobuf::RepeatedField<float> data(
       onnx::TensorProto initializer) {
     return initializer.float_data();
+  }
+};
+
+template <>
+struct TransformValueToONNXData<int16_t> {
+  static const google::protobuf::RepeatedField<int32_t> data(
+      onnx::TensorProto initializer) {
+    return initializer.int32_data();
   }
 };
 
@@ -112,12 +83,20 @@ struct TransformValueToONNXData<int8_t> {
   }
 };
 
+template <>
+struct TransformValueToONNXData<bool> {
+  static const google::protobuf::RepeatedField<int32_t> data(
+      onnx::TensorProto initializer) {
+    return initializer.int32_data();
+  }
+};
+
 // Helper method for constructing an array attribute from a model input.
 template <typename T>
-static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
+std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
   size_t size;
   if (initializer.raw_data().size()) {
-    // copy & take care of endianness
+    // Copy & take care of endianness.
     std::vector<char> byteInitializer;
     std::copy(initializer.raw_data().begin(), initializer.raw_data().end(),
         back_inserter(byteInitializer));
@@ -128,33 +107,43 @@ static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
     // ONNX tensor content raw data is always in LE.
     if (llvm::support::endian::system_endianness() !=
         llvm::support::endianness::little)
-      for (int i = 0; i < array.size(); i++)
+      for (size_t i = 0; i < array.size(); i++)
         llvm::sys::swapByteOrder<T>(array[i]);
 
     return array;
   }
 
-  // copy, no need to take care of endianness
+  // Copy, no need to take care of endianness.
   auto data = TransformValueToONNXData<T>::data(initializer);
   size = data.size();
   return std::vector<T>(&data[0], &data[0] + size);
 }
 
-void InitializedTensorMapping::AddMapping(
-    std::string name, onnx::TensorProto tensor) {
-  assert(nameToInitializedTensor.count(name) == 0 &&
-         "Tensor initializer already mapped.");
-  nameToInitializedTensor.emplace(name, tensor);
-}
+template <>
+std::vector<bool> CreateArrayAttribute<bool>(onnx::TensorProto initializer) {
+  // Copy, no need to take care of endianness.
+  if (initializer.raw_data().size()) {
+    std::vector<bool> bitInitializer;
+    std::copy(initializer.raw_data().begin(), initializer.raw_data().end(),
+        back_inserter(bitInitializer));
+    return bitInitializer;
+  }
 
-bool InitializedTensorMapping::ContainKey(std::string name) {
-  return nameToInitializedTensor.count(name) != 0;
+  auto data = TransformValueToONNXData<bool>::data(initializer);
+  return std::vector<bool>(&data[0], &data[0] + data.size());
 }
 
 mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
     mlir::Location loc, mlir::OpBuilder &builder, const std::string &name) {
   // Initializer for input.
   onnx::TensorProto initializer = GetInitializedTensor(name);
+
+  // Return none if the initializer is an empty tensor, e.g tensor<0xf32>.
+  llvm::ArrayRef<int64_t> tensorDims(
+      initializer.dims().data(), initializer.dims().size());
+  if (tensorDims.size() == 1 && tensorDims[0] == 0)
+    return builder.create<mlir::ONNXNoneOp>(
+        loc, builder.getNoneType(), builder.getUnitAttr());
 
   // Emit ConstantOp and record the mapping between the input and
   // the constant value.
@@ -163,8 +152,7 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
       onnxTensorProtoToDenseElmAttr(builder, initializer);
 
   // Create ConstantOp for dense array.
-  return builder.create<mlir::ONNXConstantOp>(
-      loc, denseElmAttr.getType(), nullptr, denseElmAttr);
+  return builder.create<mlir::ONNXConstantOp>(loc, nullptr, denseElmAttr);
 }
 
 mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
@@ -209,6 +197,15 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
         tensorType, llvm::makeArrayRef(arrayAttrInitializer));
     break;
   }
+  case (onnx::TensorProto::INT16): {
+    const auto &arrayAttrInitializer =
+        CreateArrayAttribute<int16_t>(initializer);
+    auto elmType = builder.getIntegerType(16);
+    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+    denseElmAttr = mlir::DenseElementsAttr::get(
+        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
+    break;
+  }
   case (onnx::TensorProto::INT32): {
     const auto &arrayAttrInitializer =
         CreateArrayAttribute<int32_t>(initializer);
@@ -227,11 +224,65 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
         tensorType, llvm::makeArrayRef(arrayAttrInitializer));
     break;
   }
+  case (onnx::TensorProto::BOOL): {
+    const auto &data = CreateArrayAttribute<bool>(initializer);
+    auto elmType = builder.getI1Type();
+    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+    denseElmAttr = mlir::DenseElementsAttr::get(
+        tensorType, llvm::SmallVector<bool, 64>(data.begin(), data.end()));
+    break;
+  }
   default:
     llvm_unreachable(
         "Failed to import ONNX TensorProto due to unsupported data types.");
   }
   return denseElmAttr;
+}
+
+// Convert type to MLIR type.
+// A complete list of types can be found in:
+// <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
+// TODO: Update Int*/Uint* to emit signed/unsigned MLIR types
+mlir::Type convertONNXTypeToMLIRType(
+    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType) {
+  switch (onnxType) {
+  case onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16:
+    return builder_.getBF16Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
+    return builder_.getF16Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT:
+    return builder_.getF32Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE:
+    return builder_.getF64Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT8:
+    return builder_.getIntegerType(/*width=*/8);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
+    return builder_.getIntegerType(/*width=*/8, false);
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT16:
+    return builder_.getIntegerType(/*width=*/16);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
+    return builder_.getIntegerType(/*width=*/16, false);
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT32:
+    return builder_.getIntegerType(/*width=*/32);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT32:
+    return builder_.getIntegerType(/*width=*/32, false);
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT64:
+    return builder_.getIntegerType(/*width=*/64);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT64:
+    return builder_.getIntegerType(/*width=*/64, false);
+  case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
+    return builder_.getI1Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
+    return mlir::ONNXStringType::get(builder_.getContext());
+
+  case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
+  case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
+  case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
+    llvm_unreachable("Unsupported data type encountered.");
+    return nullptr;
+  }
+
+  llvm_unreachable("Unsupported data type encountered.");
 }
 
 } // namespace onnx_mlir

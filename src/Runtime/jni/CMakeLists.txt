@@ -1,32 +1,59 @@
-# Don't require AWT header to allow headless JDK to reduce docker image size
-set(JAVA_AWT_INCLUDE_PATH none)
-find_package(Java COMPONENTS Development)
-find_package(JNI)
+# SPDX-License-Identifier: Apache-2.0
 
-if(Java_Development_FOUND AND JNI_FOUND)
-  include(UseJava)
+if (ONNX_MLIR_ENABLE_JNI)
+  option(ONNX_MLIR_BUILD_JSONITER "Build jsoniter locally" OFF)
 
-  # Target for Java runtime jar
+  # Setup Jsoniter jar
+  include(Jsoniter.cmake)
+  setup_jsoniter(0.9.23)
+
+  # Build javaruntime jar
   add_jar(javaruntime
-          src/com/ibm/onnxmlir/DynEntryPoint.java
-	      src/com/ibm/onnxmlir/OMTensorList.java
-          src/com/ibm/onnxmlir/OMTensor.java
-          OUTPUT_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+    src/com/ibm/onnxmlir/OMModel.java
+    src/com/ibm/onnxmlir/OMLogger.java
+    src/com/ibm/onnxmlir/OMRunner.java
+    src/com/ibm/onnxmlir/OMTensorList.java
+    src/com/ibm/onnxmlir/OMTensor.java
 
-  # Target for JNI runtime lib
-  add_library(jniruntime STATIC
-          jniwrapper.c jnilog.c jnidummy.c
-          com_ibm_onnxmlir_DynEntryPoint.h jnilog.h)
-  set_target_properties(jniruntime PROPERTIES
-          POSITION_INDEPENDENT_CODE TRUE)
-  target_include_directories(jniruntime PRIVATE
-          ${ONNX_MLIR_SRC_ROOT}/include
-          ${JAVA_INCLUDE_PATH}
-          ${JAVA_INCLUDE_PATH2})
-
+    INCLUDE_JARS ${JSONITER_JAR}
+    )
+  if (TARGET jsoniter)
+    add_dependencies(javaruntime jsoniter)
+  endif()
   install_jar(javaruntime DESTINATION lib)
-  install(TARGETS jniruntime DESTINATION lib)
 
-else()
-  message(WARNING "Java Development component or JNI not found, JNI targets will not work")
+  # ONNX_MLIR_LIBRARY_PATH is a generator expression which is not supported by
+  # add_jar as the output directory. Instead, we let add_jar place the jar file
+  # in the default location and copy it to the library path after it is built.
+  #
+  # Note target must be ${ONNX_MLIR_LIBRARY_PATH}/javaruntime.jar instead of
+  # just ${ONNX_MLIR_LIBRARY_PATH} for Windows - otherwise, if the directory
+  # ${ONNX_MLIR_LIBRARY_PATH} has not yet been created, it will be treated as
+  # the name of the file.
+  add_custom_command(
+    TARGET javaruntime
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_PROPERTY:javaruntime,JAR_FILE> ${ONNX_MLIR_LIBRARY_PATH}/javaruntime.jar
+    )
+
+  # Build jniruntime lib
+  add_onnx_mlir_library(jniruntime STATIC
+    jniwrapper.c
+    jnilog.c
+    jnidummy.c
+
+    EXCLUDE_FROM_OM_LIBS
+
+    INCLUDE_DIRS PUBLIC
+    ${ONNX_MLIR_SRC_ROOT}/include
+    ${JAVA_INCLUDE_PATH}
+    ${JAVA_INCLUDE_PATH2}
+    )
+
+  set_target_properties(jniruntime
+    PROPERTIES
+    POSITION_INDEPENDENT_CODE TRUE
+    )
+
 endif()

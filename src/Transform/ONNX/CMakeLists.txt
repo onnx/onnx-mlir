@@ -1,73 +1,72 @@
-add_library(OMAttributePromotion
-        AttributePromotion.cpp)
-target_include_directories(OMAttributePromotion
-        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
-        ${ONNF_MLIR_SRC_ROOT})
-# Header dependencies
-add_dependencies(OMAttributePromotion
-        OMONNXOpsInc OMPromotableConstOperandsOpInterfaceIncGen)
-# Linking dependencies
-add_dependencies(OMAttributePromotion
-        OMPromotableConstOperandsOpInterface)
-target_link_libraries(OMAttributePromotion
-        onnx)
+# SPDX-License-Identifier: Apache-2.0
 
-add_library(OMElideConstants
-        ElideConstants.cpp)
-target_include_directories(OMElideConstants
-        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
-        ${ONNF_MLIR_SRC_ROOT})
+add_onnx_mlir_library(OMElideConstants
+  ElideConstants.cpp
 
-# Header dependencies
-add_dependencies(OMElideConstants OMONNXOpsInc)
-# Linking dependencies
-add_dependencies(OMElideConstants OMONNXOps)
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRTransformUtils
+  )
 
-target_link_libraries(OMElideConstants
-        onnx)
+add_onnx_mlir_library(OMConstPropHelper
+  ConstPropHelper.cpp
 
-set(LLVM_TARGET_DEFINITIONS Rewrite.td)
-onnx_mlir_tablegen(ONNXRewrite.inc -gen-rewriters)
-add_public_tablegen_target(OMONNXRewriteIncGen)
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  )
 
-set(LLVM_TARGET_DEFINITIONS Combine.td)
-onnx_mlir_tablegen(ONNXCombine.inc -gen-rewriters)
-add_public_tablegen_target(OMONNXCombineIncGen)
+add_onnx_mlir_rewriter(Decompose)
+add_onnx_mlir_rewriter(ConstProp)
 
-set(LLVM_TARGET_DEFINITIONS Decompose.td)
-onnx_mlir_tablegen(ONNXDecompose.inc -gen-rewriters)
-add_public_tablegen_target(OMONNXDecomposeIncGen)
+add_onnx_mlir_library(OMONNXRewrite
+  Decompose.cpp
+  ConstProp.cpp
 
-set(LLVM_TARGET_DEFINITIONS ConstProp.td)
-onnx_mlir_tablegen(ONNXConstProp.inc -gen-rewriters)
-add_public_tablegen_target(OMONNXConstPropIncGen)
+  DEPENDS
+  OMONNXDecomposeIncGen
+  OMONNXConstPropIncGen
 
-add_library(OMONNXRewrite
-        Rewrite.cpp
-        Combine.cpp
-        Decompose.cpp
-        ConstProp.cpp)
-target_include_directories(OMONNXRewrite
-        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
-        ${ONNF_MLIR_SRC_ROOT})
-# Header dependencies
-add_dependencies(OMONNXRewrite
-        OMONNXOpsInc
-        OMONNXRewriteIncGen
-        OMONNXDecomposeIncGen
-        OMONNXCombineIncGen
-        OMONNXConstPropIncGen)
+  LINK_LIBS PUBLIC
+  OMConstPropHelper
+  MLIRTransformUtils
+  )
 
-# Linking dependencies
-add_dependencies(OMONNXRewrite OMONNXOps)
-target_link_libraries(OMONNXRewrite
-        onnx)
+add_onnx_mlir_library(OMShapeInference
+  ShapeInferencePass.cpp
 
-add_library(OMShapeInference ShapeInferencePass.cpp)
-target_include_directories(OMShapeInference
-        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
-        ${ONNX_MLIR_SRC_ROOT})
-# Header dependencies
-add_dependencies(OMShapeInference ShapeInferenceOpInterfaceIncGen)
-# Linking dependencies
-add_dependencies(OMShapeInference OMShapeInferenceOpInterface)
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMShapeInferenceOpInterface
+  MLIRPass
+  )
+
+add_onnx_mlir_library(OMInstrumentONNX
+  InstrumentONNXPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMKrnlOps
+  MLIRPass
+  OMSupport
+  )
+
+add_onnx_mlir_library(OMOpTransform
+  ONNXOpTransformPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  OMSupport
+  OMONNXRewrite
+  OMShapeInference
+  MLIRTransforms
+  )
+
+add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
+  ONNXPreKrnlVerifyPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  OMSupport
+  )

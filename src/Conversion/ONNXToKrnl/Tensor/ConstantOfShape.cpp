@@ -1,6 +1,10 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===------------ ConstantOfShape.cpp - Lowering ConstantOfShape Op -------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,8 +17,8 @@
 using namespace mlir;
 
 struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
-  ONNXConstantOfShapeOpLowering(MLIRContext *ctx)
-      : ConversionPattern(
+  ONNXConstantOfShapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
             mlir::ONNXConstantOfShapeOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -37,22 +41,23 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else {
+      MemRefBuilder createMemRef(rewriter, loc);
+      MathBuilder createMath(createMemRef);
+      KrnlBuilder createKrnl(createMemRef);
       SmallVector<Value, 2> allocOperands;
       // Load dimensions from the input.
       for (decltype(rank) i = 0; i < rank; ++i) {
-        auto index = emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
-        auto dim =
-            rewriter.create<AffineLoadOp>(loc, operandAdaptor.input(), index);
-        auto dimIndex =
-            rewriter.create<IndexCastOp>(loc, rewriter.getIndexType(), dim);
+        Value index = createMath.constantIndex(i);
+        Value dim = createKrnl.load(operandAdaptor.input(), index);
+        Value dimIndex = createMath.castToIndex(dim);
         allocOperands.emplace_back(dimIndex);
       }
       // Allocate memory.
-      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+      alloc = createMemRef.alignedAlloc(memRefType, allocOperands);
       // Insert deallocation if needed.
       if (insertDealloc) {
         Block *parentBlock = alloc.getDefiningOp()->getBlock();
-        DeallocOp dealloc = rewriter.create<DeallocOp>(loc, alloc);
+        memref::DeallocOp dealloc = createMemRef.dealloc(alloc);
         dealloc.getOperation()->moveBefore(&parentBlock->back());
       }
     }
@@ -85,7 +90,7 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     }
 
     // Store the constant value to the output.
-    rewriter.create<AffineStoreOp>(loc, constantVal, alloc, loopIVs);
+    rewriter.create<KrnlStoreOp>(loc, constantVal, alloc, loopIVs);
 
     // Replace this operation with the generated alloc.
     rewriter.replaceOp(op, alloc);
@@ -94,7 +99,7 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXConstantOfShapeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXConstantOfShapeOpLowering>(ctx);
+void populateLoweringONNXConstantOfShapeOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXConstantOfShapeOpLowering>(typeConverter, ctx);
 }

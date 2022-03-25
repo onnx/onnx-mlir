@@ -1,6 +1,10 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- Transpose.cpp - Lowering Transpose Op ---------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -9,78 +13,65 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
 struct ONNXTransposeOpLowering : public ConversionPattern {
-  ONNXTransposeOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXTransposeOp::getOperationName(), 1, ctx) {}
+  ONNXTransposeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXTransposeOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXTransposeOpAdaptor operandAdaptor(operands);
+    ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
     auto loc = op->getLoc();
-    // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
+
+    // Operands and attributes.
     Value data = operandAdaptor.data();
+    auto permAttr = transposeOp.perm();
 
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      // TODO: While the code below appears to nominally handle the alloc of
-      // data in presence of dynamic dimensions, this appears to be false as the
-      // operand passed here "{data}" reflect the input sizes and does not
-      // reflect the transpose. Indeed, if an input is 4x3x2 then the output
-      // would be 2x3x4. If any of the 2,3,or 4 are dynamic dimensions, then we
-      // simply pass below the operand of the not-transposed input data to
-      // determine the dynamic sizes of the to-be-transposed data. At this time,
-      // there is also no dynamic size lowering tests...
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {data});
+    // Basic information.
+    auto memRefType = convertToMemRefType(*op->result_type_begin());
+    int64_t rank = memRefType.getShape().size();
 
-    // Number of loops
-    auto memRefShape = memRefType.getShape();
-    int64_t rank = memRefShape.size();
+    // Get a shape helper.
+    ONNXTransposeOpShapeHelper shapeHelper(&transposeOp, &rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    (void)shapecomputed;
+    assert(succeeded(shapecomputed));
 
-    // Define loops.
-    std::vector<Value> originalLoops;
-    defineLoops(rewriter, loc, originalLoops, rank);
+    // Insert an allocation and deallocation for the result of this operation.
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
 
-    KrnlIterateOperandPack pack(rewriter, originalLoops);
-    // Iterate over the loop nest using the input shape.
-    for (int i = 0; i < rank; ++i)
-      addDimensionToPack(rewriter, loc, pack, data, i);
+    // Create loop.
+    BuildKrnlLoop inputLoops(rewriter, loc, rank);
+    inputLoops.createDefineAndIterateOp(data);
+    rewriter.setInsertionPointToStart(inputLoops.getIterateBlock());
+    {
+      // Get a child IndexExpr context.
+      IndexExprScope childScope(&rewriter, shapeHelper.scope);
+      KrnlBuilder createKrnl(rewriter, loc);
 
-    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
-    Block &iterationBlock = iterateOp.bodyRegion().front();
+      // Get read/write indices.
+      SmallVector<IndexExpr, 4> readIndices;
+      SmallVector<IndexExpr, 4> writeIndices;
+      for (decltype(rank) i = 0; i < rank; ++i) {
+        Value readVal = inputLoops.getInductionVar(i);
+        Value writeVal =
+            inputLoops.getInductionVar(ArrayAttrIntVal(permAttr, i));
+        readIndices.emplace_back(DimIndexExpr(readVal));
+        writeIndices.emplace_back(DimIndexExpr(writeVal));
+      }
 
-    // Now perform the insertions into the body of the
-    // just generated instructions:
-
-    // Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    // Handle the operation.
-
-    // Read perm attribute.
-    SmallVector<int, 4> perm;
-    auto permAttribute = llvm::dyn_cast<ONNXTransposeOp>(op).permAttr();
-    assert(permAttribute && "permute attribute expected to be defined here");
-    for (auto permVal : permAttribute.getValue())
-      perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
-
-    SmallVector<Value, 4> inLoopIVs;
-    for (auto arg : iterationBlock.getArguments())
-      inLoopIVs.emplace_back(arg);
-
-    SmallVector<Value, 4> outLoopIVs;
-    for (int i = 0; i < iterationBlock.getArguments().size(); ++i)
-      outLoopIVs.emplace_back(iterationBlock.getArguments()[perm[i]]);
-
-    auto inVal = rewriter.create<AffineLoadOp>(loc, data, inLoopIVs);
-    rewriter.create<AffineStoreOp>(loc, inVal, alloc, outLoopIVs);
+      // Copy data.
+      Value loadData = createKrnl.loadIE(data, readIndices);
+      createKrnl.storeIE(loadData, alloc, writeIndices);
+    }
 
     rewriter.replaceOp(op, alloc);
 
@@ -88,7 +79,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXTransposeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXTransposeOpLowering>(ctx);
+void populateLoweringONNXTransposeOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXTransposeOpLowering>(typeConverter, ctx);
 }

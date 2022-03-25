@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #pragma once
 
 #include "mlir/Pass/Pass.h"
@@ -20,7 +24,7 @@ public:
    * option is enabled, stored as a  binary file on disk. This can help preserve
    * readability of IR dump and improve compilation speed.
    */
-  static const int64_t kDefaultElisionThreshold;
+  static constexpr uint64_t kDefaultElisionThreshold = 32;
 
   int64_t elisionThreshold;
 

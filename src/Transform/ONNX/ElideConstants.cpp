@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----- ElideConstants.cpp - Elide Constant Values ---------------------===//
 //
 // Copyright 2020 The IBM Research Authors.
@@ -19,6 +23,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -46,8 +51,9 @@ public:
       return emitError(loc, "Only support dense values at this time");
 
     if (constOp->value().hasValue()) {
-      auto newConstOp = rewriter.create<ONNXConstantOp>(
-          loc, constOp->getResult().getType(), nullptr, nullptr);
+      auto newConstOp = rewriter.create<ONNXConstantOp>(loc,
+          constOp->getResult().getType(), nullptr, nullptr, nullptr, nullptr,
+          nullptr, nullptr, nullptr, nullptr);
       rewriter.replaceOp(op, newConstOp.getResult());
     }
     return success();
@@ -58,16 +64,23 @@ public:
  *  Function pass that performs constant value elision.
  */
 class ElideConstantValuePass
-    : public PassWrapper<ElideConstantValuePass, FunctionPass> {
+    : public PassWrapper<ElideConstantValuePass, OperationPass<FuncOp>> {
 public:
-  void runOnFunction() override {
-    auto function = getFunction();
+  StringRef getArgument() const override { return "elide-constants"; }
+
+  StringRef getDescription() const override {
+    return "Elide values of constant operations.";
+  }
+
+  void runOnOperation() override {
+    auto function = getOperation();
 
     ConversionTarget target(getContext());
-    OwningRewritePatternList patterns;
+    RewritePatternSet patterns(&getContext());
     patterns.insert<ConstantValueElision>(&getContext());
-
-    applyPatternsAndFoldGreedily(function, patterns);
+    LogicalResult res =
+        applyPatternsAndFoldGreedily(function, std::move(patterns));
+    assert((succeeded(res) || failed(res)) && "remove unused var warning");
   }
 };
 } // end anonymous namespace
@@ -75,6 +88,6 @@ public:
 /*!
  * Create a Constant Value Elision pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createElideConstantValuePass() {
+std::unique_ptr<Pass> onnx_mlir::createElideConstantValuePass() {
   return std::make_unique<ElideConstantValuePass>();
 }

@@ -1,7 +1,10 @@
-//===--------------- Conv.cpp - Lowering Convolution Op
-//--------------------===//
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===--------------- Conv.cpp - Lowering Convolution Op -------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -10,266 +13,222 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
 struct ONNXConvOpLowering : public ConversionPattern {
-  ONNXConvOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
+  ONNXConvOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
+
+  void convUnoptimized(ConversionPatternRewriter &rewriter,
+      IndexExprScope *topScope, ONNXConvOp &convOp,
+      ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
+      MemRefType &memRefType, Value alloc) const {
+    auto loc = convOp.getLoc();
+    KrnlBuilder createKrnl(rewriter, loc);
+
+    // Spatial data starts from the second dimension.
+    int spatialStartIndex = 2;
+
+    auto inputOperand = operandAdaptor.X();
+    auto filterOperand = operandAdaptor.W();
+    auto biasOperand = operandAdaptor.B();
+    bool hasBias = !biasOperand.getType().isa<NoneType>();
+    int64_t groupNum = convOp.group();
+    IndexExpr G = LiteralIndexExpr(groupNum);
+    Value fZero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
+
+    // Bounds for output sizes: [N x CO x HO x WO]:
+    // where N is Batch Size,
+    // where CO (or M) is Channel Out (multiple of group num)
+    // and where HO & WO are spacial dimensions of the output.
+    int outputRank = shapeHelper.dimsForOutput().size();
+    IndexExpr N = shapeHelper.dimsForOutput()[0];
+    IndexExpr CO = shapeHelper.dimsForOutput()[1];
+    IndexExpr COPerGroup = CO.ceilDiv(G);
+
+    // Bounds for input image X: [N x CI x HI x WI]:
+    // where N is Batch Size,
+    // where CI (or C) is Channel In (multiple of group num),
+    // and where HI & WI are spacial dimensions of the input image.
+    MemRefBoundsIndexCapture inputBounds(inputOperand);
+
+    // Bounds for kernel/filter W: [CO x CIPerGroup x KH x KW]:
+    // where CO (or M) is Channel Out,
+    // where CIPerGroup (or C/G) is number of channel in per group,
+    // and where KH x KW are the kernel / filter size (e.g. 3x3, 1x1).
+    MemRefBoundsIndexCapture filterBounds(filterOperand);
+    IndexExpr CIPerGroup = filterBounds.getSymbol(1);
+
+    // Determine the bounds for the loops over batch & channel out.
+    IndexExpr iZero = LiteralIndexExpr(0);
+    ValueRange outerLoops = createKrnl.defineLoops(3);
+    SmallVector<IndexExpr, 3> outerLbs = {iZero, iZero, iZero};
+    SmallVector<IndexExpr, 3> outerUbs = {N, G, COPerGroup};
+    // Iterate over the outer loops
+    // for n = 0 .. N:
+    //   for g = 0 .. G:
+    //     for coPerGroup = 0 .. COPerGroup:
+    //       co = g * COPerGroup + coPerGroup;
+
+    createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
+        [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
+          // Compute the Channel In Indices.
+          IndexExprScope outerScope(createKrnl);
+          // Compute the channel out index "co".
+          DimIndexExpr g(outerIndices[1]);
+          DimIndexExpr coPerGroup(outerIndices[2]);
+          IndexExpr co = g * SymbolIndexExpr(COPerGroup) + coPerGroup;
+          // Compute g * CIPerGroup for later use.
+          IndexExpr gTimesCIPerGroup = g * SymbolIndexExpr(CIPerGroup);
+          // Determine the bounds for the output spacial dimensions.
+          int spacialRank = outputRank - spatialStartIndex;
+          ValueRange outputSpacialLoops = createKrnl.defineLoops(spacialRank);
+          SmallVector<IndexExpr, 3> outputSpacialLbs, outputSpacialUbs;
+          for (int i = spatialStartIndex; i < outputRank; ++i) {
+            outputSpacialLbs.emplace_back(iZero);
+            outputSpacialUbs.emplace_back(
+                SymbolIndexExpr(shapeHelper.dimsForOutput()[i]));
+          }
+          // Spacial loops.
+          // for ho = 0 .. HO:
+          //    for wo = 0 .. WO:
+          createKrnl.iterateIE(outputSpacialLoops, outputSpacialLoops,
+              outputSpacialLbs, outputSpacialUbs,
+              [&](KrnlBuilder &createKrnl, ValueRange outputSpatialIndices) {
+                IndexExprScope outputSpacialScope(createKrnl);
+                MemRefBuilder createMemRef(createKrnl);
+                // Create a local reduction value and set to zero.
+                MemRefType tmpType =
+                    MemRefType::get({}, memRefType.getElementType());
+                // Single scalar, no need for default alignment.
+                Value reductionVal = createMemRef.alloca(tmpType);
+                createKrnl.store(fZero, reductionVal);
+
+                // Bounds for reduction loops.
+                ValueRange redLoops = createKrnl.defineLoops(spacialRank + 1);
+                SmallVector<IndexExpr, 4> redLbs, redUbs, pMinOS;
+                // First: loop over channel in per group.
+                redLbs.emplace_back(iZero);
+                redUbs.emplace_back(SymbolIndexExpr(CIPerGroup));
+                // For each spacial dim, do the following.
+                for (int i = 0; i < spacialRank; ++i) {
+                  // Get data for dis spacial dimension.
+                  DimIndexExpr o(outputSpatialIndices[i]);
+                  SymbolIndexExpr I(
+                      inputBounds.getSymbol(spatialStartIndex + i));
+                  SymbolIndexExpr K(
+                      filterBounds.getSymbol(spatialStartIndex + i));
+                  SymbolIndexExpr p(
+                      shapeHelper.pads[i]); // Begining/left/top pad.
+                  LiteralIndexExpr s(shapeHelper.strides[i]);
+                  LiteralIndexExpr d(shapeHelper.dilations[i]);
+                  // lb = ceil((p - o * s) / d)
+                  IndexExpr pos = p - (o * s);
+                  IndexExpr lb = pos.ceilDiv(d);
+                  lb = IndexExpr::max(lb, 0);
+                  redLbs.emplace_back(lb);
+                  // ub = ceil((I + p - o * s) / d)
+                  IndexExpr ipos = I + pos;
+                  IndexExpr ub = ipos.ceilDiv(d);
+                  ub = IndexExpr::min(ub, K);
+                  redUbs.emplace_back(ub);
+                  // Save p - o * s for later use.
+                  pMinOS.emplace_back(pos);
+                }
+                // for ciPerGroup = 0 .. CIPerGroup:
+                //   for kh in lb .. ub:
+                //     for kw in lb .. ub:
+                createKrnl.iterateIE(redLoops, redLoops, redLbs, redUbs,
+                    [&](KrnlBuilder &createKrnl, ValueRange redIndices) {
+                      IndexExprScope redScope(createKrnl);
+                      MathBuilder createMath(createKrnl);
+                      // Create access function for input image:
+                      // [n, ci, ho * sh + kh * dh - ph, wo * sw + kw * dw -
+                      // pw].
+                      SmallVector<IndexExpr, 4> inputAccessFct;
+                      DimIndexExpr n(outerIndices[0]);
+                      inputAccessFct.emplace_back(n);
+                      // ci = g * CIPerG + ciPerG
+                      DimIndexExpr ciPerG(redIndices[0]);
+                      IndexExpr ci = SymbolIndexExpr(gTimesCIPerGroup) + ciPerG;
+                      inputAccessFct.emplace_back(ci);
+                      for (int i = 0; i < spacialRank; ++i) {
+                        // for each spacial dims: access is o * s + k * d - p.
+                        DimIndexExpr k(redIndices[1 + i]);
+                        SymbolIndexExpr pos(pMinOS[i]);
+                        LiteralIndexExpr d(shapeHelper.dilations[i]);
+                        // k*d - (p - o*s) = k*d + o*s - p
+                        IndexExpr t = (k * d) - pos;
+                        inputAccessFct.emplace_back(t);
+                      }
+                      Value image =
+                          createKrnl.loadIE(inputOperand, inputAccessFct);
+                      // Create access fct for filter: [co, ciPerG, kh, kw].
+                      SmallVector<IndexExpr, 4> filterAccessFct;
+                      filterAccessFct.emplace_back(DimIndexExpr(co));
+                      filterAccessFct.emplace_back(DimIndexExpr(ciPerG));
+
+                      for (int i = 0; i < spacialRank; ++i) {
+                        DimIndexExpr k(redIndices[1 + i]);
+                        filterAccessFct.emplace_back(k);
+                      }
+                      Value filter =
+                          createKrnl.loadIE(filterOperand, filterAccessFct);
+                      Value oldRed = createKrnl.load(reductionVal);
+                      Value mul = createMath.mul(image, filter);
+                      Value newRed = createMath.add(oldRed, mul);
+                      createKrnl.store(newRed, reductionVal);
+                    }); // Reduction loops.
+                        // Finish the reduction and store in result array.
+                Value result = createKrnl.load(reductionVal);
+                // Store the result. Optionally add bias.
+                SymbolIndexExpr coInOutputSpacial(co);
+                if (hasBias) {
+                  MathBuilder createMath(createKrnl);
+                  Value bias =
+                      createKrnl.loadIE(biasOperand, {coInOutputSpacial});
+                  result = createMath.add(result, bias);
+                }
+                SmallVector<IndexExpr, 4> resAccessFunc;
+                resAccessFunc.emplace_back(SymbolIndexExpr(outerIndices[0]));
+                resAccessFunc.emplace_back(coInOutputSpacial);
+                for (Value o : outputSpatialIndices)
+                  resAccessFunc.emplace_back(DimIndexExpr(o));
+                createKrnl.storeIE(result, alloc, resAccessFunc);
+              }); // Output spacial loops.
+        });       // Outer loops;
+  }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
     ONNXConvOpAdaptor operandAdaptor(operands);
-    // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
     ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 
-    auto resultShape = memRefType.getShape();
-    auto inputOperand = operandAdaptor.X();
-    auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
-    auto kernelOperand = operandAdaptor.W();
-    auto kernelShape = kernelOperand.getType().cast<MemRefType>().getShape();
-    auto biasOperand = operandAdaptor.B();
-    bool hasBias = !biasOperand.getType().isa<NoneType>();
+    // Get shape.
+    ONNXConvOpShapeHelper shapeHelper(&convOp, &rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapecomputed));
 
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {inputOperand});
+    // Insert an allocation and deallocation for the result of this operation.
+    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
 
-    // R = Conv(D, K)
-    //
-    // The input/output shapes will look like this:
-    //
-    // D (NxCxHxW) x K (MxC/groupxKHxKW) -> R (NxMxRHxRW)
-    //
-    // M is a multiple of the number of groups:
-    //   M = group * kernelsPerGroup
-    //
-    // The loop nest will look as follows:
-    //
-    // strides = [s1, s2]
-    //
-    // kernelsPerGroup = M / group;
-    // for n = 0 .. N:
-    //   for g = 0 .. group:
-    //     for m = 0 .. kernelsPerGroup:
-    //       kernel = g * kernelsPerGroup + m;
-    //       for r1 = 0 .. RH:
-    //         for r2 = 0 .. RW:
-    //           R[n][kernel][r1][r2] = 0;
-    //           for c = 0 .. C/group:
-    //             for k1 = 0 .. KH:
-    //               for k2 = 0 .. KW:
-    //                 R[n][kernel][r1][r2] =
-    //                   D[n][g * (C / group) + c][s1 * r1 + k1][s2 * r2 + k2] *
-    //                   K[kernel][c][k1][k2];
-    //
-    // Naming:
-    //   n, g, m: outer loop nest indices
-    //   r1, r2: spatial loop nest indices
-    //   c, k1, k2: inner loop nest indices
-    //
-    // TODO: handle padding.
-    //
-    // In the general case:
-    //
-    // D (NxCxD1xD2x...xDdim) x K (MxC/groupxK1xK2x...xKdim)
-    //     -> R (NxMxR1xR2x...xRdim)
-    //
-    // The above loop nest can be adapted by increasing the number
-    // of r- and k-index loop i.e. r1 r2 and k1 k2 loops.
+    convUnoptimized(rewriter, shapeHelper.scope, convOp, operandAdaptor,
+        shapeHelper, memRefType, alloc);
 
-    // Set up outermost loops: n g m r1 r2 ... rdim
-    // Skip g if group is 1.
-
-    // Before we start the iteration we need to compute the number of
-    // unsplit kernels and fetch the number of groups from the attribute
-    // list. Group is always a compilation constant.
-    int64_t group = convOp.group();
-    // Compute the number of unsplit kernels. The number of kernels
-    // must be a multiple of the number of groups.
-    int64_t kernelsPerGroup = floor(kernelShape[0] / group);
-    auto kernelsPerGroupValue =
-        rewriter.create<ConstantIndexOp>(loc, kernelsPerGroup);
-    auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
-    Value subchannels;
-    if (kernelShape[1] < 0) {
-      subchannels = rewriter.create<DimOp>(loc, kernelOperand, 1).getResult();
-    } else {
-      subchannels = rewriter.create<ConstantIndexOp>(loc, kernelShape[1]);
-    }
-
-    // 1. Define outer loops and emit empty optimization block:
-    int64_t nOuterLoops = (group > 1) ? 3 : 2;
-    BuildKrnlLoop outerLoops(rewriter, loc, nOuterLoops);
-    outerLoops.createDefineOp();
-    //   for n = 0 .. N:
-    int nIndex = outerLoops.pushBounds(0, inputOperand, 0);
-    //   for g = 0 .. N:
-    int gIndex = -1;
-    if (group > 1)
-      gIndex = outerLoops.pushBounds(0, group);
-    //   for m = 0 .. kernelsPerGroup:
-    int mIndex = outerLoops.pushBounds(0, kernelsPerGroup);
-    // Outer loop iterations.
-    outerLoops.createIterateOp();
-    rewriter.setInsertionPointToStart(outerLoops.getIterateBlock());
-    {
-      // 2. Emit the body of the outer loop nest.
-
-      // 2.1 Compute kernel order number: kernel = g * kernelsPerGroup + m;
-      // If group is not set then the value of the kernel ID is
-      // identical to that of the loop over kernels.
-      Value kernel = outerLoops.getInductionVar(mIndex);
-      if (group > 1) {
-        // Middle loop is over groups and third loop is over the
-        // kernel identifiers in the current group.
-        AffineMap kernelMap = AffineMap::get(2, 1,
-            /*gIndex=*/rewriter.getAffineDimExpr(0) *
-                    /*kernelsPerGroup=*/rewriter.getAffineSymbolExpr(0) +
-                /*mIndex=*/rewriter.getAffineDimExpr(1));
-        kernel = rewriter.create<AffineApplyOp>(loc, kernelMap,
-            ArrayRef<Value>{/*gIndex=*/outerLoops.getInductionVar(gIndex),
-                /*mIndex=*/outerLoops.getInductionVar(mIndex),
-                /*kernelsPerGroupValue=*/kernelsPerGroupValue});
-      }
-
-      // 2.2 Define spatial loops
-      int64_t nSpatialLoops = resultShape.size() - 2;
-      BuildKrnlLoop spatialLoops(rewriter, loc, nSpatialLoops);
-      spatialLoops.createDefineOp();
-      for (int i = 2; i < resultShape.size(); ++i)
-        spatialLoops.pushBounds(0, alloc, i);
-
-      // 2.4 Emit loop nest over output spatial dimensions.
-      //   for rX = 0 .. RX
-      spatialLoops.createIterateOp();
-      rewriter.setInsertionPointToStart(spatialLoops.getIterateBlock());
-
-      {
-        // 3. Emit the body of the spatial loop nest.
-        // 3.1 Emit: R[n][kernel][r1][r2] = 0;
-        SmallVector<Value, 4> resultIndices;
-        // n
-        resultIndices.emplace_back(outerLoops.getInductionVar(nIndex));
-        // kernel
-        resultIndices.emplace_back(kernel);
-        // rX
-        for (auto arg : spatialLoops.getIterateBlock()->getArguments())
-          resultIndices.emplace_back(arg);
-        // Store initializer value into output location.
-        rewriter.create<AffineStoreOp>(loc, zero, alloc, resultIndices);
-
-        // 3.2 Define inner loops.
-        int64_t nInnerLoops = 1 + (kernelShape.size() - 2);
-        BuildKrnlLoop innerLoops(rewriter, loc, nInnerLoops);
-        innerLoops.createDefineOp();
-        //   for c = 0 .. C/group
-        int cIndex = innerLoops.pushBounds(0, kernelShape[1]);
-        //   for Kx = 0 .. KX
-        for (int i = 2; i < kernelShape.size(); ++i)
-          innerLoops.pushBounds(0, kernelOperand, i);
-
-        // 3.4 Emit inner loop nest.
-        innerLoops.createIterateOp();
-
-        // Emit the bias, if needed.
-        if (hasBias) {
-          auto loadResult =
-              rewriter.create<AffineLoadOp>(loc, alloc, resultIndices);
-          SmallVector<Value, 4> biasIndices;
-          biasIndices.emplace_back(kernel);
-          auto loadBias =
-              rewriter.create<AffineLoadOp>(loc, biasOperand, kernel);
-          auto resultWithBias =
-              rewriter.create<AddFOp>(loc, loadResult, loadBias);
-          // Store initializer value into output location.
-          rewriter.create<AffineStoreOp>(
-              loc, resultWithBias, alloc, resultIndices);
-        }
-
-        //
-        rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
-        {
-          // 4. Emit inner loop body
-          // R[n][kernel][r1][r2] =
-          //   D[n][g * (C / group) + c][s1 * r1 + k1][s2 * r2 + k2] *
-          //   K[kernel][c][k1][k2];
-
-          // 4.1 Prepare indices for accesing the data tensor.
-          SmallVector<Value, 4> dataIndices;
-          // n
-          dataIndices.emplace_back(outerLoops.getInductionVar(nIndex));
-          // g * (C / group) + c
-          Value channelDepth = innerLoops.getInductionVar(cIndex);
-          if (group > 1) {
-            AffineMap indexMap = AffineMap::get(2, 1,
-                /*g=*/rewriter.getAffineDimExpr(0) *
-                        /*subchannel=*/rewriter.getAffineSymbolExpr(0) +
-                    /*c=*/rewriter.getAffineDimExpr(1));
-            channelDepth = rewriter.create<AffineApplyOp>(loc, indexMap,
-                ArrayRef<Value>{/*g=*/outerLoops.getInductionVar(gIndex),
-                    /*c=*/channelDepth, /*subchannel=*/subchannels});
-          }
-          dataIndices.emplace_back(channelDepth);
-          // sX * rX + kX
-          auto stridesAttribute = convOp.stridesAttr();
-          // Read strides attribute
-          SmallVector<int, 4> strides;
-          if (stridesAttribute)
-            for (auto stride : stridesAttribute.getValue())
-              strides.emplace_back(stride.cast<IntegerAttr>().getInt());
-          for (int i = 0; i < kernelShape.size() - 2; ++i) {
-            Value spatialIndex = spatialLoops.getInductionVar(i);
-            // If strides are present then emit the correct access index.
-            int stride = 1;
-            if (stridesAttribute && strides[i] > 1)
-              stride = strides[i];
-            AffineMap indexMap = AffineMap::get(2, 0,
-                /*sX=*/rewriter.getAffineDimExpr(0) * /*rX=*/stride +
-                    /*kX=*/rewriter.getAffineDimExpr(1));
-            Value outIV = rewriter.create<AffineApplyOp>(loc, indexMap,
-                ArrayRef<Value>{spatialLoops.getInductionVar(i),
-                    innerLoops.getInductionVar(i + 1)});
-            dataIndices.emplace_back(outIV);
-          }
-
-          // 4.2 Prepare indices for accessing the kernel tensor.
-          SmallVector<Value, 4> kernelIndices;
-          // kernel
-          kernelIndices.emplace_back(kernel);
-          // c
-          kernelIndices.emplace_back(innerLoops.getInductionVar(cIndex));
-          // kX
-          for (int i = 0; i < kernelShape.size() - 2; ++i)
-            kernelIndices.emplace_back(innerLoops.getInductionVar(i + 1));
-
-          // 4.3 Compute convolution.
-          auto loadData =
-              rewriter.create<AffineLoadOp>(loc, inputOperand, dataIndices);
-          auto loadKernel =
-              rewriter.create<AffineLoadOp>(loc, kernelOperand, kernelIndices);
-          auto loadPartialSum =
-              rewriter.create<AffineLoadOp>(loc, alloc, resultIndices);
-          Value result = rewriter.create<AddFOp>(loc, loadPartialSum,
-              rewriter.create<MulFOp>(loc, loadData, loadKernel));
-          // 4.4 Store computed value into output location.
-          rewriter.create<AffineStoreOp>(loc, result, alloc, resultIndices);
-        }
-      }
-    }
     rewriter.replaceOp(op, alloc);
-
     return success();
   }
 };
 
-void populateLoweringONNXConvOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXConvOpLowering>(ctx);
+void populateLoweringONNXConvOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXConvOpLowering>(typeConverter, ctx);
 }

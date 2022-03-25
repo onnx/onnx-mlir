@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====---------- KrnlSupport.cpp - Krnl-level support functions -----------===//
 //
 // Copyright 2020 The IBM Research Authors.
@@ -15,11 +19,11 @@
 //===----------------------------------------------------------------------===//
 
 /// Get the AllocOp of the current GetRef.
-AllocOp getAllocOfGetRef(KrnlGetRefOp *getRef) {
+memref::AllocOp getAllocOfGetRef(KrnlGetRefOp *getRef) {
   auto parentBlock = getRef->getOperation()->getBlock();
 
-  AllocOp alloc = nullptr;
-  parentBlock->walk([&alloc, getRef](AllocOp op) {
+  memref::AllocOp alloc = nullptr;
+  parentBlock->walk([&alloc, getRef](memref::AllocOp op) {
     auto getRefAlloc = getRef->getOperands()[0];
     if (op.getResult() == getRefAlloc)
       alloc = op;
@@ -55,7 +59,7 @@ FuncOp getContainingFunction(Operation *op) {
 
 /// Emit constant operation.
 Value emitConstantOp(
-    PatternRewriter &rewriter, Location loc, Type type, double value) {
+    OpBuilder &rewriter, Location loc, Type type, double value) {
   Attribute constantAttr;
 
   TypeSwitch<Type>(type)
@@ -68,7 +72,7 @@ Value emitConstantOp(
       .Case<IntegerType>([&](Type) {
         auto width = type.cast<IntegerType>().getWidth();
         if (width == 1) {
-          constantAttr = rewriter.getBoolAttr(false);
+          constantAttr = rewriter.getBoolAttr(value != 0);
         } else {
           constantAttr =
               rewriter.getIntegerAttr(type, APInt(width, (int64_t)value));
@@ -78,7 +82,7 @@ Value emitConstantOp(
         constantAttr = rewriter.getIntegerAttr(type, (int64_t)value);
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
-  return rewriter.create<ConstantOp>(loc, constantAttr);
+  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
 }
 
 //===----------------------------------------------------------------------===//
@@ -86,16 +90,10 @@ Value emitConstantOp(
 //===----------------------------------------------------------------------===//
 
 /// Operation is a LoadOp or AffineLoadOp.
-bool isLoad(Operation *op) {
-  return llvm::dyn_cast_or_null<LoadOp>(op) ||
-         llvm::dyn_cast_or_null<AffineLoadOp>(op);
-}
+bool isLoad(Operation *op) { return llvm::dyn_cast_or_null<KrnlLoadOp>(op); }
 
 /// Operation is a StoreOp or AffineStoreOp.
-bool isStore(Operation *op) {
-  return llvm::dyn_cast_or_null<StoreOp>(op) ||
-         llvm::dyn_cast_or_null<AffineStoreOp>(op);
-}
+bool isStore(Operation *op) { return llvm::dyn_cast_or_null<KrnlStoreOp>(op); }
 
 /// Operation is a KrnlMemcpyOp.
 bool isKrnlMemcpy(Operation *op) {
@@ -106,10 +104,23 @@ bool isKrnlMemcpy(Operation *op) {
 /// A krnl.memcpy acts as both load and store.
 bool isLoadStoreForGetRef(KrnlGetRefOp getRef, Operation *op) {
   auto result = getRef.getResult();
-  return (isLoad(op) && result == op->getOperands()[0]) ||
-         (isStore(op) && result == op->getOperands()[1]) ||
-         (isKrnlMemcpy(op) && (result == op->getOperands()[0] ||
-                                  result == op->getOperands()[1]));
+
+  // Is used by load/store/krnl.memcpy.
+  bool isUsedByLoadStore =
+      (isLoad(op) && result == op->getOperands()[0]) ||
+      (isStore(op) && result == op->getOperands()[1]) ||
+      (isKrnlMemcpy(op) &&
+          (result == op->getOperands()[0] || result == op->getOperands()[1]));
+
+  // If not used by a load/store or krnl memcpy, then it can be used by
+  // another operation. When this happens we assume that the lowering of the
+  // operation will involve a load/store.
+  if (!isUsedByLoadStore && !isLoad(op) && !isStore(op) && !isKrnlMemcpy(op))
+    for (const auto &operand : op->getOperands())
+      if (operand == result)
+        return true;
+
+  return isUsedByLoadStore;
 }
 
 /// Check if this value is an argument of one of the blocks nested around it.
@@ -170,7 +181,7 @@ bool usedBySameOp(KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef) {
 }
 
 /// Get the number of GetRef ops associated with this AllocOp.
-int64_t getAllocGetRefNum(AllocOp *allocOp) {
+int64_t getAllocGetRefNum(memref::AllocOp *allocOp) {
   auto parentBlock = allocOp->getOperation()->getBlock();
 
   int64_t numGetRefs = 0;
@@ -208,7 +219,7 @@ bool opBeforeOp(Block *block, Operation *beforeOp, Operation *afterOp) {
 }
 
 /// Check Alloc operation result is used by a krnl.getref.
-bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
+bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp) {
   FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsUsedInGetRef = false;
@@ -225,7 +236,7 @@ bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
 /// Check if all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType memRefType) {
   auto memRefShape = memRefType.getShape();
-  for (int i = 0; i < memRefShape.size(); ++i)
+  for (unsigned int i = 0; i < memRefShape.size(); ++i)
     if (memRefShape[i] < 0)
       return false;
   return true;
@@ -238,7 +249,11 @@ unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
   unsigned sizeInBits;
   if (elementType.isIntOrFloat()) {
     sizeInBits = elementType.getIntOrFloatBitWidth();
+  } else if (elementType.isa<StringType>()) {
+    auto stringType = elementType.cast<StringType>();
+    sizeInBits = stringType.getElementSize();
   } else {
+    assert(elementType.isa<VectorType>() && "elementType is not a VectorType");
     auto vectorType = elementType.cast<VectorType>();
     sizeInBits =
         vectorType.getElementTypeBitWidth() * vectorType.getNumElements();
@@ -251,15 +266,49 @@ int64_t getMemRefSizeInBytes(Value value) {
   MemRefType memRefType = value.getType().dyn_cast<MemRefType>();
   auto memRefShape = memRefType.getShape();
   int64_t size = 1;
-  for (int i = 0; i < memRefShape.size(); i++)
+  for (unsigned int i = 0; i < memRefShape.size(); i++)
     size *= memRefShape[i];
   size *= getMemRefEltSizeInBytes(memRefType);
   return size;
 }
 
-/// Get the size of a dynamic MemRef in bytes.
+/// Get the size of a MemRef in bytes.
+/// If all the dimensions are static, emit a constant.
+/// Otherwise, emit runtime computations.
 Value getDynamicMemRefSizeInBytes(
-    MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp) {
+    PatternRewriter &rewriter, Location loc, Value val) {
+  assert(
+      val.getType().isa<MemRefType>() && "Value type should be a MemRefType");
+  MemRefType memRefType = val.getType().cast<MemRefType>();
+  auto shape = memRefType.getShape();
+  // Accumulate static dimensions first.
+  int64_t staticSizeInBytes = getMemRefEltSizeInBytes(memRefType);
+  bool allStaticDimensions = true;
+  for (unsigned i = 0; i < shape.size(); i++) {
+    if (shape[i] != -1)
+      staticSizeInBytes *= shape[i];
+    else
+      allStaticDimensions = false;
+  }
+  // Accumulate the remaining dimensions that are unknown.
+  Value sizeInBytes =
+      emitConstantOp(rewriter, loc, rewriter.getI64Type(), staticSizeInBytes);
+  if (!allStaticDimensions) {
+    for (unsigned i = 0; i < shape.size(); i++) {
+      if (shape[i] == -1) {
+        Value index = rewriter.create<memref::DimOp>(loc, val, i);
+        Value dim = rewriter.create<arith::IndexCastOp>(
+            loc, rewriter.getI64Type(), index);
+        sizeInBytes = rewriter.create<arith::MulIOp>(loc, sizeInBytes, dim);
+      }
+    }
+  }
+  return sizeInBytes;
+}
+
+/// Get the size of a dynamic MemRef in bytes.
+Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
+    PatternRewriter &rewriter, memref::AllocOp allocOp) {
   // Initialize the size variable with the size in bytes of the type.
   int64_t typeSize = getMemRefEltSizeInBytes(type);
   Value result =
@@ -269,17 +318,17 @@ Value getDynamicMemRefSizeInBytes(
   auto memRefShape = type.getShape();
   auto rank = memRefShape.size();
   int dynDimIdx = 0;
-  for (int idx = 0; idx < rank; ++idx) {
+  for (unsigned int idx = 0; idx < rank; ++idx) {
     if (memRefShape[idx] < 0) {
       // Dyanmic size.
       auto dynamicDim = allocOp.getOperands()[dynDimIdx];
       dynDimIdx++;
-      result = rewriter.create<MulIOp>(loc, result, dynamicDim);
+      result = rewriter.create<arith::MulIOp>(loc, result, dynamicDim);
     } else {
       // Static size.
       auto staticDim = emitConstantOp(
           rewriter, loc, rewriter.getIndexType(), memRefShape[idx]);
-      result = rewriter.create<MulIOp>(loc, result, staticDim);
+      result = rewriter.create<arith::MulIOp>(loc, result, staticDim);
     }
   }
 
@@ -293,13 +342,13 @@ Value getDynamicMemRefSizeInBytes(
 /// getAllocArgIndex(<1x2x?x3x?x4xf32>, 2) will return 0.
 /// getAllocArgIndex(<1x2x?x3x?x4xf32>, 4) will return 1.
 ///
-int64_t getAllocArgIndex(AllocOp allocOp, int64_t index) {
+int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index) {
   auto memRefShape =
       allocOp.getResult().getType().dyn_cast<MemRefType>().getShape();
   auto rank = memRefShape.size();
 
   int dynDimIdx = 0;
-  for (int idx = 0; idx < rank; ++idx) {
+  for (unsigned int idx = 0; idx < rank; ++idx) {
     if (memRefShape[idx] < 0) {
       if (idx == index)
         return dynDimIdx;
@@ -308,6 +357,14 @@ int64_t getAllocArgIndex(AllocOp allocOp, int64_t index) {
   }
 
   return -1;
+}
+
+/// Get alignment of an AllocOp if it exists else return zero.
+int64_t getAllocAlignment(memref::AllocOp allocOp) {
+  if (IntegerAttr alignmentAttr = allocOp.alignmentAttr())
+    return alignmentAttr.getInt();
+
+  return 0;
 }
 
 //===----------------------------------------------------------------------===//

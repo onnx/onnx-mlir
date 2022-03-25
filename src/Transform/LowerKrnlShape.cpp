@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-------- LowerKrnlShape.cpp ------------------------------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -12,7 +16,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -47,11 +51,11 @@ public:
 
     // Create MemRef to hold shape information.
     auto memRefType = MemRefType::get({rank}, rewriter.getIndexType());
-    auto newMemRefAlloc = rewriter.create<AllocOp>(loc, memRefType);
+    auto newMemRefAlloc = rewriter.create<memref::AllocOp>(loc, memRefType);
 
     SmallVector<mlir::Value, 4> fromExtentsOpOperands;
     for (int idx = 0; idx < rank; idx++) {
-      auto index = rewriter.create<ConstantOp>(
+      auto index = rewriter.create<arith::ConstantOp>(
           loc, rewriter.getIntegerAttr(rewriter.getIndexType(), idx));
       auto operand = rewriter.create<KrnlDimOp>(
           loc, rewriter.getIndexType(), krnlShapeOp.alloc(), index);
@@ -74,21 +78,28 @@ public:
  *  Function pass that emits the shape of a MemRef.
  */
 class LowerKrnlShapePass
-    : public PassWrapper<LowerKrnlShapePass, FunctionPass> {
+    : public PassWrapper<LowerKrnlShapePass, OperationPass<FuncOp>> {
 public:
-  void runOnFunction() override {
-    auto function = getFunction();
+  StringRef getArgument() const override { return "lower-krnl-shape"; }
+
+  StringRef getDescription() const override {
+    return "Lower krnl.shape operation to use Shape dialect operations.";
+  }
+
+  void runOnOperation() override {
+    auto function = getOperation();
 
     ConversionTarget target(getContext());
-    OwningRewritePatternList patterns;
+    RewritePatternSet patterns(&getContext());
     patterns.insert<LowerKrnlShape>(&getContext());
 
-    applyPatternsAndFoldGreedily(function, patterns);
+    if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+      signalPassFailure();
   }
 };
 } // namespace
 
 // TODO: integrate with other passes if needed.
-std::unique_ptr<Pass> mlir::createLowerKrnlShapePass() {
+std::unique_ptr<Pass> onnx_mlir::createLowerKrnlShapePass() {
   return std::make_unique<LowerKrnlShapePass>();
 }

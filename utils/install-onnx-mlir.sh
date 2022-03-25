@@ -1,11 +1,14 @@
 # Export environment variables pointing to LLVM-Projects.
-export LLVM_PROJ_SRC=$(pwd)/llvm-project/
-export LLVM_PROJ_BUILD=$(pwd)/llvm-project/build
+export MLIR_DIR=$(pwd)/llvm-project/build/lib/cmake/mlir
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
-cmake ..
+if [[ -z "$pythonLocation" ]]; then
+  cmake -G Ninja -DCMAKE_CXX_COMPILER=/usr/bin/c++ ..
+else
+  cmake -G Ninja -DCMAKE_CXX_COMPILER=/usr/bin/c++ -DPython3_ROOT_DIR=$pythonLocation ..
+fi
 cmake --build .
 
-# Run FileCheck tests:
+# Run lit tests:
 export LIT_OPTS=-v
 cmake --build . --target check-onnx-lit

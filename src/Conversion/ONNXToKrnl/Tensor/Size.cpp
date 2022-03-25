@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- Size.cpp - Lowering Size Op
 //-------------------===//
 //
@@ -14,8 +18,9 @@
 using namespace mlir;
 
 struct ONNXSizeOpLowering : public ConversionPattern {
-  ONNXSizeOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXSizeOp::getOperationName(), 1, ctx) {}
+  ONNXSizeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXSizeOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -51,23 +56,24 @@ struct ONNXSizeOpLowering : public ConversionPattern {
     Value noElements = emitConstantOp(
         rewriter, loc, memRefType.getElementType(), staticNumElement);
     if (!allStaticDimensions) {
+      MemRefBuilder createMemRef(rewriter, loc);
+      MathBuilder createMath(createMemRef);
       for (unsigned i = 0; i < dataShape.size(); i++) {
         if (dataShape[i] == -1) {
-          Value index = rewriter.create<DimOp>(loc, data, i);
-          Value dim = rewriter.create<IndexCastOp>(
-              loc, index, memRefType.getElementType());
-          noElements = rewriter.create<MulIOp>(loc, noElements, dim);
+          Value index = createMemRef.dim(data, i);
+          Value dim = createMath.cast(memRefType.getElementType(), index);
+          noElements = createMath.mul(noElements, dim);
         }
       }
     }
 
-    rewriter.create<AffineStoreOp>(loc, noElements, alloc, llvm::None);
+    rewriter.create<KrnlStoreOp>(loc, noElements, alloc, llvm::None);
     rewriter.replaceOp(op, alloc);
     return success();
   }
 };
 
-void populateLoweringONNXSizeOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXSizeOpLowering>(ctx);
+void populateLoweringONNXSizeOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXSizeOpLowering>(typeConverter, ctx);
 }

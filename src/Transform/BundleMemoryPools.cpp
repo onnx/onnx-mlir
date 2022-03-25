@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-- BundleMemoryPools.cpp - Bundle Memory Pools for  internal MemRefs -===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -14,11 +18,12 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/SetVector.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/Common.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
@@ -29,21 +34,22 @@ namespace {
 // Data structures for managing memory pools.
 //===----------------------------------------------------------------------===//
 
-// Data structure for managing dyanmic memory pool.
-typedef std::map<Block *, AllocOp> BlockToDynamicPool;
-std::map<FuncOp, std::unique_ptr<BlockToDynamicPool>> dynamicPoolMap;
-
-// Handling of static memory pool on a block-basis in each function.
-typedef std::map<Block *, AllocOp> BlockToStaticPool;
-std::map<FuncOp, std::unique_ptr<BlockToStaticPool>> staticPoolMap;
+// Data structure for managing memory pools.
+// For each block track the set of memory pools for a given alignment.
+// Memory pools are created for an alloc as long as the MemRef created by the
+// alloc:
+// - does not contain any affine maps;
+// - the type of the MemRef is not index.
+typedef std::map<int64_t, memref::AllocOp> AlignmentToMemPool;
+typedef std::map<Block *, AlignmentToMemPool *> BlockToMemPool;
 
 //===----------------------------------------------------------------------===//
 // Helper functions.
 //===----------------------------------------------------------------------===//
 
 /// Retrieve function which contains the current operation.
-FuncOp getContainingFunction(AllocOp op) {
-  Operation *parentFuncOp = op.getParentOp();
+ATTRIBUTE(unused) FuncOp getContainingFunction(memref::AllocOp op) {
+  Operation *parentFuncOp = op->getParentOp();
 
   // While parent is not a FuncOp and its cast to a FuncOp is null.
   while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
@@ -54,7 +60,7 @@ FuncOp getContainingFunction(AllocOp op) {
 
 // Check if this value is an argument of one of the blocks nested
 // around it.
-bool isBlockArgument(AllocOp allocOp, Value operand) {
+bool isBlockArgument(memref::AllocOp allocOp, Value operand) {
   // Parent operation of the current block.
   Operation *parentBlockOp;
   Block *currentBlock = allocOp.getOperation()->getBlock();
@@ -73,7 +79,7 @@ bool isBlockArgument(AllocOp allocOp, Value operand) {
   return false;
 }
 
-KrnlGetRefOp getUnbundledGetRef(AllocOp *memPool) {
+ATTRIBUTE(unused) KrnlGetRefOp getUnbundledGetRef(memref::AllocOp *memPool) {
   auto parentBlock = memPool->getOperation()->getBlock();
 
   KrnlGetRefOp unbundledGetRef = nullptr;
@@ -86,7 +92,7 @@ KrnlGetRefOp getUnbundledGetRef(AllocOp *memPool) {
   return unbundledGetRef;
 }
 
-KrnlGetRefOp getCurrentAllocGetRef(AllocOp *allocOp) {
+KrnlGetRefOp getCurrentAllocGetRef(memref::AllocOp *allocOp) {
   auto parentBlock = allocOp->getOperation()->getBlock();
 
   KrnlGetRefOp currentAllocGetRef = nullptr;
@@ -123,12 +129,19 @@ KrnlGetRefOp getCurrentAllocGetRef(AllocOp *allocOp) {
  *              operations are part of memory pooling.
  */
 
-class KrnlBundleStaticMemoryPools : public OpRewritePattern<AllocOp> {
+class KrnlBundleStaticMemoryPools : public OpRewritePattern<memref::AllocOp> {
 public:
-  using OpRewritePattern<AllocOp>::OpRewritePattern;
+  using OpRewritePattern<memref::AllocOp>::OpRewritePattern;
+
+  BlockToMemPool *blockToStaticPool;
+  KrnlBundleStaticMemoryPools(
+      MLIRContext *context, BlockToMemPool *_blockToStaticPool)
+      : OpRewritePattern<memref::AllocOp>(context) {
+    blockToStaticPool = _blockToStaticPool;
+  }
 
   LogicalResult matchAndRewrite(
-      AllocOp allocOp, PatternRewriter &rewriter) const override {
+      memref::AllocOp allocOp, PatternRewriter &rewriter) const override {
     auto loc = allocOp.getLoc();
 
     auto memRefType = allocOp.getResult().getType().dyn_cast<MemRefType>();
@@ -151,36 +164,41 @@ public:
     if (memRefShape.size() != 1)
       return failure();
 
-    FuncOp function = getContainingFunction(allocOp);
-
-    if (staticPoolMap.count(function) == 0) {
-      return failure();
-    }
-
-    std::unique_ptr<BlockToStaticPool> &blockToStaticPool =
-        staticPoolMap.at(function);
-
     // Get parent block.
     Block *parentBlock = allocOp.getOperation()->getBlock();
 
+    // Check if parent block has been seen before.
     if (blockToStaticPool->count(parentBlock) == 0) {
       allocOp.getOperation()->moveBefore(&parentBlock->front());
       // Create new entry in the block map.
-      blockToStaticPool->insert(
-          std::pair<Block *, AllocOp>(parentBlock, allocOp));
+      AlignmentToMemPool *alignmentToMemPool = new AlignmentToMemPool();
+      blockToStaticPool->insert(std::pair<Block *, AlignmentToMemPool *>(
+          parentBlock, alignmentToMemPool));
+    }
 
-      // This is the initial memory pool for this block and it is
-      // trivially bundled hence it's safe to return success.
+    // Populate alignment integer.
+    int64_t alignment = getAllocAlignment(allocOp);
+
+    // If this parent block has been found present in the map, check that
+    // a static memory bundle with the current alignment already exists.
+    AlignmentToMemPool *alignmentToMemPool = blockToStaticPool->at(parentBlock);
+    if (alignmentToMemPool->count(alignment) == 0) {
+      // If static memory bundle for this alignment does not exist, then
+      // create an entry.
+      alignmentToMemPool->insert(
+          std::pair<int64_t, memref::AllocOp>(alignment, allocOp));
+
+      // This is the initial memory pool for this block and alignment
+      // so trivially bundle it and return success.
       return success();
     }
 
-    // If this parent block has been found present in the map, it means
-    // a static memory bundle already exists. Fetch it.
-    AllocOp staticMemPoolAlloc = blockToStaticPool->at(parentBlock);
+    // Static memory pool for this alignment exists, fetch it.
+    memref::AllocOp staticMemPoolAlloc = alignmentToMemPool->at(alignment);
 
     // If this is the alloc representing the memory pool and the function
     // already has an init block, pattern matching must fail to avoid
-    // processing the dynamic memory pool a second time.
+    // processing the static memory pool a second time.
     if (allocOp == staticMemPoolAlloc)
       return failure();
 
@@ -189,6 +207,11 @@ public:
                                   .dyn_cast<MemRefType>()
                                   .getShape();
     int64_t currentMemPoolSize = staticMemPoolShape[0];
+    if (alignment > 0) {
+      int64_t misalignment = currentMemPoolSize % alignment;
+      if (misalignment > 0)
+        currentMemPoolSize += alignment - misalignment;
+    }
 
     // Get the getref of the current allocOp. There is exactly one such getref.
     KrnlGetRefOp currentAllocGetRef = getCurrentAllocGetRef(&allocOp);
@@ -197,7 +220,7 @@ public:
 
     // Current memory pool size is the offset for the newly bundled
     // internal MemRef. Emit the offset as a constant.
-    auto offset = rewriter.create<ConstantOp>(
+    auto offset = rewriter.create<arith::ConstantOp>(
         loc, rewriter.getIntegerAttr(
                  rewriter.getIntegerType(64), currentMemPoolSize));
 
@@ -212,8 +235,9 @@ public:
     newMemPoolShape.emplace_back(bundleTotalSize);
     auto bundledMemPoolMemRefType =
         MemRefType::get(newMemPoolShape, rewriter.getIntegerType(8));
-    auto newStaticMemPoolAlloc =
-        rewriter.create<AllocOp>(loc, bundledMemPoolMemRefType);
+
+    auto newStaticMemPoolAlloc = rewriter.create<memref::AllocOp>(
+        loc, bundledMemPoolMemRefType, staticMemPoolAlloc.alignmentAttr());
 
     // The newly bundled MemRef expressed as a KrnlGetRefOp.
     auto bundledMemRef = rewriter.create<KrnlGetRefOp>(loc,
@@ -226,9 +250,9 @@ public:
 
     // Update data structure to contain the newly constructed static memory
     // pool.
-    blockToStaticPool->erase(parentBlock);
-    blockToStaticPool->insert(
-        std::pair<Block *, AllocOp>(parentBlock, newStaticMemPoolAlloc));
+    alignmentToMemPool->erase(alignment);
+    alignmentToMemPool->insert(
+        std::pair<int64_t, memref::AllocOp>(alignment, newStaticMemPoolAlloc));
 
     return success();
   }
@@ -246,12 +270,19 @@ public:
  *    %new_ref = krnl.getref %dyn_mempool %a : memref<?xi8>
  */
 
-class KrnlBundleDynamicMemoryPools : public OpRewritePattern<AllocOp> {
+class KrnlBundleDynamicMemoryPools : public OpRewritePattern<memref::AllocOp> {
 public:
-  using OpRewritePattern<AllocOp>::OpRewritePattern;
+  using OpRewritePattern<memref::AllocOp>::OpRewritePattern;
+
+  BlockToMemPool *blockToDynamicPool;
+  KrnlBundleDynamicMemoryPools(
+      MLIRContext *context, BlockToMemPool *_blockToDynamicPool)
+      : OpRewritePattern<memref::AllocOp>(context) {
+    blockToDynamicPool = _blockToDynamicPool;
+  }
 
   LogicalResult matchAndRewrite(
-      AllocOp allocOp, PatternRewriter &rewriter) const override {
+      memref::AllocOp allocOp, PatternRewriter &rewriter) const override {
     auto loc = allocOp.getLoc();
 
     auto memRefType = allocOp.getResult().getType().dyn_cast<MemRefType>();
@@ -279,24 +310,19 @@ public:
     // of the AllocOp.
     auto parentBlock = allocOp.getOperation()->getBlock();
 
-    // Get function.
-    FuncOp function = getContainingFunction(allocOp);
-
-    // Use function to retrieve the list of blocks for this function.
-    std::unique_ptr<BlockToDynamicPool> &blockToDynamicPool =
-        dynamicPoolMap.at(function);
+    // Compute alignment.
+    int64_t alignment = getAllocAlignment(allocOp);
 
     // If this is not the first time we process an alloc in this block, avoid
     // processing the current dynamic memory pool again.
     if (blockToDynamicPool->count(parentBlock) > 0) {
-      std::unique_ptr<BlockToDynamicPool> &blockToDynamicPool =
-          dynamicPoolMap.at(function);
-      if (allocOp == blockToDynamicPool->at(parentBlock))
+      AlignmentToMemPool *memPoolList = blockToDynamicPool->at(parentBlock);
+      if (memPoolList->count(alignment) > 0 &&
+          allocOp == memPoolList->at(alignment))
         return failure();
     }
 
     // Initialize work queue data structure.
-    Operation *op = allocOp.getOperation();
     std::vector<Value> operandList;
     for (const auto &operand : allocOp.getOperands()) {
       operandList.emplace_back(operand);
@@ -323,28 +349,24 @@ public:
           if (!isBlockArgument(allocOp, operand)) {
             operandList.emplace_back(operand);
 
-            // Check if the current operation is a dim or a load and the
-            // argument list involves a local AllocOp with dynamic sizes.
+            // Check if the current operation is an AllocOp with dynamic
+            // sizes or a KrnlGetRefOp.
             // If that's the case then it means that the whole set of
             // instructions cannot be moved.
-            // Check if the current operation is a DimOp or a LoadOp.
-            if (llvm::dyn_cast<DimOp>(definingOperation) ||
-                llvm::dyn_cast<LoadOp>(definingOperation)) {
-              Operation *operandOp = operand.getDefiningOp();
-              if (operandOp) {
-                auto localAlloc = llvm::dyn_cast<AllocOp>(operandOp);
-                if (localAlloc) {
-                  auto memRefType =
-                      localAlloc.getResult().getType().dyn_cast<MemRefType>();
-                  if (!hasAllConstantDimensions(memRefType))
-                    dependsOnLocalDynamicAlloc = true;
-                }
-
-                // If operand is a getref then this alloc cannot be bundled.
-                auto memPool = llvm::dyn_cast<KrnlGetRefOp>(operandOp);
-                if (memPool)
+            Operation *operandOp = operand.getDefiningOp();
+            if (operandOp) {
+              auto localAlloc = llvm::dyn_cast<memref::AllocOp>(operandOp);
+              if (localAlloc) {
+                auto memRefType =
+                    localAlloc.getResult().getType().dyn_cast<MemRefType>();
+                if (!hasAllConstantDimensions(memRefType))
                   dependsOnLocalDynamicAlloc = true;
               }
+
+              // If operand is a getref then this alloc cannot be bundled.
+              auto memPool = llvm::dyn_cast<KrnlGetRefOp>(operandOp);
+              if (memPool)
+                dependsOnLocalDynamicAlloc = true;
             }
           }
         }
@@ -370,17 +392,30 @@ public:
     // If this is the first valid alloc we can bundle in this block, then we
     // need to move it to the top of the block as it will consitute an
     // insertion point for all other bundle-able AllocOps in the block.
-    bool isFirstBundledAllocOp = blockToDynamicPool->count(parentBlock) == 0;
-    if (isFirstBundledAllocOp) {
+    AlignmentToMemPool *alignmentToMemPool = nullptr;
+    if (blockToDynamicPool->count(parentBlock) == 0) {
       allocOp.getOperation()->moveBefore(&parentBlock->front());
 
       // Create new entry in the block map.
-      blockToDynamicPool->insert(
-          std::pair<Block *, AllocOp>(parentBlock, allocOp));
+      alignmentToMemPool = new AlignmentToMemPool();
+      blockToDynamicPool->insert(std::pair<Block *, AlignmentToMemPool *>(
+          parentBlock, alignmentToMemPool));
+    } else {
+      alignmentToMemPool = blockToDynamicPool->at(parentBlock);
+    }
+
+    bool isFirstBundledAllocWithThisAlignment =
+        alignmentToMemPool->count(alignment) == 0;
+
+    // This is the first dynamic alloc with this alignment.
+    if (isFirstBundledAllocWithThisAlignment) {
+      allocOp.getOperation()->moveBefore(&parentBlock->front());
+      alignmentToMemPool->insert(
+          std::pair<int64_t, memref::AllocOp>(alignment, allocOp));
     }
 
     // Move the computation instructions at the start of the block.
-    AllocOp oldDynamicMemoryPool = blockToDynamicPool->at(parentBlock);
+    memref::AllocOp oldDynamicMemoryPool = alignmentToMemPool->at(alignment);
     std::reverse(orderedDependentOps.begin(), orderedDependentOps.end());
     for (auto &op : orderedDependentOps)
       op->moveBefore(&parentBlock->front());
@@ -398,32 +433,36 @@ public:
 
     // Add the current alloc size to the current MemPool size.
     Value dynamicMemoryPoolSize = oldDynamicMemoryPool.getOperand(0);
-    if (isFirstBundledAllocOp) {
+    if (isFirstBundledAllocWithThisAlignment) {
       Value zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
       zero.getDefiningOp()->moveBefore(oldDynamicMemoryPool);
       dynamicMemoryPoolSize = zero;
     }
 
-    AddIOp bundledAllocOperand = rewriter.create<AddIOp>(
+    arith::AddIOp bundledAllocOperand = rewriter.create<arith::AddIOp>(
         loc, dynamicMemoryPoolSize, allocOp.getOperand(0));
     bundledAllocOperand.getOperation()->moveBefore(oldDynamicMemoryPool);
 
     // The newly bundled MemRef expressed as a KrnlGetRefOp.
     // Current memory pool size is the offset for the newly bundled
     // internal MemRef.
-    Value integerDynamicMemoryPoolSize = rewriter.create<IndexCastOp>(
-        loc, dynamicMemoryPoolSize, rewriter.getIntegerType(64));
+    Value integerDynamicMemoryPoolSize = rewriter.create<arith::IndexCastOp>(
+        loc, rewriter.getIntegerType(64), dynamicMemoryPoolSize);
     integerDynamicMemoryPoolSize.getDefiningOp()->moveBefore(
         oldDynamicMemoryPool);
 
     // We need to emit a new alloc which contains the additional MemRef.
-    AllocOp bundledAlloc = rewriter.create<AllocOp>(
-        loc, bundledMemPoolMemRefType, bundledAllocOperand.getResult());
+    memref::AllocOp bundledAlloc = rewriter.create<memref::AllocOp>(loc,
+        bundledMemPoolMemRefType, bundledAllocOperand.getResult(),
+        oldDynamicMemoryPool.alignmentAttr());
     bundledAlloc.getOperation()->moveBefore(oldDynamicMemoryPool);
 
     KrnlGetRefOp bundledMemRef = rewriter.create<KrnlGetRefOp>(loc,
         currentAllocGetRef.getResult().getType(), bundledAlloc,
-        integerDynamicMemoryPoolSize);
+        integerDynamicMemoryPoolSize, currentAllocGetRef.getDynamicSizes());
+
+    // The get ref can be kept in its original location.
+    bundledMemRef.getOperation()->moveBefore(currentAllocGetRef);
 
     // Replace old memory pool with new one.
     rewriter.replaceOp(oldDynamicMemoryPool, bundledAlloc.getResult());
@@ -432,10 +471,32 @@ public:
     rewriter.replaceOp(currentAllocGetRef, bundledMemRef.getResult());
 
     // Update MemPool data structure.
-    blockToDynamicPool->erase(parentBlock);
-    blockToDynamicPool->insert(
-        std::pair<Block *, AllocOp>(parentBlock, bundledAlloc));
+    alignmentToMemPool->erase(alignment);
+    alignmentToMemPool->insert(
+        std::pair<int64_t, memref::AllocOp>(alignment, bundledAlloc));
 
+    return success();
+  }
+};
+
+/*
+ * Move all constants to the top of their respective block to avoid
+ * unwanted merges.
+ */
+class KrnlMoveConstantsUp : public OpRewritePattern<arith::ConstantOp> {
+public:
+  using OpRewritePattern<arith::ConstantOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      arith::ConstantOp constOp, PatternRewriter &rewriter) const override {
+    // Get parent block.
+    auto parentBlock = constOp.getOperation()->getBlock();
+
+    // Ensure it's the top block.
+    if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
+      return failure();
+
+    // Move instruction to the top.
+    constOp.getOperation()->moveBefore(&parentBlock->front());
     return success();
   }
 };
@@ -443,32 +504,45 @@ public:
 /*!
  *  Function pass that enables memory pooling for MemRefs.
  */
+
 class KrnlBundleMemoryPoolsPass
-    : public PassWrapper<KrnlBundleMemoryPoolsPass, FunctionPass> {
+    : public PassWrapper<KrnlBundleMemoryPoolsPass, OperationPass<FuncOp>> {
+
+  BlockToMemPool blockToStaticPool;
+  BlockToMemPool blockToDynamicPool;
+
 public:
-  void runOnFunction() override {
-    auto function = getFunction();
+  StringRef getArgument() const override { return "bundle-memory-pools"; }
 
-    dynamicPoolMap.insert(
-        std::pair<FuncOp, std::unique_ptr<BlockToDynamicPool>>(
-            function, std::make_unique<BlockToDynamicPool>()));
+  StringRef getDescription() const override {
+    return "Bundle memory pools of internal MemRefs into a single memory pool.";
+  }
 
-    staticPoolMap.insert(std::pair<FuncOp, std::unique_ptr<BlockToStaticPool>>(
-        function, std::make_unique<BlockToStaticPool>()));
+  void runOnOperation() override {
+    auto function = getOperation();
 
     ConversionTarget target(getContext());
-    OwningRewritePatternList patterns;
-    patterns.insert<KrnlBundleStaticMemoryPools, KrnlBundleDynamicMemoryPools>(
-        &getContext());
+    RewritePatternSet patterns(&getContext());
+    patterns.insert<KrnlBundleStaticMemoryPools>(
+        &getContext(), &blockToStaticPool);
+    // patterns.insert<KrnlBundleDynamicMemoryPools>(
+    //     &getContext(), &blockToDynamicPool);
+    patterns.insert<KrnlMoveConstantsUp>(&getContext());
 
-    applyPatternsAndFoldGreedily(function, patterns);
+    // No need to test, its ok to fail the apply.
+    LogicalResult res =
+        applyPatternsAndFoldGreedily(function, std::move(patterns));
+    assert((succeeded(res) || failed(res)) && "remove unused var warning");
 
-    dynamicPoolMap.erase(function);
-    staticPoolMap.erase(function);
+    BlockToMemPool::iterator it;
+    for (it = blockToStaticPool.begin(); it != blockToStaticPool.end(); it++)
+      free(it->second);
+    for (it = blockToDynamicPool.begin(); it != blockToDynamicPool.end(); it++)
+      free(it->second);
   }
 };
 } // namespace
 
-std::unique_ptr<Pass> mlir::createKrnlBundleMemoryPoolsPass() {
+std::unique_ptr<Pass> onnx_mlir::krnl::createKrnlBundleMemoryPoolsPass() {
   return std::make_unique<KrnlBundleMemoryPoolsPass>();
 }

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # ===------------ doc_parser.py - Documentation Parsing Utility ------------===//
 #
 # Copyright 2019-2020 The IBM Research Authors.

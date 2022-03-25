@@ -1,6 +1,10 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----------------- Matmul.cpp - Lowering Matmul Op --------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -8,296 +12,238 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
+
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
+#include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
+#define DEBUG_TYPE "matmul"
+
 struct ONNXMatMulOpLowering : public ConversionPattern {
-  ONNXMatMulOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXMatMulOp::getOperationName(), 1, ctx) {}
+  ONNXMatMulOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling)
+      : ConversionPattern(
+            typeConverter, mlir::ONNXMatMulOp::getOperationName(), 1, ctx),
+        enableTiling(enableTiling) {}
+  bool enableTiling;
+  // Handle the generic cases, including when there are broadcasts.
+  void replaceGenericMatmul(ONNXMatMulOp &matMulOp,
+      ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
+      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value fZero,
+      ConversionPatternRewriter &rewriter, Location loc) const {
+
+    // Define loops and bounds.
+    KrnlBuilder createKrnl(rewriter, loc);
+    int outerLoopNum = shapeHelper.dimsForOutput(0).size();
+    int totLoopNum = outerLoopNum + 1; // Add reduction inner loop.
+    ValueRange loopDef = createKrnl.defineLoops(totLoopNum);
+    SmallVector<IndexExpr, 4> loopLbs(totLoopNum, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> loopUbs; // All dimsForOutputs, plus reduction.
+    SmallVector<Value, 4> outerLoops;  // All but the last loop def.
+    for (int i = 0; i < outerLoopNum; ++i) {
+      loopUbs.emplace_back(shapeHelper.dimsForOutput(0)[i]);
+      outerLoops.emplace_back(loopDef[i]);
+    }
+    int aRank = shapeHelper.aDims.size();
+    int bRank = aRank; // Add for better readability.
+    IndexExpr innerUb = shapeHelper.aDims[aRank - 1];
+    loopUbs.emplace_back(innerUb);
+    SmallVector<Value, 1> innerLoop{loopDef[totLoopNum - 1]}; // Last loop def.
+
+    // Non-reduction loop iterations: output-rank.
+    createKrnl.iterateIE(loopDef, outerLoops, loopLbs, loopUbs,
+        [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
+          MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+              createKrnl);
+          // Single scalar, no need for default alignment.
+          Value reductionVal =
+              create.mem.alignedAlloca(MemRefType::get({}, elementType));
+          create.krnl.store(fZero, reductionVal);
+          // Inner loop for reduction.
+          create.krnl.iterate({}, innerLoop, {}, {},
+              [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
+                MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
+                    createKrnl);
+                Value k = innerIndex[0];
+                SmallVector<Value, 4> aAccessFct, bAccessFct;
+                for (int i = 0; i < aRank; ++i) {
+                  // Add index if dim is not a padded dimension.
+                  if (!shapeHelper.aPadDims[i]) {
+                    // For A, reduction index is last
+                    if (i == aRank - 1) {
+                      aAccessFct.emplace_back(k);
+                    } else {
+                      aAccessFct.emplace_back(outerIndices[i]);
+                    }
+                  }
+                  if (!shapeHelper.bPadDims[i]) {
+                    // For B, reduction index is second to last.
+                    if (i == bRank - 2) {
+                      bAccessFct.emplace_back(k);
+                    } else if (i == outerLoopNum) {
+                      // When the rank of A 1D, then the output lost one
+                      // dimension. E,g, (5) x (10, 5, 4) -> padded (1, 5) x
+                      // (10, 5, 4) = (10, 1, 4). But we drop the "1" so its
+                      // really (10, 4). When processing the last dim of the
+                      // reduction (i=2 here), we would normally access
+                      // output[2] but it does not exist, because we lost a dim
+                      // in the output due to 1D A.
+                      bAccessFct.emplace_back(outerIndices[i - 1]);
+                    } else {
+                      bAccessFct.emplace_back(outerIndices[i]);
+                    }
+                  }
+                }
+                // Add mat mul operation.
+                Value loadedA =
+                    create.krnl.load(operandAdaptor.A(), aAccessFct);
+                Value loadedB =
+                    create.krnl.load(operandAdaptor.B(), bAccessFct);
+                Value loadedY = create.krnl.load(reductionVal);
+                Value AB = create.math.mul(loadedA, loadedB);
+                Value accumulated = create.math.add(loadedY, AB);
+                create.krnl.store(accumulated, reductionVal);
+              });
+          Value accumulated = create.krnl.load(reductionVal);
+          create.krnl.store(accumulated, alloc, outerIndices);
+        });
+  }
+
+  // Handle the cases with 2x2 matrices both for A, B, and C without broadcast.
+  // Implementation here uses the efficient 1d tiling plus kernel substitution.
+  void replace2x2Matmul2d(ONNXMatMulOp &matMulOp,
+      ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
+      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
+      ConversionPatternRewriter &rewriter, Location loc) const {
+
+    // Prepare: loop bounds and zero
+    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
+    Value zero = create.math.constantIndex(0);
+    Value I = create.mem.dim(C, 0);
+    Value J = create.mem.dim(C, 1);
+    Value K = create.mem.dim(A, 1);
+
+    // Initialize alloc/C to zero.
+    create.krnl.memset(alloc, zeroVal);
+    bool simdize = true;
+
+    // Compute.
+    // Define blocking, with simdization along the j axis.
+    int64_t iRegTile(4), jRegTile(8), kRegTile(8);
+    // Update tiling for very small sizes known at compile time.
+    DimIndexExpr dimI(I), dimJ(J), dimK(K);
+    if (dimI.isLiteral()) {
+      int64_t constI = dimI.getLiteral();
+      if (constI < iRegTile) {
+        iRegTile = constI;
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Tiling I is reduced to " << iRegTile << "\n";
+        });
+      }
+    }
+    if (dimJ.isLiteral()) {
+      int64_t constJ = dimJ.getLiteral();
+      // When jRegTile does not divide J, but 4 would, use 4, unless J is very
+      // large, in which case it is better to simdize well the steady state
+      // and ignore the last partial block.
+      if (constJ % jRegTile != 0 && constJ % 4 == 0 && constJ <= 32) {
+        jRegTile = 4;
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Tiling J is reduced to " << jRegTile << "\n";
+        });
+      }
+      // Simdization occurs along j and jRegTile. If dimJ is smaller than
+      // jRegTile, disable simdization.
+      if (constJ < jRegTile) {
+        simdize = false;
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Disable simdization because trip " << constJ
+                       << " is smaller than reg tile " << jRegTile << "\n";
+        });
+      }
+    }
+    if (dimK.isLiteral()) {
+      int64_t constK = dimK.getLiteral();
+      if (constK < kRegTile) {
+        kRegTile = constK;
+        LLVM_DEBUG({
+          llvm::dbgs() << "MatMul: Tiling K is reduced to " << kRegTile << "\n";
+        });
+      }
+    }
+
+    // I, J, K loop.
+    ValueRange origLoop = create.krnl.defineLoops(3);
+    Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
+    // Define blocked loop and permute.
+    ValueRange iRegBlock = create.krnl.block(ii, iRegTile);
+    Value ii1(iRegBlock[0]), ii2(iRegBlock[1]);
+    ValueRange jRegBlock = create.krnl.block(jj, jRegTile);
+    Value jj1(jRegBlock[0]), jj2(jRegBlock[1]);
+    ValueRange kRegBlock = create.krnl.block(kk, kRegTile);
+    Value kk1(kRegBlock[0]), kk2(kRegBlock[1]);
+    create.krnl.permute({ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
+    create.krnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
+        {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange indices) {
+          Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
+          createKrnl.matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},
+              {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
+              {iRegTile, jRegTile, kRegTile}, {}, {}, {}, simdize,
+              /*unroll*/ true, /*overcompute*/ false);
+        });
+  }
+
+  // Handle the cases with 2x2 matrices both for A, B, and C without
+  // broadcast. Implementation here uses the efficient 2d tiling plus kernel
+  // substitution.
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
 
+    // Get shape.
     ONNXMatMulOpAdaptor operandAdaptor(operands);
-    Value A = operandAdaptor.A();
-    Value B = operandAdaptor.B();
-    auto AShape = A.getType().cast<MemRefType>().getShape();
-    auto BShape = B.getType().cast<MemRefType>().getShape();
+    ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
+    Location loc = ONNXLoc<ONNXMatMulOp>(op);
+    ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapecomputed));
 
-    // There are three cases related to the shapes of the two arguments:
-    // - Both arguments are N-D, N >= 2
-    // - Either argument is 1-D, the other is N-D, N >= 2
-    // - Both arguments are 1-D
+    // Insert an allocation and deallocation for the output of this operation.
+    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    Type elementType = outputMemRefType.getElementType();
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
-    // Result type
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
-    auto elementType = memRefType.getElementType();
-    auto memRefShape = memRefType.getShape();
+    // Get the constants: zero.
+    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    // A value zero
-    auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
-
-    // Insert an allocation and deallocation for the result of this operation.
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else {
-      SmallVector<Value, 4> allocOperands;
-      if (AShape.size() >= 2 && BShape.size() >= 2) {
-        // Both arguments are N-D, N >= 2
-        // (s1 x s2 x... x sK x M x K) MATMUL (K x N)
-        // =>
-        // (s1 x s2 x... x sK x M x N)
-        for (int i = 0; i < memRefShape.size() - 2; ++i) {
-          if (memRefShape[i] < 0) {
-            if ((AShape.size() == 2) && (BShape.size() > 2))
-              allocOperands.emplace_back(rewriter.create<DimOp>(loc, B, i));
-            else if ((AShape.size() > 2) && (BShape.size() == 2))
-              allocOperands.emplace_back(rewriter.create<DimOp>(loc, A, i));
-          }
-        }
-        if (memRefShape[memRefShape.size() - 2] < 0) {
-          auto dim = rewriter.create<DimOp>(loc, A, memRefShape.size() - 2);
-          allocOperands.emplace_back(dim);
-        }
-        if (memRefShape[memRefShape.size() - 1] < 0) {
-          auto dim = rewriter.create<DimOp>(loc, B, memRefShape.size() - 1);
-          allocOperands.emplace_back(dim);
-        }
-      } else if (AShape.size() == 1 && BShape.size() >= 2) {
-        // Either argument is 1-D
-        // K MATMUL (s1 x s2 x... x sK x K x N)
-        // =>
-        // (s1 x s2 x... x sK x N)
-        for (int i = 0; i < memRefShape.size() - 1; ++i) {
-          if (memRefShape[i] < 0) {
-            auto dim = rewriter.create<DimOp>(loc, B, i);
-            allocOperands.emplace_back(dim);
-          }
-        }
-        if (memRefShape[memRefShape.size() - 1] < 0) {
-          auto dim = rewriter.create<DimOp>(loc, B, BShape.size() - 1);
-          allocOperands.emplace_back(dim);
-        }
-      } else if (AShape.size() >= 2 && BShape.size() == 1) {
-        // Either argument is 1-D
-        // (s1 x s2 x... x sK x M x K) MATMUL K
-        // =>
-        // (s1 x s2 x... x sK x M)
-        for (int i = 0; i < memRefShape.size() - 1; ++i) {
-          if (memRefShape[i] < 0) {
-            auto dim = rewriter.create<DimOp>(loc, A, i);
-            allocOperands.emplace_back(dim);
-          }
-        }
-        if (memRefShape[memRefShape.size() - 1] < 0) {
-          auto dim = rewriter.create<DimOp>(loc, A, AShape.size() - 2);
-          allocOperands.emplace_back(dim);
-        }
-      } else if (AShape.size() == 1 && BShape.size() == 1) {
-        // Both arguments are 1-D
-        if (memRefShape[0] < 0) {
-          auto dim = rewriter.create<DimOp>(loc, A, 0);
-          allocOperands.emplace_back(dim);
-        }
-      } else {
-        return emitError(loc, "Invalid shapes");
-      }
-
-      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
-    }
-
-    if (AShape.size() >= 2 || BShape.size() >= 2) {
-      // Cases 1 and 2:
-      // - Both arguments are N-D, N >= 2
-      // - Either argument is 1-D, the other is N-D, N >= 2
-
-      // Define loops for batch dimensions.
-      std::vector<Value> originalLoops;
-      defineLoops(rewriter, loc, originalLoops, memRefShape.size());
-
-      // Outer KrnlIterateOp
-      SmallVector<Value, 4> loopBatchIVs;
-      bool hasBatchLoop = false;
-      if (AShape.size() > 2 || BShape.size() > 2) {
-        SmallVector<int, 4> batchAxes;
-        int matmulResultDims =
-            ((AShape.size() == 1 || BShape.size() == 1)) ? 1 : 2;
-        for (int i = 0; i < memRefShape.size() - matmulResultDims; ++i)
-          batchAxes.emplace_back(i);
-
-        std::vector<Value> outerLoops;
-        outerLoops.reserve(batchAxes.size());
-        for (int i = 0; i < batchAxes.size(); ++i)
-          outerLoops.push_back(originalLoops[i]);
-
-        KrnlIterateOperandPack outerPack(rewriter, outerLoops);
-        for (int i = 0; i < batchAxes.size(); ++i) {
-          addDimensionToPack(rewriter, loc, outerPack, alloc, i);
-        }
-        auto outerIterateOp = rewriter.create<KrnlIterateOp>(loc, outerPack);
-
-        // Insert instructions into the outer KrnlIterateOp.
-        Block &outerIterationBlock = outerIterateOp.bodyRegion().front();
-        rewriter.setInsertionPointToStart(&outerIterationBlock);
-
-        // Induction variables: non-matrix-multiplication variables.
-        for (auto arg : outerIterationBlock.getArguments()) {
-          loopBatchIVs.emplace_back(arg);
-        }
-
-        hasBatchLoop = true;
-      }
-
-      // Now, we define loops for matrix multiplication.
-
-      // Create a KrnlIterateOp for matrix multiplication.
-      KrnlIterateOp matmulIterateOp;
-      std::vector<Value> matmulLoops;
-      if (AShape.size() >= 2 && BShape.size() >= 2) {
-        // 2-D x 2-D. Result has two dimensions.
-        matmulLoops.reserve(2);
-        for (int i = 2; i > 0; --i) {
-          matmulLoops.emplace_back(originalLoops[memRefShape.size() - i]);
-        }
-        KrnlIterateOperandPack matmulPack(rewriter, matmulLoops);
-        for (int i = 2; i > 0; --i) {
-          addDimensionToPack(
-              rewriter, loc, matmulPack, alloc, memRefShape.size() - i);
-        }
-        matmulIterateOp = rewriter.create<KrnlIterateOp>(loc, matmulPack);
-      } else {
-        // 1-D x 2-D, and vice versa. Result has one dimension.
-        matmulLoops.reserve(1);
-        matmulLoops.emplace_back(originalLoops[memRefShape.size() - 1]);
-        KrnlIterateOperandPack matmulPack(rewriter, matmulLoops);
-        addDimensionToPack(
-            rewriter, loc, matmulPack, alloc, memRefShape.size() - 1);
-        matmulIterateOp = rewriter.create<KrnlIterateOp>(loc, matmulPack);
-      }
-
-      // Insert instructions into the matmul KrnlIterateOp.
-      Block &matmulIterationBlock = matmulIterateOp.bodyRegion().front();
-      rewriter.setInsertionPointToStart(&matmulIterationBlock);
-
-      // Induction variables: M, N
-      SmallVector<Value, 4> loopMNIVs;
-      for (auto arg : matmulIterationBlock.getArguments()) {
-        loopMNIVs.emplace_back(arg);
-      }
-      // Induction variables for the final result.
-      SmallVector<Value, 4> loopBatchMNIVs;
-      for (auto arg : loopBatchIVs) {
-        loopBatchMNIVs.emplace_back(arg);
-      }
-      for (auto arg : loopMNIVs) {
-        loopBatchMNIVs.emplace_back(arg);
-      }
-
-      // Fill the output with value 0.
-      rewriter.create<AffineStoreOp>(loc, zero, alloc, loopBatchMNIVs);
-
-      //  Iterate along the reduction dimension.
-      //  Use a value from A.
-      std::vector<Value> reduceLoops;
-      defineLoops(rewriter, loc, reduceLoops, 1);
-      KrnlIterateOperandPack reducePack(rewriter, reduceLoops);
-      addDimensionToPack(rewriter, loc, reducePack, A, AShape.size() - 1);
-      auto reduceIterateOp = rewriter.create<KrnlIterateOp>(loc, reducePack);
-
-      // Insert instructions into the reduction KrnlIterateOp.
-      Block &reduceIterationBlock = reduceIterateOp.bodyRegion().front();
-      rewriter.setInsertionPointToStart(&reduceIterationBlock);
-
-      // Induction variables
-      SmallVector<Value, 4> loopKIVs, loopBatchMKIVs, loopBatchKNIVs;
-      // K
-      loopKIVs.emplace_back(reduceIterationBlock.getArguments()[0]);
-      // MK
-      if (AShape.size() > 2)
-        for (auto arg : loopBatchIVs)
-          loopBatchMKIVs.emplace_back(arg);
-      if (AShape.size() >= 2)
-        loopBatchMKIVs.emplace_back(loopMNIVs[0]);
-      loopBatchMKIVs.emplace_back(loopKIVs[0]);
-      // KN
-      if (BShape.size() > 2)
-        for (auto arg : loopBatchIVs)
-          loopBatchKNIVs.emplace_back(arg);
-      loopBatchKNIVs.emplace_back(loopKIVs[0]);
-      if (BShape.size() >= 2) {
-        if (AShape.size() >= 2)
-          loopBatchKNIVs.emplace_back(loopMNIVs[1]);
-        else
-          loopBatchKNIVs.emplace_back(loopMNIVs[0]);
-      }
-      // Matmul computation
-      auto loadedA = rewriter.create<AffineLoadOp>(loc, A, loopBatchMKIVs);
-      auto loadedB = rewriter.create<AffineLoadOp>(loc, B, loopBatchKNIVs);
-      auto loadedY = rewriter.create<AffineLoadOp>(loc, alloc, loopBatchMNIVs);
-      if (elementType.isa<IntegerType>()) {
-        auto AB = rewriter.create<MulIOp>(loc, loadedA, loadedB);
-        auto accumulated = rewriter.create<AddIOp>(loc, loadedY, AB);
-        rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopBatchMNIVs);
-      } else if (elementType.isa<FloatType>()) {
-        auto AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
-        auto accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-        rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopBatchMNIVs);
-      }
-    } else if ((AShape.size() == 1) && (BShape.size() == 1)) {
-      // Case 3:
-      // - Both arguments are 1-D
-
-      // Fill the output with value 0.
-      Value zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
-      rewriter.create<AffineStoreOp>(loc, zero, alloc, zeroIndex);
-
-      //  Iterate along the reduction dimension.
-      //  Use a value from A.
-      std::vector<Value> reduceLoops;
-
-      defineLoops(rewriter, loc, reduceLoops, 1);
-      KrnlIterateOperandPack reducePack(rewriter, reduceLoops);
-      addDimensionToPack(rewriter, loc, reducePack, A, 0);
-      auto reduceIterateOp = rewriter.create<KrnlIterateOp>(loc, reducePack);
-
-      // Insert instructions into the reduction KrnlIterateOp.
-      Block &reduceIterationBlock = reduceIterateOp.bodyRegion().front();
-      rewriter.setInsertionPointToStart(&reduceIterationBlock);
-
-      // Induction variables
-      SmallVector<Value, 4> loopKIVs;
-      // K
-      loopKIVs.emplace_back(reduceIterationBlock.getArgument(0));
-
-      // Matmul computation
-      auto loadedA = rewriter.create<AffineLoadOp>(loc, A, loopKIVs);
-      auto loadedB = rewriter.create<AffineLoadOp>(loc, B, loopKIVs);
-      auto loadedY = rewriter.create<AffineLoadOp>(loc, alloc, zeroIndex);
-      if (elementType.isa<IntegerType>()) {
-        auto AB = rewriter.create<MulIOp>(loc, loadedA, loadedB);
-        auto accumulated = rewriter.create<AddIOp>(loc, loadedY, AB);
-        rewriter.create<AffineStoreOp>(loc, accumulated, alloc, zeroIndex);
-      } else if (elementType.isa<FloatType>()) {
-        auto AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
-        auto accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-        rewriter.create<AffineStoreOp>(loc, accumulated, alloc, zeroIndex);
-      }
+    Value A(operandAdaptor.A()), B(operandAdaptor.B());
+    auto aRank = A.getType().cast<MemRefType>().getShape().size();
+    auto bRank = B.getType().cast<MemRefType>().getShape().size();
+    if (enableTiling && aRank == 2 && bRank == 2) {
+      // Optimized Matmul only when 2D and allowed to tile and unroll.
+      replace2x2Matmul2d(matMulOp, operandAdaptor, elementType, shapeHelper,
+          alloc, zero, rewriter, loc);
     } else {
-      // No scalar matrix multiplication.
-      llvm_unreachable("Unsupported scalar matrix multiplication.");
+      replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
+          alloc, zero, rewriter, loc);
     }
-
+    // Done.
     rewriter.replaceOp(op, alloc);
-
     return success();
   }
 };
 
-void populateLoweringONNXMatMulOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXMatMulOpLowering>(ctx);
+void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
+  patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx, enableTiling);
 }

@@ -1,6 +1,10 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====----- ONNXToKrnlCommon.cpp - ONNX dialects to Krnl lowering ---------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -10,6 +14,88 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+
+bool ONNXToKrnl_gEmitDealloc = false;
+
+Value OnnxToKrnlBuilder::reshape(
+    const Value input, const ArrayRef<DimIndexExpr> shapeDims) const {
+  assert(!shapeDims.empty() && "Shape dimensions should not be empty");
+
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  Type elementType = inputType.getElementType();
+
+  // If the output dimensions are all literals the 'onnx/Reshape' operation
+  // can take the new shape via an 'onnx.Constant'.
+  if (llvm::all_of(
+          shapeDims, [](const DimIndexExpr &dim) { return dim.isLiteral(); })) {
+    SmallVector<int64_t, 6> shape;
+    for (const IndexExpr &dim : shapeDims)
+      shape.push_back(dim.getLiteral());
+
+    auto constantOp =
+        createONNXConstantOpWithDenseAttr(b, loc, b.getI64TensorAttr(shape));
+
+    Value reshapeRes = b.create<ONNXReshapeOp>(
+        loc, MemRefType::get(shape, elementType), input, constantOp);
+
+    return reshapeRes;
+  }
+
+  MemRefBuilder memRefBuilder(b, loc);
+  KrnlBuilder krnlBuilder(memRefBuilder);
+
+  // When the output dimensions aren't all literals we need to generate code
+  // to compute the shape. Allocate a buffer and store the putput dimension
+  // into it.
+  IndexType indexTy = b.getIndexType();
+  int64_t length = shapeDims.size();
+  memref::AllocOp alloc =
+      memRefBuilder.alignedAlloc(MemRefType::get({length}, indexTy), 16);
+
+  for (int64_t i = 0; i < length; ++i) {
+    Value index = emitConstantOp(b, loc, indexTy, i);
+    Value data = shapeDims[i].getValue();
+    krnlBuilder.store(data, alloc, index);
+  }
+
+  // Now create the 'onnx.Reshape' operation. Because the shape is not a
+  // compile time constant it is effectively unknown.
+  SmallVector<int64_t> shape(length, -1);
+  Value reshapeRes = b.create<ONNXReshapeOp>(
+      loc, MemRefType::get(shape, elementType), input, alloc);
+
+  // The 'onnx.Reshape' operation yields a memref with unknown extents, so we
+  // need to explicitly cast the result to the know size.
+  SmallVector<int64_t, 6> castOutputShape;
+  for (const IndexExpr &dim : shapeDims)
+    castOutputShape.push_back(dim.isLiteral() ? dim.getLiteral() : -1);
+
+  Value castRes = memRefBuilder.cast(
+      reshapeRes, MemRefType::get(castOutputShape, elementType));
+
+  return castRes;
+}
+
+Value OnnxToKrnlBuilder::transpose(const Value input,
+    const ArrayRef<int64_t> perm,
+    const ArrayRef<DimIndexExpr> outputDims) const {
+  assert(!outputDims.empty() && "Output dimensions should not be empty");
+  assert(!perm.empty() && perm.size() == outputDims.size() &&
+         "Expecting valid permutation array");
+
+  // Compute the shape of the 'onnx.Transpose' result.
+  SmallVector<int64_t, 6> shape;
+  for (const IndexExpr &dim : outputDims)
+    shape.push_back(dim.isLiteral() ? dim.getLiteral() : -1);
+
+  // Create the "onnx.Transpose" operation.
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  Value transposeRes = b.create<ONNXTransposeOp>(loc,
+      MemRefType::get(shape, inputType.getElementType()), input,
+      b.getI64ArrayAttr(perm));
+
+  return transposeRes;
+}
 
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values) {
@@ -22,84 +108,50 @@ bool hasAllScalarValues(ArrayRef<Value> values) {
 
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type) {
-  MemRefType memRefType;
-  auto tensorType = type.dyn_cast<TensorType>();
-  if (tensorType) {
+  // Convert the element type of the (tensor or memref) to a valid Krnl type.
+  auto convertElemType = [](Type elemType) -> Type {
+    if (elemType.isa<ONNXStringType>())
+      return StringType::get(elemType.getContext());
+    return elemType;
+  };
+
+  if (auto tensorType = type.dyn_cast_or_null<TensorType>()) {
     assert(tensorType.hasRank() && "expected only ranked shapes");
-    memRefType =
-        MemRefType::get(tensorType.getShape(), tensorType.getElementType());
-  } else {
-    memRefType = type.dyn_cast<MemRefType>();
+    MemRefType memRefType = MemRefType::get(
+        tensorType.getShape(), convertElemType(tensorType.getElementType()));
+    return memRefType;
   }
-  return memRefType;
+
+  assert(type.isa<MemRefType>() && "Expecting a MemRefType");
+  auto memRefType = type.cast<MemRefType>();
+  return MemRefType::get(
+      memRefType.getShape(), convertElemType(memRefType.getElementType()));
 }
 
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
-    PatternRewriter &rewriter, bool insertDealloc, ArrayRef<Value> operands,
+    PatternRewriter &rewriter, bool insertDealloc, Value operand,
     int64_t alignment) {
+  MemRefBuilder createMemRef(rewriter, loc);
   // Put together alloc operands for any dynamic dimensions of the memref.
-  AllocOp alloc;
-  if (!operands.empty()) {
+  memref::AllocOp alloc;
+  if (operand) {
     auto memRefShape = type.getShape();
     auto rank = memRefShape.size();
 
-    std::map<int, Value> fromOperands;
-    for (int reversedIdx = 0; reversedIdx < rank; ++reversedIdx) {
-      int memRefDimIdx = rank - 1 - reversedIdx;
-      if (memRefShape[memRefDimIdx] < 0) { // unknown dimension
-        Value maxDim = nullptr;
-        for (int i = 0; i < operands.size(); i++) {
-          auto operandShape =
-              operands[i].getType().cast<MemRefType>().getShape();
-          int operandDimIdx = operandShape.size() - 1 - reversedIdx;
-
-          if (operandDimIdx < 0)
-            continue;
-
-          // In case of operations with broadcasting, the dimension of the
-          // alloc result is the maximum size along each dimension of the
-          // operands.
-          auto operandDim =
-              rewriter.create<DimOp>(loc, operands[i], operandDimIdx);
-          if (maxDim) {
-            auto maxCondition = rewriter.create<CmpIOp>(
-                loc, CmpIPredicate::sgt, operandDim, maxDim);
-            maxDim = rewriter.create<SelectOp>(
-                loc, maxCondition, operandDim, maxDim);
-          } else {
-            maxDim = operandDim;
-          }
-        }
-        fromOperands.insert(std::make_pair(memRefDimIdx, maxDim));
-      }
-    }
-
     SmallVector<Value, 4> allocOperands;
-    for (int i = 0; i < rank; ++i)
-      if (memRefShape[i] < 0)
-        allocOperands.push_back(fromOperands[i]);
-    // Set alignment attribute. Default value is `-1`, which does not set
-    // alignment.
-    if (alignment >= 0) {
-      IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
-      alloc =
-          rewriter.create<AllocOp>(loc, type, allocOperands, constAlignAttr);
-    } else {
-      alloc = rewriter.create<AllocOp>(loc, type, allocOperands);
-    }
+    for (unsigned int i = 0; i < rank; ++i)
+      if (memRefShape[i] < 0) {
+        auto dim = createMemRef.dim(operand, i);
+        allocOperands.push_back(dim);
+      }
+    alloc = createMemRef.alignedAlloc(type, allocOperands, alignment);
   } else {
-    // Set alignment attribute. Default value is `-1`, which does not set
-    // alignment.
-    if (alignment >= 0) {
-      SmallVector<Value, 4> allocOperandsEmpty;
-      IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
-      alloc = rewriter.create<AllocOp>(
-          loc, type, allocOperandsEmpty, constAlignAttr);
-    } else {
-      alloc = rewriter.create<AllocOp>(loc, type);
-    }
+    alloc = createMemRef.alignedAlloc(type, alignment);
   }
+
+  if (!ONNXToKrnl_gEmitDealloc)
+    return alloc;
 
   // Make sure to allocate at the beginning of the block if
   // all dimensions are known.
@@ -108,7 +160,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     alloc.getOperation()->moveBefore(&parentBlock->front());
 
   if (insertDealloc) {
-    auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+    auto dealloc = createMemRef.dealloc(alloc);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
 
@@ -120,50 +172,94 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // dimensions, it uses the index expressions to retrieve the corresponding
 // values.
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims) {
-
-  bool insertDealloc = checkInsertDealloc(op);
-
+    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
+    bool insertDealloc, int64_t alignment) {
   // Constant, use the normal insert with no additional operands or alignment.
   if (hasAllConstantDimensions(type))
-    return insertAllocAndDealloc(type, loc, rewriter, insertDealloc);
+    return insertAllocAndDealloc(
+        type, loc, rewriter, insertDealloc, nullptr, alignment);
   // Otherwise, take the unkown operands from the output dim IndexExpressions
   SmallVector<Value, 2> allocOperands;
   auto memRefShape = type.getShape();
   auto rank = memRefShape.size();
 
-  for (int i = 0; i < rank; ++i) {
+  for (unsigned int i = 0; i < rank; ++i) {
     if (memRefShape[i] < 0) {
       // have dyn shape
       allocOperands.emplace_back(outputDims[i].getValue());
     }
   }
-  AllocOp allocOp = rewriter.create<AllocOp>(loc, type, allocOperands);
+  MemRefBuilder createMemRef(rewriter, loc);
+  memref::AllocOp allocOp =
+      createMemRef.alignedAlloc(type, allocOperands, alignment);
+
+  if (!ONNXToKrnl_gEmitDealloc)
+    return allocOp;
+
   if (insertDealloc) {
     auto *parentBlock = allocOp.getOperation()->getBlock();
-    auto dealloc = rewriter.create<DeallocOp>(loc, allocOp);
+    auto dealloc = createMemRef.dealloc(allocOp);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   return allocOp;
 }
 
+Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
+    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
+    int64_t alignment) {
+
+  bool insertDealloc = checkInsertDealloc(op);
+
+  return insertAllocAndDeallocSimple(
+      rewriter, op, type, loc, outputDims, insertDealloc, alignment);
+}
+
 // Determine if current function returns the result value of the
-// current op being lowered. If it does then dealloc should not be
-// inserted.
+// current op or the result value of reinterpret_cast op whose
+// operand is the result value of current op. If it does then
+// dealloc should not be inserted.
 bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
+  if (ONNXToKrnl_gEmitDealloc == false)
+    return false;
+
   auto parentBlock = currentOp->getBlock();
-
   bool insertDealloc = true;
-  parentBlock->walk([&insertDealloc, currentOp, resultIndex](ReturnOp op) {
-    // If there is at least one result to investigate.
-    if (currentOp->getNumResults() > 0) {
-      auto result = currentOp->getResult(resultIndex);
-      for (const auto &operand : op.getOperands())
-        if (operand == result)
-          insertDealloc = false;
-    }
-  });
 
+  // Check if the result value of `currentOp` is an operand of
+  // `ReinterpretCastOp`, and store the result value of `ReinterpretCastOp`.
+  // Reshape, Squeeze, and Unsqueeze ops are checked because they are lowered to
+  // `ReinterpretCastOp`.
+  SmallVector<Value, 32> castOpResults;
+  if (currentOp->getNumResults() > 0) {
+    parentBlock->walk([currentOp, resultIndex, &castOpResults](Operation *op) {
+      if (isa<memref::ReinterpretCastOp>(op) || isa<ONNXReshapeOp>(op) ||
+          isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op) ||
+          isa<ONNXSqueezeOp>(op) || isa<ONNXUnsqueezeOp>(op)) {
+        auto result = currentOp->getResult(resultIndex);
+        for (const auto &operand : op->getOperands())
+          if (operand == result)
+            castOpResults.emplace_back(op->getResults()[0]);
+      }
+    });
+  }
+  // If there is at least one result to investigate.
+  if (currentOp->getNumResults() > 0) {
+    parentBlock->walk(
+        [&insertDealloc, currentOp, resultIndex, &castOpResults](ReturnOp op) {
+          auto result = currentOp->getResult(resultIndex);
+          for (const auto &operand : op.getOperands()) {
+            // Determine if current function returns the result value of the
+            // current op.
+            if (operand == result)
+              insertDealloc = false;
+            // Determin if the result value of reinterpret_cast op whose operand
+            // is the result value of current op
+            for (const auto &castOpResult : castOpResults)
+              if (operand == castOpResult)
+                insertDealloc = false;
+          }
+        });
+  }
   return insertDealloc;
 }
 
@@ -199,14 +295,14 @@ std::map<int64_t, int64_t> getReductionMapping(
 }
 
 // Add bounds associated with the op operand to the KRNL iteration pack.
-// Dynamic dimenions are supported.
+// Dynamic dimension are supported.
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
     KrnlIterateOperandPack &pack, Value operand, int index) {
   auto shape = operand.getType().cast<MemRefType>().getShape();
   if (shape[index] < 0) {
     pack.pushConstantBound(0);
     pack.pushOperandBound(
-        rewriter.create<DimOp>(loc, operand, index).getResult());
+        rewriter.create<memref::DimOp>(loc, operand, index).getResult());
   } else {
     pack.pushConstantBound(0);
     pack.pushConstantBound(shape[index]);
@@ -220,88 +316,6 @@ void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
   loops.reserve(numLoops);
   for (auto result : loopsOp.getResults())
     loops.push_back(result);
-}
-
-// Get run-time dimension information for unknown dimensions used for
-// broadcasting.
-std::map<int, std::map<int, Value>> getBroadcastedDimInfo(Location loc,
-    ConversionPatternRewriter &rewriter, MemRefType memRefType,
-    ArrayRef<Value> operands) {
-  auto memRefShape = memRefType.getShape();
-  int64_t rank = memRefShape.size();
-  // For unknown dimensions, we need to get dimension values at runtime in
-  // order to do broadcasting.
-  std::map<int, std::map<int, Value>> DimInfo;
-  // For each result dimension, compute the number of sharing operands.
-  // Sharing operands are operands sharing the same index (counting from the
-  // rightmost to the leftmost) for a given dimension.
-  std::map<int, int> sharedDimCount;
-  for (int reversedIdx = 0; reversedIdx < rank; ++reversedIdx) {
-    int dimIdx = rank - 1 - reversedIdx;
-    sharedDimCount[dimIdx] = 0;
-    for (int i = 0; i < operands.size(); ++i) {
-      auto shape = operands[i].getType().cast<MemRefType>().getShape();
-      if (reversedIdx <= shape.size() - 1)
-        sharedDimCount[dimIdx]++;
-    }
-  }
-  // An unknown dimension can have a value of 1 or N (N > 1).
-  // If its value is 1, it is broadcasted dimension.
-  // Otherwise, non-broadcasted dimension.
-  // We only care about unknown dimensions whose number of sharing operands is
-  // more than one, since they are potentially broadcasted dimensions.
-  for (int i = 0; i < operands.size(); ++i) {
-    std::map<int, Value> broadcastedDims;
-    auto shape = operands[i].getType().cast<MemRefType>().getShape();
-    int size = shape.size();
-    for (int j = 0; j < shape.size(); ++j) {
-      if (shape[j] < 0 && sharedDimCount[rank - size + j] > 1) {
-        auto dim = rewriter.create<DimOp>(loc, operands[i], j).getResult();
-        auto one = rewriter.create<ConstantIndexOp>(loc, 1);
-        auto isBroadcasted =
-            rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, dim, one);
-        broadcastedDims.insert(std::make_pair(j, isBroadcasted));
-      }
-    }
-    DimInfo.insert(std::make_pair(i, broadcastedDims));
-  }
-  return DimInfo;
-}
-
-// Extract induction variables that are used for broadcasting values of a
-// given operand.
-std::vector<Value> getLoopIVsForBroadcasting(Location loc,
-    ConversionPatternRewriter &rewriter, ArrayRef<Value> loopIVs, Value operand,
-    std::map<int, Value> broadcastedDims) {
-  // `operand` must has a ranked type. This should have been checked by the
-  // shape inference pass.
-  auto operandShape = operand.getType().cast<MemRefType>().getShape();
-  auto rank = operandShape.size();
-  auto loopCount = loopIVs.size();
-
-  std::vector<Value> newLoopIVs;
-  for (unsigned reversedIdx = 0; reversedIdx < rank; ++reversedIdx) {
-    auto dimIdx = rank - 1 - reversedIdx;
-    auto loopIdx = loopCount - 1 - reversedIdx;
-    if (operandShape[dimIdx] == 1) {
-      // Broadcasted dimension
-      auto zero = rewriter.create<ConstantIndexOp>(loc, 0);
-      newLoopIVs.insert(newLoopIVs.begin(), zero);
-    } else if ((operandShape[dimIdx] == -1) &&
-               (broadcastedDims.find(dimIdx) != broadcastedDims.end())) {
-      // Unknown dimension, it can have a value of 1 or N (N > 1).
-      // If its value is 1, it is broadcasted dimension.
-      // Otherwise, non-broadcasted dimension.
-      auto zero = rewriter.create<ConstantIndexOp>(loc, 0);
-      auto idx = rewriter.create<SelectOp>(
-          loc, broadcastedDims[dimIdx], zero, loopIVs[loopIdx]);
-      newLoopIVs.insert(newLoopIVs.begin(), idx);
-    } else {
-      // Non-broadcasted dimension
-      newLoopIVs.insert(newLoopIVs.begin(), loopIVs[loopIdx]);
-    }
-  }
-  return newLoopIVs;
 }
 
 Value emitPositiveInfinityConstantOp(
@@ -371,7 +385,7 @@ Value emitPositiveInfinityConstantOp(
         }
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
-  return rewriter.create<ConstantOp>(loc, constantAttr);
+  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
 }
 
 Value emitNegativeInfinityConstantOp(
@@ -442,5 +456,335 @@ Value emitNegativeInfinityConstantOp(
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
-  return rewriter.create<ConstantOp>(loc, constantAttr);
+  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
+}
+
+Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
+    Value operand, int64_t axis, Type type) {
+  ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
+  Value dimVal;
+  MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
+  if (shape[axis] < 0) {
+    Value dim = create.mem.dim(operand, axis);
+    dimVal = create.math.cast(type, dim);
+  } else {
+    dimVal = create.math.constant(type, shape[axis]);
+  }
+  return dimVal;
+}
+
+/// Emit an ONNXSqueezeV11Op. If the input is constant, do const propagation,
+/// and return a constant.
+Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, int64_t axis) {
+  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(
+        input.getDefiningOp()
+            ->getAttrOfType<::mlir::Attribute>("value")
+            .dyn_cast_or_null<mlir::DenseElementsAttr>());
+
+    Value constVal = createDenseONNXConstantOp(
+        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
+                         .getResult();
+    free(inputBuffer);
+    return constVal;
+  } else {
+    return rewriter
+        .create<ONNXSqueezeV11Op>(
+            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
+        .getResult();
+  }
+}
+
+/// Emit an ONNXUnsqueezeV11Op. If the input is constant, do const propagation,
+/// and return a constant.
+Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, int64_t axis) {
+  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(
+        input.getDefiningOp()
+            ->getAttrOfType<::mlir::Attribute>("value")
+            .dyn_cast_or_null<mlir::DenseElementsAttr>());
+
+    Value constVal = createDenseONNXConstantOp(
+        rewriter, loc, resultType.cast<ShapedType>(), inputBuffer)
+                         .getResult();
+    free(inputBuffer);
+    return constVal;
+  } else {
+    return rewriter
+        .create<ONNXUnsqueezeV11Op>(
+            loc, resultType, input, rewriter.getI64ArrayAttr(axis))
+        .getResult();
+  }
+}
+
+/// Emit an ONNXSplitOp. If the input is constant, do const propagation, and
+/// return constants.
+/// Only support evenly splitting.
+std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
+    Location loc, ArrayRef<Type> resultTypes, Value input, int64_t axis) {
+  std::vector<Value> resVals;
+
+  int outputNum = resultTypes.size();
+  auto inputType = input.getType().cast<ShapedType>();
+  auto inputShape = inputType.getShape();
+  Type elementType = inputType.getElementType();
+
+  // Compute split offsets.
+  SmallVector<int64_t, 4> splitOffsets;
+  int64_t offset = 0;
+  for (int i = 0; i < outputNum; ++i) {
+    splitOffsets.emplace_back(offset);
+    offset += inputShape[axis] / outputNum;
+  }
+
+  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(
+        input.getDefiningOp()
+            ->getAttrOfType<::mlir::Attribute>("value")
+            .dyn_cast_or_null<mlir::DenseElementsAttr>());
+
+    std::vector<char *> resBuffers;
+    ConstPropSplitImpl(elementType, inputBuffer, inputShape,
+        /*splitAxis=*/axis, /*splitOffsets=*/splitOffsets, resultTypes,
+        resBuffers);
+
+    for (int i = 0; i < outputNum; ++i) {
+      Value constVal = createDenseONNXConstantOp(
+          rewriter, loc, resultTypes[i].cast<ShapedType>(), resBuffers[i])
+                           .getResult();
+      resVals.emplace_back(constVal);
+      free(resBuffers[i]);
+    }
+    free(inputBuffer);
+  } else {
+    ONNXSplitV11Op split =
+        rewriter.create<ONNXSplitV11Op>(loc, resultTypes, input,
+            /*axis=*/axis, nullptr);
+    for (int i = 0; i < outputNum; ++i)
+      resVals.emplace_back(split.outputs()[i]);
+  }
+  return resVals;
+}
+
+/// Emit an ONNXTransposeOp. If the input is constant, do const propagation, and
+/// return a constant.
+Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, ArrayAttr permAttr) {
+  auto inputType = input.getType().cast<ShapedType>();
+  auto inputShape = inputType.getShape();
+  auto resultShape = resultType.cast<ShapedType>().getShape();
+  Type elementType = inputType.getElementType();
+
+  // Get perm attribute.
+  SmallVector<uint64_t, 4> perm;
+  for (auto permVal : permAttr.getValue())
+    perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
+
+  if (isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(
+        input.getDefiningOp()
+            ->getAttrOfType<::mlir::Attribute>("value")
+            .dyn_cast_or_null<mlir::DenseElementsAttr>());
+
+    char *resBuffer = allocateBufferFor(resultType, /*useMaxSize=*/true);
+    ConstPropTransposeImpl(
+        elementType, inputBuffer, inputShape, perm, resultShape, resBuffer);
+    Value constVal = createDenseONNXConstantOp(
+        rewriter, loc, resultType.cast<ShapedType>(), resBuffer)
+                         .getResult();
+    free(resBuffer);
+    free(inputBuffer);
+    return constVal;
+  } else
+    return rewriter.create<ONNXTransposeOp>(loc, resultType, input, permAttr)
+        .getResult();
+}
+
+/// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
+/// The new view is created using the given 'memRefType' and 'outputDims'.
+Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
+    Location loc, Value data, const MemRefType &memRefType,
+    const SmallVectorImpl<IndexExpr> &outputDims) {
+  int64_t rank = memRefType.getRank();
+
+  // Compute new sizes and strides.
+  SmallVector<IndexExpr, 4> sizesIE, stridesIE;
+  sizesIE.resize(rank);
+  stridesIE.resize(rank);
+  IndexExpr strideIE = LiteralIndexExpr(1);
+  for (int i = rank - 1; i >= 0; --i) {
+    sizesIE[i] = outputDims[i];
+    stridesIE[i] = strideIE;
+    if (i > 0)
+      strideIE = strideIE * sizesIE[i];
+  }
+
+  SmallVector<OpFoldResult, 4> sizes, strides;
+  sizes.resize(rank);
+  strides.resize(rank);
+  for (int i = rank - 1; i >= 0; --i) {
+    if (sizesIE[i].isLiteral())
+      sizes[i] = rewriter.getIndexAttr(sizesIE[i].getLiteral());
+    else
+      sizes[i] = sizesIE[i].getValue();
+    if (stridesIE[i].isLiteral())
+      strides[i] = rewriter.getIndexAttr(stridesIE[i].getLiteral());
+    else
+      strides[i] = stridesIE[i].getValue();
+  }
+
+  // Emit ReinterpretCastOp.
+  Value newView =
+      rewriter.create<memref::ReinterpretCastOp>(loc, memRefType, data,
+          /*offset=*/rewriter.getIndexAttr(0), sizes, strides);
+  return newView;
+}
+
+/// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
+/// Output MemRef has the same shape as the input MemRef but is of IndexType.
+/// By default, sort values in the descending order.
+Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
+    Value input, int64_t axis, bool ascending) {
+  KrnlBuilder createKrnl(rewriter, loc);
+  IndexExprScope scope(createKrnl);
+
+  MemRefType inputMemRefType = input.getType().cast<MemRefType>();
+  Type indexType = rewriter.getIndexType();
+  int64_t rank = inputMemRefType.getRank();
+  assert(axis >= 0 && axis < rank && "axis is out of bound");
+  LiteralIndexExpr zeroIE(0), oneIE(1);
+
+  MemRefBoundsIndexCapture inputBounds(input);
+  SmallVector<IndexExpr, 4> lbs(rank, zeroIE);
+  SmallVector<IndexExpr, 4> ubs;
+  inputBounds.getDimList(ubs);
+
+  // Create and initialize the result.
+  Value order = insertAllocAndDeallocSimple(rewriter, nullptr,
+      MemRefType::get(inputMemRefType.getShape(), indexType), loc, ubs,
+      /*insertDealloc=*/true);
+  ValueRange initLoopDef = createKrnl.defineLoops(rank);
+  createKrnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
+      [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        // order[axis_0, axis_1, ..., axis_k-1, k, axis_k+1, ....] = k
+        createKrnl.store(loopInd[axis], order, loopInd);
+      });
+
+  // Do sorting in the descending order of input and return their indices.
+  // Using bubble sort.
+  SmallVector<IndexExpr, 4> outerUbs(ubs);
+  outerUbs[axis] = ubs[axis] - oneIE;
+  ValueRange loopDef = createKrnl.defineLoops(rank);
+  createKrnl.iterateIE(loopDef, loopDef, lbs, outerUbs,
+      [&](KrnlBuilder &createKrnl, ValueRange iLoopInd) {
+        IndexExpr i1 = DimIndexExpr(iLoopInd[axis]) + LiteralIndexExpr(1);
+        ValueRange swapLoopDef = createKrnl.defineLoops(1);
+        createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i1}, {ubs[axis]},
+            [&](KrnlBuilder &createKrnl, ValueRange swapLoopInd) {
+              MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
+                  createKrnl);
+              SmallVector<Value> kLoopInd(iLoopInd);
+              kLoopInd[axis] = swapLoopInd[0];
+              // Load current indices.
+              Value iOrd = create.krnl.load(order, iLoopInd);
+              Value kOrd = create.krnl.load(order, kLoopInd);
+              // Load x.
+              SmallVector<Value> xLoopInd(iLoopInd);
+              xLoopInd[axis] = iOrd;
+              Value x = create.krnl.load(input, xLoopInd);
+              // Load y.
+              SmallVector<Value> yLoopInd(iLoopInd);
+              yLoopInd[axis] = kOrd;
+              Value y = create.krnl.load(input, yLoopInd);
+              // Compare values and swap indices.
+              Value cond;
+              if (ascending)
+                cond = create.math.sgt(x, y);
+              else
+                cond = create.math.slt(x, y);
+              create.scf.ifThenElse(cond, [&](SCFBuilder &createSCF) {
+                KrnlBuilder createKrnl(createSCF);
+                createKrnl.store(kOrd, order, iLoopInd);
+                createKrnl.store(iOrd, order, kLoopInd);
+              });
+            });
+      });
+
+  return order;
+}
+
+/// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
+/// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
+/// lambda type, using ONNX and Krnl operations.
+DenseElementsAttr getDenseElementAttributeFromConstantValue(Value value) {
+  auto definingOp = value.getDefiningOp();
+  if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
+    if (globalOp.value().hasValue())
+      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  } else if (auto globalOp =
+                 dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
+    if (globalOp.value().hasValue())
+      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  }
+  return nullptr;
+}
+
+/// This function returns a scalar of type 'dtype' from an optional value.
+/// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>. Default
+/// value is used in case of NoneType.
+Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
+    Value optionalScalar, Type elementType, double defaultValue) {
+  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+  if (optionalScalar.getType().isa<NoneType>()) {
+    return create.math.constant(elementType, defaultValue);
+  } else if (optionalScalar.getType().cast<ShapedType>().getRank() == 0) {
+    return create.krnl.load(optionalScalar, {});
+  } else {
+    Value zero = create.math.constantIndex(0);
+    return create.krnl.load(optionalScalar, {zero});
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// Type conversion from Onnx types to Krnl types.
+//===----------------------------------------------------------------------===//
+
+KrnlTypeConverter::KrnlTypeConverter() {
+  // The order of type conversion is important: later ones are tried earlier.
+  addConversion([](Type type) { return type; });
+
+  addConversion([](ONNXStringType stringType) {
+    return StringType::get(stringType.getContext());
+  });
+
+  addConversion([](TensorType tensorType) {
+    assert(tensorType.hasRank() && "expected only ranked shapes");
+    if (tensorType.getElementType().isa<ONNXStringType>()) {
+      Type elementType = StringType::get(tensorType.getContext());
+      return MemRefType::get(tensorType.getShape(), elementType);
+    }
+    return MemRefType::get(tensorType.getShape(), tensorType.getElementType());
+  });
+
+  addSourceMaterialization([&](OpBuilder &builder, Type resultType,
+                               ValueRange inputs,
+                               Location loc) -> Optional<Value> {
+    if (inputs.size() != 1)
+      return llvm::None;
+
+    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+        .getResult(0);
+  });
+
+  addTargetMaterialization([&](OpBuilder &builder, Type resultType,
+                               ValueRange inputs,
+                               Location loc) -> Optional<Value> {
+    if (inputs.size() != 1)
+      return llvm::None;
+
+    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+        .getResult(0);
+  });
 }

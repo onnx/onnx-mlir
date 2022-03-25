@@ -1,0 +1,102 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} AS onnx-mlir-test
+
+# Label the base image so it can be cleaned up after becoming dangling
+ARG ONNX_MLIR_PR_NUMBER
+ARG ONNX_MLIR_PR_NUMBER2
+LABEL onnx_mlir_pr_number=${ONNX_MLIR_PR_NUMBER}
+LABEL onnx_mlir_pr_number2=${ONNX_MLIR_PR_NUMBER2}
+
+ARG WORK_DIR=/workdir
+WORKDIR ${WORK_DIR}
+
+# Copy onnx-mlir from the pull request
+COPY . onnx-mlir
+
+# Setup onnx
+# Install into lib instead of lib64 since everything else is in lib
+RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
+    && INSTALL_LIB=$(python3 -c "import re; import site; \
+         print(list(filter(lambda site: not re.search('lib64', site), \
+                           site.getsitepackages()))[0])") \
+    && cd ${ONNX_ROOT} \
+    && python3 setup.py -q install --install-lib=${INSTALL_LIB} \
+    && rm -rf .eggs .setuptools-cmake-build build dist onnx.egg-info
+
+ARG NPROC=4
+ARG TEST_MCPU
+
+RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
+    && ONNX_MLIR_ROOT=${WORK_DIR}/onnx-mlir \
+# Install llc, opt, and libraries
+    && cp ${LLVM_PROJECT_ROOT}/build/bin/llc /usr/local/bin \
+    && cp ${LLVM_PROJECT_ROOT}/build/bin/opt /usr/local/bin \
+    && cp -a ${LLVM_PROJECT_ROOT}/build/lib/* /usr/local/lib \
+# Build onnx-mlir, run tests, and install
+    && cd ${ONNX_MLIR_ROOT} \
+    && rm -rf build && mkdir -p build && cd build \
+    && MLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
+       cmake -DCMAKE_BUILD_TYPE=Release \
+             -DCMAKE_INSTALL_MESSAGE=NEVER .. \
+    && make -j${NPROC} \
+    && make -j${NPROC} LIT_OPTS=-v check-onnx-lit \
+# User image is built with SIMD (currently on s390x only)
+    && TEST_MCPU=${TEST_MCPU:-$([ "$(uname -m)" = "s390x" ] && echo z14 || \
+                                [ "$(uname -m)" = "x86_64" ] &&  echo || \
+                                [ "$(uname -m)" = "ppc64le" ] && echo || echo)} \
+    && TEST_ARGS="-mcpu=${TEST_MCPU}" \
+    && make NPROC=${NPROC} \
+            CTEST_PARALLEL_LEVEL=${NPROC} \
+            TEST_MCPU=${TEST_MCPU} \
+            TEST_ARGS="${TEST_ARGS}" \
+            -j${NPROC} -f CMakeFiles/Makefile2 \
+            check-onnx-backend \
+            check-onnx-backend-dynamic \
+            check-onnx-backend-constant \
+            check-onnx-backend-signature \
+            check-onnx-backend-jni \
+            check-onnx-backend-dynamic-jni \
+            check-onnx-backend-constant-jni \
+            check-onnx-numerical \
+    && make check-docs \
+    && make -j${NPROC} install \
+    && echo -e "/usr/local/lib" > \
+            /etc/ld.so.conf.d/onnx-mlir.conf && ldconfig \
+# Clean up
+    && cd ${WORK_DIR} \
+    && distro=$(cat /etc/os-release|grep -Po '(?<=^ID=).*'|sed 's/\"//g') \
+    && if [ "${distro}" = "debian" ] || [ "${distro}" = "ubuntu" ]; then \
+          apt-get purge --autoremove -qq -y \
+                  autoconf automake cmake curl git libtool \
+                  make ninja-build python3 && \
+          rm -rf /var/lib/apt/lists/*; \
+       elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
+          pip3 uninstall -q -y Cython pybind11 pytest pytest-forked \
+               pytest-xdist typing-extensions && \
+          yum remove -q -y \
+              adwaita-icon-theme autoconf automake cmake diffutils file \
+              git libtool make python39 && \
+          rm -rf /var/cache/dnf/* /usr/local/bin/ninja; \
+       fi \
+    && rm -rf /tmp/* /usr/bin/python llvm-project onnx-mlir
+
+# Copy from onnx-mlir-test to squash removed source layer and
+# remove dependency on base image (onnx-mlir-llvm-shared)
+FROM scratch
+
+# Label the images for various checking and cleanup
+ARG ONNX_MLIR_SHA1
+ARG ONNX_MLIR_SHA1_DATE
+ARG ONNX_MLIR_DOCKERFILE_SHA1
+ARG ONNX_MLIR_PR_NUMBER
+ARG ONNX_MLIR_PR_NUMBER2
+LABEL onnx_mlir_sha1=${ONNX_MLIR_SHA1}
+LABEL onnx_mlir_sha1_date=${ONNX_MLIR_SHA1_DATE}
+LABEL onnx_mlir_dockerfile_sha1=${ONNX_MLIR_DOCKERFILE_SHA1}
+LABEL onnx_mlir_pr_number=${ONNX_MLIR_PR_NUMBER}
+LABEL onnx_mlir_pr_number2=${ONNX_MLIR_PR_NUMBER2}
+
+COPY --from=onnx-mlir-test / /
+ENTRYPOINT [ "onnx-mlir" ]
+CMD [ "--help" ]
+LABEL onnx_mlir_successfully_built=yes

@@ -1,18 +1,15 @@
 [submodule "third_party/onnx"]
 	path = third_party/onnx
 	url = https://github.com/onnx/onnx.git
-[submodule "third_party/benchmark"]
-	path = third_party/benchmark
-	url = https://github.com/google/benchmark.git
-[submodule "third_party/googletest"]
-	path = third_party/googletest
-	url = https://github.com/google/googletest.git
 [submodule "third_party/pybind11"]
 	path = third_party/pybind11
 	url = https://github.com/pybind/pybind11.git
-[submodule "third_party/variant"]
-	path = third_party/variant
-	url = https://github.com/mpark/variant.git
 [submodule "third_party/rapidcheck"]
 	path = third_party/rapidcheck
 	url = https://github.com/emil-e/rapidcheck.git
+[submodule "third_party/benchmark"]
+	path = third_party/benchmark
+	url = https://github.com/google/benchmark.git
+[submodule "third_party/zdnn-lib"]
+	path = third_party/zdnn-lib
+	url = https://github.com/IBM/zDNN.git

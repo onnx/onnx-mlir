@@ -1,16 +1,23 @@
-//===----- PyExecusionSession.hpp - PyExecutionSession Implementation -----===//
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===----- PyExecutionSession.hpp - PyExecutionSession Implementation -----===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains implementations of PyExecusionSession class, which helps
+// This file contains implementations of PyExecutionSession class, which helps
 // python programs interact with compiled binary model libraries.
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Support/SuppressWarnings.h"
+
+SUPPRESS_WARNINGS_PUSH
 #include "onnx/onnx_pb.h"
-#include <third_party/onnx/onnx/onnx_pb.h>
+SUPPRESS_WARNINGS_POP
 
 #include "PyExecutionSession.hpp"
 
@@ -26,7 +33,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
            "Expect contiguous python array.");
 
     void *dataPtr;
-    int ownData = 0;
+    int64_t ownData = 0;
     if (inputPyArray.writeable()) {
       dataPtr = inputPyArray.mutable_data();
     } else {
@@ -55,6 +62,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
       dtype = ONNX_TYPE_INT32;
     else if (py::isinstance<py::array_t<std::int64_t>>(inputPyArray))
       dtype = ONNX_TYPE_INT64;
+    // string type missing
     else if (py::isinstance<py::array_t<bool>>(inputPyArray))
       dtype = ONNX_TYPE_BOOL;
     // Missing fp16 support.
@@ -64,6 +72,11 @@ std::vector<py::array> PyExecutionSession::pyRun(
       dtype = ONNX_TYPE_UINT32;
     else if (py::isinstance<py::array_t<std::uint64_t>>(inputPyArray))
       dtype = ONNX_TYPE_UINT64;
+    else if (py::isinstance<py::array_t<std::complex<float>>>(inputPyArray))
+      dtype = ONNX_TYPE_COMPLEX64;
+    else if (py::isinstance<py::array_t<std::complex<double>>>(inputPyArray))
+      dtype = ONNX_TYPE_COMPLEX128;
+    // Missing bfloat16 support
     else {
       std::cerr << "Numpy type not supported: " << inputPyArray.dtype()
                 << ".\n";
@@ -71,8 +84,10 @@ std::vector<py::array> PyExecutionSession::pyRun(
     }
 
     auto *inputOMTensor = omTensorCreateWithOwnership(dataPtr,
-        (int64_t *)inputPyArray.shape(), inputPyArray.ndim(), dtype, ownData);
-    omTensorSetStrides(inputOMTensor, (int64_t *)inputPyArray.strides());
+        (int64_t *)(const_cast<ssize_t *>(inputPyArray.shape())),
+        (int64_t)inputPyArray.ndim(), dtype, ownData);
+    omTensorSetStridesWithPyArrayStrides(inputOMTensor,
+        (int64_t *)const_cast<ssize_t *>(inputPyArray.strides()));
 
     omts.emplace_back(inputOMTensor);
   }
@@ -81,45 +96,62 @@ std::vector<py::array> PyExecutionSession::pyRun(
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
   std::vector<py::array> outputPyArrays;
-  for (int i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
+  for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
     auto *omt = omTensorListGetOmtByIndex(wrappedOutput, i);
-    auto shape = std::vector<int64_t>(omTensorGetDataShape(omt),
-        omTensorGetDataShape(omt) + omTensorGetRank(omt));
+    auto shape = std::vector<int64_t>(
+        omTensorGetShape(omt), omTensorGetShape(omt) + omTensorGetRank(omt));
 
     // https://numpy.org/devdocs/user/basics.types.html
     py::dtype dtype;
-    if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::FLOAT)
+    switch (omTensorGetDataType(omt)) {
+    case (OM_DATA_TYPE)onnx::TensorProto::FLOAT:
       dtype = py::dtype("float32");
-    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::UINT8)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::UINT8:
       dtype = py::dtype("uint8");
-    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::INT8)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::INT8:
       dtype = py::dtype("int8");
-    else if (omTensorGetDataType(omt) ==
-             (OM_DATA_TYPE)onnx::TensorProto::UINT16)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::UINT16:
       dtype = py::dtype("uint16");
-    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::INT16)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::INT16:
       dtype = py::dtype("int16");
-    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::INT32)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::INT32:
       dtype = py::dtype("int32");
-    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::INT64)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::INT64:
       dtype = py::dtype("int64");
-    // TODO(tjingrant) wait for Tong's input for how to represent string.
-    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::BOOL)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::STRING:
+      dtype = py::dtype("str");
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::BOOL:
       dtype = py::dtype("bool_");
-    else if (omTensorGetDataType(omt) ==
-             (OM_DATA_TYPE)onnx::TensorProto::FLOAT16)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::FLOAT16:
       dtype = py::dtype("float32");
-    else if (omTensorGetDataType(omt) ==
-             (OM_DATA_TYPE)onnx::TensorProto::DOUBLE)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::DOUBLE:
       dtype = py::dtype("float64");
-    else if (omTensorGetDataType(omt) ==
-             (OM_DATA_TYPE)onnx::TensorProto::UINT32)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::UINT32:
       dtype = py::dtype("uint32");
-    else if (omTensorGetDataType(omt) ==
-             (OM_DATA_TYPE)onnx::TensorProto::UINT64)
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::UINT64:
       dtype = py::dtype("uint64");
-    else {
-      fprintf(stderr, "Unsupported ONNX type in OMTensor.");
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::COMPLEX64:
+      dtype = py::dtype("csingle");
+      break;
+    case (OM_DATA_TYPE)onnx::TensorProto::COMPLEX128:
+      dtype = py::dtype("cdouble");
+      break;
+    default:
+      std::cerr << "Unsupported ONNX type in OMTensor: "
+                << omTensorGetDataType(omt) << ".\n";
       exit(1);
     }
 
@@ -129,4 +161,32 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
   return outputPyArrays;
 }
+
+void PyExecutionSession::pySetEntryPoint(std::string entryPointName) {
+  setEntryPoint(entryPointName);
+}
+
+std::vector<std::string> PyExecutionSession::pyQueryEntryPoints() {
+  assert(_queryEntryPointsFunc && "Query entry point not loaded.");
+  const char **entryPointArr = _queryEntryPointsFunc();
+
+  std::vector<std::string> outputPyArrays;
+  int i = 0;
+  while (entryPointArr[i] != NULL) {
+    outputPyArrays.emplace_back(entryPointArr[i]);
+    i++;
+  }
+  return outputPyArrays;
+}
+
+std::string PyExecutionSession::pyInputSignature() {
+  assert(_inputSignatureFunc && "Input signature entry point not loaded.");
+  return inputSignature();
+}
+
+std::string PyExecutionSession::pyOutputSignature() {
+  assert(_outputSignatureFunc && "Output signature entry point not loaded.");
+  return outputSignature();
+}
+
 } // namespace onnx_mlir

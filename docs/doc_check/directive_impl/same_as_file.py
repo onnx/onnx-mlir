@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # ===-------------------------- utils.py - Utility ------------------------===//
 #
 # Copyright 2019-2020 The IBM Research Authors.
@@ -25,9 +27,10 @@ def handle(config, ctx):
     doc_file = ctx.doc_file
     parse_code_section_delimiter(ctx)
     with WrappedFile(open(
-            os.path.join(ctx.root_dir, ref_file_path))) as ref_file:
+            os.path.join(ctx.root_dir, ref_file_path), encoding='utf-8')) as ref_file:
         doc_file.skip_lines(config.get("skip-doc", 0))
         ref_file.skip_lines(config.get("skip-ref", 0))
+
         while not ref_file.eof():
             ref_line = ref_file.readline().rstrip('\r\n')
             doc_line = doc_file.readline().rstrip('\r\n')

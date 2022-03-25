@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====---------- KrnlSupport.hpp - Krnl-level support functions -----------===//
 //
 // Copyright 2020 The IBM Research Authors.
@@ -11,7 +15,9 @@
 #pragma once
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 
@@ -26,7 +32,7 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 
 /// Get the AllocOp of the current GetRef.
-AllocOp getAllocOfGetRef(KrnlGetRefOp *getRef);
+memref::AllocOp getAllocOfGetRef(KrnlGetRefOp *getRef);
 
 /// Return the top block.
 Block *getTopBlock(Operation *op);
@@ -38,7 +44,7 @@ FuncOp getContainingFunction(Operation *op);
 // Use this function for small values only to avoid unexpected loss in type
 // casting.
 Value emitConstantOp(
-    PatternRewriter &rewriter, Location loc, Type type, double value);
+    OpBuilder &rewriter, Location loc, Type type, double value);
 
 //===----------------------------------------------------------------------===//
 // Perform checks or get statistics about Krnl-level operations.
@@ -68,7 +74,7 @@ bool usedBySameKrnlMemcpy(
 bool usedBySameOp(KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef);
 
 /// Get the number of GetRef ops associated with this AllocOp.
-int64_t getAllocGetRefNum(AllocOp *allocOp);
+int64_t getAllocGetRefNum(memref::AllocOp *allocOp);
 
 /// Check if an operation is in the top-level block of the function.
 bool opInTopLevelBlock(Operation *op);
@@ -78,7 +84,7 @@ bool opInTopLevelBlock(Operation *op);
 bool opBeforeOp(Block *block, Operation *beforeOp, Operation *afterOp);
 
 /// Check Alloc operation result is used by a krnl.getref.
-bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
+bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp);
 
 /// Check is all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType memRefType);
@@ -89,12 +95,21 @@ unsigned getMemRefEltSizeInBytes(MemRefType memRefType);
 /// Get the size of a MemRef in bytes.
 int64_t getMemRefSizeInBytes(Value value);
 
-/// Get the size of a dynamic MemRef in bytes.
+/// Get the size of a MemRef in bytes.
+/// If all the dimensions are static, emit a constant.
+/// Otherwise, emit runtime computations.
 Value getDynamicMemRefSizeInBytes(
-    MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp);
+    PatternRewriter &rewriter, Location loc, Value val);
+
+/// Get the size of a dynamic MemRef in bytes.
+Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
+    PatternRewriter &rewriter, memref::AllocOp allocOp);
 
 /// Get order number of dynamic index.
-int64_t getAllocArgIndex(AllocOp allocOp, int64_t index);
+int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index);
+
+/// Get AllocOp alignment if it exists otherwise return zero.
+int64_t getAllocAlignment(memref::AllocOp allocOp);
 
 //===----------------------------------------------------------------------===//
 // Live range analysis support.

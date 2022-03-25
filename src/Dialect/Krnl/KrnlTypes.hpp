@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===------------------- KrnlTypes.hpp - Krnl Operations ------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -10,9 +14,12 @@
 
 #pragma once
 
-#include <mlir/IR/Types.h>
+#include "mlir/Dialect/LLVMIR/LLVMTypes.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/Types.h"
 
 namespace mlir {
+
 class LoopType
     : public mlir::Type::TypeBase<LoopType, mlir::Type, mlir::TypeStorage> {
 
@@ -24,4 +31,39 @@ public:
   // Get a unique instance of Loop type.
   static LoopType get(mlir::MLIRContext *context) { return Base::get(context); }
 };
+
+class StringType
+    : public mlir::Type::TypeBase<StringType, mlir::Type, mlir::TypeStorage,
+          mlir::MemRefElementTypeInterface::Trait> {
+
+public:
+  using Base::Base;
+
+  // Get a unique instance of StringType.
+  static StringType get(mlir::MLIRContext *context) {
+    return Base::get(context);
+  }
+
+  // Return the LLVM dialect type for a string with unknown value.
+  Type getLLVMType(mlir::MLIRContext *context) const {
+    // This should really be an i8*, however a ptr type is *not* a valid element
+    // type for a memref, so we use an i64 (that type has the same length as a
+    // pointer).
+    // TODO: change when memref accept aptr types as elements.
+    //    SmallVector<int64_t> shape(1, -1);
+    //    return MemRefType::get(
+    //  shape, LLVM::LLVMPointerType::get(IntegerType::get(context, 8)));
+    return IntegerType::get(context, 64);
+  }
+
+  // Return the LLVM dialect type for a string with a know value (a string
+  // literal). In LLVM a string literal is represented by an array of i8.
+  Type getLLVMType(mlir::MLIRContext *context, StringRef value) const {
+    return LLVM::LLVMArrayType::get(IntegerType::get(context, 8), value.size());
+  }
+
+  // Return the size in bits for the underlying element type (i64).
+  int32_t getElementSize() const { return 64; }
+};
+
 } // namespace mlir

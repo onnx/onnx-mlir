@@ -1,15 +1,35 @@
-add_library(OMKrnlToLLVM
-        KrnlToLLVM.cpp)
-target_include_directories(OMKrnlToLLVM
-        PRIVATE
-        ${ONNX_MLIR_SRC_ROOT}
-        ${ONNX_MLIR_BIN_ROOT}
-        ${ONNX_MLIR_SRC_ROOT})
+# SPDX-License-Identifier: Apache-2.0
 
-# Header dependencies
-add_dependencies(OMKrnlToLLVM OMKrnlOpsInc OMONNXOpsInc)
-# Linking dependencies
-add_dependencies(OMKrnlToLLVM OMKrnlOps OMONNXOps)
+add_onnx_mlir_library(OMKrnlToLLVM
+  ConvertKrnlToLLVM.cpp
+  KrnlFindIndex.cpp
+  KrnlEntryPoint.cpp
+  KrnlGetRef.cpp  
+  KrnlGlobal.cpp
+  KrnlInstrument.cpp
+  KrnlMemcpy.cpp
+  KrnlPrintTensor.cpp
+  KrnlPrint.cpp
+  KrnlRandomNormal.cpp
+  KrnlStrlen.cpp
+  KrnlStrncmp.cpp
+  KrnlToLLVMHelper.cpp  
+  KrnlUnaryMath.cpp
+  KrnlVectorTypeCast.cpp 
+  RuntimeAPI.cpp
 
-target_link_libraries(OMKrnlToLLVM
-        onnx)
+  LINK_LIBS PUBLIC
+  OMSupport
+  MLIRAffineToStandard
+  MLIRMathToLLVM
+  MLIRMathTransforms
+  MLIRMemRefToLLVM
+  MLIRMemRefTransforms
+  MLIRReconcileUnrealizedCasts
+  MLIRSCFToControlFlow
+  MLIRShapeToStandard
+  MLIRStandardOpsTransforms
+  MLIRStandardToLLVM
+  MLIRVectorToLLVM
+  onnx
+  )
