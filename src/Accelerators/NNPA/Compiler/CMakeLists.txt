@@ -1,7 +1,6 @@
 get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
-add_onnx_mlir_library(NNPACompilerUtils STATIC
-  EXCLUDE_FROM_OM_LIBS
+add_onnx_mlir_library(NNPACompilerUtils
   NNPACompilerUtils.cpp
 
   INCLUDE_DIRS PRIVATE

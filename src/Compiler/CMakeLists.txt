@@ -72,10 +72,8 @@ add_onnx_mlir_library(CompilerPasses
   MLIRLLVMToLLVMIRTranslation
   )
 
-add_onnx_mlir_library(CompilerUtils STATIC
+add_onnx_mlir_library(CompilerUtils
   CompilerUtils.cpp
-
-  EXCLUDE_FROM_OM_LIBS
 
   DEPENDS
   ExternalUtil
@@ -90,6 +88,8 @@ add_onnx_mlir_library(CompilerUtils STATIC
 
   LINK_LIBS PUBLIC
   ${OMLibs}
+  CompilerOptions
+  CompilerPasses
   MLIRAffineTransforms
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
