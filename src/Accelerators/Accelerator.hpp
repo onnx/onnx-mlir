@@ -28,7 +28,7 @@ class Accelerator {
 public:
   /// Kinds of accelerators.
   enum class Kind {
-    #include "src/Accelerators/AcceleratorKinds.hpp"
+#include "src/Accelerators/AcceleratorKinds.hpp"
   };
 
   Accelerator(Kind kind) : kind(kind) {}
