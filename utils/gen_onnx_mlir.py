@@ -251,7 +251,6 @@ OpsWithShapeInference=[
     'Atan',
     'AveragePool',
     'Cast',
-    'Clip',
     'Concat',
     'Constant',
     'ConstantOfShape',
@@ -265,7 +264,6 @@ OpsWithShapeInference=[
     'Dropout',
     'DynamicQuantizeLinear',
     'Elu',
-    'Equal',
     'Erf',
     'Exp',
     'Expand',
@@ -326,18 +324,7 @@ OpsWithShapeInference=[
     'Tile',
     'Transpose',
     'Unsqueeze',
-    'Where'
     'Xor',
-]
-
-OpsWithFold = [
-    'Cast',
-    'Concat',
-    'Div',
-    'Shape',
-    'Slice',
-    'Squeeze',
-    'Unsqueeze'
 ]
 
 # Operations supporting canonicalization.
@@ -387,9 +374,7 @@ OpsWithResultTypeInference = {
 #  - one with operands and attributes having a separate parameter, and
 #  - one with operands and attributes having aggregated parameters.
 custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSum', 'ReduceSumSquare',
-                                    'Pad', 'Sqrt', 'Neg', 'Unsqueeze', 'Softmax',
-                                    'Transpose', 'ReduceMax', 'ReduceMin',
-                                    'ReduceProd']
+                                    'Pad', 'Sqrt', 'Neg', 'Unsqueeze', 'Softmax']
 # Custom builder op list for operations with broadcast; we can deduce the right
 # output type, no need to leave it undef as in the above list.
 # Ops must have two operands, not one, not three... And there shall be two.
@@ -891,8 +876,6 @@ def gen_op_def(schema):
     # Dummy implementations are added to ONNXOps.cpp
     # Error will be report if these operations are encountered at runtime
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
-    if schema.name in OpsWithFold:
-        traits.append("DeclareOpInterfaceMethods<FoldOpInterface>")
     if schema.name in OpsWithPromotableConstOperands.keys():
         traits.append("OpInterface<\"PromotableConstOperandsOpInterface\">")
     if schema.name in OpsWithResultTypeInference.keys():

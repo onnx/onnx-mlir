@@ -449,7 +449,7 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
 }
 
 def ONNXCastOp:ONNX_Op<"Cast",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<FoldOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Cast operation";
   let description = [{
@@ -580,7 +580,7 @@ def ONNXCompressOp:ONNX_Op<"Compress",
 }
 
 def ONNXConcatOp:ONNX_Op<"Concat",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<FoldOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Concat operation";
   let description = [{
   "Concatenate a list of tensors into a single tensor. All input tensors must have the same shape, except for the dimension size of the axis to concatenate on."
@@ -995,7 +995,7 @@ def ONNXDetOp:ONNX_Op<"Det",
 }
 
 def ONNXDivOp:ONNX_Op<"Div",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<FoldOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Div operation";
   let description = [{
   "Performs element-wise binary division (with Numpy-style broadcasting support)."
@@ -3819,29 +3819,17 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$reduced);
-  let builders = [
-    OpBuilder<"OpBuilder &builder, OperationState &state, Value data, ArrayAttr axes, IntegerAttr keepdims", [{
-      auto elementType = data.getType().cast<TensorType>().getElementType();
-      build(builder, state, UnrankedTensorType::get(elementType), data, axes, keepdims);
-    }]>,
-    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build(builder, state, outputTypes, operands, attributes);
-    }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
@@ -3887,29 +3875,17 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$reduced);
-  let builders = [
-    OpBuilder<"OpBuilder &builder, OperationState &state, Value data, ArrayAttr axes, IntegerAttr keepdims", [{
-      auto elementType = data.getType().cast<TensorType>().getElementType();
-      build(builder, state, UnrankedTensorType::get(elementType), data, axes, keepdims);
-    }]>,
-    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build(builder, state, outputTypes, operands, attributes);
-    }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
@@ -3927,29 +3903,17 @@ def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$reduced);
-  let builders = [
-    OpBuilder<"OpBuilder &builder, OperationState &state, Value data, ArrayAttr axes, IntegerAttr keepdims", [{
-      auto elementType = data.getType().cast<TensorType>().getElementType();
-      build(builder, state, UnrankedTensorType::get(elementType), data, axes, keepdims);
-    }]>,
-    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build(builder, state, outputTypes, operands, attributes);
-    }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
@@ -4786,7 +4750,7 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
 }
 
 def ONNXShapeOp:ONNX_Op<"Shape",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<FoldOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Shape operation";
   let description = [{
@@ -4943,7 +4907,7 @@ def ONNXSizeOp:ONNX_Op<"Size",
 }
 
 def ONNXSliceOp:ONNX_Op<"Slice",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<FoldOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Slice operation";
   let description = [{
   "Produces a slice of the input tensor along multiple axes. Similar to numpy:"
@@ -5211,7 +5175,7 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
 }
 
 def ONNXSqueezeOp:ONNX_Op<"Squeeze",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<FoldOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Squeeze operation";
   let description = [{
   "Remove single-dimensional entries from the shape of a tensor."
@@ -5541,29 +5505,17 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
     OptionalAttr<I64ArrayAttr>:$perm);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$transposed);
-  let builders = [
-    OpBuilder<"OpBuilder &builder, OperationState &state, Value data, ArrayAttr perm", [{
-      auto elementType = data.getType().cast<TensorType>().getElementType();
-      build(builder, state, UnrankedTensorType::get(elementType), data, perm);
-    }]>,
-    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
-      std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
-      build(builder, state, outputTypes, operands, attributes);
-    }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXUniqueOp:ONNX_Op<"Unique",
@@ -5667,7 +5619,7 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
 }
 
 def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<FoldOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Unsqueeze operation";
   let description = [{
   "Insert single-dimensional entries to the shape of an input tensor (`data`)."

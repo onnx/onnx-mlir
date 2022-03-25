@@ -19,7 +19,6 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/StandardTypes.h"
 
-#include "src/Interface/FoldInterface.hpp"
 #include "src/Interface/PromotableConstOperandsOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Interface/ShapeInferenceInterface.hpp"

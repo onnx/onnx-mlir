@@ -137,28 +137,7 @@ static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
   // copy, no need to take care of endianness
   auto data = TransformValueToONNXData<T>::data(initializer);
   size = data.size();
-
-  if (size > 0) {
-    return std::vector<T>(&data[0], &data[0] + size);
-  } else {
-    return std::vector<T>();
-  }
-}
-
-// Helper method for construction an array attribute from a model input for
-// FP16 data types.
-static std::vector<APFloat> CreateArrayAttributeFP16(
-    onnx::TensorProto initializer) {
-  // Use the uint16_t version to take care of endianness
-  auto vals = CreateArrayAttribute<uint16_t>(initializer);
-
-  std::vector<APFloat> floatVals(
-      vals.size(), APFloat(APFloat::IEEEhalf(), APInt(16, 0)));
-
-  for (uint32_t i = 0; i < vals.size(); ++i) {
-    floatVals[i] = APFloat(APFloat::IEEEhalf(), APInt(16, vals[i]));
-  }
-  return floatVals;
+  return std::vector<T>(&data[0], &data[0] + size);
 }
 
 void InitializedTensorMapping::AddMapping(
@@ -195,14 +174,6 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
       initializer.dims().data(), initializer.dims().size());
   mlir::DenseElementsAttr denseElmAttr;
   switch (initializer.data_type()) {
-  case (onnx::TensorProto::FLOAT16): {
-    const auto &arrayAttrInitializer = CreateArrayAttributeFP16(initializer);
-    auto elmType = builder.getF16Type();
-    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
-    denseElmAttr = mlir::DenseElementsAttr::get(
-        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
-    break;
-  }
   case (onnx::TensorProto::FLOAT): {
     const auto &arrayAttrInitializer = CreateArrayAttribute<float>(initializer);
     auto elmType = builder.getF32Type();
@@ -254,31 +225,6 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
     auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
     denseElmAttr = mlir::DenseElementsAttr::get(
         tensorType, llvm::makeArrayRef(arrayAttrInitializer));
-    break;
-  }
-  case (onnx::TensorProto::BOOL): {
-    // extend 1 bit data to 1 byte bool type
-    const auto &arrayAttrInitializer = CreateArrayAttribute<char>(initializer);
-    auto elmType = builder.getI1Type(); // equivalent to getIntegerType(1)
-    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
-
-    auto raw_data = initializer.raw_data();
-    auto size = raw_data.size();
-
-    bool *array = new bool[size];
-    memset(array, false, (size) * sizeof(bool));
-
-    std::vector<char> byteInitializer;
-    std::copy(initializer.raw_data().begin(), initializer.raw_data().end(),
-        back_inserter(byteInitializer));
-    for (int i = 0; i < size; i++) {
-      if (byteInitializer[i]) {
-        array[i] = true;
-      }
-    }
-
-    denseElmAttr = mlir::DenseElementsAttr::get(
-        tensorType, llvm::makeArrayRef(array, size));
     break;
   }
   default:

@@ -9,8 +9,7 @@ add_custom_target(OMONNXOpsInc
         DEPENDS OMONNXOpsIncGen
                 OMPromotableConstOperandsOpInterfaceIncGen
                 OMResultTypeInferenceOpInterfaceIncGen
-                ShapeInferenceOpInterfaceIncGen
-                FoldOpInterfaceIncGen)
+                ShapeInferenceOpInterfaceIncGen)
 
 add_library(OMONNXOps
         ONNXOps.cpp
@@ -19,8 +18,6 @@ add_library(OMONNXOps
         ONNXOpsHelper.hpp
         ONNXShapeHelper.cpp
         ONNXShapeHelper.hpp
-        ONNXFoldHelper.cpp
-        ONNXFoldHelper.hpp
         IndexExpr.hpp
         IndexExpr.cpp)
 
@@ -37,7 +34,6 @@ target_link_libraries(OMONNXOps
 add_dependencies(OMONNXOps
         OMPromotableConstOperandsOpInterface
         OMResultTypeInferenceOpInterface
-        OMShapeInferenceOpInterface
-        OMFoldOpInterface)
+        OMShapeInferenceOpInterface)
 
 add_onnx_mlir_dialect_doc(onnx ONNXOps.td)

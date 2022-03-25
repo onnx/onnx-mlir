@@ -18,7 +18,6 @@ set(OMLibs
         OMONNXRewrite
         OMShapeInference
         OMShapeInferenceOpInterface
-        OMFoldOpInterface
         OMAttributePromotion
         OMPromotableConstOperandsOpInterface
         OMResultTypeInferenceOpInterface

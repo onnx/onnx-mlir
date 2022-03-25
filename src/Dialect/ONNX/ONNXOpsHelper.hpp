@@ -8,8 +8,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
-
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
@@ -39,7 +37,7 @@ AffineMap getIdentityDimMap(Builder &builder);
 AffineMap getConvDimMap(Builder &builder, bool ceilMode);
 
 mlir::Type convertONNXTypeToMLIRType(
-    mlir::Builder &builder_, onnx::TensorProto_DataType onnxType);
+    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType);
 
 // Helper functions to get values from attribute arrays.
 size_t ArrayAttrSize(ArrayAttr a);
