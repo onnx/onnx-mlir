@@ -126,14 +126,6 @@ static llvm::cl::opt<std::string> march("march",
     llvm::cl::value_desc("Target a specific architecture type"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
-static llvm::cl::opt<OptLevel> OptimizationLevel(
-    llvm::cl::desc("Optimization levels:"),
-    llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default)."),
-        clEnumVal(O1, "Optimization level 1."),
-        clEnumVal(O2, "Optimization level 2."),
-        clEnumVal(O3, "Optimization level 3.")),
-    llvm::cl::init(O0), llvm::cl::cat(OnnxMlirOptions));
-
 static llvm::cl::opt<bool> VerboseOutput("v",
     llvm::cl::desc("Use verbose output"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
@@ -1065,19 +1057,16 @@ void emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
 int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     EmissionTargetType emissionTarget) {
-  extern void InitAccelerators();
   setupModule(module, context, outputBaseName);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   // Initialize accelerator if required
   if (acceleratorTarget.compare("") != 0) {
     InitAccelerators();
-    // std::vector<onnx_mlir::accel::Accelerator *> *accTargets;
-    // accTargets = onnx_mlir::accel::Accelerator::getAcceleratorList();
-    // for (auto accel : *accTargets) {
     for (auto accel : onnx_mlir::accel::Accelerator::getAcceleratorList()) {
       if (accel->isActive()) {
-        accel->prepareAccelerator(module, context, pm, emissionTarget);
+        accel->getOrLoadDialects(context);
+        accel->addPasses(module, pm, emissionTarget);
       }
     }
   } else
