@@ -12,13 +12,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
+#include "mlir/Transforms/Passes.h"
+
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
+#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Support/OMOptions.hpp"
 #include "llvm/Support/Debug.h"
+
+#include <memory>
 
 #define DEBUG_TYPE "NNPAAccelerator"
 
@@ -60,7 +64,7 @@ void NNPAAccelerator::getOrLoadDialects(mlir::MLIRContext &context) const {
   context.getOrLoadDialect<zlow::ZLowDialect>();
 }
 
-void NNPAAccelerator::addPasses(mlir::OwningOpRef<ModuleOp> &module,
+void NNPAAccelerator::addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm,
     onnx_mlir::EmissionTargetType &emissionTarget) const {
   LLVM_DEBUG(llvm::dbgs() << "adding passes for accelerator "
@@ -107,7 +111,6 @@ void NNPAAccelerator::initPasses(int optLevel) const {
 }
 
 bool NNPAAccelerator::initialized = false;
-// NNPAAccelerator nnpaAccelerator;
 
 } // namespace nnpa
 } // namespace accel

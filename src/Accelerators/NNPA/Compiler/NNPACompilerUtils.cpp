@@ -14,8 +14,14 @@
 
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
+#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
+#include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Pass/PassRegistry.h"
+#include "mlir/Transforms/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -28,7 +34,10 @@
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/OMNNPAOptions.hpp"
-#include "src/Compiler/CompilerUtils.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
+#include "src/Compiler/CompilerPasses.hpp"
+#include "src/Pass/Passes.hpp"
+// #include "src/Compiler/CompilerUtils.hpp"
 
 #define DEBUG_TYPE "NNPACompiler"
 
@@ -117,8 +126,8 @@ void addAllToLLVMPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
-void addPassesNNPA(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
-    EmissionTargetType &emissionTarget,
+void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
+    mlir::PassManager &pm, EmissionTargetType &emissionTarget,
     NNPAEmissionTargetType nnpaEmissionTarget,
     ArrayRef<std::string> execNodesOnCpu) {
   // TODO: Develop and use determineInputIRLevel for NNPA

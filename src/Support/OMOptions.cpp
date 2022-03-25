@@ -47,11 +47,3 @@ llvm::cl::opt<std::string> acceleratorTarget("maccel",
     llvm::cl::desc("Specify an accelerator to generate code for\n"
                    "\"NONE\" or \"\" for no accelerator\n"),
     llvm::cl::init(""), llvm::cl::cat(OMPassOptions));
-
-llvm::cl::opt<OptLevel> OptimizationLevel(
-    llvm::cl::desc("Optimization levels:"),
-    llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default)."),
-        clEnumVal(O1, "Optimization level 1."),
-        clEnumVal(O2, "Optimization level 2."),
-        clEnumVal(O3, "Optimization level 3.")),
-    llvm::cl::init(O0), llvm::cl::cat(OMPassOptions));

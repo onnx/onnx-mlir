@@ -11,8 +11,17 @@ add_onnx_mlir_library(NNPACompilerUtils STATIC
   ${NNPA_ONNX_MLIR_BIN_ROOT}
 
   LINK_LIBS PUBLIC
-  CompilerUtils
-  #${OMLibs}
+  CompilerOptions
+  CompilerPasses
+  OMONNXToZHigh
+  OMRewriteONNXForZHigh
+  OMZHighConstPropagation
+  OMZHighLayoutPropagation
+  OMZHighToZLow
+  OMInstrumentZHigh
+  OMZLowToLLVM
+  OMZLowRewrite
+  OMFoldStdAlloc
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_ONNX_MLIR_SRC_ROOT}

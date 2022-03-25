@@ -30,6 +30,7 @@
 #include <mlir/Support/MlirOptMain.h>
 
 #include "src/Accelerators/Accelerator.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/InitMLIRPasses.hpp"

@@ -29,6 +29,77 @@ add_custom_target(ExternalUtil DEPENDS ${FILE_GENERATE_DIR}/ExternalUtil.hpp)
 
 get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
+add_onnx_mlir_library(CompilerOptions
+  CompilerOptions.cpp
+
+  DEPENDS
+  ExternalUtil
+  MLIRIR
+  OMVersion
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+  
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  #${OMLibs}
+  MLIRAffineTransforms
+  MLIRLinalgTransforms
+  MLIRLLVMToLLVMIRTranslation
+
+  # Link LLVM libraries necessary to query which target architectures are configured.
+  LINK_COMPONENTS PRIVATE
+  AllTargetsAsmParsers
+  AllTargetsCodeGens
+  AllTargetsDescs
+  AllTargetsInfos
+  MC
+  )
+
+add_onnx_mlir_library(CompilerPasses
+  CompilerPasses.cpp
+
+  DEPENDS
+  ExternalUtil
+  MLIRIR
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+  
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  CompilerOptions
+  OMEnableMemoryPool
+  OMOptimizeMemoryPools
+  OMBundleMemoryPools
+  OMDisconnectKrnlDimFromAlloc
+  OMLowerKrnlShape
+  OMONNXRewrite
+  OMShapeInference
+  OMOpTransform
+  OMONNXPreKrnlVerifyONNX
+  OMInstrumentONNX
+  OMKrnlToAffine
+  OMKrnlToLLVM
+  OMONNXToKrnl
+  # ${OMLibs}
+  MLIRAffineTransforms
+  MLIRLinalgTransforms
+  MLIRLLVMToLLVMIRTranslation
+
+  # Link LLVM libraries necessary to query which target architectures are configured.
+  LINK_COMPONENTS PRIVATE
+  AllTargetsAsmParsers
+  AllTargetsCodeGens
+  AllTargetsDescs
+  AllTargetsInfos
+  MC
+  )
+
 add_onnx_mlir_library(CompilerUtils STATIC
   CompilerUtils.cpp
 

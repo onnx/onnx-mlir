@@ -13,8 +13,10 @@
 
 #pragma once
 
+// #include "src/Compiler/CompilerUtils.hpp"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"
-#include "src/Compiler/CompilerUtils.hpp"
+#include "mlir/Pass/PassRegistry.h"
 #include "src/Support/OMOptions.hpp"
 
 namespace onnx_mlir {
