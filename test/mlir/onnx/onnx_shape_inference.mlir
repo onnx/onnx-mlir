@@ -2537,3 +2537,17 @@ func @test_scatterelements(%arg0: tensor<64x25600xf32>, %arg1: tensor<64x100xi64
   // CHECK: [[RES:%.+]] = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<64x25600xf32>, tensor<64x100xi64>, tensor<64x100xf32>) -> tensor<64x25600xf32>
   // CHECK: return [[RES]] : tensor<64x25600xf32>
 }
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for MaxRoiPool.
+//===----------------------------------------------------------------------===//
+func @test_maxroipool(%arg0: tensor<1x3x64x64xf32>, %arg1: tensor<1x5xf32>) -> tensor<*xf32> {
+  %0 = "onnx.MaxRoiPool"(%arg0, %arg1) {node_name = "tops_MaxRoiPool_0", pooled_shape = [2, 2], spatial_scale = 1.000000e+00 : f32} : (tensor<1x3x64x64xf32>, tensor<1x5xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: func @test_maxroipool
+  // CHECK: [[RES:%.+]] = "onnx.MaxRoiPool"(%arg0, %arg1) {node_name = "tops_MaxRoiPool_0", pooled_shape = [2, 2], spatial_scale = 1.000000e+00 : f32} : (tensor<1x3x64x64xf32>, tensor<1x5xf32>) -> tensor<1x3x2x2xf32>
+  // CHECK: return [[RES]] : tensor<1x3x2x2xf32>
+}

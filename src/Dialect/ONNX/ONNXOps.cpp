@@ -3960,7 +3960,41 @@ LogicalResult ONNXMaxPoolOp::inferShapes(
 
 LogicalResult ONNXMaxRoiPoolOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!X().getType().isa<RankedTensorType>())
+    return success();
+
+  if (!rois().getType().isa<RankedTensorType>())
+    return success();
+
+  auto x_type = X().getType().cast<RankedTensorType>();
+  auto x_shape = x_type.getShape();
+  auto rois_rank = rois().getType().cast<RankedTensorType>().getRank();
+  if (rois_rank != 2)
+    return success();
+
+  // 2d tensor: (num_rois, 5)
+  auto roi_shape = rois().getType().cast<RankedTensorType>().getShape();
+  int64_t num_rois = roi_shape[0];
+  SmallVector<int64_t, 2> pooled_dims;
+
+  auto pooled_shape_array_attr = pooled_shape();
+  for (auto pooled_shape_attr : pooled_shape_array_attr) {
+    auto pooled_shape_int_attr = pooled_shape_attr.dyn_cast<IntegerAttr>();
+    if (!pooled_shape_int_attr)
+      return success();
+    pooled_dims.push_back(pooled_shape_int_attr.getInt());
+  }
+
+  // 4-D tensor : (num_rois, channels, pooled_shape[0], pooled_shape[1]).
+  SmallVector<int64_t, 2> output_dims;
+  output_dims.push_back(num_rois);
+  output_dims.push_back(x_shape[1]); // channel
+  output_dims.push_back(pooled_dims[0]);
+  output_dims.push_back(pooled_dims[1]);
+
+  getResult().setType(
+      RankedTensorType::get(output_dims, x_type.getElementType()));
+  return success();
 }
 
 LogicalResult ONNXMaxUnpoolOp::inferShapes(
