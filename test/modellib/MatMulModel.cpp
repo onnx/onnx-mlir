@@ -23,7 +23,7 @@
 using namespace mlir;
 
 namespace onnx_mlir {
-namespace tests {
+namespace test {
 
 MatMul2DLibBuilder::MatMul2DLibBuilder(
     const std::string &modelName, const int I, const int J, const int K)
@@ -91,5 +91,5 @@ bool MatMul2DLibBuilder::verifyOutputs() {
   return areCloseFloat(res, ref);
 }
 
-} // namespace tests
+} // namespace test
 } // namespace onnx_mlir

@@ -28,7 +28,7 @@
 #include "src/Runtime/ExecutionSession.hpp"
 
 namespace onnx_mlir {
-namespace tests {
+namespace test {
 
 /*
    Superclass that defines a template to create models, creating an ONNX
@@ -302,5 +302,5 @@ private:
   OMTensor *wOmt, *rOmt, *bOmt;
 };
 
-} // namespace tests
+} // namespace test
 } // namespace onnx_mlir

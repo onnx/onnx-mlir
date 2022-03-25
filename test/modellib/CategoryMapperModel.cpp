@@ -24,7 +24,7 @@
 using namespace mlir;
 
 namespace onnx_mlir {
-namespace tests {
+namespace test {
 
 // Utility function used to create an OMTensor.
 template <typename T>
@@ -176,5 +176,5 @@ bool CategoryMapperLibBuilder<T1, T2>::verifyResults(
 template class CategoryMapperLibBuilder<int64_t, const char *>;
 template class CategoryMapperLibBuilder<const char *, int64_t>;
 
-} // namespace tests
+} // namespace test
 } // namespace onnx_mlir

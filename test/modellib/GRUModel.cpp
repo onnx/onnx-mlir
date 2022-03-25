@@ -23,7 +23,7 @@
 using namespace mlir;
 
 namespace onnx_mlir {
-namespace tests {
+namespace test {
 
 /// Sigmoid
 static float sigmoid(float x) { return 1 / (1 + exp(-x)); }
@@ -294,5 +294,5 @@ bool GRULibBuilder::verifyOutputs() {
   return true;
 }
 
-} // namespace tests
+} // namespace test
 } // namespace onnx_mlir

@@ -2,9 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <iostream>
 #include <rapidcheck.h>
-#include <string>
 
 #include "llvm/Support/FileSystem.h"
 
@@ -12,9 +10,7 @@
 
 #define DEBUG 0
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestConv_main_graph");
 
@@ -22,6 +18,8 @@ static const llvm::StringRef SHARED_LIB_BASE("./TestConv_main_graph");
 // dilations. Had to make them global to conform with the signatures of lambda
 // requested by RapidTest.
 int stride, dilation, isDynamic;
+namespace onnx_mlir {
+namespace test {
 
 // Returns whether onnx-mlir compiled convolution is producing the same results
 // as a naive implementation of convolution for a specific set of convolution
@@ -46,7 +44,13 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
          conv.run() && conv.verifyOutputs();
 }
 
+} // namespace test
+} // namespace onnx_mlir
+
 int main(int argc, char *argv[]) {
+  using namespace onnx_mlir;
+  using namespace onnx_mlir::test;
+
   llvm::FileRemover remover(
       ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 

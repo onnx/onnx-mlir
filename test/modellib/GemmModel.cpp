@@ -23,7 +23,7 @@
 using namespace mlir;
 
 namespace onnx_mlir {
-namespace tests {
+namespace test {
 
 GemmLibBuilder::GemmLibBuilder(const std::string &modelName, const int I,
     const int J, const int K, const int aTrans, const int bTrans,
@@ -138,5 +138,5 @@ bool GemmLibBuilder::verifyOutputs() {
   return areCloseFloat(res, ref);
 }
 
-} // namespace tests
+} // namespace test
 } // namespace onnx_mlir

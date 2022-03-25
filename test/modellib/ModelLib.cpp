@@ -23,7 +23,7 @@
 using namespace mlir;
 
 namespace onnx_mlir {
-namespace tests {
+namespace test {
 
 ModelLibBuilder::ModelLibBuilder(const std::string &name)
     : sharedLibBaseName(name), ctx(), loc(UnknownLoc::get(&ctx)), builder(&ctx),
@@ -118,5 +118,5 @@ bool ModelLibBuilder::areCloseFloat(
   return omTensorAreTwoOmtsClose<float>(res, ref, rtol, atol);
 }
 
-} // namespace tests
+} // namespace test
 } // namespace onnx_mlir

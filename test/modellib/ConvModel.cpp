@@ -24,7 +24,7 @@
 using namespace mlir;
 
 namespace onnx_mlir {
-namespace tests {
+namespace test {
 
 static int myCeil(int a, int b) { return ceil((1.0 * a) / (1.0 * b)); }
 static int myFloor(int a, int b) { return floor((1.0 * a) / (1.0 * b)); }
@@ -231,5 +231,5 @@ bool Conv2DLibBuilder::verifyOutputs() {
   return areCloseFloat(res, ref);
 }
 
-} // namespace tests
+} // namespace test
 } // namespace onnx_mlir

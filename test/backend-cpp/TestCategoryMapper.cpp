@@ -19,7 +19,7 @@ static const std::string SharedLibBaseName("./TestCategoryMapper_main_graph");
 
 static bool testInt64ToStr() {
   using CategoryMapperBuilder =
-      onnx_mlir::tests::CategoryMapperLibBuilder<int64_t, const char *>;
+      onnx_mlir::test::CategoryMapperLibBuilder<int64_t, const char *>;
 
   const CategoryMapperBuilder::CMAttributes attributes = {{1, 2, 3, 4, 5},
       {"cat", "dog", "human", "tiger", "beaver"}, -1, "unknown"};
@@ -41,7 +41,7 @@ static bool testInt64ToStr() {
 
 static bool testStrToInt64() {
   using CategoryMapperBuilder =
-      onnx_mlir::tests::CategoryMapperLibBuilder<const char *, int64_t>;
+      onnx_mlir::test::CategoryMapperLibBuilder<const char *, int64_t>;
 
   const CategoryMapperBuilder::CMAttributes attributes = {{1, 2, 3, 4, 5},
       {"cat", "dog", "human", "tiger", "beaver"}, -1, "unknown"};
@@ -63,7 +63,7 @@ static bool testStrToInt64() {
 
 int main(int argc, char *argv[]) {
   llvm::FileRemover remover(
-      onnx_mlir::tests::ModelLibBuilder::getSharedLibName(SharedLibBaseName));
+      onnx_mlir::test::ModelLibBuilder::getSharedLibName(SharedLibBaseName));
 
   setCompilerOption(onnx_mlir::OptionKind::CompilerOptLevel, "3");
   registerPassManagerCLOptions();

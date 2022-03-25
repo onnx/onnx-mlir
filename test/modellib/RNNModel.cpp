@@ -23,7 +23,7 @@
 using namespace mlir;
 
 namespace onnx_mlir {
-namespace tests {
+namespace test {
 
 RNNLibBuilder::RNNLibBuilder(const std::string &modelName, const int direction,
     const int S, const int B, const int I, const int H, const bool isDynamicS,
@@ -201,5 +201,5 @@ bool RNNLibBuilder::verifyOutputs() {
   return true;
 }
 
-} // namespace tests
+} // namespace test
 } // namespace onnx_mlir
