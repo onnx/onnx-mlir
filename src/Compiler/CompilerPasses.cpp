@@ -30,6 +30,7 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 namespace onnx_mlir {
+
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
   // This is a transition from previous static passes to full dynamic passes
   // Static passes are kept and the dynamic pass is added as IF-THEN
@@ -105,4 +106,5 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
+
 } // namespace onnx_mlir
