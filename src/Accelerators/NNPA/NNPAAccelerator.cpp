@@ -32,8 +32,6 @@ onnx_mlir::accel::nnpa::NNPAAccelerator *pnnpa = nullptr;
 void createNNPA() { pnnpa = new onnx_mlir::accel::nnpa::NNPAAccelerator; }
 
 namespace onnx_mlir {
-extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
-extern llvm::cl::list<std::string> execNodesOnCpu;
 extern llvm::cl::list<onnx_mlir::accel::Accelerator::Kind> maccel;
 
 namespace accel {
@@ -71,7 +69,7 @@ void NNPAAccelerator::addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm,
     onnx_mlir::EmissionTargetType &emissionTarget) const {
   LLVM_DEBUG(llvm::dbgs() << "adding passes for NNPA accelerator\n");
-  addPassesNNPA(module, pm, emissionTarget, nnpaEmissionTarget, execNodesOnCpu);
+  addPassesNNPA(module, pm, emissionTarget);
 }
 
 void NNPAAccelerator::registerDialects(mlir::DialectRegistry &registry) const {

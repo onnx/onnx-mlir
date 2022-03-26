@@ -35,15 +35,6 @@ void addZHighToZLowPasses(mlir::PassManager &pm);
 void addAllToLLVMPasses(mlir::PassManager &pm);
 
 void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
-    mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget,
-    NNPAEmissionTargetType nnpaEmissionTarget,
-    mlir::ArrayRef<std::string> execNodesOnCpu);
-
-int compileModuleNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
-    mlir::MLIRContext &context, std::string outputBaseName,
-    onnx_mlir::EmissionTargetType emissionTarget,
-    NNPAEmissionTargetType dlcEmissionTarget =
-        NNPAEmissionTargetType::EmitZNONE,
-    mlir::ArrayRef<std::string> execNodesOnCpu = mlir::ArrayRef<std::string>());
+    mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget);
 
 } // namespace onnx_mlir

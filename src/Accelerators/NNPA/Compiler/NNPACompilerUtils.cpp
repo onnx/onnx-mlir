@@ -46,14 +46,16 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 extern llvm::cl::OptionCategory OnnxMlirOptions;
+extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
+extern llvm::cl::list<std::string> execNodesOnCpu;
 
 llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
-    llvm::cl::desc("[Optional] Choose Z-related target to emit "
+    llvm::cl::desc("[Optional] Choose NNPA-related target to emit "
                    "(once selected it will cancel the other targets):"),
     llvm::cl::values(
         clEnumVal(EmitZHighIR, "Lower model to ZHigh IR (ZHigh dialect)"),
         clEnumVal(EmitZLowIR, "Lower model to ZLow IR (ZLow dialect)"),
-        clEnumVal(EmitZNONE, "Do not emit Z-related target (default)")),
+        clEnumVal(EmitZNONE, "Do not emit NNPA-related target (default)")),
     llvm::cl::init(EmitZNONE), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
@@ -125,9 +127,7 @@ void addAllToLLVMPasses(mlir::PassManager &pm) {
 }
 
 void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
-    mlir::PassManager &pm, EmissionTargetType &emissionTarget,
-    NNPAEmissionTargetType nnpaEmissionTarget,
-    ArrayRef<std::string> execNodesOnCpu) {
+    mlir::PassManager &pm, EmissionTargetType &emissionTarget) {
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
