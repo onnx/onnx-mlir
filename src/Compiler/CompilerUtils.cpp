@@ -630,7 +630,8 @@ static std::string genSharedLib(string outputBaseName, std::vector<string> opts,
 #else
   string sharedLibPath = outputBaseName + ".so";
   std::vector<string> outputOpt = {"-o", sharedLibPath};
-  std::vector<string> sharedLibOpts = {"-shared", "-fPIC"};
+  std::vector<string> sharedLibOpts = {
+      "-shared", "-fPIC", "-Wl,-rpath=/workdir/onnx-mlir/build/Debug/lib"};
   llvm::for_each(libs, [](string &lib) { lib = "-l" + lib; });
   llvm::for_each(libDirs, [](string &libDir) { libDir = "-L" + libDir; });
 #endif
@@ -684,8 +685,8 @@ std::string compileModuleToSharedLibrary(
   llvm::FileRemover modelObjRemover(
       modelObjPath, !keepFiles(KeepFilesOfType::Object));
 
-  return genSharedLib(outputBaseName, {}, {modelObjPath},
-      {"cruntime", "omp", "ompd", "omptarget"}, {getRuntimeDir()});
+  return genSharedLib(outputBaseName, {}, {modelObjPath}, {"cruntime", "omp"},
+      {getRuntimeDir()});
 }
 
 void compileModuleToJniJar(
@@ -713,8 +714,7 @@ void compileModuleToJniJar(
   string jniLibBase = llvm::StringRef(jniLibDir).str();
 
   string modelSharedLibPath = genSharedLib(jniLibBase, {"-z", "noexecstack"},
-      {modelObjPath, jniObjPath},
-      {"jniruntime", "cruntime", "omp", "ompd", "omptarget"},
+      {modelObjPath, jniObjPath}, {"jniruntime", "cruntime", "omp"},
       {getRuntimeDir()});
   llvm::FileRemover modelSharedLibRemover(
       modelSharedLibPath, !keepFiles(KeepFilesOfType::Object));
