@@ -82,6 +82,13 @@ llvm::cl::opt<std::string> march("march",
     llvm::cl::value_desc("Target a specific architecture type"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
+llvm::cl::list<accel::Accelerator::Kind> maccel("maccel",
+    llvm::cl::desc("Specify an accelerator to generate code for"),
+    llvm::cl::values(
+#include "src/Accelerators/AcceleratorOptions.hpp"
+        ),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
+
 llvm::cl::opt<bool> VerboseOutput("v", llvm::cl::desc("Use verbose output"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
@@ -136,10 +143,6 @@ llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
     llvm::cl::desc("Report diagnostic info for op transform passes."),
     llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
 
-llvm::cl::opt<std::string> acceleratorTarget("maccel",
-    llvm::cl::desc("Specify an accelerator to generate code for\n"
-                   "\"NONE\" or \"\" for no accelerator\n"),
-    llvm::cl::init(""), llvm::cl::cat(OMPassOptions));
 // =============================================================================
 // Methods for setting and getting compiler variables.
 

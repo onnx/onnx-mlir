@@ -744,7 +744,7 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   // Initialize accelerator if required
-  if (acceleratorTarget.compare("") != 0) {
+  if (!maccel.empty()) {
     InitAccelerators();
     for (auto accel : onnx_mlir::accel::Accelerator::getAcceleratorList()) {
       if (accel->isActive()) {
