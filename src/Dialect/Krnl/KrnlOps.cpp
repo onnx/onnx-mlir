@@ -16,6 +16,7 @@
 #include <queue>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Block.h"
@@ -821,6 +822,29 @@ LogicalResult KrnlCopyFromBufferOp::verify() {
       return emitOpError("Rank of tileSize must be identical to buffer");
   }
   return success();
+}
+
+void KrnlSeqExtractOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  effects.emplace_back(
+      MemoryEffects::Read::get(), seq(), SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Write::get(), output(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Allocate::get(), output(),
+      SideEffects::DefaultResource::get());
+}
+
+Optional<Operation *> KrnlSeqExtractOp::buildDealloc(
+    OpBuilder &builder, Value alloc) {
+  auto loc = alloc.getLoc();
+  MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(builder, loc);
+  return create.mem.dealloc(alloc).getOperation();
+}
+
+Optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
+  return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
+      .getResult();
 }
 
 } // namespace mlir
