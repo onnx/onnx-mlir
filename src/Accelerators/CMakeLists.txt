@@ -23,6 +23,9 @@ file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "}\n")
 
 add_onnx_mlir_library(InitAccelerators
   InitAccelerators.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
   LINK_LIBS PUBLIC
     ${ACCEL_LIST}
   )

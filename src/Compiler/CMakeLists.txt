@@ -27,6 +27,8 @@ get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 add_onnx_mlir_library(CompilerOptions
   CompilerOptions.cpp
 
+  EXCLUDE_FROM_OM_LIBS
+
   DEPENDS
   ExternalUtil
 
@@ -43,6 +45,8 @@ add_onnx_mlir_library(CompilerOptions
 add_onnx_mlir_library(CompilerPasses
   CompilerPasses.cpp
 
+  EXCLUDE_FROM_OM_LIBS
+
   DEPENDS
   MLIRIR
 
@@ -53,20 +57,8 @@ add_onnx_mlir_library(CompilerPasses
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
+  ${OMLibs}
   CompilerOptions
-  OMBundleMemoryPools
-  OMDisconnectKrnlDimFromAlloc
-  OMEnableMemoryPool
-  OMInstrumentONNX
-  OMKrnlToAffine
-  OMKrnlToLLVM
-  OMLowerKrnlShape
-  OMONNXPreKrnlVerifyONNX
-  OMONNXRewrite
-  OMONNXToKrnl
-  OMOptimizeMemoryPools
-  OMOpTransform
-  OMShapeInference
   MLIRAffineTransforms
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
@@ -88,11 +80,8 @@ add_onnx_mlir_library(CompilerUtils
 
   LINK_LIBS PUBLIC
   ${OMLibs}
-  CompilerOptions
   CompilerPasses
-  MLIRAffineTransforms
-  MLIRLinalgTransforms
-  MLIRLLVMToLLVMIRTranslation
+  InitAccelerators
 
   # Link LLVM libraries necessary to query which target architectures are configured.
   LINK_COMPONENTS PRIVATE

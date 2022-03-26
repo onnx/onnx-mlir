@@ -3,6 +3,8 @@ get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 add_onnx_mlir_library(NNPACompilerUtils
   NNPACompilerUtils.cpp
 
+  EXCLUDE_FROM_OM_LIBS
+
   INCLUDE_DIRS PRIVATE
   ${NNPA_SRC_ROOT}
   ${NNPA_BIN_ROOT}
@@ -10,17 +12,8 @@ add_onnx_mlir_library(NNPACompilerUtils
   ${NNPA_ONNX_MLIR_BIN_ROOT}
 
   LINK_LIBS PUBLIC
-  CompilerOptions
+  ${OMLibs}
   CompilerPasses
-  OMONNXToZHigh
-  OMRewriteONNXForZHigh
-  OMZHighConstPropagation
-  OMZHighLayoutPropagation
-  OMZHighToZLow
-  OMInstrumentZHigh
-  OMZLowToLLVM
-  OMZLowRewrite
-  OMFoldStdAlloc
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_ONNX_MLIR_SRC_ROOT}

@@ -48,7 +48,6 @@ add_onnx_mlir_library(OMInstrumentONNX
   OMONNXOps
   OMKrnlOps
   MLIRPass
-  OMSupport
   )
 
 add_onnx_mlir_library(OMOpTransform
@@ -58,7 +57,6 @@ add_onnx_mlir_library(OMOpTransform
   CompilerOptions
   OMONNXOps
   MLIRPass
-  OMSupport
   OMONNXRewrite
   OMShapeInference
   MLIRTransforms
