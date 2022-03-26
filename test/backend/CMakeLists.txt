@@ -79,7 +79,7 @@ else()
 endif()
 
 set(LD_PRELOADS $<TARGET_FILE:cruntime>)
-set(LD_LIBRARY_PATH /workdir/onnx-mlir/build/Debug/lib)
+set(LD_LIBRARY_PATH ${ONNX_MLIR_LIBRARY_PATH})
 
 get_filename_component(CXX_BIN_DIR ${CMAKE_CXX_COMPILER} PATH)
 set(LIBSTDCXX_LIB "${CXX_BIN_DIR}/../lib64/libstdc++.so")

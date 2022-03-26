@@ -629,8 +629,7 @@ static std::string genSharedLib(string outputBaseName, std::vector<string> opts,
 #else
   string sharedLibPath = outputBaseName + ".so";
   std::vector<string> outputOpt = {"-o", sharedLibPath};
-  std::vector<string> sharedLibOpts = {
-      "-shared", "-fPIC", "-Wl,-rpath=/workdir/onnx-mlir/build/Debug/lib"};
+  std::vector<string> sharedLibOpts = {"-shared", "-fPIC"};
   llvm::for_each(libs, [](string &lib) { lib = "-l" + lib; });
   llvm::for_each(libDirs, [](string &libDir) { libDir = "-L" + libDir; });
 #endif
