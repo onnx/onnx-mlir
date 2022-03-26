@@ -25,6 +25,7 @@
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/Pass/Pass.h"
+
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Conversion/SeqToMemref/ConvertSeqToMemref.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
