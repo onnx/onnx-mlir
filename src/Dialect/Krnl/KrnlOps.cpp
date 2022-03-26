@@ -827,22 +827,24 @@ LogicalResult KrnlCopyFromBufferOp::verify() {
 void KrnlSeqExtractOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-  effects.emplace_back(MemoryEffects::Read::get(), seq(),
-                       SideEffects::DefaultResource::get());
+  effects.emplace_back(
+      MemoryEffects::Read::get(), seq(), SideEffects::DefaultResource::get());
   effects.emplace_back(MemoryEffects::Write::get(), output(),
-                       SideEffects::DefaultResource::get());
+      SideEffects::DefaultResource::get());
   effects.emplace_back(MemoryEffects::Allocate::get(), output(),
-                       SideEffects::DefaultResource::get());
+      SideEffects::DefaultResource::get());
 }
 
-Optional<Operation*> KrnlSeqExtractOp::buildDealloc(OpBuilder &builder, Value alloc) {
+Optional<Operation *> KrnlSeqExtractOp::buildDealloc(
+    OpBuilder &builder, Value alloc) {
   auto loc = alloc.getLoc();
   MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(builder, loc);
   return create.mem.dealloc(alloc).getOperation();
 }
 
 Optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
-  return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc).getResult();
+  return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
+      .getResult();
 }
 
 } // namespace mlir
