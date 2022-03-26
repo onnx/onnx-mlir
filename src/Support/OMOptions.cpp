@@ -4,7 +4,7 @@
 
 //===--------------------------- OMOptions.cpp ----------------------------===//
 //
-// Copyright 2019-2021 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,6 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Support/OMOptions.hpp"
+
+using namespace onnx_mlir;
 
 llvm::cl::OptionCategory OMPassOptions("ONNX-MLIR Pass Options",
     "These are options to provide fine control on passes");
@@ -41,7 +43,10 @@ llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
     llvm::cl::desc("Report diagnostic info for op transform passes."),
     llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
 
-llvm::cl::opt<std::string> acceleratorTarget("maccel",
-    llvm::cl::desc("Specify an accelerator to generate code for\n"
-                   "\"NONE\" or \"\" for no accelerator\n"),
-    llvm::cl::init(""), llvm::cl::cat(OMPassOptions));
+llvm::cl::opt<OptLevel> OptimizationLevel(
+    llvm::cl::desc("Optimization levels:"),
+    llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default)."),
+        clEnumVal(O1, "Optimization level 1."),
+        clEnumVal(O2, "Optimization level 2."),
+        clEnumVal(O3, "Optimization level 3.")),
+    llvm::cl::init(O0), llvm::cl::cat(OMPassOptions));

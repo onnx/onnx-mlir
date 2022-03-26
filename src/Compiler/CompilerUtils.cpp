@@ -56,8 +56,6 @@ const string OnnxMlirVersion = "onnx-mlir version 1.0.0";
 llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX-MLIR Options", "These are frontend options.");
 
-namespace {
-
 static llvm::Optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
     return std::string(envVerbose);
@@ -127,13 +125,12 @@ static llvm::cl::opt<std::string> march("march",
     llvm::cl::value_desc("Target a specific architecture type"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
-static llvm::cl::opt<OptLevel> OptimizationLevel(
-    llvm::cl::desc("Optimization levels:"),
-    llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default)."),
-        clEnumVal(O1, "Optimization level 1."),
-        clEnumVal(O2, "Optimization level 2."),
-        clEnumVal(O3, "Optimization level 3.")),
-    llvm::cl::init(O0), llvm::cl::cat(OnnxMlirOptions));
+llvm::cl::list<accel::Accelerator::Kind> maccel("maccel",
+    llvm::cl::desc("Specify an accelerator to generate code for"),
+    llvm::cl::values(
+#include "src/Accelerators/AcceleratorOptions.hpp"
+        ),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
 static llvm::cl::opt<bool> VerboseOutput("v",
     llvm::cl::desc("Use verbose output"), llvm::cl::init(false),
@@ -154,6 +151,8 @@ static llvm::cl::opt<std::string> mllvm("mllvm",
         "Arguments to forward to LLVM's 'opt' and 'llc' option processing"),
     llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
+
+namespace {
 
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
@@ -1067,19 +1066,16 @@ void emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
 int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputBaseName,
     EmissionTargetType emissionTarget) {
-  extern void InitAccelerators();
   setupModule(module, context, outputBaseName);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   // Initialize accelerator if required
-  if (acceleratorTarget.compare("") != 0) {
+  if (!maccel.empty()) {
     InitAccelerators();
-    // std::vector<onnx_mlir::accel::Accelerator *> *accTargets;
-    // accTargets = onnx_mlir::accel::Accelerator::getAcceleratorList();
-    // for (auto accel : *accTargets) {
     for (auto accel : onnx_mlir::accel::Accelerator::getAcceleratorList()) {
       if (accel->isActive()) {
-        accel->prepareAccelerator(module, context, pm, emissionTarget);
+        accel->getOrLoadDialects(context);
+        accel->addPasses(module, pm, emissionTarget);
       }
     }
   } else
