@@ -19,6 +19,7 @@
 
 include "mlir/IR/OpBase.td"
 include "mlir/Dialect/Shape/IR/ShapeBase.td"
+include "mlir/Dialect/Bufferization/IR/AllocationOpInterface.td"
 include "mlir/Interfaces/CastInterfaces.td"
 include "mlir/Interfaces/LoopLikeInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
@@ -160,6 +161,37 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
     // Get name of the attribute for storing bound represented using affine maps.
       static StringRef getBoundsAttrName() { return "bounds"; }
   }];
+}
+
+def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+    DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
+  let summary = "Krnl load from a seq";
+  let description = [{
+    sequence is represented with memref<memref<>>.
+    This op loads a tensor for the sequence 'seq' at position 'index',
+    and return the tensor, which will be freed by Bufferization::Deallocation.
+    The element in the sequence will become null.
+  }];
+  let arguments = (ins AnyMemRef:$seq,
+                       Index:$index);
+
+  let results = (outs AnyType:$output);
+}
+
+def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
+  let summary = "Krnl store into a seq";
+  let description = [{
+    sequence is represented with memref<memref<>>.
+    This op will copy the tensor to be stored, and cast the type if needed.
+    The motivation to introduce this Op is to help bufferization::deallocation
+    The experiment showed that memref will be freed after the memref is stored.
+    However, the store of memref only write out the pointer for the memref,
+    and its memory cannot be freed.
+  }];
+  let arguments = (ins AnyType:$input,
+                       AnyMemRef:$seq,
+                       Index:$index);
 }
 
 def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
