@@ -96,7 +96,7 @@ OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &dataSizes);
  */
 template <typename T>
 OMTensor *omTensorCreateWithRandomData(
-    const std::vector<int64_t> &dataSizes, T lbound = -1.0, T ubound = 1.0);
+    const std::vector<int64_t> &dataSizes, T lbound = -10.0, T ubound = 10.0);
 
 /**
  * OMTensor data element getter by offset
