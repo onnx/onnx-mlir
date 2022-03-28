@@ -650,14 +650,6 @@ inline bool omTensorAreTwoOmtsClose(
         std::cerr << "b[";
         printVector(idx, ",", std::cerr);
         std::cerr << "] = " << bElem << std::endl;
-        std::cerr << "rtol";
-        std::cerr << " = " << rtol << ", ";
-        std::cerr << "abs(bElem)";
-        std::cerr << " = " << std::abs(bElem) << ", ";
-        std::cerr << "atol";
-        std::cerr << " = " << atol << ", ";
-        std::cerr << "abs(aElem - bElem)";
-        std::cerr << " = " << std::abs(aElem - bElem) << std::endl;
       }
     }
   }
