@@ -270,8 +270,9 @@ Value MathBuilder::positiveInf(Type type) const {
                              : std::numeric_limits<uint32_t>::max();
           break;
         case 64:
-          value = (isSigned) ? std::numeric_limits<int64_t>::max()
-                             : std::numeric_limits<uint64_t>::max();
+          value = static_cast<double>(
+              (isSigned) ? std::numeric_limits<int64_t>::max()
+                         : std::numeric_limits<uint64_t>::max());
           break;
         default:
           llvm_unreachable("unsupported element type");
