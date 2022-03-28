@@ -81,7 +81,7 @@ public:
   // Compile model from the model and ctx variables. The output is an executable
   // dynamic library. It can run second or third.
   bool compileAndLoad();
-  bool compileAndLoad(const CompilerOptionList &list);
+  bool compileAndLoad(const onnx_mlir::CompilerOptionList &list);
   // Prepare inputs for running model. Subclass may add arguments as necessary.
   // It can run second or third.
   virtual bool prepareInputs() = 0;
