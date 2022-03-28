@@ -44,6 +44,8 @@ github_pr_baseref           = os.getenv('GITHUB_PR_BASEREF')
 github_pr_baseref2          = os.getenv('GITHUB_PR_BASEREF').lower()
 github_pr_number            = os.getenv('GITHUB_PR_NUMBER')
 github_pr_number2           = os.getenv('GITHUB_PR_NUMBER2')
+github_pr_action            = os.getenv('GITHUB_PR_ACTION')
+jenkins_workspace_dir       = os.getenv('JENKINS_WORKSPACE_DIR')
 
 docker_static_image_name    = (github_repo_name + '-llvm-static' +
                                ('.' + github_pr_baseref2
@@ -65,6 +67,7 @@ BUILD_SHARED_LIBS           = { 'static': 'off',
 LLVM_PROJECT_LABELS         = [ 'llvm_project_sha1',
                                 'llvm_project_sha1_date',
                                 'llvm_project_dockerfile_sha1' ]
+LLVM_WATCH_STATE            = jenkins_workspace_dir + '/watch.json'
 
 GITHUB_REPO_NAME            = github_repo_name.upper()
 GITHUB_REPO_NAME2           = github_repo_name2.upper()
@@ -75,6 +78,8 @@ DOCKER_DIST_MANIFESTS       = {
 
 docker_rwlock               = fasteners.InterProcessReaderWriterLock(docker_pushpull_rwlock)
 docker_api                  = docker.APIClient(base_url=docker_daemon_socket)
+
+llvm_watch_state            = {}
 
 # Validate whether the commit sha1 date is a valid UTC ISO 8601 date
 def valid_sha1_date(sha1_date):
@@ -202,6 +207,39 @@ def get_remote_image_labels(host_name, user_name, image_name, image_tag,
         logging.info(sys.exc_info()[1])
         return ''
 
+# Retrieve llvm-project main branch commit history from the latest
+# until specified commit_sha1.
+def get_repo_sha1_history(github_repo, commit_sha1, access_token):
+    sha1_history = []
+    try:
+        # Keep retrieving if we don't see commit_sha1 in sha1_history
+        while not (commit_sha1 in sha1_history):
+            # Retrieve 100 commits at a time and keep going backwards
+            # from the last commit we retrieved the last time.
+            resp = requests.get(
+                url = (github_repo + '/commits?per_page=100' +
+                       ('&sha=' + sha1_history[-1] if sha1_history else '')),
+                headers = { 'Accept': 'application/json',
+                            'Authorization': 'token ' + access_token })
+            resp.raise_for_status()
+
+            # Go through the returned json array and add commit sha
+            # to sha1_history. The first returned commit will be the
+            # last commit in sha1_history we started from, so skip it.
+            for commit in resp.json():
+                if sha1_history and commit['sha'] == sha1_history[-1]:
+                    continue
+                print(commit['sha'])
+                sha1_history += [ commit['sha'] ]
+
+        # Return the sublist from the beginning until commit_sha1
+        # (not including commit_sha1 since we know onnx-mlir builds
+        # against commit_sha1 fine).
+        return sha1_history[:sha1_history.index(commit_sha1)]
+    except:
+        logging.info(sys.exc_info()[1])
+        return []
+
 # From the pull request source, extract expected llvm-project sha1, sha1 date,
 # and dockerfile sha1.
 def extract_llvm_info():
@@ -229,6 +267,36 @@ def extract_llvm_info():
              'llvm_project_dockerfile_sha1': exp_llvm_project_dockerfile_sha1,
              'llvm_project_filter': exp_llvm_project_filter }
 
+# Compute and traverse the llvm-project commits to locate the first commit
+# that we fail to build against, starting from the commit we currently use
+# and ending with the latest commit.
+def watch_llvm_commits():
+    # llvm-project commit currently used by onnx-mlir
+    tail_llvm_project_sha1  = extract_pattern_from_file(LLVM_PROJECT_SHA1_FILE,
+                                                        LLVM_PROJECT_SHA1_REGEX)
+
+    # Load previous build state json to decide how we should proceed
+    try:
+        with open(LLVM_WATCH_STATE, 'r') as f:
+            llvm_watch_state = json.load(f)
+    except:
+        llvm_watch_state = {}
+        llvm_watch_state['llvm_commit_head'] = ''
+        llvm_watch_state['llvm_commit_tail'] = ''
+        llvm_watch_state['llvm_commit_history'] = []
+        llvm_watch_state['llvm_commit_built'] = -1
+
+    # If llvm-project commit currently used by onnx-mlir changed,
+    # we need to start a whole new cycle by fetching the new
+    # commits between the latest and tail_llvm_project_sha1.
+    if tail_llvm_project_sha1 != watch_state['llvm_commit_tail']:
+        llvm_watch_state['llvm_commit_history'] = get_repo_sha1_history(
+            LLVM_PROJECT_GITHUB_URL,
+            tail_llvm_project_sha1,
+            github_repo_access_token)
+        llvm_watch_state['llvm_commit_low'] = 0
+        llvm_watch_state['llvm_commit_high'] = size(
+    
 # Remove all the containers depending on an (dangling) image.
 def remove_dependent_containers(image):
     containers = docker_api.containers(
@@ -387,7 +455,8 @@ def setup_private_llvm(image_type, exp):
         logging.info('image %s (%s) found', image_full, id[0][0:19])
 
 def main():
-    exp = extract_llvm_info()
+    exp = (traverse_llvm_commits()
+           if github_pr_action == 'watch' else extract_llvm_info())
     setup_private_llvm('static', exp)
     setup_private_llvm('shared', exp)
 

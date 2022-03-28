@@ -74,7 +74,7 @@ def call() {
        */
 
       /* We ask for this directory */
-      JENKINS_WORKSPACE = "${JENKINS_HOME}/workspace/${JOB_NAME}@pr_${GITHUB_PR_NUMBER}"
+      JENKINS_WORKSPACE = "${JENKINS_WORKSPACE_DIR}@pr_${GITHUB_PR_NUMBER}"
       /* We may get one with @2, @3, etc. appended */
       JENKINS_WORKSPACE_AT = "${WORKSPACE}"
 
@@ -128,6 +128,7 @@ def call() {
           /*sh 'printenv'*/
           echo "CPU_ARCH                 = ${CPU_ARCH}"
           echo "BUILD_URL                = ${BUILD_URL}"
+          echo "JENKINS_WORKSPACE_DIR    = ${JENKINS_WORKSPACE_DIR}"
           echo "JENKINS_SCRIPTSPACE      = ${JENKINS_SCRIPTSPACE}"
           echo "JENKINS_SCRIPTSPACE_AT   = ${JENKINS_SCRIPTSPACE_AT}"
           echo "JENKINS_WORKSPACE        = ${JENKINS_WORKSPACE}"
