@@ -47,7 +47,8 @@ bool ModelLibBuilder::compileAndLoad() {
   return exec != nullptr;
 }
 
-bool ModelLibBuilder::compileAndLoad(const CompilerOptionList &list) {
+bool ModelLibBuilder::compileAndLoad(
+    const onnx_mlir::CompilerOptionList &list) {
   if (setCompilerOptions(list) != 0)
     return false;
   return compileAndLoad();
