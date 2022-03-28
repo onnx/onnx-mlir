@@ -524,32 +524,6 @@ void processInputArray(const void *onnxBuffer, int bufferSize,
   ImportFrontendModelArray(onnxBuffer, bufferSize, context, module, options);
 }
 
-InputIRLevelType determineInputIRLevel(mlir::OwningOpRef<ModuleOp> &module) {
-  Operation *moduleOp = module->getOperation();
-
-  // Collect dialect namespaces.
-  llvm::SmallDenseSet<StringRef> dialectNamespace;
-  moduleOp->walk([&](mlir::Operation *op) {
-    dialectNamespace.insert(op->getDialect()->getNamespace());
-  });
-
-  // If there are ONNX ops, the input level is ONNX.
-  bool hasONNXOps = llvm::any_of(dialectNamespace,
-      [&](StringRef ns) { return (ns == ONNXDialect::getDialectNamespace()); });
-  if (hasONNXOps)
-    return ONNXLevel;
-
-  // If there are Krnl ops, the input level is MLIR.
-  bool hasKrnlOps = llvm::any_of(dialectNamespace, [&](StringRef ns) {
-    return (ns == KrnlOpsDialect::getDialectNamespace());
-  });
-  if (hasKrnlOps)
-    return MLIRLevel;
-
-  // Otherwise, set to the lowest level, LLVMLevel.
-  return LLVMLevel;
-}
-
 void outputCode(
     mlir::OwningOpRef<ModuleOp> &module, string filename, string extension) {
   mlir::OpPrintingFlags flags;
@@ -705,24 +679,6 @@ void setupModule(mlir::OwningOpRef<ModuleOp> &module,
     module.release();
     loadMLIR(outputBaseName + ".input.mlir", context, module);
   }
-}
-
-static void addPasses(mlir::OwningOpRef<ModuleOp> &module,
-    mlir::PassManager &pm, EmissionTargetType emissionTarget) {
-  InputIRLevelType inputIRLevel = determineInputIRLevel(module);
-
-  if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
-    addONNXToMLIRPasses(pm);
-
-  if (emissionTarget >= EmitMLIR) {
-    if (inputIRLevel <= ONNXLevel)
-      addONNXToKrnlPasses(pm, OptimizationLevel);
-    if (inputIRLevel <= MLIRLevel)
-      addKrnlToAffinePasses(pm);
-  }
-
-  if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
-    addKrnlToLLVMPasses(pm);
 }
 
 void emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
