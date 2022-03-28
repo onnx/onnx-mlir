@@ -24,6 +24,7 @@ add_onnx_mlir_library(OMONNXOps
   ShapeInference/ArgMax.cpp
   ShapeInference/AveragePool.cpp
   ShapeInference/CategoryMapper.cpp  
+  ShapeInference/Clip.cpp  
   ShapeInference/Compress.cpp
   ShapeInference/Concat.cpp
   ShapeInference/Conv.cpp

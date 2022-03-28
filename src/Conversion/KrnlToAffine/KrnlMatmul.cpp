@@ -27,6 +27,8 @@
 
 #define DEBUG_TYPE "krnl_to_affine"
 
+#define ENABLE_MAT_VECT_MUL 1
+
 using namespace mlir;
 using namespace onnx_mlir;
 
@@ -131,113 +133,167 @@ public:
       jComputeTileSize = computeSizeCapture.getLiteral(1);
       kComputeTileSize = computeSizeCapture.getLiteral(2);
     }
-
-    // If we simdize, its along M for the full compute tile.
-    IndexExpr vectorLen = jComputeTileSize;
-    if (!vectorLen.isLiteral()) {
-      // Cannot simdize if the vector length is not a compile time constant.
-      simdize = false;
-      LLVM_DEBUG(llvm::dbgs() << "Matmul: No simd due to vl not a literal\n");
-    }
-    if (!simdize)
-      vectorLen = LiteralIndexExpr(1);
-
-    // Now get global start indices, which would define the first element of the
-    // tiles in the original computations.
-    DimIndexExpr iComputeStart(operandAdaptor.iComputeStart()),
-        jComputeStart(operandAdaptor.jComputeStart()),
-        kComputeStart(operandAdaptor.kComputeStart());
-    // And get the global upper bound of the original computations.
+    // Get the global upper bound of the original computations.
     SymbolIndexExpr iGlobalUB(operandAdaptor.iGlobalUB()),
         jGlobalUB(operandAdaptor.jGlobalUB()),
         kGlobalUB(operandAdaptor.kGlobalUB());
+
+    // Has a matrix times vector when the J upper bound is literal 1.
+    bool matVectorProduct = ENABLE_MAT_VECT_MUL && jGlobalUB.isLiteral() &&
+                            jGlobalUB.getLiteral() == 1;
+
+    // Investigate SIMD
+    IndexExpr vectorLen = LiteralIndexExpr(1); // Assume no simd.
+    if (simdize) {
+      if (matVectorProduct) {
+        // Matrix (I x K) times vector (K x 1). We currently vectorize along the
+        // i (producing VL results at a time), each of which is a reduction
+        // along the K-axis.
+        if (iComputeTileSize.isLiteral() && kComputeTileSize.isLiteral()) {
+          uint64_t i = iComputeTileSize.getLiteral();
+          uint64_t k = kComputeTileSize.getLiteral();
+          // TODO: longer I & K vectors: (i % k == 0 && (k & (k - 1)) == 0)
+          if (i == k && k == 4) {
+            vectorLen = kComputeTileSize;
+          } else {
+            simdize = false;
+            LLVM_DEBUG(llvm::dbgs() << "Matmul: mat*vec with bad sizes: i " << i
+                                    << ", k " << k << "\n");
+          }
+        } else {
+          simdize = false;
+          LLVM_DEBUG(llvm::dbgs() << "Matmul: mat*vec with non-literal dims\n");
+        }
+      } else {
+        // Matrix times matrix case.
+        if (jComputeTileSize.isLiteral()) {
+          // We simdize along M for the full compute tile.
+          vectorLen = jComputeTileSize;
+        } else {
+          // Cannot simdize if the vector length is not a compile time constant.
+          simdize = false;
+          LLVM_DEBUG(
+              llvm::dbgs() << "Matmul: No simd due to vl not a literal\n");
+        }
+      }
+    }
+
+    // Now get global start indices, which would define the first element of the
+    // tiles in the original computations.
+    DimIndexExpr iGlobalIndexComputeStart(
+        operandAdaptor.iGlobalIndexComputeStart()),
+        jGlobalIndexComputeStart(operandAdaptor.jGlobalIndexComputeStart()),
+        kGlobalIndexComputeStart(operandAdaptor.kGlobalIndexComputeStart());
     // A[i, k];
     SmallVector<IndexExpr, 4> aStart, bStart, cStart;
     for (int t = 0; t < aRank - 2; t++)
-      aStart.emplace_back(SymbolIndexExpr(operandAdaptor.aMemStart()[t]));
+      aStart.emplace_back(
+          SymbolIndexExpr(operandAdaptor.aGlobalIndexMemStart()[t]));
     aStart.emplace_back(
-        iComputeStart - DimIndexExpr(operandAdaptor.aMemStart()[aRank - 2]));
+        iGlobalIndexComputeStart -
+        DimIndexExpr(operandAdaptor.aGlobalIndexMemStart()[aRank - 2]));
     aStart.emplace_back(
-        kComputeStart - DimIndexExpr(operandAdaptor.aMemStart()[aRank - 1]));
+        kGlobalIndexComputeStart -
+        DimIndexExpr(operandAdaptor.aGlobalIndexMemStart()[aRank - 1]));
     // B[k, j];
     for (int t = 0; t < bRank - 2; t++)
-      bStart.emplace_back(SymbolIndexExpr(operandAdaptor.bMemStart()[t]));
+      bStart.emplace_back(
+          SymbolIndexExpr(operandAdaptor.bGlobalIndexMemStart()[t]));
     bStart.emplace_back(
-        kComputeStart - DimIndexExpr(operandAdaptor.bMemStart()[bRank - 2]));
+        kGlobalIndexComputeStart -
+        DimIndexExpr(operandAdaptor.bGlobalIndexMemStart()[bRank - 2]));
     bStart.emplace_back(
-        jComputeStart - DimIndexExpr(operandAdaptor.bMemStart()[bRank - 1]));
+        jGlobalIndexComputeStart -
+        DimIndexExpr(operandAdaptor.bGlobalIndexMemStart()[bRank - 1]));
     // C[i, j]
     for (int t = 0; t < cRank - 2; t++)
-      cStart.emplace_back(SymbolIndexExpr(operandAdaptor.cMemStart()[t]));
+      cStart.emplace_back(
+          SymbolIndexExpr(operandAdaptor.cGlobalIndexMemStart()[t]));
     cStart.emplace_back(
-        iComputeStart - DimIndexExpr(operandAdaptor.cMemStart()[cRank - 2]));
+        iGlobalIndexComputeStart -
+        DimIndexExpr(operandAdaptor.cGlobalIndexMemStart()[cRank - 2]));
     cStart.emplace_back(
-        jComputeStart - DimIndexExpr(operandAdaptor.cMemStart()[cRank - 1]));
+        jGlobalIndexComputeStart -
+        DimIndexExpr(operandAdaptor.cGlobalIndexMemStart()[cRank - 1]));
 
     // Now determine if we have full/partial tiles. This is determined by the
     // outer dimensions of the original computations, as by definition tiling
     // within the buffer always results in full tiles. In other words, partial
     // tiles only occurs because of "runing out" of the original data.
     IndexExpr iIsFullTile =
-        isFullTile(iGlobalUB, iComputeTileSize, iComputeStart);
+        isFullTile(iGlobalUB, iComputeTileSize, iGlobalIndexComputeStart);
     IndexExpr jIsFullTile =
-        isFullTile(jGlobalUB, jComputeTileSize, jComputeStart);
+        isFullTile(jGlobalUB, jComputeTileSize, jGlobalIndexComputeStart);
     IndexExpr kIsFullTile =
-        isFullTile(kGlobalUB, kComputeTileSize, kComputeStart);
+        isFullTile(kGlobalUB, kComputeTileSize, kGlobalIndexComputeStart);
     SmallVector<IndexExpr, 3> allFullTiles = {
         iIsFullTile, jIsFullTile, kIsFullTile};
 
     SmallVector<IndexExpr, 1> jFullTiles = {jIsFullTile};
     // And if the tiles are not full, determine how many elements to compute.
     // With overcompute, this could be relaxed.
-    IndexExpr iTrip = trip(
-        iGlobalUB, iComputeTileSize, iComputeStart); // May or may not be full.
-    IndexExpr jTrip = trip(
-        jGlobalUB, jComputeTileSize, jComputeStart); // May or may not be full.
-    IndexExpr kTrip = trip(
-        kGlobalUB, kComputeTileSize, kComputeStart); // May or may not be full.
+    IndexExpr iTrip = trip(iGlobalUB, iComputeTileSize,
+        iGlobalIndexComputeStart); // May or may not be full.
+    IndexExpr jTrip = trip(jGlobalUB, jComputeTileSize,
+        jGlobalIndexComputeStart); // May or may not be full.
+    IndexExpr kTrip = trip(kGlobalUB, kComputeTileSize,
+        kGlobalIndexComputeStart); // May or may not be full.
     IndexExpr jPartialTrip =
-        partialTrip(jGlobalUB, jComputeTileSize, jComputeStart);
+        partialTrip(jGlobalUB, jComputeTileSize, jGlobalIndexComputeStart);
 
     if (simdize) {
       // SIMD code generator.
-      // clang-format off
-      createAffine.ifThenElse(indexScope, allFullTiles,
-        /* then full tiles */ [&](AffineBuilderKrnlMem &createAffine) {
-        genSimd(rewriter, loc, matmulOp, elementType, aStart, bStart, cStart,
-          iComputeTileSize, jComputeTileSize, kComputeTileSize,
-          vectorLen, fullUnrollAndJam); 
-      }, /* has some partial tiles */ [&](AffineBuilderKrnlMem &createAffine) {
-        // Trip regardless of full/partial for N & K
-        // Test if SIMD dim (M) is full.
-        createAffine.ifThenElse(indexScope, jFullTiles,
-          /* full SIMD */ [&](AffineBuilderKrnlMem &createAffine) {
-          genSimd(rewriter, loc, matmulOp, elementType, aStart, bStart, cStart,
-            iTrip, jComputeTileSize, kTrip, vectorLen, /*unroll*/ false);
-        }, /* else partial SIMD */ [&](AffineBuilderKrnlMem &createAffine) {
-          // TODO: evaluate if get performance from partial SIMD
-          if (false && jPartialTrip.isLiteral() && jPartialTrip.getLiteral() >=2) {
-            // has a known trip count along the simd dimension of at least 2
-            // elements, use simd again.
-            genSimd(rewriter, loc, matmulOp, elementType, aStart, bStart, cStart,
-              iTrip, jPartialTrip, kTrip, vectorLen, /*unroll*/ false);
-          } else {
-            genScalar(rewriter, matmulOp, elementType, aStart, bStart,  cStart,
-              iTrip, jPartialTrip, kTrip, /*unroll*/ false);
-          }
+      if (matVectorProduct) {
+        // clang-format off
+        createAffine.ifThenElse(indexScope, allFullTiles,
+          /* then full tiles */ [&](AffineBuilderKrnlMem &createAffine) {
+          genSimdMatVect(createAffine, matmulOp, elementType, aStart, bStart,
+            cStart, iComputeTileSize, jComputeTileSize, kComputeTileSize,
+            vectorLen, fullUnrollAndJam);
+        }, /* else has partial tiles */ [&](AffineBuilderKrnlMem &createAffine) {
+          genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
+            iTrip, jTrip, kTrip, /*unroll*/ false);
         });
-      });
-      // clang-format on
+        // clang-format on
+      } else {
+        // clang-format off
+        createAffine.ifThenElse(indexScope, allFullTiles,
+          /* then full tiles */ [&](AffineBuilderKrnlMem &createAffine) {
+          genSimdMatMat(createAffine, matmulOp, elementType, aStart, bStart,
+             cStart, iComputeTileSize, jComputeTileSize, kComputeTileSize,
+            vectorLen, fullUnrollAndJam); 
+        }, /* has some partial tiles */ [&](AffineBuilderKrnlMem &createAffine) {
+          // Trip regardless of full/partial for N & K
+          // Test if SIMD dim (M) is full.
+          createAffine.ifThenElse(indexScope, jFullTiles,
+            /* full SIMD */ [&](AffineBuilderKrnlMem &createAffine) {
+            genSimdMatMat(createAffine, matmulOp, elementType, aStart, bStart,
+               cStart, iTrip, jComputeTileSize, kTrip, vectorLen, /*unroll*/ false);
+          }, /* else partial SIMD */ [&](AffineBuilderKrnlMem &createAffine) {
+            // TODO: evaluate if get performance from partial SIMD
+            if (false && jPartialTrip.isLiteral() && jPartialTrip.getLiteral() >=2) {
+              // has a known trip count along the simd dimension of at least 2
+              // elements, use simd again.
+              genSimdMatMat(createAffine, matmulOp, elementType, aStart, bStart,
+                cStart, iTrip, jPartialTrip, kTrip, vectorLen, /*unroll*/ false);
+            } else {
+              genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
+                iTrip, jPartialTrip, kTrip, /*unroll*/ false);
+            }
+          });
+        });
+        // clang-format on
+      }
     } else {
       // Scalar code generator.
       // clang-format off
       createAffine.ifThenElse(indexScope, allFullTiles,
         /* then full */ [&](AffineBuilderKrnlMem &createAffine) {
-        genScalar(rewriter, matmulOp, elementType, aStart, bStart, cStart,
+        genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
           fullUnrollAndJam); 
       }, /* else partial */ [&](AffineBuilderKrnlMem &createAffine) {
-        genScalar(rewriter, matmulOp, elementType, aStart, bStart, cStart,
+        genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
           iTrip, jTrip, kTrip, false);
       });
       // clang-format on
@@ -247,14 +303,12 @@ public:
   }
 
 private:
-  void genScalar(PatternRewriter &rewriter, KrnlMatMulOp op, Type elementType,
-      ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
+  void genScalar(AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
+      Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
       ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
       bool unrollJam) const {
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor(op);
-    Location loc = op.getLoc();
-    AffineBuilderKrnlMem createAffine(rewriter, loc);
     MemRefBuilder createMemRef(createAffine);
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
@@ -323,15 +377,67 @@ private:
     }
   }
 
-  void genSimd(PatternRewriter &rewriter, Location loc, KrnlMatMulOp op,
+  // Initially, simdize with full K vector length.
+  void genSimdMatVect(AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
+      Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
+      ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
+      IndexExpr vectorLen, bool unrollJam) const {
+    // can simdize only if I & K is compile time
+    assert(I.isLiteral() && K.isLiteral() &&
+           "can only simdize with compile time "
+           "blocking factor on simd axis");
+
+    MultiDialectBuilder<MathBuilder, VectorBuilder, AffineBuilderKrnlMem,
+        MemRefBuilder>
+        create(createAffine);
+    // Get operands.
+    KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
+    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
+    int64_t aRank(aStart.size());
+
+    // Generate the vector type conversions.
+    int64_t VL = vectorLen.getLiteral();
+    VectorType vecType = VectorType::get({VL}, elementType);
+    int64_t iUnrollForReduction = K.getLiteral();
+
+    // Iterates over the I indices (K is SIMD dim).
+    // First compute A[i,k]*B[k, 1] for i=0..iUnrollForReduction explicitly.
+    // We reuse B[k][0] vector for each iteration of i.
+    SmallVector<Value, 4> bAccess;
+    IndexExpr::getValues(bStart, bAccess);
+    // bAccess = {k=0 + bStart0.getValue(), bStart1.getValue()};
+    IndexExpr::getValues(bStart, bAccess);
+    Value vb = create.vec.load(vecType, B, bAccess);
+    SmallVector<Value, 8> vResList;
+    // Generate computation for each i, preserving the value in vResList.
+    for (int64_t i = 0; i < iUnrollForReduction; ++i) {
+      SmallVector<Value, 4> aAccess;
+      IndexExpr::getValues(aStart, aAccess);
+      LiteralIndexExpr iVal(i);
+      aAccess[aRank - 2] = create.math.add(aAccess[aRank - 2], iVal.getValue());
+      Value va = create.vec.load(vecType, A, aAccess);
+      Value vres = create.math.mul(va, vb);
+      vResList.emplace_back(vres);
+    }
+    // Reduce each SIMD vector of length VL==K using a SIMD parallel reduction.
+    Value vReduction = create.vec.multiReduction(vResList);
+    // Add the reduction to the previous value of C.
+    SmallVector<Value, 4> cAccess;
+    IndexExpr::getValues(cStart, cAccess);
+    Value vc = create.vec.load(vecType, C, cAccess);
+    vc = create.math.add(vc, vReduction);
+    create.vec.store(vc, C, cAccess);
+  }
+
+  // Simdize along J / memory rows in B and C.
+  void genSimdMatMat(AffineBuilderKrnlMem &createAffine, KrnlMatMulOp op,
       Type elementType, ArrayRef<IndexExpr> aStart, ArrayRef<IndexExpr> bStart,
       ArrayRef<IndexExpr> cStart, IndexExpr I, IndexExpr J, IndexExpr K,
       IndexExpr vectorLen, bool unrollJam) const {
     // can simdize only if K is compile time
     assert(J.isLiteral() &&
            "can only simdize with compile time blocking factor on simd axis");
-    AffineBuilderKrnlMem createAffine(rewriter, loc);
-    MemRefBuilder createMemRef(rewriter, loc);
+    MemRefBuilder createMemRef(createAffine);
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
@@ -440,7 +546,7 @@ private:
     assert(currUnrollAndJamList && "expected list for function");
     return currUnrollAndJamList;
   }
-};
+}; // namespace krnl
 
 void populateLoweringKrnlMatmultOpPattern(TypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {

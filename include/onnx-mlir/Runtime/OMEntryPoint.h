@@ -26,10 +26,11 @@ extern "C" {
  * An entry point name can be passed to functions `omInputSignature` and
  * `omOutputSignature` to query its input and output signatures, respectively.
  *
+ * @param numOfEntryPoints to get the number of entry points.
  * @return an array of strings. The array ends with NULL. For example:
  * ["run_add", "run_sub", NULL].
  */
-const char *const *omQueryEntryPoints();
+const char *const *omQueryEntryPoints(int64_t *numOfEntryPoints);
 
 #ifdef __cplusplus
 }

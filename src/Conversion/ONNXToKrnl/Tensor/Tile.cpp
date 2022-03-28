@@ -71,48 +71,35 @@ struct ONNXTileOpLowering : public ConversionPattern {
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
-    auto outputMemRefShape = outputMemRefType.getShape();
-    int64_t outputRank = outputMemRefShape.size();
+    MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
+    llvm::ArrayRef<int64_t> memRefShape = memRefType.getShape();
+    uint64_t outputRank = memRefShape.size();
 
     Value input = operandAdaptor.input();
-
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
 
-    // Define loops and iteration trip counts (equivalent to size of output)
-    BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
-    outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
-    outputLoops.createIterateOp();
-    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
+    KrnlBuilder createKrnl(rewriter, loc);
+    ValueRange loopDef = createKrnl.defineLoops(outputRank);
+    SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
 
-    SmallVector<Value, 4> loadIndices;
-    // This implementation is to iterate the output tensor.
-    // The store has simple affine subscript expression.
-    // Alternative implementation is to iterate the input tensor and repeats.
-    // The load of elements in input tensor can be reused explicitly.
-    // But the subscript of store is not contigious, or even not affine.
-    // Alternative implementation can be found at the end of this file.
+    MemRefBoundsIndexCapture inputBounds(input);
+    createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+          // Compute the indices used by the input tensor load operation.
+          // Note: An alternative implementation can be found at the end of this
+          // file.
+          SmallVector<Value, 4> loadIndices;
+          for (uint64_t i = 0; i < outputRank; ++i) {
+            DimIndexExpr index(indices[i]);
+            DimIndexExpr dimSize(inputBounds.getDim(i));
+            IndexExpr exprVal = index % dimSize;
+            loadIndices.emplace_back(exprVal.getValue());
+          }
 
-    for (int64_t i = 0; i < outputRank; i++) {
-      // Scope is created for each dimension because they are independent
-      IndexExprScope IEScope(&rewriter, loc);
-      DimIndexExpr index(outputLoops.getInductionVar(i));
-      MemRefBoundsIndexCapture inputBounds(input);
-      DimIndexExpr dimSize(inputBounds.getDim(i));
-      IndexExpr exprVal = index % dimSize;
-      loadIndices.emplace_back(exprVal.getValue());
-    }
-
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
-    Value loadVal = create.krnl.load(input, loadIndices);
-
-    SmallVector<Value, 4> storeIndices;
-    for (int64_t i = 0; i < outputRank; ++i)
-      storeIndices.emplace_back(outputLoops.getInductionVar(i));
-    create.krnl.store(loadVal, alloc, storeIndices);
+          Value loadVal = createKrnl.load(input, loadIndices);
+          createKrnl.store(loadVal, alloc, indices);
+        });
 
     rewriter.replaceOp(op, alloc);
 
