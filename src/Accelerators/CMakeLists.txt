@@ -39,14 +39,21 @@ else (ACCELERATORS_TO_BUILD)
 endif (ACCELERATORS_TO_BUILD)
 file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "}\n")
 
-add_onnx_mlir_library(Accelerator STATIC
-    Accelerator.cpp
-    InitAccelerators.cpp
-    DEPENDS
-      MLIRIR
-    INCLUDE_DIRS PUBLIC
-      ${ONNX_MLIR_SRC_ROOT}/include
-    LINK_LIBS PUBLIC
-      LLVMSupport
-      ${ACCEL_LIST}
+add_onnx_mlir_library(InitAccelerators
+  InitAccelerators.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  LINK_LIBS PUBLIC
+    ${ACCEL_LIST}
+  )
+
+add_onnx_mlir_library(Accelerator
+  Accelerator.cpp
+  DEPENDS
+    MLIRIR
+  INCLUDE_DIRS PUBLIC
+    ${ONNX_MLIR_SRC_ROOT}/include
+  LINK_LIBS PUBLIC
+    LLVMSupport
   )
