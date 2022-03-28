@@ -8,7 +8,7 @@
 //
 // ===========================================================================
 //
-// Accelerator class for NNPA
+// Accelerator support for the IBM Telum coprocessor.
 //
 //===---------------------------------------------------------------------===//
 
@@ -28,9 +28,12 @@ public:
   NNPAAccelerator();
 
   bool isActive() const final;
-  void prepareAccelerator(mlir::OwningOpRef<mlir::ModuleOp> &module,
-      mlir::MLIRContext &context, mlir::PassManager &pm,
+  virtual void getOrLoadDialects(mlir::MLIRContext &context) const final;
+  virtual void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
+      mlir::PassManager &pm,
       onnx_mlir::EmissionTargetType &emissionTarget) const final;
+  virtual void registerDialects(mlir::DialectRegistry &registry) const final;
+  virtual void initPasses(int optLevel) const final;
 };
 
 } // namespace nnpa
