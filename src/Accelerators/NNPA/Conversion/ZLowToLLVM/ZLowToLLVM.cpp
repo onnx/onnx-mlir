@@ -1543,8 +1543,9 @@ void ZLowToLLVMLoweringPass::runOnOperation() {
   LLVMTypeConverter typeConverter(&getContext(), options);
 
   // Determine, for each output, whether it is a constant or not.
-  SmallVector<bool, 4> constantOutputs;
-  onnx_mlir::krnl::checkConstantOutputs(module, constantOutputs);
+  SmallVector<bool, 4> outputOMTensorOwnerships;
+  onnx_mlir::krnl::determineOwnershipForOutputOMTensors(
+      module, outputOMTensorOwnerships);
 
   // Record entry point names and their input/output signatures.
   // This info is used to generate global signature functions.
@@ -1571,7 +1572,7 @@ void ZLowToLLVMLoweringPass::runOnOperation() {
   // lower in stages until all the code is in the LLVM dialect.
   RewritePatternSet patterns(&getContext());
   onnx_mlir::krnl::populateAffineAndKrnlToLLVMConversion(patterns,
-      typeConverter, &getContext(), constantOutputs,
+      typeConverter, &getContext(), outputOMTensorOwnerships,
       /*singleEntryPoint=*/entryPointNames.size() == 1);
 
   // ZLow to LLVM.

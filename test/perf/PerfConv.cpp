@@ -53,4 +53,4 @@ BENCHMARK(BM_Conv2D_C16_K3)
     ->ArgsProduct({{1, 16, 64}, {16, 64, 256}})
     ->Unit(benchmark::kMillisecond);
 
-PERF_MAIN();
+PERF_MAIN()
