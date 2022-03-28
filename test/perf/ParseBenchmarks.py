@@ -7,11 +7,11 @@
 #
 # --runall: Compute performance benchmarks for all Ops in OpsWithPerformanceBenchmarks array
 #
-# --readrun <File Op>: Compute performance benchmarks for specified Op, and compare with benchmarks
-# already written to specifiedfile (File must contain same Op)
+# --readrun <File> <Op>: Compute performance benchmarks for specified Op, and compare with benchmarks
+# already written to specified file (File must contain the same Op)
 #
-# --compare <Op1 Op2>: Compare performance benchmarks written to file for both specified files (each
-# should contain same Op)
+# --compare <Op1> <Op2>: Compare performance benchmarks written to file for both specified files (each
+# should contain the same Op)
 ######################################################################################################
 
 
@@ -37,7 +37,7 @@ if (not os.environ.get('ONNX_MLIR_HOME', None)):
     )
 
 
-# Add compatible ops here
+# Add compatible ops here; used when script is run with '--runall'
 OpsWithPerformanceBenchmarks = [
     'Gemm',
     'Conv'
@@ -85,8 +85,36 @@ def parse_benchmark_csv(result):
     return VersionResults
 
 
-# Validates that written file and specified Op are the same Op, and truncates unneeded first lines in file
-def ExtractResultFromFile(filename, op):
+
+# Validates that both written files are the same Op, and truncates unneeded first lines from files
+def CompareFileAndFile(filename1, filename2):
+    Contents1 = open(filename1, "r").read().splitlines()
+    Contents2 = open(filename2, "r").read().splitlines()
+
+    ResultString1 = ""
+    ResultString2 = ""
+
+    for i in range(10):
+        if (i == 1):
+            PossibleOp = Contents1[0].split("Perf")[1]
+            if (PossibleOp not in Contents2[0]):
+                raise RuntimeError(
+                    "Written files might not contain the same Op"
+                )
+        Contents1.pop(0)
+        Contents2.pop(0)
+    
+    for c in Contents1:
+        ResultString1 += c + "\n"
+    
+    for c in Contents2:
+        ResultString2 += c + "\n"
+    
+    return (ResultString1, ResultString2)
+
+
+# Validates that written file and specified Op are the same Op, and truncates unneeded first lines from file
+def CompareOpAndFile(filename, op):
     Contents = open(filename, "r").read().splitlines()
 
     ResultString = ""
@@ -95,7 +123,7 @@ def ExtractResultFromFile(filename, op):
         if (i == 1):
             if (op not in Contents[0]):
                 raise RuntimeError(
-                    "Written file might not contain the same Op as Op specified!"
+                    "Written file might not contain the same Op as Op specified"
                 )
         Contents.pop(0)
     
@@ -136,8 +164,8 @@ def CompareBenchmarkResults(BenchmarkLists1, BenchmarkLists2):
             if (j == 0):
                 BenchmarkEntry.append(BenchmarkLists1[i][0])
             else:
-                Value1 = (float)(BenchmarkLists1[i][j])
-                Value2 = (float)(BenchmarkLists2[i][j])
+                Value1 = (float)(BenchmarkLists1[i][j]) if (BenchmarkLists1[i][j]) else 0
+                Value2 = (float)(BenchmarkLists2[i][j]) if (BenchmarkLists2[i][j]) else 0
                 Difference = round(Value2 - Value1, 2)
                 BenchmarkEntry.append(Difference)
         AllComparedEntries.append(BenchmarkEntry)
@@ -191,7 +219,7 @@ elif(sys.argv[1] == "--readrun"):
     InFile = sys.argv[2]
     Op = sys.argv[3]
 
-    FileBenchmarks = ExtractResultFromFile(InFile, Op)
+    FileBenchmarks = CompareOpAndFile(InFile, Op)
 
     BenchmarkLists1 = parse_benchmark_csv(FileBenchmarks)
     BenchmarkLists2 = parse_benchmark_csv(RunPerformanceBenchmark(Op))
@@ -208,9 +236,29 @@ elif(sys.argv[1] == "--readrun"):
 
 
 # Compare performance benchmarks written to file for both specified files (each
-# should contain same Op) (Unfinished)
+# should contain same Op)
 elif(sys.argv[1] == "--compare"):
-    print("Compare")
-    # Check if specified inputs are compatible
+    if (len(sys.argv) != 4):
+        raise RuntimeError(
+            "Specify two benchmark files"
+        )
+    
+    InFile1 = sys.argv[2]
+    InFile2 = sys.argv[3]
+
+    FileBenchmarks1, FileBenchmarks2 = CompareFileAndFile(InFile1, InFile2)
+
+    BenchmarkLists1 = parse_benchmark_csv(FileBenchmarks1)
+    BenchmarkLists2 = parse_benchmark_csv(FileBenchmarks2)
+
+    for b in BenchmarkLists1:
+        print(b)
+    print("\n")
+    for b in BenchmarkLists2:
+        print(b)
+    
+    print("\n")
+    CompareBenchmarkResults(BenchmarkLists1, BenchmarkLists2)
+
 
 print("\n")
