@@ -752,7 +752,7 @@ Java_com_ibm_onnxmlir_OMModel_query_1entry_1points(JNIEnv *env, jclass cls) {
    */
   for (int64_t i = 0; i < neps; i++) {
     char ep[32];
-    sprintf(ep, "ep[%ld]", i);
+    sprintf(ep, "ep[%lld]", i);
     HEX_DEBUG(ep, jni_eps[i], strlen(jni_eps[i]));
     LOG_PRINTF(LOG_DEBUG, "ep[%d](%ld):%s", i, strlen(jni_eps[i]), jni_eps[i]);
 
