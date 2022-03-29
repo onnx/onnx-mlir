@@ -47,7 +47,6 @@ public:
   virtual void initPasses(int optLevel) const = 0;
 
 protected:
-  // static llvm::SmallPtrSet<Accelerator *, 2> acceleratorTargets;
   static std::vector<Accelerator *> acceleratorTargets;
 
   /// Kind of accelerator.
