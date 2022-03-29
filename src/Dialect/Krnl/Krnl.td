@@ -34,6 +34,7 @@ def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
 
 // Require regions to have krnl.terminate terminator operation.
 def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
+def ImplicitKrnlRegionTerminator : SingleBlockImplicitTerminator<"KrnlRegionTerminatorOp">;
 
 def KrnlCallOp : Op<Krnl_Dialect, "call"> {
   let summary = "call operation";
@@ -90,8 +91,30 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   }];
 }
 
+def KrnlRegionOp : Op<Krnl_Dialect, "region", [ImplicitKrnlRegionTerminator,
+    AffineScope]> {
+  let summary = "Affine Region for Krnl";
+  let description = [{
+    This Op has AffineScope trait and is used to limit the scope of affine.for.
+    Otherwise, the affine.for might be illegal if a symbol is not defined at
+    the top of function, which has the AffineScope trait. 
+  }];
+
+  //let arguments = (ins Variadic<AnyType>);
+
+  let regions = (region SizedRegion<1>:$bodyRegion);
+
+  let skipDefaultBuilders = 1;
+  let builders = [
+    // Main builder.
+      //CArg<"ValueRange", "llvm::None">:$iterArgs,
+    OpBuilder<(ins 
+      CArg<"function_ref<void(OpBuilder &, Location)>", "nullptr">:$bodyBuilderFn)>,
+  ];
+}
+
 def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
-    DeclareOpInterfaceMethods<LoopLikeOpInterface>]> {
+    AffineScope, DeclareOpInterfaceMethods<LoopLikeOpInterface>]> {
   let summary = "iterate operation";
   let description = [{
     The "krnl.iterate" operation is conceptually equivalent to a nested for loops.
@@ -171,6 +194,22 @@ def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
 
     This operation does _not_ have a custom syntax. However, krnl control
     operations omit the terminator in their custom syntax for brevity.
+  }];
+}
+
+def KrnlRegionTerminatorOp : Op<Krnl_Dialect, "regionterminate", [Terminator]> {
+  let summary = "Krnl terminator operation for KrnlRegionOp";
+  let description = [{
+    Krnl terminator is a special terminator operation for blocks inside krnl
+    iterate operations. It unconditionally transmits the control flow to the
+    successor of the operation enclosing the region.
+
+    This operation does _not_ have a custom syntax. However, krnl control
+    operations omit the terminator in their custom syntax for brevity.
+
+    The reason KrnlTerminatorOp can not be used is that the lowering is done in 
+    different pass. If MLIR supports DynamicLegal (similar to DynamicIllegal),
+    this Op may be replaced with KrnlTerminatorOp.
   }];
 }
 
