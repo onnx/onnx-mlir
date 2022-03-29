@@ -23,7 +23,7 @@
 using namespace mlir;
 
 #define DEBUG_TYPE "matmul"
-#define DISABLE_MAT_VEC_PRODUCT 0
+static constexpr int32_t DISABLE_MAT_VEC_PRODUCT = 0;
 
 struct ONNXMatMulOpLowering : public ConversionPattern {
   ONNXMatMulOpLowering(

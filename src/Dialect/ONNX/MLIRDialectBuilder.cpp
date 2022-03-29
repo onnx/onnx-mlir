@@ -15,7 +15,11 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/BuiltinOps.h"   //hi alex added
+#include "mlir/IR/BuiltinTypes.h" // hi alex added
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Analysis/TargetTransformInfo.h" //hi alex added
+#include "llvm/IR/DataLayout.h"                // hi alex
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "dialect_builder"
@@ -599,7 +603,22 @@ int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) {
   unsigned simdBitSize;
   // TODO: use march and mcpu to determine the right size, right now assume
   // 4*32=128 bits.
+
+#if 0
+  ModuleOp module = ModuleOp::create(loc);
+  // llvm::Module *module = b.GetInsertBlock()->getModule();
+  // DataLayout dl = module.getDataLayout();
+  //auto dataLayout =
+  //    module->getAttr(LLVM::LLVMDialect::getDataLayoutAttrName());
+  DataLayout dl(module);
+  llvm::TargetTransformInfo TTI(dl);
+  llvm::TypeSize WidestRegister =
+      TTI.getRegisterBitWidth(llvm::TargetTransformInfo::RGK_FixedWidthVector);
+  simdBitSize = WidestRegister;
+  printf("hi alex: SIMD WITH is %d bits\n", (int)simdBitSize);
+#else
   simdBitSize = 128;
+#endif
   assert(simdBitSize >= typeBitSize && simdBitSize % typeBitSize == 0 &&
          "bad machine vector length");
   return (simdBitSize / typeBitSize);
@@ -612,7 +631,15 @@ int64_t VectorBuilder::getMachineVectorLength(const VectorType &vecType) {
 int64_t VectorBuilder::getMachineVectorLength(Value vecValue) {
   VectorType vecType = vecValue.getType().dyn_cast_or_null<VectorType>();
   assert(vecType && "expected vector type");
+#if 1
+  Operation *op = vecValue.getDefiningOp();
+  ModuleOp moduleOp = op->getParentOfType<ModuleOp>();
+  DataLayout dl(moduleOp);
+  llvm::TargetTransformInfo TTI(dl);
+
+#else
   return getMachineVectorLength(vecType.getElementType());
+#endif
 }
 
 Value VectorBuilder::load(

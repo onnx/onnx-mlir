@@ -4,7 +4,7 @@
 
 //===-------------- KrnlMatmul.cpp - Lower KrnlMatmulOp -------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -27,7 +27,7 @@
 
 #define DEBUG_TYPE "krnl_to_affine"
 
-#define DISABLE_MAT_VEC_PRODUCT 0
+static constexpr int32_t DISABLE_MAT_VEC_PRODUCT = 0;
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -406,7 +406,9 @@ private:
 
     // Have to privatize CTmpType by unroll factor.
     MemRefType CTmpType = MemRefType::get({iUnrollFactor}, vecType);
-    assert(BUFFER_ALIGN >= gDefaultAllocAlign);
+    assert(BUFFER_ALIGN >= gDefaultAllocAlign &&
+           "alignment of buffers cannot be smaller than the default alignment "
+           "(which is set for SIMD correctness");
     Value TmpProd = create.mem.alignedAlloca(CTmpType, BUFFER_ALIGN);
     // Init with zero.
     Value fZero = create.math.constant(elementType, 0);
