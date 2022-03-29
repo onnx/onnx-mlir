@@ -28,7 +28,7 @@ static void BM_MatrixVectorProduct(benchmark::State &state) {
   int I = state.range(0);
   int J = 1;
   int K = state.range(0);
-  MatMul2DLibBuilder model(modelName, I, J, K);
+  onnx_mlir::test::MatMul2DLibBuilder model(modelName, I, J, K);
   assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
          "failed matmul");
   for (auto _ : state)

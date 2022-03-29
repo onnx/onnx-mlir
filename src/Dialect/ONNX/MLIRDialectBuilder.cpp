@@ -15,11 +15,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
-#include "mlir/IR/BuiltinOps.h"   //hi alex added
-#include "mlir/IR/BuiltinTypes.h" // hi alex added
 #include "llvm/ADT/TypeSwitch.h"
-#include "llvm/Analysis/TargetTransformInfo.h" //hi alex added
-#include "llvm/IR/DataLayout.h"                // hi alex
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "dialect_builder"
