@@ -366,7 +366,9 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
      * }
      *
      */
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
+    ONNXReduceSumOpAdaptor operandAdaptor(operands);
+    ONNXReduceSumOp reduceSumOp = cast<ONNXReduceSumOp>(op);
     auto input = operands[0];
     auto axesVal = operands[1];
     auto memRefInType = input.getType().cast<MemRefType>();
@@ -375,8 +377,14 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     int64_t outRank = memRefOutType.getRank();
 
     // KeepDims
-    auto keepdims = llvm::dyn_cast<ONNXReduceSumOp>(op).keepdims();
+    auto keepdims = reduceSumOp.keepdims();
     bool isKeepdims = (keepdims == 1) ? true : false;
+
+    ONNXReduceSumOpShapeHelper shapeHelper(&reduceSumOp, &rewriter,
+        getDenseElementAttributeFromKrnlValue,
+        loadDenseElementArrayValueAtIndex);
+    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapecomputed));
 
     // Get type information
     auto memRefOutShape = memRefOutType.getShape();
@@ -392,7 +400,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
         rewriter, loc);
 
-    Value axesValue = llvm::dyn_cast<ONNXReduceSumOp>(op).axes();
+    Value axesValue = reduceSumOp.axes();
     // Dynamic axes
     if (!isFromNone(axesValue) && !getONNXConstantOp(axesValue)) {
       dynamicAxes = true;
@@ -415,8 +423,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       // Initialize mask to 0
       // Unless noop_with_empty_axesDim is false and axesDim is -1
       Value initVal;
-      if (axesDim == -1 &&
-          !llvm::dyn_cast<ONNXReduceSumOp>(op).noop_with_empty_axes()) {
+      if (axesDim == -1 && !reduceSumOp.noop_with_empty_axes()) {
         IndexExprScope axesloopContex(&rewriter, loc);
         MemRefBoundsIndexCapture axesBounds(axesVal);
         Value zeroIndex = create.math.constantIndex(0);
@@ -440,18 +447,20 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       Value zeroValue = emitConstantOp(rewriter, loc, axesElementType, 0);
       if (axesDim == -1) {
         // When axes is dynamic, generate a Krnl loop
-        BuildKrnlLoop axesLoops(rewriter, loc, 1);
-        axesLoops.createDefineAndIterateOp(axesVal);
         auto axesLoopBody = rewriter.saveInsertionPoint();
-        rewriter.setInsertionPointToStart(axesLoops.getIterateBlock());
-        // Loop body
-        Value axe = create.krnl.load(axesVal, axesLoops.getInductionVar(0));
-        Value cond = create.math.slt(axe, zeroValue);
-        Value dim =
-            create.math.select(cond, create.math.add(axe, dataDimConst), axe);
-        Value jVal = rewriter.create<arith::IndexCastOp>(
-            loc, rewriter.getIndexType(), dim);
-        create.krnl.store(trueVal, maskVal, jVal);
+        KrnlBuilder createKrnl(rewriter, loc);
+        ValueRange loopDef = createKrnl.defineLoops(1);
+        SmallVector<IndexExpr, 4> lbs(1, LiteralIndexExpr(0));
+        createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
+            [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+              Value axe = createKrnl.load(axesVal, loopInd[0]);
+              Value cond = create.math.slt(axe, zeroValue);
+              Value dim = create.math.select(
+                  cond, create.math.add(axe, dataDimConst), axe);
+              Value jVal = rewriter.create<arith::IndexCastOp>(
+                  loc, rewriter.getIndexType(), dim);
+              createKrnl.store(trueVal, maskVal, jVal);
+            });
         rewriter.restoreInsertionPoint(axesLoopBody);
       } else {
         for (int64_t i = 0; i < axesDim; ++i) {
@@ -491,7 +500,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           if (std::find(axes.begin(), axes.end(), newaxis) == axes.end())
             axes.push_back(newaxis);
         }
-      } else if (!llvm::dyn_cast<ONNXReduceSumOp>(op).noop_with_empty_axes()) {
+      } else if (!reduceSumOp.noop_with_empty_axes()) {
         for (decltype(inRank) i = 0; i < inRank; ++i) {
           axes.push_back(i);
         }

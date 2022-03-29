@@ -417,6 +417,7 @@ template struct ONNXOpShapeHelper<ONNXMatMulOp>;
 template struct ONNXOpShapeHelper<ONNXMaxPoolSingleOutOp>;
 template struct ONNXOpShapeHelper<ONNXOneHotOp>;
 template struct ONNXOpShapeHelper<ONNXPadOp>;
+template struct ONNXOpShapeHelper<ONNXReduceSumOp>;
 template struct ONNXOpShapeHelper<ONNXReshapeOp>;
 template struct ONNXOpShapeHelper<ONNXLRNOp>;
 template struct ONNXOpShapeHelper<ONNXReverseSequenceOp>;
