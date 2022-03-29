@@ -184,7 +184,7 @@ class ONNXToAtenTypesTransformPass
     typeConverter.addConversion([](Type type) { return type; });
     setupBackendTypeTransforms(target, typeConverter);
 
-    populateFuncOpTypeConversionPattern(patterns, typeConverter);
+    populateFunctionOpInterfaceTypeConversionPattern<FuncOp>(patterns, typeConverter);
     target.addDynamicallyLegalOp<FuncOp>([&](FuncOp op) {
       return typeConverter.isSignatureLegal(op.getType()) &&
              typeConverter.isLegal(&op.getBody());
@@ -213,7 +213,7 @@ class ONNXToAtenTypesTransformPass
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<Pass> mlir::createONNXToAtenTypesTransformPass() {
+std::unique_ptr<Pass> onnx_mlir::createONNXToAtenTypesTransformPass() {
   return std::make_unique<ONNXToAtenTypesTransformPass>();
 }
 
@@ -295,7 +295,7 @@ class ONNXToAtenFinalizeTypesTransformPass
 };
 } // namespace
 
-std::unique_ptr<Pass> mlir::createONNXToAtenFinalizeTypesTransformPass() {
+std::unique_ptr<Pass> onnx_mlir::createONNXToAtenFinalizeTypesTransformPass() {
   return std::make_unique<ONNXToAtenFinalizeTypesTransformPass>();
 }
 
@@ -329,6 +329,6 @@ class ONNXToAtenModifyMainFunctionPass
 };
 } // namespace
 
-std::unique_ptr<Pass> mlir::createONNXToAtenModifyMainFunctionPass() {
+std::unique_ptr<Pass> onnx_mlir::createONNXToAtenModifyMainFunctionPass() {
   return std::make_unique<ONNXToAtenModifyMainFunctionPass>();
 }

@@ -4,7 +4,7 @@
 
 //====---------------- KrnlHelper.hpp - Krnl Dialect Helper----------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -26,12 +26,18 @@
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 
+namespace mlir {
+class KrnlIterateOp;
+class KrnlGetRefOp;
+class KrnlMovableOp;
+} // namespace mlir
+
 namespace onnx_mlir {
 
 class KrnlDialectOperandParser {
 public:
   explicit KrnlDialectOperandParser(mlir::OpAsmParser &parser)
-      : _parser(parser), _builder(parser.getBuilder()){};
+      : parser(parser), builder(parser.getBuilder()){};
 
   // Parse an optional operand.
   mlir::ParseResult ParseOptionalOperand(
@@ -50,15 +56,14 @@ public:
       llvm::SmallVectorImpl<mlir::Value> &operandList);
 
   // Do we have more operands to parse?
-  bool hasOperandLeft() { return !_operandRefQueue.empty(); }
+  bool hasOperandLeft() { return !operandRefQueue.empty(); }
 
 private:
-  mlir::OpAsmParser &_parser;
-
-  mlir::Builder &_builder;
+  mlir::OpAsmParser &parser;
+  mlir::Builder &builder;
 
   // A queue storing the parsed SSA id references.
-  std::queue<mlir::OpAsmParser::OperandType> _operandRefQueue;
+  std::queue<mlir::OpAsmParser::OperandType> operandRefQueue;
 };
 
 // Adapted from:
@@ -85,15 +90,15 @@ struct KrnlIterateOperandPack {
       llvm::ArrayRef<mlir::Value> optimizedLoops)
       : inputLoops(inputLoops), optimizedLoops(optimizedLoops),
         builder(builder) {
-    _operands.insert(
-        _operands.end(), optimizedLoops.begin(), optimizedLoops.end());
+    operands.insert(
+        operands.end(), optimizedLoops.begin(), optimizedLoops.end());
   }
 
   // Create a pack with optimizedLoops = inputLoops (ie., no optimization).
   KrnlIterateOperandPack(
       mlir::Builder &builder, llvm::ArrayRef<mlir::Value> inputLoops)
       : inputLoops(inputLoops), optimizedLoops(inputLoops), builder(builder) {
-    _operands.insert(_operands.end(), inputLoops.begin(), inputLoops.end());
+    operands.insert(operands.end(), inputLoops.begin(), inputLoops.end());
   }
 
   void pushConstantBound(int64_t bound);
@@ -108,7 +113,7 @@ struct KrnlIterateOperandPack {
 
   void pushIndexExprsBound(SmallVectorImpl<IndexExpr> &exprVector);
 
-  llvm::SmallVector<mlir::Value, 8> getOperands() const { return _operands; }
+  llvm::SmallVector<mlir::Value, 8> getOperands() const { return operands; }
 
   mlir::ArrayAttr getAttributes() const {
     return builder.getArrayAttr(boundMaps);
@@ -119,12 +124,9 @@ struct KrnlIterateOperandPack {
   size_t getNumInputLoops() const { return inputLoops.size(); }
 
 private:
-  llvm::SmallVector<mlir::Value, 8> _operands;
-
+  llvm::SmallVector<mlir::Value, 8> operands;
   llvm::SmallVector<mlir::Attribute, 8> boundMaps;
-
   llvm::ArrayRef<mlir::Value> inputLoops, optimizedLoops;
-
   mlir::Builder &builder;
 };
 
@@ -155,7 +157,7 @@ private:
 class BuildKrnlLoop final {
 public:
   // Create kernel loop builder for a loop nest of depth loopNum.
-  BuildKrnlLoop(ConversionPatternRewriter &rewriter, Location loc, int loopNum);
+  BuildKrnlLoop(OpBuilder &builder, Location loc, int loopNum);
   BuildKrnlLoop(const BuildKrnlLoop &) = delete;
   BuildKrnlLoop(BuildKrnlLoop &&) = delete;
   BuildKrnlLoop &operator=(const BuildKrnlLoop &) = delete;
@@ -163,8 +165,7 @@ public:
 
   // Create kernel loop builder for a loop nest of depth equal to the
   // dimensionality of the operand. An operand of MemRef type is requied.
-  BuildKrnlLoop(
-      ConversionPatternRewriter &rewriter, Location loc, Value memRefOperand);
+  BuildKrnlLoop(OpBuilder &builder, Location loc, Value memRefOperand);
   ~BuildKrnlLoop() {
     if (pack)
       delete pack;
@@ -207,31 +208,31 @@ public:
 
   // Get the (original loop) induction variable associated with the given
   // index. Use the index returned when pushing the bounds.
-  BlockArgument &getInductionVar(int originalLoopIndex);
+  BlockArgument &getInductionVar(int originalLoopIndex) const;
 
   // Get all of the (original loop) induction variables.
-  ArrayRef<BlockArgument> getAllInductionVar();
+  ArrayRef<BlockArgument> getAllInductionVar() const;
 
   // Get a reference to the code region of the optimization operation.
   // This allows us to set the insertion point to the inner block of the
   // loop nest optimization operation.
   // Deprecated.
-  Block *getOptimizationBlock() { return optBlock; }
+  Block *getOptimizationBlock() const { return optBlock; }
 
   // Get a reference to the code region of the iteration operation.
   // This allows us to set the insertion point to the inner block of the
   // loop nest iteration operation.
-  Block *getIterateBlock() { return iterBlock; }
+  Block *getIterateBlock() const { return iterBlock; }
 
   // Get original loop nest.
-  std::vector<Value> &getOriginalLoops() { return originalLoops; }
+  const std::vector<Value> &getOriginalLoops() const { return originalLoops; }
 
   // Get optimized loop nest.
-  std::vector<Value> &getOptimizedLoops() { return optLoops; }
+  const std::vector<Value> &getOptimizedLoops() const { return optLoops; }
 
 private:
   // Required for emitting operations.
-  ConversionPatternRewriter &rewriter;
+  OpBuilder &builder;
   Location loc;
   int originalLoopNum;
 
@@ -283,24 +284,25 @@ struct KrnlBuilder : public DialectBuilder {
   void store(Value val, Value memref, ValueRange indices = {}) const;
   void storeIE(Value val, Value memref, ArrayRef<IndexExpr> indices) const;
 
-  Value vectorTypeCast(Value sourceMemref, int64_t vectorLen);
+  Value vectorTypeCast(Value sourceMemref, int64_t vectorLen) const;
 
-  ValueRange defineLoops(int64_t originalLoopNum);
-  ValueRange block(Value loop, int64_t blockSize);
-  void permute(ValueRange loops, ArrayRef<int64_t> map);
-  ValueRange getInductionVarValue(ValueRange loops);
+  ValueRange defineLoops(int64_t originalLoopNum) const;
+  ValueRange block(Value loop, int64_t blockSize) const;
+  void permute(ValueRange loops, ArrayRef<int64_t> map) const;
+  ValueRange getInductionVarValue(ValueRange loops) const;
 
   // Lambda passes loop indices as 2nd parameter.
   void iterate(ValueRange originalLoops, ValueRange optimizedLoops,
       ValueRange lbs, ValueRange ubs,
       function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
-          bodyBuilderFn);
+          bodyBuilderFn) const;
+  mlir::KrnlIterateOp iterate(const KrnlIterateOperandPack &operands) const;
 
   // Lambda passes loop indices as 2nd parameter.
   void iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
       ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
       function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
-          bodyBuilderFn);
+          bodyBuilderFn) const;
 
   void copyToBuffer(
       // Buffer and source memory. Source memref may have a higher rank than
@@ -315,13 +317,14 @@ struct KrnlBuilder : public DialectBuilder {
       // in the buffer, if the user want to pad the data to a higher size.
       // TileSize enables the user to
       ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext,
-      bool transpose = false);
+      bool transpose = false) const;
   void copyToBuffer(Value bufferMemref, Value sourceMemref, ValueRange starts,
-      Value padValue, bool transpose = false);
+      Value padValue, bool transpose = false) const;
 
   void copyFromBuffer(Value bufferMemref, Value memref, ValueRange starts,
-      ArrayRef<int64_t> tileSize);
-  void copyFromBuffer(Value bufferMemref, Value memref, ValueRange starts);
+      ArrayRef<int64_t> tileSize) const;
+  void copyFromBuffer(
+      Value bufferMemref, Value memref, ValueRange starts) const;
 
   void matmul(
       // The a/b/cStart are the indices at the begining of the buffer/mem
@@ -350,12 +353,19 @@ struct KrnlBuilder : public DialectBuilder {
       ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
       ArrayRef<int64_t> cTileSize,
       // Optimizations for code gen.
-      bool simdize, bool unroll, bool overcompute);
+      bool simdize, bool unroll, bool overcompute) const;
   void matmul(Value A, ValueRange aStart, Value B, ValueRange bStart, Value C,
       ValueRange cStart, ValueRange loops, ValueRange computeStarts,
-      ValueRange globalUBs, bool simdize, bool unroll, bool overcompute);
+      ValueRange globalUBs, bool simdize, bool unroll, bool overcompute) const;
 
-  Value constant(MemRefType type, StringRef name, DenseElementsAttr value,
+  Value dim(Type type, Value alloc, Value index) const;
+
+  mlir::KrnlMovableOp movable() const;
+
+  mlir::KrnlGetRefOp getRef(
+      Type type, Value memref, Value offset, ValueRange indices = {}) const;
+
+  Value constant(MemRefType type, StringRef name, Optional<Attribute> value,
       Optional<IntegerAttr> offset = None,
       Optional<IntegerAttr> alignment = None) const;
 
@@ -364,12 +374,17 @@ struct KrnlBuilder : public DialectBuilder {
   void memset(Value dest, Value val) const;
   Value strncmp(Value str1, Value str2, Value len) const;
   Value strlen(Value str) const;
+  void printf(StringRef msg) const;
+  void printf(StringRef msg, Value input, Type inputType) const;
 
   // Onnx-mlir runtime functions.
+  void randomNormal(Value alloc, Value numberOfRandomValues, Value mean,
+      Value scale, Value seed) const;
   Value findIndex(Value input, Value G, Value V, Value len) const;
+  void printTensor(StringRef msg, Value input) const;
 };
 
-// Recursive class specialized for KrnlBuilder refereed to as krnl.
+// Recursive class specialized for KrnlBuilder referred to as krnl.
 template <class... Ts>
 struct MultiDialectBuilder<KrnlBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(OpBuilder &b, Location loc)

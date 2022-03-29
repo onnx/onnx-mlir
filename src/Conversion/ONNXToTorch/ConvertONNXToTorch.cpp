@@ -145,11 +145,11 @@ void FrontendToTorchLoweringPass::runOnOperation() {
   }
 }
 
-std::unique_ptr<Pass> mlir::createLowerToTorchPass() {
+std::unique_ptr<Pass> onnx_mlir::createLowerToTorchPass() {
   return std::make_unique<FrontendToTorchLoweringPass>();
 }
 
-std::unique_ptr<Pass> mlir::createLowerToTorchPass(int optLevel) {
+std::unique_ptr<Pass> onnx_mlir::createLowerToTorchPass(int optLevel) {
   return std::make_unique<FrontendToTorchLoweringPass>(optLevel);
 }
 

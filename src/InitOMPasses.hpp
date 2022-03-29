@@ -2,9 +2,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "mlir/Pass/Pass.h"
+//===----------- InitOMPasses.hpp - Init onnx-mlir passes  ----------------===//
+//
+// Copyright 2019-2022 The IBM Research Authors.
+//
+// =============================================================================
+//
+//===----------------------------------------------------------------------===//
 
+#include "mlir/Pass/Pass.h"
 #include "src/Pass/Passes.hpp"
+
+#ifdef __NNPA__
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#endif
 
 namespace onnx_mlir {
 
@@ -12,15 +23,15 @@ void initOMPasses(int optLevel) {
   // All passes implemented within onnx-mlir should register within this
   // function to make themselves available as a command-line option.
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createONNXOpTransformPass();
+    return createONNXOpTransformPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createDecomposeONNXToONNXPass();
+    return createDecomposeONNXToONNXPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createShapeInferencePass();
+    return createShapeInferencePass();
   });
 
   /*mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
@@ -46,59 +57,94 @@ void initOMPasses(int optLevel) {
   */
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createConstPropONNXToONNXPass();
+    return createConstPropONNXToONNXPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createElideConstantValuePass();
+    return createElideConstantValuePass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createInstrumentONNXPass();
+    return createInstrumentONNXPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createONNXPreKrnlVerifyPass();
+    return createONNXPreKrnlVerifyPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createKrnlEnableMemoryPoolPass();
+    return krnl::createKrnlEnableMemoryPoolPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createKrnlBundleMemoryPoolsPass();
+    return krnl::createKrnlBundleMemoryPoolsPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createKrnlOptimizeMemoryPoolsPass();
+    return krnl::createKrnlOptimizeMemoryPoolsPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createConvertKrnlToAffinePass();
+    return krnl::createConvertKrnlToAffinePass();
   });
 
   mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createLowerToKrnlPass(optLevel > 0);
+    return createLowerToKrnlPass(optLevel);
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createLowerToTorchPass();
+    return createLowerToTorchPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createElideConstGlobalValuePass();
+    return createElideConstGlobalValuePass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createConvertKrnlToLLVMPass();
+    return krnl::createConvertKrnlToLLVMPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createDisconnectKrnlDimFromAllocPass();
+    return createDisconnectKrnlDimFromAllocPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createLowerKrnlShapePass();
+    return createLowerKrnlShapePass();
   });
+
+#ifdef __NNPA__
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::createONNXToZHighPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::createRewriteONNXForZHighPass();
+  });
+
+  mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zhigh::createZHighToZLowPass(optLevel);
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zlow::createZLowRewritePass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zlow::createZLowToLLVMPass();
+  });
+
+  mlir::registerPass(
+      []() -> std::unique_ptr<mlir::Pass> { return createFoldStdAllocPass(); });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zhigh::createZHighConstPropagationPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zhigh::createZHighLayoutPropagationPass();
+  });
+
+#endif
 }
+
 } // namespace onnx_mlir

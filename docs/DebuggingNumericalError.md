@@ -32,12 +32,18 @@ reference inputs and outputs in protobuf.
 
 ```bash
 $ python ../utils/RunONNXModel.py  --help
-usage: RunONNXModel.py [-h] [--print_input] [--print_output]
-                       [--save_so PATH | --load_so PATH] [--save_data PATH]
+usage: RunONNXModel.py [-h]
+                       [--print_input]
+                       [--print_output]
+                       [--save_onnx PATH]
+                       [--save_so PATH | --load_so PATH]
+                       [--save_data PATH]
                        [--data_folder DATA_FOLDER | --shape_info SHAPE_INFO]
                        [--compile_args COMPILE_ARGS]
                        [--verify {onnxruntime,ref}]
-                       [--compile_using_input_shape] [--rtol RTOL]
+                       [--verify_all_ops]
+                       [--compile_using_input_shape]
+                       [--rtol RTOL]
                        [--atol ATOL]
                        model_path
 
@@ -48,6 +54,7 @@ optional arguments:
   -h, --help            show this help message and exit
   --print_input         Print out inputs
   --print_output        Print out inference outputs produced by onnx-mlir
+  --save_onnx PATH      File path to save the onnx model
   --save_so PATH        File path to save the generated shared library of the
                         model
   --load_so PATH        File path to load a generated shared library for
@@ -68,9 +75,28 @@ optional arguments:
   --verify {onnxruntime,ref}
                         Verify the output by using onnxruntime or reference
                         inputs/outputs. By default, no verification
+  --verify_all_ops      Verify all operation outputs when using onnxruntime.
   --compile_using_input_shape
                         Compile the model by using the shape info getting from
                         the inputs in data folder. Must set --data_folder
   --rtol RTOL           Relative tolerance for verification
   --atol ATOL           Absolute tolerance for verification
+```
+
+## Debugging the Code Generated for an Operator.
+
+If you know, or suspect, that a particular ONNX MLIR operator produces an incorrect result, and want to narrow down the problem, we provide a couple of useful Krnl operators that allow printing (at runtime) the value of a tensor, or a value that has a primitive data type. 
+
+To print out the value of a tensor at a particular program point, inject the following code (where `X` is the tensor to be printed):
+
+```code
+create.krnl.printTensor("Tensor X: ", X);
+```
+
+Note: currently the content of the tensor is printed only when the tensor rank is less than four.
+
+To print a message followed by one value, inject the following code (where `val` is the value to be printed and `valType` is its type):
+
+```code
+create.krnl.printf("inputElem: ", val, valType);
 ```

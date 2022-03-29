@@ -54,8 +54,7 @@ struct OMTensorList {
   ~OMTensorList() {
     /* Destroy all the OMTensors */
     for (int64_t i = 0; i < _size; i++)
-      if (_omts[i])
-        omTensorDestroy(_omts[i]);
+      omTensorDestroy(_omts[i]);
     if (_owning)
       free(_omts);
   };
@@ -100,9 +99,10 @@ OMTensorList *omTensorListCreateWithOwnership(
 
 /* OMTensorList destroyer */
 void omTensorListDestroy(OMTensorList *list) {
+  if (!list)
+    return;
   for (int64_t i = 0; i < list->_size; i++)
-    if (list->_omts[i])
-      omTensorDestroy(list->_omts[i]);
+    omTensorDestroy(list->_omts[i]);
   if (list->_owning)
     free(list->_omts);
   free(list);

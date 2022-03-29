@@ -2,7 +2,9 @@
 <p align="center"><img width="50%" src="docs/logo/onnx-mlir-1280x640.png" /></p>
 
 # ONNX-MLIR
-The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mlir/).
+
+This project (https://onnx.ai/onnx-mlir/) provides compiler technology to transform a valid Open Neural Network Exchange (ONNX) graph into code that implements the graph with minimum runtime support.
+It implements the [ONNX standard](https://github.com/onnx/onnx#readme) and is based on the underlying [LLVM/MLIR](https://mlir.llvm.org) compiler technology.
 
 | System        | Build Status |
 |---------------|--------------|
@@ -11,12 +13,24 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 | amd64-Linux   | [![Build Status](https://www.onnxmlir.xyz/jenkinx/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=main%7D&subject=Jenkins%20CI)](https://www.onnxmlir.xyz/jenkinx/job/ONNX-MLIR-Pipeline-Docker-Build/)             |
 | amd64-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=main)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=main)             |
 | amd64-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/actions/workflows/macos-amd64-build.yml/badge.svg)](https://github.com/onnx/onnx-mlir/actions/workflows/macos-amd64-build.yml)             |
+|  | [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5549/badge)](https://bestpractices.coreinfrastructure.org/projects/5549) |
+
+This project contributes:
+* an ONNX Dialect that can be integrated in other projects,
+* a compiler interfaces that lower ONNX graphs into MLIR files/LLVM bytecodes/C & Java libraries,
+* an `onnx-mlir` driver to perform these lowering,
+* and a python/C/C++/Java runtime environment.
 
 ## Setting up ONNX-MLIR using Prebuilt Containers
 
-The preferred approach to using and developing ONNX-MLIR is to used Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with dockers are [here](docs/Docker.md).
+The preferred approach to using and developing ONNX-MLIR is to use Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with Dockers are [here](docs/Docker.md).
+
+If you intend to develop code, you should look at our [workflow](docs/Workflow.md) document which help you setup your Docker environment in a way that let you contribute code easily.
 
 ## Setting up ONNX-MLIR directly
+
+ONNX-MLIR runs natively on Linux, OSX, and Windows.
+Detailed instructions are provided below.
 
 ### Prerequisites
 
@@ -35,13 +49,11 @@ Periodically the maintainers need to move to a more recent LLVM level.
 Among other things, this requires to update the commit string in (utils/clone-mlir.sh). 
 When updating ONNX-MLIR, it is good practice to check that the commit string of the MLIR/LLVM is the same as the one listed in that file.
 
-### Build on Linux or OSX
+### Build
 
-Directions to install MLIR and ONNX-MLIR are provided [here](docs/BuildOnLinuxOSX.md).
-
-### Build on Windows
-
-Directions to install Protobuf, MLIR, and ONNX-MLIR are provided [here](docs/BuildOnWindows.md).
+Directions to install MLIR and ONNX-MLIR are dependent on your OS.
+* [Linux or OSX](docs/BuildOnLinuxOSX.md).
+* [Windows](docs/BuildOnWindows.md).
 
 ### Testing build and summary of custom environment variables
 
@@ -88,6 +100,8 @@ These are frontend options.
 The full list of options is given by the `--help` option. Note that just as most compilers, the default optimization level is `-O0`. 
 We recommend using `-O3` for most applications.
 
+Options are also read from the `ONNX_MLIR_FLAGS` environment variable. For example, `ONNX_MLIR_FLAGS="-O3"` will ensure `-O3` for all compilations.
+
 ### Simple Example
 
 For example, use the following command to lower an ONNX model (e.g., add.onnx) to ONNX dialect:
@@ -110,10 +124,22 @@ An example based on the add operation is found [here](docs/doc_example), which b
 
 An end to end example is provided [here](docs/mnist_example/README.md), which train, compile, and execute a simple MNIST example using both the C++ or Python interface.
 
-## Slack channel
+## Interacting via Slack and GitHub.
 
-We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`. This channel can be used for asking quick questions related to this project. A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
+We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`.
+This channel can be used for asking quick questions related to this project.
+A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
+
+You may also open GitHub Issues for any questions and/or suggestions you may have.
+
+Do not use public channels to discuss any security-related issues; use instead the specific instructions provided in the [SECURITY](SECURITY.md) page.
 
 ## Contributing
 
-Want to contribute, consult this page for specific help on our project [here](CONTRIBUTING.md) or the docs sub-directory. A comprehensive list of documents is found [here](docs/DocumentList.md).
+We are welcoming contributions from the community.
+Please consult the [CONTRIBUTING](CONTRIBUTING.md) page for help on how to proceed.
+Documentation is provided in the `docs` sub-directory; the [DocumentList](docs/DocumentList.md) page provides an organized list of documents.
+
+## Code of Conduct
+
+The ONNX-MLIR code of conduct is described at https://onnx.ai/codeofconduct.html.

@@ -233,6 +233,6 @@ class ONNXToAtenConv2DOpTransformPass
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<Pass> mlir::createONNXToAtenConv2DOpTransformPass() {
+std::unique_ptr<Pass> onnx_mlir::createONNXToAtenConv2DOpTransformPass() {
   return std::make_unique<ONNXToAtenConv2DOpTransformPass>();
 }

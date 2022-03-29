@@ -36,6 +36,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     SmallVector<Value, 4> outputs;
     allocateMemoryForVFinal(loc, rewriter, op, loopOpAdapter, outputs);
     allocateMemoryForScanOutput(loc, rewriter, op, loopOpAdapter, outputs);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
 
     // Copy content of vInit to vFinal, which is used to host intermediate
     // values produced by loop body function invocation in a scope accessible by
@@ -57,18 +59,20 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     // Create the loop iteration.
     BuildKrnlLoop loop(rewriter, loc, 1);
     loop.createDefineOp();
-    Value maxTripCount =
-        rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M()).getResult();
+    KrnlBuilder createKrnl(rewriter, loc);
+    Value maxTripCount = createKrnl.load(loopOpAdapter.M());
+
     maxTripCount = rewriter.create<arith::IndexCastOp>(
-        loc, maxTripCount, rewriter.getIndexType());
+        loc, rewriter.getIndexType(), maxTripCount);
     loop.pushBounds(0, maxTripCount);
     loop.createIterateOp();
+    auto afterLoop = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(loop.getIterateBlock());
 
     {
       OpBuilder::InsertionGuard insertGuard(rewriter);
 
-      auto condReg = rewriter.create<KrnlLoadOp>(loc, cond).getResult();
+      Value condReg = createKrnl.load(cond);
       auto ifOp = rewriter.create<scf::IfOp>(loc, condReg, false);
       rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
 
@@ -77,12 +81,12 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       Value origIV = loop.getInductionVar(0);
       auto iv =
           rewriter
-              .create<arith::IndexCastOp>(loc, origIV, rewriter.getI64Type())
+              .create<arith::IndexCastOp>(loc, rewriter.getI64Type(), origIV)
               .getResult();
       MemRefBuilder createMemRef(rewriter, loc);
       Value ivMemRef =
           createMemRef.alloc(MemRefType::get({}, rewriter.getI64Type()));
-      rewriter.create<KrnlStoreOp>(loc, iv, ivMemRef);
+      createKrnl.store(iv, ivMemRef);
 
       // Make the call to loop body function.
       SmallVector<Value, 4> params = {ivMemRef, loopOpAdapter.cond()};
@@ -155,25 +159,37 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // Copy the newly computed loop condition to pre-allocated buffer.
       emitCopy(rewriter, loc, bodyOutputs[0], cond);
 
-      // Copy intermediate values of loop carried dependencies to MemRef outside
-      // the iteration scope so next iteration can have use them as init value.
-      auto vIntermediate = llvm::make_range(bodyOutputs.begin() + 1,
-          bodyOutputs.begin() + 1 + loopOpAdapter.v_initial().size());
-      for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
-        emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
-            std::get<1>(vIntermediateToFinal));
-
       // Copy intermediate values of scan outputs to their corresponding slice
       // in the loop scan output tensor.
+      auto vIntermediate = llvm::make_range(bodyOutputs.begin() + 1,
+          bodyOutputs.begin() + 1 + loopOpAdapter.v_initial().size());
       auto scanIntermediate =
           llvm::make_range(vIntermediate.end(), bodyOutputs.end());
       auto scanOutputs = llvm::make_range(
           outputs.begin() + loopOpAdapter.v_initial().size(), outputs.end());
       for (auto scanIntermediateToFinal :
-          llvm::zip(scanIntermediate, scanOutputs))
-        emitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
-            std::get<1>(scanIntermediateToFinal),
-            /*writePrefix=*/{origIV});
+          llvm::zip(scanIntermediate, scanOutputs)) {
+        auto elementType = std::get<1>(scanIntermediateToFinal)
+                               .getType()
+                               .cast<MemRefType>()
+                               .getElementType();
+        if (elementType.dyn_cast<MemRefType>()) {
+          // accumulate dynamic tensor
+          // TODO: May need to copy the tensor
+          create.krnl.store(std::get<0>(scanIntermediateToFinal),
+              std::get<1>(scanIntermediateToFinal), origIV);
+        } else {
+          emitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
+              std::get<1>(scanIntermediateToFinal),
+              /*writePrefix=*/{origIV});
+        }
+      }
+
+      // Copy intermediate values of loop carried dependencies to MemRef outside
+      // the iteration scope so next iteration can use them as init value.
+      for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
+        emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
+            std::get<1>(vIntermediateToFinal));
 
       // Remove loop body terminator op.
       rewriter.eraseOp(loopBodyTerminator);
@@ -188,7 +204,56 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           thenBlock.end(), loopBodyBlock.getOperations());
       rewriter.eraseBlock(&loopBodyBlock);
     }
-    rewriter.replaceOp(op, outputs);
+
+    rewriter.restoreInsertionPoint(afterLoop);
+    // accumulate dynamic tensor
+    // Convert the memref<?xmemref<>> to a memref
+    SmallVector<Value, 4> newOutputs;
+    for (auto output : outputs) {
+      auto seqElementType =
+          output.getType().cast<MemRefType>().getElementType();
+      if (seqElementType.isa<MemRefType>()) {
+        // need to convert memref<memrefs<xT>> to memref<xT>
+        // TODO: need a IF statement to handle output is empty
+        // we can safely give 0 to the dynamic dim for alloc
+        // Here loop is assumed to be executed at least once.
+        auto firstElement =
+            create.krnl.load(output, create.math.constantIndex(0));
+        SmallVector<mlir::Value, 4> allocParams;
+        SmallVector<int64_t, 4> dims;
+        dims.emplace_back(output.getType().cast<MemRefType>().getShape()[0]);
+        if (output.getType().cast<MemRefType>().getShape()[0] == -1)
+          allocParams.emplace_back(create.mem.dim(output, 0));
+        for (auto i = 0;
+             i < firstElement.getType().cast<MemRefType>().getRank(); i++) {
+          dims.emplace_back(
+              firstElement.getType().cast<MemRefType>().getShape()[i]);
+          if (firstElement.getType().cast<MemRefType>().getShape()[i] == -1)
+            allocParams.emplace_back(create.mem.dim(firstElement, i));
+        }
+        ArrayRef<int64_t> shape(dims.data(), dims.size());
+        auto flatType = MemRefType::get(
+            shape, firstElement.getType().cast<MemRefType>().getElementType());
+        auto alloc = create.mem.alignedAlloc(flatType, allocParams);
+        // copy the value
+        BuildKrnlLoop loop(rewriter, loc, 1);
+        loop.createDefineOp();
+        loop.pushBounds(0, maxTripCount);
+        loop.createIterateOp();
+        auto afterCopyLoop = rewriter.saveInsertionPoint();
+        rewriter.setInsertionPointToStart(loop.getIterateBlock());
+        Value origIV = loop.getInductionVar(0);
+        auto src = create.krnl.load(output, origIV);
+        emitCopy(rewriter, loc, src, alloc, {origIV});
+        rewriter.restoreInsertionPoint(afterCopyLoop);
+        newOutputs.emplace_back(alloc);
+      } else {
+        newOutputs.emplace_back(output);
+      }
+    }
+    // end accumulate dynamic tensor
+
+    rewriter.replaceOp(op, newOutputs);
     return success();
   }
 
@@ -234,32 +299,52 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       if (hasAllConstantDimensions(memRefType))
         alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
       else {
+        MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
-        for (int i = 0; i < rankedScanOutTy.getRank(); i++) {
+
+        // Check the loop accumulation dimension
+        if (rankedScanOutTy.getShape()[0] == -1) {
+          // TODO(tjingrant): in general, it is not correct to expect
+          // loop operation scan output to have the leading dimension extent
+          // equal to the max trip count, due to the possibility of early
+          // termination.
+          assert(!loopOpAdapter.M().getType().isa<NoneType>());
+          Value maxTripCount =
+              rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M()).getResult();
+          allocParams.emplace_back(rewriter.create<arith::IndexCastOp>(
+              loc, rewriter.getIndexType(), maxTripCount));
+        }
+
+        bool isDynamic = false;
+        // If one of the rest dimension is dynamic, we cannot allocate the
+        // memref before the loop because the size of the dynamic dim is not
+        // known yet. The accumulation has to be done like sequence. The
+        // sequence will be converted to a tensor after loop when the size is
+        // known All the related code will be marked with 'accumulation for
+        // dynamic tensor'
+        for (int i = 1; i < rankedScanOutTy.getRank(); i++) {
           if (rankedScanOutTy.getShape()[i] == -1) {
-            if (i == 0) {
-              // TODO(tjingrant): in general, it is not correct to expect
-              // loop operation scan output to have the leading dimension extent
-              // equal to the max trip count, due to the possibility of early
-              // termination.
-              assert(!loopOpAdapter.M().getType().isa<NoneType>());
-              Value maxTripCount =
-                  rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M())
-                      .getResult();
-              allocParams.emplace_back(rewriter.create<arith::IndexCastOp>(
-                  loc, maxTripCount, rewriter.getIndexType()));
-            } else {
-              // TODO(tjingrant): we can support dynamic dimensions for scan
-              // output, however, then we will be unable to allocate memory
-              // before any loop body is called.
-              llvm_unreachable("Loop op doesn't support dynamic dimensions for "
-                               "scan output.");
-            }
+            isDynamic = true;
+            break;
           }
         }
         MemRefBuilder createMemRef(rewriter, loc);
-        alloc = createMemRef.alignedAlloc(rankedScanOutTy, allocParams);
+        if (isDynamic) {
+          // Suppose the scanout type is is <d1 , d2,... dnxT>
+          // Use memref<d1xmemref<d2, ..., dnxT>>
+          // seqElementType: memref<d2, ..., dnxT>
+          auto elementType = rankedScanOutTy.getElementType();
+          ArrayRef<int64_t> shape1 =
+              llvm::makeArrayRef(rankedScanOutTy.getShape().begin() + 1,
+                  rankedScanOutTy.getShape().end());
+          auto seqElementType = MemRefType::get(shape1, elementType);
+          auto seqType =
+              MemRefType::get({rankedScanOutTy.getShape()[0]}, seqElementType);
+          alloc = createMemRef.alignedAlloc(seqType, allocParams);
+        } else {
+          alloc = createMemRef.alignedAlloc(rankedScanOutTy, allocParams);
+        }
       }
       outputs.emplace_back(alloc);
     }
@@ -291,8 +376,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     }
     SmallVector<Value, 4> writeIV(writePrefix.begin(), writePrefix.end());
     writeIV.insert(writeIV.end(), readIV.begin(), readIV.end());
-    auto val = rewriter.create<KrnlLoadOp>(loc, src, readIV).getResult();
-    rewriter.create<KrnlStoreOp>(loc, val, dest, writeIV);
+    KrnlBuilder createKrnl(rewriter, loc);
+    Value val = createKrnl.load(src, readIV);
+    createKrnl.store(val, dest, writeIV);
   }
 };
 

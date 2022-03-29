@@ -16,8 +16,13 @@
 
 #include <memory>
 
+using namespace mlir;
+
 namespace mlir {
 class Pass;
+}
+
+namespace onnx_mlir {
 
 /// Pass for ONNX graph level optimization
 std::unique_ptr<Pass> createONNXOpTransformPass();
@@ -43,15 +48,6 @@ std::unique_ptr<Pass> createConstPropONNXToONNXPass();
 /// Pass for eliding the values of constant operations.
 std::unique_ptr<Pass> createElideConstantValuePass();
 
-/// Pass for enabling a memory pool for MemRefs.
-std::unique_ptr<Pass> createKrnlEnableMemoryPoolPass();
-
-/// Pass for enabling a memory pool for MemRefs.
-std::unique_ptr<Pass> createKrnlBundleMemoryPoolsPass();
-
-/// Pass for optimizing memory pools.
-std::unique_ptr<Pass> createKrnlOptimizeMemoryPoolsPass();
-
 /// Pass for instrument the Onnx ops
 std::unique_ptr<Pass> createInstrumentONNXPass();
 
@@ -63,7 +59,6 @@ std::unique_ptr<Pass> createLowerToKrnlPass();
 std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel);
 std::unique_ptr<Pass> createLowerToKrnlPass(
     bool emitDealloc, bool enableTiling);
-std::unique_ptr<Pass> createLowerToKrnlPass(bool emitDealloc);
 
 /// Add pass for lowering to Torch IR.
 std::unique_ptr<Pass> createLowerToTorchPass();
@@ -73,9 +68,6 @@ std::unique_ptr<Pass> createLowerToTorchPass(int optLevel);
 std::unique_ptr<Pass> createONNXToAtenTypesTransformPass();
 std::unique_ptr<Pass> createONNXToAtenFinalizeTypesTransformPass();
 std::unique_ptr<Pass> createONNXToAtenModifyMainFunctionPass();
-  
-/// Pass for lowering frontend dialects to Krnl IR dialect.
-std::unique_ptr<Pass> createConvertKrnlToAffinePass();
 
 /// Pass for lowering krnl.dim operations to standard dialect.
 std::unique_ptr<Pass> createDisconnectKrnlDimFromAllocPass();
@@ -86,7 +78,23 @@ std::unique_ptr<Pass> createLowerKrnlShapePass();
 /// Pass for eliding the values of global Krnl operations.
 std::unique_ptr<Pass> createElideConstGlobalValuePass();
 
+namespace krnl {
+
+/// Pass for lowering frontend dialects to Krnl IR dialect.
+std::unique_ptr<Pass> createConvertKrnlToAffinePass();
+
+/// Pass for enabling a memory pool for MemRefs.
+std::unique_ptr<Pass> createKrnlEnableMemoryPoolPass();
+
+/// Pass for enabling a memory pool for MemRefs.
+std::unique_ptr<Pass> createKrnlBundleMemoryPoolsPass();
+
+/// Pass for optimizing memory pools.
+std::unique_ptr<Pass> createKrnlOptimizeMemoryPoolsPass();
+
 /// Pass for lowering Krnl dialect to LLVM dialect.
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass();
 
-} // end namespace mlir
+} // namespace krnl
+
+} // namespace onnx_mlir

@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-krnl-to-affine --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine --canonicalize %s -split-input-file | FileCheck %s
 
 func private @memset(%p0 : index, %p1 : index) -> () {
   //A source, B buffer

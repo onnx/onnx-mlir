@@ -12,10 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
+
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
-#include "llvm/Support/Debug.h"
 
 // Used to trace which op are used, good for profiling apps.
 #define DEBUG_TYPE "gemm"
@@ -29,8 +30,12 @@ using namespace mlir;
 
 template <typename GemmOp>
 struct ONNXGemmOpLowering : public ConversionPattern {
-  ONNXGemmOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter, GemmOp::getOperationName(), 1, ctx) {}
+  ONNXGemmOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling)
+      : ConversionPattern(typeConverter, GemmOp::getOperationName(), 1, ctx),
+        enableTiling(enableTiling) {}
+
+  bool enableTiling;
 
   void genericGemm(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
       Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
@@ -360,12 +365,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       }
     });
 
-    if (DEBUG_OPTIMIZED_OFF) {
-      genericGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,
-          alpha, beta, rewriter, loc);
-    } else {
+    if (enableTiling && !DEBUG_OPTIMIZED_OFF) {
       tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, alpha, beta, rewriter, loc);
+    } else {
+      genericGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,
+          alpha, beta, rewriter, loc);
     }
     rewriter.replaceOp(op, alloc);
     return success();
@@ -373,6 +378,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXGemmOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
+  patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(
+      typeConverter, ctx, enableTiling);
 }

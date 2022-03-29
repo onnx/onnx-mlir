@@ -43,8 +43,8 @@
 using namespace mlir;
 
 // A global variable to indicate whether this pass will emit dealloc for
-// allocated memrefs or not.
-extern bool gEmitDealloc;
+// allocated memrefs or not during the conversion of ONNX to Krnl.
+extern bool ONNXToKrnl_gEmitDealloc;
 
 //===----------------------------------------------------------------------===//
 // Extends OnnxBuilder with member functions that might generate Krnl dialect
@@ -116,19 +116,6 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
 void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
     std::vector<Value> &loops, int64_t numLoops);
 
-// Emit a positive infinity constant of a specific type.
-// Supported types: F16, F32, F64, Int8, Int16, Int32, Int64.
-// In case of Integer, emit the maximum value.
-Value emitPositiveInfinityConstantOp(
-    ConversionPatternRewriter &rewriter, Location loc, Type type);
-
-// Emit a negative infinity constant of a specific type.
-// Supported types: F16, F32, F64, Int8, Int16, Int32, Int64.
-// In case of Float, emit the negative of the positive infinity.
-// In case of Integer, emit the minimum value.
-Value emitNegativeInfinityConstantOp(
-    ConversionPatternRewriter &rewriter, Location loc, Type type);
-
 /// Get a dimension value from a memref. Emit a constant if the dimension is
 /// constant. Otherwise, emit a dim op.
 /// If the return type is different from IndexType, emit a cast op to cast the
@@ -161,7 +148,7 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 /// The new view is created using the given 'memRefType' and 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
     Location loc, Value data, const MemRefType &memRefType,
-    const SmallVectorImpl<IndexExpr> &outputDims);
+    SmallVectorImpl<IndexExpr> &outputDims);
 
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
@@ -251,7 +238,7 @@ public:
 
 // For all ONNX operations.
 void populateONNXToKrnlConversionPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
+    RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);
 
 // `ControlFlow` directory methods:
 void populateLoweringONNXLoopOpPattern(
@@ -267,14 +254,16 @@ void populateLoweringONNXCumSumOpPattern(
 void populateLoweringONNXElementwiseOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXGemmOpPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
+    RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);
 void populateLoweringONNXHardmaxOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXLRNOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXMatMulOpPattern(
-    RewritePatternSet &, TypeConverter &, MLIRContext *);
+    RewritePatternSet &, TypeConverter &, MLIRContext *, bool enableTiling);
 void populateLoweringONNXRandomNormalOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXRandomNormalLikeOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXReductionOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
@@ -305,6 +294,18 @@ void populateLoweringONNXGRUOpPattern(
 void populateLoweringONNXLSTMOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 void populateLoweringONNXRNNOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+// `Sequence` directory methods:
+void populateLoweringONNXSequenceAtOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceEmptyOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceEraseOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceInsertOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+void populateLoweringONNXSequenceLengthOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 // `Tensor` directory methods:
@@ -390,7 +391,7 @@ int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index);
 template <typename OP_TYPE>
 Location ONNXLoc(Operation *op) {
   return NameLoc::get(
-      Identifier::get(OP_TYPE::getOperationName(), op->getContext()),
+      StringAttr::get(op->getContext(), OP_TYPE::getOperationName()),
       op->getLoc());
 }
 

@@ -53,7 +53,9 @@ endfunction()
 # of the flags for exceptions (among others) are not set correctly.
 llvm_update_compile_flags(rapidcheck)
 
-set(TEST_LINK_LIBS rapidcheck CompilerUtils ExecutionSession)
+# The CompilerUtils ExecutionSession are also included in ModelLib,
+# but it did not compile when I removed these two. TODO, figure out why.
+set(TEST_LINK_LIBS rapidcheck ModelLib)
 
 add_numerical_unittest(TestConv
   TestConv.cpp

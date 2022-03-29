@@ -24,13 +24,13 @@ TorchTypeConverter::TorchTypeConverter() {
   // The order of type conversion is important: later ones are tried earlier.
   addConversion([](Type type) { return type; });
 
-  addConversion([](onnxmlir::StringType stringType) {
+  addConversion([](StringType stringType) {
     return Torch::StringType::get(stringType.getContext());
   });
 
   addConversion([](TensorType tensorType) {
     assert(tensorType.hasRank() && "expected only ranked shapes");
-    if (tensorType.getElementType().isa<onnxmlir::StringType>()) {
+    if (tensorType.getElementType().isa<StringType>()) {
       Type elementType = Torch::StringType::get(tensorType.getContext());
       return MemRefType::get(tensorType.getShape(), elementType);
     }

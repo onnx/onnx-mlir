@@ -7,3 +7,9 @@
 [submodule "third_party/rapidcheck"]
 	path = third_party/rapidcheck
 	url = https://github.com/emil-e/rapidcheck.git
+[submodule "third_party/benchmark"]
+	path = third_party/benchmark
+	url = https://github.com/google/benchmark.git
+[submodule "third_party/zdnn-lib"]
+	path = third_party/zdnn-lib
+	url = https://github.com/IBM/zDNN.git

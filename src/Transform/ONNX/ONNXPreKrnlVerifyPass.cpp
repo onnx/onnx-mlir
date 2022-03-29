@@ -38,20 +38,20 @@ namespace {
  */
 
 class ONNXPreKrnlVerifyPass
-    : public mlir::PassWrapper<ONNXPreKrnlVerifyPass, FunctionPass> {
+    : public mlir::PassWrapper<ONNXPreKrnlVerifyPass, OperationPass<FuncOp>> {
 
 public:
   StringRef getArgument() const override { return "onnx-pre-krnl-verify"; }
 
   StringRef getDescription() const override { return "Verify onnx ops."; }
 
-  void runOnFunction() override {
-    auto function = getFunction();
+  void runOnOperation() override {
+    auto function = getOperation();
     auto &funcBody = function.getBody();
 
     // Iterate on the operations
     for (Operation &op : funcBody.getOps()) {
-      if (isa<mlir::ONNXOpsDialect>(op.getDialect())) {
+      if (isa<mlir::ONNXDialect>(op.getDialect())) {
         if (failed(verifyRanked(op)))
           signalPassFailure();
       }
@@ -61,7 +61,8 @@ public:
 private:
   static LogicalResult verifyRanked(Operation &op) {
     for (auto ty : op.getOperandTypes()) {
-      if (!ty.isa<RankedTensorType>() && !ty.isa<NoneType>()) {
+      if (!ty.isa<RankedTensorType>() && !ty.isa<SeqType>() &&
+          !ty.isa<NoneType>()) {
         op.emitError("not ranked");
         return failure();
       }
@@ -74,6 +75,6 @@ private:
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createONNXPreKrnlVerifyPass() {
+std::unique_ptr<mlir::Pass> onnx_mlir::createONNXPreKrnlVerifyPass() {
   return std::make_unique<ONNXPreKrnlVerifyPass>();
 }

@@ -20,7 +20,6 @@
 
 // Identity affine
 using namespace mlir;
-using namespace mlir::onnxmlir;
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
@@ -245,18 +244,16 @@ Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
-// Returns true if the Value is defined by none constant
+// Returns true if the Value is defined by a unit constant.
 bool isFromNone(Value v) {
-  if (v.getDefiningOp() && dyn_cast_or_null<ConstantOp>(v.getDefiningOp())) {
-    ConstantOp c = dyn_cast<ConstantOp>(v.getDefiningOp());
-    if (c.getValue().isa<UnitAttr>())
-      return true;
-  }
+  if (v.getDefiningOp() && dyn_cast_or_null<ONNXNoneOp>(v.getDefiningOp()))
+    return true;
+
   if (v.getDefiningOp() &&
       dyn_cast_or_null<ONNXConstantOp>(v.getDefiningOp())) {
-    ONNXConstantOp c = dyn_cast<ONNXConstantOp>(v.getDefiningOp());
+    auto c = dyn_cast<ONNXConstantOp>(v.getDefiningOp());
     if (c.value().hasValue() && c.valueAttr().isa<DenseElementsAttr>()) {
-      DenseElementsAttr d = c.valueAttr().cast<DenseElementsAttr>();
+      auto d = c.valueAttr().cast<DenseElementsAttr>();
       auto shape = d.getType().dyn_cast<RankedTensorType>().getShape();
       if (shape.size() == 1 && shape[0] == 0)
         return true;
@@ -593,3 +590,49 @@ RESULT_TYPE getScalarValue(ONNXConstantOp constantOp, Type type) {
 
 template double getScalarValue<double>(ONNXConstantOp constantOp, Type type);
 template int64_t getScalarValue<int64_t>(ONNXConstantOp constantOp, Type type);
+
+// Convert type to MLIR type.
+// A complete list of types can be found in:
+// <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
+// TODO: Update Int*/Uint* to emit signed/unsigned MLIR types
+mlir::Type convertONNXTypeToMLIRType(
+    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType) {
+  switch (onnxType) {
+  case onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16:
+    return builder_.getBF16Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
+    return builder_.getF16Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT:
+    return builder_.getF32Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE:
+    return builder_.getF64Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT8:
+    return builder_.getIntegerType(/*width=*/8);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
+    return builder_.getIntegerType(/*width=*/8, false);
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT16:
+    return builder_.getIntegerType(/*width=*/16);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
+    return builder_.getIntegerType(/*width=*/16, false);
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT32:
+    return builder_.getIntegerType(/*width=*/32);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT32:
+    return builder_.getIntegerType(/*width=*/32, false);
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT64:
+    return builder_.getIntegerType(/*width=*/64);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT64:
+    return builder_.getIntegerType(/*width=*/64, false);
+  case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
+    return builder_.getI1Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
+    return mlir::ONNXStringType::get(builder_.getContext());
+
+  case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
+  case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
+  case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
+    llvm_unreachable("Unsupported data type encountered.");
+    return nullptr;
+  }
+
+  llvm_unreachable("Unsupported data type encountered.");
+}

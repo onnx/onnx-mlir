@@ -409,6 +409,19 @@ void IndexExpr::debugPrint(
   }
 }
 
+/*static*/ void IndexExpr::getOpOrFoldResults(
+    SmallVectorImpl<IndexExpr> &indexExprList,
+    SmallVectorImpl<OpFoldResult> &resList) {
+  resList.clear();
+  for (IndexExpr &expr : indexExprList) {
+    if (expr.isLiteral()) {
+      auto val = expr.getRewriter().getIndexAttr(expr.getLiteral());
+      resList.emplace_back(val);
+    } else
+      resList.emplace_back(expr.getValue());
+  }
+}
+
 /*static*/ void IndexExpr::getValues(
     ArrayRef<IndexExpr> indexExprArray, SmallVectorImpl<Value> &valueList) {
   valueList.clear();
@@ -782,8 +795,9 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   if (compare.isShapeInferencePass())
     return QuestionmarkIndexExpr();
   // Generate code for the select.
-  Value results = compare.getRewriter().create<SelectOp>(compare.getLoc(),
-      compare.getValue(), trueVal.getValue(), falseVal.getValue());
+  Value results =
+      compare.getRewriter().create<arith::SelectOp>(compare.getLoc(),
+          compare.getValue(), trueVal.getValue(), falseVal.getValue());
   return NonAffineIndexExpr(results);
 }
 
@@ -823,7 +837,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   F2Self valueFct = [](IndexExpr res, IndexExpr const aa) {
     Value compareVal = res.getRewriter().create<arith::CmpIOp>(
         res.getLoc(), arith::CmpIPredicate::slt, aa.getValue(), res.getValue());
-    Value resVal = res.getRewriter().create<SelectOp>(
+    Value resVal = res.getRewriter().create<arith::SelectOp>(
         res.getLoc(), compareVal, aa.getValue(), res.getValue());
     res.getObj().initAsKind(resVal, IndexExprKind::NonAffine);
     return res;
@@ -879,7 +893,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   F2Self valueFct = [](IndexExpr res, IndexExpr const aa) {
     Value compareVal = res.getRewriter().create<arith::CmpIOp>(
         res.getLoc(), arith::CmpIPredicate::sgt, aa.getValue(), res.getValue());
-    Value resVal = res.getRewriter().create<SelectOp>(
+    Value resVal = res.getRewriter().create<arith::SelectOp>(
         res.getLoc(), compareVal, aa.getValue(), res.getValue());
     res.getObj().initAsKind(resVal, IndexExprKind::NonAffine);
     return res;

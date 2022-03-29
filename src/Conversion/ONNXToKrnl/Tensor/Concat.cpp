@@ -46,7 +46,8 @@ struct ONNXConcatOpLowering : public ConversionPattern {
 
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
-    ;
+
+    MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 
     // Creates loops, one for each input.
     for (unsigned int i = 0; i < inputNum; ++i) {
@@ -64,9 +65,9 @@ struct ONNXConcatOpLowering : public ConversionPattern {
       SmallVector<Value, 4> writeIndices;
       for (unsigned int r = 0; r < rank; ++r) {
         readIndices.emplace_back(inputLoops.getInductionVar(r));
-        if (r != axis || i == 0) {
+        if (r != axis || i == 0)
           writeIndices.emplace_back(inputLoops.getInductionVar(r));
-        } else {
+        else {
           IndexExprScope IEScope(&rewriter, loc);
           IndexExpr writeOffset = DimIndexExpr(inputLoops.getInductionVar(r));
           for (unsigned int j = 0; j < i; j++) {
@@ -77,9 +78,8 @@ struct ONNXConcatOpLowering : public ConversionPattern {
         }
       }
       // Insert copy.
-      auto loadData =
-          rewriter.create<KrnlLoadOp>(loc, operands[i], readIndices);
-      rewriter.create<KrnlStoreOp>(loc, loadData, alloc, writeIndices);
+      Value loadData = create.krnl.load(operands[i], readIndices);
+      create.krnl.store(loadData, alloc, writeIndices);
     }
     rewriter.replaceOp(op, alloc);
     return success();
