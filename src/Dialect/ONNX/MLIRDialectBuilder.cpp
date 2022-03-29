@@ -598,49 +598,25 @@ void SCFBuilder::yield() const { b.create<scf::YieldOp>(loc); }
 // Vector Builder
 //===----------------------------------------------------------------------===//
 
-int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) {
+int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) const {
   unsigned typeBitSize = elementType.getIntOrFloatBitWidth();
   unsigned simdBitSize;
   // TODO: use march and mcpu to determine the right size, right now assume
   // 4*32=128 bits.
-
-#if 0
-  ModuleOp module = ModuleOp::create(loc);
-  // llvm::Module *module = b.GetInsertBlock()->getModule();
-  // DataLayout dl = module.getDataLayout();
-  //auto dataLayout =
-  //    module->getAttr(LLVM::LLVMDialect::getDataLayoutAttrName());
-  DataLayout dl(module);
-  llvm::TargetTransformInfo TTI(dl);
-  llvm::TypeSize WidestRegister =
-      TTI.getRegisterBitWidth(llvm::TargetTransformInfo::RGK_FixedWidthVector);
-  simdBitSize = WidestRegister;
-  printf("hi alex: SIMD WITH is %d bits\n", (int)simdBitSize);
-#else
   simdBitSize = 128;
-#endif
   assert(simdBitSize >= typeBitSize && simdBitSize % typeBitSize == 0 &&
          "bad machine vector length");
   return (simdBitSize / typeBitSize);
 }
 
-int64_t VectorBuilder::getMachineVectorLength(const VectorType &vecType) {
+int64_t VectorBuilder::getMachineVectorLength(const VectorType &vecType) const {
   return getMachineVectorLength(vecType.getElementType());
 }
 
-int64_t VectorBuilder::getMachineVectorLength(Value vecValue) {
+int64_t VectorBuilder::getMachineVectorLength(Value vecValue) const {
   VectorType vecType = vecValue.getType().dyn_cast_or_null<VectorType>();
   assert(vecType && "expected vector type");
-#if 1
-  Operation *op = vecValue.getDefiningOp();
-  ModuleOp moduleOp = op->getParentOfType<ModuleOp>();
-  DataLayout dl(moduleOp);
-  llvm::TargetTransformInfo TTI(dl);
-
-  return 1;
-#else
   return getMachineVectorLength(vecType.getElementType());
-#endif
 }
 
 Value VectorBuilder::load(
@@ -666,9 +642,11 @@ Value VectorBuilder::shuffle(
 }
 
 // Private vector utilities.
-bool VectorBuilder::isPowerOf2(uint64_t num) { return (num & (num - 1)) == 0; }
+bool VectorBuilder::isPowerOf2(uint64_t num) const {
+  return (num & (num - 1)) == 0;
+}
 
-uint64_t VectorBuilder::getLengthOf1DVector(Value vec) {
+uint64_t VectorBuilder::getLengthOf1DVector(Value vec) const {
   VectorType vecType = vec.getType().dyn_cast_or_null<VectorType>();
   assert(vecType && "expected a vector type");
   auto vecShape = vecType.getShape();
@@ -676,7 +654,7 @@ uint64_t VectorBuilder::getLengthOf1DVector(Value vec) {
   return vecShape[0];
 }
 
-Value VectorBuilder::mergeHigh(Value lhs, Value rhs, int64_t step) {
+Value VectorBuilder::mergeHigh(Value lhs, Value rhs, int64_t step) const {
   // Inputs: lrs <l0, l1, l2, l3, l4, l5, l6, l7>;
   //         rhs <r0, r1, r2, r3, r4, r5, r6, r7>.
   // Merge alternatively the low (least significant) values of lrs and rhs
@@ -701,7 +679,7 @@ Value VectorBuilder::mergeHigh(Value lhs, Value rhs, int64_t step) {
   return shuffle(lhs, rhs, mask);
 }
 
-Value VectorBuilder::mergeLow(Value lhs, Value rhs, int64_t step) {
+Value VectorBuilder::mergeLow(Value lhs, Value rhs, int64_t step) const {
   // Inputs: lrs <l0, l1, l2, l3, l4, l5, l6, l7>;
   //         rhs <r0, r1, r2, r3, r4, r5, r6, r7>.
   // Merge alternatively the low (least significant) values of lrs and rhs
