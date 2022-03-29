@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
       argc, argv, "TestCategoryMapper\n", nullptr, "TEST_ARGS");
 
   bool rc = testInt64ToStr();
-  //  rc &= testStrToInt64();
+  rc &= testStrToInt64();
 
   return rc ? 0 : 1;
 }
