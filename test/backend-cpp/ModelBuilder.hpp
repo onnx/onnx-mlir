@@ -59,7 +59,7 @@ public:
   void createEntryPoint(FuncOp &funcOp);
 
   // Compile the model. Compiler options are passed in \p compileOptions.
-  bool compileTest(const CompilerOptionList &compileOptions);
+  bool compileTest(const onnx_mlir::CompilerOptionList &compileOptions);
 
   // Run the model and verify the result(s). The \p verifyFunction parameter
   // is used to pass in the function object used to verify the correctness of

@@ -12,26 +12,28 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
+#include "mlir/Transforms/Passes.h"
+#include "llvm/Support/Debug.h"
+
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
+#include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
-#include "src/Support/OMOptions.hpp"
-#include "llvm/Support/Debug.h"
+#include "src/Compiler/CompilerOptions.hpp"
+
+#include <memory>
 
 #define DEBUG_TYPE "NNPAAccelerator"
 
 extern llvm::cl::OptionCategory OMNNPAPassOptions;
-extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
-extern llvm::cl::list<std::string> execNodesOnCpu;
-extern llvm::cl::list<onnx_mlir::accel::Accelerator::Kind> maccel;
-
 onnx_mlir::accel::nnpa::NNPAAccelerator *pnnpa = nullptr;
 
 void createNNPA() { pnnpa = new onnx_mlir::accel::nnpa::NNPAAccelerator; }
 
 namespace onnx_mlir {
+extern llvm::cl::list<onnx_mlir::accel::Accelerator::Kind> maccel;
+
 namespace accel {
 namespace nnpa {
 
@@ -63,11 +65,11 @@ void NNPAAccelerator::getOrLoadDialects(mlir::MLIRContext &context) const {
   context.getOrLoadDialect<zlow::ZLowDialect>();
 }
 
-void NNPAAccelerator::addPasses(mlir::OwningOpRef<ModuleOp> &module,
+void NNPAAccelerator::addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm,
     onnx_mlir::EmissionTargetType &emissionTarget) const {
   LLVM_DEBUG(llvm::dbgs() << "adding passes for NNPA accelerator\n");
-  addPassesNNPA(module, pm, emissionTarget, nnpaEmissionTarget, execNodesOnCpu);
+  addPassesNNPA(module, pm, emissionTarget);
 }
 
 void NNPAAccelerator::registerDialects(mlir::DialectRegistry &registry) const {
