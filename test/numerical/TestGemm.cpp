@@ -14,13 +14,14 @@
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestGemm_main_graph");
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
+
+namespace onnx_mlir {
+namespace test {
 
 void *omTensorGetAllocatedPtr(OMTensor *tensor);
 template <typename TYPE>
-void omPrintAsPython(OMTensor *tensor, string name) {
+void omPrintAsPython(OMTensor *tensor, std::string name) {
   int rank = omTensorGetRank(tensor);
   int64_t *shape = omTensorGetShape(tensor);
   if (false) {
@@ -29,19 +30,19 @@ void omPrintAsPython(OMTensor *tensor, string name) {
         (long long)omTensorGetDataPtr(tensor));
   }
   if (rank == 2) {
-    cout << name << " = np.array([";
+    std::cout << name << " = np.array([";
     for (int64_t i = 0; i < shape[0]; ++i) {
       if (i)
-        cout << ", ";
-      cout << "[";
+        std::cout << ", ";
+      std::cout << "[";
       for (int64_t j = 0; j < shape[1]; ++j) {
         if (j)
-          cout << ", ";
-        cout << omTensorGetElem<TYPE>(tensor, {i, j});
+          std::cout << ", ";
+        std::cout << omTensorGetElem<TYPE>(tensor, {i, j});
       }
-      cout << "]";
+      std::cout << "]";
     }
-    cout << "])\n";
+    std::cout << "])\n";
   }
 }
 
@@ -64,7 +65,13 @@ static bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
          gemm.run() && gemm.verifyOutputs();
 }
 
+} // namespace test
+} // namespace onnx_mlir
+
 int main(int argc, char *argv[]) {
+  using namespace onnx_mlir;
+  using namespace onnx_mlir::test;
+
   llvm::FileRemover remover(
       ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 

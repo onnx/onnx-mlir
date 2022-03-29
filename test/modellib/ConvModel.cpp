@@ -21,9 +21,10 @@
 #include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
+
+namespace onnx_mlir {
+namespace test {
 
 static int myCeil(int a, int b) { return ceil((1.0 * a) / (1.0 * b)); }
 static int myFloor(int a, int b) { return floor((1.0 * a) / (1.0 * b)); }
@@ -37,8 +38,8 @@ Conv2DLibBuilder::Conv2DLibBuilder(const std::string &modelName, const int N,
       autoPad(autoPad), pHBegin(pHBegin), pHEnd(pHEnd), pWBegin(pWBegin),
       pWEnd(pWEnd), stride(stride), dilation(dilation), isDynamic(isDynamic) {}
 
-const string Conv2DLibBuilder::getAutoPadName(const ConvAutoPad autoPad) {
-  static const string autoPadName[] = {
+const std::string Conv2DLibBuilder::getAutoPadName(const ConvAutoPad autoPad) {
+  static const std::string autoPadName[] = {
       "NOTSET", "VALID", "SAME_LOWER", "SAME_UPPER"};
   return autoPadName[autoPad];
 }
@@ -132,11 +133,11 @@ bool Conv2DLibBuilder::prepareInputs() {
 bool Conv2DLibBuilder::verifyShapeAndComputeBeginEnd() {
   // Check first params.
   if (N != NOut) {
-    cerr << "N mismatch: in " << N << ", out " << NOut << endl;
+    std::cerr << "N mismatch: in " << N << ", out " << NOut << std::endl;
     return false;
   }
   if (C != COut) {
-    cerr << "C mismatch: in " << C << ", out " << COut << endl;
+    std::cerr << "C mismatch: in " << C << ", out " << COut << std::endl;
     return false;
   }
 
@@ -183,8 +184,8 @@ bool Conv2DLibBuilder::verifyShapeAndComputeBeginEnd() {
       }
     }
     if (myO[i] != O[i]) {
-      cerr << "output sizes mismatch: computed " << myO[i] << ", got " << O[i]
-           << endl;
+      std::cerr << "output sizes mismatch: computed " << myO[i] << ", got "
+                << O[i] << std::endl;
       return false;
     }
   }
@@ -229,3 +230,6 @@ bool Conv2DLibBuilder::verifyOutputs() {
         }
   return areCloseFloat(res, ref);
 }
+
+} // namespace test
+} // namespace onnx_mlir

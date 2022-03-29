@@ -2,9 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <iostream>
 #include <rapidcheck.h>
-#include <string>
 
 #include "llvm/Support/FileSystem.h"
 
@@ -12,9 +10,10 @@
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestMatmul2D_main_graph");
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
+
+namespace onnx_mlir {
+namespace test {
 
 // Returns whether onnx-mlir compiled Matmul is producing the same results
 // as a naive implementation of Matmul for a specific set of Matmul
@@ -28,7 +27,13 @@ static bool isOMMatmulTheSameAsNaiveImplFor(
          matmul.run() && matmul.verifyOutputs();
 }
 
+} // namespace test
+} // namespace onnx_mlir
+
 int main(int argc, char *argv[]) {
+  using namespace onnx_mlir;
+  using namespace onnx_mlir::test;
+
   llvm::FileRemover remover(
       ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
