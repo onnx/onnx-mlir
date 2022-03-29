@@ -314,13 +314,18 @@ struct ONNXReductionOpLowering : public ConversionPattern {
         llvm_unreachable("unsupported element type");
 
       // Compute mean
-      BuildKrnlLoop meanLoops(rewriter, loc, outRank);
-      meanLoops.createDefineAndIterateOp(alloc);
-      rewriter.setInsertionPointToStart(meanLoops.getIterateBlock());
-      auto meanIVs = meanLoops.getAllInductionVar();
-      Value loadData = create.krnl.load(alloc, meanIVs);
-      Value meanVal = create.math.div(loadData, divisor);
-      create.krnl.store(meanVal, alloc, meanIVs);
+      KrnlBuilder createKrnl(rewriter, loc);
+      ValueRange loopDef = createKrnl.defineLoops(outRank);
+      SmallVector<IndexExpr, 4> lbs(outRank, LiteralIndexExpr(0));
+      MemRefBoundsIndexCapture allocBounds(alloc);
+      SmallVector<IndexExpr, 4> ubs;
+      allocBounds.getDimList(ubs);
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            Value loadData = createKrnl.load(alloc, loopInd);
+            Value meanVal = create.math.div(loadData, divisor);
+            createKrnl.store(meanVal, alloc, loopInd);
+          });
     }
 
     rewriter.replaceOp(op, alloc);
