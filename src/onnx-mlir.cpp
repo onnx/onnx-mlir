@@ -16,7 +16,7 @@
 using namespace std;
 using namespace onnx_mlir;
 
-extern llvm::cl::OptionCategory OnnxMlirOptions;
+extern llvm::cl::OptionCategory onnx_mlir::OnnxMlirOptions;
 
 int main(int argc, char *argv[]) {
   mlir::MLIRContext context;

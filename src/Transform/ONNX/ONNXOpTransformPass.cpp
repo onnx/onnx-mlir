@@ -28,11 +28,11 @@
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/ToolOutputFile.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
 
 #ifdef _WIN32
 #include <io.h>
@@ -142,7 +142,7 @@ void ONNXOpTransformPass::runOnOperation() {
         << "iterations. "
         << "You may set a higher threshold with command option";
   }
-  if (onnxOpTransformReport) {
+  if (onnx_mlir::onnxOpTransformReport) {
     llvm::outs() << "ONNXOpTransform iterated " << onnxOpTransformThreshold - n
                  << " times, converged "
                  << ((currentTag == previousTag) ? "true" : "false") << "\n";

@@ -82,4 +82,4 @@ BENCHMARK(BM_GemmSquare)
     ->Unit(benchmark::kMillisecond)
     ->Complexity();
 
-PERF_MAIN();
+PERF_MAIN()

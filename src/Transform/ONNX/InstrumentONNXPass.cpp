@@ -22,11 +22,11 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
 
 using namespace mlir;
 
@@ -54,7 +54,7 @@ llvm::cl::bits<InstrumentActions> InstrumentControlBits(
             InstrumentReportTime, "instrument runtime reports time usage"),
         clEnumVal(
             InstrumentReportMemory, "instrument runtime reports memory usage")),
-    llvm::cl::cat(OMPassOptions));
+    llvm::cl::cat(onnx_mlir::OMPassOptions));
 
 class InstrumentONNXPass
     : public mlir::PassWrapper<InstrumentONNXPass, OperationPass<FuncOp>> {
@@ -85,9 +85,10 @@ public:
   };
 
   void runOnOperation() override {
-    if (instrumentONNXOps == "" || instrumentONNXOps == "NONE")
+    if (onnx_mlir::instrumentONNXOps == "" ||
+        onnx_mlir::instrumentONNXOps == "NONE")
       return;
-    init(instrumentONNXOps);
+    init(onnx_mlir::instrumentONNXOps);
 
     // Iterate on the operations nested in this function
     getOperation().walk([&](mlir::Operation *op) {

@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- Accelerator.hpp -------------------------===//
+//===-------------------------- Accelerator.hpp ---------------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -26,8 +26,17 @@ namespace accel {
 
 class Accelerator {
 public:
-  Accelerator();
+  /// Kinds of accelerators.
+  enum class Kind {
+#include "src/Accelerators/AcceleratorKinds.hpp"
+  };
+
+  Accelerator(Kind kind) : kind(kind) {}
   virtual ~Accelerator();
+
+  /// Getter for the kind of this accelerator.
+  Kind getKind() const { return kind; }
+
   static std::vector<Accelerator *> getAcceleratorList();
   virtual bool isActive() const = 0;
   virtual void getOrLoadDialects(mlir::MLIRContext &context) const = 0;
@@ -40,6 +49,9 @@ public:
 protected:
   // static llvm::SmallPtrSet<Accelerator *, 2> acceleratorTargets;
   static std::vector<Accelerator *> acceleratorTargets;
+
+  /// Kind of accelerator.
+  Kind kind;
 };
 
 } // namespace accel
