@@ -11,21 +11,6 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
   )
 
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "void InitAccelerators() {\n")  
-if (ACCELERATORS_TO_BUILD)
-  foreach(t ${ACCELERATORS_TO_BUILD})
-  file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "extern void create${t}();\n")
-  file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "create${t}();\n")
-  endforeach(t)
-endif (ACCELERATORS_TO_BUILD)
-file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp "}\n")  
-
-
-#file(GENERATE 
-#  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp 
-#  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/InitAccelerators.cpp.in
-#  )
-
 # CMAKE_CFG_INTDIR is . for single-config generators such as make, and
 # it has a value (e.g. $(Configuration)) otherwise, so we can use it to
 # determine whether we are dealing with a multi-config generator.
@@ -39,11 +24,48 @@ add_custom_target(ExternalUtil DEPENDS ${FILE_GENERATE_DIR}/ExternalUtil.hpp)
 
 get_property(OMLibs GLOBAL PROPERTY ONNX_MLIR_LIBS)
 
-add_onnx_mlir_library(CompilerUtils STATIC
-  CompilerUtils.cpp
-  InitAccelerators.cpp
+add_onnx_mlir_library(CompilerOptions
+  CompilerOptions.cpp
 
   EXCLUDE_FROM_OM_LIBS
+
+  DEPENDS
+  ExternalUtil
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+  
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  MLIRIR
+  )
+
+add_onnx_mlir_library(CompilerPasses
+  CompilerPasses.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  DEPENDS
+  MLIRIR
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+  
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  ${OMLibs}
+  CompilerOptions
+  MLIRAffineTransforms
+  MLIRLinalgTransforms
+  MLIRLLVMToLLVMIRTranslation
+  )
+
+add_onnx_mlir_library(CompilerUtils
+  CompilerUtils.cpp
 
   DEPENDS
   ExternalUtil
@@ -58,9 +80,8 @@ add_onnx_mlir_library(CompilerUtils STATIC
 
   LINK_LIBS PUBLIC
   ${OMLibs}
-  MLIRAffineTransforms
-  MLIRLinalgTransforms
-  MLIRLLVMToLLVMIRTranslation
+  CompilerPasses
+  InitAccelerators
 
   # Link LLVM libraries necessary to query which target architectures are configured.
   LINK_COMPONENTS PRIVATE
