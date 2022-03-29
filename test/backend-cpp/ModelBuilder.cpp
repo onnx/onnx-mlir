@@ -47,7 +47,8 @@ void ModelBuilder::createEntryPoint(FuncOp &funcOp) {
   module.push_back(entryPoint);
 }
 
-bool ModelBuilder::compileTest(const CompilerOptionList &compileOptions) {
+bool ModelBuilder::compileTest(
+    const onnx_mlir::CompilerOptionList &compileOptions) {
   assert(!module.getBody()->empty() &&
          "Expecting the module to contain the test code");
 
