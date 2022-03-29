@@ -637,6 +637,7 @@ int64_t VectorBuilder::getMachineVectorLength(Value vecValue) {
   DataLayout dl(moduleOp);
   llvm::TargetTransformInfo TTI(dl);
 
+  return 1;
 #else
   return getMachineVectorLength(vecType.getElementType());
 #endif
