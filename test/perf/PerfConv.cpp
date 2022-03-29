@@ -23,7 +23,8 @@
 #include "test/perf/PerfHelper.hpp"
 
 const std::string modelName("./perfconv");
-const CompilerOptionList opts{{onnx_mlir::OptionKind::CompilerOptLevel, "3"}};
+const onnx_mlir::CompilerOptionList opts{
+    {onnx_mlir::OptionKind::CompilerOptLevel, "3"}};
 
 static void BM_Conv2D_C16_K3(benchmark::State &state) {
   int N = state.range(0);

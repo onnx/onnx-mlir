@@ -3522,14 +3522,13 @@ LogicalResult ONNXOneHotEncoderOp::verify() {
   // the cats_int64s category list will be used for the lookups.
   if (inputType.getElementType().isIntOrFloat()) {
     if (!operandAdaptor.cats_int64s()) {
-      return emitOpError("input is a tensor of float, int32, or double, but no "
-                         "cats_int64s attribute");
+      return emitOpError("input is a tensor of float, int32, or double, "
+                         "but no cats_int64s attribute");
     }
   } else {
     if (!operandAdaptor.cats_strings()) {
-      return emitOpError(
-          "input is not a tensor of float, int32, or double, but "
-          "no cats_strings attribute");
+      return emitOpError("input is not a tensor of float, int32, or double, "
+                         "but no cats_strings attribute");
     }
   }
   return success();

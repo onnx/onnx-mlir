@@ -29,23 +29,10 @@
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 
 #include "src/Builder/FrontendDialectTransformer.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
+#include "src/Compiler/CompilerPasses.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
-
-extern const std::string OnnxMlirEnvOptionName;
-extern llvm::cl::OptionCategory OnnxMlirOptions;
-extern llvm::cl::opt<std::string> instrumentONNXOps;
-
-// Options support for OMCompilerOptions.
-using CompilerOptionList =
-    llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
-
-// Return 0 on success. These functions are not thread-safe and should be called
-// by a single program thread.
-int setCompilerOption(const onnx_mlir::OptionKind kind, const std::string &val);
-int setCompilerOptions(const CompilerOptionList &list);
-
-std::string getCompilerOption(const onnx_mlir::OptionKind kind);
 
 void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module);
@@ -60,11 +47,6 @@ void compileModuleToJniJar(const mlir::OwningOpRef<mlir::ModuleOp> &module,
     std::string outputBaseName);
 
 void registerDialects(mlir::MLIRContext &context);
-
-void addONNXToMLIRPasses(mlir::PassManager &pm);
-void addONNXToKrnlPasses(mlir::PassManager &pm);
-void addKrnlToAffinePasses(mlir::PassManager &pm);
-void addKrnlToLLVMPasses(mlir::OpPassManager &pm);
 
 void processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module, std::string *errorMessage);
