@@ -66,3 +66,8 @@ add_perf_unittest(PerfConv
   PerfConv.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
+
+add_perf_unittest(PerfRNN
+  PerfRNN.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
