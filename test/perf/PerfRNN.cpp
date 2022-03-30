@@ -63,7 +63,7 @@ static void BM_LSTM(benchmark::State &state) {
   int I = state.range(3);
   int H = state.range(4);
 
-  LSTMLibBuilder lstm(
+  onnx_mlir::test::LSTMLibBuilder lstm(
       modelName, D, S, B, I, H, /*isDynamicS=*/false, /*isDynamicB=*/false);
   assert(lstm.build() && lstm.compileAndLoad(opts) && lstm.prepareInputs() &&
          "failed lstm");
@@ -84,7 +84,8 @@ static void BM_GRU_LINEAR_BEFORE_RESET(benchmark::State &state) {
   int I = state.range(3);
   int H = state.range(4);
 
-  GRULibBuilder gru(modelName, D, S, B, I, H, /*linearBeforeReset=*/true,
+  onnx_mlir::test::GRULibBuilder gru(modelName, D, S, B, I, H,
+      /*linearBeforeReset=*/true,
       /*isDynamicS=*/false, /*isDynamicB=*/false);
   assert(gru.build() && gru.compileAndLoad(opts) && gru.prepareInputs() &&
          "failed gru");
@@ -107,7 +108,8 @@ static void BM_GRU_LINEAR_AFTER_RESET(benchmark::State &state) {
   int I = state.range(3);
   int H = state.range(4);
 
-  GRULibBuilder gru(modelName, D, S, B, I, H, /*linearBeforeReset=*/false,
+  onnx_mlir::test::GRULibBuilder gru(modelName, D, S, B, I, H,
+      /*linearBeforeReset=*/false,
       /*isDynamicS=*/false, /*isDynamicB=*/false);
   assert(gru.build() && gru.compileAndLoad(opts) && gru.prepareInputs() &&
          "failed gru");
@@ -130,7 +132,8 @@ static void BM_RNN(benchmark::State &state) {
   int I = state.range(3);
   int H = state.range(4);
 
-  RNNLibBuilder rnn(modelName, D, S, B, I, H, /*isDynamicS=*/false,
+  onnx_mlir::test::RNNLibBuilder rnn(modelName, D, S, B, I, H,
+      /*isDynamicS=*/false,
       /*isDynamicB=*/false);
   assert(rnn.build() && rnn.compileAndLoad(opts) && rnn.prepareInputs() &&
          "failed rnn");
