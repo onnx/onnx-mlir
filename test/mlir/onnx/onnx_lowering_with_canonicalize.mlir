@@ -810,9 +810,10 @@ func private @test_reducemean_f32(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 
   // CHECK: [[DEF_MEAN_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_MEAN_LOOPS]]#0, [[DEF_MEAN_LOOPS]]#1) with ([[DEF_MEAN_LOOPS]]#0 -> %arg1 = 0 to 3, [[DEF_MEAN_LOOPS]]#1 -> %arg2 = 0 to 2){
-  // CHECK:   [[LOAD3:%.+]] = krnl.load [[RES]][%arg1, %arg2] : memref<3x2xf32>
+  // CHECK:   [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_MEAN_LOOPS]]#0, [[DEF_MEAN_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+  // CHECK:   [[LOAD3:%.+]] = krnl.load [[RES]][[[IV]]#0, [[IV]]#1] : memref<3x2xf32>
   // CHECK:   [[MEAN:%.+]] = arith.divf [[LOAD3]], [[DIVISOR]] : f32
-  // CHECK:   krnl.store [[MEAN]], [[RES]][%arg1, %arg2] : memref<3x2xf32>
+  // CHECK:   krnl.store [[MEAN]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<3x2xf32>
   // CHECK: }
   // CHECK: return [[RES]] : memref<3x2xf32>
 }
@@ -842,9 +843,10 @@ func private @test_reducemean_i32(%arg0 : tensor<3x2x2xi32>) -> tensor<*xi32> {
 
   // CHECK: [[DEF_MEAN_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_MEAN_LOOPS]]#0, [[DEF_MEAN_LOOPS]]#1) with ([[DEF_MEAN_LOOPS]]#0 -> %arg1 = 0 to 3, [[DEF_MEAN_LOOPS]]#1 -> %arg2 = 0 to 2){
-  // CHECK:   [[LOAD3:%.+]] = krnl.load [[RES]][%arg1, %arg2] : memref<3x2xi32>
+  // CHECK:   [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_MEAN_LOOPS]]#0, [[DEF_MEAN_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+  // CHECK:   [[LOAD3:%.+]] = krnl.load [[RES]][[[IV]]#0, [[IV]]#1] : memref<3x2xi32>
   // CHECK:   [[MEAN:%.+]] = arith.divsi [[LOAD3]], [[DIVISOR]] : i32
-  // CHECK:   krnl.store [[MEAN]], [[RES]][%arg1, %arg2] : memref<3x2xi32>
+  // CHECK:   krnl.store [[MEAN]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<3x2xi32>
   // CHECK: }
   // CHECK: return [[RES]] : memref<3x2xi32>
 }
