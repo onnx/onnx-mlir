@@ -447,7 +447,6 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       Value zeroValue = emitConstantOp(rewriter, loc, axesElementType, 0);
       if (axesDim == -1) {
         // When axes is dynamic, generate a Krnl loop
-        auto axesLoopBody = rewriter.saveInsertionPoint();
         KrnlBuilder createKrnl(rewriter, loc);
         ValueRange loopDef = createKrnl.defineLoops(1);
         SmallVector<IndexExpr, 4> lbs(1, LiteralIndexExpr(0));
@@ -461,7 +460,6 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
                   loc, rewriter.getIndexType(), dim);
               createKrnl.store(trueVal, maskVal, jVal);
             });
-        rewriter.restoreInsertionPoint(axesLoopBody);
       } else {
         for (int64_t i = 0; i < axesDim; ++i) {
           Value indexVal = create.math.constantIndex(i);
