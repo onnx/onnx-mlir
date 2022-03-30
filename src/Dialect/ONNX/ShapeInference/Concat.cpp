@@ -40,7 +40,7 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape(
   if (axisIndex < 0)
     axisIndex += commonRank;
 
-  IndexExpr cumulativeAxisSize(0);
+  IndexExpr cumulativeAxisSize = LiteralIndexExpr(0);
   for (unsigned i = 0; i < numInputs; ++i) {
     Value currentInput = operandAdaptor.inputs()[i];
     MemRefBoundsIndexCapture currInputBounds(currentInput);
