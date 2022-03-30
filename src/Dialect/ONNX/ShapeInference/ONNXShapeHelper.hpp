@@ -397,6 +397,15 @@ struct ONNXAveragePoolOpShapeHelper
   LogicalResult computeShape(ONNXAveragePoolOpAdaptor operandAdaptor);
 };
 
+// Shape for Reduction.
+struct ONNXReduceSumOpShapeHelper : public ONNXOpShapeHelper<ONNXReduceSumOp> {
+  ONNXReduceSumOpShapeHelper(ONNXReduceSumOp *newOp);
+  ONNXReduceSumOpShapeHelper(ONNXReduceSumOp *newOp, OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult computeShape(ONNXReduceSumOpAdaptor operandAdaptor);
+};
+
 // Shape for ReshapeOp.
 struct ONNXReshapeOpShapeHelper : public ONNXOpShapeHelper<ONNXReshapeOp> {
   ONNXReshapeOpShapeHelper(ONNXReshapeOp *newOp);
