@@ -610,31 +610,25 @@ inline bool omTensorAreTwoOmtsClose(
   }
 
   // Compute difference, verify it's within tolerable range.
-  // rtol * b + atol >= abs(a - b)
-  auto anum = omTensorGetNumElems(a);
-  auto bnum = omTensorGetNumElems(b);
-  auto rtolT = omTensorCreateWithShape<T>(aShape);
-  assert(rtolT && "failed to allocate memory");
-  auto atolT = omTensorCreateWithShape<T>(aShape);
-  assert(atolT && "failed to allocate memory");
-  for (const auto &idx : omTensorComputeIndexSet(rtolT)) {
-    omTensorGetElem<T>(rtolT, idx) = rtol;
-    omTensorGetElem<T>(atolT, idx) = atol;
-  }
-  std::vector<T> absoluteDiff(anum);
-  std::vector<T> eqAllclose(anum);
+  // rtol * abs(b) + atol >= abs(a - b)
+  auto nElems = omTensorGetNumElems(a);
+  std::vector<T> absoluteDiff(nElems);
+  std::vector<T> absb(nElems);
+  std::vector<T> eqAllclose(nElems);
+  std::vector<T> rtolT(nElems, rtol);
+  std::vector<T> atolT(nElems, atol);
   // abs(a - b)
-  std::transform((T *)a->_alignedPtr, (T *)a->_alignedPtr + anum,
+  std::transform((T *)a->_alignedPtr, (T *)a->_alignedPtr + nElems,
       (T *)b->_alignedPtr, absoluteDiff.begin(), std::minus<>());
   std::transform(absoluteDiff.begin(), absoluteDiff.end(), absoluteDiff.begin(),
       static_cast<T (*)(T)>(&std::abs));
   // rtol * abs(b)
-  std::transform((T *)b->_alignedPtr, (T *)b->_alignedPtr + bnum,
-      (T *)b->_alignedPtr, static_cast<T (*)(T)>(&std::abs));
-  std::transform((T *)b->_alignedPtr, (T *)b->_alignedPtr + bnum,
-      (T *)rtolT->_alignedPtr, eqAllclose.begin(), std::multiplies<>());
-  // rtol * abs(b) + atol
-  std::transform(eqAllclose.begin(), eqAllclose.end(), (T *)atolT->_alignedPtr,
+  std::transform((T *)b->_alignedPtr, (T *)b->_alignedPtr + nElems,
+      absb.begin(), static_cast<T (*)(T)>(&std::abs));
+  std::transform(rtolT.begin(), rtolT.end(), absb.begin(), eqAllclose.begin(),
+      std::multiplies<>());
+  // (rtol * abs(b)) + atol
+  std::transform(eqAllclose.begin(), eqAllclose.end(), atolT.begin(),
       eqAllclose.begin(), std::plus<>());
   // (rtol * abs(b) + atol) - abs(a - b)
   std::transform(eqAllclose.begin(), eqAllclose.end(), absoluteDiff.begin(),
@@ -659,8 +653,6 @@ inline bool omTensorAreTwoOmtsClose(
       }
     }
   }
-  omTensorDestroy(rtolT);
-  omTensorDestroy(atolT);
   return satisfied;
 }
 

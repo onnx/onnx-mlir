@@ -762,6 +762,8 @@ func private @test_reducesumV11(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
     return %0 : tensor<3x1x2xf32>
 // CHECK-LABEL:       @test_reducesum1
 // CHECK-SAME:     ([[VAR_arg0:%.+]]: memref<3x2x2xf32>, [[VAR_arg1:%.+]]: memref<?xi64>) -> memref<3x1x2xf32> {
+// CHECK:           [[VAR_c0:%.+]] = arith.constant 0 : index
+// CHECK:           [[VAR_0:%.+]] = memref.dim [[VAR_arg1]], [[VAR_c0]] : memref<?xi64>
 // CHECK:           [[VAR_1:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3xi1>
 // CHECK:           [[VAR_false:%.+]] = arith.constant false
 // CHECK:           [[VAR_true:%.+]] = arith.constant true
@@ -775,10 +777,9 @@ func private @test_reducesumV11(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 // CHECK:           [[VAR_c3_i64:%.+]] = arith.constant 3 : i64
 // CHECK:           [[VAR_c0_i64:%.+]] = arith.constant 0 : i64
 // CHECK:           [[VAR_2:%.+]] = krnl.define_loops 1
-// CHECK:           [[VAR_c0_1:%.+]] = arith.constant 0 : index
-// CHECK:           [[VAR_3:%.+]] = memref.dim [[VAR_arg1]], [[VAR_c0_1]] : memref<?xi64>
-// CHECK:           krnl.iterate([[VAR_2]]) with ([[VAR_2]] -> [[VAR_arg2:%.+]] = 0 to [[VAR_3]]){
-// CHECK:             [[VAR_6:%.+]] = krnl.load [[VAR_arg1]]{{.}}[[VAR_arg2]]{{.}} : memref<?xi64>
+// CHECK:           krnl.iterate([[VAR_2]]) with ([[VAR_2]] -> [[VAR_arg2:%.+]] = 0 to #map([[VAR_0]])){
+// CHECK:             [[IV:%.+]] = krnl.get_induction_var_value([[VAR_2]]) : (!krnl.loop) -> index
+// CHECK:             [[VAR_6:%.+]] = krnl.load [[VAR_arg1]]{{.*}}[[[IV]]{{.*}} : memref<?xi64>
 // CHECK:             [[VAR_7:%.+]] = arith.cmpi slt, [[VAR_6]], [[VAR_c0_i64]] : i64
 // CHECK:             [[VAR_8:%.+]] = arith.addi [[VAR_6]], [[VAR_c3_i64]] : i64
 // CHECK:             [[VAR_9:%.+]] = arith.select [[VAR_7]], [[VAR_8]], [[VAR_6]] : i64
@@ -822,6 +823,8 @@ func private @test_reducesumV11(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
     return %0 : tensor<3x1x2xf32>
 // CHECK-LABEL:     @test_reducesum2
 // CHECK-SAME:     ([[VAR_arg0:%.+]]: memref<3x2x2xf32>, [[VAR_arg1:%.+]]: memref<?xi64>) -> memref<3x1x2xf32> {
+// CHECK:           [[VAR_c0_3:%.+]] = arith.constant 0 : index
+// CHECK:           [[VAR_0:%.+]] = memref.dim [[VAR_arg1]], [[VAR_c0_3]] : memref<?xi64>
 // CHECK:           [[VAR_1:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3xi1>
 // CHECK:           [[VAR_false:%.+]] = arith.constant false
 // CHECK:           [[VAR_true:%.+]] = arith.constant true
@@ -840,10 +843,9 @@ func private @test_reducesumV11(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 // CHECK:           [[VAR_c3_i64:%.+]] = arith.constant 3 : i64
 // CHECK:           [[VAR_c0_i64:%.+]] = arith.constant 0 : i64
 // CHECK:           [[VAR_5:%.+]] = krnl.define_loops 1
-// CHECK:           [[VAR_c0_3:%.+]] = arith.constant 0 : index
-// CHECK:           [[VAR_6:%.+]] = memref.dim [[VAR_arg1]], [[VAR_c0_3]] : memref<?xi64>
-// CHECK:           krnl.iterate([[VAR_5]]) with ([[VAR_5]] -> [[VAR_arg2:%.+]] = 0 to [[VAR_6]]){
-// CHECK:             [[VAR_9:%.+]] = krnl.load [[VAR_arg1]]{{.}}[[VAR_arg2]]{{.}} : memref<?xi64>
+// CHECK:           krnl.iterate([[VAR_5]]) with ([[VAR_5]] -> [[VAR_arg2:%.+]] = 0 to #map([[VAR_0]])){
+// CHECK:             [[IV:%.+]] = krnl.get_induction_var_value([[VAR_5]]) : (!krnl.loop) -> index
+// CHECK:             [[VAR_9:%.+]] = krnl.load [[VAR_arg1]]{{.}}[[IV]]{{.}} : memref<?xi64>
 // CHECK:             [[VAR_10:%.+]] = arith.cmpi slt, [[VAR_9]], [[VAR_c0_i64]] : i64
 // CHECK:             [[VAR_11:%.+]] = arith.addi [[VAR_9]], [[VAR_c3_i64]] : i64
 // CHECK:             [[VAR_12:%.+]] = arith.select [[VAR_10]], [[VAR_11]], [[VAR_9]] : i64
