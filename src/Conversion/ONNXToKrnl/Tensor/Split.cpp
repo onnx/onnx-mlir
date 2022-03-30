@@ -33,7 +33,7 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
   ShapeHelper shapeHelper(&splitOp, &rewriter,
       getDenseElementAttributeFromKrnlValue, loadDenseElementArrayValueAtIndex);
   auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-  assert(succeeded(shapecomputed));
+  assert(succeeded(shapecomputed) && "Could not compute output shape");
 
   // Alloc and dealloc.
   SmallVector<Value, 4> allocs;
