@@ -1,29 +1,26 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# Populate the accelerator list and add the accelerator subdirectories.
 set(ACCEL_LIST "")
-
-# Generate the enumerators used to identify the kind of accelerators.
-set(AcceleratorKinds "${CMAKE_CURRENT_BINARY_DIR}/AcceleratorKinds.inc")
-file(WRITE "${AcceleratorKinds}" "// Enumeration of accelerators.\n")
 if (ACCELERATORS_TO_BUILD)
   foreach(t ${ACCELERATORS_TO_BUILD})
     message(DEBUG "Targeting ${t}")
     add_subdirectory(${t})
     list(APPEND ACCEL_LIST "${t}Accel")
-    file(APPEND "${AcceleratorKinds}" "   ${t},\n")
-    endforeach(t)
+  endforeach(t)
 endif (ACCELERATORS_TO_BUILD)
-file(APPEND "${AcceleratorKinds}" "   NONE\n")
 
-# Generate the enumerators for the --maccel command line option.
-set(AcceleratorOptions "${CMAKE_CURRENT_BINARY_DIR}/AcceleratorOptions.inc")
-file(REMOVE  "${AcceleratorOptions}")
+# Generate the enumerators used to identify the kind of accelerators.
+set(AcceleratorKinds "${CMAKE_CURRENT_BINARY_DIR}/AcceleratorKinds.inc")
+file(WRITE "${AcceleratorKinds}" "#if !defined(ACCEL_KIND)\n"
+                                 "#error \"Must define ACCEL_KIND macro.\"\n"
+                                 "#else\n")
 if (ACCELERATORS_TO_BUILD)
   foreach(t ${ACCELERATORS_TO_BUILD})
-    file(APPEND "${AcceleratorOptions}" "  clEnumValN(accel::Accelerator::Kind::${t}, \"${t}\", \"${t} accelerator\"),\n")
-  endforeach(t)  
+    file(APPEND "${AcceleratorKinds}" "  ACCEL_KIND(${t})\n")
+  endforeach(t)
 endif (ACCELERATORS_TO_BUILD)
-file(APPEND "${AcceleratorOptions}" "  clEnumValN(accel::Accelerator::Kind::NONE, \"NONE\", \"No accelerator\")\n")
+file(APPEND "${AcceleratorKinds}" "#endif\n")
 
 # Generate the function used to initialize the accelerators.
 set(InitAccelerators "${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp")
