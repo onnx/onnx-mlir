@@ -39,7 +39,23 @@ Value OnnxBuilder::div(Value A, Value B) const {
   return b.create<ONNXDivOp>(loc, A, B);
 }
 
-Value OnnxBuilder::matmul(Type Y, Value A, Value B) const {
+Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
+  // Gemm only supports rank 2.
+  bool canUseGemm = useGemm && A.getType().isa<ShapedType>() &&
+                    A.getType().cast<ShapedType>().hasRank() &&
+                    (A.getType().cast<ShapedType>().getRank() == 2) &&
+                    B.getType().isa<ShapedType>() &&
+                    B.getType().cast<ShapedType>().hasRank() &&
+                    (B.getType().cast<ShapedType>().getRank() == 2);
+  if (canUseGemm)
+    return b.create<ONNXGemmOp>(loc, Y, A, B, b.createOrFold<ONNXNoneOp>(loc),
+        /*alpha=*/b.getF32FloatAttr(1.0), /*beta=*/b.getF32FloatAttr(1.0),
+        /*transA=*/
+        IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
+            APInt(64, 0, /*isSigned=*/true)),
+        /*transB=*/
+        IntegerAttr::get(b.getIntegerType(64, /*isSigned=*/true),
+            APInt(64, 0, /*isSigned=*/true)));
   return b.create<ONNXMatMulOp>(loc, Y, A, B);
 }
 
