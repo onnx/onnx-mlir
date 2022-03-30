@@ -6,7 +6,7 @@
 //
 // Copyright 2022 The IBM Research Authors.
 //
-// =============================================================================
+// =============Í================================================================
 //
 // This file lowers the ONNX Random Normal Like Operator to Krnl dialect.
 //
@@ -14,8 +14,8 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 #include <ctime>

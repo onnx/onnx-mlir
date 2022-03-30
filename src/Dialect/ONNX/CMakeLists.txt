@@ -12,9 +12,6 @@ add_onnx_mlir_dialect_doc(onnx ONNX.td)
 add_onnx_mlir_rewriter(Rewrite)
 
 add_onnx_mlir_library(OMONNXOps
-  IndexExpr.cpp
-  IndexExprDetail.cpp
-  MLIRDialectBuilder.cpp
   ONNXDialect.cpp
   ONNXOps.cpp
   ONNXOpsHelper.cpp
@@ -59,11 +56,9 @@ add_onnx_mlir_library(OMONNXOps
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
 
+
   LINK_LIBS PUBLIC
-  MLIRMath
-  MLIRAffine
-  MLIRSCF
-  MLIRVector
+  OMMlirDialects
   onnx
   )
 
