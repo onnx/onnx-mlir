@@ -39,7 +39,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Insert an allocation and deallocation for the output of this operation.
     auto resMemRefType = convertToMemRefType(*op->result_type_begin());
