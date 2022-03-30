@@ -15,17 +15,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/Accelerator.hpp"
-#include <iostream>
-#include <vector>
 
 namespace onnx_mlir {
 namespace accel {
 
-std::vector<Accelerator *> Accelerator::acceleratorTargets;
+llvm::SmallVector<Accelerator *, 4> Accelerator::acceleratorTargets;
 
-Accelerator::~Accelerator() {}
-
-std::vector<Accelerator *> Accelerator::getAcceleratorList() {
+const llvm::SmallVectorImpl<Accelerator *> &Accelerator::getAccelerators() {
   return acceleratorTargets;
 }
 
