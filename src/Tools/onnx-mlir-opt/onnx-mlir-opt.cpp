@@ -82,9 +82,6 @@ void scanAndSetOptLevel(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
-  // Initialize accelerators if they exist.
-  bool hasAccelerators = InitAccelerators();
-
   mlir::DialectRegistry registry;
   registry.insert<mlir::linalg::LinalgDialect>();
   registry.insert<mlir::AffineDialect>();
@@ -99,9 +96,12 @@ int main(int argc, char **argv) {
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
 
+  // Initialize accelerators if they exist.
+  bool hasAccelerators = onnx_mlir::accel::initAccelerators();
+
   // Register dialects for accelerators.
   if (hasAccelerators)
-    for (auto accel : onnx_mlir::accel::Accelerator::getAcceleratorList())
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
       if (accel->isActive())
         accel->registerDialects(registry);
 
@@ -118,9 +118,10 @@ int main(int argc, char **argv) {
 
   onnx_mlir::initOMPasses(OptimizationLevel);
   onnx_mlir::initMLIRPasses();
+
   // Initialize passes for accelerators.
   if (hasAccelerators)
-    for (auto accel : onnx_mlir::accel::Accelerator::getAcceleratorList())
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
       if (accel->isActive())
         accel->initPasses(OptimizationLevel);
 
