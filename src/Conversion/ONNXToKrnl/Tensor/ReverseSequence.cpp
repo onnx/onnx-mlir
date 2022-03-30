@@ -33,7 +33,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
     // Scope for krnl ops
     IndexExprScope outerScope(&rewriter, shapeHelper.scope);
     KrnlBuilder createKrnl(rewriter, loc);

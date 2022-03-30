@@ -32,7 +32,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     int64_t outputRank = outputMemRefType.getShape().size();
