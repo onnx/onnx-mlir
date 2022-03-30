@@ -48,8 +48,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
           // Compute indices for the load and store op.
           // Load: "i * step + start" for all dim.
           // Store: "i" for all dims.
-          SmallVector<IndexExpr, 4> loadIndices;
-          SmallVector<IndexExpr, 4> storeIndices;
+          SmallVector<IndexExpr, 4> loadIndices, storeIndices;
           for (int ii = 0; ii < outputRank; ++ii) {
             DimIndexExpr inductionIndex(loopInd[ii]);
             IndexExpr start = SymbolIndexExpr(shapeHelper.starts[ii]);
