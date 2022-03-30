@@ -139,14 +139,14 @@ class CategoryMapperLibBuilder : public ModelLibBuilder {
 public:
   // CategoryMapper attributes.
   struct CMAttributes {
-    ArrayRef<int64_t> cat_int64s;
-    ArrayRef<StringRef> cat_strings;
+    llvm::ArrayRef<int64_t> cat_int64s;
+    llvm::ArrayRef<llvm::StringRef> cat_strings;
     int64_t default_int;
-    StringRef default_string;
+    llvm::StringRef default_string;
   };
 
   CategoryMapperLibBuilder(std::string name, const CMAttributes &attributes,
-      ArrayRef<T1> input, ArrayRef<T2> expOutput)
+      llvm::ArrayRef<T1> input, llvm::ArrayRef<T2> expOutput)
       : ModelLibBuilder(name), attributes(attributes), input(input),
         expOutput(expOutput) {
     assert(input.size() == expOutput.size() &&
@@ -160,11 +160,11 @@ public:
 private:
   // Create the function to test.
   void createTestFunction(
-      Type inputType, Type outputType, const CMAttributes &attributes);
+      mlir::Type inputType, mlir::Type outputType, const CMAttributes &attributes);
 
   // Create the category mapper operator, and insert it into the test function.
   void createCategoryMapper(
-      Type outputType, const CMAttributes &attributes, FuncOp &funcOp);
+      mlir::Type outputType, const CMAttributes &attributes, mlir::FuncOp &funcOp);
 
   // Verify that the output tensor has the expected rank.
   bool verifyRank(const OMTensor &out, int64_t rank) const;
@@ -177,8 +177,8 @@ private:
 
 private:
   const CMAttributes &attributes; // CategoryMapper attributes.
-  const ArrayRef<T1> input;       // model input data.
-  const ArrayRef<T2> expOutput;   // expected result.
+  const llvm::ArrayRef<T1> input;       // model input data.
+  const llvm::ArrayRef<T2> expOutput;   // expected result.
 };
 
 class GemmLibBuilder : public ModelLibBuilder {
