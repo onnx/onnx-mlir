@@ -543,7 +543,7 @@ bool isSuitableForZDNN<ONNXReduceMeanOp>(ONNXReduceMeanOp op) {
 /// TODO: current ONNX-to-zhigh conversion does not support bi-direction
 template <>
 bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
-  auto direction = op.direction();
+  StringRef direction = op.direction();
   Value W = op.W();
   Value R = op.R();
   Value B = op.B();
@@ -609,7 +609,7 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
 /// TODO: current ONNX-to-zhigh conversion does not support bi-direction
 template <>
 bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
-  auto direction = op.direction();
+  StringRef direction = op.direction();
   Value W = op.W();
   Value R = op.R();
   Value B = op.B();
