@@ -180,6 +180,8 @@ class ONNXToAtenTypesTransformPass
     target.addLegalDialect<Torch::TorchDialect>();
     target.addLegalDialect<::mlir::torch::Torch::TorchDialect>();
     target.addLegalDialect<::mlir::torch::TorchConversion::TorchConversionDialect>();
+
+    target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
     
     typeConverter.addConversion([](Type type) { return type; });
     setupBackendTypeTransforms(target, typeConverter);
@@ -273,6 +275,8 @@ class ONNXToAtenFinalizeTypesTransformPass
     setupBackendTypeTransforms(target, typeConverter);
 
     target.addLegalDialect<Torch::TorchDialect>();
+ 
+    target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
     
     // Mark materializations as illegal in this pass (since we are finalizing)
     // and add patterns that eliminate them.
