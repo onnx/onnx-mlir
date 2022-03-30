@@ -100,3 +100,27 @@ To print a message followed by one value, inject the following code (where `val`
 ```code
 create.krnl.printf("inputElem: ", val, valType);
 ```
+
+## Finding memory errors
+
+If you know, or suspect, that onnx-mlir-compiled inference executable causes
+bugs related to memory access, especially buffer overrun bugs, they are
+difficult to debug because run-time errors occur outside of the point
+containing the bug.
+
+The "Electric Fence library" can be used for debugging these bugs. It helps
+you detect two common programming bugs: software that overruns the boundaries
+of a malloc() memory allocation, and software that touches a memory allocation
+that has been released by free(). Unlike other malloc() debuggers, Electric
+Fence will detect read accesses as well as writes, and it will pinpoint the
+exact instruction that causes an error.
+
+Because the library is not officially supported by RedHat, you need to download 
+the source code package (SRPM) from https://rpmfind.net/linux/RPM/fedora/devel/rawhide/s390x/e/ElectricFence-2.2.2-57.fc36.s390x.html,
+build and install it to your system as root user.
+
+After installing it, link this library by using the "-lefence" option when
+generating inference executables. Then simply execute it, which will
+cause a runtime error and stop at the place causing memory access bugs. You can
+identify the place with a debugger or debugging print functions
+described in the previous section.
