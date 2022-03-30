@@ -49,7 +49,6 @@ add_onnx_mlir_library(InitAccelerators
   EXCLUDE_FROM_OM_LIBS
 
   LINK_LIBS PUBLIC
-    Accelerator
     ${ACCEL_LIST}
   )
 
