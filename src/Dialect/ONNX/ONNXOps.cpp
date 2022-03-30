@@ -591,6 +591,111 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
 }
 
 //===----------------------------------------------------------------------===//
+// Support function to emit a warning if an operator attibute value is greater
+// than a preset limit.
+//===----------------------------------------------------------------------===//
+
+static InFlightDiagnostic verifyAttributeLimit(
+    Operation &op, const Twine &attrName, int64_t attrVal) {
+  // Global limit for all attributes.
+  constexpr int64_t attrValLimit = 100;
+
+  if (abs(attrVal) > attrValLimit) {
+    Twine msg(op.getName().getStringRef());
+    std::string limitStr =
+        std::to_string((attrVal > 0) ? attrValLimit : -attrValLimit);
+
+    return emitWarning(op.getLoc(),
+        msg.concat(": " + attrName)
+            .concat(" attribute exceeds the limit of ")
+            .concat(limitStr)
+            .concat(". Please check whether the model was translated to ONNX "
+                    "correctly."));
+  }
+
+  return InFlightDiagnostic();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNXArgMaxOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXArgMaxOp::verify() {
+  int64_t axisIndex = axis();
+  InFlightDiagnostic diagnostic =
+      verifyAttributeLimit(*this->getOperation(), "axis", axisIndex);
+  if (LogicalResult(diagnostic).failed())
+    return diagnostic;
+
+  if (!hasShapeAndRank(data()))
+    // Won't be able to do any checking at this stage.
+    return success();
+
+  auto type = data().getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> shape = type.getShape();
+  int64_t rank = shape.size();
+
+  // axis value must be in the range [-rank, rank-1].
+  if ((axisIndex < 0 && axisIndex < -rank) ||
+      (axisIndex > 0 && axisIndex >= rank))
+    return emitOpError("ArgMax axis value out of bound");
+
+  return success();
+}
+
+LogicalResult ONNXArgMaxOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!data().getType().isa<RankedTensorType>())
+    return success();
+
+  ONNXArgMaxOpShapeHelper shapeHelper(this);
+  ONNXArgMaxOpAdaptor operandAdaptor(*this);
+  if (failed(shapeHelper.computeShape(operandAdaptor)))
+    return emitError("Failed to scan ArgMax parameters successfully");
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
+
+  // ONNX spec specifies the reduced type as an int64
+  Type elementType = IntegerType::get(getContext(), 64);
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNXArgMinOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXArgMinOp::verify() {
+  int64_t axisIndex = axis();
+  InFlightDiagnostic diagnostic =
+      verifyAttributeLimit(*this->getOperation(), "axis", axisIndex);
+  if (LogicalResult(diagnostic).failed())
+    return diagnostic;
+
+  if (!hasShapeAndRank(data()))
+    // Won't be able to do any checking at this stage.
+    return success();
+
+  auto type = data().getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> shape = type.getShape();
+  int64_t rank = shape.size();
+
+  // axis value must be in the range [-rank, rank-1].
+  if ((axisIndex < 0 && axisIndex < -rank) ||
+      (axisIndex > 0 && axisIndex >= rank))
+    return emitOpError("ArgMin axis value out of bound");
+
+  return success();
+}
+
+LogicalResult ONNXArgMinOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+//===----------------------------------------------------------------------===//
 // ONNXEntryPointOp
 //===----------------------------------------------------------------------===//
 
@@ -2737,22 +2842,28 @@ LogicalResult ONNXConstantOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXConcatOp::verify() {
+  int64_t axisIndex = axis();
+  InFlightDiagnostic diagnostic =
+      verifyAttributeLimit(*this->getOperation(), "axis", axisIndex);
+  if (LogicalResult(diagnostic).failed())
+    return diagnostic;
+
   ONNXConcatOpAdaptor operandAdaptor(*this);
-  // Check all inputs.
   for (const auto &operand : operandAdaptor.getOperands()) {
     if (!hasShapeAndRank(operand)) {
       // Won't be able to do any checking at this stage.
       return success();
     }
   }
-  // Checking value of axis parameter.
+
   auto commonType =
       operandAdaptor.getOperands().front().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> commonShape = commonType.getShape();
   int64_t commonRank = commonShape.size();
-  int64_t axisIndex = axis();
+
+  // Checking value of axis parameter.
   if (axisIndex < 0)
-    axisIndex = commonRank + axisIndex;
+    axisIndex += commonRank;
   if (axisIndex >= commonRank)
     return emitOpError("Concat axis value out of bound");
 
@@ -2760,7 +2871,7 @@ LogicalResult ONNXConcatOp::verify() {
     ArrayRef<int64_t> currShape =
         operand.getType().cast<RankedTensorType>().getShape();
     if ((int64_t)currShape.size() != commonRank)
-      return emitOpError("Concat input must all have the same rank");
+      return emitOpError("Concat inputs must all have the same rank");
     for (int j = 0; j < commonRank; ++j) {
       if (j == axisIndex)
         continue;
@@ -3573,31 +3684,6 @@ LogicalResult ONNXLessOrEqualOp::inferShapes(
 // Followed by the implementation of lowering to Krnl and
 // Enable the corresponding node test in check-onnx-backend
 
-LogicalResult ONNXArgMaxOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  if (!data().getType().isa<RankedTensorType>())
-    return success();
-
-  ONNXArgMaxOpShapeHelper shapeHelper(this);
-  ONNXArgMaxOpAdaptor operandAdaptor(*this);
-  if (failed(shapeHelper.computeShape(operandAdaptor)))
-    return emitError("Failed to scan ArgMax parameters successfully");
-
-  SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-
-  // ONNX spec specifies the reduced type as an int64
-  Type elementType = IntegerType::get(getContext(), 64);
-  getResult().setType(RankedTensorType::get(outputDims, elementType));
-
-  return success();
-}
-
-LogicalResult ONNXArgMinOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
 LogicalResult ONNXBatchNormalizationOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
@@ -3717,27 +3803,43 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// ONNXCompressOp
+//===----------------------------------------------------------------------===//
+
 LogicalResult ONNXCompressOp::verify() {
-  // Look up input.
+  auto optionalAxis = axis();
+  if (optionalAxis.hasValue()) {
+    int64_t axis = optionalAxis.getValue();
+    InFlightDiagnostic diagnostic =
+        verifyAttributeLimit(*this->getOperation(), "axis", axis);
+    if (LogicalResult(diagnostic).failed())
+      return diagnostic;
+  }
+
   if (!hasShapeAndRank(input()))
     // Too early to verify.
     return success();
+
   int64_t inputRank = input().getType().cast<ShapedType>().getRank();
+
   // Check axis.
-  auto optionalAxis = axis();
   if (optionalAxis.hasValue()) {
     // We have an axis, make sure its in the range
     int64_t axis = optionalAxis.getValue();
     if (!(axis >= -inputRank && axis < inputRank))
-      return emitOpError("axis is out of bound");
+      return emitOpError("Compress axis value out of bound");
   }
+
   // Check condition.
   if (!hasShapeAndRank(condition()))
     // Too early to verify.
     return success();
+
   int64_t condRank = condition().getType().cast<ShapedType>().getRank();
   if (condRank != 1)
     return emitOpError("condition's rank must be one");
+
   return success();
 }
 

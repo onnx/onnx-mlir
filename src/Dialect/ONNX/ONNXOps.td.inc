@@ -211,6 +211,7 @@ def ONNXArgMaxOp:ONNX_Op<"ArgMax",
       return {4};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXArgMinOp:ONNX_Op<"ArgMin",
@@ -241,6 +242,7 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
       return {4};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXAsinOp:ONNX_Op<"Asin",
