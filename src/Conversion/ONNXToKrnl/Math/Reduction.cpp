@@ -377,14 +377,14 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     int64_t outRank = memRefOutType.getRank();
 
     // KeepDims
-    auto keepdims = reduceSumOp.keepdims();
-    bool isKeepdims = (keepdims == 1) ? true : false;
+    int64_t keepdims = reduceSumOp.keepdims();
+    bool isKeepdims = (keepdims == 1);
 
     ONNXReduceSumOpShapeHelper shapeHelper(&reduceSumOp, &rewriter,
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Get type information
     auto memRefOutShape = memRefOutType.getShape();
