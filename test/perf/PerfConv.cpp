@@ -16,17 +16,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <cassert>
-#include <iostream>
-#include <string>
-
 #include <benchmark/benchmark.h>
 
 #include "include/OnnxMlirCompiler.h"
 #include "test/modellib/ModelLib.hpp"
 #include "test/perf/PerfHelper.hpp"
-
-using namespace std;
 
 const std::string modelName("./perfconv");
 const onnx_mlir::CompilerOptionList opts{
@@ -41,8 +35,8 @@ static void BM_Conv2D_C16_K3(benchmark::State &state) {
   int P = 0;
   int S = 1;
   int D = 1;
-  Conv2DLibBuilder model(
-      modelName, N, C, H, W, K, K, ConvAutoPad::VALID, P, P, P, P, S, D, false);
+  onnx_mlir::test::Conv2DLibBuilder model(modelName, N, C, H, W, K, K,
+      onnx_mlir::test::ConvAutoPad::VALID, P, P, P, P, S, D, false);
   assert(model.build() && model.compileAndLoad(opts) && model.prepareInputs() &&
          "failed conv");
   for (auto _ : state)

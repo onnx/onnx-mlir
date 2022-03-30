@@ -20,14 +20,15 @@
 #include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
+
+namespace onnx_mlir {
+namespace test {
 
 /// Sigmoid
 static float sigmoid(float x) { return 1 / (1 + exp(-x)); }
 
-GRULibBuilder::GRULibBuilder(const string &modelName, const int direction,
+GRULibBuilder::GRULibBuilder(const std::string &modelName, const int direction,
     const int S, const int B, const int I, const int H,
     const int linearBeforeReset, const bool isDynamicS, const bool isDynamicB)
     : ModelLibBuilder(modelName), direction(direction), S(S), B(B), I(I), H(H),
@@ -292,3 +293,6 @@ bool GRULibBuilder::verifyOutputs() {
 
   return true;
 }
+
+} // namespace test
+} // namespace onnx_mlir
