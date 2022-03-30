@@ -26,6 +26,13 @@ private:
 
 public:
   NNPAAccelerator();
+  ~NNPAAccelerator();
+
+  /// Define classof to be able to use isa<>, cast<>, dyn_cast<>, etc.
+  static bool classof(const Accelerator *accel) {
+    return accel->getKind() == Accelerator::Kind::NNPA;
+  }
+  static bool classof(const NNPAAccelerator *) { return true; }
 
   bool isActive() const final;
   virtual void getOrLoadDialects(mlir::MLIRContext &context) const final;
