@@ -405,6 +405,7 @@ LogicalResult ONNXGenericPoolShapeHelper<OP_TYPE, OP_ADAPTOR>::computeShape(
 template struct ONNXOpShapeHelper<ONNXArgMaxOp>;
 template struct ONNXOpShapeHelper<ONNXAveragePoolOp>;
 template struct ONNXOpShapeHelper<ONNXCategoryMapperOp>;
+template struct ONNXOpShapeHelper<ONNXClipOp>;
 template struct ONNXOpShapeHelper<ONNXCompressOp>;
 template struct ONNXOpShapeHelper<ONNXConcatOp>;
 template struct ONNXOpShapeHelper<ONNXConvOp>;
@@ -416,6 +417,7 @@ template struct ONNXOpShapeHelper<ONNXMatMulOp>;
 template struct ONNXOpShapeHelper<ONNXMaxPoolSingleOutOp>;
 template struct ONNXOpShapeHelper<ONNXOneHotOp>;
 template struct ONNXOpShapeHelper<ONNXPadOp>;
+template struct ONNXOpShapeHelper<ONNXReduceSumOp>;
 template struct ONNXOpShapeHelper<ONNXReshapeOp>;
 template struct ONNXOpShapeHelper<ONNXLRNOp>;
 template struct ONNXOpShapeHelper<ONNXReverseSequenceOp>;

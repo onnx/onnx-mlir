@@ -37,12 +37,12 @@ using namespace mlir;
 // ONNX Integers as MLIR signless, and only flag the ONNX Unsigned Integer as
 // MLIR unsigned integer.
 
-Value MathBuilder::_and(Value lhs, Value rhs) const {
+Value MathBuilder::andi(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   return b.create<arith::AndIOp>(loc, lhs, rhs);
 }
 
-Value MathBuilder::_or(Value lhs, Value rhs) const {
+Value MathBuilder::ori(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   return b.create<arith::OrIOp>(loc, lhs, rhs);
 }
@@ -94,6 +94,11 @@ Value MathBuilder::log2(Value val) const {
 Value MathBuilder::sqrt(Value val) const {
   assert(val.getType().isa<FloatType>() && "Data type must be float.");
   return b.create<math::SqrtOp>(loc, val);
+}
+
+Value MathBuilder::pow(Value base, Value exp) const {
+  assert(base.getType().isa<FloatType>() && "Data type must be float.");
+  return b.create<math::PowFOp>(loc, base, exp);
 }
 
 Value MathBuilder::min(Value lhs, Value rhs) const {
@@ -199,6 +204,83 @@ Value MathBuilder::constant(Type type, double val) const {
 Value MathBuilder::constantIndex(int64_t val) const {
   Attribute constantAttr = b.getIntegerAttr(b.getIndexType(), val);
   return b.create<arith::ConstantOp>(loc, constantAttr);
+}
+
+Value MathBuilder::negativeInf(Type type) const {
+  double value;
+  TypeSwitch<Type>(type)
+      .Case<Float16Type>(
+          [&](Type) { value = -std::numeric_limits<float>::infinity(); })
+      .Case<Float32Type>(
+          [&](Type) { value = -std::numeric_limits<float>::infinity(); })
+      .Case<Float64Type>(
+          [&](Type) { value = -std::numeric_limits<double>::infinity(); })
+      .Case<IntegerType>([&](IntegerType type) {
+        unsigned width = type.getWidth();
+        bool isSigned = type.isSigned();
+        switch (width) {
+        case 8:
+          value = (isSigned) ? std::numeric_limits<int8_t>::min()
+                             : std::numeric_limits<uint8_t>::min();
+          break;
+        case 16:
+          value = (isSigned) ? std::numeric_limits<int16_t>::min()
+                             : std::numeric_limits<uint16_t>::min();
+          break;
+        case 32:
+          value = (isSigned) ? std::numeric_limits<int32_t>::min()
+                             : std::numeric_limits<uint32_t>::min();
+          break;
+        case 64:
+          value = (isSigned) ? std::numeric_limits<int64_t>::min()
+                             : std::numeric_limits<uint64_t>::min();
+          break;
+        default:
+          llvm_unreachable("unsupported element type");
+        }
+      })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
+
+  return constant(type, value);
+}
+
+Value MathBuilder::positiveInf(Type type) const {
+  double value;
+  TypeSwitch<Type>(type)
+      .Case<Float16Type>(
+          [&](Type) { value = std::numeric_limits<float>::infinity(); })
+      .Case<Float32Type>(
+          [&](Type) { value = std::numeric_limits<float>::infinity(); })
+      .Case<Float64Type>(
+          [&](Type) { value = std::numeric_limits<double>::infinity(); })
+      .Case<IntegerType>([&](IntegerType type) {
+        size_t width = type.getWidth();
+        bool isSigned = type.isSigned();
+        switch (width) {
+        case 8:
+          value = (isSigned) ? std::numeric_limits<int8_t>::max()
+                             : std::numeric_limits<uint8_t>::max();
+          break;
+        case 16:
+          value = (isSigned) ? std::numeric_limits<int16_t>::max()
+                             : std::numeric_limits<uint16_t>::max();
+          break;
+        case 32:
+          value = (isSigned) ? std::numeric_limits<int32_t>::max()
+                             : std::numeric_limits<uint32_t>::max();
+          break;
+        case 64:
+          value = static_cast<double>(
+              (isSigned) ? std::numeric_limits<int64_t>::max()
+                         : std::numeric_limits<uint64_t>::max());
+          break;
+        default:
+          llvm_unreachable("unsupported element type");
+        }
+      })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
+
+  return constant(type, value);
 }
 
 Value MathBuilder::createArithCmp(
@@ -429,14 +511,48 @@ memref::CastOp MemRefBuilder::cast(Value input, MemRefType outputType) const {
   return b.create<memref::CastOp>(loc, outputType, input);
 }
 
+Value MemRefBuilder::reinterpretCast(
+    Value input, SmallVectorImpl<IndexExpr> &outputDims) const {
+  // Compute new sizes and strides.
+  int64_t rank = outputDims.size();
+  SmallVector<IndexExpr, 4> sizesIE, stridesIE;
+  sizesIE.resize(rank);
+  stridesIE.resize(rank);
+  IndexExpr strideIE = LiteralIndexExpr(1);
+  for (int i = rank - 1; i >= 0; --i) {
+    sizesIE[i] = outputDims[i];
+    stridesIE[i] = strideIE;
+    if (i > 0)
+      strideIE = strideIE * sizesIE[i];
+  }
+  // Compute output type
+  SmallVector<int64_t, 4> outputShape;
+  SmallVector<OpFoldResult, 4> sizes, strides;
+  IndexExpr::getShape(outputDims, outputShape);
+  IndexExpr::getOpOrFoldResults(sizesIE, sizes);
+  IndexExpr::getOpOrFoldResults(stridesIE, strides);
+  Type elementType = input.getType().cast<ShapedType>().getElementType();
+  MemRefType outputMemRefType = MemRefType::get(outputShape, elementType);
+
+  return b.create<memref::ReinterpretCastOp>(loc, outputMemRefType, input,
+      /*offset=*/b.getIndexAttr(0), sizes, strides);
+}
+
 Value MemRefBuilder::dim(Value val, int64_t index) const {
   assert((val.getType().isa<MemRefType>() ||
              val.getType().isa<UnrankedMemRefType>()) &&
          "memref::DimOp expects input operand to have MemRefType or "
          "UnrankedMemRefType");
   assert(index >= 0 && "Expecting a valid index");
-  Value i = b.create<arith::ConstantIndexOp>(loc, index);
-  return b.createOrFold<memref::DimOp>(loc, val, i);
+  return dim(val, b.create<arith::ConstantIndexOp>(loc, index));
+}
+
+Value MemRefBuilder::dim(Value val, Value index) const {
+  assert((val.getType().isa<MemRefType>() ||
+             val.getType().isa<UnrankedMemRefType>()) &&
+         "memref::DimOp expects input operand to have MemRefType or "
+         "UnrankedMemRefType");
+  return b.createOrFold<memref::DimOp>(loc, val, index);
 }
 
 //===----------------------------------------------------------------------===//
@@ -487,6 +603,10 @@ void VectorBuilder::store(Value val, Value memref, ValueRange indices) const {
   b.create<vector::StoreOp>(loc, val, memref, indices);
 }
 
+Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
+  return b.create<vector::FMAOp>(loc, lhs, rhs, acc);
+}
+
 Value VectorBuilder::broadcast(VectorType vecType, Value val) const {
   return b.create<vector::BroadcastOp>(loc, vecType, val);
 }
@@ -496,6 +616,95 @@ Value VectorBuilder::shuffle(
   return b.create<vector::ShuffleOp>(loc, lhs, rhs, mask);
 }
 
-Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
-  return b.create<vector::FMAOp>(loc, lhs, rhs, acc);
+// Private vector utilities.
+bool VectorBuilder::isPowerOf2(uint64_t num) { return (num & (num - 1)) == 0; }
+
+uint64_t VectorBuilder::vector1DLength(Value vec) {
+  VectorType vecType = vec.getType().dyn_cast_or_null<VectorType>();
+  assert(vecType && "expected a vector type");
+  auto vecShape = vecType.getShape();
+  assert(vecShape.size() == 1 && "expected a 1D vector");
+  return vecShape[0];
+}
+
+Value VectorBuilder::mergeHigh(Value lhs, Value rhs, int64_t step) {
+  // Inputs: lrs <l0, l1, l2, l3, l4, l5, l6, l7>;
+  //         rhs <r0, r1, r2, r3, r4, r5, r6, r7>.
+  // Merge alternatively the low (least significant) values of lrs and rhs
+  // Step 1:     <(l0), (r0), (l1), (r1), (l2), (r2), (l3), (r3)> (1x sizes)
+  // Step 2:     <(l0, l1),   (r0, r1),   (l2, l3),   (r2, r3)>   (2x sizes)
+  // Step 4:     <(l0, l1, l2, l3),       (r0, r1, r2, r3)>       (4x sizes)
+  uint64_t VL = vector1DLength(lhs);
+  assert(vector1DLength(rhs) == VL && "expected same sized vectors");
+  assert(isPowerOf2(VL) && "expected power of 2 vector length");
+  SmallVector<int64_t, 8> mask(VL, 0);
+  int i = 0;
+  int64_t pairsOfLhsRhs = VL / (2 * step);
+  int64_t firstHalf = 0;
+  for (int64_t p = 0; p < pairsOfLhsRhs; ++p) {
+    // One step-sized item from the LHS
+    for (int64_t e = 0; e < step; ++e)
+      mask[i++] = firstHalf + p * step + e;
+    // One step-sized item from the RHS (RHS offset is VL for the shuffle op).
+    for (int64_t e = 0; e < step; ++e)
+      mask[i++] = firstHalf + VL + p * step + e;
+  }
+  return shuffle(lhs, rhs, mask);
+}
+
+Value VectorBuilder::mergeLow(Value lhs, Value rhs, int64_t step) {
+  // Inputs: lrs <l0, l1, l2, l3, l4, l5, l6, l7>;
+  //         rhs <r0, r1, r2, r3, r4, r5, r6, r7>.
+  // Merge alternatively the low (least significant) values of lrs and rhs
+  // Step 1:     <(l4), (r4), (l5), (r5), (l6), (r6), (l7), (r7)> (1x sizes)
+  // Step 2:     <(l4, l5),   (r4, r5),   (l6, l7),   (r6, r7)>   (2x sizes)
+  // Step 4:     <(l4, l5, l6, l7),       (r4, r5, r6, r7)>       (4x sizes)
+  uint64_t VL = vector1DLength(lhs);
+  assert(vector1DLength(rhs) == VL && "expected same sized vectors");
+  assert(isPowerOf2(VL) && "expected power of 2 vector length");
+  SmallVector<int64_t, 8> mask(VL, 0);
+  int i = 0;
+  int64_t pairsOfLhsRhs = VL / (2 * step);
+  int64_t secondHalf = VL / 2;
+  for (int64_t p = 0; p < pairsOfLhsRhs; ++p) {
+    // One step-sized item from the LHS
+    for (int64_t e = 0; e < step; ++e)
+      mask[i++] = secondHalf + p * step + e;
+    // One step-sized item from the RHS (RHS offset is VL for the shuffle op).
+    for (int64_t e = 0; e < step; ++e)
+      mask[i++] = secondHalf + VL + p * step + e;
+  }
+  return shuffle(lhs, rhs, mask);
+}
+
+// Composite functions
+Value VectorBuilder::multiReduction(SmallVectorImpl<Value> &vecArray) {
+  uint64_t N = vecArray.size();
+  assert(N > 0 && "expected at least one value to reduce");
+  uint64_t VL = vector1DLength(vecArray[0]);
+  LLVM_DEBUG(
+      llvm::dbgs() << "reduction with N " << N << ", VL " << VL << "\n";);
+  assert(VL == N && "expected the same number of vectors in array as VL");
+  assert(VL == 4 && "only natural sizes supported at this time");
+  SmallVector<Value, 8> tmpArray;
+  for (uint64_t i = 0; i < VL; ++i) {
+    tmpArray.emplace_back(vecArray[i]);
+    if (i != 0)
+      // verify that all have the same length
+      assert(vector1DLength(vecArray[i]) == VL && "different vector length");
+  }
+
+  // reductions of full physical vectors
+  MathBuilder createMath(*this);
+  uint64_t numPairs = VL / 2;
+  for (uint64_t step = 1; step < VL; step = step * 2) {
+    for (uint64_t p = 0; p < numPairs; ++p) {
+      Value highVal = mergeHigh(tmpArray[2 * p], tmpArray[2 * p + 1], step);
+      Value lowVal = mergeLow(tmpArray[2 * p], tmpArray[2 * p + 1], step);
+      Value red = createMath.add(highVal, lowVal);
+      tmpArray[p] = red;
+    }
+    numPairs = numPairs / 2;
+  }
+  return tmpArray[0];
 }

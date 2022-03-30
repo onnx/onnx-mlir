@@ -19,6 +19,7 @@
 
 include "mlir/IR/OpBase.td"
 include "mlir/Dialect/Shape/IR/ShapeBase.td"
+include "mlir/Dialect/Bufferization/IR/AllocationOpInterface.td"
 include "mlir/Interfaces/CastInterfaces.td"
 include "mlir/Interfaces/LoopLikeInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
@@ -30,11 +31,38 @@ def Krnl_Dialect : Dialect {
   let cppNamespace = "::mlir";
 }
 
-def StringType : Type<CPred<"$_self.isa<::mlir::StringType>()">, "string type">;
+def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
 
 // Require regions to have krnl.terminate terminator operation.
 def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
 
+def KrnlCallOp : Op<Krnl_Dialect, "call"> {
+  let summary = "call operation";
+  let description = [{
+    The call operation provides a generic way to call an external function
+    at Krnl level.  The `funcName` determines which function to call.
+    The `alloc` is the Value to store the function return. Since allocation
+    of the return MemRef involves shape inference usually with IndexExpr.
+    Thus most of time the allocation should stay in compiler, not in runtime library.
+    The parameters can be of any type: MemRef, NoneType or any llvm type.
+    Different types of parameters will be converted, if needed, when KrnlCallOp
+    is lowered. Attributes will be converted to parameters too (To be Added).
+    The function signature will be determined with the types of parameters.
+    An LLVM::CallOp to either a runtime library or a llvm intrinsic function
+    will be generated.
+  }];
+
+  let arguments = (ins StrAttr:$funcName, AnyType:$alloc, Variadic<AnyType>:$parameters);
+  let results =(outs AnyType:$result);
+
+  // builders to build KrnlCallOp from op and operands, helping conversion from onnx to krnl.
+  // The name of function can be determined by the op name and elemnt type of the return,
+  // or given to builder if the simple rule does not work
+  // Attributes of the op will be propagated to KrnlCallOp if the copyAttrs is true
+  let builders = [OpBuilder<(ins "mlir::Value":$alloc, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
+      OpBuilder<(ins "std::string":$funcNameStr, "mlir::Value":$alloc, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
+}
+ 
 def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   let summary = "define_loops operation";
   let description = [{
@@ -133,6 +161,37 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
     // Get name of the attribute for storing bound represented using affine maps.
       static StringRef getBoundsAttrName() { return "bounds"; }
   }];
+}
+
+def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+    DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
+  let summary = "Krnl load from a seq";
+  let description = [{
+    sequence is represented with memref<memref<>>.
+    This op loads a tensor for the sequence 'seq' at position 'index',
+    and return the tensor, which will be freed by Bufferization::Deallocation.
+    The element in the sequence will become null.
+  }];
+  let arguments = (ins AnyMemRef:$seq,
+                       Index:$index);
+
+  let results = (outs AnyType:$output);
+}
+
+def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
+  let summary = "Krnl store into a seq";
+  let description = [{
+    sequence is represented with memref<memref<>>.
+    This op will copy the tensor to be stored, and cast the type if needed.
+    The motivation to introduce this Op is to help bufferization::deallocation
+    The experiment showed that memref will be freed after the memref is stored.
+    However, the store of memref only write out the pointer for the memref,
+    and its memory cannot be freed.
+  }];
+  let arguments = (ins AnyType:$input,
+                       AnyMemRef:$seq,
+                       Index:$index);
 }
 
 def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
@@ -615,52 +674,102 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
        DeclareOpInterfaceMethods<SpecializedKernelOpInterface>, MemRefsNormalizable]> {
   let summary = "Matmul operation for a single pannel.";
   let description = [{
-    Perform a matrix multiplication A * B + C
-    for a small tile A * B + C of sizes
-    [IxK] * [KxJ] + [IxJ].
+    Perform a matrix multiplication AA * BB + CC with sizes [IxK] * [KxJ] + [IxJ].
+    The original matrices AA, BB, and CC can be buffered in buffered arrays
+    which may be padded. The original matrices and the padded array might
+    have a higher rank than 2, but the actual matrix multiplication operation
+    only deal with the innermost 2 ranks of the matrices to perform its matrix
+    multiplication operations.
 
-    The i/j/k ComputeStarts indicate the global indices of the first element
-    of a tile to be computed in the original computations.
-    The i/j/k GlobalUBs indicate the upper bounds in the original computations.
+    The computations may also compute only a sub-tile of the buffered arrays.
+    This region is depicted using stars '*' below.
+
+    All indices passed to this operation are the global indices in the original
+    computation, so as to better know if we have boundary conditions.
+    
+    ORIGINAL ARRAY: if AA: *xIxK; if BB: *xKxJ; if CC: *xI*J).
+    BUFFER ARRAYS: denotated as A, B, and C. Note that this operation does
+      not require the use of buffers arrays. If none are used, then A=AA,
+      B=BB, C=CC. If buffers are used, it is the responsability of the caller
+      to properly fill the buffers with the appropriate data. Buffers are
+      typically used for cache tiling.
+
+     ORIGINAL ARRAY
+     -------------------------------------------------
+     |                                               ]
+     |                                               ]
+     |             buffer array       buffer pad     ]
+     |            (3)---------------- ++++           ]
+     |             |                 |   +           ]
+     |             |     (1)****     |   +           ]
+     |             |      *    *     |   +           ]
+     |             |      *    *     |   +           ]
+     |             |      ****(5)    |   +           ]
+     |             |                 |   +           ]
+     |             |                 |   +           ]
+     |             ------------------|   +           ]
+     |             +                     +           ]
+     |             +++++++++++++++++++++(4)          ]
+     |                                               ]
+     -----------------------------------------------(2)
+
+    (1) iGlobalIndexComputeStart/jGlobalIndexComputeStart/
+        kGlobalIndexComputeStart, required, global 1D indices.
+    (2) iGlobalUB/jGlobalUB/jGlobalUB, required, global 1D indices.
+    (3) aGlobalIndexMemStart/bGlobalIndexMemStart/cGlobalIndexMemStart,
+        required, global nD indices with the same rank as the buffers
+        A, B, and C.
+    (4) aTileSize/bTileSize/cTileSize, required when padding, 2D sizes.
+    (5) computeTileSizes, required when tiled computation within buffer,
+        3D sizes (I, J, K).
+
+    The iGlobalIndexComputeStart/jGlobalIndexComputeStart/
+    kGlobalIndexComputeStart (1) indicate the global indices of the
+    first element of a tile to be computed in the original computations.
+
+    The iGlobalUB/jGlobalUB/jGlobalUB (2) indicate the global upper bounds
+    in the original computations.
 
     We provide 3 buffers for matrix multipy: A, B, and C. For each buffer,
-    we indicate the global indices pointing the beginning of the buffer.
-    If no buffers are used, i.e. the computation starts directly in the orginal
-    memory, the global index is 0. If a buffer for A is used to put data into
-    it starting at indices [i1, k1], where i1 & k1 are the global indices in
-    the original computations, then aMemStart0 and aMemStart1 are i1 & k1,
-    respectively.
+    we indicate the global indices pointing the beginning of the buffer:
+    aGlobalIndexMemStart, bGlobalIndexMemStart, and cGlobalIndexMemStart (3).
+    If no buffers are used, i.e. the computation starts directly in the
+    orginal memory, the global index is 0. If a buffer for AA is used to
+    put data into it starting at indices [i1, k1], where i1 & k1 are the
+    global indices in the original computations, then aGlobalIndexMemStart0
+    and aGlobalIndexMemStart1 are i1 & k1, respectively.
 
     If the A, B, or C buffers are larger than the actual data tile they
     contain (see copy_to_tile_buffer), then the actual tile size must be
-    given using an optional attribute: ATileSize, BTileSize, or CTileSize.
+    given using an optional attribute: aTileSize, bTileSize, or cTileSize (4).
     These optional tile size have a rank of 2, and their values must be
     equal or smaller than their corresponding buffer memrefs.
 
     If the computation are further tiled with respect to the size of the
     buffers A, B, or C, then the actual computation tile is given by
-    the optional tile attribute computeTileSize. Its rank is 3, for the
-    I, J, and K dimension. The actual A, B, and C buffer tile size 
+    the optional tile attribute computeTileSize (5). Its rank is 3, for the
+    I, J, and K dimension. The actual A, B, and C buffer tile size
     (possibly specified by the optional parameters) must be a multiple of
     the I, J, and K computeTileSizes, in their respective
-    dimensions (A: IxK], B: [KxJ], C: [IxJ]).
+    dimensions (A: [IxK], B: [KxJ], C: [IxJ]).
 
     Note that the buffers A, B, and C can be of higher dimensionality than
     the traditional 2D mentioned up to now, because of broadcasting rules.
     At this time, we only support broadcast of arrays having ranks of 2 or
     more. Because of the broadcast rules, the higher dimenstions have a
     constant index during one matrix multiply. These fixed indices are
-    given as prefix dimensions in the starting indices for A, B, and C
-    as described above. E.g. if A has a rank of 3, and B has a rank of 2,
-    the starting indices for A are [d, i1, k1] where i1 and k1 are as
+    given as prefix dimensions in the starting indices for AA, BB, and CC
+    as described above. E.g. if AA has a rank of 3, and BB has a rank of 2,
+    the starting indices for AA are [d, i1, k1] where i1 and k1 are as
     above, and d is index pointing to the current instance of the IxK
-    A matrix to be computed. B start indices would be unchanged at [k1, j1].
+    AA matrix to be computed. B start indices would be unchanged at [k1, j1].
 
     Simdize is used to state if simdization is requested.
     Unrolling is used to unroll and jam loops as warrented.
 
     Below is an example calculating a matrix multiply with pre-zeroed
-    C matrix with the sizes below. 
+    C matrix with the sizes below.
+
     %A: memref<40x60xf32>, %B: memref<60x80xf32>, %C: memref<40x80xf32>
 
     // 3 tiled loops.
@@ -673,26 +782,26 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     %jlb, %jll = krnl.block %jl 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
     %klb, %kll = krnl.block %kl 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
     // Permute.
-    krnl.permute(%ib, %ilb, %ill, %jb, %jlb, %jll, %kb, %klb, %kll) 
-        [0, 3, 6, 1, 4, 7, 2, 5, 8] : 
-        !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, 
+    krnl.permute(%ib, %ilb, %ill, %jb, %jlb, %jll, %kb, %klb, %kll)
+        [0, 3, 6, 1, 4, 7, 2, 5, 8] :
+        !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop,
         !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
     // Outer 2 for i, j.
-    krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 40, 
-                                 %jj -> %j = 0 to 80, 
+    krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 40,
+                                 %jj -> %j = 0 to 80,
                                  %kk -> %k = 0 to 60) {
-        %i1, %j1 = krnl.get_induction_var_value(%ib, %jb) : 
+        %i1, %j1 = krnl.get_induction_var_value(%ib, %jb) :
           (!krnl.loop,!krnl.loop) -> (index, index)
         // Fill C buffer.
         %Cbuff = alloca(): memref<10x8xf32>  // n x m_simd
-        krnl.copy_to_tile_buffer %Cbuff, %C[%i1, %j1], %f0 : 
+        krnl.copy_to_tile_buffer %Cbuff, %C[%i1, %j1], %f0 :
           memref<10x8xf32>, memref<40x80xf32>
         // Outer 1 for k.
         krnl.iterate(%kb) with () {
             %k1 = krnl.get_induction_var_value(%kb) : (!krnl.loop) -> (index)
             // Fill A and B buffer
             %Abuff = alloca(): memref<10x10xf32> // i x k
-            %Bbuff = alloca(): memref<10x8xf32>  // k x j_simd     
+            %Bbuff = alloca(): memref<10x8xf32>  // k x j_simd
             krnl.copy_to_tile_buffer %Abuff, %A[%i1, %k1], %f0 :
               memref<10x10xf32>, memref<40x60xf32>
             krnl.copy_to_tile_buffer %Bbuff, %B[%k1, %j1], %f0 :
@@ -716,7 +825,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     }
 
     Note that code is simdized along the J dim (last dim of B and C matrices).
-    For simd to be enabled, the simdized flag must be set to true, and the 
+    For simd to be enabled, the simdized flag must be set to true, and the
     following condition must be true:
     1) The vector length is the second entry of (i, j, k) compute tile size.
        The vector length must be a compile time constant.
@@ -726,15 +835,17 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     // Buffer/memory used and indices that correspoond to the begining 
     // of each buffer/memory.
     Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
-    Variadic<Index>: $aMemStart,
+    Variadic<Index>: $aGlobalIndexMemStart,
     Arg<AnyMemRef, "Mult B [KxM]", [MemRead]>:$B,
-    Variadic<Index>: $bMemStart,
+    Variadic<Index>: $bGlobalIndexMemStart,
     Arg<AnyMemRef, "Add into C [NxM]", [MemRead, MemWrite]>:$C,
-    Variadic<Index>: $cMemStart,
+    Variadic<Index>: $cGlobalIndexMemStart,
     // Loops involved, and indices pointing to the start of the compute
     // subtile. 
     Variadic<AnyType> : $loops,
-    Index: $iComputeStart, Index: $jComputeStart, Index: $kComputeStart,
+    Index: $iGlobalIndexComputeStart,
+    Index: $jGlobalIndexComputeStart,
+    Index: $kGlobalIndexComputeStart,
     // Global upper bound for the entire computations.
     Index: $iGlobalUB, Index: $jGlobalUB, Index: $kGlobalUB,
     // Optional argument to override defaults.
@@ -754,7 +865,9 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
       "Value": $B, "ValueRange": $bStart, // Both same rank.
       "Value": $C, "ValueRange": $cStart, // Both same rank.
       "ValueRange": $loops, // Rank 3: (i,j,k).
-      "Value": $iComputeStart, "Value": $jComputeStart, "Value": $kComputeStart,
+      "Value": $iGlobalIndexComputeStart,
+      "Value": $jGlobalIndexComputeStart,
+      "Value": $kGlobalIndexComputeStart,
       "Value": $iGlobalUB, "Value": $jGlobalUB, "Value": $kGlobalUB,
       "ArrayRef<int64_t>": $computeTileSize, // Rank 3: (i,j,k).
       "ArrayRef<int64_t>": $aTileSize, // Rank 2: (rightmost 2 dims).
@@ -769,7 +882,9 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
       "Value": $B, "ValueRange": $bStart, // Both same rank.
       "Value": $C, "ValueRange": $cStart, // Both same rank.
       "ValueRange": $loops, // Rank 3: (i,j,k).
-      "Value": $iComputeStart, "Value": $jComputeStart, "Value": $kComputeStart,
+      "Value": $iGlobalIndexComputeStart,
+      "Value": $jGlobalIndexComputeStart,
+      "Value": $kGlobalIndexComputeStart,
       "Value": $iGlobalUB, "Value": $jGlobalUB, "Value": $kGlobalUB,
       "bool": $simdize,
       "bool": $unroll,
@@ -779,11 +894,12 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
   let hasVerifier = 1;
 
   let assemblyFormat = [{
-    $A `[` $aMemStart `]` `,`
-    $B `[` $bMemStart `]` `,`
-    $C `[` $cMemStart `]` `,`
+    $A `[` $aGlobalIndexMemStart `]` `,`
+    $B `[` $bGlobalIndexMemStart `]` `,`
+    $C `[` $cGlobalIndexMemStart `]` `,`
     `(` $loops `)` `,`
-    `(` $iComputeStart `,` $jComputeStart `,` $kComputeStart `)` `,`
+    `(` $iGlobalIndexComputeStart `,` $jGlobalIndexComputeStart `,`
+        $kGlobalIndexComputeStart `)` `,`
     `(` $iGlobalUB `,` $jGlobalUB `,` $kGlobalUB `)` 
     attr-dict `:` type($A) `,` type($B)`,` type($C) `,` `(` type($loops) `)`
   }];

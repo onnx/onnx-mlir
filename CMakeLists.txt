@@ -36,6 +36,16 @@ if (MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -wd4125")
 endif()
 
+# Define preprocessor for accelerators.
+set(NNPA_ENABLED 0)
+if (ACCELERATORS_TO_BUILD)
+  foreach(t ${ACCELERATORS_TO_BUILD})
+    if (${t} STREQUAL "NNPA")
+      set(NNPA_ENABLED 1)
+    endif()
+  endforeach(t)
+endif(ACCELERATORS_TO_BUILD)
+
 # Enable warnings as errors
 # Leverage the imported LLVM_ENABLE_WERROR for compiler logic
 set(LLVM_ENABLE_WERROR ${ONNX_MLIR_ENABLE_WERROR})
@@ -134,7 +144,9 @@ set(BENCHMARK_ENABLE_TESTING OFF)
 add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/rapidcheck)
-add_subdirectory(third_party/benchmark)
+if (NOT TARGET benchmark)
+  add_subdirectory(third_party/benchmark)
+endif()
 
 # Ensure warnings are reported for onnx-mlir code.
 if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
@@ -149,3 +161,4 @@ add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(docs)
 add_subdirectory(test)
+add_subdirectory(version)

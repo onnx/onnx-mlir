@@ -24,9 +24,12 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
 
-#include "ZLowOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
+namespace zlow {
 
 //===----------------------------------------------------------------------===//
 // ZLowDialect
@@ -38,13 +41,16 @@ ZLowDialect::ZLowDialect(MLIRContext *ctx)
     : Dialect(getDialectNamespace(), ctx, TypeID::get<ZLowDialect>()) {
   addOperations<
 #define GET_OP_LIST
-#include "Dialect/ZLow/ZLowOps.cpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.cpp.inc"
       >();
 }
+
+} // namespace zlow
+} // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 
 #define GET_OP_CLASSES
-#include "Dialect/ZLow/ZLowOps.cpp.inc"
+#include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.cpp.inc"

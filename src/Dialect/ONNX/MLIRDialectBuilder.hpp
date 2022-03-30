@@ -62,8 +62,8 @@ struct MathBuilder final : DialectBuilder {
   MathBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   MathBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  Value _and(Value lhs, Value rhs) const;
-  Value _or(Value lhs, Value rhs) const;
+  Value andi(Value lhs, Value rhs) const;
+  Value ori(Value lhs, Value rhs) const;
 
   Value add(Value lhs, Value rhs) const;
   Value sub(Value lhs, Value rhs) const;
@@ -73,6 +73,7 @@ struct MathBuilder final : DialectBuilder {
   Value exp2(Value val) const;
   Value log2(Value val) const;
   Value sqrt(Value val) const;
+  Value pow(Value base, Value exp) const;
 
   Value select(Value cmp, Value lhs, Value rhs) const;
   Value sgt(Value lhs, Value rhs) const;
@@ -86,6 +87,17 @@ struct MathBuilder final : DialectBuilder {
 
   Value constant(Type type, double val) const;
   Value constantIndex(int64_t val) const;
+
+  /// Emit a negative infinity constant of a specific type. Supported types:
+  /// F16, F32, F64, Int8, Int16, Int32, Int64. In case of Float, emit the
+  /// negative of the positive infinity. In case of Integer, emit the minimum
+  /// value.
+  Value negativeInf(Type type) const;
+
+  /// Emit a positive infinity constant of a specific type. Supported types:
+  /// F16, F32, F64, Int8, Int16, Int32, Int64. In case of Integer, emit the
+  /// maximum value.
+  Value positiveInf(Type type) const;
 
   // Cast handle bool/int/float/index elementary types. Do not convert
   // signed/index to unsigned.
@@ -120,7 +132,10 @@ struct MemRefBuilder final : DialectBuilder {
 
   memref::CastOp cast(Value input, MemRefType outputType) const;
 
+  Value reinterpretCast(
+      Value input, SmallVectorImpl<IndexExpr> &outputDims) const;
   Value dim(Value val, int64_t index) const;
+  Value dim(Value val, Value index) const;
 };
 
 // Default alignment attribute for all allocation of memory. On most system, it
@@ -157,6 +172,15 @@ struct VectorBuilder final : DialectBuilder {
   Value broadcast(VectorType vecType, Value val) const;
   Value shuffle(Value lhs, Value rhs, SmallVectorImpl<int64_t> &mask) const;
   Value fma(Value lhs, Value rhs, Value acc) const;
+
+  // Composite functions
+  Value mergeLow(Value lhs, Value rhs, int64_t step);
+  Value mergeHigh(Value lhs, Value rhs, int64_t step);
+  Value multiReduction(SmallVectorImpl<Value> &vecArray); // Only 4x4 as of now.
+
+private:
+  bool isPowerOf2(uint64_t num);
+  uint64_t vector1DLength(Value vec);
 };
 
 //===----------------------------------------------------------------------===//
@@ -197,6 +221,12 @@ private:
       Block *block, function_ref<void(ValueRange)> builderFn) const;
 };
 
+// Affine builder uses affine load and store for memory operations. A later
+// definition of AffineBuilderKrnlMem will use Krnl load and store for memory
+// operations. We recommend to use AffineBuilderKrnlMem when converting the Krnl
+// dialect into the affine dialect.
+using AffineBuilder = GenericAffineBuilder<AffineLoadOp, AffineStoreOp>;
+
 //===----------------------------------------------------------------------===//
 // Multi Dialect Builder
 //===----------------------------------------------------------------------===//
@@ -222,15 +252,16 @@ private:
   create.mem.alloca(type);
 
   Types that can be used here are
+  *  AffineBuilder, access field with affine
+  *  AffineBuilderKrnlMem, access field with affineKMem
   *  KrnlBuilder, access field with krnl
   *  MathBuilder, access field with math
   *  MemRefBuilder, access field with mem
   *  ONNXBuilder, access field with onnx
   *  SCFBuilder, access field with scf
 
-  PS: at this time, affine cannot be combined as it is itself a template.
-
 */
+
 // Anchor class.
 template <class... Ts>
 struct MultiDialectBuilder {
@@ -256,6 +287,16 @@ struct MultiDialectBuilder<MemRefBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), mem(db) {}
   MemRefBuilder mem;
+};
+
+// Recursive class specialized for AffineBuilder refereed to as affine.
+template <class... Ts>
+struct MultiDialectBuilder<AffineBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(OpBuilder &b, Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), affine(b, loc) {}
+  MultiDialectBuilder(DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), affine(db) {}
+  AffineBuilder affine;
 };
 
 // Recursive class specialized for SCFBuilder refereed to as scf.

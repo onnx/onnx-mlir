@@ -21,7 +21,8 @@ using namespace mlir;
 template <>
 Value getIdentityValue<ONNXMaxPoolSingleOutOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  return emitNegativeInfinityConstantOp(rewriter, loc, type);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  return create.math.negativeInf(type);
 }
 
 template <>
@@ -43,10 +44,9 @@ Value emitScalarOpFor<ONNXMaxPoolSingleOutOp>(
     Type elementType, ArrayRef<Value> scalarOperands) {
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  auto max =
-      rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGT, lhs, rhs);
-  auto result = rewriter.create<arith::SelectOp>(loc, max, lhs, rhs);
-  return result;
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value max = create.math.sgt(lhs, rhs);
+  return create.math.select(max, lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
@@ -119,9 +119,11 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXAveragePoolOp poolOp,
     Value alloc, ArrayRef<Value> resultIndices, ArrayRef<int64_t> kernelShape,
     ArrayRef<Value> poolDimValues) {
+  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+
   // AveragePool's result type is FloatType, so it's safe to use DivFOp, SubFOp.
   bool countIncludePad = getCountIncludePad<ONNXAveragePoolOp>(poolOp);
-  Value numerator = rewriter.create<KrnlLoadOp>(loc, alloc, resultIndices);
+  Value numerator = create.krnl.load(alloc, resultIndices);
   Value denominator;
   if (countIncludePad) {
     int64_t kernelSize = 1;
@@ -132,17 +134,15 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
   } else {
     denominator = poolDimValues[0];
     for (unsigned int i = 1; i < poolDimValues.size(); ++i)
-      denominator =
-          rewriter.create<arith::MulIOp>(loc, denominator, poolDimValues[i]);
+      denominator = create.math.mul(denominator, poolDimValues[i]);
     denominator = rewriter.create<arith::IndexCastOp>(
         loc, rewriter.getIntegerType(64), denominator);
     denominator =
         rewriter.create<arith::SIToFPOp>(loc, numerator.getType(), denominator);
   }
 
-  Value average = rewriter.create<arith::DivFOp>(loc, numerator, denominator);
-
-  rewriter.create<KrnlStoreOp>(loc, average, alloc, resultIndices);
+  Value average = create.math.div(numerator, denominator);
+  create.krnl.store(average, alloc, resultIndices);
 }
 
 //===----------------------------------------------------------------------===//
@@ -159,9 +159,11 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXAveragePoolOp poolOp,
     Value alloc, ArrayRef<Value> resultIndices, ArrayRef<IndexExpr> kernelShape,
     ArrayRef<Value> poolDimValues) {
+  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+
   // AveragePool's result type is FloatType, so it's safe to use DivFOp, SubFOp.
   bool countIncludePad = getCountIncludePad<ONNXAveragePoolOp>(poolOp);
-  Value numerator = rewriter.create<KrnlLoadOp>(loc, alloc, resultIndices);
+  Value numerator = create.krnl.load(alloc, resultIndices);
   Value denominator;
   if (countIncludePad) {
     IndexExpr kernelSize = LiteralIndexExpr(1);
@@ -176,8 +178,7 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
   } else {
     denominator = poolDimValues[0];
     for (unsigned int i = 1; i < poolDimValues.size(); ++i)
-      denominator =
-          rewriter.create<arith::MulIOp>(loc, denominator, poolDimValues[i]);
+      denominator = create.math.mul(denominator, poolDimValues[i]);
     denominator = rewriter.create<arith::IndexCastOp>(
         loc, rewriter.getIntegerType(64), denominator);
     // TODO: we are implying here that the dest type is a float.
@@ -185,9 +186,8 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
         rewriter.create<arith::SIToFPOp>(loc, numerator.getType(), denominator);
   }
 
-  Value average = rewriter.create<arith::DivFOp>(loc, numerator, denominator);
-
-  rewriter.create<KrnlStoreOp>(loc, average, alloc, resultIndices);
+  Value average = create.math.div(numerator, denominator);
+  create.krnl.store(average, alloc, resultIndices);
 }
 
 //===----------------------------------------------------------------------===//
@@ -201,9 +201,10 @@ struct ONNXPoolOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     PoolOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
-
+    Location loc = op->getLoc();
     PoolOp poolOp = llvm::dyn_cast<PoolOp>(op);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
 
     // Get shape.
     PoolOpShapeHelper shapeHelper(&poolOp, &rewriter,
@@ -216,7 +217,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     auto ceilMode = poolOp.ceil_mode();
 
     // Type information about the input and result of this operation.
-    auto inputOperand = (Value)operandAdaptor.X();
+    Value inputOperand = operandAdaptor.X();
     auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     auto outputShape = memRefType.getShape();
@@ -232,7 +233,6 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
     // Scope for krnl ops
     IndexExprScope ieScope(&rewriter, loc);
-    KrnlBuilder createKrnl(rewriter, loc);
 
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
@@ -340,11 +340,9 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // 2.1 Emit: output[n][c][ho][wo] = identity
       // Create a local reduction value for output[n][c][ho][wo].
       // Single scalar, no need for default alignment.
-      MemRefBuilder createMemRef(rewriter, loc);
-      MathBuilder createMath(createMemRef);
       Value reductionVal =
-          createMemRef.alloca(MemRefType::get({}, memRefType.getElementType()));
-      createKrnl.store(identity, reductionVal);
+          create.mem.alloca(MemRefType::get({}, memRefType.getElementType()));
+      create.krnl.store(identity, reductionVal);
 
       // 2.2 Emit affine maps which express the lower and upper bounds for the
       // pooling window's dimensions.
@@ -396,20 +394,20 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //   wDim = round(float(endW - startW) / float(dW))
       SmallVector<Value, 4> fullWindowSize;
       for (int i = 0; i < kernelShapeSize; ++i) {
-        Value dim = createMath.sub(
+        Value dim = create.math.sub(
             windowEndExprs[i].getValue(), windowStartExprs[i].getValue());
         if (isDilated) {
-          Value one = createMath.constantIndex(1);
-          Value numerator = createMath.add(dim, one);
+          Value one = create.math.constantIndex(1);
+          Value numerator = create.math.add(dim, one);
           Value denominator = IVExprs[i][5].getValue(); // dilations[i]
-          dim = createMath.div(numerator, denominator);
+          dim = create.math.div(numerator, denominator);
           if (ceilMode) {
             auto remainder =
                 rewriter.create<arith::RemSIOp>(loc, numerator, denominator);
-            Value zero = createMath.constantIndex(0);
-            Value isZero = createMath.eq(remainder, zero);
-            Value dimPlusOne = createMath.add(dim, one);
-            dim = createMath.select(isZero, dim, dimPlusOne);
+            Value zero = create.math.constantIndex(0);
+            Value isZero = create.math.eq(remainder, zero);
+            Value dimPlusOne = create.math.add(dim, one);
+            dim = create.math.select(isZero, dim, dimPlusOne);
           }
         }
         fullWindowSize.emplace_back(dim);
@@ -464,15 +462,15 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         // Apply pooling operation.
         //      output[n][c][ho][wo] =
         //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
-        Value loadInput = createKrnl.loadIE(inputOperand, inputIndices);
-        Value loadPartialOutput = createKrnl.load(reductionVal);
+        Value loadInput = create.krnl.loadIE(inputOperand, inputIndices);
+        Value loadPartialOutput = create.krnl.load(reductionVal);
         Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
             outputElementType, {loadPartialOutput, loadInput});
-        createKrnl.store(output, reductionVal);
+        create.krnl.store(output, reductionVal);
       }
       rewriter.restoreInsertionPoint(ipOuterLoopRegion);
-      Value output = createKrnl.load(reductionVal);
-      createKrnl.storeIE(output, alloc, outputIndices);
+      Value output = create.krnl.load(reductionVal);
+      create.krnl.storeIE(output, alloc, outputIndices);
 
       // 2.5 Post-processing for the pooling window, e.g. taking average.
       SmallVector<Value, 4> outputIndicesInValue;

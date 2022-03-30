@@ -21,12 +21,13 @@ template <typename Adaptor, typename Op, typename ShapeHelper>
 LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
     ConversionPatternRewriter &rewriter) {
   // Gather info.
-  auto loc = op->getLoc();
+  Location loc = op->getLoc();
   Adaptor operandAdaptor(operands);
-  Op splitOp = llvm::dyn_cast<Op>(op);
-  auto rank = splitOp.input().getType().template cast<ShapedType>().getRank();
-  auto outputNum = splitOp.getNumResults();
-  auto axis = splitOp.axis();
+  Op splitOp = cast<Op>(op);
+  uint64_t rank =
+      splitOp.input().getType().template cast<ShapedType>().getRank();
+  unsigned outputNum = splitOp.getNumResults();
+  unsigned axis = splitOp.axis();
 
   // Get a shape helper.
   ShapeHelper shapeHelper(&splitOp, &rewriter,
@@ -36,7 +37,7 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
 
   // Alloc and dealloc.
   SmallVector<Value, 4> allocs;
-  for (unsigned int i = 0; i < outputNum; ++i) {
+  for (unsigned i = 0; i < outputNum; ++i) {
     checkInsertDealloc(op, i);
     auto memRefType = convertToMemRefType(splitOp.outputs()[i].getType());
     Value alloc = insertAllocAndDeallocSimple(
@@ -45,40 +46,44 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
   }
 
   // Creates loops, one for each output.
-  for (unsigned int i = 0; i < outputNum; ++i) {
+  for (unsigned i = 0; i < outputNum; ++i) {
     OpBuilder::InsertionGuard insertGuard(rewriter);
-    // Create loop.
-    BuildKrnlLoop outputLoops(rewriter, loc, rank);
-    outputLoops.createDefineAndIterateOp(allocs[i]);
-    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     // Scope for krnl ops
     IndexExprScope childScope(&rewriter, shapeHelper.scope);
-    KrnlBuilder createKrnl(rewriter, loc);
 
-    // Indices for the read and write.
-    SmallVector<IndexExpr, 4> readIndices;
-    SmallVector<IndexExpr, 4> writeIndices;
-    for (int r = 0; r < rank; ++r) {
-      Value readVal = outputLoops.getInductionVar(r);
-      // If not the split axis, same index for read and write
-      IndexExpr readIndex = DimIndexExpr(readVal);
-      DimIndexExpr writeIndex(readVal);
-      // If the split axis, compute read index for the split axis.
-      if (r == axis) {
-        for (unsigned int k = 0; k < i; ++k) {
-          IndexExpr splitDim = SymbolIndexExpr(shapeHelper.dimsForOutput(k)[r]);
-          readIndex = readIndex + splitDim;
-        }
-      }
-      readIndices.emplace_back(readIndex);
-      writeIndices.emplace_back(writeIndex);
-    }
-    // Insert copy.
-    Value loadData = createKrnl.loadIE(operandAdaptor.input(), readIndices);
-    createKrnl.storeIE(loadData, allocs[i], writeIndices);
+    KrnlBuilder createKrnl(rewriter, loc);
+    ValueRange loopDef = createKrnl.defineLoops(rank);
+    SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+
+    MemRefBoundsIndexCapture allocsBounds(allocs[i]);
+    SmallVector<IndexExpr, 4> ubs;
+    allocsBounds.getDimList(ubs);
+
+    createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+          SmallVector<IndexExpr, 4> readIndices;
+          for (uint64_t r = 0; r < rank; ++r) {
+            DimIndexExpr readIndex(indices[r]);
+            // Compute read index for the split axis.
+            if (r == axis)
+              for (unsigned k = 0; k < i; ++k) {
+                SymbolIndexExpr splitDim(shapeHelper.dimsForOutput(k)[r]);
+                readIndex = readIndex + splitDim;
+              }
+
+            readIndices.emplace_back(readIndex);
+          }
+
+          // Insert copy.
+          Value loadData =
+              createKrnl.loadIE(operandAdaptor.input(), readIndices);
+          createKrnl.store(loadData, allocs[i], indices);
+        });
   }
+
   rewriter.replaceOp(op, allocs);
+
   return success();
 }
 

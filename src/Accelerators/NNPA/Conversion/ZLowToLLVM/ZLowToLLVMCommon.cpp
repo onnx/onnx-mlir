@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
+#include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
 #include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
@@ -22,6 +22,9 @@
 #include "third_party/zdnn-lib/zdnn/zdnn.h"
 
 using namespace mlir;
+
+namespace onnx_mlir {
+namespace zlow {
 
 ApiRegistry RegisterAllApis(MLIRContext *context) {
   auto voidTy = LLVM::LLVMVoidType::get(context);
@@ -578,5 +581,7 @@ void fillInZTensor(PatternRewriter &rewriter, Location loc, ModuleOp module,
   rewriter.create<LLVM::StoreOp>(loc, isTransformedVal, isTransformedDescPtr);
 
   // 6. Set reserved (not currently used), not touch
+}
 
-} // namespace
+} // namespace zlow
+} // namespace onnx_mlir

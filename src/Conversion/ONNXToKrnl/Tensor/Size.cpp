@@ -26,22 +26,21 @@ struct ONNXSizeOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
     Location loc = op->getLoc();
-    Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
-    ONNXSizeOp sizeOp = llvm::dyn_cast<ONNXSizeOp>(op);
+    ONNXSizeOp sizeOp = cast<ONNXSizeOp>(op);
+    MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 
     ONNXSizeOpAdaptor operandAdaptor(operands);
     Value data = operandAdaptor.data();
     ArrayRef<int64_t> dataShape = data.getType().cast<MemRefType>().getShape();
     Value resultOperand = sizeOp.size();
-    ValueRange indices;
     MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
 
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {resultOperand});
+    Value alloc =
+        (hasAllConstantDimensions(memRefType))
+            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
+            : insertAllocAndDealloc(
+                  memRefType, loc, rewriter, insertDealloc, {resultOperand});
 
     // Accumulate static dimensions first.
     int64_t staticNumElement = 1;
@@ -58,7 +57,7 @@ struct ONNXSizeOpLowering : public ConversionPattern {
     if (!allStaticDimensions) {
       MemRefBuilder createMemRef(rewriter, loc);
       MathBuilder createMath(createMemRef);
-      for (unsigned i = 0; i < dataShape.size(); i++) {
+      for (size_t i = 0; i < dataShape.size(); i++) {
         if (dataShape[i] == -1) {
           Value index = createMemRef.dim(data, i);
           Value dim = createMath.cast(memRefType.getElementType(), index);
@@ -67,7 +66,7 @@ struct ONNXSizeOpLowering : public ConversionPattern {
       }
     }
 
-    rewriter.create<KrnlStoreOp>(loc, noElements, alloc, llvm::None);
+    create.krnl.store(noElements, alloc, llvm::None);
     rewriter.replaceOp(op, alloc);
     return success();
   }

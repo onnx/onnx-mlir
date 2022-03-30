@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- Accelerator.hpp -------------------------===//
+//===-------------------------- Accelerator.hpp ---------------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -11,23 +11,48 @@
 // Accelerator base class
 //
 //===----------------------------------------------------------------------===//
+
 #pragma once
+
+#include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"
-#include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include <vector>
 
-namespace mlir {
+extern bool InitAccelerators();
+
+namespace onnx_mlir {
+namespace accel {
+
 class Accelerator {
 public:
-  Accelerator();
-  static std::vector<Accelerator *> *getAcceleratorList();
-  virtual bool isActive() = 0;
-  virtual void prepareAccelerator(mlir::OwningOpRef<ModuleOp> &module,
-      mlir::MLIRContext &context, mlir::PassManager &pm,
-      onnx_mlir::EmissionTargetType emissionTarget) = 0;
+  /// Kinds of accelerators.
+  enum class Kind {
+#include "src/Accelerators/AcceleratorKinds.hpp"
+  };
 
-private:
-  static std::vector<Accelerator *> *acceleratorTargets;
+  Accelerator(Kind kind) : kind(kind) {}
+  virtual ~Accelerator();
+
+  /// Getter for the kind of this accelerator.
+  Kind getKind() const { return kind; }
+
+  static std::vector<Accelerator *> getAcceleratorList();
+  virtual bool isActive() const = 0;
+  virtual void getOrLoadDialects(mlir::MLIRContext &context) const = 0;
+  virtual void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
+      mlir::PassManager &pm,
+      onnx_mlir::EmissionTargetType &emissionTarget) const = 0;
+  virtual void registerDialects(mlir::DialectRegistry &registry) const = 0;
+  virtual void initPasses(int optLevel) const = 0;
+
+protected:
+  // static llvm::SmallPtrSet<Accelerator *, 2> acceleratorTargets;
+  static std::vector<Accelerator *> acceleratorTargets;
+
+  /// Kind of accelerator.
+  Kind kind;
 };
-} // namespace mlir
+
+} // namespace accel
+} // namespace onnx_mlir

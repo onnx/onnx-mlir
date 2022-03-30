@@ -1010,21 +1010,22 @@ LogicalResult ONNXSeluOp::inferShapes(
 
 // Sequence related operations
 // The general form for seq is seq<tensor<*xT>>
-// Tensors will be add or removed a seq dynamically.
-// The type of tensor should be a summary of all the tensors in the seq,
-// and can change after insertion.
+// Tensors will be add to or removed from a seq dynamically.
+// The tensor type in a seq should be a summary of all the tensor type in
+// the seq.
 // It is possible seq<tensor<*xT>> can be refined into seq<RankedTensor>,
 // or even seq<StaticShapedTensor> if all the tensors have common shape info
-// A seq is started empty as the result of SequenceEmpty. We can track this
-// property with a tag in seq type or along dataflow.
-// When the an element is added, we can do some shape inference.
-// It is not easy to do anything when an element is removed.
+// It is important to refine the type for seq in onnx-mlir because static
+// type is used. If seq of unranked tensor remains, onnx-mlir can not handle
+// the unranked tensor retrieved from the seq.
+// Here is the rules for shape inferences of seq-related ops:
+// * A seq is started empty as the result of SequenceEmpty. We can track this
+//   property with a tag in seq type or along dataflow.
+// * When the an element is added, we can merge its shape with that in seq.
+// * when an element is removed from seq, the seq becomes empty if it is the
+//   last tenor in the seq (known statically).
 // Since the seq is usually used as a parameter of a graph (e.g. for LoopOp),
 // shape inference for region may need improvement.
-// However, the motivation for seq is to support tensors with
-// different shape in a seq. Otherwise a tensor with an extra dimension can
-// be used. The benefit to refine shape info for seq is unclear to me.
-// Therefore, the current implementation does not try to refine the shape info.
 
 //===----------------------------------------------------------------------===//
 // SequenceInsertOp
@@ -1115,6 +1116,13 @@ LogicalResult ONNXConcatFromSequenceOp::inferShapes(
 
 LogicalResult ONNXSequenceAtOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
+  auto outputType = getResult().getType();
+  auto inputElementType =
+      input_sequence().getType().cast<SeqType>().getElementType();
+  if (!inputElementType.isa<UnrankedTensorType>() &&
+      outputType.isa<UnrankedTensorType>()) {
+    getResult().setType(inputElementType);
+  }
   return success();
 }
 
@@ -1130,6 +1138,25 @@ LogicalResult ONNXSequenceConstructOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // SequenceEmptyOp
 //===----------------------------------------------------------------------===//
+
+LogicalResult ONNXSequenceEmptyOp::verify() {
+  // For the Optional dtypeAttr, the default type is F32
+  auto builder = mlir::OpBuilder(getContext());
+  Type elementType;
+  if (dtypeAttr()) {
+    elementType = convertONNXTypeToMLIRType(builder,
+        (onnx::TensorProto_DataType)dtypeAttr().getValue().getSExtValue());
+  } else {
+    elementType = builder.getF32Type();
+  }
+
+  // Get element type for seq from the output
+  ShapedType outputSeqElementType =
+      getResult().getType().cast<SeqType>().getElementType();
+  if (outputSeqElementType.getElementType() != elementType)
+    return emitError("SequenceEmpty dtype() does not match the output type");
+  return success();
+}
 
 LogicalResult ONNXSequenceEmptyOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
@@ -3531,14 +3558,13 @@ LogicalResult ONNXOneHotEncoderOp::verify() {
   // the cats_int64s category list will be used for the lookups.
   if (inputType.getElementType().isIntOrFloat()) {
     if (!operandAdaptor.cats_int64s()) {
-      return emitOpError("input is a tensor of float, int32, or double, but no "
-                         "cats_int64s attribute");
+      return emitOpError("input is a tensor of float, int32, or double, "
+                         "but no cats_int64s attribute");
     }
   } else {
     if (!operandAdaptor.cats_strings()) {
-      return emitOpError(
-          "input is not a tensor of float, int32, or double, but "
-          "no cats_strings attribute");
+      return emitOpError("input is not a tensor of float, int32, or double, "
+                         "but no cats_strings attribute");
     }
   }
   return success();

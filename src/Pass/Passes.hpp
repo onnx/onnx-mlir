@@ -49,9 +49,6 @@ std::unique_ptr<mlir::Pass> createLowerToKrnlPass(int optLevel);
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
     bool emitDealloc, bool enableTiling);
 
-/// Pass for lowering frontend dialects to Krnl IR dialect.
-std::unique_ptr<mlir::Pass> createConvertKrnlToAffinePass();
-
 /// Pass for lowering krnl.dim operations to standard dialect.
 std::unique_ptr<mlir::Pass> createDisconnectKrnlDimFromAllocPass();
 
@@ -63,6 +60,9 @@ std::unique_ptr<mlir::Pass> createElideConstGlobalValuePass();
 
 namespace krnl {
 
+/// Pass for lowering frontend dialects to Krnl IR dialect.
+std::unique_ptr<Pass> createConvertKrnlToAffinePass();
+
 /// Pass for enabling a memory pool for MemRefs.
 std::unique_ptr<mlir::Pass> createKrnlEnableMemoryPoolPass();
 
@@ -71,6 +71,9 @@ std::unique_ptr<mlir::Pass> createKrnlBundleMemoryPoolsPass();
 
 /// Pass for optimizing memory pools.
 std::unique_ptr<mlir::Pass> createKrnlOptimizeMemoryPoolsPass();
+
+/// Pass for lowering Seq in Krnl dialect.
+std::unique_ptr<Pass> createConvertSeqToMemrefPass();
 
 /// Pass for lowering Krnl dialect to LLVM dialect.
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass();

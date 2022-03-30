@@ -18,13 +18,18 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-#include "Dialect/ZHigh/ZHighOps.hpp"
-#include "Pass/DLCPasses.hpp"
-#include "Support/LayoutHelper.hpp"
-#include "Transform/ZHigh/Stickify/stickify.h"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Accelerators/NNPA/Transform/ZHigh/Stickify/Stickify.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
+using namespace onnx_mlir::zhigh;
+
+namespace onnx_mlir {
+namespace zhigh {
 
 /// A helper function to check whether a value is produced by a dense
 /// ONNXConstantOp.
@@ -284,8 +289,11 @@ ZHighStickifiedConstantOp createConstantForStickForGRU(
 //===----------------------------------------------------------------------===//
 
 namespace {
+/// Use anonymous namespace to avoid duplication symbol `populateWithGenerated`
+/// among multiple tablegen-based definitions.
+
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "Transform/ZHigh/ZHighConstPropagation.inc"
+#include "src/Accelerators/NNPA/Transform/ZHigh/ONNXZHighConstPropagation.inc"
 
 struct ZHighConstPropagationPass
     //: public PassWrapper<ZHighConstPropagationPass, OperationPass<ModuleOp>> {
@@ -305,9 +313,11 @@ struct ZHighConstPropagationPass
     (void)applyPatternsAndFoldGreedily(function, std::move(patterns));
   }
 };
+} // anonymous namespace
 
-} // end anonymous namespace.
-
-std::unique_ptr<Pass> mlir::createZHighConstPropagationPass() {
+std::unique_ptr<Pass> createZHighConstPropagationPass() {
   return std::make_unique<ZHighConstPropagationPass>();
 }
+
+} // namespace zhigh
+} // namespace onnx_mlir

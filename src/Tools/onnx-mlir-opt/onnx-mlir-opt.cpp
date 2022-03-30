@@ -29,16 +29,16 @@
 #include <mlir/Support/FileUtilities.h>
 #include <mlir/Support/MlirOptMain.h>
 
+#include "src/Accelerators/Accelerator.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/InitMLIRPasses.hpp"
 #include "src/InitOMPasses.hpp"
 #include "src/Pass/Passes.hpp"
 
-using namespace onnx_mlir;
-
-// TODO(tjingrant): disable the following namespace import.
 using namespace mlir;
+using namespace onnx_mlir;
 
 static llvm::cl::opt<std::string> input_filename(
     llvm::cl::Positional, llvm::cl::desc("<input file>"), llvm::cl::init("-"));
@@ -66,15 +66,6 @@ static llvm::cl::opt<bool> allowUnregisteredDialects(
     llvm::cl::desc("Allow operation with no registered dialects"),
     llvm::cl::init(false));
 
-enum OptLevel { O0 = 0, O1, O2, O3 };
-static llvm::cl::opt<OptLevel> OptimizationLevel(
-    llvm::cl::desc("Optimization levels:"),
-    llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default)."),
-        clEnumVal(O1, "Optimization level 1."),
-        clEnumVal(O2, "Optimization level 2."),
-        clEnumVal(O3, "Optimization level 3.")),
-    llvm::cl::init(O0));
-
 void scanAndSetOptLevel(int argc, char **argv) {
   // In decreasing order, so we pick the last one if there are many.
   for (int i = argc - 1; i > 0; --i) {
@@ -84,13 +75,16 @@ void scanAndSetOptLevel(int argc, char **argv) {
     int num = atoi(&argv[i][2]); // Get the number starting 2 char down.
     // Silently ignore out of bound opt levels.
     if (num >= 0 && num <= 3) {
-      OptimizationLevel = (OptLevel)num;
+      OptimizationLevel = (onnx_mlir::OptLevel)num;
       return;
     }
   }
 }
 
 int main(int argc, char **argv) {
+  // Initialize accelerators if they exist.
+  bool hasAccelerators = InitAccelerators();
+
   mlir::DialectRegistry registry;
   registry.insert<mlir::linalg::LinalgDialect>();
   registry.insert<mlir::AffineDialect>();
@@ -105,6 +99,12 @@ int main(int argc, char **argv) {
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
 
+  // Register dialects for accelerators.
+  if (hasAccelerators)
+    for (auto accel : onnx_mlir::accel::Accelerator::getAcceleratorList())
+      if (accel->isActive())
+        accel->registerDialects(registry);
+
   registerTransformsPasses();
   registerAffinePasses();
   registerLinalgPasses();
@@ -116,8 +116,13 @@ int main(int argc, char **argv) {
   // Scan Opt Level manually now as it is needed for initializing the OM Passes.
   scanAndSetOptLevel(argc, argv);
 
-  initOMPasses(OptimizationLevel);
-  initMLIRPasses();
+  onnx_mlir::initOMPasses(OptimizationLevel);
+  onnx_mlir::initMLIRPasses();
+  // Initialize passes for accelerators.
+  if (hasAccelerators)
+    for (auto accel : onnx_mlir::accel::Accelerator::getAcceleratorList())
+      if (accel->isActive())
+        accel->initPasses(OptimizationLevel);
 
   // Register any command line options.
   mlir::registerAsmPrinterCLOptions();

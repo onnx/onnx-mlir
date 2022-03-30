@@ -14,6 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+
+using namespace onnx_mlir;
 
 bool ONNXToKrnl_gEmitDealloc = false;
 
@@ -106,12 +109,12 @@ bool hasAllScalarValues(ArrayRef<Value> values) {
   return true;
 }
 
-/// Get the corresponding MemRefType of a given TensorType/MemRefType.
+/// Get the corresponding MemRefType of a given TensorType/SeqType/MemRefType.
 MemRefType convertToMemRefType(Type type) {
   // Convert the element type of the (tensor or memref) to a valid Krnl type.
   auto convertElemType = [](Type elemType) -> Type {
     if (elemType.isa<ONNXStringType>())
-      return StringType::get(elemType.getContext());
+      return krnl::StringType::get(elemType.getContext());
     return elemType;
   };
 
@@ -119,6 +122,19 @@ MemRefType convertToMemRefType(Type type) {
     assert(tensorType.hasRank() && "expected only ranked shapes");
     MemRefType memRefType = MemRefType::get(
         tensorType.getShape(), convertElemType(tensorType.getElementType()));
+    return memRefType;
+  }
+
+  if (auto seqType = type.dyn_cast_or_null<SeqType>()) {
+    ShapedType seqElementType = seqType.getElementType();
+    Type seqElementMemRefType =
+        seqElementType.hasRank()
+            ? (Type)convertToMemRefType(seqElementType)
+            : (Type)UnrankedMemRefType::get(seqElementType.getElementType(), 0);
+    SmallVector<int64_t, 1> dims;
+    dims.emplace_back(seqType.getLength());
+    llvm::ArrayRef<int64_t> shape(dims.data(), dims.size());
+    MemRefType memRefType = MemRefType::get(shape, seqElementMemRefType);
     return memRefType;
   }
 
@@ -300,9 +316,9 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
     KrnlIterateOperandPack &pack, Value operand, int index) {
   auto shape = operand.getType().cast<MemRefType>().getShape();
   if (shape[index] < 0) {
+    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
     pack.pushConstantBound(0);
-    pack.pushOperandBound(
-        rewriter.create<memref::DimOp>(loc, operand, index).getResult());
+    pack.pushOperandBound(create.mem.dim(operand, index));
   } else {
     pack.pushConstantBound(0);
     pack.pushConstantBound(shape[index]);
@@ -312,165 +328,20 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
 // Function that emits the definition of loops references.
 void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
     std::vector<Value> &loops, int64_t numLoops) {
-  auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
+  MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
+  ValueRange loopsOp = create.krnl.defineLoops(numLoops);
   loops.reserve(numLoops);
-  for (auto result : loopsOp.getResults())
+  for (auto result : loopsOp)
     loops.push_back(result);
-}
-
-Value emitPositiveInfinityConstantOp(
-    ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  Attribute constantAttr;
-
-  TypeSwitch<Type>(type)
-      .Case<Float16Type>([&](Type) {
-        // 0x7C00
-        float value = std::numeric_limits<float>::infinity();
-        constantAttr = rewriter.getF16FloatAttr(value);
-      })
-      .Case<Float32Type>([&](Type) {
-        // 0x7F800000
-        float value = std::numeric_limits<float>::infinity();
-        constantAttr = rewriter.getF32FloatAttr(value);
-      })
-      .Case<Float64Type>([&](Type) {
-        // 0x7FF0000000000000
-        double value = std::numeric_limits<double>::infinity();
-        constantAttr = rewriter.getF64FloatAttr(value);
-      })
-      .Case<IntegerType>([&](Type) {
-        auto width = type.cast<IntegerType>().getWidth();
-        // The latest llvm-project includes a patch which allows getting the
-        // sign of IntegerType:
-        // https://github.com/llvm/llvm-project/commit/35b685270b410f6a1351c2a527021f22330c25b9
-        // as follows:
-        //   auto isSigned = type.cast<IntegerType>().isSigned();
-        // TODO (tungld): update the following statement once our llvm-project
-        // is upgraded to include the patch.
-        auto isSigned = true;
-        if (width == 8) {
-          if (isSigned) {
-            int8_t value = std::numeric_limits<int8_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint8_t value = std::numeric_limits<uint8_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 16) {
-          if (isSigned) {
-            int16_t value = std::numeric_limits<int16_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint16_t value = std::numeric_limits<uint16_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 32) {
-          if (isSigned) {
-            int32_t value = std::numeric_limits<int32_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint32_t value = std::numeric_limits<uint32_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 64) {
-          if (isSigned) {
-            int64_t value = std::numeric_limits<int64_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint64_t value = std::numeric_limits<uint64_t>::max();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else {
-          llvm_unreachable("unsupported element type");
-        }
-      })
-      .Default([](Type) { llvm_unreachable("unsupported element type"); });
-  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
-}
-
-Value emitNegativeInfinityConstantOp(
-    ConversionPatternRewriter &rewriter, Location loc, Type type) {
-  Attribute constantAttr;
-
-  TypeSwitch<Type>(type)
-      .Case<Float16Type>([&](Type) {
-        // 0xFC00
-        float value = -std::numeric_limits<float>::infinity();
-        constantAttr = rewriter.getF16FloatAttr(value);
-      })
-      .Case<Float32Type>([&](Type) {
-        // 0xFF800000
-        float value = -std::numeric_limits<float>::infinity();
-        constantAttr = rewriter.getF32FloatAttr(value);
-      })
-      .Case<Float64Type>([&](Type) {
-        // 0xFFF0000000000000
-        double value = -std::numeric_limits<double>::infinity();
-        constantAttr = rewriter.getF64FloatAttr(value);
-      })
-      .Case<IntegerType>([&](Type) {
-        auto width = type.cast<IntegerType>().getWidth();
-        // The latest llvm-project includes a patch which allows getting the
-        // sign of IntegerType:
-        // https://github.com/llvm/llvm-project/commit/35b685270b410f6a1351c2a527021f22330c25b9
-        // as follows:
-        //   auto isSigned = type.cast<IntegerType>().isSigned();
-        // TODO (tungld): update the following statement once our llvm-project
-        // is upgraded to include the patch.
-        auto isSigned = true;
-        if (width == 8) {
-          if (isSigned) {
-            int8_t value = std::numeric_limits<int8_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint8_t value = std::numeric_limits<uint8_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 16) {
-          if (isSigned) {
-            int16_t value = std::numeric_limits<int16_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint16_t value = std::numeric_limits<uint16_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 32) {
-          if (isSigned) {
-            int32_t value = std::numeric_limits<int32_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint32_t value = std::numeric_limits<uint32_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else if (width == 64) {
-          if (isSigned) {
-            int64_t value = std::numeric_limits<int64_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          } else {
-            uint64_t value = std::numeric_limits<uint64_t>::min();
-            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-          }
-        } else {
-          llvm_unreachable("unsupported element type");
-        }
-      })
-      .Default([](Type) { llvm_unreachable("unsupported element type"); });
-
-  return rewriter.create<arith::ConstantOp>(loc, constantAttr);
 }
 
 Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     Value operand, int64_t axis, Type type) {
-  ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
-  Value dimVal;
   MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
-  if (shape[axis] < 0) {
-    Value dim = create.mem.dim(operand, axis);
-    dimVal = create.math.cast(type, dim);
-  } else {
-    dimVal = create.math.constant(type, shape[axis]);
-  }
-  return dimVal;
+  ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
+  return (shape[axis] < 0)
+             ? create.math.cast(type, create.mem.dim(operand, axis))
+             : create.math.constant(type, shape[axis]);
 }
 
 /// Emit an ONNXSqueezeV11Op. If the input is constant, do const propagation,
@@ -606,40 +477,9 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 /// The new view is created using the given 'memRefType' and 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
     Location loc, Value data, const MemRefType &memRefType,
-    const SmallVectorImpl<IndexExpr> &outputDims) {
-  int64_t rank = memRefType.getRank();
-
-  // Compute new sizes and strides.
-  SmallVector<IndexExpr, 4> sizesIE, stridesIE;
-  sizesIE.resize(rank);
-  stridesIE.resize(rank);
-  IndexExpr strideIE = LiteralIndexExpr(1);
-  for (int i = rank - 1; i >= 0; --i) {
-    sizesIE[i] = outputDims[i];
-    stridesIE[i] = strideIE;
-    if (i > 0)
-      strideIE = strideIE * sizesIE[i];
-  }
-
-  SmallVector<OpFoldResult, 4> sizes, strides;
-  sizes.resize(rank);
-  strides.resize(rank);
-  for (int i = rank - 1; i >= 0; --i) {
-    if (sizesIE[i].isLiteral())
-      sizes[i] = rewriter.getIndexAttr(sizesIE[i].getLiteral());
-    else
-      sizes[i] = sizesIE[i].getValue();
-    if (stridesIE[i].isLiteral())
-      strides[i] = rewriter.getIndexAttr(stridesIE[i].getLiteral());
-    else
-      strides[i] = stridesIE[i].getValue();
-  }
-
-  // Emit ReinterpretCastOp.
-  Value newView =
-      rewriter.create<memref::ReinterpretCastOp>(loc, memRefType, data,
-          /*offset=*/rewriter.getIndexAttr(0), sizes, strides);
-  return newView;
+    SmallVectorImpl<IndexExpr> &outputDims) {
+  MemRefBuilder createMemRef(rewriter, loc);
+  return createMemRef.reinterpretCast(data, outputDims);
 }
 
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
@@ -756,16 +596,32 @@ KrnlTypeConverter::KrnlTypeConverter() {
   addConversion([](Type type) { return type; });
 
   addConversion([](ONNXStringType stringType) {
-    return StringType::get(stringType.getContext());
+    return krnl::StringType::get(stringType.getContext());
   });
 
   addConversion([](TensorType tensorType) {
     assert(tensorType.hasRank() && "expected only ranked shapes");
     if (tensorType.getElementType().isa<ONNXStringType>()) {
-      Type elementType = StringType::get(tensorType.getContext());
+      Type elementType = krnl::StringType::get(tensorType.getContext());
       return MemRefType::get(tensorType.getShape(), elementType);
     }
     return MemRefType::get(tensorType.getShape(), tensorType.getElementType());
+  });
+
+  addConversion([](SeqType seqType) {
+    ShapedType seqElementType = seqType.getElementType();
+    Type elementType = seqElementType.getElementType();
+    Type seqElementConvertedType;
+    if (seqElementType.hasRank()) {
+      seqElementConvertedType =
+          MemRefType::get(seqElementType.getShape(), elementType);
+    } else {
+      seqElementConvertedType = UnrankedMemRefType::get(elementType, 0);
+    }
+    SmallVector<int64_t, 1> dims;
+    dims.emplace_back(seqType.getLength());
+    llvm::ArrayRef<int64_t> shape(dims.data(), dims.size());
+    return MemRefType::get(shape, seqElementConvertedType);
   });
 
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,

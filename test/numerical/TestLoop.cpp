@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <iostream>
 #include <limits>
 #include <random>
 #include <rapidcheck.h>
@@ -22,9 +21,10 @@
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestLoop_main_graph");
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
+
+namespace onnx_mlir {
+namespace test {
 
 std::string testLoopSimpleIR = R"(
 module {
@@ -124,7 +124,13 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   return omTensorAreTwoOmtsClose<int64_t>(vFinal.get(), vFinalRef.get());
 }
 
+} // namespace test
+} // namespace onnx_mlir
+
 int main(int argc, char *argv[]) {
+  using namespace onnx_mlir;
+  using namespace onnx_mlir::test;
+
   llvm::FileRemover remover(
       ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 

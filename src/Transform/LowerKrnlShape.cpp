@@ -4,7 +4,7 @@
 
 //===-------- LowerKrnlShape.cpp ------------------------------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -45,21 +45,22 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlShapeOp krnlShapeOp, PatternRewriter &rewriter) const override {
-    auto loc = krnlShapeOp.getLoc();
-    int64_t rank =
+    Location loc = krnlShapeOp.getLoc();
+    size_t rank =
         krnlShapeOp.alloc().getType().dyn_cast<MemRefType>().getShape().size();
 
-    // Create MemRef to hold shape information.
-    auto memRefType = MemRefType::get({rank}, rewriter.getIndexType());
-    auto newMemRefAlloc = rewriter.create<memref::AllocOp>(loc, memRefType);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+        rewriter, loc);
 
-    SmallVector<mlir::Value, 4> fromExtentsOpOperands;
-    for (int idx = 0; idx < rank; idx++) {
-      auto index = rewriter.create<arith::ConstantOp>(
-          loc, rewriter.getIntegerAttr(rewriter.getIndexType(), idx));
-      auto operand = rewriter.create<KrnlDimOp>(
-          loc, rewriter.getIndexType(), krnlShapeOp.alloc(), index);
-      fromExtentsOpOperands.emplace_back(operand);
+    // Create MemRef to hold shape information.
+    auto memRefType =
+        MemRefType::get({static_cast<int64_t>(rank)}, rewriter.getIndexType());
+    memref::AllocOp newMemRefAlloc = create.mem.alloc(memRefType);
+
+    for (size_t idx = 0; idx < rank; idx++) {
+      Value index = create.math.constantIndex(idx);
+      Value operand =
+          create.krnl.dim(rewriter.getIndexType(), krnlShapeOp.alloc(), index);
 
       // Store value in the new MemRef.
       Value idxValue =
