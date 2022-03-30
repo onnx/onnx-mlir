@@ -20,11 +20,12 @@
 #include "src/Runtime/OMTensorHelper.h"
 #include "test/modellib/ModelLib.hpp"
 
-using namespace std;
 using namespace mlir;
-using namespace onnx_mlir;
 
-RNNLibBuilder::RNNLibBuilder(const string &modelName, const int direction,
+namespace onnx_mlir {
+namespace test {
+
+RNNLibBuilder::RNNLibBuilder(const std::string &modelName, const int direction,
     const int S, const int B, const int I, const int H, const bool isDynamicS,
     const bool isDynamicB)
     : ModelLibBuilder(modelName), direction(direction), S(S), B(B), I(I), H(H),
@@ -199,3 +200,6 @@ bool RNNLibBuilder::verifyOutputs() {
 
   return true;
 }
+
+} // namespace test
+} // namespace onnx_mlir

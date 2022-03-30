@@ -14,8 +14,14 @@
 
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
+#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
+#include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Pass/PassRegistry.h"
+#include "mlir/Transforms/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -28,23 +34,28 @@
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/OMNNPAOptions.hpp"
-#include "src/Compiler/CompilerUtils.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
+#include "src/Compiler/CompilerPasses.hpp"
+#include "src/Pass/Passes.hpp"
 
-#define DEBUG_TYPE "NNPACompiler"
+#define DEBUG_TYPE "NNPACompilerUtils"
 
 using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
 
+namespace onnx_mlir {
 extern llvm::cl::OptionCategory OnnxMlirOptions;
+extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
+extern llvm::cl::list<std::string> execNodesOnCpu;
 
 llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
-    llvm::cl::desc("[Optional] Choose Z-related target to emit "
+    llvm::cl::desc("[Optional] Choose NNPA-related target to emit "
                    "(once selected it will cancel the other targets):"),
     llvm::cl::values(
         clEnumVal(EmitZHighIR, "Lower model to ZHigh IR (ZHigh dialect)"),
         clEnumVal(EmitZLowIR, "Lower model to ZLow IR (ZLow dialect)"),
-        clEnumVal(EmitZNONE, "Do not emit Z-related target (default)")),
+        clEnumVal(EmitZNONE, "Do not emit NNPA-related target (default)")),
     llvm::cl::init(EmitZNONE), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
@@ -54,8 +65,6 @@ llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
                    "in onnx graph, which is `onnx_node_name` in ONNX IR"),
     llvm::cl::CommaSeparated, llvm::cl::ZeroOrMore,
     llvm::cl::cat(OnnxMlirOptions)};
-
-namespace onnx_mlir {
 
 void addONNXToZHighPasses(
     mlir::PassManager &pm, ArrayRef<std::string> execNodesOnCpu) {
@@ -117,10 +126,8 @@ void addAllToLLVMPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
-void addPassesNNPA(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
-    EmissionTargetType &emissionTarget,
-    NNPAEmissionTargetType nnpaEmissionTarget,
-    ArrayRef<std::string> execNodesOnCpu) {
+void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
+    mlir::PassManager &pm, EmissionTargetType &emissionTarget) {
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 

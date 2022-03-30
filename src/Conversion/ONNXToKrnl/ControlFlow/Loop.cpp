@@ -175,8 +175,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
                                .getElementType();
         if (elementType.dyn_cast<MemRefType>()) {
           // accumulate dynamic tensor
-          // TODO: May need to copy the tensor
-          create.krnl.store(std::get<0>(scanIntermediateToFinal),
+          rewriter.create<KrnlSeqStoreOp>(loc,
+              std::get<0>(scanIntermediateToFinal),
               std::get<1>(scanIntermediateToFinal), origIV);
         } else {
           emitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
@@ -243,7 +243,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         auto afterCopyLoop = rewriter.saveInsertionPoint();
         rewriter.setInsertionPointToStart(loop.getIterateBlock());
         Value origIV = loop.getInductionVar(0);
-        auto src = create.krnl.load(output, origIV);
+        auto src = rewriter.create<KrnlSeqExtractOp>(
+            loc, seqElementType, output, origIV);
         emitCopy(rewriter, loc, src, alloc, {origIV});
         rewriter.restoreInsertionPoint(afterCopyLoop);
         newOutputs.emplace_back(alloc);
@@ -299,7 +300,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       if (hasAllConstantDimensions(memRefType))
         alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
       else {
-        MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
+        MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+            rewriter, loc);
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
 
