@@ -80,31 +80,33 @@ vector<uint64_t> timeLogInMicroSec;
 extern "C" OMTensorList *run_main_graph(OMTensorList *);
 extern "C" const char *omInputSignature(const char *);
 extern "C" const char *omOutputSignature(const char *);
-extern "C" OMTensor *omTensorCreate(void *, int64_t *, int64_t, OM_DATA_TYPE);
+extern "C" OMTensor *omTensorCreateWithOwnership(
+    void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t);
 extern "C" OMTensorList *TensorListCreate(OMTensor **, int);
 extern "C" void omTensorListDestroy(OMTensorList *list);
 // DLL definitions
 OMTensorList *(*dll_run_main_graph)(OMTensorList *);
 const char *(*dll_omInputSignature)(const char *);
 const char *(*dll_omOutputSignature)(const char *);
-OMTensor *(*dll_omTensorCreate)(void *, int64_t *, int64_t, OM_DATA_TYPE);
-OMTensorList *(*dll_omTensorListCreate)(OMTensor **, int);
+OMTensor *(*dll_omTensorCreateWithOwnership)(
+    void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t);
+OMTensorList *(*dll_omTensorListCreateWithOwnership)(OMTensor **, int, int64_t);
 void (*dll_omTensorListDestroy)(OMTensorList *);
 
 #if LOAD_MODEL_STATICALLY
 #define RUN_MAIN_GRAPH run_main_graph
 #define OM_INPUT_SIGNATURE omInputSignature
 #define OM_OUTPUT_SIGNATURE omOutputSignature
-#define OM_TENSOR_CREATE omTensorCreate
-#define OM_TENSOR_LIST_CREATE omTensorListCreate
+#define OM_TENSOR_CREATE omTensorCreateWithOwnership
+#define OM_TENSOR_LIST_CREATE omTensorListCreateWithOwnership
 #define OM_TENSOR_LIST_DESTROY omTensorListDestroy
 #define OPTIONS "hn:m:vd:r:"
 #else
 #define RUN_MAIN_GRAPH dll_run_main_graph
 #define OM_INPUT_SIGNATURE dll_omInputSignature
 #define OM_OUTPUT_SIGNATURE dll_omOutputSignature
-#define OM_TENSOR_CREATE dll_omTensorCreate
-#define OM_TENSOR_LIST_CREATE dll_omTensorListCreate
+#define OM_TENSOR_CREATE dll_omTensorCreateWithOwnership
+#define OM_TENSOR_LIST_CREATE dll_omTensorListCreateWithOwnership
 #define OM_TENSOR_LIST_DESTROY dll_omTensorListDestroy
 #define OPTIONS "e:hn:m:vd:r:"
 #endif
@@ -175,12 +177,13 @@ void loadDLL(string name, string entryPointName) {
   dll_omOutputSignature =
       (const char *(*)(const char *))dlsym(handle, "omOutputSignature");
   assert(!dlerror() && "failed to load omOutputSignature");
-  dll_omTensorCreate =
-      (OMTensor * (*)(void *, int64_t *, int64_t, OM_DATA_TYPE))
+  dll_omTensorCreateWithOwnership =
+      (OMTensor * (*)(void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t))
           dlsym(handle, "omTensorCreate");
   assert(!dlerror() && "failed to load omTensorCreate");
-  dll_omTensorListCreate = (OMTensorList * (*)(OMTensor **, int))
-      dlsym(handle, "omTensorListCreate");
+  dll_omTensorListCreateWithOwnership =
+      (OMTensorList * (*)(OMTensor **, int, int64_t))
+          dlsym(handle, "omTensorListCreate");
   assert(!dlerror() && "failed to load omTensorListCreate");
   dll_omTensorListDestroy =
       (void (*)(OMTensorList *))dlsym(handle, "omTensorListDestroy");
@@ -368,10 +371,10 @@ OMTensorList *omTensorListCreateFromInputSignature(
       if (dataPtrList) {
         data = (float *)dataPtrList[i];
       } else if (dataAlloc) {
-        data = new float[size];
+        data = (float *)malloc(size * sizeof(float));
         assert(data && "failed to allocate data");
       }
-      tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_FLOAT);
+      tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_FLOAT, true);
     } else if (type.equals("double") || type.equals("f64") ||
                type.equals("i64")) {
       // Treat floats/f64 and i64 alike as they take the same memory footprint.
@@ -379,10 +382,10 @@ OMTensorList *omTensorListCreateFromInputSignature(
       if (dataPtrList) {
         data = (double *)dataPtrList[i];
       } else if (dataAlloc) {
-        data = new double[size];
+        data = (double *)malloc(size * sizeof(double));
         assert(data && "failed to allocate data");
       }
-      tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_DOUBLE);
+      tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_DOUBLE, true);
     }
 
     assert(tensor && "add support for the desired type");
@@ -395,7 +398,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
       cout << "and " << size << " elements" << endl;
     }
   }
-  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum);
+  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum, true);
 }
 
 // Data structures for timing info.
