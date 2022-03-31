@@ -199,6 +199,10 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
+  // Make ONNXNoneOp legal so that other ONNX ops can use it during the
+  // lowering. ONNXNoneOp will be dangling and removed by calling
+  // canonicalization after the lowering.
+  target.addLegalOp<::mlir::ONNXNoneOp>();
 
   // Use krnl.load/store instead of std.load/store and affine.load/store.
   // krnl.load/store will be lowered to std.load/store and affine.load/store by

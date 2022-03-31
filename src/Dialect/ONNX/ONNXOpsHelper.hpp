@@ -24,7 +24,6 @@
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
-
 // Identity affine map:
 // #map = affine_map<(d0)[] -> d0>
 mlir::AffineMap getIdentityDimMap(mlir::Builder &builder);
