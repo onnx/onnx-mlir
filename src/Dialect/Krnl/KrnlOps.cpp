@@ -468,9 +468,6 @@ void KrnlRegionOp::build(OpBuilder &builder, OperationState &result,
     PatternRewriter::InsertionGuard insertGuard(builder);
     builder.setInsertionPointToStart(body);
     bodyBuilderFn(builder, result.location);
-    //ensureTerminator(*bodyRegion, builder, result.location);
-  } else {
-    //ensureTerminator(*bodyRegion, builder, result.location);
   }
 }
 
