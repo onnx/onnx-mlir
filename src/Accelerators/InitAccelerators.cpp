@@ -17,15 +17,17 @@
 namespace onnx_mlir {
 namespace accel {
 
-//
+#ifdef HAS_ACCELERATORS
+APPLY_TO_ACCELERATORS(DECLARE_ACCEL_INIT_FUNCTION)
+#endif
+
 bool initAccelerators() {
-  //#ifdef HAS_ACCELERATORS
-  APPLY_TO_ACCELERATORS(DECLARE_ACCEL_INIT_FUNCTION)
+#ifdef HAS_ACCELERATORS
   APPLY_TO_ACCELERATORS(INVOKE_ACCEL_INIT_FUNCTION)
   return true;
-  //#else
-  // return false;
-  //#endif
+#else
+  return false;
+#endif
 }
 
 } // namespace accel
