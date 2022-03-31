@@ -28,7 +28,7 @@ During Shape inference, no code is generated; the IndexExpr will only be used to
 either determine the actual constant size or a Questionmark (signifying unknown
 at compile time).
 
-During lowering, code can be generated, and if fact it must, to fill in the
+During lowering, code can be generated, and in fact it must, to fill in the
 information that might be missing at compile time. The same IndexExpression
 computation are actually used to determine the sizes, indices, and access
 functions. Because AffineExpr have several advantages over more generic Value
