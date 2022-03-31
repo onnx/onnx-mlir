@@ -35,7 +35,6 @@ def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
 
 // Require regions to have krnl.terminate terminator operation.
 def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
-def ImplicitKrnlRegionTerminator : SingleBlockImplicitTerminator<"KrnlRegionTerminatorOp">;
 
 def KrnlCallOp : Op<Krnl_Dialect, "call"> {
   let summary = "call operation";
@@ -207,7 +206,7 @@ def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
   }];
 }
 
-def KrnlRegionOp : Op<Krnl_Dialect, "region", [ImplicitKrnlRegionTerminator,
+def KrnlRegionOp : Op<Krnl_Dialect, "region", [NoTerminator, SingleBlock,
     AffineScope]> {
   let summary = "Affine Region for Krnl";
   let description = [{
@@ -224,22 +223,6 @@ def KrnlRegionOp : Op<Krnl_Dialect, "region", [ImplicitKrnlRegionTerminator,
     OpBuilder<(ins 
       CArg<"function_ref<void(OpBuilder &, Location)>", "nullptr">:$bodyBuilderFn)>,
   ];
-}
-
-def KrnlRegionTerminatorOp : Op<Krnl_Dialect, "regionterminate", [Terminator]> {
-  let summary = "Krnl terminator operation for KrnlRegionOp";
-  let description = [{
-    Krnl terminator is a special terminator operation for blocks inside krnl
-    iterate operations. It unconditionally transmits the control flow to the
-    successor of the operation enclosing the region.
-
-    This operation does _not_ have a custom syntax. However, krnl control
-    operations omit the terminator in their custom syntax for brevity.
-
-    The reason KrnlTerminatorOp can not be used is that the lowering is done in 
-    different pass. If MLIR supports DynamicLegal (similar to DynamicIllegal),
-    this Op may be replaced with KrnlTerminatorOp.
-  }];
 }
 
 def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
