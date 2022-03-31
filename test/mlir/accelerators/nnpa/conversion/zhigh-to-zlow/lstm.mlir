@@ -78,7 +78,7 @@ func @lstm_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.encoding<{dataLayo
 
 func @lstm_backward_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %c0 : tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %input_bias : tensor<1x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %hidden_bias : tensor<1x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>) {
 
-  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "backward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x7x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<1x9x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>)
+  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "backward", hidden_size = 9 : si64, prev_layer = "none", return_all_steps = -1 : si64} : (tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x7x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<1x9x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>)
 
   "std.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
@@ -107,25 +107,25 @@ func @lstm_backward_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.encoding<
 // CHECK:           krnl.store [[VAR_c7_i64_]], [[RES_2_]]{{.}}[[VAR_c3_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c9_i64_]], [[RES_2_]]{{.}}[[VAR_c4_]]{{.}} : memref<5xi64>
 // CHECK:           [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<73728xi8>
-// CHECK:           "zlow.lstm"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]], [[PARAM_6_]], [[RES_3_]], [[RES_2_]], [[RES_]], [[RES_1_]]) {direction = "backward", return_all_steps = -1 : si64} : (memref<3x5x7xf16, #map0>, memref<1x5x9xf16, #map0>, memref<1x5x9xf16, #map0>, memref<1x7x36xf16, #map1>, memref<1x36xf16, #map2>, memref<1x9x36xf16, #map1>, memref<1x36xf16, #map2>, memref<73728xi8>, memref<5xi64>, memref<3x1x5x9xf16, #map3>, memref<1x1x5x9xf16, #map3>) -> ()
+// CHECK:           "zlow.lstm"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]], [[PARAM_6_]], [[RES_3_]], [[RES_2_]], [[RES_]], [[RES_1_]]) {direction = "backward", prev_layer = "none", return_all_steps = -1 : si64} : (memref<3x5x7xf16, #map0>, memref<1x5x9xf16, #map0>, memref<1x5x9xf16, #map0>, memref<1x7x36xf16, #map1>, memref<1x36xf16, #map2>, memref<1x9x36xf16, #map1>, memref<1x36xf16, #map2>, memref<73728xi8>, memref<5xi64>, memref<3x1x5x9xf16, #map3>, memref<1x1x5x9xf16, #map3>) -> ()
 // CHECK:           return [[RES_]], [[RES_1_]] : memref<3x1x5x9xf16, #map3>, memref<1x1x5x9xf16, #map3>
 // CHECK:         }
 }
 
 // -----
 
-func @lstm_bidir_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %c0 : tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %input_bias : tensor<1x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %hidden_bias : tensor<1x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>) {
+func @lstm_bidir_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %h0 : tensor<2x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %c0 : tensor<2x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %input_weights : tensor<2x7x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %input_bias : tensor<2x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %hidden_weights : tensor<2x9x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, %hidden_bias : tensor<2x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>) {
 
-  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "bidirectional", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x7x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<1x9x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>)
+  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "bidirectional", hidden_size = 9 : si64, prev_layer = "none", return_all_steps = -1 : si64} : (tensor<3x5x7xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x5x9xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x7x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<2x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<2x9x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>, tensor<2x36xf32, #zhigh.encoding<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>)
 
   "std.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
 // CHECK-DAG: #map0 = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
-// CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
-// CHECK-DAG: #map2 = affine_map<(d0, d1) -> (0, (d1 + (d1 floordiv 9) * 55) floordiv 64, 0, d0 floordiv 32, d0 mod 32, (d1 + (d1 floordiv 9) * 55) mod 64)>
-// CHECK-DAG: #map3 = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
+// CHECK-DAG: #map1 = affine_map<(d0, d1, d2) -> (0, ((d2 + (d2 floordiv 9) * 55) * 2) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
+// CHECK-DAG: #map2 = affine_map<(d0, d1) -> (0, ((d1 + (d1 floordiv 9) * 55) * 2) floordiv 64, 0, d0 floordiv 32, d0 mod 32, (d1 + (d1 floordiv 9) * 55) mod 64)>
+// CHECK-DAG: #map3 = affine_map<(d0, d1, d2, d3) -> (d0, (d3 ceildiv 64) * 2, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-LABEL:  func @lstm_bidir_return_all_steps
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x5x7xf16, #map0>, [[PARAM_1_:%.+]]: memref<1x5x9xf16, #map0>, [[PARAM_2_:%.+]]: memref<1x5x9xf16, #map0>, [[PARAM_3_:%.+]]: memref<1x7x36xf16, #map1>, [[PARAM_4_:%.+]]: memref<1x36xf16, #map2>, [[PARAM_5_:%.+]]: memref<1x9x36xf16, #map1>, [[PARAM_6_:%.+]]: memref<1x36xf16, #map2>) -> (memref<3x1x5x9xf16, #map3>, memref<1x1x5x9xf16, #map3>) {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x5x7xf16, #map0>, [[PARAM_1_:%.+]]: memref<2x5x9xf16, #map0>, [[PARAM_2_:%.+]]: memref<2x5x9xf16, #map0>, [[PARAM_3_:%.+]]: memref<2x7x36xf16, #map1>, [[PARAM_4_:%.+]]: memref<2x36xf16, #map2>, [[PARAM_5_:%.+]]: memref<2x9x36xf16, #map1>, [[PARAM_6_:%.+]]: memref<2x36xf16, #map2>) -> (memref<3x2x5x9xf16, #map3>, memref<1x2x5x9xf16, #map3>) {
 // CHECK-DAG:       [[VAR_c4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[VAR_c9_i64_:%.+]] = arith.constant 9 : i64
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
@@ -135,18 +135,18 @@ func @lstm_bidir_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.encoding<{da
 // CHECK-DAG:       [[VAR_c1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[VAR_c3_i64_:%.+]] = arith.constant 3 : i64
 // CHECK-DAG:       [[VAR_c0_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:       [[VAR_c1_i64_:%.+]] = arith.constant 1 : i64
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x1x5x9xf16, #map3>
-// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1x1x5x9xf16, #map3>
+// CHECK-DAG:       [[VAR_c2_i64_:%.+]] = arith.constant 2 : i64
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x2x5x9xf16, #map3>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1x2x5x9xf16, #map3>
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<5xi64>
-// CHECK:           krnl.store [[VAR_c1_i64_]], [[RES_2_]]{{.}}[[VAR_c0_]]{{.}} : memref<5xi64>
+// CHECK:           krnl.store [[VAR_c2_i64_]], [[RES_2_]]{{.}}[[VAR_c0_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c3_i64_]], [[RES_2_]]{{.}}[[VAR_c1_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c5_i64_]], [[RES_2_]]{{.}}[[VAR_c2_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c7_i64_]], [[RES_2_]]{{.}}[[VAR_c3_]]{{.}} : memref<5xi64>
 // CHECK:           krnl.store [[VAR_c9_i64_]], [[RES_2_]]{{.}}[[VAR_c4_]]{{.}} : memref<5xi64>
-// CHECK:           [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<73728xi8>
-// CHECK:           "zlow.lstm"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]], [[PARAM_6_]], [[RES_3_]], [[RES_2_]], [[RES_]], [[RES_1_]]) {direction = "bidirectional", return_all_steps = -1 : si64} : (memref<3x5x7xf16, #map0>, memref<1x5x9xf16, #map0>, memref<1x5x9xf16, #map0>, memref<1x7x36xf16, #map1>, memref<1x36xf16, #map2>, memref<1x9x36xf16, #map1>, memref<1x36xf16, #map2>, memref<73728xi8>, memref<5xi64>, memref<3x1x5x9xf16, #map3>, memref<1x1x5x9xf16, #map3>) -> ()
-// CHECK:           return [[RES_]], [[RES_1_]] : memref<3x1x5x9xf16, #map3>, memref<1x1x5x9xf16, #map3>
+// CHECK:           [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<147456xi8>
+// CHECK:           "zlow.lstm"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]], [[PARAM_6_]], [[RES_3_]], [[RES_2_]], [[RES_]], [[RES_1_]]) {direction = "bidirectional", prev_layer = "none", return_all_steps = -1 : si64} : (memref<3x5x7xf16, #map0>, memref<2x5x9xf16, #map0>, memref<2x5x9xf16, #map0>, memref<2x7x36xf16, #map1>, memref<2x36xf16, #map2>, memref<2x9x36xf16, #map1>, memref<2x36xf16, #map2>, memref<147456xi8>, memref<5xi64>, memref<3x2x5x9xf16, #map3>, memref<1x2x5x9xf16, #map3>) -> ()
+// CHECK:           return [[RES_]], [[RES_1_]] : memref<3x2x5x9xf16, #map3>, memref<1x2x5x9xf16, #map3>
 // CHECK:         }
 }
 

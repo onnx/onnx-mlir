@@ -71,35 +71,40 @@ func @test_onnx_to_zhigh_ccfd0_reverse(%X: tensor<7x2000x204xf32>, %W: tensor<1x
 
 // -----
 
-func @test_onnx_to_zhigh_ccfd0_bidir(%X: tensor<7x2000x204xf32>, %W: tensor<1x800x204xf32>, %R: tensor<1x800x200xf32>, %B: tensor<1x1600xf32>) -> (tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>, tensor<1x2000x200xf32>) {
+func @test_onnx_to_zhigh_ccfd0_bidir(%X: tensor<7x2000x204xf32>, %W: tensor<2x800x204xf32>, %R: tensor<2x800x200xf32>, %B: tensor<2x1600xf32>) -> (tensor<7x2x2000x200xf32>, tensor<2x2000x200xf32>, tensor<2x2000x200xf32>) {
  %cst = "onnx.NoValue"() {value} : () -> none
- %Y, %Y_h, %Y_c = "onnx.LSTM"(%X, %W, %R, %B, %cst, %cst, %cst, %cst) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "bidir", hidden_size = 200 : si64, onnx_node_name = "lstm" } : (tensor<7x2000x204xf32>, tensor<1x800x204xf32>, tensor<1x800x200xf32>, tensor<1x1600xf32>, none, none, none, none) -> (tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>, tensor<1x2000x200xf32>)
- "std.return"(%Y, %Y_h, %Y_c) : (tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>, tensor<1x2000x200xf32>) -> ()
+ %Y, %Y_h, %Y_c = "onnx.LSTM"(%X, %W, %R, %B, %cst, %cst, %cst, %cst) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "bidirectional", hidden_size = 200 : si64, onnx_node_name = "lstm" } : (tensor<7x2000x204xf32>, tensor<2x800x204xf32>, tensor<2x800x200xf32>, tensor<2x1600xf32>, none, none, none, none) -> (tensor<7x2x2000x200xf32>, tensor<2x2000x200xf32>, tensor<2x2000x200xf32>)
+ "std.return"(%Y, %Y_h, %Y_c) : (tensor<7x2x2000x200xf32>, tensor<2x2000x200xf32>, tensor<2x2000x200xf32>) -> ()
 
 // CHECK-LABEL:  func @test_onnx_to_zhigh_ccfd0_bidir
-// CHECK-SAME:   ([[X_:%.+]]: tensor<7x2000x204xf32>, [[W_:%.+]]: tensor<1x800x204xf32>, [[R_:%.+]]: tensor<1x800x200xf32>, [[B_:%.+]]: tensor<1x1600xf32>) -> (tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>, tensor<1x2000x200xf32>) {
+// CHECK-SAME:   ([[X_:%.+]]: tensor<7x2000x204xf32>, [[W_:%.+]]: tensor<2x800x204xf32>, [[R_:%.+]]: tensor<2x800x200xf32>, [[B_:%.+]]: tensor<2x1600xf32>) -> (tensor<7x2x2000x200xf32>, tensor<2x2000x200xf32>, tensor<2x2000x200xf32>) {
 // CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK-DAG:       [[VAR_0_:%.+]]:8 = "onnx.SplitV11"([[B_]]) {axis = 1 : si64, split = [200, 200, 200, 200, 200, 200, 200, 200]} : (tensor<1x1600xf32>) -> (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>)
+// CHECK-DAG:       [[VAR_0_:%.+]]:8 = "onnx.SplitV11"([[B_]]) {axis = 1 : si64, split = [200, 200, 200, 200, 200, 200, 200, 200]} : (tensor<2x1600xf32>) -> (tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>)
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#2, [[VAR_0_]]#0, [[VAR_0_]]#3, [[VAR_0_]]#1) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#6, [[VAR_0_]]#4, [[VAR_0_]]#7, [[VAR_0_]]#5) : (tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>, tensor<1x200xf32>) -> tensor<*xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#2, [[VAR_0_]]#0, [[VAR_0_]]#3, [[VAR_0_]]#1) : (tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>) -> tensor<*xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.StickForLSTM"([[VAR_0_]]#6, [[VAR_0_]]#4, [[VAR_0_]]#7, [[VAR_0_]]#5) : (tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>, tensor<2x200xf32>) -> tensor<*xf32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[X_]]) {layout = "3DS"} : (tensor<7x2000x204xf32>) -> tensor<7x2000x204xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<1x800x204xf32>) -> tensor<1x204x800xf32>
-// CHECK:           [[VAR_5_:%.+]]:4 = "onnx.SplitV11"([[VAR_4_]]) {axis = 2 : si64} : (tensor<1x204x800xf32>) -> (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>)
-// CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.StickForLSTM"([[VAR_5_]]#2, [[VAR_5_]]#0, [[VAR_5_]]#3, [[VAR_5_]]#1) : (tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>, tensor<1x204x200xf32>) -> tensor<*xf32>
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Transpose"([[R_]]) {perm = [0, 2, 1]} : (tensor<1x800x200xf32>) -> tensor<1x200x800xf32>
-// CHECK:           [[VAR_8_:%.+]]:4 = "onnx.SplitV11"([[VAR_7_]]) {axis = 2 : si64} : (tensor<1x200x800xf32>) -> (tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>)
-// CHECK:           [[VAR_9_:%.+]] = "zhigh.StickForLSTM"([[VAR_8_]]#2, [[VAR_8_]]#0, [[VAR_8_]]#3, [[VAR_8_]]#1) : (tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>) -> tensor<*xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[W_]]) {perm = [0, 2, 1]} : (tensor<2x800x204xf32>) -> tensor<2x204x800xf32>
+// CHECK:           [[VAR_5_:%.+]]:4 = "onnx.SplitV11"([[VAR_4_]]) {axis = 2 : si64} : (tensor<2x204x800xf32>) -> (tensor<2x204x200xf32>, tensor<2x204x200xf32>, tensor<2x204x200xf32>, tensor<2x204x200xf32>)
+// CHECK-DAG:       [[VAR_6_:%.+]] = "zhigh.StickForLSTM"([[VAR_5_]]#2, [[VAR_5_]]#0, [[VAR_5_]]#3, [[VAR_5_]]#1) : (tensor<2x204x200xf32>, tensor<2x204x200xf32>, tensor<2x204x200xf32>, tensor<2x204x200xf32>) -> tensor<*xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Transpose"([[R_]]) {perm = [0, 2, 1]} : (tensor<2x800x200xf32>) -> tensor<2x200x800xf32>
+// CHECK:           [[VAR_8_:%.+]]:4 = "onnx.SplitV11"([[VAR_7_]]) {axis = 2 : si64} : (tensor<2x200x800xf32>) -> (tensor<2x200x200xf32>, tensor<2x200x200xf32>, tensor<2x200x200xf32>, tensor<2x200x200xf32>)
+// CHECK:           [[VAR_9_:%.+]] = "zhigh.StickForLSTM"([[VAR_8_]]#2, [[VAR_8_]]#0, [[VAR_8_]]#3, [[VAR_8_]]#1) : (tensor<2x200x200xf32>, tensor<2x200x200xf32>, tensor<2x200x200xf32>, tensor<2x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[hn_output_:%.+]], [[VAR_cf_output_:%.+]] = "zhigh.LSTM"([[VAR_3_]], [[VAR_cst_]], [[VAR_cst_]], [[VAR_6_]], [[VAR_1_]], [[VAR_9_]], [[VAR_2_]]) {direction = "bidirectional", hidden_size = 200 : si64, prev_layer = "none", return_all_steps = -1 : si64} : (tensor<7x2000x204xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, none, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> (tensor<*xf32>, tensor<*xf32>)
-// CHECK:           [[VAR_10_:%.+]] = "zhigh.Unstick"([[hn_output_]]) : (tensor<*xf32>) -> tensor<7x1x2000x200xf32>
-// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK:           [[VAR_10_:%.+]] = "zhigh.Unstick"([[hn_output_]]) : (tensor<*xf32>) -> tensor<7x2x2000x200xf32>
+// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Slice"([[VAR_10_]], [[VAR_11_]], [[VAR_12_]], [[VAR_11_]], [[VAR_12_]]) : (tensor<7x1x2000x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x2000x200xf32>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.SqueezeV11"([[VAR_13_]]) {axes = [0]} : (tensor<1x1x2000x200xf32>) -> tensor<1x2000x200xf32>
-// CHECK-DAG:       [[VAR_15_:%.+]] = "zhigh.Unstick"([[VAR_cf_output_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.SqueezeV11"([[VAR_15_]]) {axes = [0]} : (tensor<*xf32>) -> tensor<1x2000x200xf32>
-// CHECK:           return [[VAR_10_]], [[VAR_14_]], [[VAR_16_]] : tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>, tensor<1x2000x200xf32>
+// CHECK-DAG:       [[VAR_15:%.+]]:2 = "onnx.SplitV11"([[VAR_10_]]) {axis = 1 : si64} : (tensor<7x2x2000x200xf32>) -> (tensor<7x1x2000x200xf32>, tensor<7x1x2000x200xf32>)
+// CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.Slice"([[VAR_15_]]#0, [[VAR_11_]], [[VAR_14_]], [[VAR_12_]], [[VAR_13_]]) : (tensor<7x1x2000x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x2000x200xf32>
+// CHECK-DAG:       [[VAR_17_:%.+]] = "onnx.Slice"([[VAR_15_]]#1, [[VAR_12_]], [[VAR_13_]], [[VAR_12_]], [[VAR_13_]]) : (tensor<7x1x2000x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x2000x200xf32>
+// CHECK-DAG:       [[VAR_18_:%.+]] = "onnx.Concat"([[VAR_16_]], [[VAR_17_]]) {axis = 1 : si64} : (tensor<1x1x2000x200xf32>, tensor<1x1x2000x200xf32>) -> tensor<1x2x2000x200xf32>
+// CHECK-DAG:       [[VAR_19_:%.+]] = "onnx.SqueezeV11"([[VAR_18_]]) {axes = [0]} : (tensor<1x2x2000x200xf32>) -> tensor<2x2000x200xf32>
+// CHECK-DAG:       [[VAR_20_:%.+]] = "zhigh.Unstick"([[VAR_cf_output_]]) : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK-DAG:       [[VAR_21_:%.+]] = "onnx.SqueezeV11"([[VAR_20_]]) {axes = [0]} : (tensor<*xf32>) -> tensor<2x2000x200xf32>
+// CHECK:           return [[VAR_10_]], [[VAR_19_]], [[VAR_21_]] : tensor<7x2x2000x200xf32>, tensor<2x2000x200xf32>, tensor<2x2000x200xf32>
 // CHECK:         }
 }
 
