@@ -20,41 +20,9 @@
 #include "mlir/IR/Value.h"
 
 #include "onnx/onnx_pb.h"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
-#include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-
-namespace mlir {
-
-//====-------------------------- ONNX Builder ---------------------------===//
-
-struct OnnxBuilder : DialectBuilder {
-  OnnxBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
-  OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
-
-  Value add(Value A, Value B) const;
-  Value sub(Value A, Value B) const;
-  Value mul(Value A, Value B) const;
-  Value div(Value A, Value B) const;
-  Value matmul(Type Y, Value A, Value B, bool useGemm = false) const;
-
-  Value reshape(Type outputType, Value input, Value shape) const;
-  Value transpose(Type outputType, Value input, ArrayAttr perm) const;
-
-  Value constant(Attribute denseAttr) const;
-};
-
-// Recursive class specialized for OnnxBuilder refereed to as onnx.
-template <class... Ts>
-struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
-  MultiDialectBuilder(OpBuilder &b, Location loc)
-      : MultiDialectBuilder<Ts...>(b, loc), onnx(b, loc) {}
-  MultiDialectBuilder(DialectBuilder &db)
-      : MultiDialectBuilder<Ts...>(db), onnx(db) {}
-  OnnxBuilder onnx;
-};
-
-} // namespace mlir
 
 // Identity affine map:
 // #map = affine_map<(d0)[] -> d0>

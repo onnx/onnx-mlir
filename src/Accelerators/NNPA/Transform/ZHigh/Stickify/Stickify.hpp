@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef STICKIFY_H_
-#define STICKIFY_H_
+#pragma once
 
 #include "third_party/zdnn-lib/zdnn/zdnn.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -66,5 +65,3 @@ void allochelper_ztensor_free(zdnn_ztensor *ztensor);
 ///          ZDNN_CONVERT_FAILURE
 ///
 zdnn_status stickify(zdnn_ztensor *ztensor, ...);
-
-#endif /* STICKIFY_H_ */

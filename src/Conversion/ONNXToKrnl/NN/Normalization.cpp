@@ -71,6 +71,7 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
 
     SmallVector<Value, 1> loopCIVs;
     if (rank > 1) {
+      // TODO use new KrnlDialectBuilder.
       KrnlIterateOperandPack cPack(rewriter, originalLoops[1]);
       addDimensionToPack(rewriter, loc, cPack, operand, 1);
       KrnlIterateOp cIterateOp = create.krnl.iterate(cPack);
@@ -95,6 +96,7 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
     for (size_t i = 0; i < axes.size(); ++i)
       packLoops.emplace_back(originalLoops[axes[i]]);
 
+    // TODO use new KrnlDialectBuilder.
     KrnlIterateOperandPack pack(rewriter, packLoops);
     for (size_t i = 0; i < axes.size(); ++i)
       addDimensionToPack(rewriter, loc, pack, operand, axes[i]);
