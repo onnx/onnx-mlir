@@ -699,14 +699,14 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   setupModule(module, context, outputBaseName);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-  // Initialize accelerator if required
+  // Initialize accelerator(s) if required.
   if (!maccel.empty()) {
-    InitAccelerators();
-    for (auto accel : onnx_mlir::accel::Accelerator::getAcceleratorList()) {
-      if (accel->isActive()) {
-        accel->getOrLoadDialects(context);
-        accel->addPasses(module, pm, emissionTarget);
-      }
+    onnx_mlir::accel::initAccelerators();
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+      if (!accel->isActive())
+        continue;
+      accel->getOrLoadDialects(context);
+      accel->addPasses(module, pm, emissionTarget);
     }
   } else
     addPasses(module, pm, emissionTarget);
