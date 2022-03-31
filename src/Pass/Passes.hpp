@@ -77,6 +77,9 @@ std::unique_ptr<Pass> createKrnlOptimizeMemoryPoolsPass();
 /// Pass for lowering Seq in Krnl dialect.
 std::unique_ptr<Pass> createConvertSeqToMemrefPass();
 
+/// Pass for lowering krnl.region operation.
+std::unique_ptr<Pass> createLowerKrnlRegionPass();
+
 /// Pass for lowering Krnl dialect to LLVM dialect.
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass();
 
