@@ -35,7 +35,7 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
     int64_t axis = shapeHelper.axis;
 
     // Insert an allocation and deallocation for the output of this operation.
