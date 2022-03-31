@@ -274,7 +274,7 @@ def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable]> {
                        OptionalAttr<StrAttr>:$layout);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out), [{
-      build($_builder, $_state, X, Out, StringAttr());
+      build($_builder, $_state, X, Out, ::mlir::StringAttr());
     }]>
   ];
 }
@@ -316,7 +316,7 @@ def ZLowUnstickOp:ZLow_Op<"unstick", [MemRefsNormalizable]> {
                        OptionalAttr<StrAttr>:$layout);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out), [{
-      build($_builder, $_state, X, Out, StringAttr());
+      build($_builder, $_state, X, Out, ::mlir::StringAttr());
     }]>
   ];
 }
