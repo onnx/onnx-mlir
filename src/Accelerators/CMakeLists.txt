@@ -10,35 +10,48 @@ if (ACCELERATORS_TO_BUILD)
   endforeach(t)
 endif (ACCELERATORS_TO_BUILD)
 
-# Generate the enumerators used to identify the kind of accelerators.
-set(AcceleratorKinds "${CMAKE_CURRENT_BINARY_DIR}/AcceleratorKinds.inc")
-file(WRITE "${AcceleratorKinds}" "#if !defined(ACCEL_KIND)\n"
-                                 "#error \"Must define ACCEL_KIND macro.\"\n"
-                                 "#else\n")
-if (ACCELERATORS_TO_BUILD)
+# Generate the Accelerators.inc file.
+set(Accelerators "${CMAKE_CURRENT_BINARY_DIR}/Accelerators.inc")
+if (ACCELERATORS_TO_BUILD) 
+  file(WRITE "${Accelerators}" "#define HAS_ACCELERATORS\n"
+                               "#define APPLY_TO_ACCELERATORS(MACRO) \\\n")
   foreach(t ${ACCELERATORS_TO_BUILD})
-    file(APPEND "${AcceleratorKinds}" "  ACCEL_KIND(${t})\n")
+    file(APPEND "${Accelerators}" "  MACRO(${t})\\\n")
   endforeach(t)
+else (ACCELERATORS_TO_BUILD)
+  file(WRITE "${Accelerators}" "#define APPLY_TO_ACCELERATORS(MACRO) \\\n")
 endif (ACCELERATORS_TO_BUILD)
-file(APPEND "${AcceleratorKinds}" "#endif\n")
+
+# Generate the enumerators used to identify the kind of accelerators.
+#set(AcceleratorKinds "${CMAKE_CURRENT_BINARY_DIR}/AcceleratorKinds.inc")
+#file(WRITE "${AcceleratorKinds}" "#if !defined(ACCEL_KIND)\n"
+#                                 "#error \"Must define ACCEL_KIND macro.\"\n"
+#                                 "#else\n")
+#if (ACCELERATORS_TO_BUILD)
+#  foreach(t ${ACCELERATORS_TO_BUILD})
+#    file(APPEND "${AcceleratorKinds}" "  ACCEL_KIND(${t})\n")
+#  endforeach(t)
+#endif (ACCELERATORS_TO_BUILD)
+#file(APPEND "${AcceleratorKinds}" "#endif\n")
 
 # Generate the function used to initialize the accelerators.
-set(InitAccelerators "${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp")
-file(WRITE "${InitAccelerators}" "namespace onnx_mlir {\n"
-                                 "namespace accel {\n"
-                                 "bool initAccelerators() {\n")
-if (ACCELERATORS_TO_BUILD)
-  foreach(t ${ACCELERATORS_TO_BUILD})
-    file(APPEND "${InitAccelerators}" "  extern void create${t}();\n")
-    file(APPEND "${InitAccelerators}" "  create${t}();\n")
-  endforeach(t)
-  file(APPEND "${InitAccelerators}" "  return true;\n")
-else (ACCELERATORS_TO_BUILD)
-  file(APPEND "${InitAccelerators}" "  return false;\n")
-endif (ACCELERATORS_TO_BUILD)
-file(APPEND "${InitAccelerators}" "}\n"
-                                  "} // namespace accel\n"
-                                  "} // namespace onnx_mlir\n")
+
+#set(InitAccelerators "${CMAKE_CURRENT_BINARY_DIR}/InitAccelerators.cpp")
+#file(WRITE "${InitAccelerators}" "namespace onnx_mlir {\n"
+#                                 "namespace accel {\n"
+#                                 "bool initAccelerators() {\n")
+#if (ACCELERATORS_TO_BUILD)
+#  foreach(t ${ACCELERATORS_TO_BUILD})
+#    file(APPEND "${InitAccelerators}" "  extern void create${t}();\n")
+#    file(APPEND "${InitAccelerators}" "  create${t}();\n")
+#  endforeach(t)
+#  file(APPEND "${InitAccelerators}" "  return true;\n")
+#else (ACCELERATORS_TO_BUILD)
+#  file(APPEND "${InitAccelerators}" "  return false;\n")
+#endif (ACCELERATORS_TO_BUILD)
+#file(APPEND "${InitAccelerators}" "}\n"
+#                                  "} // namespace accel\n"
+#                                  "} // namespace onnx_mlir\n")
 
 add_onnx_mlir_library(InitAccelerators
   InitAccelerators.cpp
