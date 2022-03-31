@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------- LowerKrnlRegion.cpp ------------------------------------------===//
+//===------- ----LowerKrnlRegion.cpp ---------------------------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -38,12 +38,8 @@ public:
   LogicalResult matchAndRewrite(
       KrnlRegionOp krnlRegionOp, PatternRewriter &rewriter) const override {
 
-    auto loc = krnlRegionOp.getLoc();
-    MultiDialectBuilder<MathBuilder> create(rewriter,loc);
-    
-    Block &regionBlock = krnlRegionOp.bodyRegion().front();
-
     // use the special traversal because the op is modified in the sametime
+    Block &regionBlock = krnlRegionOp.bodyRegion().front();
     for (Operation &op : llvm::make_early_inc_range(regionBlock)) {
       op.moveBefore(krnlRegionOp);
     }
@@ -78,8 +74,8 @@ public:
 };
 } // namespace
 
-namespace onnx_mlir{
-namespace krnl{
+namespace onnx_mlir {
+namespace krnl {
 std::unique_ptr<Pass> createLowerKrnlRegionPass() {
   return std::make_unique<LowerKrnlRegionPass>();
 }

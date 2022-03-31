@@ -110,7 +110,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
       // Previous code is intended to create the loop body without RegionOp
       // Current code just splice the loopBody into the RegionOp after it was
-      // built. 
+      // built.
       // ToDo: code could be simplified if not built on top of the previous code
 
       auto &thenRegion = ifOp.getThenRegion();
@@ -258,7 +258,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         auto afterCopyLoop = rewriter.saveInsertionPoint();
         rewriter.setInsertionPointToStart(loop.getIterateBlock());
         // Wrap with KrnlRegionOp because emitCopy uses the result of SeqExtract
-        // for loop bound. 
+        // for loop bound.
         KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
         rewriter.setInsertionPointToStart(&regionOp.bodyRegion().front());
         Value origIV = loop.getInductionVar(0);
