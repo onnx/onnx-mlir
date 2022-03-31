@@ -590,31 +590,43 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
   }
 }
 
-//===----------------------------------------------------------------------===//
-// Support function to emit a warning if an operator attibute value is greater
-// than a preset limit.
-//===----------------------------------------------------------------------===//
+class Diagnostic {
+public:
+  // Global limit for the value of an 'axis' attribute.
+  // Used for diagnostic purposes.
+  static constexpr int64_t axisAttrLimit = 100;
 
-static InFlightDiagnostic verifyAttributeLimit(
-    Operation &op, const Twine &attrName, int64_t attrVal) {
-  // Global limit for all attributes.
-  constexpr int64_t attrValLimit = 100;
+  //===----------------------------------------------------------------------===//
+  // Support function to emit a warning if an operator attibute value is greater
+  // than a given limit. The function returns an "InFlightDiagnostic" which can
+  // be queried on the caller side to determine whether an actual error
+  // condition was encountered. Note: the diagnostic error is not emitted
+  // immediately, it will be emitted once the the object is passed along to a
+  // DiagnosticEngine.
+  //===----------------------------------------------------------------------===//
 
-  if (abs(attrVal) > attrValLimit) {
-    Twine msg(op.getName().getStringRef());
-    std::string limitStr =
-        std::to_string((attrVal > 0) ? attrValLimit : -attrValLimit);
+  template <typename T>
+  static InFlightDiagnostic verifyAttributeLimit(
+      Operation &op, const Twine &attrName, T attrVal, T attrValLimit) {
+    static_assert(std::is_arithmetic<T>::value, "Expecting an arithmetic type");
+    assert(attrValLimit > 0 && "Expecting a strictly positive limit");
 
-    return emitWarning(op.getLoc(),
-        msg.concat(": " + attrName)
-            .concat(" attribute exceeds the limit of ")
-            .concat(limitStr)
-            .concat(". Please check whether the model was translated to ONNX "
-                    "correctly."));
+    if (abs(attrVal) > attrValLimit) {
+      Twine msg(op.getName().getStringRef());
+      std::string limitStr =
+          std::to_string((attrVal > 0) ? attrValLimit : -attrValLimit);
+
+      return emitWarning(op.getLoc(),
+          msg.concat(": " + attrName)
+              .concat(" attribute exceeds the limit of ")
+              .concat(limitStr)
+              .concat(". Please check whether the model was translated to ONNX "
+                      "correctly."));
+    }
+
+    return InFlightDiagnostic();
   }
-
-  return InFlightDiagnostic();
-}
+};
 
 //===----------------------------------------------------------------------===//
 // ONNXArgMaxOp
@@ -622,8 +634,8 @@ static InFlightDiagnostic verifyAttributeLimit(
 
 LogicalResult ONNXArgMaxOp::verify() {
   int64_t axisIndex = axis();
-  InFlightDiagnostic diagnostic =
-      verifyAttributeLimit(*this->getOperation(), "axis", axisIndex);
+  InFlightDiagnostic diagnostic = ::Diagnostic::verifyAttributeLimit(
+      *this->getOperation(), "axis", axisIndex, ::Diagnostic::axisAttrLimit);
   if (LogicalResult(diagnostic).failed())
     return diagnostic;
 
@@ -669,8 +681,8 @@ LogicalResult ONNXArgMaxOp::inferShapes(
 
 LogicalResult ONNXArgMinOp::verify() {
   int64_t axisIndex = axis();
-  InFlightDiagnostic diagnostic =
-      verifyAttributeLimit(*this->getOperation(), "axis", axisIndex);
+  InFlightDiagnostic diagnostic = ::Diagnostic::verifyAttributeLimit(
+      *this->getOperation(), "axis", axisIndex, ::Diagnostic::axisAttrLimit);
   if (LogicalResult(diagnostic).failed())
     return diagnostic;
 
@@ -892,8 +904,8 @@ LogicalResult ONNXLogOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // HardSigmoid
 //===----------------------------------------------------------------------===//
-/// Infer the output shape of the ONNXHardSigmoidOp. This method is required by
-/// the shape inference interface.
+/// Infer the output shape of the ONNXHardSigmoidOp. This method is required
+/// by the shape inference interface.
 LogicalResult ONNXHardSigmoidOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   getResult().setType(getOperand().getType());
@@ -903,8 +915,8 @@ LogicalResult ONNXHardSigmoidOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // Sigmoid
 //===----------------------------------------------------------------------===//
-/// Infer the output shape of the ONNXSigmoidOp. This method is required by the
-/// shape inference interface.
+/// Infer the output shape of the ONNXSigmoidOp. This method is required by
+/// the shape inference interface.
 LogicalResult ONNXSigmoidOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   getResult().setType(getOperand().getType());
@@ -1481,8 +1493,8 @@ LogicalResult ONNXNegOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // IdentityOp
 //===----------------------------------------------------------------------===//
-/// Infer the output shape of the ONNXIdentityOp. This method is required by the
-/// shape inference interface.
+/// Infer the output shape of the ONNXIdentityOp. This method is required by
+/// the shape inference interface.
 LogicalResult ONNXIdentityOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   getResult().setType(getOperand().getType());
@@ -1906,7 +1918,8 @@ static LogicalResult verifyKernelShape(T *op, Value filterOperand,
         filterOperand && "ops without filter have mandatory kernel_shape arg");
     // Don't have a kernel shape explicitly, still make sure that the filter
     // shape are fine if known. If size is negative, ok since this is runtime.
-    // If positive, ok since it must be strictly positive. If zero, that is bad.
+    // If positive, ok since it must be strictly positive. If zero, that is
+    // bad.
     for (int i = 0; i < spatialRank; ++i)
       if (filterShape[2 + i] == 0)
         return op->emitError("Bad spatial filter size: cannot be zero");
@@ -2027,8 +2040,8 @@ LogicalResult ONNXConvOp::verify() {
     // Note: Pytorch requires both channel in (CI) and channel out (CO) to be
     // multiple of group number (G).
     // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html
-    // ONNX clearly states that C (channel in or CI here) is a multiple of group
-    // number (G).
+    // ONNX clearly states that C (channel in or CI here) is a multiple of
+    // group number (G).
     // https://github.com/onnx/onnx/blob/main/docs/Operators.md#Conv
     // Quote: X.shape[1] == (W.shape[1] * group) == C
     // Keras also specifies it: Input channels and filters must both be
@@ -2843,8 +2856,8 @@ LogicalResult ONNXConstantOp::inferShapes(
 
 LogicalResult ONNXConcatOp::verify() {
   int64_t axisIndex = axis();
-  InFlightDiagnostic diagnostic =
-      verifyAttributeLimit(*this->getOperation(), "axis", axisIndex);
+  InFlightDiagnostic diagnostic = ::Diagnostic::verifyAttributeLimit(
+      *this->getOperation(), "axis", axisIndex, ::Diagnostic::axisAttrLimit);
   if (LogicalResult(diagnostic).failed())
     return diagnostic;
 
@@ -3781,8 +3794,8 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
       return emitOpError("Scale should have a rank of one");
     if (scaleShape[0] >= 0 && inputShape[1] >= 0 &&
         scaleShape[0] != inputShape[1])
-      return emitOpError(
-          "Scale should have same dimension as the second dimension of input");
+      return emitOpError("Scale should have same dimension as the second "
+                         "dimension of input");
     if (scaleType.getElementType() != inputElementType)
       return emitOpError("Scale should have same element type as input");
   }
@@ -3808,11 +3821,11 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCompressOp::verify() {
-  auto optionalAxis = axis();
+  Optional<int64_t> optionalAxis = axis();
   if (optionalAxis.hasValue()) {
     int64_t axis = optionalAxis.getValue();
-    InFlightDiagnostic diagnostic =
-        verifyAttributeLimit(*this->getOperation(), "axis", axis);
+    InFlightDiagnostic diagnostic = ::Diagnostic::verifyAttributeLimit(
+        *this->getOperation(), "axis", axis, ::Diagnostic::axisAttrLimit);
     if (LogicalResult(diagnostic).failed())
       return diagnostic;
   }
@@ -4197,8 +4210,8 @@ LogicalResult ONNXOneHotOp::verify() {
     int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
     // Verify axis.
     int64_t axisValue = axis();
-    // Unusually, with a rank of 3, acceptable values are 0 (before first) to 3
-    // (after last).
+    // Unusually, with a rank of 3, acceptable values are 0 (before first) to
+    // 3 (after last).
     if (axisValue < 0)
       axisValue += indicesRank + 1;
     if (!(axisValue >= 0 && axisValue <= indicesRank))
