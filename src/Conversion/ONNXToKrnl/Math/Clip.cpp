@@ -36,7 +36,7 @@ struct ONNXClipOpLowering : public ConversionPattern {
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     auto shapeComputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapeComputed));
+    assert(succeeded(shapeComputed) && "Could not compute output shape");
 
     Value input = operandAdaptor.input();
     Value min = operandAdaptor.min();

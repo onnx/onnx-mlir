@@ -527,7 +527,7 @@ struct ZHighToZLowStickForLSTMOpLowering : public ConversionPattern {
 
     ZHighStickForLSTMOpShapeHelper shapeHelper(&stickOp, &rewriter);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
@@ -565,7 +565,7 @@ struct ZHighToZLowStickForGRUOpLowering : public ConversionPattern {
 
     ZHighStickForGRUOpShapeHelper shapeHelper(&stickOp, &rewriter);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
@@ -914,7 +914,7 @@ struct ZHighToZLowPool2DOpLowering : public ConversionPattern {
     ZHighPoolingOpShapeHelper<ZHIGHPOOLOP, ZHIGHADAPTOR> shapeHelper(
         &pool2dOp, &rewriter);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Convert type.
     ZMemRefType zMemRefType =
@@ -957,7 +957,7 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
 
     ZHighMatMulOpShapeHelper shapeHelper(&matmulOp, &rewriter);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
@@ -1042,7 +1042,7 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
     // Infer shape.
     ZHighLSTMOpShapeHelper shapeHelper(&lstmOp, &rewriter);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Convert type.
     ZMemRefType hnZMemRefType =
@@ -1130,7 +1130,7 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
     // Infer shape.
     ZHighGRUOpShapeHelper shapeHelper(&gruOp, &rewriter);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Convert type.
     ZMemRefType hnZMemRefType =
@@ -1207,7 +1207,7 @@ struct ZHighToZLowConv2DOpLowering : public ConversionPattern {
     // Infer shape.
     ZHighConv2DOpShapeHelper shapeHelper(&conv2dOp, &rewriter);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Convert type.
     ZMemRefType zMemRefType =
