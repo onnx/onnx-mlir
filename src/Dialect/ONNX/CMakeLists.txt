@@ -12,6 +12,7 @@ add_onnx_mlir_dialect_doc(onnx ONNX.td)
 add_onnx_mlir_rewriter(Rewrite)
 
 add_onnx_mlir_library(OMONNXOps
+  DialectBuilder.cpp
   ONNXDialect.cpp
   ONNXOps.cpp
   ONNXOpsHelper.cpp

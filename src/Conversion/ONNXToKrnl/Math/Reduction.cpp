@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
@@ -218,6 +219,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     defineLoops(rewriter, loc, originalLoopsInit, outRank);
 
     // Iteration information
+    // TODO use new KrnlDialectBuilder.
     KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
     for (decltype(outRank) i = 0; i < outRank; ++i)
       addDimensionToPack(rewriter, loc, packInit, alloc, i);
@@ -245,6 +247,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     std::vector<Value> originalLoops;
     defineLoops(rewriter, loc, originalLoops, inRank);
     // Iteration information
+    // TODO use new KrnlDialectBuilder.
     KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (decltype(inRank) i = 0; i < inRank; ++i)
       addDimensionToPack(rewriter, loc, pack, input, i);
@@ -548,6 +551,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     defineLoops(rewriter, loc, originalLoopsInit, outRank);
 
     // Iteration information
+    // TODO use new KrnlDialectBuilder.
     KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
     for (decltype(outRank) i = 0; i < outRank; ++i)
       addDimensionToPack(rewriter, loc, packInit, alloc, i);
@@ -576,6 +580,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     std::vector<Value> originalLoops;
     defineLoops(rewriter, loc, originalLoops, inRank);
     // Iteration information
+    // TODO use new KrnlDialectBuilder.
     KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (decltype(inRank) i = 0; i < inRank; ++i)
       addDimensionToPack(rewriter, loc, pack, input, i);

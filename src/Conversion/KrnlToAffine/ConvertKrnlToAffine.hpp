@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "src/Dialect/Krnl/KrnlDialectBuilder.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
