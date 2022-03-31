@@ -52,7 +52,7 @@ struct ONNXTopKOpLowering : public ConversionPattern {
         getDenseElementAttributeFromConstantValue,
         loadDenseElementArrayValueAtIndex);
     auto shapeComputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapeComputed));
+    assert(succeeded(shapeComputed) && "Could not compute output shape");
     auto resDims = shapeHelper.dimsForOutput();
 
     // Insert an allocation and deallocation for the results of this operation.
