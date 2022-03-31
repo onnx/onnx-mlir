@@ -213,7 +213,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Insert an allocation and deallocation for the result of this operation.
     MemRefType memRefType = convertToMemRefType(*op->result_type_begin());

@@ -211,7 +211,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // Read ceil_mode attribute
     auto ceilMode = poolOp.ceil_mode();
