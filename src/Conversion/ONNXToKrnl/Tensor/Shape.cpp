@@ -33,7 +33,7 @@ struct ONNXShapeOpLowering : public ConversionPattern {
         getDenseElementAttributeFromKrnlValue,
         loadDenseElementArrayValueAtIndex);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     // TODO: if the dimensions are known at compile time
     // (shapeHelper.dimsForOutput literal), then we could use a constant array.

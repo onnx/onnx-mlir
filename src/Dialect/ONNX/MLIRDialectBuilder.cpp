@@ -270,8 +270,9 @@ Value MathBuilder::positiveInf(Type type) const {
                              : std::numeric_limits<uint32_t>::max();
           break;
         case 64:
-          value = (isSigned) ? std::numeric_limits<int64_t>::max()
-                             : std::numeric_limits<uint64_t>::max();
+          value = static_cast<double>(
+              (isSigned) ? std::numeric_limits<int64_t>::max()
+                         : std::numeric_limits<uint64_t>::max());
           break;
         default:
           llvm_unreachable("unsupported element type");
@@ -510,6 +511,33 @@ memref::CastOp MemRefBuilder::cast(Value input, MemRefType outputType) const {
   return b.create<memref::CastOp>(loc, outputType, input);
 }
 
+Value MemRefBuilder::reinterpretCast(
+    Value input, SmallVectorImpl<IndexExpr> &outputDims) const {
+  // Compute new sizes and strides.
+  int64_t rank = outputDims.size();
+  SmallVector<IndexExpr, 4> sizesIE, stridesIE;
+  sizesIE.resize(rank);
+  stridesIE.resize(rank);
+  IndexExpr strideIE = LiteralIndexExpr(1);
+  for (int i = rank - 1; i >= 0; --i) {
+    sizesIE[i] = outputDims[i];
+    stridesIE[i] = strideIE;
+    if (i > 0)
+      strideIE = strideIE * sizesIE[i];
+  }
+  // Compute output type
+  SmallVector<int64_t, 4> outputShape;
+  SmallVector<OpFoldResult, 4> sizes, strides;
+  IndexExpr::getShape(outputDims, outputShape);
+  IndexExpr::getOpOrFoldResults(sizesIE, sizes);
+  IndexExpr::getOpOrFoldResults(stridesIE, strides);
+  Type elementType = input.getType().cast<ShapedType>().getElementType();
+  MemRefType outputMemRefType = MemRefType::get(outputShape, elementType);
+
+  return b.create<memref::ReinterpretCastOp>(loc, outputMemRefType, input,
+      /*offset=*/b.getIndexAttr(0), sizes, strides);
+}
+
 Value MemRefBuilder::dim(Value val, int64_t index) const {
   assert((val.getType().isa<MemRefType>() ||
              val.getType().isa<UnrankedMemRefType>()) &&
@@ -566,6 +594,27 @@ void SCFBuilder::yield() const { b.create<scf::YieldOp>(loc); }
 // Vector Builder
 //===----------------------------------------------------------------------===//
 
+int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) const {
+  unsigned typeBitSize = elementType.getIntOrFloatBitWidth();
+  unsigned simdBitSize;
+  // TODO: use march and mcpu to determine the right size, right now assume
+  // 4*32=128 bits.
+  simdBitSize = 128;
+  assert(simdBitSize >= typeBitSize && simdBitSize % typeBitSize == 0 &&
+         "bad machine vector length");
+  return (simdBitSize / typeBitSize);
+}
+
+int64_t VectorBuilder::getMachineVectorLength(const VectorType &vecType) const {
+  return getMachineVectorLength(vecType.getElementType());
+}
+
+int64_t VectorBuilder::getMachineVectorLength(Value vecValue) const {
+  VectorType vecType = vecValue.getType().dyn_cast_or_null<VectorType>();
+  assert(vecType && "expected vector type");
+  return getMachineVectorLength(vecType.getElementType());
+}
+
 Value VectorBuilder::load(
     VectorType vecType, Value memref, ValueRange indices) const {
   return b.create<vector::LoadOp>(loc, vecType, memref, indices);
@@ -573,6 +622,10 @@ Value VectorBuilder::load(
 
 void VectorBuilder::store(Value val, Value memref, ValueRange indices) const {
   b.create<vector::StoreOp>(loc, val, memref, indices);
+}
+
+Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
+  return b.create<vector::FMAOp>(loc, lhs, rhs, acc);
 }
 
 Value VectorBuilder::broadcast(VectorType vecType, Value val) const {
@@ -584,6 +637,113 @@ Value VectorBuilder::shuffle(
   return b.create<vector::ShuffleOp>(loc, lhs, rhs, mask);
 }
 
-Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
-  return b.create<vector::FMAOp>(loc, lhs, rhs, acc);
+// Private vector utilities.
+bool VectorBuilder::isPowerOf2(uint64_t num) const {
+  return (num & (num - 1)) == 0;
+}
+
+uint64_t VectorBuilder::getLengthOf1DVector(Value vec) const {
+  VectorType vecType = vec.getType().dyn_cast_or_null<VectorType>();
+  assert(vecType && "expected a vector type");
+  auto vecShape = vecType.getShape();
+  assert(vecShape.size() == 1 && "expected a 1D vector");
+  return vecShape[0];
+}
+
+Value VectorBuilder::mergeHigh(Value lhs, Value rhs, int64_t step) const {
+  // Inputs: lrs <l0, l1, l2, l3, l4, l5, l6, l7>;
+  //         rhs <r0, r1, r2, r3, r4, r5, r6, r7>.
+  // Merge alternatively the low (least significant) values of lrs and rhs
+  // Step 1:     <(l0), (r0), (l1), (r1), (l2), (r2), (l3), (r3)> (1x sizes)
+  // Step 2:     <(l0, l1),   (r0, r1),   (l2, l3),   (r2, r3)>   (2x sizes)
+  // Step 4:     <(l0, l1, l2, l3),       (r0, r1, r2, r3)>       (4x sizes)
+  uint64_t VL = getLengthOf1DVector(lhs);
+  assert(getLengthOf1DVector(rhs) == VL && "expected same sized vectors");
+  assert(isPowerOf2(VL) && "expected power of 2 vector length");
+  SmallVector<int64_t, 8> mask(VL, 0);
+  int i = 0;
+  int64_t pairsOfLhsRhs = VL / (2 * step);
+  int64_t firstHalf = 0;
+  for (int64_t p = 0; p < pairsOfLhsRhs; ++p) {
+    // One step-sized item from the LHS
+    for (int64_t e = 0; e < step; ++e)
+      mask[i++] = firstHalf + p * step + e;
+    // One step-sized item from the RHS (RHS offset is VL for the shuffle op).
+    for (int64_t e = 0; e < step; ++e)
+      mask[i++] = firstHalf + VL + p * step + e;
+  }
+  return shuffle(lhs, rhs, mask);
+}
+
+Value VectorBuilder::mergeLow(Value lhs, Value rhs, int64_t step) const {
+  // Inputs: lrs <l0, l1, l2, l3, l4, l5, l6, l7>;
+  //         rhs <r0, r1, r2, r3, r4, r5, r6, r7>.
+  // Merge alternatively the low (least significant) values of lrs and rhs
+  // Step 1:     <(l4), (r4), (l5), (r5), (l6), (r6), (l7), (r7)> (1x sizes)
+  // Step 2:     <(l4, l5),   (r4, r5),   (l6, l7),   (r6, r7)>   (2x sizes)
+  // Step 4:     <(l4, l5, l6, l7),       (r4, r5, r6, r7)>       (4x sizes)
+  uint64_t VL = getLengthOf1DVector(lhs);
+  assert(getLengthOf1DVector(rhs) == VL && "expected same sized vectors");
+  assert(isPowerOf2(VL) && "expected power of 2 vector length");
+  SmallVector<int64_t, 8> mask(VL, 0);
+  int i = 0;
+  int64_t pairsOfLhsRhs = VL / (2 * step);
+  int64_t secondHalf = VL / 2;
+  for (int64_t p = 0; p < pairsOfLhsRhs; ++p) {
+    // One step-sized item from the LHS
+    for (int64_t e = 0; e < step; ++e)
+      mask[i++] = secondHalf + p * step + e;
+    // One step-sized item from the RHS (RHS offset is VL for the shuffle op).
+    for (int64_t e = 0; e < step; ++e)
+      mask[i++] = secondHalf + VL + p * step + e;
+  }
+  return shuffle(lhs, rhs, mask);
+}
+
+// Do a parallel-simd reduction of N vectors of SIMD length VL.
+// Restrictions:
+// *  VL is the vector length of the machine SIMD vectors.
+// *  N is a multiple of VL as we can perform consecutive VL x VL
+//    reductions.
+void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
+    SmallVectorImpl<Value> &outputVecArray) {
+  uint64_t N = inputVecArray.size();
+  assert(N > 0 && "expected at least one value to reduce");
+  uint64_t VL = getLengthOf1DVector(inputVecArray[0]);
+  uint64_t machineVL = getMachineVectorLength(inputVecArray[0]);
+  assert(VL == machineVL && "only natural sizes supported at this time");
+  assert(N % machineVL == 0 &&
+         "can only reduces multiple of VL vectors at this time");
+  LLVM_DEBUG(llvm::dbgs() << "reduction with N " << N << ", VL " << VL
+                          << ", mVL " << machineVL << "\n";);
+
+  // Emplace all input vectors in a temporary array.
+  SmallVector<Value, 8> tmpArray;
+  for (uint64_t i = 0; i < N; ++i) {
+    tmpArray.emplace_back(inputVecArray[i]);
+    // Also verify that all have the same vector length.
+    assert(getLengthOf1DVector(inputVecArray[i]) == VL &&
+           "different vector length");
+  }
+
+  // Reductions of full physical vectors.
+  outputVecArray.clear();
+  MathBuilder createMath(*this);
+  for (uint64_t r = 0; r < N; r += machineVL) {
+    // Algorithm for the set of input arrays from tmp[r] to tmp[r+machineVL-1].
+    uint64_t numPairs = machineVL / 2; // Pair number decrease by power of 2.
+    for (uint64_t step = 1; step < machineVL; step = step * 2) {
+      for (uint64_t p = 0; p < numPairs; ++p) {
+        Value highVal =
+            mergeHigh(tmpArray[r + 2 * p], tmpArray[r + 2 * p + 1], step);
+        Value lowVal =
+            mergeLow(tmpArray[r + 2 * p], tmpArray[r + 2 * p + 1], step);
+        Value red = createMath.add(highVal, lowVal);
+        tmpArray[r + p] = red;
+      }
+      numPairs = numPairs / 2; // Pair number decrease by power of 2.
+    }
+    // Completed the machineVL x machineVL reduction, save it in the output.
+    outputVecArray.emplace_back(tmpArray[r]);
+  }
 }

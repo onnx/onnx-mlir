@@ -113,6 +113,12 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXGRUOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLSTMOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRNNOpPattern(patterns, typeConverter, ctx);
+  // Sequence
+  populateLoweringONNXSequenceAtOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSequenceEmptyOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSequenceEraseOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSequenceInsertOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXSequenceLengthOpPattern(patterns, typeConverter, ctx);
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(ctx);
 }
@@ -193,6 +199,10 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
+  // Make ONNXNoneOp legal so that other ONNX ops can use it during the
+  // lowering. ONNXNoneOp will be dangling and removed by calling
+  // canonicalization after the lowering.
+  target.addLegalOp<::mlir::ONNXNoneOp>();
 
   // Use krnl.load/store instead of std.load/store and affine.load/store.
   // krnl.load/store will be lowered to std.load/store and affine.load/store by

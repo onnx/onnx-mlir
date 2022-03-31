@@ -30,11 +30,6 @@ add_onnx_mlir_library(NNPAAccel
 
   EXCLUDE_FROM_OM_LIBS
 
-  DEPENDS
-  Accelerator
-  NNPACompilerUtils
-  onnx
-  
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
   ${ONNX_MLIR_SRC_ROOT}
@@ -45,6 +40,7 @@ add_onnx_mlir_library(NNPAAccel
   LINK_LIBS PUBLIC
   onnx
   NNPACompilerUtils
+  Accelerator
   OMZHighOps
   OMZLowOps
   )

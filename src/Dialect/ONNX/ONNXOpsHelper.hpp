@@ -19,6 +19,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Value.h"
 
+#include "onnx/onnx_pb.h"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/MLIRDialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -35,7 +36,7 @@ struct OnnxBuilder : DialectBuilder {
   Value sub(Value A, Value B) const;
   Value mul(Value A, Value B) const;
   Value div(Value A, Value B) const;
-  Value matmul(Type Y, Value A, Value B) const;
+  Value matmul(Type Y, Value A, Value B, bool useGemm = false) const;
 
   Value reshape(Type outputType, Value input, Value shape) const;
   Value transpose(Type outputType, Value input, ArrayAttr perm) const;
@@ -217,3 +218,6 @@ RESULT_TYPE getScalarValue(mlir::DenseElementsAttr &denseAttr, mlir::Type type);
 
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp, mlir::Type type);
+
+mlir::Type convertONNXTypeToMLIRType(
+    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType);

@@ -26,7 +26,6 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
 
 using namespace mlir;
 
@@ -61,7 +60,8 @@ public:
 private:
   static LogicalResult verifyRanked(Operation &op) {
     for (auto ty : op.getOperandTypes()) {
-      if (!ty.isa<RankedTensorType>() && !ty.isa<NoneType>()) {
+      if (!ty.isa<RankedTensorType>() && !ty.isa<SeqType>() &&
+          !ty.isa<NoneType>()) {
         op.emitError("not ranked");
         return failure();
       }
