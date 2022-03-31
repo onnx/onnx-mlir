@@ -2330,10 +2330,11 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<4xi64>, [[PARAM_1_:%.+]]: memref<i64>) -> memref<i64> {
 // CHECK-DAG:       [[CST_4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<i64>
-// CHECK:           krnl.define_loops 0
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       krnl.define_loops 0
 // CHECK:           krnl.iterate() with (){
-// CHECK-DAG:         [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:         [[CST_0_1_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:         [[CST_4_1_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]][] : memref<i64>
 // CHECK:             [[VAR_2_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
@@ -2355,10 +2356,10 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_c1_:%.+]] = arith.constant 1 : index
 // CHECK:           [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<10x?xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_0_]]) {{.*}}: memref<10x?xf32>
+// CHECK-DAG:       [[VAR_c1_0_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 10, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to #map0([[VAR_0_]])){
 // CHECK:             [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:         [[VAR_c1_0_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[IV]]#1] : memref<10xi64>
 // CHECK:             [[VAR_4_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
 // CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpi slt, [[IV]]#0, [[VAR_4_]] : index

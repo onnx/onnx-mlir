@@ -46,6 +46,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
 
     MemRefBoundsIndexCapture dataBounds(operandAdaptor.input());
     int64_t outputRank = shapeHelper.dimsForOutput(0).size();
+    LiteralIndexExpr one(1);
 
     /*
       The semantic of Reversequence can be expressed in loop as:
@@ -90,7 +91,6 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
     createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           IndexExprScope innerLoopScope(&rewriter, shapeHelper.scope);
-          LiteralIndexExpr one(1);
 
           // compute the loop indices for the output
           SmallVector<IndexExpr, 4> outputAccessFct;

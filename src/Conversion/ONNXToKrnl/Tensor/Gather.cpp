@@ -49,6 +49,9 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     int jIndexStart = iIndexStart + axisLit;
     int kIndexStart = jIndexStart + indicesRank - (axisLit + 1);
 
+    LiteralIndexExpr zero(0);
+    LiteralIndexExpr axis(axisLit);
+
     /*
       The pattern that we are using is that of numpy.take.
 
@@ -67,8 +70,6 @@ struct ONNXGatherOpLowering : public ConversionPattern {
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(&rewriter, loc);
-          LiteralIndexExpr zero(0);
-          LiteralIndexExpr axis(axisLit);
           SymbolIndexExpr axisDim(shapeHelper.dataDims[axisLit]);
 
           // compute the loop indices for the output
