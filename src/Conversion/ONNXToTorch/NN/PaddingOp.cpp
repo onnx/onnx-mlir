@@ -114,7 +114,7 @@ public:
     Location loc = op1.getLoc();
 
     Value data = op1.data();				// ONNX operands
-    auto pads = op1.pads();				// ONNX operands
+    auto pads  = op1.pads();		                // ONNX operands
     Value const_value = op1.constant_value();		// ONNX operands
 
     llvm::outs() << "pads type" << "\n" << pads.getType() << "\n" << "\n";
@@ -153,20 +153,43 @@ public:
    
     // ONNX : b1, e1, b2, e2, b3, e3, b4, e4
     // TORCH : b1, b2, b3, b4, e1, e2, e3, e4
- 
-    auto padsList1 = rewriter.create<PrimListConstructOp>(
-	         	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), 
-				ValueRange{f0v, f0v, f0v, f1v, f0v, f2v, f0v, f3v} );
+     
+    //auto padsList1 = rewriter.create<PrimListConstructOp>(
+    //	         	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), 
+    //				ValueRange{f0v, f0v, f0v, f1v, f0v, f2v, f0v, f3v} );
 
-    for (auto p : padsList1.elements()) {
-    	llvm::outs() << " padding list element: " << "\n" << p << "\n" << "\n";
+    std::vector<Value> translatepadsList;
+    if (pads) {
+      //auto pads_v = pads.getValues<APInt>();
+      //int pads_size = pads_v.size();
+      /*
+      for (int i = 0; i < pads_size; i += 2) {
+        auto f1 = IntegerAttr::get(ty,
+				   (pads_v.getValues<APInt>()[pads_size - 1 - i - 1]).getValue().getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+
+        auto f2 = IntegerAttr::get(ty,
+				   (pads_v.getValues<APInt>()[pads_size - 1 - i]).getValue().getZExtValue());
+        Value p2v = rewriter.create<ConstantIntOp>(loc, f2);
+	
+	translatepadsList.push_back(p1v);
+	translatepadsList.push_back(p2v);
+	} */     
     }
+
+    Value padsList = rewriter.create<PrimListConstructOp>(loc,
+        Torch::ListType::get(rewriter.getType<Torch::IntType>()),
+        ValueRange{translatepadsList});
+    
+    //for (auto p : padsList1.elements()) {
+    // 	llvm::outs() << " padding list element: " << "\n" << p << "\n" << "\n";
+    //}
 
     TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
     auto resultTy = Torch::ValueTensorType::get(op1.getContext(), op_tensor_type.getShape(), 
 							op_tensor_type.getElementType());
 
-    Value atenconstantpad = rewriter.create<AtenConstantPadNdOp>(loc, resultTy, dtt, padsList1, ctt);
+    Value atenconstantpad = rewriter.create<AtenConstantPadNdOp>(loc, resultTy, dtt, padsList, ctt);
 
     llvm::outs() << "AtenConstantPadNdOp operation creation" << "\n" << atenconstantpad << "\n" << "\n";
 

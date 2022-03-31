@@ -1118,9 +1118,9 @@ static void addPasses(mlir::OwningOpRef<ModuleOp> &module,
   }
 
   /// torch pass has been added
-  /// if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
-  addONNXToTorchPasses(pm, OptimizationLevel);
-
+  if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
+    addONNXToTorchPasses(pm, OptimizationLevel);
+ 
   if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
     addKrnlToLLVMPasses(pm);
 }

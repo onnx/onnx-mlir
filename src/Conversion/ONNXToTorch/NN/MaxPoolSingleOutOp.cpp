@@ -203,8 +203,12 @@ public:
         Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
         dilationonnxList.push_back(p1v);
       }
-    }
-
+    } else {
+      auto c1 = IntegerAttr::get(ty, 1);				 
+      Value p1v = rewriter.create<ConstantIntOp>(loc, c1);
+      dilationonnxList = { p1v, p1v };      
+    }  
+ 
     // reading the kernal_shape values.
     if (kernal_shape) {
       for (unsigned int i = 0; i < kernal_shape.size(); i++) {
