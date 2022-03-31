@@ -104,9 +104,11 @@ create.krnl.printf("inputElem: ", val, valType);
 ## Finding memory errors
 
 If you know, or suspect, that onnx-mlir-compiled inference executable causes
-bugs related to memory access, especially buffer overrun bugs, they are
-difficult to debug because run-time errors occur outside of the point
-containing the bug.
+bugs related to memory access. Th valgrind framework(https://valgrind.org/) or
+mtrace memory tool(https://github.com/sstefani/mtrace) are available to trace
+memory allocation/free-related APIs. However if the bugs relating to memory
+access, especially buffer overrun bugs, they are difficult to debug because
+run-time errors occur outside of the point containing the bug. 
 
 The "Electric Fence library" can be used for debugging these bugs. It helps
 you detect two common programming bugs: software that overruns the boundaries
@@ -116,8 +118,13 @@ Fence will detect read accesses as well as writes, and it will pinpoint the
 exact instruction that causes an error.
 
 Because the library is not officially supported by RedHat, you need to download 
-the source code package (SRPM) from https://rpmfind.net/linux/RPM/fedora/devel/rawhide/s390x/e/ElectricFence-2.2.2-57.fc36.s390x.html,
-build and install it to your system as root user.
+the source code package (SRPM) from the following sites, build and install it
+to your system as root user.
+
+- X86: https://rpmfind.net/linux/RPM/fedora/devel/rawhide/x86_64/e/ElectricFence-2.2.2-57.fc36.i686.html
+- PPC64LE: https://rpmfind.net/linux/RPM/fedora/devel/rawhide/ppc64le/e/ElectricFence-2.2.2-57.fc36.ppc64le.html
+- s390x: https://rpmfind.net/linux/RPM/fedora/devel/rawhide/s390x/e/ElectricFence-2.2.2-57.fc36.s390x.html,
+- Mac and other systems using RISC-V and ARM: No source code package found, but the DUMA libarary (https://github.com/johnsonjh/duma) may be able to used. (Environment Notes: DUMA should work out of the box on most systems, however, specific environments may require additional configuration or warrant special consideration.)
 
 After installing it, link this library by using the "-lefence" option when
 generating inference executables. Then simply execute it, which will
