@@ -56,7 +56,6 @@ add_onnx_mlir_library(OMONNXOps
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
 
-
   LINK_LIBS PUBLIC
   OMMlirDialects
   onnx

@@ -6,7 +6,7 @@
 //
 // Copyright 2022 The IBM Research Authors.
 //
-// =============Í================================================================
+// =============================================================================
 //
 // This file lowers the ONNX Random Normal Like Operator to Krnl dialect.
 //
