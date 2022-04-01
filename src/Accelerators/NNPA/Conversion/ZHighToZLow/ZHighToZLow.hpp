@@ -16,7 +16,7 @@
 
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 
 /// Default 4K alignment for sticked tensors.
 static constexpr int64_t gAlignment = 4096;

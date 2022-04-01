@@ -1,4 +1,4 @@
-//===---- MLIRDialectBuilder.hpp - Helper functions for MLIR dialects -----===//
+//===---- DialectBuilder.hpp - Helper functions for MLIR dialects -----===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -8,8 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ONNX_AND_MLIR_DIALECT_BUILDER_H
-#define ONNX_AND_MLIR_DIALECT_BUILDER_H
+#pragma once
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -327,7 +326,6 @@ struct MultiDialectBuilder<VectorBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 };
 
 // Include template implementations.
-#include "MLIRDialectBuilder.hpp.inc"
+#include "DialectBuilder.hpp.inc"
 
 } // namespace mlir
-#endif

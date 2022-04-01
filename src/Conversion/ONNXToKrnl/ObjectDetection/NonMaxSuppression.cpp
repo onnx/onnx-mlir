@@ -14,7 +14,7 @@
 
 #include "mlir/Dialect/SCF/SCF.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/Krnl/KrnlDialectBuilder.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 
 using namespace mlir;
 

@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "src/Dialect/Krnl/KrnlDialectBuilder.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
@@ -23,33 +23,35 @@ namespace onnx_mlir {
 namespace krnl {
 
 // To assist unroll and jam
-using UnrollAndJamRecord = std::pair<AffineForOp, int64_t>;
-using UnrollAndJamList = SmallVector<UnrollAndJamRecord, 4>;
-using UnrollAndJamMap = std::map<Operation *, UnrollAndJamList *>;
+using UnrollAndJamRecord = std::pair<mlir::AffineForOp, int64_t>;
+using UnrollAndJamList = llvm::SmallVector<UnrollAndJamRecord, 4>;
+using UnrollAndJamMap = std::map<mlir::Operation *, UnrollAndJamList *>;
 
-void populateKrnlToAffineConversion(LLVMTypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateKrnlToAffineConversion(mlir::LLVMTypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlCopyFromBufferOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlCopyFromBufferOpPattern(
+    mlir::TypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlCopyToBufferOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlCopyToBufferOpPattern(
+    mlir::TypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlLoadOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlLoadOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlStoreOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlStoreOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlMatmultOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlMatmultOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlMemsetOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlMemsetOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlTerminatorOpPattern(TypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx);
+void populateLoweringKrnlTerminatorOpPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
 } // namespace krnl
 } // namespace onnx_mlir
