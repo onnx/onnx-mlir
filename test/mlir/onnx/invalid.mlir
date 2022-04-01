@@ -100,13 +100,13 @@ func @test_constantofshape_verifier_4() -> tensor<2xi64> {
 
 // -----
 
-
 func @test_pow_verifier_1(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<f32>) -> tensor<*xf32> {
   %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<1x2x3x4xf32>, tensor<f32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 }
 
 // -----
+
 func @test_sequence_empty() -> none {
   // expected-error @+1 {{SequenceEmpty dtype() does not match the output type}}
   %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xi32>>
