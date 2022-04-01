@@ -7,11 +7,11 @@
 #
 # --runall: Compute performance benchmarks for all Ops in OpsWithPerformanceBenchmarks array
 #
-# --readrun <File> <op>: Compute performance benchmarks for specified op, and compare with benchmarks
-# already written to specified file (File must contain the same op)
+# --readrun <filename> <op> <metric>: Compute performance benchmarks for specified op, and compare 
+# with benchmarks already written to specified file (File must contain the same op)
 #
-# --compare <Op1> <Op2>: Compare performance benchmarks written to file for both specified files (each
-# should contain the same op)
+# --compare <op> <op> <metric>: Compare performance benchmarks written to file for both specified 
+# files (each should contain the same op)
 ######################################################################################################
 
 
@@ -46,7 +46,9 @@ RuntimeEpoch = int(time.time())
 def print_usage(error_message):
     print("\nError: " + error_message)
     print("Correct usage below:")
-    print("ParseBenchmarks.py [--run <op>|--runall|--readrun <file> <op>|--compare <op> <op>] [--verbose]\n")
+    print("ParseBenchmarks.py [{run args}] [--verbose]")
+    print("Run args:")
+    print("--run <op>\n--runall\n--readrun <filename> <op> <metric>\n--compare <filename> <filename> <metric>\n")
     sys.exit()
 
 # Global vars indicating argument selection
@@ -67,8 +69,26 @@ ValidArgs = [
     'compare'
 ]
 
-# Durable and reliable function to extract supplied arguments safely
+# Function extracts supplied arguments safely
 def ReadSysArgs():
+
+    # Subroutine for handling each argument's supplied options
+    def ValidateOptions(i, NumberOfExpectedOptions):
+        arg = sys.argv[i]
+        if (len(sys.argv) <= i + NumberOfExpectedOptions):
+            print_usage("Missing " + arg + " option(s)")
+
+        for j in range(1, NumberOfExpectedOptions + 1):
+
+            if ((sys.argv[i+j])[:2] == "--"):
+                print_usage("Missing " + arg + " option(s)")
+
+            ArgOptions.append(sys.argv[i+j])
+
+            # Ignore option in future iterations
+            sys.argv[i+j] = "/ignorethis"
+            
+
 
     # Number of supplied run arguments (must not exceed 1)
     SuppliedRunArgs = 0
@@ -85,65 +105,59 @@ def ReadSysArgs():
         if (arg == "/ignorethis"):
             continue
 
-
-        if (arg[:2] == "--"):
-            argname = arg[2:].lower()
-            if argname not in ValidArgs:
-                print_usage("Invalid argument: " + arg)
-            else:
-                if (argname == "verbose"):
-                    global PrintOutputs
-                    PrintOutputs = True
-                elif (argname == "run"):
-                    global Run
-                    Run = True
-                    SuppliedRunArgs+=1
-                    # Expect supplied op
-                    if (len(sys.argv) > i+1):
-                        ArgOptions.append(sys.argv[i+1])
-
-                        # Ignore option argument in future iterations
-                        sys.argv[i+1] = "/ignorethis"
-                    else:
-                        print_usage("Missing --run option (op expected)")
-                elif (argname == "runall"):
-                    global Runall
-                    Runall = True
-                    SuppliedRunArgs+=1
-                elif (argname == "readrun"):
-                    global Readrun
-                    Readrun = True
-                    SuppliedRunArgs+=1
-                    
-                    # Expect supplied file and supplied op
-                    if (len(sys.argv) > i+2):
-                        ArgOptions.append(sys.argv[i+1])
-                        ArgOptions.append(sys.argv[i+2])
-
-                        # Ignore option arguments in future iterations
-                        sys.argv[i+1] = "/ignorethis"
-                        sys.argv[i+2] = "/ignorethis"
-                    else:
-                        print_usage("Missing --readrun option(s) (file and op expected)")
-                    
-                elif (argname == "compare"):
-                    global Compare
-                    Compare = True
-                    SuppliedRunArgs+=1
-
-                    # Expect two supplied ops
-                    if (len(sys.argv) > i+2):
-                        ArgOptions.append(sys.argv[i+1])
-                        ArgOptions.append(sys.argv[i+2])
-
-                        # Ignore option arguments in future iterations
-                        sys.argv[i+1] = "/ignorethis"
-                        sys.argv[i+2] = "/ignorethis"
-                    else:
-                        print_usage("Missing --compare option(s) (op and op expected)")
-
-        else:
+        if (arg[:2] != "--"):
             print_usage("Invalid argument: " + arg)
+        
+        argname = arg[2:].lower()
+        if argname not in ValidArgs:
+            print_usage("Invalid argument: " + arg)
+
+        # --Verbose argument
+        if (argname == "verbose"):
+            global PrintOutputs
+            PrintOutputs = True
+
+        # --run argument
+        elif (argname == "run"):
+            global Run
+            Run = True
+            SuppliedRunArgs+=1
+
+            # Set for op
+            NumberOfExpectedOptions = 1
+
+            # Check that the options are supplied
+            ValidateOptions(i, NumberOfExpectedOptions)
+
+        # --runall argument
+        elif (argname == "runall"):
+            global Runall
+            Runall = True
+            SuppliedRunArgs+=1
+
+        # --readrun argument
+        elif (argname == "readrun"):
+            global Readrun
+            Readrun = True
+            SuppliedRunArgs+=1
+
+            # Set for filename, op, and metric
+            NumberOfExpectedOptions = 3
+
+            # Check that the options are supplied
+            ValidateOptions(i, NumberOfExpectedOptions)
+
+        # --compare argument
+        elif (argname == "compare"):
+            global Compare
+            Compare = True
+            SuppliedRunArgs+=1
+
+            # Set for filename, filename, and metric
+            NumberOfExpectedOptions = 3
+
+            # Check that the options are supplied
+            ValidateOptions(i, NumberOfExpectedOptions)
     
     if not any([Run, Runall, Readrun, Compare]):
         print_usage("No valid argument selected")
@@ -217,24 +231,26 @@ def CompareFileAndFile(filename1, filename2):
     return (ResultString1, ResultString2)
 
 
-# Validates that written file and specified op are the same op, and truncates unneeded first lines from file
-def CompareOpAndFile(filename, op):
-    Contents = open(filename, "r").read().splitlines()
+# Reads supplied CSV file, truncates unneeded lines, and returns benchmark
+# output in the same format and shape as when run fresh
+def ExtractFileOutput(filename):
 
-    ResultString = ""
+    OutputLines = open(filename, "r").read().splitlines()
 
-    for i in range(10):
-        if (i == 1):
-            if (op not in Contents[0]):
-                raise RuntimeError(
-                    "Written file might not contain the same op as op specified"
-                )
-        Contents.pop(0)
+    # Truncating hardware info in first lines of file
+    for line in OutputLines:
+        if (line[5:] == "name,"):
+            break
+        else:
+            OutputLines.pop(0)
     
-    for c in Contents:
-        ResultString += c + "\n"
-    
-    return ResultString
+    # Merging lines back together for use by other functions
+    RawBenchmarkOutput = ""
+    for line in OutputLines:
+        RawBenchmarkOutput += line + "\n"
+
+    return RawBenchmarkOutput
+
 
 
 # Runs Benchmark binary and writes CSV results to file
@@ -303,6 +319,7 @@ def ReadCSVOutput(result):
     
     return OutputDicts
 
+# Called only if --verbose flag is supplied
 def WriteFormattedOutput(RawBenchmarkOutput):
     # List of dictionaries for each benchmark supplied by raw CSV output
     OutputDicts = ReadCSVOutput(RawBenchmarkOutput)
@@ -354,44 +371,44 @@ elif (Runall):
 
 # Compute performance benchmarks for specified op, and compare with benchmarks
 # already written to specifiedfile (File must contain same op)
-# elif(Readrun):
-#     InFile = ArgOptions[0]
-#     op     = ArgOptions[1]
+elif(Readrun):
+    filename = ArgOptions[0]
+    op       = ArgOptions[1]
+    metric   = ArgOptions[2]
 
-#     FileBenchmarks = CompareOpAndFile(InFile, op)
+    # Handling file
+    RawBenchmarkOutput1 = ExtractFileOutput(filename)
 
-#     BenchmarkLists1 = ParseBenchmarkCSV(FileBenchmarks)
-#     BenchmarkLists2 = ParseBenchmarkCSV(RunPerformanceBenchmark(op))
+    # Handling op
+    # Get CSV benchmark results and write to output file
+    RawBenchmarkOutput2 = RunPerformanceBenchmark(op)
 
-#     for b in BenchmarkLists1:
-#         print(b)
-#     print("\n")
-#     for b in BenchmarkLists2:
-#         print(b)
-    
-#     print("\n")
-#     CompareBenchmarkResults(BenchmarkLists1, BenchmarkLists2)
+
+    # Set by --verbose argument
+    if (PrintOutputs):
+        WriteFormattedOutput(RawBenchmarkOutput1)
+        WriteFormattedOutput(RawBenchmarkOutput2)
+
+    # CompareBenchmarkResults(BenchmarkLists1, BenchmarkLists2)
 
 
 
 # Compare performance benchmarks written to file for both specified files (each
 # should contain same op)
-# elif(Compare):
-#     InFile1 = ArgOptions[0]
-#     InFile2 = ArgOptions[1]
+elif(Compare):
+    filename1 = ArgOptions[0]
+    filename2 = ArgOptions[1]
+    metric    = ArgOptions[2]
 
-#     FileBenchmarks1, FileBenchmarks2 = CompareFileAndFile(InFile1, InFile2)
+    RawBenchmarkOutput1 = ExtractFileOutput(filename1)
 
-#     BenchmarkLists1 = ParseBenchmarkCSV(FileBenchmarks1)
-#     BenchmarkLists2 = ParseBenchmarkCSV(FileBenchmarks2)
+    RawBenchmarkOutput2 = ExtractFileOutput(filename2)
 
-#     for b in BenchmarkLists1:
-#         print(b)
-#     print("\n")
-#     for b in BenchmarkLists2:
-#         print(b)
-    
-#     print("\n")
-#     CompareBenchmarkResults(BenchmarkLists1, BenchmarkLists2)
+    # Set by --verbose argument
+    if (PrintOutputs):
+        WriteFormattedOutput(RawBenchmarkOutput1)
+        WriteFormattedOutput(RawBenchmarkOutput2)
+
+    # CompareBenchmarkResults(BenchmarkLists1, BenchmarkLists2)
 
 
