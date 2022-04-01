@@ -23,6 +23,7 @@
 #include "llvm/Support/Debug.h"
 
 using namespace mlir;
+using namespace onnx_mlir;
 using llvm::dbgs;
 
 #define DEBUG_TYPE "category_mapper_onnx_to_krnl"
@@ -33,6 +34,9 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     Value V;
     Value len;
   };
+
+  // When true causes injection of print stmts in the generated code.
+  static const bool emitPrintStmts = false;
 
   ONNXCategoryMapperOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -61,8 +65,8 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
             cats_int64sAttr.size(), rewriter.getIntegerType(64)),
         cats_int64sAttr.getValue());
     DenseElementsAttr cats_strings = mlir::DenseElementsAttr::get(
-        RankedTensorType::get(
-            cats_stringsAttr.size(), StringType::get(rewriter.getContext())),
+        RankedTensorType::get(cats_stringsAttr.size(),
+            krnl::StringType::get(rewriter.getContext())),
         cats_stringsAttr.getValue());
 
     IntegerAttr default_int64 = categoryMapperOp.default_int64Attr();
@@ -70,7 +74,7 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
         (categoryMapperOp.default_stringAttr())
             ? mlir::DenseElementsAttr::get(
                   RankedTensorType::get(
-                      {}, StringType::get(rewriter.getContext())),
+                      {}, krnl::StringType::get(rewriter.getContext())),
                   categoryMapperOp.default_stringAttr().getValue())
             : nullptr;
 
@@ -105,11 +109,11 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
                                    default_int64.getSInt())
                              : nullptr;
     Value defaultString =
-        (default_string)
-            ? create.krnl.constant(
-                  MemRefType::get({}, StringType::get(rewriter.getContext())),
-                  "default_string", default_string)
-            : nullptr;
+        (default_string) ? create.krnl.constant(
+                               MemRefType::get({}, krnl::StringType::get(
+                                                       rewriter.getContext())),
+                               "default_string", default_string)
+                         : nullptr;
 
     // Lookup the index in the perfect hash table corresponding to
     // each input value.
@@ -119,6 +123,9 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> ubs;
     inputBounds.getDimList(ubs);
 
+    if (emitPrintStmts)
+      create.krnl.printTensor("Input tensor:\n", X);
+
     ValueRange loopDef = create.krnl.defineLoops(rank);
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
@@ -126,11 +133,18 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
           // 'pHash'. Note: the index might not be valid (this happens
           // when the 'inputElem' is not present in the perfect hash
           // table).
-          Value inputElem = createKrnl.load(X, loopInd);
+          Value inputElem =
+              loadElement(X, loopInd, elementType, rank, createKrnl);
+          if (emitPrintStmts)
+            create.krnl.printf("inputElem: ", inputElem, elementType);
+
           Value index, isIndexValid;
           std::tie(index, isIndexValid) =
               emitFindIndex(inputElem, elementType, perfectHashTable,
                   constantForCatsInt64s, constantForCatsStrings, create);
+
+          if (emitPrintStmts)
+            create.krnl.printf("index: ", index, index.getType());
 
           // Store the final result.
           scf::IfOp ifOp = rewriter.create<scf::IfOp>(
@@ -145,7 +159,7 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     LLVM_DEBUG({
       FuncOp function = getContainingFunction(op);
       assert(function && "Could not find parent function");
-      dbgs() << "function: " << function << "\n";
+      dbgs() << "function:\n" << function << "\n";
     });
 
     return success();
@@ -175,8 +189,8 @@ private:
 
       MemRefType type = MemRefType::get(
           {static_cast<int64_t>(V.size())}, builder.getIntegerType(32));
-      res.G = create.krnl.constant(type, "G", builder.getI32VectorAttr(G));
-      res.V = create.krnl.constant(type, "V", builder.getI32VectorAttr(V));
+      res.G = create.krnl.constant(type, "G", builder.getI32TensorAttr(G));
+      res.V = create.krnl.constant(type, "V", builder.getI32TensorAttr(V));
       res.len = create.math.constant(builder.getIntegerType(32), G.size());
       return res;
     };
@@ -198,7 +212,7 @@ private:
           PerfectHash<int64_t, int32_t> pHash(dict);
           res = createConstants(pHash.getG(), pHash.getV());
         })
-        .Case<StringType>([&](StringType type) {
+        .Case<krnl::StringType>([&](krnl::StringType type) {
           // Populate the dictionary.
           std::map<StringRef, int32_t> dict;
           int32_t size = cats_strings.size();
@@ -213,9 +227,35 @@ private:
           PerfectHash<StringRef, int32_t> pHash(dict);
           res = createConstants(pHash.getG(), pHash.getV());
         })
-        .Default([&](Type type) { llvm_unreachable("Illegal KeyTy"); });
+        .Default([&](Type type) {
+          llvm::errs() << "type: " << type << "\n";
+          llvm_unreachable("Illegal KeyTy");
+        });
 
     return res;
+  }
+
+  Value loadElement(Value memref, ValueRange loopInd, Type elementType,
+      int64_t rank, KrnlBuilder &createKrnl) const {
+    Value inputElem;
+    TypeSwitch<Type>(elementType)
+        .Case<IntegerType>(
+            [&](IntegerType) { inputElem = createKrnl.load(memref, loopInd); })
+        .Case<krnl::StringType>([&](krnl::StringType stringType) {
+          MathBuilder createMath(createKrnl);
+          Value zero = createMath.constant(
+              createMath.getBuilder().getIntegerType(64), 0);
+          auto memRefType = MemRefType::get(
+              {rank}, krnl::StringType::get(elementType.getContext()));
+          Value stringMemRef = createKrnl.getRef(memRefType, memref, zero);
+          inputElem = createKrnl.load(stringMemRef, loopInd);
+        })
+        .Default([&](Type type) {
+          llvm::errs() << "type: " << type << "\n";
+          llvm_unreachable("Unexpected elementType");
+        });
+
+    return inputElem;
   }
 
   // Determine the index of 'inputElem' in the perfect hash table 'pHash'.
@@ -238,7 +278,7 @@ private:
           Value isIndexValid = create.math.eq(inputElem, compareVal);
           res = std::make_tuple(index, isIndexValid);
         })
-        .Case<StringType>([&](StringType type) {
+        .Case<krnl::StringType>([&](krnl::StringType type) {
           // Determine whether the index returned is valid.
           // The index is valid if 'inputElem' compares equal to the string in
           // 'constantForCatsStrings'.
@@ -250,7 +290,10 @@ private:
           Value isIndexValid = create.math.eq(strncmpRes, zeroVal);
           res = std::make_tuple(index, isIndexValid);
         })
-        .Default([&](Type type) { llvm_unreachable("Illegal KeyTy"); });
+        .Default([&](Type type) {
+          llvm::errs() << "type: " << type << "\n";
+          llvm_unreachable("Illegal KeyTy");
+        });
 
     return res;
   }
@@ -278,7 +321,7 @@ private:
           Value loadDefault = createKrnl.load(defaultString);
           createKrnl.store(loadDefault, alloc, loopInd);
         })
-        .Case<StringType>([&](StringType type) {
+        .Case<krnl::StringType>([&](krnl::StringType type) {
           // index is valid: retrieve the value from 'cat_int64s'.
           rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
           Value loadData = createKrnl.load(constantForCatsInt64s, {index});
@@ -288,7 +331,10 @@ private:
           rewriter.setInsertionPointToStart(&ifOp.getElseRegion().front());
           createKrnl.store(defaultInt64, alloc, loopInd);
         })
-        .Default([&](Type type) { llvm_unreachable("Illegal KeyTy"); });
+        .Default([&](Type type) {
+          llvm::errs() << "type: " << type << "\n";
+          llvm_unreachable("Illegal KeyTy");
+        });
   }
 };
 

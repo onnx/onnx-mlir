@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
@@ -44,8 +45,8 @@ static Value getLoopIndexByAxisAndOffset(MathBuilder &createMath,
       isValidOffset = createMath.sge(iOffset, zero);
     }
 
-    Value ok = createMath._and(isAxis, isValidOffset);
-    notSameAsBaseIndex = createMath._or(ok, notSameAsBaseIndex);
+    Value ok = createMath.andi(isAxis, isValidOffset);
+    notSameAsBaseIndex = createMath.ori(ok, notSameAsBaseIndex);
 
     Value accessIndex = createMath.select(ok, iOffset, iVal);
     resLoopIndex.emplace_back(accessIndex);

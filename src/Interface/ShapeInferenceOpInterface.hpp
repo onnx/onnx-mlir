@@ -18,9 +18,5 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/OpDefinition.h"
 
-namespace mlir {
-
 /// Include the auto-generated declarations.
 #include "src/Interface/ShapeInferenceOpInterface.hpp.inc"
-
-} // end namespace mlir

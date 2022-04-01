@@ -6,22 +6,23 @@ if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "s390x")
   llvm_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "-O3" "-O1")
 endif()
 
-add_onnx_mlir_dialect(ONNXOps)
-add_onnx_mlir_dialect_doc(onnx ONNXOps.td)
+add_onnx_mlir_dialect(ONNX onnx)
+add_onnx_mlir_dialect_doc(onnx ONNX.td)
 
 add_onnx_mlir_rewriter(Rewrite)
 
 add_onnx_mlir_library(OMONNXOps
+  DialectBuilder.cpp
+  ONNXDialect.cpp
   ONNXOps.cpp
   ONNXOpsHelper.cpp
-  IndexExpr.cpp
-  IndexExprDetail.cpp
-  MLIRDialectBuilder.cpp
+  ONNXTypes.cpp
   Rewrite.cpp
 
   ShapeInference/ArgMax.cpp
   ShapeInference/AveragePool.cpp
   ShapeInference/CategoryMapper.cpp  
+  ShapeInference/Clip.cpp  
   ShapeInference/Compress.cpp
   ShapeInference/Concat.cpp
   ShapeInference/Conv.cpp
@@ -35,6 +36,7 @@ add_onnx_mlir_library(OMONNXOps
   ShapeInference/ONNXShapeHelper.cpp  
   ShapeInference/OneHot.cpp
   ShapeInference/Pad.cpp
+  ShapeInference/Reduction.cpp
   ShapeInference/Reshape.cpp
   ShapeInference/ReverseSequence.cpp
   ShapeInference/RoiAlign.cpp
@@ -50,13 +52,17 @@ add_onnx_mlir_library(OMONNXOps
 
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen
-  OMONNXOpsIncGen
+  OMONNXIncGen
   OMONNXRewriteIncGen
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
 
   LINK_LIBS PUBLIC
-  MLIRMath
-  MLIRAffine
-  MLIRSCF
+  OMMlirDialects
+  onnx
+  )
+
+configure_file(ONNXOps.td.inc.dc.in
+  ${CMAKE_CURRENT_BINARY_DIR}/ONNXOps.td.inc.dc
+  @ONLY
   )

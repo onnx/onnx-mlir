@@ -15,7 +15,7 @@
 #define ONNX_DECOMPOSE
 
 #ifndef OP_BASE
-include "src/Dialect/ONNX/ONNXOps.td"
+include "src/Dialect/ONNX/ONNX.td"
 #endif // OP_BASE
 
 /// Note: The DRR definition used for defining patterns is shown below:
@@ -315,6 +315,9 @@ def ResizeV11Pattern: Pat<
                     $nearest_mode)
 >;
 
+// ToFix: Create type attribute for SequenceEmpty when type is not F32
+// There is a mlirTypeToOnnxType in KrnlToLLVM conversion. 
+// Need to move it into ONNXOpHelper
 def SequenceConstructPattern1: Pat<
     (ONNXSequenceConstructOp:$res $x1),
     (createSequenceConstructOp

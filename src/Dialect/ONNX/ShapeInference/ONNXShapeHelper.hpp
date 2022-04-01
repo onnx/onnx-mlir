@@ -24,7 +24,7 @@
 #include "mlir/IR/Value.h"
 #include "mlir/Support/LogicalResult.h"
 
-#include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
@@ -179,6 +179,15 @@ struct ONNXArgMaxOpShapeHelper : public ONNXOpShapeHelper<ONNXArgMaxOp> {
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
   LogicalResult computeShape(ONNXArgMaxOpAdaptor operandAdaptor);
+};
+
+// Shape for Clip.
+struct ONNXClipOpShapeHelper : public ONNXOpShapeHelper<ONNXClipOp> {
+  ONNXClipOpShapeHelper(ONNXClipOp *newOp);
+  ONNXClipOpShapeHelper(ONNXClipOp *newOp, OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult computeShape(ONNXClipOpAdaptor operandAdaptor);
 };
 
 // Shape for concat
@@ -386,6 +395,15 @@ struct ONNXAveragePoolOpShapeHelper
             fGetDenseVal, fLoadVal) {}
 
   LogicalResult computeShape(ONNXAveragePoolOpAdaptor operandAdaptor);
+};
+
+// Shape for Reduction.
+struct ONNXReduceSumOpShapeHelper : public ONNXOpShapeHelper<ONNXReduceSumOp> {
+  ONNXReduceSumOpShapeHelper(ONNXReduceSumOp *newOp);
+  ONNXReduceSumOpShapeHelper(ONNXReduceSumOp *newOp, OpBuilder *rewriter,
+      ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
+      ArrayValueIndexCapture::LoadVal fLoadVal);
+  LogicalResult computeShape(ONNXReduceSumOpAdaptor operandAdaptor);
 };
 
 // Shape for ReshapeOp.

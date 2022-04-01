@@ -1,0 +1,1 @@
+file-same-as-stdout({"file": "@CMAKE_CURRENT_SOURCE_DIR@/OpBuildTable.inc", "cmd": ["@Python3_EXECUTABLE@", "@PROJECT_SOURCE_DIR@/utils/gen_onnx_mlir.py", "--dry-run-op-build-table"]})

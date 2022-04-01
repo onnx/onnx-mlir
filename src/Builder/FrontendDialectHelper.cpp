@@ -94,6 +94,10 @@ struct TransformValueToONNXData<bool> {
 // Helper method for constructing an array attribute from a model input.
 template <typename T>
 std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
+  // Return an emtpy array if the raw data is empty.
+  if (initializer.dims().size() == 1 && initializer.dims().data()[0] == 0)
+    return std::vector<T>();
+
   size_t size;
   if (initializer.raw_data().size()) {
     // Copy & take care of endianness.
@@ -137,6 +141,13 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
     mlir::Location loc, mlir::OpBuilder &builder, const std::string &name) {
   // Initializer for input.
   onnx::TensorProto initializer = GetInitializedTensor(name);
+
+  // Return none if the initializer is an empty tensor, e.g tensor<0xf32>.
+  llvm::ArrayRef<int64_t> tensorDims(
+      initializer.dims().data(), initializer.dims().size());
+  if (tensorDims.size() == 1 && tensorDims[0] == 0)
+    return builder.create<mlir::ONNXNoneOp>(
+        loc, builder.getNoneType(), builder.getUnitAttr());
 
   // Emit ConstantOp and record the mapping between the input and
   // the constant value.
@@ -231,49 +242,4 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
   }
   return denseElmAttr;
 }
-
-// Convert type to MLIR type.
-// A complete list of types can be found in:
-// <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
-// TODO: Update Int*/Uint* to emit signed/unsigned MLIR types
-mlir::Type convertONNXTypeToMLIRType(
-    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType) {
-  switch (onnxType) {
-  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
-    return builder_.getF16Type();
-  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT:
-    return builder_.getF32Type();
-  case onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE:
-    return builder_.getF64Type();
-  case onnx::TensorProto_DataType::TensorProto_DataType_INT8:
-    return builder_.getIntegerType(/*width=*/8);
-  case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
-    return builder_.getIntegerType(/*width=*/8, false);
-  case onnx::TensorProto_DataType::TensorProto_DataType_INT16:
-    return builder_.getIntegerType(/*width=*/16);
-  case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
-    return builder_.getIntegerType(/*width=*/16, false);
-  case onnx::TensorProto_DataType::TensorProto_DataType_INT32:
-    return builder_.getIntegerType(/*width=*/32);
-  case onnx::TensorProto_DataType::TensorProto_DataType_UINT32:
-    return builder_.getIntegerType(/*width=*/32, false);
-  case onnx::TensorProto_DataType::TensorProto_DataType_INT64:
-    return builder_.getIntegerType(/*width=*/64);
-  case onnx::TensorProto_DataType::TensorProto_DataType_UINT64:
-    return builder_.getIntegerType(/*width=*/64, false);
-  case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
-    return builder_.getI1Type();
-  case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
-    return mlir::onnxmlir::StringType::get(builder_.getContext());
-
-  case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
-  case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
-  case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
-    assert(false && "Unsupported data type encountered.");
-    return nullptr;
-  }
-
-  llvm_unreachable("Unsupported data type encountered.");
-}
-
 } // namespace onnx_mlir

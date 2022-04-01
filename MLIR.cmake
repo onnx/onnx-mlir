@@ -70,10 +70,16 @@ function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
 endfunction()
 add_custom_target(onnx-mlir-docs)
 
-function(add_onnx_mlir_dialect dialect)
+# If an extra parameter, the dialect name, is provided,
+# this function will generate dialect and type from the td file
+function(add_onnx_mlir_dialect dialect dialect_name)
   set(LLVM_TARGET_DEFINITIONS ${dialect}.td)
-  mlir_tablegen(${dialect}.hpp.inc -gen-op-decls "-I${ONNX_MLIR_SRC_ROOT}")
-  mlir_tablegen(${dialect}.cpp.inc -gen-op-defs "-I${ONNX_MLIR_SRC_ROOT}")
+  mlir_tablegen(${dialect}Ops.hpp.inc -gen-op-decls "-I${ONNX_MLIR_SRC_ROOT}")
+  mlir_tablegen(${dialect}Ops.cpp.inc -gen-op-defs "-I${ONNX_MLIR_SRC_ROOT}")
+  mlir_tablegen(${dialect}Dialect.hpp.inc -gen-dialect-decls -dialect=${dialect_name} "-I${ONNX_MLIR_SRC_ROOT}")
+  mlir_tablegen(${dialect}Dialect.cpp.inc -gen-dialect-defs -dialect=${dialect_name} "-I${ONNX_MLIR_SRC_ROOT}")
+  mlir_tablegen(${dialect}Types.hpp.inc -gen-typedef-decls -typedefs-dialect=${dialect_name} "-I${ONNX_MLIR_SRC_ROOT}")
+  mlir_tablegen(${dialect}Types.cpp.inc -gen-typedef-defs -typedefs-dialect=${dialect_name} "-I${ONNX_MLIR_SRC_ROOT}")
   add_public_tablegen_target(OM${dialect}IncGen)
 endfunction()
 
@@ -116,7 +122,7 @@ function(add_onnx_mlir_library name)
   cmake_parse_arguments(ARG
     "EXCLUDE_FROM_OM_LIBS;NO_INSTALL"
     ""
-    "DEPENDS;INCLUDE_DIRS;LINK_LIBS;LINK_COMPONENTS"
+    "DEPENDS;INCLUDE_DIRS;ACCEL_INCLUDE_DIRS;LINK_LIBS;LINK_COMPONENTS"
     ${ARGN}
     )
 
@@ -133,6 +139,10 @@ function(add_onnx_mlir_library name)
 
   if (ARG_INCLUDE_DIRS)
     target_include_directories(${name} ${ARG_INCLUDE_DIRS})
+  endif()
+
+  if (ARG_ACCEL_INCLUDE_DIRS)
+    target_include_directories(${name} ${ARG_ACCEL_INCLUDE_DIRS})
   endif()
 
   target_include_directories(${name}

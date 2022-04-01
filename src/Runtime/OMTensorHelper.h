@@ -36,7 +36,7 @@ static inline std::vector<std::vector<int64_t>> CartProduct(
 
 /* Helper function to compute data strides from sizes */
 static inline std::vector<int64_t> computeStridesFromShape(
-    int64_t *dataSizes, int rank) {
+    const int64_t *dataSizes, int rank) {
   // Shift dimension sizes one to the left, fill in the vacated rightmost
   // element with 1; this gets us a vector that'll be more useful for computing
   // strides of memory access along each dimension using prefix product (aka
@@ -54,17 +54,15 @@ static inline std::vector<int64_t> computeStridesFromShape(
 /* Helper function to compute linear offset from a multi-dimensional index array
  */
 static inline int64_t computeElemOffset(
-    int64_t *dataStrides, int rank, std::vector<int64_t> &indexes) {
-  auto dimStrides = std::vector<int64_t>(dataStrides, dataStrides + rank);
-  int64_t elemOffset = inner_product(
-      indexes.begin(), indexes.end(), dimStrides.begin(), (int64_t)0);
-  return elemOffset;
+    const int64_t *dataStrides, int rank, const std::vector<int64_t> &indexes) {
+  std::vector<int64_t> dimStrides(dataStrides, dataStrides + rank);
+  return inner_product(indexes.begin(), indexes.end(), dimStrides.begin(), 0);
 }
 
 /* Helper function to print a vector with delimiter */
 template <typename T>
-static inline void printVector(std::vector<T> vec, std::string _delimiter = ",",
-    std::ostream &stream = std::cout) {
+static inline void printVector(const std::vector<T> &vec,
+    const std::string &_delimiter = ",", std::ostream &stream = std::cout) {
   std::string delimiter;
   for (const auto &elem : vec) {
     stream << delimiter << elem;
@@ -82,7 +80,7 @@ static inline void printVector(std::vector<T> vec, std::string _delimiter = ",",
  * data fields initialized to proper values and data pointers malloc'ed.
  */
 template <typename T>
-OMTensor *omTensorCreateWithShape(std::vector<int64_t> dataSizes);
+OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &dataSizes);
 
 /**
  * OMTensor creator with data sizes, element type and random data
@@ -98,7 +96,7 @@ OMTensor *omTensorCreateWithShape(std::vector<int64_t> dataSizes);
  */
 template <typename T>
 OMTensor *omTensorCreateWithRandomData(
-    std::vector<int64_t> dataSizes, T lbound = -1.0, T ubound = 1.0);
+    const std::vector<int64_t> &dataSizes, T lbound = -1.0, T ubound = 1.0);
 
 /**
  * OMTensor data element getter by offset
@@ -108,7 +106,7 @@ OMTensor *omTensorCreateWithRandomData(
  * @return typed element by reference at the offset computed by the index array.
  */
 template <typename T>
-T &omTensorGetElem(OMTensor *omt, std::vector<int64_t> indexes);
+T &omTensorGetElem(const OMTensor *omt, const std::vector<int64_t> &indexes);
 
 /**
  * OMTensor data element getter by index
@@ -118,7 +116,7 @@ T &omTensorGetElem(OMTensor *omt, std::vector<int64_t> indexes);
  * @return typed element by reference at the linear offset.
  */
 template <typename T>
-T &omTensorGetElemByOffset(OMTensor *omt, int64_t index);
+T &omTensorGetElemByOffset(const OMTensor *omt, int64_t index);
 
 /**
  * OMTensor strides computation
@@ -126,7 +124,7 @@ T &omTensorGetElemByOffset(OMTensor *omt, int64_t index);
  * @param omt, pointer to the OMTensor
  * @return data strides of the OMTensor computed from the data sizes.
  */
-std::vector<int64_t> omTensorComputeStridesFromShape(OMTensor *omt);
+std::vector<int64_t> omTensorComputeStridesFromShape(const OMTensor *omt);
 
 /**
  * OMTensor linear offset computation
@@ -135,7 +133,8 @@ std::vector<int64_t> omTensorComputeStridesFromShape(OMTensor *omt);
  * @param indexes, multi-dimensional index array
  * @return linear offset.
  */
-int64_t omTensorComputeElemOffset(OMTensor *omt, std::vector<int64_t> &indexes);
+int64_t omTensorComputeElemOffset(
+    const OMTensor *omt, const std::vector<int64_t> &indexes);
 
 /**
  * OMTensor index set computation
@@ -145,7 +144,7 @@ int64_t omTensorComputeElemOffset(OMTensor *omt, std::vector<int64_t> &indexes);
  *         that can be used to access this OMTensor's constituent elements)
  *         for the whole OMTensor.
  */
-std::vector<std::vector<int64_t>> omTensorComputeIndexSet(OMTensor *omt);
+std::vector<std::vector<int64_t>> omTensorComputeIndexSet(const OMTensor *omt);
 
 /**
  * OMTensor "distance" computation
@@ -159,6 +158,6 @@ std::vector<std::vector<int64_t>> omTensorComputeIndexSet(OMTensor *omt);
  */
 template <typename T>
 bool omTensorAreTwoOmtsClose(
-    OMTensor *a, OMTensor *b, float rtol = 1e-5, float atol = 1e-5);
+    const OMTensor *a, const OMTensor *b, float rtol = 1e-5, float atol = 1e-5);
 
 #endif // ONNX_MLIR_OMTENSORHELPER_H

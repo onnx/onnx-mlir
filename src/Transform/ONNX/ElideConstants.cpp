@@ -64,7 +64,7 @@ public:
  *  Function pass that performs constant value elision.
  */
 class ElideConstantValuePass
-    : public PassWrapper<ElideConstantValuePass, FunctionPass> {
+    : public PassWrapper<ElideConstantValuePass, OperationPass<FuncOp>> {
 public:
   StringRef getArgument() const override { return "elide-constants"; }
 
@@ -72,8 +72,8 @@ public:
     return "Elide values of constant operations.";
   }
 
-  void runOnFunction() override {
-    auto function = getFunction();
+  void runOnOperation() override {
+    auto function = getOperation();
 
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
@@ -88,6 +88,6 @@ public:
 /*!
  * Create a Constant Value Elision pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createElideConstantValuePass() {
+std::unique_ptr<Pass> onnx_mlir::createElideConstantValuePass() {
   return std::make_unique<ElideConstantValuePass>();
 }

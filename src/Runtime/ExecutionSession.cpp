@@ -22,12 +22,13 @@
 #include "llvm/Support/ManagedStatic.h"
 
 namespace onnx_mlir {
+const std::string ExecutionSession::_queryEntryPointsName =
+    "omQueryEntryPoints";
 const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
 const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
 
 ExecutionSession::ExecutionSession(
-    std::string sharedLibPath, std::string entryPointName) {
-
+    std::string sharedLibPath, bool defaultEntryPoint) {
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getPermanentLibrary(sharedLibPath.c_str());
   if (!_sharedLibraryHandle.isValid()) {
@@ -36,11 +37,15 @@ ExecutionSession::ExecutionSession(
     throw std::runtime_error(errStr.str());
   }
 
-  _entryPointFunc = reinterpret_cast<entryPointFuncType>(
-      _sharedLibraryHandle.getAddressOfSymbol(entryPointName.c_str()));
-  if (!_entryPointFunc) {
+  if (defaultEntryPoint)
+    setEntryPoint("run_main_graph");
+
+  _queryEntryPointsFunc = reinterpret_cast<queryEntryPointsFuncType>(
+      _sharedLibraryHandle.getAddressOfSymbol(_queryEntryPointsName.c_str()));
+  if (!_queryEntryPointsFunc) {
     std::stringstream errStr;
-    errStr << "Cannot load symbol: '" << entryPointName << "'" << std::endl;
+    errStr << "Cannot load symbol: '" << _queryEntryPointsName << "'"
+           << std::endl;
     throw std::runtime_error(errStr.str());
   }
 
@@ -63,9 +68,30 @@ ExecutionSession::ExecutionSession(
   }
 }
 
-std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>>
-ExecutionSession::run(
-    std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> ins) {
+const std::string *ExecutionSession::queryEntryPoints(
+    int64_t *numOfEntryPoints) const {
+  return (const std::string *)_queryEntryPointsFunc(numOfEntryPoints);
+}
+
+void ExecutionSession::setEntryPoint(const std::string &entryPointName) {
+  _entryPointFunc = reinterpret_cast<entryPointFuncType>(
+      _sharedLibraryHandle.getAddressOfSymbol(entryPointName.c_str()));
+  if (!_entryPointFunc) {
+    std::stringstream errStr;
+    errStr << "Cannot load symbol: '" << entryPointName << "'" << std::endl;
+    throw std::runtime_error(errStr.str());
+  }
+  _entryPointName = entryPointName;
+}
+
+std::vector<OMTensorUniquePtr> ExecutionSession::run(
+    std::vector<OMTensorUniquePtr> ins) {
+  if (!_entryPointFunc) {
+    std::stringstream errStr;
+    errStr << "Must set the entry point before calling run function"
+           << std::endl;
+    throw std::runtime_error(errStr.str());
+  }
 
   std::vector<OMTensor *> omts;
   for (const auto &inOmt : ins)
@@ -74,19 +100,45 @@ ExecutionSession::run(
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
-  std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> outs;
+  std::vector<OMTensorUniquePtr> outs;
 
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
-    outs.emplace_back(std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+    outs.emplace_back(OMTensorUniquePtr(
         omTensorListGetOmtByIndex(wrappedOutput, i), omTensorDestroy));
   }
   return outs;
 }
 
-std::string ExecutionSession::inputSignature() { return _inputSignatureFunc(); }
+// Run using public interface. Explicit calls are needed to free tensor & tensor
+// lists.
+OMTensorList *ExecutionSession::run(OMTensorList *input) {
+  if (!_entryPointFunc) {
+    std::stringstream errStr;
+    errStr << "Must set the entry point before calling run function"
+           << std::endl;
+    throw std::runtime_error(errStr.str());
+  }
+  return _entryPointFunc(input);
+}
 
-std::string ExecutionSession::outputSignature() {
-  return _outputSignatureFunc();
+const std::string ExecutionSession::inputSignature() const {
+  if (!_entryPointFunc) {
+    std::stringstream errStr;
+    errStr << "Must set the entry point before calling signature function"
+           << std::endl;
+    throw std::runtime_error(errStr.str());
+  }
+  return _inputSignatureFunc(_entryPointName.c_str());
+}
+
+const std::string ExecutionSession::outputSignature() const {
+  if (!_entryPointFunc) {
+    std::stringstream errStr;
+    errStr << "Must set the entry point before calling signature function"
+           << std::endl;
+    throw std::runtime_error(errStr.str());
+  }
+  return _outputSignatureFunc(_entryPointName.c_str());
 }
 
 ExecutionSession::~ExecutionSession() {

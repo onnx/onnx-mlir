@@ -73,20 +73,20 @@ void RegisterFunSchema() {
 
 void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::StandardOpsDialect>();
-  context.getOrLoadDialect<mlir::ONNXOpsDialect>();
+  context.getOrLoadDialect<mlir::ONNXDialect>();
 }
 
 int check(ModelProto &model) {
   mlir::MLIRContext context;
   registerDialects(context);
-  mlir::OwningModuleRef module;
+  mlir::OwningOpRef<mlir::ModuleOp> module;
 
   onnx_mlir::ImportOptions options;
   options.useOnnxModelTypes = true;
   onnx_mlir::ImportFrontendModel(model, context, module, options);
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
-  pm.addPass(mlir::createShapeInferencePass(true));
+  pm.addPass(onnx_mlir::createShapeInferencePass(true));
   mlir::applyPassManagerCLOptions(pm);
   if (mlir::failed(pm.run(*module))) {
     module->dump();
@@ -94,7 +94,7 @@ int check(ModelProto &model) {
     return 1;
   }
 
-  if (mlir::failed(module->verify())) {
+  if (mlir::failed(module->verifyInvariants())) {
     module->dump();
     std::cerr << "Error verifying module!\n";
     return 1;

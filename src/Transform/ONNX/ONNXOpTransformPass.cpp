@@ -28,11 +28,11 @@
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/ToolOutputFile.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/OMOptions.hpp"
 
 #ifdef _WIN32
 #include <io.h>
@@ -128,10 +128,10 @@ void ONNXOpTransformPass::runOnOperation() {
   do {
     previousTag = currentTag;
     OpPassManager dynamicPM("builtin.module");
-    dynamicPM.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
-    dynamicPM.addPass(mlir::createShapeInferencePass());
+    dynamicPM.addNestedPass<FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+    dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     dynamicPM.addPass(mlir::createCanonicalizerPass());
-    dynamicPM.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+    dynamicPM.addNestedPass<FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
     if (failed(runPipeline(dynamicPM, module)))
       return signalPassFailure();
     currentTag = createTagForIR(module);
@@ -142,7 +142,7 @@ void ONNXOpTransformPass::runOnOperation() {
         << "iterations. "
         << "You may set a higher threshold with command option";
   }
-  if (onnxOpTransformReport) {
+  if (onnx_mlir::onnxOpTransformReport) {
     llvm::outs() << "ONNXOpTransform iterated " << onnxOpTransformThreshold - n
                  << " times, converged "
                  << ((currentTag == previousTag) ? "true" : "false") << "\n";
@@ -154,10 +154,11 @@ void ONNXOpTransformPass::runOnOperation() {
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> mlir::createONNXOpTransformPass() {
+std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass() {
   return std::make_unique<ONNXOpTransformPass>();
 }
 
-std::unique_ptr<mlir::Pass> mlir::createONNXOpTransformPass(int threshold) {
+std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass(
+    int threshold) {
   return std::make_unique<ONNXOpTransformPass>(threshold);
 }

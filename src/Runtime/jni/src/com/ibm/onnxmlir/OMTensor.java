@@ -10,9 +10,12 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
 
+/**
+ * Class describing the runtime information such as rank,
+ * shape, strides, data type, etc. associated with a tensor
+ * input/output.
+ */
 public class OMTensor {
-
-    private final ByteOrder nativeEndian = ByteOrder.nativeOrder();
 
     /* We can use enum but that creates another class
      * which complicates things for JNI.
@@ -20,25 +23,25 @@ public class OMTensor {
      * Values are standard ONNX data types defined in
      * https://github.com/onnx/onnx/blob/main/onnx/onnx.proto#L484
      */
-    final static int ONNX_TYPE_UNDEFINED  = 0;
-    final static int ONNX_TYPE_FLOAT      = 1;
-    final static int ONNX_TYPE_UINT8      = 2;
-    final static int ONNX_TYPE_INT8       = 3;
-    final static int ONNX_TYPE_UINT16     = 4;
-    final static int ONNX_TYPE_INT16      = 5;
-    final static int ONNX_TYPE_INT32      = 6;
-    final static int ONNX_TYPE_INT64      = 7;
-    final static int ONNX_TYPE_STRING     = 8;
-    final static int ONNX_TYPE_BOOL       = 9;
-    final static int ONNX_TYPE_FLOAT16    = 10;
-    final static int ONNX_TYPE_DOUBLE     = 11;
-    final static int ONNX_TYPE_UINT32     = 12;
-    final static int ONNX_TYPE_UINT64     = 13;
-    final static int ONNX_TYPE_COMPLEX64  = 14;
-    final static int ONNX_TYPE_COMPLEX128 = 15;
-    final static int ONNX_TYPE_BFLOAT16   = 16;
+    public final static int ONNX_TYPE_UNDEFINED  = 0;
+    public final static int ONNX_TYPE_FLOAT      = 1;
+    public final static int ONNX_TYPE_UINT8      = 2;
+    public final static int ONNX_TYPE_INT8       = 3;
+    public final static int ONNX_TYPE_UINT16     = 4;
+    public final static int ONNX_TYPE_INT16      = 5;
+    public final static int ONNX_TYPE_INT32      = 6;
+    public final static int ONNX_TYPE_INT64      = 7;
+    public final static int ONNX_TYPE_STRING     = 8;
+    public final static int ONNX_TYPE_BOOL       = 9;
+    public final static int ONNX_TYPE_FLOAT16    = 10;
+    public final static int ONNX_TYPE_DOUBLE     = 11;
+    public final static int ONNX_TYPE_UINT32     = 12;
+    public final static int ONNX_TYPE_UINT64     = 13;
+    public final static int ONNX_TYPE_COMPLEX64  = 14;
+    public final static int ONNX_TYPE_COMPLEX128 = 15;
+    public final static int ONNX_TYPE_BFLOAT16   = 16;
 
-    final static int[] ONNX_TYPE_SIZE = new int[] {
+    public final static int[] ONNX_TYPE_SIZE = new int[] {
             0,  /* UNDEFINED  */
             4,  /* FLOAT      */
             1,  /* UINT8      */
@@ -58,7 +61,7 @@ public class OMTensor {
             2,  /* BFLOAT16   */
     };
 
-    final static String[] ONNX_TYPE_NAME = new String[] {
+    public final static String[] ONNX_TYPE_NAME = new String[] {
             "UNDEFINED",
             "FLOAT",
             "UINT8",
@@ -78,6 +81,8 @@ public class OMTensor {
             "BFLOAT16",
     };
 
+    private final ByteOrder nativeEndian = ByteOrder.nativeOrder();
+
     private ByteBuffer _data;
     private long[] _shape;
     private long[] _strides;
@@ -92,12 +97,12 @@ public class OMTensor {
      *
      * @param data byte data array for tensor
      * @param shape data shape array
-     * @param bool true for bool tensor, false for byte tensor
+     * @param flag true for boolean tensor, false for byte tensor
      *
-     * @return OMTensor with bool or byte data
+     * @return OMTensor with boolean or byte data
      */
-    public OMTensor(byte[] data, long[] shape, boolean bool) {
-	if (bool)
+    public OMTensor(byte[] data, long[] shape, boolean flag) {
+	if (flag)
 	    setBoolData(data);
 	else
 	    setByteData(data);
@@ -501,7 +506,7 @@ public class OMTensor {
     /**
      * Data type setter
      *
-     * @param type data type to be set
+     * @param dataType data type to be set
      */
     public void setDataType(int dataType) {
         if (dataType < 0 || dataType > ONNX_TYPE_BFLOAT16)

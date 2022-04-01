@@ -46,14 +46,14 @@ MathBuilder createMath(rewriter, loc); // Use original info.
 MathBuilder createMath(createKrnl);    // Use info stored in another builder.
 ```
 
-The Math builder contains the operations listed below. Most are self explanatory. They handle both integer and float operations, and will generate an assert when a specific operation is not supported for a specific type.  Up to date info should be looked from the [MLIRDialectBuilder.hpp](../src/Dialect/ONNX/MLIRDialectBuilder.hpp) file.
+The Math builder contains the operations listed below. Most are self explanatory. They handle both integer and float operations, and will generate an assert when a specific operation is not supported for a specific type.  Up to date info should be looked from the [MLIRDialectBuilder.hpp](../src/Dialect/Mlir/DialectBuilder.hpp) file.
 
 ```C++
 struct MathBuilder : DialectBuilder {
   MathBuilder(OpBuilder &b, Location loc);
   MathBuilder(DialectBuilder &db);
 
-  Value _and(Value lhs, Value rhs);
+  Value andi(Value lhs, Value rhs);
   Value add(Value lhs, Value rhs);
   Value sub(Value lhs, Value rhs);
   Value mul(Value lhs, Value rhs);
@@ -86,7 +86,7 @@ struct MemRefBuilder : DialectBuilder {
 ```
 ***Code: MemRef builder class.***
 
-It defines 4 distinct methods: how to allocate memory (`alloc`) and free (`dealloc`) memory from the heap, how to allocate memory on the stack (`alloca`), and how to extract the dimension of a multi-dimensional memory reference for a given dimension. The `alloca` method above allows for the multi-dimensional memory to have dynamic dimensions; these dynamic dimensions are specified by the parameter `dynSymbols`.  There are variant of these methods for static dimensions only and for providing alignment constraints. See the [MLIRDialectBuilder.hpp](../src/Dialect/ONNX/MLIRDialectBuilder.hpp) file for the full set of supported operations.
+It defines 4 distinct methods: how to allocate memory (`alloc`) and free (`dealloc`) memory from the heap, how to allocate memory on the stack (`alloca`), and how to extract the dimension of a multi-dimensional memory reference for a given dimension. The `alloca` method above allows for the multi-dimensional memory to have dynamic dimensions; these dynamic dimensions are specified by the parameter `dynSymbols`.  There are variant of these methods for static dimensions only and for providing alignment constraints. See the [MLIRDialectBuilder.hpp](../src/Dialect/Mlir/DialectBuilder.hpp) file for the full set of supported operations.
 
 ## Generating Krnl Operations
 

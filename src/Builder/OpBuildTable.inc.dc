@@ -1,1 +1,0 @@
-file-same-as-stdout({"file": "src/Builder/OpBuildTable.inc", "cmd": ["python3", "utils/gen_onnx_mlir.py", "--dry-run-op-build-table"]})
