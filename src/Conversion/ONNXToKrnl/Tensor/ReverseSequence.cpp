@@ -46,7 +46,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
 
     MemRefBoundsIndexCapture dataBounds(operandAdaptor.input());
     int64_t outputRank = shapeHelper.dimsForOutput(0).size();
-    LiteralIndexExpr one(1);
+    LiteralIndexExpr oneIE(1);
 
     /*
       The semantic of Reversequence can be expressed in loop as:
@@ -105,7 +105,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
           IndexExpr timeDim = inputAccessFct[timeAxis];
           IndexExpr cond = timeDim < lens;
           IndexExpr inputIndex =
-              IndexExpr::select(cond, lens - timeDim - one, timeDim);
+              IndexExpr::select(cond, lens - timeDim - oneIE, timeDim);
           inputAccessFct[timeAxis] = inputIndex;
           Value inputVal =
               createKrnl.loadIE(operandAdaptor.input(), inputAccessFct);

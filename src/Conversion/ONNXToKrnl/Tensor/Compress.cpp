@@ -42,7 +42,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     auto bitType = rewriter.getIntegerType(1);
     Value falseVal = create.math.constant(bitType, 0);
     Value trueVal = create.math.constant(bitType, 1);
-    LiteralIndexExpr zero(0), one(1);
+    LiteralIndexExpr zeroIE(0), oneIE(1);
     int axis = shapeHelper.axis;
 
     // First compute how many "true" values there are along the condition, as
@@ -51,18 +51,19 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     Type indexType = rewriter.getIndexType();
     MemRefType indexMemRefType = MemRefType::get({}, indexType);
     Value sumMemRef = create.mem.alloca(indexMemRefType);
-    create.krnl.store(zero.getValue(), sumMemRef);
+    create.krnl.store(zeroIE.getValue(), sumMemRef);
     // Now create a loop to iterate over all conditions.
     Value condMemRef = operandAdaptor.condition();
     MemRefBoundsIndexCapture condBounds(condMemRef);
     ValueRange loopDef = create.krnl.defineLoops(1);
-    create.krnl.iterateIE(loopDef, loopDef, {zero}, {condBounds.getDim(0)},
+    create.krnl.iterateIE(loopDef, loopDef, {zeroIE}, {condBounds.getDim(0)},
         [&](KrnlBuilder createKrnl, ValueRange loopInd) {
           MathBuilder createMath(createKrnl);
           // Load the condition
           Value currCond = createKrnl.load(condMemRef, loopInd); // Type i1.
           Value isOn = createMath.neq(currCond, falseVal);       // Compare i1s.
-          Value inc = createMath.select(isOn, one.getValue(), zero.getValue());
+          Value inc =
+              createMath.select(isOn, oneIE.getValue(), zeroIE.getValue());
           Value oldSum = createKrnl.load(sumMemRef);
           Value newSum = createMath.add(oldSum, inc); // Increment by 0 or 1.
           createKrnl.store(newSum, sumMemRef);
@@ -86,12 +87,12 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     // indexMemRef. We reuse here the same memref as used to sum the true
     // predicates.
     Value writeIndexMemRef = sumMemRef;
-    create.krnl.store(zero.getValue(), writeIndexMemRef);
+    create.krnl.store(zeroIE.getValue(), writeIndexMemRef);
     // Get input shape.
     Value inputMemRef = operandAdaptor.input();
     MemRefBoundsIndexCapture inputBounds(inputMemRef);
     int64_t inputRank = inputBounds.getRank();
-    SmallVector<IndexExpr, 4> inputLbs(inputRank, zero);
+    SmallVector<IndexExpr, 4> inputLbs(inputRank, zeroIE);
     SmallVector<IndexExpr, 4> inputUbs;
     inputBounds.getSymbolList(inputUbs);
 
@@ -133,7 +134,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
       }
 
       Value readIndexMemRef = create.mem.alloca(indexMemRefType);
-      create.krnl.store(zero.getValue(), readIndexMemRef);
+      create.krnl.store(zeroIE.getValue(), readIndexMemRef);
 
       ValueRange inputLoopDef = create.krnl.defineLoops(inputRank);
       create.krnl.iterateIE(inputLoopDef, inputLoopDef, inputLbs, inputUbs,

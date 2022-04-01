@@ -49,7 +49,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     int jIndexStart = iIndexStart + axisLit;
     int kIndexStart = jIndexStart + indicesRank - (axisLit + 1);
 
-    LiteralIndexExpr zero(0);
+    LiteralIndexExpr zeroIE(0);
     LiteralIndexExpr axis(axisLit);
 
     /*
@@ -65,7 +65,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     // Define loops and iteration trip counts (equivalent to size of output)
     KrnlBuilder createKrnl(rewriter, loc);
     ValueRange loopDef = createKrnl.defineLoops(outputRank);
-    SmallVector<IndexExpr, 4> lbs(outputRank, zero);
+    SmallVector<IndexExpr, 4> lbs(outputRank, zeroIE);
     createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(0),
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
@@ -86,7 +86,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
           IndexExpr index = NonAffineIndexExpr(indexVal);
           // When index may be negative, add axis Dim to it.
           if (!shapeHelper.positiveConstantIndices)
-            index = index.selectOrSelf(index < zero, index + axisDim);
+            index = index.selectOrSelf(index < zeroIE, index + axisDim);
 
           // Compute access function of data: data[ii + (indices[jj],) + kk]
           SmallVector<IndexExpr, 4> dataAccessFct;
