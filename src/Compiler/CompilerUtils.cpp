@@ -308,6 +308,21 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   llvm::Metadata *identNode[] = {llvm::MDString::get(ctx, OnnxMlirVersion)};
   identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
 
+  // Set functions to be accesible from DLL on Windows.
+  if (llvm::Triple(getTargetTripleOption()).isOSWindows()) {
+    SmallVector<StringRef, 4> exportedFuncs;
+    // TODO: support multiple entry points.
+    exportedFuncs.emplace_back(StringRef("run_main_graph"));
+    exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
+    exportedFuncs.emplace_back(StringRef("omInputSignature"));
+    exportedFuncs.emplace_back(StringRef("omOutputSignature"));
+    for (StringRef funcName : exportedFuncs) {
+      llvm::GlobalValue *GV = llvmModule->getNamedValue(funcName);
+      GV->setDSOLocal(true);
+      GV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
+    }
+  }
+
   llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();
 
