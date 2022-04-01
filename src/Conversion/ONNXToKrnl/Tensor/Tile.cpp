@@ -142,6 +142,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     // Define loops and iteration trip counts (equivalent to size of output)
     std::vector<Value> originalLoops;
     defineLoops(rewriter, loc, originalLoops, outputRank * 2);
+    // TODO use new KrnlDialectBuilder.
     KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (int64_t ii = 0; ii < outputRank; ++ii) {
       addDimensionToPack(rewriter, loc, pack, input, ii);

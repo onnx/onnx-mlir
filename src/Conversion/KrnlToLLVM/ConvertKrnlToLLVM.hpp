@@ -24,9 +24,9 @@ const std::string DEFAULT_DYN_ENTRY_POINT = "run_main_graph";
 namespace onnx_mlir {
 namespace krnl {
 
-void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
-    LLVMTypeConverter &typeConverter, MLIRContext *ctx,
-    ArrayRef<bool> constantOutputs, bool singleEntryPoint);
+void populateAffineAndKrnlToLLVMConversion(mlir::RewritePatternSet &patterns,
+    mlir::LLVMTypeConverter &typeConverter, mlir::MLIRContext *ctx,
+    llvm::ArrayRef<bool> constantOutputs, bool singleEntryPoint);
 
 void populateKrnlToLLVMConversion(mlir::LLVMTypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx,
@@ -72,11 +72,11 @@ void populateLoweringKrnlUnaryMathOpPattern(mlir::TypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
 void populateLoweringKrnlVectorTypeCastOpPattern(
-    LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
     mlir::MLIRContext *ctx);
 
-void determineOwnershipForOutputOMTensors(
-    ModuleOp &module, SmallVectorImpl<bool> &outputOMTensorOwnerships);
+void determineOwnershipForOutputOMTensors(mlir::ModuleOp &module,
+    llvm::SmallVectorImpl<bool> &outputOMTensorOwnerships);
 
 void recordEntryPointSignatures(mlir::ModuleOp &module,
     llvm::SmallVectorImpl<std::string> &entryPointNames,
