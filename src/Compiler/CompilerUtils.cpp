@@ -320,6 +320,8 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
       llvm::GlobalValue *GV = llvmModule->getNamedValue(funcName);
       GV->setDSOLocal(true);
       GV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
+      auto func = llvmModule->getFunction(funcName);
+      func->print(llvm::outs());
     }
   }
 
