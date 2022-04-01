@@ -65,7 +65,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     // Define loops and iteration trip counts (equivalent to size of output)
     KrnlBuilder createKrnl(rewriter, loc);
     ValueRange loopDef = createKrnl.defineLoops(outputRank);
-    SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> lbs(outputRank, zero);
     createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(0),
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.

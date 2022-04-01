@@ -45,7 +45,7 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
 
     // Load off/on vals found in values memref.
     KrnlBuilder createKrnl(rewriter, loc);
-    LiteralIndexExpr zero(0), one(1);
+    LiteralIndexExpr minusOne(-1), zero(0), one(1);
     Value offVal = createKrnl.loadIE(values, zero);
     Value onVal = createKrnl.loadIE(values, one);
 
@@ -80,13 +80,12 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
           // Define here the index that has the on Value. If out of bound, put
           // -1 here as this value will never occur.
           IndexExpr onValueIndex =
-              IndexExpr::select(outOfBound, LiteralIndexExpr(-1), inputIndex);
+              IndexExpr::select(outOfBound, minusOne, inputIndex);
           Value onValueIndexVal = onValueIndex.getValue();
           // Now we have the index that is on, iterate over the depth values
           // along axis, and set the right one to the value on.
           ValueRange depthLoopDef = createKrnl.defineLoops(1);
-          createKrnl.iterateIE(depthLoopDef, depthLoopDef,
-              {LiteralIndexExpr(0)}, {depth},
+          createKrnl.iterateIE(depthLoopDef, depthLoopDef, {zero}, {depth},
               [&](KrnlBuilder createBuilder, ValueRange depthLoopInd) {
                 MathBuilder createMath(createKrnl);
                 Value onCond = createMath.eq(depthLoopInd[0], onValueIndexVal);

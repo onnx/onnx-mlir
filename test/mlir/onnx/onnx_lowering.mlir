@@ -2332,7 +2332,6 @@ func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<i64>
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       krnl.define_loops 0
 // CHECK:           krnl.iterate() with (){
 // CHECK-DAG:         [[CST_4_1_:%.+]] = arith.constant 4 : index
