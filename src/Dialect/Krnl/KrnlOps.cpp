@@ -838,7 +838,7 @@ void KrnlSeqExtractOp::getEffects(
 Optional<Operation *> KrnlSeqExtractOp::buildDealloc(
     OpBuilder &builder, Value alloc) {
   auto loc = alloc.getLoc();
-  MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(builder, loc);
+  MultiDialectBuilder<MemRefBuilder> create(builder, loc);
   return create.mem.dealloc(alloc).getOperation();
 }
 

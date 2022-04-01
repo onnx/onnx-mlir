@@ -14,7 +14,9 @@
 
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/BlockAndValueMapping.h"
+
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 
 struct ONNXLoopOpLowering : public ConversionPattern {
   explicit ONNXLoopOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
