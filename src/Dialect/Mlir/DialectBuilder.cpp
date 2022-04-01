@@ -1,4 +1,4 @@
-//===---- MLIRDialectBuilder.cpp - Helper functions for MLIR dialects -----===//
+//===---- DialectBuilder.cpp - Helper functions for MLIR dialects -----===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -8,7 +8,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MLIRDialectBuilder.hpp"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
@@ -17,6 +16,8 @@
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
+
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 #define DEBUG_TYPE "dialect_builder"
 

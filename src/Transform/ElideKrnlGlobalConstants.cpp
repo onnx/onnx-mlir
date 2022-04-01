@@ -23,6 +23,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
@@ -46,7 +47,7 @@ mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
           op.value()->isa<OpaqueElementsAttr>()))
     return success();
 
-  MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
+  MultiDialectBuilder<mlir::KrnlBuilder> create(rewriter, loc);
 
   if (op.value()->isa<DenseElementsAttr>()) {
     // Elide the dense attribute.

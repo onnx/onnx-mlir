@@ -1,5 +1,4 @@
-//===-- MLIRDialectBuilder.hpp.inc - Helper functions for MLIR dialects
-//----===//
+//===---- DialectBuilder.hpp.inc - Helper functions for MLIR dialects -----===//
 //
 // Copyright 2019-2021 The IBM Research Authors.
 //
