@@ -186,6 +186,8 @@ const char *get_data_layout_str(zdnn_data_layouts layout) {
     CASE_RTN_STR(ZDNN_BIDIR_FICO);
   }
 #undef CASE_RTN_STR
+
+  llvm_unreachable("Invalid data layout");
 }
 
 const char *get_data_format_str(zdnn_data_formats format) {
@@ -199,6 +201,8 @@ const char *get_data_format_str(zdnn_data_formats format) {
     CASE_RTN_STR(ZDNN_FORMAT_4DKERNEL);
   }
 #undef CASE_RTN_STR
+
+  llvm_unreachable("Invalid data format");
 }
 
 short get_data_type_size(zdnn_data_types type) {
@@ -214,6 +218,8 @@ short get_data_type_size(zdnn_data_types type) {
     CASE_RTN_SIZE(ZDNN_DLFLOAT16, 2);
   }
 #undef CASE_RTN_SIZE
+
+  llvm_unreachable("Invalid data type");
 } // End - Functions from third_party/zdnn-lib/zdnn/get.c
 
 // Functions from third_party/zdnn-lib/zdnn/malloc4k.c
