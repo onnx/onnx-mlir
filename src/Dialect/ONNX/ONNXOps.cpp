@@ -29,6 +29,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Support/Diagnostic.hpp"
 
 #include <string>
 
@@ -590,55 +591,11 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
   }
 }
 
-class Diagnostic {
-public:
-  // Global limit for the value of an 'axis' attribute.
-  // Used for diagnostic purposes.
-  static constexpr int64_t axisAttrLimit = 100;
-
-  //===----------------------------------------------------------------------===//
-  // Support function to emit a warning if an operator attibute value is greater
-  // than a given limit. The function returns an "InFlightDiagnostic" which can
-  // be queried on the caller side to determine whether an actual error
-  // condition was encountered. Note: the diagnostic error is not emitted
-  // immediately, it will be emitted once the the object is passed along to a
-  // DiagnosticEngine.
-  //===----------------------------------------------------------------------===//
-
-  template <typename T>
-  static InFlightDiagnostic verifyAttributeLimit(
-      Operation &op, const Twine &attrName, T attrVal, T attrValLimit) {
-    static_assert(std::is_arithmetic<T>::value, "Expecting an arithmetic type");
-    assert(attrValLimit > 0 && "Expecting a strictly positive limit");
-
-    if (abs(attrVal) > attrValLimit) {
-      Twine msg(op.getName().getStringRef());
-      std::string limitStr =
-          std::to_string((attrVal > 0) ? attrValLimit : -attrValLimit);
-
-      return emitWarning(op.getLoc(),
-          msg.concat(": " + attrName)
-              .concat(" attribute exceeds the limit of ")
-              .concat(limitStr)
-              .concat(". Please check whether the model was translated to ONNX "
-                      "correctly."));
-    }
-
-    return InFlightDiagnostic();
-  }
-};
-
 //===----------------------------------------------------------------------===//
 // ONNXArgMaxOp
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXArgMaxOp::verify() {
-  int64_t axisIndex = axis();
-  InFlightDiagnostic diagnostic = ::Diagnostic::verifyAttributeLimit(
-      *this->getOperation(), "axis", axisIndex, ::Diagnostic::axisAttrLimit);
-  if (LogicalResult(diagnostic).failed())
-    return diagnostic;
-
   if (!hasShapeAndRank(data()))
     // Won't be able to do any checking at this stage.
     return success();
@@ -646,11 +603,13 @@ LogicalResult ONNXArgMaxOp::verify() {
   auto type = data().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> shape = type.getShape();
   int64_t rank = shape.size();
+  int64_t axisIndex = axis();
 
   // axis value must be in the range [-rank, rank-1].
-  if ((axisIndex < 0 && axisIndex < -rank) ||
-      (axisIndex > 0 && axisIndex >= rank))
-    return emitOpError("ArgMax axis value out of bound");
+  if (axisIndex < -rank || axisIndex >= rank)
+    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
+        "axis", axisIndex,
+        onnx_mlir::Diagnostic::Range<int64_t>(-rank, rank - 1));
 
   return success();
 }
@@ -680,24 +639,20 @@ LogicalResult ONNXArgMaxOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXArgMinOp::verify() {
-  int64_t axisIndex = axis();
-  InFlightDiagnostic diagnostic = ::Diagnostic::verifyAttributeLimit(
-      *this->getOperation(), "axis", axisIndex, ::Diagnostic::axisAttrLimit);
-  if (LogicalResult(diagnostic).failed())
-    return diagnostic;
-
+  // Won't be able to do any further verification at this stage.
   if (!hasShapeAndRank(data()))
-    // Won't be able to do any checking at this stage.
     return success();
 
   auto type = data().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> shape = type.getShape();
   int64_t rank = shape.size();
+  int64_t axisIndex = axis();
 
   // axis value must be in the range [-rank, rank-1].
-  if ((axisIndex < 0 && axisIndex < -rank) ||
-      (axisIndex > 0 && axisIndex >= rank))
-    return emitOpError("ArgMin axis value out of bound");
+  if (axisIndex >= rank || axisIndex < -rank)
+    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
+        "axis", axisIndex,
+        onnx_mlir::Diagnostic::Range<int64_t>(-rank, rank - 1));
 
   return success();
 }
@@ -2855,12 +2810,6 @@ LogicalResult ONNXConstantOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXConcatOp::verify() {
-  int64_t axisIndex = axis();
-  InFlightDiagnostic diagnostic = ::Diagnostic::verifyAttributeLimit(
-      *this->getOperation(), "axis", axisIndex, ::Diagnostic::axisAttrLimit);
-  if (LogicalResult(diagnostic).failed())
-    return diagnostic;
-
   ONNXConcatOpAdaptor operandAdaptor(*this);
   for (const auto &operand : operandAdaptor.getOperands()) {
     if (!hasShapeAndRank(operand)) {
@@ -2873,12 +2822,16 @@ LogicalResult ONNXConcatOp::verify() {
       operandAdaptor.getOperands().front().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> commonShape = commonType.getShape();
   int64_t commonRank = commonShape.size();
+  int64_t axisIndex = axis();
 
-  // Checking value of axis parameter.
+  // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
+  if (axisIndex < -commonRank || axisIndex >= commonRank)
+    return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
+        "axis", axisIndex,
+        onnx_mlir::Diagnostic::Range<int64_t>(-commonRank, commonRank - 1));
+
   if (axisIndex < 0)
     axisIndex += commonRank;
-  if (axisIndex >= commonRank)
-    return emitOpError("Concat axis value out of bound");
 
   for (const auto &operand : operandAdaptor.getOperands()) {
     ArrayRef<int64_t> currShape =
@@ -3821,27 +3774,20 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCompressOp::verify() {
-  Optional<int64_t> optionalAxis = axis();
-  if (optionalAxis.hasValue()) {
-    int64_t axis = optionalAxis.getValue();
-    InFlightDiagnostic diagnostic = ::Diagnostic::verifyAttributeLimit(
-        *this->getOperation(), "axis", axis, ::Diagnostic::axisAttrLimit);
-    if (LogicalResult(diagnostic).failed())
-      return diagnostic;
-  }
-
   if (!hasShapeAndRank(input()))
     // Too early to verify.
     return success();
 
   int64_t inputRank = input().getType().cast<ShapedType>().getRank();
+  Optional<int64_t> optionalAxis = axis();
 
-  // Check axis.
   if (optionalAxis.hasValue()) {
-    // We have an axis, make sure its in the range
+    // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
     int64_t axis = optionalAxis.getValue();
-    if (!(axis >= -inputRank && axis < inputRank))
-      return emitOpError("Compress axis value out of bound");
+    if (axis < -inputRank || axis >= inputRank)
+      return onnx_mlir::Diagnostic::attributeOutOfRange(*this->getOperation(),
+          "axis", axis,
+          onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
   }
 
   // Check condition.

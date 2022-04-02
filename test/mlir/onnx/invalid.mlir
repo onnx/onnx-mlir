@@ -19,48 +19,24 @@ func @test_depth_to_space_default(%arg0 : tensor<1x256x8x16xf32>) -> tensor<1x16
 
 // -----
 
-func @test_argmax_verifier_1(%arg0 : tensor<*xf32>) -> tensor<*xi64> {
-  // expected-warning @+1 {{onnx.ArgMax: axis attribute exceeds the limit of 100. Please check whether the model was translated to ONNX correctly.}}
-  %1 = "onnx.ArgMax"(%arg0) { axis = 101 : si64} : (tensor<*xf32>)  -> tensor<*xi64>
+func @test_argmax_verifier_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xi64> {
+  // expected-error @+1 {{onnx.ArgMax 'axis' value is 4, accepted range is [-4, 3]}}
+  %1 = "onnx.ArgMax"(%arg0) { axis = 4 : si64} : (tensor<5x5x1x32xf32>)  -> tensor<*xi64>
   "std.return"(%1) : (tensor<*xi64>) -> ()
 }
 
 // -----
 
-func @test_argmax_verifier_2(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xi64> {
-  // expected-error @+1 {{ArgMax axis value out of bound}}
-  %1 = "onnx.ArgMax"(%arg0) { axis = 4 : si64} : (tensor<5x5x1x32xf32>)  -> tensor<*xi64>  
-  "std.return"(%1) : (tensor<*xi64>) -> ()
-}
-
-// -----
-
-func @test_argmin_verifier_1(%arg0 : tensor<*xf32>) -> tensor<*xi64> {
-  // expected-warning @+1 {{onnx.ArgMin: axis attribute exceeds the limit of -100. Please check whether the model was translated to ONNX correctly.}}
-  %1 = "onnx.ArgMin"(%arg0) { axis = -101 : si64} : (tensor<*xf32>)  -> tensor<*xi64>
-  "std.return"(%1) : (tensor<*xi64>) -> ()
-}
-
-// -----
-
-func @test_argmin_verifier_2(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xi64> {
-  // expected-error @+1 {{ArgMin axis value out of bound}}
+func @test_argmin_verifier_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xi64> {
+  // expected-error @+1 {{onnx.ArgMin 'axis' value is 4, accepted range is [-4, 3]}}
   %1 = "onnx.ArgMin"(%arg0) { axis = 4 : si64} : (tensor<5x5x1x32xf32>)  -> tensor<*xi64>  
   "std.return"(%1) : (tensor<*xi64>) -> ()
 }
 
 // -----
 
-func @test_compress_verifier_1(%arg0 : tensor<*xf32>, %arg1 : tensor<*xi1>) -> tensor<*xf32> {
-  // expected-warning @+1 {{onnx.Compress: axis attribute exceeds the limit of 100. Please check whether the model was translated to ONNX correctly.}}  
-  %1 = "onnx.Compress"(%arg0, %arg1) { axis = 101 : si64} : (tensor<*xf32>, tensor<*xi1>)  -> tensor<*xf32>  
-  "std.return"(%1) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
-func @test_compress_verifier_2(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x1x32xi1>) -> tensor<*xf32> {
-  // expected-error @+1 {{Compress axis value out of bound}}
+func @test_compress_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x1x32xi1>) -> tensor<*xf32> {
+  // expected-error @+1 {{onnx.Compress 'axis' value is 4, accepted range is [-4, 3]}}
   %1 = "onnx.Compress"(%arg0, %arg1) { axis = 4 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x1x32xi1>)  -> tensor<*xf32>  
   "std.return"(%1) : (tensor<*xf32>) -> ()
 }
@@ -68,7 +44,7 @@ func @test_compress_verifier_2(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x
 // -----
 
 func @test_concat_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<*xf32> {
-  // expected-error @+1 {{Concat axis value out of bound}}  
+  // expected-error @+1 {{onnx.Concat 'axis' value is 4, accepted range is [-4, 3]}}
   %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 4 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 }
@@ -83,23 +59,7 @@ func @test_concat_verifier_2(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x
 
 // -----
 
-func @test_concat_verifier_3(%arg0 : tensor<*xf32>, %arg1 : tensor<*xf32>, %arg2 : tensor<*xf32>) -> tensor<*xf32> {
-  // expected-warning @+1 {{onnx.Concat: axis attribute exceeds the limit of 100. Please check whether the model was translated to ONNX correctly.}}
-  %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 101 : si64} : (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)  -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
-func @test_concat_verifier_4(%arg0 : tensor<*xf32>, %arg1 : tensor<*xf32>, %arg2 : tensor<*xf32>) -> tensor<*xf32> {
-  // expected-warning @+1 {{onnx.Concat: axis attribute exceeds the limit of -100. Please check whether the model was translated to ONNX correctly.}}
-  %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = -101 : si64} : (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)  -> tensor<*xf32>
-  "std.return"(%1) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
-func @test_concat_verifier_5(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<*xf32> {
+func @test_concat_verifier_3(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{Concat input dimensions must be all identical, except for dimension on the axis of the concatenation. Expected something compatible with: 'tensor<5x5x1x32xf32>' but got 'tensor<5x5x3x32xf32>' instead.}}  
   %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 1 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
