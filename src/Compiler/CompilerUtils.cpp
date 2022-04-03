@@ -372,10 +372,10 @@ static std::string genSharedLib(std::string outputBaseName,
 
 #ifdef _WIN32
   std::string sharedLibPath = outputBaseName + ".dll";
-  std::vector<string> outputOpt = {"/Fe:" + sharedLibPath};
+  std::vector<std::string> outputOpt = {"/Fe:" + sharedLibPath};
   // link has to be before def and libpath since they need to be passed through
   // to the linker
-  std::vector<string> sharedLibOpts = {
+  std::vector<std::string> sharedLibOpts = {
       "/LD", "/link", "/NOLOGO", "/def:" + outputBaseName + ".def"};
 
   llvm::for_each(libs, [](std::string &lib) { lib = lib + ".lib"; });
