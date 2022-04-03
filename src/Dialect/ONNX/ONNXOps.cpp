@@ -859,8 +859,8 @@ LogicalResult ONNXLogOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // HardSigmoid
 //===----------------------------------------------------------------------===//
-/// Infer the output shape of the ONNXHardSigmoidOp. This method is required
-/// by the shape inference interface.
+/// Infer the output shape of the ONNXHardSigmoidOp. This method is required by
+/// the shape inference interface.
 LogicalResult ONNXHardSigmoidOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   getResult().setType(getOperand().getType());
@@ -870,8 +870,8 @@ LogicalResult ONNXHardSigmoidOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // Sigmoid
 //===----------------------------------------------------------------------===//
-/// Infer the output shape of the ONNXSigmoidOp. This method is required by
-/// the shape inference interface.
+/// Infer the output shape of the ONNXSigmoidOp. This method is required by the
+/// shape inference interface.
 LogicalResult ONNXSigmoidOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   getResult().setType(getOperand().getType());
@@ -1448,8 +1448,8 @@ LogicalResult ONNXNegOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // IdentityOp
 //===----------------------------------------------------------------------===//
-/// Infer the output shape of the ONNXIdentityOp. This method is required by
-/// the shape inference interface.
+/// Infer the output shape of the ONNXIdentityOp. This method is required by the
+/// shape inference interface.
 LogicalResult ONNXIdentityOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   getResult().setType(getOperand().getType());
@@ -1995,8 +1995,8 @@ LogicalResult ONNXConvOp::verify() {
     // Note: Pytorch requires both channel in (CI) and channel out (CO) to be
     // multiple of group number (G).
     // https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html
-    // ONNX clearly states that C (channel in or CI here) is a multiple of
-    // group number (G).
+    // ONNX clearly states that C (channel in or CI here) is a multiple of group
+    // number (G).
     // https://github.com/onnx/onnx/blob/main/docs/Operators.md#Conv
     // Quote: X.shape[1] == (W.shape[1] * group) == C
     // Keras also specifies it: Input channels and filters must both be
@@ -2811,6 +2811,7 @@ LogicalResult ONNXConstantOp::inferShapes(
 
 LogicalResult ONNXConcatOp::verify() {
   ONNXConcatOpAdaptor operandAdaptor(*this);
+  // Check all inputs.
   for (const auto &operand : operandAdaptor.getOperands()) {
     if (!hasShapeAndRank(operand)) {
       // Won't be able to do any checking at this stage.
@@ -3747,8 +3748,8 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
       return emitOpError("Scale should have a rank of one");
     if (scaleShape[0] >= 0 && inputShape[1] >= 0 &&
         scaleShape[0] != inputShape[1])
-      return emitOpError("Scale should have same dimension as the second "
-                         "dimension of input");
+      return emitOpError(
+          "Scale should have same dimension as the second dimension of input");
     if (scaleType.getElementType() != inputElementType)
       return emitOpError("Scale should have same element type as input");
   }
@@ -3774,6 +3775,7 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCompressOp::verify() {
+  // Look up input.
   if (!hasShapeAndRank(input()))
     // Too early to verify.
     return success();
@@ -4156,8 +4158,8 @@ LogicalResult ONNXOneHotOp::verify() {
     int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
     // Verify axis.
     int64_t axisValue = axis();
-    // Unusually, with a rank of 3, acceptable values are 0 (before first) to
-    // 3 (after last).
+    // Unusually, with a rank of 3, acceptable values are 0 (before first) to 3
+    // (after last).
     if (axisValue < 0)
       axisValue += indicesRank + 1;
     if (!(axisValue >= 0 && axisValue <= indicesRank))
