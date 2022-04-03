@@ -13,8 +13,7 @@ endif (ACCELERATORS_TO_BUILD)
 # Generate the Accelerators.inc file.
 set(Accelerators "${CMAKE_CURRENT_BINARY_DIR}/Accelerators.inc")
 if (ACCELERATORS_TO_BUILD) 
-  file(WRITE "${Accelerators}" "#define HAS_ACCELERATORS\n"
-                               "#define APPLY_TO_ACCELERATORS(MACRO) \\\n")
+  file(WRITE "${Accelerators}" "#define APPLY_TO_ACCELERATORS(MACRO) \\\n")
   foreach(t ${ACCELERATORS_TO_BUILD})
     file(APPEND "${Accelerators}" "  MACRO(${t})\\\n")
   endforeach(t)

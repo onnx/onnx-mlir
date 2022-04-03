@@ -96,14 +96,10 @@ int main(int argc, char **argv) {
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
 
-  // Initialize accelerators if they exist.
-  bool hasAccelerators = onnx_mlir::accel::initAccelerators();
-
   // Register dialects for accelerators.
-  if (hasAccelerators)
-    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
-      if (accel->isActive())
-        accel->registerDialects(registry);
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
+    if (accel->isActive())
+      accel->registerDialects(registry);
 
   registerTransformsPasses();
   registerAffinePasses();
@@ -120,10 +116,9 @@ int main(int argc, char **argv) {
   onnx_mlir::initMLIRPasses();
 
   // Initialize passes for accelerators.
-  if (hasAccelerators)
-    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
-      if (accel->isActive())
-        accel->initPasses(OptimizationLevel);
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
+    if (accel->isActive())
+      accel->initPasses(OptimizationLevel);
 
   // Register any command line options.
   mlir::registerAsmPrinterCLOptions();

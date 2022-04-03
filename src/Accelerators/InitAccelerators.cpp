@@ -17,18 +17,9 @@
 namespace onnx_mlir {
 namespace accel {
 
-#ifdef HAS_ACCELERATORS
 APPLY_TO_ACCELERATORS(DECLARE_ACCEL_INIT_FUNCTION)
-#endif
 
-bool initAccelerators() {
-#ifdef HAS_ACCELERATORS
-  APPLY_TO_ACCELERATORS(INVOKE_ACCEL_INIT_FUNCTION)
-  return true;
-#else
-  return false;
-#endif
-}
+void initAccelerators() { APPLY_TO_ACCELERATORS(INVOKE_ACCEL_INIT_FUNCTION) }
 
 } // namespace accel
 } // namespace onnx_mlir

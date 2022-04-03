@@ -27,12 +27,13 @@
 #define DECLARE_ACCEL_INIT_FUNCTION(name) extern void create##name();
 #define INVOKE_ACCEL_INIT_FUNCTION(name) create##name();
 #define CREATE_ACCEL_CL_ENUM(name)                                             \
-  clEnumValN(accel::Accelerator::Kind::name, #name, #name "accelerator"),
+  clEnumValN(accel::Accelerator::Kind::name, #name, #name " accelerator"),
 
 namespace onnx_mlir {
 namespace accel {
 
-extern bool initAccelerators();
+extern void initAccelerators();
+
 class Accelerator {
 public:
   /// Kinds of accelerators.
