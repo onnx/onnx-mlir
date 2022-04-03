@@ -113,6 +113,7 @@ struct ONNXRangeOpLowering : public ConversionPattern {
     }
 
     // Create a single loop.
+    LiteralIndexExpr zeroIE(0);
     BuildKrnlLoop krnlLoop(rewriter, loc, 1);
 
     // Emit the definition.
@@ -152,7 +153,7 @@ struct ONNXRangeOpLowering : public ConversionPattern {
 
     // Acc index:
     SmallVector<IndexExpr, 4> accIndex;
-    accIndex.emplace_back(LiteralIndexExpr(0));
+    accIndex.emplace_back(zeroIE);
 
     // Initialize accumulator with value:
     create.krnl.storeIE(loadedStart, acc, accIndex);
