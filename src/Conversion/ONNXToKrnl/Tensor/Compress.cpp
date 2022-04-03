@@ -29,7 +29,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
         rewriter, loc);
     ONNXCompressOpAdaptor operandAdaptor(operands);
-    ONNXCompressOp compressOp = llvm::dyn_cast<ONNXCompressOp>(op);
+    ONNXCompressOp compressOp = cast<ONNXCompressOp>(op);
 
     // Get shape, also deliver normalized "axis", -1 if undef.
     ONNXCompressOpShapeHelper shapeHelper(&compressOp, &rewriter,
@@ -38,12 +38,17 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
+    // Get input shape.
+    Value inputMemRef = operandAdaptor.input();
+    MemRefBoundsIndexCapture inputBounds(inputMemRef);
+    int64_t inputRank = inputBounds.getRank();
+    Optional<int64_t> axis = compressOp.axis();
+
     // Create a few constants.
     auto bitType = rewriter.getIntegerType(1);
     Value falseVal = create.math.constant(bitType, 0);
     Value trueVal = create.math.constant(bitType, 1);
     LiteralIndexExpr zeroIE(0), oneIE(1);
-    Optional<int64_t> axis = compressOp.axis();
 
     // First compute how many "true" values there are along the condition, as
     // this defines the dynamic dimension pointed to by axis.
@@ -68,10 +73,18 @@ struct ONNXCompressOpLowering : public ConversionPattern {
           Value newSum = createMath.add(oldSum, inc); // Increment by 0 or 1.
           createKrnl.store(newSum, sumMemRef);
         });
+
     // Now replace questionmark by actual computed size.
     Value sum = create.krnl.load(sumMemRef);
     DimIndexExpr dynDim(sum);
-    shapeHelper.dimsForOutput()[axis.hasValue() ? axis.getValue() : 0] = dynDim;
+    if (!axis.hasValue())
+      shapeHelper.dimsForOutput()[0] = dynDim;
+    else {
+      const int64_t axisValue = (axis.getValue() >= 0)
+                                    ? axis.getValue()
+                                    : axis.getValue() + inputRank;
+      shapeHelper.dimsForOutput()[axisValue] = dynDim;
+    }
 
     // Insert an allocation and deallocation for the result of this operation.
     MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
@@ -84,10 +97,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     // predicates.
     Value writeIndexMemRef = sumMemRef;
     create.krnl.store(zeroIE.getValue(), writeIndexMemRef);
-    // Get input shape.
-    Value inputMemRef = operandAdaptor.input();
-    MemRefBoundsIndexCapture inputBounds(inputMemRef);
-    int64_t inputRank = inputBounds.getRank();
+
     SmallVector<IndexExpr, 4> inputLbs(inputRank, zeroIE);
     SmallVector<IndexExpr, 4> inputUbs;
     inputBounds.getSymbolList(inputUbs);
@@ -165,6 +175,10 @@ struct ONNXCompressOpLowering : public ConversionPattern {
           });
     } else {
       assert(axis.hasValue() && "Expecting axis to have a value");
+      const int64_t axisValue = (axis.getValue() >= 0)
+                                    ? axis.getValue()
+                                    : axis.getValue() + inputRank;
+
       // Handle case where output is multi-dimensional.
       //
       // input has rank n, axis is m in 0..n-1
@@ -183,7 +197,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
       IndexExpr condSize = condBounds.getSymbol(0);
       Value condUb = condSize.getValue();
       bool skipCond = false;
-      IndexExpr condTest = (condSize >= inputUbs[axis.getValue()]);
+      IndexExpr condTest = (condSize >= inputUbs[axisValue]);
       if (condTest.isLiteral() && condTest.getLiteral() != 0) {
         // Were able to prove that the ub test is always true
         skipCond = true;
@@ -193,14 +207,14 @@ struct ONNXCompressOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> innerLbs, innerUbs;
       // Separate here the bounds between outer and inner.
       for (int i = 0; i < inputRank; ++i) {
-        if (i == axis.getValue())
+        if (i == axisValue)
           continue;
         innerLbs.emplace_back(inputLbs[i]);
         innerUbs.emplace_back(inputUbs[i]);
       }
       ValueRange axisLoopDef = create.krnl.defineLoops(1);
-      create.krnl.iterateIE(axisLoopDef, axisLoopDef,
-          {inputLbs[axis.getValue()]}, {inputUbs[axis.getValue()]},
+      create.krnl.iterateIE(axisLoopDef, axisLoopDef, {inputLbs[axisValue]},
+          {inputUbs[axisValue]},
           [&](KrnlBuilder createKrnl, ValueRange axisLoopInd) {
             MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
                 createKrnl);
@@ -229,7 +243,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
                       SmallVector<Value, 4> inputAccessFct, outputAccessFct;
                       int skip = 0;
                       for (int i = 0; i < inputRank; ++i) {
-                        if (i == axis.getValue()) {
+                        if (i == axisValue) {
                           inputAccessFct.emplace_back(readIndex);
                           outputAccessFct.emplace_back(writeIndex);
                           skip = 1;
