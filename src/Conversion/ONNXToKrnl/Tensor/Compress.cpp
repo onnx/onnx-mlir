@@ -43,7 +43,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     Value falseVal = create.math.constant(bitType, 0);
     Value trueVal = create.math.constant(bitType, 1);
     LiteralIndexExpr zero(0), one(1);
-    int axis = shapeHelper.axis;
+    Optional<int64_t> axis = compressOp.axis();
 
     // First compute how many "true" values there are along the condition, as
     // this defines the dynamic dimension pointed to by axis.
@@ -70,11 +70,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     // Now replace questionmark by actual computed size.
     Value sum = create.krnl.load(sumMemRef);
     DimIndexExpr dynDim(sum);
-    if (axis == -1) {
-      shapeHelper.dimsForOutput(0)[0] = dynDim;
-    } else {
-      shapeHelper.dimsForOutput(0)[axis] = dynDim;
-    }
+    shapeHelper.dimsForOutput()[axis.hasValue() ? axis.getValue() : 0] = dynDim;
 
     // Insert an allocation and deallocation for the result of this operation.
     MemRefType memRefType = convertToMemRefType(*op->result_type_begin());
@@ -96,7 +92,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     inputBounds.getSymbolList(inputUbs);
 
     // Consider the cases.
-    if (axis == -1) {
+    if (!axis.hasValue()) {
       // We iterate over the original loops, and in the innerblock we test for
       // the condition. The output is 1D.
       //
@@ -167,6 +163,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
             });
           });
     } else {
+      assert(axis.hasValue() && "Expecting axis to have a value");
       // Handle case where output is multi-dimensional.
       //
       // input has rank n, axis is m in 0..n-1
@@ -185,7 +182,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
       IndexExpr condSize = condBounds.getSymbol(0);
       Value condUb = condSize.getValue();
       bool skipCond = false;
-      IndexExpr condTest = (condSize >= inputUbs[axis]);
+      IndexExpr condTest = (condSize >= inputUbs[axis.getValue()]);
       if (condTest.isLiteral() && condTest.getLiteral() != 0) {
         // Were able to prove that the ub test is always true
         skipCond = true;
@@ -195,14 +192,14 @@ struct ONNXCompressOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> innerLbs, innerUbs;
       // Separate here the bounds between outer and inner.
       for (int i = 0; i < inputRank; ++i) {
-        if (i == axis)
+        if (i == axis.getValue())
           continue;
         innerLbs.emplace_back(inputLbs[i]);
         innerUbs.emplace_back(inputUbs[i]);
       }
       ValueRange axisLoopDef = create.krnl.defineLoops(1);
-      create.krnl.iterateIE(axisLoopDef, axisLoopDef, {inputLbs[axis]},
-          {inputUbs[axis]},
+      create.krnl.iterateIE(axisLoopDef, axisLoopDef,
+          {inputLbs[axis.getValue()]}, {inputUbs[axis.getValue()]},
           [&](KrnlBuilder createKrnl, ValueRange axisLoopInd) {
             MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
                 createKrnl);
@@ -231,7 +228,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
                       SmallVector<Value, 4> inputAccessFct, outputAccessFct;
                       int skip = 0;
                       for (int i = 0; i < inputRank; ++i) {
-                        if (i == axis) {
+                        if (i == axis.getValue()) {
                           inputAccessFct.emplace_back(readIndex);
                           outputAccessFct.emplace_back(writeIndex);
                           skip = 1;
