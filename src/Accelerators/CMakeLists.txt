@@ -28,6 +28,7 @@ add_onnx_mlir_library(InitAccelerators
 
   LINK_LIBS PUBLIC
     ${ACCEL_LIST}
+    LLVMSupport
   )
 
 add_onnx_mlir_library(Accelerator
