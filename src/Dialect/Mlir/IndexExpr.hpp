@@ -4,7 +4,7 @@
 
 //===----------------IndexExpr.hpp - Index expression---------------------=== //
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2022 The IBM Research Authors.
 //
 // =============================================================================
 //

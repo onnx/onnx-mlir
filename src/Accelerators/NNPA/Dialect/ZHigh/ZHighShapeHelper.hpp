@@ -21,7 +21,7 @@
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 
 namespace onnx_mlir {
 namespace zhigh {
