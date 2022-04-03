@@ -92,9 +92,11 @@ int main(int argc, char **argv) {
   registry.insert<mlir::shape::ShapeDialect>();
   registry.insert<mlir::math::MathDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
-
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlOpsDialect>();
+
+  // Initialize accelerators if they exist.
+  onnx_mlir::accel::initAccelerators();
 
   // Register dialects for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())

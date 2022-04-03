@@ -49,7 +49,7 @@ NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {
 NNPAAccelerator::~NNPAAccelerator() { delete instance; }
 
 bool NNPAAccelerator::isActive() const {
-  if (llvm::any_of(maccel, [](Accelerator::Kind kind) {
+  if (instance || llvm::any_of(maccel, [](Accelerator::Kind kind) {
         return kind == Accelerator::Kind::NNPA;
       })) {
     LLVM_DEBUG(llvm::dbgs() << "NNPA accelerator is active\n");
