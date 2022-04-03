@@ -45,8 +45,8 @@ struct ONNXExpandOpLowering : public ConversionPattern {
     // Iterate over the output values.
     KrnlBuilder createKrnl(rewriter, loc);
     ValueRange outputLoopDef = createKrnl.defineLoops(outputRank);
-    LiteralIndexExpr zero(0);
-    SmallVector<IndexExpr, 4> lbs(outputRank, zero);
+    LiteralIndexExpr zeroIE(0);
+    SmallVector<IndexExpr, 4> lbs(outputRank, zeroIE);
     createKrnl.iterateIE(outputLoopDef, outputLoopDef, lbs,
         shapeHelper.dimsForOutput(0),
         [&](KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
