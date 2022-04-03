@@ -103,26 +103,25 @@ create.krnl.printf("inputElem: ", val, valType);
 
 ## Finding memory errors
 
-If you know, or suspect, that onnx-mlir-compiled inference executable causes
-bugs related to memory allcations. The valgrind
+If you know, or suspect, that an onnx-mlir-compiled inference executable
+suffers from memory allocation related issues, the
 framework(https://valgrind.org/) or mtrace memory
-tool(https://github.com/sstefani/mtrace) are available. These tools trace memory
-allocation/free-related APIs, and can fix memory issues, such as memory leaks.
+tool(https://github.com/sstefani/mtrace) can be used to facilitate debugging.
+These tools trace memory
+allocation/free-related APIs, and can detect memory issues, such as memory leaks.
 
-However if the bugs relating to memory access, especially buffer overrun bugs,
-it is difficult to debug because run-time errors occur outside of the point
- containing the bug. 
+However if the problems relating to memory access, especially buffer overrun problems, are notoriously difficult to debug because run-time errors occur outside of the point containing the problem. 
 The "Electric Fence library"(https://github.com/CheggEng/electric-fence) can be
-used for debugging these bugs. It helps you detect two common programming bugs: software that overruns the boundaries of a malloc() memory allocation, and
+used for debugging these problems. It helps you detect two common programming problems: software that overruns the boundaries of a malloc() memory allocation, and
 software that touches a memory allocation
-that has been released by free(). Unlike other malloc() debuggers, Electric
+that has been released by free(). Unlike other memory debuggers, Electric
 Fence will detect read accesses as well as writes, and it will pinpoint the
 exact instruction that causes an error.
 
 Since the Electric Fence library is not officially supported by RedHat, you
-need to download, build and install the source code by yourself to your system.
+need to download, build and install the source code by yourself on yours.
 After installing it, link this library by using the "-lefence" option when
 generating inference executables. Then simply execute it, which will
-cause a runtime error and stop at the place causing memory access bugs. You can
+cause a runtime error and stop at the place causing memory access problems. You can
 identify the place with a debugger or debugging print functions
 described in the previous section.
