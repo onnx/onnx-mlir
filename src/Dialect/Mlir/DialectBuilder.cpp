@@ -23,6 +23,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 //===----------------------------------------------------------------------===//
 // Original code for MathBuilder is copied from LLVM MLIR Utils.cpp
 // Modified here to add operations, add super class.
@@ -748,3 +750,5 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
     outputVecArray.emplace_back(tmpArray[r]);
   }
 }
+
+} // namespace onnx_mlir

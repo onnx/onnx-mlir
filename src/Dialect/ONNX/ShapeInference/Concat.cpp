@@ -14,6 +14,10 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 ONNXConcatOpShapeHelper::ONNXConcatOpShapeHelper(ONNXConcatOp *newOp)
     : ONNXOpShapeHelper<ONNXConcatOp>(
           newOp, newOp->getOperation()->getNumResults()) {}
@@ -57,3 +61,5 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape(
   dimsForOutput(0) = outputDims;
   return success();
 }
+
+} // namespace onnx_mlir

@@ -21,10 +21,12 @@
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
-using namespace mlir;
-
 #define DEBUG_TYPE "matmul"
 static constexpr int32_t DISABLE_MAT_VEC_PRODUCT = 0;
+
+using namespace mlir;
+
+namespace onnx_mlir {
 
 struct ONNXMatMulOpLowering : public ConversionPattern {
   ONNXMatMulOpLowering(
@@ -290,8 +292,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
     Location loc = ONNXLoc<ONNXMatMulOp>(op);
     ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
@@ -325,3 +327,5 @@ void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
   patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx, enableTiling);
 }
+
+} // namespace onnx_mlir

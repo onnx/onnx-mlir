@@ -18,6 +18,7 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
 struct ONNXArgMaxOpLowering : public ConversionPattern {
   ONNXArgMaxOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -32,8 +33,8 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
 
     // shape helper
     ONNXArgMaxOpShapeHelper shapeHelper(&argMaxOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
 
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
@@ -73,7 +74,7 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
     auto zeroIndex = rewriter.create<arith::ConstantIndexOp>(loc, 0);
 
     // 1. Krnl loops to initialize the result.
-    BuildKrnlLoop initLoops(rewriter, loc, reducedRank);
+    krnl::BuildKrnlLoop initLoops(rewriter, loc, reducedRank);
     initLoops.createDefineOp();
     initLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
     initLoops.createIterateOp();
@@ -92,7 +93,7 @@ struct ONNXArgMaxOpLowering : public ConversionPattern {
     rewriter.restoreInsertionPoint(initLoopBody);
 
     // 2. Krnl loop to calculate argmax.
-    BuildKrnlLoop calcLoops(rewriter, loc, dataRank);
+    krnl::BuildKrnlLoop calcLoops(rewriter, loc, dataRank);
     calcLoops.createDefineOp();
     for (int i = 0; i < dataRank; ++i)
       calcLoops.pushBounds(0, data, i);
@@ -145,3 +146,5 @@ void populateLoweringONNXArgMaxOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXArgMaxOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

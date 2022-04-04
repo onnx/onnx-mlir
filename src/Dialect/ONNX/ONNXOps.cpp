@@ -34,6 +34,7 @@
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
+using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
 // Tablegen Type Definitions
@@ -5085,5 +5086,9 @@ FunctionType ONNXCallOp::getCalleeType() {
 #define GET_OP_CLASSES
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
 
+namespace onnx_mlir {
+
 template struct ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
     ONNXMaxPoolSingleOutOpAdaptor>;
+
+}

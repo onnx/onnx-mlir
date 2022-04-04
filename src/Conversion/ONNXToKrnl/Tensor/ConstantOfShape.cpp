@@ -16,6 +16,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
   ONNXConstantOfShapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
@@ -78,7 +80,7 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     SmallVector<Value, 4> loopIVs;
     // Create a Krnl iterate if the output is not a scalar tensor.
     if (!hasAllScalarValues({alloc})) {
-      BuildKrnlLoop loops(rewriter, loc, rank);
+      krnl::BuildKrnlLoop loops(rewriter, loc, rank);
       loops.createDefineAndIterateOp(alloc);
       Block *iterationBlock = loops.getIterateBlock();
       // Get IVs.
@@ -102,3 +104,5 @@ void populateLoweringONNXConstantOfShapeOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXConstantOfShapeOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

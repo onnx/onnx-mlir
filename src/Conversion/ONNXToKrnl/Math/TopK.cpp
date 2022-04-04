@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXTopKOpLowering : public ConversionPattern {
   ONNXTopKOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -50,7 +52,7 @@ struct ONNXTopKOpLowering : public ConversionPattern {
     // Compute the output's dimension sizes.
     ONNXTopKOpShapeHelper shapeHelper(&topkOp, &rewriter,
         getDenseElementAttributeFromConstantValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::loadDenseElementArrayValueAtIndex);
     auto shapeComputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapeComputed) && "Could not compute output shape");
     auto resDims = shapeHelper.dimsForOutput();
@@ -94,3 +96,5 @@ void populateLoweringONNXTopKOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXTopKOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

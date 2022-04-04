@@ -16,6 +16,7 @@
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 struct ONNXCompressOpLowering : public ConversionPattern {
 
@@ -33,8 +34,8 @@ struct ONNXCompressOpLowering : public ConversionPattern {
 
     // Get shape, also deliver normalized "axis", -1 if undef.
     ONNXCompressOpShapeHelper shapeHelper(&compressOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 

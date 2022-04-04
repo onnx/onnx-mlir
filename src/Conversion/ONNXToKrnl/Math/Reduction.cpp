@@ -18,6 +18,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 // Identity values
 template <>
 Value getIdentityValue<ONNXReduceMaxOp>(
@@ -220,7 +222,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
 
     // Iteration information
     // TODO use new KrnlDialectBuilder.
-    KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
+    krnl::KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
     for (decltype(outRank) i = 0; i < outRank; ++i)
       addDimensionToPack(rewriter, loc, packInit, alloc, i);
 
@@ -248,7 +250,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     defineLoops(rewriter, loc, originalLoops, inRank);
     // Iteration information
     // TODO use new KrnlDialectBuilder.
-    KrnlIterateOperandPack pack(rewriter, originalLoops);
+    krnl::KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (decltype(inRank) i = 0; i < inRank; ++i)
       addDimensionToPack(rewriter, loc, pack, input, i);
 
@@ -384,8 +386,8 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     bool isKeepdims = (keepdims == 1);
 
     ONNXReduceSumOpShapeHelper shapeHelper(&reduceSumOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
@@ -552,7 +554,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
 
     // Iteration information
     // TODO use new KrnlDialectBuilder.
-    KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
+    krnl::KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
     for (decltype(outRank) i = 0; i < outRank; ++i)
       addDimensionToPack(rewriter, loc, packInit, alloc, i);
 
@@ -581,7 +583,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     defineLoops(rewriter, loc, originalLoops, inRank);
     // Iteration information
     // TODO use new KrnlDialectBuilder.
-    KrnlIterateOperandPack pack(rewriter, originalLoops);
+    krnl::KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (decltype(inRank) i = 0; i < inRank; ++i)
       addDimensionToPack(rewriter, loc, pack, input, i);
 
@@ -680,3 +682,5 @@ void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMeanOp>>(
       typeConverter, ctx, /*computeMean=*/true);
 }
+
+} // namespace onnx_mlir

@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
     SmallVectorImpl<IndexExpr> &Lbs, SmallVectorImpl<IndexExpr> &Ubs,
     ValueRange outerIndices, Value input, Value alloc, Value sumOp, Value maxOp,
@@ -286,3 +288,5 @@ void populateLoweringONNXSoftmaxOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXSoftmaxOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

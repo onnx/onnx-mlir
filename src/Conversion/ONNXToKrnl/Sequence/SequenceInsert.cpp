@@ -16,6 +16,7 @@
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 struct ONNXSequenceInsertOpLowering : public ConversionPattern {
   ONNXSequenceInsertOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)

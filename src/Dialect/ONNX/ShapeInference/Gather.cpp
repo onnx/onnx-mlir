@@ -10,6 +10,10 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(ONNXGatherOp *newOp)
     : ONNXOpShapeHelper<ONNXGatherOp>(
           newOp, newOp->getOperation()->getNumResults()),
@@ -77,3 +81,5 @@ LogicalResult ONNXGatherOpShapeHelper::computeShape(
 
   return success();
 }
+
+} // namespace onnx_mlir

@@ -10,6 +10,10 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+using namespace mlir;
+
+using namespace onnx_mlir;
+
 ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp)
     : ONNXOpShapeHelper<ONNXArgMaxOp>(
           newOp, newOp->getOperation()->getNumResults()) {}

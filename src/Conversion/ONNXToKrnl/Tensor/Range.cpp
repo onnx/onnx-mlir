@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXRangeOpLowering : public ConversionPattern {
   ONNXRangeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -114,7 +116,7 @@ struct ONNXRangeOpLowering : public ConversionPattern {
 
     // Create a single loop.
     LiteralIndexExpr zeroIE(0);
-    BuildKrnlLoop krnlLoop(rewriter, loc, 1);
+    krnl::BuildKrnlLoop krnlLoop(rewriter, loc, 1);
 
     // Emit the definition.
     krnlLoop.createDefineOp();
@@ -188,3 +190,4 @@ void populateLoweringONNXRangeOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXRangeOpLowering>(typeConverter, ctx);
 }
+} // namespace onnx_mlir
