@@ -13,15 +13,15 @@ endif (ACCELERATORS_TO_BUILD)
 # Generate the Accelerators.inc file.
 set(accelerators_inc "${CMAKE_CURRENT_BINARY_DIR}/Accelerators.inc")
 list(APPEND accelerators_inc_generate_commands
-  COMMAND echo "\\#define APPLY_TO_ACCELERATORS\\(MACRO\\) \\ " > ${accelerators_inc})
+  COMMAND ${CMAKE_COMMAND} -E echo "\\#define APPLY_TO_ACCELERATORS\\(MACRO\\) \\ " > ${accelerators_inc})
 
 if (ACCELERATORS_TO_BUILD) 
   foreach(t ${ACCELERATORS_TO_BUILD})
     list(APPEND accelerators_inc_generate_commands
-      COMMAND echo "  MACRO\\(${t}\\) \\ " >> ${accelerators_inc})
+      COMMAND ${CMAKE_COMMAND} -E echo "  MACRO\\(${t}\\) \\ " >> ${accelerators_inc})
   endforeach(t)
   list(APPEND accelerators_inc_generate_commands
-      COMMAND echo >> ${accelerators_inc})
+      COMMAND ${CMAKE_COMMAND} -E echo >> ${accelerators_inc})
 endif (ACCELERATORS_TO_BUILD)
 
 add_custom_command(OUTPUT "${accelerators_inc}"
