@@ -100,11 +100,12 @@ Value getLSTMGRUGetY(
 }
 
 Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
-    Value resY, Value resYh, ArrayRef<int64_t> shapeX, StringAttr direction) {
+    Value resY, Value resYh, Value X, StringAttr direction) {
   Value noneValue;
   if (isNoneType(resYh) || isNoneType(val))
     return noneValue;
 
+  ArrayRef<int64_t> shapeX = X.getType().cast<ShapedType>().getShape();
   // Generate Y_h for onnx.LSTM from hn_output for all timestep
   Value minusOne =
       rewriter
