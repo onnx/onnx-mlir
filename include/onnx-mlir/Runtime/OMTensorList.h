@@ -40,7 +40,7 @@ extern "C" {
  * @return pointer to the OMTensorList created, NULL if creation failed.
  *
  */
-ONNX_MLIR_EXPORT OMTensorList *omTensorListCreate(
+OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreate(
     OMTensor **tensors, int64_t n);
 
 /**
@@ -62,7 +62,7 @@ ONNX_MLIR_EXPORT OMTensorList *omTensorListCreate(
  * @return pointer to the OMTensorList created, NULL if creation failed.
  *
  */
-ONNX_MLIR_EXPORT OMTensorList *omTensorListCreateWithOwnership(
+OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreateWithOwnership(
     OMTensor **tensors, int64_t n, int64_t owning);
 
 /**
@@ -75,7 +75,7 @@ ONNX_MLIR_EXPORT OMTensorList *omTensorListCreateWithOwnership(
  * simply returns when pointer is null.
  *
  */
-ONNX_MLIR_EXPORT void omTensorListDestroy(OMTensorList *list);
+OM_EXTERNAL_VISIBILITY void omTensorListDestroy(OMTensorList *list);
 
 /**
  * \brief OMTensorList OMTensor array getter
@@ -86,7 +86,7 @@ ONNX_MLIR_EXPORT void omTensorListDestroy(OMTensorList *list);
  * @param list pointer to the OMTensorList
  * @return pointer to the array of OMTensor pointers.
  */
-ONNX_MLIR_EXPORT OMTensor **omTensorListGetOmtArray(OMTensorList *list);
+OM_EXTERNAL_VISIBILITY OMTensor **omTensorListGetOmtArray(OMTensorList *list);
 
 /**
  * \brief OMTensorList size getter
@@ -95,7 +95,7 @@ ONNX_MLIR_EXPORT OMTensor **omTensorListGetOmtArray(OMTensorList *list);
  * @param list pointer to the OMTensorList
  * @return number of elements in the OMTensor array.
  */
-ONNX_MLIR_EXPORT int64_t omTensorListGetSize(OMTensorList *list);
+OM_EXTERNAL_VISIBILITY int64_t omTensorListGetSize(OMTensorList *list);
 
 /**
  * \brief OMTensorList OMTensor getter by index
@@ -104,7 +104,7 @@ ONNX_MLIR_EXPORT int64_t omTensorListGetSize(OMTensorList *list);
  * @param index index of the OMTensor
  * @reutrn pointer to the OMTensor, NULL if not found.
  */
-ONNX_MLIR_EXPORT OMTensor *omTensorListGetOmtByIndex(
+OM_EXTERNAL_VISIBILITY OMTensor *omTensorListGetOmtByIndex(
     OMTensorList *list, int64_t index);
 
 #ifdef __cplusplus

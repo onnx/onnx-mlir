@@ -26,7 +26,7 @@ extern "C" {
  * @param entry point name
  * @return pointer to input signature JSON string
  */
-ONNX_MLIR_EXPORT const char *omInputSignature(const char *entryPointName);
+OM_EXTERNAL_VISIBILITY const char *omInputSignature(const char *entryPointName);
 
 /**
  * \brief Return the output signature of the given entry point as a JSON string.
@@ -34,7 +34,8 @@ ONNX_MLIR_EXPORT const char *omInputSignature(const char *entryPointName);
  * @param entry point name
  * @return pointer to output signature JSON string
  */
-ONNX_MLIR_EXPORT const char *omOutputSignature(const char *entryPointName);
+OM_EXTERNAL_VISIBILITY const char *omOutputSignature(
+    const char *entryPointName);
 
 #ifdef __cplusplus
 }

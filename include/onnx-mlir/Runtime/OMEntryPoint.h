@@ -32,7 +32,7 @@ extern "C" {
  * @return an array of strings. The array ends with NULL. For example:
  * ["run_add", "run_sub", NULL].
  */
-ONNX_MLIR_EXPORT const char *const *omQueryEntryPoints(
+OM_EXTERNAL_VISIBILITY const char *const *omQueryEntryPoints(
     int64_t *numOfEntryPoints);
 
 #ifdef __cplusplus

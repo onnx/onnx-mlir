@@ -89,7 +89,7 @@ extern "C" {
  * @return pointer to OMTensor created, NULL if creation failed.
  *
  */
-ONNX_MLIR_EXPORT OMTensor *omTensorCreate(
+OM_EXTERNAL_VISIBILITY OMTensor *omTensorCreate(
     void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
 
 /**
@@ -120,7 +120,7 @@ ONNX_MLIR_EXPORT OMTensor *omTensorCreate(
  * @return pointer to OMTensor created, NULL if creation failed.
  *
  */
-ONNX_MLIR_EXPORT OMTensor *omTensorCreateWithOwnership(void *data_ptr,
+OM_EXTERNAL_VISIBILITY OMTensor *omTensorCreateWithOwnership(void *data_ptr,
     int64_t *shape, int64_t rank, OM_DATA_TYPE dtype, int64_t owning);
 
 /**
@@ -140,7 +140,7 @@ ONNX_MLIR_EXPORT OMTensor *omTensorCreateWithOwnership(void *data_ptr,
  * @return pointer to OMTensor created, NULL if creation failed.
  *
  */
-ONNX_MLIR_EXPORT OMTensor *omTensorCreateEmpty(
+OM_EXTERNAL_VISIBILITY OMTensor *omTensorCreateEmpty(
     int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
 
 /**
@@ -156,7 +156,7 @@ ONNX_MLIR_EXPORT OMTensor *omTensorCreateEmpty(
  * pointer is null.
  *
  */
-ONNX_MLIR_EXPORT void omTensorDestroy(OMTensor *tensor);
+OM_EXTERNAL_VISIBILITY void omTensorDestroy(OMTensor *tensor);
 
 /**
  * \brief OMTensor data pointer getter.
@@ -165,7 +165,7 @@ ONNX_MLIR_EXPORT void omTensorDestroy(OMTensor *tensor);
  * @return pointer to the numerical data buffer of the OMTensor,
  *         NULL if the numerical data buffer is not set.
  */
-ONNX_MLIR_EXPORT void *omTensorGetDataPtr(const OMTensor *tensor);
+OM_EXTERNAL_VISIBILITY void *omTensorGetDataPtr(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data shape getter.
@@ -179,7 +179,7 @@ ONNX_MLIR_EXPORT void *omTensorGetDataPtr(const OMTensor *tensor);
  * @param tensor pointer to the OMTensor
  * @return pointer to the data shape array.
  */
-ONNX_MLIR_EXPORT int64_t *omTensorGetShape(const OMTensor *tensor);
+OM_EXTERNAL_VISIBILITY int64_t *omTensorGetShape(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data shape setter.
@@ -195,7 +195,7 @@ ONNX_MLIR_EXPORT int64_t *omTensorGetShape(const OMTensor *tensor);
  *
  * Set the data shape array of the OMTensor to the values in the input array.
  */
-ONNX_MLIR_EXPORT void omTensorSetShape(OMTensor *tensor, int64_t *shape);
+OM_EXTERNAL_VISIBILITY void omTensorSetShape(OMTensor *tensor, int64_t *shape);
 
 /**
  * \brief OMTensor data strides getter
@@ -209,7 +209,7 @@ ONNX_MLIR_EXPORT void omTensorSetShape(OMTensor *tensor, int64_t *shape);
  * @param tensor pointer to the OMTensor
  * @return pointer to the data strides array.
  */
-ONNX_MLIR_EXPORT int64_t *omTensorGetStrides(const OMTensor *tensor);
+OM_EXTERNAL_VISIBILITY int64_t *omTensorGetStrides(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data strides setter
@@ -225,7 +225,8 @@ ONNX_MLIR_EXPORT int64_t *omTensorGetStrides(const OMTensor *tensor);
  *
  * Set the data strides array of the OMTensor to the values in the input array.
  */
-ONNX_MLIR_EXPORT void omTensorSetStrides(OMTensor *tensor, int64_t *stride);
+OM_EXTERNAL_VISIBILITY void omTensorSetStrides(
+    OMTensor *tensor, int64_t *stride);
 
 /**
  * \brief OMTensor data strides setter with stride values from PyArray strides
@@ -245,7 +246,7 @@ ONNX_MLIR_EXPORT void omTensorSetStrides(OMTensor *tensor, int64_t *stride);
  *
  * Set the data strides array of the OMTensor to the values in the input array.
  */
-ONNX_MLIR_EXPORT void omTensorSetStridesWithPyArrayStrides(
+OM_EXTERNAL_VISIBILITY void omTensorSetStridesWithPyArrayStrides(
     OMTensor *tensor, int64_t *stridesInBytes);
 
 /**
@@ -258,7 +259,7 @@ ONNX_MLIR_EXPORT void omTensorSetStridesWithPyArrayStrides(
  * @param tensor pointer to the OMTensor
  * @return ONNX data type of the data buffer elements.
  */
-ONNX_MLIR_EXPORT OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor);
+OM_EXTERNAL_VISIBILITY OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data type setter
@@ -272,7 +273,7 @@ ONNX_MLIR_EXPORT OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor);
  *
  * Set the ONNX data type of the data buffer elements.
  */
-ONNX_MLIR_EXPORT void omTensorSetDataType(
+OM_EXTERNAL_VISIBILITY void omTensorSetDataType(
     OMTensor *tensor, OM_DATA_TYPE dataType);
 
 /* Helper function to get the ONNX data type size in bytes */
@@ -286,7 +287,7 @@ static inline int64_t getDataTypeSize(OM_DATA_TYPE dataType) {
  * @param tensor pointer to the OMTensor
  * @return the total size of the data buffer in bytes.
  */
-ONNX_MLIR_EXPORT int64_t omTensorGetBufferSize(const OMTensor *tensor);
+OM_EXTERNAL_VISIBILITY int64_t omTensorGetBufferSize(const OMTensor *tensor);
 
 /**
  * \brief OMTensor rank getter
@@ -294,7 +295,7 @@ ONNX_MLIR_EXPORT int64_t omTensorGetBufferSize(const OMTensor *tensor);
  * @param tensor, pointer to the OMTensor
  * @return rank of data shape and strides of the OMTensor.
  */
-ONNX_MLIR_EXPORT int64_t omTensorGetRank(const OMTensor *tensor);
+OM_EXTERNAL_VISIBILITY int64_t omTensorGetRank(const OMTensor *tensor);
 
 /**
  * \brief OMTensor number of elements getter
@@ -302,19 +303,19 @@ ONNX_MLIR_EXPORT int64_t omTensorGetRank(const OMTensor *tensor);
  * @param tensor, pointer to the OMTensor
  * @return the number of elements in the data buffer.
  */
-ONNX_MLIR_EXPORT int64_t omTensorGetNumElems(const OMTensor *tensor);
+OM_EXTERNAL_VISIBILITY int64_t omTensorGetNumElems(const OMTensor *tensor);
 
 /**
  * \brief OMTensor owning flag getter
  *
  * @return owning flag of the OMTensor.
  */
-ONNX_MLIR_EXPORT int64_t omTensorGetOwning(const OMTensor *tensor);
+OM_EXTERNAL_VISIBILITY int64_t omTensorGetOwning(const OMTensor *tensor);
 
 /**
  * \brief OMTensor owning flag setter
  */
-ONNX_MLIR_EXPORT void omTensorSetOwning(OMTensor *tensor, int64_t owning);
+OM_EXTERNAL_VISIBILITY void omTensorSetOwning(OMTensor *tensor, int64_t owning);
 
 /**
  * Print an OMTensor to stdout.
@@ -322,7 +323,8 @@ ONNX_MLIR_EXPORT void omTensorSetOwning(OMTensor *tensor, int64_t owning);
  * @param msg, pointer to descriptive string
  * @param tensor, pointer to the OMTensor to print
  */
-ONNX_MLIR_EXPORT void omTensorPrint(const char *msg, const OMTensor *tensor);
+OM_EXTERNAL_VISIBILITY void omTensorPrint(
+    const char *msg, const OMTensor *tensor);
 
 #ifdef __cplusplus
 }

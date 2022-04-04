@@ -47,7 +47,7 @@ extern "C" {
  * Initialize counter and read env variables for control
  *
  */
-ONNX_MLIR_EXPORT void OMInstrumentInit();
+OM_EXTERNAL_VISIBILITY void OMInstrumentInit();
 
 /**
  * Create an instrument point.
@@ -61,7 +61,7 @@ ONNX_MLIR_EXPORT void OMInstrumentInit();
  * @return void
  *
  */
-ONNX_MLIR_EXPORT void OMInstrumentPoint(int64_t id, int64_t tag);
+OM_EXTERNAL_VISIBILITY void OMInstrumentPoint(int64_t id, int64_t tag);
 
 #ifdef __cplusplus
 }
