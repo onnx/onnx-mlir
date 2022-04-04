@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- LeakyReluOp.cpp - ONNX Op Transform ------------------===//
+//===------- FlattenOp.cpp - ONNX Op Transform ------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -58,48 +58,66 @@ using namespace mlir::torch::Torch;
 
 /**
  * 
- * ONNX LeakyRelu operation 
- *
- * “LeakyRelu takes input data (Tensor) and an argument alpha, and produces one" 
- * "output data (Tensor) where the function `f(x) = alpha * x for x < 0`," 
- * "`f(x) = x for x >= 0`, is applied to the data tensor elementwise."
- *
- * Operands :
- * X            tensor of 16-bit/32-bit/64-bit float values or memref of any type values
- * Output   : 
- * Y            tensor of 16-bit/32-bit/64-bit float values or memref of any type values 
- *
  * Attributes 
- * alpha    32-bit float attribute
+ * axis    i64-bit signed integer attribute
  * 
- * Validation 
- * ----------
  * /scripts/docker/build_with_docker.py --external-build --build-dir build --command "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir --EmitONNXIR --debug --run-torch-pass third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_leakyrelu/model.onnx"
  * 
  */
 
 
-class ONNXLeakyReluOpToTorchLowering : public ConversionPattern {
+class ONNXFlattenOpToTorchLowering : public ConversionPattern {
 public:
-  ONNXLeakyReluOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+  ONNXFlattenOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, mlir::ONNXLeakyReluOp::getOperationName(), 1, ctx) {}
+            typeConverter, ::mlir::ONNXFlattenOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
 
     Location loc = op->getLoc();
     mlir::MLIRContext *context =  op->getContext();
-    ONNXLeakyReluOp op1 = llvm::dyn_cast<ONNXLeakyReluOp>(op);
-    ONNXLeakyReluOpAdaptor adapter(op1);
+    ONNXFlattenOp op1 = llvm::dyn_cast<ONNXFlattenOp>(op);
+    ONNXFlattenOpAdaptor adaptor(operands);
+    
+    Value input = adaptor.input();
+    auto inputTy = input.getType().cast<MemRefType>();
+    auto inputShape = inputTy.getShape();
+    int inputRank = inputShape.size();
+    auto axisValue = op1.axis();       // ::mlir::IntegerAttr
+    if (axisValue < 0)
+      axisValue = inputRank + axisValue;
+   
+    llvm::outs() << "input from Flatten Op:   " << "\n" << input << "\n" << "\n"; 
+    llvm::outs() << "axisValue from Flatten Op:   " << "\n" << axisValue << "\n" << "\n";
 
-    Value x = op1.X();
+    TensorType op_tensor_type = op1.getType().cast<TensorType>();
+    auto resultTy = Torch::ValueTensorType::get(op1.getContext(), op_tensor_type.getShape(),
+                                                        op_tensor_type.getElementType());
 
-    auto alpha = adapter.alphaAttr(); // mlir::FloatAttr
-    auto neg_slope = alpha.getValue(); // APSFloat
-    auto f3 = FloatAttr::get(alpha.getType(), neg_slope.convertToFloat());
-    Value f3v = rewriter.create<ConstantFloatOp>(loc,f3);
+    int64_t startDim = -1;
+    int64_t endDim = -1;
+    if (startDim < 0)
+      startDim += inputRank;
+    if (endDim < 0)
+      endDim += inputRank;
+    auto ty = IntegerType::get(op1.getContext(), 64);
+    auto f0 = IntegerAttr::get(ty, (startDim));
+    Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
 
+    auto f1 = IntegerAttr::get(ty, (endDim));
+    Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+
+    auto axisVal = IntegerAttr::get(ty, (axisValue));
+    Value p2v = rewriter.create<ConstantIntOp>(loc, axisVal);
+
+    Value atenleakyrelu = rewriter.create<AtenFlattenUsingIntsOp>(loc, resultTy, p2v, p0v, p1v);
+
+    Value result = atenleakyrelu;
+
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, op->getResult(0).getType() , result);
+    return success();
+#if 0
     TensorType x_tensor_type  = x.getType().cast<TensorType>();
     TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
 
@@ -111,15 +129,16 @@ public:
 
     Value atenleakyrelu = rewriter.create<AtenLeakyReluOp>(loc, resultTy, xtt, f3v); 
 
-    llvm::outs() << "ATENLEAKYRELU CREATED is " << atenleakyrelu << "\n"; 
+    llvm::outs() << "ATENRELU CREATED is " << atenleakyrelu << "\n"; 
     Value result = atenleakyrelu; 
 
     rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, op->getResult(0).getType() , result);
     return success();
+#endif
   }
 };
 
-void populateLoweringONNXToTorchLeakyReluOpPattern(RewritePatternSet &patterns,
+void populateLoweringONNXToTorchFlattenOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
-    patterns.insert<ONNXLeakyReluOpToTorchLowering>(typeConverter, ctx);
+    patterns.insert<ONNXFlattenOpToTorchLowering>(typeConverter, ctx);
 }

@@ -16,6 +16,11 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
+#include "llvm/Support/CommandLine.h"
+
+static llvm::cl::opt<bool>
+    RunTorchPass("run-torch-pass", llvm::cl::Hidden, llvm::cl::init(false),
+                     llvm::cl::desc("Run ONNX to Torch Single Pass"));
 
 using namespace mlir;
 using namespace mlir::torch;
@@ -29,6 +34,11 @@ void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
     populateLoweringONNXToTorchLeakyReluOpPattern (patterns, typeConverter, ctx);
     populateLoweringONNXToTorchMaxPoolSingleOutOpPattern (patterns, typeConverter, ctx);
     populateLoweringONNXToTorchConstOpPattern (patterns, typeConverter, ctx);
+    //populateLoweringONNXToTorchFlattenOpPattern (patterns, typeConverter, ctx);
+    populateLoweringONNXToTorchReluOpPattern (patterns, typeConverter, ctx);
+    populateLoweringONNXToTorchGlobalAveragePoolOpPattern (patterns, typeConverter, ctx);
+    populateLoweringONNXToTorchReduceMeanOpPattern (patterns, typeConverter, ctx);
+    populateLoweringONNXToTorchGemmOpPattern (patterns, typeConverter, ctx);
 }
 
 //===----------------------------------------------------------------------===//
@@ -89,8 +99,11 @@ public:
 } // end anonymous namespace.
 
 void FrontendToTorchLoweringPass::runOnOperation() {
-  ModuleOp module = getOperation();
+  // Should not run this pass if user didn't provide "--run-torch-pass" as command line option.
+  if (!RunTorchPass)
+    return;
 
+  ModuleOp module = getOperation();
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
   ConversionTarget target(getContext());

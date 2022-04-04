@@ -30,6 +30,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Transforms/Scalar/LICM.h"
 
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -39,7 +40,6 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
-
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -125,4 +125,19 @@ void populateLoweringONNXToTorchMaxPoolSingleOutOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 void populateLoweringONNXToTorchConstantPadNdOpPattern (
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+//void populateLoweringONNXToTorchFlattenOpPattern (
+  //  RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchReluOpPattern (
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchGlobalAveragePoolOpPattern (
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchReduceMeanOpPattern (
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchGemmOpPattern (
     RewritePatternSet &, TypeConverter &, MLIRContext *);
