@@ -5,7 +5,7 @@
 //===---------------IndexExprDetail.hpp - Index expression details---------===
 ////
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,7 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/IndexExprDetail.hpp"
+#include "src/Dialect/Mlir/IndexExprDetail.hpp"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
