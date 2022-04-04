@@ -44,6 +44,9 @@ int main(int argc, char *argv[]) {
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
   bool success;
 
+#ifdef DATA_RANGE
+  printf("Model use data in the +/- range %f\n\n", DATA_RANGE);
+#endif
   printf("RapidCheck Matrix-Vector test case generation.\n");
   success = rc::check("Matrix-Vector Matmul implementation correctness", []() {
     const auto I = *rc::gen::inRange(4, 50);
