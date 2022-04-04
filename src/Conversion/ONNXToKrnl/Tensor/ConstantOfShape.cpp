@@ -86,7 +86,6 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
       allocBounds.getDimList(ubs);
       createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-            // Store the constant value to the output.
             createKrnl.store(constantVal, alloc, loopInd);
           });
     } else
