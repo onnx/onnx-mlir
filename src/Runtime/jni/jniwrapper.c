@@ -796,14 +796,22 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
       (*env)->GetStringUTFChars(env, ep, NULL), jni_ep != NULL, jecpt_cls,
       "jni_ep=%p", jni_ep);
 
-  /* Call model input signature API */
+  /* On z/OS, convert entry point name in UTF-8 to EBCDIC */
 #ifdef __MVS__
   CHECK_CALL(char *, epptr, __a2e(jni_ep), epptr != NULL, "epptr=%p", epptr);
 #else
   const char *epptr = jni_ep;
 #endif
+
+  /* Entry point name in hex and string format for debugging */
+  HEX_DEBUG("ep", epptr, strlen(epptr));
+  LOG_PRINTF(LOG_DEBUG, "ep(%d):%s", strlen(epptr), epptr);
+
+  /* Call model input signature API */
   CHECK_CALL(const char *, jni_isig, omInputSignature(epptr), jni_isig != NULL,
       "jni_isig=%p", jni_isig);
+
+  /* On z/OS, free the EBCDIC entry point name no longer needed */
 #ifdef __MVS__
   free(epptr);
 #endif
@@ -815,15 +823,18 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
   HEX_DEBUG("isig", jni_isig, strlen(jni_isig));
   LOG_PRINTF(LOG_DEBUG, "isig(%d):%s", strlen(jni_isig), jni_isig);
 
-  /* Convert to Java String object */
+  /* On z/OS, convert input signature in EBCDIC to ASCII */
 #ifdef __MVS__
   CHECK_CALL(
       char *, sigptr, __e2a(jni_isig), sigptr != NULL, "sigptr=%p", sigptr);
 #else
   const char *sigptr = jni_isig;
 #endif
+
+  /* Convert to Java String object */
   JNI_TYPE_VAR_CALL(env, jstring, java_isig, (*env)->NewStringUTF(env, sigptr),
       java_isig != NULL, jecpt_cls, "java_isig=%p", java_isig);
+
 #ifdef __MVS__
   free(sigptr);
 #endif
@@ -846,14 +857,22 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
       (*env)->GetStringUTFChars(env, ep, NULL), jni_ep != NULL, jecpt_cls,
       "jni_ep=%p", jni_ep);
 
+  /* On z/OS, convert entry point name in UTF-8 to EBCDIC */
 #ifdef __MVS__
   CHECK_CALL(char *, epptr, __a2e(jni_ep), epptr != NULL, "epptr=%p", epptr);
 #else
   const char *epptr = jni_ep;
 #endif
+
+  /* Entry point name in hex and string format for debugging */
+  HEX_DEBUG("ep", epptr, strlen(epptr));
+  LOG_PRINTF(LOG_DEBUG, "ep(%d):%s", strlen(epptr), epptr);
+
   /* Call model output signature API */
   CHECK_CALL(const char *, jni_osig, omOutputSignature(epptr), jni_osig != NULL,
       "jni_osig=%p", jni_osig);
+
+  /* On z/OS, free the EBCDIC entry point name no longer needed */
 #ifdef __MVS__
   free(epptr);
 #endif
@@ -865,15 +884,18 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
   HEX_DEBUG("osig", jni_osig, strlen(jni_osig));
   LOG_PRINTF(LOG_DEBUG, "osig(%d):%s", strlen(jni_osig), jni_osig);
 
-  /* Convert to Java String object */
+  /* On z/OS, convert output signature in EBCDIC to ASCII */
 #ifdef __MVS__
   CHECK_CALL(
       char *, sigptr, __e2a(jni_osig), sigptr != NULL, "sigptr=%p", sigptr);
 #else
   const char *sigptr = jni_osig;
 #endif
+
+  /* Convert to Java String object */
   JNI_TYPE_VAR_CALL(env, jstring, java_osig, (*env)->NewStringUTF(env, sigptr),
       java_osig != NULL, jecpt_cls, "java_osig=%p", java_osig);
+
 #ifdef __MVS__
   free(sigptr);
 #endif
