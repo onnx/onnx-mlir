@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
@@ -108,7 +109,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
 
     MemRefBoundsIndexCapture xBounds(X);
     uint64_t rank = xBounds.getRank();
-    LiteralIndexExpr zero(0);
+    LiteralIndexExpr zeroIE(0);
 
     // Read axis.
     ArrayValueIndexCapture axisCapture(axis,
@@ -155,7 +156,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     }
 
     // Input and output have the same shape, so they share the bounds.
-    SmallVector<IndexExpr, 4> lbs(rank, zero);
+    SmallVector<IndexExpr, 4> lbs(rank, zeroIE);
     SmallVector<IndexExpr, 4> ubs;
     xBounds.getDimList(ubs);
 
@@ -194,7 +195,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
 
     // Outer loop iterates over the number of steps.
     ValueRange stepLoopDef = createKrnl.defineLoops(1);
-    createKrnl.iterateIE(stepLoopDef, stepLoopDef, {zero}, {numberOfStep},
+    createKrnl.iterateIE(stepLoopDef, stepLoopDef, {zeroIE}, {numberOfStep},
         [&](KrnlBuilder &createKrnl, ValueRange stepLoopInd) {
           MathBuilder createMath(createKrnl);
 

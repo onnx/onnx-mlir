@@ -34,7 +34,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
         loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
-    assert(succeeded(shapecomputed));
+    assert(succeeded(shapecomputed) && "Could not compute output shape");
 
     auto axis = concatOp.axis();
     unsigned int inputNum = operands.size();

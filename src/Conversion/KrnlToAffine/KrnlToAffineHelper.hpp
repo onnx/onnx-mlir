@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 
 namespace onnx_mlir {
 namespace krnl {
