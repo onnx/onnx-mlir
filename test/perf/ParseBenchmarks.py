@@ -275,29 +275,36 @@ def RunPerformanceBenchmark(op):
 
 
 
-def CompareBenchmarkResults(BenchmarkLists1, BenchmarkLists2):
+def CompareOutput(output1, output2, metric):
 
-    AllComparedEntries = []
+    OutputDicts1 = ReadCSVOutput(output1)
+    OutputDicts2 = ReadCSVOutput(output2)
 
-    for i in range(len(BenchmarkLists1)):
+    ComparisonOutput = ""
 
-        BenchmarkEntry = []
-        for j in range(len(BenchmarkLists1[i])):
-            if (j == 0):
-                BenchmarkEntry.append(BenchmarkLists1[i][0])
-            else:
-                Value1 = (float)(BenchmarkLists1[i][j]) if (BenchmarkLists1[i][j]) else 0
-                Value2 = (float)(BenchmarkLists2[i][j]) if (BenchmarkLists2[i][j]) else 0
-                Difference = round(Value2 - Value1, 2)
-                BenchmarkEntry.append(Difference)
-        AllComparedEntries.append(BenchmarkEntry)
-            
-        # print(BenchmarkLists1[i])
-        # print(BenchmarkLists2[i])
-        # print("\n")
+    for OutputDict1 in OutputDicts1:
+        dict1name = OutputDict1["name"]
+        for OutputDict2 in OutputDicts2:
+            dict2name = OutputDict2["name"]
+            if (dict1name == dict2name):
+                if (metric in OutputDict1.keys() and metric in OutputDict2.keys()):
+                    Value1        = (float)(OutputDict1[metric]) if (OutputDict1[metric]) else 0
+                    Value2        = (float)(OutputDict2[metric]) if (OutputDict2[metric]) else 0
+                    Difference    = round(Value2 - Value1, 2)
+                    DifferenceStr = str(Difference)
+                    Pct           = round((Difference / Value1) * 100, 2)
+                    PctStr        = str(Pct)
 
-    for m in range(len(AllComparedEntries)):
-        print(AllComparedEntries[m])
+                    if (metric in ["cpu_time", "real_time"]):
+                        TimeUnit = OutputDict1["time_unit"]
+                        DifferenceStr += " " + TimeUnit
+
+                    ComparisonOutput += dict1name + " " + metric + " delta: "
+                    ComparisonOutput += DifferenceStr + " (" + PctStr + "%) "
+                    ComparisonOutput += "(" + str(round(Value1, 2)) + " -> " + str(round(Value2, 2)) + ")\n"
+
+    return ComparisonOutput
+
 
 
 # Convert raw CSV output to dictionary format
@@ -389,8 +396,9 @@ elif(Readrun):
         WriteFormattedOutput(RawBenchmarkOutput1)
         WriteFormattedOutput(RawBenchmarkOutput2)
 
-    # CompareBenchmarkResults(BenchmarkLists1, BenchmarkLists2)
+    ComparisonOutput = CompareOutput(RawBenchmarkOutput1, RawBenchmarkOutput2, metric)
 
+    print(ComparisonOutput)
 
 
 # Compare performance benchmarks written to file for both specified files (each
@@ -409,6 +417,8 @@ elif(Compare):
         WriteFormattedOutput(RawBenchmarkOutput1)
         WriteFormattedOutput(RawBenchmarkOutput2)
 
-    # CompareBenchmarkResults(BenchmarkLists1, BenchmarkLists2)
+    ComparisonOutput = CompareOutput(RawBenchmarkOutput1, RawBenchmarkOutput2, metric)
+
+    print(ComparisonOutput)
 
 
