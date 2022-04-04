@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
-######################################################################################################
-# There are four possible flags to add to this script:
+########################################################################################################
+# There are four possible run args to add to this script (select one):
 #
 # --run <op>: Compute performance benchmarks for specified op, and write to output file
 #
@@ -12,7 +12,19 @@
 #
 # --compare <op> <op> <metric>: Compare performance benchmarks written to file for both specified 
 # files (each should contain the same op)
-######################################################################################################
+#
+#
+# Further, there are two options:
+#
+# --verbose: Print all non-null benchmarks to stdout. (When using --compare or --readrun, output will
+# be generated for each set of benchmarks (from arg 1 and arg 2)).
+#
+# --max-relative-slowdown <pct>: When using --readrun or --compare, indicate on each line whether
+# the relative change exceeds the specified percent increase, and exit(1) if more than one benchmark 
+# does so. (Exit(0) if one or fewer do so).
+#
+#
+########################################################################################################
 
 
 
@@ -21,17 +33,25 @@ import subprocess
 import sys
 import time
 
+########################################################################################################
+# Global variables
 
+# These indicate argument selection
+Run                   = False
+Runall                = False
+Readrun               = False
+Compare               = False
+PrintOutputs          = False
+LimitSlowdown         = False
 
-# Checking whether ONNX_MLIR_HOME environment variable is set
-if (not os.environ.get('ONNX_MLIR_HOME', None)):
-    raise RuntimeError(
-        "Environment variable ONNX_MLIR_HOME is not set, please set it to the path to "
-        "the HOME directory for onnx-mlir. The HOME directory for onnx-mlir refers to "
-        "the parent folder containing the bin, lib, etc sub-folders in which ONNX-MLIR "
-        "executables and libraries can be found, typically `onnx-mlir/build/Debug`"
-    )
+# Activated in the event that more than one compared metric exceeds specified max slowdown
+SlowdownLimitExceeded = False
 
+# Epoch timestamp at time script is run for filename purposes
+RuntimeEpoch = int(time.time())
+
+# This shall contain additional options added to arguments
+ArgOptions = []
 
 # Add compatible ops here; used when script is run with '--runall'
 OpsWithPerformanceBenchmarks = [
@@ -39,35 +59,49 @@ OpsWithPerformanceBenchmarks = [
     'Conv'
 ]
 
-
-# Epoch timestamp at time script is run for filename purposes
-RuntimeEpoch = int(time.time())
-
-def print_usage(error_message):
-    print("\nError: " + error_message)
-    print("Correct usage below:")
-    print("ParseBenchmarks.py [{run args}] [--verbose]")
-    print("Run args:")
-    print("--run <op>\n--runall\n--readrun <filename> <op> <metric>\n--compare <filename> <filename> <metric>\n")
-    sys.exit()
-
-# Global vars indicating argument selection
-PrintOutputs = False
-Run          = False
-Runall       = False
-Readrun      = False
-Compare      = False
-
-ArgOptions = []
-
 # List of argument flags to allow
 ValidArgs = [
     'verbose',
+    'max-relative-slowdown',
     'run',
     'runall',
     'readrun',
     'compare'
 ]
+
+########################################################################################################
+
+# Checking whether ONNX_MLIR_HOME environment variable is set
+def check_home_env_var():
+    if (not os.environ.get('ONNX_MLIR_HOME', None)):
+        raise RuntimeError(
+            "Environment variable ONNX_MLIR_HOME is not set. Please set it to the path to `/workdir/onnx-mlir/`\n"
+            "To do this manually on Linux:\n\n"
+            "# pushd /workdir/onnx-mlir/\n"
+            "# ONNX_MLIR_HOME=$(pwd)\n"
+            "# export ONNX_MLIR_HOME\n"
+            "# popd\n"
+        )
+
+
+
+# Error message function
+def print_usage(error_message):
+    print("\nError: " + error_message)
+    print(
+        "Correct usage below:\n"
+        "ParseBenchmarks.py [{run args}] [{options}]\n"
+        "Run args:\n"
+        "--run <op>\n"
+        "--runall\n"
+        "--readrun <filename> <op> <metric>\n"
+        "--compare <filename> <filename> <metric>\n\n"
+        "Options:\n"
+        "--verbose\n--max-relative-slowdown <percent value>\n"
+    )
+    sys.exit()
+
+
 
 # Function extracts supplied arguments safely
 def ReadSysArgs():
@@ -87,7 +121,7 @@ def ReadSysArgs():
 
             # Ignore option in future iterations
             sys.argv[i+j] = "/ignorethis"
-            
+
 
 
     # Number of supplied run arguments (must not exceed 1)
@@ -112,10 +146,28 @@ def ReadSysArgs():
         if argname not in ValidArgs:
             print_usage("Invalid argument: " + arg)
 
-        # --Verbose argument
+        # --verbose argument
         if (argname == "verbose"):
+            if (SuppliedRunArgs < 1):
+                print_usage("Supply run args before optional args")
+            
             global PrintOutputs
             PrintOutputs = True
+        
+        # --max-relative-slowdown argument
+        elif (argname == "max-relative-slowdown"):
+
+            if (SuppliedRunArgs < 1):
+                print_usage("Supply run args before optional args")
+
+            global LimitSlowdown
+            LimitSlowdown = True
+
+            # Set for MRS
+            NumberOfExpectedOptions = 1
+
+            # Check that the options are supplied
+            ValidateOptions(i, NumberOfExpectedOptions)
 
         # --run argument
         elif (argname == "run"):
@@ -166,44 +218,6 @@ def ReadSysArgs():
 
 
 
-def ParseBenchmarkCSV(result):
-
-    OutputLines = result.splitlines()
-    OutputLines.pop(0)
-
-    VersionResults = []
-
-    for line in OutputLines:
-        tokens = line.split(",")
-
-        Metrics = []
-
-        Metrics.append(tokens[0])
-        Metrics.append(tokens[1])
-        Metrics.append(tokens[2])
-        Metrics.append(tokens[3])
-        # Metrics.append(tokens[4])
-        Metrics.append(tokens[10])
-        Metrics.append(tokens[11])
-
-        VersionResults.append(Metrics)
-
-        # LineContentResults = ""
-        # LineContentResults += "benchmark=" + Benchmark + " "
-        # LineContentResults += "time=" + RealTime + TimeUnits + " "
-        # LineContentResults += "cpu=" + CpuTime + TimeUnits + " "
-        # LineContentResults += "iterations=" + Iterations + " "
-        # LineContentResults += "FLOP=" + Flop + " "
-        # LineContentResults += "FLOPS=" + FlopS
-
-        # VersionResults.append[LineContentResults]
-        # print(LineContentResults)
-
-
-    return VersionResults
-
-
-
 # Validates that both written files are the same op, and truncates unneeded first lines from files
 def CompareFileAndFile(filename1, filename2):
     Contents1 = open(filename1, "r").read().splitlines()
@@ -229,6 +243,7 @@ def CompareFileAndFile(filename1, filename2):
         ResultString2 += c + "\n"
     
     return (ResultString1, ResultString2)
+
 
 
 # Reads supplied CSV file, truncates unneeded lines, and returns benchmark
@@ -275,12 +290,18 @@ def RunPerformanceBenchmark(op):
 
 
 
-def CompareOutput(output1, output2, metric):
+def CompareOutput(output1, output2, metric, MaxRelativeSlowdown):
+
+    # Number of benchmarks exceeding max relative slowdown
+    ExceededLimit = 0
 
     OutputDicts1 = ReadCSVOutput(output1)
     OutputDicts2 = ReadCSVOutput(output2)
 
     ComparisonOutput = ""
+
+    if (metric in ["cpu_time", "real_time"]):
+        ComparisonOutput += "# Negative values indicate a reduction from arg 1 to arg 2, meaning arg 2 is faster.\n\n"
 
     for OutputDict1 in OutputDicts1:
         dict1name = OutputDict1["name"]
@@ -301,7 +322,17 @@ def CompareOutput(output1, output2, metric):
 
                     ComparisonOutput += dict1name + " " + metric + " delta: "
                     ComparisonOutput += DifferenceStr + " (" + PctStr + "%) "
-                    ComparisonOutput += "(" + str(round(Value1, 2)) + " -> " + str(round(Value2, 2)) + ")\n"
+                    ComparisonOutput += "(" + str(round(Value1, 2)) + " -> " + str(round(Value2, 2)) + ")"
+
+                    if (LimitSlowdown and float(MaxRelativeSlowdown) < Pct):
+                        ComparisonOutput += " [EXCEEDS MAX RELATIVE SLOWDOWN (" + str(MaxRelativeSlowdown) + "%)]"
+                        ExceededLimit += 1
+                    
+                    ComparisonOutput += "\n"
+
+    if (ExceededLimit > 1):
+        global SlowdownLimitExceeded
+        SlowdownLimitExceeded = True
 
     return ComparisonOutput
 
@@ -326,12 +357,20 @@ def ReadCSVOutput(result):
     
     return OutputDicts
 
+
+
 # Called only if --verbose flag is supplied
-def WriteFormattedOutput(RawBenchmarkOutput):
+def WriteFormattedOutput(RawBenchmarkOutput, SpecificArg):
+
     # List of dictionaries for each benchmark supplied by raw CSV output
     OutputDicts = ReadCSVOutput(RawBenchmarkOutput)
 
     for OutputDict in OutputDicts:
+        # If using --verbose with --compare or --readrun, each output segment will
+        # indicate whether it came from arg 1 or arg 2.
+        if (SpecificArg is not None):
+            print("# arg = " + SpecificArg)
+
         # Keeps track of greatest number of characters in a key for clean printing
         LongestKey = 0
         for key in OutputDict.keys():
@@ -347,78 +386,97 @@ def WriteFormattedOutput(RawBenchmarkOutput):
         print('-'*40)
 
 
-# Read in script arguments safely
-ReadSysArgs()
 
-# Compute performance benchmarks for specified op, and write to output file
-if (Run):
-    op = ArgOptions[0]
+# Main function
+def main():
 
-    # Get CSV benchmark results and write to output file
-    RawBenchmarkOutput = RunPerformanceBenchmark(op)
+    # Check that ONNX_MLIR_HOME is set to path of /workdir/onnx-mlir
+    check_home_env_var()
 
-    # Set by --verbose argument
-    if (PrintOutputs):
-        WriteFormattedOutput(RawBenchmarkOutput)
+    # Read in script arguments safely
+    ReadSysArgs()
 
-
-
-# Compute performance benchmarks for all Ops in OpsWithPerformanceBenchmarks array
-elif (Runall):
-    for op in OpsWithPerformanceBenchmarks:
+    # Compute performance benchmarks for specified op, and write to output file
+    if (Run):
+        op = ArgOptions[0]
 
         # Get CSV benchmark results and write to output file
         RawBenchmarkOutput = RunPerformanceBenchmark(op)
 
         # Set by --verbose argument
         if (PrintOutputs):
-            WriteFormattedOutput(RawBenchmarkOutput)
+            WriteFormattedOutput(RawBenchmarkOutput, None)
 
 
 
-# Compute performance benchmarks for specified op, and compare with benchmarks
-# already written to specifiedfile (File must contain same op)
-elif(Readrun):
-    filename = ArgOptions[0]
-    op       = ArgOptions[1]
-    metric   = ArgOptions[2]
+    # Compute performance benchmarks for all Ops in OpsWithPerformanceBenchmarks array
+    elif (Runall):
+        for op in OpsWithPerformanceBenchmarks:
 
-    # Handling file
-    RawBenchmarkOutput1 = ExtractFileOutput(filename)
+            # Get CSV benchmark results and write to output file
+            RawBenchmarkOutput = RunPerformanceBenchmark(op)
 
-    # Handling op
-    # Get CSV benchmark results and write to output file
-    RawBenchmarkOutput2 = RunPerformanceBenchmark(op)
+            # Set by --verbose argument
+            if (PrintOutputs):
+                WriteFormattedOutput(RawBenchmarkOutput, None)
 
 
-    # Set by --verbose argument
-    if (PrintOutputs):
-        WriteFormattedOutput(RawBenchmarkOutput1)
-        WriteFormattedOutput(RawBenchmarkOutput2)
 
-    ComparisonOutput = CompareOutput(RawBenchmarkOutput1, RawBenchmarkOutput2, metric)
+    # Compute performance benchmarks for specified op, and compare with benchmarks
+    # already written to specifiedfile (File must contain same op)
+    elif(Readrun):
+        filename = ArgOptions[0]
+        op       = ArgOptions[1]
+        metric   = ArgOptions[2]
+        maxrelativeslowdown = None
 
-    print(ComparisonOutput)
+        if (LimitSlowdown):
+            maxrelativeslowdown = ArgOptions[3]
 
+        # Handling file
+        RawBenchmarkOutput1 = ExtractFileOutput(filename)
 
-# Compare performance benchmarks written to file for both specified files (each
-# should contain same op)
-elif(Compare):
-    filename1 = ArgOptions[0]
-    filename2 = ArgOptions[1]
-    metric    = ArgOptions[2]
-
-    RawBenchmarkOutput1 = ExtractFileOutput(filename1)
-
-    RawBenchmarkOutput2 = ExtractFileOutput(filename2)
-
-    # Set by --verbose argument
-    if (PrintOutputs):
-        WriteFormattedOutput(RawBenchmarkOutput1)
-        WriteFormattedOutput(RawBenchmarkOutput2)
-
-    ComparisonOutput = CompareOutput(RawBenchmarkOutput1, RawBenchmarkOutput2, metric)
-
-    print(ComparisonOutput)
+        # Handling op
+        # Get CSV benchmark results and write to output file
+        RawBenchmarkOutput2 = RunPerformanceBenchmark(op)
 
 
+        # Set by --verbose argument
+        if (PrintOutputs):
+            WriteFormattedOutput(RawBenchmarkOutput1, filename)
+            WriteFormattedOutput(RawBenchmarkOutput2, op)
+
+        ComparisonOutput = CompareOutput(RawBenchmarkOutput1, RawBenchmarkOutput2, metric, maxrelativeslowdown)
+
+        print(ComparisonOutput)
+
+
+    # Compare performance benchmarks written to file for both specified files (each
+    # should contain same op)
+    elif(Compare):
+        filename1 = ArgOptions[0]
+        filename2 = ArgOptions[1]
+        metric    = ArgOptions[2]
+        maxrelativeslowdown = None
+
+        if (LimitSlowdown):
+            maxrelativeslowdown = ArgOptions[3]
+
+        RawBenchmarkOutput1 = ExtractFileOutput(filename1)
+
+        RawBenchmarkOutput2 = ExtractFileOutput(filename2)
+
+        # Set by --verbose argument
+        if (PrintOutputs):
+            WriteFormattedOutput(RawBenchmarkOutput1, filename1)
+            WriteFormattedOutput(RawBenchmarkOutput2, filename2)
+
+        ComparisonOutput = CompareOutput(RawBenchmarkOutput1, RawBenchmarkOutput2, metric, maxrelativeslowdown)
+
+        print(ComparisonOutput)
+
+    sys.exit(1) if (SlowdownLimitExceeded) else sys.exit(0)
+
+
+
+main()
