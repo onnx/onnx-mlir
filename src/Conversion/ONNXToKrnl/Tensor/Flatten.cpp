@@ -89,6 +89,7 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     ValueRange indices;
     std::vector<Value> originalLoops;
     defineLoops(rewriter, loc, originalLoops, inputRank);
+    // TODO use new KrnlDialectBuilder.
     KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (size_t i = 0; i < inputRank; ++i)
       addDimensionToPack(rewriter, loc, pack, input, i);

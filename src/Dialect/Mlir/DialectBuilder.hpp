@@ -1,4 +1,4 @@
-//===---- MLIRDialectBuilder.hpp - Helper functions for MLIR dialects -----===//
+//===---- DialectBuilder.hpp - Helper functions for MLIR dialects -----===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -8,8 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ONNX_AND_MLIR_DIALECT_BUILDER_H
-#define ONNX_AND_MLIR_DIALECT_BUILDER_H
+#pragma once
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -166,6 +165,12 @@ struct VectorBuilder final : DialectBuilder {
   VectorBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
   VectorBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
+  // Get the machine SIMD vector length for the given elementary type.
+  // This can help guide certain optimizations.
+  int64_t getMachineVectorLength(const Type &elementType) const;
+  int64_t getMachineVectorLength(const VectorType &vecType) const;
+  int64_t getMachineVectorLength(Value vecValue) const;
+
   Value load(VectorType vecType, Value memref, ValueRange indices = {}) const;
   void store(Value val, Value memref, ValueRange indices = {}) const;
 
@@ -173,14 +178,15 @@ struct VectorBuilder final : DialectBuilder {
   Value shuffle(Value lhs, Value rhs, SmallVectorImpl<int64_t> &mask) const;
   Value fma(Value lhs, Value rhs, Value acc) const;
 
-  // Composite functions
-  Value mergeLow(Value lhs, Value rhs, int64_t step);
-  Value mergeHigh(Value lhs, Value rhs, int64_t step);
-  Value multiReduction(SmallVectorImpl<Value> &vecArray); // Only 4x4 as of now.
+  // Composite functions.
+  Value mergeHigh(Value lhs, Value rhs, int64_t step) const;
+  Value mergeLow(Value lhs, Value rhs, int64_t step) const;
+  void multiReduction(SmallVectorImpl<Value> &inputVecArray,
+      SmallVectorImpl<Value> &outputVecArray);
 
 private:
-  bool isPowerOf2(uint64_t num);
-  uint64_t vector1DLength(Value vec);
+  bool isPowerOf2(uint64_t num) const;
+  uint64_t getLengthOf1DVector(Value vec) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -320,7 +326,6 @@ struct MultiDialectBuilder<VectorBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 };
 
 // Include template implementations.
-#include "MLIRDialectBuilder.hpp.inc"
+#include "DialectBuilder.hpp.inc"
 
 } // namespace mlir
-#endif

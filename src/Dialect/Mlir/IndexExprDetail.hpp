@@ -5,7 +5,7 @@
 //===---------------IndexExprDetail.hpp - Index expression details---------===
 ////
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/Mlir/IndexExpr.hpp"
 
 namespace mlir {
 
