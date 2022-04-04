@@ -105,13 +105,13 @@ create.krnl.printf("inputElem: ", val, valType);
 
 If you know, or suspect, that an onnx-mlir-compiled inference executable
 suffers from memory allocation related issues, the
-framework(https://valgrind.org/) or mtrace memory
-tool(https://github.com/sstefani/mtrace) can be used to facilitate debugging.
+[framework](https://valgrind.org/) or
+[mtrace memory tool](https://github.com/sstefani/mtrace) can be used to facilitate debugging.
 These tools trace memory
 allocation/free-related APIs, and can detect memory issues, such as memory leaks.
 
 However if the problems relating to memory access, especially buffer overrun problems, are notoriously difficult to debug because run-time errors occur outside of the point containing the problem. 
-The "Electric Fence library"(https://github.com/CheggEng/electric-fence) can be
+The ["Electric Fence library"](https://github.com/CheggEng/electric-fence) can be
 used for debugging these problems. It helps you detect two common programming problems: software that overruns the boundaries of a malloc() memory allocation, and
 software that touches a memory allocation
 that has been released by free(). Unlike other memory debuggers, Electric
