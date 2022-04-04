@@ -381,7 +381,7 @@ def get_test_models():
         "test_logsoftmax_large_number_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # LoopOp
-        "test_loop11_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{}, CONSTANT_INPUT:{}},
+        "test_loop11_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # LRN
         "test_lrn_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
