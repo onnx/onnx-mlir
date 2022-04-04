@@ -308,7 +308,7 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   llvm::Metadata *identNode[] = {llvm::MDString::get(ctx, OnnxMlirVersion)};
   identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
 
-  // Set functions to be accesible from DLL on Windows.
+  // Annotate functions to be accessible from DLL on Windows.
   if (llvm::Triple(getTargetTripleOption()).isOSWindows()) {
     llvm::outs() << "Got windows in triple\n";
   }
@@ -323,8 +323,6 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
       llvm::GlobalValue *GV = llvmModule->getNamedValue(funcName);
       GV->setDSOLocal(true);
       GV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
-      auto func = llvmModule->getFunction(funcName);
-      func->print(llvm::outs());
     }
   }
 
