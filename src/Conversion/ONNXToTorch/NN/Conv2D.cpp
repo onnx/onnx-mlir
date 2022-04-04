@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
-
 #include <fstream>
 #include <iostream>
 #include <set>
@@ -54,10 +54,12 @@
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
+
 /*
 std::vector<Value> setUpSymmetricPadding(ConversionPatternRewriter &rewriter,
                                          Location &loc, ::mlir::ArrayAttr &pads,
 Type ty) { dim_pads dimArray[pads.size()]; std::vector<Value> translatepadsList;
+
 
   bool is_symmetric = true;
   for (unsigned int i = 0; i < pads.size(); i += 2) {
@@ -141,56 +143,17 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     auto strides_AR = strides.getValue();
     ::mlir::ArrayAttr stridesArrayAttr = mlir::ArrayAttr::get(context, strides);
 
-    // Reading the ONNX side pads values and store in the array.
-    std::vector<Value> translatepadsList;
+    std::vector<Value> translatepadsList =
+        createPadsArrayAttribute(pads, group.getType(), loc, rewriter);
+    std::vector<Value> dilationonnxList =
+        createArrayAttribute(dilations, group.getType(), loc, rewriter);
+    std::vector<Value> kernalshapeonnxList =
+        createArrayAttribute(kernal_shape, group.getType(), loc, rewriter);
+    std::vector<Value> stridesonnxList =
+        createArrayAttribute(strides, group.getType(), loc, rewriter);
 
-    if (pads) {
-      auto translatepadsAttrList = setUpSymmetricPadding(pads, group.getType());
-      for (auto padAttr : translatepadsAttrList) {
-        Value p1v = rewriter.create<ConstantIntOp>(loc, padAttr);
-        translatepadsList.push_back(p1v);
-      }
-    }
+    // If group Value is null, assigning default value.
 
-    std::vector<Value> dilationonnxList;
-    std::vector<Value> kernalshapeonnxList;
-    std::vector<Value> stridesonnxList;
-
-    // reading the dilation values.
-    if (dilations) {
-      for (unsigned int i = 0; i < dilations.size(); i++) {
-        auto f1 = IntegerAttr::get(group.getType(),
-            (dilations[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
-        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
-        dilationonnxList.push_back(p1v);
-      }
-    } else {
-      auto c1 = IntegerAttr::get(group.getType(), 1);
-      Value p1v = rewriter.create<ConstantIntOp>(loc, c1);
-      dilationonnxList = {p1v, p1v};
-    }
-
-    // reading the kernal_shape values.
-    if (kernal_shape) {
-      for (unsigned int i = 0; i < kernal_shape.size(); i++) {
-        auto f1 = IntegerAttr::get(
-            group.getType(), (kernal_shape[i].dyn_cast<IntegerAttr>())
-                                 .getValue()
-                                 .getZExtValue());
-        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
-        kernalshapeonnxList.push_back(p1v);
-      }
-    }
-
-    // reading the strides values.
-    if (strides) {
-      for (unsigned int i = 0; i < strides.size(); i++) {
-        auto f1 = IntegerAttr::get(group.getType(),
-            (strides[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
-        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
-        stridesonnxList.push_back(p1v);
-      }
-    }
     auto zero = 0;
     auto ty = IntegerType::get(op1.getContext(), 64);
     auto f00 = IntegerAttr::get(ty, zero);

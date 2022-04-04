@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====------ ConvertONNXToTorch.cpp - ONNX dialects to Torch lowering -------===//
+//====------ ConvertONNXToTorch.cpp - ONNX dialects to Torch lowering
+//-------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -16,6 +17,10 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
+#include "llvm/Support/CommandLine.h"
+
+static llvm::cl::opt<bool> RunTorchPass("run-torch-pass", llvm::cl::Hidden,
+    llvm::cl::init(false), llvm::cl::desc("Run ONNX to Torch Single Pass"));
 
 using namespace mlir;
 using namespace mlir::torch;
@@ -23,12 +28,20 @@ using namespace mlir::torch::Torch;
 
 void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
-  
-    populateLoweringONNXToTorchConvOpPattern (patterns, typeConverter, ctx);
-    populateLoweringONNXToTorchConstantPadNdOpPattern (patterns, typeConverter, ctx);
-    populateLoweringONNXToTorchLeakyReluOpPattern (patterns, typeConverter, ctx);
-    populateLoweringONNXToTorchMaxPoolSingleOutOpPattern (patterns, typeConverter, ctx);
-    populateLoweringONNXToTorchConstOpPattern (patterns, typeConverter, ctx);
+
+  populateLoweringONNXToTorchConvOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchConstantPadNdOpPattern(
+      patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchLeakyReluOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchMaxPoolSingleOutOpPattern(
+      patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchConstOpPattern(patterns, typeConverter, ctx);
+  // populateLoweringONNXToTorchFlattenOpPattern (patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchReluOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchGlobalAveragePoolOpPattern(
+      patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchReduceMeanOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXToTorchGemmOpPattern(patterns, typeConverter, ctx);
 }
 
 //===----------------------------------------------------------------------===//
@@ -38,7 +51,8 @@ void populateONNXToTorchConversionPattern(RewritePatternSet &patterns,
 /// This is a partial lowering to Torch loops of the ONNX operations.
 namespace {
 struct FrontendToTorchLoweringPass
-    : public PassWrapper<FrontendToTorchLoweringPass, OperationPass<::mlir::ModuleOp>> {
+    : public PassWrapper<FrontendToTorchLoweringPass,
+          OperationPass<::mlir::ModuleOp>> {
 
   StringRef getArgument() const override { return "convert-onnx-to-torch"; }
 
@@ -58,7 +72,7 @@ struct FrontendToTorchLoweringPass
     this->enableTiling = enableTiling;
   }
   FrontendToTorchLoweringPass(int optLevel)
-      : FrontendToTorchLoweringPass( false, optLevel >= 3) {}
+      : FrontendToTorchLoweringPass(false, optLevel >= 3) {}
 
   void runOnOperation() final;
 
@@ -89,18 +103,20 @@ public:
 } // end anonymous namespace.
 
 void FrontendToTorchLoweringPass::runOnOperation() {
-  ModuleOp module = getOperation();
+  // Should not run this pass if user didn't provide "--run-torch-pass" as
+  // command line option.
+  if (!RunTorchPass)
+    return;
 
+  ModuleOp module = getOperation();
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
   ConversionTarget target(getContext());
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target
-      .addLegalDialect<Torch::TorchDialect>();
-  target
-      .addLegalDialect<torch::TorchConversion::TorchConversionDialect>();
+  target.addLegalDialect<Torch::TorchDialect>();
+  target.addLegalDialect<torch::TorchConversion::TorchConversionDialect>();
 
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
@@ -111,20 +127,19 @@ void FrontendToTorchLoweringPass::runOnOperation() {
   if (!emitDealloc)
     target.addIllegalOp<mlir::memref::DeallocOp>();
 
-
   if (emitIntermediateIR) {
     // Only used for writing LIT tests for ONNX operations that are lowered to
     // other ONNX operations. The following operations are prevented from being
     // lowered further. See the comment in the declaration of
     // 'emitIntermediateIR' for more details.
 
-    #if 0
+#if 0
     target.addLegalOp<ONNXMatMulOp>();
     target.addLegalOp<ONNXReshapeOp>();
     target.addLegalOp<ONNXSplitV11Op>();
     target.addLegalOp<ONNXSqueezeV11Op>();
     target.addLegalOp<ONNXTransposeOp>();
-    #endif
+#endif
   }
 
   // Now that the conversion target has been defined, we just need to provide
@@ -152,4 +167,3 @@ std::unique_ptr<Pass> onnx_mlir::createLowerToTorchPass() {
 std::unique_ptr<Pass> onnx_mlir::createLowerToTorchPass(int optLevel) {
   return std::make_unique<FrontendToTorchLoweringPass>(optLevel);
 }
-

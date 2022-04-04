@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====------ ONNXToTorchCommon.hpp - ONNX dialects to Torch lowering --------===//
+//====------ ONNXToTorchCommon.hpp - ONNX dialects to Torch lowering
+//--------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -30,6 +31,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Transforms/Scalar/LICM.h"
 
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -39,7 +41,6 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
-
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -55,7 +56,6 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
 
-
 #include "mlir/Transforms/DialectConversion.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
@@ -64,9 +64,8 @@
 #include "llvm/ADT/StringExtras.h"
 
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
-#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
-
+#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
 using namespace mlir;
 using namespace mlir::torch;
@@ -110,12 +109,11 @@ public:
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
 
-
 // `NN` directory methods:
 void populateLoweringONNXToTorchConvOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
-void populateLoweringONNXToTorchConstOpPattern (
+void populateLoweringONNXToTorchConstOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
 void populateLoweringONNXToTorchLeakyReluOpPattern(
@@ -124,5 +122,20 @@ void populateLoweringONNXToTorchLeakyReluOpPattern(
 void populateLoweringONNXToTorchMaxPoolSingleOutOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);
 
-void populateLoweringONNXToTorchConstantPadNdOpPattern (
+void populateLoweringONNXToTorchConstantPadNdOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+// void populateLoweringONNXToTorchFlattenOpPattern (
+//  RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchReluOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchGlobalAveragePoolOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchReduceMeanOpPattern(
+    RewritePatternSet &, TypeConverter &, MLIRContext *);
+
+void populateLoweringONNXToTorchGemmOpPattern(
     RewritePatternSet &, TypeConverter &, MLIRContext *);

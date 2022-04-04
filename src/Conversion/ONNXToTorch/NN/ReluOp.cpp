@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- LeakyReluOp.cpp - ONNX Op Transform ------------------===//
+//===------- ReluOp.cpp - ONNX Op Transform ------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -56,19 +56,11 @@ using namespace mlir::torch::Torch;
 
 /**
  *
- * ONNX LeakyRelu operation
- *
- * “LeakyRelu takes input data (Tensor) and an argument alpha, and produces one"
- * "output data (Tensor) where the function `f(x) = alpha * x for x < 0`,"
- * "`f(x) = x for x >= 0`, is applied to the data tensor elementwise."
+ * ONNX Relu operation
  *
  * Operands :
  * X            tensor of 16-bit/32-bit/64-bit float values or memref of any
- * type values Output   : Y            tensor of 16-bit/32-bit/64-bit float
- * values or memref of any type values
- *
- * Attributes
- * alpha    32-bit float attribute
+ * type values
  *
  * Validation
  * ----------
@@ -76,30 +68,25 @@ using namespace mlir::torch::Torch;
  * --command
  * "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
  * --EmitONNXIR --debug --run-torch-pass
- * third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_leakyrelu/model.onnx"
+ * third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_relu/model.onnx"
  *
  */
 
-class ONNXLeakyReluOpToTorchLowering : public ConversionPattern {
+class ONNXReluOpToTorchLowering : public ConversionPattern {
 public:
-  ONNXLeakyReluOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+  ONNXReluOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, mlir::ONNXLeakyReluOp::getOperationName(), 1, ctx) {}
+            typeConverter, mlir::ONNXReluOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
 
     Location loc = op->getLoc();
     mlir::MLIRContext *context = op->getContext();
-    ONNXLeakyReluOp op1 = llvm::dyn_cast<ONNXLeakyReluOp>(op);
-    ONNXLeakyReluOpAdaptor adapter(op1);
+    ONNXReluOp op1 = llvm::dyn_cast<ONNXReluOp>(op);
+    ONNXReluOpAdaptor adapter(op1);
 
     Value x = op1.X();
-
-    auto alpha = adapter.alphaAttr();  // mlir::FloatAttr
-    auto neg_slope = alpha.getValue(); // APSFloat
-    auto f3 = FloatAttr::get(/*alpha.getType()*/ mlir::FloatType::getF64(op->getContext()), neg_slope.convertToFloat());
-    Value f3v = rewriter.create<ConstantFloatOp>(loc,f3);
 
     TensorType x_tensor_type = x.getType().cast<TensorType>();
     TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
@@ -111,19 +98,25 @@ public:
     auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
         op_tensor_type.getShape(), op_tensor_type.getElementType());
 
-    Value atenleakyrelu =
-        rewriter.create<AtenLeakyReluOp>(loc, resultTy, xtt, f3v);
+    llvm::outs() << "resultTy is: \n " << resultTy << "\n"
+                 << "\n";
+    llvm::outs() << "xtt is: \n " << xtt << "\n"
+                 << "\n";
 
-    llvm::outs() << "ATENLEAKYRELU CREATED is " << atenleakyrelu << "\n";
-    Value result = atenleakyrelu;
+    Value atenrelu = rewriter.create<AtenReluOp>(loc, resultTy, xtt);
 
-    rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
-        op, op->getResult(0).getType() , result);
+    llvm::outs() << "ATENRELU CREATED is: \n"
+                 << atenrelu << "\n"
+                 << "\n";
+    Value result = atenrelu;
+
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(
+        op, op->getResult(0).getType(), result);
     return success();
   }
 };
 
-void populateLoweringONNXToTorchLeakyReluOpPattern(RewritePatternSet &patterns,
+void populateLoweringONNXToTorchReluOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXLeakyReluOpToTorchLowering>(typeConverter, ctx);
+  patterns.insert<ONNXReluOpToTorchLowering>(typeConverter, ctx);
 }

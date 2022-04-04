@@ -14,6 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
@@ -102,32 +103,19 @@ using namespace mlir::torch::Torch;
  *is column major. strides 		list of ints 64-bit integer array
  *attribute Stride along each spatial axis
  *
- * AtenMaxPool2dOp Arguments as below
- * -------------------------------
- *
- *  AnyTorchTensorType:$self,
- *  TorchIntListType:$kernel_size,
- *  TorchIntListType:$stride,
- *  TorchIntListType:$padding,
- *  TorchIntListType:$dilation,
- *  Torch_BoolType:$ceil_mode
- *
  * Validation
  * ----------
- * ./Debug/bin/onnx-mlir --EmitONNXIR --debug
- *../../../third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_maxpool_2d_pads/model.onnx
+ * /scripts/docker/build_with_docker.py --external-build --build-dir build
+ *--command
+ *"build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
+ *--EmitONNXIR --debug --run-torch-pass
+ *./third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_maxpool_2d_pads/model.onnx
  *
  * Limitations
  * -----------
  * The atribute values have been used in the below code are to be corrected.
  *
  */
-
-/*
-typedef struct dim_pads {
-  int dim_start;
-  int dim_end;
-  } dim_pads; */
 
 struct ONNXMaxPoolSingleOutOpToTorchLowering : public ConversionPattern {
 public:
@@ -156,6 +144,7 @@ public:
 
     auto storage_order_attr = op1.storage_orderAttr(); // ::mlir::IntegerAttr
     int64_t storage_order = op1.storage_order();       // int64_t
+    auto ty = IntegerType::get(op1.getContext(), 64);
 
     // Reading the ONNX side pads values and store in the array.
     std::vector<Value> translatepadsList;
@@ -214,7 +203,6 @@ public:
     auto three = 3;
     auto zero = 0;
 
-    auto f33 = IntegerAttr::get(ty, three);
     auto f00 = IntegerAttr::get(ty, zero);
     auto f22 = IntegerAttr::get(ty, two);
     auto b0 = IntegerAttr::get(by, false);
@@ -224,7 +212,6 @@ public:
     auto f2 = f22;
 
     Value f3v = rewriter.create<ConstantIntOp>(loc, f3);
-    // Value f0v = rewriter.create<ConstantBoolOp>(loc, f0);
     Value f22v = rewriter.create<ConstantIntOp>(loc, f2);
     Value b0v = rewriter.create<ConstantBoolOp>(loc, b0);
 
@@ -261,31 +248,31 @@ public:
     auto xtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
         loc, xTy, x);
 
-    llvm::outs() << "\n resultTy:   "
+    llvm::outs() << "\n resultTy:"
                  << "\n"
                  << resultTy << "\n"
                  << "\n";
-    llvm::outs() << "xtt torch tensor from MLIR tensor "
+    llvm::outs() << "xtt torch tensor from MLIR tensor:"
                  << "\n"
                  << xtt << "\n"
                  << "\n";
-    llvm::outs() << "kernalShapeList:   "
+    llvm::outs() << "kernalShapeList:"
                  << "\n"
                  << kernalShapeList << "\n"
                  << "\n";
-    llvm::outs() << "stridesList:   "
+    llvm::outs() << "stridesList:"
                  << "\n"
                  << stridesList << "\n"
                  << "\n";
-    llvm::outs() << "padsList "
+    llvm::outs() << "padsList:"
                  << "\n"
                  << padsList << "\n"
                  << "\n";
-    llvm::outs() << "dilationList:   "
+    llvm::outs() << "dilationList:"
                  << "\n"
                  << dilationList << "\n"
                  << "\n";
-    llvm::outs() << "ceiling_mode_val:    "
+    llvm::outs() << "ceiling_mode_val:"
                  << "\n"
                  << ceiling_mode_val << "\n"
                  << "\n";
