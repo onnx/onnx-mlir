@@ -565,10 +565,12 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
   llvm::Optional<ArrayAttr> activations = op.activations();
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
-  if (wShape[0] < 0 || wShape[1] < 0)
+  if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] < 0)
     return false;
-  // Check if R has static dimensions.
-  if (!R.getType().cast<ShapedType>().hasStaticShape())
+  // Check if R has static dimensions, and the direction dim is 1 or 2.
+  ArrayRef<int64_t> rShape = R.getType().cast<ShapedType>().getShape();
+  if (!R.getType().cast<ShapedType>().hasStaticShape() ||
+      (rShape[0] != 1 && rShape[0] != 2))
     return false;
   // Check hidden_size.
   if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_LSTM)
@@ -579,6 +581,12 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
   // check if B, initial_h and initial_c have static dimensions if given.
   if (!isNoneType(B) && !B.getType().cast<ShapedType>().hasStaticShape())
     return false;
+  // check if B's direction dim is 1 or 2.
+  if (!isNoneType(B)) {
+    ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
+    if (bShape[0] != 1 && bShape[0] != 2)
+      return false;
+  }
   // zDNN does not support P(peepholes), activation_alpha and activation_beta.
   if (!isNoneType(op.P()) || op.activation_alpha() || op.activation_beta())
     return false;
@@ -631,7 +639,7 @@ bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
   llvm::Optional<ArrayAttr> activations = op.activations();
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
-  if (wShape[0] < 0 || wShape[1] < 0)
+  if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] < 0)
     return false;
   // Check if R has static dimensions.
   if (!R.getType().cast<ShapedType>().hasStaticShape())
@@ -645,6 +653,12 @@ bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
   // check if B and initial_h have static dimensions if given.
   if (!isNoneType(B) && !B.getType().cast<ShapedType>().hasStaticShape())
     return false;
+  // check if B's direction dim is 1 or 2.
+  if (!isNoneType(B)) {
+    ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
+    if (bShape[0] != 1 && bShape[0] != 2)
+      return false;
+  }
   // zDNN does not support activation_alpha and activation_beta.
   if (op.activation_alpha() || op.activation_beta())
     return false;
