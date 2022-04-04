@@ -310,9 +310,6 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
 
   // Annotate functions to be accessible from DLL on Windows.
   if (llvm::Triple(getTargetTripleOption()).isOSWindows()) {
-    llvm::outs() << "Got windows in triple\n";
-  }
-  if (true) {
     SmallVector<StringRef, 4> exportedFuncs;
     // TODO: support multiple entry points.
     exportedFuncs.emplace_back(StringRef("run_main_graph"));

@@ -17,9 +17,9 @@
 #ifndef OM_COMPILER_MACROS_H
 #define OM_COMPILER_MACROS_H
 
-/// ONNX_MLIR_EXPORT - classes, functions, and variables marked with
-/// this keywork will be made public and visible outside of any shared library
-/// they are linked in to.
+/// ONNX_MLIR_EXPORT - classes, functions, and variables marked with this
+/// keywork will be made public and visible outside of any shared library they
+/// are linked in to.
 #ifdef ONNX_MLIR_BUILT_AS_STATIC
 #define ONNX_MLIR_EXPORT
 #else
