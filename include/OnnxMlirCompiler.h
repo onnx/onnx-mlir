@@ -12,28 +12,14 @@
 #ifndef ONNX_MLIR_ONNXMLIRCOMPILER_H
 #define ONNX_MLIR_ONNXMLIRCOMPILER_H
 
+#include <onnx-mlir/Compiler/OMCompilerMacros.h>
 #include <onnx-mlir/Compiler/OMCompilerTypes.h>
+
 #ifdef __cplusplus
 #include <cstdint>
 #else
 #include <stdint.h>
 #endif // #ifdef __cplusplus
-
-#ifdef ONNX_MLIR_BUILT_AS_STATIC
-#define ONNX_MLIR_EXPORT
-#else
-#ifdef _MSC_VER
-#ifdef OnnxMlirCompiler_EXPORTS
-/* We are building this library */
-#define ONNX_MLIR_EXPORT __declspec(dllexport)
-#else
-/* We are using this library */
-#define ONNX_MLIR_EXPORT __declspec(dllimport)
-#endif
-#else
-#define ONNX_MLIR_EXPORT __attribute__((__visibility__("default")))
-#endif
-#endif
 
 #ifdef __cplusplus
 extern "C" {
