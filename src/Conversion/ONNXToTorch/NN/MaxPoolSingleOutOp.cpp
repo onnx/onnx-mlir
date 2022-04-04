@@ -146,25 +146,99 @@ public:
     auto ty = IntegerType::get(op1.getContext(), 64);
 
     // Reading the ONNX side pads values and store in the array.
-    std::vector<Value> translatepadsList =
-        createPadsArrayAttribute(pads, ty, loc, rewriter);
-    std::vector<Value> dilationonnxList =
-        createArrayAttribute(dilations, ty, loc, rewriter);
-    std::vector<Value> kernalshapeonnxList =
-        createArrayAttribute(kernal_shape, ty, loc, rewriter);
-    std::vector<Value> stridesonnxList =
-        createArrayAttribute(strides, ty, loc, rewriter);
+    dim_pads dimArray[pads.size()];
+    std::vector<Value> translatepadsList;
+    auto ty = IntegerType::get(op1.getContext(), 64);
+    auto by = IntegerType::get(op1.getContext(), 1);
 
+    if (pads) {
+      int j = 0;
+      for (unsigned int i = 0; i < pads.size(); i++) {
+        dimArray[j].dim_start =
+            (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+        i++;
+        dimArray[j].dim_end =
+            (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+        j++;
+      }
+
+      // read the onnx pad values from array(dim_start values)
+      int k = 0;
+      for (unsigned int i = 0; i < pads.size(); i = i + 2) {
+        auto f0 = IntegerAttr::get(ty, (dimArray[k].dim_start));
+        Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
+        translatepadsList.push_back(p0v);
+        k++;
+      }
+
+      // read the onnx pad values from array(dim_end values)
+      k = 0;
+      for (unsigned int i = 0; i < pads.size(); i = i + 2) {
+        auto f1 = IntegerAttr::get(ty, (dimArray[k].dim_end));
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        translatepadsList.push_back(p1v);
+        k++;
+      }
+    }
+
+    std::vector<Value> dilationonnxList;
+    std::vector<Value> kernalshapeonnxList;
+    std::vector<Value> stridesonnxList;
+
+    // reading the dilation values.
+    if (dilations) {
+      for (unsigned int i = 0; i < dilations.size(); i++) {
+        auto f1 = IntegerAttr::get(ty,
+            (dilations[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        dilationonnxList.push_back(p1v);
+      }
+    }
+
+    // reading the kernal_shape values.
+    if (kernal_shape) {
+      for (unsigned int i = 0; i < kernal_shape.size(); i++) {
+        auto f1 = IntegerAttr::get(ty, (kernal_shape[i].dyn_cast<IntegerAttr>())
+                                           .getValue()
+                                           .getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        kernalshapeonnxList.push_back(p1v);
+      }
+    }
+
+    // reading the strides values.
+    if (strides) {
+      for (unsigned int i = 0; i < strides.size(); i++) {
+        auto f1 = IntegerAttr::get(
+            ty, (strides[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue());
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        stridesonnxList.push_back(p1v);
+      }
+    }
+
+    auto one = 1;
+    auto two = 2;
+    auto three = 3;
     auto zero = 0;
+
     auto f00 = IntegerAttr::get(ty, zero);
+    auto f22 = IntegerAttr::get(ty, two);
+    auto b0  = IntegerAttr::get(by, false);
+
+    auto f3 = f33;
     auto f0 = f00;
-    Value f0v = rewriter.create<ConstantIntOp>(loc, f0);
+    auto f2 = f22;
+
+
+    Value f3v = rewriter.create<ConstantIntOp>(loc, f3);
+    Value f22v = rewriter.create<ConstantIntOp>(loc, f2);
+    Value b0v = rewriter.create<ConstantBoolOp>(loc, b0);
 
     Value ceiling_mode_val;
     if (ceiling_mode_attr)
-      ceiling_mode_val = rewriter.create<ConstantIntOp>(loc, ceiling_mode_attr);
+      ceiling_mode_val = rewriter.create<ConstantBoolOp>(loc, ceiling_mode_attr);
     else
-      ceiling_mode_val = f0v;
+      ceiling_mode_val = b0v;
 
     Value stridesList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),

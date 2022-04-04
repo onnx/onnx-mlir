@@ -2,7 +2,7 @@
 
 # add subdir here 
 #
-add_subdirectory(sampleaten)
+#add_subdirectory(sampleaten)
 
 add_onnx_mlir_library(OMElideConstants
   ElideConstants.cpp

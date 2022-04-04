@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
 
   llvm::InitLLVM y(argc, argv);
 
-  initOMPasses();
+  initOMPasses(0);
   initMLIRPasses();
 
   mlir::registerAsmPrinterCLOptions();

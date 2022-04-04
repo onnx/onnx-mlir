@@ -80,7 +80,7 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createLowerToKrnlPass(optLevel);
+    return mlir::createLowerToKrnlPass(optLevel > 0);
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {

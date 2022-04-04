@@ -98,8 +98,8 @@ public:
 
     auto alpha = adapter.alphaAttr();  // mlir::FloatAttr
     auto neg_slope = alpha.getValue(); // APSFloat
-    auto f3 = FloatAttr::get(alpha.getType(), neg_slope.convertToFloat());
-    Value f3v = rewriter.create<ConstantFloatOp>(loc, f3);
+    auto f3 = FloatAttr::get(/*alpha.getType()*/ mlir::FloatType::getF64(op->getContext()), neg_slope.convertToFloat());
+    Value f3v = rewriter.create<ConstantFloatOp>(loc,f3);
 
     TensorType x_tensor_type = x.getType().cast<TensorType>();
     TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
@@ -117,8 +117,8 @@ public:
     llvm::outs() << "ATENLEAKYRELU CREATED is " << atenleakyrelu << "\n";
     Value result = atenleakyrelu;
 
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(
-        op, op->getResult(0).getType(), result);
+    rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
+        op, op->getResult(0).getType() , result);
     return success();
   }
 };

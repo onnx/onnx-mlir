@@ -313,7 +313,7 @@ void setTargetCPU(const std::string &cpu) { mcpu = cpu; }
 void setTargetArch(const std::string &arch) { march = arch; }
 void setTargetTriple(const std::string &triple) { mtriple = triple; }
 void setOptLevel(const OptLevel level) { OptimizationLevel = level; }
-
+/*
 static void setCompilerKeyValue(const OptionKind key, const string val) {
   switch (key) {
   case OptionKind::TargetTriple:
@@ -335,6 +335,7 @@ static void setCompilerKeyValue(const OptionKind key, const string val) {
   // them.
 }
 
+
 // Set compiler context using a list of key/value pairs.
 void setCompileContext(mlir::MLIRContext &context,
     const SmallVector<pair<OptionKind, string>, 4> options) {
@@ -353,7 +354,7 @@ void setCompileContext(mlir::MLIRContext &context, const OptionKind *key,
   }
   registerDialects(context);
 }
-
+*/
 void loadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {
   // Handle '.mlir' input to the ONNX-MLIR frontend.
@@ -668,7 +669,14 @@ void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
   // pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<ModuleOp>(mlir::createInstrumentONNXPass());
+
+  pm.addPass(mlir::createONNXToAtenModifyMainFunctionPass());
+  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenTypesTransformPass());
+  
   pm.addPass(mlir::createLowerToTorchPass(optLevel));
+
+  pm.addNestedPass<FuncOp>(mlir::createONNXToAtenFinalizeTypesTransformPass());
+  
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
@@ -681,7 +689,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel) {
   pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<FuncOp>(mlir::createInstrumentONNXPass());
-  pm.addPass(mlir::createLowerToKrnlPass(optLevel));
+  pm.addPass(mlir::createLowerToKrnlPass(optLevel > 0));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
