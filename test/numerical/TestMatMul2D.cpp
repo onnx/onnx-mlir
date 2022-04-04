@@ -10,6 +10,8 @@
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestMatmul2D_main_graph");
 
+#define DATA_RANGE 10.0 /*pass range*/
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -23,10 +25,10 @@ static bool isOMMatmulTheSameAsNaiveImplFor(
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
   MatMul2DLibBuilder matmul(SHARED_LIB_BASE.str(), I, J, K);
-  return matmul.build() && matmul.compileAndLoad() && matmul.prepareInputs() &&
-         matmul.run() && matmul.verifyOutputs();
+  return matmul.build() && matmul.compileAndLoad() &&
+         matmul.prepareInputs(DATA_RANGE) && matmul.run() &&
+         matmul.verifyOutputs();
 }
-
 } // namespace test
 } // namespace onnx_mlir
 

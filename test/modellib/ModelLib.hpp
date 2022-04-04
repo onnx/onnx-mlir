@@ -159,12 +159,12 @@ public:
 
 private:
   // Create the function to test.
-  void createTestFunction(
-      mlir::Type inputType, mlir::Type outputType, const CMAttributes &attributes);
+  void createTestFunction(mlir::Type inputType, mlir::Type outputType,
+      const CMAttributes &attributes);
 
   // Create the category mapper operator, and insert it into the test function.
-  void createCategoryMapper(
-      mlir::Type outputType, const CMAttributes &attributes, mlir::FuncOp &funcOp);
+  void createCategoryMapper(mlir::Type outputType,
+      const CMAttributes &attributes, mlir::FuncOp &funcOp);
 
   // Verify that the output tensor has the expected rank.
   bool verifyRank(const OMTensor &out, int64_t rank) const;
@@ -176,9 +176,9 @@ private:
   bool verifyResults(const OMTensor *out, const OMTensor *expected) const;
 
 private:
-  const CMAttributes &attributes; // CategoryMapper attributes.
-  const llvm::ArrayRef<T1> input;       // model input data.
-  const llvm::ArrayRef<T2> expOutput;   // expected result.
+  const CMAttributes &attributes;     // CategoryMapper attributes.
+  const llvm::ArrayRef<T1> input;     // model input data.
+  const llvm::ArrayRef<T2> expOutput; // expected result.
 };
 
 class GemmLibBuilder : public ModelLibBuilder {
@@ -188,6 +188,7 @@ public:
       const float alphaVal, const float betaVal);
   bool build() final;
   bool prepareInputs() final;
+  bool prepareInputs(float dataRange);
   bool verifyOutputs() final;
 
 private:
@@ -204,6 +205,7 @@ public:
       const std::string &modelName, const int I, const int J, const int K);
   bool build() final;
   bool prepareInputs() final;
+  bool prepareInputs(float dataRange);
   bool verifyOutputs() final;
 
 private:

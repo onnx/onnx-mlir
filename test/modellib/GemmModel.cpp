@@ -91,6 +91,21 @@ bool GemmLibBuilder::prepareInputs() {
   return inputs && list[0] && list[1] && list[2];
 }
 
+bool GemmLibBuilder::prepareInputs(float dataRange) {
+  const int num = 3;
+  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
+  if (!list)
+    return false;
+  list[0] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(aShape), -dataRange, dataRange);
+  list[1] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(bShape), -dataRange, dataRange);
+  list[2] = omTensorCreateWithRandomData<float>(
+      llvm::makeArrayRef(cShape), -dataRange, dataRange);
+  inputs = omTensorListCreateWithOwnership(list, num, true);
+  return inputs && list[0] && list[1] && list[2];
+}
+
 bool GemmLibBuilder::verifyOutputs() {
   // Get inputs and outputs.
   if (!inputs || !outputs)
