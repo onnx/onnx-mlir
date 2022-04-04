@@ -75,19 +75,22 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     } else
       llvm_unreachable("unsupported element type");
 
-    // Create a Krnl iterate if the output is not a scalar tensor.
-    IndexExprScope childScope(&rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
-    ValueRange loopDef = createKrnl.defineLoops(rank);
-    SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
-    MemRefBoundsIndexCapture allocBounds(alloc);
-    SmallVector<IndexExpr, 4> ubs;
-    allocBounds.getDimList(ubs);
-    createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-          // Store the constant value to the output.
-          createKrnl.store(constantVal, alloc, loopInd);
-        });
+    // Create a Krnl iterate if the output is not a scalar tensor.
+    if (!hasAllScalarValues({alloc})) {
+      IndexExprScope childScope(&rewriter, loc);
+      ValueRange loopDef = createKrnl.defineLoops(rank);
+      SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+      MemRefBoundsIndexCapture allocBounds(alloc);
+      SmallVector<IndexExpr, 4> ubs;
+      allocBounds.getDimList(ubs);
+      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            // Store the constant value to the output.
+            createKrnl.store(constantVal, alloc, loopInd);
+          });
+    } else
+      createKrnl.store(constantVal, alloc);
 
     // Replace this operation with the generated alloc.
     rewriter.replaceOp(op, alloc);

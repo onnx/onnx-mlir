@@ -1833,6 +1833,7 @@ func private @test_constant_of_shape_empty_tensor(%arg0 : tensor<0xi64>) -> tens
   // CHECK-LABEL: test_constant_of_shape_empty_tensor
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<f32>
   // CHECK: [[CST_VALUE:%.+]] = arith.constant 0.000000e+00 : f32
+  // CHECK-NOT: krnl.iterate
   // CHECK: krnl.store [[CST_VALUE]], [[RES]][] : memref<f32>
   // CHECK: return [[RES]] : memref<f32>
 }
