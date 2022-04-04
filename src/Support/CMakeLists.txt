@@ -2,6 +2,7 @@
 
 add_onnx_mlir_library(OMSupport
   KrnlSupport.cpp
+  TorchSupport.cpp
   OMOptions.cpp
 
   LINK_LIBS PUBLIC

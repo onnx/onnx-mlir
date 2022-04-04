@@ -34,6 +34,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
+#include "src/Support/TorchSupport.hpp"
 
 #include "mlir/Transforms/DialectConversion.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
@@ -53,11 +54,58 @@
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
+/*
+std::vector<Value> setUpSymmetricPadding(ConversionPatternRewriter &rewriter,
+                                         Location &loc, ::mlir::ArrayAttr &pads,
+Type ty) { dim_pads dimArray[pads.size()]; std::vector<Value> translatepadsList;
 
-typedef struct dim_pads {
-  int dim_start;
-  int dim_end;
-} dim_pads;
+  bool is_symmetric = true;
+  for (unsigned int i = 0; i < pads.size(); i += 2) {
+    if (pads[i] != pads[i+1]) {
+      is_symmetric = false;
+      break;
+    }
+  }
+
+  if (is_symmetric) {
+    for (unsigned int i = 0; i < pads.size(); i += 2) {
+      auto pad_value =
+(pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue(); auto f0 =
+IntegerAttr::get(ty, pad_value); Value p0v = rewriter.create<ConstantIntOp>(loc,
+f0); translatepadsList.push_back(p0v);
+    }
+  } else {
+    int j = 0;
+    for (unsigned int i = 0; i < pads.size(); i++) {
+      dimArray[j].dim_start =
+        (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+      i++;
+      dimArray[j].dim_end =
+        (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+      j++;
+    }
+
+    // read the onnx pad values from array(dim_start values)
+    int k = 0;
+    for (unsigned int i = 0; i < pads.size(); i = i + 2) {
+      auto f0 = IntegerAttr::get(ty, (dimArray[k].dim_start));
+      Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
+      translatepadsList.push_back(p0v);
+      k++;
+    }
+
+    // read the onnx pad values from array(dim_end values)
+    k = 0;
+    for (unsigned int i = 0; i < pads.size(); i = i + 2) {
+      auto f1 = IntegerAttr::get(ty, (dimArray[k].dim_end));
+      Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+      translatepadsList.push_back(p1v);
+      k++;
+    }
+  }
+  return translatepadsList;
+}
+*/
 
 struct ONNXConvOpToTorchLowering : public ConversionPattern {
   ONNXConvOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -94,58 +142,16 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     ::mlir::ArrayAttr stridesArrayAttr = mlir::ArrayAttr::get(context, strides);
 
     // Reading the ONNX side pads values and store in the array.
-    dim_pads dimArray[pads.size()];
     std::vector<Value> translatepadsList;
 
     if (pads) {
-      bool is_symmetric = true;
-      for (unsigned int i = 0; i < pads.size(); i += 2) {
-	if (pads[i] != pads[i+1]) {
-	  is_symmetric = false;
-	  break;
-	}
+      auto translatepadsAttrList = setUpSymmetricPadding(pads, group.getType());
+      for (auto padAttr : translatepadsAttrList) {
+        Value p1v = rewriter.create<ConstantIntOp>(loc, padAttr);
+        translatepadsList.push_back(p1v);
       }
-      
-      if (is_symmetric) {
-	for (unsigned int i = 0; i < pads.size(); i += 2) {
-	  auto pad_value = (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
-	  auto f0 = IntegerAttr::get(group.getType(), pad_value);
-	  Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
-	  translatepadsList.push_back(p0v);	  
-	}
-	
-      } else {
-	int j = 0;
-	for (unsigned int i = 0; i < pads.size(); i++) {
-	  dimArray[j].dim_start =
-            (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
-	  i++;
-	  dimArray[j].dim_end =
-            (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
-	  j++;
-	}
-
-	// read the onnx pad values from array(dim_start values)
-	int k = 0;
-	for (unsigned int i = 0; i < pads.size(); i = i + 2) {
-	  auto f0 = IntegerAttr::get(group.getType(), (dimArray[k].dim_start));
-	  Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
-	  translatepadsList.push_back(p0v);
-	  k++;
-	}
-
-	// read the onnx pad values from array(dim_end values)
-	k = 0;
-	for (unsigned int i = 0; i < pads.size(); i = i + 2) {
-	  auto f1 = IntegerAttr::get(group.getType(), (dimArray[k].dim_end));
-	  Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
-	  translatepadsList.push_back(p1v);
-	  k++;
-	}
-      }
-      
     }
- 
+
     std::vector<Value> dilationonnxList;
     std::vector<Value> kernalshapeonnxList;
     std::vector<Value> stridesonnxList;
@@ -159,10 +165,10 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
         dilationonnxList.push_back(p1v);
       }
     } else {
-      auto c1 = IntegerAttr::get(group.getType(), 1);				 
+      auto c1 = IntegerAttr::get(group.getType(), 1);
       Value p1v = rewriter.create<ConstantIntOp>(loc, c1);
-      dilationonnxList = { p1v, p1v };      
-    }   
+      dilationonnxList = {p1v, p1v};
+    }
 
     // reading the kernal_shape values.
     if (kernal_shape) {
