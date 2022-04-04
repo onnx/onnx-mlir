@@ -11,20 +11,36 @@ if (ACCELERATORS_TO_BUILD)
 endif (ACCELERATORS_TO_BUILD)
 
 # Generate the Accelerators.inc file.
-set(Accelerators "${CMAKE_CURRENT_BINARY_DIR}/Accelerators.inc")
+set(accelerators_inc "${CMAKE_CURRENT_BINARY_DIR}/Accelerators.inc")
+list(APPEND accelerators_inc_generate_commands
+  COMMAND echo "\\#define APPLY_TO_ACCELERATORS\\(MACRO\\) \\ " > ${accelerators_inc})
+
 if (ACCELERATORS_TO_BUILD) 
-  file(WRITE "${Accelerators}" "#define APPLY_TO_ACCELERATORS(MACRO) \\\n")
   foreach(t ${ACCELERATORS_TO_BUILD})
-    file(APPEND "${Accelerators}" " MACRO(${t})")
+    list(APPEND accelerators_inc_generate_commands
+      COMMAND echo "  MACRO\\(${t}\\) \\ " >> ${accelerators_inc})
   endforeach(t)
-else (ACCELERATORS_TO_BUILD)
-  file(WRITE "${Accelerators}" "#define APPLY_TO_ACCELERATORS(MACRO)\n")
+  list(APPEND accelerators_inc_generate_commands
+      COMMAND echo >> ${accelerators_inc})
 endif (ACCELERATORS_TO_BUILD)
+
+add_custom_command(OUTPUT "${accelerators_inc}"
+  DEPENDS ""
+  ${accelerators_inc_generate_commands}
+  )
+set_source_files_properties("${accelerators_inc}"
+  PROPERTIES GENERATED TRUE
+             HEADER_FILE_ONLY TRUE
+  )
+add_custom_target(AcceleratorsInc ALL DEPENDS ${accelerators_inc})
 
 add_onnx_mlir_library(InitAccelerators
   InitAccelerators.cpp
 
   EXCLUDE_FROM_OM_LIBS
+
+  DEPENDS 
+    AcceleratorsInc
 
   LINK_LIBS PUBLIC
     ${ACCEL_LIST}
@@ -37,6 +53,7 @@ add_onnx_mlir_library(Accelerator
   EXCLUDE_FROM_OM_LIBS
 
   DEPENDS
+    AcceleratorsInc
     MLIRIR
 
   INCLUDE_DIRS PUBLIC
