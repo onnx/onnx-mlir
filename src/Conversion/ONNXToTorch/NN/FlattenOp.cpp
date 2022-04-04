@@ -35,7 +35,6 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
 
-
 #include "mlir/Transforms/DialectConversion.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
@@ -44,8 +43,8 @@
 #include "llvm/ADT/StringExtras.h"
 
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
-#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
+#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -55,16 +54,18 @@ using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
-
 /**
- * 
- * Attributes 
+ *
+ * Attributes
  * axis    i64-bit signed integer attribute
- * 
- * /scripts/docker/build_with_docker.py --external-build --build-dir build --command "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir --EmitONNXIR --debug --run-torch-pass third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_leakyrelu/model.onnx"
- * 
+ *
+ * /scripts/docker/build_with_docker.py --external-build --build-dir build
+ * --command
+ * "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
+ * --EmitONNXIR --debug --run-torch-pass
+ * third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_leakyrelu/model.onnx"
+ *
  */
-
 
 class ONNXFlattenOpToTorchLowering : public ConversionPattern {
 public:
@@ -76,24 +77,30 @@ public:
       ConversionPatternRewriter &rewriter) const final {
 
     Location loc = op->getLoc();
-    mlir::MLIRContext *context =  op->getContext();
+    mlir::MLIRContext *context = op->getContext();
     ONNXFlattenOp op1 = llvm::dyn_cast<ONNXFlattenOp>(op);
     ONNXFlattenOpAdaptor adaptor(operands);
-    
+
     Value input = adaptor.input();
     auto inputTy = input.getType().cast<MemRefType>();
     auto inputShape = inputTy.getShape();
     int inputRank = inputShape.size();
-    auto axisValue = op1.axis();       // ::mlir::IntegerAttr
+    auto axisValue = op1.axis(); // ::mlir::IntegerAttr
     if (axisValue < 0)
       axisValue = inputRank + axisValue;
-   
-    llvm::outs() << "input from Flatten Op:   " << "\n" << input << "\n" << "\n"; 
-    llvm::outs() << "axisValue from Flatten Op:   " << "\n" << axisValue << "\n" << "\n";
+
+    llvm::outs() << "input from Flatten Op:   "
+                 << "\n"
+                 << input << "\n"
+                 << "\n";
+    llvm::outs() << "axisValue from Flatten Op:   "
+                 << "\n"
+                 << axisValue << "\n"
+                 << "\n";
 
     TensorType op_tensor_type = op1.getType().cast<TensorType>();
-    auto resultTy = Torch::ValueTensorType::get(op1.getContext(), op_tensor_type.getShape(),
-                                                        op_tensor_type.getElementType());
+    auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
+        op_tensor_type.getShape(), op_tensor_type.getElementType());
 
     int64_t startDim = -1;
     int64_t endDim = -1;
@@ -111,11 +118,13 @@ public:
     auto axisVal = IntegerAttr::get(ty, (axisValue));
     Value p2v = rewriter.create<ConstantIntOp>(loc, axisVal);
 
-    Value atenleakyrelu = rewriter.create<AtenFlattenUsingIntsOp>(loc, resultTy, p2v, p0v, p1v);
+    Value atenleakyrelu =
+        rewriter.create<AtenFlattenUsingIntsOp>(loc, resultTy, p2v, p0v, p1v);
 
     Value result = atenleakyrelu;
 
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, op->getResult(0).getType() , result);
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(
+        op, op->getResult(0).getType(), result);
     return success();
 #if 0
     TensorType x_tensor_type  = x.getType().cast<TensorType>();
@@ -140,5 +149,5 @@ public:
 
 void populateLoweringONNXToTorchFlattenOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
-    patterns.insert<ONNXFlattenOpToTorchLowering>(typeConverter, ctx);
+  patterns.insert<ONNXFlattenOpToTorchLowering>(typeConverter, ctx);
 }

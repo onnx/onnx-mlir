@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====----- ONNXToTorchCommon.cpp - ONNX dialects to Torch lowering ---------===//
+//====----- ONNXToTorchCommon.cpp - ONNX dialects to Torch lowering
+//---------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -14,7 +15,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
-
 
 //===----------------------------------------------------------------------===//
 // Type conversion from Onnx types to Torch types.

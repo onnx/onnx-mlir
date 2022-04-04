@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- MaxPoolSingleOutOpTransformToTorchPass.cpp - ONNX Op Transform ------------------===//
+//===------- MaxPoolSingleOutOpTransformToTorchPass.cpp - ONNX Op Transform
+//------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -42,8 +43,8 @@
 #include "llvm/ADT/StringExtras.h"
 
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
-#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
+#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -55,44 +56,49 @@ using namespace mlir::torch::Torch;
 using namespace mlir::torch::TorchConversion;
 
 /**
- * ONNX Pad Operation 
+ * ONNX Pad Operation
  *
- * ONNX Padding modes supported as in 
- * TORCH padding is govenred by 4-tuple (left, right, top, bottom)  
+ * ONNX Padding modes supported as in
+ * TORCH padding is govenred by 4-tuple (left, right, top, bottom)
  *
- * Where is this used? 
+ * Where is this used?
  * padding is typically used just before/after convolution operation
  *
  * Operands :
- * X		tensor of 16-bit/32-bit/64-bit float values or memref of any type values
- *		Input data tensor from the previous operator; dimensions for image case are 
- * 		(N x C x H x W), where N is the batch size, C is the number of channels, 
- *		and H and W are the height and the width of the data. For non image case, 
- *		the dimensions are in the form of (N x C x D1 x D2 ... Dn), where N is 
- *		the batch size. Optionally, if dimension denotation is in effect, the operation 
- *		expects the input data tensor to arrive with the dimension denotation of 
- *		[DATA_BATCH, DATA_CHANNEL, DATA_FEATURE, DATA_FEATURE ...].
- * Output   : 
- *     
- * Y		tensor of 16-bit/32-bit/64-bit float values or memref of any type values or none type
- *		Output data tensor from average or max pooling across the input tensor. Dimensions will 
- *		vary based on various kernel, stride, and pad sizes. Floor value of the dimension is used
- *              differentiable 
+ * X		tensor of 16-bit/32-bit/64-bit float values or memref of any
+ *type values Input data tensor from the previous operator; dimensions for image
+ *case are (N x C x H x W), where N is the batch size, C is the number of
+ *channels, and H and W are the height and the width of the data. For non image
+ *case, the dimensions are in the form of (N x C x D1 x D2 ... Dn), where N is
+ *		the batch size. Optionally, if dimension denotation is in effect,
+ *the operation expects the input data tensor to arrive with the dimension
+ *denotation of [DATA_BATCH, DATA_CHANNEL, DATA_FEATURE, DATA_FEATURE ...].
+ * Output   :
  *
- * Validation 
+ * Y		tensor of 16-bit/32-bit/64-bit float values or memref of any
+ *type values or none type Output data tensor from average or max pooling across
+ *the input tensor. Dimensions will vary based on various kernel, stride, and
+ *pad sizes. Floor value of the dimension is used differentiable
+ *
+ * Validation
  * ----------
- * ./scripts/docker/build_with_docker.py --external-build --build-dir build --command "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir --EmitONNXIR --debug --run-torch-pass /home/sachin/try10/FlexML/third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/pytorch-operator/test_operator_pad/model.onnx" 
- * 
+ * ./scripts/docker/build_with_docker.py --external-build --build-dir build
+ *--command
+ *"build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
+ *--EmitONNXIR --debug --run-torch-pass
+ * /home/sachin/try10/FlexML/third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/pytorch-operator/test_operator_pad/model.onnx"
+ *
  */
 
-typedef struct dim_pads{
+typedef struct dim_pads {
   int dim_start;
   int dim_end;
 } dim_pads;
 
 class ONNXConstantPadNdOpToTorchLowering : public ConversionPattern {
 public:
-  ONNXConstantPadNdOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+  ONNXConstantPadNdOpToTorchLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
             typeConverter, mlir::ONNXPadOp::getOperationName(), 1, ctx) {}
 
@@ -101,29 +107,35 @@ public:
 
     ONNXPadOp op1 = llvm::dyn_cast<ONNXPadOp>(op);
     ONNXPadOpAdaptor adapter = ONNXPadOpAdaptor(op1);
-    mlir::MLIRContext *context =  op1.getContext();
+    mlir::MLIRContext *context = op1.getContext();
     Location loc = op1.getLoc();
 
-    Value data = op1.data();				// ONNX operands
-    auto pads = op1.pads();				// ONNX operands
-    Value const_value = op1.constant_value();		// ONNX operands
+    Value data = op1.data();                  // ONNX operands
+    auto pads = op1.pads();                   // ONNX operands
+    Value const_value = op1.constant_value(); // ONNX operands
 
-    llvm::outs() << "pads type" << "\n" << pads.getType() << "\n" << "\n";
-    llvm::outs() << "pads data " << "\n" << pads << "\n" << "\n";
-    
-    DenseElementsAttr denseAttr = getDenseElementAttributeFromONNXValue (pads);
+    llvm::outs() << "pads type"
+                 << "\n"
+                 << pads.getType() << "\n"
+                 << "\n";
+    llvm::outs() << "pads data "
+                 << "\n"
+                 << pads << "\n"
+                 << "\n";
+
+    DenseElementsAttr denseAttr = getDenseElementAttributeFromONNXValue(pads);
 
     // Reading the ONNX side pads values and store in the array.
     std::vector<APInt> intValues;
     for (auto n : denseAttr.getValues<APInt>())
-        intValues.push_back(n);
+      intValues.push_back(n);
 
     // Rearrange the pad values.
     // ONNX : b1, e1, b2, e2, b3, e3, b4, e4
     // TORCH : b1, b2, b3, b4, e1, e2, e3, e4
     dim_pads dimArray[intValues.size()];
     std::vector<Value> translatepadsList;
-    auto ty = IntegerType::get(op1.getContext(), 64); 
+    auto ty = IntegerType::get(op1.getContext(), 64);
     if (intValues.size() != 0) {
       int j = 0;
       for (unsigned int i = 0; i < intValues.size(); i++) {
@@ -133,9 +145,9 @@ public:
         j++;
       }
 
-      // read the onnx pad values from array(dim_start values) 
+      // read the onnx pad values from array(dim_start values)
       int k = 0;
-      for (unsigned int i = 0; i < intValues.size(); i=i+2) {
+      for (unsigned int i = 0; i < intValues.size(); i = i + 2) {
         auto f0 = IntegerAttr::get(ty, (dimArray[k].dim_start));
         Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
         translatepadsList.push_back(p0v);
@@ -143,56 +155,76 @@ public:
       }
       // read the onnx pad values from array(dim_end values)
       k = 0;
-      for (unsigned int i = 0; i < intValues.size(); i=i+2) {
-        auto f1 = IntegerAttr::get(ty,(dimArray[k].dim_end));
+      for (unsigned int i = 0; i < intValues.size(); i = i + 2) {
+        auto f1 = IntegerAttr::get(ty, (dimArray[k].dim_end));
         Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
         translatepadsList.push_back(p1v);
         k++;
       }
     }
 
-    TensorType data_tensor_type  = data.getType().cast<TensorType>();
-    TensorType const_val_tensor_type  = const_value.getType().cast<TensorType>();
+    TensorType data_tensor_type = data.getType().cast<TensorType>();
+    TensorType const_val_tensor_type = const_value.getType().cast<TensorType>();
 
-    llvm::outs() << "data type " << "\n" << data_tensor_type.getElementType() << "\n" << "\n";
-    llvm::outs() << "data " << "\n" << data << "\n" << "\n";
+    llvm::outs() << "data type "
+                 << "\n"
+                 << data_tensor_type.getElementType() << "\n"
+                 << "\n";
+    llvm::outs() << "data "
+                 << "\n"
+                 << data << "\n"
+                 << "\n";
 
-    auto dataTy = Torch::ValueTensorType::get(context, data_tensor_type.getShape(), 
-								data_tensor_type.getElementType());
-    auto constValTy = Torch::ValueTensorType::get(context, const_val_tensor_type.getShape(), 
-								const_val_tensor_type.getElementType());
+    auto dataTy = Torch::ValueTensorType::get(context,
+        data_tensor_type.getShape(), data_tensor_type.getElementType());
+    auto constValTy =
+        Torch::ValueTensorType::get(context, const_val_tensor_type.getShape(),
+            const_val_tensor_type.getElementType());
 
-    auto dtt  = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>( loc, dataTy, data); 
+    auto dtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+        loc, dataTy, data);
     auto fval = FloatAttr::get(mlir::FloatType::getF64(context), 10.0);
-    auto ctt  = rewriter.create<ConstantFloatOp>(loc, fval);
-   
-    auto padsList1 = rewriter.create<PrimListConstructOp>(
-	         	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), 
-				ValueRange{translatepadsList} );
+    auto ctt = rewriter.create<ConstantFloatOp>(loc, fval);
+
+    auto padsList1 = rewriter.create<PrimListConstructOp>(loc,
+        Torch::ListType::get(rewriter.getType<Torch::IntType>()),
+        ValueRange{translatepadsList});
 
     for (auto p : padsList1.elements()) {
-    	llvm::outs() << " padding list element: " << "\n" << p << "\n" << "\n";
+      llvm::outs() << " padding list element: "
+                   << "\n"
+                   << p << "\n"
+                   << "\n";
     }
 
     TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
-    auto resultTy = Torch::ValueTensorType::get(op1.getContext(), op_tensor_type.getShape(), 
-							op_tensor_type.getElementType());
+    auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
+        op_tensor_type.getShape(), op_tensor_type.getElementType());
 
-    llvm::outs() << "pads list:  " << "\n" << padsList1 << "\n" << "\n";
+    llvm::outs() << "pads list:  "
+                 << "\n"
+                 << padsList1 << "\n"
+                 << "\n";
 
-    Value atenconstantpad = rewriter.create<AtenConstantPadNdOp>(loc, resultTy, dtt, padsList1, ctt);
+    Value atenconstantpad = rewriter.create<AtenConstantPadNdOp>(
+        loc, resultTy, dtt, padsList1, ctt);
 
-    llvm::outs() << "AtenConstantPadNdOp operation creation" << "\n" << atenconstantpad << "\n" << "\n";
+    llvm::outs() << "AtenConstantPadNdOp operation creation"
+                 << "\n"
+                 << atenconstantpad << "\n"
+                 << "\n";
 
     Value result = atenconstantpad;
 
-    rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(op, op->getResult(0).getType(), result);
+    rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
+        op, op->getResult(0).getType(), result);
 
     return success();
   }
 };
 
-void populateLoweringONNXToTorchConstantPadNdOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-    patterns.insert<ONNXConstantPadNdOpToTorchLowering>(typeConverter, ctx);
+void populateLoweringONNXToTorchConstantPadNdOpPattern(
+    RewritePatternSet &patterns, TypeConverter &typeConverter,
+    MLIRContext *ctx) {
+  patterns.insert<ONNXConstantPadNdOpToTorchLowering>(typeConverter, ctx);
 }

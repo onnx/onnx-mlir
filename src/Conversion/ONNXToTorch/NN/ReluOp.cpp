@@ -35,7 +35,6 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
 
-
 #include "mlir/Transforms/DialectConversion.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
@@ -44,8 +43,8 @@
 #include "llvm/ADT/StringExtras.h"
 
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
-#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
+#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -55,20 +54,23 @@ using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
-
 /**
- * 
- * ONNX Relu operation 
+ *
+ * ONNX Relu operation
  *
  * Operands :
- * X            tensor of 16-bit/32-bit/64-bit float values or memref of any type values
+ * X            tensor of 16-bit/32-bit/64-bit float values or memref of any
+ * type values
  *
- * Validation 
+ * Validation
  * ----------
- * /scripts/docker/build_with_docker.py --external-build --build-dir build --command "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir --EmitONNXIR --debug --run-torch-pass third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_relu/model.onnx"
- * 
+ * /scripts/docker/build_with_docker.py --external-build --build-dir build
+ * --command
+ * "build/Ubuntu1804-Release/third-party/onnx-mlir/Release/bin/onnx-mlir
+ * --EmitONNXIR --debug --run-torch-pass
+ * third-party/onnx-mlir/third_party/onnx/onnx/backend/test/data/node/test_relu/model.onnx"
+ *
  */
-
 
 class ONNXReluOpToTorchLowering : public ConversionPattern {
 public:
@@ -80,36 +82,41 @@ public:
       ConversionPatternRewriter &rewriter) const final {
 
     Location loc = op->getLoc();
-    mlir::MLIRContext *context =  op->getContext();
+    mlir::MLIRContext *context = op->getContext();
     ONNXReluOp op1 = llvm::dyn_cast<ONNXReluOp>(op);
     ONNXReluOpAdaptor adapter(op1);
 
     Value x = op1.X();
-   
-    TensorType x_tensor_type  = x.getType().cast<TensorType>();
+
+    TensorType x_tensor_type = x.getType().cast<TensorType>();
     TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
 
-    auto xTy      = Torch::ValueTensorType::get(context, x_tensor_type.getShape(),
-                    x_tensor_type.getElementType());
-    auto xtt      = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>( loc, xTy, x);
-    auto resultTy = Torch::ValueTensorType::get(op1.getContext(), op_tensor_type.getShape(),
-                    op_tensor_type.getElementType());
+    auto xTy = Torch::ValueTensorType::get(
+        context, x_tensor_type.getShape(), x_tensor_type.getElementType());
+    auto xtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+        loc, xTy, x);
+    auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
+        op_tensor_type.getShape(), op_tensor_type.getElementType());
 
+    llvm::outs() << "resultTy is: \n " << resultTy << "\n"
+                 << "\n";
+    llvm::outs() << "xtt is: \n " << xtt << "\n"
+                 << "\n";
 
-    llvm::outs() << "resultTy is: \n " << resultTy << "\n" <<"\n" ;
-    llvm::outs() << "xtt is: \n " << xtt << "\n" << "\n" ;
-    
-    Value atenrelu = rewriter.create<AtenReluOp>(loc, resultTy, xtt); 
+    Value atenrelu = rewriter.create<AtenReluOp>(loc, resultTy, xtt);
 
-    llvm::outs() << "ATENRELU CREATED is: \n" << atenrelu << "\n" << "\n"; 
-    Value result = atenrelu; 
+    llvm::outs() << "ATENRELU CREATED is: \n"
+                 << atenrelu << "\n"
+                 << "\n";
+    Value result = atenrelu;
 
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(op, op->getResult(0).getType() , result);
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(
+        op, op->getResult(0).getType(), result);
     return success();
   }
 };
 
 void populateLoweringONNXToTorchReluOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
-    patterns.insert<ONNXReluOpToTorchLowering>(typeConverter, ctx);
+  patterns.insert<ONNXReluOpToTorchLowering>(typeConverter, ctx);
 }

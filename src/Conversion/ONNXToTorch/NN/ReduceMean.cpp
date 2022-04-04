@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 #include "src/Conversion/ONNXToTorch/ONNXToTorchCommon.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
-#include "src/Conversion/ONNXToTorch/NN/CommonUtils.h"
 
 #include <fstream>
 #include <iostream>
@@ -36,7 +36,6 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
 
-
 #include "mlir/Transforms/DialectConversion.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
@@ -45,8 +44,8 @@
 #include "llvm/ADT/StringExtras.h"
 
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
-#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
+#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -58,65 +57,80 @@ using namespace mlir::torch::Torch;
 
 struct ONNXReduceMeanOpToTorchLowering : public ConversionPattern {
 public:
-  ONNXReduceMeanOpToTorchLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXReduceMeanOp::getOperationName(), 1, ctx) {}
-
+  ONNXReduceMeanOpToTorchLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
+            mlir::ONNXReduceMeanOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
 
     ONNXReduceMeanOp op1 = llvm::dyn_cast<ONNXReduceMeanOp>(op);
     ONNXReduceMeanOpAdaptor adapter(op1);
-    mlir::MLIRContext *context =  op1.getContext();
+    mlir::MLIRContext *context = op1.getContext();
     Location loc = op1.getLoc();
 
-    auto axes = op1.axesAttr(); 			// ::mlir::ArrayAttr
-    auto keepDims = op1.keepdimsAttr();			// ::mlir::IntegerAttr
+    auto axes = op1.axesAttr();         // ::mlir::ArrayAttr
+    auto keepDims = op1.keepdimsAttr(); // ::mlir::IntegerAttr
 
-    Value data = op1.data();                            // ONNX operands
+    Value data = op1.data(); // ONNX operands
 
     auto ty = IntegerType::get(op1.getContext(), 64);
-    
-    // Reading the ONNX side pads values and store in the array.
-    std::vector<Value> axesList      = createArrayAttribute (axes,
-                    ty, loc, rewriter);
 
-    auto zero  = 0;
+    // Reading the ONNX side pads values and store in the array.
+    std::vector<Value> axesList = createArrayAttribute(axes, ty, loc, rewriter);
+
+    auto zero = 0;
     auto f00 = IntegerAttr::get(ty, zero);
     auto f0 = f00;
-    Value f0v = rewriter.create<ConstantIntOp>(loc,f0);
+    Value f0v = rewriter.create<ConstantIntOp>(loc, f0);
 
     Value keepdimVal;
     if (keepDims)
-      keepdimVal = rewriter.create<ConstantIntOp>(loc,keepDims);
+      keepdimVal = rewriter.create<ConstantIntOp>(loc, keepDims);
     else
       keepdimVal = f0v;
 
-    Value axesShapeList = rewriter.create<PrimListConstructOp>(
-	loc, Torch::ListType::get(rewriter.getType<Torch::IntType>()), ValueRange{axesList});
+    Value axesShapeList = rewriter.create<PrimListConstructOp>(loc,
+        Torch::ListType::get(rewriter.getType<Torch::IntType>()),
+        ValueRange{axesList});
 
-    TensorType data_tensor_type  = data.getType().cast<TensorType>();
+    TensorType data_tensor_type = data.getType().cast<TensorType>();
     TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
 
-    auto dataTy = Torch::ValueTensorType::get(context, data_tensor_type.getShape(),
-                                               data_tensor_type.getElementType());
-    auto dtt  = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>( loc, dataTy, data);
-    auto resultTy = Torch::ValueTensorType::get(op1.getContext(), op_tensor_type.getShape(), 
-		    op_tensor_type.getElementType());
+    auto dataTy = Torch::ValueTensorType::get(context,
+        data_tensor_type.getShape(), data_tensor_type.getElementType());
+    auto dtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
+        loc, dataTy, data);
+    auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
+        op_tensor_type.getShape(), op_tensor_type.getElementType());
 
-    llvm::outs() << "axesShapeList:" << "\n" << axesShapeList << "\n" << "\n";
-    llvm::outs() << "keepdimVal:" << "\n" << keepdimVal << "\n" << "\n";
-    llvm::outs() << "dtt Value:" << "\n" << dtt << "\n" << "\n";
+    llvm::outs() << "axesShapeList:"
+                 << "\n"
+                 << axesShapeList << "\n"
+                 << "\n";
+    llvm::outs() << "keepdimVal:"
+                 << "\n"
+                 << keepdimVal << "\n"
+                 << "\n";
+    llvm::outs() << "dtt Value:"
+                 << "\n"
+                 << dtt << "\n"
+                 << "\n";
 
-    Value atenmultensorOp = rewriter.create<AtenMulTensorOp>(loc, resultTy, dtt, axesShapeList);
-    //Value atenmultensorOp = rewriter.create<AtenMulTensorOp>(loc, resultTy, axesShapeList, keepdimVal);
-    llvm::outs() << "AtenMulTensorOp operation creation" << "\n" << atenmultensorOp << "\n" << "\n";
+    Value atenmultensorOp =
+        rewriter.create<AtenMulTensorOp>(loc, resultTy, dtt, axesShapeList);
+    // Value atenmultensorOp = rewriter.create<AtenMulTensorOp>(loc, resultTy,
+    // axesShapeList, keepdimVal);
+    llvm::outs() << "AtenMulTensorOp operation creation"
+                 << "\n"
+                 << atenmultensorOp << "\n"
+                 << "\n";
 
     Value result = atenmultensorOp;
 
-    rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(op, 
-		    op->getResult(0).getType(), result);
+    rewriter.replaceOpWithNewOp<torch::TorchConversion::ToBuiltinTensorOp>(
+        op, op->getResult(0).getType(), result);
 
     return success();
   }
@@ -124,6 +138,5 @@ public:
 
 void populateLoweringONNXToTorchReduceMeanOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
-    patterns.insert<ONNXReduceMeanOpToTorchLowering>(typeConverter, ctx);
+  patterns.insert<ONNXReduceMeanOpToTorchLowering>(typeConverter, ctx);
 }
-
