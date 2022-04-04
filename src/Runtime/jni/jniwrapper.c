@@ -705,23 +705,30 @@ JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMModel_main_1graph_1jni(
   return java_oomtl;
 }
 
-/* On z/OS, we convert signature in EBCDIC into ASCII for the JNI
+#ifdef __MVS__
+/* On z/OS, we convert entry point name in ASCII into EBCDIC for
+ * the omInputSignature/omOutputSignaturee function using __a2e_s.
+ * However, __a2e_s converts in place so we need to make a copy of
+ * the entry point name.
+ *
+ * On z/OS, we convert signature in EBCDIC into ASCII for the JNI
  * NewStringUTF function using __e2a_s. However, __e2a_s converts
  * in place so we need to make a copy of the signature.
  */
-#ifdef __MVS__
-static inline char *sig_e2a(const char *origsig) {
-  char *dupsig = strdup(origsig);
-  if (dupsig == NULL)
+#define __a2e(s) conv(s, __a2e_s)
+#define __e2a(s) conv(s, __e2a_s)
+static inline char *conv(const char *str, size_t (*fptr)(char *)) {
+  char *dup = strdup(str);
+  if (dup == NULL)
     return NULL;
 
-  /* Convert EBCDIC to ASCII in place */
-  if (__e2a_s(dupsig) < 0) {
-    free(dupsig);
+  /* Convert ASCII to EBCDIC in place */
+  if (fptr(dup) < 0) {
+    free(dup);
     return NULL;
   }
 
-  return dupsig;
+  return dup;
 }
 #endif
 
@@ -790,8 +797,16 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
       "jni_ep=%p", jni_ep);
 
   /* Call model input signature API */
-  CHECK_CALL(const char *, jni_isig, omInputSignature(jni_ep), jni_isig != NULL,
+#ifdef __MVS__
+  CHECK_CALL(char *, epptr, __a2e(jni_ep), epptr != NULL, "epptr=%p", epptr);
+#else
+  const char *epptr = jni_ep;
+#endif
+  CHECK_CALL(const char *, jni_isig, omInputSignature(epptr), jni_isig != NULL,
       "jni_isig=%p", jni_isig);
+#ifdef __MVS__
+  free(epptr);
+#endif
 
   /* Release reference to the signature Java String object */
   JNI_CALL(env, (*env)->ReleaseStringUTFChars(env, ep, jni_ep), 1, NULL, "");
@@ -803,7 +818,7 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
   /* Convert to Java String object */
 #ifdef __MVS__
   CHECK_CALL(
-      char *, sigptr, sig_e2a(jni_isig), sigptr != NULL, "sigptr=%p", sigptr);
+      char *, sigptr, __e2a(jni_isig), sigptr != NULL, "sigptr=%p", sigptr);
 #else
   const char *sigptr = jni_isig;
 #endif
@@ -831,9 +846,17 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
       (*env)->GetStringUTFChars(env, ep, NULL), jni_ep != NULL, jecpt_cls,
       "jni_ep=%p", jni_ep);
 
+#ifdef __MVS__
+  CHECK_CALL(char *, epptr, __a2e(jni_ep), epptr != NULL, "epptr=%p", epptr);
+#else
+  const char *epptr = jni_ep;
+#endif
   /* Call model output signature API */
-  CHECK_CALL(const char *, jni_osig, omOutputSignature(jni_ep),
-      jni_osig != NULL, "jni_osig=%p", jni_osig);
+  CHECK_CALL(const char *, jni_osig, omOutputSignature(epptr), jni_osig != NULL,
+      "jni_osig=%p", jni_osig);
+#ifdef __MVS__
+  free(epptr);
+#endif
 
   /* Release reference to the signature Java String object */
   JNI_CALL(env, (*env)->ReleaseStringUTFChars(env, ep, jni_ep), 1, NULL, "");
@@ -845,7 +868,7 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
   /* Convert to Java String object */
 #ifdef __MVS__
   CHECK_CALL(
-      char *, sigptr, sig_e2a(jni_osig), sigptr != NULL, "sigptr=%p", sigptr);
+      char *, sigptr, __e2a(jni_osig), sigptr != NULL, "sigptr=%p", sigptr);
 #else
   const char *sigptr = jni_osig;
 #endif
