@@ -309,19 +309,19 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
 
   // Annotate functions to be accessible from DLL on Windows.
-  if (llvm::Triple(getTargetTripleOption()).isOSWindows()) {
-    SmallVector<StringRef, 4> exportedFuncs;
-    // TODO: support multiple entry points.
-    exportedFuncs.emplace_back(StringRef("run_main_graph"));
-    exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
-    exportedFuncs.emplace_back(StringRef("omInputSignature"));
-    exportedFuncs.emplace_back(StringRef("omOutputSignature"));
-    for (StringRef funcName : exportedFuncs) {
-      llvm::GlobalValue *GV = llvmModule->getNamedValue(funcName);
-      GV->setDSOLocal(true);
-      GV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
-    }
+#if defined(_WIN32)
+  SmallVector<StringRef, 4> exportedFuncs;
+  // TODO: support multiple entry points.
+  exportedFuncs.emplace_back(StringRef("run_main_graph"));
+  exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
+  exportedFuncs.emplace_back(StringRef("omInputSignature"));
+  exportedFuncs.emplace_back(StringRef("omOutputSignature"));
+  for (StringRef funcName : exportedFuncs) {
+    llvm::GlobalValue *GV = llvmModule->getNamedValue(funcName);
+    GV->setDSOLocal(true);
+    GV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
   }
+#endif
 
   llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();
