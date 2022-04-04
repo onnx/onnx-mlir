@@ -16,6 +16,7 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 
@@ -370,9 +371,10 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     SmallVector<Value, 4> readIV;
     if (srcTy.getRank() > 0) {
       // Create the parallel wrapper.
-      auto ompParallel = rewriter.create<omp::ParallelOp>(loc);
-      rewriter.createBlock(&ompParallel.region());
-
+      if (onnx_mlir::enableOpenMpParallel) {
+        auto ompParallel = rewriter.create<omp::ParallelOp>(loc);
+        rewriter.createBlock(&ompParallel.region());
+      }
       BuildKrnlLoop loop(rewriter, loc, srcTy.getRank());
       // Do not create defineLoo
       loop.createDefineOp();
@@ -380,7 +382,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         loop.pushBounds(0, src, i);
       loop.createIterateOp();
 
-      rewriter.create<omp::TerminatorOp>(loc);
+      if (onnx_mlir::enableOpenMpParallel) {
+        rewriter.create<omp::TerminatorOp>(loc);
+      }
 
       rewriter.setInsertionPointToStart(loop.getIterateBlock());
       auto loopIVs = loop.getAllInductionVar();

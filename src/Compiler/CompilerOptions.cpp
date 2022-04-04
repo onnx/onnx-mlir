@@ -146,6 +146,12 @@ llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
     llvm::cl::desc("Report diagnostic info for op transform passes."),
     llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
 
+llvm::cl::opt<bool> enableOpenMpParallel("enable-OpenMP-parallel",
+    llvm::cl::desc(
+        "Enable openmp parallel region for onnx for loop (default=false)\n"
+        "Set to 'true' if you want to enable parallel region."),
+    llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
+
 // =============================================================================
 // Methods for setting and getting compiler variables.
 

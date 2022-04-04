@@ -47,6 +47,7 @@ extern llvm::cl::opt<std::string> instrumentONNXOps;
 extern llvm::cl::opt<bool> enableMemoryBundling;
 extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
+extern llvm::cl::opt<bool> enableOpenMpParallel;
 
 void setTargetTriple(const std::string &triple);
 std::string getTargetTripleOption();
