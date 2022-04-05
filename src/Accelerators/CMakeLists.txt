@@ -12,17 +12,14 @@ endif (ACCELERATORS_TO_BUILD)
 
 # Generate the Accelerators.inc file.
 set(accelerators_inc "${CMAKE_CURRENT_BINARY_DIR}/Accelerators.inc")
+set(create_accelerators_inc_script "${CMAKE_CURRENT_SOURCE_DIR}/CreateAcceleratorsInc.cmake")
 list(APPEND accelerators_inc_generate_commands
-  COMMAND ${CMAKE_COMMAND} -E echo "'#'define APPLY_TO_ACCELERATORS'('MACRO')' \\ " > ${accelerators_inc})
-
-if (ACCELERATORS_TO_BUILD) 
-  foreach(t ${ACCELERATORS_TO_BUILD})
-    list(APPEND accelerators_inc_generate_commands
-      COMMAND ${CMAKE_COMMAND} -E echo_append "  MACRO'('${t}')' \\ " >> ${accelerators_inc})
-  endforeach(t)
-  list(APPEND accelerators_inc_generate_commands
-      COMMAND ${CMAKE_COMMAND} -E echo >> ${accelerators_inc})
-endif (ACCELERATORS_TO_BUILD)
+  COMMAND ${CMAKE_COMMAND} "-DINC_FILE=${accelerators_inc}.tmp" "-DACCELERATORS=${ACCELERATORS_TO_BUILD}" 
+    -P "${create_accelerators_inc_script}")
+list(APPEND accelerators_inc_generate_commands
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${accelerators_inc}.tmp" "${accelerators_inc}"
+  COMMAND ${CMAKE_COMMAND} -E remove "${accelerators_inc}.tmp"
+)
 
 add_custom_command(OUTPUT "${accelerators_inc}"
   DEPENDS ""
