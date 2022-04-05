@@ -15,6 +15,7 @@
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Debug.h"
@@ -288,16 +289,32 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   // Annotate functions to be accessible from DLL on Windows.
 #ifdef _WIN32
   SmallVector<StringRef, 4> exportedFuncs;
-  // TODO: support multiple entry points.
-  exportedFuncs.emplace_back(StringRef("run_main_graph"));
-  exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
+  // Signature functions.
   exportedFuncs.emplace_back(StringRef("omInputSignature"));
   exportedFuncs.emplace_back(StringRef("omOutputSignature"));
-  for (StringRef funcName : exportedFuncs) {
-    llvm::GlobalValue *GV = llvmModule.getNamedValue(funcName);
-    GV->setDSOLocal(true);
-    GV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
+  exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
+  // Entry point funtions.
+  if (llvm::GlobalVariable *GV =
+          llvmModule.getNamedGlobal(StringRef("_entry_point_arrays"))) {
+    if (GV->isConstant() && GV->hasDefinitiveInitializer()) {
+      llvm::Constant *initializer = GV->getInitializer();
+      llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(initializer->getType());
+      for (uint64_t i = 0; i < AT->getNumElements() - 1; ++i) {
+        llvm::GlobalVariable *entryGV = llvmModule.getNamedGlobal(
+            StringRef("_entry_point_" + std::to_string(i)));
+        if (entryGV->isConstant()) {
+          llvm::ConstantDataSequential *entry =
+              dyn_cast<llvm::ConstantDataSequential>(entryGV->getInitializer());
+          exportedFuncs.emplace_back(entry->getAsCString());
+        }
+      }
+    }
   }
+  for (StringRef funcName : exportedFuncs)
+    if (llvm::GlobalValue *GV = llvmModule.getNamedValue(funcName)) {
+      GV->setDSOLocal(true);
+      GV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
+    }
 #endif
 }
 
@@ -331,6 +348,7 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
 
   // Tailor LLVMIR to add features that cannot be done with MLIR LLVMIR.
   tailorLLVMIR(*llvmModule);
+
   // Write LLVMIR to a file.
   string llvmirPath = outputBaseName + ".ll";
   llvm::FileRemover llvmirRemover(
