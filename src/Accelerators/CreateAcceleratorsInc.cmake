@@ -11,5 +11,7 @@ endforeach(t)
 
 file(APPEND "${INC_FILE}.tmp" "\n")
 
-file(COPY_FILE "${INC_FILE}.tmp" ${INC_FILE} ONLY_IF_DIFFERENT)
+# Copy the file only if it has changed.
+execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+  "${INC_FILE}.tmp" "${INC_FILE}")
 file(REMOVE "${INC_FILE}.tmp")
