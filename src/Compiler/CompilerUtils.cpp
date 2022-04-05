@@ -59,7 +59,7 @@ static llvm::Optional<std::string> getEnvVar(std::string name) {
 
 // Make a function that forces preserving all files using the runtime arguments
 // and/or the overridePreserveFiles enum.
-enum class KeepFilesOfType { All, MLIR, Bitcode, Object, None };
+enum class KeepFilesOfType { All, MLIR, LLVMIR, Bitcode, Object, None };
 
 // Value below override at compile time by effectively setting the requested
 // flags.
@@ -73,6 +73,8 @@ static bool keepFiles(KeepFilesOfType preserve) {
   switch (preserve) {
   case KeepFilesOfType::Bitcode:
     return overridePreserveFiles == KeepFilesOfType::Bitcode || preserveBitcode;
+  case KeepFilesOfType::LLVMIR:
+    return overridePreserveFiles == KeepFilesOfType::LLVMIR || preserveLLVMIR;
   case KeepFilesOfType::MLIR:
     return overridePreserveFiles == KeepFilesOfType::MLIR || preserveMLIR;
   case KeepFilesOfType::Object:
@@ -265,6 +267,40 @@ void loadMLIR(string inputFilename, mlir::MLIRContext &context,
   }
 }
 
+// Tailor LLVMIR to add features that cannot be done with MLIR LLVMIR.
+static void tailorLLVMIR(llvm::Module &llvmModule) {
+  llvm::LLVMContext &ctx = llvmModule.getContext();
+  // Emit metadata "zos_le_char_mode" for z/OS. Use EBCDIC codepage by default.
+  if (llvm::Triple(getTargetTripleOption()).isOSzOS()) {
+    StringRef charModeKey = "zos_le_char_mode";
+    if (!llvmModule.getModuleFlag(charModeKey)) {
+      auto val = llvm::MDString::get(ctx, "ebcdic");
+      llvmModule.addModuleFlag(llvm::Module::Error, charModeKey, val);
+    }
+  }
+
+  // Emit the onnx-mlir version as llvm.ident metadata.
+  llvm::NamedMDNode *identMetadata =
+      llvmModule.getOrInsertNamedMetadata("llvm.ident");
+  llvm::Metadata *identNode[] = {llvm::MDString::get(ctx, OnnxMlirVersion)};
+  identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
+
+  // Annotate functions to be accessible from DLL on Windows.
+#ifdef _WIN32
+  SmallVector<StringRef, 4> exportedFuncs;
+  // TODO: support multiple entry points.
+  exportedFuncs.emplace_back(StringRef("run_main_graph"));
+  exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
+  exportedFuncs.emplace_back(StringRef("omInputSignature"));
+  exportedFuncs.emplace_back(StringRef("omOutputSignature"));
+  for (StringRef funcName : exportedFuncs) {
+    llvm::GlobalValue *GV = llvmModule.getNamedValue(funcName);
+    GV->setDSOLocal(true);
+    GV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
+  }
+#endif
+}
+
 // Write LLVM optimized bitcode.
 static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
     string optimizedBitcodePath, string outputBaseName) {
@@ -286,43 +322,29 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
 
   llvm::LLVMContext llvmContext;
   mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
-  auto llvmModule = mlir::translateModuleToLLVMIR(*module, llvmContext);
+  std::unique_ptr<llvm::Module> llvmModule =
+      mlir::translateModuleToLLVMIR(*module, llvmContext);
   if (!llvmModule) {
     llvm::errs() << "Failed to translate module to LLVMIR.\n";
     exit(1);
   }
 
-  // Emit metadata "zos_le_char_mode" for z/OS. Use EBCDIC codepage by default.
-  if (llvm::Triple(getTargetTripleOption()).isOSzOS()) {
-    StringRef charModeKey = "zos_le_char_mode";
-    if (!llvmModule->getModuleFlag(charModeKey)) {
-      auto val = llvm::MDString::get(llvmContext, "ebcdic");
-      llvmModule->addModuleFlag(llvm::Module::Error, charModeKey, val);
-    }
+  // Tailor LLVMIR to add features that cannot be done with MLIR LLVMIR.
+  tailorLLVMIR(*llvmModule);
+  // Write LLVMIR to a file.
+  string llvmirPath = outputBaseName + ".ll";
+  llvm::FileRemover llvmirRemover(
+      llvmirPath, !keepFiles(KeepFilesOfType::LLVMIR));
+  llvm::raw_fd_ostream moduleLLVMIRStream(
+      llvmirPath, error, llvm::sys::fs::OF_None);
+  if (error) {
+    llvm::errs() << llvmirPath << ": " << error.message() << "\n";
+    exit(error.value());
   }
+  llvmModule->print(moduleLLVMIRStream, nullptr);
+  moduleLLVMIRStream.flush();
 
-  // Emit the onnx-mlir version as llvm.ident metadata.
-  llvm::NamedMDNode *identMetadata =
-      llvmModule->getOrInsertNamedMetadata("llvm.ident");
-  llvm::LLVMContext &ctx = llvmModule->getContext();
-  llvm::Metadata *identNode[] = {llvm::MDString::get(ctx, OnnxMlirVersion)};
-  identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
-
-  // Annotate functions to be accessible from DLL on Windows.
-#ifdef _WIN32
-  SmallVector<StringRef, 4> exportedFuncs;
-  // TODO: support multiple entry points.
-  exportedFuncs.emplace_back(StringRef("run_main_graph"));
-  exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
-  exportedFuncs.emplace_back(StringRef("omInputSignature"));
-  exportedFuncs.emplace_back(StringRef("omOutputSignature"));
-  for (StringRef funcName : exportedFuncs) {
-    llvm::GlobalValue *GV = llvmModule->getNamedValue(funcName);
-    GV->setDSOLocal(true);
-    GV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
-  }
-#endif
-
+  // Write unoptimized bitcode to a file.
   llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();
 
