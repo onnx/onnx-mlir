@@ -3427,6 +3427,8 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
       if (dim < 0)
         return emitOpError("All values of the input tensor must be >=0");
     }
+    // Unreachable error: Type error will trigger before this occurs
+    // No test needed for this error -----
     if (valueIt != valueAttribute.getValues<IntegerAttr>().end())
       return emitOpError(
           "Constant value must have same length as output's rank");
