@@ -148,6 +148,12 @@ if (NOT TARGET benchmark)
   add_subdirectory(third_party/benchmark)
 endif()
 
+if (CMAKE_BUILD_TYPE MATCHES Debug)
+  message("-- DEBUG: COPY OPENMP RUNTIME LIBRARY.")
+  set(LLVM_OPENMP_RUNTIME /workdir/llvm-project/build/runtimes/runtimes-bins/openmp/runtime/src)
+  configure_file(${LLVM_OPENMP_RUNTIME}/libomp.so ${CMAKE_BINARY_DIR}/Debug/lib/libomp.so COPYONLY)
+endif()
+
 # Ensure warnings are reported for onnx-mlir code.
 if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS_COPY})

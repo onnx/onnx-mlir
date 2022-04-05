@@ -83,6 +83,7 @@ add_onnx_mlir_library(CompilerUtils
   CompilerPasses
   Accelerator
   InitAccelerators
+  MLIROpenMP
 
   # Link LLVM libraries necessary to query which target architectures are configured.
   LINK_COMPONENTS PRIVATE
@@ -112,10 +113,3 @@ add_onnx_mlir_library(OnnxMlirCompiler
 if (NOT BUILD_SHARED_LIBS)
   target_compile_definitions(OnnxMlirCompiler PUBLIC ONNX_MLIR_BUILT_AS_STATIC)
 endif()
-
-set(OPENMP_RUNTIME_DIR /workdir/llvm-project/build/runtimes/runtimes-bins/openmp/runtime/src)
-if (EXISTS ${OPENMP_RUNTIME_DIR})
-  set(OPENMP_RUNTIME_LIB_FILE ${OPENMP_RUNTIME_DIR}/libomp.so)
-  configure_file(${OPENMP_RUNTIME_LIB_FILE} ${ONNX_MLIR_LIBRARY_PATH}/libomp.so COPYONLY)
-endif()
-set(LD_LIBRARY_PATH ${ONNX_MLIR_LIBRARY_PATH})
