@@ -1,4 +1,4 @@
-//RUN: onnx-mlir --EmitONNXIR %s -o=%t >/dev/null && cat %t.onnx.mlir | FileCheck -v %s
+//RUN: onnx-mlir --EmitONNXIR --run-torch-pass %s -o=%t >/dev/null && cat %t.onnx.mlir | FileCheck -v %s
 
 module {
   func @main_graph(%arg0: tensor<20x16x50x40xf32>) -> tensor<20x13x48x38xf32> attributes {input_names = ["0"], output_names = ["2"]} {
