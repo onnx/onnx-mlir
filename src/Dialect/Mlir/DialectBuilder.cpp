@@ -1,4 +1,8 @@
-//===---- DialectBuilder.cpp - Helper functions for MLIR dialects -----===//
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===------ DialectBuilder.cpp - Helper functions for MLIR dialects -------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //

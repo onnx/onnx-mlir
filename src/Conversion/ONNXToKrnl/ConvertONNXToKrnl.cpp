@@ -19,7 +19,8 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
-using namespace onnx_mlir;
+
+namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
 // EntryPoint Op lowering to Krnl Entry Point.
@@ -44,7 +45,6 @@ public:
   }
 };
 
-namespace onnx_mlir {
 void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
   // Type conversion for function signatures.
@@ -149,14 +149,12 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(ctx);
 }
-} // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // Frontend to Krnl Dialect lowering pass
 //===----------------------------------------------------------------------===//
 
 /// This is a partial lowering to Krnl loops of the ONNX operations.
-namespace {
 struct FrontendToKrnlLoweringPass
     : public PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>> {
 
@@ -206,7 +204,6 @@ public:
       llvm::cl::desc("Enable loop tiling and unrolling optimizations"),
       llvm::cl::init(false)};
 };
-} // end anonymous namespace.
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
@@ -313,3 +310,5 @@ std::unique_ptr<Pass> onnx_mlir::createLowerToKrnlPass(
   return std::make_unique<FrontendToKrnlLoweringPass>(
       emitDealloc, enableTiling);
 }
+
+} // namespace onnx_mlir
