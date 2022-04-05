@@ -2,14 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- ----LowerKrnlRegion.cpp ---------------------------------===//
+//===-----------LowerKrnlRegion.cpp ---------------------------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This pass enables the lowering of the krnl.shape operation to use Shape
-// dialect operations.
+// This pass enables the lowering of the krnl.region operation
 //
 //===----------------------------------------------------------------------===//
 
@@ -28,7 +27,7 @@ using namespace onnx_mlir::krnl;
 namespace {
 
 /*!
- Move the ops in KrnlRegionOp out of its region and erase KrnlRegionOp
+ Move the ops in KrnlRegionOp out of its region and then erase KrnlRegionOp
  */
 
 class LowerKrnlRegion : public OpRewritePattern<KrnlRegionOp> {
@@ -38,8 +37,9 @@ public:
   LogicalResult matchAndRewrite(
       KrnlRegionOp krnlRegionOp, PatternRewriter &rewriter) const override {
 
-    // use the special traversal because the op is modified in the sametime
+    // use the special traversal because the op is modified 
     Block &regionBlock = krnlRegionOp.bodyRegion().front();
+
     for (Operation &op : llvm::make_early_inc_range(regionBlock)) {
       op.moveBefore(krnlRegionOp);
     }
@@ -50,7 +50,7 @@ public:
 };
 
 /*!
- *  Function pass that lowers KrnlRgionOp
+ *  Function pass that lowers KrnlRegionOp
  */
 class LowerKrnlRegionPass
     : public PassWrapper<LowerKrnlRegionPass, OperationPass<FuncOp>> {
