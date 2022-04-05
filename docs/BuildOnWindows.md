@@ -58,7 +58,6 @@ md llvm-project\build
 cd llvm-project\build
 call cmake %root_dir%\llvm-project\llvm -G "Ninja" ^
    -DCMAKE_INSTALL_PREFIX="%root_dir%\llvm-project\build\install" ^
-   -DLLVM_ENABLE_PROJECTS=mlir ^
    -DLLVM_ENABLE_PROJECTS="clang;mlir" ^
    -DLLVM_TARGETS_TO_BUILD="host" ^
    -DCMAKE_BUILD_TYPE=Release ^
