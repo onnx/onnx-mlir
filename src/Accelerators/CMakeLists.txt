@@ -13,13 +13,11 @@ endif (ACCELERATORS_TO_BUILD)
 # Generate the Accelerators.inc file using a cmake script.
 set(accelerators_inc "${CMAKE_CURRENT_BINARY_DIR}/Accelerators.inc")
 set(create_accelerators_inc_script "${CMAKE_CURRENT_SOURCE_DIR}/CreateAcceleratorsInc.cmake")
-list(APPEND accelerators_inc_generate_commands
-  COMMAND ${CMAKE_COMMAND} "-DINC_FILE=${accelerators_inc}" "-DACCELERATORS=${ACCELERATORS_TO_BUILD}" 
-    -P "${create_accelerators_inc_script}")
 
 add_custom_command(OUTPUT "${accelerators_inc}"
   DEPENDS "${create_accelerators_inc_script}"
-  ${accelerators_inc_generate_commands}
+  COMMAND ${CMAKE_COMMAND} "-DINC_FILE=${accelerators_inc}" "-DACCELERATORS=${ACCELERATORS_TO_BUILD}" 
+    -P "${create_accelerators_inc_script}"
   )
 set_source_files_properties("${accelerators_inc}"
   PROPERTIES GENERATED TRUE
