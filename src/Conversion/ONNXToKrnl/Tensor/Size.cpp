@@ -2,10 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- Size.cpp - Lowering Size Op
-//-------------------===//
+//===--------------------- Size.cpp - Lowering Size Op --------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -16,6 +15,8 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 struct ONNXSizeOpLowering : public ConversionPattern {
   ONNXSizeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -76,3 +77,5 @@ void populateLoweringONNXSizeOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXSizeOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

@@ -18,6 +18,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 static Value getLoopIndexByAxisAndOffset(MathBuilder &createMath,
     SmallVectorImpl<Value> &resLoopIndex, ValueRange &baseLoopIndex,
     SmallVectorImpl<IndexExpr> &upperBounds, Value axis, Value offset,
@@ -114,7 +116,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     // Read axis.
     ArrayValueIndexCapture axisCapture(axis,
         getDenseElementAttributeFromConstantValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::loadDenseElementArrayValueAtIndex);
     IndexExpr axisIE(axisCapture.getSymbol(0));
     if (axisIE.isUndefined())
       return op->emitError("axis parameter could not be processed");
@@ -250,3 +252,5 @@ void populateLoweringONNXCumSumOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXCumSumOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

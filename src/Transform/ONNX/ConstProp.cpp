@@ -32,6 +32,7 @@
 #include <math.h>
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace {
 

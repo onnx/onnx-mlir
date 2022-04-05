@@ -19,8 +19,10 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 
+using namespace mlir;
+
 // Identity affine
-namespace mlir {
+namespace onnx_mlir {
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
@@ -73,4 +75,4 @@ Value OnnxBuilder::constant(Attribute denseAttr) const {
   return b.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
-} // namespace mlir
+} // namespace onnx_mlir

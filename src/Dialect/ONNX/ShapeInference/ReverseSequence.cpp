@@ -10,6 +10,10 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 ONNXReverseSequenceOpShapeHelper::ONNXReverseSequenceOpShapeHelper(
     ONNXReverseSequenceOp *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXReverseSequenceOp>(
@@ -36,3 +40,5 @@ LogicalResult ONNXReverseSequenceOpShapeHelper::Compute(
 
   return success();
 }
+
+} // namespace onnx_mlir

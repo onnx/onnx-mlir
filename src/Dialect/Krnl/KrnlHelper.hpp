@@ -33,6 +33,7 @@ class KrnlMovableOp;
 } // namespace mlir
 
 namespace onnx_mlir {
+namespace krnl {
 
 class KrnlDialectOperandParser {
 public:
@@ -81,10 +82,6 @@ void printBound(mlir::AffineMapAttr boundMap,
     mlir::Operation::operand_iterator &boundOperandsBeg, const char *prefix,
     mlir::OpAsmPrinter &p);
 
-} // namespace onnx_mlir
-
-namespace mlir {
-
 struct KrnlIterateOperandPack {
   KrnlIterateOperandPack(mlir::Builder &builder,
       llvm::ArrayRef<mlir::Value> inputLoops,
@@ -106,13 +103,14 @@ struct KrnlIterateOperandPack {
 
   void pushOperandBound(mlir::Value operand);
 
-  void pushAffineMapBound(mlir::AffineMap map, ArrayRef<Value> operands);
+  void pushAffineMapBound(
+      mlir::AffineMap map, mlir::ArrayRef<mlir::Value> operands);
 
   // When used in a lower bound, set isLb to true, when used in an upper bound,
   // set isLb to false.
   void pushIndexExprBound(IndexExpr expr, bool isLb);
 
-  void pushIndexExprsBound(SmallVectorImpl<IndexExpr> &exprVector);
+  void pushIndexExprsBound(llvm::SmallVectorImpl<IndexExpr> &exprVector);
 
   llvm::SmallVector<mlir::Value, 8> getOperands() const { return operands; }
 
@@ -158,7 +156,7 @@ private:
 class BuildKrnlLoop final {
 public:
   // Create kernel loop builder for a loop nest of depth loopNum.
-  BuildKrnlLoop(OpBuilder &builder, Location loc, int loopNum);
+  BuildKrnlLoop(mlir::OpBuilder &builder, mlir::Location loc, int loopNum);
   BuildKrnlLoop(const BuildKrnlLoop &) = delete;
   BuildKrnlLoop(BuildKrnlLoop &&) = delete;
   BuildKrnlLoop &operator=(const BuildKrnlLoop &) = delete;
@@ -166,7 +164,8 @@ public:
 
   // Create kernel loop builder for a loop nest of depth equal to the
   // dimensionality of the operand. An operand of MemRef type is requied.
-  BuildKrnlLoop(OpBuilder &builder, Location loc, Value memRefOperand);
+  BuildKrnlLoop(
+      mlir::OpBuilder &builder, mlir::Location loc, mlir::Value memRefOperand);
   ~BuildKrnlLoop() {
     if (pack)
       delete pack;
@@ -182,18 +181,19 @@ public:
   // This index is used by the getInductionVar call. Non-constant operands
   // must be of MemRef type.
   int pushBounds(int64_t lowerBound, int64_t upperBound);
-  int pushBounds(int64_t lowerBound, Value upperBound);
+  int pushBounds(int64_t lowerBound, mlir::Value upperBound);
   int pushBounds(int64_t lowerBound, IndexExpr upperBound);
-  int pushBounds(int64_t lowerBound, SmallVectorImpl<IndexExpr> &upperBound);
-  int pushBounds(SmallVectorImpl<IndexExpr> &lowerBound,
-      SmallVectorImpl<IndexExpr> &upperBound);
-  int pushBounds(int64_t lowerBound, AffineMap upperBound,
-      ArrayRef<Value> operandsForUpperBoundMap);
-  int pushBounds(Value lowerBound, Value upperBound);
-  int pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
+  int pushBounds(
+      int64_t lowerBound, llvm::SmallVectorImpl<IndexExpr> &upperBound);
+  int pushBounds(mlir::SmallVectorImpl<IndexExpr> &lowerBound,
+      mlir::SmallVectorImpl<IndexExpr> &upperBound);
+  int pushBounds(int64_t lowerBound, mlir::AffineMap upperBound,
+      mlir::ArrayRef<mlir::Value> operandsForUpperBoundMap);
+  int pushBounds(mlir::Value lowerBound, mlir::Value upperBound);
+  int pushBounds(int64_t lowerBound, mlir::Value upperBoundMemRefOperand,
       int upperBoundMemRefIndex, bool upperBoundMustBeConstant = false);
   // for each index expression i in upperBounds, push 0..upperBound[i].
-  void pushAllBounds(SmallVectorImpl<IndexExpr> &upperBounds);
+  void pushAllBounds(llvm::SmallVectorImpl<IndexExpr> &upperBounds);
 
   // Create the KrnlIterateOp assiciated with this loop nest. The loops
   // iteration will be created if the definition and the optimization
@@ -205,43 +205,47 @@ public:
   // rank of the MemRef operand. The lower bound of each loop is zero. The
   // upper bound of each loop is given by the corresponding dimension of the
   // MemRef operand.
-  void createDefineAndIterateOp(Value memRefOperand);
+  void createDefineAndIterateOp(mlir::Value memRefOperand);
 
   // Get the (original loop) induction variable associated with the given
   // index. Use the index returned when pushing the bounds.
-  BlockArgument &getInductionVar(int originalLoopIndex) const;
+  mlir::BlockArgument &getInductionVar(int originalLoopIndex) const;
 
   // Get all of the (original loop) induction variables.
-  ArrayRef<BlockArgument> getAllInductionVar() const;
+  mlir::ArrayRef<mlir::BlockArgument> getAllInductionVar() const;
 
   // Get a reference to the code region of the optimization operation.
   // This allows us to set the insertion point to the inner block of the
   // loop nest optimization operation.
   // Deprecated.
-  Block *getOptimizationBlock() const { return optBlock; }
+  mlir::Block *getOptimizationBlock() const { return optBlock; }
 
   // Get a reference to the code region of the iteration operation.
   // This allows us to set the insertion point to the inner block of the
   // loop nest iteration operation.
-  Block *getIterateBlock() const { return iterBlock; }
+  mlir::Block *getIterateBlock() const { return iterBlock; }
 
   // Get original loop nest.
-  const std::vector<Value> &getOriginalLoops() const { return originalLoops; }
+  const llvm::SmallVector<mlir::Value> &getOriginalLoops() const {
+    return originalLoops;
+  }
 
   // Get optimized loop nest.
-  const std::vector<Value> &getOptimizedLoops() const { return optLoops; }
+  const llvm::SmallVector<mlir::Value> &getOptimizedLoops() const {
+    return optLoops;
+  }
 
 private:
   // Required for emitting operations.
-  OpBuilder &builder;
-  Location loc;
+  mlir::OpBuilder &builder;
+  mlir::Location loc;
   int originalLoopNum;
 
   // List of original, un-optimized loops.
-  std::vector<Value> originalLoops;
+  llvm::SmallVector<mlir::Value> originalLoops;
 
   // List of optimized loops.
-  std::vector<Value> optLoops;
+  llvm::SmallVector<mlir::Value> optLoops;
 
   // List of lower-upper bound pairs needed by the KrnlIterateOp.
   KrnlIterateOperandPack *pack;
@@ -254,29 +258,31 @@ private:
   bool createdIterateOp;
 
   // Saved insertion point in the code region of the KrnlOptimizeLoopsOp.
-  Block *optBlock;
+  mlir::Block *optBlock;
 
   // Saved insertion point in the code region of the KrnlIterateOp.
-  Block *iterBlock;
+  mlir::Block *iterBlock;
 };
 
 // This function satisfies the ArrayValueIndexCapture::DenseElementsAttr lambda
 // type, using ONNX and Krnl operations.
-DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value);
+mlir::DenseElementsAttr getDenseElementAttributeFromKrnlValue(
+    mlir::Value value);
 
 // This function satisfies the ArrayValueIndexCapture::LoadVal lambda
 // type, using Krnl operations.
-Value loadDenseElementArrayValueAtIndex(
-    OpBuilder &rewriter, Location loc, Value array, int64_t index);
+mlir::Value loadDenseElementArrayValueAtIndex(mlir::OpBuilder &rewriter,
+    mlir::Location loc, mlir::Value array, int64_t index);
 
 //====---------------- Support for simple transpose ----------------------===//
 
 void generateIndexMap(
-    SmallVectorImpl<int64_t> &map, int64_t size, bool transposeInner2);
+    llvm::SmallVectorImpl<int64_t> &map, int64_t size, bool transposeInner2);
 
 //====---------------- Common helper functions --------------------------===//
 
 /// Check whether a value is produced by a dense KrnlGlobalOp.
-bool isKrnlGlobalConstant(Value result);
+bool isKrnlGlobalConstant(mlir::Value result);
 
-} // namespace mlir
+} // namespace krnl
+} // namespace onnx_mlir

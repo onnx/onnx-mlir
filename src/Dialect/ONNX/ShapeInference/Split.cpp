@@ -11,6 +11,10 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 template <typename ShapeHelper, typename OperandAdaptor>
 LogicalResult ONNXSplitOpShapeHelperCommon(ShapeHelper *shapeHelper,
     OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
@@ -128,3 +132,5 @@ LogicalResult ONNXSplitV11OpShapeHelper::computeShape(
   }
   return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
 }
+
+} // namespace onnx_mlir

@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 //===----------------------------------------------------------------------===//
 // Helper function to insert alloc and dealloc ops for memref of dynamic shape.
 //
@@ -64,8 +66,8 @@ struct ONNXTileOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
 
     ONNXTileOpShapeHelper shapeHelper(&tileOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
 
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
@@ -143,7 +145,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     std::vector<Value> originalLoops;
     defineLoops(rewriter, loc, originalLoops, outputRank * 2);
     // TODO use new KrnlDialectBuilder.
-    KrnlIterateOperandPack pack(rewriter, originalLoops);
+    krnl::KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (int64_t ii = 0; ii < outputRank; ++ii) {
       addDimensionToPack(rewriter, loc, pack, input, ii);
       pack.pushConstantBound(0);
@@ -205,3 +207,5 @@ void populateLoweringONNXTileOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXTileOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

@@ -19,7 +19,7 @@
 
 #include <map>
 
-namespace mlir {
+namespace onnx_mlir {
 
 template <typename T>
 struct is_supported {
@@ -56,4 +56,4 @@ private:
   void createPerfectHash();
 };
 
-} // namespace mlir
+} // namespace onnx_mlir

@@ -17,34 +17,38 @@
 
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
-namespace mlir {
+namespace onnx_mlir {
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
-struct OnnxBuilder : DialectBuilder {
-  OnnxBuilder(OpBuilder &b, Location loc) : DialectBuilder(b, loc) {}
+struct OnnxBuilder : onnx_mlir::DialectBuilder {
+  OnnxBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : DialectBuilder(b, loc) {}
   OnnxBuilder(DialectBuilder &db) : DialectBuilder(db) {}
 
-  Value add(Value A, Value B) const;
-  Value sub(Value A, Value B) const;
-  Value mul(Value A, Value B) const;
-  Value div(Value A, Value B) const;
-  Value matmul(Type Y, Value A, Value B, bool useGemm = false) const;
+  mlir::Value add(mlir::Value A, mlir::Value B) const;
+  mlir::Value sub(mlir::Value A, mlir::Value B) const;
+  mlir::Value mul(mlir::Value A, mlir::Value B) const;
+  mlir::Value div(mlir::Value A, mlir::Value B) const;
+  mlir::Value matmul(
+      mlir::Type Y, mlir::Value A, mlir::Value B, bool useGemm = false) const;
 
-  Value reshape(Type outputType, Value input, Value shape) const;
-  Value transpose(Type outputType, Value input, ArrayAttr perm) const;
+  mlir::Value reshape(
+      mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
+  mlir::Value transpose(
+      mlir::Type outputType, mlir::Value input, mlir::ArrayAttr perm) const;
 
-  Value constant(Attribute denseAttr) const;
+  mlir::Value constant(mlir::Attribute denseAttr) const;
 };
 
 // Recursive class specialized for OnnxBuilder refereed to as onnx.
 template <class... Ts>
 struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
-  MultiDialectBuilder(OpBuilder &b, Location loc)
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), onnx(b, loc) {}
   MultiDialectBuilder(DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), onnx(db) {}
   OnnxBuilder onnx;
 };
 
-} // namespace mlir
+} // namespace onnx_mlir
