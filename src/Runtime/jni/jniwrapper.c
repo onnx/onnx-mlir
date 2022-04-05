@@ -763,17 +763,24 @@ Java_com_ibm_onnxmlir_OMModel_query_1entry_1points(JNIEnv *env, jclass cls) {
     HEX_DEBUG(ep, jni_eps[i], strlen(jni_eps[i]));
     LOG_PRINTF(LOG_DEBUG, "ep[%d](%ld):%s", i, strlen(jni_eps[i]), jni_eps[i]);
 
+    /* On z/OS, convert entry point name in EBCDIC to ASCII */
 #ifdef __MVS__
     CHECK_CALL(
-        char *, epptr, sig_e2a(jni_eps[i]), epptr != NULL, "epptr=%p", epptr);
+        char *, epptr, __e2a(jni_eps[i]), epptr != NULL, "epptr=%p", epptr);
 #else
     const char *epptr = jni_eps[i];
 #endif
+
+    /* Convert to Java String object */
     JNI_TYPE_VAR_CALL(env, jstring, jstr_ep, (*env)->NewStringUTF(env, epptr),
         jstr_ep != NULL, jecpt_cls, "jstr_ep=%p", jstr_ep);
+
+    /* On z/OS, free the ASCII entry point name no longer needed */
 #ifdef __MVS__
     free(epptr);
 #endif
+
+    /* Put Java String object into the String array */
     JNI_CALL(env, (*env)->SetObjectArrayElement(env, java_eps, i, jstr_ep), 1,
         NULL, "");
   }
@@ -835,6 +842,7 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
   JNI_TYPE_VAR_CALL(env, jstring, java_isig, (*env)->NewStringUTF(env, sigptr),
       java_isig != NULL, jecpt_cls, "java_isig=%p", java_isig);
 
+  /* On z/OS, free the ASCII input signature no longer needed */
 #ifdef __MVS__
   free(sigptr);
 #endif
@@ -896,6 +904,7 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
   JNI_TYPE_VAR_CALL(env, jstring, java_osig, (*env)->NewStringUTF(env, sigptr),
       java_osig != NULL, jecpt_cls, "java_osig=%p", java_osig);
 
+  /* On z/OS, free the ASCII output signature no longer needed */
 #ifdef __MVS__
   free(sigptr);
 #endif
