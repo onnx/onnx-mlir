@@ -105,7 +105,7 @@ create.krnl.printf("inputElem: ", val, valType);
 
 If you know, or suspect, that an onnx-mlir-compiled inference executable
 suffers from memory allocation related issues, the
-[framework](https://valgrind.org/) or
+[valgrind framework](https://valgrind.org/) or
 [mtrace memory tool](https://github.com/sstefani/mtrace) can be used to facilitate debugging.
 These tools trace memory
 allocation/free-related APIs, and can detect memory issues, such as memory leaks.
