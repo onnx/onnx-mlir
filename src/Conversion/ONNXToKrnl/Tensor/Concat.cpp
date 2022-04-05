@@ -50,10 +50,10 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 
     // Creates loops, one for each input.
+    KrnlBuilder createKrnl(rewriter, loc);
     for (unsigned int i = 0; i < inputNum; ++i) {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Create loop.
-      KrnlBuilder createKrnl(rewriter, loc);
       ValueRange loopDef = createKrnl.defineLoops(rank);
       SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
       MemRefBoundsIndexCapture bounds(operands[i]);
@@ -62,8 +62,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
       createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             // Indices for the read and write.
-            SmallVector<Value, 4> readIndices;
-            SmallVector<Value, 4> writeIndices;
+            SmallVector<Value, 4> readIndices, writeIndices;
             for (unsigned int r = 0; r < rank; ++r) {
               if (r != axis || i == 0)
                 writeIndices.emplace_back(loopInd[r]);
