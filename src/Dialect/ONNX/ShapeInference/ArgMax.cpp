@@ -17,7 +17,7 @@
 
 using namespace mlir;
 
-using namespace onnx_mlir;
+namespace onnx_mlir {
 
 ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp)
     : ONNXOpShapeHelper<ONNXArgMaxOp>(
@@ -73,3 +73,5 @@ LogicalResult ONNXArgMaxOpShapeHelper::computeShape(
   dimsForOutput() = outputDims;
   return success();
 }
+
+} // namespace onnx_mlir
