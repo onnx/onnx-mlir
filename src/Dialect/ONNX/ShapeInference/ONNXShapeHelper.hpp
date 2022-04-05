@@ -557,8 +557,6 @@ struct ONNXCompressOpShapeHelper
       ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
       ArrayValueIndexCapture::LoadVal fLoadVal);
   mlir::LogicalResult computeShape(mlir::ONNXCompressOpAdaptor operandAdaptor);
-  // Additional data for CompressOp.
-  int axis = -1; // Value -1 signify axis was not specified.
 };
 
 // Shape for ONNXTopKOp.
