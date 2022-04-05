@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXCompressOpLowering : public ConversionPattern {
 
   ONNXCompressOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -33,8 +35,8 @@ struct ONNXCompressOpLowering : public ConversionPattern {
 
     // Get shape, also deliver normalized "axis", -1 if undef.
     ONNXCompressOpShapeHelper shapeHelper(&compressOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
@@ -274,3 +276,5 @@ void populateLoweringONNXCompressOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXCompressOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

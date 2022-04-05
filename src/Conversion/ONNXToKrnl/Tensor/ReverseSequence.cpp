@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXReverseSequenceOpLowering : public ConversionPattern {
   ONNXReverseSequenceOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
@@ -30,8 +32,8 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
 
     ONNXReverseSequenceOpShapeHelper shapeHelper(&reverseSequenceOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
@@ -123,3 +125,5 @@ void populateLoweringONNXReverseSequenceOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXReverseSequenceOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

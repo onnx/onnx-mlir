@@ -32,15 +32,15 @@ include "src/Dialect/ONNX/ONNX.td"
 
 // Create a DenseElementsAttr from a float attribute and an element type.
 def createDenseElementsAttrFromFloatAttr : NativeCodeCall<
-  "createDenseElementsAttrFromFloatAttr($_builder, $0.getType().cast<ShapedType>().getElementType(), $1)">;
+  "onnx_mlir::createDenseElementsAttrFromFloatAttr($_builder, $0.getType().cast<ShapedType>().getElementType(), $1)">;
 
 // Create a DenseElementsAttr from the shape of the type of a value.
 def createDenseElementsAttrFromShape : NativeCodeCall<
-  "createDenseElementsAttrFromShape($_builder, $0)">;
+  "onnx_mlir::createDenseElementsAttrFromShape($_builder, $0)">;
 
 // Create a DenseElementsAttr from the size of the type of a value.
 def createDenseElementsAttrFromSize : NativeCodeCall<
-  "createDenseElementsAttrFromSize($_builder, $0)">;
+  "onnx_mlir::createDenseElementsAttrFromSize($_builder, $0)">;
 
 // If '$1' is not NoneType, do subtraction '$1 - $2'.
 // Otherwise, take the negative of '$2'.
@@ -60,7 +60,7 @@ def createArrayAttrOfTwoToRankOf : NativeCodeCall<
   "createArrayAttrOfNToM($_builder, 2, $0.getType().cast<ShapedType>().getRank() - 1)">;
 
 def ONNXConstantOpNormalize: NativeCodeCall<
-  "normalizeConstantOp($_builder, $0, $1)">;
+  "onnx_mlir::normalizeConstantOp($_builder, $0, $1)">;
 
 def AttributeIsNotNull :
     Constraint<CPred<" ($_self) ">, "Attribute is null">;
@@ -110,7 +110,7 @@ class HasRankOf<int rank> :
                    "$0.getType().cast<ShapedType>().getRank() == " # rank>>;
 
 def HaveSameLastDim: Constraint<
-  CPred<"hasShapeAndRank($0) && hasShapeAndRank($1) && "
+  CPred<"onnx_mlir::hasShapeAndRank($0) && onnx_mlir::hasShapeAndRank($1) && "
         "($0.getType().cast<RankedTensorType>().getShape()"
         "[$0.getType().cast<RankedTensorType>().getRank() - 1] == "
         "$1.getType().cast<RankedTensorType>().getShape()"
@@ -125,7 +125,7 @@ def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
 
 def NotNoneType : Constraint<CPred<"!($0.getType().isa<NoneType>())">>;
 
-def HasShapeAndRank : Constraint<CPred<"hasShapeAndRank($0)">>;
+def hasShapeAndRank : Constraint<CPred<"onnx_mlir::hasShapeAndRank($0)">>;
 
 def HasSameElementType : Constraint<
     CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
@@ -139,13 +139,13 @@ def IsStaticShapeTensor:
      "hasStaticShape">;
 
 def AreTheSameAxisArray: Constraint<
-    CPred<"AreTheSameAxisArray("
-          "(hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
+    CPred<"onnx_mlir::AreTheSameAxisArray("
+          "(onnx_mlir::hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
           "$1, $2)">,
     "Two axis arrays are the same">;
 
 def HasSpecifiedConstantShape: Constraint<
-    CPred<"HasSpecifiedConstantShape($0, $1)">,
+    CPred<"onnx_mlir::HasSpecifiedConstantShape($0, $1)">,
           "Has the specified constant shape">;
 
 def IsFromONNXConstantOp: Constraint<
@@ -157,8 +157,8 @@ def IsNotFromONNXConstantOp: Constraint<
     "Is a value not from ONNXConstantOp">;
 
 def AreTheSameConstantOpDenseAttr: Constraint<
-    CPred<"AreTheSameConstantOpDenseAttr($_builder,"
-          "(hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
+    CPred<"onnx_mlir::AreTheSameConstantOpDenseAttr($_builder,"
+          "(onnx_mlir::hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
           "$1, $2)">,
     "Two ConstantOps have the same dense attribute values">;
 
@@ -289,10 +289,10 @@ def CastEliminationPattern : Pat<
 
 // Combine transposes.
 def CreateCombinedTransposedPattern :
-   NativeCodeCall<"CombinedTransposePattern($_builder, $0, $1)">;
+   NativeCodeCall<"onnx_mlir::CombinedTransposePattern($_builder, $0, $1)">;
 
 def IsIdentityPermuteAttribute :
-  Constraint<CPred<"IsIdentityPermuteVector($_self)">,
+  Constraint<CPred<"onnx_mlir::IsIdentityPermuteVector($_self)">,
     "has identity permute vector">;
 
 def FuseTransposePattern:  Pat<
