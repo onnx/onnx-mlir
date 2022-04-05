@@ -50,6 +50,7 @@ int main(int argc, char *argv[]) {
       llvm::cl::init(EmitLib), llvm::cl::cat(OnnxMlirOptions));
 
   // Register MLIR command line options.
+  mlir::registerMLIRContextCLOptions();
   mlir::registerPassManagerCLOptions();
   mlir::registerDefaultTimingManagerCLOptions();
 
