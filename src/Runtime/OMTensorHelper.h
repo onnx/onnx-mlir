@@ -4,7 +4,7 @@
 
 //===----------- OMTensorHelper.h - OMTensor Helper Func header -----------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -81,6 +81,19 @@ static inline void printVector(const std::vector<T> &vec,
  */
 template <typename T>
 OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &dataSizes);
+
+/**
+ * omDefineSeed.
+ * When called, the random number generator for omTensorCreateWithRandomData
+ * will be seeded exactly once. The seed is randomly generated when ignoreSeed
+ * is nonnull; otherwise the input seedValue is used.
+ *
+ * @param seed input seed.
+ * @param ignoreSeed when nonzero, ths function define its own random seed.
+ * @return return the seed that was used.
+ *
+ */
+unsigned int omDefineSeed(unsigned int seed, unsigned int ignoreSeed);
 
 /**
  * OMTensor creator with data sizes, element type and random data

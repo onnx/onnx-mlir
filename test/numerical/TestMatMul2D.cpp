@@ -11,6 +11,7 @@
 static const llvm::StringRef SHARED_LIB_BASE("./TestMatmul2D_main_graph");
 
 #define DATA_RANGE 10.0 /*pass range*/
+#define TEST_ONLY_ONE 1
 
 using namespace mlir;
 
@@ -39,6 +40,7 @@ int main(int argc, char *argv[]) {
   llvm::FileRemover remover(
       ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
+  ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
@@ -46,6 +48,19 @@ int main(int argc, char *argv[]) {
 
 #ifdef DATA_RANGE
   printf("Model use data in the +/- range %f\n\n", DATA_RANGE);
+#endif
+#if TEST_ONLY_ONE
+  printf("RapidCheck Matrix-Matrix test case generation.\n");
+  success = rc::check("Matrix-Matrix Matmul implementation correctness", []() {
+    const auto I = *rc::gen::inRange(1, 2);
+    const auto J = *rc::gen::inRange(1, 2);
+    const auto K = *rc::gen::inRange(1, 2);
+
+    RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(4 * I, 8 * J, 8 * K));
+  });
+  if (!success)
+    return 1;
+  return 0;
 #endif
   printf("RapidCheck Matrix-Vector test case generation.\n");
   success = rc::check("Matrix-Vector Matmul implementation correctness", []() {

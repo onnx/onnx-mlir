@@ -97,6 +97,10 @@ public:
   // Helper functions.
   // Get the dynamic library file name compiled here.
   static std::string getSharedLibName(const std::string &sharedLibBaseName);
+  // Set the random number generator seed to the value passed by the environment
+  // variable; if not found, use a random seed. Optional call to enable
+  // reproducible random numbers.
+  static void setRandomNumberGeneratorSeed(const std::string &envVar);
 
 protected:
   // Create a function with an empty body.

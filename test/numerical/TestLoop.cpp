@@ -134,6 +134,7 @@ int main(int argc, char *argv[]) {
   llvm::FileRemover remover(
       ModelLibBuilder::getSharedLibName(SHARED_LIB_BASE.str()));
 
+  ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLoop\n", nullptr, "TEST_ARGS");

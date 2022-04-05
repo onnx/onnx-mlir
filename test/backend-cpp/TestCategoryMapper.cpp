@@ -65,6 +65,7 @@ int main(int argc, char *argv[]) {
   llvm::FileRemover remover(
       onnx_mlir::test::ModelLibBuilder::getSharedLibName(SharedLibBaseName));
 
+  ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOption(onnx_mlir::OptionKind::CompilerOptLevel, "3");
   mlir::registerPassManagerCLOptions();
   llvm::cl::ParseCommandLineOptions(
