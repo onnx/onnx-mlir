@@ -89,9 +89,10 @@ public:
 
     //      Steps
     //	1) Extract float attributes array from ONNX and compare with the Netron
-    //file, 	2) Find the shape of this array in step 1, 	3) Create the result
-    //type, 	4) Create the torch tensor of shape as in 2, 	5) Create the torch op
-    //and replace it.
+    // file, 	2) Find the shape of this array in step 1, 	3) Create the
+    // result
+    // type, 	4) Create the torch tensor of shape as in 2, 	5) Create the
+    // torch op and replace it.
 
     llvm::outs() << "CONSTFLOATOP operation creation value_attr type: "
                  << value_attr.getType() << "\n"
@@ -130,20 +131,21 @@ public:
         auto new_dense_value_attr =
             DenseElementsAttr::get(dense_value_type, floatValues);
         value_attr_finalized = new_dense_value_attr;
-      } else if (auto stringType = op_tensor_type.getElementType()
-                                       .dyn_cast<::mlir::StringType>()) {
-        element_type = ::mlir::StringType::get(context);
-        auto dense_value_attr =
-            value_attr.dyn_cast<::mlir::DenseElementsAttr>();
-        ShapedType dense_value_type =
-            RankedTensorType::get(op_tensor_type.getShape(), element_type);
-        std::vector<StringRef> stringValues;
-        for (auto n : dense_value_attr.getValues<StringRef>())
-          stringValues.push_back(n);
-        auto new_dense_value_attr =
-            DenseElementsAttr::get(dense_value_type, stringValues);
-        value_attr_finalized = new_dense_value_attr;
-      } else {
+      } /* else if (auto stringType = op_tensor_type.getElementType()
+                                        .dyn_cast<::mlir::StringType>()) {
+         element_type = ::mlir::StringType::get(context);
+         auto dense_value_attr =
+             value_attr.dyn_cast<::mlir::DenseElementsAttr>();
+         ShapedType dense_value_type =
+             RankedTensorType::get(op_tensor_type.getShape(), element_type);
+         std::vector<StringRef> stringValues;
+         for (auto n : dense_value_attr.getValues<StringRef>())
+           stringValues.push_back(n);
+         auto new_dense_value_attr =
+             DenseElementsAttr::get(dense_value_type, stringValues);
+         value_attr_finalized = new_dense_value_attr;
+         } */
+      else {
         element_type = op_tensor_type.getElementType();
         value_attr_finalized = value_attr;
       }
@@ -157,10 +159,10 @@ public:
       } else if (value_attr.getType().cast<::mlir::FloatType>()) {
         element_type = ::mlir::FloatType::getF32(context);
         value_attr_finalized = value_attr;
-      } else if (value_attr.getType().cast<::mlir::StringType>()) {
-        element_type = ::mlir::StringType::get(context);
-        value_attr_finalized = value_attr;
-      }
+      } // else if (value_attr.getType().cast<::mlir::StringAttr>()) {
+        // element_type = ::mlir::StringAttr::get(context);
+        // value_attr_finalized = value_attr;
+      //}
     }
     auto resultTy = Torch::ValueTensorType::get(
         op1.getContext(), op_tensor_type.getShape(), element_type);

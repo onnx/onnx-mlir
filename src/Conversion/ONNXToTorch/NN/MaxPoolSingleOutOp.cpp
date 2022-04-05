@@ -144,26 +144,29 @@ public:
 
     auto storage_order_attr = op1.storage_orderAttr(); // ::mlir::IntegerAttr
     int64_t storage_order = op1.storage_order();       // int64_t
-    auto ty = IntegerType::get(op1.getContext(), 64);
 
     // Reading the ONNX side pads values and store in the array.
-    std::vector<Value> translatepadsList;
+
     auto ty = IntegerType::get(op1.getContext(), 64);
     auto by = IntegerType::get(op1.getContext(), 1);
-
+    /*
     if (pads) {
       auto translatepadsAttrList = setUpSymmetricPadding(pads, ty);
       for (auto padAttr : translatepadsAttrList) {
         Value p1v = rewriter.create<ConstantIntOp>(loc, padAttr);
         translatepadsList.push_back(p1v);
       }
-    }
+      }*/
 
-    std::vector<Value> dilationonnxList;
+    std::vector<Value> translatepadsList =
+        createPadsArrayAttribute(pads, ty, loc, rewriter);
+    std::vector<Value> dilationonnxList =
+        createArrayAttribute(dilations, ty, loc, rewriter, 1);
     std::vector<Value> kernalshapeonnxList;
     std::vector<Value> stridesonnxList;
 
     // reading the dilation values.
+    /*
     if (dilations) {
       for (unsigned int i = 0; i < dilations.size(); i++) {
         auto f1 = IntegerAttr::get(ty,
@@ -175,7 +178,7 @@ public:
       auto c1 = IntegerAttr::get(ty, 1);
       Value p1v = rewriter.create<ConstantIntOp>(loc, c1);
       dilationonnxList = {p1v, p1v};
-    }
+      }*/
 
     // reading the kernal_shape values.
     if (kernal_shape) {
@@ -203,16 +206,7 @@ public:
     auto three = 3;
     auto zero = 0;
 
-    auto f00 = IntegerAttr::get(ty, zero);
-    auto f22 = IntegerAttr::get(ty, two);
     auto b0 = IntegerAttr::get(by, false);
-
-    auto f3 = f33;
-    auto f0 = f00;
-    auto f2 = f22;
-
-    Value f3v = rewriter.create<ConstantIntOp>(loc, f3);
-    Value f22v = rewriter.create<ConstantIntOp>(loc, f2);
     Value b0v = rewriter.create<ConstantBoolOp>(loc, b0);
 
     Value ceiling_mode_val;

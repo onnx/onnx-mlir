@@ -146,7 +146,7 @@ struct ONNXConvOpToTorchLowering : public ConversionPattern {
     std::vector<Value> translatepadsList =
         createPadsArrayAttribute(pads, group.getType(), loc, rewriter);
     std::vector<Value> dilationonnxList =
-        createArrayAttribute(dilations, group.getType(), loc, rewriter);
+        createArrayAttribute(dilations, group.getType(), loc, rewriter, 1);
     std::vector<Value> kernalshapeonnxList =
         createArrayAttribute(kernal_shape, group.getType(), loc, rewriter);
     std::vector<Value> stridesonnxList =

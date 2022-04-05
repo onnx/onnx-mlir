@@ -145,7 +145,19 @@ public:
         j++;
       }
 
+      int dim_size = intValues.size() / 2;
       // read the onnx pad values from array(dim_start values)
+      for (unsigned int i = 0; i < dim_size; i++) {
+        auto f0 = IntegerAttr::get(ty, (dimArray[dim_size - 1 - i].dim_start));
+        Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
+        translatepadsList.push_back(p0v);
+
+        auto f1 = IntegerAttr::get(ty, (dimArray[dim_size - 1 - i].dim_end));
+        Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
+        translatepadsList.push_back(p1v);
+      }
+
+      /*
       int k = 0;
       for (unsigned int i = 0; i < intValues.size(); i = i + 2) {
         auto f0 = IntegerAttr::get(ty, (dimArray[k].dim_start));
@@ -160,7 +172,7 @@ public:
         Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
         translatepadsList.push_back(p1v);
         k++;
-      }
+        }*/
     }
 
     TensorType data_tensor_type = data.getType().cast<TensorType>();

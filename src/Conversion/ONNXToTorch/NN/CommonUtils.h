@@ -30,7 +30,6 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/OMOptions.hpp"
 
-
 #include "mlir/Transforms/DialectConversion.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
@@ -39,19 +38,19 @@
 #include "llvm/ADT/StringExtras.h"
 
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
-#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
+#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
 #ifdef _WIN32
 #include <io.h>
 #endif
 
-
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
-std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty, 
-                Location loc, ConversionPatternRewriter &rewriter);
-std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr, Type ty,
-		Location loc, ConversionPatternRewriter &rewriter);
+std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
+    Location loc, ConversionPatternRewriter &rewriter);
+std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
+    Type ty, Location loc, ConversionPatternRewriter &rewriter,
+    int default_val = 0);

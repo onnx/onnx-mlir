@@ -8,9 +8,30 @@ typedef struct dim_pads {
 std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
     Location loc, ConversionPatternRewriter &rewriter) {
   // Reading the ONNX side pads values and store in the array.
-  dim_pads dimArray[pads.size()];
   std::vector<Value> translatepadsList;
-  if (pads) {
+  if (!pads)
+    return translatepadsList;
+
+  bool is_symmetric = true;
+  for (unsigned int i = 0; i < pads.size(); i += 2) {
+    if (pads[i] != pads[i + 1]) {
+      is_symmetric = false;
+      break;
+    }
+  }
+  assert(
+      is_symmetric && "Frontend transformations only handle symmetric padding");
+
+  dim_pads dimArray[pads.size()];
+  if (is_symmetric) {
+    for (unsigned int i = 0; i < pads.size(); i += 2) {
+      auto pad_value =
+          (pads[i].dyn_cast<IntegerAttr>()).getValue().getZExtValue();
+      auto f0 = IntegerAttr::get(ty, pad_value);
+      Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
+      translatepadsList.push_back(p0v);
+    }
+  } else {
     int j = 0;
     for (unsigned int i = 0; i < pads.size(); i++) {
       dimArray[j].dim_start =
@@ -43,7 +64,8 @@ std::vector<Value> createPadsArrayAttribute(::mlir::ArrayAttr pads, Type ty,
 }
 
 std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
-    Type ty, Location loc, ConversionPatternRewriter &rewriter) {
+    Type ty, Location loc, ConversionPatternRewriter &rewriter,
+    int default_val) {
   std::vector<Value> operandArrayValues;
   if (onnxArrayAttr) {
     for (unsigned int i = 0; i < onnxArrayAttr.size(); i++) {
@@ -52,6 +74,10 @@ std::vector<Value> createArrayAttribute(::mlir::ArrayAttr onnxArrayAttr,
       Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
       operandArrayValues.push_back(p1v);
     }
+  } else {
+    auto f0 = IntegerAttr::get(ty, default_val);
+    Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
+    operandArrayValues = {p0v, p0v};
   }
   return operandArrayValues;
 }
