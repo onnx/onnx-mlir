@@ -300,9 +300,9 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
       llvm::Constant *initializer = GV->getInitializer();
       llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(initializer->getType());
       for (uint64_t i = 0; i < AT->getNumElements() - 1; ++i) {
-        if ((llvm::GlobalVariable *entryGV = llvmModule.getNamedGlobal(
-                 StringRef("_entry_point_" + std::to_string(i)))) &&
-            entryGV->isConstant()) {
+        llvm::GlobalVariable *entryGV = llvmModule.getNamedGlobal(
+            StringRef("_entry_point_" + std::to_string(i)));
+        if (entryGV->isConstant()) {
           llvm::ConstantDataSequential *entry =
               dyn_cast<llvm::ConstantDataSequential>(entryGV->getInitializer());
           exportedFuncs.emplace_back(entry->getAsCString());
