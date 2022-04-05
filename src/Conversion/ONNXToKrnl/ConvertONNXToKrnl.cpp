@@ -112,6 +112,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPoolingOpPattern(patterns, typeConverter, ctx);
   // Recurrent neural network
+  populateLoweringONNXGRUOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXLSTMOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRNNOpPattern(patterns, typeConverter, ctx);
   // Sequence
   populateLoweringONNXSequenceAtOpPattern(patterns, typeConverter, ctx);
