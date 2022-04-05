@@ -350,7 +350,7 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   tailorLLVMIR(*llvmModule);
 
   // Write LLVMIR to a file.
-  string llvmirPath = outputBaseName + ".ll";
+  std::string llvmirPath = outputBaseName + ".ll";
   llvm::FileRemover llvmirRemover(
       llvmirPath, !keepFiles(KeepFilesOfType::LLVMIR));
   llvm::raw_fd_ostream moduleLLVMIRStream(
