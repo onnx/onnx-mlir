@@ -953,6 +953,51 @@ Traits: MemRefsNormalizable
 | `scale` | floating-point
 | `seed` | floating-point
 
+### `krnl.seqextract` (::mlir::KrnlSeqExtractOp)
+
+Krnl load from a seq
+
+sequence is represented with memref<memref<>>.
+This op loads a tensor for the sequence 'seq' at position 'index',
+and return the tensor, which will be freed by Bufferization::Deallocation.
+The element in the sequence will become null.
+
+Interfaces: AllocationOpInterface, MemoryEffectOpInterface
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `seq` | memref of any type values
+| `index` | index
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | any type
+
+### `krnl.seqstore` (::mlir::KrnlSeqStoreOp)
+
+Krnl store into a seq
+
+sequence is represented with memref<memref<>>.
+This op will copy the tensor to be stored, and cast the type if needed.
+The motivation to introduce this Op is to help bufferization::deallocation
+The experiment showed that memref will be freed after the memref is stored.
+However, the store of memref only write out the pointer for the memref,
+and its memory cannot be freed.
+
+Traits: MemRefsNormalizable
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | any type
+| `seq` | memref of any type values
+| `index` | index
+
 ### `krnl.shape` (::mlir::KrnlShapeOp)
 
 Krnl operation to retreieve the shape of a MemRef.
