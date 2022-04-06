@@ -77,6 +77,7 @@ $(function() {
 <div class="contents">
 <div class="textblock"><code>#include &lt;stdbool.h&gt;</code><br />
 <code>#include &lt;malloc.h&gt;</code><br />
+<code>#include &quot;onnx-mlir/Compiler/OMCompilerMacros.h&quot;</code><br />
 <code>#include &quot;onnx-mlir/Runtime/OnnxDataType.h&quot;</code><br />
 </div>
 <p><a href="_o_m_tensor_8h_source.html">Go to the source code of this file.</a></p>
@@ -88,58 +89,58 @@ Typedefs</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:ae7465303dcf4e6b090f6ef7bf16bbe6a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#ae7465303dcf4e6b090f6ef7bf16bbe6a">omTensorCreate</a> (void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype)</td></tr>
-<tr class="memdesc:ae7465303dcf4e6b090f6ef7bf16bbe6a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a OMTensor with specified data pointer, shape, rank and element type.  <a href="_o_m_tensor_8h.html#ae7465303dcf4e6b090f6ef7bf16bbe6a">More...</a><br /></td></tr>
-<tr class="separator:ae7465303dcf4e6b090f6ef7bf16bbe6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aced13d48f1e6f1e856b4fa92780fdef4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#aced13d48f1e6f1e856b4fa92780fdef4">omTensorCreateWithOwnership</a> (void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype, int64_t owning)</td></tr>
-<tr class="memdesc:aced13d48f1e6f1e856b4fa92780fdef4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create an OMTensor with specified data pointer, shape, rank and element type, manually setting data ptr ownership.  <a href="_o_m_tensor_8h.html#aced13d48f1e6f1e856b4fa92780fdef4">More...</a><br /></td></tr>
-<tr class="separator:aced13d48f1e6f1e856b4fa92780fdef4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5e7b452b053fcdcbbb0d85deed59a314"><td class="memItemLeft" align="right" valign="top"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a5e7b452b053fcdcbbb0d85deed59a314">omTensorCreateEmpty</a> (int64_t *shape, int64_t rank, OM_DATA_TYPE dtype)</td></tr>
-<tr class="separator:a5e7b452b053fcdcbbb0d85deed59a314"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a425a838c94082f3c6287c80a658e5d31"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a425a838c94082f3c6287c80a658e5d31">omTensorDestroy</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
-<tr class="memdesc:a425a838c94082f3c6287c80a658e5d31"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destroy the OMTensor struct.  <a href="_o_m_tensor_8h.html#a425a838c94082f3c6287c80a658e5d31">More...</a><br /></td></tr>
-<tr class="separator:a425a838c94082f3c6287c80a658e5d31"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a08c52ae3ff05a7545ee28c3846ffc458"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a08c52ae3ff05a7545ee28c3846ffc458">omTensorGetDataPtr</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
-<tr class="memdesc:a08c52ae3ff05a7545ee28c3846ffc458"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data pointer getter.  <a href="_o_m_tensor_8h.html#a08c52ae3ff05a7545ee28c3846ffc458">More...</a><br /></td></tr>
-<tr class="separator:a08c52ae3ff05a7545ee28c3846ffc458"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a22275f5e1535977ddd92aeca91d802f5"><td class="memItemLeft" align="right" valign="top">int64_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a22275f5e1535977ddd92aeca91d802f5">omTensorGetShape</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
-<tr class="memdesc:a22275f5e1535977ddd92aeca91d802f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data shape getter.  <a href="_o_m_tensor_8h.html#a22275f5e1535977ddd92aeca91d802f5">More...</a><br /></td></tr>
-<tr class="separator:a22275f5e1535977ddd92aeca91d802f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4f8988bba03753b74375441fd942619b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a4f8988bba03753b74375441fd942619b">omTensorSetShape</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, int64_t *shape)</td></tr>
-<tr class="memdesc:a4f8988bba03753b74375441fd942619b"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data shape setter.  <a href="_o_m_tensor_8h.html#a4f8988bba03753b74375441fd942619b">More...</a><br /></td></tr>
-<tr class="separator:a4f8988bba03753b74375441fd942619b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4cc990d30be9dfd0e89b6b5de2c81404"><td class="memItemLeft" align="right" valign="top">int64_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a4cc990d30be9dfd0e89b6b5de2c81404">omTensorGetStrides</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
-<tr class="memdesc:a4cc990d30be9dfd0e89b6b5de2c81404"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data strides getter.  <a href="_o_m_tensor_8h.html#a4cc990d30be9dfd0e89b6b5de2c81404">More...</a><br /></td></tr>
-<tr class="separator:a4cc990d30be9dfd0e89b6b5de2c81404"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5814f2aebd685f424a5cc40aa9daef96"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a5814f2aebd685f424a5cc40aa9daef96">omTensorSetStrides</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, int64_t *stride)</td></tr>
-<tr class="memdesc:a5814f2aebd685f424a5cc40aa9daef96"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data strides setter.  <a href="_o_m_tensor_8h.html#a5814f2aebd685f424a5cc40aa9daef96">More...</a><br /></td></tr>
-<tr class="separator:a5814f2aebd685f424a5cc40aa9daef96"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aec08d2fb818b6b958229535db323653a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#aec08d2fb818b6b958229535db323653a">omTensorSetStridesWithPyArrayStrides</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, int64_t *stridesInBytes)</td></tr>
-<tr class="memdesc:aec08d2fb818b6b958229535db323653a"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data strides setter with stride values from PyArray strides.  <a href="_o_m_tensor_8h.html#aec08d2fb818b6b958229535db323653a">More...</a><br /></td></tr>
-<tr class="separator:aec08d2fb818b6b958229535db323653a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5546b8450f375aceef777b66d3dd2af3"><td class="memItemLeft" align="right" valign="top">OM_DATA_TYPE&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a5546b8450f375aceef777b66d3dd2af3">omTensorGetDataType</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
-<tr class="memdesc:a5546b8450f375aceef777b66d3dd2af3"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data type getter.  <a href="_o_m_tensor_8h.html#a5546b8450f375aceef777b66d3dd2af3">More...</a><br /></td></tr>
-<tr class="separator:a5546b8450f375aceef777b66d3dd2af3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7345ee1bac3a3d8f6040fc272ad72e1e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a7345ee1bac3a3d8f6040fc272ad72e1e">omTensorSetDataType</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, OM_DATA_TYPE dataType)</td></tr>
-<tr class="memdesc:a7345ee1bac3a3d8f6040fc272ad72e1e"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data type setter.  <a href="_o_m_tensor_8h.html#a7345ee1bac3a3d8f6040fc272ad72e1e">More...</a><br /></td></tr>
-<tr class="separator:a7345ee1bac3a3d8f6040fc272ad72e1e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae4664f46903958e9570b920221a797f5"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#ae4664f46903958e9570b920221a797f5">omTensorGetBufferSize</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
-<tr class="memdesc:ae4664f46903958e9570b920221a797f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor numerical data buffer size getter.  <a href="_o_m_tensor_8h.html#ae4664f46903958e9570b920221a797f5">More...</a><br /></td></tr>
-<tr class="separator:ae4664f46903958e9570b920221a797f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7b701366a20291d76492ff1c2fa73a06"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a7b701366a20291d76492ff1c2fa73a06">omTensorGetRank</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
-<tr class="memdesc:a7b701366a20291d76492ff1c2fa73a06"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor rank getter.  <a href="_o_m_tensor_8h.html#a7b701366a20291d76492ff1c2fa73a06">More...</a><br /></td></tr>
-<tr class="separator:a7b701366a20291d76492ff1c2fa73a06"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a65580283d2eefc744e7974f19697aa38"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a65580283d2eefc744e7974f19697aa38">omTensorGetNumElems</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
-<tr class="memdesc:a65580283d2eefc744e7974f19697aa38"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor number of elements getter.  <a href="_o_m_tensor_8h.html#a65580283d2eefc744e7974f19697aa38">More...</a><br /></td></tr>
-<tr class="separator:a65580283d2eefc744e7974f19697aa38"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac34c18cf3b39e27a3efab5ebe5191312"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#ac34c18cf3b39e27a3efab5ebe5191312">omTensorGetOwning</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
-<tr class="memdesc:ac34c18cf3b39e27a3efab5ebe5191312"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor owning flag getter.  <a href="_o_m_tensor_8h.html#ac34c18cf3b39e27a3efab5ebe5191312">More...</a><br /></td></tr>
-<tr class="separator:ac34c18cf3b39e27a3efab5ebe5191312"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a83b1068f9644d6244616055494928614"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a83b1068f9644d6244616055494928614">omTensorSetOwning</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, int64_t owning)</td></tr>
-<tr class="memdesc:a83b1068f9644d6244616055494928614"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor owning flag setter.  <a href="_o_m_tensor_8h.html#a83b1068f9644d6244616055494928614">More...</a><br /></td></tr>
-<tr class="separator:a83b1068f9644d6244616055494928614"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a08469a4d63d12959f98ad77a611ffa24"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a08469a4d63d12959f98ad77a611ffa24">omTensorPrint</a> (const char *msg, const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
-<tr class="separator:a08469a4d63d12959f98ad77a611ffa24"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaa67f6567279688ddadf16796646b4d6"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#aaa67f6567279688ddadf16796646b4d6">omTensorCreate</a> (void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype)</td></tr>
+<tr class="memdesc:aaa67f6567279688ddadf16796646b4d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a OMTensor with specified data pointer, shape, rank and element type.  <a href="_o_m_tensor_8h.html#aaa67f6567279688ddadf16796646b4d6">More...</a><br /></td></tr>
+<tr class="separator:aaa67f6567279688ddadf16796646b4d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a63a9ca55154cf9971978654d1da91d38"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a63a9ca55154cf9971978654d1da91d38">omTensorCreateWithOwnership</a> (void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype, int64_t owning)</td></tr>
+<tr class="memdesc:a63a9ca55154cf9971978654d1da91d38"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create an OMTensor with specified data pointer, shape, rank and element type, manually setting data ptr ownership.  <a href="_o_m_tensor_8h.html#a63a9ca55154cf9971978654d1da91d38">More...</a><br /></td></tr>
+<tr class="separator:a63a9ca55154cf9971978654d1da91d38"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0156a7c3a213b758254ffbf9daf8b9b7"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a0156a7c3a213b758254ffbf9daf8b9b7">omTensorCreateEmpty</a> (int64_t *shape, int64_t rank, OM_DATA_TYPE dtype)</td></tr>
+<tr class="separator:a0156a7c3a213b758254ffbf9daf8b9b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee6f0d4c60d11e8f36dc4dc645337bfd"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#aee6f0d4c60d11e8f36dc4dc645337bfd">omTensorDestroy</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
+<tr class="memdesc:aee6f0d4c60d11e8f36dc4dc645337bfd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destroy the OMTensor struct.  <a href="_o_m_tensor_8h.html#aee6f0d4c60d11e8f36dc4dc645337bfd">More...</a><br /></td></tr>
+<tr class="separator:aee6f0d4c60d11e8f36dc4dc645337bfd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ada9e09172c4f447d534b883559669ae4"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#ada9e09172c4f447d534b883559669ae4">omTensorGetDataPtr</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
+<tr class="memdesc:ada9e09172c4f447d534b883559669ae4"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data pointer getter.  <a href="_o_m_tensor_8h.html#ada9e09172c4f447d534b883559669ae4">More...</a><br /></td></tr>
+<tr class="separator:ada9e09172c4f447d534b883559669ae4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abcbf76fca5d682b501c8d6d6118bd73e"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY int64_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#abcbf76fca5d682b501c8d6d6118bd73e">omTensorGetShape</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
+<tr class="memdesc:abcbf76fca5d682b501c8d6d6118bd73e"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data shape getter.  <a href="_o_m_tensor_8h.html#abcbf76fca5d682b501c8d6d6118bd73e">More...</a><br /></td></tr>
+<tr class="separator:abcbf76fca5d682b501c8d6d6118bd73e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4af07a5e74ee89ae62cbf3dd32241cfc"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a4af07a5e74ee89ae62cbf3dd32241cfc">omTensorSetShape</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, int64_t *shape)</td></tr>
+<tr class="memdesc:a4af07a5e74ee89ae62cbf3dd32241cfc"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data shape setter.  <a href="_o_m_tensor_8h.html#a4af07a5e74ee89ae62cbf3dd32241cfc">More...</a><br /></td></tr>
+<tr class="separator:a4af07a5e74ee89ae62cbf3dd32241cfc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a68ea76ce766fa33386459871c683d529"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY int64_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a68ea76ce766fa33386459871c683d529">omTensorGetStrides</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
+<tr class="memdesc:a68ea76ce766fa33386459871c683d529"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data strides getter.  <a href="_o_m_tensor_8h.html#a68ea76ce766fa33386459871c683d529">More...</a><br /></td></tr>
+<tr class="separator:a68ea76ce766fa33386459871c683d529"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa60a5904afc45f264371b23f77b11525"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#aa60a5904afc45f264371b23f77b11525">omTensorSetStrides</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, int64_t *stride)</td></tr>
+<tr class="memdesc:aa60a5904afc45f264371b23f77b11525"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data strides setter.  <a href="_o_m_tensor_8h.html#aa60a5904afc45f264371b23f77b11525">More...</a><br /></td></tr>
+<tr class="separator:aa60a5904afc45f264371b23f77b11525"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abcf6b835aa8c600844d1d588e4dc7a94"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#abcf6b835aa8c600844d1d588e4dc7a94">omTensorSetStridesWithPyArrayStrides</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, int64_t *stridesInBytes)</td></tr>
+<tr class="memdesc:abcf6b835aa8c600844d1d588e4dc7a94"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data strides setter with stride values from PyArray strides.  <a href="_o_m_tensor_8h.html#abcf6b835aa8c600844d1d588e4dc7a94">More...</a><br /></td></tr>
+<tr class="separator:abcf6b835aa8c600844d1d588e4dc7a94"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae2d2de3f38d13171d8420993bc05b087"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY OM_DATA_TYPE&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#ae2d2de3f38d13171d8420993bc05b087">omTensorGetDataType</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
+<tr class="memdesc:ae2d2de3f38d13171d8420993bc05b087"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data type getter.  <a href="_o_m_tensor_8h.html#ae2d2de3f38d13171d8420993bc05b087">More...</a><br /></td></tr>
+<tr class="separator:ae2d2de3f38d13171d8420993bc05b087"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2db42a2e857e0943429da16ac8dc9865"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a2db42a2e857e0943429da16ac8dc9865">omTensorSetDataType</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, OM_DATA_TYPE dataType)</td></tr>
+<tr class="memdesc:a2db42a2e857e0943429da16ac8dc9865"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data type setter.  <a href="_o_m_tensor_8h.html#a2db42a2e857e0943429da16ac8dc9865">More...</a><br /></td></tr>
+<tr class="separator:a2db42a2e857e0943429da16ac8dc9865"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adef64e21a204f8d505df77fb438f4d90"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#adef64e21a204f8d505df77fb438f4d90">omTensorGetBufferSize</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
+<tr class="memdesc:adef64e21a204f8d505df77fb438f4d90"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor numerical data buffer size getter.  <a href="_o_m_tensor_8h.html#adef64e21a204f8d505df77fb438f4d90">More...</a><br /></td></tr>
+<tr class="separator:adef64e21a204f8d505df77fb438f4d90"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a892cdaf405ed5991c5597ef28e390e06"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a892cdaf405ed5991c5597ef28e390e06">omTensorGetRank</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
+<tr class="memdesc:a892cdaf405ed5991c5597ef28e390e06"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor rank getter.  <a href="_o_m_tensor_8h.html#a892cdaf405ed5991c5597ef28e390e06">More...</a><br /></td></tr>
+<tr class="separator:a892cdaf405ed5991c5597ef28e390e06"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a839c5f68f9d827a27a24b92835722015"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a839c5f68f9d827a27a24b92835722015">omTensorGetNumElems</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
+<tr class="memdesc:a839c5f68f9d827a27a24b92835722015"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor number of elements getter.  <a href="_o_m_tensor_8h.html#a839c5f68f9d827a27a24b92835722015">More...</a><br /></td></tr>
+<tr class="separator:a839c5f68f9d827a27a24b92835722015"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac97739d73591c02201b367c84b79945c"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#ac97739d73591c02201b367c84b79945c">omTensorGetOwning</a> (const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
+<tr class="memdesc:ac97739d73591c02201b367c84b79945c"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor owning flag getter.  <a href="_o_m_tensor_8h.html#ac97739d73591c02201b367c84b79945c">More...</a><br /></td></tr>
+<tr class="separator:ac97739d73591c02201b367c84b79945c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afd85d4282220ce580b405a7deb10de21"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#afd85d4282220ce580b405a7deb10de21">omTensorSetOwning</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, int64_t owning)</td></tr>
+<tr class="memdesc:afd85d4282220ce580b405a7deb10de21"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor owning flag setter.  <a href="_o_m_tensor_8h.html#afd85d4282220ce580b405a7deb10de21">More...</a><br /></td></tr>
+<tr class="separator:afd85d4282220ce580b405a7deb10de21"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab33a7d641c4c4a115228ecd238a138ff"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#ab33a7d641c4c4a115228ecd238a138ff">omTensorPrint</a> (const char *msg, const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
+<tr class="separator:ab33a7d641c4c4a115228ecd238a138ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Typedef Documentation</h2>
 <a id="a7099d0375d9023e04c7fe5b651ee079e"></a>
@@ -157,14 +158,14 @@ Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Function Documentation</h2>
-<a id="ae7465303dcf4e6b090f6ef7bf16bbe6a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae7465303dcf4e6b090f6ef7bf16bbe6a">&#9670;&nbsp;</a></span>omTensorCreate()</h2>
+<a id="aaa67f6567279688ddadf16796646b4d6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaa67f6567279688ddadf16796646b4d6">&#9670;&nbsp;</a></span>omTensorCreate()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a>* omTensorCreate </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a>* omTensorCreate </td>
           <td>(</td>
           <td class="paramtype">void *&#160;</td>
           <td class="paramname"><em>data_ptr</em>, </td>
@@ -211,14 +212,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a5e7b452b053fcdcbbb0d85deed59a314"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5e7b452b053fcdcbbb0d85deed59a314">&#9670;&nbsp;</a></span>omTensorCreateEmpty()</h2>
+<a id="a0156a7c3a213b758254ffbf9daf8b9b7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0156a7c3a213b758254ffbf9daf8b9b7">&#9670;&nbsp;</a></span>omTensorCreateEmpty()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a>* omTensorCreateEmpty </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a>* omTensorCreateEmpty </td>
           <td>(</td>
           <td class="paramtype">int64_t *&#160;</td>
           <td class="paramname"><em>shape</em>, </td>
@@ -257,14 +258,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="aced13d48f1e6f1e856b4fa92780fdef4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aced13d48f1e6f1e856b4fa92780fdef4">&#9670;&nbsp;</a></span>omTensorCreateWithOwnership()</h2>
+<a id="a63a9ca55154cf9971978654d1da91d38"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a63a9ca55154cf9971978654d1da91d38">&#9670;&nbsp;</a></span>omTensorCreateWithOwnership()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a>* omTensorCreateWithOwnership </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a>* omTensorCreateWithOwnership </td>
           <td>(</td>
           <td class="paramtype">void *&#160;</td>
           <td class="paramname"><em>data_ptr</em>, </td>
@@ -318,14 +319,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a425a838c94082f3c6287c80a658e5d31"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a425a838c94082f3c6287c80a658e5d31">&#9670;&nbsp;</a></span>omTensorDestroy()</h2>
+<a id="aee6f0d4c60d11e8f36dc4dc645337bfd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aee6f0d4c60d11e8f36dc4dc645337bfd">&#9670;&nbsp;</a></span>omTensorDestroy()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void omTensorDestroy </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY void omTensorDestroy </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em></td><td>)</td>
@@ -345,14 +346,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ae4664f46903958e9570b920221a797f5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae4664f46903958e9570b920221a797f5">&#9670;&nbsp;</a></span>omTensorGetBufferSize()</h2>
+<a id="adef64e21a204f8d505df77fb438f4d90"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adef64e21a204f8d505df77fb438f4d90">&#9670;&nbsp;</a></span>omTensorGetBufferSize()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int64_t omTensorGetBufferSize </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY int64_t omTensorGetBufferSize </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em></td><td>)</td>
@@ -372,14 +373,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a08c52ae3ff05a7545ee28c3846ffc458"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a08c52ae3ff05a7545ee28c3846ffc458">&#9670;&nbsp;</a></span>omTensorGetDataPtr()</h2>
+<a id="ada9e09172c4f447d534b883559669ae4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ada9e09172c4f447d534b883559669ae4">&#9670;&nbsp;</a></span>omTensorGetDataPtr()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void* omTensorGetDataPtr </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY void* omTensorGetDataPtr </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em></td><td>)</td>
@@ -399,14 +400,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a5546b8450f375aceef777b66d3dd2af3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5546b8450f375aceef777b66d3dd2af3">&#9670;&nbsp;</a></span>omTensorGetDataType()</h2>
+<a id="ae2d2de3f38d13171d8420993bc05b087"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae2d2de3f38d13171d8420993bc05b087">&#9670;&nbsp;</a></span>omTensorGetDataType()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">OM_DATA_TYPE omTensorGetDataType </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY OM_DATA_TYPE omTensorGetDataType </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em></td><td>)</td>
@@ -427,14 +428,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a65580283d2eefc744e7974f19697aa38"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a65580283d2eefc744e7974f19697aa38">&#9670;&nbsp;</a></span>omTensorGetNumElems()</h2>
+<a id="a839c5f68f9d827a27a24b92835722015"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a839c5f68f9d827a27a24b92835722015">&#9670;&nbsp;</a></span>omTensorGetNumElems()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int64_t omTensorGetNumElems </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY int64_t omTensorGetNumElems </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em></td><td>)</td>
@@ -454,14 +455,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ac34c18cf3b39e27a3efab5ebe5191312"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac34c18cf3b39e27a3efab5ebe5191312">&#9670;&nbsp;</a></span>omTensorGetOwning()</h2>
+<a id="ac97739d73591c02201b367c84b79945c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac97739d73591c02201b367c84b79945c">&#9670;&nbsp;</a></span>omTensorGetOwning()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int64_t omTensorGetOwning </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY int64_t omTensorGetOwning </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em></td><td>)</td>
@@ -475,14 +476,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a7b701366a20291d76492ff1c2fa73a06"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7b701366a20291d76492ff1c2fa73a06">&#9670;&nbsp;</a></span>omTensorGetRank()</h2>
+<a id="a892cdaf405ed5991c5597ef28e390e06"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a892cdaf405ed5991c5597ef28e390e06">&#9670;&nbsp;</a></span>omTensorGetRank()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int64_t omTensorGetRank </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY int64_t omTensorGetRank </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em></td><td>)</td>
@@ -502,14 +503,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a22275f5e1535977ddd92aeca91d802f5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a22275f5e1535977ddd92aeca91d802f5">&#9670;&nbsp;</a></span>omTensorGetShape()</h2>
+<a id="abcbf76fca5d682b501c8d6d6118bd73e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abcbf76fca5d682b501c8d6d6118bd73e">&#9670;&nbsp;</a></span>omTensorGetShape()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int64_t* omTensorGetShape </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY int64_t* omTensorGetShape </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em></td><td>)</td>
@@ -531,14 +532,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a4cc990d30be9dfd0e89b6b5de2c81404"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4cc990d30be9dfd0e89b6b5de2c81404">&#9670;&nbsp;</a></span>omTensorGetStrides()</h2>
+<a id="a68ea76ce766fa33386459871c683d529"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a68ea76ce766fa33386459871c683d529">&#9670;&nbsp;</a></span>omTensorGetStrides()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int64_t* omTensorGetStrides </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY int64_t* omTensorGetStrides </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em></td><td>)</td>
@@ -560,14 +561,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a08469a4d63d12959f98ad77a611ffa24"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a08469a4d63d12959f98ad77a611ffa24">&#9670;&nbsp;</a></span>omTensorPrint()</h2>
+<a id="ab33a7d641c4c4a115228ecd238a138ff"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab33a7d641c4c4a115228ecd238a138ff">&#9670;&nbsp;</a></span>omTensorPrint()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void omTensorPrint </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY void omTensorPrint </td>
           <td>(</td>
           <td class="paramtype">const char *&#160;</td>
           <td class="paramname"><em>msg</em>, </td>
@@ -596,14 +597,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a7345ee1bac3a3d8f6040fc272ad72e1e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7345ee1bac3a3d8f6040fc272ad72e1e">&#9670;&nbsp;</a></span>omTensorSetDataType()</h2>
+<a id="a2db42a2e857e0943429da16ac8dc9865"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2db42a2e857e0943429da16ac8dc9865">&#9670;&nbsp;</a></span>omTensorSetDataType()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void omTensorSetDataType </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY void omTensorSetDataType </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em>, </td>
@@ -635,14 +636,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a83b1068f9644d6244616055494928614"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a83b1068f9644d6244616055494928614">&#9670;&nbsp;</a></span>omTensorSetOwning()</h2>
+<a id="afd85d4282220ce580b405a7deb10de21"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afd85d4282220ce580b405a7deb10de21">&#9670;&nbsp;</a></span>omTensorSetOwning()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void omTensorSetOwning </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY void omTensorSetOwning </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em>, </td>
@@ -665,14 +666,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a4f8988bba03753b74375441fd942619b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4f8988bba03753b74375441fd942619b">&#9670;&nbsp;</a></span>omTensorSetShape()</h2>
+<a id="a4af07a5e74ee89ae62cbf3dd32241cfc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4af07a5e74ee89ae62cbf3dd32241cfc">&#9670;&nbsp;</a></span>omTensorSetShape()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void omTensorSetShape </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY void omTensorSetShape </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em>, </td>
@@ -705,14 +706,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a5814f2aebd685f424a5cc40aa9daef96"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5814f2aebd685f424a5cc40aa9daef96">&#9670;&nbsp;</a></span>omTensorSetStrides()</h2>
+<a id="aa60a5904afc45f264371b23f77b11525"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa60a5904afc45f264371b23f77b11525">&#9670;&nbsp;</a></span>omTensorSetStrides()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void omTensorSetStrides </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY void omTensorSetStrides </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em>, </td>
@@ -745,14 +746,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="aec08d2fb818b6b958229535db323653a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aec08d2fb818b6b958229535db323653a">&#9670;&nbsp;</a></span>omTensorSetStridesWithPyArrayStrides()</h2>
+<a id="abcf6b835aa8c600844d1d588e4dc7a94"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abcf6b835aa8c600844d1d588e4dc7a94">&#9670;&nbsp;</a></span>omTensorSetStridesWithPyArrayStrides()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void omTensorSetStridesWithPyArrayStrides </td>
+          <td class="memname">OM_EXTERNAL_VISIBILITY void omTensorSetStridesWithPyArrayStrides </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
           <td class="paramname"><em>tensor</em>, </td>
