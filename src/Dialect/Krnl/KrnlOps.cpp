@@ -455,15 +455,11 @@ void KrnlRegionOp::build(OpBuilder &builder, OperationState &result,
 
   Region *bodyRegion = result.addRegion();
   auto *body = new Block();
-  auto body_args = llvm::SmallVector<Type, 4>();
-  auto body_arg_locs = llvm::SmallVector<Location, 4>();
+  llvm::SmallVector<Type, 4> body_args;
+  llvm::SmallVector<Location, 4> body_arg_locs;
   body->addArguments(body_args, body_arg_locs);
   bodyRegion->push_back(body);
 
-  // If nonnull, invoke the lambda function that creates the loop body. This
-  // feature is used to build structured operations using lambda. Parameters
-  // to the functions are the builder, location, and arguments passed as
-  // iterArgs.
   if (bodyBuilderFn) {
     PatternRewriter::InsertionGuard insertGuard(builder);
     builder.setInsertionPointToStart(body);
