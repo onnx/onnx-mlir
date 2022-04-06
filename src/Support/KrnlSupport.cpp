@@ -15,7 +15,8 @@
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
-using namespace onnx_mlir;
+
+namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
 // Return various operations.
@@ -458,3 +459,5 @@ bool liveRangeIsContained(Operation *firstOp, Operation *lastOp,
   return opBeforeOp(topLevelBlock, firstOp, liveRangeFirstOp) &&
          opBeforeOp(topLevelBlock, liveRangeLastOp, lastOp);
 }
+
+} // namespace onnx_mlir

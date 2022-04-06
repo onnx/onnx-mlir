@@ -17,6 +17,10 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 struct ONNXScanOpLowering : public ConversionPattern {
   explicit ONNXScanOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -40,8 +44,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
     allocateMemoryForScanOutput(loc, rewriter, op, scanOpAdapter, outputs);
 
     // Copy content of vInit to vFinal, which is used to host intermediate
-    // values produced by scan body function invocation in a scope accessible by
-    // all scan iterations.
+    // values produced by scan body function invocation in a scope accessible
+    // by all scan iterations.
     int64_t numInputs = scanOp.num_scan_inputs();
     auto v_initials =
         llvm::make_range(operands.begin(), operands.end() - numInputs);
@@ -55,7 +59,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
     Value maxTripCount = createMemRef.dim(*inputOperands.begin(), 0);
 
     // Create the scan iteration.
-    BuildKrnlLoop loop(rewriter, loc, 1);
+    krnl::BuildKrnlLoop loop(rewriter, loc, 1);
     loop.createDefineOp();
     loop.pushBounds(0, maxTripCount);
     loop.createIterateOp();
@@ -102,8 +106,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
 
       // Split the insertion block into two, where the second block
       // `postInsertBlock` contains only the terminator operation, insert scan
-      // body right before `postInsertBlock`, after all other operations created
-      // within the if Op.
+      // body right before `postInsertBlock`, after all other operations
+      // created within the if Op.
       Block *postInsertBlock =
           loopBodyBlock->splitBlock(loopBodyBlock->getTerminator());
       assert(scanBody.getBlocks().size() == 1 &&
@@ -150,8 +154,9 @@ struct ONNXScanOpLowering : public ConversionPattern {
                              .getResult(0);
       }
 
-      // Copy intermediate values of scan carried dependencies to MemRef outside
-      // the iteration scope so next iteration can have use them as init value.
+      // Copy intermediate values of scan carried dependencies to MemRef
+      // outside the iteration scope so next iteration can have use them as
+      // init value.
       auto vIntermediate = llvm::make_range(
           bodyOutputs.begin(), bodyOutputs.begin() + scanOp.v_initial().size());
       for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
@@ -197,8 +202,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
       auto vFinal = std::get<1>(ioPair);
 
       // Allocate memory for the loop-carried dependencies, since they are
-      // guaranteed to have the same shape throughout all iterations, use their
-      // initial value tensors as reference when allocating memory.
+      // guaranteed to have the same shape throughout all iterations, use
+      // their initial value tensors as reference when allocating memory.
       auto memRefType = convertToMemRefType(vFinal.getType());
       Value alloc;
       bool shouldDealloc = checkInsertDealloc(op);
@@ -218,9 +223,9 @@ struct ONNXScanOpLowering : public ConversionPattern {
     for (const auto &opScanOutput : scanOp.scan_outputs()) {
       // Allocate memory for the scan outputs. There're no good "reference"
       // shape for scan outputs. So if the scan outputs do not have constant
-      // dimensions in all except the leading dimensions, we simply give up. The
-      // leading dimension is simply the number of iterations executed, which is
-      // easier to obtain.
+      // dimensions in all except the leading dimensions, we simply give up.
+      // The leading dimension is simply the number of iterations executed,
+      // which is easier to obtain.
       auto memRefType = convertToMemRefType(opScanOutput.getType());
       Value alloc;
       bool shouldDealloc = checkInsertDealloc(op);
@@ -235,9 +240,9 @@ struct ONNXScanOpLowering : public ConversionPattern {
           if (rankedScanOutTy.getShape()[i] == -1) {
             if (i == 0) {
               // TODO(tjingrant): in general, it is not correct to expect
-              // scan operation scan output to have the leading dimension extent
-              // equal to the max trip count, due to the possibility of early
-              // termination.
+              // scan operation scan output to have the leading dimension
+              // extent equal to the max trip count, due to the possibility of
+              // early termination.
               auto dim = createMemRef.dim(scanOp.scan_inputs().front(), 0);
               allocParams.emplace_back(dim);
             } else {
@@ -266,9 +271,9 @@ struct ONNXScanOpLowering : public ConversionPattern {
     Value alloc;
     assert(hasAllConstantDimensions(memRefType) &&
            "Body scan input must have constant shape.");
-    // TODO(tjingrant): figure out why insertDealloc=1 doesn't work. Our current
-    // mechanism for pulling the dealloc to the end of function doesn't work
-    // alongside subgraph inlining.
+    // TODO(tjingrant): figure out why insertDealloc=1 doesn't work. Our
+    // current mechanism for pulling the dealloc to the end of function
+    // doesn't work alongside subgraph inlining.
     alloc =
         insertAllocAndDealloc(memRefType, loc, rewriter, /*insertDealloc=*/0);
     return alloc;
@@ -279,8 +284,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
   // writePrefix enables copying to a contiguous subtensor of the same shape
   // within dest. For instance, we can copy a (4x2) tensor as the first tensor
   // into a higher dimensional tensor with shape (10x4x2), i.e., a batch of 10
-  // tensors, each with shape (4x2). To do so, we can invoke emitCopy(src, dest,
-  // {0}).
+  // tensors, each with shape (4x2). To do so, we can invoke emitCopy(src,
+  // dest, {0}).
   static void emitCopy(OpBuilder &builder, const Location &loc,
       const Value &src, const Value &dest,
       std::vector<Value> writePrefix = {}) {
@@ -289,7 +294,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
     auto srcTy = src.getType().cast<MemRefType>();
     SmallVector<Value, 4> readIV;
     if (srcTy.getRank() > 0) {
-      BuildKrnlLoop loop(builder, loc, srcTy.getRank());
+      krnl::BuildKrnlLoop loop(builder, loc, srcTy.getRank());
       loop.createDefineOp();
       for (int i = 0; i < srcTy.getRank(); i++)
         loop.pushBounds(0, src, i);
@@ -315,7 +320,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
     SmallVector<Value, 4> readIV(readPrefix.begin(), readPrefix.end());
     SmallVector<Value, 4> writeIV;
     if ((size_t)srcTy.getRank() > readIV.size()) {
-      BuildKrnlLoop loop(builder, loc, srcTy.getRank() - readPrefix.size());
+      krnl::BuildKrnlLoop loop(
+          builder, loc, srcTy.getRank() - readPrefix.size());
       loop.createDefineOp();
       for (int i = readIV.size(); i < srcTy.getRank(); i++)
         loop.pushBounds(0, src, i);
@@ -336,3 +342,4 @@ void populateLoweringONNXScanOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXScanOpLowering>(typeConverter, ctx);
 }
+} // namespace onnx_mlir

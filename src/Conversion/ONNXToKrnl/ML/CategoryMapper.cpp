@@ -22,12 +22,11 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
-using namespace mlir;
-using namespace onnx_mlir;
-using llvm::dbgs;
-
 #define DEBUG_TYPE "category_mapper_onnx_to_krnl"
 
+using namespace mlir;
+
+namespace onnx_mlir {
 struct ONNXCategoryMapperOpLowering : public ConversionPattern {
   using PerfectHashTable = struct {
     Value G;
@@ -48,8 +47,8 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     ONNXCategoryMapperOpAdaptor operandAdaptor(operands);
 
     ONNXCategoryMapperOpShapeHelper shapeHelper(&categoryMapperOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     LogicalResult shapeComputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapeComputed;
     assert(succeeded(shapeComputed) && "Could not compute output shape");
@@ -159,7 +158,7 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     LLVM_DEBUG({
       FuncOp function = getContainingFunction(op);
       assert(function && "Could not find parent function");
-      dbgs() << "function:\n" << function << "\n";
+      llvm::dbgs() << "function:\n" << function << "\n";
     });
 
     return success();
@@ -342,3 +341,5 @@ void populateLoweringONNXCategoryMapperOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXCategoryMapperOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

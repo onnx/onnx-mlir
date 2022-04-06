@@ -18,6 +18,10 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 struct ONNXLoopOpLowering : public ConversionPattern {
   explicit ONNXLoopOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -59,7 +63,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     emitCopy(rewriter, loc, loopOpAdapter.cond(), cond);
 
     // Create the loop iteration.
-    BuildKrnlLoop loop(rewriter, loc, 1);
+    krnl::BuildKrnlLoop loop(rewriter, loc, 1);
     loop.createDefineOp();
     KrnlBuilder createKrnl(rewriter, loc);
     Value maxTripCount = createKrnl.load(loopOpAdapter.M());
@@ -77,6 +81,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       Value condReg = createKrnl.load(cond);
       auto ifOp = rewriter.create<scf::IfOp>(loc, condReg, false);
       rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
+
+      // Contain the ThenRegion with KrnlRegionOp
+      // The krnl loop inside may use symbol computed in LoopOp body
+      KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+      rewriter.setInsertionPointToStart(&regionOp.bodyRegion().front());
 
       // Create a scalar tensor out of loop iteration variable, as the first
       // argument passed to the body graph function.
@@ -105,6 +114,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         mapper.map(regionArg, params[i]);
       }
 
+      // Previous code is intended to create the loop body without RegionOp
+      // Current code just splice the loopBody into the RegionOp after it was
+      // built.
+      // ToDo: code could be simplified if not built on top of the previous code
+
       auto &thenRegion = ifOp.getThenRegion();
       auto &thenBlock = thenRegion.front();
 
@@ -117,6 +131,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
              "Currently only support loop body with 1 block.");
       thenRegion.getBlocks().splice(
           postInsertBlock->getIterator(), loopBody.getBlocks());
+
       auto newBlocks = llvm::make_range(
           std::next(thenBlock.getIterator()), postInsertBlock->getIterator());
       auto &loopBodyBlock = *newBlocks.begin();
@@ -135,7 +150,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       auto resultsRange =
           llvm::SmallVector<Value, 4>(loopBodyTerminator->getOperands().begin(),
               loopBodyTerminator->getOperands().end());
-      rewriter.setInsertionPointToStart(postInsertBlock);
+
+      // Add the loop end code into the loopBodyBlock
+      // Previous code adds them to postInsertBlock
+      // rewriter.setInsertionPointToStart(postInsertBlock);
+      rewriter.setInsertionPointToEnd(&loopBodyBlock);
 
       // Cast loop body outputs from tensor type to memref type in case it has
       // not already been lowered. Eventually, 'UnrealizedConversionCastOp'
@@ -196,14 +215,14 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // Remove loop body terminator op.
       rewriter.eraseOp(loopBodyTerminator);
 
-      // Merge the post insert block into the cloned entry block.
-      loopBodyBlock.getOperations().splice(
-          loopBodyBlock.end(), postInsertBlock->getOperations());
+      // Merge the post block (with only Terminator) into the thenBody
+      thenBlock.getOperations().splice(
+          thenBlock.end(), postInsertBlock->getOperations());
       rewriter.eraseBlock(postInsertBlock);
 
-      // Merge the loop body block into the then block.
-      thenBlock.getOperations().splice(
-          thenBlock.end(), loopBodyBlock.getOperations());
+      // Merge the loop body block into the RegionOp.
+      regionOp.bodyRegion().front().getOperations().splice(
+          regionOp.bodyRegion().front().end(), loopBodyBlock.getOperations());
       rewriter.eraseBlock(&loopBodyBlock);
     }
 
@@ -238,12 +257,16 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             shape, firstElement.getType().cast<MemRefType>().getElementType());
         auto alloc = create.mem.alignedAlloc(flatType, allocParams);
         // copy the value
-        BuildKrnlLoop loop(rewriter, loc, 1);
+        krnl::BuildKrnlLoop loop(rewriter, loc, 1);
         loop.createDefineOp();
         loop.pushBounds(0, maxTripCount);
         loop.createIterateOp();
         auto afterCopyLoop = rewriter.saveInsertionPoint();
         rewriter.setInsertionPointToStart(loop.getIterateBlock());
+        // Wrap with KrnlRegionOp because emitCopy uses the result of SeqExtract
+        // for loop bound.
+        KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+        rewriter.setInsertionPointToStart(&regionOp.bodyRegion().front());
         Value origIV = loop.getInductionVar(0);
         auto src = rewriter.create<KrnlSeqExtractOp>(
             loc, seqElementType, output, origIV);
@@ -368,7 +391,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     auto srcTy = src.getType().cast<MemRefType>();
     SmallVector<Value, 4> readIV;
     if (srcTy.getRank() > 0) {
-      BuildKrnlLoop loop(rewriter, loc, srcTy.getRank());
+      krnl::BuildKrnlLoop loop(rewriter, loc, srcTy.getRank());
       // Do not create defineLoo
       loop.createDefineOp();
       for (int i = 0; i < srcTy.getRank(); i++)
@@ -390,3 +413,5 @@ void populateLoweringONNXLoopOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXLoopOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

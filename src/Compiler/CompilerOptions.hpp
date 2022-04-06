@@ -28,6 +28,7 @@ extern llvm::cl::opt<bool> invokeOnnxVersionConverter;
 extern llvm::cl::opt<bool> preserveLocations;
 extern llvm::cl::opt<bool> printIR;
 extern llvm::cl::opt<bool> preserveBitcode;
+extern llvm::cl::opt<bool> preserveLLVMIR;
 extern llvm::cl::opt<bool> preserveMLIR;
 extern llvm::cl::opt<bool> useOnnxModelTypes;
 extern llvm::cl::opt<int> repeatOnnxTransform;

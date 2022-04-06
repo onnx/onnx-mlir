@@ -29,6 +29,8 @@ static constexpr int BUFFER_ALIGN = 128;
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 template <typename GemmOp>
 struct ONNXGemmOpLowering : public ConversionPattern {
   ONNXGemmOpLowering(
@@ -314,8 +316,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
     Location loc = op->getLoc();
     ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
@@ -383,3 +385,5 @@ void populateLoweringONNXGemmOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(
       typeConverter, ctx, enableTiling);
 }
+
+} // namespace onnx_mlir
