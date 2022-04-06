@@ -1,4 +1,3 @@
-// RUN: cp %s.def %t.def
 // RUN: onnx-mlir --preserveBitcode %s -o %t
 // RUN: llvm-dis %t.bc -o %t.ll
 // RUN: cat %t.ll | FileCheck %s

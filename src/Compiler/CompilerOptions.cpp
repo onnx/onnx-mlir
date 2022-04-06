@@ -43,6 +43,10 @@ llvm::cl::opt<bool> preserveBitcode("preserveBitcode",
         "dont delete the bitcode files (optimized and unoptimized):"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> preserveLLVMIR("preserveLLVMIR",
+    llvm::cl::desc("dont delete the LLVMIR files:"), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<bool> preserveMLIR("preserveMLIR",
     llvm::cl::desc("dont delete the MLIR files (input and llvm):"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
