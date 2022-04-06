@@ -122,6 +122,10 @@ public:
                  << "\n"
                  << pads << "\n"
                  << "\n";
+    llvm::outs() << "constant_value "
+                 << "\n"
+                 << const_value << "\n"
+                 << "\n";
 
     DenseElementsAttr denseAttr = getDenseElementAttributeFromONNXValue(pads);
 
@@ -133,26 +137,29 @@ public:
     // Rearrange the pad values.
     // ONNX : b1, e1, b2, e2, b3, e3, b4, e4
     // TORCH : b1, b2, b3, b4, e1, e2, e3, e4
+    // TORCH : b4, b3, b2, b1, e4, e3, e2, e1
     dim_pads dimArray[intValues.size()];
     std::vector<Value> translatepadsList;
     auto ty = IntegerType::get(op1.getContext(), 64);
     if (intValues.size() != 0) {
-      int j = 0;
-      for (unsigned int i = 0; i < intValues.size(); i++) {
-        dimArray[j].dim_start = intValues[i].getZExtValue();
-        i++;
-        dimArray[j].dim_end = intValues[i].getZExtValue();
-        j++;
+      unsigned int dim_size = intValues.size() / 2;
+      int j = dim_size - 1;
+      unsigned int last_non_zero = 0;
+      for (unsigned int i = 0; i < dim_size; i++) {
+        dimArray[i].dim_start = intValues[j].getZExtValue();
+        dimArray[i].dim_end = intValues[j + dim_size].getZExtValue();
+        if (dimArray[i].dim_start != 0 || dimArray[i].dim_end != 0)
+          last_non_zero = i;
+        --j;
       }
 
-      int dim_size = intValues.size() / 2;
       // read the onnx pad values from array(dim_start values)
-      for (unsigned int i = 0; i < dim_size; i++) {
-        auto f0 = IntegerAttr::get(ty, (dimArray[dim_size - 1 - i].dim_start));
+      for (unsigned int i = 0; i < last_non_zero + 1; i++) {
+        auto f0 = IntegerAttr::get(ty, (dimArray[i].dim_start));
         Value p0v = rewriter.create<ConstantIntOp>(loc, f0);
         translatepadsList.push_back(p0v);
 
-        auto f1 = IntegerAttr::get(ty, (dimArray[dim_size - 1 - i].dim_end));
+        auto f1 = IntegerAttr::get(ty, (dimArray[i].dim_end));
         Value p1v = rewriter.create<ConstantIntOp>(loc, f1);
         translatepadsList.push_back(p1v);
       }
@@ -176,7 +183,6 @@ public:
     }
 
     TensorType data_tensor_type = data.getType().cast<TensorType>();
-    TensorType const_val_tensor_type = const_value.getType().cast<TensorType>();
 
     llvm::outs() << "data type "
                  << "\n"
@@ -189,13 +195,15 @@ public:
 
     auto dataTy = Torch::ValueTensorType::get(context,
         data_tensor_type.getShape(), data_tensor_type.getElementType());
-    auto constValTy =
-        Torch::ValueTensorType::get(context, const_val_tensor_type.getShape(),
-            const_val_tensor_type.getElementType());
 
     auto dtt = rewriter.create<torch::TorchConversion::FromBuiltinTensorOp>(
         loc, dataTy, data);
-    auto fval = FloatAttr::get(mlir::FloatType::getF64(context), 10.0);
+
+    DenseElementsAttr valueAttr =
+        getDenseElementAttributeFromONNXValue(const_value);
+    auto valueIt = valueAttr.getValues<FloatAttr>().begin();
+    auto valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
+    auto fval = FloatAttr::get(mlir::FloatType::getF64(context), valueFloat);
     auto ctt = rewriter.create<ConstantFloatOp>(loc, fval);
 
     auto padsList1 = rewriter.create<PrimListConstructOp>(loc,
@@ -208,14 +216,6 @@ public:
                    << p << "\n"
                    << "\n";
     }
-
-    Value padsList = rewriter.create<PrimListConstructOp>(loc,
-        Torch::ListType::get(rewriter.getType<Torch::IntType>()),
-        ValueRange{translatepadsList});
-
-    // for (auto p : padsList1.elements()) {
-    // 	llvm::outs() << " padding list element: " << "\n" << p << "\n" << "\n";
-    //}
 
     TensorType op_tensor_type = op->getResult(0).getType().cast<TensorType>();
     auto resultTy = Torch::ValueTensorType::get(op1.getContext(),
