@@ -150,6 +150,8 @@ struct FrontendToKrnlLoweringPass
     // Option<bool>.
     this->emitDealloc = emitDealloc;
     this->enableTiling = enableTiling;
+    // Init accelarators.
+    onnx_mlir::accel::initAccelerators();
   }
   FrontendToKrnlLoweringPass(int optLevel)
       : FrontendToKrnlLoweringPass(
@@ -240,7 +242,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   }
 
   // Hooks for accelerators.
-  onnx_mlir::accel::initAccelerators();
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
     if (!accel->isActive())
       continue;
@@ -274,7 +275,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
       patterns, krnlTypeConverter, &getContext(), enableTiling);
 
   // Hooks for accelerators.
-  onnx_mlir::accel::initAccelerators();
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
     if (!accel->isActive())
       continue;

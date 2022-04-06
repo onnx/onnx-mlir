@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -78,6 +79,12 @@ public:
 
   virtual void rewritePatternONNXToKrnl(mlir::RewritePatternSet &patterns,
       mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) const = 0;
+
+  virtual void conversionTargetKrnlToLLVM(
+      mlir::ConversionTarget &target) const = 0;
+
+  virtual void rewritePatternKrnlToLLVM(mlir::RewritePatternSet &patterns,
+      mlir::LLVMTypeConverter &typeConverter, mlir::MLIRContext *ctx) const = 0;
 
 protected:
   static llvm::SmallVector<Accelerator *, 4> acceleratorTargets;

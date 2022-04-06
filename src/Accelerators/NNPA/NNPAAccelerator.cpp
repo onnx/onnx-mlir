@@ -12,11 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/Support/Debug.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.hpp"
+#include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVM.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
@@ -94,10 +96,6 @@ void NNPAAccelerator::initPasses(int optLevel) const {
     return onnx_mlir::zlow::createZLowRewritePass();
   });
 
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return onnx_mlir::zlow::createZLowToLLVMPass();
-  });
-
   mlir::registerPass(
       []() -> std::unique_ptr<mlir::Pass> { return createFoldStdAllocPass(); });
 
@@ -119,6 +117,16 @@ void NNPAAccelerator::rewritePatternONNXToKrnl(
     mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
     mlir::MLIRContext *ctx) const {
   onnx_mlir::zhigh::populateZHighToZLowConversionPattern(
+      patterns, typeConverter, ctx);
+}
+
+void NNPAAccelerator::conversionTargetKrnlToLLVM(
+    mlir::ConversionTarget &target) const {}
+
+void NNPAAccelerator::rewritePatternKrnlToLLVM(
+    mlir::RewritePatternSet &patterns, mlir::LLVMTypeConverter &typeConverter,
+    mlir::MLIRContext *ctx) const {
+  onnx_mlir::zlow::populateZLowToLLVMConversionPattern(
       patterns, typeConverter, ctx);
 }
 

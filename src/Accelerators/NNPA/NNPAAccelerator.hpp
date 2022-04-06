@@ -53,6 +53,11 @@ public:
       mlir::ConversionTarget &target) const final;
   virtual void rewritePatternONNXToKrnl(mlir::RewritePatternSet &patterns,
       mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) const final;
+  virtual void conversionTargetKrnlToLLVM(
+      mlir::ConversionTarget &target) const final;
+  virtual void rewritePatternKrnlToLLVM(mlir::RewritePatternSet &patterns,
+      mlir::LLVMTypeConverter &typeConverter,
+      mlir::MLIRContext *ctx) const final;
 };
 
 } // namespace accel

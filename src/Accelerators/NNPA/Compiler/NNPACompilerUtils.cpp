@@ -94,28 +94,6 @@ void addONNXToZHighPasses(
         onnx_mlir::zhigh::createZHighConstPropagationPass());
 }
 
-void addAllToLLVMPasses(mlir::PassManager &pm) {
-  pm.addNestedPass<FuncOp>(mlir::createConvertVectorToSCFPass());
-  pm.addPass(mlir::createLowerAffinePass());
-
-  // Use MLIR buffer deallocation pass to emit buffer deallocs.
-  // Currently this has to be done *after* lowering the affine dialect because
-  // operations in that dialect do not conform to the requirements explained in
-  // https://mlir.llvm.org/docs/BufferDeallocationInternals.
-  pm.addNestedPass<FuncOp>(mlir::bufferization::createBufferDeallocationPass());
-  if (enableMemoryBundling) {
-    pm.addNestedPass<FuncOp>(krnl::createKrnlEnableMemoryPoolPass());
-    pm.addNestedPass<FuncOp>(krnl::createKrnlBundleMemoryPoolsPass());
-    pm.addPass(mlir::createCanonicalizerPass());
-    pm.addNestedPass<FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
-  }
-
-  pm.addNestedPass<FuncOp>(mlir::createConvertSCFToCFPass());
-  pm.addPass(onnx_mlir::zlow::createZLowToLLVMPass());
-  pm.addPass(mlir::createReconcileUnrealizedCastsPass());
-  pm.addPass(mlir::createCanonicalizerPass());
-}
-
 void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm, EmissionTargetType &emissionTarget) {
   // TODO: Develop and use determineInputIRLevel for NNPA
@@ -161,7 +139,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   if (emissionTarget >= EmitLLVMIR)
     // Lower the remaining Krnl and all ZLow ops to LLVM dialect.
-    addAllToLLVMPasses(pm);
+    addKrnlToLLVMPasses(pm);
 }
 
 } // namespace onnx_mlir
