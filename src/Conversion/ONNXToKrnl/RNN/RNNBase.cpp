@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 // Check a Value's type is none or not.
 bool isNoneType(Value val) { return val.getType().isa<NoneType>(); }
 
@@ -85,7 +87,7 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
   Value oneIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
 
   int nLoops = 2;
-  BuildKrnlLoop initializationLoops(rewriter, loc, nLoops);
+  krnl::BuildKrnlLoop initializationLoops(rewriter, loc, nLoops);
   if (direction == FORWARD || direction == BIDIRECTIONAL)
     initializationLoops.createDefineAndIterateOp(forwardHt);
   else
@@ -326,3 +328,5 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
 
   return sliceX;
 }
+
+} // namespace onnx_mlir

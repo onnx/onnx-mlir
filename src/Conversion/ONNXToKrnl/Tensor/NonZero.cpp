@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXNonZeroOpLowering : public ConversionPattern {
   ONNXNonZeroOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -218,3 +220,5 @@ void populateLoweringONNXNonZeroOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXNonZeroOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

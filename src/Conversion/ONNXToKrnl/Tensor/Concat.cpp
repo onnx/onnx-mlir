@@ -13,9 +13,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 struct ONNXConcatOpLowering : public ConversionPattern {
   ONNXConcatOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -30,8 +33,8 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     ONNXConcatOpAdaptor operandAdaptor(operands);
     ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
     ONNXConcatOpShapeHelper shapeHelper(&concatOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
     assert(succeeded(shapecomputed) && "Could not compute output shape");
@@ -90,3 +93,5 @@ void populateLoweringONNXConcatOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXConcatOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

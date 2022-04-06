@@ -26,10 +26,11 @@
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace {
 
-bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
+static bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
   FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsReturned = false;

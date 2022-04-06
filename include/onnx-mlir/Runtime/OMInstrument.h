@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------- OMInstrument.h - OM Instrument Declaration header ------------===//
+//===------------- OMInstrument.h - OM Instrument Declaration header ------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -18,12 +18,12 @@
 #ifdef __cplusplus
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <map>
 #include <numeric>
 #include <string>
 #include <vector>
-#include <cstdlib>
 #else
 #include <stdbool.h>
 #include <stdint.h>
@@ -36,6 +36,8 @@
 #include <malloc.h>
 #endif // #ifdef __APPLE__
 
+#include "include/onnx-mlir/Compiler/OMCompilerMacros.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -45,7 +47,7 @@ extern "C" {
  * Initialize counter and read env variables for control
  *
  */
-void OMInstrumentInit();
+OM_EXTERNAL_VISIBILITY void OMInstrumentInit();
 
 /**
  * Create an instrument point.
@@ -54,11 +56,12 @@ void OMInstrumentInit();
  * and virtual memory size will be reported.
  *
  * @param id for this point. op name is used now.
- * @param tag can used to give extra control of output. Used for begin/end mark now
+ * @param tag can used to give extra control of output. Used for begin/end mark
+ * now
  * @return void
  *
  */
-void OMInstrumentPoint(int64_t id, int64_t tag);
+OM_EXTERNAL_VISIBILITY void OMInstrumentPoint(int64_t id, int64_t tag);
 
 #ifdef __cplusplus
 }

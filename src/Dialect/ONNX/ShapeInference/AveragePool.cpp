@@ -10,9 +10,15 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 LogicalResult ONNXAveragePoolOpShapeHelper::computeShape(
     ONNXAveragePoolOpAdaptor operandAdaptor) {
   return ONNXGenericPoolShapeHelper<ONNXAveragePoolOp,
       ONNXAveragePoolOpAdaptor>::computeShape(operandAdaptor, nullptr,
       op->kernel_shape(), op->pads(), op->strides(), None);
 }
+
+} // namespace onnx_mlir

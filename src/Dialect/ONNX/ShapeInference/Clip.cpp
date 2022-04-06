@@ -15,6 +15,10 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 ONNXClipOpShapeHelper::ONNXClipOpShapeHelper(ONNXClipOp *newOp)
     : ONNXOpShapeHelper<ONNXClipOp>(
           newOp, newOp->getOperation()->getNumResults()) {}
@@ -39,3 +43,5 @@ LogicalResult ONNXClipOpShapeHelper::computeShape(
 
   return success();
 }
+
+} // namespace onnx_mlir

@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXResizeOpLowering : public ConversionPattern {
   ONNXResizeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -133,7 +135,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     Value one = create.math.constantIndex(1);
 
     // Create loops
-    BuildKrnlLoop outputLoops(rewriter, loc, rank);
+    krnl::BuildKrnlLoop outputLoops(rewriter, loc, rank);
     outputLoops.createDefineAndIterateOp(alloc);
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
@@ -216,3 +218,5 @@ void populateLoweringONNXResizeOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXResizeOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

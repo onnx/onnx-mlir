@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXOneHotOpLowering : public ConversionPattern {
   ONNXOneHotOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -32,8 +34,8 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
     Value values = operandAdaptor.values();
 
     ONNXOneHotOpShapeHelper shapeHelper(&oneHotOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
     int64_t axis = shapeHelper.axis;
@@ -115,3 +117,5 @@ void populateLoweringONNXOneHotOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXOneHotOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

@@ -25,6 +25,8 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+namespace krnl {
+
 ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
     const Type &operandType, Value &operand) {
   // If operand queue is empty, parse more operands and cache them.
@@ -135,9 +137,6 @@ void printBound(AffineMapAttr boundMap,
   printDimAndSymbolList(
       boundOperandsBeg, map.getNumDims(), map.getNumSymbols(), p);
 }
-} // namespace onnx_mlir
-
-namespace mlir {
 
 //====---------------- KrnlIterateOperandPack -----------------------------===//
 
@@ -410,4 +409,5 @@ bool isKrnlGlobalConstant(Value result) {
   return true;
 }
 
-} // namespace mlir
+} // namespace krnl
+} // namespace onnx_mlir
