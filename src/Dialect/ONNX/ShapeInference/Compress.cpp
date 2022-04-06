@@ -2,13 +2,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--- Compress.cpp - Shape Inference for Compress Op ---===//
+//===----------- Compress.cpp - Shape Inference for Compress Op -----------===//
+//
+// Copyright 2020-2022 The IBM Research Authors.
+//
+// =============================================================================
 //
 // This file implements shape inference for the ONNX Compress Operator.
 //
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Support/Diagnostic.hpp"
+
+using namespace mlir;
+
+namespace onnx_mlir {
 
 ONNXCompressOpShapeHelper::ONNXCompressOpShapeHelper(ONNXCompressOp *newOp)
     : ONNXOpShapeHelper<ONNXCompressOp>(
@@ -32,36 +41,49 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape(
   Value cond = operandAdaptor.condition();
   ShapedType condType = cond.getType().dyn_cast_or_null<ShapedType>();
   assert(condType && condType.hasRank() &&
-         "Condition should have a known and rank");
-  // Get the dimension derived from the condition. Assume in shape helper
-  // that it is only going to be a question mark. ONNX to Krnl lowering will
-  // compute the actual value.
+         "Condition should have a known shape and rank");
+  Optional<int64_t> optionalAxis = op->axis();
+
+  // axis attribute (if specified) must be in the range [-r,r-1], where r =
+  // rank(input).
+  if (optionalAxis.hasValue() && (optionalAxis.getValue() < -inputRank ||
+                                     optionalAxis.getValue() >= inputRank))
+    return onnx_mlir::Diagnostic::attributeOutOfRange(*op->getOperation(),
+        "axis", optionalAxis.getValue(),
+        onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
+
+  // Get the dimension derived from the condition. Assume in shape helper that
+  // it is only going to be a question mark. ONNX to Krnl lowering will compute
+  // the actual value.
   // TODO: if cond is constant, the compute the actual value.
   IndexExpr dynDim;
   if (scope->isShapeInferencePass())
     dynDim = QuestionmarkIndexExpr(); // Value for runtime dim.
   else
     dynDim = LiteralIndexExpr(-1); // Dummy value to be replaced in lowering.
-  // Get axis. Value -1 signify axis was not specified. Verifier already checked
-  // that the axis, if given, is in range.
-  axis = -1;
-  if (op->axis().hasValue()) {
-    axis = op->axis().getValue();
-    if (axis < 0)
-      axis += inputRank;
-  }
+
   // Compute dims for output.
   DimsExpr outputDims;
-  if (axis == -1) {
+  if (!optionalAxis.hasValue())
     // Reduced to a single dimensional array, of dynamic size.
     outputDims.emplace_back(dynDim);
-  } else {
+  else {
     // Has same dimensionality as input, with axis dimension being the dynamic
     // size.
     MemRefBoundsIndexCapture inputBounds(input);
     inputBounds.getDimList(outputDims);
-    outputDims[axis] = dynDim;
+
+    // Negative axis means values are counted from the opposite side.
+    // TODO: should be in normalization pass
+    int64_t axisValue = optionalAxis.getValue();
+    if (axisValue < 0)
+      axisValue += inputRank;
+
+    outputDims[axisValue] = dynDim;
   }
-  dimsForOutput(0) = outputDims;
+
+  dimsForOutput() = outputDims;
   return success();
 }
+
+} // namespace onnx_mlir

@@ -10,6 +10,10 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(ONNXConvOp *newOp)
     : ONNXGenericPoolShapeHelper<ONNXConvOp, ONNXConvOpAdaptor>(
           newOp, true /*hasFilter*/, false /*hasCeil*/) {}
@@ -27,3 +31,5 @@ LogicalResult ONNXConvOpShapeHelper::computeShape(
       ONNXConvOpAdaptor>::computeShape(operandAdaptor, operandAdaptor.W(),
       op->kernel_shape(), op->pads(), op->strides(), op->dilations());
 }
+
+} // namespace onnx_mlir

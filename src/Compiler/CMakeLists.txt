@@ -31,6 +31,7 @@ add_onnx_mlir_library(CompilerOptions
 
   DEPENDS
   ExternalUtil
+  AcceleratorsInc
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}

@@ -17,11 +17,11 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 static constexpr int BUFFER_ALIGN = 128;
-using namespace mlir;
-
 static constexpr StringRef FORWARD = "forward";
 static constexpr StringRef REVERSE = "reverse";
 static constexpr StringRef BIDIRECTIONAL = "bidirectional";
+
+namespace onnx_mlir {
 
 struct RNNActivation {
   StringRef name;
@@ -164,7 +164,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
 
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
-      BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
+      krnl::BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
       sequenceLoops.createDefineOp();
       if (sequenceDimSize != -1)
         sequenceLoops.pushBounds(0, sequenceDimSize);
@@ -189,7 +189,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     }
 
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
+      krnl::BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
       sequenceLoops.createDefineOp();
       if (sequenceDimSize != -1)
         sequenceLoops.pushBounds(0, sequenceDimSize);
@@ -231,3 +231,5 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     return success();
   }
 };
+
+} // namespace onnx_mlir

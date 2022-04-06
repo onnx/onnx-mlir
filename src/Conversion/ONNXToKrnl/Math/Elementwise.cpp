@@ -18,6 +18,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 /// Emit post-processing for variadic element-wise ops.
 template <typename Op>
 Value emitPostProcessingFor(ConversionPatternRewriter &rewriter, Location loc,
@@ -892,7 +894,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
       // Create iterateOp & get block within iterate op.
-      BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
+      krnl::BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
       loops.createDefineAndIterateOp(X);
       Block *iterationBlock = loops.getIterateBlock();
 
@@ -942,8 +944,8 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex, /*in scope*/ nullptr,
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex, /*in scope*/ nullptr,
         isUniBroadcasting);
     DimsExpr empty;
     auto shapecomputed = shapeHelper.computeShape(operands, empty);
@@ -961,7 +963,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
       // Create iterateOp & get block within iterate op.
-      BuildKrnlLoop loops(rewriter, loc, outputRank);
+      krnl::BuildKrnlLoop loops(rewriter, loc, outputRank);
       loops.createDefineAndIterateOp(alloc);
       Block *iterationBlock = loops.getIterateBlock();
       // Insert instructions inside the KernelIterateOp body.
@@ -1018,8 +1020,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
 
     // The following call is used to force no broadcasting check at runtime
     // Even when the dim is unknown at compile time
@@ -1038,7 +1040,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
       // Create iterateOp & get block within iterate op.
-      BuildKrnlLoop loops(rewriter, loc, outputRank);
+      krnl::BuildKrnlLoop loops(rewriter, loc, outputRank);
       loops.createDefineAndIterateOp(alloc);
 
       Block *iterationBlock = loops.getIterateBlock();
@@ -1100,8 +1102,8 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXGenericOpBroadcastedShapeHelper shapeHelper(op, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     DimsExpr empty;
     auto shapecomputed = shapeHelper.computeShape(operands, empty);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
@@ -1118,7 +1120,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
       // Create iterateOp & get block within iterate op.
-      BuildKrnlLoop loops(rewriter, loc, outputRank);
+      krnl::BuildKrnlLoop loops(rewriter, loc, outputRank);
       loops.createDefineAndIterateOp(alloc);
       Block *iterationBlock = loops.getIterateBlock();
       // Insert instructions inside the KernelIterateOp body.
@@ -1217,3 +1219,5 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
       typeConverter, ctx, /*isUniBroadcasting=*/true);
 }
+
+} // namespace onnx_mlir

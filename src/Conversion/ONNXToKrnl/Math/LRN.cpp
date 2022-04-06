@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXLRNOpLowering : public ConversionPattern {
   ONNXLRNOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -29,8 +31,8 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
 
     ONNXLRNOpShapeHelper shapeHelper(&lrnOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
 
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     (void)shapecomputed;
@@ -55,7 +57,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
-    BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
+    krnl::BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
     outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
     outputLoops.createIterateOp();
@@ -94,7 +96,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     create.krnl.store(emitConstantOp(rewriter, loc, elementType, 0), sumAlloc);
 
     // Create the sum reduction loop
-    BuildKrnlLoop sumLoops(rewriter, loc, 1);
+    krnl::BuildKrnlLoop sumLoops(rewriter, loc, 1);
     sumLoops.createDefineOp();
     sumLoops.pushBounds(lbMaxList, ubMinList);
     sumLoops.createIterateOp();
@@ -147,3 +149,5 @@ void populateLoweringONNXLRNOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXLRNOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

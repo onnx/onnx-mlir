@@ -31,6 +31,7 @@
 #include "ElideKrnlGlobalConstants.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 constexpr uint64_t KrnlConstGlobalValueElision::kDefaultElisionThreshold;
 
@@ -47,7 +48,7 @@ mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
           op.value()->isa<OpaqueElementsAttr>()))
     return success();
 
-  MultiDialectBuilder<mlir::KrnlBuilder> create(rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 
   if (op.value()->isa<DenseElementsAttr>()) {
     // Elide the dense attribute.

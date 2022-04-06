@@ -57,6 +57,9 @@ add_onnx_mlir_library(OMONNXOps
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
 
+  LINK_LIBS PRIVATE
+  Diagnostic
+    
   LINK_LIBS PUBLIC
   OMMlirDialects
   onnx

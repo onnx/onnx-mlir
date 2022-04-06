@@ -18,6 +18,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 /// Returns the indices of the maximum values along a given axis.
 static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
     Value input, int64_t axis) {
@@ -147,3 +149,5 @@ void populateLoweringONNXHardmaxOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXHardmaxOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

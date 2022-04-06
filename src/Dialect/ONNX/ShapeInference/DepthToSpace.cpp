@@ -10,6 +10,10 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 ONNXDepthToSpaceOpShapeHelper::ONNXDepthToSpaceOpShapeHelper(
     ONNXDepthToSpaceOp *newOp)
     : ONNXOpShapeHelper<ONNXDepthToSpaceOp>(
@@ -55,3 +59,5 @@ LogicalResult ONNXDepthToSpaceOpShapeHelper::computeShape(
   dimsForOutput(0) = outputDims;
   return success();
 }
+
+} // namespace onnx_mlir

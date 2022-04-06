@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 template <typename Adaptor, typename Op, typename ShapeHelper>
 LogicalResult ONNXUnsqueezeOpLoweringCommon(Operation *op,
     ArrayRef<Value> operands, ConversionPatternRewriter &rewriter) {
@@ -28,7 +30,8 @@ LogicalResult ONNXUnsqueezeOpLoweringCommon(Operation *op,
   Value data = operandAdaptor.data();
 
   ShapeHelper shapeHelper(&unsqueezeOp, &rewriter,
-      getDenseElementAttributeFromKrnlValue, loadDenseElementArrayValueAtIndex);
+      krnl::getDenseElementAttributeFromKrnlValue,
+      krnl::loadDenseElementArrayValueAtIndex);
   auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
   assert(succeeded(shapecomputed) && "Could not compute output shape");
 
@@ -73,3 +76,5 @@ void populateLoweringONNXUnsqueezeV11OpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXUnsqueezeV11OpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir
