@@ -26,6 +26,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 //===----------------------------------------------------------------------===//
 // IndexExprImpl constructors, initializers
 //===----------------------------------------------------------------------===//
@@ -359,3 +361,5 @@ Value IndexExprImpl::getValue() {
   }
   return value;
 }
+
+} // namespace onnx_mlir

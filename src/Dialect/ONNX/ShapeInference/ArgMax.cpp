@@ -15,6 +15,10 @@
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 #include "src/Support/Diagnostic.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 ONNXArgMaxOpShapeHelper::ONNXArgMaxOpShapeHelper(ONNXArgMaxOp *newOp)
     : ONNXOpShapeHelper<ONNXArgMaxOp>(
           newOp, newOp->getOperation()->getNumResults()) {}
@@ -69,3 +73,5 @@ LogicalResult ONNXArgMaxOpShapeHelper::computeShape(
   dimsForOutput() = outputDims;
   return success();
 }
+
+} // namespace onnx_mlir

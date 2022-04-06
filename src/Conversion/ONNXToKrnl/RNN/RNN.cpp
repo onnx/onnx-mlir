@@ -16,6 +16,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct RnnState {
   // returned states.
   Value allH;
@@ -377,3 +379,5 @@ void populateLoweringONNXRNNOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXRNNOpLowering<ONNXRNNOp, RnnState, RnnActivationPack,
       RnnWeightPack, RnnBiasPack>>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

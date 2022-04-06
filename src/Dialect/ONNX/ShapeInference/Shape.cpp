@@ -10,6 +10,10 @@
 
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 ONNXShapeOpShapeHelper::ONNXShapeOpShapeHelper(
     ONNXShapeOp *newOp, IndexExprScope *inScope)
     : ONNXOpShapeHelper<ONNXShapeOp>(
@@ -51,3 +55,5 @@ LogicalResult ONNXShapeOpShapeHelper::computeShape(
   dimsForOutput(0).emplace_back(LiteralIndexExpr(selectedData.size()));
   return success();
 }
+
+} // namespace onnx_mlir

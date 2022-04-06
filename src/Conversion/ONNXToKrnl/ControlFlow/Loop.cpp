@@ -18,6 +18,10 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 struct ONNXLoopOpLowering : public ConversionPattern {
   explicit ONNXLoopOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -59,7 +63,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     emitCopy(rewriter, loc, loopOpAdapter.cond(), cond);
 
     // Create the loop iteration.
-    BuildKrnlLoop loop(rewriter, loc, 1);
+    krnl::BuildKrnlLoop loop(rewriter, loc, 1);
     loop.createDefineOp();
     KrnlBuilder createKrnl(rewriter, loc);
     Value maxTripCount = createKrnl.load(loopOpAdapter.M());
@@ -253,7 +257,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             shape, firstElement.getType().cast<MemRefType>().getElementType());
         auto alloc = create.mem.alignedAlloc(flatType, allocParams);
         // copy the value
-        BuildKrnlLoop loop(rewriter, loc, 1);
+        krnl::BuildKrnlLoop loop(rewriter, loc, 1);
         loop.createDefineOp();
         loop.pushBounds(0, maxTripCount);
         loop.createIterateOp();
@@ -387,7 +391,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     auto srcTy = src.getType().cast<MemRefType>();
     SmallVector<Value, 4> readIV;
     if (srcTy.getRank() > 0) {
-      BuildKrnlLoop loop(rewriter, loc, srcTy.getRank());
+      krnl::BuildKrnlLoop loop(rewriter, loc, srcTy.getRank());
       // Do not create defineLoo
       loop.createDefineOp();
       for (int i = 0; i < srcTy.getRank(); i++)
@@ -409,3 +413,5 @@ void populateLoweringONNXLoopOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXLoopOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

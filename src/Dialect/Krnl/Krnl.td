@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//===------------------ KrnlOps.td - MLIR Operations ---------*- tablegen -===//
+//===--------------------- Krnl.td - MLIR Operations ---------*- tablegen -===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -122,7 +122,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   let skipDefaultBuilders = 1;
   let builders = [
     // Main builder.
-    OpBuilder<(ins "KrnlIterateOperandPack":$operandPack,
+    OpBuilder<(ins "onnx_mlir::krnl::KrnlIterateOperandPack":$operandPack,
       CArg<"ValueRange", "llvm::None">:$iterArgs,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op.
@@ -133,7 +133,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
     // Builder for the optimized iterate op with IndexExpr
     OpBuilder<(ins
       CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
-      CArg<"ArrayRef<IndexExpr>">:$lbs, CArg<"ArrayRef<IndexExpr>">:$ubs, 
+      CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$lbs, CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$ubs, 
       CArg<"ValueRange">:$iterArgs,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>">:$bodyBuilderFn)>
   ];

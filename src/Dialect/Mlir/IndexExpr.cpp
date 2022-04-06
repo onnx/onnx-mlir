@@ -32,6 +32,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 //===----------------------------------------------------------------------===//
 // IndexExprScope constructors.
 //===----------------------------------------------------------------------===//
@@ -1672,3 +1674,5 @@ void MemRefBoundsIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
   for (unsigned int i = 0; i < memRank; ++i)
     list.emplace_back(get<INDEX>(i));
 }
+
+} // namespace onnx_mlir

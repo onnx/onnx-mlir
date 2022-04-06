@@ -25,6 +25,8 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 
+namespace onnx_mlir {
+
 //===----------------------------------------------------------------------===//
 // Return various operations.
 //===----------------------------------------------------------------------===//
@@ -135,3 +137,5 @@ std::vector<mlir::Operation *> getLiveRange(mlir::KrnlGetRefOp getRef);
 /// The live range is contained between firstOp and lastOp.
 bool liveRangeIsContained(mlir::Operation *firstOp, mlir::Operation *lastOp,
     std::vector<mlir::Operation *> liveRangeOpList);
+
+} // namespace onnx_mlir
