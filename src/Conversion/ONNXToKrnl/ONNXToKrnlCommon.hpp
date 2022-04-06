@@ -216,7 +216,7 @@ public:
 
   KrnlTypeConverter();
 
-  /// Return true if the inputs and   utputs of the given function type are
+  /// Return true if the inputs and outputs of the given function type are
   /// legal. [Taken from MLIR and adapted to only check the legality of the
   /// inputs. Once unranked results can be handled gracefully this
   /// override needs to be removed in favour of the original MLIR one.]

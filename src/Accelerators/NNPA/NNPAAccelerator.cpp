@@ -142,7 +142,6 @@ void NNPAAccelerator::conversionTargetKrnlToLLVM(
 void NNPAAccelerator::rewritePatternKrnlToLLVM(
     mlir::RewritePatternSet &patterns, mlir::LLVMTypeConverter &typeConverter,
     mlir::MLIRContext *ctx) const {
-
   onnx_mlir::zlow::populateZLowToLLVMConversionPattern(
       patterns, typeConverter, ctx);
 }
