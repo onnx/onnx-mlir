@@ -18,9 +18,11 @@
 
 #include <algorithm>
 
+#define DEBUG_TYPE "shape-helper"
+
 using namespace mlir;
 
-#define DEBUG_TYPE "shape-helper"
+namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
@@ -445,3 +447,5 @@ template struct ONNXGenericPoolShapeHelper<ONNXMaxPoolSingleOutOp,
     ONNXMaxPoolSingleOutOpAdaptor>;
 
 // Keep template instantiation at the end of the file.
+
+} // namespace onnx_mlir

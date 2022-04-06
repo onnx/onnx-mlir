@@ -16,6 +16,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
   ONNXConstantOfShapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
@@ -102,3 +104,5 @@ void populateLoweringONNXConstantOfShapeOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXConstantOfShapeOpLowering>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

@@ -1,4 +1,8 @@
-//===---- DialectBuilder.cpp - Helper functions for MLIR dialects -----===//
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===------ DialectBuilder.cpp - Helper functions for MLIR dialects -------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -22,6 +26,8 @@
 #define DEBUG_TYPE "dialect_builder"
 
 using namespace mlir;
+
+namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
 // Original code for MathBuilder is copied from LLVM MLIR Utils.cpp
@@ -748,3 +754,5 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
     outputVecArray.emplace_back(tmpArray[r]);
   }
 }
+
+} // namespace onnx_mlir

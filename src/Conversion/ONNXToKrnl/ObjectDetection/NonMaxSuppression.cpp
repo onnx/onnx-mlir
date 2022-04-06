@@ -18,6 +18,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 /// Compute the intersection-over-union (IOU) score between two boxes.
 /// IOU tells us how much two boxes are overlapped.
 static Value emitIOU(MathBuilder &createMath, SmallVectorImpl<Value> &box1,
@@ -799,3 +801,5 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(RewritePatternSet &patterns,
 // # if __name__ == "__main__":
 // #     main()
 // clang-format on
+
+} // namespace onnx_mlir

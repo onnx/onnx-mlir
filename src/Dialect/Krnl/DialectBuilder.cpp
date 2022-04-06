@@ -21,7 +21,9 @@
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 
-namespace mlir {
+using namespace mlir;
+
+namespace onnx_mlir {
 
 //====---------------- Support for Krnl Builder ----------------------===//
 
@@ -83,7 +85,7 @@ void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
 }
 
 KrnlIterateOp KrnlBuilder::iterate(
-    const KrnlIterateOperandPack &operands) const {
+    const krnl::KrnlIterateOperandPack &operands) const {
   return b.create<KrnlIterateOp>(loc, operands);
 }
 
@@ -239,4 +241,4 @@ void KrnlBuilder::printf(StringRef msg, Value input, Type inputType) const {
   b.create<KrnlPrintOp>(loc, newFormat, input);
 }
 
-} // namespace mlir
+} // namespace onnx_mlir

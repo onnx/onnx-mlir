@@ -11,6 +11,10 @@
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
 
+using namespace mlir;
+
+namespace onnx_mlir {
+
 template <typename ShapeHelper, typename OperandAdaptor>
 LogicalResult ONNXSqueezeOpShapeHelperCommon(ShapeHelper *shapeHelper,
     OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
@@ -92,3 +96,5 @@ LogicalResult ONNXSqueezeV11OpShapeHelper::computeShape(
   }
   return ONNXSqueezeOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
 }
+
+} // namespace onnx_mlir

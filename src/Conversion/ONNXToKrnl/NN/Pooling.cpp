@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 // Identity values
 template <>
 Value getIdentityValue<ONNXMaxPoolSingleOutOp>(
@@ -208,8 +210,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
     // Get shape.
     PoolOpShapeHelper shapeHelper(&poolOp, &rewriter,
-        getDenseElementAttributeFromKrnlValue,
-        loadDenseElementArrayValueAtIndex);
+        krnl::getDenseElementAttributeFromKrnlValue,
+        krnl::loadDenseElementArrayValueAtIndex);
     auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
@@ -324,7 +326,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //   for c in range(C):
     //     for ho in range(HO):
     //       for wo in range(WO):
-    BuildKrnlLoop outputLoops(rewriter, loc, outputShape.size());
+    krnl::BuildKrnlLoop outputLoops(rewriter, loc, outputShape.size());
     outputLoops.createDefineAndIterateOp(alloc);
 
     auto ipMainRegion = rewriter.saveInsertionPoint();
@@ -383,7 +385,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
       SmallVector<IndexExpr, 4> windowStartExprs, windowEndExprs;
       for (int i = 0; i < kernelShapeSize; ++i) {
-        std::vector<mlir::IndexExpr> exprs =
+        std::vector<IndexExpr> exprs =
             getIndexExprsForConvWindow(IVExprs[i], ceilMode, isDilated);
         windowStartExprs.emplace_back(exprs[0]);
         windowEndExprs.emplace_back(exprs[1]);
@@ -420,7 +422,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //      wi = wp * dW + startW
       //      output[n][c][ho][wo] =
       //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
-      BuildKrnlLoop poolingLoops(rewriter, loc, kernelShapeSize);
+      krnl::BuildKrnlLoop poolingLoops(rewriter, loc, kernelShapeSize);
       poolingLoops.createDefineOp();
       // Push bounds.
       AffineMap windowSizeMap =
@@ -498,3 +500,5 @@ void populateLoweringONNXPoolingOpPattern(RewritePatternSet &patterns,
       ONNXAveragePoolOpAdaptor, ONNXAveragePoolOpShapeHelper>>(
       typeConverter, ctx);
 }
+
+} // namespace onnx_mlir

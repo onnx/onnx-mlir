@@ -17,6 +17,8 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+
 struct GruState {
   // returned states.
   Value allH;
@@ -620,3 +622,5 @@ void populateLoweringONNXGRUOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXRNNOpLowering<ONNXGRUOp, GruState, GruActivationPack,
       GruWeightPack, GruBiasPack>>(typeConverter, ctx);
 }
+
+} // namespace onnx_mlir
