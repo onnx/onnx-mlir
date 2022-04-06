@@ -37,7 +37,7 @@ public:
   LogicalResult matchAndRewrite(
       KrnlRegionOp krnlRegionOp, PatternRewriter &rewriter) const override {
 
-    // use the special traversal because the op is modified 
+    // Special traversal is used because the op being traversed is moved.
     Block &regionBlock = krnlRegionOp.bodyRegion().front();
 
     for (Operation &op : llvm::make_early_inc_range(regionBlock)) {
