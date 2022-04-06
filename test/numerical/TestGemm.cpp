@@ -14,8 +14,6 @@
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestGemm_main_graph");
 
-#define DATA_RANGE 10.0 /*pass range*/
-
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -63,8 +61,8 @@ static bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K,
 
   GemmLibBuilder gemm(
       SHARED_LIB_BASE.str(), I, J, K, aTrans, bTrans, cRank, alphaVal, betaVal);
-  return gemm.build() && gemm.compileAndLoad() &&
-         gemm.prepareInputs(DATA_RANGE) && gemm.run() && gemm.verifyOutputs();
+  return gemm.build() && gemm.compileAndLoad() && gemm.prepareInputs() &&
+         gemm.run() && gemm.verifyOutputs();
 }
 
 } // namespace test
@@ -80,10 +78,6 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
-
-#ifdef DATA_RANGE
-  printf("Model use data in the +/- range %f\n\n", DATA_RANGE);
-#endif
 
   if (true) {
     printf("RapidCheck test case generation.\n");
