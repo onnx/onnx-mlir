@@ -29,31 +29,27 @@
 extern llvm::cl::OptionCategory OMNNPAPassOptions;
 
 namespace onnx_mlir {
-extern llvm::cl::list<onnx_mlir::accel::Accelerator::Kind> maccel;
-
 namespace accel {
 
-nnpa::NNPAAccelerator *pnnpa = nullptr;
-void createNNPA() { pnnpa = new nnpa::NNPAAccelerator(); }
+void createNNPA() { NNPAAccelerator::getInstance(); }
 
-namespace nnpa {
+NNPAAccelerator *NNPAAccelerator::instance = nullptr;
 
-NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {
-  LLVM_DEBUG(llvm::dbgs() << "Initializing NNPA accelerator\n");
-
-  if (!initialized) {
-    initialized = true;
-    acceleratorTargets.push_back(this);
-  }
-};
-
-NNPAAccelerator::~NNPAAccelerator() {
-  assert(initialized && "Expecting the accelerator to be initialized");
-  delete pnnpa;
+NNPAAccelerator *NNPAAccelerator::getInstance() {
+  if (instance == nullptr)
+    instance = new NNPAAccelerator();
+  return instance;
 }
 
+NNPAAccelerator::NNPAAccelerator() : Accelerator(Accelerator::Kind::NNPA) {
+  LLVM_DEBUG(llvm::dbgs() << "Creating an NNPA accelerator\n");
+  acceleratorTargets.push_back(this);
+};
+
+NNPAAccelerator::~NNPAAccelerator() { delete instance; }
+
 bool NNPAAccelerator::isActive() const {
-  if (initialized || llvm::any_of(maccel, [](Accelerator::Kind kind) {
+  if (instance || llvm::any_of(maccel, [](Accelerator::Kind kind) {
         return kind == Accelerator::Kind::NNPA;
       })) {
     LLVM_DEBUG(llvm::dbgs() << "NNPA accelerator is active\n");
@@ -65,7 +61,7 @@ bool NNPAAccelerator::isActive() const {
 }
 
 void NNPAAccelerator::getOrLoadDialects(mlir::MLIRContext &context) const {
-  // Load our dialects in this MLIR Context.
+  LLVM_DEBUG(llvm::dbgs() << "Loading dialects for NNPA accelerator\n");
   context.getOrLoadDialect<zhigh::ZHighDialect>();
   context.getOrLoadDialect<zlow::ZLowDialect>();
 }
@@ -73,16 +69,18 @@ void NNPAAccelerator::getOrLoadDialects(mlir::MLIRContext &context) const {
 void NNPAAccelerator::addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm,
     onnx_mlir::EmissionTargetType &emissionTarget) const {
-  LLVM_DEBUG(llvm::dbgs() << "adding passes for NNPA accelerator\n");
+  LLVM_DEBUG(llvm::dbgs() << "Adding passes for NNPA accelerator\n");
   addPassesNNPA(module, pm, emissionTarget);
 }
 
 void NNPAAccelerator::registerDialects(mlir::DialectRegistry &registry) const {
+  LLVM_DEBUG(llvm::dbgs() << "Registering dialects for NNPA accelerator\n");
   registry.insert<zhigh::ZHighDialect>();
   registry.insert<zlow::ZLowDialect>();
 }
 
 void NNPAAccelerator::initPasses(int optLevel) const {
+  LLVM_DEBUG(llvm::dbgs() << "Initializing passes for NNPA accelerator\n");
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::createONNXToZHighPass();
   });
@@ -115,8 +113,5 @@ void NNPAAccelerator::initPasses(int optLevel) const {
   });
 }
 
-bool NNPAAccelerator::initialized = false;
-
-} // namespace nnpa
 } // namespace accel
 } // namespace onnx_mlir
