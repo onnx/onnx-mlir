@@ -34,16 +34,6 @@ std::unique_ptr<mlir::Pass> createFoldStdAllocPass();
 
 namespace zhigh {
 
-/// Add pass for lowering ZHigh ops to ZLow ops.
-std::unique_ptr<mlir::Pass> createZHighToZLowPass();
-
-/// Add pass for lowering ZHigh ops to ZLow ops.
-std::unique_ptr<mlir::Pass> createZHighToZLowPass(int optLevel);
-
-/// Add pass for lowering ZHigh ops to ZLow ops.
-std::unique_ptr<mlir::Pass> createZHighToZLowPass(
-    bool emitDealloc, bool enableTiling);
-
 /// Pass for layout propagation at ZHighIR.
 std::unique_ptr<mlir::Pass> createZHighLayoutPropagationPass();
 

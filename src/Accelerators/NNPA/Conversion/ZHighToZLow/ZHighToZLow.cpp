@@ -46,6 +46,18 @@ extern bool ONNXToKrnl_gEmitDealloc;
 namespace onnx_mlir {
 namespace zhigh {
 
+/// A list of layouts associated with newly allocated MemRefs.
+/// When lowering an operation, its output Tensor (e.g.
+/// `tensor<1x3x5x7x!zhigh.nhwc<f16>>`) will be converted to a Memref (e.g.
+/// `memref<1x3x5x7xf16, #map>`), and we lost the layout `nhwc`.
+/// Thus, make sure to put the new MemRef and its associated layout into this
+/// map, so that we can obtain the layout for the MemRef later when lowering
+/// other ops.
+llvm::SmallMapVector<mlir::Value, mlir::StringAttr, 4> stickedLayouts;
+mlir::StringAttr readLayout(mlir::Value val) { return stickedLayouts[val]; }
+void storeLayout(mlir::Value val, mlir::StringAttr layout) {
+  stickedLayouts[val] = layout;
+}
 //===----------------------------------------------------------------------===//
 // Helper function of Zhigh to Zlow lowering
 // Insert an allocation and deallocation for the given dimensions and layout.
@@ -1275,138 +1287,8 @@ struct ZHighToZLowBatchNormOpLowering : public ConversionPattern {
   }
 };
 
-//===----------------------------------------------------------------------===//
-// ZHigh to ZLow Lowering Pass
-//===----------------------------------------------------------------------===//
-
-namespace {
-/// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.inc"
-
-struct ZHighToZLowLoweringPass
-    : public PassWrapper<ZHighToZLowLoweringPass, OperationPass<ModuleOp>> {
-
-  StringRef getArgument() const override { return "convert-zhigh-to-zlow"; }
-
-  StringRef getDescription() const override {
-    return "Lower ZHigh ops to ZLow ops.";
-  }
-
-  // Make sure that we have a valid default constructor and copy
-  // constructor to make sure that the options are initialized properly.
-  ZHighToZLowLoweringPass() = default;
-  ZHighToZLowLoweringPass(const ZHighToZLowLoweringPass &pass)
-      : PassWrapper<ZHighToZLowLoweringPass, OperationPass<ModuleOp>>() {}
-  ZHighToZLowLoweringPass(bool emitDealloc, bool enableTiling) {
-    this->emitDealloc = emitDealloc;
-    this->enableTiling = enableTiling;
-  }
-  ZHighToZLowLoweringPass(int optLevel)
-      : ZHighToZLowLoweringPass(
-            /*emitDealloc=*/false, /*enableTiling=*/optLevel >= 3) {}
-
-  void runOnOperation() final;
-
-public:
-  Option<bool> emitDealloc{*this, "emit-dealloc",
-      llvm::cl::desc("Emit dealloc for allocated memrefs or not."),
-      llvm::cl::init(false)};
-  Option<bool> enableTiling{*this, "enable-tiling",
-      llvm::cl::desc("Enable loop tiling and unrolling optimizations"),
-      llvm::cl::init(false)};
-};
-} // end anonymous namespace.
-
-//===----------------------------------------------------------------------===//
-// Type converter. Extended from KrnlTypeConvert to support new element types in
-// ZHigh Dialect.
-
-class ZHighTypeConverter : public KrnlTypeConverter {
-public:
-  using KrnlTypeConverter::KrnlTypeConverter;
-
-  ZHighTypeConverter() : KrnlTypeConverter() {}
-
-  ZHighTypeConverter(OpBuilder &builder) : KrnlTypeConverter() {
-    // The order of type conversion is important: later ones are tried earlier.
-    addConversion([&](TensorType tensorType) {
-      assert(tensorType.cast<ShapedType>().hasRank() &&
-             "expected only ranked shapes");
-      if (tensorType.cast<RankedTensorType>().getEncoding()) {
-        ZMemRefType zMemRefType =
-            convertZTensorToMemRefType(builder, tensorType);
-        return zMemRefType.value;
-      } else if (tensorType.getElementType().isa<ONNXStringType>()) {
-        Type elementType = ONNXStringType::get(tensorType.getContext());
-        return MemRefType::get(tensorType.getShape(), elementType);
-      }
-      return MemRefType::get(
-          tensorType.getShape(), tensorType.getElementType());
-    });
-  }
-};
-
-void ZHighToZLowLoweringPass::runOnOperation() {
-  ModuleOp module = getOperation();
-
-  // Set up whether emitting dealloc for allocated memrefs or not.
-  ONNXToKrnl_gEmitDealloc = emitDealloc;
-
-  // The first thing to define is the conversion target. This will define the
-  // final target for this lowering.
-  ConversionTarget target(getContext());
-
-  // We define the specific operations, or dialects, that are legal targets for
-  // this lowering.
-  target.addLegalDialect<ZLowDialect, KrnlOpsDialect, AffineDialect,
-      arith::ArithmeticDialect, StandardOpsDialect, linalg::LinalgDialect,
-      math::MathDialect, memref::MemRefDialect, shape::ShapeDialect,
-      scf::SCFDialect>();
-  // Needed to support unsigned int computations. To be removed if we use a
-  // scheme that does not rely on the UnrealizedConversionCastOp.
-  target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
-
-  // Use krnl.load/store instead of std.load/store and affine.load/store.
-  // krnl.load/store will be lowered to std.load/store and affine.load/store by
-  // `convert-krnl-to-affine` pass.
-  target.addIllegalOp<mlir::memref::LoadOp>();
-  target.addIllegalOp<mlir::AffineLoadOp>();
-  target.addIllegalOp<mlir::memref::StoreOp>();
-  target.addIllegalOp<mlir::AffineStoreOp>();
-
-  // If `emitDealloc` is turned off, make sure we don't have buffer deallocation
-  // at this level. Will use MLIR buffer-deallocation for this purpose instead.
-  if (!ONNXToKrnl_gEmitDealloc)
-    target.addIllegalOp<mlir::memref::DeallocOp>();
-
-  // ZHigh to ZLow operation lowering.
-  RewritePatternSet patterns(&getContext());
-
-  // Convert types to legal types for the Krnl dialect.
-  OpBuilder builder(module->getContext());
-  ZHighTypeConverter typeConverter(builder);
-  target.addDynamicallyLegalOp<FuncOp>([&](FuncOp op) {
-    // FuncOp is legal only if types have been converted to Std types.
-    return typeConverter.isSignatureLegal(op.getType());
-  });
-
-  target.addDynamicallyLegalOp<CallOp>([&](CallOp op) {
-    // CallOp is legal only if types have been converted to Std types.
-    return typeConverter.isLegal(op);
-  });
-
-  // Operations that are legal only if types are not tensors.
-  target.addDynamicallyLegalOp<mlir::ReturnOp>([&](Operation *op) {
-    return llvm::none_of(op->getOperandTypes(),
-        [](Type type) { return type.isa<TensorType>(); });
-  });
-
-  // ONNX ops to Krnl.
-  MLIRContext *ctx = &getContext();
-  populateONNXToKrnlConversionPattern(
-      patterns, typeConverter, ctx, enableTiling);
-  // ONNX ops to ZHigh.
-  populateWithGenerated(patterns);
+void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
+    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) {
   patterns.insert<ZHighToZLowStickifiedConstantOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickForLSTMOpLowering>(typeConverter, ctx);
@@ -1435,25 +1317,6 @@ void ZHighToZLowLoweringPass::runOnOperation() {
       ZHighMaxPool2DOpAdaptor, ZLowMaxPool2DOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowPool2DOpLowering<ZHighAvgPool2DOp,
       ZHighAvgPool2DOpAdaptor, ZLowAvgPool2DOp>>(typeConverter, ctx);
-
-  // With the target and rewrite patterns defined, we can now attempt the
-  // conversion. The conversion will signal failure if any of our `illegal`
-  // operations were not converted successfully.
-  if (failed(applyPartialConversion(module, target, std::move(patterns))))
-    signalPassFailure();
-}
-
-std::unique_ptr<Pass> createZHighToZLowPass() {
-  return std::make_unique<ZHighToZLowLoweringPass>();
-}
-
-std::unique_ptr<Pass> createZHighToZLowPass(int optLevel) {
-  return std::make_unique<ZHighToZLowLoweringPass>(optLevel);
-}
-
-std::unique_ptr<Pass> createZHighToZLowPass(
-    bool emitDealloc, bool enableTiling) {
-  return std::make_unique<ZHighToZLowLoweringPass>(emitDealloc, enableTiling);
 }
 
 } // namespace zhigh

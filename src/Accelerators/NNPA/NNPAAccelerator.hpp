@@ -49,6 +49,10 @@ public:
       onnx_mlir::EmissionTargetType &emissionTarget) const final;
   virtual void registerDialects(mlir::DialectRegistry &registry) const final;
   virtual void initPasses(int optLevel) const final;
+  virtual void conversionTargetONNXToKrnl(
+      mlir::ConversionTarget &target) const final;
+  virtual void rewritePatternONNXToKrnl(mlir::RewritePatternSet &patterns,
+      mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) const final;
 };
 
 } // namespace accel

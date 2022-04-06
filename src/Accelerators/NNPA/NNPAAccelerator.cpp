@@ -16,6 +16,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
+#include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/NNPAAccelerator.hpp"
@@ -89,10 +90,6 @@ void NNPAAccelerator::initPasses(int optLevel) const {
     return onnx_mlir::createRewriteONNXForZHighPass();
   });
 
-  mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
-    return onnx_mlir::zhigh::createZHighToZLowPass(optLevel);
-  });
-
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::zlow::createZLowRewritePass();
   });
@@ -111,6 +108,18 @@ void NNPAAccelerator::initPasses(int optLevel) const {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::zhigh::createZHighLayoutPropagationPass();
   });
+}
+
+void NNPAAccelerator::conversionTargetONNXToKrnl(
+    mlir::ConversionTarget &target) const {
+  target.addLegalDialect<zlow::ZLowDialect>();
+}
+
+void NNPAAccelerator::rewritePatternONNXToKrnl(
+    mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
+    mlir::MLIRContext *ctx) const {
+  onnx_mlir::zhigh::populateZHighToZLowConversionPattern(
+      patterns, typeConverter, ctx);
 }
 
 } // namespace accel

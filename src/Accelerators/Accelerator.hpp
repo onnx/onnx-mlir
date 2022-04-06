@@ -14,11 +14,13 @@
 
 #pragma once
 
-#include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"
-#include "src/Accelerators/Accelerators.inc"
+#include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/SmallVector.h"
+
+#include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
+#include "src/Accelerators/Accelerators.inc"
 
 // Define the macros used to generate various accelerators artifacts (via the
 // use of the APPLY_TO_ACCELERATORS macro, which is defined in the cmake
@@ -70,6 +72,12 @@ public:
   /// Initialize the transformation passes required to generate code for an
   /// accelerator.
   virtual void initPasses(int optLevel) const = 0;
+
+  virtual void conversionTargetONNXToKrnl(
+      mlir::ConversionTarget &target) const = 0;
+
+  virtual void rewritePatternONNXToKrnl(mlir::RewritePatternSet &patterns,
+      mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) const = 0;
 
 protected:
   static llvm::SmallVector<Accelerator *, 4> acceleratorTargets;
