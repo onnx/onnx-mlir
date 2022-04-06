@@ -55,11 +55,11 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     Value betaValue = emitConstantOp(rewriter, loc, f32Type, betaLit);
 
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
     krnl::BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
+    outputLoops.pushAllBounds(shapeHelper.dimsForOutput());
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 

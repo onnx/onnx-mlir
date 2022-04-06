@@ -140,10 +140,10 @@ func @test_category_mapper_diff_size_attrs (%arg0: tensor<20x1xi32>) -> tensor<*
 
 // -----
 
-// Please update to an unsupported op if/when ArgMin becomes supported
+// Please update to an unsupported op if/when EyeLike becomes supported
 func @test_unsupported_op(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
   // expected-error @+2 {{is not supported at this time. Please open an issue}}
   // expected-error @+1 {{shape inference failed}}
-  %0 = "onnx.ArgMin"(%arg0) : (tensor<2x2xi64>) -> tensor<*xi64>
+  %0 = "onnx.EyeLike"(%arg0) : (tensor<2x2xi64>) -> tensor<*xi64>
   return %0 : tensor<*xi64>
 }

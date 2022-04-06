@@ -46,7 +46,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
 
     // Lower to ReinterpretCastOp so that the data is never copied or modified.
     Value newView = emitMemRefReinterpretCastOp(
-        rewriter, loc, data, memRefType, shapeHelper.dimsForOutput(0));
+        rewriter, loc, data, memRefType, shapeHelper.dimsForOutput());
     LLVM_DEBUG(llvm::dbgs() << "newView: " << newView << "\n");
 
     rewriter.replaceOp(op, newView);

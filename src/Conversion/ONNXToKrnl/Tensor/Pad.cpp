@@ -47,7 +47,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
     auto resMemRefType = convertToMemRefType(*op->result_type_begin());
     auto resElementType = resMemRefType.getElementType();
     Value resMemRef = insertAllocAndDeallocSimple(
-        rewriter, op, resMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, resMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Bounds.
     MemRefBoundsIndexCapture dataBounds(data);

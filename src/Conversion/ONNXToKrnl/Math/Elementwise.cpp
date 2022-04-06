@@ -956,7 +956,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Emit main computation.
     SmallVector<IndexExpr, 4> outputAccessExprs;
@@ -1033,7 +1033,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Emit main computation.
     SmallVector<IndexExpr, 4> outputAccessExprs;
@@ -1113,7 +1113,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
 
     // Emit main computation.
     SmallVector<IndexExpr, 4> outputAccessExprs;

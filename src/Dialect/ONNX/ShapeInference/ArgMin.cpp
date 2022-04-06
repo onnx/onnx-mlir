@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- ArgMax.cpp - Shape Inference for ArgMax Op ----------------===//
+//===---------- ArgMin.cpp - Shape Inference for ArgMin Op ----------------===//
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file implements shape inference for the ONNX ArgMax Operator.
+// This file implements shape inference for the ONNX ArgMin Operator.
 //
 //===----------------------------------------------------------------------===//
 
@@ -19,8 +19,8 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXArgMaxOpShapeHelper::computeShape(
-    ONNXArgMaxOpAdaptor operandAdaptor) {
+LogicalResult ONNXArgMinOpShapeHelper::computeShape(
+    ONNXArgMinOpAdaptor operandAdaptor) {
   // Get info about input data operand.
   Value data = operandAdaptor.data();
   int64_t dataRank = data.getType().cast<ShapedType>().getRank();
