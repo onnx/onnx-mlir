@@ -62,6 +62,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/ReverseSequence.cpp
   ConvertONNXToKrnl.cpp
   LINK_LIBS PUBLIC
+  CompilerOptions
   OMConstPropHelper
   OMONNXOps
   OMSupport
