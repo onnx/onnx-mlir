@@ -25,6 +25,33 @@ llvm::cl::OptionCategory OnnxMlirOptions(
     "ONNX-MLIR Options", "These are frontend options.");
 
 // the option is used in this file, so defined here
+llvm::cl::opt<std::string> inputFilename(llvm::cl::Positional,
+    llvm::cl::desc("<input file>"), llvm::cl::init("-"),
+    llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<std::string> outputBaseName("o",
+    llvm::cl::desc("Base path for output files, extensions will be added."),
+    llvm::cl::value_desc("path"), llvm::cl::cat(OnnxMlirOptions),
+    llvm::cl::ValueRequired);
+
+llvm::cl::opt<EmissionTargetType> emissionTarget(
+    llvm::cl::desc("Choose target to emit:"),
+    llvm::cl::values(
+        clEnumVal(EmitONNXBasic,
+            "Ingest ONNX and emit the basic ONNX operations without "
+            "inferred shapes."),
+        clEnumVal(
+            EmitONNXIR, "Ingest ONNX and emit corresponding ONNX dialect."),
+        clEnumVal(EmitMLIR,
+            "Lower the input to MLIR built-in transformation dialect."),
+        clEnumVal(
+            EmitLLVMIR, "Lower the input to LLVM IR (LLVM MLIR dialect)."),
+        clEnumVal(EmitObj, "Compile the input into a object file."),
+        clEnumVal(
+            EmitLib, "Compile the input into a shared library (default)."),
+        clEnumVal(EmitJNI, "Compile the input into a jar file.")),
+    llvm::cl::init(EmitLib), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<bool> invokeOnnxVersionConverter("invokeOnnxVersionConverter",
     llvm::cl::desc(
         "call onnx version converter to convert ONNX model to current version"),
@@ -149,6 +176,14 @@ llvm::cl::opt<int> onnxOpTransformThreshold("onnx-op-transform-threshold",
 llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
     llvm::cl::desc("Report diagnostic info for op transform passes."),
     llvm::cl::init(false), llvm::cl::cat(OMPassOptions));
+
+// Configuration states associated with certain options.
+// For example, when maccel is specified, NNPA can register
+// dependent libdnn.
+// This is just a simple string to vector map currently.
+// If it gets more complicated in the future, it can be
+// replaced by a class of its own.
+std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 
 // =============================================================================
 // Methods for setting and getting compiler variables.
@@ -286,6 +321,32 @@ int setCompilerOptions(const CompilerOptionList &list) {
       return rc;
   }
   return 0;
+}
+
+// Get the string vector associated with the specified key
+std::vector<std::string> getCompilerConfig(std::string k) {
+  return CompilerConfigMap[k];
+}
+
+// Add strings in a vector to the string vector associated
+// with the specified key
+void addCompilerConfig(std::string k, std::vector<std::string> v) {
+  std::vector<std::string> u = CompilerConfigMap[k];
+  std::vector<std::string> w;
+
+  std::set_union(u.begin(), u.end(), v.begin(), v.end(), std::back_inserter(w));
+  CompilerConfigMap[k] = w;
+}
+
+// Delete strings in a vector from the string vector associated
+// with the specified key
+void delCompilerConfig(std::string k, std::vector<std::string> v) {
+  std::vector<std::string> u = CompilerConfigMap[k];
+
+  u.erase(remove_if(begin(u), end(u),
+              [&](auto x) { return find(begin(v), end(v), x) != end(v); }),
+      end(u));
+  CompilerConfigMap[k] = u;
 }
 
 } // namespace onnx_mlir

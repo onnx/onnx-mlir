@@ -8,6 +8,7 @@ if (ACCELERATORS_TO_BUILD)
     add_subdirectory(${t})
     list(APPEND ACCEL_LIST "${t}Accel")
   endforeach(t)
+  message(STATUS "  Accelerators              : ${ACCEL_LIST}")
 endif (ACCELERATORS_TO_BUILD)
 
 # Generate the Accelerators.inc file using a cmake script.

@@ -19,6 +19,9 @@ else()
   set(ZDNN_LIBRARY_ENABLED 0)
 endif()
 
+include(zdnn.cmake)
+setup_zdnn(v0.4.0)
+
 add_subdirectory(Dialect)
 add_subdirectory(Conversion)
 add_subdirectory(Support)
@@ -46,4 +49,4 @@ add_onnx_mlir_library(NNPAAccel
   OMZLowOps
   OMZLowToLLVM
   )
-
+add_dependencies(NNPAAccel zdnn)
