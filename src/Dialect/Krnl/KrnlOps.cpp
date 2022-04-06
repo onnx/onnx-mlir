@@ -450,6 +450,23 @@ LogicalResult KrnlIterateOp::verify() {
   return success();
 }
 
+void KrnlRegionOp::build(OpBuilder &builder, OperationState &result,
+    function_ref<void(OpBuilder &, Location)> bodyBuilderFn) {
+
+  Region *bodyRegion = result.addRegion();
+  auto *body = new Block();
+  llvm::SmallVector<Type, 4> body_args;
+  llvm::SmallVector<Location, 4> body_arg_locs;
+  body->addArguments(body_args, body_arg_locs);
+  bodyRegion->push_back(body);
+
+  if (bodyBuilderFn) {
+    PatternRewriter::InsertionGuard insertGuard(builder);
+    builder.setInsertionPointToStart(body);
+    bodyBuilderFn(builder, result.location);
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // KrnlEntryPointOp
 //===----------------------------------------------------------------------===//

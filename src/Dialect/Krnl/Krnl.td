@@ -206,6 +206,25 @@ def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
   }];
 }
 
+def KrnlRegionOp : Op<Krnl_Dialect, "region", [NoTerminator, SingleBlock,
+    AffineScope]> {
+  let summary = "Affine Region for Krnl";
+  let description = [{
+    This Op has AffineScope trait and is used to limit the scope of affine.for.
+    Otherwise, the affine.for might be illegal if a symbol is not defined at
+    the top of function, which has the AffineScope trait. 
+  }];
+
+  let regions = (region SizedRegion<1>:$bodyRegion);
+
+  let skipDefaultBuilders = 1;
+  let builders = [
+    // Main builder.
+    OpBuilder<(ins 
+      CArg<"function_ref<void(OpBuilder &, Location)>", "nullptr">:$bodyBuilderFn)>,
+  ];
+}
+
 def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
   let summary = "Indicate ONNX entry point";
   let description = [{The "krnl.entry_point" function indicates the main entry
