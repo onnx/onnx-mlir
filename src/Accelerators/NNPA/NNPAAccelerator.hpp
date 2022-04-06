@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "mlir/IR/BuiltinTypes.h"
 #include "src/Accelerators/Accelerator.hpp"
 
 namespace onnx_mlir {
@@ -49,6 +50,8 @@ public:
       onnx_mlir::EmissionTargetType &emissionTarget) const final;
   virtual void registerDialects(mlir::DialectRegistry &registry) const final;
   virtual void initPasses(int optLevel) const final;
+  virtual mlir::MemRefType convertTensorTypeToMemRefType(
+      const mlir::TensorType tensorType) const final;
   virtual void conversionTargetONNXToKrnl(
       mlir::ConversionTarget &target) const final;
   virtual void rewritePatternONNXToKrnl(mlir::RewritePatternSet &patterns,

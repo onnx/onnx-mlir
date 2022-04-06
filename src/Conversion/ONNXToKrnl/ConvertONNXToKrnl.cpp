@@ -254,6 +254,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // Convert types to legal types for the Krnl dialect.
   KrnlTypeConverter krnlTypeConverter;
+
   target.addDynamicallyLegalOp<FuncOp>([&](FuncOp op) {
     // FuncOp is legal only if types have been converted to Std types.
     return krnlTypeConverter.isSignatureLegal(op.getType());

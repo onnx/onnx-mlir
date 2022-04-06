@@ -216,6 +216,10 @@ public:
 
   KrnlTypeConverter();
 
+  /// Define classof to be able to use isa<>, cast<>, dyn_cast<>, etc.
+  static bool classof(const TypeConverter*) { return true; }
+  static bool classof(const KrnlTypeConverter*) { return true; }
+
   /// Return true if the inputs and outputs of the given function type are
   /// legal. [Taken from MLIR and adapted to only check the legality of the
   /// inputs. Once unranked results can be handled gracefully this

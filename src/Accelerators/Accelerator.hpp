@@ -59,6 +59,10 @@ public:
   /// Returns whether the accelerator is active.
   virtual bool isActive() const = 0;
 
+  //===--------------------------------------------------------------------===//
+  // Hooks for onnx-mlir driver
+  //===--------------------------------------------------------------------===//
+
   /// Load the MLIR dialects necessary to generate code for an accelerator.
   virtual void getOrLoadDialects(mlir::MLIRContext &context) const = 0;
 
@@ -67,6 +71,10 @@ public:
       mlir::PassManager &pm,
       onnx_mlir::EmissionTargetType &emissionTarget) const = 0;
 
+  //===--------------------------------------------------------------------===//
+  // Hooks for onnx-mlir-opt driver
+  //===--------------------------------------------------------------------===//
+
   /// Register the MLIR dialects required to support an accelerator.
   virtual void registerDialects(mlir::DialectRegistry &registry) const = 0;
 
@@ -74,15 +82,33 @@ public:
   /// accelerator.
   virtual void initPasses(int optLevel) const = 0;
 
+  //===--------------------------------------------------------------------===//
+  // Hooks for onnx-to-krnl pass
+  //===--------------------------------------------------------------------===//
+
+  /// Convert TensorType to MemRefType.
+  /// Acccelators may have special versions of TensorType. If not, override this
+  /// method and return nullptr.
+  virtual mlir::MemRefType convertTensorTypeToMemRefType(
+      const mlir::TensorType tensorType) const = 0;
+
+  /// Define conversion target to be used with ONNXToKrnl.
   virtual void conversionTargetONNXToKrnl(
       mlir::ConversionTarget &target) const = 0;
 
+  /// Define rewrite patterns to be used with ONNXToKrnl.
   virtual void rewritePatternONNXToKrnl(mlir::RewritePatternSet &patterns,
       mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) const = 0;
 
+  //===--------------------------------------------------------------------===//
+  // Hooks for krnl-to-llvm pass
+  //===--------------------------------------------------------------------===//
+
+  /// Define conversion target to be used with KrnlToLLVM.
   virtual void conversionTargetKrnlToLLVM(
       mlir::ConversionTarget &target) const = 0;
 
+  /// Define rewrite patterns to be used with KrnlToLLVM.
   virtual void rewritePatternKrnlToLLVM(mlir::RewritePatternSet &patterns,
       mlir::LLVMTypeConverter &typeConverter, mlir::MLIRContext *ctx) const = 0;
 
